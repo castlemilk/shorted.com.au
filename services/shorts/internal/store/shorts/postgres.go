@@ -1100,7 +1100,11 @@ func (s *postgresStore) UpdateKeyMetrics(stockCode string, metrics map[string]in
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	metricsJSON, err := json.Marshal(metrics)
+	// Strip ±Inf/NaN before they reach JSONB. mv_screener_data casts this
+	// column with ::double precision, so a stored "Infinity" string becomes a
+	// float Infinity at the view and breaks every consumer downstream — see
+	// sanitiseKeyMetrics for the full rationale.
+	metricsJSON, err := json.Marshal(sanitiseKeyMetrics(metrics))
 	if err != nil {
 		return fmt.Errorf("failed to marshal metrics: %w", err)
 	}

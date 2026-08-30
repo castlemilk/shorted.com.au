@@ -3,6 +3,7 @@ package shorts
 import (
 	"database/sql"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -74,6 +75,81 @@ func TestGetSuburbProfileQuery_MapsPoliticianPropertyCount(t *testing.T) {
 	}
 }
 
+func TestMapSuburbSeifa_NullsProduceAbsentMessage(t *testing.T) {
+	if got := mapSuburbSeifa(nullableSuburbSeifa{}); got != nil {
+		t.Fatalf("all-NULL SEIFA columns must map to an absent message, got %+v", got)
+	}
+}
+
+func TestMapSuburbSeifa_PopulatedColumnsMapExactly(t *testing.T) {
+	valid := func(v int32) sql.NullInt32 { return sql.NullInt32{Int32: v, Valid: true} }
+	raw := nullableSuburbSeifa{
+		IRSD:  nullableSuburbSeifaIndex{Score: valid(900), DecileAus: valid(2), DecileState: valid(3)},
+		IRSAD: nullableSuburbSeifaIndex{Score: valid(1100), DecileAus: valid(8), DecileState: valid(7)},
+		IER:   nullableSuburbSeifaIndex{Score: valid(1010), DecileAus: valid(6), DecileState: valid(5)},
+		IEO:   nullableSuburbSeifaIndex{Score: valid(980), DecileAus: valid(4), DecileState: valid(5)},
+	}
+	want := &SuburbSeifaRow{
+		IRSD:  SuburbSeifaIndexRow{Score: 900, DecileAus: 2, DecileState: 3},
+		IRSAD: SuburbSeifaIndexRow{Score: 1100, DecileAus: 8, DecileState: 7},
+		IER:   SuburbSeifaIndexRow{Score: 1010, DecileAus: 6, DecileState: 5},
+		IEO:   SuburbSeifaIndexRow{Score: 980, DecileAus: 4, DecileState: 5},
+	}
+
+	if got := mapSuburbSeifa(raw); !reflect.DeepEqual(got, want) {
+		t.Fatalf("mapSuburbSeifa() = %+v, want %+v", got, want)
+	}
+}
+
+func TestGetSuburbProfileQuery_ReadsNullableSeifaColumns(t *testing.T) {
+	source := postgresHousePricesSource(t)
+	for _, index := range []string{"irsd", "irsad", "ier", "ieo"} {
+		for _, suffix := range []string{"score", "decile_aus", "decile_state"} {
+			column := "d.seifa_" + index + "_" + suffix
+			if !strings.Contains(source, column) {
+				t.Errorf("GetSuburbProfile query missing nullable column %q", column)
+			}
+		}
+	}
+	if !strings.Contains(source, "p.Summary.Seifa = mapSuburbSeifa(rawSeifa)") {
+		t.Fatal("GetSuburbProfile must map the scanned nullable columns after a successful scan")
+	}
+}
+
+func TestMapSuburbElevation_NullsProduceAbsentMessage(t *testing.T) {
+	if got := mapSuburbElevation(nullableSuburbElevation{}); got != nil {
+		t.Fatalf("all-NULL elevation columns must map to an absent message, got %+v", got)
+	}
+}
+
+func TestMapSuburbElevation_PreservesGenuineZeroShares(t *testing.T) {
+	zero := sql.NullFloat64{Float64: 0, Valid: true}
+	raw := nullableSuburbElevation{LandShareBelow1M: zero}
+
+	got := mapSuburbElevation(raw)
+	if got == nil || got.LandShareBelow1M == nil || *got.LandShareBelow1M != 0 {
+		t.Fatalf("valid zero share must remain present and zero, got %+v", got)
+	}
+	if got.LandShareBelow2M != nil {
+		t.Fatalf("NULL share must remain absent, got %+v", got.LandShareBelow2M)
+	}
+}
+
+func TestGetSuburbProfileQuery_ReadsNullableElevationColumns(t *testing.T) {
+	source := postgresHousePricesSource(t)
+	for _, column := range []string{
+		"d.elevation_min_m", "d.elevation_median_m", "d.elevation_max_m",
+		"d.land_share_below_1m", "d.land_share_below_2m", "d.land_share_below_5m",
+	} {
+		if !strings.Contains(source, column) {
+			t.Errorf("GetSuburbProfile query missing nullable column %q", column)
+		}
+	}
+	if !strings.Contains(source, "p.Elevation = mapSuburbElevation(rawElevation)") {
+		t.Fatal("GetSuburbProfile must map scanned nullable elevation after a successful scan")
+	}
+}
+
 func TestListSuburbDropListingsQuery_DeduplicatesPhysicalAddresses(t *testing.T) {
 	source := postgresHousePricesSource(t)
 	for _, want := range []string{
@@ -116,5 +192,37 @@ func TestSuburbReaders_PreferOnePublicPricedRegionPerSAL(t *testing.T) {
 	}
 	if got := strings.Count(querySource, "` + preferredSuburbRegionJoin + `"); got != 2 {
 		t.Errorf("preferred suburb-region join must be shared by list and profile queries; got %d uses", got)
+	}
+}
+
+// GetHousingRegions serves every region_type from one query, and the ABS
+// gccsa/rest_of_state rows carry BOTH 'established_house' and 'attached' for
+// the same region and quarter while suburb rows carry only 'house'. Without an
+// explicit dwelling-type filter the latest-median LATERAL broke that tie
+// arbitrarily and returned the ATTACHED (unit) median, so every capital city
+// published a headline understated by up to 43% (Greater Sydney read $848k
+// against an established-house median of $1.485m at 2026-Q1).
+func TestHousingRegionsQuery_PicksHousesNotUnits(t *testing.T) {
+	source := postgresHousePricesSource(t)
+
+	marker := "SELECT value, period FROM house_prices hp"
+	idx := strings.Index(source, marker)
+	if idx < 0 {
+		t.Fatal("GetHousingRegions latest-median LATERAL not found")
+	}
+	lateral := source[idx:]
+	if end := strings.Index(lateral, ") lp ON true"); end >= 0 {
+		lateral = lateral[:end]
+	}
+
+	if !strings.Contains(lateral, "hp.dwelling_type IN ('house', 'established_house')") {
+		t.Error("latest-median LATERAL must restrict to house dwelling types; " +
+			"without it the attached/unit median wins the period tie")
+	}
+	if !strings.Contains(lateral, "ORDER BY hp.period DESC, hp.dwelling_type") {
+		t.Error("latest-median LATERAL needs a deterministic tiebreak after period")
+	}
+	if strings.Contains(lateral, "'attached'") {
+		t.Error("latest-median LATERAL must not select attached-dwelling medians")
 	}
 }

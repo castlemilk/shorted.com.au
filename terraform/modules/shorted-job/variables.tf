@@ -1,10 +1,10 @@
 variable "name" {
-  description = "Cloud Run Job name (also the scheduler + service-account name prefix). Must be 6-24 chars so the '-sched' SA account_id stays within the 30-char limit."
+  description = "Cloud Run Job name (also the scheduler + service-account name prefix). Capped at 30 chars by the job SA's account_id; a SCHEDULED job is capped at 24 because its invoker SA appends '-sched' (enforced by a precondition on that resource, not here, so unscheduled jobs may use the full 30)."
   type        = string
 
   validation {
-    condition     = length(var.name) >= 6 && length(var.name) <= 24
-    error_message = "name must be 6-24 characters (the scheduler SA appends '-sched' and service-account IDs are capped at 30)."
+    condition     = length(var.name) >= 6 && length(var.name) <= 30
+    error_message = "name must be 6-30 characters (service-account IDs are capped at 30)."
   }
 }
 
@@ -60,8 +60,9 @@ variable "secret_env" {
 }
 
 variable "schedule" {
-  description = "Cloud Scheduler cron expression (UTC)"
+  description = "Cloud Scheduler cron expression (UTC). Empty creates NO scheduler (and no invoker SA) — for jobs whose only caller is external, e.g. the economy freshness sentinel executed by a GitHub workflow."
   type        = string
+  default     = ""
 }
 
 variable "paused" {

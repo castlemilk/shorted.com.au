@@ -374,6 +374,59 @@ module "shorted_job_economy" {
   ]
 }
 
+# `shorted economy -mode freshness` — the read-only staleness sentinel, on its
+# OWN Cloud Run Job.
+#
+# It used to share module.shorted_job_economy: .github/workflows/
+# economy-freshness.yml executed the INGEST job with overridden args, so a
+# false-positive stale verdict (2026-08-22) surfaced in Cloud Run and in the
+# GCP alert as "the monthly economy ingest failed" — the loudest possible
+# wording for the quietest possible fault. Same image, same env, different
+# job name, so the two failure modes are distinguishable at a glance.
+#
+# No schedule: the GitHub workflow is the only caller (monthly, 8th), and it
+# already owns the alerting (it files/closes a tracking issue). max_retries=0
+# because a freshness verdict is a deterministic read of what is in the DB —
+# retrying it re-reads the same rows and reaches the same conclusion.
+#
+# Deliberately absent from local.admin_runnable_jobs below: the jobmonitor
+# catalog (services/shorts/internal/jobmonitor/catalog.go) does not list it, so
+# an invoker binding would be a permission with no reachable caller.
+module "shorted_job_economy_freshness" {
+  source = "../../modules/shorted-job"
+
+  name        = "shorted-economy-freshness"
+  description = "Economy data freshness sentinel (read-only; invoked by economy-freshness.yml)"
+  project_id  = var.project_id
+  region      = var.region
+  environment = "production"
+  image_url   = var.shorted_jobs_image
+
+  args     = ["economy", "-mode", "freshness"]
+  schedule = "" # no Cloud Scheduler trigger — GitHub Actions executes it
+
+  env = {
+    ENVIRONMENT = "production"
+    GCP_PROJECT = var.project_id
+  }
+
+  secret_env = {
+    DATABASE_URL = "DATABASE_URL"
+  }
+
+  # Two aggregate queries and a printed report; the ingest's 30-minute ceiling
+  # would only delay the verdict.
+  timeout_seconds = 600
+  max_retries     = 0
+  cpu             = "1"
+  memory          = "512Mi"
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
 # `shorted weekly-report` — replaces module.weekly_report_generator.
 # Two schedules on one job, exactly as before: weekly (no override) + monthly
 # (REPORT_TYPE=monthly via container_overrides). The ported job resolves the
@@ -916,6 +969,14 @@ module "job_monitoring" {
 
   project_id            = var.project_id
   alert_recipient_email = var.alert_recipient_email
+
+  # The freshness sentinel's exit code IS its verdict, and
+  # .github/workflows/economy-freshness.yml already turns a non-zero run into a
+  # tracking issue with the per-source report attached. A parallel email saying
+  # only "a Cloud Run Job failed" adds no information and reads as an ingest
+  # outage. Any other failure of that job (crash, OOM, timeout) also fails the
+  # workflow, so nothing loses coverage by being excluded here.
+  excluded_job_names = [module.shorted_job_economy_freshness.job_name]
 
   depends_on = [google_project_service.required_apis]
 }

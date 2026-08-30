@@ -32,9 +32,10 @@ production IAM.
 
 ## Production data-rewrite proposal
 
-Migration `000113_retire_dev_bucket_urls.up.sql` is deliberately not wired into
-automatic deploys. Applying it requires a separate explicit approval because it
-updates live production rows and refreshes five materialized views.
+The one-shot SQL proposal `docs/operations/sql/retire-dev-bucket-urls.up.sql`
+is deliberately outside the automatic migration directory. Applying it requires
+a separate explicit approval because it updates live production rows and
+refreshes five materialized views.
 
 Live read-only inventory captured before the proposal:
 
@@ -52,7 +53,7 @@ rollback.
 
 After approval:
 
-1. Apply `services/migrations/000113_retire_dev_bucket_urls.up.sql` through a
+1. Apply `docs/operations/sql/retire-dev-bucket-urls.up.sql` through a
    reviewed one-shot production database operation.
 2. Re-run the inventory query and require zero old URI/bucket references.
 3. Run `make algolia-sync-prod` with the production database credential so

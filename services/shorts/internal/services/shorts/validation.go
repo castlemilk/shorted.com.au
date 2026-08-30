@@ -7,6 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
 var (
@@ -272,6 +273,9 @@ func ValidateScreenStocksRequest(req *shortsv1alpha1.ScreenStocksRequest) error 
 	if req.Offset < 0 {
 		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("offset must be non-negative"))
 	}
+	if req.Filters != nil && len(req.Filters.ProductCodes) > shortsstore.MaxScreenerProductCodes {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("product_codes must contain at most %d codes", shortsstore.MaxScreenerProductCodes))
+	}
 	return nil
 }
 
@@ -347,6 +351,11 @@ func SetDefaultValues(req interface{}) {
 	case *shortsv1alpha1.ScreenStocksRequest:
 		if r.Limit == 0 {
 			r.Limit = 50
+		}
+		// Normalize here, not just in the store: the cache key is built from
+		// the filters, so "bhp" and "BHP" must collapse to one entry.
+		if r.Filters != nil && len(r.Filters.ProductCodes) > 0 {
+			r.Filters.ProductCodes = shortsstore.NormalizeScreenerProductCodes(r.Filters.ProductCodes)
 		}
 	}
 }

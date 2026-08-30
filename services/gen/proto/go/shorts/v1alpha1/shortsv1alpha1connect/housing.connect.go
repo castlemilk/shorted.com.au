@@ -42,6 +42,15 @@ const (
 	// HousingServiceListStateSuburbsProcedure is the fully-qualified name of the HousingService's
 	// ListStateSuburbs RPC.
 	HousingServiceListStateSuburbsProcedure = "/shorts.v1alpha1.HousingService/ListStateSuburbs"
+	// HousingServiceGetSuburbIndexProcedure is the fully-qualified name of the HousingService's
+	// GetSuburbIndex RPC.
+	HousingServiceGetSuburbIndexProcedure = "/shorts.v1alpha1.HousingService/GetSuburbIndex"
+	// HousingServiceGetSuburbMetricColumnsProcedure is the fully-qualified name of the HousingService's
+	// GetSuburbMetricColumns RPC.
+	HousingServiceGetSuburbMetricColumnsProcedure = "/shorts.v1alpha1.HousingService/GetSuburbMetricColumns"
+	// HousingServiceFilterSuburbsProcedure is the fully-qualified name of the HousingService's
+	// FilterSuburbs RPC.
+	HousingServiceFilterSuburbsProcedure = "/shorts.v1alpha1.HousingService/FilterSuburbs"
 	// HousingServiceGetSuburbProfileProcedure is the fully-qualified name of the HousingService's
 	// GetSuburbProfile RPC.
 	HousingServiceGetSuburbProfileProcedure = "/shorts.v1alpha1.HousingService/GetSuburbProfile"
@@ -77,6 +86,9 @@ var (
 	housingServiceGetHousingOverviewMethodDescriptor     = housingServiceServiceDescriptor.Methods().ByName("GetHousingOverview")
 	housingServiceGetHousePriceSeriesMethodDescriptor    = housingServiceServiceDescriptor.Methods().ByName("GetHousePriceSeries")
 	housingServiceListStateSuburbsMethodDescriptor       = housingServiceServiceDescriptor.Methods().ByName("ListStateSuburbs")
+	housingServiceGetSuburbIndexMethodDescriptor         = housingServiceServiceDescriptor.Methods().ByName("GetSuburbIndex")
+	housingServiceGetSuburbMetricColumnsMethodDescriptor = housingServiceServiceDescriptor.Methods().ByName("GetSuburbMetricColumns")
+	housingServiceFilterSuburbsMethodDescriptor          = housingServiceServiceDescriptor.Methods().ByName("FilterSuburbs")
 	housingServiceGetSuburbProfileMethodDescriptor       = housingServiceServiceDescriptor.Methods().ByName("GetSuburbProfile")
 	housingServiceListHousingRegionsMethodDescriptor     = housingServiceServiceDescriptor.Methods().ByName("ListHousingRegions")
 	housingServiceListSuburbPriceDropsMethodDescriptor   = housingServiceServiceDescriptor.Methods().ByName("ListSuburbPriceDrops")
@@ -96,6 +108,12 @@ type HousingServiceClient interface {
 	GetHousePriceSeries(context.Context, *connect.Request[v1alpha1.GetHousePriceSeriesRequest]) (*connect.Response[v1alpha1.GetHousePriceSeriesResponse], error)
 	// List all suburbs in a state with latest median price + key demographics.
 	ListStateSuburbs(context.Context, *connect.Request[v1alpha1.ListStateSuburbsRequest]) (*connect.Response[v1alpha1.ListStateSuburbsResponse], error)
+	// Stable sal_code-ordered index used by all columnar suburb responses.
+	GetSuburbIndex(context.Context, *connect.Request[v1alpha1.GetSuburbIndexRequest]) (*connect.Response[v1alpha1.GetSuburbIndexResponse], error)
+	// Fetch only the map metric columns currently needed by the client.
+	GetSuburbMetricColumns(context.Context, *connect.Request[v1alpha1.GetSuburbMetricColumnsRequest]) (*connect.Response[v1alpha1.GetSuburbMetricColumnsResponse], error)
+	// Return a compact index-aligned mask for ANDed metric predicates.
+	FilterSuburbs(context.Context, *connect.Request[v1alpha1.FilterSuburbsRequest]) (*connect.Response[v1alpha1.FilterSuburbsResponse], error)
 	// Full per-suburb profile: identity, demographics, headline price, comparison baselines.
 	GetSuburbProfile(context.Context, *connect.Request[v1alpha1.GetSuburbProfileRequest]) (*connect.Response[v1alpha1.GetSuburbProfileResponse], error)
 	// List house-price regions (suburbs/LGAs/etc) for the suburb explorer.
@@ -142,6 +160,24 @@ func NewHousingServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			httpClient,
 			baseURL+HousingServiceListStateSuburbsProcedure,
 			connect.WithSchema(housingServiceListStateSuburbsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getSuburbIndex: connect.NewClient[v1alpha1.GetSuburbIndexRequest, v1alpha1.GetSuburbIndexResponse](
+			httpClient,
+			baseURL+HousingServiceGetSuburbIndexProcedure,
+			connect.WithSchema(housingServiceGetSuburbIndexMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getSuburbMetricColumns: connect.NewClient[v1alpha1.GetSuburbMetricColumnsRequest, v1alpha1.GetSuburbMetricColumnsResponse](
+			httpClient,
+			baseURL+HousingServiceGetSuburbMetricColumnsProcedure,
+			connect.WithSchema(housingServiceGetSuburbMetricColumnsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		filterSuburbs: connect.NewClient[v1alpha1.FilterSuburbsRequest, v1alpha1.FilterSuburbsResponse](
+			httpClient,
+			baseURL+HousingServiceFilterSuburbsProcedure,
+			connect.WithSchema(housingServiceFilterSuburbsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getSuburbProfile: connect.NewClient[v1alpha1.GetSuburbProfileRequest, v1alpha1.GetSuburbProfileResponse](
@@ -206,6 +242,9 @@ type housingServiceClient struct {
 	getHousingOverview     *connect.Client[v1alpha1.GetHousingOverviewRequest, v1alpha1.GetHousingOverviewResponse]
 	getHousePriceSeries    *connect.Client[v1alpha1.GetHousePriceSeriesRequest, v1alpha1.GetHousePriceSeriesResponse]
 	listStateSuburbs       *connect.Client[v1alpha1.ListStateSuburbsRequest, v1alpha1.ListStateSuburbsResponse]
+	getSuburbIndex         *connect.Client[v1alpha1.GetSuburbIndexRequest, v1alpha1.GetSuburbIndexResponse]
+	getSuburbMetricColumns *connect.Client[v1alpha1.GetSuburbMetricColumnsRequest, v1alpha1.GetSuburbMetricColumnsResponse]
+	filterSuburbs          *connect.Client[v1alpha1.FilterSuburbsRequest, v1alpha1.FilterSuburbsResponse]
 	getSuburbProfile       *connect.Client[v1alpha1.GetSuburbProfileRequest, v1alpha1.GetSuburbProfileResponse]
 	listHousingRegions     *connect.Client[v1alpha1.ListHousingRegionsRequest, v1alpha1.ListHousingRegionsResponse]
 	listSuburbPriceDrops   *connect.Client[v1alpha1.ListSuburbPriceDropsRequest, v1alpha1.ListSuburbPriceDropsResponse]
@@ -230,6 +269,21 @@ func (c *housingServiceClient) GetHousePriceSeries(ctx context.Context, req *con
 // ListStateSuburbs calls shorts.v1alpha1.HousingService.ListStateSuburbs.
 func (c *housingServiceClient) ListStateSuburbs(ctx context.Context, req *connect.Request[v1alpha1.ListStateSuburbsRequest]) (*connect.Response[v1alpha1.ListStateSuburbsResponse], error) {
 	return c.listStateSuburbs.CallUnary(ctx, req)
+}
+
+// GetSuburbIndex calls shorts.v1alpha1.HousingService.GetSuburbIndex.
+func (c *housingServiceClient) GetSuburbIndex(ctx context.Context, req *connect.Request[v1alpha1.GetSuburbIndexRequest]) (*connect.Response[v1alpha1.GetSuburbIndexResponse], error) {
+	return c.getSuburbIndex.CallUnary(ctx, req)
+}
+
+// GetSuburbMetricColumns calls shorts.v1alpha1.HousingService.GetSuburbMetricColumns.
+func (c *housingServiceClient) GetSuburbMetricColumns(ctx context.Context, req *connect.Request[v1alpha1.GetSuburbMetricColumnsRequest]) (*connect.Response[v1alpha1.GetSuburbMetricColumnsResponse], error) {
+	return c.getSuburbMetricColumns.CallUnary(ctx, req)
+}
+
+// FilterSuburbs calls shorts.v1alpha1.HousingService.FilterSuburbs.
+func (c *housingServiceClient) FilterSuburbs(ctx context.Context, req *connect.Request[v1alpha1.FilterSuburbsRequest]) (*connect.Response[v1alpha1.FilterSuburbsResponse], error) {
+	return c.filterSuburbs.CallUnary(ctx, req)
 }
 
 // GetSuburbProfile calls shorts.v1alpha1.HousingService.GetSuburbProfile.
@@ -285,6 +339,12 @@ type HousingServiceHandler interface {
 	GetHousePriceSeries(context.Context, *connect.Request[v1alpha1.GetHousePriceSeriesRequest]) (*connect.Response[v1alpha1.GetHousePriceSeriesResponse], error)
 	// List all suburbs in a state with latest median price + key demographics.
 	ListStateSuburbs(context.Context, *connect.Request[v1alpha1.ListStateSuburbsRequest]) (*connect.Response[v1alpha1.ListStateSuburbsResponse], error)
+	// Stable sal_code-ordered index used by all columnar suburb responses.
+	GetSuburbIndex(context.Context, *connect.Request[v1alpha1.GetSuburbIndexRequest]) (*connect.Response[v1alpha1.GetSuburbIndexResponse], error)
+	// Fetch only the map metric columns currently needed by the client.
+	GetSuburbMetricColumns(context.Context, *connect.Request[v1alpha1.GetSuburbMetricColumnsRequest]) (*connect.Response[v1alpha1.GetSuburbMetricColumnsResponse], error)
+	// Return a compact index-aligned mask for ANDed metric predicates.
+	FilterSuburbs(context.Context, *connect.Request[v1alpha1.FilterSuburbsRequest]) (*connect.Response[v1alpha1.FilterSuburbsResponse], error)
 	// Full per-suburb profile: identity, demographics, headline price, comparison baselines.
 	GetSuburbProfile(context.Context, *connect.Request[v1alpha1.GetSuburbProfileRequest]) (*connect.Response[v1alpha1.GetSuburbProfileResponse], error)
 	// List house-price regions (suburbs/LGAs/etc) for the suburb explorer.
@@ -327,6 +387,24 @@ func NewHousingServiceHandler(svc HousingServiceHandler, opts ...connect.Handler
 		HousingServiceListStateSuburbsProcedure,
 		svc.ListStateSuburbs,
 		connect.WithSchema(housingServiceListStateSuburbsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	housingServiceGetSuburbIndexHandler := connect.NewUnaryHandler(
+		HousingServiceGetSuburbIndexProcedure,
+		svc.GetSuburbIndex,
+		connect.WithSchema(housingServiceGetSuburbIndexMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	housingServiceGetSuburbMetricColumnsHandler := connect.NewUnaryHandler(
+		HousingServiceGetSuburbMetricColumnsProcedure,
+		svc.GetSuburbMetricColumns,
+		connect.WithSchema(housingServiceGetSuburbMetricColumnsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	housingServiceFilterSuburbsHandler := connect.NewUnaryHandler(
+		HousingServiceFilterSuburbsProcedure,
+		svc.FilterSuburbs,
+		connect.WithSchema(housingServiceFilterSuburbsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	housingServiceGetSuburbProfileHandler := connect.NewUnaryHandler(
@@ -391,6 +469,12 @@ func NewHousingServiceHandler(svc HousingServiceHandler, opts ...connect.Handler
 			housingServiceGetHousePriceSeriesHandler.ServeHTTP(w, r)
 		case HousingServiceListStateSuburbsProcedure:
 			housingServiceListStateSuburbsHandler.ServeHTTP(w, r)
+		case HousingServiceGetSuburbIndexProcedure:
+			housingServiceGetSuburbIndexHandler.ServeHTTP(w, r)
+		case HousingServiceGetSuburbMetricColumnsProcedure:
+			housingServiceGetSuburbMetricColumnsHandler.ServeHTTP(w, r)
+		case HousingServiceFilterSuburbsProcedure:
+			housingServiceFilterSuburbsHandler.ServeHTTP(w, r)
 		case HousingServiceGetSuburbProfileProcedure:
 			housingServiceGetSuburbProfileHandler.ServeHTTP(w, r)
 		case HousingServiceListHousingRegionsProcedure:
@@ -428,6 +512,18 @@ func (UnimplementedHousingServiceHandler) GetHousePriceSeries(context.Context, *
 
 func (UnimplementedHousingServiceHandler) ListStateSuburbs(context.Context, *connect.Request[v1alpha1.ListStateSuburbsRequest]) (*connect.Response[v1alpha1.ListStateSuburbsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.HousingService.ListStateSuburbs is not implemented"))
+}
+
+func (UnimplementedHousingServiceHandler) GetSuburbIndex(context.Context, *connect.Request[v1alpha1.GetSuburbIndexRequest]) (*connect.Response[v1alpha1.GetSuburbIndexResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.HousingService.GetSuburbIndex is not implemented"))
+}
+
+func (UnimplementedHousingServiceHandler) GetSuburbMetricColumns(context.Context, *connect.Request[v1alpha1.GetSuburbMetricColumnsRequest]) (*connect.Response[v1alpha1.GetSuburbMetricColumnsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.HousingService.GetSuburbMetricColumns is not implemented"))
+}
+
+func (UnimplementedHousingServiceHandler) FilterSuburbs(context.Context, *connect.Request[v1alpha1.FilterSuburbsRequest]) (*connect.Response[v1alpha1.FilterSuburbsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.HousingService.FilterSuburbs is not implemented"))
 }
 
 func (UnimplementedHousingServiceHandler) GetSuburbProfile(context.Context, *connect.Request[v1alpha1.GetSuburbProfileRequest]) (*connect.Response[v1alpha1.GetSuburbProfileResponse], error) {

@@ -57,6 +57,7 @@ message ScreenerFilters {
   repeated string industries = 9;         // Filter to specific industries
   bool has_director_buys = 10;            // Only stocks with recent director buys
   RangeFilter days_to_cover = 11;         // Days to cover (short positions / avg daily volume)
+  repeated string product_codes = 12;     // Filter to specific stock codes — used by /themes
 }
 
 // Request for ScreenStocks RPC

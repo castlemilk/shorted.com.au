@@ -112,7 +112,12 @@ export default async function ScansIndexPage() {
           <p className="mt-2 max-w-3xl text-muted-foreground">
             Fixed daily scans over every ASX stock&apos;s official ASIC short
             position: who&apos;s being shorted, who&apos;s being covered, and
-            where the squeeze fuel sits. For ad-hoc filters, use the{" "}
+            where the squeeze fuel sits. For a curated basket instead of a rule
+            — lithium, uranium, the magnet stocks — browse{" "}
+            <Link href="/themes" className="text-primary hover:underline">
+              by theme
+            </Link>
+            ; for ad-hoc filters, use the{" "}
             <Link href="/screener" className="text-primary hover:underline">
               screener
             </Link>

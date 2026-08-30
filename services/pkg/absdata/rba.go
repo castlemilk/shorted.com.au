@@ -17,12 +17,7 @@ const RBALicence = "CC-BY-4.0"
 
 // FetchRBATable downloads one RBA statistical table CSV (e.g. "f1.1-data.csv").
 func (c *Client) FetchRBATable(ctx context.Context, file string) ([][]string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rbaCSVBase+file, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", UserAgent)
-	resp, err := c.http.Do(req)
+	resp, err := c.get(ctx, rbaCSVBase+file, http.Header{"User-Agent": {UserAgent}})
 	if err != nil {
 		return nil, err
 	}

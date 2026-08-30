@@ -113,11 +113,37 @@ mid-write (this bit the bundled macOS agent).
 | Exit | Meaning |
 |---|---|
 | 0 | OK (also: freshness fresh, warmcheck warm) |
-| 1 | The freshness query itself failed |
+| 1 | The freshness query itself failed, **or an operator-ingest mode failed** (see below) |
 | 3 | Re-warm needed — Kasada/Akamai clearance expired (crawl family; launchd wrappers self-heal on it) |
 | 4 | Fetcher init failed — wedged/cold Chrome (`agent`); wrapper Chrome relaunch failed (`run-housing-crawl.sh`) |
 | 5 | `warmcheck`: REA returned the Kasada stub — Chrome must relaunch with an REA startup URL |
 | 6 | `freshness` ALARM — the board is silently going stale |
+
+### Operator-ingest modes propagate failure (2026-08-27)
+
+`census`, `electorates`, `banners`, `amenities`, `elevation`, `lga`,
+`connectivity`, `funding`, `council-financials`, `crime` and `backfill-address`
+used to log their error, write an `error` cursor and **return normally**, so the
+process exited 0 and every wrapper, scheduler and alert read a failed run as a
+healthy one. They now return `error` and dispatch through `ingestExit` in
+`main.go`, so a failed ingest is exit 1.
+
+This is how `-mode census` ran its entire life without ever succeeding in a
+container: `censusGeoDir()` resolves to a repo-relative
+`../web/public/geo/suburbs` that is absent from the image, `readSuburbRegistry`
+failed on every run, and nothing said so. (It is operator-run only — the
+Terraform module schedules just `-mode all` and `-mode drop-index` — so no Cloud
+Run scheduler was sitting green on it, but launchd/shell wrappers were.)
+
+Three modes deliberately stay out of this: `seifa`/`vg-nsw`/`vg-vic` already had
+their own `return 1`; `purge` bails out early by design when no BrandBrain
+credentials are set, which is a legitimate no-op; `mcp` is a long-lived server.
+
+The guard is `TestOperatorIngestModesPropagateFailure`, which parses `main.go`
+and asserts each mode's case clause ends in `return ingestExit(...)`. It is a
+source-level assertion on purpose — a mode that drops its error still logs, still
+records `"error"` in `sync_status` and still exits 0, so the dispatch shape is
+the only observable difference.
 
 ## Revalidation ping
 

@@ -5,6 +5,29 @@ import { SHORTS_API_URL } from "~/app/actions/config";
 
 export const maxDuration = 60;
 
+// DEPRECATED — this is a compatibility shim, not the MCP server.
+//
+// The real server is Go, in-process with the API, at
+// https://api.shorted.com.au/mcp: 24 tools across market, stock, discovery,
+// news, housing, economy and politicians, plus resources and prompts, on
+// protocol 2026-07-28. This route has four tools, calls the API back over
+// HTTP through the WAF, and speaks whatever protocol the Vercel `mcp-handler`
+// package supports.
+//
+// It is kept alive because existing client configurations point at it and
+// deleting it would break them with a 404 and no explanation. Instead every
+// tool result and the server instructions carry a pointer to the new endpoint,
+// so a client (or the model driving it) is told where to go. Delete it only
+// once traffic here is negligible.
+
+const NEW_ENDPOINT = "https://api.shorted.com.au/mcp";
+const MIGRATION_DOCS = "https://shorted.com.au/docs/mcp.md";
+const DEPRECATION_NOTICE =
+  `This endpoint is deprecated. Reconfigure this MCP server to ${NEW_ENDPOINT}, ` +
+  `which serves 24 tools (market, stocks, discovery, news, housing, economy, ` +
+  `politicians) plus resources and prompts, against the same data. ` +
+  `Migration guide: ${MIGRATION_DOCS}`;
+
 // All tools call the public Connect-RPC JSON endpoints server-side with
 // plain fetch — never import @connectrpc/connect here (SSR/bundle hazard).
 
@@ -33,8 +56,17 @@ async function connectRpc<T>(method: string, body: unknown): Promise<T> {
   return (await res.json()) as T;
 }
 
+// Every result carries the deprecation pointer. A notice only on `initialize`
+// is read once by the client and never by the model; a notice in the payload
+// is in front of whatever is actually doing the work, every call.
 function textResult(data: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+  const payload =
+    data !== null && typeof data === "object" && !Array.isArray(data)
+      ? { _deprecated: DEPRECATION_NOTICE, _newEndpoint: NEW_ENDPOINT, ...data }
+      : { _deprecated: DEPRECATION_NOTICE, _newEndpoint: NEW_ENDPOINT, data };
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(payload, null, 2) }],
+  };
 }
 
 const PERIODS = ["1m", "3m", "6m", "1y", "2y", "5y", "max"] as const;
@@ -75,7 +107,12 @@ const handler = createMcpHandler(
     // The SDK's ShapeOutput<> conditional types exceed TS's instantiation
     // depth with zod 3.25 (TS2589), so register through a plainly-typed
     // alias — runtime behaviour and validation are identical.
-    const tool = server.tool.bind(server) as unknown as RegisterTool;
+    const register = server.tool.bind(server) as unknown as RegisterTool;
+    // Prefix every description, so a model choosing between this server and
+    // the real one sees the deprecation at selection time rather than after
+    // it has already spent a call here.
+    const tool: RegisterTool = (name, description, shape, cb) =>
+      register(name, `[DEPRECATED — see ${NEW_ENDPOINT}] ${description}`, shape, cb);
     tool(
       "get_top_shorts",
       "List the most shorted stocks on the ASX (Australian Securities Exchange), ranked by percentage of shares sold short. Data comes from official ASIC daily reports (T+4 delay). ETFs, bonds and non-equity instruments are excluded.",
@@ -159,9 +196,12 @@ const handler = createMcpHandler(
   },
   {
     serverInfo: {
+      // Name unchanged: client configs and saved tool grants key on it, and
+      // renaming a deprecated server is a second breakage on top of the first.
       name: "shorted-asx-short-positions",
-      version: "1.0.0",
+      version: "1.0.0-deprecated",
     },
+    instructions: DEPRECATION_NOTICE,
   },
   {
     basePath: "/api/mcp",

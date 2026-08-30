@@ -324,6 +324,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				SchoolsPrimary: p.Summary.SchoolsPrimary, SchoolsSecondary: p.Summary.SchoolsSecondary, NearestSecondaryKm: p.Summary.NearestSecondaryKm,
 			},
 		}
+		attachSuburbSeifa(summary.ProtoReflect(), p.Summary.Seifa)
 		if p.Summary.LatestPeriod != nil {
 			summary.LatestPeriod = timestamppb.New(*p.Summary.LatestPeriod)
 		}
@@ -394,20 +395,22 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				MedianSold:   p.ListingStats.MedianSold,
 			}
 		}
-		return &shortsv1alpha1.GetSuburbProfileResponse{
-			Summary: summary,
-			Demographics: &shortsv1alpha1.SuburbDemographics{
-				Population: p.Summary.Population, MedianAge: p.Summary.MedianAge,
-				MedianWeeklyHhdIncome: p.Summary.MedianWeeklyHhdIncome,
-				MedianWeeklyPerIncome: p.MedianWeeklyPerIncome, MedianWeeklyRent: p.MedianWeeklyRent,
-				MedianMonthlyMortgage: p.MedianMonthlyMortgage, PctOwnedOutright: p.PctOwnedOutright,
-				PctOwnedMortgage: p.PctOwnedMortgage, PctRented: p.PctRented,
-				DwellingCount: p.DwellingCount, CensusYear: p.CensusYear,
-				PctBornOverseas: p.Summary.PctBornOverseas, PctEnglishOnly: p.PctEnglishOnly,
-				TopReligion: p.Summary.TopReligion, PctTopReligion: p.PctTopReligion,
-				PctNoReligion: p.PctNoReligion, TopLanguage: p.Summary.TopLanguage,
-				PctTopLanguage: p.Summary.PctTopLanguage,
-			},
+		demographics := &shortsv1alpha1.SuburbDemographics{
+			Population: p.Summary.Population, MedianAge: p.Summary.MedianAge,
+			MedianWeeklyHhdIncome: p.Summary.MedianWeeklyHhdIncome,
+			MedianWeeklyPerIncome: p.MedianWeeklyPerIncome, MedianWeeklyRent: p.MedianWeeklyRent,
+			MedianMonthlyMortgage: p.MedianMonthlyMortgage, PctOwnedOutright: p.PctOwnedOutright,
+			PctOwnedMortgage: p.PctOwnedMortgage, PctRented: p.PctRented,
+			DwellingCount: p.DwellingCount, CensusYear: p.CensusYear,
+			PctBornOverseas: p.Summary.PctBornOverseas, PctEnglishOnly: p.PctEnglishOnly,
+			TopReligion: p.Summary.TopReligion, PctTopReligion: p.PctTopReligion,
+			PctNoReligion: p.PctNoReligion, TopLanguage: p.Summary.TopLanguage,
+			PctTopLanguage: p.Summary.PctTopLanguage,
+		}
+		attachExpandedCensus(demographics.ProtoReflect(), p.ExpandedCensus)
+		response := &shortsv1alpha1.GetSuburbProfileResponse{
+			Summary:      summary,
+			Demographics: demographics,
 			Baselines: &shortsv1alpha1.ComparisonBaselines{
 				StateMedianPrice: p.StateMedianPrice, NationalMedianPrice: p.NationalMedianPrice,
 				StateMedianWeeklyHhdIncome:    p.StateMedianHhdIncome,
@@ -423,7 +426,9 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 			Banner:       banner,
 			Crime:        crime,
 			ListingStats: listingStats,
-		}, nil
+		}
+		attachSuburbElevation(response.ProtoReflect(), p.Elevation)
+		return response, nil
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

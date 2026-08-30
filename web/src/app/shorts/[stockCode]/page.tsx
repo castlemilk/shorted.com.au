@@ -67,6 +67,9 @@ import {
   getShortInterestDeltas,
 } from "./short-interest-summary";
 import { LatestWeeklyReportLink } from "~/@/components/reports/latest-weekly-report-link";
+import { StockThemeChips } from "~/@/components/themes/theme-chips";
+import { StockStateExposure } from "~/@/components/economy/stock-state-exposure";
+import { getStateExposureIndex } from "~/app/actions/getEconomy";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
 import {
@@ -260,6 +263,11 @@ const Page = async ({ params }: PageProps) => {
   const latestShortDatePromise = getLatestShortDate(stockCode).catch(
     (): Date | null => null,
   );
+  // Cross-domain context must never take the stock page down. The action also
+  // degrades internally, but this call-site fallback keeps that contract local.
+  const stateExposureIndexPromise = getStateExposureIndex().catch(
+    (): Awaited<ReturnType<typeof getStateExposureIndex>> => ({}),
+  );
   try {
     [stock, relatedData] = await Promise.all([
       getStockOrNotFound(stockCode),
@@ -289,6 +297,8 @@ const Page = async ({ params }: PageProps) => {
   const financialHighlights = financialHighlightsMap?.[stockCode] ?? [];
   const newsArticles = await stockNewsPromise;
   const latestShortDate = await latestShortDatePromise;
+  const stateExposureIndex = await stateExposureIndexPromise;
+  const stateExposures = stateExposureIndex[stockCode] ?? [];
 
   // Hoisted out of the schema IIFE below because the visible summary paragraph
   // and the sr-only crawler summary must state the SAME "as of". The real ASIC
@@ -544,6 +554,12 @@ const Page = async ({ params }: PageProps) => {
         asOfClause={asOfClause}
         deltas={shortDeltas}
       />
+
+      {/* Curated thematic baskets this code belongs to. Static registry data,
+          so no fetch and no Suspense — it ships in the ISR HTML where crawlers
+          read it, and renders nothing for codes in no basket. */}
+      <StockThemeChips stockCode={stockCode} className="-mt-2 mb-6" />
+      <StockStateExposure exposures={stateExposures} />
 
       {/* Weekly context — one internal link into the weekly report series
           (the ~200 dated posts that had almost no inbound links). Streamed

@@ -67,6 +67,21 @@ public final class HousingProto extends com.google.protobuf.GeneratedFile {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_SuburbAmenities_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_SuburbSeifaIndex_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_SuburbSeifaIndex_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_SuburbSeifa_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_SuburbSeifa_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_SuburbElevation_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_SuburbElevation_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_shorts_v1alpha1_SuburbSummary_descriptor;
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -76,6 +91,51 @@ public final class HousingProto extends com.google.protobuf.GeneratedFile {
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_ListStateSuburbsResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetSuburbIndexRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetSuburbIndexRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_SuburbIndexEntry_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_SuburbIndexEntry_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetSuburbIndexResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetSuburbIndexResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetSuburbMetricColumnsRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetSuburbMetricColumnsRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_SuburbMetricColumn_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_SuburbMetricColumn_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetSuburbMetricColumnsResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetSuburbMetricColumnsResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_SuburbMetricPredicate_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_SuburbMetricPredicate_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_FilterSuburbsRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_FilterSuburbsRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_FilterSuburbsResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_FilterSuburbsResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_shorts_v1alpha1_GetSuburbProfileRequest_descriptor;
   static final 
@@ -332,346 +392,415 @@ public final class HousingProto extends com.google.protobuf.GeneratedFile {
       "hoolsIndependent\022\'\n\017schools_primary\030\025 \001(" +
       "\005R\016schoolsPrimary\022+\n\021schools_secondary\030\026" +
       " \001(\005R\020schoolsSecondary\0220\n\024nearest_second" +
-      "ary_km\030\027 \001(\001R\022nearestSecondaryKm\"\227\n\n\rSub" +
-      "urbSummary\022\031\n\010sal_code\030\001 \001(\tR\007salCode\022\031\n" +
-      "\010sal_name\030\002 \001(\tR\007salName\022\035\n\nstate_code\030\003" +
-      " \001(\tR\tstateCode\022\032\n\010postcode\030\004 \001(\tR\010postc" +
-      "ode\022.\n\023latest_median_price\030\005 \001(\001R\021latest" +
-      "MedianPrice\022?\n\rlatest_period\030\006 \001(\0132\032.goo" +
-      "gle.protobuf.TimestampR\014latestPeriod\022\027\n\007" +
-      "yoy_pct\030\007 \001(\001R\006yoyPct\022\036\n\npopulation\030\010 \001(" +
-      "\005R\npopulation\022\035\n\nmedian_age\030\t \001(\001R\tmedia" +
-      "nAge\0227\n\030median_weekly_hhd_income\030\n \001(\001R\025" +
-      "medianWeeklyHhdIncome\022\037\n\013region_code\030\013 \001" +
-      "(\tR\nregionCode\022*\n\021pct_born_overseas\030\014 \001(" +
-      "\001R\017pctBornOverseas\022!\n\014top_religion\030\r \001(\t" +
-      "R\013topReligion\022!\n\014top_language\030\016 \001(\tR\013top" +
-      "Language\022(\n\020pct_top_language\030\017 \001(\001R\016pctT" +
-      "opLanguage\022)\n\020federal_division\030\020 \001(\tR\017fe" +
-      "deralDivision\022%\n\016federal_member\030\021 \001(\tR\rf" +
-      "ederalMember\022#\n\rfederal_party\030\022 \001(\tR\014fed" +
-      "eralParty\022(\n\020federal_party_ab\030\023 \001(\tR\016fed" +
-      "eralPartyAb\022&\n\017federal_tpp_alp\030\024 \001(\001R\rfe" +
-      "deralTppAlp\022%\n\016state_district\030\025 \001(\tR\rsta" +
-      "teDistrict\022!\n\014state_member\030\026 \001(\tR\013stateM" +
-      "ember\022\037\n\013state_party\030\027 \001(\tR\nstateParty\022$" +
-      "\n\016state_party_ab\030\030 \001(\tR\014statePartyAb\022>\n\t" +
-      "amenities\030\031 \001(\0132 .shorts.v1alpha1.Suburb" +
-      "AmenitiesR\tamenities\022*\n\021dominant_nbn_tec" +
-      "h\030\032 \001(\tR\017dominantNbnTech\022<\n\032connectivity" +
-      "_quality_score\030\033 \001(\001R\030connectivityQualit" +
-      "yScore\022/\n\024crime_break_ins_rank\030\034 \001(\001R\021cr" +
-      "imeBreakInsRank\022,\n\022crime_violent_rank\030\035 " +
-      "\001(\001R\020crimeViolentRank\0227\n\030crime_motor_veh" +
-      "icle_rank\030\036 \001(\001R\025crimeMotorVehicleRank\022:" +
-      "\n\031politician_property_count\030\037 \001(\005R\027polit" +
-      "icianPropertyCount\"T\n\030ListStateSuburbsRe" +
-      "sponse\0228\n\007suburbs\030\001 \003(\0132\036.shorts.v1alpha" +
-      "1.SuburbSummaryR\007suburbs\"4\n\027GetSuburbPro" +
-      "fileRequest\022\031\n\010sal_code\030\001 \001(\tR\007salCode\"\206" +
-      "\006\n\022SuburbDemographics\022\036\n\npopulation\030\001 \001(" +
-      "\005R\npopulation\022\035\n\nmedian_age\030\002 \001(\001R\tmedia" +
-      "nAge\0227\n\030median_weekly_hhd_income\030\003 \001(\001R\025" +
-      "medianWeeklyHhdIncome\0227\n\030median_weekly_p" +
-      "er_income\030\004 \001(\001R\025medianWeeklyPerIncome\022," +
-      "\n\022median_weekly_rent\030\005 \001(\001R\020medianWeekly" +
-      "Rent\0226\n\027median_monthly_mortgage\030\006 \001(\001R\025m" +
-      "edianMonthlyMortgage\022,\n\022pct_owned_outrig" +
-      "ht\030\007 \001(\001R\020pctOwnedOutright\022,\n\022pct_owned_" +
-      "mortgage\030\010 \001(\001R\020pctOwnedMortgage\022\035\n\npct_" +
-      "rented\030\t \001(\001R\tpctRented\022%\n\016dwelling_coun" +
-      "t\030\n \001(\005R\rdwellingCount\022\037\n\013census_year\030\013 " +
-      "\001(\005R\ncensusYear\022*\n\021pct_born_overseas\030\014 \001" +
-      "(\001R\017pctBornOverseas\022(\n\020pct_english_only\030" +
-      "\r \001(\001R\016pctEnglishOnly\022!\n\014top_religion\030\016 " +
-      "\001(\tR\013topReligion\022(\n\020pct_top_religion\030\017 \001" +
-      "(\001R\016pctTopReligion\022&\n\017pct_no_religion\030\020 " +
-      "\001(\001R\rpctNoReligion\022!\n\014top_language\030\021 \001(\t" +
-      "R\013topLanguage\022(\n\020pct_top_language\030\022 \001(\001R" +
-      "\016pctTopLanguage\"\205\002\n\023ComparisonBaselines\022" +
-      ",\n\022state_median_price\030\001 \001(\001R\020stateMedian" +
-      "Price\0222\n\025national_median_price\030\002 \001(\001R\023na" +
-      "tionalMedianPrice\022B\n\036state_median_weekly" +
-      "_hhd_income\030\003 \001(\001R\032stateMedianWeeklyHhdI" +
-      "ncome\022H\n!national_median_weekly_hhd_inco" +
-      "me\030\004 \001(\001R\035nationalMedianWeeklyHhdIncome\"" +
-      "\216\003\n\007LgaInfo\022\031\n\010lga_code\030\001 \001(\tR\007lgaCode\022\031" +
-      "\n\010lga_name\030\002 \001(\tR\007lgaName\022\035\n\nstate_code\030" +
-      "\003 \001(\tR\tstateCode\022\033\n\tarea_sqkm\030\004 \001(\001R\010are" +
-      "aSqkm\022\036\n\npopulation\030\005 \001(\005R\npopulation\022\036\n" +
-      "\013fed_fag_aud\030\006 \001(\001R\tfedFagAud\022 \n\014fed_fag" +
-      "_year\030\007 \001(\tR\nfedFagYear\022\033\n\tavg_rates\030\010 \001" +
-      "(\001R\010avgRates\022(\n\020op_surplus_ratio\030\t \001(\001R\016" +
-      "opSurplusRatio\022.\n\023asset_renewal_ratio\030\n " +
-      "\001(\001R\021assetRenewalRatio\022\035\n\nfin_source\030\013 \001" +
-      "(\tR\tfinSource\022\031\n\010fin_year\030\014 \001(\tR\007finYear" +
-      "\"\325\001\n\rSimilarSuburb\022\031\n\010sal_code\030\001 \001(\tR\007sa" +
-      "lCode\022\031\n\010sal_name\030\002 \001(\tR\007salName\022\035\n\nstat" +
-      "e_code\030\003 \001(\tR\tstateCode\022.\n\023latest_median" +
-      "_price\030\004 \001(\001R\021latestMedianPrice\022\036\n\nsimil" +
-      "arity\030\005 \001(\001R\nsimilarity\022\037\n\013region_code\030\006" +
-      " \001(\tR\nregionCode\"8\n\016SuburbLandmark\022\022\n\004na" +
-      "me\030\001 \001(\tR\004name\022\022\n\004kind\030\002 \001(\tR\004kind\"\257\001\n\014S" +
-      "uburbBanner\022\034\n\tarchetype\030\001 \001(\tR\tarchetyp" +
-      "e\022\024\n\005blurb\030\002 \001(\tR\005blurb\022=\n\tlandmarks\030\003 \003" +
-      "(\0132\037.shorts.v1alpha1.SuburbLandmarkR\tlan" +
-      "dmarks\022\025\n\006bg_key\030\004 \001(\tR\005bgKey\022\025\n\006bg_url\030" +
-      "\005 \001(\tR\005bgUrl\"\214\001\n\017SuburbCrimeStat\022\035\n\ncrim" +
-      "e_type\030\001 \001(\tR\tcrimeType\022\"\n\rrate_per_100k" +
-      "\030\002 \001(\001R\013ratePer100k\022\031\n\010pct_rank\030\003 \001(\001R\007p" +
-      "ctRank\022\033\n\tfy_ending\030\004 \001(\005R\010fyEnding\"\265\001\n\013" +
-      "SuburbCrime\0226\n\005stats\030\001 \003(\0132 .shorts.v1al" +
-      "pha1.SuburbCrimeStatR\005stats\022/\n\023source_ju" +
-      "risdiction\030\002 \001(\tR\022sourceJurisdiction\022\026\n\006" +
-      "source\030\003 \001(\tR\006source\022%\n\016source_licence\030\004" +
-      " \001(\tR\rsourceLicence\"\331\001\n\022SuburbListingSta" +
-      "ts\022$\n\016for_sale_count\030\001 \001(\005R\014forSaleCount" +
-      "\022\035\n\navg_asking\030\002 \001(\001R\tavgAsking\022#\n\rmedia" +
-      "n_asking\030\003 \001(\001R\014medianAsking\022\035\n\nsold_cou" +
-      "nt\030\004 \001(\005R\tsoldCount\022\031\n\010avg_sold\030\005 \001(\001R\007a" +
-      "vgSold\022\037\n\013median_sold\030\006 \001(\001R\nmedianSold\"" +
-      "\204\004\n\030GetSuburbProfileResponse\0228\n\007summary\030" +
-      "\001 \001(\0132\036.shorts.v1alpha1.SuburbSummaryR\007s" +
-      "ummary\022G\n\014demographics\030\002 \001(\0132#.shorts.v1" +
-      "alpha1.SuburbDemographicsR\014demographics\022" +
-      "B\n\tbaselines\030\003 \001(\0132$.shorts.v1alpha1.Com" +
-      "parisonBaselinesR\tbaselines\0222\n\007council\030\004" +
-      " \001(\0132\030.shorts.v1alpha1.LgaInfoR\007council\022" +
-      "8\n\007similar\030\005 \003(\0132\036.shorts.v1alpha1.Simil" +
-      "arSuburbR\007similar\0225\n\006banner\030\006 \001(\0132\035.shor" +
-      "ts.v1alpha1.SuburbBannerR\006banner\0222\n\005crim" +
-      "e\030\007 \001(\0132\034.shorts.v1alpha1.SuburbCrimeR\005c" +
-      "rime\022H\n\rlisting_stats\030\010 \001(\0132#.shorts.v1a" +
-      "lpha1.SuburbListingStatsR\014listingStats\"\207" +
-      "\001\n\031ListHousingRegionsRequest\022\037\n\013region_t" +
-      "ype\030\001 \001(\tR\nregionType\022\035\n\nstate_code\030\002 \001(" +
-      "\tR\tstateCode\022\024\n\005query\030\003 \001(\tR\005query\022\024\n\005li" +
-      "mit\030\004 \001(\005R\005limit\"\221\002\n\rHousingRegion\022\037\n\013re" +
-      "gion_code\030\001 \001(\tR\nregionCode\022\037\n\013region_na" +
-      "me\030\002 \001(\tR\nregionName\022\037\n\013region_type\030\003 \001(" +
-      "\tR\nregionType\022\035\n\nstate_code\030\004 \001(\tR\tstate" +
-      "Code\022\032\n\010postcode\030\005 \001(\tR\010postcode\022!\n\014late" +
-      "st_value\030\006 \001(\001R\013latestValue\022?\n\rlatest_pe" +
-      "riod\030\007 \001(\0132\032.google.protobuf.TimestampR\014" +
-      "latestPeriod\"V\n\032ListHousingRegionsRespon" +
-      "se\0228\n\007regions\030\001 \003(\0132\036.shorts.v1alpha1.Ho" +
-      "usingRegionR\007regions\"\207\001\n\033ListSuburbPrice" +
-      "DropsRequest\022\035\n\nstate_code\030\001 \001(\tR\tstateC" +
-      "ode\022\037\n\013window_days\030\002 \001(\005R\nwindowDays\022\022\n\004" +
-      "sort\030\003 \001(\tR\004sort\022\024\n\005limit\030\004 \001(\005R\005limit\"\250" +
-      "\005\n\017SuburbPriceDrop\022\037\n\013region_code\030\001 \001(\tR" +
-      "\nregionCode\022\031\n\010sal_code\030\002 \001(\tR\007salCode\022\031" +
-      "\n\010sal_name\030\003 \001(\tR\007salName\022\035\n\nstate_code\030" +
-      "\004 \001(\tR\tstateCode\0222\n\025dropped_listing_coun" +
-      "t\030\005 \001(\005R\023droppedListingCount\022 \n\014avg_drop" +
-      "_pct\030\006 \001(\001R\navgDropPct\022&\n\017median_drop_pc" +
-      "t\030\007 \001(\001R\rmedianDropPct\022 \n\014max_drop_pct\030\010" +
-      " \001(\001R\nmaxDropPct\022 \n\014max_drop_abs\030\t \001(\001R\n" +
-      "maxDropAbs\0222\n\025total_active_listings\030\n \001(" +
-      "\005R\023totalActiveListings\022#\n\rdropped_share\030" +
-      "\013 \001(\001R\014droppedShare\022\032\n\010postcode\030\014 \001(\tR\010p" +
-      "ostcode\022$\n\016for_sale_count\030\r \001(\005R\014forSale" +
-      "Count\022\035\n\navg_asking\030\016 \001(\001R\tavgAsking\022#\n\r" +
-      "median_asking\030\017 \001(\001R\014medianAsking\022\035\n\nsol" +
-      "d_count\030\020 \001(\005R\tsoldCount\022\031\n\010avg_sold\030\021 \001" +
-      "(\001R\007avgSold\022\037\n\013median_sold\030\022 \001(\001R\nmedian" +
-      "Sold\022#\n\rdropped_value\030\023 \001(\001R\014droppedValu" +
-      "e\"Z\n\034ListSuburbPriceDropsResponse\022:\n\007sub" +
-      "urbs\030\001 \003(\0132 .shorts.v1alpha1.SuburbPrice" +
-      "DropR\007suburbs\"\222\001\n\035ListSuburbDropListings" +
-      "Request\022\031\n\010sal_code\030\001 \001(\tR\007salCode\022\037\n\013re" +
-      "gion_code\030\002 \001(\tR\nregionCode\022\037\n\013window_da" +
-      "ys\030\003 \001(\005R\nwindowDays\022\024\n\005limit\030\004 \001(\005R\005lim" +
-      "it\"\376\003\n\021SuburbDropListing\022\026\n\006source\030\001 \001(\t" +
-      "R\006source\022\037\n\013listing_url\030\002 \001(\tR\nlistingUr" +
-      "l\022\'\n\017display_address\030\003 \001(\tR\016displayAddre" +
-      "ss\022#\n\rproperty_type\030\004 \001(\tR\014propertyType\022" +
-      "\032\n\010bedrooms\030\005 \001(\005R\010bedrooms\022\034\n\tbathrooms" +
-      "\030\006 \001(\005R\tbathrooms\022\035\n\ncar_spaces\030\007 \001(\005R\tc" +
-      "arSpaces\022\035\n\nprev_price\030\010 \001(\001R\tprevPrice\022" +
-      "\024\n\005price\030\t \001(\001R\005price\022\031\n\010drop_pct\030\n \001(\001R" +
-      "\007dropPct\022\031\n\010drop_abs\030\013 \001(\001R\007dropAbs\022;\n\013o" +
-      "bserved_at\030\014 \001(\0132\032.google.protobuf.Times" +
-      "tampR\nobservedAt\022\037\n\013address_key\030\r \001(\tR\na" +
-      "ddressKey\022\037\n\013agency_name\030\016 \001(\tR\nagencyNa" +
-      "me\022\037\n\013agent_names\030\017 \003(\tR\nagentNames\"`\n\036L" +
-      "istSuburbDropListingsResponse\022>\n\010listing" +
-      "s\030\001 \003(\0132\".shorts.v1alpha1.SuburbDropList" +
-      "ingR\010listings\"<\n\031GetPropertyHistoryReque" +
-      "st\022\037\n\013address_key\030\001 \001(\tR\naddressKey\"\271\004\n\027" +
-      "PropertyListingSnapshot\022\026\n\006source\030\001 \001(\tR" +
-      "\006source\022\035\n\nlisting_id\030\002 \001(\tR\tlistingId\022\037" +
-      "\n\013listing_url\030\003 \001(\tR\nlistingUrl\022\024\n\005price" +
-      "\030\004 \001(\001R\005price\022#\n\rprice_display\030\005 \001(\tR\014pr" +
-      "iceDisplay\022\035\n\nprice_kind\030\006 \001(\tR\tpriceKin" +
-      "d\022%\n\016listing_status\030\007 \001(\tR\rlistingStatus" +
-      "\022\033\n\tis_active\030\010 \001(\010R\010isActive\022\032\n\010bedroom" +
-      "s\030\t \001(\005R\010bedrooms\022\034\n\tbathrooms\030\n \001(\005R\tba" +
-      "throoms\022\035\n\ncar_spaces\030\013 \001(\005R\tcarSpaces\022\"" +
-      "\n\rland_size_sqm\030\014 \001(\001R\013landSizeSqm\022#\n\rpr" +
-      "operty_type\030\r \001(\tR\014propertyType\022\"\n\rfirst" +
-      "_seen_at\030\016 \001(\tR\013firstSeenAt\022 \n\014last_seen" +
-      "_at\030\017 \001(\tR\nlastSeenAt\022\037\n\013agency_name\030\020 \001" +
-      "(\tR\nagencyName\022\037\n\013agent_names\030\021 \003(\tR\nage" +
-      "ntNames\"\276\002\n\022PropertyPriceEvent\022\037\n\013observ" +
-      "ed_at\030\001 \001(\tR\nobservedAt\022\035\n\nevent_type\030\002 " +
-      "\001(\tR\teventType\022\026\n\006source\030\003 \001(\tR\006source\022\035" +
-      "\n\nlisting_id\030\004 \001(\tR\tlistingId\022\024\n\005price\030\005" +
-      " \001(\001R\005price\022\035\n\nprev_price\030\006 \001(\001R\tprevPri" +
-      "ce\022\031\n\010drop_abs\030\007 \001(\001R\007dropAbs\022\031\n\010drop_pc" +
-      "t\030\010 \001(\001R\007dropPct\022%\n\016listing_status\030\t \001(\t" +
-      "R\rlistingStatus\022\037\n\013prev_status\030\n \001(\tR\npr" +
-      "evStatus\"\224\004\n\032GetPropertyHistoryResponse\022" +
-      "\037\n\013address_key\030\001 \001(\tR\naddressKey\022\'\n\017disp" +
-      "lay_address\030\002 \001(\tR\016displayAddress\022\026\n\006sub" +
-      "urb\030\003 \001(\tR\006suburb\022\035\n\nstate_code\030\004 \001(\tR\ts" +
-      "tateCode\022\032\n\010postcode\030\005 \001(\tR\010postcode\022B\n\007" +
-      "current\030\006 \001(\0132(.shorts.v1alpha1.Property" +
-      "ListingSnapshotR\007current\022;\n\006events\030\007 \003(\013" +
-      "2#.shorts.v1alpha1.PropertyPriceEventR\006e" +
-      "vents\022!\n\014num_listings\030\010 \001(\005R\013numListings" +
-      "\022\037\n\013first_price\030\t \001(\001R\nfirstPrice\022#\n\rcur" +
-      "rent_price\030\n \001(\001R\014currentPrice\022-\n\022distin" +
-      "ct_dwellings\030\013 \001(\005R\021distinctDwellings\022@\n" +
-      "\tvaluation\030\014 \001(\0132\".shorts.v1alpha1.Prope" +
-      "rtyValuationR\tvaluation\"x\n\025PropertyValua" +
-      "tionSale\022\022\n\004date\030\001 \001(\tR\004date\022\024\n\005price\030\002 " +
-      "\001(\001R\005price\022\026\n\006agency\030\003 \001(\tR\006agency\022\035\n\nev" +
-      "ent_type\030\004 \001(\tR\teventType\"\242\005\n\021PropertyVa" +
-      "luation\022\026\n\006source\030\001 \001(\tR\006source\022\037\n\013profi" +
-      "le_url\030\002 \001(\tR\nprofileUrl\022\035\n\nfetched_at\030\003" +
-      " \001(\tR\tfetchedAt\022!\n\014estimate_low\030\004 \001(\001R\013e" +
-      "stimateLow\022!\n\014estimate_mid\030\005 \001(\001R\013estima" +
-      "teMid\022#\n\restimate_high\030\006 \001(\001R\014estimateHi" +
-      "gh\022/\n\023estimate_confidence\030\007 \001(\tR\022estimat" +
-      "eConfidence\0223\n\025valuation_granularity\030\010 \001" +
-      "(\tR\024valuationGranularity\022*\n\021rent_estimat" +
-      "e_mid\030\t \001(\001R\017rentEstimateMid\022\032\n\010bedrooms" +
-      "\030\n \001(\005R\010bedrooms\022\034\n\tbathrooms\030\013 \001(\005R\tbat" +
-      "hrooms\022\035\n\ncar_spaces\030\014 \001(\005R\tcarSpaces\022\"\n" +
-      "\rland_size_sqm\030\r \001(\001R\013landSizeSqm\022*\n\021bui" +
-      "lding_size_sqm\030\016 \001(\001R\017buildingSizeSqm\022\035\n" +
-      "\nyear_built\030\017 \001(\005R\tyearBuilt\022#\n\rproperty" +
-      "_type\030\020 \001(\tR\014propertyType\022K\n\rsales_histo" +
-      "ry\030\021 \003(\0132&.shorts.v1alpha1.PropertyValua" +
-      "tionSaleR\014salesHistory\"\210\001\n\034ListAddressPr" +
-      "iceDropsRequest\022\035\n\nstate_code\030\001 \001(\tR\tsta" +
-      "teCode\022\037\n\013window_days\030\002 \001(\005R\nwindowDays\022" +
-      "\024\n\005limit\030\003 \001(\005R\005limit\022\022\n\004sort\030\004 \001(\tR\004sor" +
-      "t\"\354\004\n\020AddressPriceDrop\022\037\n\013address_key\030\001 " +
-      "\001(\tR\naddressKey\022\'\n\017display_address\030\002 \001(\t" +
-      "R\016displayAddress\022\026\n\006suburb\030\003 \001(\tR\006suburb" +
-      "\022\035\n\nstate_code\030\004 \001(\tR\tstateCode\022\032\n\010postc" +
-      "ode\030\005 \001(\tR\010postcode\022\037\n\013first_price\030\006 \001(\001" +
-      "R\nfirstPrice\022#\n\rcurrent_price\030\007 \001(\001R\014cur" +
-      "rentPrice\022\031\n\010drop_abs\030\010 \001(\001R\007dropAbs\022\031\n\010" +
-      "drop_pct\030\t \001(\001R\007dropPct\022!\n\014num_listings\030" +
-      "\n \001(\005R\013numListings\022#\n\rlatest_source\030\013 \001(" +
-      "\tR\014latestSource\022,\n\022latest_listing_url\030\014 " +
-      "\001(\tR\020latestListingUrl\022(\n\020last_observed_a" +
-      "t\030\r \001(\tR\016lastObservedAt\022#\n\rproperty_type" +
-      "\030\016 \001(\tR\014propertyType\022\032\n\010bedrooms\030\017 \001(\005R\010" +
-      "bedrooms\022\034\n\tbathrooms\030\020 \001(\005R\tbathrooms\022\037" +
-      "\n\013agency_name\030\021 \001(\tR\nagencyName\022\037\n\013agent" +
-      "_names\030\022 \003(\tR\nagentNames\"`\n\035ListAddressP" +
-      "riceDropsResponse\022?\n\taddresses\030\001 \003(\0132!.s" +
-      "horts.v1alpha1.AddressPriceDropR\taddress" +
-      "es\"\036\n\034GetPriceDropsOverviewRequest\"\333\004\n\025S" +
-      "tatePriceDropSummary\022\035\n\nstate_code\030\001 \001(\t" +
-      "R\tstateCode\022#\n\rdropped_count\030\002 \001(\005R\014drop" +
-      "pedCount\022 \n\014avg_drop_pct\030\003 \001(\001R\navgDropP" +
-      "ct\022&\n\017median_drop_pct\030\004 \001(\001R\rmedianDropP" +
-      "ct\022 \n\014max_drop_pct\030\005 \001(\001R\nmaxDropPct\022#\n\r" +
-      "dropped_value\030\006 \001(\001R\014droppedValue\0222\n\025tot" +
-      "al_active_listings\030\007 \001(\005R\023totalActiveLis" +
-      "tings\022#\n\rdropped_share\030\010 \001(\001R\014droppedSha" +
-      "re\022$\n\016for_sale_count\030\t \001(\005R\014forSaleCount" +
-      "\022&\n\017for_sale_priced\030\n \001(\005R\rforSalePriced" +
-      "\022\035\n\navg_asking\030\013 \001(\001R\tavgAsking\022#\n\rmedia" +
-      "n_asking\030\014 \001(\001R\014medianAsking\022\035\n\nsold_cou" +
-      "nt\030\r \001(\005R\tsoldCount\022\031\n\010avg_sold\030\016 \001(\001R\007a" +
-      "vgSold\022\037\n\013median_sold\030\017 \001(\001R\nmedianSold\022" +
-      "\'\n\017suburbs_tracked\030\020 \001(\005R\016suburbsTracked" +
-      "\"\243\001\n\035GetPriceDropsOverviewResponse\022B\n\010na" +
-      "tional\030\001 \001(\0132&.shorts.v1alpha1.StatePric" +
-      "eDropSummaryR\010national\022>\n\006states\030\002 \003(\0132&" +
-      ".shorts.v1alpha1.StatePriceDropSummaryR\006" +
-      "states\"f\n\033ListAgencyPriceStatsRequest\022\035\n" +
-      "\nstate_code\030\001 \001(\tR\tstateCode\022\022\n\004sort\030\002 \001" +
-      "(\tR\004sort\022\024\n\005limit\030\003 \001(\005R\005limit\"\330\003\n\020Agenc" +
-      "yPriceStats\022\026\n\006source\030\001 \001(\tR\006source\022\033\n\ta" +
-      "gency_id\030\002 \001(\tR\010agencyId\022\037\n\013agency_name\030" +
-      "\003 \001(\tR\nagencyName\022\035\n\nstate_code\030\004 \001(\tR\ts" +
-      "tateCode\022\'\n\017active_listings\030\005 \001(\005R\016activ" +
-      "eListings\022\'\n\017priced_listings\030\006 \001(\005R\016pric" +
-      "edListings\022\035\n\navg_asking\030\007 \001(\001R\tavgAskin" +
-      "g\022#\n\rmedian_asking\030\010 \001(\001R\014medianAsking\022\'" +
-      "\n\017suburbs_covered\030\t \001(\005R\016suburbsCovered\022" +
-      "#\n\rdropped_count\030\n \001(\005R\014droppedCount\022 \n\014" +
-      "avg_drop_pct\030\013 \001(\001R\navgDropPct\022(\n\020total_" +
-      "drop_value\030\014 \001(\001R\016totalDropValue\022\037\n\013agen" +
-      "t_names\030\r \003(\tR\nagentNames\"]\n\034ListAgencyP" +
-      "riceStatsResponse\022=\n\010agencies\030\001 \003(\0132!.sh" +
-      "orts.v1alpha1.AgencyPriceStatsR\010agencies" +
-      "\"\224\003\n\016DropIndexPoint\022#\n\rsnapshot_date\030\001 \001" +
-      "(\tR\014snapshotDate\022\033\n\tdrop_rate\030\002 \001(\001R\010dro" +
-      "pRate\022&\n\017median_drop_pct\030\003 \001(\001R\rmedianDr" +
-      "opPct\022#\n\rpanel_suburbs\030\004 \001(\005R\014panelSubur" +
-      "bs\022%\n\016coverage_ratio\030\005 \001(\001R\rcoverageRati" +
-      "o\022\025\n\006is_gap\030\006 \001(\010R\005isGap\022)\n\020active_addre" +
-      "sses\030\007 \001(\005R\017activeAddresses\022+\n\021dropped_a" +
-      "ddresses\030\010 \001(\005R\020droppedAddresses\0226\n\027with" +
-      "drawn_then_relisted\030\t \001(\005R\025withdrawnThen" +
-      "Relisted\022%\n\016delisted_count\030\n \001(\005R\rdelist" +
-      "edCount\"r\n\031GetDropIndexSeriesRequest\022\024\n\005" +
-      "grain\030\001 \001(\tR\005grain\022\033\n\tgrain_key\030\002 \001(\tR\010g" +
-      "rainKey\022\022\n\004from\030\003 \001(\tR\004from\022\016\n\002to\030\004 \001(\tR" +
-      "\002to\"|\n\032GetDropIndexSeriesResponse\0227\n\006poi" +
-      "nts\030\001 \003(\0132\037.shorts.v1alpha1.DropIndexPoi" +
-      "ntR\006points\022%\n\016tracking_since\030\002 \001(\tR\rtrac" +
-      "kingSince2\255\013\n\016HousingService\022s\n\022GetHousi" +
-      "ngOverview\022*.shorts.v1alpha1.GetHousingO" +
-      "verviewRequest\032+.shorts.v1alpha1.GetHous" +
-      "ingOverviewResponse\"\004\200\265\030\001\022v\n\023GetHousePri" +
-      "ceSeries\022+.shorts.v1alpha1.GetHousePrice" +
-      "SeriesRequest\032,.shorts.v1alpha1.GetHouse" +
-      "PriceSeriesResponse\"\004\200\265\030\001\022m\n\020ListStateSu" +
-      "burbs\022(.shorts.v1alpha1.ListStateSuburbs" +
-      "Request\032).shorts.v1alpha1.ListStateSubur" +
-      "bsResponse\"\004\200\265\030\001\022m\n\020GetSuburbProfile\022(.s" +
-      "horts.v1alpha1.GetSuburbProfileRequest\032)" +
-      ".shorts.v1alpha1.GetSuburbProfileRespons" +
-      "e\"\004\200\265\030\001\022s\n\022ListHousingRegions\022*.shorts.v" +
-      "1alpha1.ListHousingRegionsRequest\032+.shor" +
-      "ts.v1alpha1.ListHousingRegionsResponse\"\004" +
-      "\200\265\030\001\022y\n\024ListSuburbPriceDrops\022,.shorts.v1" +
-      "alpha1.ListSuburbPriceDropsRequest\032-.sho" +
-      "rts.v1alpha1.ListSuburbPriceDropsRespons" +
-      "e\"\004\200\265\030\001\022\177\n\026ListSuburbDropListings\022..shor" +
-      "ts.v1alpha1.ListSuburbDropListingsReques" +
-      "t\032/.shorts.v1alpha1.ListSuburbDropListin" +
-      "gsResponse\"\004\200\265\030\001\022s\n\022GetPropertyHistory\022*" +
-      ".shorts.v1alpha1.GetPropertyHistoryReque" +
-      "st\032+.shorts.v1alpha1.GetPropertyHistoryR" +
-      "esponse\"\004\200\265\030\001\022|\n\025ListAddressPriceDrops\022-" +
-      ".shorts.v1alpha1.ListAddressPriceDropsRe" +
-      "quest\032..shorts.v1alpha1.ListAddressPrice" +
-      "DropsResponse\"\004\200\265\030\001\022|\n\025GetPriceDropsOver" +
-      "view\022-.shorts.v1alpha1.GetPriceDropsOver" +
-      "viewRequest\032..shorts.v1alpha1.GetPriceDr" +
-      "opsOverviewResponse\"\004\200\265\030\001\022y\n\024ListAgencyP" +
-      "riceStats\022,.shorts.v1alpha1.ListAgencyPr" +
-      "iceStatsRequest\032-.shorts.v1alpha1.ListAg" +
-      "encyPriceStatsResponse\"\004\200\265\030\001\022s\n\022GetDropI" +
-      "ndexSeries\022*.shorts.v1alpha1.GetDropInde" +
-      "xSeriesRequest\032+.shorts.v1alpha1.GetDrop" +
-      "IndexSeriesResponse\"\004\200\265\030\001B\333\001\n\023com.shorts" +
-      ".v1alpha1B\014HousingProtoP\001ZYgithub.com/ca" +
-      "stlemilk/shorted.com.au/services/gen/pro" +
-      "to/go/shorts/v1alpha1;shortsv1alpha1\242\002\003S" +
-      "XX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002" +
-      "\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Shorts::V" +
-      "1alpha1b\006proto3"
+      "ary_km\030\027 \001(\001R\022nearestSecondaryKm\"j\n\020Subu" +
+      "rbSeifaIndex\022\024\n\005score\030\001 \001(\005R\005score\022\035\n\nde" +
+      "cile_aus\030\002 \001(\005R\tdecileAus\022!\n\014decile_stat" +
+      "e\030\003 \001(\005R\013decileState\"\347\001\n\013SuburbSeifa\0225\n\004" +
+      "irsd\030\001 \001(\0132!.shorts.v1alpha1.SuburbSeifa" +
+      "IndexR\004irsd\0227\n\005irsad\030\002 \001(\0132!.shorts.v1al" +
+      "pha1.SuburbSeifaIndexR\005irsad\0223\n\003ier\030\003 \001(" +
+      "\0132!.shorts.v1alpha1.SuburbSeifaIndexR\003ie" +
+      "r\0223\n\003ieo\030\004 \001(\0132!.shorts.v1alpha1.SuburbS" +
+      "eifaIndexR\003ieo\"\301\003\n\017SuburbElevation\022+\n\017el" +
+      "evation_min_m\030\001 \001(\001H\000R\relevationMinM\210\001\001\022" +
+      "1\n\022elevation_median_m\030\002 \001(\001H\001R\020elevation" +
+      "MedianM\210\001\001\022+\n\017elevation_max_m\030\003 \001(\001H\002R\re" +
+      "levationMaxM\210\001\001\0222\n\023land_share_below_1m\030\004" +
+      " \001(\001H\003R\020landShareBelow1m\210\001\001\0222\n\023land_shar" +
+      "e_below_2m\030\005 \001(\001H\004R\020landShareBelow2m\210\001\001\022" +
+      "2\n\023land_share_below_5m\030\006 \001(\001H\005R\020landShar" +
+      "eBelow5m\210\001\001B\022\n\020_elevation_min_mB\025\n\023_elev" +
+      "ation_median_mB\022\n\020_elevation_max_mB\026\n\024_l" +
+      "and_share_below_1mB\026\n\024_land_share_below_" +
+      "2mB\026\n\024_land_share_below_5m\"\313\n\n\rSuburbSum" +
+      "mary\022\031\n\010sal_code\030\001 \001(\tR\007salCode\022\031\n\010sal_n" +
+      "ame\030\002 \001(\tR\007salName\022\035\n\nstate_code\030\003 \001(\tR\t" +
+      "stateCode\022\032\n\010postcode\030\004 \001(\tR\010postcode\022.\n" +
+      "\023latest_median_price\030\005 \001(\001R\021latestMedian" +
+      "Price\022?\n\rlatest_period\030\006 \001(\0132\032.google.pr" +
+      "otobuf.TimestampR\014latestPeriod\022\027\n\007yoy_pc" +
+      "t\030\007 \001(\001R\006yoyPct\022\036\n\npopulation\030\010 \001(\005R\npop" +
+      "ulation\022\035\n\nmedian_age\030\t \001(\001R\tmedianAge\0227" +
+      "\n\030median_weekly_hhd_income\030\n \001(\001R\025median" +
+      "WeeklyHhdIncome\022\037\n\013region_code\030\013 \001(\tR\nre" +
+      "gionCode\022*\n\021pct_born_overseas\030\014 \001(\001R\017pct" +
+      "BornOverseas\022!\n\014top_religion\030\r \001(\tR\013topR" +
+      "eligion\022!\n\014top_language\030\016 \001(\tR\013topLangua" +
+      "ge\022(\n\020pct_top_language\030\017 \001(\001R\016pctTopLang" +
+      "uage\022)\n\020federal_division\030\020 \001(\tR\017federalD" +
+      "ivision\022%\n\016federal_member\030\021 \001(\tR\rfederal" +
+      "Member\022#\n\rfederal_party\030\022 \001(\tR\014federalPa" +
+      "rty\022(\n\020federal_party_ab\030\023 \001(\tR\016federalPa" +
+      "rtyAb\022&\n\017federal_tpp_alp\030\024 \001(\001R\rfederalT" +
+      "ppAlp\022%\n\016state_district\030\025 \001(\tR\rstateDist" +
+      "rict\022!\n\014state_member\030\026 \001(\tR\013stateMember\022" +
+      "\037\n\013state_party\030\027 \001(\tR\nstateParty\022$\n\016stat" +
+      "e_party_ab\030\030 \001(\tR\014statePartyAb\022>\n\tamenit" +
+      "ies\030\031 \001(\0132 .shorts.v1alpha1.SuburbAmenit" +
+      "iesR\tamenities\022*\n\021dominant_nbn_tech\030\032 \001(" +
+      "\tR\017dominantNbnTech\022<\n\032connectivity_quali" +
+      "ty_score\030\033 \001(\001R\030connectivityQualityScore" +
+      "\022/\n\024crime_break_ins_rank\030\034 \001(\001R\021crimeBre" +
+      "akInsRank\022,\n\022crime_violent_rank\030\035 \001(\001R\020c" +
+      "rimeViolentRank\0227\n\030crime_motor_vehicle_r" +
+      "ank\030\036 \001(\001R\025crimeMotorVehicleRank\022:\n\031poli" +
+      "tician_property_count\030\037 \001(\005R\027politicianP" +
+      "ropertyCount\0222\n\005seifa\030  \001(\0132\034.shorts.v1a" +
+      "lpha1.SuburbSeifaR\005seifa\"T\n\030ListStateSub" +
+      "urbsResponse\0228\n\007suburbs\030\001 \003(\0132\036.shorts.v" +
+      "1alpha1.SuburbSummaryR\007suburbs\"6\n\025GetSub" +
+      "urbIndexRequest\022\035\n\nstate_code\030\001 \001(\tR\tsta" +
+      "teCode\"d\n\020SuburbIndexEntry\022\031\n\010sal_code\030\001" +
+      " \001(\tR\007salCode\022\031\n\010sal_name\030\002 \001(\tR\007salName" +
+      "\022\032\n\010postcode\030\003 \001(\tR\010postcode\"z\n\026GetSubur" +
+      "bIndexResponse\022;\n\007suburbs\030\001 \003(\0132!.shorts" +
+      ".v1alpha1.SuburbIndexEntryR\007suburbs\022#\n\ri" +
+      "ndex_version\030\002 \001(\tR\014indexVersion\"_\n\035GetS" +
+      "uburbMetricColumnsRequest\022\035\n\nstate_code\030" +
+      "\001 \001(\tR\tstateCode\022\037\n\013metric_keys\030\002 \003(\tR\nm" +
+      "etricKeys\"\221\001\n\022SuburbMetricColumn\022\035\n\nmetr" +
+      "ic_key\030\001 \001(\tR\tmetricKey\022\026\n\006values\030\002 \003(\002R" +
+      "\006values\022\033\n\tnull_mask\030\003 \001(\014R\010nullMask\022\'\n\017" +
+      "category_labels\030\004 \003(\tR\016categoryLabels\"\204\001" +
+      "\n\036GetSuburbMetricColumnsResponse\022=\n\007colu" +
+      "mns\030\001 \003(\0132#.shorts.v1alpha1.SuburbMetric" +
+      "ColumnR\007columns\022#\n\rindex_version\030\002 \001(\tR\014" +
+      "indexVersion\"t\n\025SuburbMetricPredicate\022\035\n" +
+      "\nmetric_key\030\001 \001(\tR\tmetricKey\022\025\n\003min\030\002 \001(" +
+      "\002H\000R\003min\210\001\001\022\025\n\003max\030\003 \001(\002H\001R\003max\210\001\001B\006\n\004_m" +
+      "inB\006\n\004_max\"}\n\024FilterSuburbsRequest\022\035\n\nst" +
+      "ate_code\030\001 \001(\tR\tstateCode\022F\n\npredicates\030" +
+      "\002 \003(\0132&.shorts.v1alpha1.SuburbMetricPred" +
+      "icateR\npredicates\"|\n\025FilterSuburbsRespon" +
+      "se\022\035\n\nmatch_mask\030\001 \001(\014R\tmatchMask\022\037\n\013mat" +
+      "ch_count\030\002 \001(\rR\nmatchCount\022#\n\rindex_vers" +
+      "ion\030\003 \001(\tR\014indexVersion\"4\n\027GetSuburbProf" +
+      "ileRequest\022\031\n\010sal_code\030\001 \001(\tR\007salCode\"\357\t" +
+      "\n\022SuburbDemographics\022\036\n\npopulation\030\001 \001(\005" +
+      "R\npopulation\022\035\n\nmedian_age\030\002 \001(\001R\tmedian" +
+      "Age\0227\n\030median_weekly_hhd_income\030\003 \001(\001R\025m" +
+      "edianWeeklyHhdIncome\0227\n\030median_weekly_pe" +
+      "r_income\030\004 \001(\001R\025medianWeeklyPerIncome\022,\n" +
+      "\022median_weekly_rent\030\005 \001(\001R\020medianWeeklyR" +
+      "ent\0226\n\027median_monthly_mortgage\030\006 \001(\001R\025me" +
+      "dianMonthlyMortgage\022,\n\022pct_owned_outrigh" +
+      "t\030\007 \001(\001R\020pctOwnedOutright\022,\n\022pct_owned_m" +
+      "ortgage\030\010 \001(\001R\020pctOwnedMortgage\022\035\n\npct_r" +
+      "ented\030\t \001(\001R\tpctRented\022%\n\016dwelling_count" +
+      "\030\n \001(\005R\rdwellingCount\022\037\n\013census_year\030\013 \001" +
+      "(\005R\ncensusYear\022*\n\021pct_born_overseas\030\014 \001(" +
+      "\001R\017pctBornOverseas\022(\n\020pct_english_only\030\r" +
+      " \001(\001R\016pctEnglishOnly\022!\n\014top_religion\030\016 \001" +
+      "(\tR\013topReligion\022(\n\020pct_top_religion\030\017 \001(" +
+      "\001R\016pctTopReligion\022&\n\017pct_no_religion\030\020 \001" +
+      "(\001R\rpctNoReligion\022!\n\014top_language\030\021 \001(\tR" +
+      "\013topLanguage\022(\n\020pct_top_language\030\022 \001(\001R\016" +
+      "pctTopLanguage\0225\n\027pct_low_personal_incom" +
+      "e\030\023 \001(\001R\024pctLowPersonalIncome\0227\n\030pct_hig" +
+      "h_personal_income\030\024 \001(\001R\025pctHighPersonal" +
+      "Income\022+\n\021unemployment_rate\030\025 \001(\001R\020unemp" +
+      "loymentRate\022E\n\037labour_force_participatio" +
+      "n_rate\030\026 \001(\001R\034labourForceParticipationRa" +
+      "te\0223\n\026pct_bachelor_or_higher\030\027 \001(\001R\023pctB" +
+      "achelorOrHigher\022,\n\022pct_separate_house\030\030 " +
+      "\001(\001R\020pctSeparateHouse\022,\n\022pct_flat_apartm" +
+      "ent\030\031 \001(\001R\020pctFlatApartment\0227\n\030pct_coupl" +
+      "e_with_children\030\032 \001(\001R\025pctCoupleWithChil" +
+      "dren\0229\n\031pct_lone_person_household\030\033 \001(\001R" +
+      "\026pctLonePersonHousehold\"\205\002\n\023ComparisonBa" +
+      "selines\022,\n\022state_median_price\030\001 \001(\001R\020sta" +
+      "teMedianPrice\0222\n\025national_median_price\030\002" +
+      " \001(\001R\023nationalMedianPrice\022B\n\036state_media" +
+      "n_weekly_hhd_income\030\003 \001(\001R\032stateMedianWe" +
+      "eklyHhdIncome\022H\n!national_median_weekly_" +
+      "hhd_income\030\004 \001(\001R\035nationalMedianWeeklyHh" +
+      "dIncome\"\216\003\n\007LgaInfo\022\031\n\010lga_code\030\001 \001(\tR\007l" +
+      "gaCode\022\031\n\010lga_name\030\002 \001(\tR\007lgaName\022\035\n\nsta" +
+      "te_code\030\003 \001(\tR\tstateCode\022\033\n\tarea_sqkm\030\004 " +
+      "\001(\001R\010areaSqkm\022\036\n\npopulation\030\005 \001(\005R\npopul" +
+      "ation\022\036\n\013fed_fag_aud\030\006 \001(\001R\tfedFagAud\022 \n" +
+      "\014fed_fag_year\030\007 \001(\tR\nfedFagYear\022\033\n\tavg_r" +
+      "ates\030\010 \001(\001R\010avgRates\022(\n\020op_surplus_ratio" +
+      "\030\t \001(\001R\016opSurplusRatio\022.\n\023asset_renewal_" +
+      "ratio\030\n \001(\001R\021assetRenewalRatio\022\035\n\nfin_so" +
+      "urce\030\013 \001(\tR\tfinSource\022\031\n\010fin_year\030\014 \001(\tR" +
+      "\007finYear\"\325\001\n\rSimilarSuburb\022\031\n\010sal_code\030\001" +
+      " \001(\tR\007salCode\022\031\n\010sal_name\030\002 \001(\tR\007salName" +
+      "\022\035\n\nstate_code\030\003 \001(\tR\tstateCode\022.\n\023lates" +
+      "t_median_price\030\004 \001(\001R\021latestMedianPrice\022" +
+      "\036\n\nsimilarity\030\005 \001(\001R\nsimilarity\022\037\n\013regio" +
+      "n_code\030\006 \001(\tR\nregionCode\"8\n\016SuburbLandma" +
+      "rk\022\022\n\004name\030\001 \001(\tR\004name\022\022\n\004kind\030\002 \001(\tR\004ki" +
+      "nd\"\257\001\n\014SuburbBanner\022\034\n\tarchetype\030\001 \001(\tR\t" +
+      "archetype\022\024\n\005blurb\030\002 \001(\tR\005blurb\022=\n\tlandm" +
+      "arks\030\003 \003(\0132\037.shorts.v1alpha1.SuburbLandm" +
+      "arkR\tlandmarks\022\025\n\006bg_key\030\004 \001(\tR\005bgKey\022\025\n" +
+      "\006bg_url\030\005 \001(\tR\005bgUrl\"\214\001\n\017SuburbCrimeStat" +
+      "\022\035\n\ncrime_type\030\001 \001(\tR\tcrimeType\022\"\n\rrate_" +
+      "per_100k\030\002 \001(\001R\013ratePer100k\022\031\n\010pct_rank\030" +
+      "\003 \001(\001R\007pctRank\022\033\n\tfy_ending\030\004 \001(\005R\010fyEnd" +
+      "ing\"\265\001\n\013SuburbCrime\0226\n\005stats\030\001 \003(\0132 .sho" +
+      "rts.v1alpha1.SuburbCrimeStatR\005stats\022/\n\023s" +
+      "ource_jurisdiction\030\002 \001(\tR\022sourceJurisdic" +
+      "tion\022\026\n\006source\030\003 \001(\tR\006source\022%\n\016source_l" +
+      "icence\030\004 \001(\tR\rsourceLicence\"\331\001\n\022SuburbLi" +
+      "stingStats\022$\n\016for_sale_count\030\001 \001(\005R\014forS" +
+      "aleCount\022\035\n\navg_asking\030\002 \001(\001R\tavgAsking\022" +
+      "#\n\rmedian_asking\030\003 \001(\001R\014medianAsking\022\035\n\n" +
+      "sold_count\030\004 \001(\005R\tsoldCount\022\031\n\010avg_sold\030" +
+      "\005 \001(\001R\007avgSold\022\037\n\013median_sold\030\006 \001(\001R\nmed" +
+      "ianSold\"\304\004\n\030GetSuburbProfileResponse\0228\n\007" +
+      "summary\030\001 \001(\0132\036.shorts.v1alpha1.SuburbSu" +
+      "mmaryR\007summary\022G\n\014demographics\030\002 \001(\0132#.s" +
+      "horts.v1alpha1.SuburbDemographicsR\014demog" +
+      "raphics\022B\n\tbaselines\030\003 \001(\0132$.shorts.v1al" +
+      "pha1.ComparisonBaselinesR\tbaselines\0222\n\007c" +
+      "ouncil\030\004 \001(\0132\030.shorts.v1alpha1.LgaInfoR\007" +
+      "council\0228\n\007similar\030\005 \003(\0132\036.shorts.v1alph" +
+      "a1.SimilarSuburbR\007similar\0225\n\006banner\030\006 \001(" +
+      "\0132\035.shorts.v1alpha1.SuburbBannerR\006banner" +
+      "\0222\n\005crime\030\007 \001(\0132\034.shorts.v1alpha1.Suburb" +
+      "CrimeR\005crime\022H\n\rlisting_stats\030\010 \001(\0132#.sh" +
+      "orts.v1alpha1.SuburbListingStatsR\014listin" +
+      "gStats\022>\n\televation\030\t \001(\0132 .shorts.v1alp" +
+      "ha1.SuburbElevationR\televation\"\207\001\n\031ListH" +
+      "ousingRegionsRequest\022\037\n\013region_type\030\001 \001(" +
+      "\tR\nregionType\022\035\n\nstate_code\030\002 \001(\tR\tstate" +
+      "Code\022\024\n\005query\030\003 \001(\tR\005query\022\024\n\005limit\030\004 \001(" +
+      "\005R\005limit\"\221\002\n\rHousingRegion\022\037\n\013region_cod" +
+      "e\030\001 \001(\tR\nregionCode\022\037\n\013region_name\030\002 \001(\t" +
+      "R\nregionName\022\037\n\013region_type\030\003 \001(\tR\nregio" +
+      "nType\022\035\n\nstate_code\030\004 \001(\tR\tstateCode\022\032\n\010" +
+      "postcode\030\005 \001(\tR\010postcode\022!\n\014latest_value" +
+      "\030\006 \001(\001R\013latestValue\022?\n\rlatest_period\030\007 \001" +
+      "(\0132\032.google.protobuf.TimestampR\014latestPe" +
+      "riod\"V\n\032ListHousingRegionsResponse\0228\n\007re" +
+      "gions\030\001 \003(\0132\036.shorts.v1alpha1.HousingReg" +
+      "ionR\007regions\"\207\001\n\033ListSuburbPriceDropsReq" +
+      "uest\022\035\n\nstate_code\030\001 \001(\tR\tstateCode\022\037\n\013w" +
+      "indow_days\030\002 \001(\005R\nwindowDays\022\022\n\004sort\030\003 \001" +
+      "(\tR\004sort\022\024\n\005limit\030\004 \001(\005R\005limit\"\250\005\n\017Subur" +
+      "bPriceDrop\022\037\n\013region_code\030\001 \001(\tR\nregionC" +
+      "ode\022\031\n\010sal_code\030\002 \001(\tR\007salCode\022\031\n\010sal_na" +
+      "me\030\003 \001(\tR\007salName\022\035\n\nstate_code\030\004 \001(\tR\ts" +
+      "tateCode\0222\n\025dropped_listing_count\030\005 \001(\005R" +
+      "\023droppedListingCount\022 \n\014avg_drop_pct\030\006 \001" +
+      "(\001R\navgDropPct\022&\n\017median_drop_pct\030\007 \001(\001R" +
+      "\rmedianDropPct\022 \n\014max_drop_pct\030\010 \001(\001R\nma" +
+      "xDropPct\022 \n\014max_drop_abs\030\t \001(\001R\nmaxDropA" +
+      "bs\0222\n\025total_active_listings\030\n \001(\005R\023total" +
+      "ActiveListings\022#\n\rdropped_share\030\013 \001(\001R\014d" +
+      "roppedShare\022\032\n\010postcode\030\014 \001(\tR\010postcode\022" +
+      "$\n\016for_sale_count\030\r \001(\005R\014forSaleCount\022\035\n" +
+      "\navg_asking\030\016 \001(\001R\tavgAsking\022#\n\rmedian_a" +
+      "sking\030\017 \001(\001R\014medianAsking\022\035\n\nsold_count\030" +
+      "\020 \001(\005R\tsoldCount\022\031\n\010avg_sold\030\021 \001(\001R\007avgS" +
+      "old\022\037\n\013median_sold\030\022 \001(\001R\nmedianSold\022#\n\r" +
+      "dropped_value\030\023 \001(\001R\014droppedValue\"Z\n\034Lis" +
+      "tSuburbPriceDropsResponse\022:\n\007suburbs\030\001 \003" +
+      "(\0132 .shorts.v1alpha1.SuburbPriceDropR\007su" +
+      "burbs\"\222\001\n\035ListSuburbDropListingsRequest\022" +
+      "\031\n\010sal_code\030\001 \001(\tR\007salCode\022\037\n\013region_cod" +
+      "e\030\002 \001(\tR\nregionCode\022\037\n\013window_days\030\003 \001(\005" +
+      "R\nwindowDays\022\024\n\005limit\030\004 \001(\005R\005limit\"\376\003\n\021S" +
+      "uburbDropListing\022\026\n\006source\030\001 \001(\tR\006source" +
+      "\022\037\n\013listing_url\030\002 \001(\tR\nlistingUrl\022\'\n\017dis" +
+      "play_address\030\003 \001(\tR\016displayAddress\022#\n\rpr" +
+      "operty_type\030\004 \001(\tR\014propertyType\022\032\n\010bedro" +
+      "oms\030\005 \001(\005R\010bedrooms\022\034\n\tbathrooms\030\006 \001(\005R\t" +
+      "bathrooms\022\035\n\ncar_spaces\030\007 \001(\005R\tcarSpaces" +
+      "\022\035\n\nprev_price\030\010 \001(\001R\tprevPrice\022\024\n\005price" +
+      "\030\t \001(\001R\005price\022\031\n\010drop_pct\030\n \001(\001R\007dropPct" +
+      "\022\031\n\010drop_abs\030\013 \001(\001R\007dropAbs\022;\n\013observed_" +
+      "at\030\014 \001(\0132\032.google.protobuf.TimestampR\nob" +
+      "servedAt\022\037\n\013address_key\030\r \001(\tR\naddressKe" +
+      "y\022\037\n\013agency_name\030\016 \001(\tR\nagencyName\022\037\n\013ag" +
+      "ent_names\030\017 \003(\tR\nagentNames\"`\n\036ListSubur" +
+      "bDropListingsResponse\022>\n\010listings\030\001 \003(\0132" +
+      "\".shorts.v1alpha1.SuburbDropListingR\010lis" +
+      "tings\"<\n\031GetPropertyHistoryRequest\022\037\n\013ad" +
+      "dress_key\030\001 \001(\tR\naddressKey\"\271\004\n\027Property" +
+      "ListingSnapshot\022\026\n\006source\030\001 \001(\tR\006source\022" +
+      "\035\n\nlisting_id\030\002 \001(\tR\tlistingId\022\037\n\013listin" +
+      "g_url\030\003 \001(\tR\nlistingUrl\022\024\n\005price\030\004 \001(\001R\005" +
+      "price\022#\n\rprice_display\030\005 \001(\tR\014priceDispl" +
+      "ay\022\035\n\nprice_kind\030\006 \001(\tR\tpriceKind\022%\n\016lis" +
+      "ting_status\030\007 \001(\tR\rlistingStatus\022\033\n\tis_a" +
+      "ctive\030\010 \001(\010R\010isActive\022\032\n\010bedrooms\030\t \001(\005R" +
+      "\010bedrooms\022\034\n\tbathrooms\030\n \001(\005R\tbathrooms\022" +
+      "\035\n\ncar_spaces\030\013 \001(\005R\tcarSpaces\022\"\n\rland_s" +
+      "ize_sqm\030\014 \001(\001R\013landSizeSqm\022#\n\rproperty_t" +
+      "ype\030\r \001(\tR\014propertyType\022\"\n\rfirst_seen_at" +
+      "\030\016 \001(\tR\013firstSeenAt\022 \n\014last_seen_at\030\017 \001(" +
+      "\tR\nlastSeenAt\022\037\n\013agency_name\030\020 \001(\tR\nagen" +
+      "cyName\022\037\n\013agent_names\030\021 \003(\tR\nagentNames\"" +
+      "\276\002\n\022PropertyPriceEvent\022\037\n\013observed_at\030\001 " +
+      "\001(\tR\nobservedAt\022\035\n\nevent_type\030\002 \001(\tR\teve" +
+      "ntType\022\026\n\006source\030\003 \001(\tR\006source\022\035\n\nlistin" +
+      "g_id\030\004 \001(\tR\tlistingId\022\024\n\005price\030\005 \001(\001R\005pr" +
+      "ice\022\035\n\nprev_price\030\006 \001(\001R\tprevPrice\022\031\n\010dr" +
+      "op_abs\030\007 \001(\001R\007dropAbs\022\031\n\010drop_pct\030\010 \001(\001R" +
+      "\007dropPct\022%\n\016listing_status\030\t \001(\tR\rlistin" +
+      "gStatus\022\037\n\013prev_status\030\n \001(\tR\nprevStatus" +
+      "\"\224\004\n\032GetPropertyHistoryResponse\022\037\n\013addre" +
+      "ss_key\030\001 \001(\tR\naddressKey\022\'\n\017display_addr" +
+      "ess\030\002 \001(\tR\016displayAddress\022\026\n\006suburb\030\003 \001(" +
+      "\tR\006suburb\022\035\n\nstate_code\030\004 \001(\tR\tstateCode" +
+      "\022\032\n\010postcode\030\005 \001(\tR\010postcode\022B\n\007current\030" +
+      "\006 \001(\0132(.shorts.v1alpha1.PropertyListingS" +
+      "napshotR\007current\022;\n\006events\030\007 \003(\0132#.short" +
+      "s.v1alpha1.PropertyPriceEventR\006events\022!\n" +
+      "\014num_listings\030\010 \001(\005R\013numListings\022\037\n\013firs" +
+      "t_price\030\t \001(\001R\nfirstPrice\022#\n\rcurrent_pri" +
+      "ce\030\n \001(\001R\014currentPrice\022-\n\022distinct_dwell" +
+      "ings\030\013 \001(\005R\021distinctDwellings\022@\n\tvaluati" +
+      "on\030\014 \001(\0132\".shorts.v1alpha1.PropertyValua" +
+      "tionR\tvaluation\"x\n\025PropertyValuationSale" +
+      "\022\022\n\004date\030\001 \001(\tR\004date\022\024\n\005price\030\002 \001(\001R\005pri" +
+      "ce\022\026\n\006agency\030\003 \001(\tR\006agency\022\035\n\nevent_type" +
+      "\030\004 \001(\tR\teventType\"\242\005\n\021PropertyValuation\022" +
+      "\026\n\006source\030\001 \001(\tR\006source\022\037\n\013profile_url\030\002" +
+      " \001(\tR\nprofileUrl\022\035\n\nfetched_at\030\003 \001(\tR\tfe" +
+      "tchedAt\022!\n\014estimate_low\030\004 \001(\001R\013estimateL" +
+      "ow\022!\n\014estimate_mid\030\005 \001(\001R\013estimateMid\022#\n" +
+      "\restimate_high\030\006 \001(\001R\014estimateHigh\022/\n\023es" +
+      "timate_confidence\030\007 \001(\tR\022estimateConfide" +
+      "nce\0223\n\025valuation_granularity\030\010 \001(\tR\024valu" +
+      "ationGranularity\022*\n\021rent_estimate_mid\030\t " +
+      "\001(\001R\017rentEstimateMid\022\032\n\010bedrooms\030\n \001(\005R\010" +
+      "bedrooms\022\034\n\tbathrooms\030\013 \001(\005R\tbathrooms\022\035" +
+      "\n\ncar_spaces\030\014 \001(\005R\tcarSpaces\022\"\n\rland_si" +
+      "ze_sqm\030\r \001(\001R\013landSizeSqm\022*\n\021building_si" +
+      "ze_sqm\030\016 \001(\001R\017buildingSizeSqm\022\035\n\nyear_bu" +
+      "ilt\030\017 \001(\005R\tyearBuilt\022#\n\rproperty_type\030\020 " +
+      "\001(\tR\014propertyType\022K\n\rsales_history\030\021 \003(\013" +
+      "2&.shorts.v1alpha1.PropertyValuationSale" +
+      "R\014salesHistory\"\210\001\n\034ListAddressPriceDrops" +
+      "Request\022\035\n\nstate_code\030\001 \001(\tR\tstateCode\022\037" +
+      "\n\013window_days\030\002 \001(\005R\nwindowDays\022\024\n\005limit" +
+      "\030\003 \001(\005R\005limit\022\022\n\004sort\030\004 \001(\tR\004sort\"\354\004\n\020Ad" +
+      "dressPriceDrop\022\037\n\013address_key\030\001 \001(\tR\nadd" +
+      "ressKey\022\'\n\017display_address\030\002 \001(\tR\016displa" +
+      "yAddress\022\026\n\006suburb\030\003 \001(\tR\006suburb\022\035\n\nstat" +
+      "e_code\030\004 \001(\tR\tstateCode\022\032\n\010postcode\030\005 \001(" +
+      "\tR\010postcode\022\037\n\013first_price\030\006 \001(\001R\nfirstP" +
+      "rice\022#\n\rcurrent_price\030\007 \001(\001R\014currentPric" +
+      "e\022\031\n\010drop_abs\030\010 \001(\001R\007dropAbs\022\031\n\010drop_pct" +
+      "\030\t \001(\001R\007dropPct\022!\n\014num_listings\030\n \001(\005R\013n" +
+      "umListings\022#\n\rlatest_source\030\013 \001(\tR\014lates" +
+      "tSource\022,\n\022latest_listing_url\030\014 \001(\tR\020lat" +
+      "estListingUrl\022(\n\020last_observed_at\030\r \001(\tR" +
+      "\016lastObservedAt\022#\n\rproperty_type\030\016 \001(\tR\014" +
+      "propertyType\022\032\n\010bedrooms\030\017 \001(\005R\010bedrooms" +
+      "\022\034\n\tbathrooms\030\020 \001(\005R\tbathrooms\022\037\n\013agency" +
+      "_name\030\021 \001(\tR\nagencyName\022\037\n\013agent_names\030\022" +
+      " \003(\tR\nagentNames\"`\n\035ListAddressPriceDrop" +
+      "sResponse\022?\n\taddresses\030\001 \003(\0132!.shorts.v1" +
+      "alpha1.AddressPriceDropR\taddresses\"\036\n\034Ge" +
+      "tPriceDropsOverviewRequest\"\333\004\n\025StatePric" +
+      "eDropSummary\022\035\n\nstate_code\030\001 \001(\tR\tstateC" +
+      "ode\022#\n\rdropped_count\030\002 \001(\005R\014droppedCount" +
+      "\022 \n\014avg_drop_pct\030\003 \001(\001R\navgDropPct\022&\n\017me" +
+      "dian_drop_pct\030\004 \001(\001R\rmedianDropPct\022 \n\014ma" +
+      "x_drop_pct\030\005 \001(\001R\nmaxDropPct\022#\n\rdropped_" +
+      "value\030\006 \001(\001R\014droppedValue\0222\n\025total_activ" +
+      "e_listings\030\007 \001(\005R\023totalActiveListings\022#\n" +
+      "\rdropped_share\030\010 \001(\001R\014droppedShare\022$\n\016fo" +
+      "r_sale_count\030\t \001(\005R\014forSaleCount\022&\n\017for_" +
+      "sale_priced\030\n \001(\005R\rforSalePriced\022\035\n\navg_" +
+      "asking\030\013 \001(\001R\tavgAsking\022#\n\rmedian_asking" +
+      "\030\014 \001(\001R\014medianAsking\022\035\n\nsold_count\030\r \001(\005" +
+      "R\tsoldCount\022\031\n\010avg_sold\030\016 \001(\001R\007avgSold\022\037" +
+      "\n\013median_sold\030\017 \001(\001R\nmedianSold\022\'\n\017subur" +
+      "bs_tracked\030\020 \001(\005R\016suburbsTracked\"\243\001\n\035Get" +
+      "PriceDropsOverviewResponse\022B\n\010national\030\001" +
+      " \001(\0132&.shorts.v1alpha1.StatePriceDropSum" +
+      "maryR\010national\022>\n\006states\030\002 \003(\0132&.shorts." +
+      "v1alpha1.StatePriceDropSummaryR\006states\"f" +
+      "\n\033ListAgencyPriceStatsRequest\022\035\n\nstate_c" +
+      "ode\030\001 \001(\tR\tstateCode\022\022\n\004sort\030\002 \001(\tR\004sort" +
+      "\022\024\n\005limit\030\003 \001(\005R\005limit\"\330\003\n\020AgencyPriceSt" +
+      "ats\022\026\n\006source\030\001 \001(\tR\006source\022\033\n\tagency_id" +
+      "\030\002 \001(\tR\010agencyId\022\037\n\013agency_name\030\003 \001(\tR\na" +
+      "gencyName\022\035\n\nstate_code\030\004 \001(\tR\tstateCode" +
+      "\022\'\n\017active_listings\030\005 \001(\005R\016activeListing" +
+      "s\022\'\n\017priced_listings\030\006 \001(\005R\016pricedListin" +
+      "gs\022\035\n\navg_asking\030\007 \001(\001R\tavgAsking\022#\n\rmed" +
+      "ian_asking\030\010 \001(\001R\014medianAsking\022\'\n\017suburb" +
+      "s_covered\030\t \001(\005R\016suburbsCovered\022#\n\rdropp" +
+      "ed_count\030\n \001(\005R\014droppedCount\022 \n\014avg_drop" +
+      "_pct\030\013 \001(\001R\navgDropPct\022(\n\020total_drop_val" +
+      "ue\030\014 \001(\001R\016totalDropValue\022\037\n\013agent_names\030" +
+      "\r \003(\tR\nagentNames\"]\n\034ListAgencyPriceStat" +
+      "sResponse\022=\n\010agencies\030\001 \003(\0132!.shorts.v1a" +
+      "lpha1.AgencyPriceStatsR\010agencies\"\224\003\n\016Dro" +
+      "pIndexPoint\022#\n\rsnapshot_date\030\001 \001(\tR\014snap",
+      "shotDate\022\033\n\tdrop_rate\030\002 \001(\001R\010dropRate\022&\n" +
+      "\017median_drop_pct\030\003 \001(\001R\rmedianDropPct\022#\n" +
+      "\rpanel_suburbs\030\004 \001(\005R\014panelSuburbs\022%\n\016co" +
+      "verage_ratio\030\005 \001(\001R\rcoverageRatio\022\025\n\006is_" +
+      "gap\030\006 \001(\010R\005isGap\022)\n\020active_addresses\030\007 \001" +
+      "(\005R\017activeAddresses\022+\n\021dropped_addresses" +
+      "\030\010 \001(\005R\020droppedAddresses\0226\n\027withdrawn_th" +
+      "en_relisted\030\t \001(\005R\025withdrawnThenRelisted" +
+      "\022%\n\016delisted_count\030\n \001(\005R\rdelistedCount\"" +
+      "r\n\031GetDropIndexSeriesRequest\022\024\n\005grain\030\001 " +
+      "\001(\tR\005grain\022\033\n\tgrain_key\030\002 \001(\tR\010grainKey\022" +
+      "\022\n\004from\030\003 \001(\tR\004from\022\016\n\002to\030\004 \001(\tR\002to\"|\n\032G" +
+      "etDropIndexSeriesResponse\0227\n\006points\030\001 \003(" +
+      "\0132\037.shorts.v1alpha1.DropIndexPointR\006poin" +
+      "ts\022%\n\016tracking_since\030\002 \001(\tR\rtrackingSinc" +
+      "e2\375\r\n\016HousingService\022s\n\022GetHousingOvervi" +
+      "ew\022*.shorts.v1alpha1.GetHousingOverviewR" +
+      "equest\032+.shorts.v1alpha1.GetHousingOverv" +
+      "iewResponse\"\004\200\265\030\001\022v\n\023GetHousePriceSeries" +
+      "\022+.shorts.v1alpha1.GetHousePriceSeriesRe" +
+      "quest\032,.shorts.v1alpha1.GetHousePriceSer" +
+      "iesResponse\"\004\200\265\030\001\022m\n\020ListStateSuburbs\022(." +
+      "shorts.v1alpha1.ListStateSuburbsRequest\032" +
+      ").shorts.v1alpha1.ListStateSuburbsRespon" +
+      "se\"\004\200\265\030\001\022g\n\016GetSuburbIndex\022&.shorts.v1al" +
+      "pha1.GetSuburbIndexRequest\032\'.shorts.v1al" +
+      "pha1.GetSuburbIndexResponse\"\004\200\265\030\001\022\177\n\026Get" +
+      "SuburbMetricColumns\022..shorts.v1alpha1.Ge" +
+      "tSuburbMetricColumnsRequest\032/.shorts.v1a" +
+      "lpha1.GetSuburbMetricColumnsResponse\"\004\200\265" +
+      "\030\001\022d\n\rFilterSuburbs\022%.shorts.v1alpha1.Fi" +
+      "lterSuburbsRequest\032&.shorts.v1alpha1.Fil" +
+      "terSuburbsResponse\"\004\200\265\030\001\022m\n\020GetSuburbPro" +
+      "file\022(.shorts.v1alpha1.GetSuburbProfileR" +
+      "equest\032).shorts.v1alpha1.GetSuburbProfil" +
+      "eResponse\"\004\200\265\030\001\022s\n\022ListHousingRegions\022*." +
+      "shorts.v1alpha1.ListHousingRegionsReques" +
+      "t\032+.shorts.v1alpha1.ListHousingRegionsRe" +
+      "sponse\"\004\200\265\030\001\022y\n\024ListSuburbPriceDrops\022,.s" +
+      "horts.v1alpha1.ListSuburbPriceDropsReque" +
+      "st\032-.shorts.v1alpha1.ListSuburbPriceDrop" +
+      "sResponse\"\004\200\265\030\001\022\177\n\026ListSuburbDropListing" +
+      "s\022..shorts.v1alpha1.ListSuburbDropListin" +
+      "gsRequest\032/.shorts.v1alpha1.ListSuburbDr" +
+      "opListingsResponse\"\004\200\265\030\001\022s\n\022GetPropertyH" +
+      "istory\022*.shorts.v1alpha1.GetPropertyHist" +
+      "oryRequest\032+.shorts.v1alpha1.GetProperty" +
+      "HistoryResponse\"\004\200\265\030\001\022|\n\025ListAddressPric" +
+      "eDrops\022-.shorts.v1alpha1.ListAddressPric" +
+      "eDropsRequest\032..shorts.v1alpha1.ListAddr" +
+      "essPriceDropsResponse\"\004\200\265\030\001\022|\n\025GetPriceD" +
+      "ropsOverview\022-.shorts.v1alpha1.GetPriceD" +
+      "ropsOverviewRequest\032..shorts.v1alpha1.Ge" +
+      "tPriceDropsOverviewResponse\"\004\200\265\030\001\022y\n\024Lis" +
+      "tAgencyPriceStats\022,.shorts.v1alpha1.List" +
+      "AgencyPriceStatsRequest\032-.shorts.v1alpha" +
+      "1.ListAgencyPriceStatsResponse\"\004\200\265\030\001\022s\n\022" +
+      "GetDropIndexSeries\022*.shorts.v1alpha1.Get" +
+      "DropIndexSeriesRequest\032+.shorts.v1alpha1" +
+      ".GetDropIndexSeriesResponse\"\004\200\265\030\001B\333\001\n\023co" +
+      "m.shorts.v1alpha1B\014HousingProtoP\001ZYgithu" +
+      "b.com/castlemilk/shorted.com.au/services" +
+      "/gen/proto/go/shorts/v1alpha1;shortsv1al" +
+      "pha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1" +
+      "alpha1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020S" +
+      "horts::V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -727,242 +856,314 @@ public final class HousingProto extends com.google.protobuf.GeneratedFile {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbAmenities_descriptor,
         new java.lang.String[] { "SchoolsTotal", "SupermarketsTotal", "ColesCount", "WoolworthsCount", "AldiCount", "IgaCount", "PubsBars", "ParksCount", "LibrariesCount", "NearestSupermarketKm", "AmenityDensityScore", "HospitalsCount", "GpCount", "PharmacyCount", "NearestTrainKm", "NearestHospitalKm", "DistToCoastKm", "SchoolsGov", "SchoolsCatholic", "SchoolsIndependent", "SchoolsPrimary", "SchoolsSecondary", "NearestSecondaryKm", });
-    internal_static_shorts_v1alpha1_SuburbSummary_descriptor =
+    internal_static_shorts_v1alpha1_SuburbSeifaIndex_descriptor =
       getDescriptor().getMessageType(8);
+    internal_static_shorts_v1alpha1_SuburbSeifaIndex_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_SuburbSeifaIndex_descriptor,
+        new java.lang.String[] { "Score", "DecileAus", "DecileState", });
+    internal_static_shorts_v1alpha1_SuburbSeifa_descriptor =
+      getDescriptor().getMessageType(9);
+    internal_static_shorts_v1alpha1_SuburbSeifa_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_SuburbSeifa_descriptor,
+        new java.lang.String[] { "Irsd", "Irsad", "Ier", "Ieo", });
+    internal_static_shorts_v1alpha1_SuburbElevation_descriptor =
+      getDescriptor().getMessageType(10);
+    internal_static_shorts_v1alpha1_SuburbElevation_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_SuburbElevation_descriptor,
+        new java.lang.String[] { "ElevationMinM", "ElevationMedianM", "ElevationMaxM", "LandShareBelow1M", "LandShareBelow2M", "LandShareBelow5M", });
+    internal_static_shorts_v1alpha1_SuburbSummary_descriptor =
+      getDescriptor().getMessageType(11);
     internal_static_shorts_v1alpha1_SuburbSummary_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbSummary_descriptor,
-        new java.lang.String[] { "SalCode", "SalName", "StateCode", "Postcode", "LatestMedianPrice", "LatestPeriod", "YoyPct", "Population", "MedianAge", "MedianWeeklyHhdIncome", "RegionCode", "PctBornOverseas", "TopReligion", "TopLanguage", "PctTopLanguage", "FederalDivision", "FederalMember", "FederalParty", "FederalPartyAb", "FederalTppAlp", "StateDistrict", "StateMember", "StateParty", "StatePartyAb", "Amenities", "DominantNbnTech", "ConnectivityQualityScore", "CrimeBreakInsRank", "CrimeViolentRank", "CrimeMotorVehicleRank", "PoliticianPropertyCount", });
+        new java.lang.String[] { "SalCode", "SalName", "StateCode", "Postcode", "LatestMedianPrice", "LatestPeriod", "YoyPct", "Population", "MedianAge", "MedianWeeklyHhdIncome", "RegionCode", "PctBornOverseas", "TopReligion", "TopLanguage", "PctTopLanguage", "FederalDivision", "FederalMember", "FederalParty", "FederalPartyAb", "FederalTppAlp", "StateDistrict", "StateMember", "StateParty", "StatePartyAb", "Amenities", "DominantNbnTech", "ConnectivityQualityScore", "CrimeBreakInsRank", "CrimeViolentRank", "CrimeMotorVehicleRank", "PoliticianPropertyCount", "Seifa", });
     internal_static_shorts_v1alpha1_ListStateSuburbsResponse_descriptor =
-      getDescriptor().getMessageType(9);
+      getDescriptor().getMessageType(12);
     internal_static_shorts_v1alpha1_ListStateSuburbsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStateSuburbsResponse_descriptor,
         new java.lang.String[] { "Suburbs", });
+    internal_static_shorts_v1alpha1_GetSuburbIndexRequest_descriptor =
+      getDescriptor().getMessageType(13);
+    internal_static_shorts_v1alpha1_GetSuburbIndexRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetSuburbIndexRequest_descriptor,
+        new java.lang.String[] { "StateCode", });
+    internal_static_shorts_v1alpha1_SuburbIndexEntry_descriptor =
+      getDescriptor().getMessageType(14);
+    internal_static_shorts_v1alpha1_SuburbIndexEntry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_SuburbIndexEntry_descriptor,
+        new java.lang.String[] { "SalCode", "SalName", "Postcode", });
+    internal_static_shorts_v1alpha1_GetSuburbIndexResponse_descriptor =
+      getDescriptor().getMessageType(15);
+    internal_static_shorts_v1alpha1_GetSuburbIndexResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetSuburbIndexResponse_descriptor,
+        new java.lang.String[] { "Suburbs", "IndexVersion", });
+    internal_static_shorts_v1alpha1_GetSuburbMetricColumnsRequest_descriptor =
+      getDescriptor().getMessageType(16);
+    internal_static_shorts_v1alpha1_GetSuburbMetricColumnsRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetSuburbMetricColumnsRequest_descriptor,
+        new java.lang.String[] { "StateCode", "MetricKeys", });
+    internal_static_shorts_v1alpha1_SuburbMetricColumn_descriptor =
+      getDescriptor().getMessageType(17);
+    internal_static_shorts_v1alpha1_SuburbMetricColumn_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_SuburbMetricColumn_descriptor,
+        new java.lang.String[] { "MetricKey", "Values", "NullMask", "CategoryLabels", });
+    internal_static_shorts_v1alpha1_GetSuburbMetricColumnsResponse_descriptor =
+      getDescriptor().getMessageType(18);
+    internal_static_shorts_v1alpha1_GetSuburbMetricColumnsResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetSuburbMetricColumnsResponse_descriptor,
+        new java.lang.String[] { "Columns", "IndexVersion", });
+    internal_static_shorts_v1alpha1_SuburbMetricPredicate_descriptor =
+      getDescriptor().getMessageType(19);
+    internal_static_shorts_v1alpha1_SuburbMetricPredicate_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_SuburbMetricPredicate_descriptor,
+        new java.lang.String[] { "MetricKey", "Min", "Max", });
+    internal_static_shorts_v1alpha1_FilterSuburbsRequest_descriptor =
+      getDescriptor().getMessageType(20);
+    internal_static_shorts_v1alpha1_FilterSuburbsRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_FilterSuburbsRequest_descriptor,
+        new java.lang.String[] { "StateCode", "Predicates", });
+    internal_static_shorts_v1alpha1_FilterSuburbsResponse_descriptor =
+      getDescriptor().getMessageType(21);
+    internal_static_shorts_v1alpha1_FilterSuburbsResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_FilterSuburbsResponse_descriptor,
+        new java.lang.String[] { "MatchMask", "MatchCount", "IndexVersion", });
     internal_static_shorts_v1alpha1_GetSuburbProfileRequest_descriptor =
-      getDescriptor().getMessageType(10);
+      getDescriptor().getMessageType(22);
     internal_static_shorts_v1alpha1_GetSuburbProfileRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetSuburbProfileRequest_descriptor,
         new java.lang.String[] { "SalCode", });
     internal_static_shorts_v1alpha1_SuburbDemographics_descriptor =
-      getDescriptor().getMessageType(11);
+      getDescriptor().getMessageType(23);
     internal_static_shorts_v1alpha1_SuburbDemographics_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbDemographics_descriptor,
-        new java.lang.String[] { "Population", "MedianAge", "MedianWeeklyHhdIncome", "MedianWeeklyPerIncome", "MedianWeeklyRent", "MedianMonthlyMortgage", "PctOwnedOutright", "PctOwnedMortgage", "PctRented", "DwellingCount", "CensusYear", "PctBornOverseas", "PctEnglishOnly", "TopReligion", "PctTopReligion", "PctNoReligion", "TopLanguage", "PctTopLanguage", });
+        new java.lang.String[] { "Population", "MedianAge", "MedianWeeklyHhdIncome", "MedianWeeklyPerIncome", "MedianWeeklyRent", "MedianMonthlyMortgage", "PctOwnedOutright", "PctOwnedMortgage", "PctRented", "DwellingCount", "CensusYear", "PctBornOverseas", "PctEnglishOnly", "TopReligion", "PctTopReligion", "PctNoReligion", "TopLanguage", "PctTopLanguage", "PctLowPersonalIncome", "PctHighPersonalIncome", "UnemploymentRate", "LabourForceParticipationRate", "PctBachelorOrHigher", "PctSeparateHouse", "PctFlatApartment", "PctCoupleWithChildren", "PctLonePersonHousehold", });
     internal_static_shorts_v1alpha1_ComparisonBaselines_descriptor =
-      getDescriptor().getMessageType(12);
+      getDescriptor().getMessageType(24);
     internal_static_shorts_v1alpha1_ComparisonBaselines_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ComparisonBaselines_descriptor,
         new java.lang.String[] { "StateMedianPrice", "NationalMedianPrice", "StateMedianWeeklyHhdIncome", "NationalMedianWeeklyHhdIncome", });
     internal_static_shorts_v1alpha1_LgaInfo_descriptor =
-      getDescriptor().getMessageType(13);
+      getDescriptor().getMessageType(25);
     internal_static_shorts_v1alpha1_LgaInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_LgaInfo_descriptor,
         new java.lang.String[] { "LgaCode", "LgaName", "StateCode", "AreaSqkm", "Population", "FedFagAud", "FedFagYear", "AvgRates", "OpSurplusRatio", "AssetRenewalRatio", "FinSource", "FinYear", });
     internal_static_shorts_v1alpha1_SimilarSuburb_descriptor =
-      getDescriptor().getMessageType(14);
+      getDescriptor().getMessageType(26);
     internal_static_shorts_v1alpha1_SimilarSuburb_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SimilarSuburb_descriptor,
         new java.lang.String[] { "SalCode", "SalName", "StateCode", "LatestMedianPrice", "Similarity", "RegionCode", });
     internal_static_shorts_v1alpha1_SuburbLandmark_descriptor =
-      getDescriptor().getMessageType(15);
+      getDescriptor().getMessageType(27);
     internal_static_shorts_v1alpha1_SuburbLandmark_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbLandmark_descriptor,
         new java.lang.String[] { "Name", "Kind", });
     internal_static_shorts_v1alpha1_SuburbBanner_descriptor =
-      getDescriptor().getMessageType(16);
+      getDescriptor().getMessageType(28);
     internal_static_shorts_v1alpha1_SuburbBanner_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbBanner_descriptor,
         new java.lang.String[] { "Archetype", "Blurb", "Landmarks", "BgKey", "BgUrl", });
     internal_static_shorts_v1alpha1_SuburbCrimeStat_descriptor =
-      getDescriptor().getMessageType(17);
+      getDescriptor().getMessageType(29);
     internal_static_shorts_v1alpha1_SuburbCrimeStat_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbCrimeStat_descriptor,
         new java.lang.String[] { "CrimeType", "RatePer100K", "PctRank", "FyEnding", });
     internal_static_shorts_v1alpha1_SuburbCrime_descriptor =
-      getDescriptor().getMessageType(18);
+      getDescriptor().getMessageType(30);
     internal_static_shorts_v1alpha1_SuburbCrime_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbCrime_descriptor,
         new java.lang.String[] { "Stats", "SourceJurisdiction", "Source", "SourceLicence", });
     internal_static_shorts_v1alpha1_SuburbListingStats_descriptor =
-      getDescriptor().getMessageType(19);
+      getDescriptor().getMessageType(31);
     internal_static_shorts_v1alpha1_SuburbListingStats_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbListingStats_descriptor,
         new java.lang.String[] { "ForSaleCount", "AvgAsking", "MedianAsking", "SoldCount", "AvgSold", "MedianSold", });
     internal_static_shorts_v1alpha1_GetSuburbProfileResponse_descriptor =
-      getDescriptor().getMessageType(20);
+      getDescriptor().getMessageType(32);
     internal_static_shorts_v1alpha1_GetSuburbProfileResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetSuburbProfileResponse_descriptor,
-        new java.lang.String[] { "Summary", "Demographics", "Baselines", "Council", "Similar", "Banner", "Crime", "ListingStats", });
+        new java.lang.String[] { "Summary", "Demographics", "Baselines", "Council", "Similar", "Banner", "Crime", "ListingStats", "Elevation", });
     internal_static_shorts_v1alpha1_ListHousingRegionsRequest_descriptor =
-      getDescriptor().getMessageType(21);
+      getDescriptor().getMessageType(33);
     internal_static_shorts_v1alpha1_ListHousingRegionsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListHousingRegionsRequest_descriptor,
         new java.lang.String[] { "RegionType", "StateCode", "Query", "Limit", });
     internal_static_shorts_v1alpha1_HousingRegion_descriptor =
-      getDescriptor().getMessageType(22);
+      getDescriptor().getMessageType(34);
     internal_static_shorts_v1alpha1_HousingRegion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_HousingRegion_descriptor,
         new java.lang.String[] { "RegionCode", "RegionName", "RegionType", "StateCode", "Postcode", "LatestValue", "LatestPeriod", });
     internal_static_shorts_v1alpha1_ListHousingRegionsResponse_descriptor =
-      getDescriptor().getMessageType(23);
+      getDescriptor().getMessageType(35);
     internal_static_shorts_v1alpha1_ListHousingRegionsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListHousingRegionsResponse_descriptor,
         new java.lang.String[] { "Regions", });
     internal_static_shorts_v1alpha1_ListSuburbPriceDropsRequest_descriptor =
-      getDescriptor().getMessageType(24);
+      getDescriptor().getMessageType(36);
     internal_static_shorts_v1alpha1_ListSuburbPriceDropsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListSuburbPriceDropsRequest_descriptor,
         new java.lang.String[] { "StateCode", "WindowDays", "Sort", "Limit", });
     internal_static_shorts_v1alpha1_SuburbPriceDrop_descriptor =
-      getDescriptor().getMessageType(25);
+      getDescriptor().getMessageType(37);
     internal_static_shorts_v1alpha1_SuburbPriceDrop_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbPriceDrop_descriptor,
         new java.lang.String[] { "RegionCode", "SalCode", "SalName", "StateCode", "DroppedListingCount", "AvgDropPct", "MedianDropPct", "MaxDropPct", "MaxDropAbs", "TotalActiveListings", "DroppedShare", "Postcode", "ForSaleCount", "AvgAsking", "MedianAsking", "SoldCount", "AvgSold", "MedianSold", "DroppedValue", });
     internal_static_shorts_v1alpha1_ListSuburbPriceDropsResponse_descriptor =
-      getDescriptor().getMessageType(26);
+      getDescriptor().getMessageType(38);
     internal_static_shorts_v1alpha1_ListSuburbPriceDropsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListSuburbPriceDropsResponse_descriptor,
         new java.lang.String[] { "Suburbs", });
     internal_static_shorts_v1alpha1_ListSuburbDropListingsRequest_descriptor =
-      getDescriptor().getMessageType(27);
+      getDescriptor().getMessageType(39);
     internal_static_shorts_v1alpha1_ListSuburbDropListingsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListSuburbDropListingsRequest_descriptor,
         new java.lang.String[] { "SalCode", "RegionCode", "WindowDays", "Limit", });
     internal_static_shorts_v1alpha1_SuburbDropListing_descriptor =
-      getDescriptor().getMessageType(28);
+      getDescriptor().getMessageType(40);
     internal_static_shorts_v1alpha1_SuburbDropListing_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_SuburbDropListing_descriptor,
         new java.lang.String[] { "Source", "ListingUrl", "DisplayAddress", "PropertyType", "Bedrooms", "Bathrooms", "CarSpaces", "PrevPrice", "Price", "DropPct", "DropAbs", "ObservedAt", "AddressKey", "AgencyName", "AgentNames", });
     internal_static_shorts_v1alpha1_ListSuburbDropListingsResponse_descriptor =
-      getDescriptor().getMessageType(29);
+      getDescriptor().getMessageType(41);
     internal_static_shorts_v1alpha1_ListSuburbDropListingsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListSuburbDropListingsResponse_descriptor,
         new java.lang.String[] { "Listings", });
     internal_static_shorts_v1alpha1_GetPropertyHistoryRequest_descriptor =
-      getDescriptor().getMessageType(30);
+      getDescriptor().getMessageType(42);
     internal_static_shorts_v1alpha1_GetPropertyHistoryRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetPropertyHistoryRequest_descriptor,
         new java.lang.String[] { "AddressKey", });
     internal_static_shorts_v1alpha1_PropertyListingSnapshot_descriptor =
-      getDescriptor().getMessageType(31);
+      getDescriptor().getMessageType(43);
     internal_static_shorts_v1alpha1_PropertyListingSnapshot_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_PropertyListingSnapshot_descriptor,
         new java.lang.String[] { "Source", "ListingId", "ListingUrl", "Price", "PriceDisplay", "PriceKind", "ListingStatus", "IsActive", "Bedrooms", "Bathrooms", "CarSpaces", "LandSizeSqm", "PropertyType", "FirstSeenAt", "LastSeenAt", "AgencyName", "AgentNames", });
     internal_static_shorts_v1alpha1_PropertyPriceEvent_descriptor =
-      getDescriptor().getMessageType(32);
+      getDescriptor().getMessageType(44);
     internal_static_shorts_v1alpha1_PropertyPriceEvent_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_PropertyPriceEvent_descriptor,
         new java.lang.String[] { "ObservedAt", "EventType", "Source", "ListingId", "Price", "PrevPrice", "DropAbs", "DropPct", "ListingStatus", "PrevStatus", });
     internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_descriptor =
-      getDescriptor().getMessageType(33);
+      getDescriptor().getMessageType(45);
     internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetPropertyHistoryResponse_descriptor,
         new java.lang.String[] { "AddressKey", "DisplayAddress", "Suburb", "StateCode", "Postcode", "Current", "Events", "NumListings", "FirstPrice", "CurrentPrice", "DistinctDwellings", "Valuation", });
     internal_static_shorts_v1alpha1_PropertyValuationSale_descriptor =
-      getDescriptor().getMessageType(34);
+      getDescriptor().getMessageType(46);
     internal_static_shorts_v1alpha1_PropertyValuationSale_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_PropertyValuationSale_descriptor,
         new java.lang.String[] { "Date", "Price", "Agency", "EventType", });
     internal_static_shorts_v1alpha1_PropertyValuation_descriptor =
-      getDescriptor().getMessageType(35);
+      getDescriptor().getMessageType(47);
     internal_static_shorts_v1alpha1_PropertyValuation_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_PropertyValuation_descriptor,
         new java.lang.String[] { "Source", "ProfileUrl", "FetchedAt", "EstimateLow", "EstimateMid", "EstimateHigh", "EstimateConfidence", "ValuationGranularity", "RentEstimateMid", "Bedrooms", "Bathrooms", "CarSpaces", "LandSizeSqm", "BuildingSizeSqm", "YearBuilt", "PropertyType", "SalesHistory", });
     internal_static_shorts_v1alpha1_ListAddressPriceDropsRequest_descriptor =
-      getDescriptor().getMessageType(36);
+      getDescriptor().getMessageType(48);
     internal_static_shorts_v1alpha1_ListAddressPriceDropsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListAddressPriceDropsRequest_descriptor,
         new java.lang.String[] { "StateCode", "WindowDays", "Limit", "Sort", });
     internal_static_shorts_v1alpha1_AddressPriceDrop_descriptor =
-      getDescriptor().getMessageType(37);
+      getDescriptor().getMessageType(49);
     internal_static_shorts_v1alpha1_AddressPriceDrop_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_AddressPriceDrop_descriptor,
         new java.lang.String[] { "AddressKey", "DisplayAddress", "Suburb", "StateCode", "Postcode", "FirstPrice", "CurrentPrice", "DropAbs", "DropPct", "NumListings", "LatestSource", "LatestListingUrl", "LastObservedAt", "PropertyType", "Bedrooms", "Bathrooms", "AgencyName", "AgentNames", });
     internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_descriptor =
-      getDescriptor().getMessageType(38);
+      getDescriptor().getMessageType(50);
     internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListAddressPriceDropsResponse_descriptor,
         new java.lang.String[] { "Addresses", });
     internal_static_shorts_v1alpha1_GetPriceDropsOverviewRequest_descriptor =
-      getDescriptor().getMessageType(39);
+      getDescriptor().getMessageType(51);
     internal_static_shorts_v1alpha1_GetPriceDropsOverviewRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetPriceDropsOverviewRequest_descriptor,
         new java.lang.String[] { });
     internal_static_shorts_v1alpha1_StatePriceDropSummary_descriptor =
-      getDescriptor().getMessageType(40);
+      getDescriptor().getMessageType(52);
     internal_static_shorts_v1alpha1_StatePriceDropSummary_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StatePriceDropSummary_descriptor,
         new java.lang.String[] { "StateCode", "DroppedCount", "AvgDropPct", "MedianDropPct", "MaxDropPct", "DroppedValue", "TotalActiveListings", "DroppedShare", "ForSaleCount", "ForSalePriced", "AvgAsking", "MedianAsking", "SoldCount", "AvgSold", "MedianSold", "SuburbsTracked", });
     internal_static_shorts_v1alpha1_GetPriceDropsOverviewResponse_descriptor =
-      getDescriptor().getMessageType(41);
+      getDescriptor().getMessageType(53);
     internal_static_shorts_v1alpha1_GetPriceDropsOverviewResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetPriceDropsOverviewResponse_descriptor,
         new java.lang.String[] { "National", "States", });
     internal_static_shorts_v1alpha1_ListAgencyPriceStatsRequest_descriptor =
-      getDescriptor().getMessageType(42);
+      getDescriptor().getMessageType(54);
     internal_static_shorts_v1alpha1_ListAgencyPriceStatsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListAgencyPriceStatsRequest_descriptor,
         new java.lang.String[] { "StateCode", "Sort", "Limit", });
     internal_static_shorts_v1alpha1_AgencyPriceStats_descriptor =
-      getDescriptor().getMessageType(43);
+      getDescriptor().getMessageType(55);
     internal_static_shorts_v1alpha1_AgencyPriceStats_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_AgencyPriceStats_descriptor,
         new java.lang.String[] { "Source", "AgencyId", "AgencyName", "StateCode", "ActiveListings", "PricedListings", "AvgAsking", "MedianAsking", "SuburbsCovered", "DroppedCount", "AvgDropPct", "TotalDropValue", "AgentNames", });
     internal_static_shorts_v1alpha1_ListAgencyPriceStatsResponse_descriptor =
-      getDescriptor().getMessageType(44);
+      getDescriptor().getMessageType(56);
     internal_static_shorts_v1alpha1_ListAgencyPriceStatsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListAgencyPriceStatsResponse_descriptor,
         new java.lang.String[] { "Agencies", });
     internal_static_shorts_v1alpha1_DropIndexPoint_descriptor =
-      getDescriptor().getMessageType(45);
+      getDescriptor().getMessageType(57);
     internal_static_shorts_v1alpha1_DropIndexPoint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_DropIndexPoint_descriptor,
         new java.lang.String[] { "SnapshotDate", "DropRate", "MedianDropPct", "PanelSuburbs", "CoverageRatio", "IsGap", "ActiveAddresses", "DroppedAddresses", "WithdrawnThenRelisted", "DelistedCount", });
     internal_static_shorts_v1alpha1_GetDropIndexSeriesRequest_descriptor =
-      getDescriptor().getMessageType(46);
+      getDescriptor().getMessageType(58);
     internal_static_shorts_v1alpha1_GetDropIndexSeriesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetDropIndexSeriesRequest_descriptor,
         new java.lang.String[] { "Grain", "GrainKey", "From", "To", });
     internal_static_shorts_v1alpha1_GetDropIndexSeriesResponse_descriptor =
-      getDescriptor().getMessageType(47);
+      getDescriptor().getMessageType(59);
     internal_static_shorts_v1alpha1_GetDropIndexSeriesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetDropIndexSeriesResponse_descriptor,

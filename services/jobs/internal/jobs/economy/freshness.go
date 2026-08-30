@@ -78,9 +78,9 @@ var (
 	// marked this source STALE on every monthly run since. ExpectedDays is two
 	// annual cycles because that — not one — is the interval a given period start
 	// must survive.
-	annualFreshnessCadence      = freshnessCadence{Cadence: "annual", ExpectedDays: 730, GraceDays: 280}
-	correlationFreshnessCadence = freshnessCadence{Cadence: "monthly", ExpectedDays: 30, GraceDays: 10}
-	frozenRetailFreshnessCadence      = freshnessCadence{
+	annualFreshnessCadence       = freshnessCadence{Cadence: "annual", ExpectedDays: 730, GraceDays: 280}
+	correlationFreshnessCadence  = freshnessCadence{Cadence: "monthly", ExpectedDays: 30, GraceDays: 10}
+	frozenRetailFreshnessCadence = freshnessCadence{
 		Cadence:      "monthly",
 		ExpectedDays: 30,
 		GraceDays:    80,
@@ -130,14 +130,24 @@ const correlationFreshnessQuery = `
 SELECT MAX(computed_at)
 FROM economic_correlations`
 
+// headroomFraction is the share of its threshold a source may consume before
+// the report warns. Thresholds are calibrated against MEASURED publisher lags,
+// so they drift when a publisher slips its release: the last 10% is the only
+// notice we get between "healthy" and a red sentinel that has to be triaged
+// under time pressure. A WARN is not a failure and never changes the exit code.
+const headroomFraction = 0.9
+
 type freshnessResult struct {
 	SourceKey     string
 	MaxPeriod     *time.Time
 	AgeDays       *int
 	ThresholdDays int
 	Stale         bool
-	Frozen        bool
-	Note          string
+	// Warn is set when a non-frozen, non-stale source is within
+	// headroomFraction of its threshold.
+	Warn   bool
+	Frozen bool
+	Note   string
 }
 
 func classifyFreshness(sourceKey string, maxPeriod *time.Time, now time.Time, cadence freshnessCadence) freshnessResult {
@@ -156,6 +166,8 @@ func classifyFreshness(sourceKey string, maxPeriod *time.Time, now time.Time, ca
 	ageDays := int(now.Sub(*maxPeriod).Hours() / 24)
 	result.AgeDays = &ageDays
 	result.Stale = !result.Frozen && ageDays > result.ThresholdDays
+	result.Warn = !result.Frozen && !result.Stale &&
+		float64(ageDays) > headroomFraction*float64(result.ThresholdDays)
 	return result
 }
 
@@ -218,6 +230,7 @@ func writeFreshnessReport(w io.Writer, results []freshnessResult) int {
 
 	stale := 0
 	frozen := 0
+	warn := 0
 	for _, result := range sorted {
 		maxPeriod := "NULL"
 		ageDays := "unknown"
@@ -234,6 +247,9 @@ func writeFreshnessReport(w io.Writer, results []freshnessResult) int {
 		} else if result.Stale {
 			status = "STALE"
 			stale++
+		} else if result.Warn {
+			status = "WARN"
+			warn++
 		}
 		fmt.Fprintf(w, "source_key=%s max_period=%s age_days=%s threshold=%d status=%s",
 			result.SourceKey, maxPeriod, ageDays, result.ThresholdDays, status)
@@ -242,6 +258,6 @@ func writeFreshnessReport(w io.Writer, results []freshnessResult) int {
 		}
 		fmt.Fprintln(w)
 	}
-	fmt.Fprintf(w, "freshness: total=%d stale=%d frozen=%d\n", len(sorted), stale, frozen)
+	fmt.Fprintf(w, "freshness: total=%d stale=%d warn=%d frozen=%d\n", len(sorted), stale, warn, frozen)
 	return stale
 }

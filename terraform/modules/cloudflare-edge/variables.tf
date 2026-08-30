@@ -353,6 +353,34 @@ variable "edge_rate_limit_anon_requests_per_minute" {
   default     = 30
 }
 
+# --- api.shorted.com.au, /mcp, anonymous (keyed by real client IP) ---
+
+variable "edge_rate_limit_mcp_anon_burst_requests" {
+  description = <<-EOT
+    10-second ceiling for anonymous MCP callers, keyed by client IP.
+
+    /mcp is not shaped like an API request. It is a handshake followed by a
+    burst of tool calls that the MCP SDK issues SEQUENTIALLY, so elapsed time
+    is no mitigation: Phase 2 measured a "compare these five stocks" turn
+    crossing the anonymous API bucket's 10/10s before the model had finished
+    thinking. 60/10s is roughly six times that ceiling — high enough that a
+    normal agent turn never touches it, low enough that a scripted loop does.
+
+    NOT an exemption. /mcp is an unauthenticated tool surface, and until the
+    app-layer limiter ships this is its ONLY ceiling; afterwards it remains the
+    abuse ceiling for callers who never authenticate. Authenticated MCP callers
+    carry a bearer token and resolve to the api-key bucket instead.
+  EOT
+  type        = number
+  default     = 60
+}
+
+variable "edge_rate_limit_mcp_anon_requests_per_minute" {
+  description = "60-second ceiling for anonymous MCP callers, keyed by client IP. Paired with the burst ceiling above; see it for the sizing rationale."
+  type        = number
+  default     = 300
+}
+
 # --- api.shorted.com.au, first-party (Vercel SSR + the Next.js rewrite proxy) ---
 
 variable "edge_rate_limit_first_party_burst_requests" {
@@ -445,6 +473,28 @@ variable "edge_rate_limit_anon_burst_namespace_id" {
   validation {
     condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_anon_burst_namespace_id))
     error_message = "edge_rate_limit_anon_burst_namespace_id must be a stringified positive integer."
+  }
+}
+
+variable "edge_rate_limit_mcp_anon_burst_namespace_id" {
+  description = "Rate limiting namespace ID for the anonymous MCP per-IP 10s burst bucket."
+  type        = string
+  default     = "2010"
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_mcp_anon_burst_namespace_id))
+    error_message = "edge_rate_limit_mcp_anon_burst_namespace_id must be a stringified positive integer."
+  }
+}
+
+variable "edge_rate_limit_mcp_anon_namespace_id" {
+  description = "Rate limiting namespace ID for the anonymous MCP per-IP 60s sustained bucket."
+  type        = string
+  default     = "2011"
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.edge_rate_limit_mcp_anon_namespace_id))
+    error_message = "edge_rate_limit_mcp_anon_namespace_id must be a stringified positive integer."
   }
 }
 

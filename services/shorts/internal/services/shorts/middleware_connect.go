@@ -273,7 +273,13 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
 			// 2. Try to validate our bespoke API token
-			claims, err := opts.TokenService.ValidateToken(tokenString)
+			// ValidateConnectToken, not ValidateToken: it additionally requires
+			// the token's audience to name THIS surface. An OAuth access token
+			// minted for the /mcp resource is refused here, so a read-only MCP
+			// consent cannot be spent on the Connect API — where MintToken would
+			// upgrade it to a 30-day whole-API credential. Audience-less
+			// pre-existing tokens are unaffected.
+			claims, err := opts.TokenService.ValidateConnectToken(tokenString)
 			if err == nil {
 				// Record API token auth method metric
 				if shortedotel.AuthMethod != nil {

@@ -45,7 +45,17 @@ means "check the release page for the new issue", not breakage. For each
 STALE source: check the upstream release page for a schedule
 change before assuming breakage; then check collector job logs
 (`gcloud logging read ... job_name="shorted-economy"`, config
-`shorted-prod`).
+`shorted-prod`). A **WARN** line (age past 90% of threshold, non-fatal) means
+the calibration is about to drift red — chase the publisher's release cadence
+now, not on the next run.
+
+The sentinel runs as its OWN prod job, `shorted-economy-freshness` (the ingest
+is `shorted-economy`); read the sentinel's own logs with
+`job_name="shorted-economy-freshness"`.
+
+Ingest exit codes (`-mode all`): `10` = DEGRADED, some sources collected and
+some failed — grep `economy: DEGRADED` for the names; `1` = nothing collected
+(systemic).
 
 ### 1b. Catalog diff (new + removed ABS flows)
 ```bash

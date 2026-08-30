@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -22,7 +23,7 @@ import (
 // that add a fetcher + crosswalk and append to the jds slice below.
 const crimeRunSource = "crime_primaries"
 
-func runCrime(ctx context.Context, pool *pgxpool.Pool) {
+func runCrime(ctx context.Context, pool *pgxpool.Pool) error {
 	mode := crimeScalerMode()
 	dryRun := envBool("CRIME_DRY_RUN", true)
 	log.Printf("[crime] scaler mode=%s dry_run=%v", mode, dryRun)
@@ -32,7 +33,7 @@ func runCrime(ctx context.Context, pool *pgxpool.Pool) {
 	if err != nil {
 		log.Printf("[crime] sal registry error: %v", err)
 		_ = updateRun(ctx, pool, crimeRunSource, nil, 0, "error", err.Error())
-		return
+		return err
 	}
 
 	// 2. ABS CVS (state scaling anchor) + population bases.
@@ -40,13 +41,13 @@ func runCrime(ctx context.Context, pool *pgxpool.Pool) {
 	if err != nil {
 		log.Printf("[crime] CVS fetch error: %v", err)
 		_ = updateRun(ctx, pool, crimeRunSource, nil, 0, "error", err.Error())
-		return
+		return err
 	}
 	cvs, err := parseCVS(pooledB, popB)
 	if err != nil {
 		log.Printf("[crime] CVS parse error: %v", err)
 		_ = updateRun(ctx, pool, crimeRunSource, nil, 0, "error", err.Error())
-		return
+		return err
 	}
 	log.Printf("[crime] CVS parsed: %d states, base FY %d", len(cvs.StateBase), cvs.BaseFY)
 
@@ -55,7 +56,7 @@ func runCrime(ctx context.Context, pool *pgxpool.Pool) {
 	if err != nil {
 		log.Printf("[crime] ERP build error: %v", err)
 		_ = updateRun(ctx, pool, crimeRunSource, nil, 0, "error", err.Error())
-		return
+		return err
 	}
 
 	// 4. Per-jurisdiction police fetch + crosswalk + SAL bridge.
@@ -64,7 +65,7 @@ func runCrime(ctx context.Context, pool *pgxpool.Pool) {
 	if err != nil {
 		log.Printf("[crime] NSW fetch error: %v", err)
 		_ = updateRun(ctx, pool, crimeRunSource, nil, 0, "error", err.Error())
-		return
+		return err
 	}
 	minMatch := envFloat("CRIME_MIN_MATCH_RATE", 0.95)
 	log.Printf("[crime] NSW: %d suburbs matched, %d unmatched (%.1f%%), %d raw rows",
@@ -74,7 +75,7 @@ func runCrime(ctx context.Context, pool *pgxpool.Pool) {
 			nsw.matchRate()*100, minMatch*100, nsw.unmatchedSample)
 		log.Printf("[crime] %s", msg)
 		_ = updateRun(ctx, pool, crimeRunSource, nil, 0, "error", msg)
-		return
+		return errors.New(msg)
 	}
 	if nsw.matchRate() < 0.98 {
 		log.Printf("[crime] WARNING: NSW match rate %.1f%% below the 98%% plan target; unmatched: %v",
@@ -88,15 +89,19 @@ func runCrime(ctx context.Context, pool *pgxpool.Pool) {
 		len(rows), stats.SingleRows, stats.PooledRows, stats.StateScales, stats.LatestFY)
 	logCrimeSample(rows)
 	if len(rows) == 0 {
-		_ = updateRun(ctx, pool, crimeRunSource, nil, 0, "error", "no rows computed (no CVS/ERP overlap?)")
-		return
+		const msg = "no rows computed (no CVS/ERP overlap?)"
+		_ = updateRun(ctx, pool, crimeRunSource, nil, 0, "error", msg)
+		return errors.New(msg)
 	}
 
 	lastFY := fyEndDate(stats.LatestFY)
 	if dryRun {
 		log.Printf("[crime] DRY-RUN — not writing %d rows (set CRIME_DRY_RUN=false to apply)", len(rows))
 		_ = updateRun(ctx, pool, crimeRunSource, lastFY, len(rows), "ok", "dry-run")
-		return
+		// A dry run that got this far succeeded: it computed rows and chose not
+		// to write them. Exiting non-zero here would make the default invocation
+		// look like a failure.
+		return nil
 	}
 
 	// 6. Upsert + refresh the housing MVs (mv_suburb_crime_latest folded in).
@@ -104,7 +109,7 @@ func runCrime(ctx context.Context, pool *pgxpool.Pool) {
 	if err != nil {
 		log.Printf("[crime] upsert error after %d: %v", n, err)
 		_ = updateRun(ctx, pool, crimeRunSource, lastFY, n, "error", err.Error())
-		return
+		return err
 	}
 	log.Printf("[crime] upserted %d rows", n)
 	if err := refresh(ctx, pool); err != nil {
@@ -113,9 +118,10 @@ func runCrime(ctx context.Context, pool *pgxpool.Pool) {
 		// see it rather than banking a success the read path can't observe.
 		log.Printf("[crime] mv refresh failed after %d rows: %v", n, err)
 		_ = updateRun(ctx, pool, crimeRunSource, lastFY, n, "error", fmt.Sprintf("mv refresh: %v", err))
-		return
+		return err
 	}
 	_ = updateRun(ctx, pool, crimeRunSource, lastFY, n, "ok", fmt.Sprintf("mode=%s", mode))
+	return nil
 }
 
 // loadCrimeSalRegistry builds state → (normalised sal_name → sal_code) from

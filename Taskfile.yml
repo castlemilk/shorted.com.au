@@ -238,6 +238,63 @@ tasks:
     cmds:
       - 'PGOPTIONS="-c statement_timeout=0" psql "{{.DB_PROD_SESSION}}" -v ON_ERROR_STOP=1 -f {{.FILE}}'
 
+  news:publish:
+    desc: "Publish hand-written articles from content/news to /news (CONFIRM=prod)"
+    summary: |
+      Publishes every MDX file in content/news (or one, with FILE=...) to the
+      live /news section.
+
+      /news is DATABASE-backed (editorial_takes), unlike /blog which is files
+      in web/_blogs. That is why publishing needs a DSN at all, and why an
+      article written by a human previously had no way in — every other route
+      into /news goes through the LLM pipeline.
+
+      What this does, in order:
+        1. upsert each article on slug (hero defaults to the cover image)
+        2. set published_at
+        3. ping /api/revalidate for /news, /news/<slug> and /
+
+      Skips image generation and the Gemini vision check — both need API keys
+      this path deliberately does not require. Run `regen-images` and
+      `validate-article` separately when you have them.
+
+      Frontmatter contract: slug, headline (required); standfirst, byline,
+      stockCode, tier (take|deep_dive), bodyFormat (markdown|mdx), ogImageUrl.
+      stockCode is optional — a market-wide piece legitimately has none.
+
+      The body may only use standard markdown/HTML plus CitationPill and
+      CitationSources. Anything else renders as NOTHING, silently, so the
+      importer refuses the file rather than publishing one with a hole in it.
+
+      Dry run first:  task news:publish:check
+    requires: {vars: [CONFIRM]}
+    preconditions:
+      - sh: '[ "{{.CONFIRM}}" = "prod" ]'
+        msg: "refusing: pass CONFIRM=prod to publish to the live site"
+      - sh: '[ -n "{{.DB_PROD_TXN}}" ]'
+        msg: "no prod DSN found in services/.env"
+    vars:
+      TARGET: '{{if .FILE}}--file={{.FILE}}{{else}}--dir=../../content/news{{end}}'
+      REVALIDATION_SECRET:
+        sh: grep -m1 '^REVALIDATION_SECRET=' ~/.shorted-housing-crawl.env 2>/dev/null | cut -d= -f2- | tr -d '"' || true
+    dir: scripts/take-writer
+    env:
+      # Pinned, never ambient — same rule as every other prod task here.
+      DATABASE_URL: "{{.DB_PROD_TXN}}"
+      REVALIDATION_SECRET: "{{.REVALIDATION_SECRET}}"
+      REVALIDATION_URL: "https://shorted.com.au/api/revalidate"
+      PGOPTIONS: ""
+    cmds:
+      - npx tsx src/index.ts import-mdx {{.TARGET}} --publish
+
+  news:publish:check:
+    desc: "Dry-run the /news publish — parses and validates, writes nothing"
+    dir: scripts/take-writer
+    vars:
+      TARGET: '{{if .FILE}}--file={{.FILE}}{{else}}--dir=../../content/news{{end}}'
+    cmds:
+      - npx tsx src/index.ts import-mdx {{.TARGET}} --dry-run
+
   db:prod:refresh:
     desc: "Refresh prod materialized views (WHICH=all|housing|register, CONFIRM=prod)"
     summary: |

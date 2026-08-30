@@ -651,6 +651,33 @@ service ShortedStocksService {
     };
   }
 
+  // Stable sal_code-ordered index used by all columnar suburb responses.
+  rpc GetSuburbIndex (GetSuburbIndexRequest) returns (GetSuburbIndexResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Suburb Index",
+      description: "Stable sal_code-ordered suburb identity index for one state, with an index version used to align compact metric columns and filter masks."
+    };
+  }
+
+  // Fetch only the map metric columns currently needed by the client.
+  rpc GetSuburbMetricColumns (GetSuburbMetricColumnsRequest) returns (GetSuburbMetricColumnsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Suburb Metric Columns",
+      description: "Compact float32 suburb metric columns aligned to GetSuburbIndex, with explicit null masks and a shared index version."
+    };
+  }
+
+  // Return a compact index-aligned mask for ANDed metric predicates.
+  rpc FilterSuburbs (FilterSuburbsRequest) returns (FilterSuburbsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Filter Suburbs",
+      description: "Packed sal_code-index-aligned bitset for inclusive metric range predicates, ANDed server-side."
+    };
+  }
+
   // Full per-suburb profile: identity, demographics, headline price, comparison baselines.
   rpc GetSuburbProfile (GetSuburbProfileRequest) returns (GetSuburbProfileResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;

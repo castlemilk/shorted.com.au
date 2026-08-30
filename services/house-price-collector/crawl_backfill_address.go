@@ -18,12 +18,12 @@ import (
 
 // runBackfillAddress orchestrates both passes and records the run cursor under
 // "backfill_address_key".
-func runBackfillAddress(ctx context.Context, pool *pgxpool.Pool) {
+func runBackfillAddress(ctx context.Context, pool *pgxpool.Pool) error {
 	total, updated, err := backfillListingAddressKeys(ctx, pool)
 	if err != nil {
 		log.Printf("[backfill-address] listings error after %d/%d updated: %v", updated, total, err)
 		_ = updateRun(ctx, pool, "backfill_address_key", nil, updated, "error", err.Error())
-		return
+		return err
 	}
 	log.Printf("[backfill-address] listings: %d/%d rows updated (address_key derived from display_address+suburb+state_code+postcode)", updated, total)
 
@@ -31,10 +31,11 @@ func runBackfillAddress(ctx context.Context, pool *pgxpool.Pool) {
 	if err != nil {
 		log.Printf("[backfill-address] price_events error: %v", err)
 		_ = updateRun(ctx, pool, "backfill_address_key", nil, updated, "error", err.Error())
-		return
+		return err
 	}
 	log.Printf("[backfill-address] price_events: %d rows updated", evUpdated)
 	_ = updateRun(ctx, pool, "backfill_address_key", nil, updated+int(evUpdated), "ok", "")
+	return nil
 }
 
 // addressBackfillRow is one property_listings row's address-identifying

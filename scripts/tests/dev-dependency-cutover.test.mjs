@@ -53,7 +53,7 @@ test("deployed application defaults use production-owned buckets", () => {
 
 test("database migration rewrites every persisted dev-bucket URL surface", () => {
   const migration = read(
-    "services/migrations/000113_retire_dev_bucket_urls.up.sql",
+    "docs/operations/sql/retire-dev-bucket-urls.up.sql",
   );
 
   for (const table of [

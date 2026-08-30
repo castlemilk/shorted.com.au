@@ -61,6 +61,7 @@
     "supabase:status": "supabase status",
     "supabase:migrate": "supabase db push",
     "algolia:sync": "tsx scripts/sync-algolia.ts",
+    "docs:api-markdown": "node scripts/generate-api-markdown.mjs",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build"
   },

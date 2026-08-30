@@ -4,7 +4,7 @@
 # Cloud targets fail closed unless the operator names a project explicitly.
 GCP_PROJECT_ID ?=
 
-.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down verify-fast verify-full verify-integration install install-hooks clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick backfill-websites backfill-websites-dry db-diagnose db-optimize db-analyze algolia-sync algolia-sync-prod algolia-search enrich-metadata enrich-metadata-all enrich-metadata-stocks pipeline-local pipeline-prod pipeline-daily pipeline-help
+.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down verify-fast verify-full verify-integration install install-hooks clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick backfill-websites backfill-websites-dry db-diagnose db-optimize db-analyze algolia-sync algolia-sync-prod algolia-search enrich-metadata enrich-metadata-all enrich-metadata-stocks pipeline-local pipeline-prod pipeline-daily pipeline-help openapi
 
 define kill_pids_in_project_by_pattern
 for pid in $$(pgrep -f "$(1)" 2>/dev/null); do \
@@ -772,3 +772,20 @@ pipeline-help: ## Show pipeline documentation
 	@echo "  make pipeline-prod     - Run enrichment + Algolia sync on production"
 	@echo "  make pipeline-daily    - Run ASIC sync + Algolia sync (daily job)"
 	@echo ""
+
+# =========================================
+# Public API Spec (OpenAPI)
+# =========================================
+
+openapi: ## Regenerate the public OpenAPI spec from the protos
+	cd proto && buf generate
+	cd services && GOWORK=off go run ./cmd/openapi-postprocess \
+		-in ../api/schema/generated/openapi.yaml \
+		-base ../api/schema/base.yaml \
+		-out-json ../web/public/openapi.json \
+		-out-yaml ../web/public/openapi.yaml
+	# The markdown twin is a pure function of openapi.json, so it regenerates
+	# here rather than on its own. It is what LLM agents actually read — they
+	# cannot fall back to the React page — so a stale or absent twin is served
+	# precisely to the audience with no recourse.
+	cd web && npm run docs:api-markdown

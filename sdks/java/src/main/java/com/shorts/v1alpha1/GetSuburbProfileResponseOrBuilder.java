@@ -179,4 +179,64 @@ public interface GetSuburbProfileResponseOrBuilder extends
    * <code>.shorts.v1alpha1.SuburbCrime crime = 7 [json_name = "crime"];</code>
    */
   com.shorts.v1alpha1.SuburbCrimeOrBuilder getCrimeOrBuilder();
+
+  /**
+   * <pre>
+   * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+   * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+   * @return Whether the listingStats field is set.
+   */
+  boolean hasListingStats();
+  /**
+   * <pre>
+   * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+   * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+   * @return The listingStats.
+   */
+  com.shorts.v1alpha1.SuburbListingStats getListingStats();
+  /**
+   * <pre>
+   * Crawl-derived listing aggregates; null when the suburb is outside the crawl
+   * catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbListingStats listing_stats = 8 [json_name = "listingStats"];</code>
+   */
+  com.shorts.v1alpha1.SuburbListingStatsOrBuilder getListingStatsOrBuilder();
+
+  /**
+   * <pre>
+   * Profile-only measured terrain block; absent when the DEM sample is missing
+   * or below the collector's published cell-count quality floor.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+   * @return Whether the elevation field is set.
+   */
+  boolean hasElevation();
+  /**
+   * <pre>
+   * Profile-only measured terrain block; absent when the DEM sample is missing
+   * or below the collector's published cell-count quality floor.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+   * @return The elevation.
+   */
+  com.shorts.v1alpha1.SuburbElevation getElevation();
+  /**
+   * <pre>
+   * Profile-only measured terrain block; absent when the DEM sample is missing
+   * or below the collector's published cell-count quality floor.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
+   */
+  com.shorts.v1alpha1.SuburbElevationOrBuilder getElevationOrBuilder();
 }

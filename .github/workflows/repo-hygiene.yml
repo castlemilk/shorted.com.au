@@ -5,12 +5,24 @@ on:
     paths:
       - "services/**"
       - "web/**"
+      - "proto/**"
+      - "api/schema/**"
+      # The `openapi` target itself is drift-relevant: a PR that only breaks a
+      # flag or repoints -base would otherwise merge unchecked, and surface on
+      # the next unrelated PR where it reads as that PR's fault.
+      - "Makefile"
       - "docs/housing-architecture.md"
       - "scripts/check-portal-content-provenance.mjs"
       - "scripts/generate-synthetic-housing-pagemeta-fixtures.mjs"
       - "scripts/tests/housing-deploy-hygiene.test.mjs"
+      - "scripts/tests/openapi-drift.test.mjs"
       - "scripts/tests/portal-content-provenance.test.mjs"
       - "scripts/tests/scheduler-override-body.test.mjs"
+      # Drift guard: prod does not run `migrate up`, so a migration that is
+      # neither allowlisted nor recorded in PROD_APPLIED.md never reaches it.
+      - "scripts/tests/migration-drift.test.mjs"
+      - "services/migrations/**"
+      - ".github/workflows/terraform-deploy.yml"
       - "terraform/modules/**"
       - ".github/workflows/repo-hygiene.yml"
   workflow_dispatch:
@@ -28,7 +40,65 @@ jobs:
           node-version: "24"
 
       - name: Test repository hygiene tooling
-        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs
+        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs
+
+      # These assert properties of migrations that prod REPLAYS on every deploy
+      # from a hardcoded allowlist — most importantly that 000095 stays last, so
+      # the hardened refresh_all_materialized_views() is not silently reverted
+      # by an earlier migration's CREATE OR REPLACE. That is the defect which
+      # left five materialized views stale for 19 days. Until now these tests
+      # ran in no CI job at all and only fired if someone remembered to run
+      # them by hand, which is no guard.
+      - name: Migration contracts
+        run: node --test services/migrations/*.test.mjs
 
       - name: Reject captured portal payloads
         run: node scripts/check-portal-content-provenance.mjs
+
+  # web/public/openapi.{json,yaml} is a generated, PUBLISHED artifact. A stale
+  # one is worse than none: it reads as authoritative while documenting an API
+  # we no longer serve. This job regenerates it from the protos and diffs.
+  #
+  # It is a separate job from portal-content-provenance on purpose — that one
+  # is Node-only, and `make openapi` needs Go, buf, and web's node_modules
+  # (buf.gen.yaml runs protoc-gen-es out of web/node_modules/.bin).
+  openapi-drift:
+    name: OpenAPI spec is not stale
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: services/go.mod
+          cache-dependency-path: services/go.sum
+
+      # `services` depends on the private github.com/skunkworq/stealth module.
+      # Same step every other Go job in this repo runs.
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
+      # protoc-gen-es is resolved from web/node_modules/.bin by buf.gen.yaml,
+      # so buf generate cannot run without web's dependencies installed.
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci --legacy-peer-deps
+
+      - uses: bufbuild/buf-action@v1
+        with:
+          # Pinned so CI generates with the same CLI developers do; an
+          # unpinned bump would surface here as unexplained "drift".
+          version: 1.47.2
+          setup_only: true
+
+      - name: Regenerate and diff
+        env:
+          GOPRIVATE: github.com/skunkworq/*
+        run: node --test scripts/tests/openapi-drift.test.mjs

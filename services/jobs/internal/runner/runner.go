@@ -79,14 +79,19 @@ var ErrUsage = errors.New("usage")
 // fail". The runner's default contract is one failure code (1); this is the
 // documented escape hatch.
 //
-// The only current user is `shorted house-prices`, whose residential-rig
-// launchers (services/house-price-collector/deploy/*.sh) branch on
+// `shorted house-prices` is the main user: its residential-rig launchers
+// (services/house-price-collector/deploy/*.sh) branch on
 //
 //	3 = re-warm the crawl Chrome (Kasada/Akamai clearance expired)
 //	4 = fetcher init failed — Chrome/CDP unusable (hard-recover)
 //	5 = warmcheck says the session is cold
 //	6 = crawl-freshness ALARM
 //	7 = agent infrastructure failed before any jobs completed
+//
+// `shorted economy -mode all` adds one, so that operators and alerting can tell
+// a drifted source apart from an outage (Cloud Run reports both as "failed"):
+//
+//	10 = DEGRADED — some sources collected, some failed (exit 1 = none did)
 //
 // A job returns this INSTEAD of calling os.Exit, so deferred cleanup (pool
 // close) still runs and the runner still emits its `status=error` line; main

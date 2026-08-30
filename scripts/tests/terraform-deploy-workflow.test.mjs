@@ -66,7 +66,7 @@ test("production database migration step avoids golang-migrate and repairs schem
   assert.match(prodBlock, /000075_add_industry_intelligence_sources\.up\.sql/);
   assert.doesNotMatch(
     prodBlock,
-    /000113_retire_dev_bucket_urls/,
+    /retire-dev-bucket-urls/,
     "the reviewed data rewrite must not become an automatic deploy side effect",
   );
   assert.match(prodBlock, /CREATE TABLE IF NOT EXISTS schema_migrations/);

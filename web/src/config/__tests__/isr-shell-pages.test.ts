@@ -39,6 +39,64 @@ describe("isr-shell-pages.json", () => {
       "/economy",
       "/compare",
       "/price-drops",
+      "/themes",
     ]);
+  });
+});
+
+// /themes/[slug] builds as a deliberately-empty static shell (skipForBuild)
+// that the post-promote sweep fills. A theme present in the registry but
+// missing from isr-pages.json ships every deploy as an empty page until its
+// first natural revalidation — exactly what happened on the feature's launch
+// deploy (2026-08-25). The slug list lives in the registry; this pins the
+// sweep inventory to it.
+describe("theme pages in the ISR sweep inventory", () => {
+  it("covers /themes and every registry slug", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { THEME_SLUGS } = require("~/@/lib/themes/registry") as {
+      THEME_SLUGS: string[];
+    };
+    const all = new Set(isrPages as string[]);
+    expect(all.has("/themes")).toBe(true);
+    const missing = THEME_SLUGS.filter((slug) => !all.has(`/themes/${slug}`));
+    expect(missing).toEqual([]);
+  });
+});
+
+// Housing ranking pages deliberately skip their live state read at build time
+// and depend on the post-promote sweep to fill the hourly ISR cache. Keep the
+// deployment inventory coupled to the registry so adding the 41st route cannot
+// repeat the themes launch regression.
+describe("housing ranking pages in the ISR sweep inventory", () => {
+  it("covers /housing/rankings and every registry slug", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { HOUSING_RANKING_SLUGS } =
+      require("~/@/lib/housing-rankings/registry") as {
+        HOUSING_RANKING_SLUGS: string[];
+      };
+    const all = new Set(isrPages as string[]);
+    expect(all.has("/housing/rankings")).toBe(true);
+    const missing = HOUSING_RANKING_SLUGS.filter(
+      (slug) => !all.has(`/housing/rankings/${slug}`),
+    );
+    expect(missing).toEqual([]);
+  });
+});
+
+// Capital pages also render an intentionally uncached empty state when the
+// build skips its live ABS-series reads. Couple the post-promote sweep to the
+// registry so every new capital route is primed alongside the hub.
+describe("capital housing pages in the ISR sweep inventory", () => {
+  it("covers /housing/capitals and every registry slug", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { CAPITAL_SLUGS } = require("~/@/lib/housing/capitals") as {
+      CAPITAL_SLUGS: string[];
+    };
+    const all = new Set(isrPages as string[]);
+    expect(all.has("/housing/capitals")).toBe(true);
+    const missing = CAPITAL_SLUGS.filter(
+      (slug) => !all.has(`/housing/capitals/${slug}`),
+    );
+    expect(missing).toEqual([]);
   });
 });

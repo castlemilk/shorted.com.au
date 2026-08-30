@@ -56,6 +56,14 @@ import {
 import { getReportsList } from "~/app/actions/reports/getReportData";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { SCAN_SLUGS } from "~/@/lib/scans/registry";
+import { THEME_SLUGS } from "~/@/lib/themes/registry";
+import {
+  HOUSING_RANKINGS,
+  HOUSING_RANKING_SLUGS,
+} from "~/@/lib/housing-rankings/registry";
+import { CAPITALS } from "~/@/lib/housing/capitals";
+import { STATE_SLUGS } from "~/@/lib/economy/map-metrics";
+import { PUBLISHED_ECONOMY_TOPIC_PAIRS } from "~/@/lib/economy/topics";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { createSlug } from "~/@/lib/industry-slug";
 import { ALL_STATES, stateSlug, suburbSlug } from "~/@/lib/housing/states";
@@ -263,8 +271,13 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     // Economy: monthly collector cadence and no per-series date on this path,
     // so no lastmod rather than the ASIC date it used to (wrongly) carry.
     { url: `${baseUrl}/economy` },
-    ...["nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"].map((slug) => ({
+    ...STATE_SLUGS.map((slug) => ({
       url: `${baseUrl}/economy/${slug}`,
+    })),
+    // Topic drill-downs share the registry's measured publication gate. Like
+    // their hubs, they omit lastmod because no route-level source date exists.
+    ...PUBLISHED_ECONOMY_TOPIC_PAIRS.map(({ state, topic }) => ({
+      url: `${baseUrl}/economy/${state}/${topic}`,
     })),
     // Squeeze radar — "short squeeze asx" is a winnable SERP with weak incumbents.
     { url: `${baseUrl}/battlegrounds`, lastModified: latestDataDate },
@@ -278,6 +291,14 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     { url: `${baseUrl}/scans`, lastModified: latestDataDate },
     ...SCAN_SLUGS.map((slug) => ({
       url: `${baseUrl}/scans/${slug}`,
+      lastModified: latestDataDate,
+    })),
+    // Curated thematic baskets. Same rule as scans: ASIC-derived, so
+    // latestDataDate, and the slugs come from the registry so there is no
+    // hand-list to drift.
+    { url: `${baseUrl}/themes`, lastModified: latestDataDate },
+    ...THEME_SLUGS.map((slug) => ({
+      url: `${baseUrl}/themes/${slug}`,
       lastModified: latestDataDate,
     })),
     // Open data hub + press kit — both citation surfaces we point journalists at.
@@ -660,13 +681,47 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
   }
 
   const allSuburbUrls = [...perStateEntries.values()].flat();
+  const newestHousingPeriod = newestLastMod(
+    allSuburbUrls.map((suburb) => suburb.lastModified),
+  );
 
   return [
     // The housing hub's signal is the newest price period anywhere in the country.
     {
       url: `${baseUrl}/housing`,
-      lastModified: newestLastMod(allSuburbUrls.map((s) => s.lastModified)),
+      lastModified: newestHousingPeriod,
     },
+    // Capital price routes are registry-owned like the fixed rankings. Until
+    // this sitemap has a capital-series date feed, inherit the corresponding
+    // state housing signal rather than inventing a separate lastmod.
+    { url: `${baseUrl}/housing/capitals`, lastModified: newestHousingPeriod },
+    ...CAPITALS.map((capital) => {
+      const capitalStateSlug = stateSlug(capital.stateCode);
+      return {
+        url: `${baseUrl}/housing/capitals/${capital.slug}`,
+        lastModified: newestLastMod(
+          (perStateEntries.get(capitalStateSlug) ?? []).map(
+            (suburb) => suburb.lastModified,
+          ),
+        ),
+      };
+    }),
+    // Fixed suburb ranking pages derive from the same state payloads. The hub
+    // follows the newest national price period; each ranking follows the state
+    // whose suburbs it orders, so lastmod remains a real data signal.
+    { url: `${baseUrl}/housing/rankings`, lastModified: newestHousingPeriod },
+    ...HOUSING_RANKING_SLUGS.map((slug) => {
+      const ranking = HOUSING_RANKINGS[slug]!;
+      const rankingStateSlug = stateSlug(ranking.stateCode);
+      return {
+        url: `${baseUrl}/housing/rankings/${slug}`,
+        lastModified: newestLastMod(
+          (perStateEntries.get(rankingStateSlug) ?? []).map(
+            (suburb) => suburb.lastModified,
+          ),
+        ),
+      };
+    }),
     // Calculators are static tools; the price-drops board is crawl-driven and
     // exposes no data date on any read path — neither fabricates a lastmod.
     { url: `${baseUrl}/housing/calculators` },

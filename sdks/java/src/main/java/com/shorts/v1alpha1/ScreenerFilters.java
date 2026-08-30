@@ -34,6 +34,8 @@ private static final long serialVersionUID = 0L;
   private ScreenerFilters() {
     industries_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+    productCodes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -465,6 +467,59 @@ private static final long serialVersionUID = 0L;
     return daysToCover_ == null ? com.shorts.v1alpha1.RangeFilter.getDefaultInstance() : daysToCover_;
   }
 
+  public static final int PRODUCT_CODES_FIELD_NUMBER = 12;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList productCodes_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * Filter to specific stock codes — used by /themes
+   * </pre>
+   *
+   * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+   * @return A list containing the productCodes.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getProductCodesList() {
+    return productCodes_;
+  }
+  /**
+   * <pre>
+   * Filter to specific stock codes — used by /themes
+   * </pre>
+   *
+   * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+   * @return The count of productCodes.
+   */
+  public int getProductCodesCount() {
+    return productCodes_.size();
+  }
+  /**
+   * <pre>
+   * Filter to specific stock codes — used by /themes
+   * </pre>
+   *
+   * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+   * @param index The index of the element to return.
+   * @return The productCodes at the given index.
+   */
+  public java.lang.String getProductCodes(int index) {
+    return productCodes_.get(index);
+  }
+  /**
+   * <pre>
+   * Filter to specific stock codes — used by /themes
+   * </pre>
+   *
+   * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the productCodes at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getProductCodesBytes(int index) {
+    return productCodes_.getByteString(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -511,6 +566,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000100) != 0)) {
       output.writeMessage(11, getDaysToCover());
+    }
+    for (int i = 0; i < productCodes_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 12, productCodes_.getRaw(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -563,6 +621,14 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000100) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(11, getDaysToCover());
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < productCodes_.size(); i++) {
+        dataSize += computeStringSizeNoTag(productCodes_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getProductCodesList().size();
     }
     return size;
   }
@@ -637,6 +703,8 @@ private static final long serialVersionUID = 0L;
       if (!getDaysToCover()
           .equals(other.getDaysToCover())) return false;
     }
+    if (!getProductCodesList()
+        .equals(other.getProductCodesList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -690,6 +758,10 @@ private static final long serialVersionUID = 0L;
     if (hasDaysToCover()) {
       hash = (37 * hash) + DAYS_TO_COVER_FIELD_NUMBER;
       hash = (53 * hash) + getDaysToCover().hashCode();
+    }
+    if (getProductCodesCount() > 0) {
+      hash = (37 * hash) + PRODUCT_CODES_FIELD_NUMBER;
+      hash = (53 * hash) + getProductCodesList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -888,6 +960,8 @@ private static final long serialVersionUID = 0L;
         daysToCoverBuilder_.dispose();
         daysToCoverBuilder_ = null;
       }
+      productCodes_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       return this;
     }
 
@@ -983,6 +1057,10 @@ private static final long serialVersionUID = 0L;
             : daysToCoverBuilder_.build();
         to_bitField0_ |= 0x00000100;
       }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        productCodes_.makeImmutable();
+        result.productCodes_ = productCodes_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -1037,6 +1115,16 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasDaysToCover()) {
         mergeDaysToCover(other.getDaysToCover());
+      }
+      if (!other.productCodes_.isEmpty()) {
+        if (productCodes_.isEmpty()) {
+          productCodes_ = other.productCodes_;
+          bitField0_ |= 0x00000800;
+        } else {
+          ensureProductCodesIsMutable();
+          productCodes_.addAll(other.productCodes_);
+        }
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1137,6 +1225,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000400;
               break;
             } // case 90
+            case 98: {
+              ensureProductCodesIsMutable();
+              productCodes_.add(input.readStringRequireUtf8());
+              break;
+            } // case 98
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2756,6 +2849,153 @@ private static final long serialVersionUID = 0L;
         daysToCover_ = null;
       }
       return daysToCoverBuilder_;
+    }
+
+    private com.google.protobuf.LazyStringArrayList productCodes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureProductCodesIsMutable() {
+      if (!productCodes_.isModifiable()) {
+        productCodes_ = new com.google.protobuf.LazyStringArrayList(productCodes_);
+      }
+      bitField0_ |= 0x00000800;
+    }
+    /**
+     * <pre>
+     * Filter to specific stock codes — used by /themes
+     * </pre>
+     *
+     * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+     * @return A list containing the productCodes.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getProductCodesList() {
+      productCodes_.makeImmutable();
+      return productCodes_;
+    }
+    /**
+     * <pre>
+     * Filter to specific stock codes — used by /themes
+     * </pre>
+     *
+     * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+     * @return The count of productCodes.
+     */
+    public int getProductCodesCount() {
+      return productCodes_.size();
+    }
+    /**
+     * <pre>
+     * Filter to specific stock codes — used by /themes
+     * </pre>
+     *
+     * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+     * @param index The index of the element to return.
+     * @return The productCodes at the given index.
+     */
+    public java.lang.String getProductCodes(int index) {
+      return productCodes_.get(index);
+    }
+    /**
+     * <pre>
+     * Filter to specific stock codes — used by /themes
+     * </pre>
+     *
+     * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the productCodes at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getProductCodesBytes(int index) {
+      return productCodes_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * Filter to specific stock codes — used by /themes
+     * </pre>
+     *
+     * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+     * @param index The index to set the value at.
+     * @param value The productCodes to set.
+     * @return This builder for chaining.
+     */
+    public Builder setProductCodes(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureProductCodesIsMutable();
+      productCodes_.set(index, value);
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Filter to specific stock codes — used by /themes
+     * </pre>
+     *
+     * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+     * @param value The productCodes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addProductCodes(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureProductCodesIsMutable();
+      productCodes_.add(value);
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Filter to specific stock codes — used by /themes
+     * </pre>
+     *
+     * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+     * @param values The productCodes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllProductCodes(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureProductCodesIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, productCodes_);
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Filter to specific stock codes — used by /themes
+     * </pre>
+     *
+     * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearProductCodes() {
+      productCodes_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000800);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Filter to specific stock codes — used by /themes
+     * </pre>
+     *
+     * <code>repeated string product_codes = 12 [json_name = "productCodes"];</code>
+     * @param value The bytes of the productCodes to add.
+     * @return This builder for chaining.
+     */
+    public Builder addProductCodesBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureProductCodesIsMutable();
+      productCodes_.add(value);
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.ScreenerFilters)

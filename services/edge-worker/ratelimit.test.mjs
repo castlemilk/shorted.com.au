@@ -12,6 +12,7 @@ import worker, {
   resolveEdgeRateLimitKey,
   resolveRateLimitBypass,
   resolveRateLimitSurface,
+  isMcpPath,
 } from "./worker.js";
 
 // ---------------------------------------------------------------------------
@@ -68,6 +69,8 @@ const BINDING_NAMES = [
   "BROWSER_ANON_RATE_LIMITER",
   "BROWSER_AUTH_BURST_RATE_LIMITER",
   "BROWSER_AUTH_RATE_LIMITER",
+  "MCP_ANON_BURST_RATE_LIMITER",
+  "MCP_ANON_RATE_LIMITER",
 ];
 
 /** Build an env with a separate mock limiter per binding, plus a lookup map. */
@@ -935,5 +938,132 @@ test("worker.fetch keeps serving an allowed API request through the cache path",
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.caches = originalCaches;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// MCP
+//
+// Phase 2 measured /mcp landing in api-anon at 10/10s. The handshake is one
+// POST, so ~8 tool calls trip it — a "compare these five stocks" turn crosses
+// it, and the SDK issues calls sequentially so elapsed time is no mitigation.
+// ---------------------------------------------------------------------------
+
+test("isMcpPath matches the mounted paths and nothing that merely starts with them", () => {
+  assert.equal(isMcpPath("/mcp"), true);
+  assert.equal(isMcpPath("/mcp/"), true);
+  assert.equal(isMcpPath("/mcp/catalog.json"), true);
+  // A bare startsWith would swallow these.
+  assert.equal(isMcpPath("/mcpanything"), false);
+  assert.equal(isMcpPath("/mcp-admin"), false);
+  assert.equal(isMcpPath("/api/mcp"), false);
+});
+
+test("anonymous /mcp gets its own bucket, keyed m:<ip>", async () => {
+  const { bucketClass, key } = await resolveEdgeRateLimitKey(
+    apiRequest("/mcp", { "cf-connecting-ip": "203.0.113.9" }),
+    {},
+    "api"
+  );
+  assert.equal(bucketClass, "mcp-anon");
+  assert.equal(key, "m:203.0.113.9");
+});
+
+// Presenting a credential must never be a downgrade. An authenticated MCP
+// caller is an api-key caller, on the far more generous ceiling.
+test("authenticated /mcp resolves to api-key, not the anonymous MCP bucket", async () => {
+  const { bucketClass, key } = await resolveEdgeRateLimitKey(
+    apiRequest("/mcp", { authorization: "Bearer some-access-token" }),
+    {},
+    "api"
+  );
+  assert.equal(bucketClass, "api-key");
+  assert.ok(key.startsWith("k:"));
+});
+
+test("the MCP bucket is ~6x api-anon on both windows", () => {
+  const mcp = resolveBucketLimits("mcp-anon", {});
+  const anon = resolveBucketLimits("api-anon", {});
+  assert.equal(mcp.burstLimit, 60);
+  assert.equal(mcp.sustainedLimit, 300);
+  // The relationship is the point: sized so a normal agent turn never touches
+  // it while a scripted loop still does.
+  assert.ok(mcp.burstLimit > anon.burstLimit);
+  assert.ok(mcp.sustainedLimit > anon.sustainedLimit);
+});
+
+test("Terraform can override the MCP limits", () => {
+  const limits = resolveBucketLimits("mcp-anon", {
+    RATE_LIMIT_MCP_ANON_BURST: "90",
+    RATE_LIMIT_MCP_ANON_LIMIT: "450",
+  });
+  assert.equal(limits.burstLimit, 90);
+  assert.equal(limits.sustainedLimit, 450);
+});
+
+// NOT EXEMPT, and this must stay true. /mcp is an unauthenticated tool
+// surface; until the app-layer limiter is deployed the edge is its only
+// ceiling, and afterwards it is still the abuse ceiling for callers who never
+// authenticate.
+test("/mcp is rate limited, not exempted", async () => {
+  const { env, limiters } = bindingsEnv({ allow: false });
+  const response = await enforceEdgeRateLimit(
+    apiRequest("/mcp", { "cf-connecting-ip": "203.0.113.9" }),
+    env,
+    "api",
+    ""
+  );
+  assert.ok(response, "/mcp was not limited at all");
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get("X-RateLimit-Bucket"), "mcp-anon");
+  assert.equal(limiters.MCP_ANON_BURST_RATE_LIMITER.calls.length, 1);
+  // And it must not have burned the anonymous API bucket on the way past.
+  assert.equal(limiters.ANON_BURST_RATE_LIMITER.calls.length, 0);
+});
+
+test("an allowed /mcp request checks burst then sustained on the MCP bindings", async () => {
+  const { env, limiters } = bindingsEnv({ allow: true });
+  const response = await enforceEdgeRateLimit(
+    apiRequest("/mcp", { "cf-connecting-ip": "203.0.113.9" }),
+    env,
+    "api",
+    ""
+  );
+  assert.equal(response, null);
+  assert.deepEqual(limiters.MCP_ANON_BURST_RATE_LIMITER.calls, [{ key: "m:203.0.113.9" }]);
+  assert.deepEqual(limiters.MCP_ANON_RATE_LIMITER.calls, [{ key: "m:203.0.113.9" }]);
+  assert.equal(
+    callsExcept(limiters, "MCP_ANON_BURST_RATE_LIMITER", "MCP_ANON_RATE_LIMITER"),
+    0
+  );
+});
+
+// A cached MCP response is not a stale page — it is one client's session
+// served to another: tool results, and eventually results computed under
+// someone else's authorization. Phase 2 verified /mcp was BYPASS but nothing
+// enforced it, so a future caching rule keyed on path or method could have
+// quietly made it cacheable.
+test("/mcp reaches the origin uncached", async () => {
+  const { env } = bindingsEnv({ allow: true });
+  const realFetch = globalThis.fetch;
+  let originCalls = 0;
+  globalThis.fetch = async () => {
+    originCalls += 1;
+    return new Response('{"jsonrpc":"2.0","result":{}}', {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  try {
+    const response = await worker.fetch(
+      apiRequest("/mcp"),
+      { ...env, SHORTS_API_ORIGIN: "https://origin.test" },
+      { waitUntil() {} }
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("X-Shorted-Cache"), "BYPASS");
+    assert.equal(originCalls, 1, "the response did not come from the origin");
+  } finally {
+    globalThis.fetch = realFetch;
   }
 });

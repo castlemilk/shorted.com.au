@@ -44,10 +44,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   let flushedKeys = 0;
+  let flushScanCommands = 0;
   const flushErrors: string[] = [];
   for (const prefix of prefixes) {
     const result = await deleteCachedByPrefix(prefix);
     flushedKeys += result.deleted;
+    flushScanCommands += result.scanIterations;
     flushErrors.push(...result.errors);
   }
   if (body.path) revalidatePath(body.path);
@@ -57,6 +59,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   return NextResponse.json({
     flushed: body.target,
     flushedKeys,
+    flushScanCommands,
     flushErrors,
     ok: flushErrors.length === 0,
     revalidated: body.path ?? null,

@@ -119,6 +119,10 @@ type ShortsStore interface {
 	GetHousePriceSeries(regionCode, measure, dwellingType string) (*shortsstore.HousePriceSeriesResult, error)
 	ListStateSuburbs(stateCode, query string, limit int32) ([]*shortsstore.SuburbSummaryRow, error)
 	GetSuburbProfile(salCode string) (*shortsstore.SuburbProfileRow, error)
+	// Columnar map delivery — see services/shorts/internal/services/shorts/suburb_columns.go.
+	GetSuburbIndex(stateCode string) (*shortsstore.SuburbIndexResult, error)
+	GetSuburbMetricColumns(stateCode string, metricKeys []string) (*shortsstore.SuburbMetricColumnsResult, error)
+	FilterSuburbs(stateCode string, predicates []shortsstore.SuburbMetricPredicateRow) (*shortsstore.SuburbFilterResult, error)
 	GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*shortsstore.HousingRegionRow, error)
 	ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*shortsstore.SuburbPriceDropRow, error)
 	ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*shortsstore.SuburbDropListingRow, error)

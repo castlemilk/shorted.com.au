@@ -10,10 +10,18 @@ import (
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/oauth"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// The MCP tools call this server's Connect handlers in-process, so the set of
+// methods they can reach is exactly mcp.DataSource. Asserting it here means a
+// signature change on a wrapped handler breaks the build in this package —
+// next to the handler — rather than at the mount in serve.go.
+var _ mcp.DataSource = (*ShortsServer)(nil)
 
 // Close releases resources held by the server.
 //
@@ -40,6 +48,17 @@ type ShortsServer struct {
 	rateLimiter    ratelimit.RateLimiter
 	httpClient     *http.Client
 	jobsCollector  *jobmonitor.Collector
+	// oauthStore backs the OAuth authorization server (clients, codes,
+	// refresh tokens — migration 000116). Nil when no Postgres pool is
+	// reachable, in which case the grant endpoint reports
+	// temporarily_unavailable rather than panicking.
+	//
+	// ClientStore, not Store: the token endpoint's single-use and rotation
+	// guarantees are SQL guarantees, and registration adds client writes and
+	// the unused-client sweep, so the field is typed to the interface that
+	// promises all of them. It satisfies Store and TokenStore as well, so the
+	// grant and token handlers take the same value.
+	oauthStore oauth.AuthorizationServerStore
 }
 
 // New creates instance of the Server
@@ -72,7 +91,15 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		// Allow fallback only in development
 		tokenSecret = "dev-secret-unsafe-do-not-use-in-production"
 	}
-	tokenService := NewTokenService(tokenSecret)
+	// Tokens are audience-bound (RFC 8707) to this deployment's origin and its
+	// MCP resource identifier. An unset APIBaseURL would mint audience-less
+	// tokens that the MCP resource server refuses, so normalise once here —
+	// every later reader (the metadata document, the bearer challenge) then
+	// sees the same origin the tokens were minted against.
+	if cfg.APIBaseURL == "" {
+		cfg.APIBaseURL = mcp.DefaultAPIBaseURL
+	}
+	tokenService := NewTokenService(tokenSecret, TokenAudience(cfg.APIBaseURL)...)
 
 	// Initialize Pub/Sub client (optional, service can run without it)
 	var pubSubClient PubSubClient
@@ -98,11 +125,19 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	// Supabase max_connections is shared across services. If the pool is not
 	// reachable through the store (non-Postgres backend), per-minute limiting
 	// still runs; only monthly accounting is skipped.
+	//
+	// The OAuth authorization server shares that same pool, for the same
+	// reason — see the oauthStore wiring below.
+	var pool *pgxpool.Pool
+	if pooled, ok := storeImpl.(interface{ Pool() *pgxpool.Pool }); ok {
+		pool = pooled.Pool()
+	}
+
 	var rateLimiter ratelimit.RateLimiter
 	if cfg.RateLimitConfig.Enabled {
 		var usageStore ratelimit.UsageStore
-		if pooled, ok := storeImpl.(interface{ Pool() *pgxpool.Pool }); ok && pooled.Pool() != nil {
-			usageStore = ratelimit.NewPostgresUsageStore(pooled.Pool(), cfg.RateLimitConfig.Timeout)
+		if pool != nil {
+			usageStore = ratelimit.NewPostgresUsageStore(pool, cfg.RateLimitConfig.Timeout)
 			logger.Infof("Monthly quota accounting enabled (Postgres api_usage_monthly, batched writes, fail-open)")
 		} else {
 			logger.Warnf("Rate limiting enabled but no Postgres pool available — per-minute tier limits still apply, monthly quotas will not be enforced")
@@ -110,6 +145,16 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		rateLimiter = ratelimit.NewAppLimiter(cfg.RateLimitConfig, usageStore)
 	} else {
 		logger.Infof("App-layer rate limiting disabled (the Cloudflare edge abuse ceiling is unaffected)")
+	}
+
+	// OAuth authorization-server storage. A typed-nil in the interface would
+	// read as "configured" and panic on first use, so the assignment is
+	// conditional on a real pool.
+	var oauthStore oauth.AuthorizationServerStore
+	if pool != nil {
+		oauthStore = oauth.NewPostgresStore(pool)
+	} else {
+		logger.Warnf("No Postgres pool available — the OAuth authorization endpoints will report temporarily_unavailable")
 	}
 
 	return &ShortsServer{
@@ -123,5 +168,6 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		rateLimiter:    rateLimiter,
 		httpClient:     &http.Client{Timeout: 10 * time.Second},
 		jobsCollector:  jobmonitor.NewCollector(jobmonitor.ConfigFromEnv()),
+		oauthStore:     oauthStore,
 	}, nil
 }

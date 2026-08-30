@@ -95,6 +95,19 @@ const config = {
         ],
       },
       {
+        // An agent that lands on the docs (from a search result, a citation, or
+        // llms.txt) should be one header away from the machine-readable spec
+        // and the JS-free markdown twin, without parsing HTML.
+        source: "/docs/:path*",
+        headers: [
+          {
+            key: "Link",
+            value:
+              '</.well-known/api-catalog>; rel="api-catalog", </openapi.json>; rel="service-desc"; type="application/json", </docs/api.md>; rel="alternate"; type="text/markdown"',
+          },
+        ],
+      },
+      {
         // HSTS for every path. All subdomains (api, www) are HTTPS via
         // Cloudflare; preload directive included but hstspreload.org
         // submission is a separate manual step.

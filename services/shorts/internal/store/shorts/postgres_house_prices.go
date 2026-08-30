@@ -47,6 +47,145 @@ type HousePriceSeriesResult struct {
 	Points        []*HousePricePointRow
 }
 
+// SuburbSeifaIndexRow is one ABS SEIFA index. A zero decile is the no-data
+// sentinel; valid ABS deciles are constrained to 1..10 in the database.
+type SuburbSeifaIndexRow struct {
+	Score       int32
+	DecileAus   int32
+	DecileState int32
+}
+
+// SuburbSeifaRow groups the four ABS 2021 SEIFA indexes published for a SAL.
+type SuburbSeifaRow struct {
+	IRSD  SuburbSeifaIndexRow
+	IRSAD SuburbSeifaIndexRow
+	IER   SuburbSeifaIndexRow
+	IEO   SuburbSeifaIndexRow
+}
+
+type nullableSuburbSeifaIndex struct {
+	Score       sql.NullInt32
+	DecileAus   sql.NullInt32
+	DecileState sql.NullInt32
+}
+
+type nullableSuburbSeifa struct {
+	IRSD  nullableSuburbSeifaIndex
+	IRSAD nullableSuburbSeifaIndex
+	IER   nullableSuburbSeifaIndex
+	IEO   nullableSuburbSeifaIndex
+}
+
+func mapSuburbSeifa(raw nullableSuburbSeifa) *SuburbSeifaRow {
+	hasValue := false
+	for _, index := range []nullableSuburbSeifaIndex{raw.IRSD, raw.IRSAD, raw.IER, raw.IEO} {
+		if index.Score.Valid || index.DecileAus.Valid || index.DecileState.Valid {
+			hasValue = true
+			break
+		}
+	}
+	if !hasValue {
+		return nil
+	}
+	mapIndex := func(index nullableSuburbSeifaIndex) SuburbSeifaIndexRow {
+		return SuburbSeifaIndexRow{
+			Score:       index.Score.Int32,
+			DecileAus:   index.DecileAus.Int32,
+			DecileState: index.DecileState.Int32,
+		}
+	}
+	return &SuburbSeifaRow{
+		IRSD:  mapIndex(raw.IRSD),
+		IRSAD: mapIndex(raw.IRSAD),
+		IER:   mapIndex(raw.IER),
+		IEO:   mapIndex(raw.IEO),
+	}
+}
+
+// SuburbExpandedCensusRow is the curated set of ABS Census 2021 rates exposed
+// only by the full suburb profile. SQL NULL maps to the scalar zero-value used
+// by the current proto3 API; ingest preserves NULL in the database.
+type SuburbExpandedCensusRow struct {
+	PctLowPersonalIncome         float64
+	PctHighPersonalIncome        float64
+	UnemploymentRate             float64
+	LabourForceParticipationRate float64
+	PctBachelorOrHigher          float64
+	PctSeparateHouse             float64
+	PctFlatApartment             float64
+	PctCoupleWithChildren        float64
+	PctLonePersonHousehold       float64
+}
+
+type nullableExpandedCensus struct {
+	PctLowPersonalIncome         sql.NullFloat64
+	PctHighPersonalIncome        sql.NullFloat64
+	UnemploymentRate             sql.NullFloat64
+	LabourForceParticipationRate sql.NullFloat64
+	PctBachelorOrHigher          sql.NullFloat64
+	PctSeparateHouse             sql.NullFloat64
+	PctFlatApartment             sql.NullFloat64
+	PctCoupleWithChildren        sql.NullFloat64
+	PctLonePersonHousehold       sql.NullFloat64
+}
+
+func mapExpandedCensus(raw nullableExpandedCensus) SuburbExpandedCensusRow {
+	return SuburbExpandedCensusRow{
+		PctLowPersonalIncome:         raw.PctLowPersonalIncome.Float64,
+		PctHighPersonalIncome:        raw.PctHighPersonalIncome.Float64,
+		UnemploymentRate:             raw.UnemploymentRate.Float64,
+		LabourForceParticipationRate: raw.LabourForceParticipationRate.Float64,
+		PctBachelorOrHigher:          raw.PctBachelorOrHigher.Float64,
+		PctSeparateHouse:             raw.PctSeparateHouse.Float64,
+		PctFlatApartment:             raw.PctFlatApartment.Float64,
+		PctCoupleWithChildren:        raw.PctCoupleWithChildren.Float64,
+		PctLonePersonHousehold:       raw.PctLonePersonHousehold.Float64,
+	}
+}
+
+// SuburbElevationRow holds measured GA DEM-S terrain statistics. Nil is no
+// usable raster result; a non-nil pointer to 0 is a genuine measured zero.
+type SuburbElevationRow struct {
+	ElevationMinM    *float64
+	ElevationMedianM *float64
+	ElevationMaxM    *float64
+	LandShareBelow1M *float64
+	LandShareBelow2M *float64
+	LandShareBelow5M *float64
+}
+
+type nullableSuburbElevation struct {
+	ElevationMinM    sql.NullFloat64
+	ElevationMedianM sql.NullFloat64
+	ElevationMaxM    sql.NullFloat64
+	LandShareBelow1M sql.NullFloat64
+	LandShareBelow2M sql.NullFloat64
+	LandShareBelow5M sql.NullFloat64
+}
+
+func nullableFloatPointer(value sql.NullFloat64) *float64 {
+	if !value.Valid {
+		return nil
+	}
+	result := value.Float64
+	return &result
+}
+
+func mapSuburbElevation(raw nullableSuburbElevation) *SuburbElevationRow {
+	if !raw.ElevationMinM.Valid && !raw.ElevationMedianM.Valid && !raw.ElevationMaxM.Valid &&
+		!raw.LandShareBelow1M.Valid && !raw.LandShareBelow2M.Valid && !raw.LandShareBelow5M.Valid {
+		return nil
+	}
+	return &SuburbElevationRow{
+		ElevationMinM:    nullableFloatPointer(raw.ElevationMinM),
+		ElevationMedianM: nullableFloatPointer(raw.ElevationMedianM),
+		ElevationMaxM:    nullableFloatPointer(raw.ElevationMaxM),
+		LandShareBelow1M: nullableFloatPointer(raw.LandShareBelow1M),
+		LandShareBelow2M: nullableFloatPointer(raw.LandShareBelow2M),
+		LandShareBelow5M: nullableFloatPointer(raw.LandShareBelow5M),
+	}
+}
+
 // GetHousingOverview returns the latest observation + QoQ/YoY change per region ×
 // measure from mv_housing_headline, optionally filtered to one region_type.
 func (s *postgresStore) GetHousingOverview(regionType string) ([]*HousingMetricRow, error) {
@@ -181,6 +320,8 @@ type SuburbSummaryRow struct {
 	// NBN connectivity (Local Insights)
 	DominantNbnTech          string
 	ConnectivityQualityScore float64
+	// ABS 2021 SEIFA; nil when every source column is NULL.
+	Seifa *SuburbSeifaRow
 	// Crime percentile ranks (latest pooled FY, gated MV); 0 = no data.
 	CrimeBreakInsRank     float64
 	CrimeViolentRank      float64
@@ -201,6 +342,10 @@ type SuburbCrimeStatRow struct {
 // SuburbProfileRow is the full per-suburb profile (demographics + headline price).
 type SuburbProfileRow struct {
 	Summary SuburbSummaryRow
+	// Curated ABS 2021 GCP rates; zero-value when the database columns are NULL.
+	ExpandedCensus SuburbExpandedCensusRow
+	// GA DEM-S measured terrain; nil when raster coverage/sample quality is absent.
+	Elevation *SuburbElevationRow
 	// Crawl-derived listing aggregates; nil when outside the crawl catalog.
 	ListingStats *SuburbListingStatsRow
 	// full demographics
@@ -439,7 +584,17 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(d.banner_archetype,''), COALESCE(d.banner_blurb,''),
 		       COALESCE(d.banner_landmarks, '[]'::jsonb),
 		       COALESCE(d.banner_bg_key,''), COALESCE(d.banner_bg_url,''),
-		       COALESCE(rp.declared_property_count, 0)
+		       COALESCE(rp.declared_property_count, 0),
+		       d.seifa_irsd_score, d.seifa_irsd_decile_aus, d.seifa_irsd_decile_state,
+		       d.seifa_irsad_score, d.seifa_irsad_decile_aus, d.seifa_irsad_decile_state,
+		       d.seifa_ier_score, d.seifa_ier_decile_aus, d.seifa_ier_decile_state,
+		       d.seifa_ieo_score, d.seifa_ieo_decile_aus, d.seifa_ieo_decile_state,
+		       d.elevation_min_m, d.elevation_median_m, d.elevation_max_m,
+		       d.land_share_below_1m, d.land_share_below_2m, d.land_share_below_5m,
+		       d.pct_low_personal_income, d.pct_high_personal_income,
+		       d.unemployment_rate, d.labour_force_participation_rate,
+		       d.pct_bachelor_or_higher, d.pct_separate_house, d.pct_flat_apartment,
+		       d.pct_couple_with_children, d.pct_lone_person_household
 		FROM suburb_demographics d` + preferredSuburbRegionJoin + `
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
 		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
@@ -449,6 +604,9 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		WHERE d.sal_code = $1
 		LIMIT 1`
 	var p SuburbProfileRow
+	var rawSeifa nullableSuburbSeifa
+	var rawElevation nullableSuburbElevation
+	var rawExpandedCensus nullableExpandedCensus
 	row := s.db.QueryRow(ctx, q, salCode)
 	if err := row.Scan(
 		&p.Summary.SALCode, &p.Summary.SALName, &p.Summary.StateCode, &p.Summary.Postcode,
@@ -472,9 +630,23 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.LgaAvgRates, &p.LgaOpSurplusRatio, &p.LgaAssetRenewalRatio, &p.LgaFinSource, &p.LgaFinYear,
 		&p.BannerArchetype, &p.BannerBlurb, &p.BannerLandmarks, &p.BannerBgKey, &p.BannerBgUrl,
 		&p.Summary.PoliticianPropertyCount,
+		&rawSeifa.IRSD.Score, &rawSeifa.IRSD.DecileAus, &rawSeifa.IRSD.DecileState,
+		&rawSeifa.IRSAD.Score, &rawSeifa.IRSAD.DecileAus, &rawSeifa.IRSAD.DecileState,
+		&rawSeifa.IER.Score, &rawSeifa.IER.DecileAus, &rawSeifa.IER.DecileState,
+		&rawSeifa.IEO.Score, &rawSeifa.IEO.DecileAus, &rawSeifa.IEO.DecileState,
+		&rawElevation.ElevationMinM, &rawElevation.ElevationMedianM, &rawElevation.ElevationMaxM,
+		&rawElevation.LandShareBelow1M, &rawElevation.LandShareBelow2M, &rawElevation.LandShareBelow5M,
+		&rawExpandedCensus.PctLowPersonalIncome, &rawExpandedCensus.PctHighPersonalIncome,
+		&rawExpandedCensus.UnemploymentRate, &rawExpandedCensus.LabourForceParticipationRate,
+		&rawExpandedCensus.PctBachelorOrHigher, &rawExpandedCensus.PctSeparateHouse,
+		&rawExpandedCensus.PctFlatApartment, &rawExpandedCensus.PctCoupleWithChildren,
+		&rawExpandedCensus.PctLonePersonHousehold,
 	); err != nil {
 		return nil, err
 	}
+	p.Summary.Seifa = mapSuburbSeifa(rawSeifa)
+	p.Elevation = mapSuburbElevation(rawElevation)
+	p.ExpandedCensus = mapExpandedCensus(rawExpandedCensus)
 	if sim, err := s.similarSuburbs(ctx, salCode, 6); err == nil {
 		p.Similar = sim
 	} else {
@@ -660,10 +832,21 @@ func (s *postgresStore) GetHousingRegions(regionType, stateCode, query string, l
 		       COALESCE(lp.value, 0), lp.period
 		FROM house_price_regions r
 		LEFT JOIN LATERAL (
+			-- Houses only, and that filter is load-bearing rather than cosmetic.
+			-- Suburb rows (state Valuer-General) carry dwelling_type 'house';
+			-- the ABS gccsa/rest_of_state rows carry BOTH 'established_house'
+			-- and 'attached' for the same region and quarter. Without this the
+			-- ORDER BY period DESC LIMIT 1 tie was broken arbitrarily and in
+			-- practice returned the ATTACHED (unit) median, so every capital
+			-- city published a headline understated by up to 43% -- Greater
+			-- Sydney read $848k against an established-house median of $1.485m
+			-- (2026-Q1). No region_type carries both 'house' and
+			-- 'established_house', so this yields exactly one series per region.
 			SELECT value, period FROM house_prices hp
 			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price'
+			  AND hp.dwelling_type IN ('house', 'established_house')
 			  AND hp.source_licence <> 'proprietary-tos-restricted'
-			ORDER BY hp.period DESC
+			ORDER BY hp.period DESC, hp.dwelling_type
 			LIMIT 1
 		) lp ON true
 		WHERE ($1 = '' OR r.region_type = $1)
@@ -1098,7 +1281,17 @@ func (s *postgresStore) GetPropertyValuation(addressKey string) (*PropertyValuat
 		       COALESCE(year_built, 0), COALESCE(property_type, ''),
 		       COALESCE(sales_history, '[]'::jsonb)
 		FROM property_valuations
-		WHERE address_key = $1 AND fetch_status = 'ok'`
+		-- LICENCE GATE, required by migration 000088: the property.com.au profile
+		-- is proprietary/ToS-restricted (its robots.txt bans aggregators) and
+		-- "MUST NEVER be republished raw ... Gate any public read on
+		-- source_licence". The sibling house-price reads above already do; this
+		-- one did not, so per-address AVM estimates, rent estimates and sales
+		-- history were served publicly. source_licence is a column DEFAULT, so
+		-- an ungated row cannot exist by omission — every row is restricted
+		-- until something explicitly relicenses it, and this predicate is what
+		-- makes that default mean anything on the read path.
+		WHERE address_key = $1 AND fetch_status = 'ok'
+		  AND source_licence <> 'proprietary-tos-restricted'`
 
 	var row PropertyValuationRow
 	var salesHistory []byte

@@ -1,10 +1,10 @@
 # Shorted.com.au
 
-> Shorted.com.au is the leading Australian platform for tracking ASIC short position data on ASX-listed securities. It provides daily short selling reports, historical analysis, industry heatmaps, and educational resources covering the Corporations Act 2001 short selling framework, ASIC Regulatory Guide 196, and the complete ASX short sales reporting system.
+> Shorted.com.au tracks official ASIC short position data on ASX-listed securities, and publishes four related Australian datasets: short selling, house prices by suburb, ABS/RBA economic series by state, and the federal register of members' and senators' interests. It provides daily short selling reports, historical analysis back to 2010, industry heatmaps, and reference material on the Corporations Act 2001 short selling framework and ASIC Regulatory Guide 196.
 
 ## About
 
-Shorted aggregates and visualises official ASIC (Australian Securities and Investments Commission) short position data for all ASX-listed securities. The platform serves retail investors, researchers, and financial professionals with institutional-grade analytics on short selling activity in the Australian stock market.
+Shorted aggregates and visualises official ASIC (Australian Securities and Investments Commission) short position data for all ASX-listed securities, alongside Australian house prices, economic series and parliamentary declarations of interest. It serves retail investors, researchers and journalists.
 
 - Website: https://shorted.com.au
 - Contact: support@shorted.com.au
@@ -29,10 +29,51 @@ Shorted aggregates and visualises official ASIC (Australian Securities and Inves
 - [Insider Trading & Director Trades](https://shorted.com.au/insider-trading): Per-stock director and insider trades sourced from ASX Appendix 3Y filings.
 - [Open Data Hub](https://shorted.com.au/data): Public dataset catalog with Dataset schema for Google Dataset Search.
 - [Australian House Prices Tracker](https://shorted.com.au/housing): ABS/RBA house-price tracker plus a national suburb explorer with census and electoral overlays.
+- [Residential Price Drops](https://shorted.com.au/price-drops): Suburbs where asking prices are being cut, as derived aggregates. Individual listings are never republished.
+- [Australian Economy Explorer](https://shorted.com.au/economy): ABS and RBA economic series by state — CPI, labour, trade, GDP proxy, retail, approvals, population — with per-state pages and operations-weighted company exposure.
+- [Parliament's Portfolio](https://shorted.com.au/politicians): What federal MPs and senators declare in the Registers of Members'/Senators' Interests, joined to ASX companies and suburbs. What is held, never how much.
+- [Company Directory](https://shorted.com.au/directory): Browsable index of ASX-listed companies.
+- [Methodology](https://shorted.com.au/methodology): How each dataset is sourced, derived and bounded.
 - [The Widow-Maker Trade](https://shorted.com.au/features/the-widow-maker): Investigative feature on why betting against Australian housing keeps failing, with interactive dashboards.
 - [Authors](https://shorted.com.au/authors): Editorial author profiles and credentials.
-- [API Documentation](https://shorted.com.au/docs/api-reference): Developer API for accessing ASIC short position data programmatically.
+- [API Documentation](https://shorted.com.au/docs/api): Every public endpoint, generated from the service definitions. Machine-readable at /openapi.json; JavaScript-free at /docs/api.md.
 - [LLM Context Documentation](https://shorted.com.au/docs/llm-context): Detailed platform and data documentation optimised for AI/LLM consumption.
+
+## Programmatic access
+
+**Read this before fetching HTML.** The pages listed above are built for
+browsers and sit behind a bot challenge: an automated client that is not a
+verified search or AI crawler gets a 403 on them. That is deliberate, and it is
+not a rate limit — retrying will not help. Everything an agent needs is
+published separately and is always fetchable, with no challenge and no
+authentication:
+
+`/llms.txt` · `/llms-full.txt` · `/ai.txt` · `/robots.txt` · `/sitemap.xml` ·
+`/feed.xml` · `/openapi.json` · `/openapi.yaml` · `/docs/` (the whole tree) ·
+`/.well-known/` (the whole tree) · `/api/search/stocks` · and the API and MCP
+endpoints below.
+
+If you want the data rather than the page, use the API or the MCP server — both
+return the same figures the pages render, as JSON, and neither is challenged.
+
+- [OpenAPI 3.1 description](https://shorted.com.au/openapi.json): Machine-readable description of every public endpoint. YAML twin at /openapi.yaml.
+- [API reference (markdown)](https://shorted.com.au/docs/api.md): JavaScript-free reference with worked curl examples.
+- [API catalog (RFC 9727)](https://shorted.com.au/.well-known/api-catalog): Link set pointing at everything on this list.
+- [MCP server](https://api.shorted.com.au/mcp): Model Context Protocol endpoint (streamable HTTP, protocol 2026-07-28). 24 read-only tools across short positions, housing, economy and the federal register of interests.
+
+Every endpoint is a Connect-RPC method. Call it with an HTTP POST, a JSON body,
+and the `Connect-Protocol-Version: 1` header. Send an identifying `User-Agent`:
+the edge rejects the default `curl/...` agent with a 403.
+
+    curl -X POST https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStock \
+      -A 'my-app/1.0' \
+      -H 'Content-Type: application/json' \
+      -H 'Connect-Protocol-Version: 1' \
+      -d '{"productCode":"BHP"}'
+
+Authentication is optional: public endpoints work unauthenticated at the
+anonymous tier (30 requests/minute, 500/month). A bearer token raises those
+limits — see https://shorted.com.au/docs/api.md
 
 ## Educational Resources
 
@@ -63,12 +104,15 @@ All short position data is sourced directly from official ASIC publications. Dat
 
 ## MCP Server (for AI agents)
 
-Shorted exposes a Model Context Protocol server with read-only tools over the same ASIC data — no authentication required:
+Shorted exposes a Model Context Protocol server with read-only tools over all of the data described above — no authentication required, and OAuth 2.1 available to identify a caller:
 
-- **Endpoint** (streamable HTTP): `https://shorted.com.au/api/mcp/mcp`
+- **Endpoint** (streamable HTTP): `https://api.shorted.com.au/mcp` — protocol 2026-07-28, negotiating back through 2025-11-25, 2025-06-18, 2025-03-26 and 2024-11-05
 - **Server card**: [https://shorted.com.au/.well-known/mcp/server-card.json](https://shorted.com.au/.well-known/mcp/server-card.json)
-- **Tools**: `get_top_shorts` (most shorted ASX stocks), `get_stock` (single ticker summary), `get_stock_history` (time series), `get_industry_treemap` (sector breakdown)
-- **API catalog** (RFC 9727): [https://shorted.com.au/.well-known/api-catalog](https://shorted.com.au/.well-known/api-catalog) · OpenAPI: [https://shorted.com.au/openapi.json](https://shorted.com.au/openapi.json) · Auth notes: [https://shorted.com.au/auth.md](https://shorted.com.au/auth.md)
+- **Tool catalog**: [https://api.shorted.com.au/mcp/catalog.json](https://api.shorted.com.au/mcp/catalog.json) · **Connection guide**: [https://shorted.com.au/docs/mcp.md](https://shorted.com.au/docs/mcp.md)
+- **Tools** (24): short positions and market (`list_top_shorts`, `get_stock`, `get_stock_history`, `screen_stocks`, `list_squeeze_candidates`, …), housing (`get_house_price_series`, `get_suburb_profile`, …), economy (`list_economic_series`, …) and the register of members' interests (`search_politicians`, `get_politician`, …)
+- **OAuth 2.1 (optional)**: adding the endpoint URL is the whole setup — the client discovers [/.well-known/oauth-protected-resource/mcp](https://api.shorted.com.au/.well-known/oauth-protected-resource/mcp) and [/.well-known/oauth-authorization-server](https://api.shorted.com.au/.well-known/oauth-authorization-server), registers itself, and opens a browser once for consent. Scopes are read-only: `shorts:read`, `housing:read`, `economy:read`, `politics:read`. It unlocks nothing, because no tool is reserved for a paid plan.
+- **Limits**: the ceiling in force is tier-blind and per IP, at the Cloudflare edge — 60 requests per 10s and 300 per minute for anonymous MCP callers, counted per HTTP request. Per-caller tier quotas (anonymous 30/min and 500/month; free 60/min and 1,000/month; paid 120/min and 10,000/month, counted per tool call) are documented entitlements that are **not currently applied** on this deployment; `authentication.rateLimits.enforced` in [the catalog](https://api.shorted.com.au/mcp/catalog.json) reports which is true. A 429 carries `X-RateLimit-Detail` and `Retry-After`.
+- `https://shorted.com.au/api/mcp/mcp` is the **deprecated** predecessor: 4 tools, and it sits behind the frontend bot challenge, so an MCP client is likely to get a 403 from it. Use the endpoint above.
 
 ## Reports
 
@@ -78,7 +122,7 @@ Shorted exposes a Model Context Protocol server with read-only tools over the sa
 ## Blog (LLM-Optimised)
 
 - [Blog](https://shorted.com.au/blog): Articles on short selling, market analysis, and platform updates.
-- Blog posts are available as LLM-friendly plain text at `/blog/{slug}/llm`. For example: [https://shorted.com.au/blog/short-squeeze-explained/llm](https://shorted.com.au/blog/short-squeeze-explained/llm).
+- Blog posts have a plain-text variant at `/blog/{slug}/llm` — e.g. `/blog/short-squeeze-explained/llm`. Like the rest of the site's HTML it is served to browsers and verified crawlers; an unverified automated fetch gets a 403.
 
 ## Optional
 - [About](https://shorted.com.au/about): Platform mission and team information.

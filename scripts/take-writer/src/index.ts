@@ -59,12 +59,32 @@ interface Args {
   inline?: number;
   // validate-article
   rounds?: number;
+  // results-watch
+  sinceDays?: number;
+  limit?: number;
+  // import-mdx
+  file?: string;
+  dir?: string;
+  dryRun?: boolean;
+  publish?: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
   const args: Args = { command: "", help: false };
   for (const arg of argv) {
     if (arg === "--help" || arg === "-h") args.help = true;
+    else if (arg === "--dry-run") args.dryRun = true;
+    else if (arg === "--publish") args.publish = true;
+    else if (arg.startsWith("--limit=")) {
+      const v = arg.split("=")[1];
+      if (v !== undefined) args.limit = parseInt(v, 10);
+    }
+    else if (arg.startsWith("--since-days=")) {
+      const v = arg.split("=")[1];
+      if (v !== undefined) args.sinceDays = parseInt(v, 10);
+    }
+    else if (arg.startsWith("--file=")) args.file = arg.split("=").slice(1).join("=");
+    else if (arg.startsWith("--dir=")) args.dir = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--headline=")) args.headline = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--stock=")) args.stockCode = arg.split("=")[1];
     else if (arg.startsWith("--short-pct=")) {
@@ -126,6 +146,8 @@ Commands:
   newsroom-preview Investigate ONE --stock=CODE and print the report (no DB write, no images)
   regen-images    Generate a hero + inline images for an existing take (--slug=SLUG [--inline=2])
   validate-article Screenshot + Gemini-vision cohesion check with auto-fix loop (--slug=SLUG [--rounds=2])
+  results-watch   List companies that just filed results, ranked by short interest (--since-days=N [--limit=N])
+  import-mdx      Upsert a hand-written MDX article as a DRAFT (--file=... | --dir=... [--dry-run] [--publish])
   list-drafts     List unpublished drafts; --slug=SLUG prints one draft's full body + citations
   publish         Publish a draft: images → validate → set published_at → tweet (--slug=SLUG [--no-images] [--no-validate] [--tweet])
   narrative Multi-section journalism-engine Take for one --stock=CODE
@@ -369,6 +391,21 @@ async function main(): Promise<void> {
     case "validate-article": {
       if (!args.slug) throw new Error("--slug=SLUG required for validate-article");
       await validateArticle(args.slug, { rounds: args.rounds });
+      break;
+    }
+    case "results-watch": {
+      const { runResultsWatch } = await import("./results-watch.js");
+      await runResultsWatch({ sinceDays: args.sinceDays, limit: args.limit });
+      break;
+    }
+    case "import-mdx": {
+      const { importMdx } = await import("./import-mdx.js");
+      await importMdx({
+        file: args.file,
+        dir: args.dir,
+        dryRun: args.dryRun,
+        publish: args.publish,
+      });
       break;
     }
     case "list-drafts": {

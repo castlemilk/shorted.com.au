@@ -216,12 +216,12 @@ func discoverPetroleumViaPage(ctx context.Context) (string, error) {
 }
 
 func httpGet(ctx context.Context, url string, timeout time.Duration, limit int64) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", absdata.UserAgent)
-	resp, err := (&http.Client{Timeout: timeout}).Do(req)
+	resp, err := absdata.GetWithRetry(
+		ctx,
+		&http.Client{Timeout: timeout},
+		url,
+		http.Header{"User-Agent": {absdata.UserAgent}},
+	)
 	if err != nil {
 		return nil, err
 	}

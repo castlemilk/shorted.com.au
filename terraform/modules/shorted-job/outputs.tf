@@ -9,8 +9,8 @@ output "service_account_email" {
 }
 
 output "scheduler_job_name" {
-  description = "Name of the Cloud Scheduler job"
-  value       = google_cloud_scheduler_job.schedule.name
+  description = "Name of the Cloud Scheduler job; null when the job has no schedule"
+  value       = one(google_cloud_scheduler_job.schedule[*].name)
 }
 
 output "extra_scheduler_job_names" {
@@ -24,6 +24,6 @@ output "extra_schedulers_paused" {
 }
 
 output "scheduler_paused" {
-  description = "Whether the Cloud Scheduler job is paused"
-  value       = google_cloud_scheduler_job.schedule.paused
+  description = "Whether the Cloud Scheduler job is paused; null when the job has no schedule"
+  value       = one(google_cloud_scheduler_job.schedule[*].paused)
 }

@@ -124,6 +124,13 @@ import {
   renderSitemapIndex,
   renderUrlset,
 } from "../sitemap-xml";
+import { THEME_SLUGS } from "~/@/lib/themes/registry";
+import {
+  HOUSING_RANKINGS,
+  HOUSING_RANKING_SLUGS,
+} from "~/@/lib/housing-rankings/registry";
+import { CAPITALS, CAPITAL_SLUGS } from "~/@/lib/housing/capitals";
+import { PUBLISHED_ECONOMY_TOPIC_PAIRS } from "~/@/lib/economy/topics";
 
 type Section = { name: string; entries: Awaited<ReturnType<typeof buildCoreSitemap>> };
 
@@ -186,6 +193,7 @@ describe("sitemap children", () => {
       ["/glossary/", "sitemap-core.xml"],
       ["/authors/", "sitemap-core.xml"],
       ["/scans/", "sitemap-core.xml"],
+      ["/themes/", "sitemap-core.xml"],
       ["/directory/", "sitemap-core.xml"],
       ["/market/", "sitemap-core.xml"],
       ["/industry/", "sitemap-core.xml"],
@@ -204,6 +212,47 @@ describe("sitemap children", () => {
     for (const [needle, child] of expectations) {
       expect({ needle, in: where(needle) }).toEqual({ needle, in: [child] });
     }
+  });
+
+  // The theme URLs come from the registry, so a new theme reaches the sitemap
+  // without anyone remembering to hand-edit a list.
+  it("lists the themes hub and every registry theme, dated like the other ASIC pages", async () => {
+    const core = await buildCoreSitemap();
+    const hub = core.find((e) => e.url === "https://shorted.com.au/themes");
+    expect(hub).toBeDefined();
+    for (const slug of THEME_SLUGS) {
+      const entry = core.find(
+        (e) => e.url === `https://shorted.com.au/themes/${slug}`,
+      );
+      expect(entry).toBeDefined();
+      expect(entry!.lastModified).toBe(hub!.lastModified);
+    }
+    // ASIC-derived, so it carries a real data date rather than no lastmod.
+    expect(hub!.lastModified).toBeTruthy();
+  });
+
+  it("lists every published economy topic pair in the core sitemap without a fabricated lastmod", async () => {
+    const core = await buildCoreSitemap();
+    const topicEntries = core.filter((entry) =>
+      /\/economy\/[a-z]+\/[a-z-]+$/.test(entry.url),
+    );
+
+    expect(topicEntries).toHaveLength(PUBLISHED_ECONOMY_TOPIC_PAIRS.length);
+    for (const pair of PUBLISHED_ECONOMY_TOPIC_PAIRS) {
+      const entry = topicEntries.find(
+        (candidate) =>
+          candidate.url ===
+          `https://shorted.com.au/economy/${pair.state}/${pair.topic}`,
+      );
+      expect(entry).toBeDefined();
+      expect(entry!.lastModified).toBeUndefined();
+    }
+    expect(
+      topicEntries.some((entry) => entry.url.endsWith("/economy/act/labour")),
+    ).toBe(false);
+    expect(
+      topicEntries.some((entry) => entry.url.endsWith("/economy/nt/labour")),
+    ).toBe(false);
   });
 
   it("drops the auth-gated /developer stub and adds the API docs tree", async () => {
@@ -255,6 +304,60 @@ describe("sitemap children", () => {
     expect(suburbs.length).toBeGreaterThan(0);
     expect(suburbs.some((s) => Boolean(s.lastModified))).toBe(true);
     expect(suburbs.some((s) => !s.lastModified)).toBe(true);
+  });
+
+  it("lists the housing rankings hub and every registry slug in the housing sitemap", async () => {
+    const housing = await buildHousingSitemap();
+    const hub = housing.find(
+      (entry) => entry.url === "https://shorted.com.au/housing/rankings",
+    );
+    const housingHub = housing.find(
+      (entry) => entry.url === "https://shorted.com.au/housing",
+    );
+    expect(hub).toBeDefined();
+    expect(hub!.lastModified).toBe(housingHub!.lastModified);
+
+    for (const slug of HOUSING_RANKING_SLUGS) {
+      const ranking = HOUSING_RANKINGS[slug]!;
+      const entry = housing.find(
+        (candidate) =>
+          candidate.url === `https://shorted.com.au/housing/rankings/${slug}`,
+      );
+      const state = housing.find(
+        (candidate) =>
+          candidate.url ===
+          `https://shorted.com.au/housing/${ranking.stateCode.toLowerCase()}`,
+      );
+      expect(entry).toBeDefined();
+      expect(entry!.lastModified).toBe(state!.lastModified);
+    }
+  });
+
+  it("lists the capital-prices hub and every capital registry slug", async () => {
+    const housing = await buildHousingSitemap();
+    const hub = housing.find(
+      (entry) => entry.url === "https://shorted.com.au/housing/capitals",
+    );
+    const housingHub = housing.find(
+      (entry) => entry.url === "https://shorted.com.au/housing",
+    );
+    expect(hub).toBeDefined();
+    expect(hub!.lastModified).toBe(housingHub!.lastModified);
+
+    for (const slug of CAPITAL_SLUGS) {
+      const capital = CAPITALS.find((candidate) => candidate.slug === slug)!;
+      const entry = housing.find(
+        (candidate) =>
+          candidate.url === `https://shorted.com.au/housing/capitals/${slug}`,
+      );
+      const state = housing.find(
+        (candidate) =>
+          candidate.url ===
+          `https://shorted.com.au/housing/${capital.stateCode.toLowerCase()}`,
+      );
+      expect(entry).toBeDefined();
+      expect(entry!.lastModified).toBe(state!.lastModified);
+    }
   });
 });
 

@@ -45,12 +45,19 @@ export interface NavigationGroup {
   endpoints: ParsedEndpoint[];
 }
 
+export interface Server {
+  url: string;
+  description?: string;
+}
+
 export interface OpenAPISpec {
   info: {
     title: string;
     description?: string;
     version: string;
   };
+  /** `servers` from the generated document. `servers[0].url` is the public API host. */
+  servers: Server[];
   endpoints: ParsedEndpoint[];
   groups: NavigationGroup[];
   components: {

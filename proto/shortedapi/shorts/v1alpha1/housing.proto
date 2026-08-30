@@ -23,6 +23,21 @@ service HousingService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
 
+  // Stable sal_code-ordered index used by all columnar suburb responses.
+  rpc GetSuburbIndex (GetSuburbIndexRequest) returns (GetSuburbIndexResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Fetch only the map metric columns currently needed by the client.
+  rpc GetSuburbMetricColumns (GetSuburbMetricColumnsRequest) returns (GetSuburbMetricColumnsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Return a compact index-aligned mask for ANDed metric predicates.
+  rpc FilterSuburbs (FilterSuburbsRequest) returns (FilterSuburbsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
   // Full per-suburb profile: identity, demographics, headline price, comparison baselines.
   rpc GetSuburbProfile (GetSuburbProfileRequest) returns (GetSuburbProfileResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
@@ -128,7 +143,7 @@ message ListStateSuburbsRequest {
 
 // One suburb summary for the map + list (keyed by ABS SAL code).
 // Per-suburb amenity counts + derived lifestyle indices (Local Insights).
-// OSM-derived counts (ODbL Produced Work) + ACARA/GA sources; see the
+// OSM-derived counts (ODbL Produced Work) + state/GA sources; see the
 // Local Insights design doc.
 message SuburbAmenities {
   int32  schools_total = 1;
@@ -155,6 +170,37 @@ message SuburbAmenities {
   int32  schools_primary = 21;               // primary (incl. combined)
   int32  schools_secondary = 22;             // secondary (incl. combined)
   double nearest_secondary_km = 23;          // nearest secondary school
+}
+
+// One ABS 2021 SEIFA index for a Suburb and Locality (SAL). Deciles are 1..10;
+// zero means that measure is absent rather than a valid decile.
+message SuburbSeifaIndex {
+  int32 score = 1;
+  int32 decile_aus = 2;                      // rank decile within Australia
+  int32 decile_state = 3;                    // rank decile within state
+}
+
+// ABS Socio-Economic Indexes for Areas (SEIFA), licensed CC-BY-4.0.
+// Null/absent when every index was suppressed, missing, or quality-gated.
+message SuburbSeifa {
+  SuburbSeifaIndex irsd = 1;                 // Relative Socio-economic Disadvantage
+  SuburbSeifaIndex irsad = 2;                // Relative Socio-economic Advantage and Disadvantage
+  SuburbSeifaIndex ier = 3;                  // Economic Resources
+  SuburbSeifaIndex ieo = 4;                  // Education and Occupation
+}
+
+// Measured terrain statistics from Geoscience Australia's national
+// SRTM-derived 1 Second DEM-S (CC-BY-4.0). Elevations are orthometric metres
+// relative to the EGM96 geoid, not AHD or ellipsoidal heights. Low-lying land
+// shares are measured proportions of valid DEM-covered land cells. No
+// hydrology, drainage, surge, or catchment modelling is represented.
+message SuburbElevation {
+  optional double elevation_min_m = 1;
+  optional double elevation_median_m = 2;
+  optional double elevation_max_m = 3;
+  optional double land_share_below_1m = 4;  // percent of valid sampled land area, 0..100
+  optional double land_share_below_2m = 5;  // percent of valid sampled land area, 0..100
+  optional double land_share_below_5m = 6;  // percent of valid sampled land area, 0..100
 }
 
 message SuburbSummary {
@@ -214,10 +260,75 @@ message SuburbSummary {
   // every suburb in a state (~5,000 rows per request), and a message would drag
   // the politicians descriptor into the hot /housing/[state] route bundle.
   int32 politician_property_count = 31;
+
+  // Profile-only in the current backend query; list responses leave it absent.
+  SuburbSeifa seifa = 32;
 }
 
 message ListStateSuburbsResponse {
   repeated SuburbSummary suburbs = 1;
+}
+
+// The stable identity/label spine for one state's columnar suburb data. Entries
+// are always ordered lexically by sal_code, never by display name.
+message GetSuburbIndexRequest {
+  string state_code = 1; // 'NSW' | 'VIC' | ... (required)
+}
+
+message SuburbIndexEntry {
+  string sal_code = 1;
+  string sal_name = 2;
+  string postcode = 3;
+}
+
+message GetSuburbIndexResponse {
+  repeated SuburbIndexEntry suburbs = 1;
+  // Short v1 SHA-256 prefix derived only from the sorted sal_code set.
+  string index_version = 2;
+}
+
+message GetSuburbMetricColumnsRequest {
+  string state_code = 1;       // required
+  repeated string metric_keys = 2; // exact keys from the closed server registry
+}
+
+// One numeric metric aligned position-for-position with GetSuburbIndex.
+message SuburbMetricColumn {
+  string metric_key = 1;
+  // Numeric values are float32 and repeated float values are packed by default in proto3.
+  // When null_mask marks a position, the corresponding zero is only a placeholder.
+  repeated float values = 2;
+  // Explicit NULL bitset. Least-significant-bit first: position i is byte i/8,
+  // bit i%8; 1 means NULL and 0 means present. This keeps a genuine zero present.
+  bytes null_mask = 3;
+  // Non-empty for categorical metrics. Each present value is a zero-based
+  // integer index into this stable label dictionary.
+  repeated string category_labels = 4;
+}
+
+message GetSuburbMetricColumnsResponse {
+  repeated SuburbMetricColumn columns = 1;
+  // Must equal the current GetSuburbIndex version before values are aligned.
+  string index_version = 2;
+}
+
+message SuburbMetricPredicate {
+  string metric_key = 1;
+  optional float min = 2; // inclusive; at least one bound is required
+  optional float max = 3; // inclusive; at least one bound is required
+}
+
+message FilterSuburbsRequest {
+  string state_code = 1; // required
+  repeated SuburbMetricPredicate predicates = 2; // ANDed; at least one required
+}
+
+message FilterSuburbsResponse {
+  // Packed match bitset aligned to GetSuburbIndex. Least-significant-bit first:
+  // position i is byte i/8, bit i%8; 1 means the suburb matches every predicate.
+  bytes match_mask = 1;
+  uint32 match_count = 2;
+  string index_version = 3;
 }
 
 message GetSuburbProfileRequest {
@@ -244,6 +355,17 @@ message SuburbDemographics {
   double pct_no_religion = 16;               // 0..100 ("No religion")
   string top_language = 17;                  // top language other than English at home
   double pct_top_language = 18;              // 0..100 share speaking top_language
+  // Curated ABS Census 2021 GCP rates. Zero means absent in this proto3 API;
+  // the database retains NULL for missing/suppressed/quality-gated values.
+  double pct_low_personal_income = 19;        // 0..100, $1-$499 weekly (G17)
+  double pct_high_personal_income = 20;       // 0..100, $2,000+ weekly (G17)
+  double unemployment_rate = 21;             // 0..100 of labour force (G43)
+  double labour_force_participation_rate = 22; // 0..100 of persons aged 15+ (G43)
+  double pct_bachelor_or_higher = 23;         // 0..100 (G46)
+  double pct_separate_house = 24;             // 0..100 occupied private dwellings (G32/G36)
+  double pct_flat_apartment = 25;             // 0..100 occupied private dwellings (G32/G36)
+  double pct_couple_with_children = 26;       // 0..100 families (G25)
+  double pct_lone_person_household = 27;      // 0..100 households (G25)
 }
 
 // State + national reference medians for the profile's comparison bars.
@@ -352,6 +474,9 @@ message GetSuburbProfileResponse {
   // Crawl-derived listing aggregates; null when the suburb is outside the crawl
   // catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off.
   SuburbListingStats listing_stats = 8;
+  // Profile-only measured terrain block; absent when the DEM sample is missing
+  // or below the collector's published cell-count quality floor.
+  SuburbElevation elevation = 9;
 }
 
 message ListHousingRegionsRequest {

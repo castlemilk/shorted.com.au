@@ -6,7 +6,7 @@ const revalidatePathMock = jest.fn();
 const revalidateTagMock = jest.fn();
 const deleteCachedByPrefixMock = jest
   .fn()
-  .mockResolvedValue({ deleted: 0, errors: [] });
+  .mockResolvedValue({ deleted: 0, errors: [], scanIterations: 0 });
 
 jest.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => revalidatePathMock(...args),
@@ -26,7 +26,7 @@ describe("POST /api/revalidate", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    deleteCachedByPrefixMock.mockResolvedValue({ deleted: 0, errors: [] });
+    deleteCachedByPrefixMock.mockResolvedValue({ deleted: 0, errors: [], scanIterations: 0 });
     process.env.REVALIDATION_SECRET = "test-revalidation-secret";
   });
 
@@ -84,7 +84,7 @@ describe("POST /api/revalidate", () => {
   });
 
   it("reports a successful flush as revalidated with no errors", async () => {
-    deleteCachedByPrefixMock.mockResolvedValue({ deleted: 7, errors: [] });
+    deleteCachedByPrefixMock.mockResolvedValue({ deleted: 7, errors: [], scanIterations: 3 });
     const req = request(
       "http://localhost/api/revalidate?flush=shorts",
       "test-revalidation-secret",
@@ -107,6 +107,7 @@ describe("POST /api/revalidate", () => {
     deleteCachedByPrefixMock.mockResolvedValue({
       deleted: 0,
       errors: ["cache:shorts:: ERR max requests limit exceeded"],
+      scanIterations: 1,
     });
     const req = request(
       "http://localhost/api/revalidate?path=/top&flush=shorts",

@@ -44,6 +44,7 @@ jest.mock("@/components/seo/llm-meta", () => ({ LLMMeta: () => null }));
 jest.mock("~/app/actions/config", () => ({ bailOnEmptyRender: jest.fn() }));
 jest.mock("~/app/actions/getHousing", () => ({
   getPriceDropsOverview: (...args: unknown[]) => getPriceDropsOverview(...args),
+  getDropIndexSeries: jest.fn().mockResolvedValue({ points: [], trackingSince: "" }),
   listAddressPriceDrops: jest.fn().mockResolvedValue({ addresses: [] }),
   listAgencyPriceStats: jest.fn().mockResolvedValue({ agencies: [] }),
   listSuburbPriceDrops: jest.fn().mockResolvedValue({ suburbs: [] }),

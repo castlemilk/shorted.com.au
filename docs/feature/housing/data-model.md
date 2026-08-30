@@ -50,6 +50,28 @@ the live portal and sit behind `HOUSING_DROP_LISTINGS_ENABLED`.
 - `house_price_ingest_runs` — per-source cursor (`source` PK, `last_period`,
   `rows_upserted`, `status`).
 
+**`dwelling_type` has two vocabularies, and mixing them silently returns the
+wrong number.** Measured in prod 2026-08-26:
+
+| `region_type` | `dwelling_type` values | Source |
+|---|---|---|
+| `suburb` | `house` (31,681 rows) | state Valuer-General |
+| `gccsa`, `rest_of_state` | **both** `established_house` and `attached` | ABS `RES_DWELL` |
+| `state`, `national` | `all` | ABS/RBA aggregates |
+
+So a regional region_code has **two `median_price` rows for the same quarter**.
+Any "latest median" lateral that filters only on `measure = 'median_price'` and
+takes `ORDER BY period DESC LIMIT 1` breaks that tie arbitrarily — and in
+practice returned the **attached (unit)** median. That shipped: every capital
+city's headline read the unit price, understating Greater Sydney by 43%
+($848k against an established-house median of $1.485m at 2026-Q1). Fixed by
+filtering `dwelling_type IN ('house', 'established_house')`, which is
+unambiguous because no `region_type` carries both. Conversely, a query that
+filters `dwelling_type = 'house'` is **suburb-only** and will silently return
+nothing for gccsa/rest_of_state regions — correct for the suburb read paths
+that do it, wrong if copied to a regional one. Regression:
+`TestHousingRegionsQuery_PicksHousesNotUnits`.
+
 Known-open: an official-ingest failure exits 0 with no freshness sentinel, so
 a stale cursor looks healthy — fix in flight on the `feat/housing-*` branches
 (2026-08-09 audit).
@@ -66,9 +88,25 @@ One row per ABS SAL suburb, `sal_code` PK. Column families by migration:
 | 000059/000060 | `state_district`; `state_member/party/party_ab` — **NULL for TAS/ACT by design** (Hare-Clark) |
 | 000084 | `banner_archetype/blurb/landmarks/bg_key/bg_url/generated_at` — hydrated on **`GetSuburbProfile` only**, never the list rpcs |
 
-`pct_owned_*` / `pct_rented` / `dwelling_count` exist (000055) but `-mode
-census` never populates them (G33/G37 unparsed) — reserved, NULL. Don't build
-on them.
+| 000115 | elevation: `elevation_min_m/median_m/max_m`, `land_share_below_1m/2m/5m` — CHECK constrains the shares to 0–100 |
+
+`pct_owned_*` / `pct_rented` / `dwelling_count` (000055) are **populated** as of
+2026-08-27 — 8,952 suburbs. They were NULL for a long time because `-mode census`
+read tenure from the wrong DataPack table; it now reads **G37**
+(`O_OR_Total` / `O_MTG_Total` / `R_Tot_Total` over `Total_Total`). Earlier docs
+said these were "reserved, don't build on them" — that is no longer true.
+
+The elevation columns (000115) are populated for **15,307** suburbs from the GA
+1 Second DEM-S. `elevation_min_m` is a single-cell extremum and therefore
+noise-sensitive: 44 suburbs (0.29%) report a minimum below −15 m, Australia's
+lowest natural point, from SRTM void fill. Their medians sit near 70 m, so the
+median and the area-weighted shares are unaffected — but a suburb showing −86 m
+on the map is the source data, not a bug.
+
+Both families are NULL below `censusDerivedRateMinPopulation = 100` (Census
+randomisation makes tiny-cell rates misleading) and wherever the denominator is
+zero — the "No usual address (State)" pseudo-SALs and Acton ACT have population
+but no occupied private dwellings.
 
 ## The crawl pair (+ satellites)
 
