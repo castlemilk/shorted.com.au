@@ -123,3 +123,28 @@ variable "shorts_data_bucket" {
   type        = string
   default     = ""
 }
+
+variable "rate_limit_enabled" {
+  description = "Turn on app-layer rate limiting: per-tier per-minute (in process) and monthly quota accounting (Postgres). Requires no storage configuration."
+  type        = bool
+  default     = false
+}
+
+variable "rate_limit_ssr_bypass_secret" {
+  description = "Shared secret proving a first-party marker really is our own Vercel SSR. Same value the Cloudflare worker gets. Empty leaves every first-party request in the unverified (monthly-metered) class, which is degraded but never throttled."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "rate_limit_ssr_bypass_user_agent" {
+  description = "User-agent marker identifying our own SSR. Must match the edge worker's binding."
+  type        = string
+  default     = "shorted-web-ssr"
+}
+
+variable "rate_limit_ssr_bypass_header_name" {
+  description = "Header carrying the SSR bypass secret. Must match the edge worker's binding."
+  type        = string
+  default     = "x-shorted-ssr-bypass"
+}

@@ -141,6 +141,34 @@ resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
   project   = var.project_id
 }
 
+# The SSR bypass secret is the one secret this module OWNS rather than merely
+# reads, because its value is already a Terraform variable — the same variable
+# feeds the Cloudflare worker binding, and having one source is what keeps the
+# edge and the app layer from disagreeing about our own traffic.
+resource "google_secret_manager_secret" "ssr_bypass" {
+  count     = var.rate_limit_ssr_bypass_secret != "" ? 1 : 0
+  secret_id = "SSR_BYPASS_SECRET"
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "ssr_bypass" {
+  count       = var.rate_limit_ssr_bypass_secret != "" ? 1 : 0
+  secret      = google_secret_manager_secret.ssr_bypass[0].id
+  secret_data = var.rate_limit_ssr_bypass_secret
+}
+
+resource "google_secret_manager_secret_iam_member" "ssr_bypass" {
+  count     = var.rate_limit_ssr_bypass_secret != "" ? 1 : 0
+  secret_id = google_secret_manager_secret.ssr_bypass[0].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Grant access to token secret (for API token JWT signing)
 resource "google_secret_manager_secret_iam_member" "token_secret" {
   secret_id = "TOKEN_SECRET"
@@ -413,6 +441,43 @@ resource "google_cloud_run_v2_service" "shorts_api" {
           secret_key_ref {
             secret  = "OTEL_EXPORTER_OTLP_HEADERS"
             version = "latest"
+          }
+        }
+      }
+
+      # Rate limiting. Quota counters live in Postgres on the pool this service
+      # already holds, so there is no storage to configure — this flag is the
+      # whole switch.
+      env {
+        name  = "RATE_LIMIT_ENABLED"
+        value = var.rate_limit_enabled ? "true" : "false"
+      }
+
+      # The first-party marker, which MUST agree with the edge worker's bindings
+      # of the same names. If the two layers disagree about what our own traffic
+      # looks like, one of them meters our SSR fleet as anonymous.
+      env {
+        name  = "RATE_LIMIT_SSR_BYPASS_USER_AGENT"
+        value = var.rate_limit_ssr_bypass_user_agent
+      }
+
+      env {
+        name  = "RATE_LIMIT_SSR_BYPASS_HEADER_NAME"
+        value = var.rate_limit_ssr_bypass_header_name
+      }
+
+      # The secret only distinguishes verified from unverified first-party
+      # traffic — both classes get the same per-minute headroom, so an absent or
+      # mid-rotation secret costs a monthly meter, never a 429 on our own site.
+      dynamic "env" {
+        for_each = var.rate_limit_ssr_bypass_secret != "" ? [1] : []
+        content {
+          name = "RATE_LIMIT_SSR_BYPASS_SECRET"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.ssr_bypass[0].secret_id
+              version = "latest"
+            }
           }
         }
       }

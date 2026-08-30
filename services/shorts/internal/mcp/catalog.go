@@ -302,10 +302,10 @@ func BuildCatalogFor(ctx context.Context, src DataSource, opts CatalogOptions) C
 			Contact:         "support@shorted.com.au",
 		},
 		Authentication: buildCatalogAuthentication(apiBaseURL, opts.RateLimitEnabled),
-		ToolCount: len(tools),
-		Tools:     tools,
-		Resources: resources,
-		Prompts:   prompts,
+		ToolCount:      len(tools),
+		Tools:          tools,
+		Resources:      resources,
+		Prompts:        prompts,
 	}
 }
 
@@ -407,8 +407,8 @@ func buildCatalogAuthentication(apiBaseURL string, rateLimitEnforced bool) Catal
 	}
 
 	return CatalogAuthentication{
-		Required: false,
-		Note:     note,
+		Required:                    false,
+		Note:                        note,
 		Optional:                    "oauth2",
 		ProtectedResourceMetadata:   ProtectedResourceMetadataURL(apiBaseURL),
 		AuthorizationServerMetadata: strings.TrimSuffix(apiBaseURL, "/") + "/.well-known/oauth-authorization-server",

@@ -241,9 +241,12 @@ func TestTheRejectionIsAJSONRPCErrorAnAgentCanRelay(t *testing.T) {
 		RetryAfterSeconds: 3600,
 	}
 
+	// A caller who presented a credential, so this is the plain 429 path — an
+	// anonymous caller is challenged instead, covered separately below.
 	r := jsonRPCRequest(`{"jsonrpc":"2.0","id":42,"method":"tools/call"}`)
+	r.Header.Set("Authorization", "Bearer some-token")
 	rec := httptest.NewRecorder()
-	RateLimitRejection(rec, r, result, detail)
+	RateLimitRejection(metadataURL)(rec, r, result, detail)
 
 	if rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("status = %d", rec.Code)
@@ -288,8 +291,9 @@ func TestTheRejectionIsAJSONRPCErrorAnAgentCanRelay(t *testing.T) {
 
 func TestARejectedBatchCarriesANullID(t *testing.T) {
 	r := jsonRPCRequest(`[{"method":"tools/call"},{"method":"tools/call"}]`)
+	r.Header.Set("Authorization", "Bearer some-token")
 	rec := httptest.NewRecorder()
-	RateLimitRejection(rec, r, &ratelimit.Result{Tier: "anonymous"}, ratelimit.RateLimitDetail{Message: "x"})
+	RateLimitRejection(metadataURL)(rec, r, &ratelimit.Result{Tier: "anonymous"}, ratelimit.RateLimitDetail{Message: "x"})
 
 	var body struct {
 		ID json.RawMessage `json:"id"`
@@ -299,5 +303,97 @@ func TestARejectedBatchCarriesANullID(t *testing.T) {
 	}
 	if string(body.ID) != "null" {
 		t.Errorf("id = %s, want null — a batch rejection is not attributable", body.ID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The challenge
+// ---------------------------------------------------------------------------
+//
+// OAuth on this server was live but DORMANT: nothing ever told a client the
+// authorization server existed. Anonymous access is unchallenged on purpose —
+// that is the adoption path — so the only remaining moment where a challenge is
+// both true and useful is the ceiling. These tests are that moment.
+
+const metadataURL = "https://api.test/.well-known/oauth-protected-resource/mcp"
+
+func TestAnExhaustedAnonymousCallerIsChallenged(t *testing.T) {
+	r := jsonRPCRequest(`{"jsonrpc":"2.0","id":1,"method":"tools/call"}`)
+	rec := httptest.NewRecorder()
+	RateLimitRejection(metadataURL)(rec, r,
+		&ratelimit.Result{Tier: "anonymous"},
+		ratelimit.RateLimitDetail{Message: "quota exceeded"})
+
+	// The STATUS is what a client branches on. A 429 here, however well
+	// described, is a transport failure to every MCP client and the flow never
+	// starts.
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401 — a 429 does not start the OAuth flow", rec.Code)
+	}
+	challenge := rec.Header().Get("WWW-Authenticate")
+	if challenge == "" {
+		t.Fatal("no WWW-Authenticate: the client has no way to find the authorization server")
+	}
+	// RFC 9728: the pointer to the metadata document is the discoverable part.
+	if !strings.Contains(challenge, `resource_metadata="`+metadataURL+`"`) {
+		t.Errorf("challenge does not point at the metadata document: %q", challenge)
+	}
+	// The body still explains itself, so an agent can tell the user what
+	// happened rather than surfacing a bare 401.
+	if !strings.Contains(rec.Body.String(), "quota exceeded") {
+		t.Errorf("the reason was lost: %s", rec.Body.String())
+	}
+}
+
+// An authenticated caller must NOT be challenged. They have already done the
+// thing a challenge asks for; sending them round the flow again cannot raise a
+// quota, and would present a consent screen as the answer to a billing limit.
+func TestAnExhaustedAUTHENTICATEDCallerIsNotChallenged(t *testing.T) {
+	// Both cases are driven through the HEADER, because that is the only way a
+	// credential reaches this handler: the SDK exports no setter for TokenInfo
+	// in a context, and RequireBearerToken only runs when the header is present.
+	// So a verified caller is a header caller too, and the header branch is what
+	// actually decides — which is fortunate, since a faked context would pass
+	// even if the check were wrong.
+	for name, prime := range map[string]func(*http.Request) *http.Request{
+		"a token the middleware verified": func(r *http.Request) *http.Request {
+			r.Header.Set("Authorization", "Bearer good-token")
+			return r
+		},
+		// A bad token also counts: the auth middleware's own 401 names the real
+		// problem, and a quota challenge would mask it.
+		"a token it did not": func(r *http.Request) *http.Request {
+			r.Header.Set("Authorization", "Bearer whatever")
+			return r
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := prime(jsonRPCRequest(`{"jsonrpc":"2.0","id":1,"method":"tools/call"}`))
+			rec := httptest.NewRecorder()
+			RateLimitRejection(metadataURL)(rec, r,
+				&ratelimit.Result{Tier: "free"},
+				ratelimit.RateLimitDetail{Message: "quota exceeded"})
+
+			if rec.Code != http.StatusTooManyRequests {
+				t.Errorf("status = %d, want 429", rec.Code)
+			}
+			if got := rec.Header().Get("WWW-Authenticate"); got != "" {
+				t.Errorf("challenged an authenticated caller: %q", got)
+			}
+		})
+	}
+}
+
+// Without a metadata URL there is nothing to discover, so the challenge would
+// be an unanswerable 401. It degrades to the plain 429 instead.
+func TestWithoutMetadataThereIsNoChallenge(t *testing.T) {
+	rec := httptest.NewRecorder()
+	RateLimitRejection("")(rec,
+		jsonRPCRequest(`{"jsonrpc":"2.0","id":1,"method":"tools/call"}`),
+		&ratelimit.Result{Tier: "anonymous"},
+		ratelimit.RateLimitDetail{Message: "x"})
+
+	if rec.Code != http.StatusTooManyRequests {
+		t.Errorf("status = %d, want 429", rec.Code)
 	}
 }
