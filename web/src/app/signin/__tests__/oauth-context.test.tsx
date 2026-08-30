@@ -58,9 +58,7 @@ describe("the sign-in page in an OAuth flow", () => {
     expect(screen.getByText(/authorise an application/i)).toBeInTheDocument();
     // And sets the expectation that consent comes next, so approving is not a
     // surprise.
-    expect(
-      screen.getByText(/before anything is shared/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/before anything is shared/i)).toBeInTheDocument();
   });
 
   it("keeps the ordinary welcome for an ordinary sign-in", () => {

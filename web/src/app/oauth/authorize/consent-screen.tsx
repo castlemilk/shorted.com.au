@@ -137,12 +137,14 @@ export function ConsentScreen({
       // Everything functional is demoted to the footer, because the user's job
       // here is finished and the page is about to leave anyway.
       //
-      // NOT min-h-screen: this renders inside the app shell, which already
-      // contributes a header and a footer, so a full-viewport section makes the
-      // page taller than the viewport — it scrolls, and on a phone the flame is
-      // clipped by the header before anyone sees it.
+      // min-h-screen is correct here BECAUSE the OAuth routes drop the site
+      // header and footer (see conditional-header.tsx). It was briefly wrong
+      // when they did not: the section plus the chrome exceeded the viewport,
+      // the page scrolled, and on a phone the flame was clipped out of sight
+      // before anyone saw it. If chrome ever returns to these routes, this
+      // needs to shrink again.
       return (
-        <main className="flex min-h-[70vh] flex-col items-center justify-center gap-7 bg-neutral-950 px-6 py-14 text-center sm:gap-8">
+        <main className="flex min-h-screen flex-col items-center justify-center gap-7 bg-neutral-950 px-6 py-14 text-center sm:gap-8">
           <div className="relative">
             {/* A warm bloom behind the flame, so it lights the page rather
                 than sitting on it. */}
