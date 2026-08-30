@@ -169,7 +169,7 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
 
       env {
         name  = "GCS_LOGO_BUCKET"
-        value = "shorted-company-logos"
+        value = var.logo_bucket
       }
 
       # Shorts API URL for Algolia sync callbacks after enrichment
@@ -270,4 +270,3 @@ resource "google_cloud_run_v2_service_iam_member" "enrichment_processor_invoker"
     google_cloud_run_v2_service.enrichment_processor
   ]
 }
-

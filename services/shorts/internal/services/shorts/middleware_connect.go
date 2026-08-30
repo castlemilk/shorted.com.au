@@ -367,11 +367,11 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 
 			// 4. Try to validate as a Google service account token
 			audience := os.Getenv("GCP_PROJECT_ID")
-			if audience == "" {
-				audience = "shorted-dev-aba5688f" // dev fallback
-			}
-			payload, gErr := idtoken.Validate(ctx, tokenString, audience)
-			if gErr == nil {
+			if audience != "" {
+				payload, gErr := idtoken.Validate(ctx, tokenString, audience)
+				if gErr != nil {
+					return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("invalid token"))
+				}
 				email := ""
 				if e, ok := payload.Claims["email"].(string); ok {
 					email = e

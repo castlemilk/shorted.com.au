@@ -168,9 +168,8 @@ python3 enhanced_logo_discovery.py --batch --limit 50 --upload --update-db
 
 ### Manual GCS upload (if script fails)
 ```bash
-# Activate service account
-gcloud auth activate-service-account \
-  --key-file="/path/to/shorted-dev-aba5688f-*.json"
+# Use Application Default Credentials; do not use legacy service-account key files.
+gcloud auth application-default login
 
 # Upload logo
 gsutil cp logo.png gs://shorted-company-logos/logos/ABC.png
@@ -220,7 +219,7 @@ WHERE stock_code = 'XYZ';
 | `analysis/upload_logos_gsutil.sh` | Batch upload helper |
 | `analysis/sync-logos.py` | Sync GCS logos to database |
 | `analysis/data/discovered_logos/` | Discovered logos storage |
-| `services/shorted-dev-aba5688f-*.json` | GCP service account key |
+| Application Default Credentials | Explicit operator authentication for uploads |
 
 ## Scoring Algorithm
 

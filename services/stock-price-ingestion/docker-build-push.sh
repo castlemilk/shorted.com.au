@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-PROJECT_ID=${GCP_PROJECT:-"shorted-dev-aba5688f"}
+PROJECT_ID=${GCP_PROJECT:?Set GCP_PROJECT explicitly}
 REGION=${REGION:-"australia-southeast2"}
 SERVICE_NAME="stock-price-ingestion"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
@@ -49,4 +49,3 @@ echo "   gcloud run deploy ${SERVICE_NAME} \\"
 echo "     --image ${IMAGE_TAG} \\"
 echo "     --region ${REGION} \\"
 echo "     --project ${PROJECT_ID}"
-

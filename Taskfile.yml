@@ -34,9 +34,9 @@ vars:
     sh: grep -m1 '^DATABASE_URL=' services/.env 2>/dev/null | cut -d= -f2- | sed 's/:6543/:5432/' || true
 
   # ---- environment targeting: derived, never read from ambient gcloud config ----
-  ENV: '{{.ENV | default "dev"}}'
-  GCP_PROJECT: '{{if eq .ENV "prod"}}rosy-clover-477102-t5{{else}}shorted-dev-aba5688f{{end}}'
-  GCP_CONFIG: '{{if eq .ENV "prod"}}shorted-prod{{else}}shorted-dev{{end}}'
+  ENV: '{{.ENV | default ""}}'
+  GCP_PROJECT: '{{if eq .ENV "prod"}}rosy-clover-477102-t5{{else}}unconfigured{{end}}'
+  GCP_CONFIG: '{{if eq .ENV "prod"}}shorted-prod{{else}}unconfigured{{end}}'
   REGION: australia-southeast2
   # Browser UA: curl's default is blocked at the Cloudflare edge.
   BROWSER_UA: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
@@ -524,9 +524,12 @@ tasks:
       - gh run watch $(gh run list --workflow=terraform-deploy.yml --branch main --limit 1 --json databaseId --jq '.[0].databaseId')
 
   deploy:plan:
-    desc: "Terraform plan for an environment (ENV=dev|prod) — read only"
+    desc: "Terraform plan for production (requires ENV=prod) — read only"
     dir: terraform/environments/{{.ENV}}
     env: {CLOUDSDK_ACTIVE_CONFIG_NAME: "{{.GCP_CONFIG}}"}
+    preconditions:
+      - sh: '[ "{{.ENV}}" = "prod" ]'
+        msg: "refusing: the dev environment is retired; pass ENV=prod"
     cmds:
       - terraform init -input=false
       - terraform plan -no-color
@@ -582,8 +585,11 @@ tasks:
         done
 
   debug:logs:api:
-    desc: "Recent warnings/errors from the shorts API (ENV=dev|prod)"
+    desc: "Recent production warnings/errors from the shorts API (requires ENV=prod)"
     env: {CLOUDSDK_ACTIVE_CONFIG_NAME: "{{.GCP_CONFIG}}"}
+    preconditions:
+      - sh: '[ "{{.ENV}}" = "prod" ]'
+        msg: "refusing: the dev environment is retired; pass ENV=prod"
     cmds:
       - |
         gcloud logging read \

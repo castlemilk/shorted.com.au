@@ -52,6 +52,12 @@ variable "shorts_api_url" {
   default     = ""
 }
 
+variable "logo_bucket" {
+  description = "GCS bucket for company and key-person image uploads (GCS_LOGO_BUCKET)"
+  type        = string
+  default     = "shorted-company-logos-prod"
+}
+
 variable "otel_endpoint" {
   description = "OpenTelemetry OTLP endpoint for traces and metrics"
   type        = string

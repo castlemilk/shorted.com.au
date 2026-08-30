@@ -1,13 +1,14 @@
 BASE_URL := http://localhost:9091
-GOOGLE_APPLICATION_CREDENTIALS := shorted-dev-aba5688f-4a322ff163b9.json
-SHORTS_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorts
+GOOGLE_APPLICATION_CREDENTIALS ?=
+GCP_PROJECT_ID ?=
+SHORTS_IMAGE := australia-southeast2-docker.pkg.dev/$(GCP_PROJECT_ID)/shorted/shorts
 SHORTS_VERSION := `git describe --tags --always --dirty`
-STOCK_PRICE_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/stock-price-ingestion
-SHORTS_DATABASE_URL := postgresql://admin:password@postgres:5432/shorts
+STOCK_PRICE_IMAGE := australia-southeast2-docker.pkg.dev/$(GCP_PROJECT_ID)/shorted/stock-price-ingestion
+SHORTS_DATABASE_URL ?= $(DATABASE_URL)
 
 # Default database URL for local development
 # Note: Local docker-compose (in ../analysis/sql) uses admin/password on port 5438
-DATABASE_URL ?= postgresql://admin:password@localhost:5438/shorts?sslmode=disable
+DATABASE_URL ?=
 
 # Algolia configuration for search
 ALGOLIA_APP_ID ?= 1BWAPWSTDD
@@ -132,7 +133,7 @@ run.shorts: clean.shorts
 		elif [ -f "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then \
 			export GOOGLE_APPLICATION_CREDENTIALS="$$(pwd)/$(GOOGLE_APPLICATION_CREDENTIALS)"; \
 		fi; \
-		export GCP_PROJECT_ID="$${GCP_PROJECT_ID:-shorted-dev-aba5688f}"; \
+		export GCP_PROJECT_ID="$${GCP_PROJECT_ID:-}"; \
 		export ALGOLIA_APP_ID="$(ALGOLIA_APP_ID)"; \
 		export ALGOLIA_SEARCH_KEY="$(ALGOLIA_SEARCH_KEY)"; \
 		export ALGOLIA_INDEX="$(ALGOLIA_INDEX)"; \
@@ -250,7 +251,7 @@ deploy.gcr.stock-price-ingestion: build.stock-price-ingestion
 	gcloud run services replace stock-price-ingestion/service.yaml --region australia-southeast2
 
 # ko-based image builds (pure Go services)
-KO_DOCKER_REPO_BASE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted
+KO_DOCKER_REPO_BASE := australia-southeast2-docker.pkg.dev/$(GCP_PROJECT_ID)/shorted
 
 .PHONY: ko.build.market-data ko.build.weekly-report ko.local.market-data ko.local.weekly-report
 
@@ -327,37 +328,40 @@ report-dry-run:
 	@bash -c 'DATABASE_URL="$(DATABASE_URL)" go run ./weekly-report-generator/ --dry-run $(if $(WEEK),--week=$(WEEK)) $(if $(MONTH),--month=$(MONTH)) $(if $(YEAR),--year=$(YEAR))'
 
 # Data population commands
-.PHONY: build.populate-data run.populate-data populate-data populate-data-quick populate-data-force populate-data-1y populate-data-force-reload
+.PHONY: require.database-url build.populate-data run.populate-data populate-data populate-data-quick populate-data-force populate-data-1y populate-data-force-reload
+
+require.database-url:
+	@test -n "$(DATABASE_URL)" || (echo "DATABASE_URL is required" >&2; exit 1)
 
 build.populate-data:
 	go build -o bin/populate-data ./cmd/populate-data
 
-run.populate-data: build.populate-data
+run.populate-data: require.database-url build.populate-data
 	./bin/populate-data
 
-populate-data: build.populate-data
+populate-data: require.database-url build.populate-data
 	@echo "🚀 Starting full data population (all ASIC data back to 2010, ~4000 files)..."
-	@DATABASE_URL=${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts} ./bin/populate-data
+	@DATABASE_URL="$(DATABASE_URL)" ./bin/populate-data
 
-populate-data-quick: build.populate-data
+populate-data-quick: require.database-url build.populate-data
 	@echo "🚀 Quick data population (skips download, processes existing files)..."
-	@DATABASE_URL=${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts} ./bin/populate-data --skip-download
+	@DATABASE_URL="$(DATABASE_URL)" ./bin/populate-data --skip-download
 
-populate-data-force: build.populate-data
+populate-data-force: require.database-url build.populate-data
 	@echo "🚀 Force data population (re-downloads all files)..."
-	@DATABASE_URL=${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts} ./bin/populate-data --force-download
+	@DATABASE_URL="$(DATABASE_URL)" ./bin/populate-data --force-download
 
-populate-data-recent: build.populate-data
+populate-data-recent: require.database-url build.populate-data
 	@echo "🚀 Populating with recent 30 days only..."
-	@DATABASE_URL=${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts} ./bin/populate-data --limit=30
+	@DATABASE_URL="$(DATABASE_URL)" ./bin/populate-data --limit=30
 
-populate-data-1y: build.populate-data
+populate-data-1y: require.database-url build.populate-data
 	@echo "🚀 Populating with 1 year of data (~260 trading days)..."
-	@DATABASE_URL=${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts} ./bin/populate-data --limit=260
+	@DATABASE_URL="$(DATABASE_URL)" ./bin/populate-data --limit=260
 
-populate-data-force-reload: build.populate-data
+populate-data-force-reload: require.database-url build.populate-data
 	@echo "🚀 Force reloading ALL data (truncates table first)..."
-	@DATABASE_URL=${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts} ./bin/populate-data --force-reload
+	@DATABASE_URL="$(DATABASE_URL)" ./bin/populate-data --force-reload
 
 # Stock price data backfill commands
 .PHONY: history.stock-data.backfill history.stock-data.backfill-test history.stock-data.backfill-full history.stock-data.status
@@ -440,8 +444,8 @@ history.stock-data.status:
 .PHONY: build.asx-discovery build.market-data-sync push.asx-discovery push.market-data-sync
 .PHONY: backfill.historical backfill.historical-symbol backfill.historical-force backfill.historical-test
 
-ASX_DISCOVERY_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/asx-discovery
-MARKET_DATA_SYNC_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/market-data-sync
+ASX_DISCOVERY_IMAGE := australia-southeast2-docker.pkg.dev/$(GCP_PROJECT_ID)/shorted/asx-discovery
+MARKET_DATA_SYNC_IMAGE := australia-southeast2-docker.pkg.dev/$(GCP_PROJECT_ID)/shorted/market-data-sync
 
 build.asx-discovery:
 	@echo "🏗️ Building ASX discovery image..."

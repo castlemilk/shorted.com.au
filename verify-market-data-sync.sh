@@ -4,7 +4,7 @@
 
 set -e
 
-SERVICE_URL="${1:-https://market-data-sync-australia-southeast2-shorted-dev-aba5688f.a.run.app}"
+SERVICE_URL="${1:?Pass the market-data-sync service URL explicitly}"
 GCS_BUCKET="${2:-shorted-short-selling-data}"
 
 echo "🔍 Market Data Sync & ASX Discovery Verification"

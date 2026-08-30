@@ -36,7 +36,7 @@ Cloud Scheduler → Cloud Run Service → Yahoo Finance API
 
 ```bash
 DATABASE_URL=postgresql://user:pass@host:5432/database
-GCP_PROJECT=shorted-dev-aba5688f
+GCP_PROJECT=<explicit-project-id>
 ENVIRONMENT=production
 ```
 

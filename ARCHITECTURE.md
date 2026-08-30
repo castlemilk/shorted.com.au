@@ -625,18 +625,14 @@ const Component = await widgetRegistry.getComponent(widget.type);
 | Environment | Trigger | GCP Project | Frontend |
 |-------------|---------|-------------|----------|
 | Development | Local | - | localhost:3020 |
-| Preview | Pull Request | `shorted-dev-aba5688f` | Vercel PR deploy |
-| Production | GitHub Release | `rosy-clover-477102-t5` | shorted.com.au |
+| Pull request | CI validation + production Terraform plan | `rosy-clover-477102-t5` (plan only) | Vercel preview |
+| Production | Push to `main`, release, or approved manual run | `rosy-clover-477102-t5` | shorted.com.au |
 
 ### Terraform Structure
 
 ```
 terraform/
 ├── environments/
-│   ├── dev/
-│   │   ├── main.tf        # Dev infrastructure
-│   │   ├── variables.tf   # Dev variables
-│   │   └── backend.tf     # State storage (local - should be GCS)
 │   └── prod/
 │       └── ...
 └── modules/
@@ -782,7 +778,7 @@ See `TODO.md` for complete prioritized remediation plan.
 - `web/src/@/lib/widget-registry.ts` - Widget system
 
 ### Infrastructure
-- `terraform/environments/dev/main.tf` - Infrastructure definition
+- `terraform/environments/prod/main.tf` - Infrastructure definition
 - `.github/workflows/terraform-deploy.yml` - CI/CD pipeline
 - `Makefile` - Development orchestration
 

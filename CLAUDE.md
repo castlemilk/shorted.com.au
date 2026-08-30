@@ -364,7 +364,7 @@ cd services && make history.stock-data.backfill
 | `services/Makefile`                     | Backend-specific commands                  |
 | `web/Makefile`                          | Frontend-specific commands                 |
 | `proto/buf.yaml`                        | Protobuf configuration                     |
-| `terraform/environments/dev/`           | Dev infrastructure config                  |
+| `terraform/environments/prod/`          | Production infrastructure config           |
 | `services/migrations/`                  | Database migrations                        |
 | `services/chat-service/`               | AI chat backend (Gemini + tool calling)    |
 | `services/news-aggregator/`            | RSS news aggregation + sentiment           |
@@ -440,9 +440,10 @@ export function StockPrice({ code }: { code: string }) {
 # Automatically set by make dev
 DATABASE_URL=postgresql://admin:password@localhost:5438/shorts
 
-# For GCP features (logo storage, etc.)
-GOOGLE_APPLICATION_CREDENTIALS=services/shorted-dev-aba5688f-*.json
-GCP_PROJECT_ID=shorted-dev-aba5688f
+# Cloud features are fail-closed locally. Set an explicit project/bucket and
+# use ADC only when the task genuinely needs GCP access.
+GCP_PROJECT_ID=
+GCS_LOGO_BUCKET=
 
 # For Algolia search (optional)
 ALGOLIA_APP_ID=1BWAPWSTDD
@@ -1055,18 +1056,18 @@ cd services && go test -v ./test/integration/...
 
 ## Infrastructure
 
-- **GCP Project**: `shorted-dev-aba5688f`
+- **GCP Project**: `rosy-clover-477102-t5` (production; explicit operations only)
 - **Region**: `australia-southeast2`
-- **Artifact Registry**: `australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted`
+- **Artifact Registry**: `australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted`
 - **Database**: Supabase (production), Docker PostgreSQL (development)
 
 ### Terraform
 
 ```bash
-cd terraform/environments/dev
+cd terraform/environments/prod
 terraform init
 terraform plan
-terraform apply
+# Apply only through the reviewed deployment workflow.
 ```
 
 ### Cross-repo: this repo's Cloudflare creds feed cuttlefish's shared-droplet IaC

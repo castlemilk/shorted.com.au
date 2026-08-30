@@ -76,7 +76,7 @@ spec:
     - id: terraform-validate
       image: hashicorp/terraform:latest
       script: |
-        cd terraform/environments/dev
+        cd terraform/environments/prod
         terraform init -backend=false
         terraform validate
 

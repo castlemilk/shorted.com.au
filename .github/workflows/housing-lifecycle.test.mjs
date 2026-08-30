@@ -15,12 +15,6 @@ const collectorModuleMainPath = fileURLToPath(
 const collectorModuleVariablesPath = fileURLToPath(
   new URL("../../terraform/modules/house-price-collector/variables.tf", import.meta.url),
 );
-const devMainPath = fileURLToPath(
-  new URL("../../terraform/environments/dev/main.tf", import.meta.url),
-);
-const devVariablesPath = fileURLToPath(
-  new URL("../../terraform/environments/dev/variables.tf", import.meta.url),
-);
 const prodMainPath = fileURLToPath(
   new URL("../../terraform/environments/prod/main.tf", import.meta.url),
 );
@@ -207,11 +201,9 @@ test("terraform deploy workflow gates housing contracts on open pull requests", 
   assert.doesNotMatch(job, /make\s+(?:test-)?integration|test\/integration/);
 });
 
-test("terraform manages the official-source failure threshold in dev and prod", () => {
+test("terraform manages the production official-source failure threshold", () => {
   const moduleMain = readContractFile(collectorModuleMainPath);
   const moduleVariables = readContractFile(collectorModuleVariablesPath);
-  const devMain = readContractFile(devMainPath);
-  const devVariables = readContractFile(devVariablesPath);
   const prodMain = readContractFile(prodMainPath);
   const prodVariables = readContractFile(prodVariablesPath);
 
@@ -228,7 +220,6 @@ test("terraform manages the official-source failure threshold in dev and prod", 
   );
 
   for (const [environment, main, variables] of [
-    ["dev", devMain, devVariables],
     ["prod", prodMain, prodVariables],
   ]) {
     assert.match(

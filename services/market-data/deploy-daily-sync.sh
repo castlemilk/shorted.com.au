@@ -4,7 +4,7 @@
 set -e
 
 # Configuration
-PROJECT_ID=${GCP_PROJECT:-"shorted-dev-aba5688f"}
+PROJECT_ID=${GCP_PROJECT:?Set GCP_PROJECT explicitly}
 REGION=${GCP_REGION:-"asia-northeast1"}
 JOB_NAME="daily-historical-sync"
 IMAGE_NAME="gcr.io/${PROJECT_ID}/${JOB_NAME}"
@@ -88,4 +88,3 @@ echo ""
 echo "📊 View logs:"
 echo "  gcloud logging read \"resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME}\" --limit 50 --project ${PROJECT_ID}"
 echo ""
-

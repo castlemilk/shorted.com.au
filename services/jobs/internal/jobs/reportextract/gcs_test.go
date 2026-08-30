@@ -80,7 +80,7 @@ func TestNoopBlobStoreDelegatesReads(t *testing.T) {
 }
 
 func TestDefaultReportsBucket(t *testing.T) {
-	if defaultReportsBucket != "shorted-financial-reports" {
+	if defaultReportsBucket != "shorted-financial-reports-prod" {
 		t.Errorf("GCS_REPORTS_BUCKET default drifted: %q", defaultReportsBucket)
 	}
 	if rawTextContentType != "text/plain; charset=utf-8" {

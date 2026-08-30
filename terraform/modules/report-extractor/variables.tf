@@ -41,7 +41,7 @@ variable "gemini_secret_name" {
 variable "reports_bucket" {
   description = "GCS bucket for digest raw-text uploads (GCS_REPORTS_BUCKET)"
   type        = string
-  default     = "shorted-financial-reports"
+  default     = "shorted-financial-reports-prod"
 }
 
 variable "director_limit" {

@@ -9,7 +9,7 @@
 // raw URL if the normalized one isn't there yet (the normalize batch
 // is idempotent + runs on demand; new companies may not be processed).
 
-const BUCKET = "shorted-company-logos";
+const BUCKET = "shorted-company-logos-prod";
 
 // Deploy-bound cache-bust suffix. Google's edge caches normalized
 // logo objects for hours even when we update them (and re-scrapes

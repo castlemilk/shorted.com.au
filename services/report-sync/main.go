@@ -57,7 +57,7 @@ func main() {
 		bucketName = os.Getenv("GCS_REPORTS_BUCKET")
 	}
 	if bucketName == "" {
-		bucketName = "shorted-financial-reports"
+		bucketName = "shorted-financial-reports-prod"
 	}
 
 	ctx := context.Background()

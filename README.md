@@ -139,9 +139,9 @@ shorted/
 
 | Environment | Trigger | GCP Project |
 |-------------|---------|-------------|
-| Preview | Pull Request | `shorted-dev-aba5688f` |
-| Dev | Push to `main` | `shorted-dev-aba5688f` |
-| Production | GitHub Release | `rosy-clover-477102-t5` |
+| Local development | Local commands | None |
+| Pull request | Terraform review plan only | Production state, no apply |
+| Production | Push to `main`, release, or approved manual run | `rosy-clover-477102-t5` |
 
 ### Deploy to Production
 

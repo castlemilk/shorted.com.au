@@ -27,11 +27,11 @@
   - Fail fast if `TOKEN_SECRET` env var is not set in production
   - Also fix in `middleware_connect.go:95-97` (dev-internal-secret)
 
-- [ ] **Fix Terraform state storage** - `terraform/environments/dev/backend.tf`
+- [ ] **Fix Terraform state storage** - `terraform/environments/prod/backend.tf`
   - Move state from local storage to GCS with encryption
   - Local state contains sensitive data and isn't team-accessible
 
-- [ ] **Remove database credentials from Terraform** - `terraform/environments/dev/variables.tf:46`
+- [ ] **Remove database credentials from Terraform** - `terraform/environments/prod/variables.tf`
   - Postgres username hardcoded in Git
   - Move to Secret Manager or environment variables
 
