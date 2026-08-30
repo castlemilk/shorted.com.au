@@ -1,0 +1,125 @@
+---
+title: "Ask Your AI About the ASX: Shorted's MCP Server Is Live"
+excerpt: "Paste one URL into Claude or ChatGPT and it can read ASIC short positions, house prices, economic series and politicians' declared interests — no API key, no scraping, no setup. Here's what we built and the decisions behind it."
+coverImage: "/assets/blog/shorted-mcp-server/cover.png"
+date: "2026-08-30"
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben.png"
+ogImage:
+  url: "/assets/blog/shorted-mcp-server/cover.png"
+---
+
+# Ask Your AI About the ASX
+
+There is a particular kind of frustration in asking an AI assistant about the Australian market. It will answer confidently. It will also be working from whatever it absorbed in training, which for ASIC short position data means numbers that are months or years stale, if it has them at all. Ask it which ASX stocks are most shorted and you get a plausible-sounding list that is quietly wrong.
+
+We have fixed that, for any assistant that speaks the Model Context Protocol.
+
+```
+https://api.shorted.com.au/mcp
+```
+
+Paste that into Claude, ChatGPT, Cursor, or anything else speaking MCP, and it gains **24 read-only tools** over everything Shorted tracks: ASIC short positions and their history, prices, director trades, peer comparison, a screener, news, our published weekly reports, Australian house prices and suburb profiles, ABS and RBA economic series, and the federal register of politicians' interests.
+
+No API key. No account. No scraping. No setup step at all.
+
+## The one-line version
+
+**Claude Code:**
+
+```bash
+claude mcp add --transport http shorted https://api.shorted.com.au/mcp
+```
+
+**Claude Desktop** — add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "shorted": {
+      "type": "http",
+      "url": "https://api.shorted.com.au/mcp"
+    }
+  }
+}
+```
+
+**ChatGPT** — add a custom MCP connector with that URL in Developer mode.
+
+That is the whole setup. Then ask it things:
+
+> *"Which ASX stocks have the highest short interest right now, and how has DroneShield's position moved over the last six months?"*
+
+> *"Compare short interest in the big four banks and tell me if anything has changed since June."*
+
+> *"What's the median asking price in Brunswick, and which federal MPs declare property in Victoria?"*
+
+The assistant calls the tools, gets live data, and answers from it.
+
+## Why MCP rather than "just use the API"
+
+We already have a [public HTTP API](/docs/api.md) and an [OpenAPI description](/openapi.json). Those are good for building software. They are bad for a conversation, because someone has to write the glue: read the spec, pick endpoints, handle auth, shape the response into something the model can reason about.
+
+MCP removes the glue. The server describes its own tools, in schemas the client validates against, so the model discovers what it can ask for and how. The difference is between handing someone a reference manual and handing them a colleague who already knows the dataset.
+
+It also means we can do the hard part *for* the model. Short interest is a genuinely easy thing to get wrong: it is published by ASIC with a **four trading day delay**, it measures positioning rather than trading flow, and a raw percentage means very little without knowing days-to-cover and the size of the free float. Our tools return the figure *and* the framing — every response carries its source and its lag, so a model summarising it has the caveats in front of it rather than having to infer them.
+
+## What we deliberately did not build
+
+**No write tools.** There are none, and none are planned. Everything is read-only, which means the worst outcome of a confused agent is a wrong answer rather than a mutated record.
+
+**No paywall on first contact.** Every one of the 24 tools works anonymously. We think a data server that demands an account before it will tell you anything is a data server nobody adopts, so authentication raises your limits and identifies you — it is not a gate.
+
+**No republishing of things we do not own.** Individual property listings, addresses and agents never leave our system; the crawl licence permits derived aggregates only, so the housing tools return counts and medians. The register of politicians' interests carries **what is held, never how much** — there is no amount column anywhere in that subsystem, by design. Parliamentary text is reproduced verbatim or not at all, because the source licence forbids rewriting it.
+
+Those constraints are in the tool descriptions and in a `shorted://catalog/coverage` resource the model can read, so an assistant can tell you *why* a gap exists rather than hallucinating something into it.
+
+## Signing in, if you want to
+
+OAuth 2.1 is supported, and there is nothing to configure. Add the URL, and a client that wants a higher ceiling discovers the flow by itself — it reads our metadata documents, registers itself, opens a browser once, and you approve a screen that names the application, the exact address your access will be delivered to, and what it will be able to read. Nothing is issued until you click approve.
+
+Building that was more interesting than it sounds, and two decisions are worth writing down.
+
+**A credential is not consent.** Our first cut authenticated the approval step with a sign-in token. That proves *someone holds a credential*. It does not prove a human looked at a screen and agreed — and once we allowed applications to register themselves automatically (which Claude and ChatGPT both rely on), the gap became a real one: anyone holding a stolen token could register their own application, point it at their own address, and quietly mint themselves durable access without a human ever seeing anything.
+
+So approval now produces a **consent ticket**: a single-use, two-minute, server-side record that can only be created by the consent screen itself, and which is bound to the exact application, address, and cryptographic challenge you were shown. The authorisation step re-checks every one of those bindings. Approving "Claude Desktop" cannot be spent on anything else.
+
+**Ephemeral ports are not a security boundary.** Desktop applications receive their callback on a local port they open at the moment you start the flow — and they pick a different one next time, deliberately, because binding a fixed port is what would be insecure. Our first implementation compared the callback address as an exact string, which meant it worked once and then failed on every subsequent connection with an error that looked like our bug in someone else's logs. We now follow [RFC 8252 §7.3](https://datatracker.ietf.org/doc/html/rfc8252#section-7.3) and ignore the port for loopback addresses — and *only* the port, and *only* for loopback. Everything else still has to match exactly.
+
+## Honesty about limits
+
+There is a rate limit, and we would rather tell you exactly what it is than let you find out.
+
+Today the ceiling in force is a per-IP limit at our edge: **60 requests per 10 seconds, 300 per minute** for anonymous callers. A normal conversation — even one where the model fires off a dozen tool calls to compare five companies — is comfortably inside that. A script in a tight loop is not.
+
+We have also built per-caller tier quotas, counted per *tool call* rather than per request, with the session handshake free so a client is never throttled before it has done anything useful. Those are **not switched on yet**, and rather than publish numbers we do not enforce, the server tells you which is true: `authentication.rateLimits.enforced` in our [tool catalog](https://api.shorted.com.au/mcp/catalog.json) is read from the running configuration, so it cannot go stale.
+
+That may seem like a strange thing to advertise. We think publishing a ceiling you do not apply is the same defect as enforcing one you never published — we have made the second mistake before, and the fix was to derive the published numbers from the code that enforces them rather than writing them down twice.
+
+## Under the hood, briefly
+
+The server is written in Go and runs in the same process as our main API, speaking protocol version `2026-07-28` and negotiating back to `2024-11-05` for older clients. Its tool catalog is generated from the server's own registry — which means a tool cannot be advertised anywhere without being registered, a small discipline that came directly from an earlier embarrassment where our published documentation listed four tools, three of which no longer existed under those names.
+
+Everything an agent needs to find us is machine-readable:
+
+- **Tool catalog:** [`api.shorted.com.au/mcp/catalog.json`](https://api.shorted.com.au/mcp/catalog.json)
+- **Server card:** [`shorted.com.au/.well-known/mcp/server-card.json`](https://shorted.com.au/.well-known/mcp/server-card.json)
+- **Connection guide:** [`shorted.com.au/docs/mcp.md`](/docs/mcp.md)
+- **Site overview for agents:** [`shorted.com.au/llms.txt`](/llms.txt)
+
+## The caveats, stated plainly
+
+**Short interest is T+4.** ASIC publishes with a four trading day delay, so the most recent figure any tool returns is already several days old. It is also short *interest* — positioning — not short-sale flow. Anything that tells you what shorts did *today* is not this dataset.
+
+**Nothing here is financial advice.** An AI assistant summarising short interest data is a research aid. It is confident by construction, and confidence is not accuracy.
+
+**It is new.** If a tool returns something that looks wrong, we would genuinely like to know: [support@shorted.com.au](mailto:support@shorted.com.au).
+
+---
+
+Add it, ask it something, and see how it goes.
+
+```
+https://api.shorted.com.au/mcp
+```
