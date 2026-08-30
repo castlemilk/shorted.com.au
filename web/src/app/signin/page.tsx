@@ -202,170 +202,222 @@ function SignInForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 px-4 py-12">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-4 pb-6">
-          <div className="flex justify-center">
-            <div className="relative w-32 h-32">
-              <Image
-                src="/logo.png"
-                alt="Shorted Logo"
-                fill
-                className="object-contain"
-                priority
-              />
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      {/*
+        Split on large screens: the brand holds the left, the form holds the
+        right. Below lg it collapses to the single centred card it has always
+        been — a two-column sign-in on a phone is just a logo pushing the form
+        below the fold.
+      */}
+      <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-10 lg:min-h-[calc(100vh-8rem)] lg:grid-cols-2 lg:gap-16">
+        <aside className="hidden lg:flex lg:flex-col lg:justify-center lg:gap-8">
+          <div className="relative h-40 w-40">
+            <Image
+              src="/logo.png"
+              alt="Shorted"
+              fill
+              className="object-contain"
+              priority
+            />
           </div>
-          <div className="text-center space-y-2">
-            {isOAuthFlow ? (
-              <>
-                <div className="flex items-center justify-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  <Lock className="h-3.5 w-3.5" />
-                  <span>Authorise an application</span>
-                </div>
-                <CardTitle className="text-3xl font-bold tracking-tight">
-                  Sign in to continue
-                </CardTitle>
-                <CardDescription className="text-base">
-                  An application is waiting to connect to your Shorted account.
-                  You&rsquo;ll see exactly who is asking, and what they can read,
-                  before anything is shared.
-                </CardDescription>
-              </>
-            ) : (
-              <>
-                <CardTitle className="text-3xl font-bold tracking-tight">
-                  Welcome to Shorted
-                </CardTitle>
-                <CardDescription className="text-base">
-                  Sign in to access advanced features and insights
-                </CardDescription>
-              </>
-            )}
+          <div className="space-y-4">
+            <h1 className="text-4xl font-bold leading-tight tracking-tight">
+              Track what the
+              <br />
+              market is <span className="text-primary">betting against</span>.
+            </h1>
+            <p className="max-w-md text-base leading-relaxed text-muted-foreground">
+              Official ASIC short positions for every ASX-listed stock, updated
+              daily. Plus house prices, economic series, and what your
+              representatives declare.
+            </p>
           </div>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
-          {/* Google Sign In */}
-          <Button
-            variant="outline"
-            className="w-full h-12 text-base font-medium"
-            onClick={handleGoogleSignIn}
-            disabled={isGoogleLoading || isLoading}
-          >
-            {isGoogleLoading ? (
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            ) : (
-              <GoogleLogo className="mr-2 h-5 w-5" />
-            )}
-            Continue with Google
-          </Button>
-
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">
-                Or continue with
-              </span>
-            </div>
-          </div>
-
-          {/* Email/Password Form */}
-          <form onSubmit={handleCredentialsSignIn} className="space-y-4">
-            <div className="space-y-2">
-              <label
-                htmlFor="email"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Email
-              </label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading || isGoogleLoading}
-                required
-                className="h-11"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label
-                htmlFor="password"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Password
-              </label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading || isGoogleLoading}
-                required
-                className="h-11"
-              />
-            </div>
-
-            {error && (
-              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span>{error}</span>
+          {isOAuthFlow ? (
+            <div className="max-w-md rounded-lg border border-primary/25 bg-primary/5 p-4">
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <Lock className="h-3.5 w-3.5" />
+                <span>Connecting an application</span>
               </div>
-            )}
+              <p className="mt-2 text-sm text-muted-foreground">
+                Read-only access, to data you can already see. Nothing is
+                granted until you approve it on the next screen, and you can
+                revoke it at any time.
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Data sourced from ASIC with a T+4 trading day delay. Not financial
+              advice.
+            </p>
+          )}
+        </aside>
 
-            <Button
-              type="submit"
-              className="w-full h-11 text-base font-medium"
-              disabled={isLoading || isGoogleLoading}
-            >
-              {isLoading ? (
-                <>
+        <div className="flex w-full justify-center lg:justify-start">
+          <Card className="w-full max-w-md shadow-lg">
+            <CardHeader className="space-y-4 pb-6">
+              <div className="flex justify-center lg:hidden">
+                <div className="relative w-32 h-32">
+                  <Image
+                    src="/logo.png"
+                    alt="Shorted Logo"
+                    fill
+                    className="object-contain"
+                    priority
+                  />
+                </div>
+              </div>
+              <div className="text-center space-y-2 lg:text-left">
+                {isOAuthFlow ? (
+                  <>
+                    <div className="flex items-center justify-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground lg:justify-start">
+                      <Lock className="h-3.5 w-3.5" />
+                      <span>Authorise an application</span>
+                    </div>
+                    <CardTitle className="text-3xl font-bold tracking-tight">
+                      Sign in to continue
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      An application is waiting to connect to your Shorted
+                      account. You&rsquo;ll see exactly who is asking, and what
+                      they can read, before anything is shared.
+                    </CardDescription>
+                  </>
+                ) : (
+                  <>
+                    <CardTitle className="text-3xl font-bold tracking-tight">
+                      Welcome to Shorted
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Sign in to access advanced features and insights
+                    </CardDescription>
+                  </>
+                )}
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              {/* Google Sign In */}
+              <Button
+                variant="outline"
+                className="w-full h-12 text-base font-medium"
+                onClick={handleGoogleSignIn}
+                disabled={isGoogleLoading || isLoading}
+              >
+                {isGoogleLoading ? (
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign in"
-              )}
-            </Button>
-          </form>
+                ) : (
+                  <GoogleLogo className="mr-2 h-5 w-5" />
+                )}
+                Continue with Google
+              </Button>
 
-          {/* Sign Up Link */}
-          <div className="text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/signup"
-              className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
-            >
-              Sign up
-            </Link>
-          </div>
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
 
-          {/* Footer Text */}
-          <div className="text-center text-sm text-muted-foreground pt-2">
-            By signing in, you agree to our{" "}
-            <a
-              href="/terms"
-              className="underline underline-offset-4 hover:text-foreground transition-colors"
-            >
-              Terms of Service
-            </a>{" "}
-            and{" "}
-            <a
-              href="/terms"
-              className="underline underline-offset-4 hover:text-foreground transition-colors"
-            >
-              Privacy Policy
-            </a>
-          </div>
-        </CardContent>
-      </Card>
+              {/* Email/Password Form */}
+              <form onSubmit={handleCredentialsSignIn} className="space-y-4">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="email"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Email
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading || isGoogleLoading}
+                    required
+                    className="h-11"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="password"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Password
+                  </label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading || isGoogleLoading}
+                    required
+                    className="h-11"
+                  />
+                </div>
+
+                {error && (
+                  <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full h-11 text-base font-medium"
+                  disabled={isLoading || isGoogleLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    "Sign in"
+                  )}
+                </Button>
+              </form>
+
+              {/* Sign Up Link */}
+              <div className="text-center text-sm text-muted-foreground">
+                Don&apos;t have an account?{" "}
+                <Link
+                  href="/signup"
+                  className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
+                >
+                  Sign up
+                </Link>
+              </div>
+
+              {/* Footer Text */}
+              <div className="text-center text-sm text-muted-foreground pt-2">
+                By signing in, you agree to our{" "}
+                <a
+                  href="/terms"
+                  className="underline underline-offset-4 hover:text-foreground transition-colors"
+                >
+                  Terms of Service
+                </a>{" "}
+                and{" "}
+                <a
+                  href="/terms"
+                  className="underline underline-offset-4 hover:text-foreground transition-colors"
+                >
+                  Privacy Policy
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

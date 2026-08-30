@@ -48,7 +48,9 @@ const described: ConsentDescribeResult = {
   },
 };
 
-function renderScreen(overrides?: Partial<{ described: ConsentDescribeResult }>) {
+function renderScreen(
+  overrides?: Partial<{ described: ConsentDescribeResult }>,
+) {
   return render(
     <ConsentScreen
       request={request}
@@ -84,7 +86,11 @@ describe("the consent screen", () => {
     ).toBeInTheDocument();
   });
 
-  it("sends the human to the returned destination on approve", async () => {
+  // The redirect is deliberately held for a beat so the confirmation is
+  // actually seen — without it the browser leaves within a frame and the user
+  // never learns anything happened. This asserts BOTH halves: the screen shows
+  // first, and the navigation still follows.
+  it("shows the confirmation, then sends the human to the destination", async () => {
     mockApprove.mockResolvedValue({
       ok: true,
       redirectTo: "http://127.0.0.1:51763/callback?code=abc",
@@ -92,21 +98,38 @@ describe("the consent screen", () => {
     const assign = jest.fn();
     Object.defineProperty(window, "location", {
       configurable: true,
-      value: { set href(value: string) { assign(value); } },
+      value: {
+        set href(value: string) {
+          assign(value);
+        },
+      },
     });
 
     renderScreen();
     await userEvent.click(screen.getByRole("button", { name: /approve/i }));
 
-    await waitFor(() => {
-      expect(assign).toHaveBeenCalledWith(
-        "http://127.0.0.1:51763/callback?code=abc",
-      );
-    });
+    // The confirmation is on screen before the browser goes anywhere.
+    expect(
+      await screen.findByText(/successfully authenticated/i),
+    ).toBeInTheDocument();
+    expect(assign).not.toHaveBeenCalled();
+
+    // And the navigation still happens.
+    await waitFor(
+      () => {
+        expect(assign).toHaveBeenCalledWith(
+          "http://127.0.0.1:51763/callback?code=abc",
+        );
+      },
+      { timeout: 4000 },
+    );
   });
 
   it("takes the deny path on cancel", async () => {
-    mockDeny.mockResolvedValue({ ok: true, redirectTo: "http://127.0.0.1:51763/callback?error=access_denied" });
+    mockDeny.mockResolvedValue({
+      ok: true,
+      redirectTo: "http://127.0.0.1:51763/callback?error=access_denied",
+    });
     renderScreen();
     await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
     await waitFor(() => expect(mockDeny).toHaveBeenCalledWith(request));
@@ -176,7 +199,9 @@ describe("the handoff after a decision", () => {
     renderScreen();
     await userEvent.click(screen.getByRole("button", { name: /approve/i }));
 
-    expect(await screen.findByText(/access approved/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/successfully authenticated/i),
+    ).toBeInTheDocument();
     // Named, so the user can tell they are going back to the app they started
     // from rather than somewhere unexpected.
     expect(screen.getAllByText(/Claude Desktop/).length).toBeGreaterThan(0);
@@ -201,9 +226,53 @@ describe("the handoff after a decision", () => {
       "href",
       "http://127.0.0.1:51763/callback?code=abc",
     );
-    expect(
-      screen.getByText(/application needs to be running/i),
-    ).toBeInTheDocument();
+    // The wording is now a footnote rather than a panel, but the property is
+    // the same: a way forward stays on screen behind the redirect.
+    expect(screen.getByText(/not redirected/i)).toBeInTheDocument();
+  });
+
+  // The celebration is scoped to APPROVAL. Firing confetti at someone who just
+  // declined reads as sarcasm, and what matters on that path is the
+  // reassurance that nothing was shared.
+  it("celebrates an approval and stays sober on a refusal", async () => {
+    mockApprove.mockResolvedValue({
+      ok: true,
+      redirectTo: "http://127.0.0.1:51763/callback?code=abc",
+    });
+    stubLocation();
+    const { unmount } = renderScreen();
+    await userEvent.click(screen.getByRole("button", { name: /approve/i }));
+    expect(await screen.findByText(/burn it all down/i)).toBeInTheDocument();
+    unmount();
+
+    mockDeny.mockResolvedValue({
+      ok: true,
+      redirectTo: "http://127.0.0.1:51763/callback?error=access_denied",
+    });
+    stubLocation();
+    renderScreen();
+    await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
+    expect(await screen.findByText(/request cancelled/i)).toBeInTheDocument();
+    expect(screen.queryByText(/burn it all down/i)).toBeNull();
+  });
+
+  // The fire is decoration. It must not be announced to a screen reader, and
+  // the meaning has to live in the copy beside it.
+  it("keeps the decoration out of the accessibility tree", async () => {
+    mockApprove.mockResolvedValue({
+      ok: true,
+      redirectTo: "http://127.0.0.1:51763/callback?code=abc",
+    });
+    stubLocation();
+    const { container } = renderScreen();
+    await userEvent.click(screen.getByRole("button", { name: /approve/i }));
+    await screen.findByText(/burn it all down/i);
+
+    const fire = container.querySelector(".ascii-fire");
+    expect(fire).not.toBeNull();
+    expect(fire).toHaveAttribute("aria-hidden", "true");
+    // The state is still stated in words, not implied by the picture.
+    expect(screen.getByText(/successfully authenticated/i)).toBeInTheDocument();
   });
 
   // Cancelling is also a handoff — the client is told, at its registered URI.
@@ -238,7 +307,7 @@ describe("the handoff after a decision", () => {
     expect(
       await screen.findByText(/the consent ticket is not valid/),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/access approved/i)).toBeNull();
+    expect(screen.queryByText(/successfully authenticated/i)).toBeNull();
     // And the buttons come back, so the human can retry or cancel.
     expect(screen.getByRole("button", { name: /approve/i })).toBeEnabled();
   });
