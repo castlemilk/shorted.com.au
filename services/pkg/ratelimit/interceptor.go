@@ -2,9 +2,11 @@ package ratelimit
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -14,6 +16,60 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
+
+// The tier names for our own server-side rendering. They are constants rather
+// than string literals because three files have to agree on them: the tier
+// table, the classifier below, and the tests that assert an SSR request never
+// lands in the anonymous bucket.
+const (
+	// TierFirstParty is our SSR, proven by the shared secret.
+	TierFirstParty = "first-party"
+	// TierFirstPartyUnverified is a first-party CLAIM we could not prove.
+	TierFirstPartyUnverified = "first-party-unverified"
+)
+
+// Environment variables naming the first-party marker. They mirror the edge
+// worker's bindings exactly (RATE_LIMIT_SSR_BYPASS_*), because two layers
+// disagreeing about what "our own traffic" looks like is a bug that only shows
+// up as one of them throttling us.
+const (
+	envSSRUserAgent = "RATE_LIMIT_SSR_BYPASS_USER_AGENT"
+	envSSRHeader    = "RATE_LIMIT_SSR_BYPASS_HEADER_NAME"
+	envSSRSecret    = "RATE_LIMIT_SSR_BYPASS_SECRET"
+)
+
+const (
+	defaultSSRUserAgent = "shorted-web-ssr"
+	defaultSSRHeader    = "x-shorted-ssr-bypass"
+)
+
+// classifyFirstParty reports whether a request carries our SSR marker, and
+// whether the accompanying secret proved it.
+//
+// The marker is a user-agent SUFFIX (`serverFetchWithUserAgent` appends it, so
+// the real client UA survives as a prefix and crawler identification still
+// works), and the proof is a shared secret header.
+//
+// An unprovable marker is deliberately NOT treated as anonymous. See
+// TierFirstPartyUnverified in config.go for the incident that settled this.
+func classifyFirstParty(userAgent, presentedSecret string) (tier string, isFirstParty bool) {
+	marker := envOrDefault(envSSRUserAgent, defaultSSRUserAgent)
+	if marker == "" || !strings.Contains(userAgent, marker) {
+		return "", false
+	}
+	secret := os.Getenv(envSSRSecret)
+	if secret != "" && subtle.ConstantTimeCompare([]byte(presentedSecret), []byte(secret)) == 1 {
+		return TierFirstParty, true
+	}
+	return TierFirstPartyUnverified, true
+}
+
+func envOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
 
 // UserClaims defines the interface for user claims used by the rate limiter
 type UserClaims interface {
@@ -172,8 +228,26 @@ func extractIdentifierAndTier(ctx context.Context, req connect.AnyRequest, userC
 		}
 	}
 
-	// Fall back to IP address for anonymous users (not browser - could be API scraping)
 	ip := extractIP(req)
+
+	// BEFORE the anonymous fallback: is this us?
+	//
+	// Vercel SSR arrives with no user token from a handful of shared egress
+	// IPs, so the anonymous fallback below would meter the entire fleet's
+	// rendering as one 30-requests-a-minute caller. This check is the only
+	// reason enabling the limiter does not throttle our own site.
+	//
+	// Keyed by egress IP so one runaway instance is contained without
+	// penalising the others — the same shape the edge's first-party bucket
+	// uses.
+	if tier, ok := classifyFirstParty(
+		req.Header().Get("User-Agent"),
+		req.Header().Get(envOrDefault(envSSRHeader, defaultSSRHeader)),
+	); ok {
+		return "first-party:" + ip, tier, false
+	}
+
+	// Fall back to IP address for anonymous users (not browser - could be API scraping)
 	return "ip:" + ip, "anonymous", false
 }
 

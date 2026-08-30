@@ -242,7 +242,10 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		s.config.RateLimitConfig,
 		mcp.RateLimitIdentity(mcp.TierResolver(authOpts.SubscriptionLookup)),
 		ratelimit.WithCost(mcp.RateLimitCost),
-		ratelimit.WithRejection(mcp.RateLimitRejection),
+		// The rejection needs the metadata URL because an anonymous caller at
+		// their ceiling is answered with a 401 challenge, which is what lets a
+		// client discover the authorization server at all.
+		ratelimit.WithRejection(mcp.RateLimitRejection(mcp.ProtectedResourceMetadataURL(apiBaseURL))),
 	)
 	mcpHandler := mcp.OptionalBearerToken(
 		mcp.NewTokenVerifier(s.tokenService, mcp.ResourceURI(apiBaseURL)),

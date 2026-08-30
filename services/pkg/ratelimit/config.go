@@ -172,6 +172,11 @@ const (
 //   - pro:       120 req/min, 10000 req/month
 //   - enterprise: 300 req/min, 50000 req/month
 //
+// Two further tiers are NOT customer tiers and are never sold: first-party
+// (our own SSR, verified by the shared secret) and first-party-unverified (the
+// marker without the secret). See their entries below for why they exist and
+// why only one of them is monthly-unmetered.
+//
 // Browser access (via Firebase auth from the web app) has relaxed limits:
 //   - anonymous:  60 req/min,  5000 req/month
 //   - free:      120 req/min, 10000 req/month
@@ -199,6 +204,46 @@ func DefaultConfig() Config {
 			"premium": {
 				RequestsPerMinute: 120, RequestsPerMonth: 10000, // API limits (same as pro)
 				BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 0, // Browser: no limits
+			},
+
+			// OUR OWN SERVER-SIDE RENDERING. Not a customer tier, and never
+			// sold — see the block comment above DefaultConfig.
+			//
+			// Vercel SSR reaches this API from a handful of shared egress IPs
+			// carrying no user token, so without a class of its own it lands in
+			// `ip:<egress>` at the ANONYMOUS tier and 30 requests a minute has
+			// to cover every render the whole fleet is doing. Enabling the
+			// limiter without this would 429 our own site.
+			//
+			// Monthly is UNMETERED (0). Metering our own rendering monthly can
+			// only ever end one way — the site stops rendering partway through
+			// a month — and the per-minute ceiling plus the edge's burst bucket
+			// already bound a runaway.
+			TierFirstParty: {
+				RequestsPerMinute: 3000, RequestsPerMonth: 0,
+				BrowserRequestsPerMinute: 3000, BrowserRequestsPerMonth: 0,
+			},
+
+			// A first-party CLAIM we could not verify: the marker is present
+			// but the shared secret did not match, or was not configured.
+			//
+			// It gets the same per-minute headroom, because the overwhelmingly
+			// likely cause is a rotation gap, a missed deploy, or a build step
+			// that cannot read a sensitive env var — and the cost of guessing
+			// "attacker" is throttling our own rendering. That is the mistake
+			// the EDGE already made and fixed (7,045 zone 429s over two days,
+			// all our own CI prerender, fallback data baked into static output,
+			// nothing alerted).
+			//
+			// But monthly stays METERED, and that is the difference from the
+			// verified class. A user-agent string is trivially spoofable, so an
+			// unmetered monthly here would make one header a free pass to
+			// unlimited scraping — undoing exactly what #455 tightened. 200k a
+			// month is far above any plausible build and far below a useful
+			// scrape.
+			TierFirstPartyUnverified: {
+				RequestsPerMinute: 3000, RequestsPerMonth: 200000,
+				BrowserRequestsPerMinute: 3000, BrowserRequestsPerMonth: 200000,
 			},
 		},
 		FailOpen:   true,

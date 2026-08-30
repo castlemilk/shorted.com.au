@@ -85,7 +85,7 @@ func mcpStack(t *testing.T, validator ClaimsValidator, limiter ratelimit.RateLim
 	rateLimited := ratelimit.NewHTTPMiddleware(
 		limiter, cfg, RateLimitIdentity(resolveTier),
 		ratelimit.WithCost(RateLimitCost),
-		ratelimit.WithRejection(RateLimitRejection),
+		ratelimit.WithRejection(RateLimitRejection(ProtectedResourceMetadataURL(conformanceOrigin))),
 	)
 	handler := OptionalBearerToken(
 		NewTokenVerifier(validator, ResourceURI(conformanceOrigin)),
@@ -202,7 +202,9 @@ func TestAnUnverifiableTokenIsRefusedRatherThanIgnored(t *testing.T) {
 func TestQuotaExhaustionProducesTheDocumentedPayload(t *testing.T) {
 	srv := mcpStack(t, stubClaims{claims: validClaims()}, &fixedLimiter{allow: 0}, nil)
 
-	resp := oauthToolCall(t, srv, "")
+	// WITH a token: an authenticated caller at their ceiling gets the 429. An
+	// anonymous one is challenged instead — next test.
+	resp := oauthToolCall(t, srv, "a-valid-token")
 	if resp.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("status = %d, want 429", resp.StatusCode)
 	}
@@ -357,5 +359,41 @@ func TestAuthenticatedAndAnonymousCallersAreMeteredSeparately(t *testing.T) {
 
 	if anon.Identifier == authed.Identifier {
 		t.Fatalf("both callers share the bucket %q", anon.Identifier)
+	}
+}
+
+// THE UNBLOCK, end to end through the real stack.
+//
+// OAuth here was live but dormant: a client connected, got its tools, stored no
+// auth state and never started the flow, because nothing ever challenged it.
+// Anonymous access is unchallenged deliberately — it is the adoption path — so
+// the ceiling is the one honest place to say "authenticate for more", and this
+// asserts that a client can actually act on it.
+func TestAnAnonymousCallerAtTheCeilingIsSentToTheAuthorizationServer(t *testing.T) {
+	srv := mcpStack(t, stubClaims{claims: validClaims()}, &fixedLimiter{allow: 0}, nil)
+
+	resp := oauthToolCall(t, srv, "")
+
+	// 401, not 429: MCP clients begin discovery on the status.
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401 — a 429 leaves OAuth undiscoverable", resp.StatusCode)
+	}
+	challenge := resp.Header.Get("WWW-Authenticate")
+	if !strings.Contains(challenge, ProtectedResourceMetadataURL(conformanceOrigin)) {
+		t.Fatalf("challenge does not name the metadata document: %q", challenge)
+	}
+
+	// And the body still says WHY, so the agent can tell its user this was a
+	// quota rather than a rejected credential.
+	var body struct {
+		Error struct {
+			Data ratelimit.RateLimitDetail `json:"data"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("the challenge is not JSON-RPC: %v", err)
+	}
+	if body.Error.Data.Message == "" || body.Error.Data.UpgradeURL == "" {
+		t.Errorf("the reason did not survive the challenge: %+v", body.Error.Data)
 	}
 }

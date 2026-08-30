@@ -180,11 +180,52 @@ func hashToken(token string) string {
 // The payload is the existing RateLimitDetail, verbatim. Its field names are a
 // documented contract shared with the web app; restating them in an MCP-shaped
 // struct would be a second copy to keep in step.
-func RateLimitRejection(w http.ResponseWriter, r *http.Request, result *ratelimit.Result, detail ratelimit.RateLimitDetail) {
+//
+// # An anonymous caller is CHALLENGED, not merely refused
+//
+// This is the one place the status code is not 429, and it is the entire reason
+// OAuth on this server stops being dormant.
+//
+// MCP auth is challenge-driven: a client learns this server has an
+// authorization server from a 401 carrying WWW-Authenticate, and clients branch
+// on the STATUS. A 429 — however well described in its body — is a transport
+// failure to every MCP client in existence, so an anonymous caller who exhausts
+// their allowance would be told to authenticate in a way nothing can act on,
+// and the flow would never start.
+//
+// So: no credential at all and out of quota gets 401 with the RFC 9728
+// challenge, which is exactly true — the remedy IS to authenticate, and the
+// client can now find out how. Anonymous access itself is untouched; this fires
+// only at the ceiling, which is what keeps first contact free.
+//
+// A caller who already presented a token gets a plain 429. Challenging them
+// would send them through a flow that cannot help: they are authenticated, and
+// what they need is a bigger plan, which upgrade_url in the body names.
+func RateLimitRejection(resourceMetadataURL string) func(http.ResponseWriter, *http.Request, *ratelimit.Result, ratelimit.RateLimitDetail) {
+	return func(w http.ResponseWriter, r *http.Request, result *ratelimit.Result, detail ratelimit.RateLimitDetail) {
+		rejectRateLimited(w, r, result, detail, resourceMetadataURL)
+	}
+}
+
+func rejectRateLimited(
+	w http.ResponseWriter,
+	r *http.Request,
+	result *ratelimit.Result,
+	detail ratelimit.RateLimitDetail,
+	resourceMetadataURL string,
+) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	ratelimit.ApplyDetailHeaders(w.Header().Set, result, detail)
-	w.WriteHeader(http.StatusTooManyRequests)
+
+	status := http.StatusTooManyRequests
+	if resourceMetadataURL != "" && !hasCredential(r) {
+		w.Header().Set("WWW-Authenticate", `Bearer error="insufficient_quota", `+
+			`error_description="anonymous quota exhausted; authenticate to raise it", `+
+			`resource_metadata="`+resourceMetadataURL+`"`)
+		status = http.StatusUnauthorized
+	}
+	w.WriteHeader(status)
 
 	// Echo the request id when there is one, so a client can match the error to
 	// the call it made. A batch or an unreadable body yields a null id, which
@@ -201,6 +242,18 @@ func RateLimitRejection(w http.ResponseWriter, r *http.Request, result *ratelimi
 			"data":    detail,
 		},
 	})
+}
+
+// hasCredential reports whether the caller offered anything at all. A verified
+// token is the strong case; a present-but-unverified Authorization header still
+// counts, because a client holding a bad token needs the 401 from the auth
+// middleware — which names the actual problem — not a quota challenge that
+// would send it round the flow again.
+func hasCredential(r *http.Request) bool {
+	if info := auth.TokenInfoFromContext(r.Context()); info != nil {
+		return true
+	}
+	return strings.TrimSpace(r.Header.Get("Authorization")) != ""
 }
 
 func requestID(r *http.Request) any {

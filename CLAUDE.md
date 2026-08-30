@@ -716,14 +716,29 @@ Next.js contributes only the consent screen.
 
 ### Landmines
 
-- **OAuth is live but DORMANT — nothing challenges a client, and that is not a
-  bug.** MCP auth is challenge-driven: a client learns OAuth exists from a `401`
-  carrying `WWW-Authenticate`. We never challenge an anonymous caller (that is
-  the adoption path), and the only other trigger — quota exhaustion — cannot
-  fire while the limiter is off. Measured 2026-08-30: a real client connects,
-  gets 24 tools, stores no auth state, never starts the flow. Do NOT "fix" it by
-  gating anonymous access. The unblock is a chain: first-party SSR identity at
-  the APP layer → `RATE_LIMIT_ENABLED` → quota 401s challenge clients naturally.
+- **Anonymous access is never challenged, and that is the adoption path.** MCP
+  auth is challenge-driven: a client learns OAuth exists from a `401` carrying
+  `WWW-Authenticate`. First contact must stay free, so the ONLY place we
+  challenge is the ceiling — an anonymous caller who exhausts their quota gets a
+  **401** (not a 429) with the RFC 9728 challenge, because clients branch on the
+  status and a 429 is a transport failure to all of them. An *authenticated*
+  caller at their ceiling gets a plain 429: they have already done what a
+  challenge asks, and what they need is `upgrade_url`. Do NOT "fix" adoption by
+  gating anonymous access. (Before this, OAuth was live but fully dormant —
+  measured 2026-08-30, a real client connected, got 24 tools, stored no auth
+  state and never started the flow.)
+- **`RATE_LIMIT_ENABLED` is now TRUE in prod (Terraform, `shorts-api` module).**
+  It was off everywhere until the app layer could tell our own traffic apart:
+  the Connect interceptor buckets unauthenticated callers as `ip:<address>` at
+  the anonymous tier, and Vercel SSR arrives from a handful of shared egress IPs
+  with no token. The **`first-party` / `first-party-unverified` tiers**
+  (`interceptor.go` `classifyFirstParty`) are that class, keyed `first-party:<ip>`
+  and matched on the SAME user-agent marker + secret header the edge worker uses
+  — change one layer's marker and you must change the other. The secret decides
+  only the MONTHLY ceiling: both classes get 3000/min, so a rotation gap or an
+  unreadable env var costs a meter, never a 429 on our own site. That asymmetry
+  is deliberate; the edge learned it the expensive way (7,045 self-inflicted
+  429s when CI's prerender could not read the sensitive var).
 - **The `/oauth/` routes render WITHOUT the site header and footer**, and the
   success screen's `min-h-screen` depends on that. Chrome is dropped in
   `conditional-header.tsx` / `conditional-footer.tsx` (the same mechanism embed
@@ -736,13 +751,6 @@ Next.js contributes only the consent screen.
   pause the navigation fires within a frame and the confirmation is never seen,
   which is exactly when people wonder whether it worked. It is not latency to
   trim.
-- **`RATE_LIMIT_ENABLED` is set on NEITHER dev nor prod.** App-layer limiting has
-  never run; a prod response carries no `X-RateLimit-*` headers, and the MCP
-  rate-limit middleware is inert. **Do not just set the flag** — the Connect
-  interceptor buckets unauthenticated callers as `ip:<address>` at the anonymous
-  tier, our own Vercel SSR arrives from a handful of shared egress IPs with no
-  token, and there is **no first-party bypass class at the app layer** (that
-  exists only in the edge worker). Enabling it needs that path built first.
 - **`Stateless: true` on the streamable handler is load-bearing.** Without it the
   SDK silently negotiates *down* to legacy `initialize`, and an in-memory
   transport cannot detect it. Any test for protocol behaviour must drive a real
@@ -1311,6 +1319,17 @@ alerted. The rule now:
 > A first-party marker we cannot verify routes to the **`first-party` bucket**
 > (600/10s) anyway and emits an **unsampled** `edge_bypass_used`
 > (`outcome=rejected|unconfigured`). It is never treated as anonymous.
+
+**The app layer now mirrors this, and had to before `RATE_LIMIT_ENABLED` could
+be true at all.** `classifyFirstParty` in `services/pkg/ratelimit/interceptor.go`
+reads the same marker and the same header (`RATE_LIMIT_SSR_BYPASS_USER_AGENT` /
+`_HEADER_NAME` / `_SECRET`, delivered to Cloud Run by the `shorts-api` module)
+and yields tier `first-party` or `first-party-unverified`, keyed
+`first-party:<egress ip>`. Same rule as the edge: an unverifiable marker is
+still first-party. It differs only in what the secret buys — **monthly metering**
+(200k unverified vs unmetered verified), never per-minute headroom, so our own
+rendering cannot be throttled by a rotation while a spoofed header still cannot
+buy unlimited scraping. Both layers must be renamed together.
 
 `resolveRateLimitBypass` returns a third class, `ssr-unverified`, for this. The
 secret is an **optimisation** (it lets verified traffic skip the zone rule), not

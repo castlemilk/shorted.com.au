@@ -661,6 +661,13 @@ module "shorts_api" {
   postgres_database = var.postgres_database
   postgres_username = var.postgres_username
 
+  # App-layer rate limiting. The first-party class must exist before this can be
+  # true at all, or our own SSR shares one anonymous bucket.
+  rate_limit_enabled                = true
+  rate_limit_ssr_bypass_secret      = var.rate_limit_ssr_bypass_secret
+  rate_limit_ssr_bypass_header_name = var.rate_limit_ssr_bypass_header_name
+  rate_limit_ssr_bypass_user_agent  = var.rate_limit_ssr_bypass_user_agent
+
   scheduler_region             = "australia-southeast1"
   enable_key_metrics_scheduler = true
 
