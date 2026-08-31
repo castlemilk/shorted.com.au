@@ -12535,6 +12535,29 @@ components:
              "large", "mid", "small" or "micro"; empty when unknown. Present because a
              band is usable for filtering even where the underlying value is missing or
              stale, and it is what most callers actually want. (proto string)
+        averageDailyVolume20d:
+          type: number
+          title: average_daily_volume_20d
+          format: double
+          description: |-
+            Average daily VOLUME in shares over the same 20 sessions, and the
+             short position expressed in days of that volume.
+
+             Percent-of-issue and days-to-cover are the two standard measures of short
+             interest, and they answer different questions. 5% short in a name that
+             turns over 2% of its register a day is a 2.5-day unwind; 5% short in a
+             name that turns over 0.1% a day is a 50-day unwind, and that is where
+             squeezes come from. Percent-of-issue treats those as identical.
+
+             days_to_cover = reported_short_positions / average_daily_volume_20d, and
+             is 0 when the volume is unknown or zero — never a division artefact. Note
+             this is share VOLUME, not the traded VALUE in average_daily_value_20d:
+             dividing a share count by dollars would produce a number with no meaning. Shares per session. 0 when unknown. (proto double)
+        daysToCover:
+          type: number
+          title: days_to_cover
+          format: double
+          description: Sessions of average volume. 0 when not computable. (proto double)
       title: Stock
       additionalProperties: false
       description: A Stock represents a single stock's metadata.

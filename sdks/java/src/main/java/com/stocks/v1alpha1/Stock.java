@@ -394,6 +394,48 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int AVERAGE_DAILY_VOLUME_20D_FIELD_NUMBER = 12;
+  private double averageDailyVolume20D_ = 0D;
+  /**
+   * <pre>
+   * Average daily VOLUME in shares over the same 20 sessions, and the
+   * short position expressed in days of that volume.
+   *
+   * Percent-of-issue and days-to-cover are the two standard measures of short
+   * interest, and they answer different questions. 5% short in a name that
+   * turns over 2% of its register a day is a 2.5-day unwind; 5% short in a
+   * name that turns over 0.1% a day is a 50-day unwind, and that is where
+   * squeezes come from. Percent-of-issue treats those as identical.
+   *
+   * days_to_cover = reported_short_positions / average_daily_volume_20d, and
+   * is 0 when the volume is unknown or zero — never a division artefact. Note
+   * this is share VOLUME, not the traded VALUE in average_daily_value_20d:
+   * dividing a share count by dollars would produce a number with no meaning.
+   * </pre>
+   *
+   * <code>double average_daily_volume_20d = 12 [json_name = "averageDailyVolume20d"];</code>
+   * @return The averageDailyVolume20d.
+   */
+  @java.lang.Override
+  public double getAverageDailyVolume20D() {
+    return averageDailyVolume20D_;
+  }
+
+  public static final int DAYS_TO_COVER_FIELD_NUMBER = 13;
+  private double daysToCover_ = 0D;
+  /**
+   * <pre>
+   * Sessions of average volume. 0 when not computable.
+   * </pre>
+   *
+   * <code>double days_to_cover = 13 [json_name = "daysToCover"];</code>
+   * @return The daysToCover.
+   */
+  @java.lang.Override
+  public double getDaysToCover() {
+    return daysToCover_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -441,6 +483,12 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(liquidityBand_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 11, liquidityBand_);
     }
+    if (java.lang.Double.doubleToRawLongBits(averageDailyVolume20D_) != 0) {
+      output.writeDouble(12, averageDailyVolume20D_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(daysToCover_) != 0) {
+      output.writeDouble(13, daysToCover_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -487,6 +535,14 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(liquidityBand_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(11, liquidityBand_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(averageDailyVolume20D_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(12, averageDailyVolume20D_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(daysToCover_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(13, daysToCover_);
     }
     return size;
   }
@@ -539,6 +595,12 @@ private static final long serialVersionUID = 0L;
             other.getAverageDailyValue20D())) return false;
     if (!getLiquidityBand()
         .equals(other.getLiquidityBand())) return false;
+    if (java.lang.Double.doubleToLongBits(getAverageDailyVolume20D())
+        != java.lang.Double.doubleToLongBits(
+            other.getAverageDailyVolume20D())) return false;
+    if (java.lang.Double.doubleToLongBits(getDaysToCover())
+        != java.lang.Double.doubleToLongBits(
+            other.getDaysToCover())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -579,6 +641,12 @@ private static final long serialVersionUID = 0L;
         java.lang.Double.doubleToLongBits(getAverageDailyValue20D()));
     hash = (37 * hash) + LIQUIDITY_BAND_FIELD_NUMBER;
     hash = (53 * hash) + getLiquidityBand().hashCode();
+    hash = (37 * hash) + AVERAGE_DAILY_VOLUME_20D_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getAverageDailyVolume20D()));
+    hash = (37 * hash) + DAYS_TO_COVER_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getDaysToCover()));
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -726,6 +794,8 @@ private static final long serialVersionUID = 0L;
       marketCap_ = 0D;
       averageDailyValue20D_ = 0D;
       liquidityBand_ = "";
+      averageDailyVolume20D_ = 0D;
+      daysToCover_ = 0D;
       return this;
     }
 
@@ -793,6 +863,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000400) != 0)) {
         result.liquidityBand_ = liquidityBand_;
       }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.averageDailyVolume20D_ = averageDailyVolume20D_;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.daysToCover_ = daysToCover_;
+      }
     }
 
     @java.lang.Override
@@ -856,6 +932,12 @@ private static final long serialVersionUID = 0L;
         liquidityBand_ = other.liquidityBand_;
         bitField0_ |= 0x00000400;
         onChanged();
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getAverageDailyVolume20D()) != 0) {
+        setAverageDailyVolume20D(other.getAverageDailyVolume20D());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getDaysToCover()) != 0) {
+        setDaysToCover(other.getDaysToCover());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -938,6 +1020,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000400;
               break;
             } // case 90
+            case 97: {
+              averageDailyVolume20D_ = input.readDouble();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 97
+            case 105: {
+              daysToCover_ = input.readDouble();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 105
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1711,6 +1803,130 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       liquidityBand_ = value;
       bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    private double averageDailyVolume20D_ ;
+    /**
+     * <pre>
+     * Average daily VOLUME in shares over the same 20 sessions, and the
+     * short position expressed in days of that volume.
+     *
+     * Percent-of-issue and days-to-cover are the two standard measures of short
+     * interest, and they answer different questions. 5% short in a name that
+     * turns over 2% of its register a day is a 2.5-day unwind; 5% short in a
+     * name that turns over 0.1% a day is a 50-day unwind, and that is where
+     * squeezes come from. Percent-of-issue treats those as identical.
+     *
+     * days_to_cover = reported_short_positions / average_daily_volume_20d, and
+     * is 0 when the volume is unknown or zero — never a division artefact. Note
+     * this is share VOLUME, not the traded VALUE in average_daily_value_20d:
+     * dividing a share count by dollars would produce a number with no meaning.
+     * </pre>
+     *
+     * <code>double average_daily_volume_20d = 12 [json_name = "averageDailyVolume20d"];</code>
+     * @return The averageDailyVolume20d.
+     */
+    @java.lang.Override
+    public double getAverageDailyVolume20D() {
+      return averageDailyVolume20D_;
+    }
+    /**
+     * <pre>
+     * Average daily VOLUME in shares over the same 20 sessions, and the
+     * short position expressed in days of that volume.
+     *
+     * Percent-of-issue and days-to-cover are the two standard measures of short
+     * interest, and they answer different questions. 5% short in a name that
+     * turns over 2% of its register a day is a 2.5-day unwind; 5% short in a
+     * name that turns over 0.1% a day is a 50-day unwind, and that is where
+     * squeezes come from. Percent-of-issue treats those as identical.
+     *
+     * days_to_cover = reported_short_positions / average_daily_volume_20d, and
+     * is 0 when the volume is unknown or zero — never a division artefact. Note
+     * this is share VOLUME, not the traded VALUE in average_daily_value_20d:
+     * dividing a share count by dollars would produce a number with no meaning.
+     * </pre>
+     *
+     * <code>double average_daily_volume_20d = 12 [json_name = "averageDailyVolume20d"];</code>
+     * @param value The averageDailyVolume20d to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAverageDailyVolume20D(double value) {
+
+      averageDailyVolume20D_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Average daily VOLUME in shares over the same 20 sessions, and the
+     * short position expressed in days of that volume.
+     *
+     * Percent-of-issue and days-to-cover are the two standard measures of short
+     * interest, and they answer different questions. 5% short in a name that
+     * turns over 2% of its register a day is a 2.5-day unwind; 5% short in a
+     * name that turns over 0.1% a day is a 50-day unwind, and that is where
+     * squeezes come from. Percent-of-issue treats those as identical.
+     *
+     * days_to_cover = reported_short_positions / average_daily_volume_20d, and
+     * is 0 when the volume is unknown or zero — never a division artefact. Note
+     * this is share VOLUME, not the traded VALUE in average_daily_value_20d:
+     * dividing a share count by dollars would produce a number with no meaning.
+     * </pre>
+     *
+     * <code>double average_daily_volume_20d = 12 [json_name = "averageDailyVolume20d"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAverageDailyVolume20D() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      averageDailyVolume20D_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double daysToCover_ ;
+    /**
+     * <pre>
+     * Sessions of average volume. 0 when not computable.
+     * </pre>
+     *
+     * <code>double days_to_cover = 13 [json_name = "daysToCover"];</code>
+     * @return The daysToCover.
+     */
+    @java.lang.Override
+    public double getDaysToCover() {
+      return daysToCover_;
+    }
+    /**
+     * <pre>
+     * Sessions of average volume. 0 when not computable.
+     * </pre>
+     *
+     * <code>double days_to_cover = 13 [json_name = "daysToCover"];</code>
+     * @param value The daysToCover to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDaysToCover(double value) {
+
+      daysToCover_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Sessions of average volume. 0 when not computable.
+     * </pre>
+     *
+     * <code>double days_to_cover = 13 [json_name = "daysToCover"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDaysToCover() {
+      bitField0_ = (bitField0_ & ~0x00001000);
+      daysToCover_ = 0D;
       onChanged();
       return this;
     }

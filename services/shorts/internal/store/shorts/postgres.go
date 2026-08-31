@@ -307,7 +307,8 @@ SELECT
 	COALESCE(m.tags, ARRAY[]::text[]) as tags,
 	COALESCE(m.logo_gcs_url, '') as logo_url,
 	COALESCE(px.close * s."TOTAL_PRODUCT_IN_ISSUE", 0) as market_cap,
-	COALESCE(px.adv, 0) as average_daily_value_20d
+	COALESCE(px.adv, 0) as average_daily_value_20d,
+	COALESCE(px.advol, 0) as average_daily_volume_20d
 FROM shorts s
 LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
 -- Market cap is derived (latest close x shares on issue) rather than read from
@@ -317,11 +318,15 @@ LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
 LEFT JOIN LATERAL (
 	SELECT
 		(ARRAY_AGG(w.close ORDER BY w.date DESC))[1] AS close,
-		AVG(w.close * w.volume) AS adv
+		-- Below a handful of sessions an "average" is a single print with a
+		-- confident name. mv_screener_data uses the same floor.
+		CASE WHEN COUNT(*) >= 5 THEN AVG(w.close * w.volume) END AS adv,
+		CASE WHEN COUNT(*) >= 5 THEN AVG(w.volume) END AS advol
 	FROM (
 		SELECT date, close, volume
 		FROM stock_prices
 		WHERE stock_code = s."PRODUCT_CODE"
+		  AND volume > 0
 		ORDER BY date DESC
 		LIMIT 20
 	) w
@@ -351,10 +356,12 @@ ORDER BY s."DATE" DESC LIMIT 1`
 		&stock.LogoUrl,
 		&stock.MarketCap,
 		&stock.AverageDailyValue_20D,
+		&stock.AverageDailyVolume_20D,
 	); err != nil {
 		return nil, err
 	}
 	stock.LiquidityBand = liquidityBand(stock.AverageDailyValue_20D)
+	stock.DaysToCover = daysToCover(float64(stock.ReportedShortPositions), stock.AverageDailyVolume_20D)
 	return stock, nil
 }
 
@@ -1354,17 +1361,25 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			COALESCE(m.industry, '') as industry,
 			COALESCE(m.logo_gcs_url, '') as logo_url,
 			COALESCE(px.close * s."TOTAL_PRODUCT_IN_ISSUE", 0) as market_cap,
-			COALESCE(px.adv, 0) as average_daily_value_20d
+			COALESCE(px.adv, 0) as average_daily_value_20d,
+			COALESCE(px.advol, 0) as average_daily_volume_20d
 		FROM shorts s
 		LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
 		LEFT JOIN LATERAL (
 			SELECT
 				(ARRAY_AGG(w.close ORDER BY w.date DESC))[1] AS close,
-				AVG(w.close * w.volume) AS adv
+				CASE WHEN COUNT(*) >= 5 THEN AVG(w.close * w.volume) END AS adv,
+				CASE WHEN COUNT(*) >= 5 THEN AVG(w.volume) END AS advol
 			FROM (
 				SELECT date, close, volume
 				FROM stock_prices
 				WHERE stock_code = s."PRODUCT_CODE" AND date <= $2::date
+				  -- A halted or untraded session is missing data, not a day of
+				  -- zero interest; averaging it in understates turnover and
+				  -- inflates days-to-cover for exactly the illiquid names where
+				  -- the metric is already most fragile. Matches the filter
+				  -- mv_screener_data uses.
+				  AND volume > 0
 				ORDER BY date DESC
 				LIMIT 20
 			) w
@@ -1392,10 +1407,12 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			&stock.LogoUrl,
 			&stock.MarketCap,
 			&stock.AverageDailyValue_20D,
+			&stock.AverageDailyVolume_20D,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan stock row: %w", err)
 		}
 		stock.LiquidityBand = liquidityBand(stock.AverageDailyValue_20D)
+		stock.DaysToCover = daysToCover(float64(stock.ReportedShortPositions), stock.AverageDailyVolume_20D)
 		stocks = append(stocks, stock)
 	}
 
