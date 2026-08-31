@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file stocks/v1alpha1/stocks.proto.
  */
 export const file_stocks_v1alpha1_stocks: GenFile = /*@__PURE__*/
-  fileDesc("ChxzdG9ja3MvdjFhbHBoYTEvc3RvY2tzLnByb3RvEg9zdG9ja3MudjFhbHBoYTEiuwEKBVN0b2NrEhQKDHByb2R1Y3RfY29kZRgBIAEoCRIMCgRuYW1lGAIgASgJEh4KFnRvdGFsX3Byb2R1Y3RfaW5faXNzdWUYAyABKAISIAoYcmVwb3J0ZWRfc2hvcnRfcG9zaXRpb25zGAQgASgCEhoKEnBlcmNlbnRhZ2Vfc2hvcnRlZBgFIAEoAhIQCghpbmR1c3RyeRgGIAEoCRIMCgR0YWdzGAcgAygJEhAKCGxvZ29fdXJsGAggASgJIvsBCg5UaW1lU2VyaWVzRGF0YRIUCgxwcm9kdWN0X2NvZGUYASABKAkSDAoEbmFtZRgDIAEoCRIdChVsYXRlc3Rfc2hvcnRfcG9zaXRpb24YBCABKAESMAoGcG9pbnRzGAogAygLMiAuc3RvY2tzLnYxYWxwaGExLlRpbWVTZXJpZXNQb2ludBItCgNtYXgYCyABKAsyIC5zdG9ja3MudjFhbHBoYTEuVGltZVNlcmllc1BvaW50Ei0KA21pbhgMIAEoCzIgLnN0b2Nrcy52MWFscGhhMS5UaW1lU2VyaWVzUG9pbnQSEAoIaW5kdXN0cnkYDSABKAlKBAgCEAMiWAoPVGltZVNlcmllc1BvaW50Ei0KCXRpbWVzdGFtcBgBIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFgoOc2hvcnRfcG9zaXRpb24YAiABKAEijAYKDFN0b2NrRGV0YWlscxIUCgxwcm9kdWN0X2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEg8KB2FkZHJlc3MYBCABKAkSDwoHc3VtbWFyeRgFIAEoCRIPCgdkZXRhaWxzGAYgASgJEg8KB3dlYnNpdGUYByABKAkSDwoHZ2NzX3VybBgIIAEoCRIMCgR0YWdzGAkgAygJEhgKEGVuaGFuY2VkX3N1bW1hcnkYCiABKAkSFwoPY29tcGFueV9oaXN0b3J5GAsgASgJEjIKCmtleV9wZW9wbGUYDCADKAsyHi5zdG9ja3MudjFhbHBoYTEuQ29tcGFueVBlcnNvbhI7ChFmaW5hbmNpYWxfcmVwb3J0cxgNIAMoCzIgLnN0b2Nrcy52MWFscGhhMS5GaW5hbmNpYWxSZXBvcnQSHgoWY29tcGV0aXRpdmVfYWR2YW50YWdlcxgOIAEoCRIUCgxyaXNrX2ZhY3RvcnMYDyADKAkSGwoTcmVjZW50X2RldmVsb3BtZW50cxgQIAEoCRI9ChJzb2NpYWxfbWVkaWFfbGlua3MYESABKAsyIS5zdG9ja3MudjFhbHBoYTEuU29jaWFsTWVkaWFMaW5rcxIZChFlbnJpY2htZW50X3N0YXR1cxgSIAEoCRIzCg9lbnJpY2htZW50X2RhdGUYEyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhgKEGVucmljaG1lbnRfZXJyb3IYFCABKAkSQgoUZmluYW5jaWFsX3N0YXRlbWVudHMYFSABKAsyJC5zdG9ja3MudjFhbHBoYTEuRmluYW5jaWFsU3RhdGVtZW50cxIUCgxsb2dvX2djc191cmwYFiABKAkSGQoRbG9nb19pY29uX2djc191cmwYFyABKAkSGAoQbG9nb19zdmdfZ2NzX3VybBgYIAEoCRIXCg9sb2dvX3NvdXJjZV91cmwYGSABKAkSEwoLbG9nb19mb3JtYXQYGiABKAkioQEKDUNvbXBhbnlQZXJzb24SDAoEbmFtZRgBIAEoCRIMCgRyb2xlGAIgASgJEgsKA2JpbxgDIAEoCRIRCglpbWFnZV91cmwYBCABKAkSFQoNaW1hZ2VfZ2NzX3VybBgFIAEoCRIUCgxsaW5rZWRpbl91cmwYBiABKAkSEgoKc291cmNlX3VybBgHIAEoCRITCgtzb3VyY2VfdHlwZRgIIAEoCSJqCg9GaW5hbmNpYWxSZXBvcnQSCwoDdXJsGAEgASgJEg0KBXRpdGxlGAIgASgJEgwKBHR5cGUYAyABKAkSDAoEZGF0ZRgEIAEoCRIOCgZzb3VyY2UYBSABKAkSDwoHZ2NzX3VybBgGIAEoCSJpChBTb2NpYWxNZWRpYUxpbmtzEg8KB3R3aXR0ZXIYASABKAkSEAoIbGlua2VkaW4YAiABKAkSEAoIZmFjZWJvb2sYAyABKAkSDwoHeW91dHViZRgEIAEoCRIPCgd3ZWJzaXRlGAUgASgJIuABChNGaW5hbmNpYWxTdGF0ZW1lbnRzEg8KB3N1Y2Nlc3MYASABKAgSNgoGYW5udWFsGAIgASgLMiYuc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudFNldBI5CglxdWFydGVybHkYAyABKAsyJi5zdG9ja3MudjFhbHBoYTEuRmluYW5jaWFsU3RhdGVtZW50U2V0EjYKBGluZm8YBCABKAsyKC5zdG9ja3MudjFhbHBoYTEuRmluYW5jaWFsU3RhdGVtZW50c0luZm8SDQoFZXJyb3IYBSABKAkijAQKFUZpbmFuY2lhbFN0YXRlbWVudFNldBJVChBpbmNvbWVfc3RhdGVtZW50GAEgAygLMjsuc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudFNldC5JbmNvbWVTdGF0ZW1lbnRFbnRyeRJPCg1iYWxhbmNlX3NoZWV0GAIgAygLMjguc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudFNldC5CYWxhbmNlU2hlZXRFbnRyeRJHCgljYXNoX2Zsb3cYAyADKAsyNC5zdG9ja3MudjFhbHBoYTEuRmluYW5jaWFsU3RhdGVtZW50U2V0LkNhc2hGbG93RW50cnkaWAoUSW5jb21lU3RhdGVtZW50RW50cnkSCwoDa2V5GAEgASgJEi8KBXZhbHVlGAIgASgLMiAuc3RvY2tzLnYxYWxwaGExLlN0YXRlbWVudFZhbHVlczoCOAEaVQoRQmFsYW5jZVNoZWV0RW50cnkSCwoDa2V5GAEgASgJEi8KBXZhbHVlGAIgASgLMiAuc3RvY2tzLnYxYWxwaGExLlN0YXRlbWVudFZhbHVlczoCOAEaUQoNQ2FzaEZsb3dFbnRyeRILCgNrZXkYASABKAkSLwoFdmFsdWUYAiABKAsyIC5zdG9ja3MudjFhbHBoYTEuU3RhdGVtZW50VmFsdWVzOgI4ASKBAQoPU3RhdGVtZW50VmFsdWVzEj4KB21ldHJpY3MYASADKAsyLS5zdG9ja3MudjFhbHBoYTEuU3RhdGVtZW50VmFsdWVzLk1ldHJpY3NFbnRyeRouCgxNZXRyaWNzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgBOgI4ASL+AQoXRmluYW5jaWFsU3RhdGVtZW50c0luZm8SEgoKbWFya2V0X2NhcBgBIAEoARIVCg1jdXJyZW50X3ByaWNlGAIgASgBEhAKCHBlX3JhdGlvGAMgASgBEgsKA2VwcxgEIAEoARIWCg5kaXZpZGVuZF95aWVsZBgFIAEoARIMCgRiZXRhGAYgASgBEhQKDHdlZWtfNTJfaGlnaBgHIAEoARITCgt3ZWVrXzUyX2xvdxgIIAEoARIOCgZ2b2x1bWUYCSABKAESFgoOZW1wbG95ZWVfY291bnQYCiABKAMSDgoGc2VjdG9yGAsgASgJEhAKCGluZHVzdHJ5GAwgASgJIlwKD0luZHVzdHJ5VHJlZU1hcBISCgppbmR1c3RyaWVzGAEgAygJEjUKBnN0b2NrcxgCIAMoCzIlLnN0b2Nrcy52MWFscGhhMS5UcmVlbWFwU2hvcnRQb3NpdGlvbiJWChRUcmVlbWFwU2hvcnRQb3NpdGlvbhIQCghpbmR1c3RyeRgBIAEoCRIUCgxwcm9kdWN0X2NvZGUYAiABKAkSFgoOc2hvcnRfcG9zaXRpb24YAyABKAFC2gEKE2NvbS5zdG9ja3MudjFhbHBoYTFCC1N0b2Nrc1Byb3RvUAFaWWdpdGh1Yi5jb20vY2FzdGxlbWlsay9zaG9ydGVkLmNvbS5hdS9zZXJ2aWNlcy9nZW4vcHJvdG8vZ28vc3RvY2tzL3YxYWxwaGExO3N0b2Nrc3YxYWxwaGExogIDU1hYqgIPU3RvY2tzLlYxYWxwaGExygIPU3RvY2tzXFYxYWxwaGEx4gIbU3RvY2tzXFYxYWxwaGExXEdQQk1ldGFkYXRh6gIQU3RvY2tzOjpWMWFscGhhMWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("ChxzdG9ja3MvdjFhbHBoYTEvc3RvY2tzLnByb3RvEg9zdG9ja3MudjFhbHBoYTEiiAIKBVN0b2NrEhQKDHByb2R1Y3RfY29kZRgBIAEoCRIMCgRuYW1lGAIgASgJEh4KFnRvdGFsX3Byb2R1Y3RfaW5faXNzdWUYAyABKAISIAoYcmVwb3J0ZWRfc2hvcnRfcG9zaXRpb25zGAQgASgCEhoKEnBlcmNlbnRhZ2Vfc2hvcnRlZBgFIAEoAhIQCghpbmR1c3RyeRgGIAEoCRIMCgR0YWdzGAcgAygJEhAKCGxvZ29fdXJsGAggASgJEhIKCm1hcmtldF9jYXAYCSABKAESHwoXYXZlcmFnZV9kYWlseV92YWx1ZV8yMGQYCiABKAESFgoObGlxdWlkaXR5X2JhbmQYCyABKAkirAIKDlRpbWVTZXJpZXNEYXRhEhQKDHByb2R1Y3RfY29kZRgBIAEoCRIMCgRuYW1lGAMgASgJEh0KFWxhdGVzdF9zaG9ydF9wb3NpdGlvbhgEIAEoARIwCgZwb2ludHMYCiADKAsyIC5zdG9ja3MudjFhbHBoYTEuVGltZVNlcmllc1BvaW50Ei0KA21heBgLIAEoCzIgLnN0b2Nrcy52MWFscGhhMS5UaW1lU2VyaWVzUG9pbnQSLQoDbWluGAwgASgLMiAuc3RvY2tzLnYxYWxwaGExLlRpbWVTZXJpZXNQb2ludBIQCghpbmR1c3RyeRgNIAEoCRIaChJ0b3RhbF9vYnNlcnZhdGlvbnMYDiABKAUSEwoLZG93bnNhbXBsZWQYDyABKAhKBAgCEAMimgEKD1RpbWVTZXJpZXNQb2ludBItCgl0aW1lc3RhbXAYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhYKDnNob3J0X3Bvc2l0aW9uGAIgASgBEiAKGHJlcG9ydGVkX3Nob3J0X3Bvc2l0aW9ucxgDIAEoARIeChZ0b3RhbF9wcm9kdWN0X2luX2lzc3VlGAQgASgBIowGCgxTdG9ja0RldGFpbHMSFAoMcHJvZHVjdF9jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIQCghpbmR1c3RyeRgDIAEoCRIPCgdhZGRyZXNzGAQgASgJEg8KB3N1bW1hcnkYBSABKAkSDwoHZGV0YWlscxgGIAEoCRIPCgd3ZWJzaXRlGAcgASgJEg8KB2djc191cmwYCCABKAkSDAoEdGFncxgJIAMoCRIYChBlbmhhbmNlZF9zdW1tYXJ5GAogASgJEhcKD2NvbXBhbnlfaGlzdG9yeRgLIAEoCRIyCgprZXlfcGVvcGxlGAwgAygLMh4uc3RvY2tzLnYxYWxwaGExLkNvbXBhbnlQZXJzb24SOwoRZmluYW5jaWFsX3JlcG9ydHMYDSADKAsyIC5zdG9ja3MudjFhbHBoYTEuRmluYW5jaWFsUmVwb3J0Eh4KFmNvbXBldGl0aXZlX2FkdmFudGFnZXMYDiABKAkSFAoMcmlza19mYWN0b3JzGA8gAygJEhsKE3JlY2VudF9kZXZlbG9wbWVudHMYECABKAkSPQoSc29jaWFsX21lZGlhX2xpbmtzGBEgASgLMiEuc3RvY2tzLnYxYWxwaGExLlNvY2lhbE1lZGlhTGlua3MSGQoRZW5yaWNobWVudF9zdGF0dXMYEiABKAkSMwoPZW5yaWNobWVudF9kYXRlGBMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIYChBlbnJpY2htZW50X2Vycm9yGBQgASgJEkIKFGZpbmFuY2lhbF9zdGF0ZW1lbnRzGBUgASgLMiQuc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudHMSFAoMbG9nb19nY3NfdXJsGBYgASgJEhkKEWxvZ29faWNvbl9nY3NfdXJsGBcgASgJEhgKEGxvZ29fc3ZnX2djc191cmwYGCABKAkSFwoPbG9nb19zb3VyY2VfdXJsGBkgASgJEhMKC2xvZ29fZm9ybWF0GBogASgJIqEBCg1Db21wYW55UGVyc29uEgwKBG5hbWUYASABKAkSDAoEcm9sZRgCIAEoCRILCgNiaW8YAyABKAkSEQoJaW1hZ2VfdXJsGAQgASgJEhUKDWltYWdlX2djc191cmwYBSABKAkSFAoMbGlua2VkaW5fdXJsGAYgASgJEhIKCnNvdXJjZV91cmwYByABKAkSEwoLc291cmNlX3R5cGUYCCABKAkiagoPRmluYW5jaWFsUmVwb3J0EgsKA3VybBgBIAEoCRINCgV0aXRsZRgCIAEoCRIMCgR0eXBlGAMgASgJEgwKBGRhdGUYBCABKAkSDgoGc291cmNlGAUgASgJEg8KB2djc191cmwYBiABKAkiaQoQU29jaWFsTWVkaWFMaW5rcxIPCgd0d2l0dGVyGAEgASgJEhAKCGxpbmtlZGluGAIgASgJEhAKCGZhY2Vib29rGAMgASgJEg8KB3lvdXR1YmUYBCABKAkSDwoHd2Vic2l0ZRgFIAEoCSLgAQoTRmluYW5jaWFsU3RhdGVtZW50cxIPCgdzdWNjZXNzGAEgASgIEjYKBmFubnVhbBgCIAEoCzImLnN0b2Nrcy52MWFscGhhMS5GaW5hbmNpYWxTdGF0ZW1lbnRTZXQSOQoJcXVhcnRlcmx5GAMgASgLMiYuc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudFNldBI2CgRpbmZvGAQgASgLMiguc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudHNJbmZvEg0KBWVycm9yGAUgASgJIowEChVGaW5hbmNpYWxTdGF0ZW1lbnRTZXQSVQoQaW5jb21lX3N0YXRlbWVudBgBIAMoCzI7LnN0b2Nrcy52MWFscGhhMS5GaW5hbmNpYWxTdGF0ZW1lbnRTZXQuSW5jb21lU3RhdGVtZW50RW50cnkSTwoNYmFsYW5jZV9zaGVldBgCIAMoCzI4LnN0b2Nrcy52MWFscGhhMS5GaW5hbmNpYWxTdGF0ZW1lbnRTZXQuQmFsYW5jZVNoZWV0RW50cnkSRwoJY2FzaF9mbG93GAMgAygLMjQuc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudFNldC5DYXNoRmxvd0VudHJ5GlgKFEluY29tZVN0YXRlbWVudEVudHJ5EgsKA2tleRgBIAEoCRIvCgV2YWx1ZRgCIAEoCzIgLnN0b2Nrcy52MWFscGhhMS5TdGF0ZW1lbnRWYWx1ZXM6AjgBGlUKEUJhbGFuY2VTaGVldEVudHJ5EgsKA2tleRgBIAEoCRIvCgV2YWx1ZRgCIAEoCzIgLnN0b2Nrcy52MWFscGhhMS5TdGF0ZW1lbnRWYWx1ZXM6AjgBGlEKDUNhc2hGbG93RW50cnkSCwoDa2V5GAEgASgJEi8KBXZhbHVlGAIgASgLMiAuc3RvY2tzLnYxYWxwaGExLlN0YXRlbWVudFZhbHVlczoCOAEigQEKD1N0YXRlbWVudFZhbHVlcxI+CgdtZXRyaWNzGAEgAygLMi0uc3RvY2tzLnYxYWxwaGExLlN0YXRlbWVudFZhbHVlcy5NZXRyaWNzRW50cnkaLgoMTWV0cmljc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoAToCOAEi/gEKF0ZpbmFuY2lhbFN0YXRlbWVudHNJbmZvEhIKCm1hcmtldF9jYXAYASABKAESFQoNY3VycmVudF9wcmljZRgCIAEoARIQCghwZV9yYXRpbxgDIAEoARILCgNlcHMYBCABKAESFgoOZGl2aWRlbmRfeWllbGQYBSABKAESDAoEYmV0YRgGIAEoARIUCgx3ZWVrXzUyX2hpZ2gYByABKAESEwoLd2Vla181Ml9sb3cYCCABKAESDgoGdm9sdW1lGAkgASgBEhYKDmVtcGxveWVlX2NvdW50GAogASgDEg4KBnNlY3RvchgLIAEoCRIQCghpbmR1c3RyeRgMIAEoCSJcCg9JbmR1c3RyeVRyZWVNYXASEgoKaW5kdXN0cmllcxgBIAMoCRI1CgZzdG9ja3MYAiADKAsyJS5zdG9ja3MudjFhbHBoYTEuVHJlZW1hcFNob3J0UG9zaXRpb24iVgoUVHJlZW1hcFNob3J0UG9zaXRpb24SEAoIaW5kdXN0cnkYASABKAkSFAoMcHJvZHVjdF9jb2RlGAIgASgJEhYKDnNob3J0X3Bvc2l0aW9uGAMgASgBQtoBChNjb20uc3RvY2tzLnYxYWxwaGExQgtTdG9ja3NQcm90b1ABWllnaXRodWIuY29tL2Nhc3RsZW1pbGsvc2hvcnRlZC5jb20uYXUvc2VydmljZXMvZ2VuL3Byb3RvL2dvL3N0b2Nrcy92MWFscGhhMTtzdG9ja3N2MWFscGhhMaICA1NYWKoCD1N0b2Nrcy5WMWFscGhhMcoCD1N0b2Nrc1xWMWFscGhhMeICG1N0b2Nrc1xWMWFscGhhMVxHUEJNZXRhZGF0YeoCEFN0b2Nrczo6VjFhbHBoYTFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * A Stock represents a single stock's metadata.
@@ -60,11 +60,45 @@ export type Stock = Message<"stocks.v1alpha1.Stock"> & {
   tags: string[];
 
   /**
-   * TODO(castlemilk): add more metadata here as needed
-   *
    * @generated from field: string logo_url = 8;
    */
   logoUrl: string;
+
+  /**
+   * Size and liquidity.
+   *
+   * Without these a short-interest universe cannot be filtered or a position
+   * sized: a sweep across ~740 names is dominated by micro-caps where short
+   * interest is both noisy and untradeable, and the standard remedy — a floor
+   * on traded value — was not expressible. They also change what the headline
+   * percentage MEANS: 5% short on a mega-cap and 5% on a micro-cap are not the
+   * same signal, and with no size attached they are the same number.
+   *
+   * double, not the float used above, because a market capitalisation in
+   * dollars exceeds float32's exact-integer range by five orders of magnitude.
+   *
+   * Market capitalisation in AUD. 0 when unknown.
+   *
+   * @generated from field: double market_cap = 9;
+   */
+  marketCap: number;
+
+  /**
+   * 20-session mean of close x volume, in AUD. 0 when unknown.
+   *
+   * @generated from field: double average_daily_value_20d = 10;
+   */
+  averageDailyValue20d: number;
+
+  /**
+   * Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+   * "large", "mid", "small" or "micro"; empty when unknown. Present because a
+   * band is usable for filtering even where the underlying value is missing or
+   * stale, and it is what most callers actually want.
+   *
+   * @generated from field: string liquidity_band = 11;
+   */
+  liquidityBand: string;
 };
 
 /**
@@ -126,6 +160,22 @@ export type TimeSeriesData = Message<"stocks.v1alpha1.TimeSeriesData"> & {
    * @generated from field: string industry = 13;
    */
   industry: string;
+
+  /**
+   * How many observations exist in the requested window before any thinning,
+   * and whether `points` is thinner than that. A caller doing quantitative
+   * work must be able to tell a complete daily record from a series shaped for
+   * a chart; without these two fields the only way to find out was to notice
+   * that the point count was suspiciously round.
+   *
+   * @generated from field: int32 total_observations = 14;
+   */
+  totalObservations: number;
+
+  /**
+   * @generated from field: bool downsampled = 15;
+   */
+  downsampled: boolean;
 };
 
 /**
@@ -149,11 +199,33 @@ export type TimeSeriesPoint = Message<"stocks.v1alpha1.TimeSeriesPoint"> & {
   timestamp?: Timestamp;
 
   /**
-   * The short position at this point in time.
+   * The short position at this point in time, as a PERCENT of shares on issue.
    *
    * @generated from field: double short_position = 2;
    */
   shortPosition: number;
+
+  /**
+   * The two raw quantities the percent is computed from. ASIC reports a share
+   * COUNT; the percent is that count over shares on issue, and shares on issue
+   * moves with placements, entitlement offers and buybacks. A capital raising
+   * therefore drops the percent overnight with no change in short positioning
+   * at all, and a signal built on change-in-percent reads that as covering.
+   * Both quantities are stored per observation, so exposing them lets a caller
+   * work in share counts and see the denominator move.
+   *
+   * Shares held short on this date (a COUNT, not a percent).
+   *
+   * @generated from field: double reported_short_positions = 3;
+   */
+  reportedShortPositions: number;
+
+  /**
+   * Shares on issue on this date — the percent's denominator.
+   *
+   * @generated from field: double total_product_in_issue = 4;
+   */
+  totalProductInIssue: number;
 };
 
 /**
