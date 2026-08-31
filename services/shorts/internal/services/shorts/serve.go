@@ -697,6 +697,38 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		}
 	})
 
+	// Rate-limit health, behind the internal secret.
+	//
+	// The limiter is unconditionally fail-open, so a degraded quota database
+	// looks exactly like a healthy one from outside: requests succeed, they are
+	// simply no longer metered. This endpoint is the only way to tell those
+	// apart, and .github/workflows/rate-limit-sentinel.yml is what reads it —
+	// metrics alone were not enough, because nothing was watching them.
+	//
+	// Gated because it reports operational state (how much is buffered, how
+	// close the identifier map is to its cap) that is of no use to a caller and
+	// some use to someone probing for a window where quotas are not enforced.
+	mux.HandleFunc("/api/admin/rate-limit-health", adminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+
+		payload := map[string]any{
+			"enabled": s.config.RateLimitConfig.Enabled,
+		}
+		// A nil limiter means rate limiting is off; report that rather than a
+		// zero-valued Health that would read as "on and perfectly healthy".
+		if limiter, ok := s.rateLimiter.(*ratelimit.AppLimiter); ok && limiter != nil {
+			payload["health"] = limiter.Health()
+		}
+		if err := json.NewEncoder(w).Encode(payload); err != nil {
+			logger.Errorf("Error writing rate limit health: %v", err)
+		}
+	}))
+
 	// Add admin sync status endpoint (requires INTERNAL_SERVICE_SECRET auth)
 	mux.HandleFunc("/api/admin/sync-status", adminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		// Add CORS headers
