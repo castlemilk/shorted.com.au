@@ -46,6 +46,12 @@ const (
 	// MarketServiceGetAvailableDatesProcedure is the fully-qualified name of the MarketService's
 	// GetAvailableDates RPC.
 	MarketServiceGetAvailableDatesProcedure = "/shorts.v1alpha1.MarketService/GetAvailableDates"
+	// MarketServiceGetIndexSeriesProcedure is the fully-qualified name of the MarketService's
+	// GetIndexSeries RPC.
+	MarketServiceGetIndexSeriesProcedure = "/shorts.v1alpha1.MarketService/GetIndexSeries"
+	// MarketServiceListIndicesProcedure is the fully-qualified name of the MarketService's ListIndices
+	// RPC.
+	MarketServiceListIndicesProcedure = "/shorts.v1alpha1.MarketService/ListIndices"
 	// MarketServiceGetSyncStatusProcedure is the fully-qualified name of the MarketService's
 	// GetSyncStatus RPC.
 	MarketServiceGetSyncStatusProcedure = "/shorts.v1alpha1.MarketService/GetSyncStatus"
@@ -64,6 +70,8 @@ var (
 	marketServiceGetIndustryTreeMapMethodDescriptor         = marketServiceServiceDescriptor.Methods().ByName("GetIndustryTreeMap")
 	marketServiceGetMarketByDateMethodDescriptor            = marketServiceServiceDescriptor.Methods().ByName("GetMarketByDate")
 	marketServiceGetAvailableDatesMethodDescriptor          = marketServiceServiceDescriptor.Methods().ByName("GetAvailableDates")
+	marketServiceGetIndexSeriesMethodDescriptor             = marketServiceServiceDescriptor.Methods().ByName("GetIndexSeries")
+	marketServiceListIndicesMethodDescriptor                = marketServiceServiceDescriptor.Methods().ByName("ListIndices")
 	marketServiceGetSyncStatusMethodDescriptor              = marketServiceServiceDescriptor.Methods().ByName("GetSyncStatus")
 	marketServiceGetBattlegroundStocksMethodDescriptor      = marketServiceServiceDescriptor.Methods().ByName("GetBattlegroundStocks")
 	marketServiceGetShortCampaignScoreboardMethodDescriptor = marketServiceServiceDescriptor.Methods().ByName("GetShortCampaignScoreboard")
@@ -79,6 +87,10 @@ type MarketServiceClient interface {
 	GetMarketByDate(context.Context, *connect.Request[v1alpha1.GetMarketByDateRequest]) (*connect.Response[v1alpha1.GetMarketByDateResponse], error)
 	// Get available trading dates for market snapshots
 	GetAvailableDates(context.Context, *connect.Request[v1alpha1.GetAvailableDatesRequest]) (*connect.Response[v1alpha1.GetAvailableDatesResponse], error)
+	// Benchmark index levels — the series a strategy's return is measured against.
+	GetIndexSeries(context.Context, *connect.Request[v1alpha1.GetIndexSeriesRequest]) (*connect.Response[v1alpha1.GetIndexSeriesResponse], error)
+	// List the benchmark indices available, and whether each reinvests dividends.
+	ListIndices(context.Context, *connect.Request[v1alpha1.ListIndicesRequest]) (*connect.Response[v1alpha1.ListIndicesResponse], error)
 	// Get sync status for admin dashboard
 	GetSyncStatus(context.Context, *connect.Request[v1alpha1.GetSyncStatusRequest]) (*connect.Response[v1alpha1.GetSyncStatusResponse], error)
 	// Get squeeze-radar and battleground (price up + shorts building) ranked stocks
@@ -121,6 +133,18 @@ func NewMarketServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(marketServiceGetAvailableDatesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getIndexSeries: connect.NewClient[v1alpha1.GetIndexSeriesRequest, v1alpha1.GetIndexSeriesResponse](
+			httpClient,
+			baseURL+MarketServiceGetIndexSeriesProcedure,
+			connect.WithSchema(marketServiceGetIndexSeriesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listIndices: connect.NewClient[v1alpha1.ListIndicesRequest, v1alpha1.ListIndicesResponse](
+			httpClient,
+			baseURL+MarketServiceListIndicesProcedure,
+			connect.WithSchema(marketServiceListIndicesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getSyncStatus: connect.NewClient[v1alpha1.GetSyncStatusRequest, v1alpha1.GetSyncStatusResponse](
 			httpClient,
 			baseURL+MarketServiceGetSyncStatusProcedure,
@@ -148,6 +172,8 @@ type marketServiceClient struct {
 	getIndustryTreeMap         *connect.Client[v1alpha1.GetIndustryTreeMapRequest, v1alpha11.IndustryTreeMap]
 	getMarketByDate            *connect.Client[v1alpha1.GetMarketByDateRequest, v1alpha1.GetMarketByDateResponse]
 	getAvailableDates          *connect.Client[v1alpha1.GetAvailableDatesRequest, v1alpha1.GetAvailableDatesResponse]
+	getIndexSeries             *connect.Client[v1alpha1.GetIndexSeriesRequest, v1alpha1.GetIndexSeriesResponse]
+	listIndices                *connect.Client[v1alpha1.ListIndicesRequest, v1alpha1.ListIndicesResponse]
 	getSyncStatus              *connect.Client[v1alpha1.GetSyncStatusRequest, v1alpha1.GetSyncStatusResponse]
 	getBattlegroundStocks      *connect.Client[v1alpha1.GetBattlegroundStocksRequest, v1alpha1.GetBattlegroundStocksResponse]
 	getShortCampaignScoreboard *connect.Client[v1alpha1.GetShortCampaignScoreboardRequest, v1alpha1.GetShortCampaignScoreboardResponse]
@@ -171,6 +197,16 @@ func (c *marketServiceClient) GetMarketByDate(ctx context.Context, req *connect.
 // GetAvailableDates calls shorts.v1alpha1.MarketService.GetAvailableDates.
 func (c *marketServiceClient) GetAvailableDates(ctx context.Context, req *connect.Request[v1alpha1.GetAvailableDatesRequest]) (*connect.Response[v1alpha1.GetAvailableDatesResponse], error) {
 	return c.getAvailableDates.CallUnary(ctx, req)
+}
+
+// GetIndexSeries calls shorts.v1alpha1.MarketService.GetIndexSeries.
+func (c *marketServiceClient) GetIndexSeries(ctx context.Context, req *connect.Request[v1alpha1.GetIndexSeriesRequest]) (*connect.Response[v1alpha1.GetIndexSeriesResponse], error) {
+	return c.getIndexSeries.CallUnary(ctx, req)
+}
+
+// ListIndices calls shorts.v1alpha1.MarketService.ListIndices.
+func (c *marketServiceClient) ListIndices(ctx context.Context, req *connect.Request[v1alpha1.ListIndicesRequest]) (*connect.Response[v1alpha1.ListIndicesResponse], error) {
+	return c.listIndices.CallUnary(ctx, req)
 }
 
 // GetSyncStatus calls shorts.v1alpha1.MarketService.GetSyncStatus.
@@ -198,6 +234,10 @@ type MarketServiceHandler interface {
 	GetMarketByDate(context.Context, *connect.Request[v1alpha1.GetMarketByDateRequest]) (*connect.Response[v1alpha1.GetMarketByDateResponse], error)
 	// Get available trading dates for market snapshots
 	GetAvailableDates(context.Context, *connect.Request[v1alpha1.GetAvailableDatesRequest]) (*connect.Response[v1alpha1.GetAvailableDatesResponse], error)
+	// Benchmark index levels — the series a strategy's return is measured against.
+	GetIndexSeries(context.Context, *connect.Request[v1alpha1.GetIndexSeriesRequest]) (*connect.Response[v1alpha1.GetIndexSeriesResponse], error)
+	// List the benchmark indices available, and whether each reinvests dividends.
+	ListIndices(context.Context, *connect.Request[v1alpha1.ListIndicesRequest]) (*connect.Response[v1alpha1.ListIndicesResponse], error)
 	// Get sync status for admin dashboard
 	GetSyncStatus(context.Context, *connect.Request[v1alpha1.GetSyncStatusRequest]) (*connect.Response[v1alpha1.GetSyncStatusResponse], error)
 	// Get squeeze-radar and battleground (price up + shorts building) ranked stocks
@@ -236,6 +276,18 @@ func NewMarketServiceHandler(svc MarketServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(marketServiceGetAvailableDatesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	marketServiceGetIndexSeriesHandler := connect.NewUnaryHandler(
+		MarketServiceGetIndexSeriesProcedure,
+		svc.GetIndexSeries,
+		connect.WithSchema(marketServiceGetIndexSeriesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	marketServiceListIndicesHandler := connect.NewUnaryHandler(
+		MarketServiceListIndicesProcedure,
+		svc.ListIndices,
+		connect.WithSchema(marketServiceListIndicesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	marketServiceGetSyncStatusHandler := connect.NewUnaryHandler(
 		MarketServiceGetSyncStatusProcedure,
 		svc.GetSyncStatus,
@@ -264,6 +316,10 @@ func NewMarketServiceHandler(svc MarketServiceHandler, opts ...connect.HandlerOp
 			marketServiceGetMarketByDateHandler.ServeHTTP(w, r)
 		case MarketServiceGetAvailableDatesProcedure:
 			marketServiceGetAvailableDatesHandler.ServeHTTP(w, r)
+		case MarketServiceGetIndexSeriesProcedure:
+			marketServiceGetIndexSeriesHandler.ServeHTTP(w, r)
+		case MarketServiceListIndicesProcedure:
+			marketServiceListIndicesHandler.ServeHTTP(w, r)
 		case MarketServiceGetSyncStatusProcedure:
 			marketServiceGetSyncStatusHandler.ServeHTTP(w, r)
 		case MarketServiceGetBattlegroundStocksProcedure:
@@ -293,6 +349,14 @@ func (UnimplementedMarketServiceHandler) GetMarketByDate(context.Context, *conne
 
 func (UnimplementedMarketServiceHandler) GetAvailableDates(context.Context, *connect.Request[v1alpha1.GetAvailableDatesRequest]) (*connect.Response[v1alpha1.GetAvailableDatesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.MarketService.GetAvailableDates is not implemented"))
+}
+
+func (UnimplementedMarketServiceHandler) GetIndexSeries(context.Context, *connect.Request[v1alpha1.GetIndexSeriesRequest]) (*connect.Response[v1alpha1.GetIndexSeriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.MarketService.GetIndexSeries is not implemented"))
+}
+
+func (UnimplementedMarketServiceHandler) ListIndices(context.Context, *connect.Request[v1alpha1.ListIndicesRequest]) (*connect.Response[v1alpha1.ListIndicesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.MarketService.ListIndices is not implemented"))
 }
 
 func (UnimplementedMarketServiceHandler) GetSyncStatus(context.Context, *connect.Request[v1alpha1.GetSyncStatusRequest]) (*connect.Response[v1alpha1.GetSyncStatusResponse], error) {

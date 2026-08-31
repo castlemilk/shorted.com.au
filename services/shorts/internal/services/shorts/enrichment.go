@@ -269,4 +269,3 @@ func (s *ShortsServer) ListEnrichmentJobs(ctx context.Context, req *connect.Requ
 		TotalCount: totalCount,
 	}), nil
 }
-

@@ -676,6 +676,7 @@ jobs:
               -f /migrations/000085_extend_source_method_check.up.sql \
               -f /migrations/000112_add_api_usage_monthly.up.sql \
               -f /migrations/000116_add_oauth_clients.up.sql \
+              -f /migrations/000117_add_index_prices.up.sql \
               -f /migrations/000095_harden_mv_refresh.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"

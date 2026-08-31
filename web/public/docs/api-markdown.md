@@ -625,6 +625,28 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.MarketService/GetBattle
   -d '{}'
 ```
 
+#### `POST /shorts.v1alpha1.MarketService/GetIndexSeries`
+
+Benchmark index levels — the series a strategy's return is measured against.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `from` | string | no | Explicit range, YYYY-MM-DD. (proto string) |
+| `indexCode` | string | no | e.g. "XJO", "XJT". Case-insensitive. (proto string) |
+| `maxPoints` | integer (int32) | no | Cap on returned points, 0 for no cap. Thinning keeps the first and last session; `downsampled` reports whether it happened. (proto int32) |
+| `period` | string | no | Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when `from` is set. Defaults to 1Y. (proto string) |
+| `to` | string | no | (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.MarketService/GetIndexSeries' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 #### `POST /shorts.v1alpha1.MarketService/GetIndustryTreeMap`
 
 Get Industry TreeMap for short positions.
@@ -703,6 +725,20 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.MarketService/GetTopShorts' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.MarketService/ListIndices`
+
+List the benchmark indices available, and whether each reinvests dividends.
+
+Request body: an empty JSON object, `{}`.
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.MarketService/ListIndices' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \

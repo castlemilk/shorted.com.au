@@ -42,8 +42,8 @@ func TestBuildDBPoolConfigBoundsMinConnections(t *testing.T) {
 	require.EqualValues(t, 2, poolConfig.MinConns)
 }
 
-// TestGroupSubcommands pins the four subcommand names the cutover Terraform and
-// the existing operator runbooks type; renaming one silently would break both.
+// TestGroupSubcommands pins the subcommand names the cutover Terraform and the
+// existing operator runbooks type; renaming one silently would break both.
 func TestGroupSubcommands(t *testing.T) {
 	t.Parallel()
 
@@ -51,7 +51,7 @@ func TestGroupSubcommands(t *testing.T) {
 	require.True(t, ok, "market-data must be a runner.Group")
 	require.Equal(t, "market-data", group.Name())
 	require.Equal(t,
-		[]string{"serve", "sync", "audit-gaps", "historical-backfill"},
+		[]string{"serve", "sync", "audit-gaps", "historical-backfill", "index-sync"},
 		group.Sub().Names(),
 	)
 }

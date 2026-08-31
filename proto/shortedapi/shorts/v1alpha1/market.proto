@@ -28,6 +28,16 @@ service MarketService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
 
+  // Benchmark index levels — the series a strategy's return is measured against.
+  rpc GetIndexSeries (GetIndexSeriesRequest) returns (GetIndexSeriesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // List the benchmark indices available, and whether each reinvests dividends.
+  rpc ListIndices (ListIndicesRequest) returns (ListIndicesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
   // Get sync status for admin dashboard
   rpc GetSyncStatus (GetSyncStatusRequest) returns (GetSyncStatusResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
@@ -240,4 +250,69 @@ message GetShortCampaignScoreboardResponse {
   int32 campaigns_total = 3;      // campaigns considered for the win-rate stats
   double shorts_win_rate_3m = 4;  // percent (0-100) of scored campaigns where the price fell after 3 months
   double shorts_win_rate_6m = 5;  // percent (0-100) of scored campaigns where the price fell after 6 months
+}
+
+// ==================== Benchmark indices ====================
+
+// A benchmark index we hold a level series for.
+//
+// Absolute returns on the ASX are mostly beta, so without a benchmark every
+// strategy result overstates itself — a 12-month hold reporting +38% is a
+// market return with a strategy sitting on top of it. Alpha is the only number
+// that means anything, and alpha needs one of these.
+message IndexDefinition {
+  string code = 1;          // Stable Shorted code, e.g. "XJO".
+  string name = 2;          // "S&P/ASX 200".
+
+  // "price" or "total". This is the field that decides whether a comparison is
+  // honest: a price-return benchmark excludes dividends and therefore
+  // understates the market by roughly the yield — measured on our own data,
+  // XJO returned 24.2% over a window in which XJT (the same index, dividends
+  // reinvested) returned 37.6%. A strategy measured against the price series
+  // looks 13 points better than it is.
+  string return_type = 3;
+
+  string currency = 4;      // Always "AUD" today; stated rather than assumed.
+  string earliest_date = 5; // YYYY-MM-DD, first session held.
+  string latest_date = 6;   // YYYY-MM-DD, most recent session held.
+  int32 observations = 7;
+}
+
+message ListIndicesRequest {}
+
+message ListIndicesResponse {
+  repeated IndexDefinition indices = 1;
+}
+
+message GetIndexSeriesRequest {
+  string index_code = 1;    // e.g. "XJO", "XJT". Case-insensitive.
+
+  // Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+  // `from` is set. Defaults to 1Y.
+  string period = 2;
+
+  // Explicit range, YYYY-MM-DD.
+  string from = 3;
+  string to = 4;
+
+  // Cap on returned points, 0 for no cap. Thinning keeps the first and last
+  // session; `downsampled` reports whether it happened.
+  int32 max_points = 5;
+}
+
+message GetIndexSeriesResponse {
+  IndexDefinition index = 1;
+  repeated IndexPoint points = 2;   // Oldest first.
+  int32 total_observations = 3;     // Sessions in the window before thinning.
+  bool downsampled = 4;
+}
+
+// One session of an index.
+message IndexPoint {
+  string date = 1;    // YYYY-MM-DD.
+  double open = 2;
+  double high = 3;
+  double low = 4;
+  double close = 5;   // The index level. Compute returns from this.
+  int64 volume = 6;   // Often 0: an index level has no meaningful traded volume.
 }

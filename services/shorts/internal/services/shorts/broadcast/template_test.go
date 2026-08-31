@@ -43,9 +43,9 @@ func TestRenderDarkShellRobustness(t *testing.T) {
 	// the inner container must carry its own light text colour.
 	html := RenderHTML("https://shorted.com.au", "T", "<p>b</p>", "u")
 	for _, want := range []string{
-		`bgcolor="#0b0f16"`,          // full-width dark canvas table
-		`<!--[if mso]>`,              // Outlook ghost table opens
-		`width="600"`,                // fixed width for the Word engine
+		`bgcolor="#0b0f16"`, // full-width dark canvas table
+		`<!--[if mso]>`,     // Outlook ghost table opens
+		`width="600"`,       // fixed width for the Word engine
 		`max-width:600px;margin:0 auto;padding:24px;color:#e7edf5`, // inner div carries colour
 	} {
 		if !strings.Contains(html, want) {

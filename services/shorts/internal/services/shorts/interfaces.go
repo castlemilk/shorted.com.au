@@ -17,6 +17,8 @@ type ShortsStore interface {
 	GetStock(productCode string) (*stocksv1alpha1.Stock, error)
 	GetStockData(query shortsstore.StockDataQuery) (*stocksv1alpha1.TimeSeriesData, error)
 	GetStockPrices(query shortsstore.StockPricesQuery) (*shortsv1alpha1.GetStockPricesResponse, error)
+	ListIndices() ([]*shortsv1alpha1.IndexDefinition, error)
+	GetIndexSeries(query shortsstore.IndexSeriesQuery) (*shortsv1alpha1.GetIndexSeriesResponse, error)
 	StreamPanel(ctx context.Context, query shortsstore.PanelQuery, fn func(shortsstore.PanelRow) error) error
 	GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error)
 	GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error)
@@ -212,6 +214,8 @@ type Cache interface {
 	GetStockKey(productCode string) string
 	GetStockDataKey(productCode, period, from, to string, fullResolution bool, maxPoints int32, asOf string) string
 	GetStockPricesKey(productCode, period, from, to string, maxPoints int32) string
+	GetIndicesKey() string
+	GetIndexSeriesKey(code, period, from, to string, maxPoints int32) string
 	GetStockDetailsKey(productCode string) string
 	GetIndustryTreeMapKey(limit int32, period, viewMode string) string
 	GetSearchStocksKey(query string, limit int32) string

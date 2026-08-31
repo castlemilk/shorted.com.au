@@ -53,10 +53,10 @@ func TestShortsServer_ReviewEnrichment_Approve(t *testing.T) {
 	ctx := context.WithValue(context.Background(), userKey, &Claims{Email: "admin@shorted.com.au", UserID: "admin@shorted.com.au", Roles: []string{"admin"}})
 
 	resp, err := server.ReviewEnrichment(ctx, connect.NewRequest(&shortsv1alpha1.ReviewEnrichmentRequest{
-		StockCode:     pending.StockCode,
-		EnrichmentId:  enrichmentID,
-		Approve:       true,
-		ReviewNotes:   "looks good",
+		StockCode:    pending.StockCode,
+		EnrichmentId: enrichmentID,
+		Approve:      true,
+		ReviewNotes:  "looks good",
 	}))
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
@@ -454,5 +454,3 @@ func TestShortsServer_EnrichStock_StockExistsError(t *testing.T) {
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), "failed to check stock exists", "Should return internal error")
 }
-
-

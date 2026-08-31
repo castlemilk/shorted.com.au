@@ -433,3 +433,16 @@ func validateWindowOptions(from, to string, maxPoints int32) error {
 	}
 	return nil
 }
+
+// ValidateGetIndexSeriesRequest validates the GetIndexSeries request.
+func ValidateGetIndexSeriesRequest(req *shortsv1alpha1.GetIndexSeriesRequest) error {
+	if strings.TrimSpace(req.IndexCode) == "" {
+		return connect.NewError(connect.CodeInvalidArgument,
+			fmt.Errorf("index_code is required — call ListIndices for the available codes"))
+	}
+	if req.Period != "" && !validPeriods[strings.ToUpper(req.Period)] {
+		return connect.NewError(connect.CodeInvalidArgument,
+			fmt.Errorf("invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y, MAX"))
+	}
+	return validateWindowOptions(req.From, req.To, req.MaxPoints)
+}
