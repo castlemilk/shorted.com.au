@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { filterRequestHeaders } from "./worker.js";
+import {
+  filterRequestHeaders,
+  buildPublicEdgeReadHeaders,
+} from "./worker.js";
 
 // DOES THE ORIGIN LEARN WHO IS CALLING?
 //
@@ -101,4 +104,89 @@ test("IPv6 callers are forwarded intact", () => {
   const out = filterRequestHeaders(new Headers({ "cf-connecting-ip": v6 }));
   assert.equal(out.get("cf-connecting-ip"), v6);
   assert.equal(out.get("x-forwarded-for"), v6);
+});
+
+// ---------------------------------------------------------------------------
+// The public edge-read path, which SYNTHESIZES its request
+// ---------------------------------------------------------------------------
+//
+// This is where the identity was actually being lost, and fixing
+// filterRequestHeaders alone did not help: /edge/v1/* builds a brand new
+// Request with headers constructed from scratch, so by the time
+// filterRequestHeaders runs there is no client address left to forward.
+//
+// Measured after both earlier fixes shipped: 100% of quota rows were STILL
+// growing on Cloudflare-keyed identifiers, 0 real client addresses.
+//
+// Worse, it copied the user-agent — which carries the `shorted-web-ssr` marker
+// stamped by web/src/middleware.ts — while dropping the bypass secret. That
+// combination is precisely "first-party, unverified": our own traffic,
+// classified as ours, metered against a quota, and keyed to Cloudflare.
+
+function edgeReadRequest(headers = {}) {
+  return new Request("https://api.shorted.com.au/edge/v1/top", {
+    method: "POST",
+    headers: new Headers({
+      "cf-connecting-ip": CLIENT,
+      "user-agent": "Mozilla/5.0 (Macintosh) Chrome/140 shorted-web-ssr/1.0",
+      cookie: "session=secret",
+      ...headers,
+    }),
+  });
+}
+
+test("the synthesized edge read still knows who the caller is", () => {
+  const out = buildPublicEdgeReadHeaders(edgeReadRequest());
+  assert.equal(
+    out.get("cf-connecting-ip"),
+    CLIENT,
+    "the address is dropped at synthesis, so the origin meters Cloudflare",
+  );
+});
+
+// The marker and the secret must travel together. Keeping the marker while
+// dropping the secret manufactures "unverified first-party" — our own traffic,
+// metered, for no reason.
+test("the first-party marker and its secret are not separated", () => {
+  const out = buildPublicEdgeReadHeaders(
+    edgeReadRequest({ "x-shorted-ssr-bypass": "the-secret" }),
+  );
+  const ua = out.get("user-agent") ?? "";
+  if (ua.includes("shorted-web-ssr")) {
+    assert.equal(
+      out.get("x-shorted-ssr-bypass"),
+      "the-secret",
+      "the marker survived but its proof did not: this is what created the unverified rows",
+    );
+  }
+});
+
+test("no secret is invented when the caller had none", () => {
+  const out = buildPublicEdgeReadHeaders(edgeReadRequest());
+  assert.equal(out.get("x-shorted-ssr-bypass"), null);
+});
+
+// The path is a PUBLIC, CACHEABLE read. Credentials must not ride along into
+// something that gets stored and served to other people.
+test("credentials are not carried into a cacheable read", () => {
+  const out = buildPublicEdgeReadHeaders(
+    edgeReadRequest({ authorization: "Bearer tok" }),
+  );
+  assert.equal(out.get("cookie"), null, "a session cookie reached a cached read");
+  assert.equal(out.get("authorization"), null);
+});
+
+test("the request remains well-formed JSON-RPC", () => {
+  const out = buildPublicEdgeReadHeaders(edgeReadRequest());
+  assert.equal(out.get("content-type"), "application/json");
+  assert.equal(out.get("accept"), "application/json");
+  assert.ok(out.get("user-agent").includes("Chrome/140"));
+});
+
+test("a request with no client address fabricates nothing", () => {
+  const out = buildPublicEdgeReadHeaders(
+    new Request("https://api.shorted.com.au/edge/v1/top", { method: "POST" }),
+  );
+  assert.equal(out.get("cf-connecting-ip"), null);
+  assert.equal(out.get("x-forwarded-for"), null);
 });
