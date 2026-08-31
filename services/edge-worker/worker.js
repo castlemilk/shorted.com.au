@@ -3129,10 +3129,37 @@ function buildOriginUrl(origin, url) {
 }
 
 /**
- * Filter request headers to remove hop-by-hop and Cloudflare-specific headers
- * that should not be forwarded to the origin.
+ * Filter request headers before forwarding to the origin: drop hop-by-hop and
+ * Cloudflare metadata, but KEEP the one thing that says who is calling.
+ *
+ * WHY THE CLIENT IP IS RE-ADDED. Stripping `cf-connecting-ip` and
+ * `x-forwarded-for` left the origin with no address but Cloudflare's own. On
+ * 2026-08-30, the first day app-layer rate limiting ran, every identifier
+ * written to api_usage_monthly was a Cloudflare address — so every caller
+ * behind a colo shared one bucket, which at the anonymous tier is 30 requests
+ * a minute for the entire colo. It had not rejected anyone yet only because
+ * most traffic lands in a much larger first-party class.
+ *
+ * The inbound values are still deleted first, and that ordering is the security
+ * property: a client-supplied `x-forwarded-for` is attacker-controlled and must
+ * never survive, or a caller can choose their own rate-limit bucket by sending
+ * a header. What we forward is Cloudflare's `cf-connecting-ip`, which
+ * Cloudflare overwrites on the inbound request and a client therefore cannot
+ * spoof through it.
+ *
+ * Nothing is fabricated off-platform: with no `cf-connecting-ip` (local dev,
+ * tests) neither header is set, and the origin falls back to the peer address,
+ * which is the correct answer there.
+ *
+ * The origin side of this contract is `resolveClientIP` in
+ * services/pkg/ratelimit/http.go, which believes these headers only when the
+ * rightmost forwarded hop is a published Cloudflare address. Both halves are
+ * required; either alone does nothing.
  */
-function filterRequestHeaders(headers) {
+export function filterRequestHeaders(headers) {
+  // Read BEFORE stripping: this is Cloudflare's value, not the client's.
+  const trueClientIp = headers.get("cf-connecting-ip");
+
   const filtered = new Headers(headers);
   const strip = [
     "cf-connecting-ip",
@@ -3147,6 +3174,15 @@ function filterRequestHeaders(headers) {
   for (const h of strip) {
     filtered.delete(h);
   }
+
+  if (trueClientIp) {
+    filtered.set("CF-Connecting-IP", trueClientIp);
+    // A single address, not a chain: the origin takes the rightmost hop, and
+    // appending to a client-supplied list would hand it back the control we
+    // just removed.
+    filtered.set("X-Forwarded-For", trueClientIp);
+  }
+
   return filtered;
 }
 
