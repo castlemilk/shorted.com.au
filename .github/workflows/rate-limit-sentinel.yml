@@ -1,0 +1,138 @@
+# Rate-limit sentinel.
+#
+# App-layer rate limiting is unconditionally fail-open: a sick quota database
+# never 429s or 500s a caller, it silently stops enforcing. So the failure modes
+# here are all SILENT — the flag getting unset, our own SSR being metered as
+# anonymous, the quota store going down — and every one of them looks like a
+# perfectly healthy site until someone happens to look.
+#
+# All of it is already in Grafana. So was the August 2026 edge failure that
+# produced 7,045 self-inflicted 429s over two days with nothing alerting.
+# Metrics nobody watches are not monitoring; this reads the contract from
+# outside and files an issue.
+#
+# Read-only. Checks 1-3 need no credentials at all.
+name: Rate Limit Sentinel
+
+on:
+  schedule:
+    # Daily at 21:10 UTC (07:10 AEST / 08:10 AEDT), ahead of the edge sentinel
+    # at 21:40 — if rate limiting is misclassifying our own traffic, the edge
+    # error report is a downstream symptom and this should be read first.
+    - cron: "10 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Same channel as the other sentinels: an issue emails the repo watchers with
+  # no external secret to configure. A red workflow alone is a page nobody opens.
+  issues: write
+
+jobs:
+  rate-limit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Verify the sentinel's own logic
+        # A monitor that cannot fail is indistinguishable from one that is
+        # passing, so its thresholds are tested before it is trusted.
+        run: node --test .github/workflows/rate-limit-sentinel.test.mjs
+
+      - name: Check rate limiting
+        id: check
+        env:
+          # Optional. Absent, the sentinel runs checks 1-3 and says so, rather
+          # than failing — a partial sentinel beats one that refuses to start.
+          INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
+          SHORTED_SSR_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_SSR_BYPASS_SECRET }}
+        run: |
+          set -Eeuo pipefail
+          report_file="$RUNNER_TEMP/rate-limit-report.txt"
+          set +e
+          node .github/workflows/rate-limit-sentinel.mjs | tee "$report_file"
+          status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "### Rate limit sentinel"
+            echo
+            echo '```'
+            cat "$report_file"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: File or update the rate-limit alert issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Rate limiting is not behaving as documented"
+          body_file="$RUNNER_TEMP/rate-limit-issue-body.md"
+          {
+            echo "The daily rate-limit sentinel found a problem."
+            echo
+            echo "Run: $RUN_URL"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/rate-limit-report.txt" 2>/dev/null || echo "(report unavailable)"
+            echo '```'
+            echo
+            echo "**What each code means:**"
+            echo
+            echo "- \`SELF_METERED_AS_ANONYMOUS\` — the urgent one. Our own SSR and all"
+            echo "  anonymous browser RPC share the first-party class; at an anonymous"
+            echo "  ceiling the site returns 429s under normal load. The marker in"
+            echo "  \`web/src/middleware.ts\` and \`classifyFirstParty\` in"
+            echo "  \`services/pkg/ratelimit/interceptor.go\` must agree. This is the"
+            echo "  August 2026 failure mode (7,045 self-inflicted 429s)."
+            echo "- \`ENFORCEMENT_OFF\` — nothing is being limited. Check"
+            echo "  \`rate_limit_enabled\` in \`terraform/environments/prod/main.tf\`."
+            echo "- \`QUOTA_STORE_DEGRADED\` — monthly quotas are NOT being enforced."
+            echo "  Requests are unaffected (the limiter fails open) and per-minute"
+            echo "  limiting plus the Cloudflare edge ceiling still apply. Look at"
+            echo "  Supabase health; deltas are retained in memory and replay on recovery."
+            echo "- \`IDENTIFIER_MAP_NEAR_CAP\` — at the cap, new callers go UNMETERED"
+            echo "  rather than rejected, so enforcement degrades silently."
+            echo "- \`MCP_FIRST_CONTACT_CHALLENGED\` — anonymous MCP access is the adoption"
+            echo "  path and must stay free; only quota exhaustion may challenge."
+            echo
+            echo "Rollback for the limiter as a whole is one line:"
+            echo "\`rate_limit_enabled = false\` in \`terraform/environments/prod/main.tf\`."
+          } >"$body_file"
+
+          existing="$(gh issue list --state open --label rate-limit \
+            --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --body-file "$body_file"
+            echo "commented on existing issue #$existing"
+          else
+            gh label create rate-limit --color B60205 \
+              --description "Rate-limit sentinel" 2>/dev/null || true
+            gh issue create --title "$title" --label rate-limit --body-file "$body_file"
+          fi
+
+      # Close the tracking issue once the sentinel is green again, so an open
+      # issue always means a live problem rather than a historical one.
+      - name: Close the alert issue when healthy
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          existing="$(gh issue list --state open --label rate-limit \
+            --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --body "Rate-limit sentinel is green again; closing."
+            gh issue close "$existing"
+          fi

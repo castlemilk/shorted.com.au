@@ -556,6 +556,59 @@ func (l *AppLimiter) publishGauges() {
 	setGauge(ctx, shortedotel.RateLimitMonthlyIdentifiers, tracked)
 }
 
+// Health is a point-in-time view of whether quota accounting is actually
+// working, for an operator or a sentinel to read.
+//
+// WHY THIS IS EXPOSED AT ALL. The limiter is unconditionally fail-open: a sick
+// quota database never 429s or 500s a caller, it just silently stops enforcing
+// monthly quotas. That is the right behaviour and the wrong thing to be unable
+// to see — the state is indistinguishable from "nobody is near their quota"
+// from the outside. Metrics carry it to Grafana, but nothing alerts on those,
+// and the failure that cost us 7,045 self-inflicted 429s was likewise fully
+// instrumented and entirely unnoticed.
+//
+// It reports state, never opinion: whether the breaker is open, how many
+// increments are held in memory, and how many are stranded. RetainedDeltas is
+// the durable-loss signal — a flush-failure counter resets on recovery, but
+// this keeps climbing for as long as writes are failing, and is what says how
+// much quota disappears if the instance is replaced.
+type Health struct {
+	// Degraded is true when the circuit breaker is open, i.e. quota writes are
+	// failing and monthly limits are NOT being enforced.
+	Degraded bool `json:"degraded"`
+	// RetainedDeltas is the number of buffered increments not yet written,
+	// including stranded ones. Lost if the instance dies.
+	RetainedDeltas int64 `json:"retained_deltas"`
+	// TrackedIdentifiers is the size of the in-memory monthly state map.
+	// At MonthlyMaxIdentifiers, new callers go unmetered rather than being
+	// rejected, so this approaching the cap is itself a loss of enforcement.
+	TrackedIdentifiers int `json:"tracked_identifiers"`
+	// MaxIdentifiers is that cap, so a reader need not know the default.
+	MaxIdentifiers int `json:"max_identifiers"`
+}
+
+// Health samples the limiter's state. It takes the same lock a flush takes and
+// is intended for a health endpoint, never the request path.
+func (l *AppLimiter) Health() Health {
+	l.mu.Lock()
+	var retained int64
+	for _, st := range l.state {
+		retained += st.pending
+	}
+	for _, d := range l.orphans {
+		retained += d.Delta
+	}
+	tracked := len(l.state)
+	l.mu.Unlock()
+
+	return Health{
+		Degraded:           l.breaker.isOpen(),
+		RetainedDeltas:     retained,
+		TrackedIdentifiers: tracked,
+		MaxIdentifiers:     l.config.MonthlyMaxIdentifiers,
+	}
+}
+
 func (l *AppLimiter) evictIdle() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -662,7 +715,11 @@ func (b *circuitBreaker) recordSuccess() {
 	}
 }
 
-// isOpen is used by tests and diagnostics.
+// isOpen reports the raw breaker state, WITHOUT the side effect allow() has
+// (which half-opens after the cooldown and lets a probe through) — so a health
+// check can read it without changing it. It stays true across a cooldown, which
+// is the honest answer for an operator: the store is still failing and we are
+// merely retrying, not recovered.
 func (b *circuitBreaker) isOpen() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()

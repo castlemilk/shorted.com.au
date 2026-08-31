@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -251,44 +250,22 @@ func extractIdentifierAndTier(ctx context.Context, req connect.AnyRequest, userC
 	return "ip:" + ip, "anonymous", false
 }
 
-// extractIP extracts the real client IP from request headers, resilient to
-// X-Forwarded-For spoofing. Cloud Run (and most reverse proxies) append the
-// actual client IP as the rightmost entry in X-Forwarded-For. Attackers can
-// prepend arbitrary IPs to the left side, so we must use the rightmost IP
-// (added by the trusted proxy) rather than the leftmost (client-controlled).
+// extractIP resolves the address a Connect request is metered against.
+//
+// It delegates to resolveClientIP so this path and the plain-HTTP path
+// (ClientIP, used by the /mcp middleware) cannot drift. They were separate
+// implementations of the same rule until 2026-08-30, which meant a fix to one
+// silently left the other — and the Connect path carries most of the traffic.
+//
+// The rule itself, and why the Cloudflare exception exists, is documented on
+// resolveClientIP in http.go.
 func extractIP(req connect.AnyRequest) string {
-	// Try X-Forwarded-For first (for proxied requests)
-	if xff := req.Header().Get("X-Forwarded-For"); xff != "" {
-		ips := strings.Split(xff, ",")
-		// Use the rightmost IP (added by the proxy, not the client)
-		for i := len(ips) - 1; i >= 0; i-- {
-			ip := strings.TrimSpace(ips[i])
-			if ip != "" {
-				return ip
-			}
-		}
-	}
-
-	// Try X-Real-IP
-	if realIP := req.Header().Get("X-Real-IP"); realIP != "" {
-		return realIP
-	}
-
-	// Try CF-Connecting-IP (Cloudflare)
-	if cfIP := req.Header().Get("CF-Connecting-IP"); cfIP != "" {
-		return cfIP
-	}
-
-	// Fallback to peer address
-	if peer := req.Peer().Addr; peer != "" {
-		host, _, err := net.SplitHostPort(peer)
-		if err != nil {
-			return peer
-		}
-		return host
-	}
-
-	return "unknown"
+	peer := req.Peer().Addr
+	return resolveClientIP(
+		req.Header().Get("X-Forwarded-For"),
+		req.Header().Get("CF-Connecting-IP"),
+		peer,
+	)
 }
 
 // isValidBrowserOrigin checks whether the given origin or referer value matches

@@ -204,33 +204,90 @@ func ApplyDetailHeaders(set func(key, value string), result *Result, detail Rate
 	applyDetailHeaders(set, result, detail)
 }
 
-// ClientIP extracts the client IP from an http.Request with the SAME
-// precedence the Connect interceptor uses, including the rightmost-XFF rule.
+// ClientIP extracts the address a request is metered against, with the SAME
+// precedence the Connect interceptor uses.
 //
-// Rightmost, not leftmost: a proxy APPENDS the address it saw, so the last
-// entry is the only one a client could not have written itself. Taking the
-// leftmost lets any caller pick their own rate-limit bucket by prepending a
-// header, which is not a limiter at all.
+// # The rightmost rule, and the one exception to it
+//
+// By default this takes the RIGHTMOST X-Forwarded-For entry, not the leftmost.
+// A proxy APPENDS the address it saw, so the last entry is the only one a
+// client could not have written itself; taking the leftmost would let any
+// caller pick their own rate-limit bucket by prepending a header, which is not
+// a limiter at all.
+//
+// The exception is our own edge. Our topology is:
+//
+//	client -> Cloudflare -> Google front end -> Cloud Run
+//
+// Cloudflare REPLACES the leftmost XFF entry with the true client and sets
+// CF-Connecting-IP; Google then appends the address it saw, which is
+// Cloudflare's. So under the plain rightmost rule every request through the
+// edge is metered as the EDGE, and callers sharing a Cloudflare colo share a
+// bucket — at the anonymous tier, 30 requests a minute for an entire colo. That
+// was live in production on 2026-08-30: every identifier written to
+// api_usage_monthly in the first hour was a Cloudflare address.
+//
+// So: when the rightmost hop is Cloudflare, the request demonstrably arrived
+// through our edge, and the headers Cloudflare writes can be believed —
+// a client cannot forge them THROUGH Cloudflare. Everywhere else the rightmost
+// rule stands, which is what keeps a direct-to-origin caller (Cloud Run is
+// publicly reachable) from choosing their own identity.
+//
+// X-Real-IP is deliberately no longer consulted before the peer address: it is
+// client-settable and nothing in this topology sets it.
 func ClientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		ips := strings.Split(xff, ",")
-		for i := len(ips) - 1; i >= 0; i-- {
-			if ip := strings.TrimSpace(ips[i]); ip != "" {
-				return ip
-			}
+	return resolveClientIP(
+		r.Header.Get("X-Forwarded-For"),
+		r.Header.Get("CF-Connecting-IP"),
+		r.RemoteAddr,
+	)
+}
+
+// resolveClientIP is the single implementation behind both ClientIP (plain
+// HTTP) and extractIP (Connect). Taking strings rather than a request type is
+// what lets one rule serve both without either package importing the other's
+// request shape.
+func resolveClientIP(forwardedHeader, cfConnectingIP, peer string) string {
+	forwarded := splitForwarded(forwardedHeader)
+
+	if len(forwarded) > 0 && isCloudflareEdge(forwarded[len(forwarded)-1]) {
+		// Behind our own edge: prefer what Cloudflare says the client is.
+		if cfIP := strings.TrimSpace(cfConnectingIP); cfIP != "" {
+			return cfIP
+		}
+		// Cloudflare rewrites the leftmost entry too, so it is the same claim
+		// from the same source. Losing CF-Connecting-IP must not silently
+		// re-pool every caller onto the edge address.
+		if first := forwarded[0]; !isCloudflareEdge(first) {
+			return first
 		}
 	}
-	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-		return realIP
+
+	if len(forwarded) > 0 {
+		return forwarded[len(forwarded)-1]
 	}
-	if cfIP := r.Header.Get("CF-Connecting-IP"); cfIP != "" {
-		return cfIP
-	}
-	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+	if host, _, err := net.SplitHostPort(peer); err == nil {
 		return host
 	}
-	if r.RemoteAddr != "" {
-		return r.RemoteAddr
+	if peer != "" {
+		return peer
 	}
 	return "unknown"
+}
+
+// splitForwarded returns the non-empty, trimmed entries of an X-Forwarded-For
+// header in order. Empty entries are dropped rather than treated as hops, so a
+// trailing comma cannot shift which hop is considered rightmost.
+func splitForwarded(header string) []string {
+	if header == "" {
+		return nil
+	}
+	parts := strings.Split(header, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if v := strings.TrimSpace(p); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }

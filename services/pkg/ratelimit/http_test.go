@@ -303,15 +303,23 @@ func TestClientIPTakesTheRightmostForwardedAddress(t *testing.T) {
 	}
 }
 
-func TestClientIPFallsBackThroughTheHeaderChain(t *testing.T) {
+// Client-settable headers are no longer a fallback, and that is the point.
+//
+// X-Real-IP and a bare CF-Connecting-IP used to be consulted ahead of the peer
+// address. Nothing in this topology sets X-Real-IP, and Cloud Run is publicly
+// reachable, so both amounted to "tell us which bucket to meter you in" — a
+// caller could get a fresh allowance per request by varying a header. They are
+// believed ONLY when the rightmost hop proves the request came through our own
+// Cloudflare edge (see client_ip_test.go), where a client cannot write them.
+func TestClientSettableHeadersDoNotChooseTheBucket(t *testing.T) {
 	cases := []struct {
 		name   string
 		set    func(*http.Request)
 		remote string
 		want   string
 	}{
-		{"X-Real-IP", func(r *http.Request) { r.Header.Set("X-Real-IP", "198.51.100.7") }, "", "198.51.100.7"},
-		{"CF-Connecting-IP", func(r *http.Request) { r.Header.Set("CF-Connecting-IP", "198.51.100.8") }, "", "198.51.100.8"},
+		{"X-Real-IP is ignored", func(r *http.Request) { r.Header.Set("X-Real-IP", "198.51.100.7") }, "192.0.2.5:9999", "192.0.2.5"},
+		{"a bare CF-Connecting-IP is ignored", func(r *http.Request) { r.Header.Set("CF-Connecting-IP", "198.51.100.8") }, "192.0.2.5:9999", "192.0.2.5"},
 		{"RemoteAddr", func(*http.Request) {}, "192.0.2.5:9999", "192.0.2.5"},
 	}
 	for _, tc := range cases {
