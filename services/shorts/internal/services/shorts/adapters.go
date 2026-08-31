@@ -36,6 +36,10 @@ func (s *StoreAdapter) GetStockPrices(query shorts.StockPricesQuery) (*shortsv1a
 	return s.store.GetStockPrices(query)
 }
 
+func (s *StoreAdapter) StreamPanel(ctx context.Context, query shorts.PanelQuery, fn func(shorts.PanelRow) error) error {
+	return s.store.StreamPanel(ctx, query, fn)
+}
+
 func (s *StoreAdapter) GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error) {
 	return s.store.GetStockDetails(productCode)
 }

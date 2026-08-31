@@ -1747,6 +1747,20 @@ func (mr *MockShortsStoreMockRecorder) StockExists(stockCode any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StockExists", reflect.TypeOf((*MockShortsStore)(nil).StockExists), stockCode)
 }
 
+// StreamPanel mocks base method.
+func (m *MockShortsStore) StreamPanel(ctx context.Context, query shorts.PanelQuery, fn func(shorts.PanelRow) error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StreamPanel", ctx, query, fn)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StreamPanel indicates an expected call of StreamPanel.
+func (mr *MockShortsStoreMockRecorder) StreamPanel(ctx, query, fn any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamPanel", reflect.TypeOf((*MockShortsStore)(nil).StreamPanel), ctx, query, fn)
+}
+
 // UndoSecurityDecision mocks base method.
 func (m *MockShortsStore) UndoSecurityDecision(candidateNorm string) (bool, error) {
 	m.ctrl.T.Helper()

@@ -17,6 +17,7 @@ type ShortsStore interface {
 	GetStock(productCode string) (*stocksv1alpha1.Stock, error)
 	GetStockData(query shortsstore.StockDataQuery) (*stocksv1alpha1.TimeSeriesData, error)
 	GetStockPrices(query shortsstore.StockPricesQuery) (*shortsv1alpha1.GetStockPricesResponse, error)
+	StreamPanel(ctx context.Context, query shortsstore.PanelQuery, fn func(shortsstore.PanelRow) error) error
 	GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error)
 	GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error)
 	SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error)

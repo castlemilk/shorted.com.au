@@ -53,6 +53,7 @@ type Store interface {
 	GetStockDetails(string) (*stockv1alpha1.StockDetails, error)
 	GetStockData(StockDataQuery) (*stockv1alpha1.TimeSeriesData, error)
 	GetStockPrices(StockPricesQuery) (*shortsv1alpha1.GetStockPricesResponse, error)
+	StreamPanel(ctx context.Context, q PanelQuery, fn func(PanelRow) error) error
 	GetIndustryTreeMap(int32, string, string) (*stockv1alpha1.IndustryTreeMap, error)
 	RegisterEmail(string) error
 	// Newsletter / broadcasts

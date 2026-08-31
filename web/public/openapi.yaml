@@ -11700,6 +11700,99 @@ paths:
       summary: GetStockVerdict
       tags:
       - shorts.v1alpha1.StockService
+  /v1/panel:
+    get:
+      description: |
+        The complete ASIC short-position panel — every security on every
+        trading date in the window — as CSV or NDJSON, in ONE request.
+
+        Building a research panel from `GetMarketByDate` costs one request per
+        trading date: about 2,500 for a decade, against an anonymous quota of
+        500 a month. This endpoint replaces that, and is cheaper for us to
+        serve than the pattern it replaces. It is metered at 50 requests
+        against your quota rather than one, because it does considerably more
+        than one request's work.
+
+        Rows are streamed and ordered by `(date, product_code)`, so a repeated
+        export of the same window is byte-identical and can be diffed or
+        resumed. `reported_short_positions` is a raw SHARE COUNT and
+        `total_product_in_issue` is the denominator behind `percent_shorted` —
+        shares on issue moves with placements and buybacks, so the percent can
+        change with no change in short positioning at all.
+
+        Because the response streams, the HTTP status is committed before the
+        first row. A failure part-way through therefore cannot be a 5xx: the
+        body ends with a line beginning `#ERROR`. Check for it before trusting
+        a file to be complete.
+
+        ```bash
+        curl -A 'my-app/1.0' \
+          'https://api.shorted.com.au/v1/panel?from=2015-01-01&to=2025-12-31' \
+          -o panel.csv
+        ```
+      operationId: exportPanel
+      parameters:
+      - description: First trading date to include, YYYY-MM-DD.
+        in: query
+        name: from
+        required: true
+        schema:
+          format: date
+          type: string
+      - description: Last trading date to include, YYYY-MM-DD.
+        in: query
+        name: to
+        required: true
+        schema:
+          format: date
+          type: string
+      - description: Output encoding.
+        in: query
+        name: format
+        required: false
+        schema:
+          default: csv
+          enum:
+          - csv
+          - ndjson
+          type: string
+      - description: Comma-separated ASX codes to restrict the export to. Omit for
+          every security. Case-insensitive.
+        in: query
+        name: codes
+        required: false
+        schema:
+          type: string
+      - description: Include securities whose reported short position was zero on
+          a date. Off by default, which suits a "most shorted" view; turn it on when
+          building a research universe, since excluding the zero-interest names biases
+          anything that sorts on short interest.
+        in: query
+        name: include_zero
+        required: false
+        schema:
+          default: false
+          type: boolean
+      responses:
+        "200":
+          content:
+            application/x-ndjson:
+              schema:
+                description: One JSON object per line, same fields as the CSV columns.
+                type: string
+            text/csv:
+              schema:
+                description: 'Header row followed by one row per (date, security):
+                  date, product_code, product_name, reported_short_positions, total_product_in_issue,
+                  percent_shorted.'
+                type: string
+          description: The panel, streamed.
+        "400":
+          description: Missing or unparseable from/to, a reversed window, a window
+            longer than 30 years, or an unknown format.
+        "429":
+          description: Rate limit exceeded. This endpoint costs 50 units.
+      summary: Export the whole short-position panel for a date range
 security:
 - bearerAuth: []
 - {}

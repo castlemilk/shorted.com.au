@@ -97,6 +97,50 @@ Base URL: `https://shorted.com.au` (not the API host).
 curl -A 'my-app/1.0' 'https://shorted.com.au/feed.xml'
 ```
 
+#### `GET /v1/panel`
+
+Export the whole short-position panel for a date range
+
+The complete ASIC short-position panel — every security on every
+trading date in the window — as CSV or NDJSON, in ONE request.
+
+Building a research panel from `GetMarketByDate` costs one request per
+trading date: about 2,500 for a decade, against an anonymous quota of
+500 a month. This endpoint replaces that, and is cheaper for us to
+serve than the pattern it replaces. It is metered at 50 requests
+against your quota rather than one, because it does considerably more
+than one request's work.
+
+Rows are streamed and ordered by `(date, product_code)`, so a repeated
+export of the same window is byte-identical and can be diffed or
+resumed. `reported_short_positions` is a raw SHARE COUNT and
+`total_product_in_issue` is the denominator behind `percent_shorted` —
+shares on issue moves with placements and buybacks, so the percent can
+change with no change in short positioning at all.
+
+Because the response streams, the HTTP status is committed before the
+first row. A failure part-way through therefore cannot be a 5xx: the
+body ends with a line beginning `#ERROR`. Check for it before trusting
+a file to be complete.
+
+```bash
+curl -A 'my-app/1.0' \
+  'https://api.shorted.com.au/v1/panel?from=2015-01-01&to=2025-12-31' \
+  -o panel.csv
+```
+
+| Parameter | In | Required | Type | Description |
+| --- | --- | --- | --- | --- |
+| `from` | query | yes | string (date) | First trading date to include, YYYY-MM-DD. |
+| `to` | query | yes | string (date) | Last trading date to include, YYYY-MM-DD. |
+| `format` | query | no | enum (csv \\| ndjson) | Output encoding. |
+| `codes` | query | no | string | Comma-separated ASX codes to restrict the export to. Omit for every security. Case-insensitive. |
+| `include_zero` | query | no | boolean | Include securities whose reported short position was zero on a date. Off by default, which suits a "most shorted" view; turn it on when building a research universe, since excluding the zero-interest names biases anything that sorts on short interest. |
+
+```bash
+curl -A 'my-app/1.0' 'https://api.shorted.com.au/v1/panel?from=VALUE&to=VALUE'
+```
+
 ### shorts.v1alpha1.EconomyService
 
 #### `POST /shorts.v1alpha1.EconomyService/GetEconomicSeries`

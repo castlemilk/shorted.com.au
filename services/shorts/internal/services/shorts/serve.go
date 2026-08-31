@@ -398,6 +398,26 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	})))
 
 	// Add health check endpoint
+	// Bulk panel export. One request replaces the ~2,500 GetMarketByDate calls
+	// a decade-long research panel used to cost, which is cheaper for us to
+	// serve than the pattern it replaces — but it is not one request's worth of
+	// work, so it is metered at panelExportCost rather than 1.
+	//
+	// Keyed by IP at the anonymous tier: the endpoint is public like the rest
+	// of the read surface, and the quota is what bounds it.
+	panelRateLimit := ratelimit.NewHTTPMiddleware(
+		s.rateLimiter,
+		s.config.RateLimitConfig,
+		func(r *http.Request) ratelimit.Caller {
+			return ratelimit.Caller{
+				Identifier: "panel-anon:" + ratelimit.ClientIP(r),
+				Tier:       "anonymous",
+			}
+		},
+		ratelimit.WithCost(func(*http.Request) int { return panelExportCost }),
+	)
+	mux.Handle(PanelExportPath, withCORS(panelRateLimit(s.PanelExportHandler())))
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if _, err := w.Write([]byte("OK")); err != nil {
