@@ -63,8 +63,11 @@ func TestOurOwnSSRIsNeverMeteredAsAnonymous(t *testing.T) {
 			if tier == "anonymous" {
 				t.Fatalf("our own SSR was metered as anonymous (id=%q) — this is the 7,045-429 bug", id)
 			}
-			if got := DefaultConfig().Tiers[tier].RequestsPerMinute; got < 1000 {
-				t.Errorf("tier %q allows only %d/min, which cannot cover fleet rendering", tier, got)
+			// 0 means unlimited. Anything else is a finite bucket shared by
+			// every reader behind one egress address, which is the failure
+			// shape this class exists to avoid.
+			if got := DefaultConfig().Tiers[tier].RequestsPerMinute; got != 0 {
+				t.Errorf("tier %q is capped at %d/min; a rejection here fails every reader behind that address at once", tier, got)
 			}
 		})
 	}
@@ -231,25 +234,43 @@ func (c testClaims) GetUserID() string      { return c.id }
 func (c testClaims) GetTier() string        { return c.tier }
 func (c testClaims) GetIsBrowserAuth() bool { return false }
 
-// The ceiling has to cover AGGREGATE anonymous browsing, not just SSR renders.
+// PER-MINUTE MUST BE UNLIMITED FOR BOTH FIRST-PARTY CLASSES.
 //
-// middleware.ts stamps the marker on every rewrite-proxied path, so client-side
-// Connect calls from anonymous visitors land in this class too — forced, because
-// they arrive from the same Vercel egress IPs and their real addresses are not
-// visible to us. Sizing it against one renderer would 429 readers.
+// This class carries our own SSR and EVERY anonymous browser RPC — middleware.ts
+// stamps the marker on rewrite-proxied paths, and those requests reach us from
+// a handful of shared Vercel egress addresses. So a per-minute rejection here
+// is not throttling; it is every reader behind that address failing at the same
+// instant.
 //
-// Measured on prod: /shorts/BHP costs 9 limitable requests; zone peak was 102
-// requests in 10s (~612/min) across all traffic.
-func TestTheCeilingCoversAggregateAnonymousBrowsing(t *testing.T) {
-	const measuredPeakPerMinute = 612
-
+// The unverified class matters just as much: if it were finite, a secret
+// rotation gap would move all of our own traffic into a finite bucket and 429
+// the site, turning a credential-delivery hiccup into an outage. The rule is
+// that the secret costs a meter, never a rejection.
+//
+// The abuse ceiling is the edge's first-party bucket (600/10s), which sees this
+// traffic too, plus the monthly meter on the unverified class.
+func TestNeitherFirstPartyClassCanRejectAReader(t *testing.T) {
 	tiers := DefaultConfig().Tiers
 	for _, tier := range []string{TierFirstParty, TierFirstPartyUnverified} {
-		limit := tiers[tier].RequestsPerMinute
-		if limit < measuredPeakPerMinute*2 {
-			t.Errorf("%s allows %d/min against a measured peak of %d — too little headroom for a traffic spike",
-				tier, limit, measuredPeakPerMinute)
+		if got := tiers[tier].RequestsPerMinute; got != 0 {
+			t.Errorf("%s: RequestsPerMinute = %d, want 0 (unlimited)", tier, got)
 		}
+		if got := tiers[tier].BrowserRequestsPerMinute; got != 0 {
+			t.Errorf("%s: BrowserRequestsPerMinute = %d, want 0 (unlimited)", tier, got)
+		}
+	}
+}
+
+// The monthly meter is what stays, and it is the whole difference between the
+// two classes. Removing it from the unverified class would make one spoofable
+// header a free pass to unlimited scraping.
+func TestTheMonthlyMeterStillSeparatesUsFromASpoofer(t *testing.T) {
+	tiers := DefaultConfig().Tiers
+	if tiers[TierFirstParty].RequestsPerMonth != 0 {
+		t.Error("our own verified traffic is monthly-metered; it will stop rendering mid-month")
+	}
+	if tiers[TierFirstPartyUnverified].RequestsPerMonth == 0 {
+		t.Error("an unverified first-party claim is unmetered, so the marker alone buys unlimited scraping")
 	}
 }
 

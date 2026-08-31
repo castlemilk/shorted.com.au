@@ -9,7 +9,14 @@ import { evaluate } from "./rate-limit-sentinel.mjs";
 
 const healthy = {
   anon: { status: 200, hasRateLimitHeaders: true, limit: 30 },
-  firstParty: { status: 200, hasRateLimitHeaders: true, limit: 3000 },
+  // Per-minute unlimited (no header); monthly-metered because the sentinel
+  // probes without the secret.
+  firstParty: {
+    status: 200,
+    hasRateLimitHeaders: false,
+    limit: 0,
+    monthlyLimit: 200000,
+  },
   mcp: { status: 200 },
   health: {
     checked: true,
@@ -40,7 +47,7 @@ test("silence is not health: missing headers mean nothing is enforcing", () => {
 test("our own traffic metered at an anonymous ceiling is caught", () => {
   const found = codes({
     ...healthy,
-    firstParty: { status: 200, hasRateLimitHeaders: true, limit: 30 },
+    firstParty: { status: 200, hasRateLimitHeaders: true, limit: 30, monthlyLimit: 500 },
   });
   assert.ok(
     found.includes("SELF_METERED_AS_ANONYMOUS"),
@@ -53,12 +60,47 @@ test("a first-party class at or above the floor is fine", () => {
     assert.deepEqual(
       evaluate({
         ...healthy,
-        firstParty: { status: 200, hasRateLimitHeaders: true, limit },
+        firstParty: { status: 200, hasRateLimitHeaders: true, limit, monthlyLimit: 0 },
       }),
       [],
       `limit ${limit} should not alert`,
     );
   }
+});
+
+// The healthy production shape: per-minute unlimited, so NO per-minute header.
+// Absence must read as "unlimited", never as "cannot tell" — otherwise the
+// sentinel alerts every day on a correctly configured system and gets muted.
+test("no per-minute header is unlimited, not a fault", () => {
+  assert.deepEqual(
+    evaluate({
+      ...healthy,
+      firstParty: {
+        status: 200,
+        hasRateLimitHeaders: false,
+        limit: 0,
+        monthlyLimit: 200000,
+      },
+    }),
+    [],
+  );
+});
+
+// But absence must still be CONFIRMED as first-party. Probing without the
+// secret has to land in the unverified class, which is monthly-metered; a
+// different monthly number means it was classified as something else.
+test("an unexpected monthly limit on the unverified probe is reported", () => {
+  assert.ok(
+    codes({
+      ...healthy,
+      firstParty: {
+        status: 200,
+        hasRateLimitHeaders: false,
+        limit: 0,
+        monthlyLimit: 5000,
+      },
+    }).includes("FIRST_PARTY_UNEXPECTED_CLASS"),
+  );
 });
 
 // Anonymous access is the adoption path. Challenging first contact breaks every
@@ -117,7 +159,12 @@ test("a comfortably sized identifier map is not reported", () => {
 test("checks 1-3 still work when the health endpoint was not consulted", () => {
   const found = codes({
     anon: { status: 200, hasRateLimitHeaders: false, limit: 0 },
-    firstParty: { status: 200, hasRateLimitHeaders: true, limit: 3000 },
+    firstParty: {
+      status: 200,
+      hasRateLimitHeaders: false,
+      limit: 0,
+      monthlyLimit: 200000,
+    },
     mcp: { status: 200 },
     health: { checked: false },
   });
