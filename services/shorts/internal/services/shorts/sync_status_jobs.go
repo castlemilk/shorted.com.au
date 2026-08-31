@@ -129,13 +129,8 @@ func parseSyncTime(s string) time.Time {
 	if s == "" {
 		return time.Time{}
 	}
-	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return t
-	}
-	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
-		return t
-	}
-	return time.Time{}
+	t, _ := parseStoreTimestamp(s)
+	return t
 }
 
 func firstNonEmptyStr(vals ...string) string {

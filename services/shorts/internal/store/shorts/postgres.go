@@ -1294,18 +1294,31 @@ func (s *postgresStore) GetAvailableDates(limit int, before string) ([]string, s
 		dates = append(dates, d.Format("2006-01-02"))
 	}
 
-	// Get earliest and latest dates
+	// Bounds and total in one round trip. totalCount describes the DATASET, not
+	// this page: `dates` is a page of at most `limit` entries (90 by default),
+	// and a caller pages back through it with `before`.
+	//
+	// This used to report len(dates), doubled to `limit * 2` whenever the page
+	// came back full — a fabricated number meant only to "signal that there are
+	// more". It read as a fact. An integrator auditing the API for a backtest
+	// took the 90-date page at face value, concluded the dataset held about
+	// four months, wrote the API off as unable to support a walk-forward study
+	// and moved on (issue #537) — while earliestDate said 2010. A count that is
+	// invented cannot be sanity-checked against the bounds beside it, so it is
+	// worse than no count at all.
+	//
+	// mv_available_dates holds one row per trading date (~3.9k), so COUNT(*)
+	// over it is trivial; the raw COUNT(DISTINCT "DATE") this avoids scans 2.1M
+	// rows and is why the number was estimated in the first place.
 	var earliest, latest time.Time
-	boundsQuery := `SELECT MIN("DATE"), MAX("DATE") FROM shorts`
-	if err := s.db.QueryRow(ctx, boundsQuery).Scan(&earliest, &latest); err != nil {
-		return nil, "", "", 0, fmt.Errorf("failed to get date bounds: %w", err)
-	}
-
-	// Use length of dates as approximate count (avoids expensive COUNT DISTINCT)
-	totalCount := len(dates)
-	if totalCount == limit {
-		// If we hit the limit, there are more dates — use a rough estimate
-		totalCount = limit * 2 // Signal that there are more
+	var totalCount int
+	boundsQuery := `SELECT MIN(date), MAX(date), COUNT(*) FROM mv_available_dates`
+	if err := s.db.QueryRow(ctx, boundsQuery).Scan(&earliest, &latest, &totalCount); err != nil {
+		log.Infof("mv_available_dates bounds unavailable, using fallback query: %v", err)
+		boundsQuery = `SELECT MIN("DATE"), MAX("DATE"), COUNT(DISTINCT "DATE") FROM shorts`
+		if err := s.db.QueryRow(ctx, boundsQuery).Scan(&earliest, &latest, &totalCount); err != nil {
+			return nil, "", "", 0, fmt.Errorf("failed to get date bounds: %w", err)
+		}
 	}
 
 	return dates, earliest.Format("2006-01-02"), latest.Format("2006-01-02"), totalCount, nil

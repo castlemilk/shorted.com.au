@@ -181,7 +181,7 @@ func TestValidateGetStockRequest(t *testing.T) {
 				ProductCode: "",
 			},
 			expectError: true,
-			errorMsg:    "product code is required",
+			errorMsg:    "product_code is required",
 		},
 		{
 			name: "product code too short",
@@ -189,7 +189,7 @@ func TestValidateGetStockRequest(t *testing.T) {
 				ProductCode: "AB",
 			},
 			expectError: true,
-			errorMsg:    "product code must be 3-4 alphanumeric characters",
+			errorMsg:    "product_code must be 3-4 alphanumeric characters",
 		},
 		{
 			name: "product code too long",
@@ -197,7 +197,7 @@ func TestValidateGetStockRequest(t *testing.T) {
 				ProductCode: "ABCDE",
 			},
 			expectError: true,
-			errorMsg:    "product code must be 3-4 alphanumeric characters",
+			errorMsg:    "product_code must be 3-4 alphanumeric characters",
 		},
 		{
 			name: "product code with special characters",
@@ -205,7 +205,7 @@ func TestValidateGetStockRequest(t *testing.T) {
 				ProductCode: "AB@",
 			},
 			expectError: true,
-			errorMsg:    "product code must be 3-4 alphanumeric characters",
+			errorMsg:    "product_code must be 3-4 alphanumeric characters",
 		},
 		{
 			name: "product code with numbers (valid)",
@@ -285,7 +285,7 @@ func TestValidateGetStockDataRequest(t *testing.T) {
 				Period:      "1M",
 			},
 			expectError: true,
-			errorMsg:    "product code is required",
+			errorMsg:    "product_code is required",
 		},
 		{
 			name: "invalid period",

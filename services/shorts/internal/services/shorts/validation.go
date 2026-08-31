@@ -62,34 +62,46 @@ func ValidateGetTopShortsRequest(req *shortsv1alpha1.GetTopShortsRequest) error 
 	return nil
 }
 
-// ValidateGetStockRequest validates the GetStock request parameters
-func ValidateGetStockRequest(req *shortsv1alpha1.GetStockRequest) error {
-	// Validate product code is provided
-	if req.ProductCode == "" {
+// validateStockCode validates an ASX code, naming `field` in any error it
+// returns.
+//
+// The field name is a parameter rather than a fixed string because these
+// requests do not agree on it: GetStock and GetStockData carry `product_code`,
+// while GetStockNews, GetDirectorTrades, GetDividendHistory and
+// GetPeerComparison carry `stock_code`. All of them once routed through a
+// single validator hardcoded to say "product code", so an integrator calling
+// GetStockNews was told to set a field the request does not have — they tried
+// productCode, product_code, code, symbol and ticker, got the same 400 every
+// time, and concluded the endpoint was auth-gated (issue #539). An error that
+// names the wrong field is worse than no error, because it is actionable and
+// wrong.
+func validateStockCode(code, field string) error {
+	if code == "" {
 		return connect.NewError(
 			connect.CodeInvalidArgument,
-			fmt.Errorf("product code is required"),
+			fmt.Errorf("%s is required", field),
 		)
 	}
 
-	// Validate product code format
-	productCode := strings.ToUpper(strings.TrimSpace(req.ProductCode))
-	if !stockCodeRegex.MatchString(productCode) {
+	normalized := strings.ToUpper(strings.TrimSpace(code))
+	if !stockCodeRegex.MatchString(normalized) {
 		return connect.NewError(
 			connect.CodeInvalidArgument,
-			fmt.Errorf("product code must be 3-4 alphanumeric characters (e.g., CBA, ZIP, AX1)"),
+			fmt.Errorf("%s must be 3-4 alphanumeric characters (e.g., CBA, ZIP, AX1)", field),
 		)
 	}
 
 	return nil
 }
 
+// ValidateGetStockRequest validates the GetStock request parameters
+func ValidateGetStockRequest(req *shortsv1alpha1.GetStockRequest) error {
+	return validateStockCode(req.ProductCode, "product_code")
+}
+
 // ValidateGetStockDataRequest validates the GetStockData request parameters
 func ValidateGetStockDataRequest(req *shortsv1alpha1.GetStockDataRequest) error {
-	// Validate product code
-	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
-		ProductCode: req.ProductCode,
-	}); err != nil {
+	if err := validateStockCode(req.ProductCode, "product_code"); err != nil {
 		return err
 	}
 
@@ -106,9 +118,7 @@ func ValidateGetStockDataRequest(req *shortsv1alpha1.GetStockDataRequest) error 
 
 // ValidateGetStockDetailsRequest validates the GetStockDetails request parameters
 func ValidateGetStockDetailsRequest(req *shortsv1alpha1.GetStockDetailsRequest) error {
-	return ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
-		ProductCode: req.ProductCode,
-	})
+	return validateStockCode(req.ProductCode, "product_code")
 }
 
 // ValidateGetIndustryTreeMapRequest validates the GetIndustryTreeMap request parameters
@@ -211,9 +221,7 @@ func ValidateGetAvailableDatesRequest(req *shortsv1alpha1.GetAvailableDatesReque
 
 // ValidateGetStockNewsRequest validates the GetStockNews request parameters
 func ValidateGetStockNewsRequest(req *shortsv1alpha1.GetStockNewsRequest) error {
-	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
-		ProductCode: req.StockCode,
-	}); err != nil {
+	if err := validateStockCode(req.StockCode, "stock_code"); err != nil {
 		return err
 	}
 	if req.Limit < 0 || req.Limit > 100 {
@@ -224,9 +232,7 @@ func ValidateGetStockNewsRequest(req *shortsv1alpha1.GetStockNewsRequest) error 
 
 // ValidateGetDirectorTradesRequest validates the GetDirectorTrades request parameters
 func ValidateGetDirectorTradesRequest(req *shortsv1alpha1.GetDirectorTradesRequest) error {
-	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
-		ProductCode: req.StockCode,
-	}); err != nil {
+	if err := validateStockCode(req.StockCode, "stock_code"); err != nil {
 		return err
 	}
 	if req.Limit < 0 || req.Limit > 200 {
@@ -237,9 +243,7 @@ func ValidateGetDirectorTradesRequest(req *shortsv1alpha1.GetDirectorTradesReque
 
 // ValidateGetDividendHistoryRequest validates the GetDividendHistory request parameters
 func ValidateGetDividendHistoryRequest(req *shortsv1alpha1.GetDividendHistoryRequest) error {
-	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
-		ProductCode: req.StockCode,
-	}); err != nil {
+	if err := validateStockCode(req.StockCode, "stock_code"); err != nil {
 		return err
 	}
 	if req.Years < 0 || req.Years > 20 {
@@ -250,9 +254,7 @@ func ValidateGetDividendHistoryRequest(req *shortsv1alpha1.GetDividendHistoryReq
 
 // ValidateGetPeerComparisonRequest validates the GetPeerComparison request parameters
 func ValidateGetPeerComparisonRequest(req *shortsv1alpha1.GetPeerComparisonRequest) error {
-	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
-		ProductCode: req.StockCode,
-	}); err != nil {
+	if err := validateStockCode(req.StockCode, "stock_code"); err != nil {
 		return err
 	}
 	if req.Limit < 0 || req.Limit > 20 {

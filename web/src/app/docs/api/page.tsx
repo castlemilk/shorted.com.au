@@ -1,5 +1,6 @@
 import React from 'react';
 import { parseOpenAPISpec } from '~/lib/openapi/parser';
+import { summarizePublicSurface } from '~/lib/openapi/public-surface';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '~/@/components/ui/card';
 import Image from 'next/image';
@@ -9,6 +10,7 @@ import { WebApiSchema } from '~/@/components/seo/web-api-schema';
 
 export default async function ApiDocsIndex() {
   const spec = await parseOpenAPISpec();
+  const surface = summarizePublicSurface(spec.endpoints);
 
   return (
     <div className="container max-w-4xl py-10 space-y-16">
@@ -81,27 +83,40 @@ export default async function ApiDocsIndex() {
                 Bearer Token
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Include your API key in the <code>Authorization</code> header of your requests. 
-                All private endpoints require this header.
+                Include your API key in the <code>Authorization</code> header of your requests.
+                It is optional: every endpoint in this reference answers unauthenticated at the
+                anonymous tier. A token identifies you and raises your rate limits.
               </p>
               <div className="bg-muted rounded-lg p-4 font-mono text-xs text-foreground border border-border">
                 Authorization: Bearer YOUR_API_KEY
               </div>
             </div>
 
+            {/*
+              Derived from the generated spec, never restated by hand. This
+              section used to list "Private: GetStockData, MintToken";
+              GetStockData is VISIBILITY_PUBLIC and answers anonymously, so the
+              prose sent an integrator down a token-minting path they did not
+              need (issue #536). The spec is pruned to exactly the public set,
+              so anything documented here is reachable without a token.
+            */}
             <div className="space-y-4">
               <h3 className="text-xl font-semibold flex items-center gap-2">
                 <Lock className="h-5 w-5 text-primary" />
                 Public vs Private
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Most metadata and summary endpoints are <strong>Public</strong> and do not require authentication. 
-                However, detailed time-series data and user-specific resources are <strong>Private</strong>.
+                Every one of the <strong>{surface.publicCount}</strong> endpoints in this
+                reference is <strong>public</strong> — callable without a token, at the
+                anonymous rate limit. This list is generated from the API&apos;s protobuf
+                definitions, so it cannot disagree with what the server enforces.
               </p>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-2">
-                <li>Public: GetStock, SearchStocks, GetTopShorts</li>
-                <li>Private: GetStockData, MintToken</li>
-              </ul>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                <strong>Private</strong> methods — account and billing operations such as
+                minting a token — are not documented here at all. If you cannot find an
+                endpoint on this page, it is not part of the public API; there is no
+                public endpoint that a token unlocks.
+              </p>
             </div>
           </div>
 
