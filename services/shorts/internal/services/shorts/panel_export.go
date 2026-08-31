@@ -176,7 +176,10 @@ func (s *ShortsServer) PanelExportHandler() http.HandlerFunc {
 			// researcher a short panel that looks complete, so the failure is
 			// written into the body where it cannot be mistaken for data.
 			s.logger.Errorf("panel export failed after %d rows: %v", rows, writeErr)
-			fmt.Fprintf(w, "\n#ERROR incomplete export after %d rows: %v\n", rows, writeErr)
+			// Ignoring this error is the only option left: the response is
+			// already streaming, so there is nowhere else to report a failure
+			// to write the failure marker. The log line above is the record.
+			_, _ = fmt.Fprintf(w, "\n#ERROR incomplete export after %d rows: %v\n", rows, writeErr)
 			return
 		}
 
