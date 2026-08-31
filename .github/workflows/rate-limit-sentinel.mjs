@@ -56,10 +56,19 @@ const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
 
-// The anonymous per-minute ceiling. Not asserted as an exact value — that is
-// config, and pinning it here would make a deliberate tuning change look like
-// an incident. What matters is that anonymous is SMALL and first-party is not.
+// A first-party caller must never be handed a SMALL per-minute ceiling. Both
+// first-party classes are per-minute unlimited, so the healthy signal is the
+// ABSENCE of a per-minute limit header; the failure signal is the presence of a
+// small one, which means our own traffic fell through to the anonymous tier.
+//
+// Not asserted as an exact value — that is config, and pinning it would make a
+// deliberate tuning change look like an incident.
 const FIRST_PARTY_MIN_LIMIT = 1000;
+
+// The monthly meter on the UNVERIFIED class. The sentinel probes without the
+// secret, so seeing this is positive proof the request was classified
+// first-party rather than merely lacking headers for some other reason.
+const UNVERIFIED_MONTHLY_LIMIT = 200000;
 
 const RPC_PATH = "/shorts.v1alpha1.MarketService/GetTopShorts";
 const RPC_BODY = JSON.stringify({ period: "3m", limit: 1 });
@@ -80,14 +89,27 @@ export function evaluate({ anon, firstParty, mcp, health }) {
   }
 
   // 2. Our own traffic is not anonymous.
+  //
+  // Both first-party classes are per-minute UNLIMITED, so no per-minute header
+  // is the healthy case. A small one means we fell through to the anonymous
+  // tier — every reader behind that egress address rejected at once.
   if (firstParty) {
     if (!firstParty.hasRateLimitHeaders) {
-      findings.push({
-        code: "FIRST_PARTY_UNMEASURABLE",
-        detail:
-          "A request carrying the first-party marker returned no rate-limit " +
-          "headers, so its classification cannot be confirmed.",
-      });
+      // Unlimited per-minute. Confirm it really was classified first-party
+      // rather than silently unmetered for some other reason: probing without
+      // the secret must land in the unverified class, which IS monthly-metered.
+      if (
+        firstParty.monthlyLimit &&
+        firstParty.monthlyLimit !== UNVERIFIED_MONTHLY_LIMIT
+      ) {
+        findings.push({
+          code: "FIRST_PARTY_UNEXPECTED_CLASS",
+          detail:
+            `A marker-carrying request without the secret reported a monthly ` +
+            `limit of ${firstParty.monthlyLimit}, not the expected ` +
+            `${UNVERIFIED_MONTHLY_LIMIT} for the unverified first-party class.`,
+        });
+      }
     } else if (firstParty.limit < FIRST_PARTY_MIN_LIMIT) {
       findings.push({
         code: "SELF_METERED_AS_ANONYMOUS",
@@ -164,10 +186,12 @@ async function probe(url, { headers = {}, body, method = "POST" } = {}) {
     body,
   });
   const limitHeader = res.headers.get("x-ratelimit-limit");
+  const monthlyHeader = res.headers.get("x-ratelimit-monthly-limit");
   return {
     status: res.status,
     hasRateLimitHeaders: limitHeader !== null,
     limit: limitHeader ? Number(limitHeader) : 0,
+    monthlyLimit: monthlyHeader ? Number(monthlyHeader) : 0,
     res,
   };
 }
@@ -241,7 +265,9 @@ async function main() {
 
   console.log(`anonymous       : status=${anon.status} limit=${anon.limit || "(none)"}`);
   console.log(
-    `first-party     : status=${firstParty.status} limit=${firstParty.limit || "(none)"}` +
+    `first-party     : status=${firstParty.status} ` +
+      `limit=${firstParty.limit || "(unlimited)"} ` +
+      `monthly=${firstParty.monthlyLimit || "(unmetered)"}` +
       (SSR_SECRET ? " (secret presented)" : " (no secret; unverified class expected)"),
   );
   console.log(`mcp initialize  : status=${mcp.status}`);
