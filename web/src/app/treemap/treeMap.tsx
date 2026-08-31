@@ -24,6 +24,14 @@ import { Skeleton } from "~/@/components/ui/skeleton";
 import { TreemapTooltip } from "~/@/components/widgets/treemap-tooltip";
 import { cn } from "~/@/lib/utils";
 import { getSectorImagePath } from "~/@/lib/sector-images";
+import {
+  LEAF_CHAR_WIDTH_RATIO,
+  clamp,
+  headerHeightFor,
+  isMobileWidth,
+  leafLabelFontSize,
+  treemapHeightFor,
+} from "./treemap-labels";
 
 interface TreeMapProps {
   initialTreeMapData?: IndustryTreeMap; // Optional initial data
@@ -43,19 +51,6 @@ interface TreeMapDatum {
 }
 
 const PADDING = 3;
-const HEADER_HEIGHT = 20; // Height reserved for sector labels + icons
-const TREEMAP_HEIGHT = 700;
-// Phones get a shorter map: 700px of dense tiles at ~390px wide is unreadable
-// and dominates the page.
-const TREEMAP_HEIGHT_MOBILE = 440;
-const MOBILE_WIDTH_BREAKPOINT = 520;
-const treemapHeightFor = (width: number) =>
-  width > 0 && width < MOBILE_WIDTH_BREAKPOINT
-    ? TREEMAP_HEIGHT_MOBILE
-    : TREEMAP_HEIGHT;
-
-const clamp = (min: number, v: number, max: number) =>
-  Math.max(min, Math.min(max, v));
 
 type TreeMapDataType = IndustryTreeMap | null | undefined;
 
@@ -309,7 +304,10 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
             </div>
           )}
           <ParentSize>
-            {({ width }) => (
+            {({ width }) => {
+              const isMobile = isMobileWidth(width);
+              const headerHeight = headerHeightFor(width);
+              return (
               <div style={{ position: "relative" }}>
                 <svg
                   width={width}
@@ -343,23 +341,24 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                             const nodeHeight =
                               node.y1 -
                               node.y0 -
-                              (isTopEdge ? HEADER_HEIGHT + PADDING : 0) -
+                              (isTopEdge ? headerHeight + PADDING : 0) -
                               (isBottomEdge ? PADDING : 0);
 
                             const top =
                               node.y0 +
-                              (isTopEdge ? HEADER_HEIGHT + PADDING : 0);
+                              (isTopEdge ? headerHeight + PADDING : 0);
                             const left = node.x0 + (isLeftEdge ? PADDING : 0);
 
                             if (nodeHeight < 0 || nodeWidth < 0) {
                               return null;
                             }
 
-                            const minSide = Math.min(nodeWidth, nodeHeight);
-                            const leafFontSize = clamp(
-                              12,
-                              Math.floor(minSide / 4.8),
-                              20,
+                            const leafLabel = node.data.id ?? "";
+                            const leafFontSize = leafLabelFontSize(
+                              nodeWidth,
+                              nodeHeight,
+                              leafLabel,
+                              width,
                             );
 
                             return (
@@ -387,20 +386,19 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                   pointerEvents={"all"}
                                   cursor={"pointer"}
                                 />
-                                {nodeWidth > 60 && nodeHeight > 32 && (
-                                  <>
-                                    <text
-                                      x={nodeWidth / 2}
-                                      y={nodeHeight / 2}
-                                      dy=".33em"
-                                      fontSize={leafFontSize}
-                                      textAnchor="middle"
-                                      pointerEvents="none"
-                                      fill="hsl(var(--foreground))"
-                                    >
-                                      {node.data.id}
-                                    </text>
-                                  </>
+                                {leafFontSize !== null && (
+                                  <text
+                                    x={nodeWidth / 2}
+                                    y={nodeHeight / 2}
+                                    dy=".33em"
+                                    fontSize={leafFontSize}
+                                    fontWeight={600}
+                                    textAnchor="middle"
+                                    pointerEvents="none"
+                                    fill="hsl(var(--foreground))"
+                                  >
+                                    {leafLabel}
+                                  </text>
                                 )}
                               </Group>
                             );
@@ -414,19 +412,26 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                             const nodeWidth = node.x1 - node.x0;
                             const nodeHeight = node.y1 - node.y0;
                             const parentFontSize = clamp(
-                              11,
+                              isMobile ? 9 : 11,
                               Math.floor(nodeWidth / 22),
                               14,
                             );
 
                             // Don't render label if section is too small
-                            if (nodeWidth < 60 || nodeHeight < 40) return null;
+                            if (
+                              nodeWidth < (isMobile ? 40 : 60) ||
+                              nodeHeight < (isMobile ? 28 : 40)
+                            )
+                              return null;
 
-                            const iconSize = 16;
+                            const iconSize = isMobile ? 12 : 16;
                             const showIcon = nodeWidth >= 80;
-                            const textX = showIcon ? iconSize + 10 : 8;
+                            const textX = showIcon
+                              ? iconSize + (isMobile ? 6 : 10)
+                              : 8;
                             const maxChars = Math.floor(
-                              (nodeWidth - textX - 4) / 8,
+                              (nodeWidth - textX - 4) /
+                                (parentFontSize * LEAF_CHAR_WIDTH_RATIO),
                             );
 
                             return (
@@ -440,16 +445,16 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                   x={0}
                                   y={0}
                                   width={nodeWidth}
-                                  height={HEADER_HEIGHT}
+                                  height={headerHeight}
                                   fill="hsl(var(--background))"
                                   opacity={0.85}
                                 />
                                 {/* Bottom border line */}
                                 <line
                                   x1={0}
-                                  y1={HEADER_HEIGHT}
+                                  y1={headerHeight}
                                   x2={nodeWidth}
-                                  y2={HEADER_HEIGHT}
+                                  y2={headerHeight}
                                   stroke="hsl(var(--border))"
                                   strokeWidth={1}
                                 />
@@ -460,14 +465,14 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                       node.data.id ?? "",
                                     )}
                                     x={4}
-                                    y={(HEADER_HEIGHT - iconSize) / 2}
+                                    y={(headerHeight - iconSize) / 2}
                                     width={iconSize}
                                     height={iconSize}
                                   />
                                 )}
                                 <text
                                   x={textX}
-                                  y={HEADER_HEIGHT / 2}
+                                  y={headerHeight / 2}
                                   dy=".35em"
                                   fontSize={parentFontSize}
                                   fontWeight={600}
@@ -504,7 +509,8 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                   />
                 )}
               </div>
-            )}
+              );
+            }}
           </ParentSize>
         </div>
       </Suspense>
