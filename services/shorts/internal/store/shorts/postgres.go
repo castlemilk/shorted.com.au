@@ -301,13 +301,15 @@ SELECT
 	s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 	s."PRODUCT_CODE" as product_code,
 	COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name, 
+	COALESCE(s."PRODUCT", '') as raw_product,
 	s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
 	s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 	COALESCE(m.industry, '') as industry,
 	COALESCE(m.tags, ARRAY[]::text[]) as tags,
 	COALESCE(m.logo_gcs_url, '') as logo_url,
 	COALESCE(px.close * s."TOTAL_PRODUCT_IN_ISSUE", 0) as market_cap,
-	COALESCE(px.adv, 0) as average_daily_value_20d
+	COALESCE(px.adv, 0) as average_daily_value_20d,
+	COALESCE(px.advol, 0) as average_daily_volume_20d
 FROM shorts s
 LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
 -- Market cap is derived (latest close x shares on issue) rather than read from
@@ -317,11 +319,15 @@ LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
 LEFT JOIN LATERAL (
 	SELECT
 		(ARRAY_AGG(w.close ORDER BY w.date DESC))[1] AS close,
-		AVG(w.close * w.volume) AS adv
+		-- Below a handful of sessions an "average" is a single print with a
+		-- confident name. mv_screener_data uses the same floor.
+		CASE WHEN COUNT(*) >= 5 THEN AVG(w.close * w.volume) END AS adv,
+		CASE WHEN COUNT(*) >= 5 THEN AVG(w.volume) END AS advol
 	FROM (
 		SELECT date, close, volume
 		FROM stock_prices
 		WHERE stock_code = s."PRODUCT_CODE"
+		  AND volume > 0
 		ORDER BY date DESC
 		LIMIT 20
 	) w
@@ -340,10 +346,12 @@ ORDER BY s."DATE" DESC LIMIT 1`
 	}
 
 	stock := &stocksv1alpha1.Stock{}
+	var rawProduct string
 	if err := rows.Scan(
 		&stock.PercentageShorted,
 		&stock.ProductCode,
 		&stock.Name,
+		&rawProduct,
 		&stock.TotalProductInIssue,
 		&stock.ReportedShortPositions,
 		&stock.Industry,
@@ -351,10 +359,13 @@ ORDER BY s."DATE" DESC LIMIT 1`
 		&stock.LogoUrl,
 		&stock.MarketCap,
 		&stock.AverageDailyValue_20D,
+		&stock.AverageDailyVolume_20D,
 	); err != nil {
 		return nil, err
 	}
 	stock.LiquidityBand = liquidityBand(stock.AverageDailyValue_20D)
+	stock.DaysToCover = daysToCover(float64(stock.ReportedShortPositions), stock.AverageDailyVolume_20D)
+	stock.SecurityType = string(ClassifySecurity(rawProduct, stock.ProductCode, float64(stock.TotalProductInIssue)))
 	return stock, nil
 }
 
@@ -1301,7 +1312,7 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 // are part of the universe. The default excludes them, which is right for a
 // "most shorted" board and wrong for building a research universe: dropping
 // the zero-interest names biases anything that sorts on short interest.
-func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includeZero bool) ([]*stocksv1alpha1.Stock, int, error) {
+func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includeZero, ordinaryOnly bool) ([]*stocksv1alpha1.Stock, int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -1348,23 +1359,32 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 		SELECT
 			s."PRODUCT_CODE" as product_code,
 			COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name,
+			COALESCE(s."PRODUCT", '') as raw_product,
 			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
 			COALESCE(m.industry, '') as industry,
 			COALESCE(m.logo_gcs_url, '') as logo_url,
 			COALESCE(px.close * s."TOTAL_PRODUCT_IN_ISSUE", 0) as market_cap,
-			COALESCE(px.adv, 0) as average_daily_value_20d
+			COALESCE(px.adv, 0) as average_daily_value_20d,
+			COALESCE(px.advol, 0) as average_daily_volume_20d
 		FROM shorts s
 		LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
 		LEFT JOIN LATERAL (
 			SELECT
 				(ARRAY_AGG(w.close ORDER BY w.date DESC))[1] AS close,
-				AVG(w.close * w.volume) AS adv
+				CASE WHEN COUNT(*) >= 5 THEN AVG(w.close * w.volume) END AS adv,
+				CASE WHEN COUNT(*) >= 5 THEN AVG(w.volume) END AS advol
 			FROM (
 				SELECT date, close, volume
 				FROM stock_prices
 				WHERE stock_code = s."PRODUCT_CODE" AND date <= $2::date
+				  -- A halted or untraded session is missing data, not a day of
+				  -- zero interest; averaging it in understates turnover and
+				  -- inflates days-to-cover for exactly the illiquid names where
+				  -- the metric is already most fragile. Matches the filter
+				  -- mv_screener_data uses.
+				  AND volume > 0
 				ORDER BY date DESC
 				LIMIT 20
 			) w
@@ -1382,9 +1402,11 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 	var stocks []*stocksv1alpha1.Stock
 	for rows.Next() {
 		stock := &stocksv1alpha1.Stock{}
+		var rawProduct string
 		if err := rows.Scan(
 			&stock.ProductCode,
 			&stock.Name,
+			&rawProduct,
 			&stock.PercentageShorted,
 			&stock.ReportedShortPositions,
 			&stock.TotalProductInIssue,
@@ -1392,10 +1414,19 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			&stock.LogoUrl,
 			&stock.MarketCap,
 			&stock.AverageDailyValue_20D,
+			&stock.AverageDailyVolume_20D,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan stock row: %w", err)
 		}
 		stock.LiquidityBand = liquidityBand(stock.AverageDailyValue_20D)
+		stock.DaysToCover = daysToCover(float64(stock.ReportedShortPositions), stock.AverageDailyVolume_20D)
+		stock.SecurityType = string(ClassifySecurity(rawProduct, stock.ProductCode, float64(stock.TotalProductInIssue)))
+		// Filtered here rather than in SQL so there is ONE classifier: the
+		// rules live in Go, and the MVs' copy in migration 000043 is the thing
+		// that has to agree with it, not a second definition to maintain.
+		if ordinaryOnly && stock.SecurityType != string(SecurityTypeOrdinary) {
+			continue
+		}
 		stocks = append(stocks, stock)
 	}
 

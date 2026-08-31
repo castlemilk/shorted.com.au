@@ -114,6 +114,7 @@ func (s *ShortsServer) PanelExportHandler() http.HandlerFunc {
 			To:           to,
 			ProductCodes: codes,
 			IncludeZero:  q.Get("include_zero") == "true",
+			OrdinaryOnly: q.Get("ordinary_only") == "true",
 			AsOf:         asOf,
 		}
 
@@ -139,7 +140,8 @@ func (s *ShortsServer) PanelExportHandler() http.HandlerFunc {
 				rows++
 				return enc.Encode(panelJSON{
 					Date: row.Date, AvailableFrom: row.AvailableFrom,
-					Code: row.ProductCode, Name: row.ProductName,
+					SecurityType: row.SecurityType,
+					Code:         row.ProductCode, Name: row.ProductName,
 					ShortPositions: row.ReportedShortPositions,
 					SharesOnIssue:  row.TotalProductInIssue,
 					PercentShorted: row.PercentShorted,
@@ -151,7 +153,7 @@ func (s *ShortsServer) PanelExportHandler() http.HandlerFunc {
 			// Header names match the JSON field names on the RPC surface, so a
 			// caller moving between the two is not renaming columns.
 			if err := cw.Write([]string{
-				"date", "available_from", "product_code", "product_name",
+				"date", "available_from", "security_type", "product_code", "product_name",
 				"reported_short_positions", "total_product_in_issue", "percent_shorted",
 			}); err != nil {
 				return
@@ -159,7 +161,7 @@ func (s *ShortsServer) PanelExportHandler() http.HandlerFunc {
 			writeErr = s.store.StreamPanel(r.Context(), query, func(row shortsstore.PanelRow) error {
 				rows++
 				return cw.Write([]string{
-					row.Date, row.AvailableFrom, row.ProductCode, row.ProductName,
+					row.Date, row.AvailableFrom, row.SecurityType, row.ProductCode, row.ProductName,
 					strconv.FormatFloat(row.ReportedShortPositions, 'f', -1, 64),
 					strconv.FormatFloat(row.TotalProductInIssue, 'f', -1, 64),
 					strconv.FormatFloat(row.PercentShorted, 'f', -1, 64),
@@ -192,7 +194,11 @@ type panelJSON struct {
 	// The date this observation became public: ASIC publishes T+4. A backtest
 	// using the `date` value on `date` has four days of lookahead, and nothing
 	// else in the row reveals it.
-	AvailableFrom  string  `json:"available_from"`
+	AvailableFrom string `json:"available_from"`
+	// Coarse instrument class. An ETF or warrant's percent-of-issue is not
+	// comparable with an ordinary share's, and the >100% cases are only the
+	// visible tip.
+	SecurityType   string  `json:"security_type"`
 	Code           string  `json:"product_code"`
 	Name           string  `json:"product_name,omitempty"`
 	ShortPositions float64 `json:"reported_short_positions"`

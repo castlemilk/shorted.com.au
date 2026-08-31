@@ -65,7 +65,7 @@ type Store interface {
 	ClaimBroadcastForSending(id string) (bool, error)
 	ListActiveSubscribers() ([]Subscriber, error)
 	SearchStocks(string, int32) ([]*stockv1alpha1.Stock, error)
-	GetMarketByDate(date string, limit, offset int32, includeZero bool) ([]*stockv1alpha1.Stock, int, error)
+	GetMarketByDate(date string, limit, offset int32, includeZero, ordinaryOnly bool) ([]*stockv1alpha1.Stock, int, error)
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
 	GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)

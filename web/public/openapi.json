@@ -2334,6 +2334,11 @@
             "format": "int32",
             "title": "offset",
             "type": "integer"
+          },
+          "ordinaryOnly": {
+            "description": "Restrict the universe to ordinary share lines, excluding ETFs, bonds,\n hybrids, secondary lines and micro-instruments.\n\n This response deliberately returns everything ASIC reported, which is what\n makes it a faithful point-in-time universe. But list_top_shorts and the\n screener already state that non-equity instruments are excluded, and they\n filter — so the two surfaces answered \"what is the ASX universe\"\n differently and only one said so. A caller could discover the difference\n only by noticing a warrant at 132% short. Every row now carries\n security_type; this filters on it server-side. (proto bool)",
+            "title": "ordinary_only",
+            "type": "boolean"
           }
         },
         "title": "GetMarketByDateRequest",
@@ -10313,6 +10318,18 @@
             "title": "average_daily_value_20d",
             "type": "number"
           },
+          "averageDailyVolume20d": {
+            "description": "Average daily VOLUME in shares over the same 20 sessions, and the\n short position expressed in days of that volume.\n\n Percent-of-issue and days-to-cover are the two standard measures of short\n interest, and they answer different questions. 5% short in a name that\n turns over 2% of its register a day is a 2.5-day unwind; 5% short in a\n name that turns over 0.1% a day is a 50-day unwind, and that is where\n squeezes come from. Percent-of-issue treats those as identical.\n\n days_to_cover = reported_short_positions / average_daily_volume_20d, and\n is 0 when the volume is unknown or zero — never a division artefact. Note\n this is share VOLUME, not the traded VALUE in average_daily_value_20d:\n dividing a share count by dollars would produce a number with no meaning. Shares per session. 0 when unknown. (proto double)",
+            "format": "double",
+            "title": "average_daily_volume_20d",
+            "type": "number"
+          },
+          "daysToCover": {
+            "description": "Sessions of average volume. 0 when not computable. (proto double)",
+            "format": "double",
+            "title": "days_to_cover",
+            "type": "number"
+          },
           "industry": {
             "description": "(proto string)",
             "title": "industry",
@@ -10355,6 +10372,11 @@
             "format": "float",
             "title": "reported_short_positions",
             "type": "number"
+          },
+          "securityType": {
+            "description": "Coarse instrument class: \"ordinary\", \"etf\", \"debt\" or \"other\".\n\n Short interest is reported as a percent of shares on issue, and that\n quantity does not mean the same thing across instrument types. A warrant,\n an ETF unit and a bond line each have a denominator, and dividing by it\n yields a number that looks exactly like an ordinary share's short\n percentage while not being comparable to one. The visible symptom is a\n position over 100% — GSBW34 at 132.54%, UYLD at 102.61% — but those are\n only the tip; the real problem is the ETF sitting at a plausible single\n digit, indistinguishable from an ordinary share in the response.\n\n Derived from the product name, code shape and shares on issue — the same\n rules mv_top_shorts and mv_screener_data already filter on — not from an\n authoritative instrument register, which we do not hold. Deliberately\n coarse for that reason: it does not attempt warrant-versus-stapled, which\n the data cannot support. (proto string)",
+            "title": "security_type",
+            "type": "string"
           },
           "tags": {
             "description": "(proto string)",
@@ -14829,6 +14851,51 @@
         ]
       }
     },
+    "/v1/latest": {
+      "get": {
+        "description": "Answers \"has a new ASIC report landed?\" in one small request.\n\nThe alternative was polling `GetAvailableDates` and diffing. That is the\nwrong shape for the question: the data updates about once a business day\nat an hour you cannot predict, and the anonymous quota is 500 requests a\nmonth — so hourly polling spends more than the entire free quota to\ndetect roughly 22 events, almost all of it on \"nothing has changed\".\n\nSend back the `ETag` as `If-None-Match` and an unchanged answer costs a\n`304` with no body. The ETag is derived from the content, so it changes\nexactly when the answer changes and never merely because time passed.\n\n`available_from` is the date the newest observation actually became\npublic — ASIC publishes T+4 — which is usually what a daily engine is\nreally waiting for.\n\n```bash\ncurl -A 'my-app/1.0' -H 'If-None-Match: \"\u003cprevious etag\u003e\"' \\\n  https://api.shorted.com.au/v1/latest\n```\n",
+        "operationId": "getLatestPublication",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "available_from": {
+                      "description": "When that observation became public (T+4 trading days).",
+                      "format": "date",
+                      "type": "string"
+                    },
+                    "earliest_date": {
+                      "format": "date",
+                      "type": "string"
+                    },
+                    "latest_date": {
+                      "description": "Newest trading date the panel holds.",
+                      "format": "date",
+                      "type": "string"
+                    },
+                    "publication_lag_trading_days": {
+                      "type": "integer"
+                    },
+                    "total_dates": {
+                      "description": "Trading dates held in total.",
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The current publication state."
+          },
+          "304": {
+            "description": "Unchanged since the ETag you sent. No body."
+          }
+        },
+        "summary": "The newest published panel date, as a cheap conditional GET"
+      }
+    },
     "/v1/panel": {
       "get": {
         "description": "The complete ASIC short-position panel — every security on every\ntrading date in the window — as CSV or NDJSON, in ONE request.\n\nBuilding a research panel from `GetMarketByDate` costs one request per\ntrading date: about 2,500 for a decade, against an anonymous quota of\n500 a month. This endpoint replaces that, and is cheaper for us to\nserve than the pattern it replaces. It is metered at 50 requests\nagainst your quota rather than one, because it does considerably more\nthan one request's work.\n\nRows are streamed and ordered by `(date, product_code)`, so a repeated\nexport of the same window is byte-identical and can be diffed or\nresumed. `reported_short_positions` is a raw SHARE COUNT and\n`total_product_in_issue` is the denominator behind `percent_shorted` —\nshares on issue moves with placements and buybacks, so the percent can\nchange with no change in short positioning at all.\n\nBecause the response streams, the HTTP status is committed before the\nfirst row. A failure part-way through therefore cannot be a 5xx: the\nbody ends with a line beginning `#ERROR`. Check for it before trusting\na file to be complete.\n\n```bash\ncurl -A 'my-app/1.0' \\\n  'https://api.shorted.com.au/v1/panel?from=2015-01-01\u0026to=2025-12-31' \\\n  -o panel.csv\n```\n",
@@ -14888,6 +14955,16 @@
             }
           },
           {
+            "description": "Restrict the panel to ordinary share lines, excluding ETFs, bonds, hybrids, secondary lines and micro-instruments. Off by default, so the export stays a faithful record of what ASIC reported.\nShort interest is a percent of shares on issue, and that quantity is not comparable across instrument types — a warrant or ETF unit produces a number that looks like an ordinary share's short percentage without being one. Every row carries security_type (ordinary / etf / debt / other) so the decision can also be made client-side.",
+            "in": "query",
+            "name": "ordinary_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          {
             "description": "Include securities whose reported short position was zero on a date. Off by default, which suits a \"most shorted\" view; turn it on when building a research universe, since excluding the zero-interest names biases anything that sorts on short interest.",
             "in": "query",
             "name": "include_zero",
@@ -14909,7 +14986,7 @@
               },
               "text/csv": {
                 "schema": {
-                  "description": "Header row followed by one row per (date, security): date, available_from, product_code, product_name, reported_short_positions, total_product_in_issue, percent_shorted.",
+                  "description": "Header row followed by one row per (date, security): date, available_from, security_type, product_code, product_name, reported_short_positions, total_product_in_issue, percent_shorted.",
                   "type": "string"
                 }
               }

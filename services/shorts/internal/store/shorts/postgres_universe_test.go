@@ -40,7 +40,7 @@ func TestGetMarketByDateUniverse(t *testing.T) {
 			  AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0`,
 			date).Scan(&orphans))
 
-		stocks, total, err := store.GetMarketByDate(date, 5000, 0, false)
+		stocks, total, err := store.GetMarketByDate(date, 5000, 0, false, false)
 		require.NoError(t, err)
 		require.Equal(t, total, len(stocks))
 
@@ -55,9 +55,9 @@ func TestGetMarketByDateUniverse(t *testing.T) {
 	})
 
 	t.Run("include_zero widens the universe rather than reordering it", func(t *testing.T) {
-		excluded, exTotal, err := store.GetMarketByDate(date, 5000, 0, false)
+		excluded, exTotal, err := store.GetMarketByDate(date, 5000, 0, false, false)
 		require.NoError(t, err)
-		included, incTotal, err := store.GetMarketByDate(date, 5000, 0, true)
+		included, incTotal, err := store.GetMarketByDate(date, 5000, 0, true, false)
 		require.NoError(t, err)
 
 		require.GreaterOrEqual(t, incTotal, exTotal,
@@ -75,7 +75,7 @@ func TestGetMarketByDateUniverse(t *testing.T) {
 	})
 
 	t.Run("size and liquidity are populated where prices exist", func(t *testing.T) {
-		stocks, _, err := store.GetMarketByDate(date, 5000, 0, false)
+		stocks, _, err := store.GetMarketByDate(date, 5000, 0, false, false)
 		require.NoError(t, err)
 		require.NotEmpty(t, stocks)
 
@@ -97,5 +97,57 @@ func TestGetMarketByDateUniverse(t *testing.T) {
 			}
 		}
 		require.Positive(t, priced, "no constituent got a market cap — the price join is not working")
+	})
+}
+
+// list_top_shorts and the screener state that non-equity instruments are
+// excluded, and they filter. GetMarketByDate returned everything, so the two
+// surfaces answered "what is the ASX universe" differently and only one said
+// so — discoverable only by noticing a warrant at 132% short (issue #563).
+func TestGetMarketByDateOrdinaryOnly(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	dbURL := getTestDatabaseURL()
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+	pool := createTestPool(t, dbURL)
+	defer pool.Close()
+	store := &postgresStore{db: pool}
+
+	var date string
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT MAX("DATE")::date::text FROM shorts`).Scan(&date))
+
+	all, _, err := store.GetMarketByDate(date, 5000, 0, true, false)
+	require.NoError(t, err)
+	ordinary, _, err := store.GetMarketByDate(date, 5000, 0, true, true)
+	require.NoError(t, err)
+
+	require.LessOrEqual(t, len(ordinary), len(all), "filtering can only remove constituents")
+
+	t.Run("every row is labelled", func(t *testing.T) {
+		for _, s := range all {
+			require.NotEmpty(t, s.SecurityType,
+				"%s has no security_type; a caller cannot tell it from an ordinary share", s.ProductCode)
+		}
+	})
+
+	t.Run("the filtered universe is ordinary shares only", func(t *testing.T) {
+		for _, s := range ordinary {
+			require.Equal(t, "ordinary", s.SecurityType,
+				"%s (%s) survived the ordinary-only filter", s.ProductCode, s.SecurityType)
+		}
+	})
+
+	t.Run("nothing above 100% short survives the filter", func(t *testing.T) {
+		// A position over 100% of shares on issue is the signature of a
+		// non-ordinary instrument, and it is the symptom that exposed this.
+		for _, s := range ordinary {
+			require.LessOrEqual(t, s.PercentageShorted, float32(100),
+				"%s reports %.2f%% short and was classified ordinary",
+				s.ProductCode, s.PercentageShorted)
+		}
 	})
 }

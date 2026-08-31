@@ -51,6 +51,38 @@ type Stock struct {
 	// band is usable for filtering even where the underlying value is missing or
 	// stale, and it is what most callers actually want.
 	LiquidityBand string `protobuf:"bytes,11,opt,name=liquidity_band,json=liquidityBand,proto3" json:"liquidity_band,omitempty"`
+	// Average daily VOLUME in shares over the same 20 sessions, and the
+	// short position expressed in days of that volume.
+	//
+	// Percent-of-issue and days-to-cover are the two standard measures of short
+	// interest, and they answer different questions. 5% short in a name that
+	// turns over 2% of its register a day is a 2.5-day unwind; 5% short in a
+	// name that turns over 0.1% a day is a 50-day unwind, and that is where
+	// squeezes come from. Percent-of-issue treats those as identical.
+	//
+	// days_to_cover = reported_short_positions / average_daily_volume_20d, and
+	// is 0 when the volume is unknown or zero — never a division artefact. Note
+	// this is share VOLUME, not the traded VALUE in average_daily_value_20d:
+	// dividing a share count by dollars would produce a number with no meaning.
+	AverageDailyVolume_20D float64 `protobuf:"fixed64,12,opt,name=average_daily_volume_20d,json=averageDailyVolume20d,proto3" json:"average_daily_volume_20d,omitempty"` // Shares per session. 0 when unknown.
+	DaysToCover            float64 `protobuf:"fixed64,13,opt,name=days_to_cover,json=daysToCover,proto3" json:"days_to_cover,omitempty"`                                 // Sessions of average volume. 0 when not computable.
+	// Coarse instrument class: "ordinary", "etf", "debt" or "other".
+	//
+	// Short interest is reported as a percent of shares on issue, and that
+	// quantity does not mean the same thing across instrument types. A warrant,
+	// an ETF unit and a bond line each have a denominator, and dividing by it
+	// yields a number that looks exactly like an ordinary share's short
+	// percentage while not being comparable to one. The visible symptom is a
+	// position over 100% — GSBW34 at 132.54%, UYLD at 102.61% — but those are
+	// only the tip; the real problem is the ETF sitting at a plausible single
+	// digit, indistinguishable from an ordinary share in the response.
+	//
+	// Derived from the product name, code shape and shares on issue — the same
+	// rules mv_top_shorts and mv_screener_data already filter on — not from an
+	// authoritative instrument register, which we do not hold. Deliberately
+	// coarse for that reason: it does not attempt warrant-versus-stapled, which
+	// the data cannot support.
+	SecurityType  string `protobuf:"bytes,14,opt,name=security_type,json=securityType,proto3" json:"security_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -158,6 +190,27 @@ func (x *Stock) GetAverageDailyValue_20D() float64 {
 func (x *Stock) GetLiquidityBand() string {
 	if x != nil {
 		return x.LiquidityBand
+	}
+	return ""
+}
+
+func (x *Stock) GetAverageDailyVolume_20D() float64 {
+	if x != nil {
+		return x.AverageDailyVolume_20D
+	}
+	return 0
+}
+
+func (x *Stock) GetDaysToCover() float64 {
+	if x != nil {
+		return x.DaysToCover
+	}
+	return 0
+}
+
+func (x *Stock) GetSecurityType() string {
+	if x != nil {
+		return x.SecurityType
 	}
 	return ""
 }
@@ -1323,7 +1376,7 @@ var File_stocks_v1alpha1_stocks_proto protoreflect.FileDescriptor
 
 const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\n" +
-	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa4\x03\n" +
+	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa6\x04\n" +
 	"\x05Stock\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
@@ -1337,7 +1390,10 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"market_cap\x18\t \x01(\x01R\tmarketCap\x125\n" +
 	"\x17average_daily_value_20d\x18\n" +
 	" \x01(\x01R\x14averageDailyValue20d\x12%\n" +
-	"\x0eliquidity_band\x18\v \x01(\tR\rliquidityBand\"\x90\x03\n" +
+	"\x0eliquidity_band\x18\v \x01(\tR\rliquidityBand\x127\n" +
+	"\x18average_daily_volume_20d\x18\f \x01(\x01R\x15averageDailyVolume20d\x12\"\n" +
+	"\rdays_to_cover\x18\r \x01(\x01R\vdaysToCover\x12#\n" +
+	"\rsecurity_type\x18\x0e \x01(\tR\fsecurityType\"\x90\x03\n" +
 	"\x0eTimeSeriesData\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x122\n" +

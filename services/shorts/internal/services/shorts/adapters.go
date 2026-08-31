@@ -52,8 +52,8 @@ func (s *StoreAdapter) SearchStocks(query string, limit int32) ([]*stocksv1alpha
 	return s.store.SearchStocks(query, limit)
 }
 
-func (s *StoreAdapter) GetMarketByDate(date string, limit, offset int32, includeZero bool) ([]*stocksv1alpha1.Stock, int, error) {
-	return s.store.GetMarketByDate(date, limit, offset, includeZero)
+func (s *StoreAdapter) GetMarketByDate(date string, limit, offset int32, includeZero, ordinaryOnly bool) ([]*stocksv1alpha1.Stock, int, error) {
+	return s.store.GetMarketByDate(date, limit, offset, includeZero, ordinaryOnly)
 }
 
 func (s *StoreAdapter) GetAvailableDates(limit int, before string) ([]string, string, string, int, error) {

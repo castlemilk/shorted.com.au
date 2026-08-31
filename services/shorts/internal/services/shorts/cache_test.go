@@ -217,7 +217,7 @@ func TestCacheKeyGeneration(t *testing.T) {
 			// as_of changes WHICH observations are visible, so it must key too:
 			// otherwise a point-in-time query is served a cached series that
 			// includes data not yet published as at that date.
-			"as of":           cache.GetStockDataKey("CBA", "1M", "", "", false, 0, "2020-06-30"),
+			"as of": cache.GetStockDataKey("CBA", "1M", "", "", false, 0, "2020-06-30"),
 		}
 		for name, key := range variants {
 			assert.NotEqual(t, base, key, "%s must not collide with the default key", name)

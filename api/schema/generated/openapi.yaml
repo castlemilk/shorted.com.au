@@ -5348,6 +5348,20 @@ components:
              complete, and by default a name with no short interest that day is
              filtered out. Excluding exactly the names with no short interest biases
              any study that sorts on short interest, which is most of them. (proto bool)
+        ordinaryOnly:
+          type: boolean
+          title: ordinary_only
+          description: |-
+            Restrict the universe to ordinary share lines, excluding ETFs, bonds,
+             hybrids, secondary lines and micro-instruments.
+
+             This response deliberately returns everything ASIC reported, which is what
+             makes it a faithful point-in-time universe. But list_top_shorts and the
+             screener already state that non-equity instruments are excluded, and they
+             filter — so the two surfaces answered "what is the ASX universe"
+             differently and only one said so. A caller could discover the difference
+             only by noticing a warrant at 132% short. Every row now carries
+             security_type; this filters on it server-side. (proto bool)
       title: GetMarketByDateRequest
       additionalProperties: false
       description: Request for GetMarketByDate RPC
@@ -12535,6 +12549,49 @@ components:
              "large", "mid", "small" or "micro"; empty when unknown. Present because a
              band is usable for filtering even where the underlying value is missing or
              stale, and it is what most callers actually want. (proto string)
+        averageDailyVolume20d:
+          type: number
+          title: average_daily_volume_20d
+          format: double
+          description: |-
+            Average daily VOLUME in shares over the same 20 sessions, and the
+             short position expressed in days of that volume.
+
+             Percent-of-issue and days-to-cover are the two standard measures of short
+             interest, and they answer different questions. 5% short in a name that
+             turns over 2% of its register a day is a 2.5-day unwind; 5% short in a
+             name that turns over 0.1% a day is a 50-day unwind, and that is where
+             squeezes come from. Percent-of-issue treats those as identical.
+
+             days_to_cover = reported_short_positions / average_daily_volume_20d, and
+             is 0 when the volume is unknown or zero — never a division artefact. Note
+             this is share VOLUME, not the traded VALUE in average_daily_value_20d:
+             dividing a share count by dollars would produce a number with no meaning. Shares per session. 0 when unknown. (proto double)
+        daysToCover:
+          type: number
+          title: days_to_cover
+          format: double
+          description: Sessions of average volume. 0 when not computable. (proto double)
+        securityType:
+          type: string
+          title: security_type
+          description: |-
+            Coarse instrument class: "ordinary", "etf", "debt" or "other".
+
+             Short interest is reported as a percent of shares on issue, and that
+             quantity does not mean the same thing across instrument types. A warrant,
+             an ETF unit and a bond line each have a denominator, and dividing by it
+             yields a number that looks exactly like an ordinary share's short
+             percentage while not being comparable to one. The visible symptom is a
+             position over 100% — GSBW34 at 132.54%, UYLD at 102.61% — but those are
+             only the tip; the real problem is the ETF sitting at a plausible single
+             digit, indistinguishable from an ordinary share in the response.
+
+             Derived from the product name, code shape and shares on issue — the same
+             rules mv_top_shorts and mv_screener_data already filter on — not from an
+             authoritative instrument register, which we do not hold. Deliberately
+             coarse for that reason: it does not attempt warrant-versus-stapled, which
+             the data cannot support. (proto string)
       title: Stock
       additionalProperties: false
       description: A Stock represents a single stock's metadata.

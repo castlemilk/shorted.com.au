@@ -202,10 +202,10 @@ func (s *ShortsServer) GetMarketByDate(ctx context.Context, req *connect.Request
 
 	s.logger.Debugf("get market by date: %s, limit: %d, offset: %d", req.Msg.Date, req.Msg.Limit, req.Msg.Offset)
 
-	cacheKey := s.cache.GetMarketByDateKey(req.Msg.Date, req.Msg.Limit, req.Msg.Offset, req.Msg.IncludeZeroShortPositions)
+	cacheKey := s.cache.GetMarketByDateKey(req.Msg.Date, req.Msg.Limit, req.Msg.Offset, req.Msg.IncludeZeroShortPositions, req.Msg.OrdinaryOnly)
 
 	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		stocks, totalCount, err := s.store.GetMarketByDate(req.Msg.Date, req.Msg.Limit, req.Msg.Offset, req.Msg.IncludeZeroShortPositions)
+		stocks, totalCount, err := s.store.GetMarketByDate(req.Msg.Date, req.Msg.Limit, req.Msg.Offset, req.Msg.IncludeZeroShortPositions, req.Msg.OrdinaryOnly)
 		if err != nil {
 			return nil, err
 		}

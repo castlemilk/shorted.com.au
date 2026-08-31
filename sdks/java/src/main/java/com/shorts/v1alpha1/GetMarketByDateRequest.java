@@ -153,6 +153,30 @@ private static final long serialVersionUID = 0L;
     return includeZeroShortPositions_;
   }
 
+  public static final int ORDINARY_ONLY_FIELD_NUMBER = 5;
+  private boolean ordinaryOnly_ = false;
+  /**
+   * <pre>
+   * Restrict the universe to ordinary share lines, excluding ETFs, bonds,
+   * hybrids, secondary lines and micro-instruments.
+   *
+   * This response deliberately returns everything ASIC reported, which is what
+   * makes it a faithful point-in-time universe. But list_top_shorts and the
+   * screener already state that non-equity instruments are excluded, and they
+   * filter — so the two surfaces answered "what is the ASX universe"
+   * differently and only one said so. A caller could discover the difference
+   * only by noticing a warrant at 132% short. Every row now carries
+   * security_type; this filters on it server-side.
+   * </pre>
+   *
+   * <code>bool ordinary_only = 5 [json_name = "ordinaryOnly"];</code>
+   * @return The ordinaryOnly.
+   */
+  @java.lang.Override
+  public boolean getOrdinaryOnly() {
+    return ordinaryOnly_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -179,6 +203,9 @@ private static final long serialVersionUID = 0L;
     if (includeZeroShortPositions_ != false) {
       output.writeBool(4, includeZeroShortPositions_);
     }
+    if (ordinaryOnly_ != false) {
+      output.writeBool(5, ordinaryOnly_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -197,6 +224,10 @@ private static final long serialVersionUID = 0L;
     if (includeZeroShortPositions_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(4, includeZeroShortPositions_);
+    }
+    if (ordinaryOnly_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(5, ordinaryOnly_);
     }
     return size;
   }
@@ -230,6 +261,8 @@ private static final long serialVersionUID = 0L;
         != other.getOffset()) return false;
     if (getIncludeZeroShortPositions()
         != other.getIncludeZeroShortPositions()) return false;
+    if (getOrdinaryOnly()
+        != other.getOrdinaryOnly()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -250,6 +283,9 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + INCLUDE_ZERO_SHORT_POSITIONS_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getIncludeZeroShortPositions());
+    hash = (37 * hash) + ORDINARY_ONLY_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getOrdinaryOnly());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -389,6 +425,7 @@ private static final long serialVersionUID = 0L;
       limit_ = 0;
       offset_ = 0;
       includeZeroShortPositions_ = false;
+      ordinaryOnly_ = false;
       return this;
     }
 
@@ -434,6 +471,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.includeZeroShortPositions_ = includeZeroShortPositions_;
       }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.ordinaryOnly_ = ordinaryOnly_;
+      }
     }
 
     @java.lang.Override
@@ -461,6 +501,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getIncludeZeroShortPositions() != false) {
         setIncludeZeroShortPositions(other.getIncludeZeroShortPositions());
+      }
+      if (other.getOrdinaryOnly() != false) {
+        setOrdinaryOnly(other.getOrdinaryOnly());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -508,6 +551,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 32
+            case 40: {
+              ordinaryOnly_ = input.readBool();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 40
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -769,6 +817,77 @@ private static final long serialVersionUID = 0L;
     public Builder clearIncludeZeroShortPositions() {
       bitField0_ = (bitField0_ & ~0x00000008);
       includeZeroShortPositions_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean ordinaryOnly_ ;
+    /**
+     * <pre>
+     * Restrict the universe to ordinary share lines, excluding ETFs, bonds,
+     * hybrids, secondary lines and micro-instruments.
+     *
+     * This response deliberately returns everything ASIC reported, which is what
+     * makes it a faithful point-in-time universe. But list_top_shorts and the
+     * screener already state that non-equity instruments are excluded, and they
+     * filter — so the two surfaces answered "what is the ASX universe"
+     * differently and only one said so. A caller could discover the difference
+     * only by noticing a warrant at 132% short. Every row now carries
+     * security_type; this filters on it server-side.
+     * </pre>
+     *
+     * <code>bool ordinary_only = 5 [json_name = "ordinaryOnly"];</code>
+     * @return The ordinaryOnly.
+     */
+    @java.lang.Override
+    public boolean getOrdinaryOnly() {
+      return ordinaryOnly_;
+    }
+    /**
+     * <pre>
+     * Restrict the universe to ordinary share lines, excluding ETFs, bonds,
+     * hybrids, secondary lines and micro-instruments.
+     *
+     * This response deliberately returns everything ASIC reported, which is what
+     * makes it a faithful point-in-time universe. But list_top_shorts and the
+     * screener already state that non-equity instruments are excluded, and they
+     * filter — so the two surfaces answered "what is the ASX universe"
+     * differently and only one said so. A caller could discover the difference
+     * only by noticing a warrant at 132% short. Every row now carries
+     * security_type; this filters on it server-side.
+     * </pre>
+     *
+     * <code>bool ordinary_only = 5 [json_name = "ordinaryOnly"];</code>
+     * @param value The ordinaryOnly to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOrdinaryOnly(boolean value) {
+
+      ordinaryOnly_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Restrict the universe to ordinary share lines, excluding ETFs, bonds,
+     * hybrids, secondary lines and micro-instruments.
+     *
+     * This response deliberately returns everything ASIC reported, which is what
+     * makes it a faithful point-in-time universe. But list_top_shorts and the
+     * screener already state that non-equity instruments are excluded, and they
+     * filter — so the two surfaces answered "what is the ASX universe"
+     * differently and only one said so. A caller could discover the difference
+     * only by noticing a warrant at 132% short. Every row now carries
+     * security_type; this filters on it server-side.
+     * </pre>
+     *
+     * <code>bool ordinary_only = 5 [json_name = "ordinaryOnly"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearOrdinaryOnly() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      ordinaryOnly_ = false;
       onChanged();
       return this;
     }
