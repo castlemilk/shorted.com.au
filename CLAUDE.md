@@ -1320,6 +1320,20 @@ alerted. The rule now:
 > (600/10s) anyway and emits an **unsampled** `edge_bypass_used`
 > (`outcome=rejected|unconfigured`). It is never treated as anonymous.
 
+**Identifying the caller takes BOTH layers, and either alone does nothing.**
+The worker strips `cf-connecting-ip` and `x-forwarded-for` before forwarding to
+the origin (a client-supplied forwarded chain must never survive, or a caller
+picks their own bucket) and then re-adds Cloudflare's own value —
+`filterRequestHeaders` in `worker.js`. The origin believes those headers only
+when the RIGHTMOST forwarded hop is a published Cloudflare address —
+`resolveClientIP` in `services/pkg/ratelimit/http.go` — because Cloud Run is
+publicly reachable and a direct caller could otherwise forge them. Measured
+2026-08-30, the first day limiting ran: with the worker half missing, every
+identifier in `api_usage_monthly` was a Cloudflare address, so every caller
+behind a colo shared one bucket (30/min for a whole colo at the anonymous
+tier). Fixing only the Go side changed nothing for 11 minutes of production
+traffic, which is how the worker half was found.
+
 **The app layer now mirrors this, and had to before `RATE_LIMIT_ENABLED` could
 be true at all.** `classifyFirstParty` in `services/pkg/ratelimit/interceptor.go`
 reads the same marker and the same header (`RATE_LIMIT_SSR_BYPASS_USER_AGENT` /
