@@ -16,6 +16,7 @@ import { scaleLinear } from "@visx/scale";
 import { useRouter } from "next/navigation";
 import { TreemapTooltip } from "./treemap-tooltip";
 import { getSectorImagePath } from "~/@/lib/sector-images";
+import { leafLabelFontSize } from "~/app/treemap/treemap-labels";
 
 interface TreeMapDatum {
   id: string;
@@ -244,6 +245,21 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
                           }
                         }
 
+                        // Size the code to its tile: a fixed 12px + width-only
+                        // gate hid every label in a narrow widget and let text
+                        // overflow short tiles. 12px stays the ceiling so wide
+                        // widgets look exactly as they did.
+                        const fittedFontSize = leafLabelFontSize(
+                          nodeWidth,
+                          nodeHeight,
+                          stock.productCode,
+                          width,
+                        );
+                        const leafFontSize =
+                          fittedFontSize === null
+                            ? null
+                            : Math.min(fittedFontSize, 12);
+
                         return (
                           <Group
                             key={`stock-${i}`}
@@ -270,13 +286,13 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
                               cursor="pointer"
                               className="transition-opacity hover:opacity-80"
                             />
-                            {nodeWidth > 50 && (
+                            {leafFontSize !== null && (
                               <text
                                 x={nodeWidth / 2}
                                 y={nodeHeight / 2}
                                 dy=".35em"
                                 textAnchor="middle"
-                                fontSize={12}
+                                fontSize={leafFontSize}
                                 fill="white"
                                 fontWeight="600"
                                 pointerEvents="none"
