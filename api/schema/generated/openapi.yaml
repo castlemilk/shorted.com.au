@@ -77,6 +77,16 @@ paths:
             Comma-separated ASX codes to restrict the export to. Omit for every security. Case-insensitive.
           schema:
             type: string
+        - name: as_of
+          in: query
+          required: false
+          description: >-
+            Point-in-time filter, YYYY-MM-DD. Returns only observations that had been PUBLISHED by this date. ASIC publishes T+4, so an export for a historical window otherwise contains up to four days of data nobody could have had on the dates it is dated — lookahead a backtest cannot detect from the outside. Every row also carries available_from, so the lag can be checked rather than assumed.
+
+            This covers publication LAG only. ASIC can also revise a position after the fact; the store updates in place, so a historical query returns the as-revised value and no field here identifies it as revised.
+          schema:
+            type: string
+            format: date
         - name: include_zero
           in: query
           required: false
@@ -93,7 +103,7 @@ paths:
               schema:
                 type: string
                 description: >-
-                  Header row followed by one row per (date, security): date, product_code, product_name, reported_short_positions, total_product_in_issue, percent_shorted.
+                  Header row followed by one row per (date, security): date, available_from, product_code, product_name, reported_short_positions, total_product_in_issue, percent_shorted.
             application/x-ndjson:
               schema:
                 type: string
