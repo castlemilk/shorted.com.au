@@ -25,12 +25,22 @@ const maxPanelWindowDays = 30 * 365
 // panelExportCost is what one export charges against the caller's quota.
 //
 // One request here does the work of thousands of GetMarketByDate calls, so
-// metering it as a single request would let the quota mean nothing. It is
-// deliberately far below what it replaces: the request-per-date pattern this
-// exists to kill costs ~2,500 requests for a decade, and this costs 50. Cheaper
-// for us to serve than the pattern it replaces, and cheap enough for the caller
-// that there is no reason to go back to paging.
-const panelExportCost = 50
+// metering it as a single request would let the quota mean nothing.
+//
+// The ceiling on this number is not a matter of taste. The HTTP middleware
+// charges units by calling the limiter once per unit, and the limiter's
+// per-minute window is charged alongside the monthly one — so a cost at or
+// above a tier's per-minute limit makes the endpoint 429 its own first
+// request, permanently, for everyone in that tier. Shipped at 50 against an
+// anonymous ceiling of 30, this endpoint was dead in production and healthy
+// locally, where the limiter is off by default.
+//
+// 10 leaves an anonymous caller three exports a minute — enough to pull a
+// decade in yearly slices without waiting — while still charging ten times an
+// ordinary request. TestPanelExportCostCannotExceedAnyTiersPerMinuteLimit
+// derives the bound from DefaultConfig so neither side can drift into the
+// deadlock again.
+const panelExportCost = 10
 
 // PanelExportHandler streams the panel as CSV or NDJSON.
 //

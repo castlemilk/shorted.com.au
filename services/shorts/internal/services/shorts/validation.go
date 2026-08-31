@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -113,7 +114,7 @@ func ValidateGetStockDataRequest(req *shortsv1alpha1.GetStockDataRequest) error 
 		)
 	}
 
-	return nil
+	return validateWindowOptions(req.From, req.To, req.MaxPoints)
 }
 
 // ValidateGetStockDetailsRequest validates the GetStockDetails request parameters
@@ -373,28 +374,58 @@ func ValidateGetStockPricesRequest(req *shortsv1alpha1.GetStockPricesRequest) er
 			fmt.Errorf("invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y, MAX"),
 		)
 	}
-	if err := validateDateOption(req.From, "from"); err != nil {
-		return err
-	}
-	if err := validateDateOption(req.To, "to"); err != nil {
-		return err
-	}
-	if req.MaxPoints < 0 {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("max_points must be non-negative"))
-	}
-	return nil
+	return validateWindowOptions(req.From, req.To, req.MaxPoints)
 }
 
-// validateDateOption accepts an empty value or a YYYY-MM-DD date, naming the
-// field in the error so a caller is told which of from/to is wrong.
+// validateDateOption accepts an empty value or a real YYYY-MM-DD date, naming
+// the field in the error so a caller is told which of from/to is wrong.
+//
+// Parsed rather than shape-checked: "2026-02-31" and "2026-99-01" both have
+// the right shape, and a date that only Postgres rejects surfaces as a query
+// failure the handler maps to NotFound — telling the caller the STOCK does not
+// exist when the truth is that their date does not.
 func validateDateOption(value, field string) error {
 	if value == "" {
 		return nil
 	}
-	if len(value) != 10 || value[4] != '-' || value[7] != '-' {
+	if _, err := time.Parse("2006-01-02", value); err != nil {
 		return connect.NewError(
 			connect.CodeInvalidArgument,
-			fmt.Errorf("%s must be in YYYY-MM-DD format", field),
+			fmt.Errorf("%s must be a valid date in YYYY-MM-DD format", field),
+		)
+	}
+	return nil
+}
+
+// validateWindowOptions checks the from/to/max_points trio shared by
+// GetStockData and GetStockPrices.
+//
+// Shared because they are the same options with the same meaning, and when
+// they were validated separately only the endpoint written second got it
+// right: GetStockData silently ignored a negative max_points and answered a
+// transposed window with an empty series, which looks like a real result.
+func validateWindowOptions(from, to string, maxPoints int32) error {
+	if err := validateDateOption(from, "from"); err != nil {
+		return err
+	}
+	if err := validateDateOption(to, "to"); err != nil {
+		return err
+	}
+	if from != "" && to != "" {
+		// Both already parsed above, so these cannot fail.
+		fromDate, _ := time.Parse("2006-01-02", from)
+		toDate, _ := time.Parse("2006-01-02", to)
+		if toDate.Before(fromDate) {
+			return connect.NewError(
+				connect.CodeInvalidArgument,
+				fmt.Errorf("to (%s) must not be before from (%s)", to, from),
+			)
+		}
+	}
+	if maxPoints < 0 {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("max_points must be non-negative; 0 means no cap"),
 		)
 	}
 	return nil

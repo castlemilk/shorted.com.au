@@ -199,9 +199,15 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
       () => {
         const lastPoint = data.points?.at(-1);
         const midPoint = data.points?.[Math.round((data.points.length ?? 0) * 0.8)];
+        // Every scalar field on the message, because protobuf-es types them as
+        // required — a partial literal stops compiling the moment a field is
+        // added to the proto. Only the date is ever read from this fallback;
+        // the rest are the proto's own zero values.
         const fallbackPoint: TimeSeriesPoint = {
           $typeName: "stocks.v1alpha1.TimeSeriesPoint",
           shortPosition: 0,
+          reportedShortPositions: 0,
+          totalProductInIssue: 0,
         };
         return {
           start: {
