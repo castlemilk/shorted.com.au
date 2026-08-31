@@ -39,9 +39,14 @@ function selectDisable(rows, { keep = 2, inUse = "" } = {}) {
   return run(args, tsv(rows));
 }
 
-function selectDestroy(rows, { cutoff, inUse = "", cap = 200 } = {}) {
+function selectDestroy(
+  rows,
+  { cutoff, inUse = "", cap = 200, minVersion, maxVersion } = {},
+) {
   const args = ["select-destroy", "--cutoff", cutoff, "--cap", String(cap)];
   if (inUse) args.push("--in-use", inUse);
+  if (minVersion !== undefined) args.push("--min-version", String(minVersion));
+  if (maxVersion !== undefined) args.push("--max-version", String(maxVersion));
   return run(args, tsv(rows));
 }
 
@@ -147,4 +152,19 @@ test("destroy: numeric ordering holds across the 999 -> 1000 boundary too", () =
   const got = selectDestroy(rows, { cutoff: "2026-04-27T00:00:00Z" });
   assert.deepEqual(got, ["999", "1000"]);
   assert.ok(!got.includes("1002"), "1002 is the numeric latest");
+});
+
+test("destroy: an exact numeric version range bounds the candidate set", () => {
+  const rows = [444, 445, 446, 574, 575].map((version) =>
+    disabled(version, "2020-01-01T00:00:00Z"),
+  );
+  rows.push(enabled(999));
+
+  const got = selectDestroy(rows, {
+    cutoff: "2026-04-27T00:00:00Z",
+    minVersion: 445,
+    maxVersion: 574,
+  });
+
+  assert.deepEqual(got, ["445", "446", "574"]);
 });

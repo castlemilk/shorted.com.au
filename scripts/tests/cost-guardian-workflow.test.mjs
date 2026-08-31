@@ -39,3 +39,24 @@ test("manual secret cleanup can exclude unrelated production mutations", () => {
     "secrets-only dispatch must not skip the secret cleanup job",
   );
 });
+
+test("manual destruction can be bounded to one exact secret version range", () => {
+  for (const input of [
+    "secret_name",
+    "destroy_min_version",
+    "destroy_max_version",
+    "skip_disable",
+  ]) {
+    assert.match(workflowSource, new RegExp(`\\n      ${input}:`), input);
+  }
+
+  const secretJob = jobBlock("cleanup-secret-versions");
+  assert.match(secretJob, /SECRET_NAME:.*inputs\.secret_name/);
+  assert.match(secretJob, /DESTROY_MIN_VERSION:.*inputs\.destroy_min_version/);
+  assert.match(secretJob, /DESTROY_MAX_VERSION:.*inputs\.destroy_max_version/);
+  assert.match(secretJob, /SKIP_DISABLE:.*inputs\.skip_disable/);
+  assert.match(secretJob, /ARGS\+=\(--only-secret "\$SECRET_NAME"\)/);
+  assert.match(secretJob, /ARGS\+=\(--destroy-min-version "\$DESTROY_MIN_VERSION"\)/);
+  assert.match(secretJob, /ARGS\+=\(--destroy-max-version "\$DESTROY_MAX_VERSION"\)/);
+  assert.match(secretJob, /ARGS\+=\(--skip-disable\)/);
+});

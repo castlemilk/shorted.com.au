@@ -36,7 +36,9 @@
 # Usage:
 #   secret-version-cleanup.sh --project P [--keep 2]
 #                             [--dry-run] [--destroy] [--destroy-age-days 90]
-#                             [--destroy-cap 200]
+#                             [--destroy-cap 200] [--only-secret NAME]
+#                             [--destroy-min-version N]
+#                             [--destroy-max-version N] [--skip-disable]
 #
 # Pure sub-commands (no gcloud; used by scripts/secret-version-cleanup.test.mjs).
 # Both read TSV on stdin: "<version-number>\t<state>\t<createTime RFC3339 UTC>".
@@ -53,6 +55,10 @@ DRY_RUN=false
 DO_DESTROY=false
 DESTROY_AGE_DAYS=90
 DESTROY_CAP=200
+ONLY_SECRET=""
+DESTROY_MIN_VERSION=""
+DESTROY_MAX_VERSION=""
+SKIP_DISABLE=false
 
 log() { printf '%s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -106,6 +112,7 @@ EOF
 # with a parseable createTime strictly older than the cutoff are eligible.
 select_destroy() {
   local in_use_csv="${1:-}" cutoff="$2" cap="$3"
+  local min_version="${4:-}" max_version="${5:-}"
   local input latest rows v t out=""
   input=$(cat)
   latest=$(printf '%s\n' "$input" | numeric_latest)
@@ -118,6 +125,8 @@ select_destroy() {
     [ -n "$v" ] || continue
     if [ "$v" = "$latest" ]; then continue; fi
     if is_in_use "$v" "$in_use_csv"; then continue; fi
+    if [ -n "$min_version" ] && [ "$v" -lt "$min_version" ]; then continue; fi
+    if [ -n "$max_version" ] && [ "$v" -gt "$max_version" ]; then continue; fi
     # Unknown/unparseable creation time => treat as too young to destroy.
     case "$t" in
       [0-9][0-9][0-9][0-9]-*) ;;
@@ -243,8 +252,19 @@ collect_in_use() {
 run_cleanup() {
   [ -n "$PROJECT" ] || die "--project is required"
 
+  if [ -n "$DESTROY_MIN_VERSION" ] || [ -n "$DESTROY_MAX_VERSION" ]; then
+    [ -n "$DESTROY_MIN_VERSION" ] && [ -n "$DESTROY_MAX_VERSION" ] \
+      || die "--destroy-min-version and --destroy-max-version must be supplied together"
+    [[ "$DESTROY_MIN_VERSION" =~ ^[0-9]+$ ]] && [[ "$DESTROY_MAX_VERSION" =~ ^[0-9]+$ ]] \
+      || die "destroy version bounds must be numeric"
+    [ "$DESTROY_MIN_VERSION" -le "$DESTROY_MAX_VERSION" ] \
+      || die "destroy minimum version must not exceed maximum version"
+    [ "$DO_DESTROY" = "true" ] \
+      || die "destroy version bounds require --destroy"
+  fi
+
   log "=== Secret Manager cleanup: $PROJECT ==="
-  log "keep=$KEEP_COUNT dry_run=$DRY_RUN destroy=$DO_DESTROY destroy_age_days=$DESTROY_AGE_DAYS destroy_cap=$DESTROY_CAP"
+  log "keep=$KEEP_COUNT dry_run=$DRY_RUN destroy=$DO_DESTROY destroy_age_days=$DESTROY_AGE_DAYS destroy_cap=$DESTROY_CAP only_secret=${ONLY_SECRET:-all} destroy_range=${DESTROY_MIN_VERSION:-all}-${DESTROY_MAX_VERSION:-all} skip_disable=$SKIP_DISABLE"
   log ""
 
   local in_use_file
@@ -272,8 +292,14 @@ run_cleanup() {
   fi
   log ""
 
-  local total_disabled=0 total_destroyed=0 secret versions in_use_csv to_disable to_destroy ver
-  for secret in $(gcloud secrets list --project="$PROJECT" --format="value(name)"); do
+  local total_disabled=0 total_destroyed=0 secret versions in_use_csv to_disable to_destroy ver secrets
+  if [ -n "$ONLY_SECRET" ]; then
+    secrets="$ONLY_SECRET"
+  elif ! secrets=$(gcloud secrets list --project="$PROJECT" --format="value(name)" 2>&1); then
+    die "failed to list secrets for project $PROJECT — refusing to continue"
+  fi
+
+  for secret in $secrets; do
     if ! versions=$(gcloud secrets versions list "$secret" --project="$PROJECT" \
           --format="value(name,state,createTime.date(tz='UTC', format='%Y-%m-%dT%H:%M:%SZ'))" 2>&1); then
       die "failed to list versions for secret $secret — refusing to continue"
@@ -282,7 +308,10 @@ run_cleanup() {
     in_use_csv=$(awk -F'\t' -v s="$secret" '$1 == s && $2 ~ /^[0-9]+$/ { print $2 }' "$in_use_file" \
       | sort -un | paste -sd, - | tr -d '[:space:]')
 
-    to_disable=$(printf '%s\n' "$versions" | select_disable "$KEEP_COUNT" "$in_use_csv")
+    to_disable=""
+    if [ "$SKIP_DISABLE" != "true" ]; then
+      to_disable=$(printf '%s\n' "$versions" | select_disable "$KEEP_COUNT" "$in_use_csv")
+    fi
 
     if [ -n "$to_disable" ]; then
       log "$secret: disabling $(printf '%s\n' "$to_disable" | grep -c .) versions (keep=$KEEP_COUNT, latest protected, in-use=[${in_use_csv:-none}])"
@@ -304,7 +333,7 @@ EOF
       # Re-read state so versions disabled a moment ago are not destroyed in the
       # same run (they are not yet older than the age cutoff anyway, but the
       # re-read keeps the two passes honest).
-      to_destroy=$(printf '%s\n' "$versions" | select_destroy "$in_use_csv" "$cutoff" "$DESTROY_CAP")
+      to_destroy=$(printf '%s\n' "$versions" | select_destroy "$in_use_csv" "$cutoff" "$DESTROY_CAP" "$DESTROY_MIN_VERSION" "$DESTROY_MAX_VERSION")
       if [ -n "$to_destroy" ]; then
         log "$secret: destroying $(printf '%s\n' "$to_destroy" | grep -c .) versions (disabled + older than ${DESTROY_AGE_DAYS}d, cap=$DESTROY_CAP)"
         while read -r ver; do
@@ -356,17 +385,19 @@ main() {
       ;;
     select-destroy)
       shift
-      local in_use="" cutoff="" cap=200
+      local in_use="" cutoff="" cap=200 min_version="" max_version=""
       while [ $# -gt 0 ]; do
         case "$1" in
           --in-use) in_use="$2"; shift 2 ;;
           --cutoff) cutoff="$2"; shift 2 ;;
           --cap) cap="$2"; shift 2 ;;
+          --min-version) min_version="$2"; shift 2 ;;
+          --max-version) max_version="$2"; shift 2 ;;
           *) die "unknown arg for select-destroy: $1" ;;
         esac
       done
       [ -n "$cutoff" ] || die "select-destroy requires --cutoff"
-      select_destroy "$in_use" "$cutoff" "$cap"
+      select_destroy "$in_use" "$cutoff" "$cap" "$min_version" "$max_version"
       return 0
       ;;
   esac
@@ -379,6 +410,10 @@ main() {
       --destroy) DO_DESTROY=true; shift ;;
       --destroy-age-days) DESTROY_AGE_DAYS="$2"; shift 2 ;;
       --destroy-cap) DESTROY_CAP="$2"; shift 2 ;;
+      --only-secret) ONLY_SECRET="$2"; shift 2 ;;
+      --destroy-min-version) DESTROY_MIN_VERSION="$2"; shift 2 ;;
+      --destroy-max-version) DESTROY_MAX_VERSION="$2"; shift 2 ;;
+      --skip-disable) SKIP_DISABLE=true; shift ;;
       -h|--help) sed -n '2,40p' "$0"; return 0 ;;
       *) die "unknown arg: $1" ;;
     esac
