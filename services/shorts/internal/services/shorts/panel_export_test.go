@@ -76,7 +76,7 @@ func TestPanelExportCSV(t *testing.T) {
 	if len(records) != 3 {
 		t.Fatalf("got %d CSV lines, want a header and 2 rows", len(records))
 	}
-	wantHeader := []string{"date", "available_from", "product_code", "product_name",
+	wantHeader := []string{"date", "available_from", "security_type", "product_code", "product_name",
 		"reported_short_positions", "total_product_in_issue", "percent_shorted"}
 	for i, h := range wantHeader {
 		if records[0][i] != h {
@@ -87,10 +87,10 @@ func TestPanelExportCSV(t *testing.T) {
 	// A share count must not come out in scientific notation: 1.2345678e+07
 	// does not parse as an integer in every consumer, and this is a file
 	// people load into a dataframe without reading it first.
-	if got := records[1][4]; got != "12345678" {
+	if got := records[1][5]; got != "12345678" {
 		t.Errorf("reported_short_positions = %q, want a plain integer", got)
 	}
-	if got := records[2][5]; got != "5084182500" {
+	if got := records[2][6]; got != "5084182500" {
 		t.Errorf("total_product_in_issue = %q, want a plain integer", got)
 	}
 }

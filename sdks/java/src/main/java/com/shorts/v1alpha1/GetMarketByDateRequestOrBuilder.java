@@ -67,4 +67,23 @@ public interface GetMarketByDateRequestOrBuilder extends
    * @return The includeZeroShortPositions.
    */
   boolean getIncludeZeroShortPositions();
+
+  /**
+   * <pre>
+   * Restrict the universe to ordinary share lines, excluding ETFs, bonds,
+   * hybrids, secondary lines and micro-instruments.
+   *
+   * This response deliberately returns everything ASIC reported, which is what
+   * makes it a faithful point-in-time universe. But list_top_shorts and the
+   * screener already state that non-equity instruments are excluded, and they
+   * filter — so the two surfaces answered "what is the ASX universe"
+   * differently and only one said so. A caller could discover the difference
+   * only by noticing a warrant at 132% short. Every row now carries
+   * security_type; this filters on it server-side.
+   * </pre>
+   *
+   * <code>bool ordinary_only = 5 [json_name = "ordinaryOnly"];</code>
+   * @return The ordinaryOnly.
+   */
+  boolean getOrdinaryOnly();
 }

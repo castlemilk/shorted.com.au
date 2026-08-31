@@ -133,6 +133,23 @@ paths:
           schema:
             type: string
             format: date
+        - name: ordinary_only
+          in: query
+          required: false
+          description: >-
+            Restrict the panel to ordinary share lines, excluding ETFs, bonds,
+            hybrids, secondary lines and micro-instruments. Off by default, so
+            the export stays a faithful record of what ASIC reported.
+
+            Short interest is a percent of shares on issue, and that quantity is
+            not comparable across instrument types — a warrant or ETF unit
+            produces a number that looks like an ordinary share's short
+            percentage without being one. Every row carries security_type
+            (ordinary / etf / debt / other) so the decision can also be made
+            client-side.
+          schema:
+            type: boolean
+            default: false
         - name: include_zero
           in: query
           required: false
@@ -153,9 +170,9 @@ paths:
                 type: string
                 description: >-
                   Header row followed by one row per (date, security):
-                  date, available_from, product_code, product_name,
-                  reported_short_positions, total_product_in_issue,
-                  percent_shorted.
+                  date, available_from, security_type, product_code,
+                  product_name, reported_short_positions,
+                  total_product_in_issue, percent_shorted.
             application/x-ndjson:
               schema:
                 type: string

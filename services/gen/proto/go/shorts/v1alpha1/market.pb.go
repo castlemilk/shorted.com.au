@@ -593,8 +593,19 @@ type GetMarketByDateRequest struct {
 	// filtered out. Excluding exactly the names with no short interest biases
 	// any study that sorts on short interest, which is most of them.
 	IncludeZeroShortPositions bool `protobuf:"varint,4,opt,name=include_zero_short_positions,json=includeZeroShortPositions,proto3" json:"include_zero_short_positions,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// Restrict the universe to ordinary share lines, excluding ETFs, bonds,
+	// hybrids, secondary lines and micro-instruments.
+	//
+	// This response deliberately returns everything ASIC reported, which is what
+	// makes it a faithful point-in-time universe. But list_top_shorts and the
+	// screener already state that non-equity instruments are excluded, and they
+	// filter — so the two surfaces answered "what is the ASX universe"
+	// differently and only one said so. A caller could discover the difference
+	// only by noticing a warrant at 132% short. Every row now carries
+	// security_type; this filters on it server-side.
+	OrdinaryOnly  bool `protobuf:"varint,5,opt,name=ordinary_only,json=ordinaryOnly,proto3" json:"ordinary_only,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetMarketByDateRequest) Reset() {
@@ -651,6 +662,13 @@ func (x *GetMarketByDateRequest) GetOffset() int32 {
 func (x *GetMarketByDateRequest) GetIncludeZeroShortPositions() bool {
 	if x != nil {
 		return x.IncludeZeroShortPositions
+	}
+	return false
+}
+
+func (x *GetMarketByDateRequest) GetOrdinaryOnly() bool {
+	if x != nil {
+		return x.OrdinaryOnly
 	}
 	return false
 }
@@ -1453,12 +1471,13 @@ const file_shorts_v1alpha1_market_proto_rawDesc = "" +
 	"\x17checkpoint_stocks_total\x18\r \x01(\x05R\x15checkpointStocksTotal\x12>\n" +
 	"\x1bcheckpoint_stocks_processed\x18\x0e \x01(\x05R\x19checkpointStocksProcessed\x12@\n" +
 	"\x1ccheckpoint_stocks_successful\x18\x0f \x01(\x05R\x1acheckpointStocksSuccessful\x128\n" +
-	"\x18checkpoint_stocks_failed\x18\x10 \x01(\x05R\x16checkpointStocksFailed\"\x9b\x01\n" +
+	"\x18checkpoint_stocks_failed\x18\x10 \x01(\x05R\x16checkpointStocksFailed\"\xc0\x01\n" +
 	"\x16GetMarketByDateRequest\x12\x12\n" +
 	"\x04date\x18\x01 \x01(\tR\x04date\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
 	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12?\n" +
-	"\x1cinclude_zero_short_positions\x18\x04 \x01(\bR\x19includeZeroShortPositions\"\xc0\x01\n" +
+	"\x1cinclude_zero_short_positions\x18\x04 \x01(\bR\x19includeZeroShortPositions\x12#\n" +
+	"\rordinary_only\x18\x05 \x01(\bR\fordinaryOnly\"\xc0\x01\n" +
 	"\x17GetMarketByDateResponse\x12\x12\n" +
 	"\x04date\x18\x01 \x01(\tR\x04date\x12.\n" +
 	"\x06stocks\x18\x02 \x03(\v2\x16.stocks.v1alpha1.StockR\x06stocks\x12\x1f\n" +

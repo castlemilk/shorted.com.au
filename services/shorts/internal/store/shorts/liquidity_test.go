@@ -57,10 +57,10 @@ func TestLiquidityBandsAreMonotonic(t *testing.T) {
 
 func TestDaysToCover(t *testing.T) {
 	tests := []struct {
-		name       string
-		short      float64
-		volume     float64
-		want       float64
+		name   string
+		short  float64
+		volume float64
+		want   float64
 	}{
 		// 5% short of a register that turns over quickly: a short unwind of
 		// days, not weeks.
@@ -95,7 +95,7 @@ func TestDaysToCoverSeparatesEqualPercentages(t *testing.T) {
 	const sharesOnIssue = 100_000_000
 	const shortPositions = sharesOnIssue * 0.05 // 5% short in both cases
 
-	liquid := daysToCover(shortPositions, sharesOnIssue*0.02)   // 2% daily turnover
+	liquid := daysToCover(shortPositions, sharesOnIssue*0.02)    // 2% daily turnover
 	illiquid := daysToCover(shortPositions, sharesOnIssue*0.001) // 0.1% daily turnover
 
 	if liquid >= illiquid {

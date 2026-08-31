@@ -545,9 +545,9 @@ func (mr *MockShortsStoreMockRecorder) GetIndustryTreeMap(limit, period, viewMod
 }
 
 // GetMarketByDate mocks base method.
-func (m *MockShortsStore) GetMarketByDate(date string, limit, offset int32, includeZero bool) ([]*stocksv1alpha1.Stock, int, error) {
+func (m *MockShortsStore) GetMarketByDate(date string, limit, offset int32, includeZero, ordinaryOnly bool) ([]*stocksv1alpha1.Stock, int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMarketByDate", date, limit, offset, includeZero)
+	ret := m.ctrl.Call(m, "GetMarketByDate", date, limit, offset, includeZero, ordinaryOnly)
 	ret0, _ := ret[0].([]*stocksv1alpha1.Stock)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
@@ -555,9 +555,9 @@ func (m *MockShortsStore) GetMarketByDate(date string, limit, offset int32, incl
 }
 
 // GetMarketByDate indicates an expected call of GetMarketByDate.
-func (mr *MockShortsStoreMockRecorder) GetMarketByDate(date, limit, offset, includeZero any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) GetMarketByDate(date, limit, offset, includeZero, ordinaryOnly any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketByDate", reflect.TypeOf((*MockShortsStore)(nil).GetMarketByDate), date, limit, offset, includeZero)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketByDate", reflect.TypeOf((*MockShortsStore)(nil).GetMarketByDate), date, limit, offset, includeZero, ordinaryOnly)
 }
 
 // GetMarketNews mocks base method.
@@ -2177,17 +2177,17 @@ func (mr *MockCacheMockRecorder) GetIndustryTreeMapKey(limit, period, viewMode a
 }
 
 // GetMarketByDateKey mocks base method.
-func (m *MockCache) GetMarketByDateKey(date string, limit, offset int32, includeZero bool) string {
+func (m *MockCache) GetMarketByDateKey(date string, limit, offset int32, includeZero, ordinaryOnly bool) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMarketByDateKey", date, limit, offset, includeZero)
+	ret := m.ctrl.Call(m, "GetMarketByDateKey", date, limit, offset, includeZero, ordinaryOnly)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // GetMarketByDateKey indicates an expected call of GetMarketByDateKey.
-func (mr *MockCacheMockRecorder) GetMarketByDateKey(date, limit, offset, includeZero any) *gomock.Call {
+func (mr *MockCacheMockRecorder) GetMarketByDateKey(date, limit, offset, includeZero, ordinaryOnly any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketByDateKey", reflect.TypeOf((*MockCache)(nil).GetMarketByDateKey), date, limit, offset, includeZero)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketByDateKey", reflect.TypeOf((*MockCache)(nil).GetMarketByDateKey), date, limit, offset, includeZero, ordinaryOnly)
 }
 
 // GetMarketNewsKey mocks base method.

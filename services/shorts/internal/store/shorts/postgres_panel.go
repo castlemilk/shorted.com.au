@@ -12,6 +12,7 @@ import (
 type PanelRow struct {
 	Date                   string
 	AvailableFrom          string
+	SecurityType           string
 	ProductCode            string
 	ProductName            string
 	ReportedShortPositions float64
@@ -25,6 +26,12 @@ type PanelQuery struct {
 	To           string   // YYYY-MM-DD, inclusive. Required.
 	ProductCodes []string // Optional filter; empty means every security.
 	IncludeZero  bool     // Include zero short positions (see GetMarketByDate).
+
+	// OrdinaryOnly restricts the panel to ordinary share lines. A
+	// cross-sectional signal ranks instruments against each other, and an ETF
+	// or warrant's "percent of shares on issue" is not comparable with an
+	// ordinary share's — see security_type on the stock record (issue #563).
+	OrdinaryOnly bool
 
 	// AsOf, YYYY-MM-DD, drops observations not yet PUBLISHED as at that date.
 	// This is the surface a backtest is actually built on, so it is the one
@@ -103,6 +110,10 @@ func (s *postgresStore) StreamPanel(ctx context.Context, q PanelQuery, fn func(P
 			continue
 		}
 		row.AvailableFrom = availableFrom.Format("2006-01-02")
+		row.SecurityType = string(ClassifySecurity(row.ProductName, row.ProductCode, row.TotalProductInIssue))
+		if q.OrdinaryOnly && row.SecurityType != string(SecurityTypeOrdinary) {
+			continue
+		}
 		if short != nil {
 			row.ReportedShortPositions = finiteOrZero(*short)
 		}

@@ -200,8 +200,8 @@ func (c *MemoryCache) GetSearchStocksKey(query string, limit int32) string {
 // includeZero is part of the key because it changes which securities are in
 // the universe, not merely how they are ordered — the same key would otherwise
 // serve a zero-excluding board to a caller building a research universe.
-func (c *MemoryCache) GetMarketByDateKey(date string, limit, offset int32, includeZero bool) string {
-	return c.generateKey("market_by_date", date, limit, offset, includeZero)
+func (c *MemoryCache) GetMarketByDateKey(date string, limit, offset int32, includeZero, ordinaryOnly bool) string {
+	return c.generateKey("market_by_date", date, limit, offset, includeZero, ordinaryOnly)
 }
 
 func (c *MemoryCache) GetAvailableDatesKey(limit int32, before string) string {

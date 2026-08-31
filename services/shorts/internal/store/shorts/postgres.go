@@ -301,6 +301,7 @@ SELECT
 	s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 	s."PRODUCT_CODE" as product_code,
 	COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name, 
+	COALESCE(s."PRODUCT", '') as raw_product,
 	s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
 	s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 	COALESCE(m.industry, '') as industry,
@@ -345,10 +346,12 @@ ORDER BY s."DATE" DESC LIMIT 1`
 	}
 
 	stock := &stocksv1alpha1.Stock{}
+	var rawProduct string
 	if err := rows.Scan(
 		&stock.PercentageShorted,
 		&stock.ProductCode,
 		&stock.Name,
+		&rawProduct,
 		&stock.TotalProductInIssue,
 		&stock.ReportedShortPositions,
 		&stock.Industry,
@@ -362,6 +365,7 @@ ORDER BY s."DATE" DESC LIMIT 1`
 	}
 	stock.LiquidityBand = liquidityBand(stock.AverageDailyValue_20D)
 	stock.DaysToCover = daysToCover(float64(stock.ReportedShortPositions), stock.AverageDailyVolume_20D)
+	stock.SecurityType = string(ClassifySecurity(rawProduct, stock.ProductCode, float64(stock.TotalProductInIssue)))
 	return stock, nil
 }
 
@@ -1308,7 +1312,7 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 // are part of the universe. The default excludes them, which is right for a
 // "most shorted" board and wrong for building a research universe: dropping
 // the zero-interest names biases anything that sorts on short interest.
-func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includeZero bool) ([]*stocksv1alpha1.Stock, int, error) {
+func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includeZero, ordinaryOnly bool) ([]*stocksv1alpha1.Stock, int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -1355,6 +1359,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 		SELECT
 			s."PRODUCT_CODE" as product_code,
 			COALESCE(NULLIF(m.company_name, ''), s."PRODUCT") as name,
+			COALESCE(s."PRODUCT", '') as raw_product,
 			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
@@ -1397,9 +1402,11 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 	var stocks []*stocksv1alpha1.Stock
 	for rows.Next() {
 		stock := &stocksv1alpha1.Stock{}
+		var rawProduct string
 		if err := rows.Scan(
 			&stock.ProductCode,
 			&stock.Name,
+			&rawProduct,
 			&stock.PercentageShorted,
 			&stock.ReportedShortPositions,
 			&stock.TotalProductInIssue,
@@ -1413,6 +1420,13 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 		}
 		stock.LiquidityBand = liquidityBand(stock.AverageDailyValue_20D)
 		stock.DaysToCover = daysToCover(float64(stock.ReportedShortPositions), stock.AverageDailyVolume_20D)
+		stock.SecurityType = string(ClassifySecurity(rawProduct, stock.ProductCode, float64(stock.TotalProductInIssue)))
+		// Filtered here rather than in SQL so there is ONE classifier: the
+		// rules live in Go, and the MVs' copy in migration 000043 is the thing
+		// that has to agree with it, not a second definition to maintain.
+		if ordinaryOnly && stock.SecurityType != string(SecurityTypeOrdinary) {
+			continue
+		}
 		stocks = append(stocks, stock)
 	}
 

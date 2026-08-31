@@ -21,7 +21,7 @@ type ShortsStore interface {
 	GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error)
 	GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error)
 	SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error)
-	GetMarketByDate(date string, limit, offset int32, includeZero bool) ([]*stocksv1alpha1.Stock, int, error)
+	GetMarketByDate(date string, limit, offset int32, includeZero, ordinaryOnly bool) ([]*stocksv1alpha1.Stock, int, error)
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
 	GetSyncStatus(filter shortsstore.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
@@ -215,7 +215,7 @@ type Cache interface {
 	GetStockDetailsKey(productCode string) string
 	GetIndustryTreeMapKey(limit int32, period, viewMode string) string
 	GetSearchStocksKey(query string, limit int32) string
-	GetMarketByDateKey(date string, limit, offset int32, includeZero bool) string
+	GetMarketByDateKey(date string, limit, offset int32, includeZero, ordinaryOnly bool) string
 	GetAvailableDatesKey(limit int32, before string) string
 	GetStockNewsKey(stockCode string, limit int32, source, sentiment string) string
 	GetMarketNewsKey(limit int32, source string, priceSensitiveOnly bool) string
