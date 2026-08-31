@@ -210,7 +210,7 @@ type Cache interface {
 	// Cache key generators
 	GetTopShortsKey(period string, limit int32, offset int32) string
 	GetStockKey(productCode string) string
-	GetStockDataKey(productCode, period, from, to string, fullResolution bool, maxPoints int32) string
+	GetStockDataKey(productCode, period, from, to string, fullResolution bool, maxPoints int32, asOf string) string
 	GetStockPricesKey(productCode, period, from, to string, maxPoints int32) string
 	GetStockDetailsKey(productCode string) string
 	GetIndustryTreeMapKey(limit int32, period, viewMode string) string

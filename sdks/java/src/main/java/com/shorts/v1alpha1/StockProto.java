@@ -230,192 +230,193 @@ public final class StockProto extends com.google.protobuf.GeneratedFile {
       "tions/v1/options.proto\"4\n\017GetStockReques" +
       "t\022!\n\014product_code\030\001 \001(\tR\013productCode\";\n\026" +
       "GetStockDetailsRequest\022!\n\014product_code\030\001" +
-      " \001(\tR\013productCode\"\274\001\n\023GetStockDataReques" +
+      " \001(\tR\013productCode\"\321\001\n\023GetStockDataReques" +
       "t\022!\n\014product_code\030\001 \001(\tR\013productCode\022\026\n\006" +
       "period\030\002 \001(\tR\006period\022\'\n\017full_resolution\030" +
       "\003 \001(\010R\016fullResolution\022\035\n\nmax_points\030\006 \001(" +
       "\005R\tmaxPoints\022\022\n\004from\030\004 \001(\tR\004from\022\016\n\002to\030\005" +
-      " \001(\tR\002to\"\225\001\n\025GetStockPricesRequest\022!\n\014pr" +
-      "oduct_code\030\001 \001(\tR\013productCode\022\026\n\006period\030" +
-      "\002 \001(\tR\006period\022\022\n\004from\030\003 \001(\tR\004from\022\016\n\002to\030" +
-      "\004 \001(\tR\002to\022\035\n\nmax_points\030\005 \001(\005R\tmaxPoints" +
-      "\"\366\001\n\026GetStockPricesResponse\022!\n\014product_c" +
-      "ode\030\001 \001(\tR\013productCode\022\022\n\004name\030\002 \001(\tR\004na" +
-      "me\0228\n\006points\030\003 \003(\0132 .shorts.v1alpha1.Sto" +
-      "ckPricePointR\006points\022-\n\022total_observatio" +
-      "ns\030\004 \001(\005R\021totalObservations\022 \n\013downsampl" +
-      "ed\030\005 \001(\010R\013downsampled\022\032\n\010currency\030\006 \001(\tR" +
-      "\010currency\"\264\001\n\017StockPricePoint\022\022\n\004date\030\001 " +
-      "\001(\tR\004date\022\022\n\004open\030\002 \001(\001R\004open\022\022\n\004high\030\003 " +
-      "\001(\001R\004high\022\020\n\003low\030\004 \001(\001R\003low\022\024\n\005close\030\005 \001" +
-      "(\001R\005close\022%\n\016adjusted_close\030\006 \001(\001R\radjus" +
-      "tedClose\022\026\n\006volume\030\007 \001(\003R\006volume\"x\n\"GetS" +
-      "tockFinancialHighlightsRequest\022\037\n\013stock_" +
-      "codes\030\001 \003(\tR\nstockCodes\0221\n\025max_reports_p" +
-      "er_stock\030\002 \001(\005R\022maxReportsPerStock\"\365\001\n#G" +
-      "etStockFinancialHighlightsResponse\022d\n\nhi" +
-      "ghlights\030\001 \003(\0132D.shorts.v1alpha1.GetStoc" +
-      "kFinancialHighlightsResponse.HighlightsE" +
-      "ntryR\nhighlights\032h\n\017HighlightsEntry\022\020\n\003k" +
-      "ey\030\001 \001(\tR\003key\022?\n\005value\030\002 \001(\0132).shorts.v1" +
-      "alpha1.StockFinancialHighlightsR\005value:\002" +
-      "8\001\"_\n\030StockFinancialHighlights\022C\n\007report" +
-      "s\030\001 \003(\0132).shorts.v1alpha1.FinancialRepor" +
-      "tHighlightR\007reports\"\363\001\n\030FinancialReportH" +
-      "ighlight\022!\n\014report_title\030\001 \001(\tR\013reportTi" +
-      "tle\022\037\n\013report_type\030\002 \001(\tR\nreportType\022\037\n\013" +
-      "report_date\030\003 \001(\tR\nreportDate\022:\n\007metrics" +
-      "\030\004 \003(\0132 .shorts.v1alpha1.FinancialMetric" +
-      "R\007metrics\022\026\n\006digest\030\005 \001(\tR\006digest\022\036\n\ncon" +
-      "fidence\030\006 \001(\001R\nconfidence\"\344\001\n\017FinancialM" +
-      "etric\022\037\n\013metric_type\030\001 \001(\tR\nmetricType\022\037" +
-      "\n\013source_text\030\002 \001(\tR\nsourceText\022P\n\nattri" +
-      "butes\030\003 \003(\01320.shorts.v1alpha1.FinancialM" +
-      "etric.AttributesEntryR\nattributes\032=\n\017Att" +
-      "ributesEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030" +
-      "\002 \001(\tR\005value:\0028\001\"\272\002\n\rDirectorTrade\022\016\n\002id" +
-      "\030\001 \001(\tR\002id\022\035\n\nstock_code\030\002 \001(\tR\tstockCod" +
-      "e\022#\n\rdirector_name\030\003 \001(\tR\014directorName\022\035" +
-      "\n\ntrade_type\030\004 \001(\tR\ttradeType\022#\n\rshares_" +
-      "traded\030\005 \001(\003R\014sharesTraded\022&\n\017price_per_" +
-      "share\030\006 \001(\001R\rpricePerShare\022\037\n\013total_valu" +
-      "e\030\007 \001(\001R\ntotalValue\022\035\n\ntrade_date\030\010 \001(\tR" +
-      "\ttradeDate\022)\n\020announcement_url\030\t \001(\tR\017an" +
-      "nouncementUrl\"O\n\030GetDirectorTradesReques" +
-      "t\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022\024\n\005limi" +
-      "t\030\002 \001(\005R\005limit\"t\n\031GetDirectorTradesRespo" +
-      "nse\0226\n\006trades\030\001 \003(\0132\036.shorts.v1alpha1.Di" +
-      "rectorTradeR\006trades\022\037\n\013total_count\030\002 \001(\005" +
-      "R\ntotalCount\"\373\001\n\016DividendRecord\022\016\n\002id\030\001 " +
-      "\001(\tR\002id\022\035\n\nstock_code\030\002 \001(\tR\tstockCode\022\027" +
-      "\n\007ex_date\030\003 \001(\tR\006exDate\022!\n\014payment_date\030" +
-      "\004 \001(\tR\013paymentDate\022(\n\020amount_per_share\030\005" +
-      " \001(\001R\016amountPerShare\022/\n\023franking_percent" +
-      "age\030\006 \001(\001R\022frankingPercentage\022#\n\rdividen" +
-      "d_type\030\007 \001(\tR\014dividendType\"P\n\031GetDividen" +
-      "dHistoryRequest\022\035\n\nstock_code\030\001 \001(\tR\tsto" +
-      "ckCode\022\024\n\005years\030\002 \001(\005R\005years\"\243\001\n\032GetDivi" +
-      "dendHistoryResponse\022=\n\tdividends\030\001 \003(\0132\037" +
-      ".shorts.v1alpha1.DividendRecordR\tdividen" +
-      "ds\022\037\n\013total_count\030\002 \001(\005R\ntotalCount\022%\n\016t" +
-      "railing_yield\030\003 \001(\001R\rtrailingYield\"\303\002\n\tP" +
-      "eerStock\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022" +
-      "!\n\014company_name\030\002 \001(\tR\013companyName\022\032\n\010in" +
-      "dustry\030\003 \001(\tR\010industry\0224\n\026short_position" +
-      "_percent\030\004 \001(\001R\024shortPositionPercent\022\035\n\n" +
-      "market_cap\030\005 \001(\001R\tmarketCap\022\031\n\010pe_ratio\030" +
-      "\006 \001(\001R\007peRatio\022%\n\016dividend_yield\030\007 \001(\001R\r" +
-      "dividendYield\022&\n\017price_change_1m\030\010 \001(\001R\r" +
-      "priceChange1m\022\031\n\010logo_url\030\t \001(\tR\007logoUrl" +
-      "\"O\n\030GetPeerComparisonRequest\022\035\n\nstock_co" +
-      "de\030\001 \001(\tR\tstockCode\022\024\n\005limit\030\002 \001(\005R\005limi" +
-      "t\"\237\001\n\031GetPeerComparisonResponse\0224\n\007subje" +
-      "ct\030\001 \001(\0132\032.shorts.v1alpha1.PeerStockR\007su" +
-      "bject\0220\n\005peers\030\002 \003(\0132\032.shorts.v1alpha1.P" +
-      "eerStockR\005peers\022\032\n\010industry\030\003 \001(\tR\010indus" +
-      "try\";\n\026GetStockVerdictRequest\022!\n\014product" +
-      "_code\030\001 \001(\tR\013productCode\"x\n\020VerdictCompo" +
-      "nent\022\022\n\004name\030\001 \001(\tR\004name\022\024\n\005score\030\002 \001(\001R" +
-      "\005score\022\026\n\006weight\030\003 \001(\001R\006weight\022\"\n\014contri" +
-      "bution\030\004 \001(\001R\014contribution\"\322\001\n\027GetStockV" +
-      "erdictResponse\022!\n\014product_code\030\001 \001(\tR\013pr" +
-      "oductCode\022\034\n\tcomposite\030\002 \001(\001R\tcomposite\022" +
-      "3\n\005label\030\003 \001(\0162\035.shorts.v1alpha1.Verdict" +
-      "LabelR\005label\022A\n\ncomponents\030\004 \003(\0132!.short" +
-      "s.v1alpha1.VerdictComponentR\ncomponents\"" +
-      "@\n\033GetCompanyTaxProfileRequest\022!\n\014produc" +
-      "t_code\030\001 \001(\tR\013productCode\"\362\001\n\016CompanyTax" +
-      "Year\022\037\n\013income_year\030\001 \001(\005R\nincomeYear\022!\n" +
-      "\014total_income\030\002 \001(\001R\013totalIncome\022,\n\022has_" +
-      "taxable_income\030\003 \001(\010R\020hasTaxableIncome\022%" +
-      "\n\016taxable_income\030\004 \001(\001R\rtaxableIncome\022&\n" +
-      "\017has_tax_payable\030\005 \001(\010R\rhasTaxPayable\022\037\n" +
-      "\013tax_payable\030\006 \001(\001R\ntaxPayable\"\267\001\n\034GetCo" +
-      "mpanyTaxProfileResponse\022\037\n\013entity_name\030\001" +
-      " \001(\tR\nentityName\022\020\n\003abn\030\002 \001(\tR\003abn\0225\n\005ye" +
-      "ars\030\003 \003(\0132\037.shorts.v1alpha1.CompanyTaxYe" +
-      "arR\005years\022-\n\022source_attribution\030\004 \001(\tR\021s" +
-      "ourceAttribution\"K\n\024GetStockGraphRequest" +
-      "\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022\024\n\005limit" +
-      "\030\002 \001(\005R\005limit\"\226\001\n\025GetStockGraphResponse\022" +
-      "4\n\006people\030\001 \003(\0132\034.shorts.v1alpha1.GraphP" +
-      "ersonR\006people\022G\n\021similar_companies\030\002 \003(\013" +
-      "2\032.shorts.v1alpha1.GraphPeerR\020similarCom" +
-      "panies\"\216\001\n\013GraphPerson\022\022\n\004name\030\001 \001(\tR\004na" +
-      "me\022\022\n\004role\030\002 \001(\tR\004role\022\033\n\timage_url\030\003 \001(" +
-      "\tR\010imageUrl\022!\n\014linkedin_url\030\004 \001(\tR\013linke" +
-      "dinUrl\022\027\n\007also_at\030\005 \003(\tR\006alsoAt\"\211\001\n\tGrap" +
-      "hPeer\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022!\n\014" +
-      "company_name\030\002 \001(\tR\013companyName\022\032\n\010indus" +
-      "try\030\003 \001(\tR\010industry\022\036\n\nsimilarity\030\004 \001(\001R" +
-      "\nsimilarity\"k\n\027GetEventTimelineRequest\022\035" +
-      "\n\nstock_code\030\001 \001(\tR\tstockCode\022\033\n\tdays_ba" +
-      "ck\030\002 \001(\005R\010daysBack\022\024\n\005limit\030\003 \001(\005R\005limit" +
-      "\"R\n\030GetEventTimelineResponse\0226\n\006events\030\001" +
-      " \003(\0132\036.shorts.v1alpha1.TimelineEventR\006ev" +
-      "ents\"\303\001\n\rTimelineEvent\022\022\n\004date\030\001 \001(\tR\004da" +
-      "te\022\022\n\004type\030\002 \001(\tR\004type\022\024\n\005title\030\003 \001(\tR\005t" +
-      "itle\022\026\n\006detail\030\004 \001(\tR\006detail\022\020\n\003url\030\005 \001(" +
-      "\tR\003url\022\034\n\tsentiment\030\006 \001(\tR\tsentiment\022,\n\022" +
-      "is_price_sensitive\030\007 \001(\010R\020isPriceSensiti" +
-      "ve\"M\n\026GetStockSignalsRequest\022\035\n\nstock_co" +
-      "de\030\001 \001(\tR\tstockCode\022\024\n\005limit\030\002 \001(\005R\005limi" +
-      "t\"\213\001\n\027GetStockSignalsResponse\0226\n\007adverse" +
-      "\030\001 \003(\0132\034.shorts.v1alpha1.StockSignalR\007ad" +
-      "verse\0228\n\010positive\030\002 \003(\0132\034.shorts.v1alpha" +
-      "1.StockSignalR\010positive\"\352\001\n\013StockSignal\022" +
-      "\032\n\010polarity\030\001 \001(\tR\010polarity\022\022\n\004kind\030\002 \001(" +
-      "\tR\004kind\022\032\n\010headline\030\003 \001(\tR\010headline\022\026\n\006d" +
-      "etail\030\004 \001(\tR\006detail\022\035\n\nevent_date\030\005 \001(\tR" +
-      "\teventDate\022\032\n\010severity\030\006 \001(\tR\010severity\022\036" +
-      "\n\nconfidence\030\007 \001(\001R\nconfidence\022\034\n\tcitati" +
-      "ons\030\010 \003(\tR\tcitations*\302\001\n\014VerdictLabel\022\035\n" +
-      "\031VERDICT_LABEL_UNSPECIFIED\020\000\022 \n\034VERDICT_" +
-      "LABEL_STRONG_BEARISH\020\001\022\031\n\025VERDICT_LABEL_" +
-      "BEARISH\020\002\022\031\n\025VERDICT_LABEL_NEUTRAL\020\003\022\031\n\025" +
-      "VERDICT_LABEL_BULLISH\020\004\022 \n\034VERDICT_LABEL" +
-      "_STRONG_BULLISH\020\0052\223\013\n\014StockService\022J\n\010Ge" +
-      "tStock\022 .shorts.v1alpha1.GetStockRequest" +
-      "\032\026.stocks.v1alpha1.Stock\"\004\200\265\030\001\022_\n\017GetSto" +
-      "ckDetails\022\'.shorts.v1alpha1.GetStockDeta" +
-      "ilsRequest\032\035.stocks.v1alpha1.StockDetail" +
-      "s\"\004\200\265\030\001\022[\n\014GetStockData\022$.shorts.v1alpha" +
-      "1.GetStockDataRequest\032\037.stocks.v1alpha1." +
-      "TimeSeriesData\"\004\200\265\030\001\022g\n\016GetStockPrices\022&" +
-      ".shorts.v1alpha1.GetStockPricesRequest\032\'" +
-      ".shorts.v1alpha1.GetStockPricesResponse\"" +
-      "\004\200\265\030\001\022\216\001\n\033GetStockFinancialHighlights\0223." +
-      "shorts.v1alpha1.GetStockFinancialHighlig" +
-      "htsRequest\0324.shorts.v1alpha1.GetStockFin" +
-      "ancialHighlightsResponse\"\004\200\265\030\001\022p\n\021GetDir" +
-      "ectorTrades\022).shorts.v1alpha1.GetDirecto" +
-      "rTradesRequest\032*.shorts.v1alpha1.GetDire" +
-      "ctorTradesResponse\"\004\200\265\030\001\022s\n\022GetDividendH" +
-      "istory\022*.shorts.v1alpha1.GetDividendHist" +
-      "oryRequest\032+.shorts.v1alpha1.GetDividend" +
-      "HistoryResponse\"\004\200\265\030\001\022p\n\021GetPeerComparis" +
-      "on\022).shorts.v1alpha1.GetPeerComparisonRe" +
-      "quest\032*.shorts.v1alpha1.GetPeerCompariso" +
-      "nResponse\"\004\200\265\030\001\022j\n\017GetStockVerdict\022\'.sho" +
-      "rts.v1alpha1.GetStockVerdictRequest\032(.sh" +
-      "orts.v1alpha1.GetStockVerdictResponse\"\004\200" +
-      "\265\030\001\022d\n\rGetStockGraph\022%.shorts.v1alpha1.G" +
-      "etStockGraphRequest\032&.shorts.v1alpha1.Ge" +
-      "tStockGraphResponse\"\004\200\265\030\001\022m\n\020GetEventTim" +
-      "eline\022(.shorts.v1alpha1.GetEventTimeline" +
-      "Request\032).shorts.v1alpha1.GetEventTimeli" +
-      "neResponse\"\004\200\265\030\001\022j\n\017GetStockSignals\022\'.sh" +
-      "orts.v1alpha1.GetStockSignalsRequest\032(.s" +
-      "horts.v1alpha1.GetStockSignalsResponse\"\004" +
-      "\200\265\030\001\022y\n\024GetCompanyTaxProfile\022,.shorts.v1" +
-      "alpha1.GetCompanyTaxProfileRequest\032-.sho" +
-      "rts.v1alpha1.GetCompanyTaxProfileRespons" +
-      "e\"\004\200\265\030\001B\331\001\n\023com.shorts.v1alpha1B\nStockPr" +
-      "otoP\001ZYgithub.com/castlemilk/shorted.com" +
-      ".au/services/gen/proto/go/shorts/v1alpha" +
-      "1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1" +
-      "\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPB" +
-      "Metadata\352\002\020Shorts::V1alpha1b\006proto3"
+      " \001(\tR\002to\022\023\n\005as_of\030\007 \001(\tR\004asOf\"\225\001\n\025GetSto" +
+      "ckPricesRequest\022!\n\014product_code\030\001 \001(\tR\013p" +
+      "roductCode\022\026\n\006period\030\002 \001(\tR\006period\022\022\n\004fr" +
+      "om\030\003 \001(\tR\004from\022\016\n\002to\030\004 \001(\tR\002to\022\035\n\nmax_po" +
+      "ints\030\005 \001(\005R\tmaxPoints\"\366\001\n\026GetStockPrices" +
+      "Response\022!\n\014product_code\030\001 \001(\tR\013productC" +
+      "ode\022\022\n\004name\030\002 \001(\tR\004name\0228\n\006points\030\003 \003(\0132" +
+      " .shorts.v1alpha1.StockPricePointR\006point" +
+      "s\022-\n\022total_observations\030\004 \001(\005R\021totalObse" +
+      "rvations\022 \n\013downsampled\030\005 \001(\010R\013downsampl" +
+      "ed\022\032\n\010currency\030\006 \001(\tR\010currency\"\264\001\n\017Stock" +
+      "PricePoint\022\022\n\004date\030\001 \001(\tR\004date\022\022\n\004open\030\002" +
+      " \001(\001R\004open\022\022\n\004high\030\003 \001(\001R\004high\022\020\n\003low\030\004 " +
+      "\001(\001R\003low\022\024\n\005close\030\005 \001(\001R\005close\022%\n\016adjust" +
+      "ed_close\030\006 \001(\001R\radjustedClose\022\026\n\006volume\030" +
+      "\007 \001(\003R\006volume\"x\n\"GetStockFinancialHighli" +
+      "ghtsRequest\022\037\n\013stock_codes\030\001 \003(\tR\nstockC" +
+      "odes\0221\n\025max_reports_per_stock\030\002 \001(\005R\022max" +
+      "ReportsPerStock\"\365\001\n#GetStockFinancialHig" +
+      "hlightsResponse\022d\n\nhighlights\030\001 \003(\0132D.sh" +
+      "orts.v1alpha1.GetStockFinancialHighlight" +
+      "sResponse.HighlightsEntryR\nhighlights\032h\n" +
+      "\017HighlightsEntry\022\020\n\003key\030\001 \001(\tR\003key\022?\n\005va" +
+      "lue\030\002 \001(\0132).shorts.v1alpha1.StockFinanci" +
+      "alHighlightsR\005value:\0028\001\"_\n\030StockFinancia" +
+      "lHighlights\022C\n\007reports\030\001 \003(\0132).shorts.v1" +
+      "alpha1.FinancialReportHighlightR\007reports" +
+      "\"\363\001\n\030FinancialReportHighlight\022!\n\014report_" +
+      "title\030\001 \001(\tR\013reportTitle\022\037\n\013report_type\030" +
+      "\002 \001(\tR\nreportType\022\037\n\013report_date\030\003 \001(\tR\n" +
+      "reportDate\022:\n\007metrics\030\004 \003(\0132 .shorts.v1a" +
+      "lpha1.FinancialMetricR\007metrics\022\026\n\006digest" +
+      "\030\005 \001(\tR\006digest\022\036\n\nconfidence\030\006 \001(\001R\nconf" +
+      "idence\"\344\001\n\017FinancialMetric\022\037\n\013metric_typ" +
+      "e\030\001 \001(\tR\nmetricType\022\037\n\013source_text\030\002 \001(\t" +
+      "R\nsourceText\022P\n\nattributes\030\003 \003(\01320.short" +
+      "s.v1alpha1.FinancialMetric.AttributesEnt" +
+      "ryR\nattributes\032=\n\017AttributesEntry\022\020\n\003key" +
+      "\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\tR\005value:\0028\001\"\272\002" +
+      "\n\rDirectorTrade\022\016\n\002id\030\001 \001(\tR\002id\022\035\n\nstock" +
+      "_code\030\002 \001(\tR\tstockCode\022#\n\rdirector_name\030" +
+      "\003 \001(\tR\014directorName\022\035\n\ntrade_type\030\004 \001(\tR" +
+      "\ttradeType\022#\n\rshares_traded\030\005 \001(\003R\014share" +
+      "sTraded\022&\n\017price_per_share\030\006 \001(\001R\rpriceP" +
+      "erShare\022\037\n\013total_value\030\007 \001(\001R\ntotalValue" +
+      "\022\035\n\ntrade_date\030\010 \001(\tR\ttradeDate\022)\n\020annou" +
+      "ncement_url\030\t \001(\tR\017announcementUrl\"O\n\030Ge" +
+      "tDirectorTradesRequest\022\035\n\nstock_code\030\001 \001" +
+      "(\tR\tstockCode\022\024\n\005limit\030\002 \001(\005R\005limit\"t\n\031G" +
+      "etDirectorTradesResponse\0226\n\006trades\030\001 \003(\013" +
+      "2\036.shorts.v1alpha1.DirectorTradeR\006trades" +
+      "\022\037\n\013total_count\030\002 \001(\005R\ntotalCount\"\373\001\n\016Di" +
+      "videndRecord\022\016\n\002id\030\001 \001(\tR\002id\022\035\n\nstock_co" +
+      "de\030\002 \001(\tR\tstockCode\022\027\n\007ex_date\030\003 \001(\tR\006ex" +
+      "Date\022!\n\014payment_date\030\004 \001(\tR\013paymentDate\022" +
+      "(\n\020amount_per_share\030\005 \001(\001R\016amountPerShar" +
+      "e\022/\n\023franking_percentage\030\006 \001(\001R\022franking" +
+      "Percentage\022#\n\rdividend_type\030\007 \001(\tR\014divid" +
+      "endType\"P\n\031GetDividendHistoryRequest\022\035\n\n" +
+      "stock_code\030\001 \001(\tR\tstockCode\022\024\n\005years\030\002 \001" +
+      "(\005R\005years\"\243\001\n\032GetDividendHistoryResponse" +
+      "\022=\n\tdividends\030\001 \003(\0132\037.shorts.v1alpha1.Di" +
+      "videndRecordR\tdividends\022\037\n\013total_count\030\002" +
+      " \001(\005R\ntotalCount\022%\n\016trailing_yield\030\003 \001(\001" +
+      "R\rtrailingYield\"\303\002\n\tPeerStock\022\035\n\nstock_c" +
+      "ode\030\001 \001(\tR\tstockCode\022!\n\014company_name\030\002 \001" +
+      "(\tR\013companyName\022\032\n\010industry\030\003 \001(\tR\010indus" +
+      "try\0224\n\026short_position_percent\030\004 \001(\001R\024sho" +
+      "rtPositionPercent\022\035\n\nmarket_cap\030\005 \001(\001R\tm" +
+      "arketCap\022\031\n\010pe_ratio\030\006 \001(\001R\007peRatio\022%\n\016d" +
+      "ividend_yield\030\007 \001(\001R\rdividendYield\022&\n\017pr" +
+      "ice_change_1m\030\010 \001(\001R\rpriceChange1m\022\031\n\010lo" +
+      "go_url\030\t \001(\tR\007logoUrl\"O\n\030GetPeerComparis" +
+      "onRequest\022\035\n\nstock_code\030\001 \001(\tR\tstockCode" +
+      "\022\024\n\005limit\030\002 \001(\005R\005limit\"\237\001\n\031GetPeerCompar" +
+      "isonResponse\0224\n\007subject\030\001 \001(\0132\032.shorts.v" +
+      "1alpha1.PeerStockR\007subject\0220\n\005peers\030\002 \003(" +
+      "\0132\032.shorts.v1alpha1.PeerStockR\005peers\022\032\n\010" +
+      "industry\030\003 \001(\tR\010industry\";\n\026GetStockVerd" +
+      "ictRequest\022!\n\014product_code\030\001 \001(\tR\013produc" +
+      "tCode\"x\n\020VerdictComponent\022\022\n\004name\030\001 \001(\tR" +
+      "\004name\022\024\n\005score\030\002 \001(\001R\005score\022\026\n\006weight\030\003 " +
+      "\001(\001R\006weight\022\"\n\014contribution\030\004 \001(\001R\014contr" +
+      "ibution\"\322\001\n\027GetStockVerdictResponse\022!\n\014p" +
+      "roduct_code\030\001 \001(\tR\013productCode\022\034\n\tcompos" +
+      "ite\030\002 \001(\001R\tcomposite\0223\n\005label\030\003 \001(\0162\035.sh" +
+      "orts.v1alpha1.VerdictLabelR\005label\022A\n\ncom" +
+      "ponents\030\004 \003(\0132!.shorts.v1alpha1.VerdictC" +
+      "omponentR\ncomponents\"@\n\033GetCompanyTaxPro" +
+      "fileRequest\022!\n\014product_code\030\001 \001(\tR\013produ" +
+      "ctCode\"\362\001\n\016CompanyTaxYear\022\037\n\013income_year" +
+      "\030\001 \001(\005R\nincomeYear\022!\n\014total_income\030\002 \001(\001" +
+      "R\013totalIncome\022,\n\022has_taxable_income\030\003 \001(" +
+      "\010R\020hasTaxableIncome\022%\n\016taxable_income\030\004 " +
+      "\001(\001R\rtaxableIncome\022&\n\017has_tax_payable\030\005 " +
+      "\001(\010R\rhasTaxPayable\022\037\n\013tax_payable\030\006 \001(\001R" +
+      "\ntaxPayable\"\267\001\n\034GetCompanyTaxProfileResp" +
+      "onse\022\037\n\013entity_name\030\001 \001(\tR\nentityName\022\020\n" +
+      "\003abn\030\002 \001(\tR\003abn\0225\n\005years\030\003 \003(\0132\037.shorts." +
+      "v1alpha1.CompanyTaxYearR\005years\022-\n\022source" +
+      "_attribution\030\004 \001(\tR\021sourceAttribution\"K\n" +
+      "\024GetStockGraphRequest\022\035\n\nstock_code\030\001 \001(" +
+      "\tR\tstockCode\022\024\n\005limit\030\002 \001(\005R\005limit\"\226\001\n\025G" +
+      "etStockGraphResponse\0224\n\006people\030\001 \003(\0132\034.s" +
+      "horts.v1alpha1.GraphPersonR\006people\022G\n\021si" +
+      "milar_companies\030\002 \003(\0132\032.shorts.v1alpha1." +
+      "GraphPeerR\020similarCompanies\"\216\001\n\013GraphPer" +
+      "son\022\022\n\004name\030\001 \001(\tR\004name\022\022\n\004role\030\002 \001(\tR\004r" +
+      "ole\022\033\n\timage_url\030\003 \001(\tR\010imageUrl\022!\n\014link" +
+      "edin_url\030\004 \001(\tR\013linkedinUrl\022\027\n\007also_at\030\005" +
+      " \003(\tR\006alsoAt\"\211\001\n\tGraphPeer\022\035\n\nstock_code" +
+      "\030\001 \001(\tR\tstockCode\022!\n\014company_name\030\002 \001(\tR" +
+      "\013companyName\022\032\n\010industry\030\003 \001(\tR\010industry" +
+      "\022\036\n\nsimilarity\030\004 \001(\001R\nsimilarity\"k\n\027GetE" +
+      "ventTimelineRequest\022\035\n\nstock_code\030\001 \001(\tR" +
+      "\tstockCode\022\033\n\tdays_back\030\002 \001(\005R\010daysBack\022" +
+      "\024\n\005limit\030\003 \001(\005R\005limit\"R\n\030GetEventTimelin" +
+      "eResponse\0226\n\006events\030\001 \003(\0132\036.shorts.v1alp" +
+      "ha1.TimelineEventR\006events\"\303\001\n\rTimelineEv" +
+      "ent\022\022\n\004date\030\001 \001(\tR\004date\022\022\n\004type\030\002 \001(\tR\004t" +
+      "ype\022\024\n\005title\030\003 \001(\tR\005title\022\026\n\006detail\030\004 \001(" +
+      "\tR\006detail\022\020\n\003url\030\005 \001(\tR\003url\022\034\n\tsentiment" +
+      "\030\006 \001(\tR\tsentiment\022,\n\022is_price_sensitive\030" +
+      "\007 \001(\010R\020isPriceSensitive\"M\n\026GetStockSigna" +
+      "lsRequest\022\035\n\nstock_code\030\001 \001(\tR\tstockCode" +
+      "\022\024\n\005limit\030\002 \001(\005R\005limit\"\213\001\n\027GetStockSigna" +
+      "lsResponse\0226\n\007adverse\030\001 \003(\0132\034.shorts.v1a" +
+      "lpha1.StockSignalR\007adverse\0228\n\010positive\030\002" +
+      " \003(\0132\034.shorts.v1alpha1.StockSignalR\010posi" +
+      "tive\"\352\001\n\013StockSignal\022\032\n\010polarity\030\001 \001(\tR\010" +
+      "polarity\022\022\n\004kind\030\002 \001(\tR\004kind\022\032\n\010headline" +
+      "\030\003 \001(\tR\010headline\022\026\n\006detail\030\004 \001(\tR\006detail" +
+      "\022\035\n\nevent_date\030\005 \001(\tR\teventDate\022\032\n\010sever" +
+      "ity\030\006 \001(\tR\010severity\022\036\n\nconfidence\030\007 \001(\001R" +
+      "\nconfidence\022\034\n\tcitations\030\010 \003(\tR\tcitation" +
+      "s*\302\001\n\014VerdictLabel\022\035\n\031VERDICT_LABEL_UNSP" +
+      "ECIFIED\020\000\022 \n\034VERDICT_LABEL_STRONG_BEARIS" +
+      "H\020\001\022\031\n\025VERDICT_LABEL_BEARISH\020\002\022\031\n\025VERDIC" +
+      "T_LABEL_NEUTRAL\020\003\022\031\n\025VERDICT_LABEL_BULLI" +
+      "SH\020\004\022 \n\034VERDICT_LABEL_STRONG_BULLISH\020\0052\223" +
+      "\013\n\014StockService\022J\n\010GetStock\022 .shorts.v1a" +
+      "lpha1.GetStockRequest\032\026.stocks.v1alpha1." +
+      "Stock\"\004\200\265\030\001\022_\n\017GetStockDetails\022\'.shorts." +
+      "v1alpha1.GetStockDetailsRequest\032\035.stocks" +
+      ".v1alpha1.StockDetails\"\004\200\265\030\001\022[\n\014GetStock" +
+      "Data\022$.shorts.v1alpha1.GetStockDataReque" +
+      "st\032\037.stocks.v1alpha1.TimeSeriesData\"\004\200\265\030" +
+      "\001\022g\n\016GetStockPrices\022&.shorts.v1alpha1.Ge" +
+      "tStockPricesRequest\032\'.shorts.v1alpha1.Ge" +
+      "tStockPricesResponse\"\004\200\265\030\001\022\216\001\n\033GetStockF" +
+      "inancialHighlights\0223.shorts.v1alpha1.Get" +
+      "StockFinancialHighlightsRequest\0324.shorts" +
+      ".v1alpha1.GetStockFinancialHighlightsRes" +
+      "ponse\"\004\200\265\030\001\022p\n\021GetDirectorTrades\022).short" +
+      "s.v1alpha1.GetDirectorTradesRequest\032*.sh" +
+      "orts.v1alpha1.GetDirectorTradesResponse\"" +
+      "\004\200\265\030\001\022s\n\022GetDividendHistory\022*.shorts.v1a" +
+      "lpha1.GetDividendHistoryRequest\032+.shorts" +
+      ".v1alpha1.GetDividendHistoryResponse\"\004\200\265" +
+      "\030\001\022p\n\021GetPeerComparison\022).shorts.v1alpha" +
+      "1.GetPeerComparisonRequest\032*.shorts.v1al" +
+      "pha1.GetPeerComparisonResponse\"\004\200\265\030\001\022j\n\017" +
+      "GetStockVerdict\022\'.shorts.v1alpha1.GetSto" +
+      "ckVerdictRequest\032(.shorts.v1alpha1.GetSt" +
+      "ockVerdictResponse\"\004\200\265\030\001\022d\n\rGetStockGrap" +
+      "h\022%.shorts.v1alpha1.GetStockGraphRequest" +
+      "\032&.shorts.v1alpha1.GetStockGraphResponse" +
+      "\"\004\200\265\030\001\022m\n\020GetEventTimeline\022(.shorts.v1al" +
+      "pha1.GetEventTimelineRequest\032).shorts.v1" +
+      "alpha1.GetEventTimelineResponse\"\004\200\265\030\001\022j\n" +
+      "\017GetStockSignals\022\'.shorts.v1alpha1.GetSt" +
+      "ockSignalsRequest\032(.shorts.v1alpha1.GetS" +
+      "tockSignalsResponse\"\004\200\265\030\001\022y\n\024GetCompanyT" +
+      "axProfile\022,.shorts.v1alpha1.GetCompanyTa" +
+      "xProfileRequest\032-.shorts.v1alpha1.GetCom" +
+      "panyTaxProfileResponse\"\004\200\265\030\001B\331\001\n\023com.sho" +
+      "rts.v1alpha1B\nStockProtoP\001ZYgithub.com/c" +
+      "astlemilk/shorted.com.au/services/gen/pr" +
+      "oto/go/shorts/v1alpha1;shortsv1alpha1\242\002\003" +
+      "SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1alpha1\342" +
+      "\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Shorts::" +
+      "V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -440,7 +441,7 @@ public final class StockProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_GetStockDataRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetStockDataRequest_descriptor,
-        new java.lang.String[] { "ProductCode", "Period", "FullResolution", "MaxPoints", "From", "To", });
+        new java.lang.String[] { "ProductCode", "Period", "FullResolution", "MaxPoints", "From", "To", "AsOf", });
     internal_static_shorts_v1alpha1_GetStockPricesRequest_descriptor =
       getDescriptor().getMessageType(3);
     internal_static_shorts_v1alpha1_GetStockPricesRequest_fieldAccessorTable = new

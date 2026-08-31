@@ -48,9 +48,9 @@ func panelServer(t *testing.T, store ShortsStore) *ShortsServer {
 
 func sampleRows() []shortsstore.PanelRow {
 	return []shortsstore.PanelRow{
-		{Date: "2015-06-16", ProductCode: "AIO", ProductName: "ASCIANO LIMITED",
+		{Date: "2015-06-16", AvailableFrom: "2015-06-22", ProductCode: "AIO", ProductName: "ASCIANO LIMITED",
 			ReportedShortPositions: 12_345_678, TotalProductInIssue: 975_000_000, PercentShorted: 1.2662},
-		{Date: "2015-06-16", ProductCode: "BHP", ProductName: "BHP BILLITON LIMITED",
+		{Date: "2015-06-16", AvailableFrom: "2015-06-22", ProductCode: "BHP", ProductName: "BHP BILLITON LIMITED",
 			ReportedShortPositions: 63_791_924, TotalProductInIssue: 5_084_182_500, PercentShorted: 1.2547},
 	}
 }
@@ -76,7 +76,7 @@ func TestPanelExportCSV(t *testing.T) {
 	if len(records) != 3 {
 		t.Fatalf("got %d CSV lines, want a header and 2 rows", len(records))
 	}
-	wantHeader := []string{"date", "product_code", "product_name",
+	wantHeader := []string{"date", "available_from", "product_code", "product_name",
 		"reported_short_positions", "total_product_in_issue", "percent_shorted"}
 	for i, h := range wantHeader {
 		if records[0][i] != h {
@@ -87,10 +87,10 @@ func TestPanelExportCSV(t *testing.T) {
 	// A share count must not come out in scientific notation: 1.2345678e+07
 	// does not parse as an integer in every consumer, and this is a file
 	// people load into a dataframe without reading it first.
-	if got := records[1][3]; got != "12345678" {
+	if got := records[1][4]; got != "12345678" {
 		t.Errorf("reported_short_positions = %q, want a plain integer", got)
 	}
-	if got := records[2][4]; got != "5084182500" {
+	if got := records[2][5]; got != "5084182500" {
 		t.Errorf("total_product_in_issue = %q, want a plain integer", got)
 	}
 }
@@ -200,5 +200,64 @@ func TestPanelExportRejectsNonGET(t *testing.T) {
 
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want 405", rec.Code)
+	}
+}
+
+// ASIC publishes T+4, so an export for a historical window otherwise contains
+// up to four days of observations nobody could have had on the dates they are
+// dated. as_of is what lets a caller ask for the panel as it was KNOWN.
+func TestPanelExportPassesAsOfThrough(t *testing.T) {
+	store := &panelStore{rows: sampleRows()}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet,
+		PanelExportPath+"?from=2015-01-01&to=2015-12-31&as_of=2015-07-01", nil)
+
+	panelServer(t, store).PanelExportHandler()(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if store.gotQ.AsOf != "2015-07-01" {
+		t.Errorf("as_of = %q, want 2015-07-01", store.gotQ.AsOf)
+	}
+}
+
+func TestPanelExportRejectsAMalformedAsOf(t *testing.T) {
+	for _, bad := range []string{"last-week", "2015-13-01", "2015-02-30", "20150701"} {
+		t.Run(bad, func(t *testing.T) {
+			store := &panelStore{rows: sampleRows()}
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet,
+				PanelExportPath+"?from=2015-01-01&to=2015-12-31&as_of="+bad, nil)
+
+			panelServer(t, store).PanelExportHandler()(rec, req)
+
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("as_of=%q gave status %d, want 400", bad, rec.Code)
+			}
+		})
+	}
+}
+
+// Every row must carry its publication date, because that is the field a
+// caller checks their own lag assumption against.
+func TestPanelExportCarriesAvailableFrom(t *testing.T) {
+	store := &panelStore{rows: sampleRows()}
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet,
+		PanelExportPath+"?from=2015-01-01&to=2015-12-31&format=ndjson", nil)
+
+	panelServer(t, store).PanelExportHandler()(rec, req)
+
+	var first panelJSON
+	line := strings.Split(strings.TrimSpace(rec.Body.String()), "\n")[0]
+	if err := json.Unmarshal([]byte(line), &first); err != nil {
+		t.Fatalf("not valid JSON: %v", err)
+	}
+	if first.AvailableFrom == "" {
+		t.Error("available_from is empty; a row with no publication date cannot be used point-in-time")
+	}
+	if first.AvailableFrom <= first.Date {
+		t.Errorf("available_from (%s) must be after the report date (%s)", first.AvailableFrom, first.Date)
 	}
 }

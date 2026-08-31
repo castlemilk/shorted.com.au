@@ -109,4 +109,36 @@ public interface GetStockDataRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getToBytes();
+
+  /**
+   * <pre>
+   * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+   * PUBLISHED by this date, i.e. whose available_from is on or before it.
+   *
+   * ASIC publishes T+4, so a series requested for a historical date otherwise
+   * includes up to four days of data nobody could have had. Setting as_of is
+   * what makes a walk-forward study honest without the caller applying a blunt
+   * lag by hand.
+   * </pre>
+   *
+   * <code>string as_of = 7 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  java.lang.String getAsOf();
+  /**
+   * <pre>
+   * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+   * PUBLISHED by this date, i.e. whose available_from is on or before it.
+   *
+   * ASIC publishes T+4, so a series requested for a historical date otherwise
+   * includes up to four days of data nobody could have had. Setting as_of is
+   * what makes a walk-forward study honest without the caller applying a blunt
+   * lag by hand.
+   * </pre>
+   *
+   * <code>string as_of = 7 [json_name = "asOf"];</code>
+   * @return The bytes for asOf.
+   */
+  com.google.protobuf.ByteString
+      getAsOfBytes();
 }

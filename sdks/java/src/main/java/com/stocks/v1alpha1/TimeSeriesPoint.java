@@ -32,6 +32,7 @@ private static final long serialVersionUID = 0L;
     super(builder);
   }
   private TimeSeriesPoint() {
+    availableFrom_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -142,6 +143,81 @@ private static final long serialVersionUID = 0L;
     return totalProductInIssue_;
   }
 
+  public static final int AVAILABLE_FROM_FIELD_NUMBER = 5;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object availableFrom_ = "";
+  /**
+   * <pre>
+   * The date this observation became PUBLIC: four trading days after
+   * `timestamp`, because ASIC publishes T+4.
+   *
+   * Without it, a backtest that uses the value dated D on day D has four days
+   * of lookahead and nothing in the response says so. That is the difference
+   * between a result that is merely biased and one that cannot be checked from
+   * the outside. Pass `as_of` on the request to have the server withhold
+   * observations that were not yet published.
+   *
+   * This is DERIVED from the report date, not recorded per row: it is the
+   * known, fixed publication rule made machine-readable. It does not capture
+   * an unusually delayed publication, and it says nothing about REVISIONS —
+   * ASIC can restate a position, the store updates in place, and the original
+   * value is not retained. A historical query therefore returns the
+   * as-revised figure, and no field here can tell you it was revised.
+   * </pre>
+   *
+   * <code>string available_from = 5 [json_name = "availableFrom"];</code>
+   * @return The availableFrom.
+   */
+  @java.lang.Override
+  public java.lang.String getAvailableFrom() {
+    java.lang.Object ref = availableFrom_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      availableFrom_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The date this observation became PUBLIC: four trading days after
+   * `timestamp`, because ASIC publishes T+4.
+   *
+   * Without it, a backtest that uses the value dated D on day D has four days
+   * of lookahead and nothing in the response says so. That is the difference
+   * between a result that is merely biased and one that cannot be checked from
+   * the outside. Pass `as_of` on the request to have the server withhold
+   * observations that were not yet published.
+   *
+   * This is DERIVED from the report date, not recorded per row: it is the
+   * known, fixed publication rule made machine-readable. It does not capture
+   * an unusually delayed publication, and it says nothing about REVISIONS —
+   * ASIC can restate a position, the store updates in place, and the original
+   * value is not retained. A historical query therefore returns the
+   * as-revised figure, and no field here can tell you it was revised.
+   * </pre>
+   *
+   * <code>string available_from = 5 [json_name = "availableFrom"];</code>
+   * @return The bytes for availableFrom.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getAvailableFromBytes() {
+    java.lang.Object ref = availableFrom_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      availableFrom_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -168,6 +244,9 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(totalProductInIssue_) != 0) {
       output.writeDouble(4, totalProductInIssue_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(availableFrom_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 5, availableFrom_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -187,6 +266,9 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(totalProductInIssue_) != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(4, totalProductInIssue_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(availableFrom_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(5, availableFrom_);
     }
     return size;
   }
@@ -226,6 +308,8 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getTotalProductInIssue())
         != java.lang.Double.doubleToLongBits(
             other.getTotalProductInIssue())) return false;
+    if (!getAvailableFrom()
+        .equals(other.getAvailableFrom())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -250,6 +334,8 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + TOTAL_PRODUCT_IN_ISSUE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getTotalProductInIssue()));
+    hash = (37 * hash) + AVAILABLE_FROM_FIELD_NUMBER;
+    hash = (53 * hash) + getAvailableFrom().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -399,6 +485,7 @@ private static final long serialVersionUID = 0L;
       shortPosition_ = 0D;
       reportedShortPositions_ = 0D;
       totalProductInIssue_ = 0D;
+      availableFrom_ = "";
       return this;
     }
 
@@ -448,6 +535,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.totalProductInIssue_ = totalProductInIssue_;
       }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.availableFrom_ = availableFrom_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -474,6 +564,11 @@ private static final long serialVersionUID = 0L;
       }
       if (java.lang.Double.doubleToRawLongBits(other.getTotalProductInIssue()) != 0) {
         setTotalProductInIssue(other.getTotalProductInIssue());
+      }
+      if (!other.getAvailableFrom().isEmpty()) {
+        availableFrom_ = other.availableFrom_;
+        bitField0_ |= 0x00000010;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -523,6 +618,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 33
+            case 42: {
+              availableFrom_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 42
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -843,6 +943,168 @@ private static final long serialVersionUID = 0L;
     public Builder clearTotalProductInIssue() {
       bitField0_ = (bitField0_ & ~0x00000008);
       totalProductInIssue_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object availableFrom_ = "";
+    /**
+     * <pre>
+     * The date this observation became PUBLIC: four trading days after
+     * `timestamp`, because ASIC publishes T+4.
+     *
+     * Without it, a backtest that uses the value dated D on day D has four days
+     * of lookahead and nothing in the response says so. That is the difference
+     * between a result that is merely biased and one that cannot be checked from
+     * the outside. Pass `as_of` on the request to have the server withhold
+     * observations that were not yet published.
+     *
+     * This is DERIVED from the report date, not recorded per row: it is the
+     * known, fixed publication rule made machine-readable. It does not capture
+     * an unusually delayed publication, and it says nothing about REVISIONS —
+     * ASIC can restate a position, the store updates in place, and the original
+     * value is not retained. A historical query therefore returns the
+     * as-revised figure, and no field here can tell you it was revised.
+     * </pre>
+     *
+     * <code>string available_from = 5 [json_name = "availableFrom"];</code>
+     * @return The availableFrom.
+     */
+    public java.lang.String getAvailableFrom() {
+      java.lang.Object ref = availableFrom_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        availableFrom_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The date this observation became PUBLIC: four trading days after
+     * `timestamp`, because ASIC publishes T+4.
+     *
+     * Without it, a backtest that uses the value dated D on day D has four days
+     * of lookahead and nothing in the response says so. That is the difference
+     * between a result that is merely biased and one that cannot be checked from
+     * the outside. Pass `as_of` on the request to have the server withhold
+     * observations that were not yet published.
+     *
+     * This is DERIVED from the report date, not recorded per row: it is the
+     * known, fixed publication rule made machine-readable. It does not capture
+     * an unusually delayed publication, and it says nothing about REVISIONS —
+     * ASIC can restate a position, the store updates in place, and the original
+     * value is not retained. A historical query therefore returns the
+     * as-revised figure, and no field here can tell you it was revised.
+     * </pre>
+     *
+     * <code>string available_from = 5 [json_name = "availableFrom"];</code>
+     * @return The bytes for availableFrom.
+     */
+    public com.google.protobuf.ByteString
+        getAvailableFromBytes() {
+      java.lang.Object ref = availableFrom_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        availableFrom_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The date this observation became PUBLIC: four trading days after
+     * `timestamp`, because ASIC publishes T+4.
+     *
+     * Without it, a backtest that uses the value dated D on day D has four days
+     * of lookahead and nothing in the response says so. That is the difference
+     * between a result that is merely biased and one that cannot be checked from
+     * the outside. Pass `as_of` on the request to have the server withhold
+     * observations that were not yet published.
+     *
+     * This is DERIVED from the report date, not recorded per row: it is the
+     * known, fixed publication rule made machine-readable. It does not capture
+     * an unusually delayed publication, and it says nothing about REVISIONS —
+     * ASIC can restate a position, the store updates in place, and the original
+     * value is not retained. A historical query therefore returns the
+     * as-revised figure, and no field here can tell you it was revised.
+     * </pre>
+     *
+     * <code>string available_from = 5 [json_name = "availableFrom"];</code>
+     * @param value The availableFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAvailableFrom(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      availableFrom_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The date this observation became PUBLIC: four trading days after
+     * `timestamp`, because ASIC publishes T+4.
+     *
+     * Without it, a backtest that uses the value dated D on day D has four days
+     * of lookahead and nothing in the response says so. That is the difference
+     * between a result that is merely biased and one that cannot be checked from
+     * the outside. Pass `as_of` on the request to have the server withhold
+     * observations that were not yet published.
+     *
+     * This is DERIVED from the report date, not recorded per row: it is the
+     * known, fixed publication rule made machine-readable. It does not capture
+     * an unusually delayed publication, and it says nothing about REVISIONS —
+     * ASIC can restate a position, the store updates in place, and the original
+     * value is not retained. A historical query therefore returns the
+     * as-revised figure, and no field here can tell you it was revised.
+     * </pre>
+     *
+     * <code>string available_from = 5 [json_name = "availableFrom"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAvailableFrom() {
+      availableFrom_ = getDefaultInstance().getAvailableFrom();
+      bitField0_ = (bitField0_ & ~0x00000010);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The date this observation became PUBLIC: four trading days after
+     * `timestamp`, because ASIC publishes T+4.
+     *
+     * Without it, a backtest that uses the value dated D on day D has four days
+     * of lookahead and nothing in the response says so. That is the difference
+     * between a result that is merely biased and one that cannot be checked from
+     * the outside. Pass `as_of` on the request to have the server withhold
+     * observations that were not yet published.
+     *
+     * This is DERIVED from the report date, not recorded per row: it is the
+     * known, fixed publication rule made machine-readable. It does not capture
+     * an unusually delayed publication, and it says nothing about REVISIONS —
+     * ASIC can restate a position, the store updates in place, and the original
+     * value is not retained. A historical query therefore returns the
+     * as-revised figure, and no field here can tell you it was revised.
+     * </pre>
+     *
+     * <code>string available_from = 5 [json_name = "availableFrom"];</code>
+     * @param value The bytes for availableFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAvailableFromBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      availableFrom_ = value;
+      bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }

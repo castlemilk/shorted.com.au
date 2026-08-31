@@ -114,7 +114,10 @@ func ValidateGetStockDataRequest(req *shortsv1alpha1.GetStockDataRequest) error 
 		)
 	}
 
-	return validateWindowOptions(req.From, req.To, req.MaxPoints)
+	if err := validateWindowOptions(req.From, req.To, req.MaxPoints); err != nil {
+		return err
+	}
+	return validateDateOption(req.AsOf, "as_of")
 }
 
 // ValidateGetStockDetailsRequest validates the GetStockDetails request parameters

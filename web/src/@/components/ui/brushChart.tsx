@@ -25,7 +25,9 @@ import AreaChart from "./areaChart";
 import {
   type TimeSeriesData,
   type TimeSeriesPoint,
+  TimeSeriesPointSchema,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { create } from "@bufbuild/protobuf";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import {
   TooltipWithBounds,
@@ -199,16 +201,13 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
       () => {
         const lastPoint = data.points?.at(-1);
         const midPoint = data.points?.[Math.round((data.points.length ?? 0) * 0.8)];
-        // Every scalar field on the message, because protobuf-es types them as
-        // required — a partial literal stops compiling the moment a field is
-        // added to the proto. Only the date is ever read from this fallback;
-        // the rest are the proto's own zero values.
-        const fallbackPoint: TimeSeriesPoint = {
-          $typeName: "stocks.v1alpha1.TimeSeriesPoint",
-          shortPosition: 0,
-          reportedShortPositions: 0,
-          totalProductInIssue: 0,
-        };
+        // create() rather than an object literal: protobuf-es types every
+        // scalar as required, so a hand-written literal stops compiling each
+        // time the proto grows a field — which it did twice in one afternoon,
+        // and only `npm run build` catches it. Only the date is ever read
+        // from this fallback; create() supplies the proto's own zero values
+        // for the rest, whatever they turn out to be.
+        const fallbackPoint: TimeSeriesPoint = create(TimeSeriesPointSchema);
         return {
           start: {
             x: brushDateScale(getDate(lastPoint ?? fallbackPoint)),

@@ -196,8 +196,16 @@ type GetStockDataRequest struct {
 	// Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
 	// alone runs to the end of the data. A caller wanting one specific window
 	// had to request MAX and discard most of what came back.
-	From          string `protobuf:"bytes,4,opt,name=from,proto3" json:"from,omitempty"`
-	To            string `protobuf:"bytes,5,opt,name=to,proto3" json:"to,omitempty"`
+	From string `protobuf:"bytes,4,opt,name=from,proto3" json:"from,omitempty"`
+	To   string `protobuf:"bytes,5,opt,name=to,proto3" json:"to,omitempty"`
+	// Point-in-time filter, YYYY-MM-DD: return only observations that had been
+	// PUBLISHED by this date, i.e. whose available_from is on or before it.
+	//
+	// ASIC publishes T+4, so a series requested for a historical date otherwise
+	// includes up to four days of data nobody could have had. Setting as_of is
+	// what makes a walk-forward study honest without the caller applying a blunt
+	// lag by hand.
+	AsOf          string `protobuf:"bytes,7,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -270,6 +278,13 @@ func (x *GetStockDataRequest) GetFrom() string {
 func (x *GetStockDataRequest) GetTo() string {
 	if x != nil {
 		return x.To
+	}
+	return ""
+}
+
+func (x *GetStockDataRequest) GetAsOf() string {
+	if x != nil {
+		return x.AsOf
 	}
 	return ""
 }
@@ -2527,7 +2542,7 @@ const file_shorts_v1alpha1_stock_proto_rawDesc = "" +
 	"\x0fGetStockRequest\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\";\n" +
 	"\x16GetStockDetailsRequest\x12!\n" +
-	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\"\xbc\x01\n" +
+	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\"\xd1\x01\n" +
 	"\x13GetStockDataRequest\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x16\n" +
 	"\x06period\x18\x02 \x01(\tR\x06period\x12'\n" +
@@ -2535,7 +2550,8 @@ const file_shorts_v1alpha1_stock_proto_rawDesc = "" +
 	"\n" +
 	"max_points\x18\x06 \x01(\x05R\tmaxPoints\x12\x12\n" +
 	"\x04from\x18\x04 \x01(\tR\x04from\x12\x0e\n" +
-	"\x02to\x18\x05 \x01(\tR\x02to\"\x95\x01\n" +
+	"\x02to\x18\x05 \x01(\tR\x02to\x12\x13\n" +
+	"\x05as_of\x18\a \x01(\tR\x04asOf\"\x95\x01\n" +
 	"\x15GetStockPricesRequest\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x16\n" +
 	"\x06period\x18\x02 \x01(\tR\x06period\x12\x12\n" +

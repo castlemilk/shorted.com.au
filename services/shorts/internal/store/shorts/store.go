@@ -433,6 +433,11 @@ type StockDataQuery struct {
 
 	// Cap on returned points after any bucketing; 0 means no cap.
 	MaxPoints int32
+
+	// Point-in-time filter, YYYY-MM-DD: drop observations not yet PUBLISHED as
+	// at this date. ASIC publishes T+4, so without it a historical query hands
+	// back up to four days of data nobody could have had.
+	AsOf string
 }
 
 // NewsArticle represents a news article from the database

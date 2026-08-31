@@ -177,8 +177,8 @@ func (c *MemoryCache) GetStockKey(productCode string) string {
 // not just the window. A key of code+period alone would serve a cached
 // display-bucketed series to a caller who asked for full resolution, and vice
 // versa — the same key standing for two different answers.
-func (c *MemoryCache) GetStockDataKey(productCode, period, from, to string, fullResolution bool, maxPoints int32) string {
-	return c.generateKey("stock_data", productCode, period, from, to, fullResolution, maxPoints)
+func (c *MemoryCache) GetStockDataKey(productCode, period, from, to string, fullResolution bool, maxPoints int32, asOf string) string {
+	return c.generateKey("stock_data", productCode, period, from, to, fullResolution, maxPoints, asOf)
 }
 
 func (c *MemoryCache) GetStockPricesKey(productCode, period, from, to string, maxPoints int32) string {

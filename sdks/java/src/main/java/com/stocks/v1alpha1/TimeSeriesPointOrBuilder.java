@@ -72,4 +72,52 @@ public interface TimeSeriesPointOrBuilder extends
    * @return The totalProductInIssue.
    */
   double getTotalProductInIssue();
+
+  /**
+   * <pre>
+   * The date this observation became PUBLIC: four trading days after
+   * `timestamp`, because ASIC publishes T+4.
+   *
+   * Without it, a backtest that uses the value dated D on day D has four days
+   * of lookahead and nothing in the response says so. That is the difference
+   * between a result that is merely biased and one that cannot be checked from
+   * the outside. Pass `as_of` on the request to have the server withhold
+   * observations that were not yet published.
+   *
+   * This is DERIVED from the report date, not recorded per row: it is the
+   * known, fixed publication rule made machine-readable. It does not capture
+   * an unusually delayed publication, and it says nothing about REVISIONS —
+   * ASIC can restate a position, the store updates in place, and the original
+   * value is not retained. A historical query therefore returns the
+   * as-revised figure, and no field here can tell you it was revised.
+   * </pre>
+   *
+   * <code>string available_from = 5 [json_name = "availableFrom"];</code>
+   * @return The availableFrom.
+   */
+  java.lang.String getAvailableFrom();
+  /**
+   * <pre>
+   * The date this observation became PUBLIC: four trading days after
+   * `timestamp`, because ASIC publishes T+4.
+   *
+   * Without it, a backtest that uses the value dated D on day D has four days
+   * of lookahead and nothing in the response says so. That is the difference
+   * between a result that is merely biased and one that cannot be checked from
+   * the outside. Pass `as_of` on the request to have the server withhold
+   * observations that were not yet published.
+   *
+   * This is DERIVED from the report date, not recorded per row: it is the
+   * known, fixed publication rule made machine-readable. It does not capture
+   * an unusually delayed publication, and it says nothing about REVISIONS —
+   * ASIC can restate a position, the store updates in place, and the original
+   * value is not retained. A historical query therefore returns the
+   * as-revised figure, and no field here can tell you it was revised.
+   * </pre>
+   *
+   * <code>string available_from = 5 [json_name = "availableFrom"];</code>
+   * @return The bytes for availableFrom.
+   */
+  com.google.protobuf.ByteString
+      getAvailableFromBytes();
 }

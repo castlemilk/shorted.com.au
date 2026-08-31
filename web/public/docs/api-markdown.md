@@ -135,6 +135,7 @@ curl -A 'my-app/1.0' \
 | `to` | query | yes | string (date) | Last trading date to include, YYYY-MM-DD. |
 | `format` | query | no | enum (csv \\| ndjson) | Output encoding. |
 | `codes` | query | no | string | Comma-separated ASX codes to restrict the export to. Omit for every security. Case-insensitive. |
+| `as_of` | query | no | string (date) | Point-in-time filter, YYYY-MM-DD. Returns only observations that had been PUBLISHED by this date. ASIC publishes T+4, so an export for a historical window otherwise contains up to four days of data nobody could have had on the dates it is dated — lookahead a backtest cannot detect from the outside. Every row also carries available_from, so the lag can be checked rather than assumed. This covers publication LAG only. ASIC can also revise a position after the fact; the store updates in place, so a historical query returns the as-revised value and no field here identifies it as revised. |
 | `include_zero` | query | no | boolean | Include securities whose reported short position was zero on a date. Off by default, which suits a "most shorted" view; turn it on when building a research universe, since excluding the zero-interest names biases anything that sorts on short interest. |
 
 ```bash
@@ -1401,6 +1402,7 @@ Request body fields:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
+| `asOf` | string | no | Point-in-time filter, YYYY-MM-DD: return only observations that had been PUBLISHED by this date, i.e. whose available_from is on or before it. ASIC publishes T+4, so a series requested for a historical date otherwise includes up to four days of data nobody could have had. Setting as_of is what makes a walk-forward study honest without the caller applying a blunt lag by hand. (proto string) |
 | `from` | string | no | Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from` alone runs to the end of the data. A caller wanting one specific window had to request MAX and discard most of what came back. (proto string) |
 | `fullResolution` | boolean | no | Return every observation, unbucketed. By default the long periods (5Y, 10Y, MAX) are bucketed into weekly averages. That is the right shape for a chart and unusable for anything else: you cannot compute a per-observation change, align to a trading calendar, or measure an event window on a resampled series, and until now there was no way to ask for the raw record. The default is unchanged, so existing callers keep the series they already render. (proto bool) |
 | `maxPoints` | integer (int32) | no | Cap on returned points, applied after `full_resolution`. 0 means no cap. Thinning keeps the first and last observation and spaces the rest evenly; `downsampled` reports whether it happened, so a caller never has to infer it from a suspiciously round point count. (proto int32) |

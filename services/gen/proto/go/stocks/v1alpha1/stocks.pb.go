@@ -290,8 +290,24 @@ type TimeSeriesPoint struct {
 	// work in share counts and see the denominator move.
 	ReportedShortPositions float64 `protobuf:"fixed64,3,opt,name=reported_short_positions,json=reportedShortPositions,proto3" json:"reported_short_positions,omitempty"` // Shares held short on this date (a COUNT, not a percent).
 	TotalProductInIssue    float64 `protobuf:"fixed64,4,opt,name=total_product_in_issue,json=totalProductInIssue,proto3" json:"total_product_in_issue,omitempty"`        // Shares on issue on this date — the percent's denominator.
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// The date this observation became PUBLIC: four trading days after
+	// `timestamp`, because ASIC publishes T+4.
+	//
+	// Without it, a backtest that uses the value dated D on day D has four days
+	// of lookahead and nothing in the response says so. That is the difference
+	// between a result that is merely biased and one that cannot be checked from
+	// the outside. Pass `as_of` on the request to have the server withhold
+	// observations that were not yet published.
+	//
+	// This is DERIVED from the report date, not recorded per row: it is the
+	// known, fixed publication rule made machine-readable. It does not capture
+	// an unusually delayed publication, and it says nothing about REVISIONS —
+	// ASIC can restate a position, the store updates in place, and the original
+	// value is not retained. A historical query therefore returns the
+	// as-revised figure, and no field here can tell you it was revised.
+	AvailableFrom string `protobuf:"bytes,5,opt,name=available_from,json=availableFrom,proto3" json:"available_from,omitempty"` // YYYY-MM-DD.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TimeSeriesPoint) Reset() {
@@ -350,6 +366,13 @@ func (x *TimeSeriesPoint) GetTotalProductInIssue() float64 {
 		return x.TotalProductInIssue
 	}
 	return 0
+}
+
+func (x *TimeSeriesPoint) GetAvailableFrom() string {
+	if x != nil {
+		return x.AvailableFrom
+	}
+	return ""
 }
 
 // *
@@ -1325,12 +1348,13 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\x03min\x18\f \x01(\v2 .stocks.v1alpha1.TimeSeriesPointR\x03min\x12\x1a\n" +
 	"\bindustry\x18\r \x01(\tR\bindustry\x12-\n" +
 	"\x12total_observations\x18\x0e \x01(\x05R\x11totalObservations\x12 \n" +
-	"\vdownsampled\x18\x0f \x01(\bR\vdownsampledJ\x04\b\x02\x10\x03\"\xe1\x01\n" +
+	"\vdownsampled\x18\x0f \x01(\bR\vdownsampledJ\x04\b\x02\x10\x03\"\x88\x02\n" +
 	"\x0fTimeSeriesPoint\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12%\n" +
 	"\x0eshort_position\x18\x02 \x01(\x01R\rshortPosition\x128\n" +
 	"\x18reported_short_positions\x18\x03 \x01(\x01R\x16reportedShortPositions\x123\n" +
-	"\x16total_product_in_issue\x18\x04 \x01(\x01R\x13totalProductInIssue\"\xf8\b\n" +
+	"\x16total_product_in_issue\x18\x04 \x01(\x01R\x13totalProductInIssue\x12%\n" +
+	"\x0eavailable_from\x18\x05 \x01(\tR\ravailableFrom\"\xf8\b\n" +
 	"\fStockDetails\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12!\n" +
 	"\fcompany_name\x18\x02 \x01(\tR\vcompanyName\x12\x1a\n" +

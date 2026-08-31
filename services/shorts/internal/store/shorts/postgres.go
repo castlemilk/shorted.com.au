@@ -15,6 +15,7 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/exaring/otelpgx"
@@ -440,6 +441,15 @@ func (s *postgresStore) GetStockData(q StockDataQuery) (*stocksv1alpha1.TimeSeri
 			ORDER BY interval_start ASC`, periodToTruncInterval(q.Period))
 	}
 
+	var asOf *time.Time
+	if q.AsOf != "" {
+		parsed, err := time.Parse("2006-01-02", q.AsOf)
+		if err != nil {
+			return nil, fmt.Errorf("invalid as_of %q: %w", q.AsOf, err)
+		}
+		asOf = &parsed
+	}
+
 	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -457,9 +467,18 @@ func (s *postgresStore) GetStockData(q StockDataQuery) (*stocksv1alpha1.TimeSeri
 		if date.Status != pgtype.Present || percent.Status != pgtype.Present {
 			continue
 		}
+		// Publication date is derived from the report date rather than stored:
+		// it is the known T+4 rule, applied over the ASX trading calendar.
+		availableFrom := asxcalendar.AvailableFrom(date.Time)
+		if asOf != nil && availableFrom.After(*asOf) {
+			// Not yet public as at the caller's as_of. Dropping it here rather
+			// than in SQL keeps the trading-day calendar in one place.
+			continue
+		}
 		point := &stocksv1alpha1.TimeSeriesPoint{
 			Timestamp:     timestamppb.New(date.Time),
 			ShortPosition: percent.Float,
+			AvailableFrom: availableFrom.Format("2006-01-02"),
 		}
 		// The raw count and its denominator, so a caller can work in shares and
 		// see a capital raising move the denominator rather than misreading it

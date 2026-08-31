@@ -111,7 +111,7 @@ func (s *ShortsServer) GetStockData(ctx context.Context, req *connect.Request[sh
 
 	// Check cache first
 	cacheKey := s.cache.GetStockDataKey(req.Msg.ProductCode, req.Msg.Period,
-		req.Msg.From, req.Msg.To, req.Msg.FullResolution, req.Msg.MaxPoints)
+		req.Msg.From, req.Msg.To, req.Msg.FullResolution, req.Msg.MaxPoints, req.Msg.AsOf)
 
 	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
 		s.logger.Debugf("cache miss for GetStockData, fetching from database: product_code=%s, period=%s",
@@ -123,6 +123,7 @@ func (s *ShortsServer) GetStockData(ctx context.Context, req *connect.Request[sh
 			To:             req.Msg.To,
 			FullResolution: req.Msg.FullResolution,
 			MaxPoints:      req.Msg.MaxPoints,
+			AsOf:           req.Msg.AsOf,
 		})
 	})
 

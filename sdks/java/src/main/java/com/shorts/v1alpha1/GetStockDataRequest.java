@@ -36,6 +36,7 @@ private static final long serialVersionUID = 0L;
     period_ = "";
     from_ = "";
     to_ = "";
+    asOf_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -274,6 +275,65 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int AS_OF_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object asOf_ = "";
+  /**
+   * <pre>
+   * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+   * PUBLISHED by this date, i.e. whose available_from is on or before it.
+   *
+   * ASIC publishes T+4, so a series requested for a historical date otherwise
+   * includes up to four days of data nobody could have had. Setting as_of is
+   * what makes a walk-forward study honest without the caller applying a blunt
+   * lag by hand.
+   * </pre>
+   *
+   * <code>string as_of = 7 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  @java.lang.Override
+  public java.lang.String getAsOf() {
+    java.lang.Object ref = asOf_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      asOf_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+   * PUBLISHED by this date, i.e. whose available_from is on or before it.
+   *
+   * ASIC publishes T+4, so a series requested for a historical date otherwise
+   * includes up to four days of data nobody could have had. Setting as_of is
+   * what makes a walk-forward study honest without the caller applying a blunt
+   * lag by hand.
+   * </pre>
+   *
+   * <code>string as_of = 7 [json_name = "asOf"];</code>
+   * @return The bytes for asOf.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getAsOfBytes() {
+    java.lang.Object ref = asOf_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      asOf_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -306,6 +366,9 @@ private static final long serialVersionUID = 0L;
     if (maxPoints_ != 0) {
       output.writeInt32(6, maxPoints_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, asOf_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -329,6 +392,9 @@ private static final long serialVersionUID = 0L;
     if (maxPoints_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(6, maxPoints_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, asOf_);
     }
     return size;
   }
@@ -366,6 +432,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getFrom())) return false;
     if (!getTo()
         .equals(other.getTo())) return false;
+    if (!getAsOf()
+        .equals(other.getAsOf())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -390,6 +458,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getFrom().hashCode();
     hash = (37 * hash) + TO_FIELD_NUMBER;
     hash = (53 * hash) + getTo().hashCode();
+    hash = (37 * hash) + AS_OF_FIELD_NUMBER;
+    hash = (53 * hash) + getAsOf().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -531,6 +601,7 @@ private static final long serialVersionUID = 0L;
       maxPoints_ = 0;
       from_ = "";
       to_ = "";
+      asOf_ = "";
       return this;
     }
 
@@ -582,6 +653,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.to_ = to_;
       }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.asOf_ = asOf_;
+      }
     }
 
     @java.lang.Override
@@ -620,6 +694,11 @@ private static final long serialVersionUID = 0L;
       if (!other.getTo().isEmpty()) {
         to_ = other.to_;
         bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      if (!other.getAsOf().isEmpty()) {
+        asOf_ = other.asOf_;
+        bitField0_ |= 0x00000040;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -678,6 +757,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 48
+            case 58: {
+              asOf_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1152,6 +1236,128 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       to_ = value;
       bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object asOf_ = "";
+    /**
+     * <pre>
+     * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+     * PUBLISHED by this date, i.e. whose available_from is on or before it.
+     *
+     * ASIC publishes T+4, so a series requested for a historical date otherwise
+     * includes up to four days of data nobody could have had. Setting as_of is
+     * what makes a walk-forward study honest without the caller applying a blunt
+     * lag by hand.
+     * </pre>
+     *
+     * <code>string as_of = 7 [json_name = "asOf"];</code>
+     * @return The asOf.
+     */
+    public java.lang.String getAsOf() {
+      java.lang.Object ref = asOf_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        asOf_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+     * PUBLISHED by this date, i.e. whose available_from is on or before it.
+     *
+     * ASIC publishes T+4, so a series requested for a historical date otherwise
+     * includes up to four days of data nobody could have had. Setting as_of is
+     * what makes a walk-forward study honest without the caller applying a blunt
+     * lag by hand.
+     * </pre>
+     *
+     * <code>string as_of = 7 [json_name = "asOf"];</code>
+     * @return The bytes for asOf.
+     */
+    public com.google.protobuf.ByteString
+        getAsOfBytes() {
+      java.lang.Object ref = asOf_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        asOf_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+     * PUBLISHED by this date, i.e. whose available_from is on or before it.
+     *
+     * ASIC publishes T+4, so a series requested for a historical date otherwise
+     * includes up to four days of data nobody could have had. Setting as_of is
+     * what makes a walk-forward study honest without the caller applying a blunt
+     * lag by hand.
+     * </pre>
+     *
+     * <code>string as_of = 7 [json_name = "asOf"];</code>
+     * @param value The asOf to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAsOf(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      asOf_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+     * PUBLISHED by this date, i.e. whose available_from is on or before it.
+     *
+     * ASIC publishes T+4, so a series requested for a historical date otherwise
+     * includes up to four days of data nobody could have had. Setting as_of is
+     * what makes a walk-forward study honest without the caller applying a blunt
+     * lag by hand.
+     * </pre>
+     *
+     * <code>string as_of = 7 [json_name = "asOf"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAsOf() {
+      asOf_ = getDefaultInstance().getAsOf();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+     * PUBLISHED by this date, i.e. whose available_from is on or before it.
+     *
+     * ASIC publishes T+4, so a series requested for a historical date otherwise
+     * includes up to four days of data nobody could have had. Setting as_of is
+     * what makes a walk-forward study honest without the caller applying a blunt
+     * lag by hand.
+     * </pre>
+     *
+     * <code>string as_of = 7 [json_name = "asOf"];</code>
+     * @param value The bytes for asOf to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAsOfBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      asOf_ = value;
+      bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }

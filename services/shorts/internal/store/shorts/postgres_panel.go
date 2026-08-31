@@ -4,11 +4,14 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
 )
 
 // PanelRow is one (date, security) observation of the short-position panel.
 type PanelRow struct {
 	Date                   string
+	AvailableFrom          string
 	ProductCode            string
 	ProductName            string
 	ReportedShortPositions float64
@@ -22,6 +25,11 @@ type PanelQuery struct {
 	To           string   // YYYY-MM-DD, inclusive. Required.
 	ProductCodes []string // Optional filter; empty means every security.
 	IncludeZero  bool     // Include zero short positions (see GetMarketByDate).
+
+	// AsOf, YYYY-MM-DD, drops observations not yet PUBLISHED as at that date.
+	// This is the surface a backtest is actually built on, so it is the one
+	// where four days of lookahead does the most damage.
+	AsOf string
 }
 
 // StreamPanel walks the short-position panel for a date range and hands each
@@ -67,6 +75,15 @@ func (s *postgresStore) StreamPanel(ctx context.Context, q PanelQuery, fn func(P
 	// the same window is byte-identical.
 	query += ` ORDER BY "DATE" ASC, "PRODUCT_CODE" ASC`
 
+	var asOf *time.Time
+	if q.AsOf != "" {
+		parsed, err := time.Parse("2006-01-02", q.AsOf)
+		if err != nil {
+			return fmt.Errorf("invalid as_of %q: %w", q.AsOf, err)
+		}
+		asOf = &parsed
+	}
+
 	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to query panel: %w", err)
@@ -81,6 +98,11 @@ func (s *postgresStore) StreamPanel(ctx context.Context, q PanelQuery, fn func(P
 			return fmt.Errorf("failed to scan panel row: %w", err)
 		}
 		row.Date = date.Format("2006-01-02")
+		availableFrom := asxcalendar.AvailableFrom(date)
+		if asOf != nil && availableFrom.After(*asOf) {
+			continue
+		}
+		row.AvailableFrom = availableFrom.Format("2006-01-02")
 		if short != nil {
 			row.ReportedShortPositions = finiteOrZero(*short)
 		}

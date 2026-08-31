@@ -192,9 +192,9 @@ func TestCacheKeyGeneration(t *testing.T) {
 	})
 
 	t.Run("GetStockDataKey", func(t *testing.T) {
-		key1 := cache.GetStockDataKey("CBA", "1M", "", "", false, 0)
-		key2 := cache.GetStockDataKey("CBA", "1M", "", "", false, 0)
-		key3 := cache.GetStockDataKey("CBA", "3M", "", "", false, 0)
+		key1 := cache.GetStockDataKey("CBA", "1M", "", "", false, 0, "")
+		key2 := cache.GetStockDataKey("CBA", "1M", "", "", false, 0, "")
+		key3 := cache.GetStockDataKey("CBA", "3M", "", "", false, 0, "")
 
 		assert.Equal(t, key1, key2)
 		assert.NotEqual(t, key1, key3)
@@ -207,13 +207,17 @@ func TestCacheKeyGeneration(t *testing.T) {
 	// display-bucketed series happened to be cached — the same key standing
 	// for two different answers, with nothing in the response to reveal it.
 	t.Run("GetStockDataKey separates every shaping option", func(t *testing.T) {
-		base := cache.GetStockDataKey("CBA", "1M", "", "", false, 0)
+		base := cache.GetStockDataKey("CBA", "1M", "", "", false, 0, "")
 
 		variants := map[string]string{
-			"full resolution": cache.GetStockDataKey("CBA", "1M", "", "", true, 0),
-			"max points":      cache.GetStockDataKey("CBA", "1M", "", "", false, 100),
-			"from":            cache.GetStockDataKey("CBA", "1M", "2020-01-01", "", false, 0),
-			"to":              cache.GetStockDataKey("CBA", "1M", "", "2020-01-01", false, 0),
+			"full resolution": cache.GetStockDataKey("CBA", "1M", "", "", true, 0, ""),
+			"max points":      cache.GetStockDataKey("CBA", "1M", "", "", false, 100, ""),
+			"from":            cache.GetStockDataKey("CBA", "1M", "2020-01-01", "", false, 0, ""),
+			"to":              cache.GetStockDataKey("CBA", "1M", "", "2020-01-01", false, 0, ""),
+			// as_of changes WHICH observations are visible, so it must key too:
+			// otherwise a point-in-time query is served a cached series that
+			// includes data not yet published as at that date.
+			"as of":           cache.GetStockDataKey("CBA", "1M", "", "", false, 0, "2020-06-30"),
 		}
 		for name, key := range variants {
 			assert.NotEqual(t, base, key, "%s must not collide with the default key", name)

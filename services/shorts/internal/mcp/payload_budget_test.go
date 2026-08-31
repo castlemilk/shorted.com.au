@@ -131,6 +131,7 @@ func realisticSource() *fakeDataSource {
 		pts = append(pts, &stocksv1alpha1.TimeSeriesPoint{
 			Timestamp: timestamppb.New(base.AddDate(0, 0, i)), ShortPosition: 12.345678,
 			ReportedShortPositions: 637_919_240.5, TotalProductInIssue: 5_084_182_500.75,
+			AvailableFrom: base.AddDate(0, 0, i+6).Format("2006-01-02"),
 		})
 	}
 	src.stockData = &stocksv1alpha1.TimeSeriesData{

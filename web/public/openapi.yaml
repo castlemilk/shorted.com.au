@@ -2995,6 +2995,17 @@ components:
       additionalProperties: false
       description: Request for GetStockDataRequest RPC, specifying the product code.
       properties:
+        asOf:
+          description: |-
+            Point-in-time filter, YYYY-MM-DD: return only observations that had been
+             PUBLISHED by this date, i.e. whose available_from is on or before it.
+
+             ASIC publishes T+4, so a series requested for a historical date otherwise
+             includes up to four days of data nobody could have had. Setting as_of is
+             what makes a walk-forward study honest without the caller applying a blunt
+             lag by hand. (proto string)
+          title: as_of
+          type: string
         from:
           description: |-
             Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
@@ -9013,6 +9024,25 @@ components:
       description: TimeSeriesPoint represents a single point in time for the time
         series data.
       properties:
+        availableFrom:
+          description: |-
+            The date this observation became PUBLIC: four trading days after
+             `timestamp`, because ASIC publishes T+4.
+
+             Without it, a backtest that uses the value dated D on day D has four days
+             of lookahead and nothing in the response says so. That is the difference
+             between a result that is merely biased and one that cannot be checked from
+             the outside. Pass `as_of` on the request to have the server withhold
+             observations that were not yet published.
+
+             This is DERIVED from the report date, not recorded per row: it is the
+             known, fixed publication rule made machine-readable. It does not capture
+             an unusually delayed publication, and it says nothing about REVISIONS —
+             ASIC can restate a position, the store updates in place, and the original
+             value is not retained. A historical query therefore returns the
+             as-revised figure, and no field here can tell you it was revised. YYYY-MM-DD. (proto string)
+          title: available_from
+          type: string
         reportedShortPositions:
           description: |-
             The two raw quantities the percent is computed from. ASIC reports a share
@@ -11763,6 +11793,15 @@ paths:
         required: false
         schema:
           type: string
+      - description: |-
+          Point-in-time filter, YYYY-MM-DD. Returns only observations that had been PUBLISHED by this date. ASIC publishes T+4, so an export for a historical window otherwise contains up to four days of data nobody could have had on the dates it is dated — lookahead a backtest cannot detect from the outside. Every row also carries available_from, so the lag can be checked rather than assumed.
+          This covers publication LAG only. ASIC can also revise a position after the fact; the store updates in place, so a historical query returns the as-revised value and no field here identifies it as revised.
+        in: query
+        name: as_of
+        required: false
+        schema:
+          format: date
+          type: string
       - description: Include securities whose reported short position was zero on
           a date. Off by default, which suits a "most shorted" view; turn it on when
           building a research universe, since excluding the zero-interest names biases
@@ -11783,8 +11822,8 @@ paths:
             text/csv:
               schema:
                 description: 'Header row followed by one row per (date, security):
-                  date, product_code, product_name, reported_short_positions, total_product_in_issue,
-                  percent_shorted.'
+                  date, available_from, product_code, product_name, reported_short_positions,
+                  total_product_in_issue, percent_shorted.'
                 type: string
           description: The panel, streamed.
         "400":

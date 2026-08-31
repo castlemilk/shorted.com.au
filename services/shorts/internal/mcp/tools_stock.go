@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -126,6 +127,7 @@ type GetStockHistoryInput struct {
 	Period string `json:"period,omitempty" jsonschema:"Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Defaults to 1M. Ignored when \"from\" is set."`
 	From   string `json:"from,omitempty" jsonschema:"Start of an explicit window, YYYY-MM-DD. Use instead of period to pull one specific span without over-fetching."`
 	To     string `json:"to,omitempty" jsonschema:"End of an explicit window, YYYY-MM-DD. Defaults to the end of the data."`
+	AsOf   string `json:"as_of,omitempty" jsonschema:"Point-in-time filter, YYYY-MM-DD: return only observations already PUBLISHED by this date. ASIC publishes T+4, so without it a historical window includes data nobody could have had at the time."`
 
 	// The MCP was the only surface exposing the deep history, and it thinned
 	// that history to 200 points with no way to opt out — so the richest
@@ -148,14 +150,20 @@ type StockHistoryPoint struct {
 }
 
 type GetStockHistoryOutput struct {
-	Code               string              `json:"code" jsonschema:"ASX ticker code."`
-	Name               string              `json:"name,omitempty" jsonschema:"Company or product name."`
-	Period             string              `json:"period" jsonschema:"The lookback window actually used."`
-	LatestShortPercent float64             `json:"latest_short_percent" jsonschema:"Most recent reported short position in the series, percent of shares on issue."`
-	TotalObservations  int                 `json:"total_observations" jsonschema:"How many daily observations exist in the window, BEFORE downsampling."`
-	Returned           int                 `json:"returned" jsonschema:"How many points this result contains."`
-	Downsampled        bool                `json:"downsampled" jsonschema:"True when the series was thinned to fit the 200-point cap. The first and last observations are always kept."`
-	Points             []StockHistoryPoint `json:"points" jsonschema:"The series, oldest first. Empty when no history exists for the window."`
+	Code               string  `json:"code" jsonschema:"ASX ticker code."`
+	Name               string  `json:"name,omitempty" jsonschema:"Company or product name."`
+	Period             string  `json:"period" jsonschema:"The lookback window actually used."`
+	LatestShortPercent float64 `json:"latest_short_percent" jsonschema:"Most recent reported short position in the series, percent of shares on issue."`
+	TotalObservations  int     `json:"total_observations" jsonschema:"How many daily observations exist in the window, BEFORE downsampling."`
+	Returned           int     `json:"returned" jsonschema:"How many points this result contains."`
+	Downsampled        bool    `json:"downsampled" jsonschema:"True when the series was thinned to fit the point cap. The first and last observations are always kept."`
+	// Stated once rather than repeated on every point. A model needs the RULE
+	// to reason about lookahead; a quantitative caller who needs the resolved
+	// date per observation is on the Connect API or the CSV export, where
+	// available_from is returned on every row and the payload is not charged
+	// to a context window.
+	PublicationLagTradingDays int                 `json:"publication_lag_trading_days" jsonschema:"Trading days between an observation's date and the date it became public. ASIC publishes T+4, so an observation dated D was not knowable until about D+4 trading days. Using a value on its own date is lookahead; pass as_of to filter to what was actually published."`
+	Points                    []StockHistoryPoint `json:"points" jsonschema:"The series, oldest first. Empty when no history exists for the window."`
 }
 
 const getStockHistoryDescription = "Get the time series of a single ASX stock's reported short position over a lookback " +
@@ -170,6 +178,8 @@ const getStockHistoryDescription = "Get the time series of a single ASX stock's 
 	"Each point also carries short_positions (a share COUNT) and shares_on_issue (its denominator) — a capital " +
 	"raising moves the percent without any change in short positioning, and only the counts reveal that. " +
 	"This is short interest only; use get_stock_prices for price, volume and returns. " +
+	"as_of filters to what had actually been PUBLISHED by a given date — use it for anything historical, or " +
+	"the series contains data nobody had at the time. " +
 	"Source is ASIC's daily short position report, published with a T+4 business-day delay."
 
 func getStockHistoryTool() Tool {
@@ -216,6 +226,7 @@ func getStockHistoryHandler(src DataSource) sdk.ToolHandlerFor[GetStockHistoryIn
 			Period:         period,
 			From:           in.From,
 			To:             in.To,
+			AsOf:           in.AsOf,
 			FullResolution: in.FullResolution,
 			MaxPoints:      maxPoints,
 		}))
@@ -239,13 +250,14 @@ func getStockHistoryHandler(src DataSource) sdk.ToolHandlerFor[GetStockHistoryIn
 		// observations — 846 for 16 years of MAX, which is the weekly bucket
 		// count, not the several thousand daily rows behind it.
 		out := GetStockHistoryOutput{
-			Code:               nonEmpty(msg.GetProductCode(), code),
-			Name:               msg.GetName(),
-			Period:             period,
-			LatestShortPercent: finite(msg.GetLatestShortPosition()),
-			TotalObservations:  int(msg.GetTotalObservations()),
-			Downsampled:        msg.GetDownsampled(),
-			Points:             []StockHistoryPoint{},
+			Code:                      nonEmpty(msg.GetProductCode(), code),
+			Name:                      msg.GetName(),
+			Period:                    period,
+			LatestShortPercent:        finite(msg.GetLatestShortPosition()),
+			TotalObservations:         int(msg.GetTotalObservations()),
+			Downsampled:               msg.GetDownsampled(),
+			PublicationLagTradingDays: asxcalendar.PublicationLagTradingDays,
+			Points:                    []StockHistoryPoint{},
 		}
 		for _, point := range all {
 			if point == nil || point.GetTimestamp() == nil {

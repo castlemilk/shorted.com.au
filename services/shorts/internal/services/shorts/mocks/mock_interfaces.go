@@ -2430,17 +2430,17 @@ func (mr *MockCacheMockRecorder) GetStateSuburbsKey(stateCode, query, limit any)
 }
 
 // GetStockDataKey mocks base method.
-func (m *MockCache) GetStockDataKey(productCode, period, from, to string, fullResolution bool, maxPoints int32) string {
+func (m *MockCache) GetStockDataKey(productCode, period, from, to string, fullResolution bool, maxPoints int32, asOf string) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStockDataKey", productCode, period, from, to, fullResolution, maxPoints)
+	ret := m.ctrl.Call(m, "GetStockDataKey", productCode, period, from, to, fullResolution, maxPoints, asOf)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // GetStockDataKey indicates an expected call of GetStockDataKey.
-func (mr *MockCacheMockRecorder) GetStockDataKey(productCode, period, from, to, fullResolution, maxPoints any) *gomock.Call {
+func (mr *MockCacheMockRecorder) GetStockDataKey(productCode, period, from, to, fullResolution, maxPoints, asOf any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockDataKey", reflect.TypeOf((*MockCache)(nil).GetStockDataKey), productCode, period, from, to, fullResolution, maxPoints)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockDataKey", reflect.TypeOf((*MockCache)(nil).GetStockDataKey), productCode, period, from, to, fullResolution, maxPoints, asOf)
 }
 
 // GetStockDetailsKey mocks base method.

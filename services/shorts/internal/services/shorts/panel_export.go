@@ -101,11 +101,20 @@ func (s *ShortsServer) PanelExportHandler() http.HandlerFunc {
 			return
 		}
 
+		asOf := strings.TrimSpace(q.Get("as_of"))
+		if asOf != "" {
+			if _, err := time.Parse("2006-01-02", asOf); err != nil {
+				writePanelError(w, http.StatusBadRequest, "as_of must be a valid date in YYYY-MM-DD format")
+				return
+			}
+		}
+
 		query := shortsstore.PanelQuery{
 			From:         from,
 			To:           to,
 			ProductCodes: codes,
 			IncludeZero:  q.Get("include_zero") == "true",
+			AsOf:         asOf,
 		}
 
 		// Headers go out before the first row, so the response streams rather
@@ -129,7 +138,8 @@ func (s *ShortsServer) PanelExportHandler() http.HandlerFunc {
 			writeErr = s.store.StreamPanel(r.Context(), query, func(row shortsstore.PanelRow) error {
 				rows++
 				return enc.Encode(panelJSON{
-					Date: row.Date, Code: row.ProductCode, Name: row.ProductName,
+					Date: row.Date, AvailableFrom: row.AvailableFrom,
+					Code: row.ProductCode, Name: row.ProductName,
 					ShortPositions: row.ReportedShortPositions,
 					SharesOnIssue:  row.TotalProductInIssue,
 					PercentShorted: row.PercentShorted,
@@ -141,7 +151,7 @@ func (s *ShortsServer) PanelExportHandler() http.HandlerFunc {
 			// Header names match the JSON field names on the RPC surface, so a
 			// caller moving between the two is not renaming columns.
 			if err := cw.Write([]string{
-				"date", "product_code", "product_name",
+				"date", "available_from", "product_code", "product_name",
 				"reported_short_positions", "total_product_in_issue", "percent_shorted",
 			}); err != nil {
 				return
@@ -149,7 +159,7 @@ func (s *ShortsServer) PanelExportHandler() http.HandlerFunc {
 			writeErr = s.store.StreamPanel(r.Context(), query, func(row shortsstore.PanelRow) error {
 				rows++
 				return cw.Write([]string{
-					row.Date, row.ProductCode, row.ProductName,
+					row.Date, row.AvailableFrom, row.ProductCode, row.ProductName,
 					strconv.FormatFloat(row.ReportedShortPositions, 'f', -1, 64),
 					strconv.FormatFloat(row.TotalProductInIssue, 'f', -1, 64),
 					strconv.FormatFloat(row.PercentShorted, 'f', -1, 64),
@@ -175,7 +185,11 @@ func (s *ShortsServer) PanelExportHandler() http.HandlerFunc {
 }
 
 type panelJSON struct {
-	Date           string  `json:"date"`
+	Date string `json:"date"`
+	// The date this observation became public: ASIC publishes T+4. A backtest
+	// using the `date` value on `date` has four days of lookahead, and nothing
+	// else in the row reveals it.
+	AvailableFrom  string  `json:"available_from"`
 	Code           string  `json:"product_code"`
 	Name           string  `json:"product_name,omitempty"`
 	ShortPositions float64 `json:"reported_short_positions"`
