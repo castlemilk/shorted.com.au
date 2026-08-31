@@ -2322,12 +2322,51 @@ async function handlePublicEdgeRead(request, url, env, ctx, defaults, shortsApiO
   return response;
 }
 
-function buildPublicEdgeReadHeaders(request) {
+/**
+ * Headers for the SYNTHESIZED public edge-read request.
+ *
+ * This path does not proxy the caller's request; it builds a fresh JSON-RPC one
+ * and forwards that. Constructing headers from scratch is deliberate — the
+ * response is cached and served to other people, so cookies and Authorization
+ * must not ride along.
+ *
+ * But it also meant the caller's ADDRESS was discarded here, before
+ * filterRequestHeaders ever ran, so the origin could only ever see Cloudflare.
+ * Measured on 2026-08-31: after both the origin-side and proxy-side fixes had
+ * shipped, 100% of quota rows were still growing on Cloudflare-keyed
+ * identifiers with zero real client addresses, because this path never had one
+ * to forward.
+ *
+ * The user-agent is copied — it carries the `shorted-web-ssr` marker stamped by
+ * web/src/middleware.ts — so the bypass secret has to be copied with it. A
+ * marker without its proof is exactly "first-party, unverified": our own
+ * traffic, recognised as ours, and metered against a quota for want of a header
+ * that was one line away.
+ */
+export function buildPublicEdgeReadHeaders(request) {
   const headers = new Headers();
   headers.set("Accept", "application/json");
   headers.set("Content-Type", "application/json");
   const userAgent = request.headers.get("user-agent");
   headers.set("User-Agent", userAgent || "Shorted-Edge-Read/1.0");
+
+  // Who is calling. Cloudflare sets this and a client cannot spoof it through
+  // Cloudflare; nothing is invented when it is absent (local dev, tests), where
+  // the origin's fallback to the peer address is correct.
+  const trueClientIp = request.headers.get("cf-connecting-ip");
+  if (trueClientIp) {
+    headers.set("CF-Connecting-IP", trueClientIp);
+    headers.set("X-Forwarded-For", trueClientIp);
+  }
+
+  // The proof that goes with the marker in the user-agent above. Not a
+  // credential for this request — it only distinguishes verified first-party
+  // from unverified, i.e. whether our own rendering is monthly-metered.
+  const ssrBypass = request.headers.get("x-shorted-ssr-bypass");
+  if (ssrBypass) {
+    headers.set("X-Shorted-Ssr-Bypass", ssrBypass);
+  }
+
   return headers;
 }
 
