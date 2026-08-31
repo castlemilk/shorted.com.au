@@ -57,7 +57,7 @@ type CatalogServer struct {
 // importantly — that it does not have to.
 //
 // Required stays FALSE, and that is a statement of fact rather than a
-// placeholder: all 24 tools work with no credential at all, which is what makes
+// placeholder: every tool works with no credential at all, which is what makes
 // this server adoptable. OAuth RAISES quota and identifies the caller; it is
 // not a gate on first contact.
 //

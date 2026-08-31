@@ -43,6 +43,7 @@ type DataSource interface {
 	GetStock(context.Context, *connect.Request[shortsv1alpha1.GetStockRequest]) (*connect.Response[stocksv1alpha1.Stock], error)
 	// GetStockData: shorts.v1alpha1.StockService.GetStockData
 	GetStockData(context.Context, *connect.Request[shortsv1alpha1.GetStockDataRequest]) (*connect.Response[stocksv1alpha1.TimeSeriesData], error)
+	GetStockPrices(context.Context, *connect.Request[shortsv1alpha1.GetStockPricesRequest]) (*connect.Response[shortsv1alpha1.GetStockPricesResponse], error)
 	// GetStockDetails: shorts.v1alpha1.StockService.GetStockDetails
 	GetStockDetails(context.Context, *connect.Request[shortsv1alpha1.GetStockDetailsRequest]) (*connect.Response[stocksv1alpha1.StockDetails], error)
 	// GetDirectorTrades: shorts.v1alpha1.StockService.GetDirectorTrades

@@ -15,11 +15,12 @@ import (
 type ShortsStore interface {
 	GetTopShorts(period string, limit int32, offset int32, summaryOnly bool, productCodes ...string) ([]*stocksv1alpha1.TimeSeriesData, int, error)
 	GetStock(productCode string) (*stocksv1alpha1.Stock, error)
-	GetStockData(productCode, period string) (*stocksv1alpha1.TimeSeriesData, error)
+	GetStockData(query shortsstore.StockDataQuery) (*stocksv1alpha1.TimeSeriesData, error)
+	GetStockPrices(query shortsstore.StockPricesQuery) (*shortsv1alpha1.GetStockPricesResponse, error)
 	GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error)
 	GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error)
 	SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error)
-	GetMarketByDate(date string, limit, offset int32) ([]*stocksv1alpha1.Stock, int, error)
+	GetMarketByDate(date string, limit, offset int32, includeZero bool) ([]*stocksv1alpha1.Stock, int, error)
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
 	GetSyncStatus(filter shortsstore.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
@@ -208,11 +209,12 @@ type Cache interface {
 	// Cache key generators
 	GetTopShortsKey(period string, limit int32, offset int32) string
 	GetStockKey(productCode string) string
-	GetStockDataKey(productCode, period string) string
+	GetStockDataKey(productCode, period, from, to string, fullResolution bool, maxPoints int32) string
+	GetStockPricesKey(productCode, period, from, to string, maxPoints int32) string
 	GetStockDetailsKey(productCode string) string
 	GetIndustryTreeMapKey(limit int32, period, viewMode string) string
 	GetSearchStocksKey(query string, limit int32) string
-	GetMarketByDateKey(date string, limit, offset int32) string
+	GetMarketByDateKey(date string, limit, offset int32, includeZero bool) string
 	GetAvailableDatesKey(limit int32, before string) string
 	GetStockNewsKey(stockCode string, limit int32, source, sentiment string) string
 	GetMarketNewsKey(limit int32, source string, priceSensitiveOnly bool) string

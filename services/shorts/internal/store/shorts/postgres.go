@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -303,9 +304,27 @@ SELECT
 	s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 	COALESCE(m.industry, '') as industry,
 	COALESCE(m.tags, ARRAY[]::text[]) as tags,
-	COALESCE(m.logo_gcs_url, '') as logo_url
+	COALESCE(m.logo_gcs_url, '') as logo_url,
+	COALESCE(px.close * s."TOTAL_PRODUCT_IN_ISSUE", 0) as market_cap,
+	COALESCE(px.adv, 0) as average_daily_value_20d
 FROM shorts s
 LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
+-- Market cap is derived (latest close x shares on issue) rather than read from
+-- company-metadata.market_cap, so it agrees with the shares-on-issue figure
+-- returned beside it and moves when either input moves. The stored column is a
+-- text snapshot of unknown vintage.
+LEFT JOIN LATERAL (
+	SELECT
+		(ARRAY_AGG(w.close ORDER BY w.date DESC))[1] AS close,
+		AVG(w.close * w.volume) AS adv
+	FROM (
+		SELECT date, close, volume
+		FROM stock_prices
+		WHERE stock_code = s."PRODUCT_CODE"
+		ORDER BY date DESC
+		LIMIT 20
+	) w
+) px ON TRUE
 WHERE s."PRODUCT_CODE" = $1 
 ORDER BY s."DATE" DESC LIMIT 1`
 
@@ -329,9 +348,12 @@ ORDER BY s."DATE" DESC LIMIT 1`
 		&stock.Industry,
 		&stock.Tags,
 		&stock.LogoUrl,
+		&stock.MarketCap,
+		&stock.AverageDailyValue_20D,
 	); err != nil {
 		return nil, err
 	}
+	stock.LiquidityBand = liquidityBand(stock.AverageDailyValue_20D)
 	return stock, nil
 }
 
@@ -341,46 +363,84 @@ func (s *postgresStore) GetTopShorts(period string, limit int32, offset int32, s
 }
 
 // GetStockData retrieves the time series data for a single stock, downsampling it for performance.
-func (s *postgresStore) GetStockData(productCode, period string) (*stocksv1alpha1.TimeSeriesData, error) {
-	// Define the interval for downsampling (e.g., 'day', 'week', 'month')
-	var interval string
-	switch period {
-	case "1D", "1d":
-		interval = "day"
-	case "1W", "1w":
-		interval = "day"
-	case "1M", "1m":
-		interval = "day"
-	case "3M", "3m":
-		interval = "day"
-	case "6M", "6m":
-		interval = "day"
-	case "1Y", "1y":
-		interval = "day"
-	case "2Y", "2y":
-		interval = "day"
-	case "5Y", "5y":
-		interval = "week"
-	case "10Y", "10y":
-		interval = "week"
-	case "MAX", "max":
-		interval = "week"
+// periodToTruncInterval is the date_trunc granularity used when a series is
+// bucketed for display. Only the long windows are coarsened; everything up to
+// 2Y is already one bucket per trading day, so bucketing there is a no-op.
+func periodToTruncInterval(period string) string {
+	switch strings.ToUpper(period) {
+	case "5Y", "10Y", "MAX":
+		return "week"
 	default:
-		interval = "day"
+		return "day"
+	}
+}
+
+func (s *postgresStore) GetStockData(q StockDataQuery) (*stocksv1alpha1.TimeSeriesData, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Window: an explicit from/to wins over the period shorthand, so a caller
+	// after one specific span no longer has to pull MAX and throw most of it
+	// away.
+	var where string
+	args := []interface{}{q.ProductCode}
+	switch {
+	case q.From != "":
+		where = ` AND "DATE" >= $2::timestamp`
+		args = append(args, q.From+" 00:00:00")
+		if q.To != "" {
+			where += ` AND "DATE" <= $3::timestamp`
+			args = append(args, q.To+" 23:59:59")
+		}
+	case q.To != "":
+		where = ` AND "DATE" <= $2::timestamp`
+		args = append(args, q.To+" 23:59:59")
+	default:
+		// Anchored on MAX("DATE") rather than CURRENT_DATE so the window still
+		// works against historical data.
+		where = fmt.Sprintf(
+			` AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '%s'`,
+			periodToInterval(q.Period))
 	}
 
-	// Uses MAX(DATE) instead of CURRENT_DATE to work with historical data
-	query := fmt.Sprintf(`
-		SELECT date_trunc('%s', "DATE") as interval_start, 
-		       AVG("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") as avg_percent
-		FROM shorts
-		WHERE "PRODUCT_CODE" = $1
-		  AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '%s'
-		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
-		GROUP BY interval_start
-		ORDER BY interval_start ASC`, interval, periodToInterval(period))
+	base := `FROM shorts
+		WHERE "PRODUCT_CODE" = $1` + where + `
+		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL`
 
-	rows, err := s.db.Query(context.Background(), query, productCode)
+	// The true number of observations in the window, counted on the raw table.
+	//
+	// This is reported to the caller as total_observations, and it has to come
+	// from the raw rows: when the series is bucketed, the number of points is
+	// a count of BUCKETS. Reporting that as "observations" told an integrator
+	// that 16 years of MAX held 846 daily observations when 846 is the number
+	// of weekly buckets and the real daily count is several thousand.
+	var totalObservations int
+	if err := s.db.QueryRow(ctx, `SELECT COUNT(*) `+base, args...).Scan(&totalObservations); err != nil {
+		return nil, fmt.Errorf("failed to count observations for %s: %w", q.ProductCode, err)
+	}
+
+	// Full resolution returns the stored rows untouched. Otherwise the long
+	// periods are bucketed as they always have been, so existing chart callers
+	// see no change.
+	var query string
+	if q.FullResolution {
+		query = `SELECT "DATE" as interval_start,
+			       "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as avg_percent,
+			       "REPORTED_SHORT_POSITIONS" as short_positions,
+			       "TOTAL_PRODUCT_IN_ISSUE" as product_in_issue
+			` + base + `
+			ORDER BY interval_start ASC`
+	} else {
+		query = fmt.Sprintf(`SELECT date_trunc('%s', "DATE") as interval_start,
+			       AVG("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") as avg_percent,
+			       AVG("REPORTED_SHORT_POSITIONS") as short_positions,
+			       AVG("TOTAL_PRODUCT_IN_ISSUE") as product_in_issue
+			`+base+`
+			GROUP BY interval_start
+			ORDER BY interval_start ASC`, periodToTruncInterval(q.Period))
+	}
+
+	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -389,8 +449,8 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stocksv1alpha
 	var points []*stocksv1alpha1.TimeSeriesPoint
 	for rows.Next() {
 		var date pgtype.Timestamp
-		var percent pgtype.Float8
-		if err := rows.Scan(&date, &percent); err != nil {
+		var percent, shortPositions, productInIssue pgtype.Float8
+		if err := rows.Scan(&date, &percent, &shortPositions, &productInIssue); err != nil {
 			return nil, err
 		}
 		// Skip if the date or percent is null
@@ -401,26 +461,58 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stocksv1alpha
 			Timestamp:     timestamppb.New(date.Time),
 			ShortPosition: percent.Float,
 		}
+		// The raw count and its denominator, so a caller can work in shares and
+		// see a capital raising move the denominator rather than misreading it
+		// as short covering.
+		if shortPositions.Status == pgtype.Present {
+			point.ReportedShortPositions = shortPositions.Float
+		}
+		if productInIssue.Status == pgtype.Present {
+			point.TotalProductInIssue = productInIssue.Float
+		}
 		points = append(points, point)
 	}
 	if rows.Err() != nil {
 		return nil, rows.Err()
 	}
 
-	// Return time series data even if there are fewer than 10 points
-	if len(points) > 0 {
-		return &stocksv1alpha1.TimeSeriesData{
-			ProductCode:         productCode,
-			Points:              points,
-			LatestShortPosition: points[len(points)-1].ShortPosition,
-		}, nil
+	if q.MaxPoints > 0 && len(points) > int(q.MaxPoints) {
+		points = thinTimeSeries(points, int(q.MaxPoints))
 	}
-	// Return empty time series data if no points found
-	return &stocksv1alpha1.TimeSeriesData{
-		ProductCode:         productCode,
-		Points:              []*stocksv1alpha1.TimeSeriesPoint{},
-		LatestShortPosition: 0,
-	}, nil
+
+	out := &stocksv1alpha1.TimeSeriesData{
+		ProductCode:       q.ProductCode,
+		Points:            points,
+		TotalObservations: int32(totalObservations),
+		// Any shape that is not the complete stored record is downsampled —
+		// bucketing counts, not just the point cap.
+		Downsampled: len(points) < totalObservations,
+	}
+	if len(points) > 0 {
+		out.LatestShortPosition = points[len(points)-1].ShortPosition
+	} else {
+		out.Points = []*stocksv1alpha1.TimeSeriesPoint{}
+	}
+	return out, nil
+}
+
+// thinTimeSeries reduces points to at most max entries, evenly spaced, always
+// keeping the first and last observation — the endpoints are what a reader
+// anchors a trend on, and dropping either changes the story the series tells.
+func thinTimeSeries(points []*stocksv1alpha1.TimeSeriesPoint, max int) []*stocksv1alpha1.TimeSeriesPoint {
+	if max <= 0 || len(points) <= max {
+		return points
+	}
+	if max == 1 {
+		return points[len(points)-1:]
+	}
+	out := make([]*stocksv1alpha1.TimeSeriesPoint, 0, max)
+	// Spread max picks across the index range inclusive of both ends.
+	step := float64(len(points)-1) / float64(max-1)
+	for i := 0; i < max; i++ {
+		out = append(out, points[int(math.Round(float64(i)*step))])
+	}
+	return out
 }
 
 // GetStockDetails implements Store.
@@ -1176,7 +1268,21 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 
 // GetMarketByDate retrieves all short positions for a specific trading date.
 // Uses timestamp range comparison to leverage the (DATE, PRODUCT_CODE) index.
-func (s *postgresStore) GetMarketByDate(date string, limit, offset int32) ([]*stocksv1alpha1.Stock, int, error) {
+// GetMarketByDate returns the securities reported on one trading date.
+//
+// This is a POINT-IN-TIME universe and that is its most valuable property: it
+// reads the append-only ASIC report at `date` and joins metadata OUTWARD, so a
+// security that has since delisted is still present at the dates it was
+// actually reported. Asking for 2015-06-16 returns the 2015 universe, 250 of
+// whose 436 names no longer exist — which is what makes a survivorship-free
+// backtest possible at all. An INNER JOIN to company-metadata here would
+// silently delete exactly the failures whose absence flatters every study.
+//
+// includeZero controls whether names with no reported short position that day
+// are part of the universe. The default excludes them, which is right for a
+// "most shorted" board and wrong for building a research universe: dropping
+// the zero-interest names biases anything that sorts on short interest.
+func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includeZero bool) ([]*stocksv1alpha1.Stock, int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -1184,19 +1290,41 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32) ([]*st
 	dateStart := date + " 00:00:00"
 	dateEnd := date + " 23:59:59"
 
+	// A zero short position is a real observation; only a NULL is missing data.
+	// Spelled out per alias rather than rewritten, so the two queries cannot
+	// drift and neither depends on string surgery over SQL.
+	shortFilter, aliasedShortFilter :=
+		` AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0`,
+		` AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0`
+	if includeZero {
+		shortFilter = ` AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL`
+		aliasedShortFilter = ` AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL`
+	}
+
 	// Count total stocks for this date
 	countQuery := `
 		SELECT COUNT(*)
 		FROM shorts
-		WHERE "DATE" >= $1 AND "DATE" <= $2
-		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0`
+		WHERE "DATE" >= $1 AND "DATE" <= $2` + shortFilter
 
 	var totalCount int
 	if err := s.db.QueryRow(ctx, countQuery, dateStart, dateEnd).Scan(&totalCount); err != nil {
 		return nil, 0, fmt.Errorf("failed to count stocks for date %s: %w", date, err)
 	}
 
-	// Fetch stocks for this date
+	// Fetch stocks for this date.
+	//
+	// Size and liquidity are computed AS OF the requested date, not as of
+	// today: the shares-on-issue denominator is on the ASIC row itself, and
+	// the prices are filtered to `date`, so a 2015 query returns 2015's market
+	// cap and 2015's traded value. Reading a current market cap from
+	// company-metadata would have attached today's size to a decade-old
+	// universe — and to securities that no longer exist, where the honest
+	// answer is what they were worth at the time.
+	//
+	// LEFT JOIN LATERAL, so a name we hold no prices for still appears with
+	// zeroes rather than dropping out of the universe: this response's whole
+	// value is that it does not silently delete constituents.
 	query := `
 		SELECT
 			s."PRODUCT_CODE" as product_code,
@@ -1205,11 +1333,24 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32) ([]*st
 			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
 			COALESCE(m.industry, '') as industry,
-			COALESCE(m.logo_gcs_url, '') as logo_url
+			COALESCE(m.logo_gcs_url, '') as logo_url,
+			COALESCE(px.close * s."TOTAL_PRODUCT_IN_ISSUE", 0) as market_cap,
+			COALESCE(px.adv, 0) as average_daily_value_20d
 		FROM shorts s
 		LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
-		WHERE s."DATE" >= $1 AND s."DATE" <= $2
-		  AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+		LEFT JOIN LATERAL (
+			SELECT
+				(ARRAY_AGG(w.close ORDER BY w.date DESC))[1] AS close,
+				AVG(w.close * w.volume) AS adv
+			FROM (
+				SELECT date, close, volume
+				FROM stock_prices
+				WHERE stock_code = s."PRODUCT_CODE" AND date <= $2::date
+				ORDER BY date DESC
+				LIMIT 20
+			) w
+		) px ON TRUE
+		WHERE s."DATE" >= $1 AND s."DATE" <= $2` + aliasedShortFilter + `
 		ORDER BY s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
 		LIMIT $3 OFFSET $4`
 
@@ -1230,9 +1371,12 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32) ([]*st
 			&stock.TotalProductInIssue,
 			&stock.Industry,
 			&stock.LogoUrl,
+			&stock.MarketCap,
+			&stock.AverageDailyValue_20D,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan stock row: %w", err)
 		}
+		stock.LiquidityBand = liquidityBand(stock.AverageDailyValue_20D)
 		stocks = append(stocks, stock)
 	}
 

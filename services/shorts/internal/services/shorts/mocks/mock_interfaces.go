@@ -545,9 +545,9 @@ func (mr *MockShortsStoreMockRecorder) GetIndustryTreeMap(limit, period, viewMod
 }
 
 // GetMarketByDate mocks base method.
-func (m *MockShortsStore) GetMarketByDate(date string, limit, offset int32) ([]*stocksv1alpha1.Stock, int, error) {
+func (m *MockShortsStore) GetMarketByDate(date string, limit, offset int32, includeZero bool) ([]*stocksv1alpha1.Stock, int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMarketByDate", date, limit, offset)
+	ret := m.ctrl.Call(m, "GetMarketByDate", date, limit, offset, includeZero)
 	ret0, _ := ret[0].([]*stocksv1alpha1.Stock)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
@@ -555,9 +555,9 @@ func (m *MockShortsStore) GetMarketByDate(date string, limit, offset int32) ([]*
 }
 
 // GetMarketByDate indicates an expected call of GetMarketByDate.
-func (mr *MockShortsStoreMockRecorder) GetMarketByDate(date, limit, offset any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) GetMarketByDate(date, limit, offset, includeZero any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketByDate", reflect.TypeOf((*MockShortsStore)(nil).GetMarketByDate), date, limit, offset)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketByDate", reflect.TypeOf((*MockShortsStore)(nil).GetMarketByDate), date, limit, offset, includeZero)
 }
 
 // GetMarketNews mocks base method.
@@ -866,18 +866,18 @@ func (mr *MockShortsStoreMockRecorder) GetStock(productCode any) *gomock.Call {
 }
 
 // GetStockData mocks base method.
-func (m *MockShortsStore) GetStockData(productCode, period string) (*stocksv1alpha1.TimeSeriesData, error) {
+func (m *MockShortsStore) GetStockData(query shorts.StockDataQuery) (*stocksv1alpha1.TimeSeriesData, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStockData", productCode, period)
+	ret := m.ctrl.Call(m, "GetStockData", query)
 	ret0, _ := ret[0].(*stocksv1alpha1.TimeSeriesData)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetStockData indicates an expected call of GetStockData.
-func (mr *MockShortsStoreMockRecorder) GetStockData(productCode, period any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) GetStockData(query any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockData", reflect.TypeOf((*MockShortsStore)(nil).GetStockData), productCode, period)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockData", reflect.TypeOf((*MockShortsStore)(nil).GetStockData), query)
 }
 
 // GetStockDetails mocks base method.
@@ -939,6 +939,21 @@ func (m *MockShortsStore) GetStockNews(stockCode string, limit int32, source, se
 func (mr *MockShortsStoreMockRecorder) GetStockNews(stockCode, limit, source, sentiment any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockNews", reflect.TypeOf((*MockShortsStore)(nil).GetStockNews), stockCode, limit, source, sentiment)
+}
+
+// GetStockPrices mocks base method.
+func (m *MockShortsStore) GetStockPrices(query shorts.StockPricesQuery) (*shortsv1alpha1.GetStockPricesResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStockPrices", query)
+	ret0, _ := ret[0].(*shortsv1alpha1.GetStockPricesResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStockPrices indicates an expected call of GetStockPrices.
+func (mr *MockShortsStoreMockRecorder) GetStockPrices(query any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockPrices", reflect.TypeOf((*MockShortsStore)(nil).GetStockPrices), query)
 }
 
 // GetStockSignals mocks base method.
@@ -2148,17 +2163,17 @@ func (mr *MockCacheMockRecorder) GetIndustryTreeMapKey(limit, period, viewMode a
 }
 
 // GetMarketByDateKey mocks base method.
-func (m *MockCache) GetMarketByDateKey(date string, limit, offset int32) string {
+func (m *MockCache) GetMarketByDateKey(date string, limit, offset int32, includeZero bool) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMarketByDateKey", date, limit, offset)
+	ret := m.ctrl.Call(m, "GetMarketByDateKey", date, limit, offset, includeZero)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // GetMarketByDateKey indicates an expected call of GetMarketByDateKey.
-func (mr *MockCacheMockRecorder) GetMarketByDateKey(date, limit, offset any) *gomock.Call {
+func (mr *MockCacheMockRecorder) GetMarketByDateKey(date, limit, offset, includeZero any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketByDateKey", reflect.TypeOf((*MockCache)(nil).GetMarketByDateKey), date, limit, offset)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketByDateKey", reflect.TypeOf((*MockCache)(nil).GetMarketByDateKey), date, limit, offset, includeZero)
 }
 
 // GetMarketNewsKey mocks base method.
@@ -2401,17 +2416,17 @@ func (mr *MockCacheMockRecorder) GetStateSuburbsKey(stateCode, query, limit any)
 }
 
 // GetStockDataKey mocks base method.
-func (m *MockCache) GetStockDataKey(productCode, period string) string {
+func (m *MockCache) GetStockDataKey(productCode, period, from, to string, fullResolution bool, maxPoints int32) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStockDataKey", productCode, period)
+	ret := m.ctrl.Call(m, "GetStockDataKey", productCode, period, from, to, fullResolution, maxPoints)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // GetStockDataKey indicates an expected call of GetStockDataKey.
-func (mr *MockCacheMockRecorder) GetStockDataKey(productCode, period any) *gomock.Call {
+func (mr *MockCacheMockRecorder) GetStockDataKey(productCode, period, from, to, fullResolution, maxPoints any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockDataKey", reflect.TypeOf((*MockCache)(nil).GetStockDataKey), productCode, period)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockDataKey", reflect.TypeOf((*MockCache)(nil).GetStockDataKey), productCode, period, from, to, fullResolution, maxPoints)
 }
 
 // GetStockDetailsKey mocks base method.
@@ -2468,6 +2483,20 @@ func (m *MockCache) GetStockNewsKey(stockCode string, limit int32, source, senti
 func (mr *MockCacheMockRecorder) GetStockNewsKey(stockCode, limit, source, sentiment any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockNewsKey", reflect.TypeOf((*MockCache)(nil).GetStockNewsKey), stockCode, limit, source, sentiment)
+}
+
+// GetStockPricesKey mocks base method.
+func (m *MockCache) GetStockPricesKey(productCode, period, from, to string, maxPoints int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStockPricesKey", productCode, period, from, to, maxPoints)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetStockPricesKey indicates an expected call of GetStockPricesKey.
+func (mr *MockCacheMockRecorder) GetStockPricesKey(productCode, period, from, to, maxPoints any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockPricesKey", reflect.TypeOf((*MockCache)(nil).GetStockPricesKey), productCode, period, from, to, maxPoints)
 }
 
 // GetStockSignalsKey mocks base method.

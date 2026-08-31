@@ -49,4 +49,22 @@ public interface GetMarketByDateRequestOrBuilder extends
    * @return The offset.
    */
   int getOffset();
+
+  /**
+   * <pre>
+   * Include securities whose reported short position was zero on this date.
+   *
+   * This response is a POINT-IN-TIME universe: it reads the append-only ASIC
+   * report at `date` and joins metadata outward, so a security that has since
+   * delisted is present here at the dates it was actually reported. That makes
+   * a survivorship-free universe buildable — but only if the universe is
+   * complete, and by default a name with no short interest that day is
+   * filtered out. Excluding exactly the names with no short interest biases
+   * any study that sorts on short interest, which is most of them.
+   * </pre>
+   *
+   * <code>bool include_zero_short_positions = 4 [json_name = "includeZeroShortPositions"];</code>
+   * @return The includeZeroShortPositions.
+   */
+  boolean getIncludeZeroShortPositions();
 }

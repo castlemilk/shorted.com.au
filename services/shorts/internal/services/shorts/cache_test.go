@@ -192,13 +192,41 @@ func TestCacheKeyGeneration(t *testing.T) {
 	})
 
 	t.Run("GetStockDataKey", func(t *testing.T) {
-		key1 := cache.GetStockDataKey("CBA", "1M")
-		key2 := cache.GetStockDataKey("CBA", "1M")
-		key3 := cache.GetStockDataKey("CBA", "3M")
+		key1 := cache.GetStockDataKey("CBA", "1M", "", "", false, 0)
+		key2 := cache.GetStockDataKey("CBA", "1M", "", "", false, 0)
+		key3 := cache.GetStockDataKey("CBA", "3M", "", "", false, 0)
 
 		assert.Equal(t, key1, key2)
 		assert.NotEqual(t, key1, key3)
 		assert.Contains(t, key1, "stock_data:")
+	})
+
+	// Every option that changes the SHAPE of the series has to change the key.
+	// These options were added after the key existed, and a key that ignored
+	// them would hand a caller who asked for the full stored record whatever
+	// display-bucketed series happened to be cached — the same key standing
+	// for two different answers, with nothing in the response to reveal it.
+	t.Run("GetStockDataKey separates every shaping option", func(t *testing.T) {
+		base := cache.GetStockDataKey("CBA", "1M", "", "", false, 0)
+
+		variants := map[string]string{
+			"full resolution": cache.GetStockDataKey("CBA", "1M", "", "", true, 0),
+			"max points":      cache.GetStockDataKey("CBA", "1M", "", "", false, 100),
+			"from":            cache.GetStockDataKey("CBA", "1M", "2020-01-01", "", false, 0),
+			"to":              cache.GetStockDataKey("CBA", "1M", "", "2020-01-01", false, 0),
+		}
+		for name, key := range variants {
+			assert.NotEqual(t, base, key, "%s must not collide with the default key", name)
+		}
+
+		// And the variants must not collide with each other.
+		seen := map[string]string{base: "default"}
+		for name, key := range variants {
+			if prev, dup := seen[key]; dup {
+				t.Errorf("%s collides with %s", name, prev)
+			}
+			seen[key] = name
+		}
 	})
 
 	t.Run("GetStockDetailsKey", func(t *testing.T) {

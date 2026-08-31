@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"math"
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -28,6 +29,7 @@ type fakeDataSource struct {
 	gotMarketByDate   *shortsv1alpha1.GetMarketByDateRequest
 	gotBattlegrounds  *shortsv1alpha1.GetBattlegroundStocksRequest
 	gotStockData      *shortsv1alpha1.GetStockDataRequest
+	gotStockPrices    *shortsv1alpha1.GetStockPricesRequest
 	gotStockDetails   *shortsv1alpha1.GetStockDetailsRequest
 	gotDirectorTrades *shortsv1alpha1.GetDirectorTradesRequest
 	gotPeerComparison *shortsv1alpha1.GetPeerComparisonRequest
@@ -57,6 +59,7 @@ type fakeDataSource struct {
 	marketByDate   *shortsv1alpha1.GetMarketByDateResponse
 	battlegrounds  *shortsv1alpha1.GetBattlegroundStocksResponse
 	stockData      *stocksv1alpha1.TimeSeriesData
+	stockPrices    *shortsv1alpha1.GetStockPricesResponse
 	stockDetails   *stocksv1alpha1.StockDetails
 	directorTrades *shortsv1alpha1.GetDirectorTradesResponse
 	peerComparison *shortsv1alpha1.GetPeerComparisonResponse
@@ -126,12 +129,77 @@ func (f *fakeDataSource) GetBattlegroundStocks(_ context.Context, req *connect.R
 	return connect.NewResponse(f.battlegrounds), nil
 }
 
+// GetStockData models the server's shaping contract, not just its shape.
+//
+// Thinning lives in the store now, so a fake that ignores max_points would let
+// the payload-budget guard measure an unthinned series and report a size no
+// real client can receive — or, worse, pass while the real default grew.
 func (f *fakeDataSource) GetStockData(_ context.Context, req *connect.Request[shortsv1alpha1.GetStockDataRequest]) (*connect.Response[stocksv1alpha1.TimeSeriesData], error) {
 	f.gotStockData = req.Msg
 	if f.err != nil {
 		return nil, f.err
 	}
-	return connect.NewResponse(f.stockData), nil
+	if f.stockData == nil {
+		return connect.NewResponse(f.stockData), nil
+	}
+
+	out := &stocksv1alpha1.TimeSeriesData{
+		ProductCode:         f.stockData.GetProductCode(),
+		Name:                f.stockData.GetName(),
+		LatestShortPosition: f.stockData.GetLatestShortPosition(),
+		Industry:            f.stockData.GetIndustry(),
+		Points:              f.stockData.GetPoints(),
+		TotalObservations:   f.stockData.GetTotalObservations(),
+		Downsampled:         f.stockData.GetDownsampled(),
+	}
+	// A fixture that did not set the count describes itself, the way the
+	// server does.
+	if out.TotalObservations == 0 {
+		out.TotalObservations = int32(len(out.Points))
+	}
+	if max := req.Msg.GetMaxPoints(); max > 0 && len(out.Points) > int(max) {
+		thinned := make([]*stocksv1alpha1.TimeSeriesPoint, 0, max)
+		step := float64(len(out.Points)-1) / float64(max-1)
+		for i := 0; i < int(max); i++ {
+			thinned = append(thinned, out.Points[int(math.Round(float64(i)*step))])
+		}
+		out.Points = thinned
+		out.Downsampled = true
+	}
+	return connect.NewResponse(out), nil
+}
+
+// Mirrors the server's thinning contract, like GetStockData above.
+func (f *fakeDataSource) GetStockPrices(_ context.Context, req *connect.Request[shortsv1alpha1.GetStockPricesRequest]) (*connect.Response[shortsv1alpha1.GetStockPricesResponse], error) {
+	f.gotStockPrices = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.stockPrices == nil {
+		return connect.NewResponse(f.stockPrices), nil
+	}
+
+	out := &shortsv1alpha1.GetStockPricesResponse{
+		ProductCode:       f.stockPrices.GetProductCode(),
+		Name:              f.stockPrices.GetName(),
+		Currency:          f.stockPrices.GetCurrency(),
+		Points:            f.stockPrices.GetPoints(),
+		TotalObservations: f.stockPrices.GetTotalObservations(),
+		Downsampled:       f.stockPrices.GetDownsampled(),
+	}
+	if out.TotalObservations == 0 {
+		out.TotalObservations = int32(len(out.Points))
+	}
+	if max := req.Msg.GetMaxPoints(); max > 0 && len(out.Points) > int(max) {
+		thinned := make([]*shortsv1alpha1.StockPricePoint, 0, max)
+		step := float64(len(out.Points)-1) / float64(max-1)
+		for i := 0; i < int(max); i++ {
+			thinned = append(thinned, out.Points[int(math.Round(float64(i)*step))])
+		}
+		out.Points = thinned
+		out.Downsampled = true
+	}
+	return connect.NewResponse(out), nil
 }
 
 func (f *fakeDataSource) GetStockDetails(_ context.Context, req *connect.Request[shortsv1alpha1.GetStockDetailsRequest]) (*connect.Response[stocksv1alpha1.StockDetails], error) {

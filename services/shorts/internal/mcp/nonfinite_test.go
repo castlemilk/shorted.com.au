@@ -270,6 +270,7 @@ func toolCallFixtures() []toolCall {
 		{"get_market_snapshot", map[string]any{"date": "2026-08-01"}},
 		{"list_squeeze_candidates", map[string]any{}},
 		{"get_stock_history", map[string]any{"code": "PLS", "period": "MAX"}},
+		{"get_stock_prices", map[string]any{"code": "PLS", "period": "MAX"}},
 		{"get_stock_details", map[string]any{"code": "BHP"}},
 		{"get_director_trades", map[string]any{"code": "BHP"}},
 		{"get_peer_comparison", map[string]any{"code": "PLS"}},

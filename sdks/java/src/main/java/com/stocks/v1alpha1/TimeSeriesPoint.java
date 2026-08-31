@@ -95,7 +95,7 @@ private static final long serialVersionUID = 0L;
   private double shortPosition_ = 0D;
   /**
    * <pre>
-   * The short position at this point in time.
+   * The short position at this point in time, as a PERCENT of shares on issue.
    * </pre>
    *
    * <code>double short_position = 2 [json_name = "shortPosition"];</code>
@@ -104,6 +104,42 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public double getShortPosition() {
     return shortPosition_;
+  }
+
+  public static final int REPORTED_SHORT_POSITIONS_FIELD_NUMBER = 3;
+  private double reportedShortPositions_ = 0D;
+  /**
+   * <pre>
+   * The two raw quantities the percent is computed from. ASIC reports a share
+   * COUNT; the percent is that count over shares on issue, and shares on issue
+   * moves with placements, entitlement offers and buybacks. A capital raising
+   * therefore drops the percent overnight with no change in short positioning
+   * at all, and a signal built on change-in-percent reads that as covering.
+   * Both quantities are stored per observation, so exposing them lets a caller
+   * work in share counts and see the denominator move.
+   * </pre>
+   *
+   * <code>double reported_short_positions = 3 [json_name = "reportedShortPositions"];</code>
+   * @return The reportedShortPositions.
+   */
+  @java.lang.Override
+  public double getReportedShortPositions() {
+    return reportedShortPositions_;
+  }
+
+  public static final int TOTAL_PRODUCT_IN_ISSUE_FIELD_NUMBER = 4;
+  private double totalProductInIssue_ = 0D;
+  /**
+   * <pre>
+   * Shares on issue on this date — the percent's denominator.
+   * </pre>
+   *
+   * <code>double total_product_in_issue = 4 [json_name = "totalProductInIssue"];</code>
+   * @return The totalProductInIssue.
+   */
+  @java.lang.Override
+  public double getTotalProductInIssue() {
+    return totalProductInIssue_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -126,6 +162,12 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(shortPosition_) != 0) {
       output.writeDouble(2, shortPosition_);
     }
+    if (java.lang.Double.doubleToRawLongBits(reportedShortPositions_) != 0) {
+      output.writeDouble(3, reportedShortPositions_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(totalProductInIssue_) != 0) {
+      output.writeDouble(4, totalProductInIssue_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -137,6 +179,14 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(shortPosition_) != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(2, shortPosition_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(reportedShortPositions_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(3, reportedShortPositions_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(totalProductInIssue_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(4, totalProductInIssue_);
     }
     return size;
   }
@@ -170,6 +220,12 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getShortPosition())
         != java.lang.Double.doubleToLongBits(
             other.getShortPosition())) return false;
+    if (java.lang.Double.doubleToLongBits(getReportedShortPositions())
+        != java.lang.Double.doubleToLongBits(
+            other.getReportedShortPositions())) return false;
+    if (java.lang.Double.doubleToLongBits(getTotalProductInIssue())
+        != java.lang.Double.doubleToLongBits(
+            other.getTotalProductInIssue())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -188,6 +244,12 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + SHORT_POSITION_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getShortPosition()));
+    hash = (37 * hash) + REPORTED_SHORT_POSITIONS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getReportedShortPositions()));
+    hash = (37 * hash) + TOTAL_PRODUCT_IN_ISSUE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getTotalProductInIssue()));
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -335,6 +397,8 @@ private static final long serialVersionUID = 0L;
         timestampBuilder_ = null;
       }
       shortPosition_ = 0D;
+      reportedShortPositions_ = 0D;
+      totalProductInIssue_ = 0D;
       return this;
     }
 
@@ -378,6 +442,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000002) != 0)) {
         result.shortPosition_ = shortPosition_;
       }
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        result.reportedShortPositions_ = reportedShortPositions_;
+      }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.totalProductInIssue_ = totalProductInIssue_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -398,6 +468,12 @@ private static final long serialVersionUID = 0L;
       }
       if (java.lang.Double.doubleToRawLongBits(other.getShortPosition()) != 0) {
         setShortPosition(other.getShortPosition());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getReportedShortPositions()) != 0) {
+        setReportedShortPositions(other.getReportedShortPositions());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getTotalProductInIssue()) != 0) {
+        setTotalProductInIssue(other.getTotalProductInIssue());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -437,6 +513,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 17
+            case 25: {
+              reportedShortPositions_ = input.readDouble();
+              bitField0_ |= 0x00000004;
+              break;
+            } // case 25
+            case 33: {
+              totalProductInIssue_ = input.readDouble();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 33
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -614,7 +700,7 @@ private static final long serialVersionUID = 0L;
     private double shortPosition_ ;
     /**
      * <pre>
-     * The short position at this point in time.
+     * The short position at this point in time, as a PERCENT of shares on issue.
      * </pre>
      *
      * <code>double short_position = 2 [json_name = "shortPosition"];</code>
@@ -626,7 +712,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The short position at this point in time.
+     * The short position at this point in time, as a PERCENT of shares on issue.
      * </pre>
      *
      * <code>double short_position = 2 [json_name = "shortPosition"];</code>
@@ -642,7 +728,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * The short position at this point in time.
+     * The short position at this point in time, as a PERCENT of shares on issue.
      * </pre>
      *
      * <code>double short_position = 2 [json_name = "shortPosition"];</code>
@@ -651,6 +737,112 @@ private static final long serialVersionUID = 0L;
     public Builder clearShortPosition() {
       bitField0_ = (bitField0_ & ~0x00000002);
       shortPosition_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double reportedShortPositions_ ;
+    /**
+     * <pre>
+     * The two raw quantities the percent is computed from. ASIC reports a share
+     * COUNT; the percent is that count over shares on issue, and shares on issue
+     * moves with placements, entitlement offers and buybacks. A capital raising
+     * therefore drops the percent overnight with no change in short positioning
+     * at all, and a signal built on change-in-percent reads that as covering.
+     * Both quantities are stored per observation, so exposing them lets a caller
+     * work in share counts and see the denominator move.
+     * </pre>
+     *
+     * <code>double reported_short_positions = 3 [json_name = "reportedShortPositions"];</code>
+     * @return The reportedShortPositions.
+     */
+    @java.lang.Override
+    public double getReportedShortPositions() {
+      return reportedShortPositions_;
+    }
+    /**
+     * <pre>
+     * The two raw quantities the percent is computed from. ASIC reports a share
+     * COUNT; the percent is that count over shares on issue, and shares on issue
+     * moves with placements, entitlement offers and buybacks. A capital raising
+     * therefore drops the percent overnight with no change in short positioning
+     * at all, and a signal built on change-in-percent reads that as covering.
+     * Both quantities are stored per observation, so exposing them lets a caller
+     * work in share counts and see the denominator move.
+     * </pre>
+     *
+     * <code>double reported_short_positions = 3 [json_name = "reportedShortPositions"];</code>
+     * @param value The reportedShortPositions to set.
+     * @return This builder for chaining.
+     */
+    public Builder setReportedShortPositions(double value) {
+
+      reportedShortPositions_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The two raw quantities the percent is computed from. ASIC reports a share
+     * COUNT; the percent is that count over shares on issue, and shares on issue
+     * moves with placements, entitlement offers and buybacks. A capital raising
+     * therefore drops the percent overnight with no change in short positioning
+     * at all, and a signal built on change-in-percent reads that as covering.
+     * Both quantities are stored per observation, so exposing them lets a caller
+     * work in share counts and see the denominator move.
+     * </pre>
+     *
+     * <code>double reported_short_positions = 3 [json_name = "reportedShortPositions"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearReportedShortPositions() {
+      bitField0_ = (bitField0_ & ~0x00000004);
+      reportedShortPositions_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double totalProductInIssue_ ;
+    /**
+     * <pre>
+     * Shares on issue on this date — the percent's denominator.
+     * </pre>
+     *
+     * <code>double total_product_in_issue = 4 [json_name = "totalProductInIssue"];</code>
+     * @return The totalProductInIssue.
+     */
+    @java.lang.Override
+    public double getTotalProductInIssue() {
+      return totalProductInIssue_;
+    }
+    /**
+     * <pre>
+     * Shares on issue on this date — the percent's denominator.
+     * </pre>
+     *
+     * <code>double total_product_in_issue = 4 [json_name = "totalProductInIssue"];</code>
+     * @param value The totalProductInIssue to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTotalProductInIssue(double value) {
+
+      totalProductInIssue_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Shares on issue on this date — the percent's denominator.
+     * </pre>
+     *
+     * <code>double total_product_in_issue = 4 [json_name = "totalProductInIssue"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTotalProductInIssue() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      totalProductInIssue_ = 0D;
       onChanged();
       return this;
     }

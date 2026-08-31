@@ -242,9 +242,25 @@ func DefaultConfig() Config {
 			// Re-measure before lowering it. Lowering this throttles anonymous
 			// readers, not scrapers: a scraper hitting the API directly never
 			// gets this class at all.
+			// PER-MINUTE IS UNLIMITED (0), and that is the point.
+			//
+			// This class is not a customer tier and is never sold, so nothing
+			// here is a published entitlement. It carries our own SSR AND every
+			// anonymous browser RPC (middleware.ts stamps the marker on
+			// rewrite-proxied paths), which means a rejection here does not
+			// throttle one caller — it fails every reader behind that egress
+			// address at the same instant. That is the worst possible failure
+			// shape, and the app layer is explicitly NOT the abuse control:
+			// the edge's first-party bucket (600/10s) is the ceiling, and it
+			// sees this traffic too.
+			//
+			// The previous 3000/min sat about 5x the measured zone peak of
+			// 612/min. Adequate today and shrinking with every good week of
+			// traffic, for a limit whose only function was to duplicate a
+			// ceiling the edge already enforces.
 			TierFirstParty: {
-				RequestsPerMinute: 3000, RequestsPerMonth: 0,
-				BrowserRequestsPerMinute: 3000, BrowserRequestsPerMonth: 0,
+				RequestsPerMinute: 0, RequestsPerMonth: 0,
+				BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 0,
 			},
 
 			// A first-party CLAIM we could not verify: the marker is present
@@ -264,9 +280,21 @@ func DefaultConfig() Config {
 			// unlimited scraping — undoing exactly what #455 tightened. 200k a
 			// month is far above any plausible build and far below a useful
 			// scrape.
+			// Per-minute is unlimited here TOO, and it has to be. If it were
+			// not, a secret rotation gap would move all of our own traffic into
+			// a finite bucket and 429 the site — turning a credential-delivery
+			// hiccup into an outage. The stated rule is that the secret costs a
+			// meter, never a rejection, and a lower per-minute here would
+			// quietly break it.
+			//
+			// A spoofer therefore gains per-minute headroom they could not have
+			// had as anonymous — bounded by the edge's 600/10s first-party
+			// bucket, which applies to them and not to a durable scrape, and by
+			// the monthly meter below, which is the thing that actually makes
+			// spoofing worthless.
 			TierFirstPartyUnverified: {
-				RequestsPerMinute: 3000, RequestsPerMonth: 200000,
-				BrowserRequestsPerMinute: 3000, BrowserRequestsPerMonth: 200000,
+				RequestsPerMinute: 0, RequestsPerMonth: 200000,
+				BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 200000,
 			},
 		},
 		FailOpen:   true,

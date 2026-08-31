@@ -201,6 +201,15 @@ service ShortedStocksService {
     };
   }
   
+  // Adjusted daily OHLCV for a stock, aligned to the short-position series.
+  rpc GetStockPrices (GetStockPricesRequest) returns (GetStockPricesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Stock Prices",
+      description: "Retrieve adjusted daily OHLCV for a stock, on the same codes and dates as the short-position data."
+    };
+  }
+
   // Get all short positions for a specific trading date
   rpc GetMarketByDate (GetMarketByDateRequest) returns (GetMarketByDateResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;

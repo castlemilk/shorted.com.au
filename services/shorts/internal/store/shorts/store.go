@@ -51,7 +51,8 @@ type Store interface {
 	GetStock(string) (*stockv1alpha1.Stock, error)
 	GetTopShorts(period string, limit, offset int32, summaryOnly bool, productCodes ...string) ([]*stockv1alpha1.TimeSeriesData, int, error)
 	GetStockDetails(string) (*stockv1alpha1.StockDetails, error)
-	GetStockData(string, string) (*stockv1alpha1.TimeSeriesData, error)
+	GetStockData(StockDataQuery) (*stockv1alpha1.TimeSeriesData, error)
+	GetStockPrices(StockPricesQuery) (*shortsv1alpha1.GetStockPricesResponse, error)
 	GetIndustryTreeMap(int32, string, string) (*stockv1alpha1.IndustryTreeMap, error)
 	RegisterEmail(string) error
 	// Newsletter / broadcasts
@@ -63,7 +64,7 @@ type Store interface {
 	ClaimBroadcastForSending(id string) (bool, error)
 	ListActiveSubscribers() ([]Subscriber, error)
 	SearchStocks(string, int32) ([]*stockv1alpha1.Stock, error)
-	GetMarketByDate(date string, limit, offset int32) ([]*stockv1alpha1.Stock, int, error)
+	GetMarketByDate(date string, limit, offset int32, includeZero bool) ([]*stockv1alpha1.Stock, int, error)
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
 	GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
@@ -407,6 +408,30 @@ type ReportListRow struct {
 	QualityScore *float64
 	MarketStats  []byte // JSON (nullable)
 	TopShorted   []byte // JSON (nullable)
+}
+
+// StockDataQuery selects and shapes a stock's short-position time series.
+//
+// A struct rather than positional arguments because the shaping options are
+// not orthogonal to each other and are easy to transpose: From/To override
+// Period, MaxPoints applies after FullResolution, and a caller passing the
+// wrong string in the wrong slot would get a plausible-looking wrong series
+// rather than an error.
+type StockDataQuery struct {
+	ProductCode string
+
+	// Lookback shorthand, used only when From and To are both empty.
+	Period string
+
+	// Explicit window, YYYY-MM-DD. From alone runs to the end of the data.
+	From string
+	To   string
+
+	// Return every stored observation rather than the display bucketing.
+	FullResolution bool
+
+	// Cap on returned points after any bucketing; 0 means no cap.
+	MaxPoints int32
 }
 
 // NewsArticle represents a news article from the database

@@ -169,4 +169,24 @@ public interface TimeSeriesDataOrBuilder extends
    */
   com.google.protobuf.ByteString
       getIndustryBytes();
+
+  /**
+   * <pre>
+   * How many observations exist in the requested window before any thinning,
+   * and whether `points` is thinner than that. A caller doing quantitative
+   * work must be able to tell a complete daily record from a series shaped for
+   * a chart; without these two fields the only way to find out was to notice
+   * that the point count was suspiciously round.
+   * </pre>
+   *
+   * <code>int32 total_observations = 14 [json_name = "totalObservations"];</code>
+   * @return The totalObservations.
+   */
+  int getTotalObservations();
+
+  /**
+   * <code>bool downsampled = 15 [json_name = "downsampled"];</code>
+   * @return The downsampled.
+   */
+  boolean getDownsampled();
 }

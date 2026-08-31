@@ -342,6 +342,36 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int TOTAL_OBSERVATIONS_FIELD_NUMBER = 14;
+  private int totalObservations_ = 0;
+  /**
+   * <pre>
+   * How many observations exist in the requested window before any thinning,
+   * and whether `points` is thinner than that. A caller doing quantitative
+   * work must be able to tell a complete daily record from a series shaped for
+   * a chart; without these two fields the only way to find out was to notice
+   * that the point count was suspiciously round.
+   * </pre>
+   *
+   * <code>int32 total_observations = 14 [json_name = "totalObservations"];</code>
+   * @return The totalObservations.
+   */
+  @java.lang.Override
+  public int getTotalObservations() {
+    return totalObservations_;
+  }
+
+  public static final int DOWNSAMPLED_FIELD_NUMBER = 15;
+  private boolean downsampled_ = false;
+  /**
+   * <code>bool downsampled = 15 [json_name = "downsampled"];</code>
+   * @return The downsampled.
+   */
+  @java.lang.Override
+  public boolean getDownsampled() {
+    return downsampled_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -377,6 +407,12 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(industry_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 13, industry_);
     }
+    if (totalObservations_ != 0) {
+      output.writeInt32(14, totalObservations_);
+    }
+    if (downsampled_ != false) {
+      output.writeBool(15, downsampled_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -410,6 +446,14 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(industry_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(13, industry_);
+    }
+    if (totalObservations_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(14, totalObservations_);
+    }
+    if (downsampled_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(15, downsampled_);
     }
     return size;
   }
@@ -456,6 +500,10 @@ private static final long serialVersionUID = 0L;
     }
     if (!getIndustry()
         .equals(other.getIndustry())) return false;
+    if (getTotalObservations()
+        != other.getTotalObservations()) return false;
+    if (getDownsampled()
+        != other.getDownsampled()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -488,6 +536,11 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + INDUSTRY_FIELD_NUMBER;
     hash = (53 * hash) + getIndustry().hashCode();
+    hash = (37 * hash) + TOTAL_OBSERVATIONS_FIELD_NUMBER;
+    hash = (53 * hash) + getTotalObservations();
+    hash = (37 * hash) + DOWNSAMPLED_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getDownsampled());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -652,6 +705,8 @@ private static final long serialVersionUID = 0L;
         minBuilder_ = null;
       }
       industry_ = "";
+      totalObservations_ = 0;
+      downsampled_ = false;
       return this;
     }
 
@@ -723,6 +778,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.industry_ = industry_;
       }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.totalObservations_ = totalObservations_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.downsampled_ = downsampled_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -787,6 +848,12 @@ private static final long serialVersionUID = 0L;
         industry_ = other.industry_;
         bitField0_ |= 0x00000040;
         onChanged();
+      }
+      if (other.getTotalObservations() != 0) {
+        setTotalObservations(other.getTotalObservations());
+      }
+      if (other.getDownsampled() != false) {
+        setDownsampled(other.getDownsampled());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -861,6 +928,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 106
+            case 112: {
+              totalObservations_ = input.readInt32();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 112
+            case 120: {
+              downsampled_ = input.readBool();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 120
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1800,6 +1877,94 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       industry_ = value;
       bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private int totalObservations_ ;
+    /**
+     * <pre>
+     * How many observations exist in the requested window before any thinning,
+     * and whether `points` is thinner than that. A caller doing quantitative
+     * work must be able to tell a complete daily record from a series shaped for
+     * a chart; without these two fields the only way to find out was to notice
+     * that the point count was suspiciously round.
+     * </pre>
+     *
+     * <code>int32 total_observations = 14 [json_name = "totalObservations"];</code>
+     * @return The totalObservations.
+     */
+    @java.lang.Override
+    public int getTotalObservations() {
+      return totalObservations_;
+    }
+    /**
+     * <pre>
+     * How many observations exist in the requested window before any thinning,
+     * and whether `points` is thinner than that. A caller doing quantitative
+     * work must be able to tell a complete daily record from a series shaped for
+     * a chart; without these two fields the only way to find out was to notice
+     * that the point count was suspiciously round.
+     * </pre>
+     *
+     * <code>int32 total_observations = 14 [json_name = "totalObservations"];</code>
+     * @param value The totalObservations to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTotalObservations(int value) {
+
+      totalObservations_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How many observations exist in the requested window before any thinning,
+     * and whether `points` is thinner than that. A caller doing quantitative
+     * work must be able to tell a complete daily record from a series shaped for
+     * a chart; without these two fields the only way to find out was to notice
+     * that the point count was suspiciously round.
+     * </pre>
+     *
+     * <code>int32 total_observations = 14 [json_name = "totalObservations"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTotalObservations() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      totalObservations_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private boolean downsampled_ ;
+    /**
+     * <code>bool downsampled = 15 [json_name = "downsampled"];</code>
+     * @return The downsampled.
+     */
+    @java.lang.Override
+    public boolean getDownsampled() {
+      return downsampled_;
+    }
+    /**
+     * <code>bool downsampled = 15 [json_name = "downsampled"];</code>
+     * @param value The downsampled to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDownsampled(boolean value) {
+
+      downsampled_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool downsampled = 15 [json_name = "downsampled"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDownsampled() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      downsampled_ = false;
       onChanged();
       return this;
     }

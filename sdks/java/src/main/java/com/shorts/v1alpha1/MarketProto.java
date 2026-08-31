@@ -149,92 +149,93 @@ public final class MarketProto extends com.google.protobuf.GeneratedFile {
       "rocessed\022@\n\034checkpoint_stocks_successful" +
       "\030\017 \001(\005R\032checkpointStocksSuccessful\0228\n\030ch" +
       "eckpoint_stocks_failed\030\020 \001(\005R\026checkpoint" +
-      "StocksFailed\"Z\n\026GetMarketByDateRequest\022\022" +
-      "\n\004date\030\001 \001(\tR\004date\022\024\n\005limit\030\002 \001(\005R\005limit" +
-      "\022\026\n\006offset\030\003 \001(\005R\006offset\"\300\001\n\027GetMarketBy" +
-      "DateResponse\022\022\n\004date\030\001 \001(\tR\004date\022.\n\006stoc" +
-      "ks\030\002 \003(\0132\026.stocks.v1alpha1.StockR\006stocks" +
-      "\022\037\n\013total_count\030\003 \001(\005R\ntotalCount\022#\n\rpre" +
-      "vious_date\030\004 \001(\tR\014previousDate\022\033\n\tnext_d" +
-      "ate\030\005 \001(\tR\010nextDate\"H\n\030GetAvailableDates" +
-      "Request\022\024\n\005limit\030\001 \001(\005R\005limit\022\026\n\006before\030" +
-      "\002 \001(\tR\006before\"\230\001\n\031GetAvailableDatesRespo" +
-      "nse\022\024\n\005dates\030\001 \003(\tR\005dates\022#\n\rearliest_da" +
-      "te\030\002 \001(\tR\014earliestDate\022\037\n\013latest_date\030\003 " +
-      "\001(\tR\nlatestDate\022\037\n\013total_count\030\004 \001(\005R\nto" +
-      "talCount\"\203\001\n\034GetBattlegroundStocksReques" +
-      "t\0225\n\004view\030\001 \001(\0162!.shorts.v1alpha1.Battle" +
-      "groundViewR\004view\022\024\n\005limit\030\002 \001(\005R\005limit\022\026" +
-      "\n\006offset\030\003 \001(\005R\006offset\"\266\003\n\021BattlegroundS" +
-      "tock\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022!\n\014c" +
-      "ompany_name\030\002 \001(\tR\013companyName\022\032\n\010indust" +
-      "ry\030\003 \001(\tR\010industry\022\031\n\010logo_url\030\004 \001(\tR\007lo" +
-      "goUrl\022\033\n\tshort_pct\030\005 \001(\001R\010shortPct\022-\n\023sh" +
-      "ort_pct_change_4w\030\006 \001(\001R\020shortPctChange4" +
-      "w\022!\n\014latest_price\030\007 \001(\001R\013latestPrice\022&\n\017" +
-      "price_change_1m\030\010 \001(\001R\rpriceChange1m\022\"\n\r" +
-      "days_to_cover\030\t \001(\001R\013daysToCover\022#\n\rsque" +
-      "eze_score\030\n \001(\001R\014squeezeScore\022)\n\020diverge" +
-      "nce_score\030\013 \001(\001R\017divergenceScore\022\035\n\nmark" +
-      "et_cap\030\014 \001(\001R\tmarketCap\"|\n\035GetBattlegrou" +
-      "ndStocksResponse\022:\n\006stocks\030\001 \003(\0132\".short" +
-      "s.v1alpha1.BattlegroundStockR\006stocks\022\037\n\013" +
-      "total_count\030\002 \001(\005R\ntotalCount\"m\n!GetShor" +
-      "tCampaignScoreboardRequest\022\024\n\005limit\030\001 \001(" +
-      "\005R\005limit\022\026\n\006offset\030\002 \001(\005R\006offset\022\032\n\010indu" +
-      "stry\030\003 \001(\tR\010industry\"\272\004\n\rShortCampaign\022\035" +
-      "\n\nstock_code\030\001 \001(\tR\tstockCode\022!\n\014company" +
-      "_name\030\002 \001(\tR\013companyName\022\032\n\010industry\030\003 \001" +
-      "(\tR\010industry\022\031\n\010logo_url\030\004 \001(\tR\007logoUrl\022" +
-      "\033\n\tpeak_date\030\005 \001(\tR\010peakDate\022$\n\016peak_sho" +
-      "rt_pct\030\006 \001(\001R\014peakShortPct\022\"\n\rprice_at_p" +
-      "eak\030\007 \001(\001R\013priceAtPeak\022$\n\016price_3m_after" +
-      "\030\010 \001(\001R\014price3mAfter\022$\n\016price_6m_after\030\t" +
-      " \001(\001R\014price6mAfter\022\033\n\treturn_3m\030\n \001(\001R\010r" +
-      "eturn3m\022\033\n\treturn_6m\030\013 \001(\001R\010return6m\022\025\n\006" +
-      "has_3m\030\014 \001(\010R\005has3m\022\025\n\006has_6m\030\r \001(\010R\005has" +
-      "6m\022\"\n\rshorts_won_3m\030\016 \001(\010R\013shortsWon3m\022\"" +
-      "\n\rshorts_won_6m\030\017 \001(\010R\013shortsWon6m\022*\n\021cu" +
-      "rrent_short_pct\030\020 \001(\001R\017currentShortPct\022!" +
-      "\n\014latest_price\030\021 \001(\001R\013latestPrice\"\206\002\n\"Ge" +
-      "tShortCampaignScoreboardResponse\022<\n\tcamp" +
-      "aigns\030\001 \003(\0132\036.shorts.v1alpha1.ShortCampa" +
-      "ignR\tcampaigns\022\037\n\013total_count\030\002 \001(\005R\ntot" +
-      "alCount\022\'\n\017campaigns_total\030\003 \001(\005R\016campai" +
-      "gnsTotal\022+\n\022shorts_win_rate_3m\030\004 \001(\001R\017sh" +
-      "ortsWinRate3m\022+\n\022shorts_win_rate_6m\030\005 \001(" +
-      "\001R\017shortsWinRate6m*5\n\010ViewMode\022\022\n\016CURREN" +
-      "T_CHANGE\020\000\022\025\n\021PERCENTAGE_CHANGE\020\001*v\n\020Bat" +
-      "tlegroundView\022!\n\035BATTLEGROUND_VIEW_UNSPE" +
-      "CIFIED\020\000\022\035\n\031BATTLEGROUND_VIEW_SQUEEZE\020\001\022" +
-      " \n\034BATTLEGROUND_VIEW_DIVERGENCE\020\0022\265\006\n\rMa" +
-      "rketService\022a\n\014GetTopShorts\022$.shorts.v1a" +
-      "lpha1.GetTopShortsRequest\032%.shorts.v1alp" +
-      "ha1.GetTopShortsResponse\"\004\200\265\030\001\022h\n\022GetInd" +
-      "ustryTreeMap\022*.shorts.v1alpha1.GetIndust" +
-      "ryTreeMapRequest\032 .stocks.v1alpha1.Indus" +
-      "tryTreeMap\"\004\200\265\030\001\022j\n\017GetMarketByDate\022\'.sh" +
-      "orts.v1alpha1.GetMarketByDateRequest\032(.s" +
-      "horts.v1alpha1.GetMarketByDateResponse\"\004" +
-      "\200\265\030\001\022p\n\021GetAvailableDates\022).shorts.v1alp" +
-      "ha1.GetAvailableDatesRequest\032*.shorts.v1" +
-      "alpha1.GetAvailableDatesResponse\"\004\200\265\030\001\022m" +
-      "\n\rGetSyncStatus\022%.shorts.v1alpha1.GetSyn" +
-      "cStatusRequest\032&.shorts.v1alpha1.GetSync" +
-      "StatusResponse\"\r\200\265\030\002\212\265\030\005admin\022|\n\025GetBatt" +
-      "legroundStocks\022-.shorts.v1alpha1.GetBatt" +
-      "legroundStocksRequest\032..shorts.v1alpha1." +
-      "GetBattlegroundStocksResponse\"\004\200\265\030\001\022\213\001\n\032" +
-      "GetShortCampaignScoreboard\0222.shorts.v1al" +
-      "pha1.GetShortCampaignScoreboardRequest\0323" +
-      ".shorts.v1alpha1.GetShortCampaignScorebo" +
-      "ardResponse\"\004\200\265\030\001B\332\001\n\023com.shorts.v1alpha" +
-      "1B\013MarketProtoP\001ZYgithub.com/castlemilk/" +
-      "shorted.com.au/services/gen/proto/go/sho" +
-      "rts/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shor" +
-      "ts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V" +
-      "1alpha1\\GPBMetadata\352\002\020Shorts::V1alpha1b\006" +
-      "proto3"
+      "StocksFailed\"\233\001\n\026GetMarketByDateRequest\022" +
+      "\022\n\004date\030\001 \001(\tR\004date\022\024\n\005limit\030\002 \001(\005R\005limi" +
+      "t\022\026\n\006offset\030\003 \001(\005R\006offset\022?\n\034include_zer" +
+      "o_short_positions\030\004 \001(\010R\031includeZeroShor" +
+      "tPositions\"\300\001\n\027GetMarketByDateResponse\022\022" +
+      "\n\004date\030\001 \001(\tR\004date\022.\n\006stocks\030\002 \003(\0132\026.sto" +
+      "cks.v1alpha1.StockR\006stocks\022\037\n\013total_coun" +
+      "t\030\003 \001(\005R\ntotalCount\022#\n\rprevious_date\030\004 \001" +
+      "(\tR\014previousDate\022\033\n\tnext_date\030\005 \001(\tR\010nex" +
+      "tDate\"H\n\030GetAvailableDatesRequest\022\024\n\005lim" +
+      "it\030\001 \001(\005R\005limit\022\026\n\006before\030\002 \001(\tR\006before\"" +
+      "\230\001\n\031GetAvailableDatesResponse\022\024\n\005dates\030\001" +
+      " \003(\tR\005dates\022#\n\rearliest_date\030\002 \001(\tR\014earl" +
+      "iestDate\022\037\n\013latest_date\030\003 \001(\tR\nlatestDat" +
+      "e\022\037\n\013total_count\030\004 \001(\005R\ntotalCount\"\203\001\n\034G" +
+      "etBattlegroundStocksRequest\0225\n\004view\030\001 \001(" +
+      "\0162!.shorts.v1alpha1.BattlegroundViewR\004vi" +
+      "ew\022\024\n\005limit\030\002 \001(\005R\005limit\022\026\n\006offset\030\003 \001(\005" +
+      "R\006offset\"\266\003\n\021BattlegroundStock\022\035\n\nstock_" +
+      "code\030\001 \001(\tR\tstockCode\022!\n\014company_name\030\002 " +
+      "\001(\tR\013companyName\022\032\n\010industry\030\003 \001(\tR\010indu" +
+      "stry\022\031\n\010logo_url\030\004 \001(\tR\007logoUrl\022\033\n\tshort" +
+      "_pct\030\005 \001(\001R\010shortPct\022-\n\023short_pct_change" +
+      "_4w\030\006 \001(\001R\020shortPctChange4w\022!\n\014latest_pr" +
+      "ice\030\007 \001(\001R\013latestPrice\022&\n\017price_change_1" +
+      "m\030\010 \001(\001R\rpriceChange1m\022\"\n\rdays_to_cover\030" +
+      "\t \001(\001R\013daysToCover\022#\n\rsqueeze_score\030\n \001(" +
+      "\001R\014squeezeScore\022)\n\020divergence_score\030\013 \001(" +
+      "\001R\017divergenceScore\022\035\n\nmarket_cap\030\014 \001(\001R\t" +
+      "marketCap\"|\n\035GetBattlegroundStocksRespon" +
+      "se\022:\n\006stocks\030\001 \003(\0132\".shorts.v1alpha1.Bat" +
+      "tlegroundStockR\006stocks\022\037\n\013total_count\030\002 " +
+      "\001(\005R\ntotalCount\"m\n!GetShortCampaignScore" +
+      "boardRequest\022\024\n\005limit\030\001 \001(\005R\005limit\022\026\n\006of" +
+      "fset\030\002 \001(\005R\006offset\022\032\n\010industry\030\003 \001(\tR\010in" +
+      "dustry\"\272\004\n\rShortCampaign\022\035\n\nstock_code\030\001" +
+      " \001(\tR\tstockCode\022!\n\014company_name\030\002 \001(\tR\013c" +
+      "ompanyName\022\032\n\010industry\030\003 \001(\tR\010industry\022\031" +
+      "\n\010logo_url\030\004 \001(\tR\007logoUrl\022\033\n\tpeak_date\030\005" +
+      " \001(\tR\010peakDate\022$\n\016peak_short_pct\030\006 \001(\001R\014" +
+      "peakShortPct\022\"\n\rprice_at_peak\030\007 \001(\001R\013pri" +
+      "ceAtPeak\022$\n\016price_3m_after\030\010 \001(\001R\014price3" +
+      "mAfter\022$\n\016price_6m_after\030\t \001(\001R\014price6mA" +
+      "fter\022\033\n\treturn_3m\030\n \001(\001R\010return3m\022\033\n\tret" +
+      "urn_6m\030\013 \001(\001R\010return6m\022\025\n\006has_3m\030\014 \001(\010R\005" +
+      "has3m\022\025\n\006has_6m\030\r \001(\010R\005has6m\022\"\n\rshorts_w" +
+      "on_3m\030\016 \001(\010R\013shortsWon3m\022\"\n\rshorts_won_6" +
+      "m\030\017 \001(\010R\013shortsWon6m\022*\n\021current_short_pc" +
+      "t\030\020 \001(\001R\017currentShortPct\022!\n\014latest_price" +
+      "\030\021 \001(\001R\013latestPrice\"\206\002\n\"GetShortCampaign" +
+      "ScoreboardResponse\022<\n\tcampaigns\030\001 \003(\0132\036." +
+      "shorts.v1alpha1.ShortCampaignR\tcampaigns" +
+      "\022\037\n\013total_count\030\002 \001(\005R\ntotalCount\022\'\n\017cam" +
+      "paigns_total\030\003 \001(\005R\016campaignsTotal\022+\n\022sh" +
+      "orts_win_rate_3m\030\004 \001(\001R\017shortsWinRate3m\022" +
+      "+\n\022shorts_win_rate_6m\030\005 \001(\001R\017shortsWinRa" +
+      "te6m*5\n\010ViewMode\022\022\n\016CURRENT_CHANGE\020\000\022\025\n\021" +
+      "PERCENTAGE_CHANGE\020\001*v\n\020BattlegroundView\022" +
+      "!\n\035BATTLEGROUND_VIEW_UNSPECIFIED\020\000\022\035\n\031BA" +
+      "TTLEGROUND_VIEW_SQUEEZE\020\001\022 \n\034BATTLEGROUN" +
+      "D_VIEW_DIVERGENCE\020\0022\265\006\n\rMarketService\022a\n" +
+      "\014GetTopShorts\022$.shorts.v1alpha1.GetTopSh" +
+      "ortsRequest\032%.shorts.v1alpha1.GetTopShor" +
+      "tsResponse\"\004\200\265\030\001\022h\n\022GetIndustryTreeMap\022*" +
+      ".shorts.v1alpha1.GetIndustryTreeMapReque" +
+      "st\032 .stocks.v1alpha1.IndustryTreeMap\"\004\200\265" +
+      "\030\001\022j\n\017GetMarketByDate\022\'.shorts.v1alpha1." +
+      "GetMarketByDateRequest\032(.shorts.v1alpha1" +
+      ".GetMarketByDateResponse\"\004\200\265\030\001\022p\n\021GetAva" +
+      "ilableDates\022).shorts.v1alpha1.GetAvailab" +
+      "leDatesRequest\032*.shorts.v1alpha1.GetAvai" +
+      "lableDatesResponse\"\004\200\265\030\001\022m\n\rGetSyncStatu" +
+      "s\022%.shorts.v1alpha1.GetSyncStatusRequest" +
+      "\032&.shorts.v1alpha1.GetSyncStatusResponse" +
+      "\"\r\200\265\030\002\212\265\030\005admin\022|\n\025GetBattlegroundStocks" +
+      "\022-.shorts.v1alpha1.GetBattlegroundStocks" +
+      "Request\032..shorts.v1alpha1.GetBattlegroun" +
+      "dStocksResponse\"\004\200\265\030\001\022\213\001\n\032GetShortCampai" +
+      "gnScoreboard\0222.shorts.v1alpha1.GetShortC" +
+      "ampaignScoreboardRequest\0323.shorts.v1alph" +
+      "a1.GetShortCampaignScoreboardResponse\"\004\200" +
+      "\265\030\001B\332\001\n\023com.shorts.v1alpha1B\013MarketProto" +
+      "P\001ZYgithub.com/castlemilk/shorted.com.au" +
+      "/services/gen/proto/go/shorts/v1alpha1;s" +
+      "hortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017" +
+      "Shorts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMet" +
+      "adata\352\002\020Shorts::V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -283,7 +284,7 @@ public final class MarketProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_GetMarketByDateRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetMarketByDateRequest_descriptor,
-        new java.lang.String[] { "Date", "Limit", "Offset", });
+        new java.lang.String[] { "Date", "Limit", "Offset", "IncludeZeroShortPositions", });
     internal_static_shorts_v1alpha1_GetMarketByDateResponse_descriptor =
       getDescriptor().getMessageType(7);
     internal_static_shorts_v1alpha1_GetMarketByDateResponse_fieldAccessorTable = new

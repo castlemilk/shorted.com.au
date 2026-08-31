@@ -7,16 +7,25 @@ package com.shorts.v1alpha1;
 
 /**
  * <pre>
- * Request for GetStockDataRequest RPC, specifying the product code.
+ * Request for GetStockPrices RPC.
+ *
+ * This exists so that short interest can be joined to returns without leaving
+ * the API. Doing it outside meant reconciling two ticker conventions (BHP here
+ * against BHP.AX elsewhere), two unauditable adjustment methodologies for
+ * splits and dividends, and two universes that need not agree on any given
+ * date — an error term on every result that no amount of care on the caller's
+ * side removes. Every question the product is actually asked ("do heavily
+ * shorted names underperform", "what happened after the squeeze") needs both
+ * series, and the harder half was already here.
  * </pre>
  *
- * Protobuf type {@code shorts.v1alpha1.GetStockDataRequest}
+ * Protobuf type {@code shorts.v1alpha1.GetStockPricesRequest}
  */
 @com.google.protobuf.Generated
-public final class GetStockDataRequest extends
+public final class GetStockPricesRequest extends
     com.google.protobuf.GeneratedMessage implements
-    // @@protoc_insertion_point(message_implements:shorts.v1alpha1.GetStockDataRequest)
-    GetStockDataRequestOrBuilder {
+    // @@protoc_insertion_point(message_implements:shorts.v1alpha1.GetStockPricesRequest)
+    GetStockPricesRequestOrBuilder {
 private static final long serialVersionUID = 0L;
   static {
     com.google.protobuf.RuntimeVersion.validateProtobufGencodeVersion(
@@ -25,13 +34,13 @@ private static final long serialVersionUID = 0L;
       /* minor= */ 35,
       /* patch= */ 1,
       /* suffix= */ "",
-      "GetStockDataRequest");
+      "GetStockPricesRequest");
   }
-  // Use GetStockDataRequest.newBuilder() to construct.
-  private GetStockDataRequest(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+  // Use GetStockPricesRequest.newBuilder() to construct.
+  private GetStockPricesRequest(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
     super(builder);
   }
-  private GetStockDataRequest() {
+  private GetStockPricesRequest() {
     productCode_ = "";
     period_ = "";
     from_ = "";
@@ -40,20 +49,20 @@ private static final long serialVersionUID = 0L;
 
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_GetStockDataRequest_descriptor;
+    return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_GetStockPricesRequest_descriptor;
   }
 
   @java.lang.Override
   public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
-    return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_GetStockDataRequest_descriptor;
+    return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_GetStockPricesRequest_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_GetStockDataRequest_fieldAccessorTable
+    return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_GetStockPricesRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            com.shorts.v1alpha1.GetStockDataRequest.class, com.shorts.v1alpha1.GetStockDataRequest.Builder.class);
+            com.shorts.v1alpha1.GetStockPricesRequest.class, com.shorts.v1alpha1.GetStockPricesRequest.Builder.class);
   }
 
   public static final int PRODUCT_CODE_FIELD_NUMBER = 1;
@@ -101,7 +110,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
-   * `from` is set.
+   * `from` is set. Defaults to 1Y.
    * </pre>
    *
    * <code>string period = 2 [json_name = "period"];</code>
@@ -123,7 +132,7 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
-   * `from` is set.
+   * `from` is set. Defaults to 1Y.
    * </pre>
    *
    * <code>string period = 2 [json_name = "period"];</code>
@@ -144,57 +153,15 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int FULL_RESOLUTION_FIELD_NUMBER = 3;
-  private boolean fullResolution_ = false;
-  /**
-   * <pre>
-   * Return every observation, unbucketed.
-   *
-   * By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
-   * averages. That is the right shape for a chart and unusable for anything
-   * else: you cannot compute a per-observation change, align to a trading
-   * calendar, or measure an event window on a resampled series, and until now
-   * there was no way to ask for the raw record. The default is unchanged, so
-   * existing callers keep the series they already render.
-   * </pre>
-   *
-   * <code>bool full_resolution = 3 [json_name = "fullResolution"];</code>
-   * @return The fullResolution.
-   */
-  @java.lang.Override
-  public boolean getFullResolution() {
-    return fullResolution_;
-  }
-
-  public static final int MAX_POINTS_FIELD_NUMBER = 6;
-  private int maxPoints_ = 0;
-  /**
-   * <pre>
-   * Cap on returned points, applied after `full_resolution`. 0 means no cap.
-   * Thinning keeps the first and last observation and spaces the rest evenly;
-   * `downsampled` reports whether it happened, so a caller never has to infer
-   * it from a suspiciously round point count.
-   * </pre>
-   *
-   * <code>int32 max_points = 6 [json_name = "maxPoints"];</code>
-   * @return The maxPoints.
-   */
-  @java.lang.Override
-  public int getMaxPoints() {
-    return maxPoints_;
-  }
-
-  public static final int FROM_FIELD_NUMBER = 4;
+  public static final int FROM_FIELD_NUMBER = 3;
   @SuppressWarnings("serial")
   private volatile java.lang.Object from_ = "";
   /**
    * <pre>
-   * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
-   * alone runs to the end of the data. A caller wanting one specific window
-   * had to request MAX and discard most of what came back.
+   * Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data.
    * </pre>
    *
-   * <code>string from = 4 [json_name = "from"];</code>
+   * <code>string from = 3 [json_name = "from"];</code>
    * @return The from.
    */
   @java.lang.Override
@@ -212,12 +179,10 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
-   * alone runs to the end of the data. A caller wanting one specific window
-   * had to request MAX and discard most of what came back.
+   * Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data.
    * </pre>
    *
-   * <code>string from = 4 [json_name = "from"];</code>
+   * <code>string from = 3 [json_name = "from"];</code>
    * @return The bytes for from.
    */
   @java.lang.Override
@@ -235,11 +200,11 @@ private static final long serialVersionUID = 0L;
     }
   }
 
-  public static final int TO_FIELD_NUMBER = 5;
+  public static final int TO_FIELD_NUMBER = 4;
   @SuppressWarnings("serial")
   private volatile java.lang.Object to_ = "";
   /**
-   * <code>string to = 5 [json_name = "to"];</code>
+   * <code>string to = 4 [json_name = "to"];</code>
    * @return The to.
    */
   @java.lang.Override
@@ -256,7 +221,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string to = 5 [json_name = "to"];</code>
+   * <code>string to = 4 [json_name = "to"];</code>
    * @return The bytes for to.
    */
   @java.lang.Override
@@ -272,6 +237,22 @@ private static final long serialVersionUID = 0L;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
+  }
+
+  public static final int MAX_POINTS_FIELD_NUMBER = 5;
+  private int maxPoints_ = 0;
+  /**
+   * <pre>
+   * Cap on returned points, 0 for no cap. Thinning keeps the first and last
+   * observation; `downsampled` reports whether it happened.
+   * </pre>
+   *
+   * <code>int32 max_points = 5 [json_name = "maxPoints"];</code>
+   * @return The maxPoints.
+   */
+  @java.lang.Override
+  public int getMaxPoints() {
+    return maxPoints_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -294,17 +275,14 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(period_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 2, period_);
     }
-    if (fullResolution_ != false) {
-      output.writeBool(3, fullResolution_);
-    }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(from_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 4, from_);
+      com.google.protobuf.GeneratedMessage.writeString(output, 3, from_);
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(to_)) {
-      com.google.protobuf.GeneratedMessage.writeString(output, 5, to_);
+      com.google.protobuf.GeneratedMessage.writeString(output, 4, to_);
     }
     if (maxPoints_ != 0) {
-      output.writeInt32(6, maxPoints_);
+      output.writeInt32(5, maxPoints_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -316,19 +294,15 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(period_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(2, period_);
     }
-    if (fullResolution_ != false) {
-      size += com.google.protobuf.CodedOutputStream
-        .computeBoolSize(3, fullResolution_);
-    }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(from_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(4, from_);
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(3, from_);
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(to_)) {
-      size += com.google.protobuf.GeneratedMessage.computeStringSize(5, to_);
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(4, to_);
     }
     if (maxPoints_ != 0) {
       size += com.google.protobuf.CodedOutputStream
-        .computeInt32Size(6, maxPoints_);
+        .computeInt32Size(5, maxPoints_);
     }
     return size;
   }
@@ -349,23 +323,21 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof com.shorts.v1alpha1.GetStockDataRequest)) {
+    if (!(obj instanceof com.shorts.v1alpha1.GetStockPricesRequest)) {
       return super.equals(obj);
     }
-    com.shorts.v1alpha1.GetStockDataRequest other = (com.shorts.v1alpha1.GetStockDataRequest) obj;
+    com.shorts.v1alpha1.GetStockPricesRequest other = (com.shorts.v1alpha1.GetStockPricesRequest) obj;
 
     if (!getProductCode()
         .equals(other.getProductCode())) return false;
     if (!getPeriod()
         .equals(other.getPeriod())) return false;
-    if (getFullResolution()
-        != other.getFullResolution()) return false;
-    if (getMaxPoints()
-        != other.getMaxPoints()) return false;
     if (!getFrom()
         .equals(other.getFrom())) return false;
     if (!getTo()
         .equals(other.getTo())) return false;
+    if (getMaxPoints()
+        != other.getMaxPoints()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -381,58 +353,55 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getProductCode().hashCode();
     hash = (37 * hash) + PERIOD_FIELD_NUMBER;
     hash = (53 * hash) + getPeriod().hashCode();
-    hash = (37 * hash) + FULL_RESOLUTION_FIELD_NUMBER;
-    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-        getFullResolution());
-    hash = (37 * hash) + MAX_POINTS_FIELD_NUMBER;
-    hash = (53 * hash) + getMaxPoints();
     hash = (37 * hash) + FROM_FIELD_NUMBER;
     hash = (53 * hash) + getFrom().hashCode();
     hash = (37 * hash) + TO_FIELD_NUMBER;
     hash = (53 * hash) + getTo().hashCode();
+    hash = (37 * hash) + MAX_POINTS_FIELD_NUMBER;
+    hash = (53 * hash) + getMaxPoints();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
   }
 
-  public static com.shorts.v1alpha1.GetStockDataRequest parseFrom(
+  public static com.shorts.v1alpha1.GetStockPricesRequest parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.shorts.v1alpha1.GetStockDataRequest parseFrom(
+  public static com.shorts.v1alpha1.GetStockPricesRequest parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.shorts.v1alpha1.GetStockDataRequest parseFrom(
+  public static com.shorts.v1alpha1.GetStockPricesRequest parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.shorts.v1alpha1.GetStockDataRequest parseFrom(
+  public static com.shorts.v1alpha1.GetStockPricesRequest parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.shorts.v1alpha1.GetStockDataRequest parseFrom(byte[] data)
+  public static com.shorts.v1alpha1.GetStockPricesRequest parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.shorts.v1alpha1.GetStockDataRequest parseFrom(
+  public static com.shorts.v1alpha1.GetStockPricesRequest parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.shorts.v1alpha1.GetStockDataRequest parseFrom(java.io.InputStream input)
+  public static com.shorts.v1alpha1.GetStockPricesRequest parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static com.shorts.v1alpha1.GetStockDataRequest parseFrom(
+  public static com.shorts.v1alpha1.GetStockPricesRequest parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -440,26 +409,26 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  public static com.shorts.v1alpha1.GetStockDataRequest parseDelimitedFrom(java.io.InputStream input)
+  public static com.shorts.v1alpha1.GetStockPricesRequest parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input);
   }
 
-  public static com.shorts.v1alpha1.GetStockDataRequest parseDelimitedFrom(
+  public static com.shorts.v1alpha1.GetStockPricesRequest parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static com.shorts.v1alpha1.GetStockDataRequest parseFrom(
+  public static com.shorts.v1alpha1.GetStockPricesRequest parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static com.shorts.v1alpha1.GetStockDataRequest parseFrom(
+  public static com.shorts.v1alpha1.GetStockPricesRequest parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -472,7 +441,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(com.shorts.v1alpha1.GetStockDataRequest prototype) {
+  public static Builder newBuilder(com.shorts.v1alpha1.GetStockPricesRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -489,29 +458,38 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Request for GetStockDataRequest RPC, specifying the product code.
+   * Request for GetStockPrices RPC.
+   *
+   * This exists so that short interest can be joined to returns without leaving
+   * the API. Doing it outside meant reconciling two ticker conventions (BHP here
+   * against BHP.AX elsewhere), two unauditable adjustment methodologies for
+   * splits and dividends, and two universes that need not agree on any given
+   * date — an error term on every result that no amount of care on the caller's
+   * side removes. Every question the product is actually asked ("do heavily
+   * shorted names underperform", "what happened after the squeeze") needs both
+   * series, and the harder half was already here.
    * </pre>
    *
-   * Protobuf type {@code shorts.v1alpha1.GetStockDataRequest}
+   * Protobuf type {@code shorts.v1alpha1.GetStockPricesRequest}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessage.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:shorts.v1alpha1.GetStockDataRequest)
-      com.shorts.v1alpha1.GetStockDataRequestOrBuilder {
+      // @@protoc_insertion_point(builder_implements:shorts.v1alpha1.GetStockPricesRequest)
+      com.shorts.v1alpha1.GetStockPricesRequestOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_GetStockDataRequest_descriptor;
+      return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_GetStockPricesRequest_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_GetStockDataRequest_fieldAccessorTable
+      return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_GetStockPricesRequest_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.shorts.v1alpha1.GetStockDataRequest.class, com.shorts.v1alpha1.GetStockDataRequest.Builder.class);
+              com.shorts.v1alpha1.GetStockPricesRequest.class, com.shorts.v1alpha1.GetStockPricesRequest.Builder.class);
     }
 
-    // Construct using com.shorts.v1alpha1.GetStockDataRequest.newBuilder()
+    // Construct using com.shorts.v1alpha1.GetStockPricesRequest.newBuilder()
     private Builder() {
 
     }
@@ -527,27 +505,26 @@ private static final long serialVersionUID = 0L;
       bitField0_ = 0;
       productCode_ = "";
       period_ = "";
-      fullResolution_ = false;
-      maxPoints_ = 0;
       from_ = "";
       to_ = "";
+      maxPoints_ = 0;
       return this;
     }
 
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_GetStockDataRequest_descriptor;
+      return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_GetStockPricesRequest_descriptor;
     }
 
     @java.lang.Override
-    public com.shorts.v1alpha1.GetStockDataRequest getDefaultInstanceForType() {
-      return com.shorts.v1alpha1.GetStockDataRequest.getDefaultInstance();
+    public com.shorts.v1alpha1.GetStockPricesRequest getDefaultInstanceForType() {
+      return com.shorts.v1alpha1.GetStockPricesRequest.getDefaultInstance();
     }
 
     @java.lang.Override
-    public com.shorts.v1alpha1.GetStockDataRequest build() {
-      com.shorts.v1alpha1.GetStockDataRequest result = buildPartial();
+    public com.shorts.v1alpha1.GetStockPricesRequest build() {
+      com.shorts.v1alpha1.GetStockPricesRequest result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -555,14 +532,14 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.shorts.v1alpha1.GetStockDataRequest buildPartial() {
-      com.shorts.v1alpha1.GetStockDataRequest result = new com.shorts.v1alpha1.GetStockDataRequest(this);
+    public com.shorts.v1alpha1.GetStockPricesRequest buildPartial() {
+      com.shorts.v1alpha1.GetStockPricesRequest result = new com.shorts.v1alpha1.GetStockPricesRequest(this);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
     }
 
-    private void buildPartial0(com.shorts.v1alpha1.GetStockDataRequest result) {
+    private void buildPartial0(com.shorts.v1alpha1.GetStockPricesRequest result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.productCode_ = productCode_;
@@ -571,31 +548,28 @@ private static final long serialVersionUID = 0L;
         result.period_ = period_;
       }
       if (((from_bitField0_ & 0x00000004) != 0)) {
-        result.fullResolution_ = fullResolution_;
-      }
-      if (((from_bitField0_ & 0x00000008) != 0)) {
-        result.maxPoints_ = maxPoints_;
-      }
-      if (((from_bitField0_ & 0x00000010) != 0)) {
         result.from_ = from_;
       }
-      if (((from_bitField0_ & 0x00000020) != 0)) {
+      if (((from_bitField0_ & 0x00000008) != 0)) {
         result.to_ = to_;
+      }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.maxPoints_ = maxPoints_;
       }
     }
 
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof com.shorts.v1alpha1.GetStockDataRequest) {
-        return mergeFrom((com.shorts.v1alpha1.GetStockDataRequest)other);
+      if (other instanceof com.shorts.v1alpha1.GetStockPricesRequest) {
+        return mergeFrom((com.shorts.v1alpha1.GetStockPricesRequest)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(com.shorts.v1alpha1.GetStockDataRequest other) {
-      if (other == com.shorts.v1alpha1.GetStockDataRequest.getDefaultInstance()) return this;
+    public Builder mergeFrom(com.shorts.v1alpha1.GetStockPricesRequest other) {
+      if (other == com.shorts.v1alpha1.GetStockPricesRequest.getDefaultInstance()) return this;
       if (!other.getProductCode().isEmpty()) {
         productCode_ = other.productCode_;
         bitField0_ |= 0x00000001;
@@ -606,21 +580,18 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000002;
         onChanged();
       }
-      if (other.getFullResolution() != false) {
-        setFullResolution(other.getFullResolution());
-      }
-      if (other.getMaxPoints() != 0) {
-        setMaxPoints(other.getMaxPoints());
-      }
       if (!other.getFrom().isEmpty()) {
         from_ = other.from_;
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000004;
         onChanged();
       }
       if (!other.getTo().isEmpty()) {
         to_ = other.to_;
-        bitField0_ |= 0x00000020;
+        bitField0_ |= 0x00000008;
         onChanged();
+      }
+      if (other.getMaxPoints() != 0) {
+        setMaxPoints(other.getMaxPoints());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -658,26 +629,21 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 18
-            case 24: {
-              fullResolution_ = input.readBool();
+            case 26: {
+              from_ = input.readStringRequireUtf8();
               bitField0_ |= 0x00000004;
               break;
-            } // case 24
+            } // case 26
             case 34: {
-              from_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000010;
-              break;
-            } // case 34
-            case 42: {
               to_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000020;
-              break;
-            } // case 42
-            case 48: {
-              maxPoints_ = input.readInt32();
               bitField0_ |= 0x00000008;
               break;
-            } // case 48
+            } // case 34
+            case 40: {
+              maxPoints_ = input.readInt32();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 40
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -771,7 +737,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
-     * `from` is set.
+     * `from` is set. Defaults to 1Y.
      * </pre>
      *
      * <code>string period = 2 [json_name = "period"];</code>
@@ -792,7 +758,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
-     * `from` is set.
+     * `from` is set. Defaults to 1Y.
      * </pre>
      *
      * <code>string period = 2 [json_name = "period"];</code>
@@ -814,7 +780,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
-     * `from` is set.
+     * `from` is set. Defaults to 1Y.
      * </pre>
      *
      * <code>string period = 2 [json_name = "period"];</code>
@@ -832,7 +798,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
-     * `from` is set.
+     * `from` is set. Defaults to 1Y.
      * </pre>
      *
      * <code>string period = 2 [json_name = "period"];</code>
@@ -847,7 +813,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
-     * `from` is set.
+     * `from` is set. Defaults to 1Y.
      * </pre>
      *
      * <code>string period = 2 [json_name = "period"];</code>
@@ -864,133 +830,13 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    private boolean fullResolution_ ;
-    /**
-     * <pre>
-     * Return every observation, unbucketed.
-     *
-     * By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
-     * averages. That is the right shape for a chart and unusable for anything
-     * else: you cannot compute a per-observation change, align to a trading
-     * calendar, or measure an event window on a resampled series, and until now
-     * there was no way to ask for the raw record. The default is unchanged, so
-     * existing callers keep the series they already render.
-     * </pre>
-     *
-     * <code>bool full_resolution = 3 [json_name = "fullResolution"];</code>
-     * @return The fullResolution.
-     */
-    @java.lang.Override
-    public boolean getFullResolution() {
-      return fullResolution_;
-    }
-    /**
-     * <pre>
-     * Return every observation, unbucketed.
-     *
-     * By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
-     * averages. That is the right shape for a chart and unusable for anything
-     * else: you cannot compute a per-observation change, align to a trading
-     * calendar, or measure an event window on a resampled series, and until now
-     * there was no way to ask for the raw record. The default is unchanged, so
-     * existing callers keep the series they already render.
-     * </pre>
-     *
-     * <code>bool full_resolution = 3 [json_name = "fullResolution"];</code>
-     * @param value The fullResolution to set.
-     * @return This builder for chaining.
-     */
-    public Builder setFullResolution(boolean value) {
-
-      fullResolution_ = value;
-      bitField0_ |= 0x00000004;
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * Return every observation, unbucketed.
-     *
-     * By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
-     * averages. That is the right shape for a chart and unusable for anything
-     * else: you cannot compute a per-observation change, align to a trading
-     * calendar, or measure an event window on a resampled series, and until now
-     * there was no way to ask for the raw record. The default is unchanged, so
-     * existing callers keep the series they already render.
-     * </pre>
-     *
-     * <code>bool full_resolution = 3 [json_name = "fullResolution"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearFullResolution() {
-      bitField0_ = (bitField0_ & ~0x00000004);
-      fullResolution_ = false;
-      onChanged();
-      return this;
-    }
-
-    private int maxPoints_ ;
-    /**
-     * <pre>
-     * Cap on returned points, applied after `full_resolution`. 0 means no cap.
-     * Thinning keeps the first and last observation and spaces the rest evenly;
-     * `downsampled` reports whether it happened, so a caller never has to infer
-     * it from a suspiciously round point count.
-     * </pre>
-     *
-     * <code>int32 max_points = 6 [json_name = "maxPoints"];</code>
-     * @return The maxPoints.
-     */
-    @java.lang.Override
-    public int getMaxPoints() {
-      return maxPoints_;
-    }
-    /**
-     * <pre>
-     * Cap on returned points, applied after `full_resolution`. 0 means no cap.
-     * Thinning keeps the first and last observation and spaces the rest evenly;
-     * `downsampled` reports whether it happened, so a caller never has to infer
-     * it from a suspiciously round point count.
-     * </pre>
-     *
-     * <code>int32 max_points = 6 [json_name = "maxPoints"];</code>
-     * @param value The maxPoints to set.
-     * @return This builder for chaining.
-     */
-    public Builder setMaxPoints(int value) {
-
-      maxPoints_ = value;
-      bitField0_ |= 0x00000008;
-      onChanged();
-      return this;
-    }
-    /**
-     * <pre>
-     * Cap on returned points, applied after `full_resolution`. 0 means no cap.
-     * Thinning keeps the first and last observation and spaces the rest evenly;
-     * `downsampled` reports whether it happened, so a caller never has to infer
-     * it from a suspiciously round point count.
-     * </pre>
-     *
-     * <code>int32 max_points = 6 [json_name = "maxPoints"];</code>
-     * @return This builder for chaining.
-     */
-    public Builder clearMaxPoints() {
-      bitField0_ = (bitField0_ & ~0x00000008);
-      maxPoints_ = 0;
-      onChanged();
-      return this;
-    }
-
     private java.lang.Object from_ = "";
     /**
      * <pre>
-     * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
-     * alone runs to the end of the data. A caller wanting one specific window
-     * had to request MAX and discard most of what came back.
+     * Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data.
      * </pre>
      *
-     * <code>string from = 4 [json_name = "from"];</code>
+     * <code>string from = 3 [json_name = "from"];</code>
      * @return The from.
      */
     public java.lang.String getFrom() {
@@ -1007,12 +853,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
-     * alone runs to the end of the data. A caller wanting one specific window
-     * had to request MAX and discard most of what came back.
+     * Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data.
      * </pre>
      *
-     * <code>string from = 4 [json_name = "from"];</code>
+     * <code>string from = 3 [json_name = "from"];</code>
      * @return The bytes for from.
      */
     public com.google.protobuf.ByteString
@@ -1030,12 +874,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
-     * alone runs to the end of the data. A caller wanting one specific window
-     * had to request MAX and discard most of what came back.
+     * Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data.
      * </pre>
      *
-     * <code>string from = 4 [json_name = "from"];</code>
+     * <code>string from = 3 [json_name = "from"];</code>
      * @param value The from to set.
      * @return This builder for chaining.
      */
@@ -1043,34 +885,30 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       from_ = value;
-      bitField0_ |= 0x00000010;
+      bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
-     * alone runs to the end of the data. A caller wanting one specific window
-     * had to request MAX and discard most of what came back.
+     * Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data.
      * </pre>
      *
-     * <code>string from = 4 [json_name = "from"];</code>
+     * <code>string from = 3 [json_name = "from"];</code>
      * @return This builder for chaining.
      */
     public Builder clearFrom() {
       from_ = getDefaultInstance().getFrom();
-      bitField0_ = (bitField0_ & ~0x00000010);
+      bitField0_ = (bitField0_ & ~0x00000004);
       onChanged();
       return this;
     }
     /**
      * <pre>
-     * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
-     * alone runs to the end of the data. A caller wanting one specific window
-     * had to request MAX and discard most of what came back.
+     * Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data.
      * </pre>
      *
-     * <code>string from = 4 [json_name = "from"];</code>
+     * <code>string from = 3 [json_name = "from"];</code>
      * @param value The bytes for from to set.
      * @return This builder for chaining.
      */
@@ -1079,14 +917,14 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       from_ = value;
-      bitField0_ |= 0x00000010;
+      bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
 
     private java.lang.Object to_ = "";
     /**
-     * <code>string to = 5 [json_name = "to"];</code>
+     * <code>string to = 4 [json_name = "to"];</code>
      * @return The to.
      */
     public java.lang.String getTo() {
@@ -1102,7 +940,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string to = 5 [json_name = "to"];</code>
+     * <code>string to = 4 [json_name = "to"];</code>
      * @return The bytes for to.
      */
     public com.google.protobuf.ByteString
@@ -1119,7 +957,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string to = 5 [json_name = "to"];</code>
+     * <code>string to = 4 [json_name = "to"];</code>
      * @param value The to to set.
      * @return This builder for chaining.
      */
@@ -1127,22 +965,22 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       to_ = value;
-      bitField0_ |= 0x00000020;
+      bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }
     /**
-     * <code>string to = 5 [json_name = "to"];</code>
+     * <code>string to = 4 [json_name = "to"];</code>
      * @return This builder for chaining.
      */
     public Builder clearTo() {
       to_ = getDefaultInstance().getTo();
-      bitField0_ = (bitField0_ & ~0x00000020);
+      bitField0_ = (bitField0_ & ~0x00000008);
       onChanged();
       return this;
     }
     /**
-     * <code>string to = 5 [json_name = "to"];</code>
+     * <code>string to = 4 [json_name = "to"];</code>
      * @param value The bytes for to to set.
      * @return This builder for chaining.
      */
@@ -1151,28 +989,75 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       to_ = value;
-      bitField0_ |= 0x00000020;
+      bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }
 
-    // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetStockDataRequest)
+    private int maxPoints_ ;
+    /**
+     * <pre>
+     * Cap on returned points, 0 for no cap. Thinning keeps the first and last
+     * observation; `downsampled` reports whether it happened.
+     * </pre>
+     *
+     * <code>int32 max_points = 5 [json_name = "maxPoints"];</code>
+     * @return The maxPoints.
+     */
+    @java.lang.Override
+    public int getMaxPoints() {
+      return maxPoints_;
+    }
+    /**
+     * <pre>
+     * Cap on returned points, 0 for no cap. Thinning keeps the first and last
+     * observation; `downsampled` reports whether it happened.
+     * </pre>
+     *
+     * <code>int32 max_points = 5 [json_name = "maxPoints"];</code>
+     * @param value The maxPoints to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMaxPoints(int value) {
+
+      maxPoints_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Cap on returned points, 0 for no cap. Thinning keeps the first and last
+     * observation; `downsampled` reports whether it happened.
+     * </pre>
+     *
+     * <code>int32 max_points = 5 [json_name = "maxPoints"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMaxPoints() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      maxPoints_ = 0;
+      onChanged();
+      return this;
+    }
+
+    // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetStockPricesRequest)
   }
 
-  // @@protoc_insertion_point(class_scope:shorts.v1alpha1.GetStockDataRequest)
-  private static final com.shorts.v1alpha1.GetStockDataRequest DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:shorts.v1alpha1.GetStockPricesRequest)
+  private static final com.shorts.v1alpha1.GetStockPricesRequest DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new com.shorts.v1alpha1.GetStockDataRequest();
+    DEFAULT_INSTANCE = new com.shorts.v1alpha1.GetStockPricesRequest();
   }
 
-  public static com.shorts.v1alpha1.GetStockDataRequest getDefaultInstance() {
+  public static com.shorts.v1alpha1.GetStockPricesRequest getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
-  private static final com.google.protobuf.Parser<GetStockDataRequest>
-      PARSER = new com.google.protobuf.AbstractParser<GetStockDataRequest>() {
+  private static final com.google.protobuf.Parser<GetStockPricesRequest>
+      PARSER = new com.google.protobuf.AbstractParser<GetStockPricesRequest>() {
     @java.lang.Override
-    public GetStockDataRequest parsePartialFrom(
+    public GetStockPricesRequest parsePartialFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
@@ -1191,17 +1076,17 @@ private static final long serialVersionUID = 0L;
     }
   };
 
-  public static com.google.protobuf.Parser<GetStockDataRequest> parser() {
+  public static com.google.protobuf.Parser<GetStockPricesRequest> parser() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.google.protobuf.Parser<GetStockDataRequest> getParserForType() {
+  public com.google.protobuf.Parser<GetStockPricesRequest> getParserForType() {
     return PARSER;
   }
 
   @java.lang.Override
-  public com.shorts.v1alpha1.GetStockDataRequest getDefaultInstanceForType() {
+  public com.shorts.v1alpha1.GetStockPricesRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

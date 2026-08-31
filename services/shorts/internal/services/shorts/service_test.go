@@ -12,6 +12,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/mocks"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -286,7 +287,7 @@ func TestShortsServer_GetStockData(t *testing.T) {
 			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
 				l.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
 				now := time.Now()
-				m.EXPECT().GetStockData("CBA", "1M").Return(&stocksv1alpha1.TimeSeriesData{
+				m.EXPECT().GetStockData(shortsstore.StockDataQuery{ProductCode: "CBA", Period: "1M"}).Return(&stocksv1alpha1.TimeSeriesData{
 					ProductCode: "CBA",
 					Name:        "Commonwealth Bank",
 					Points: []*stocksv1alpha1.TimeSeriesPoint{
@@ -326,7 +327,7 @@ func TestShortsServer_GetStockData(t *testing.T) {
 			},
 			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
 				l.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
-				m.EXPECT().GetStockData("ZIP", "1M").Return(&stocksv1alpha1.TimeSeriesData{
+				m.EXPECT().GetStockData(shortsstore.StockDataQuery{ProductCode: "ZIP", Period: "1M"}).Return(&stocksv1alpha1.TimeSeriesData{
 					ProductCode: "ZIP",
 					Name:        "ZIP Co Limited",
 					Points:      []*stocksv1alpha1.TimeSeriesPoint{},

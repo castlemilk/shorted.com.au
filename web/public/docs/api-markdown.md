@@ -579,6 +579,7 @@ Request body fields:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `date` | string | no | YYYY-MM-DD format (proto string) |
+| `includeZeroShortPositions` | boolean | no | Include securities whose reported short position was zero on this date. This response is a POINT-IN-TIME universe: it reads the append-only ASIC report at `date` and joins metadata outward, so a security that has since delisted is present here at the dates it was actually reported. That makes a survivorship-free universe buildable — but only if the universe is complete, and by default a name with no short interest that day is filtered out. Excluding exactly the names with no short interest biases any study that sorts on short interest, which is most of them. (proto bool) |
 | `limit` | integer (int32) | no | Max stocks to return (default 50) (proto int32) |
 | `offset` | integer (int32) | no | Pagination offset (proto int32) |
 
@@ -1356,8 +1357,12 @@ Request body fields:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `period` | string | no | (proto string) |
+| `from` | string | no | Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from` alone runs to the end of the data. A caller wanting one specific window had to request MAX and discard most of what came back. (proto string) |
+| `fullResolution` | boolean | no | Return every observation, unbucketed. By default the long periods (5Y, 10Y, MAX) are bucketed into weekly averages. That is the right shape for a chart and unusable for anything else: you cannot compute a per-observation change, align to a trading calendar, or measure an event window on a resampled series, and until now there was no way to ask for the raw record. The default is unchanged, so existing callers keep the series they already render. (proto bool) |
+| `maxPoints` | integer (int32) | no | Cap on returned points, applied after `full_resolution`. 0 means no cap. Thinning keeps the first and last observation and spaces the rest evenly; `downsampled` reports whether it happened, so a caller never has to infer it from a suspiciously round point count. (proto int32) |
+| `period` | string | no | Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when `from` is set. (proto string) |
 | `productCode` | string | no | (proto string) |
+| `to` | string | no | (proto string) |
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockData' \
@@ -1417,6 +1422,29 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockGraph' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.StockService/GetStockPrices`
+
+Adjusted daily OHLCV for a stock, on the same codes and the same dates as
+ the short-position series.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `from` | string | no | Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data. (proto string) |
+| `maxPoints` | integer (int32) | no | Cap on returned points, 0 for no cap. Thinning keeps the first and last observation; `downsampled` reports whether it happened. (proto int32) |
+| `period` | string | no | Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when `from` is set. Defaults to 1Y. (proto string) |
+| `productCode` | string | no | (proto string) |
+| `to` | string | no | (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockPrices' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \

@@ -121,16 +121,34 @@ func realisticSource() *fakeDataSource {
 	}
 	src.battlegrounds = &shortsv1alpha1.GetBattlegroundStocksResponse{Stocks: bg, TotalCount: 120}
 
-	// MAX period: ~2,500 daily observations, downsampled to <=200.
+	// MAX period: ~2,500 daily observations, downsampled to <=200. Every point
+	// carries its raw count and denominator too — those are returned on every
+	// point in production, so a fixture omitting them would measure a payload
+	// no caller receives and leave the real one unbudgeted.
 	pts := make([]*stocksv1alpha1.TimeSeriesPoint, 0, 2500)
 	base := time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC)
 	for i := 0; i < 2500; i++ {
 		pts = append(pts, &stocksv1alpha1.TimeSeriesPoint{
 			Timestamp: timestamppb.New(base.AddDate(0, 0, i)), ShortPosition: 12.345678,
+			ReportedShortPositions: 637_919_240.5, TotalProductInIssue: 5_084_182_500.75,
 		})
 	}
 	src.stockData = &stocksv1alpha1.TimeSeriesData{
 		ProductCode: "PLS", Name: "PILBARA MINERALS LIMITED", LatestShortPosition: 19.4321, Points: pts,
+	}
+
+	// The same worst case for prices: a MAX window of daily sessions, thinned
+	// to the 200-session default.
+	prices := make([]*shortsv1alpha1.StockPricePoint, 0, 2500)
+	for i := 0; i < 2500; i++ {
+		prices = append(prices, &shortsv1alpha1.StockPricePoint{
+			Date: base.AddDate(0, 0, i).Format("2006-01-02"),
+			Open: 41.234567, High: 42.345678, Low: 40.123456,
+			Close: 41.987654, AdjustedClose: 39.876543, Volume: 12_345_678,
+		})
+	}
+	src.stockPrices = &shortsv1alpha1.GetStockPricesResponse{
+		ProductCode: "PLS", Name: "PILBARA MINERALS LIMITED", Currency: "AUD", Points: prices,
 	}
 
 	// Enriched profile: every prose field over the truncation limit, 40 risks,

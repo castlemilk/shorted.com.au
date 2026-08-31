@@ -123,12 +123,28 @@ func getStockHandler(src DataSource) sdk.ToolHandlerFor[GetStockInput, GetStockO
 
 type GetStockHistoryInput struct {
 	Code   string `json:"code" jsonschema:"ASX ticker code, 3-4 alphanumeric characters, e.g. BHP. Case-insensitive."`
-	Period string `json:"period,omitempty" jsonschema:"Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Defaults to 1M."`
+	Period string `json:"period,omitempty" jsonschema:"Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Defaults to 1M. Ignored when \"from\" is set."`
+	From   string `json:"from,omitempty" jsonschema:"Start of an explicit window, YYYY-MM-DD. Use instead of period to pull one specific span without over-fetching."`
+	To     string `json:"to,omitempty" jsonschema:"End of an explicit window, YYYY-MM-DD. Defaults to the end of the data."`
+
+	// The MCP was the only surface exposing the deep history, and it thinned
+	// that history to 200 points with no way to opt out — so the richest
+	// series in the product was reachable only in a shape suitable for
+	// conversation.
+	FullResolution bool `json:"full_resolution,omitempty" jsonschema:"Return every stored observation instead of a series thinned for reading. Use for quantitative work; the result can be large."`
+	MaxPoints      int  `json:"max_points,omitempty" jsonschema:"Cap on returned points, 1-5000. Defaults to 120. Ignored when full_resolution is true."`
 }
 
 type StockHistoryPoint struct {
 	Date         string  `json:"date" jsonschema:"Observation date, YYYY-MM-DD."`
 	ShortPercent float64 `json:"short_percent" jsonschema:"Reported short positions as a percentage of total product in issue on that date, 0-100."`
+
+	// The percent's numerator and denominator. Shares on issue moves with
+	// placements and buybacks, so the percent can fall with no change in
+	// short positioning at all; without these a caller cannot tell the two
+	// apart.
+	ShortPositions float64 `json:"short_positions,omitempty" jsonschema:"Shares held short on that date — a COUNT, not a percent."`
+	SharesOnIssue  float64 `json:"shares_on_issue,omitempty" jsonschema:"Shares on issue on that date, the denominator of short_percent."`
 }
 
 type GetStockHistoryOutput struct {
@@ -146,10 +162,14 @@ const getStockHistoryDescription = "Get the time series of a single ASX stock's 
 	"window (1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX; default 1M). Each point is a date and the percent of " +
 	"total product in issue held short on that date (0-100). Use this for trend questions — is short interest " +
 	"rising, when did it peak, how does it compare to a year ago. " +
-	"Long windows are DOWNSAMPLED to at most 200 evenly-spaced points, always keeping the first and last " +
-	"observation; total_observations reports the true count and downsampled says whether thinning happened, so " +
-	"the series is right for trends but should not be treated as a complete daily record. " +
-	"This is short interest only — it contains no price, volume or return series. " +
+	"By default long windows are DOWNSAMPLED to at most 120 evenly-spaced points, always keeping the first and " +
+	"last observation, so the default series is right for trends but is not a complete daily record. " +
+	"Pass full_resolution=true for every stored observation, or max_points for a different cap; " +
+	"total_observations always reports how many observations exist and downsampled says whether thinning " +
+	"happened. Use from/to for a specific window instead of over-fetching a long period. " +
+	"Each point also carries short_positions (a share COUNT) and shares_on_issue (its denominator) — a capital " +
+	"raising moves the percent without any change in short positioning, and only the counts reveal that. " +
+	"This is short interest only; use get_stock_prices for price, volume and returns. " +
 	"Source is ASIC's daily short position report, published with a T+4 business-day delay."
 
 func getStockHistoryTool() Tool {
@@ -177,9 +197,27 @@ func getStockHistoryHandler(src DataSource) sdk.ToolHandlerFor[GetStockHistoryIn
 			return nil, GetStockHistoryOutput{}, err
 		}
 
+		// full_resolution wins over max_points; otherwise a cap of 200 keeps
+		// the default response readable, as it always has.
+		maxPoints := int32(maxHistoryPoints)
+		if in.MaxPoints > 0 {
+			if in.MaxPoints > maxRequestableHistoryPoints {
+				return nil, GetStockHistoryOutput{}, fmt.Errorf(
+					"max_points must be between 1 and %d, got %d", maxRequestableHistoryPoints, in.MaxPoints)
+			}
+			maxPoints = int32(in.MaxPoints)
+		}
+		if in.FullResolution {
+			maxPoints = 0
+		}
+
 		res, err := src.GetStockData(ctx, connect.NewRequest(&shortsv1alpha1.GetStockDataRequest{
-			ProductCode: code,
-			Period:      period,
+			ProductCode:    code,
+			Period:         period,
+			From:           in.From,
+			To:             in.To,
+			FullResolution: in.FullResolution,
+			MaxPoints:      maxPoints,
 		}))
 		if err != nil {
 			if connect.CodeOf(err) == connect.CodeNotFound {
@@ -194,24 +232,30 @@ func getStockHistoryHandler(src DataSource) sdk.ToolHandlerFor[GetStockHistoryIn
 
 		msg := res.Msg
 		all := msg.GetPoints()
-		sampled := downsample(all, maxHistoryPoints)
 
+		// total_observations and downsampled now come from the server, which
+		// counts the raw stored rows. Deriving them here from the points that
+		// arrived reported the number of BUCKETS as the number of daily
+		// observations — 846 for 16 years of MAX, which is the weekly bucket
+		// count, not the several thousand daily rows behind it.
 		out := GetStockHistoryOutput{
 			Code:               nonEmpty(msg.GetProductCode(), code),
 			Name:               msg.GetName(),
 			Period:             period,
 			LatestShortPercent: finite(msg.GetLatestShortPosition()),
-			TotalObservations:  len(all),
-			Downsampled:        len(sampled) < len(all),
+			TotalObservations:  int(msg.GetTotalObservations()),
+			Downsampled:        msg.GetDownsampled(),
 			Points:             []StockHistoryPoint{},
 		}
-		for _, point := range sampled {
+		for _, point := range all {
 			if point == nil || point.GetTimestamp() == nil {
 				continue
 			}
 			out.Points = append(out.Points, StockHistoryPoint{
-				Date:         point.GetTimestamp().AsTime().UTC().Format("2006-01-02"),
-				ShortPercent: finite(point.GetShortPosition()),
+				Date:           point.GetTimestamp().AsTime().UTC().Format("2006-01-02"),
+				ShortPercent:   finite(point.GetShortPosition()),
+				ShortPositions: finite(point.GetReportedShortPositions()),
+				SharesOnIssue:  finite(point.GetTotalProductInIssue()),
 			})
 		}
 		out.Returned = len(out.Points)
@@ -576,5 +620,137 @@ func projectPeer(p *shortsv1alpha1.PeerStock) *PeerStockEntry {
 		PERatio:       finite(p.GetPeRatio()),
 		DividendYield: finite(p.GetDividendYield()),
 		PriceChange1M: finite(p.GetPriceChange_1M()),
+	}
+}
+
+// ---------------------------------------------------------------------------
+// get_stock_prices
+// ---------------------------------------------------------------------------
+
+type GetStockPricesInput struct {
+	Code      string `json:"code" jsonschema:"ASX ticker code, 3-4 alphanumeric characters, e.g. BHP. Case-insensitive."`
+	Period    string `json:"period,omitempty" jsonschema:"Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Defaults to 1Y. Ignored when \"from\" is set."`
+	From      string `json:"from,omitempty" jsonschema:"Start of an explicit window, YYYY-MM-DD."`
+	To        string `json:"to,omitempty" jsonschema:"End of an explicit window, YYYY-MM-DD."`
+	MaxPoints int    `json:"max_points,omitempty" jsonschema:"Cap on returned sessions, 1-5000. Defaults to 150."`
+}
+
+type StockPriceEntry struct {
+	Date          string  `json:"date" jsonschema:"Trading date, YYYY-MM-DD."`
+	Close         float64 `json:"close" jsonschema:"Closing price in AUD, as printed."`
+	AdjustedClose float64 `json:"adjusted_close" jsonschema:"Close adjusted for splits and dividends. Compute returns from this, not from close."`
+	Volume        int64   `json:"volume,omitempty" jsonschema:"Shares traded."`
+}
+
+type GetStockPricesOutput struct {
+	Code              string            `json:"code" jsonschema:"ASX ticker code."`
+	Currency          string            `json:"currency" jsonschema:"Currency of the prices, always AUD."`
+	TotalObservations int               `json:"total_observations" jsonschema:"Trading sessions in the window before any thinning."`
+	Returned          int               `json:"returned" jsonschema:"How many sessions this result contains."`
+	Downsampled       bool              `json:"downsampled" jsonschema:"True when sessions were dropped to fit the cap. The first and last are always kept."`
+	Points            []StockPriceEntry `json:"points" jsonschema:"Sessions, oldest first."`
+}
+
+const getStockPricesDescription = "Get adjusted daily prices and volume for one ASX-listed company over a window " +
+	"(1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX; default 1Y), or an explicit from/to range. Each session " +
+	"carries the close as printed, the close adjusted for splits and dividends, and the traded volume. " +
+	"Use adjusted_close to compute returns; use close only to reconcile against another source. " +
+	"These are the SAME ticker codes and the same dates as get_stock_history, so short interest and price can " +
+	"be joined directly — no ticker mapping and no second adjustment methodology. " +
+	"Combine the two to answer whether a heavily shorted name underperformed, or what price did after a squeeze. " +
+	"Long windows are thinned to at most 150 sessions by default, always keeping the first and last; " +
+	"total_observations reports the true count and downsampled says whether thinning happened."
+
+func getStockPricesTool() Tool {
+	tool := Tool{
+		Name:        "get_stock_prices",
+		Title:       "Get a stock's price and volume history",
+		Description: getStockPricesDescription,
+		RPC:         "shorts.v1alpha1.StockService.GetStockPrices",
+		Domain:      "stock",
+	}
+	tool.register = func(server *sdk.Server, src DataSource) {
+		sdk.AddTool(server, tool.spec(), getStockPricesHandler(src))
+	}
+	return tool
+}
+
+func getStockPricesHandler(src DataSource) sdk.ToolHandlerFor[GetStockPricesInput, GetStockPricesOutput] {
+	return func(ctx context.Context, _ *sdk.CallToolRequest, in GetStockPricesInput) (*sdk.CallToolResult, GetStockPricesOutput, error) {
+		code, err := normaliseCode(in.Code)
+		if err != nil {
+			return nil, GetStockPricesOutput{}, err
+		}
+
+		period := ""
+		if in.Period != "" {
+			period, err = normalisePeriod(in.Period)
+			if err != nil {
+				return nil, GetStockPricesOutput{}, err
+			}
+		}
+
+		maxPoints := int32(maxPricePoints)
+		if in.MaxPoints > 0 {
+			if in.MaxPoints > maxRequestableHistoryPoints {
+				return nil, GetStockPricesOutput{}, fmt.Errorf(
+					"max_points must be between 1 and %d, got %d", maxRequestableHistoryPoints, in.MaxPoints)
+			}
+			maxPoints = int32(in.MaxPoints)
+		}
+
+		res, err := src.GetStockPrices(ctx, connect.NewRequest(&shortsv1alpha1.GetStockPricesRequest{
+			ProductCode: code,
+			Period:      period,
+			From:        in.From,
+			To:          in.To,
+			MaxPoints:   maxPoints,
+		}))
+		if err != nil {
+			if connect.CodeOf(err) == connect.CodeNotFound {
+				return nil, GetStockPricesOutput{}, fmt.Errorf(
+					"no price history held for %s — check the ticker with search_stocks", code)
+			}
+			return nil, GetStockPricesOutput{}, fmt.Errorf("could not get prices for %s: %w", code, err)
+		}
+		if res == nil || res.Msg == nil {
+			return nil, GetStockPricesOutput{}, fmt.Errorf("no data returned for %s", code)
+		}
+
+		msg := res.Msg
+		out := GetStockPricesOutput{
+			Code:              nonEmpty(msg.GetProductCode(), code),
+			Currency:          nonEmpty(msg.GetCurrency(), "AUD"),
+			TotalObservations: int(msg.GetTotalObservations()),
+			Downsampled:       msg.GetDownsampled(),
+			Points:            []StockPriceEntry{},
+		}
+		for _, p := range msg.GetPoints() {
+			if p == nil {
+				continue
+			}
+			out.Points = append(out.Points, StockPriceEntry{
+				Date:          p.GetDate(),
+				Close:         finite(p.GetClose()),
+				AdjustedClose: finite(p.GetAdjustedClose()),
+				Volume:        p.GetVolume(),
+			})
+		}
+		out.Returned = len(out.Points)
+
+		var summary string
+		if out.Returned == 0 {
+			summary = fmt.Sprintf("No price history for %s in that window.", out.Code)
+		} else {
+			first, last := out.Points[0], out.Points[len(out.Points)-1]
+			summary = fmt.Sprintf("%s: %.3f on %s to %.3f on %s (%d sessions",
+				out.Code, first.AdjustedClose, first.Date, last.AdjustedClose, last.Date, out.TotalObservations)
+			if out.Downsampled {
+				summary += fmt.Sprintf(", thinned to %d", out.Returned)
+			}
+			summary += "; adjusted for splits and dividends)."
+		}
+
+		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: summary}}}, out, nil
 	}
 }

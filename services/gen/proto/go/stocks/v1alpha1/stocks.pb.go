@@ -32,9 +32,27 @@ type Stock struct {
 	PercentageShorted      float32                `protobuf:"fixed32,5,opt,name=percentage_shorted,json=percentageShorted,proto3" json:"percentage_shorted,omitempty"`
 	Industry               string                 `protobuf:"bytes,6,opt,name=industry,proto3" json:"industry,omitempty"`
 	Tags                   []string               `protobuf:"bytes,7,rep,name=tags,proto3" json:"tags,omitempty"`
-	LogoUrl                string                 `protobuf:"bytes,8,opt,name=logo_url,json=logoUrl,proto3" json:"logo_url,omitempty"` // TODO(castlemilk): add more metadata here as needed
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	LogoUrl                string                 `protobuf:"bytes,8,opt,name=logo_url,json=logoUrl,proto3" json:"logo_url,omitempty"`
+	// Size and liquidity.
+	//
+	// Without these a short-interest universe cannot be filtered or a position
+	// sized: a sweep across ~740 names is dominated by micro-caps where short
+	// interest is both noisy and untradeable, and the standard remedy — a floor
+	// on traded value — was not expressible. They also change what the headline
+	// percentage MEANS: 5% short on a mega-cap and 5% on a micro-cap are not the
+	// same signal, and with no size attached they are the same number.
+	//
+	// double, not the float used above, because a market capitalisation in
+	// dollars exceeds float32's exact-integer range by five orders of magnitude.
+	MarketCap             float64 `protobuf:"fixed64,9,opt,name=market_cap,json=marketCap,proto3" json:"market_cap,omitempty"`                                       // Market capitalisation in AUD. 0 when unknown.
+	AverageDailyValue_20D float64 `protobuf:"fixed64,10,opt,name=average_daily_value_20d,json=averageDailyValue20d,proto3" json:"average_daily_value_20d,omitempty"` // 20-session mean of close x volume, in AUD. 0 when unknown.
+	// Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+	// "large", "mid", "small" or "micro"; empty when unknown. Present because a
+	// band is usable for filtering even where the underlying value is missing or
+	// stale, and it is what most callers actually want.
+	LiquidityBand string `protobuf:"bytes,11,opt,name=liquidity_band,json=liquidityBand,proto3" json:"liquidity_band,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Stock) Reset() {
@@ -123,6 +141,27 @@ func (x *Stock) GetLogoUrl() string {
 	return ""
 }
 
+func (x *Stock) GetMarketCap() float64 {
+	if x != nil {
+		return x.MarketCap
+	}
+	return 0
+}
+
+func (x *Stock) GetAverageDailyValue_20D() float64 {
+	if x != nil {
+		return x.AverageDailyValue_20D
+	}
+	return 0
+}
+
+func (x *Stock) GetLiquidityBand() string {
+	if x != nil {
+		return x.LiquidityBand
+	}
+	return ""
+}
+
 // TimeSeriesData represents time series data for a stock.
 type TimeSeriesData struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
@@ -133,8 +172,15 @@ type TimeSeriesData struct {
 	Max                 *TimeSeriesPoint       `protobuf:"bytes,11,opt,name=max,proto3" json:"max,omitempty"`                                                               // The maximum short position in the range
 	Min                 *TimeSeriesPoint       `protobuf:"bytes,12,opt,name=min,proto3" json:"min,omitempty"`                                                               // The minimum short position in the range
 	Industry            string                 `protobuf:"bytes,13,opt,name=industry,proto3" json:"industry,omitempty"`                                                     // Industry classification (populated in summary mode from company metadata).
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// How many observations exist in the requested window before any thinning,
+	// and whether `points` is thinner than that. A caller doing quantitative
+	// work must be able to tell a complete daily record from a series shaped for
+	// a chart; without these two fields the only way to find out was to notice
+	// that the point count was suspiciously round.
+	TotalObservations int32 `protobuf:"varint,14,opt,name=total_observations,json=totalObservations,proto3" json:"total_observations,omitempty"`
+	Downsampled       bool  `protobuf:"varint,15,opt,name=downsampled,proto3" json:"downsampled,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *TimeSeriesData) Reset() {
@@ -216,13 +262,36 @@ func (x *TimeSeriesData) GetIndustry() string {
 	return ""
 }
 
+func (x *TimeSeriesData) GetTotalObservations() int32 {
+	if x != nil {
+		return x.TotalObservations
+	}
+	return 0
+}
+
+func (x *TimeSeriesData) GetDownsampled() bool {
+	if x != nil {
+		return x.Downsampled
+	}
+	return false
+}
+
 // TimeSeriesPoint represents a single point in time for the time series data.
 type TimeSeriesPoint struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`                                // The point in time.
-	ShortPosition float64                `protobuf:"fixed64,2,opt,name=short_position,json=shortPosition,proto3" json:"short_position,omitempty"` // The short position at this point in time.
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ShortPosition float64                `protobuf:"fixed64,2,opt,name=short_position,json=shortPosition,proto3" json:"short_position,omitempty"` // The short position at this point in time, as a PERCENT of shares on issue.
+	// The two raw quantities the percent is computed from. ASIC reports a share
+	// COUNT; the percent is that count over shares on issue, and shares on issue
+	// moves with placements, entitlement offers and buybacks. A capital raising
+	// therefore drops the percent overnight with no change in short positioning
+	// at all, and a signal built on change-in-percent reads that as covering.
+	// Both quantities are stored per observation, so exposing them lets a caller
+	// work in share counts and see the denominator move.
+	ReportedShortPositions float64 `protobuf:"fixed64,3,opt,name=reported_short_positions,json=reportedShortPositions,proto3" json:"reported_short_positions,omitempty"` // Shares held short on this date (a COUNT, not a percent).
+	TotalProductInIssue    float64 `protobuf:"fixed64,4,opt,name=total_product_in_issue,json=totalProductInIssue,proto3" json:"total_product_in_issue,omitempty"`        // Shares on issue on this date — the percent's denominator.
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *TimeSeriesPoint) Reset() {
@@ -265,6 +334,20 @@ func (x *TimeSeriesPoint) GetTimestamp() *timestamppb.Timestamp {
 func (x *TimeSeriesPoint) GetShortPosition() float64 {
 	if x != nil {
 		return x.ShortPosition
+	}
+	return 0
+}
+
+func (x *TimeSeriesPoint) GetReportedShortPositions() float64 {
+	if x != nil {
+		return x.ReportedShortPositions
+	}
+	return 0
+}
+
+func (x *TimeSeriesPoint) GetTotalProductInIssue() float64 {
+	if x != nil {
+		return x.TotalProductInIssue
 	}
 	return 0
 }
@@ -1217,7 +1300,7 @@ var File_stocks_v1alpha1_stocks_proto protoreflect.FileDescriptor
 
 const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\n" +
-	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa7\x02\n" +
+	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa4\x03\n" +
 	"\x05Stock\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
@@ -1226,7 +1309,12 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\x12percentage_shorted\x18\x05 \x01(\x02R\x11percentageShorted\x12\x1a\n" +
 	"\bindustry\x18\x06 \x01(\tR\bindustry\x12\x12\n" +
 	"\x04tags\x18\a \x03(\tR\x04tags\x12\x19\n" +
-	"\blogo_url\x18\b \x01(\tR\alogoUrl\"\xbf\x02\n" +
+	"\blogo_url\x18\b \x01(\tR\alogoUrl\x12\x1d\n" +
+	"\n" +
+	"market_cap\x18\t \x01(\x01R\tmarketCap\x125\n" +
+	"\x17average_daily_value_20d\x18\n" +
+	" \x01(\x01R\x14averageDailyValue20d\x12%\n" +
+	"\x0eliquidity_band\x18\v \x01(\tR\rliquidityBand\"\x90\x03\n" +
 	"\x0eTimeSeriesData\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x122\n" +
@@ -1235,10 +1323,14 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	" \x03(\v2 .stocks.v1alpha1.TimeSeriesPointR\x06points\x122\n" +
 	"\x03max\x18\v \x01(\v2 .stocks.v1alpha1.TimeSeriesPointR\x03max\x122\n" +
 	"\x03min\x18\f \x01(\v2 .stocks.v1alpha1.TimeSeriesPointR\x03min\x12\x1a\n" +
-	"\bindustry\x18\r \x01(\tR\bindustryJ\x04\b\x02\x10\x03\"r\n" +
+	"\bindustry\x18\r \x01(\tR\bindustry\x12-\n" +
+	"\x12total_observations\x18\x0e \x01(\x05R\x11totalObservations\x12 \n" +
+	"\vdownsampled\x18\x0f \x01(\bR\vdownsampledJ\x04\b\x02\x10\x03\"\xe1\x01\n" +
 	"\x0fTimeSeriesPoint\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12%\n" +
-	"\x0eshort_position\x18\x02 \x01(\x01R\rshortPosition\"\xf8\b\n" +
+	"\x0eshort_position\x18\x02 \x01(\x01R\rshortPosition\x128\n" +
+	"\x18reported_short_positions\x18\x03 \x01(\x01R\x16reportedShortPositions\x123\n" +
+	"\x16total_product_in_issue\x18\x04 \x01(\x01R\x13totalProductInIssue\"\xf8\b\n" +
 	"\fStockDetails\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12!\n" +
 	"\fcompany_name\x18\x02 \x01(\tR\vcompanyName\x12\x1a\n" +

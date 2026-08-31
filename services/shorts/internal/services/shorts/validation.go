@@ -361,3 +361,41 @@ func SetDefaultValues(req interface{}) {
 		}
 	}
 }
+
+// ValidateGetStockPricesRequest validates the GetStockPrices request parameters.
+func ValidateGetStockPricesRequest(req *shortsv1alpha1.GetStockPricesRequest) error {
+	if err := validateStockCode(req.ProductCode, "product_code"); err != nil {
+		return err
+	}
+	if req.Period != "" && !validPeriods[strings.ToUpper(req.Period)] {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y, MAX"),
+		)
+	}
+	if err := validateDateOption(req.From, "from"); err != nil {
+		return err
+	}
+	if err := validateDateOption(req.To, "to"); err != nil {
+		return err
+	}
+	if req.MaxPoints < 0 {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("max_points must be non-negative"))
+	}
+	return nil
+}
+
+// validateDateOption accepts an empty value or a YYYY-MM-DD date, naming the
+// field in the error so a caller is told which of from/to is wrong.
+func validateDateOption(value, field string) error {
+	if value == "" {
+		return nil
+	}
+	if len(value) != 10 || value[4] != '-' || value[7] != '-' {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("%s must be in YYYY-MM-DD format", field),
+		)
+	}
+	return nil
+}

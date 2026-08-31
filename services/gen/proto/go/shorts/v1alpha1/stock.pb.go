@@ -174,9 +174,30 @@ func (x *GetStockDetailsRequest) GetProductCode() string {
 
 // Request for GetStockDataRequest RPC, specifying the product code.
 type GetStockDataRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ProductCode   string                 `protobuf:"bytes,1,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"`
-	Period        string                 `protobuf:"bytes,2,opt,name=period,proto3" json:"period,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	ProductCode string                 `protobuf:"bytes,1,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"`
+	// Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+	// `from` is set.
+	Period string `protobuf:"bytes,2,opt,name=period,proto3" json:"period,omitempty"`
+	// Return every observation, unbucketed.
+	//
+	// By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
+	// averages. That is the right shape for a chart and unusable for anything
+	// else: you cannot compute a per-observation change, align to a trading
+	// calendar, or measure an event window on a resampled series, and until now
+	// there was no way to ask for the raw record. The default is unchanged, so
+	// existing callers keep the series they already render.
+	FullResolution bool `protobuf:"varint,3,opt,name=full_resolution,json=fullResolution,proto3" json:"full_resolution,omitempty"`
+	// Cap on returned points, applied after `full_resolution`. 0 means no cap.
+	// Thinning keeps the first and last observation and spaces the rest evenly;
+	// `downsampled` reports whether it happened, so a caller never has to infer
+	// it from a suspiciously round point count.
+	MaxPoints int32 `protobuf:"varint,6,opt,name=max_points,json=maxPoints,proto3" json:"max_points,omitempty"`
+	// Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+	// alone runs to the end of the data. A caller wanting one specific window
+	// had to request MAX and discard most of what came back.
+	From          string `protobuf:"bytes,4,opt,name=from,proto3" json:"from,omitempty"`
+	To            string `protobuf:"bytes,5,opt,name=to,proto3" json:"to,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -225,6 +246,305 @@ func (x *GetStockDataRequest) GetPeriod() string {
 	return ""
 }
 
+func (x *GetStockDataRequest) GetFullResolution() bool {
+	if x != nil {
+		return x.FullResolution
+	}
+	return false
+}
+
+func (x *GetStockDataRequest) GetMaxPoints() int32 {
+	if x != nil {
+		return x.MaxPoints
+	}
+	return 0
+}
+
+func (x *GetStockDataRequest) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *GetStockDataRequest) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+// Request for GetStockPrices RPC.
+//
+// This exists so that short interest can be joined to returns without leaving
+// the API. Doing it outside meant reconciling two ticker conventions (BHP here
+// against BHP.AX elsewhere), two unauditable adjustment methodologies for
+// splits and dividends, and two universes that need not agree on any given
+// date — an error term on every result that no amount of care on the caller's
+// side removes. Every question the product is actually asked ("do heavily
+// shorted names underperform", "what happened after the squeeze") needs both
+// series, and the harder half was already here.
+type GetStockPricesRequest struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	ProductCode string                 `protobuf:"bytes,1,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"`
+	// Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+	// `from` is set. Defaults to 1Y.
+	Period string `protobuf:"bytes,2,opt,name=period,proto3" json:"period,omitempty"`
+	// Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data.
+	From string `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`
+	To   string `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`
+	// Cap on returned points, 0 for no cap. Thinning keeps the first and last
+	// observation; `downsampled` reports whether it happened.
+	MaxPoints     int32 `protobuf:"varint,5,opt,name=max_points,json=maxPoints,proto3" json:"max_points,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetStockPricesRequest) Reset() {
+	*x = GetStockPricesRequest{}
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStockPricesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStockPricesRequest) ProtoMessage() {}
+
+func (x *GetStockPricesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStockPricesRequest.ProtoReflect.Descriptor instead.
+func (*GetStockPricesRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *GetStockPricesRequest) GetProductCode() string {
+	if x != nil {
+		return x.ProductCode
+	}
+	return ""
+}
+
+func (x *GetStockPricesRequest) GetPeriod() string {
+	if x != nil {
+		return x.Period
+	}
+	return ""
+}
+
+func (x *GetStockPricesRequest) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *GetStockPricesRequest) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+func (x *GetStockPricesRequest) GetMaxPoints() int32 {
+	if x != nil {
+		return x.MaxPoints
+	}
+	return 0
+}
+
+type GetStockPricesResponse struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	ProductCode       string                 `protobuf:"bytes,1,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"`
+	Name              string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Points            []*StockPricePoint     `protobuf:"bytes,3,rep,name=points,proto3" json:"points,omitempty"`                                                 // Oldest first.
+	TotalObservations int32                  `protobuf:"varint,4,opt,name=total_observations,json=totalObservations,proto3" json:"total_observations,omitempty"` // Observations in the window before thinning.
+	Downsampled       bool                   `protobuf:"varint,5,opt,name=downsampled,proto3" json:"downsampled,omitempty"`
+	Currency          string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"` // Always "AUD" today; stated rather than assumed.
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *GetStockPricesResponse) Reset() {
+	*x = GetStockPricesResponse{}
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStockPricesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStockPricesResponse) ProtoMessage() {}
+
+func (x *GetStockPricesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStockPricesResponse.ProtoReflect.Descriptor instead.
+func (*GetStockPricesResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetStockPricesResponse) GetProductCode() string {
+	if x != nil {
+		return x.ProductCode
+	}
+	return ""
+}
+
+func (x *GetStockPricesResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *GetStockPricesResponse) GetPoints() []*StockPricePoint {
+	if x != nil {
+		return x.Points
+	}
+	return nil
+}
+
+func (x *GetStockPricesResponse) GetTotalObservations() int32 {
+	if x != nil {
+		return x.TotalObservations
+	}
+	return 0
+}
+
+func (x *GetStockPricesResponse) GetDownsampled() bool {
+	if x != nil {
+		return x.Downsampled
+	}
+	return false
+}
+
+func (x *GetStockPricesResponse) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+// One trading session.
+type StockPricePoint struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Date  string                 `protobuf:"bytes,1,opt,name=date,proto3" json:"date,omitempty"` // YYYY-MM-DD. A trading date, not a timestamp.
+	Open  float64                `protobuf:"fixed64,2,opt,name=open,proto3" json:"open,omitempty"`
+	High  float64                `protobuf:"fixed64,3,opt,name=high,proto3" json:"high,omitempty"`
+	Low   float64                `protobuf:"fixed64,4,opt,name=low,proto3" json:"low,omitempty"`
+	Close float64                `protobuf:"fixed64,5,opt,name=close,proto3" json:"close,omitempty"`
+	// Close adjusted for splits and dividends. This is the series to compute
+	// returns from; `close` is the raw print. Both are returned because a caller
+	// reconciling against another source needs the unadjusted number to do it.
+	AdjustedClose float64 `protobuf:"fixed64,6,opt,name=adjusted_close,json=adjustedClose,proto3" json:"adjusted_close,omitempty"`
+	Volume        int64   `protobuf:"varint,7,opt,name=volume,proto3" json:"volume,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StockPricePoint) Reset() {
+	*x = StockPricePoint{}
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StockPricePoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StockPricePoint) ProtoMessage() {}
+
+func (x *StockPricePoint) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StockPricePoint.ProtoReflect.Descriptor instead.
+func (*StockPricePoint) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *StockPricePoint) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *StockPricePoint) GetOpen() float64 {
+	if x != nil {
+		return x.Open
+	}
+	return 0
+}
+
+func (x *StockPricePoint) GetHigh() float64 {
+	if x != nil {
+		return x.High
+	}
+	return 0
+}
+
+func (x *StockPricePoint) GetLow() float64 {
+	if x != nil {
+		return x.Low
+	}
+	return 0
+}
+
+func (x *StockPricePoint) GetClose() float64 {
+	if x != nil {
+		return x.Close
+	}
+	return 0
+}
+
+func (x *StockPricePoint) GetAdjustedClose() float64 {
+	if x != nil {
+		return x.AdjustedClose
+	}
+	return 0
+}
+
+func (x *StockPricePoint) GetVolume() int64 {
+	if x != nil {
+		return x.Volume
+	}
+	return 0
+}
+
 // Request for GetStockFinancialHighlights RPC
 type GetStockFinancialHighlightsRequest struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
@@ -236,7 +556,7 @@ type GetStockFinancialHighlightsRequest struct {
 
 func (x *GetStockFinancialHighlightsRequest) Reset() {
 	*x = GetStockFinancialHighlightsRequest{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[3]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -248,7 +568,7 @@ func (x *GetStockFinancialHighlightsRequest) String() string {
 func (*GetStockFinancialHighlightsRequest) ProtoMessage() {}
 
 func (x *GetStockFinancialHighlightsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[3]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -261,7 +581,7 @@ func (x *GetStockFinancialHighlightsRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GetStockFinancialHighlightsRequest.ProtoReflect.Descriptor instead.
 func (*GetStockFinancialHighlightsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{3}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetStockFinancialHighlightsRequest) GetStockCodes() []string {
@@ -288,7 +608,7 @@ type GetStockFinancialHighlightsResponse struct {
 
 func (x *GetStockFinancialHighlightsResponse) Reset() {
 	*x = GetStockFinancialHighlightsResponse{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[4]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -300,7 +620,7 @@ func (x *GetStockFinancialHighlightsResponse) String() string {
 func (*GetStockFinancialHighlightsResponse) ProtoMessage() {}
 
 func (x *GetStockFinancialHighlightsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[4]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -313,7 +633,7 @@ func (x *GetStockFinancialHighlightsResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use GetStockFinancialHighlightsResponse.ProtoReflect.Descriptor instead.
 func (*GetStockFinancialHighlightsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{4}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetStockFinancialHighlightsResponse) GetHighlights() map[string]*StockFinancialHighlights {
@@ -333,7 +653,7 @@ type StockFinancialHighlights struct {
 
 func (x *StockFinancialHighlights) Reset() {
 	*x = StockFinancialHighlights{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[5]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -345,7 +665,7 @@ func (x *StockFinancialHighlights) String() string {
 func (*StockFinancialHighlights) ProtoMessage() {}
 
 func (x *StockFinancialHighlights) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[5]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -358,7 +678,7 @@ func (x *StockFinancialHighlights) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StockFinancialHighlights.ProtoReflect.Descriptor instead.
 func (*StockFinancialHighlights) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{5}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *StockFinancialHighlights) GetReports() []*FinancialReportHighlight {
@@ -383,7 +703,7 @@ type FinancialReportHighlight struct {
 
 func (x *FinancialReportHighlight) Reset() {
 	*x = FinancialReportHighlight{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[6]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -395,7 +715,7 @@ func (x *FinancialReportHighlight) String() string {
 func (*FinancialReportHighlight) ProtoMessage() {}
 
 func (x *FinancialReportHighlight) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[6]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -408,7 +728,7 @@ func (x *FinancialReportHighlight) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FinancialReportHighlight.ProtoReflect.Descriptor instead.
 func (*FinancialReportHighlight) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{6}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *FinancialReportHighlight) GetReportTitle() string {
@@ -465,7 +785,7 @@ type FinancialMetric struct {
 
 func (x *FinancialMetric) Reset() {
 	*x = FinancialMetric{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[7]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -477,7 +797,7 @@ func (x *FinancialMetric) String() string {
 func (*FinancialMetric) ProtoMessage() {}
 
 func (x *FinancialMetric) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[7]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -490,7 +810,7 @@ func (x *FinancialMetric) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FinancialMetric.ProtoReflect.Descriptor instead.
 func (*FinancialMetric) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{7}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *FinancialMetric) GetMetricType() string {
@@ -532,7 +852,7 @@ type DirectorTrade struct {
 
 func (x *DirectorTrade) Reset() {
 	*x = DirectorTrade{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[8]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -544,7 +864,7 @@ func (x *DirectorTrade) String() string {
 func (*DirectorTrade) ProtoMessage() {}
 
 func (x *DirectorTrade) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[8]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -557,7 +877,7 @@ func (x *DirectorTrade) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DirectorTrade.ProtoReflect.Descriptor instead.
 func (*DirectorTrade) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{8}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DirectorTrade) GetId() string {
@@ -634,7 +954,7 @@ type GetDirectorTradesRequest struct {
 
 func (x *GetDirectorTradesRequest) Reset() {
 	*x = GetDirectorTradesRequest{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -646,7 +966,7 @@ func (x *GetDirectorTradesRequest) String() string {
 func (*GetDirectorTradesRequest) ProtoMessage() {}
 
 func (x *GetDirectorTradesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -659,7 +979,7 @@ func (x *GetDirectorTradesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDirectorTradesRequest.ProtoReflect.Descriptor instead.
 func (*GetDirectorTradesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{9}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetDirectorTradesRequest) GetStockCode() string {
@@ -687,7 +1007,7 @@ type GetDirectorTradesResponse struct {
 
 func (x *GetDirectorTradesResponse) Reset() {
 	*x = GetDirectorTradesResponse{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -699,7 +1019,7 @@ func (x *GetDirectorTradesResponse) String() string {
 func (*GetDirectorTradesResponse) ProtoMessage() {}
 
 func (x *GetDirectorTradesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -712,7 +1032,7 @@ func (x *GetDirectorTradesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDirectorTradesResponse.ProtoReflect.Descriptor instead.
 func (*GetDirectorTradesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{10}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetDirectorTradesResponse) GetTrades() []*DirectorTrade {
@@ -745,7 +1065,7 @@ type DividendRecord struct {
 
 func (x *DividendRecord) Reset() {
 	*x = DividendRecord{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -757,7 +1077,7 @@ func (x *DividendRecord) String() string {
 func (*DividendRecord) ProtoMessage() {}
 
 func (x *DividendRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -770,7 +1090,7 @@ func (x *DividendRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DividendRecord.ProtoReflect.Descriptor instead.
 func (*DividendRecord) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{11}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DividendRecord) GetId() string {
@@ -833,7 +1153,7 @@ type GetDividendHistoryRequest struct {
 
 func (x *GetDividendHistoryRequest) Reset() {
 	*x = GetDividendHistoryRequest{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -845,7 +1165,7 @@ func (x *GetDividendHistoryRequest) String() string {
 func (*GetDividendHistoryRequest) ProtoMessage() {}
 
 func (x *GetDividendHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -858,7 +1178,7 @@ func (x *GetDividendHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDividendHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetDividendHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{12}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetDividendHistoryRequest) GetStockCode() string {
@@ -887,7 +1207,7 @@ type GetDividendHistoryResponse struct {
 
 func (x *GetDividendHistoryResponse) Reset() {
 	*x = GetDividendHistoryResponse{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -899,7 +1219,7 @@ func (x *GetDividendHistoryResponse) String() string {
 func (*GetDividendHistoryResponse) ProtoMessage() {}
 
 func (x *GetDividendHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -912,7 +1232,7 @@ func (x *GetDividendHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDividendHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetDividendHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{13}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetDividendHistoryResponse) GetDividends() []*DividendRecord {
@@ -954,7 +1274,7 @@ type PeerStock struct {
 
 func (x *PeerStock) Reset() {
 	*x = PeerStock{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[14]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -966,7 +1286,7 @@ func (x *PeerStock) String() string {
 func (*PeerStock) ProtoMessage() {}
 
 func (x *PeerStock) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[14]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -979,7 +1299,7 @@ func (x *PeerStock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PeerStock.ProtoReflect.Descriptor instead.
 func (*PeerStock) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{14}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *PeerStock) GetStockCode() string {
@@ -1056,7 +1376,7 @@ type GetPeerComparisonRequest struct {
 
 func (x *GetPeerComparisonRequest) Reset() {
 	*x = GetPeerComparisonRequest{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[15]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1068,7 +1388,7 @@ func (x *GetPeerComparisonRequest) String() string {
 func (*GetPeerComparisonRequest) ProtoMessage() {}
 
 func (x *GetPeerComparisonRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[15]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1081,7 +1401,7 @@ func (x *GetPeerComparisonRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPeerComparisonRequest.ProtoReflect.Descriptor instead.
 func (*GetPeerComparisonRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{15}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetPeerComparisonRequest) GetStockCode() string {
@@ -1110,7 +1430,7 @@ type GetPeerComparisonResponse struct {
 
 func (x *GetPeerComparisonResponse) Reset() {
 	*x = GetPeerComparisonResponse{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[16]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1122,7 +1442,7 @@ func (x *GetPeerComparisonResponse) String() string {
 func (*GetPeerComparisonResponse) ProtoMessage() {}
 
 func (x *GetPeerComparisonResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[16]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1135,7 +1455,7 @@ func (x *GetPeerComparisonResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPeerComparisonResponse.ProtoReflect.Descriptor instead.
 func (*GetPeerComparisonResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{16}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetPeerComparisonResponse) GetSubject() *PeerStock {
@@ -1169,7 +1489,7 @@ type GetStockVerdictRequest struct {
 
 func (x *GetStockVerdictRequest) Reset() {
 	*x = GetStockVerdictRequest{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[17]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1181,7 +1501,7 @@ func (x *GetStockVerdictRequest) String() string {
 func (*GetStockVerdictRequest) ProtoMessage() {}
 
 func (x *GetStockVerdictRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[17]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1194,7 +1514,7 @@ func (x *GetStockVerdictRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockVerdictRequest.ProtoReflect.Descriptor instead.
 func (*GetStockVerdictRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{17}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GetStockVerdictRequest) GetProductCode() string {
@@ -1217,7 +1537,7 @@ type VerdictComponent struct {
 
 func (x *VerdictComponent) Reset() {
 	*x = VerdictComponent{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[18]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1229,7 +1549,7 @@ func (x *VerdictComponent) String() string {
 func (*VerdictComponent) ProtoMessage() {}
 
 func (x *VerdictComponent) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[18]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1242,7 +1562,7 @@ func (x *VerdictComponent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerdictComponent.ProtoReflect.Descriptor instead.
 func (*VerdictComponent) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{18}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *VerdictComponent) GetName() string {
@@ -1286,7 +1606,7 @@ type GetStockVerdictResponse struct {
 
 func (x *GetStockVerdictResponse) Reset() {
 	*x = GetStockVerdictResponse{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[19]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1298,7 +1618,7 @@ func (x *GetStockVerdictResponse) String() string {
 func (*GetStockVerdictResponse) ProtoMessage() {}
 
 func (x *GetStockVerdictResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[19]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1311,7 +1631,7 @@ func (x *GetStockVerdictResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockVerdictResponse.ProtoReflect.Descriptor instead.
 func (*GetStockVerdictResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{19}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GetStockVerdictResponse) GetProductCode() string {
@@ -1352,7 +1672,7 @@ type GetCompanyTaxProfileRequest struct {
 
 func (x *GetCompanyTaxProfileRequest) Reset() {
 	*x = GetCompanyTaxProfileRequest{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[20]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1364,7 +1684,7 @@ func (x *GetCompanyTaxProfileRequest) String() string {
 func (*GetCompanyTaxProfileRequest) ProtoMessage() {}
 
 func (x *GetCompanyTaxProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[20]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1377,7 +1697,7 @@ func (x *GetCompanyTaxProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCompanyTaxProfileRequest.ProtoReflect.Descriptor instead.
 func (*GetCompanyTaxProfileRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{20}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GetCompanyTaxProfileRequest) GetProductCode() string {
@@ -1404,7 +1724,7 @@ type CompanyTaxYear struct {
 
 func (x *CompanyTaxYear) Reset() {
 	*x = CompanyTaxYear{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[21]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1416,7 +1736,7 @@ func (x *CompanyTaxYear) String() string {
 func (*CompanyTaxYear) ProtoMessage() {}
 
 func (x *CompanyTaxYear) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[21]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1429,7 +1749,7 @@ func (x *CompanyTaxYear) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompanyTaxYear.ProtoReflect.Descriptor instead.
 func (*CompanyTaxYear) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{21}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CompanyTaxYear) GetIncomeYear() int32 {
@@ -1487,7 +1807,7 @@ type GetCompanyTaxProfileResponse struct {
 
 func (x *GetCompanyTaxProfileResponse) Reset() {
 	*x = GetCompanyTaxProfileResponse{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[22]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1499,7 +1819,7 @@ func (x *GetCompanyTaxProfileResponse) String() string {
 func (*GetCompanyTaxProfileResponse) ProtoMessage() {}
 
 func (x *GetCompanyTaxProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[22]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1512,7 +1832,7 @@ func (x *GetCompanyTaxProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCompanyTaxProfileResponse.ProtoReflect.Descriptor instead.
 func (*GetCompanyTaxProfileResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{22}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetCompanyTaxProfileResponse) GetEntityName() string {
@@ -1554,7 +1874,7 @@ type GetStockGraphRequest struct {
 
 func (x *GetStockGraphRequest) Reset() {
 	*x = GetStockGraphRequest{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[23]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1566,7 +1886,7 @@ func (x *GetStockGraphRequest) String() string {
 func (*GetStockGraphRequest) ProtoMessage() {}
 
 func (x *GetStockGraphRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[23]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1579,7 +1899,7 @@ func (x *GetStockGraphRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockGraphRequest.ProtoReflect.Descriptor instead.
 func (*GetStockGraphRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{23}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetStockGraphRequest) GetStockCode() string {
@@ -1607,7 +1927,7 @@ type GetStockGraphResponse struct {
 
 func (x *GetStockGraphResponse) Reset() {
 	*x = GetStockGraphResponse{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[24]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1619,7 +1939,7 @@ func (x *GetStockGraphResponse) String() string {
 func (*GetStockGraphResponse) ProtoMessage() {}
 
 func (x *GetStockGraphResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[24]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1632,7 +1952,7 @@ func (x *GetStockGraphResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockGraphResponse.ProtoReflect.Descriptor instead.
 func (*GetStockGraphResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{24}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GetStockGraphResponse) GetPeople() []*GraphPerson {
@@ -1663,7 +1983,7 @@ type GraphPerson struct {
 
 func (x *GraphPerson) Reset() {
 	*x = GraphPerson{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[25]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1675,7 +1995,7 @@ func (x *GraphPerson) String() string {
 func (*GraphPerson) ProtoMessage() {}
 
 func (x *GraphPerson) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[25]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1688,7 +2008,7 @@ func (x *GraphPerson) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GraphPerson.ProtoReflect.Descriptor instead.
 func (*GraphPerson) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{25}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GraphPerson) GetName() string {
@@ -1739,7 +2059,7 @@ type GraphPeer struct {
 
 func (x *GraphPeer) Reset() {
 	*x = GraphPeer{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[26]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1751,7 +2071,7 @@ func (x *GraphPeer) String() string {
 func (*GraphPeer) ProtoMessage() {}
 
 func (x *GraphPeer) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[26]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1764,7 +2084,7 @@ func (x *GraphPeer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GraphPeer.ProtoReflect.Descriptor instead.
 func (*GraphPeer) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{26}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *GraphPeer) GetStockCode() string {
@@ -1807,7 +2127,7 @@ type GetEventTimelineRequest struct {
 
 func (x *GetEventTimelineRequest) Reset() {
 	*x = GetEventTimelineRequest{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[27]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1819,7 +2139,7 @@ func (x *GetEventTimelineRequest) String() string {
 func (*GetEventTimelineRequest) ProtoMessage() {}
 
 func (x *GetEventTimelineRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[27]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1832,7 +2152,7 @@ func (x *GetEventTimelineRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEventTimelineRequest.ProtoReflect.Descriptor instead.
 func (*GetEventTimelineRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{27}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *GetEventTimelineRequest) GetStockCode() string {
@@ -1866,7 +2186,7 @@ type GetEventTimelineResponse struct {
 
 func (x *GetEventTimelineResponse) Reset() {
 	*x = GetEventTimelineResponse{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[28]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1878,7 +2198,7 @@ func (x *GetEventTimelineResponse) String() string {
 func (*GetEventTimelineResponse) ProtoMessage() {}
 
 func (x *GetEventTimelineResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[28]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1891,7 +2211,7 @@ func (x *GetEventTimelineResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEventTimelineResponse.ProtoReflect.Descriptor instead.
 func (*GetEventTimelineResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{28}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetEventTimelineResponse) GetEvents() []*TimelineEvent {
@@ -1917,7 +2237,7 @@ type TimelineEvent struct {
 
 func (x *TimelineEvent) Reset() {
 	*x = TimelineEvent{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[29]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1929,7 +2249,7 @@ func (x *TimelineEvent) String() string {
 func (*TimelineEvent) ProtoMessage() {}
 
 func (x *TimelineEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[29]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1942,7 +2262,7 @@ func (x *TimelineEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimelineEvent.ProtoReflect.Descriptor instead.
 func (*TimelineEvent) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{29}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *TimelineEvent) GetDate() string {
@@ -2004,7 +2324,7 @@ type GetStockSignalsRequest struct {
 
 func (x *GetStockSignalsRequest) Reset() {
 	*x = GetStockSignalsRequest{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[30]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2016,7 +2336,7 @@ func (x *GetStockSignalsRequest) String() string {
 func (*GetStockSignalsRequest) ProtoMessage() {}
 
 func (x *GetStockSignalsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[30]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2029,7 +2349,7 @@ func (x *GetStockSignalsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockSignalsRequest.ProtoReflect.Descriptor instead.
 func (*GetStockSignalsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{30}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *GetStockSignalsRequest) GetStockCode() string {
@@ -2056,7 +2376,7 @@ type GetStockSignalsResponse struct {
 
 func (x *GetStockSignalsResponse) Reset() {
 	*x = GetStockSignalsResponse{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[31]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2068,7 +2388,7 @@ func (x *GetStockSignalsResponse) String() string {
 func (*GetStockSignalsResponse) ProtoMessage() {}
 
 func (x *GetStockSignalsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[31]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2081,7 +2401,7 @@ func (x *GetStockSignalsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockSignalsResponse.ProtoReflect.Descriptor instead.
 func (*GetStockSignalsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{31}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GetStockSignalsResponse) GetAdverse() []*StockSignal {
@@ -2115,7 +2435,7 @@ type StockSignal struct {
 
 func (x *StockSignal) Reset() {
 	*x = StockSignal{}
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[32]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2127,7 +2447,7 @@ func (x *StockSignal) String() string {
 func (*StockSignal) ProtoMessage() {}
 
 func (x *StockSignal) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[32]
+	mi := &file_shorts_v1alpha1_stock_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2140,7 +2460,7 @@ func (x *StockSignal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StockSignal.ProtoReflect.Descriptor instead.
 func (*StockSignal) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{32}
+	return file_shorts_v1alpha1_stock_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *StockSignal) GetPolarity() string {
@@ -2207,10 +2527,37 @@ const file_shorts_v1alpha1_stock_proto_rawDesc = "" +
 	"\x0fGetStockRequest\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\";\n" +
 	"\x16GetStockDetailsRequest\x12!\n" +
-	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\"P\n" +
+	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\"\xbc\x01\n" +
 	"\x13GetStockDataRequest\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x16\n" +
-	"\x06period\x18\x02 \x01(\tR\x06period\"x\n" +
+	"\x06period\x18\x02 \x01(\tR\x06period\x12'\n" +
+	"\x0ffull_resolution\x18\x03 \x01(\bR\x0efullResolution\x12\x1d\n" +
+	"\n" +
+	"max_points\x18\x06 \x01(\x05R\tmaxPoints\x12\x12\n" +
+	"\x04from\x18\x04 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x05 \x01(\tR\x02to\"\x95\x01\n" +
+	"\x15GetStockPricesRequest\x12!\n" +
+	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x16\n" +
+	"\x06period\x18\x02 \x01(\tR\x06period\x12\x12\n" +
+	"\x04from\x18\x03 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x04 \x01(\tR\x02to\x12\x1d\n" +
+	"\n" +
+	"max_points\x18\x05 \x01(\x05R\tmaxPoints\"\xf6\x01\n" +
+	"\x16GetStockPricesResponse\x12!\n" +
+	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x128\n" +
+	"\x06points\x18\x03 \x03(\v2 .shorts.v1alpha1.StockPricePointR\x06points\x12-\n" +
+	"\x12total_observations\x18\x04 \x01(\x05R\x11totalObservations\x12 \n" +
+	"\vdownsampled\x18\x05 \x01(\bR\vdownsampled\x12\x1a\n" +
+	"\bcurrency\x18\x06 \x01(\tR\bcurrency\"\xb4\x01\n" +
+	"\x0fStockPricePoint\x12\x12\n" +
+	"\x04date\x18\x01 \x01(\tR\x04date\x12\x12\n" +
+	"\x04open\x18\x02 \x01(\x01R\x04open\x12\x12\n" +
+	"\x04high\x18\x03 \x01(\x01R\x04high\x12\x10\n" +
+	"\x03low\x18\x04 \x01(\x01R\x03low\x12\x14\n" +
+	"\x05close\x18\x05 \x01(\x01R\x05close\x12%\n" +
+	"\x0eadjusted_close\x18\x06 \x01(\x01R\radjustedClose\x12\x16\n" +
+	"\x06volume\x18\a \x01(\x03R\x06volume\"x\n" +
 	"\"GetStockFinancialHighlightsRequest\x12\x1f\n" +
 	"\vstock_codes\x18\x01 \x03(\tR\n" +
 	"stockCodes\x121\n" +
@@ -2398,12 +2745,12 @@ const file_shorts_v1alpha1_stock_proto_rawDesc = "" +
 	"\x15VERDICT_LABEL_BEARISH\x10\x02\x12\x19\n" +
 	"\x15VERDICT_LABEL_NEUTRAL\x10\x03\x12\x19\n" +
 	"\x15VERDICT_LABEL_BULLISH\x10\x04\x12 \n" +
-	"\x1cVERDICT_LABEL_STRONG_BULLISH\x10\x052\xaa\n" +
-	"\n" +
+	"\x1cVERDICT_LABEL_STRONG_BULLISH\x10\x052\x93\v\n" +
 	"\fStockService\x12J\n" +
 	"\bGetStock\x12 .shorts.v1alpha1.GetStockRequest\x1a\x16.stocks.v1alpha1.Stock\"\x04\x80\xb5\x18\x01\x12_\n" +
 	"\x0fGetStockDetails\x12'.shorts.v1alpha1.GetStockDetailsRequest\x1a\x1d.stocks.v1alpha1.StockDetails\"\x04\x80\xb5\x18\x01\x12[\n" +
-	"\fGetStockData\x12$.shorts.v1alpha1.GetStockDataRequest\x1a\x1f.stocks.v1alpha1.TimeSeriesData\"\x04\x80\xb5\x18\x01\x12\x8e\x01\n" +
+	"\fGetStockData\x12$.shorts.v1alpha1.GetStockDataRequest\x1a\x1f.stocks.v1alpha1.TimeSeriesData\"\x04\x80\xb5\x18\x01\x12g\n" +
+	"\x0eGetStockPrices\x12&.shorts.v1alpha1.GetStockPricesRequest\x1a'.shorts.v1alpha1.GetStockPricesResponse\"\x04\x80\xb5\x18\x01\x12\x8e\x01\n" +
 	"\x1bGetStockFinancialHighlights\x123.shorts.v1alpha1.GetStockFinancialHighlightsRequest\x1a4.shorts.v1alpha1.GetStockFinancialHighlightsResponse\"\x04\x80\xb5\x18\x01\x12p\n" +
 	"\x11GetDirectorTrades\x12).shorts.v1alpha1.GetDirectorTradesRequest\x1a*.shorts.v1alpha1.GetDirectorTradesResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
 	"\x12GetDividendHistory\x12*.shorts.v1alpha1.GetDividendHistoryRequest\x1a+.shorts.v1alpha1.GetDividendHistoryResponse\"\x04\x80\xb5\x18\x01\x12p\n" +
@@ -2429,95 +2776,101 @@ func file_shorts_v1alpha1_stock_proto_rawDescGZIP() []byte {
 }
 
 var file_shorts_v1alpha1_stock_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_shorts_v1alpha1_stock_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_shorts_v1alpha1_stock_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
 var file_shorts_v1alpha1_stock_proto_goTypes = []any{
 	(VerdictLabel)(0),                           // 0: shorts.v1alpha1.VerdictLabel
 	(*GetStockRequest)(nil),                     // 1: shorts.v1alpha1.GetStockRequest
 	(*GetStockDetailsRequest)(nil),              // 2: shorts.v1alpha1.GetStockDetailsRequest
 	(*GetStockDataRequest)(nil),                 // 3: shorts.v1alpha1.GetStockDataRequest
-	(*GetStockFinancialHighlightsRequest)(nil),  // 4: shorts.v1alpha1.GetStockFinancialHighlightsRequest
-	(*GetStockFinancialHighlightsResponse)(nil), // 5: shorts.v1alpha1.GetStockFinancialHighlightsResponse
-	(*StockFinancialHighlights)(nil),            // 6: shorts.v1alpha1.StockFinancialHighlights
-	(*FinancialReportHighlight)(nil),            // 7: shorts.v1alpha1.FinancialReportHighlight
-	(*FinancialMetric)(nil),                     // 8: shorts.v1alpha1.FinancialMetric
-	(*DirectorTrade)(nil),                       // 9: shorts.v1alpha1.DirectorTrade
-	(*GetDirectorTradesRequest)(nil),            // 10: shorts.v1alpha1.GetDirectorTradesRequest
-	(*GetDirectorTradesResponse)(nil),           // 11: shorts.v1alpha1.GetDirectorTradesResponse
-	(*DividendRecord)(nil),                      // 12: shorts.v1alpha1.DividendRecord
-	(*GetDividendHistoryRequest)(nil),           // 13: shorts.v1alpha1.GetDividendHistoryRequest
-	(*GetDividendHistoryResponse)(nil),          // 14: shorts.v1alpha1.GetDividendHistoryResponse
-	(*PeerStock)(nil),                           // 15: shorts.v1alpha1.PeerStock
-	(*GetPeerComparisonRequest)(nil),            // 16: shorts.v1alpha1.GetPeerComparisonRequest
-	(*GetPeerComparisonResponse)(nil),           // 17: shorts.v1alpha1.GetPeerComparisonResponse
-	(*GetStockVerdictRequest)(nil),              // 18: shorts.v1alpha1.GetStockVerdictRequest
-	(*VerdictComponent)(nil),                    // 19: shorts.v1alpha1.VerdictComponent
-	(*GetStockVerdictResponse)(nil),             // 20: shorts.v1alpha1.GetStockVerdictResponse
-	(*GetCompanyTaxProfileRequest)(nil),         // 21: shorts.v1alpha1.GetCompanyTaxProfileRequest
-	(*CompanyTaxYear)(nil),                      // 22: shorts.v1alpha1.CompanyTaxYear
-	(*GetCompanyTaxProfileResponse)(nil),        // 23: shorts.v1alpha1.GetCompanyTaxProfileResponse
-	(*GetStockGraphRequest)(nil),                // 24: shorts.v1alpha1.GetStockGraphRequest
-	(*GetStockGraphResponse)(nil),               // 25: shorts.v1alpha1.GetStockGraphResponse
-	(*GraphPerson)(nil),                         // 26: shorts.v1alpha1.GraphPerson
-	(*GraphPeer)(nil),                           // 27: shorts.v1alpha1.GraphPeer
-	(*GetEventTimelineRequest)(nil),             // 28: shorts.v1alpha1.GetEventTimelineRequest
-	(*GetEventTimelineResponse)(nil),            // 29: shorts.v1alpha1.GetEventTimelineResponse
-	(*TimelineEvent)(nil),                       // 30: shorts.v1alpha1.TimelineEvent
-	(*GetStockSignalsRequest)(nil),              // 31: shorts.v1alpha1.GetStockSignalsRequest
-	(*GetStockSignalsResponse)(nil),             // 32: shorts.v1alpha1.GetStockSignalsResponse
-	(*StockSignal)(nil),                         // 33: shorts.v1alpha1.StockSignal
-	nil,                                         // 34: shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry
-	nil,                                         // 35: shorts.v1alpha1.FinancialMetric.AttributesEntry
-	(*v1alpha1.Stock)(nil),                      // 36: stocks.v1alpha1.Stock
-	(*v1alpha1.StockDetails)(nil),               // 37: stocks.v1alpha1.StockDetails
-	(*v1alpha1.TimeSeriesData)(nil),             // 38: stocks.v1alpha1.TimeSeriesData
+	(*GetStockPricesRequest)(nil),               // 4: shorts.v1alpha1.GetStockPricesRequest
+	(*GetStockPricesResponse)(nil),              // 5: shorts.v1alpha1.GetStockPricesResponse
+	(*StockPricePoint)(nil),                     // 6: shorts.v1alpha1.StockPricePoint
+	(*GetStockFinancialHighlightsRequest)(nil),  // 7: shorts.v1alpha1.GetStockFinancialHighlightsRequest
+	(*GetStockFinancialHighlightsResponse)(nil), // 8: shorts.v1alpha1.GetStockFinancialHighlightsResponse
+	(*StockFinancialHighlights)(nil),            // 9: shorts.v1alpha1.StockFinancialHighlights
+	(*FinancialReportHighlight)(nil),            // 10: shorts.v1alpha1.FinancialReportHighlight
+	(*FinancialMetric)(nil),                     // 11: shorts.v1alpha1.FinancialMetric
+	(*DirectorTrade)(nil),                       // 12: shorts.v1alpha1.DirectorTrade
+	(*GetDirectorTradesRequest)(nil),            // 13: shorts.v1alpha1.GetDirectorTradesRequest
+	(*GetDirectorTradesResponse)(nil),           // 14: shorts.v1alpha1.GetDirectorTradesResponse
+	(*DividendRecord)(nil),                      // 15: shorts.v1alpha1.DividendRecord
+	(*GetDividendHistoryRequest)(nil),           // 16: shorts.v1alpha1.GetDividendHistoryRequest
+	(*GetDividendHistoryResponse)(nil),          // 17: shorts.v1alpha1.GetDividendHistoryResponse
+	(*PeerStock)(nil),                           // 18: shorts.v1alpha1.PeerStock
+	(*GetPeerComparisonRequest)(nil),            // 19: shorts.v1alpha1.GetPeerComparisonRequest
+	(*GetPeerComparisonResponse)(nil),           // 20: shorts.v1alpha1.GetPeerComparisonResponse
+	(*GetStockVerdictRequest)(nil),              // 21: shorts.v1alpha1.GetStockVerdictRequest
+	(*VerdictComponent)(nil),                    // 22: shorts.v1alpha1.VerdictComponent
+	(*GetStockVerdictResponse)(nil),             // 23: shorts.v1alpha1.GetStockVerdictResponse
+	(*GetCompanyTaxProfileRequest)(nil),         // 24: shorts.v1alpha1.GetCompanyTaxProfileRequest
+	(*CompanyTaxYear)(nil),                      // 25: shorts.v1alpha1.CompanyTaxYear
+	(*GetCompanyTaxProfileResponse)(nil),        // 26: shorts.v1alpha1.GetCompanyTaxProfileResponse
+	(*GetStockGraphRequest)(nil),                // 27: shorts.v1alpha1.GetStockGraphRequest
+	(*GetStockGraphResponse)(nil),               // 28: shorts.v1alpha1.GetStockGraphResponse
+	(*GraphPerson)(nil),                         // 29: shorts.v1alpha1.GraphPerson
+	(*GraphPeer)(nil),                           // 30: shorts.v1alpha1.GraphPeer
+	(*GetEventTimelineRequest)(nil),             // 31: shorts.v1alpha1.GetEventTimelineRequest
+	(*GetEventTimelineResponse)(nil),            // 32: shorts.v1alpha1.GetEventTimelineResponse
+	(*TimelineEvent)(nil),                       // 33: shorts.v1alpha1.TimelineEvent
+	(*GetStockSignalsRequest)(nil),              // 34: shorts.v1alpha1.GetStockSignalsRequest
+	(*GetStockSignalsResponse)(nil),             // 35: shorts.v1alpha1.GetStockSignalsResponse
+	(*StockSignal)(nil),                         // 36: shorts.v1alpha1.StockSignal
+	nil,                                         // 37: shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry
+	nil,                                         // 38: shorts.v1alpha1.FinancialMetric.AttributesEntry
+	(*v1alpha1.Stock)(nil),                      // 39: stocks.v1alpha1.Stock
+	(*v1alpha1.StockDetails)(nil),               // 40: stocks.v1alpha1.StockDetails
+	(*v1alpha1.TimeSeriesData)(nil),             // 41: stocks.v1alpha1.TimeSeriesData
 }
 var file_shorts_v1alpha1_stock_proto_depIdxs = []int32{
-	34, // 0: shorts.v1alpha1.GetStockFinancialHighlightsResponse.highlights:type_name -> shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry
-	7,  // 1: shorts.v1alpha1.StockFinancialHighlights.reports:type_name -> shorts.v1alpha1.FinancialReportHighlight
-	8,  // 2: shorts.v1alpha1.FinancialReportHighlight.metrics:type_name -> shorts.v1alpha1.FinancialMetric
-	35, // 3: shorts.v1alpha1.FinancialMetric.attributes:type_name -> shorts.v1alpha1.FinancialMetric.AttributesEntry
-	9,  // 4: shorts.v1alpha1.GetDirectorTradesResponse.trades:type_name -> shorts.v1alpha1.DirectorTrade
-	12, // 5: shorts.v1alpha1.GetDividendHistoryResponse.dividends:type_name -> shorts.v1alpha1.DividendRecord
-	15, // 6: shorts.v1alpha1.GetPeerComparisonResponse.subject:type_name -> shorts.v1alpha1.PeerStock
-	15, // 7: shorts.v1alpha1.GetPeerComparisonResponse.peers:type_name -> shorts.v1alpha1.PeerStock
-	0,  // 8: shorts.v1alpha1.GetStockVerdictResponse.label:type_name -> shorts.v1alpha1.VerdictLabel
-	19, // 9: shorts.v1alpha1.GetStockVerdictResponse.components:type_name -> shorts.v1alpha1.VerdictComponent
-	22, // 10: shorts.v1alpha1.GetCompanyTaxProfileResponse.years:type_name -> shorts.v1alpha1.CompanyTaxYear
-	26, // 11: shorts.v1alpha1.GetStockGraphResponse.people:type_name -> shorts.v1alpha1.GraphPerson
-	27, // 12: shorts.v1alpha1.GetStockGraphResponse.similar_companies:type_name -> shorts.v1alpha1.GraphPeer
-	30, // 13: shorts.v1alpha1.GetEventTimelineResponse.events:type_name -> shorts.v1alpha1.TimelineEvent
-	33, // 14: shorts.v1alpha1.GetStockSignalsResponse.adverse:type_name -> shorts.v1alpha1.StockSignal
-	33, // 15: shorts.v1alpha1.GetStockSignalsResponse.positive:type_name -> shorts.v1alpha1.StockSignal
-	6,  // 16: shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry.value:type_name -> shorts.v1alpha1.StockFinancialHighlights
-	1,  // 17: shorts.v1alpha1.StockService.GetStock:input_type -> shorts.v1alpha1.GetStockRequest
-	2,  // 18: shorts.v1alpha1.StockService.GetStockDetails:input_type -> shorts.v1alpha1.GetStockDetailsRequest
-	3,  // 19: shorts.v1alpha1.StockService.GetStockData:input_type -> shorts.v1alpha1.GetStockDataRequest
-	4,  // 20: shorts.v1alpha1.StockService.GetStockFinancialHighlights:input_type -> shorts.v1alpha1.GetStockFinancialHighlightsRequest
-	10, // 21: shorts.v1alpha1.StockService.GetDirectorTrades:input_type -> shorts.v1alpha1.GetDirectorTradesRequest
-	13, // 22: shorts.v1alpha1.StockService.GetDividendHistory:input_type -> shorts.v1alpha1.GetDividendHistoryRequest
-	16, // 23: shorts.v1alpha1.StockService.GetPeerComparison:input_type -> shorts.v1alpha1.GetPeerComparisonRequest
-	18, // 24: shorts.v1alpha1.StockService.GetStockVerdict:input_type -> shorts.v1alpha1.GetStockVerdictRequest
-	24, // 25: shorts.v1alpha1.StockService.GetStockGraph:input_type -> shorts.v1alpha1.GetStockGraphRequest
-	28, // 26: shorts.v1alpha1.StockService.GetEventTimeline:input_type -> shorts.v1alpha1.GetEventTimelineRequest
-	31, // 27: shorts.v1alpha1.StockService.GetStockSignals:input_type -> shorts.v1alpha1.GetStockSignalsRequest
-	21, // 28: shorts.v1alpha1.StockService.GetCompanyTaxProfile:input_type -> shorts.v1alpha1.GetCompanyTaxProfileRequest
-	36, // 29: shorts.v1alpha1.StockService.GetStock:output_type -> stocks.v1alpha1.Stock
-	37, // 30: shorts.v1alpha1.StockService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
-	38, // 31: shorts.v1alpha1.StockService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
-	5,  // 32: shorts.v1alpha1.StockService.GetStockFinancialHighlights:output_type -> shorts.v1alpha1.GetStockFinancialHighlightsResponse
-	11, // 33: shorts.v1alpha1.StockService.GetDirectorTrades:output_type -> shorts.v1alpha1.GetDirectorTradesResponse
-	14, // 34: shorts.v1alpha1.StockService.GetDividendHistory:output_type -> shorts.v1alpha1.GetDividendHistoryResponse
-	17, // 35: shorts.v1alpha1.StockService.GetPeerComparison:output_type -> shorts.v1alpha1.GetPeerComparisonResponse
-	20, // 36: shorts.v1alpha1.StockService.GetStockVerdict:output_type -> shorts.v1alpha1.GetStockVerdictResponse
-	25, // 37: shorts.v1alpha1.StockService.GetStockGraph:output_type -> shorts.v1alpha1.GetStockGraphResponse
-	29, // 38: shorts.v1alpha1.StockService.GetEventTimeline:output_type -> shorts.v1alpha1.GetEventTimelineResponse
-	32, // 39: shorts.v1alpha1.StockService.GetStockSignals:output_type -> shorts.v1alpha1.GetStockSignalsResponse
-	23, // 40: shorts.v1alpha1.StockService.GetCompanyTaxProfile:output_type -> shorts.v1alpha1.GetCompanyTaxProfileResponse
-	29, // [29:41] is the sub-list for method output_type
-	17, // [17:29] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	6,  // 0: shorts.v1alpha1.GetStockPricesResponse.points:type_name -> shorts.v1alpha1.StockPricePoint
+	37, // 1: shorts.v1alpha1.GetStockFinancialHighlightsResponse.highlights:type_name -> shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry
+	10, // 2: shorts.v1alpha1.StockFinancialHighlights.reports:type_name -> shorts.v1alpha1.FinancialReportHighlight
+	11, // 3: shorts.v1alpha1.FinancialReportHighlight.metrics:type_name -> shorts.v1alpha1.FinancialMetric
+	38, // 4: shorts.v1alpha1.FinancialMetric.attributes:type_name -> shorts.v1alpha1.FinancialMetric.AttributesEntry
+	12, // 5: shorts.v1alpha1.GetDirectorTradesResponse.trades:type_name -> shorts.v1alpha1.DirectorTrade
+	15, // 6: shorts.v1alpha1.GetDividendHistoryResponse.dividends:type_name -> shorts.v1alpha1.DividendRecord
+	18, // 7: shorts.v1alpha1.GetPeerComparisonResponse.subject:type_name -> shorts.v1alpha1.PeerStock
+	18, // 8: shorts.v1alpha1.GetPeerComparisonResponse.peers:type_name -> shorts.v1alpha1.PeerStock
+	0,  // 9: shorts.v1alpha1.GetStockVerdictResponse.label:type_name -> shorts.v1alpha1.VerdictLabel
+	22, // 10: shorts.v1alpha1.GetStockVerdictResponse.components:type_name -> shorts.v1alpha1.VerdictComponent
+	25, // 11: shorts.v1alpha1.GetCompanyTaxProfileResponse.years:type_name -> shorts.v1alpha1.CompanyTaxYear
+	29, // 12: shorts.v1alpha1.GetStockGraphResponse.people:type_name -> shorts.v1alpha1.GraphPerson
+	30, // 13: shorts.v1alpha1.GetStockGraphResponse.similar_companies:type_name -> shorts.v1alpha1.GraphPeer
+	33, // 14: shorts.v1alpha1.GetEventTimelineResponse.events:type_name -> shorts.v1alpha1.TimelineEvent
+	36, // 15: shorts.v1alpha1.GetStockSignalsResponse.adverse:type_name -> shorts.v1alpha1.StockSignal
+	36, // 16: shorts.v1alpha1.GetStockSignalsResponse.positive:type_name -> shorts.v1alpha1.StockSignal
+	9,  // 17: shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry.value:type_name -> shorts.v1alpha1.StockFinancialHighlights
+	1,  // 18: shorts.v1alpha1.StockService.GetStock:input_type -> shorts.v1alpha1.GetStockRequest
+	2,  // 19: shorts.v1alpha1.StockService.GetStockDetails:input_type -> shorts.v1alpha1.GetStockDetailsRequest
+	3,  // 20: shorts.v1alpha1.StockService.GetStockData:input_type -> shorts.v1alpha1.GetStockDataRequest
+	4,  // 21: shorts.v1alpha1.StockService.GetStockPrices:input_type -> shorts.v1alpha1.GetStockPricesRequest
+	7,  // 22: shorts.v1alpha1.StockService.GetStockFinancialHighlights:input_type -> shorts.v1alpha1.GetStockFinancialHighlightsRequest
+	13, // 23: shorts.v1alpha1.StockService.GetDirectorTrades:input_type -> shorts.v1alpha1.GetDirectorTradesRequest
+	16, // 24: shorts.v1alpha1.StockService.GetDividendHistory:input_type -> shorts.v1alpha1.GetDividendHistoryRequest
+	19, // 25: shorts.v1alpha1.StockService.GetPeerComparison:input_type -> shorts.v1alpha1.GetPeerComparisonRequest
+	21, // 26: shorts.v1alpha1.StockService.GetStockVerdict:input_type -> shorts.v1alpha1.GetStockVerdictRequest
+	27, // 27: shorts.v1alpha1.StockService.GetStockGraph:input_type -> shorts.v1alpha1.GetStockGraphRequest
+	31, // 28: shorts.v1alpha1.StockService.GetEventTimeline:input_type -> shorts.v1alpha1.GetEventTimelineRequest
+	34, // 29: shorts.v1alpha1.StockService.GetStockSignals:input_type -> shorts.v1alpha1.GetStockSignalsRequest
+	24, // 30: shorts.v1alpha1.StockService.GetCompanyTaxProfile:input_type -> shorts.v1alpha1.GetCompanyTaxProfileRequest
+	39, // 31: shorts.v1alpha1.StockService.GetStock:output_type -> stocks.v1alpha1.Stock
+	40, // 32: shorts.v1alpha1.StockService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
+	41, // 33: shorts.v1alpha1.StockService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
+	5,  // 34: shorts.v1alpha1.StockService.GetStockPrices:output_type -> shorts.v1alpha1.GetStockPricesResponse
+	8,  // 35: shorts.v1alpha1.StockService.GetStockFinancialHighlights:output_type -> shorts.v1alpha1.GetStockFinancialHighlightsResponse
+	14, // 36: shorts.v1alpha1.StockService.GetDirectorTrades:output_type -> shorts.v1alpha1.GetDirectorTradesResponse
+	17, // 37: shorts.v1alpha1.StockService.GetDividendHistory:output_type -> shorts.v1alpha1.GetDividendHistoryResponse
+	20, // 38: shorts.v1alpha1.StockService.GetPeerComparison:output_type -> shorts.v1alpha1.GetPeerComparisonResponse
+	23, // 39: shorts.v1alpha1.StockService.GetStockVerdict:output_type -> shorts.v1alpha1.GetStockVerdictResponse
+	28, // 40: shorts.v1alpha1.StockService.GetStockGraph:output_type -> shorts.v1alpha1.GetStockGraphResponse
+	32, // 41: shorts.v1alpha1.StockService.GetEventTimeline:output_type -> shorts.v1alpha1.GetEventTimelineResponse
+	35, // 42: shorts.v1alpha1.StockService.GetStockSignals:output_type -> shorts.v1alpha1.GetStockSignalsResponse
+	26, // 43: shorts.v1alpha1.StockService.GetCompanyTaxProfile:output_type -> shorts.v1alpha1.GetCompanyTaxProfileResponse
+	31, // [31:44] is the sub-list for method output_type
+	18, // [18:31] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_stock_proto_init() }
@@ -2531,7 +2884,7 @@ func file_shorts_v1alpha1_stock_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_stock_proto_rawDesc), len(file_shorts_v1alpha1_stock_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   35,
+			NumMessages:   38,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
