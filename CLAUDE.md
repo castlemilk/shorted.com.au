@@ -734,9 +734,15 @@ Next.js contributes only the consent screen.
   with no token. The **`first-party` / `first-party-unverified` tiers**
   (`interceptor.go` `classifyFirstParty`) are that class, keyed `first-party:<ip>`
   and matched on the SAME user-agent marker + secret header the edge worker uses
-  — change one layer's marker and you must change the other. The secret decides
-  only the MONTHLY ceiling: both classes get 3000/min, so a rotation gap or an
-  unreadable env var costs a meter, never a 429 on our own site. That asymmetry
+  — change one layer's marker and you must change the other. **Both classes are
+  per-minute UNLIMITED**: this class carries our own SSR *and* every anonymous
+  browser RPC (middleware stamps the marker on rewrite-proxied paths), so a
+  rejection here does not throttle one caller — it fails every reader behind
+  that shared egress address at the same instant. The edge's first-party bucket
+  (600/10s) is the ceiling for it, and the 200k monthly meter on the
+  *unverified* class is what makes copying the marker worthless. The secret
+  therefore decides only the MONTHLY ceiling, so a rotation gap or an unreadable
+  env var costs a meter, never a 429 on our own site. That asymmetry
   is deliberate; the edge learned it the expensive way (7,045 self-inflicted
   429s when CI's prerender could not read the sensitive var).
 - **The `/oauth/` routes render WITHOUT the site header and footer**, and the
