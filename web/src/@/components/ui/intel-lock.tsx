@@ -25,6 +25,11 @@ export function YellowSignInButton({
   return (
     <Link
       href={`/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+      // This CTA renders on every locked module, so it is the single biggest
+      // source of internal links on the site — one unique `?callbackUrl=` per
+      // stock/suburb/politician page. `nofollow` keeps that fan-out out of the
+      // crawl budget; `/signin` is `noindex` besides (see app/signin/layout.tsx).
+      rel="nofollow"
       className={cn(
         "inline-flex h-10 items-center justify-center gap-2 rounded-md px-4",
         "bg-yellow-400 text-sm font-semibold text-yellow-950",
