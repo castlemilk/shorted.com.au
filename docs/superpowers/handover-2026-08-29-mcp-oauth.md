@@ -17,7 +17,7 @@ serve it over MCP, and put OAuth 2.1 + rate limits in front of it.
 | **Phase 1** — generated OpenAPI + agent-readable docs | **MERGED (#509) and LIVE**, verified in prod |
 | **Phase 2** — MCP server, 24 tools, protocol `2026-07-28` | **MERGED (#510) and LIVE**, verified in prod |
 | **`Infinity` data fix** | **CLOSED (#513) — already on main via #522**, and its prod cleanup has RUN. See §2.1 |
-| **Phase 3** — OAuth 2.1 + rate limits | **MERGED (#522) and LIVE**, verified against prod. OAuth itself is correct but **DORMANT** — nothing challenges a client, see §5 |
+| **Phase 3** — OAuth 2.1 + rate limits | **MERGED (#522) and LIVE**. OAuth was dormant for a day — nothing challenged a client — and **#533 fixed that**: the limiter is on and an out-of-quota caller now gets a 401 challenge. See §5 |
 
 Verified live in production (not just green CI):
 `/openapi.json`, `/openapi.yaml`, `/docs/api.md` and `/api/search/stocks` went
@@ -34,7 +34,7 @@ real `tools/call` returns live data.
 | 1. Migration `000116` on prod | **DONE.** Session pooler 5432, `statement_timeout=0`, `search_path=public`, single transaction. 4 tables + 6 indexes, 0 rows. Replay re-run and verified clean — the deploy replays this file every release |
 | 2. `INTERNAL_SERVICE_SECRET` | **Already set** on both sides (Vercel production, and Cloud Run via Secret Manager). No action was needed |
 | 3. Merge PR #522 → deploys Go + Terraform + Vercel | **DONE.** Merged 08:46Z. Deploy green after one re-run (see below) |
-| 4. Verify against prod | **DONE.** Protocol verified end to end, and a real MCP client (Claude Code) connects and calls tools across all four domains. It never starts an OAuth flow, and that is expected — see the DORMANT note in §5 |
+| 4. Verify against prod | **DONE.** Protocol verified end to end, and a real MCP client (Claude Code) connects and calls tools across all four domains. It did not start an OAuth flow, which was correct at the time and is no longer the whole story — see §5 |
 | 5. Revalidation sweep | **DONE.** 9 paths (`/`, `/top`, `/docs/mcp.md`, `/housing`, `/price-drops`, `/economy`, `/politicians`, `/reports`, `/statistics`) |
 
 ### Verified against production
@@ -73,10 +73,11 @@ it is serving.
 
 ### The finding that changed the rollout
 
-**`RATE_LIMIT_ENABLED` is set on NEITHER dev nor prod.** The app-layer limiter
-has never been switched on: a prod response carries no `X-RateLimit-*` headers
-at all. Task 7's middleware therefore deploys as a **pass-through**, and the
-edge bucket is the only ceiling on `/mcp`.
+**`RATE_LIMIT_ENABLED` was set on NEITHER dev nor prod** at the time of this
+rollout (2026-08-29), so the app-layer limiter had never run and Task 7's
+middleware deployed as a pass-through. **This changed on 2026-08-30 with #533** —
+see §5. The paragraphs below are kept because the REASONING still applies to
+anyone thinking of flipping a limiter flag without a first-party class.
 
 Task 9 would have published "30/min, 500/month, enforced by the API itself"
 about numbers nothing applies — the same defect as #455, in the opposite
@@ -291,49 +292,60 @@ completing its callback. Run `/mcp` in Claude Code and choose to authenticate.
   exact asking price. Now withheld outright — neither `SuburbPriceDrop` nor
   `SuburbListingStats` carries `for_sale_priced` to floor against.
 
-### OAuth is live, correct — and DORMANT. Read this before "fixing" it.
+### OAuth was dormant for a day. #533 fixed it. Here is the whole arc.
 
-Verified 2026-08-30 with a real client (Claude Code) against prod: it connects,
-gets 24 tools, and **never starts an OAuth flow**. That is not a bug, and the
-consent screen is not broken. It is the design meeting an unfinished
-dependency, and it will look like a defect to whoever finds it next.
+**Resolved 2026-08-30 by #533.** Kept in full because the diagnosis is the
+useful part, and because the same trap is available to anyone shipping a
+challenge-driven protocol behind an unenforced limiter.
 
-**Why nothing triggers.** MCP auth is CHALLENGE-DRIVEN: a client learns OAuth
-exists by receiving a `401` carrying
+**What was wrong.** MCP auth is CHALLENGE-DRIVEN: a client learns an
+authorization server exists by receiving a `401` carrying
 `WWW-Authenticate: Bearer resource_metadata="…"`. We deliberately never
-challenge an anonymous caller — anonymous access is the adoption path — so a
-spec-compliant client has no signal that OAuth exists. Measured: anonymous
-`initialize` and `tools/call` both return **200 with no `WWW-Authenticate`**,
-and the client stored no auth state at all.
+challenged an anonymous caller — anonymous access is the adoption path — so a
+spec-compliant client had no signal OAuth existed. Measured at the time:
+anonymous `initialize` and `tools/call` both returned **200 with no
+`WWW-Authenticate`**, and a real client (Claude Code) connected, called tools
+across all four domains, stored no auth state, and never started the flow.
 
-**Why the other trigger is also absent.** The one event that would legitimately
-401 a real caller is QUOTA EXHAUSTION — and `RATE_LIMIT_ENABLED` is set on
-neither dev nor prod, so the limiter is inert. Both doors are therefore shut:
-no challenge on first contact (by design), no challenge on quota (by
-omission).
+The only other event that would legitimately 401 a real caller is QUOTA
+EXHAUSTION — and `RATE_LIMIT_ENABLED` was set nowhere, so the limiter was inert.
+Both doors were shut, and almost nobody would ever have reached the consent
+screen.
 
-**The consequence, stated plainly:** as deployed, almost nobody will ever reach
-the consent screen. The flow was proven by driving it manually end to end,
-which established the mechanism works but masked the fact that nothing sets it
-off. The Phase 3 acceptance criterion ("add the URL and the client does the
-rest — challenge, discovery, registration, browser consent…") quietly assumed a
-challenge happens. It does not.
+**Why it was not caught earlier.** The flow was proven by driving it end to end
+by hand with curl. That established the mechanism worked and *masked the fact
+that nothing set it off*. The Phase 3 acceptance criterion — "add the URL and
+the client does the rest — challenge, discovery, registration, browser
+consent…" — quietly assumed a challenge happens. Adding the server to a real
+client is what exposed it; curl never could have.
 
-**The unblock is a chain, and rate limiting is the middle link:**
+**What #533 did**, and the order matters:
 
-1. give Vercel SSR a first-party identity the APP layer recognises (the edge
-   worker already has one; the app layer has none);
-2. enable `RATE_LIMIT_ENABLED`;
-3. quota 401s become real, so clients get challenged, so the consent screen
-   gets used.
+1. gave Vercel SSR (and anonymous browser RPC) a **first-party class the APP
+   layer recognises** — the edge worker already had one, the app layer had
+   none. Without this, flipping the flag 429s our own rendering, because the
+   Connect interceptor buckets unauthenticated callers as `ip:<address>` at the
+   anonymous tier and our SSR shares a handful of egress IPs.
+2. turned `RATE_LIMIT_ENABLED` on.
+3. made an out-of-quota anonymous MCP caller return **401, not 429**, carrying
+   `WWW-Authenticate: Bearer error="insufficient_quota"` plus the RFC 9728
+   challenge. That is what makes OAuth discoverable, and it is honest: for a
+   caller with no credential, the remedy genuinely *is* to authenticate. A
+   caller holding a BAD token still gets the auth middleware's own 401, which
+   names the real problem rather than a quota it does not have.
 
-Do NOT skip to step 2 — the Connect interceptor buckets unauthenticated callers
-as `ip:<address>` at the anonymous tier, and our SSR arrives from a handful of
-shared egress IPs with no token, so it would 429 our own rendering.
+**Verified in prod 2026-08-31:** `x-ratelimit-limit: 30` on both the Connect
+API and `/mcp`, monthly counters incrementing, and the catalog's
+`authentication.rateLimits.enforced` flipped itself to **true** with the
+disclaimer prose gone — it reads enforcement from the running config, so nobody
+had to remember to update it. That was the point of deriving it rather than
+writing it down.
 
-**Decided 2026-08-30:** leave it dormant. It costs nothing, it is verified, and
-a user who wants higher limits can authenticate from their client. Revisit when
-the SSR identity path lands.
+Note the per-minute limiter is **per instance and in memory** by design, so a
+burst spread across Cloud Run instances will not trip at exactly N requests.
+34 anonymous tool calls in a minute all returned 200 while the headers showed
+only ~16 counted on the instance that served them. That is documented behaviour,
+not a leak.
 
 ### Open, tracked
 
