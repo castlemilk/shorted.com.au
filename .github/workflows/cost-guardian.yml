@@ -25,6 +25,22 @@ on:
           actually stops Secret Manager billing (disabled versions still bill).
         type: boolean
         default: false
+      secret_name:
+        description: "Optional exact secret name to clean (blank means all secrets)"
+        type: string
+        default: ""
+      destroy_min_version:
+        description: "Optional inclusive minimum version for destruction"
+        type: string
+        default: ""
+      destroy_max_version:
+        description: "Optional inclusive maximum version for destruction"
+        type: string
+        default: ""
+      skip_disable:
+        description: "Skip the enabled-version hygiene pass"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -253,6 +269,10 @@ jobs:
           PROJECT: ${{ matrix.project }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
           DESTROY: ${{ inputs.destroy_old_secret_versions || 'false' }}
+          SECRET_NAME: ${{ inputs.secret_name || '' }}
+          DESTROY_MIN_VERSION: ${{ inputs.destroy_min_version || '' }}
+          DESTROY_MAX_VERSION: ${{ inputs.destroy_max_version || '' }}
+          SKIP_DISABLE: ${{ inputs.skip_disable || 'false' }}
         run: |
           ARGS=(--project "$PROJECT" --keep 2)  # regions are discovered by the script, never hardcoded
           if [ "$DRY_RUN" = "true" ]; then
@@ -260,5 +280,17 @@ jobs:
           fi
           if [ "$DESTROY" = "true" ]; then
             ARGS+=(--destroy --destroy-age-days 90 --destroy-cap 200)
+          fi
+          if [ -n "$SECRET_NAME" ]; then
+            ARGS+=(--only-secret "$SECRET_NAME")
+          fi
+          if [ -n "$DESTROY_MIN_VERSION" ]; then
+            ARGS+=(--destroy-min-version "$DESTROY_MIN_VERSION")
+          fi
+          if [ -n "$DESTROY_MAX_VERSION" ]; then
+            ARGS+=(--destroy-max-version "$DESTROY_MAX_VERSION")
+          fi
+          if [ "$SKIP_DISABLE" = "true" ]; then
+            ARGS+=(--skip-disable)
           fi
           bash "$GITHUB_WORKSPACE/scripts/secret-version-cleanup.sh" "${ARGS[@]}"
