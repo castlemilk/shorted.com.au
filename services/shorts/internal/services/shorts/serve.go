@@ -418,6 +418,11 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	)
 	mux.Handle(PanelExportPath, withCORS(panelRateLimit(s.PanelExportHandler())))
 
+	// The latest-publication feed. Metered at the ordinary one unit: it exists
+	// precisely so a daily engine can poll cheaply instead of burning its whole
+	// quota diffing GetAvailableDates, and charging it more would defeat that.
+	mux.Handle(LatestPath, withCORS(s.LatestHandler()))
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if _, err := w.Write([]byte("OK")); err != nil {

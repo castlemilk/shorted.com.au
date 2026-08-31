@@ -97,6 +97,35 @@ Base URL: `https://shorted.com.au` (not the API host).
 curl -A 'my-app/1.0' 'https://shorted.com.au/feed.xml'
 ```
 
+#### `GET /v1/latest`
+
+The newest published panel date, as a cheap conditional GET
+
+Answers "has a new ASIC report landed?" in one small request.
+
+The alternative was polling `GetAvailableDates` and diffing. That is the
+wrong shape for the question: the data updates about once a business day
+at an hour you cannot predict, and the anonymous quota is 500 requests a
+month — so hourly polling spends more than the entire free quota to
+detect roughly 22 events, almost all of it on "nothing has changed".
+
+Send back the `ETag` as `If-None-Match` and an unchanged answer costs a
+`304` with no body. The ETag is derived from the content, so it changes
+exactly when the answer changes and never merely because time passed.
+
+`available_from` is the date the newest observation actually became
+public — ASIC publishes T+4 — which is usually what a daily engine is
+really waiting for.
+
+```bash
+curl -A 'my-app/1.0' -H 'If-None-Match: "<previous etag>"' \
+  https://api.shorted.com.au/v1/latest
+```
+
+```bash
+curl -A 'my-app/1.0' 'https://api.shorted.com.au/v1/latest'
+```
+
 #### `GET /v1/panel`
 
 Export the whole short-position panel for a date range

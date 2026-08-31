@@ -50,6 +50,58 @@ info:
 # https://api.shorted.com.au — hence the path-level `servers` override on each.
 # Getting that wrong tells an agent to call a URL that 404s.
 paths:
+  /v1/latest:
+    get:
+      operationId: getLatestPublication
+      summary: The newest published panel date, as a cheap conditional GET
+      description: |
+        Answers "has a new ASIC report landed?" in one small request.
+
+        The alternative was polling `GetAvailableDates` and diffing. That is the
+        wrong shape for the question: the data updates about once a business day
+        at an hour you cannot predict, and the anonymous quota is 500 requests a
+        month — so hourly polling spends more than the entire free quota to
+        detect roughly 22 events, almost all of it on "nothing has changed".
+
+        Send back the `ETag` as `If-None-Match` and an unchanged answer costs a
+        `304` with no body. The ETag is derived from the content, so it changes
+        exactly when the answer changes and never merely because time passed.
+
+        `available_from` is the date the newest observation actually became
+        public — ASIC publishes T+4 — which is usually what a daily engine is
+        really waiting for.
+
+        ```bash
+        curl -A 'my-app/1.0' -H 'If-None-Match: "<previous etag>"' \
+          https://api.shorted.com.au/v1/latest
+        ```
+      responses:
+        "200":
+          description: The current publication state.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  latest_date:
+                    type: string
+                    format: date
+                    description: Newest trading date the panel holds.
+                  available_from:
+                    type: string
+                    format: date
+                    description: When that observation became public (T+4 trading days).
+                  earliest_date:
+                    type: string
+                    format: date
+                  total_dates:
+                    type: integer
+                    description: Trading dates held in total.
+                  publication_lag_trading_days:
+                    type: integer
+        "304":
+          description: Unchanged since the ETag you sent. No body.
+
   # Unlike the two web-app paths below, this one lives on the API host, so it
   # takes the document's top-level server and needs no override.
   /v1/panel:
