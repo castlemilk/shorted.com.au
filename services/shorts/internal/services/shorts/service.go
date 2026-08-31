@@ -110,12 +110,21 @@ func (s *ShortsServer) GetStockData(ctx context.Context, req *connect.Request[sh
 	}
 
 	// Check cache first
-	cacheKey := s.cache.GetStockDataKey(req.Msg.ProductCode, req.Msg.Period)
+	cacheKey := s.cache.GetStockDataKey(req.Msg.ProductCode, req.Msg.Period,
+		req.Msg.From, req.Msg.To, req.Msg.FullResolution, req.Msg.MaxPoints, req.Msg.AsOf)
 
 	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
 		s.logger.Debugf("cache miss for GetStockData, fetching from database: product_code=%s, period=%s",
 			req.Msg.ProductCode, req.Msg.Period)
-		return s.store.GetStockData(req.Msg.ProductCode, req.Msg.Period)
+		return s.store.GetStockData(shortsstore.StockDataQuery{
+			ProductCode:    req.Msg.ProductCode,
+			Period:         req.Msg.Period,
+			From:           req.Msg.From,
+			To:             req.Msg.To,
+			FullResolution: req.Msg.FullResolution,
+			MaxPoints:      req.Msg.MaxPoints,
+			AsOf:           req.Msg.AsOf,
+		})
 	})
 
 	if err != nil {
@@ -193,10 +202,10 @@ func (s *ShortsServer) GetMarketByDate(ctx context.Context, req *connect.Request
 
 	s.logger.Debugf("get market by date: %s, limit: %d, offset: %d", req.Msg.Date, req.Msg.Limit, req.Msg.Offset)
 
-	cacheKey := s.cache.GetMarketByDateKey(req.Msg.Date, req.Msg.Limit, req.Msg.Offset)
+	cacheKey := s.cache.GetMarketByDateKey(req.Msg.Date, req.Msg.Limit, req.Msg.Offset, req.Msg.IncludeZeroShortPositions)
 
 	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		stocks, totalCount, err := s.store.GetMarketByDate(req.Msg.Date, req.Msg.Limit, req.Msg.Offset)
+		stocks, totalCount, err := s.store.GetMarketByDate(req.Msg.Date, req.Msg.Limit, req.Msg.Offset, req.Msg.IncludeZeroShortPositions)
 		if err != nil {
 			return nil, err
 		}

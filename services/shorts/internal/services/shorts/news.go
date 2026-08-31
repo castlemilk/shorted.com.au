@@ -8,7 +8,6 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"time"
 )
 
 // GetStockNews retrieves recent news articles for a specific stock
@@ -100,10 +99,8 @@ func convertNewsArticles(articles []*shortsstore.NewsArticle) []*shortsv1alpha1.
 		if a.ImageURL != nil {
 			article.ImageUrl = *a.ImageURL
 		}
-		if a.PublishedAt != "" {
-			if t, err := time.Parse(time.RFC3339, a.PublishedAt); err == nil {
-				article.PublishedAt = timestamppb.New(t)
-			}
+		if t, ok := parseStoreTimestamp(a.PublishedAt); ok {
+			article.PublishedAt = timestamppb.New(t)
 		}
 		result[i] = article
 	}

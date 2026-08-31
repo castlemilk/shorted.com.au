@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"sort"
@@ -538,28 +539,62 @@ func fetchASXAnnouncements(ctx context.Context, client *stealthhttp.Client, code
 		return nil, fmt.Errorf("HTTP %d", resp.Status)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(resp.Body))
+	announcements, err := parseAnnouncementRows(bytes.NewReader(resp.Body))
+	if err != nil {
+		return nil, err
+	}
+
+	if verbose && len(announcements) > 0 {
+		log.Printf("  %s/%s: %d total announcements", code, year, len(announcements))
+	}
+
+	return announcements, nil
+}
+
+// parseAnnouncementRows parses the ASX announcements table.
+//
+// Split out of fetchASXAnnouncements so it can be tested against markup
+// without a network call — it could not be before, which is why the
+// price-sensitive bug below went unnoticed.
+func parseAnnouncementRows(r io.Reader) ([]ASXAnnouncement, error) {
+	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
 		return nil, fmt.Errorf("HTML parse failed: %w", err)
 	}
 
 	var announcements []ASXAnnouncement
 
-	// Parse announcement table rows
 	doc.Find("announcement_data table tbody tr").Each(func(i int, row *goquery.Selection) {
 		tds := row.Find("td")
 		if tds.Length() < 3 {
 			return
 		}
 
-		// First td: date
+		// First td: date. ASX renders the time on a second line; it is dropped
+		// here because announcement_date is a DATE column. That loses the
+		// intraday timing an event study needs — whether an announcement
+		// landed pre-open, intraday or post-close is most of its meaning — and
+		// recovering it needs a column and a re-crawl, not just a parser
+		// change. See issue #543.
 		dateText := strings.TrimSpace(tds.Eq(0).Text())
-		dateText = strings.Split(dateText, "\n")[0] // Remove time part
+		dateText = strings.Split(dateText, "\n")[0]
 		dateText = strings.TrimSpace(dateText)
 		parsedDate := parseASXDate(dateText)
 
-		// Second td: price sensitivity indicator
-		isPriceSens := tds.Eq(1).HasClass("pricesens") && strings.TrimSpace(tds.Eq(1).Text()) != ""
+		// Second td: the price-sensitivity marker.
+		//
+		// The class IS the signal. This used to additionally require the cell
+		// to contain non-empty TEXT, which meant a marker rendered as an icon
+		// — an <img> with no text node, the usual way a flag like this is
+		// drawn — never registered. Every one of the 49,615 announcements held
+		// locally has is_price_sensitive = false, which is what that bug looks
+		// like from the outside.
+		//
+		// This flag is the single most valuable field on the record: it is a
+		// price-sensitivity judgement the exchange itself made, which is far
+		// stronger than any classifier we could run over a headline. Rows
+		// already stored keep their false value until a re-crawl.
+		isPriceSens := tds.Eq(1).HasClass("pricesens")
 
 		// Third td: headline + PDF link
 		headlineTd := tds.Eq(2)
@@ -568,13 +603,12 @@ func fetchASXAnnouncements(ctx context.Context, client *stealthhttp.Client, code
 		pages := ""
 		fileSize := ""
 
-		link := headlineTd.Find("a")
+		link := headlineTd.Find("a").First()
 		if link.Length() > 0 {
-			// Extract headline text (before any img/span elements)
-			headline = strings.TrimSpace(link.Contents().First().Text())
-			// Clean up: sometimes headline includes br content
-			headline = strings.Split(headline, "\n")[0]
-			headline = strings.TrimSpace(headline)
+			headline = strings.TrimSpace(link.Contents().Not("span").Text())
+			if headline == "" {
+				headline = strings.TrimSpace(link.Text())
+			}
 
 			href, exists := link.Attr("href")
 			if exists {
@@ -583,16 +617,14 @@ func fetchASXAnnouncements(ctx context.Context, client *stealthhttp.Client, code
 				} else {
 					pdfURL = href
 				}
-				// Unescape HTML entities in URL
 				pdfURL = strings.ReplaceAll(pdfURL, "&amp;", "&")
 			}
 
-			// Extract pages and file size
-			link.Find("span.page").Each(func(_ int, s *goquery.Selection) {
-				pages = strings.TrimSpace(s.Text())
+			link.Find("span.page").Each(func(_ int, sel *goquery.Selection) {
+				pages = strings.TrimSpace(sel.Text())
 			})
-			link.Find("span.filesize").Each(func(_ int, s *goquery.Selection) {
-				fileSize = strings.TrimSpace(s.Text())
+			link.Find("span.filesize").Each(func(_ int, sel *goquery.Selection) {
+				fileSize = strings.TrimSpace(sel.Text())
 			})
 		}
 
@@ -607,10 +639,6 @@ func fetchASXAnnouncements(ctx context.Context, client *stealthhttp.Client, code
 			})
 		}
 	})
-
-	if verbose && len(announcements) > 0 {
-		log.Printf("  %s/%s: %d total announcements", code, year, len(announcements))
-	}
 
 	return announcements, nil
 }

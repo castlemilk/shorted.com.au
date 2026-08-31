@@ -157,8 +157,8 @@ func (s *ShortsServer) GetMySubscription(
 		resp.StripeCustomerId = sub.StripeCustomerID
 
 		// Parse period end if available
-		if sub.CurrentPeriodEnd != nil && *sub.CurrentPeriodEnd != "" {
-			if t, err := time.Parse(time.RFC3339, *sub.CurrentPeriodEnd); err == nil {
+		if sub.CurrentPeriodEnd != nil {
+			if t, ok := parseStoreTimestamp(*sub.CurrentPeriodEnd); ok {
 				resp.CurrentPeriodEnd = timestamppb.New(t)
 			}
 		}

@@ -34,6 +34,9 @@ private static final long serialVersionUID = 0L;
   private GetStockDataRequest() {
     productCode_ = "";
     period_ = "";
+    from_ = "";
+    to_ = "";
+    asOf_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -97,6 +100,11 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private volatile java.lang.Object period_ = "";
   /**
+   * <pre>
+   * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+   * `from` is set.
+   * </pre>
+   *
    * <code>string period = 2 [json_name = "period"];</code>
    * @return The period.
    */
@@ -114,6 +122,11 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
+   * <pre>
+   * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+   * `from` is set.
+   * </pre>
+   *
    * <code>string period = 2 [json_name = "period"];</code>
    * @return The bytes for period.
    */
@@ -126,6 +139,195 @@ private static final long serialVersionUID = 0L;
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       period_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int FULL_RESOLUTION_FIELD_NUMBER = 3;
+  private boolean fullResolution_ = false;
+  /**
+   * <pre>
+   * Return every observation, unbucketed.
+   *
+   * By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
+   * averages. That is the right shape for a chart and unusable for anything
+   * else: you cannot compute a per-observation change, align to a trading
+   * calendar, or measure an event window on a resampled series, and until now
+   * there was no way to ask for the raw record. The default is unchanged, so
+   * existing callers keep the series they already render.
+   * </pre>
+   *
+   * <code>bool full_resolution = 3 [json_name = "fullResolution"];</code>
+   * @return The fullResolution.
+   */
+  @java.lang.Override
+  public boolean getFullResolution() {
+    return fullResolution_;
+  }
+
+  public static final int MAX_POINTS_FIELD_NUMBER = 6;
+  private int maxPoints_ = 0;
+  /**
+   * <pre>
+   * Cap on returned points, applied after `full_resolution`. 0 means no cap.
+   * Thinning keeps the first and last observation and spaces the rest evenly;
+   * `downsampled` reports whether it happened, so a caller never has to infer
+   * it from a suspiciously round point count.
+   * </pre>
+   *
+   * <code>int32 max_points = 6 [json_name = "maxPoints"];</code>
+   * @return The maxPoints.
+   */
+  @java.lang.Override
+  public int getMaxPoints() {
+    return maxPoints_;
+  }
+
+  public static final int FROM_FIELD_NUMBER = 4;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object from_ = "";
+  /**
+   * <pre>
+   * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+   * alone runs to the end of the data. A caller wanting one specific window
+   * had to request MAX and discard most of what came back.
+   * </pre>
+   *
+   * <code>string from = 4 [json_name = "from"];</code>
+   * @return The from.
+   */
+  @java.lang.Override
+  public java.lang.String getFrom() {
+    java.lang.Object ref = from_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      from_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+   * alone runs to the end of the data. A caller wanting one specific window
+   * had to request MAX and discard most of what came back.
+   * </pre>
+   *
+   * <code>string from = 4 [json_name = "from"];</code>
+   * @return The bytes for from.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getFromBytes() {
+    java.lang.Object ref = from_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      from_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int TO_FIELD_NUMBER = 5;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object to_ = "";
+  /**
+   * <code>string to = 5 [json_name = "to"];</code>
+   * @return The to.
+   */
+  @java.lang.Override
+  public java.lang.String getTo() {
+    java.lang.Object ref = to_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      to_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string to = 5 [json_name = "to"];</code>
+   * @return The bytes for to.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getToBytes() {
+    java.lang.Object ref = to_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      to_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int AS_OF_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object asOf_ = "";
+  /**
+   * <pre>
+   * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+   * PUBLISHED by this date, i.e. whose available_from is on or before it.
+   *
+   * ASIC publishes T+4, so a series requested for a historical date otherwise
+   * includes up to four days of data nobody could have had. Setting as_of is
+   * what makes a walk-forward study honest without the caller applying a blunt
+   * lag by hand.
+   * </pre>
+   *
+   * <code>string as_of = 7 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  @java.lang.Override
+  public java.lang.String getAsOf() {
+    java.lang.Object ref = asOf_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      asOf_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+   * PUBLISHED by this date, i.e. whose available_from is on or before it.
+   *
+   * ASIC publishes T+4, so a series requested for a historical date otherwise
+   * includes up to four days of data nobody could have had. Setting as_of is
+   * what makes a walk-forward study honest without the caller applying a blunt
+   * lag by hand.
+   * </pre>
+   *
+   * <code>string as_of = 7 [json_name = "asOf"];</code>
+   * @return The bytes for asOf.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getAsOfBytes() {
+    java.lang.Object ref = asOf_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      asOf_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -152,6 +354,21 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(period_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 2, period_);
     }
+    if (fullResolution_ != false) {
+      output.writeBool(3, fullResolution_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(from_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 4, from_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(to_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 5, to_);
+    }
+    if (maxPoints_ != 0) {
+      output.writeInt32(6, maxPoints_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, asOf_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -161,6 +378,23 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(period_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(2, period_);
+    }
+    if (fullResolution_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(3, fullResolution_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(from_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(4, from_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(to_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(5, to_);
+    }
+    if (maxPoints_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(6, maxPoints_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, asOf_);
     }
     return size;
   }
@@ -190,6 +424,16 @@ private static final long serialVersionUID = 0L;
         .equals(other.getProductCode())) return false;
     if (!getPeriod()
         .equals(other.getPeriod())) return false;
+    if (getFullResolution()
+        != other.getFullResolution()) return false;
+    if (getMaxPoints()
+        != other.getMaxPoints()) return false;
+    if (!getFrom()
+        .equals(other.getFrom())) return false;
+    if (!getTo()
+        .equals(other.getTo())) return false;
+    if (!getAsOf()
+        .equals(other.getAsOf())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -205,6 +449,17 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getProductCode().hashCode();
     hash = (37 * hash) + PERIOD_FIELD_NUMBER;
     hash = (53 * hash) + getPeriod().hashCode();
+    hash = (37 * hash) + FULL_RESOLUTION_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getFullResolution());
+    hash = (37 * hash) + MAX_POINTS_FIELD_NUMBER;
+    hash = (53 * hash) + getMaxPoints();
+    hash = (37 * hash) + FROM_FIELD_NUMBER;
+    hash = (53 * hash) + getFrom().hashCode();
+    hash = (37 * hash) + TO_FIELD_NUMBER;
+    hash = (53 * hash) + getTo().hashCode();
+    hash = (37 * hash) + AS_OF_FIELD_NUMBER;
+    hash = (53 * hash) + getAsOf().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -342,6 +597,11 @@ private static final long serialVersionUID = 0L;
       bitField0_ = 0;
       productCode_ = "";
       period_ = "";
+      fullResolution_ = false;
+      maxPoints_ = 0;
+      from_ = "";
+      to_ = "";
+      asOf_ = "";
       return this;
     }
 
@@ -381,6 +641,21 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000002) != 0)) {
         result.period_ = period_;
       }
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        result.fullResolution_ = fullResolution_;
+      }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.maxPoints_ = maxPoints_;
+      }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.from_ = from_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.to_ = to_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.asOf_ = asOf_;
+      }
     }
 
     @java.lang.Override
@@ -403,6 +678,27 @@ private static final long serialVersionUID = 0L;
       if (!other.getPeriod().isEmpty()) {
         period_ = other.period_;
         bitField0_ |= 0x00000002;
+        onChanged();
+      }
+      if (other.getFullResolution() != false) {
+        setFullResolution(other.getFullResolution());
+      }
+      if (other.getMaxPoints() != 0) {
+        setMaxPoints(other.getMaxPoints());
+      }
+      if (!other.getFrom().isEmpty()) {
+        from_ = other.from_;
+        bitField0_ |= 0x00000010;
+        onChanged();
+      }
+      if (!other.getTo().isEmpty()) {
+        to_ = other.to_;
+        bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      if (!other.getAsOf().isEmpty()) {
+        asOf_ = other.asOf_;
+        bitField0_ |= 0x00000040;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -441,6 +737,31 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 18
+            case 24: {
+              fullResolution_ = input.readBool();
+              bitField0_ |= 0x00000004;
+              break;
+            } // case 24
+            case 34: {
+              from_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 34
+            case 42: {
+              to_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 42
+            case 48: {
+              maxPoints_ = input.readInt32();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 48
+            case 58: {
+              asOf_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -532,6 +853,11 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object period_ = "";
     /**
+     * <pre>
+     * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+     * `from` is set.
+     * </pre>
+     *
      * <code>string period = 2 [json_name = "period"];</code>
      * @return The period.
      */
@@ -548,6 +874,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+     * `from` is set.
+     * </pre>
+     *
      * <code>string period = 2 [json_name = "period"];</code>
      * @return The bytes for period.
      */
@@ -565,6 +896,11 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+     * `from` is set.
+     * </pre>
+     *
      * <code>string period = 2 [json_name = "period"];</code>
      * @param value The period to set.
      * @return This builder for chaining.
@@ -578,6 +914,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+     * `from` is set.
+     * </pre>
+     *
      * <code>string period = 2 [json_name = "period"];</code>
      * @return This builder for chaining.
      */
@@ -588,6 +929,11 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+     * `from` is set.
+     * </pre>
+     *
      * <code>string period = 2 [json_name = "period"];</code>
      * @param value The bytes for period to set.
      * @return This builder for chaining.
@@ -598,6 +944,420 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       period_ = value;
       bitField0_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+
+    private boolean fullResolution_ ;
+    /**
+     * <pre>
+     * Return every observation, unbucketed.
+     *
+     * By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
+     * averages. That is the right shape for a chart and unusable for anything
+     * else: you cannot compute a per-observation change, align to a trading
+     * calendar, or measure an event window on a resampled series, and until now
+     * there was no way to ask for the raw record. The default is unchanged, so
+     * existing callers keep the series they already render.
+     * </pre>
+     *
+     * <code>bool full_resolution = 3 [json_name = "fullResolution"];</code>
+     * @return The fullResolution.
+     */
+    @java.lang.Override
+    public boolean getFullResolution() {
+      return fullResolution_;
+    }
+    /**
+     * <pre>
+     * Return every observation, unbucketed.
+     *
+     * By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
+     * averages. That is the right shape for a chart and unusable for anything
+     * else: you cannot compute a per-observation change, align to a trading
+     * calendar, or measure an event window on a resampled series, and until now
+     * there was no way to ask for the raw record. The default is unchanged, so
+     * existing callers keep the series they already render.
+     * </pre>
+     *
+     * <code>bool full_resolution = 3 [json_name = "fullResolution"];</code>
+     * @param value The fullResolution to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFullResolution(boolean value) {
+
+      fullResolution_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Return every observation, unbucketed.
+     *
+     * By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
+     * averages. That is the right shape for a chart and unusable for anything
+     * else: you cannot compute a per-observation change, align to a trading
+     * calendar, or measure an event window on a resampled series, and until now
+     * there was no way to ask for the raw record. The default is unchanged, so
+     * existing callers keep the series they already render.
+     * </pre>
+     *
+     * <code>bool full_resolution = 3 [json_name = "fullResolution"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFullResolution() {
+      bitField0_ = (bitField0_ & ~0x00000004);
+      fullResolution_ = false;
+      onChanged();
+      return this;
+    }
+
+    private int maxPoints_ ;
+    /**
+     * <pre>
+     * Cap on returned points, applied after `full_resolution`. 0 means no cap.
+     * Thinning keeps the first and last observation and spaces the rest evenly;
+     * `downsampled` reports whether it happened, so a caller never has to infer
+     * it from a suspiciously round point count.
+     * </pre>
+     *
+     * <code>int32 max_points = 6 [json_name = "maxPoints"];</code>
+     * @return The maxPoints.
+     */
+    @java.lang.Override
+    public int getMaxPoints() {
+      return maxPoints_;
+    }
+    /**
+     * <pre>
+     * Cap on returned points, applied after `full_resolution`. 0 means no cap.
+     * Thinning keeps the first and last observation and spaces the rest evenly;
+     * `downsampled` reports whether it happened, so a caller never has to infer
+     * it from a suspiciously round point count.
+     * </pre>
+     *
+     * <code>int32 max_points = 6 [json_name = "maxPoints"];</code>
+     * @param value The maxPoints to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMaxPoints(int value) {
+
+      maxPoints_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Cap on returned points, applied after `full_resolution`. 0 means no cap.
+     * Thinning keeps the first and last observation and spaces the rest evenly;
+     * `downsampled` reports whether it happened, so a caller never has to infer
+     * it from a suspiciously round point count.
+     * </pre>
+     *
+     * <code>int32 max_points = 6 [json_name = "maxPoints"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMaxPoints() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      maxPoints_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object from_ = "";
+    /**
+     * <pre>
+     * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+     * alone runs to the end of the data. A caller wanting one specific window
+     * had to request MAX and discard most of what came back.
+     * </pre>
+     *
+     * <code>string from = 4 [json_name = "from"];</code>
+     * @return The from.
+     */
+    public java.lang.String getFrom() {
+      java.lang.Object ref = from_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        from_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+     * alone runs to the end of the data. A caller wanting one specific window
+     * had to request MAX and discard most of what came back.
+     * </pre>
+     *
+     * <code>string from = 4 [json_name = "from"];</code>
+     * @return The bytes for from.
+     */
+    public com.google.protobuf.ByteString
+        getFromBytes() {
+      java.lang.Object ref = from_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        from_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+     * alone runs to the end of the data. A caller wanting one specific window
+     * had to request MAX and discard most of what came back.
+     * </pre>
+     *
+     * <code>string from = 4 [json_name = "from"];</code>
+     * @param value The from to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFrom(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      from_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+     * alone runs to the end of the data. A caller wanting one specific window
+     * had to request MAX and discard most of what came back.
+     * </pre>
+     *
+     * <code>string from = 4 [json_name = "from"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFrom() {
+      from_ = getDefaultInstance().getFrom();
+      bitField0_ = (bitField0_ & ~0x00000010);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+     * alone runs to the end of the data. A caller wanting one specific window
+     * had to request MAX and discard most of what came back.
+     * </pre>
+     *
+     * <code>string from = 4 [json_name = "from"];</code>
+     * @param value The bytes for from to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFromBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      from_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object to_ = "";
+    /**
+     * <code>string to = 5 [json_name = "to"];</code>
+     * @return The to.
+     */
+    public java.lang.String getTo() {
+      java.lang.Object ref = to_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        to_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string to = 5 [json_name = "to"];</code>
+     * @return The bytes for to.
+     */
+    public com.google.protobuf.ByteString
+        getToBytes() {
+      java.lang.Object ref = to_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        to_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string to = 5 [json_name = "to"];</code>
+     * @param value The to to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTo(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      to_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string to = 5 [json_name = "to"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTo() {
+      to_ = getDefaultInstance().getTo();
+      bitField0_ = (bitField0_ & ~0x00000020);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string to = 5 [json_name = "to"];</code>
+     * @param value The bytes for to to set.
+     * @return This builder for chaining.
+     */
+    public Builder setToBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      to_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object asOf_ = "";
+    /**
+     * <pre>
+     * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+     * PUBLISHED by this date, i.e. whose available_from is on or before it.
+     *
+     * ASIC publishes T+4, so a series requested for a historical date otherwise
+     * includes up to four days of data nobody could have had. Setting as_of is
+     * what makes a walk-forward study honest without the caller applying a blunt
+     * lag by hand.
+     * </pre>
+     *
+     * <code>string as_of = 7 [json_name = "asOf"];</code>
+     * @return The asOf.
+     */
+    public java.lang.String getAsOf() {
+      java.lang.Object ref = asOf_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        asOf_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+     * PUBLISHED by this date, i.e. whose available_from is on or before it.
+     *
+     * ASIC publishes T+4, so a series requested for a historical date otherwise
+     * includes up to four days of data nobody could have had. Setting as_of is
+     * what makes a walk-forward study honest without the caller applying a blunt
+     * lag by hand.
+     * </pre>
+     *
+     * <code>string as_of = 7 [json_name = "asOf"];</code>
+     * @return The bytes for asOf.
+     */
+    public com.google.protobuf.ByteString
+        getAsOfBytes() {
+      java.lang.Object ref = asOf_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        asOf_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+     * PUBLISHED by this date, i.e. whose available_from is on or before it.
+     *
+     * ASIC publishes T+4, so a series requested for a historical date otherwise
+     * includes up to four days of data nobody could have had. Setting as_of is
+     * what makes a walk-forward study honest without the caller applying a blunt
+     * lag by hand.
+     * </pre>
+     *
+     * <code>string as_of = 7 [json_name = "asOf"];</code>
+     * @param value The asOf to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAsOf(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      asOf_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+     * PUBLISHED by this date, i.e. whose available_from is on or before it.
+     *
+     * ASIC publishes T+4, so a series requested for a historical date otherwise
+     * includes up to four days of data nobody could have had. Setting as_of is
+     * what makes a walk-forward study honest without the caller applying a blunt
+     * lag by hand.
+     * </pre>
+     *
+     * <code>string as_of = 7 [json_name = "asOf"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAsOf() {
+      asOf_ = getDefaultInstance().getAsOf();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+     * PUBLISHED by this date, i.e. whose available_from is on or before it.
+     *
+     * ASIC publishes T+4, so a series requested for a historical date otherwise
+     * includes up to four days of data nobody could have had. Setting as_of is
+     * what makes a walk-forward study honest without the caller applying a blunt
+     * lag by hand.
+     * </pre>
+     *
+     * <code>string as_of = 7 [json_name = "asOf"];</code>
+     * @param value The bytes for asOf to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAsOfBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      asOf_ = value;
+      bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }

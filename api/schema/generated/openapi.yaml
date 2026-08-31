@@ -13,6 +13,106 @@ info:
     name: Proprietary license
     url: https://shorted.com.au/terms
 paths:
+  /v1/panel:
+    get:
+      operationId: exportPanel
+      summary: Export the whole short-position panel for a date range
+      description: |
+        The complete ASIC short-position panel — every security on every
+        trading date in the window — as CSV or NDJSON, in ONE request.
+
+        Building a research panel from `GetMarketByDate` costs one request per
+        trading date: about 2,500 for a decade, against an anonymous quota of
+        500 a month. This endpoint replaces that, and is cheaper for us to
+        serve than the pattern it replaces. It is metered at 50 requests
+        against your quota rather than one, because it does considerably more
+        than one request's work.
+
+        Rows are streamed and ordered by `(date, product_code)`, so a repeated
+        export of the same window is byte-identical and can be diffed or
+        resumed. `reported_short_positions` is a raw SHARE COUNT and
+        `total_product_in_issue` is the denominator behind `percent_shorted` —
+        shares on issue moves with placements and buybacks, so the percent can
+        change with no change in short positioning at all.
+
+        Because the response streams, the HTTP status is committed before the
+        first row. A failure part-way through therefore cannot be a 5xx: the
+        body ends with a line beginning `#ERROR`. Check for it before trusting
+        a file to be complete.
+
+        ```bash
+        curl -A 'my-app/1.0' \
+          'https://api.shorted.com.au/v1/panel?from=2015-01-01&to=2025-12-31' \
+          -o panel.csv
+        ```
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: First trading date to include, YYYY-MM-DD.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: Last trading date to include, YYYY-MM-DD.
+          schema:
+            type: string
+            format: date
+        - name: format
+          in: query
+          required: false
+          description: Output encoding.
+          schema:
+            type: string
+            enum:
+              - csv
+              - ndjson
+            default: csv
+        - name: codes
+          in: query
+          required: false
+          description: >-
+            Comma-separated ASX codes to restrict the export to. Omit for every security. Case-insensitive.
+          schema:
+            type: string
+        - name: as_of
+          in: query
+          required: false
+          description: >-
+            Point-in-time filter, YYYY-MM-DD. Returns only observations that had been PUBLISHED by this date. ASIC publishes T+4, so an export for a historical window otherwise contains up to four days of data nobody could have had on the dates it is dated — lookahead a backtest cannot detect from the outside. Every row also carries available_from, so the lag can be checked rather than assumed.
+
+            This covers publication LAG only. ASIC can also revise a position after the fact; the store updates in place, so a historical query returns the as-revised value and no field here identifies it as revised.
+          schema:
+            type: string
+            format: date
+        - name: include_zero
+          in: query
+          required: false
+          description: >-
+            Include securities whose reported short position was zero on a date. Off by default, which suits a "most shorted" view; turn it on when building a research universe, since excluding the zero-interest names biases anything that sorts on short interest.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: The panel, streamed.
+          content:
+            text/csv:
+              schema:
+                type: string
+                description: >-
+                  Header row followed by one row per (date, security): date, available_from, product_code, product_name, reported_short_positions, total_product_in_issue, percent_shorted.
+            application/x-ndjson:
+              schema:
+                type: string
+                description: One JSON object per line, same fields as the CSV columns.
+        "400":
+          description: >-
+            Missing or unparseable from/to, a reversed window, a window longer than 30 years, or an unknown format.
+        "429":
+          description: Rate limit exceeded. This endpoint costs 50 units.
   /api/search/stocks:
     servers:
       - url: https://shorted.com.au
@@ -2946,6 +3046,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetStockGraphResponse'
+  /shorts.v1alpha1.StockService/GetStockPrices:
+    post:
+      tags:
+        - shorts.v1alpha1.StockService
+      summary: GetStockPrices
+      description: |-
+        Adjusted daily OHLCV for a stock, on the same codes and the same dates as
+         the short-position series.
+      operationId: StockService_GetStockPrices
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStockPricesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetStockPricesResponse'
   /shorts.v1alpha1.StockService/GetStockSignals:
     post:
       tags:
@@ -5197,6 +5335,19 @@ components:
           title: offset
           format: int32
           description: Pagination offset (proto int32)
+        includeZeroShortPositions:
+          type: boolean
+          title: include_zero_short_positions
+          description: |-
+            Include securities whose reported short position was zero on this date.
+
+             This response is a POINT-IN-TIME universe: it reads the append-only ASIC
+             report at `date` and joins metadata outward, so a security that has since
+             delisted is present here at the dates it was actually reported. That makes
+             a survivorship-free universe buildable — but only if the universe is
+             complete, and by default a name with no short interest that day is
+             filtered out. Excluding exactly the names with no short interest biases
+             any study that sorts on short interest, which is most of them. (proto bool)
       title: GetMarketByDateRequest
       additionalProperties: false
       description: Request for GetMarketByDate RPC
@@ -6159,7 +6310,52 @@ components:
         period:
           type: string
           title: period
+          description: |-
+            Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+             `from` is set. (proto string)
+        fullResolution:
+          type: boolean
+          title: full_resolution
+          description: |-
+            Return every observation, unbucketed.
+
+             By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
+             averages. That is the right shape for a chart and unusable for anything
+             else: you cannot compute a per-observation change, align to a trading
+             calendar, or measure an event window on a resampled series, and until now
+             there was no way to ask for the raw record. The default is unchanged, so
+             existing callers keep the series they already render. (proto bool)
+        maxPoints:
+          type: integer
+          title: max_points
+          format: int32
+          description: |-
+            Cap on returned points, applied after `full_resolution`. 0 means no cap.
+             Thinning keeps the first and last observation and spaces the rest evenly;
+             `downsampled` reports whether it happened, so a caller never has to infer
+             it from a suspiciously round point count. (proto int32)
+        from:
+          type: string
+          title: from
+          description: |-
+            Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+             alone runs to the end of the data. A caller wanting one specific window
+             had to request MAX and discard most of what came back. (proto string)
+        to:
+          type: string
+          title: to
           description: (proto string)
+        asOf:
+          type: string
+          title: as_of
+          description: |-
+            Point-in-time filter, YYYY-MM-DD: return only observations that had been
+             PUBLISHED by this date, i.e. whose available_from is on or before it.
+
+             ASIC publishes T+4, so a series requested for a historical date otherwise
+             includes up to four days of data nobody could have had. Setting as_of is
+             what makes a walk-forward study honest without the caller applying a blunt
+             lag by hand. (proto string)
       title: GetStockDataRequest
       additionalProperties: false
       description: Request for GetStockDataRequest RPC, specifying the product code.
@@ -6290,6 +6486,79 @@ components:
       title: GetStockNewsResponse
       additionalProperties: false
       description: Response for GetStockNews RPC
+    shorts.v1alpha1.GetStockPricesRequest:
+      type: object
+      properties:
+        productCode:
+          type: string
+          title: product_code
+          description: (proto string)
+        period:
+          type: string
+          title: period
+          description: |-
+            Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+             `from` is set. Defaults to 1Y. (proto string)
+        from:
+          type: string
+          title: from
+          description: Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data. (proto string)
+        to:
+          type: string
+          title: to
+          description: (proto string)
+        maxPoints:
+          type: integer
+          title: max_points
+          format: int32
+          description: |-
+            Cap on returned points, 0 for no cap. Thinning keeps the first and last
+             observation; `downsampled` reports whether it happened. (proto int32)
+      title: GetStockPricesRequest
+      additionalProperties: false
+      description: |-
+        Request for GetStockPrices RPC.
+
+         This exists so that short interest can be joined to returns without leaving
+         the API. Doing it outside meant reconciling two ticker conventions (BHP here
+         against BHP.AX elsewhere), two unauditable adjustment methodologies for
+         splits and dividends, and two universes that need not agree on any given
+         date — an error term on every result that no amount of care on the caller's
+         side removes. Every question the product is actually asked ("do heavily
+         shorted names underperform", "what happened after the squeeze") needs both
+         series, and the harder half was already here.
+    shorts.v1alpha1.GetStockPricesResponse:
+      type: object
+      properties:
+        productCode:
+          type: string
+          title: product_code
+          description: (proto string)
+        name:
+          type: string
+          title: name
+          description: (proto string)
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StockPricePoint'
+          title: points
+          description: Oldest first. (proto shorts.v1alpha1.StockPricePoint)
+        totalObservations:
+          type: integer
+          title: total_observations
+          format: int32
+          description: Observations in the window before thinning. (proto int32)
+        downsampled:
+          type: boolean
+          title: downsampled
+          description: (proto bool)
+        currency:
+          type: string
+          title: currency
+          description: Always "AUD" today; stated rather than assumed. (proto string)
+      title: GetStockPricesResponse
+      additionalProperties: false
     shorts.v1alpha1.GetStockRequest:
       type: object
       properties:
@@ -10229,6 +10498,51 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.DeclaredInterest'
       title: StockPoliticianInterest
       additionalProperties: false
+    shorts.v1alpha1.StockPricePoint:
+      type: object
+      properties:
+        date:
+          type: string
+          title: date
+          description: YYYY-MM-DD. A trading date, not a timestamp. (proto string)
+        open:
+          type: number
+          title: open
+          format: double
+          description: (proto double)
+        high:
+          type: number
+          title: high
+          format: double
+          description: (proto double)
+        low:
+          type: number
+          title: low
+          format: double
+          description: (proto double)
+        close:
+          type: number
+          title: close
+          format: double
+          description: (proto double)
+        adjustedClose:
+          type: number
+          title: adjusted_close
+          format: double
+          description: |-
+            Close adjusted for splits and dividends. This is the series to compute
+             returns from; `close` is the raw print. Both are returned because a caller
+             reconciling against another source needs the unadjusted number to do it. (proto double)
+        volume:
+          type:
+            - integer
+            - string
+          title: volume
+          format: int64
+          description: (proto int64)
+      title: StockPricePoint
+      additionalProperties: false
+      description: One trading session.
     shorts.v1alpha1.StockSignal:
       type: object
       properties:
@@ -12191,7 +12505,36 @@ components:
         logoUrl:
           type: string
           title: logo_url
-          description: 'TODO(castlemilk): add more metadata here as needed (proto string)'
+          description: (proto string)
+        marketCap:
+          type: number
+          title: market_cap
+          format: double
+          description: |-
+            Size and liquidity.
+
+             Without these a short-interest universe cannot be filtered or a position
+             sized: a sweep across ~740 names is dominated by micro-caps where short
+             interest is both noisy and untradeable, and the standard remedy — a floor
+             on traded value — was not expressible. They also change what the headline
+             percentage MEANS: 5% short on a mega-cap and 5% on a micro-cap are not the
+             same signal, and with no size attached they are the same number.
+
+             double, not the float used above, because a market capitalisation in
+             dollars exceeds float32's exact-integer range by five orders of magnitude. Market capitalisation in AUD. 0 when unknown. (proto double)
+        averageDailyValue20d:
+          type: number
+          title: average_daily_value_20d
+          format: double
+          description: 20-session mean of close x volume, in AUD. 0 when unknown. (proto double)
+        liquidityBand:
+          type: string
+          title: liquidity_band
+          description: |-
+            Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+             "large", "mid", "small" or "micro"; empty when unknown. Present because a
+             band is usable for filtering even where the underlying value is missing or
+             stale, and it is what most callers actually want. (proto string)
       title: Stock
       additionalProperties: false
       description: A Stock represents a single stock's metadata.
@@ -12347,6 +12690,20 @@ components:
           type: string
           title: industry
           description: Industry classification (populated in summary mode from company metadata). (proto string)
+        totalObservations:
+          type: integer
+          title: total_observations
+          format: int32
+          description: |-
+            How many observations exist in the requested window before any thinning,
+             and whether `points` is thinner than that. A caller doing quantitative
+             work must be able to tell a complete daily record from a series shaped for
+             a chart; without these two fields the only way to find out was to notice
+             that the point count was suspiciously round. (proto int32)
+        downsampled:
+          type: boolean
+          title: downsampled
+          description: (proto bool)
       title: TimeSeriesData
       additionalProperties: false
       description: TimeSeriesData represents time series data for a stock.
@@ -12361,7 +12718,43 @@ components:
           type: number
           title: short_position
           format: double
-          description: The short position at this point in time. (proto double)
+          description: The short position at this point in time, as a PERCENT of shares on issue. (proto double)
+        reportedShortPositions:
+          type: number
+          title: reported_short_positions
+          format: double
+          description: |-
+            The two raw quantities the percent is computed from. ASIC reports a share
+             COUNT; the percent is that count over shares on issue, and shares on issue
+             moves with placements, entitlement offers and buybacks. A capital raising
+             therefore drops the percent overnight with no change in short positioning
+             at all, and a signal built on change-in-percent reads that as covering.
+             Both quantities are stored per observation, so exposing them lets a caller
+             work in share counts and see the denominator move. Shares held short on this date (a COUNT, not a percent). (proto double)
+        totalProductInIssue:
+          type: number
+          title: total_product_in_issue
+          format: double
+          description: Shares on issue on this date — the percent's denominator. (proto double)
+        availableFrom:
+          type: string
+          title: available_from
+          description: |-
+            The date this observation became PUBLIC: four trading days after
+             `timestamp`, because ASIC publishes T+4.
+
+             Without it, a backtest that uses the value dated D on day D has four days
+             of lookahead and nothing in the response says so. That is the difference
+             between a result that is merely biased and one that cannot be checked from
+             the outside. Pass `as_of` on the request to have the server withhold
+             observations that were not yet published.
+
+             This is DERIVED from the report date, not recorded per row: it is the
+             known, fixed publication rule made machine-readable. It does not capture
+             an unusually delayed publication, and it says nothing about REVISIONS —
+             ASIC can restate a position, the store updates in place, and the original
+             value is not retained. A historical query therefore returns the
+             as-revised figure, and no field here can tell you it was revised. YYYY-MM-DD. (proto string)
       title: TimeSeriesPoint
       additionalProperties: false
       description: TimeSeriesPoint represents a single point in time for the time series data.

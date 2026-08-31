@@ -50,6 +50,7 @@ func Registry() []Tool {
 		// Stock — single-company lookups.
 		getStockTool(),
 		getStockHistoryTool(),
+		getStockPricesTool(),
 		getStockDetailsTool(),
 		getDirectorTradesTool(),
 		getPeerComparisonTool(),

@@ -28,8 +28,16 @@ func (s *StoreAdapter) GetStock(productCode string) (*stocksv1alpha1.Stock, erro
 	return s.store.GetStock(productCode)
 }
 
-func (s *StoreAdapter) GetStockData(productCode, period string) (*stocksv1alpha1.TimeSeriesData, error) {
-	return s.store.GetStockData(productCode, period)
+func (s *StoreAdapter) GetStockData(query shorts.StockDataQuery) (*stocksv1alpha1.TimeSeriesData, error) {
+	return s.store.GetStockData(query)
+}
+
+func (s *StoreAdapter) GetStockPrices(query shorts.StockPricesQuery) (*shortsv1alpha1.GetStockPricesResponse, error) {
+	return s.store.GetStockPrices(query)
+}
+
+func (s *StoreAdapter) StreamPanel(ctx context.Context, query shorts.PanelQuery, fn func(shorts.PanelRow) error) error {
+	return s.store.StreamPanel(ctx, query, fn)
 }
 
 func (s *StoreAdapter) GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error) {
@@ -44,8 +52,8 @@ func (s *StoreAdapter) SearchStocks(query string, limit int32) ([]*stocksv1alpha
 	return s.store.SearchStocks(query, limit)
 }
 
-func (s *StoreAdapter) GetMarketByDate(date string, limit, offset int32) ([]*stocksv1alpha1.Stock, int, error) {
-	return s.store.GetMarketByDate(date, limit, offset)
+func (s *StoreAdapter) GetMarketByDate(date string, limit, offset int32, includeZero bool) ([]*stocksv1alpha1.Stock, int, error) {
+	return s.store.GetMarketByDate(date, limit, offset, includeZero)
 }
 
 func (s *StoreAdapter) GetAvailableDates(limit int, before string) ([]string, string, string, int, error) {

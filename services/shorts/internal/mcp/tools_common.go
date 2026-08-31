@@ -65,7 +65,23 @@ const (
 	// maxHistoryPoints mirrors MAX_POINTS in the legacy Next.js MCP route
 	// (web/src/app/api/mcp/[transport]/route.ts), so the two surfaces
 	// downsample identically. A MAX-period series is ~2,500 daily observations.
-	maxHistoryPoints = 200
+	//
+	// 200 points of percent alone fits the per-call payload budget; 200 points
+	// carrying the share count and its denominator as well does not (22KB
+	// against a 16KB budget). Those two fields are the whole point of the
+	// series for a quantitative caller, so the cap moves rather than the
+	// fields — a reader asking a trend question cannot tell 120 points from
+	// 200, and a caller who wants more can say max_points.
+	maxHistoryPoints = 120
+
+	// Prices carry four values per session rather than three, so they get
+	// their own default for the same budget reason.
+	maxPricePoints = 150
+
+	// Ceiling on an explicitly requested point cap. Above this a caller wanting
+	// everything should say full_resolution and mean it, rather than asking for
+	// a number large enough to be one.
+	maxRequestableHistoryPoints = 5000
 
 	// maxTreemapStocks caps the flattened industry/stock pairs. The RPC will
 	// return up to 500.

@@ -16,7 +16,26 @@ message Stock {
   string industry = 6;
   repeated string tags = 7;
   string logo_url = 8;
-  // TODO(castlemilk): add more metadata here as needed
+
+  // Size and liquidity.
+  //
+  // Without these a short-interest universe cannot be filtered or a position
+  // sized: a sweep across ~740 names is dominated by micro-caps where short
+  // interest is both noisy and untradeable, and the standard remedy — a floor
+  // on traded value — was not expressible. They also change what the headline
+  // percentage MEANS: 5% short on a mega-cap and 5% on a micro-cap are not the
+  // same signal, and with no size attached they are the same number.
+  //
+  // double, not the float used above, because a market capitalisation in
+  // dollars exceeds float32's exact-integer range by five orders of magnitude.
+  double market_cap = 9;                  // Market capitalisation in AUD. 0 when unknown.
+  double average_daily_value_20d = 10;    // 20-session mean of close x volume, in AUD. 0 when unknown.
+
+  // Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+  // "large", "mid", "small" or "micro"; empty when unknown. Present because a
+  // band is usable for filtering even where the underlying value is missing or
+  // stale, and it is what most callers actually want.
+  string liquidity_band = 11;
   }
   
 // TimeSeriesData represents time series data for a stock.
@@ -29,12 +48,47 @@ message TimeSeriesData {
   TimeSeriesPoint max = 11;                        // The maximum short position in the range
   TimeSeriesPoint min = 12;                        // The minimum short position in the range
   string industry = 13;                            // Industry classification (populated in summary mode from company metadata).
+
+  // How many observations exist in the requested window before any thinning,
+  // and whether `points` is thinner than that. A caller doing quantitative
+  // work must be able to tell a complete daily record from a series shaped for
+  // a chart; without these two fields the only way to find out was to notice
+  // that the point count was suspiciously round.
+  int32 total_observations = 14;
+  bool downsampled = 15;
 }
   
 // TimeSeriesPoint represents a single point in time for the time series data.
 message TimeSeriesPoint {
   google.protobuf.Timestamp timestamp = 1;        // The point in time.
-  double short_position = 2;                      // The short position at this point in time.
+  double short_position = 2;                      // The short position at this point in time, as a PERCENT of shares on issue.
+
+  // The two raw quantities the percent is computed from. ASIC reports a share
+  // COUNT; the percent is that count over shares on issue, and shares on issue
+  // moves with placements, entitlement offers and buybacks. A capital raising
+  // therefore drops the percent overnight with no change in short positioning
+  // at all, and a signal built on change-in-percent reads that as covering.
+  // Both quantities are stored per observation, so exposing them lets a caller
+  // work in share counts and see the denominator move.
+  double reported_short_positions = 3;            // Shares held short on this date (a COUNT, not a percent).
+  double total_product_in_issue = 4;              // Shares on issue on this date — the percent's denominator.
+
+  // The date this observation became PUBLIC: four trading days after
+  // `timestamp`, because ASIC publishes T+4.
+  //
+  // Without it, a backtest that uses the value dated D on day D has four days
+  // of lookahead and nothing in the response says so. That is the difference
+  // between a result that is merely biased and one that cannot be checked from
+  // the outside. Pass `as_of` on the request to have the server withhold
+  // observations that were not yet published.
+  //
+  // This is DERIVED from the report date, not recorded per row: it is the
+  // known, fixed publication rule made machine-readable. It does not capture
+  // an unusually delayed publication, and it says nothing about REVISIONS —
+  // ASIC can restate a position, the store updates in place, and the original
+  // value is not retained. A historical query therefore returns the
+  // as-revised figure, and no field here can tell you it was revised.
+  string available_from = 5;                      // YYYY-MM-DD.
 }
 
 /**

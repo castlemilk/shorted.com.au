@@ -106,22 +106,70 @@ public interface StockOrBuilder extends
       getTagsBytes(int index);
 
   /**
-   * <pre>
-   * TODO(castlemilk): add more metadata here as needed
-   * </pre>
-   *
    * <code>string logo_url = 8 [json_name = "logoUrl"];</code>
    * @return The logoUrl.
    */
   java.lang.String getLogoUrl();
   /**
-   * <pre>
-   * TODO(castlemilk): add more metadata here as needed
-   * </pre>
-   *
    * <code>string logo_url = 8 [json_name = "logoUrl"];</code>
    * @return The bytes for logoUrl.
    */
   com.google.protobuf.ByteString
       getLogoUrlBytes();
+
+  /**
+   * <pre>
+   * Size and liquidity.
+   *
+   * Without these a short-interest universe cannot be filtered or a position
+   * sized: a sweep across ~740 names is dominated by micro-caps where short
+   * interest is both noisy and untradeable, and the standard remedy — a floor
+   * on traded value — was not expressible. They also change what the headline
+   * percentage MEANS: 5% short on a mega-cap and 5% on a micro-cap are not the
+   * same signal, and with no size attached they are the same number.
+   *
+   * double, not the float used above, because a market capitalisation in
+   * dollars exceeds float32's exact-integer range by five orders of magnitude.
+   * </pre>
+   *
+   * <code>double market_cap = 9 [json_name = "marketCap"];</code>
+   * @return The marketCap.
+   */
+  double getMarketCap();
+
+  /**
+   * <pre>
+   * 20-session mean of close x volume, in AUD. 0 when unknown.
+   * </pre>
+   *
+   * <code>double average_daily_value_20d = 10 [json_name = "averageDailyValue20d"];</code>
+   * @return The averageDailyValue20d.
+   */
+  double getAverageDailyValue20D();
+
+  /**
+   * <pre>
+   * Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+   * "large", "mid", "small" or "micro"; empty when unknown. Present because a
+   * band is usable for filtering even where the underlying value is missing or
+   * stale, and it is what most callers actually want.
+   * </pre>
+   *
+   * <code>string liquidity_band = 11 [json_name = "liquidityBand"];</code>
+   * @return The liquidityBand.
+   */
+  java.lang.String getLiquidityBand();
+  /**
+   * <pre>
+   * Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+   * "large", "mid", "small" or "micro"; empty when unknown. Present because a
+   * band is usable for filtering even where the underlying value is missing or
+   * stale, and it is what most callers actually want.
+   * </pre>
+   *
+   * <code>string liquidity_band = 11 [json_name = "liquidityBand"];</code>
+   * @return The bytes for liquidityBand.
+   */
+  com.google.protobuf.ByteString
+      getLiquidityBandBytes();
 }

@@ -23,6 +23,12 @@ service StockService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
 
+  // Adjusted daily OHLCV for a stock, on the same codes and the same dates as
+  // the short-position series.
+  rpc GetStockPrices (GetStockPricesRequest) returns (GetStockPricesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
   // Get extracted financial highlights for specific stocks
   rpc GetStockFinancialHighlights (GetStockFinancialHighlightsRequest) returns (GetStockFinancialHighlightsResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
@@ -82,7 +88,91 @@ message GetStockDetailsRequest {
 // Request for GetStockDataRequest RPC, specifying the product code.
 message GetStockDataRequest {
   string product_code = 1;
+
+  // Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+  // `from` is set.
   string period = 2;
+
+  // Return every observation, unbucketed.
+  //
+  // By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
+  // averages. That is the right shape for a chart and unusable for anything
+  // else: you cannot compute a per-observation change, align to a trading
+  // calendar, or measure an event window on a resampled series, and until now
+  // there was no way to ask for the raw record. The default is unchanged, so
+  // existing callers keep the series they already render.
+  bool full_resolution = 3;
+
+  // Cap on returned points, applied after `full_resolution`. 0 means no cap.
+  // Thinning keeps the first and last observation and spaces the rest evenly;
+  // `downsampled` reports whether it happened, so a caller never has to infer
+  // it from a suspiciously round point count.
+  int32 max_points = 6;
+
+  // Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+  // alone runs to the end of the data. A caller wanting one specific window
+  // had to request MAX and discard most of what came back.
+  string from = 4;
+  string to = 5;
+
+  // Point-in-time filter, YYYY-MM-DD: return only observations that had been
+  // PUBLISHED by this date, i.e. whose available_from is on or before it.
+  //
+  // ASIC publishes T+4, so a series requested for a historical date otherwise
+  // includes up to four days of data nobody could have had. Setting as_of is
+  // what makes a walk-forward study honest without the caller applying a blunt
+  // lag by hand.
+  string as_of = 7;
+}
+
+// Request for GetStockPrices RPC.
+//
+// This exists so that short interest can be joined to returns without leaving
+// the API. Doing it outside meant reconciling two ticker conventions (BHP here
+// against BHP.AX elsewhere), two unauditable adjustment methodologies for
+// splits and dividends, and two universes that need not agree on any given
+// date — an error term on every result that no amount of care on the caller's
+// side removes. Every question the product is actually asked ("do heavily
+// shorted names underperform", "what happened after the squeeze") needs both
+// series, and the harder half was already here.
+message GetStockPricesRequest {
+  string product_code = 1;
+
+  // Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+  // `from` is set. Defaults to 1Y.
+  string period = 2;
+
+  // Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data.
+  string from = 3;
+  string to = 4;
+
+  // Cap on returned points, 0 for no cap. Thinning keeps the first and last
+  // observation; `downsampled` reports whether it happened.
+  int32 max_points = 5;
+}
+
+message GetStockPricesResponse {
+  string product_code = 1;
+  string name = 2;
+  repeated StockPricePoint points = 3;      // Oldest first.
+  int32 total_observations = 4;             // Observations in the window before thinning.
+  bool downsampled = 5;
+  string currency = 6;                      // Always "AUD" today; stated rather than assumed.
+}
+
+// One trading session.
+message StockPricePoint {
+  string date = 1;             // YYYY-MM-DD. A trading date, not a timestamp.
+  double open = 2;
+  double high = 3;
+  double low = 4;
+  double close = 5;
+
+  // Close adjusted for splits and dividends. This is the series to compute
+  // returns from; `close` is the raw print. Both are returned because a caller
+  // reconciling against another source needs the unadjusted number to do it.
+  double adjusted_close = 6;
+  int64 volume = 7;
 }
 
 // Request for GetStockFinancialHighlights RPC

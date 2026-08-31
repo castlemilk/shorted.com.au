@@ -107,21 +107,24 @@ func TestGetStockDoesNotInventDataFromAnEmptyResponse(t *testing.T) {
 
 // ----------------------------------------------------------- get_stock_history
 
-func TestGetStockHistoryDownsamplesLongSeriesAndKeepsTheEndpoints(t *testing.T) {
-	const total = 2_500
-	points := make([]*stocksv1alpha1.TimeSeriesPoint, 0, total)
-	base := time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC)
-	for i := 0; i < total; i++ {
-		points = append(points, &stocksv1alpha1.TimeSeriesPoint{
-			Timestamp:     timestamppb.New(base.AddDate(0, 0, i)),
-			ShortPosition: float64(i) / 100,
-		})
-	}
+// Thinning is the SERVER's job now: it alone knows how many raw observations
+// back a series, and deriving the count here reported the number of weekly
+// BUCKETS as the number of daily observations (846 for 16 years of MAX, when
+// the real daily count is several thousand). What this tool must still get
+// right is the request it sends and the counts it passes through.
+func TestGetStockHistoryAsksTheServerToThinAndReportsWhatItSaysBack(t *testing.T) {
 	src := &fakeDataSource{stockData: &stocksv1alpha1.TimeSeriesData{
-		ProductCode: "PLS", Name: "PILBARA MINERALS", LatestShortPosition: 24.99, Points: points,
+		ProductCode: "PLS", Name: "PILBARA MINERALS", LatestShortPosition: 24.99,
+		Points: []*stocksv1alpha1.TimeSeriesPoint{
+			{Timestamp: timestamppb.New(time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC)), ShortPosition: 1},
+			{Timestamp: timestamppb.New(time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)), ShortPosition: 25},
+		},
+		TotalObservations: 3897,
+		Downsampled:       true,
 	}}
 
-	_, out, err := getStockHistoryHandler(src)(context.Background(), nil, GetStockHistoryInput{Code: "pls", Period: "max"})
+	_, out, err := getStockHistoryHandler(src)(context.Background(), nil,
+		GetStockHistoryInput{Code: "pls", Period: "max"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -129,24 +132,104 @@ func TestGetStockHistoryDownsamplesLongSeriesAndKeepsTheEndpoints(t *testing.T) 
 	if src.gotStockData.GetPeriod() != "MAX" {
 		t.Errorf("period = %q, want it upper-cased to MAX", src.gotStockData.GetPeriod())
 	}
-	if out.TotalObservations != total {
-		t.Errorf("total_observations = %d, want %d — the agent must be told what was thrown away", out.TotalObservations, total)
+	if got := src.gotStockData.GetMaxPoints(); got != maxHistoryPoints {
+		t.Errorf("max_points = %d, want the %d default sent to the server", got, maxHistoryPoints)
 	}
-	if len(out.Points) > maxHistoryPoints {
-		t.Fatalf("returned %d points, want at most %d", len(out.Points), maxHistoryPoints)
+	if src.gotStockData.GetFullResolution() {
+		t.Error("full_resolution should be false unless the caller asked for it")
+	}
+
+	// Reported verbatim, not recomputed from the points that arrived.
+	if out.TotalObservations != 3897 {
+		t.Errorf("total_observations = %d, want the server's 3897", out.TotalObservations)
 	}
 	if !out.Downsampled {
-		t.Error("downsampled should be true when points were dropped")
+		t.Error("downsampled should reflect what the server reported")
 	}
-	// The last observation is the one a reader cares about most; a naive
-	// every-Nth filter drops it whenever the stride does not divide evenly.
-	last := out.Points[len(out.Points)-1]
-	wantLast := base.AddDate(0, 0, total-1).Format("2006-01-02")
-	if !strings.HasPrefix(last.Date, wantLast) {
-		t.Errorf("last sampled point is %q, want the final observation %q", last.Date, wantLast)
+}
+
+// The MCP was the only surface holding the deep history and thinned it with no
+// opt-out, so the richest series in the product was reachable only in a shape
+// meant for conversation.
+func TestGetStockHistoryFullResolutionRemovesTheCap(t *testing.T) {
+	src := &fakeDataSource{stockData: &stocksv1alpha1.TimeSeriesData{ProductCode: "BHP"}}
+
+	_, _, err := getStockHistoryHandler(src)(context.Background(), nil,
+		GetStockHistoryInput{Code: "BHP", Period: "max", FullResolution: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if out.Points[0].ShortPercent != 0 {
-		t.Errorf("first sampled point should be the first observation, got %+v", out.Points[0])
+
+	if !src.gotStockData.GetFullResolution() {
+		t.Error("full_resolution must reach the server")
+	}
+	if got := src.gotStockData.GetMaxPoints(); got != 0 {
+		t.Errorf("max_points = %d, want 0 — a cap would defeat full resolution", got)
+	}
+}
+
+func TestGetStockHistoryHonoursAnExplicitPointCap(t *testing.T) {
+	src := &fakeDataSource{stockData: &stocksv1alpha1.TimeSeriesData{ProductCode: "BHP"}}
+
+	_, _, err := getStockHistoryHandler(src)(context.Background(), nil,
+		GetStockHistoryInput{Code: "BHP", MaxPoints: 1000})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := src.gotStockData.GetMaxPoints(); got != 1000 {
+		t.Errorf("max_points = %d, want 1000", got)
+	}
+
+	// And refuses one it cannot serve, rather than silently substituting a
+	// different number.
+	_, _, err = getStockHistoryHandler(src)(context.Background(), nil,
+		GetStockHistoryInput{Code: "BHP", MaxPoints: maxRequestableHistoryPoints + 1})
+	if err == nil {
+		t.Fatal("expected an error for a max_points above the ceiling")
+	}
+}
+
+// A caller after one window had to request MAX and discard most of it.
+func TestGetStockHistoryPassesAnExplicitDateRange(t *testing.T) {
+	src := &fakeDataSource{stockData: &stocksv1alpha1.TimeSeriesData{ProductCode: "BHP"}}
+
+	_, _, err := getStockHistoryHandler(src)(context.Background(), nil,
+		GetStockHistoryInput{Code: "BHP", From: "2020-01-01", To: "2020-12-31"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if src.gotStockData.GetFrom() != "2020-01-01" || src.gotStockData.GetTo() != "2020-12-31" {
+		t.Errorf("from/to = %q/%q, want 2020-01-01/2020-12-31",
+			src.gotStockData.GetFrom(), src.gotStockData.GetTo())
+	}
+}
+
+// Short interest is a percent of shares on issue, and shares on issue moves.
+// A placement drops the percent overnight with no change in positioning; only
+// the raw count and the denominator distinguish that from short covering.
+func TestGetStockHistoryCarriesTheRawCountAndItsDenominator(t *testing.T) {
+	src := &fakeDataSource{stockData: &stocksv1alpha1.TimeSeriesData{
+		ProductCode: "BHP",
+		Points: []*stocksv1alpha1.TimeSeriesPoint{{
+			Timestamp:              timestamppb.New(time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)),
+			ShortPosition:          1.25,
+			ReportedShortPositions: 63_791_924,
+			TotalProductInIssue:    5_084_182_500,
+		}},
+	}}
+
+	_, out, err := getStockHistoryHandler(src)(context.Background(), nil, GetStockHistoryInput{Code: "BHP"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(out.Points) != 1 {
+		t.Fatalf("got %d points, want 1", len(out.Points))
+	}
+	if out.Points[0].ShortPositions != 63_791_924 {
+		t.Errorf("short_positions = %v, want the raw share count", out.Points[0].ShortPositions)
+	}
+	if out.Points[0].SharesOnIssue != 5_084_182_500 {
+		t.Errorf("shares_on_issue = %v, want the denominator", out.Points[0].SharesOnIssue)
 	}
 }
 

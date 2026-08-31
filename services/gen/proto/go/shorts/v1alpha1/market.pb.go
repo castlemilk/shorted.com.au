@@ -579,12 +579,22 @@ func (x *SyncRun) GetCheckpointStocksFailed() int32 {
 
 // Request for GetMarketByDate RPC
 type GetMarketByDateRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Date          string                 `protobuf:"bytes,1,opt,name=date,proto3" json:"date,omitempty"`      // YYYY-MM-DD format
-	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`   // Max stocks to return (default 50)
-	Offset        int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"` // Pagination offset
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Date   string                 `protobuf:"bytes,1,opt,name=date,proto3" json:"date,omitempty"`      // YYYY-MM-DD format
+	Limit  int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`   // Max stocks to return (default 50)
+	Offset int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"` // Pagination offset
+	// Include securities whose reported short position was zero on this date.
+	//
+	// This response is a POINT-IN-TIME universe: it reads the append-only ASIC
+	// report at `date` and joins metadata outward, so a security that has since
+	// delisted is present here at the dates it was actually reported. That makes
+	// a survivorship-free universe buildable — but only if the universe is
+	// complete, and by default a name with no short interest that day is
+	// filtered out. Excluding exactly the names with no short interest biases
+	// any study that sorts on short interest, which is most of them.
+	IncludeZeroShortPositions bool `protobuf:"varint,4,opt,name=include_zero_short_positions,json=includeZeroShortPositions,proto3" json:"include_zero_short_positions,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *GetMarketByDateRequest) Reset() {
@@ -636,6 +646,13 @@ func (x *GetMarketByDateRequest) GetOffset() int32 {
 		return x.Offset
 	}
 	return 0
+}
+
+func (x *GetMarketByDateRequest) GetIncludeZeroShortPositions() bool {
+	if x != nil {
+		return x.IncludeZeroShortPositions
+	}
+	return false
 }
 
 // Response for GetMarketByDate RPC
@@ -1436,11 +1453,12 @@ const file_shorts_v1alpha1_market_proto_rawDesc = "" +
 	"\x17checkpoint_stocks_total\x18\r \x01(\x05R\x15checkpointStocksTotal\x12>\n" +
 	"\x1bcheckpoint_stocks_processed\x18\x0e \x01(\x05R\x19checkpointStocksProcessed\x12@\n" +
 	"\x1ccheckpoint_stocks_successful\x18\x0f \x01(\x05R\x1acheckpointStocksSuccessful\x128\n" +
-	"\x18checkpoint_stocks_failed\x18\x10 \x01(\x05R\x16checkpointStocksFailed\"Z\n" +
+	"\x18checkpoint_stocks_failed\x18\x10 \x01(\x05R\x16checkpointStocksFailed\"\x9b\x01\n" +
 	"\x16GetMarketByDateRequest\x12\x12\n" +
 	"\x04date\x18\x01 \x01(\tR\x04date\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x03 \x01(\x05R\x06offset\"\xc0\x01\n" +
+	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12?\n" +
+	"\x1cinclude_zero_short_positions\x18\x04 \x01(\bR\x19includeZeroShortPositions\"\xc0\x01\n" +
 	"\x17GetMarketByDateResponse\x12\x12\n" +
 	"\x04date\x18\x01 \x01(\tR\x04date\x12.\n" +
 	"\x06stocks\x18\x02 \x03(\v2\x16.stocks.v1alpha1.StockR\x06stocks\x12\x1f\n" +

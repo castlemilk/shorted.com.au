@@ -23,14 +23,122 @@ public interface GetStockDataRequestOrBuilder extends
       getProductCodeBytes();
 
   /**
+   * <pre>
+   * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+   * `from` is set.
+   * </pre>
+   *
    * <code>string period = 2 [json_name = "period"];</code>
    * @return The period.
    */
   java.lang.String getPeriod();
   /**
+   * <pre>
+   * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+   * `from` is set.
+   * </pre>
+   *
    * <code>string period = 2 [json_name = "period"];</code>
    * @return The bytes for period.
    */
   com.google.protobuf.ByteString
       getPeriodBytes();
+
+  /**
+   * <pre>
+   * Return every observation, unbucketed.
+   *
+   * By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
+   * averages. That is the right shape for a chart and unusable for anything
+   * else: you cannot compute a per-observation change, align to a trading
+   * calendar, or measure an event window on a resampled series, and until now
+   * there was no way to ask for the raw record. The default is unchanged, so
+   * existing callers keep the series they already render.
+   * </pre>
+   *
+   * <code>bool full_resolution = 3 [json_name = "fullResolution"];</code>
+   * @return The fullResolution.
+   */
+  boolean getFullResolution();
+
+  /**
+   * <pre>
+   * Cap on returned points, applied after `full_resolution`. 0 means no cap.
+   * Thinning keeps the first and last observation and spaces the rest evenly;
+   * `downsampled` reports whether it happened, so a caller never has to infer
+   * it from a suspiciously round point count.
+   * </pre>
+   *
+   * <code>int32 max_points = 6 [json_name = "maxPoints"];</code>
+   * @return The maxPoints.
+   */
+  int getMaxPoints();
+
+  /**
+   * <pre>
+   * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+   * alone runs to the end of the data. A caller wanting one specific window
+   * had to request MAX and discard most of what came back.
+   * </pre>
+   *
+   * <code>string from = 4 [json_name = "from"];</code>
+   * @return The from.
+   */
+  java.lang.String getFrom();
+  /**
+   * <pre>
+   * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+   * alone runs to the end of the data. A caller wanting one specific window
+   * had to request MAX and discard most of what came back.
+   * </pre>
+   *
+   * <code>string from = 4 [json_name = "from"];</code>
+   * @return The bytes for from.
+   */
+  com.google.protobuf.ByteString
+      getFromBytes();
+
+  /**
+   * <code>string to = 5 [json_name = "to"];</code>
+   * @return The to.
+   */
+  java.lang.String getTo();
+  /**
+   * <code>string to = 5 [json_name = "to"];</code>
+   * @return The bytes for to.
+   */
+  com.google.protobuf.ByteString
+      getToBytes();
+
+  /**
+   * <pre>
+   * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+   * PUBLISHED by this date, i.e. whose available_from is on or before it.
+   *
+   * ASIC publishes T+4, so a series requested for a historical date otherwise
+   * includes up to four days of data nobody could have had. Setting as_of is
+   * what makes a walk-forward study honest without the caller applying a blunt
+   * lag by hand.
+   * </pre>
+   *
+   * <code>string as_of = 7 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  java.lang.String getAsOf();
+  /**
+   * <pre>
+   * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+   * PUBLISHED by this date, i.e. whose available_from is on or before it.
+   *
+   * ASIC publishes T+4, so a series requested for a historical date otherwise
+   * includes up to four days of data nobody could have had. Setting as_of is
+   * what makes a walk-forward study honest without the caller applying a blunt
+   * lag by hand.
+   * </pre>
+   *
+   * <code>string as_of = 7 [json_name = "asOf"];</code>
+   * @return The bytes for asOf.
+   */
+  com.google.protobuf.ByteString
+      getAsOfBytes();
 }

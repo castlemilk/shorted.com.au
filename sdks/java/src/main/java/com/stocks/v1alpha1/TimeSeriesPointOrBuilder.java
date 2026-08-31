@@ -39,11 +39,85 @@ public interface TimeSeriesPointOrBuilder extends
 
   /**
    * <pre>
-   * The short position at this point in time.
+   * The short position at this point in time, as a PERCENT of shares on issue.
    * </pre>
    *
    * <code>double short_position = 2 [json_name = "shortPosition"];</code>
    * @return The shortPosition.
    */
   double getShortPosition();
+
+  /**
+   * <pre>
+   * The two raw quantities the percent is computed from. ASIC reports a share
+   * COUNT; the percent is that count over shares on issue, and shares on issue
+   * moves with placements, entitlement offers and buybacks. A capital raising
+   * therefore drops the percent overnight with no change in short positioning
+   * at all, and a signal built on change-in-percent reads that as covering.
+   * Both quantities are stored per observation, so exposing them lets a caller
+   * work in share counts and see the denominator move.
+   * </pre>
+   *
+   * <code>double reported_short_positions = 3 [json_name = "reportedShortPositions"];</code>
+   * @return The reportedShortPositions.
+   */
+  double getReportedShortPositions();
+
+  /**
+   * <pre>
+   * Shares on issue on this date — the percent's denominator.
+   * </pre>
+   *
+   * <code>double total_product_in_issue = 4 [json_name = "totalProductInIssue"];</code>
+   * @return The totalProductInIssue.
+   */
+  double getTotalProductInIssue();
+
+  /**
+   * <pre>
+   * The date this observation became PUBLIC: four trading days after
+   * `timestamp`, because ASIC publishes T+4.
+   *
+   * Without it, a backtest that uses the value dated D on day D has four days
+   * of lookahead and nothing in the response says so. That is the difference
+   * between a result that is merely biased and one that cannot be checked from
+   * the outside. Pass `as_of` on the request to have the server withhold
+   * observations that were not yet published.
+   *
+   * This is DERIVED from the report date, not recorded per row: it is the
+   * known, fixed publication rule made machine-readable. It does not capture
+   * an unusually delayed publication, and it says nothing about REVISIONS —
+   * ASIC can restate a position, the store updates in place, and the original
+   * value is not retained. A historical query therefore returns the
+   * as-revised figure, and no field here can tell you it was revised.
+   * </pre>
+   *
+   * <code>string available_from = 5 [json_name = "availableFrom"];</code>
+   * @return The availableFrom.
+   */
+  java.lang.String getAvailableFrom();
+  /**
+   * <pre>
+   * The date this observation became PUBLIC: four trading days after
+   * `timestamp`, because ASIC publishes T+4.
+   *
+   * Without it, a backtest that uses the value dated D on day D has four days
+   * of lookahead and nothing in the response says so. That is the difference
+   * between a result that is merely biased and one that cannot be checked from
+   * the outside. Pass `as_of` on the request to have the server withhold
+   * observations that were not yet published.
+   *
+   * This is DERIVED from the report date, not recorded per row: it is the
+   * known, fixed publication rule made machine-readable. It does not capture
+   * an unusually delayed publication, and it says nothing about REVISIONS —
+   * ASIC can restate a position, the store updates in place, and the original
+   * value is not retained. A historical query therefore returns the
+   * as-revised figure, and no field here can tell you it was revised.
+   * </pre>
+   *
+   * <code>string available_from = 5 [json_name = "availableFrom"];</code>
+   * @return The bytes for availableFrom.
+   */
+  com.google.protobuf.ByteString
+      getAvailableFromBytes();
 }

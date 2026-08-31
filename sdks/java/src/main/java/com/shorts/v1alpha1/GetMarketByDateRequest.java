@@ -130,6 +130,29 @@ private static final long serialVersionUID = 0L;
     return offset_;
   }
 
+  public static final int INCLUDE_ZERO_SHORT_POSITIONS_FIELD_NUMBER = 4;
+  private boolean includeZeroShortPositions_ = false;
+  /**
+   * <pre>
+   * Include securities whose reported short position was zero on this date.
+   *
+   * This response is a POINT-IN-TIME universe: it reads the append-only ASIC
+   * report at `date` and joins metadata outward, so a security that has since
+   * delisted is present here at the dates it was actually reported. That makes
+   * a survivorship-free universe buildable — but only if the universe is
+   * complete, and by default a name with no short interest that day is
+   * filtered out. Excluding exactly the names with no short interest biases
+   * any study that sorts on short interest, which is most of them.
+   * </pre>
+   *
+   * <code>bool include_zero_short_positions = 4 [json_name = "includeZeroShortPositions"];</code>
+   * @return The includeZeroShortPositions.
+   */
+  @java.lang.Override
+  public boolean getIncludeZeroShortPositions() {
+    return includeZeroShortPositions_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -153,6 +176,9 @@ private static final long serialVersionUID = 0L;
     if (offset_ != 0) {
       output.writeInt32(3, offset_);
     }
+    if (includeZeroShortPositions_ != false) {
+      output.writeBool(4, includeZeroShortPositions_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -167,6 +193,10 @@ private static final long serialVersionUID = 0L;
     if (offset_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(3, offset_);
+    }
+    if (includeZeroShortPositions_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(4, includeZeroShortPositions_);
     }
     return size;
   }
@@ -198,6 +228,8 @@ private static final long serialVersionUID = 0L;
         != other.getLimit()) return false;
     if (getOffset()
         != other.getOffset()) return false;
+    if (getIncludeZeroShortPositions()
+        != other.getIncludeZeroShortPositions()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -215,6 +247,9 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getLimit();
     hash = (37 * hash) + OFFSET_FIELD_NUMBER;
     hash = (53 * hash) + getOffset();
+    hash = (37 * hash) + INCLUDE_ZERO_SHORT_POSITIONS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getIncludeZeroShortPositions());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -353,6 +388,7 @@ private static final long serialVersionUID = 0L;
       date_ = "";
       limit_ = 0;
       offset_ = 0;
+      includeZeroShortPositions_ = false;
       return this;
     }
 
@@ -395,6 +431,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000004) != 0)) {
         result.offset_ = offset_;
       }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.includeZeroShortPositions_ = includeZeroShortPositions_;
+      }
     }
 
     @java.lang.Override
@@ -419,6 +458,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getOffset() != 0) {
         setOffset(other.getOffset());
+      }
+      if (other.getIncludeZeroShortPositions() != false) {
+        setIncludeZeroShortPositions(other.getIncludeZeroShortPositions());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -461,6 +503,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000004;
               break;
             } // case 24
+            case 32: {
+              includeZeroShortPositions_ = input.readBool();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 32
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -654,6 +701,74 @@ private static final long serialVersionUID = 0L;
     public Builder clearOffset() {
       bitField0_ = (bitField0_ & ~0x00000004);
       offset_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private boolean includeZeroShortPositions_ ;
+    /**
+     * <pre>
+     * Include securities whose reported short position was zero on this date.
+     *
+     * This response is a POINT-IN-TIME universe: it reads the append-only ASIC
+     * report at `date` and joins metadata outward, so a security that has since
+     * delisted is present here at the dates it was actually reported. That makes
+     * a survivorship-free universe buildable — but only if the universe is
+     * complete, and by default a name with no short interest that day is
+     * filtered out. Excluding exactly the names with no short interest biases
+     * any study that sorts on short interest, which is most of them.
+     * </pre>
+     *
+     * <code>bool include_zero_short_positions = 4 [json_name = "includeZeroShortPositions"];</code>
+     * @return The includeZeroShortPositions.
+     */
+    @java.lang.Override
+    public boolean getIncludeZeroShortPositions() {
+      return includeZeroShortPositions_;
+    }
+    /**
+     * <pre>
+     * Include securities whose reported short position was zero on this date.
+     *
+     * This response is a POINT-IN-TIME universe: it reads the append-only ASIC
+     * report at `date` and joins metadata outward, so a security that has since
+     * delisted is present here at the dates it was actually reported. That makes
+     * a survivorship-free universe buildable — but only if the universe is
+     * complete, and by default a name with no short interest that day is
+     * filtered out. Excluding exactly the names with no short interest biases
+     * any study that sorts on short interest, which is most of them.
+     * </pre>
+     *
+     * <code>bool include_zero_short_positions = 4 [json_name = "includeZeroShortPositions"];</code>
+     * @param value The includeZeroShortPositions to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIncludeZeroShortPositions(boolean value) {
+
+      includeZeroShortPositions_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Include securities whose reported short position was zero on this date.
+     *
+     * This response is a POINT-IN-TIME universe: it reads the append-only ASIC
+     * report at `date` and joins metadata outward, so a security that has since
+     * delisted is present here at the dates it was actually reported. That makes
+     * a survivorship-free universe buildable — but only if the universe is
+     * complete, and by default a name with no short interest that day is
+     * filtered out. Excluding exactly the names with no short interest biases
+     * any study that sorts on short interest, which is most of them.
+     * </pre>
+     *
+     * <code>bool include_zero_short_positions = 4 [json_name = "includeZeroShortPositions"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIncludeZeroShortPositions() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      includeZeroShortPositions_ = false;
       onChanged();
       return this;
     }

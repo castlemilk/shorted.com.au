@@ -42,6 +42,9 @@ const (
 	// StockServiceGetStockDataProcedure is the fully-qualified name of the StockService's GetStockData
 	// RPC.
 	StockServiceGetStockDataProcedure = "/shorts.v1alpha1.StockService/GetStockData"
+	// StockServiceGetStockPricesProcedure is the fully-qualified name of the StockService's
+	// GetStockPrices RPC.
+	StockServiceGetStockPricesProcedure = "/shorts.v1alpha1.StockService/GetStockPrices"
 	// StockServiceGetStockFinancialHighlightsProcedure is the fully-qualified name of the
 	// StockService's GetStockFinancialHighlights RPC.
 	StockServiceGetStockFinancialHighlightsProcedure = "/shorts.v1alpha1.StockService/GetStockFinancialHighlights"
@@ -77,6 +80,7 @@ var (
 	stockServiceGetStockMethodDescriptor                    = stockServiceServiceDescriptor.Methods().ByName("GetStock")
 	stockServiceGetStockDetailsMethodDescriptor             = stockServiceServiceDescriptor.Methods().ByName("GetStockDetails")
 	stockServiceGetStockDataMethodDescriptor                = stockServiceServiceDescriptor.Methods().ByName("GetStockData")
+	stockServiceGetStockPricesMethodDescriptor              = stockServiceServiceDescriptor.Methods().ByName("GetStockPrices")
 	stockServiceGetStockFinancialHighlightsMethodDescriptor = stockServiceServiceDescriptor.Methods().ByName("GetStockFinancialHighlights")
 	stockServiceGetDirectorTradesMethodDescriptor           = stockServiceServiceDescriptor.Methods().ByName("GetDirectorTrades")
 	stockServiceGetDividendHistoryMethodDescriptor          = stockServiceServiceDescriptor.Methods().ByName("GetDividendHistory")
@@ -96,6 +100,9 @@ type StockServiceClient interface {
 	GetStockDetails(context.Context, *connect.Request[v1alpha1.GetStockDetailsRequest]) (*connect.Response[v1alpha11.StockDetails], error)
 	// fetch time series data for a specific stock
 	GetStockData(context.Context, *connect.Request[v1alpha1.GetStockDataRequest]) (*connect.Response[v1alpha11.TimeSeriesData], error)
+	// Adjusted daily OHLCV for a stock, on the same codes and the same dates as
+	// the short-position series.
+	GetStockPrices(context.Context, *connect.Request[v1alpha1.GetStockPricesRequest]) (*connect.Response[v1alpha1.GetStockPricesResponse], error)
 	// Get extracted financial highlights for specific stocks
 	GetStockFinancialHighlights(context.Context, *connect.Request[v1alpha1.GetStockFinancialHighlightsRequest]) (*connect.Response[v1alpha1.GetStockFinancialHighlightsResponse], error)
 	// Get director (insider) trades for a specific stock
@@ -142,6 +149,12 @@ func NewStockServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+StockServiceGetStockDataProcedure,
 			connect.WithSchema(stockServiceGetStockDataMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getStockPrices: connect.NewClient[v1alpha1.GetStockPricesRequest, v1alpha1.GetStockPricesResponse](
+			httpClient,
+			baseURL+StockServiceGetStockPricesProcedure,
+			connect.WithSchema(stockServiceGetStockPricesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockFinancialHighlights: connect.NewClient[v1alpha1.GetStockFinancialHighlightsRequest, v1alpha1.GetStockFinancialHighlightsResponse](
@@ -206,6 +219,7 @@ type stockServiceClient struct {
 	getStock                    *connect.Client[v1alpha1.GetStockRequest, v1alpha11.Stock]
 	getStockDetails             *connect.Client[v1alpha1.GetStockDetailsRequest, v1alpha11.StockDetails]
 	getStockData                *connect.Client[v1alpha1.GetStockDataRequest, v1alpha11.TimeSeriesData]
+	getStockPrices              *connect.Client[v1alpha1.GetStockPricesRequest, v1alpha1.GetStockPricesResponse]
 	getStockFinancialHighlights *connect.Client[v1alpha1.GetStockFinancialHighlightsRequest, v1alpha1.GetStockFinancialHighlightsResponse]
 	getDirectorTrades           *connect.Client[v1alpha1.GetDirectorTradesRequest, v1alpha1.GetDirectorTradesResponse]
 	getDividendHistory          *connect.Client[v1alpha1.GetDividendHistoryRequest, v1alpha1.GetDividendHistoryResponse]
@@ -230,6 +244,11 @@ func (c *stockServiceClient) GetStockDetails(ctx context.Context, req *connect.R
 // GetStockData calls shorts.v1alpha1.StockService.GetStockData.
 func (c *stockServiceClient) GetStockData(ctx context.Context, req *connect.Request[v1alpha1.GetStockDataRequest]) (*connect.Response[v1alpha11.TimeSeriesData], error) {
 	return c.getStockData.CallUnary(ctx, req)
+}
+
+// GetStockPrices calls shorts.v1alpha1.StockService.GetStockPrices.
+func (c *stockServiceClient) GetStockPrices(ctx context.Context, req *connect.Request[v1alpha1.GetStockPricesRequest]) (*connect.Response[v1alpha1.GetStockPricesResponse], error) {
+	return c.getStockPrices.CallUnary(ctx, req)
 }
 
 // GetStockFinancialHighlights calls shorts.v1alpha1.StockService.GetStockFinancialHighlights.
@@ -285,6 +304,9 @@ type StockServiceHandler interface {
 	GetStockDetails(context.Context, *connect.Request[v1alpha1.GetStockDetailsRequest]) (*connect.Response[v1alpha11.StockDetails], error)
 	// fetch time series data for a specific stock
 	GetStockData(context.Context, *connect.Request[v1alpha1.GetStockDataRequest]) (*connect.Response[v1alpha11.TimeSeriesData], error)
+	// Adjusted daily OHLCV for a stock, on the same codes and the same dates as
+	// the short-position series.
+	GetStockPrices(context.Context, *connect.Request[v1alpha1.GetStockPricesRequest]) (*connect.Response[v1alpha1.GetStockPricesResponse], error)
 	// Get extracted financial highlights for specific stocks
 	GetStockFinancialHighlights(context.Context, *connect.Request[v1alpha1.GetStockFinancialHighlightsRequest]) (*connect.Response[v1alpha1.GetStockFinancialHighlightsResponse], error)
 	// Get director (insider) trades for a specific stock
@@ -327,6 +349,12 @@ func NewStockServiceHandler(svc StockServiceHandler, opts ...connect.HandlerOpti
 		StockServiceGetStockDataProcedure,
 		svc.GetStockData,
 		connect.WithSchema(stockServiceGetStockDataMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	stockServiceGetStockPricesHandler := connect.NewUnaryHandler(
+		StockServiceGetStockPricesProcedure,
+		svc.GetStockPrices,
+		connect.WithSchema(stockServiceGetStockPricesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	stockServiceGetStockFinancialHighlightsHandler := connect.NewUnaryHandler(
@@ -391,6 +419,8 @@ func NewStockServiceHandler(svc StockServiceHandler, opts ...connect.HandlerOpti
 			stockServiceGetStockDetailsHandler.ServeHTTP(w, r)
 		case StockServiceGetStockDataProcedure:
 			stockServiceGetStockDataHandler.ServeHTTP(w, r)
+		case StockServiceGetStockPricesProcedure:
+			stockServiceGetStockPricesHandler.ServeHTTP(w, r)
 		case StockServiceGetStockFinancialHighlightsProcedure:
 			stockServiceGetStockFinancialHighlightsHandler.ServeHTTP(w, r)
 		case StockServiceGetDirectorTradesProcedure:
@@ -428,6 +458,10 @@ func (UnimplementedStockServiceHandler) GetStockDetails(context.Context, *connec
 
 func (UnimplementedStockServiceHandler) GetStockData(context.Context, *connect.Request[v1alpha1.GetStockDataRequest]) (*connect.Response[v1alpha11.TimeSeriesData], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StockService.GetStockData is not implemented"))
+}
+
+func (UnimplementedStockServiceHandler) GetStockPrices(context.Context, *connect.Request[v1alpha1.GetStockPricesRequest]) (*connect.Response[v1alpha1.GetStockPricesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StockService.GetStockPrices is not implemented"))
 }
 
 func (UnimplementedStockServiceHandler) GetStockFinancialHighlights(context.Context, *connect.Request[v1alpha1.GetStockFinancialHighlightsRequest]) (*connect.Response[v1alpha1.GetStockFinancialHighlightsResponse], error) {

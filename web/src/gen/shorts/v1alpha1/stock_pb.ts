@@ -13,7 +13,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/stock.proto.
  */
 export const file_shorts_v1alpha1_stock: GenFile = /*@__PURE__*/
-  fileDesc("ChtzaG9ydHMvdjFhbHBoYTEvc3RvY2sucHJvdG8SD3Nob3J0cy52MWFscGhhMSInCg9HZXRTdG9ja1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIi4KFkdldFN0b2NrRGV0YWlsc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIjsKE0dldFN0b2NrRGF0YVJlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJEg4KBnBlcmlvZBgCIAEoCSJYCiJHZXRTdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHNSZXF1ZXN0EhMKC3N0b2NrX2NvZGVzGAEgAygJEh0KFW1heF9yZXBvcnRzX3Blcl9zdG9jaxgCIAEoBSLdAQojR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVzcG9uc2USWAoKaGlnaGxpZ2h0cxgBIAMoCzJELnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHNSZXNwb25zZS5IaWdobGlnaHRzRW50cnkaXAoPSGlnaGxpZ2h0c0VudHJ5EgsKA2tleRgBIAEoCRI4CgV2YWx1ZRgCIAEoCzIpLnNob3J0cy52MWFscGhhMS5TdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHM6AjgBIlYKGFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0cxI6CgdyZXBvcnRzGAEgAygLMikuc2hvcnRzLnYxYWxwaGExLkZpbmFuY2lhbFJlcG9ydEhpZ2hsaWdodCKxAQoYRmluYW5jaWFsUmVwb3J0SGlnaGxpZ2h0EhQKDHJlcG9ydF90aXRsZRgBIAEoCRITCgtyZXBvcnRfdHlwZRgCIAEoCRITCgtyZXBvcnRfZGF0ZRgDIAEoCRIxCgdtZXRyaWNzGAQgAygLMiAuc2hvcnRzLnYxYWxwaGExLkZpbmFuY2lhbE1ldHJpYxIOCgZkaWdlc3QYBSABKAkSEgoKY29uZmlkZW5jZRgGIAEoASK0AQoPRmluYW5jaWFsTWV0cmljEhMKC21ldHJpY190eXBlGAEgASgJEhMKC3NvdXJjZV90ZXh0GAIgASgJEkQKCmF0dHJpYnV0ZXMYAyADKAsyMC5zaG9ydHMudjFhbHBoYTEuRmluYW5jaWFsTWV0cmljLkF0dHJpYnV0ZXNFbnRyeRoxCg9BdHRyaWJ1dGVzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgJOgI4ASLNAQoNRGlyZWN0b3JUcmFkZRIKCgJpZBgBIAEoCRISCgpzdG9ja19jb2RlGAIgASgJEhUKDWRpcmVjdG9yX25hbWUYAyABKAkSEgoKdHJhZGVfdHlwZRgEIAEoCRIVCg1zaGFyZXNfdHJhZGVkGAUgASgDEhcKD3ByaWNlX3Blcl9zaGFyZRgGIAEoARITCgt0b3RhbF92YWx1ZRgHIAEoARISCgp0cmFkZV9kYXRlGAggASgJEhgKEGFubm91bmNlbWVudF91cmwYCSABKAkiPQoYR2V0RGlyZWN0b3JUcmFkZXNSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSDQoFbGltaXQYAiABKAUiYAoZR2V0RGlyZWN0b3JUcmFkZXNSZXNwb25zZRIuCgZ0cmFkZXMYASADKAsyHi5zaG9ydHMudjFhbHBoYTEuRGlyZWN0b3JUcmFkZRITCgt0b3RhbF9jb3VudBgCIAEoBSKlAQoORGl2aWRlbmRSZWNvcmQSCgoCaWQYASABKAkSEgoKc3RvY2tfY29kZRgCIAEoCRIPCgdleF9kYXRlGAMgASgJEhQKDHBheW1lbnRfZGF0ZRgEIAEoCRIYChBhbW91bnRfcGVyX3NoYXJlGAUgASgBEhsKE2ZyYW5raW5nX3BlcmNlbnRhZ2UYBiABKAESFQoNZGl2aWRlbmRfdHlwZRgHIAEoCSI+ChlHZXREaXZpZGVuZEhpc3RvcnlSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSDQoFeWVhcnMYAiABKAUifQoaR2V0RGl2aWRlbmRIaXN0b3J5UmVzcG9uc2USMgoJZGl2aWRlbmRzGAEgAygLMh8uc2hvcnRzLnYxYWxwaGExLkRpdmlkZW5kUmVjb3JkEhMKC3RvdGFsX2NvdW50GAIgASgFEhYKDnRyYWlsaW5nX3lpZWxkGAMgASgBItABCglQZWVyU3RvY2sSEgoKc3RvY2tfY29kZRgBIAEoCRIUCgxjb21wYW55X25hbWUYAiABKAkSEAoIaW5kdXN0cnkYAyABKAkSHgoWc2hvcnRfcG9zaXRpb25fcGVyY2VudBgEIAEoARISCgptYXJrZXRfY2FwGAUgASgBEhAKCHBlX3JhdGlvGAYgASgBEhYKDmRpdmlkZW5kX3lpZWxkGAcgASgBEhcKD3ByaWNlX2NoYW5nZV8xbRgIIAEoARIQCghsb2dvX3VybBgJIAEoCSI9ChhHZXRQZWVyQ29tcGFyaXNvblJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCRINCgVsaW1pdBgCIAEoBSKFAQoZR2V0UGVlckNvbXBhcmlzb25SZXNwb25zZRIrCgdzdWJqZWN0GAEgASgLMhouc2hvcnRzLnYxYWxwaGExLlBlZXJTdG9jaxIpCgVwZWVycxgCIAMoCzIaLnNob3J0cy52MWFscGhhMS5QZWVyU3RvY2sSEAoIaW5kdXN0cnkYAyABKAkiLgoWR2V0U3RvY2tWZXJkaWN0UmVxdWVzdBIUCgxwcm9kdWN0X2NvZGUYASABKAkiVQoQVmVyZGljdENvbXBvbmVudBIMCgRuYW1lGAEgASgJEg0KBXNjb3JlGAIgASgBEg4KBndlaWdodBgDIAEoARIUCgxjb250cmlidXRpb24YBCABKAEipwEKF0dldFN0b2NrVmVyZGljdFJlc3BvbnNlEhQKDHByb2R1Y3RfY29kZRgBIAEoCRIRCgljb21wb3NpdGUYAiABKAESLAoFbGFiZWwYAyABKA4yHS5zaG9ydHMudjFhbHBoYTEuVmVyZGljdExhYmVsEjUKCmNvbXBvbmVudHMYBCADKAsyIS5zaG9ydHMudjFhbHBoYTEuVmVyZGljdENvbXBvbmVudCIzChtHZXRDb21wYW55VGF4UHJvZmlsZVJlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIp0BCg5Db21wYW55VGF4WWVhchITCgtpbmNvbWVfeWVhchgBIAEoBRIUCgx0b3RhbF9pbmNvbWUYAiABKAESGgoSaGFzX3RheGFibGVfaW5jb21lGAMgASgIEhYKDnRheGFibGVfaW5jb21lGAQgASgBEhcKD2hhc190YXhfcGF5YWJsZRgFIAEoCBITCgt0YXhfcGF5YWJsZRgGIAEoASKMAQocR2V0Q29tcGFueVRheFByb2ZpbGVSZXNwb25zZRITCgtlbnRpdHlfbmFtZRgBIAEoCRILCgNhYm4YAiABKAkSLgoFeWVhcnMYAyADKAsyHy5zaG9ydHMudjFhbHBoYTEuQ29tcGFueVRheFllYXISGgoSc291cmNlX2F0dHJpYnV0aW9uGAQgASgJIjkKFEdldFN0b2NrR3JhcGhSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSDQoFbGltaXQYAiABKAUifAoVR2V0U3RvY2tHcmFwaFJlc3BvbnNlEiwKBnBlb3BsZRgBIAMoCzIcLnNob3J0cy52MWFscGhhMS5HcmFwaFBlcnNvbhI1ChFzaW1pbGFyX2NvbXBhbmllcxgCIAMoCzIaLnNob3J0cy52MWFscGhhMS5HcmFwaFBlZXIiYwoLR3JhcGhQZXJzb24SDAoEbmFtZRgBIAEoCRIMCgRyb2xlGAIgASgJEhEKCWltYWdlX3VybBgDIAEoCRIUCgxsaW5rZWRpbl91cmwYBCABKAkSDwoHYWxzb19hdBgFIAMoCSJbCglHcmFwaFBlZXISEgoKc3RvY2tfY29kZRgBIAEoCRIUCgxjb21wYW55X25hbWUYAiABKAkSEAoIaW5kdXN0cnkYAyABKAkSEgoKc2ltaWxhcml0eRgEIAEoASJPChdHZXRFdmVudFRpbWVsaW5lUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEhEKCWRheXNfYmFjaxgCIAEoBRINCgVsaW1pdBgDIAEoBSJKChhHZXRFdmVudFRpbWVsaW5lUmVzcG9uc2USLgoGZXZlbnRzGAEgAygLMh4uc2hvcnRzLnYxYWxwaGExLlRpbWVsaW5lRXZlbnQihgEKDVRpbWVsaW5lRXZlbnQSDAoEZGF0ZRgBIAEoCRIMCgR0eXBlGAIgASgJEg0KBXRpdGxlGAMgASgJEg4KBmRldGFpbBgEIAEoCRILCgN1cmwYBSABKAkSEQoJc2VudGltZW50GAYgASgJEhoKEmlzX3ByaWNlX3NlbnNpdGl2ZRgHIAEoCCI7ChZHZXRTdG9ja1NpZ25hbHNSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSDQoFbGltaXQYAiABKAUieAoXR2V0U3RvY2tTaWduYWxzUmVzcG9uc2USLQoHYWR2ZXJzZRgBIAMoCzIcLnNob3J0cy52MWFscGhhMS5TdG9ja1NpZ25hbBIuCghwb3NpdGl2ZRgCIAMoCzIcLnNob3J0cy52MWFscGhhMS5TdG9ja1NpZ25hbCKcAQoLU3RvY2tTaWduYWwSEAoIcG9sYXJpdHkYASABKAkSDAoEa2luZBgCIAEoCRIQCghoZWFkbGluZRgDIAEoCRIOCgZkZXRhaWwYBCABKAkSEgoKZXZlbnRfZGF0ZRgFIAEoCRIQCghzZXZlcml0eRgGIAEoCRISCgpjb25maWRlbmNlGAcgASgBEhEKCWNpdGF0aW9ucxgIIAMoCSrCAQoMVmVyZGljdExhYmVsEh0KGVZFUkRJQ1RfTEFCRUxfVU5TUEVDSUZJRUQQABIgChxWRVJESUNUX0xBQkVMX1NUUk9OR19CRUFSSVNIEAESGQoVVkVSRElDVF9MQUJFTF9CRUFSSVNIEAISGQoVVkVSRElDVF9MQUJFTF9ORVVUUkFMEAMSGQoVVkVSRElDVF9MQUJFTF9CVUxMSVNIEAQSIAocVkVSRElDVF9MQUJFTF9TVFJPTkdfQlVMTElTSBAFMqoKCgxTdG9ja1NlcnZpY2USSgoIR2V0U3RvY2sSIC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tSZXF1ZXN0GhYuc3RvY2tzLnYxYWxwaGExLlN0b2NrIgSAtRgBEl8KD0dldFN0b2NrRGV0YWlscxInLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0RldGFpbHNSZXF1ZXN0Gh0uc3RvY2tzLnYxYWxwaGExLlN0b2NrRGV0YWlscyIEgLUYARJbCgxHZXRTdG9ja0RhdGESJC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tEYXRhUmVxdWVzdBofLnN0b2Nrcy52MWFscGhhMS5UaW1lU2VyaWVzRGF0YSIEgLUYARKOAQobR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzEjMuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0c1JlcXVlc3QaNC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVzcG9uc2UiBIC1GAEScAoRR2V0RGlyZWN0b3JUcmFkZXMSKS5zaG9ydHMudjFhbHBoYTEuR2V0RGlyZWN0b3JUcmFkZXNSZXF1ZXN0Giouc2hvcnRzLnYxYWxwaGExLkdldERpcmVjdG9yVHJhZGVzUmVzcG9uc2UiBIC1GAEScwoSR2V0RGl2aWRlbmRIaXN0b3J5Eiouc2hvcnRzLnYxYWxwaGExLkdldERpdmlkZW5kSGlzdG9yeVJlcXVlc3QaKy5zaG9ydHMudjFhbHBoYTEuR2V0RGl2aWRlbmRIaXN0b3J5UmVzcG9uc2UiBIC1GAEScAoRR2V0UGVlckNvbXBhcmlzb24SKS5zaG9ydHMudjFhbHBoYTEuR2V0UGVlckNvbXBhcmlzb25SZXF1ZXN0Giouc2hvcnRzLnYxYWxwaGExLkdldFBlZXJDb21wYXJpc29uUmVzcG9uc2UiBIC1GAESagoPR2V0U3RvY2tWZXJkaWN0Eicuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrVmVyZGljdFJlcXVlc3QaKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tWZXJkaWN0UmVzcG9uc2UiBIC1GAESZAoNR2V0U3RvY2tHcmFwaBIlLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0dyYXBoUmVxdWVzdBomLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0dyYXBoUmVzcG9uc2UiBIC1GAESbQoQR2V0RXZlbnRUaW1lbGluZRIoLnNob3J0cy52MWFscGhhMS5HZXRFdmVudFRpbWVsaW5lUmVxdWVzdBopLnNob3J0cy52MWFscGhhMS5HZXRFdmVudFRpbWVsaW5lUmVzcG9uc2UiBIC1GAESagoPR2V0U3RvY2tTaWduYWxzEicuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrU2lnbmFsc1JlcXVlc3QaKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTaWduYWxzUmVzcG9uc2UiBIC1GAESeQoUR2V0Q29tcGFueVRheFByb2ZpbGUSLC5zaG9ydHMudjFhbHBoYTEuR2V0Q29tcGFueVRheFByb2ZpbGVSZXF1ZXN0Gi0uc2hvcnRzLnYxYWxwaGExLkdldENvbXBhbnlUYXhQcm9maWxlUmVzcG9uc2UiBIC1GAFC2QEKE2NvbS5zaG9ydHMudjFhbHBoYTFCClN0b2NrUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_stocks_v1alpha1_stocks, file_options_v1_options]);
+  fileDesc("ChtzaG9ydHMvdjFhbHBoYTEvc3RvY2sucHJvdG8SD3Nob3J0cy52MWFscGhhMSInCg9HZXRTdG9ja1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIi4KFkdldFN0b2NrRGV0YWlsc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIpEBChNHZXRTdG9ja0RhdGFSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCRIOCgZwZXJpb2QYAiABKAkSFwoPZnVsbF9yZXNvbHV0aW9uGAMgASgIEhIKCm1heF9wb2ludHMYBiABKAUSDAoEZnJvbRgEIAEoCRIKCgJ0bxgFIAEoCRINCgVhc19vZhgHIAEoCSJrChVHZXRTdG9ja1ByaWNlc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJEg4KBnBlcmlvZBgCIAEoCRIMCgRmcm9tGAMgASgJEgoKAnRvGAQgASgJEhIKCm1heF9wb2ludHMYBSABKAUisQEKFkdldFN0b2NrUHJpY2VzUmVzcG9uc2USFAoMcHJvZHVjdF9jb2RlGAEgASgJEgwKBG5hbWUYAiABKAkSMAoGcG9pbnRzGAMgAygLMiAuc2hvcnRzLnYxYWxwaGExLlN0b2NrUHJpY2VQb2ludBIaChJ0b3RhbF9vYnNlcnZhdGlvbnMYBCABKAUSEwoLZG93bnNhbXBsZWQYBSABKAgSEAoIY3VycmVuY3kYBiABKAkifwoPU3RvY2tQcmljZVBvaW50EgwKBGRhdGUYASABKAkSDAoEb3BlbhgCIAEoARIMCgRoaWdoGAMgASgBEgsKA2xvdxgEIAEoARINCgVjbG9zZRgFIAEoARIWCg5hZGp1c3RlZF9jbG9zZRgGIAEoARIOCgZ2b2x1bWUYByABKAMiWAoiR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVxdWVzdBITCgtzdG9ja19jb2RlcxgBIAMoCRIdChVtYXhfcmVwb3J0c19wZXJfc3RvY2sYAiABKAUi3QEKI0dldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0c1Jlc3BvbnNlElgKCmhpZ2hsaWdodHMYASADKAsyRC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVzcG9uc2UuSGlnaGxpZ2h0c0VudHJ5GlwKD0hpZ2hsaWdodHNFbnRyeRILCgNrZXkYASABKAkSOAoFdmFsdWUYAiABKAsyKS5zaG9ydHMudjFhbHBoYTEuU3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzOgI4ASJWChhTdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHMSOgoHcmVwb3J0cxgBIAMoCzIpLnNob3J0cy52MWFscGhhMS5GaW5hbmNpYWxSZXBvcnRIaWdobGlnaHQisQEKGEZpbmFuY2lhbFJlcG9ydEhpZ2hsaWdodBIUCgxyZXBvcnRfdGl0bGUYASABKAkSEwoLcmVwb3J0X3R5cGUYAiABKAkSEwoLcmVwb3J0X2RhdGUYAyABKAkSMQoHbWV0cmljcxgEIAMoCzIgLnNob3J0cy52MWFscGhhMS5GaW5hbmNpYWxNZXRyaWMSDgoGZGlnZXN0GAUgASgJEhIKCmNvbmZpZGVuY2UYBiABKAEitAEKD0ZpbmFuY2lhbE1ldHJpYxITCgttZXRyaWNfdHlwZRgBIAEoCRITCgtzb3VyY2VfdGV4dBgCIAEoCRJECgphdHRyaWJ1dGVzGAMgAygLMjAuc2hvcnRzLnYxYWxwaGExLkZpbmFuY2lhbE1ldHJpYy5BdHRyaWJ1dGVzRW50cnkaMQoPQXR0cmlidXRlc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEizQEKDURpcmVjdG9yVHJhZGUSCgoCaWQYASABKAkSEgoKc3RvY2tfY29kZRgCIAEoCRIVCg1kaXJlY3Rvcl9uYW1lGAMgASgJEhIKCnRyYWRlX3R5cGUYBCABKAkSFQoNc2hhcmVzX3RyYWRlZBgFIAEoAxIXCg9wcmljZV9wZXJfc2hhcmUYBiABKAESEwoLdG90YWxfdmFsdWUYByABKAESEgoKdHJhZGVfZGF0ZRgIIAEoCRIYChBhbm5vdW5jZW1lbnRfdXJsGAkgASgJIj0KGEdldERpcmVjdG9yVHJhZGVzUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFImAKGUdldERpcmVjdG9yVHJhZGVzUmVzcG9uc2USLgoGdHJhZGVzGAEgAygLMh4uc2hvcnRzLnYxYWxwaGExLkRpcmVjdG9yVHJhZGUSEwoLdG90YWxfY291bnQYAiABKAUipQEKDkRpdmlkZW5kUmVjb3JkEgoKAmlkGAEgASgJEhIKCnN0b2NrX2NvZGUYAiABKAkSDwoHZXhfZGF0ZRgDIAEoCRIUCgxwYXltZW50X2RhdGUYBCABKAkSGAoQYW1vdW50X3Blcl9zaGFyZRgFIAEoARIbChNmcmFua2luZ19wZXJjZW50YWdlGAYgASgBEhUKDWRpdmlkZW5kX3R5cGUYByABKAkiPgoZR2V0RGl2aWRlbmRIaXN0b3J5UmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBXllYXJzGAIgASgFIn0KGkdldERpdmlkZW5kSGlzdG9yeVJlc3BvbnNlEjIKCWRpdmlkZW5kcxgBIAMoCzIfLnNob3J0cy52MWFscGhhMS5EaXZpZGVuZFJlY29yZBITCgt0b3RhbF9jb3VudBgCIAEoBRIWCg50cmFpbGluZ195aWVsZBgDIAEoASLQAQoJUGVlclN0b2NrEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEh4KFnNob3J0X3Bvc2l0aW9uX3BlcmNlbnQYBCABKAESEgoKbWFya2V0X2NhcBgFIAEoARIQCghwZV9yYXRpbxgGIAEoARIWCg5kaXZpZGVuZF95aWVsZBgHIAEoARIXCg9wcmljZV9jaGFuZ2VfMW0YCCABKAESEAoIbG9nb191cmwYCSABKAkiPQoYR2V0UGVlckNvbXBhcmlzb25SZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSDQoFbGltaXQYAiABKAUihQEKGUdldFBlZXJDb21wYXJpc29uUmVzcG9uc2USKwoHc3ViamVjdBgBIAEoCzIaLnNob3J0cy52MWFscGhhMS5QZWVyU3RvY2sSKQoFcGVlcnMYAiADKAsyGi5zaG9ydHMudjFhbHBoYTEuUGVlclN0b2NrEhAKCGluZHVzdHJ5GAMgASgJIi4KFkdldFN0b2NrVmVyZGljdFJlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIlUKEFZlcmRpY3RDb21wb25lbnQSDAoEbmFtZRgBIAEoCRINCgVzY29yZRgCIAEoARIOCgZ3ZWlnaHQYAyABKAESFAoMY29udHJpYnV0aW9uGAQgASgBIqcBChdHZXRTdG9ja1ZlcmRpY3RSZXNwb25zZRIUCgxwcm9kdWN0X2NvZGUYASABKAkSEQoJY29tcG9zaXRlGAIgASgBEiwKBWxhYmVsGAMgASgOMh0uc2hvcnRzLnYxYWxwaGExLlZlcmRpY3RMYWJlbBI1Cgpjb21wb25lbnRzGAQgAygLMiEuc2hvcnRzLnYxYWxwaGExLlZlcmRpY3RDb21wb25lbnQiMwobR2V0Q29tcGFueVRheFByb2ZpbGVSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCSKdAQoOQ29tcGFueVRheFllYXISEwoLaW5jb21lX3llYXIYASABKAUSFAoMdG90YWxfaW5jb21lGAIgASgBEhoKEmhhc190YXhhYmxlX2luY29tZRgDIAEoCBIWCg50YXhhYmxlX2luY29tZRgEIAEoARIXCg9oYXNfdGF4X3BheWFibGUYBSABKAgSEwoLdGF4X3BheWFibGUYBiABKAEijAEKHEdldENvbXBhbnlUYXhQcm9maWxlUmVzcG9uc2USEwoLZW50aXR5X25hbWUYASABKAkSCwoDYWJuGAIgASgJEi4KBXllYXJzGAMgAygLMh8uc2hvcnRzLnYxYWxwaGExLkNvbXBhbnlUYXhZZWFyEhoKEnNvdXJjZV9hdHRyaWJ1dGlvbhgEIAEoCSI5ChRHZXRTdG9ja0dyYXBoUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFInwKFUdldFN0b2NrR3JhcGhSZXNwb25zZRIsCgZwZW9wbGUYASADKAsyHC5zaG9ydHMudjFhbHBoYTEuR3JhcGhQZXJzb24SNQoRc2ltaWxhcl9jb21wYW5pZXMYAiADKAsyGi5zaG9ydHMudjFhbHBoYTEuR3JhcGhQZWVyImMKC0dyYXBoUGVyc29uEgwKBG5hbWUYASABKAkSDAoEcm9sZRgCIAEoCRIRCglpbWFnZV91cmwYAyABKAkSFAoMbGlua2VkaW5fdXJsGAQgASgJEg8KB2Fsc29fYXQYBSADKAkiWwoJR3JhcGhQZWVyEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhIKCnNpbWlsYXJpdHkYBCABKAEiTwoXR2V0RXZlbnRUaW1lbGluZVJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCRIRCglkYXlzX2JhY2sYAiABKAUSDQoFbGltaXQYAyABKAUiSgoYR2V0RXZlbnRUaW1lbGluZVJlc3BvbnNlEi4KBmV2ZW50cxgBIAMoCzIeLnNob3J0cy52MWFscGhhMS5UaW1lbGluZUV2ZW50IoYBCg1UaW1lbGluZUV2ZW50EgwKBGRhdGUYASABKAkSDAoEdHlwZRgCIAEoCRINCgV0aXRsZRgDIAEoCRIOCgZkZXRhaWwYBCABKAkSCwoDdXJsGAUgASgJEhEKCXNlbnRpbWVudBgGIAEoCRIaChJpc19wcmljZV9zZW5zaXRpdmUYByABKAgiOwoWR2V0U3RvY2tTaWduYWxzUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFIngKF0dldFN0b2NrU2lnbmFsc1Jlc3BvbnNlEi0KB2FkdmVyc2UYASADKAsyHC5zaG9ydHMudjFhbHBoYTEuU3RvY2tTaWduYWwSLgoIcG9zaXRpdmUYAiADKAsyHC5zaG9ydHMudjFhbHBoYTEuU3RvY2tTaWduYWwinAEKC1N0b2NrU2lnbmFsEhAKCHBvbGFyaXR5GAEgASgJEgwKBGtpbmQYAiABKAkSEAoIaGVhZGxpbmUYAyABKAkSDgoGZGV0YWlsGAQgASgJEhIKCmV2ZW50X2RhdGUYBSABKAkSEAoIc2V2ZXJpdHkYBiABKAkSEgoKY29uZmlkZW5jZRgHIAEoARIRCgljaXRhdGlvbnMYCCADKAkqwgEKDFZlcmRpY3RMYWJlbBIdChlWRVJESUNUX0xBQkVMX1VOU1BFQ0lGSUVEEAASIAocVkVSRElDVF9MQUJFTF9TVFJPTkdfQkVBUklTSBABEhkKFVZFUkRJQ1RfTEFCRUxfQkVBUklTSBACEhkKFVZFUkRJQ1RfTEFCRUxfTkVVVFJBTBADEhkKFVZFUkRJQ1RfTEFCRUxfQlVMTElTSBAEEiAKHFZFUkRJQ1RfTEFCRUxfU1RST05HX0JVTExJU0gQBTKTCwoMU3RvY2tTZXJ2aWNlEkoKCEdldFN0b2NrEiAuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrUmVxdWVzdBoWLnN0b2Nrcy52MWFscGhhMS5TdG9jayIEgLUYARJfCg9HZXRTdG9ja0RldGFpbHMSJy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tEZXRhaWxzUmVxdWVzdBodLnN0b2Nrcy52MWFscGhhMS5TdG9ja0RldGFpbHMiBIC1GAESWwoMR2V0U3RvY2tEYXRhEiQuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRGF0YVJlcXVlc3QaHy5zdG9ja3MudjFhbHBoYTEuVGltZVNlcmllc0RhdGEiBIC1GAESZwoOR2V0U3RvY2tQcmljZXMSJi5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tQcmljZXNSZXF1ZXN0Gicuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrUHJpY2VzUmVzcG9uc2UiBIC1GAESjgEKG0dldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0cxIzLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHNSZXF1ZXN0GjQuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0c1Jlc3BvbnNlIgSAtRgBEnAKEUdldERpcmVjdG9yVHJhZGVzEikuc2hvcnRzLnYxYWxwaGExLkdldERpcmVjdG9yVHJhZGVzUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXREaXJlY3RvclRyYWRlc1Jlc3BvbnNlIgSAtRgBEnMKEkdldERpdmlkZW5kSGlzdG9yeRIqLnNob3J0cy52MWFscGhhMS5HZXREaXZpZGVuZEhpc3RvcnlSZXF1ZXN0Gisuc2hvcnRzLnYxYWxwaGExLkdldERpdmlkZW5kSGlzdG9yeVJlc3BvbnNlIgSAtRgBEnAKEUdldFBlZXJDb21wYXJpc29uEikuc2hvcnRzLnYxYWxwaGExLkdldFBlZXJDb21wYXJpc29uUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXRQZWVyQ29tcGFyaXNvblJlc3BvbnNlIgSAtRgBEmoKD0dldFN0b2NrVmVyZGljdBInLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1ZlcmRpY3RSZXF1ZXN0Giguc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrVmVyZGljdFJlc3BvbnNlIgSAtRgBEmQKDUdldFN0b2NrR3JhcGgSJS5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tHcmFwaFJlcXVlc3QaJi5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tHcmFwaFJlc3BvbnNlIgSAtRgBEm0KEEdldEV2ZW50VGltZWxpbmUSKC5zaG9ydHMudjFhbHBoYTEuR2V0RXZlbnRUaW1lbGluZVJlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0RXZlbnRUaW1lbGluZVJlc3BvbnNlIgSAtRgBEmoKD0dldFN0b2NrU2lnbmFscxInLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1NpZ25hbHNSZXF1ZXN0Giguc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrU2lnbmFsc1Jlc3BvbnNlIgSAtRgBEnkKFEdldENvbXBhbnlUYXhQcm9maWxlEiwuc2hvcnRzLnYxYWxwaGExLkdldENvbXBhbnlUYXhQcm9maWxlUmVxdWVzdBotLnNob3J0cy52MWFscGhhMS5HZXRDb21wYW55VGF4UHJvZmlsZVJlc3BvbnNlIgSAtRgBQtkBChNjb20uc2hvcnRzLnYxYWxwaGExQgpTdG9ja1Byb3RvUAFaWWdpdGh1Yi5jb20vY2FzdGxlbWlsay9zaG9ydGVkLmNvbS5hdS9zZXJ2aWNlcy9nZW4vcHJvdG8vZ28vc2hvcnRzL3YxYWxwaGExO3Nob3J0c3YxYWxwaGExogIDU1hYqgIPU2hvcnRzLlYxYWxwaGExygIPU2hvcnRzXFYxYWxwaGEx4gIbU2hvcnRzXFYxYWxwaGExXEdQQk1ldGFkYXRh6gIQU2hvcnRzOjpWMWFscGhhMWIGcHJvdG8z", [file_stocks_v1alpha1_stocks, file_options_v1_options]);
 
 /**
  * Request for GetStockSummary RPC, specifying the product code.
@@ -65,9 +65,63 @@ export type GetStockDataRequest = Message<"shorts.v1alpha1.GetStockDataRequest">
   productCode: string;
 
   /**
+   * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+   * `from` is set.
+   *
    * @generated from field: string period = 2;
    */
   period: string;
+
+  /**
+   * Return every observation, unbucketed.
+   *
+   * By default the long periods (5Y, 10Y, MAX) are bucketed into weekly
+   * averages. That is the right shape for a chart and unusable for anything
+   * else: you cannot compute a per-observation change, align to a trading
+   * calendar, or measure an event window on a resampled series, and until now
+   * there was no way to ask for the raw record. The default is unchanged, so
+   * existing callers keep the series they already render.
+   *
+   * @generated from field: bool full_resolution = 3;
+   */
+  fullResolution: boolean;
+
+  /**
+   * Cap on returned points, applied after `full_resolution`. 0 means no cap.
+   * Thinning keeps the first and last observation and spaces the rest evenly;
+   * `downsampled` reports whether it happened, so a caller never has to infer
+   * it from a suspiciously round point count.
+   *
+   * @generated from field: int32 max_points = 6;
+   */
+  maxPoints: number;
+
+  /**
+   * Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from`
+   * alone runs to the end of the data. A caller wanting one specific window
+   * had to request MAX and discard most of what came back.
+   *
+   * @generated from field: string from = 4;
+   */
+  from: string;
+
+  /**
+   * @generated from field: string to = 5;
+   */
+  to: string;
+
+  /**
+   * Point-in-time filter, YYYY-MM-DD: return only observations that had been
+   * PUBLISHED by this date, i.e. whose available_from is on or before it.
+   *
+   * ASIC publishes T+4, so a series requested for a historical date otherwise
+   * includes up to four days of data nobody could have had. Setting as_of is
+   * what makes a walk-forward study honest without the caller applying a blunt
+   * lag by hand.
+   *
+   * @generated from field: string as_of = 7;
+   */
+  asOf: string;
 };
 
 /**
@@ -76,6 +130,165 @@ export type GetStockDataRequest = Message<"shorts.v1alpha1.GetStockDataRequest">
  */
 export const GetStockDataRequestSchema: GenMessage<GetStockDataRequest> = /*@__PURE__*/
   messageDesc(file_shorts_v1alpha1_stock, 2);
+
+/**
+ * Request for GetStockPrices RPC.
+ *
+ * This exists so that short interest can be joined to returns without leaving
+ * the API. Doing it outside meant reconciling two ticker conventions (BHP here
+ * against BHP.AX elsewhere), two unauditable adjustment methodologies for
+ * splits and dividends, and two universes that need not agree on any given
+ * date — an error term on every result that no amount of care on the caller's
+ * side removes. Every question the product is actually asked ("do heavily
+ * shorted names underperform", "what happened after the squeeze") needs both
+ * series, and the harder half was already here.
+ *
+ * @generated from message shorts.v1alpha1.GetStockPricesRequest
+ */
+export type GetStockPricesRequest = Message<"shorts.v1alpha1.GetStockPricesRequest"> & {
+  /**
+   * @generated from field: string product_code = 1;
+   */
+  productCode: string;
+
+  /**
+   * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+   * `from` is set. Defaults to 1Y.
+   *
+   * @generated from field: string period = 2;
+   */
+  period: string;
+
+  /**
+   * Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data.
+   *
+   * @generated from field: string from = 3;
+   */
+  from: string;
+
+  /**
+   * @generated from field: string to = 4;
+   */
+  to: string;
+
+  /**
+   * Cap on returned points, 0 for no cap. Thinning keeps the first and last
+   * observation; `downsampled` reports whether it happened.
+   *
+   * @generated from field: int32 max_points = 5;
+   */
+  maxPoints: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetStockPricesRequest.
+ * Use `create(GetStockPricesRequestSchema)` to create a new message.
+ */
+export const GetStockPricesRequestSchema: GenMessage<GetStockPricesRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_stock, 3);
+
+/**
+ * @generated from message shorts.v1alpha1.GetStockPricesResponse
+ */
+export type GetStockPricesResponse = Message<"shorts.v1alpha1.GetStockPricesResponse"> & {
+  /**
+   * @generated from field: string product_code = 1;
+   */
+  productCode: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * Oldest first.
+   *
+   * @generated from field: repeated shorts.v1alpha1.StockPricePoint points = 3;
+   */
+  points: StockPricePoint[];
+
+  /**
+   * Observations in the window before thinning.
+   *
+   * @generated from field: int32 total_observations = 4;
+   */
+  totalObservations: number;
+
+  /**
+   * @generated from field: bool downsampled = 5;
+   */
+  downsampled: boolean;
+
+  /**
+   * Always "AUD" today; stated rather than assumed.
+   *
+   * @generated from field: string currency = 6;
+   */
+  currency: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetStockPricesResponse.
+ * Use `create(GetStockPricesResponseSchema)` to create a new message.
+ */
+export const GetStockPricesResponseSchema: GenMessage<GetStockPricesResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_stock, 4);
+
+/**
+ * One trading session.
+ *
+ * @generated from message shorts.v1alpha1.StockPricePoint
+ */
+export type StockPricePoint = Message<"shorts.v1alpha1.StockPricePoint"> & {
+  /**
+   * YYYY-MM-DD. A trading date, not a timestamp.
+   *
+   * @generated from field: string date = 1;
+   */
+  date: string;
+
+  /**
+   * @generated from field: double open = 2;
+   */
+  open: number;
+
+  /**
+   * @generated from field: double high = 3;
+   */
+  high: number;
+
+  /**
+   * @generated from field: double low = 4;
+   */
+  low: number;
+
+  /**
+   * @generated from field: double close = 5;
+   */
+  close: number;
+
+  /**
+   * Close adjusted for splits and dividends. This is the series to compute
+   * returns from; `close` is the raw print. Both are returned because a caller
+   * reconciling against another source needs the unadjusted number to do it.
+   *
+   * @generated from field: double adjusted_close = 6;
+   */
+  adjustedClose: number;
+
+  /**
+   * @generated from field: int64 volume = 7;
+   */
+  volume: bigint;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.StockPricePoint.
+ * Use `create(StockPricePointSchema)` to create a new message.
+ */
+export const StockPricePointSchema: GenMessage<StockPricePoint> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_stock, 5);
 
 /**
  * Request for GetStockFinancialHighlights RPC
@@ -103,7 +316,7 @@ export type GetStockFinancialHighlightsRequest = Message<"shorts.v1alpha1.GetSto
  * Use `create(GetStockFinancialHighlightsRequestSchema)` to create a new message.
  */
 export const GetStockFinancialHighlightsRequestSchema: GenMessage<GetStockFinancialHighlightsRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 3);
+  messageDesc(file_shorts_v1alpha1_stock, 6);
 
 /**
  * Response for GetStockFinancialHighlights RPC
@@ -124,7 +337,7 @@ export type GetStockFinancialHighlightsResponse = Message<"shorts.v1alpha1.GetSt
  * Use `create(GetStockFinancialHighlightsResponseSchema)` to create a new message.
  */
 export const GetStockFinancialHighlightsResponseSchema: GenMessage<GetStockFinancialHighlightsResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 4);
+  messageDesc(file_shorts_v1alpha1_stock, 7);
 
 /**
  * Financial highlights for a single stock
@@ -143,7 +356,7 @@ export type StockFinancialHighlights = Message<"shorts.v1alpha1.StockFinancialHi
  * Use `create(StockFinancialHighlightsSchema)` to create a new message.
  */
 export const StockFinancialHighlightsSchema: GenMessage<StockFinancialHighlights> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 5);
+  messageDesc(file_shorts_v1alpha1_stock, 8);
 
 /**
  * Extracted financial data from a single report
@@ -195,7 +408,7 @@ export type FinancialReportHighlight = Message<"shorts.v1alpha1.FinancialReportH
  * Use `create(FinancialReportHighlightSchema)` to create a new message.
  */
 export const FinancialReportHighlightSchema: GenMessage<FinancialReportHighlight> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 6);
+  messageDesc(file_shorts_v1alpha1_stock, 9);
 
 /**
  * A single extracted financial metric
@@ -230,7 +443,7 @@ export type FinancialMetric = Message<"shorts.v1alpha1.FinancialMetric"> & {
  * Use `create(FinancialMetricSchema)` to create a new message.
  */
 export const FinancialMetricSchema: GenMessage<FinancialMetric> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 7);
+  messageDesc(file_shorts_v1alpha1_stock, 10);
 
 /**
  * A single director trade record
@@ -293,7 +506,7 @@ export type DirectorTrade = Message<"shorts.v1alpha1.DirectorTrade"> & {
  * Use `create(DirectorTradeSchema)` to create a new message.
  */
 export const DirectorTradeSchema: GenMessage<DirectorTrade> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 8);
+  messageDesc(file_shorts_v1alpha1_stock, 11);
 
 /**
  * Request for GetDirectorTrades RPC
@@ -321,7 +534,7 @@ export type GetDirectorTradesRequest = Message<"shorts.v1alpha1.GetDirectorTrade
  * Use `create(GetDirectorTradesRequestSchema)` to create a new message.
  */
 export const GetDirectorTradesRequestSchema: GenMessage<GetDirectorTradesRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 9);
+  messageDesc(file_shorts_v1alpha1_stock, 12);
 
 /**
  * Response for GetDirectorTrades RPC
@@ -345,7 +558,7 @@ export type GetDirectorTradesResponse = Message<"shorts.v1alpha1.GetDirectorTrad
  * Use `create(GetDirectorTradesResponseSchema)` to create a new message.
  */
 export const GetDirectorTradesResponseSchema: GenMessage<GetDirectorTradesResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 10);
+  messageDesc(file_shorts_v1alpha1_stock, 13);
 
 /**
  * A single dividend record
@@ -400,7 +613,7 @@ export type DividendRecord = Message<"shorts.v1alpha1.DividendRecord"> & {
  * Use `create(DividendRecordSchema)` to create a new message.
  */
 export const DividendRecordSchema: GenMessage<DividendRecord> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 11);
+  messageDesc(file_shorts_v1alpha1_stock, 14);
 
 /**
  * Request for GetDividendHistory RPC
@@ -428,7 +641,7 @@ export type GetDividendHistoryRequest = Message<"shorts.v1alpha1.GetDividendHist
  * Use `create(GetDividendHistoryRequestSchema)` to create a new message.
  */
 export const GetDividendHistoryRequestSchema: GenMessage<GetDividendHistoryRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 12);
+  messageDesc(file_shorts_v1alpha1_stock, 15);
 
 /**
  * Response for GetDividendHistory RPC
@@ -459,7 +672,7 @@ export type GetDividendHistoryResponse = Message<"shorts.v1alpha1.GetDividendHis
  * Use `create(GetDividendHistoryResponseSchema)` to create a new message.
  */
 export const GetDividendHistoryResponseSchema: GenMessage<GetDividendHistoryResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 13);
+  messageDesc(file_shorts_v1alpha1_stock, 16);
 
 /**
  * A peer stock for comparison
@@ -522,7 +735,7 @@ export type PeerStock = Message<"shorts.v1alpha1.PeerStock"> & {
  * Use `create(PeerStockSchema)` to create a new message.
  */
 export const PeerStockSchema: GenMessage<PeerStock> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 14);
+  messageDesc(file_shorts_v1alpha1_stock, 17);
 
 /**
  * Request for GetPeerComparison RPC
@@ -550,7 +763,7 @@ export type GetPeerComparisonRequest = Message<"shorts.v1alpha1.GetPeerCompariso
  * Use `create(GetPeerComparisonRequestSchema)` to create a new message.
  */
 export const GetPeerComparisonRequestSchema: GenMessage<GetPeerComparisonRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 15);
+  messageDesc(file_shorts_v1alpha1_stock, 18);
 
 /**
  * Response for GetPeerComparison RPC
@@ -585,7 +798,7 @@ export type GetPeerComparisonResponse = Message<"shorts.v1alpha1.GetPeerComparis
  * Use `create(GetPeerComparisonResponseSchema)` to create a new message.
  */
 export const GetPeerComparisonResponseSchema: GenMessage<GetPeerComparisonResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 16);
+  messageDesc(file_shorts_v1alpha1_stock, 19);
 
 /**
  * Request for GetStockVerdict RPC
@@ -604,7 +817,7 @@ export type GetStockVerdictRequest = Message<"shorts.v1alpha1.GetStockVerdictReq
  * Use `create(GetStockVerdictRequestSchema)` to create a new message.
  */
 export const GetStockVerdictRequestSchema: GenMessage<GetStockVerdictRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 17);
+  messageDesc(file_shorts_v1alpha1_stock, 20);
 
 /**
  * A single component of the composite verdict
@@ -646,7 +859,7 @@ export type VerdictComponent = Message<"shorts.v1alpha1.VerdictComponent"> & {
  * Use `create(VerdictComponentSchema)` to create a new message.
  */
 export const VerdictComponentSchema: GenMessage<VerdictComponent> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 18);
+  messageDesc(file_shorts_v1alpha1_stock, 21);
 
 /**
  * Response for GetStockVerdict RPC
@@ -682,7 +895,7 @@ export type GetStockVerdictResponse = Message<"shorts.v1alpha1.GetStockVerdictRe
  * Use `create(GetStockVerdictResponseSchema)` to create a new message.
  */
 export const GetStockVerdictResponseSchema: GenMessage<GetStockVerdictResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 19);
+  messageDesc(file_shorts_v1alpha1_stock, 22);
 
 /**
  * Request for GetCompanyTaxProfile RPC
@@ -701,7 +914,7 @@ export type GetCompanyTaxProfileRequest = Message<"shorts.v1alpha1.GetCompanyTax
  * Use `create(GetCompanyTaxProfileRequestSchema)` to create a new message.
  */
 export const GetCompanyTaxProfileRequestSchema: GenMessage<GetCompanyTaxProfileRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 20);
+  messageDesc(file_shorts_v1alpha1_stock, 23);
 
 /**
  * One income year of ATO corporate-tax transparency data for an entity.
@@ -755,7 +968,7 @@ export type CompanyTaxYear = Message<"shorts.v1alpha1.CompanyTaxYear"> & {
  * Use `create(CompanyTaxYearSchema)` to create a new message.
  */
 export const CompanyTaxYearSchema: GenMessage<CompanyTaxYear> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 21);
+  messageDesc(file_shorts_v1alpha1_stock, 24);
 
 /**
  * Response for GetCompanyTaxProfile RPC
@@ -789,7 +1002,7 @@ export type GetCompanyTaxProfileResponse = Message<"shorts.v1alpha1.GetCompanyTa
  * Use `create(GetCompanyTaxProfileResponseSchema)` to create a new message.
  */
 export const GetCompanyTaxProfileResponseSchema: GenMessage<GetCompanyTaxProfileResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 22);
+  messageDesc(file_shorts_v1alpha1_stock, 25);
 
 /**
  * Request for GetStockGraph RPC
@@ -815,7 +1028,7 @@ export type GetStockGraphRequest = Message<"shorts.v1alpha1.GetStockGraphRequest
  * Use `create(GetStockGraphRequestSchema)` to create a new message.
  */
 export const GetStockGraphRequestSchema: GenMessage<GetStockGraphRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 23);
+  messageDesc(file_shorts_v1alpha1_stock, 26);
 
 /**
  * Response for GetStockGraph RPC
@@ -839,7 +1052,7 @@ export type GetStockGraphResponse = Message<"shorts.v1alpha1.GetStockGraphRespon
  * Use `create(GetStockGraphResponseSchema)` to create a new message.
  */
 export const GetStockGraphResponseSchema: GenMessage<GetStockGraphResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 24);
+  messageDesc(file_shorts_v1alpha1_stock, 27);
 
 /**
  * A person connected to the stock (director/officer) with their other ASX roles
@@ -880,7 +1093,7 @@ export type GraphPerson = Message<"shorts.v1alpha1.GraphPerson"> & {
  * Use `create(GraphPersonSchema)` to create a new message.
  */
 export const GraphPersonSchema: GenMessage<GraphPerson> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 25);
+  messageDesc(file_shorts_v1alpha1_stock, 28);
 
 /**
  * A narratively/semantically similar company
@@ -914,7 +1127,7 @@ export type GraphPeer = Message<"shorts.v1alpha1.GraphPeer"> & {
  * Use `create(GraphPeerSchema)` to create a new message.
  */
 export const GraphPeerSchema: GenMessage<GraphPeer> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 26);
+  messageDesc(file_shorts_v1alpha1_stock, 29);
 
 /**
  * Request for GetEventTimeline RPC
@@ -947,7 +1160,7 @@ export type GetEventTimelineRequest = Message<"shorts.v1alpha1.GetEventTimelineR
  * Use `create(GetEventTimelineRequestSchema)` to create a new message.
  */
 export const GetEventTimelineRequestSchema: GenMessage<GetEventTimelineRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 27);
+  messageDesc(file_shorts_v1alpha1_stock, 30);
 
 /**
  * Response for GetEventTimeline RPC
@@ -966,7 +1179,7 @@ export type GetEventTimelineResponse = Message<"shorts.v1alpha1.GetEventTimeline
  * Use `create(GetEventTimelineResponseSchema)` to create a new message.
  */
 export const GetEventTimelineResponseSchema: GenMessage<GetEventTimelineResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 28);
+  messageDesc(file_shorts_v1alpha1_stock, 31);
 
 /**
  * A single event in the stock's timeline
@@ -1021,7 +1234,7 @@ export type TimelineEvent = Message<"shorts.v1alpha1.TimelineEvent"> & {
  * Use `create(TimelineEventSchema)` to create a new message.
  */
 export const TimelineEventSchema: GenMessage<TimelineEvent> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 29);
+  messageDesc(file_shorts_v1alpha1_stock, 32);
 
 /**
  * @generated from message shorts.v1alpha1.GetStockSignalsRequest
@@ -1045,7 +1258,7 @@ export type GetStockSignalsRequest = Message<"shorts.v1alpha1.GetStockSignalsReq
  * Use `create(GetStockSignalsRequestSchema)` to create a new message.
  */
 export const GetStockSignalsRequestSchema: GenMessage<GetStockSignalsRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 30);
+  messageDesc(file_shorts_v1alpha1_stock, 33);
 
 /**
  * @generated from message shorts.v1alpha1.GetStockSignalsResponse
@@ -1067,7 +1280,7 @@ export type GetStockSignalsResponse = Message<"shorts.v1alpha1.GetStockSignalsRe
  * Use `create(GetStockSignalsResponseSchema)` to create a new message.
  */
 export const GetStockSignalsResponseSchema: GenMessage<GetStockSignalsResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 31);
+  messageDesc(file_shorts_v1alpha1_stock, 34);
 
 /**
  * A single reputation/risk signal for a stock
@@ -1129,7 +1342,7 @@ export type StockSignal = Message<"shorts.v1alpha1.StockSignal"> & {
  * Use `create(StockSignalSchema)` to create a new message.
  */
 export const StockSignalSchema: GenMessage<StockSignal> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 32);
+  messageDesc(file_shorts_v1alpha1_stock, 35);
 
 /**
  * Verdict band derived from the composite score
@@ -1217,6 +1430,17 @@ export const StockService: GenService<{
     methodKind: "unary";
     input: typeof GetStockDataRequestSchema;
     output: typeof TimeSeriesDataSchema;
+  },
+  /**
+   * Adjusted daily OHLCV for a stock, on the same codes and the same dates as
+   * the short-position series.
+   *
+   * @generated from rpc shorts.v1alpha1.StockService.GetStockPrices
+   */
+  getStockPrices: {
+    methodKind: "unary";
+    input: typeof GetStockPricesRequestSchema;
+    output: typeof GetStockPricesResponseSchema;
   },
   /**
    * Get extracted financial highlights for specific stocks

@@ -173,8 +173,16 @@ func (c *MemoryCache) GetStockKey(productCode string) string {
 	return c.generateKey("stock", productCode)
 }
 
-func (c *MemoryCache) GetStockDataKey(productCode, period string) string {
-	return c.generateKey("stock_data", productCode, period)
+// GetStockDataKey covers every option that changes the SHAPE of the series,
+// not just the window. A key of code+period alone would serve a cached
+// display-bucketed series to a caller who asked for full resolution, and vice
+// versa — the same key standing for two different answers.
+func (c *MemoryCache) GetStockDataKey(productCode, period, from, to string, fullResolution bool, maxPoints int32, asOf string) string {
+	return c.generateKey("stock_data", productCode, period, from, to, fullResolution, maxPoints, asOf)
+}
+
+func (c *MemoryCache) GetStockPricesKey(productCode, period, from, to string, maxPoints int32) string {
+	return c.generateKey("stock_prices", productCode, period, from, to, maxPoints)
 }
 
 func (c *MemoryCache) GetStockDetailsKey(productCode string) string {
@@ -189,8 +197,11 @@ func (c *MemoryCache) GetSearchStocksKey(query string, limit int32) string {
 	return c.generateKey("search_stocks", query, limit)
 }
 
-func (c *MemoryCache) GetMarketByDateKey(date string, limit, offset int32) string {
-	return c.generateKey("market_by_date", date, limit, offset)
+// includeZero is part of the key because it changes which securities are in
+// the universe, not merely how they are ordered — the same key would otherwise
+// serve a zero-excluding board to a caller building a research universe.
+func (c *MemoryCache) GetMarketByDateKey(date string, limit, offset int32, includeZero bool) string {
+	return c.generateKey("market_by_date", date, limit, offset, includeZero)
 }
 
 func (c *MemoryCache) GetAvailableDatesKey(limit int32, before string) string {

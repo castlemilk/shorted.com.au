@@ -6,8 +6,8 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
-	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
 // sync_status_jobs.go folds the DEEPEST health signal we have for the short
@@ -129,13 +129,8 @@ func parseSyncTime(s string) time.Time {
 	if s == "" {
 		return time.Time{}
 	}
-	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return t
-	}
-	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
-		return t
-	}
-	return time.Time{}
+	t, _ := parseStoreTimestamp(s)
+	return t
 }
 
 func firstNonEmptyStr(vals ...string) string {

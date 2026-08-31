@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -62,34 +63,46 @@ func ValidateGetTopShortsRequest(req *shortsv1alpha1.GetTopShortsRequest) error 
 	return nil
 }
 
-// ValidateGetStockRequest validates the GetStock request parameters
-func ValidateGetStockRequest(req *shortsv1alpha1.GetStockRequest) error {
-	// Validate product code is provided
-	if req.ProductCode == "" {
+// validateStockCode validates an ASX code, naming `field` in any error it
+// returns.
+//
+// The field name is a parameter rather than a fixed string because these
+// requests do not agree on it: GetStock and GetStockData carry `product_code`,
+// while GetStockNews, GetDirectorTrades, GetDividendHistory and
+// GetPeerComparison carry `stock_code`. All of them once routed through a
+// single validator hardcoded to say "product code", so an integrator calling
+// GetStockNews was told to set a field the request does not have — they tried
+// productCode, product_code, code, symbol and ticker, got the same 400 every
+// time, and concluded the endpoint was auth-gated (issue #539). An error that
+// names the wrong field is worse than no error, because it is actionable and
+// wrong.
+func validateStockCode(code, field string) error {
+	if code == "" {
 		return connect.NewError(
 			connect.CodeInvalidArgument,
-			fmt.Errorf("product code is required"),
+			fmt.Errorf("%s is required", field),
 		)
 	}
 
-	// Validate product code format
-	productCode := strings.ToUpper(strings.TrimSpace(req.ProductCode))
-	if !stockCodeRegex.MatchString(productCode) {
+	normalized := strings.ToUpper(strings.TrimSpace(code))
+	if !stockCodeRegex.MatchString(normalized) {
 		return connect.NewError(
 			connect.CodeInvalidArgument,
-			fmt.Errorf("product code must be 3-4 alphanumeric characters (e.g., CBA, ZIP, AX1)"),
+			fmt.Errorf("%s must be 3-4 alphanumeric characters (e.g., CBA, ZIP, AX1)", field),
 		)
 	}
 
 	return nil
 }
 
+// ValidateGetStockRequest validates the GetStock request parameters
+func ValidateGetStockRequest(req *shortsv1alpha1.GetStockRequest) error {
+	return validateStockCode(req.ProductCode, "product_code")
+}
+
 // ValidateGetStockDataRequest validates the GetStockData request parameters
 func ValidateGetStockDataRequest(req *shortsv1alpha1.GetStockDataRequest) error {
-	// Validate product code
-	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
-		ProductCode: req.ProductCode,
-	}); err != nil {
+	if err := validateStockCode(req.ProductCode, "product_code"); err != nil {
 		return err
 	}
 
@@ -101,14 +114,15 @@ func ValidateGetStockDataRequest(req *shortsv1alpha1.GetStockDataRequest) error 
 		)
 	}
 
-	return nil
+	if err := validateWindowOptions(req.From, req.To, req.MaxPoints); err != nil {
+		return err
+	}
+	return validateDateOption(req.AsOf, "as_of")
 }
 
 // ValidateGetStockDetailsRequest validates the GetStockDetails request parameters
 func ValidateGetStockDetailsRequest(req *shortsv1alpha1.GetStockDetailsRequest) error {
-	return ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
-		ProductCode: req.ProductCode,
-	})
+	return validateStockCode(req.ProductCode, "product_code")
 }
 
 // ValidateGetIndustryTreeMapRequest validates the GetIndustryTreeMap request parameters
@@ -211,9 +225,7 @@ func ValidateGetAvailableDatesRequest(req *shortsv1alpha1.GetAvailableDatesReque
 
 // ValidateGetStockNewsRequest validates the GetStockNews request parameters
 func ValidateGetStockNewsRequest(req *shortsv1alpha1.GetStockNewsRequest) error {
-	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
-		ProductCode: req.StockCode,
-	}); err != nil {
+	if err := validateStockCode(req.StockCode, "stock_code"); err != nil {
 		return err
 	}
 	if req.Limit < 0 || req.Limit > 100 {
@@ -224,9 +236,7 @@ func ValidateGetStockNewsRequest(req *shortsv1alpha1.GetStockNewsRequest) error 
 
 // ValidateGetDirectorTradesRequest validates the GetDirectorTrades request parameters
 func ValidateGetDirectorTradesRequest(req *shortsv1alpha1.GetDirectorTradesRequest) error {
-	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
-		ProductCode: req.StockCode,
-	}); err != nil {
+	if err := validateStockCode(req.StockCode, "stock_code"); err != nil {
 		return err
 	}
 	if req.Limit < 0 || req.Limit > 200 {
@@ -237,9 +247,7 @@ func ValidateGetDirectorTradesRequest(req *shortsv1alpha1.GetDirectorTradesReque
 
 // ValidateGetDividendHistoryRequest validates the GetDividendHistory request parameters
 func ValidateGetDividendHistoryRequest(req *shortsv1alpha1.GetDividendHistoryRequest) error {
-	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
-		ProductCode: req.StockCode,
-	}); err != nil {
+	if err := validateStockCode(req.StockCode, "stock_code"); err != nil {
 		return err
 	}
 	if req.Years < 0 || req.Years > 20 {
@@ -250,9 +258,7 @@ func ValidateGetDividendHistoryRequest(req *shortsv1alpha1.GetDividendHistoryReq
 
 // ValidateGetPeerComparisonRequest validates the GetPeerComparison request parameters
 func ValidateGetPeerComparisonRequest(req *shortsv1alpha1.GetPeerComparisonRequest) error {
-	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
-		ProductCode: req.StockCode,
-	}); err != nil {
+	if err := validateStockCode(req.StockCode, "stock_code"); err != nil {
 		return err
 	}
 	if req.Limit < 0 || req.Limit > 20 {
@@ -358,4 +364,72 @@ func SetDefaultValues(req interface{}) {
 			r.Filters.ProductCodes = shortsstore.NormalizeScreenerProductCodes(r.Filters.ProductCodes)
 		}
 	}
+}
+
+// ValidateGetStockPricesRequest validates the GetStockPrices request parameters.
+func ValidateGetStockPricesRequest(req *shortsv1alpha1.GetStockPricesRequest) error {
+	if err := validateStockCode(req.ProductCode, "product_code"); err != nil {
+		return err
+	}
+	if req.Period != "" && !validPeriods[strings.ToUpper(req.Period)] {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y, MAX"),
+		)
+	}
+	return validateWindowOptions(req.From, req.To, req.MaxPoints)
+}
+
+// validateDateOption accepts an empty value or a real YYYY-MM-DD date, naming
+// the field in the error so a caller is told which of from/to is wrong.
+//
+// Parsed rather than shape-checked: "2026-02-31" and "2026-99-01" both have
+// the right shape, and a date that only Postgres rejects surfaces as a query
+// failure the handler maps to NotFound — telling the caller the STOCK does not
+// exist when the truth is that their date does not.
+func validateDateOption(value, field string) error {
+	if value == "" {
+		return nil
+	}
+	if _, err := time.Parse("2006-01-02", value); err != nil {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("%s must be a valid date in YYYY-MM-DD format", field),
+		)
+	}
+	return nil
+}
+
+// validateWindowOptions checks the from/to/max_points trio shared by
+// GetStockData and GetStockPrices.
+//
+// Shared because they are the same options with the same meaning, and when
+// they were validated separately only the endpoint written second got it
+// right: GetStockData silently ignored a negative max_points and answered a
+// transposed window with an empty series, which looks like a real result.
+func validateWindowOptions(from, to string, maxPoints int32) error {
+	if err := validateDateOption(from, "from"); err != nil {
+		return err
+	}
+	if err := validateDateOption(to, "to"); err != nil {
+		return err
+	}
+	if from != "" && to != "" {
+		// Both already parsed above, so these cannot fail.
+		fromDate, _ := time.Parse("2006-01-02", from)
+		toDate, _ := time.Parse("2006-01-02", to)
+		if toDate.Before(fromDate) {
+			return connect.NewError(
+				connect.CodeInvalidArgument,
+				fmt.Errorf("to (%s) must not be before from (%s)", to, from),
+			)
+		}
+	}
+	if maxPoints < 0 {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("max_points must be non-negative; 0 means no cap"),
+		)
+	}
+	return nil
 }

@@ -38,6 +38,7 @@ private static final long serialVersionUID = 0L;
     tags_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
     logoUrl_ = "";
+    liquidityBand_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -265,10 +266,6 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private volatile java.lang.Object logoUrl_ = "";
   /**
-   * <pre>
-   * TODO(castlemilk): add more metadata here as needed
-   * </pre>
-   *
    * <code>string logo_url = 8 [json_name = "logoUrl"];</code>
    * @return The logoUrl.
    */
@@ -286,10 +283,6 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <pre>
-   * TODO(castlemilk): add more metadata here as needed
-   * </pre>
-   *
    * <code>string logo_url = 8 [json_name = "logoUrl"];</code>
    * @return The bytes for logoUrl.
    */
@@ -302,6 +295,99 @@ private static final long serialVersionUID = 0L;
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       logoUrl_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int MARKET_CAP_FIELD_NUMBER = 9;
+  private double marketCap_ = 0D;
+  /**
+   * <pre>
+   * Size and liquidity.
+   *
+   * Without these a short-interest universe cannot be filtered or a position
+   * sized: a sweep across ~740 names is dominated by micro-caps where short
+   * interest is both noisy and untradeable, and the standard remedy — a floor
+   * on traded value — was not expressible. They also change what the headline
+   * percentage MEANS: 5% short on a mega-cap and 5% on a micro-cap are not the
+   * same signal, and with no size attached they are the same number.
+   *
+   * double, not the float used above, because a market capitalisation in
+   * dollars exceeds float32's exact-integer range by five orders of magnitude.
+   * </pre>
+   *
+   * <code>double market_cap = 9 [json_name = "marketCap"];</code>
+   * @return The marketCap.
+   */
+  @java.lang.Override
+  public double getMarketCap() {
+    return marketCap_;
+  }
+
+  public static final int AVERAGE_DAILY_VALUE_20D_FIELD_NUMBER = 10;
+  private double averageDailyValue20D_ = 0D;
+  /**
+   * <pre>
+   * 20-session mean of close x volume, in AUD. 0 when unknown.
+   * </pre>
+   *
+   * <code>double average_daily_value_20d = 10 [json_name = "averageDailyValue20d"];</code>
+   * @return The averageDailyValue20d.
+   */
+  @java.lang.Override
+  public double getAverageDailyValue20D() {
+    return averageDailyValue20D_;
+  }
+
+  public static final int LIQUIDITY_BAND_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object liquidityBand_ = "";
+  /**
+   * <pre>
+   * Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+   * "large", "mid", "small" or "micro"; empty when unknown. Present because a
+   * band is usable for filtering even where the underlying value is missing or
+   * stale, and it is what most callers actually want.
+   * </pre>
+   *
+   * <code>string liquidity_band = 11 [json_name = "liquidityBand"];</code>
+   * @return The liquidityBand.
+   */
+  @java.lang.Override
+  public java.lang.String getLiquidityBand() {
+    java.lang.Object ref = liquidityBand_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      liquidityBand_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+   * "large", "mid", "small" or "micro"; empty when unknown. Present because a
+   * band is usable for filtering even where the underlying value is missing or
+   * stale, and it is what most callers actually want.
+   * </pre>
+   *
+   * <code>string liquidity_band = 11 [json_name = "liquidityBand"];</code>
+   * @return The bytes for liquidityBand.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getLiquidityBandBytes() {
+    java.lang.Object ref = liquidityBand_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      liquidityBand_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -346,6 +432,15 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(logoUrl_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 8, logoUrl_);
     }
+    if (java.lang.Double.doubleToRawLongBits(marketCap_) != 0) {
+      output.writeDouble(9, marketCap_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(averageDailyValue20D_) != 0) {
+      output.writeDouble(10, averageDailyValue20D_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(liquidityBand_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, liquidityBand_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -381,6 +476,17 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(logoUrl_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(8, logoUrl_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(marketCap_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(9, marketCap_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(averageDailyValue20D_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(10, averageDailyValue20D_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(liquidityBand_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(11, liquidityBand_);
     }
     return size;
   }
@@ -425,6 +531,14 @@ private static final long serialVersionUID = 0L;
         .equals(other.getTagsList())) return false;
     if (!getLogoUrl()
         .equals(other.getLogoUrl())) return false;
+    if (java.lang.Double.doubleToLongBits(getMarketCap())
+        != java.lang.Double.doubleToLongBits(
+            other.getMarketCap())) return false;
+    if (java.lang.Double.doubleToLongBits(getAverageDailyValue20D())
+        != java.lang.Double.doubleToLongBits(
+            other.getAverageDailyValue20D())) return false;
+    if (!getLiquidityBand()
+        .equals(other.getLiquidityBand())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -457,6 +571,14 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + LOGO_URL_FIELD_NUMBER;
     hash = (53 * hash) + getLogoUrl().hashCode();
+    hash = (37 * hash) + MARKET_CAP_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getMarketCap()));
+    hash = (37 * hash) + AVERAGE_DAILY_VALUE_20D_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getAverageDailyValue20D()));
+    hash = (37 * hash) + LIQUIDITY_BAND_FIELD_NUMBER;
+    hash = (53 * hash) + getLiquidityBand().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -601,6 +723,9 @@ private static final long serialVersionUID = 0L;
       tags_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
       logoUrl_ = "";
+      marketCap_ = 0D;
+      averageDailyValue20D_ = 0D;
+      liquidityBand_ = "";
       return this;
     }
 
@@ -659,6 +784,15 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000080) != 0)) {
         result.logoUrl_ = logoUrl_;
       }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.marketCap_ = marketCap_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.averageDailyValue20D_ = averageDailyValue20D_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.liquidityBand_ = liquidityBand_;
+      }
     }
 
     @java.lang.Override
@@ -710,6 +844,17 @@ private static final long serialVersionUID = 0L;
       if (!other.getLogoUrl().isEmpty()) {
         logoUrl_ = other.logoUrl_;
         bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getMarketCap()) != 0) {
+        setMarketCap(other.getMarketCap());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getAverageDailyValue20D()) != 0) {
+        setAverageDailyValue20D(other.getAverageDailyValue20D());
+      }
+      if (!other.getLiquidityBand().isEmpty()) {
+        liquidityBand_ = other.liquidityBand_;
+        bitField0_ |= 0x00000400;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -778,6 +923,21 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000080;
               break;
             } // case 66
+            case 73: {
+              marketCap_ = input.readDouble();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 73
+            case 81: {
+              averageDailyValue20D_ = input.readDouble();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 81
+            case 90: {
+              liquidityBand_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1260,10 +1420,6 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object logoUrl_ = "";
     /**
-     * <pre>
-     * TODO(castlemilk): add more metadata here as needed
-     * </pre>
-     *
      * <code>string logo_url = 8 [json_name = "logoUrl"];</code>
      * @return The logoUrl.
      */
@@ -1280,10 +1436,6 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <pre>
-     * TODO(castlemilk): add more metadata here as needed
-     * </pre>
-     *
      * <code>string logo_url = 8 [json_name = "logoUrl"];</code>
      * @return The bytes for logoUrl.
      */
@@ -1301,10 +1453,6 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <pre>
-     * TODO(castlemilk): add more metadata here as needed
-     * </pre>
-     *
      * <code>string logo_url = 8 [json_name = "logoUrl"];</code>
      * @param value The logoUrl to set.
      * @return This builder for chaining.
@@ -1318,10 +1466,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <pre>
-     * TODO(castlemilk): add more metadata here as needed
-     * </pre>
-     *
      * <code>string logo_url = 8 [json_name = "logoUrl"];</code>
      * @return This builder for chaining.
      */
@@ -1332,10 +1476,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <pre>
-     * TODO(castlemilk): add more metadata here as needed
-     * </pre>
-     *
      * <code>string logo_url = 8 [json_name = "logoUrl"];</code>
      * @param value The bytes for logoUrl to set.
      * @return This builder for chaining.
@@ -1346,6 +1486,231 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       logoUrl_ = value;
       bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private double marketCap_ ;
+    /**
+     * <pre>
+     * Size and liquidity.
+     *
+     * Without these a short-interest universe cannot be filtered or a position
+     * sized: a sweep across ~740 names is dominated by micro-caps where short
+     * interest is both noisy and untradeable, and the standard remedy — a floor
+     * on traded value — was not expressible. They also change what the headline
+     * percentage MEANS: 5% short on a mega-cap and 5% on a micro-cap are not the
+     * same signal, and with no size attached they are the same number.
+     *
+     * double, not the float used above, because a market capitalisation in
+     * dollars exceeds float32's exact-integer range by five orders of magnitude.
+     * </pre>
+     *
+     * <code>double market_cap = 9 [json_name = "marketCap"];</code>
+     * @return The marketCap.
+     */
+    @java.lang.Override
+    public double getMarketCap() {
+      return marketCap_;
+    }
+    /**
+     * <pre>
+     * Size and liquidity.
+     *
+     * Without these a short-interest universe cannot be filtered or a position
+     * sized: a sweep across ~740 names is dominated by micro-caps where short
+     * interest is both noisy and untradeable, and the standard remedy — a floor
+     * on traded value — was not expressible. They also change what the headline
+     * percentage MEANS: 5% short on a mega-cap and 5% on a micro-cap are not the
+     * same signal, and with no size attached they are the same number.
+     *
+     * double, not the float used above, because a market capitalisation in
+     * dollars exceeds float32's exact-integer range by five orders of magnitude.
+     * </pre>
+     *
+     * <code>double market_cap = 9 [json_name = "marketCap"];</code>
+     * @param value The marketCap to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMarketCap(double value) {
+
+      marketCap_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Size and liquidity.
+     *
+     * Without these a short-interest universe cannot be filtered or a position
+     * sized: a sweep across ~740 names is dominated by micro-caps where short
+     * interest is both noisy and untradeable, and the standard remedy — a floor
+     * on traded value — was not expressible. They also change what the headline
+     * percentage MEANS: 5% short on a mega-cap and 5% on a micro-cap are not the
+     * same signal, and with no size attached they are the same number.
+     *
+     * double, not the float used above, because a market capitalisation in
+     * dollars exceeds float32's exact-integer range by five orders of magnitude.
+     * </pre>
+     *
+     * <code>double market_cap = 9 [json_name = "marketCap"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMarketCap() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      marketCap_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double averageDailyValue20D_ ;
+    /**
+     * <pre>
+     * 20-session mean of close x volume, in AUD. 0 when unknown.
+     * </pre>
+     *
+     * <code>double average_daily_value_20d = 10 [json_name = "averageDailyValue20d"];</code>
+     * @return The averageDailyValue20d.
+     */
+    @java.lang.Override
+    public double getAverageDailyValue20D() {
+      return averageDailyValue20D_;
+    }
+    /**
+     * <pre>
+     * 20-session mean of close x volume, in AUD. 0 when unknown.
+     * </pre>
+     *
+     * <code>double average_daily_value_20d = 10 [json_name = "averageDailyValue20d"];</code>
+     * @param value The averageDailyValue20d to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAverageDailyValue20D(double value) {
+
+      averageDailyValue20D_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 20-session mean of close x volume, in AUD. 0 when unknown.
+     * </pre>
+     *
+     * <code>double average_daily_value_20d = 10 [json_name = "averageDailyValue20d"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAverageDailyValue20D() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      averageDailyValue20D_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object liquidityBand_ = "";
+    /**
+     * <pre>
+     * Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+     * "large", "mid", "small" or "micro"; empty when unknown. Present because a
+     * band is usable for filtering even where the underlying value is missing or
+     * stale, and it is what most callers actually want.
+     * </pre>
+     *
+     * <code>string liquidity_band = 11 [json_name = "liquidityBand"];</code>
+     * @return The liquidityBand.
+     */
+    public java.lang.String getLiquidityBand() {
+      java.lang.Object ref = liquidityBand_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        liquidityBand_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+     * "large", "mid", "small" or "micro"; empty when unknown. Present because a
+     * band is usable for filtering even where the underlying value is missing or
+     * stale, and it is what most callers actually want.
+     * </pre>
+     *
+     * <code>string liquidity_band = 11 [json_name = "liquidityBand"];</code>
+     * @return The bytes for liquidityBand.
+     */
+    public com.google.protobuf.ByteString
+        getLiquidityBandBytes() {
+      java.lang.Object ref = liquidityBand_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        liquidityBand_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+     * "large", "mid", "small" or "micro"; empty when unknown. Present because a
+     * band is usable for filtering even where the underlying value is missing or
+     * stale, and it is what most callers actually want.
+     * </pre>
+     *
+     * <code>string liquidity_band = 11 [json_name = "liquidityBand"];</code>
+     * @param value The liquidityBand to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLiquidityBand(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      liquidityBand_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+     * "large", "mid", "small" or "micro"; empty when unknown. Present because a
+     * band is usable for filtering even where the underlying value is missing or
+     * stale, and it is what most callers actually want.
+     * </pre>
+     *
+     * <code>string liquidity_band = 11 [json_name = "liquidityBand"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLiquidityBand() {
+      liquidityBand_ = getDefaultInstance().getLiquidityBand();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Coarse liquidity bucket derived from average_daily_value_20d: "mega",
+     * "large", "mid", "small" or "micro"; empty when unknown. Present because a
+     * band is usable for filtering even where the underlying value is missing or
+     * stale, and it is what most callers actually want.
+     * </pre>
+     *
+     * <code>string liquidity_band = 11 [json_name = "liquidityBand"];</code>
+     * @param value The bytes for liquidityBand to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLiquidityBandBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      liquidityBand_ = value;
+      bitField0_ |= 0x00000400;
       onChanged();
       return this;
     }
