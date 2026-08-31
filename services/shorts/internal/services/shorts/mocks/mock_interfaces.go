@@ -514,6 +514,21 @@ func (mr *MockShortsStoreMockRecorder) GetHousingRegions(regionType, stateCode, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousingRegions", reflect.TypeOf((*MockShortsStore)(nil).GetHousingRegions), regionType, stateCode, query, limit)
 }
 
+// GetIndexSeries mocks base method.
+func (m *MockShortsStore) GetIndexSeries(query shorts.IndexSeriesQuery) (*shortsv1alpha1.GetIndexSeriesResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIndexSeries", query)
+	ret0, _ := ret[0].(*shortsv1alpha1.GetIndexSeriesResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetIndexSeries indicates an expected call of GetIndexSeries.
+func (mr *MockShortsStoreMockRecorder) GetIndexSeries(query any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIndexSeries", reflect.TypeOf((*MockShortsStore)(nil).GetIndexSeries), query)
+}
+
 // GetIndustryIntelligence mocks base method.
 func (m *MockShortsStore) GetIndustryIntelligence(industry, stockCode string, recordLimit int32) (*shorts.IndustryIntelligenceResult, error) {
 	m.ctrl.T.Helper()
@@ -1249,6 +1264,21 @@ func (m *MockShortsStore) ListEnrichmentJobs(limit, offset int32, status *shorts
 func (mr *MockShortsStoreMockRecorder) ListEnrichmentJobs(limit, offset, status any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEnrichmentJobs", reflect.TypeOf((*MockShortsStore)(nil).ListEnrichmentJobs), limit, offset, status)
+}
+
+// ListIndices mocks base method.
+func (m *MockShortsStore) ListIndices() ([]*shortsv1alpha1.IndexDefinition, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListIndices")
+	ret0, _ := ret[0].([]*shortsv1alpha1.IndexDefinition)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListIndices indicates an expected call of ListIndices.
+func (mr *MockShortsStoreMockRecorder) ListIndices() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListIndices", reflect.TypeOf((*MockShortsStore)(nil).ListIndices))
 }
 
 // ListPartyFunding mocks base method.
@@ -2146,6 +2176,34 @@ func (m *MockCache) GetHousingRegionsKey(regionType, stateCode, query string, li
 func (mr *MockCacheMockRecorder) GetHousingRegionsKey(regionType, stateCode, query, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousingRegionsKey", reflect.TypeOf((*MockCache)(nil).GetHousingRegionsKey), regionType, stateCode, query, limit)
+}
+
+// GetIndexSeriesKey mocks base method.
+func (m *MockCache) GetIndexSeriesKey(code, period, from, to string, maxPoints int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIndexSeriesKey", code, period, from, to, maxPoints)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetIndexSeriesKey indicates an expected call of GetIndexSeriesKey.
+func (mr *MockCacheMockRecorder) GetIndexSeriesKey(code, period, from, to, maxPoints any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIndexSeriesKey", reflect.TypeOf((*MockCache)(nil).GetIndexSeriesKey), code, period, from, to, maxPoints)
+}
+
+// GetIndicesKey mocks base method.
+func (m *MockCache) GetIndicesKey() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIndicesKey")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetIndicesKey indicates an expected call of GetIndicesKey.
+func (mr *MockCacheMockRecorder) GetIndicesKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIndicesKey", reflect.TypeOf((*MockCache)(nil).GetIndicesKey))
 }
 
 // GetIndustryIntelligenceKey mocks base method.

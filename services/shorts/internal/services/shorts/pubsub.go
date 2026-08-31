@@ -39,7 +39,7 @@ func NewPubSubClient(ctx context.Context, projectID, topicName string) (PubSubCl
 	}
 
 	topic := client.Topic(topicName)
-	
+
 	// Try to check if topic exists, but don't fail if we don't have permissions
 	exists, err := topic.Exists(ctx)
 	if err != nil {
@@ -116,4 +116,3 @@ func NewPubSubClientFromEnv(ctx context.Context) (PubSubClient, error) {
 
 	return NewPubSubClient(ctx, projectID, topicName)
 }
-

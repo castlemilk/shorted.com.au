@@ -13,7 +13,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/market.proto.
  */
 export const file_shorts_v1alpha1_market: GenFile = /*@__PURE__*/
-  fileDesc("ChxzaG9ydHMvdjFhbHBoYTEvbWFya2V0LnByb3RvEg9zaG9ydHMudjFhbHBoYTEicQoTR2V0VG9wU2hvcnRzUmVxdWVzdBIOCgZwZXJpb2QYASABKAkSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFEhQKDHN1bW1hcnlfb25seRgEIAEoCBIVCg1wcm9kdWN0X2NvZGVzGAUgAygJImgKGUdldEluZHVzdHJ5VHJlZU1hcFJlcXVlc3QSDgoGcGVyaW9kGAEgASgJEg0KBWxpbWl0GAIgASgFEiwKCXZpZXdfbW9kZRgDIAEoDjIZLnNob3J0cy52MWFscGhhMS5WaWV3TW9kZSJcChRHZXRUb3BTaG9ydHNSZXNwb25zZRI0Cgt0aW1lX3NlcmllcxgBIAMoCzIfLnN0b2Nrcy52MWFscGhhMS5UaW1lU2VyaWVzRGF0YRIOCgZvZmZzZXQYAiABKAUiJQoUR2V0U3luY1N0YXR1c1JlcXVlc3QSDQoFbGltaXQYASABKAUiPwoVR2V0U3luY1N0YXR1c1Jlc3BvbnNlEiYKBHJ1bnMYASADKAsyGC5zaG9ydHMudjFhbHBoYTEuU3luY1J1biLAAwoHU3luY1J1bhIOCgZydW5faWQYASABKAkSEgoKc3RhcnRlZF9hdBgCIAEoCRIUCgxjb21wbGV0ZWRfYXQYAyABKAkSDgoGc3RhdHVzGAQgASgJEhUKDWVycm9yX21lc3NhZ2UYBSABKAkSHgoWc2hvcnRzX3JlY29yZHNfdXBkYXRlZBgGIAEoBRIeChZwcmljZXNfcmVjb3Jkc191cGRhdGVkGAcgASgFEh8KF21ldHJpY3NfcmVjb3Jkc191cGRhdGVkGAggASgFEh4KFmFsZ29saWFfcmVjb3Jkc19zeW5jZWQYCSABKAUSHgoWdG90YWxfZHVyYXRpb25fc2Vjb25kcxgKIAEoARITCgtlbnZpcm9ubWVudBgLIAEoCRIQCghob3N0bmFtZRgMIAEoCRIfChdjaGVja3BvaW50X3N0b2Nrc190b3RhbBgNIAEoBRIjChtjaGVja3BvaW50X3N0b2Nrc19wcm9jZXNzZWQYDiABKAUSJAocY2hlY2twb2ludF9zdG9ja3Nfc3VjY2Vzc2Z1bBgPIAEoBRIgChhjaGVja3BvaW50X3N0b2Nrc19mYWlsZWQYECABKAUiggEKFkdldE1hcmtldEJ5RGF0ZVJlcXVlc3QSDAoEZGF0ZRgBIAEoCRINCgVsaW1pdBgCIAEoBRIOCgZvZmZzZXQYAyABKAUSJAocaW5jbHVkZV96ZXJvX3Nob3J0X3Bvc2l0aW9ucxgEIAEoCBIVCg1vcmRpbmFyeV9vbmx5GAUgASgIIo4BChdHZXRNYXJrZXRCeURhdGVSZXNwb25zZRIMCgRkYXRlGAEgASgJEiYKBnN0b2NrcxgCIAMoCzIWLnN0b2Nrcy52MWFscGhhMS5TdG9jaxITCgt0b3RhbF9jb3VudBgDIAEoBRIVCg1wcmV2aW91c19kYXRlGAQgASgJEhEKCW5leHRfZGF0ZRgFIAEoCSI5ChhHZXRBdmFpbGFibGVEYXRlc1JlcXVlc3QSDQoFbGltaXQYASABKAUSDgoGYmVmb3JlGAIgASgJImsKGUdldEF2YWlsYWJsZURhdGVzUmVzcG9uc2USDQoFZGF0ZXMYASADKAkSFQoNZWFybGllc3RfZGF0ZRgCIAEoCRITCgtsYXRlc3RfZGF0ZRgDIAEoCRITCgt0b3RhbF9jb3VudBgEIAEoBSJuChxHZXRCYXR0bGVncm91bmRTdG9ja3NSZXF1ZXN0Ei8KBHZpZXcYASABKA4yIS5zaG9ydHMudjFhbHBoYTEuQmF0dGxlZ3JvdW5kVmlldxINCgVsaW1pdBgCIAEoBRIOCgZvZmZzZXQYAyABKAUinAIKEUJhdHRsZWdyb3VuZFN0b2NrEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhAKCGxvZ29fdXJsGAQgASgJEhEKCXNob3J0X3BjdBgFIAEoARIbChNzaG9ydF9wY3RfY2hhbmdlXzR3GAYgASgBEhQKDGxhdGVzdF9wcmljZRgHIAEoARIXCg9wcmljZV9jaGFuZ2VfMW0YCCABKAESFQoNZGF5c190b19jb3ZlchgJIAEoARIVCg1zcXVlZXplX3Njb3JlGAogASgBEhgKEGRpdmVyZ2VuY2Vfc2NvcmUYCyABKAESEgoKbWFya2V0X2NhcBgMIAEoASJoCh1HZXRCYXR0bGVncm91bmRTdG9ja3NSZXNwb25zZRIyCgZzdG9ja3MYASADKAsyIi5zaG9ydHMudjFhbHBoYTEuQmF0dGxlZ3JvdW5kU3RvY2sSEwoLdG90YWxfY291bnQYAiABKAUiVAohR2V0U2hvcnRDYW1wYWlnblNjb3JlYm9hcmRSZXF1ZXN0Eg0KBWxpbWl0GAEgASgFEg4KBm9mZnNldBgCIAEoBRIQCghpbmR1c3RyeRgDIAEoCSL0AgoNU2hvcnRDYW1wYWlnbhISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIQCghpbmR1c3RyeRgDIAEoCRIQCghsb2dvX3VybBgEIAEoCRIRCglwZWFrX2RhdGUYBSABKAkSFgoOcGVha19zaG9ydF9wY3QYBiABKAESFQoNcHJpY2VfYXRfcGVhaxgHIAEoARIWCg5wcmljZV8zbV9hZnRlchgIIAEoARIWCg5wcmljZV82bV9hZnRlchgJIAEoARIRCglyZXR1cm5fM20YCiABKAESEQoJcmV0dXJuXzZtGAsgASgBEg4KBmhhc18zbRgMIAEoCBIOCgZoYXNfNm0YDSABKAgSFQoNc2hvcnRzX3dvbl8zbRgOIAEoCBIVCg1zaG9ydHNfd29uXzZtGA8gASgIEhkKEWN1cnJlbnRfc2hvcnRfcGN0GBAgASgBEhQKDGxhdGVzdF9wcmljZRgRIAEoASK9AQoiR2V0U2hvcnRDYW1wYWlnblNjb3JlYm9hcmRSZXNwb25zZRIxCgljYW1wYWlnbnMYASADKAsyHi5zaG9ydHMudjFhbHBoYTEuU2hvcnRDYW1wYWlnbhITCgt0b3RhbF9jb3VudBgCIAEoBRIXCg9jYW1wYWlnbnNfdG90YWwYAyABKAUSGgoSc2hvcnRzX3dpbl9yYXRlXzNtGAQgASgBEhoKEnNob3J0c193aW5fcmF0ZV82bRgFIAEoASo1CghWaWV3TW9kZRISCg5DVVJSRU5UX0NIQU5HRRAAEhUKEVBFUkNFTlRBR0VfQ0hBTkdFEAEqdgoQQmF0dGxlZ3JvdW5kVmlldxIhCh1CQVRUTEVHUk9VTkRfVklFV19VTlNQRUNJRklFRBAAEh0KGUJBVFRMRUdST1VORF9WSUVXX1NRVUVFWkUQARIgChxCQVRUTEVHUk9VTkRfVklFV19ESVZFUkdFTkNFEAIytQYKDU1hcmtldFNlcnZpY2USYQoMR2V0VG9wU2hvcnRzEiQuc2hvcnRzLnYxYWxwaGExLkdldFRvcFNob3J0c1JlcXVlc3QaJS5zaG9ydHMudjFhbHBoYTEuR2V0VG9wU2hvcnRzUmVzcG9uc2UiBIC1GAESaAoSR2V0SW5kdXN0cnlUcmVlTWFwEiouc2hvcnRzLnYxYWxwaGExLkdldEluZHVzdHJ5VHJlZU1hcFJlcXVlc3QaIC5zdG9ja3MudjFhbHBoYTEuSW5kdXN0cnlUcmVlTWFwIgSAtRgBEmoKD0dldE1hcmtldEJ5RGF0ZRInLnNob3J0cy52MWFscGhhMS5HZXRNYXJrZXRCeURhdGVSZXF1ZXN0Giguc2hvcnRzLnYxYWxwaGExLkdldE1hcmtldEJ5RGF0ZVJlc3BvbnNlIgSAtRgBEnAKEUdldEF2YWlsYWJsZURhdGVzEikuc2hvcnRzLnYxYWxwaGExLkdldEF2YWlsYWJsZURhdGVzUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXRBdmFpbGFibGVEYXRlc1Jlc3BvbnNlIgSAtRgBEm0KDUdldFN5bmNTdGF0dXMSJS5zaG9ydHMudjFhbHBoYTEuR2V0U3luY1N0YXR1c1JlcXVlc3QaJi5zaG9ydHMudjFhbHBoYTEuR2V0U3luY1N0YXR1c1Jlc3BvbnNlIg2AtRgCirUYBWFkbWluEnwKFUdldEJhdHRsZWdyb3VuZFN0b2NrcxItLnNob3J0cy52MWFscGhhMS5HZXRCYXR0bGVncm91bmRTdG9ja3NSZXF1ZXN0Gi4uc2hvcnRzLnYxYWxwaGExLkdldEJhdHRsZWdyb3VuZFN0b2Nrc1Jlc3BvbnNlIgSAtRgBEosBChpHZXRTaG9ydENhbXBhaWduU2NvcmVib2FyZBIyLnNob3J0cy52MWFscGhhMS5HZXRTaG9ydENhbXBhaWduU2NvcmVib2FyZFJlcXVlc3QaMy5zaG9ydHMudjFhbHBoYTEuR2V0U2hvcnRDYW1wYWlnblNjb3JlYm9hcmRSZXNwb25zZSIEgLUYAULaAQoTY29tLnNob3J0cy52MWFscGhhMUILTWFya2V0UHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_stocks_v1alpha1_stocks, file_options_v1_options]);
+  fileDesc("ChxzaG9ydHMvdjFhbHBoYTEvbWFya2V0LnByb3RvEg9zaG9ydHMudjFhbHBoYTEicQoTR2V0VG9wU2hvcnRzUmVxdWVzdBIOCgZwZXJpb2QYASABKAkSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFEhQKDHN1bW1hcnlfb25seRgEIAEoCBIVCg1wcm9kdWN0X2NvZGVzGAUgAygJImgKGUdldEluZHVzdHJ5VHJlZU1hcFJlcXVlc3QSDgoGcGVyaW9kGAEgASgJEg0KBWxpbWl0GAIgASgFEiwKCXZpZXdfbW9kZRgDIAEoDjIZLnNob3J0cy52MWFscGhhMS5WaWV3TW9kZSJcChRHZXRUb3BTaG9ydHNSZXNwb25zZRI0Cgt0aW1lX3NlcmllcxgBIAMoCzIfLnN0b2Nrcy52MWFscGhhMS5UaW1lU2VyaWVzRGF0YRIOCgZvZmZzZXQYAiABKAUiJQoUR2V0U3luY1N0YXR1c1JlcXVlc3QSDQoFbGltaXQYASABKAUiPwoVR2V0U3luY1N0YXR1c1Jlc3BvbnNlEiYKBHJ1bnMYASADKAsyGC5zaG9ydHMudjFhbHBoYTEuU3luY1J1biLAAwoHU3luY1J1bhIOCgZydW5faWQYASABKAkSEgoKc3RhcnRlZF9hdBgCIAEoCRIUCgxjb21wbGV0ZWRfYXQYAyABKAkSDgoGc3RhdHVzGAQgASgJEhUKDWVycm9yX21lc3NhZ2UYBSABKAkSHgoWc2hvcnRzX3JlY29yZHNfdXBkYXRlZBgGIAEoBRIeChZwcmljZXNfcmVjb3Jkc191cGRhdGVkGAcgASgFEh8KF21ldHJpY3NfcmVjb3Jkc191cGRhdGVkGAggASgFEh4KFmFsZ29saWFfcmVjb3Jkc19zeW5jZWQYCSABKAUSHgoWdG90YWxfZHVyYXRpb25fc2Vjb25kcxgKIAEoARITCgtlbnZpcm9ubWVudBgLIAEoCRIQCghob3N0bmFtZRgMIAEoCRIfChdjaGVja3BvaW50X3N0b2Nrc190b3RhbBgNIAEoBRIjChtjaGVja3BvaW50X3N0b2Nrc19wcm9jZXNzZWQYDiABKAUSJAocY2hlY2twb2ludF9zdG9ja3Nfc3VjY2Vzc2Z1bBgPIAEoBRIgChhjaGVja3BvaW50X3N0b2Nrc19mYWlsZWQYECABKAUiggEKFkdldE1hcmtldEJ5RGF0ZVJlcXVlc3QSDAoEZGF0ZRgBIAEoCRINCgVsaW1pdBgCIAEoBRIOCgZvZmZzZXQYAyABKAUSJAocaW5jbHVkZV96ZXJvX3Nob3J0X3Bvc2l0aW9ucxgEIAEoCBIVCg1vcmRpbmFyeV9vbmx5GAUgASgIIo4BChdHZXRNYXJrZXRCeURhdGVSZXNwb25zZRIMCgRkYXRlGAEgASgJEiYKBnN0b2NrcxgCIAMoCzIWLnN0b2Nrcy52MWFscGhhMS5TdG9jaxITCgt0b3RhbF9jb3VudBgDIAEoBRIVCg1wcmV2aW91c19kYXRlGAQgASgJEhEKCW5leHRfZGF0ZRgFIAEoCSI5ChhHZXRBdmFpbGFibGVEYXRlc1JlcXVlc3QSDQoFbGltaXQYASABKAUSDgoGYmVmb3JlGAIgASgJImsKGUdldEF2YWlsYWJsZURhdGVzUmVzcG9uc2USDQoFZGF0ZXMYASADKAkSFQoNZWFybGllc3RfZGF0ZRgCIAEoCRITCgtsYXRlc3RfZGF0ZRgDIAEoCRITCgt0b3RhbF9jb3VudBgEIAEoBSJuChxHZXRCYXR0bGVncm91bmRTdG9ja3NSZXF1ZXN0Ei8KBHZpZXcYASABKA4yIS5zaG9ydHMudjFhbHBoYTEuQmF0dGxlZ3JvdW5kVmlldxINCgVsaW1pdBgCIAEoBRIOCgZvZmZzZXQYAyABKAUinAIKEUJhdHRsZWdyb3VuZFN0b2NrEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhAKCGxvZ29fdXJsGAQgASgJEhEKCXNob3J0X3BjdBgFIAEoARIbChNzaG9ydF9wY3RfY2hhbmdlXzR3GAYgASgBEhQKDGxhdGVzdF9wcmljZRgHIAEoARIXCg9wcmljZV9jaGFuZ2VfMW0YCCABKAESFQoNZGF5c190b19jb3ZlchgJIAEoARIVCg1zcXVlZXplX3Njb3JlGAogASgBEhgKEGRpdmVyZ2VuY2Vfc2NvcmUYCyABKAESEgoKbWFya2V0X2NhcBgMIAEoASJoCh1HZXRCYXR0bGVncm91bmRTdG9ja3NSZXNwb25zZRIyCgZzdG9ja3MYASADKAsyIi5zaG9ydHMudjFhbHBoYTEuQmF0dGxlZ3JvdW5kU3RvY2sSEwoLdG90YWxfY291bnQYAiABKAUiVAohR2V0U2hvcnRDYW1wYWlnblNjb3JlYm9hcmRSZXF1ZXN0Eg0KBWxpbWl0GAEgASgFEg4KBm9mZnNldBgCIAEoBRIQCghpbmR1c3RyeRgDIAEoCSL0AgoNU2hvcnRDYW1wYWlnbhISCgpzdG9ja19jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIQCghpbmR1c3RyeRgDIAEoCRIQCghsb2dvX3VybBgEIAEoCRIRCglwZWFrX2RhdGUYBSABKAkSFgoOcGVha19zaG9ydF9wY3QYBiABKAESFQoNcHJpY2VfYXRfcGVhaxgHIAEoARIWCg5wcmljZV8zbV9hZnRlchgIIAEoARIWCg5wcmljZV82bV9hZnRlchgJIAEoARIRCglyZXR1cm5fM20YCiABKAESEQoJcmV0dXJuXzZtGAsgASgBEg4KBmhhc18zbRgMIAEoCBIOCgZoYXNfNm0YDSABKAgSFQoNc2hvcnRzX3dvbl8zbRgOIAEoCBIVCg1zaG9ydHNfd29uXzZtGA8gASgIEhkKEWN1cnJlbnRfc2hvcnRfcGN0GBAgASgBEhQKDGxhdGVzdF9wcmljZRgRIAEoASK9AQoiR2V0U2hvcnRDYW1wYWlnblNjb3JlYm9hcmRSZXNwb25zZRIxCgljYW1wYWlnbnMYASADKAsyHi5zaG9ydHMudjFhbHBoYTEuU2hvcnRDYW1wYWlnbhITCgt0b3RhbF9jb3VudBgCIAEoBRIXCg9jYW1wYWlnbnNfdG90YWwYAyABKAUSGgoSc2hvcnRzX3dpbl9yYXRlXzNtGAQgASgBEhoKEnNob3J0c193aW5fcmF0ZV82bRgFIAEoASKWAQoPSW5kZXhEZWZpbml0aW9uEgwKBGNvZGUYASABKAkSDAoEbmFtZRgCIAEoCRITCgtyZXR1cm5fdHlwZRgDIAEoCRIQCghjdXJyZW5jeRgEIAEoCRIVCg1lYXJsaWVzdF9kYXRlGAUgASgJEhMKC2xhdGVzdF9kYXRlGAYgASgJEhQKDG9ic2VydmF0aW9ucxgHIAEoBSIUChJMaXN0SW5kaWNlc1JlcXVlc3QiSAoTTGlzdEluZGljZXNSZXNwb25zZRIxCgdpbmRpY2VzGAEgAygLMiAuc2hvcnRzLnYxYWxwaGExLkluZGV4RGVmaW5pdGlvbiJpChVHZXRJbmRleFNlcmllc1JlcXVlc3QSEgoKaW5kZXhfY29kZRgBIAEoCRIOCgZwZXJpb2QYAiABKAkSDAoEZnJvbRgDIAEoCRIKCgJ0bxgEIAEoCRISCgptYXhfcG9pbnRzGAUgASgFIqcBChZHZXRJbmRleFNlcmllc1Jlc3BvbnNlEi8KBWluZGV4GAEgASgLMiAuc2hvcnRzLnYxYWxwaGExLkluZGV4RGVmaW5pdGlvbhIrCgZwb2ludHMYAiADKAsyGy5zaG9ydHMudjFhbHBoYTEuSW5kZXhQb2ludBIaChJ0b3RhbF9vYnNlcnZhdGlvbnMYAyABKAUSEwoLZG93bnNhbXBsZWQYBCABKAgiYgoKSW5kZXhQb2ludBIMCgRkYXRlGAEgASgJEgwKBG9wZW4YAiABKAESDAoEaGlnaBgDIAEoARILCgNsb3cYBCABKAESDQoFY2xvc2UYBSABKAESDgoGdm9sdW1lGAYgASgDKjUKCFZpZXdNb2RlEhIKDkNVUlJFTlRfQ0hBTkdFEAASFQoRUEVSQ0VOVEFHRV9DSEFOR0UQASp2ChBCYXR0bGVncm91bmRWaWV3EiEKHUJBVFRMRUdST1VORF9WSUVXX1VOU1BFQ0lGSUVEEAASHQoZQkFUVExFR1JPVU5EX1ZJRVdfU1FVRUVaRRABEiAKHEJBVFRMRUdST1VORF9WSUVXX0RJVkVSR0VOQ0UQAjL+BwoNTWFya2V0U2VydmljZRJhCgxHZXRUb3BTaG9ydHMSJC5zaG9ydHMudjFhbHBoYTEuR2V0VG9wU2hvcnRzUmVxdWVzdBolLnNob3J0cy52MWFscGhhMS5HZXRUb3BTaG9ydHNSZXNwb25zZSIEgLUYARJoChJHZXRJbmR1c3RyeVRyZWVNYXASKi5zaG9ydHMudjFhbHBoYTEuR2V0SW5kdXN0cnlUcmVlTWFwUmVxdWVzdBogLnN0b2Nrcy52MWFscGhhMS5JbmR1c3RyeVRyZWVNYXAiBIC1GAESagoPR2V0TWFya2V0QnlEYXRlEicuc2hvcnRzLnYxYWxwaGExLkdldE1hcmtldEJ5RGF0ZVJlcXVlc3QaKC5zaG9ydHMudjFhbHBoYTEuR2V0TWFya2V0QnlEYXRlUmVzcG9uc2UiBIC1GAEScAoRR2V0QXZhaWxhYmxlRGF0ZXMSKS5zaG9ydHMudjFhbHBoYTEuR2V0QXZhaWxhYmxlRGF0ZXNSZXF1ZXN0Giouc2hvcnRzLnYxYWxwaGExLkdldEF2YWlsYWJsZURhdGVzUmVzcG9uc2UiBIC1GAESZwoOR2V0SW5kZXhTZXJpZXMSJi5zaG9ydHMudjFhbHBoYTEuR2V0SW5kZXhTZXJpZXNSZXF1ZXN0Gicuc2hvcnRzLnYxYWxwaGExLkdldEluZGV4U2VyaWVzUmVzcG9uc2UiBIC1GAESXgoLTGlzdEluZGljZXMSIy5zaG9ydHMudjFhbHBoYTEuTGlzdEluZGljZXNSZXF1ZXN0GiQuc2hvcnRzLnYxYWxwaGExLkxpc3RJbmRpY2VzUmVzcG9uc2UiBIC1GAESbQoNR2V0U3luY1N0YXR1cxIlLnNob3J0cy52MWFscGhhMS5HZXRTeW5jU3RhdHVzUmVxdWVzdBomLnNob3J0cy52MWFscGhhMS5HZXRTeW5jU3RhdHVzUmVzcG9uc2UiDYC1GAKKtRgFYWRtaW4SfAoVR2V0QmF0dGxlZ3JvdW5kU3RvY2tzEi0uc2hvcnRzLnYxYWxwaGExLkdldEJhdHRsZWdyb3VuZFN0b2Nrc1JlcXVlc3QaLi5zaG9ydHMudjFhbHBoYTEuR2V0QmF0dGxlZ3JvdW5kU3RvY2tzUmVzcG9uc2UiBIC1GAESiwEKGkdldFNob3J0Q2FtcGFpZ25TY29yZWJvYXJkEjIuc2hvcnRzLnYxYWxwaGExLkdldFNob3J0Q2FtcGFpZ25TY29yZWJvYXJkUmVxdWVzdBozLnNob3J0cy52MWFscGhhMS5HZXRTaG9ydENhbXBhaWduU2NvcmVib2FyZFJlc3BvbnNlIgSAtRgBQtoBChNjb20uc2hvcnRzLnYxYWxwaGExQgtNYXJrZXRQcm90b1ABWllnaXRodWIuY29tL2Nhc3RsZW1pbGsvc2hvcnRlZC5jb20uYXUvc2VydmljZXMvZ2VuL3Byb3RvL2dvL3Nob3J0cy92MWFscGhhMTtzaG9ydHN2MWFscGhhMaICA1NYWKoCD1Nob3J0cy5WMWFscGhhMcoCD1Nob3J0c1xWMWFscGhhMeICG1Nob3J0c1xWMWFscGhhMVxHUEJNZXRhZGF0YeoCEFNob3J0czo6VjFhbHBoYTFiBnByb3RvMw", [file_stocks_v1alpha1_stocks, file_options_v1_options]);
 
 /**
  * Request for Top10 RPC, specifying the period of time.
@@ -758,6 +758,240 @@ export const GetShortCampaignScoreboardResponseSchema: GenMessage<GetShortCampai
   messageDesc(file_shorts_v1alpha1_market, 15);
 
 /**
+ * A benchmark index we hold a level series for.
+ *
+ * Absolute returns on the ASX are mostly beta, so without a benchmark every
+ * strategy result overstates itself — a 12-month hold reporting +38% is a
+ * market return with a strategy sitting on top of it. Alpha is the only number
+ * that means anything, and alpha needs one of these.
+ *
+ * @generated from message shorts.v1alpha1.IndexDefinition
+ */
+export type IndexDefinition = Message<"shorts.v1alpha1.IndexDefinition"> & {
+  /**
+   * Stable Shorted code, e.g. "XJO".
+   *
+   * @generated from field: string code = 1;
+   */
+  code: string;
+
+  /**
+   * "S&P/ASX 200".
+   *
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * "price" or "total". This is the field that decides whether a comparison is
+   * honest: a price-return benchmark excludes dividends and therefore
+   * understates the market by roughly the yield — measured on our own data,
+   * XJO returned 24.2% over a window in which XJT (the same index, dividends
+   * reinvested) returned 37.6%. A strategy measured against the price series
+   * looks 13 points better than it is.
+   *
+   * @generated from field: string return_type = 3;
+   */
+  returnType: string;
+
+  /**
+   * Always "AUD" today; stated rather than assumed.
+   *
+   * @generated from field: string currency = 4;
+   */
+  currency: string;
+
+  /**
+   * YYYY-MM-DD, first session held.
+   *
+   * @generated from field: string earliest_date = 5;
+   */
+  earliestDate: string;
+
+  /**
+   * YYYY-MM-DD, most recent session held.
+   *
+   * @generated from field: string latest_date = 6;
+   */
+  latestDate: string;
+
+  /**
+   * @generated from field: int32 observations = 7;
+   */
+  observations: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.IndexDefinition.
+ * Use `create(IndexDefinitionSchema)` to create a new message.
+ */
+export const IndexDefinitionSchema: GenMessage<IndexDefinition> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_market, 16);
+
+/**
+ * @generated from message shorts.v1alpha1.ListIndicesRequest
+ */
+export type ListIndicesRequest = Message<"shorts.v1alpha1.ListIndicesRequest"> & {
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListIndicesRequest.
+ * Use `create(ListIndicesRequestSchema)` to create a new message.
+ */
+export const ListIndicesRequestSchema: GenMessage<ListIndicesRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_market, 17);
+
+/**
+ * @generated from message shorts.v1alpha1.ListIndicesResponse
+ */
+export type ListIndicesResponse = Message<"shorts.v1alpha1.ListIndicesResponse"> & {
+  /**
+   * @generated from field: repeated shorts.v1alpha1.IndexDefinition indices = 1;
+   */
+  indices: IndexDefinition[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListIndicesResponse.
+ * Use `create(ListIndicesResponseSchema)` to create a new message.
+ */
+export const ListIndicesResponseSchema: GenMessage<ListIndicesResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_market, 18);
+
+/**
+ * @generated from message shorts.v1alpha1.GetIndexSeriesRequest
+ */
+export type GetIndexSeriesRequest = Message<"shorts.v1alpha1.GetIndexSeriesRequest"> & {
+  /**
+   * e.g. "XJO", "XJT". Case-insensitive.
+   *
+   * @generated from field: string index_code = 1;
+   */
+  indexCode: string;
+
+  /**
+   * Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+   * `from` is set. Defaults to 1Y.
+   *
+   * @generated from field: string period = 2;
+   */
+  period: string;
+
+  /**
+   * Explicit range, YYYY-MM-DD.
+   *
+   * @generated from field: string from = 3;
+   */
+  from: string;
+
+  /**
+   * @generated from field: string to = 4;
+   */
+  to: string;
+
+  /**
+   * Cap on returned points, 0 for no cap. Thinning keeps the first and last
+   * session; `downsampled` reports whether it happened.
+   *
+   * @generated from field: int32 max_points = 5;
+   */
+  maxPoints: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetIndexSeriesRequest.
+ * Use `create(GetIndexSeriesRequestSchema)` to create a new message.
+ */
+export const GetIndexSeriesRequestSchema: GenMessage<GetIndexSeriesRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_market, 19);
+
+/**
+ * @generated from message shorts.v1alpha1.GetIndexSeriesResponse
+ */
+export type GetIndexSeriesResponse = Message<"shorts.v1alpha1.GetIndexSeriesResponse"> & {
+  /**
+   * @generated from field: shorts.v1alpha1.IndexDefinition index = 1;
+   */
+  index?: IndexDefinition;
+
+  /**
+   * Oldest first.
+   *
+   * @generated from field: repeated shorts.v1alpha1.IndexPoint points = 2;
+   */
+  points: IndexPoint[];
+
+  /**
+   * Sessions in the window before thinning.
+   *
+   * @generated from field: int32 total_observations = 3;
+   */
+  totalObservations: number;
+
+  /**
+   * @generated from field: bool downsampled = 4;
+   */
+  downsampled: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetIndexSeriesResponse.
+ * Use `create(GetIndexSeriesResponseSchema)` to create a new message.
+ */
+export const GetIndexSeriesResponseSchema: GenMessage<GetIndexSeriesResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_market, 20);
+
+/**
+ * One session of an index.
+ *
+ * @generated from message shorts.v1alpha1.IndexPoint
+ */
+export type IndexPoint = Message<"shorts.v1alpha1.IndexPoint"> & {
+  /**
+   * YYYY-MM-DD.
+   *
+   * @generated from field: string date = 1;
+   */
+  date: string;
+
+  /**
+   * @generated from field: double open = 2;
+   */
+  open: number;
+
+  /**
+   * @generated from field: double high = 3;
+   */
+  high: number;
+
+  /**
+   * @generated from field: double low = 4;
+   */
+  low: number;
+
+  /**
+   * The index level. Compute returns from this.
+   *
+   * @generated from field: double close = 5;
+   */
+  close: number;
+
+  /**
+   * Often 0: an index level has no meaningful traded volume.
+   *
+   * @generated from field: int64 volume = 6;
+   */
+  volume: bigint;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.IndexPoint.
+ * Use `create(IndexPointSchema)` to create a new message.
+ */
+export const IndexPointSchema: GenMessage<IndexPoint> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_market, 21);
+
+/**
  * @generated from enum shorts.v1alpha1.ViewMode
  */
 export enum ViewMode {
@@ -857,6 +1091,26 @@ export const MarketService: GenService<{
     methodKind: "unary";
     input: typeof GetAvailableDatesRequestSchema;
     output: typeof GetAvailableDatesResponseSchema;
+  },
+  /**
+   * Benchmark index levels — the series a strategy's return is measured against.
+   *
+   * @generated from rpc shorts.v1alpha1.MarketService.GetIndexSeries
+   */
+  getIndexSeries: {
+    methodKind: "unary";
+    input: typeof GetIndexSeriesRequestSchema;
+    output: typeof GetIndexSeriesResponseSchema;
+  },
+  /**
+   * List the benchmark indices available, and whether each reinvests dividends.
+   *
+   * @generated from rpc shorts.v1alpha1.MarketService.ListIndices
+   */
+  listIndices: {
+    methodKind: "unary";
+    input: typeof ListIndicesRequestSchema;
+    output: typeof ListIndicesResponseSchema;
   },
   /**
    * Get sync status for admin dashboard

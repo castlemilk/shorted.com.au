@@ -13,6 +13,57 @@ info:
     name: Proprietary license
     url: https://shorted.com.au/terms
 paths:
+  /v1/latest:
+    get:
+      operationId: getLatestPublication
+      summary: The newest published panel date, as a cheap conditional GET
+      description: |
+        Answers "has a new ASIC report landed?" in one small request.
+
+        The alternative was polling `GetAvailableDates` and diffing. That is the
+        wrong shape for the question: the data updates about once a business day
+        at an hour you cannot predict, and the anonymous quota is 500 requests a
+        month — so hourly polling spends more than the entire free quota to
+        detect roughly 22 events, almost all of it on "nothing has changed".
+
+        Send back the `ETag` as `If-None-Match` and an unchanged answer costs a
+        `304` with no body. The ETag is derived from the content, so it changes
+        exactly when the answer changes and never merely because time passed.
+
+        `available_from` is the date the newest observation actually became
+        public — ASIC publishes T+4 — which is usually what a daily engine is
+        really waiting for.
+
+        ```bash
+        curl -A 'my-app/1.0' -H 'If-None-Match: "<previous etag>"' \
+          https://api.shorted.com.au/v1/latest
+        ```
+      responses:
+        "200":
+          description: The current publication state.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  latest_date:
+                    type: string
+                    format: date
+                    description: Newest trading date the panel holds.
+                  available_from:
+                    type: string
+                    format: date
+                    description: When that observation became public (T+4 trading days).
+                  earliest_date:
+                    type: string
+                    format: date
+                  total_dates:
+                    type: integer
+                    description: Trading dates held in total.
+                  publication_lag_trading_days:
+                    type: integer
+        "304":
+          description: Unchanged since the ETag you sent. No body.
   /v1/panel:
     get:
       operationId: exportPanel
@@ -87,6 +138,16 @@ paths:
           schema:
             type: string
             format: date
+        - name: ordinary_only
+          in: query
+          required: false
+          description: >-
+            Restrict the panel to ordinary share lines, excluding ETFs, bonds, hybrids, secondary lines and micro-instruments. Off by default, so the export stays a faithful record of what ASIC reported.
+
+            Short interest is a percent of shares on issue, and that quantity is not comparable across instrument types — a warrant or ETF unit produces a number that looks like an ordinary share's short percentage without being one. Every row carries security_type (ordinary / etf / debt / other) so the decision can also be made client-side.
+          schema:
+            type: boolean
+            default: false
         - name: include_zero
           in: query
           required: false
@@ -103,7 +164,7 @@ paths:
               schema:
                 type: string
                 description: >-
-                  Header row followed by one row per (date, security): date, available_from, product_code, product_name, reported_short_positions, total_product_in_issue, percent_shorted.
+                  Header row followed by one row per (date, security): date, available_from, security_type, product_code, product_name, reported_short_positions, total_product_in_issue, percent_shorted.
             application/x-ndjson:
               schema:
                 type: string
@@ -1216,6 +1277,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetBattlegroundStocksResponse'
+  /shorts.v1alpha1.MarketService/GetIndexSeries:
+    post:
+      tags:
+        - shorts.v1alpha1.MarketService
+      summary: GetIndexSeries
+      description: Benchmark index levels — the series a strategy's return is measured against.
+      operationId: MarketService_GetIndexSeries
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetIndexSeriesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetIndexSeriesResponse'
   /shorts.v1alpha1.MarketService/GetIndustryTreeMap:
     post:
       tags:
@@ -1396,6 +1493,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetTopShortsResponse'
+  /shorts.v1alpha1.MarketService/ListIndices:
+    post:
+      tags:
+        - shorts.v1alpha1.MarketService
+      summary: ListIndices
+      description: List the benchmark indices available, and whether each reinvests dividends.
+      operationId: MarketService_ListIndices
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListIndicesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListIndicesResponse'
   /shorts.v1alpha1.NewsService/DeleteEditorialTake:
     post:
       tags:
@@ -5240,6 +5373,60 @@ components:
           $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: GetHousingOverviewResponse
       additionalProperties: false
+    shorts.v1alpha1.GetIndexSeriesRequest:
+      type: object
+      properties:
+        indexCode:
+          type: string
+          title: index_code
+          description: e.g. "XJO", "XJT". Case-insensitive. (proto string)
+        period:
+          type: string
+          title: period
+          description: |-
+            Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
+             `from` is set. Defaults to 1Y. (proto string)
+        from:
+          type: string
+          title: from
+          description: Explicit range, YYYY-MM-DD. (proto string)
+        to:
+          type: string
+          title: to
+          description: (proto string)
+        maxPoints:
+          type: integer
+          title: max_points
+          format: int32
+          description: |-
+            Cap on returned points, 0 for no cap. Thinning keeps the first and last
+             session; `downsampled` reports whether it happened. (proto int32)
+      title: GetIndexSeriesRequest
+      additionalProperties: false
+    shorts.v1alpha1.GetIndexSeriesResponse:
+      type: object
+      properties:
+        index:
+          title: index
+          description: (proto shorts.v1alpha1.IndexDefinition)
+          $ref: '#/components/schemas/shorts.v1alpha1.IndexDefinition'
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.IndexPoint'
+          title: points
+          description: Oldest first. (proto shorts.v1alpha1.IndexPoint)
+        totalObservations:
+          type: integer
+          title: total_observations
+          format: int32
+          description: Sessions in the window before thinning. (proto int32)
+        downsampled:
+          type: boolean
+          title: downsampled
+          description: (proto bool)
+      title: GetIndexSeriesResponse
+      additionalProperties: false
     shorts.v1alpha1.GetIndustryIntelligenceRequest:
       type: object
       properties:
@@ -7183,6 +7370,90 @@ components:
       title: HousingRegion
       additionalProperties: false
       description: A selectable house-price region (for the suburb explorer).
+    shorts.v1alpha1.IndexDefinition:
+      type: object
+      properties:
+        code:
+          type: string
+          title: code
+          description: Stable Shorted code, e.g. "XJO". (proto string)
+        name:
+          type: string
+          title: name
+          description: '"S&P/ASX 200". (proto string)'
+        returnType:
+          type: string
+          title: return_type
+          description: |-
+            "price" or "total". This is the field that decides whether a comparison is
+             honest: a price-return benchmark excludes dividends and therefore
+             understates the market by roughly the yield — measured on our own data,
+             XJO returned 24.2% over a window in which XJT (the same index, dividends
+             reinvested) returned 37.6%. A strategy measured against the price series
+             looks 13 points better than it is. (proto string)
+        currency:
+          type: string
+          title: currency
+          description: Always "AUD" today; stated rather than assumed. (proto string)
+        earliestDate:
+          type: string
+          title: earliest_date
+          description: YYYY-MM-DD, first session held. (proto string)
+        latestDate:
+          type: string
+          title: latest_date
+          description: YYYY-MM-DD, most recent session held. (proto string)
+        observations:
+          type: integer
+          title: observations
+          format: int32
+          description: (proto int32)
+      title: IndexDefinition
+      additionalProperties: false
+      description: |-
+        A benchmark index we hold a level series for.
+
+         Absolute returns on the ASX are mostly beta, so without a benchmark every
+         strategy result overstates itself — a 12-month hold reporting +38% is a
+         market return with a strategy sitting on top of it. Alpha is the only number
+         that means anything, and alpha needs one of these.
+    shorts.v1alpha1.IndexPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          title: date
+          description: YYYY-MM-DD. (proto string)
+        open:
+          type: number
+          title: open
+          format: double
+          description: (proto double)
+        high:
+          type: number
+          title: high
+          format: double
+          description: (proto double)
+        low:
+          type: number
+          title: low
+          format: double
+          description: (proto double)
+        close:
+          type: number
+          title: close
+          format: double
+          description: The index level. Compute returns from this. (proto double)
+        volume:
+          type:
+            - integer
+            - string
+          title: volume
+          format: int64
+          description: 'Often 0: an index level has no meaningful traded volume. (proto int64)'
+      title: IndexPoint
+      additionalProperties: false
+      description: One session of an index.
     shorts.v1alpha1.IndustryIntelligenceEntityTotal:
       type: object
       properties:
@@ -7814,6 +8085,21 @@ components:
           title: regions
           description: (proto shorts.v1alpha1.HousingRegion)
       title: ListHousingRegionsResponse
+      additionalProperties: false
+    shorts.v1alpha1.ListIndicesRequest:
+      type: object
+      title: ListIndicesRequest
+      additionalProperties: false
+    shorts.v1alpha1.ListIndicesResponse:
+      type: object
+      properties:
+        indices:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.IndexDefinition'
+          title: indices
+          description: (proto shorts.v1alpha1.IndexDefinition)
+      title: ListIndicesResponse
       additionalProperties: false
     shorts.v1alpha1.ListPartyFundingRequest:
       type: object

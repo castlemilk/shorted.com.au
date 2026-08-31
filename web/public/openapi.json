@@ -2208,6 +2208,70 @@
         "title": "GetHousingOverviewResponse",
         "type": "object"
       },
+      "shorts.v1alpha1.GetIndexSeriesRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "Explicit range, YYYY-MM-DD. (proto string)",
+            "title": "from",
+            "type": "string"
+          },
+          "indexCode": {
+            "description": "e.g. \"XJO\", \"XJT\". Case-insensitive. (proto string)",
+            "title": "index_code",
+            "type": "string"
+          },
+          "maxPoints": {
+            "description": "Cap on returned points, 0 for no cap. Thinning keeps the first and last\n session; `downsampled` reports whether it happened. (proto int32)",
+            "format": "int32",
+            "title": "max_points",
+            "type": "integer"
+          },
+          "period": {
+            "description": "Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when\n `from` is set. Defaults to 1Y. (proto string)",
+            "title": "period",
+            "type": "string"
+          },
+          "to": {
+            "description": "(proto string)",
+            "title": "to",
+            "type": "string"
+          }
+        },
+        "title": "GetIndexSeriesRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetIndexSeriesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "downsampled": {
+            "description": "(proto bool)",
+            "title": "downsampled",
+            "type": "boolean"
+          },
+          "index": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.IndexDefinition",
+            "description": "(proto shorts.v1alpha1.IndexDefinition)",
+            "title": "index"
+          },
+          "points": {
+            "description": "Oldest first. (proto shorts.v1alpha1.IndexPoint)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.IndexPoint"
+            },
+            "title": "points",
+            "type": "array"
+          },
+          "totalObservations": {
+            "description": "Sessions in the window before thinning. (proto int32)",
+            "format": "int32",
+            "title": "total_observations",
+            "type": "integer"
+          }
+        },
+        "title": "GetIndexSeriesResponse",
+        "type": "object"
+      },
       "shorts.v1alpha1.GetIndustryIntelligenceRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4312,6 +4376,96 @@
         "title": "HousingRegion",
         "type": "object"
       },
+      "shorts.v1alpha1.IndexDefinition": {
+        "additionalProperties": false,
+        "description": "A benchmark index we hold a level series for.\n\n Absolute returns on the ASX are mostly beta, so without a benchmark every\n strategy result overstates itself — a 12-month hold reporting +38% is a\n market return with a strategy sitting on top of it. Alpha is the only number\n that means anything, and alpha needs one of these.",
+        "properties": {
+          "code": {
+            "description": "Stable Shorted code, e.g. \"XJO\". (proto string)",
+            "title": "code",
+            "type": "string"
+          },
+          "currency": {
+            "description": "Always \"AUD\" today; stated rather than assumed. (proto string)",
+            "title": "currency",
+            "type": "string"
+          },
+          "earliestDate": {
+            "description": "YYYY-MM-DD, first session held. (proto string)",
+            "title": "earliest_date",
+            "type": "string"
+          },
+          "latestDate": {
+            "description": "YYYY-MM-DD, most recent session held. (proto string)",
+            "title": "latest_date",
+            "type": "string"
+          },
+          "name": {
+            "description": "\"S\u0026P/ASX 200\". (proto string)",
+            "title": "name",
+            "type": "string"
+          },
+          "observations": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "observations",
+            "type": "integer"
+          },
+          "returnType": {
+            "description": "\"price\" or \"total\". This is the field that decides whether a comparison is\n honest: a price-return benchmark excludes dividends and therefore\n understates the market by roughly the yield — measured on our own data,\n XJO returned 24.2% over a window in which XJT (the same index, dividends\n reinvested) returned 37.6%. A strategy measured against the price series\n looks 13 points better than it is. (proto string)",
+            "title": "return_type",
+            "type": "string"
+          }
+        },
+        "title": "IndexDefinition",
+        "type": "object"
+      },
+      "shorts.v1alpha1.IndexPoint": {
+        "additionalProperties": false,
+        "description": "One session of an index.",
+        "properties": {
+          "close": {
+            "description": "The index level. Compute returns from this. (proto double)",
+            "format": "double",
+            "title": "close",
+            "type": "number"
+          },
+          "date": {
+            "description": "YYYY-MM-DD. (proto string)",
+            "title": "date",
+            "type": "string"
+          },
+          "high": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "high",
+            "type": "number"
+          },
+          "low": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "low",
+            "type": "number"
+          },
+          "open": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "open",
+            "type": "number"
+          },
+          "volume": {
+            "description": "Often 0: an index level has no meaningful traded volume. (proto int64)",
+            "format": "int64",
+            "title": "volume",
+            "type": [
+              "integer",
+              "string"
+            ]
+          }
+        },
+        "title": "IndexPoint",
+        "type": "object"
+      },
       "shorts.v1alpha1.IndustryIntelligenceEntityTotal": {
         "additionalProperties": false,
         "description": "Total per matched entity for one metric of one public-enabled source,\n ranked by total value (top entities only).",
@@ -5014,6 +5168,26 @@
           }
         },
         "title": "ListHousingRegionsResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListIndicesRequest": {
+        "additionalProperties": false,
+        "title": "ListIndicesRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListIndicesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "indices": {
+            "description": "(proto shorts.v1alpha1.IndexDefinition)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.IndexDefinition"
+            },
+            "title": "indices",
+            "type": "array"
+          }
+        },
+        "title": "ListIndicesResponse",
         "type": "object"
       },
       "shorts.v1alpha1.ListPartyFundingRequest": {
@@ -12137,6 +12311,65 @@
         ]
       }
     },
+    "/shorts.v1alpha1.MarketService/GetIndexSeries": {
+      "post": {
+        "description": "Benchmark index levels — the series a strategy's return is measured against.",
+        "operationId": "MarketService_GetIndexSeries",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetIndexSeriesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetIndexSeriesResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetIndexSeries",
+        "tags": [
+          "shorts.v1alpha1.MarketService"
+        ]
+      }
+    },
     "/shorts.v1alpha1.MarketService/GetIndustryTreeMap": {
       "post": {
         "description": "Get Industry TreeMap for short positions.",
@@ -12368,6 +12601,65 @@
           }
         },
         "summary": "GetTopShorts",
+        "tags": [
+          "shorts.v1alpha1.MarketService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.MarketService/ListIndices": {
+      "post": {
+        "description": "List the benchmark indices available, and whether each reinvests dividends.",
+        "operationId": "MarketService_ListIndices",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.ListIndicesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.ListIndicesResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "ListIndices",
         "tags": [
           "shorts.v1alpha1.MarketService"
         ]

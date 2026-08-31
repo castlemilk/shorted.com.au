@@ -309,7 +309,7 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 						// Token is a valid Firebase ID token
 						// Start with api-user role for all authenticated users
 						roles := []string{"api-user"}
-						
+
 						// Check for custom roles from Firebase claims
 						if r, ok := fbToken.Claims["roles"].([]interface{}); ok {
 							for _, role := range r {
@@ -320,7 +320,7 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 								}
 							}
 						}
-						
+
 						// Auto-grant admin to specific emails
 						email := ""
 						if e, ok := fbToken.Claims["email"].(string); ok {
@@ -338,7 +338,7 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 								}
 							}
 						}
-						
+
 						normalizedClaims := &Claims{
 							UserID:        fbToken.UID,
 							Email:         email,

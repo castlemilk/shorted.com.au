@@ -55,6 +55,12 @@ const (
 	// ShortedStocksServiceGetMarketByDateProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetMarketByDate RPC.
 	ShortedStocksServiceGetMarketByDateProcedure = "/shorts.v1alpha1.ShortedStocksService/GetMarketByDate"
+	// ShortedStocksServiceGetIndexSeriesProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetIndexSeries RPC.
+	ShortedStocksServiceGetIndexSeriesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetIndexSeries"
+	// ShortedStocksServiceListIndicesProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListIndices RPC.
+	ShortedStocksServiceListIndicesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListIndices"
 	// ShortedStocksServiceGetAvailableDatesProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetAvailableDates RPC.
 	ShortedStocksServiceGetAvailableDatesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetAvailableDates"
@@ -316,6 +322,8 @@ var (
 	shortedStocksServiceGetStockDataMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockData")
 	shortedStocksServiceGetStockPricesMethodDescriptor                  = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockPrices")
 	shortedStocksServiceGetMarketByDateMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetMarketByDate")
+	shortedStocksServiceGetIndexSeriesMethodDescriptor                  = shortedStocksServiceServiceDescriptor.Methods().ByName("GetIndexSeries")
+	shortedStocksServiceListIndicesMethodDescriptor                     = shortedStocksServiceServiceDescriptor.Methods().ByName("ListIndices")
 	shortedStocksServiceGetAvailableDatesMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetAvailableDates")
 	shortedStocksServiceSearchStocksMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("SearchStocks")
 	shortedStocksServiceGetSyncStatusMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetSyncStatus")
@@ -417,6 +425,10 @@ type ShortedStocksServiceClient interface {
 	GetStockPrices(context.Context, *connect.Request[v1alpha1.GetStockPricesRequest]) (*connect.Response[v1alpha1.GetStockPricesResponse], error)
 	// Get all short positions for a specific trading date
 	GetMarketByDate(context.Context, *connect.Request[v1alpha1.GetMarketByDateRequest]) (*connect.Response[v1alpha1.GetMarketByDateResponse], error)
+	// Benchmark index levels — the series a strategy's return is measured against.
+	GetIndexSeries(context.Context, *connect.Request[v1alpha1.GetIndexSeriesRequest]) (*connect.Response[v1alpha1.GetIndexSeriesResponse], error)
+	// List the benchmark indices available.
+	ListIndices(context.Context, *connect.Request[v1alpha1.ListIndicesRequest]) (*connect.Response[v1alpha1.ListIndicesResponse], error)
 	// Get available trading dates for market snapshots
 	GetAvailableDates(context.Context, *connect.Request[v1alpha1.GetAvailableDatesRequest]) (*connect.Response[v1alpha1.GetAvailableDatesResponse], error)
 	// Search stocks by symbol or company name
@@ -638,6 +650,18 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			httpClient,
 			baseURL+ShortedStocksServiceGetMarketByDateProcedure,
 			connect.WithSchema(shortedStocksServiceGetMarketByDateMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getIndexSeries: connect.NewClient[v1alpha1.GetIndexSeriesRequest, v1alpha1.GetIndexSeriesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetIndexSeriesProcedure,
+			connect.WithSchema(shortedStocksServiceGetIndexSeriesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listIndices: connect.NewClient[v1alpha1.ListIndicesRequest, v1alpha1.ListIndicesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListIndicesProcedure,
+			connect.WithSchema(shortedStocksServiceListIndicesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getAvailableDates: connect.NewClient[v1alpha1.GetAvailableDatesRequest, v1alpha1.GetAvailableDatesResponse](
@@ -1150,6 +1174,8 @@ type shortedStocksServiceClient struct {
 	getStockData                    *connect.Client[v1alpha1.GetStockDataRequest, v1alpha11.TimeSeriesData]
 	getStockPrices                  *connect.Client[v1alpha1.GetStockPricesRequest, v1alpha1.GetStockPricesResponse]
 	getMarketByDate                 *connect.Client[v1alpha1.GetMarketByDateRequest, v1alpha1.GetMarketByDateResponse]
+	getIndexSeries                  *connect.Client[v1alpha1.GetIndexSeriesRequest, v1alpha1.GetIndexSeriesResponse]
+	listIndices                     *connect.Client[v1alpha1.ListIndicesRequest, v1alpha1.ListIndicesResponse]
 	getAvailableDates               *connect.Client[v1alpha1.GetAvailableDatesRequest, v1alpha1.GetAvailableDatesResponse]
 	searchStocks                    *connect.Client[v1alpha1.SearchStocksRequest, v1alpha1.SearchStocksResponse]
 	getSyncStatus                   *connect.Client[v1alpha1.GetSyncStatusRequest, v1alpha1.GetSyncStatusResponse]
@@ -1268,6 +1294,16 @@ func (c *shortedStocksServiceClient) GetStockPrices(ctx context.Context, req *co
 // GetMarketByDate calls shorts.v1alpha1.ShortedStocksService.GetMarketByDate.
 func (c *shortedStocksServiceClient) GetMarketByDate(ctx context.Context, req *connect.Request[v1alpha1.GetMarketByDateRequest]) (*connect.Response[v1alpha1.GetMarketByDateResponse], error) {
 	return c.getMarketByDate.CallUnary(ctx, req)
+}
+
+// GetIndexSeries calls shorts.v1alpha1.ShortedStocksService.GetIndexSeries.
+func (c *shortedStocksServiceClient) GetIndexSeries(ctx context.Context, req *connect.Request[v1alpha1.GetIndexSeriesRequest]) (*connect.Response[v1alpha1.GetIndexSeriesResponse], error) {
+	return c.getIndexSeries.CallUnary(ctx, req)
+}
+
+// ListIndices calls shorts.v1alpha1.ShortedStocksService.ListIndices.
+func (c *shortedStocksServiceClient) ListIndices(ctx context.Context, req *connect.Request[v1alpha1.ListIndicesRequest]) (*connect.Response[v1alpha1.ListIndicesResponse], error) {
+	return c.listIndices.CallUnary(ctx, req)
 }
 
 // GetAvailableDates calls shorts.v1alpha1.ShortedStocksService.GetAvailableDates.
@@ -1707,6 +1743,10 @@ type ShortedStocksServiceHandler interface {
 	GetStockPrices(context.Context, *connect.Request[v1alpha1.GetStockPricesRequest]) (*connect.Response[v1alpha1.GetStockPricesResponse], error)
 	// Get all short positions for a specific trading date
 	GetMarketByDate(context.Context, *connect.Request[v1alpha1.GetMarketByDateRequest]) (*connect.Response[v1alpha1.GetMarketByDateResponse], error)
+	// Benchmark index levels — the series a strategy's return is measured against.
+	GetIndexSeries(context.Context, *connect.Request[v1alpha1.GetIndexSeriesRequest]) (*connect.Response[v1alpha1.GetIndexSeriesResponse], error)
+	// List the benchmark indices available.
+	ListIndices(context.Context, *connect.Request[v1alpha1.ListIndicesRequest]) (*connect.Response[v1alpha1.ListIndicesResponse], error)
 	// Get available trading dates for market snapshots
 	GetAvailableDates(context.Context, *connect.Request[v1alpha1.GetAvailableDatesRequest]) (*connect.Response[v1alpha1.GetAvailableDatesResponse], error)
 	// Search stocks by symbol or company name
@@ -1924,6 +1964,18 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		ShortedStocksServiceGetMarketByDateProcedure,
 		svc.GetMarketByDate,
 		connect.WithSchema(shortedStocksServiceGetMarketByDateMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetIndexSeriesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetIndexSeriesProcedure,
+		svc.GetIndexSeries,
+		connect.WithSchema(shortedStocksServiceGetIndexSeriesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListIndicesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListIndicesProcedure,
+		svc.ListIndices,
+		connect.WithSchema(shortedStocksServiceListIndicesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetAvailableDatesHandler := connect.NewUnaryHandler(
@@ -2440,6 +2492,10 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetStockPricesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetMarketByDateProcedure:
 			shortedStocksServiceGetMarketByDateHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetIndexSeriesProcedure:
+			shortedStocksServiceGetIndexSeriesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListIndicesProcedure:
+			shortedStocksServiceListIndicesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetAvailableDatesProcedure:
 			shortedStocksServiceGetAvailableDatesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceSearchStocksProcedure:
@@ -2641,6 +2697,14 @@ func (UnimplementedShortedStocksServiceHandler) GetStockPrices(context.Context, 
 
 func (UnimplementedShortedStocksServiceHandler) GetMarketByDate(context.Context, *connect.Request[v1alpha1.GetMarketByDateRequest]) (*connect.Response[v1alpha1.GetMarketByDateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetMarketByDate is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetIndexSeries(context.Context, *connect.Request[v1alpha1.GetIndexSeriesRequest]) (*connect.Response[v1alpha1.GetIndexSeriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetIndexSeries is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListIndices(context.Context, *connect.Request[v1alpha1.ListIndicesRequest]) (*connect.Response[v1alpha1.ListIndicesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListIndices is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetAvailableDates(context.Context, *connect.Request[v1alpha1.GetAvailableDatesRequest]) (*connect.Response[v1alpha1.GetAvailableDatesResponse], error) {

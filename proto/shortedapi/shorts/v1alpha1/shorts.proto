@@ -219,6 +219,24 @@ service ShortedStocksService {
     };
   }
 
+  // Benchmark index levels — the series a strategy's return is measured against.
+  rpc GetIndexSeries (GetIndexSeriesRequest) returns (GetIndexSeriesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Index Series",
+      description: "Retrieve daily levels for a benchmark index (XJO, XKO, XAO, XJT)."
+    };
+  }
+
+  // List the benchmark indices available.
+  rpc ListIndices (ListIndicesRequest) returns (ListIndicesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Indices",
+      description: "List benchmark indices and whether each reinvests dividends."
+    };
+  }
+
   // Get available trading dates for market snapshots
   rpc GetAvailableDates (GetAvailableDatesRequest) returns (GetAvailableDatesResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;

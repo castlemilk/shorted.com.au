@@ -185,6 +185,14 @@ func (c *MemoryCache) GetStockPricesKey(productCode, period, from, to string, ma
 	return c.generateKey("stock_prices", productCode, period, from, to, maxPoints)
 }
 
+func (c *MemoryCache) GetIndicesKey() string {
+	return c.generateKey("indices")
+}
+
+func (c *MemoryCache) GetIndexSeriesKey(code, period, from, to string, maxPoints int32) string {
+	return c.generateKey("index_series", code, period, from, to, maxPoints)
+}
+
 func (c *MemoryCache) GetStockDetailsKey(productCode string) string {
 	return c.generateKey("stock_details", productCode)
 }

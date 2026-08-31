@@ -10,8 +10,8 @@ import (
 	"go.uber.org/mock/gomock"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
-	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/mocks"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
 func TestGetStockGraph_HandlerReturnsPeopleAndPeers(t *testing.T) {

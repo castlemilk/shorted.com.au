@@ -170,13 +170,13 @@ func (s *ShortsServer) buildAlgoliaRecordFromDB(ctx context.Context, stockCode s
 	row := s.store.QueryRowContext(ctx, query, stockCode)
 
 	var (
-		sc, companyName, industry, summary, details        string
-		enhancedSummary, companyHistory, competitiveAdv     string
-		riskFactors, recentDev                              string
-		logoGCSURL, website, address, marketCap             string
-		percentageShorted                                   float64
-		tags                                                []string
-		keyPeopleJSON, keyMetricsJSON                       []byte
+		sc, companyName, industry, summary, details     string
+		enhancedSummary, companyHistory, competitiveAdv string
+		riskFactors, recentDev                          string
+		logoGCSURL, website, address, marketCap         string
+		percentageShorted                               float64
+		tags                                            []string
+		keyPeopleJSON, keyMetricsJSON                   []byte
 	)
 
 	if err := row.Scan(

@@ -41,7 +41,7 @@ func (s *ShortsServer) GetStockGraph(ctx context.Context, req *connect.Request[s
 			return nil, err
 		}
 		return &shortsv1alpha1.GetStockGraphResponse{
-			People:          convertGraphPeople(result.People),
+			People:           convertGraphPeople(result.People),
 			SimilarCompanies: convertGraphPeers(result.SimilarCompanies),
 		}, nil
 	})
