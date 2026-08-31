@@ -14,6 +14,10 @@ on:
         description: "Dry run (report only, no changes)"
         type: boolean
         default: false
+      secrets_only:
+        description: "Run only Secret Manager cleanup; skip scaling and artifact cleanup"
+        type: boolean
+        default: false
       destroy_old_secret_versions:
         description: >-
           Also DESTROY disabled, unreferenced secret versions older than 90 days.
@@ -31,6 +35,7 @@ env:
 
 jobs:
   enforce-scaling:
+    if: ${{ github.event_name == 'schedule' || inputs.secrets_only != true }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -96,6 +101,7 @@ jobs:
           fi
 
   cleanup-artifact-registry:
+    if: ${{ github.event_name == 'schedule' || inputs.secrets_only != true }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
