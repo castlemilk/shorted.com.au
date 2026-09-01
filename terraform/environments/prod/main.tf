@@ -340,6 +340,61 @@ module "shorted_job_announcements" {
   ]
 }
 
+# `shorted market-data index-sync` — benchmark index levels (issue #556).
+#
+# Daily rather than monthly: the series is what a strategy's return is measured
+# against, and a benchmark that lags the short panel makes every comparison
+# against it wrong by however far it has drifted. It is also cheap — four
+# symbols, a few seconds — so there is no reason to run it less often than the
+# data it will be compared with.
+#
+# Scheduled after the ASIC sync and the price ingest so a day's short panel,
+# prices and benchmark all land together.
+module "shorted_job_index_sync" {
+  source = "../../modules/shorted-job"
+
+  name             = "shorted-index-sync"
+  description      = "Daily benchmark index levels (XJO, XKO, XAO, XJT) into index_prices"
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1"
+  environment      = "production"
+  image_url        = var.shorted_jobs_image
+
+  # A 2-year window on every run. The upsert is idempotent, so re-fetching
+  # settled history costs nothing and repairs any gap a failed run left behind
+  # — cheaper and more reliable than tracking a high-water mark for four series.
+  args = [
+    "market-data",
+    "index-sync",
+    "-years", "2",
+  ]
+
+  schedule = "30 11 * * *" # 11:30 AM UTC, just after the announcements crawl
+
+  env = {
+    ENVIRONMENT                 = "production"
+    OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
+    OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
+  }
+
+  secret_env = {
+    DATABASE_URL               = "DATABASE_URL"
+    OTEL_EXPORTER_OTLP_HEADERS = "OTEL_EXPORTER_OTLP_HEADERS"
+  }
+
+  # Four HTTP fetches and a few thousand upserts. The generous ceiling is for a
+  # slow upstream, not a long job.
+  timeout_seconds = 900
+  cpu             = "1"
+  memory          = "512Mi"
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
 # `shorted economy -mode all` — replaces module.economy_collector.
 module "shorted_job_economy" {
   source = "../../modules/shorted-job"
