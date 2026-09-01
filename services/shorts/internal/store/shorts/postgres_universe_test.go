@@ -151,3 +151,75 @@ func TestGetMarketByDateOrdinaryOnly(t *testing.T) {
 		}
 	})
 }
+
+// A filter that is accepted and then not reflected in the count is worse than
+// one that errors: the response looks filtered, so a contaminated universe
+// reaches a cross-section with nothing at the call site to reveal it.
+//
+// Reported as #565. The classifier is Go, so SQL cannot filter — but the query
+// still carried LIMIT/OFFSET and the COUNT was unfiltered, so totalCount
+// described the whole universe (731) while the rows beside it were the filtered
+// one (689), and a page was sliced before filtering rather than after.
+func TestOrdinaryOnlyIsReflectedInTheCountAndThePage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	dbURL := getTestDatabaseURL()
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+	pool := createTestPool(t, dbURL)
+	defer pool.Close()
+	store := &postgresStore{db: pool}
+
+	var date string
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT MAX("DATE")::date::text FROM shorts`).Scan(&date))
+
+	all, allTotal, err := store.GetMarketByDate(date, 5000, 0, true, false)
+	require.NoError(t, err)
+	filtered, filteredTotal, err := store.GetMarketByDate(date, 5000, 0, true, true)
+	require.NoError(t, err)
+
+	t.Run("the count matches the rows it is returned with", func(t *testing.T) {
+		require.Equal(t, len(all), allTotal, "unfiltered count must match unfiltered rows")
+		require.Equal(t, len(filtered), filteredTotal,
+			"filtered count must match filtered rows — a count describing a different set is the bug")
+	})
+
+	t.Run("the filtered count is smaller when there is anything to filter", func(t *testing.T) {
+		nonOrdinary := 0
+		for _, s := range all {
+			if s.SecurityType != "ordinary" {
+				nonOrdinary++
+			}
+		}
+		if nonOrdinary == 0 {
+			t.Skip("this dataset holds only ordinary lines; nothing to filter")
+		}
+		require.Equal(t, allTotal-nonOrdinary, filteredTotal,
+			"every non-ordinary instrument must come out of the count")
+	})
+
+	t.Run("a page is sliced after filtering, not before", func(t *testing.T) {
+		const page = 10
+		if filteredTotal < page*2 {
+			t.Skip("not enough filtered rows to page")
+		}
+		first, total, err := store.GetMarketByDate(date, page, 0, true, true)
+		require.NoError(t, err)
+		require.Len(t, first, page, "a full page must come back full, not short from post-filtering")
+		require.Equal(t, filteredTotal, total, "the total must not change with the page size")
+
+		second, _, err := store.GetMarketByDate(date, page, page, true, true)
+		require.NoError(t, err)
+		require.NotEmpty(t, second)
+
+		// Offsets must not overlap or skip.
+		require.Equal(t, filtered[page].ProductCode, second[0].ProductCode,
+			"the second page must continue exactly where the first ended")
+		for _, s := range append(first, second...) {
+			require.Equal(t, "ordinary", s.SecurityType, "%s leaked through the filter", s.ProductCode)
+		}
+	})
+}

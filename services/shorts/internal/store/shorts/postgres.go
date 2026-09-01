@@ -1390,10 +1390,28 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			) w
 		) px ON TRUE
 		WHERE s."DATE" >= $1 AND s."DATE" <= $2` + aliasedShortFilter + `
-		ORDER BY s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
-		LIMIT $3 OFFSET $4`
+		ORDER BY s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC`
 
-	rows, err := s.db.Query(ctx, query, dateStart, dateEnd, limit, offset)
+	// Pagination moves into Go when ordinaryOnly is set.
+	//
+	// The instrument classifier is Go — deliberately, so migration 000043's
+	// rules have one counterpart rather than a second SQL copy to keep in step
+	// — which means SQL cannot filter. Leaving LIMIT/OFFSET in the query then
+	// slices the UNFILTERED set and filters the slice, so a page comes back
+	// short, offsets skip rows, and the count describes a different set from
+	// the rows beside it. Reported as #565: totalCount 731 next to 689 returned
+	// rows, with nothing to tell a caller which one was the universe.
+	//
+	// A date's universe is ~740 rows, so reading it whole and paginating after
+	// the filter costs almost nothing and makes the count and the page describe
+	// the same set.
+	queryArgs := []interface{}{dateStart, dateEnd}
+	if !ordinaryOnly {
+		query += ` LIMIT $3 OFFSET $4`
+		queryArgs = append(queryArgs, limit, offset)
+	}
+
+	rows, err := s.db.Query(ctx, query, queryArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query market by date %s: %w", date, err)
 	}
@@ -1428,6 +1446,20 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			continue
 		}
 		stocks = append(stocks, stock)
+	}
+
+	if ordinaryOnly {
+		// The count must describe what the caller can actually page through.
+		totalCount = len(stocks)
+		start := int(offset)
+		if start > len(stocks) {
+			start = len(stocks)
+		}
+		end := len(stocks)
+		if limit > 0 && start+int(limit) < end {
+			end = start + int(limit)
+		}
+		stocks = stocks[start:end]
 	}
 
 	return stocks, totalCount, nil
