@@ -1,6 +1,7 @@
 package marketdata
 
 import (
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -116,5 +117,58 @@ func TestIndexChartURLRequestsAnExplicitDailyWindow(t *testing.T) {
 	}
 	if !strings.Contains(got, "%5EAXJO") {
 		t.Errorf("the ^ in the symbol must be escaped, got %q", got)
+	}
+}
+
+// Every market-data subcommand must build its pool through buildDBPoolConfig,
+// which sets QueryExecModeSimpleProtocol.
+//
+// That is not a style preference. Supabase's TRANSACTION pooler hands each
+// statement to whichever backend is free, so pgx's prepared-statement cache
+// falls out of step with the server almost immediately. index-sync originally
+// called pgxpool.New directly and failed in production in exactly that shape:
+// XAO wrote 506 sessions, then XJO's first upsert returned "prepared statement
+// ... does not exist" (SQLSTATE 26000) and the retry returned "already exists"
+// (SQLSTATE 42P05).
+//
+// The partial success is what makes it worth a test. A job that fails outright
+// gets diagnosed; one that writes a series and then dies looks like a data
+// problem with the second series, and the real cause — a connection posture
+// that was wrong from the first line — is nowhere in the error.
+//
+// Source-level because the failure needs a real transaction pooler to
+// reproduce, and neither a unit test nor a local Postgres has one.
+func TestSubcommandsDoNotBypassThePoolBuilder(t *testing.T) {
+	t.Parallel()
+
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("read package dir: %v", err)
+	}
+
+	var offenders []string
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		// pgxpool.New(...) takes a URL and applies no exec mode.
+		// pgxpool.NewWithConfig(...) takes a config we control, so it is fine.
+		body := string(src)
+		for _, line := range strings.Split(body, "\n") {
+			if strings.Contains(line, "pgxpool.New(") {
+				offenders = append(offenders, name+": "+strings.TrimSpace(line))
+			}
+		}
+	}
+
+	if len(offenders) > 0 {
+		t.Errorf("these build a pool without QueryExecModeSimpleProtocol, which breaks "+
+			"against Supabase's transaction pooler — use buildDBPoolConfig + "+
+			"pgxpool.NewWithConfig:\n  %s", strings.Join(offenders, "\n  "))
 	}
 }

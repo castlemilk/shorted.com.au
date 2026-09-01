@@ -173,7 +173,26 @@ func runIndexSync(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	// buildDBPoolConfig, not pgxpool.New: it sets
+	// QueryExecModeSimpleProtocol, which is not optional against Supabase's
+	// TRANSACTION pooler. The pooler hands a statement to whichever backend is
+	// free, so pgx's prepared-statement cache goes out of step with the server
+	// almost immediately.
+	//
+	// Written without it, this job failed in production in exactly that shape:
+	// XAO wrote 506 sessions, then XJO's first upsert returned
+	//
+	//   prepared statement "stmtcache_549a4a..." does not exist (SQLSTATE 26000)
+	//
+	// and the retry returned "already exists" (SQLSTATE 42P05) — the cache and
+	// the backend disagreeing in both directions. Partial success first is what
+	// makes it nasty: the failure looks like bad data on one series rather than
+	// a connection posture that was wrong from the start.
+	poolConfig, err := buildDBPoolConfig(cfg)
+	if err != nil {
+		return fmt.Errorf("pool config: %w", err)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
