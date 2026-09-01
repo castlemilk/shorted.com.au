@@ -11,16 +11,34 @@ public interface GetIndexSeriesResponseOrBuilder extends
     com.google.protobuf.MessageOrBuilder {
 
   /**
+   * <pre>
+   * The series definition, including its FULL available coverage in
+   * earliest_date/latest_date — not the window served here. Read those against
+   * covered_from/covered_to to see whether the request was met.
+   * </pre>
+   *
    * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
    * @return Whether the index field is set.
    */
   boolean hasIndex();
   /**
+   * <pre>
+   * The series definition, including its FULL available coverage in
+   * earliest_date/latest_date — not the window served here. Read those against
+   * covered_from/covered_to to see whether the request was met.
+   * </pre>
+   *
    * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
    * @return The index.
    */
   com.shorts.v1alpha1.IndexDefinition getIndex();
   /**
+   * <pre>
+   * The series definition, including its FULL available coverage in
+   * earliest_date/latest_date — not the window served here. Read those against
+   * covered_from/covered_to to see whether the request was met.
+   * </pre>
+   *
    * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
    */
   com.shorts.v1alpha1.IndexDefinitionOrBuilder getIndexOrBuilder();
@@ -84,4 +102,97 @@ public interface GetIndexSeriesResponseOrBuilder extends
    * @return The downsampled.
    */
   boolean getDownsampled();
+
+  /**
+   * <pre>
+   * What the request asked for, and what the data could actually answer.
+   *
+   * Asking for period "10Y" against a series holding two years used to return
+   * the two years and say nothing, so a caller reasonably believed they had ten
+   * — and a risk-adjusted number computed over the wrong span is wrong in a way
+   * nothing in the response reveals. Coverage differs sharply between series
+   * and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
+   * total-return series, and the one worth benchmarking against — begins
+   * 2019-04-29 because that is where it begins upstream. No backfill can move
+   * that date.
+   * </pre>
+   *
+   * <code>string requested_from = 5 [json_name = "requestedFrom"];</code>
+   * @return The requestedFrom.
+   */
+  java.lang.String getRequestedFrom();
+  /**
+   * <pre>
+   * What the request asked for, and what the data could actually answer.
+   *
+   * Asking for period "10Y" against a series holding two years used to return
+   * the two years and say nothing, so a caller reasonably believed they had ten
+   * — and a risk-adjusted number computed over the wrong span is wrong in a way
+   * nothing in the response reveals. Coverage differs sharply between series
+   * and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
+   * total-return series, and the one worth benchmarking against — begins
+   * 2019-04-29 because that is where it begins upstream. No backfill can move
+   * that date.
+   * </pre>
+   *
+   * <code>string requested_from = 5 [json_name = "requestedFrom"];</code>
+   * @return The bytes for requestedFrom.
+   */
+  com.google.protobuf.ByteString
+      getRequestedFromBytes();
+
+  /**
+   * <code>string requested_to = 6 [json_name = "requestedTo"];</code>
+   * @return The requestedTo.
+   */
+  java.lang.String getRequestedTo();
+  /**
+   * <code>string requested_to = 6 [json_name = "requestedTo"];</code>
+   * @return The bytes for requestedTo.
+   */
+  com.google.protobuf.ByteString
+      getRequestedToBytes();
+
+  /**
+   * <pre>
+   * YYYY-MM-DD of the first session actually served.
+   * </pre>
+   *
+   * <code>string covered_from = 7 [json_name = "coveredFrom"];</code>
+   * @return The coveredFrom.
+   */
+  java.lang.String getCoveredFrom();
+  /**
+   * <pre>
+   * YYYY-MM-DD of the first session actually served.
+   * </pre>
+   *
+   * <code>string covered_from = 7 [json_name = "coveredFrom"];</code>
+   * @return The bytes for coveredFrom.
+   */
+  com.google.protobuf.ByteString
+      getCoveredFromBytes();
+
+  /**
+   * <code>string covered_to = 8 [json_name = "coveredTo"];</code>
+   * @return The coveredTo.
+   */
+  java.lang.String getCoveredTo();
+  /**
+   * <code>string covered_to = 8 [json_name = "coveredTo"];</code>
+   * @return The bytes for coveredTo.
+   */
+  com.google.protobuf.ByteString
+      getCoveredToBytes();
+
+  /**
+   * <pre>
+   * True when the series does not span the whole requested window. The dates
+   * above say by how much and at which end.
+   * </pre>
+   *
+   * <code>bool truncated = 9 [json_name = "truncated"];</code>
+   * @return The truncated.
+   */
+  boolean getTruncated();
 }

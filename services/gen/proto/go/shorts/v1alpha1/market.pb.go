@@ -1696,13 +1696,33 @@ func (x *GetIndexSeriesRequest) GetMaxPoints() int32 {
 }
 
 type GetIndexSeriesResponse struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	Index             *IndexDefinition       `protobuf:"bytes,1,opt,name=index,proto3" json:"index,omitempty"`
-	Points            []*IndexPoint          `protobuf:"bytes,2,rep,name=points,proto3" json:"points,omitempty"`                                                 // Oldest first.
-	TotalObservations int32                  `protobuf:"varint,3,opt,name=total_observations,json=totalObservations,proto3" json:"total_observations,omitempty"` // Sessions in the window before thinning.
-	Downsampled       bool                   `protobuf:"varint,4,opt,name=downsampled,proto3" json:"downsampled,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The series definition, including its FULL available coverage in
+	// earliest_date/latest_date — not the window served here. Read those against
+	// covered_from/covered_to to see whether the request was met.
+	Index             *IndexDefinition `protobuf:"bytes,1,opt,name=index,proto3" json:"index,omitempty"`
+	Points            []*IndexPoint    `protobuf:"bytes,2,rep,name=points,proto3" json:"points,omitempty"`                                                 // Oldest first.
+	TotalObservations int32            `protobuf:"varint,3,opt,name=total_observations,json=totalObservations,proto3" json:"total_observations,omitempty"` // Sessions in the window before thinning.
+	Downsampled       bool             `protobuf:"varint,4,opt,name=downsampled,proto3" json:"downsampled,omitempty"`
+	// What the request asked for, and what the data could actually answer.
+	//
+	// Asking for period "10Y" against a series holding two years used to return
+	// the two years and say nothing, so a caller reasonably believed they had ten
+	// — and a risk-adjusted number computed over the wrong span is wrong in a way
+	// nothing in the response reveals. Coverage differs sharply between series
+	// and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
+	// total-return series, and the one worth benchmarking against — begins
+	// 2019-04-29 because that is where it begins upstream. No backfill can move
+	// that date.
+	RequestedFrom string `protobuf:"bytes,5,opt,name=requested_from,json=requestedFrom,proto3" json:"requested_from,omitempty"` // YYYY-MM-DD, resolved from period or from/to.
+	RequestedTo   string `protobuf:"bytes,6,opt,name=requested_to,json=requestedTo,proto3" json:"requested_to,omitempty"`
+	CoveredFrom   string `protobuf:"bytes,7,opt,name=covered_from,json=coveredFrom,proto3" json:"covered_from,omitempty"` // YYYY-MM-DD of the first session actually served.
+	CoveredTo     string `protobuf:"bytes,8,opt,name=covered_to,json=coveredTo,proto3" json:"covered_to,omitempty"`
+	// True when the series does not span the whole requested window. The dates
+	// above say by how much and at which end.
+	Truncated     bool `protobuf:"varint,9,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetIndexSeriesResponse) Reset() {
@@ -1759,6 +1779,41 @@ func (x *GetIndexSeriesResponse) GetTotalObservations() int32 {
 func (x *GetIndexSeriesResponse) GetDownsampled() bool {
 	if x != nil {
 		return x.Downsampled
+	}
+	return false
+}
+
+func (x *GetIndexSeriesResponse) GetRequestedFrom() string {
+	if x != nil {
+		return x.RequestedFrom
+	}
+	return ""
+}
+
+func (x *GetIndexSeriesResponse) GetRequestedTo() string {
+	if x != nil {
+		return x.RequestedTo
+	}
+	return ""
+}
+
+func (x *GetIndexSeriesResponse) GetCoveredFrom() string {
+	if x != nil {
+		return x.CoveredFrom
+	}
+	return ""
+}
+
+func (x *GetIndexSeriesResponse) GetCoveredTo() string {
+	if x != nil {
+		return x.CoveredTo
+	}
+	return ""
+}
+
+func (x *GetIndexSeriesResponse) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
 	}
 	return false
 }
@@ -1988,12 +2043,18 @@ const file_shorts_v1alpha1_market_proto_rawDesc = "" +
 	"\x04from\x18\x03 \x01(\tR\x04from\x12\x0e\n" +
 	"\x02to\x18\x04 \x01(\tR\x02to\x12\x1d\n" +
 	"\n" +
-	"max_points\x18\x05 \x01(\x05R\tmaxPoints\"\xd6\x01\n" +
+	"max_points\x18\x05 \x01(\x05R\tmaxPoints\"\x80\x03\n" +
 	"\x16GetIndexSeriesResponse\x126\n" +
 	"\x05index\x18\x01 \x01(\v2 .shorts.v1alpha1.IndexDefinitionR\x05index\x123\n" +
 	"\x06points\x18\x02 \x03(\v2\x1b.shorts.v1alpha1.IndexPointR\x06points\x12-\n" +
 	"\x12total_observations\x18\x03 \x01(\x05R\x11totalObservations\x12 \n" +
-	"\vdownsampled\x18\x04 \x01(\bR\vdownsampled\"\x88\x01\n" +
+	"\vdownsampled\x18\x04 \x01(\bR\vdownsampled\x12%\n" +
+	"\x0erequested_from\x18\x05 \x01(\tR\rrequestedFrom\x12!\n" +
+	"\frequested_to\x18\x06 \x01(\tR\vrequestedTo\x12!\n" +
+	"\fcovered_from\x18\a \x01(\tR\vcoveredFrom\x12\x1d\n" +
+	"\n" +
+	"covered_to\x18\b \x01(\tR\tcoveredTo\x12\x1c\n" +
+	"\ttruncated\x18\t \x01(\bR\ttruncated\"\x88\x01\n" +
 	"\n" +
 	"IndexPoint\x12\x12\n" +
 	"\x04date\x18\x01 \x01(\tR\x04date\x12\x12\n" +
