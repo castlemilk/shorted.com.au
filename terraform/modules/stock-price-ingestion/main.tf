@@ -106,7 +106,30 @@ resource "google_cloud_run_v2_service" "stock_price_ingestion" {
         initial_delay_seconds = 10
         period_seconds        = 10
         timeout_seconds       = 5
-        failure_threshold     = 3
+
+        # 6, not 3. This container is Python and takes 25-28 seconds to bind
+        # 8080 — measured from its own logs across successive revisions:
+        #
+        #   00455  bound at 27.8s, probe succeeded on attempt 1
+        #   00454  bound at 25.3s, probe succeeded on attempt 2
+        #   00456  never bound,    probe failed 3x, ERROR_CONNECTION_FAILED
+        #
+        # At threshold 3 the last probe fires around t=30s, so a container
+        # needing 25-28s has two to five seconds of margin. That is why 00456
+        # failed on the SAME image digest (sha256:607271ba) that 00455 had
+        # started from two hours earlier: nothing was broken, the budget was
+        # simply too close to the startup time. One revision in the last twenty
+        # failed this way, and the whole terraform apply goes red when it does —
+        # so a green deploy pipeline depended on a coin flip weighted 19:1.
+        #
+        # Raising the threshold rather than initial_delay_seconds keeps the fast
+        # path fast: the first probe still fires at t=10, so a healthy start is
+        # detected just as quickly. It only extends how long Cloud Run is willing
+        # to wait, to ~70s, about 2.5x the observed startup.
+        #
+        # This costs nothing in steady state. A startup probe runs only while an
+        # instance is starting.
+        failure_threshold = 6
       }
 
       liveness_probe {
