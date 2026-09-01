@@ -201,6 +201,46 @@ origin-protection ceiling, while the zone WAF, SBFM (`sbfm_verified_bots =
 "allow"`) and DDoS layers still apply. Losing indexation is the worse failure.
 Set `edge_rate_limit_trust_crawler_ua = false` to require real verification.
 
+### Forwarding the caller's address to the origin (do not "clean this up")
+
+The origin cannot meter a caller it cannot see, and this worker is what decides
+whether it can. Two functions carry that responsibility, and both look like
+header hygiene:
+
+- **`filterRequestHeaders`** strips `cf-connecting-ip` and `x-forwarded-for`
+  **first**, then re-adds Cloudflare's own `cf-connecting-ip`. The ordering is
+  the security property: an inbound `x-forwarded-for` is attacker-controlled and
+  must never survive, or a caller picks their own rate-limit bucket by sending a
+  header. What we forward is Cloudflare's value, which Cloudflare overwrites on
+  the inbound request and a client cannot spoof through it. A **single** address
+  is forwarded, never a chain — the origin takes the rightmost hop, and appending
+  to a client-supplied list hands back the control the strip just removed.
+
+- **`buildPublicEdgeReadHeaders`** (`/edge/v1/*`) does not proxy the caller's
+  request at all; it builds a **new** one, so it has to copy the address forward
+  explicitly. It also copies the user-agent — which carries the `shorted-web-ssr`
+  marker — so it must copy the bypass secret with it. A marker without its proof
+  *is* `first-party-unverified`: our own traffic, recognised as ours, and metered
+  for want of one header.
+
+  Minimal headers here are deliberate: that response is **cached and served to
+  other people**, so cookies and `Authorization` must not ride along. "Just
+  forward everything" is the obvious wrong fix and there are tests against it.
+
+Neither is optional, and neither is sufficient. The origin half is
+`resolveClientIP` in `services/pkg/ratelimit/http.go`, which believes these
+headers **only** when the rightmost forwarded hop is a published Cloudflare
+address — because Cloud Run is publicly reachable and a direct caller could
+otherwise forge them.
+
+**Measured on 2026-08-30/31**, the first days app-layer limiting ran: with any
+one of the three layers missing, every identifier written to `api_usage_monthly`
+was a Cloudflare address, so every caller behind a colo shared one bucket
+(30/min for a whole colo at the anonymous tier). Two consecutive fixes deployed
+cleanly and changed nothing, because each was blocked by a different layer.
+
+Full picture and the debugging runbook: `docs/rate-limiting.md`.
+
 ### First-party identity (what unblocked enablement)
 
 `next.config.mjs` rewrites the Connect-RPC paths to `api.shorted.com.au` on

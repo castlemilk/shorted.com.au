@@ -745,6 +745,24 @@ Next.js contributes only the consent screen.
   env var costs a meter, never a 429 on our own site. That asymmetry
   is deliberate; the edge learned it the expensive way (7,045 self-inflicted
   429s when CI's prerender could not read the sensitive var).
+- **Resolving WHO a caller is takes THREE layers, and any one alone does
+  nothing.** `buildPublicEdgeReadHeaders` (synthesized `/edge/v1/*` requests must
+  copy the address AND the bypass secret forward — a marker without its proof is
+  `first-party-unverified`), `filterRequestHeaders` (strip client-supplied hops
+  first, then re-add Cloudflare's own `cf-connecting-ip`), and `resolveClientIP`
+  (believe those headers only when the rightmost forwarded hop is a published
+  Cloudflare address, because Cloud Run is publicly reachable). Symptom when it
+  breaks: every identifier in `api_usage_monthly` is a Cloudflare address and
+  callers behind a colo share one bucket. Measured 2026-08-30/31 — **two
+  consecutive fixes deployed cleanly and changed nothing**, each blocked by a
+  different layer. A deploy succeeding proves nothing here: snapshot
+  `api_usage_monthly`, wait a flush cycle, diff, and classify what grew.
+- **Ordinary browsing carries NO auth token** (no auth interceptor on
+  `client-api.ts`'s transport), so page views land in `first-party`, not on a
+  user identity. The published free browser cap is therefore **not reachable by
+  browsing** — only authenticated feature calls touch it. Corollary: a reader
+  cannot be rejected by the app layer at all, so browser 429s are the edge or the
+  zone rule.
 - **The `/oauth/` routes render WITHOUT the site header and footer**, and the
   success screen's `min-h-screen` depends on that. Chrome is dropped in
   `conditional-header.tsx` / `conditional-footer.tsx` (the same mechanism embed
@@ -1127,6 +1145,13 @@ telesis.dev-scoped token so this cross-dependency on shorted's account-wide key 
 | Upstash   | Rate limiting (Redis) | Environment variables              |
 
 ## Rate Limiting
+
+**Operator/engineer reference: `docs/rate-limiting.md`** — caller classes and
+what each is entitled to, the three-layer identity chain, the response contract,
+and a debugging runbook (is it on? which class am I in? who is actually being
+metered? is the quota store healthy? edge 429 or app 429?). What follows here is
+the shape and the landmines; the numbers live in
+`services/pkg/ratelimit/config.go`.
 
 Rate limiting is **split across three failure domains on purpose**:
 
