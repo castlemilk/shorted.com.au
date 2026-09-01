@@ -248,51 +248,55 @@ public final class MarketProto extends com.google.protobuf.GeneratedFile {
       "\035\n\nindex_code\030\001 \001(\tR\tindexCode\022\026\n\006period" +
       "\030\002 \001(\tR\006period\022\022\n\004from\030\003 \001(\tR\004from\022\016\n\002to" +
       "\030\004 \001(\tR\002to\022\035\n\nmax_points\030\005 \001(\005R\tmaxPoint" +
-      "s\"\326\001\n\026GetIndexSeriesResponse\0226\n\005index\030\001 " +
+      "s\"\200\003\n\026GetIndexSeriesResponse\0226\n\005index\030\001 " +
       "\001(\0132 .shorts.v1alpha1.IndexDefinitionR\005i" +
       "ndex\0223\n\006points\030\002 \003(\0132\033.shorts.v1alpha1.I" +
       "ndexPointR\006points\022-\n\022total_observations\030" +
       "\003 \001(\005R\021totalObservations\022 \n\013downsampled\030" +
-      "\004 \001(\010R\013downsampled\"\210\001\n\nIndexPoint\022\022\n\004dat" +
-      "e\030\001 \001(\tR\004date\022\022\n\004open\030\002 \001(\001R\004open\022\022\n\004hig" +
-      "h\030\003 \001(\001R\004high\022\020\n\003low\030\004 \001(\001R\003low\022\024\n\005close" +
-      "\030\005 \001(\001R\005close\022\026\n\006volume\030\006 \001(\003R\006volume*5\n" +
-      "\010ViewMode\022\022\n\016CURRENT_CHANGE\020\000\022\025\n\021PERCENT" +
-      "AGE_CHANGE\020\001*v\n\020BattlegroundView\022!\n\035BATT" +
-      "LEGROUND_VIEW_UNSPECIFIED\020\000\022\035\n\031BATTLEGRO" +
-      "UND_VIEW_SQUEEZE\020\001\022 \n\034BATTLEGROUND_VIEW_" +
-      "DIVERGENCE\020\0022\376\007\n\rMarketService\022a\n\014GetTop" +
-      "Shorts\022$.shorts.v1alpha1.GetTopShortsReq" +
-      "uest\032%.shorts.v1alpha1.GetTopShortsRespo" +
-      "nse\"\004\200\265\030\001\022h\n\022GetIndustryTreeMap\022*.shorts" +
-      ".v1alpha1.GetIndustryTreeMapRequest\032 .st" +
-      "ocks.v1alpha1.IndustryTreeMap\"\004\200\265\030\001\022j\n\017G" +
-      "etMarketByDate\022\'.shorts.v1alpha1.GetMark" +
-      "etByDateRequest\032(.shorts.v1alpha1.GetMar" +
-      "ketByDateResponse\"\004\200\265\030\001\022p\n\021GetAvailableD" +
-      "ates\022).shorts.v1alpha1.GetAvailableDates" +
-      "Request\032*.shorts.v1alpha1.GetAvailableDa" +
-      "tesResponse\"\004\200\265\030\001\022g\n\016GetIndexSeries\022&.sh" +
-      "orts.v1alpha1.GetIndexSeriesRequest\032\'.sh" +
-      "orts.v1alpha1.GetIndexSeriesResponse\"\004\200\265" +
-      "\030\001\022^\n\013ListIndices\022#.shorts.v1alpha1.List" +
-      "IndicesRequest\032$.shorts.v1alpha1.ListInd" +
-      "icesResponse\"\004\200\265\030\001\022m\n\rGetSyncStatus\022%.sh" +
-      "orts.v1alpha1.GetSyncStatusRequest\032&.sho" +
-      "rts.v1alpha1.GetSyncStatusResponse\"\r\200\265\030\002" +
-      "\212\265\030\005admin\022|\n\025GetBattlegroundStocks\022-.sho" +
-      "rts.v1alpha1.GetBattlegroundStocksReques" +
-      "t\032..shorts.v1alpha1.GetBattlegroundStock" +
-      "sResponse\"\004\200\265\030\001\022\213\001\n\032GetShortCampaignScor" +
-      "eboard\0222.shorts.v1alpha1.GetShortCampaig" +
-      "nScoreboardRequest\0323.shorts.v1alpha1.Get" +
-      "ShortCampaignScoreboardResponse\"\004\200\265\030\001B\332\001" +
-      "\n\023com.shorts.v1alpha1B\013MarketProtoP\001ZYgi" +
-      "thub.com/castlemilk/shorted.com.au/servi" +
-      "ces/gen/proto/go/shorts/v1alpha1;shortsv" +
-      "1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts" +
-      "\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352" +
-      "\002\020Shorts::V1alpha1b\006proto3"
+      "\004 \001(\010R\013downsampled\022%\n\016requested_from\030\005 \001" +
+      "(\tR\rrequestedFrom\022!\n\014requested_to\030\006 \001(\tR" +
+      "\013requestedTo\022!\n\014covered_from\030\007 \001(\tR\013cove" +
+      "redFrom\022\035\n\ncovered_to\030\010 \001(\tR\tcoveredTo\022\034" +
+      "\n\ttruncated\030\t \001(\010R\ttruncated\"\210\001\n\nIndexPo" +
+      "int\022\022\n\004date\030\001 \001(\tR\004date\022\022\n\004open\030\002 \001(\001R\004o" +
+      "pen\022\022\n\004high\030\003 \001(\001R\004high\022\020\n\003low\030\004 \001(\001R\003lo" +
+      "w\022\024\n\005close\030\005 \001(\001R\005close\022\026\n\006volume\030\006 \001(\003R" +
+      "\006volume*5\n\010ViewMode\022\022\n\016CURRENT_CHANGE\020\000\022" +
+      "\025\n\021PERCENTAGE_CHANGE\020\001*v\n\020BattlegroundVi" +
+      "ew\022!\n\035BATTLEGROUND_VIEW_UNSPECIFIED\020\000\022\035\n" +
+      "\031BATTLEGROUND_VIEW_SQUEEZE\020\001\022 \n\034BATTLEGR" +
+      "OUND_VIEW_DIVERGENCE\020\0022\376\007\n\rMarketService" +
+      "\022a\n\014GetTopShorts\022$.shorts.v1alpha1.GetTo" +
+      "pShortsRequest\032%.shorts.v1alpha1.GetTopS" +
+      "hortsResponse\"\004\200\265\030\001\022h\n\022GetIndustryTreeMa" +
+      "p\022*.shorts.v1alpha1.GetIndustryTreeMapRe" +
+      "quest\032 .stocks.v1alpha1.IndustryTreeMap\"" +
+      "\004\200\265\030\001\022j\n\017GetMarketByDate\022\'.shorts.v1alph" +
+      "a1.GetMarketByDateRequest\032(.shorts.v1alp" +
+      "ha1.GetMarketByDateResponse\"\004\200\265\030\001\022p\n\021Get" +
+      "AvailableDates\022).shorts.v1alpha1.GetAvai" +
+      "lableDatesRequest\032*.shorts.v1alpha1.GetA" +
+      "vailableDatesResponse\"\004\200\265\030\001\022g\n\016GetIndexS" +
+      "eries\022&.shorts.v1alpha1.GetIndexSeriesRe" +
+      "quest\032\'.shorts.v1alpha1.GetIndexSeriesRe" +
+      "sponse\"\004\200\265\030\001\022^\n\013ListIndices\022#.shorts.v1a" +
+      "lpha1.ListIndicesRequest\032$.shorts.v1alph" +
+      "a1.ListIndicesResponse\"\004\200\265\030\001\022m\n\rGetSyncS" +
+      "tatus\022%.shorts.v1alpha1.GetSyncStatusReq" +
+      "uest\032&.shorts.v1alpha1.GetSyncStatusResp" +
+      "onse\"\r\200\265\030\002\212\265\030\005admin\022|\n\025GetBattlegroundSt" +
+      "ocks\022-.shorts.v1alpha1.GetBattlegroundSt" +
+      "ocksRequest\032..shorts.v1alpha1.GetBattleg" +
+      "roundStocksResponse\"\004\200\265\030\001\022\213\001\n\032GetShortCa" +
+      "mpaignScoreboard\0222.shorts.v1alpha1.GetSh" +
+      "ortCampaignScoreboardRequest\0323.shorts.v1" +
+      "alpha1.GetShortCampaignScoreboardRespons" +
+      "e\"\004\200\265\030\001B\332\001\n\023com.shorts.v1alpha1B\013MarketP" +
+      "rotoP\001ZYgithub.com/castlemilk/shorted.co" +
+      "m.au/services/gen/proto/go/shorts/v1alph" +
+      "a1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha" +
+      "1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GP" +
+      "BMetadata\352\002\020Shorts::V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -425,7 +429,7 @@ public final class MarketProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_GetIndexSeriesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetIndexSeriesResponse_descriptor,
-        new java.lang.String[] { "Index", "Points", "TotalObservations", "Downsampled", });
+        new java.lang.String[] { "Index", "Points", "TotalObservations", "Downsampled", "RequestedFrom", "RequestedTo", "CoveredFrom", "CoveredTo", "Truncated", });
     internal_static_shorts_v1alpha1_IndexPoint_descriptor =
       getDescriptor().getMessageType(21);
     internal_static_shorts_v1alpha1_IndexPoint_fieldAccessorTable = new

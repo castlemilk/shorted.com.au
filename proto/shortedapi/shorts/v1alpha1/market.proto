@@ -301,10 +301,32 @@ message GetIndexSeriesRequest {
 }
 
 message GetIndexSeriesResponse {
+  // The series definition, including its FULL available coverage in
+  // earliest_date/latest_date — not the window served here. Read those against
+  // covered_from/covered_to to see whether the request was met.
   IndexDefinition index = 1;
   repeated IndexPoint points = 2;   // Oldest first.
   int32 total_observations = 3;     // Sessions in the window before thinning.
   bool downsampled = 4;
+
+  // What the request asked for, and what the data could actually answer.
+  //
+  // Asking for period "10Y" against a series holding two years used to return
+  // the two years and say nothing, so a caller reasonably believed they had ten
+  // — and a risk-adjusted number computed over the wrong span is wrong in a way
+  // nothing in the response reveals. Coverage differs sharply between series
+  // and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
+  // total-return series, and the one worth benchmarking against — begins
+  // 2019-04-29 because that is where it begins upstream. No backfill can move
+  // that date.
+  string requested_from = 5;   // YYYY-MM-DD, resolved from period or from/to.
+  string requested_to = 6;
+  string covered_from = 7;     // YYYY-MM-DD of the first session actually served.
+  string covered_to = 8;
+
+  // True when the series does not span the whole requested window. The dates
+  // above say by how much and at which end.
+  bool truncated = 9;
 }
 
 // One session of an index.

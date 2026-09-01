@@ -29,6 +29,10 @@ private static final long serialVersionUID = 0L;
   }
   private GetIndexSeriesResponse() {
     points_ = java.util.Collections.emptyList();
+    requestedFrom_ = "";
+    requestedTo_ = "";
+    coveredFrom_ = "";
+    coveredTo_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -53,6 +57,12 @@ private static final long serialVersionUID = 0L;
   public static final int INDEX_FIELD_NUMBER = 1;
   private com.shorts.v1alpha1.IndexDefinition index_;
   /**
+   * <pre>
+   * The series definition, including its FULL available coverage in
+   * earliest_date/latest_date — not the window served here. Read those against
+   * covered_from/covered_to to see whether the request was met.
+   * </pre>
+   *
    * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
    * @return Whether the index field is set.
    */
@@ -61,6 +71,12 @@ private static final long serialVersionUID = 0L;
     return ((bitField0_ & 0x00000001) != 0);
   }
   /**
+   * <pre>
+   * The series definition, including its FULL available coverage in
+   * earliest_date/latest_date — not the window served here. Read those against
+   * covered_from/covered_to to see whether the request was met.
+   * </pre>
+   *
    * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
    * @return The index.
    */
@@ -69,6 +85,12 @@ private static final long serialVersionUID = 0L;
     return index_ == null ? com.shorts.v1alpha1.IndexDefinition.getDefaultInstance() : index_;
   }
   /**
+   * <pre>
+   * The series definition, including its FULL available coverage in
+   * earliest_date/latest_date — not the window served here. Read those against
+   * covered_from/covered_to to see whether the request was met.
+   * </pre>
+   *
    * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
    */
   @java.lang.Override
@@ -163,6 +185,212 @@ private static final long serialVersionUID = 0L;
     return downsampled_;
   }
 
+  public static final int REQUESTED_FROM_FIELD_NUMBER = 5;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object requestedFrom_ = "";
+  /**
+   * <pre>
+   * What the request asked for, and what the data could actually answer.
+   *
+   * Asking for period "10Y" against a series holding two years used to return
+   * the two years and say nothing, so a caller reasonably believed they had ten
+   * — and a risk-adjusted number computed over the wrong span is wrong in a way
+   * nothing in the response reveals. Coverage differs sharply between series
+   * and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
+   * total-return series, and the one worth benchmarking against — begins
+   * 2019-04-29 because that is where it begins upstream. No backfill can move
+   * that date.
+   * </pre>
+   *
+   * <code>string requested_from = 5 [json_name = "requestedFrom"];</code>
+   * @return The requestedFrom.
+   */
+  @java.lang.Override
+  public java.lang.String getRequestedFrom() {
+    java.lang.Object ref = requestedFrom_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      requestedFrom_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * What the request asked for, and what the data could actually answer.
+   *
+   * Asking for period "10Y" against a series holding two years used to return
+   * the two years and say nothing, so a caller reasonably believed they had ten
+   * — and a risk-adjusted number computed over the wrong span is wrong in a way
+   * nothing in the response reveals. Coverage differs sharply between series
+   * and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
+   * total-return series, and the one worth benchmarking against — begins
+   * 2019-04-29 because that is where it begins upstream. No backfill can move
+   * that date.
+   * </pre>
+   *
+   * <code>string requested_from = 5 [json_name = "requestedFrom"];</code>
+   * @return The bytes for requestedFrom.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRequestedFromBytes() {
+    java.lang.Object ref = requestedFrom_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      requestedFrom_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int REQUESTED_TO_FIELD_NUMBER = 6;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object requestedTo_ = "";
+  /**
+   * <code>string requested_to = 6 [json_name = "requestedTo"];</code>
+   * @return The requestedTo.
+   */
+  @java.lang.Override
+  public java.lang.String getRequestedTo() {
+    java.lang.Object ref = requestedTo_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      requestedTo_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string requested_to = 6 [json_name = "requestedTo"];</code>
+   * @return The bytes for requestedTo.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRequestedToBytes() {
+    java.lang.Object ref = requestedTo_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      requestedTo_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int COVERED_FROM_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object coveredFrom_ = "";
+  /**
+   * <pre>
+   * YYYY-MM-DD of the first session actually served.
+   * </pre>
+   *
+   * <code>string covered_from = 7 [json_name = "coveredFrom"];</code>
+   * @return The coveredFrom.
+   */
+  @java.lang.Override
+  public java.lang.String getCoveredFrom() {
+    java.lang.Object ref = coveredFrom_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      coveredFrom_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * YYYY-MM-DD of the first session actually served.
+   * </pre>
+   *
+   * <code>string covered_from = 7 [json_name = "coveredFrom"];</code>
+   * @return The bytes for coveredFrom.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getCoveredFromBytes() {
+    java.lang.Object ref = coveredFrom_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      coveredFrom_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int COVERED_TO_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object coveredTo_ = "";
+  /**
+   * <code>string covered_to = 8 [json_name = "coveredTo"];</code>
+   * @return The coveredTo.
+   */
+  @java.lang.Override
+  public java.lang.String getCoveredTo() {
+    java.lang.Object ref = coveredTo_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      coveredTo_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string covered_to = 8 [json_name = "coveredTo"];</code>
+   * @return The bytes for coveredTo.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getCoveredToBytes() {
+    java.lang.Object ref = coveredTo_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      coveredTo_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int TRUNCATED_FIELD_NUMBER = 9;
+  private boolean truncated_ = false;
+  /**
+   * <pre>
+   * True when the series does not span the whole requested window. The dates
+   * above say by how much and at which end.
+   * </pre>
+   *
+   * <code>bool truncated = 9 [json_name = "truncated"];</code>
+   * @return The truncated.
+   */
+  @java.lang.Override
+  public boolean getTruncated() {
+    return truncated_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -189,6 +417,21 @@ private static final long serialVersionUID = 0L;
     if (downsampled_ != false) {
       output.writeBool(4, downsampled_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(requestedFrom_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 5, requestedFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(requestedTo_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 6, requestedTo_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(coveredFrom_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, coveredFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(coveredTo_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 8, coveredTo_);
+    }
+    if (truncated_ != false) {
+      output.writeBool(9, truncated_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -213,6 +456,22 @@ private static final long serialVersionUID = 0L;
     if (downsampled_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(4, downsampled_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(requestedFrom_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(5, requestedFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(requestedTo_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(6, requestedTo_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(coveredFrom_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, coveredFrom_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(coveredTo_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(8, coveredTo_);
+    }
+    if (truncated_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(9, truncated_);
     }
     return size;
   }
@@ -249,6 +508,16 @@ private static final long serialVersionUID = 0L;
         != other.getTotalObservations()) return false;
     if (getDownsampled()
         != other.getDownsampled()) return false;
+    if (!getRequestedFrom()
+        .equals(other.getRequestedFrom())) return false;
+    if (!getRequestedTo()
+        .equals(other.getRequestedTo())) return false;
+    if (!getCoveredFrom()
+        .equals(other.getCoveredFrom())) return false;
+    if (!getCoveredTo()
+        .equals(other.getCoveredTo())) return false;
+    if (getTruncated()
+        != other.getTruncated()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -273,6 +542,17 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + DOWNSAMPLED_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getDownsampled());
+    hash = (37 * hash) + REQUESTED_FROM_FIELD_NUMBER;
+    hash = (53 * hash) + getRequestedFrom().hashCode();
+    hash = (37 * hash) + REQUESTED_TO_FIELD_NUMBER;
+    hash = (53 * hash) + getRequestedTo().hashCode();
+    hash = (37 * hash) + COVERED_FROM_FIELD_NUMBER;
+    hash = (53 * hash) + getCoveredFrom().hashCode();
+    hash = (37 * hash) + COVERED_TO_FIELD_NUMBER;
+    hash = (53 * hash) + getCoveredTo().hashCode();
+    hash = (37 * hash) + TRUNCATED_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getTruncated());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -425,6 +705,11 @@ private static final long serialVersionUID = 0L;
       bitField0_ = (bitField0_ & ~0x00000002);
       totalObservations_ = 0;
       downsampled_ = false;
+      requestedFrom_ = "";
+      requestedTo_ = "";
+      coveredFrom_ = "";
+      coveredTo_ = "";
+      truncated_ = false;
       return this;
     }
 
@@ -484,6 +769,21 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.downsampled_ = downsampled_;
       }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.requestedFrom_ = requestedFrom_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.requestedTo_ = requestedTo_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.coveredFrom_ = coveredFrom_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.coveredTo_ = coveredTo_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.truncated_ = truncated_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -533,6 +833,29 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getDownsampled() != false) {
         setDownsampled(other.getDownsampled());
+      }
+      if (!other.getRequestedFrom().isEmpty()) {
+        requestedFrom_ = other.requestedFrom_;
+        bitField0_ |= 0x00000010;
+        onChanged();
+      }
+      if (!other.getRequestedTo().isEmpty()) {
+        requestedTo_ = other.requestedTo_;
+        bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      if (!other.getCoveredFrom().isEmpty()) {
+        coveredFrom_ = other.coveredFrom_;
+        bitField0_ |= 0x00000040;
+        onChanged();
+      }
+      if (!other.getCoveredTo().isEmpty()) {
+        coveredTo_ = other.coveredTo_;
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      if (other.getTruncated() != false) {
+        setTruncated(other.getTruncated());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -590,6 +913,31 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 32
+            case 42: {
+              requestedFrom_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 42
+            case 50: {
+              requestedTo_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 50
+            case 58: {
+              coveredFrom_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
+            case 66: {
+              coveredTo_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
+            case 72: {
+              truncated_ = input.readBool();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 72
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -611,6 +959,12 @@ private static final long serialVersionUID = 0L;
     private com.google.protobuf.SingleFieldBuilder<
         com.shorts.v1alpha1.IndexDefinition, com.shorts.v1alpha1.IndexDefinition.Builder, com.shorts.v1alpha1.IndexDefinitionOrBuilder> indexBuilder_;
     /**
+     * <pre>
+     * The series definition, including its FULL available coverage in
+     * earliest_date/latest_date — not the window served here. Read those against
+     * covered_from/covered_to to see whether the request was met.
+     * </pre>
+     *
      * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
      * @return Whether the index field is set.
      */
@@ -618,6 +972,12 @@ private static final long serialVersionUID = 0L;
       return ((bitField0_ & 0x00000001) != 0);
     }
     /**
+     * <pre>
+     * The series definition, including its FULL available coverage in
+     * earliest_date/latest_date — not the window served here. Read those against
+     * covered_from/covered_to to see whether the request was met.
+     * </pre>
+     *
      * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
      * @return The index.
      */
@@ -629,6 +989,12 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * The series definition, including its FULL available coverage in
+     * earliest_date/latest_date — not the window served here. Read those against
+     * covered_from/covered_to to see whether the request was met.
+     * </pre>
+     *
      * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
      */
     public Builder setIndex(com.shorts.v1alpha1.IndexDefinition value) {
@@ -645,6 +1011,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The series definition, including its FULL available coverage in
+     * earliest_date/latest_date — not the window served here. Read those against
+     * covered_from/covered_to to see whether the request was met.
+     * </pre>
+     *
      * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
      */
     public Builder setIndex(
@@ -659,6 +1031,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The series definition, including its FULL available coverage in
+     * earliest_date/latest_date — not the window served here. Read those against
+     * covered_from/covered_to to see whether the request was met.
+     * </pre>
+     *
      * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
      */
     public Builder mergeIndex(com.shorts.v1alpha1.IndexDefinition value) {
@@ -680,6 +1058,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The series definition, including its FULL available coverage in
+     * earliest_date/latest_date — not the window served here. Read those against
+     * covered_from/covered_to to see whether the request was met.
+     * </pre>
+     *
      * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
      */
     public Builder clearIndex() {
@@ -693,6 +1077,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The series definition, including its FULL available coverage in
+     * earliest_date/latest_date — not the window served here. Read those against
+     * covered_from/covered_to to see whether the request was met.
+     * </pre>
+     *
      * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
      */
     public com.shorts.v1alpha1.IndexDefinition.Builder getIndexBuilder() {
@@ -701,6 +1091,12 @@ private static final long serialVersionUID = 0L;
       return internalGetIndexFieldBuilder().getBuilder();
     }
     /**
+     * <pre>
+     * The series definition, including its FULL available coverage in
+     * earliest_date/latest_date — not the window served here. Read those against
+     * covered_from/covered_to to see whether the request was met.
+     * </pre>
+     *
      * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
      */
     public com.shorts.v1alpha1.IndexDefinitionOrBuilder getIndexOrBuilder() {
@@ -712,6 +1108,12 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * The series definition, including its FULL available coverage in
+     * earliest_date/latest_date — not the window served here. Read those against
+     * covered_from/covered_to to see whether the request was met.
+     * </pre>
+     *
      * <code>.shorts.v1alpha1.IndexDefinition index = 1 [json_name = "index"];</code>
      */
     private com.google.protobuf.SingleFieldBuilder<
@@ -1112,6 +1514,426 @@ private static final long serialVersionUID = 0L;
     public Builder clearDownsampled() {
       bitField0_ = (bitField0_ & ~0x00000008);
       downsampled_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object requestedFrom_ = "";
+    /**
+     * <pre>
+     * What the request asked for, and what the data could actually answer.
+     *
+     * Asking for period "10Y" against a series holding two years used to return
+     * the two years and say nothing, so a caller reasonably believed they had ten
+     * — and a risk-adjusted number computed over the wrong span is wrong in a way
+     * nothing in the response reveals. Coverage differs sharply between series
+     * and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
+     * total-return series, and the one worth benchmarking against — begins
+     * 2019-04-29 because that is where it begins upstream. No backfill can move
+     * that date.
+     * </pre>
+     *
+     * <code>string requested_from = 5 [json_name = "requestedFrom"];</code>
+     * @return The requestedFrom.
+     */
+    public java.lang.String getRequestedFrom() {
+      java.lang.Object ref = requestedFrom_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        requestedFrom_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * What the request asked for, and what the data could actually answer.
+     *
+     * Asking for period "10Y" against a series holding two years used to return
+     * the two years and say nothing, so a caller reasonably believed they had ten
+     * — and a risk-adjusted number computed over the wrong span is wrong in a way
+     * nothing in the response reveals. Coverage differs sharply between series
+     * and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
+     * total-return series, and the one worth benchmarking against — begins
+     * 2019-04-29 because that is where it begins upstream. No backfill can move
+     * that date.
+     * </pre>
+     *
+     * <code>string requested_from = 5 [json_name = "requestedFrom"];</code>
+     * @return The bytes for requestedFrom.
+     */
+    public com.google.protobuf.ByteString
+        getRequestedFromBytes() {
+      java.lang.Object ref = requestedFrom_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        requestedFrom_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * What the request asked for, and what the data could actually answer.
+     *
+     * Asking for period "10Y" against a series holding two years used to return
+     * the two years and say nothing, so a caller reasonably believed they had ten
+     * — and a risk-adjusted number computed over the wrong span is wrong in a way
+     * nothing in the response reveals. Coverage differs sharply between series
+     * and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
+     * total-return series, and the one worth benchmarking against — begins
+     * 2019-04-29 because that is where it begins upstream. No backfill can move
+     * that date.
+     * </pre>
+     *
+     * <code>string requested_from = 5 [json_name = "requestedFrom"];</code>
+     * @param value The requestedFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRequestedFrom(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      requestedFrom_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * What the request asked for, and what the data could actually answer.
+     *
+     * Asking for period "10Y" against a series holding two years used to return
+     * the two years and say nothing, so a caller reasonably believed they had ten
+     * — and a risk-adjusted number computed over the wrong span is wrong in a way
+     * nothing in the response reveals. Coverage differs sharply between series
+     * and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
+     * total-return series, and the one worth benchmarking against — begins
+     * 2019-04-29 because that is where it begins upstream. No backfill can move
+     * that date.
+     * </pre>
+     *
+     * <code>string requested_from = 5 [json_name = "requestedFrom"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRequestedFrom() {
+      requestedFrom_ = getDefaultInstance().getRequestedFrom();
+      bitField0_ = (bitField0_ & ~0x00000010);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * What the request asked for, and what the data could actually answer.
+     *
+     * Asking for period "10Y" against a series holding two years used to return
+     * the two years and say nothing, so a caller reasonably believed they had ten
+     * — and a risk-adjusted number computed over the wrong span is wrong in a way
+     * nothing in the response reveals. Coverage differs sharply between series
+     * and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
+     * total-return series, and the one worth benchmarking against — begins
+     * 2019-04-29 because that is where it begins upstream. No backfill can move
+     * that date.
+     * </pre>
+     *
+     * <code>string requested_from = 5 [json_name = "requestedFrom"];</code>
+     * @param value The bytes for requestedFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRequestedFromBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      requestedFrom_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object requestedTo_ = "";
+    /**
+     * <code>string requested_to = 6 [json_name = "requestedTo"];</code>
+     * @return The requestedTo.
+     */
+    public java.lang.String getRequestedTo() {
+      java.lang.Object ref = requestedTo_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        requestedTo_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string requested_to = 6 [json_name = "requestedTo"];</code>
+     * @return The bytes for requestedTo.
+     */
+    public com.google.protobuf.ByteString
+        getRequestedToBytes() {
+      java.lang.Object ref = requestedTo_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        requestedTo_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string requested_to = 6 [json_name = "requestedTo"];</code>
+     * @param value The requestedTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRequestedTo(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      requestedTo_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string requested_to = 6 [json_name = "requestedTo"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRequestedTo() {
+      requestedTo_ = getDefaultInstance().getRequestedTo();
+      bitField0_ = (bitField0_ & ~0x00000020);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string requested_to = 6 [json_name = "requestedTo"];</code>
+     * @param value The bytes for requestedTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRequestedToBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      requestedTo_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object coveredFrom_ = "";
+    /**
+     * <pre>
+     * YYYY-MM-DD of the first session actually served.
+     * </pre>
+     *
+     * <code>string covered_from = 7 [json_name = "coveredFrom"];</code>
+     * @return The coveredFrom.
+     */
+    public java.lang.String getCoveredFrom() {
+      java.lang.Object ref = coveredFrom_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        coveredFrom_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the first session actually served.
+     * </pre>
+     *
+     * <code>string covered_from = 7 [json_name = "coveredFrom"];</code>
+     * @return The bytes for coveredFrom.
+     */
+    public com.google.protobuf.ByteString
+        getCoveredFromBytes() {
+      java.lang.Object ref = coveredFrom_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        coveredFrom_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the first session actually served.
+     * </pre>
+     *
+     * <code>string covered_from = 7 [json_name = "coveredFrom"];</code>
+     * @param value The coveredFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCoveredFrom(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      coveredFrom_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the first session actually served.
+     * </pre>
+     *
+     * <code>string covered_from = 7 [json_name = "coveredFrom"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCoveredFrom() {
+      coveredFrom_ = getDefaultInstance().getCoveredFrom();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the first session actually served.
+     * </pre>
+     *
+     * <code>string covered_from = 7 [json_name = "coveredFrom"];</code>
+     * @param value The bytes for coveredFrom to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCoveredFromBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      coveredFrom_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object coveredTo_ = "";
+    /**
+     * <code>string covered_to = 8 [json_name = "coveredTo"];</code>
+     * @return The coveredTo.
+     */
+    public java.lang.String getCoveredTo() {
+      java.lang.Object ref = coveredTo_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        coveredTo_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string covered_to = 8 [json_name = "coveredTo"];</code>
+     * @return The bytes for coveredTo.
+     */
+    public com.google.protobuf.ByteString
+        getCoveredToBytes() {
+      java.lang.Object ref = coveredTo_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        coveredTo_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string covered_to = 8 [json_name = "coveredTo"];</code>
+     * @param value The coveredTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCoveredTo(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      coveredTo_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string covered_to = 8 [json_name = "coveredTo"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCoveredTo() {
+      coveredTo_ = getDefaultInstance().getCoveredTo();
+      bitField0_ = (bitField0_ & ~0x00000080);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string covered_to = 8 [json_name = "coveredTo"];</code>
+     * @param value The bytes for coveredTo to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCoveredToBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      coveredTo_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private boolean truncated_ ;
+    /**
+     * <pre>
+     * True when the series does not span the whole requested window. The dates
+     * above say by how much and at which end.
+     * </pre>
+     *
+     * <code>bool truncated = 9 [json_name = "truncated"];</code>
+     * @return The truncated.
+     */
+    @java.lang.Override
+    public boolean getTruncated() {
+      return truncated_;
+    }
+    /**
+     * <pre>
+     * True when the series does not span the whole requested window. The dates
+     * above say by how much and at which end.
+     * </pre>
+     *
+     * <code>bool truncated = 9 [json_name = "truncated"];</code>
+     * @param value The truncated to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTruncated(boolean value) {
+
+      truncated_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * True when the series does not span the whole requested window. The dates
+     * above say by how much and at which end.
+     * </pre>
+     *
+     * <code>bool truncated = 9 [json_name = "truncated"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTruncated() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      truncated_ = false;
       onChanged();
       return this;
     }
