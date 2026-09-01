@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import {
   ASX_HOLIDAYS,
+  PRICE_STALE_DAYS,
+  SCREENER_VOLUME_WINDOW_DAYS,
   STALE_TRADING_DAYS,
   SURFACE_LAG_TRADING_DAYS,
   TOP_PAGE_URL,
@@ -226,4 +228,74 @@ test("run() reports both ends when /top and the API agree", async () => {
 test("sydneyToday uses the Australian calendar date, not UTC's", () => {
   // 2026-08-21T20:07Z is already 2026-08-22 in Sydney (UTC+10).
   assert.equal(sydneyToday(new Date("2026-08-21T20:07:00Z")), "2026-08-22");
+});
+
+// mv_screener_data and mv_top_shorts average volume over
+// `CURRENT_DATE - INTERVAL '35 days'`. Past that the window catches no rows,
+// avg_volume_20d becomes 0 and days_to_cover follows — so the squeeze screen
+// ranks on a metric that is silently absent for EVERY stock rather than
+// erroring. Nothing downstream can tell "no short interest to cover" from
+// "the price feed stopped", which is why this needs a sentinel and not a test.
+test("a price feed past the volume window is reported as zeroing the screener", () => {
+  const { violations } = evaluate(["2026-08-25"], "2026-09-01", {
+    newestPriceISO: "2026-07-01", // 62 calendar days
+  });
+  const codes = violations.map((v) => v[0]);
+  assert.ok(
+    codes.includes("SCREENER_METRICS_ZEROED"),
+    `expected SCREENER_METRICS_ZEROED, got ${codes.join(",") || "none"}`,
+  );
+});
+
+test("a price feed approaching the window warns while there is still slack", () => {
+  const { violations } = evaluate(["2026-08-25"], "2026-09-01", {
+    newestPriceISO: "2026-08-01", // 31 days: past 28, inside 35
+  });
+  const codes = violations.map((v) => v[0]);
+  assert.ok(codes.includes("PRICE_DATA_STALE"), `got ${codes.join(",") || "none"}`);
+  assert.ok(
+    !codes.includes("SCREENER_METRICS_ZEROED"),
+    "must not claim the metric is already zeroed while it still computes",
+  );
+  // The operator needs to know how long they have, not just that it is late.
+  const row = violations.find((v) => v[0] === "PRICE_DATA_STALE");
+  assert.match(row[2], /slack left/);
+});
+
+test("a fresh price feed is clean", () => {
+  const { violations } = evaluate(["2026-08-25"], "2026-09-01", {
+    newestPriceISO: "2026-08-30",
+  });
+  assert.deepEqual(
+    violations.filter((v) => v[0].startsWith("PRICE_") || v[0].startsWith("SCREENER_")),
+    [],
+  );
+});
+
+// The price probe is a SECONDARY signal. A sentinel that fails because its own
+// extra check could not run stops reporting the primary staleness it exists for
+// — so an absent price date must be silent, not a violation.
+test("an unavailable price date is silent, never a violation", () => {
+  for (const opts of [{}, { newestPriceISO: null }]) {
+    const { violations } = evaluate(["2026-08-25"], "2026-09-01", opts);
+    assert.deepEqual(
+      violations.filter((v) => v[0].startsWith("PRICE_") || v[0].startsWith("SCREENER_")),
+      [],
+      "a missing price date must not be reported as staleness",
+    );
+  }
+});
+
+// The threshold is not a preference: it is the MVs' own window. If someone
+// changes one without the other the alarm stops meaning anything — the same
+// mistake the crawl freshness alarm made when its cap and its alarm drifted.
+test("the alert threshold leaves slack before the window it guards", () => {
+  assert.ok(
+    PRICE_STALE_DAYS < SCREENER_VOLUME_WINDOW_DAYS,
+    "the warning must fire BEFORE the metric zeroes, or it is not a warning",
+  );
+  assert.ok(
+    SCREENER_VOLUME_WINDOW_DAYS - PRICE_STALE_DAYS >= 5,
+    "leave at least a few days to act on the warning",
+  );
 });

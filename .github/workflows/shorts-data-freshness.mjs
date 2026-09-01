@@ -13,6 +13,13 @@
 export const AVAILABLE_DATES_URL =
   "https://api.shorted.com.au/edge/v1/available-dates?limit=10";
 
+// One liquid, continuously-listed name is enough to date the price feed: if BHP
+// has no recent price, nothing does. Deliberately a stock rather than an index —
+// the screener's volume window reads stock_prices, and the index series is fed
+// by a different job that could be healthy while this one is not.
+export const PRICE_PROBE_URL =
+  "https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockPrices";
+
 // api.shorted.com.au sits behind Cloudflare with a bot/WAF rule in front of it.
 // A bare `fetch` default UA gets challenged; a browser-ish UA is served. This is
 // the same posture the OG-image fetch fix landed on (see og-image-waf-fetch).
@@ -134,6 +141,36 @@ export async function fetchAvailableDates(fetchImpl = fetch) {
 }
 
 /**
+ * Newest date in the price feed, or null when it cannot be determined.
+ *
+ * Returns null rather than throwing: this is a secondary signal, and a sentinel
+ * that fails because ITS OWN extra check could not run stops reporting the
+ * primary staleness it exists for.
+ */
+export async function fetchNewestPriceDate(fetchImpl = fetch) {
+  try {
+    const response = await fetchImpl(PRICE_PROBE_URL, {
+      method: "POST",
+      headers: {
+        "User-Agent": USER_AGENT,
+        "Content-Type": "application/json",
+        "Connect-Protocol-Version": "1",
+      },
+      body: JSON.stringify({ productCode: "BHP", period: "1M", maxPoints: 5 }),
+    });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    const points = Array.isArray(payload?.points) ? payload.points : [];
+    const dates = points
+      .map((p) => p?.date)
+      .filter((d) => typeof d === "string" && DATE_RE.test(d));
+    return dates.length ? dates.sort().at(-1) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Pull the "as at D MMM YYYY" date out of a rendered /top document.
  * Returns YYYY-MM-DD, or null when the page carries the undated fallback title
  * (or the markup changed) — which the caller reports as UNCHECKABLE, never as a
@@ -228,11 +265,30 @@ export function evaluateSurface(renderedISO, apiNewestISO, { error = null } = {}
   };
 }
 
+// mv_screener_data and mv_top_shorts compute avg_volume_20d over
+// `CURRENT_DATE - INTERVAL '35 days'`. Past that, the window catches no price
+// rows, avg_volume_20d becomes 0, and days_to_cover follows — so the squeeze
+// screen's headline metric silently reads zero for every stock rather than
+// erroring. Nothing downstream can tell "this name has no short interest to
+// cover" from "the price feed stopped".
+//
+// The MVs' window is what defines the cliff, so this is not a tunable
+// preference: change one and you must change the other.
+export const SCREENER_VOLUME_WINDOW_DAYS = 35;
+
+// Alert with room to act. At 28 days the feed has a week of slack left before
+// the metric starts zeroing.
+export const PRICE_STALE_DAYS = 28;
+
 /**
  * Pure evaluation: given the dates the API returned and today's Sydney date,
  * produce the violation rows. Kept separate from I/O so it is unit-testable.
+ *
+ * `newestPriceISO` is the most recent stock_prices date, or null when it was
+ * not collected — a missing value is NOT treated as a violation, because this
+ * sentinel's job is to report what it can see, not to fail on its own gaps.
  */
-export function evaluate(dates, todayISO) {
+export function evaluate(dates, todayISO, { newestPriceISO = null } = {}) {
   const violations = [];
 
   if (dates.length === 0) {
@@ -263,6 +319,33 @@ export function evaluate(dates, todayISO) {
     ]);
   }
 
+  // Calendar days, not trading days: the MVs' own window is calendar-based, so
+  // counting trading days here would understate how close the cliff is.
+  if (newestPriceISO) {
+    const ageDays = Math.round(
+      (toUTCDate(todayISO) - toUTCDate(newestPriceISO)) / 86_400_000,
+    );
+    if (ageDays > SCREENER_VOLUME_WINDOW_DAYS) {
+      violations.push([
+        "SCREENER_METRICS_ZEROED",
+        "stock_prices.date",
+        `newest price is ${newestPriceISO}, ${ageDays} calendar day(s) old — past the ` +
+          `${SCREENER_VOLUME_WINDOW_DAYS}-day window mv_screener_data averages volume over. ` +
+          `avg_volume_20d and days_to_cover are now 0 for EVERY stock, and the squeeze ` +
+          `screen is ranking on a metric that is silently absent rather than erroring.`,
+      ]);
+    } else if (ageDays > PRICE_STALE_DAYS) {
+      violations.push([
+        "PRICE_DATA_STALE",
+        "stock_prices.date",
+        `newest price is ${newestPriceISO}, ${ageDays} calendar day(s) old. At ` +
+          `${SCREENER_VOLUME_WINDOW_DAYS} days mv_screener_data's volume window catches ` +
+          `nothing and days_to_cover silently becomes 0 for every stock — ` +
+          `${SCREENER_VOLUME_WINDOW_DAYS - ageDays} day(s) of slack left.`,
+      ]);
+    }
+  }
+
   if (Number(todayISO.slice(0, 4)) > HOLIDAY_COVERAGE_END_YEAR) {
     violations.push([
       "HOLIDAY_TABLE_EXPIRED",
@@ -287,7 +370,8 @@ export async function run({ fetchImpl = fetch, now = new Date(), out = console.l
     return 1;
   }
 
-  const { violations, newest, ageTradingDays } = evaluate(dates, todayISO);
+  const newestPriceISO = await fetchNewestPriceDate(fetchImpl);
+  const { violations, newest, ageTradingDays } = evaluate(dates, todayISO, { newestPriceISO });
 
   // Surface check: does the page actually SHOW what the API is serving? Reusing
   // `newest` from the fetch above keeps this zero-secret and one extra request.
