@@ -49,6 +49,38 @@ The class is chosen in `extractIdentifierAndTier`
 | 3 | first-party (unverified) | `first-party:<egress ip>` | SSR marker, secret missing/wrong |
 | 4 | anonymous | `ip:<addr>` | none of the above |
 
+### 2.0 A credential is read even where it is not required
+
+Class 1 is reached on **public** methods too, not only on ones that demand
+authentication. That is worth stating because it did not used to be true, and the
+old behaviour looked like the API ignoring OAuth entirely.
+
+A `VISIBILITY_PUBLIC` method with no `required_role` returns before the
+Authorization header is examined — it has to, since anonymous callers are
+welcome there. The cost was that a caller holding a perfectly good token was
+keyed `ip:<addr>` at 30/min instead of `user:<uid>` at their own tier: throttled
+as a stranger while presenting a credential that named them. For an agent doing
+bulk reads over public endpoints, which is most programmatic use, that was the
+only limit it ever met.
+
+The interceptor now identifies the caller on that path via
+`TokenService.ValidateIdentityToken`, which is deliberately weaker than
+`ValidateConnectToken`: it asks *did this deployment mint this token, and for
+whom*, not *may the bearer act*. It accepts an OAuth/MCP-audience token, because
+being throttled as a stranger is the only thing refusing one would achieve there.
+
+It grants nothing. The method was already public, and:
+
+- `MintToken` is not public, so this path never runs for it — it still goes
+  through `ValidateConnectToken`, which still refuses an MCP audience. The
+  escalation §2.0 might appear to reopen stays closed, and
+  `TestValidateConnectTokenStillRefusesAnMCPAudienceToken` fails loudly if not.
+- OAuth tokens carry no roles, so they cannot satisfy a `required_role` check.
+- A token from another deployment is refused: identity is weaker than authority
+  but still deployment-bound.
+- A malformed or expired token falls through to anonymous rather than 401, so a
+  bad header cannot deny access that needs no credential.
+
 Two surfaces have their own identity functions, because they bypass the Connect
 interceptor entirely:
 

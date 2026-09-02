@@ -245,6 +245,56 @@ func (s *TokenService) ValidateConnectToken(tokenString string) (*Claims, error)
 	return nil, fmt.Errorf("token audience %v does not include the Connect API (%s)", []string(audience), s.audience[0])
 }
 
+// ValidateIdentityToken validates a bearer token for IDENTITY ONLY, on a surface
+// that is already public.
+//
+// WHY THIS EXISTS. ValidateConnectToken refuses an OAuth/MCP-audience token
+// because MintToken would upgrade it to a 30-day whole-API credential. That
+// reasoning is about AUTHORITY. It says nothing about METERING, and conflating
+// the two costs the caller their own allowance: a public method returns before
+// the Authorization header is ever read, so an OAuth caller is keyed as
+// `ip:<addr>` at 30/min rather than `user:<uid>` at their subscription tier.
+// They are throttled as a stranger while holding a valid credential naming them.
+//
+// So this method answers a deliberately weaker question than ValidateConnectToken:
+// "did THIS deployment mint this token, and for whom" — not "may the bearer act".
+// It is only ever called on a VISIBILITY_PUBLIC method with no required_role,
+// where the answer changes no access decision, because anonymous callers already
+// reach the same data. The escalation stays closed by construction:
+//
+//   - MintToken is not public, so this path never runs for it. It continues to
+//     go through ValidateConnectToken, which still refuses an MCP audience.
+//   - OAuth tokens carry no roles (see MintOAuthAccessToken), so even if a
+//     required_role method were made public, hasRole would still reject them.
+//
+// The audience must still name a surface of THIS deployment, so a dev-minted
+// token is not identity here either — that is the whole point of binding one.
+// Audience-less legacy tokens are accepted, matching ValidateConnectToken's seam.
+func (s *TokenService) ValidateIdentityToken(tokenString string) (*Claims, error) {
+	claims, err := s.ValidateToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
+	if len(s.audience) == 0 {
+		return claims, nil
+	}
+	audience, err := claims.GetAudience()
+	if err != nil {
+		return nil, fmt.Errorf("reading audience: %w", err)
+	}
+	if len(audience) == 0 {
+		return claims, nil
+	}
+	for _, a := range audience {
+		for _, ours := range s.audience {
+			if a == ours {
+				return claims, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("token audience %v names no surface of this deployment", []string(audience))
+}
+
 // ValidateBearerToken adapts ValidateToken to mcp.ClaimsValidator.
 //
 // The adapter exists because of the import direction: the mcp package cannot
