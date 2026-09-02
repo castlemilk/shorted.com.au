@@ -250,3 +250,12 @@ variable "alert_recipient_email" {
   # explicit kill switch.
   default = "ben@shorted.com.au"
 }
+
+# Comma-separated user ids granted the internal API tier. See
+# docs/rate-limiting.md §2.05 — empty by default, so this grants nothing until
+# a value is supplied in tfvars.
+variable "internal_tier_user_ids" {
+  description = "Comma-separated user ids granted the internal API tier"
+  type        = string
+  default     = ""
+}
