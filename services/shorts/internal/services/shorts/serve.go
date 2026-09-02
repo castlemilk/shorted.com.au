@@ -141,6 +141,14 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	authOpts := AuthInterceptorOptions{
 		TokenService: s.tokenService,
 		SubscriptionLookup: func(userID string) (string, error) {
+			// Internal grants win, and are checked BEFORE the store so they do not
+			// depend on an api_subscriptions row existing and cannot be overwritten
+			// by a Stripe webhook. See internal_tier.go for why this is keyed on
+			// user id rather than the existing adminEmails list: an OAuth access
+			// token carries neither roles nor email.
+			if tier, ok := InternalTierFor(userID); ok {
+				return tier, nil
+			}
 			sub, err := s.store.GetAPISubscription(userID)
 			if err != nil {
 				return "", err

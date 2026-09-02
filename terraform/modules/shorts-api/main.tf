@@ -462,6 +462,16 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       }
 
       env {
+        name  = "INTERNAL_TIER_USER_IDS"
+        value = var.internal_tier_user_ids
+      }
+
+      env {
+        name  = "INTERNAL_TIER"
+        value = var.internal_tier
+      }
+
+      env {
         name  = "RATE_LIMIT_SSR_BYPASS_HEADER_NAME"
         value = var.rate_limit_ssr_bypass_header_name
       }

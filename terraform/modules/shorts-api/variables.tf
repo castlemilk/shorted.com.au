@@ -148,3 +148,19 @@ variable "rate_limit_ssr_bypass_header_name" {
   type        = string
   default     = "x-shorted-ssr-bypass"
 }
+
+# Internal tier grants. Comma-separated user ids that receive `internal_tier`
+# regardless of any api_subscriptions row, so an operator can use their own API
+# without a hand-written Stripe subscription that the next webhook overwrites.
+# Empty by default: configuring nothing grants nothing.
+variable "internal_tier_user_ids" {
+  description = "Comma-separated user ids granted the internal API tier"
+  type        = string
+  default     = ""
+}
+
+variable "internal_tier" {
+  description = "Tier granted to internal_tier_user_ids (free, pro, enterprise)"
+  type        = string
+  default     = "enterprise"
+}

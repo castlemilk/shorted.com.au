@@ -723,6 +723,11 @@ module "shorts_api" {
   rate_limit_ssr_bypass_header_name = var.rate_limit_ssr_bypass_header_name
   rate_limit_ssr_bypass_user_agent  = var.rate_limit_ssr_bypass_user_agent
 
+  # Internal tier grants. Passed through as a variable rather than written here,
+  # so a user id is deployment configuration and revoking access is a tfvar
+  # change rather than a code change. Empty by default.
+  internal_tier_user_ids = var.internal_tier_user_ids
+
   scheduler_region             = "australia-southeast1"
   enable_key_metrics_scheduler = true
 
