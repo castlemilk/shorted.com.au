@@ -236,3 +236,149 @@ func TestIndustryLabelSaysWhereItCameFrom(t *testing.T) {
 		}
 	})
 }
+
+// A filter that is accepted and then not reflected in the count is worse than
+// one that errors: the response looks filtered, so a contaminated universe
+// reaches a cross-section with nothing at the call site to reveal it.
+//
+// Reported as #565. The classifier is Go, so SQL cannot filter — but the query
+// still carried LIMIT/OFFSET and the COUNT was unfiltered, so totalCount
+// described the whole universe (731) while the rows beside it were the filtered
+// one (689), and a page was sliced before filtering rather than after.
+func TestOrdinaryOnlyIsReflectedInTheCountAndThePage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	dbURL := getTestDatabaseURL()
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+	pool := createTestPool(t, dbURL)
+	defer pool.Close()
+	store := &postgresStore{db: pool}
+
+	var date string
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT MAX("DATE")::date::text FROM shorts`).Scan(&date))
+
+	all, allTotal, err := store.GetMarketByDate(date, 5000, 0, true, false)
+	require.NoError(t, err)
+	filtered, filteredTotal, err := store.GetMarketByDate(date, 5000, 0, true, true)
+	require.NoError(t, err)
+
+	t.Run("the count matches the rows it is returned with", func(t *testing.T) {
+		require.Equal(t, len(all), allTotal, "unfiltered count must match unfiltered rows")
+		require.Equal(t, len(filtered), filteredTotal,
+			"filtered count must match filtered rows — a count describing a different set is the bug")
+	})
+
+	t.Run("the filtered count is smaller when there is anything to filter", func(t *testing.T) {
+		nonOrdinary := 0
+		for _, s := range all {
+			if s.SecurityType != "ordinary" {
+				nonOrdinary++
+			}
+		}
+		if nonOrdinary == 0 {
+			t.Skip("this dataset holds only ordinary lines; nothing to filter")
+		}
+		require.Equal(t, allTotal-nonOrdinary, filteredTotal,
+			"every non-ordinary instrument must come out of the count")
+	})
+
+	t.Run("a page is sliced after filtering, not before", func(t *testing.T) {
+		const page = 10
+		if filteredTotal < page*2 {
+			t.Skip("not enough filtered rows to page")
+		}
+		first, total, err := store.GetMarketByDate(date, page, 0, true, true)
+		require.NoError(t, err)
+		require.Len(t, first, page, "a full page must come back full, not short from post-filtering")
+		require.Equal(t, filteredTotal, total, "the total must not change with the page size")
+
+		second, _, err := store.GetMarketByDate(date, page, page, true, true)
+		require.NoError(t, err)
+		require.NotEmpty(t, second)
+
+		// Offsets must not overlap or skip.
+		require.Equal(t, filtered[page].ProductCode, second[0].ProductCode,
+			"the second page must continue exactly where the first ended")
+		for _, s := range append(first, second...) {
+			require.Equal(t, "ordinary", s.SecurityType, "%s leaked through the filter", s.ProductCode)
+		}
+	})
+}
+
+// A page must be exactly as long as it was asked for, and the whole universe
+// must be reachable by paging through it.
+//
+// This is the property #577 reported violated: limit 100 returned 99, limit 500
+// returned 497, and six names of a 553-row universe were unreachable at ANY
+// page size. The cause was pagination happening in SQL while filtering happened
+// in Go, so each page was sliced BEFORE the filter and lost roughly one row per
+// hundred.
+//
+// That had already been fixed once, for #565, and was then reverted by a commit
+// that rebuilt this package from a stale working tree — taking the guarding
+// test with it, which is why nothing failed. This test exists so the property
+// is asserted independently of the one it was bundled with.
+func TestEveryConstituentIsReachableByPaging(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	dbURL := getTestDatabaseURL()
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+	pool := createTestPool(t, dbURL)
+	defer pool.Close()
+	store := &postgresStore{db: pool}
+
+	var date string
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT MAX("DATE")::date::text FROM shorts`).Scan(&date))
+
+	for _, ordinaryOnly := range []bool{false, true} {
+		name := "all instruments"
+		if ordinaryOnly {
+			name = "ordinary only"
+		}
+		t.Run(name, func(t *testing.T) {
+			_, total, err := store.GetMarketByDate(date, 5000, 0, true, ordinaryOnly)
+			require.NoError(t, err)
+			require.Positive(t, total)
+
+			t.Run("a full page is full", func(t *testing.T) {
+				for _, limit := range []int32{10, 50, 100} {
+					if int(limit) > total {
+						continue
+					}
+					page, pageTotal, err := store.GetMarketByDate(date, limit, 0, true, ordinaryOnly)
+					require.NoError(t, err)
+					require.Len(t, page, int(limit),
+						"limit=%d returned %d rows — a page shorter than its limit means rows are dropped after slicing",
+						limit, len(page))
+					require.Equal(t, total, pageTotal, "the total must not move with the page size")
+				}
+			})
+
+			t.Run("paging reaches every constituent exactly once", func(t *testing.T) {
+				const page = 100
+				seen := map[string]int{}
+				for offset := int32(0); int(offset) < total; offset += page {
+					rows, _, err := store.GetMarketByDate(date, page, offset, true, ordinaryOnly)
+					require.NoError(t, err)
+					for _, s := range rows {
+						seen[s.ProductCode]++
+					}
+				}
+				require.Len(t, seen, total,
+					"paged through %d distinct codes but the universe reports %d — %d unreachable",
+					len(seen), total, total-len(seen))
+				for code, n := range seen {
+					require.Equal(t, 1, n, "%s appeared on %d pages", code, n)
+				}
+			})
+		})
+	}
+}
