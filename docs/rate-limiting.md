@@ -90,6 +90,30 @@ interceptor entirely:
 | MCP, opaque bearer | `token:<sha256[:32]>` | `mcp/ratelimit.go` |
 | MCP, anonymous | `mcp-anon:<ip>` | `mcp/ratelimit.go` |
 
+### 2.05 Internal grants
+
+Tier is resolved from `api_subscriptions`, and the only writers of that table are
+the Stripe webhook handlers. So the only way to lift an internal caller above
+`free` used to be hand-writing a row with an `active` status and no Stripe ids
+behind it — a subscription billing believes in and Stripe has never heard of, and
+one the next `HandleStripeSubscriptionUpdated` for that user silently overwrites,
+dropping a long-running job back to 60/min partway through.
+
+`INTERNAL_TIER_USER_IDS` (comma-separated user ids) grants `INTERNAL_TIER`
+(default `enterprise`) to those users, checked in `SubscriptionLookup` BEFORE the
+store. Empty by default, so a deployment that configures nothing grants nothing.
+
+Keyed on user id, not the existing `adminEmails` list, and that is forced rather
+than chosen: `MintAccessToken` is explicit that an OAuth access token carries
+neither roles nor email — roles because a role is an operator grant rather than
+something a consent screen can confer, email because nothing durable between the
+grant and the mint carries it. An OAuth caller is a user id and nothing else, so
+a grant keyed on email or role cannot reach one.
+
+It is applied before the lookup, not as a fallback after a failed one: a store
+error must still surface, or a database outage would quietly promote every
+allowlisted caller and hide itself.
+
 ### 2.1 What each class gets
 
 **API access** (programmatic — an API token, or no credential at all):
