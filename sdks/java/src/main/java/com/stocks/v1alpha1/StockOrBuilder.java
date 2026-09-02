@@ -314,4 +314,33 @@ public interface StockOrBuilder extends
    */
   com.google.protobuf.ByteString
       getIndustryAsOfBytes();
+
+  /**
+   * <pre>
+   * Whether this security can be PRICED as of the date being asked about.
+   *
+   * A point-in-time universe that is survivorship-free while the price data
+   * behind it is survivor-only is more dangerous than one biased in both,
+   * because the bias becomes invisible: the caller does the right thing,
+   * selects the delisted names, and then silently drops exactly the
+   * acquisitions and failures when returns are computed. A company taken over
+   * at a 30% premium and one that went to zero are then treated identically —
+   * as though the position never existed.
+   *
+   * Measured on the 2020-04-06 universe, 255 of 547 constituents (47%) are gone
+   * by 2026, and only about half of a sample of those could be priced —
+   * Adelaide Brighton, Australian Pharmaceutical, Cabcharge and Asaleo Care
+   * among the missing. This does not fix that hole. It makes it measurable
+   * before a backtest is run rather than discovered afterwards.
+   *
+   * False means we hold no usable price on or before this date, so any return
+   * computed for this row would be fabricated. It is deliberately as-of rather
+   * than lifetime: a name priced only in 2010-2012 is not priceable in a 2020
+   * cross-section, and a lifetime flag would say it was.
+   * </pre>
+   *
+   * <code>bool has_price_history = 17 [json_name = "hasPriceHistory"];</code>
+   * @return The hasPriceHistory.
+   */
+  boolean getHasPriceHistory();
 }

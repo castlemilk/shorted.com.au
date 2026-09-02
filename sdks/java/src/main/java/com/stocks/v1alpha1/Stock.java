@@ -630,6 +630,40 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int HAS_PRICE_HISTORY_FIELD_NUMBER = 17;
+  private boolean hasPriceHistory_ = false;
+  /**
+   * <pre>
+   * Whether this security can be PRICED as of the date being asked about.
+   *
+   * A point-in-time universe that is survivorship-free while the price data
+   * behind it is survivor-only is more dangerous than one biased in both,
+   * because the bias becomes invisible: the caller does the right thing,
+   * selects the delisted names, and then silently drops exactly the
+   * acquisitions and failures when returns are computed. A company taken over
+   * at a 30% premium and one that went to zero are then treated identically —
+   * as though the position never existed.
+   *
+   * Measured on the 2020-04-06 universe, 255 of 547 constituents (47%) are gone
+   * by 2026, and only about half of a sample of those could be priced —
+   * Adelaide Brighton, Australian Pharmaceutical, Cabcharge and Asaleo Care
+   * among the missing. This does not fix that hole. It makes it measurable
+   * before a backtest is run rather than discovered afterwards.
+   *
+   * False means we hold no usable price on or before this date, so any return
+   * computed for this row would be fabricated. It is deliberately as-of rather
+   * than lifetime: a name priced only in 2010-2012 is not priceable in a 2020
+   * cross-section, and a lifetime flag would say it was.
+   * </pre>
+   *
+   * <code>bool has_price_history = 17 [json_name = "hasPriceHistory"];</code>
+   * @return The hasPriceHistory.
+   */
+  @java.lang.Override
+  public boolean getHasPriceHistory() {
+    return hasPriceHistory_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -691,6 +725,9 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(industryAsOf_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 16, industryAsOf_);
+    }
+    if (hasPriceHistory_ != false) {
+      output.writeBool(17, hasPriceHistory_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -756,6 +793,10 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(industryAsOf_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(16, industryAsOf_);
     }
+    if (hasPriceHistory_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(17, hasPriceHistory_);
+    }
     return size;
   }
   @java.lang.Override
@@ -819,6 +860,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getIndustrySource())) return false;
     if (!getIndustryAsOf()
         .equals(other.getIndustryAsOf())) return false;
+    if (getHasPriceHistory()
+        != other.getHasPriceHistory()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -871,6 +914,9 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getIndustrySource().hashCode();
     hash = (37 * hash) + INDUSTRY_AS_OF_FIELD_NUMBER;
     hash = (53 * hash) + getIndustryAsOf().hashCode();
+    hash = (37 * hash) + HAS_PRICE_HISTORY_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasPriceHistory());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1023,6 +1069,7 @@ private static final long serialVersionUID = 0L;
       securityType_ = "";
       industrySource_ = "";
       industryAsOf_ = "";
+      hasPriceHistory_ = false;
       return this;
     }
 
@@ -1104,6 +1151,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00008000) != 0)) {
         result.industryAsOf_ = industryAsOf_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.hasPriceHistory_ = hasPriceHistory_;
       }
     }
 
@@ -1189,6 +1239,9 @@ private static final long serialVersionUID = 0L;
         industryAsOf_ = other.industryAsOf_;
         bitField0_ |= 0x00008000;
         onChanged();
+      }
+      if (other.getHasPriceHistory() != false) {
+        setHasPriceHistory(other.getHasPriceHistory());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1296,6 +1349,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00008000;
               break;
             } // case 130
+            case 136: {
+              hasPriceHistory_ = input.readBool();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 136
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2594,6 +2652,107 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       industryAsOf_ = value;
       bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasPriceHistory_ ;
+    /**
+     * <pre>
+     * Whether this security can be PRICED as of the date being asked about.
+     *
+     * A point-in-time universe that is survivorship-free while the price data
+     * behind it is survivor-only is more dangerous than one biased in both,
+     * because the bias becomes invisible: the caller does the right thing,
+     * selects the delisted names, and then silently drops exactly the
+     * acquisitions and failures when returns are computed. A company taken over
+     * at a 30% premium and one that went to zero are then treated identically —
+     * as though the position never existed.
+     *
+     * Measured on the 2020-04-06 universe, 255 of 547 constituents (47%) are gone
+     * by 2026, and only about half of a sample of those could be priced —
+     * Adelaide Brighton, Australian Pharmaceutical, Cabcharge and Asaleo Care
+     * among the missing. This does not fix that hole. It makes it measurable
+     * before a backtest is run rather than discovered afterwards.
+     *
+     * False means we hold no usable price on or before this date, so any return
+     * computed for this row would be fabricated. It is deliberately as-of rather
+     * than lifetime: a name priced only in 2010-2012 is not priceable in a 2020
+     * cross-section, and a lifetime flag would say it was.
+     * </pre>
+     *
+     * <code>bool has_price_history = 17 [json_name = "hasPriceHistory"];</code>
+     * @return The hasPriceHistory.
+     */
+    @java.lang.Override
+    public boolean getHasPriceHistory() {
+      return hasPriceHistory_;
+    }
+    /**
+     * <pre>
+     * Whether this security can be PRICED as of the date being asked about.
+     *
+     * A point-in-time universe that is survivorship-free while the price data
+     * behind it is survivor-only is more dangerous than one biased in both,
+     * because the bias becomes invisible: the caller does the right thing,
+     * selects the delisted names, and then silently drops exactly the
+     * acquisitions and failures when returns are computed. A company taken over
+     * at a 30% premium and one that went to zero are then treated identically —
+     * as though the position never existed.
+     *
+     * Measured on the 2020-04-06 universe, 255 of 547 constituents (47%) are gone
+     * by 2026, and only about half of a sample of those could be priced —
+     * Adelaide Brighton, Australian Pharmaceutical, Cabcharge and Asaleo Care
+     * among the missing. This does not fix that hole. It makes it measurable
+     * before a backtest is run rather than discovered afterwards.
+     *
+     * False means we hold no usable price on or before this date, so any return
+     * computed for this row would be fabricated. It is deliberately as-of rather
+     * than lifetime: a name priced only in 2010-2012 is not priceable in a 2020
+     * cross-section, and a lifetime flag would say it was.
+     * </pre>
+     *
+     * <code>bool has_price_history = 17 [json_name = "hasPriceHistory"];</code>
+     * @param value The hasPriceHistory to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasPriceHistory(boolean value) {
+
+      hasPriceHistory_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Whether this security can be PRICED as of the date being asked about.
+     *
+     * A point-in-time universe that is survivorship-free while the price data
+     * behind it is survivor-only is more dangerous than one biased in both,
+     * because the bias becomes invisible: the caller does the right thing,
+     * selects the delisted names, and then silently drops exactly the
+     * acquisitions and failures when returns are computed. A company taken over
+     * at a 30% premium and one that went to zero are then treated identically —
+     * as though the position never existed.
+     *
+     * Measured on the 2020-04-06 universe, 255 of 547 constituents (47%) are gone
+     * by 2026, and only about half of a sample of those could be priced —
+     * Adelaide Brighton, Australian Pharmaceutical, Cabcharge and Asaleo Care
+     * among the missing. This does not fix that hole. It makes it measurable
+     * before a backtest is run rather than discovered afterwards.
+     *
+     * False means we hold no usable price on or before this date, so any return
+     * computed for this row would be fabricated. It is deliberately as-of rather
+     * than lifetime: a name priced only in 2010-2012 is not priceable in a 2020
+     * cross-section, and a lifetime flag would say it was.
+     * </pre>
+     *
+     * <code>bool has_price_history = 17 [json_name = "hasPriceHistory"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasPriceHistory() {
+      bitField0_ = (bitField0_ & ~0x00010000);
+      hasPriceHistory_ = false;
       onChanged();
       return this;
     }

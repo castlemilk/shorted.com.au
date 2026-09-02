@@ -382,3 +382,78 @@ func TestEveryConstituentIsReachableByPaging(t *testing.T) {
 		})
 	}
 }
+
+// A survivorship-free universe whose price data is survivor-only is more
+// dangerous than one biased in both, because the bias becomes invisible: the
+// caller selects the delisted names correctly, then silently drops exactly the
+// acquisitions and failures when returns are computed. A company taken over at
+// a premium and one that went to zero are treated identically — as though the
+// position never existed (#576).
+//
+// This does not fill the hole. It makes it measurable before a backtest runs.
+func TestHasPriceHistoryMarksUnpriceableConstituents(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	dbURL := getTestDatabaseURL()
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+	pool := createTestPool(t, dbURL)
+	defer pool.Close()
+	store := &postgresStore{db: pool}
+
+	var date string
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT MAX("DATE")::date::text FROM shorts`).Scan(&date))
+
+	stocks, _, err := store.GetMarketByDate(date, 5000, 0, true, false)
+	require.NoError(t, err)
+	require.NotEmpty(t, stocks)
+
+	t.Run("the flag agrees with whether a price was actually found", func(t *testing.T) {
+		// market_cap and the traded-value figures are derived from the same
+		// price join, so they cannot be populated on a row the flag calls
+		// unpriceable — that would be the flag lying about data it can see.
+		for _, s := range stocks {
+			if !s.HasPriceHistory {
+				require.Zero(t, s.MarketCap,
+					"%s is marked unpriceable yet carries a market cap", s.ProductCode)
+				require.Zero(t, s.AverageDailyValue_20D,
+					"%s is marked unpriceable yet carries a traded value", s.ProductCode)
+			}
+		}
+	})
+
+	t.Run("it is as-of the date, not lifetime", func(t *testing.T) {
+		// A name priced only in some other era is NOT priceable in this
+		// cross-section, and a lifetime flag would claim it was. Verify the
+		// flag tracks the as-of price join by checking it against a direct
+		// query for prices on or before the date.
+		for _, s := range stocks {
+			var priceableNow bool
+			require.NoError(t, pool.QueryRow(context.Background(), `
+				SELECT EXISTS (
+					SELECT 1 FROM stock_prices
+					WHERE stock_code = $1 AND date <= $2::date AND volume > 0
+				)`, s.ProductCode, date).Scan(&priceableNow))
+			require.Equal(t, priceableNow, s.HasPriceHistory,
+				"%s: flag=%v but prices on/before %s exist=%v",
+				s.ProductCode, s.HasPriceHistory, date, priceableNow)
+		}
+	})
+
+	t.Run("the hole is measurable", func(t *testing.T) {
+		unpriceable := 0
+		for _, s := range stocks {
+			if !s.HasPriceHistory {
+				unpriceable++
+			}
+		}
+		// Not an assertion about the number — it will move as prices are
+		// ingested. The point is that a caller can now compute it at all,
+		// which was the ask: measure the hole rather than discover it.
+		t.Logf("%d of %d constituents cannot be priced as of %s (%.1f%%)",
+			unpriceable, len(stocks), date, 100*float64(unpriceable)/float64(len(stocks)))
+	})
+}
