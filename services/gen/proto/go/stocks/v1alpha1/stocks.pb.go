@@ -100,8 +100,29 @@ type Stock struct {
 	// source is "current".
 	IndustrySource string `protobuf:"bytes,15,opt,name=industry_source,json=industrySource,proto3" json:"industry_source,omitempty"`
 	IndustryAsOf   string `protobuf:"bytes,16,opt,name=industry_as_of,json=industryAsOf,proto3" json:"industry_as_of,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Whether this security can be PRICED as of the date being asked about.
+	//
+	// A point-in-time universe that is survivorship-free while the price data
+	// behind it is survivor-only is more dangerous than one biased in both,
+	// because the bias becomes invisible: the caller does the right thing,
+	// selects the delisted names, and then silently drops exactly the
+	// acquisitions and failures when returns are computed. A company taken over
+	// at a 30% premium and one that went to zero are then treated identically —
+	// as though the position never existed.
+	//
+	// Measured on the 2020-04-06 universe, 255 of 547 constituents (47%) are gone
+	// by 2026, and only about half of a sample of those could be priced —
+	// Adelaide Brighton, Australian Pharmaceutical, Cabcharge and Asaleo Care
+	// among the missing. This does not fix that hole. It makes it measurable
+	// before a backtest is run rather than discovered afterwards.
+	//
+	// False means we hold no usable price on or before this date, so any return
+	// computed for this row would be fabricated. It is deliberately as-of rather
+	// than lifetime: a name priced only in 2010-2012 is not priceable in a 2020
+	// cross-section, and a lifetime flag would say it was.
+	HasPriceHistory bool `protobuf:"varint,17,opt,name=has_price_history,json=hasPriceHistory,proto3" json:"has_price_history,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Stock) Reset() {
@@ -244,6 +265,13 @@ func (x *Stock) GetIndustryAsOf() string {
 		return x.IndustryAsOf
 	}
 	return ""
+}
+
+func (x *Stock) GetHasPriceHistory() bool {
+	if x != nil {
+		return x.HasPriceHistory
+	}
+	return false
 }
 
 // TimeSeriesData represents time series data for a stock.
@@ -1407,7 +1435,7 @@ var File_stocks_v1alpha1_stocks_proto protoreflect.FileDescriptor
 
 const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\n" +
-	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf5\x04\n" +
+	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa1\x05\n" +
 	"\x05Stock\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
@@ -1426,7 +1454,8 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\rdays_to_cover\x18\r \x01(\x01R\vdaysToCover\x12#\n" +
 	"\rsecurity_type\x18\x0e \x01(\tR\fsecurityType\x12'\n" +
 	"\x0findustry_source\x18\x0f \x01(\tR\x0eindustrySource\x12$\n" +
-	"\x0eindustry_as_of\x18\x10 \x01(\tR\findustryAsOf\"\x90\x03\n" +
+	"\x0eindustry_as_of\x18\x10 \x01(\tR\findustryAsOf\x12*\n" +
+	"\x11has_price_history\x18\x11 \x01(\bR\x0fhasPriceHistory\"\x90\x03\n" +
 	"\x0eTimeSeriesData\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x122\n" +

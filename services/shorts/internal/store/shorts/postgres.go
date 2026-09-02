@@ -1374,7 +1374,12 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			COALESCE(m.logo_gcs_url, '') as logo_url,
 			COALESCE(px.close * s."TOTAL_PRODUCT_IN_ISSUE", 0) as market_cap,
 			COALESCE(px.adv, 0) as average_daily_value_20d,
-			COALESCE(px.advol, 0) as average_daily_volume_20d
+			COALESCE(px.advol, 0) as average_daily_volume_20d,
+			-- Derived from the price join already above, so this costs nothing.
+			-- px.close is non-null exactly when at least one traded session
+			-- exists on or before this date, which is the condition under which
+			-- a return can be computed for this row at all.
+			(px.close IS NOT NULL) as has_price_history
 		FROM shorts s
 		LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
 		LEFT JOIN LATERAL (
@@ -1451,6 +1456,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			&stock.MarketCap,
 			&stock.AverageDailyValue_20D,
 			&stock.AverageDailyVolume_20D,
+			&stock.HasPriceHistory,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan stock row: %w", err)
 		}
