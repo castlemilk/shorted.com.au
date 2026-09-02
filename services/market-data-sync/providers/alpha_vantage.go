@@ -12,12 +12,22 @@ import (
 	"time"
 )
 
+const alphaVantageDefaultURL = "https://www.alphavantage.co/query"
+
 type AlphaVantageProvider struct {
 	apiKey string
+	// baseURL is the query endpoint. Overridable so the symbol-verification
+	// behaviour can be tested against a stub; production always uses the default.
+	baseURL string
 }
 
 func NewAlphaVantageProvider(apiKey string) *AlphaVantageProvider {
-	return &AlphaVantageProvider{apiKey: apiKey}
+	return &AlphaVantageProvider{apiKey: apiKey, baseURL: alphaVantageDefaultURL}
+}
+
+// newAlphaVantageForTest builds a provider pointed at a stub server.
+func newAlphaVantageForTest(baseURL, apiKey string) *AlphaVantageProvider {
+	return &AlphaVantageProvider{apiKey: apiKey, baseURL: baseURL}
 }
 
 func (p *AlphaVantageProvider) Name() string {
@@ -48,7 +58,11 @@ func (p *AlphaVantageProvider) FetchHistoricalData(ctx context.Context, symbol s
 		outputSize = "compact"
 	}
 
-	u, _ := url.Parse("https://www.alphavantage.co/query")
+	base := p.baseURL
+	if base == "" {
+		base = alphaVantageDefaultURL
+	}
+	u, _ := url.Parse(base)
 	q := u.Query()
 	q.Set("function", "TIME_SERIES_DAILY")
 	q.Set("symbol", avSymbol)
@@ -72,6 +86,9 @@ func (p *AlphaVantageProvider) FetchHistoricalData(ctx context.Context, symbol s
 	}
 
 	var data struct {
+		// MetaData echoes the symbol Alpha Vantage actually answered for, which is
+		// not always the one asked for — see the audience check below.
+		MetaData   map[string]string            `json:"Meta Data"`
 		TimeSeries map[string]map[string]string `json:"Time Series (Daily)"`
 		Note       string                       `json:"Note"`
 		Info       string                       `json:"Information"`
@@ -91,6 +108,31 @@ func (p *AlphaVantageProvider) FetchHistoricalData(ctx context.Context, symbol s
 			return nil, NewNoDataError(symbol, fmt.Sprintf("alpha vantage: %s", data.Error))
 		}
 		return nil, fmt.Errorf("alpha vantage error: %s", data.Error)
+	}
+
+	// VERIFY THE RESPONSE IS ABOUT THE SECURITY WE ASKED FOR.
+	//
+	// Alpha Vantage does not reject an exchange suffix it does not carry; for
+	// `AMD.AX` it resolves to the base symbol and returns NASDAQ's AMD. Nothing in
+	// the payload distinguishes that from a correct answer except `Meta Data`, and
+	// this function used to discard it — stamping every record with the symbol we
+	// REQUESTED rather than the one that came back.
+	//
+	// What that produced in production: on ASX holidays the Yahoo provider returns
+	// no data, the chain falls through to here, and ASX:AMD (Arrow Minerals, ~$0.02)
+	// was written at $214.99 with 15.7M shares of NASDAQ volume. Boxing Day 2025 did
+	// it across the universe — 215 of 1,006 codes, 745 bad sessions concentrated in
+	// Nov-Dec 2025. The value reverts the next session, so it reads as a 10,000x
+	// return rather than as missing data, and every downstream consumer believed it.
+	//
+	// A price for the wrong company is worse than no price. No data is visible; this
+	// was not.
+	if returned := strings.TrimSpace(data.MetaData["2. Symbol"]); returned != "" {
+		if !strings.EqualFold(returned, avSymbol) {
+			return nil, NewNoDataError(symbol, fmt.Sprintf(
+				"alpha vantage answered for %q when asked for %q — refusing a price for a different security",
+				returned, avSymbol))
+		}
 	}
 
 	var records []PriceRecord
