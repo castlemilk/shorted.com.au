@@ -221,3 +221,111 @@ func TestValidateTokenStillRejectsGenuinelyExpiredTokens(t *testing.T) {
 		t.Error("a token well past expiry must still be rejected; leeway is a tolerance, not an extension")
 	}
 }
+
+// --- ValidateIdentityToken -------------------------------------------------
+//
+// The identity path exists so that a caller holding a valid OAuth/MCP token is
+// METERED as themselves on public methods, rather than as an anonymous IP at
+// 30/min. These tests pin both halves of that: it must accept a credential this
+// deployment minted, and it must not become a second way to spend one.
+
+func mcpAudienceOnly() jwt.ClaimStrings {
+	return jwt.ClaimStrings{mcp.ResourceURI(mcp.DefaultAPIBaseURL)}
+}
+
+func signedWithAudience(t *testing.T, aud jwt.ClaimStrings, userID string) string {
+	t.Helper()
+	now := time.Now()
+	claims := Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			Issuer:    "shorted-api",
+			Audience:  aud,
+		},
+		UserID: userID,
+	}
+	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(testSecret))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+	return signed
+}
+
+func TestValidateIdentityTokenAcceptsAnMCPAudienceToken(t *testing.T) {
+	svc := NewTokenService(testSecret, testAudience()...)
+	tok := signedWithAudience(t, mcpAudienceOnly(), "user-mcp")
+
+	claims, err := svc.ValidateIdentityToken(tok)
+	if err != nil {
+		t.Fatalf("ValidateIdentityToken rejected an MCP token: %v", err)
+	}
+	if claims.UserID != "user-mcp" {
+		t.Errorf("UserID = %q, want user-mcp", claims.UserID)
+	}
+	// The point of the whole exercise: this identity is what lets the rate
+	// limiter key the caller as user:<uid> at their tier instead of ip:<addr>.
+	if claims.UserID == "" {
+		t.Error("no user id: the caller would still be metered as anonymous")
+	}
+}
+
+func TestValidateIdentityTokenAcceptsWholeAPIAndLegacyTokens(t *testing.T) {
+	svc := NewTokenService(testSecret, testAudience()...)
+
+	both := signedWithAudience(t, jwt.ClaimStrings(testAudience()), "user-api")
+	if _, err := svc.ValidateIdentityToken(both); err != nil {
+		t.Errorf("rejected a whole-API token: %v", err)
+	}
+
+	// Audience-less tokens predate audiences entirely; the seam that keeps them
+	// working on ValidateConnectToken must hold here too.
+	legacy := signedWithAudience(t, nil, "user-legacy")
+	if _, err := svc.ValidateIdentityToken(legacy); err != nil {
+		t.Errorf("rejected an audience-less legacy token: %v", err)
+	}
+}
+
+func TestValidateIdentityTokenRejectsAnotherDeploymentsToken(t *testing.T) {
+	// Identity is weaker than authority, but it is still deployment-bound: a
+	// dev-minted token naming a dev origin is not a prod user.
+	svc := NewTokenService(testSecret, testAudience()...)
+	foreign := signedWithAudience(t, jwt.ClaimStrings{"https://dev.example.com", "https://dev.example.com/mcp"}, "user-dev")
+
+	if _, err := svc.ValidateIdentityToken(foreign); err == nil {
+		t.Fatal("accepted a token whose audience names no surface of this deployment")
+	}
+}
+
+func TestValidateIdentityTokenRejectsAForgedSignature(t *testing.T) {
+	svc := NewTokenService(testSecret, testAudience()...)
+	forged, err := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			Audience:  mcpAudienceOnly(),
+		},
+		UserID: "attacker",
+	}).SignedString([]byte("not-the-secret"))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+	if _, err := svc.ValidateIdentityToken(forged); err == nil {
+		t.Fatal("accepted a token signed with a different secret")
+	}
+}
+
+// THE REGRESSION GUARD. Identity must not have reopened the escalation that
+// ValidateConnectToken exists to close: an MCP grant is still not a Connect
+// credential, so it still cannot reach MintToken and become a 30-day whole-API
+// token. If this test ever fails, the consent screen is lying to users.
+func TestValidateConnectTokenStillRefusesAnMCPAudienceToken(t *testing.T) {
+	svc := NewTokenService(testSecret, testAudience()...)
+	tok := signedWithAudience(t, mcpAudienceOnly(), "user-mcp")
+
+	if _, err := svc.ValidateIdentityToken(tok); err != nil {
+		t.Fatalf("precondition: identity should accept this token: %v", err)
+	}
+	if _, err := svc.ValidateConnectToken(tok); err == nil {
+		t.Fatal("ValidateConnectToken accepted an MCP-audience token — privilege escalation reopened")
+	}
+}

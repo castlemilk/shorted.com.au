@@ -254,11 +254,39 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 					fmt.Errorf("endpoint requires internal service authentication"))
 			}
 
-			// If it's public and doesn't require a specific role, allow unauthenticated access
+			// If it's public and doesn't require a specific role, allow unauthenticated
+			// access — but IDENTIFY the caller first when they presented a credential.
+			//
+			// Access is not the question here; the method is public and the data is the
+			// same either way. Metering is. extractIdentifierAndTier keys on the claims
+			// this interceptor leaves in the context, so returning early without looking
+			// at the Authorization header meters a token-bearing caller as `ip:<addr>`
+			// at the anonymous 30/min instead of `user:<uid>` at their own tier. That is
+			// the whole reason an OAuth/MCP credential appeared not to "work" against
+			// this API: it worked, it was simply never read on the path that matters.
+			//
+			// ValidateIdentityToken, not ValidateConnectToken: an MCP-audience token is
+			// a legitimate statement of WHO, and refusing it here would only mean
+			// throttling a known user as a stranger. It confers nothing — this branch
+			// has already established the method is public and role-free, and OAuth
+			// tokens carry no roles regardless.
+			//
+			// A bad or foreign token falls through to anonymous rather than 401: public
+			// is public, and a malformed header must not be able to deny access that
+			// requires no credential at all.
 			if visibility == optionsv1.Visibility_VISIBILITY_PUBLIC && requiredRole == "" {
+				authMethod := "anonymous"
+				if hdr := req.Header().Get("Authorization"); hdr != "" {
+					tok := strings.TrimPrefix(hdr, "Bearer ")
+					if idClaims, idErr := opts.TokenService.ValidateIdentityToken(tok); idErr == nil {
+						lookupTier(idClaims)
+						ctx = context.WithValue(ctx, userKey, idClaims)
+						authMethod = "token-identity"
+					}
+				}
 				if shortedotel.AuthMethod != nil {
 					shortedotel.AuthMethod.Add(ctx, 1,
-						otelmetric.WithAttributes(attribute.String("method", "anonymous")),
+						otelmetric.WithAttributes(attribute.String("method", authMethod)),
 					)
 				}
 				return next(ctx, req)
