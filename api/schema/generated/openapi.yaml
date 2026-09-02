@@ -12913,6 +12913,29 @@ components:
              authoritative instrument register, which we do not hold. Deliberately
              coarse for that reason: it does not attempt warrant-versus-stapled, which
              the data cannot support. (proto string)
+        industrySource:
+          type: string
+          title: industry_source
+          description: |-
+            Where the `industry` label above came from, relative to the date being
+             asked about.
+
+               "observed" — a classification change we recorded on or before that date
+               "seed"     — the label as it stood when capture began
+               "current"  — no history covers that date, so this is TODAY'S label
+
+             "current" is the one that matters, and it is the common case for any
+             historical cross-section: sector history did not exist before capture
+             started and cannot be reconstructed, so ranking a 2014 cross-section by
+             these labels is lookahead. Mild, but real, and previously invisible — the
+             field was returned with nothing to say which date it described.
+
+             industry_as_of is the date the label was observed from, empty when the
+             source is "current". (proto string)
+        industryAsOf:
+          type: string
+          title: industry_as_of
+          description: (proto string)
       title: Stock
       additionalProperties: false
       description: A Stock represents a single stock's metadata.

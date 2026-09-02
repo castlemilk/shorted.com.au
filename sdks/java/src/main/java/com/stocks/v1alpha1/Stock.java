@@ -40,6 +40,8 @@ private static final long serialVersionUID = 0L;
     logoUrl_ = "";
     liquidityBand_ = "";
     securityType_ = "";
+    industrySource_ = "";
+    industryAsOf_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -514,6 +516,120 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int INDUSTRY_SOURCE_FIELD_NUMBER = 15;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object industrySource_ = "";
+  /**
+   * <pre>
+   * Where the `industry` label above came from, relative to the date being
+   * asked about.
+   *
+   * "observed" — a classification change we recorded on or before that date
+   * "seed"     — the label as it stood when capture began
+   * "current"  — no history covers that date, so this is TODAY'S label
+   *
+   * "current" is the one that matters, and it is the common case for any
+   * historical cross-section: sector history did not exist before capture
+   * started and cannot be reconstructed, so ranking a 2014 cross-section by
+   * these labels is lookahead. Mild, but real, and previously invisible — the
+   * field was returned with nothing to say which date it described.
+   *
+   * industry_as_of is the date the label was observed from, empty when the
+   * source is "current".
+   * </pre>
+   *
+   * <code>string industry_source = 15 [json_name = "industrySource"];</code>
+   * @return The industrySource.
+   */
+  @java.lang.Override
+  public java.lang.String getIndustrySource() {
+    java.lang.Object ref = industrySource_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      industrySource_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Where the `industry` label above came from, relative to the date being
+   * asked about.
+   *
+   * "observed" — a classification change we recorded on or before that date
+   * "seed"     — the label as it stood when capture began
+   * "current"  — no history covers that date, so this is TODAY'S label
+   *
+   * "current" is the one that matters, and it is the common case for any
+   * historical cross-section: sector history did not exist before capture
+   * started and cannot be reconstructed, so ranking a 2014 cross-section by
+   * these labels is lookahead. Mild, but real, and previously invisible — the
+   * field was returned with nothing to say which date it described.
+   *
+   * industry_as_of is the date the label was observed from, empty when the
+   * source is "current".
+   * </pre>
+   *
+   * <code>string industry_source = 15 [json_name = "industrySource"];</code>
+   * @return The bytes for industrySource.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getIndustrySourceBytes() {
+    java.lang.Object ref = industrySource_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      industrySource_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int INDUSTRY_AS_OF_FIELD_NUMBER = 16;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object industryAsOf_ = "";
+  /**
+   * <code>string industry_as_of = 16 [json_name = "industryAsOf"];</code>
+   * @return The industryAsOf.
+   */
+  @java.lang.Override
+  public java.lang.String getIndustryAsOf() {
+    java.lang.Object ref = industryAsOf_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      industryAsOf_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string industry_as_of = 16 [json_name = "industryAsOf"];</code>
+   * @return The bytes for industryAsOf.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getIndustryAsOfBytes() {
+    java.lang.Object ref = industryAsOf_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      industryAsOf_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -569,6 +685,12 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(securityType_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 14, securityType_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(industrySource_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 15, industrySource_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(industryAsOf_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 16, industryAsOf_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -627,6 +749,12 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(securityType_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(14, securityType_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(industrySource_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(15, industrySource_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(industryAsOf_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(16, industryAsOf_);
     }
     return size;
   }
@@ -687,6 +815,10 @@ private static final long serialVersionUID = 0L;
             other.getDaysToCover())) return false;
     if (!getSecurityType()
         .equals(other.getSecurityType())) return false;
+    if (!getIndustrySource()
+        .equals(other.getIndustrySource())) return false;
+    if (!getIndustryAsOf()
+        .equals(other.getIndustryAsOf())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -735,6 +867,10 @@ private static final long serialVersionUID = 0L;
         java.lang.Double.doubleToLongBits(getDaysToCover()));
     hash = (37 * hash) + SECURITY_TYPE_FIELD_NUMBER;
     hash = (53 * hash) + getSecurityType().hashCode();
+    hash = (37 * hash) + INDUSTRY_SOURCE_FIELD_NUMBER;
+    hash = (53 * hash) + getIndustrySource().hashCode();
+    hash = (37 * hash) + INDUSTRY_AS_OF_FIELD_NUMBER;
+    hash = (53 * hash) + getIndustryAsOf().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -885,6 +1021,8 @@ private static final long serialVersionUID = 0L;
       averageDailyVolume20D_ = 0D;
       daysToCover_ = 0D;
       securityType_ = "";
+      industrySource_ = "";
+      industryAsOf_ = "";
       return this;
     }
 
@@ -961,6 +1099,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00002000) != 0)) {
         result.securityType_ = securityType_;
       }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.industrySource_ = industrySource_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.industryAsOf_ = industryAsOf_;
+      }
     }
 
     @java.lang.Override
@@ -1034,6 +1178,16 @@ private static final long serialVersionUID = 0L;
       if (!other.getSecurityType().isEmpty()) {
         securityType_ = other.securityType_;
         bitField0_ |= 0x00002000;
+        onChanged();
+      }
+      if (!other.getIndustrySource().isEmpty()) {
+        industrySource_ = other.industrySource_;
+        bitField0_ |= 0x00004000;
+        onChanged();
+      }
+      if (!other.getIndustryAsOf().isEmpty()) {
+        industryAsOf_ = other.industryAsOf_;
+        bitField0_ |= 0x00008000;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -1132,6 +1286,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00002000;
               break;
             } // case 114
+            case 122: {
+              industrySource_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 122
+            case 130: {
+              industryAsOf_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 130
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2196,6 +2360,240 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       securityType_ = value;
       bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object industrySource_ = "";
+    /**
+     * <pre>
+     * Where the `industry` label above came from, relative to the date being
+     * asked about.
+     *
+     * "observed" — a classification change we recorded on or before that date
+     * "seed"     — the label as it stood when capture began
+     * "current"  — no history covers that date, so this is TODAY'S label
+     *
+     * "current" is the one that matters, and it is the common case for any
+     * historical cross-section: sector history did not exist before capture
+     * started and cannot be reconstructed, so ranking a 2014 cross-section by
+     * these labels is lookahead. Mild, but real, and previously invisible — the
+     * field was returned with nothing to say which date it described.
+     *
+     * industry_as_of is the date the label was observed from, empty when the
+     * source is "current".
+     * </pre>
+     *
+     * <code>string industry_source = 15 [json_name = "industrySource"];</code>
+     * @return The industrySource.
+     */
+    public java.lang.String getIndustrySource() {
+      java.lang.Object ref = industrySource_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        industrySource_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Where the `industry` label above came from, relative to the date being
+     * asked about.
+     *
+     * "observed" — a classification change we recorded on or before that date
+     * "seed"     — the label as it stood when capture began
+     * "current"  — no history covers that date, so this is TODAY'S label
+     *
+     * "current" is the one that matters, and it is the common case for any
+     * historical cross-section: sector history did not exist before capture
+     * started and cannot be reconstructed, so ranking a 2014 cross-section by
+     * these labels is lookahead. Mild, but real, and previously invisible — the
+     * field was returned with nothing to say which date it described.
+     *
+     * industry_as_of is the date the label was observed from, empty when the
+     * source is "current".
+     * </pre>
+     *
+     * <code>string industry_source = 15 [json_name = "industrySource"];</code>
+     * @return The bytes for industrySource.
+     */
+    public com.google.protobuf.ByteString
+        getIndustrySourceBytes() {
+      java.lang.Object ref = industrySource_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        industrySource_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Where the `industry` label above came from, relative to the date being
+     * asked about.
+     *
+     * "observed" — a classification change we recorded on or before that date
+     * "seed"     — the label as it stood when capture began
+     * "current"  — no history covers that date, so this is TODAY'S label
+     *
+     * "current" is the one that matters, and it is the common case for any
+     * historical cross-section: sector history did not exist before capture
+     * started and cannot be reconstructed, so ranking a 2014 cross-section by
+     * these labels is lookahead. Mild, but real, and previously invisible — the
+     * field was returned with nothing to say which date it described.
+     *
+     * industry_as_of is the date the label was observed from, empty when the
+     * source is "current".
+     * </pre>
+     *
+     * <code>string industry_source = 15 [json_name = "industrySource"];</code>
+     * @param value The industrySource to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndustrySource(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      industrySource_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Where the `industry` label above came from, relative to the date being
+     * asked about.
+     *
+     * "observed" — a classification change we recorded on or before that date
+     * "seed"     — the label as it stood when capture began
+     * "current"  — no history covers that date, so this is TODAY'S label
+     *
+     * "current" is the one that matters, and it is the common case for any
+     * historical cross-section: sector history did not exist before capture
+     * started and cannot be reconstructed, so ranking a 2014 cross-section by
+     * these labels is lookahead. Mild, but real, and previously invisible — the
+     * field was returned with nothing to say which date it described.
+     *
+     * industry_as_of is the date the label was observed from, empty when the
+     * source is "current".
+     * </pre>
+     *
+     * <code>string industry_source = 15 [json_name = "industrySource"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIndustrySource() {
+      industrySource_ = getDefaultInstance().getIndustrySource();
+      bitField0_ = (bitField0_ & ~0x00004000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Where the `industry` label above came from, relative to the date being
+     * asked about.
+     *
+     * "observed" — a classification change we recorded on or before that date
+     * "seed"     — the label as it stood when capture began
+     * "current"  — no history covers that date, so this is TODAY'S label
+     *
+     * "current" is the one that matters, and it is the common case for any
+     * historical cross-section: sector history did not exist before capture
+     * started and cannot be reconstructed, so ranking a 2014 cross-section by
+     * these labels is lookahead. Mild, but real, and previously invisible — the
+     * field was returned with nothing to say which date it described.
+     *
+     * industry_as_of is the date the label was observed from, empty when the
+     * source is "current".
+     * </pre>
+     *
+     * <code>string industry_source = 15 [json_name = "industrySource"];</code>
+     * @param value The bytes for industrySource to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndustrySourceBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      industrySource_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object industryAsOf_ = "";
+    /**
+     * <code>string industry_as_of = 16 [json_name = "industryAsOf"];</code>
+     * @return The industryAsOf.
+     */
+    public java.lang.String getIndustryAsOf() {
+      java.lang.Object ref = industryAsOf_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        industryAsOf_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string industry_as_of = 16 [json_name = "industryAsOf"];</code>
+     * @return The bytes for industryAsOf.
+     */
+    public com.google.protobuf.ByteString
+        getIndustryAsOfBytes() {
+      java.lang.Object ref = industryAsOf_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        industryAsOf_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string industry_as_of = 16 [json_name = "industryAsOf"];</code>
+     * @param value The industryAsOf to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndustryAsOf(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      industryAsOf_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string industry_as_of = 16 [json_name = "industryAsOf"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIndustryAsOf() {
+      industryAsOf_ = getDefaultInstance().getIndustryAsOf();
+      bitField0_ = (bitField0_ & ~0x00008000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string industry_as_of = 16 [json_name = "industryAsOf"];</code>
+     * @param value The bytes for industryAsOf to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndustryAsOfBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      industryAsOf_ = value;
+      bitField0_ |= 0x00008000;
       onChanged();
       return this;
     }

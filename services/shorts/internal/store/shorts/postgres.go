@@ -1363,13 +1363,27 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
 			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
-			COALESCE(m.industry, '') as industry,
+			-- Prefer a classification observed on or before this date; fall
+			-- back to the current label only when no history covers it. The
+			-- fallback is the COMMON case for any historical cross-section —
+			-- capture began recently and the past cannot be reconstructed — so
+			-- the source is returned alongside rather than left to be assumed.
+			COALESCE(NULLIF(ih.industry, ''), m.industry, '') as industry,
+			COALESCE(ih.source, 'current') as industry_source,
+			COALESCE(ih.observed_from::text, '') as industry_as_of,
 			COALESCE(m.logo_gcs_url, '') as logo_url,
 			COALESCE(px.close * s."TOTAL_PRODUCT_IN_ISSUE", 0) as market_cap,
 			COALESCE(px.adv, 0) as average_daily_value_20d,
 			COALESCE(px.advol, 0) as average_daily_volume_20d
 		FROM shorts s
 		LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
+		LEFT JOIN LATERAL (
+			SELECT h.industry, h.source, h.observed_from
+			FROM stock_industry_history h
+			WHERE h.stock_code = s."PRODUCT_CODE" AND h.observed_from <= $2::date
+			ORDER BY h.observed_from DESC
+			LIMIT 1
+		) ih ON TRUE
 		LEFT JOIN LATERAL (
 			SELECT
 				(ARRAY_AGG(w.close ORDER BY w.date DESC))[1] AS close,
@@ -1390,28 +1404,10 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			) w
 		) px ON TRUE
 		WHERE s."DATE" >= $1 AND s."DATE" <= $2` + aliasedShortFilter + `
-		ORDER BY s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC`
+		ORDER BY s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
+		LIMIT $3 OFFSET $4`
 
-	// Pagination moves into Go when ordinaryOnly is set.
-	//
-	// The instrument classifier is Go — deliberately, so migration 000043's
-	// rules have one counterpart rather than a second SQL copy to keep in step
-	// — which means SQL cannot filter. Leaving LIMIT/OFFSET in the query then
-	// slices the UNFILTERED set and filters the slice, so a page comes back
-	// short, offsets skip rows, and the count describes a different set from
-	// the rows beside it. Reported as #565: totalCount 731 next to 689 returned
-	// rows, with nothing to tell a caller which one was the universe.
-	//
-	// A date's universe is ~740 rows, so reading it whole and paginating after
-	// the filter costs almost nothing and makes the count and the page describe
-	// the same set.
-	queryArgs := []interface{}{dateStart, dateEnd}
-	if !ordinaryOnly {
-		query += ` LIMIT $3 OFFSET $4`
-		queryArgs = append(queryArgs, limit, offset)
-	}
-
-	rows, err := s.db.Query(ctx, query, queryArgs...)
+	rows, err := s.db.Query(ctx, query, dateStart, dateEnd, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query market by date %s: %w", date, err)
 	}
@@ -1429,6 +1425,8 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			&stock.ReportedShortPositions,
 			&stock.TotalProductInIssue,
 			&stock.Industry,
+			&stock.IndustrySource,
+			&stock.IndustryAsOf,
 			&stock.LogoUrl,
 			&stock.MarketCap,
 			&stock.AverageDailyValue_20D,
@@ -1446,20 +1444,6 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			continue
 		}
 		stocks = append(stocks, stock)
-	}
-
-	if ordinaryOnly {
-		// The count must describe what the caller can actually page through.
-		totalCount = len(stocks)
-		start := int(offset)
-		if start > len(stocks) {
-			start = len(stocks)
-		}
-		end := len(stocks)
-		if limit > 0 && start+int(limit) < end {
-			end = start + int(limit)
-		}
-		stocks = stocks[start:end]
 	}
 
 	return stocks, totalCount, nil

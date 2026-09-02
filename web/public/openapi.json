@@ -10534,6 +10534,16 @@
             "title": "industry",
             "type": "string"
           },
+          "industryAsOf": {
+            "description": "(proto string)",
+            "title": "industry_as_of",
+            "type": "string"
+          },
+          "industrySource": {
+            "description": "Where the `industry` label above came from, relative to the date being\n asked about.\n\n   \"observed\" — a classification change we recorded on or before that date\n   \"seed\"     — the label as it stood when capture began\n   \"current\"  — no history covers that date, so this is TODAY'S label\n\n \"current\" is the one that matters, and it is the common case for any\n historical cross-section: sector history did not exist before capture\n started and cannot be reconstructed, so ranking a 2014 cross-section by\n these labels is lookahead. Mild, but real, and previously invisible — the\n field was returned with nothing to say which date it described.\n\n industry_as_of is the date the label was observed from, empty when the\n source is \"current\". (proto string)",
+            "title": "industry_source",
+            "type": "string"
+          },
           "liquidityBand": {
             "description": "Coarse liquidity bucket derived from average_daily_value_20d: \"mega\",\n \"large\", \"mid\", \"small\" or \"micro\"; empty when unknown. Present because a\n band is usable for filtering even where the underlying value is missing or\n stale, and it is what most callers actually want. (proto string)",
             "title": "liquidity_band",
