@@ -82,9 +82,26 @@ type Stock struct {
 	// authoritative instrument register, which we do not hold. Deliberately
 	// coarse for that reason: it does not attempt warrant-versus-stapled, which
 	// the data cannot support.
-	SecurityType  string `protobuf:"bytes,14,opt,name=security_type,json=securityType,proto3" json:"security_type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	SecurityType string `protobuf:"bytes,14,opt,name=security_type,json=securityType,proto3" json:"security_type,omitempty"`
+	// Where the `industry` label above came from, relative to the date being
+	// asked about.
+	//
+	//	"observed" — a classification change we recorded on or before that date
+	//	"seed"     — the label as it stood when capture began
+	//	"current"  — no history covers that date, so this is TODAY'S label
+	//
+	// "current" is the one that matters, and it is the common case for any
+	// historical cross-section: sector history did not exist before capture
+	// started and cannot be reconstructed, so ranking a 2014 cross-section by
+	// these labels is lookahead. Mild, but real, and previously invisible — the
+	// field was returned with nothing to say which date it described.
+	//
+	// industry_as_of is the date the label was observed from, empty when the
+	// source is "current".
+	IndustrySource string `protobuf:"bytes,15,opt,name=industry_source,json=industrySource,proto3" json:"industry_source,omitempty"`
+	IndustryAsOf   string `protobuf:"bytes,16,opt,name=industry_as_of,json=industryAsOf,proto3" json:"industry_as_of,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Stock) Reset() {
@@ -211,6 +228,20 @@ func (x *Stock) GetDaysToCover() float64 {
 func (x *Stock) GetSecurityType() string {
 	if x != nil {
 		return x.SecurityType
+	}
+	return ""
+}
+
+func (x *Stock) GetIndustrySource() string {
+	if x != nil {
+		return x.IndustrySource
+	}
+	return ""
+}
+
+func (x *Stock) GetIndustryAsOf() string {
+	if x != nil {
+		return x.IndustryAsOf
 	}
 	return ""
 }
@@ -1376,7 +1407,7 @@ var File_stocks_v1alpha1_stocks_proto protoreflect.FileDescriptor
 
 const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\n" +
-	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa6\x04\n" +
+	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf5\x04\n" +
 	"\x05Stock\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
@@ -1393,7 +1424,9 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\x0eliquidity_band\x18\v \x01(\tR\rliquidityBand\x127\n" +
 	"\x18average_daily_volume_20d\x18\f \x01(\x01R\x15averageDailyVolume20d\x12\"\n" +
 	"\rdays_to_cover\x18\r \x01(\x01R\vdaysToCover\x12#\n" +
-	"\rsecurity_type\x18\x0e \x01(\tR\fsecurityType\"\x90\x03\n" +
+	"\rsecurity_type\x18\x0e \x01(\tR\fsecurityType\x12'\n" +
+	"\x0findustry_source\x18\x0f \x01(\tR\x0eindustrySource\x12$\n" +
+	"\x0eindustry_as_of\x18\x10 \x01(\tR\findustryAsOf\"\x90\x03\n" +
 	"\x0eTimeSeriesData\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x122\n" +

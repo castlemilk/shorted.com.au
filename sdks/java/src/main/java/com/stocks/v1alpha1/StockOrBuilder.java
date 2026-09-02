@@ -254,4 +254,64 @@ public interface StockOrBuilder extends
    */
   com.google.protobuf.ByteString
       getSecurityTypeBytes();
+
+  /**
+   * <pre>
+   * Where the `industry` label above came from, relative to the date being
+   * asked about.
+   *
+   * "observed" — a classification change we recorded on or before that date
+   * "seed"     — the label as it stood when capture began
+   * "current"  — no history covers that date, so this is TODAY'S label
+   *
+   * "current" is the one that matters, and it is the common case for any
+   * historical cross-section: sector history did not exist before capture
+   * started and cannot be reconstructed, so ranking a 2014 cross-section by
+   * these labels is lookahead. Mild, but real, and previously invisible — the
+   * field was returned with nothing to say which date it described.
+   *
+   * industry_as_of is the date the label was observed from, empty when the
+   * source is "current".
+   * </pre>
+   *
+   * <code>string industry_source = 15 [json_name = "industrySource"];</code>
+   * @return The industrySource.
+   */
+  java.lang.String getIndustrySource();
+  /**
+   * <pre>
+   * Where the `industry` label above came from, relative to the date being
+   * asked about.
+   *
+   * "observed" — a classification change we recorded on or before that date
+   * "seed"     — the label as it stood when capture began
+   * "current"  — no history covers that date, so this is TODAY'S label
+   *
+   * "current" is the one that matters, and it is the common case for any
+   * historical cross-section: sector history did not exist before capture
+   * started and cannot be reconstructed, so ranking a 2014 cross-section by
+   * these labels is lookahead. Mild, but real, and previously invisible — the
+   * field was returned with nothing to say which date it described.
+   *
+   * industry_as_of is the date the label was observed from, empty when the
+   * source is "current".
+   * </pre>
+   *
+   * <code>string industry_source = 15 [json_name = "industrySource"];</code>
+   * @return The bytes for industrySource.
+   */
+  com.google.protobuf.ByteString
+      getIndustrySourceBytes();
+
+  /**
+   * <code>string industry_as_of = 16 [json_name = "industryAsOf"];</code>
+   * @return The industryAsOf.
+   */
+  java.lang.String getIndustryAsOf();
+  /**
+   * <code>string industry_as_of = 16 [json_name = "industryAsOf"];</code>
+   * @return The bytes for industryAsOf.
+   */
+  com.google.protobuf.ByteString
+      getIndustryAsOfBytes();
 }

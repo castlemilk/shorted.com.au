@@ -1989,24 +1989,13 @@ components:
     shorts.v1alpha1.GetIndexSeriesResponse:
       additionalProperties: false
       properties:
-        coveredFrom:
-          description: YYYY-MM-DD of the first session actually served. (proto string)
-          title: covered_from
-          type: string
-        coveredTo:
-          description: (proto string)
-          title: covered_to
-          type: string
         downsampled:
           description: (proto bool)
           title: downsampled
           type: boolean
         index:
           $ref: '#/components/schemas/shorts.v1alpha1.IndexDefinition'
-          description: |-
-            The series definition, including its FULL available coverage in
-             earliest_date/latest_date — not the window served here. Read those against
-             covered_from/covered_to to see whether the request was met. (proto shorts.v1alpha1.IndexDefinition)
+          description: (proto shorts.v1alpha1.IndexDefinition)
           title: index
         points:
           description: Oldest first. (proto shorts.v1alpha1.IndexPoint)
@@ -2014,35 +2003,11 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.IndexPoint'
           title: points
           type: array
-        requestedFrom:
-          description: |-
-            What the request asked for, and what the data could actually answer.
-
-             Asking for period "10Y" against a series holding two years used to return
-             the two years and say nothing, so a caller reasonably believed they had ten
-             — and a risk-adjusted number computed over the wrong span is wrong in a way
-             nothing in the response reveals. Coverage differs sharply between series
-             and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
-             total-return series, and the one worth benchmarking against — begins
-             2019-04-29 because that is where it begins upstream. No backfill can move
-             that date. YYYY-MM-DD, resolved from period or from/to. (proto string)
-          title: requested_from
-          type: string
-        requestedTo:
-          description: (proto string)
-          title: requested_to
-          type: string
         totalObservations:
           description: Sessions in the window before thinning. (proto int32)
           format: int32
           title: total_observations
           type: integer
-        truncated:
-          description: |-
-            True when the series does not span the whole requested window. The dates
-             above say by how much and at which end. (proto bool)
-          title: truncated
-          type: boolean
       title: GetIndexSeriesResponse
       type: object
     shorts.v1alpha1.GetIndustryIntelligenceRequest:
@@ -9006,6 +8971,29 @@ components:
         industry:
           description: (proto string)
           title: industry
+          type: string
+        industryAsOf:
+          description: (proto string)
+          title: industry_as_of
+          type: string
+        industrySource:
+          description: |-
+            Where the `industry` label above came from, relative to the date being
+             asked about.
+
+               "observed" — a classification change we recorded on or before that date
+               "seed"     — the label as it stood when capture began
+               "current"  — no history covers that date, so this is TODAY'S label
+
+             "current" is the one that matters, and it is the common case for any
+             historical cross-section: sector history did not exist before capture
+             started and cannot be reconstructed, so ranking a 2014 cross-section by
+             these labels is lookahead. Mild, but real, and previously invisible — the
+             field was returned with nothing to say which date it described.
+
+             industry_as_of is the date the label was observed from, empty when the
+             source is "current". (proto string)
+          title: industry_source
           type: string
         liquidityBand:
           description: |-

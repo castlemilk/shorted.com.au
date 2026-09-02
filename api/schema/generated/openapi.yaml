@@ -5408,10 +5408,7 @@ components:
       properties:
         index:
           title: index
-          description: |-
-            The series definition, including its FULL available coverage in
-             earliest_date/latest_date — not the window served here. Read those against
-             covered_from/covered_to to see whether the request was met. (proto shorts.v1alpha1.IndexDefinition)
+          description: (proto shorts.v1alpha1.IndexDefinition)
           $ref: '#/components/schemas/shorts.v1alpha1.IndexDefinition'
         points:
           type: array
@@ -5428,38 +5425,6 @@ components:
           type: boolean
           title: downsampled
           description: (proto bool)
-        requestedFrom:
-          type: string
-          title: requested_from
-          description: |-
-            What the request asked for, and what the data could actually answer.
-
-             Asking for period "10Y" against a series holding two years used to return
-             the two years and say nothing, so a caller reasonably believed they had ten
-             — and a risk-adjusted number computed over the wrong span is wrong in a way
-             nothing in the response reveals. Coverage differs sharply between series
-             and cannot be guessed: XJO reaches 2006, XKO 2013, and XJT — the only
-             total-return series, and the one worth benchmarking against — begins
-             2019-04-29 because that is where it begins upstream. No backfill can move
-             that date. YYYY-MM-DD, resolved from period or from/to. (proto string)
-        requestedTo:
-          type: string
-          title: requested_to
-          description: (proto string)
-        coveredFrom:
-          type: string
-          title: covered_from
-          description: YYYY-MM-DD of the first session actually served. (proto string)
-        coveredTo:
-          type: string
-          title: covered_to
-          description: (proto string)
-        truncated:
-          type: boolean
-          title: truncated
-          description: |-
-            True when the series does not span the whole requested window. The dates
-             above say by how much and at which end. (proto bool)
       title: GetIndexSeriesResponse
       additionalProperties: false
     shorts.v1alpha1.GetIndustryIntelligenceRequest:
@@ -12913,6 +12878,29 @@ components:
              authoritative instrument register, which we do not hold. Deliberately
              coarse for that reason: it does not attempt warrant-versus-stapled, which
              the data cannot support. (proto string)
+        industrySource:
+          type: string
+          title: industry_source
+          description: |-
+            Where the `industry` label above came from, relative to the date being
+             asked about.
+
+               "observed" — a classification change we recorded on or before that date
+               "seed"     — the label as it stood when capture began
+               "current"  — no history covers that date, so this is TODAY'S label
+
+             "current" is the one that matters, and it is the common case for any
+             historical cross-section: sector history did not exist before capture
+             started and cannot be reconstructed, so ranking a 2014 cross-section by
+             these labels is lookahead. Mild, but real, and previously invisible — the
+             field was returned with nothing to say which date it described.
+
+             industry_as_of is the date the label was observed from, empty when the
+             source is "current". (proto string)
+        industryAsOf:
+          type: string
+          title: industry_as_of
+          description: (proto string)
       title: Stock
       additionalProperties: false
       description: A Stock represents a single stock's metadata.

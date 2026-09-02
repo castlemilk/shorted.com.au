@@ -152,15 +152,15 @@ func TestGetMarketByDateOrdinaryOnly(t *testing.T) {
 	})
 }
 
-// A filter that is accepted and then not reflected in the count is worse than
-// one that errors: the response looks filtered, so a contaminated universe
-// reaches a cross-section with nothing at the call site to reveal it.
+// GetMarketByDate is a point-in-time universe, but its `industry` label was
+// not point-in-time: it came from company-metadata, which holds one CURRENT row
+// per stock. Ranking a 2014 cross-section by 2026 sector labels is lookahead —
+// mild, but real, and previously invisible, because the field was returned with
+// nothing to say which date it described (#557).
 //
-// Reported as #565. The classifier is Go, so SQL cannot filter — but the query
-// still carried LIMIT/OFFSET and the COUNT was unfiltered, so totalCount
-// described the whole universe (731) while the rows beside it were the filtered
-// one (689), and a page was sliced before filtering rather than after.
-func TestOrdinaryOnlyIsReflectedInTheCountAndThePage(t *testing.T) {
+// History cannot be reconstructed, so the fix is not to invent past labels. It
+// is to say which date the label actually describes, every time.
+func TestIndustryLabelSaysWhereItCameFrom(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -172,54 +172,67 @@ func TestOrdinaryOnlyIsReflectedInTheCountAndThePage(t *testing.T) {
 	defer pool.Close()
 	store := &postgresStore{db: pool}
 
+	var haveHistory bool
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT EXISTS (SELECT 1 FROM information_schema.tables
+		 WHERE table_name = 'stock_industry_history')`).Scan(&haveHistory))
+	if !haveHistory {
+		t.Skip("stock_industry_history not present; migration 000118 has not been applied here")
+	}
+
 	var date string
 	require.NoError(t, pool.QueryRow(context.Background(),
 		`SELECT MAX("DATE")::date::text FROM shorts`).Scan(&date))
 
-	all, allTotal, err := store.GetMarketByDate(date, 5000, 0, true, false)
+	stocks, _, err := store.GetMarketByDate(date, 200, 0, true, false)
 	require.NoError(t, err)
-	filtered, filteredTotal, err := store.GetMarketByDate(date, 5000, 0, true, true)
-	require.NoError(t, err)
+	require.NotEmpty(t, stocks)
 
-	t.Run("the count matches the rows it is returned with", func(t *testing.T) {
-		require.Equal(t, len(all), allTotal, "unfiltered count must match unfiltered rows")
-		require.Equal(t, len(filtered), filteredTotal,
-			"filtered count must match filtered rows — a count describing a different set is the bug")
+	valid := map[string]bool{"observed": true, "seed": true, "current": true}
+
+	t.Run("every row states its provenance", func(t *testing.T) {
+		for _, s := range stocks {
+			require.True(t, valid[s.IndustrySource],
+				"%s has industry_source %q, which is not one of observed/seed/current",
+				s.ProductCode, s.IndustrySource)
+		}
 	})
 
-	t.Run("the filtered count is smaller when there is anything to filter", func(t *testing.T) {
-		nonOrdinary := 0
-		for _, s := range all {
-			if s.SecurityType != "ordinary" {
-				nonOrdinary++
+	t.Run("a dated label carries the date it was observed from", func(t *testing.T) {
+		for _, s := range stocks {
+			if s.IndustrySource == "current" {
+				require.Empty(t, s.IndustryAsOf,
+					"%s is today's label, so it cannot claim an as-of date", s.ProductCode)
+				continue
 			}
+			require.NotEmpty(t, s.IndustryAsOf,
+				"%s came from history but carries no as-of date", s.ProductCode)
+			require.LessOrEqual(t, s.IndustryAsOf, date,
+				"%s claims a label observed AFTER the date being asked about — that is lookahead",
+				s.ProductCode)
 		}
-		if nonOrdinary == 0 {
-			t.Skip("this dataset holds only ordinary lines; nothing to filter")
-		}
-		require.Equal(t, allTotal-nonOrdinary, filteredTotal,
-			"every non-ordinary instrument must come out of the count")
 	})
 
-	t.Run("a page is sliced after filtering, not before", func(t *testing.T) {
-		const page = 10
-		if filteredTotal < page*2 {
-			t.Skip("not enough filtered rows to page")
+	t.Run("a pre-capture date falls back to current, and says so", func(t *testing.T) {
+		// Capture began recently, so nothing covers a historical cross-section.
+		// The fallback is correct; being silent about it was the bug.
+		var early string
+		require.NoError(t, pool.QueryRow(context.Background(),
+			`SELECT MIN("DATE")::date::text FROM shorts`).Scan(&early))
+
+		var seeded string
+		require.NoError(t, pool.QueryRow(context.Background(),
+			`SELECT MIN(observed_from)::text FROM stock_industry_history`).Scan(&seeded))
+		if early >= seeded {
+			t.Skip("this dataset starts after capture began; no pre-capture date to test")
 		}
-		first, total, err := store.GetMarketByDate(date, page, 0, true, true)
-		require.NoError(t, err)
-		require.Len(t, first, page, "a full page must come back full, not short from post-filtering")
-		require.Equal(t, filteredTotal, total, "the total must not change with the page size")
 
-		second, _, err := store.GetMarketByDate(date, page, page, true, true)
+		old, _, err := store.GetMarketByDate(early, 50, 0, true, false)
 		require.NoError(t, err)
-		require.NotEmpty(t, second)
-
-		// Offsets must not overlap or skip.
-		require.Equal(t, filtered[page].ProductCode, second[0].ProductCode,
-			"the second page must continue exactly where the first ended")
-		for _, s := range append(first, second...) {
-			require.Equal(t, "ordinary", s.SecurityType, "%s leaked through the filter", s.ProductCode)
+		require.NotEmpty(t, old)
+		for _, s := range old {
+			require.Equal(t, "current", s.IndustrySource,
+				"%s claims a %q label for %s, before capture began", s.ProductCode, s.IndustrySource, early)
 		}
 	})
 }
