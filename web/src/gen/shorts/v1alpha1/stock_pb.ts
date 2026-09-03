@@ -119,6 +119,12 @@ export type GetStockDataRequest = Message<"shorts.v1alpha1.GetStockDataRequest">
    * what makes a walk-forward study honest without the caller applying a blunt
    * lag by hand.
    *
+   * Setting this IMPLIES full_resolution. The two are contradictory otherwise: a
+   * weekly bucket labelled D contains observations from after D, so a mean cannot
+   * answer a point-in-time question, and serving one silently defeats the other.
+   * A caller passing as_of has declared what they are doing, so the resolution
+   * follows from the request rather than from a second flag they must know to set.
+   *
    * @generated from field: string as_of = 7;
    */
   asOf: string;
@@ -147,6 +153,12 @@ export const GetStockDataRequestSchema: GenMessage<GetStockDataRequest> = /*@__P
  */
 export type GetStockPricesRequest = Message<"shorts.v1alpha1.GetStockPricesRequest"> & {
   /**
+   * NOTE when joining to short interest: this endpoint returns EVERY session by
+   * default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into
+   * weekly averages. Pass full_resolution there to align the two, or the joined
+   * panel is a weekly-averaged short series against daily prices with nothing at
+   * the join site saying so.
+   *
    * @generated from field: string product_code = 1;
    */
   productCode: string;

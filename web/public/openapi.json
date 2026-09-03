@@ -3520,7 +3520,7 @@
         "description": "Request for GetStockDataRequest RPC, specifying the product code.",
         "properties": {
           "asOf": {
-            "description": "Point-in-time filter, YYYY-MM-DD: return only observations that had been\n PUBLISHED by this date, i.e. whose available_from is on or before it.\n\n ASIC publishes T+4, so a series requested for a historical date otherwise\n includes up to four days of data nobody could have had. Setting as_of is\n what makes a walk-forward study honest without the caller applying a blunt\n lag by hand. (proto string)",
+            "description": "Point-in-time filter, YYYY-MM-DD: return only observations that had been\n PUBLISHED by this date, i.e. whose available_from is on or before it.\n\n ASIC publishes T+4, so a series requested for a historical date otherwise\n includes up to four days of data nobody could have had. Setting as_of is\n what makes a walk-forward study honest without the caller applying a blunt\n lag by hand.\n\n Setting this IMPLIES full_resolution. The two are contradictory otherwise: a\n weekly bucket labelled D contains observations from after D, so a mean cannot\n answer a point-in-time question, and serving one silently defeats the other.\n A caller passing as_of has declared what they are doing, so the resolution\n follows from the request rather than from a second flag they must know to set. (proto string)",
             "title": "as_of",
             "type": "string"
           },
@@ -3727,7 +3727,7 @@
             "type": "string"
           },
           "productCode": {
-            "description": "(proto string)",
+            "description": "NOTE when joining to short interest: this endpoint returns EVERY session by\n default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into\n weekly averages. Pass full_resolution there to align the two, or the joined\n panel is a weekly-averaged short series against daily prices with nothing at\n the join site saying so. (proto string)",
             "title": "product_code",
             "type": "string"
           },

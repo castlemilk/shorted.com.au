@@ -6591,7 +6591,13 @@ components:
              ASIC publishes T+4, so a series requested for a historical date otherwise
              includes up to four days of data nobody could have had. Setting as_of is
              what makes a walk-forward study honest without the caller applying a blunt
-             lag by hand. (proto string)
+             lag by hand.
+
+             Setting this IMPLIES full_resolution. The two are contradictory otherwise: a
+             weekly bucket labelled D contains observations from after D, so a mean cannot
+             answer a point-in-time question, and serving one silently defeats the other.
+             A caller passing as_of has declared what they are doing, so the resolution
+             follows from the request rather than from a second flag they must know to set. (proto string)
       title: GetStockDataRequest
       additionalProperties: false
       description: Request for GetStockDataRequest RPC, specifying the product code.
@@ -6728,7 +6734,12 @@ components:
         productCode:
           type: string
           title: product_code
-          description: (proto string)
+          description: |-
+            NOTE when joining to short interest: this endpoint returns EVERY session by
+             default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into
+             weekly averages. Pass full_resolution there to align the two, or the joined
+             panel is a weekly-averaged short series against daily prices with nothing at
+             the join site saying so. (proto string)
         period:
           type: string
           title: period

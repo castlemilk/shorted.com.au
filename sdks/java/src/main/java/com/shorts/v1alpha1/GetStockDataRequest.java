@@ -287,6 +287,12 @@ private static final long serialVersionUID = 0L;
    * includes up to four days of data nobody could have had. Setting as_of is
    * what makes a walk-forward study honest without the caller applying a blunt
    * lag by hand.
+   *
+   * Setting this IMPLIES full_resolution. The two are contradictory otherwise: a
+   * weekly bucket labelled D contains observations from after D, so a mean cannot
+   * answer a point-in-time question, and serving one silently defeats the other.
+   * A caller passing as_of has declared what they are doing, so the resolution
+   * follows from the request rather than from a second flag they must know to set.
    * </pre>
    *
    * <code>string as_of = 7 [json_name = "asOf"];</code>
@@ -314,6 +320,12 @@ private static final long serialVersionUID = 0L;
    * includes up to four days of data nobody could have had. Setting as_of is
    * what makes a walk-forward study honest without the caller applying a blunt
    * lag by hand.
+   *
+   * Setting this IMPLIES full_resolution. The two are contradictory otherwise: a
+   * weekly bucket labelled D contains observations from after D, so a mean cannot
+   * answer a point-in-time question, and serving one silently defeats the other.
+   * A caller passing as_of has declared what they are doing, so the resolution
+   * follows from the request rather than from a second flag they must know to set.
    * </pre>
    *
    * <code>string as_of = 7 [json_name = "asOf"];</code>
@@ -1250,6 +1262,12 @@ private static final long serialVersionUID = 0L;
      * includes up to four days of data nobody could have had. Setting as_of is
      * what makes a walk-forward study honest without the caller applying a blunt
      * lag by hand.
+     *
+     * Setting this IMPLIES full_resolution. The two are contradictory otherwise: a
+     * weekly bucket labelled D contains observations from after D, so a mean cannot
+     * answer a point-in-time question, and serving one silently defeats the other.
+     * A caller passing as_of has declared what they are doing, so the resolution
+     * follows from the request rather than from a second flag they must know to set.
      * </pre>
      *
      * <code>string as_of = 7 [json_name = "asOf"];</code>
@@ -1276,6 +1294,12 @@ private static final long serialVersionUID = 0L;
      * includes up to four days of data nobody could have had. Setting as_of is
      * what makes a walk-forward study honest without the caller applying a blunt
      * lag by hand.
+     *
+     * Setting this IMPLIES full_resolution. The two are contradictory otherwise: a
+     * weekly bucket labelled D contains observations from after D, so a mean cannot
+     * answer a point-in-time question, and serving one silently defeats the other.
+     * A caller passing as_of has declared what they are doing, so the resolution
+     * follows from the request rather than from a second flag they must know to set.
      * </pre>
      *
      * <code>string as_of = 7 [json_name = "asOf"];</code>
@@ -1303,6 +1327,12 @@ private static final long serialVersionUID = 0L;
      * includes up to four days of data nobody could have had. Setting as_of is
      * what makes a walk-forward study honest without the caller applying a blunt
      * lag by hand.
+     *
+     * Setting this IMPLIES full_resolution. The two are contradictory otherwise: a
+     * weekly bucket labelled D contains observations from after D, so a mean cannot
+     * answer a point-in-time question, and serving one silently defeats the other.
+     * A caller passing as_of has declared what they are doing, so the resolution
+     * follows from the request rather than from a second flag they must know to set.
      * </pre>
      *
      * <code>string as_of = 7 [json_name = "asOf"];</code>
@@ -1326,6 +1356,12 @@ private static final long serialVersionUID = 0L;
      * includes up to four days of data nobody could have had. Setting as_of is
      * what makes a walk-forward study honest without the caller applying a blunt
      * lag by hand.
+     *
+     * Setting this IMPLIES full_resolution. The two are contradictory otherwise: a
+     * weekly bucket labelled D contains observations from after D, so a mean cannot
+     * answer a point-in-time question, and serving one silently defeats the other.
+     * A caller passing as_of has declared what they are doing, so the resolution
+     * follows from the request rather than from a second flag they must know to set.
      * </pre>
      *
      * <code>string as_of = 7 [json_name = "asOf"];</code>
@@ -1346,6 +1382,12 @@ private static final long serialVersionUID = 0L;
      * includes up to four days of data nobody could have had. Setting as_of is
      * what makes a walk-forward study honest without the caller applying a blunt
      * lag by hand.
+     *
+     * Setting this IMPLIES full_resolution. The two are contradictory otherwise: a
+     * weekly bucket labelled D contains observations from after D, so a mean cannot
+     * answer a point-in-time question, and serving one silently defeats the other.
+     * A caller passing as_of has declared what they are doing, so the resolution
+     * follows from the request rather than from a second flag they must know to set.
      * </pre>
      *
      * <code>string as_of = 7 [json_name = "asOf"];</code>
