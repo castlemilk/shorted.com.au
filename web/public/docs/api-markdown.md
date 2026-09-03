@@ -1469,7 +1469,7 @@ Request body fields:
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `asOf` | string | no | Point-in-time filter, YYYY-MM-DD: return only observations that had been PUBLISHED by this date, i.e. whose available_from is on or before it. ASIC publishes T+4, so a series requested for a historical date otherwise includes up to four days of data nobody could have had. Setting as_of is what makes a walk-forward study honest without the caller applying a blunt lag by hand. (proto string) |
+| `asOf` | string | no | Point-in-time filter, YYYY-MM-DD: return only observations that had been PUBLISHED by this date, i.e. whose available_from is on or before it. ASIC publishes T+4, so a series requested for a historical date otherwise includes up to four days of data nobody could have had. Setting as_of is what makes a walk-forward study honest without the caller applying a blunt lag by hand. Setting this IMPLIES full_resolution. The two are contradictory otherwise: a weekly bucket labelled D contains observations from after D, so a mean cannot answer a point-in-time question, and serving one silently defeats the other. A caller passing as_of has declared what they are doing, so the resolution follows from the request rather than from a second flag they must know to set. (proto string) |
 | `from` | string | no | Explicit date range, YYYY-MM-DD, as an alternative to `period`. `from` alone runs to the end of the data. A caller wanting one specific window had to request MAX and discard most of what came back. (proto string) |
 | `fullResolution` | boolean | no | Return every observation, unbucketed. By default the long periods (5Y, 10Y, MAX) are bucketed into weekly averages. That is the right shape for a chart and unusable for anything else: you cannot compute a per-observation change, align to a trading calendar, or measure an event window on a resampled series, and until now there was no way to ask for the raw record. The default is unchanged, so existing callers keep the series they already render. (proto bool) |
 | `maxPoints` | integer (int32) | no | Cap on returned points, applied after `full_resolution`. 0 means no cap. Thinning keeps the first and last observation and spaces the rest evenly; `downsampled` reports whether it happened, so a caller never has to infer it from a suspiciously round point count. (proto int32) |
@@ -1553,7 +1553,7 @@ Request body fields:
 | `from` | string | no | Explicit date range, YYYY-MM-DD. `from` alone runs to the end of the data. (proto string) |
 | `maxPoints` | integer (int32) | no | Cap on returned points, 0 for no cap. Thinning keeps the first and last observation; `downsampled` reports whether it happened. (proto int32) |
 | `period` | string | no | Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when `from` is set. Defaults to 1Y. (proto string) |
-| `productCode` | string | no | (proto string) |
+| `productCode` | string | no | NOTE when joining to short interest: this endpoint returns EVERY session by default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into weekly averages. Pass full_resolution there to align the two, or the joined panel is a weekly-averaged short series against daily prices with nothing at the join site saying so. (proto string) |
 | `to` | string | no | (proto string) |
 
 ```bash

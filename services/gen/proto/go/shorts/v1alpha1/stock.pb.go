@@ -205,6 +205,12 @@ type GetStockDataRequest struct {
 	// includes up to four days of data nobody could have had. Setting as_of is
 	// what makes a walk-forward study honest without the caller applying a blunt
 	// lag by hand.
+	//
+	// Setting this IMPLIES full_resolution. The two are contradictory otherwise: a
+	// weekly bucket labelled D contains observations from after D, so a mean cannot
+	// answer a point-in-time question, and serving one silently defeats the other.
+	// A caller passing as_of has declared what they are doing, so the resolution
+	// follows from the request rather than from a second flag they must know to set.
 	AsOf          string `protobuf:"bytes,7,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -300,8 +306,13 @@ func (x *GetStockDataRequest) GetAsOf() string {
 // shorted names underperform", "what happened after the squeeze") needs both
 // series, and the harder half was already here.
 type GetStockPricesRequest struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	ProductCode string                 `protobuf:"bytes,1,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// NOTE when joining to short interest: this endpoint returns EVERY session by
+	// default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into
+	// weekly averages. Pass full_resolution there to align the two, or the joined
+	// panel is a weekly-averaged short series against daily prices with nothing at
+	// the join site saying so.
+	ProductCode string `protobuf:"bytes,1,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"`
 	// Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when
 	// `from` is set. Defaults to 1Y.
 	Period string `protobuf:"bytes,2,opt,name=period,proto3" json:"period,omitempty"`

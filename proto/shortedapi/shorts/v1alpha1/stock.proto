@@ -122,6 +122,12 @@ message GetStockDataRequest {
   // includes up to four days of data nobody could have had. Setting as_of is
   // what makes a walk-forward study honest without the caller applying a blunt
   // lag by hand.
+  //
+  // Setting this IMPLIES full_resolution. The two are contradictory otherwise: a
+  // weekly bucket labelled D contains observations from after D, so a mean cannot
+  // answer a point-in-time question, and serving one silently defeats the other.
+  // A caller passing as_of has declared what they are doing, so the resolution
+  // follows from the request rather than from a second flag they must know to set.
   string as_of = 7;
 }
 
@@ -136,6 +142,11 @@ message GetStockDataRequest {
 // shorted names underperform", "what happened after the squeeze") needs both
 // series, and the harder half was already here.
 message GetStockPricesRequest {
+  // NOTE when joining to short interest: this endpoint returns EVERY session by
+  // default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into
+  // weekly averages. Pass full_resolution there to align the two, or the joined
+  // panel is a weekly-averaged short series against daily prices with nothing at
+  // the join site saying so.
   string product_code = 1;
 
   // Lookback window: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y or MAX. Ignored when

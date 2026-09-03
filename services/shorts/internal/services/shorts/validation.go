@@ -309,6 +309,24 @@ func SetDefaultValues(req interface{}) {
 			r.Period = strings.ToUpper(r.Period)
 		}
 		r.ProductCode = NormalizeStockCode(r.ProductCode)
+		// as_of implies full_resolution.
+		//
+		// The long periods (5Y, 10Y, MAX) bucket into weekly averages by default,
+		// which is right for a chart. as_of exists for the opposite job: it filters
+		// to observations PUBLISHED by a date, so a walk-forward study does not read
+		// data nobody could have had. Those two cannot both be honoured — a weekly
+		// mean cannot answer a point-in-time question, because the bucket labelled D
+		// contains observations from after D. Serving one silently defeats the other.
+		//
+		// A caller passing as_of has declared they are doing point-in-time work, so
+		// the resolution follows from the request rather than from a second flag they
+		// must know to set. Nothing is taken away: the default is unchanged for every
+		// caller who does not pass as_of, and passing full_resolution explicitly still
+		// works. Reported in castlemilk/shorted.com.au#584 by a consumer who computed
+		// seven versions of results on weekly means without noticing.
+		if r.AsOf != "" {
+			r.FullResolution = true
+		}
 	case *shortsv1alpha1.GetStockRequest:
 		r.ProductCode = NormalizeStockCode(r.ProductCode)
 	case *shortsv1alpha1.GetStockDetailsRequest:

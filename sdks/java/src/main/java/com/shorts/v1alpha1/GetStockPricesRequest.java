@@ -69,6 +69,14 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private volatile java.lang.Object productCode_ = "";
   /**
+   * <pre>
+   * NOTE when joining to short interest: this endpoint returns EVERY session by
+   * default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into
+   * weekly averages. Pass full_resolution there to align the two, or the joined
+   * panel is a weekly-averaged short series against daily prices with nothing at
+   * the join site saying so.
+   * </pre>
+   *
    * <code>string product_code = 1 [json_name = "productCode"];</code>
    * @return The productCode.
    */
@@ -86,6 +94,14 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
+   * <pre>
+   * NOTE when joining to short interest: this endpoint returns EVERY session by
+   * default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into
+   * weekly averages. Pass full_resolution there to align the two, or the joined
+   * panel is a weekly-averaged short series against daily prices with nothing at
+   * the join site saying so.
+   * </pre>
+   *
    * <code>string product_code = 1 [json_name = "productCode"];</code>
    * @return The bytes for productCode.
    */
@@ -663,6 +679,14 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object productCode_ = "";
     /**
+     * <pre>
+     * NOTE when joining to short interest: this endpoint returns EVERY session by
+     * default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into
+     * weekly averages. Pass full_resolution there to align the two, or the joined
+     * panel is a weekly-averaged short series against daily prices with nothing at
+     * the join site saying so.
+     * </pre>
+     *
      * <code>string product_code = 1 [json_name = "productCode"];</code>
      * @return The productCode.
      */
@@ -679,6 +703,14 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * NOTE when joining to short interest: this endpoint returns EVERY session by
+     * default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into
+     * weekly averages. Pass full_resolution there to align the two, or the joined
+     * panel is a weekly-averaged short series against daily prices with nothing at
+     * the join site saying so.
+     * </pre>
+     *
      * <code>string product_code = 1 [json_name = "productCode"];</code>
      * @return The bytes for productCode.
      */
@@ -696,6 +728,14 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * NOTE when joining to short interest: this endpoint returns EVERY session by
+     * default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into
+     * weekly averages. Pass full_resolution there to align the two, or the joined
+     * panel is a weekly-averaged short series against daily prices with nothing at
+     * the join site saying so.
+     * </pre>
+     *
      * <code>string product_code = 1 [json_name = "productCode"];</code>
      * @param value The productCode to set.
      * @return This builder for chaining.
@@ -709,6 +749,14 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * NOTE when joining to short interest: this endpoint returns EVERY session by
+     * default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into
+     * weekly averages. Pass full_resolution there to align the two, or the joined
+     * panel is a weekly-averaged short series against daily prices with nothing at
+     * the join site saying so.
+     * </pre>
+     *
      * <code>string product_code = 1 [json_name = "productCode"];</code>
      * @return This builder for chaining.
      */
@@ -719,6 +767,14 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * NOTE when joining to short interest: this endpoint returns EVERY session by
+     * default, while GetStockData buckets the long periods (5Y, 10Y, MAX) into
+     * weekly averages. Pass full_resolution there to align the two, or the joined
+     * panel is a weekly-averaged short series against daily prices with nothing at
+     * the join site saying so.
+     * </pre>
+     *
      * <code>string product_code = 1 [json_name = "productCode"];</code>
      * @param value The bytes for productCode to set.
      * @return This builder for chaining.
