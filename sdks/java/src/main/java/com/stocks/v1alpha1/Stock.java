@@ -45,6 +45,7 @@ private static final long serialVersionUID = 0L;
     gicsSector_ = "";
     lastReportedDate_ = "";
     finalCloseDate_ = "";
+    priceStatus_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -82,7 +83,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       productCode_ = s;
@@ -102,7 +103,7 @@ private static final long serialVersionUID = 0L;
       getProductCodeBytes() {
     java.lang.Object ref = productCode_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       productCode_ = b;
@@ -129,7 +130,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       name_ = s;
@@ -149,7 +150,7 @@ private static final long serialVersionUID = 0L;
       getNameBytes() {
     java.lang.Object ref = name_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       name_ = b;
@@ -205,7 +206,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       industry_ = s;
@@ -221,7 +222,7 @@ private static final long serialVersionUID = 0L;
       getIndustryBytes() {
     java.lang.Object ref = industry_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       industry_ = b;
@@ -281,7 +282,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       logoUrl_ = s;
@@ -297,7 +298,7 @@ private static final long serialVersionUID = 0L;
       getLogoUrlBytes() {
     java.lang.Object ref = logoUrl_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       logoUrl_ = b;
@@ -367,7 +368,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       liquidityBand_ = s;
@@ -390,7 +391,7 @@ private static final long serialVersionUID = 0L;
       getLiquidityBandBytes() {
     java.lang.Object ref = liquidityBand_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       liquidityBand_ = b;
@@ -474,7 +475,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       securityType_ = s;
@@ -509,7 +510,7 @@ private static final long serialVersionUID = 0L;
       getSecurityTypeBytes() {
     java.lang.Object ref = securityType_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       securityType_ = b;
@@ -550,7 +551,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       industrySource_ = s;
@@ -584,7 +585,7 @@ private static final long serialVersionUID = 0L;
       getIndustrySourceBytes() {
     java.lang.Object ref = industrySource_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       industrySource_ = b;
@@ -607,7 +608,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       industryAsOf_ = s;
@@ -623,7 +624,7 @@ private static final long serialVersionUID = 0L;
       getIndustryAsOfBytes() {
     java.lang.Object ref = industryAsOf_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       industryAsOf_ = b;
@@ -671,7 +672,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       gicsSector_ = s;
@@ -712,7 +713,7 @@ private static final long serialVersionUID = 0L;
       getGicsSectorBytes() {
     java.lang.Object ref = gicsSector_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       gicsSector_ = b;
@@ -794,7 +795,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       lastReportedDate_ = s;
@@ -835,7 +836,7 @@ private static final long serialVersionUID = 0L;
       getLastReportedDateBytes() {
     java.lang.Object ref = lastReportedDate_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       lastReportedDate_ = b;
@@ -879,7 +880,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs = 
+      com.google.protobuf.ByteString bs =
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       finalCloseDate_ = s;
@@ -895,10 +896,105 @@ private static final long serialVersionUID = 0L;
       getFinalCloseDateBytes() {
     java.lang.Object ref = finalCloseDate_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
+      com.google.protobuf.ByteString b =
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       finalCloseDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int PRICE_STATUS_FIELD_NUMBER = 22;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object priceStatus_ = "";
+  /**
+   * <pre>
+   * Whether the price gap on this row is FINAL or merely not filled yet (#576).
+   *
+   * has_price_history is a boolean and answers "can I price this". It cannot
+   * answer the question a caller actually has to act on, which is whether
+   * waiting would help:
+   *
+   * "priced"       — a usable close exists on or before this date.
+   * "unattempted"  — no price, and no provider has ever been asked for this
+   * code. Might still be recoverable; do not treat the gap
+   * as permanent.
+   * "unavailable"  — no price, and a provider WAS asked and had nothing. The
+   * gap is as final as our current sources make it, and a
+   * backtest should code around it rather than wait.
+   *
+   * The distinction is not hypothetical. Until the backfill's universe was
+   * widened, every stock list it used was derived from stock_prices itself, so
+   * a code with no prices was never requested — and 936 of 1,941 codes sat in
+   * "unattempted" while looking exactly like "unavailable". The standing
+   * explanation for the gap went unexamined for as long as it did precisely
+   * because the response could not tell those apart.
+   *
+   * Measured 2026-09-06 against the 13 codes #576 names, Yahoo returned
+   * `{"code":"Not Found","description":"No data found, symbol may be delisted"}`
+   * for all 13 while three live controls returned 3,040 records each. So for
+   * those, "unavailable" is the true state and no amount of re-running helps.
+   * </pre>
+   *
+   * <code>string price_status = 22 [json_name = "priceStatus"];</code>
+   * @return The priceStatus.
+   */
+  @java.lang.Override
+  public java.lang.String getPriceStatus() {
+    java.lang.Object ref = priceStatus_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs =
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      priceStatus_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Whether the price gap on this row is FINAL or merely not filled yet (#576).
+   *
+   * has_price_history is a boolean and answers "can I price this". It cannot
+   * answer the question a caller actually has to act on, which is whether
+   * waiting would help:
+   *
+   * "priced"       — a usable close exists on or before this date.
+   * "unattempted"  — no price, and no provider has ever been asked for this
+   * code. Might still be recoverable; do not treat the gap
+   * as permanent.
+   * "unavailable"  — no price, and a provider WAS asked and had nothing. The
+   * gap is as final as our current sources make it, and a
+   * backtest should code around it rather than wait.
+   *
+   * The distinction is not hypothetical. Until the backfill's universe was
+   * widened, every stock list it used was derived from stock_prices itself, so
+   * a code with no prices was never requested — and 936 of 1,941 codes sat in
+   * "unattempted" while looking exactly like "unavailable". The standing
+   * explanation for the gap went unexamined for as long as it did precisely
+   * because the response could not tell those apart.
+   *
+   * Measured 2026-09-06 against the 13 codes #576 names, Yahoo returned
+   * `{"code":"Not Found","description":"No data found, symbol may be delisted"}`
+   * for all 13 while three live controls returned 3,040 records each. So for
+   * those, "unavailable" is the true state and no amount of re-running helps.
+   * </pre>
+   *
+   * <code>string price_status = 22 [json_name = "priceStatus"];</code>
+   * @return The bytes for priceStatus.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getPriceStatusBytes() {
+    java.lang.Object ref = priceStatus_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b =
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      priceStatus_ = b;
       return b;
     } else {
       return (com.google.protobuf.ByteString) ref;
@@ -982,6 +1078,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(gicsSector_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 21, gicsSector_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(priceStatus_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 22, priceStatus_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -1063,6 +1162,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(gicsSector_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(21, gicsSector_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(priceStatus_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(22, priceStatus_);
+    }
     return size;
   }
   @java.lang.Override
@@ -1137,6 +1239,8 @@ private static final long serialVersionUID = 0L;
             other.getFinalClose())) return false;
     if (!getFinalCloseDate()
         .equals(other.getFinalCloseDate())) return false;
+    if (!getPriceStatus()
+        .equals(other.getPriceStatus())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1201,6 +1305,8 @@ private static final long serialVersionUID = 0L;
         java.lang.Double.doubleToLongBits(getFinalClose()));
     hash = (37 * hash) + FINAL_CLOSE_DATE_FIELD_NUMBER;
     hash = (53 * hash) + getFinalCloseDate().hashCode();
+    hash = (37 * hash) + PRICE_STATUS_FIELD_NUMBER;
+    hash = (53 * hash) + getPriceStatus().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1358,6 +1464,7 @@ private static final long serialVersionUID = 0L;
       lastReportedDate_ = "";
       finalClose_ = 0D;
       finalCloseDate_ = "";
+      priceStatus_ = "";
       return this;
     }
 
@@ -1454,6 +1561,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00100000) != 0)) {
         result.finalCloseDate_ = finalCloseDate_;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.priceStatus_ = priceStatus_;
       }
     }
 
@@ -1559,6 +1669,11 @@ private static final long serialVersionUID = 0L;
       if (!other.getFinalCloseDate().isEmpty()) {
         finalCloseDate_ = other.finalCloseDate_;
         bitField0_ |= 0x00100000;
+        onChanged();
+      }
+      if (!other.getPriceStatus().isEmpty()) {
+        priceStatus_ = other.priceStatus_;
+        bitField0_ |= 0x00200000;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -1692,6 +1807,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00010000;
               break;
             } // case 170
+            case 178: {
+              priceStatus_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00200000;
+              break;
+            } // case 178
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1742,7 +1862,7 @@ private static final long serialVersionUID = 0L;
         getProductCodeBytes() {
       java.lang.Object ref = productCode_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         productCode_ = b;
@@ -1834,7 +1954,7 @@ private static final long serialVersionUID = 0L;
         getNameBytes() {
       java.lang.Object ref = name_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         name_ = b;
@@ -2014,7 +2134,7 @@ private static final long serialVersionUID = 0L;
         getIndustryBytes() {
       java.lang.Object ref = industry_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         industry_ = b;
@@ -2197,7 +2317,7 @@ private static final long serialVersionUID = 0L;
         getLogoUrlBytes() {
       java.lang.Object ref = logoUrl_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         logoUrl_ = b;
@@ -2401,7 +2521,7 @@ private static final long serialVersionUID = 0L;
         getLiquidityBandBytes() {
       java.lang.Object ref = liquidityBand_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         liquidityBand_ = b;
@@ -2656,7 +2776,7 @@ private static final long serialVersionUID = 0L;
         getSecurityTypeBytes() {
       java.lang.Object ref = securityType_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         securityType_ = b;
@@ -2821,7 +2941,7 @@ private static final long serialVersionUID = 0L;
         getIndustrySourceBytes() {
       java.lang.Object ref = industrySource_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         industrySource_ = b;
@@ -2947,7 +3067,7 @@ private static final long serialVersionUID = 0L;
         getIndustryAsOfBytes() {
       java.lang.Object ref = industryAsOf_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         industryAsOf_ = b;
@@ -3069,7 +3189,7 @@ private static final long serialVersionUID = 0L;
         getGicsSectorBytes() {
       java.lang.Object ref = gicsSector_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         gicsSector_ = b;
@@ -3367,7 +3487,7 @@ private static final long serialVersionUID = 0L;
         getLastReportedDateBytes() {
       java.lang.Object ref = lastReportedDate_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         lastReportedDate_ = b;
@@ -3576,7 +3696,7 @@ private static final long serialVersionUID = 0L;
         getFinalCloseDateBytes() {
       java.lang.Object ref = finalCloseDate_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         finalCloseDate_ = b;
@@ -3619,6 +3739,218 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       finalCloseDate_ = value;
       bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object priceStatus_ = "";
+    /**
+     * <pre>
+     * Whether the price gap on this row is FINAL or merely not filled yet (#576).
+     *
+     * has_price_history is a boolean and answers "can I price this". It cannot
+     * answer the question a caller actually has to act on, which is whether
+     * waiting would help:
+     *
+     * "priced"       — a usable close exists on or before this date.
+     * "unattempted"  — no price, and no provider has ever been asked for this
+     * code. Might still be recoverable; do not treat the gap
+     * as permanent.
+     * "unavailable"  — no price, and a provider WAS asked and had nothing. The
+     * gap is as final as our current sources make it, and a
+     * backtest should code around it rather than wait.
+     *
+     * The distinction is not hypothetical. Until the backfill's universe was
+     * widened, every stock list it used was derived from stock_prices itself, so
+     * a code with no prices was never requested — and 936 of 1,941 codes sat in
+     * "unattempted" while looking exactly like "unavailable". The standing
+     * explanation for the gap went unexamined for as long as it did precisely
+     * because the response could not tell those apart.
+     *
+     * Measured 2026-09-06 against the 13 codes #576 names, Yahoo returned
+     * `{"code":"Not Found","description":"No data found, symbol may be delisted"}`
+     * for all 13 while three live controls returned 3,040 records each. So for
+     * those, "unavailable" is the true state and no amount of re-running helps.
+     * </pre>
+     *
+     * <code>string price_status = 22 [json_name = "priceStatus"];</code>
+     * @return The priceStatus.
+     */
+    public java.lang.String getPriceStatus() {
+      java.lang.Object ref = priceStatus_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        priceStatus_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Whether the price gap on this row is FINAL or merely not filled yet (#576).
+     *
+     * has_price_history is a boolean and answers "can I price this". It cannot
+     * answer the question a caller actually has to act on, which is whether
+     * waiting would help:
+     *
+     * "priced"       — a usable close exists on or before this date.
+     * "unattempted"  — no price, and no provider has ever been asked for this
+     * code. Might still be recoverable; do not treat the gap
+     * as permanent.
+     * "unavailable"  — no price, and a provider WAS asked and had nothing. The
+     * gap is as final as our current sources make it, and a
+     * backtest should code around it rather than wait.
+     *
+     * The distinction is not hypothetical. Until the backfill's universe was
+     * widened, every stock list it used was derived from stock_prices itself, so
+     * a code with no prices was never requested — and 936 of 1,941 codes sat in
+     * "unattempted" while looking exactly like "unavailable". The standing
+     * explanation for the gap went unexamined for as long as it did precisely
+     * because the response could not tell those apart.
+     *
+     * Measured 2026-09-06 against the 13 codes #576 names, Yahoo returned
+     * `{"code":"Not Found","description":"No data found, symbol may be delisted"}`
+     * for all 13 while three live controls returned 3,040 records each. So for
+     * those, "unavailable" is the true state and no amount of re-running helps.
+     * </pre>
+     *
+     * <code>string price_status = 22 [json_name = "priceStatus"];</code>
+     * @return The bytes for priceStatus.
+     */
+    public com.google.protobuf.ByteString
+        getPriceStatusBytes() {
+      java.lang.Object ref = priceStatus_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b =
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        priceStatus_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Whether the price gap on this row is FINAL or merely not filled yet (#576).
+     *
+     * has_price_history is a boolean and answers "can I price this". It cannot
+     * answer the question a caller actually has to act on, which is whether
+     * waiting would help:
+     *
+     * "priced"       — a usable close exists on or before this date.
+     * "unattempted"  — no price, and no provider has ever been asked for this
+     * code. Might still be recoverable; do not treat the gap
+     * as permanent.
+     * "unavailable"  — no price, and a provider WAS asked and had nothing. The
+     * gap is as final as our current sources make it, and a
+     * backtest should code around it rather than wait.
+     *
+     * The distinction is not hypothetical. Until the backfill's universe was
+     * widened, every stock list it used was derived from stock_prices itself, so
+     * a code with no prices was never requested — and 936 of 1,941 codes sat in
+     * "unattempted" while looking exactly like "unavailable". The standing
+     * explanation for the gap went unexamined for as long as it did precisely
+     * because the response could not tell those apart.
+     *
+     * Measured 2026-09-06 against the 13 codes #576 names, Yahoo returned
+     * `{"code":"Not Found","description":"No data found, symbol may be delisted"}`
+     * for all 13 while three live controls returned 3,040 records each. So for
+     * those, "unavailable" is the true state and no amount of re-running helps.
+     * </pre>
+     *
+     * <code>string price_status = 22 [json_name = "priceStatus"];</code>
+     * @param value The priceStatus to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPriceStatus(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      priceStatus_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Whether the price gap on this row is FINAL or merely not filled yet (#576).
+     *
+     * has_price_history is a boolean and answers "can I price this". It cannot
+     * answer the question a caller actually has to act on, which is whether
+     * waiting would help:
+     *
+     * "priced"       — a usable close exists on or before this date.
+     * "unattempted"  — no price, and no provider has ever been asked for this
+     * code. Might still be recoverable; do not treat the gap
+     * as permanent.
+     * "unavailable"  — no price, and a provider WAS asked and had nothing. The
+     * gap is as final as our current sources make it, and a
+     * backtest should code around it rather than wait.
+     *
+     * The distinction is not hypothetical. Until the backfill's universe was
+     * widened, every stock list it used was derived from stock_prices itself, so
+     * a code with no prices was never requested — and 936 of 1,941 codes sat in
+     * "unattempted" while looking exactly like "unavailable". The standing
+     * explanation for the gap went unexamined for as long as it did precisely
+     * because the response could not tell those apart.
+     *
+     * Measured 2026-09-06 against the 13 codes #576 names, Yahoo returned
+     * `{"code":"Not Found","description":"No data found, symbol may be delisted"}`
+     * for all 13 while three live controls returned 3,040 records each. So for
+     * those, "unavailable" is the true state and no amount of re-running helps.
+     * </pre>
+     *
+     * <code>string price_status = 22 [json_name = "priceStatus"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPriceStatus() {
+      priceStatus_ = getDefaultInstance().getPriceStatus();
+      bitField0_ = (bitField0_ & ~0x00200000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Whether the price gap on this row is FINAL or merely not filled yet (#576).
+     *
+     * has_price_history is a boolean and answers "can I price this". It cannot
+     * answer the question a caller actually has to act on, which is whether
+     * waiting would help:
+     *
+     * "priced"       — a usable close exists on or before this date.
+     * "unattempted"  — no price, and no provider has ever been asked for this
+     * code. Might still be recoverable; do not treat the gap
+     * as permanent.
+     * "unavailable"  — no price, and a provider WAS asked and had nothing. The
+     * gap is as final as our current sources make it, and a
+     * backtest should code around it rather than wait.
+     *
+     * The distinction is not hypothetical. Until the backfill's universe was
+     * widened, every stock list it used was derived from stock_prices itself, so
+     * a code with no prices was never requested — and 936 of 1,941 codes sat in
+     * "unattempted" while looking exactly like "unavailable". The standing
+     * explanation for the gap went unexamined for as long as it did precisely
+     * because the response could not tell those apart.
+     *
+     * Measured 2026-09-06 against the 13 codes #576 names, Yahoo returned
+     * `{"code":"Not Found","description":"No data found, symbol may be delisted"}`
+     * for all 13 while three live controls returned 3,040 records each. So for
+     * those, "unavailable" is the true state and no amount of re-running helps.
+     * </pre>
+     *
+     * <code>string price_status = 22 [json_name = "priceStatus"];</code>
+     * @param value The bytes for priceStatus to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPriceStatusBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      priceStatus_ = value;
+      bitField0_ |= 0x00200000;
       onChanged();
       return this;
     }

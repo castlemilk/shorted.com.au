@@ -1429,7 +1429,13 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			-- 20-day average needs and exactly wrong for a terminal value.
 			COALESCE(lr.last_reported::text, '') as last_reported_date,
 			COALESCE(fc.close, 0) as final_close,
-			COALESCE(fc.date::text, '') as final_close_date
+			COALESCE(fc.date::text, '') as final_close_date,
+			-- Has any provider ever been ASKED for this code (#576). Only
+			-- meaningful when px.close is NULL, and combined into price_status
+			-- in Go rather than spelled out here so the three states have one
+			-- definition rather than a SQL CASE and a Go constant to keep in
+			-- step.
+			(ba.stock_code IS NOT NULL) as backfill_attempted
 		FROM shorts s
 		LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
 		LEFT JOIN LATERAL (
@@ -1474,6 +1480,9 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			ORDER BY p.date DESC
 			LIMIT 1
 		) fc ON TRUE
+		-- Primary-key lookup on a table with one row per code, and LEFT so a
+		-- code nobody has attempted still returns its row.
+		LEFT JOIN stock_price_backfill_attempts ba ON ba.stock_code = s."PRODUCT_CODE"
 		WHERE s."DATE" >= $1 AND s."DATE" <= $2` + aliasedShortFilter + `
 		ORDER BY s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC`
 
@@ -1508,6 +1517,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 	for rows.Next() {
 		stock := &stocksv1alpha1.Stock{}
 		var rawProduct string
+		var backfillAttempted bool
 		if err := rows.Scan(
 			&stock.ProductCode,
 			&stock.Name,
@@ -1526,9 +1536,11 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			&stock.LastReportedDate,
 			&stock.FinalClose,
 			&stock.FinalCloseDate,
+			&backfillAttempted,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan stock row: %w", err)
 		}
+		stock.PriceStatus = priceStatus(stock.HasPriceHistory, backfillAttempted)
 		stock.GicsSector = GICSSector(stock.Industry)
 		stock.LiquidityBand = liquidityBand(stock.AverageDailyValue_20D)
 		stock.DaysToCover = daysToCover(float64(stock.ReportedShortPositions), stock.AverageDailyVolume_20D)
