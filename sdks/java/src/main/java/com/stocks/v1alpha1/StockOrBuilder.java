@@ -495,4 +495,72 @@ public interface StockOrBuilder extends
    */
   com.google.protobuf.ByteString
       getFinalCloseDateBytes();
+
+  /**
+   * <pre>
+   * Whether the price gap on this row is FINAL or merely not filled yet (#576).
+   *
+   * has_price_history is a boolean and answers "can I price this". It cannot
+   * answer the question a caller actually has to act on, which is whether
+   * waiting would help:
+   *
+   * "priced"       — a usable close exists on or before this date.
+   * "unattempted"  — no price, and no provider has ever been asked for this
+   * code. Might still be recoverable; do not treat the gap
+   * as permanent.
+   * "unavailable"  — no price, and a provider WAS asked and had nothing. The
+   * gap is as final as our current sources make it, and a
+   * backtest should code around it rather than wait.
+   *
+   * The distinction is not hypothetical. Until the backfill's universe was
+   * widened, every stock list it used was derived from stock_prices itself, so
+   * a code with no prices was never requested — and 936 of 1,941 codes sat in
+   * "unattempted" while looking exactly like "unavailable". The standing
+   * explanation for the gap went unexamined for as long as it did precisely
+   * because the response could not tell those apart.
+   *
+   * Measured 2026-09-06 against the 13 codes #576 names, Yahoo returned
+   * `{"code":"Not Found","description":"No data found, symbol may be delisted"}`
+   * for all 13 while three live controls returned 3,040 records each. So for
+   * those, "unavailable" is the true state and no amount of re-running helps.
+   * </pre>
+   *
+   * <code>string price_status = 22 [json_name = "priceStatus"];</code>
+   * @return The priceStatus.
+   */
+  java.lang.String getPriceStatus();
+  /**
+   * <pre>
+   * Whether the price gap on this row is FINAL or merely not filled yet (#576).
+   *
+   * has_price_history is a boolean and answers "can I price this". It cannot
+   * answer the question a caller actually has to act on, which is whether
+   * waiting would help:
+   *
+   * "priced"       — a usable close exists on or before this date.
+   * "unattempted"  — no price, and no provider has ever been asked for this
+   * code. Might still be recoverable; do not treat the gap
+   * as permanent.
+   * "unavailable"  — no price, and a provider WAS asked and had nothing. The
+   * gap is as final as our current sources make it, and a
+   * backtest should code around it rather than wait.
+   *
+   * The distinction is not hypothetical. Until the backfill's universe was
+   * widened, every stock list it used was derived from stock_prices itself, so
+   * a code with no prices was never requested — and 936 of 1,941 codes sat in
+   * "unattempted" while looking exactly like "unavailable". The standing
+   * explanation for the gap went unexamined for as long as it did precisely
+   * because the response could not tell those apart.
+   *
+   * Measured 2026-09-06 against the 13 codes #576 names, Yahoo returned
+   * `{"code":"Not Found","description":"No data found, symbol may be delisted"}`
+   * for all 13 while three live controls returned 3,040 records each. So for
+   * those, "unavailable" is the true state and no amount of re-running helps.
+   * </pre>
+   *
+   * <code>string price_status = 22 [json_name = "priceStatus"];</code>
+   * @return The bytes for priceStatus.
+   */
+  com.google.protobuf.ByteString
+      getPriceStatusBytes();
 }

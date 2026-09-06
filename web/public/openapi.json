@@ -10620,6 +10620,11 @@
             "title": "percentage_shorted",
             "type": "number"
           },
+          "priceStatus": {
+            "description": "Whether the price gap on this row is FINAL or merely not filled yet (#576).\n\n has_price_history is a boolean and answers \"can I price this\". It cannot\n answer the question a caller actually has to act on, which is whether\n waiting would help:\n\n   \"priced\"       — a usable close exists on or before this date.\n   \"unattempted\"  — no price, and no provider has ever been asked for this\n                    code. Might still be recoverable; do not treat the gap\n                    as permanent.\n   \"unavailable\"  — no price, and a provider WAS asked and had nothing. The\n                    gap is as final as our current sources make it, and a\n                    backtest should code around it rather than wait.\n\n The distinction is not hypothetical. Until the backfill's universe was\n widened, every stock list it used was derived from stock_prices itself, so\n a code with no prices was never requested — and 936 of 1,941 codes sat in\n \"unattempted\" while looking exactly like \"unavailable\". The standing\n explanation for the gap went unexamined for as long as it did precisely\n because the response could not tell those apart.\n\n Measured 2026-09-06 against the 13 codes #576 names, Yahoo returned\n `{\"code\":\"Not Found\",\"description\":\"No data found, symbol may be delisted\"}`\n for all 13 while three live controls returned 3,040 records each. So for\n those, \"unavailable\" is the true state and no amount of re-running helps. (proto string)",
+            "title": "price_status",
+            "type": "string"
+          },
           "productCode": {
             "description": "The stock code, e.g., \"CBA\", \"ZIP\", \"PLS\". (proto string)",
             "title": "product_code",

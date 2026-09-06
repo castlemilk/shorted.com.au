@@ -176,8 +176,34 @@ type Stock struct {
 	// absence.
 	FinalClose     float64 `protobuf:"fixed64,19,opt,name=final_close,json=finalClose,proto3" json:"final_close,omitempty"`
 	FinalCloseDate string  `protobuf:"bytes,20,opt,name=final_close_date,json=finalCloseDate,proto3" json:"final_close_date,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Whether the price gap on this row is FINAL or merely not filled yet (#576).
+	//
+	// has_price_history is a boolean and answers "can I price this". It cannot
+	// answer the question a caller actually has to act on, which is whether
+	// waiting would help:
+	//
+	//	"priced"       — a usable close exists on or before this date.
+	//	"unattempted"  — no price, and no provider has ever been asked for this
+	//	                 code. Might still be recoverable; do not treat the gap
+	//	                 as permanent.
+	//	"unavailable"  — no price, and a provider WAS asked and had nothing. The
+	//	                 gap is as final as our current sources make it, and a
+	//	                 backtest should code around it rather than wait.
+	//
+	// The distinction is not hypothetical. Until the backfill's universe was
+	// widened, every stock list it used was derived from stock_prices itself, so
+	// a code with no prices was never requested — and 936 of 1,941 codes sat in
+	// "unattempted" while looking exactly like "unavailable". The standing
+	// explanation for the gap went unexamined for as long as it did precisely
+	// because the response could not tell those apart.
+	//
+	// Measured 2026-09-06 against the 13 codes #576 names, Yahoo returned
+	// `{"code":"Not Found","description":"No data found, symbol may be delisted"}`
+	// for all 13 while three live controls returned 3,040 records each. So for
+	// those, "unavailable" is the true state and no amount of re-running helps.
+	PriceStatus   string `protobuf:"bytes,22,opt,name=price_status,json=priceStatus,proto3" json:"price_status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Stock) Reset() {
@@ -353,6 +379,13 @@ func (x *Stock) GetFinalClose() float64 {
 func (x *Stock) GetFinalCloseDate() string {
 	if x != nil {
 		return x.FinalCloseDate
+	}
+	return ""
+}
+
+func (x *Stock) GetPriceStatus() string {
+	if x != nil {
+		return x.PriceStatus
 	}
 	return ""
 }
@@ -1615,7 +1648,7 @@ var File_stocks_v1alpha1_stocks_proto protoreflect.FileDescriptor
 
 const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\n" +
-	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbb\x06\n" +
+	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xde\x06\n" +
 	"\x05Stock\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
@@ -1641,7 +1674,8 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\x12last_reported_date\x18\x12 \x01(\tR\x10lastReportedDate\x12\x1f\n" +
 	"\vfinal_close\x18\x13 \x01(\x01R\n" +
 	"finalClose\x12(\n" +
-	"\x10final_close_date\x18\x14 \x01(\tR\x0efinalCloseDate\"\x90\x03\n" +
+	"\x10final_close_date\x18\x14 \x01(\tR\x0efinalCloseDate\x12!\n" +
+	"\fprice_status\x18\x16 \x01(\tR\vpriceStatus\"\x90\x03\n" +
 	"\x0eTimeSeriesData\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x122\n" +
