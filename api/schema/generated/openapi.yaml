@@ -12742,6 +12742,33 @@ components:
           description: (proto string)
       title: FinancialStatementsInfo
       additionalProperties: false
+    stocks.v1alpha1.IndustryObservation:
+      type: object
+      properties:
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        observedFrom:
+          type: string
+          title: observed_from
+          description: |-
+            The date this label started applying as far as we can observe. For a `seed`
+             row it is the date capture began, NOT the date the label was assigned,
+             which is unknown and unknowable. (proto string)
+        source:
+          type: string
+          title: source
+          description: |-
+            "observed" — a classification change recorded when it happened
+               "seed"     — the label as it stood when capture began
+
+             The distinction matters and is the reason this is not one string: a seed
+             row dates a deploy, an observed row dates a reclassification, and treating
+             the first as the second invents a sector change that never happened. (proto string)
+      title: IndustryObservation
+      additionalProperties: false
+      description: One recorded industry classification and the window it opened.
     stocks.v1alpha1.IndustryTreeMap:
       type: object
       properties:
@@ -12971,6 +12998,48 @@ components:
              computed for this row would be fabricated. It is deliberately as-of rather
              than lifetime: a name priced only in 2010-2012 is not priceable in a 2020
              cross-section, and a lifetime flag would say it was. (proto bool)
+        lastReportedDate:
+          type: string
+          title: last_reported_date
+          description: |-
+            ── The delisting record (#576) ────────────────────────────────────────
+
+             has_price_history above says a position can be OPENED. These three say
+             when and at what value it can be CLOSED, which is the half that was
+             missing: a constituent that leaves the universe currently just stops
+             appearing, so a company acquired at a 30% premium and one wound up at zero
+             are both simply absent, and the position silently never existed.
+
+             UNLIKE every other field on this message, these are LIFETIME values, not
+             as-of the requested date. That is deliberate and it is the only thing they
+             are for: "when does this position close" is inherently a question about
+             the future relative to the cross-section being built. The direct
+             consequence is that feeding any of them into a signal is LOOKAHEAD. They
+             belong on the exit leg and nowhere else.
+
+             last_reported_date is the last ASIC report date this code appears on, ever.
+             It is NOT a delisting date and is not named one: the ASIC short-position
+             report covers securities with reportable positions, roughly 700 of ~2,000
+             listed entities on any day, so a code can leave it by being delisted OR by
+             simply ceasing to be shorted. What it does say exactly is the last date
+             this name is in THIS universe — which is the date a book built from this
+             endpoint has to close it, either way. (proto string)
+        finalClose:
+          type: number
+          title: final_close
+          format: double
+          description: |-
+            The last close held for this code and the session it belongs to — the
+             terminal value, where one exists. Zero and empty for the ~48% of codes
+             (936 of 1,941 over 2013-2026) carrying no price history at all; for those
+             the position remains uncloseable and no terminal value is recoverable from
+             data we hold. Saying so explicitly is the point: a caller can now separate
+             "closed at $X" from "cannot be closed" instead of having both arrive as
+             absence. (proto double)
+        finalCloseDate:
+          type: string
+          title: final_close_date
+          description: (proto string)
       title: Stock
       additionalProperties: false
       description: A Stock represents a single stock's metadata.
@@ -13089,6 +13158,31 @@ components:
           type: string
           title: logo_format
           description: Original format of discovered logo (svg, png, etc) (proto string)
+        industryHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/stocks.v1alpha1.IndustryObservation'
+          title: industry_history
+          description: |-
+            Every industry classification recorded for this stock, oldest first (#557).
+
+             `industry` above is the CURRENT label. Cross-sectional short-interest
+             signals are normally sector-neutralised — raw short interest is heavily
+             sector-clustered, so a naive "long the least-shorted" book is a large
+             implicit sector bet — and doing that correctly needs the label as it stood
+             on the observation date, not today's.
+
+             Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+             recoverable: `company-metadata` holds one current row per stock, enrichment
+             overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+             with a single distinct value across all 2,258 rows. So this timeline
+             usually holds exactly one entry — the seeded baseline — and that is the
+             honest answer rather than an absence a caller has to interpret.
+
+             Returned as a timeline rather than another as-of scalar so a caller can see
+             HOW MUCH history exists before deciding whether neutralising on it is
+             sound. One `seed` row means none of it is observed, and a study over any
+             earlier period is using today's labels — mild lookahead, but real. (proto stocks.v1alpha1.IndustryObservation)
       title: StockDetails
       additionalProperties: false
       description: "*\nTable \"public.metadata\"\nColumn       | Type | Collation | Nullable | Default \n-------------------+------+-----------+----------+---------\ncompany_name      | text |           |          | \naddress           | text |           |          | \nsummary           | text |           |          | \ndetails           | text |           |          | \nwebsite           | text |           |          | \nstock_code        | text |           |          | \nlinks             | text |           |          | \nimages            | text |           |          | \ncompany_logo_link | text |           |          | \ngcsUrl            | text |           |          |"

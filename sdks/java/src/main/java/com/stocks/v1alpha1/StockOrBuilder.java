@@ -343,4 +343,94 @@ public interface StockOrBuilder extends
    * @return The hasPriceHistory.
    */
   boolean getHasPriceHistory();
+
+  /**
+   * <pre>
+   * ── The delisting record (#576) ────────────────────────────────────────
+   *
+   * has_price_history above says a position can be OPENED. These three say
+   * when and at what value it can be CLOSED, which is the half that was
+   * missing: a constituent that leaves the universe currently just stops
+   * appearing, so a company acquired at a 30% premium and one wound up at zero
+   * are both simply absent, and the position silently never existed.
+   *
+   * UNLIKE every other field on this message, these are LIFETIME values, not
+   * as-of the requested date. That is deliberate and it is the only thing they
+   * are for: "when does this position close" is inherently a question about
+   * the future relative to the cross-section being built. The direct
+   * consequence is that feeding any of them into a signal is LOOKAHEAD. They
+   * belong on the exit leg and nowhere else.
+   *
+   * last_reported_date is the last ASIC report date this code appears on, ever.
+   * It is NOT a delisting date and is not named one: the ASIC short-position
+   * report covers securities with reportable positions, roughly 700 of ~2,000
+   * listed entities on any day, so a code can leave it by being delisted OR by
+   * simply ceasing to be shorted. What it does say exactly is the last date
+   * this name is in THIS universe — which is the date a book built from this
+   * endpoint has to close it, either way.
+   * </pre>
+   *
+   * <code>string last_reported_date = 18 [json_name = "lastReportedDate"];</code>
+   * @return The lastReportedDate.
+   */
+  java.lang.String getLastReportedDate();
+  /**
+   * <pre>
+   * ── The delisting record (#576) ────────────────────────────────────────
+   *
+   * has_price_history above says a position can be OPENED. These three say
+   * when and at what value it can be CLOSED, which is the half that was
+   * missing: a constituent that leaves the universe currently just stops
+   * appearing, so a company acquired at a 30% premium and one wound up at zero
+   * are both simply absent, and the position silently never existed.
+   *
+   * UNLIKE every other field on this message, these are LIFETIME values, not
+   * as-of the requested date. That is deliberate and it is the only thing they
+   * are for: "when does this position close" is inherently a question about
+   * the future relative to the cross-section being built. The direct
+   * consequence is that feeding any of them into a signal is LOOKAHEAD. They
+   * belong on the exit leg and nowhere else.
+   *
+   * last_reported_date is the last ASIC report date this code appears on, ever.
+   * It is NOT a delisting date and is not named one: the ASIC short-position
+   * report covers securities with reportable positions, roughly 700 of ~2,000
+   * listed entities on any day, so a code can leave it by being delisted OR by
+   * simply ceasing to be shorted. What it does say exactly is the last date
+   * this name is in THIS universe — which is the date a book built from this
+   * endpoint has to close it, either way.
+   * </pre>
+   *
+   * <code>string last_reported_date = 18 [json_name = "lastReportedDate"];</code>
+   * @return The bytes for lastReportedDate.
+   */
+  com.google.protobuf.ByteString
+      getLastReportedDateBytes();
+
+  /**
+   * <pre>
+   * The last close held for this code and the session it belongs to — the
+   * terminal value, where one exists. Zero and empty for the ~48% of codes
+   * (936 of 1,941 over 2013-2026) carrying no price history at all; for those
+   * the position remains uncloseable and no terminal value is recoverable from
+   * data we hold. Saying so explicitly is the point: a caller can now separate
+   * "closed at $X" from "cannot be closed" instead of having both arrive as
+   * absence.
+   * </pre>
+   *
+   * <code>double final_close = 19 [json_name = "finalClose"];</code>
+   * @return The finalClose.
+   */
+  double getFinalClose();
+
+  /**
+   * <code>string final_close_date = 20 [json_name = "finalCloseDate"];</code>
+   * @return The finalCloseDate.
+   */
+  java.lang.String getFinalCloseDate();
+  /**
+   * <code>string final_close_date = 20 [json_name = "finalCloseDate"];</code>
+   * @return The bytes for finalCloseDate.
+   */
+  com.google.protobuf.ByteString
+      getFinalCloseDateBytes();
 }

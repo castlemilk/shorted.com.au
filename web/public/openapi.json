@@ -10434,6 +10434,29 @@
         "title": "FinancialStatementsInfo",
         "type": "object"
       },
+      "stocks.v1alpha1.IndustryObservation": {
+        "additionalProperties": false,
+        "description": "One recorded industry classification and the window it opened.",
+        "properties": {
+          "industry": {
+            "description": "(proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "observedFrom": {
+            "description": "The date this label started applying as far as we can observe. For a `seed`\n row it is the date capture began, NOT the date the label was assigned,\n which is unknown and unknowable. (proto string)",
+            "title": "observed_from",
+            "type": "string"
+          },
+          "source": {
+            "description": "\"observed\" — a classification change recorded when it happened\n   \"seed\"     — the label as it stood when capture began\n\n The distinction matters and is the reason this is not one string: a seed\n row dates a deploy, an observed row dates a reclassification, and treating\n the first as the second invents a sector change that never happened. (proto string)",
+            "title": "source",
+            "type": "string"
+          }
+        },
+        "title": "IndustryObservation",
+        "type": "object"
+      },
       "stocks.v1alpha1.IndustryTreeMap": {
         "additionalProperties": false,
         "properties": {
@@ -10529,6 +10552,17 @@
             "title": "days_to_cover",
             "type": "number"
           },
+          "finalClose": {
+            "description": "The last close held for this code and the session it belongs to — the\n terminal value, where one exists. Zero and empty for the ~48% of codes\n (936 of 1,941 over 2013-2026) carrying no price history at all; for those\n the position remains uncloseable and no terminal value is recoverable from\n data we hold. Saying so explicitly is the point: a caller can now separate\n \"closed at $X\" from \"cannot be closed\" instead of having both arrive as\n absence. (proto double)",
+            "format": "double",
+            "title": "final_close",
+            "type": "number"
+          },
+          "finalCloseDate": {
+            "description": "(proto string)",
+            "title": "final_close_date",
+            "type": "string"
+          },
           "hasPriceHistory": {
             "description": "Whether this security can be PRICED as of the date being asked about.\n\n A point-in-time universe that is survivorship-free while the price data\n behind it is survivor-only is more dangerous than one biased in both,\n because the bias becomes invisible: the caller does the right thing,\n selects the delisted names, and then silently drops exactly the\n acquisitions and failures when returns are computed. A company taken over\n at a 30% premium and one that went to zero are then treated identically —\n as though the position never existed.\n\n Measured on the 2020-04-06 universe, 255 of 547 constituents (47%) are gone\n by 2026, and only about half of a sample of those could be priced —\n Adelaide Brighton, Australian Pharmaceutical, Cabcharge and Asaleo Care\n among the missing. This does not fix that hole. It makes it measurable\n before a backtest is run rather than discovered afterwards.\n\n False means we hold no usable price on or before this date, so any return\n computed for this row would be fabricated. It is deliberately as-of rather\n than lifetime: a name priced only in 2010-2012 is not priceable in a 2020\n cross-section, and a lifetime flag would say it was. (proto bool)",
             "title": "has_price_history",
@@ -10547,6 +10581,11 @@
           "industrySource": {
             "description": "Where the `industry` label above came from, relative to the date being\n asked about.\n\n   \"observed\" — a classification change we recorded on or before that date\n   \"seed\"     — the label as it stood when capture began\n   \"current\"  — no history covers that date, so this is TODAY'S label\n\n \"current\" is the one that matters, and it is the common case for any\n historical cross-section: sector history did not exist before capture\n started and cannot be reconstructed, so ranking a 2014 cross-section by\n these labels is lookahead. Mild, but real, and previously invisible — the\n field was returned with nothing to say which date it described.\n\n industry_as_of is the date the label was observed from, empty when the\n source is \"current\". (proto string)",
             "title": "industry_source",
+            "type": "string"
+          },
+          "lastReportedDate": {
+            "description": "── The delisting record (#576) ────────────────────────────────────────\n\n has_price_history above says a position can be OPENED. These three say\n when and at what value it can be CLOSED, which is the half that was\n missing: a constituent that leaves the universe currently just stops\n appearing, so a company acquired at a 30% premium and one wound up at zero\n are both simply absent, and the position silently never existed.\n\n UNLIKE every other field on this message, these are LIFETIME values, not\n as-of the requested date. That is deliberate and it is the only thing they\n are for: \"when does this position close\" is inherently a question about\n the future relative to the cross-section being built. The direct\n consequence is that feeding any of them into a signal is LOOKAHEAD. They\n belong on the exit leg and nowhere else.\n\n last_reported_date is the last ASIC report date this code appears on, ever.\n It is NOT a delisting date and is not named one: the ASIC short-position\n report covers securities with reportable positions, roughly 700 of ~2,000\n listed entities on any day, so a code can leave it by being delisted OR by\n simply ceasing to be shorted. What it does say exactly is the last date\n this name is in THIS universe — which is the date a book built from this\n endpoint has to close it, either way. (proto string)",
+            "title": "last_reported_date",
             "type": "string"
           },
           "liquidityBand": {
@@ -10681,6 +10720,14 @@
             "description": "(proto string)",
             "title": "industry",
             "type": "string"
+          },
+          "industryHistory": {
+            "description": "Every industry classification recorded for this stock, oldest first (#557).\n\n `industry` above is the CURRENT label. Cross-sectional short-interest\n signals are normally sector-neutralised — raw short interest is heavily\n sector-clustered, so a naive \"long the least-shorted\" book is a large\n implicit sector bet — and doing that correctly needs the label as it stood\n on the observation date, not today's.\n\n Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not\n recoverable: `company-metadata` holds one current row per stock, enrichment\n overwrites the label in place, and `updated_at` is a bulk-sweep timestamp\n with a single distinct value across all 2,258 rows. So this timeline\n usually holds exactly one entry — the seeded baseline — and that is the\n honest answer rather than an absence a caller has to interpret.\n\n Returned as a timeline rather than another as-of scalar so a caller can see\n HOW MUCH history exists before deciding whether neutralising on it is\n sound. One `seed` row means none of it is observed, and a study over any\n earlier period is using today's labels — mild lookahead, but real. (proto stocks.v1alpha1.IndustryObservation)",
+            "items": {
+              "$ref": "#/components/schemas/stocks.v1alpha1.IndustryObservation"
+            },
+            "title": "industry_history",
+            "type": "array"
           },
           "keyPeople": {
             "description": "(proto stocks.v1alpha1.CompanyPerson)",

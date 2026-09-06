@@ -70,6 +70,7 @@ private static final long serialVersionUID = 0L;
     logoSvgGcsUrl_ = "";
     logoSourceUrl_ = "";
     logoFormat_ = "";
+    industryHistory_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -1106,6 +1107,157 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int INDUSTRY_HISTORY_FIELD_NUMBER = 27;
+  @SuppressWarnings("serial")
+  private java.util.List<com.stocks.v1alpha1.IndustryObservation> industryHistory_;
+  /**
+   * <pre>
+   * Every industry classification recorded for this stock, oldest first (#557).
+   *
+   * `industry` above is the CURRENT label. Cross-sectional short-interest
+   * signals are normally sector-neutralised — raw short interest is heavily
+   * sector-clustered, so a naive "long the least-shorted" book is a large
+   * implicit sector bet — and doing that correctly needs the label as it stood
+   * on the observation date, not today's.
+   *
+   * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+   * recoverable: `company-metadata` holds one current row per stock, enrichment
+   * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+   * with a single distinct value across all 2,258 rows. So this timeline
+   * usually holds exactly one entry — the seeded baseline — and that is the
+   * honest answer rather than an absence a caller has to interpret.
+   *
+   * Returned as a timeline rather than another as-of scalar so a caller can see
+   * HOW MUCH history exists before deciding whether neutralising on it is
+   * sound. One `seed` row means none of it is observed, and a study over any
+   * earlier period is using today's labels — mild lookahead, but real.
+   * </pre>
+   *
+   * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.stocks.v1alpha1.IndustryObservation> getIndustryHistoryList() {
+    return industryHistory_;
+  }
+  /**
+   * <pre>
+   * Every industry classification recorded for this stock, oldest first (#557).
+   *
+   * `industry` above is the CURRENT label. Cross-sectional short-interest
+   * signals are normally sector-neutralised — raw short interest is heavily
+   * sector-clustered, so a naive "long the least-shorted" book is a large
+   * implicit sector bet — and doing that correctly needs the label as it stood
+   * on the observation date, not today's.
+   *
+   * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+   * recoverable: `company-metadata` holds one current row per stock, enrichment
+   * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+   * with a single distinct value across all 2,258 rows. So this timeline
+   * usually holds exactly one entry — the seeded baseline — and that is the
+   * honest answer rather than an absence a caller has to interpret.
+   *
+   * Returned as a timeline rather than another as-of scalar so a caller can see
+   * HOW MUCH history exists before deciding whether neutralising on it is
+   * sound. One `seed` row means none of it is observed, and a study over any
+   * earlier period is using today's labels — mild lookahead, but real.
+   * </pre>
+   *
+   * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.stocks.v1alpha1.IndustryObservationOrBuilder> 
+      getIndustryHistoryOrBuilderList() {
+    return industryHistory_;
+  }
+  /**
+   * <pre>
+   * Every industry classification recorded for this stock, oldest first (#557).
+   *
+   * `industry` above is the CURRENT label. Cross-sectional short-interest
+   * signals are normally sector-neutralised — raw short interest is heavily
+   * sector-clustered, so a naive "long the least-shorted" book is a large
+   * implicit sector bet — and doing that correctly needs the label as it stood
+   * on the observation date, not today's.
+   *
+   * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+   * recoverable: `company-metadata` holds one current row per stock, enrichment
+   * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+   * with a single distinct value across all 2,258 rows. So this timeline
+   * usually holds exactly one entry — the seeded baseline — and that is the
+   * honest answer rather than an absence a caller has to interpret.
+   *
+   * Returned as a timeline rather than another as-of scalar so a caller can see
+   * HOW MUCH history exists before deciding whether neutralising on it is
+   * sound. One `seed` row means none of it is observed, and a study over any
+   * earlier period is using today's labels — mild lookahead, but real.
+   * </pre>
+   *
+   * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+   */
+  @java.lang.Override
+  public int getIndustryHistoryCount() {
+    return industryHistory_.size();
+  }
+  /**
+   * <pre>
+   * Every industry classification recorded for this stock, oldest first (#557).
+   *
+   * `industry` above is the CURRENT label. Cross-sectional short-interest
+   * signals are normally sector-neutralised — raw short interest is heavily
+   * sector-clustered, so a naive "long the least-shorted" book is a large
+   * implicit sector bet — and doing that correctly needs the label as it stood
+   * on the observation date, not today's.
+   *
+   * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+   * recoverable: `company-metadata` holds one current row per stock, enrichment
+   * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+   * with a single distinct value across all 2,258 rows. So this timeline
+   * usually holds exactly one entry — the seeded baseline — and that is the
+   * honest answer rather than an absence a caller has to interpret.
+   *
+   * Returned as a timeline rather than another as-of scalar so a caller can see
+   * HOW MUCH history exists before deciding whether neutralising on it is
+   * sound. One `seed` row means none of it is observed, and a study over any
+   * earlier period is using today's labels — mild lookahead, but real.
+   * </pre>
+   *
+   * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+   */
+  @java.lang.Override
+  public com.stocks.v1alpha1.IndustryObservation getIndustryHistory(int index) {
+    return industryHistory_.get(index);
+  }
+  /**
+   * <pre>
+   * Every industry classification recorded for this stock, oldest first (#557).
+   *
+   * `industry` above is the CURRENT label. Cross-sectional short-interest
+   * signals are normally sector-neutralised — raw short interest is heavily
+   * sector-clustered, so a naive "long the least-shorted" book is a large
+   * implicit sector bet — and doing that correctly needs the label as it stood
+   * on the observation date, not today's.
+   *
+   * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+   * recoverable: `company-metadata` holds one current row per stock, enrichment
+   * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+   * with a single distinct value across all 2,258 rows. So this timeline
+   * usually holds exactly one entry — the seeded baseline — and that is the
+   * honest answer rather than an absence a caller has to interpret.
+   *
+   * Returned as a timeline rather than another as-of scalar so a caller can see
+   * HOW MUCH history exists before deciding whether neutralising on it is
+   * sound. One `seed` row means none of it is observed, and a study over any
+   * earlier period is using today's labels — mild lookahead, but real.
+   * </pre>
+   *
+   * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+   */
+  @java.lang.Override
+  public com.stocks.v1alpha1.IndustryObservationOrBuilder getIndustryHistoryOrBuilder(
+      int index) {
+    return industryHistory_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -1197,6 +1349,9 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(logoFormat_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 26, logoFormat_);
+    }
+    for (int i = 0; i < industryHistory_.size(); i++) {
+      output.writeMessage(27, industryHistory_.get(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -1305,6 +1460,15 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(logoFormat_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(26, logoFormat_);
     }
+
+        {
+          final int count = industryHistory_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(industryHistory_.get(i));
+          }
+          size += 2 * count;
+        }
     return size;
   }
   @java.lang.Override
@@ -1390,6 +1554,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getLogoSourceUrl())) return false;
     if (!getLogoFormat()
         .equals(other.getLogoFormat())) return false;
+    if (!getIndustryHistoryList()
+        .equals(other.getIndustryHistoryList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1467,6 +1633,10 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getLogoSourceUrl().hashCode();
     hash = (37 * hash) + LOGO_FORMAT_FIELD_NUMBER;
     hash = (53 * hash) + getLogoFormat().hashCode();
+    if (getIndustryHistoryCount() > 0) {
+      hash = (37 * hash) + INDUSTRY_HISTORY_FIELD_NUMBER;
+      hash = (53 * hash) + getIndustryHistoryList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1619,6 +1789,7 @@ private static final long serialVersionUID = 0L;
         internalGetSocialMediaLinksFieldBuilder();
         internalGetEnrichmentDateFieldBuilder();
         internalGetFinancialStatementsFieldBuilder();
+        internalGetIndustryHistoryFieldBuilder();
       }
     }
     @java.lang.Override
@@ -1677,6 +1848,13 @@ private static final long serialVersionUID = 0L;
       logoSvgGcsUrl_ = "";
       logoSourceUrl_ = "";
       logoFormat_ = "";
+      if (industryHistoryBuilder_ == null) {
+        industryHistory_ = java.util.Collections.emptyList();
+      } else {
+        industryHistory_ = null;
+        industryHistoryBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x04000000);
       return this;
     }
 
@@ -1727,6 +1905,15 @@ private static final long serialVersionUID = 0L;
         result.financialReports_ = financialReports_;
       } else {
         result.financialReports_ = financialReportsBuilder_.build();
+      }
+      if (industryHistoryBuilder_ == null) {
+        if (((bitField0_ & 0x04000000) != 0)) {
+          industryHistory_ = java.util.Collections.unmodifiableList(industryHistory_);
+          bitField0_ = (bitField0_ & ~0x04000000);
+        }
+        result.industryHistory_ = industryHistory_;
+      } else {
+        result.industryHistory_ = industryHistoryBuilder_.build();
       }
     }
 
@@ -2007,6 +2194,32 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x02000000;
         onChanged();
       }
+      if (industryHistoryBuilder_ == null) {
+        if (!other.industryHistory_.isEmpty()) {
+          if (industryHistory_.isEmpty()) {
+            industryHistory_ = other.industryHistory_;
+            bitField0_ = (bitField0_ & ~0x04000000);
+          } else {
+            ensureIndustryHistoryIsMutable();
+            industryHistory_.addAll(other.industryHistory_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.industryHistory_.isEmpty()) {
+          if (industryHistoryBuilder_.isEmpty()) {
+            industryHistoryBuilder_.dispose();
+            industryHistoryBuilder_ = null;
+            industryHistory_ = other.industryHistory_;
+            bitField0_ = (bitField0_ & ~0x04000000);
+            industryHistoryBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetIndustryHistoryFieldBuilder() : null;
+          } else {
+            industryHistoryBuilder_.addAllMessages(other.industryHistory_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -2185,6 +2398,19 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x02000000;
               break;
             } // case 210
+            case 218: {
+              com.stocks.v1alpha1.IndustryObservation m =
+                  input.readMessage(
+                      com.stocks.v1alpha1.IndustryObservation.parser(),
+                      extensionRegistry);
+              if (industryHistoryBuilder_ == null) {
+                ensureIndustryHistoryIsMutable();
+                industryHistory_.add(m);
+              } else {
+                industryHistoryBuilder_.addMessage(m);
+              }
+              break;
+            } // case 218
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -4733,6 +4959,642 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x02000000;
       onChanged();
       return this;
+    }
+
+    private java.util.List<com.stocks.v1alpha1.IndustryObservation> industryHistory_ =
+      java.util.Collections.emptyList();
+    private void ensureIndustryHistoryIsMutable() {
+      if (!((bitField0_ & 0x04000000) != 0)) {
+        industryHistory_ = new java.util.ArrayList<com.stocks.v1alpha1.IndustryObservation>(industryHistory_);
+        bitField0_ |= 0x04000000;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.stocks.v1alpha1.IndustryObservation, com.stocks.v1alpha1.IndustryObservation.Builder, com.stocks.v1alpha1.IndustryObservationOrBuilder> industryHistoryBuilder_;
+
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public java.util.List<com.stocks.v1alpha1.IndustryObservation> getIndustryHistoryList() {
+      if (industryHistoryBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(industryHistory_);
+      } else {
+        return industryHistoryBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public int getIndustryHistoryCount() {
+      if (industryHistoryBuilder_ == null) {
+        return industryHistory_.size();
+      } else {
+        return industryHistoryBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public com.stocks.v1alpha1.IndustryObservation getIndustryHistory(int index) {
+      if (industryHistoryBuilder_ == null) {
+        return industryHistory_.get(index);
+      } else {
+        return industryHistoryBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public Builder setIndustryHistory(
+        int index, com.stocks.v1alpha1.IndustryObservation value) {
+      if (industryHistoryBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureIndustryHistoryIsMutable();
+        industryHistory_.set(index, value);
+        onChanged();
+      } else {
+        industryHistoryBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public Builder setIndustryHistory(
+        int index, com.stocks.v1alpha1.IndustryObservation.Builder builderForValue) {
+      if (industryHistoryBuilder_ == null) {
+        ensureIndustryHistoryIsMutable();
+        industryHistory_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        industryHistoryBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public Builder addIndustryHistory(com.stocks.v1alpha1.IndustryObservation value) {
+      if (industryHistoryBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureIndustryHistoryIsMutable();
+        industryHistory_.add(value);
+        onChanged();
+      } else {
+        industryHistoryBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public Builder addIndustryHistory(
+        int index, com.stocks.v1alpha1.IndustryObservation value) {
+      if (industryHistoryBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureIndustryHistoryIsMutable();
+        industryHistory_.add(index, value);
+        onChanged();
+      } else {
+        industryHistoryBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public Builder addIndustryHistory(
+        com.stocks.v1alpha1.IndustryObservation.Builder builderForValue) {
+      if (industryHistoryBuilder_ == null) {
+        ensureIndustryHistoryIsMutable();
+        industryHistory_.add(builderForValue.build());
+        onChanged();
+      } else {
+        industryHistoryBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public Builder addIndustryHistory(
+        int index, com.stocks.v1alpha1.IndustryObservation.Builder builderForValue) {
+      if (industryHistoryBuilder_ == null) {
+        ensureIndustryHistoryIsMutable();
+        industryHistory_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        industryHistoryBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public Builder addAllIndustryHistory(
+        java.lang.Iterable<? extends com.stocks.v1alpha1.IndustryObservation> values) {
+      if (industryHistoryBuilder_ == null) {
+        ensureIndustryHistoryIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, industryHistory_);
+        onChanged();
+      } else {
+        industryHistoryBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public Builder clearIndustryHistory() {
+      if (industryHistoryBuilder_ == null) {
+        industryHistory_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x04000000);
+        onChanged();
+      } else {
+        industryHistoryBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public Builder removeIndustryHistory(int index) {
+      if (industryHistoryBuilder_ == null) {
+        ensureIndustryHistoryIsMutable();
+        industryHistory_.remove(index);
+        onChanged();
+      } else {
+        industryHistoryBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public com.stocks.v1alpha1.IndustryObservation.Builder getIndustryHistoryBuilder(
+        int index) {
+      return internalGetIndustryHistoryFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public com.stocks.v1alpha1.IndustryObservationOrBuilder getIndustryHistoryOrBuilder(
+        int index) {
+      if (industryHistoryBuilder_ == null) {
+        return industryHistory_.get(index);  } else {
+        return industryHistoryBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public java.util.List<? extends com.stocks.v1alpha1.IndustryObservationOrBuilder> 
+         getIndustryHistoryOrBuilderList() {
+      if (industryHistoryBuilder_ != null) {
+        return industryHistoryBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(industryHistory_);
+      }
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public com.stocks.v1alpha1.IndustryObservation.Builder addIndustryHistoryBuilder() {
+      return internalGetIndustryHistoryFieldBuilder().addBuilder(
+          com.stocks.v1alpha1.IndustryObservation.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public com.stocks.v1alpha1.IndustryObservation.Builder addIndustryHistoryBuilder(
+        int index) {
+      return internalGetIndustryHistoryFieldBuilder().addBuilder(
+          index, com.stocks.v1alpha1.IndustryObservation.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Every industry classification recorded for this stock, oldest first (#557).
+     *
+     * `industry` above is the CURRENT label. Cross-sectional short-interest
+     * signals are normally sector-neutralised — raw short interest is heavily
+     * sector-clustered, so a naive "long the least-shorted" book is a large
+     * implicit sector bet — and doing that correctly needs the label as it stood
+     * on the observation date, not today's.
+     *
+     * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+     * recoverable: `company-metadata` holds one current row per stock, enrichment
+     * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+     * with a single distinct value across all 2,258 rows. So this timeline
+     * usually holds exactly one entry — the seeded baseline — and that is the
+     * honest answer rather than an absence a caller has to interpret.
+     *
+     * Returned as a timeline rather than another as-of scalar so a caller can see
+     * HOW MUCH history exists before deciding whether neutralising on it is
+     * sound. One `seed` row means none of it is observed, and a study over any
+     * earlier period is using today's labels — mild lookahead, but real.
+     * </pre>
+     *
+     * <code>repeated .stocks.v1alpha1.IndustryObservation industry_history = 27 [json_name = "industryHistory"];</code>
+     */
+    public java.util.List<com.stocks.v1alpha1.IndustryObservation.Builder> 
+         getIndustryHistoryBuilderList() {
+      return internalGetIndustryHistoryFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.stocks.v1alpha1.IndustryObservation, com.stocks.v1alpha1.IndustryObservation.Builder, com.stocks.v1alpha1.IndustryObservationOrBuilder> 
+        internalGetIndustryHistoryFieldBuilder() {
+      if (industryHistoryBuilder_ == null) {
+        industryHistoryBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.stocks.v1alpha1.IndustryObservation, com.stocks.v1alpha1.IndustryObservation.Builder, com.stocks.v1alpha1.IndustryObservationOrBuilder>(
+                industryHistory_,
+                ((bitField0_ & 0x04000000) != 0),
+                getParentForChildren(),
+                isClean());
+        industryHistory_ = null;
+      }
+      return industryHistoryBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:stocks.v1alpha1.StockDetails)
