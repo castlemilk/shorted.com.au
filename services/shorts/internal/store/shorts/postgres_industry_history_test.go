@@ -42,6 +42,14 @@ func TestIndustryHistoryTimeline(t *testing.T) {
 		 VALUES ($1, 'Fixture Industries', 'Energy')`, code)
 	require.NoError(t, err)
 
+	// That INSERT fires migration 000120's trigger, which records the arriving
+	// label at CURRENT_DATE. The fixture wants two rows at dates it controls, so
+	// the trigger's row is cleared first — deliberately after the insert rather
+	// than by disabling the trigger, so this test keeps exercising the real
+	// table rather than a version of it with the capture switched off.
+	_, err = pool.Exec(ctx, `DELETE FROM stock_industry_history WHERE stock_code = $1`, code)
+	require.NoError(t, err)
+
 	// A seeded baseline, then an observed reclassification a year later. The
 	// order of insertion is deliberately NOT the order of observed_from, so a
 	// timeline that returned insertion order rather than date order fails.
