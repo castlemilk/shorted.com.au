@@ -63,6 +63,40 @@ func (s *Service) GetPrioritizedStocks(ctx context.Context, bucket string, prior
 		allCodes[i] = c.Code
 	}
 
+	// 3b. Union in every code that has EVER been in the ASIC report (#576).
+	//
+	// The CSV above is `asx-stocks/latest.csv` — CURRENT listings. Taking it as
+	// the whole universe meant a name that delisted was never fetched again,
+	// and the database fallback in historical-backfill made it worse by reading
+	// mv_stock_price_coverage, which is itself derived FROM stock_prices. The
+	// two closed a loop: a code had no prices because it was never fetched, and
+	// it was never fetched because it had no prices.
+	//
+	// 936 of 1,941 codes in the point-in-time universe (48%) sit inside that
+	// loop, and they are exactly the acquisitions and failures whose absence
+	// makes a survivorship-free universe produce survivor-only returns.
+	//
+	// A failure here is logged and not fatal: the CSV list still syncs, which
+	// is the status quo, and the widening is additive.
+	historical, err := s.fetchHistoricalCodes(ctx)
+	if err != nil {
+		log.Printf("⚠️ Warning: could not widen the universe to delisted codes: %v", err)
+	} else {
+		known := make(map[string]bool, len(allCodes))
+		for _, c := range allCodes {
+			known[c] = true
+		}
+		added := 0
+		for _, c := range historical {
+			if !known[c] {
+				allCodes = append(allCodes, c)
+				known[c] = true
+				added++
+			}
+		}
+		log.Printf("📜 Added %d codes seen only in historical ASIC reports (%d total)", added, len(allCodes))
+	}
+
 	// 4. Query top shorted stocks from database
 	topShorted, err := s.fetchTopShorted(ctx, priorityCount)
 	if err != nil {
@@ -267,6 +301,43 @@ func (s *Service) fetchTopShorted(ctx context.Context, limit int) ([]string, err
 		return nil, fmt.Errorf("error iterating top shorted stocks: %w", err)
 	}
 
+	return codes, nil
+}
+
+// fetchHistoricalCodes returns every product code the ASIC short-position report
+// has ever carried (#576).
+//
+// This is the one list in the system that is survivorship-free by construction:
+// `shorts` is append-only and dated, so a security that delisted in 2016 is
+// still in it at the dates it was actually reported. Every other stock list
+// here — the ASX CSV, company-metadata, mv_stock_price_coverage — describes the
+// present and silently omits the names whose absence biases a backtest.
+//
+// ~1,941 codes over 2013-2026 against ~700 on any single day, so the widening
+// is real and the query is a single distinct scan on an indexed column.
+func (s *Service) fetchHistoricalCodes(ctx context.Context) ([]string, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT DISTINCT "PRODUCT_CODE"
+		FROM shorts
+		WHERE "PRODUCT_CODE" IS NOT NULL AND "PRODUCT_CODE" <> ''
+		ORDER BY "PRODUCT_CODE"`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query historical product codes: %w", err)
+	}
+	defer rows.Close()
+
+	var codes []string
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			log.Printf("⚠️ Warning: error scanning historical product code: %v", err)
+			continue
+		}
+		codes = append(codes, code)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating historical product codes: %w", err)
+	}
 	return codes, nil
 }
 

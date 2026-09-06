@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"cloud.google.com/go/storage"
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/checkpoint"
@@ -131,9 +132,21 @@ func main() {
 
 		// Fallback: Get stocks from database
 		log.Printf("📋 Fetching stock codes from database...")
-		rows, dbErr := pool.Query(ctx, `SELECT stock_code FROM mv_stock_price_coverage ORDER BY stock_code`)
+		// The ASIC report, not mv_stock_price_coverage (#576).
+		//
+		// That view is `SELECT ... FROM stock_prices GROUP BY stock_code`, so
+		// using it as the backfill's universe asked only for codes that already
+		// had prices — a closed loop in which a code with none could never be
+		// fetched, forever. `shorts` is append-only and dated, so it still
+		// carries the securities that later delisted, and it is the only
+		// survivorship-free list here.
+		rows, dbErr := pool.Query(ctx, `
+			SELECT DISTINCT "PRODUCT_CODE"
+			FROM shorts
+			WHERE "PRODUCT_CODE" IS NOT NULL AND "PRODUCT_CODE" <> ''
+			ORDER BY "PRODUCT_CODE"`)
 		if dbErr != nil {
-			log.Printf("⚠️ mv_stock_price_coverage unavailable (%v); falling back to stock_prices scan", dbErr)
+			log.Printf("⚠️ shorts universe unavailable (%v); falling back to priced codes only — this reintroduces the survivorship hole", dbErr)
 			rows, dbErr = pool.Query(ctx, `SELECT DISTINCT stock_code FROM stock_prices ORDER BY stock_code`)
 		}
 		if dbErr != nil {
@@ -418,6 +431,10 @@ func main() {
 			if needsFullFetch {
 				log.Printf("❌ [%d/%d] Failed to fetch data for %s", i+1, len(stocks), symbol)
 				failed++
+				// We asked and got nothing. Recording that is the whole point:
+				// without it this is indistinguishable from never having asked,
+				// which is the state 936 codes were in.
+				recordBackfillAttempt(ctx, pool, symbol, "unavailable", 0, "provider returned no records")
 			} else {
 				log.Printf("⏭️ [%d/%d] %s: no new records needed", i+1, len(stocks), symbol)
 				successful++
@@ -452,6 +469,7 @@ func main() {
 
 		successful++
 		totalRecords += inserted
+		recordBackfillAttempt(ctx, pool, symbol, "recovered", inserted, "")
 		log.Printf("✅ [%d/%d] %s: Inserted %d records (total: %d)", i+1, len(stocks), symbol, inserted, totalRecords)
 
 		// Update checkpoint after each successful stock
@@ -479,4 +497,70 @@ func main() {
 	log.Printf("   Successful: %d", successful)
 	log.Printf("   Failed: %d", failed)
 	log.Printf("   Total records: %d", totalRecords)
+}
+
+// recordBackfillAttempt notes that this code was asked about, and what came
+// back (#576).
+//
+// The value it adds is entirely in the 'unavailable' case. 936 of 1,941 codes
+// in the point-in-time universe carry no price history, and until the universe
+// fix above they had never been requested — the stock list was current listings
+// and the database fallback was derived from stock_prices itself. So "no prices"
+// meant either "the provider has nothing" or "we never asked", with no way to
+// tell which, and the standing explanation (Yahoo drops delisted ASX tickers)
+// was an assumption rather than a measurement.
+//
+// After this, `stock_price_backfill_attempts` answers it directly: a code with
+// no row was never reached, and a code with outcome='unavailable' was asked.
+//
+// Never fatal. This is a record ABOUT the backfill, and losing it must not cost
+// the prices the backfill just recovered.
+func recordBackfillAttempt(ctx context.Context, pool *pgxpool.Pool, code, outcome string, records int, detail string) {
+	detail = sanitizeDetail(detail)
+	_, err := pool.Exec(ctx, `
+		INSERT INTO stock_price_backfill_attempts
+			(stock_code, last_attempted_at, outcome, records_recovered, detail)
+		VALUES ($1, now(), $2, $3, NULLIF($4, ''))
+		ON CONFLICT (stock_code) DO UPDATE SET
+			last_attempted_at = now(),
+			outcome           = EXCLUDED.outcome,
+			records_recovered = EXCLUDED.records_recovered,
+			detail            = EXCLUDED.detail`,
+		code, outcome, records, detail)
+	if err != nil {
+		log.Printf("⚠️ Failed to record backfill attempt for %s: %v", code, err)
+	}
+}
+
+// sanitizeDetail makes provider text safe to store.
+//
+// Two things a naive `detail[:500]` gets wrong, both of which make Postgres
+// reject the whole INSERT and lose the attempt record:
+//
+//   - Slicing by BYTES can cut a multi-byte rune in half, and the fragment is
+//     not valid UTF-8.
+//   - Provider payloads occasionally carry NUL bytes, which Postgres refuses in
+//     a text column regardless of length.
+//
+// Because recordBackfillAttempt swallows its error by design — it must never
+// cost the prices a run just recovered — either would have failed silently and
+// left the code looking un-attempted, which is the exact confusion this table
+// exists to remove.
+func sanitizeDetail(detail string) string {
+	const maxDetail = 500
+	cleaned := strings.Map(func(r rune) rune {
+		if r == 0 || r == utf8.RuneError {
+			return -1
+		}
+		return r
+	}, strings.ToValidUTF8(detail, ""))
+	if len(cleaned) <= maxDetail {
+		return cleaned
+	}
+	// Cut on a rune boundary, never mid-sequence.
+	truncated := cleaned[:maxDetail]
+	for len(truncated) > 0 && !utf8.ValidString(truncated) {
+		truncated = truncated[:len(truncated)-1]
+	}
+	return truncated
 }

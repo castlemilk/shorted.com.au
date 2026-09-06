@@ -664,7 +664,11 @@ jobs:
           # live database. Everything in it must be idempotent and must never
           # rewrite existing rows — 000112 in particular holds live quota
           # counters, and 000116 holds live OAuth grants, so both are
-          # CREATE TABLE IF NOT EXISTS and nothing else.
+          # CREATE TABLE IF NOT EXISTS and nothing else. 000119 is the same
+          # shape: one CREATE TABLE IF NOT EXISTS and one CREATE INDEX IF NOT
+          # EXISTS, no INSERT, no ALTER, so a replay is a no-op. It does not
+          # touch refresh_all_materialized_views() either, so it sits before
+          # 000095 with the rest.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -678,6 +682,7 @@ jobs:
               -f /migrations/000116_add_oauth_clients.up.sql \
               -f /migrations/000117_add_index_prices.up.sql \
               -f /migrations/000118_add_industry_history.up.sql \
+              -f /migrations/000119_add_price_backfill_attempts.up.sql \
               -f /migrations/000095_harden_mv_refresh.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
