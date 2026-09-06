@@ -320,7 +320,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           # This job never checks out — it only queries the database — so gh has
           # no git remote to infer the repository from and every `gh issue`
-          # call failed with \"fatal: not a git repository\". Setting GH_REPO
+          # call failed with "fatal: not a git repository". Setting GH_REPO
           # is the fix that does not require a pointless checkout.
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -369,7 +369,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           # This job never checks out — it only queries the database — so gh has
           # no git remote to infer the repository from and every `gh issue`
-          # call failed with \"fatal: not a git repository\". Setting GH_REPO
+          # call failed with "fatal: not a git repository". Setting GH_REPO
           # is the fix that does not require a pointless checkout.
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
