@@ -42,6 +42,7 @@ private static final long serialVersionUID = 0L;
     securityType_ = "";
     industrySource_ = "";
     industryAsOf_ = "";
+    gicsSector_ = "";
     lastReportedDate_ = "";
     finalCloseDate_ = "";
   }
@@ -632,6 +633,95 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int GICS_SECTOR_FIELD_NUMBER = 21;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object gicsSector_ = "";
+  /**
+   * <pre>
+   * The GICS SECTOR the `industry` label above rolls up to (#557).
+   *
+   * Cross-sectional short-interest signals are normally sector-neutralised —
+   * raw short interest is heavily sector-clustered, so a naive "long the
+   * least-shorted" book is a large implicit sector bet — and the caller asked
+   * for a GICS level so they could choose the neutralisation granularity.
+   *
+   * `industry` is already one: the values are the 25 real GICS INDUSTRY GROUP
+   * names, level 2 of the hierarchy, pinned against the database by the
+   * 2026-07-22 probe the economy pipeline depends on. Industry group → sector
+   * is fixed published structure, not licensed data, so this field costs a
+   * lookup and gives a second, coarser granularity. Level 3 (industry) and
+   * level 4 (sub-industry) are genuinely below what we hold and no mapping can
+   * invent them.
+   *
+   * Empty when the label is not one of the 25 — an upstream vocabulary change,
+   * or a stock we have no classification for. Deliberately empty rather than
+   * bucketed into a plausible sector: silently placing unclassified names in a
+   * sector is the implicit bet this field exists to let a caller avoid.
+   *
+   * Derived from `industry`, so it inherits that field's as-of caveats exactly:
+   * read industry_source before trusting it for a historical cross-section.
+   * </pre>
+   *
+   * <code>string gics_sector = 21 [json_name = "gicsSector"];</code>
+   * @return The gicsSector.
+   */
+  @java.lang.Override
+  public java.lang.String getGicsSector() {
+    java.lang.Object ref = gicsSector_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      gicsSector_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The GICS SECTOR the `industry` label above rolls up to (#557).
+   *
+   * Cross-sectional short-interest signals are normally sector-neutralised —
+   * raw short interest is heavily sector-clustered, so a naive "long the
+   * least-shorted" book is a large implicit sector bet — and the caller asked
+   * for a GICS level so they could choose the neutralisation granularity.
+   *
+   * `industry` is already one: the values are the 25 real GICS INDUSTRY GROUP
+   * names, level 2 of the hierarchy, pinned against the database by the
+   * 2026-07-22 probe the economy pipeline depends on. Industry group → sector
+   * is fixed published structure, not licensed data, so this field costs a
+   * lookup and gives a second, coarser granularity. Level 3 (industry) and
+   * level 4 (sub-industry) are genuinely below what we hold and no mapping can
+   * invent them.
+   *
+   * Empty when the label is not one of the 25 — an upstream vocabulary change,
+   * or a stock we have no classification for. Deliberately empty rather than
+   * bucketed into a plausible sector: silently placing unclassified names in a
+   * sector is the implicit bet this field exists to let a caller avoid.
+   *
+   * Derived from `industry`, so it inherits that field's as-of caveats exactly:
+   * read industry_source before trusting it for a historical cross-section.
+   * </pre>
+   *
+   * <code>string gics_sector = 21 [json_name = "gicsSector"];</code>
+   * @return The bytes for gicsSector.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getGicsSectorBytes() {
+    java.lang.Object ref = gicsSector_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      gicsSector_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   public static final int HAS_PRICE_HISTORY_FIELD_NUMBER = 17;
   private boolean hasPriceHistory_ = false;
   /**
@@ -889,6 +979,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(finalCloseDate_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 20, finalCloseDate_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(gicsSector_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 21, gicsSector_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -967,6 +1060,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(finalCloseDate_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(20, finalCloseDate_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(gicsSector_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(21, gicsSector_);
+    }
     return size;
   }
   @java.lang.Override
@@ -1030,6 +1126,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getIndustrySource())) return false;
     if (!getIndustryAsOf()
         .equals(other.getIndustryAsOf())) return false;
+    if (!getGicsSector()
+        .equals(other.getGicsSector())) return false;
     if (getHasPriceHistory()
         != other.getHasPriceHistory()) return false;
     if (!getLastReportedDate()
@@ -1091,6 +1189,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getIndustrySource().hashCode();
     hash = (37 * hash) + INDUSTRY_AS_OF_FIELD_NUMBER;
     hash = (53 * hash) + getIndustryAsOf().hashCode();
+    hash = (37 * hash) + GICS_SECTOR_FIELD_NUMBER;
+    hash = (53 * hash) + getGicsSector().hashCode();
     hash = (37 * hash) + HAS_PRICE_HISTORY_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasPriceHistory());
@@ -1253,6 +1353,7 @@ private static final long serialVersionUID = 0L;
       securityType_ = "";
       industrySource_ = "";
       industryAsOf_ = "";
+      gicsSector_ = "";
       hasPriceHistory_ = false;
       lastReportedDate_ = "";
       finalClose_ = 0D;
@@ -1340,15 +1441,18 @@ private static final long serialVersionUID = 0L;
         result.industryAsOf_ = industryAsOf_;
       }
       if (((from_bitField0_ & 0x00010000) != 0)) {
-        result.hasPriceHistory_ = hasPriceHistory_;
+        result.gicsSector_ = gicsSector_;
       }
       if (((from_bitField0_ & 0x00020000) != 0)) {
-        result.lastReportedDate_ = lastReportedDate_;
+        result.hasPriceHistory_ = hasPriceHistory_;
       }
       if (((from_bitField0_ & 0x00040000) != 0)) {
-        result.finalClose_ = finalClose_;
+        result.lastReportedDate_ = lastReportedDate_;
       }
       if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.finalClose_ = finalClose_;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
         result.finalCloseDate_ = finalCloseDate_;
       }
     }
@@ -1436,12 +1540,17 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00008000;
         onChanged();
       }
+      if (!other.getGicsSector().isEmpty()) {
+        gicsSector_ = other.gicsSector_;
+        bitField0_ |= 0x00010000;
+        onChanged();
+      }
       if (other.getHasPriceHistory() != false) {
         setHasPriceHistory(other.getHasPriceHistory());
       }
       if (!other.getLastReportedDate().isEmpty()) {
         lastReportedDate_ = other.lastReportedDate_;
-        bitField0_ |= 0x00020000;
+        bitField0_ |= 0x00040000;
         onChanged();
       }
       if (java.lang.Double.doubleToRawLongBits(other.getFinalClose()) != 0) {
@@ -1449,7 +1558,7 @@ private static final long serialVersionUID = 0L;
       }
       if (!other.getFinalCloseDate().isEmpty()) {
         finalCloseDate_ = other.finalCloseDate_;
-        bitField0_ |= 0x00080000;
+        bitField0_ |= 0x00100000;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -1560,24 +1669,29 @@ private static final long serialVersionUID = 0L;
             } // case 130
             case 136: {
               hasPriceHistory_ = input.readBool();
-              bitField0_ |= 0x00010000;
+              bitField0_ |= 0x00020000;
               break;
             } // case 136
             case 146: {
               lastReportedDate_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00020000;
+              bitField0_ |= 0x00040000;
               break;
             } // case 146
             case 153: {
               finalClose_ = input.readDouble();
-              bitField0_ |= 0x00040000;
+              bitField0_ |= 0x00080000;
               break;
             } // case 153
             case 162: {
               finalCloseDate_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00080000;
+              bitField0_ |= 0x00100000;
               break;
             } // case 162
+            case 170: {
+              gicsSector_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 170
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2880,6 +2994,203 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    private java.lang.Object gicsSector_ = "";
+    /**
+     * <pre>
+     * The GICS SECTOR the `industry` label above rolls up to (#557).
+     *
+     * Cross-sectional short-interest signals are normally sector-neutralised —
+     * raw short interest is heavily sector-clustered, so a naive "long the
+     * least-shorted" book is a large implicit sector bet — and the caller asked
+     * for a GICS level so they could choose the neutralisation granularity.
+     *
+     * `industry` is already one: the values are the 25 real GICS INDUSTRY GROUP
+     * names, level 2 of the hierarchy, pinned against the database by the
+     * 2026-07-22 probe the economy pipeline depends on. Industry group → sector
+     * is fixed published structure, not licensed data, so this field costs a
+     * lookup and gives a second, coarser granularity. Level 3 (industry) and
+     * level 4 (sub-industry) are genuinely below what we hold and no mapping can
+     * invent them.
+     *
+     * Empty when the label is not one of the 25 — an upstream vocabulary change,
+     * or a stock we have no classification for. Deliberately empty rather than
+     * bucketed into a plausible sector: silently placing unclassified names in a
+     * sector is the implicit bet this field exists to let a caller avoid.
+     *
+     * Derived from `industry`, so it inherits that field's as-of caveats exactly:
+     * read industry_source before trusting it for a historical cross-section.
+     * </pre>
+     *
+     * <code>string gics_sector = 21 [json_name = "gicsSector"];</code>
+     * @return The gicsSector.
+     */
+    public java.lang.String getGicsSector() {
+      java.lang.Object ref = gicsSector_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        gicsSector_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The GICS SECTOR the `industry` label above rolls up to (#557).
+     *
+     * Cross-sectional short-interest signals are normally sector-neutralised —
+     * raw short interest is heavily sector-clustered, so a naive "long the
+     * least-shorted" book is a large implicit sector bet — and the caller asked
+     * for a GICS level so they could choose the neutralisation granularity.
+     *
+     * `industry` is already one: the values are the 25 real GICS INDUSTRY GROUP
+     * names, level 2 of the hierarchy, pinned against the database by the
+     * 2026-07-22 probe the economy pipeline depends on. Industry group → sector
+     * is fixed published structure, not licensed data, so this field costs a
+     * lookup and gives a second, coarser granularity. Level 3 (industry) and
+     * level 4 (sub-industry) are genuinely below what we hold and no mapping can
+     * invent them.
+     *
+     * Empty when the label is not one of the 25 — an upstream vocabulary change,
+     * or a stock we have no classification for. Deliberately empty rather than
+     * bucketed into a plausible sector: silently placing unclassified names in a
+     * sector is the implicit bet this field exists to let a caller avoid.
+     *
+     * Derived from `industry`, so it inherits that field's as-of caveats exactly:
+     * read industry_source before trusting it for a historical cross-section.
+     * </pre>
+     *
+     * <code>string gics_sector = 21 [json_name = "gicsSector"];</code>
+     * @return The bytes for gicsSector.
+     */
+    public com.google.protobuf.ByteString
+        getGicsSectorBytes() {
+      java.lang.Object ref = gicsSector_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        gicsSector_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The GICS SECTOR the `industry` label above rolls up to (#557).
+     *
+     * Cross-sectional short-interest signals are normally sector-neutralised —
+     * raw short interest is heavily sector-clustered, so a naive "long the
+     * least-shorted" book is a large implicit sector bet — and the caller asked
+     * for a GICS level so they could choose the neutralisation granularity.
+     *
+     * `industry` is already one: the values are the 25 real GICS INDUSTRY GROUP
+     * names, level 2 of the hierarchy, pinned against the database by the
+     * 2026-07-22 probe the economy pipeline depends on. Industry group → sector
+     * is fixed published structure, not licensed data, so this field costs a
+     * lookup and gives a second, coarser granularity. Level 3 (industry) and
+     * level 4 (sub-industry) are genuinely below what we hold and no mapping can
+     * invent them.
+     *
+     * Empty when the label is not one of the 25 — an upstream vocabulary change,
+     * or a stock we have no classification for. Deliberately empty rather than
+     * bucketed into a plausible sector: silently placing unclassified names in a
+     * sector is the implicit bet this field exists to let a caller avoid.
+     *
+     * Derived from `industry`, so it inherits that field's as-of caveats exactly:
+     * read industry_source before trusting it for a historical cross-section.
+     * </pre>
+     *
+     * <code>string gics_sector = 21 [json_name = "gicsSector"];</code>
+     * @param value The gicsSector to set.
+     * @return This builder for chaining.
+     */
+    public Builder setGicsSector(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      gicsSector_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The GICS SECTOR the `industry` label above rolls up to (#557).
+     *
+     * Cross-sectional short-interest signals are normally sector-neutralised —
+     * raw short interest is heavily sector-clustered, so a naive "long the
+     * least-shorted" book is a large implicit sector bet — and the caller asked
+     * for a GICS level so they could choose the neutralisation granularity.
+     *
+     * `industry` is already one: the values are the 25 real GICS INDUSTRY GROUP
+     * names, level 2 of the hierarchy, pinned against the database by the
+     * 2026-07-22 probe the economy pipeline depends on. Industry group → sector
+     * is fixed published structure, not licensed data, so this field costs a
+     * lookup and gives a second, coarser granularity. Level 3 (industry) and
+     * level 4 (sub-industry) are genuinely below what we hold and no mapping can
+     * invent them.
+     *
+     * Empty when the label is not one of the 25 — an upstream vocabulary change,
+     * or a stock we have no classification for. Deliberately empty rather than
+     * bucketed into a plausible sector: silently placing unclassified names in a
+     * sector is the implicit bet this field exists to let a caller avoid.
+     *
+     * Derived from `industry`, so it inherits that field's as-of caveats exactly:
+     * read industry_source before trusting it for a historical cross-section.
+     * </pre>
+     *
+     * <code>string gics_sector = 21 [json_name = "gicsSector"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearGicsSector() {
+      gicsSector_ = getDefaultInstance().getGicsSector();
+      bitField0_ = (bitField0_ & ~0x00010000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The GICS SECTOR the `industry` label above rolls up to (#557).
+     *
+     * Cross-sectional short-interest signals are normally sector-neutralised —
+     * raw short interest is heavily sector-clustered, so a naive "long the
+     * least-shorted" book is a large implicit sector bet — and the caller asked
+     * for a GICS level so they could choose the neutralisation granularity.
+     *
+     * `industry` is already one: the values are the 25 real GICS INDUSTRY GROUP
+     * names, level 2 of the hierarchy, pinned against the database by the
+     * 2026-07-22 probe the economy pipeline depends on. Industry group → sector
+     * is fixed published structure, not licensed data, so this field costs a
+     * lookup and gives a second, coarser granularity. Level 3 (industry) and
+     * level 4 (sub-industry) are genuinely below what we hold and no mapping can
+     * invent them.
+     *
+     * Empty when the label is not one of the 25 — an upstream vocabulary change,
+     * or a stock we have no classification for. Deliberately empty rather than
+     * bucketed into a plausible sector: silently placing unclassified names in a
+     * sector is the implicit bet this field exists to let a caller avoid.
+     *
+     * Derived from `industry`, so it inherits that field's as-of caveats exactly:
+     * read industry_source before trusting it for a historical cross-section.
+     * </pre>
+     *
+     * <code>string gics_sector = 21 [json_name = "gicsSector"];</code>
+     * @param value The bytes for gicsSector to set.
+     * @return This builder for chaining.
+     */
+    public Builder setGicsSectorBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      gicsSector_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+
     private boolean hasPriceHistory_ ;
     /**
      * <pre>
@@ -2943,7 +3254,7 @@ private static final long serialVersionUID = 0L;
     public Builder setHasPriceHistory(boolean value) {
 
       hasPriceHistory_ = value;
-      bitField0_ |= 0x00010000;
+      bitField0_ |= 0x00020000;
       onChanged();
       return this;
     }
@@ -2975,7 +3286,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearHasPriceHistory() {
-      bitField0_ = (bitField0_ & ~0x00010000);
+      bitField0_ = (bitField0_ & ~0x00020000);
       hasPriceHistory_ = false;
       onChanged();
       return this;
@@ -3099,7 +3410,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       lastReportedDate_ = value;
-      bitField0_ |= 0x00020000;
+      bitField0_ |= 0x00040000;
       onChanged();
       return this;
     }
@@ -3134,7 +3445,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearLastReportedDate() {
       lastReportedDate_ = getDefaultInstance().getLastReportedDate();
-      bitField0_ = (bitField0_ & ~0x00020000);
+      bitField0_ = (bitField0_ & ~0x00040000);
       onChanged();
       return this;
     }
@@ -3173,7 +3484,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       lastReportedDate_ = value;
-      bitField0_ |= 0x00020000;
+      bitField0_ |= 0x00040000;
       onChanged();
       return this;
     }
@@ -3215,7 +3526,7 @@ private static final long serialVersionUID = 0L;
     public Builder setFinalClose(double value) {
 
       finalClose_ = value;
-      bitField0_ |= 0x00040000;
+      bitField0_ |= 0x00080000;
       onChanged();
       return this;
     }
@@ -3234,7 +3545,7 @@ private static final long serialVersionUID = 0L;
      * @return This builder for chaining.
      */
     public Builder clearFinalClose() {
-      bitField0_ = (bitField0_ & ~0x00040000);
+      bitField0_ = (bitField0_ & ~0x00080000);
       finalClose_ = 0D;
       onChanged();
       return this;
@@ -3283,7 +3594,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       finalCloseDate_ = value;
-      bitField0_ |= 0x00080000;
+      bitField0_ |= 0x00100000;
       onChanged();
       return this;
     }
@@ -3293,7 +3604,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearFinalCloseDate() {
       finalCloseDate_ = getDefaultInstance().getFinalCloseDate();
-      bitField0_ = (bitField0_ & ~0x00080000);
+      bitField0_ = (bitField0_ & ~0x00100000);
       onChanged();
       return this;
     }
@@ -3307,7 +3618,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       finalCloseDate_ = value;
-      bitField0_ |= 0x00080000;
+      bitField0_ |= 0x00100000;
       onChanged();
       return this;
     }

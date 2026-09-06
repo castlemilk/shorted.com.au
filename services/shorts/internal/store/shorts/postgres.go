@@ -1529,6 +1529,7 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan stock row: %w", err)
 		}
+		stock.GicsSector = GICSSector(stock.Industry)
 		stock.LiquidityBand = liquidityBand(stock.AverageDailyValue_20D)
 		stock.DaysToCover = daysToCover(float64(stock.ReportedShortPositions), stock.AverageDailyVolume_20D)
 		stock.SecurityType = string(ClassifySecurity(rawProduct, stock.ProductCode, float64(stock.TotalProductInIssue)))

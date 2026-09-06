@@ -9057,6 +9057,32 @@ components:
           description: (proto string)
           title: final_close_date
           type: string
+        gicsSector:
+          description: |-
+            The GICS SECTOR the `industry` label above rolls up to (#557).
+
+             Cross-sectional short-interest signals are normally sector-neutralised —
+             raw short interest is heavily sector-clustered, so a naive "long the
+             least-shorted" book is a large implicit sector bet — and the caller asked
+             for a GICS level so they could choose the neutralisation granularity.
+
+             `industry` is already one: the values are the 25 real GICS INDUSTRY GROUP
+             names, level 2 of the hierarchy, pinned against the database by the
+             2026-07-22 probe the economy pipeline depends on. Industry group → sector
+             is fixed published structure, not licensed data, so this field costs a
+             lookup and gives a second, coarser granularity. Level 3 (industry) and
+             level 4 (sub-industry) are genuinely below what we hold and no mapping can
+             invent them.
+
+             Empty when the label is not one of the 25 — an upstream vocabulary change,
+             or a stock we have no classification for. Deliberately empty rather than
+             bucketed into a plausible sector: silently placing unclassified names in a
+             sector is the implicit bet this field exists to let a caller avoid.
+
+             Derived from `industry`, so it inherits that field's as-of caveats exactly:
+             read industry_source before trusting it for a historical cross-section. (proto string)
+          title: gics_sector
+          type: string
         hasPriceHistory:
           description: |-
             Whether this security can be PRICED as of the date being asked about.

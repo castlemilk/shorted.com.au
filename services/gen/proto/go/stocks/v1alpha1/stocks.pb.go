@@ -100,6 +100,29 @@ type Stock struct {
 	// source is "current".
 	IndustrySource string `protobuf:"bytes,15,opt,name=industry_source,json=industrySource,proto3" json:"industry_source,omitempty"`
 	IndustryAsOf   string `protobuf:"bytes,16,opt,name=industry_as_of,json=industryAsOf,proto3" json:"industry_as_of,omitempty"`
+	// The GICS SECTOR the `industry` label above rolls up to (#557).
+	//
+	// Cross-sectional short-interest signals are normally sector-neutralised —
+	// raw short interest is heavily sector-clustered, so a naive "long the
+	// least-shorted" book is a large implicit sector bet — and the caller asked
+	// for a GICS level so they could choose the neutralisation granularity.
+	//
+	// `industry` is already one: the values are the 25 real GICS INDUSTRY GROUP
+	// names, level 2 of the hierarchy, pinned against the database by the
+	// 2026-07-22 probe the economy pipeline depends on. Industry group → sector
+	// is fixed published structure, not licensed data, so this field costs a
+	// lookup and gives a second, coarser granularity. Level 3 (industry) and
+	// level 4 (sub-industry) are genuinely below what we hold and no mapping can
+	// invent them.
+	//
+	// Empty when the label is not one of the 25 — an upstream vocabulary change,
+	// or a stock we have no classification for. Deliberately empty rather than
+	// bucketed into a plausible sector: silently placing unclassified names in a
+	// sector is the implicit bet this field exists to let a caller avoid.
+	//
+	// Derived from `industry`, so it inherits that field's as-of caveats exactly:
+	// read industry_source before trusting it for a historical cross-section.
+	GicsSector string `protobuf:"bytes,21,opt,name=gics_sector,json=gicsSector,proto3" json:"gics_sector,omitempty"`
 	// Whether this security can be PRICED as of the date being asked about.
 	//
 	// A point-in-time universe that is survivorship-free while the price data
@@ -295,6 +318,13 @@ func (x *Stock) GetIndustrySource() string {
 func (x *Stock) GetIndustryAsOf() string {
 	if x != nil {
 		return x.IndustryAsOf
+	}
+	return ""
+}
+
+func (x *Stock) GetGicsSector() string {
+	if x != nil {
+		return x.GicsSector
 	}
 	return ""
 }
@@ -1585,7 +1615,7 @@ var File_stocks_v1alpha1_stocks_proto protoreflect.FileDescriptor
 
 const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\n" +
-	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9a\x06\n" +
+	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbb\x06\n" +
 	"\x05Stock\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
@@ -1604,7 +1634,9 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\rdays_to_cover\x18\r \x01(\x01R\vdaysToCover\x12#\n" +
 	"\rsecurity_type\x18\x0e \x01(\tR\fsecurityType\x12'\n" +
 	"\x0findustry_source\x18\x0f \x01(\tR\x0eindustrySource\x12$\n" +
-	"\x0eindustry_as_of\x18\x10 \x01(\tR\findustryAsOf\x12*\n" +
+	"\x0eindustry_as_of\x18\x10 \x01(\tR\findustryAsOf\x12\x1f\n" +
+	"\vgics_sector\x18\x15 \x01(\tR\n" +
+	"gicsSector\x12*\n" +
 	"\x11has_price_history\x18\x11 \x01(\bR\x0fhasPriceHistory\x12,\n" +
 	"\x12last_reported_date\x18\x12 \x01(\tR\x10lastReportedDate\x12\x1f\n" +
 	"\vfinal_close\x18\x13 \x01(\x01R\n" +
