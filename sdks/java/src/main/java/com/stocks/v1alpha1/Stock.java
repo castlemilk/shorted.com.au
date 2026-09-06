@@ -42,6 +42,8 @@ private static final long serialVersionUID = 0L;
     securityType_ = "";
     industrySource_ = "";
     industryAsOf_ = "";
+    lastReportedDate_ = "";
+    finalCloseDate_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -664,6 +666,155 @@ private static final long serialVersionUID = 0L;
     return hasPriceHistory_;
   }
 
+  public static final int LAST_REPORTED_DATE_FIELD_NUMBER = 18;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object lastReportedDate_ = "";
+  /**
+   * <pre>
+   * ── The delisting record (#576) ────────────────────────────────────────
+   *
+   * has_price_history above says a position can be OPENED. These three say
+   * when and at what value it can be CLOSED, which is the half that was
+   * missing: a constituent that leaves the universe currently just stops
+   * appearing, so a company acquired at a 30% premium and one wound up at zero
+   * are both simply absent, and the position silently never existed.
+   *
+   * UNLIKE every other field on this message, these are LIFETIME values, not
+   * as-of the requested date. That is deliberate and it is the only thing they
+   * are for: "when does this position close" is inherently a question about
+   * the future relative to the cross-section being built. The direct
+   * consequence is that feeding any of them into a signal is LOOKAHEAD. They
+   * belong on the exit leg and nowhere else.
+   *
+   * last_reported_date is the last ASIC report date this code appears on, ever.
+   * It is NOT a delisting date and is not named one: the ASIC short-position
+   * report covers securities with reportable positions, roughly 700 of ~2,000
+   * listed entities on any day, so a code can leave it by being delisted OR by
+   * simply ceasing to be shorted. What it does say exactly is the last date
+   * this name is in THIS universe — which is the date a book built from this
+   * endpoint has to close it, either way.
+   * </pre>
+   *
+   * <code>string last_reported_date = 18 [json_name = "lastReportedDate"];</code>
+   * @return The lastReportedDate.
+   */
+  @java.lang.Override
+  public java.lang.String getLastReportedDate() {
+    java.lang.Object ref = lastReportedDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      lastReportedDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * ── The delisting record (#576) ────────────────────────────────────────
+   *
+   * has_price_history above says a position can be OPENED. These three say
+   * when and at what value it can be CLOSED, which is the half that was
+   * missing: a constituent that leaves the universe currently just stops
+   * appearing, so a company acquired at a 30% premium and one wound up at zero
+   * are both simply absent, and the position silently never existed.
+   *
+   * UNLIKE every other field on this message, these are LIFETIME values, not
+   * as-of the requested date. That is deliberate and it is the only thing they
+   * are for: "when does this position close" is inherently a question about
+   * the future relative to the cross-section being built. The direct
+   * consequence is that feeding any of them into a signal is LOOKAHEAD. They
+   * belong on the exit leg and nowhere else.
+   *
+   * last_reported_date is the last ASIC report date this code appears on, ever.
+   * It is NOT a delisting date and is not named one: the ASIC short-position
+   * report covers securities with reportable positions, roughly 700 of ~2,000
+   * listed entities on any day, so a code can leave it by being delisted OR by
+   * simply ceasing to be shorted. What it does say exactly is the last date
+   * this name is in THIS universe — which is the date a book built from this
+   * endpoint has to close it, either way.
+   * </pre>
+   *
+   * <code>string last_reported_date = 18 [json_name = "lastReportedDate"];</code>
+   * @return The bytes for lastReportedDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getLastReportedDateBytes() {
+    java.lang.Object ref = lastReportedDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      lastReportedDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int FINAL_CLOSE_FIELD_NUMBER = 19;
+  private double finalClose_ = 0D;
+  /**
+   * <pre>
+   * The last close held for this code and the session it belongs to — the
+   * terminal value, where one exists. Zero and empty for the ~48% of codes
+   * (936 of 1,941 over 2013-2026) carrying no price history at all; for those
+   * the position remains uncloseable and no terminal value is recoverable from
+   * data we hold. Saying so explicitly is the point: a caller can now separate
+   * "closed at $X" from "cannot be closed" instead of having both arrive as
+   * absence.
+   * </pre>
+   *
+   * <code>double final_close = 19 [json_name = "finalClose"];</code>
+   * @return The finalClose.
+   */
+  @java.lang.Override
+  public double getFinalClose() {
+    return finalClose_;
+  }
+
+  public static final int FINAL_CLOSE_DATE_FIELD_NUMBER = 20;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object finalCloseDate_ = "";
+  /**
+   * <code>string final_close_date = 20 [json_name = "finalCloseDate"];</code>
+   * @return The finalCloseDate.
+   */
+  @java.lang.Override
+  public java.lang.String getFinalCloseDate() {
+    java.lang.Object ref = finalCloseDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      finalCloseDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string final_close_date = 20 [json_name = "finalCloseDate"];</code>
+   * @return The bytes for finalCloseDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getFinalCloseDateBytes() {
+    java.lang.Object ref = finalCloseDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      finalCloseDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -728,6 +879,15 @@ private static final long serialVersionUID = 0L;
     }
     if (hasPriceHistory_ != false) {
       output.writeBool(17, hasPriceHistory_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(lastReportedDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 18, lastReportedDate_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(finalClose_) != 0) {
+      output.writeDouble(19, finalClose_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(finalCloseDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 20, finalCloseDate_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -797,6 +957,16 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(17, hasPriceHistory_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(lastReportedDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(18, lastReportedDate_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(finalClose_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(19, finalClose_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(finalCloseDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(20, finalCloseDate_);
+    }
     return size;
   }
   @java.lang.Override
@@ -862,6 +1032,13 @@ private static final long serialVersionUID = 0L;
         .equals(other.getIndustryAsOf())) return false;
     if (getHasPriceHistory()
         != other.getHasPriceHistory()) return false;
+    if (!getLastReportedDate()
+        .equals(other.getLastReportedDate())) return false;
+    if (java.lang.Double.doubleToLongBits(getFinalClose())
+        != java.lang.Double.doubleToLongBits(
+            other.getFinalClose())) return false;
+    if (!getFinalCloseDate()
+        .equals(other.getFinalCloseDate())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -917,6 +1094,13 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_PRICE_HISTORY_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasPriceHistory());
+    hash = (37 * hash) + LAST_REPORTED_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getLastReportedDate().hashCode();
+    hash = (37 * hash) + FINAL_CLOSE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getFinalClose()));
+    hash = (37 * hash) + FINAL_CLOSE_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getFinalCloseDate().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1070,6 +1254,9 @@ private static final long serialVersionUID = 0L;
       industrySource_ = "";
       industryAsOf_ = "";
       hasPriceHistory_ = false;
+      lastReportedDate_ = "";
+      finalClose_ = 0D;
+      finalCloseDate_ = "";
       return this;
     }
 
@@ -1154,6 +1341,15 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00010000) != 0)) {
         result.hasPriceHistory_ = hasPriceHistory_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.lastReportedDate_ = lastReportedDate_;
+      }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.finalClose_ = finalClose_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.finalCloseDate_ = finalCloseDate_;
       }
     }
 
@@ -1242,6 +1438,19 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getHasPriceHistory() != false) {
         setHasPriceHistory(other.getHasPriceHistory());
+      }
+      if (!other.getLastReportedDate().isEmpty()) {
+        lastReportedDate_ = other.lastReportedDate_;
+        bitField0_ |= 0x00020000;
+        onChanged();
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getFinalClose()) != 0) {
+        setFinalClose(other.getFinalClose());
+      }
+      if (!other.getFinalCloseDate().isEmpty()) {
+        finalCloseDate_ = other.finalCloseDate_;
+        bitField0_ |= 0x00080000;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1354,6 +1563,21 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00010000;
               break;
             } // case 136
+            case 146: {
+              lastReportedDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00020000;
+              break;
+            } // case 146
+            case 153: {
+              finalClose_ = input.readDouble();
+              bitField0_ |= 0x00040000;
+              break;
+            } // case 153
+            case 162: {
+              finalCloseDate_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00080000;
+              break;
+            } // case 162
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2753,6 +2977,337 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasPriceHistory() {
       bitField0_ = (bitField0_ & ~0x00010000);
       hasPriceHistory_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object lastReportedDate_ = "";
+    /**
+     * <pre>
+     * ── The delisting record (#576) ────────────────────────────────────────
+     *
+     * has_price_history above says a position can be OPENED. These three say
+     * when and at what value it can be CLOSED, which is the half that was
+     * missing: a constituent that leaves the universe currently just stops
+     * appearing, so a company acquired at a 30% premium and one wound up at zero
+     * are both simply absent, and the position silently never existed.
+     *
+     * UNLIKE every other field on this message, these are LIFETIME values, not
+     * as-of the requested date. That is deliberate and it is the only thing they
+     * are for: "when does this position close" is inherently a question about
+     * the future relative to the cross-section being built. The direct
+     * consequence is that feeding any of them into a signal is LOOKAHEAD. They
+     * belong on the exit leg and nowhere else.
+     *
+     * last_reported_date is the last ASIC report date this code appears on, ever.
+     * It is NOT a delisting date and is not named one: the ASIC short-position
+     * report covers securities with reportable positions, roughly 700 of ~2,000
+     * listed entities on any day, so a code can leave it by being delisted OR by
+     * simply ceasing to be shorted. What it does say exactly is the last date
+     * this name is in THIS universe — which is the date a book built from this
+     * endpoint has to close it, either way.
+     * </pre>
+     *
+     * <code>string last_reported_date = 18 [json_name = "lastReportedDate"];</code>
+     * @return The lastReportedDate.
+     */
+    public java.lang.String getLastReportedDate() {
+      java.lang.Object ref = lastReportedDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        lastReportedDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * ── The delisting record (#576) ────────────────────────────────────────
+     *
+     * has_price_history above says a position can be OPENED. These three say
+     * when and at what value it can be CLOSED, which is the half that was
+     * missing: a constituent that leaves the universe currently just stops
+     * appearing, so a company acquired at a 30% premium and one wound up at zero
+     * are both simply absent, and the position silently never existed.
+     *
+     * UNLIKE every other field on this message, these are LIFETIME values, not
+     * as-of the requested date. That is deliberate and it is the only thing they
+     * are for: "when does this position close" is inherently a question about
+     * the future relative to the cross-section being built. The direct
+     * consequence is that feeding any of them into a signal is LOOKAHEAD. They
+     * belong on the exit leg and nowhere else.
+     *
+     * last_reported_date is the last ASIC report date this code appears on, ever.
+     * It is NOT a delisting date and is not named one: the ASIC short-position
+     * report covers securities with reportable positions, roughly 700 of ~2,000
+     * listed entities on any day, so a code can leave it by being delisted OR by
+     * simply ceasing to be shorted. What it does say exactly is the last date
+     * this name is in THIS universe — which is the date a book built from this
+     * endpoint has to close it, either way.
+     * </pre>
+     *
+     * <code>string last_reported_date = 18 [json_name = "lastReportedDate"];</code>
+     * @return The bytes for lastReportedDate.
+     */
+    public com.google.protobuf.ByteString
+        getLastReportedDateBytes() {
+      java.lang.Object ref = lastReportedDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        lastReportedDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * ── The delisting record (#576) ────────────────────────────────────────
+     *
+     * has_price_history above says a position can be OPENED. These three say
+     * when and at what value it can be CLOSED, which is the half that was
+     * missing: a constituent that leaves the universe currently just stops
+     * appearing, so a company acquired at a 30% premium and one wound up at zero
+     * are both simply absent, and the position silently never existed.
+     *
+     * UNLIKE every other field on this message, these are LIFETIME values, not
+     * as-of the requested date. That is deliberate and it is the only thing they
+     * are for: "when does this position close" is inherently a question about
+     * the future relative to the cross-section being built. The direct
+     * consequence is that feeding any of them into a signal is LOOKAHEAD. They
+     * belong on the exit leg and nowhere else.
+     *
+     * last_reported_date is the last ASIC report date this code appears on, ever.
+     * It is NOT a delisting date and is not named one: the ASIC short-position
+     * report covers securities with reportable positions, roughly 700 of ~2,000
+     * listed entities on any day, so a code can leave it by being delisted OR by
+     * simply ceasing to be shorted. What it does say exactly is the last date
+     * this name is in THIS universe — which is the date a book built from this
+     * endpoint has to close it, either way.
+     * </pre>
+     *
+     * <code>string last_reported_date = 18 [json_name = "lastReportedDate"];</code>
+     * @param value The lastReportedDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLastReportedDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      lastReportedDate_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ── The delisting record (#576) ────────────────────────────────────────
+     *
+     * has_price_history above says a position can be OPENED. These three say
+     * when and at what value it can be CLOSED, which is the half that was
+     * missing: a constituent that leaves the universe currently just stops
+     * appearing, so a company acquired at a 30% premium and one wound up at zero
+     * are both simply absent, and the position silently never existed.
+     *
+     * UNLIKE every other field on this message, these are LIFETIME values, not
+     * as-of the requested date. That is deliberate and it is the only thing they
+     * are for: "when does this position close" is inherently a question about
+     * the future relative to the cross-section being built. The direct
+     * consequence is that feeding any of them into a signal is LOOKAHEAD. They
+     * belong on the exit leg and nowhere else.
+     *
+     * last_reported_date is the last ASIC report date this code appears on, ever.
+     * It is NOT a delisting date and is not named one: the ASIC short-position
+     * report covers securities with reportable positions, roughly 700 of ~2,000
+     * listed entities on any day, so a code can leave it by being delisted OR by
+     * simply ceasing to be shorted. What it does say exactly is the last date
+     * this name is in THIS universe — which is the date a book built from this
+     * endpoint has to close it, either way.
+     * </pre>
+     *
+     * <code>string last_reported_date = 18 [json_name = "lastReportedDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLastReportedDate() {
+      lastReportedDate_ = getDefaultInstance().getLastReportedDate();
+      bitField0_ = (bitField0_ & ~0x00020000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ── The delisting record (#576) ────────────────────────────────────────
+     *
+     * has_price_history above says a position can be OPENED. These three say
+     * when and at what value it can be CLOSED, which is the half that was
+     * missing: a constituent that leaves the universe currently just stops
+     * appearing, so a company acquired at a 30% premium and one wound up at zero
+     * are both simply absent, and the position silently never existed.
+     *
+     * UNLIKE every other field on this message, these are LIFETIME values, not
+     * as-of the requested date. That is deliberate and it is the only thing they
+     * are for: "when does this position close" is inherently a question about
+     * the future relative to the cross-section being built. The direct
+     * consequence is that feeding any of them into a signal is LOOKAHEAD. They
+     * belong on the exit leg and nowhere else.
+     *
+     * last_reported_date is the last ASIC report date this code appears on, ever.
+     * It is NOT a delisting date and is not named one: the ASIC short-position
+     * report covers securities with reportable positions, roughly 700 of ~2,000
+     * listed entities on any day, so a code can leave it by being delisted OR by
+     * simply ceasing to be shorted. What it does say exactly is the last date
+     * this name is in THIS universe — which is the date a book built from this
+     * endpoint has to close it, either way.
+     * </pre>
+     *
+     * <code>string last_reported_date = 18 [json_name = "lastReportedDate"];</code>
+     * @param value The bytes for lastReportedDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLastReportedDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      lastReportedDate_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+
+    private double finalClose_ ;
+    /**
+     * <pre>
+     * The last close held for this code and the session it belongs to — the
+     * terminal value, where one exists. Zero and empty for the ~48% of codes
+     * (936 of 1,941 over 2013-2026) carrying no price history at all; for those
+     * the position remains uncloseable and no terminal value is recoverable from
+     * data we hold. Saying so explicitly is the point: a caller can now separate
+     * "closed at $X" from "cannot be closed" instead of having both arrive as
+     * absence.
+     * </pre>
+     *
+     * <code>double final_close = 19 [json_name = "finalClose"];</code>
+     * @return The finalClose.
+     */
+    @java.lang.Override
+    public double getFinalClose() {
+      return finalClose_;
+    }
+    /**
+     * <pre>
+     * The last close held for this code and the session it belongs to — the
+     * terminal value, where one exists. Zero and empty for the ~48% of codes
+     * (936 of 1,941 over 2013-2026) carrying no price history at all; for those
+     * the position remains uncloseable and no terminal value is recoverable from
+     * data we hold. Saying so explicitly is the point: a caller can now separate
+     * "closed at $X" from "cannot be closed" instead of having both arrive as
+     * absence.
+     * </pre>
+     *
+     * <code>double final_close = 19 [json_name = "finalClose"];</code>
+     * @param value The finalClose to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFinalClose(double value) {
+
+      finalClose_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The last close held for this code and the session it belongs to — the
+     * terminal value, where one exists. Zero and empty for the ~48% of codes
+     * (936 of 1,941 over 2013-2026) carrying no price history at all; for those
+     * the position remains uncloseable and no terminal value is recoverable from
+     * data we hold. Saying so explicitly is the point: a caller can now separate
+     * "closed at $X" from "cannot be closed" instead of having both arrive as
+     * absence.
+     * </pre>
+     *
+     * <code>double final_close = 19 [json_name = "finalClose"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFinalClose() {
+      bitField0_ = (bitField0_ & ~0x00040000);
+      finalClose_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object finalCloseDate_ = "";
+    /**
+     * <code>string final_close_date = 20 [json_name = "finalCloseDate"];</code>
+     * @return The finalCloseDate.
+     */
+    public java.lang.String getFinalCloseDate() {
+      java.lang.Object ref = finalCloseDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        finalCloseDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string final_close_date = 20 [json_name = "finalCloseDate"];</code>
+     * @return The bytes for finalCloseDate.
+     */
+    public com.google.protobuf.ByteString
+        getFinalCloseDateBytes() {
+      java.lang.Object ref = finalCloseDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        finalCloseDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string final_close_date = 20 [json_name = "finalCloseDate"];</code>
+     * @param value The finalCloseDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFinalCloseDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      finalCloseDate_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string final_close_date = 20 [json_name = "finalCloseDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFinalCloseDate() {
+      finalCloseDate_ = getDefaultInstance().getFinalCloseDate();
+      bitField0_ = (bitField0_ & ~0x00080000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string final_close_date = 20 [json_name = "finalCloseDate"];</code>
+     * @param value The bytes for finalCloseDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFinalCloseDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      finalCloseDate_ = value;
+      bitField0_ |= 0x00080000;
       onChanged();
       return this;
     }

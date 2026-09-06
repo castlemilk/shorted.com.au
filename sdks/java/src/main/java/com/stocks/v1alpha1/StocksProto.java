@@ -47,6 +47,11 @@ public final class StocksProto extends com.google.protobuf.GeneratedFile {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_StockDetails_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_stocks_v1alpha1_IndustryObservation_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_stocks_v1alpha1_IndustryObservation_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_CompanyPerson_descriptor;
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -122,7 +127,7 @@ public final class StocksProto extends com.google.protobuf.GeneratedFile {
     java.lang.String[] descriptorData = {
       "\n\034stocks/v1alpha1/stocks.proto\022\017stocks.v" +
       "1alpha1\032\037google/protobuf/timestamp.proto" +
-      "\"\241\005\n\005Stock\022!\n\014product_code\030\001 \001(\tR\013produc" +
+      "\"\232\006\n\005Stock\022!\n\014product_code\030\001 \001(\tR\013produc" +
       "tCode\022\022\n\004name\030\002 \001(\tR\004name\0223\n\026total_produ" +
       "ct_in_issue\030\003 \001(\002R\023totalProductInIssue\0228" +
       "\n\030reported_short_positions\030\004 \001(\002R\026report" +
@@ -138,113 +143,121 @@ public final class StocksProto extends com.google.protobuf.GeneratedFile {
       "security_type\030\016 \001(\tR\014securityType\022\'\n\017ind" +
       "ustry_source\030\017 \001(\tR\016industrySource\022$\n\016in" +
       "dustry_as_of\030\020 \001(\tR\014industryAsOf\022*\n\021has_" +
-      "price_history\030\021 \001(\010R\017hasPriceHistory\"\220\003\n" +
-      "\016TimeSeriesData\022!\n\014product_code\030\001 \001(\tR\013p" +
-      "roductCode\022\022\n\004name\030\003 \001(\tR\004name\0222\n\025latest" +
-      "_short_position\030\004 \001(\001R\023latestShortPositi" +
-      "on\0228\n\006points\030\n \003(\0132 .stocks.v1alpha1.Tim" +
-      "eSeriesPointR\006points\0222\n\003max\030\013 \001(\0132 .stoc" +
-      "ks.v1alpha1.TimeSeriesPointR\003max\0222\n\003min\030" +
-      "\014 \001(\0132 .stocks.v1alpha1.TimeSeriesPointR" +
-      "\003min\022\032\n\010industry\030\r \001(\tR\010industry\022-\n\022tota" +
-      "l_observations\030\016 \001(\005R\021totalObservations\022" +
-      " \n\013downsampled\030\017 \001(\010R\013downsampledJ\004\010\002\020\003\"" +
-      "\210\002\n\017TimeSeriesPoint\0228\n\ttimestamp\030\001 \001(\0132\032" +
-      ".google.protobuf.TimestampR\ttimestamp\022%\n" +
-      "\016short_position\030\002 \001(\001R\rshortPosition\0228\n\030" +
-      "reported_short_positions\030\003 \001(\001R\026reported" +
-      "ShortPositions\0223\n\026total_product_in_issue" +
-      "\030\004 \001(\001R\023totalProductInIssue\022%\n\016available" +
-      "_from\030\005 \001(\tR\ravailableFrom\"\370\010\n\014StockDeta" +
-      "ils\022!\n\014product_code\030\001 \001(\tR\013productCode\022!" +
-      "\n\014company_name\030\002 \001(\tR\013companyName\022\032\n\010ind" +
-      "ustry\030\003 \001(\tR\010industry\022\030\n\007address\030\004 \001(\tR\007" +
-      "address\022\030\n\007summary\030\005 \001(\tR\007summary\022\030\n\007det" +
-      "ails\030\006 \001(\tR\007details\022\030\n\007website\030\007 \001(\tR\007we" +
-      "bsite\022\027\n\007gcs_url\030\010 \001(\tR\006gcsUrl\022\022\n\004tags\030\t" +
-      " \003(\tR\004tags\022)\n\020enhanced_summary\030\n \001(\tR\017en" +
-      "hancedSummary\022\'\n\017company_history\030\013 \001(\tR\016" +
-      "companyHistory\022=\n\nkey_people\030\014 \003(\0132\036.sto" +
-      "cks.v1alpha1.CompanyPersonR\tkeyPeople\022M\n" +
-      "\021financial_reports\030\r \003(\0132 .stocks.v1alph" +
-      "a1.FinancialReportR\020financialReports\0225\n\026" +
-      "competitive_advantages\030\016 \001(\tR\025competitiv" +
-      "eAdvantages\022!\n\014risk_factors\030\017 \003(\tR\013riskF" +
-      "actors\022/\n\023recent_developments\030\020 \001(\tR\022rec" +
-      "entDevelopments\022O\n\022social_media_links\030\021 " +
-      "\001(\0132!.stocks.v1alpha1.SocialMediaLinksR\020" +
-      "socialMediaLinks\022+\n\021enrichment_status\030\022 " +
-      "\001(\tR\020enrichmentStatus\022C\n\017enrichment_date" +
-      "\030\023 \001(\0132\032.google.protobuf.TimestampR\016enri" +
-      "chmentDate\022)\n\020enrichment_error\030\024 \001(\tR\017en" +
-      "richmentError\022W\n\024financial_statements\030\025 " +
-      "\001(\0132$.stocks.v1alpha1.FinancialStatement" +
-      "sR\023financialStatements\022 \n\014logo_gcs_url\030\026" +
-      " \001(\tR\nlogoGcsUrl\022)\n\021logo_icon_gcs_url\030\027 " +
-      "\001(\tR\016logoIconGcsUrl\022\'\n\020logo_svg_gcs_url\030" +
-      "\030 \001(\tR\rlogoSvgGcsUrl\022&\n\017logo_source_url\030" +
-      "\031 \001(\tR\rlogoSourceUrl\022\037\n\013logo_format\030\032 \001(" +
-      "\tR\nlogoFormat\"\355\001\n\rCompanyPerson\022\022\n\004name\030" +
-      "\001 \001(\tR\004name\022\022\n\004role\030\002 \001(\tR\004role\022\020\n\003bio\030\003" +
-      " \001(\tR\003bio\022\033\n\timage_url\030\004 \001(\tR\010imageUrl\022\"" +
-      "\n\rimage_gcs_url\030\005 \001(\tR\013imageGcsUrl\022!\n\014li" +
-      "nkedin_url\030\006 \001(\tR\013linkedinUrl\022\035\n\nsource_" +
-      "url\030\007 \001(\tR\tsourceUrl\022\037\n\013source_type\030\010 \001(" +
-      "\tR\nsourceType\"\222\001\n\017FinancialReport\022\020\n\003url" +
-      "\030\001 \001(\tR\003url\022\024\n\005title\030\002 \001(\tR\005title\022\022\n\004typ" +
-      "e\030\003 \001(\tR\004type\022\022\n\004date\030\004 \001(\tR\004date\022\026\n\006sou" +
-      "rce\030\005 \001(\tR\006source\022\027\n\007gcs_url\030\006 \001(\tR\006gcsU" +
-      "rl\"\230\001\n\020SocialMediaLinks\022\030\n\007twitter\030\001 \001(\t" +
-      "R\007twitter\022\032\n\010linkedin\030\002 \001(\tR\010linkedin\022\032\n" +
-      "\010facebook\030\003 \001(\tR\010facebook\022\030\n\007youtube\030\004 \001" +
-      "(\tR\007youtube\022\030\n\007website\030\005 \001(\tR\007website\"\211\002" +
-      "\n\023FinancialStatements\022\030\n\007success\030\001 \001(\010R\007" +
-      "success\022>\n\006annual\030\002 \001(\0132&.stocks.v1alpha" +
-      "1.FinancialStatementSetR\006annual\022D\n\tquart" +
-      "erly\030\003 \001(\0132&.stocks.v1alpha1.FinancialSt" +
-      "atementSetR\tquarterly\022<\n\004info\030\004 \001(\0132(.st" +
-      "ocks.v1alpha1.FinancialStatementsInfoR\004i" +
-      "nfo\022\024\n\005error\030\005 \001(\tR\005error\"\331\004\n\025FinancialS" +
-      "tatementSet\022f\n\020income_statement\030\001 \003(\0132;." +
-      "stocks.v1alpha1.FinancialStatementSet.In" +
-      "comeStatementEntryR\017incomeStatement\022]\n\rb" +
-      "alance_sheet\030\002 \003(\01328.stocks.v1alpha1.Fin" +
-      "ancialStatementSet.BalanceSheetEntryR\014ba" +
-      "lanceSheet\022Q\n\tcash_flow\030\003 \003(\01324.stocks.v" +
-      "1alpha1.FinancialStatementSet.CashFlowEn" +
-      "tryR\010cashFlow\032d\n\024IncomeStatementEntry\022\020\n" +
-      "\003key\030\001 \001(\tR\003key\0226\n\005value\030\002 \001(\0132 .stocks." +
-      "v1alpha1.StatementValuesR\005value:\0028\001\032a\n\021B" +
-      "alanceSheetEntry\022\020\n\003key\030\001 \001(\tR\003key\0226\n\005va" +
-      "lue\030\002 \001(\0132 .stocks.v1alpha1.StatementVal" +
-      "uesR\005value:\0028\001\032]\n\rCashFlowEntry\022\020\n\003key\030\001" +
+      "price_history\030\021 \001(\010R\017hasPriceHistory\022,\n\022" +
+      "last_reported_date\030\022 \001(\tR\020lastReportedDa" +
+      "te\022\037\n\013final_close\030\023 \001(\001R\nfinalClose\022(\n\020f" +
+      "inal_close_date\030\024 \001(\tR\016finalCloseDate\"\220\003" +
+      "\n\016TimeSeriesData\022!\n\014product_code\030\001 \001(\tR\013" +
+      "productCode\022\022\n\004name\030\003 \001(\tR\004name\0222\n\025lates" +
+      "t_short_position\030\004 \001(\001R\023latestShortPosit" +
+      "ion\0228\n\006points\030\n \003(\0132 .stocks.v1alpha1.Ti" +
+      "meSeriesPointR\006points\0222\n\003max\030\013 \001(\0132 .sto" +
+      "cks.v1alpha1.TimeSeriesPointR\003max\0222\n\003min" +
+      "\030\014 \001(\0132 .stocks.v1alpha1.TimeSeriesPoint" +
+      "R\003min\022\032\n\010industry\030\r \001(\tR\010industry\022-\n\022tot" +
+      "al_observations\030\016 \001(\005R\021totalObservations" +
+      "\022 \n\013downsampled\030\017 \001(\010R\013downsampledJ\004\010\002\020\003" +
+      "\"\210\002\n\017TimeSeriesPoint\0228\n\ttimestamp\030\001 \001(\0132" +
+      "\032.google.protobuf.TimestampR\ttimestamp\022%" +
+      "\n\016short_position\030\002 \001(\001R\rshortPosition\0228\n" +
+      "\030reported_short_positions\030\003 \001(\001R\026reporte" +
+      "dShortPositions\0223\n\026total_product_in_issu" +
+      "e\030\004 \001(\001R\023totalProductInIssue\022%\n\016availabl" +
+      "e_from\030\005 \001(\tR\ravailableFrom\"\311\t\n\014StockDet" +
+      "ails\022!\n\014product_code\030\001 \001(\tR\013productCode\022" +
+      "!\n\014company_name\030\002 \001(\tR\013companyName\022\032\n\010in" +
+      "dustry\030\003 \001(\tR\010industry\022\030\n\007address\030\004 \001(\tR" +
+      "\007address\022\030\n\007summary\030\005 \001(\tR\007summary\022\030\n\007de" +
+      "tails\030\006 \001(\tR\007details\022\030\n\007website\030\007 \001(\tR\007w" +
+      "ebsite\022\027\n\007gcs_url\030\010 \001(\tR\006gcsUrl\022\022\n\004tags\030" +
+      "\t \003(\tR\004tags\022)\n\020enhanced_summary\030\n \001(\tR\017e" +
+      "nhancedSummary\022\'\n\017company_history\030\013 \001(\tR" +
+      "\016companyHistory\022=\n\nkey_people\030\014 \003(\0132\036.st" +
+      "ocks.v1alpha1.CompanyPersonR\tkeyPeople\022M" +
+      "\n\021financial_reports\030\r \003(\0132 .stocks.v1alp" +
+      "ha1.FinancialReportR\020financialReports\0225\n" +
+      "\026competitive_advantages\030\016 \001(\tR\025competiti" +
+      "veAdvantages\022!\n\014risk_factors\030\017 \003(\tR\013risk" +
+      "Factors\022/\n\023recent_developments\030\020 \001(\tR\022re" +
+      "centDevelopments\022O\n\022social_media_links\030\021" +
+      " \001(\0132!.stocks.v1alpha1.SocialMediaLinksR" +
+      "\020socialMediaLinks\022+\n\021enrichment_status\030\022" +
+      " \001(\tR\020enrichmentStatus\022C\n\017enrichment_dat" +
+      "e\030\023 \001(\0132\032.google.protobuf.TimestampR\016enr" +
+      "ichmentDate\022)\n\020enrichment_error\030\024 \001(\tR\017e" +
+      "nrichmentError\022W\n\024financial_statements\030\025" +
+      " \001(\0132$.stocks.v1alpha1.FinancialStatemen" +
+      "tsR\023financialStatements\022 \n\014logo_gcs_url\030" +
+      "\026 \001(\tR\nlogoGcsUrl\022)\n\021logo_icon_gcs_url\030\027" +
+      " \001(\tR\016logoIconGcsUrl\022\'\n\020logo_svg_gcs_url" +
+      "\030\030 \001(\tR\rlogoSvgGcsUrl\022&\n\017logo_source_url" +
+      "\030\031 \001(\tR\rlogoSourceUrl\022\037\n\013logo_format\030\032 \001" +
+      "(\tR\nlogoFormat\022O\n\020industry_history\030\033 \003(\013" +
+      "2$.stocks.v1alpha1.IndustryObservationR\017" +
+      "industryHistory\"n\n\023IndustryObservation\022\032" +
+      "\n\010industry\030\001 \001(\tR\010industry\022#\n\robserved_f" +
+      "rom\030\002 \001(\tR\014observedFrom\022\026\n\006source\030\003 \001(\tR" +
+      "\006source\"\355\001\n\rCompanyPerson\022\022\n\004name\030\001 \001(\tR" +
+      "\004name\022\022\n\004role\030\002 \001(\tR\004role\022\020\n\003bio\030\003 \001(\tR\003" +
+      "bio\022\033\n\timage_url\030\004 \001(\tR\010imageUrl\022\"\n\rimag" +
+      "e_gcs_url\030\005 \001(\tR\013imageGcsUrl\022!\n\014linkedin" +
+      "_url\030\006 \001(\tR\013linkedinUrl\022\035\n\nsource_url\030\007 " +
+      "\001(\tR\tsourceUrl\022\037\n\013source_type\030\010 \001(\tR\nsou" +
+      "rceType\"\222\001\n\017FinancialReport\022\020\n\003url\030\001 \001(\t" +
+      "R\003url\022\024\n\005title\030\002 \001(\tR\005title\022\022\n\004type\030\003 \001(" +
+      "\tR\004type\022\022\n\004date\030\004 \001(\tR\004date\022\026\n\006source\030\005 " +
+      "\001(\tR\006source\022\027\n\007gcs_url\030\006 \001(\tR\006gcsUrl\"\230\001\n" +
+      "\020SocialMediaLinks\022\030\n\007twitter\030\001 \001(\tR\007twit" +
+      "ter\022\032\n\010linkedin\030\002 \001(\tR\010linkedin\022\032\n\010faceb" +
+      "ook\030\003 \001(\tR\010facebook\022\030\n\007youtube\030\004 \001(\tR\007yo" +
+      "utube\022\030\n\007website\030\005 \001(\tR\007website\"\211\002\n\023Fina" +
+      "ncialStatements\022\030\n\007success\030\001 \001(\010R\007succes" +
+      "s\022>\n\006annual\030\002 \001(\0132&.stocks.v1alpha1.Fina" +
+      "ncialStatementSetR\006annual\022D\n\tquarterly\030\003" +
+      " \001(\0132&.stocks.v1alpha1.FinancialStatemen" +
+      "tSetR\tquarterly\022<\n\004info\030\004 \001(\0132(.stocks.v" +
+      "1alpha1.FinancialStatementsInfoR\004info\022\024\n" +
+      "\005error\030\005 \001(\tR\005error\"\331\004\n\025FinancialStateme" +
+      "ntSet\022f\n\020income_statement\030\001 \003(\0132;.stocks" +
+      ".v1alpha1.FinancialStatementSet.IncomeSt" +
+      "atementEntryR\017incomeStatement\022]\n\rbalance" +
+      "_sheet\030\002 \003(\01328.stocks.v1alpha1.Financial" +
+      "StatementSet.BalanceSheetEntryR\014balanceS" +
+      "heet\022Q\n\tcash_flow\030\003 \003(\01324.stocks.v1alpha" +
+      "1.FinancialStatementSet.CashFlowEntryR\010c" +
+      "ashFlow\032d\n\024IncomeStatementEntry\022\020\n\003key\030\001" +
       " \001(\tR\003key\0226\n\005value\030\002 \001(\0132 .stocks.v1alph" +
-      "a1.StatementValuesR\005value:\0028\001\"\226\001\n\017Statem" +
-      "entValues\022G\n\007metrics\030\001 \003(\0132-.stocks.v1al" +
-      "pha1.StatementValues.MetricsEntryR\007metri" +
-      "cs\032:\n\014MetricsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005" +
-      "value\030\002 \001(\001R\005value:\0028\001\"\372\002\n\027FinancialStat" +
-      "ementsInfo\022\035\n\nmarket_cap\030\001 \001(\001R\tmarketCa" +
-      "p\022#\n\rcurrent_price\030\002 \001(\001R\014currentPrice\022\031" +
-      "\n\010pe_ratio\030\003 \001(\001R\007peRatio\022\020\n\003eps\030\004 \001(\001R\003" +
-      "eps\022%\n\016dividend_yield\030\005 \001(\001R\rdividendYie" +
-      "ld\022\022\n\004beta\030\006 \001(\001R\004beta\022 \n\014week_52_high\030\007" +
-      " \001(\001R\nweek52High\022\036\n\013week_52_low\030\010 \001(\001R\tw" +
-      "eek52Low\022\026\n\006volume\030\t \001(\001R\006volume\022%\n\016empl" +
-      "oyee_count\030\n \001(\003R\remployeeCount\022\026\n\006secto" +
-      "r\030\013 \001(\tR\006sector\022\032\n\010industry\030\014 \001(\tR\010indus" +
-      "try\"p\n\017IndustryTreeMap\022\036\n\nindustries\030\001 \003" +
-      "(\tR\nindustries\022=\n\006stocks\030\002 \003(\0132%.stocks." +
-      "v1alpha1.TreemapShortPositionR\006stocks\"|\n" +
-      "\024TreemapShortPosition\022\032\n\010industry\030\001 \001(\tR" +
-      "\010industry\022!\n\014product_code\030\002 \001(\tR\013product" +
-      "Code\022%\n\016short_position\030\003 \001(\001R\rshortPosit" +
-      "ionB\332\001\n\023com.stocks.v1alpha1B\013StocksProto" +
-      "P\001ZYgithub.com/castlemilk/shorted.com.au" +
-      "/services/gen/proto/go/stocks/v1alpha1;s" +
-      "tocksv1alpha1\242\002\003SXX\252\002\017Stocks.V1alpha1\312\002\017" +
-      "Stocks\\V1alpha1\342\002\033Stocks\\V1alpha1\\GPBMet" +
-      "adata\352\002\020Stocks::V1alpha1b\006proto3"
+      "a1.StatementValuesR\005value:\0028\001\032a\n\021Balance" +
+      "SheetEntry\022\020\n\003key\030\001 \001(\tR\003key\0226\n\005value\030\002 " +
+      "\001(\0132 .stocks.v1alpha1.StatementValuesR\005v" +
+      "alue:\0028\001\032]\n\rCashFlowEntry\022\020\n\003key\030\001 \001(\tR\003" +
+      "key\0226\n\005value\030\002 \001(\0132 .stocks.v1alpha1.Sta" +
+      "tementValuesR\005value:\0028\001\"\226\001\n\017StatementVal" +
+      "ues\022G\n\007metrics\030\001 \003(\0132-.stocks.v1alpha1.S" +
+      "tatementValues.MetricsEntryR\007metrics\032:\n\014" +
+      "MetricsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030" +
+      "\002 \001(\001R\005value:\0028\001\"\372\002\n\027FinancialStatements" +
+      "Info\022\035\n\nmarket_cap\030\001 \001(\001R\tmarketCap\022#\n\rc" +
+      "urrent_price\030\002 \001(\001R\014currentPrice\022\031\n\010pe_r" +
+      "atio\030\003 \001(\001R\007peRatio\022\020\n\003eps\030\004 \001(\001R\003eps\022%\n" +
+      "\016dividend_yield\030\005 \001(\001R\rdividendYield\022\022\n\004" +
+      "beta\030\006 \001(\001R\004beta\022 \n\014week_52_high\030\007 \001(\001R\n" +
+      "week52High\022\036\n\013week_52_low\030\010 \001(\001R\tweek52L" +
+      "ow\022\026\n\006volume\030\t \001(\001R\006volume\022%\n\016employee_c" +
+      "ount\030\n \001(\003R\remployeeCount\022\026\n\006sector\030\013 \001(" +
+      "\tR\006sector\022\032\n\010industry\030\014 \001(\tR\010industry\"p\n" +
+      "\017IndustryTreeMap\022\036\n\nindustries\030\001 \003(\tR\nin" +
+      "dustries\022=\n\006stocks\030\002 \003(\0132%.stocks.v1alph" +
+      "a1.TreemapShortPositionR\006stocks\"|\n\024Treem" +
+      "apShortPosition\022\032\n\010industry\030\001 \001(\tR\010indus" +
+      "try\022!\n\014product_code\030\002 \001(\tR\013productCode\022%" +
+      "\n\016short_position\030\003 \001(\001R\rshortPositionB\332\001" +
+      "\n\023com.stocks.v1alpha1B\013StocksProtoP\001ZYgi" +
+      "thub.com/castlemilk/shorted.com.au/servi" +
+      "ces/gen/proto/go/stocks/v1alpha1;stocksv" +
+      "1alpha1\242\002\003SXX\252\002\017Stocks.V1alpha1\312\002\017Stocks" +
+      "\\V1alpha1\342\002\033Stocks\\V1alpha1\\GPBMetadata\352" +
+      "\002\020Stocks::V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -256,7 +269,7 @@ public final class StocksProto extends com.google.protobuf.GeneratedFile {
     internal_static_stocks_v1alpha1_Stock_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_stocks_v1alpha1_Stock_descriptor,
-        new java.lang.String[] { "ProductCode", "Name", "TotalProductInIssue", "ReportedShortPositions", "PercentageShorted", "Industry", "Tags", "LogoUrl", "MarketCap", "AverageDailyValue20D", "LiquidityBand", "AverageDailyVolume20D", "DaysToCover", "SecurityType", "IndustrySource", "IndustryAsOf", "HasPriceHistory", });
+        new java.lang.String[] { "ProductCode", "Name", "TotalProductInIssue", "ReportedShortPositions", "PercentageShorted", "Industry", "Tags", "LogoUrl", "MarketCap", "AverageDailyValue20D", "LiquidityBand", "AverageDailyVolume20D", "DaysToCover", "SecurityType", "IndustrySource", "IndustryAsOf", "HasPriceHistory", "LastReportedDate", "FinalClose", "FinalCloseDate", });
     internal_static_stocks_v1alpha1_TimeSeriesData_descriptor =
       getDescriptor().getMessageType(1);
     internal_static_stocks_v1alpha1_TimeSeriesData_fieldAccessorTable = new
@@ -274,33 +287,39 @@ public final class StocksProto extends com.google.protobuf.GeneratedFile {
     internal_static_stocks_v1alpha1_StockDetails_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_stocks_v1alpha1_StockDetails_descriptor,
-        new java.lang.String[] { "ProductCode", "CompanyName", "Industry", "Address", "Summary", "Details", "Website", "GcsUrl", "Tags", "EnhancedSummary", "CompanyHistory", "KeyPeople", "FinancialReports", "CompetitiveAdvantages", "RiskFactors", "RecentDevelopments", "SocialMediaLinks", "EnrichmentStatus", "EnrichmentDate", "EnrichmentError", "FinancialStatements", "LogoGcsUrl", "LogoIconGcsUrl", "LogoSvgGcsUrl", "LogoSourceUrl", "LogoFormat", });
-    internal_static_stocks_v1alpha1_CompanyPerson_descriptor =
+        new java.lang.String[] { "ProductCode", "CompanyName", "Industry", "Address", "Summary", "Details", "Website", "GcsUrl", "Tags", "EnhancedSummary", "CompanyHistory", "KeyPeople", "FinancialReports", "CompetitiveAdvantages", "RiskFactors", "RecentDevelopments", "SocialMediaLinks", "EnrichmentStatus", "EnrichmentDate", "EnrichmentError", "FinancialStatements", "LogoGcsUrl", "LogoIconGcsUrl", "LogoSvgGcsUrl", "LogoSourceUrl", "LogoFormat", "IndustryHistory", });
+    internal_static_stocks_v1alpha1_IndustryObservation_descriptor =
       getDescriptor().getMessageType(4);
+    internal_static_stocks_v1alpha1_IndustryObservation_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_stocks_v1alpha1_IndustryObservation_descriptor,
+        new java.lang.String[] { "Industry", "ObservedFrom", "Source", });
+    internal_static_stocks_v1alpha1_CompanyPerson_descriptor =
+      getDescriptor().getMessageType(5);
     internal_static_stocks_v1alpha1_CompanyPerson_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_stocks_v1alpha1_CompanyPerson_descriptor,
         new java.lang.String[] { "Name", "Role", "Bio", "ImageUrl", "ImageGcsUrl", "LinkedinUrl", "SourceUrl", "SourceType", });
     internal_static_stocks_v1alpha1_FinancialReport_descriptor =
-      getDescriptor().getMessageType(5);
+      getDescriptor().getMessageType(6);
     internal_static_stocks_v1alpha1_FinancialReport_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_stocks_v1alpha1_FinancialReport_descriptor,
         new java.lang.String[] { "Url", "Title", "Type", "Date", "Source", "GcsUrl", });
     internal_static_stocks_v1alpha1_SocialMediaLinks_descriptor =
-      getDescriptor().getMessageType(6);
+      getDescriptor().getMessageType(7);
     internal_static_stocks_v1alpha1_SocialMediaLinks_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_stocks_v1alpha1_SocialMediaLinks_descriptor,
         new java.lang.String[] { "Twitter", "Linkedin", "Facebook", "Youtube", "Website", });
     internal_static_stocks_v1alpha1_FinancialStatements_descriptor =
-      getDescriptor().getMessageType(7);
+      getDescriptor().getMessageType(8);
     internal_static_stocks_v1alpha1_FinancialStatements_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_stocks_v1alpha1_FinancialStatements_descriptor,
         new java.lang.String[] { "Success", "Annual", "Quarterly", "Info", "Error", });
     internal_static_stocks_v1alpha1_FinancialStatementSet_descriptor =
-      getDescriptor().getMessageType(8);
+      getDescriptor().getMessageType(9);
     internal_static_stocks_v1alpha1_FinancialStatementSet_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_stocks_v1alpha1_FinancialStatementSet_descriptor,
@@ -324,7 +343,7 @@ public final class StocksProto extends com.google.protobuf.GeneratedFile {
         internal_static_stocks_v1alpha1_FinancialStatementSet_CashFlowEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_stocks_v1alpha1_StatementValues_descriptor =
-      getDescriptor().getMessageType(9);
+      getDescriptor().getMessageType(10);
     internal_static_stocks_v1alpha1_StatementValues_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_stocks_v1alpha1_StatementValues_descriptor,
@@ -336,19 +355,19 @@ public final class StocksProto extends com.google.protobuf.GeneratedFile {
         internal_static_stocks_v1alpha1_StatementValues_MetricsEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_stocks_v1alpha1_FinancialStatementsInfo_descriptor =
-      getDescriptor().getMessageType(10);
+      getDescriptor().getMessageType(11);
     internal_static_stocks_v1alpha1_FinancialStatementsInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_stocks_v1alpha1_FinancialStatementsInfo_descriptor,
         new java.lang.String[] { "MarketCap", "CurrentPrice", "PeRatio", "Eps", "DividendYield", "Beta", "Week52High", "Week52Low", "Volume", "EmployeeCount", "Sector", "Industry", });
     internal_static_stocks_v1alpha1_IndustryTreeMap_descriptor =
-      getDescriptor().getMessageType(11);
+      getDescriptor().getMessageType(12);
     internal_static_stocks_v1alpha1_IndustryTreeMap_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_stocks_v1alpha1_IndustryTreeMap_descriptor,
         new java.lang.String[] { "Industries", "Stocks", });
     internal_static_stocks_v1alpha1_TreemapShortPosition_descriptor =
-      getDescriptor().getMessageType(12);
+      getDescriptor().getMessageType(13);
     internal_static_stocks_v1alpha1_TreemapShortPosition_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_stocks_v1alpha1_TreemapShortPosition_descriptor,

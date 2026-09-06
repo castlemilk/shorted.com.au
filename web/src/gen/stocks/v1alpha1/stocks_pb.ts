@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file stocks/v1alpha1/stocks.proto.
  */
 export const file_stocks_v1alpha1_stocks: GenFile = /*@__PURE__*/
-  fileDesc("ChxzdG9ja3MvdjFhbHBoYTEvc3RvY2tzLnByb3RvEg9zdG9ja3MudjFhbHBoYTEipAMKBVN0b2NrEhQKDHByb2R1Y3RfY29kZRgBIAEoCRIMCgRuYW1lGAIgASgJEh4KFnRvdGFsX3Byb2R1Y3RfaW5faXNzdWUYAyABKAISIAoYcmVwb3J0ZWRfc2hvcnRfcG9zaXRpb25zGAQgASgCEhoKEnBlcmNlbnRhZ2Vfc2hvcnRlZBgFIAEoAhIQCghpbmR1c3RyeRgGIAEoCRIMCgR0YWdzGAcgAygJEhAKCGxvZ29fdXJsGAggASgJEhIKCm1hcmtldF9jYXAYCSABKAESHwoXYXZlcmFnZV9kYWlseV92YWx1ZV8yMGQYCiABKAESFgoObGlxdWlkaXR5X2JhbmQYCyABKAkSIAoYYXZlcmFnZV9kYWlseV92b2x1bWVfMjBkGAwgASgBEhUKDWRheXNfdG9fY292ZXIYDSABKAESFQoNc2VjdXJpdHlfdHlwZRgOIAEoCRIXCg9pbmR1c3RyeV9zb3VyY2UYDyABKAkSFgoOaW5kdXN0cnlfYXNfb2YYECABKAkSGQoRaGFzX3ByaWNlX2hpc3RvcnkYESABKAgirAIKDlRpbWVTZXJpZXNEYXRhEhQKDHByb2R1Y3RfY29kZRgBIAEoCRIMCgRuYW1lGAMgASgJEh0KFWxhdGVzdF9zaG9ydF9wb3NpdGlvbhgEIAEoARIwCgZwb2ludHMYCiADKAsyIC5zdG9ja3MudjFhbHBoYTEuVGltZVNlcmllc1BvaW50Ei0KA21heBgLIAEoCzIgLnN0b2Nrcy52MWFscGhhMS5UaW1lU2VyaWVzUG9pbnQSLQoDbWluGAwgASgLMiAuc3RvY2tzLnYxYWxwaGExLlRpbWVTZXJpZXNQb2ludBIQCghpbmR1c3RyeRgNIAEoCRIaChJ0b3RhbF9vYnNlcnZhdGlvbnMYDiABKAUSEwoLZG93bnNhbXBsZWQYDyABKAhKBAgCEAMisgEKD1RpbWVTZXJpZXNQb2ludBItCgl0aW1lc3RhbXAYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhYKDnNob3J0X3Bvc2l0aW9uGAIgASgBEiAKGHJlcG9ydGVkX3Nob3J0X3Bvc2l0aW9ucxgDIAEoARIeChZ0b3RhbF9wcm9kdWN0X2luX2lzc3VlGAQgASgBEhYKDmF2YWlsYWJsZV9mcm9tGAUgASgJIowGCgxTdG9ja0RldGFpbHMSFAoMcHJvZHVjdF9jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIQCghpbmR1c3RyeRgDIAEoCRIPCgdhZGRyZXNzGAQgASgJEg8KB3N1bW1hcnkYBSABKAkSDwoHZGV0YWlscxgGIAEoCRIPCgd3ZWJzaXRlGAcgASgJEg8KB2djc191cmwYCCABKAkSDAoEdGFncxgJIAMoCRIYChBlbmhhbmNlZF9zdW1tYXJ5GAogASgJEhcKD2NvbXBhbnlfaGlzdG9yeRgLIAEoCRIyCgprZXlfcGVvcGxlGAwgAygLMh4uc3RvY2tzLnYxYWxwaGExLkNvbXBhbnlQZXJzb24SOwoRZmluYW5jaWFsX3JlcG9ydHMYDSADKAsyIC5zdG9ja3MudjFhbHBoYTEuRmluYW5jaWFsUmVwb3J0Eh4KFmNvbXBldGl0aXZlX2FkdmFudGFnZXMYDiABKAkSFAoMcmlza19mYWN0b3JzGA8gAygJEhsKE3JlY2VudF9kZXZlbG9wbWVudHMYECABKAkSPQoSc29jaWFsX21lZGlhX2xpbmtzGBEgASgLMiEuc3RvY2tzLnYxYWxwaGExLlNvY2lhbE1lZGlhTGlua3MSGQoRZW5yaWNobWVudF9zdGF0dXMYEiABKAkSMwoPZW5yaWNobWVudF9kYXRlGBMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIYChBlbnJpY2htZW50X2Vycm9yGBQgASgJEkIKFGZpbmFuY2lhbF9zdGF0ZW1lbnRzGBUgASgLMiQuc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudHMSFAoMbG9nb19nY3NfdXJsGBYgASgJEhkKEWxvZ29faWNvbl9nY3NfdXJsGBcgASgJEhgKEGxvZ29fc3ZnX2djc191cmwYGCABKAkSFwoPbG9nb19zb3VyY2VfdXJsGBkgASgJEhMKC2xvZ29fZm9ybWF0GBogASgJIqEBCg1Db21wYW55UGVyc29uEgwKBG5hbWUYASABKAkSDAoEcm9sZRgCIAEoCRILCgNiaW8YAyABKAkSEQoJaW1hZ2VfdXJsGAQgASgJEhUKDWltYWdlX2djc191cmwYBSABKAkSFAoMbGlua2VkaW5fdXJsGAYgASgJEhIKCnNvdXJjZV91cmwYByABKAkSEwoLc291cmNlX3R5cGUYCCABKAkiagoPRmluYW5jaWFsUmVwb3J0EgsKA3VybBgBIAEoCRINCgV0aXRsZRgCIAEoCRIMCgR0eXBlGAMgASgJEgwKBGRhdGUYBCABKAkSDgoGc291cmNlGAUgASgJEg8KB2djc191cmwYBiABKAkiaQoQU29jaWFsTWVkaWFMaW5rcxIPCgd0d2l0dGVyGAEgASgJEhAKCGxpbmtlZGluGAIgASgJEhAKCGZhY2Vib29rGAMgASgJEg8KB3lvdXR1YmUYBCABKAkSDwoHd2Vic2l0ZRgFIAEoCSLgAQoTRmluYW5jaWFsU3RhdGVtZW50cxIPCgdzdWNjZXNzGAEgASgIEjYKBmFubnVhbBgCIAEoCzImLnN0b2Nrcy52MWFscGhhMS5GaW5hbmNpYWxTdGF0ZW1lbnRTZXQSOQoJcXVhcnRlcmx5GAMgASgLMiYuc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudFNldBI2CgRpbmZvGAQgASgLMiguc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudHNJbmZvEg0KBWVycm9yGAUgASgJIowEChVGaW5hbmNpYWxTdGF0ZW1lbnRTZXQSVQoQaW5jb21lX3N0YXRlbWVudBgBIAMoCzI7LnN0b2Nrcy52MWFscGhhMS5GaW5hbmNpYWxTdGF0ZW1lbnRTZXQuSW5jb21lU3RhdGVtZW50RW50cnkSTwoNYmFsYW5jZV9zaGVldBgCIAMoCzI4LnN0b2Nrcy52MWFscGhhMS5GaW5hbmNpYWxTdGF0ZW1lbnRTZXQuQmFsYW5jZVNoZWV0RW50cnkSRwoJY2FzaF9mbG93GAMgAygLMjQuc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudFNldC5DYXNoRmxvd0VudHJ5GlgKFEluY29tZVN0YXRlbWVudEVudHJ5EgsKA2tleRgBIAEoCRIvCgV2YWx1ZRgCIAEoCzIgLnN0b2Nrcy52MWFscGhhMS5TdGF0ZW1lbnRWYWx1ZXM6AjgBGlUKEUJhbGFuY2VTaGVldEVudHJ5EgsKA2tleRgBIAEoCRIvCgV2YWx1ZRgCIAEoCzIgLnN0b2Nrcy52MWFscGhhMS5TdGF0ZW1lbnRWYWx1ZXM6AjgBGlEKDUNhc2hGbG93RW50cnkSCwoDa2V5GAEgASgJEi8KBXZhbHVlGAIgASgLMiAuc3RvY2tzLnYxYWxwaGExLlN0YXRlbWVudFZhbHVlczoCOAEigQEKD1N0YXRlbWVudFZhbHVlcxI+CgdtZXRyaWNzGAEgAygLMi0uc3RvY2tzLnYxYWxwaGExLlN0YXRlbWVudFZhbHVlcy5NZXRyaWNzRW50cnkaLgoMTWV0cmljc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoAToCOAEi/gEKF0ZpbmFuY2lhbFN0YXRlbWVudHNJbmZvEhIKCm1hcmtldF9jYXAYASABKAESFQoNY3VycmVudF9wcmljZRgCIAEoARIQCghwZV9yYXRpbxgDIAEoARILCgNlcHMYBCABKAESFgoOZGl2aWRlbmRfeWllbGQYBSABKAESDAoEYmV0YRgGIAEoARIUCgx3ZWVrXzUyX2hpZ2gYByABKAESEwoLd2Vla181Ml9sb3cYCCABKAESDgoGdm9sdW1lGAkgASgBEhYKDmVtcGxveWVlX2NvdW50GAogASgDEg4KBnNlY3RvchgLIAEoCRIQCghpbmR1c3RyeRgMIAEoCSJcCg9JbmR1c3RyeVRyZWVNYXASEgoKaW5kdXN0cmllcxgBIAMoCRI1CgZzdG9ja3MYAiADKAsyJS5zdG9ja3MudjFhbHBoYTEuVHJlZW1hcFNob3J0UG9zaXRpb24iVgoUVHJlZW1hcFNob3J0UG9zaXRpb24SEAoIaW5kdXN0cnkYASABKAkSFAoMcHJvZHVjdF9jb2RlGAIgASgJEhYKDnNob3J0X3Bvc2l0aW9uGAMgASgBQtoBChNjb20uc3RvY2tzLnYxYWxwaGExQgtTdG9ja3NQcm90b1ABWllnaXRodWIuY29tL2Nhc3RsZW1pbGsvc2hvcnRlZC5jb20uYXUvc2VydmljZXMvZ2VuL3Byb3RvL2dvL3N0b2Nrcy92MWFscGhhMTtzdG9ja3N2MWFscGhhMaICA1NYWKoCD1N0b2Nrcy5WMWFscGhhMcoCD1N0b2Nrc1xWMWFscGhhMeICG1N0b2Nrc1xWMWFscGhhMVxHUEJNZXRhZGF0YeoCEFN0b2Nrczo6VjFhbHBoYTFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("ChxzdG9ja3MvdjFhbHBoYTEvc3RvY2tzLnByb3RvEg9zdG9ja3MudjFhbHBoYTEi7wMKBVN0b2NrEhQKDHByb2R1Y3RfY29kZRgBIAEoCRIMCgRuYW1lGAIgASgJEh4KFnRvdGFsX3Byb2R1Y3RfaW5faXNzdWUYAyABKAISIAoYcmVwb3J0ZWRfc2hvcnRfcG9zaXRpb25zGAQgASgCEhoKEnBlcmNlbnRhZ2Vfc2hvcnRlZBgFIAEoAhIQCghpbmR1c3RyeRgGIAEoCRIMCgR0YWdzGAcgAygJEhAKCGxvZ29fdXJsGAggASgJEhIKCm1hcmtldF9jYXAYCSABKAESHwoXYXZlcmFnZV9kYWlseV92YWx1ZV8yMGQYCiABKAESFgoObGlxdWlkaXR5X2JhbmQYCyABKAkSIAoYYXZlcmFnZV9kYWlseV92b2x1bWVfMjBkGAwgASgBEhUKDWRheXNfdG9fY292ZXIYDSABKAESFQoNc2VjdXJpdHlfdHlwZRgOIAEoCRIXCg9pbmR1c3RyeV9zb3VyY2UYDyABKAkSFgoOaW5kdXN0cnlfYXNfb2YYECABKAkSGQoRaGFzX3ByaWNlX2hpc3RvcnkYESABKAgSGgoSbGFzdF9yZXBvcnRlZF9kYXRlGBIgASgJEhMKC2ZpbmFsX2Nsb3NlGBMgASgBEhgKEGZpbmFsX2Nsb3NlX2RhdGUYFCABKAkirAIKDlRpbWVTZXJpZXNEYXRhEhQKDHByb2R1Y3RfY29kZRgBIAEoCRIMCgRuYW1lGAMgASgJEh0KFWxhdGVzdF9zaG9ydF9wb3NpdGlvbhgEIAEoARIwCgZwb2ludHMYCiADKAsyIC5zdG9ja3MudjFhbHBoYTEuVGltZVNlcmllc1BvaW50Ei0KA21heBgLIAEoCzIgLnN0b2Nrcy52MWFscGhhMS5UaW1lU2VyaWVzUG9pbnQSLQoDbWluGAwgASgLMiAuc3RvY2tzLnYxYWxwaGExLlRpbWVTZXJpZXNQb2ludBIQCghpbmR1c3RyeRgNIAEoCRIaChJ0b3RhbF9vYnNlcnZhdGlvbnMYDiABKAUSEwoLZG93bnNhbXBsZWQYDyABKAhKBAgCEAMisgEKD1RpbWVTZXJpZXNQb2ludBItCgl0aW1lc3RhbXAYASABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhYKDnNob3J0X3Bvc2l0aW9uGAIgASgBEiAKGHJlcG9ydGVkX3Nob3J0X3Bvc2l0aW9ucxgDIAEoARIeChZ0b3RhbF9wcm9kdWN0X2luX2lzc3VlGAQgASgBEhYKDmF2YWlsYWJsZV9mcm9tGAUgASgJIswGCgxTdG9ja0RldGFpbHMSFAoMcHJvZHVjdF9jb2RlGAEgASgJEhQKDGNvbXBhbnlfbmFtZRgCIAEoCRIQCghpbmR1c3RyeRgDIAEoCRIPCgdhZGRyZXNzGAQgASgJEg8KB3N1bW1hcnkYBSABKAkSDwoHZGV0YWlscxgGIAEoCRIPCgd3ZWJzaXRlGAcgASgJEg8KB2djc191cmwYCCABKAkSDAoEdGFncxgJIAMoCRIYChBlbmhhbmNlZF9zdW1tYXJ5GAogASgJEhcKD2NvbXBhbnlfaGlzdG9yeRgLIAEoCRIyCgprZXlfcGVvcGxlGAwgAygLMh4uc3RvY2tzLnYxYWxwaGExLkNvbXBhbnlQZXJzb24SOwoRZmluYW5jaWFsX3JlcG9ydHMYDSADKAsyIC5zdG9ja3MudjFhbHBoYTEuRmluYW5jaWFsUmVwb3J0Eh4KFmNvbXBldGl0aXZlX2FkdmFudGFnZXMYDiABKAkSFAoMcmlza19mYWN0b3JzGA8gAygJEhsKE3JlY2VudF9kZXZlbG9wbWVudHMYECABKAkSPQoSc29jaWFsX21lZGlhX2xpbmtzGBEgASgLMiEuc3RvY2tzLnYxYWxwaGExLlNvY2lhbE1lZGlhTGlua3MSGQoRZW5yaWNobWVudF9zdGF0dXMYEiABKAkSMwoPZW5yaWNobWVudF9kYXRlGBMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIYChBlbnJpY2htZW50X2Vycm9yGBQgASgJEkIKFGZpbmFuY2lhbF9zdGF0ZW1lbnRzGBUgASgLMiQuc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudHMSFAoMbG9nb19nY3NfdXJsGBYgASgJEhkKEWxvZ29faWNvbl9nY3NfdXJsGBcgASgJEhgKEGxvZ29fc3ZnX2djc191cmwYGCABKAkSFwoPbG9nb19zb3VyY2VfdXJsGBkgASgJEhMKC2xvZ29fZm9ybWF0GBogASgJEj4KEGluZHVzdHJ5X2hpc3RvcnkYGyADKAsyJC5zdG9ja3MudjFhbHBoYTEuSW5kdXN0cnlPYnNlcnZhdGlvbiJOChNJbmR1c3RyeU9ic2VydmF0aW9uEhAKCGluZHVzdHJ5GAEgASgJEhUKDW9ic2VydmVkX2Zyb20YAiABKAkSDgoGc291cmNlGAMgASgJIqEBCg1Db21wYW55UGVyc29uEgwKBG5hbWUYASABKAkSDAoEcm9sZRgCIAEoCRILCgNiaW8YAyABKAkSEQoJaW1hZ2VfdXJsGAQgASgJEhUKDWltYWdlX2djc191cmwYBSABKAkSFAoMbGlua2VkaW5fdXJsGAYgASgJEhIKCnNvdXJjZV91cmwYByABKAkSEwoLc291cmNlX3R5cGUYCCABKAkiagoPRmluYW5jaWFsUmVwb3J0EgsKA3VybBgBIAEoCRINCgV0aXRsZRgCIAEoCRIMCgR0eXBlGAMgASgJEgwKBGRhdGUYBCABKAkSDgoGc291cmNlGAUgASgJEg8KB2djc191cmwYBiABKAkiaQoQU29jaWFsTWVkaWFMaW5rcxIPCgd0d2l0dGVyGAEgASgJEhAKCGxpbmtlZGluGAIgASgJEhAKCGZhY2Vib29rGAMgASgJEg8KB3lvdXR1YmUYBCABKAkSDwoHd2Vic2l0ZRgFIAEoCSLgAQoTRmluYW5jaWFsU3RhdGVtZW50cxIPCgdzdWNjZXNzGAEgASgIEjYKBmFubnVhbBgCIAEoCzImLnN0b2Nrcy52MWFscGhhMS5GaW5hbmNpYWxTdGF0ZW1lbnRTZXQSOQoJcXVhcnRlcmx5GAMgASgLMiYuc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudFNldBI2CgRpbmZvGAQgASgLMiguc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudHNJbmZvEg0KBWVycm9yGAUgASgJIowEChVGaW5hbmNpYWxTdGF0ZW1lbnRTZXQSVQoQaW5jb21lX3N0YXRlbWVudBgBIAMoCzI7LnN0b2Nrcy52MWFscGhhMS5GaW5hbmNpYWxTdGF0ZW1lbnRTZXQuSW5jb21lU3RhdGVtZW50RW50cnkSTwoNYmFsYW5jZV9zaGVldBgCIAMoCzI4LnN0b2Nrcy52MWFscGhhMS5GaW5hbmNpYWxTdGF0ZW1lbnRTZXQuQmFsYW5jZVNoZWV0RW50cnkSRwoJY2FzaF9mbG93GAMgAygLMjQuc3RvY2tzLnYxYWxwaGExLkZpbmFuY2lhbFN0YXRlbWVudFNldC5DYXNoRmxvd0VudHJ5GlgKFEluY29tZVN0YXRlbWVudEVudHJ5EgsKA2tleRgBIAEoCRIvCgV2YWx1ZRgCIAEoCzIgLnN0b2Nrcy52MWFscGhhMS5TdGF0ZW1lbnRWYWx1ZXM6AjgBGlUKEUJhbGFuY2VTaGVldEVudHJ5EgsKA2tleRgBIAEoCRIvCgV2YWx1ZRgCIAEoCzIgLnN0b2Nrcy52MWFscGhhMS5TdGF0ZW1lbnRWYWx1ZXM6AjgBGlEKDUNhc2hGbG93RW50cnkSCwoDa2V5GAEgASgJEi8KBXZhbHVlGAIgASgLMiAuc3RvY2tzLnYxYWxwaGExLlN0YXRlbWVudFZhbHVlczoCOAEigQEKD1N0YXRlbWVudFZhbHVlcxI+CgdtZXRyaWNzGAEgAygLMi0uc3RvY2tzLnYxYWxwaGExLlN0YXRlbWVudFZhbHVlcy5NZXRyaWNzRW50cnkaLgoMTWV0cmljc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoAToCOAEi/gEKF0ZpbmFuY2lhbFN0YXRlbWVudHNJbmZvEhIKCm1hcmtldF9jYXAYASABKAESFQoNY3VycmVudF9wcmljZRgCIAEoARIQCghwZV9yYXRpbxgDIAEoARILCgNlcHMYBCABKAESFgoOZGl2aWRlbmRfeWllbGQYBSABKAESDAoEYmV0YRgGIAEoARIUCgx3ZWVrXzUyX2hpZ2gYByABKAESEwoLd2Vla181Ml9sb3cYCCABKAESDgoGdm9sdW1lGAkgASgBEhYKDmVtcGxveWVlX2NvdW50GAogASgDEg4KBnNlY3RvchgLIAEoCRIQCghpbmR1c3RyeRgMIAEoCSJcCg9JbmR1c3RyeVRyZWVNYXASEgoKaW5kdXN0cmllcxgBIAMoCRI1CgZzdG9ja3MYAiADKAsyJS5zdG9ja3MudjFhbHBoYTEuVHJlZW1hcFNob3J0UG9zaXRpb24iVgoUVHJlZW1hcFNob3J0UG9zaXRpb24SEAoIaW5kdXN0cnkYASABKAkSFAoMcHJvZHVjdF9jb2RlGAIgASgJEhYKDnNob3J0X3Bvc2l0aW9uGAMgASgBQtoBChNjb20uc3RvY2tzLnYxYWxwaGExQgtTdG9ja3NQcm90b1ABWllnaXRodWIuY29tL2Nhc3RsZW1pbGsvc2hvcnRlZC5jb20uYXUvc2VydmljZXMvZ2VuL3Byb3RvL2dvL3N0b2Nrcy92MWFscGhhMTtzdG9ja3N2MWFscGhhMaICA1NYWKoCD1N0b2Nrcy5WMWFscGhhMcoCD1N0b2Nrc1xWMWFscGhhMeICG1N0b2Nrc1xWMWFscGhhMVxHUEJNZXRhZGF0YeoCEFN0b2Nrczo6VjFhbHBoYTFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * A Stock represents a single stock's metadata.
@@ -201,6 +201,52 @@ export type Stock = Message<"stocks.v1alpha1.Stock"> & {
    * @generated from field: bool has_price_history = 17;
    */
   hasPriceHistory: boolean;
+
+  /**
+   * ── The delisting record (#576) ────────────────────────────────────────
+   *
+   * has_price_history above says a position can be OPENED. These three say
+   * when and at what value it can be CLOSED, which is the half that was
+   * missing: a constituent that leaves the universe currently just stops
+   * appearing, so a company acquired at a 30% premium and one wound up at zero
+   * are both simply absent, and the position silently never existed.
+   *
+   * UNLIKE every other field on this message, these are LIFETIME values, not
+   * as-of the requested date. That is deliberate and it is the only thing they
+   * are for: "when does this position close" is inherently a question about
+   * the future relative to the cross-section being built. The direct
+   * consequence is that feeding any of them into a signal is LOOKAHEAD. They
+   * belong on the exit leg and nowhere else.
+   *
+   * last_reported_date is the last ASIC report date this code appears on, ever.
+   * It is NOT a delisting date and is not named one: the ASIC short-position
+   * report covers securities with reportable positions, roughly 700 of ~2,000
+   * listed entities on any day, so a code can leave it by being delisted OR by
+   * simply ceasing to be shorted. What it does say exactly is the last date
+   * this name is in THIS universe — which is the date a book built from this
+   * endpoint has to close it, either way.
+   *
+   * @generated from field: string last_reported_date = 18;
+   */
+  lastReportedDate: string;
+
+  /**
+   * The last close held for this code and the session it belongs to — the
+   * terminal value, where one exists. Zero and empty for the ~48% of codes
+   * (936 of 1,941 over 2013-2026) carrying no price history at all; for those
+   * the position remains uncloseable and no terminal value is recoverable from
+   * data we hold. Saying so explicitly is the point: a caller can now separate
+   * "closed at $X" from "cannot be closed" instead of having both arrive as
+   * absence.
+   *
+   * @generated from field: double final_close = 19;
+   */
+  finalClose: number;
+
+  /**
+   * @generated from field: string final_close_date = 20;
+   */
+  finalCloseDate: string;
 };
 
 /**
@@ -520,6 +566,31 @@ export type StockDetails = Message<"stocks.v1alpha1.StockDetails"> & {
    * @generated from field: string logo_format = 26;
    */
   logoFormat: string;
+
+  /**
+   * Every industry classification recorded for this stock, oldest first (#557).
+   *
+   * `industry` above is the CURRENT label. Cross-sectional short-interest
+   * signals are normally sector-neutralised — raw short interest is heavily
+   * sector-clustered, so a naive "long the least-shorted" book is a large
+   * implicit sector bet — and doing that correctly needs the label as it stood
+   * on the observation date, not today's.
+   *
+   * Capture began 2026-09 and is FORWARD ONLY. Historical sectors are not
+   * recoverable: `company-metadata` holds one current row per stock, enrichment
+   * overwrites the label in place, and `updated_at` is a bulk-sweep timestamp
+   * with a single distinct value across all 2,258 rows. So this timeline
+   * usually holds exactly one entry — the seeded baseline — and that is the
+   * honest answer rather than an absence a caller has to interpret.
+   *
+   * Returned as a timeline rather than another as-of scalar so a caller can see
+   * HOW MUCH history exists before deciding whether neutralising on it is
+   * sound. One `seed` row means none of it is observed, and a study over any
+   * earlier period is using today's labels — mild lookahead, but real.
+   *
+   * @generated from field: repeated stocks.v1alpha1.IndustryObservation industry_history = 27;
+   */
+  industryHistory: IndustryObservation[];
 };
 
 /**
@@ -528,6 +599,46 @@ export type StockDetails = Message<"stocks.v1alpha1.StockDetails"> & {
  */
 export const StockDetailsSchema: GenMessage<StockDetails> = /*@__PURE__*/
   messageDesc(file_stocks_v1alpha1_stocks, 3);
+
+/**
+ * One recorded industry classification and the window it opened.
+ *
+ * @generated from message stocks.v1alpha1.IndustryObservation
+ */
+export type IndustryObservation = Message<"stocks.v1alpha1.IndustryObservation"> & {
+  /**
+   * @generated from field: string industry = 1;
+   */
+  industry: string;
+
+  /**
+   * The date this label started applying as far as we can observe. For a `seed`
+   * row it is the date capture began, NOT the date the label was assigned,
+   * which is unknown and unknowable.
+   *
+   * @generated from field: string observed_from = 2;
+   */
+  observedFrom: string;
+
+  /**
+   *   "observed" — a classification change recorded when it happened
+   *   "seed"     — the label as it stood when capture began
+   *
+   * The distinction matters and is the reason this is not one string: a seed
+   * row dates a deploy, an observed row dates a reclassification, and treating
+   * the first as the second invents a sector change that never happened.
+   *
+   * @generated from field: string source = 3;
+   */
+  source: string;
+};
+
+/**
+ * Describes the message stocks.v1alpha1.IndustryObservation.
+ * Use `create(IndustryObservationSchema)` to create a new message.
+ */
+export const IndustryObservationSchema: GenMessage<IndustryObservation> = /*@__PURE__*/
+  messageDesc(file_stocks_v1alpha1_stocks, 4);
 
 /**
  * @generated from message stocks.v1alpha1.CompanyPerson
@@ -589,7 +700,7 @@ export type CompanyPerson = Message<"stocks.v1alpha1.CompanyPerson"> & {
  * Use `create(CompanyPersonSchema)` to create a new message.
  */
 export const CompanyPersonSchema: GenMessage<CompanyPerson> = /*@__PURE__*/
-  messageDesc(file_stocks_v1alpha1_stocks, 4);
+  messageDesc(file_stocks_v1alpha1_stocks, 5);
 
 /**
  * @generated from message stocks.v1alpha1.FinancialReport
@@ -631,7 +742,7 @@ export type FinancialReport = Message<"stocks.v1alpha1.FinancialReport"> & {
  * Use `create(FinancialReportSchema)` to create a new message.
  */
 export const FinancialReportSchema: GenMessage<FinancialReport> = /*@__PURE__*/
-  messageDesc(file_stocks_v1alpha1_stocks, 5);
+  messageDesc(file_stocks_v1alpha1_stocks, 6);
 
 /**
  * @generated from message stocks.v1alpha1.SocialMediaLinks
@@ -668,7 +779,7 @@ export type SocialMediaLinks = Message<"stocks.v1alpha1.SocialMediaLinks"> & {
  * Use `create(SocialMediaLinksSchema)` to create a new message.
  */
 export const SocialMediaLinksSchema: GenMessage<SocialMediaLinks> = /*@__PURE__*/
-  messageDesc(file_stocks_v1alpha1_stocks, 6);
+  messageDesc(file_stocks_v1alpha1_stocks, 7);
 
 /**
  * @generated from message stocks.v1alpha1.FinancialStatements
@@ -705,7 +816,7 @@ export type FinancialStatements = Message<"stocks.v1alpha1.FinancialStatements">
  * Use `create(FinancialStatementsSchema)` to create a new message.
  */
 export const FinancialStatementsSchema: GenMessage<FinancialStatements> = /*@__PURE__*/
-  messageDesc(file_stocks_v1alpha1_stocks, 7);
+  messageDesc(file_stocks_v1alpha1_stocks, 8);
 
 /**
  * @generated from message stocks.v1alpha1.FinancialStatementSet
@@ -732,7 +843,7 @@ export type FinancialStatementSet = Message<"stocks.v1alpha1.FinancialStatementS
  * Use `create(FinancialStatementSetSchema)` to create a new message.
  */
 export const FinancialStatementSetSchema: GenMessage<FinancialStatementSet> = /*@__PURE__*/
-  messageDesc(file_stocks_v1alpha1_stocks, 8);
+  messageDesc(file_stocks_v1alpha1_stocks, 9);
 
 /**
  * @generated from message stocks.v1alpha1.StatementValues
@@ -749,7 +860,7 @@ export type StatementValues = Message<"stocks.v1alpha1.StatementValues"> & {
  * Use `create(StatementValuesSchema)` to create a new message.
  */
 export const StatementValuesSchema: GenMessage<StatementValues> = /*@__PURE__*/
-  messageDesc(file_stocks_v1alpha1_stocks, 9);
+  messageDesc(file_stocks_v1alpha1_stocks, 10);
 
 /**
  * @generated from message stocks.v1alpha1.FinancialStatementsInfo
@@ -821,7 +932,7 @@ export type FinancialStatementsInfo = Message<"stocks.v1alpha1.FinancialStatemen
  * Use `create(FinancialStatementsInfoSchema)` to create a new message.
  */
 export const FinancialStatementsInfoSchema: GenMessage<FinancialStatementsInfo> = /*@__PURE__*/
-  messageDesc(file_stocks_v1alpha1_stocks, 10);
+  messageDesc(file_stocks_v1alpha1_stocks, 11);
 
 /**
  * @generated from message stocks.v1alpha1.IndustryTreeMap
@@ -845,7 +956,7 @@ export type IndustryTreeMap = Message<"stocks.v1alpha1.IndustryTreeMap"> & {
  * Use `create(IndustryTreeMapSchema)` to create a new message.
  */
 export const IndustryTreeMapSchema: GenMessage<IndustryTreeMap> = /*@__PURE__*/
-  messageDesc(file_stocks_v1alpha1_stocks, 11);
+  messageDesc(file_stocks_v1alpha1_stocks, 12);
 
 /**
  * @generated from message stocks.v1alpha1.TreemapShortPosition
@@ -872,5 +983,5 @@ export type TreemapShortPosition = Message<"stocks.v1alpha1.TreemapShortPosition
  * Use `create(TreemapShortPositionSchema)` to create a new message.
  */
 export const TreemapShortPositionSchema: GenMessage<TreemapShortPosition> = /*@__PURE__*/
-  messageDesc(file_stocks_v1alpha1_stocks, 12);
+  messageDesc(file_stocks_v1alpha1_stocks, 13);
 

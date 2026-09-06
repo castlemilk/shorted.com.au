@@ -699,7 +699,45 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 		detailsProto.FinancialStatements = fs
 	}
 
+	detailsProto.IndustryHistory = s.industryHistory(ctx, stockCode)
+
 	return detailsProto, nil
+}
+
+// industryHistory returns every recorded classification for a stock, oldest
+// first (#557).
+//
+// Separate query rather than a join on the details statement: that statement is
+// built dynamically from whichever columns company-metadata actually has
+// (buildStockDetailsQuery), and a repeated field does not fit a single row
+// anyway without an aggregate that would have to be unpacked again.
+//
+// A failure here returns nil rather than failing the whole response. The
+// timeline is supplementary — capture began 2026-09 and usually holds one
+// seeded row — so losing it must not take the stock page down with it. The
+// error is logged so a broken table is visible rather than silently empty.
+func (s *postgresStore) industryHistory(ctx context.Context, stockCode string) []*stocksv1alpha1.IndustryObservation {
+	rows, err := s.db.Query(ctx, `
+		SELECT COALESCE(industry, ''), observed_from::text, source
+		FROM stock_industry_history
+		WHERE stock_code = $1
+		ORDER BY observed_from ASC`, stockCode)
+	if err != nil {
+		log.Errorf("industry history for %s: %v", stockCode, err)
+		return nil
+	}
+	defer rows.Close()
+
+	var out []*stocksv1alpha1.IndustryObservation
+	for rows.Next() {
+		obs := &stocksv1alpha1.IndustryObservation{}
+		if err := rows.Scan(&obs.Industry, &obs.ObservedFrom, &obs.Source); err != nil {
+			log.Errorf("scan industry history for %s: %v", stockCode, err)
+			return nil
+		}
+		out = append(out, obs)
+	}
+	return out
 }
 
 // getMinimalStockDetails returns minimal stock details from the shorts table
@@ -1379,7 +1417,19 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			-- px.close is non-null exactly when at least one traded session
 			-- exists on or before this date, which is the condition under which
 			-- a return can be computed for this row at all.
-			(px.close IS NOT NULL) as has_price_history
+			(px.close IS NOT NULL) as has_price_history,
+			-- The delisting record (#576). LIFETIME, not as-of, unlike every
+			-- other column here: these answer "when and at what value does this
+			-- position CLOSE", which is necessarily a question about dates
+			-- after the one being asked for. The proto says so, loudly, because
+			-- using them as a signal is lookahead.
+			--
+			-- Separate laterals from the px one above on purpose: px is capped
+			-- at 20 sessions ON OR BEFORE the date, which is exactly what a
+			-- 20-day average needs and exactly wrong for a terminal value.
+			COALESCE(lr.last_reported::text, '') as last_reported_date,
+			COALESCE(fc.close, 0) as final_close,
+			COALESCE(fc.date::text, '') as final_close_date
 		FROM shorts s
 		LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
 		LEFT JOIN LATERAL (
@@ -1408,6 +1458,22 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 				LIMIT 20
 			) w
 		) px ON TRUE
+		-- Both hit an index whose leading column is the code and whose second
+		-- is the date descending (idx_shorts_product_code_date, and the
+		-- stock_prices equivalent), so each is an index read of one row rather
+		-- than a scan of the 2.1M-row report or the 3.7M-row price table.
+		LEFT JOIN LATERAL (
+			SELECT MAX(r."DATE")::date AS last_reported
+			FROM shorts r
+			WHERE r."PRODUCT_CODE" = s."PRODUCT_CODE"
+		) lr ON TRUE
+		LEFT JOIN LATERAL (
+			SELECT p.close, p.date
+			FROM stock_prices p
+			WHERE p.stock_code = s."PRODUCT_CODE" AND p.volume > 0
+			ORDER BY p.date DESC
+			LIMIT 1
+		) fc ON TRUE
 		WHERE s."DATE" >= $1 AND s."DATE" <= $2` + aliasedShortFilter + `
 		ORDER BY s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC`
 
@@ -1457,6 +1523,9 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32, includ
 			&stock.AverageDailyValue_20D,
 			&stock.AverageDailyVolume_20D,
 			&stock.HasPriceHistory,
+			&stock.LastReportedDate,
+			&stock.FinalClose,
+			&stock.FinalCloseDate,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan stock row: %w", err)
 		}
