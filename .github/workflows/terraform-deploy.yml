@@ -668,7 +668,11 @@ jobs:
           # shape: one CREATE TABLE IF NOT EXISTS and one CREATE INDEX IF NOT
           # EXISTS, no INSERT, no ALTER, so a replay is a no-op. It does not
           # touch refresh_all_materialized_views() either, so it sits before
-          # 000095 with the rest.
+          # 000095 with the rest. 000120 replaces 000118's trigger function and
+          # adds an INSERT trigger beside it — CREATE OR REPLACE plus
+          # DROP/CREATE TRIGGER, and one catch-up INSERT that is guarded by NOT
+          # EXISTS and ON CONFLICT DO NOTHING. It must stay AFTER 000118, which
+          # creates the table both of them write to.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -683,6 +687,7 @@ jobs:
               -f /migrations/000117_add_index_prices.up.sql \
               -f /migrations/000118_add_industry_history.up.sql \
               -f /migrations/000119_add_price_backfill_attempts.up.sql \
+              -f /migrations/000120_industry_history_on_insert.up.sql \
               -f /migrations/000095_harden_mv_refresh.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
