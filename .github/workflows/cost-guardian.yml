@@ -263,12 +263,22 @@ jobs:
       #
       # BILLING NOTE: disabling a version does NOT stop it billing — only
       # DESTROYED versions do. The disable pass is hygiene only; the cost
-      # saving comes from the opt-in destroy pass below.
+      # saving comes from the destroy pass below.
+      #
+      # The scheduled run now enables destroy. Previously DESTROY was wired
+      # only to the workflow_dispatch input, and `inputs.*` is empty on a
+      # `schedule` trigger, so the nightly run could only ever disable. Every
+      # disabled version kept billing at ~$0.06/mo indefinitely, which grew
+      # into the single largest line item on the GCP bill (~$34/mo, roughly
+      # 567 still-active versions). Destroy remains guarded by the script:
+      # numeric-latest is never touched, versions referenced by live Cloud Run
+      # services/jobs are never touched, only already-disabled versions older
+      # than --destroy-age-days are eligible, and --destroy-cap bounds each run.
       - name: Clean up old secret versions (keep 2 newest enabled, protect in-use)
         env:
           PROJECT: ${{ matrix.project }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
-          DESTROY: ${{ inputs.destroy_old_secret_versions || 'false' }}
+          DESTROY: ${{ (github.event_name == 'schedule' || inputs.destroy_old_secret_versions) && 'true' || 'false' }}
           SECRET_NAME: ${{ inputs.secret_name || '' }}
           DESTROY_MIN_VERSION: ${{ inputs.destroy_min_version || '' }}
           DESTROY_MAX_VERSION: ${{ inputs.destroy_max_version || '' }}
