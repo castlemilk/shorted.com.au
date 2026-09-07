@@ -76,6 +76,13 @@ locals {
     company_logos     = "shorted-company-logos-prod"
     financial_reports = "shorted-financial-reports-prod"
   }
+
+  # Age-based storage-class transitions for the financial-report corpus only.
+  # See the dynamic lifecycle_rule on google_storage_bucket.shared_assets.
+  report_storage_class_transitions = [
+    { age = 30, storage_class = "NEARLINE" },
+    { age = 180, storage_class = "COLDLINE" },
+  ]
 }
 
 resource "google_storage_bucket" "shared_assets" {
@@ -103,6 +110,36 @@ resource "google_storage_bucket" "shared_assets" {
     }
     condition {
       num_newer_versions = 3
+    }
+  }
+
+  # Financial reports are an immutable mirror of ASX announcement PDFs: written
+  # once, served through a 7-day edge cache (sync.go sets Cache-Control
+  # "public, max-age=604800"), and never rewritten. The retirement migration
+  # copied ~127k report objects into this bucket, and on STANDARD they account
+  # for essentially the whole Cloud Storage line for this project. Ageing them
+  # to NEARLINE then COLDLINE cuts that materially: in australia-southeast2
+  # STANDARD is $0.023/GB/mo, NEARLINE $0.016, COLDLINE $0.006.
+  #
+  # Logos are deliberately excluded. They are browser-facing and read
+  # constantly, so a colder class would add a retrieval charge on every hit and
+  # could cost more than it saves.
+  #
+  # ARCHIVE is deliberately not used: its 365-day minimum-duration charge is a
+  # poor fit if the corpus is ever re-synced, and COLDLINE already captures most
+  # of the saving. Objects are only transitioned, never deleted.
+  dynamic "lifecycle_rule" {
+    for_each = each.key == "financial_reports" ? local.report_storage_class_transitions : []
+
+    content {
+      action {
+        type          = "SetStorageClass"
+        storage_class = lifecycle_rule.value.storage_class
+      }
+      condition {
+        age        = lifecycle_rule.value.age
+        with_state = "LIVE"
+      }
     }
   }
 
@@ -198,6 +235,26 @@ resource "google_artifact_registry_repository" "shorted" {
     action = "KEEP"
     most_recent_versions {
       keep_count = 10
+    }
+  }
+
+  # A KEEP policy on its own deletes nothing. Artifact Registry only removes a
+  # version when a DELETE policy matches it, with KEEP acting as an override.
+  # Without this rule "keep-recent-images" was a no-op: the repository grew to
+  # 449 versions / 23.6 GB and needed repeated out-of-band cleanups, which
+  # deleted images once but installed no durable policy, so it regrew.
+  #
+  # Only UNTAGGED versions are eligible. A tag is the only signal Artifact
+  # Registry exposes that an image may still be serving or be held as a
+  # rollback target, and a tag-unaware delete has previously removed live
+  # serving images. Tagged images are therefore never auto-deleted; bounding
+  # them is a separate, deliberate retention decision.
+  cleanup_policies {
+    id     = "delete-untagged"
+    action = "DELETE"
+    condition {
+      tag_state  = "UNTAGGED"
+      older_than = "604800s" # 7 days
     }
   }
 

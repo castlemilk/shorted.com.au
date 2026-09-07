@@ -85,6 +85,20 @@ resource "google_storage_bucket" "short_selling_data" {
     }
   }
 
+  # asx-stocks/latest.csv is overwritten on every weekly discovery run. With
+  # versioning enabled and no version cap, each prior copy was retained until
+  # the 365-day age rule caught it, leaving ~52 noncurrent copies standing at
+  # any time. Keep a short rollback window instead.
+  lifecycle_rule {
+    condition {
+      num_newer_versions = 3
+      with_state         = "ARCHIVED"
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
   lifecycle {
     ignore_changes = [
       labels,
