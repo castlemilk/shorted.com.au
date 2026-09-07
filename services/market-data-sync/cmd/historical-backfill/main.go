@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -26,6 +27,9 @@ func main() {
 		limit        = flag.Int("limit", 0, "Limit number of stocks to process (0 = all)")
 		priorityOnly = flag.Bool("priority-only", false, "Only sync priority (top shorted) stocks")
 		forceRefetch = flag.Bool("force", false, "Force re-fetch even if data exists (ignores database state)")
+		// 0 disables the skip entirely and restores pre-#595 behaviour.
+		unavailableRetryDays = flag.Int("unavailable-retry-days", 30,
+			"skip codes a provider already had nothing for, until this many days have passed (0 = never skip)")
 		symbol       = flag.String("symbol", "", "Process only this specific stock symbol (e.g., DMP). If provided, ignores other filters.")
 	)
 	flag.Parse()
@@ -213,6 +217,10 @@ func main() {
 	}
 
 	log.Printf("🚀 Starting historical backfill for %d stocks (%d years)", len(stocks), *years)
+	if *unavailableRetryDays > 0 {
+		log.Printf("⏭️  Skipping codes marked unavailable in the last %d days (-unavailable-retry-days=0 to disable)",
+			*unavailableRetryDays)
+	}
 	if *forceRefetch {
 		log.Printf("⚠️  Force mode: will re-fetch ALL data regardless of existing records")
 	} else {
@@ -244,6 +252,7 @@ func main() {
 	startDate := endDate.AddDate(-*years, 0, 0)
 
 	var totalRecords int
+	var skippedUnavailable int
 
 	for i, symbol := range stocks {
 		select {
@@ -255,6 +264,44 @@ func main() {
 			}
 			return
 		default:
+		}
+
+		// Skip a code a provider has already been asked for and had nothing (#576).
+		//
+		// #588 widened this run's universe from ~700 current listings to ~1,941
+		// codes, and the ~936 delisted ones return nothing from Yahoo EVERY run
+		// — measured, not assumed: all 13 codes #576 names came back empty with
+		// live controls at 3,040 records. Re-asking them each time is waste, and
+		// it is not only waste.
+		//
+		// Yahoo empty means the chain falls through to Alpha Vantage, which does
+		// not carry the .AX suffix: asked for AMD.AX it resolves to the base
+		// symbol and answers with NASDAQ's AMD (#582/#583, which wrote ASX:AMD
+		// at $214.99 across 215 codes before it was caught). The delisted
+		// population is exactly where that collides — ADI is Analog Devices, ABC
+		// was AmerisourceBergen, ALG is Alamo Group, API is Agora.
+		//
+		// #583's symbol echo catches it whenever Alpha Vantage returns Meta
+		// Data, and tolerates the block being absent so a response-shape change
+		// cannot take the provider offline. That tolerance was a reasonable call
+		// at ~700 codes that mostly succeed on Yahoo. At 936 codes that reach
+		// the fallback on every single run it is a lot of draws on the one
+		// ungarded path, so the cheapest fix is not to make the draw.
+		//
+		// Bounded by a window rather than permanent: a code is retried after
+		// -unavailable-retry-days so that adding a provider, or a vendor
+		// backfilling its own history, is not silently ignored forever.
+		if !*forceRefetch && *unavailableRetryDays > 0 {
+			var lastAttempt time.Time
+			err := pool.QueryRow(ctx, `
+				SELECT last_attempted_at FROM stock_price_backfill_attempts
+				WHERE stock_code = $1 AND outcome = 'unavailable'`, symbol).Scan(&lastAttempt)
+			if err == nil && time.Since(lastAttempt) < time.Duration(*unavailableRetryDays)*24*time.Hour {
+				skippedUnavailable++
+				log.Printf("⏭️ [%d/%d] %s: no provider had it %s ago; skipping (-force or -unavailable-retry-days=0 to override)",
+					i+1, len(stocks), symbol, time.Since(lastAttempt).Round(time.Hour))
+				continue
+			}
 		}
 
 		// Check database state - this is the source of truth (unless -force is set)
@@ -348,11 +395,29 @@ func main() {
 
 		var allRecords []providers.PriceRecord
 
+		// Did any provider FAIL, as opposed to answering "I have nothing"?
+		//
+		// This distinction decides what gets written to
+		// stock_price_backfill_attempts, and therefore whether the skip above
+		// will pass this code over for the next month. A timeout recorded as
+		// 'unavailable' would blacklist a live stock on one flaky request —
+		// caught exactly that way in an e2e run, where BHP took 30s, failed,
+		// and was written down as though the data does not exist.
+		//
+		// That is the same conflation this whole line of work is about
+		// ("the provider has nothing" vs "we could not ask"), one layer down,
+		// and it is the reason fetchData no longer swallows its errors.
+		var fetchFailed bool
+		var fetchErrDetail string
+
 		// Helper function to fetch from providers
 		fetchData := func(fetchStart, fetchEnd time.Time) ([]providers.PriceRecord, error) {
+			var lastErr error
 			for _, p := range dataProviders {
 				select {
 				case <-ctx.Done():
+					fetchFailed = true
+					fetchErrDetail = ctx.Err().Error()
 					return nil, ctx.Err()
 				case <-time.After(p.GetRateLimit()):
 				}
@@ -361,8 +426,16 @@ func main() {
 				if err == nil && len(records) > 0 {
 					return records, nil
 				}
+				// A NoDataError is the provider ANSWERING: it has nothing for
+				// this symbol. Anything else — timeout, 429, transport, a parse
+				// failure — means we did not get an answer at all.
+				if err != nil && !providers.IsNoDataError(err) {
+					lastErr = err
+					fetchFailed = true
+					fetchErrDetail = fmt.Sprintf("%s: %v", p.Name(), err)
+				}
 			}
-			return nil, nil
+			return nil, lastErr
 		}
 
 		// Fetch based on what's needed
@@ -434,7 +507,14 @@ func main() {
 				// We asked and got nothing. Recording that is the whole point:
 				// without it this is indistinguishable from never having asked,
 				// which is the state 936 codes were in.
-				recordBackfillAttempt(ctx, pool, symbol, "unavailable", 0, "provider returned no records")
+				if fetchFailed {
+					// We could not ask, so we have learned nothing about
+					// whether the data exists. 'error' is not skipped by the
+					// window above, so this code is retried next run.
+					recordBackfillAttempt(ctx, pool, symbol, "error", 0, fetchErrDetail)
+				} else {
+					recordBackfillAttempt(ctx, pool, symbol, "unavailable", 0, "provider returned no records")
+				}
 			} else {
 				log.Printf("⏭️ [%d/%d] %s: no new records needed", i+1, len(stocks), symbol)
 				successful++
@@ -496,6 +576,9 @@ func main() {
 	log.Printf("   Stocks processed: %d", len(stocks))
 	log.Printf("   Successful: %d", successful)
 	log.Printf("   Failed: %d", failed)
+	// Reported unconditionally, including as zero. A silent skip is a silent
+	// behaviour change, and this one decides whether a code was fetched at all.
+	log.Printf("   Skipped (known unavailable): %d", skippedUnavailable)
 	log.Printf("   Total records: %d", totalRecords)
 }
 

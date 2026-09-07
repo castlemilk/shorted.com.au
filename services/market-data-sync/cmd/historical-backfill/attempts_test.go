@@ -124,3 +124,63 @@ func TestRecordBackfillAttempt(t *testing.T) {
 			"the anti-join that measures the hole must be answerable")
 	})
 }
+
+// The outcome vocabulary only earns its keep if the writer actually uses all
+// three. 'error' existed in the schema from the start and nothing wrote it: the
+// first e2e run recorded BHP — a live, heavily traded stock — as 'unavailable'
+// after a 30-second timeout, because fetchData swallowed every provider error
+// and returned (nil, nil), making a failed request indistinguishable from a
+// provider answering "I have nothing".
+//
+// That matters more than a mislabelled row. The skip added alongside it passes
+// over anything marked 'unavailable' for a month, so one flaky request would
+// have blacklisted a live stock — the same "could not ask" vs "nothing there"
+// conflation this whole line of work exists to remove, reintroduced a layer
+// down.
+func TestBackfillOutcomeVocabulary(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dbURL)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	const code = "ZZVOC"
+	cleanup := func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM stock_price_backfill_attempts WHERE stock_code = $1`, code)
+	}
+	cleanup()
+	t.Cleanup(cleanup)
+
+	outcomeOf := func(t *testing.T) string {
+		t.Helper()
+		var got string
+		require.NoError(t, pool.QueryRow(ctx,
+			`SELECT outcome FROM stock_price_backfill_attempts WHERE stock_code = $1`, code).Scan(&got))
+		return got
+	}
+
+	t.Run("a failed request is 'error', so the skip does not blacklist it", func(t *testing.T) {
+		recordBackfillAttempt(ctx, pool, code, "error", 0, "yahoo: context deadline exceeded")
+		require.Equal(t, "error", outcomeOf(t))
+
+		// The skip query is scoped to 'unavailable'. Asserted directly, because
+		// widening it to "any row" is a plausible simplification that would
+		// silently make transient failures permanent.
+		var skipped int
+		require.NoError(t, pool.QueryRow(ctx, `
+			SELECT COUNT(*) FROM stock_price_backfill_attempts
+			WHERE stock_code = $1 AND outcome = 'unavailable'`, code).Scan(&skipped))
+		require.Zero(t, skipped, "a code that errored must remain eligible for the next run")
+	})
+
+	t.Run("a provider answering with nothing is 'unavailable'", func(t *testing.T) {
+		recordBackfillAttempt(ctx, pool, code, "unavailable", 0, "provider returned no records")
+		require.Equal(t, "unavailable", outcomeOf(t))
+	})
+}
