@@ -106,13 +106,41 @@ resource "google_service_account_iam_member" "workload_identity_binding" {
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/${var.github_org}/${var.github_repo}"
 }
 
-# Create Artifact Registry repository for Docker images
+# Create Artifact Registry repository for Docker images.
+#
+# NOTE: this declares the SAME repository as
+# terraform/environments/prod/main.tf ("shorted" in australia-southeast2).
+# This root module has no backend block, so it runs on local state and is
+# bootstrap-only. The cleanup policies below are duplicated from the prod
+# config on purpose: without them, applying this file would strip the
+# retention rules off the live repository and let it grow without bound.
+# Keep the two definitions in sync, or remove this resource once bootstrap no
+# longer needs it.
 resource "google_artifact_registry_repository" "docker_repo" {
   project       = var.project_id
   location      = "australia-southeast2"
   repository_id = "shorted"
   description   = "Docker repository for Shorted services"
   format        = "DOCKER"
+
+  cleanup_policies {
+    id     = "keep-recent-images"
+    action = "KEEP"
+    most_recent_versions {
+      keep_count = 10
+    }
+  }
+
+  cleanup_policies {
+    id     = "delete-untagged"
+    action = "DELETE"
+    condition {
+      tag_state  = "UNTAGGED"
+      older_than = "604800s" # 7 days
+    }
+  }
+
+  cleanup_policy_dry_run = false
 
   depends_on = [google_project_service.required_apis]
 }
