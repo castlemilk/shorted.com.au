@@ -31,10 +31,11 @@ from pathlib import Path
 
 import numpy as np
 
-from wofs_zonal_stats import OBSERVED_MIN_FREQUENCY, PERMANENT_MIN_FREQUENCY
+from wofs_zonal_stats import OBSERVED_MIN_FREQUENCY, PERMANENT_MIN_FREQUENCY, apply_confidence, read_confidence
 
 SIMPLIFY_M = 40.0
 MIN_PART_M2 = 20_000.0  # 2 ha: below this a part is sub-pixel at state zoom
+WATER_MIN_PART_M2 = 60_000.0  # the raster layer is speckle-prone; 6 ha keeps it under budget
 COARSEN = 4
 BLOCK_FRACTION = 0.25
 
@@ -98,9 +99,11 @@ def vector(args) -> None:
     print(f"wrote {args.out}: {len(layer)} polygons -> {cleaned.area / 1e6:.0f} km²")
 
 
-def coarse_mask(ds, window, transform):
+def coarse_mask(ds, window, transform, conf_ds=None):
     """Block-fraction coarsening of the observed-water mask inside one window."""
     data = ds.read(1, window=window)
+    if conf_ds is not None:
+        data = apply_confidence(data.astype(float), read_confidence(conf_ds, window, ds.transform, data.shape))
     flagged = np.isfinite(data) & (data >= OBSERVED_MIN_FREQUENCY) & (data < PERMANENT_MIN_FREQUENCY)
     h, w = flagged.shape
     h2, w2 = h // COARSEN, w // COARSEN
@@ -117,11 +120,13 @@ def wofs(args) -> None:
     from shapely.geometry import shape
     from shapely.ops import unary_union
 
+    import contextlib
+
     suburbs = load_suburbs(args.suburbs)
     state = shapely.union_all(suburbs.geometry.values, grid_size=0.01)
     minx, miny, maxx, maxy = state.bounds
     polys = []
-    with rasterio.open(args.vrt) as ds:
+    with rasterio.open(args.vrt) as ds, (rasterio.open(args.confidence) if args.confidence else contextlib.nullcontext()) as conf_ds:
         full = windows.from_bounds(minx, miny, maxx, maxy, ds.transform).intersection(
             windows.Window(0, 0, ds.width, ds.height)
         )
@@ -132,7 +137,7 @@ def wofs(args) -> None:
         band_rows = 4096
         for r in range(row0, row1, band_rows):
             win = windows.Window(col0, r, col1 - col0, min(band_rows, row1 - r))
-            mask = coarse_mask(ds, win, windows.transform(win, ds.transform))
+            mask = coarse_mask(ds, win, windows.transform(win, ds.transform), conf_ds)
             if not mask.any():
                 continue
             coarse_transform = windows.transform(win, ds.transform) * rasterio.Affine.scale(COARSEN, COARSEN)
@@ -145,7 +150,7 @@ def wofs(args) -> None:
                     polys.append(shape(geom))
     merged = unary_union(polys) if polys else __import__("shapely").geometry.MultiPolygon()
     simplified = merged.simplify(SIMPLIFY_M, preserve_topology=True)
-    cleaned = drop_small_parts(simplified, MIN_PART_M2)
+    cleaned = drop_small_parts(simplified, WATER_MIN_PART_M2)
     write_geojson(cleaned, "water_observed", args.out, {
         "min_frequency": OBSERVED_MIN_FREQUENCY, "max_frequency": PERMANENT_MIN_FREQUENCY,
         "cell_m": 30 * COARSEN,
@@ -165,6 +170,7 @@ def main() -> None:
     w.add_argument("--vrt", type=Path, required=True)
     w.add_argument("--suburbs", type=Path, required=True)
     w.add_argument("--out", type=Path, required=True)
+    w.add_argument("--confidence", type=Path, default=None)
     args = parser.parse_args()
     (vector if args.mode == "vector" else wofs)(args)
 

@@ -17,6 +17,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 const inDir = resolve(process.argv[2] ?? "/Volumes/gamma-systems-2/shorted-hazards/overlays");
 const outDir = resolve(process.argv[3] ?? resolve(here, "../../../public/geo/hazards"));
 export const MAX_BYTES = 600_000;
+// The satellite layer is a polygonised raster and speckly by nature; it is
+// fetched only when toggled on, so it gets a larger budget than a statutory layer.
+export const WATER_MAX_BYTES = 1_200_000;
 
 export const LAYER_META = {
   flood_planning: {
@@ -42,17 +45,17 @@ function build(file) {
   const out = resolve(outDir, `${state}-${layer}.topojson`);
   for (const keep of RETENTION) {
     execSync(
-      `npx mapshaper -i "${file}" -simplify ${keep} keep-shapes -o "${out}" format=topojson quantization=1e4`,
+      `npx mapshaper-xl 8gb -i "${file}" -simplify ${keep} keep-shapes -o "${out}" format=topojson quantization=1e4`,
       { stdio: "pipe", cwd: resolve(here, "../../..") },
     );
     const bytes = statSync(out).size;
-    if (bytes <= MAX_BYTES) {
+    if (bytes <= (layer === "water_observed" ? WATER_MAX_BYTES : MAX_BYTES)) {
       stamp(out, { layer, state, ...meta, asOf: new Date().toISOString().slice(0, 10), simplify: keep });
       console.log(`${state}-${layer}: ${(bytes / 1024).toFixed(0)} KB (simplify ${keep})`);
       return;
     }
   }
-  throw new Error(`${state}-${layer}: still over ${MAX_BYTES} bytes at ${RETENTION.at(-1)}`);
+  throw new Error(`${state}-${layer}: still over budget at ${RETENTION.at(-1)}`);
 }
 
 function stamp(path, properties) {

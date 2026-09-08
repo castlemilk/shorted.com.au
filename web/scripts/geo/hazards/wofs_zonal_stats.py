@@ -21,6 +21,16 @@ a floor on inundation, never a ceiling. It measures water that was SEEN.
 Same quality rule as the DEM pipeline: NaN never enters either side of a share,
 and a suburb with fewer than MINIMUM_VALID_CELL_COUNT valid cells reports null.
 
+Confidence mask (`--confidence`): the classifier reads the deep shadows of
+multi-storey buildings as water, so an unfiltered pass put the Sydney CBD at
+44% "observed under water". DEA publishes a per-cell confidence layer (WOfS
+filtered summary v2.1.0, 25 m — a logistic regression over terrain, built-up
+extent and national hydrography) for exactly this; its filtered product keeps
+water only where confidence is at least CONFIDENCE_MIN. We apply the same
+cutoff and treat a low-confidence cell as DRY LAND (valid, not water) rather
+than dropping it: dropping it would shrink the denominator and inflate the
+share of the very suburbs the mask exists to protect.
+
 The raster is equal-area (EPSG:3577), so every cell carries the same area and
 shares are plain cell ratios. Large suburbs are read in row bands so the
 Coral Sea does not need 8 GB of RAM to summarise.
@@ -42,6 +52,7 @@ MINIMUM_VALID_CELL_COUNT = 25
 OBSERVED_MIN_FREQUENCY = 0.01
 PERMANENT_MIN_FREQUENCY = 0.90
 ROW_BAND = 2048
+CONFIDENCE_MIN = 0.1
 
 METRIC_KEYS = ("waterObservedSharePct", "permanentWaterSharePct")
 
@@ -58,9 +69,11 @@ class ShareAccumulator:
         self.observed = 0
         self.permanent = 0
 
-    def add(self, frequencies: np.ndarray, inside: np.ndarray) -> None:
+    def add(self, frequencies: np.ndarray, inside: np.ndarray, confidence=None) -> None:
         values = np.asarray(frequencies, dtype=float)
         mask = np.asarray(inside, dtype=bool) & np.isfinite(values)
+        if confidence is not None:
+            values = apply_confidence(values, np.asarray(confidence, dtype=float))
         if not mask.any():
             return
         sample = values[mask]
@@ -78,13 +91,37 @@ class ShareAccumulator:
         }
 
 
-def summarise_cells(frequencies, inside, minimum_cells: int = MINIMUM_VALID_CELL_COUNT) -> dict:
+def apply_confidence(values: np.ndarray, confidence: np.ndarray) -> np.ndarray:
+    """Zero the frequency where DEA's confidence is below the cutoff or absent.
+    The cell stays valid (it is land we looked at); it just is not water."""
+    low = ~np.isfinite(confidence) | (confidence < CONFIDENCE_MIN)
+    out = values.copy()
+    out[low & np.isfinite(out)] = 0.0
+    return out
+
+
+def summarise_cells(frequencies, inside, minimum_cells: int = MINIMUM_VALID_CELL_COUNT, confidence=None) -> dict:
     acc = ShareAccumulator()
-    acc.add(np.asarray(frequencies, dtype=float), np.asarray(inside, dtype=bool))
+    acc.add(np.asarray(frequencies, dtype=float), np.asarray(inside, dtype=bool), confidence)
     return acc.result(minimum_cells)
 
 
-def summarise_geometry(ds, geometry, minimum_cells: int = MINIMUM_VALID_CELL_COUNT) -> dict:
+def read_confidence(conf_ds, band_window, ds_transform, shape):
+    """Confidence resampled (nearest) onto the frequency window's grid — the two
+    products share EPSG:3577 but sit on 25 m and 30 m grids."""
+    from rasterio import windows
+    from rasterio.enums import Resampling
+
+    bounds = windows.bounds(band_window, ds_transform)
+    cwin = windows.from_bounds(*bounds, conf_ds.transform)
+    try:
+        return conf_ds.read(1, window=cwin, out_shape=shape, resampling=Resampling.nearest,
+                            boundless=True, fill_value=-1)
+    except Exception:
+        return np.full(shape, -1.0, dtype=float)
+
+
+def summarise_geometry(ds, geometry, minimum_cells: int = MINIMUM_VALID_CELL_COUNT, conf_ds=None) -> dict:
     """Band-by-band zonal summary of one (already reprojected) geometry."""
     from rasterio import windows
     from rasterio.features import geometry_mask
@@ -115,17 +152,20 @@ def summarise_geometry(ds, geometry, minimum_cells: int = MINIMUM_VALID_CELL_COU
         )
         if inside.any():
             data = ds.read(1, window=band)
-            acc.add(data, inside)
+            conf = read_confidence(conf_ds, band, ds.transform, data.shape) if conf_ds is not None else None
+            acc.add(data, inside, conf)
         row += ROW_BAND
     return acc.result(minimum_cells)
 
 
-def build_artifact(vrt: Path, suburbs_dir: Path) -> dict:
+def build_artifact(vrt: Path, suburbs_dir: Path, confidence: Path | None = None) -> dict:
+    import contextlib
+
     import geopandas as gpd
     import rasterio
 
     output: dict[str, dict] = {}
-    with rasterio.open(vrt) as ds:
+    with rasterio.open(vrt) as ds, (rasterio.open(confidence) if confidence else contextlib.nullcontext()) as conf_ds:
         for boundary in sorted(suburbs_dir.glob("*.topojson")):
             suburbs = gpd.read_file(boundary)
             if suburbs.crs is None:
@@ -139,7 +179,7 @@ def build_artifact(vrt: Path, suburbs_dir: Path) -> dict:
                 if geometry is None or geometry.is_empty:
                     output[sal] = empty_result(0)
                     continue
-                output[sal] = summarise_geometry(ds, geometry)
+                output[sal] = summarise_geometry(ds, geometry, conf_ds=conf_ds)
     return dict(sorted(output.items()))
 
 
@@ -148,8 +188,9 @@ def main() -> None:
     parser.add_argument("--vrt", type=Path, required=True)
     parser.add_argument("--suburbs-dir", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--confidence", type=Path, help="WOfS filtered-summary confidence VRT (wofs_vrt.py --pattern)")
     args = parser.parse_args()
-    artifact = build_artifact(args.vrt, args.suburbs_dir)
+    artifact = build_artifact(args.vrt, args.suburbs_dir, args.confidence)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(artifact, separators=(",", ":")) + "\n")
     populated = sum(1 for r in artifact.values() if r["waterObservedSharePct"] is not None)

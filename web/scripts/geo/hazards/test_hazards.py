@@ -42,6 +42,14 @@ class WofsShareTest(unittest.TestCase):
         self.assertEqual(result["waterObservedSharePct"], 0.0)
         self.assertEqual(result["permanentWaterSharePct"], 0.0)
 
+    def test_low_confidence_cells_count_as_dry_land_not_as_missing(self):
+        freq = [0.5, 0.5, 0.5, 0.0]
+        conf = [0.05, -1.0, 0.9, 0.9]  # below cutoff, nodata, confident, confident
+        result = wofs.summarise_cells(freq, [True] * 4, minimum_cells=1, confidence=conf)
+        self.assertEqual(result["sampledCellCount"], 4)
+        self.assertEqual(result["waterObservedSharePct"], 25.0)
+        self.assertEqual(wofs.CONFIDENCE_MIN, 0.1)
+
     def test_thresholds_are_the_published_ones(self):
         self.assertEqual(wofs.OBSERVED_MIN_FREQUENCY, 0.01)
         self.assertEqual(wofs.PERMANENT_MIN_FREQUENCY, 0.90)

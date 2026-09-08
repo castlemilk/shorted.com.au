@@ -39,10 +39,10 @@ def tile_bounds(paths):
     return crs_wkt, res, tiles
 
 
-def build_vrt(tiles_dir: Path, out: Path) -> int:
-    paths = sorted(tiles_dir.rglob("*_final_frequency.tif"))
+def build_vrt(tiles_dir: Path, out: Path, pattern: str = "*_final_frequency.tif", nodata: str = "nan") -> int:
+    paths = sorted(tiles_dir.rglob(pattern))
     if not paths:
-        raise SystemExit(f"no *_final_frequency.tif under {tiles_dir}")
+        raise SystemExit(f"no {pattern} under {tiles_dir}")
     crs_wkt, (xres, yres), tiles = tile_bounds(paths)
     left = min(t[1].left for t in tiles)
     top = max(t[1].top for t in tiles)
@@ -56,7 +56,7 @@ def build_vrt(tiles_dir: Path, out: Path) -> int:
         f"  <SRS>{escape(crs_wkt)}</SRS>",
         f"  <GeoTransform>{left}, {xres}, 0, {top}, 0, {yres}</GeoTransform>",
         '  <VRTRasterBand dataType="Float32" band="1">',
-        "    <NoDataValue>nan</NoDataValue>",
+        f"    <NoDataValue>{nodata}</NoDataValue>",
     ]
     for path, bounds, w, h, dtype in tiles:
         xoff = int(round((bounds.left - left) / xres))
@@ -79,8 +79,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--tiles", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--pattern", default="*_final_frequency.tif")
+    parser.add_argument("--nodata", default="nan", help="-1 for the confidence tiles")
     args = parser.parse_args()
-    n = build_vrt(args.tiles, args.out)
+    n = build_vrt(args.tiles, args.out, args.pattern, args.nodata)
     print(f"wrote {args.out}: {n} tiles")
 
 
