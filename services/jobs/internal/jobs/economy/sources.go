@@ -14,6 +14,22 @@ type sourceDef struct {
 // industry_intelligence_sources_kind_check CHECK constraint, extended by
 // migration 000082_extend_source_kind_check.
 var sourceDefs = []sourceDef{
+	// The one non-Australian source. VIX, the US curve and the broad dollar
+	// index are the global risk factors that move ASX short interest, and
+	// nothing else in this catalog covers them. Published MONTHLY (month-end
+	// observation) although FRED serves it daily — see fred.go for why that is
+	// load-bearing rather than a convenience.
+	//
+	// Licence is not one value. DGS2/DGS10 (H.15) and DTWEXBGS (H.10) are
+	// Federal Reserve releases and US-government public domain. VIXCLS
+	// originates from CBOE and FRED redistributes it under CBOE's terms, which
+	// do not automatically extend to re-serving it from a public API — flagged
+	// to the owner 2026-09-08 and shipped on their instruction; revisit before
+	// this is relied on commercially.
+	{"fred-us-macro", "FRED US macro (VIX, Treasury yields, dollar index)", "economic_series",
+		"Federal Reserve Bank of St. Louis (FRED)", "https://fred.stlouisfed.org/",
+		"public-domain-us-gov", "Monthly", "api",
+		"VIXCLS, DGS2, DGS10, DTWEXBGS — daily upstream, stored month-end. VIXCLS is CBOE-sourced; see licence note."},
 	{"rba-key-indicators", "RBA key indicators (cash rate, exchange rates)", "economic_series",
 		"Reserve Bank of Australia", "https://www.rba.gov.au/statistics/tables/",
 		"CC-BY-4.0", "Monthly", "download", "Tables F1.1 + F11; national policy/FX series."},

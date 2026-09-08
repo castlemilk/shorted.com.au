@@ -325,6 +325,36 @@ export const NATIONAL_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
     label: "Household spending per capita",
     format: "aud",
   },
+  // US risk factors (fred-us-macro). The only non-Australian overlays in this
+  // list, so each label says so: an unlabelled "10-year yield" next to Australian
+  // indicators reads as the ACGB, which is a different instrument entirely.
+  //
+  // These are the global drivers of ASX short interest that the domestic
+  // indicators above cannot show — a short-interest spike concurrent with a VIX
+  // spike is a risk-off move, not a stock-specific view, and nothing else here
+  // distinguishes the two.
+  //
+  // Stored month-end from daily upstream; see services/jobs/.../fred.go.
+  {
+    key: "volatility.index_close.vix.usa",
+    label: "US volatility (VIX)",
+    format: "index",
+  },
+  {
+    key: "rates.treasury_yield.10y.usa",
+    label: "US 10-year Treasury yield",
+    format: "percent",
+  },
+  {
+    key: "rates.treasury_yield.2y.usa",
+    label: "US 2-year Treasury yield",
+    format: "percent",
+  },
+  {
+    key: "fx.usd_index.broad.usa",
+    label: "US dollar index (broad)",
+    format: "index",
+  },
 ];
 
 export interface StateCorrelationCandidateMetric {
