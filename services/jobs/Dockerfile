@@ -30,7 +30,8 @@ WORKDIR /app
 COPY go.mod go.sum ./
 COPY jobs/go.mod jobs/go.sum ./jobs/
 
-RUN --mount=type=secret,id=github_token \
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=secret,id=github_token \
     --mount=type=bind,from=stealth,target=/stealth-src \
     export GOTOOLCHAIN=auto && \
     if [ -f /run/secrets/github_token ]; then \

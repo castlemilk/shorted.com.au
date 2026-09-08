@@ -11,7 +11,8 @@ COPY go.mod go.sum ./
 # imports services/pkg/stealthhttp for the crawl tier, which depends on the
 # skunkworq/stealth private module — same bind-mount/PAT pattern as the other
 # stealth-using services.
-RUN --mount=type=secret,id=github_token \
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=secret,id=github_token \
     --mount=type=bind,from=stealth,target=/stealth-src \
     if [ -f /run/secrets/github_token ]; then \
       git config --global url."https://x-access-token:$(cat /run/secrets/github_token)@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; \
