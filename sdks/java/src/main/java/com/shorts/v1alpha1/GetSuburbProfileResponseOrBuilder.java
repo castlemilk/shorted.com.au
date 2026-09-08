@@ -239,4 +239,31 @@ public interface GetSuburbProfileResponseOrBuilder extends
    * <code>.shorts.v1alpha1.SuburbElevation elevation = 9 [json_name = "elevation"];</code>
    */
   com.shorts.v1alpha1.SuburbElevationOrBuilder getElevationOrBuilder();
+
+  /**
+   * <pre>
+   * Profile-only hazard block; absent when no hazard source covers the suburb.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+   * @return Whether the hazards field is set.
+   */
+  boolean hasHazards();
+  /**
+   * <pre>
+   * Profile-only hazard block; absent when no hazard source covers the suburb.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+   * @return The hazards.
+   */
+  com.shorts.v1alpha1.SuburbHazardExposure getHazards();
+  /**
+   * <pre>
+   * Profile-only hazard block; absent when no hazard source covers the suburb.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+   */
+  com.shorts.v1alpha1.SuburbHazardExposureOrBuilder getHazardsOrBuilder();
 }

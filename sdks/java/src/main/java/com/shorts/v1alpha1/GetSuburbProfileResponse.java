@@ -385,6 +385,44 @@ private static final long serialVersionUID = 0L;
     return elevation_ == null ? com.shorts.v1alpha1.SuburbElevation.getDefaultInstance() : elevation_;
   }
 
+  public static final int HAZARDS_FIELD_NUMBER = 10;
+  private com.shorts.v1alpha1.SuburbHazardExposure hazards_;
+  /**
+   * <pre>
+   * Profile-only hazard block; absent when no hazard source covers the suburb.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+   * @return Whether the hazards field is set.
+   */
+  @java.lang.Override
+  public boolean hasHazards() {
+    return ((bitField0_ & 0x00000100) != 0);
+  }
+  /**
+   * <pre>
+   * Profile-only hazard block; absent when no hazard source covers the suburb.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+   * @return The hazards.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbHazardExposure getHazards() {
+    return hazards_ == null ? com.shorts.v1alpha1.SuburbHazardExposure.getDefaultInstance() : hazards_;
+  }
+  /**
+   * <pre>
+   * Profile-only hazard block; absent when no hazard source covers the suburb.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbHazardExposureOrBuilder getHazardsOrBuilder() {
+    return hazards_ == null ? com.shorts.v1alpha1.SuburbHazardExposure.getDefaultInstance() : hazards_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -425,6 +463,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000080) != 0)) {
       output.writeMessage(9, getElevation());
+    }
+    if (((bitField0_ & 0x00000100) != 0)) {
+      output.writeMessage(10, getHazards());
     }
     getUnknownFields().writeTo(output);
   }
@@ -470,6 +511,10 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000080) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(9, getElevation());
+    }
+    if (((bitField0_ & 0x00000100) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(10, getHazards());
     }
     return size;
   }
@@ -537,6 +582,11 @@ private static final long serialVersionUID = 0L;
       if (!getElevation()
           .equals(other.getElevation())) return false;
     }
+    if (hasHazards() != other.hasHazards()) return false;
+    if (hasHazards()) {
+      if (!getHazards()
+          .equals(other.getHazards())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -583,6 +633,10 @@ private static final long serialVersionUID = 0L;
     if (hasElevation()) {
       hash = (37 * hash) + ELEVATION_FIELD_NUMBER;
       hash = (53 * hash) + getElevation().hashCode();
+    }
+    if (hasHazards()) {
+      hash = (37 * hash) + HAZARDS_FIELD_NUMBER;
+      hash = (53 * hash) + getHazards().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -723,6 +777,7 @@ private static final long serialVersionUID = 0L;
         internalGetCrimeFieldBuilder();
         internalGetListingStatsFieldBuilder();
         internalGetElevationFieldBuilder();
+        internalGetHazardsFieldBuilder();
       }
     }
     @java.lang.Override
@@ -775,6 +830,11 @@ private static final long serialVersionUID = 0L;
       if (elevationBuilder_ != null) {
         elevationBuilder_.dispose();
         elevationBuilder_ = null;
+      }
+      hazards_ = null;
+      if (hazardsBuilder_ != null) {
+        hazardsBuilder_.dispose();
+        hazardsBuilder_ = null;
       }
       return this;
     }
@@ -871,6 +931,12 @@ private static final long serialVersionUID = 0L;
             : elevationBuilder_.build();
         to_bitField0_ |= 0x00000080;
       }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.hazards_ = hazardsBuilder_ == null
+            ? hazards_
+            : hazardsBuilder_.build();
+        to_bitField0_ |= 0x00000100;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -935,6 +1001,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasElevation()) {
         mergeElevation(other.getElevation());
+      }
+      if (other.hasHazards()) {
+        mergeHazards(other.getHazards());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1031,6 +1100,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000100;
               break;
             } // case 74
+            case 82: {
+              input.readMessage(
+                  internalGetHazardsFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 82
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2524,6 +2600,163 @@ private static final long serialVersionUID = 0L;
         elevation_ = null;
       }
       return elevationBuilder_;
+    }
+
+    private com.shorts.v1alpha1.SuburbHazardExposure hazards_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbHazardExposure, com.shorts.v1alpha1.SuburbHazardExposure.Builder, com.shorts.v1alpha1.SuburbHazardExposureOrBuilder> hazardsBuilder_;
+    /**
+     * <pre>
+     * Profile-only hazard block; absent when no hazard source covers the suburb.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+     * @return Whether the hazards field is set.
+     */
+    public boolean hasHazards() {
+      return ((bitField0_ & 0x00000200) != 0);
+    }
+    /**
+     * <pre>
+     * Profile-only hazard block; absent when no hazard source covers the suburb.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+     * @return The hazards.
+     */
+    public com.shorts.v1alpha1.SuburbHazardExposure getHazards() {
+      if (hazardsBuilder_ == null) {
+        return hazards_ == null ? com.shorts.v1alpha1.SuburbHazardExposure.getDefaultInstance() : hazards_;
+      } else {
+        return hazardsBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Profile-only hazard block; absent when no hazard source covers the suburb.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+     */
+    public Builder setHazards(com.shorts.v1alpha1.SuburbHazardExposure value) {
+      if (hazardsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        hazards_ = value;
+      } else {
+        hazardsBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Profile-only hazard block; absent when no hazard source covers the suburb.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+     */
+    public Builder setHazards(
+        com.shorts.v1alpha1.SuburbHazardExposure.Builder builderForValue) {
+      if (hazardsBuilder_ == null) {
+        hazards_ = builderForValue.build();
+      } else {
+        hazardsBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Profile-only hazard block; absent when no hazard source covers the suburb.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+     */
+    public Builder mergeHazards(com.shorts.v1alpha1.SuburbHazardExposure value) {
+      if (hazardsBuilder_ == null) {
+        if (((bitField0_ & 0x00000200) != 0) &&
+          hazards_ != null &&
+          hazards_ != com.shorts.v1alpha1.SuburbHazardExposure.getDefaultInstance()) {
+          getHazardsBuilder().mergeFrom(value);
+        } else {
+          hazards_ = value;
+        }
+      } else {
+        hazardsBuilder_.mergeFrom(value);
+      }
+      if (hazards_ != null) {
+        bitField0_ |= 0x00000200;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Profile-only hazard block; absent when no hazard source covers the suburb.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+     */
+    public Builder clearHazards() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      hazards_ = null;
+      if (hazardsBuilder_ != null) {
+        hazardsBuilder_.dispose();
+        hazardsBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Profile-only hazard block; absent when no hazard source covers the suburb.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbHazardExposure.Builder getHazardsBuilder() {
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return internalGetHazardsFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Profile-only hazard block; absent when no hazard source covers the suburb.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbHazardExposureOrBuilder getHazardsOrBuilder() {
+      if (hazardsBuilder_ != null) {
+        return hazardsBuilder_.getMessageOrBuilder();
+      } else {
+        return hazards_ == null ?
+            com.shorts.v1alpha1.SuburbHazardExposure.getDefaultInstance() : hazards_;
+      }
+    }
+    /**
+     * <pre>
+     * Profile-only hazard block; absent when no hazard source covers the suburb.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbHazardExposure hazards = 10 [json_name = "hazards"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbHazardExposure, com.shorts.v1alpha1.SuburbHazardExposure.Builder, com.shorts.v1alpha1.SuburbHazardExposureOrBuilder> 
+        internalGetHazardsFieldBuilder() {
+      if (hazardsBuilder_ == null) {
+        hazardsBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.SuburbHazardExposure, com.shorts.v1alpha1.SuburbHazardExposure.Builder, com.shorts.v1alpha1.SuburbHazardExposureOrBuilder>(
+                getHazards(),
+                getParentForChildren(),
+                isClean());
+        hazards_ = null;
+      }
+      return hazardsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetSuburbProfileResponse)
