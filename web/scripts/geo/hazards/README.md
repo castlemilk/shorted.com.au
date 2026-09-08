@@ -104,6 +104,13 @@ onto the topology. The web registry (`web/src/@/lib/housing/overlays.ts`)
 declares which states have which layer, and `overlays.test.ts` fails if the
 committed files disagree with it in either direction.
 
+`overlay_geometry.py vector --raster-m 60` is the path for NSW bushfire prone
+land: a GEOS union of its 235,000 parcel polygons exhausts memory, so it is
+burnt onto a 60 m grid over the state and polygonised instead. The satellite
+overlays get `WATER_MAX_BYTES` (1.2 MB) rather than the 600 KB statutory budget
+because a polygonised raster is speckle by nature and the file is fetched only
+when the layer is toggled on.
+
 ## 4. Load and verify
 
 ```bash
