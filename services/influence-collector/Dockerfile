@@ -13,7 +13,8 @@ COPY go.mod go.sum ./
 # private github.com/skunkworq/stealth that services/pkg/stealthhttp depends on.
 # So it needs the same bind-mount/PAT pattern as its siblings. Do not "optimise"
 # this block away on the grounds that this collector doesn't use stealth.
-RUN --mount=type=secret,id=github_token \
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=secret,id=github_token \
     --mount=type=bind,from=stealth,target=/stealth-src \
     if [ -f /run/secrets/github_token ]; then \
       git config --global url."https://x-access-token:$(cat /run/secrets/github_token)@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; \
