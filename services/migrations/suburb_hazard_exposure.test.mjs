@@ -16,7 +16,19 @@ test("the table is replay-safe and keyed to the suburb spine", () => {
   assert.match(up, /CREATE TABLE IF NOT EXISTS suburb_hazard_exposure/);
   assert.match(up, /sal_code\s+TEXT PRIMARY KEY REFERENCES suburb_demographics\(sal_code\)/);
   assert.match(up, /CREATE INDEX IF NOT EXISTS/);
-  assert.doesNotMatch(up, /\bINSERT\b|\bUPDATE\b|\bDELETE\b/i);
+});
+
+test("the migration touches no rows, so the deploy can replay it", () => {
+  // Statement forms, not bare keywords: `ON DELETE CASCADE` is a foreign-key
+  // action (DDL), and matching the word `DELETE` failed this migration for
+  // declaring one. What must not appear is data manipulation.
+  const stripped = up.replace(/--.*$/gm, "");
+  for (const dml of [/\bINSERT\s+INTO\b/i, /\bDELETE\s+FROM\b/i, /\bUPDATE\s+\w+\s+SET\b/i, /\bTRUNCATE\b/i]) {
+    assert.doesNotMatch(stripped, dml);
+  }
+  // The guard has teeth: the same check rejects a migration that does write.
+  const writes = `${up}\nINSERT INTO suburb_hazard_exposure (sal_code) VALUES ('10001');`;
+  assert.match(writes.replace(/--.*$/gm, ""), /\bINSERT\s+INTO\b/i);
 });
 
 test("every share is a nullable double bounded to 0..100 — absent is not zero", () => {
