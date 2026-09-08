@@ -35,7 +35,9 @@ COPY shorts ./shorts
 ARG TARGETOS TARGETARCH
 
 # Build the Go app
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o shorts-server ./shorts/cmd/server/main.go
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=shorted-gobuild,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o shorts-server ./shorts/cmd/server/main.go
 
 # Step 2: Use a minimal runtime environment
 FROM scratch

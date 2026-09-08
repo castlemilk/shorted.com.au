@@ -55,7 +55,9 @@ RUN [ -f /tmp/jobs.go.mod.stealth ] && cp /tmp/jobs.go.mod.stealth jobs/go.mod |
 
 # Build in module mode: the workspace file (go.work) is irrelevant here and
 # GOWORK=off keeps the image build independent of sibling modules.
-RUN cd jobs && GOTOOLCHAIN=auto GOWORK=off CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /shorted ./cmd/shorted
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=shorted-gobuild,target=/root/.cache/go-build \
+    cd jobs && GOTOOLCHAIN=auto GOWORK=off CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /shorted ./cmd/shorted
 
 FROM gcr.io/distroless/static-debian12
 

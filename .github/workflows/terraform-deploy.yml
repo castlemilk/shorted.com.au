@@ -269,8 +269,17 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
 
+      # A persistent builder on the self-hosted rig: its layer cache and the
+      # Dockerfiles' Go module/build cache mounts survive across jobs and are
+      # shared by every runner replica on the host. The default (a fresh
+      # builder per job, torn down afterwards) rebuilt every Go dependency
+      # from a cold cache for each of the eight images and then shipped a
+      # mode=max layer cache to GitHub — ~30 minutes per image.
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
+        with:
+          name: shorted-builder
+          cleanup: false
 
       - name: Build and push ${{ matrix.service.name }}
         uses: docker/build-push-action@v7
@@ -282,8 +291,6 @@ jobs:
           tags: |
             ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:${{ needs.determine-environment.outputs.image-tag }}
             ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:latest
-          cache-from: type=gha,scope=${{ matrix.service.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
           secrets: |
             github_token=${{ secrets.STEALTH_PAT }}
 

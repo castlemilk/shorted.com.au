@@ -28,7 +28,9 @@ COPY . .
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
 
 # Build the chat service
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /chat-service ./chat-service/
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=shorted-gobuild,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /chat-service ./chat-service/
 
 # Final image
 FROM gcr.io/distroless/static-debian12:nonroot

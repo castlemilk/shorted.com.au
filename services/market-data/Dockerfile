@@ -35,7 +35,9 @@ COPY pkg/ ./pkg/
 COPY market-data/main.go market-data/validation.go ./
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -installsuffix cgo -o market-data-service .
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=shorted-gobuild,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -installsuffix cgo -o market-data-service .
 
 # Runtime stage
 FROM alpine:3.19

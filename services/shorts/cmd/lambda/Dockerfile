@@ -21,7 +21,9 @@ RUN --mount=type=secret,id=github_token \
 COPY management ./management
 COPY gen ./gen
 COPY pkg ./pkg
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -tags lambda.norpc -o main management/cmd/lambda/main.go
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=shorted-gobuild,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -tags lambda.norpc -o main management/cmd/lambda/main.go
 
 FROM public.ecr.aws/lambda/provided:al2
 COPY --from=build /helloworld/main ./main

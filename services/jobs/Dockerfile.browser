@@ -54,7 +54,9 @@ COPY . .
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
 RUN [ -f /tmp/jobs.go.mod.stealth ] && cp /tmp/jobs.go.mod.stealth jobs/go.mod || true
 
-RUN cd jobs && GOTOOLCHAIN=auto GOWORK=off CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /shorted ./cmd/shorted
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=shorted-gobuild,target=/root/.cache/go-build \
+    cd jobs && GOTOOLCHAIN=auto GOWORK=off CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /shorted ./cmd/shorted
 
 # Runtime: Debian, because Playwright's Chromium build is glibc-linked.
 FROM debian:bookworm-slim
