@@ -78,6 +78,14 @@ jobs:
           workload_identity_provider: ${{ matrix.wip_provider }}
           service_account: ${{ matrix.sa_email }}
 
+      # auth only obtains credentials; it does not install the CLI. Every step
+      # in this workflow shells out to gcloud, so without this the job depends
+      # on whichever self-hosted runner happens to pick it up already having it.
+      # A 2026-09-08 run failed with "gcloud: command not found" while the
+      # scheduled run hours earlier succeeded, purely on runner assignment.
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
       - name: Enforce minScale=0 on all services
         env:
           PROJECT: ${{ matrix.project }}
@@ -143,6 +151,14 @@ jobs:
         with:
           workload_identity_provider: ${{ matrix.wip_provider }}
           service_account: ${{ matrix.sa_email }}
+
+      # auth only obtains credentials; it does not install the CLI. Every step
+      # in this workflow shells out to gcloud, so without this the job depends
+      # on whichever self-hosted runner happens to pick it up already having it.
+      # A 2026-09-08 run failed with "gcloud: command not found" while the
+      # scheduled run hours earlier succeeded, purely on runner assignment.
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Clean up old Docker images
         env:
@@ -258,6 +274,14 @@ jobs:
         with:
           workload_identity_provider: ${{ matrix.wip_provider }}
           service_account: ${{ matrix.sa_email }}
+
+      # auth only obtains credentials; it does not install the CLI. Every step
+      # in this workflow shells out to gcloud, so without this the job depends
+      # on whichever self-hosted runner happens to pick it up already having it.
+      # A 2026-09-08 run failed with "gcloud: command not found" while the
+      # scheduled run hours earlier succeeded, purely on runner assignment.
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
 
       # The version-selection logic lives in scripts/secret-version-cleanup.sh
       # so it can be unit tested (scripts/secret-version-cleanup.test.mjs).
