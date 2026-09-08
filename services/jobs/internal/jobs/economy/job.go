@@ -42,11 +42,11 @@ import (
 // (`-mode retail`) and the source stays registered, so a backfill or an
 // upstream revival needs no code change.
 var allJobModes = []string{
-	"rba", "cpi", "labour", "trade", "gdp", "approvals", "population",
+	"rba", "fred", "cpi", "labour", "trade", "gdp", "approvals", "population",
 	"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived", "correlations",
 }
 
-const modeList = "sources|freshness|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|spending|lending|construction|business|crime|markets|derived|correlations|all"
+const modeList = "sources|freshness|rba|fred|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|spending|lending|construction|business|crime|markets|derived|correlations|all"
 
 // Job returns the `shorted economy` subcommand.
 //
