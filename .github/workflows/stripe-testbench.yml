@@ -9,7 +9,7 @@ on:
 jobs:
   stripe-testbench:
     name: Stripe Test-Mode Checkout Smoke
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     env:
       STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
       STRIPE_TEST_PRO_PRICE_ID: ${{ secrets.STRIPE_TEST_PRO_PRICE_ID }}

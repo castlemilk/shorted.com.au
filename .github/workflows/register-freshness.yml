@@ -34,7 +34,7 @@ permissions:
 
 jobs:
   freshness:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 20
     steps:
       - name: Authenticate to Google Cloud

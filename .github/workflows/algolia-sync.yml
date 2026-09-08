@@ -29,9 +29,7 @@ env:
 jobs:
   sync-algolia:
     name: Sync Algolia Index
-    runs-on: ubuntu-latest
-    
-    # Only run if:
+    runs-on: [self-hosted, cuttlefish, linux]
     # - Manual trigger OR
     # - Scheduled run OR
     # - Daily Sync completed successfully

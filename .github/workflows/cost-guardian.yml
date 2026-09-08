@@ -52,7 +52,7 @@ env:
 jobs:
   enforce-scaling:
     if: ${{ github.event_name == 'schedule' || inputs.secrets_only != true }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     strategy:
       matrix:
         include:
@@ -118,7 +118,7 @@ jobs:
 
   cleanup-artifact-registry:
     if: ${{ github.event_name == 'schedule' || inputs.secrets_only != true }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     strategy:
       matrix:
         include:
@@ -230,7 +230,7 @@ jobs:
           echo "=== Cleanup complete: deleted $TOTAL_DELETED image versions ==="
 
   cleanup-secret-versions:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     strategy:
       matrix:
         include:

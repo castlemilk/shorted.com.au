@@ -45,7 +45,7 @@ on:
 
 jobs:
   determine-command:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     outputs:
       command: ${{ steps.resolve.outputs.command }}
       mode: ${{ steps.resolve.outputs.mode }}
@@ -71,7 +71,7 @@ jobs:
   post:
     needs: determine-command
     if: needs.determine-command.outputs.command != ''
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     defaults:
       run:
         working-directory: scripts/twitter

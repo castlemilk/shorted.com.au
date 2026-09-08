@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   edge-errors:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5

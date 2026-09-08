@@ -39,7 +39,7 @@ env:
 jobs:
   perf-budget:
     name: Bundle budget + Lighthouse
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 30
     defaults:
       run:
