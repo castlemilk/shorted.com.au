@@ -92,11 +92,40 @@ def vector(args) -> None:
     layer = load_layer(args.layer_dir)
     suburbs = load_suburbs(args.suburbs)
     state = polygonal(shapely.union_all(suburbs.geometry.values, grid_size=0.01))
-    dissolved = polygonal(shapely.union_all(layer.values, grid_size=0.01).intersection(state, grid_size=0.01))
+    if args.raster_m:
+        # A GEOS union of 235,000 parcel polygons (NSW bush fire prone land)
+        # exhausts memory. Burning them onto a coarse grid and polygonising is
+        # bounded by the state's extent instead, and at 1–48× map zoom a 60 m
+        # cell is below what the reader can see anyway.
+        dissolved = rasterised_union(layer.values, state, args.raster_m)
+    else:
+        dissolved = polygonal(shapely.union_all(layer.values, grid_size=0.01).intersection(state, grid_size=0.01))
     simplified = dissolved.simplify(SIMPLIFY_M, preserve_topology=True)
     cleaned = drop_small_parts(simplified, MIN_PART_M2)
     write_geojson(cleaned, args.layer, args.out, {"source_polygons": int(len(layer))})
     print(f"wrote {args.out}: {len(layer)} polygons -> {cleaned.area / 1e6:.0f} km²")
+
+
+def rasterised_union(geoms, state, cell_m: float):
+    """Union by rasterisation: burn every polygon onto a cell_m grid over the
+    state, mask to the state, polygonise. Memory is the grid, not the input."""
+    import rasterio
+    from rasterio.features import geometry_mask, rasterize, shapes
+    from shapely.geometry import shape
+    import shapely
+
+    from vector_share import polygonal
+
+    minx, miny, maxx, maxy = state.bounds
+    width = int(np.ceil((maxx - minx) / cell_m))
+    height = int(np.ceil((maxy - miny) / cell_m))
+    transform = rasterio.Affine(cell_m, 0, minx, 0, -cell_m, maxy)
+    grid = rasterize(((g, 1) for g in geoms if not g.is_empty), out_shape=(height, width),
+                     transform=transform, fill=0, dtype="uint8", all_touched=False)
+    inside = ~geometry_mask([state.__geo_interface__], out_shape=(height, width), transform=transform)
+    grid &= inside.astype("uint8")
+    polys = [shape(g) for g, v in shapes(grid, mask=grid.astype(bool), transform=transform) if v]
+    return polygonal(shapely.union_all(polys)) if polys else shapely.geometry.MultiPolygon()
 
 
 def coarse_mask(ds, window, transform, conf_ds=None):
@@ -166,6 +195,7 @@ def main() -> None:
     v.add_argument("--layer", required=True, choices=["flood_planning", "bushfire_prone"])
     v.add_argument("--suburbs", type=Path, required=True)
     v.add_argument("--out", type=Path, required=True)
+    v.add_argument("--raster-m", type=float, default=0, help="rasterise-then-polygonise at this cell size instead of a GEOS union")
     w = sub.add_parser("wofs")
     w.add_argument("--vrt", type=Path, required=True)
     w.add_argument("--suburbs", type=Path, required=True)

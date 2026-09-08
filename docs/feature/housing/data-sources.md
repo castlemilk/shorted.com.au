@@ -163,7 +163,14 @@ rules, each of which is a wording rule as much as a data rule:
   events, so it under-observes flood peaks — a floor on inundation, not a
   ceiling, and never a probability. Permanent water (≥90% of clear passes:
   lakes, rivers, the sea) is a separate share so the coast is not painted as
-  flooding.
+  flooding. The frequency is masked with **DEA's WOfS confidence layer**
+  (filtered summary v2.1.0, cutoff 0.1; cells below it count as dry land, not as
+  missing) because the classifier reads tower shadow as water: unmasked, the
+  Sydney CBD came out at 44% "observed", Canberra City at 8%. Masked, Canberra
+  City is 0.6% — but the Sydney CBD stays near 23%, and DEA's own published
+  filtered product agrees (~21% of its retained cells are in the 5–90% band),
+  so it is a limitation of the source, stated in the layer's caveat, not a
+  defect to tune away.
 - **Statutory layers are planning-control boundaries, not flood extents.** NSW's
   EPI Flood layer is whatever councils have lodged (614 polygons statewide, with
   a comment field warning it may lag the latest study); VIC's LSIO/FO/SBO are

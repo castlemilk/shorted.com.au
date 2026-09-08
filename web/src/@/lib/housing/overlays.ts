@@ -54,7 +54,7 @@ export const OVERLAYS: readonly OverlayDef[] = [
     color: "#1c9c9c",
     states: ALL_STATES_WITH_WATER,
     source: "DEA Water Observations Statistics (Geoscience Australia)",
-    caveat: "Land where Landsat saw water in at least 1% of clear passes since 1987, excluding permanent water. Satellites miss flood peaks, so this is a floor, not a risk estimate.",
+    caveat: "Land where Landsat saw water in at least 1% of clear passes since 1987, excluding permanent water and filtered by DEA's confidence layer. Satellites miss flood peaks, so this is a floor, not a risk estimate; dense high-rise cores can still register tower shadow as water.",
   },
   {
     key: "bushfire_prone",
