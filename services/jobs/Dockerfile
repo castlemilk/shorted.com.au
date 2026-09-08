@@ -21,7 +21,8 @@
 # GitHub-token branch before the token was ever consulted. The bind-mount branch
 # ADDS the replace here; the token branch needs none.
 FROM scratch AS stealth
-FROM golang:1.26.0 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0 AS builder
+ARG TARGETOS TARGETARCH
 
 WORKDIR /app
 
@@ -54,7 +55,7 @@ RUN [ -f /tmp/jobs.go.mod.stealth ] && cp /tmp/jobs.go.mod.stealth jobs/go.mod |
 
 # Build in module mode: the workspace file (go.work) is irrelevant here and
 # GOWORK=off keeps the image build independent of sibling modules.
-RUN cd jobs && GOTOOLCHAIN=auto GOWORK=off CGO_ENABLED=0 GOOS=linux go build -o /shorted ./cmd/shorted
+RUN cd jobs && GOTOOLCHAIN=auto GOWORK=off CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /shorted ./cmd/shorted
 
 FROM gcr.io/distroless/static-debian12
 

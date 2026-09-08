@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM scratch AS stealth
 # Build stage
-FROM golang:1.26.0-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0-alpine AS builder
+ARG TARGETOS TARGETARCH
 
 # Install build dependencies
 RUN apk add --no-cache git
@@ -32,7 +33,7 @@ COPY . ./
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o shorts-service ./shorts/cmd/server
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -installsuffix cgo -o shorts-service ./shorts/cmd/server
 
 # Runtime stage
 FROM alpine:3.19

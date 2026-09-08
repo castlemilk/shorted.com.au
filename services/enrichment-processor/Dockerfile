@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM scratch AS stealth
 # Builder stage
-FROM golang:1.26.0-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0-alpine AS builder
+ARG TARGETOS TARGETARCH
 
 RUN apk add --no-cache git
 
@@ -30,7 +31,7 @@ COPY . .
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o enrichment-processor ./enrichment-processor
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o enrichment-processor ./enrichment-processor
 
 # Final stage
 FROM python:3.11-slim-bookworm

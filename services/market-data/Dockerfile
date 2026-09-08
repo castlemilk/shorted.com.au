@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM scratch AS stealth
 # Build stage
-FROM golang:1.26.0-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0-alpine AS builder
+ARG TARGETOS TARGETARCH
 
 WORKDIR /build
 
@@ -34,7 +35,7 @@ COPY pkg/ ./pkg/
 COPY market-data/main.go market-data/validation.go ./
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o market-data-service .
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -installsuffix cgo -o market-data-service .
 
 # Runtime stage
 FROM alpine:3.19

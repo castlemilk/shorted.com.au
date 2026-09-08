@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM scratch AS stealth
-FROM golang:1.26.0-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0-alpine AS builder
+ARG TARGETOS TARGETARCH
 
 RUN apk add --no-cache git
 
@@ -26,7 +27,7 @@ COPY . .
 # Restore go.mod with replace directive if using local stealth source
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o weekly-report-generator ./weekly-report-generator
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o weekly-report-generator ./weekly-report-generator
 
 FROM alpine:3.19
 

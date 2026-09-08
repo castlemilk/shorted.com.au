@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM scratch AS stealth
-FROM golang:1.26.0 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0 AS builder
+ARG TARGETOS TARGETARCH
 
 WORKDIR /app
 
@@ -29,7 +30,7 @@ COPY . .
 # Restore go.mod with the replace directive if using local stealth source.
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /influence-collector ./influence-collector/
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /influence-collector ./influence-collector/
 
 FROM gcr.io/distroless/static-debian12
 
