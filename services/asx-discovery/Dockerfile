@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM scratch AS stealth
 # Build stage
-FROM golang:1.26.0-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0-alpine AS builder
+ARG TARGETOS TARGETARCH
 
 RUN apk add --no-cache git
 
@@ -35,7 +36,7 @@ COPY pkg/ pkg/
 COPY asx-discovery/ asx-discovery/
 
 # Build the application from the workspace
-RUN cd asx-discovery && CGO_ENABLED=0 GOOS=linux go build -o /app/asx-discovery .
+RUN cd asx-discovery && CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /app/asx-discovery .
 
 # Final stage - use a Debian-based image for Playwright browser support
 FROM debian:bookworm-slim

@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM scratch AS stealth
-FROM golang:1.26.0 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0 AS builder
+ARG TARGETOS TARGETARCH
 
 WORKDIR /app
 
@@ -27,7 +28,7 @@ COPY . .
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
 
 # Build the chat service
-RUN CGO_ENABLED=0 GOOS=linux go build -o /chat-service ./chat-service/
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /chat-service ./chat-service/
 
 # Final image
 FROM gcr.io/distroless/static-debian12:nonroot

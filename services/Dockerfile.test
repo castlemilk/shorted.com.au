@@ -4,7 +4,8 @@
 # Default empty stage for local stealth source (overridden by --build-context stealth=...)
 FROM scratch AS stealth
 
-FROM golang:1.26.0-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0-alpine AS builder
+ARG TARGETOS TARGETARCH
 
 # Install necessary tools
 RUN apk add --no-cache git curl build-base

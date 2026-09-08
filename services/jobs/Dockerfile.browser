@@ -22,7 +22,8 @@
 # The stealth stage/private-module dance is identical to ./Dockerfile — see the
 # comment block there for why neither go.mod carries a checked-in replace.
 FROM scratch AS stealth
-FROM golang:1.26.0 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0 AS builder
+ARG TARGETOS TARGETARCH
 
 WORKDIR /app
 
@@ -53,7 +54,7 @@ COPY . .
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
 RUN [ -f /tmp/jobs.go.mod.stealth ] && cp /tmp/jobs.go.mod.stealth jobs/go.mod || true
 
-RUN cd jobs && GOTOOLCHAIN=auto GOWORK=off CGO_ENABLED=0 GOOS=linux go build -o /shorted ./cmd/shorted
+RUN cd jobs && GOTOOLCHAIN=auto GOWORK=off CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /shorted ./cmd/shorted
 
 # Runtime: Debian, because Playwright's Chromium build is glibc-linked.
 FROM debian:bookworm-slim

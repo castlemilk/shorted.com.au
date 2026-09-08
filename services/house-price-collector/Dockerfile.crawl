@@ -46,7 +46,8 @@
 #     via the VIC official tier; same PAT/bind pattern as ../Dockerfile) ---
 FROM scratch AS stealth
 
-FROM golang:1.26.0 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0 AS builder
+ARG TARGETOS TARGETARCH
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN --mount=type=secret,id=github_token \
@@ -62,7 +63,7 @@ RUN --mount=type=secret,id=github_token \
     rm -f ~/.gitconfig
 COPY . .
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
-RUN CGO_ENABLED=0 GOOS=linux go build -o /collector ./house-price-collector/
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /collector ./house-price-collector/
 
 # --- runtime: Debian slim + Node + the Playwright-go DRIVER ONLY (no browser) ---
 FROM debian:bookworm-slim

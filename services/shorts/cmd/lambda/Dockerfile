@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM scratch AS stealth
-FROM golang:1.26.0 as build
+FROM --platform=$BUILDPLATFORM golang:1.26.0
+ARG TARGETOS TARGETARCH as build
 WORKDIR /helloworld
 # Copy dependencies list
 COPY go.mod go.sum ./
@@ -20,7 +21,7 @@ RUN --mount=type=secret,id=github_token \
 COPY management ./management
 COPY gen ./gen
 COPY pkg ./pkg
-RUN CGO_ENABLED=0 GOOS=linux go build -tags lambda.norpc -o main management/cmd/lambda/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -tags lambda.norpc -o main management/cmd/lambda/main.go
 
 FROM public.ecr.aws/lambda/provided:al2
 COPY --from=build /helloworld/main ./main

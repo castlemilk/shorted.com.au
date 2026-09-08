@@ -1,5 +1,6 @@
 # Build stage
-FROM golang:1.26.0-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0-alpine AS builder
+ARG TARGETOS TARGETARCH
 
 WORKDIR /app
 # Copy go mod files from market-data-sync subdirectory
@@ -10,7 +11,7 @@ RUN go mod download
 COPY market-data-sync/ .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o market-data-sync .
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o market-data-sync .
 
 # Final stage
 FROM alpine:3.19
