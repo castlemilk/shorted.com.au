@@ -10,13 +10,13 @@ import {
   HIGHLIGHT_METRICS, METRIC_BY_KEY, METRIC_ICON, amberScale, type MetricKey, type HighlightMetric,
 } from "@/lib/housing/highlight-metrics";
 import {
-  OVERLAY_BY_KEY, overlayAvailable, parseOverlayParam, serializeOverlayParam, type OverlayKey,
+  OVERLAYS, OVERLAY_BY_KEY, overlayAvailable, parseOverlayParam, serializeOverlayParam, type OverlayKey,
 } from "@/lib/housing/overlays";
 import { HousingIcon } from "./housing-icon";
 import { useTopojson } from "./use-topojson";
 import { useSuburbColumns } from "./use-suburb-columns";
 import { useOverlayLayers } from "./use-overlay-layers";
-import { OverlayControl, OverlayLegend } from "./overlay-control";
+import { OverlayControl, OverlayLegend, type OverlayOpacities } from "./overlay-control";
 import { SuburbTooltip, type TooltipExtra } from "./suburb-tooltip";
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue,
@@ -52,6 +52,29 @@ const TOOLTIP_H = 260;
 const ROW_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind !== "column");
 const TERRAIN_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind === "column" && m.group === "terrain");
 const HAZARD_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind === "column" && m.group === "hazard");
+
+// Per-viewer overlay opacities. A convenience, not state worth a URL: the
+// right weighting depends on the reader's display, so it is remembered here
+// and never shared. Reads/writes are wrapped because storage can throw.
+const OPACITY_STORAGE_KEY = "housing.overlay.opacity";
+function readOpacities(): OverlayOpacities {
+  try {
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem(OPACITY_STORAGE_KEY) : null;
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: OverlayOpacities = {};
+    for (const o of OVERLAYS) {
+      const v = parsed[o.key];
+      if (typeof v === "number" && v >= 0.1 && v <= 0.9) out[o.key] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+function writeOpacities(next: OverlayOpacities) {
+  try { window.localStorage.setItem(OPACITY_STORAGE_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+}
 
 function isMetricKey(value: string | null): value is MetricKey {
   return value !== null && value in METRIC_BY_KEY;
@@ -91,6 +114,14 @@ export function StateSuburbMap({
   const deepLinkedMetric = searchParams.get("metric");
   const [metricKey, setMetricKey] = useState<MetricKey>(isMetricKey(deepLinkedMetric) ? deepLinkedMetric : "price");
   const [overlays, setOverlays] = useState<OverlayKey[]>(() => parseOverlayParam(searchParams.get("overlays")));
+  const [opacities, setOpacities] = useState<OverlayOpacities>(() => readOpacities());
+  const setOpacity = useCallback((key: OverlayKey, opacity: number) => {
+    setOpacities((prev) => {
+      const next = { ...prev, [key]: opacity };
+      writeOpacities(next);
+      return next;
+    });
+  }, []);
   const [mapReady, setMapReady] = useState(false);
   const metric: HighlightMetric = METRIC_BY_KEY[metricKey];
 
@@ -145,7 +176,8 @@ export function StateSuburbMap({
     return [...keys];
   }, [metric, activeOverlays]);
   const columns = useSuburbColumns(stateCode, columnKeys);
-  const overlayLayers = useOverlayLayers(stateCode, activeOverlays);
+  const overlayLayers = useOverlayLayers(stateCode, activeOverlays, opacities);
+  const removeOverlay = useCallback((key: OverlayKey) => selectOverlays(overlays.filter((k) => k !== key)), [overlays, selectOverlays]);
 
   const byCode = useMemo(() => new Map(suburbs.map((s) => [s.salCode, s])), [suburbs]);
 
@@ -266,7 +298,10 @@ export function StateSuburbMap({
           </SelectGroup>
         </SelectContent>
       </Select>
-      <OverlayControl stateCode={stateCode} active={overlays} onChange={selectOverlays} />
+      <OverlayControl
+        stateCode={stateCode} active={overlays} opacities={opacities} loading={overlayLayers.loadingKeys}
+        onChange={selectOverlays} onOpacityChange={setOpacity}
+      />
     </div>
   );
 
@@ -312,7 +347,7 @@ export function StateSuburbMap({
   const legend = (
     <div className="flex flex-col gap-1.5">
       {colourLegend}
-      <OverlayLegend stateCode={stateCode} active={overlays} />
+      <OverlayLegend stateCode={stateCode} active={overlays} opacities={opacities} onRemove={removeOverlay} />
     </div>
   );
 

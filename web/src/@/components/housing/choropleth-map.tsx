@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import { zoom as d3zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior } from "d3-zoom";
 import { select } from "d3-selection";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Feature, Geometry } from "geojson";
+import { gestureCss, gestureIsIdentity } from "@/lib/housing/map-gesture";
 import { ParentSize } from "@visx/responsive";
 
 /** Fill for a feature: hatch sentinel when no data, else the colour scale. */
@@ -111,6 +112,8 @@ function ChoroplethInner({
 }: ChoroplethMapProps & { width: number; height: number }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
+  // Two maps on one page (explorer + locator) must not share clip ids.
+  const clipId = useId().replace(/:/g, "");
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const initialTransformRef = useRef(zoomIdentity);
   const [localHover, setLocalHover] = useState<string | null>(null);
@@ -121,7 +124,7 @@ function ChoroplethInner({
   // recompute the projection or reset the zoom. `fitData` is the stable set the
   // overview frames to (the priced cluster), falling back to valueById.
   const fitData = fitValueById ?? valueById;
-  const { features, pathFor, pathForGeo, initialTransform, byId, focusTransformFor } = useMemo(() => {
+  const { features, pathById, pathForGeo, initialTransform, byId, focusTransformFor } = useMemo(() => {
     const obj = topology.objects[objectName] as GeometryCollection;
     const fc = feature(topology, obj) as unknown as { features: Feature<Geometry>[] };
     const projection = geoMercator().fitSize([width, height], {
@@ -129,7 +132,11 @@ function ChoroplethInner({
     } as never);
     const path = geoPath(projection);
     const idMap = new Map<string, Feature<Geometry>>();
-    for (const f of fc.features) idMap.set(String(f.id), f);
+    const dMap = new Map<string, string>();
+    for (const f of fc.features) {
+      idMap.set(String(f.id), f);
+      dMap.set(String(f.id), path(f) ?? "");
+    }
 
     const fitBoundsOf = (geo: unknown, padding: number, cap: number) => {
       const [[x0, y0], [x1, y1]] = path.bounds(geo as never);
@@ -157,7 +164,7 @@ function ChoroplethInner({
     return {
       features: fc.features,
       byId: idMap,
-      pathFor: (f: Feature<Geometry>) => path(f) ?? "",
+      pathById: dMap,
       pathForGeo: (geo: Geometry) => path(geo as never) ?? "",
       initialTransform: transform,
       focusTransformFor: (id: string) => {
@@ -186,19 +193,42 @@ function ChoroplethInner({
   focusTransformForRef.current = focusTransformFor;
 
   // d3-zoom + pan, with the computed initial framing.
+  //
+  // Smoothness: during a gesture the live transform is applied as a CSS
+  // transform on the SVG (GPU-composited: the raster is scaled, not redrawn);
+  // the exact `<g transform>` is committed only on "end", so the browser
+  // re-rasterises the 4,500 suburb paths once per gesture rather than once per
+  // frame. See lib/housing/map-gesture.ts for the maths and the measurement.
+  const committedRef = useRef(zoomIdentity);
   useEffect(() => {
     if (!interactive || !svgRef.current || !gRef.current) return;
     const g = select(gRef.current);
     const svg = select(svgRef.current);
+    const svgEl = svgRef.current;
+    const commit = (t: typeof zoomIdentity) => {
+      committedRef.current = t;
+      g.attr("transform", t.toString());
+      svgEl.style.transform = "";
+    };
     const zoomBehavior = d3zoom<SVGSVGElement, unknown>()
       .scaleExtent([1, MAX_SCALE])
-      .on("zoom", (e: D3ZoomEvent<SVGSVGElement, unknown>) =>
-        g.attr("transform", e.transform.toString()));
+      .on("start", (e: D3ZoomEvent<SVGSVGElement, unknown>) => {
+        // A wheel gesture can start before the previous one's "end" committed.
+        if (svgEl.style.transform) commit(e.transform);
+      })
+      .on("zoom", (e: D3ZoomEvent<SVGSVGElement, unknown>) => {
+        if (gestureIsIdentity(committedRef.current, e.transform)) { svgEl.style.transform = ""; return; }
+        svgEl.style.transform = gestureCss(committedRef.current, e.transform);
+      })
+      .on("end", (e: D3ZoomEvent<SVGSVGElement, unknown>) => commit(e.transform));
     zoomRef.current = zoomBehavior;
     svg.call(zoomBehavior);
     svg.on("dblclick.zoom", null);
+    svgEl.style.transformOrigin = "0 0";
+    svgEl.style.willChange = "transform";
     // apply initial framing without animation
     zoomBehavior.transform(svg, initialTransformRef.current);
+    commit(initialTransformRef.current);
     return () => { svg.on(".zoom", null); zoomRef.current = null; };
   }, [interactive, width, height, initialTransform]);
 
@@ -235,55 +265,42 @@ function ChoroplethInner({
       select(svgRef.current).transition().duration(dur), initialTransformRef.current);
   };
 
-  const setHover = (id: string | null, evt?: React.PointerEvent) => {
+  // Stable handlers: the memoised paths must not see a new callback on every
+  // parent render (the tooltip position updates on every pointer move), or the
+  // memo buys nothing.
+  const onClickRef = useRef(onFeatureClick); onClickRef.current = onFeatureClick;
+  const onHoverRef = useRef(onFeatureHover); onHoverRef.current = onFeatureHover;
+  const handleClick = useCallback((id: string) => onClickRef.current?.(id), []);
+  const handleHover = useCallback((id: string | null, evt?: React.PointerEvent) => {
     setLocalHover(id);
-    onFeatureHover?.(id, evt);
-  };
+    onHoverRef.current?.(id, evt);
+  }, []);
+  const clickable = interactive && !!onFeatureClick;
 
-  const renderPath = (f: Feature<Geometry>, opts: { overlay?: boolean }) => {
-    const id = String(f.id);
+  // No-data suburbs get a SOLID muted fill; the hatch is painted once over all
+  // of them through a single clip path (below). A pattern fill per path made
+  // the browser instantiate the pattern 4,500 times on every repaint — the
+  // default NSW view (12 priced suburbs) measured p95 hover 200 ms and wheel
+  // zoom 217 ms; a solid fill measured 33 ms and 17 ms. Same look, one paint.
+  const NO_DATA_FILL = "hsl(var(--muted))";
+  const fillFor = (id: string): { fill: string; hasData: boolean } => {
+    if (categoryById) {
+      const cat = categoryById.get(id);
+      const c = cat != null ? categoryColor?.(cat) : undefined;
+      return { fill: c ?? NO_DATA_FILL, hasData: cat != null && c != null };
+    }
     const v = valueById.get(id);
-    const cat = categoryById?.get(id);
-    const hasData = categoryById ? cat != null : v != null;
-    const baseFill = categoryById
-      ? (cat != null ? (categoryColor?.(cat) ?? "url(#nodata-hatch)") : "url(#nodata-hatch)")
-      : featureFill(v, colorScale);
-    const selected = id === selectedId;
-    const hovered = id === hoveredId;
-    const emphasized = selected || hovered;
-    return (
-      <path
-        key={opts.overlay ? `o-${id}` : id}
-        d={pathFor(f)}
-        fill={opts.overlay ? "none" : baseFill}
-        strokeWidth={selected ? 1.6 : hovered ? 1.2 : 0.4}
-        style={{
-          cursor: interactive && onFeatureClick ? "pointer" : "default",
-          stroke: emphasized ? "hsl(var(--foreground))" : "hsl(var(--border))",
-          // strokeWidth is in user-space units; the group is d3-zoomed up to 48×, so
-          // a 1.6u emphasis stroke renders ~22px wide and swallows small suburbs into
-          // a solid dark blob. Pin stroke to screen px so it stays a crisp outline.
-          vectorEffect: "non-scaling-stroke",
-          pointerEvents: opts.overlay ? "none" : undefined,
-          // SVG focus outlines render as the path's rectangular bbox ("square") —
-          // suppress it; keyboard focus is shown via the stroke highlight (onFocus).
-          outline: "none",
-          transition: prefersReducedMotion() ? undefined : "stroke-width 120ms ease",
-        }}
-        tabIndex={interactive && onFeatureClick && hasData ? 0 : -1}
-        role={interactive && onFeatureClick ? "button" : undefined}
-        aria-label={nameById?.get(id) ?? id}
-        onClick={interactive ? () => onFeatureClick?.(id) : undefined}
-        onKeyDown={interactive ? (e) => {
-          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onFeatureClick?.(id); }
-        } : undefined}
-        onFocus={interactive ? () => setHover(id) : undefined}
-        onBlur={interactive ? () => setHover(null) : undefined}
-        onPointerMove={interactive ? (e) => setHover(id, e) : undefined}
-        onPointerLeave={interactive ? () => setHover(null) : undefined}
-      />
-    );
+    return v == null ? { fill: NO_DATA_FILL, hasData: false } : { fill: colorScale(v), hasData: true };
   };
+  const noDataClip = useMemo(() => {
+    const parts: string[] = [];
+    for (const f of features) {
+      const id = String(f.id);
+      if (!fillFor(id).hasData) parts.push(pathById.get(id) ?? "");
+    }
+    return parts.join(" ");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fillFor is derived from these
+  }, [features, pathById, valueById, categoryById, categoryColor]);
 
   // overlay the emphasized features on top so their thicker stroke isn't clipped.
   // dedupe: hoveredId often === selectedId, which would emit duplicate React keys
@@ -304,25 +321,45 @@ function ChoroplethInner({
             <rect width={6} height={6} style={{ fill: "hsl(var(--muted))" }} />
             <line x1={0} y1={0} x2={0} y2={6} strokeWidth={1} style={{ stroke: "hsl(var(--border))" }} />
           </pattern>
+          {noDataClip ? (
+            <clipPath id={`${clipId}-nodata`}>
+              <path d={noDataClip} />
+            </clipPath>
+          ) : null}
         </defs>
         <g ref={gRef}>
-          {features.map((f) => renderPath(f, {}))}
+          {features.map((f) => {
+            const id = String(f.id);
+            const { fill, hasData } = fillFor(id);
+            return (
+              <SuburbPath
+                key={id} id={id} d={pathById.get(id) ?? ""} fill={fill} hasData={hasData}
+                name={nameById?.get(id) ?? id}
+                selected={id === selectedId} hovered={id === hoveredId}
+                interactive={interactive} clickable={clickable}
+                onClick={handleClick} onHover={handleHover}
+              />
+            );
+          })}
+          {noDataClip ? (
+            <rect
+              x={0} y={0} width={width} height={height}
+              fill="url(#nodata-hatch)" clipPath={`url(#${clipId}-nodata)`}
+              style={{ pointerEvents: "none" }}
+            />
+          ) : null}
           {overlayPaths.map((layer) => (
-            <g key={`overlay-${layer.key}`} data-overlay={layer.key} style={{ pointerEvents: "none" }}>
-              {layer.d.map((d, i) => (
-                <path
-                  key={i} d={d}
-                  fill={layer.color} fillOpacity={layer.opacity ?? DEFAULT_OVERLAY_OPACITY}
-                  stroke={layer.color} strokeWidth={0.6} strokeOpacity={0.9}
-                  style={{ vectorEffect: "non-scaling-stroke" }}
-                />
-              ))}
-            </g>
+            <OverlayLayerPaths key={`overlay-${layer.key}`} layerKey={layer.key} color={layer.color} opacity={layer.opacity} d={layer.d} />
           ))}
           {emphasizedIds
-            .map((id) => byId.get(id))
-            .filter((f): f is Feature<Geometry> => !!f)
-            .map((f) => renderPath(f, { overlay: true }))}
+            .filter((id) => byId.has(id))
+            .map((id) => (
+              <SuburbPath
+                key={`o-${id}`} id={id} d={pathById.get(id) ?? ""} fill="none" hasData
+                name={nameById?.get(id) ?? id} selected={id === selectedId} hovered={id === hoveredId}
+                interactive={false} clickable={false} overlay
+              />
+            ))}
         </g>
       </svg>
 
@@ -340,6 +377,70 @@ function ChoroplethInner({
     </>
   );
 }
+
+/**
+ * One suburb. Memoised on primitive props so a hover re-renders the two paths
+ * whose emphasis changed, not the whole state (measured 2026-09-09: p95 hover
+ * frame 233 ms for NSW before, with every path re-rendered per pointer move).
+ */
+const SuburbPath = memo(function SuburbPath({
+  id, d, fill, hasData, name, selected, hovered, interactive, clickable, overlay = false, onClick, onHover,
+}: {
+  id: string; d: string; fill: string; hasData: boolean; name: string;
+  selected: boolean; hovered: boolean; interactive: boolean; clickable: boolean; overlay?: boolean;
+  onClick?: (id: string) => void;
+  onHover?: (id: string | null, evt?: React.PointerEvent) => void;
+}) {
+  const emphasized = selected || hovered;
+  return (
+    <path
+      d={d}
+      fill={fill}
+      strokeWidth={selected ? 1.6 : hovered ? 1.2 : 0.4}
+      style={{
+        cursor: clickable ? "pointer" : "default",
+        stroke: emphasized ? "hsl(var(--foreground))" : "hsl(var(--border))",
+        // strokeWidth is in user-space units; the group is d3-zoomed up to 48×, so
+        // a 1.6u emphasis stroke renders ~22px wide and swallows small suburbs into
+        // a solid dark blob. Pin stroke to screen px so it stays a crisp outline.
+        vectorEffect: "non-scaling-stroke",
+        pointerEvents: overlay ? "none" : undefined,
+        // SVG focus outlines render as the path's rectangular bbox ("square") —
+        // suppress it; keyboard focus is shown via the stroke highlight (onFocus).
+        outline: "none",
+      }}
+      tabIndex={clickable && hasData ? 0 : -1}
+      role={clickable ? "button" : undefined}
+      aria-label={name}
+      onClick={interactive ? () => onClick?.(id) : undefined}
+      onKeyDown={interactive ? (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(id); }
+      } : undefined}
+      onFocus={interactive ? () => onHover?.(id) : undefined}
+      onBlur={interactive ? () => onHover?.(null) : undefined}
+      onPointerMove={interactive ? (e) => onHover?.(id, e) : undefined}
+      onPointerLeave={interactive ? () => onHover?.(null) : undefined}
+    />
+  );
+});
+
+/** One overlay layer; memoised so a hover never re-serialises its geometry. */
+const OverlayLayerPaths = memo(function OverlayLayerPaths({
+  layerKey, color, opacity, d,
+}: { layerKey: string; color: string; opacity?: number; d: string[] }) {
+  return (
+    <g data-overlay={layerKey} style={{ pointerEvents: "none" }}>
+      {d.map((path, i) => (
+        <path
+          key={i} d={path}
+          fill={color} fillOpacity={opacity ?? DEFAULT_OVERLAY_OPACITY}
+          stroke={color} strokeWidth={0.6} strokeOpacity={Math.min(1, (opacity ?? DEFAULT_OVERLAY_OPACITY) + 0.5)}
+          style={{ vectorEffect: "non-scaling-stroke" }}
+        />
+      ))}
+    </g>
+  );
+});
 
 function ZoomBtn({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
   return (
