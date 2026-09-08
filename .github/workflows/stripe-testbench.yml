@@ -39,10 +39,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: "24"
-          cache: "npm"
-          cache-dependency-path: |
-            package-lock.json
-            web/package-lock.json
 
       - name: Install root dependencies
         if: steps.bench-guard.outputs.enabled == 'true'

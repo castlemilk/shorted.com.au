@@ -313,7 +313,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: services/go.mod
-          cache-dependency-path: services/go.sum
+          cache: false
 
       - name: Setup ko
         uses: ko-build/setup-ko@v0.9
@@ -1124,8 +1124,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: web/package-lock.json
 
       - name: Install frontend dependencies for release smoke
         working-directory: web
@@ -1209,9 +1207,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: |
-            services/go.sum
-            services/jobs/go.sum
+          cache: false
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
@@ -1247,10 +1243,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: |
-            services/go.sum
-            services/jobs/go.sum
-            test/integration/go.sum
+          cache: false
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
