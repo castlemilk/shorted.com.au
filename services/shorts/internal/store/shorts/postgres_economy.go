@@ -113,7 +113,7 @@ func (s *postgresStore) ListEconomicSeries(topic, metric, regionType, regionCode
 		ORDER BY es.series_key
 		LIMIT $6`
 
-	rows, err := s.db.Query(ctx, query, topic, metric, regionType, regionCode, product, limit)
+	rows, err := s.db.Query(ctx, query, topic, metric, regionType, regionCode, product, limit, includeInternal)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (s *postgresStore) GetEconomicSeries(seriesKeys []string, startPeriod time.
 	}
 	maxObservations = normalizeMaxObservations(maxObservations)
 
-	rows, err := s.db.Query(ctx, getEconomicSeriesQuery, seriesKeys, startPeriod, maxObservations)
+	rows, err := s.db.Query(ctx, getEconomicSeriesQuery, seriesKeys, startPeriod, maxObservations, includeInternal)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func (s *postgresStore) ListSeriesCorrelations(baseSeriesKey string, windowMonth
 	}
 	limit = normalizeCorrelationLimit(limit)
 
-	rows, err := s.db.Query(ctx, listSeriesCorrelationsQuery, baseSeriesKey, windowMonths, minAbsR, limit)
+	rows, err := s.db.Query(ctx, listSeriesCorrelationsQuery, baseSeriesKey, windowMonths, minAbsR, limit, includeInternal)
 	if err != nil {
 		return nil, err
 	}
