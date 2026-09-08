@@ -29,6 +29,18 @@ on:
         description: "Optional exact secret name to clean (blank means all secrets)"
         type: string
         default: ""
+      destroy_age_days:
+        description: >-
+          Minimum age, in days, before a disabled secret version may be
+          destroyed. Defaults to 90 and the scheduled run always uses 90;
+          only a manual dispatch can lower it.
+
+          Lower this to clear a backlog created by a known incident sooner
+          than the default window allows. The 2026-07-26 INTERNAL_SERVICE_SECRET
+          bug added a version per deploy; those versions are disabled and
+          still billing, but do not reach 90 days until late October.
+        type: string
+        default: "90"
       destroy_min_version:
         description: "Optional inclusive minimum version for destruction"
         type: string
@@ -280,6 +292,7 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
           DESTROY: ${{ (github.event_name == 'schedule' || inputs.destroy_old_secret_versions) && 'true' || 'false' }}
           SECRET_NAME: ${{ inputs.secret_name || '' }}
+          DESTROY_AGE_DAYS: ${{ github.event_name == 'schedule' && '90' || (inputs.destroy_age_days || '90') }}
           DESTROY_MIN_VERSION: ${{ inputs.destroy_min_version || '' }}
           DESTROY_MAX_VERSION: ${{ inputs.destroy_max_version || '' }}
           SKIP_DISABLE: ${{ inputs.skip_disable || 'false' }}
@@ -289,7 +302,7 @@ jobs:
             ARGS+=(--dry-run)
           fi
           if [ "$DESTROY" = "true" ]; then
-            ARGS+=(--destroy --destroy-age-days 90 --destroy-cap 200)
+            ARGS+=(--destroy --destroy-age-days "$DESTROY_AGE_DAYS" --destroy-cap 200)
           fi
           if [ -n "$SECRET_NAME" ]; then
             ARGS+=(--only-secret "$SECRET_NAME")
