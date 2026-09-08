@@ -37,7 +37,7 @@ concurrency:
 jobs:
   lint:
     name: golangci-lint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     steps:
       - uses: actions/checkout@v5
 
@@ -71,7 +71,7 @@ jobs:
 
   unit-tests:
     name: Go unit tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     steps:
       - uses: actions/checkout@v5
 

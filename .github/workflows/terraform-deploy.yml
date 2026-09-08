@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   determine-environment:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
       project-id: ${{ steps.set-env.outputs.project-id }}
@@ -73,7 +73,7 @@ jobs:
 
   validate-secrets:
     needs: determine-environment
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -211,7 +211,7 @@ jobs:
     needs: [determine-environment, validate-secrets]
     # PRs plan the production configuration without publishing images.
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     strategy:
       fail-fast: false
       matrix:
@@ -290,7 +290,7 @@ jobs:
   build-ko-images:
     needs: [determine-environment, validate-secrets]
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     strategy:
       matrix:
         service:
@@ -345,8 +345,7 @@ jobs:
       needs.validate-secrets.result == 'success' &&
       (needs.build-docker-images.result == 'success' || needs.build-docker-images.result == 'skipped') &&
       (needs.build-ko-images.result == 'success' || needs.build-ko-images.result == 'skipped')
-    runs-on: ubuntu-latest
-    # Serialize on the TFSTATE, not the PR. The workflow-level group only
+    runs-on: [self-hosted, cuttlefish, linux]
     # dedupes runs of the same ref, so two PRs (or a PR + a push to main)
     # planned against the same backend concurrently and collided on the GCS
     # state lock — three failed runs on 2026-08-22 alone, each needing a
@@ -501,8 +500,7 @@ jobs:
     # If a flaky test starts blocking deploys, fix or quarantine the test — do not
     # remove this edge, or the gate silently becomes decorative again.
     needs: [determine-environment, validate-secrets, terraform-plan, run-tests]
-    runs-on: ubuntu-latest
-    # Same tfstate serialization as terraform-plan (see the note there). An
+    runs-on: [self-hosted, cuttlefish, linux]
     # apply holds the lock far longer than a plan, so this is the job most
     # likely to be the one BLOCKING others — queueing is the intended
     # behaviour, not a failure.
@@ -918,8 +916,7 @@ jobs:
 
   deploy-vercel-prod:
     needs: [determine-environment, validate-secrets, terraform-apply]
-    runs-on: ubuntu-latest
-    # Deploy Vercel even if terraform-apply fails (e.g. non-critical service
+    runs-on: [self-hosted, cuttlefish, linux]
     # like market-data-sync fails startup probe). We query the shorts URL from
     # gcloud as a fallback so Vercel isn't blocked by Terraform failures.
     if: |
@@ -1195,7 +1192,7 @@ jobs:
           echo "- **Shorts API**: ${{ steps.resolve-urls.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
 
   housing-contract-tests:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     steps:
       - name: Checkout code
@@ -1233,7 +1230,7 @@ jobs:
 
   run-tests:
     needs: [determine-environment, build-docker-images, build-ko-images]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout code

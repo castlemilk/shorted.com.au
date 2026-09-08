@@ -15,7 +15,7 @@ on:
 jobs:
   smoke-test:
     name: Production Smoke Test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 25
     # Wait for Vercel deploy to complete (triggered by same push)
     # Vercel typically deploys in 3-7 minutes

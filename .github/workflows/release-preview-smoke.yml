@@ -36,7 +36,7 @@ env:
 jobs:
   deploy-preview:
     name: Deploy Release Candidate Preview
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     outputs:
       preview-url: ${{ steps.deploy.outputs.preview-url }}
     steps:
@@ -188,7 +188,7 @@ jobs:
 
   smoke-preview:
     name: Smoke Preview
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 25
     needs: deploy-preview
     steps:
@@ -229,7 +229,7 @@ jobs:
 
   promote-production:
     name: Promote Production
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     needs: [deploy-preview, smoke-preview]
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.promote == true) ||

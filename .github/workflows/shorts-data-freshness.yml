@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   freshness:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5

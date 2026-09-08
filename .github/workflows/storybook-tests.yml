@@ -30,7 +30,7 @@ env:
 jobs:
   interaction:
     name: Interaction tests (Vitest)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 20
     defaults:
       run:
@@ -55,7 +55,7 @@ jobs:
 
   visual:
     name: Visual regression
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 25
     # Render on the same Debian release the committed baselines were generated
     # on, so screenshots are byte-comparable (font anti-aliasing is OS-specific).

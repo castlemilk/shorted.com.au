@@ -30,7 +30,7 @@ on:
 jobs:
   portal-content-provenance:
     name: Portal content provenance
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
@@ -64,7 +64,7 @@ jobs:
   # (buf.gen.yaml runs protoc-gen-es out of web/node_modules/.bin).
   openapi-drift:
     name: OpenAPI spec is not stale
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
