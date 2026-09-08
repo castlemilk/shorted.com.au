@@ -103,6 +103,21 @@ lowest natural point, from SRTM void fill. Their medians sit near 70 m, so the
 median and the area-weighted shares are unaffected — but a suburb showing −86 m
 on the map is the source data, not a bug.
 
+**`suburb_hazard_exposure` (000122)** is its own table keyed by `sal_code`:
+`water_observed_share_pct` / `permanent_water_share_pct` (DEA Water Observations,
+Landsat 1987–, 30 m — the share of validly observed land seen under water in
+≥1% of clear passes but <90%, and the ≥90% remainder), `flood_planning_share_pct`
+(NSW EPI Flood; VIC LSIO/FO/SBO) and `bushfire_prone_share_pct` (NSW BFPL; VIC
+BMO), each with a `*_source` id, all CHECK-bounded to 0–100, `source_licence`
+CHECK-excluding the restricted value. **NULL is "no source covers this suburb";
+0 is a measured zero** — the map's null mask and the profile card both rely on
+that, and statutory shares exist for NSW and VIC only. Read on
+`GetSuburbProfile.hazards` (its own tolerated query, so a missing table logs
+rather than 500s) and as four keys in the columnar metric registry via a
+licence-gated `LEFT JOIN`. Filled by `-mode hazards` from
+`web/public/geo/insights/suburb-hazards.json`; the drawable overlays live in
+`web/public/geo/hazards/<STATE>-<layer>.topojson`.
+
 Both families are NULL below `censusDerivedRateMinPopulation = 100` (Census
 randomisation makes tiny-cell rates misleading) and wherever the denominator is
 zero — the "No usual address (State)" pseudo-SALs and Acton ACT have population

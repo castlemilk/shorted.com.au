@@ -516,7 +516,9 @@ Connect-RPC service (`HousingService`, `housing.proto`, 11 rpcs): the
 **Widow-Maker editorial feature** (`/features/the-widow-maker`, baked arrays), the
 **House Prices Tracker** (`/housing`, live ABS/RBA/Valuer-General ingest), the
 **suburb explorer** (`/housing` → `/housing/[state]` → `/housing/[state]/[suburb]`
-choropleth drilldown, "Colour by" price / Census / electoral / gated crime), the
+choropleth drilldown, "Colour by" price / Census / electoral / gated crime /
+terrain / hazard shares, plus toggleable flood-planning, observed-water and
+bushfire **overlays** synced to `?metric=`/`?overlays=`), the
 **residential listings crawl** (REA/Domain via warm host-Chrome CDP on residential
 Macs, plus a property.com.au AVM tier), and the **price-drops board**
 (`/price-drops`). **All LIVE on prod** — as at 2026-08-09: 88,689 crawl listings

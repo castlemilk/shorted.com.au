@@ -43,6 +43,7 @@ import { SuburbListingEstimate } from "./suburb-listing-estimate";
 import { SuburbLocatorMap } from "./suburb-locator-map-loader";
 import { SuburbNearbyList } from "./suburb-nearby-list";
 import { SuburbScoreBand } from "./suburb-score-band";
+import { SuburbHazardCard } from "./suburb-hazard-card";
 import { RecentPriceDrops } from "./suburb-recent-price-drops-loader";
 import { STATE_NAMES, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
 import { crimeRankScale } from "@/lib/housing/highlight-metrics";
@@ -270,6 +271,8 @@ export function SuburbProfile({
 
           <SeifaProfile seifa={s.seifa} stateName={stateName} />
 
+          <SuburbHazardCard elevation={data.elevation} hazards={data.hazards} stateCode={st} salCode={s.salCode} />
+
           {a ? <AmenitiesGroup a={a} nbn={s.dominantNbnTech} /> : null}
 
           <div className="grid gap-6 sm:grid-cols-2">
@@ -334,6 +337,9 @@ export function SuburbProfile({
         hasSchoolSectors={Boolean(a && a.schoolsGov + a.schoolsCatholic + a.schoolsIndependent > 0)}
         hasFederal={Boolean(s.federalDivision)}
         hasStateMember={Boolean(s.stateMember)}
+        hasTerrain={data.elevation?.elevationMedianM !== undefined}
+        hasWaterObservations={data.hazards?.waterObservedSharePct !== undefined}
+        statutoryHazardSources={[data.hazards?.floodSource, data.hazards?.bushfireSource].filter(Boolean) as string[]}
         stateName={stateName}
       />
     </div>
@@ -875,9 +881,20 @@ function Baseline({ label, left, dashed }: { label: string; left: string; dashed
  * Exported for suburb-profile-sources.test.tsx — attribution is a licence
  * obligation, so it gets a regression guard rather than trust.
  */
+// Attribution strings keyed by SuburbHazardExposure source ids. Each is a
+// licence obligation of the dataset it names; an id absent here credits nothing
+// rather than something wrong.
+const STATUTORY_HAZARD_CREDITS: Record<string, string> = {
+  nsw_epi_flood: "NSW Environmental Planning Instrument — Flood, NSW Department of Planning",
+  vic_plan_overlay_lsio_fo_sbo: "Vicmap Planning overlays, Department of Transport and Planning Victoria",
+  nsw_bfpl: "NSW Bush Fire Prone Land, NSW Rural Fire Service",
+  vic_plan_overlay_bmo: "Vicmap Planning Bushfire Management Overlay, Department of Transport and Planning Victoria",
+};
+
 export function SourcesLine({
   censusYear, hasCensus, hasPrice, hasAmenities, hasSchoolSectors,
-  hasFederal, hasStateMember, stateName,
+  hasFederal, hasStateMember, hasTerrain = false, hasWaterObservations = false,
+  statutoryHazardSources = [], stateName,
 }: {
   censusYear?: number;
   hasCensus: boolean;
@@ -886,6 +903,12 @@ export function SourcesLine({
   hasSchoolSectors: boolean;
   hasFederal: boolean;
   hasStateMember: boolean;
+  /** GA DEM-S elevation rendered on the page. */
+  hasTerrain?: boolean;
+  /** DEA Water Observations share rendered on the page. */
+  hasWaterObservations?: boolean;
+  /** Source ids from SuburbHazardExposure (flood_source / bushfire_source) actually rendered. */
+  statutoryHazardSources?: string[];
   stateName: string;
 }) {
   const parts: ReactNode[] = [];
@@ -913,6 +936,12 @@ export function SourcesLine({
     );
   }
   if (hasFederal) parts.push(<>Australian Electoral Commission (CC BY 4.0)</>);
+  if (hasTerrain) parts.push(<>Geoscience Australia 1 Second DEM-S (CC BY 4.0)</>);
+  if (hasWaterObservations) parts.push(<>DEA Water Observations Statistics, Geoscience Australia (CC BY 4.0)</>);
+  for (const id of new Set(statutoryHazardSources)) {
+    const credit = STATUTORY_HAZARD_CREDITS[id];
+    if (credit) parts.push(<>{credit} (CC BY 4.0)</>);
+  }
   if (hasStateMember) {
     parts.push(
       <>

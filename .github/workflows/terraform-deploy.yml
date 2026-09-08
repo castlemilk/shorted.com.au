@@ -672,7 +672,9 @@ jobs:
           # EXISTS and ON CONFLICT DO NOTHING. It must stay AFTER 000118, which
           # creates the table both of them write to. 000121 is ADD COLUMN IF NOT
           # EXISTS plus CREATE INDEX IF NOT EXISTS, defaulting false, so a replay
-          # cannot change any row's visibility.
+          # cannot change any row's visibility. 000122 is CREATE TABLE IF NOT
+          # EXISTS + CREATE INDEX IF NOT EXISTS with no rows touched; the
+          # collector's -mode hazards is what fills it, by hand.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -689,7 +691,8 @@ jobs:
               -f /migrations/000119_add_price_backfill_attempts.up.sql \
               -f /migrations/000120_industry_history_on_insert.up.sql \
               -f /migrations/000121_economic_series_internal_only.up.sql \
-              -f /migrations/000095_harden_mv_refresh.up.sql
+              -f /migrations/000095_harden_mv_refresh.up.sql \
+              -f /migrations/000122_add_suburb_hazard_exposure.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
 

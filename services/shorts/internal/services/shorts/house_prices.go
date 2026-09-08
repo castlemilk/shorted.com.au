@@ -428,6 +428,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 			ListingStats: listingStats,
 		}
 		attachSuburbElevation(response.ProtoReflect(), p.Elevation)
+		response.Hazards = suburbHazardsProto(p.Hazards)
 		return response, nil
 	})
 	if err != nil {

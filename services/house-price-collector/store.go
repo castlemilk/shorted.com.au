@@ -518,6 +518,49 @@ func upsertElevation(ctx context.Context, pool *pgxpool.Pool, rows []ElevationRo
 	return updated, nil
 }
 
+// upsertHazards writes the offline hazard-exposure artifact (one row per SAL).
+// Idempotent: a re-run replaces every share and source name. Rows whose SAL
+// has no suburb_demographics parent are skipped by the FK, not failed — the
+// artifact is keyed by the committed boundaries, which can lead the DB.
+func upsertHazards(ctx context.Context, pool *pgxpool.Pool, rows []HazardRow) (int, error) {
+	const q = `
+		INSERT INTO suburb_hazard_exposure
+			(sal_code, water_observed_share_pct, permanent_water_share_pct, water_sampled_cells, water_source,
+			 flood_planning_share_pct, flood_source, bushfire_prone_share_pct, bushfire_source,
+			 source_licence, computed_at)
+		SELECT $1, $2, $3, $4, NULLIF($5, ''), $6, NULLIF($7, ''), $8, NULLIF($9, ''), $10, now()
+		WHERE EXISTS (SELECT 1 FROM suburb_demographics WHERE sal_code = $1)
+		ON CONFLICT (sal_code) DO UPDATE SET
+			water_observed_share_pct  = EXCLUDED.water_observed_share_pct,
+			permanent_water_share_pct = EXCLUDED.permanent_water_share_pct,
+			water_sampled_cells       = EXCLUDED.water_sampled_cells,
+			water_source              = EXCLUDED.water_source,
+			flood_planning_share_pct  = EXCLUDED.flood_planning_share_pct,
+			flood_source              = EXCLUDED.flood_source,
+			bushfire_prone_share_pct  = EXCLUDED.bushfire_prone_share_pct,
+			bushfire_source           = EXCLUDED.bushfire_source,
+			source_licence            = EXCLUDED.source_licence,
+			computed_at               = now()`
+	batch := &pgx.Batch{}
+	for _, row := range rows {
+		batch.Queue(q, row.SALCode, row.WaterObservedSharePct, row.PermanentWaterSharePct,
+			row.SampledCellCount, row.WaterSource(),
+			row.FloodPlanningSharePct, row.FloodSource(),
+			row.BushfireProneSharePct, row.BushfireSource(), hazardsLicence)
+	}
+	results := pool.SendBatch(ctx, batch)
+	defer func() { _ = results.Close() }()
+	updated := 0
+	for range rows {
+		tag, err := results.Exec()
+		if err != nil {
+			return updated, err
+		}
+		updated += int(tag.RowsAffected())
+	}
+	return updated, nil
+}
+
 // upsertCrime idempotently writes the scaled + ranked suburb crime rows (PK =
 // sal_code, crime_type, fy_ending, pooled). Re-running a source is a no-op; a
 // newer source release overlays newer FYs.

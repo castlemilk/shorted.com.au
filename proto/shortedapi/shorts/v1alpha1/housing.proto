@@ -203,6 +203,31 @@ message SuburbElevation {
   optional double land_share_below_5m = 6;  // percent of valid sampled land area, 0..100
 }
 
+// Measured hazard exposure per suburb — area shares, 0..100, absent when no
+// source covers the suburb. Every source is CC-BY-4.0.
+//
+// water_observed_share_pct: share of the suburb's validly observed land where
+// DEA Water Observations (Landsat, 1987 onward, 30 m) detected surface water in
+// at least 1% of clear observations but under 90% — land seen under water at
+// least occasionally. permanent_water_share_pct: the 90%-and-over remainder
+// (lakes, rivers, the sea). Landsat under-observes flood peaks, so the observed
+// share is a FLOOR on inundation, never a flood-risk estimate.
+//
+// flood_planning_share_pct: share inside a statutory flood planning overlay
+// (NSW EPI Flood; VIC LSIO/FO/SBO). A planning-control boundary, not a flood
+// extent; NSW councils own its currency. bushfire_prone_share_pct: share
+// designated bushfire prone for development control (NSW BFPL; VIC BMO).
+// Statutory shares exist for NSW and VIC only.
+message SuburbHazardExposure {
+  optional double water_observed_share_pct = 1;
+  optional double permanent_water_share_pct = 2;
+  optional double flood_planning_share_pct = 3;
+  optional double bushfire_prone_share_pct = 4;
+  string water_source = 5;     // dataset id, '' when absent
+  string flood_source = 6;
+  string bushfire_source = 7;
+}
+
 message SuburbSummary {
   string sal_code = 1;
   string sal_name = 2;
@@ -477,6 +502,8 @@ message GetSuburbProfileResponse {
   // Profile-only measured terrain block; absent when the DEM sample is missing
   // or below the collector's published cell-count quality floor.
   SuburbElevation elevation = 9;
+  // Profile-only hazard block; absent when no hazard source covers the suburb.
+  SuburbHazardExposure hazards = 10;
 }
 
 message ListHousingRegionsRequest {

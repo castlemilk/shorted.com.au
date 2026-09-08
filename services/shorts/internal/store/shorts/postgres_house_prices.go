@@ -346,6 +346,8 @@ type SuburbProfileRow struct {
 	ExpandedCensus SuburbExpandedCensusRow
 	// GA DEM-S measured terrain; nil when raster coverage/sample quality is absent.
 	Elevation *SuburbElevationRow
+	// Hazard exposure shares; nil when no source covers the suburb.
+	Hazards *SuburbHazardRow
 	// Crawl-derived listing aggregates; nil when outside the crawl catalog.
 	ListingStats *SuburbListingStatsRow
 	// full demographics
@@ -657,6 +659,13 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 	} else {
 		log.Warnf("GetSuburbProfile(%s): suburb crime unavailable: %v", salCode, err)
 	}
+	// Its own query, tolerated on failure: the hazards table lands by hand on
+	// prod, and a profile must not 500 because one optional block is missing.
+	if hazards, err := s.suburbHazards(ctx, salCode); err == nil {
+		p.Hazards = hazards
+	} else {
+		log.Warnf("GetSuburbProfile(%s): suburb hazards unavailable: %v", salCode, err)
+	}
 	p.ListingStats = s.suburbListingStats(ctx, salCode)
 	return &p, nil
 }
@@ -729,6 +738,49 @@ func (s *postgresStore) suburbCrime(ctx context.Context, salCode string) ([]Subu
 		out = append(out, stat)
 	}
 	return out, rows.Err()
+}
+
+// SuburbHazardRow is one suburb's measured hazard exposure. Nil pointers are
+// "no source covers this suburb"; a genuine zero is a non-nil 0.
+type SuburbHazardRow struct {
+	WaterObservedSharePct  *float64
+	PermanentWaterSharePct *float64
+	FloodPlanningSharePct  *float64
+	BushfireProneSharePct  *float64
+	WaterSource            string
+	FloodSource            string
+	BushfireSource         string
+}
+
+const suburbHazardsQuery = `
+		SELECT water_observed_share_pct, permanent_water_share_pct,
+		       flood_planning_share_pct, bushfire_prone_share_pct,
+		       COALESCE(water_source, ''), COALESCE(flood_source, ''), COALESCE(bushfire_source, '')
+		FROM suburb_hazard_exposure
+		WHERE sal_code = $1 AND source_licence <> 'proprietary-tos-restricted'`
+
+// suburbHazards returns nil, nil when the suburb has no row.
+func (s *postgresStore) suburbHazards(ctx context.Context, salCode string) (*SuburbHazardRow, error) {
+	var water, permanent, flood, fire sql.NullFloat64
+	row := &SuburbHazardRow{}
+	err := s.db.QueryRow(ctx, suburbHazardsQuery, salCode).Scan(
+		&water, &permanent, &flood, &fire, &row.WaterSource, &row.FloodSource, &row.BushfireSource,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	row.WaterObservedSharePct = nullableFloatPointer(water)
+	row.PermanentWaterSharePct = nullableFloatPointer(permanent)
+	row.FloodPlanningSharePct = nullableFloatPointer(flood)
+	row.BushfireProneSharePct = nullableFloatPointer(fire)
+	if row.WaterObservedSharePct == nil && row.PermanentWaterSharePct == nil &&
+		row.FloodPlanningSharePct == nil && row.BushfireProneSharePct == nil {
+		return nil, nil
+	}
+	return row, nil
 }
 
 // similarSuburbs finds the k nearest suburbs nationally in a z-scored feature

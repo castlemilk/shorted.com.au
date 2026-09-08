@@ -1,5 +1,5 @@
-import { scaleSequential, scaleSequentialSqrt, scaleDiverging } from "d3-scale";
-import { interpolateOranges, interpolateRdBu, interpolateYlOrRd } from "d3-scale-chromatic";
+import { scaleSequential, scaleSequentialSqrt, scaleDiverging, scaleSqrt } from "d3-scale";
+import { interpolateBlues, interpolateOranges, interpolateRdBu, interpolateYlOrRd } from "d3-scale-chromatic";
 import { fmtPriceShort } from "./price-scale";
 import type { HousingIconName } from "@/components/housing/housing-icons.generated";
 
@@ -48,7 +48,11 @@ export type MetricKey =
   | "price" | "population" | "age" | "income" | "born_overseas" | "religion" | "language"
   | "federal_party" | "federal_lean" | "state_party" | "politician_property"
   | "crime_break_ins" | "crime_violent" | "crime_motor_vehicle"
-  | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "school_sector" | "nearest_train" | "distance_to_coast" | "nbn";
+  | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "school_sector" | "nearest_train" | "distance_to_coast" | "nbn"
+  // Column-sourced metrics are named EXACTLY as the server registry keys
+  // (postgres_suburb_columns.go) — the Go test pins the two vocabularies together.
+  | "elevation_median_m" | "land_share_below_5m"
+  | "water_observed_share_pct" | "flood_planning_share_pct" | "bushfire_prone_share_pct";
 
 type Base = { key: MetricKey; label: string; legendLabel: string };
 
@@ -71,12 +75,31 @@ export type CategoricalMetric = Base & {
   order: string[];
 };
 
-export type HighlightMetric = ContinuousMetric | CategoricalMetric;
+/**
+ * A continuous metric whose values are NOT on the SuburbDatum row but fetched
+ * as a packed column (GetSuburbMetricColumns, ~18 KB per state) keyed by the
+ * same string as `key`. This is the scaling path for every new map metric: the
+ * row payload stays fixed while the vocabulary grows.
+ */
+export type ColumnMetric = Base & {
+  kind: "column";
+  format: (v: number) => string;
+  sqrt?: boolean;
+  domain?: [number, number];
+  makeScale?: (min: number, max: number) => (v: number) => string;
+  /** Legend "no data" wording — column metrics have per-state coverage. */
+  noDataLabel?: string;
+  /** Section label in the picker. */
+  group: "terrain" | "hazard";
+};
+
+export type HighlightMetric = ContinuousMetric | CategoricalMetric | ColumnMetric;
 
 const fmtCompact = (v: number) =>
   v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${Math.round(v / 1000)}k` : `${Math.round(v)}`;
 const fmtPct = (v: number) => `${Math.round(v)}%`;
 const fmtMoneyWk = (v: number) => `$${Math.round(v).toLocaleString()}`;
+const fmtPct1 = (v: number) => (v < 10 ? `${v.toFixed(1)}%` : `${Math.round(v)}%`);
 
 // --- Categorical palettes (qualitative, deliberately NOT the price amber) ---
 
@@ -371,6 +394,37 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     category: (s) => s.dominantNbnTech || null,
     colorFor: nbnColor, order: NBN_ORDER,
   },
+  // --- terrain (GA DEM-S, measured) ---
+  {
+    kind: "column", key: "elevation_median_m", label: "Elevation",
+    legendLabel: "Median elevation (m above sea level)", group: "terrain",
+    format: (v) => `${Math.round(v)} m`, sqrt: true,
+    makeScale: (min, max) => terrainScale(min, max),
+  },
+  {
+    kind: "column", key: "land_share_below_5m", label: "Low-lying land",
+    legendLabel: "Land below 5 m elevation", group: "terrain",
+    format: fmtPct, domain: [0, 100], makeScale: () => waterScale(0, 100),
+  },
+  // --- hazard exposure (measured area shares; see lib/housing/overlays.ts for wording) ---
+  {
+    kind: "column", key: "water_observed_share_pct", label: "Observed surface water",
+    legendLabel: "Land observed under water since 1987", group: "hazard",
+    format: fmtPct1, domain: [0, 25], makeScale: () => waterScale(0, 25),
+    noDataLabel: "Not observed",
+  },
+  {
+    kind: "column", key: "flood_planning_share_pct", label: "Flood planning area",
+    legendLabel: "Land in a flood planning area", group: "hazard",
+    format: fmtPct, domain: [0, 100], makeScale: () => waterScale(0, 100),
+    noDataLabel: "No statutory layer",
+  },
+  {
+    kind: "column", key: "bushfire_prone_share_pct", label: "Bushfire prone land",
+    legendLabel: "Land designated bushfire prone", group: "hazard",
+    format: fmtPct, domain: [0, 100], makeScale: () => fireScale(0, 100),
+    noDataLabel: "No statutory layer",
+  },
 ];
 
 export const METRIC_BY_KEY: Record<MetricKey, HighlightMetric> =
@@ -387,6 +441,9 @@ export const METRIC_ICON: Record<MetricKey, HousingIconName> = {
   amenity_density: "amenity-density", supermarkets: "supermarket", pubs: "pubs",
   grocery: "grocery", healthcare: "healthcare", school_sector: "school",
   nearest_train: "train", distance_to_coast: "coast", nbn: "nbn",
+  elevation_median_m: "hills-ranges", land_share_below_5m: "coastal-beach",
+  water_observed_share_pct: "river-valley", flood_planning_share_pct: "harbour",
+  bushfire_prone_share_pct: "bushland",
 };
 
 /** Amber sequential ramp over [min,max] for a continuous metric. */
@@ -400,6 +457,30 @@ export function amberScale(min: number, max: number, sqrt = false): (v: number) 
 export function politicalLeanScale(): (v: number) => string {
   // RdBu: 0=red, 0.5=white, 1=blue. We want high ALP-TPP → red, low → blue.
   return scaleDiverging<string>([0, 50, 100], (t) => interpolateRdBu(1 - t));
+}
+
+/** Blue-teal sequential ramp for water / flood shares — never the price amber,
+ * so "more water" cannot be misread as "more expensive". */
+export function waterScale(min: number, max: number): (v: number) => string {
+  return scaleSequential((t: number) => interpolateBlues(0.15 + 0.8 * t)).domain([min, Math.max(min + 1, max)]);
+}
+
+/** Warm sequential ramp for bushfire-prone share. */
+export function fireScale(min: number, max: number): (v: number) => string {
+  return scaleSequential((t: number) => interpolateYlOrRd(0.2 + 0.75 * t)).domain([min, Math.max(min + 1, max)]);
+}
+
+/** Terrain: sea-level teal through green to brown at altitude (a hypsometric
+ * ramp readers already know from atlases). sqrt so the coastal plain has range. */
+export function terrainScale(min: number, max: number): (v: number) => string {
+  const stops = ["#4f9d99", "#8fbf7a", "#d8c26a", "#b98a4c", "#8a5a3b"];
+  const lo = Math.max(0, min);
+  const hi = Math.max(lo + 1, max);
+  // Piecewise domain so the stops land at equal steps of sqrt(elevation);
+  // d3-scale interpolates colour strings itself, no extra dependency.
+  const domain = stops.map((_, i) => lo + (hi - lo) * ((i / (stops.length - 1)) ** 2));
+  const scale = scaleSqrt<string>().domain(domain).range(stops).clamp(true);
+  return (v: number) => scale(v);
 }
 
 /** Sequential yellow-to-red danger ramp for crime percentile ranks (0..100). */

@@ -27,6 +27,19 @@ min/median/max elevation and land-share-below-1m/2m/5m from the GA 1 Second
 DEM-S. Both are read straight off `suburb_demographics`; no MV covers them.
 See [handover-2026-08-27.md](handover-2026-08-27.md) for how each was verified.
 
+**Added 2026-09 (hazard overlays round):** the map has **overlays** — a second
+layer drawn above "Colour by" and toggled independently: flood planning area
+(NSW/VIC), observed surface water (national, DEA Water Observations 1987–) and
+bushfire prone land (NSW/VIC), each with its per-suburb area share on the
+tooltip and a **Terrain & hazard exposure** card on the suburb page (which also
+surfaces the elevation pipeline for the first time). "Colour by" gained
+elevation, low-lying land and the three hazard shares, all delivered through
+the columnar RPCs (`GetSuburbIndex` + `GetSuburbMetricColumns`, ~18 KB per
+metric) rather than the row payload, and the view syncs to `?metric=` /
+`?overlays=` so a map is a link. Table: `suburb_hazard_exposure` (000122);
+build: `web/scripts/geo/hazards/`; wording rules:
+[data-sources.md](data-sources.md#hazard-layers--what-the-words-mean).
+
 ## Read these in this order
 
 | Doc | What it answers |

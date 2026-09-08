@@ -1,18 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { ChoroplethMap } from "./choropleth-map";
 import { MapLegend } from "./map-legend";
 import { CategoricalLegend } from "./categorical-legend";
 import { makePriceScale, robustDomainTop } from "@/lib/housing/price-scale";
 import {
-  HIGHLIGHT_METRICS, METRIC_BY_KEY, METRIC_ICON, amberScale, type MetricKey,
+  HIGHLIGHT_METRICS, METRIC_BY_KEY, METRIC_ICON, amberScale, type MetricKey, type HighlightMetric,
 } from "@/lib/housing/highlight-metrics";
+import {
+  OVERLAY_BY_KEY, overlayAvailable, parseOverlayParam, serializeOverlayParam, type OverlayKey,
+} from "@/lib/housing/overlays";
 import { HousingIcon } from "./housing-icon";
 import { useTopojson } from "./use-topojson";
-import { SuburbTooltip } from "./suburb-tooltip";
+import { useSuburbColumns } from "./use-suburb-columns";
+import { useOverlayLayers } from "./use-overlay-layers";
+import { OverlayControl, OverlayLegend } from "./overlay-control";
+import { SuburbTooltip, type TooltipExtra } from "./suburb-tooltip";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
 export type SuburbDatum = {
@@ -40,7 +47,32 @@ export type SuburbDatum = {
 };
 
 const TOOLTIP_W = 224;
-const TOOLTIP_H = 220;
+const TOOLTIP_H = 260;
+
+const ROW_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind !== "column");
+const TERRAIN_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind === "column" && m.group === "terrain");
+const HAZARD_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind === "column" && m.group === "hazard");
+
+function isMetricKey(value: string | null): value is MetricKey {
+  return value !== null && value in METRIC_BY_KEY;
+}
+
+/**
+ * Writes the view (metric + overlays) into the URL without a navigation, so a
+ * map someone has set up is a link they can send. Defaults are omitted so the
+ * canonical `/housing/nsw` stays clean for the crawler. Same mechanism as the
+ * economy explorer (`economy-map-explorer.tsx`).
+ */
+function syncViewToUrl(metricKey: MetricKey, overlays: readonly OverlayKey[], defaultMetric: MetricKey) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (metricKey === defaultMetric) url.searchParams.delete("metric");
+  else url.searchParams.set("metric", metricKey);
+  const serialized = serializeOverlayParam(overlays);
+  if (serialized) url.searchParams.set("overlays", serialized);
+  else url.searchParams.delete("overlays");
+  window.history.replaceState(null, "", url);
+}
 
 export function StateSuburbMap({
   stateCode, suburbs, selectedSalCode, hoveredSalCode, onSelect, onHover, onOpenProfile,
@@ -54,10 +86,13 @@ export function StateSuburbMap({
   onOpenProfile: (salCode: string) => void;
 }) {
   const { data: topo, isLoading, isError } = useTopojson(`/geo/suburbs/${stateCode}.topojson`);
+  const searchParams = useSearchParams();
   const [hover, setHover] = useState<{ d: SuburbDatum; x: number; y: number } | null>(null);
-  const [metricKey, setMetricKey] = useState<MetricKey>("price");
+  const deepLinkedMetric = searchParams.get("metric");
+  const [metricKey, setMetricKey] = useState<MetricKey>(isMetricKey(deepLinkedMetric) ? deepLinkedMetric : "price");
+  const [overlays, setOverlays] = useState<OverlayKey[]>(() => parseOverlayParam(searchParams.get("overlays")));
   const [mapReady, setMapReady] = useState(false);
-  const metric = METRIC_BY_KEY[metricKey];
+  const metric: HighlightMetric = METRIC_BY_KEY[metricKey];
 
   useEffect(() => {
     setMapReady(false);
@@ -77,13 +112,40 @@ export function StateSuburbMap({
 
   // When the loaded state has no priced suburbs, defaulting to "price" paints a
   // blank map. Fall back to population (always populated from the Census) so
-  // the map is immediately useful — unless the user picked a metric themselves.
-  const userPickedMetric = useRef(false);
+  // the map is immediately useful — unless the user (or the URL) picked one.
+  const userPickedMetric = useRef(isMetricKey(deepLinkedMetric));
+  const defaultMetric = useRef<MetricKey>("price");
   useEffect(() => {
-    if (userPickedMetric.current || suburbs.length === 0) return;
+    if (suburbs.length === 0) return;
     const anyPriced = suburbs.some((s) => s.latestMedianPrice > 0);
-    setMetricKey(anyPriced ? "price" : "population");
+    defaultMetric.current = anyPriced ? "price" : "population";
+    if (userPickedMetric.current) return;
+    setMetricKey(defaultMetric.current);
   }, [suburbs]);
+
+  const selectMetric = useCallback((key: MetricKey) => {
+    userPickedMetric.current = true;
+    setMetricKey(key);
+    syncViewToUrl(key, overlays, defaultMetric.current);
+  }, [overlays]);
+  const selectOverlays = useCallback((next: OverlayKey[]) => {
+    setOverlays(next);
+    syncViewToUrl(metricKey, next, defaultMetric.current);
+  }, [metricKey]);
+
+  // Columnar fetch: the coloured metric when it is column-sourced, plus the
+  // share behind every active overlay so the tooltip can quote a number for the
+  // layer the reader is looking at. ~18 KB each; the index is shared.
+  const activeOverlays = useMemo(
+    () => overlays.filter((k) => overlayAvailable(k, stateCode)), [overlays, stateCode]);
+  const columnKeys = useMemo(() => {
+    const keys = new Set<string>();
+    if (metric.kind === "column") keys.add(metric.key);
+    for (const k of activeOverlays) keys.add(OVERLAY_BY_KEY[k].metricKey);
+    return [...keys];
+  }, [metric, activeOverlays]);
+  const columns = useSuburbColumns(stateCode, columnKeys);
+  const overlayLayers = useOverlayLayers(stateCode, activeOverlays);
 
   const byCode = useMemo(() => new Map(suburbs.map((s) => [s.salCode, s])), [suburbs]);
 
@@ -105,32 +167,38 @@ export function StateSuburbMap({
   }, [suburbs]);
   const nameById = useMemo(() => new Map(suburbs.map((s) => [s.salCode, s.salName])), [suburbs]);
 
-  // Continuous metric → value map + amber scale over its own range.
+  // Continuous metric → value map + scale over its own range. Row metrics read
+  // the SuburbDatum; column metrics read the fetched column.
   const continuous = useMemo(() => {
-    if (metric.kind !== "continuous") return null;
+    if (metric.kind === "categorical") return null;
     if (metric.key === "price") {
       return {
         valueById: priceValueById, scale: priceScale.scale,
         min: priceScale.min, max: priceScale.max, clamped: priceScale.clamped,
       };
     }
-    const m = new Map<string, number | null>();
-    const vals: number[] = [];
-    for (const s of suburbs) {
-      const v = metric.value(s);
-      m.set(s.salCode, v);
-      if (v != null) vals.push(v);
+    let m: Map<string, number | null>;
+    if (metric.kind === "column") {
+      const col = columns.data?.get(metric.key);
+      if (!col) return null;
+      m = col;
+    } else {
+      m = new Map<string, number | null>();
+      for (const s of suburbs) m.set(s.salCode, metric.value(s));
     }
-    // An explicit domain (crime ranks, political lean) is already bounded and is
-    // left exactly alone; only data-derived domains get the percentile top.
+    const vals: number[] = [];
+    for (const v of m.values()) if (v != null) vals.push(v);
+    // An explicit domain (crime ranks, political lean, shares) is already
+    // bounded and is left exactly alone; only data-derived domains get the
+    // percentile top.
     const [min, max] = metric.domain ?? [
       vals.length ? Math.min(...vals) : 0,
       robustDomainTop(vals),
     ];
-    const clamped = !metric.domain && vals.some((v) => v > max);
+    const clamped = vals.some((v) => v > max);
     const scale = metric.makeScale ? metric.makeScale(min, max) : amberScale(min, max, metric.sqrt);
     return { valueById: m, scale, min, max, clamped };
-  }, [metric, suburbs, priceValueById, priceScale]);
+  }, [metric, suburbs, priceValueById, priceScale, columns.data]);
 
   // Categorical metric → category map + the legend entries actually present.
   const categorical = useMemo(() => {
@@ -146,24 +214,59 @@ export function StateSuburbMap({
     return { categoryById: m, entries };
   }, [metric, suburbs]);
 
-  const metricSelect = (
+  // Tooltip rows: the column metric being coloured (if any) and one row per
+  // active overlay, so the picture and the number travel together.
+  const extrasFor = useCallback((salCode: string): TooltipExtra[] => {
+    const rows: TooltipExtra[] = [];
+    const seen = new Set<string>();
+    const push = (key: string, label: string, format: (v: number) => string, color?: string, missing = "—") => {
+      if (seen.has(key)) return;
+      seen.add(key);
+      const col = columns.data?.get(key);
+      if (!col) return;
+      const v = col.get(salCode);
+      rows.push({ label, value: v == null ? missing : format(v), color });
+    };
+    if (metric.kind === "column") push(metric.key, metric.label, metric.format);
+    for (const k of activeOverlays) {
+      const o = OVERLAY_BY_KEY[k];
+      const def = METRIC_BY_KEY[o.metricKey];
+      push(o.metricKey, o.shareLabel, def.kind === "column" ? def.format : (v) => `${Math.round(v)}%`, o.color);
+    }
+    return rows;
+  }, [metric, activeOverlays, columns.data]);
+
+  const metricItem = (m: HighlightMetric) => (
+    <SelectItem key={m.key} value={m.key}>
+      <span className="flex items-center gap-2">
+        <HousingIcon name={METRIC_ICON[m.key]} size={16} />
+        {m.label}
+      </span>
+    </SelectItem>
+  );
+
+  const controls = (
     <div className="flex w-full items-center gap-2">
       <span className="shrink-0 text-xs text-muted-foreground">Colour by</span>
-      <Select value={metricKey} onValueChange={(v) => { userPickedMetric.current = true; setMetricKey(v as MetricKey); }}>
-      <SelectTrigger aria-label="Colour the map by" className="h-8 min-w-0 flex-1 text-xs sm:w-[220px] sm:flex-none">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {HIGHLIGHT_METRICS.map((m) => (
-          <SelectItem key={m.key} value={m.key}>
-            <span className="flex items-center gap-2">
-              <HousingIcon name={METRIC_ICON[m.key]} size={16} />
-              {m.label}
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
+      <Select value={metricKey} onValueChange={(v) => selectMetric(v as MetricKey)}>
+        <SelectTrigger aria-label="Colour the map by" className="h-8 min-w-0 flex-1 text-xs sm:w-[220px] sm:flex-none">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {ROW_METRICS.map(metricItem)}
+          <SelectSeparator />
+          <SelectGroup>
+            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">Terrain</SelectLabel>
+            {TERRAIN_METRICS.map(metricItem)}
+          </SelectGroup>
+          <SelectSeparator />
+          <SelectGroup>
+            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">Hazard exposure</SelectLabel>
+            {HAZARD_METRICS.map(metricItem)}
+          </SelectGroup>
+        </SelectContent>
       </Select>
+      <OverlayControl stateCode={stateCode} active={overlays} onChange={selectOverlays} />
     </div>
   );
 
@@ -177,7 +280,7 @@ export function StateSuburbMap({
   const mapFrame = (children: ReactNode) => (
     <div className="flex min-h-[520px] flex-1 flex-col">
       <div className="mb-2 flex items-center justify-between gap-2">
-        {metricSelect}
+        {controls}
       </div>
       <div className="relative flex min-h-[460px] flex-1 flex-col overflow-hidden rounded-xl">
         {children}
@@ -192,8 +295,10 @@ export function StateSuburbMap({
   }
   const objectName = Object.keys(topo.objects)[0]!;
   const selected = selectedSalCode ? byCode.get(selectedSalCode) : undefined;
+  const columnPending = metric.kind === "column" && !continuous && columns.isLoading;
+  const columnFailed = metric.kind === "column" && !continuous && !columns.isLoading;
 
-  const legend = metric.kind === "categorical"
+  const colourLegend = metric.kind === "categorical"
     ? (categorical?.entries.length
         ? <CategoricalLegend label={metric.legendLabel} entries={categorical.entries} />
         : null)
@@ -202,8 +307,14 @@ export function StateSuburbMap({
             colorScale={(v) => continuous.scale(v)} min={continuous.min} max={continuous.max}
             clamped={continuous.clamped}
             label={metric.legendLabel} format={metric.format}
-            noDataLabel={metric.key === "price" ? "No price data" : "No data"} />
+            noDataLabel={metric.key === "price" ? "No price data" : metric.kind === "column" ? (metric.noDataLabel ?? "No data") : "No data"} />
         : null);
+  const legend = (
+    <div className="flex flex-col gap-1.5">
+      {colourLegend}
+      <OverlayLegend stateCode={stateCode} active={overlays} />
+    </div>
+  );
 
   return mapFrame(
     <>
@@ -211,7 +322,7 @@ export function StateSuburbMap({
           fill
           topology={topo}
           objectName={objectName}
-          valueById={continuous?.valueById ?? priceValueById}
+          valueById={continuous?.valueById ?? (metric.kind === "column" ? new Map() : priceValueById)}
           colorScale={(v) => (continuous?.scale ?? priceScale.scale)(v)}
           categoryById={categorical?.categoryById}
           categoryColor={metric.kind === "categorical" ? metric.colorFor : undefined}
@@ -221,8 +332,9 @@ export function StateSuburbMap({
           hoveredId={hoveredSalCode}
           focusId={selectedSalCode}
           fitToData
-          ariaLabel={`${stateCode} suburbs by ${metric.label}`}
+          ariaLabel={`${stateCode} suburbs by ${metric.label}${activeOverlays.length ? `, with ${activeOverlays.map((k) => OVERLAY_BY_KEY[k].label.toLowerCase()).join(" and ")} overlay` : ""}`}
           legend={legend}
+          overlays={overlayLayers.layers}
           onFeatureClick={(id) => onSelect(id)}
           onFeatureHover={(id, evt) => {
             onHover?.(id);
@@ -232,12 +344,25 @@ export function StateSuburbMap({
           }}
         />
 
+        {(columnPending || overlayLayers.isLoading) ? (
+          <div className="pointer-events-none absolute right-2 top-12 rounded-md border border-border bg-card/90 px-2 py-1 text-[10px] text-muted-foreground shadow-sm backdrop-blur" role="status">
+            Loading {columnPending ? metric.label.toLowerCase() : "overlay"}…
+          </div>
+        ) : null}
+        {columnFailed ? (
+          <div className="absolute right-2 top-12 rounded-md border border-border bg-card/90 px-2 py-1 text-[10px] text-muted-foreground shadow-sm backdrop-blur" role="status">
+            {metric.label} unavailable right now.{" "}
+            <button type="button" className="underline" onClick={() => columns.refetch()}>Retry</button>
+          </div>
+        ) : null}
+
         {/* Selected suburb: persistent, interactive card with a profile CTA. */}
         {selected ? (
           <div className="absolute left-2 top-2 z-20">
             <SuburbTooltip
               summary={selected}
               regionCode={selected.regionCode}
+              extras={extrasFor(selected.salCode)}
               onOpenProfile={() => onOpenProfile(selected.salCode)}
               onClose={() => onSelect(null)}
             />
@@ -253,7 +378,7 @@ export function StateSuburbMap({
               top: hover.y + TOOLTIP_H + 18 > window.innerHeight ? hover.y - TOOLTIP_H : hover.y + 14,
             }}
           >
-            <SuburbTooltip summary={hover.d} regionCode={hover.d.regionCode} />
+            <SuburbTooltip summary={hover.d} regionCode={hover.d.regionCode} extras={extrasFor(hover.d.salCode)} />
           </div>
         ) : null}
     </>,

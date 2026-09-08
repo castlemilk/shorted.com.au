@@ -6993,6 +6993,10 @@ components:
             Profile-only measured terrain block; absent when the DEM sample is missing
              or below the collector's published cell-count quality floor. (proto shorts.v1alpha1.SuburbElevation)
           $ref: '#/components/schemas/shorts.v1alpha1.SuburbElevation'
+        hazards:
+          title: hazards
+          description: Profile-only hazard block; absent when no hazard source covers the suburb. (proto shorts.v1alpha1.SuburbHazardExposure)
+          $ref: '#/components/schemas/shorts.v1alpha1.SuburbHazardExposure'
       title: GetSuburbProfileResponse
       additionalProperties: false
     shorts.v1alpha1.GetSyncStatusRequest:
@@ -11425,6 +11429,67 @@ components:
          relative to the EGM96 geoid, not AHD or ellipsoidal heights. Low-lying land
          shares are measured proportions of valid DEM-covered land cells. No
          hydrology, drainage, surge, or catchment modelling is represented.
+    shorts.v1alpha1.SuburbHazardExposure:
+      type: object
+      properties:
+        waterObservedSharePct:
+          type:
+            - number
+            - "null"
+          title: water_observed_share_pct
+          format: double
+          description: (proto double)
+        permanentWaterSharePct:
+          type:
+            - number
+            - "null"
+          title: permanent_water_share_pct
+          format: double
+          description: (proto double)
+        floodPlanningSharePct:
+          type:
+            - number
+            - "null"
+          title: flood_planning_share_pct
+          format: double
+          description: (proto double)
+        bushfireProneSharePct:
+          type:
+            - number
+            - "null"
+          title: bushfire_prone_share_pct
+          format: double
+          description: (proto double)
+        waterSource:
+          type: string
+          title: water_source
+          description: dataset id, '' when absent (proto string)
+        floodSource:
+          type: string
+          title: flood_source
+          description: (proto string)
+        bushfireSource:
+          type: string
+          title: bushfire_source
+          description: (proto string)
+      title: SuburbHazardExposure
+      additionalProperties: false
+      description: |-
+        Measured hazard exposure per suburb — area shares, 0..100, absent when no
+         source covers the suburb. Every source is CC-BY-4.0.
+
+         water_observed_share_pct: share of the suburb's validly observed land where
+         DEA Water Observations (Landsat, 1987 onward, 30 m) detected surface water in
+         at least 1% of clear observations but under 90% — land seen under water at
+         least occasionally. permanent_water_share_pct: the 90%-and-over remainder
+         (lakes, rivers, the sea). Landsat under-observes flood peaks, so the observed
+         share is a FLOOR on inundation, never a flood-risk estimate.
+
+         flood_planning_share_pct: share inside a statutory flood planning overlay
+         (NSW EPI Flood; VIC LSIO/FO/SBO). A planning-control boundary, not a flood
+         extent; NSW councils own its currency. bushfire_prone_share_pct: share
+         designated bushfire prone for development control (NSW BFPL; VIC BMO).
+         Statutory shares exist for NSW and VIC only.
     shorts.v1alpha1.SuburbIndexEntry:
       type: object
       properties:

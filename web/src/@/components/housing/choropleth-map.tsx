@@ -31,6 +31,24 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+/**
+ * A second visual layer drawn ABOVE the choropleth and below the emphasis
+ * strokes: translucent fill + a hairline stroke in the layer's own hue, so it
+ * stays legible over any colour ramp. It shares the zoom transform and takes no
+ * pointer events — hovering a suburb under an overlay still hits the suburb.
+ * Solid fills rather than SVG patterns on purpose: a userSpaceOnUse hatch is
+ * scaled by the d3-zoom transform and turns into 300px stripes at 48×.
+ */
+export interface OverlayLayer {
+  key: string;
+  topology: Topology;
+  color: string;
+  /** default OVERLAY_FILL_OPACITY */
+  opacity?: number;
+}
+
+const DEFAULT_OVERLAY_OPACITY = 0.38;
+
 export interface ChoroplethMapProps {
   topology: Topology;
   objectName: string;
@@ -68,6 +86,8 @@ export interface ChoroplethMapProps {
   fill?: boolean;
   /** Optional legend node rendered as a bottom-left overlay. */
   legend?: ReactNode;
+  /** Hazard/context layers drawn above the choropleth (see OverlayLayer). */
+  overlays?: OverlayLayer[];
 }
 
 export function ChoroplethMap(props: ChoroplethMapProps) {
@@ -87,7 +107,7 @@ function ChoroplethInner({
   topology, objectName, valueById, categoryById, categoryColor, nameById, colorScale,
   fitValueById, selectedId, hoveredId: hoveredIdProp, focusId,
   onFeatureClick, onFeatureHover, width, height, ariaLabel,
-  fitToData, fitToId, interactive = true, legend,
+  fitToData, fitToId, interactive = true, legend, overlays,
 }: ChoroplethMapProps & { width: number; height: number }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
@@ -101,7 +121,7 @@ function ChoroplethInner({
   // recompute the projection or reset the zoom. `fitData` is the stable set the
   // overview frames to (the priced cluster), falling back to valueById.
   const fitData = fitValueById ?? valueById;
-  const { features, pathFor, initialTransform, byId, focusTransformFor } = useMemo(() => {
+  const { features, pathFor, pathForGeo, initialTransform, byId, focusTransformFor } = useMemo(() => {
     const obj = topology.objects[objectName] as GeometryCollection;
     const fc = feature(topology, obj) as unknown as { features: Feature<Geometry>[] };
     const projection = geoMercator().fitSize([width, height], {
@@ -138,6 +158,7 @@ function ChoroplethInner({
       features: fc.features,
       byId: idMap,
       pathFor: (f: Feature<Geometry>) => path(f) ?? "",
+      pathForGeo: (geo: Geometry) => path(geo as never) ?? "",
       initialTransform: transform,
       focusTransformFor: (id: string) => {
         const f = idMap.get(id);
@@ -145,6 +166,20 @@ function ChoroplethInner({
       },
     };
   }, [topology, objectName, width, height, fitToData, fitToId, fitData]);
+
+  // Overlay geometry is projected with the SAME projection as the suburbs, so
+  // the two register exactly; a layer is one `<path>` per feature, usually one.
+  const overlayPaths = useMemo(() => (overlays ?? []).map((layer) => {
+    const objectName = Object.keys(layer.topology.objects)[0];
+    if (!objectName) return { key: layer.key, color: layer.color, opacity: layer.opacity, d: [] as string[] };
+    const fc = feature(layer.topology, layer.topology.objects[objectName] as GeometryCollection) as unknown as {
+      features: Feature<Geometry>[];
+    };
+    return {
+      key: layer.key, color: layer.color, opacity: layer.opacity,
+      d: fc.features.map((f) => pathForGeo(f.geometry)).filter(Boolean),
+    };
+  }), [overlays, pathForGeo]);
 
   initialTransformRef.current = initialTransform;
   const focusTransformForRef = useRef(focusTransformFor);
@@ -272,6 +307,18 @@ function ChoroplethInner({
         </defs>
         <g ref={gRef}>
           {features.map((f) => renderPath(f, {}))}
+          {overlayPaths.map((layer) => (
+            <g key={`overlay-${layer.key}`} data-overlay={layer.key} style={{ pointerEvents: "none" }}>
+              {layer.d.map((d, i) => (
+                <path
+                  key={i} d={d}
+                  fill={layer.color} fillOpacity={layer.opacity ?? DEFAULT_OVERLAY_OPACITY}
+                  stroke={layer.color} strokeWidth={0.6} strokeOpacity={0.9}
+                  style={{ vectorEffect: "non-scaling-stroke" }}
+                />
+              ))}
+            </g>
+          ))}
           {emphasizedIds
             .map((id) => byId.get(id))
             .filter((f): f is Feature<Geometry> => !!f)
