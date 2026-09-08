@@ -64,7 +64,9 @@ export function OverlayControl({
                     {o.label}
                   </span>
                   <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground [text-wrap:pretty]">
-                    {available ? o.caveat : `No open statutory layer for ${STATE_NAMES[stateCode] ?? stateCode} yet.`}
+                    {available
+                      ? `${o.caveat} ${o.stateNotes?.[stateCode] ?? ""}`.trim()
+                      : `No open statutory layer for ${STATE_NAMES[stateCode] ?? stateCode} yet.`}
                   </span>
                 </label>
               </li>

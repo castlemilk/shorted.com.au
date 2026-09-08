@@ -111,7 +111,7 @@ export function SuburbHazardCard({
       </div>
       <p className="mt-2.5 text-[11px] text-muted-foreground [text-wrap:pretty]">
         Shares are the proportion of the suburb&apos;s land area. {hasWater ? OVERLAY_BY_KEY.water_observed.caveat + " " : ""}
-        {hasFlood ? OVERLAY_BY_KEY.flood_planning.caveat + " " : ""}
+        {hasFlood ? `${OVERLAY_BY_KEY.flood_planning.caveat} ${OVERLAY_BY_KEY.flood_planning.stateNotes?.[stateCode] ?? ""}`.trim() + " " : ""}
         {hasFire ? OVERLAY_BY_KEY.bushfire_prone.caveat + " " : ""}
         {hasElevation ? "Elevation is orthometric height from a 30 m model; no hydrology or drainage is modelled. " : ""}
         {statutoryMissing ? `No open statutory flood or bushfire layer is published for ${stateName} yet.` : ""}

@@ -28,6 +28,8 @@ export type OverlayDef = {
   source: string;
   /** One sentence that must travel with the layer wherever it is shown. */
   caveat: string;
+  /** Extra caveat for one state's source, appended only on that state's surfaces. */
+  stateNotes?: Record<string, string>;
 };
 
 export const ALL_STATES_WITH_WATER = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"] as const;
@@ -41,7 +43,8 @@ export const OVERLAYS: readonly OverlayDef[] = [
     color: "#2f6fd6",
     states: ["NSW", "VIC"],
     source: "NSW EPI Flood (NSW Planning Portal); Vicmap Planning LSIO/FO/SBO",
-    caveat: "A statutory planning-control boundary, not a flood extent. NSW councils have owned currency since July 2021.",
+    stateNotes: { NSW: "NSW councils have owned flood-map currency since July 2021, so the state layer may be older than a council's own study." },
+    caveat: "A statutory planning-control boundary, not a flood extent, and it can lag the latest flood study.",
   },
   {
     key: "water_observed",
