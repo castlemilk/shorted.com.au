@@ -36,7 +36,9 @@ COPY pkg/ pkg/
 COPY asx-discovery/ asx-discovery/
 
 # Build the application from the workspace
-RUN cd asx-discovery && CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /app/asx-discovery .
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=shorted-gobuild,target=/root/.cache/go-build \
+    cd asx-discovery && CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /app/asx-discovery .
 
 # Final stage - use a Debian-based image for Playwright browser support
 FROM debian:bookworm-slim

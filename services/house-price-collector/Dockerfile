@@ -28,7 +28,9 @@ COPY . .
 # Restore go.mod with the replace directive if using local stealth source.
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
 
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /house-price-collector ./house-price-collector/
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=shorted-gobuild,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /house-price-collector ./house-price-collector/
 
 FROM gcr.io/distroless/static-debian12
 

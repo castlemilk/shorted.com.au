@@ -5,13 +5,16 @@ ARG TARGETOS TARGETARCH
 WORKDIR /app
 # Copy go mod files from market-data-sync subdirectory
 COPY market-data-sync/go.mod market-data-sync/go.sum ./
-RUN go mod download
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    go mod download
 
 # Copy all source code from market-data-sync subdirectory
 COPY market-data-sync/ .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o market-data-sync .
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=shorted-gobuild,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o market-data-sync .
 
 # Final stage
 FROM alpine:3.19

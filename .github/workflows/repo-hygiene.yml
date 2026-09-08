@@ -72,13 +72,11 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: "24"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
 
       - uses: actions/setup-go@v6
         with:
           go-version-file: services/go.mod
-          cache-dependency-path: services/go.sum
+          cache: false
 
       # `services` depends on the private github.com/skunkworq/stealth module.
       # Same step every other Go job in this repo runs.

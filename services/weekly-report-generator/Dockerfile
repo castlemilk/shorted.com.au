@@ -27,7 +27,9 @@ COPY . .
 # Restore go.mod with replace directive if using local stealth source
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
 
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o weekly-report-generator ./weekly-report-generator
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=shorted-gobuild,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o weekly-report-generator ./weekly-report-generator
 
 FROM alpine:3.19
 

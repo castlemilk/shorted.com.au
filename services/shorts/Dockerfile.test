@@ -34,7 +34,9 @@ COPY . .
 # Restore stealth replace directive if using local source (COPY . . overwrites go.mod)
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
 
-RUN go build -o shorts-service ./shorts/cmd/server
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=shorted-gobuild,target=/root/.cache/go-build \
+    go build -o shorts-service ./shorts/cmd/server
 
 FROM alpine:3.19
 RUN apk --no-cache add ca-certificates curl

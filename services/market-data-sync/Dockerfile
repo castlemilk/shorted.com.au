@@ -36,7 +36,9 @@ COPY pkg/ pkg/
 COPY market-data-sync/ market-data-sync/
 
 # Build the application from the workspace
-RUN cd market-data-sync && CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /app/market-data-sync .
+RUN --mount=type=cache,id=shorted-gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=shorted-gobuild,target=/root/.cache/go-build \
+    cd market-data-sync && CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o /app/market-data-sync .
 
 # Final stage
 FROM alpine:3.19
