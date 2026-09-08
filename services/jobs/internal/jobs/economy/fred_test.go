@@ -6,7 +6,7 @@ import (
 )
 
 func vixDef() fredSeries {
-	return fredSeries{"VIXCLS", "volatility", "index_close", "vix", "index", "United States", "n"}
+	return fredSeries{"VIXCLS", "volatility", "index_close", "vix", "index", "United States", "n", true}
 }
 
 // FRED encodes a missing observation as "." — a market holiday, not a zero.
@@ -133,5 +133,53 @@ func TestFREDSeriesKeys(t *testing.T) {
 		if got := obs[0].Series.Key(); got != want[def.ID] {
 			t.Errorf("%s key = %q, want %q", def.ID, got, want[def.ID])
 		}
+	}
+}
+
+
+// VIX is ingested but must never reach a public read surface. The licence is
+// the reason (FRED: "Copyright, 2016, Chicago Board Options Exchange, Inc.
+// Reprinted with permission" — granted to FRED, not onward), and the mechanism
+// is migration 000121's internal_only flag.
+//
+// Asserted per-series rather than "at least one is internal", because the
+// failure that matters is VIX silently flipping public, and a loose assertion
+// would pass while the Fed series carried the flag instead.
+func TestOnlyVIXIsInternal(t *testing.T) {
+	want := map[string]bool{
+		"VIXCLS":   true,  // CBOE copyright
+		"DGS2":     false, // H.15, Federal Reserve, no copyright notice
+		"DGS10":    false, // H.15
+		"DTWEXBGS": false, // H.10
+	}
+	for _, def := range fredSeriesDefs {
+		expected, known := want[def.ID]
+		if !known {
+			t.Fatalf("%s has no licence decision recorded — a new FRED series needs one before it ships", def.ID)
+		}
+		if def.InternalOnly != expected {
+			t.Errorf("%s InternalOnly = %v, want %v", def.ID, def.InternalOnly, expected)
+		}
+		// The flag has to survive into the catalog row, or it is decoration.
+		obs, err := monthlyLast([]fredObservation{{"2026-03-30", "1.0"}}, def)
+		if err != nil {
+			t.Fatalf("%s: %v", def.ID, err)
+		}
+		if obs[0].Series.InternalOnly != expected {
+			t.Errorf("%s: SeriesDef.InternalOnly = %v, want %v — the flag did not reach the row",
+				def.ID, obs[0].Series.InternalOnly, expected)
+		}
+	}
+}
+
+// Visibility is a property of the row, not of its identity. If it ever entered
+// Key(), flipping a series to internal would fork its history into a second
+// series_key and orphan every observation already written under the old one.
+func TestInternalOnlyDoesNotAffectTheSeriesKey(t *testing.T) {
+	pub := SeriesDef{Topic: "rates", Metric: "treasury_yield", Product: "10y", RegionCode: "usa"}
+	priv := pub
+	priv.InternalOnly = true
+	if pub.Key() != priv.Key() {
+		t.Errorf("key changed with visibility: %q vs %q", pub.Key(), priv.Key())
 	}
 }

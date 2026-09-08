@@ -21,6 +21,12 @@ type SeriesDef struct {
 	Dimensions map[string]string
 	SourceKey  string
 	Licence    string
+
+	// InternalOnly keeps the series out of the public read surface while still
+	// ingesting and correlating it (migration 000121). Deliberately NOT part of
+	// Key(): visibility is a property of the row, not of its identity, so
+	// flipping it must never fork the history.
+	InternalOnly bool
 }
 
 func (d SeriesDef) Key() string {

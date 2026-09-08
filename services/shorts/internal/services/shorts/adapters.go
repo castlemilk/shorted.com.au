@@ -481,16 +481,16 @@ func (s *StoreAdapter) MergePoliticians(keepSlug, mergeSlug, evidence, curator s
 	return s.store.MergePoliticians(keepSlug, mergeSlug, evidence, curator)
 }
 
-func (s *StoreAdapter) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shorts.EconomicSeriesRow, error) {
-	return s.store.ListEconomicSeries(topic, metric, regionType, regionCode, product, limit)
+func (s *StoreAdapter) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32, includeInternal bool) ([]*shorts.EconomicSeriesRow, error) {
+	return s.store.ListEconomicSeries(topic, metric, regionType, regionCode, product, limit, includeInternal)
 }
 
-func (s *StoreAdapter) GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*shorts.EconomicSeriesDataRow, error) {
-	return s.store.GetEconomicSeries(seriesKeys, startPeriod, maxObservations)
+func (s *StoreAdapter) GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32, includeInternal bool) ([]*shorts.EconomicSeriesDataRow, error) {
+	return s.store.GetEconomicSeries(seriesKeys, startPeriod, maxObservations, includeInternal)
 }
 
-func (s *StoreAdapter) ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*shorts.SeriesCorrelationRow, error) {
-	return s.store.ListSeriesCorrelations(baseSeriesKey, windowMonths, minAbsR, limit)
+func (s *StoreAdapter) ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32, includeInternal bool) ([]*shorts.SeriesCorrelationRow, error) {
+	return s.store.ListSeriesCorrelations(baseSeriesKey, windowMonths, minAbsR, limit, includeInternal)
 }
 
 func (s *StoreAdapter) ListStateCompanies(state string, limit int32) ([]*shorts.StateCompanyRow, error) {

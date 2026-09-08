@@ -239,9 +239,9 @@ type Store interface {
 	MergePoliticians(keepSlug, mergeSlug, evidence, curator string) (int32, error)
 
 	// Economy snapshot methods
-	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*EconomicSeriesRow, error)
-	GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*EconomicSeriesDataRow, error)
-	ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*SeriesCorrelationRow, error)
+	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32, includeInternal bool) ([]*EconomicSeriesRow, error)
+	GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32, includeInternal bool) ([]*EconomicSeriesDataRow, error)
+	ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32, includeInternal bool) ([]*SeriesCorrelationRow, error)
 
 	// Company state exposure methods
 	ListStateCompanies(state string, limit int32) ([]*StateCompanyRow, error)

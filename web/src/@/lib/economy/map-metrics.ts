@@ -335,11 +335,15 @@ export const NATIONAL_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
   // distinguishes the two.
   //
   // Stored month-end from daily upstream; see services/jobs/.../fred.go.
-  {
-    key: "volatility.index_close.vix.usa",
-    label: "US volatility (VIX)",
-    format: "index",
-  },
+  // VIX is DELIBERATELY ABSENT. It is ingested and correlated like the rest,
+  // but flagged internal_only (migration 000121) because FRED's own metadata
+  // reads "Copyright, 2016, Chicago Board Options Exchange, Inc. Reprinted with
+  // permission" — permission granted to FRED, not onward. This page is public
+  // and unauthenticated, so listing it here would publish it.
+  //
+  // Listing it would also be inert: the public RPCs filter internal_only, so
+  // the overlay would render an option that returns nothing. Internal analysis
+  // reads the series straight from the database.
   {
     key: "rates.treasury_yield.10y.usa",
     label: "US 10-year Treasury yield",

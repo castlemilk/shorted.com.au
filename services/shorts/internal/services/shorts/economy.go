@@ -18,9 +18,12 @@ import (
 // ListEconomicSeries returns catalog entries for the economy snapshot layer.
 func (s *ShortsServer) ListEconomicSeries(ctx context.Context, req *connect.Request[shortsv1alpha1.ListEconomicSeriesRequest]) (*connect.Response[shortsv1alpha1.ListEconomicSeriesResponse], error) {
 	m := req.Msg
-	cacheKey := s.cache.ListEconomicSeriesKey(m.Topic, m.Metric, m.RegionType, m.RegionCode, m.Product, m.Limit)
+	// Resolved once, from the request's own identity, and used for BOTH the
+	// cache key and the query. If these two ever disagree the gate leaks.
+	includeInternal := callerMaySeeInternalSeries(ctx)
+	cacheKey := s.cache.ListEconomicSeriesKey(m.Topic, m.Metric, m.RegionType, m.RegionCode, m.Product, m.Limit, includeInternal)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		rows, err := s.store.ListEconomicSeries(m.Topic, m.Metric, m.RegionType, m.RegionCode, m.Product, m.Limit)
+		rows, err := s.store.ListEconomicSeries(m.Topic, m.Metric, m.RegionType, m.RegionCode, m.Product, m.Limit, includeInternal)
 		if err != nil {
 			return nil, err
 		}
@@ -44,6 +47,7 @@ func (s *ShortsServer) ListEconomicSeries(ctx context.Context, req *connect.Requ
 // cache key can never diverge from what actually reaches the store.
 func (s *ShortsServer) GetEconomicSeries(ctx context.Context, req *connect.Request[shortsv1alpha1.GetEconomicSeriesRequest]) (*connect.Response[shortsv1alpha1.GetEconomicSeriesResponse], error) {
 	m := req.Msg
+	includeInternal := callerMaySeeInternalSeries(ctx)
 
 	keys, err := normalizeKeys(m.SeriesKeys)
 	if err != nil {
@@ -58,9 +62,9 @@ func (s *ShortsServer) GetEconomicSeries(ctx context.Context, req *connect.Reque
 	}
 
 	maxObservations := m.MaxObservations
-	cacheKey := s.cache.GetEconomicSeriesKey(keys, startKey, maxObservations)
+	cacheKey := s.cache.GetEconomicSeriesKey(keys, startKey, maxObservations, includeInternal)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		rows, err := s.store.GetEconomicSeries(keys, start, maxObservations)
+		rows, err := s.store.GetEconomicSeries(keys, start, maxObservations, includeInternal)
 		if err != nil {
 			return nil, err
 		}
@@ -92,6 +96,7 @@ func (s *ShortsServer) GetEconomicSeries(ctx context.Context, req *connect.Reque
 // correlation limit default and cap.
 func (s *ShortsServer) ListSeriesCorrelations(ctx context.Context, req *connect.Request[shortsv1alpha1.ListSeriesCorrelationsRequest]) (*connect.Response[shortsv1alpha1.ListSeriesCorrelationsResponse], error) {
 	m := req.Msg
+	includeInternal := callerMaySeeInternalSeries(ctx)
 	baseSeriesKey := strings.ToLower(strings.TrimSpace(m.BaseSeriesKey))
 	if baseSeriesKey == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("base_series_key is required"))
@@ -110,9 +115,9 @@ func (s *ShortsServer) ListSeriesCorrelations(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be positive"))
 	}
 
-	cacheKey := s.cache.ListSeriesCorrelationsKey(baseSeriesKey, windowMonths, m.MinAbsR, limit)
+	cacheKey := s.cache.ListSeriesCorrelationsKey(baseSeriesKey, windowMonths, m.MinAbsR, limit, includeInternal)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		rows, err := s.store.ListSeriesCorrelations(baseSeriesKey, windowMonths, m.MinAbsR, limit)
+		rows, err := s.store.ListSeriesCorrelations(baseSeriesKey, windowMonths, m.MinAbsR, limit, includeInternal)
 		if err != nil {
 			return nil, err
 		}

@@ -62,8 +62,8 @@ func TestGetEconomicSeries_DedupBelow50IsOK(t *testing.T) {
 	}
 
 	mockStore.EXPECT().
-		GetEconomicSeries(gomock.Any(), gomock.Any(), int32(0)).
-		DoAndReturn(func(keys []string, _ time.Time, _ int32) ([]*shortsstore.EconomicSeriesDataRow, error) {
+		GetEconomicSeries(gomock.Any(), gomock.Any(), int32(0), false).
+		DoAndReturn(func(keys []string, _ time.Time, _ int32, _ bool) ([]*shortsstore.EconomicSeriesDataRow, error) {
 			if len(keys) != 40 {
 				t.Fatalf("want 40 deduped keys reaching the store, got %d: %v", len(keys), keys)
 			}
@@ -88,7 +88,7 @@ func TestGetEconomicSeries_CacheKeyOrderInsensitive(t *testing.T) {
 	mockStore := mocks.NewMockShortsStore(ctrl)
 
 	sorted := []string{"cpi.index.all_groups.aus", "rates.cash_rate_target.aus"}
-	mockStore.EXPECT().GetEconomicSeries(sorted, gomock.Any(), int32(0)).Return(
+	mockStore.EXPECT().GetEconomicSeries(sorted, gomock.Any(), int32(0), false).Return(
 		[]*shortsstore.EconomicSeriesDataRow{}, nil,
 	).Times(1) // EXACTLY one call: the second request must be served from cache.
 
@@ -115,7 +115,7 @@ func TestGetEconomicSeries_HappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockStore := mocks.NewMockShortsStore(ctrl)
-	mockStore.EXPECT().GetEconomicSeries([]string{"rates.cash_rate_target.aus"}, gomock.Any(), int32(12)).Return(
+	mockStore.EXPECT().GetEconomicSeries([]string{"rates.cash_rate_target.aus"}, gomock.Any(), int32(12), false).Return(
 		[]*shortsstore.EconomicSeriesDataRow{{
 			Info: shortsstore.EconomicSeriesRow{
 				SeriesKey: "rates.cash_rate_target.aus", Topic: "rates",
@@ -150,9 +150,9 @@ func TestGetEconomicSeries_PassesRawMaxObservationsToStoreAndCache(t *testing.T)
 	defer ctrl.Finish()
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	key := []string{"rates.cash_rate_target.aus"}
-	mockStore.EXPECT().GetEconomicSeries(key, gomock.Any(), int32(0)).Return(nil, nil).Times(1)
-	mockStore.EXPECT().GetEconomicSeries(key, gomock.Any(), int32(900)).Return(nil, nil).Times(1)
-	mockStore.EXPECT().GetEconomicSeries(key, gomock.Any(), int32(-4)).Return(nil, nil).Times(1)
+	mockStore.EXPECT().GetEconomicSeries(key, gomock.Any(), int32(0), false).Return(nil, nil).Times(1)
+	mockStore.EXPECT().GetEconomicSeries(key, gomock.Any(), int32(900), false).Return(nil, nil).Times(1)
+	mockStore.EXPECT().GetEconomicSeries(key, gomock.Any(), int32(-4), false).Return(nil, nil).Times(1)
 
 	srv := newTestServer(t, mockStore)
 	for _, maxObservations := range []int32{0, 900, -4} {
@@ -185,7 +185,7 @@ func TestListSeriesCorrelations_NormalizesInputsAndMapsOverlayMetadata(t *testin
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	lastPeriod := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 	mockStore.EXPECT().
-		ListSeriesCorrelations("markets.short_interest_wavg.wa", int32(24), 0.4, int32(250)).
+		ListSeriesCorrelations("markets.short_interest_wavg.wa", int32(24), 0.4, int32(250), false).
 		Return([]*shortsstore.SeriesCorrelationRow{{
 			Overlay: shortsstore.EconomicSeriesRow{
 				SeriesKey: "commodities.price_index.iron_ore.aus",
@@ -230,7 +230,7 @@ func TestListSeriesCorrelations_PassesRawDefaultLimitToStoreAndCache(t *testing.
 	defer ctrl.Finish()
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	mockStore.EXPECT().
-		ListSeriesCorrelations("markets.short_interest_wavg.wa", int32(24), 0.0, int32(0)).
+		ListSeriesCorrelations("markets.short_interest_wavg.wa", int32(24), 0.0, int32(0), false).
 		Return(nil, nil).
 		Times(1)
 
@@ -285,7 +285,7 @@ func TestListEconomicSeries_HappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockStore := mocks.NewMockShortsStore(ctrl)
-	mockStore.EXPECT().ListEconomicSeries("cpi", "", "", "", "", int32(0)).Return(
+	mockStore.EXPECT().ListEconomicSeries("cpi", "", "", "", "", int32(0), false).Return(
 		[]*shortsstore.EconomicSeriesRow{{
 			SeriesKey: "cpi.index.all_groups.aus", Topic: "cpi", Metric: "index",
 			Product: "all_groups", RegionType: "national", RegionCode: "aus",
@@ -315,7 +315,7 @@ func TestListEconomicSeries_ZeroLatestPeriodOmitted(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockStore := mocks.NewMockShortsStore(ctrl)
-	mockStore.EXPECT().ListEconomicSeries("", "", "", "", "", int32(0)).Return(
+	mockStore.EXPECT().ListEconomicSeries("", "", "", "", "", int32(0), false).Return(
 		[]*shortsstore.EconomicSeriesRow{{
 			SeriesKey: "cpi.index.all_groups.aus", Topic: "cpi", Metric: "index",
 			// LatestPeriod intentionally left zero-value.

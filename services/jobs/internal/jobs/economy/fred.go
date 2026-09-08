@@ -56,20 +56,31 @@ type fredSeries struct {
 	Unit       string
 	RegionName string
 	Notes      string
+
+	// InternalOnly withholds the series from every PUBLIC read surface
+	// (List/GetEconomicSeries, ListSeriesCorrelations, the site) while still
+	// ingesting and correlating it. See migration 000121.
+	//
+	// Set for VIXCLS only. FRED's own metadata for it reads "Copyright, 2016,
+	// Chicago Board Options Exchange, Inc. Reprinted with permission." —
+	// permission granted to FRED, not onward. The three Federal Reserve series
+	// beside it (H.15, H.10) carry no such notice and stay public.
+	InternalOnly bool
 }
 
 // Pinned from the 2026-09-08 probe. Series IDs are stable FRED identifiers, not
 // labels: FRED retitles series (DTWEXBGS was "Trade Weighted U.S. Dollar Index"
 // before the 2020 rebase) and a label-derived key would fork the history.
 var fredSeriesDefs = []fredSeries{
+	// INTERNAL ONLY — CBOE copyright, see fredSeries.InternalOnly.
 	{"VIXCLS", "volatility", "index_close", "vix", "index", "United States",
-		"CBOE Volatility Index (VIX), daily close, month-end observation."},
+		"CBOE Volatility Index (VIX), daily close, month-end observation. INTERNAL ONLY.", true},
 	{"DGS2", "rates", "treasury_yield", "2y", "percent", "United States",
-		"US Treasury constant-maturity 2-year yield, month-end observation."},
+		"US Treasury constant-maturity 2-year yield, month-end observation.", false},
 	{"DGS10", "rates", "treasury_yield", "10y", "percent", "United States",
-		"US Treasury constant-maturity 10-year yield, month-end observation."},
+		"US Treasury constant-maturity 10-year yield, month-end observation.", false},
 	{"DTWEXBGS", "fx", "usd_index", "broad", "index", "United States",
-		"Nominal broad US dollar index (Jan 2006 = 100), month-end observation."},
+		"Nominal broad US dollar index (Jan 2006 = 100), month-end observation.", false},
 }
 
 // fredObservation is one row of the FRED observations payload. `value` is a
@@ -181,6 +192,7 @@ func monthlyLast(raw []fredObservation, def fredSeries) ([]Obs, error) {
 			"aggregation":    "monthly_last_traded_day",
 			"source_cadence": "daily",
 		},
+		InternalOnly: def.InternalOnly,
 		SourceKey: "fred-us-macro",
 		Licence:   "public-domain-us-gov",
 	}
