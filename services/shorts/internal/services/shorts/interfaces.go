@@ -178,9 +178,9 @@ type ShortsStore interface {
 	SetPoliticianPhoto(slug, url, licence, author, sourceURL, curator string) error
 	MergePoliticians(keepSlug, mergeSlug, evidence, curator string) (int32, error)
 
-	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shortsstore.EconomicSeriesRow, error)
-	GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*shortsstore.EconomicSeriesDataRow, error)
-	ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*shortsstore.SeriesCorrelationRow, error)
+	ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32, includeInternal bool) ([]*shortsstore.EconomicSeriesRow, error)
+	GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32, includeInternal bool) ([]*shortsstore.EconomicSeriesDataRow, error)
+	ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32, includeInternal bool) ([]*shortsstore.SeriesCorrelationRow, error)
 
 	// Company state exposure methods
 	ListStateCompanies(state string, limit int32) ([]*shortsstore.StateCompanyRow, error)
@@ -261,9 +261,9 @@ type Cache interface {
 	ListPartyFundingKey(partyGroup, financialYear string, limit int32) string
 	GetPoliticianFundingKey(slug string) string
 
-	ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string
-	GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string
-	ListSeriesCorrelationsKey(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) string
+	ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32, includeInternal bool) string
+	GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32, includeInternal bool) string
+	ListSeriesCorrelationsKey(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32, includeInternal bool) string
 	ListStateCompaniesKey(state string, limit int32) string
 	GetStateCompanyAggregatesKey() string
 	GetEventTimelineKey(stockCode string, daysBack, limit int32) string

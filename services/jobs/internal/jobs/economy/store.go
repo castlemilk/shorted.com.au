@@ -30,13 +30,17 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Obs) (int
 	const sq = `
 		INSERT INTO economic_series
 			(series_key, topic, metric, product, region_type, region_code,
-			 region_name, unit, frequency, adjustment, dimensions, source_key, licence)
-		VALUES ($1,$2,$3,NULLIF($4,''),$5,$6,$7,$8,$9,$10,$11,$12,$13)
+			 region_name, unit, frequency, adjustment, dimensions, source_key, licence,
+			 internal_only)
+		VALUES ($1,$2,$3,NULLIF($4,''),$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
 		-- Identity fields (topic/metric/product/region/source_key/licence/frequency)
 		-- are deliberately immutable on re-run; only display/metadata fields refresh.
 		ON CONFLICT (series_key) DO UPDATE SET
 			region_name = EXCLUDED.region_name, unit = EXCLUDED.unit,
-			dimensions = EXCLUDED.dimensions, updated_at = now()
+			dimensions = EXCLUDED.dimensions, updated_at = now(),
+			-- Refreshed on re-run: a licence reassessment must be able to flip a
+			-- series to internal (or back) without a manual UPDATE.
+			internal_only = EXCLUDED.internal_only
 		RETURNING id`
 	for _, o := range obs {
 		key := o.Series.Key()
@@ -53,6 +57,7 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Obs) (int
 			o.Series.RegionType, o.Series.RegionCode, o.Series.RegionName,
 			o.Series.Unit, o.Series.Frequency, adjustmentOrDefault(o.Series.Adjustment),
 			string(dims), o.Series.SourceKey, o.Series.Licence,
+			o.Series.InternalOnly,
 		).Scan(&id); err != nil {
 			return 0, fmt.Errorf("upsert series %s: %w", key, err)
 		}

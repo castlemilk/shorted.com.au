@@ -57,6 +57,11 @@ const getEconomicSeriesQuery = `
 		LIMIT $3
 	) o ON TRUE
 	WHERE es.series_key = ANY($1)
+	  -- Internal-only series are withheld even when the caller names the key
+	  -- directly: an explicit series_key must not be a way around the flag
+	  -- (migration 000121). $4 is true only for an operator — see
+	  -- callerMaySeeInternalSeries.
+	  AND (NOT es.internal_only OR $4)
 	ORDER BY es.series_key, o.period ASC`
 
 const listSeriesCorrelationsQuery = `
@@ -69,6 +74,10 @@ const listSeriesCorrelationsQuery = `
 	WHERE c.base_series_key = $1
 	  AND c.window_months = $2
 	  AND c.abs_r >= $3
+	  -- Correlations are still COMPUTED for internal series; they are just not
+	  -- served to a non-operator. Withholding the row rather than the
+	  -- correlation keeps the internal analysis intact (migration 000121).
+	  AND (NOT es.internal_only OR $5)
 	ORDER BY c.abs_r DESC, c.overlay_series_key
 	LIMIT $4`
 
@@ -78,7 +87,7 @@ const (
 )
 
 // ListEconomicSeries returns catalog entries matching the optional filters.
-func (s *postgresStore) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*EconomicSeriesRow, error) {
+func (s *postgresStore) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32, includeInternal bool) ([]*EconomicSeriesRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -95,7 +104,8 @@ func (s *postgresStore) ListEconomicSeries(topic, metric, regionType, regionCode
 		LEFT JOIN LATERAL (
 			SELECT max(period) AS latest FROM economic_observations o WHERE o.series_id = es.id
 		) lp ON TRUE
-		WHERE ($1 = '' OR es.topic = $1)
+		WHERE (NOT es.internal_only OR $7)
+		  AND ($1 = '' OR es.topic = $1)
 		  AND ($2 = '' OR es.metric = $2)
 		  AND ($3 = '' OR es.region_type = $3)
 		  AND ($4 = '' OR es.region_code = $4)
@@ -125,7 +135,7 @@ func (s *postgresStore) ListEconomicSeries(topic, metric, regionType, regionCode
 
 // GetEconomicSeries returns observations oldest-first for the requested keys,
 // capped per series by maxObservations. Unknown keys are silently absent.
-func (s *postgresStore) GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*EconomicSeriesDataRow, error) {
+func (s *postgresStore) GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32, includeInternal bool) ([]*EconomicSeriesDataRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -170,7 +180,7 @@ func (s *postgresStore) GetEconomicSeries(seriesKeys []string, startPeriod time.
 
 // ListSeriesCorrelations returns precomputed overlays ranked by absolute
 // correlation, including catalog metadata needed by clients to label results.
-func (s *postgresStore) ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*SeriesCorrelationRow, error) {
+func (s *postgresStore) ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32, includeInternal bool) ([]*SeriesCorrelationRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

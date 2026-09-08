@@ -42,11 +42,11 @@ import (
 // (`-mode retail`) and the source stays registered, so a backfill or an
 // upstream revival needs no code change.
 var allJobModes = []string{
-	"rba", "cpi", "labour", "trade", "gdp", "approvals", "population",
+	"rba", "fred", "cpi", "labour", "trade", "gdp", "approvals", "population",
 	"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived", "correlations",
 }
 
-const modeList = "sources|freshness|rba|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|spending|lending|construction|business|crime|markets|derived|correlations|all"
+const modeList = "sources|freshness|rba|fred|cpi|labour|trade|gdp|approvals|retail|population|petroleum|govfin|vacancies|wages|spending|lending|construction|business|crime|markets|derived|correlations|all"
 
 // Job returns the `shorted economy` subcommand.
 //
@@ -70,7 +70,7 @@ func Job() runner.Job {
 // every failure path returns an error with the same message text instead.
 func Run(parent context.Context, args []string) error {
 	fs := flag.NewFlagSet("economy", flag.ContinueOnError)
-	mode := fs.String("mode", "all", "sources | freshness | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | vacancies | wages | spending | lending | construction | business | crime | markets | derived | correlations | all")
+	mode := fs.String("mode", "all", "sources | freshness | fred | rba | cpi | labour | trade | gdp | approvals | retail | population | petroleum | govfin | vacancies | wages | spending | lending | construction | business | crime | markets | derived | correlations | all")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return runner.ErrUsage
@@ -129,6 +129,7 @@ type importer struct {
 
 func (c *collector) jobs() map[string]importer {
 	return map[string]importer{
+		"fred":         {"fred-us-macro", ingestFRED},
 		"rba":          {"rba-key-indicators", ingestRBA},
 		"cpi":          {"abs-cpi", ingestCPI},
 		"labour":       {"abs-labour-force", ingestLabour},

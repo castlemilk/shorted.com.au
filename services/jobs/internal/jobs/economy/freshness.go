@@ -95,6 +95,10 @@ var (
 // freshness decision here. Multi-cadence sources use their slowest meaningful
 // family; derived crime rates rely on the separately monitored ABS crime source.
 var sourceFreshnessCadences = map[string]freshnessCadence{
+	// Daily upstream stored month-end, so a month-and-a-bit is the real bar:
+	// the same cadence the RBA monthly tables get. A tighter threshold would
+	// alarm every time a month has not closed yet.
+	"fred-us-macro":               rbaFreshnessCadence,
 	"rba-key-indicators":          rbaFreshnessCadence,
 	"rba-commodity-prices":        rbaFreshnessCadence,
 	"rba-credit-aggregates":       rbaFreshnessCadence,

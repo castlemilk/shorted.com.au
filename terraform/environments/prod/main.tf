@@ -457,7 +457,7 @@ module "shorted_job_economy" {
   source = "../../modules/shorted-job"
 
   name             = "shorted-economy"
-  description      = "Monthly ABS/RBA/DCCEEW economy ingest"
+  description      = "Monthly ABS/RBA/DCCEEW/FRED economy ingest"
   project_id       = var.project_id
   region           = var.region
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
@@ -472,8 +472,19 @@ module "shorted_job_economy" {
     GCP_PROJECT = var.project_id
   }
 
+  # FRED_API_KEY feeds the fred-us-macro importer. FRED rejects DEMO_KEY
+  # outright (400 on every series, measured 2026-09-07), so the importer fails
+  # rather than writing a partial catalog — which surfaces as a DEGRADED run
+  # (exit 10) with the other sources still persisted, not a silent gap.
+  #
+  # ORDERING: the secret must EXIST before this applies, or the job revision is
+  # rejected. Create it first (one-off, prod-gated):
+  #
+  #   printf %s "$KEY" | gcloud secrets create FRED_API_KEY \
+  #     --project rosy-clover-477102-t5 --replication-policy=automatic --data-file=-
   secret_env = {
     DATABASE_URL = "DATABASE_URL"
+    FRED_API_KEY = "FRED_API_KEY"
   }
 
   timeout_seconds = 1800

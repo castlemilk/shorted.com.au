@@ -405,18 +405,22 @@ func (c *MemoryCache) GetPoliticianFundingKey(slug string) string {
 	return c.generateKey("aec_politician_funding", slug)
 }
 
-func (c *MemoryCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string {
-	return c.generateKey("economic_series_list", topic, metric, regionType, regionCode, product, limit)
+// includeInternal is a KEY DIMENSION, not an afterthought. Without it an
+// operator's response — which contains internal-only series — would be cached
+// under the same key an anonymous caller reads, and the licence gate would leak
+// through the cache while every query-level check still passed.
+func (c *MemoryCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32, includeInternal bool) string {
+	return c.generateKey("economic_series_list", topic, metric, regionType, regionCode, product, limit, includeInternal)
 }
 
 // GetEconomicSeriesKey builds a cache key for GetEconomicSeries responses.
-func (c *MemoryCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string {
-	return c.generateKey("economic_series_get", seriesKeys, startPeriod, maxObservations)
+func (c *MemoryCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32, includeInternal bool) string {
+	return c.generateKey("economic_series_get", seriesKeys, startPeriod, maxObservations, includeInternal)
 }
 
 // ListSeriesCorrelationsKey builds a cache key for normalized correlation filters.
-func (c *MemoryCache) ListSeriesCorrelationsKey(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) string {
-	return c.generateKey("series_correlations_list", baseSeriesKey, windowMonths, minAbsR, limit)
+func (c *MemoryCache) ListSeriesCorrelationsKey(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32, includeInternal bool) string {
+	return c.generateKey("series_correlations_list", baseSeriesKey, windowMonths, minAbsR, limit, includeInternal)
 }
 
 // ListStateCompaniesKey builds a cache key for ListStateCompanies responses.

@@ -410,18 +410,18 @@ func (mr *MockShortsStoreMockRecorder) GetDropIndexSeries(grain, grainKey, from,
 }
 
 // GetEconomicSeries mocks base method.
-func (m *MockShortsStore) GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32) ([]*shorts.EconomicSeriesDataRow, error) {
+func (m *MockShortsStore) GetEconomicSeries(seriesKeys []string, startPeriod time.Time, maxObservations int32, includeInternal bool) ([]*shorts.EconomicSeriesDataRow, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEconomicSeries", seriesKeys, startPeriod, maxObservations)
+	ret := m.ctrl.Call(m, "GetEconomicSeries", seriesKeys, startPeriod, maxObservations, includeInternal)
 	ret0, _ := ret[0].([]*shorts.EconomicSeriesDataRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetEconomicSeries indicates an expected call of GetEconomicSeries.
-func (mr *MockShortsStoreMockRecorder) GetEconomicSeries(seriesKeys, startPeriod, maxObservations any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) GetEconomicSeries(seriesKeys, startPeriod, maxObservations, includeInternal any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEconomicSeries", reflect.TypeOf((*MockShortsStore)(nil).GetEconomicSeries), seriesKeys, startPeriod, maxObservations)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEconomicSeries", reflect.TypeOf((*MockShortsStore)(nil).GetEconomicSeries), seriesKeys, startPeriod, maxObservations, includeInternal)
 }
 
 // GetEditorialTake mocks base method.
@@ -1204,18 +1204,18 @@ func (mr *MockShortsStoreMockRecorder) ListDistinctiveHoldings(slug any) *gomock
 }
 
 // ListEconomicSeries mocks base method.
-func (m *MockShortsStore) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32) ([]*shorts.EconomicSeriesRow, error) {
+func (m *MockShortsStore) ListEconomicSeries(topic, metric, regionType, regionCode, product string, limit int32, includeInternal bool) ([]*shorts.EconomicSeriesRow, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListEconomicSeries", topic, metric, regionType, regionCode, product, limit)
+	ret := m.ctrl.Call(m, "ListEconomicSeries", topic, metric, regionType, regionCode, product, limit, includeInternal)
 	ret0, _ := ret[0].([]*shorts.EconomicSeriesRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListEconomicSeries indicates an expected call of ListEconomicSeries.
-func (mr *MockShortsStoreMockRecorder) ListEconomicSeries(topic, metric, regionType, regionCode, product, limit any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) ListEconomicSeries(topic, metric, regionType, regionCode, product, limit, includeInternal any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEconomicSeries", reflect.TypeOf((*MockShortsStore)(nil).ListEconomicSeries), topic, metric, regionType, regionCode, product, limit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEconomicSeries", reflect.TypeOf((*MockShortsStore)(nil).ListEconomicSeries), topic, metric, regionType, regionCode, product, limit, includeInternal)
 }
 
 // ListEditorialTakes mocks base method.
@@ -1424,18 +1424,18 @@ func (mr *MockShortsStoreMockRecorder) ListSecurityReviewQueue(limit, offset, ga
 }
 
 // ListSeriesCorrelations mocks base method.
-func (m *MockShortsStore) ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) ([]*shorts.SeriesCorrelationRow, error) {
+func (m *MockShortsStore) ListSeriesCorrelations(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32, includeInternal bool) ([]*shorts.SeriesCorrelationRow, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListSeriesCorrelations", baseSeriesKey, windowMonths, minAbsR, limit)
+	ret := m.ctrl.Call(m, "ListSeriesCorrelations", baseSeriesKey, windowMonths, minAbsR, limit, includeInternal)
 	ret0, _ := ret[0].([]*shorts.SeriesCorrelationRow)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListSeriesCorrelations indicates an expected call of ListSeriesCorrelations.
-func (mr *MockShortsStoreMockRecorder) ListSeriesCorrelations(baseSeriesKey, windowMonths, minAbsR, limit any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) ListSeriesCorrelations(baseSeriesKey, windowMonths, minAbsR, limit, includeInternal any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSeriesCorrelations", reflect.TypeOf((*MockShortsStore)(nil).ListSeriesCorrelations), baseSeriesKey, windowMonths, minAbsR, limit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSeriesCorrelations", reflect.TypeOf((*MockShortsStore)(nil).ListSeriesCorrelations), baseSeriesKey, windowMonths, minAbsR, limit, includeInternal)
 }
 
 // ListShortInterestOverlap mocks base method.
@@ -2109,17 +2109,17 @@ func (mr *MockCacheMockRecorder) GetDropIndexSeriesKey(grain, grainKey, from, to
 }
 
 // GetEconomicSeriesKey mocks base method.
-func (m *MockCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32) string {
+func (m *MockCache) GetEconomicSeriesKey(seriesKeys []string, startPeriod string, maxObservations int32, includeInternal bool) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEconomicSeriesKey", seriesKeys, startPeriod, maxObservations)
+	ret := m.ctrl.Call(m, "GetEconomicSeriesKey", seriesKeys, startPeriod, maxObservations, includeInternal)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // GetEconomicSeriesKey indicates an expected call of GetEconomicSeriesKey.
-func (mr *MockCacheMockRecorder) GetEconomicSeriesKey(seriesKeys, startPeriod, maxObservations any) *gomock.Call {
+func (mr *MockCacheMockRecorder) GetEconomicSeriesKey(seriesKeys, startPeriod, maxObservations, includeInternal any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEconomicSeriesKey", reflect.TypeOf((*MockCache)(nil).GetEconomicSeriesKey), seriesKeys, startPeriod, maxObservations)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEconomicSeriesKey", reflect.TypeOf((*MockCache)(nil).GetEconomicSeriesKey), seriesKeys, startPeriod, maxObservations, includeInternal)
 }
 
 // GetEventTimelineKey mocks base method.
@@ -2670,17 +2670,17 @@ func (mr *MockCacheMockRecorder) ListDistinctiveHoldingsKey(slug any) *gomock.Ca
 }
 
 // ListEconomicSeriesKey mocks base method.
-func (m *MockCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32) string {
+func (m *MockCache) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product string, limit int32, includeInternal bool) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListEconomicSeriesKey", topic, metric, regionType, regionCode, product, limit)
+	ret := m.ctrl.Call(m, "ListEconomicSeriesKey", topic, metric, regionType, regionCode, product, limit, includeInternal)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // ListEconomicSeriesKey indicates an expected call of ListEconomicSeriesKey.
-func (mr *MockCacheMockRecorder) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product, limit any) *gomock.Call {
+func (mr *MockCacheMockRecorder) ListEconomicSeriesKey(topic, metric, regionType, regionCode, product, limit, includeInternal any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEconomicSeriesKey", reflect.TypeOf((*MockCache)(nil).ListEconomicSeriesKey), topic, metric, regionType, regionCode, product, limit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEconomicSeriesKey", reflect.TypeOf((*MockCache)(nil).ListEconomicSeriesKey), topic, metric, regionType, regionCode, product, limit, includeInternal)
 }
 
 // ListPartyFundingKey mocks base method.
@@ -2754,17 +2754,17 @@ func (mr *MockCacheMockRecorder) ListRegisterChangesKey(since, kind, stockCode, 
 }
 
 // ListSeriesCorrelationsKey mocks base method.
-func (m *MockCache) ListSeriesCorrelationsKey(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32) string {
+func (m *MockCache) ListSeriesCorrelationsKey(baseSeriesKey string, windowMonths int32, minAbsR float64, limit int32, includeInternal bool) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListSeriesCorrelationsKey", baseSeriesKey, windowMonths, minAbsR, limit)
+	ret := m.ctrl.Call(m, "ListSeriesCorrelationsKey", baseSeriesKey, windowMonths, minAbsR, limit, includeInternal)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // ListSeriesCorrelationsKey indicates an expected call of ListSeriesCorrelationsKey.
-func (mr *MockCacheMockRecorder) ListSeriesCorrelationsKey(baseSeriesKey, windowMonths, minAbsR, limit any) *gomock.Call {
+func (mr *MockCacheMockRecorder) ListSeriesCorrelationsKey(baseSeriesKey, windowMonths, minAbsR, limit, includeInternal any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSeriesCorrelationsKey", reflect.TypeOf((*MockCache)(nil).ListSeriesCorrelationsKey), baseSeriesKey, windowMonths, minAbsR, limit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSeriesCorrelationsKey", reflect.TypeOf((*MockCache)(nil).ListSeriesCorrelationsKey), baseSeriesKey, windowMonths, minAbsR, limit, includeInternal)
 }
 
 // ListShortInterestOverlapKey mocks base method.

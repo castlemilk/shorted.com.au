@@ -325,6 +325,40 @@ export const NATIONAL_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
     label: "Household spending per capita",
     format: "aud",
   },
+  // US risk factors (fred-us-macro). The only non-Australian overlays in this
+  // list, so each label says so: an unlabelled "10-year yield" next to Australian
+  // indicators reads as the ACGB, which is a different instrument entirely.
+  //
+  // These are the global drivers of ASX short interest that the domestic
+  // indicators above cannot show — a short-interest spike concurrent with a VIX
+  // spike is a risk-off move, not a stock-specific view, and nothing else here
+  // distinguishes the two.
+  //
+  // Stored month-end from daily upstream; see services/jobs/.../fred.go.
+  // VIX is DELIBERATELY ABSENT. It is ingested and correlated like the rest,
+  // but flagged internal_only (migration 000121) because FRED's own metadata
+  // reads "Copyright, 2016, Chicago Board Options Exchange, Inc. Reprinted with
+  // permission" — permission granted to FRED, not onward. This page is public
+  // and unauthenticated, so listing it here would publish it.
+  //
+  // Listing it would also be inert: the public RPCs filter internal_only, so
+  // the overlay would render an option that returns nothing. Internal analysis
+  // reads the series straight from the database.
+  {
+    key: "rates.treasury_yield.10y.usa",
+    label: "US 10-year Treasury yield",
+    format: "percent",
+  },
+  {
+    key: "rates.treasury_yield.2y.usa",
+    label: "US 2-year Treasury yield",
+    format: "percent",
+  },
+  {
+    key: "fx.usd_index.broad.usa",
+    label: "US dollar index (broad)",
+    format: "index",
+  },
 ];
 
 export interface StateCorrelationCandidateMetric {

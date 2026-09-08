@@ -48,7 +48,7 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 
 func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	want := []string{
-		"rba", "cpi", "labour", "trade", "gdp", "approvals", "population",
+		"rba", "fred", "cpi", "labour", "trade", "gdp", "approvals", "population",
 		"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived", "correlations",
 	}
 	if !reflect.DeepEqual(allJobModes, want) {
@@ -177,6 +177,67 @@ func assertSDMXRowError(t *testing.T, err error, parser string, csvRow int) {
 	for _, want := range []string{parser, fmt.Sprintf("CSV row %d", csvRow)} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not contain %q", err, want)
+		}
+	}
+}
+
+
+// Every importer registered in jobs() must be reachable from `-mode all`, or it
+// is dispatchable by hand and never actually collected in production.
+//
+// This gap is not hypothetical: fred-us-macro was added to jobs() and to the
+// freshness table but NOT to allJobModes. It would have imported once by hand,
+// then sat in the catalog going stale forever while its freshness cadence
+// alarmed about a source the monthly job never walked. Every existing test
+// passed — TestAllModeIncludesNewABSImporters pins allJobModes to a literal, so
+// an importer missing from BOTH stays invisible to it.
+//
+// "retail" is the one deliberate exclusion, documented at allJobModes: the
+// upstream flow was discontinued in 2025-06 and the mode is kept dispatchable
+// for a backfill or an upstream revival.
+func TestEveryRegisteredImporterRunsInAllMode(t *testing.T) {
+	deliberatelyExcluded := map[string]string{
+		"retail": "abs-retail-trade discontinued upstream 2025-06; kept dispatchable only",
+	}
+
+	inAll := make(map[string]bool, len(allJobModes))
+	for _, mode := range allJobModes {
+		inAll[mode] = true
+	}
+
+	c := &collector{}
+	for mode := range c.jobs() {
+		if reason, ok := deliberatelyExcluded[mode]; ok {
+			if inAll[mode] {
+				t.Errorf("%q is in allJobModes but recorded as excluded (%s) — one of the two is wrong", mode, reason)
+			}
+			continue
+		}
+		if !inAll[mode] {
+			t.Errorf("importer %q is registered in jobs() but absent from allJobModes: "+
+				"it would never run in production, while its freshness cadence alarms", mode)
+		}
+	}
+
+	// And the converse: a mode in the walk with no importer behind it would
+	// panic on a nil lookup mid-run, after earlier sources had already written.
+	for _, mode := range allJobModes {
+		if mode == "correlations" {
+			continue // handled inline in runAll, not via jobs()
+		}
+		if _, ok := c.jobs()[mode]; !ok {
+			t.Errorf("allJobModes contains %q with no importer registered in jobs()", mode)
+		}
+	}
+}
+
+// modeList is the error text a bad -mode prints. A mode missing from it is
+// dispatchable but undiscoverable, and the error message actively misleads.
+func TestModeListNamesEveryDispatchableMode(t *testing.T) {
+	c := &collector{}
+	for mode := range c.jobs() {
+		if !strings.Contains(modeList, "|"+mode+"|") && !strings.HasSuffix(modeList, "|"+mode) {
+			t.Errorf("mode %q is dispatchable but missing from modeList: a typo's error message would omit it", mode)
 		}
 	}
 }
