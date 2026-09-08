@@ -326,6 +326,9 @@ jobs:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
 
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
       - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
