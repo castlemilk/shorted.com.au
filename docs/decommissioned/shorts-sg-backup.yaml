@@ -1,0 +1,103 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+    run.googleapis.com/maxScale: '25'
+    run.googleapis.com/urls: '["https://shorts-sg-334313144667.asia-southeast1.run.app","https://shorts-sg-uiekqxovma-as.a.run.app"]'
+  labels:
+    cloud.googleapis.com/location: asia-southeast1
+    run.googleapis.com/satisfiesPzs: 'true'
+  name: shorts-sg
+  namespace: '334313144667'
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '25'
+        run.googleapis.com/client-name: gcloud
+        run.googleapis.com/client-version: 524.0.0
+        run.googleapis.com/startup-cpu-boost: 'true'
+      labels:
+        client.knative.dev/nonce: oljutjdgni
+        run.googleapis.com/startupProbeType: Default
+    spec:
+      containerConcurrency: 80
+      containers:
+      - env:
+        - name: ENVIRONMENT
+          value: production
+        - name: GCP_PROJECT_ID
+          value: rosy-clover-477102-t5
+        - name: APP_STORE_POSTGRES_ADDRESS
+          value: aws-0-ap-southeast-2.pooler.supabase.com:6543
+        - name: APP_STORE_POSTGRES_DATABASE
+          value: postgres
+        - name: APP_STORE_POSTGRES_USERNAME
+          value: postgres.xivfykscsdagwsreyqgf
+        - name: ALGOLIA_INDEX
+          value: stocks
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: http/protobuf
+        - name: APP_STORE_POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: APP_STORE_POSTGRES_PASSWORD
+        - name: ALGOLIA_APP_ID
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: ALGOLIA_APP_ID
+        - name: ALGOLIA_SEARCH_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: ALGOLIA_SEARCH_KEY
+        - name: ALGOLIA_ADMIN_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: ALGOLIA_ADMIN_KEY
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: OPENAI_API_KEY
+        - name: INTERNAL_SERVICE_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: INTERNAL_SERVICE_SECRET
+        - name: TOKEN_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: TOKEN_SECRET
+        - name: OTEL_EXPORTER_OTLP_HEADERS
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: OTEL_EXPORTER_OTLP_HEADERS
+        image: australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/shorts:main-8e11d73d
+        ports:
+        - containerPort: 9091
+          name: http1
+        resources:
+          limits:
+            cpu: '1'
+            memory: 512Mi
+        startupProbe:
+          failureThreshold: 1
+          periodSeconds: 240
+          tcpSocket:
+            port: 9091
+          timeoutSeconds: 240
+      serviceAccountName: shorts@rosy-clover-477102-t5.iam.gserviceaccount.com
+      timeoutSeconds: 300
+  traffic:
+  - latestRevision: true
+    percent: 100

@@ -39,8 +39,14 @@ EDGE_HOST="${EDGE_HOST:-https://api.shorted.com.au}"
 
 # Direct origin URLs for each proto package.
 # Update when migrating regions/services.
-SHORTS_ORIGIN="${SHORTS_ORIGIN:-https://shorts-sg-334313144667.asia-southeast1.run.app}"
-MARKETDATA_ORIGIN="${MARKETDATA_ORIGIN:-https://market-data-sg-334313144667.asia-southeast1.run.app}"
+# These MUST match wrangler.toml's *_ORIGIN values, because the whole point of
+# the direct-origin leg is to compare what the worker returns against what its
+# actual origin returns. Pointed at the asia-southeast1 `-sg` services until
+# 2026-09-08, which had been decommissioned in a region migration — so the
+# comparison leg was contacting hosts the worker does not use, and a genuine
+# worker/origin disagreement could not have been detected by it.
+SHORTS_ORIGIN="${SHORTS_ORIGIN:-https://shorts-uiekqxovma-km.a.run.app}"
+MARKETDATA_ORIGIN="${MARKETDATA_ORIGIN:-https://market-data-uiekqxovma-km.a.run.app}"
 CHAT_ORIGIN="${CHAT_ORIGIN:-https://chat-service-334313144667.australia-southeast2.run.app}"
 
 # Body to send for each test (deliberately minimal — we only care about
