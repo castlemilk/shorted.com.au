@@ -176,7 +176,10 @@ test("terraform deploy workflow gates housing contracts on open pull requests", 
   assert.match(job, /uses: actions\/checkout@v5/);
   assert.match(job, /uses: actions\/setup-go@v6/);
   assert.match(job, /go-version: \$\{\{ env\.GO_VERSION \}\}/);
-  assert.match(job, /cache-dependency-path:\s*\|\s*services\/go\.sum\s*services\/jobs\/go\.sum/);
+  // setup-go's cache save hangs on the self-hosted runners; the module and
+  // build caches persist on the runner's disk instead.
+  assert.match(job, /^\s+cache: false$/m);
+  assert.doesNotMatch(job, /cache-dependency-path:/);
   assert.match(
     job,
     /git config --global url\."https:\/\/x-access-token:\$\{\{ secrets\.STEALTH_PAT \}\}@github\.com\/skunkworq\/"\.insteadOf "https:\/\/github\.com\/skunkworq\/"/,
