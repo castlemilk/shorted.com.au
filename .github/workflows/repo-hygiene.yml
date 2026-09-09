@@ -27,6 +27,15 @@ on:
       - ".github/workflows/repo-hygiene.yml"
   workflow_dispatch:
 
+# Supersede a PR's own earlier runs. Every job here competes for the shared
+# self-hosted box, so a rapid series of pushes otherwise queues N full runs of
+# work nobody is waiting on. Cancellation is scoped to pull_request on purpose:
+# a push to main must always run to completion, because its result is the
+# signal that main is healthy.
+concurrency:
+  group: repo-hygiene-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   portal-content-provenance:
     name: Portal content provenance

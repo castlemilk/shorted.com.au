@@ -26,7 +26,14 @@ permissions:
 
 jobs:
   edge-errors:
-    runs-on: [self-hosted, cuttlefish, linux]
+    # ubuntu-latest on purpose. #600 moved every job to the self-hosted
+    # Cuttlefish runner on the premise that "a real Linux host behaves exactly
+    # as GitHub-hosted"; that holds for services/container/apt, but NOT for the
+    # preinstalled toolchain. GitHub-hosted images ship the GitHub CLI (and
+    # psql); the bare actions/runner container does not, so this sentinel's
+    # alerting path exits 127 — it stays green while healthy and fails to alarm
+    # precisely when something is wrong. Keep it here unless gh is baked in.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
