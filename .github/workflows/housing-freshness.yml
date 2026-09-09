@@ -322,15 +322,11 @@ jobs:
       # the repo watchers' inbox. It deliberately reuses ONE open issue rather
       # than opening a new one per run: a daily sentinel that opens a daily issue
       # becomes noise within a week, and noise is how the last one was missed.
-      - name: File or update the freshness alert issue
+      # This step only BUILDS the issue body; the step after it files the issue
+      # through the Actions runtime, because the runner has no gh binary.
+      - name: Compose the freshness alert body
         if: failure()
         env:
-          GH_TOKEN: ${{ github.token }}
-          # This job never checks out — it only queries the database — so gh has
-          # no git remote to infer the repository from and every `gh issue`
-          # call failed with "fatal: not a git repository". Setting GH_REPO
-          # is the fix that does not require a pointless checkout.
-          GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         shell: bash
         run: |
@@ -357,36 +353,60 @@ jobs:
             echo "This issue is reused by every failing run; it closes on the next green run."
           } >"$body_file"
 
-          existing="$(gh issue list --state open --label housing-freshness \
-            --json number --jq '.[0].number // empty' 2>/dev/null || true)"
+          echo "$title" >"$RUNNER_TEMP/issue-title.txt"
 
-          if [[ -n "$existing" ]]; then
-            gh issue comment "$existing" --body-file "$body_file"
-            echo "commented on existing issue #$existing"
-          else
-            gh label create housing-freshness --color B60205 \
-              --description "Housing ingest freshness sentinel" 2>/dev/null || true
-            gh issue create --title "$title" --label housing-freshness --body-file "$body_file"
-          fi
+      # The runner has no `gh` binary, so the filing step exited 127 and the
+      # alarm never reached anyone — the same silent-failure class the sentinel
+      # exists to catch. github-script runs in the Actions node runtime and
+      # needs nothing installed on the runner.
+      - name: File or update the freshness alert issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const label = "housing-freshness";
+            const body = fs.readFileSync(`${process.env.RUNNER_TEMP}/issue-body.md`, "utf8");
+            const title = fs.readFileSync(`${process.env.RUNNER_TEMP}/issue-title.txt`, "utf8").trim();
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: "open", labels: label, per_page: 1,
+            });
+            if (open.data.length) {
+              const number = open.data[0].number;
+              await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
+              core.info(`commented on existing issue #${number}`);
+              return;
+            }
+            try {
+              await github.rest.issues.createLabel({
+                owner, repo, name: label, color: "B60205",
+                description: "Housing ingest freshness sentinel",
+              });
+            } catch (err) {
+              if (err.status !== 422) throw err; // 422 = the label already exists
+            }
+            const created = await github.rest.issues.create({ owner, repo, title, body, labels: [label] });
+            core.info(`opened issue #${created.data.number}`);
 
       # Close the tracking issue once the sentinel is green again, so an open
       # issue always means "currently broken" rather than "broke once".
       - name: Resolve the freshness alert issue
         if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          # This job never checks out — it only queries the database — so gh has
-          # no git remote to infer the repository from and every `gh issue`
-          # call failed with "fatal: not a git repository". Setting GH_REPO
-          # is the fix that does not require a pointless checkout.
-          GH_REPO: ${{ github.repository }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          existing="$(gh issue list --state open --label housing-freshness \
-            --json number --jq '.[0].number // empty' 2>/dev/null || true)"
-          if [[ -n "$existing" ]]; then
-            gh issue close "$existing" --comment "Housing freshness is green again: $RUN_URL"
-            echo "closed issue #$existing"
-          fi
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = "housing-freshness";
+            const { owner, repo } = context.repo;
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: "open", labels: label, per_page: 1,
+            });
+            if (!open.data.length) return;
+            const number = open.data[0].number;
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: number,
+              body: `Housing freshness is green again: ${runUrl}`,
+            });
+            await github.rest.issues.update({ owner, repo, issue_number: number, state: "closed" });
+            core.info(`closed issue #${number}`);
