@@ -200,6 +200,54 @@ func TestBrandbrainAgentClient_No401RefreshWithoutControl(t *testing.T) {
 	}
 }
 
+// A 401 that cannot be refreshed is an OPERATOR state, not a blip: the static
+// seed token is dead and nothing on this rig can renew it. It cost 15 days of
+// silent zero-work runs (2026-08-25 → 09-09) to diagnose from "401
+// unauthorized" alone, because that message says nothing about WHY no refresh
+// happened. The error must name the missing capability.
+func TestBrandbrainAgentClient_401WithoutRefreshNamesTheMissingControlAPI(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	c := newBrandbrainAgentClient(agentConfig{brandbrainURL: srv.URL, token: "t", agentID: "a"})
+	_, err := c.claim(context.Background())
+	if err == nil {
+		t.Fatal("expected a 401 error")
+	}
+	if !strings.Contains(err.Error(), "cannot be refreshed") {
+		t.Errorf("401 error must say the token cannot be refreshed, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "BRANDBRAIN_CONTROL_PORT") {
+		t.Errorf("401 error must name how to restore auto-refresh, got: %v", err)
+	}
+}
+
+// With a control API present the 401 text must NOT claim refresh is impossible.
+func TestBrandbrainAgentClient_401WithRefreshDoesNotBlameTheControlAPI(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"still-bad"}`))
+	}))
+	defer control.Close()
+
+	c := newBrandbrainAgentClient(agentConfig{
+		brandbrainURL: srv.URL, token: "t", agentID: "a",
+		controlURL: control.URL, controlSecret: "s",
+	})
+	_, err := c.claim(context.Background())
+	if err == nil {
+		t.Fatal("expected a 401 error")
+	}
+	if strings.Contains(err.Error(), "cannot be refreshed") {
+		t.Errorf("a rig WITH a control API must not be told refresh is unavailable, got: %v", err)
+	}
+}
+
 func TestDigitsOnly(t *testing.T) {
 	cases := map[string]string{"9222\n": "9222", " 51763 ": "51763", "port=8080": "8080", "abc": "", "": ""}
 	for in, want := range cases {

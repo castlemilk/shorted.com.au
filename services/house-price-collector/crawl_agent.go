@@ -196,6 +196,20 @@ func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, bod
 	if err != nil {
 		return err
 	}
+	if status == http.StatusUnauthorized && !c.canRefresh() {
+		// Say WHY, not just what. A 401 here is terminal and operator-actionable:
+		// the static seed token is dead and this rig has no way to renew it,
+		// because the co-located agent's loopback control API was not found.
+		// Without this sentence the run records only "401 unauthorized", which
+		// is indistinguishable from a transient blip — and that is exactly how
+		// a rig sat doing zero work for 15 days (2026-08-25 → 09-09) while
+		// still reporting hourly.
+		return fmt.Errorf("brandbrain %s %s: %d %s — the static BRANDBRAIN_AGENT_TOKEN "+
+			"cannot be refreshed: no local agent control API (set BRANDBRAIN_CONTROL_PORT + "+
+			"BRANDBRAIN_CONTROL_SECRET, or run the BrandBrain agent so ~/.brandbrain/diag-port "+
+			"and control_secret exist). Mint a fresh token or start the agent",
+			method, path, status, strings.TrimSpace(string(rb)))
+	}
 	if status >= 300 {
 		return fmt.Errorf("brandbrain %s %s: %d %s", method, path, status, strings.TrimSpace(string(rb)))
 	}
