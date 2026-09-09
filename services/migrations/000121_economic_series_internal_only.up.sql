@@ -1,10 +1,19 @@
 -- Migration 000121: mark an economic series as internal-only (#601 follow-up)
 --
--- Every surface over economic_series is PUBLIC and unauthenticated:
+-- The API over economic_series is PUBLIC and unauthenticated:
 -- ListEconomicSeries, GetEconomicSeries and ListSeriesCorrelations all carry
--- VISIBILITY_PUBLIC, the MCP server exposes the same three, and
--- /industry-intelligence has no auth in its route. So "ingested" has, until
--- now, meant "published" — there was no third state.
+-- VISIBILITY_PUBLIC and the MCP server exposes the same three. Verified against
+-- production 2026-09-09 with no credentials: an anonymous POST returned 16
+-- commodity series and a full gold observation payload. So "ingested" has,
+-- until now, meant "published" — there was no third state.
+--
+-- CORRECTION (2026-09-09): this comment originally added "and
+-- /industry-intelligence has no auth in its route". That was WRONG — the page
+-- is a signed-in workspace behind a sign-in wall. It does not change the
+-- conclusion and it strengthens it: the gate cannot rest on who can open a
+-- page, because the API answers everyone. Recorded rather than quietly edited,
+-- since the false claim was load-bearing in a licence decision and the next
+-- person to weigh one should see that the page was never the exposure.
 --
 -- That is fine for ABS/RBA/DCCEEW, which are CC-BY-4.0 and meant to be
 -- redistributed. It is not fine for every source we might want to REASON over.

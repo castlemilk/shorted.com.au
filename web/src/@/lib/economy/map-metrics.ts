@@ -338,12 +338,24 @@ export const NATIONAL_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
   // VIX is DELIBERATELY ABSENT. It is ingested and correlated like the rest,
   // but flagged internal_only (migration 000121) because FRED's own metadata
   // reads "Copyright, 2016, Chicago Board Options Exchange, Inc. Reprinted with
-  // permission" — permission granted to FRED, not onward. This page is public
-  // and unauthenticated, so listing it here would publish it.
+  // permission" — permission granted to FRED, not onward.
   //
-  // Listing it would also be inert: the public RPCs filter internal_only, so
-  // the overlay would render an option that returns nothing. Internal analysis
-  // reads the series straight from the database.
+  // CORRECTION (2026-09-09): an earlier version of this comment justified the
+  // exclusion by calling THIS PAGE public and unauthenticated. It is not —
+  // /industry-intelligence is a signed-in workspace and shows a sign-in wall.
+  // The justification was wrong; the exclusion is still right, for a different
+  // and stronger reason.
+  //
+  // The exposure is the API, not the page. ListEconomicSeries and
+  // GetEconomicSeries are VISIBILITY_PUBLIC and answer with no credentials at
+  // all — verified against production the same day, an anonymous POST returned
+  // 16 commodity series and a full gold observation payload. Anything reaching
+  // the catalog is therefore published regardless of who can open the page, and
+  // a free sign-in is not an operator grant either.
+  //
+  // Listing it here would also be inert: the public RPCs filter internal_only,
+  // so the overlay would render an option that returns nothing. Internal
+  // analysis reads the series straight from the database.
   {
     key: "rates.treasury_yield.10y.usa",
     label: "US 10-year Treasury yield",
