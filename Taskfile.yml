@@ -206,11 +206,19 @@ tasks:
       VACUUM — use db:prod:apply / db:prod:refresh, which use the SESSION pooler
       (5432). The txn pooler kills long statements mid-flight.
     interactive: true
-    env: {PGOPTIONS: "-c default_transaction_read_only=on"}
+    # The DSN rides in env, not in the command string. task echoes cmds AFTER
+    # template interpolation, so '{{.DB_PROD_TXN}}' printed the production
+    # password — user, host and all — into the terminal and into any transcript
+    # of it, on every invocation. $PGURL is a SHELL variable: task prints it
+    # literally and the shell expands it at runtime, so the command stays
+    # visible and the secret does not.
+    env:
+      PGOPTIONS: "-c default_transaction_read_only=on"
+      PGURL: "{{.DB_PROD_TXN}}"
     preconditions:
       - sh: '[ -n "{{.DB_PROD_TXN}}" ]'
         msg: "no prod DSN found in services/.env"
-    cmds: ['psql "{{.DB_PROD_TXN}}"']
+    cmds: ['psql "$PGURL"']
 
   db:prod:apply:
     desc: "Hand-apply ONE migration to prod (FILE=..., CONFIRM=prod)"
@@ -235,8 +243,11 @@ tasks:
         msg: "migration file not found: {{.FILE}}"
       - sh: 'echo "{{.DB_PROD_SESSION}}" | grep -q ":5432/"'
         msg: "refusing: prod DDL needs the SESSION pooler (5432), got a non-5432 DSN"
+    env:
+      PGOPTIONS: "-c statement_timeout=0"
+      PGURL: "{{.DB_PROD_SESSION}}"
     cmds:
-      - 'PGOPTIONS="-c statement_timeout=0" psql "{{.DB_PROD_SESSION}}" -v ON_ERROR_STOP=1 -f {{.FILE}}'
+      - 'psql "$PGURL" -v ON_ERROR_STOP=1 -f {{.FILE}}'
 
   news:publish:
     desc: "Publish hand-written articles from content/news to /news (CONFIRM=prod)"
@@ -312,6 +323,9 @@ tasks:
         msg: "refusing: pass CONFIRM=prod"
       - sh: 'echo "{{.DB_PROD_SESSION}}" | grep -q ":5432/"'
         msg: "refusing: MV refresh needs the SESSION pooler (5432)"
+    env:
+      # Same reason as db:prod:apply — keep the DSN out of the echoed command.
+      PGURL: "{{.DB_PROD_SESSION}}"
     cmds:
       - |
         fn=refresh_all_materialized_views
@@ -319,7 +333,7 @@ tasks:
           housing)  fn=refresh_housing_materialized_views ;;
           register) fn=refresh_register_materialized_views ;;
         esac
-        PGOPTIONS="-c statement_timeout=0" psql "{{.DB_PROD_SESSION}}" -v ON_ERROR_STOP=1 -c "SELECT $fn();"
+        PGOPTIONS="-c statement_timeout=0" psql "$PGURL" -v ON_ERROR_STOP=1 -c "SELECT $fn();"
 
   db:prod:migrate:
     desc: "(refuses — see db:prod:apply)"
@@ -604,17 +618,22 @@ tasks:
 
   debug:housing:
     desc: Read-only housing health (ingest runs, freshness, link coverage)
+    # silent: true kept for output tidiness, but it is NO LONGER what protects
+    # the DSN — the env indirection below is. Relying on silent for that put the
+    # credential one `silent: false` away from being printed.
     silent: true
+    env:
+      PGURL: "{{.DB_PROD_TXN}}"
     preconditions:
       - sh: '[ -n "{{.DB_PROD_TXN}}" ]'
         msg: "no prod DSN found in services/.env"
     cmds:
       - |
-        psql "{{.DB_PROD_TXN}}" -tAc "
+        psql "$PGURL" -tAc "
           SELECT 'ingest ' || source || ' = ' || status || COALESCE(' (' || left(detail,60) || ')','')
           FROM house_price_ingest_runs WHERE status <> 'ok' ORDER BY source;"
-        psql "{{.DB_PROD_TXN}}" -tAc "
+        psql "$PGURL" -tAc "
           SELECT 'vg ' || source || ' ' || status || ' ' || COALESCE(last_period::date::text,'-')
           FROM house_price_ingest_runs WHERE source LIKE 'vg_%' ORDER BY source;"
-        psql "{{.DB_PROD_TXN}}" -tAc "
+        psql "$PGURL" -tAc "
           SELECT 'property links banked: ' || count(*) FROM property_valuations WHERE COALESCE(profile_url,'') <> '';"

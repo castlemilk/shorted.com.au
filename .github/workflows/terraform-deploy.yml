@@ -319,6 +319,29 @@ jobs:
           go-version-file: services/go.mod
           cache: false
 
+      # setup-ko extracts to a RELATIVE `ko` path, and this job runs on a
+      # self-hosted runner that reuses its workspace between runs. A binary left
+      # by an earlier run — owned by another uid if that run used a container
+      # step — makes the extract fail with:
+      #
+      #   tar: ko: Cannot open: Permission denied
+      #
+      # which took down a production deploy on 2026-09-08 while a hotfix was
+      # queued behind it. GitHub-hosted runners start clean every time and never
+      # showed this; the move to the Cuttlefish runner is what exposed it.
+      #
+      # Best-effort by design: a failure to clean is a warning, not a build
+      # failure, because the extract may well succeed anyway and this step must
+      # not become a new way for the deploy to die.
+      - name: Clear stale ko binary (self-hosted workspace is reused)
+        run: |
+          for p in ko "${RUNNER_TEMP:-/tmp}/ko" "$HOME/.ko/ko"; do
+            [ -e "$p" ] || continue
+            rm -f "$p" 2>/dev/null && { echo "removed stale $p"; continue; }
+            sudo -n rm -f "$p" 2>/dev/null && { echo "removed stale $p (sudo)"; continue; }
+            echo "::warning::could not remove stale ko at $p — extract may fail"
+          done
+
       - name: Setup ko
         uses: ko-build/setup-ko@v0.9
         with:
@@ -833,6 +856,64 @@ jobs:
           echo ""
           echo "📋 Cloud Scheduler Jobs:"
           gcloud scheduler jobs list --project "$GCP_PROJECT_ID" --location australia-southeast1 --format="table(name,state,schedule)" 2>/dev/null || echo "No scheduler jobs found"
+
+      # The step above LISTS services; it asserts nothing. On 2026-09-08 a hotfix
+      # deploy was cancelled by a superseding run and nothing re-ran it, so
+      # `shorts` kept serving main-e3668d55 — the image that carried the bug —
+      # while main was several commits ahead. Every pipeline signal was green or
+      # benign ("cancelled"), and the only thing that revealed it was reading the
+      # live revision by hand. That is the gap this closes.
+      #
+      # Asserts the running image TAG matches the commit being deployed, for
+      # every service whose image comes from this repo's registry path. Services
+      # built elsewhere are skipped rather than guessed at.
+      - name: Assert running revisions match this commit
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          GCP_REGION: ${{ env.GCP_REGION }}
+          EXPECTED_TAG: ${{ github.ref_name }}-${{ github.sha }}
+        run: |
+          set -uo pipefail
+          # Image tags are <branch>-<short sha>; normalise to the same 8 chars.
+          want="${GITHUB_REF_NAME}-$(echo "$GITHUB_SHA" | cut -c1-8)"
+          echo "expecting image tag: $want"
+
+          registry="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/"
+          drift=0
+          checked=0
+          while read -r name image; do
+            [ -n "$name" ] || continue
+            checked=$((checked + 1))
+            case "$image" in
+              "$registry"*) ;;
+              *) echo "  skip $name (image not from this repo: ${image%%:*})"; continue ;;
+            esac
+            tag="${image##*:}"
+            if [ "$tag" = "$want" ]; then
+              echo "  ok   $name -> $tag"
+            else
+              echo "::error::$name is serving image tag '$tag' but this deploy is '$want' — the rollout did not take effect"
+              drift=1
+            fi
+          done < <(gcloud run services list \
+                     --project "$GCP_PROJECT_ID" --region "$GCP_REGION" \
+                     --format='value(metadata.name,spec.template.spec.containers[0].image)' 2>/dev/null)
+
+          # A loop that inspected nothing reports success, which is how a broken
+          # gcloud invocation (wrong field path, expired credentials, a renamed
+          # flag) turns into a green tick that checked zero services. Caught
+          # exactly that while developing this step: an auth failure printed
+          # nothing, the loop ran zero times, and it passed.
+          if [ "$checked" -eq 0 ]; then
+            echo "::error::inspected 0 services — the gcloud query returned nothing, so this assertion proved nothing. Treating as a failure rather than a pass."
+            exit 1
+          fi
+
+          if [ "$drift" -ne 0 ]; then
+            echo "::error::at least one service is not running this commit's image. A green deploy that rolled nothing is the failure mode this check exists for."
+            exit 1
+          fi
+          echo "all $checked repo-built services are running $want"
 
       - name: Enforce minScale=0 on all services
         env:
