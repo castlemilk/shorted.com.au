@@ -270,9 +270,33 @@ jobs:
             WHERE d.max_date IS NULL
                OR d.max_date < (now() - interval '54 hours')::date
           )
+          -- Ordered by CAUSALITY, not alphabetically.
+          --
+          -- ORDER BY check_name put CATALOG_STALENESS first and RIG_STATUS last
+          -- purely because C sorts before R. On 2026-09-06 that produced a
+          -- report opening with "533 suburb(s) past the 132h threshold" and five
+          -- named suburbs, while the two lines that actually explained it —
+          -- both rigs status=error, claim failing with a 401 — sat at the
+          -- bottom under a wall of symptoms. Everything above them was
+          -- downstream of those two lines.
+          --
+          -- A rig that cannot claim work makes every suburb stale and silences
+          -- every event, so it is read first. EVENT_SILENCE next: it is the
+          -- earliest downstream signal and narrows whether the crawl is dead or
+          -- merely slow. The staleness counts come last — they are the widest
+          -- and least specific thing in the report, and they are what a healthy
+          -- rig fixes by itself.
           SELECT concat_ws(E'\t', check_name, source, detail)
           FROM violations
-          ORDER BY check_name, source;
+          ORDER BY
+            CASE check_name
+              WHEN 'RIG_STATUS'            THEN 0  -- cause: the crawl itself
+              WHEN 'EVENT_SILENCE'         THEN 1  -- first downstream signal
+              WHEN 'DROP_INDEX_STALENESS'  THEN 2
+              WHEN 'CATALOG_STALENESS'     THEN 3  -- broadest symptom
+              ELSE 4
+            END,
+            check_name, source;
           SQL
           check_rc=$?
           set -e
