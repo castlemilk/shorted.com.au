@@ -31,6 +31,21 @@ import (
 //	DGS10     D  %                    2026-09-03 =    4.77   (from 1962-01-02)
 //	DTWEXBGS  D  Index Jan 2006=100   2026-08-28 = 118.7479  (from 2006-01-02)
 //
+// Probed 2026-09-09, second batch (coverage confirmed, copyright line checked
+// on each — none carries one):
+//
+//	DCOILWTICO    D  $/barrel   ..2026-09-01  (from 1986-01-02)
+//	DCOILBRENTEU  D  $/barrel   ..2026-09-01  (from 1987-05-20)
+//	DEXCHUS       D  CNY per $  ..2026-09-04  (from 1981-01-02)
+//	DEXJPUS       D  JPY per $  ..2026-09-04  (from 1971-01-04)
+//	DEXUSEU       D  $ per EUR  ..2026-09-04  (from 1999-01-04)
+//
+// Gold is ABSENT on purpose. FRED does not carry a current LBMA gold price —
+// LBMA restricts redistribution and the series was dropped, the same shape as
+// VIXCLS/CBOE. The World Bank "Pink Sheet" (CC-BY, monthly, gold + iron ore +
+// coal + LNG) is the right source for it and needs its own importer; do not
+// go looking for gold here.
+//
 // PUBLISHED MONTHLY, NOT DAILY, and that is load-bearing. correlations.go
 // restricts overlays to monthly/quarterly in two places (the SQL at :74 and
 // eligibleCorrelationOverlay at :260). A daily series would be accepted by the
@@ -54,6 +69,7 @@ type fredSeries struct {
 	Metric     string
 	Product    string
 	Unit       string
+	RegionCode string // lowercase ISO-ish; the key's region segment
 	RegionName string
 	Notes      string
 
@@ -73,14 +89,43 @@ type fredSeries struct {
 // before the 2020 rebase) and a label-derived key would fork the history.
 var fredSeriesDefs = []fredSeries{
 	// INTERNAL ONLY — CBOE copyright, see fredSeries.InternalOnly.
-	{"VIXCLS", "volatility", "index_close", "vix", "index", "United States",
+	{"VIXCLS", "volatility", "index_close", "vix", "index", "usa", "United States",
 		"CBOE Volatility Index (VIX), daily close, month-end observation. INTERNAL ONLY.", true},
-	{"DGS2", "rates", "treasury_yield", "2y", "percent", "United States",
+	{"DGS2", "rates", "treasury_yield", "2y", "percent", "usa", "United States",
 		"US Treasury constant-maturity 2-year yield, month-end observation.", false},
-	{"DGS10", "rates", "treasury_yield", "10y", "percent", "United States",
+	{"DGS10", "rates", "treasury_yield", "10y", "percent", "usa", "United States",
 		"US Treasury constant-maturity 10-year yield, month-end observation.", false},
-	{"DTWEXBGS", "fx", "usd_index", "broad", "index", "United States",
+	{"DTWEXBGS", "fx", "usd_index", "broad", "index", "usa", "United States",
 		"Nominal broad US dollar index (Jan 2006 = 100), month-end observation.", false},
+
+	// Crude. The ASX is resources-weighted and nothing in the catalog carried a
+	// crude price — RBA's I2 gives commodity INDICES (bulk, base metals, rural),
+	// which is a different instrument from a barrel of oil.
+	//
+	// Both are EIA series on FRED and neither carries a copyright notice (probed
+	// 2026-09-09, same check that flagged VIX). Region codes name where the
+	// benchmark is priced rather than pretending both are American: WTI is
+	// Cushing, Oklahoma; Brent is the North Sea.
+	{"DCOILWTICO", "commodities", "crude_oil", "wti", "usd_per_barrel", "usa", "United States",
+		"WTI crude, Cushing OK, month-end observation. EIA via FRED.", false},
+	{"DCOILBRENTEU", "commodities", "crude_oil", "brent", "usd_per_barrel", "eur", "Europe",
+		"Brent crude, Europe, month-end observation. EIA via FRED.", false},
+
+	// FX pairs the RBA does not publish. DEXUSAL is DELIBERATELY ABSENT: rba.go
+	// already imports FXRUSD as rates.aud_usd.aus, and a second AUD/USD from a
+	// second publisher would be two series claiming one fact, diverging on
+	// fixing time and rounding.
+	//
+	// CNY earns its place ahead of the others here: China takes the bulk of
+	// Australian iron ore, so CNY/USD plausibly explains more of the materials
+	// sector's short interest than AUD/USD does. All three are H.10 (Federal
+	// Reserve), public domain, no copyright notice.
+	{"DEXCHUS", "fx", "spot_rate", "cny_usd", "cny_per_usd", "chn", "China",
+		"Chinese yuan per US dollar, month-end observation. H.15/H.10 via FRED.", false},
+	{"DEXJPUS", "fx", "spot_rate", "jpy_usd", "jpy_per_usd", "jpn", "Japan",
+		"Japanese yen per US dollar, month-end observation. H.10 via FRED.", false},
+	{"DEXUSEU", "fx", "spot_rate", "usd_eur", "usd_per_eur", "eur", "Euro area",
+		"US dollars per euro, month-end observation. H.10 via FRED.", false},
 }
 
 // fredObservation is one row of the FRED observations payload. `value` is a
@@ -181,8 +226,13 @@ func monthlyLast(raw []fredObservation, def fredSeries) ([]Obs, error) {
 		Topic:      def.Topic,
 		Metric:     def.Metric,
 		Product:    def.Product,
+		// RegionType stays "national" for every one of these, including the
+		// non-US ones. eligibleCorrelationOverlay pairs an overlay with an AU
+		// base on `RegionCode == base.RegionCode || RegionType == "national"`,
+		// so a global risk factor must be national to be usable at all. The
+		// RegionCode is what carries the honesty about WHERE.
 		RegionType: "national",
-		RegionCode: "usa",
+		RegionCode: def.RegionCode,
 		RegionName: def.RegionName,
 		Unit:       def.Unit,
 		Frequency:  "monthly",

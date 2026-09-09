@@ -6,7 +6,7 @@ import (
 )
 
 func vixDef() fredSeries {
-	return fredSeries{"VIXCLS", "volatility", "index_close", "vix", "index", "United States", "n", true}
+	return fredSeries{"VIXCLS", "volatility", "index_close", "vix", "index", "usa", "United States", "n", true}
 }
 
 // FRED encodes a missing observation as "." — a market holiday, not a zero.
@@ -120,10 +120,15 @@ func TestFREDSeriesAreCorrelationEligible(t *testing.T) {
 // UI silently loses its overlays, so the exact strings are asserted here.
 func TestFREDSeriesKeys(t *testing.T) {
 	want := map[string]string{
-		"VIXCLS":   "volatility.index_close.vix.usa",
-		"DGS2":     "rates.treasury_yield.2y.usa",
-		"DGS10":    "rates.treasury_yield.10y.usa",
-		"DTWEXBGS": "fx.usd_index.broad.usa",
+		"VIXCLS":       "volatility.index_close.vix.usa",
+		"DGS2":         "rates.treasury_yield.2y.usa",
+		"DGS10":        "rates.treasury_yield.10y.usa",
+		"DTWEXBGS":     "fx.usd_index.broad.usa",
+		"DCOILWTICO":   "commodities.crude_oil.wti.usa",
+		"DCOILBRENTEU": "commodities.crude_oil.brent.eur",
+		"DEXCHUS":      "fx.spot_rate.cny_usd.chn",
+		"DEXJPUS":      "fx.spot_rate.jpy_usd.jpn",
+		"DEXUSEU":      "fx.spot_rate.usd_eur.eur",
 	}
 	for _, def := range fredSeriesDefs {
 		obs, err := monthlyLast([]fredObservation{{"2026-03-30", "1.0"}}, def)
@@ -147,10 +152,15 @@ func TestFREDSeriesKeys(t *testing.T) {
 // would pass while the Fed series carried the flag instead.
 func TestOnlyVIXIsInternal(t *testing.T) {
 	want := map[string]bool{
-		"VIXCLS":   true,  // CBOE copyright
-		"DGS2":     false, // H.15, Federal Reserve, no copyright notice
-		"DGS10":    false, // H.15
-		"DTWEXBGS": false, // H.10
+		"VIXCLS":       true,  // CBOE copyright
+		"DGS2":         false, // H.15, Federal Reserve, no copyright notice
+		"DGS10":        false, // H.15
+		"DTWEXBGS":     false, // H.10
+		"DCOILWTICO":   false, // EIA, no copyright notice (probed 2026-09-09)
+		"DCOILBRENTEU": false, // EIA
+		"DEXCHUS":      false, // H.10
+		"DEXJPUS":      false, // H.10
+		"DEXUSEU":      false, // H.10
 	}
 	for _, def := range fredSeriesDefs {
 		expected, known := want[def.ID]
@@ -181,5 +191,26 @@ func TestInternalOnlyDoesNotAffectTheSeriesKey(t *testing.T) {
 	priv.InternalOnly = true
 	if pub.Key() != priv.Key() {
 		t.Errorf("key changed with visibility: %q vs %q", pub.Key(), priv.Key())
+	}
+}
+
+
+// The RBA already publishes AUD/USD as rates.aud_usd.aus (FXRUSD, rba.go:36).
+// Importing FRED's DEXUSAL alongside it would put two series behind one fact,
+// differing on fixing time and rounding, with nothing saying which a caller
+// should believe. Asserted rather than left to a comment, because the next
+// person adding FX pairs will be reading this list and not rba.go.
+func TestNoDuplicateAudUsd(t *testing.T) {
+	for _, def := range fredSeriesDefs {
+		if def.ID == "DEXUSAL" {
+			t.Error("DEXUSAL duplicates rates.aud_usd.aus from the RBA (rba.go FXRUSD)")
+		}
+		obs, err := monthlyLast([]fredObservation{{"2026-03-30", "1.0"}}, def)
+		if err != nil {
+			t.Fatalf("%s: %v", def.ID, err)
+		}
+		if got := obs[0].Series.Key(); got == "rates.aud_usd.aus" {
+			t.Errorf("%s produces %q, which the RBA importer already owns", def.ID, got)
+		}
 	}
 }

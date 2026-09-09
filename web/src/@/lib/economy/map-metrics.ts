@@ -359,6 +359,42 @@ export const NATIONAL_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
     label: "US dollar index (broad)",
     format: "index",
   },
+  // Crude. The ASX is resources-weighted and the domestic indicators above
+  // cannot show an oil move; RBA's commodity series are INDICES, not a barrel
+  // price. Both benchmarks are listed because the Brent-WTI spread is itself
+  // informative and a caller comparing energy short interest wants to pick.
+  {
+    key: "commodities.crude_oil.brent.eur",
+    label: "Brent crude (USD/bbl)",
+    format: "number",
+  },
+  {
+    key: "commodities.crude_oil.wti.usa",
+    label: "WTI crude (USD/bbl)",
+    format: "number",
+  },
+  // FX pairs the RBA does not publish. AUD/USD is deliberately absent here —
+  // it already exists as rates.aud_usd.aus from the RBA, and listing a second
+  // one would offer the same fact twice under two names.
+  //
+  // CNY leads because China takes the bulk of Australian iron ore, so it
+  // plausibly explains more of the materials sector's short interest than the
+  // AUD pair does.
+  {
+    key: "fx.spot_rate.cny_usd.chn",
+    label: "Chinese yuan per USD",
+    format: "number",
+  },
+  {
+    key: "fx.spot_rate.jpy_usd.jpn",
+    label: "Japanese yen per USD",
+    format: "number",
+  },
+  {
+    key: "fx.spot_rate.usd_eur.eur",
+    label: "USD per euro",
+    format: "number",
+  },
 ];
 
 export interface StateCorrelationCandidateMetric {
