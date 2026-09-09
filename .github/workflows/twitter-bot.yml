@@ -46,6 +46,7 @@ on:
 jobs:
   determine-command:
     runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 20
     outputs:
       command: ${{ steps.resolve.outputs.command }}
       mode: ${{ steps.resolve.outputs.mode }}
@@ -72,6 +73,7 @@ jobs:
     needs: determine-command
     if: needs.determine-command.outputs.command != ''
     runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: scripts/twitter

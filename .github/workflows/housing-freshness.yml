@@ -44,7 +44,15 @@ jobs:
           # Cursor names do not always equal fact-source names. Keeping this map
           # explicit also excludes non-fact cursors such as listings and census.
           set +e
-          psql --no-psqlrc --set=ON_ERROR_STOP=1 --dbname="$DATABASE_URL" \
+          # The self-hosted runner has no psql binary, so this step exited 127
+          # in ~9ms on every scheduled run from 2026-08-29 onward: the sentinel
+          # CLAUDE.md calls "the only layer that survives a dead rig" was itself
+          # dead, and a red daily run reported it in a way nobody read. Run the
+          # client from a container, exactly as terraform-deploy already does on
+          # this same runner. `-i` keeps the heredoc on stdin and `-e PGOPTIONS`
+          # carries the read-only enforcement into the container.
+          docker run --rm -i -e PGOPTIONS postgres:15-alpine \
+            psql --no-psqlrc --set=ON_ERROR_STOP=1 --dbname="$DATABASE_URL" \
             --tuples-only --no-align --quiet \
             >"$report_file" 2>"$query_error_file" <<'SQL'
           WITH expected_fact_sources(cursor_source, fact_source, fact_measure) AS (

@@ -38,12 +38,17 @@ jobs:
   lint:
     name: golangci-lint
     runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
+          # cache: false is deliberate and load-bearing — setup-go's cache SAVE
+          # hangs on these self-hosted runners. The module and build caches
+          # persist on the runner's own disk, so there is nothing to gain and a
+          # multi-minute hang to lose. See housing-lifecycle.test.mjs.
           cache: false
 
       - name: Configure private Go module access
@@ -70,12 +75,17 @@ jobs:
   unit-tests:
     name: Go unit tests
     runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
+          # cache: false is deliberate and load-bearing — setup-go's cache SAVE
+          # hangs on these self-hosted runners. The module and build caches
+          # persist on the runner's own disk, so there is nothing to gain and a
+          # multi-minute hang to lose. See housing-lifecycle.test.mjs.
           cache: false
 
       - name: Configure private Go module access

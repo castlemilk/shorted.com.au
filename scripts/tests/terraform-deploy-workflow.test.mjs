@@ -1,11 +1,24 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { parse } from "yaml";
 
 const workflowPath = new URL("../../.github/workflows/terraform-deploy.yml", import.meta.url);
 const workflowSource = readFileSync(workflowPath, "utf8");
 const workflow = parse(workflowSource);
+
+const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
+
+/** Files git tracks under a path — [] when the retired environment is gone. */
+function trackedUnder(path) {
+  const out = execFileSync("git", ["ls-files", "--", path], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  return out.split("\n").filter(Boolean);
+}
 
 function step(jobName, stepName) {
   const job = workflow.jobs?.[jobName];
@@ -39,14 +52,12 @@ test("infrastructure CI cannot recreate or authenticate to the retired dev envir
   );
   assert.equal(ensureSecrets.if, "github.event_name != 'pull_request'");
 
-  assert.equal(
-    existsSync(new URL("../../terraform/environments/dev", import.meta.url)),
-    false,
-  );
-  assert.equal(
-    existsSync(new URL("../../terraform/modules/preview", import.meta.url)),
-    false,
-  );
+  // Tracked content, not the working tree. `existsSync` here failed for anyone
+  // holding a stray untracked terraform/environments/dev directory — green in
+  // CI, red on their machine — and a guard that only fails locally is what
+  // teaches people to push with --no-verify.
+  assert.deepEqual(trackedUnder("terraform/environments/dev"), []);
+  assert.deepEqual(trackedUnder("terraform/modules/preview"), []);
 });
 
 test("production database migration step avoids golang-migrate and repairs schema state directly", () => {

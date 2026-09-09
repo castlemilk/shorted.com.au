@@ -30,6 +30,7 @@ jobs:
   sync-algolia:
     name: Sync Algolia Index
     runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 20
     # - Manual trigger OR
     # - Scheduled run OR
     # - Daily Sync completed successfully

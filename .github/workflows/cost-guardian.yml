@@ -65,6 +65,7 @@ jobs:
   enforce-scaling:
     if: ${{ github.event_name == 'schedule' || inputs.secrets_only != true }}
     runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 30
     strategy:
       matrix:
         include:
@@ -139,6 +140,7 @@ jobs:
   cleanup-artifact-registry:
     if: ${{ github.event_name == 'schedule' || inputs.secrets_only != true }}
     runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 30
     strategy:
       matrix:
         include:
@@ -259,6 +261,7 @@ jobs:
 
   cleanup-secret-versions:
     runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 30
     strategy:
       matrix:
         include:
