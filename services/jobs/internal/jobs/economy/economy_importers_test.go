@@ -48,7 +48,7 @@ func TestNewABSImportersAreRegisteredSources(t *testing.T) {
 
 func TestAllModeIncludesNewABSImporters(t *testing.T) {
 	want := []string{
-		"rba", "fred", "cpi", "labour", "trade", "gdp", "approvals", "population",
+		"rba", "fred", "pinksheet", "cpi", "labour", "trade", "gdp", "approvals", "population",
 		"petroleum", "govfin", "vacancies", "wages", "spending", "lending", "construction", "business", "crime", "markets", "derived", "correlations",
 	}
 	if !reflect.DeepEqual(allJobModes, want) {

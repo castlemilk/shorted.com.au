@@ -98,6 +98,10 @@ var sourceFreshnessCadences = map[string]freshnessCadence{
 	// Daily upstream stored month-end, so a month-and-a-bit is the real bar:
 	// the same cadence the RBA monthly tables get. A tighter threshold would
 	// alarm every time a month has not closed yet.
+	// Published monthly, a few days after month end, so the same bar as the
+	// other monthly sources. A tighter one would alarm every time the current
+	// month has not closed.
+	"worldbank-pink-sheet":        monthlyFreshnessCadence,
 	"fred-us-macro":               rbaFreshnessCadence,
 	"rba-key-indicators":          rbaFreshnessCadence,
 	"rba-commodity-prices":        rbaFreshnessCadence,

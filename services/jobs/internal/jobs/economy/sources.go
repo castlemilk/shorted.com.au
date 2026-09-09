@@ -26,6 +26,15 @@ var sourceDefs = []sourceDef{
 	// do not automatically extend to re-serving it from a public API — flagged
 	// to the owner 2026-09-08 and shipped on their instruction; revisit before
 	// this is relied on commercially.
+	// Spot commodity prices. The catalog's only other commodity data is RBA's
+	// I2 INDICES, which cannot give a tonne of iron ore or an ounce of gold —
+	// and FRED has crude but dropped LBMA gold when LBMA restricted
+	// redistribution. CC-BY 4.0, so genuinely redistributable, unlike the
+	// licence-encumbered alternatives.
+	{"worldbank-pink-sheet", "World Bank Commodity Markets (Pink Sheet)", "economic_series",
+		"World Bank", "https://www.worldbank.org/en/research/commodity-markets",
+		"CC-BY-4.0", "Monthly", "download",
+		"Monthly spot prices: iron ore, gold, Australian coal, copper, aluminium, nickel, silver, LNG Japan. Workbook URL discovered per run — the path is issue-year versioned and a stale one serves old data rather than 404ing."},
 	{"fred-us-macro", "FRED US macro (VIX, Treasury yields, dollar index)", "economic_series",
 		"Federal Reserve Bank of St. Louis (FRED)", "https://fred.stlouisfed.org/",
 		"public-domain-us-gov", "Monthly", "api",

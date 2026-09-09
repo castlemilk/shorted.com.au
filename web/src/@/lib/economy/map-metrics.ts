@@ -395,6 +395,51 @@ export const NATIONAL_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
     label: "USD per euro",
     format: "number",
   },
+  // World Bank Pink Sheet spot prices (CC-BY). These are the ASX export basket:
+  // an industry's short interest against the price of what that industry
+  // actually digs up. Distinct from RBA's commodity INDICES already listed
+  // above — an index of bulk commodity prices is not a tonne of iron ore, and
+  // neither derives from the other, so both belong here.
+  {
+    key: "commodities.spot_price.iron_ore.world",
+    label: "Iron ore (USD/dmtu)",
+    format: "number",
+  },
+  {
+    key: "commodities.spot_price.gold.world",
+    label: "Gold (USD/oz)",
+    format: "number",
+  },
+  {
+    key: "commodities.spot_price.coal_australian.world",
+    label: "Australian thermal coal (USD/t)",
+    format: "number",
+  },
+  {
+    key: "commodities.spot_price.copper.world",
+    label: "Copper (USD/t)",
+    format: "number",
+  },
+  {
+    key: "commodities.spot_price.aluminium.world",
+    label: "Aluminium (USD/t)",
+    format: "number",
+  },
+  {
+    key: "commodities.spot_price.nickel.world",
+    label: "Nickel (USD/t)",
+    format: "number",
+  },
+  {
+    key: "commodities.spot_price.silver.world",
+    label: "Silver (USD/oz)",
+    format: "number",
+  },
+  {
+    key: "commodities.spot_price.lng_japan.world",
+    label: "LNG, Japan (USD/mmbtu)",
+    format: "number",
+  },
 ];
 
 export interface StateCorrelationCandidateMetric {
