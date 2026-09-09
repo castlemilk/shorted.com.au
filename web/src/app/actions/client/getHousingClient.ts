@@ -1,6 +1,6 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListHousingRegionsResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type ListAddressPriceDropsResponse, type GetPropertyHistoryResponse } from "~/gen/shorts/v1alpha1/housing_pb";
+import { type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListHousingRegionsResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type ListAddressPriceDropsResponse, type GetPropertyHistoryResponse, type GetSuburbIndexResponse, type GetSuburbMetricColumnsResponse } from "~/gen/shorts/v1alpha1/housing_pb";
 import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { SHORTS_API_URL } from "../config";
 import { retryWithBackoff } from "@/lib/retry";
@@ -179,6 +179,48 @@ export async function getPropertyHistoryClient(
   try {
     const result = await retryWithBackoff(
       () => client.getPropertyHistory({ addressKey }), RETRY_OPTIONS);
+    setSessionCached(cacheKey, result);
+    return result;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Browser-side columnar map delivery (#505): the stable sal_code index for a
+ * state, and packed float columns aligned to it. ~18 KB per metric for NSW
+ * against 3.6 MB for the full row set, which is why every new map metric goes
+ * through here. Decoding lives in @/lib/housing/suburb-columns.
+ */
+export async function getSuburbIndexClient(
+  stateCode: string,
+): Promise<GetSuburbIndexResponse | undefined> {
+  const cacheKey = `suburbIndex:${stateCode}`;
+  const cached = getSessionCached<GetSuburbIndexResponse>(cacheKey);
+  if (cached) return cached;
+  const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
+  const client = createClient(HousingService, transport);
+  try {
+    const result = await retryWithBackoff(() => client.getSuburbIndex({ stateCode }), RETRY_OPTIONS);
+    setSessionCached(cacheKey, result);
+    return result;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function getSuburbMetricColumnsClient(
+  stateCode: string,
+  metricKeys: string[],
+): Promise<GetSuburbMetricColumnsResponse | undefined> {
+  const cacheKey = `suburbColumns:${stateCode}:${[...metricKeys].sort().join(",")}`;
+  const cached = getSessionCached<GetSuburbMetricColumnsResponse>(cacheKey);
+  if (cached) return cached;
+  const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
+  const client = createClient(HousingService, transport);
+  try {
+    const result = await retryWithBackoff(
+      () => client.getSuburbMetricColumns({ stateCode, metricKeys }), RETRY_OPTIONS);
     setSessionCached(cacheKey, result);
     return result;
   } catch {

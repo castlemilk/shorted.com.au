@@ -16,6 +16,10 @@ func TestSuburbMetricRegistryCoversMapAndLandedColumns(t *testing.T) {
 		"crime_break_ins", "crime_violent", "crime_motor_vehicle", "amenity_density",
 		"supermarkets", "pubs", "grocery", "healthcare", "school_sector",
 		"nearest_train", "distance_to_coast", "nbn",
+		// Column-sourced map metrics: declared in the UI MetricKey union under the
+		// server's own key names, so the two registries are pinned together.
+		"elevation_median_m", "land_share_below_5m",
+		"water_observed_share_pct", "flood_planning_share_pct", "bushfire_prone_share_pct",
 	}
 	landed := []string{
 		"seifa_irsd_score", "seifa_irsd_decile_aus", "seifa_irsd_decile_state",
@@ -25,8 +29,9 @@ func TestSuburbMetricRegistryCoversMapAndLandedColumns(t *testing.T) {
 		"pct_low_personal_income", "pct_high_personal_income", "unemployment_rate",
 		"labour_force_participation_rate", "pct_bachelor_or_higher", "pct_separate_house",
 		"pct_flat_apartment", "pct_couple_with_children", "pct_lone_person_household",
-		"elevation_min_m", "elevation_median_m", "elevation_max_m",
-		"land_share_below_1m", "land_share_below_2m", "land_share_below_5m",
+		"elevation_min_m", "elevation_max_m",
+		"land_share_below_1m", "land_share_below_2m",
+		"permanent_water_share_pct",
 	}
 	want := append(append([]string{}, existing...), landed...)
 	sort.Strings(want)

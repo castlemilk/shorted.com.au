@@ -25,6 +25,7 @@ const (
 	suburbMetricJoinConnectivity
 	suburbMetricJoinCrime
 	suburbMetricJoinRegister
+	suburbMetricJoinHazards
 )
 
 type suburbMetricDefinition struct {
@@ -151,6 +152,14 @@ var suburbMetricRegistry = map[string]suburbMetricDefinition{
 	"land_share_below_1m": metric("land_share_below_1m", "d.land_share_below_1m", 0),
 	"land_share_below_2m": metric("land_share_below_2m", "d.land_share_below_2m", 0),
 	"land_share_below_5m": metric("land_share_below_5m", "d.land_share_below_5m", 0),
+
+	// suburb_hazard_exposure (000122): area shares, NULL where no source covers
+	// the suburb. Licence-gated in the join, not here, so a restricted row can
+	// never reach a column.
+	"water_observed_share_pct":  metric("water_observed_share_pct", "h.water_observed_share_pct", suburbMetricJoinHazards),
+	"permanent_water_share_pct": metric("permanent_water_share_pct", "h.permanent_water_share_pct", suburbMetricJoinHazards),
+	"flood_planning_share_pct":  metric("flood_planning_share_pct", "h.flood_planning_share_pct", suburbMetricJoinHazards),
+	"bushfire_prone_share_pct":  metric("bushfire_prone_share_pct", "h.bushfire_prone_share_pct", suburbMetricJoinHazards),
 }
 
 func metric(key, expression string, joins suburbMetricJoin) suburbMetricDefinition {
@@ -333,6 +342,9 @@ func buildSuburbMetricQuery(keys []string) (string, []suburbMetricDefinition, er
 	}
 	if joins&suburbMetricJoinCrime != 0 {
 		query.WriteString(listStateSuburbsCrimeJoin)
+	}
+	if joins&suburbMetricJoinHazards != 0 {
+		query.WriteString("\nLEFT JOIN suburb_hazard_exposure h ON h.sal_code = d.sal_code AND h.source_licence <> 'proprietary-tos-restricted'")
 	}
 	query.WriteString("\nWHERE d.state_code = $1\nORDER BY d.sal_code")
 	return query.String(), definitions, nil

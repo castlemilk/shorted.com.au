@@ -26,6 +26,7 @@ var operatorIngestModes = []string{
 	"banners",
 	"amenities",
 	"elevation",
+	"hazards",
 	"lga",
 	"connectivity",
 	"funding",

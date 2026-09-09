@@ -34,7 +34,7 @@ func main() {
 
 // run executes the selected mode and returns a process exit code: 0 = ok;
 // 1 = official-ingest, VG freshness, materialized-view finalization, or
-// OPERATOR-INGEST failure (census, electorates, banners, amenities, elevation,
+// OPERATOR-INGEST failure (census, electorates, banners, amenities, elevation, hazards,
 // lga, connectivity, funding, council-financials, crime — see ingestExit);
 // 3 = re-warm the Chrome profile; 4 = Chrome/CDP unusable; 5 = REA session
 // cold; 6 = crawl freshness alarm; 7 = agent infrastructure failed before
@@ -220,6 +220,11 @@ func run() int {
 		// GA national DEM-S terrain statistics are an expensive offline
 		// recompute and deliberately excluded from the scheduled "all" mode.
 		return ingestExit(runElevation(ctx, pool))
+	case "hazards":
+		// Per-suburb hazard exposure (DEA water observations, statutory flood
+		// planning + bushfire-prone overlays), computed offline by
+		// web/scripts/geo/hazards/ and loaded from the committed artifact.
+		return ingestExit(runHazards(ctx, pool))
 	case "lga":
 		// Council/LGA dimension + suburb→council bridge (ABS LGA_2024 PiP join).
 		return ingestExit(runLGA(ctx, pool))
@@ -253,7 +258,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|elevation|lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|elevation|hazards|lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
 	}
 	return 0
 }
@@ -429,6 +434,26 @@ func runElevation(ctx context.Context, pool *pgxpool.Pool) error {
 	log.Printf("[elevation] updated %d/%d suburbs (source=%s licence=%s url=%s)",
 		updated, len(rows), elevationSource, elevationLicence, elevationDatasetURL)
 	_ = updateRun(ctx, pool, elevationSource, nil, updated, "ok", "")
+	return nil
+}
+
+// runHazards loads the offline hazard-exposure artifact into
+// suburb_hazard_exposure. It never fetches a source or touches a raster.
+func runHazards(ctx context.Context, pool *pgxpool.Pool) error {
+	rows, err := ingestHazards()
+	if err != nil {
+		log.Printf("[hazards] ingest error: %v", err)
+		_ = updateRun(ctx, pool, hazardsWaterSource, nil, 0, "error", err.Error())
+		return err
+	}
+	updated, err := upsertHazards(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[hazards] upsert error after %d: %v", updated, err)
+		_ = updateRun(ctx, pool, hazardsWaterSource, nil, updated, "error", err.Error())
+		return err
+	}
+	log.Printf("[hazards] upserted %d/%d suburbs (licence=%s)", updated, len(rows), hazardsLicence)
+	_ = updateRun(ctx, pool, hazardsWaterSource, nil, updated, "ok", "")
 	return nil
 }
 

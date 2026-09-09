@@ -21,7 +21,7 @@ official + suburb-dimension modes have **no dry-run** — they write every run.
 |---|---|---|
 | Cloud Run job (monthly) | `all` (= `official` + `refresh`) | Scheduler `0 16 5 * *` — 5th, 16:00 UTC (~2–3 AM AEST). Wired into CI + both envs since PR #211; a merge to main deploys it |
 | Residential Mac rigs (launchd) | `enqueue`, `agent`, `freshness`, `property`, `warmcheck`, `listings`/`crawl` (legacy) | See wrapper table below. Headed host-Chrome over CDP — **never Cloud Run** |
-| Operator, by hand | `census`, `electorates`, `banners`, `amenities`, `lga`, `connectivity`, `funding`, `council-financials`, `crime`, `purge`, `backfill-address` | Manual ingest of precomputed/offline artifacts, or one-time passes |
+| Operator, by hand | `census`, `electorates`, `banners`, `amenities`, `elevation`, `hazards`, `lga`, `connectivity`, `funding`, `council-financials`, `crime`, `purge`, `backfill-address` | Manual ingest of precomputed/offline artifacts, or one-time passes |
 
 ## Order
 
@@ -49,6 +49,7 @@ migration 000056 after census" step in older docs is superseded.
 | `electorates` | `suburb_demographics` federal columns | Needs `ELECTORATES_DIR` (precomputed `web/public/geo/electorates/*.json`) |
 | `banners` | `suburb_demographics.banner_*` | From committed `suburb-archetypes.json` (`ARCHETYPES_FILE`) — no crawl |
 | `amenities` / `lga` / `connectivity` / `funding` / `council-financials` | `suburb_amenities` / `lga`+`suburb_lga` / `suburb_connectivity` / `lga` grants / `lga` VIC financials | Local-insights family; offline joins loaded via `AMENITIES_FILE` / `LGA_DIR` / `CONNECTIVITY_FILE` |
+| `hazards` | `suburb_hazard_exposure` | From committed `suburb-hazards.json` (`HAZARDS_FILE`); built offline by `web/scripts/geo/hazards/` (DEA WOfS zonal stats + NSW/VIC statutory overlay shares). No fetch, no raster |
 | `crime` | `suburb_crime_stats` + MV refresh | Yearly, operator-run, `CRIME_DRY_RUN` default true; BOCSAR 436MB + ABS CVS/ERP |
 | `enqueue` | brandbrain `crawl_jobs` queue | `CRAWL_ENQUEUE_SELECTION=all\|delta` (default all), `_SOURCE` default `split` (separate REA/Domain jobs), `_BATCH` 40 |
 | `agent` | `property_listings`, `property_price_events`, counts-only summary → brandbrain | Queue drainer. `BRANDBRAIN_AGENT_URL` required; token auto-refreshes on 401 |
@@ -121,7 +122,7 @@ mid-write (this bit the bundled macOS agent).
 
 ### Operator-ingest modes propagate failure (2026-08-27)
 
-`census`, `electorates`, `banners`, `amenities`, `elevation`, `lga`,
+`census`, `electorates`, `banners`, `amenities`, `elevation`, `hazards`, `lga`,
 `connectivity`, `funding`, `council-financials`, `crime` and `backfill-address`
 used to log their error, write an `error` cursor and **return normally**, so the
 process exited 0 and every wrapper, scheduler and alert read a failed run as a

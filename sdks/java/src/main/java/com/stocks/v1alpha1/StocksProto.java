@@ -28,92 +28,92 @@ public final class StocksProto extends com.google.protobuf.GeneratedFile {
   }
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_Stock_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_Stock_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_TimeSeriesData_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_TimeSeriesData_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_TimeSeriesPoint_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_TimeSeriesPoint_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_StockDetails_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_StockDetails_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_IndustryObservation_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_IndustryObservation_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_CompanyPerson_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_CompanyPerson_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_FinancialReport_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_FinancialReport_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_SocialMediaLinks_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_SocialMediaLinks_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_FinancialStatements_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_FinancialStatements_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_FinancialStatementSet_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_FinancialStatementSet_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_FinancialStatementSet_IncomeStatementEntry_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_FinancialStatementSet_IncomeStatementEntry_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_FinancialStatementSet_BalanceSheetEntry_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_FinancialStatementSet_BalanceSheetEntry_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_FinancialStatementSet_CashFlowEntry_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_FinancialStatementSet_CashFlowEntry_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_StatementValues_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_StatementValues_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_StatementValues_MetricsEntry_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_StatementValues_MetricsEntry_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_FinancialStatementsInfo_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_FinancialStatementsInfo_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_IndustryTreeMap_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_IndustryTreeMap_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_stocks_v1alpha1_TreemapShortPosition_descriptor;
-  static final
+  static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_stocks_v1alpha1_TreemapShortPosition_fieldAccessorTable;
 

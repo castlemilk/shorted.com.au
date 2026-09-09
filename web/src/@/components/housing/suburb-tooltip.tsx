@@ -25,13 +25,17 @@ const fmtName = (n: string) => n.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_,
  * code. When `onOpenProfile` is supplied it becomes the interactive "selected"
  * card — pointer-events on, a profile CTA, and a close affordance.
  */
+/** Extra rows for whatever terrain/hazard metric or overlay is active. */
+export type TooltipExtra = { label: string; value: string; color?: string };
+
 export function SuburbTooltip({
-  summary, regionCode, onOpenProfile, onClose,
+  summary, regionCode, onOpenProfile, onClose, extras,
 }: {
   summary: Summary;
   regionCode?: string;
   onOpenProfile?: () => void;
   onClose?: () => void;
+  extras?: TooltipExtra[];
 }) {
   const { data: series } = useQuery({
     queryKey: ["housing-series", regionCode ?? "", "median_price", "house", "spark"],
@@ -111,6 +115,19 @@ export function SuburbTooltip({
               <dd className="truncate text-right text-foreground">{summary.stateDistrict}</dd>
             </div>
           ) : null}
+        </dl>
+      ) : null}
+      {extras?.length ? (
+        <dl className="mt-1.5 space-y-0.5 border-t border-border/60 pt-1.5 text-[11px]" data-testid="tooltip-extras">
+          {extras.map((row) => (
+            <div key={row.label} className="flex items-baseline justify-between gap-2">
+              <dt className="flex items-center gap-1.5 text-muted-foreground">
+                {row.color ? <span className="inline-block h-2 w-2 shrink-0 rounded-sm" style={{ background: row.color }} /> : null}
+                <span className="truncate">{row.label}</span>
+              </dt>
+              <dd className="shrink-0 text-right font-mono tabular-nums text-foreground">{row.value}</dd>
+            </div>
+          ))}
         </dl>
       ) : null}
       {onOpenProfile ? (

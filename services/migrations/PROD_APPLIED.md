@@ -55,3 +55,4 @@ not "ran it".
 | Migration | Date | By | Verified |
 |---|---|---|---|
 | `000083_add_state_exposure` | pre-2026-08-29 | (historical) | Removed from the replayed allowlist 2026-08-29. Prod confirmed to hold all three objects it creates: `mv_company_state_exposure` (`pg_matviews`), `idx_mv_company_state_exposure_region_weight` (`pg_indexes`), and `refresh_all_materialized_views` in its **hardened** form (`pg_proc.prosrc ILIKE '%query_canceled%'`). Recorded here because it is applied but no longer replayed. |
+| `000122_add_suburb_hazard_exposure` | 2026-09-09 | Claude (session 01QaKEGrZewvHZ3QnSsYu7ey), via `task db:prod:apply CONFIRM=prod` | `to_regclass('public.suburb_hazard_exposure')` non-null; `pg_constraint` lists `suburb_hazard_exposure_share_bounds_check`, `suburb_hazard_exposure_licence_check` and the PK/FK; `CREATE TABLE` + `CREATE INDEX` echoed by psql. Also allowlisted (replay-safe). |

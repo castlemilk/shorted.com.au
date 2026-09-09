@@ -64,6 +64,7 @@ runs only the official ABS/RBA tier plus an MV refresh.
 | Census expanded (7 rates + tenure) | `census` | same DataPack, tables below | 8,931–8,952 |
 | SEIFA | `seifa` | ABS SEIFA by SAL | 14,355 |
 | Elevation (6 cols) | `elevation` | GA 1 Second DEM-S | 15,307 |
+| Hazard exposure (`suburb_hazard_exposure`) | `hazards` | DEA Water Observations (national) + NSW/VIC statutory flood & bushfire overlays; built by `web/scripts/geo/hazards/` (README there) | pending first prod load |
 | VG suburb medians | `vg-nsw` / `vg-vic` / `vg-sa` | state Valuer-General | NSW 2,433 · VIC 766 · SA 426 |
 | Amenities / LGA / NBN / banners | `amenities` `lga` `connectivity` `banners` | precomputed offline JSON | — |
 

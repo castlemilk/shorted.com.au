@@ -101,13 +101,15 @@ export function StateSuburbExplorer({ stateCode }: StateSuburbExplorerProps) {
     return out;
   }, [suburbs, search, sortBy, pricedOnly]);
 
-  // selection/hover (or ?sal= deep-link) → scroll the matching list row into view.
+  // selection (or ?sal= deep-link) → scroll the matching list row into view.
   // depend on `filtered` so a deep-link set before rows render still scrolls once they do.
+  // Hover deliberately does NOT scroll: a sweep across the map used to yank the
+  // list on every pointer move (a forced layout per frame, and the list jumping
+  // under the reader's eye). Hover still highlights the row it lands on.
   useEffect(() => {
-    const target = selected ?? hovered;
-    if (!target) return;
-    rowRefs.current.get(target)?.scrollIntoView({ block: "nearest" });
-  }, [selected, hovered, filtered]);
+    if (!selected) return;
+    rowRefs.current.get(selected)?.scrollIntoView({ block: "nearest" });
+  }, [selected, filtered]);
 
   const goToSuburb = (s: SuburbDatum) => router.push(suburbHref(stateCode, s));
   const noPrice = !isLoading && stats.pricedCount === 0;

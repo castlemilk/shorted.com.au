@@ -3998,6 +3998,11 @@
             "description": "Profile-only measured terrain block; absent when the DEM sample is missing\n or below the collector's published cell-count quality floor. (proto shorts.v1alpha1.SuburbElevation)",
             "title": "elevation"
           },
+          "hazards": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.SuburbHazardExposure",
+            "description": "Profile-only hazard block; absent when no hazard source covers the suburb. (proto shorts.v1alpha1.SuburbHazardExposure)",
+            "title": "hazards"
+          },
           "listingStats": {
             "$ref": "#/components/schemas/shorts.v1alpha1.SuburbListingStats",
             "description": "Crawl-derived listing aggregates; null when the suburb is outside the crawl\n catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off. (proto shorts.v1alpha1.SuburbListingStats)",
@@ -9068,6 +9073,65 @@
           }
         },
         "title": "SuburbElevation",
+        "type": "object"
+      },
+      "shorts.v1alpha1.SuburbHazardExposure": {
+        "additionalProperties": false,
+        "description": "Measured hazard exposure per suburb — area shares, 0..100, absent when no\n source covers the suburb. Every source is CC-BY-4.0.\n\n water_observed_share_pct: share of the suburb's validly observed land where\n DEA Water Observations (Landsat, 1987 onward, 30 m) detected surface water in\n at least 1% of clear observations but under 90% — land seen under water at\n least occasionally. permanent_water_share_pct: the 90%-and-over remainder\n (lakes, rivers, the sea). Landsat under-observes flood peaks, so the observed\n share is a FLOOR on inundation, never a flood-risk estimate.\n\n flood_planning_share_pct: share inside a statutory flood planning overlay\n (NSW EPI Flood; VIC LSIO/FO/SBO). A planning-control boundary, not a flood\n extent; NSW councils own its currency. bushfire_prone_share_pct: share\n designated bushfire prone for development control (NSW BFPL; VIC BMO).\n Statutory shares exist for NSW and VIC only.",
+        "properties": {
+          "bushfireProneSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "bushfire_prone_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "bushfireSource": {
+            "description": "(proto string)",
+            "title": "bushfire_source",
+            "type": "string"
+          },
+          "floodPlanningSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "flood_planning_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "floodSource": {
+            "description": "(proto string)",
+            "title": "flood_source",
+            "type": "string"
+          },
+          "permanentWaterSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "permanent_water_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "waterObservedSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "water_observed_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "waterSource": {
+            "description": "dataset id, '' when absent (proto string)",
+            "title": "water_source",
+            "type": "string"
+          }
+        },
+        "title": "SuburbHazardExposure",
         "type": "object"
       },
       "shorts.v1alpha1.SuburbIndexEntry": {

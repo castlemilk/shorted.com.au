@@ -21,6 +21,9 @@ and every base-table read in `postgres_house_prices.go` re-asserts it.
 | **AEC 2025** (tally-room event 31496) + **ABS SED_2025** | CC-BY-4.0 | federal division, member, party, 2PP; state district |
 | **State parliament member tables** (Wikipedia) | CC BY-SA — attribute | state member + party; 6 single-member states, TAS/ACT NULL by design |
 | **NSW BOCSAR** + **ABS CVS/ERP** | CC-BY / CC-BY-4.0 | suburb crime rates + national percentile ranks (NSW only) |
+| **DEA Water Observations Statistics** (Geoscience Australia, Landsat multi-year frequency `ga_ls_wo_fq_myear_3` v2.1.0, 1987–) | CC-BY-4.0 | per-suburb share of land observed under water at least occasionally, and permanent water; the national `water_observed` map overlay. 1,037 COG tiles, 17 GB, anonymous S3 |
+| **NSW EPI Flood** (NSW Planning Portal, `Planning/Hazard` layer 1) + **NSW Bush Fire Prone Land** (NSW RFS) | CC-BY / CC-BY-4.0 | NSW `flood_planning` / `bushfire_prone` shares and overlays. Councils own flood currency since July 2021 — the caveat ships with the layer |
+| **Vicmap Planning overlays** LSIO / FO / SBO / BMO (DTP Victoria, WFS `open-data-platform:plan_overlay`, gazetted status only) | CC-BY-4.0 | VIC `flood_planning` / `bushfire_prone` shares and overlays |
 | **OSM (Overpass)**, ACARA, Geoscience Australia, NBN, IIP | ODbL / ToS / CC-BY / CC-BY-4.0 | local-insights amenity, school, health, connectivity, funding layers |
 | **REA / Domain / property.com.au** | `proprietary-tos-restricted` | listings, price-change events, per-address AVM — **never republished raw** |
 | **BIS-via-FRED, OECD, ATO, ABS Lending** | open / public domain | the Widow-Maker feature's arrays, BAKED in `series.ts` |
@@ -148,6 +151,42 @@ and 0–100 scores, so we hold a Produced Work, not an ODbL share-alike database
 ACARA's list carries "Source: ACARA" under the My School terms; NBN footprints
 are area-level only; `lga` financial columns are per-state licence-gated (VIC
 CC-BY-4.0 and ingested, NSW "Your Council" Crown copyright and NULL).
+
+## Hazard layers — what the words mean
+
+Every hazard number is an **area share** computed in GDA2020 Australian Albers
+against the committed SAL boundary, with the source named on the row. Three
+rules, each of which is a wording rule as much as a data rule:
+
+- **"Observed under water", never "flood risk".** The satellite share is a record
+  of water that was SEEN. Landsat revisits every 8–16 days and cloud hides
+  events, so it under-observes flood peaks — a floor on inundation, not a
+  ceiling, and never a probability. Permanent water (≥90% of clear passes:
+  lakes, rivers, the sea) is a separate share so the coast is not painted as
+  flooding. The frequency is masked with **DEA's WOfS confidence layer**
+  (filtered summary v2.1.0, cutoff 0.1; cells below it count as dry land, not as
+  missing) because the classifier reads tower shadow as water: unmasked, the
+  Sydney CBD came out at 44% "observed", Canberra City at 8%. Masked, Canberra
+  City is 0.6% — but the Sydney CBD stays near 23%, and DEA's own published
+  filtered product agrees (~21% of its retained cells are in the 5–90% band),
+  so it is a limitation of the source, stated in the layer's caveat, not a
+  defect to tune away.
+- **Statutory layers are planning-control boundaries, not flood extents.** NSW's
+  EPI Flood layer is whatever councils have lodged (614 polygons statewide, with
+  a comment field warning it may lag the latest study); VIC's LSIO/FO/SBO are
+  planning-scheme overlays. The instrument is named on the card and in the
+  overlay picker.
+- **No source is not zero.** QLD, WA, SA, TAS, NT and ACT have no open statutory
+  flood or bushfire layer we can republish, so their statutory shares are NULL
+  and the overlay picker lists the layer greyed with the reason. They do get the
+  national satellite layer.
+
+Ruled out for this layer (recorded so it is not re-proposed): the insurer-only
+NFID; QLD's `FloodCheck/BasinOnePercentAEP` service (raster map-index
+footprints, not flood extents, behind a token) and the 2013 QFAO (an interim
+product behind a custom-order download that says it is not for parcels);
+per-council flood studies (hundreds of portals with no common schema); every
+commercial flood-risk score.
 
 ## OUT — settled, not deferred
 

@@ -86,4 +86,19 @@ describe("suburb profile price gating", () => {
   it("gates the price chart on a real median too", () => {
     expect(source).toContain("const chartRegion = priced ? regionForSeries : undefined;");
   });
+
+  it("credits the terrain and hazard datasets only when their card rendered", () => {
+    render(<SourcesLine {...base} hasTerrain hasWaterObservations statutoryHazardSources={["nsw_epi_flood", "nsw_bfpl", "nsw_bfpl"]} stateName="New South Wales" />);
+    expect(screen.getByText(/Geoscience Australia 1 Second DEM-S/)).toBeInTheDocument();
+    expect(screen.getByText(/DEA Water Observations Statistics/)).toBeInTheDocument();
+    expect(screen.getByText(/NSW Environmental Planning Instrument — Flood/)).toBeInTheDocument();
+    expect(screen.getAllByText(/NSW Bush Fire Prone Land/)).toHaveLength(1);
+  });
+
+  it("credits no hazard dataset on a suburb without one", () => {
+    render(<SourcesLine {...base} hasCensus />);
+    expect(screen.queryByText(/DEM-S/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Water Observations/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Bush Fire Prone/)).not.toBeInTheDocument();
+  });
 });
