@@ -200,6 +200,96 @@ func TestBrandbrainAgentClient_No401RefreshWithoutControl(t *testing.T) {
 	}
 }
 
+// A 401 that cannot be refreshed is an OPERATOR state, not a blip: the static
+// seed token is dead and nothing on this rig can renew it. It cost 15 days of
+// silent zero-work runs (2026-08-25 → 09-09) to diagnose from "401
+// unauthorized" alone, because that message says nothing about WHY no refresh
+// happened. The error must name the missing capability.
+func TestBrandbrainAgentClient_401WithoutRefreshNamesTheMissingControlAPI(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	c := newBrandbrainAgentClient(agentConfig{brandbrainURL: srv.URL, token: "t", agentID: "a"})
+	_, err := c.claim(context.Background())
+	if err == nil {
+		t.Fatal("expected a 401 error")
+	}
+	if !strings.Contains(err.Error(), "cannot be refreshed") {
+		t.Errorf("401 error must say the token cannot be refreshed, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "BRANDBRAIN_CONTROL_PORT") {
+		t.Errorf("401 error must name how to restore auto-refresh, got: %v", err)
+	}
+}
+
+// With a control API present the 401 text must NOT claim refresh is impossible.
+func TestBrandbrainAgentClient_401WithRefreshDoesNotBlameTheControlAPI(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"still-bad"}`))
+	}))
+	defer control.Close()
+
+	c := newBrandbrainAgentClient(agentConfig{
+		brandbrainURL: srv.URL, token: "t", agentID: "a",
+		controlURL: control.URL, controlSecret: "s",
+	})
+	_, err := c.claim(context.Background())
+	if err == nil {
+		t.Fatal("expected a 401 error")
+	}
+	if strings.Contains(err.Error(), "no local agent control API") {
+		t.Errorf("a rig WITH a control API must not be told one is missing, got: %v", err)
+	}
+}
+
+// The third state, and the one this rig was actually in on 2026-09-09: the
+// control API is reachable but the agent is SIGNED OUT ("no active session to
+// export"). Refresh is attempted and fails, and without carrying that reason
+// the run records a bare 401 again — the same dead end that cost 15 days.
+func TestBrandbrainAgentClient_401CarriesTheRefreshFailureReason(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"not_authenticated","detail":"no active session to export"}`))
+	}))
+	defer control.Close()
+
+	c := newBrandbrainAgentClient(agentConfig{
+		brandbrainURL: srv.URL, token: "t", agentID: "a",
+		controlURL: control.URL, controlSecret: "s",
+	})
+	_, err := c.claim(context.Background())
+	if err == nil {
+		t.Fatal("expected a 401 error")
+	}
+	if !strings.Contains(err.Error(), "token refresh failed") {
+		t.Errorf("401 must carry the refresh failure, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "no active session") {
+		t.Errorf("401 must carry the control API's own reason, got: %v", err)
+	}
+}
+
+func TestFlattenWhitespace(t *testing.T) {
+	in := "{\n  \"error\": \"not_authenticated\",\n  \"detail\": \"no active session to export\"\n}"
+	got := flattenWhitespace(in)
+	if strings.ContainsAny(got, "\n\r\t") {
+		t.Errorf("flattened text must be one line, got %q", got)
+	}
+	if !strings.Contains(got, "no active session to export") {
+		t.Errorf("flattening must preserve the reason, got %q", got)
+	}
+}
+
 func TestDigitsOnly(t *testing.T) {
 	cases := map[string]string{"9222\n": "9222", " 51763 ": "51763", "port=8080": "8080", "abc": "", "": ""}
 	for in, want := range cases {

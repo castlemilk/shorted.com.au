@@ -83,6 +83,12 @@ func loadAgentControlAuth() (controlURL, secret string) {
 }
 
 // digitsOnly keeps only [0-9] (mirrors the diag-port shell read `tr -dc '0-9'`).
+// flattenWhitespace collapses any run of whitespace to a single space so a
+// multi-line payload survives as one readable line.
+func flattenWhitespace(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
+
 func digitsOnly(s string) string {
 	var b strings.Builder
 	for _, r := range s {
@@ -162,6 +168,7 @@ func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, bod
 	// TLS handshake timeout from losing a completed suburb's counts.
 	const maxAttempts = 4
 	refreshed := false
+	var refreshErr error
 	var rb []byte
 	var status int
 	var err error
@@ -180,6 +187,7 @@ func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, bod
 		if status == http.StatusUnauthorized && c.canRefresh() && !refreshed {
 			refreshed = true
 			if tok, rerr := c.refreshToken(ctx); rerr != nil {
+				refreshErr = rerr
 				log.Printf("[agent] token refresh failed: %v", rerr)
 			} else if tok != "" && tok != c.token {
 				c.token = tok
@@ -195,6 +203,28 @@ func (c *brandbrainAgentClient) do(ctx context.Context, method, path string, bod
 	}
 	if err != nil {
 		return err
+	}
+	if status == http.StatusUnauthorized && refreshErr != nil {
+		// Refresh WAS available and failed — carry its reason. The common case
+		// is a co-located agent that is running but signed out ("no active
+		// session to export"), which is invisible from the 401 alone.
+		return fmt.Errorf("brandbrain %s %s: %d %s — token refresh failed: %v "+
+			"(sign the BrandBrain agent in, or mint a fresh BRANDBRAIN_AGENT_TOKEN)",
+			method, path, status, strings.TrimSpace(string(rb)), refreshErr)
+	}
+	if status == http.StatusUnauthorized && !c.canRefresh() {
+		// Say WHY, not just what. A 401 here is terminal and operator-actionable:
+		// the static seed token is dead and this rig has no way to renew it,
+		// because the co-located agent's loopback control API was not found.
+		// Without this sentence the run records only "401 unauthorized", which
+		// is indistinguishable from a transient blip — and that is exactly how
+		// a rig sat doing zero work for 15 days (2026-08-25 → 09-09) while
+		// still reporting hourly.
+		return fmt.Errorf("brandbrain %s %s: %d %s — the static BRANDBRAIN_AGENT_TOKEN "+
+			"cannot be refreshed: no local agent control API (set BRANDBRAIN_CONTROL_PORT + "+
+			"BRANDBRAIN_CONTROL_SECRET, or run the BrandBrain agent so ~/.brandbrain/diag-port "+
+			"and control_secret exist). Mint a fresh token or start the agent",
+			method, path, status, strings.TrimSpace(string(rb)))
 	}
 	if status >= 300 {
 		return fmt.Errorf("brandbrain %s %s: %d %s", method, path, status, strings.TrimSpace(string(rb)))
@@ -259,7 +289,11 @@ func (c *brandbrainAgentClient) refreshToken(ctx context.Context) (string, error
 	defer func() { _ = resp.Body.Close() }()
 	rb, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode >= 300 {
-		return "", fmt.Errorf("agent control export: %d %s", resp.StatusCode, strings.TrimSpace(string(rb)))
+		// Flatten: the control API pretty-prints its JSON, and this string is
+		// carried into a one-line log and into crawl_run_status.detail. Left
+		// multi-line, the actual reason ("no active session to export") falls
+		// off the first line and the operator sees only `404 {`.
+		return "", fmt.Errorf("agent control export: %d %s", resp.StatusCode, flattenWhitespace(string(rb)))
 	}
 	var out struct {
 		AccessToken string `json:"access_token"`
