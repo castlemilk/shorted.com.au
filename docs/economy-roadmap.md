@@ -82,7 +82,20 @@ petroleum/govfin machinery.
 - **GrantConnect**: CloudFront-blocked (do-not-bypass posture stands).
 - **State-level GDP (real GSP)**: annual-only, Excel 5220.0 — SFD proxy retained; revisit only if users ask for annual GSP explicitly.
 - **ERP_COMP_SA (sub-state population)**: belongs to the housing/suburb surface, not economy.
-- **Third-party market-data correlations (FRED, Yahoo)**: keep the platform AU-official-sources + own-DB derived; external market feeds are a different trust class.
+- **Yahoo / broker market feeds**: still no. Different trust class, and no
+  licence we can name.
+- ~~**Third-party market-data correlations (FRED, Yahoo)**~~ — **REVERSED
+  2026-09-08, shipped.** The reasoning above held for market feeds and did not
+  hold for official statistics that merely happen to be foreign: the FRED and
+  World Bank series are US government output and CC BY 4.0 respectively, which
+  is the same trust class as ABS and RBA, not a weaker one. 49 global series now
+  ship (`fred-us-macro`, `worldbank-pink-sheet`) covering the Treasury curve, US
+  macro, nine currency pairs and the world commodity prices the ASX actually
+  trades against. Licence is checked per series and two are withheld
+  (`internal_only`) because FRED's metadata carries a third-party copyright
+  notice: VIX (CBOE) and the ICE BofA high-yield spread. See
+  `services/jobs/internal/jobs/economy/fred.go` for the probe procedure and the
+  list of candidates that FAILED it.
 
 ## Suggested next-round cut (if starting tomorrow)
 
