@@ -121,11 +121,34 @@ func TestBoundedLifetimeDoesNotDelayOrdinaryCalls(t *testing.T) {
 	}
 }
 
-// The ceiling is only meaningful relative to the platform timeout it sits
-// under. That timeout lives in Terraform, so read it there rather than
-// restating it: raising Cloud Run's timeout without revisiting this constant
-// would silently leave the margin wrong.
-func TestStreamLifetimeIsBelowCloudRunTimeout(t *testing.T) {
+// The ceiling is only meaningful relative to the timeouts it sits under, and
+// there are two of them.
+//
+// Cloudflare's proxy read timeout is what the CLIENT sees, and it is the
+// binding one. It is not in this repo — it is a plan default — so it is stated
+// here with its evidence: a probe against prod on 2026-09-10, after the 240s
+// ceiling shipped, still came back
+//
+//	status=524 total=127.5s
+//	"The origin web server did not return a complete response within the
+//	 120-second Proxy Read Timeout window"
+//
+// Cloud Run's request timeout is what WE pay — a held request slot — and it
+// does live in this repo, so read it rather than restate it. Raising it without
+// revisiting this constant would silently leave the margin wrong.
+const cloudflareProxyReadTimeout = 120 * time.Second
+
+func TestStreamLifetimeClearsBothTimeouts(t *testing.T) {
+	if StreamLifetime >= cloudflareProxyReadTimeout {
+		t.Fatalf("StreamLifetime = %s but Cloudflare gives up on a silent stream at %s — "+
+			"the client still gets a 524, which is the failure this constant exists to prevent",
+			StreamLifetime, cloudflareProxyReadTimeout)
+	}
+	if margin := cloudflareProxyReadTimeout - StreamLifetime; margin < 15*time.Second {
+		t.Errorf("only %s of margin below Cloudflare's %s read timeout — too tight to win the race",
+			margin, cloudflareProxyReadTimeout)
+	}
+
 	const tf = "../../../../terraform/modules/shorts-api/main.tf"
 	src, err := os.ReadFile(tf)
 	if err != nil {
@@ -141,11 +164,7 @@ func TestStreamLifetimeIsBelowCloudRunTimeout(t *testing.T) {
 	}
 	platform := secs * time.Second
 	if StreamLifetime >= platform {
-		t.Fatalf("StreamLifetime = %s but Cloud Run kills requests at %s — a stream would still be 504'd",
-			StreamLifetime, platform)
-	}
-	if platform-StreamLifetime < 30*time.Second {
-		t.Errorf("only %s of margin below the %s platform timeout — too tight to win the race",
-			platform-StreamLifetime, platform)
+		t.Fatalf("StreamLifetime = %s but Cloud Run kills requests at %s — a stream would still hold "+
+			"its slot until the platform ended it", StreamLifetime, platform)
 	}
 }

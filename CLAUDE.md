@@ -783,17 +783,25 @@ Next.js contributes only the consent screen.
   socket.
 - **Not every MCP request is a call — some are streams, and the platform will
   end them for you if you do not.** A `subscriptions/listen` POST (SEP-2575) has
-  no synchronous result: the SDK acknowledges the subscription and blocks. On
-  Cloud Run that means the 300s request timeout kills it, Cloudflare relabels the
-  result 524, and each dead stream holds a request slot until then. Measured
-  2026-09-10: all 53 API POST 5xx in 24h were `/mcp`, every one at 299.98s, from
-  a perfectly healthy client. `mcp.StreamLifetime` (240s) bounds the request
-  context so the stream ends as a completed 200 and the client reconnects as it
-  already does; `TestStreamLifetimeIsBelowCloudRunTimeout` reads the 300s out of
-  `terraform/modules/shorts-api/main.tf` rather than restating it. A test for
-  this must use a data source — **a server with no tools honours no
-  subscriptions and completes the listen instantly**, so against `Handler(nil)`
-  it passes with the bound removed.
+  no synchronous result: the SDK acknowledges the subscription and blocks.
+  **There are TWO ceilings on that, at different times, costing different
+  things** — Cloudflare's **120s** proxy read timeout is what the CLIENT sees (a
+  stream that sends no bytes for 120s earns a 524), and Cloud Run's **300s** is
+  what WE pay (the request slot stays occupied). Measured 2026-09-10: all 53 API
+  POST 5xx in 24h were `/mcp`, every one with an origin latency of 299.98s
+  reported at the edge as 524, from a perfectly healthy client — the edge bailing
+  early while the origin held on. **A first fix at 240s cleared only the second
+  ceiling; a prod probe still returned `524 total=127.5s`.**
+  `mcp.StreamLifetime` is now **90s**, under both: the stream ends as a completed
+  200 and the client reconnects as it already does. Nothing is lost by ending
+  early — this server's tools, prompts and resources are static, so a listen
+  stream has no notification to deliver. `TestStreamLifetimeClearsBothTimeouts`
+  reads the 300s out of `terraform/modules/shorts-api/main.tf` rather than
+  restating it, and carries the Cloudflare number with the probe that measured
+  it (that one is a plan default, not in this repo). A test for this must use a
+  data source — **a server with no tools honours no subscriptions and completes
+  the listen instantly**, so against `Handler(nil)` it passes with the bound
+  removed.
 - **Tools call `ShortsServer` IN PROCESS**, skipping the Connect interceptor
   chain — which is why they are constrained to `VISIBILITY_PUBLIC` methods
   (`TestToolsOnlyCallPublicMethods`) and why rate limiting needed its own HTTP

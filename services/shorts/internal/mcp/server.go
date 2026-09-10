@@ -79,25 +79,33 @@ func HandlerWithLifetime(src DataSource, lifetime time.Duration) http.Handler {
 // StreamLifetime bounds how long ONE /mcp request may stay open.
 //
 // It exists because MCP requests are not all request/response calls. A
-// subscriptions/listen POST (SEP-2575) has no synchronous result: the handler
-// blocks and the SSE stream stays open until the client goes away. On Cloud
-// Run "until the client goes away" means until the platform's 300s request
-// timeout kills it — measured on prod 2026-09-10, all 53 API POST 5xx in 24h
-// were /mcp, and every single one ran for 299.98s. Cloudflare relabels that
-// 524, so a normal, healthy client looked like a failing origin every five
-// minutes, and each dead stream held a request slot until the platform noticed.
+// subscriptions/listen POST (SEP-2575) has no synchronous result: the server
+// acknowledges the subscription and the SSE stream then stays open until the
+// client goes away. Left alone, "until the client goes away" means until some
+// piece of infrastructure gives up, and there are TWO of those, at different
+// times, costing different things:
 //
-// Ending the stream ourselves turns that into an ordinary completed response:
-// the SDK's hangResponse returns as soon as the request context is done, the
-// SSE body ends after a 200, and the client reconnects exactly as it already
-// does today. The only thing that changes is who ends the connection, and
-// therefore what it is recorded as.
+//   - Cloudflare's proxy read timeout, 120s, is what the CLIENT sees. After the
+//     acknowledgement this stream sends no further bytes, and 120s of silence
+//     earns a 524. This is the binding ceiling.
+//   - Cloud Run's request timeout, 300s (terraform/modules/shorts-api/main.tf),
+//     is what WE pay: the request slot stays occupied that long even after
+//     Cloudflare has already answered the client.
 //
-// The margin below the platform timeout is deliberate: it must be large enough
-// that a request cannot lose the race and still be killed at 300s.
-// terraform/modules/shorts-api/main.tf pins that 300s, and
-// TestStreamLifetimeIsBelowCloudRunTimeout keeps the two numbers honest.
-const StreamLifetime = 240 * time.Second
+// Measured on prod 2026-09-10, and the two numbers together explain the shape:
+// every API POST 5xx in 24h was /mcp with an origin latency of exactly 299.98s
+// reported at the edge as 524 — Cloudflare bailing at 120s while Cloud Run held
+// the slot to 300s. A first fix at 240s addressed only the slot.
+//
+// 90s ends the stream on our terms before either ceiling: the SDK's
+// hangResponse returns, the SSE body ends after a 200, and the client
+// reconnects exactly as it already does. Nothing is lost by ending early —
+// this server's tools, prompts and resources are static, so a listen stream
+// has no notification to deliver in the first place.
+//
+// TestStreamLifetimeClearsBothTimeouts keeps the margins honest; the Cloud Run
+// number is read out of Terraform rather than restated.
+const StreamLifetime = 90 * time.Second
 
 // boundStreamLifetime caps a request's context, so a held-open stream ends on
 // our terms rather than the platform's. Cancelling the request context is the
