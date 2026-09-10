@@ -62,7 +62,12 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          # Pinned to a patch, which is unusual and deliberate. On 24.21.0 the
+          # Vercel CLI's upload never gets its response back here: four runs on
+          # 2026-09-10 died with `read ETIMEDOUT` on api.vercel.com/v2/files,
+          # each ~85s after the 157MB upload reported 100%. The same job on
+          # 24.8.0 passed in 6m12s. Re-test before floating this back to "24".
+          node-version: "24.8.0"
 
       - name: Link Vercel project
         run: |
@@ -260,7 +265,9 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
-          node-version: "24"
+          # Same pin, same reason as deploy-preview above — and it matters more
+          # here, because this job runs only on main.
+          node-version: "24.8.0"
 
       - name: Promote smoked deployment
         env:
