@@ -13,6 +13,15 @@ import {
   type EconomyCorrelationSeriesDef,
 } from "@/lib/economy/map-metrics";
 import { topCorrelations } from "@/lib/economy/correlation";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EconomyIcon } from "./economy-icon";
 import { DualAxisChart } from "./dual-axis-chart";
 
@@ -62,6 +71,24 @@ export function SeriesCorrelation({
       new Map(overlayCandidates.map((candidate) => [candidate.key, candidate])),
     [overlayCandidates],
   );
+  /**
+   * Grouped picker, but only when the caller supplied groups. The state pages
+   * pass a handful of candidates and the flat row of chips reads better there;
+   * the industry surface passes the whole global catalog, where a flat row is
+   * fifty unlabelled chips. Insertion order is preserved so the list keeps the
+   * registry's ordering (Australia first) rather than sorting alphabetically.
+   */
+  const groupedCandidates = useMemo(() => {
+    if (!overlayCandidates.some((candidate) => candidate.group)) return null;
+    const groups = new Map<string, CorrelationSeriesDef[]>();
+    for (const candidate of overlayCandidates) {
+      const group = candidate.group ?? "Other";
+      const existing = groups.get(group);
+      if (existing) existing.push(candidate);
+      else groups.set(group, [candidate]);
+    }
+    return [...groups.entries()];
+  }, [overlayCandidates]);
   const precomputedQuery = useQuery({
     queryKey: ["economy-series-correlations", precomputedBaseKey],
     queryFn: () =>
@@ -302,20 +329,49 @@ export function SeriesCorrelation({
                   <span className="text-xs text-muted-foreground">
                     Compare against:
                   </span>
-                  {overlayCandidates.map((candidate) => (
-                    <button
-                      key={candidate.key}
-                      type="button"
-                      onClick={() => setSelectedKey(candidate.key)}
-                      className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                        activeKey === candidate.key
-                          ? "border-primary bg-primary/10 text-foreground"
-                          : "border-border bg-background text-muted-foreground hover:text-foreground"
-                      }`}
+                  {groupedCandidates ? (
+                    <Select
+                      value={activeKey}
+                      onValueChange={(next) => setSelectedKey(next)}
                     >
-                      {candidate.label}
-                    </button>
-                  ))}
+                      <SelectTrigger
+                        className="h-8 w-[18rem] text-xs"
+                        aria-label="Compare against"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {groupedCandidates.map(([group, candidates]) => (
+                          <SelectGroup key={group}>
+                            <SelectLabel>{group}</SelectLabel>
+                            {candidates.map((candidate) => (
+                              <SelectItem
+                                key={candidate.key}
+                                value={candidate.key}
+                              >
+                                {candidate.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    overlayCandidates.map((candidate) => (
+                      <button
+                        key={candidate.key}
+                        type="button"
+                        onClick={() => setSelectedKey(candidate.key)}
+                        className={`rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                          activeKey === candidate.key
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border bg-background text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {candidate.label}
+                      </button>
+                    ))
+                  )}
                 </div>
               ) : null}
             </div>
