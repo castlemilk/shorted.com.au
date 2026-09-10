@@ -207,6 +207,7 @@ export default async function EconomyPage() {
       { "@type": "GovernmentOrganization", name: "Department of Climate Change, Energy, the Environment and Water", url: "https://www.energy.gov.au" },
       { "@type": "Organization", name: "World Bank", url: "https://www.worldbank.org/en/research/commodity-markets" },
       { "@type": "Organization", name: "Federal Reserve Bank of St. Louis (FRED)", url: "https://fred.stlouisfed.org/" },
+      { "@type": "Organization", name: "OECD", url: "https://data-explorer.oecd.org/" },
     ],
   };
 
@@ -216,7 +217,7 @@ export default async function EconomyPage() {
         title={TITLE}
         description={DESCRIPTION}
         url={URL}
-        dataSource="ABS, RBA, DCCEEW, World Bank, FRED"
+        dataSource="ABS, RBA, DCCEEW, World Bank, FRED, OECD"
         dataFrequency="monthly"
         keywords={["Australian economy", "RBA cash rate", "CPI inflation", "unemployment rate", "trade balance", "iron ore price", "gold price", "US Treasury yields"]}
       />
@@ -445,11 +446,7 @@ export default async function EconomyPage() {
                     subtitle={definition.subtitle}
                     source={definition.source}
                     icon={definition.icon}
-                    licence={
-                      definition.source.includes("World Bank")
-                        ? "CC BY 4.0"
-                        : "US government, public domain"
-                    }
+                    licence={definition.licence}
                   >
                     <WhenVisible>
                       <EconomySeriesChart
@@ -475,8 +472,9 @@ export default async function EconomyPage() {
           prices and exchange rates come from FRED (Federal Reserve Bank of St.
           Louis), sourced from the Federal Reserve, the Bureau of Labor
           Statistics and the Energy Information Administration — US government
-          works in the public domain. Latest months may be preliminary. Not
-          financial advice.
+          works in the public domain. The two China series are OECD, accessed
+          via FRED, redistributed under OECD terms with attribution. Latest
+          months may be preliminary. Not financial advice.
         </p>
       </div>
     </DashboardLayout>

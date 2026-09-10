@@ -109,6 +109,11 @@ const (
 	licencePublicDomainUSGov = "public-domain-us-gov"
 	licenceProprietaryCBOE   = "proprietary-cboe"
 	licenceProprietaryICE    = "proprietary-ice-data-indices"
+	// OECD publishes its public data for redistribution WITH ATTRIBUTION —
+	// a citation requirement, not a restriction, which is why the two China
+	// series below are public where the CBOE and ICE ones are not. The
+	// attribution rides in the frontend registry's `source` line.
+	licenceOECDAttribution = "oecd-terms-attribution"
 )
 
 // Pinned from the 2026-09-08 probe. Series IDs are stable FRED identifiers, not
@@ -281,6 +286,27 @@ var fredSeriesDefs = []fredSeries{
 		Unit: "usd_per_nzd", RegionCode: "nzl", RegionName: "New Zealand", Cadence: "daily",
 		Licence: licencePublicDomainUSGov,
 		Notes:   "US dollars per New Zealand dollar, month-end observation. H.10 via FRED."},
+
+	// ── China ─────────────────────────────────────────────────────────────
+	// The largest gap in this catalog for an ASX platform, and the hardest to
+	// fill: China's own statistical agencies are not on FRED, so what is here
+	// is OECD's compilation. OECD permits redistribution WITH ATTRIBUTION —
+	// a citation requirement rather than a restriction, unlike the CBOE and
+	// ICE notices above — so these two are public.
+	//
+	// CHNCPIALLMINMEI (China CPI) was probed with these and REJECTED: its last
+	// observation is 2025-04 and the series has not updated since. A chart
+	// ending sixteen months back, with nothing on the page saying so, is the
+	// exact failure this catalog keeps finding elsewhere.
+	{ID: "XTEXVA01CNM667S", Topic: "trade", Metric: "export_value", Product: "total",
+		Unit: "usd", RegionCode: "chn", RegionName: "China", Cadence: "monthly",
+		Adjustment: "seasadj", Licence: licenceOECDAttribution,
+		Notes: "China merchandise exports to the world, USD, seasonally adjusted. OECD via FRED. " +
+			"The demand-side counterpart to the iron ore and coal prices above."},
+	{ID: "CCRETT01CNM661N", Topic: "fx", Metric: "real_effective_rate", Product: "cpi_based",
+		Unit: "index", RegionCode: "chn", RegionName: "China", Cadence: "monthly",
+		Licence: licenceOECDAttribution,
+		Notes:   "China real effective exchange rate, CPI-based (2015 = 100). OECD via FRED."},
 }
 
 // fredObservation is one row of the FRED observations payload. `value` is a

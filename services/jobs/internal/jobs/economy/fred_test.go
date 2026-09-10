@@ -123,32 +123,34 @@ func TestFREDSeriesAreCorrelationEligible(t *testing.T) {
 // UI silently loses its overlays, so the exact strings are asserted here.
 func TestFREDSeriesKeys(t *testing.T) {
 	want := map[string]string{
-		"VIXCLS":       "volatility.index_close.vix.usa",
-		"FEDFUNDS":     "rates.policy_rate.fed_funds.usa",
-		"DGS3MO":       "rates.treasury_yield.3m.usa",
-		"DGS2":         "rates.treasury_yield.2y.usa",
-		"DGS10":        "rates.treasury_yield.10y.usa",
-		"DGS30":        "rates.treasury_yield.30y.usa",
-		"T10Y2Y":       "rates.yield_curve_spread.10y_2y.usa",
-		"T10YIE":       "rates.breakeven_inflation.10y.usa",
-		"BAMLH0A0HYM2": "credit.high_yield_oas.us_hy.usa",
-		"CPIAUCSL":     "cpi.index.all_items.usa.seasadj",
-		"UNRATE":       "labour.unemployment_rate.total.usa.seasadj",
-		"INDPRO":       "industry.production_index.total.usa.seasadj",
-		"M2SL":         "money.m2_stock.total.usa.seasadj",
-		"WALCL":        "money.central_bank_assets.total.usa",
-		"DTWEXBGS":     "fx.usd_index.broad.usa",
-		"DCOILWTICO":   "commodities.crude_oil.wti.usa",
-		"DCOILBRENTEU": "commodities.crude_oil.brent.eur",
-		"DEXCHUS":      "fx.spot_rate.cny_usd.chn",
-		"DEXJPUS":      "fx.spot_rate.jpy_usd.jpn",
-		"DEXKOUS":      "fx.spot_rate.krw_usd.kor",
-		"DEXINUS":      "fx.spot_rate.inr_usd.ind",
-		"DEXSIUS":      "fx.spot_rate.sgd_usd.sgp",
-		"DEXCAUS":      "fx.spot_rate.cad_usd.can",
-		"DEXUSEU":      "fx.spot_rate.usd_eur.eur",
-		"DEXUSUK":      "fx.spot_rate.usd_gbp.gbr",
-		"DEXUSNZ":      "fx.spot_rate.usd_nzd.nzl",
+		"VIXCLS":          "volatility.index_close.vix.usa",
+		"FEDFUNDS":        "rates.policy_rate.fed_funds.usa",
+		"DGS3MO":          "rates.treasury_yield.3m.usa",
+		"DGS2":            "rates.treasury_yield.2y.usa",
+		"DGS10":           "rates.treasury_yield.10y.usa",
+		"DGS30":           "rates.treasury_yield.30y.usa",
+		"T10Y2Y":          "rates.yield_curve_spread.10y_2y.usa",
+		"T10YIE":          "rates.breakeven_inflation.10y.usa",
+		"BAMLH0A0HYM2":    "credit.high_yield_oas.us_hy.usa",
+		"CPIAUCSL":        "cpi.index.all_items.usa.seasadj",
+		"UNRATE":          "labour.unemployment_rate.total.usa.seasadj",
+		"INDPRO":          "industry.production_index.total.usa.seasadj",
+		"M2SL":            "money.m2_stock.total.usa.seasadj",
+		"WALCL":           "money.central_bank_assets.total.usa",
+		"DTWEXBGS":        "fx.usd_index.broad.usa",
+		"DCOILWTICO":      "commodities.crude_oil.wti.usa",
+		"DCOILBRENTEU":    "commodities.crude_oil.brent.eur",
+		"DEXCHUS":         "fx.spot_rate.cny_usd.chn",
+		"DEXJPUS":         "fx.spot_rate.jpy_usd.jpn",
+		"DEXKOUS":         "fx.spot_rate.krw_usd.kor",
+		"DEXINUS":         "fx.spot_rate.inr_usd.ind",
+		"DEXSIUS":         "fx.spot_rate.sgd_usd.sgp",
+		"DEXCAUS":         "fx.spot_rate.cad_usd.can",
+		"DEXUSEU":         "fx.spot_rate.usd_eur.eur",
+		"DEXUSUK":         "fx.spot_rate.usd_gbp.gbr",
+		"DEXUSNZ":         "fx.spot_rate.usd_nzd.nzl",
+		"XTEXVA01CNM667S": "trade.export_value.total.chn.seasadj",
+		"CCRETT01CNM661N": "fx.real_effective_rate.cpi_based.chn",
 	}
 	for _, def := range fredSeriesDefs {
 		obs, err := monthlyLast([]fredObservation{{"2026-03-30", "1.0"}}, def)
@@ -158,6 +160,14 @@ func TestFREDSeriesKeys(t *testing.T) {
 		if got := obs[0].Series.Key(); got != want[def.ID] {
 			t.Errorf("%s key = %q, want %q", def.ID, got, want[def.ID])
 		}
+		delete(want, def.ID)
+	}
+	// An entry left over means a series was added to THIS MAP but never to
+	// fredSeriesDefs — which is exactly how two China series were nearly
+	// shipped: the expectations landed, the defs edit silently did not, and a
+	// map-lookup-only assertion passed on unchanged code.
+	for id := range want {
+		t.Errorf("%s is expected here but absent from fredSeriesDefs", id)
 	}
 }
 
@@ -197,6 +207,10 @@ func TestOnlyCopyrightedSeriesAreInternal(t *testing.T) {
 		"DEXUSEU":      false, // H.10
 		"DEXUSUK":      false, // H.10
 		"DEXUSNZ":      false, // H.10
+		// OECD: redistribution permitted with attribution, so public. The
+		// citation rides in the frontend registry's source line.
+		"XTEXVA01CNM667S": false,
+		"CCRETT01CNM661N": false,
 	}
 	for _, def := range fredSeriesDefs {
 		expected, known := want[def.ID]
@@ -208,7 +222,8 @@ func TestOnlyCopyrightedSeriesAreInternal(t *testing.T) {
 		}
 		// A proprietary licence and the internal flag have to agree. Setting one
 		// without the other is how a copyrighted series ships public.
-		proprietary := def.Licence != licencePublicDomainUSGov
+		proprietary := def.Licence != licencePublicDomainUSGov &&
+			def.Licence != licenceOECDAttribution
 		if proprietary != expected {
 			t.Errorf("%s licence %q says proprietary=%v but InternalOnly=%v — the two must agree",
 				def.ID, def.Licence, proprietary, expected)
@@ -222,6 +237,10 @@ func TestOnlyCopyrightedSeriesAreInternal(t *testing.T) {
 			t.Errorf("%s: SeriesDef.InternalOnly = %v, want %v — the flag did not reach the row",
 				def.ID, obs[0].Series.InternalOnly, expected)
 		}
+		delete(want, def.ID)
+	}
+	for id := range want {
+		t.Errorf("%s has a licence decision recorded but is absent from fredSeriesDefs", id)
 	}
 }
 

@@ -48,6 +48,21 @@ describe("global economy series registry", () => {
     }
   });
 
+  // The chart card used to derive the licence from a substring of `source`,
+  // which mislabelled the first series that was neither World Bank nor US
+  // government. A licence claim on a public page has to be carried.
+  it("carries a licence for every series", () => {
+    for (const series of GLOBAL_ECONOMY_SERIES) {
+      expect(series.licence).toBeTruthy();
+    }
+    const oecd = GLOBAL_ECONOMY_SERIES.filter((s) => s.group === "china");
+    expect(oecd.length).toBeGreaterThan(0);
+    for (const series of oecd) {
+      expect(series.licence).toMatch(/OECD/);
+      expect(series.source).toMatch(/OECD/);
+    }
+  });
+
   it("feeds the industry correlation overlays", () => {
     const overlayKeys = new Set(
       NATIONAL_ECONOMY_OVERLAYS.map((overlay) => overlay.key),

@@ -28,7 +28,8 @@ export type GlobalSeriesGroup =
   | "agriculture"
   | "us-rates"
   | "us-macro"
-  | "currencies";
+  | "currencies"
+  | "china";
 
 export interface GlobalSeriesDef {
   key: string;
@@ -42,6 +43,13 @@ export interface GlobalSeriesDef {
   title: string;
   subtitle: string;
   source: string;
+  /**
+   * Terms the SOURCE publishes under, shown on the chart card. Carried, not
+   * inferred: the card used to derive it from a substring of `source`, which
+   * silently mislabelled the first series that was neither World Bank nor US
+   * government.
+   */
+  licence: string;
   format: EconomySeriesDisplayFormat;
   group: GlobalSeriesGroup;
   icon: EconomyIconName;
@@ -85,12 +93,24 @@ export const GLOBAL_SERIES_GROUPS: {
       "Prices, jobs, output and the money stock. The global risk backdrop the domestic indicators cannot show.",
   },
   {
+    group: "china",
+    title: "China",
+    blurb:
+      "The largest gap in this catalog for an ASX platform, and the hardest to fill — China's own agencies are not on FRED, so this is OECD's compilation.",
+  },
+  {
     group: "currencies",
     title: "Currencies",
     blurb:
       "Pairs the RBA does not publish. Each product name states the direction, because the H.10 release does not quote every pair the same way round.",
   },
 ];
+
+const CC_BY = "CC BY 4.0";
+const US_GOV = "US government, public domain";
+// OECD permits redistribution with attribution; the citation is the source line.
+const OECD_LICENCE = "OECD terms — attribution required";
+const OECD = "OECD, accessed via FRED (data-explorer.oecd.org)";
 
 const FRED_H10 = "Federal Reserve H.10 via FRED";
 const FRED_H15 = "Federal Reserve H.15 via FRED";
@@ -104,6 +124,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Brent crude",
     subtitle: "Month-end · USD per barrel",
     source: "US Energy Information Administration via FRED",
+    licence: US_GOV,
     format: "usd_price",
     group: "energy",
     icon: "mineral-fuels",
@@ -114,6 +135,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "WTI crude",
     subtitle: "Cushing, Oklahoma · month-end · USD per barrel",
     source: "US Energy Information Administration via FRED",
+    licence: US_GOV,
     format: "usd_price",
     group: "energy",
     icon: "mineral-fuels",
@@ -124,6 +146,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "LNG landed Japan",
     subtitle: "Monthly · USD per mmbtu",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "energy",
     icon: "refinery",
@@ -134,6 +157,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Natural gas — Europe",
     subtitle: "Monthly · USD per mmbtu · the marginal buyer for spot LNG cargoes",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "energy",
     icon: "refinery",
@@ -144,6 +168,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Natural gas — United States",
     subtitle: "Henry Hub · monthly · USD per mmbtu",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "energy",
     icon: "refinery",
@@ -154,6 +179,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Thermal coal — Newcastle",
     subtitle: "Monthly · USD per tonne · the Australian benchmark",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "energy",
     icon: "mineral-fuels",
@@ -165,6 +191,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     subtitle:
       "Monthly · USD per tonne · the competing benchmark; the spread is the producer's margin",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "energy",
     icon: "mineral-fuels",
@@ -177,6 +204,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Iron ore",
     subtitle: "cfr spot, China import · monthly · USD per dmtu",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "metals",
     icon: "crude-materials",
@@ -187,6 +215,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Gold",
     subtitle: "Monthly · USD per troy ounce",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "metals",
     icon: "crude-materials",
@@ -197,6 +226,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Silver",
     subtitle: "Monthly · USD per troy ounce",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "metals",
     icon: "crude-materials",
@@ -207,6 +237,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Platinum",
     subtitle: "Monthly · USD per troy ounce",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "metals",
     icon: "crude-materials",
@@ -217,6 +248,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Copper",
     subtitle: "LME · monthly · USD per tonne",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "metals",
     icon: "crude-materials",
@@ -227,6 +259,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Aluminium",
     subtitle: "LME · monthly · USD per tonne",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "metals",
     icon: "crude-materials",
@@ -237,6 +270,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Nickel",
     subtitle: "LME · monthly · USD per tonne",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "metals",
     icon: "crude-materials",
@@ -247,6 +281,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Zinc",
     subtitle: "LME · monthly · USD per tonne",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "metals",
     icon: "crude-materials",
@@ -257,6 +292,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Lead",
     subtitle: "LME · monthly · USD per tonne",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "metals",
     icon: "crude-materials",
@@ -267,6 +303,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Tin",
     subtitle: "LME · monthly · USD per tonne",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "metals",
     icon: "crude-materials",
@@ -279,6 +316,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Wheat",
     subtitle: "US hard red winter, fob Gulf · monthly · USD per tonne",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "agriculture",
     icon: "food",
@@ -289,6 +327,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Beef",
     subtitle: "Australian and New Zealand, cif US · monthly · USD per kg",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "agriculture",
     icon: "food",
@@ -299,6 +338,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Sugar",
     subtitle: "Raw, world price · monthly · USD per kg",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "agriculture",
     icon: "food",
@@ -309,6 +349,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Cotton",
     subtitle: "Cotlook A index · monthly · USD per kg",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "agriculture",
     icon: "oils-fats",
@@ -319,6 +360,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Urea",
     subtitle: "Granular, fob · monthly · USD per tonne",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "agriculture",
     icon: "chemicals",
@@ -329,6 +371,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Diammonium phosphate",
     subtitle: "fob · monthly · USD per tonne",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "agriculture",
     icon: "chemicals",
@@ -339,6 +382,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Phosphate rock",
     subtitle: "fob · monthly · USD per tonne",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "agriculture",
     icon: "chemicals",
@@ -349,6 +393,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Potassium chloride",
     subtitle: "Muriate of potash, fob · monthly · USD per tonne",
     source: PINK,
+    licence: CC_BY,
     format: "usd_price",
     group: "agriculture",
     icon: "chemicals",
@@ -361,6 +406,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Federal funds effective rate",
     subtitle: "Monthly average · per cent · the US counterpart to the RBA cash rate",
     source: FRED_H15,
+    licence: US_GOV,
     format: "percent",
     group: "us-rates",
     icon: "cash-rate",
@@ -371,6 +417,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US 3-month Treasury yield",
     subtitle: "Constant maturity · month-end · per cent",
     source: FRED_H15,
+    licence: US_GOV,
     format: "percent",
     group: "us-rates",
     icon: "cash-rate",
@@ -381,6 +428,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US 2-year Treasury yield",
     subtitle: "Constant maturity · month-end · per cent",
     source: FRED_H15,
+    licence: US_GOV,
     format: "percent",
     group: "us-rates",
     icon: "cash-rate",
@@ -391,6 +439,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US 10-year Treasury yield",
     subtitle: "Constant maturity · month-end · per cent",
     source: FRED_H15,
+    licence: US_GOV,
     format: "percent",
     group: "us-rates",
     icon: "cash-rate",
@@ -401,6 +450,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US 30-year Treasury yield",
     subtitle: "Constant maturity · month-end · per cent",
     source: FRED_H15,
+    licence: US_GOV,
     format: "percent",
     group: "us-rates",
     icon: "cash-rate",
@@ -411,6 +461,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US yield curve — 10y minus 2y",
     subtitle: "Month-end · percentage points · below zero is an inverted curve",
     source: FRED_H15,
+    licence: US_GOV,
     format: "percent",
     group: "us-rates",
     icon: "cash-rate",
@@ -421,6 +472,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US 10-year breakeven inflation",
     subtitle: "Nominal minus TIPS · month-end · per cent",
     source: FRED_H15,
+    licence: US_GOV,
     format: "percent",
     group: "us-rates",
     icon: "cpi",
@@ -433,6 +485,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US consumer price index",
     subtitle: "All items, seasonally adjusted · monthly · 1982-84 = 100",
     source: "US Bureau of Labor Statistics via FRED",
+    licence: US_GOV,
     format: "index",
     group: "us-macro",
     icon: "cpi",
@@ -443,6 +496,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US unemployment rate",
     subtitle: "Seasonally adjusted · monthly · per cent",
     source: "US Bureau of Labor Statistics via FRED",
+    licence: US_GOV,
     format: "percent",
     group: "us-macro",
     icon: "unemployment",
@@ -453,6 +507,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US industrial production",
     subtitle: "Total index, seasonally adjusted · monthly · 2017 = 100",
     source: "Federal Reserve G.17 via FRED",
+    licence: US_GOV,
     format: "index",
     group: "us-macro",
     icon: "machinery-transport",
@@ -463,6 +518,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US M2 money stock",
     subtitle: "Seasonally adjusted · monthly · USD billions",
     source: "Federal Reserve H.6 via FRED",
+    licence: US_GOV,
     format: "number",
     group: "us-macro",
     icon: "state-finances",
@@ -473,6 +529,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Federal Reserve total assets",
     subtitle: "Month-end · USD millions",
     source: "Federal Reserve H.4.1 via FRED",
+    licence: US_GOV,
     format: "number",
     group: "us-macro",
     icon: "state-finances",
@@ -488,6 +545,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US dollar index — broad",
     subtitle: "Nominal, Jan 2006 = 100 · month-end",
     source: FRED_H10,
+    licence: US_GOV,
     format: "index",
     group: "currencies",
     icon: "aud-usd",
@@ -498,6 +556,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Chinese yuan per US dollar",
     subtitle: "Month-end · China takes the bulk of Australian iron ore",
     source: FRED_H10,
+    licence: US_GOV,
     format: "fx",
     group: "currencies",
     icon: "aud-usd",
@@ -508,6 +567,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Japanese yen per US dollar",
     subtitle: "Month-end",
     source: FRED_H10,
+    licence: US_GOV,
     format: "fx",
     group: "currencies",
     icon: "aud-usd",
@@ -518,6 +578,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "South Korean won per US dollar",
     subtitle: "Month-end",
     source: FRED_H10,
+    licence: US_GOV,
     format: "fx",
     group: "currencies",
     icon: "aud-usd",
@@ -528,6 +589,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Indian rupees per US dollar",
     subtitle: "Month-end",
     source: FRED_H10,
+    licence: US_GOV,
     format: "fx",
     group: "currencies",
     icon: "aud-usd",
@@ -538,6 +600,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Singapore dollars per US dollar",
     subtitle: "Month-end",
     source: FRED_H10,
+    licence: US_GOV,
     format: "fx",
     group: "currencies",
     icon: "aud-usd",
@@ -548,6 +611,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "Canadian dollars per US dollar",
     subtitle: "Month-end · the other resources-heavy G10 currency",
     source: FRED_H10,
+    licence: US_GOV,
     format: "fx",
     group: "currencies",
     icon: "aud-usd",
@@ -558,6 +622,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US dollars per euro",
     subtitle: "Month-end",
     source: FRED_H10,
+    licence: US_GOV,
     format: "fx",
     group: "currencies",
     icon: "aud-usd",
@@ -568,6 +633,7 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US dollars per pound sterling",
     subtitle: "Month-end",
     source: FRED_H10,
+    licence: US_GOV,
     format: "fx",
     group: "currencies",
     icon: "aud-usd",
@@ -578,8 +644,38 @@ export const GLOBAL_ECONOMY_SERIES: GlobalSeriesDef[] = [
     title: "US dollars per New Zealand dollar",
     subtitle: "Month-end",
     source: FRED_H10,
+    licence: US_GOV,
     format: "fx",
     group: "currencies",
+    icon: "aud-usd",
+  },
+
+  // ── China ───────────────────────────────────────────────────────────────
+  // China CPI is DELIBERATELY ABSENT: the OECD series exists on FRED but its
+  // last observation is 2025-04 and it has not updated since. A chart ending
+  // sixteen months back, with nothing on the page saying so, is worse than no
+  // chart at all.
+  {
+    key: "trade.export_value.total.chn.seasadj",
+    label: "China merchandise exports",
+    title: "China merchandise exports",
+    subtitle:
+      "To the world, seasonally adjusted · monthly · USD — the demand side of the iron ore and coal prices above",
+    source: OECD,
+    licence: OECD_LICENCE,
+    format: "number",
+    group: "china",
+    icon: "exports",
+  },
+  {
+    key: "fx.real_effective_rate.cpi_based.chn",
+    label: "China real effective exchange rate",
+    title: "China real effective exchange rate",
+    subtitle: "CPI-based · monthly · 2015 = 100",
+    source: OECD,
+    licence: OECD_LICENCE,
+    format: "index",
+    group: "china",
     icon: "aud-usd",
   },
 ];
