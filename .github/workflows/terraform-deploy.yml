@@ -1304,6 +1304,14 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
 
+      # `node --test` below runs on the runner itself, and the runner image is
+      # not a contract — these are hand-built containers on one Mac. This step
+      # failed when they were rebuilt on 2026-09-10, for want of node.
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
 

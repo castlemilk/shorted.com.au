@@ -21,6 +21,10 @@ on:
       # Drift guard: prod does not run `migrate up`, so a migration that is
       # neither allowlisted nor recorded in PROD_APPLIED.md never reaches it.
       - "scripts/tests/migration-drift.test.mjs"
+      # Guard: a self-hosted job must not depend on tooling that happens to be
+      # baked into a hand-built runner image (see the test's own preamble).
+      - "scripts/tests/self-hosted-toolchain.test.mjs"
+      - ".github/workflows/release-preview-smoke.yml"
       - "services/migrations/**"
       - ".github/workflows/terraform-deploy.yml"
       - "terraform/modules/**"
@@ -49,7 +53,7 @@ jobs:
           node-version: "24"
 
       - name: Test repository hygiene tooling
-        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs
+        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs
 
       # These assert properties of migrations that prod REPLAYS on every deploy
       # from a hardcoded allowlist — most importantly that 000095 stays last, so
