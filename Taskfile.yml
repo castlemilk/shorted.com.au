@@ -469,6 +469,44 @@ tasks:
     env: {DATABASE_URL: "{{.DB_LOCAL}}"}
     cmds: ['go run . -mode {{.MODE}}']
 
+  job:economy:prod:
+    desc: "Run ONE economy importer mode against prod from local code (MODE=..., CONFIRM=prod)"
+    summary: |
+      The scheduled path is the deployed Cloud Run job, which runs the image on
+      main. This task exists for the gap after adding a series and before that
+      image ships: a new series otherwise sits in the code, invisible, until the
+      next deploy AND the next schedule tick.
+
+      Writes to production. There is no dry run — the economy importers always
+      persist. Verify afterwards through the PUBLIC RPC, not the table: the read
+      path filters internal_only, and only the RPC shows what a caller sees.
+
+      MODE is one importer (fred, pinksheet, rba, …), not `all` — a full run
+      re-fetches every ABS download and takes far longer than the one you
+      changed.
+    dir: services/jobs/cmd/shorted
+    requires: {vars: [MODE, CONFIRM]}
+    preconditions:
+      - sh: '[ "{{.CONFIRM}}" = "prod" ]'
+        msg: "refusing: pass CONFIRM=prod to write to the production catalog"
+      - sh: '[ -n "{{.DB_PROD_SESSION}}" ]'
+        msg: "no prod DSN found in services/.env"
+      - sh: '[ "{{.MODE}}" != "all" ]'
+        msg: "refusing MODE=all: name the importer you changed"
+    vars:
+      # The FRED importer refuses to run without a key (FRED rejects DEMO_KEY),
+      # so it is read here rather than left to whatever is ambient. Substituted
+      # by the shell, never interpolated into a printed command.
+      FRED_API_KEY:
+        sh: grep -m1 '^FRED_API_KEY=' {{.ROOT_DIR}}/services/.env 2>/dev/null | cut -d= -f2- | tr -d '"' || true
+    env:
+      # Session pooler: the upsert batches are multi-statement.
+      DATABASE_URL: "{{.DB_PROD_SESSION}}"
+      FRED_API_KEY: "{{.FRED_API_KEY}}"
+      PGOPTIONS: "-c statement_timeout=0"
+    cmds:
+      - 'GOWORK=off go run . economy -mode {{.MODE}}'
+
   job:prod:list:
     desc: List prod Cloud Run jobs and their schedules
     env: {CLOUDSDK_ACTIVE_CONFIG_NAME: "{{.GCP_CONFIG}}"}
