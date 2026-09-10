@@ -161,6 +161,40 @@ test("a genuine API regression trips the alarm", () => {
   assert.match(hit.detail, /Cache API operations/, "the detail must warn against counting GETs");
 });
 
+// Measured 2026-09-10: every API POST 5xx in 24h was a 504 on /mcp, and every
+// one ran for 299.98s — Cloud Run's 300s request timeout killing a held-open
+// MCP stream, which Cloudflare reports as 524. Instant or exactly 300s, nothing
+// between: that is a stream lifetime, not a failing service. Counting it as an
+// API error made this check fire every few days against a ~200-request daily
+// denominator, where the 2% threshold is about four requests.
+test("MCP stream timeouts are excluded from the API error rate", () => {
+  const zone = healthyZone();
+  zone.apiPost = [
+    { count: 100, dimensions: { edgeResponseStatus: 200, clientRequestPath: "/shorts.v1alpha1.ShortedStocksService/GetTopShorts" } },
+    { count: 53, dimensions: { edgeResponseStatus: 524, clientRequestPath: "/mcp" } },
+    { count: 50, dimensions: { edgeResponseStatus: 202, clientRequestPath: "/mcp" } },
+  ];
+  const s = summarize(zone);
+  assert.equal(s.apiPostRequests, 100, "/mcp must leave the denominator too, or the rate is meaningless");
+  assert.equal(s.apiPost5xx, 0, "a held-open MCP stream is not an API server error");
+  assert.equal(s.mcpStreamTimeouts, 53, "but it must still be counted and reported");
+  assert.ok(
+    !evaluate(s).some((v) => v.check === "API_5XX"),
+    "a zone whose only 5xx are MCP stream timeouts must not alarm",
+  );
+});
+
+test("a real API 5xx still trips even when MCP timeouts are present", () => {
+  const zone = healthyZone();
+  zone.apiPost = [
+    { count: 1000, dimensions: { edgeResponseStatus: 200, clientRequestPath: "/rpc" } },
+    { count: 60, dimensions: { edgeResponseStatus: 503, clientRequestPath: "/rpc" } },
+    { count: 99, dimensions: { edgeResponseStatus: 524, clientRequestPath: "/mcp" } },
+  ];
+  const hit = evaluate(summarize(zone)).find((v) => v.check === "API_5XX");
+  assert.ok(hit, "excluding /mcp must not blind the check to genuine origin errors");
+});
+
 test("low-traffic windows are not evaluated, so a quiet hour cannot page", () => {
   const v = evaluate(
     summarize({
