@@ -55,6 +55,20 @@ jobs:
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
 
+      # The runner image is not a contract. These are hand-built containers on
+      # one Mac, and when they were rebuilt on 2026-09-10 this job died on
+      # `npm: command not found`, exit 127, because it had been relying on node
+      # simply being there. Same defect as #609's missing psql, different tool.
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          # Pinned to a patch, which is unusual and deliberate. On 24.21.0 the
+          # Vercel CLI's upload never gets its response back here: four runs on
+          # 2026-09-10 died with `read ETIMEDOUT` on api.vercel.com/v2/files,
+          # each ~85s after the 157MB upload reported 100%. The same job on
+          # 24.8.0 passed in 6m12s. Re-test before floating this back to "24".
+          node-version: "24.8.0"
+
       - name: Link Vercel project
         run: |
           mkdir -p .vercel
@@ -245,6 +259,16 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main')
     environment: prod
     steps:
+      # Same host-toolchain dependency as deploy-preview above: `npx vercel
+      # promote` needs node. This one runs only on main, so it would have
+      # failed AFTER a merge rather than on the PR — the expensive order.
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          # Same pin, same reason as deploy-preview above — and it matters more
+          # here, because this job runs only on main.
+          node-version: "24.8.0"
+
       - name: Promote smoked deployment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
