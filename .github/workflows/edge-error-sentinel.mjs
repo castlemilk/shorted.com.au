@@ -63,6 +63,13 @@ export const FRONTEND_5XX_PCT = 1.0;
 // real, non-zero baseline that we do NOT want to drift upward unnoticed.
 export const API_5XX_PCT = 2.0;
 
+// Paths whose requests are long-lived streams rather than calls. A timeout here
+// is the platform ending a connection, not the origin failing a request.
+export const STREAM_PATHS = ["/mcp"];
+export function isStreamPath(path) {
+  return typeof path === "string" && STREAM_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+}
+
 // Regression guard: Early Hints is off, so probe volume should be ~0. A small
 // floor absorbs any straggling cached probe rather than paging on a single row.
 export const EARLY_HINTS_MAX = 500;
@@ -103,7 +110,7 @@ export function buildQuery() {
     "{count}" +
     // API, POST only, by status — numerator and denominator in one shot.
     `apiPost:httpRequestsAdaptiveGroups(limit:100,filter:{${base},clientRequestHTTPHost:"${API_HOST}",clientRequestHTTPMethodName:"POST"},orderBy:[count_DESC])` +
-    "{count dimensions{edgeResponseStatus}}" +
+    "{count dimensions{edgeResponseStatus clientRequestPath}}" +
     // Early Hints probe volume across the whole zone (regression guard), over
     // the SHORT window — see PROBE_WINDOW_HOURS.
     "probes:httpRequestsAdaptiveGroups(limit:50,filter:{datetime_geq:$probeSince,datetime_leq:$until},orderBy:[count_DESC])" +
@@ -169,12 +176,28 @@ export function summarize(zone) {
     .filter((r) => isProbeUA(r.dimensions?.userAgent))
     .reduce((n, r) => n + r.count, 0);
 
-  const apiRows = zone.apiPost || [];
+  // /mcp is a HELD-OPEN STREAM, not a request/response call, so it does not
+  // belong in a request error rate — in either the numerator or the
+  // denominator. Measured 2026-09-10: all 53 API POST 5xx in 24h were 504s on
+  // /mcp, each running 299.98s, i.e. Cloud Run's 300s request timeout ending a
+  // stream (Cloudflare relabels it 524). Latencies were instant or exactly
+  // 300s with nothing between — the signature of a stream lifetime, not a
+  // failing service. Left in, they fired this check every few days against a
+  // ~200-request daily denominator where 2% is about four requests. This is
+  // the same lesson as the GET rows above: count requests, not connections.
+  const apiRows = (zone.apiPost || []).filter((r) => !isStreamPath(r.dimensions?.clientRequestPath));
   const apiTotal = apiRows.reduce((n, r) => n + r.count, 0);
   const apiPost5xx = apiRows
     .filter((r) => {
       const s = Number(r.dimensions?.edgeResponseStatus);
       return s >= 500 && s <= 599;
+    })
+    .reduce((n, r) => n + r.count, 0);
+  // Still counted, and still reported — silence about it would be its own bug.
+  const mcpStreamTimeouts = (zone.apiPost || [])
+    .filter((r) => {
+      const s = Number(r.dimensions?.edgeResponseStatus);
+      return isStreamPath(r.dimensions?.clientRequestPath) && s >= 500 && s <= 599;
     })
     .reduce((n, r) => n + r.count, 0);
 
@@ -190,6 +213,7 @@ export function summarize(zone) {
     frontend5xxReal: frontend5xxTotal - frontend5xxProbes,
     apiPostRequests: apiTotal,
     apiPost5xx,
+    mcpStreamTimeouts,
     probeRequests,
   };
 }
@@ -279,7 +303,8 @@ export async function run({
   );
   out.log(
     `api POST: ${summary.apiPostRequests} requests, ` +
-      `${summary.apiPost5xx} 5xx (${fmt(pct(summary.apiPost5xx, summary.apiPostRequests))})`,
+      `${summary.apiPost5xx} 5xx (${fmt(pct(summary.apiPost5xx, summary.apiPostRequests))})` +
+      `, ${summary.mcpStreamTimeouts} /mcp stream timeouts excluded`,
   );
   out.log(`early-hints probes (last ${PROBE_WINDOW_HOURS}h): ${summary.probeRequests}`);
 
