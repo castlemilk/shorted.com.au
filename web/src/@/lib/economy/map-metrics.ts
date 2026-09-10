@@ -25,6 +25,10 @@ import { scaleSequential, scaleDiverging } from "d3-scale";
 import { interpolateOranges, interpolateRdBu } from "d3-scale-chromatic";
 import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/economy_pb";
 import { STE_CODE_TO_STATE, STATE_TO_STE_CODE } from "@/lib/housing/states";
+import {
+  GLOBAL_ECONOMY_SERIES,
+  GLOBAL_GROUP_TITLES,
+} from "@/lib/economy/global-series";
 
 export type EconomyMapMetricKey =
   | "unemployment"
@@ -280,16 +284,29 @@ export type EconomySeriesDisplayFormat =
   | "number"
   | "megalitres"
   | "rate"
-  | "usd";
+  | "usd"
+  // World commodity prices span four orders of magnitude in one list — cotton
+  // at $2.11/kg next to tin at $55,385/t. A fixed precision is wrong at one end
+  // or the other, and the compact "number" format renders gold as "4.4K".
+  | "usd_price"
+  // Exchange rates need 4dp below 10 (USD/EUR at 1.1618) and 2 above it
+  // (JPY/USD at 156.11); 2dp everywhere throws away the pair that moves least.
+  | "fx";
 
 export interface EconomyCorrelationSeriesDef {
   key: string;
   label: string;
   format: EconomySeriesDisplayFormat;
+  /**
+   * Optional picker grouping. When ANY candidate carries one, the correlation
+   * surface renders a grouped select instead of a flat row of chips — 49
+   * unlabelled chips is not a picker.
+   */
+  group?: string;
 }
 
-/** National overlays shared by every industry-economy correlation query. */
-export const NATIONAL_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
+/** The Australian half of the overlay list — ABS and RBA national indicators. */
+const DOMESTIC_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
   {
     key: "commodities.price_index.bulk.aus",
     label: "Bulk commodity prices",
@@ -325,133 +342,40 @@ export const NATIONAL_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
     label: "Household spending per capita",
     format: "aud",
   },
-  // US risk factors (fred-us-macro). The only non-Australian overlays in this
-  // list, so each label says so: an unlabelled "10-year yield" next to Australian
-  // indicators reads as the ACGB, which is a different instrument entirely.
-  //
-  // These are the global drivers of ASX short interest that the domestic
-  // indicators above cannot show — a short-interest spike concurrent with a VIX
-  // spike is a risk-off move, not a stock-specific view, and nothing else here
-  // distinguishes the two.
-  //
-  // Stored month-end from daily upstream; see services/jobs/.../fred.go.
-  // VIX is DELIBERATELY ABSENT. It is ingested and correlated like the rest,
-  // but flagged internal_only (migration 000121) because FRED's own metadata
-  // reads "Copyright, 2016, Chicago Board Options Exchange, Inc. Reprinted with
-  // permission" — permission granted to FRED, not onward.
-  //
-  // CORRECTION (2026-09-09): an earlier version of this comment justified the
-  // exclusion by calling THIS PAGE public and unauthenticated. It is not —
-  // /industry-intelligence is a signed-in workspace and shows a sign-in wall.
-  // The justification was wrong; the exclusion is still right, for a different
-  // and stronger reason.
-  //
-  // The exposure is the API, not the page. ListEconomicSeries and
-  // GetEconomicSeries are VISIBILITY_PUBLIC and answer with no credentials at
-  // all — verified against production the same day, an anonymous POST returned
-  // 16 commodity series and a full gold observation payload. Anything reaching
-  // the catalog is therefore published regardless of who can open the page, and
-  // a free sign-in is not an operator grant either.
-  //
-  // Listing it here would also be inert: the public RPCs filter internal_only,
-  // so the overlay would render an option that returns nothing. Internal
-  // analysis reads the series straight from the database.
-  {
-    key: "rates.treasury_yield.10y.usa",
-    label: "US 10-year Treasury yield",
-    format: "percent",
-  },
-  {
-    key: "rates.treasury_yield.2y.usa",
-    label: "US 2-year Treasury yield",
-    format: "percent",
-  },
-  {
-    key: "fx.usd_index.broad.usa",
-    label: "US dollar index (broad)",
-    format: "index",
-  },
-  // Crude. The ASX is resources-weighted and the domestic indicators above
-  // cannot show an oil move; RBA's commodity series are INDICES, not a barrel
-  // price. Both benchmarks are listed because the Brent-WTI spread is itself
-  // informative and a caller comparing energy short interest wants to pick.
-  {
-    key: "commodities.crude_oil.brent.eur",
-    label: "Brent crude (USD/bbl)",
-    format: "number",
-  },
-  {
-    key: "commodities.crude_oil.wti.usa",
-    label: "WTI crude (USD/bbl)",
-    format: "number",
-  },
-  // FX pairs the RBA does not publish. AUD/USD is deliberately absent here —
-  // it already exists as rates.aud_usd.aus from the RBA, and listing a second
-  // one would offer the same fact twice under two names.
-  //
-  // CNY leads because China takes the bulk of Australian iron ore, so it
-  // plausibly explains more of the materials sector's short interest than the
-  // AUD pair does.
-  {
-    key: "fx.spot_rate.cny_usd.chn",
-    label: "Chinese yuan per USD",
-    format: "number",
-  },
-  {
-    key: "fx.spot_rate.jpy_usd.jpn",
-    label: "Japanese yen per USD",
-    format: "number",
-  },
-  {
-    key: "fx.spot_rate.usd_eur.eur",
-    label: "USD per euro",
-    format: "number",
-  },
-  // World Bank Pink Sheet spot prices (CC-BY). These are the ASX export basket:
-  // an industry's short interest against the price of what that industry
-  // actually digs up. Distinct from RBA's commodity INDICES already listed
-  // above — an index of bulk commodity prices is not a tonne of iron ore, and
-  // neither derives from the other, so both belong here.
-  {
-    key: "commodities.spot_price.iron_ore.world",
-    label: "Iron ore (USD/dmtu)",
-    format: "number",
-  },
-  {
-    key: "commodities.spot_price.gold.world",
-    label: "Gold (USD/oz)",
-    format: "number",
-  },
-  {
-    key: "commodities.spot_price.coal_australian.world",
-    label: "Australian thermal coal (USD/t)",
-    format: "number",
-  },
-  {
-    key: "commodities.spot_price.copper.world",
-    label: "Copper (USD/t)",
-    format: "number",
-  },
-  {
-    key: "commodities.spot_price.aluminium.world",
-    label: "Aluminium (USD/t)",
-    format: "number",
-  },
-  {
-    key: "commodities.spot_price.nickel.world",
-    label: "Nickel (USD/t)",
-    format: "number",
-  },
-  {
-    key: "commodities.spot_price.silver.world",
-    label: "Silver (USD/oz)",
-    format: "number",
-  },
-  {
-    key: "commodities.spot_price.lng_japan.world",
-    label: "LNG, Japan (USD/mmbtu)",
-    format: "number",
-  },
+];
+
+/**
+ * National overlays shared by every industry-economy correlation query:
+ * Australian indicators first, then the global risk factors and world prices
+ * from GLOBAL_ECONOMY_SERIES.
+ *
+ * The global half is NOT duplicated here. It is the same registry the /economy
+ * page renders its chart sections from, so a series cannot be offered as an
+ * overlay while being invisible on the site, which is exactly what happened
+ * between 2026-09-08 and 2026-09-10.
+ *
+ * VIX and the ICE BofA high-yield spread are absent by construction: both are
+ * flagged internal_only (migration 000121) and the registry excludes them, so
+ * an overlay option that returns nothing cannot be created by adding a line
+ * here. The reason is licensing — FRED's metadata for each carries a
+ * third-party copyright notice, permission granted to FRED and not onward —
+ * and the exposure is the API, not the page: ListEconomicSeries and
+ * GetEconomicSeries are VISIBILITY_PUBLIC and answer anonymously, so anything
+ * reaching the catalog is published regardless of who can open the page.
+ */
+export const NATIONAL_ECONOMY_OVERLAYS: EconomyCorrelationSeriesDef[] = [
+  ...DOMESTIC_ECONOMY_OVERLAYS.map((overlay) => ({
+    ...overlay,
+    group: "Australia",
+  })),
+  ...GLOBAL_ECONOMY_SERIES.filter((series) => series.overlay !== false).map(
+    (series) => ({
+      key: series.key,
+      label: series.label,
+      format: series.format,
+      group: GLOBAL_GROUP_TITLES[series.group],
+    }),
+  ),
 ];
 
 export interface StateCorrelationCandidateMetric {
@@ -819,4 +743,13 @@ export const ECONOMY_SERIES_FORMATTERS: Record<
   rate: (value) =>
     Math.abs(value) < 10 ? value.toFixed(1) : Math.round(value).toString(),
   usd: (value) => value.toFixed(2),
+  usd_price: (value) => {
+    const magnitude = Math.abs(value);
+    const digits = magnitude >= 100 ? 0 : magnitude >= 10 ? 1 : 2;
+    return `$${value.toLocaleString("en-US", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    })}`;
+  },
+  fx: (value) => (Math.abs(value) >= 10 ? value.toFixed(2) : value.toFixed(4)),
 };

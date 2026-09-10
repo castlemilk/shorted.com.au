@@ -14,6 +14,24 @@ import { getSessionCached, setSessionCached } from "@/lib/session-cache";
 
 const RETRY_OPTIONS = { maxRetries: 3, initialDelayMs: 500, maxDelayMs: 5000 };
 
+/**
+ * The server refuses more than 50 series_keys per request — an ERROR, not a
+ * truncation (services/shorts/.../economy.go). This wrapper swallows errors and
+ * returns undefined, so an over-long list would have rendered as "not enough
+ * data" with nothing anywhere saying the request was rejected.
+ *
+ * The national overlay list crossed 50 the day the global catalog was added, so
+ * this is chunked at the choke point rather than at the one call site that
+ * happened to hit it first.
+ */
+const MAX_SERIES_KEYS_PER_REQUEST = 50;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 /** Browser-side economic series fetch (for interactive charts). */
 export async function getEconomicSeriesClient(
   seriesKeys: string[],
@@ -28,10 +46,24 @@ export async function getEconomicSeriesClient(
   const client = createClient(EconomyService, transport);
 
   try {
-    const result = await retryWithBackoff(
-      () => client.getEconomicSeries({ seriesKeys }),
-      RETRY_OPTIONS,
+    const batches = chunk(seriesKeys, MAX_SERIES_KEYS_PER_REQUEST);
+    const responses = await Promise.all(
+      batches.map((keys) =>
+        retryWithBackoff(
+          () => client.getEconomicSeries({ seriesKeys: keys }),
+          RETRY_OPTIONS,
+        ),
+      ),
     );
+    // One batch is the overwhelmingly common case; return its response
+    // untouched so nothing depends on the merged shape unless it has to.
+    const result =
+      responses.length === 1
+        ? responses[0]!
+        : ({
+            ...responses[0]!,
+            series: responses.flatMap((response) => response.series),
+          } as GetEconomicSeriesResponse);
     setSessionCached(cacheKey, result);
     return result;
   } catch {

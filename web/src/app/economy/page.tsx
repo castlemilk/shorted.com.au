@@ -10,18 +10,22 @@ import type { GetEconomicSeriesResponse } from "~/gen/shorts/v1alpha1/economy_pb
 import { EconomySeriesChart } from "@/components/economy/economy-charts";
 import { EconomyIcon, type EconomyIconName } from "@/components/economy/economy-icon";
 import { EconomyMapExplorer } from "@/components/economy/economy-map-loader";
+import {
+  GLOBAL_ECONOMY_SERIES,
+  GLOBAL_SERIES_GROUPS,
+} from "@/lib/economy/global-series";
 import { WhenVisible } from "@/components/housing/when-visible";
 import { LLMMeta } from "@/components/seo/llm-meta";
 
 const URL = "https://shorted.com.au/economy";
 const TITLE = "Australian Economy Snapshot";
 const DESCRIPTION =
-  "Live snapshot of the Australian economy with an interactive state map: colour Australia by unemployment, trade or state final demand, then drill into any state — plus the RBA cash rate, inflation and petroleum refining, from ABS, RBA and DCCEEW open data.";
+  "Live snapshot of the Australian economy with an interactive state map: colour Australia by unemployment, trade or state final demand, then drill into any state — plus the RBA cash rate, inflation and petroleum refining, and the world prices and US rates that drive them: iron ore, coal, gold, LNG, crude, the US Treasury curve and the major currency pairs. ABS, RBA, DCCEEW, World Bank and FRED open data.";
 
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: `${TITLE} — cash rate, inflation, labour, trade, petroleum`,
+  title: `${TITLE} — cash rate, inflation, labour, trade, commodities, US rates`,
   description: DESCRIPTION,
   keywords: [
     "Australian economy",
@@ -30,6 +34,11 @@ export const metadata: Metadata = {
     "Australia unemployment rate",
     "Australia trade exports imports",
     "Australia petroleum refining",
+    "iron ore price",
+    "gold price",
+    "thermal coal price",
+    "US Treasury yields",
+    "exchange rates",
   ],
   alternates: { canonical: URL },
   openGraph: { type: "website", url: URL, title: TITLE, description: DESCRIPTION, siteName: "Shorted", locale: "en_AU" },
@@ -46,6 +55,9 @@ const HEADLINE_KEYS = [
   "trade.import_value.total.aus",
   "rates.aud_usd.aus",
   "petroleum.sales.diesel_oil_total.aus",
+  "commodities.spot_price.gold.world",
+  "commodities.crude_oil.brent.eur",
+  "rates.treasury_yield.10y.usa",
 ];
 
 function latest(
@@ -102,12 +114,17 @@ function ChartCard({
   subtitle,
   source,
   icon,
+  // The page is no longer all-CC-BY: the FRED half is US government output in
+  // the public domain. Stating one licence for both would be wrong about one
+  // of them, so the card takes it rather than assuming it.
+  licence = "CC BY 4.0",
   children,
 }: {
   title: string;
   subtitle: string;
   source: string;
   icon?: EconomyIconName;
+  licence?: string;
   children: ReactNode;
 }) {
   return (
@@ -120,7 +137,9 @@ function ChartCard({
         <p className="text-xs text-muted-foreground">{subtitle}</p>
       </div>
       {children}
-      <p className="mt-3 text-[11px] text-muted-foreground/80">Source: {source} · CC BY 4.0</p>
+      <p className="mt-3 text-[11px] text-muted-foreground/80">
+        Source: {source} · {licence}
+      </p>
     </div>
   );
 }
@@ -145,15 +164,26 @@ export default async function EconomyPage() {
   const importsAud = latest(headline, "trade.import_value.total.aus");
   const audUsd = latest(headline, "rates.aud_usd.aus");
   const dieselSales = latest(headline, "petroleum.sales.diesel_oil_total.aus");
+  const gold = latest(headline, "commodities.spot_price.gold.world");
+  const brent = latest(headline, "commodities.crude_oil.brent.eur");
+  const usTenYear = latest(headline, "rates.treasury_yield.10y.usa");
 
   const tradeBalance =
     exportsAud !== undefined && importsAud !== undefined
       ? exportsAud - importsAud
       : undefined;
 
-  const hasTiles = [cashRate, cpiYoy, unemployment, tradeBalance, audUsd, dieselSales].some(
-    (v) => v !== undefined,
-  );
+  const hasTiles = [
+    cashRate,
+    cpiYoy,
+    unemployment,
+    tradeBalance,
+    audUsd,
+    dieselSales,
+    gold,
+    brent,
+    usTenYear,
+  ].some((v) => v !== undefined);
   // A failed/cold fetch must not bake the "data is loading" shell into the
   // route cache for the whole revalidate window.
   if (!hasTiles) bailOnEmptyRender();
@@ -165,12 +195,19 @@ export default async function EconomyPage() {
     description: DESCRIPTION,
     creator: { "@type": "Organization", name: "Shorted", url: "https://shorted.com.au" },
     isAccessibleForFree: true,
+    // The Australian and World Bank halves are CC BY 4.0; the FRED half is US
+    // government output in the public domain. schema.org takes one license, so
+    // this names the more restrictive of the two rather than over-claiming
+    // public domain for series that are not.
     license: "https://creativecommons.org/licenses/by/4.0/",
     spatialCoverage: "Australia",
     sourceOrganization: [
       { "@type": "GovernmentOrganization", name: "Australian Bureau of Statistics", url: "https://abs.gov.au" },
       { "@type": "Organization", name: "Reserve Bank of Australia", url: "https://rba.gov.au" },
       { "@type": "GovernmentOrganization", name: "Department of Climate Change, Energy, the Environment and Water", url: "https://www.energy.gov.au" },
+      { "@type": "Organization", name: "World Bank", url: "https://www.worldbank.org/en/research/commodity-markets" },
+      { "@type": "Organization", name: "Federal Reserve Bank of St. Louis (FRED)", url: "https://fred.stlouisfed.org/" },
+      { "@type": "Organization", name: "OECD", url: "https://data-explorer.oecd.org/" },
     ],
   };
 
@@ -180,9 +217,9 @@ export default async function EconomyPage() {
         title={TITLE}
         description={DESCRIPTION}
         url={URL}
-        dataSource="ABS, RBA, DCCEEW"
+        dataSource="ABS, RBA, DCCEEW, World Bank, FRED, OECD"
         dataFrequency="monthly"
-        keywords={["Australian economy", "RBA cash rate", "CPI inflation", "unemployment rate", "trade balance"]}
+        keywords={["Australian economy", "RBA cash rate", "CPI inflation", "unemployment rate", "trade balance", "iron ore price", "gold price", "US Treasury yields"]}
       />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
@@ -192,8 +229,9 @@ export default async function EconomyPage() {
             Australian economy
           </h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            Rates, prices, labour, trade and petroleum — a live snapshot from
-            ABS, RBA and DCCEEW open data. CC BY 4.0.
+            Rates, prices, labour, trade and petroleum from ABS, RBA and DCCEEW
+            — plus the world commodity prices and US rates the Australian
+            market actually trades against, from the World Bank and FRED.
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             Property-focused?{" "}
@@ -255,6 +293,30 @@ export default async function EconomyPage() {
                 icon="diesel"
                 value={`${(dieselSales / 1_000).toFixed(1)}GL`}
                 sub={`DCCEEW Australian Petroleum Statistics · ${latestPeriod(headline, "petroleum.sales.diesel_oil_total.aus")}`}
+              />
+            ) : null}
+            {gold !== undefined ? (
+              <BigStat
+                label="Gold"
+                icon="crude-materials"
+                value={`US$${Math.round(gold).toLocaleString("en-US")}/oz`}
+                sub={`World Bank Pink Sheet · ${latestPeriod(headline, "commodities.spot_price.gold.world")}`}
+              />
+            ) : null}
+            {brent !== undefined ? (
+              <BigStat
+                label="Brent crude"
+                icon="mineral-fuels"
+                value={`US$${brent.toFixed(2)}/bbl`}
+                sub={`EIA via FRED · ${latestPeriod(headline, "commodities.crude_oil.brent.eur")}`}
+              />
+            ) : null}
+            {usTenYear !== undefined ? (
+              <BigStat
+                label="US 10-year Treasury"
+                icon="cash-rate"
+                value={`${usTenYear.toFixed(2)}%`}
+                sub={`Federal Reserve H.15 via FRED · ${latestPeriod(headline, "rates.treasury_yield.10y.usa")}`}
               />
             ) : null}
           </div>
@@ -359,12 +421,60 @@ export default async function EconomyPage() {
           </div>
         </section>
 
+        {/* ── World prices & global rates ───────────────────────────── */}
+        {/*
+          Rendered from GLOBAL_ECONOMY_SERIES rather than hand-listed, so a
+          series added to the FRED or Pink Sheet importer appears here without
+          a second edit. A Go test (registry_drift_test.go) fails the build if
+          the registry and the importers disagree — the failure mode this
+          replaces is a series ingested, published through the API, and shown
+          on no page at all.
+        */}
+        {GLOBAL_SERIES_GROUPS.map(({ group, title, blurb }) => {
+          const series = GLOBAL_ECONOMY_SERIES.filter(
+            (definition) => definition.group === group,
+          );
+          if (series.length === 0) return null;
+          return (
+            <section key={group} className="space-y-4">
+              <SectionHeading title={title} blurb={blurb} />
+              <div className="grid gap-6 lg:grid-cols-2">
+                {series.map((definition) => (
+                  <ChartCard
+                    key={definition.key}
+                    title={definition.title}
+                    subtitle={definition.subtitle}
+                    source={definition.source}
+                    icon={definition.icon}
+                    licence={definition.licence}
+                  >
+                    <WhenVisible>
+                      <EconomySeriesChart
+                        seriesKey={definition.key}
+                        format={definition.format}
+                        ariaLabel={definition.title}
+                      />
+                    </WhenVisible>
+                  </ChartCard>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+
         <p className="border-t border-border pt-4 text-xs text-muted-foreground">
-          Sources: Australian Bureau of Statistics (Consumer Price Index, Labour
-          Force, International Trade in Goods, National Accounts), Reserve Bank
-          of Australia (F1.1, F11) and the Department of Climate Change, Energy,
-          the Environment and Water (Australian Petroleum Statistics). All CC BY
-          4.0. Latest months may be preliminary. Not financial advice.
+          Australian sources: Australian Bureau of Statistics (Consumer Price
+          Index, Labour Force, International Trade in Goods, National Accounts),
+          Reserve Bank of Australia (F1.1, F11) and the Department of Climate
+          Change, Energy, the Environment and Water (Australian Petroleum
+          Statistics) — all CC BY 4.0. World commodity prices are the World Bank
+          Commodity Markets &ldquo;Pink Sheet&rdquo;, CC BY 4.0. US rates,
+          prices and exchange rates come from FRED (Federal Reserve Bank of St.
+          Louis), sourced from the Federal Reserve, the Bureau of Labor
+          Statistics and the Energy Information Administration — US government
+          works in the public domain. The two China series are OECD, accessed
+          via FRED, redistributed under OECD terms with attribution. Latest
+          months may be preliminary. Not financial advice.
         </p>
       </div>
     </DashboardLayout>

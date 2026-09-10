@@ -68,18 +68,71 @@ type pinkSeries struct {
 }
 
 var pinkSeriesDefs = []pinkSeries{
+	// ── Bulk: what Australia digs up and ships ────────────────────────────
 	{"Iron ore, cfr spot", "spot_price", "iron_ore", "usd_per_dmtu",
 		"Iron ore cfr spot, China import. Australia's largest single export."},
-	{"Gold", "spot_price", "gold", "usd_per_troy_oz", "Gold spot."},
 	{"Coal, Australian", "spot_price", "coal_australian", "usd_per_metric_ton",
 		"Newcastle thermal coal — the Australian benchmark."},
+	{"Coal, South African", "spot_price", "coal_south_african", "usd_per_metric_ton",
+		"Richards Bay thermal coal. The competing benchmark: the Newcastle-Richards Bay " +
+			"spread is what an Australian producer's margin actually turns on."},
+
+	// ── Gas ───────────────────────────────────────────────────────────────
+	// Three regional prices, not one: gas does not arbitrage across oceans, so
+	// Henry Hub, TTF and landed-Japan LNG diverge by multiples and the spread
+	// between them IS the Australian LNG export story.
+	{"Liquefied natural gas, Japan", "spot_price", "lng_japan", "usd_per_mmbtu",
+		"LNG landed Japan — a major destination for Australian LNG."},
+	{"Natural gas, Europe", "spot_price", "natural_gas_europe", "usd_per_mmbtu",
+		"European natural gas (TTF-equivalent), the marginal buyer for spot LNG cargoes."},
+	{"Natural gas, US", "spot_price", "natural_gas_us", "usd_per_mmbtu",
+		"US natural gas (Henry Hub), monthly average."},
+
+	// ── Base metals (LME) ─────────────────────────────────────────────────
 	{"Copper", "spot_price", "copper", "usd_per_metric_ton", "LME copper."},
 	{"Aluminum", "spot_price", "aluminium", "usd_per_metric_ton",
 		"LME aluminium. Column label uses the US spelling; the key does not."},
 	{"Nickel", "spot_price", "nickel", "usd_per_metric_ton", "LME nickel."},
+	{"Zinc", "spot_price", "zinc", "usd_per_metric_ton", "LME zinc."},
+	{"Lead", "spot_price", "lead", "usd_per_metric_ton", "LME lead."},
+	{"Tin", "spot_price", "tin", "usd_per_metric_ton", "LME tin."},
+
+	// ── Precious ──────────────────────────────────────────────────────────
+	{"Gold", "spot_price", "gold", "usd_per_troy_oz", "Gold spot."},
 	{"Silver", "spot_price", "silver", "usd_per_troy_oz", "Silver spot."},
-	{"Liquefied natural gas, Japan", "spot_price", "lng_japan", "usd_per_mmbtu",
-		"LNG landed Japan — a major destination for Australian LNG."},
+	{"Platinum", "spot_price", "platinum", "usd_per_troy_oz", "Platinum spot."},
+
+	// ── Fertiliser ────────────────────────────────────────────────────────
+	// The input cost behind the ASX fertiliser and explosives names, and one of
+	// the few commodity groups whose price moves an industrial margin directly
+	// rather than through a mined volume.
+	{"Urea", "spot_price", "urea", "usd_per_metric_ton", "Urea, granular, fob."},
+	{"DAP", "spot_price", "dap", "usd_per_metric_ton", "Diammonium phosphate, fob."},
+	{"Phosphate rock", "spot_price", "phosphate_rock", "usd_per_metric_ton", "Phosphate rock, fob."},
+	{"Potassium chloride", "spot_price", "potassium_chloride", "usd_per_metric_ton",
+		"Muriate of potash, fob."},
+
+	// ── Agriculture ───────────────────────────────────────────────────────
+	// Barley and Sorghum are DELIBERATELY ABSENT despite being the obvious
+	// Australian grains: both columns exist in the workbook and both read "…"
+	// at the tail (checked 2026-09-10). Importing them would produce a chart
+	// that stops years short with nothing on the page saying why.
+	{"Wheat, US HRW", "spot_price", "wheat_us_hrw", "usd_per_metric_ton",
+		"US hard red winter wheat, fob Gulf — the global grain benchmark."},
+	{"Cotton, A Index", "spot_price", "cotton", "usd_per_kg", "Cotton, Cotlook A index."},
+	{"Sugar, world", "spot_price", "sugar", "usd_per_kg", "Raw sugar, world price."},
+	{"Beef", "spot_price", "beef", "usd_per_kg",
+		"Beef, Australian and New Zealand cif US — the export price for Australian cattle."},
+}
+
+// normalisePinkLabel strips the footnote markers the workbook attaches to some
+// column headers ("Coal, South African **", "Beef **"). The markers move
+// between issues — they mark a definitional note, not the series — so matching
+// on the raw text makes an unrelated editorial change look like a dropped
+// column. Only trailing markers are stripped; the label text itself is matched
+// exactly, so "Coal, Australian" still cannot match "Coal, South African".
+func normalisePinkLabel(s string) string {
+	return strings.TrimSpace(strings.TrimRight(strings.TrimSpace(s), "*"))
 }
 
 func ingestPinkSheet(ctx context.Context, _ *absdata.Client) ([]Obs, error) {
@@ -146,6 +199,12 @@ func selectPinkSheetLink(pageURL string, body []byte) (string, error) {
 }
 
 func parsePinkSheet(f *excelize.File, xlsxURL string) ([]Obs, error) {
+	return parsePinkSheetFor(f, xlsxURL, pinkSeriesDefs)
+}
+
+// parsePinkSheetFor takes the wanted series explicitly so tests can drive it
+// with a two-column workbook instead of a fixture carrying all 72 columns.
+func parsePinkSheetFor(f *excelize.File, xlsxURL string, defs []pinkSeries) ([]Obs, error) {
 	rows, err := f.GetRows(pinkSheetSheetName)
 	if err != nil {
 		return nil, fmt.Errorf("read sheet %q: %w", pinkSheetSheetName, err)
@@ -159,16 +218,27 @@ func parsePinkSheet(f *excelize.File, xlsxURL string) ([]Obs, error) {
 	// Resolve each wanted label to a column index. A label we cannot find is a
 	// hard error: silently importing 7 of 8 series would leave a gap that only
 	// shows up as a chart with no line.
-	cols := make(map[string]int, len(pinkSeriesDefs))
-	for _, def := range pinkSeriesDefs {
-		idx := -1
-		for i, n := range names {
-			if strings.TrimSpace(n) == def.Label {
-				idx = i
-				break
-			}
+	// Normalising the header row can, in principle, make two distinct columns
+	// collide ("Beef" and "Beef **" both becoming "Beef"). That would silently
+	// bind a series to whichever came first, so it is checked rather than
+	// assumed: a collision is format drift and fails the whole import.
+	byLabel := make(map[string]int, len(names))
+	for i, n := range names {
+		norm := normalisePinkLabel(n)
+		if norm == "" {
+			continue
 		}
-		if idx < 0 {
+		if prev, dup := byLabel[norm]; dup {
+			return nil, fmt.Errorf("columns %d and %d both normalise to %q in %q — ambiguous header",
+				prev, i, norm, pinkSheetSheetName)
+		}
+		byLabel[norm] = i
+	}
+
+	cols := make(map[string]int, len(defs))
+	for _, def := range defs {
+		idx, ok := byLabel[normalisePinkLabel(def.Label)]
+		if !ok {
 			return nil, fmt.Errorf("column %q not found in %q — the label changed or the column was dropped",
 				def.Label, pinkSheetSheetName)
 		}
@@ -176,11 +246,11 @@ func parsePinkSheet(f *excelize.File, xlsxURL string) ([]Obs, error) {
 	}
 
 	var out []Obs
-	for _, def := range pinkSeriesDefs {
+	for _, def := range defs {
 		series := SeriesDef{
-			Topic:      "commodities",
-			Metric:     def.Metric,
-			Product:    def.Product,
+			Topic:   "commodities",
+			Metric:  def.Metric,
+			Product: def.Product,
 			// national, for the same reason as the FRED series:
 			// eligibleCorrelationOverlay pairs an overlay with an AU base on
 			// `RegionCode == base.RegionCode || RegionType == "national"`, so a

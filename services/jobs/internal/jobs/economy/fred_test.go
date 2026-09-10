@@ -1,12 +1,15 @@
 package economy
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
 
 func vixDef() fredSeries {
-	return fredSeries{"VIXCLS", "volatility", "index_close", "vix", "index", "usa", "United States", "n", true}
+	return fredSeries{ID: "VIXCLS", Topic: "volatility", Metric: "index_close", Product: "vix",
+		Unit: "index", RegionCode: "usa", RegionName: "United States", Cadence: "daily",
+		Licence: licenceProprietaryCBOE, InternalOnly: true, Notes: "n"}
 }
 
 // FRED encodes a missing observation as "." — a market holiday, not a zero.
@@ -36,7 +39,7 @@ func TestMonthlyLastPicksTheLastTradedDay(t *testing.T) {
 		{"2026-01-02", "1.0"},
 		{"2026-01-30", "3.0"}, // Friday — the real last print
 		{"2026-01-15", "2.0"},
-		{"2026-01-31", "."},   // Saturday
+		{"2026-01-31", "."}, // Saturday
 	}, vixDef())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -120,15 +123,34 @@ func TestFREDSeriesAreCorrelationEligible(t *testing.T) {
 // UI silently loses its overlays, so the exact strings are asserted here.
 func TestFREDSeriesKeys(t *testing.T) {
 	want := map[string]string{
-		"VIXCLS":       "volatility.index_close.vix.usa",
-		"DGS2":         "rates.treasury_yield.2y.usa",
-		"DGS10":        "rates.treasury_yield.10y.usa",
-		"DTWEXBGS":     "fx.usd_index.broad.usa",
-		"DCOILWTICO":   "commodities.crude_oil.wti.usa",
-		"DCOILBRENTEU": "commodities.crude_oil.brent.eur",
-		"DEXCHUS":      "fx.spot_rate.cny_usd.chn",
-		"DEXJPUS":      "fx.spot_rate.jpy_usd.jpn",
-		"DEXUSEU":      "fx.spot_rate.usd_eur.eur",
+		"VIXCLS":          "volatility.index_close.vix.usa",
+		"FEDFUNDS":        "rates.policy_rate.fed_funds.usa",
+		"DGS3MO":          "rates.treasury_yield.3m.usa",
+		"DGS2":            "rates.treasury_yield.2y.usa",
+		"DGS10":           "rates.treasury_yield.10y.usa",
+		"DGS30":           "rates.treasury_yield.30y.usa",
+		"T10Y2Y":          "rates.yield_curve_spread.10y_2y.usa",
+		"T10YIE":          "rates.breakeven_inflation.10y.usa",
+		"BAMLH0A0HYM2":    "credit.high_yield_oas.us_hy.usa",
+		"CPIAUCSL":        "cpi.index.all_items.usa.seasadj",
+		"UNRATE":          "labour.unemployment_rate.total.usa.seasadj",
+		"INDPRO":          "industry.production_index.total.usa.seasadj",
+		"M2SL":            "money.m2_stock.total.usa.seasadj",
+		"WALCL":           "money.central_bank_assets.total.usa",
+		"DTWEXBGS":        "fx.usd_index.broad.usa",
+		"DCOILWTICO":      "commodities.crude_oil.wti.usa",
+		"DCOILBRENTEU":    "commodities.crude_oil.brent.eur",
+		"DEXCHUS":         "fx.spot_rate.cny_usd.chn",
+		"DEXJPUS":         "fx.spot_rate.jpy_usd.jpn",
+		"DEXKOUS":         "fx.spot_rate.krw_usd.kor",
+		"DEXINUS":         "fx.spot_rate.inr_usd.ind",
+		"DEXSIUS":         "fx.spot_rate.sgd_usd.sgp",
+		"DEXCAUS":         "fx.spot_rate.cad_usd.can",
+		"DEXUSEU":         "fx.spot_rate.usd_eur.eur",
+		"DEXUSUK":         "fx.spot_rate.usd_gbp.gbr",
+		"DEXUSNZ":         "fx.spot_rate.usd_nzd.nzl",
+		"XTEXVA01CNM667S": "trade.export_value.total.chn.seasadj",
+		"CCRETT01CNM661N": "fx.real_effective_rate.cpi_based.chn",
 	}
 	for _, def := range fredSeriesDefs {
 		obs, err := monthlyLast([]fredObservation{{"2026-03-30", "1.0"}}, def)
@@ -138,9 +160,16 @@ func TestFREDSeriesKeys(t *testing.T) {
 		if got := obs[0].Series.Key(); got != want[def.ID] {
 			t.Errorf("%s key = %q, want %q", def.ID, got, want[def.ID])
 		}
+		delete(want, def.ID)
+	}
+	// An entry left over means a series was added to THIS MAP but never to
+	// fredSeriesDefs — which is exactly how two China series were nearly
+	// shipped: the expectations landed, the defs edit silently did not, and a
+	// map-lookup-only assertion passed on unchanged code.
+	for id := range want {
+		t.Errorf("%s is expected here but absent from fredSeriesDefs", id)
 	}
 }
-
 
 // VIX is ingested but must never reach a public read surface. The licence is
 // the reason (FRED: "Copyright, 2016, Chicago Board Options Exchange, Inc.
@@ -150,17 +179,38 @@ func TestFREDSeriesKeys(t *testing.T) {
 // Asserted per-series rather than "at least one is internal", because the
 // failure that matters is VIX silently flipping public, and a loose assertion
 // would pass while the Fed series carried the flag instead.
-func TestOnlyVIXIsInternal(t *testing.T) {
+func TestOnlyCopyrightedSeriesAreInternal(t *testing.T) {
 	want := map[string]bool{
 		"VIXCLS":       true,  // CBOE copyright
-		"DGS2":         false, // H.15, Federal Reserve, no copyright notice
+		"BAMLH0A0HYM2": true,  // ICE Data Indices copyright
+		"FEDFUNDS":     false, // H.15, Federal Reserve, no copyright notice
+		"DGS3MO":       false, // H.15
+		"DGS2":         false, // H.15
 		"DGS10":        false, // H.15
+		"DGS30":        false, // H.15
+		"T10Y2Y":       false, // derived by FRED from H.15
+		"T10YIE":       false, // derived by FRED from H.15
+		"CPIAUCSL":     false, // BLS
+		"UNRATE":       false, // BLS
+		"INDPRO":       false, // Federal Reserve G.17
+		"M2SL":         false, // Federal Reserve H.6
+		"WALCL":        false, // Federal Reserve H.4.1
 		"DTWEXBGS":     false, // H.10
 		"DCOILWTICO":   false, // EIA, no copyright notice (probed 2026-09-09)
 		"DCOILBRENTEU": false, // EIA
 		"DEXCHUS":      false, // H.10
 		"DEXJPUS":      false, // H.10
+		"DEXKOUS":      false, // H.10
+		"DEXINUS":      false, // H.10
+		"DEXSIUS":      false, // H.10
+		"DEXCAUS":      false, // H.10
 		"DEXUSEU":      false, // H.10
+		"DEXUSUK":      false, // H.10
+		"DEXUSNZ":      false, // H.10
+		// OECD: redistribution permitted with attribution, so public. The
+		// citation rides in the frontend registry's source line.
+		"XTEXVA01CNM667S": false,
+		"CCRETT01CNM661N": false,
 	}
 	for _, def := range fredSeriesDefs {
 		expected, known := want[def.ID]
@@ -170,6 +220,14 @@ func TestOnlyVIXIsInternal(t *testing.T) {
 		if def.InternalOnly != expected {
 			t.Errorf("%s InternalOnly = %v, want %v", def.ID, def.InternalOnly, expected)
 		}
+		// A proprietary licence and the internal flag have to agree. Setting one
+		// without the other is how a copyrighted series ships public.
+		proprietary := def.Licence != licencePublicDomainUSGov &&
+			def.Licence != licenceOECDAttribution
+		if proprietary != expected {
+			t.Errorf("%s licence %q says proprietary=%v but InternalOnly=%v — the two must agree",
+				def.ID, def.Licence, proprietary, expected)
+		}
 		// The flag has to survive into the catalog row, or it is decoration.
 		obs, err := monthlyLast([]fredObservation{{"2026-03-30", "1.0"}}, def)
 		if err != nil {
@@ -178,6 +236,72 @@ func TestOnlyVIXIsInternal(t *testing.T) {
 		if obs[0].Series.InternalOnly != expected {
 			t.Errorf("%s: SeriesDef.InternalOnly = %v, want %v — the flag did not reach the row",
 				def.ID, obs[0].Series.InternalOnly, expected)
+		}
+		delete(want, def.ID)
+	}
+	for id := range want {
+		t.Errorf("%s has a licence decision recorded but is absent from fredSeriesDefs", id)
+	}
+}
+
+// Every row must declare a cadence and a licence, and the cadence must be one
+// this importer actually knows how to describe. An empty Cadence would write
+// `source_cadence: ""` into the catalog — a dimension that exists and says
+// nothing, which is worse than one that is absent.
+func TestEveryFREDSeriesDeclaresCadenceAndLicence(t *testing.T) {
+	cadences := map[string]bool{"daily": true, "weekly": true, "monthly": true}
+	for _, def := range fredSeriesDefs {
+		if !cadences[def.Cadence] {
+			t.Errorf("%s cadence = %q, want one of daily/weekly/monthly", def.ID, def.Cadence)
+		}
+		if def.Licence == "" {
+			t.Errorf("%s has no licence", def.ID)
+		}
+		if def.Adjustment != "" && def.Adjustment != "seasadj" {
+			t.Errorf("%s adjustment = %q, want \"\" or seasadj", def.ID, def.Adjustment)
+		}
+	}
+}
+
+// A monthly-native series has nothing to reduce. Claiming
+// "monthly_last_traded_day" for it describes a pick that never happened, and
+// the two FRED cadences are far enough apart that the label is the only way to
+// tell later why a stored value differs from the month's average.
+func TestMonthlyNativeSeriesAreNotLabelledAsReduced(t *testing.T) {
+	for _, def := range fredSeriesDefs {
+		obs, err := monthlyLast([]fredObservation{{"2026-03-30", "1.0"}}, def)
+		if err != nil {
+			t.Fatalf("%s: %v", def.ID, err)
+		}
+		got := obs[0].Series.Dimensions["aggregation"]
+		want := "monthly_last_traded_day"
+		if def.Cadence == "monthly" {
+			want = "as_published"
+		}
+		if got != want {
+			t.Errorf("%s (%s) aggregation = %q, want %q", def.ID, def.Cadence, got, want)
+		}
+		if obs[0].Series.Dimensions["source_cadence"] != def.Cadence {
+			t.Errorf("%s source_cadence = %q, want %q",
+				def.ID, obs[0].Series.Dimensions["source_cadence"], def.Cadence)
+		}
+	}
+}
+
+// The seasonal adjustment is part of the key. A series FRED publishes
+// seasonally adjusted that we store as `original` publishes an adjusted number
+// under a name that says it is not one — and the chart looks perfectly normal.
+func TestSeasonalAdjustmentReachesTheKey(t *testing.T) {
+	for _, def := range fredSeriesDefs {
+		if def.Adjustment != "seasadj" {
+			continue
+		}
+		obs, err := monthlyLast([]fredObservation{{"2026-03-30", "1.0"}}, def)
+		if err != nil {
+			t.Fatalf("%s: %v", def.ID, err)
+		}
+		if key := obs[0].Series.Key(); !strings.HasSuffix(key, ".seasadj") {
+			t.Errorf("%s key = %q, want a .seasadj suffix", def.ID, key)
 		}
 	}
 }
@@ -193,7 +317,6 @@ func TestInternalOnlyDoesNotAffectTheSeriesKey(t *testing.T) {
 		t.Errorf("key changed with visibility: %q vs %q", pub.Key(), priv.Key())
 	}
 }
-
 
 // The RBA already publishes AUD/USD as rates.aud_usd.aus (FXRUSD, rba.go:36).
 // Importing FRED's DEXUSAL alongside it would put two series behind one fact,

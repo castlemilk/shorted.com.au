@@ -63,6 +63,10 @@ import (
 const fredAPIBase = "https://api.stlouisfed.org/fred/series/observations"
 
 // fredSeries is one upstream series and the catalog entry it becomes.
+//
+// Fields are set by NAME, never positionally. The table below is long enough
+// that a positional literal is unreadable, and inserting a field in the middle
+// of one silently re-homes every value after it.
 type fredSeries struct {
 	ID         string // FRED series_id — pinned, never derived from a label
 	Topic      string
@@ -73,30 +77,147 @@ type fredSeries struct {
 	RegionName string
 	Notes      string
 
+	// Adjustment is the UPSTREAM seasonal adjustment, copied from FRED's own
+	// `seasonal_adjustment_short`. It is part of the key (`…usa.seasadj`), so
+	// getting it wrong publishes a seasonally-adjusted number under a name that
+	// says it is not one. Empty means "original".
+	Adjustment string
+
+	// Cadence is the PUBLICATION frequency upstream: daily, weekly or monthly.
+	// Everything here is stored monthly; this records what was reduced to get
+	// there, so `aggregation` in Dimensions can tell the truth about whether a
+	// value was picked from a month of observations or published as-is.
+	Cadence string
+
+	// Licence is the terms the SOURCE publishes under, per series rather than
+	// per importer: FRED aggregates the Federal Reserve, BLS and EIA (all US
+	// government, public domain) alongside licensed third-party indices.
+	Licence string
+
 	// InternalOnly withholds the series from every PUBLIC read surface
 	// (List/GetEconomicSeries, ListSeriesCorrelations, the site) while still
 	// ingesting and correlating it. See migration 000121.
 	//
-	// Set for VIXCLS only. FRED's own metadata for it reads "Copyright, 2016,
-	// Chicago Board Options Exchange, Inc. Reprinted with permission." —
-	// permission granted to FRED, not onward. The three Federal Reserve series
-	// beside it (H.15, H.10) carry no such notice and stay public.
+	// Set for exactly the series whose FRED metadata carries a third-party
+	// copyright notice — permission granted to FRED, not onward. Two so far:
+	// VIXCLS (CBOE) and BAMLH0A0HYM2 (ICE Data Indices). Everything else here
+	// is US government output with no such notice, checked series by series.
 	InternalOnly bool
 }
+
+const (
+	licencePublicDomainUSGov = "public-domain-us-gov"
+	licenceProprietaryCBOE   = "proprietary-cboe"
+	licenceProprietaryICE    = "proprietary-ice-data-indices"
+	// OECD publishes its public data for redistribution WITH ATTRIBUTION —
+	// a citation requirement, not a restriction, which is why the two China
+	// series below are public where the CBOE and ICE ones are not. The
+	// attribution rides in the frontend registry's `source` line.
+	licenceOECDAttribution = "oecd-terms-attribution"
+)
 
 // Pinned from the 2026-09-08 probe. Series IDs are stable FRED identifiers, not
 // labels: FRED retitles series (DTWEXBGS was "Trade Weighted U.S. Dollar Index"
 // before the 2020 rebase) and a label-derived key would fork the history.
+//
+// The 2026-09-10 batch (everything below the crude block) was probed the same
+// way: metadata fetched for each candidate, `notes` searched for a copyright,
+// permission or proprietary clause, and frequency/units/coverage read off the
+// response rather than assumed. Two candidates were REJECTED by that check and
+// are recorded here so nobody re-adds them believing they were merely missed:
+//
+//	PALLFNFINDEXM  IMF all-commodities index — "Copyright © 2016, International
+//	               Monetary Fund. Reprinted with permission." Redundant anyway;
+//	               the World Bank Pink Sheet covers the same ground under CC-BY.
+//	GEPUCURRENT    Global Economic Policy Uncertainty — no copyright line in the
+//	               FRED notes, but policyuncertainty.com grants the data for
+//	               non-commercial use, which this is not. Absence of a FRED
+//	               notice is not a licence.
+//	RECPROUSM156N  Smoothed US recession probabilities (Chauvet-Piger). No FRED
+//	               copyright line and no stated licence either — an academic
+//	               series hosted on FRED. Every other row here is on a licence
+//	               we can name, and the /economy page makes a licence claim in
+//	               its footer, so an unnameable one stays out.
 var fredSeriesDefs = []fredSeries{
+	// ── Volatility ────────────────────────────────────────────────────────
 	// INTERNAL ONLY — CBOE copyright, see fredSeries.InternalOnly.
-	{"VIXCLS", "volatility", "index_close", "vix", "index", "usa", "United States",
-		"CBOE Volatility Index (VIX), daily close, month-end observation. INTERNAL ONLY.", true},
-	{"DGS2", "rates", "treasury_yield", "2y", "percent", "usa", "United States",
-		"US Treasury constant-maturity 2-year yield, month-end observation.", false},
-	{"DGS10", "rates", "treasury_yield", "10y", "percent", "usa", "United States",
-		"US Treasury constant-maturity 10-year yield, month-end observation.", false},
-	{"DTWEXBGS", "fx", "usd_index", "broad", "index", "usa", "United States",
-		"Nominal broad US dollar index (Jan 2006 = 100), month-end observation.", false},
+	{ID: "VIXCLS", Topic: "volatility", Metric: "index_close", Product: "vix",
+		Unit: "index", RegionCode: "usa", RegionName: "United States", Cadence: "daily",
+		Licence: licenceProprietaryCBOE, InternalOnly: true,
+		Notes: "CBOE Volatility Index (VIX), daily close, month-end observation. INTERNAL ONLY."},
+
+	// ── US rates ──────────────────────────────────────────────────────────
+	// The Treasury curve, plus the two derived series that carry most of the
+	// signal: 10y−2y (the recession bellwether) and the 10-year breakeven (the
+	// market's inflation expectation). Both are computed by FRED from the H.15
+	// constant maturities already here, so they are the same publisher.
+	{ID: "FEDFUNDS", Topic: "rates", Metric: "policy_rate", Product: "fed_funds",
+		Unit: "percent", RegionCode: "usa", RegionName: "United States", Cadence: "monthly",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "Federal funds effective rate, monthly average. The US counterpart to the RBA cash rate target."},
+	{ID: "DGS3MO", Topic: "rates", Metric: "treasury_yield", Product: "3m",
+		Unit: "percent", RegionCode: "usa", RegionName: "United States", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "US Treasury constant-maturity 3-month yield, month-end observation."},
+	{ID: "DGS2", Topic: "rates", Metric: "treasury_yield", Product: "2y",
+		Unit: "percent", RegionCode: "usa", RegionName: "United States", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "US Treasury constant-maturity 2-year yield, month-end observation."},
+	{ID: "DGS10", Topic: "rates", Metric: "treasury_yield", Product: "10y",
+		Unit: "percent", RegionCode: "usa", RegionName: "United States", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "US Treasury constant-maturity 10-year yield, month-end observation."},
+	{ID: "DGS30", Topic: "rates", Metric: "treasury_yield", Product: "30y",
+		Unit: "percent", RegionCode: "usa", RegionName: "United States", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "US Treasury constant-maturity 30-year yield, month-end observation."},
+	{ID: "T10Y2Y", Topic: "rates", Metric: "yield_curve_spread", Product: "10y_2y",
+		Unit: "percent", RegionCode: "usa", RegionName: "United States", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "US 10-year minus 2-year Treasury yield, month-end observation. Negative is an inverted curve."},
+	{ID: "T10YIE", Topic: "rates", Metric: "breakeven_inflation", Product: "10y",
+		Unit: "percent", RegionCode: "usa", RegionName: "United States", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "10-year breakeven inflation rate (nominal minus TIPS), month-end observation."},
+
+	// ── US credit ─────────────────────────────────────────────────────────
+	// INTERNAL ONLY — ICE Data Indices copyright. Also note FRED truncated this
+	// series to a rolling 3 years in April 2026, so its history starts 2023-09
+	// and will keep moving forward; a chart of it is short by construction.
+	{ID: "BAMLH0A0HYM2", Topic: "credit", Metric: "high_yield_oas", Product: "us_hy",
+		Unit: "percent", RegionCode: "usa", RegionName: "United States", Cadence: "daily",
+		Licence: licenceProprietaryICE, InternalOnly: true,
+		Notes: "ICE BofA US High Yield index option-adjusted spread, month-end observation. INTERNAL ONLY."},
+
+	// ── US macro ──────────────────────────────────────────────────────────
+	// Published monthly upstream, so nothing is reduced — `aggregation` says
+	// as_published rather than claiming a month-end pick that never happened.
+	{ID: "CPIAUCSL", Topic: "cpi", Metric: "index", Product: "all_items",
+		Unit: "index", RegionCode: "usa", RegionName: "United States", Cadence: "monthly",
+		Adjustment: "seasadj", Licence: licencePublicDomainUSGov,
+		Notes: "US CPI for all urban consumers, all items (1982-84 = 100), seasonally adjusted. BLS."},
+	{ID: "UNRATE", Topic: "labour", Metric: "unemployment_rate", Product: "total",
+		Unit: "percent", RegionCode: "usa", RegionName: "United States", Cadence: "monthly",
+		Adjustment: "seasadj", Licence: licencePublicDomainUSGov,
+		Notes: "US unemployment rate, seasonally adjusted. BLS."},
+	{ID: "INDPRO", Topic: "industry", Metric: "production_index", Product: "total",
+		Unit: "index", RegionCode: "usa", RegionName: "United States", Cadence: "monthly",
+		Adjustment: "seasadj", Licence: licencePublicDomainUSGov,
+		Notes: "US industrial production, total index (2017 = 100), seasonally adjusted. Federal Reserve G.17."},
+	{ID: "M2SL", Topic: "money", Metric: "m2_stock", Product: "total",
+		Unit: "usd_billions", RegionCode: "usa", RegionName: "United States", Cadence: "monthly",
+		Adjustment: "seasadj", Licence: licencePublicDomainUSGov,
+		Notes: "US M2 money stock, billions of dollars, seasonally adjusted. Federal Reserve H.6."},
+	{ID: "WALCL", Topic: "money", Metric: "central_bank_assets", Product: "total",
+		Unit: "usd_millions", RegionCode: "usa", RegionName: "United States", Cadence: "weekly",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "Federal Reserve total assets, millions of dollars, month-end observation. H.4.1."},
+
+	// ── FX ────────────────────────────────────────────────────────────────
+	{ID: "DTWEXBGS", Topic: "fx", Metric: "usd_index", Product: "broad",
+		Unit: "index", RegionCode: "usa", RegionName: "United States", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "Nominal broad US dollar index (Jan 2006 = 100), month-end observation."},
 
 	// Crude. The ASX is resources-weighted and nothing in the catalog carried a
 	// crude price — RBA's I2 gives commodity INDICES (bulk, base metals, rural),
@@ -106,10 +227,14 @@ var fredSeriesDefs = []fredSeries{
 	// 2026-09-09, same check that flagged VIX). Region codes name where the
 	// benchmark is priced rather than pretending both are American: WTI is
 	// Cushing, Oklahoma; Brent is the North Sea.
-	{"DCOILWTICO", "commodities", "crude_oil", "wti", "usd_per_barrel", "usa", "United States",
-		"WTI crude, Cushing OK, month-end observation. EIA via FRED.", false},
-	{"DCOILBRENTEU", "commodities", "crude_oil", "brent", "usd_per_barrel", "eur", "Europe",
-		"Brent crude, Europe, month-end observation. EIA via FRED.", false},
+	{ID: "DCOILWTICO", Topic: "commodities", Metric: "crude_oil", Product: "wti",
+		Unit: "usd_per_barrel", RegionCode: "usa", RegionName: "United States", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "WTI crude, Cushing OK, month-end observation. EIA via FRED."},
+	{ID: "DCOILBRENTEU", Topic: "commodities", Metric: "crude_oil", Product: "brent",
+		Unit: "usd_per_barrel", RegionCode: "eur", RegionName: "Europe", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "Brent crude, Europe, month-end observation. EIA via FRED."},
 
 	// FX pairs the RBA does not publish. DEXUSAL is DELIBERATELY ABSENT: rba.go
 	// already imports FXRUSD as rates.aud_usd.aus, and a second AUD/USD from a
@@ -118,14 +243,70 @@ var fredSeriesDefs = []fredSeries{
 	//
 	// CNY earns its place ahead of the others here: China takes the bulk of
 	// Australian iron ore, so CNY/USD plausibly explains more of the materials
-	// sector's short interest than AUD/USD does. All three are H.10 (Federal
+	// sector's short interest than AUD/USD does. All are H.10 (Federal
 	// Reserve), public domain, no copyright notice.
-	{"DEXCHUS", "fx", "spot_rate", "cny_usd", "cny_per_usd", "chn", "China",
-		"Chinese yuan per US dollar, month-end observation. H.15/H.10 via FRED.", false},
-	{"DEXJPUS", "fx", "spot_rate", "jpy_usd", "jpy_per_usd", "jpn", "Japan",
-		"Japanese yen per US dollar, month-end observation. H.10 via FRED.", false},
-	{"DEXUSEU", "fx", "spot_rate", "usd_eur", "usd_per_eur", "eur", "Euro area",
-		"US dollars per euro, month-end observation. H.10 via FRED.", false},
+	//
+	// PRODUCT NAMES THE DIRECTION, because H.10 does not quote every pair the
+	// same way round: `cny_usd` is yuan PER dollar, `usd_eur` is dollars PER
+	// euro. Reading a rate upside-down is the one error here that produces a
+	// perfectly plausible-looking chart.
+	{ID: "DEXCHUS", Topic: "fx", Metric: "spot_rate", Product: "cny_usd",
+		Unit: "cny_per_usd", RegionCode: "chn", RegionName: "China", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "Chinese yuan per US dollar, month-end observation. H.10 via FRED."},
+	{ID: "DEXJPUS", Topic: "fx", Metric: "spot_rate", Product: "jpy_usd",
+		Unit: "jpy_per_usd", RegionCode: "jpn", RegionName: "Japan", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "Japanese yen per US dollar, month-end observation. H.10 via FRED."},
+	{ID: "DEXKOUS", Topic: "fx", Metric: "spot_rate", Product: "krw_usd",
+		Unit: "krw_per_usd", RegionCode: "kor", RegionName: "South Korea", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "South Korean won per US dollar, month-end observation. H.10 via FRED."},
+	{ID: "DEXINUS", Topic: "fx", Metric: "spot_rate", Product: "inr_usd",
+		Unit: "inr_per_usd", RegionCode: "ind", RegionName: "India", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "Indian rupees per US dollar, month-end observation. H.10 via FRED."},
+	{ID: "DEXSIUS", Topic: "fx", Metric: "spot_rate", Product: "sgd_usd",
+		Unit: "sgd_per_usd", RegionCode: "sgp", RegionName: "Singapore", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "Singapore dollars per US dollar, month-end observation. H.10 via FRED."},
+	{ID: "DEXCAUS", Topic: "fx", Metric: "spot_rate", Product: "cad_usd",
+		Unit: "cad_per_usd", RegionCode: "can", RegionName: "Canada", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "Canadian dollars per US dollar, month-end observation. H.10 via FRED. The other resources-heavy G10 currency."},
+	{ID: "DEXUSEU", Topic: "fx", Metric: "spot_rate", Product: "usd_eur",
+		Unit: "usd_per_eur", RegionCode: "eur", RegionName: "Euro area", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "US dollars per euro, month-end observation. H.10 via FRED."},
+	{ID: "DEXUSUK", Topic: "fx", Metric: "spot_rate", Product: "usd_gbp",
+		Unit: "usd_per_gbp", RegionCode: "gbr", RegionName: "United Kingdom", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "US dollars per pound sterling, month-end observation. H.10 via FRED."},
+	{ID: "DEXUSNZ", Topic: "fx", Metric: "spot_rate", Product: "usd_nzd",
+		Unit: "usd_per_nzd", RegionCode: "nzl", RegionName: "New Zealand", Cadence: "daily",
+		Licence: licencePublicDomainUSGov,
+		Notes:   "US dollars per New Zealand dollar, month-end observation. H.10 via FRED."},
+
+	// ── China ─────────────────────────────────────────────────────────────
+	// The largest gap in this catalog for an ASX platform, and the hardest to
+	// fill: China's own statistical agencies are not on FRED, so what is here
+	// is OECD's compilation. OECD permits redistribution WITH ATTRIBUTION —
+	// a citation requirement rather than a restriction, unlike the CBOE and
+	// ICE notices above — so these two are public.
+	//
+	// CHNCPIALLMINMEI (China CPI) was probed with these and REJECTED: its last
+	// observation is 2025-04 and the series has not updated since. A chart
+	// ending sixteen months back, with nothing on the page saying so, is the
+	// exact failure this catalog keeps finding elsewhere.
+	{ID: "XTEXVA01CNM667S", Topic: "trade", Metric: "export_value", Product: "total",
+		Unit: "usd", RegionCode: "chn", RegionName: "China", Cadence: "monthly",
+		Adjustment: "seasadj", Licence: licenceOECDAttribution,
+		Notes: "China merchandise exports to the world, USD, seasonally adjusted. OECD via FRED. " +
+			"The demand-side counterpart to the iron ore and coal prices above."},
+	{ID: "CCRETT01CNM661N", Topic: "fx", Metric: "real_effective_rate", Product: "cpi_based",
+		Unit: "index", RegionCode: "chn", RegionName: "China", Cadence: "monthly",
+		Licence: licenceOECDAttribution,
+		Notes:   "China real effective exchange rate, CPI-based (2015 = 100). OECD via FRED."},
 }
 
 // fredObservation is one row of the FRED observations payload. `value` is a
@@ -222,10 +403,23 @@ func monthlyLast(raw []fredObservation, def fredSeries) ([]Obs, error) {
 		return nil, fmt.Errorf("no usable observations (all missing or unparseable) — treating as format drift")
 	}
 
+	// A monthly-native series has one observation per month, so monthlyLast
+	// picked nothing — saying "monthly_last_traded_day" for it would describe a
+	// reduction that did not happen. The distinction matters when someone later
+	// asks why a value differs from the month's average.
+	aggregation := "monthly_last_traded_day"
+	if def.Cadence == "monthly" {
+		aggregation = "as_published"
+	}
+	adjustment := def.Adjustment
+	if adjustment == "" {
+		adjustment = "original"
+	}
+
 	series := SeriesDef{
-		Topic:      def.Topic,
-		Metric:     def.Metric,
-		Product:    def.Product,
+		Topic:   def.Topic,
+		Metric:  def.Metric,
+		Product: def.Product,
 		// RegionType stays "national" for every one of these, including the
 		// non-US ones. eligibleCorrelationOverlay pairs an overlay with an AU
 		// base on `RegionCode == base.RegionCode || RegionType == "national"`,
@@ -236,15 +430,15 @@ func monthlyLast(raw []fredObservation, def fredSeries) ([]Obs, error) {
 		RegionName: def.RegionName,
 		Unit:       def.Unit,
 		Frequency:  "monthly",
-		Adjustment: "original",
+		Adjustment: adjustment,
 		Dimensions: map[string]string{
 			"fred_series_id": def.ID,
-			"aggregation":    "monthly_last_traded_day",
-			"source_cadence": "daily",
+			"aggregation":    aggregation,
+			"source_cadence": def.Cadence,
 		},
 		InternalOnly: def.InternalOnly,
-		SourceKey: "fred-us-macro",
-		Licence:   "public-domain-us-gov",
+		SourceKey:    "fred-us-macro",
+		Licence:      def.Licence,
 	}
 
 	months := make([]time.Time, 0, len(byMonth))
