@@ -9,7 +9,9 @@
 package mcp
 
 import (
+	"context"
 	"net/http"
+	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -61,8 +63,55 @@ func NewServer(src DataSource) *sdk.Server {
 // The tools are read-only and take every parameter they need per call, so
 // there is no per-session state to lose.
 func Handler(src DataSource) http.Handler {
+	return HandlerWithLifetime(src, StreamLifetime)
+}
+
+// HandlerWithLifetime is Handler with an explicit stream ceiling. Production
+// uses Handler; this exists so a test can drive the real handler over a real
+// socket without waiting out the real ceiling.
+func HandlerWithLifetime(src DataSource, lifetime time.Duration) http.Handler {
 	server := NewServer(src)
-	return sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server {
+	return boundStreamLifetime(lifetime, sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server {
 		return server
-	}, &sdk.StreamableHTTPOptions{Stateless: true})
+	}, &sdk.StreamableHTTPOptions{Stateless: true}))
+}
+
+// StreamLifetime bounds how long ONE /mcp request may stay open.
+//
+// It exists because MCP requests are not all request/response calls. A
+// subscriptions/listen POST (SEP-2575) has no synchronous result: the handler
+// blocks and the SSE stream stays open until the client goes away. On Cloud
+// Run "until the client goes away" means until the platform's 300s request
+// timeout kills it — measured on prod 2026-09-10, all 53 API POST 5xx in 24h
+// were /mcp, and every single one ran for 299.98s. Cloudflare relabels that
+// 524, so a normal, healthy client looked like a failing origin every five
+// minutes, and each dead stream held a request slot until the platform noticed.
+//
+// Ending the stream ourselves turns that into an ordinary completed response:
+// the SDK's hangResponse returns as soon as the request context is done, the
+// SSE body ends after a 200, and the client reconnects exactly as it already
+// does today. The only thing that changes is who ends the connection, and
+// therefore what it is recorded as.
+//
+// The margin below the platform timeout is deliberate: it must be large enough
+// that a request cannot lose the race and still be killed at 300s.
+// terraform/modules/shorts-api/main.tf pins that 300s, and
+// TestStreamLifetimeIsBelowCloudRunTimeout keeps the two numbers honest.
+const StreamLifetime = 240 * time.Second
+
+// boundStreamLifetime caps a request's context, so a held-open stream ends on
+// our terms rather than the platform's. Cancelling the request context is the
+// SDK's own shutdown path for a hung response, not an abort: for a stateless
+// subscriptions/listen the SDK already propagates that cancellation into the
+// handler (shouldPropagateCancellation), and every other MCP request completes
+// in milliseconds and never reaches the deadline at all.
+func boundStreamLifetime(lifetime time.Duration, next http.Handler) http.Handler {
+	if lifetime <= 0 {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), lifetime)
+		defer cancel()
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
