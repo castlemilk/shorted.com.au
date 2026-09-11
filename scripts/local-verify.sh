@@ -58,6 +58,43 @@ export CACHE_WARM_SECRET=""
 
 cd "$REPO_ROOT"
 
+# ── Node: pin it once, then keep it pinned in every step ──────────────────
+#
+# The PATH export above puts /opt/homebrew/bin first, and run_shell below runs
+# each step in a LOGIN shell (bash -lc), which re-reads the profile and rebuilds
+# PATH. Between them, Homebrew's node won every step even after nvm had selected
+# the pinned version: on 2026-09-11 the gate was building on Node 26 while
+# .nvmrc says 24, and Node 26 removed buffer.SlowBuffer — so the frontend build
+# died in buffer-equal-constant-time (jsonwebtoken's dependency) with
+# "Cannot read properties of undefined (reading 'prototype')". Nothing said the
+# Node version was wrong; it looked like a broken package.
+#
+# Resolve the node the repo pins (nvm above, mise as the fallback), refuse to
+# continue on any other major, and hand its directory to run_shell so the login
+# profile cannot swap it back.
+REQUIRED_NODE_MAJOR="$(tr -dc '0-9.' < "$REPO_ROOT/.nvmrc" 2>/dev/null | cut -d. -f1)"
+
+node_major() {
+  node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo none
+}
+
+if [ -n "$REQUIRED_NODE_MAJOR" ] && [ "$(node_major)" != "$REQUIRED_NODE_MAJOR" ] \
+  && command -v mise >/dev/null 2>&1; then
+  mise_node="$(mise which node 2>/dev/null || true)"
+  if [ -n "$mise_node" ]; then
+    export PATH="$(dirname "$mise_node"):$PATH"
+  fi
+fi
+
+if [ -n "$REQUIRED_NODE_MAJOR" ] && [ "$(node_major)" != "$REQUIRED_NODE_MAJOR" ]; then
+  printf "local-verify: .nvmrc pins Node %s but the resolved node is %s (%s).\n" \
+    "$REQUIRED_NODE_MAJOR" "$(node --version 2>/dev/null || echo missing)" "$(command -v node || echo none)" >&2
+  printf "Install it with nvm or mise; this gate will not verify on a different major.\n" >&2
+  exit 1
+fi
+
+LOCAL_VERIFY_NODE_BIN="$(dirname "$(command -v node)")"
+
 section() {
   printf "\n==> %s\n" "$1"
 }
@@ -92,7 +129,9 @@ run() {
 run_shell() {
   local label="$1"
   shift
-  run "$label" bash -lc "$*"
+  # The login shell rebuilds PATH from the profile; put the pinned node back in
+  # front AFTER it has run. $LOCAL_VERIFY_NODE_BIN expands here, \$PATH in the child.
+  run "$label" bash -lc "export PATH=\"$LOCAL_VERIFY_NODE_BIN:\$PATH\"; $*"
 }
 
 run_with_timeout() {
