@@ -236,11 +236,19 @@ hc_drain_until_empty() {
 	# A re-warm is a routine Kasada outcome, not a fault, and the collector
 	# self-warms at the start of every `-mode agent` round — so the only thing a
 	# retry needs is time for the portal to stop seeing the burnt fingerprint.
-	# Deliberately small and slow: two attempts, spaced, so a blocked portal is
-	# never hammered. Exhausting the budget still returns 3, so the exit
-	# contract, the health record and the alarm all keep their meaning.
+	# Slow, and bounded. The cooldown is what makes a retry work and the budget
+	# is what stops a blocked portal being hammered.
+	#
+	# First production run, 2026-09-11: re-warms at rounds 2, 5 and 6 — roughly
+	# one per 30-50 jobs. Retry 1 then delivered a FULL round of 20 and retry 2
+	# delivered 13, so 900s genuinely clears the burnt fingerprint. The run
+	# processed 85 jobs where stopping at the first re-warm would have managed
+	# 30, and it ended with the budget spent rather than the queue empty —
+	# which is why the budget is 4 and not 2. Four retries is still under the
+	# 120-suburb enqueue cap, so this reaches the designed throughput rather
+	# than exceeding it.
 	local rewarm_cooldown="${CRAWL_REWARM_COOLDOWN_SEC:-900}"
-	local rewarm_budget="${CRAWL_REWARM_MAX_RETRIES:-2}"
+	local rewarm_budget="${CRAWL_REWARM_MAX_RETRIES:-4}"
 	local rewarms=0
 	local round=0 rc=0 out processed capture_file
 	capture_file="$(mktemp "${TMPDIR:-/tmp}/shorted-housing-drain.XXXXXX")" || {
