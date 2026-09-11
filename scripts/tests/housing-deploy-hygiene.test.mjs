@@ -79,12 +79,17 @@ esac
   return fakeBin;
 }
 
-function runDrain({ scenario, maxRounds = "4" }) {
+// The re-warm retry knobs are pinned by every caller on purpose. Production
+// waits CRAWL_REWARM_COOLDOWN_SEC (900) between re-warm retries; inheriting that
+// default here made this suite sleep for half an hour and get killed by the
+// job's 5-minute timeout. A test of the drain's CONTRACT must not also be a test
+// of its patience.
+function runDrain({ scenario, maxRounds = "4", rewarmRetries = "0" }) {
   const root = mkdtempSync(join(tmpdir(), "housing-drain-contract-"));
   const fakeBin = makeFakeCollector(root);
   const log = join(root, "drain.log");
   const countFile = join(root, "count");
-  const command = `source "$COMMON_SCRIPT"; BIN="$FAKE_BIN"; LOG="$FAKE_LOG"; CRAWL_DRAIN_MAX_ROUNDS="$MAX_ROUNDS"; hc_drain_until_empty`;
+  const command = `source "$COMMON_SCRIPT"; BIN="$FAKE_BIN"; LOG="$FAKE_LOG"; CRAWL_DRAIN_MAX_ROUNDS="$MAX_ROUNDS"; CRAWL_REWARM_COOLDOWN_SEC=0; CRAWL_REWARM_MAX_RETRIES="$REWARM_RETRIES"; hc_drain_until_empty`;
   const result = spawnSync("/bin/bash", ["-c", command], {
     encoding: "utf8",
     env: {
@@ -95,6 +100,7 @@ function runDrain({ scenario, maxRounds = "4" }) {
       FAKE_COUNT_FILE: countFile,
       FAKE_SCENARIO: scenario,
       MAX_ROUNDS: maxRounds,
+      REWARM_RETRIES: rewarmRetries,
       TMPDIR: root,
     },
   });
@@ -231,10 +237,21 @@ test("drain streams collector output before the round finishes", async () => {
 });
 
 test("drain preserves rc=3 and stable processed/empty contracts", () => {
-  const rc3 = runDrain({ scenario: "rc3" });
+  // With retries disabled, rc=3 propagates on the first re-warm — the original
+  // contract, unchanged.
+  const rc3 = runDrain({ scenario: "rc3", rewarmRetries: "0" });
   assert.equal(rc3.status, 3, rc3.stderr);
   assert.equal(rc3.count, 1);
   assert.deepEqual(rc3.captures, []);
+
+  // With a budget, the drain retries in-run rather than handing the rest of the
+  // work back to a schedule that next fires tomorrow — but the budget is
+  // bounded and the exit code it eventually reports is still 3, so the health
+  // record and the freshness alarm keep their meaning.
+  const rc3Retried = runDrain({ scenario: "rc3", maxRounds: "10", rewarmRetries: "2" });
+  assert.equal(rc3Retried.status, 3, rc3Retried.stderr);
+  assert.equal(rc3Retried.count, 3, "expected 1 attempt + 2 retries");
+  assert.match(rc3Retried.log, /retry budget is spent/);
 
   const drained = runDrain({ scenario: "drain_then_empty" });
   assert.equal(drained.status, 0, drained.stderr);
