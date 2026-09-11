@@ -103,3 +103,22 @@ test("all self-contained integration make targets avoid cached go test results",
     /go test -count=1 -tags=integration \.\/test\/integration\/\.\.\. -v -timeout=10m -coverprofile=integration-coverage\.out/,
   );
 });
+
+test("local verifier runs every step on the Node major the repo pins", () => {
+  // The PATH export puts Homebrew first and run_shell uses a LOGIN shell, which
+  // rebuilds PATH from the profile. Together they ran the frontend build on
+  // Homebrew's Node 26 while .nvmrc said 24, and Node 26 removed SlowBuffer —
+  // the build died in buffer-equal-constant-time with nothing saying the Node
+  // version was the cause.
+  const verifier = read("scripts/local-verify.sh");
+
+  assert.match(verifier, /REQUIRED_NODE_MAJOR="\$\(tr -dc '0-9\.' < "\$REPO_ROOT\/\.nvmrc"/);
+  assert.match(verifier, /will not verify on a different major/);
+  assert.match(verifier, /exit 1/);
+  // The pin must be re-applied INSIDE the login shell, after the profile runs.
+  assert.match(
+    verifier,
+    /run_shell\(\) \{[\s\S]*?bash -lc "export PATH=\\"\$LOCAL_VERIFY_NODE_BIN:\\\$PATH\\"; \$\*"/,
+  );
+  assert.doesNotMatch(verifier, /run "\$label" bash -lc "\$\*"/);
+});
