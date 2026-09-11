@@ -443,3 +443,107 @@ func TestParseActualCrimeWorkbook(t *testing.T) {
 		t.Fatalf("actual NSW 2024 assault wrong: %#v", assault)
 	}
 }
+
+// crimeFixtureWorkbook2025Layout reshapes the fixture into the 2025 release's
+// layout (probed 2026-09-11): an accessibility row that repeats the old title
+// wording, an en-dash span in the real title, and two renamed offences.
+func crimeFixtureWorkbook2025Layout(t *testing.T) *excelize.File {
+	t.Helper()
+	f := crimeFixtureWorkbookThrough(t, 2025)
+	set := func(cell, value string) {
+		if err := f.SetCellValue("Table 9", cell, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	set("A1", "This tab outlines table 9 Victims, Selected offences by states and territories, 1993 to 2025. It ranges from cell A2 to AH238")
+	set("A3", "Table 9 Victims, Selected offences by states and territories, 1993–2025")
+	rows, err := f.GetRows("Table 9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, row := range rows {
+		if len(row) == 0 {
+			continue
+		}
+		switch row[0] {
+		case "Homicide and related offences(h)":
+			set(fmt.Sprintf("A%d", i+1), "Homicide(i)")
+		case "Unlawful entry with intent(l)(s)":
+			set(fmt.Sprintf("A%d", i+1), "Burglary(m)")
+		}
+	}
+	return f
+}
+
+// The 2025 release reworded Table 9 and failed the scheduled 2026-09-05 ingest.
+// Same data, same keys: the renamed rows must land on the existing series.
+func TestParseCrimeWorkbook2025Layout(t *testing.T) {
+	f := crimeFixtureWorkbook2025Layout(t)
+	defer f.Close()
+
+	obs, err := parseCrimeWorkbook(f, "https://example.test/crime-2025.xlsx")
+	if err != nil {
+		t.Fatalf("2025 layout rejected: %v", err)
+	}
+	if got, want := len(obs), 1832; got != want {
+		t.Fatalf("len(obs) = %d, want %d — the renamed offences must not drop a series", got, want)
+	}
+	var homicide2025, burglary bool
+	for _, o := range obs {
+		switch {
+		case o.Series.Key() == "crime.victims.homicide.nsw" && o.Period.Year() == 2025 && o.Value == 240:
+			homicide2025 = true
+		case o.Series.Key() == "crime.victims.unlawful-entry.nsw":
+			burglary = true
+		}
+	}
+	if !homicide2025 {
+		t.Fatal(`"Homicide" did not map to crime.victims.homicide`)
+	}
+	if !burglary {
+		t.Fatal(`"Burglary" did not map to crime.victims.unlawful-entry`)
+	}
+}
+
+func TestCrimeTableEndYearAcceptsEverySpanSeparator(t *testing.T) {
+	for _, sep := range []string{" to ", "–", "—", "-", " – "} {
+		rows := [][]string{{"Table 9 Victims, Selected offences by states and territories, 1993" + sep + "2025"}}
+		year, err := crimeTableEndYear(rows)
+		if err != nil || year != 2025 {
+			t.Errorf("separator %q: year=%d err=%v, want 2025", sep, year, err)
+		}
+	}
+}
+
+// The 2025 sheet opens with an accessibility row carrying the OLD title
+// wording. Taking it for the title would read the end year from prose; the
+// anchored pattern must ignore it.
+func TestCrimeAccessibilityRowIsNeverTheTitle(t *testing.T) {
+	rows := [][]string{{"This tab outlines table 9 Victims, Selected offences by states and territories, 1993 to 2025. It ranges from cell A2 to AH238"}}
+	if _, err := crimeTableEndYear(rows); err == nil {
+		t.Fatal("the accessibility row was accepted as the Table 9 title")
+	}
+}
+
+// Old and new spellings of one offence in the same section means the ABS split
+// the category rather than renamed it — mapping both onto one key would double
+// count, so it must fail as a duplicate.
+func TestCrimeBothSpellingsOfOneOffenceIsADuplicate(t *testing.T) {
+	f := crimeFixtureWorkbook2025Layout(t)
+	defer f.Close()
+	rows, err := f.GetRows("Table 9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, row := range rows {
+		if len(row) > 0 && row[0] == "Murder" { // first sub-row after NSW's Homicide
+			if err := f.SetCellValue("Table 9", fmt.Sprintf("A%d", i+1), "Homicide and related offences"); err != nil {
+				t.Fatal(err)
+			}
+			break
+		}
+	}
+	if _, err := parseCrimeWorkbook(f, ""); err == nil || !strings.Contains(err.Error(), "duplicate") {
+		t.Fatalf("want a duplicate-offence failure, got %v", err)
+	}
+}
