@@ -24,13 +24,24 @@ describe("leftGutterFor", () => {
   // The regression: gold's axis read "6,000" because the "$" fell outside a
   // 44px gutter. A price axis that drops its currency sign looks fine and is
   // wrong, which is why this is asserted rather than eyeballed.
-  it("widens for world commodity prices so the currency sign survives", () => {
+  // The first version of this test asserted only "wider than 44px" — and the
+  // fix it guarded still clipped gold and tin by 0.5px in production, because
+  // nothing checked the label actually FITS. These are the production
+  // measurements: the rendered label width, plus the 10.5px between the label's
+  // right edge and the plot (visx tickLength 8 + dx 0.25em). A gutter below
+  // that sum clips the "$".
+  const LABEL_OFFSET_PX = 10.5;
+  const measured = [
+    { chart: "gold", labels: ["$0.00", "$2,000", "$4,000", "$6,000"], widestPx: 36.0 },
+    { chart: "tin", labels: ["$0.00", "$20,000", "$40,000", "$60,000"], widestPx: 42.0 },
+  ];
+  it.each(measured)("fits every $chart label with room to spare", ({ labels, widestPx }) => {
+    expect(leftGutterFor(labels)).toBeGreaterThanOrEqual(widestPx + LABEL_OFFSET_PX + 1);
+  });
+
+  it("formats gold's axis the way production renders it", () => {
     const usd = ECONOMY_SERIES_FORMATTERS.usd_price;
-    const gold = [6000, 4000, 2000, 0].map(usd);
-    const tin = [60000, 40000, 20000, 0].map(usd);
-    expect(gold[0]).toBe("$6,000");
-    expect(leftGutterFor(gold)).toBeGreaterThan(44);
-    expect(leftGutterFor(tin)).toBeGreaterThan(leftGutterFor(gold));
+    expect([6000, 4000, 2000, 0].map(usd)).toEqual(["$6,000", "$4,000", "$2,000", "$0.00"]);
   });
 
   it("sizes to the widest label, not the first", () => {

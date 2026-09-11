@@ -26,10 +26,18 @@ const AXIS_LINE = "hsl(var(--border))";
 
 const MARGIN = { top: 8, right: 8, bottom: 24, left: 44 };
 
-// Axis tick labels are 10px and the axis font is monospaced, so a label's
-// width is its character count times a fixed advance.
-const TICK_CHAR_WIDTH_PX = 6.2;
-const TICK_GUTTER_PAD_PX = 8;
+// Measured in production (2026-09-11), not estimated: axis labels render in
+// IBM Plex Mono at 10px, and every glyph advances exactly 6.00px ("$6,000" is
+// 36.0px, "$60,000" 42.0px). The first version of this guessed 6.2px per glyph
+// and 8px of padding and still clipped gold and tin by 0.5px — the per-glyph
+// guess was fine, the padding was short.
+const TICK_CHAR_WIDTH_PX = 6;
+// Where the label's right edge sits relative to the plot: visx's default
+// tickLength (8px) plus this chart's dx of -0.25em (2.5px at 10px). Both clipped
+// charts overshot by the same 0.5px against an 8px guess, which is this 10.5px.
+const TICK_LABEL_OFFSET_PX = 10.5;
+// Room for the glyph's own side bearing and sub-pixel rounding.
+const TICK_SAFETY_PX = 2;
 const Y_TICK_COUNT = 4;
 
 /**
@@ -44,7 +52,10 @@ const Y_TICK_COUNT = 4;
  */
 export function leftGutterFor(tickLabels: string[]): number {
   const widest = tickLabels.reduce((max, label) => Math.max(max, label.length), 0);
-  return Math.max(MARGIN.left, Math.ceil(widest * TICK_CHAR_WIDTH_PX + TICK_GUTTER_PAD_PX));
+  return Math.max(
+    MARGIN.left,
+    Math.ceil(widest * TICK_CHAR_WIDTH_PX + TICK_LABEL_OFFSET_PX + TICK_SAFETY_PX),
+  );
 }
 
 // eslint-disable-next-line @typescript-eslint/unbound-method
