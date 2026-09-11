@@ -26,6 +26,27 @@ const AXIS_LINE = "hsl(var(--border))";
 
 const MARGIN = { top: 8, right: 8, bottom: 24, left: 44 };
 
+// Axis tick labels are 10px and the axis font is monospaced, so a label's
+// width is its character count times a fixed advance.
+const TICK_CHAR_WIDTH_PX = 6.2;
+const TICK_GUTTER_PAD_PX = 8;
+const Y_TICK_COUNT = 4;
+
+/**
+ * Left gutter wide enough for the widest y-axis label, never narrower than the
+ * original fixed 44px.
+ *
+ * The gutter used to be a constant, which held while every caller's labels were
+ * short. World commodity prices broke it: gold's "$6,000" and tin's "$60,000"
+ * are wider than 44px, and the leading "$" was clipped off the chart — a price
+ * axis that silently drops its currency sign. The floor keeps every chart whose
+ * labels already fit rendering exactly as before.
+ */
+export function leftGutterFor(tickLabels: string[]): number {
+  const widest = tickLabels.reduce((max, label) => Math.max(max, label.length), 0);
+  return Math.max(MARGIN.left, Math.ceil(widest * TICK_CHAR_WIDTH_PX + TICK_GUTTER_PAD_PX));
+}
+
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const bisectDate = bisector<SeriesPoint, Date>((d) => d.date).left;
 
@@ -48,18 +69,10 @@ function ChartInner({
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<SeriesPoint>();
 
-  const innerWidth = Math.max(width - MARGIN.left - MARGIN.right, 0);
   const innerHeight = Math.max(height - MARGIN.top - MARGIN.bottom, 0);
 
-  const xScale = useMemo(
-    () =>
-      scaleTime({
-        domain: [points[0]!.date, points[points.length - 1]!.date],
-        range: [0, innerWidth],
-      }),
-    [points, innerWidth],
-  );
-
+  // The y-scale depends only on height, so its tick labels can be formatted
+  // before the width is fixed — which is what lets the gutter fit them.
   const yScale = useMemo(() => {
     const values = points.map((d) => d.value);
     const min = Math.min(...values);
@@ -72,11 +85,26 @@ function ChartInner({
     });
   }, [points, innerHeight]);
 
+  const marginLeft = useMemo(
+    () => leftGutterFor(yScale.ticks(Y_TICK_COUNT).map((v) => formatValue(Number(v)))),
+    [yScale, formatValue],
+  );
+  const innerWidth = Math.max(width - marginLeft - MARGIN.right, 0);
+
+  const xScale = useMemo(
+    () =>
+      scaleTime({
+        domain: [points[0]!.date, points[points.length - 1]!.date],
+        range: [0, innerWidth],
+      }),
+    [points, innerWidth],
+  );
+
   const handleMouseMove = useCallback(
     (event: React.MouseEvent<SVGElement> | React.TouchEvent<SVGElement>) => {
       const point = localPoint(event);
       if (!point) return;
-      const x0 = xScale.invert(point.x - MARGIN.left);
+      const x0 = xScale.invert(point.x - marginLeft);
       const index = bisectDate(points, x0, 1);
       const d0 = points[index - 1];
       const d1 = points[index];
@@ -85,11 +113,11 @@ function ChartInner({
         d1 && x0.valueOf() - d0.date.valueOf() > d1.date.valueOf() - x0.valueOf() ? d1 : d0;
       showTooltip({
         tooltipData: d,
-        tooltipLeft: xScale(d.date) + MARGIN.left,
+        tooltipLeft: xScale(d.date) + marginLeft,
         tooltipTop: yScale(d.value) + MARGIN.top,
       });
     },
-    [points, xScale, yScale, showTooltip],
+    [points, xScale, yScale, showTooltip, marginLeft],
   );
 
   if (innerWidth <= 0 || innerHeight <= 0) return null;
@@ -110,7 +138,7 @@ function ChartInner({
           to={ACCENT}
           toOpacity={0.02}
         />
-        <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+        <g transform={`translate(${marginLeft},${MARGIN.top})`}>
           <AreaClosed<SeriesPoint>
             data={points}
             x={(d) => xScale(d.date)}
@@ -141,7 +169,7 @@ function ChartInner({
           />
           <AxisLeft
             scale={yScale}
-            numTicks={4}
+            numTicks={Y_TICK_COUNT}
             stroke={AXIS_LINE}
             hideTicks
             tickFormat={(v) => formatValue(Number(v))}
