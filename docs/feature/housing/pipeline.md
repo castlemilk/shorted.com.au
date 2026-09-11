@@ -132,25 +132,29 @@ had left **502 suburbs** past the staleness alarm.
 
 The drain now cools down and retries within the same invocation:
 `CRAWL_REWARM_COOLDOWN_SEC` (default **900**) and `CRAWL_REWARM_MAX_RETRIES`
-(default **4**). The wait is long on purpose — a portal that keeps blocking must
-not be hammered.
-
-Measured on the first production run, 2026-09-11: re-warms at rounds 2, 5 and 6
-(about one per 30-50 jobs), after which retry 1 delivered a **full** round of 20
-and retry 2 delivered 13 — so the cooldown genuinely clears the burnt
-fingerprint. That run processed **85 jobs** where stopping at the first re-warm
-would have managed 30 (1,635 listings, 868 events, suburbs stale >132h 502 →
-464). It ended with the budget spent rather than the queue empty, which is why
-the budget was raised from 2 to 4. Four retries still sits under the 120-suburb
-enqueue cap, so this reaches the designed throughput rather than exceeding it. Exhausting it still returns 3, so the
+(default **2**). The wait is long and the budget small on purpose — a portal
+that keeps blocking must not be hammered. Exhausting it still returns 3, so the
 exit contract, the `crawl_run_status` health record and the freshness alarm all
-keep their meaning, and `CRAWL_REWARM_MAX_RETRIES=0` restores the old behaviour
-on the rig without a redeploy.
+keep their meaning, and `CRAWL_REWARM_MAX_RETRIES=0` restores the
+hand-back-to-the-schedule behaviour on the rig without a redeploy.
 
 **This changes no volume knob.** `CRAWL_DELTA_MAX_SUBURBS` (120) and
 `CRAWL_FRESHNESS_ALARM_HOURS` (120h) are unchanged and still paired — the fix
 makes the rig actually reach the throughput those two already assume, rather
 than raising the ceiling.
+
+**Judge a crawl run by SUCCEEDED jobs, never by "processed".** Processed counts
+jobs the agent claimed and immediately **deferred** because the portal's circuit
+breaker was open, so a long run of deferrals reads as throughput. Two production
+runs on 2026-09-11, the second correcting a tuning based on the wrong number:
+
+| budget | processed | succeeded | failed | deferred | stale suburbs cleared |
+|---|---|---|---|---|---|
+| 2 | 85 | **34** | 16 | 35 | 38 |
+| 4 | 323 | **26** | 56 | 241 | 19 |
+
+Four retries ran almost four times as long, succeeded on fewer suburbs and
+tripled the failures. Once the circuit is open the portal is telling us to stop.
 
 Covered by `housing-lifecycle-exit.test.sh` (retry-and-recover, bounded budget,
 and the disable switch).
