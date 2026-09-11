@@ -115,10 +115,36 @@ mid-write (this bit the bundled macOS agent).
 |---|---|
 | 0 | OK (also: freshness fresh, warmcheck warm) |
 | 1 | The freshness query itself failed, **or an operator-ingest mode failed** (see below) |
-| 3 | Re-warm needed — Kasada/Akamai clearance expired (crawl family; launchd wrappers self-heal on it) |
+| 3 | Re-warm needed — Kasada/Akamai clearance expired (crawl family; the drain cools down and retries **in the same run**, and only surfaces 3 once that budget is spent — see below) |
 | 4 | Fetcher init failed — wedged/cold Chrome (`agent`); wrapper Chrome relaunch failed (`run-housing-crawl.sh`) |
 | 5 | `warmcheck`: REA returned the Kasada stub — Chrome must relaunch with an REA startup URL |
 | 6 | `freshness` ALARM — the board is silently going stale |
+
+### A re-warm costs minutes, not a day (2026-09-11)
+
+Exit 3 is a routine Kasada outcome, not a fault, and the collector self-warms at
+the start of every `-mode agent` round. But `hc_drain_until_empty` used to
+return it straight to the caller, which handed the rest of the run back to the
+**schedule** — and the delta job fires at 10:00 daily, so one re-warm cost a
+whole day. Measured 2026-09-10: a run stopped at 21 of 38 jobs against a
+120-suburb cap, which turns the designed ~4-day catalog rotation into weeks and
+had left **502 suburbs** past the staleness alarm.
+
+The drain now cools down and retries within the same invocation:
+`CRAWL_REWARM_COOLDOWN_SEC` (default **900**) and `CRAWL_REWARM_MAX_RETRIES`
+(default **2**). The budget is small and the wait is long on purpose — a portal
+that keeps blocking must not be hammered. Exhausting it still returns 3, so the
+exit contract, the `crawl_run_status` health record and the freshness alarm all
+keep their meaning, and `CRAWL_REWARM_MAX_RETRIES=0` restores the old behaviour
+on the rig without a redeploy.
+
+**This changes no volume knob.** `CRAWL_DELTA_MAX_SUBURBS` (120) and
+`CRAWL_FRESHNESS_ALARM_HOURS` (120h) are unchanged and still paired — the fix
+makes the rig actually reach the throughput those two already assume, rather
+than raising the ceiling.
+
+Covered by `housing-lifecycle-exit.test.sh` (retry-and-recover, bounded budget,
+and the disable switch).
 
 ### Operator-ingest modes propagate failure (2026-08-27)
 

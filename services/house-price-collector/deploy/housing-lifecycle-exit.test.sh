@@ -82,6 +82,119 @@ test_common_preserves_generic_failure() {
 	' _ "$DIR" "$FAKE_COLLECTOR" "$TMP_ROOT/common-generic.log"
 }
 
+# A re-warm (rc=3) is a routine Kasada outcome, not a fault. Returning it to the
+# SCHEDULE means the run is over until the next launchd fire — and the delta job
+# fires at 10:00 daily, so one re-warm costs a day. Measured 2026-09-10: the run
+# stopped at 21 of 38 jobs against a 120-suburb cap, turning the designed ~4-day
+# catalog rotation into weeks and holding 502 suburbs past the staleness alarm.
+# So the drain must cool down and retry within the same invocation.
+#
+# Cooldown is forced to 0 here: the test asserts the RETRY, not the wait.
+test_common_retries_after_rewarm_and_recovers() {
+	local log="$TMP_ROOT/common-rewarm-recovers.log"
+	local counter="$TMP_ROOT/rewarm-recovers.count"
+	: >"$counter"
+	# First round re-warms; the second finds the queue empty. A real run looks
+	# exactly like this — the collector self-warms at the start of every round.
+	cat >"$FAKE_COLLECTOR" <<EOF
+#!/usr/bin/env bash
+if [[ "\${2:-}" != agent ]]; then exit 0; fi
+echo x >>"$counter"
+if [[ "\$(/usr/bin/wc -l <"$counter" | /usr/bin/tr -d ' ')" == "1" ]]; then
+	echo "[agent] done: processed 4 job(s)"
+	exit 3
+fi
+echo "[agent] done: processed 6 job(s)"
+echo "[agent] no more jobs"
+exit 0
+EOF
+	chmod +x "$FAKE_COLLECTOR"
+	run_expect_rc 0 bash -c '
+		set -uo pipefail
+		source "$1/housing-crawl-common.sh"
+		BIN="$2"
+		LOG="$3"
+		CRAWL_DRAIN_MAX_ROUNDS=5
+		CRAWL_REWARM_COOLDOWN_SEC=0
+		CRAWL_REWARM_MAX_RETRIES=2
+		hc_drain_until_empty
+	' _ "$DIR" "$FAKE_COLLECTOR" "$log" || return 1
+	if [[ "$(/usr/bin/wc -l <"$counter" | /usr/bin/tr -d ' ')" -lt 2 ]]; then
+		echo "FAIL: the drain gave up after the re-warm instead of retrying in-run" >&2
+		return 1
+	fi
+	if ! /usr/bin/grep -q "cooling down" "$log"; then
+		echo "FAIL: the re-warm retry is not visible in the log: $log" >&2
+		return 1
+	fi
+}
+
+# The budget is bounded on purpose: a portal that keeps blocking must not be
+# hammered, and exhausting it still returns 3 so the exit contract, the health
+# record and the alarm keep their meaning.
+test_common_rewarm_retry_budget_is_bounded() {
+	local log="$TMP_ROOT/common-rewarm-bounded.log"
+	local counter="$TMP_ROOT/rewarm-bounded.count"
+	: >"$counter"
+	cat >"$FAKE_COLLECTOR" <<EOF
+#!/usr/bin/env bash
+if [[ "\${2:-}" != agent ]]; then exit 0; fi
+echo x >>"$counter"
+echo "[agent] done: processed 1 job(s)"
+exit 3
+EOF
+	chmod +x "$FAKE_COLLECTOR"
+	run_expect_rc 3 bash -c '
+		set -uo pipefail
+		source "$1/housing-crawl-common.sh"
+		BIN="$2"
+		LOG="$3"
+		CRAWL_DRAIN_MAX_ROUNDS=10
+		CRAWL_REWARM_COOLDOWN_SEC=0
+		CRAWL_REWARM_MAX_RETRIES=2
+		hc_drain_until_empty
+	' _ "$DIR" "$FAKE_COLLECTOR" "$log" || return 1
+	local attempts
+	attempts="$(/usr/bin/wc -l <"$counter" | /usr/bin/tr -d ' ')"
+	if [[ "$attempts" -ne 3 ]]; then
+		echo "FAIL: expected 1 attempt + 2 retries = 3, got $attempts" >&2
+		return 1
+	fi
+	if ! /usr/bin/grep -q "retry budget is spent" "$log"; then
+		echo "FAIL: the exhausted budget is not explained in the log: $log" >&2
+		return 1
+	fi
+}
+
+# Setting the budget to 0 restores the old hand-back-to-the-schedule behaviour,
+# so the change can be switched off on the rig without a redeploy.
+test_common_rewarm_retry_can_be_disabled() {
+	local counter="$TMP_ROOT/rewarm-disabled.count"
+	: >"$counter"
+	cat >"$FAKE_COLLECTOR" <<EOF
+#!/usr/bin/env bash
+if [[ "\${2:-}" != agent ]]; then exit 0; fi
+echo x >>"$counter"
+echo "[agent] done: processed 1 job(s)"
+exit 3
+EOF
+	chmod +x "$FAKE_COLLECTOR"
+	run_expect_rc 3 bash -c '
+		set -uo pipefail
+		source "$1/housing-crawl-common.sh"
+		BIN="$2"
+		LOG="$3"
+		CRAWL_DRAIN_MAX_ROUNDS=10
+		CRAWL_REWARM_COOLDOWN_SEC=0
+		CRAWL_REWARM_MAX_RETRIES=0
+		hc_drain_until_empty
+	' _ "$DIR" "$FAKE_COLLECTOR" "$TMP_ROOT/common-rewarm-off.log" || return 1
+	if [[ "$(/usr/bin/wc -l <"$counter" | /usr/bin/tr -d ' ')" -ne 1 ]]; then
+		echo "FAIL: budget 0 must not retry" >&2
+		return 1
+	fi
+}
+
 # rc=8 is the "crawl environment broken" signal (a missing Playwright driver).
 # The generic failure path propagates the code correctly, but the LOG LINE is the
 # artefact a human actually reads during an outage — in the 2026-08-13 stoppage a
@@ -353,6 +466,9 @@ test_common_preserves_fatal_zero_processed || failures=$((failures + 1))
 test_common_allows_legitimate_empty_success || failures=$((failures + 1))
 test_common_preserves_generic_failure || failures=$((failures + 1))
 test_common_names_the_driver_fix_on_broken_env || failures=$((failures + 1))
+test_common_retries_after_rewarm_and_recovers || failures=$((failures + 1))
+test_common_rewarm_retry_budget_is_bounded || failures=$((failures + 1))
+test_common_rewarm_retry_can_be_disabled || failures=$((failures + 1))
 test_wrapper_preserves_fatal_zero_processed run-housing-delta.sh || failures=$((failures + 1))
 test_wrapper_preserves_fatal_zero_processed run-housing-full.sh || failures=$((failures + 1))
 test_wrapper_preserves_enqueue_failure run-housing-delta.sh || failures=$((failures + 1))

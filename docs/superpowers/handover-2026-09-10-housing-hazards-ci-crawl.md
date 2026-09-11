@@ -108,22 +108,17 @@ Result within the hour: 18/20 suburbs, 1,314 listings, 667 events; event silence
 
 ## 3. Still open
 
-1. **PR #614 — edge sentinel MCP fix. Open, not merged.** Checks were running at
-   handover. This is the only unmerged work.
-2. **Crawl backlog.** The kickstarted run ended in `rewarm` at 21/38 jobs (the
-   designed Kasada exit, not a fault). **468 suburbs remain stale >132h.** The
-   delta job is `StartCalendarInterval` **10:00 daily**, not hourly, and
-   `CRAWL_DELTA_MAX_SUBURBS` is 120 — roughly four days to catch up. Issue **#595**
-   stays open until the sentinel goes green, then closes itself.
-3. **Rig runs a stale binary.** `deploy/stage-rig.sh` is needed to pick up #610's
-   better 401 message. Not needed for recovery.
-4. **Revoked seed token** still in `~/.shorted-housing-crawl.env`; harmless, but
-   costs a wasted 401 on the first request of every run before it refreshes.
-5. **MCP streams die every 5 minutes** at Cloud Run's 300s request timeout, each
-   holding a request slot until then. Clients reconnect, so probably invisible to
-   users. The clean fix is for the MCP handler to close idle streams gracefully
-   before the platform timeout. Deliberately out of scope of #614, which only
-   stops the false alarm.
+Everything in the original list is closed — see § 5 for what happened to each.
+What remains:
+
+1. **The crawl backlog is still draining.** 502 suburbs were past 132h on
+   2026-09-10. The throughput bug behind that is fixed (§ 5), but the catalog
+   still has to rotate through at the designed ~120 suburbs/day, so
+   `housing-freshness` stays red for a few more days and issue **#595** stays
+   open until the sentinel goes green. **A red run here is the sentinel
+   working** — check step duration (~47s = it ran; ~0s = it broke).
+2. **The CI runners are an undocumented hand deploy on one Mac**, and that is
+   now the most fragile thing in the pipeline (§ 6).
 
 ## 4. Traps worth knowing
 
@@ -145,3 +140,71 @@ Result within the hour: 18/20 suburbs, 1,314 listings, 667 events; event silence
 - CI on this repo has a real flake rate. Signature: job marked failed, a step with
   a `null` conclusion, log unretrievable, all tests already printed `ok`. Verify
   locally, then `gh run rerun <id> --failed`.
+
+## 5. Update — 2026-09-10/11
+
+Every open item from § 3 is closed. In order:
+
+| Was | Now |
+|---|---|
+| #614 unmerged | Merged, with #615, #616, #617. All deployed and promoted. |
+| Crawl backlog at ~21 suburbs/day | Cause found and fixed — see below |
+| Rig running a stale binary | Staged from a clean `origin/main`; `stage-rig.sh --check` reports CURRENT |
+| Revoked seed token in the env file | Removed, with the reason recorded in its place |
+| MCP streams dying at 300s | Fixed and **verified in prod** |
+
+### The MCP stream fix needed two goes, because there are two ceilings
+
+#615 bounded the request context at 240s. Probing prod afterwards still returned
+**`524 total=127.5s`**: Cloudflare's **proxy read timeout is 120s**, and that is
+what the client sees, while Cloud Run's 300s is what *we* pay in a held request
+slot. The original "everything at 299.98s" measurement was the edge bailing at
+120s while the origin held on — one number hiding two effects.
+
+#617 set `mcp.StreamLifetime` to **90s**, under both. Verified on prod:
+`status=200 total=91.8s`, stream read to EOF with the subscription acknowledged.
+Nothing is lost by ending early — this server's tools, prompts and resources are
+static, so a `subscriptions/listen` stream waits for an event that cannot occur.
+
+Cost was raised and measured rather than assumed: `shorts` is 1 vCPU / 256Mi with
+**concurrency 8**, so a held stream costs a slot; at the observed volume the
+upper bound is ~$16/month. Declining `listChanged` would take it to ~zero and was
+considered; the decision was to keep the capability and the 90s ceiling.
+
+### The crawl backlog was a re-warm handed back to the schedule
+
+The delta run does not stop at 21 suburbs because of the 120 cap or the alarm.
+It stops because **exit 3 (re-warm) ended the drain**, and the next attempt was
+the next launchd fire — 10:00 the following day. One routine Kasada re-warm cost
+a whole day, which turns the designed ~4-day rotation into weeks.
+
+`hc_drain_until_empty` now cools down and retries in the same run
+(`CRAWL_REWARM_COOLDOWN_SEC` 900, `CRAWL_REWARM_MAX_RETRIES` 2; `0` disables it
+on the rig without a redeploy). Exhausting the budget still returns 3, so the
+exit contract, the health record and the alarm are unchanged. **No volume knob
+moved** — the fix makes the rig reach the throughput the existing cap and alarm
+already assume.
+
+## 6. The CI runners are the fragile part now
+
+`runs-on: [self-hosted, cuttlefish, linux]` resolves to **three actions/runner
+containers on one Mac that no script in this repo provisions**. On 2026-09-10 all
+three were gone — pruned by the hourly docker groom, image and all — and every PR
+check queued for hours. Rebuilding them exposed two more host dependencies and
+one credential failure:
+
+- `npm: command not found` in the release deploy job. Fixed properly in **#616**:
+  three jobs now run `actions/setup-node`, and `scripts/tests/self-hosted-toolchain.test.mjs`
+  fails if a self-hosted job invokes node/npm/npx outside a `container:` without it.
+- `make: command not found` in the OpenAPI drift check — added to the image.
+- **Node 24.21.0 breaks the Vercel upload here**: `read ETIMEDOUT` on
+  `api.vercel.com/v2/files` about 85s after the upload reports 100%, five runs out
+  of five. 24.8.0 passes. The two Vercel-CLI jobs are pinned to `24.8.0` with the
+  measurement inline.
+- Runners disconnected mid-deploy with `VssOAuthTokenRequestException: The
+  signature is not valid` after being recreated under live sessions. Recovery is
+  deregister, wipe the volumes, re-register with fresh tokens.
+
+Image recipe and runbook: `~/.cuttlefish/shorted-ci-runner/`. **If PR checks sit
+`pending` at 0s, check `gh api repos/castlemilk/shorted.com.au/actions/runners`
+first** — an offline runner looks exactly like a slow queue.
