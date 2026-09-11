@@ -216,8 +216,13 @@ hc_acquire_lock() {
 # behind (each `-mode agent` run only claims up to CRAWL_AGENT_MAX_JOBS, default 20,
 # then self-warms Chrome + refreshes the housing MVs + pings revalidate). Bounded by
 # CRAWL_DRAIN_MAX_ROUNDS (default 30). Round-terminating signals, in order:
-#   rc 3  -> a sweep tripped the re-warm circuit; STOP (the next scheduled run
-#            self-warms). Returns 3.
+#   rc 3  -> a sweep tripped the re-warm circuit. COOL DOWN and retry in the same
+#            invocation (CRAWL_REWARM_COOLDOWN_SEC, CRAWL_REWARM_MAX_RETRIES);
+#            only return 3 once that budget is spent. Handing a re-warm back to
+#            the SCHEDULE is what made the crawl slow: the delta job runs at
+#            10:00 daily, so one re-warm cost a whole day. Measured 2026-09-10 —
+#            the run stopped at 21 of 38 jobs against a 120-suburb cap, which
+#            turns the designed ~4-day catalog rotation into weeks.
 #   rc 4  -> Chrome unusable even after self-warm; STOP. Returns 4.
 #   other non-zero rc -> fatal collector/agent failure; STOP and preserve rc.
 #   "no more jobs" in the round output -> queue empty; STOP. Returns 0.
@@ -228,6 +233,15 @@ hc_acquire_lock() {
 # a comment pinning that contract).
 hc_drain_until_empty() {
 	local max_rounds="${CRAWL_DRAIN_MAX_ROUNDS:-30}"
+	# A re-warm is a routine Kasada outcome, not a fault, and the collector
+	# self-warms at the start of every `-mode agent` round — so the only thing a
+	# retry needs is time for the portal to stop seeing the burnt fingerprint.
+	# Deliberately small and slow: two attempts, spaced, so a blocked portal is
+	# never hammered. Exhausting the budget still returns 3, so the exit
+	# contract, the health record and the alarm all keep their meaning.
+	local rewarm_cooldown="${CRAWL_REWARM_COOLDOWN_SEC:-900}"
+	local rewarm_budget="${CRAWL_REWARM_MAX_RETRIES:-2}"
+	local rewarms=0
 	local round=0 rc=0 out processed capture_file
 	capture_file="$(mktemp "${TMPDIR:-/tmp}/shorted-housing-drain.XXXXXX")" || {
 		echo "$(date -u +%FT%TZ) drain: could not create round capture file" >>"$LOG"
@@ -245,8 +259,14 @@ hc_drain_until_empty() {
 		echo "$(date -u +%FT%TZ) drain round $round/$max_rounds: rc=$rc processed=$processed" >>"$LOG"
 		case "$rc" in
 		3)
-			echo "$(date -u +%FT%TZ) drain: re-warm signalled (rc=3) — stopping; collector self-warms next run" >>"$LOG"
-			return 3
+			if ((rewarms >= rewarm_budget)); then
+				echo "$(date -u +%FT%TZ) drain: re-warm signalled (rc=3) and the retry budget is spent after $rewarms retry(ies) — stopping; the next scheduled run self-warms" >>"$LOG"
+				return 3
+			fi
+			rewarms=$((rewarms + 1))
+			echo "$(date -u +%FT%TZ) drain: re-warm signalled (rc=3) — cooling down ${rewarm_cooldown}s then retrying in this run ($rewarms/$rewarm_budget)" >>"$LOG"
+			/bin/sleep "$rewarm_cooldown"
+			continue
 			;;
 		4)
 			echo "$(date -u +%FT%TZ) drain: Chrome unusable (rc=4) — stopping" >>"$LOG"
