@@ -132,8 +132,17 @@ had left **502 suburbs** past the staleness alarm.
 
 The drain now cools down and retries within the same invocation:
 `CRAWL_REWARM_COOLDOWN_SEC` (default **900**) and `CRAWL_REWARM_MAX_RETRIES`
-(default **2**). The budget is small and the wait is long on purpose — a portal
-that keeps blocking must not be hammered. Exhausting it still returns 3, so the
+(default **4**). The wait is long on purpose — a portal that keeps blocking must
+not be hammered.
+
+Measured on the first production run, 2026-09-11: re-warms at rounds 2, 5 and 6
+(about one per 30-50 jobs), after which retry 1 delivered a **full** round of 20
+and retry 2 delivered 13 — so the cooldown genuinely clears the burnt
+fingerprint. That run processed **85 jobs** where stopping at the first re-warm
+would have managed 30 (1,635 listings, 868 events, suburbs stale >132h 502 →
+464). It ended with the budget spent rather than the queue empty, which is why
+the budget was raised from 2 to 4. Four retries still sits under the 120-suburb
+enqueue cap, so this reaches the designed throughput rather than exceeding it. Exhausting it still returns 3, so the
 exit contract, the `crawl_run_status` health record and the freshness alarm all
 keep their meaning, and `CRAWL_REWARM_MAX_RETRIES=0` restores the old behaviour
 on the rig without a redeploy.
