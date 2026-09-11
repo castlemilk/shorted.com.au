@@ -44,12 +44,29 @@ var crimeStates = []crimeStateSpec{
 	{"Australian Capital Territory", "act", "Australian Capital Territory"},
 }
 
+// crimeOffences maps a Table 9 row label to a STABLE series key — never the
+// other way round, because the ABS relabels offences between releases.
+//
+// The 2025 release (published 2026; probed 2026-09-11) renamed two of them:
+//
+//	"Homicide and related offences" → "Homicide"
+//	"Unlawful entry with intent"    → "Burglary"
+//
+// Renames, not redefinitions: the 2025 workbook's NSW values equal the
+// published series exactly in every year compared (homicide 206/133/79/124 and
+// unlawful entry 110,445/59,721/33,974/32,913 for 1993/2010/2023/2024). Both
+// labels therefore map to the existing keys, and the old labels stay so an
+// earlier workbook still parses. A workbook carrying both spellings of one
+// offence fails as a duplicate row, which is the right answer — it would mean
+// the ABS split the category, not renamed it.
 var crimeOffences = map[string]string{
 	"Homicide and related offences": "homicide",
+	"Homicide":                      "homicide",
 	"Assault":                       "assault",
 	"Sexual assault":                "sexual-assault",
 	"Robbery":                       "robbery",
 	"Unlawful entry with intent":    "unlawful-entry",
+	"Burglary":                      "unlawful-entry",
 	"Motor vehicle theft":           "motor-vehicle-theft",
 	"Other theft":                   "other-theft",
 }
@@ -65,7 +82,17 @@ var crimeOffenceOrder = []string{
 }
 
 var (
-	crimeTableTitleRe     = regexp.MustCompile(`^Table 9 Victims, Selected offences by states and territories, 1993 to (\d{4})$`)
+	// The span separator is " to " up to the 2024 release and an en dash from the
+	// 2025 release (published 2026; probed 2026-09-11):
+	//   "Table 9 Victims, Selected offences by states and territories, 1993–2025"
+	// That one character failed the scheduled 2026-09-05 ingest as "layout drift"
+	// and left the whole run DEGRADED. Accept to / en dash / em dash / hyphen.
+	//
+	// The anchors are load-bearing: the 2025 sheet also opens with an
+	// accessibility row, "This tab outlines table 9 Victims, … 1993 to 2025. It
+	// ranges from cell A2 to AH238", which carries the old wording and must
+	// never be taken for the title.
+	crimeTableTitleRe     = regexp.MustCompile(`^Table 9 Victims, Selected offences by states and territories, 1993\s*(?:to|[-–—])\s*(\d{4})$`)
 	crimeFootnoteSuffixRe = regexp.MustCompile(`(?i)(?:\s*\([a-z0-9]+\))+$`)
 	crimeYearRe           = regexp.MustCompile(`^(\d{4})(?:\([A-Za-z]+\))*$`)
 )
