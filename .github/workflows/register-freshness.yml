@@ -5,16 +5,17 @@
 # contract as economy-freshness.yml; there is no dashboard anyone has to
 # remember to check.
 #
-# Three alarms, each for a failure that is otherwise SILENT:
+# Alarms, each for a failure that is otherwise SILENT:
 #
 #   aph-waf              a 403 means APH may have revoked the no-User-Agent
 #                        posture the crawl depends on. NEVER work around this by
 #                        spoofing a browser UA — that is WAF evasion. Re-probe by
 #                        hand and, if it is genuinely revoked, stop crawling.
-#   aph-staleness        newest fetch older than 28 days = the crawl stopped.
-#                        Note the register crawl modes are OPERATOR-RUN and
-#                        never scheduled (see the influence-collector module
-#                        header), so this alarm does not clear by itself.
+#   aph-staleness        listing not read for 28 days = the crawl stopped.
+#                        The register crawl modes are OPERATOR-RUN and never
+#                        scheduled (see the influence-collector module header),
+#                        so this alarm does not clear by itself.
+#   aph-fetch-backlog    documents still queued a week after the listing read.
 #   aph-extract-backlog  text documents fetched but never parsed = the extractor
 #                        is not draining. Scanned documents are excluded: they
 #                        wait on the vision tier by design.
@@ -139,9 +140,12 @@ jobs:
             echo '```'
             echo
             echo "**aph-staleness does not clear on its own.** The register crawl modes are"
-            echo "operator-run and deliberately never scheduled, so a stale corpus stays stale"
-            echo "until someone runs \`register-discover\` -> \`-fetch\` -> \`-load\` -> \`-resolve\`"
-            echo "with \`REGISTER_DRY_RUN=false\`."
+            echo "operator-run and deliberately never scheduled. The step-by-step re-crawl (DDL,"
+            echo "discover, fetch, extract on the operator machine, load, resolve, index) is"
+            echo "\`docs/feature/politicians/operations.md\` → \"Re-crawling prod\"."
+            echo
+            echo "**aph-fetch-backlog / aph-extract-backlog** mean the crawl is half-run: the"
+            echo "listing was read but fetch or extract did not follow."
             echo
             echo "**aph-waf is never worked around.** Do not spoof a browser User-Agent."
             echo

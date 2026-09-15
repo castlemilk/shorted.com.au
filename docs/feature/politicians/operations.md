@@ -92,7 +92,7 @@ with `grep -v '^SET transaction_timeout'`.
 Caveat: `storage_uri` then points at the operator machine, so a prod **re-extract**
 needs a `register-fetch` first to populate the GCS bucket.
 
-## The freshness sentinel, and why it will not go green on its own
+## The freshness sentinel
 
 `.github/workflows/register-freshness.yml` runs `-mode register-freshness` as a
 prod Cloud Run execution every Monday 21:47 UTC. Any ALARM exits non-zero, which
@@ -101,12 +101,12 @@ policy on `influence-collector` — so one alarm arrives twice, and the GCP copy
 names neither the mode nor the check.
 
 **The report only exists in the job's stdout.** `gcloud run jobs execute --wait`
-prints `The execution failed.` and nothing else. The workflow now reads the
-report back out of Cloud Logging (scoped to the execution it just created, since
-the same job also runs the monthly `-mode all` ingest) into the step log, the
-step summary and a `register-freshness` issue that closes on the next green run.
-Before that, runs 5-7 (2026-09-01/07/15) went red with nobody able to see which
-check had fired.
+prints `The execution failed.` and nothing else. The workflow reads the report
+back out of Cloud Logging (scoped to the execution it just created, since the
+same job also runs the monthly `-mode all` ingest) into the step log, the step
+summary and a `register-freshness` issue that closes on the next green run.
+Before that, runs 5–7 (2026-09-01/07/15) went red with nobody able to see which
+check had fired — it was `aph-staleness`, newest fetch 2026-08-02.
 
 To read it by hand:
 
@@ -117,30 +117,76 @@ gcloud logging read \
   --order asc --format="value(textPayload)"
 ```
 
-**`aph-staleness` is structural, not a fault.** The threshold is 28 days
-(`defaultRegisterStaleDays`), and the crawl modes that would reset it are
-operator-run and deliberately never scheduled — `-mode all` excludes them, and
-the influence-collector Terraform module says why. So roughly four weeks after
-any crawl the sentinel goes red and STAYS red, alarming weekly, until someone
-runs the chain by hand:
+| Check | Fires when | What it means |
+|---|---|---|
+| `aph-waf` | any document currently on HTTP 403 | APH may have revoked the no-UA posture. **Never** work around it with a browser UA — re-probe by hand, and stop crawling if it is real |
+| `aph-staleness` | the listing has not been read for 28 days (`last_listed_at`; rows older than 000123 fall back to `fetched_at`) | `register-discover` has stopped running |
+| `aph-fetch-backlog` | documents still queued 7 days after the listing that queued them was read | discover runs, fetch does not |
+| `aph-extract-backlog` | fetched text documents whose **current bytes** have no extraction for 14 days | the extractor is not draining (scans and superseded rows excluded) |
+| `aph-unpaired-departures` | INFO only | a House row left its listing without a successor; load withholds a new document in that division until a person decides |
 
+**Staleness does not clear on its own.** The crawl modes are operator-run and
+deliberately never scheduled (`-mode all` excludes them; the influence-collector
+Terraform module says why). Decide it deliberately: recrawl on a cadence shorter
+than 28 days, or change the threshold to the cadence you intend. A 28-day alarm
+over an unscheduled crawl trains everyone to ignore a sentinel that also carries
+`aph-waf`.
+
+## Re-crawling prod
+
+The crawl is incremental (pipeline.md, "Re-crawling"), so a re-crawl fetches only
+what changed. Order is not optional.
+
+**0. DDL first.** Migration `000123_register_document_succession` must be on prod
+before any code that reads `last_listed_at` / `superseded_by` runs there —
+`register-discover`, `-load` and `-freshness` all do:
+
+```bash
+task db:prod:apply FILE=services/migrations/000123_register_document_succession.up.sql CONFIRM=prod
+# verify
+psql "$SESSION_URL" -c '\d register_documents' | grep -E 'last_listed_at|superseded_by'
 ```
-register-discover -> register-fetch -> [python extract] -> register-load -> register-resolve
+
+It is additive and idempotent. Deploying the jobs image **before** applying it
+turns the weekly sentinel into a column-does-not-exist failure.
+
+**1. Discover.** Downloads nothing; ~10 seconds.
+
+```bash
+gcloud run jobs execute influence-collector --project rosy-clover-477102-t5 \
+  --region australia-southeast2 --args="influence,-mode,register-discover" \
+  --update-env-vars=REGISTER_DRY_RUN=false --wait
 ```
 
-with `REGISTER_DRY_RUN=false` (it defaults true in code and is pinned true on the
-job). Budget ~20 minutes for the fetch alone; see pipeline.md for the order and
-for `register-index` having to run last.
+Read the log before going on. On 2026-09-15 the expected shape was: parliament 48
+→ 151, 47/46/45/44 → 155/153/158/152, Senate 36; `147 house documents left their
+listing: 147 linked to a successor, 0 unpaired`. **Any unpaired departure is a
+stop:** find it (`aph-unpaired-departures` names one) and decide before loading.
 
-Decide it deliberately, because the two exits are a real choice: either recrawl
-on a cadence shorter than 28 days, or raise the threshold to whatever cadence you
-actually intend. Leaving a 28-day alarm over an unscheduled crawl trains everyone
-to ignore a sentinel that also carries `aph-waf` — the one check that tells you
-APH has revoked the posture the crawl depends on.
+**2. Fetch.** Same command, `-mode,register-fetch`. ~150 documents at 1.5s ≈ 4 min.
+A single 403 aborts the run by design.
 
-**`aph-waf` is never worked around.** A 403 means re-probe the no-User-Agent
-posture by hand and, if it is genuinely revoked, stop crawling. Spoofing a
-browser User-Agent is WAF evasion.
+**3. Extract — operator machine.** Senate volumes OCR through Apple Vision and
+the vision tier shells out to `agy`, neither of which exists in a container. The
+House API statements are born-digital and read deterministically (three sampled
+on 2026-09-15: 100% coverage). Needs ADC for the `gs://` objects:
+
+```bash
+cd services/report-extractor
+DATABASE_URL="$PROD_TXN_URL" python extract_register.py --stage classify
+DATABASE_URL="$PROD_TXN_URL" python extract_register.py --stage extract
+# only if classify reported mixed/scan documents in this batch:
+DATABASE_URL="$PROD_TXN_URL" python extract_register.py --stage vision
+```
+
+**4. Load, then resolve** (`-mode,register-load`, then `-mode,register-resolve`).
+Load should report `succession: 147 documents took their identity from a
+superseded predecessor, 147 predecessors retired` and **0 withheld**; resolve
+rebuilds the fold and the public MV.
+
+**5. Index, revalidate, verify.** `make register-index` (Algolia, last), then the
+`/politicians` revalidate below, then the canary curl under Verifying. Finish with
+`-mode,register-freshness`: it should be green.
 
 ## Verifying
 

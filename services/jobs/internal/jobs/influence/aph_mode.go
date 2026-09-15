@@ -81,10 +81,43 @@ func runRegisterDiscover(ctx context.Context, pool *pgxpool.Pool, limit int) err
 		return nil
 	}
 
-	written, err := upsertRegisterDocuments(ctx, pool, docs)
+	// The run clock comes from the DATABASE, not this process: it is compared with
+	// timestamps the database writes, and a skewed container clock would make
+	// rows listed in this run look as if they had left their listing.
+	var listedAt time.Time
+	if err := pool.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&listedAt); err != nil {
+		registerFinishFailure(ctx, pool, runID, "[register-discover]", err)
+		return fmt.Errorf("[register-discover] read database clock: %w", err)
+	}
+
+	written, err := upsertRegisterDocuments(ctx, pool, docs, listedAt)
 	if err != nil {
 		registerFinishFailure(ctx, pool, runID, "[register-discover]", err)
 		return fmt.Errorf("[register-discover] upsert after %d rows: %w", written, err)
+	}
+
+	// Succession only after a FULL listing. Under -register-limit the rows past
+	// the cap were not stamped, so they would look like rows that left the
+	// listing and could be paired with a stranger.
+	succession := successionStats{}
+	if truncated == 0 {
+		succession, err = recordHouseSuccession(ctx, pool, listedAt, houseParliaments)
+		if err != nil {
+			registerFinishFailure(ctx, pool, runID, "[register-discover]", err)
+			return fmt.Errorf("[register-discover] record succession: %w", err)
+		}
+		if succession.Departed > 0 {
+			log.Printf("[register-discover] %d house documents left their listing: %d linked to a successor, %d unpaired",
+				succession.Departed, succession.Linked, succession.Unpaired)
+		}
+		if succession.Unpaired > 0 {
+			// Never silent. An unpaired departure is either a member removed
+			// from the listing or a replacement this code would not pair; load
+			// withholds a new document in that division until a person decides.
+			log.Printf("[register-discover] %d unpaired departures need review: set superseded_by by hand, or leave them if the member genuinely left", succession.Unpaired)
+		}
+	} else {
+		log.Printf("[register-discover] succession NOT recorded: the listing was truncated by -register-limit")
 	}
 
 	counts, err := countRegisterDocuments(ctx, pool)
@@ -102,6 +135,9 @@ func runRegisterDiscover(ctx context.Context, pool *pgxpool.Pool, limit int) err
 		"manifest_senate":    counts.Senate,
 		"pending_fetch":      counts.PendingFetch,
 		"blocked_fetch":      counts.BlockedFetch,
+		"departed":           succession.Departed,
+		"superseded_linked":  succession.Linked,
+		"departed_unpaired":  succession.Unpaired,
 	}); err != nil {
 		return fmt.Errorf("[register-discover] finish collection run: %w", err)
 	}
@@ -295,17 +331,32 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) error {
 		log.Printf("[register-load] purged %d statements belonging to no-longer-extracted documents", purged)
 	}
 
-	var loaded, failed, statements, items int
+	var loaded, failed, withheld, carried, retired, statements, items int
 	for _, p := range pending {
-		s, i, err := loadExtraction(ctx, pool, p)
+		res, err := loadExtraction(ctx, pool, p)
 		if err != nil {
+			if w, ok := errors.AsType[*errLoadWithheld](err); ok {
+				withheld++
+				log.Printf("[register-load] %s %v", p.SourceURL, w)
+				continue
+			}
 			failed++
 			log.Printf("[register-load] %s failed: %v", p.SourceURL, err)
 			continue
 		}
 		loaded++
-		statements += s
-		items += i
+		statements += res.Statements
+		items += res.Items
+		if res.Carried {
+			carried++
+		}
+		retired += res.Retired
+	}
+	if carried > 0 || retired > 0 {
+		log.Printf("[register-load] succession: %d documents took their identity from a superseded predecessor, %d predecessors retired", carried, retired)
+	}
+	if withheld > 0 {
+		log.Printf("[register-load] %d documents WITHHELD (see the lines above) — each needs a person, not a re-run", withheld)
 	}
 
 	// Terms created by THIS run's load loop need seeding too — the pass above ran
@@ -330,6 +381,9 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) error {
 	}
 	if err := finishIndustryCollectionRun(ctx, pool, runID, status, len(pending), loaded, failed, "", map[string]any{
 		"documents_loaded":          loaded,
+		"documents_withheld":        withheld,
+		"identity_carried":          carried,
+		"predecessors_retired":      retired,
 		"statements_purged":         purged,
 		"documents_failed":          failed,
 		"statements_written":        statements,
@@ -344,7 +398,7 @@ func runRegisterLoad(ctx context.Context, pool *pgxpool.Pool, limit int) error {
 		return fmt.Errorf("[register-load] finish collection run: %w", err)
 	}
 
-	log.Printf("[register-load] loaded %d documents (%d failed): %d statements, %d item rows", loaded, failed, statements, items)
+	log.Printf("[register-load] loaded %d documents (%d failed, %d withheld): %d statements, %d item rows", loaded, failed, withheld, statements, items)
 	log.Printf("[register-load] totals: %d politicians, %d statements, %d item rows (%d declared), %d unresolved",
 		stats.Politicians, stats.Statements, stats.Items, stats.Declared, stats.Unresolved)
 	return nil

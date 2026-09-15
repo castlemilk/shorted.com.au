@@ -655,6 +655,14 @@ must never fire from a deploy). `make register-photos` / `register-index`.
   "Element type is invalid". Use `@/lib/politics/party-palette`.
 - Slugs are minted once and never reassigned; a merge retires a row via
   `merged_into_id` rather than deleting it.
+- **A new House `source_url` is a SUCCESSION, never a fresh member.** APH moved
+  the 48th Parliament register onto `interests-register-api-public.aph.gov.au`
+  (2026-09: 147/151 rows) and edited 9 name keys in the move (Chalmers James→Jim,
+  Pasin Antony→Tony, Brynes→Byrnes…). `register-discover` links old→new
+  (`superseded_by`, migration 000123 — hand-apply BEFORE merging code that reads
+  it) and `register-load` carries the predecessor's person; resolving the new row
+  by name mints duplicates. The crawl is incremental (re-queue when the listing
+  date ≥ fetch date). Runbook: operations.md "Re-crawling prod".
 
 ## MCP server — OAuth 2.1, 25 tools, protocol `2026-07-28`
 
