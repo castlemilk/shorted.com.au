@@ -185,6 +185,24 @@ DATABASE_URL="$PROD_TXN_URL" python extract_register.py --stage extract
 DATABASE_URL="$PROD_TXN_URL" python extract_register.py --stage vision --chamber house --parliament 48
 ```
 
+**When `agy` goes quiet, switch backends rather than waiting.** Measured
+2026-09-15: `agy` read one document to 76% and then returned EMPTY STDOUT for
+every page of both documents across three runs and ~70 minutes — no error, no
+quota exception, just nothing. The same two documents through
+`--vision-backend gemini-api` (key in `services/.env`) came back at **100%
+coverage in 17 seconds**: 14 items / 54 declared rows and 12 items. A silent
+backend is now counted as unavailable and leaves the status columns alone, so
+retrying costs nothing but time — but do not spend an hour on it:
+
+```bash
+GEMINI_API_KEY=… python extract_register.py --stage vision \
+  --chamber house --parliament 48 --vision-backend gemini-api --force
+```
+
+`--force` is required to re-read a document that already has a vision artifact
+(a `partial` one still counts), and is safe here because the artifact is keyed by
+`(sha, extractor_version, tier)` — the better read supersedes the worse.
+
 **Most of prod's corpus is not reachable from a container, or from a laptop
 without the crawl volume.** 598 documents carry a `file://` storage_uri pointing
 at `/Volumes/gamma-systems-2/shorted-crawl/aph-register` — the original crawl ran
