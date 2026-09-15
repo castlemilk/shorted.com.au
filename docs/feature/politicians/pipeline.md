@@ -30,9 +30,9 @@ which `register-resolve` rebuilds. An index built first advertises stale matches
 
 | Mode | Writes | Notes |
 |---|---|---|
-| `register-discover` | `register_documents` | Scrapes listing pages. Downloads nothing |
-| `register-fetch` | GCS + manifest | Polite serial fetch, ~1.5s apart. **~20 min by design** |
-| `register-load` | statements, declared items | DELETEs and rebuilds per document. Writes `holder`, which the fold groups on — order matters |
+| `register-discover` | `register_documents` | Scrapes listing pages. Downloads nothing. Re-queues documents APH lists as changed; records succession |
+| `register-fetch` | GCS + manifest | Polite serial fetch, ~1.5s apart. Incremental: only `pending`/`failed` rows (a full first crawl is **~20 min by design**) |
+| `register-load` | statements, declared items | DELETEs and rebuilds per document. Writes `holder`, which the fold groups on — order matters. Carries identity across succession and retires predecessors |
 | `register-resolve` | securities, locations, the fold, MV refresh | ~32s. A killed run rolls back cleanly |
 | `register-freshness` | — | Read-only sentinel; non-zero exit on alarm |
 | `register-propose-aliases` | `register_alias_proposals` | LLM proposals. Publishes nothing; no resolver reads that table |
@@ -41,6 +41,52 @@ which `register-resolve` rebuilds. An index built first advertises stale matches
 | `register-handbook` | `aph_phid`, `politician_profile_facts` | **Reports duplicate PHIDs; never merges** |
 | `register-photos` | `politicians.photo_*` | Wikidata/Commons. No credentials needed |
 | `register-index` | Algolia `politicians` | Needs `ALGOLIA_WRITE_KEY` |
+
+## Re-crawling: what changes when a document changes
+
+The crawl is **incremental**, and three rules make it safe to re-run. All three
+are exercised against real Postgres in `aph_succession_db_test.go` (set
+`REGISTER_TEST_DATABASE_URL` to a *local* database — the suite refuses a hosted
+one and never falls back to `DATABASE_URL`, which in `services/.env` is prod).
+
+**1. Re-queue on update (discover).** A `fetched` row returns to `pending` when
+its listing date is on or after the Sydney date we fetched it. Before 2026-09
+nothing re-queued anything: `last_updated_at` was written and never read, and 57
+of 151 current members were stale without any alarm. `blocked` and `failed` rows
+are never moved, and discover never touches classify/extract status.
+
+**2. Changed bytes, same document (fetch → extract → load).** A re-fetch whose
+sha differs resets `classify_status` (page counts describe the old file); the
+extractor already queues on `content_sha256`, so the new file re-extracts with no
+`--force`. `extract_status` is left alone, so the member **keeps publishing the
+rows from the previous file** until the new extraction lands — load only accepts
+an artifact whose sha equals the document's current one. A new file that only
+extracts `partial` is quarantined as before.
+
+**3. A new URL for the same member (succession).** `source_url` is identity, so
+when APH re-points a row the new URL is a new document. `register-discover`
+links the departed row to its replacement (`superseded_by`, migration 000123)
+within one parliament and one division, **only** on a matching surname
+(letters-only, tolerating the `Surname. Ms Given` typo form) unique in both
+directions, or a one-to-one spelling correction with an identical first given
+name. `register-load` then:
+
+- gives the successor the predecessor's **resolved person**, never a name match.
+  The 2026 host move edited 9 of 147 name keys — Chalmers James→Jim, Conaghan
+  Patrick→Pat, Wilson Josh→Joshua, Sharkie Rebeka→Rebekha, O'Brien Llew→Llewellyn,
+  Pasin Antony→Tony, Brynes→Byrnes, and the `France.`/`Ryan.` full stops. Resolving
+  any of those by name mints a second person;
+- retires the predecessor (`extract_status='skipped'`, rows deleted) **in the same
+  transaction** that publishes the successor, and only if the successor published
+  at least one statement — an unreadable successor never blanks a member;
+- **withholds** a new House document while a departed, unpaired document in its
+  division still publishes. That is the by-election shape (two people, one seat),
+  and a person decides by setting `superseded_by` or leaving the departure alone.
+
+`register-freshness` reports unpaired departures as INFO, and alarms on a fetch
+queue left undrained a week after the listing read (`aph-fetch-backlog`).
+Staleness is measured on the listing clock (`last_listed_at`), not the fetch
+clock, because an incremental crawl through a quiet recess fetches nothing.
 
 ## Extraction tiers
 

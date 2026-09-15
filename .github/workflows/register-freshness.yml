@@ -1,16 +1,21 @@
 # APH register-of-interests freshness sentinel.
 #
 # Runs `-mode register-freshness` as a prod Cloud Run job execution. Any ALARM
-# exits non-zero -> this workflow fails -> GitHub notifies. Same contract as
-# economy-freshness.yml; there is no dashboard anyone has to remember to check.
+# exits non-zero -> this workflow fails -> a GitHub issue is filed. Same
+# contract as economy-freshness.yml; there is no dashboard anyone has to
+# remember to check.
 #
-# Three alarms, each for a failure that is otherwise SILENT:
+# Alarms, each for a failure that is otherwise SILENT:
 #
 #   aph-waf              a 403 means APH may have revoked the no-User-Agent
 #                        posture the crawl depends on. NEVER work around this by
 #                        spoofing a browser UA — that is WAF evasion. Re-probe by
 #                        hand and, if it is genuinely revoked, stop crawling.
-#   aph-staleness        newest fetch older than 28 days = the crawl stopped.
+#   aph-staleness        listing not read for 28 days = the crawl stopped.
+#                        The register crawl modes are OPERATOR-RUN and never
+#                        scheduled (see the influence-collector module header),
+#                        so this alarm does not clear by itself.
+#   aph-fetch-backlog    documents still queued a week after the listing read.
 #   aph-extract-backlog  text documents fetched but never parsed = the extractor
 #                        is not draining. Scanned documents are excluded: they
 #                        wait on the vision tier by design.
@@ -20,6 +25,14 @@
 #
 # Weekly rather than monthly: the registers change continuously during sitting
 # periods, unlike the monthly ABS/RBA economic series.
+#
+# THE REPORT ONLY EXISTS IN THE JOB'S STDOUT. `gcloud run jobs execute --wait`
+# reports "The execution failed." and nothing else, so for its whole life this
+# workflow could say that something alarmed but never WHICH — and the Cloud Run
+# "job execution failed" alert policy that also fires carries no detail either.
+# Runs 5, 6 and 7 (2026-09-01/07/15) went red with nobody able to read them.
+# So the report is pulled back out of Cloud Logging and carried into the step
+# log, the summary and the issue body.
 name: Register Freshness
 
 on:
@@ -31,6 +44,15 @@ on:
 permissions:
   contents: read
   id-token: write
+  # A red workflow is a page nobody opens. An issue emails the repo watchers
+  # with no external secret to configure — same pattern as housing-freshness.yml
+  # and economy-freshness.yml.
+  issues: write
+
+env:
+  GCP_PROJECT_ID: rosy-clover-477102-t5
+  JOB_NAME: influence-collector
+  JOB_REGION: australia-southeast2
 
 jobs:
   freshness:
@@ -48,8 +70,141 @@ jobs:
 
       - name: Run register freshness check on prod
         run: |
-          gcloud run jobs execute influence-collector \
-            --project rosy-clover-477102-t5 \
-            --region australia-southeast2 \
+          gcloud run jobs execute "$JOB_NAME" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$JOB_REGION" \
             --args="influence,-mode,register-freshness" \
             --wait
+
+      # Pull the report out of Cloud Logging and into the step log, so
+      # `gh run view --log` is self-sufficient for triage, and keep a copy for
+      # the issue body.
+      #
+      # Scoped to the EXECUTION we just created rather than to the job, because
+      # the same job also runs the monthly `-mode all` ingest and a window-based
+      # filter would splice that run's output into this report. The job carries
+      # max_retries = 2, so a failing execution emits the report up to three
+      # times; the dedupe keeps one copy (every line of the report is unique).
+      - name: Surface the freshness report
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          report_file="$RUNNER_TEMP/register-freshness-report.txt"
+          echo "REPORT_FILE=$report_file" >> "$GITHUB_ENV"
+          : > "$report_file"
+
+          execution="$(gcloud run jobs executions list \
+            --job "$JOB_NAME" --project "$GCP_PROJECT_ID" --region "$JOB_REGION" \
+            --sort-by="~metadata.creationTimestamp" --limit 1 \
+            --format="value(metadata.name)" 2>/dev/null || true)"
+
+          filter='resource.type="cloud_run_job"
+            resource.labels.job_name="'"$JOB_NAME"'"'
+          if [[ -n "$execution" ]]; then
+            filter="$filter"'
+              labels."run.googleapis.com/execution_name"="'"$execution"'"'
+            echo "execution: $execution"
+          else
+            echo "::warning::could not resolve the execution name; falling back to a job-scoped log read"
+          fi
+
+          gcloud logging read "$filter" \
+            --project "$GCP_PROJECT_ID" --freshness 30m --limit 100 \
+            --order asc --format="value(textPayload)" \
+            | awk 'NF && !seen[$0]++' > "$report_file" || true
+
+          if [[ ! -s "$report_file" ]]; then
+            echo "(no report recovered from Cloud Logging)" > "$report_file"
+          fi
+          cat "$report_file"
+          {
+            echo "## Register freshness report"
+            echo '```text'
+            cat "$report_file"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Compose the alert issue body
+        if: failure()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          {
+            echo "The weekly APH register freshness sentinel reported an alarm."
+            echo
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo '```text'
+            cat "${REPORT_FILE:-/dev/null}" 2>/dev/null || echo "(report unavailable)"
+            echo '```'
+            echo
+            echo "**aph-staleness does not clear on its own.** The register crawl modes are"
+            echo "operator-run and deliberately never scheduled. The step-by-step re-crawl (DDL,"
+            echo "discover, fetch, extract on the operator machine, load, resolve, index) is"
+            echo "\`docs/feature/politicians/operations.md\` → \"Re-crawling prod\"."
+            echo
+            echo "**aph-fetch-backlog / aph-extract-backlog** mean the crawl is half-run: the"
+            echo "listing was read but fetch or extract did not follow."
+            echo
+            echo "**aph-waf is never worked around.** Do not spoof a browser User-Agent."
+            echo
+            echo "Runbook: \`docs/feature/politicians/operations.md\`."
+            echo "Thresholds: \`services/jobs/internal/jobs/influence/aph_freshness.go\`."
+            echo "This issue is reused by every failing run; it closes on the next green run."
+          } > "$RUNNER_TEMP/issue-body.md"
+
+      # The runner has no `gh` binary (economy-freshness.yml records that this
+      # exits 127 there). github-script runs in the Actions node runtime and
+      # needs nothing installed on the runner.
+      - name: File or update the freshness alert issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const label = "register-freshness";
+            const title = "APH register freshness sentinel is failing";
+            const body = fs.readFileSync(`${process.env.RUNNER_TEMP}/issue-body.md`, "utf8");
+            const { owner, repo } = context.repo;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: "open", labels: label, per_page: 1,
+            });
+            if (open.data.length) {
+              const number = open.data[0].number;
+              await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
+              core.info(`commented on existing issue #${number}`);
+              return;
+            }
+            try {
+              await github.rest.issues.createLabel({
+                owner, repo, name: label, color: "B60205",
+                description: "APH register-of-interests freshness sentinel",
+              });
+            } catch (err) {
+              if (err.status !== 422) throw err; // 422 = the label already exists
+            }
+            const created = await github.rest.issues.create({ owner, repo, title, body, labels: [label] });
+            core.info(`opened issue #${created.data.number}`);
+
+      # Close the tracking issue once the sentinel is green again, so an open
+      # issue always means "currently broken" rather than "broke once".
+      - name: Resolve the freshness alert issue
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = "register-freshness";
+            const { owner, repo } = context.repo;
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: "open", labels: label, per_page: 1,
+            });
+            if (!open.data.length) return;
+            const number = open.data[0].number;
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: number,
+              body: `Register freshness is green again: ${runUrl}`,
+            });
+            await github.rest.issues.update({ owner, repo, issue_number: number, state: "closed" });
+            core.info(`closed issue #${number}`);

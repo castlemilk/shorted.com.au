@@ -79,16 +79,18 @@ type artifactRow struct {
 // pendingExtraction is one artifact awaiting load, with the manifest context
 // needed to resolve who it belongs to.
 type pendingExtraction struct {
-	ExtractionID string
-	DocumentID   string
-	SourceURL    string
-	Chamber      string
-	Parliament   int
-	MemberHint   string
-	DivisionHint string
-	StateHint    string
-	TabledFrom   *time.Time
-	Payload      []byte
+	ExtractionID  string
+	DocumentID    string
+	SourceURL     string
+	Chamber       string
+	Parliament    int
+	MemberHint    string
+	DivisionHint  string
+	StateHint     string
+	TabledFrom    *time.Time
+	Payload       []byte
+	ExtractionSHA string
+	LastListedAt  *time.Time
 }
 
 // selectExtractionsToLoad returns the newest artifact per document.
@@ -96,15 +98,27 @@ type pendingExtraction struct {
 // 'partial' documents are excluded: a document whose pages are mostly
 // unattributed is indistinguishable from a member who declared nothing, and
 // letting it through would publish silence as a fact.
+//
+// Two further exclusions, both about publishing the RIGHT file:
+//
+//   - The artifact must be of the document's CURRENT bytes. Once a document is
+//     re-fetched after an amendment, its newest artifact describes a file APH has
+//     replaced; the extractor re-extracts it (its queue keys on content_sha256),
+//     and until then the document keeps the rows it already published rather
+//     than being reloaded from the superseded file.
+//   - A superseded document is never loaded. Its rows stay published until its
+//     successor loads, and that load retires them (loadExtraction).
 func selectExtractionsToLoad(ctx context.Context, pool *pgxpool.Pool, limit int) ([]pendingExtraction, error) {
 	q := `
 		SELECT DISTINCT ON (e.document_id)
 		       e.id::text, e.document_id::text, d.source_url, d.chamber,
 		       COALESCE(d.parliament, 0), d.member_hint, d.division_hint,
-		       d.state_hint, d.tabled_from, e.payload
+		       d.state_hint, d.tabled_from, e.payload, e.content_sha256, d.last_listed_at
 		FROM register_extractions e
 		JOIN register_documents d ON d.id = e.document_id
 		WHERE d.extract_status = 'extracted'
+		  AND d.superseded_by IS NULL
+		  AND e.content_sha256 = d.content_sha256
 		ORDER BY e.document_id, e.created_at DESC`
 	if limit > 0 {
 		q = fmt.Sprintf("SELECT * FROM (%s) x LIMIT %d", q, limit)
@@ -120,7 +134,8 @@ func selectExtractionsToLoad(ctx context.Context, pool *pgxpool.Pool, limit int)
 	for rows.Next() {
 		var p pendingExtraction
 		if err := rows.Scan(&p.ExtractionID, &p.DocumentID, &p.SourceURL, &p.Chamber,
-			&p.Parliament, &p.MemberHint, &p.DivisionHint, &p.StateHint, &p.TabledFrom, &p.Payload); err != nil {
+			&p.Parliament, &p.MemberHint, &p.DivisionHint, &p.StateHint, &p.TabledFrom, &p.Payload,
+			&p.ExtractionSHA, &p.LastListedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -182,7 +197,18 @@ func resolvePolitician(ctx context.Context, tx pgx.Tx, id PersonIdentity, stateH
 			slug, parliament, sourceURL).Scan(&politicianID); err != nil {
 			return "", err
 		}
-	} else {
+		return politicianID, recordPoliticianObservation(ctx, tx, politicianID, id, stateHint, divisionHint, sourceURL, parliament, chamber, false)
+	}
+	return politicianID, recordPoliticianObservation(ctx, tx, politicianID, id, stateHint, divisionHint, sourceURL, parliament, chamber, true)
+}
+
+// recordPoliticianObservation writes what one House document says about a person
+// we have already identified: the served range, the spelling observed, and the
+// term. resolvePolitician calls it after a name match; loadExtraction calls it
+// directly when identity is CARRIED from a superseded document, so a successor
+// records the same facts without re-deriving who it belongs to from its name.
+func recordPoliticianObservation(ctx context.Context, tx pgx.Tx, politicianID string, id PersonIdentity, stateHint, divisionHint, sourceURL string, parliament int, chamber string, widen bool) error {
+	if widen {
 		// Widen the served range; never touch the slug.
 		if _, err := tx.Exec(ctx, `
 			UPDATE politicians SET
@@ -191,17 +217,21 @@ func resolvePolitician(ctx context.Context, tx pgx.Tx, id PersonIdentity, stateH
 				display_name     = CASE WHEN $3 <> '' THEN $3 ELSE display_name END,
 				updated_at       = now()
 			WHERE id = $1`, politicianID, parliament, id.DisplayName); err != nil {
-			return "", err
+			return err
 		}
 	}
 
 	// Observed spellings are recorded for audit and for later manual merges.
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO politician_aliases (alias_key, politician_id, alias_raw, alias_kind)
-		VALUES ($1, $2, $3, 'observed')
-		ON CONFLICT (alias_key) DO NOTHING`,
-		id.PersonKey, politicianID, id.DisplayName); err != nil {
-		return "", err
+	// ON CONFLICT DO NOTHING: a key already owned by a DIFFERENT person is a
+	// duplicate identity for the curation queue, never something to reassign here.
+	if id.PersonKey != "" {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO politician_aliases (alias_key, politician_id, alias_raw, alias_kind)
+			VALUES ($1, $2, $3, 'observed')
+			ON CONFLICT (alias_key) DO NOTHING`,
+			id.PersonKey, politicianID, id.DisplayName); err != nil {
+			return err
+		}
 	}
 
 	if parliament > 0 {
@@ -213,11 +243,10 @@ func resolvePolitician(ctx context.Context, tx pgx.Tx, id PersonIdentity, stateH
 				division   = COALESCE(NULLIF(EXCLUDED.division, ''), politician_terms.division),
 				state_code = COALESCE(NULLIF(EXCLUDED.state_code, ''), politician_terms.state_code)`,
 			politicianID, parliament, chamber, divisionHint, stateHint, sourceURL); err != nil {
-			return "", err
+			return err
 		}
 	}
-
-	return politicianID, nil
+	return nil
 }
 
 func mintSlug(ctx context.Context, tx pgx.Tx, id PersonIdentity, stateHint string) (string, error) {
@@ -276,27 +305,99 @@ func parliamentAt(t time.Time) int {
 	return 0
 }
 
+// errLoadWithheld is a document load deliberately declines to publish. It is
+// not a failure of the run's machinery, but it is never silent either: the
+// caller counts and logs every one.
+type errLoadWithheld struct{ Reason string }
+
+func (e *errLoadWithheld) Error() string { return "withheld: " + e.Reason }
+
+// loadOutcome reports what one document load did beyond writing its own rows.
+type loadOutcome struct {
+	Statements int
+	Items      int
+	Carried    bool // identity came from a superseded predecessor, not the name
+	Retired    int  // predecessor documents retired by this load
+}
+
 // loadExtraction writes one artifact's statements and items in a single
 // transaction, so a document is either wholly loaded or not at all.
-func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction) (statements, items int, err error) {
+func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction) (loadOutcome, error) {
+	var out loadOutcome
 	var artifact registerArtifact
 	if err := json.Unmarshal(p.Payload, &artifact); err != nil {
-		return 0, 0, fmt.Errorf("decode artifact: %w", err)
+		return out, fmt.Errorf("decode artifact: %w", err)
 	}
 
 	tx, err := pool.Begin(ctx)
 	if err != nil {
-		return 0, 0, err
+		return out, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Re-check under a row lock. The queue was read before the loop started, and
+	// an earlier document in this same run may have retired this one — loading it
+	// anyway would put a superseded member's rows straight back.
+	var status, currentSHA string
+	var superseded bool
+	if err := tx.QueryRow(ctx, `
+		SELECT extract_status, COALESCE(content_sha256, ''), superseded_by IS NOT NULL
+		FROM register_documents WHERE id = $1 FOR UPDATE`, p.DocumentID).
+		Scan(&status, &currentSHA, &superseded); err != nil {
+		return out, fmt.Errorf("lock document: %w", err)
+	}
+	if status != "extracted" || superseded || currentSHA != p.ExtractionSHA {
+		return out, &errLoadWithheld{Reason: fmt.Sprintf(
+			"document changed since the queue was read (status=%s superseded=%v current_bytes=%v)",
+			status, superseded, currentSHA == p.ExtractionSHA)}
+	}
 
 	identity := parseMemberHint(p.MemberHint)
 	politicianID := ""
 	identityStatus := "unresolved"
-	if identity.PersonKey != "" {
+
+	// Identity for a House document that REPLACED another on its listing is the
+	// predecessor's, not whatever its edited name now resolves to. See
+	// aph_succession.go for why a name match here would mint a second person.
+	var predecessors []string
+	if p.Chamber == "house" {
+		predecessors, err = lockPredecessors(ctx, tx, p.DocumentID)
+		if err != nil {
+			return out, err
+		}
+	}
+	switch {
+	case len(predecessors) > 0:
+		carried, err := predecessorPolitician(ctx, tx, p.DocumentID, predecessors)
+		if err != nil {
+			return out, err
+		}
+		if carried != "" {
+			if err := recordPoliticianObservation(ctx, tx, carried, identity, p.StateHint, p.DivisionHint, p.SourceURL, p.Parliament, p.Chamber, true); err != nil {
+				return out, err
+			}
+			politicianID, identityStatus, out.Carried = carried, "resolved", true
+		}
+	case p.Chamber == "house" && p.LastListedAt != nil:
+		// No recorded predecessor. If a document that has LEFT this division's
+		// listing still publishes, the two may be one person whose row this code
+		// would not pair, or two people (a by-election). Either way a name match
+		// is a guess, so withhold until a person sets superseded_by.
+		blocker, err := unpairedDepartureInDivision(ctx, tx, p)
+		if err != nil {
+			return out, err
+		}
+		if blocker != "" {
+			return out, &errLoadWithheld{Reason: fmt.Sprintf(
+				"%s has left the %s listing for parliament %d and still publishes, with no recorded successor",
+				blocker, p.DivisionHint, p.Parliament)}
+		}
+	}
+
+	if politicianID == "" && identity.PersonKey != "" {
 		politicianID, err = resolvePolitician(ctx, tx, identity, p.StateHint, p.DivisionHint, p.SourceURL, p.Parliament, p.Chamber)
 		if err != nil {
-			return 0, 0, err
+			return out, err
 		}
 		identityStatus = "resolved"
 	}
@@ -304,7 +405,7 @@ func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction
 	// Reloading a document replaces its rows rather than duplicating them; the
 	// cascade clears the items.
 	if _, err := tx.Exec(ctx, `DELETE FROM register_statements WHERE document_id = $1`, p.DocumentID); err != nil {
-		return 0, 0, err
+		return out, err
 	}
 
 	for _, s := range artifact.Statements {
@@ -337,7 +438,7 @@ func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction
 			if key != "" {
 				found, lerr := lookupPoliticianByKey(ctx, tx, key)
 				if lerr != nil {
-					return 0, 0, lerr
+					return out, lerr
 				}
 				if found != "" {
 					stmtPoliticianID, stmtStatus = found, "resolved"
@@ -372,9 +473,9 @@ func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction
 			stmtParliament, stmtSurname, stmtGiven, p.DivisionHint,
 			stmtState, lodged, s.DateIsStated, s.PageFrom, s.PageTo,
 			stmtStatus, p.SourceURL).Scan(&statementID); err != nil {
-			return 0, 0, fmt.Errorf("insert statement %d: %w", s.Ordinal, err)
+			return out, fmt.Errorf("insert statement %d: %w", s.Ordinal, err)
 		}
-		statements++
+		out.Statements++
 
 		batch := &pgx.Batch{}
 		queued := 0
@@ -406,20 +507,155 @@ func loadExtraction(ctx context.Context, pool *pgxpool.Pool, p pendingExtraction
 			for range queued {
 				if _, err := br.Exec(); err != nil {
 					_ = br.Close()
-					return 0, 0, fmt.Errorf("insert declared item: %w", err)
+					return out, fmt.Errorf("insert declared item: %w", err)
 				}
-				items++
+				out.Items++
 			}
 			if err := br.Close(); err != nil {
-				return 0, 0, err
+				return out, err
 			}
 		}
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return 0, 0, err
+	// Retire the predecessors in the SAME transaction that publishes the
+	// successor, so no reader ever sees a member's declarations twice.
+	//
+	// Only when the successor actually published something. A successor whose
+	// every statement was unreadable would otherwise replace a member's
+	// declarations with nothing — an absence claim about a named person. The
+	// predecessor keeps publishing its (dated) rows until a readable file lands.
+	if len(predecessors) > 0 && out.Statements > 0 {
+		if _, err := tx.Exec(ctx, `DELETE FROM register_statements WHERE document_id = ANY($1::uuid[])`, predecessors); err != nil {
+			return out, fmt.Errorf("retire predecessor rows: %w", err)
+		}
+		tag, err := tx.Exec(ctx, `
+			UPDATE register_documents
+			SET extract_status = 'skipped',
+			    extract_error  = 'superseded by ' || $2,
+			    updated_at     = now()
+			WHERE id = ANY($1::uuid[])
+			  AND extract_status <> 'skipped'`, predecessors, p.SourceURL)
+		if err != nil {
+			return out, fmt.Errorf("retire predecessor documents: %w", err)
+		}
+		out.Retired = int(tag.RowsAffected())
 	}
-	return statements, items, nil
+
+	if err := tx.Commit(ctx); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+// lockPredecessors returns the documents this one superseded, locked.
+func lockPredecessors(ctx context.Context, tx pgx.Tx, documentID string) ([]string, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT id::text FROM register_documents
+		WHERE superseded_by = $1
+		ORDER BY id
+		FOR UPDATE`, documentID)
+	if err != nil {
+		return nil, fmt.Errorf("lock predecessors: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// predecessorPolitician is the one person a successor publishes under: the
+// person its predecessors published under, or — once those are retired and their
+// rows gone — the person the successor itself already publishes under.
+//
+// The second half is what keeps a RELOAD stable. register-load reloads every
+// extracted document on every run; after the first load retired the
+// predecessors there is nothing left to carry from, and falling back to the
+// edited name would re-resolve "Zzpasin, Mr Tony" by key. That lands on the right
+// person only if the alias recorded on first load exists — and it silently does
+// not when the key was already owned by someone else, which would move a
+// member's declarations to a different person between two runs.
+//
+// None means nobody ever resolved (fall back to the name). More than one means
+// the chain is inconsistent, and publishing would pick between people.
+func predecessorPolitician(ctx context.Context, tx pgx.Tx, documentID string, predecessors []string) (string, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT DISTINCT s.politician_id::text
+		FROM register_statements s
+		JOIN politicians p ON p.id = s.politician_id
+		WHERE s.document_id = ANY($1::uuid[]) OR s.document_id = $2::uuid`, predecessors, documentID)
+	if err != nil {
+		return "", fmt.Errorf("predecessor identity: %w", err)
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return "", err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	if len(ids) > 1 {
+		return "", &errLoadWithheld{Reason: fmt.Sprintf("predecessors published under %d different people", len(ids))}
+	}
+	if len(ids) == 1 {
+		return followMerge(ctx, tx, ids[0])
+	}
+	return "", nil
+}
+
+// followMerge lands on the surviving row when a curator has merged the person.
+func followMerge(ctx context.Context, tx pgx.Tx, id string) (string, error) {
+	for range 8 {
+		var next *string
+		if err := tx.QueryRow(ctx, `SELECT merged_into_id::text FROM politicians WHERE id = $1`, id).Scan(&next); err != nil {
+			return "", fmt.Errorf("follow merge: %w", err)
+		}
+		if next == nil {
+			return id, nil
+		}
+		id = *next
+	}
+	return "", &errLoadWithheld{Reason: "politician merge chain too long"}
+}
+
+// unpairedDepartureInDivision finds a House document in the same parliament and
+// division that has left the listing (it was not carried by the discover run
+// that listed p), has no successor, and still has published rows.
+func unpairedDepartureInDivision(ctx context.Context, tx pgx.Tx, p pendingExtraction) (string, error) {
+	division := lettersUpper(p.DivisionHint)
+	if division == "" || p.Parliament == 0 || p.LastListedAt == nil {
+		return "", nil
+	}
+	var url string
+	err := tx.QueryRow(ctx, `
+		SELECT g.source_url
+		FROM register_documents g
+		WHERE g.chamber = 'house'
+		  AND g.parliament = $1
+		  AND g.id <> $2
+		  AND g.superseded_by IS NULL
+		  AND COALESCE(g.last_listed_at, '-infinity'::timestamptz) < $3
+		  AND upper(regexp_replace(g.division_hint, '[^[:alpha:]]', '', 'g')) = $4
+		  AND EXISTS (SELECT 1 FROM register_statements s WHERE s.document_id = g.id)
+		ORDER BY g.source_url
+		LIMIT 1`, p.Parliament, p.DocumentID, *p.LastListedAt, division).Scan(&url)
+	if err == pgx.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("departure check: %w", err)
+	}
+	return url, nil
 }
 
 // purgeNonExtractedStatements removes rows belonging to documents that are no

@@ -19,7 +19,7 @@ free-text biography.**
 
 | Source | Licence | Gives us | Coverage |
 |---|---|---|---|
-| **APH Register PDFs** (`aph.gov.au`) | CC BY-NC-ND 4.0 | The declarations themselves | 769 House docs, parliaments 44–48 |
+| **APH Register PDFs** (`aph.gov.au`, and for the 48th Parliament `interests-register-api-public.aph.gov.au`) | CC BY-NC-ND 4.0 | The declarations themselves | House parliaments 44–48 + Senate volumes |
 | **APH Parliamentary Handbook OData** (`handbookapi.aph.gov.au/api/individuals`) | CC BY-NC-ND 4.0 | `aph_phid` identity key, occupations, qualifications, preferred name | **309/324** matched |
 | **Wikidata / Wikimedia Commons** | CC0 (data), per-file free licences (images) | Portraits, QIDs, position-held | **241/324** portraits |
 | **AEC tally room** (`results.aec.gov.au`) | CC BY 4.0 | Division/party vintage | federal 2025 |
@@ -48,6 +48,39 @@ in `sourceOrganization`, never `license`.
 (architecture.md §1.1, "the WAF is inverted"). **`handbookapi.aph.gov.au` does
 not** — a plain request with an honest User-Agent returns 200. Do not reach for
 the nil-UA trick there.
+
+### The interests API host (2026)
+
+In 2026 APH moved the **48th Parliament** Register of Members' Interests onto
+`interests-register-api-public.aph.gov.au`. The listing table still lives on
+`www.aph.gov.au/Senators_and_Members/Members/Register`; each row's download link
+now points at `/api/members/{id}/statement/48` (147 of 151 rows on 2026-09-15;
+the other 4 still link a `/-/media/` PDF). 44–47 are unchanged.
+
+**Licence position: the same CC BY-NC-ND 4.0 as the rest of `aph.gov.au`.** This
+is a documented inference, not a quoted grant, on four facts measured
+2026-09-15:
+
+- it is an `aph.gov.au` host, published by the same department, serving the same
+  Register — the official register page links it as "Download member statement";
+- the documents are the statutory statements the licence already covered when
+  they were `/-/media/` PDFs (a parse of the new file for an unamended member
+  reproduces the published rows exactly: 3 statements, 19 items, 53 rows);
+- the host has no terms page of its own, and its `robots.txt` returns 404 (no
+  restriction). `www.aph.gov.au/robots.txt` disallows nothing under the register;
+- `handbookapi.aph.gov.au` — another subdomain — is already recorded above under
+  the same page.
+
+If APH ever publishes separate terms for this host, they govern and this entry is
+wrong. Nothing about the posture changes: facts only, verbatim atoms, deep-link
+the source, never rehost.
+
+**Fetch posture is the same as `www`:** no User-Agent header, `From:` and
+`X-Crawler-Contact:` set, returns `application/pdf` (200). The API member id is
+**not** an identity key — it is sometimes numeric (`316915`), sometimes
+alphanumeric (`DZS`), and only 5 of 147 coincide with a stored `aph_phid` (one of
+those names a different person). Identity for these rows comes from document
+succession, not from the id; see pipeline.md.
 
 ## OUT — and these are settled, not deferred
 

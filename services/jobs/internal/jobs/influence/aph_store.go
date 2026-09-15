@@ -4,8 +4,15 @@ package influence
 //
 // register_documents IS the crawl cursor: resumability and idempotence come
 // from its fetch/classify/extract status columns, not from a separate runs
-// table. Discovery therefore upserts ONLY listing metadata and must never touch
-// a status column, or a re-discover would silently reset work already done.
+// table. Discovery therefore upserts listing metadata and must not reset work
+// already done.
+//
+// ONE exception, and it is narrow: a 'fetched' row returns to 'pending' when its
+// own listing says the document changed since we fetched it (see
+// upsertRegisterDocuments). That is not resetting done work — the work was done
+// on a file APH has since replaced. Nothing else moves: 'blocked' and 'failed'
+// keep their state, and classify/extract status is never touched here (a changed
+// file resets classification in markDocumentFetched, only when its bytes differ).
 
 import (
 	"context"
@@ -23,20 +30,52 @@ import (
 // the bound keeps the shape correct if the corpus grows.
 const registerUpsertChunk = 500
 
-// upsertRegisterDocuments idempotently writes the discovered manifest.
+// upsertRegisterDocuments idempotently writes the listing into the manifest.
 //
-// ON CONFLICT updates listing metadata only. fetch_status, classify_status,
-// extract_status, content_sha256 and storage_uri are deliberately absent from
-// the SET list.
-func upsertRegisterDocuments(ctx context.Context, pool *pgxpool.Pool, docs []RegisterDocument) (int, error) {
+// ON CONFLICT updates listing metadata. classify_status, extract_status,
+// content_sha256 and storage_uri are deliberately absent from the SET list;
+// fetch_status/fetch_attempts appear only in the re-queue CASE below.
+//
+// listedAt is the discover run's own clock, stamped on every row this listing
+// carries. A row whose last_listed_at is older than the newest one has left its
+// listing page — which is how recordHouseSuccession finds the documents APH
+// replaced.
+//
+// # Re-queue on update
+//
+// A fetched document goes back to 'pending' when its listing date is on or after
+// the day we fetched it. Before this, nothing ever re-queued a fetched row:
+// last_updated_at was written and never read, so a member who amended their
+// register at the same URL was never re-fetched, and the corpus silently froze
+// at its first crawl (57 of 151 current members were stale by 2026-09-15).
+//
+// ON OR AFTER, in Sydney time, because the listing is a local date and fetched_at
+// is a UTC instant. An amendment posted later on the day we fetched would be
+// missed by a strict "after"; the cost of ">=" is at most one extra fetch of an
+// unchanged file, which fetch records as byte-identical and which keeps its
+// classification (markDocumentFetched only resets that on a content change).
+func upsertRegisterDocuments(ctx context.Context, pool *pgxpool.Pool, docs []RegisterDocument, listedAt time.Time) (int, error) {
 	const q = `
 		INSERT INTO register_documents
 			(source_url, listing_url, chamber, parliament, member_hint, division_hint,
 			 state_hint, last_updated_at, listed_size_label, volume_label,
 			 volume_ordinal, tabled_from, tabled_to, statements_only,
-			 source, source_licence)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+			 source, source_licence, last_listed_at, discovered_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $17)
 		ON CONFLICT (source_url) DO UPDATE SET
+			fetch_status = CASE
+				WHEN register_documents.fetch_status = 'fetched'
+				 AND EXCLUDED.last_updated_at IS NOT NULL
+				 AND register_documents.fetched_at IS NOT NULL
+				 AND EXCLUDED.last_updated_at >= (register_documents.fetched_at AT TIME ZONE 'Australia/Sydney')::date
+				THEN 'pending' ELSE register_documents.fetch_status END,
+			fetch_attempts = CASE
+				WHEN register_documents.fetch_status = 'fetched'
+				 AND EXCLUDED.last_updated_at IS NOT NULL
+				 AND register_documents.fetched_at IS NOT NULL
+				 AND EXCLUDED.last_updated_at >= (register_documents.fetched_at AT TIME ZONE 'Australia/Sydney')::date
+				THEN 0 ELSE register_documents.fetch_attempts END,
+			last_listed_at    = EXCLUDED.last_listed_at,
 			listing_url       = EXCLUDED.listing_url,
 			chamber           = EXCLUDED.chamber,
 			parliament        = EXCLUDED.parliament,
@@ -75,6 +114,7 @@ func upsertRegisterDocuments(ctx context.Context, pool *pgxpool.Pool, docs []Reg
 				d.StatementsOnly,
 				registerSource,
 				registerSourceLicence,
+				listedAt,
 			)
 		}
 

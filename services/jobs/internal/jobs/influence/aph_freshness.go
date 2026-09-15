@@ -6,7 +6,7 @@ package influence
 // economy-collector's `-mode freshness`: any ALARM exits non-zero, the workflow
 // fails, GitHub notifies. There is no dashboard to remember to look at.
 //
-// Three alarms, each for a failure that is otherwise SILENT:
+// Four alarms, each for a failure that is otherwise SILENT:
 //
 //  1. WAF BLOCK. aph.gov.au allowlists real-browser User-Agent tokens and 403s
 //     everything else, so our posture (omit the UA, self-identify via From: and
@@ -16,8 +16,12 @@ package influence
 //     most likely quiet death of the crawl and gets its own alarm.
 //
 //  2. STALENESS. The registers change continuously during sitting periods. A
-//     corpus whose newest fetched document is older than the threshold means the
-//     crawl has stopped running, regardless of why.
+//     listing not read for longer than the threshold means the crawl has stopped
+//     running, regardless of why. (Measured on the listing clock: fetch is
+//     incremental, so a faithful crawl through a quiet recess fetches nothing.)
+//
+//  2b. FETCH BACKLOG. Discover re-queues what APH lists as changed; a queue still
+//     full a week after the listing was read means nothing is fetching it.
 //
 //  3. EXTRACTION BACKLOG. Documents fetched but never parsed are invisible in
 //     the UI — a member simply shows fewer entries. A backlog that has sat
@@ -45,6 +49,9 @@ const (
 	// considered stuck. Generous: a run that fetches a new parliament legitimately
 	// leaves a backlog until the next extract pass.
 	defaultRegisterBacklogDays = 14
+
+	// Days a fetch queue may sit after the listing that filled it was read.
+	defaultRegisterFetchLagDays = 7
 )
 
 type freshnessCheck struct {
@@ -85,25 +92,41 @@ func collectRegisterFreshness(ctx context.Context, pool *pgxpool.Pool, now time.
 	}
 
 	// --- 2. Staleness -------------------------------------------------------
-	var newestFetch *time.Time
+	//
+	// Measured on the LISTING clock, not the fetch clock. Since fetch became
+	// incremental (re-queue on update), fetched_at only moves when APH changes a
+	// document, so a crawl that runs faithfully through a quiet recess would read
+	// as a dead one. last_listed_at moves every time discover succeeds. Rows from
+	// before that column existed have none, and fall back to the fetch clock.
+	var newestListing, newestFetch *time.Time
 	var fetched int
 	if err := pool.QueryRow(ctx, `
-		SELECT max(fetched_at), count(*) FILTER (WHERE fetch_status = 'fetched')
-		FROM register_documents`).Scan(&newestFetch, &fetched); err != nil {
+		SELECT max(last_listed_at), max(fetched_at), count(*) FILTER (WHERE fetch_status = 'fetched')
+		FROM register_documents`).Scan(&newestListing, &newestFetch, &fetched); err != nil {
 		return checks, fmt.Errorf("staleness check: %w", err)
 	}
 	switch {
-	case fetched == 0:
+	case fetched == 0 && newestListing == nil:
 		// Never crawled is a configuration state, not a regression. Report it
 		// loudly but do not fail a fresh environment's first check.
 		checks = append(checks, freshnessCheck{"aph-staleness", "INFO",
 			"no documents fetched yet — the register crawl has never run in this environment"})
+	case newestListing != nil:
+		age := int(now.Sub(*newestListing).Hours() / 24)
+		detail := fmt.Sprintf("listing last read %d day(s) ago (%s), %d documents fetched",
+			age, newestListing.Format("2006-01-02"), fetched)
+		if age > defaultRegisterStaleDays {
+			checks = append(checks, freshnessCheck{"aph-staleness", "ALARM",
+				fmt.Sprintf("%s — threshold %d days; register-discover has stopped running", detail, defaultRegisterStaleDays)})
+		} else {
+			checks = append(checks, freshnessCheck{"aph-staleness", "OK", detail})
+		}
 	case newestFetch == nil:
 		checks = append(checks, freshnessCheck{"aph-staleness", "ALARM",
 			fmt.Sprintf("%d documents marked fetched but none carries fetched_at", fetched)})
 	default:
 		age := int(now.Sub(*newestFetch).Hours() / 24)
-		detail := fmt.Sprintf("newest fetch %d day(s) ago (%s), %d documents",
+		detail := fmt.Sprintf("newest fetch %d day(s) ago (%s), %d documents — no listing read recorded yet",
 			age, newestFetch.Format("2006-01-02"), fetched)
 		if age > defaultRegisterStaleDays {
 			checks = append(checks, freshnessCheck{"aph-staleness", "ALARM",
@@ -113,18 +136,81 @@ func collectRegisterFreshness(ctx context.Context, pool *pgxpool.Pool, now time.
 		}
 	}
 
+	// --- 2b. Fetch backlog --------------------------------------------------
+	//
+	// Discover re-queues a document the moment APH lists it as changed. If the
+	// queue it left behind is still full days later, the listing is being read
+	// but nothing is being fetched — the corpus is going stale while staleness
+	// reads green. Measured against the listing clock so that a sentinel run in
+	// the minutes between discover and fetch cannot trip it.
+	var queued int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM register_documents
+		WHERE fetch_status IN ('pending', 'failed')
+		  AND superseded_by IS NULL`).Scan(&queued); err != nil {
+		return checks, fmt.Errorf("fetch backlog check: %w", err)
+	}
+	switch {
+	case queued == 0:
+		checks = append(checks, freshnessCheck{"aph-fetch-backlog", "OK", "fetch queue empty"})
+	case newestListing != nil && now.Sub(*newestListing) > defaultRegisterFetchLagDays*24*time.Hour:
+		checks = append(checks, freshnessCheck{"aph-fetch-backlog", "ALARM", fmt.Sprintf(
+			"%d document(s) queued since the listing was read %d day(s) ago — threshold %d days; run register-fetch",
+			queued, int(now.Sub(*newestListing).Hours()/24), defaultRegisterFetchLagDays)})
+	default:
+		checks = append(checks, freshnessCheck{"aph-fetch-backlog", "INFO", fmt.Sprintf("%d document(s) queued", queued)})
+	}
+
+	// --- 2c. Departures without a successor (never an alarm) ----------------
+	//
+	// A House document that has left its listing and was not paired to a
+	// replacement. Either the member genuinely left the list, or it is a
+	// replacement the pairing would not guess at — in which case register-load is
+	// withholding the new document in that division. A person decides.
+	var unpaired int
+	var sampleUnpaired *string
+	if err := pool.QueryRow(ctx, `
+		WITH latest AS (SELECT max(last_listed_at) AS at FROM register_documents WHERE chamber = 'house')
+		SELECT count(*), min(d.source_url)
+		FROM register_documents d, latest
+		WHERE d.chamber = 'house'
+		  AND latest.at IS NOT NULL
+		  AND COALESCE(d.last_listed_at, '-infinity'::timestamptz) < latest.at
+		  AND d.superseded_by IS NULL
+		  AND d.extract_status <> 'skipped'`).Scan(&unpaired, &sampleUnpaired); err != nil {
+		return checks, fmt.Errorf("succession check: %w", err)
+	}
+	if unpaired > 0 {
+		sample := ""
+		if sampleUnpaired != nil {
+			sample = *sampleUnpaired
+		}
+		checks = append(checks, freshnessCheck{"aph-unpaired-departures", "INFO", fmt.Sprintf(
+			"%d house document(s) left their listing with no recorded successor; register-load withholds a new document in any such division until superseded_by is set by hand (e.g. %s)",
+			unpaired, sample)})
+	}
+
 	// --- 3. Extraction backlog ---------------------------------------------
 	//
 	// Scans are excluded: they wait on the vision tier by design. Counting them
 	// would keep this alarm permanently red and train the operator to ignore it.
 	var backlog int
 	var oldestPending *time.Time
+	//
+	// "Unparsed" means no extraction of the document's CURRENT bytes. Status alone
+	// is not enough in either direction: a document re-fetched after an amendment
+	// stays 'extracted' (it keeps publishing its previous rows) while its new file
+	// waits, and a superseded predecessor is 'skipped' by design, not stuck.
 	if err := pool.QueryRow(ctx, `
-		SELECT count(*), min(fetched_at)
-		FROM register_documents
-		WHERE fetch_status = 'fetched'
-		  AND (extract_status IS NULL OR extract_status NOT IN ('extracted', 'partial'))
-		  AND COALESCE(text_class, '') <> 'scan'`).Scan(&backlog, &oldestPending); err != nil {
+		SELECT count(*), min(d.fetched_at)
+		FROM register_documents d
+		WHERE d.fetch_status = 'fetched'
+		  AND d.superseded_by IS NULL
+		  AND COALESCE(d.extract_status, '') <> 'skipped'
+		  AND COALESCE(d.text_class, '') <> 'scan'
+		  AND NOT EXISTS (
+		      SELECT 1 FROM register_extractions e
+		      WHERE e.document_id = d.id AND e.content_sha256 = d.content_sha256)`).Scan(&backlog, &oldestPending); err != nil {
 		return checks, fmt.Errorf("backlog check: %w", err)
 	}
 	switch {

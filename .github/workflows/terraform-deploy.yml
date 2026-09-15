@@ -713,7 +713,15 @@ jobs:
           # EXISTS plus CREATE INDEX IF NOT EXISTS, defaulting false, so a replay
           # cannot change any row's visibility. 000122 is CREATE TABLE IF NOT
           # EXISTS + CREATE INDEX IF NOT EXISTS with no rows touched; the
-          # collector's -mode hazards is what fills it, by hand.
+          # collector's -mode hazards is what fills it, by hand. 000123 is two
+          # ADD COLUMN IF NOT EXISTS, one CREATE INDEX IF NOT EXISTS and a CHECK
+          # guarded by a pg_constraint lookup — no row is read or written, so a
+          # replay is a no-op, and it does not touch
+          # refresh_all_materialized_views(). It is allowlisted rather than
+          # hand-applied for a reason worth keeping: register-discover, -load and
+          # -freshness all SELECT the two columns, and this step runs BEFORE
+          # `terraform apply` swaps the jobs image, so the DDL cannot land after
+          # the code that reads it.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -731,7 +739,8 @@ jobs:
               -f /migrations/000120_industry_history_on_insert.up.sql \
               -f /migrations/000121_economic_series_internal_only.up.sql \
               -f /migrations/000095_harden_mv_refresh.up.sql \
-              -f /migrations/000122_add_suburb_hazard_exposure.up.sql
+              -f /migrations/000122_add_suburb_hazard_exposure.up.sql \
+              -f /migrations/000123_register_document_succession.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
 

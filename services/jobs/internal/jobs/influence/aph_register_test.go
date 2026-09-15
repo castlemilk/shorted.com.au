@@ -3,6 +3,7 @@ package influence
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -455,6 +456,117 @@ func TestNormaliseStateToken(t *testing.T) {
 	for _, in := range []string{"", "Member for Cowan", "Grayndler", "XYZ", "N"} {
 		if got, matched := normaliseStateToken(in); matched {
 			t.Errorf("normaliseStateToken(%q) = %q, want no match", in, got)
+		}
+	}
+}
+
+// houseListingAPIFixture is the listing shape measured on 2026-09-15, after APH
+// moved the 48th Parliament register onto its interests API. Hrefs are UNQUOTED,
+// the icon title is no longer a size, most rows link the API, a few still link a
+// media PDF — now on static.aph.gov.au and carrying ?rev=&hash= — and member ids
+// are sometimes alphanumeric. Names and ids are invented.
+const houseListingAPIFixture = `<html><body><table class="members-interests__table"><tbody>
+<tr>
+  <td class="date">10 October 2025 </td>
+  <td> Zztestabdo, Mr Basem, Member for Calwell VIC </td>
+  <td class="format"> <a href=https://interests-register-api-public.aph.gov.au/api/members/316915/statement/48 download="x"><img title="Download member statement" src="/images/template/icons/doc-pdf.png"></a> </td>
+</tr>
+<tr>
+  <td class="date">13 August 2026 </td>
+  <td> Zztestbowen, Hon Chris, Member for McMahon NSW </td>
+  <td class="format"> <a href=https://interests-register-api-public.aph.gov.au/api/members/DZS/statement/48?download=1><img title="Download member statement"></a> </td>
+</tr>
+<tr>
+  <td class="date">14 August 2026 </td>
+  <td> Zztestalbanese, Hon Anthony, Member for Grayndler, NSW </td>
+  <td class="format"> <a href=https://static.aph.gov.au/-/media/03_Senators_and_Members/32_Members/Register/48p/AB/Albanese_48P.pdf?rev=fa20&hash=477C><img title="Download member statement"></a> </td>
+</tr>
+<tr>
+  <td> Explanatory notes </td>
+  <td class="format"> <a href=https://static.aph.gov.au/-/media/03_Senators_and_Members/32_Members/Register/Explanatory_notes/Explanatory_Notes___Booklet_1.pdf?rev=2763>notes</a> </td>
+</tr>
+</tbody></table></body></html>`
+
+func TestParseHouseListingAfterTheAPIMove(t *testing.T) {
+	const pageURL = aphBase + houseRegisterPath
+	docs, err := parseHouseListing(parseFixture(t, houseListingAPIFixture), pageURL, 48)
+	if err != nil {
+		t.Fatalf("parseHouseListing: %v", err)
+	}
+	byURL := map[string]RegisterDocument{}
+	for _, d := range docs {
+		byURL[d.SourceURL] = d
+	}
+	want := []string{
+		"https://interests-register-api-public.aph.gov.au/api/members/316915/statement/48",
+		// Alphanumeric id: a digits-only pattern dropped 25 of 151 real rows.
+		"https://interests-register-api-public.aph.gov.au/api/members/DZS/statement/48",
+		// static host + ?rev= canonicalises to the www form every earlier fetch
+		// was stored under, so the existing row keeps its identity.
+		aphBase + "/-/media/03_Senators_and_Members/32_Members/Register/48p/AB/Albanese_48P.pdf",
+	}
+	if len(docs) != len(want) {
+		t.Fatalf("discovered %d documents, want %d: %v", len(docs), len(want), byURL)
+	}
+	for _, u := range want {
+		if _, ok := byURL[u]; !ok {
+			t.Errorf("missing %s", u)
+		}
+	}
+
+	bowen := byURL[want[1]]
+	if bowen.DivisionHint != "McMahon" || bowen.StateHint != "NSW" {
+		t.Errorf("division/state = %q/%q, want McMahon/NSW", bowen.DivisionHint, bowen.StateHint)
+	}
+	if bowen.LastUpdatedAt == nil || !bowen.LastUpdatedAt.Equal(time.Date(2026, time.August, 13, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("LastUpdatedAt = %v, want 2026-08-13", bowen.LastUpdatedAt)
+	}
+	if bowen.ListedSizeLabel != "" {
+		t.Errorf("ListedSizeLabel = %q; the icon title is no longer a size and must not be stored as one", bowen.ListedSizeLabel)
+	}
+}
+
+// A member row whose link this parser cannot read must fail discovery, not be
+// skipped. Dropping it silently is how a sixth of the chamber went missing.
+func TestParseHouseListingFailsOnAnUnreadableMemberRow(t *testing.T) {
+	drift := strings.Replace(houseListingAPIFixture, "</tbody>", `
+<tr>
+  <td class="date">1 September 2026 </td>
+  <td> Zztestnew, Ms Some, Member for Somewhere VIC </td>
+  <td class="format"> <a href=https://interests-register-api-public.aph.gov.au/v2/statements/abc-123><img></a> </td>
+</tr></tbody>`, 1)
+	_, err := parseHouseListing(parseFixture(t, drift), aphBase+houseRegisterPath, 48)
+	if err == nil || !strings.Contains(err.Error(), "cannot read") {
+		t.Fatalf("err = %v, want an unreadable-row failure", err)
+	}
+}
+
+func TestHouseStatementURL(t *testing.T) {
+	base, _ := url.Parse(aphBase + houseRegisterPath)
+	cases := []struct {
+		name, href string
+		parliament int
+		want       string
+		ok         bool
+	}{
+		{"relative media", "/-/media/03_Senators_and_Members/32_Members/Register/47P/AB/X_47P.pdf", 47,
+			aphBase + "/-/media/03_Senators_and_Members/32_Members/Register/47P/AB/X_47P.pdf", true},
+		{"static host with query", "https://static.aph.gov.au/-/media/03_Senators_and_Members/32_Members/Register/48p/AB/X.pdf?rev=1&hash=2", 48,
+			aphBase + "/-/media/03_Senators_and_Members/32_Members/Register/48p/AB/X.pdf", true},
+		{"api numeric", "https://interests-register-api-public.aph.gov.au/api/members/12/statement/48", 48,
+			"https://interests-register-api-public.aph.gov.au/api/members/12/statement/48", true},
+		{"api trailing slash and query", "https://interests-register-api-public.aph.gov.au/api/members/I8M/statement/48/?x=1", 48,
+			"https://interests-register-api-public.aph.gov.au/api/members/I8M/statement/48", true},
+		// Filed under the wrong parliament would attach a statement to the wrong term.
+		{"api wrong parliament", "https://interests-register-api-public.aph.gov.au/api/members/12/statement/47", 48, "", false},
+		{"explanatory notes", "/-/media/03_Senators_and_Members/32_Members/Register/Explanatory_notes/Booklet.pdf", 48, "", false},
+		{"foreign host", "https://example.com/-/media/03_Senators_and_Members/32_Members/Register/48p/AB/X.pdf", 48, "", false},
+		{"api other path", "https://interests-register-api-public.aph.gov.au/api/members/12", 48, "", false},
+	}
+	for _, c := range cases {
+		got, ok := houseStatementURL(base, c.href, c.parliament)
+		if ok != c.ok || got != c.want {
+			t.Errorf("%s: got (%q, %v), want (%q, %v)", c.name, got, ok, c.want, c.ok)
 		}
 	}
 }

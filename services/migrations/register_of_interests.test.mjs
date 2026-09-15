@@ -383,3 +383,41 @@ test("down migration drops children before parents", () => {
   // The MVs read the tables, so they must go first.
   assert.ok(at("DROP MATERIALIZED VIEW IF EXISTS mv_register_public_holdings;") < at("DROP TABLE IF EXISTS register_holding_periods;"));
 });
+
+// ---------------------------------------------------------------------------
+// 000123 — document succession. Hand-applied on prod BEFORE the jobs image that
+// reads it, so it must be safe to apply twice and must not touch a single row.
+// ---------------------------------------------------------------------------
+const successionUp = readFileSync(
+  new URL("./000123_register_document_succession.up.sql", import.meta.url),
+  "utf8",
+).replace(/--.*$/gm, "");
+const successionDown = readFileSync(
+  new URL("./000123_register_document_succession.down.sql", import.meta.url),
+  "utf8",
+);
+
+test("000123 is additive and idempotent: IF NOT EXISTS everywhere, no row touched", () => {
+  const adds = successionUp.match(/ADD COLUMN(?! IF NOT EXISTS)/g) ?? [];
+  assert.equal(adds.length, 0, "every ADD COLUMN must be IF NOT EXISTS");
+  assert.match(successionUp, /CREATE INDEX IF NOT EXISTS idx_register_documents_superseded_by/);
+  assert.match(successionUp, /IF NOT EXISTS \(\s*SELECT 1 FROM pg_constraint/, "the CHECK must be guarded");
+  // Statement-level only: `REFERENCES … ON DELETE SET NULL` is DDL, not a write.
+  assert.doesNotMatch(
+    successionUp,
+    /^\s*(UPDATE\s+\w+|DELETE\s+FROM|INSERT\s+INTO|TRUNCATE)\b/im,
+    "a hand-applied DDL migration must not rewrite rows",
+  );
+});
+
+test("000123 adds no column implying quantity or value (editorial rule 5)", () => {
+  const cols = [...successionUp.matchAll(/ADD COLUMN IF NOT EXISTS\s+(\w+)/g)].map((m) => m[1]);
+  assert.deepEqual(cols.sort(), ["last_listed_at", "superseded_by"]);
+});
+
+test("000123 down removes exactly what up adds", () => {
+  assert.match(successionDown, /DROP COLUMN IF EXISTS superseded_by/);
+  assert.match(successionDown, /DROP COLUMN IF EXISTS last_listed_at/);
+  assert.match(successionDown, /DROP INDEX IF EXISTS idx_register_documents_superseded_by/);
+  assert.match(successionDown, /DROP CONSTRAINT IF EXISTS register_documents_not_self_superseded/);
+});

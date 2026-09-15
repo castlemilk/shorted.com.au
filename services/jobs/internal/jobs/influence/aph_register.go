@@ -177,7 +177,7 @@ func fetchAPHPage(ctx context.Context, client *http.Client, pageURL string) (*go
 // House
 // ---------------------------------------------------------------------------
 
-// houseMemberPDFRe matches a member statement PDF and nothing else.
+// houseMemberPDFRe matches the PATH of a member statement PDF and nothing else.
 //
 // Requiring the PARLIAMENT FOLDER (48p, 47P, …) is load-bearing: the listing
 // pages also link non-member PDFs under the same Register/ prefix, e.g.
@@ -186,7 +186,76 @@ func fetchAPHPage(ctx context.Context, client *http.Client, pageURL string) (*go
 //
 // The folder's case is inconsistent across parliaments ("48p" but "47P"), hence
 // the case-insensitive flag.
-var houseMemberPDFRe = regexp.MustCompile(`(?i)/32_Members/Register/(\d{2})p/[^/]+/[^/]+\.pdf$`)
+//
+// It is matched against the parsed PATH, never the raw href. By 2026-09 the
+// listing linked these as https://static.aph.gov.au/-/media/…/X_48P.pdf?rev=…&hash=…,
+// and a `\.pdf$` anchor on the raw href rejected every one of them — the 48th
+// Parliament parsed to zero documents and discover aborted.
+var houseMemberPDFRe = regexp.MustCompile(`(?i)^/-/media/03_Senators_and_Members/32_Members/Register/(\d{2})p/[^/]+/[^/]+\.pdf$`)
+
+var listedSizeRe = regexp.MustCompile(`(?i)^\d+(\.\d+)?\s*[KMG]B$`)
+
+// registerAPIHost serves member statements for the current parliament. APH moved
+// the 48th Parliament register onto it in 2026 (147 of 151 rows by 2026-09-15);
+// the listing page on www.aph.gov.au still carries the table, and each row's
+// download link now points here. It returns application/pdf to the same
+// no-User-Agent request the rest of the crawl makes (measured 2026-09-15).
+const registerAPIHost = "interests-register-api-public.aph.gov.au"
+
+// houseStatementAPIRe matches /api/members/{member id}/statement/{parliament}.
+//
+// The member id is NOT always numeric: 126 rows carry ids like 316915 and 25
+// carry alphanumeric ones like DZS or I8M (the Handbook PHID form). A digits-only
+// pattern silently dropped a sixth of the chamber, ministers included.
+var houseStatementAPIRe = regexp.MustCompile(`^/api/members/([A-Za-z0-9]+)/statement/(\d{2})$`)
+
+// aphMediaHosts serve the same Sitecore media library. Measured 2026-09-15: the
+// www path, the static path and the static path with ?rev=&hash= all return
+// byte-identical bytes for the same statement.
+var aphMediaHosts = map[string]bool{
+	"www.aph.gov.au":    true,
+	"aph.gov.au":        true,
+	"static.aph.gov.au": true,
+}
+
+// houseStatementURL reports whether an href on a House listing page is a member
+// statement, and returns the CANONICAL source_url for it.
+//
+// Canonical matters because source_url is the manifest's identity column (it is
+// UNIQUE, and load, the MV and the public source link all key on it):
+//
+//   - Sitecore media PDFs canonicalise to https://www.aph.gov.au + path, with no
+//     query. That is the form every document fetched before the host move was
+//     stored under, so the 617 closed-parliament documents keep their rows
+//     instead of re-appearing as new ones, and ?rev= (a cache-buster that changes
+//     on every edit) cannot mint a fresh row per revision.
+//   - API statements canonicalise to https://interests-register-api-public.aph.gov.au/api/members/{id}/statement/{p}.
+//     The statement's own parliament must equal the listing page's: a mismatch
+//     means the page is not what we think it is, and filing a document under the
+//     wrong parliament would attach it to the wrong term.
+func houseStatementURL(base *url.URL, href string, parliament int) (string, bool) {
+	resolved, err := base.Parse(strings.TrimSpace(href))
+	if err != nil {
+		return "", false
+	}
+	host := strings.ToLower(resolved.Hostname())
+
+	switch {
+	case aphMediaHosts[host] && houseMemberPDFRe.MatchString(resolved.Path):
+		return aphBase + resolved.Path, true
+
+	case host == registerAPIHost:
+		m := houseStatementAPIRe.FindStringSubmatch(strings.TrimRight(resolved.Path, "/"))
+		if m == nil {
+			return "", false
+		}
+		if p, err := strconv.Atoi(m[2]); err != nil || p != parliament {
+			return "", false
+		}
+		return "https://" + registerAPIHost + "/api/members/" + m[1] + "/statement/" + m[2], true
+	}
+	return "", false
+}
 
 // discoverHouseRegisterDocuments walks the five House listing pages.
 func discoverHouseRegisterDocuments(ctx context.Context, client *http.Client) ([]RegisterDocument, error) {
@@ -219,21 +288,36 @@ func parseHouseListing(doc *goquery.Document, pageURL string, parliament int) ([
 
 	seen := make(map[string]bool)
 	var out []RegisterDocument
+	var unreadable []string
 
 	doc.Find("tr").Each(func(_ int, row *goquery.Selection) {
+		sourceURL := ""
 		anchor := row.Find("a[href]").FilterFunction(func(_ int, sel *goquery.Selection) bool {
+			if sourceURL != "" {
+				return false
+			}
 			href, _ := sel.Attr("href")
-			return houseMemberPDFRe.MatchString(strings.TrimSpace(href))
+			if u, ok := houseStatementURL(base, href, parliament); ok {
+				sourceURL = u
+				return true
+			}
+			return false
 		}).First()
 		if anchor.Length() == 0 {
+			// A row with a listing date AND a download link is a member row, so
+			// failing to read its link is under-collection, not noise. (The
+			// explanatory-notes booklet has a link but no date.) Collected and
+			// failed as a whole below — a sixth of the 48th Parliament once
+			// vanished here silently because the member id stopped being numeric.
+			if dateText := strings.TrimSpace(row.Find("td.date").First().Text()); dateText != "" {
+				if _, ok := parseAPHDate(strings.Join(strings.Fields(dateText), " ")); ok {
+					if href, ok := row.Find("td.format a[href]").First().Attr("href"); ok {
+						unreadable = append(unreadable, strings.TrimSpace(href))
+					}
+				}
+			}
 			return
 		}
-		href, _ := anchor.Attr("href")
-		resolved, err := base.Parse(strings.TrimSpace(href))
-		if err != nil {
-			return
-		}
-		sourceURL := resolved.String()
 		if seen[sourceURL] {
 			return
 		}
@@ -245,7 +329,9 @@ func parseHouseListing(doc *goquery.Document, pageURL string, parliament int) ([
 			Chamber:    "house",
 			Parliament: parliament,
 		}
-		if title, ok := anchor.Find("img[title]").First().Attr("title"); ok {
+		// The icon title used to be the file size ("4948KB"). The redesigned
+		// listing titles it "Download member statement", which is not a size.
+		if title, ok := anchor.Find("img[title]").First().Attr("title"); ok && listedSizeRe.MatchString(strings.TrimSpace(title)) {
 			rd.ListedSizeLabel = strings.TrimSpace(title)
 		}
 
@@ -270,6 +356,11 @@ func parseHouseListing(doc *goquery.Document, pageURL string, parliament int) ([
 		out = append(out, rd)
 	})
 
+	if len(unreadable) > 0 {
+		sample := unreadable[:min(3, len(unreadable))]
+		return nil, fmt.Errorf("%d member row(s) on %s link a statement this parser cannot read (link shape drift?), e.g. %s",
+			len(unreadable), pageURL, strings.Join(sample, ", "))
+	}
 	return out, nil
 }
 

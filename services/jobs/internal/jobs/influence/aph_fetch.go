@@ -416,9 +416,28 @@ func selectPendingDocuments(ctx context.Context, pool *pgxpool.Pool, maxAttempts
 	return out, rows.Err()
 }
 
+// markDocumentFetched records the bytes a fetch produced.
+//
+// A re-fetch of a CHANGED file sends it back through classification. page_count,
+// text_class and the scan/blank page counts describe the old bytes, and the
+// extractor computes coverage from page_count — a stale one would score a longer
+// amended statement as mostly unread, or a shorter one as over-covered. The
+// extractor already keys its queue on content_sha256, so resetting
+// classify_status is the only thing needed to get the new file re-extracted.
+//
+// extract_status is deliberately left alone. The document keeps publishing the
+// rows loaded from its previous file until the new file's extraction lands (load
+// only accepts an extraction whose sha matches the document's current one), so a
+// member's page does not go blank for the gap between fetch and extract. If the
+// new file then only extracts 'partial', the existing quarantine withholds it.
+//
+// An unchanged file (the re-queue rule's worst case) keeps its classification.
 func markDocumentFetched(ctx context.Context, pool *pgxpool.Pool, id string, res FetchResult) error {
 	_, err := pool.Exec(ctx, `
 		UPDATE register_documents SET
+			classify_status = CASE
+				WHEN content_sha256 IS DISTINCT FROM $3 THEN 'pending'
+				ELSE classify_status END,
 			fetch_status   = 'fetched',
 			fetch_attempts = fetch_attempts + 1,
 			http_status    = $2,
