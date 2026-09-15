@@ -137,18 +137,24 @@ over an unscheduled crawl trains everyone to ignore a sentinel that also carries
 The crawl is incremental (pipeline.md, "Re-crawling"), so a re-crawl fetches only
 what changed. Order is not optional.
 
-**0. DDL first.** Migration `000123_register_document_succession` must be on prod
-before any code that reads `last_listed_at` / `superseded_by` runs there —
-`register-discover`, `-load` and `-freshness` all do:
+**0. DDL — carried by the deploy, not by hand.** Migration
+`000123_register_document_succession` is in the terraform-deploy **allowlist**,
+and that step runs BEFORE `terraform apply` swaps the jobs image, so the two
+columns exist before any code that selects them. It is two
+`ADD COLUMN IF NOT EXISTS`, one `CREATE INDEX IF NOT EXISTS` and a CHECK guarded
+by a `pg_constraint` lookup — no row read or written — so the replay it gets on
+every deploy is a no-op. (`scripts/tests/migration-drift.test.mjs` enforces both
+halves: a migration must be allowlisted or recorded hand-applied in
+`PROD_APPLIED.md`, and anything allowlisted must be replay-safe.)
+
+Confirm it landed before crawling:
 
 ```bash
-task db:prod:apply FILE=services/migrations/000123_register_document_succession.up.sql CONFIRM=prod
-# verify
 psql "$SESSION_URL" -c '\d register_documents' | grep -E 'last_listed_at|superseded_by'
 ```
 
-It is additive and idempotent. Deploying the jobs image **before** applying it
-turns the weekly sentinel into a column-does-not-exist failure.
+If the columns are missing, the deploy has not run yet — wait for it rather than
+racing it by hand.
 
 **1. Discover.** Downloads nothing; ~10 seconds.
 

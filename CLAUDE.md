@@ -659,9 +659,9 @@ must never fire from a deploy). `make register-photos` / `register-index`.
   the 48th Parliament register onto `interests-register-api-public.aph.gov.au`
   (2026-09: 147/151 rows) and edited 9 name keys in the move (Chalmers James→Jim,
   Pasin Antony→Tony, Brynes→Byrnes…). `register-discover` links old→new
-  (`superseded_by`, migration 000123 — hand-apply BEFORE merging code that reads
-  it) and `register-load` carries the predecessor's person; resolving the new row
-  by name mints duplicates. The crawl is incremental (re-queue when the listing
+  (`superseded_by`, migration 000123 — in the deploy allowlist, applied before
+  the image swap) and `register-load` carries the predecessor's person; resolving
+  the new row by name mints duplicates. The crawl is incremental (re-queue when the listing
   date ≥ fetch date). Runbook: operations.md "Re-crawling prod".
 
 ## MCP server — OAuth 2.1, 25 tools, protocol `2026-07-28`
