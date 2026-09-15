@@ -172,7 +172,7 @@ stop:** find it (`aph-unpaired-departures` names one) and decide before loading.
 **2. Fetch.** Same command, `-mode,register-fetch`. ~150 documents at 1.5s ≈ 4 min.
 A single 403 aborts the run by design.
 
-**3. Extract — operator machine.** Senate volumes OCR through Apple Vision and
+**3. Extract — operator machine, SCOPED.** Senate volumes OCR through Apple Vision and
 the vision tier shells out to `agy`, neither of which exists in a container. The
 House API statements are born-digital and read deterministically (three sampled
 on 2026-09-15: 100% coverage). Needs ADC for the `gs://` objects:
@@ -181,9 +181,29 @@ on 2026-09-15: 100% coverage). Needs ADC for the `gs://` objects:
 cd services/report-extractor
 DATABASE_URL="$PROD_TXN_URL" python extract_register.py --stage classify
 DATABASE_URL="$PROD_TXN_URL" python extract_register.py --stage extract
-# only if classify reported mixed/scan documents in this batch:
-DATABASE_URL="$PROD_TXN_URL" python extract_register.py --stage vision
+# scan/mixed documents only, and SCOPE IT — see the volume note below:
+DATABASE_URL="$PROD_TXN_URL" python extract_register.py --stage vision --chamber house --parliament 48
 ```
+
+**Most of prod's corpus is not reachable from a container, or from a laptop
+without the crawl volume.** 598 documents carry a `file://` storage_uri pointing
+at `/Volumes/gamma-systems-2/shorted-crawl/aph-register` — the original crawl ran
+with a local sink, and only documents fetched since (the GCS sink) can be read
+anywhere else. So an UNSCOPED stage reaches documents whose bytes are not there.
+
+That is survivable now and was not before 2026-09-15: an unscoped `--stage
+extract` marked 84 unreachable vision-tier documents `failed`, which is one
+`register-load` away from purging 84 members' published declarations
+(`purgeNonExtractedStatements` deletes the rows of anything not `extracted`).
+`open_document` now raises `DocumentUnavailable` for bytes it cannot READ and
+every stage leaves the status columns alone for those, counting them separately
+("N document(s) could not be READ and were left untouched"). Pinned by
+`test_register_availability.py`.
+
+Credentials, while you are here: the extractor reads `gs://` through ADC. If
+`gcloud auth application-default` belongs to another account you get a 403 per
+document — which is now reported as unavailable rather than written to the
+manifest, but still extracts nothing.
 
 **4. Load, then resolve** (`-mode,register-load`, then `-mode,register-resolve`).
 Load should report `succession: 147 documents took their identity from a
