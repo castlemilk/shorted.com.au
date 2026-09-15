@@ -571,3 +571,52 @@ func TestFreshnessMeasuresTheListingNotTheFetch(t *testing.T) {
 		t.Errorf("aph-fetch-backlog = %s: a queue 10 days after the listing read must alarm", status["aph-fetch-backlog"])
 	}
 }
+
+// APH's own Senate listing links a volume that 404s. The fetcher gives up after
+// defaultRegisterMaxAttempts, and that document then sits in 'failed' forever.
+// Counting it as backlog would alarm every week over a broken link on someone
+// else's website, which is how an alarm stops meaning anything.
+func TestAnUnfetchableDocumentIsReportedNotAlarmedForever(t *testing.T) {
+	db := newRegisterDB(t)
+	now := time.Now()
+
+	live := db.document("https://www.aph.gov.au/-/media/live.pdf", "Zzlive, Ms L, Member for Ll, VIC", "Ll", "fetched", "extracted", "sha-live", now)
+	db.extraction(live, "sha-live", "live", false)
+	db.exec(`UPDATE register_documents SET last_listed_at = now() - interval '10 days' WHERE id = $1`, live)
+
+	dead := db.document("https://www.aph.gov.au/-/media/DEADGUID.ashx", "", "", "failed", "pending", "", now)
+	db.exec(`UPDATE register_documents SET chamber='senate', parliament=NULL, fetch_attempts=3,
+	         http_status=404, last_listed_at=now() - interval '10 days' WHERE id = $1`, dead)
+
+	checks, err := collectRegisterFreshness(db.ctx, db.pool, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, detail := map[string]string{}, map[string]string{}
+	for _, c := range checks {
+		status[c.Name], detail[c.Name] = c.Status, c.Detail
+	}
+	if status["aph-fetch-backlog"] != "OK" {
+		t.Errorf("aph-fetch-backlog = %s (%s): a document that spent its attempts is not an undrained queue",
+			status["aph-fetch-backlog"], detail["aph-fetch-backlog"])
+	}
+	if status["aph-fetch-exhausted"] != "INFO" {
+		t.Errorf("aph-fetch-exhausted = %q: it must still be REPORTED, just not alarmed", status["aph-fetch-exhausted"])
+	}
+	if !strings.Contains(detail["aph-fetch-exhausted"], "DEADGUID") || !strings.Contains(detail["aph-fetch-exhausted"], "404") {
+		t.Errorf("aph-fetch-exhausted detail names neither the document nor its status: %q", detail["aph-fetch-exhausted"])
+	}
+
+	// One attempt left: still the fetcher's job, so still backlog.
+	db.exec(`UPDATE register_documents SET fetch_attempts = 2 WHERE id = $1`, dead)
+	checks, err = collectRegisterFreshness(db.ctx, db.pool, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range checks {
+		status[c.Name] = c.Status
+	}
+	if status["aph-fetch-backlog"] != "ALARM" {
+		t.Errorf("aph-fetch-backlog = %s: a retryable document 10 days after the listing read must alarm", status["aph-fetch-backlog"])
+	}
+}

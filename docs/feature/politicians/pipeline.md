@@ -100,6 +100,13 @@ The Python extractor (`services/report-extractor/`) runs
   **operator-machine stage**: the container has no `agy` binary and
   `require_agy()` fails fast rather than marking a batch as failed extractions.
 
+**Unreachable bytes never touch a status column.** `open_document` raises
+`DocumentUnavailable` for a missing local file, a storage 403/404 or a dropped
+download, and classify/extract/vision each count those separately and leave
+`classify_status`/`extract_status` as they were. Marking them would downgrade an
+already-extracted document, and load purges the rows of anything that is not
+`extracted` — 84 documents were one load away from that on 2026-09-15.
+
 **`--stage extract --force` is not scoped to born-digital docs.** It re-ran the
 deterministic tier over `mixed` documents whose only complete read is the vision
 artifact, and `loadPendingExtractions` takes the NEWEST extraction per document —

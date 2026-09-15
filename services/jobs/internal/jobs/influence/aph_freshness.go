@@ -143,12 +143,40 @@ func collectRegisterFreshness(ctx context.Context, pool *pgxpool.Pool, now time.
 	// but nothing is being fetched — the corpus is going stale while staleness
 	// reads green. Measured against the listing clock so that a sentinel run in
 	// the minutes between discover and fetch cannot trip it.
+	//
+	// Only documents the fetcher will actually try again. A document that has
+	// spent its attempts is not a queue that is not draining — it is a document
+	// that cannot be fetched, which is reported separately below. Counting it
+	// here would alarm every week forever: APH's own Senate listing links a
+	// volume that 404s (measured 2026-09-15), and no amount of crawling fixes a
+	// broken link on someone else's site.
 	var queued int
 	if err := pool.QueryRow(ctx, `
 		SELECT count(*) FROM register_documents
 		WHERE fetch_status IN ('pending', 'failed')
-		  AND superseded_by IS NULL`).Scan(&queued); err != nil {
+		  AND superseded_by IS NULL
+		  AND fetch_attempts < $1`, defaultRegisterMaxAttempts).Scan(&queued); err != nil {
 		return checks, fmt.Errorf("fetch backlog check: %w", err)
+	}
+
+	var exhausted int
+	var exhaustedSample *string
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*), min(source_url || ' (HTTP ' || COALESCE(http_status::text, '?') || ')')
+		FROM register_documents
+		WHERE fetch_status IN ('pending', 'failed')
+		  AND superseded_by IS NULL
+		  AND fetch_attempts >= $1`, defaultRegisterMaxAttempts).Scan(&exhausted, &exhaustedSample); err != nil {
+		return checks, fmt.Errorf("fetch exhausted check: %w", err)
+	}
+	if exhausted > 0 {
+		sample := ""
+		if exhaustedSample != nil {
+			sample = *exhaustedSample
+		}
+		checks = append(checks, freshnessCheck{"aph-fetch-exhausted", "INFO", fmt.Sprintf(
+			"%d document(s) gave up after %d attempts and will not be retried without -register-limit or a reset; usually a dead link on the APH listing (e.g. %s)",
+			exhausted, defaultRegisterMaxAttempts, sample)})
 	}
 	switch {
 	case queued == 0:

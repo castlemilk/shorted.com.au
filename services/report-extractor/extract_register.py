@@ -58,17 +58,46 @@ log = logging.getLogger("extract_register")
 # ---------------------------------------------------------------------------
 
 
+class DocumentUnavailable(Exception):
+    """The stored bytes could not be REACHED — not a fact about the document.
+
+    A missing local file (the operator volume is not mounted), a 403 from the
+    wrong credentials, a 404, a dropped connection: none of these say anything
+    about whether the PDF is parseable, so none of them may touch
+    classify_status or extract_status. Recording one as a failure downgrades a
+    document that is already extracted, and register-load then PURGES its
+    published rows — a member's declarations disappear because a disk was not
+    mounted.
+
+    That happened on 2026-09-15: an unscoped `--stage extract` run reached 84
+    vision-tier documents from parliaments 44-47 whose storage_uri points at an
+    unmounted volume, marked every one 'failed', and left them one load away
+    from losing their rows. It is the same conflation #576 removed from the
+    price backfill — "we could not ask" is not "there is nothing there".
+    """
+
+
 def open_document(storage_uri: str) -> tuple[fitz.Document, Optional[str]]:
     """Open a stored PDF from a file:// or gs:// URI.
 
     Returns (document, temp_path). temp_path is set only when the bytes were
     downloaded and must be cleaned up by the caller.
+
+    Raises DocumentUnavailable when the bytes cannot be reached. A PDF that
+    downloads but will not parse raises whatever fitz raises, and THAT is a real
+    extraction failure.
     """
     if not storage_uri:
-        raise ValueError("document has no storage_uri (was it fetched?)")
+        raise DocumentUnavailable("document has no storage_uri (was it fetched?)")
 
     if storage_uri.startswith("file://"):
-        return fitz.open(storage_uri[len("file://") :]), None
+        path = storage_uri[len("file://") :]
+        if not os.path.exists(path):
+            raise DocumentUnavailable(f"no such file: {path!r} (is the crawl volume mounted?)")
+        try:
+            return fitz.open(path), None
+        except OSError as e:
+            raise DocumentUnavailable(f"cannot read {path!r}: {e}") from e
 
     if storage_uri.startswith("gs://"):
         from google.cloud import storage as gcs
@@ -78,13 +107,22 @@ def open_document(storage_uri: str) -> tuple[fitz.Document, Optional[str]]:
         if not bucket_name or not blob_path:
             raise ValueError(f"malformed gs:// URI: {storage_uri}")
 
-        client = gcs.Client()
-        blob = client.bucket(bucket_name).blob(blob_path)
-        # Stream to a temp file rather than into memory: in-window Senate
-        # volumes reach 33MB and download_as_bytes would hold the lot.
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            blob.download_to_file(tmp)
-            temp_path = tmp.name
+        temp_path = None
+        try:
+            client = gcs.Client()
+            blob = client.bucket(bucket_name).blob(blob_path)
+            # Stream to a temp file rather than into memory: in-window Senate
+            # volumes reach 33MB and download_as_bytes would hold the lot.
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                blob.download_to_file(tmp)
+                temp_path = tmp.name
+        except Exception as e:  # noqa: BLE001 - every storage error is unavailability
+            if temp_path:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
+            raise DocumentUnavailable(f"cannot read {storage_uri}: {e}") from e
         return fitz.open(temp_path), temp_path
 
     raise ValueError(f"unsupported storage_uri scheme: {storage_uri}")
@@ -181,6 +219,7 @@ def connect_db():
 
 from register_vision import (  # noqa: E402  (kept near use: agy is operator-only)
     VISION_BATCH_PAGES,
+    VisionBackendSilent,
     VISION_CONCURRENCY_DEFAULT,
     GEMINI_API_MODEL_DEFAULT,
     VISION_MODEL_DEFAULT,
@@ -281,6 +320,7 @@ def run_classify(args) -> int:
         return 0
 
     log.info("classify: %d documents%s", len(rows), " (dry run)" if args.dry_run else "")
+    unavailable = 0
     tally = {"text": 0, "scan": 0, "mixed": 0}
     failed = 0
     total_pages = 0
@@ -306,6 +346,9 @@ def run_classify(args) -> int:
                 c.scan_page_count,
                 c.blank_page_count,
             )
+        except DocumentUnavailable as e:
+            unavailable += 1
+            log.warning("  %s UNAVAILABLE (status untouched): %s", row["source_url"], e)
         except Exception as e:  # noqa: BLE001
             failed += 1
             log.warning("  %s FAILED: %s", row["source_url"], e)
@@ -318,6 +361,12 @@ def run_classify(args) -> int:
                     pass
 
     conn.close()
+    if unavailable:
+        log.warning(
+            "classify: %d document(s) could not be READ and were left untouched — "
+            "check credentials and that the crawl volume is mounted",
+            unavailable,
+        )
     log.info(
         "classify: %d text, %d mixed, %d scan, %d failed across %d pages",
         tally.get("text", 0),
@@ -589,7 +638,7 @@ def run_extract(args) -> int:
         return 0
 
     log.info("extract: %d documents%s", len(rows), " (dry run)" if args.dry_run else "")
-    extracted = partial = failed = 0
+    extracted = partial = failed = unavailable = 0
     total_rows = 0
 
     for row in rows:
@@ -635,6 +684,12 @@ def run_extract(args) -> int:
                 declared,
                 metrics["page_coverage_pct"],
             )
+        except DocumentUnavailable as e:
+            # Leave extract_status alone. An already-extracted document must not
+            # be downgraded because its bytes were out of reach — register-load
+            # purges the rows of anything that is not 'extracted'.
+            unavailable += 1
+            log.warning("  %s UNAVAILABLE (status untouched): %s", row["source_url"], e)
         except Exception as e:  # noqa: BLE001
             failed += 1
             log.warning("  %s FAILED: %s", row["source_url"], e)
@@ -647,13 +702,23 @@ def run_extract(args) -> int:
                     pass
 
     conn.close()
+    if unavailable:
+        log.warning(
+            "extract: %d document(s) could not be READ and were left untouched — "
+            "check credentials and that the crawl volume is mounted",
+            unavailable,
+        )
     log.info(
-        "extract: %d extracted, %d partial, %d failed, %d declared rows",
+        "extract: %d extracted, %d partial, %d failed, %d unavailable, %d declared rows",
         extracted,
         partial,
         failed,
+        unavailable,
         total_rows,
     )
+    # Nothing readable at all is a broken run, not an empty one.
+    if rows and unavailable == len(rows):
+        return 1
     return 1 if failed and failed == len(rows) else 0
 
 
@@ -732,7 +797,7 @@ def run_vision(args) -> int:
         " (dry run)" if args.dry_run else "",
     )
 
-    extracted = partial = failed = 0
+    extracted = partial = failed = unavailable = 0
     total_rows = 0
 
     for row in rows:
@@ -820,6 +885,12 @@ def run_vision(args) -> int:
                 extracted, partial, failed,
             )
             break
+        except (DocumentUnavailable, VisionBackendSilent) as e:
+            # Leave extract_status alone. An already-extracted document must not
+            # be downgraded because its bytes were out of reach — register-load
+            # purges the rows of anything that is not 'extracted'.
+            unavailable += 1
+            log.warning("  %s UNAVAILABLE (status untouched): %s", row["source_url"], e)
         except Exception as e:  # noqa: BLE001
             failed += 1
             log.warning("  %s FAILED: %s", row["source_url"], e)
@@ -832,9 +903,15 @@ def run_vision(args) -> int:
                     pass
 
     conn.close()
+    if unavailable:
+        log.warning(
+            "vision: %d document(s) could not be READ and were left untouched — "
+            "check credentials and that the crawl volume is mounted",
+            unavailable,
+        )
     log.info(
-        "vision: %d extracted, %d partial, %d failed, %d declared rows",
-        extracted, partial, failed, total_rows,
+        "vision: %d extracted, %d partial, %d failed, %d unavailable, %d declared rows",
+        extracted, partial, failed, unavailable, total_rows,
     )
     return 0
 

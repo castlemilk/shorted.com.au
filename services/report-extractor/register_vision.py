@@ -161,6 +161,18 @@ class VisionUnavailable(RuntimeError):
     """`agy` is not installed. Raised once, before any work."""
 
 
+class VisionBackendSilent(VisionError):
+    """Every batch failed, so the backend told us nothing about this document.
+
+    Distinct from a document the model READ and found nothing in: that is a fact
+    about the document and should mark it. This is the tool being silent (`agy`
+    returning empty stdout, a transport error), and marking the document for it
+    downgrades it — register-load then purges the rows it is already publishing.
+    Measured 2026-09-15: Gosling_48P.pdf, 7 pages, every batch empty, recorded
+    'failed' while still publishing a statement from its previous file.
+    """
+
+
 class VisionQuotaExhausted(RuntimeError):
     """The agy subscription quota is spent.
 
@@ -702,6 +714,13 @@ def vision_pages(
         # otherwise persist a 0-item artifact, and the NOT EXISTS resume guard
         # keys on the artifact's existence — so the document would never be
         # retried, and would sit at 0% coverage looking like an unreadable scan.
+        if pages_read == 0 and failures:
+            # Nothing came back for ANY page: that is the backend, not the
+            # document. The caller must leave the status columns alone.
+            raise VisionBackendSilent(
+                f"vision backend returned nothing for all {len(page_numbers)} page(s); "
+                f"{len(failures)} batch failure(s): {failures[:1]}"
+            )
         raise VisionError(
             f"vision read no items from {len(page_numbers)} page(s); "
             f"{len(failures)} batch failure(s): {failures[:1]}"
