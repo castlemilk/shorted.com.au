@@ -92,6 +92,56 @@ with `grep -v '^SET transaction_timeout'`.
 Caveat: `storage_uri` then points at the operator machine, so a prod **re-extract**
 needs a `register-fetch` first to populate the GCS bucket.
 
+## The freshness sentinel, and why it will not go green on its own
+
+`.github/workflows/register-freshness.yml` runs `-mode register-freshness` as a
+prod Cloud Run execution every Monday 21:47 UTC. Any ALARM exits non-zero, which
+fails the workflow AND trips the generic "Cloud Run Job execution failed" alert
+policy on `influence-collector` — so one alarm arrives twice, and the GCP copy
+names neither the mode nor the check.
+
+**The report only exists in the job's stdout.** `gcloud run jobs execute --wait`
+prints `The execution failed.` and nothing else. The workflow now reads the
+report back out of Cloud Logging (scoped to the execution it just created, since
+the same job also runs the monthly `-mode all` ingest) into the step log, the
+step summary and a `register-freshness` issue that closes on the next green run.
+Before that, runs 5-7 (2026-09-01/07/15) went red with nobody able to see which
+check had fired.
+
+To read it by hand:
+
+```bash
+gcloud logging read \
+  'resource.type="cloud_run_job" AND resource.labels.job_name="influence-collector"' \
+  --project rosy-clover-477102-t5 --freshness 30m --limit 100 \
+  --order asc --format="value(textPayload)"
+```
+
+**`aph-staleness` is structural, not a fault.** The threshold is 28 days
+(`defaultRegisterStaleDays`), and the crawl modes that would reset it are
+operator-run and deliberately never scheduled — `-mode all` excludes them, and
+the influence-collector Terraform module says why. So roughly four weeks after
+any crawl the sentinel goes red and STAYS red, alarming weekly, until someone
+runs the chain by hand:
+
+```
+register-discover -> register-fetch -> [python extract] -> register-load -> register-resolve
+```
+
+with `REGISTER_DRY_RUN=false` (it defaults true in code and is pinned true on the
+job). Budget ~20 minutes for the fetch alone; see pipeline.md for the order and
+for `register-index` having to run last.
+
+Decide it deliberately, because the two exits are a real choice: either recrawl
+on a cadence shorter than 28 days, or raise the threshold to whatever cadence you
+actually intend. Leaving a 28-day alarm over an unscheduled crawl trains everyone
+to ignore a sentinel that also carries `aph-waf` — the one check that tells you
+APH has revoked the posture the crawl depends on.
+
+**`aph-waf` is never worked around.** A 403 means re-probe the no-User-Agent
+posture by hand and, if it is genuinely revoked, stop crawling. Spoofing a
+browser User-Agent is WAF evasion.
+
 ## Verifying
 
 ```bash
