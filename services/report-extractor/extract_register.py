@@ -219,6 +219,7 @@ def connect_db():
 
 from register_vision import (  # noqa: E402  (kept near use: agy is operator-only)
     VISION_BATCH_PAGES,
+    VisionBackendSilent,
     VISION_CONCURRENCY_DEFAULT,
     GEMINI_API_MODEL_DEFAULT,
     VISION_MODEL_DEFAULT,
@@ -884,7 +885,7 @@ def run_vision(args) -> int:
                 extracted, partial, failed,
             )
             break
-        except DocumentUnavailable as e:
+        except (DocumentUnavailable, VisionBackendSilent) as e:
             # Leave extract_status alone. An already-extracted document must not
             # be downgraded because its bytes were out of reach — register-load
             # purges the rows of anything that is not 'extracted'.

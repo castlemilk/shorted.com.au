@@ -41,6 +41,15 @@ def _handlers(func: ast.FunctionDef) -> list[ast.ExceptHandler]:
     return [n for n in ast.walk(func) if isinstance(n, ast.ExceptHandler)]
 
 
+def _caught(handler: ast.ExceptHandler) -> list[str]:
+    """Exception names a handler catches, bare (`except X`) or tupled."""
+    if isinstance(handler.type, ast.Name):
+        return [handler.type.id]
+    if isinstance(handler.type, ast.Tuple):
+        return [e.id for e in handler.type.elts if isinstance(e, ast.Name)]
+    return []
+
+
 class OpenDocumentSignalsUnavailability(unittest.TestCase):
     """The classifier of last resort: what open_document raises decides
     whether a status column moves."""
@@ -80,21 +89,13 @@ class StageLoopsLeaveStatusAloneWhenUnavailable(unittest.TestCase):
     and must not call a mark_*_failed from that branch."""
 
     def _unavailable_handler(self, func_name: str) -> ast.ExceptHandler:
-        handlers = _handlers(_function(func_name))
-        names = []
-        for h in handlers:
-            if isinstance(h.type, ast.Name):
-                names.append(h.type.id)
-        self.assertIn(
-            "DocumentUnavailable",
-            names,
-            f"{func_name} does not handle DocumentUnavailable: an unreachable "
-            f"document would be recorded as a failed one",
-        )
-        for h in handlers:
-            if isinstance(h.type, ast.Name) and h.type.id == "DocumentUnavailable":
+        for h in _handlers(_function(func_name)):
+            if "DocumentUnavailable" in _caught(h):
                 return h
-        raise AssertionError("unreachable")
+        raise AssertionError(
+            f"{func_name} does not handle DocumentUnavailable: an unreachable "
+            f"document would be recorded as a failed one"
+        )
 
     def _calls(self, node: ast.AST) -> list[str]:
         return [
@@ -126,17 +127,48 @@ class StageLoopsLeaveStatusAloneWhenUnavailable(unittest.TestCase):
         for name in ("run_classify", "run_extract", "run_vision"):
             with self.subTest(stage=name):
                 handlers = _handlers(_function(name))
-                order = [
-                    h.type.id
-                    for h in handlers
-                    if isinstance(h.type, ast.Name) and h.type.id in ("DocumentUnavailable", "Exception")
-                ]
+                order = []
+                for h in handlers:
+                    for name in _caught(h):
+                        if name in ("DocumentUnavailable", "Exception"):
+                            order.append(name)
                 self.assertIn("DocumentUnavailable", order)
                 self.assertLess(
                     order.index("DocumentUnavailable"),
                     order.index("Exception"),
                     f"{name} catches Exception before DocumentUnavailable",
                 )
+
+
+class SilentVisionBackendIsNotADocumentFailure(unittest.TestCase):
+    """`agy` returning empty stdout for every page says nothing about the PDF.
+
+    Measured 2026-09-15: Gosling_48P.pdf (7 pages) came back empty on every
+    batch and was recorded extract_status='failed' while still publishing a
+    statement read from its previous file — one register-load from losing it.
+    """
+
+    def test_all_batches_silent_raises_backend_silent(self):
+        from register_vision import VisionBackendSilent, VisionError
+
+        self.assertTrue(issubclass(VisionBackendSilent, VisionError))
+
+    def test_vision_stage_does_not_mark_a_silent_backend(self):
+        silent = [h for h in _handlers(_function("run_vision")) if "VisionBackendSilent" in _caught(h)]
+        self.assertTrue(silent, "run_vision does not handle VisionBackendSilent")
+        calls = [
+            n.func.id
+            for n in ast.walk(silent[0])
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+        ]
+        self.assertNotIn("mark_extract_failed", calls)
+
+    def test_a_document_the_model_READ_and_found_empty_still_fails(self):
+        """Not every empty read is the backend's fault: if pages came back and
+        carried no items, that is a fact about the document and must still mark
+        it, or a genuinely unreadable scan would retry forever."""
+        src = Path(__file__).resolve().parent.joinpath("register_vision.py").read_text()
+        self.assertIn("if pages_read == 0 and failures:", src)
 
 
 if __name__ == "__main__":
