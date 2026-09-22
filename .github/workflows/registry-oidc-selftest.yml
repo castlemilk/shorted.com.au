@@ -1,0 +1,34 @@
+name: Registry OIDC selftest
+
+# Proves the Cuttlefish registry accepts this repository's GitHub OIDC token
+# for pushes, end to end, in under a minute: log in with the composite action,
+# push a tiny image, and print the digest. Run it after changing registry
+# auth or the repository allow-list.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  push:
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Log in to the Cuttlefish registry (GitHub OIDC)
+        uses: ./.github/actions/cuttlefish-registry-login
+
+      - name: Push a tiny image and read it back
+        run: |
+          set -euo pipefail
+          IMAGE="cuttlefish-registry.benebsworth.com/shorted/oidc-selftest:${GITHUB_RUN_ID}"
+          docker pull alpine:3.20
+          docker tag alpine:3.20 "$IMAGE"
+          docker push "$IMAGE"
+          docker rmi "$IMAGE" alpine:3.20 >/dev/null 2>&1 || true
+          docker pull "$IMAGE"
+          echo "selftest ok: $IMAGE"

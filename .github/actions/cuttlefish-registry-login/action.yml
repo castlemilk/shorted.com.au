@@ -1,0 +1,33 @@
+name: Cuttlefish registry login
+description: >-
+  Authenticate Docker to the Cuttlefish registry with this job's GitHub OIDC
+  token. No repository secret is involved: GitHub mints a short-lived token
+  and the registry Worker verifies it against the repository allow-list.
+inputs:
+  audience:
+    description: OIDC audience the registry Worker is configured to trust.
+    required: false
+    default: cuttlefish-registry
+  registry:
+    description: Registry host to log in to.
+    required: false
+    default: cuttlefish-registry.benebsworth.com
+runs:
+  using: composite
+  steps:
+    - name: Exchange the job's OIDC token and log Docker in
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+          echo "::error::this job needs 'permissions: id-token: write' for registry OIDC"
+          exit 1
+        fi
+        TOKEN=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${{ inputs.audience }}" \
+          | sed -e 's/.*"value":"//' -e 's/".*//')
+        if [ -z "$TOKEN" ] || [ "${#TOKEN}" -lt 100 ]; then
+          echo "::error::OIDC token request returned no usable token"; exit 1
+        fi
+        echo "::add-mask::$TOKEN"
+        echo "$TOKEN" | docker login "${{ inputs.registry }}" -u github-oidc --password-stdin

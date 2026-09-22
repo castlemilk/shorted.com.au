@@ -272,6 +272,12 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
 
+      # Same images, second home: rigs pull task images from the Cuttlefish
+      # registry with their control-plane token, so nothing on a rig needs a
+      # cloud credential. CI pushes there with its GitHub OIDC token.
+      - name: Log in to the Cuttlefish registry (GitHub OIDC)
+        uses: ./.github/actions/cuttlefish-registry-login
+
       # A persistent builder on the self-hosted rig: its layer cache and the
       # Dockerfiles' Go module/build cache mounts survive across jobs and are
       # shared by every runner replica on the host. The default (a fresh
@@ -294,6 +300,8 @@ jobs:
           tags: |
             ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:${{ needs.determine-environment.outputs.image-tag }}
             ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:latest
+            cuttlefish-registry.benebsworth.com/shorted/${{ matrix.service.name }}:${{ needs.determine-environment.outputs.image-tag }}
+            cuttlefish-registry.benebsworth.com/shorted/${{ matrix.service.name }}:latest
           secrets: |
             github_token=${{ secrets.STEALTH_PAT }}
 
@@ -360,6 +368,9 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
 
+      - name: Log in to the Cuttlefish registry (GitHub OIDC)
+        uses: ./.github/actions/cuttlefish-registry-login
+
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
 
@@ -372,6 +383,20 @@ jobs:
             --bare \
             --platform=linux/amd64 \
             --tags="${{ needs.determine-environment.outputs.image-tag }},latest"
+
+      # Mirror the just-pushed image into the Cuttlefish registry so rigs can
+      # pull it with their control-plane token (see the docker-image job).
+      - name: Mirror ${{ matrix.service.name }} to the Cuttlefish registry
+        env:
+          SRC: ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}
+        run: |
+          set -euo pipefail
+          for TAG in "${{ needs.determine-environment.outputs.image-tag }}" latest; do
+            DST="cuttlefish-registry.benebsworth.com/shorted/${{ matrix.service.name }}:${TAG}"
+            docker pull "${SRC}:${TAG}"
+            docker tag "${SRC}:${TAG}" "$DST"
+            docker push "$DST"
+          done
 
   terraform-plan:
     needs: [determine-environment, validate-secrets, build-docker-images, build-ko-images]
