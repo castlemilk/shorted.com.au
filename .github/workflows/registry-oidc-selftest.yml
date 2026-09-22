@@ -6,6 +6,11 @@ name: Registry OIDC selftest
 # auth or the repository allow-list.
 on:
   workflow_dispatch:
+    inputs:
+      runner:
+        description: Runner labels (JSON array) to run the probe on.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -13,7 +18,8 @@ permissions:
 
 jobs:
   push:
-    runs-on: [self-hosted, cuttlefish, linux]
+    # Any rig works: the mechanism is the job's OIDC token plus docker.
+    runs-on: ${{ fromJSON(inputs.runner || '["self-hosted","cuttlefish","linux"]') }}
     timeout-minutes: 15
     steps:
       - name: Checkout code
