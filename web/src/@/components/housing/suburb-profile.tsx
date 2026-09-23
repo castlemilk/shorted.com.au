@@ -919,7 +919,7 @@ export function SourcesLine({
   hasTerrain?: boolean;
   /** DEA Water Observations share rendered on the page. */
   hasWaterObservations?: boolean;
-  /** Source ids from SuburbHazardExposure (flood_source / bushfire_source) actually rendered. */
+  /** Source ids from SuburbHazardExposure (flood_source / bushfire_source): a share or a "Not mapped" tile read off that layer. */
   statutoryHazardSources?: string[];
   stateName: string;
 }) {
