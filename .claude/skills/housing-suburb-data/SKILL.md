@@ -66,11 +66,59 @@ runs only the official ABS/RBA tier plus an MV refresh.
 | Elevation (6 cols) | `elevation` | GA 1 Second DEM-S | 15,307 |
 | Hazard exposure (`suburb_hazard_exposure`) | `hazards` | DEA Water Observations (national) + NSW/VIC statutory flood & bushfire overlays; built by `web/scripts/geo/hazards/` (README there) | pending first prod load |
 | VG suburb medians | `vg-nsw` / `vg-vic` / `vg-sa` | state Valuer-General | NSW 2,433 · VIC 766 · SA 426 |
-| Amenities / LGA / NBN / banners | `amenities` `lga` `connectivity` `banners` | precomputed offline JSON | — |
+| Amenities / NBN / banners | `amenities` `connectivity` `banners` | precomputed offline JSON | — |
+| Council (LGA) layer | `lga` + 7 council modes — see §1a | ABS mesh-block allocation, ABS ERP/Census/Data by Region/BA, FAG, LGPRF, Wikidata | local 2026-09-23: 547/547 councils |
 
 **QLD and WA have no VG tier and will not get one** — both sell sales data
 through brokers. See `data-sources.md`; do not re-open, and do not substitute the
 LGA-level percentage-change layer as a price proxy.
+
+## 1a. Councils (LGA)
+
+Three tables: `lga` (current scalar facts), `suburb_lga` (suburb → dominant
+council + `dominant_share` + `overlap_lgas` ≥ 1%), `lga_series` (every council
+fact with a time axis). Schema + column ownership: `docs/feature/housing/data-model.md`
+"Councils". Sources + the council-level-only rule: `data-sources.md` "Councils".
+
+Run order (each mode refuses an empty dimension, so `lga` first):
+
+```bash
+cd services
+export DATABASE_URL=...   # local: postgresql://admin:password@localhost:5438/shorts
+LGA_DIR=../web/public/geo/insights GOWORK=off go run ./house-price-collector -mode lga
+for m in erp-lga census-lga council-regional building-approvals-lga wikidata-lga funding council-financials; do
+  GOWORK=off go run ./house-price-collector -mode $m
+done
+```
+
+- **The bridge is an offline build.** `web/scripts/geo/join-lga-mb.py` sums ABS
+  2021 mesh blocks (persons → dwellings → area). Inputs are ~55MB of ABS xlsx,
+  staged off-git (`/Volumes/gamma-systems-2/shorted-council/abs/`); outputs are
+  the committed `suburb-lga.json` + `lga-facts.json`. `lga.go` re-derives
+  kind/display name/state and refuses an artifact that disagrees.
+- **Join on ABS code, never names** — except FAG and LGPRF, which match on
+  `(state, normCouncil(name))`. `normCouncil` removes council-type words as
+  WHOLE words (a substring strip once made "Campbelltown" → "campbell").
+  Unmatched FAG entities after the 2026-09 fix are all non-councils (NSW village
+  committees, Lord Howe Island Board, SA Aboriginal corporations, the NT LGA).
+- **Code vintages** live in `council_abs.go`: `lgaRecode` (Moreland 25250 →
+  Merri-bek 24700) and `lgaSplitParts` (LGA_2025 East Arnhem 71500 + Groote
+  Archipelago 71700 → 71300; additive measures only, both parts required).
+  A new ABS recode shows up as "unknown codes [...]" in the mode's log — add it
+  there, never guess.
+- **Every pull must cover ≥ 500 councils** (`lgaMinCouncils`, `fagMinMatch`,
+  `wikidataMinCouncils`) or the mode fails instead of writing a sliver.
+- **Council medians are council-wide.** `lga_series` `house_median_price` is
+  ABS's council median; never write it to `house_prices` or show it as a
+  suburb's price.
+- **Slugs are minted once.** `assignLGASlugs` only fills NULL slugs; a rename
+  keeps its URL. Collisions within a state get `-<lga_code24>`.
+- **Scheduled:** `building-approvals-lga` + `erp-lga` run inside `-mode all`
+  with `lga_series` freshness policies (120 / 700 days, `council_freshness.go`).
+- Profile read: `suburbCouncilQuery` / `suburbCouncilOverlapsQuery` in
+  `postgres_house_prices.go` (tolerated, like hazards) → `LgaInfo` tags 13–32 +
+  `council_overlaps` → `suburb-council-card.tsx`. Council-page links wait on
+  `COUNCIL_PAGES_ENABLED` in `web/src/@/lib/housing/council.ts`.
 
 ## 2. Census expanded — the verified table mapping
 

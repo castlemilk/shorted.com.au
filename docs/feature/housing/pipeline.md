@@ -1,11 +1,12 @@
 # Pipeline
 
 Every mode is `house-price-collector -mode <name>`, implemented in
-`services/house-price-collector/`. **22 modes** (`main.go:25`; the switch also
-accepts an undocumented `abs` alias for `official`). The monolith's "7 modes"
+`services/house-price-collector/`. **27 modes** (the `-mode` flag in `main.go`;
+the switch also accepts an undocumented `abs` alias for `official`). The monolith's "7 modes"
 and CLAUDE.md's "11" are both stale — this table is regenerated from the switch.
 
-**The default mode is `all`, and `all` runs ONLY official ingest + MV refresh.**
+**The default mode is `all`, and `all` runs ONLY official ingest (plus the two
+monthly council feeds, `building-approvals-lga` and `erp-lga`) + MV refresh.**
 Every crawl, census, insights and crime mode is excluded from `all` by design:
 `all` fires on the monthly Cloud Run schedule, and an adversarial portal crawl
 or a 436MB BOCSAR download must never launch from a deploy or a timer.
@@ -19,15 +20,19 @@ official + suburb-dimension modes have **no dry-run** — they write every run.
 
 | Where | Modes | Trigger |
 |---|---|---|
-| Cloud Run job (monthly) | `all` (= `official` + `refresh`) | Scheduler `0 16 5 * *` — 5th, 16:00 UTC (~2–3 AM AEST). Wired into CI + both envs since PR #211; a merge to main deploys it |
+| Cloud Run job (monthly) | `all` (= `official` + council `building-approvals-lga` + `erp-lga` + `refresh`) | Scheduler `0 16 5 * *` — 5th, 16:00 UTC (~2–3 AM AEST). Wired into CI + both envs since PR #211; a merge to main deploys it |
 | Residential Mac rigs (launchd) | `enqueue`, `agent`, `freshness`, `property`, `warmcheck`, `listings`/`crawl` (legacy) | See wrapper table below. Headed host-Chrome over CDP — **never Cloud Run** |
-| Operator, by hand | `census`, `electorates`, `banners`, `amenities`, `elevation`, `hazards`, `lga`, `connectivity`, `funding`, `council-financials`, `crime`, `purge`, `backfill-address` | Manual ingest of precomputed/offline artifacts, or one-time passes |
+| Operator, by hand | `census`, `electorates`, `banners`, `amenities`, `elevation`, `hazards`, `lga`, `erp-lga`, `census-lga`, `council-regional`, `building-approvals-lga`, `wikidata-lga`, `connectivity`, `funding`, `council-financials`, `crime`, `purge`, `backfill-address` | Manual ingest of precomputed/offline artifacts, or one-time passes |
 
 ## Order
 
 ```
-census ─→ electorates / banners / amenities / lga / connectivity / funding / council-financials
+census ─→ electorates / banners / amenities / lga / connectivity
   (creates suburb_demographics rows; the others UPDATE onto them — census first or they no-op)
+
+lga ─→ erp-lga / census-lga / council-regional / building-approvals-lga / wikidata-lga / funding / council-financials
+  (lga loads the council dimension every council mode keys onto; each refuses to
+   run on an empty dimension. Order among the rest does not matter.)
 
 official ─→ refresh          (all = both; refresh also auto-links house_price_regions.sal_code)
 
@@ -48,7 +53,15 @@ migration 000056 after census" step in older docs is superseded.
 | `census` | `suburb_demographics` | Needs `CENSUS_DATAPACK_PATH` + `CENSUS_GEO_DIR` (ABS GCP SAL zip + boundary TopoJSON) |
 | `electorates` | `suburb_demographics` federal columns | Needs `ELECTORATES_DIR` (precomputed `web/public/geo/electorates/*.json`) |
 | `banners` | `suburb_demographics.banner_*` | From committed `suburb-archetypes.json` (`ARCHETYPES_FILE`) — no crawl |
-| `amenities` / `lga` / `connectivity` / `funding` / `council-financials` | `suburb_amenities` / `lga`+`suburb_lga` / `suburb_connectivity` / `lga` grants / `lga` VIC financials | Local-insights family; offline joins loaded via `AMENITIES_FILE` / `LGA_DIR` / `CONNECTIVITY_FILE` |
+| `amenities` / `connectivity` | `suburb_amenities` / `suburb_connectivity` | Local-insights family; offline joins loaded via `AMENITIES_FILE` / `CONNECTIVITY_FILE` |
+| `lga` | `lga` identity, `suburb_lga` (replaced in one txn), slugs (minted once) | From committed `suburb-lga.json` + `lga-facts.json` (`LGA_DIR`), built offline by `web/scripts/geo/join-lga-mb.py`. Writes no population |
+| `erp-lga` | `lga.population/erp_year/pop_growth_pct`, `lga_series` erp + components | ABS `ERP_LGA2025` + `ERP_COMP_LGA2025`. Also in `all`. Clears any population ERP does not cover |
+| `census-lga` | `lga` Census 2021 medians, `pct_rented`, SEIFA deciles | ABS `C21_G02_LGA`, `C21_G37_LGA`, `ABS_SEIFA2021_LGA`. A 2021 snapshot: re-run only if the dimension changes |
+| `council-regional` | `lga_series` council-level transfer medians/counts, FY approvals | ABS Data by Region `ABS_REGIONAL_LGA2021` v1.6.0. Annual, irregular: run when ABS re-releases |
+| `building-approvals-lga` | `lga_series` monthly dwelling approvals | ABS `BA_LGA<FY>`, key-filtered. Also in `all`. Cold run pulls FY2021–now; warm run re-pulls from the FY before its cursor (revisions); the current FY's flow 404s until its first release and is skipped |
+| `wikidata-lga` | `lga.wikidata_qid/website` | Committed `data/wikidata-lga.json` (`WIKIDATA_LGA_SNAPSHOT`); `WIKIDATA_REFRESH=true` re-queries SPARQL and rewrites the snapshot for review + commit |
+| `funding` | `lga_series` FAG history, `lga.fed_fag_*` | infrastructure.gov.au workbook via stealthhttp; fails if < 500 councils match |
+| `council-financials` | `lga` VIC financials | LGPRF workbook, URL read from the data.vic CKAN record (pinned fallback) |
 | `hazards` | `suburb_hazard_exposure` | From committed `suburb-hazards.json` (`HAZARDS_FILE`); built offline by `web/scripts/geo/hazards/` (DEA WOfS zonal stats + NSW/VIC statutory overlay shares). No fetch, no raster |
 | `crime` | `suburb_crime_stats` + MV refresh | Yearly, operator-run, `CRIME_DRY_RUN` default true; BOCSAR 436MB + ABS CVS/ERP |
 | `enqueue` | brandbrain `crawl_jobs` queue | `CRAWL_ENQUEUE_SELECTION=all\|delta` (default all), `_SOURCE` default `split` (separate REA/Domain jobs), `_BATCH` 40 |
@@ -79,6 +92,21 @@ only the listings crawl). This is how the VG gaps went unnoticed: as at
 2026-08-09, NSW VG suburb medians have never landed in prod and VIC is frozen at
 Dec-2024 (the upstream fetch currently 403s), despite all three jobs existing in
 the code.
+
+### Council feeds in the scheduled run
+
+`all`/`official` also runs two council modes after the official jobs —
+`building-approvals-lga` (`abs_ba_lga`) and `erp-lga` (`abs_erp_lga`) — via
+`runScheduledCouncil` in `council_freshness.go`. They write `lga_series`, not
+`house_prices`, so they do not go through `runOfficialJob`, but each failure
+counts toward the same `HOUSING_OFFICIAL_MAX_FAILURES` budget. Freshness
+policies (`councilFreshnessPolicies`) read `MAX(period)` from `lga_series`:
+**120 days** for monthly approvals (published ~5 weeks after the month) and
+**700 days** for annual ERP (a 30 June estimate published the following
+March–April). A breach fails the run exactly like a stale VG source.
+`TestCouncilFreshnessPoliciesDoNotDrift` requires every scheduled council job
+to have a policy and vice versa. `census-lga`, `council-regional`,
+`wikidata-lga`, `lga`, `funding` and `council-financials` stay operator-run.
 
 ## Crawl queue lifecycle (overview)
 
@@ -163,7 +191,8 @@ and the disable switch).
 
 `census`, `electorates`, `banners`, `amenities`, `elevation`, `hazards`, `lga`,
 `connectivity`, `funding`, `council-financials`, `crime` and `backfill-address`
-used to log their error, write an `error` cursor and **return normally**, so the
+(and, since they were added, `erp-lga`, `census-lga`, `council-regional`,
+`building-approvals-lga` and `wikidata-lga`) used to log their error, write an `error` cursor and **return normally**, so the
 process exited 0 and every wrapper, scheduler and alert read a failed run as a
 healthy one. They now return `error` and dispatch through `ingestExit` in
 `main.go`, so a failed ingest is exit 1.

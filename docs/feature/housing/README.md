@@ -46,7 +46,7 @@ build: `web/scripts/geo/hazards/`; wording rules:
 |---|---|
 | **[data-sources.md](data-sources.md)** | Every source, its licence, the mandatory fetch posture (ABS WAF UA, warm Chrome), and which sources are ruled OUT and why |
 | **[data-model.md](data-model.md)** | Tables, MVs, the migration map (000053–000092), and the guards enforced in the database rather than by review |
-| **[pipeline.md](pipeline.md)** | The collector's 22 modes, what each writes, order dependencies, timeouts and the exit-code contract |
+| **[pipeline.md](pipeline.md)** | The collector's 27 modes, what each writes, order dependencies, timeouts and the exit-code contract |
 | **[operations.md](operations.md)** | Runbook: prod DDL regime, the residential-rig crawl, revalidation, and the landmines that have actually bitten |
 | [architecture.md](architecture.md) | The decision-and-incident record (the old 75KB monolith, moved here; its actively-wrong claims corrected inline, the rest assume residual drift) plus the extension recipes. Read it before touching crawl classification or caching |
 | [crawl-roadmap.md](crawl-roadmap.md) | Handover for the next crawl work: measured coverage/throughput/completeness numbers, what blocks per-property reporting and stock-over-time, and the coverage arithmetic for "all suburbs" |
