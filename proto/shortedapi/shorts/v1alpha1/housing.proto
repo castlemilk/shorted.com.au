@@ -407,7 +407,7 @@ message LgaInfo {
   string lga_name = 2;
   string state_code = 3;
   double area_sqkm = 4;
-  int32  population = 5;            // summed from member-suburb Census populations
+  int32  population = 5;            // ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded
   double fed_fag_aud = 6;          // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
   string fed_fag_year = 7;         // e.g. '2025-26'
   // Per-council financials (VIC LGPRF, CC-BY; 0/'' for states not yet sourced).
@@ -416,6 +416,44 @@ message LgaInfo {
   double asset_renewal_ratio = 10; // asset renewal + upgrade vs depreciation, %
   string fin_source = 11;          // financials provenance ('vic_lgprf'), '' if none
   string fin_year = 12;            // financials reporting year, e.g. '2024-25'
+  // Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+  // 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+  string slug = 13;                // URL segment, unique within state, never reassigned
+  string display_name = 14;        // ABS name without the state suffix: 'Campbelltown'
+  string kind = 15;                // council | unincorporated | pseudo
+  // Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,
+  // never a measured zero.
+  int32 erp_year = 16;                        // reference year of population; 0 if none
+  optional double pop_growth_pct = 17;        // ERP year-on-year change, %
+  optional double median_age = 18;            // Census 2021
+  optional int32 median_hhd_income = 19;      // Census 2021, $/week
+  optional double pct_rented = 20;            // Census 2021, % of households renting
+  optional int32 median_weekly_rent = 21;     // Census 2021, $/week
+  optional int32 median_mortgage_monthly = 22; // Census 2021, $/month
+  optional double avg_household_size = 23;    // Census 2021, persons
+  optional int32 seifa_irsad_decile = 24;     // SEIFA 2021 IRSAD, national decile 1..10
+  optional int32 seifa_irsd_decile = 25;      // SEIFA 2021 IRSD, national decile 1..10
+  string website = 26;                        // official website (Wikidata P856, CC0); '' if none
+  string wikidata_qid = 27;                   // e.g. 'Q1719401'; '' if none
+  optional double centroid_lat = 28;          // area-weighted centroid of the ABS boundary
+  optional double centroid_lon = 29;
+  // Share (0..1] of THIS suburb's residents who live in this council (ABS
+  // mesh-block allocation, Census 2021 persons). Absent outside a suburb profile.
+  optional double dominant_share = 30;
+  // Latest ABS 'Data by Region' median established-house transfer price for
+  // the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+  // present it as this suburb's median.
+  optional double council_house_median = 31;
+  string council_house_median_period = 32;    // e.g. '2023-24'; '' if none
+}
+
+// Another council a suburb spans, beyond the dominant one.
+message LgaOverlap {
+  string lga_code = 1;
+  string display_name = 2;
+  string state_code = 3;
+  string slug = 4;          // '' when the council has no page
+  double share = 5;         // 0..1 of the suburb's residents (Census 2021 mesh blocks)
 }
 
 // A suburb with a similar demographic + amenity profile (feature-vector kNN).
@@ -504,6 +542,9 @@ message GetSuburbProfileResponse {
   SuburbElevation elevation = 9;
   // Profile-only hazard block; absent when no hazard source covers the suburb.
   SuburbHazardExposure hazards = 10;
+  // Other councils holding >= 5% of this suburb's residents, largest first.
+  // Empty for a suburb wholly (or >= 95%) inside `council`.
+  repeated LgaOverlap council_overlaps = 11;
 }
 
 message ListHousingRegionsRequest {

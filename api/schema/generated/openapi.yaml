@@ -6997,6 +6997,14 @@ components:
           title: hazards
           description: Profile-only hazard block; absent when no hazard source covers the suburb. (proto shorts.v1alpha1.SuburbHazardExposure)
           $ref: '#/components/schemas/shorts.v1alpha1.SuburbHazardExposure'
+        councilOverlaps:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.LgaOverlap'
+          title: council_overlaps
+          description: |-
+            Other councils holding >= 5% of this suburb's residents, largest first.
+             Empty for a suburb wholly (or >= 95%) inside `council`. (proto shorts.v1alpha1.LgaOverlap)
       title: GetSuburbProfileResponse
       additionalProperties: false
     shorts.v1alpha1.GetSyncStatusRequest:
@@ -7817,7 +7825,7 @@ components:
           type: integer
           title: population
           format: int32
-          description: summed from member-suburb Census populations (proto int32)
+          description: ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded (proto int32)
         fedFagAud:
           type: number
           title: fed_fag_aud
@@ -7850,9 +7858,165 @@ components:
           type: string
           title: fin_year
           description: financials reporting year, e.g. '2024-25' (proto string)
+        slug:
+          type: string
+          title: slug
+          description: |-
+            Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+             'council' and 'unincorporated'; 'pseudo' areas never reach a suburb. URL segment, unique within state, never reassigned (proto string)
+        displayName:
+          type: string
+          title: display_name
+          description: 'ABS name without the state suffix: ''Campbelltown'' (proto string)'
+        kind:
+          type: string
+          title: kind
+          description: council | unincorporated | pseudo (proto string)
+        erpYear:
+          type: integer
+          title: erp_year
+          format: int32
+          description: |-
+            Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,
+             never a measured zero. reference year of population; 0 if none (proto int32)
+        popGrowthPct:
+          type:
+            - number
+            - "null"
+          title: pop_growth_pct
+          format: double
+          description: ERP year-on-year change, % (proto double)
+        medianAge:
+          type:
+            - number
+            - "null"
+          title: median_age
+          format: double
+          description: Census 2021 (proto double)
+        medianHhdIncome:
+          type:
+            - integer
+            - "null"
+          title: median_hhd_income
+          format: int32
+          description: Census 2021, $/week (proto int32)
+        pctRented:
+          type:
+            - number
+            - "null"
+          title: pct_rented
+          format: double
+          description: Census 2021, % of households renting (proto double)
+        medianWeeklyRent:
+          type:
+            - integer
+            - "null"
+          title: median_weekly_rent
+          format: int32
+          description: Census 2021, $/week (proto int32)
+        medianMortgageMonthly:
+          type:
+            - integer
+            - "null"
+          title: median_mortgage_monthly
+          format: int32
+          description: Census 2021, $/month (proto int32)
+        avgHouseholdSize:
+          type:
+            - number
+            - "null"
+          title: avg_household_size
+          format: double
+          description: Census 2021, persons (proto double)
+        seifaIrsadDecile:
+          type:
+            - integer
+            - "null"
+          title: seifa_irsad_decile
+          format: int32
+          description: SEIFA 2021 IRSAD, national decile 1..10 (proto int32)
+        seifaIrsdDecile:
+          type:
+            - integer
+            - "null"
+          title: seifa_irsd_decile
+          format: int32
+          description: SEIFA 2021 IRSD, national decile 1..10 (proto int32)
+        website:
+          type: string
+          title: website
+          description: official website (Wikidata P856, CC0); '' if none (proto string)
+        wikidataQid:
+          type: string
+          title: wikidata_qid
+          description: e.g. 'Q1719401'; '' if none (proto string)
+        centroidLat:
+          type:
+            - number
+            - "null"
+          title: centroid_lat
+          format: double
+          description: area-weighted centroid of the ABS boundary (proto double)
+        centroidLon:
+          type:
+            - number
+            - "null"
+          title: centroid_lon
+          format: double
+          description: (proto double)
+        dominantShare:
+          type:
+            - number
+            - "null"
+          title: dominant_share
+          format: double
+          description: |-
+            Share (0..1] of THIS suburb's residents who live in this council (ABS
+             mesh-block allocation, Census 2021 persons). Absent outside a suburb profile. (proto double)
+        councilHouseMedian:
+          type:
+            - number
+            - "null"
+          title: council_house_median
+          format: double
+          description: |-
+            Latest ABS 'Data by Region' median established-house transfer price for
+             the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+             present it as this suburb's median. (proto double)
+        councilHouseMedianPeriod:
+          type: string
+          title: council_house_median_period
+          description: e.g. '2023-24'; '' if none (proto string)
       title: LgaInfo
       additionalProperties: false
       description: Local Government Area (council) a suburb belongs to (Local Insights, W2).
+    shorts.v1alpha1.LgaOverlap:
+      type: object
+      properties:
+        lgaCode:
+          type: string
+          title: lga_code
+          description: (proto string)
+        displayName:
+          type: string
+          title: display_name
+          description: (proto string)
+        stateCode:
+          type: string
+          title: state_code
+          description: (proto string)
+        slug:
+          type: string
+          title: slug
+          description: ''''' when the council has no page (proto string)'
+        share:
+          type: number
+          title: share
+          format: double
+          description: 0..1 of the suburb's residents (Census 2021 mesh blocks) (proto double)
+      title: LgaOverlap
+      additionalProperties: false
+      description: Another council a suburb spans, beyond the dominant one.
     shorts.v1alpha1.ListAddressPriceDropsRequest:
       type: object
       properties:

@@ -2333,7 +2333,7 @@ type LgaInfo struct {
 	LgaName    string                 `protobuf:"bytes,2,opt,name=lga_name,json=lgaName,proto3" json:"lga_name,omitempty"`
 	StateCode  string                 `protobuf:"bytes,3,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
 	AreaSqkm   float64                `protobuf:"fixed64,4,opt,name=area_sqkm,json=areaSqkm,proto3" json:"area_sqkm,omitempty"`
-	Population int32                  `protobuf:"varint,5,opt,name=population,proto3" json:"population,omitempty"`                    // summed from member-suburb Census populations
+	Population int32                  `protobuf:"varint,5,opt,name=population,proto3" json:"population,omitempty"`                    // ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded
 	FedFagAud  float64                `protobuf:"fixed64,6,opt,name=fed_fag_aud,json=fedFagAud,proto3" json:"fed_fag_aud,omitempty"`  // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
 	FedFagYear string                 `protobuf:"bytes,7,opt,name=fed_fag_year,json=fedFagYear,proto3" json:"fed_fag_year,omitempty"` // e.g. '2025-26'
 	// Per-council financials (VIC LGPRF, CC-BY; 0/” for states not yet sourced).
@@ -2342,8 +2342,37 @@ type LgaInfo struct {
 	AssetRenewalRatio float64 `protobuf:"fixed64,10,opt,name=asset_renewal_ratio,json=assetRenewalRatio,proto3" json:"asset_renewal_ratio,omitempty"` // asset renewal + upgrade vs depreciation, %
 	FinSource         string  `protobuf:"bytes,11,opt,name=fin_source,json=finSource,proto3" json:"fin_source,omitempty"`                             // financials provenance ('vic_lgprf'), '' if none
 	FinYear           string  `protobuf:"bytes,12,opt,name=fin_year,json=finYear,proto3" json:"fin_year,omitempty"`                                   // financials reporting year, e.g. '2024-25'
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+	// 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+	Slug        string `protobuf:"bytes,13,opt,name=slug,proto3" json:"slug,omitempty"`                                  // URL segment, unique within state, never reassigned
+	DisplayName string `protobuf:"bytes,14,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"` // ABS name without the state suffix: 'Campbelltown'
+	Kind        string `protobuf:"bytes,15,opt,name=kind,proto3" json:"kind,omitempty"`                                  // council | unincorporated | pseudo
+	// Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,
+	// never a measured zero.
+	ErpYear               int32    `protobuf:"varint,16,opt,name=erp_year,json=erpYear,proto3" json:"erp_year,omitempty"`                                                   // reference year of population; 0 if none
+	PopGrowthPct          *float64 `protobuf:"fixed64,17,opt,name=pop_growth_pct,json=popGrowthPct,proto3,oneof" json:"pop_growth_pct,omitempty"`                           // ERP year-on-year change, %
+	MedianAge             *float64 `protobuf:"fixed64,18,opt,name=median_age,json=medianAge,proto3,oneof" json:"median_age,omitempty"`                                      // Census 2021
+	MedianHhdIncome       *int32   `protobuf:"varint,19,opt,name=median_hhd_income,json=medianHhdIncome,proto3,oneof" json:"median_hhd_income,omitempty"`                   // Census 2021, $/week
+	PctRented             *float64 `protobuf:"fixed64,20,opt,name=pct_rented,json=pctRented,proto3,oneof" json:"pct_rented,omitempty"`                                      // Census 2021, % of households renting
+	MedianWeeklyRent      *int32   `protobuf:"varint,21,opt,name=median_weekly_rent,json=medianWeeklyRent,proto3,oneof" json:"median_weekly_rent,omitempty"`                // Census 2021, $/week
+	MedianMortgageMonthly *int32   `protobuf:"varint,22,opt,name=median_mortgage_monthly,json=medianMortgageMonthly,proto3,oneof" json:"median_mortgage_monthly,omitempty"` // Census 2021, $/month
+	AvgHouseholdSize      *float64 `protobuf:"fixed64,23,opt,name=avg_household_size,json=avgHouseholdSize,proto3,oneof" json:"avg_household_size,omitempty"`               // Census 2021, persons
+	SeifaIrsadDecile      *int32   `protobuf:"varint,24,opt,name=seifa_irsad_decile,json=seifaIrsadDecile,proto3,oneof" json:"seifa_irsad_decile,omitempty"`                // SEIFA 2021 IRSAD, national decile 1..10
+	SeifaIrsdDecile       *int32   `protobuf:"varint,25,opt,name=seifa_irsd_decile,json=seifaIrsdDecile,proto3,oneof" json:"seifa_irsd_decile,omitempty"`                   // SEIFA 2021 IRSD, national decile 1..10
+	Website               string   `protobuf:"bytes,26,opt,name=website,proto3" json:"website,omitempty"`                                                                   // official website (Wikidata P856, CC0); '' if none
+	WikidataQid           string   `protobuf:"bytes,27,opt,name=wikidata_qid,json=wikidataQid,proto3" json:"wikidata_qid,omitempty"`                                        // e.g. 'Q1719401'; '' if none
+	CentroidLat           *float64 `protobuf:"fixed64,28,opt,name=centroid_lat,json=centroidLat,proto3,oneof" json:"centroid_lat,omitempty"`                                // area-weighted centroid of the ABS boundary
+	CentroidLon           *float64 `protobuf:"fixed64,29,opt,name=centroid_lon,json=centroidLon,proto3,oneof" json:"centroid_lon,omitempty"`
+	// Share (0..1] of THIS suburb's residents who live in this council (ABS
+	// mesh-block allocation, Census 2021 persons). Absent outside a suburb profile.
+	DominantShare *float64 `protobuf:"fixed64,30,opt,name=dominant_share,json=dominantShare,proto3,oneof" json:"dominant_share,omitempty"`
+	// Latest ABS 'Data by Region' median established-house transfer price for
+	// the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+	// present it as this suburb's median.
+	CouncilHouseMedian       *float64 `protobuf:"fixed64,31,opt,name=council_house_median,json=councilHouseMedian,proto3,oneof" json:"council_house_median,omitempty"`
+	CouncilHouseMedianPeriod string   `protobuf:"bytes,32,opt,name=council_house_median_period,json=councilHouseMedianPeriod,proto3" json:"council_house_median_period,omitempty"` // e.g. '2023-24'; '' if none
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *LgaInfo) Reset() {
@@ -2460,6 +2489,223 @@ func (x *LgaInfo) GetFinYear() string {
 	return ""
 }
 
+func (x *LgaInfo) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetErpYear() int32 {
+	if x != nil {
+		return x.ErpYear
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetPopGrowthPct() float64 {
+	if x != nil && x.PopGrowthPct != nil {
+		return *x.PopGrowthPct
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetMedianAge() float64 {
+	if x != nil && x.MedianAge != nil {
+		return *x.MedianAge
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetMedianHhdIncome() int32 {
+	if x != nil && x.MedianHhdIncome != nil {
+		return *x.MedianHhdIncome
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetPctRented() float64 {
+	if x != nil && x.PctRented != nil {
+		return *x.PctRented
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetMedianWeeklyRent() int32 {
+	if x != nil && x.MedianWeeklyRent != nil {
+		return *x.MedianWeeklyRent
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetMedianMortgageMonthly() int32 {
+	if x != nil && x.MedianMortgageMonthly != nil {
+		return *x.MedianMortgageMonthly
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetAvgHouseholdSize() float64 {
+	if x != nil && x.AvgHouseholdSize != nil {
+		return *x.AvgHouseholdSize
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetSeifaIrsadDecile() int32 {
+	if x != nil && x.SeifaIrsadDecile != nil {
+		return *x.SeifaIrsadDecile
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetSeifaIrsdDecile() int32 {
+	if x != nil && x.SeifaIrsdDecile != nil {
+		return *x.SeifaIrsdDecile
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetWebsite() string {
+	if x != nil {
+		return x.Website
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetWikidataQid() string {
+	if x != nil {
+		return x.WikidataQid
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetCentroidLat() float64 {
+	if x != nil && x.CentroidLat != nil {
+		return *x.CentroidLat
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetCentroidLon() float64 {
+	if x != nil && x.CentroidLon != nil {
+		return *x.CentroidLon
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetDominantShare() float64 {
+	if x != nil && x.DominantShare != nil {
+		return *x.DominantShare
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetCouncilHouseMedian() float64 {
+	if x != nil && x.CouncilHouseMedian != nil {
+		return *x.CouncilHouseMedian
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetCouncilHouseMedianPeriod() string {
+	if x != nil {
+		return x.CouncilHouseMedianPeriod
+	}
+	return ""
+}
+
+// Another council a suburb spans, beyond the dominant one.
+type LgaOverlap struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LgaCode       string                 `protobuf:"bytes,1,opt,name=lga_code,json=lgaCode,proto3" json:"lga_code,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	StateCode     string                 `protobuf:"bytes,3,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
+	Slug          string                 `protobuf:"bytes,4,opt,name=slug,proto3" json:"slug,omitempty"`     // '' when the council has no page
+	Share         float64                `protobuf:"fixed64,5,opt,name=share,proto3" json:"share,omitempty"` // 0..1 of the suburb's residents (Census 2021 mesh blocks)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LgaOverlap) Reset() {
+	*x = LgaOverlap{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LgaOverlap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LgaOverlap) ProtoMessage() {}
+
+func (x *LgaOverlap) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LgaOverlap.ProtoReflect.Descriptor instead.
+func (*LgaOverlap) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *LgaOverlap) GetLgaCode() string {
+	if x != nil {
+		return x.LgaCode
+	}
+	return ""
+}
+
+func (x *LgaOverlap) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *LgaOverlap) GetStateCode() string {
+	if x != nil {
+		return x.StateCode
+	}
+	return ""
+}
+
+func (x *LgaOverlap) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *LgaOverlap) GetShare() float64 {
+	if x != nil {
+		return x.Share
+	}
+	return 0
+}
+
 // A suburb with a similar demographic + amenity profile (feature-vector kNN).
 type SimilarSuburb struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
@@ -2475,7 +2721,7 @@ type SimilarSuburb struct {
 
 func (x *SimilarSuburb) Reset() {
 	*x = SimilarSuburb{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[27]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2487,7 +2733,7 @@ func (x *SimilarSuburb) String() string {
 func (*SimilarSuburb) ProtoMessage() {}
 
 func (x *SimilarSuburb) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[27]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2500,7 +2746,7 @@ func (x *SimilarSuburb) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SimilarSuburb.ProtoReflect.Descriptor instead.
 func (*SimilarSuburb) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{27}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *SimilarSuburb) GetSalCode() string {
@@ -2556,7 +2802,7 @@ type SuburbLandmark struct {
 
 func (x *SuburbLandmark) Reset() {
 	*x = SuburbLandmark{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[28]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2568,7 +2814,7 @@ func (x *SuburbLandmark) String() string {
 func (*SuburbLandmark) ProtoMessage() {}
 
 func (x *SuburbLandmark) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[28]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2581,7 +2827,7 @@ func (x *SuburbLandmark) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbLandmark.ProtoReflect.Descriptor instead.
 func (*SuburbLandmark) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{28}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *SuburbLandmark) GetName() string {
@@ -2612,7 +2858,7 @@ type SuburbBanner struct {
 
 func (x *SuburbBanner) Reset() {
 	*x = SuburbBanner{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[29]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2624,7 +2870,7 @@ func (x *SuburbBanner) String() string {
 func (*SuburbBanner) ProtoMessage() {}
 
 func (x *SuburbBanner) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[29]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2637,7 +2883,7 @@ func (x *SuburbBanner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbBanner.ProtoReflect.Descriptor instead.
 func (*SuburbBanner) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{29}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *SuburbBanner) GetArchetype() string {
@@ -2689,7 +2935,7 @@ type SuburbCrimeStat struct {
 
 func (x *SuburbCrimeStat) Reset() {
 	*x = SuburbCrimeStat{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[30]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2701,7 +2947,7 @@ func (x *SuburbCrimeStat) String() string {
 func (*SuburbCrimeStat) ProtoMessage() {}
 
 func (x *SuburbCrimeStat) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[30]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2714,7 +2960,7 @@ func (x *SuburbCrimeStat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbCrimeStat.ProtoReflect.Descriptor instead.
 func (*SuburbCrimeStat) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{30}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *SuburbCrimeStat) GetCrimeType() string {
@@ -2759,7 +3005,7 @@ type SuburbCrime struct {
 
 func (x *SuburbCrime) Reset() {
 	*x = SuburbCrime{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[31]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2771,7 +3017,7 @@ func (x *SuburbCrime) String() string {
 func (*SuburbCrime) ProtoMessage() {}
 
 func (x *SuburbCrime) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[31]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2784,7 +3030,7 @@ func (x *SuburbCrime) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbCrime.ProtoReflect.Descriptor instead.
 func (*SuburbCrime) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{31}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *SuburbCrime) GetStats() []*SuburbCrimeStat {
@@ -2847,7 +3093,7 @@ type SuburbListingStats struct {
 
 func (x *SuburbListingStats) Reset() {
 	*x = SuburbListingStats{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[32]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2859,7 +3105,7 @@ func (x *SuburbListingStats) String() string {
 func (*SuburbListingStats) ProtoMessage() {}
 
 func (x *SuburbListingStats) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[32]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2872,7 +3118,7 @@ func (x *SuburbListingStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbListingStats.ProtoReflect.Descriptor instead.
 func (*SuburbListingStats) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{32}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *SuburbListingStats) GetForSaleCount() int32 {
@@ -2933,14 +3179,17 @@ type GetSuburbProfileResponse struct {
 	// or below the collector's published cell-count quality floor.
 	Elevation *SuburbElevation `protobuf:"bytes,9,opt,name=elevation,proto3" json:"elevation,omitempty"`
 	// Profile-only hazard block; absent when no hazard source covers the suburb.
-	Hazards       *SuburbHazardExposure `protobuf:"bytes,10,opt,name=hazards,proto3" json:"hazards,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Hazards *SuburbHazardExposure `protobuf:"bytes,10,opt,name=hazards,proto3" json:"hazards,omitempty"`
+	// Other councils holding >= 5% of this suburb's residents, largest first.
+	// Empty for a suburb wholly (or >= 95%) inside `council`.
+	CouncilOverlaps []*LgaOverlap `protobuf:"bytes,11,rep,name=council_overlaps,json=councilOverlaps,proto3" json:"council_overlaps,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GetSuburbProfileResponse) Reset() {
 	*x = GetSuburbProfileResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[33]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2952,7 +3201,7 @@ func (x *GetSuburbProfileResponse) String() string {
 func (*GetSuburbProfileResponse) ProtoMessage() {}
 
 func (x *GetSuburbProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[33]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2965,7 +3214,7 @@ func (x *GetSuburbProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSuburbProfileResponse.ProtoReflect.Descriptor instead.
 func (*GetSuburbProfileResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{33}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GetSuburbProfileResponse) GetSummary() *SuburbSummary {
@@ -3038,6 +3287,13 @@ func (x *GetSuburbProfileResponse) GetHazards() *SuburbHazardExposure {
 	return nil
 }
 
+func (x *GetSuburbProfileResponse) GetCouncilOverlaps() []*LgaOverlap {
+	if x != nil {
+		return x.CouncilOverlaps
+	}
+	return nil
+}
+
 type ListHousingRegionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RegionType    string                 `protobuf:"bytes,1,opt,name=region_type,json=regionType,proto3" json:"region_type,omitempty"` // optional filter, e.g. 'suburb' | 'gccsa' | 'state'
@@ -3050,7 +3306,7 @@ type ListHousingRegionsRequest struct {
 
 func (x *ListHousingRegionsRequest) Reset() {
 	*x = ListHousingRegionsRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[34]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3062,7 +3318,7 @@ func (x *ListHousingRegionsRequest) String() string {
 func (*ListHousingRegionsRequest) ProtoMessage() {}
 
 func (x *ListHousingRegionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[34]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3075,7 +3331,7 @@ func (x *ListHousingRegionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListHousingRegionsRequest.ProtoReflect.Descriptor instead.
 func (*ListHousingRegionsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{34}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListHousingRegionsRequest) GetRegionType() string {
@@ -3122,7 +3378,7 @@ type HousingRegion struct {
 
 func (x *HousingRegion) Reset() {
 	*x = HousingRegion{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[35]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3134,7 +3390,7 @@ func (x *HousingRegion) String() string {
 func (*HousingRegion) ProtoMessage() {}
 
 func (x *HousingRegion) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[35]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3147,7 +3403,7 @@ func (x *HousingRegion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HousingRegion.ProtoReflect.Descriptor instead.
 func (*HousingRegion) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{35}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *HousingRegion) GetRegionCode() string {
@@ -3208,7 +3464,7 @@ type ListHousingRegionsResponse struct {
 
 func (x *ListHousingRegionsResponse) Reset() {
 	*x = ListHousingRegionsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[36]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3220,7 +3476,7 @@ func (x *ListHousingRegionsResponse) String() string {
 func (*ListHousingRegionsResponse) ProtoMessage() {}
 
 func (x *ListHousingRegionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[36]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3233,7 +3489,7 @@ func (x *ListHousingRegionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListHousingRegionsResponse.ProtoReflect.Descriptor instead.
 func (*ListHousingRegionsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{36}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ListHousingRegionsResponse) GetRegions() []*HousingRegion {
@@ -3255,7 +3511,7 @@ type ListSuburbPriceDropsRequest struct {
 
 func (x *ListSuburbPriceDropsRequest) Reset() {
 	*x = ListSuburbPriceDropsRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[37]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3267,7 +3523,7 @@ func (x *ListSuburbPriceDropsRequest) String() string {
 func (*ListSuburbPriceDropsRequest) ProtoMessage() {}
 
 func (x *ListSuburbPriceDropsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[37]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3280,7 +3536,7 @@ func (x *ListSuburbPriceDropsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSuburbPriceDropsRequest.ProtoReflect.Descriptor instead.
 func (*ListSuburbPriceDropsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{37}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListSuburbPriceDropsRequest) GetStateCode() string {
@@ -3341,7 +3597,7 @@ type SuburbPriceDrop struct {
 
 func (x *SuburbPriceDrop) Reset() {
 	*x = SuburbPriceDrop{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[38]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3353,7 +3609,7 @@ func (x *SuburbPriceDrop) String() string {
 func (*SuburbPriceDrop) ProtoMessage() {}
 
 func (x *SuburbPriceDrop) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[38]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3366,7 +3622,7 @@ func (x *SuburbPriceDrop) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbPriceDrop.ProtoReflect.Descriptor instead.
 func (*SuburbPriceDrop) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{38}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *SuburbPriceDrop) GetRegionCode() string {
@@ -3511,7 +3767,7 @@ type ListSuburbPriceDropsResponse struct {
 
 func (x *ListSuburbPriceDropsResponse) Reset() {
 	*x = ListSuburbPriceDropsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[39]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3523,7 +3779,7 @@ func (x *ListSuburbPriceDropsResponse) String() string {
 func (*ListSuburbPriceDropsResponse) ProtoMessage() {}
 
 func (x *ListSuburbPriceDropsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[39]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3536,7 +3792,7 @@ func (x *ListSuburbPriceDropsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSuburbPriceDropsResponse.ProtoReflect.Descriptor instead.
 func (*ListSuburbPriceDropsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{39}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ListSuburbPriceDropsResponse) GetSuburbs() []*SuburbPriceDrop {
@@ -3558,7 +3814,7 @@ type ListSuburbDropListingsRequest struct {
 
 func (x *ListSuburbDropListingsRequest) Reset() {
 	*x = ListSuburbDropListingsRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[40]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3570,7 +3826,7 @@ func (x *ListSuburbDropListingsRequest) String() string {
 func (*ListSuburbDropListingsRequest) ProtoMessage() {}
 
 func (x *ListSuburbDropListingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[40]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3583,7 +3839,7 @@ func (x *ListSuburbDropListingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSuburbDropListingsRequest.ProtoReflect.Descriptor instead.
 func (*ListSuburbDropListingsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{40}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ListSuburbDropListingsRequest) GetSalCode() string {
@@ -3638,7 +3894,7 @@ type SuburbDropListing struct {
 
 func (x *SuburbDropListing) Reset() {
 	*x = SuburbDropListing{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[41]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3650,7 +3906,7 @@ func (x *SuburbDropListing) String() string {
 func (*SuburbDropListing) ProtoMessage() {}
 
 func (x *SuburbDropListing) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[41]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3663,7 +3919,7 @@ func (x *SuburbDropListing) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbDropListing.ProtoReflect.Descriptor instead.
 func (*SuburbDropListing) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{41}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *SuburbDropListing) GetSource() string {
@@ -3780,7 +4036,7 @@ type ListSuburbDropListingsResponse struct {
 
 func (x *ListSuburbDropListingsResponse) Reset() {
 	*x = ListSuburbDropListingsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[42]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3792,7 +4048,7 @@ func (x *ListSuburbDropListingsResponse) String() string {
 func (*ListSuburbDropListingsResponse) ProtoMessage() {}
 
 func (x *ListSuburbDropListingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[42]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3805,7 +4061,7 @@ func (x *ListSuburbDropListingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSuburbDropListingsResponse.ProtoReflect.Descriptor instead.
 func (*ListSuburbDropListingsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{42}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ListSuburbDropListingsResponse) GetListings() []*SuburbDropListing {
@@ -3824,7 +4080,7 @@ type GetPropertyHistoryRequest struct {
 
 func (x *GetPropertyHistoryRequest) Reset() {
 	*x = GetPropertyHistoryRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[43]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3836,7 +4092,7 @@ func (x *GetPropertyHistoryRequest) String() string {
 func (*GetPropertyHistoryRequest) ProtoMessage() {}
 
 func (x *GetPropertyHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[43]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3849,7 +4105,7 @@ func (x *GetPropertyHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPropertyHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetPropertyHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{43}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *GetPropertyHistoryRequest) GetAddressKey() string {
@@ -3886,7 +4142,7 @@ type PropertyListingSnapshot struct {
 
 func (x *PropertyListingSnapshot) Reset() {
 	*x = PropertyListingSnapshot{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[44]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3898,7 +4154,7 @@ func (x *PropertyListingSnapshot) String() string {
 func (*PropertyListingSnapshot) ProtoMessage() {}
 
 func (x *PropertyListingSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[44]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3911,7 +4167,7 @@ func (x *PropertyListingSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropertyListingSnapshot.ProtoReflect.Descriptor instead.
 func (*PropertyListingSnapshot) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{44}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *PropertyListingSnapshot) GetSource() string {
@@ -4053,7 +4309,7 @@ type PropertyPriceEvent struct {
 
 func (x *PropertyPriceEvent) Reset() {
 	*x = PropertyPriceEvent{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[45]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4065,7 +4321,7 @@ func (x *PropertyPriceEvent) String() string {
 func (*PropertyPriceEvent) ProtoMessage() {}
 
 func (x *PropertyPriceEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[45]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4078,7 +4334,7 @@ func (x *PropertyPriceEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropertyPriceEvent.ProtoReflect.Descriptor instead.
 func (*PropertyPriceEvent) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{45}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *PropertyPriceEvent) GetObservedAt() string {
@@ -4184,7 +4440,7 @@ type GetPropertyHistoryResponse struct {
 
 func (x *GetPropertyHistoryResponse) Reset() {
 	*x = GetPropertyHistoryResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[46]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4196,7 +4452,7 @@ func (x *GetPropertyHistoryResponse) String() string {
 func (*GetPropertyHistoryResponse) ProtoMessage() {}
 
 func (x *GetPropertyHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[46]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4209,7 +4465,7 @@ func (x *GetPropertyHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPropertyHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetPropertyHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{46}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *GetPropertyHistoryResponse) GetAddressKey() string {
@@ -4312,7 +4568,7 @@ type PropertyValuationSale struct {
 
 func (x *PropertyValuationSale) Reset() {
 	*x = PropertyValuationSale{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[47]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4324,7 +4580,7 @@ func (x *PropertyValuationSale) String() string {
 func (*PropertyValuationSale) ProtoMessage() {}
 
 func (x *PropertyValuationSale) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[47]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4337,7 +4593,7 @@ func (x *PropertyValuationSale) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropertyValuationSale.ProtoReflect.Descriptor instead.
 func (*PropertyValuationSale) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{47}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *PropertyValuationSale) GetDate() string {
@@ -4403,7 +4659,7 @@ type PropertyValuation struct {
 
 func (x *PropertyValuation) Reset() {
 	*x = PropertyValuation{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[48]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4415,7 +4671,7 @@ func (x *PropertyValuation) String() string {
 func (*PropertyValuation) ProtoMessage() {}
 
 func (x *PropertyValuation) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[48]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4428,7 +4684,7 @@ func (x *PropertyValuation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropertyValuation.ProtoReflect.Descriptor instead.
 func (*PropertyValuation) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{48}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *PropertyValuation) GetSource() string {
@@ -4562,7 +4818,7 @@ type ListAddressPriceDropsRequest struct {
 
 func (x *ListAddressPriceDropsRequest) Reset() {
 	*x = ListAddressPriceDropsRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[49]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4574,7 +4830,7 @@ func (x *ListAddressPriceDropsRequest) String() string {
 func (*ListAddressPriceDropsRequest) ProtoMessage() {}
 
 func (x *ListAddressPriceDropsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[49]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4587,7 +4843,7 @@ func (x *ListAddressPriceDropsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAddressPriceDropsRequest.ProtoReflect.Descriptor instead.
 func (*ListAddressPriceDropsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{49}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ListAddressPriceDropsRequest) GetStateCode() string {
@@ -4646,7 +4902,7 @@ type AddressPriceDrop struct {
 
 func (x *AddressPriceDrop) Reset() {
 	*x = AddressPriceDrop{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[50]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4658,7 +4914,7 @@ func (x *AddressPriceDrop) String() string {
 func (*AddressPriceDrop) ProtoMessage() {}
 
 func (x *AddressPriceDrop) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[50]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4671,7 +4927,7 @@ func (x *AddressPriceDrop) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddressPriceDrop.ProtoReflect.Descriptor instead.
 func (*AddressPriceDrop) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{50}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *AddressPriceDrop) GetAddressKey() string {
@@ -4809,7 +5065,7 @@ type ListAddressPriceDropsResponse struct {
 
 func (x *ListAddressPriceDropsResponse) Reset() {
 	*x = ListAddressPriceDropsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[51]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4821,7 +5077,7 @@ func (x *ListAddressPriceDropsResponse) String() string {
 func (*ListAddressPriceDropsResponse) ProtoMessage() {}
 
 func (x *ListAddressPriceDropsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[51]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4834,7 +5090,7 @@ func (x *ListAddressPriceDropsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAddressPriceDropsResponse.ProtoReflect.Descriptor instead.
 func (*ListAddressPriceDropsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{51}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *ListAddressPriceDropsResponse) GetAddresses() []*AddressPriceDrop {
@@ -4852,7 +5108,7 @@ type GetPriceDropsOverviewRequest struct {
 
 func (x *GetPriceDropsOverviewRequest) Reset() {
 	*x = GetPriceDropsOverviewRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[52]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4864,7 +5120,7 @@ func (x *GetPriceDropsOverviewRequest) String() string {
 func (*GetPriceDropsOverviewRequest) ProtoMessage() {}
 
 func (x *GetPriceDropsOverviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[52]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4877,7 +5133,7 @@ func (x *GetPriceDropsOverviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPriceDropsOverviewRequest.ProtoReflect.Descriptor instead.
 func (*GetPriceDropsOverviewRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{52}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{53}
 }
 
 // State-grain rollup of the tracked listing corpus: recent asking-price
@@ -4907,7 +5163,7 @@ type StatePriceDropSummary struct {
 
 func (x *StatePriceDropSummary) Reset() {
 	*x = StatePriceDropSummary{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[53]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4919,7 +5175,7 @@ func (x *StatePriceDropSummary) String() string {
 func (*StatePriceDropSummary) ProtoMessage() {}
 
 func (x *StatePriceDropSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[53]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4932,7 +5188,7 @@ func (x *StatePriceDropSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatePriceDropSummary.ProtoReflect.Descriptor instead.
 func (*StatePriceDropSummary) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{53}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *StatePriceDropSummary) GetStateCode() string {
@@ -5057,7 +5313,7 @@ type GetPriceDropsOverviewResponse struct {
 
 func (x *GetPriceDropsOverviewResponse) Reset() {
 	*x = GetPriceDropsOverviewResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[54]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5069,7 +5325,7 @@ func (x *GetPriceDropsOverviewResponse) String() string {
 func (*GetPriceDropsOverviewResponse) ProtoMessage() {}
 
 func (x *GetPriceDropsOverviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[54]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5082,7 +5338,7 @@ func (x *GetPriceDropsOverviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPriceDropsOverviewResponse.ProtoReflect.Descriptor instead.
 func (*GetPriceDropsOverviewResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{54}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *GetPriceDropsOverviewResponse) GetNational() *StatePriceDropSummary {
@@ -5110,7 +5366,7 @@ type ListAgencyPriceStatsRequest struct {
 
 func (x *ListAgencyPriceStatsRequest) Reset() {
 	*x = ListAgencyPriceStatsRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[55]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5122,7 +5378,7 @@ func (x *ListAgencyPriceStatsRequest) String() string {
 func (*ListAgencyPriceStatsRequest) ProtoMessage() {}
 
 func (x *ListAgencyPriceStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[55]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5135,7 +5391,7 @@ func (x *ListAgencyPriceStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgencyPriceStatsRequest.ProtoReflect.Descriptor instead.
 func (*ListAgencyPriceStatsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{55}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ListAgencyPriceStatsRequest) GetStateCode() string {
@@ -5183,7 +5439,7 @@ type AgencyPriceStats struct {
 
 func (x *AgencyPriceStats) Reset() {
 	*x = AgencyPriceStats{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[56]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5195,7 +5451,7 @@ func (x *AgencyPriceStats) String() string {
 func (*AgencyPriceStats) ProtoMessage() {}
 
 func (x *AgencyPriceStats) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[56]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5208,7 +5464,7 @@ func (x *AgencyPriceStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgencyPriceStats.ProtoReflect.Descriptor instead.
 func (*AgencyPriceStats) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{56}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *AgencyPriceStats) GetSource() string {
@@ -5311,7 +5567,7 @@ type ListAgencyPriceStatsResponse struct {
 
 func (x *ListAgencyPriceStatsResponse) Reset() {
 	*x = ListAgencyPriceStatsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[57]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5323,7 +5579,7 @@ func (x *ListAgencyPriceStatsResponse) String() string {
 func (*ListAgencyPriceStatsResponse) ProtoMessage() {}
 
 func (x *ListAgencyPriceStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[57]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5336,7 +5592,7 @@ func (x *ListAgencyPriceStatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgencyPriceStatsResponse.ProtoReflect.Descriptor instead.
 func (*ListAgencyPriceStatsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{57}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *ListAgencyPriceStatsResponse) GetAgencies() []*AgencyPriceStats {
@@ -5375,7 +5631,7 @@ type DropIndexPoint struct {
 
 func (x *DropIndexPoint) Reset() {
 	*x = DropIndexPoint{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[58]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5387,7 +5643,7 @@ func (x *DropIndexPoint) String() string {
 func (*DropIndexPoint) ProtoMessage() {}
 
 func (x *DropIndexPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[58]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5400,7 +5656,7 @@ func (x *DropIndexPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DropIndexPoint.ProtoReflect.Descriptor instead.
 func (*DropIndexPoint) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{58}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *DropIndexPoint) GetSnapshotDate() string {
@@ -5485,7 +5741,7 @@ type GetDropIndexSeriesRequest struct {
 
 func (x *GetDropIndexSeriesRequest) Reset() {
 	*x = GetDropIndexSeriesRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[59]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5497,7 +5753,7 @@ func (x *GetDropIndexSeriesRequest) String() string {
 func (*GetDropIndexSeriesRequest) ProtoMessage() {}
 
 func (x *GetDropIndexSeriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[59]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5510,7 +5766,7 @@ func (x *GetDropIndexSeriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDropIndexSeriesRequest.ProtoReflect.Descriptor instead.
 func (*GetDropIndexSeriesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{59}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *GetDropIndexSeriesRequest) GetGrain() string {
@@ -5551,7 +5807,7 @@ type GetDropIndexSeriesResponse struct {
 
 func (x *GetDropIndexSeriesResponse) Reset() {
 	*x = GetDropIndexSeriesResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[60]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5563,7 +5819,7 @@ func (x *GetDropIndexSeriesResponse) String() string {
 func (*GetDropIndexSeriesResponse) ProtoMessage() {}
 
 func (x *GetDropIndexSeriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[60]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5576,7 +5832,7 @@ func (x *GetDropIndexSeriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDropIndexSeriesResponse.ProtoReflect.Descriptor instead.
 func (*GetDropIndexSeriesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{60}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *GetDropIndexSeriesResponse) GetPoints() []*DropIndexPoint {
@@ -5837,7 +6093,7 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x12state_median_price\x18\x01 \x01(\x01R\x10stateMedianPrice\x122\n" +
 	"\x15national_median_price\x18\x02 \x01(\x01R\x13nationalMedianPrice\x12B\n" +
 	"\x1estate_median_weekly_hhd_income\x18\x03 \x01(\x01R\x1astateMedianWeeklyHhdIncome\x12H\n" +
-	"!national_median_weekly_hhd_income\x18\x04 \x01(\x01R\x1dnationalMedianWeeklyHhdIncome\"\x8e\x03\n" +
+	"!national_median_weekly_hhd_income\x18\x04 \x01(\x01R\x1dnationalMedianWeeklyHhdIncome\"\xda\v\n" +
 	"\aLgaInfo\x12\x19\n" +
 	"\blga_code\x18\x01 \x01(\tR\algaCode\x12\x19\n" +
 	"\blga_name\x18\x02 \x01(\tR\algaName\x12\x1d\n" +
@@ -5856,7 +6112,51 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	" \x01(\x01R\x11assetRenewalRatio\x12\x1d\n" +
 	"\n" +
 	"fin_source\x18\v \x01(\tR\tfinSource\x12\x19\n" +
-	"\bfin_year\x18\f \x01(\tR\afinYear\"\xd5\x01\n" +
+	"\bfin_year\x18\f \x01(\tR\afinYear\x12\x12\n" +
+	"\x04slug\x18\r \x01(\tR\x04slug\x12!\n" +
+	"\fdisplay_name\x18\x0e \x01(\tR\vdisplayName\x12\x12\n" +
+	"\x04kind\x18\x0f \x01(\tR\x04kind\x12\x19\n" +
+	"\berp_year\x18\x10 \x01(\x05R\aerpYear\x12)\n" +
+	"\x0epop_growth_pct\x18\x11 \x01(\x01H\x00R\fpopGrowthPct\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"median_age\x18\x12 \x01(\x01H\x01R\tmedianAge\x88\x01\x01\x12/\n" +
+	"\x11median_hhd_income\x18\x13 \x01(\x05H\x02R\x0fmedianHhdIncome\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"pct_rented\x18\x14 \x01(\x01H\x03R\tpctRented\x88\x01\x01\x121\n" +
+	"\x12median_weekly_rent\x18\x15 \x01(\x05H\x04R\x10medianWeeklyRent\x88\x01\x01\x12;\n" +
+	"\x17median_mortgage_monthly\x18\x16 \x01(\x05H\x05R\x15medianMortgageMonthly\x88\x01\x01\x121\n" +
+	"\x12avg_household_size\x18\x17 \x01(\x01H\x06R\x10avgHouseholdSize\x88\x01\x01\x121\n" +
+	"\x12seifa_irsad_decile\x18\x18 \x01(\x05H\aR\x10seifaIrsadDecile\x88\x01\x01\x12/\n" +
+	"\x11seifa_irsd_decile\x18\x19 \x01(\x05H\bR\x0fseifaIrsdDecile\x88\x01\x01\x12\x18\n" +
+	"\awebsite\x18\x1a \x01(\tR\awebsite\x12!\n" +
+	"\fwikidata_qid\x18\x1b \x01(\tR\vwikidataQid\x12&\n" +
+	"\fcentroid_lat\x18\x1c \x01(\x01H\tR\vcentroidLat\x88\x01\x01\x12&\n" +
+	"\fcentroid_lon\x18\x1d \x01(\x01H\n" +
+	"R\vcentroidLon\x88\x01\x01\x12*\n" +
+	"\x0edominant_share\x18\x1e \x01(\x01H\vR\rdominantShare\x88\x01\x01\x125\n" +
+	"\x14council_house_median\x18\x1f \x01(\x01H\fR\x12councilHouseMedian\x88\x01\x01\x12=\n" +
+	"\x1bcouncil_house_median_period\x18  \x01(\tR\x18councilHouseMedianPeriodB\x11\n" +
+	"\x0f_pop_growth_pctB\r\n" +
+	"\v_median_ageB\x14\n" +
+	"\x12_median_hhd_incomeB\r\n" +
+	"\v_pct_rentedB\x15\n" +
+	"\x13_median_weekly_rentB\x1a\n" +
+	"\x18_median_mortgage_monthlyB\x15\n" +
+	"\x13_avg_household_sizeB\x15\n" +
+	"\x13_seifa_irsad_decileB\x14\n" +
+	"\x12_seifa_irsd_decileB\x0f\n" +
+	"\r_centroid_latB\x0f\n" +
+	"\r_centroid_lonB\x11\n" +
+	"\x0f_dominant_shareB\x17\n" +
+	"\x15_council_house_median\"\x93\x01\n" +
+	"\n" +
+	"LgaOverlap\x12\x19\n" +
+	"\blga_code\x18\x01 \x01(\tR\algaCode\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1d\n" +
+	"\n" +
+	"state_code\x18\x03 \x01(\tR\tstateCode\x12\x12\n" +
+	"\x04slug\x18\x04 \x01(\tR\x04slug\x12\x14\n" +
+	"\x05share\x18\x05 \x01(\x01R\x05share\"\xd5\x01\n" +
 	"\rSimilarSuburb\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
@@ -5897,7 +6197,7 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"sold_count\x18\x04 \x01(\x05R\tsoldCount\x12\x19\n" +
 	"\bavg_sold\x18\x05 \x01(\x01R\aavgSold\x12\x1f\n" +
 	"\vmedian_sold\x18\x06 \x01(\x01R\n" +
-	"medianSold\"\x85\x05\n" +
+	"medianSold\"\xcd\x05\n" +
 	"\x18GetSuburbProfileResponse\x128\n" +
 	"\asummary\x18\x01 \x01(\v2\x1e.shorts.v1alpha1.SuburbSummaryR\asummary\x12G\n" +
 	"\fdemographics\x18\x02 \x01(\v2#.shorts.v1alpha1.SuburbDemographicsR\fdemographics\x12B\n" +
@@ -5909,7 +6209,8 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\rlisting_stats\x18\b \x01(\v2#.shorts.v1alpha1.SuburbListingStatsR\flistingStats\x12>\n" +
 	"\televation\x18\t \x01(\v2 .shorts.v1alpha1.SuburbElevationR\televation\x12?\n" +
 	"\ahazards\x18\n" +
-	" \x01(\v2%.shorts.v1alpha1.SuburbHazardExposureR\ahazards\"\x87\x01\n" +
+	" \x01(\v2%.shorts.v1alpha1.SuburbHazardExposureR\ahazards\x12F\n" +
+	"\x10council_overlaps\x18\v \x03(\v2\x1b.shorts.v1alpha1.LgaOverlapR\x0fcouncilOverlaps\"\x87\x01\n" +
 	"\x19ListHousingRegionsRequest\x12\x1f\n" +
 	"\vregion_type\x18\x01 \x01(\tR\n" +
 	"regionType\x12\x1d\n" +
@@ -6233,7 +6534,7 @@ func file_shorts_v1alpha1_housing_proto_rawDescGZIP() []byte {
 	return file_shorts_v1alpha1_housing_proto_rawDescData
 }
 
-var file_shorts_v1alpha1_housing_proto_msgTypes = make([]protoimpl.MessageInfo, 61)
+var file_shorts_v1alpha1_housing_proto_msgTypes = make([]protoimpl.MessageInfo, 62)
 var file_shorts_v1alpha1_housing_proto_goTypes = []any{
 	(*GetHousingOverviewRequest)(nil),      // 0: shorts.v1alpha1.GetHousingOverviewRequest
 	(*HousingMetric)(nil),                  // 1: shorts.v1alpha1.HousingMetric
@@ -6262,120 +6563,122 @@ var file_shorts_v1alpha1_housing_proto_goTypes = []any{
 	(*SuburbDemographics)(nil),             // 24: shorts.v1alpha1.SuburbDemographics
 	(*ComparisonBaselines)(nil),            // 25: shorts.v1alpha1.ComparisonBaselines
 	(*LgaInfo)(nil),                        // 26: shorts.v1alpha1.LgaInfo
-	(*SimilarSuburb)(nil),                  // 27: shorts.v1alpha1.SimilarSuburb
-	(*SuburbLandmark)(nil),                 // 28: shorts.v1alpha1.SuburbLandmark
-	(*SuburbBanner)(nil),                   // 29: shorts.v1alpha1.SuburbBanner
-	(*SuburbCrimeStat)(nil),                // 30: shorts.v1alpha1.SuburbCrimeStat
-	(*SuburbCrime)(nil),                    // 31: shorts.v1alpha1.SuburbCrime
-	(*SuburbListingStats)(nil),             // 32: shorts.v1alpha1.SuburbListingStats
-	(*GetSuburbProfileResponse)(nil),       // 33: shorts.v1alpha1.GetSuburbProfileResponse
-	(*ListHousingRegionsRequest)(nil),      // 34: shorts.v1alpha1.ListHousingRegionsRequest
-	(*HousingRegion)(nil),                  // 35: shorts.v1alpha1.HousingRegion
-	(*ListHousingRegionsResponse)(nil),     // 36: shorts.v1alpha1.ListHousingRegionsResponse
-	(*ListSuburbPriceDropsRequest)(nil),    // 37: shorts.v1alpha1.ListSuburbPriceDropsRequest
-	(*SuburbPriceDrop)(nil),                // 38: shorts.v1alpha1.SuburbPriceDrop
-	(*ListSuburbPriceDropsResponse)(nil),   // 39: shorts.v1alpha1.ListSuburbPriceDropsResponse
-	(*ListSuburbDropListingsRequest)(nil),  // 40: shorts.v1alpha1.ListSuburbDropListingsRequest
-	(*SuburbDropListing)(nil),              // 41: shorts.v1alpha1.SuburbDropListing
-	(*ListSuburbDropListingsResponse)(nil), // 42: shorts.v1alpha1.ListSuburbDropListingsResponse
-	(*GetPropertyHistoryRequest)(nil),      // 43: shorts.v1alpha1.GetPropertyHistoryRequest
-	(*PropertyListingSnapshot)(nil),        // 44: shorts.v1alpha1.PropertyListingSnapshot
-	(*PropertyPriceEvent)(nil),             // 45: shorts.v1alpha1.PropertyPriceEvent
-	(*GetPropertyHistoryResponse)(nil),     // 46: shorts.v1alpha1.GetPropertyHistoryResponse
-	(*PropertyValuationSale)(nil),          // 47: shorts.v1alpha1.PropertyValuationSale
-	(*PropertyValuation)(nil),              // 48: shorts.v1alpha1.PropertyValuation
-	(*ListAddressPriceDropsRequest)(nil),   // 49: shorts.v1alpha1.ListAddressPriceDropsRequest
-	(*AddressPriceDrop)(nil),               // 50: shorts.v1alpha1.AddressPriceDrop
-	(*ListAddressPriceDropsResponse)(nil),  // 51: shorts.v1alpha1.ListAddressPriceDropsResponse
-	(*GetPriceDropsOverviewRequest)(nil),   // 52: shorts.v1alpha1.GetPriceDropsOverviewRequest
-	(*StatePriceDropSummary)(nil),          // 53: shorts.v1alpha1.StatePriceDropSummary
-	(*GetPriceDropsOverviewResponse)(nil),  // 54: shorts.v1alpha1.GetPriceDropsOverviewResponse
-	(*ListAgencyPriceStatsRequest)(nil),    // 55: shorts.v1alpha1.ListAgencyPriceStatsRequest
-	(*AgencyPriceStats)(nil),               // 56: shorts.v1alpha1.AgencyPriceStats
-	(*ListAgencyPriceStatsResponse)(nil),   // 57: shorts.v1alpha1.ListAgencyPriceStatsResponse
-	(*DropIndexPoint)(nil),                 // 58: shorts.v1alpha1.DropIndexPoint
-	(*GetDropIndexSeriesRequest)(nil),      // 59: shorts.v1alpha1.GetDropIndexSeriesRequest
-	(*GetDropIndexSeriesResponse)(nil),     // 60: shorts.v1alpha1.GetDropIndexSeriesResponse
-	(*timestamppb.Timestamp)(nil),          // 61: google.protobuf.Timestamp
+	(*LgaOverlap)(nil),                     // 27: shorts.v1alpha1.LgaOverlap
+	(*SimilarSuburb)(nil),                  // 28: shorts.v1alpha1.SimilarSuburb
+	(*SuburbLandmark)(nil),                 // 29: shorts.v1alpha1.SuburbLandmark
+	(*SuburbBanner)(nil),                   // 30: shorts.v1alpha1.SuburbBanner
+	(*SuburbCrimeStat)(nil),                // 31: shorts.v1alpha1.SuburbCrimeStat
+	(*SuburbCrime)(nil),                    // 32: shorts.v1alpha1.SuburbCrime
+	(*SuburbListingStats)(nil),             // 33: shorts.v1alpha1.SuburbListingStats
+	(*GetSuburbProfileResponse)(nil),       // 34: shorts.v1alpha1.GetSuburbProfileResponse
+	(*ListHousingRegionsRequest)(nil),      // 35: shorts.v1alpha1.ListHousingRegionsRequest
+	(*HousingRegion)(nil),                  // 36: shorts.v1alpha1.HousingRegion
+	(*ListHousingRegionsResponse)(nil),     // 37: shorts.v1alpha1.ListHousingRegionsResponse
+	(*ListSuburbPriceDropsRequest)(nil),    // 38: shorts.v1alpha1.ListSuburbPriceDropsRequest
+	(*SuburbPriceDrop)(nil),                // 39: shorts.v1alpha1.SuburbPriceDrop
+	(*ListSuburbPriceDropsResponse)(nil),   // 40: shorts.v1alpha1.ListSuburbPriceDropsResponse
+	(*ListSuburbDropListingsRequest)(nil),  // 41: shorts.v1alpha1.ListSuburbDropListingsRequest
+	(*SuburbDropListing)(nil),              // 42: shorts.v1alpha1.SuburbDropListing
+	(*ListSuburbDropListingsResponse)(nil), // 43: shorts.v1alpha1.ListSuburbDropListingsResponse
+	(*GetPropertyHistoryRequest)(nil),      // 44: shorts.v1alpha1.GetPropertyHistoryRequest
+	(*PropertyListingSnapshot)(nil),        // 45: shorts.v1alpha1.PropertyListingSnapshot
+	(*PropertyPriceEvent)(nil),             // 46: shorts.v1alpha1.PropertyPriceEvent
+	(*GetPropertyHistoryResponse)(nil),     // 47: shorts.v1alpha1.GetPropertyHistoryResponse
+	(*PropertyValuationSale)(nil),          // 48: shorts.v1alpha1.PropertyValuationSale
+	(*PropertyValuation)(nil),              // 49: shorts.v1alpha1.PropertyValuation
+	(*ListAddressPriceDropsRequest)(nil),   // 50: shorts.v1alpha1.ListAddressPriceDropsRequest
+	(*AddressPriceDrop)(nil),               // 51: shorts.v1alpha1.AddressPriceDrop
+	(*ListAddressPriceDropsResponse)(nil),  // 52: shorts.v1alpha1.ListAddressPriceDropsResponse
+	(*GetPriceDropsOverviewRequest)(nil),   // 53: shorts.v1alpha1.GetPriceDropsOverviewRequest
+	(*StatePriceDropSummary)(nil),          // 54: shorts.v1alpha1.StatePriceDropSummary
+	(*GetPriceDropsOverviewResponse)(nil),  // 55: shorts.v1alpha1.GetPriceDropsOverviewResponse
+	(*ListAgencyPriceStatsRequest)(nil),    // 56: shorts.v1alpha1.ListAgencyPriceStatsRequest
+	(*AgencyPriceStats)(nil),               // 57: shorts.v1alpha1.AgencyPriceStats
+	(*ListAgencyPriceStatsResponse)(nil),   // 58: shorts.v1alpha1.ListAgencyPriceStatsResponse
+	(*DropIndexPoint)(nil),                 // 59: shorts.v1alpha1.DropIndexPoint
+	(*GetDropIndexSeriesRequest)(nil),      // 60: shorts.v1alpha1.GetDropIndexSeriesRequest
+	(*GetDropIndexSeriesResponse)(nil),     // 61: shorts.v1alpha1.GetDropIndexSeriesResponse
+	(*timestamppb.Timestamp)(nil),          // 62: google.protobuf.Timestamp
 }
 var file_shorts_v1alpha1_housing_proto_depIdxs = []int32{
-	61, // 0: shorts.v1alpha1.HousingMetric.period:type_name -> google.protobuf.Timestamp
+	62, // 0: shorts.v1alpha1.HousingMetric.period:type_name -> google.protobuf.Timestamp
 	1,  // 1: shorts.v1alpha1.GetHousingOverviewResponse.metrics:type_name -> shorts.v1alpha1.HousingMetric
-	61, // 2: shorts.v1alpha1.GetHousingOverviewResponse.as_of:type_name -> google.protobuf.Timestamp
-	61, // 3: shorts.v1alpha1.HousePricePoint.period:type_name -> google.protobuf.Timestamp
+	62, // 2: shorts.v1alpha1.GetHousingOverviewResponse.as_of:type_name -> google.protobuf.Timestamp
+	62, // 3: shorts.v1alpha1.HousePricePoint.period:type_name -> google.protobuf.Timestamp
 	4,  // 4: shorts.v1alpha1.GetHousePriceSeriesResponse.points:type_name -> shorts.v1alpha1.HousePricePoint
 	8,  // 5: shorts.v1alpha1.SuburbSeifa.irsd:type_name -> shorts.v1alpha1.SuburbSeifaIndex
 	8,  // 6: shorts.v1alpha1.SuburbSeifa.irsad:type_name -> shorts.v1alpha1.SuburbSeifaIndex
 	8,  // 7: shorts.v1alpha1.SuburbSeifa.ier:type_name -> shorts.v1alpha1.SuburbSeifaIndex
 	8,  // 8: shorts.v1alpha1.SuburbSeifa.ieo:type_name -> shorts.v1alpha1.SuburbSeifaIndex
-	61, // 9: shorts.v1alpha1.SuburbSummary.latest_period:type_name -> google.protobuf.Timestamp
+	62, // 9: shorts.v1alpha1.SuburbSummary.latest_period:type_name -> google.protobuf.Timestamp
 	7,  // 10: shorts.v1alpha1.SuburbSummary.amenities:type_name -> shorts.v1alpha1.SuburbAmenities
 	9,  // 11: shorts.v1alpha1.SuburbSummary.seifa:type_name -> shorts.v1alpha1.SuburbSeifa
 	12, // 12: shorts.v1alpha1.ListStateSuburbsResponse.suburbs:type_name -> shorts.v1alpha1.SuburbSummary
 	15, // 13: shorts.v1alpha1.GetSuburbIndexResponse.suburbs:type_name -> shorts.v1alpha1.SuburbIndexEntry
 	18, // 14: shorts.v1alpha1.GetSuburbMetricColumnsResponse.columns:type_name -> shorts.v1alpha1.SuburbMetricColumn
 	20, // 15: shorts.v1alpha1.FilterSuburbsRequest.predicates:type_name -> shorts.v1alpha1.SuburbMetricPredicate
-	28, // 16: shorts.v1alpha1.SuburbBanner.landmarks:type_name -> shorts.v1alpha1.SuburbLandmark
-	30, // 17: shorts.v1alpha1.SuburbCrime.stats:type_name -> shorts.v1alpha1.SuburbCrimeStat
+	29, // 16: shorts.v1alpha1.SuburbBanner.landmarks:type_name -> shorts.v1alpha1.SuburbLandmark
+	31, // 17: shorts.v1alpha1.SuburbCrime.stats:type_name -> shorts.v1alpha1.SuburbCrimeStat
 	12, // 18: shorts.v1alpha1.GetSuburbProfileResponse.summary:type_name -> shorts.v1alpha1.SuburbSummary
 	24, // 19: shorts.v1alpha1.GetSuburbProfileResponse.demographics:type_name -> shorts.v1alpha1.SuburbDemographics
 	25, // 20: shorts.v1alpha1.GetSuburbProfileResponse.baselines:type_name -> shorts.v1alpha1.ComparisonBaselines
 	26, // 21: shorts.v1alpha1.GetSuburbProfileResponse.council:type_name -> shorts.v1alpha1.LgaInfo
-	27, // 22: shorts.v1alpha1.GetSuburbProfileResponse.similar:type_name -> shorts.v1alpha1.SimilarSuburb
-	29, // 23: shorts.v1alpha1.GetSuburbProfileResponse.banner:type_name -> shorts.v1alpha1.SuburbBanner
-	31, // 24: shorts.v1alpha1.GetSuburbProfileResponse.crime:type_name -> shorts.v1alpha1.SuburbCrime
-	32, // 25: shorts.v1alpha1.GetSuburbProfileResponse.listing_stats:type_name -> shorts.v1alpha1.SuburbListingStats
+	28, // 22: shorts.v1alpha1.GetSuburbProfileResponse.similar:type_name -> shorts.v1alpha1.SimilarSuburb
+	30, // 23: shorts.v1alpha1.GetSuburbProfileResponse.banner:type_name -> shorts.v1alpha1.SuburbBanner
+	32, // 24: shorts.v1alpha1.GetSuburbProfileResponse.crime:type_name -> shorts.v1alpha1.SuburbCrime
+	33, // 25: shorts.v1alpha1.GetSuburbProfileResponse.listing_stats:type_name -> shorts.v1alpha1.SuburbListingStats
 	10, // 26: shorts.v1alpha1.GetSuburbProfileResponse.elevation:type_name -> shorts.v1alpha1.SuburbElevation
 	11, // 27: shorts.v1alpha1.GetSuburbProfileResponse.hazards:type_name -> shorts.v1alpha1.SuburbHazardExposure
-	61, // 28: shorts.v1alpha1.HousingRegion.latest_period:type_name -> google.protobuf.Timestamp
-	35, // 29: shorts.v1alpha1.ListHousingRegionsResponse.regions:type_name -> shorts.v1alpha1.HousingRegion
-	38, // 30: shorts.v1alpha1.ListSuburbPriceDropsResponse.suburbs:type_name -> shorts.v1alpha1.SuburbPriceDrop
-	61, // 31: shorts.v1alpha1.SuburbDropListing.observed_at:type_name -> google.protobuf.Timestamp
-	41, // 32: shorts.v1alpha1.ListSuburbDropListingsResponse.listings:type_name -> shorts.v1alpha1.SuburbDropListing
-	44, // 33: shorts.v1alpha1.GetPropertyHistoryResponse.current:type_name -> shorts.v1alpha1.PropertyListingSnapshot
-	45, // 34: shorts.v1alpha1.GetPropertyHistoryResponse.events:type_name -> shorts.v1alpha1.PropertyPriceEvent
-	48, // 35: shorts.v1alpha1.GetPropertyHistoryResponse.valuation:type_name -> shorts.v1alpha1.PropertyValuation
-	47, // 36: shorts.v1alpha1.PropertyValuation.sales_history:type_name -> shorts.v1alpha1.PropertyValuationSale
-	50, // 37: shorts.v1alpha1.ListAddressPriceDropsResponse.addresses:type_name -> shorts.v1alpha1.AddressPriceDrop
-	53, // 38: shorts.v1alpha1.GetPriceDropsOverviewResponse.national:type_name -> shorts.v1alpha1.StatePriceDropSummary
-	53, // 39: shorts.v1alpha1.GetPriceDropsOverviewResponse.states:type_name -> shorts.v1alpha1.StatePriceDropSummary
-	56, // 40: shorts.v1alpha1.ListAgencyPriceStatsResponse.agencies:type_name -> shorts.v1alpha1.AgencyPriceStats
-	58, // 41: shorts.v1alpha1.GetDropIndexSeriesResponse.points:type_name -> shorts.v1alpha1.DropIndexPoint
-	0,  // 42: shorts.v1alpha1.HousingService.GetHousingOverview:input_type -> shorts.v1alpha1.GetHousingOverviewRequest
-	3,  // 43: shorts.v1alpha1.HousingService.GetHousePriceSeries:input_type -> shorts.v1alpha1.GetHousePriceSeriesRequest
-	6,  // 44: shorts.v1alpha1.HousingService.ListStateSuburbs:input_type -> shorts.v1alpha1.ListStateSuburbsRequest
-	14, // 45: shorts.v1alpha1.HousingService.GetSuburbIndex:input_type -> shorts.v1alpha1.GetSuburbIndexRequest
-	17, // 46: shorts.v1alpha1.HousingService.GetSuburbMetricColumns:input_type -> shorts.v1alpha1.GetSuburbMetricColumnsRequest
-	21, // 47: shorts.v1alpha1.HousingService.FilterSuburbs:input_type -> shorts.v1alpha1.FilterSuburbsRequest
-	23, // 48: shorts.v1alpha1.HousingService.GetSuburbProfile:input_type -> shorts.v1alpha1.GetSuburbProfileRequest
-	34, // 49: shorts.v1alpha1.HousingService.ListHousingRegions:input_type -> shorts.v1alpha1.ListHousingRegionsRequest
-	37, // 50: shorts.v1alpha1.HousingService.ListSuburbPriceDrops:input_type -> shorts.v1alpha1.ListSuburbPriceDropsRequest
-	40, // 51: shorts.v1alpha1.HousingService.ListSuburbDropListings:input_type -> shorts.v1alpha1.ListSuburbDropListingsRequest
-	43, // 52: shorts.v1alpha1.HousingService.GetPropertyHistory:input_type -> shorts.v1alpha1.GetPropertyHistoryRequest
-	49, // 53: shorts.v1alpha1.HousingService.ListAddressPriceDrops:input_type -> shorts.v1alpha1.ListAddressPriceDropsRequest
-	52, // 54: shorts.v1alpha1.HousingService.GetPriceDropsOverview:input_type -> shorts.v1alpha1.GetPriceDropsOverviewRequest
-	55, // 55: shorts.v1alpha1.HousingService.ListAgencyPriceStats:input_type -> shorts.v1alpha1.ListAgencyPriceStatsRequest
-	59, // 56: shorts.v1alpha1.HousingService.GetDropIndexSeries:input_type -> shorts.v1alpha1.GetDropIndexSeriesRequest
-	2,  // 57: shorts.v1alpha1.HousingService.GetHousingOverview:output_type -> shorts.v1alpha1.GetHousingOverviewResponse
-	5,  // 58: shorts.v1alpha1.HousingService.GetHousePriceSeries:output_type -> shorts.v1alpha1.GetHousePriceSeriesResponse
-	13, // 59: shorts.v1alpha1.HousingService.ListStateSuburbs:output_type -> shorts.v1alpha1.ListStateSuburbsResponse
-	16, // 60: shorts.v1alpha1.HousingService.GetSuburbIndex:output_type -> shorts.v1alpha1.GetSuburbIndexResponse
-	19, // 61: shorts.v1alpha1.HousingService.GetSuburbMetricColumns:output_type -> shorts.v1alpha1.GetSuburbMetricColumnsResponse
-	22, // 62: shorts.v1alpha1.HousingService.FilterSuburbs:output_type -> shorts.v1alpha1.FilterSuburbsResponse
-	33, // 63: shorts.v1alpha1.HousingService.GetSuburbProfile:output_type -> shorts.v1alpha1.GetSuburbProfileResponse
-	36, // 64: shorts.v1alpha1.HousingService.ListHousingRegions:output_type -> shorts.v1alpha1.ListHousingRegionsResponse
-	39, // 65: shorts.v1alpha1.HousingService.ListSuburbPriceDrops:output_type -> shorts.v1alpha1.ListSuburbPriceDropsResponse
-	42, // 66: shorts.v1alpha1.HousingService.ListSuburbDropListings:output_type -> shorts.v1alpha1.ListSuburbDropListingsResponse
-	46, // 67: shorts.v1alpha1.HousingService.GetPropertyHistory:output_type -> shorts.v1alpha1.GetPropertyHistoryResponse
-	51, // 68: shorts.v1alpha1.HousingService.ListAddressPriceDrops:output_type -> shorts.v1alpha1.ListAddressPriceDropsResponse
-	54, // 69: shorts.v1alpha1.HousingService.GetPriceDropsOverview:output_type -> shorts.v1alpha1.GetPriceDropsOverviewResponse
-	57, // 70: shorts.v1alpha1.HousingService.ListAgencyPriceStats:output_type -> shorts.v1alpha1.ListAgencyPriceStatsResponse
-	60, // 71: shorts.v1alpha1.HousingService.GetDropIndexSeries:output_type -> shorts.v1alpha1.GetDropIndexSeriesResponse
-	57, // [57:72] is the sub-list for method output_type
-	42, // [42:57] is the sub-list for method input_type
-	42, // [42:42] is the sub-list for extension type_name
-	42, // [42:42] is the sub-list for extension extendee
-	0,  // [0:42] is the sub-list for field type_name
+	27, // 28: shorts.v1alpha1.GetSuburbProfileResponse.council_overlaps:type_name -> shorts.v1alpha1.LgaOverlap
+	62, // 29: shorts.v1alpha1.HousingRegion.latest_period:type_name -> google.protobuf.Timestamp
+	36, // 30: shorts.v1alpha1.ListHousingRegionsResponse.regions:type_name -> shorts.v1alpha1.HousingRegion
+	39, // 31: shorts.v1alpha1.ListSuburbPriceDropsResponse.suburbs:type_name -> shorts.v1alpha1.SuburbPriceDrop
+	62, // 32: shorts.v1alpha1.SuburbDropListing.observed_at:type_name -> google.protobuf.Timestamp
+	42, // 33: shorts.v1alpha1.ListSuburbDropListingsResponse.listings:type_name -> shorts.v1alpha1.SuburbDropListing
+	45, // 34: shorts.v1alpha1.GetPropertyHistoryResponse.current:type_name -> shorts.v1alpha1.PropertyListingSnapshot
+	46, // 35: shorts.v1alpha1.GetPropertyHistoryResponse.events:type_name -> shorts.v1alpha1.PropertyPriceEvent
+	49, // 36: shorts.v1alpha1.GetPropertyHistoryResponse.valuation:type_name -> shorts.v1alpha1.PropertyValuation
+	48, // 37: shorts.v1alpha1.PropertyValuation.sales_history:type_name -> shorts.v1alpha1.PropertyValuationSale
+	51, // 38: shorts.v1alpha1.ListAddressPriceDropsResponse.addresses:type_name -> shorts.v1alpha1.AddressPriceDrop
+	54, // 39: shorts.v1alpha1.GetPriceDropsOverviewResponse.national:type_name -> shorts.v1alpha1.StatePriceDropSummary
+	54, // 40: shorts.v1alpha1.GetPriceDropsOverviewResponse.states:type_name -> shorts.v1alpha1.StatePriceDropSummary
+	57, // 41: shorts.v1alpha1.ListAgencyPriceStatsResponse.agencies:type_name -> shorts.v1alpha1.AgencyPriceStats
+	59, // 42: shorts.v1alpha1.GetDropIndexSeriesResponse.points:type_name -> shorts.v1alpha1.DropIndexPoint
+	0,  // 43: shorts.v1alpha1.HousingService.GetHousingOverview:input_type -> shorts.v1alpha1.GetHousingOverviewRequest
+	3,  // 44: shorts.v1alpha1.HousingService.GetHousePriceSeries:input_type -> shorts.v1alpha1.GetHousePriceSeriesRequest
+	6,  // 45: shorts.v1alpha1.HousingService.ListStateSuburbs:input_type -> shorts.v1alpha1.ListStateSuburbsRequest
+	14, // 46: shorts.v1alpha1.HousingService.GetSuburbIndex:input_type -> shorts.v1alpha1.GetSuburbIndexRequest
+	17, // 47: shorts.v1alpha1.HousingService.GetSuburbMetricColumns:input_type -> shorts.v1alpha1.GetSuburbMetricColumnsRequest
+	21, // 48: shorts.v1alpha1.HousingService.FilterSuburbs:input_type -> shorts.v1alpha1.FilterSuburbsRequest
+	23, // 49: shorts.v1alpha1.HousingService.GetSuburbProfile:input_type -> shorts.v1alpha1.GetSuburbProfileRequest
+	35, // 50: shorts.v1alpha1.HousingService.ListHousingRegions:input_type -> shorts.v1alpha1.ListHousingRegionsRequest
+	38, // 51: shorts.v1alpha1.HousingService.ListSuburbPriceDrops:input_type -> shorts.v1alpha1.ListSuburbPriceDropsRequest
+	41, // 52: shorts.v1alpha1.HousingService.ListSuburbDropListings:input_type -> shorts.v1alpha1.ListSuburbDropListingsRequest
+	44, // 53: shorts.v1alpha1.HousingService.GetPropertyHistory:input_type -> shorts.v1alpha1.GetPropertyHistoryRequest
+	50, // 54: shorts.v1alpha1.HousingService.ListAddressPriceDrops:input_type -> shorts.v1alpha1.ListAddressPriceDropsRequest
+	53, // 55: shorts.v1alpha1.HousingService.GetPriceDropsOverview:input_type -> shorts.v1alpha1.GetPriceDropsOverviewRequest
+	56, // 56: shorts.v1alpha1.HousingService.ListAgencyPriceStats:input_type -> shorts.v1alpha1.ListAgencyPriceStatsRequest
+	60, // 57: shorts.v1alpha1.HousingService.GetDropIndexSeries:input_type -> shorts.v1alpha1.GetDropIndexSeriesRequest
+	2,  // 58: shorts.v1alpha1.HousingService.GetHousingOverview:output_type -> shorts.v1alpha1.GetHousingOverviewResponse
+	5,  // 59: shorts.v1alpha1.HousingService.GetHousePriceSeries:output_type -> shorts.v1alpha1.GetHousePriceSeriesResponse
+	13, // 60: shorts.v1alpha1.HousingService.ListStateSuburbs:output_type -> shorts.v1alpha1.ListStateSuburbsResponse
+	16, // 61: shorts.v1alpha1.HousingService.GetSuburbIndex:output_type -> shorts.v1alpha1.GetSuburbIndexResponse
+	19, // 62: shorts.v1alpha1.HousingService.GetSuburbMetricColumns:output_type -> shorts.v1alpha1.GetSuburbMetricColumnsResponse
+	22, // 63: shorts.v1alpha1.HousingService.FilterSuburbs:output_type -> shorts.v1alpha1.FilterSuburbsResponse
+	34, // 64: shorts.v1alpha1.HousingService.GetSuburbProfile:output_type -> shorts.v1alpha1.GetSuburbProfileResponse
+	37, // 65: shorts.v1alpha1.HousingService.ListHousingRegions:output_type -> shorts.v1alpha1.ListHousingRegionsResponse
+	40, // 66: shorts.v1alpha1.HousingService.ListSuburbPriceDrops:output_type -> shorts.v1alpha1.ListSuburbPriceDropsResponse
+	43, // 67: shorts.v1alpha1.HousingService.ListSuburbDropListings:output_type -> shorts.v1alpha1.ListSuburbDropListingsResponse
+	47, // 68: shorts.v1alpha1.HousingService.GetPropertyHistory:output_type -> shorts.v1alpha1.GetPropertyHistoryResponse
+	52, // 69: shorts.v1alpha1.HousingService.ListAddressPriceDrops:output_type -> shorts.v1alpha1.ListAddressPriceDropsResponse
+	55, // 70: shorts.v1alpha1.HousingService.GetPriceDropsOverview:output_type -> shorts.v1alpha1.GetPriceDropsOverviewResponse
+	58, // 71: shorts.v1alpha1.HousingService.ListAgencyPriceStats:output_type -> shorts.v1alpha1.ListAgencyPriceStatsResponse
+	61, // 72: shorts.v1alpha1.HousingService.GetDropIndexSeries:output_type -> shorts.v1alpha1.GetDropIndexSeriesResponse
+	58, // [58:73] is the sub-list for method output_type
+	43, // [43:58] is the sub-list for method input_type
+	43, // [43:43] is the sub-list for extension type_name
+	43, // [43:43] is the sub-list for extension extendee
+	0,  // [0:43] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_housing_proto_init() }
@@ -6386,13 +6689,14 @@ func file_shorts_v1alpha1_housing_proto_init() {
 	file_shorts_v1alpha1_housing_proto_msgTypes[10].OneofWrappers = []any{}
 	file_shorts_v1alpha1_housing_proto_msgTypes[11].OneofWrappers = []any{}
 	file_shorts_v1alpha1_housing_proto_msgTypes[20].OneofWrappers = []any{}
+	file_shorts_v1alpha1_housing_proto_msgTypes[26].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_housing_proto_rawDesc), len(file_shorts_v1alpha1_housing_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   61,
+			NumMessages:   62,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
