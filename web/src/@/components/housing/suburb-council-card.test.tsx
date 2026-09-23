@@ -85,13 +85,14 @@ describe("SuburbCouncilCard", () => {
     expect(row("Population")).not.toHaveTextContent("in a year");
   });
 
-  test("links to the council page only once council pages exist", () => {
-    const { unmount } = render(<SuburbCouncilCard council={kingsgrove()} />);
+  test("links to the council page, and not when pages are switched off", () => {
+    const { unmount } = render(<SuburbCouncilCard council={kingsgrove()} pagesEnabled={false} />);
     expect(screen.queryByRole("link", { name: "Canterbury-Bankstown" })).toBeNull();
     unmount();
-    render(<SuburbCouncilCard council={kingsgrove()} pagesEnabled />);
+    render(<SuburbCouncilCard council={kingsgrove()} />);
     expect(screen.getByRole("link", { name: "Canterbury-Bankstown" })).toHaveAttribute(
-      "href", "/housing/nsw/council/canterbury-bankstown",
+      "href",
+      "/housing/nsw/council/canterbury-bankstown",
     );
   });
 
@@ -112,9 +113,10 @@ describe("SuburbCouncilCard", () => {
 });
 
 describe("council helpers", () => {
-  test("council pages are off until the council hub ships", () => {
-    expect(COUNCIL_PAGES_ENABLED).toBe(false);
-    expect(councilHref("NSW", "albury")).toBeNull();
+  test("council pages are live", () => {
+    expect(COUNCIL_PAGES_ENABLED).toBe(true);
+    expect(councilHref("NSW", "albury")).toBe("/housing/nsw/council/albury");
+    expect(councilHref("NSW", "albury", false)).toBeNull();
   });
   test("councilHref needs pages, a slug and a state with a housing route", () => {
     expect(councilHref("NSW", "albury", true)).toBe("/housing/nsw/council/albury");

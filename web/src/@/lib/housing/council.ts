@@ -1,14 +1,14 @@
 /**
  * Council (LGA) helpers shared by every surface that names a council.
  *
- * Council pages live at /housing/<state>/council/<slug> (program decision 5).
- * They do not exist yet: COUNCIL_PAGES_ENABLED is the single switch the
- * council-hub work flips when the routes ship, so no surface links to a 404
- * in the meantime.
+ * Council pages live at /housing/<state>/council/<slug> (program decision 5),
+ * with the state index at /housing/<state>/council. COUNCIL_PAGES_ENABLED is
+ * the single switch every surface that links to one reads; turning it off
+ * unlinks them all without touching the routes.
  */
 import { STATE_NAMES, stateSlug } from "./states";
 
-export const COUNCIL_PAGES_ENABLED = false;
+export const COUNCIL_PAGES_ENABLED = true;
 
 /**
  * The council page URL, or null when there is no page to link to: pages off,
