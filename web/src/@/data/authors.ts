@@ -46,7 +46,7 @@ export const AUTHORS: Author[] = [
     name: "Ben Ebsworth",
     title: "Founder & Editor",
     bio: "Ben Ebsworth is the founder of Shorted.com.au. A software engineer by background, he built Shorted to make ASIC's daily short-position reports genuinely usable — ingesting, cleaning and charting the raw regulatory data for every ASX stock since 2010. He writes about short-selling dynamics, crowded trades and what bearish positioning reveals about the Australian market.",
-    photoUrl: "/assets/blog/authors/ben.png",
+    photoUrl: "/assets/blog/authors/ben-ebsworth.jpg",
     expertise: [
       "ASX short selling data",
       "ASIC RG 196 reporting",
@@ -59,9 +59,10 @@ export const AUTHORS: Author[] = [
       "Independent — no broker relationships or paid coverage",
     ],
     sameAs: {
-      linkedin: "https://www.linkedin.com/in/benebsworth/",
+      linkedin: "https://www.linkedin.com/in/ben-ebsworth/",
       twitter: "https://x.com/shorted___",
       github: "https://github.com/castlemilk",
+      website: "https://benebsworth.com",
     },
   },
   // ============================================================

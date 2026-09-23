@@ -61,6 +61,29 @@ export const siteConfig = {
   contact: {
     email: "support@shorted.com.au",
   },
+  // The business behind the site. Surfaced on /about, in the footer, and in
+  // the Organization schema so the company, its founder and its business model
+  // are verifiable from the public site (reviewers such as startup programs
+  // and Google's YMYL raters look for exactly this).
+  company: {
+    foundingDate: "2024",
+    city: "Melbourne",
+    region: "VIC",
+    country: "AU",
+    countryName: "Australia",
+  },
+  founder: {
+    name: "Ben Ebsworth",
+    jobTitle: "Founder & Engineer",
+    // Author profile slug in ~/@/data/authors.ts
+    profilePath: "/authors/ben-ebsworth",
+    image: "https://shorted.com.au/assets/blog/authors/ben-ebsworth.jpg",
+    // 224px square (2x of the 112px avatar on /about), ~11KB.
+    avatar: "/assets/blog/authors/ben-ebsworth-avatar.jpg",
+    website: "https://benebsworth.com",
+    linkedin: "https://www.linkedin.com/in/ben-ebsworth/",
+    github: "https://github.com/castlemilk",
+  },
 };
 
 export type SiteConfig = typeof siteConfig;

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useSubscription } from "~/@/hooks/use-subscription";
-import { SUBSCRIPTION_TIERS } from "~/lib/stripe";
+import { PLANS, planPrice } from "~/@/config/pricing";
 import { Button } from "~/@/components/ui/button";
 import {
   Card,
@@ -79,8 +79,8 @@ export function PricingContent() {
     }
   };
 
-  const freeFeatures = SUBSCRIPTION_TIERS.free.features;
-  const premiumFeatures = SUBSCRIPTION_TIERS.premium.features;
+  const freeFeatures = PLANS.free.features;
+  const premiumFeatures = PLANS.premium.features;
 
   return (
     <div className="container max-w-4xl py-12 px-4">
@@ -97,9 +97,9 @@ export function PricingContent() {
         {/* Free Tier */}
         <Card className="relative">
           <CardHeader>
-            <CardTitle className="text-lg">Free</CardTitle>
+            <CardTitle className="text-lg">{PLANS.free.name}</CardTitle>
             <CardDescription>
-              <span className="text-3xl font-bold text-foreground">$0</span>
+              <span className="text-3xl font-bold text-foreground">{planPrice("free")}</span>
               <span className="text-muted-foreground"> / forever</span>
             </CardDescription>
           </CardHeader>
@@ -135,13 +135,13 @@ export function PricingContent() {
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary/70 to-primary/40" />
           <CardHeader>
             <div className="flex items-center gap-2">
-              <CardTitle className="text-lg">Premium</CardTitle>
+              <CardTitle className="text-lg">{PLANS.premium.name}</CardTitle>
               <span className="text-[10px] font-semibold uppercase tracking-wider bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                 Popular
               </span>
             </div>
             <CardDescription>
-              <span className="text-3xl font-bold text-foreground">$4</span>
+              <span className="text-3xl font-bold text-foreground">{planPrice("premium")}</span>
               <span className="text-muted-foreground"> / month</span>
             </CardDescription>
           </CardHeader>

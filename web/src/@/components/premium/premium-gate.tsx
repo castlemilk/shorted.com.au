@@ -8,6 +8,7 @@ import { Button } from "~/@/components/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "~/@/lib/utils";
+import { planPricePerMonth } from "~/@/config/pricing";
 
 interface PremiumGateProps {
   /** Feature name for display */
@@ -80,7 +81,7 @@ export function PremiumGate({
         <div>
           <p className="font-semibold text-sm">Upgrade to Premium</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {feature} is available on the Premium plan — $4/mo
+            {feature} is available on the Premium plan — {planPricePerMonth("premium")}
           </p>
         </div>
         <Button size="sm" asChild>

@@ -8,35 +8,32 @@ import {
   Bell,
   Bot,
   ChevronRight,
-  Code2,
   Database,
-  ExternalLink,
   FileText,
   Globe,
   Key,
   LineChart,
-  Linkedin,
   Lock,
   Newspaper,
-  Rocket,
   Search,
   Shield,
   Sparkles,
   TrendingDown,
-  User,
   Zap,
 } from "lucide-react";
 import { FinanceGridBackground } from "~/@/components/marketing/finance-grid-background";
 import { AnimatedChartDisplay } from "~/@/components/marketing/animated-chart-display";
-import { SpotlightCard } from "~/@/components/marketing/spotlight-card";
 import { type AboutPageStatistics } from "~/lib/statistics";
 import { cn } from "~/@/lib/utils";
+import { siteConfig } from "~/@/config/site";
 
 interface AboutClientProps {
   initialStatistics: AboutPageStatistics;
+  /** Server-rendered company & founder section (see company-section.tsx). */
+  companySection?: React.ReactNode;
 }
 
-const AboutClient = ({ initialStatistics }: AboutClientProps) => {
+const AboutClient = ({ initialStatistics, companySection }: AboutClientProps) => {
   const statistics = initialStatistics;
 
   return (
@@ -94,6 +91,18 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
                 </Link>
               </div>
 
+              <p className="text-sm text-muted-foreground">
+                Founded by{" "}
+                <a
+                  href="#founder"
+                  className="font-medium text-foreground underline underline-offset-4 hover:text-primary"
+                >
+                  {siteConfig.founder.name}
+                </a>{" "}
+                · Built in {siteConfig.company.city}, {siteConfig.company.countryName} ·
+                Available worldwide
+              </p>
+
               {/* Quick stats */}
               <div className="flex flex-wrap gap-8 justify-center lg:justify-start pt-4">
                 <div className="text-center lg:text-left">
@@ -125,8 +134,10 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
         </div>
       </section>
 
+      {companySection}
+
       {/* Value Proposition Section */}
-      <section className="w-full py-20 md:py-28 relative z-10 bg-muted/30 backdrop-blur-sm">
+      <section className="w-full py-20 md:py-28 relative z-10">
         <div className="container px-4 md:px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground mb-4">
@@ -379,102 +390,6 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
         </div>
       </section>
 
-      {/* Team & Founder Section */}
-      <section className="w-full py-20 md:py-28 relative z-10">
-        <div className="container px-4 md:px-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
-                <User className="w-4 h-4" />
-                Our Team
-              </div>
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground mb-4">
-                Built by an Engineer, for Investors
-              </h2>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Shorted was born from a simple frustration: ASIC publishes daily short position data,
-                but there was no easy way to explore, visualize, or track it over time.
-              </p>
-            </div>
-
-            <div className="grid lg:grid-cols-5 gap-8 items-start">
-              {/* Founder Card */}
-              <div className="lg:col-span-2">
-                <SpotlightCard className="p-8">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center mb-4">
-                      <User className="w-12 h-12 text-primary-foreground" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-foreground">Ben Ebsworth</h3>
-                    <p className="text-sm text-primary font-medium mb-3">Founder & Engineer</p>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Software engineer with experience in cloud infrastructure, data pipelines,
-                      and AI/ML systems. Building Shorted as a solo founder to democratize
-                      short selling data access in Australia.
-                    </p>
-                    <a
-                      href="https://www.linkedin.com/in/benebsworth/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-                    >
-                      <Linkedin className="w-4 h-4" />
-                      LinkedIn Profile
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                </SpotlightCard>
-              </div>
-
-              {/* Our Story + Tech Stack */}
-              <div className="lg:col-span-3 space-y-6">
-                <div className="bg-card rounded-2xl border p-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <Rocket className="w-5 h-5 text-primary" />
-                    Our Story
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    ASIC requires short sellers to report positions of 0.01% of total shares on issue
-                    or $100,000 (whichever is less), but the raw CSV files they publish are difficult
-                    to work with. Shorted transforms this regulatory data into an intuitive platform
-                    with historical charts, industry heatmaps, AI-powered analysis, and daily
-                    alerts, making institutional-grade short selling intelligence accessible to everyone.
-                  </p>
-                </div>
-
-                <div className="bg-card rounded-2xl border p-6">
-                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <Code2 className="w-5 h-5 text-primary" />
-                    Tech Stack
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      "Go",
-                      "Next.js",
-                      "TypeScript",
-                      "GCP Cloud Run",
-                      "Gemini AI",
-                      "PostgreSQL",
-                      "Terraform",
-                      "Connect-RPC",
-                      "Protobuf",
-                      "Docker",
-                    ].map((tech) => (
-                      <span
-                        key={tech}
-                        className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 text-primary border border-primary/20"
-                      >
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Company Timeline Section */}
       <section className="w-full py-20 md:py-28 relative z-10 bg-muted/30 backdrop-blur-sm">
         <div className="container px-4 md:px-6">
@@ -524,7 +439,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
                 <TimelineItem
                   icon={<Key className="w-4 h-4" />}
                   title="API Launch with Rate Limiting"
-                  description="Public API with developer tiers (free, paid), Upstash Redis rate limiting, and comprehensive documentation."
+                  description="Public API with free and paid developer tiers, per-tier rate limiting, and comprehensive documentation."
                   period="2025"
                   align="left"
                 />
