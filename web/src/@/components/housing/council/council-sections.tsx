@@ -142,7 +142,7 @@ export function MemberSuburbs({
                     {s.floodSharePct !== undefined ? fmtSharePct(s.floodSharePct) : "–"} / {s.bushfireSharePct !== undefined ? fmtSharePct(s.bushfireSharePct) : "–"}
                   </td>
                 ) : null}
-                <td className="px-3 py-1.5 text-right tabular-nums">{s.seifaIrsadDecile !== undefined ? s.seifaIrsadDecile : ""}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{s.seifaIrsadDecile ?? ""}</td>
               </tr>
             ))}
           </tbody>

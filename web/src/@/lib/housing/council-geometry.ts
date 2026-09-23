@@ -55,7 +55,7 @@ export function unionOf(
 ): MultiPolygon | null {
   const picked = geometriesOf(topology, objectName).filter((g) => salCodes.has(String(g.id)));
   if (picked.length === 0) return null;
-  return merge(topology, picked as never) as MultiPolygon;
+  return merge(topology, picked as never);
 }
 
 /**
@@ -76,7 +76,7 @@ export function councilTopology(
   }
   const geometries: TopoMultiPolygon[] = [];
   for (const [code, members] of groups) {
-    const merged = mergeArcs(topology, members as never) as TopoMultiPolygon;
+    const merged = mergeArcs(topology, members as never);
     geometries.push({ ...merged, id: code });
   }
   return {

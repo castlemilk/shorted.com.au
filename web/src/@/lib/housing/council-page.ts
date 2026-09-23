@@ -185,7 +185,8 @@ export function kindNote(stateCode: string, kind: string, name: string): string 
 
 /** Newest date anything on the page is measured to, for lastmod and the dateline. */
 export function councilDataThrough(p: CouncilProfile): string | undefined {
-  return p.summary?.dataThrough || undefined;
+  const through = p.summary?.dataThrough;
+  return through ? through : undefined;
 }
 
 /** schema.org JSON-LD: the place, and (for a council) the organisation. */

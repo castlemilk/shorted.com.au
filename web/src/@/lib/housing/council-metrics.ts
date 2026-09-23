@@ -82,7 +82,7 @@ export const COUNCIL_METRICS: readonly CouncilMetric[] = [
   {
     key: "approvals_per_1000", label: "Dwelling approvals", legendLabel: "Dwellings approved per 1,000 residents, last 12 months", icon: "dwellings",
     value: (c) => (c.approvalsThrough ? present(c.approvalsPer1000) : null), format: (v) => v.toFixed(1), sqrt: true,
-    source: (s) => `ABS Building Approvals, 12 months to ${s?.approvalsThrough || "latest month"}`,
+    source: (s) => `ABS Building Approvals, 12 months to ${s?.approvalsThrough ? s.approvalsThrough : "latest month"}`,
     noDataLabel: "No approvals series",
   },
   {
