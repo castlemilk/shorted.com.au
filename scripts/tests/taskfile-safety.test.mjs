@@ -8,7 +8,10 @@
 ///     because services/Makefile declares it with `?=`;
 ///   * DDL or an MV refresh run against the transaction pooler, which kills long
 ///     statements mid-flight and starved five materialized views for 19 days;
-///   * a production write invoked without anyone meaning to.
+///   * a production write invoked without anyone meaning to;
+///   * a guard expressed as PGOPTIONS, which Supabase's pooler drops, so the
+///     "read-only" prod shell could write and every refresh ran under a
+///     2-minute statement timeout while believing it had none.
 ///
 /// These are string assertions on purpose: every one of these failure modes is
 /// silent at runtime, and a task that stops guarding still runs fine.
@@ -21,6 +24,7 @@ import test from "node:test";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const taskfile = readFileSync(join(repoRoot, "Taskfile.yml"), "utf8");
+const prodPsql = readFileSync(join(repoRoot, "scripts/prod-psql.sh"), "utf8");
 
 /** Crude but sufficient: slice the text of one task by its two-space key. */
 function taskBody(name) {
@@ -64,10 +68,78 @@ test("prod DDL and MV refresh are pinned to the SESSION pooler", () => {
     assert.doesNotMatch(body, /DB_PROD_TXN/, `${name} must not touch the transaction pooler`);
   }
 
-  // And the refresh must disable the statement timeout, or a big view dies
-  // partway and takes every later view with it.
-  assert.match(taskBody("db:prod:refresh"), /statement_timeout=0/);
-  assert.match(taskBody("db:prod:apply"), /statement_timeout=0/);
+});
+
+test("prod database tasks set their guards INSIDE a transaction, never via PGOPTIONS", () => {
+  // Measured 2026-09-23: Supavisor drops libpq startup options on 5432 and
+  // 6543 alike. `PGOPTIONS='-c default_transaction_read_only=on'` then reads
+  // back `off`, and `-c statement_timeout=0` leaves the role's 2-minute
+  // default. The tasks looked guarded and were not. Each one must go through
+  // the wrapper, which SETs over the connection and checks the result there.
+  const routes = {
+    "db:prod:psql": /scripts\/prod-psql\.sh read-only \{\{\.CLI_ARGS\}\}/,
+    "db:prod:apply": /scripts\/prod-psql\.sh apply "\{\{\.FILE\}\}"/,
+    "db:prod:refresh": /scripts\/prod-psql\.sh refresh "\$fn"/,
+    "debug:housing": /scripts\/prod-psql\.sh read-only -tA/,
+  };
+  for (const [name, route] of Object.entries(routes)) {
+    const body = taskBody(name);
+    assert.match(body, route, `${name} must run through scripts/prod-psql.sh`);
+    assert.match(body, /PGURL:\s*"\{\{\.DB_PROD_SESSION\}\}"/, `${name} must use the session pooler`);
+  }
+
+  // Any bare psql against a prod DSN would bypass the guards. The only prod
+  // psql in the Taskfile is the wrapper's.
+  assert.doesNotMatch(taskfile, /(^|[\s'"(])psql\s+"\$PGURL"/m, "a task calls psql on a prod DSN directly");
+
+  // No task may set a guard through PGOPTIONS. Clearing an ambient value
+  // (`PGOPTIONS: ""`) is fine; setting one is the no-op this test exists for.
+  assert.doesNotMatch(
+    taskfile,
+    /PGOPTIONS[=:]\s*["']?-c/,
+    "a PGOPTIONS guard is silently dropped by the pooler; SET LOCAL it in a transaction instead",
+  );
+});
+
+test("the prod wrapper scopes each guard to one transaction and checks it before the work", () => {
+  // Whether Supavisor's session pooler resets a session-level SET before the
+  // next client gets the backend is unverified, so a guard must be SET LOCAL:
+  // it cannot outlive the transaction on any pooler. The behaviour is pinned
+  // in scripts/tests/prod-psql.test.mjs; these are the load-bearing lines.
+  const section = (from, to) => prodPsql.slice(prodPsql.indexOf(`\n${from})`), prodPsql.indexOf(`\n${to})`));
+
+  const readOnly = section("read-only", "apply");
+  assert.match(
+    readOnly,
+    /-c "BEGIN READ ONLY;\nSET LOCAL default_transaction_read_only = on;\nSET LOCAL statement_timeout = '\$read_timeout';\n\$\(guard on "\$read_timeout"\);\n\$\{sql\}ROLLBACK;"/,
+    "a probe is ONE -c string: BEGIN READ ONLY, SET LOCAL, check, SQL, ROLLBACK",
+  );
+  assert.match(readOnly, /node "\$classifier" --probe/, "a probe must be screened for COMMIT/ROLLBACK");
+
+  const apply = section("apply", "refresh");
+  assert.match(
+    apply,
+    /--single-transaction \\\n\s*-c "SET LOCAL statement_timeout = 0" -c "\$\(guard off 0\)" \\\n\s*-f "\$file" \\\n\s*-c "RESET ALL"/,
+    "apply: one transaction, SET LOCAL statement_timeout = 0 and its check before -f, RESET ALL after",
+  );
+  // The session fallback exists only for files the classifier says cannot run
+  // in a transaction, and it must warn and RESET ALL.
+  assert.match(apply, /3\)\n\s*warn [\s\S]*-c "SET statement_timeout = 0"[\s\S]*-f "\$file" \\\n\s*-c "RESET ALL"/);
+  assert.equal((prodPsql.match(/-c "SET statement_timeout = 0"/g) || []).length, 1, "exactly one session-level SET, the fallback");
+  assert.doesNotMatch(prodPsql, /SET default_transaction_read_only/, "the read-only default is never SET at session level");
+
+  const refresh = section("refresh", "*");
+  assert.match(
+    refresh,
+    /--single-transaction \\\n\s*-c "SET LOCAL statement_timeout = 0" -c "\$\(guard off 0\)" \\\n\s*-c "SELECT \$fn\(\)"/,
+    "refresh: one transaction, SET LOCAL statement_timeout = 0 and its check before the call",
+  );
+  assert.match(refresh, /grep -c 'WARNING: \*Skipping '/, "a skipped view must fail the refresh");
+
+  // The checks must be able to fail, and fail the run.
+  assert.match(prodPsql, /psql_base=\(psql "\$PGURL" -X -v ON_ERROR_STOP=1\)/);
+  assert.match(prodPsql, /current_setting\('transaction_read_only'\) <> '\$want_read_only'[\s\S]*RAISE EXCEPTION/);
+  assert.match(prodPsql, /current_setting\('statement_timeout'\)::interval <> '\$want_timeout'::interval[\s\S]*RAISE EXCEPTION/);
 });
 
 test("local database tasks pin their DSN so an ambient one cannot win", () => {
