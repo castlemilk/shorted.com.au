@@ -12,6 +12,7 @@ sys.path.insert(0, str(HERE))
 
 import wofs_zonal_stats as wofs  # noqa: E402
 import merge_hazards  # noqa: E402
+import vector_share  # noqa: E402
 
 
 class WofsShareTest(unittest.TestCase):
@@ -107,6 +108,94 @@ class MergeTest(unittest.TestCase):
             wdir, vdir = self._write(tmp, self._full_states(), {"nsw-flood": {"20001": 1.0}})
             with self.assertRaises(SystemExit):
                 merge_hazards.merge(wdir, vdir)
+
+
+def box(x0, y0, x1, y1):
+    from shapely.geometry import box as shapely_box
+
+    return shapely_box(x0, y0, x1, y1)
+
+
+class CoverageMaskTest(unittest.TestCase):
+    """Units are metres (the script works in EPSG:3577); suburbs are 100 x 100."""
+
+    SUBURB = box(0, 0, 100, 100)
+
+    def test_without_masks_an_untouched_suburb_is_a_genuine_zero(self):
+        self.assertEqual(vector_share.masked_share(self.SUBURB, []), (0.0, 100.0))
+
+    def test_outside_every_instrument_is_null_not_zero(self):
+        # NSW: a suburb outside all twelve flood-mapping EPIs has no map, so no
+        # polygon there says nothing about flooding.
+        share, covered = vector_share.masked_share(self.SUBURB, [], coverage=[])
+        self.assertIsNone(share)
+        self.assertEqual(covered, 0.0)
+
+    def test_fully_covered_suburb_with_no_polygon_is_a_measured_zero(self):
+        share, covered = vector_share.masked_share(self.SUBURB, [], coverage=[box(-50, -50, 150, 150)])
+        self.assertEqual((share, covered), (0.0, 100.0))
+
+    def test_partly_covered_suburb_divides_by_its_covered_land(self):
+        # Half the suburb is inside the instrument, and half of THAT is mapped
+        # flood planning land: 50% of what the source speaks for, not 25%.
+        share, covered = vector_share.masked_share(
+            self.SUBURB, [box(0, 0, 50, 50)], coverage=[box(0, 0, 50, 100)])
+        self.assertEqual(covered, 50.0)
+        self.assertEqual(share, 50.0)
+
+    def test_a_boundary_sliver_of_coverage_does_not_speak_for_the_suburb(self):
+        share, covered = vector_share.masked_share(
+            self.SUBURB, [box(0, 0, 5, 100)], coverage=[box(0, 0, 5, 100)])
+        self.assertIsNone(share)
+        self.assertEqual(covered, 5.0)
+
+    def test_unassessed_land_is_carved_out_of_coverage(self):
+        # SA: "Evidence Required" land is precautionary — the Code says flood
+        # risk there is unknown — so it is neither in nor out of the overlay.
+        share, covered = vector_share.masked_share(
+            self.SUBURB, [box(0, 0, 10, 100)], unassessed=[box(50, 0, 100, 100)])
+        self.assertEqual(covered, 50.0)
+        self.assertEqual(share, 20.0)
+
+    def test_suburb_that_is_all_unassessed_is_null(self):
+        share, _ = vector_share.masked_share(self.SUBURB, [], unassessed=[box(-1, -1, 101, 101)])
+        self.assertIsNone(share)
+
+    def test_unassessed_mask_with_no_polygon_nearby_leaves_the_suburb_covered(self):
+        self.assertEqual(vector_share.masked_share(self.SUBURB, [], unassessed=[]), (0.0, 100.0))
+
+
+class RasterShareTest(unittest.TestCase):
+    """The streamed-grid path QLD bushfire uses: 10 m cells over a 1 km square."""
+
+    def _grid(self, burnt):
+        import rasterio
+        from rasterio.features import rasterize
+
+        transform = rasterio.Affine(10, 0, 0, 0, -10, 1000)
+        grid = np.zeros((100, 100), dtype="uint8")
+        if burnt:
+            rasterize(((g, 1) for g in burnt), out=grid, transform=transform)
+        return grid, transform
+
+    def test_share_of_burnt_cells_inside_the_suburb(self):
+        grid, transform = self._grid([box(0, 0, 500, 1000)])
+        self.assertEqual(vector_share.raster_share(grid, transform, box(0, 0, 1000, 1000)), 50.0)
+        self.assertEqual(vector_share.raster_share(grid, transform, box(600, 0, 1000, 1000)), 0.0)
+
+    def test_overlapping_polygons_count_once(self):
+        grid, transform = self._grid([box(0, 0, 500, 1000), box(0, 0, 500, 1000)])
+        self.assertEqual(vector_share.raster_share(grid, transform, box(0, 0, 1000, 1000)), 50.0)
+
+    def test_a_suburb_smaller_than_the_cell_floor_still_gets_a_value(self):
+        # 3 x 3 cells whose centres are inside is under MIN_RASTER_CELLS; the
+        # touched-cell read must still find the burnt land rather than report 0.
+        grid, transform = self._grid([box(0, 0, 1000, 1000)])
+        self.assertEqual(vector_share.raster_share(grid, transform, box(102, 102, 128, 128)), 100.0)
+
+    def test_suburb_off_the_grid_is_zero_not_an_error(self):
+        grid, transform = self._grid([box(0, 0, 1000, 1000)])
+        self.assertEqual(vector_share.raster_share(grid, transform, box(5000, 5000, 5100, 5100)), 0.0)
 
 
 if __name__ == "__main__":
