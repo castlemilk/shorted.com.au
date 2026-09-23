@@ -381,3 +381,68 @@ export const resolveSuburbSalCode = cache(
     return match?.salCode ?? null;
   },
 );
+
+// ── Council hub ─────────────────────────────────────────────────────────────
+//
+// Both reads follow the economy pattern: an ISR-tagged transport (without the
+// `next:{revalidate}` tag a Connect POST is no-store and the static route
+// throws "static to dynamic") plus an Upstash last-good layer that is written
+// only for a POPULATED response and read back only when populated — an empty
+// entry is a miss, never a hit (the /politicians 2026-07-31 lesson).
+
+function readCouncilCache<T>(
+  schema: Parameters<typeof fromJson>[0],
+  cached: JsonValue | null,
+  isPopulated: (value: T) => boolean,
+): T | undefined {
+  if (cached == null) return undefined;
+  try {
+    const parsed = fromJson(schema, cached) as T;
+    return isPopulated(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCouncilCache(schema: Parameters<typeof toJson>[0], key: string, value: unknown): void {
+  try {
+    void setCached(key, toJson(schema, value as never) as JsonValue, HOUSING_TTL);
+  } catch {
+    // A cache write must never break a render.
+  }
+}
+
+/** Every council with a page in one state, largest first. */
+export const listCouncils = cache(
+  withRetryAndNotFound(
+    async (stateCode: string): Promise<ListCouncilsResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+      const key = CACHE_KEYS.councils(stateCode);
+      const populated = (r: ListCouncilsResponse) => r.councils.length > 0;
+      const hit = readCouncilCache<ListCouncilsResponse>(ListCouncilsResponseSchema, await getCached<JsonValue>(key), populated);
+      if (hit) return hit;
+      const resp = await createSuburbIsrHousingClient().listCouncils({ stateCode });
+      if (populated(resp)) writeCouncilCache(ListCouncilsResponseSchema, key, resp);
+      return resp;
+    },
+  ),
+);
+
+/**
+ * One council's hub. Throws NotFoundError for a slug no council holds, so the
+ * page can 404 rather than render an empty shell.
+ */
+export const getCouncilProfile = cache(
+  withRetryAndThrowNotFound(
+    async (stateCode: string, slug: string): Promise<GetCouncilProfileResponse | undefined> => {
+      if (skipForBuild()) return undefined;
+      const key = CACHE_KEYS.councilProfile(stateCode, slug);
+      const populated = (r: GetCouncilProfileResponse) => Boolean(r.profile?.summary?.lgaCode);
+      const hit = readCouncilCache<GetCouncilProfileResponse>(GetCouncilProfileResponseSchema, await getCached<JsonValue>(key), populated);
+      if (hit) return hit;
+      const resp = await createSuburbIsrHousingClient().getCouncilProfile({ stateCode, slug });
+      if (populated(resp)) writeCouncilCache(GetCouncilProfileResponseSchema, key, resp);
+      return resp;
+    },
+  ),
+);
