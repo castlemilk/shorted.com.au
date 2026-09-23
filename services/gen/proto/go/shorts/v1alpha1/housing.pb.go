@@ -5635,9 +5635,11 @@ type GetDropIndexSeriesResponse struct {
 	Points        []*DropIndexPoint      `protobuf:"bytes,1,rep,name=points,proto3" json:"points,omitempty"`
 	TrackingSince string                 `protobuf:"bytes,2,opt,name=tracking_since,json=trackingSince,proto3" json:"tracking_since,omitempty"` // 'YYYY-MM-DD' — earliest date the index exists for
 	// as_of: the latest computed_at among the returned points (when the
-	// collector last wrote this series). data_through: the latest returned
-	// snapshot_date — the index reads the crawl through the end of that day.
-	// Both unset when no point is returned.
+	// collector last wrote this series). data_through: the end of the latest
+	// returned snapshot day, or the crawl horizon the last housing MV refresh
+	// recorded if that is earlier — a snapshot is computed daily whether or not
+	// the crawl ran, so the date alone can outrun the data. Both unset when no
+	// point is returned.
 	AsOf          *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
 	DataThrough   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`
 	unknownFields protoimpl.UnknownFields

@@ -1983,7 +1983,7 @@
         "properties": {
           "asOf": {
             "$ref": "#/components/schemas/google.protobuf.Timestamp",
-            "description": "as_of: the latest computed_at among the returned points (when the\n collector last wrote this series). data_through: the latest returned\n snapshot_date — the index reads the crawl through the end of that day.\n Both unset when no point is returned. (proto google.protobuf.Timestamp)",
+            "description": "as_of: the latest computed_at among the returned points (when the\n collector last wrote this series). data_through: the end of the latest\n returned snapshot day, or the crawl horizon the last housing MV refresh\n recorded if that is earlier — a snapshot is computed daily whether or not\n the crawl ran, so the date alone can outrun the data. Both unset when no\n point is returned. (proto google.protobuf.Timestamp)",
             "title": "as_of"
           },
           "dataThrough": {

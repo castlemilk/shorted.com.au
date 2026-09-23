@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // HousingMetricRow is a region's latest house-price observation with QoQ/YoY change.
@@ -957,11 +959,33 @@ type SuburbPriceDropRow struct {
 	DroppedValue        float64
 }
 
+// shareSortMinActive is the smallest recently-swept active address count a
+// suburb needs to be RANKED by dropped_share. It is the drop index's panel
+// floor (indexMinActive in services/house-price-collector/drop_index.go): below
+// it one cut among three listings reads as a 33% "share" and tops the board.
+// Thinner suburbs still appear, after every ranked one.
+const shareSortMinActive = 20
+
+// suburbPriceDropsSorts whitelists ListSuburbPriceDrops' sort → a fixed ORDER BY
+// (never interpolate user input). Every clause ends on st.region_code, the
+// board's unique key: with no tiebreaker, the count-sorted board's cut-off
+// (rank 15 on /price-drops, 25 on /housing) fell inside a 5-way tie measured on
+// 2026-09-23, so the rows either side of it flickered between instances.
+var suburbPriceDropsSorts = map[string]string{
+	"count": "COALESCE(d.dropped_listing_count, 0) DESC, COALESCE(d.dropped_share, 0) DESC, st.region_code ASC",
+	"avg":   "COALESCE(d.avg_drop_pct, 0) DESC, COALESCE(d.dropped_listing_count, 0) DESC, st.region_code ASC",
+	"max":   "COALESCE(d.max_drop_pct, 0) DESC, COALESCE(d.dropped_listing_count, 0) DESC, st.region_code ASC",
+	"share": "CASE WHEN COALESCE(d.total_active_listings, 0) >= " + strconv.Itoa(shareSortMinActive) +
+		" THEN d.dropped_share END DESC NULLS LAST, COALESCE(d.dropped_listing_count, 0) DESC, st.region_code ASC",
+	"asking": "st.avg_asking DESC NULLS LAST, st.region_code ASC",
+	"sold":   "st.avg_sold DESC NULLS LAST, st.region_code ASC",
+}
+
 // ListSuburbPriceDrops returns the per-suburb listing board: asking/sold price
 // aggregates (mv_suburb_listing_stats) for every suburb with crawled listings,
 // LEFT-JOINed to the price-drop signal (mv_suburb_price_drops). Reads ONLY the
 // derived aggregates — never the raw, ToS-restricted listing rows.
-// sort ∈ {count,avg,max,asking,sold}; default count (most price cuts).
+// sort ∈ {count,avg,max,share,asking,sold}; default count (most price cuts).
 func (s *postgresStore) ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*SuburbPriceDropRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -969,17 +993,9 @@ func (s *postgresStore) ListSuburbPriceDrops(stateCode, sort string, limit int32
 	if limit <= 0 || limit > 500 {
 		limit = 50
 	}
-	// Whitelist the sort column (never interpolate user input into SQL).
-	orderBy := "COALESCE(d.dropped_listing_count, 0)"
-	switch sort {
-	case "avg":
-		orderBy = "COALESCE(d.avg_drop_pct, 0)"
-	case "max":
-		orderBy = "COALESCE(d.max_drop_pct, 0)"
-	case "asking":
-		orderBy = "st.avg_asking"
-	case "sold":
-		orderBy = "st.avg_sold"
+	orderBy, ok := suburbPriceDropsSorts[sort]
+	if !ok {
+		orderBy = suburbPriceDropsSorts["count"]
 	}
 
 	// dropped_value only exists once migration 000083 has rebuilt
@@ -1003,7 +1019,7 @@ func (s *postgresStore) ListSuburbPriceDrops(stateCode, sort string, limit int32
 		LEFT JOIN suburb_demographics sd ON sd.sal_code = r.sal_code
 		LEFT JOIN mv_suburb_price_drops d ON d.region_code = st.region_code
 		WHERE ($1 = '' OR r.state_code = $1)
-		ORDER BY ` + orderBy + ` DESC NULLS LAST
+		ORDER BY ` + orderBy + `
 		LIMIT $2`
 
 	rows, err := s.db.Query(ctx, query, stateCode, limit)
@@ -1050,8 +1066,11 @@ type SuburbDropListingRow struct {
 // ListSuburbDropListings returns the largest recent price-drop per active,
 // addressable home in a suburb, deep-linking to the selected portal row. It reads the raw
 // (proprietary-tos-restricted) listing rows — this is the flag-gated drill-down;
-// the handler enforces the feature flag. Stale listings (not seen in ~3 weeks) and
-// URL-less rows are filtered so we never surface a dead deep-link.
+// the handler enforces the feature flag. Listings not seen in the last 14 days —
+// the SAME liveness every listing MV uses (migration 000124), so the aggregate
+// board and this drill-down agree on who is on the market — and URL-less rows
+// are filtered so we never surface a dead deep-link. Measured 2026-09-23 under
+// the old 21-day cut: 59 of 209 MV suburbs (28%) opened an empty drill-down.
 func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*SuburbDropListingRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -1091,15 +1110,15 @@ func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windo
 			  AND ($1 = '' OR r.sal_code = $1)
 			  AND ($2 = '' OR e.region_code = $2)
 			  AND pl.is_active
-			  AND pl.last_seen_at >= now() - interval '21 days'
+			  AND pl.last_seen_at >= now() - interval '14 days'
 			  AND pl.listing_url <> ''
 			  AND NULLIF(pl.address_key, '') IS NOT NULL
 			  -- Same typo-correction sanity cap as the aggregate MVs (000083) so
 			  -- the drill-down can't rank a correction above real drops.
 			  AND e.drop_pct <= 0.40
-			ORDER BY pl.address_key, e.drop_abs DESC, e.observed_at DESC
+			ORDER BY pl.address_key, e.drop_abs DESC, e.observed_at DESC, e.id DESC
 		) t
-		ORDER BY t.drop_pct DESC
+		ORDER BY t.drop_pct DESC, t.observed_at DESC, t.address_key ASC
 		LIMIT $4`
 
 	rows, err := s.db.Query(ctx, query, salCode, regionCode, windowDays, limit)
@@ -1395,49 +1414,63 @@ type AddressPriceDropRow struct {
 	AgentNames       []string
 }
 
-// ListAddressPriceDrops ranks individual physical addresses (deduped by the
-// stable address_key) by their asking-price reduction over the last windowDays:
-// from the earliest priced observation IN the window (first_price) to the
-// current active listing's ask (current_price). It reads the raw
-// (proprietary-tos-restricted) listing rows — this is the flag-gated board; the
-// handler enforces the feature flag (same posture as ListSuburbDropListings).
-// Rows with an empty address_key, no priced observation, a non-positive current
-// ask, a dead deep-link, or a stale/inactive current listing are excluded; only
-// real drops (>= 3%) are returned, biggest percentage drop first.
-func (s *postgresStore) ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*AddressPriceDropRow, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+// addressPriceDropsSorts whitelists ListAddressPriceDrops' sort → a fixed
+// ORDER BY over the final SELECT's output aliases (never interpolate user
+// input). Every clause ends on address_key, which is unique per output row, so
+// ties never reorder between instances or cache fills.
+var addressPriceDropsSorts = map[string]string{
+	"pct":    "ORDER BY drop_pct DESC, drop_abs DESC, address_key ASC",         // default: biggest % cut
+	"abs":    "ORDER BY drop_abs DESC, drop_pct DESC, address_key ASC",         // biggest $ cut
+	"recent": "ORDER BY last_observed_at DESC, drop_pct DESC, address_key ASC", // most recently seen
+}
 
-	if windowDays <= 0 || windowDays > 365 {
-		windowDays = 90
-	}
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
-
-	// Whitelist the sort → a fixed ORDER BY clause (never interpolate user input).
-	// All three reference the output aliases of the final SELECT.
-	orderBy := "ORDER BY drop_pct DESC, drop_abs DESC" // default: biggest % cut
-	switch sort {
-	case "abs":
-		orderBy = "ORDER BY drop_abs DESC, drop_pct DESC" // biggest $ cut
-	case "recent":
-		orderBy = "ORDER BY last_observed_at DESC, drop_pct DESC" // most recently seen
-	}
-
-	// cur  = the current (most-recent active, priced, live-URL) listing per address.
-	// firstp = earliest positive price observed within the window per address.
-	// nlist  = distinct portal adverts per address.
-	const baseQuery = `
+// addressPriceDropsQuery is ListAddressPriceDrops' SQL minus its ORDER BY and
+// LIMIT, extracted so tests can assert its shape. $1 state (empty = all), $2
+// window days.
+//
+// The board compares an address's EARLIEST comparable ask in the window with
+// its CURRENT ask, over the advert chain of the dwelling now on the market.
+// It used to take the earliest ask at the address from ANY listing, checking
+// bedrooms only, which bypassed the collector's comparableKinds rule and the
+// cross-portal rule. Measured 2026-09-23: 247 of 1,374 rows (18%), and 16 of
+// the default top 50, had no underlying price_drop event at all — e.g. a
+// "$1,125,000" fixed ask against the low end of a "$850,000 - $930,000"
+// range, shown as -24%. An event joins the chain only when it is:
+//
+//   - the same dwelling: same bedroom count as the current listing when that
+//     count is known (a collapsed multi-unit address_key otherwise feeds one
+//     unit's ask in as another's "first");
+//   - a comparable price kind, mirroring the collector's comparableKinds
+//     (crawl_listings_price.go): fixed <-> offers_over, or the same range kind.
+//     Range asks are stored as their low bound, so a fixed ask replaced by a
+//     range guide is a re-pricing, never a cut;
+//   - an earlier ask of THIS advert, never the other portal's concurrent one:
+//     an other-portal listing counts only if it was last seen more than 14
+//     days before the current listing first appeared (loadAddressPrior's
+//     live window). Two portals showing different asks at once is not a cut.
+//
+// And an address is listed only if its chain holds a real price_drop event in
+// the window under the aggregates' 40% cap, so this board shows only cuts the
+// collector detected — the same events mv_suburb_price_drops counts. The
+// candidate set is restricted to addresses with a drop event before anything
+// else is joined, which is also what keeps the query well inside its timeout
+// (it grouped every property_listings row per call before).
+//
+// "Current" is the most recently seen active, priced, live-URL listing seen in
+// the last 14 days: the same liveness every listing MV uses (000124).
+const addressPriceDropsQuery = `
 		WITH cur AS (
 			SELECT DISTINCT ON (pl.address_key)
 			       pl.address_key,
+			       pl.id                            AS listing_pk,
+			       pl.source                        AS latest_source,
+			       pl.first_seen_at,
+			       COALESCE(pl.price_kind, '')      AS price_kind,
 			       COALESCE(pl.display_address, '') AS display_address,
 			       COALESCE(pl.suburb, '')          AS suburb,
 			       COALESCE(pl.state_code, '')      AS state_code,
 			       COALESCE(pl.postcode, '')        AS postcode,
 			       COALESCE(pl.price, 0)            AS current_price,
-			       pl.source                        AS latest_source,
 			       COALESCE(pl.listing_url, '')     AS latest_listing_url,
 			       pl.last_seen_at                  AS last_observed_at,
 			       COALESCE(pl.property_type, '')   AS property_type,
@@ -1446,39 +1479,62 @@ func (s *postgresStore) ListAddressPriceDrops(stateCode, sort string, windowDays
 			       COALESCE(pl.agency_name, '')     AS agency_name,
 			       COALESCE(pl.agent_names, '{}')   AS agent_names
 			FROM property_listings pl
-			WHERE pl.address_key <> ''
+			WHERE NULLIF(pl.address_key, '') IS NOT NULL
 			  AND pl.is_active
-			  AND pl.last_seen_at >= now() - interval '21 days'
+			  AND pl.last_seen_at >= now() - interval '14 days'
 			  AND pl.listing_url <> ''
 			  AND COALESCE(pl.price, 0) > 0
 			  AND ($1 = '' OR UPPER(pl.state_code) = UPPER($1))
-			ORDER BY pl.address_key, pl.is_active DESC, pl.last_seen_at DESC, pl.price DESC, pl.id DESC
+			  AND EXISTS (
+			      SELECT 1 FROM property_price_events d
+			      WHERE d.address_key = pl.address_key
+			        AND d.event_type = 'price_drop'
+			        AND d.observed_at >= now() - make_interval(days => $2))
+			ORDER BY pl.address_key, pl.last_seen_at DESC, pl.price DESC, pl.id DESC
 		),
-		firstp AS (
-			-- first_price is scoped to the CURRENT dwelling: only events whose
-			-- listing has the same bedroom count as cur (bedrooms is reliably
-			-- extracted on both portals, unlike property_type). This stops a
-			-- multi-unit over-collapse (one address_key, several units the portal
-			-- listed without a unit number) from feeding another unit's price in
-			-- as the "first" ask — which would otherwise fabricate a huge cross-
-			-- unit drop and rank it #1. When cur's bedroom count is unknown (0),
-			-- fall back to address-wide (best effort). Relists of the SAME
-			-- dwelling (new listing_id, same beds) are still unified.
-			SELECT c.address_key,
-			       (ARRAY_AGG(e.price ORDER BY e.observed_at ASC, e.id ASC)
-			          FILTER (WHERE e.price > 0))[1] AS first_price
+		chain AS (
+			SELECT c.address_key, e.id, e.observed_at, e.event_type, e.price,
+			       e.prev_price, e.drop_pct,
+			       e.observed_at > epl.first_seen_at AS listing_level
 			FROM cur c
 			JOIN property_price_events e ON e.address_key = c.address_key
 			JOIN property_listings epl ON epl.id = e.listing_pk
 			WHERE e.observed_at >= now() - make_interval(days => $2)
 			  AND (c.bedrooms = 0 OR COALESCE(epl.bedrooms, 0) = c.bedrooms)
-			GROUP BY c.address_key
+			  AND ((e.price_kind IN ('fixed', 'offers_over') AND c.price_kind IN ('fixed', 'offers_over'))
+			       OR (e.price_kind = c.price_kind AND c.price_kind IN ('range_low', 'range_high')))
+			  AND (epl.id = c.listing_pk
+			       OR epl.source = c.latest_source
+			       OR epl.last_seen_at < c.first_seen_at - interval '14 days')
+		),
+		asks AS (
+			SELECT address_key, observed_at, 1 AS ord, id, price,
+			       event_type = 'price_drop' AND drop_pct <= 0.40 AS is_cut
+			FROM chain
+			UNION ALL
+			-- A listing-level move's prev_price is that same advert's earlier
+			-- ask (the collector only emits a move between comparable kinds), so
+			-- a cut early in the window keeps its "before" ask even when the
+			-- advert was first seen before the window opened. A move fired on an
+			-- advert's FIRST sighting (observed_at = first_seen_at: the
+			-- address-relist path) is excluded — its prev_price came from a
+			-- different advert, possibly one the chain rules above reject.
+			SELECT address_key, observed_at, 0, id, prev_price, false FROM chain
+			WHERE event_type IN ('price_drop', 'price_rise') AND listing_level
+		),
+		firstp AS (
+			SELECT address_key,
+			       (ARRAY_AGG(price ORDER BY observed_at ASC, ord ASC, id ASC)
+			          FILTER (WHERE price > 0))[1] AS first_price,
+			       BOOL_OR(is_cut) AS has_drop
+			FROM asks
+			GROUP BY address_key
 		),
 		nlist AS (
-			SELECT address_key, COUNT(DISTINCT source || ':' || listing_id) AS num_listings
-			FROM property_listings
-			WHERE address_key <> ''
-			GROUP BY address_key
+			SELECT pl.address_key, COUNT(DISTINCT pl.source || ':' || pl.listing_id) AS num_listings
+			FROM property_listings pl
+			JOIN cur c ON c.address_key = pl.address_key
+			GROUP BY pl.address_key
 		)
 		SELECT c.address_key, c.display_address, c.suburb, c.state_code, c.postcode,
 		       f.first_price, c.current_price,
@@ -1490,7 +1546,8 @@ func (s *postgresStore) ListAddressPriceDrops(stateCode, sort string, windowDays
 		FROM cur c
 		JOIN firstp f ON f.address_key = c.address_key
 		LEFT JOIN nlist n ON n.address_key = c.address_key
-		WHERE f.first_price > 0
+		WHERE f.has_drop
+		  AND f.first_price > 0
 		  AND f.first_price > c.current_price
 		  AND (f.first_price - c.current_price) / f.first_price >= 0.03
 		  -- Sanity cap in the spirit of the aggregate MVs (000083): a >40%
@@ -1503,7 +1560,31 @@ func (s *postgresStore) ListAddressPriceDrops(stateCode, sort string, windowDays
 		  AND (f.first_price - c.current_price) / f.first_price <= 0.40
 		`
 
-	query := baseQuery + orderBy + "\n\t\tLIMIT $3"
+// ListAddressPriceDrops ranks individual physical addresses (deduped by
+// stable address_key) by asking-price reduction over the last windowDays:
+// from the earliest comparable ask of the current dwelling's advert chain IN
+// the window (first_price) to the current active listing's ask
+// (current_price) — see addressPriceDropsQuery for what may join that chain.
+// It reads the raw (proprietary-tos-restricted) listing rows — this is the
+// flag-gated board; the handler enforces the kill switch (same posture as
+// ListSuburbDropListings). Only real drops (>= 3%, <= 40%, backed by a
+// detected price_drop event) are returned, biggest percentage drop first.
+func (s *postgresStore) ListAddressPriceDrops(stateCode, sort string, windowDays, limit int32) ([]*AddressPriceDropRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if windowDays <= 0 || windowDays > 365 {
+		windowDays = 90
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	orderBy, ok := addressPriceDropsSorts[sort]
+	if !ok {
+		orderBy = addressPriceDropsSorts["pct"]
+	}
+
+	query := addressPriceDropsQuery + orderBy + "\n\t\tLIMIT $3"
 	rows, err := s.db.Query(ctx, query, stateCode, windowDays, limit)
 	if err != nil {
 		return nil, err
@@ -1544,6 +1625,10 @@ type StatePriceDropSummaryRow struct {
 	AvgSold             float64
 	MedianSold          float64
 	SuburbsTracked      int32
+	// Crawl coverage (migration 000124): catalog suburbs with a listing seen in
+	// the last 14 days, and the catalog itself. Both 0 before that migration.
+	SuburbsSwept14d int32
+	CatalogSuburbs  int32
 }
 
 // GetPriceDropsOverview returns the per-state price-drop + listing-price
@@ -1560,8 +1645,12 @@ func (s *postgresStore) GetPriceDropsOverview() ([]*StatePriceDropSummaryRow, er
 		       COALESCE(dropped_share, 0), for_sale_count, for_sale_priced,
 		       COALESCE(avg_asking, 0), COALESCE(median_asking, 0),
 		       sold_count, COALESCE(avg_sold, 0), COALESCE(median_sold, 0),
-		       suburbs_tracked
-		FROM mv_state_price_drops
+		       suburbs_tracked,
+		       -- Via to_jsonb so this one query also reads the pre-000124 MV
+		       -- shape (the columns come back 0 = coverage unknown).
+		       COALESCE((to_jsonb(m) ->> 'suburbs_swept_14d')::int, 0),
+		       COALESCE((to_jsonb(m) ->> 'catalog_suburbs')::int, 0)
+		FROM mv_state_price_drops m
 		ORDER BY (state_code = 'AU') DESC, dropped_count DESC, state_code ASC`
 
 	rows, err := s.db.Query(ctx, query)
@@ -1576,7 +1665,8 @@ func (s *postgresStore) GetPriceDropsOverview() ([]*StatePriceDropSummaryRow, er
 		if err := rows.Scan(&r.StateCode, &r.DroppedCount, &r.AvgDropPct, &r.MedianDropPct,
 			&r.MaxDropPct, &r.DroppedValue, &r.TotalActiveListings, &r.DroppedShare,
 			&r.ForSaleCount, &r.ForSalePriced, &r.AvgAsking, &r.MedianAsking,
-			&r.SoldCount, &r.AvgSold, &r.MedianSold, &r.SuburbsTracked); err != nil {
+			&r.SoldCount, &r.AvgSold, &r.MedianSold, &r.SuburbsTracked,
+			&r.SuburbsSwept14d, &r.CatalogSuburbs); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)
@@ -1617,14 +1707,17 @@ func (s *postgresStore) ListAgencyPriceStats(stateCode, sort string, limit int32
 		limit = 20
 	}
 	// Whitelist the sort column (never interpolate user input into SQL).
-	orderBy := "dropped_count DESC NULLS LAST, total_drop_value DESC NULLS LAST, active_listings DESC NULLS LAST"
+	// Every clause ends on the MV's unique key (source, agency_id, state_code)
+	// so equal counts never reorder between instances.
+	const tiebreak = ", source ASC, agency_id ASC, state_code ASC"
+	orderBy := "dropped_count DESC NULLS LAST, total_drop_value DESC NULLS LAST, active_listings DESC NULLS LAST" + tiebreak
 	switch sort {
 	case "listings":
-		orderBy = "active_listings DESC NULLS LAST, dropped_count DESC NULLS LAST"
+		orderBy = "active_listings DESC NULLS LAST, dropped_count DESC NULLS LAST" + tiebreak
 	case "avg_cut":
-		orderBy = "avg_drop_pct DESC NULLS LAST, dropped_count DESC NULLS LAST"
+		orderBy = "avg_drop_pct DESC NULLS LAST, dropped_count DESC NULLS LAST" + tiebreak
 	case "value":
-		orderBy = "total_drop_value DESC NULLS LAST, dropped_count DESC NULLS LAST"
+		orderBy = "total_drop_value DESC NULLS LAST, dropped_count DESC NULLS LAST" + tiebreak
 	}
 
 	query := `
@@ -1660,8 +1753,12 @@ func (s *postgresStore) ListAgencyPriceStats(stateCode, sort string, limit int32
 
 // DropIndexPointRow is one day of the discounting index.
 type DropIndexPointRow struct {
-	SnapshotDate          string
-	DropRate              float64
+	SnapshotDate string
+	DropRate     float64
+	// MedianDropPct is 0 when the stored median is NULL: withheld because fewer
+	// than 3 dropped addresses stand behind it (migration 000124). A real cut is
+	// never 0 — the crawl's noise floor is 0.5% — so 0 cannot be mistaken for
+	// a reading.
 	MedianDropPct         float64
 	PanelSuburbs          int32
 	CoverageRatio         float64
@@ -1670,6 +1767,9 @@ type DropIndexPointRow struct {
 	DroppedAddresses      int32
 	WithdrawnThenRelisted int32
 	DelistedCount         int32
+	// ComputedAt is when the collector wrote this point; the handler serves the
+	// latest one as the series' as_of.
+	ComputedAt time.Time
 }
 
 // GetDropIndexSeries reads a stored index series. It never computes on the fly:
@@ -1680,8 +1780,9 @@ func (s *postgresStore) GetDropIndexSeries(grain, grainKey, from, to string) ([]
 
 	const query = `
 		SELECT to_char(snapshot_date, 'YYYY-MM-DD'),
-		       drop_rate, median_drop_pct, panel_suburbs, coverage_ratio, is_gap,
-		       active_addresses, dropped_addresses, withdrawn_then_relisted, delisted_count
+		       drop_rate, COALESCE(median_drop_pct, 0), panel_suburbs, coverage_ratio, is_gap,
+		       active_addresses, dropped_addresses, withdrawn_then_relisted, delisted_count,
+		       computed_at
 		FROM housing_drop_index_daily
 		WHERE grain = $1 AND grain_key = $2
 		  AND snapshot_date >= $3::date AND snapshot_date <= $4::date
@@ -1698,10 +1799,66 @@ func (s *postgresStore) GetDropIndexSeries(grain, grainKey, from, to string) ([]
 		var r DropIndexPointRow
 		if err := rows.Scan(&r.SnapshotDate, &r.DropRate, &r.MedianDropPct, &r.PanelSuburbs,
 			&r.CoverageRatio, &r.IsGap, &r.ActiveAddresses, &r.DroppedAddresses,
-			&r.WithdrawnThenRelisted, &r.DelistedCount); err != nil {
+			&r.WithdrawnThenRelisted, &r.DelistedCount, &r.ComputedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)
 	}
 	return out, rows.Err()
+}
+
+// HousingMVRefreshRow is one housing_mv_refresh row (migration 000124).
+type HousingMVRefreshRow struct {
+	// RefreshedAt is now() of the refreshing transaction — the instant every
+	// now()-relative window inside the view was evaluated.
+	RefreshedAt time.Time
+	// DataThrough is the newest crawl observation the refresh could see; nil
+	// for a view not derived from the crawl.
+	DataThrough *time.Time
+}
+
+const housingMVRefreshQuery = `
+		SELECT mv_name, refreshed_at, data_through
+		FROM housing_mv_refresh
+		WHERE mv_name = ANY($1)`
+
+// GetHousingMVRefresh returns the recorded refresh of each named view that has
+// one. A view with no row is simply absent from the map. The table not
+// existing yet (a database before migration 000124) is NOT an error: it reads
+// as "no refresh recorded", so the callers leave as_of unset rather than fail
+// the data read the stamp decorates.
+func (s *postgresStore) GetHousingMVRefresh(mvNames []string) (map[string]HousingMVRefreshRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	out := make(map[string]HousingMVRefreshRow, len(mvNames))
+	rows, err := s.db.Query(ctx, housingMVRefreshQuery, mvNames)
+	if err != nil {
+		if isUndefinedTable(err) {
+			return out, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		var r HousingMVRefreshRow
+		if err := rows.Scan(&name, &r.RefreshedAt, &r.DataThrough); err != nil {
+			return nil, err
+		}
+		out[name] = r
+	}
+	if err := rows.Err(); err != nil {
+		if isUndefinedTable(err) {
+			return map[string]HousingMVRefreshRow{}, nil
+		}
+		return nil, err
+	}
+	return out, nil
+}
+
+// isUndefinedTable reports a Postgres undefined_table (42P01) error.
+func isUndefinedTable(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "42P01"
 }

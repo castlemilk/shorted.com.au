@@ -136,6 +136,9 @@ type ShortsStore interface {
 	GetPriceDropsOverview() ([]*shortsstore.StatePriceDropSummaryRow, error)
 	ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*shortsstore.AgencyPriceStatsRow, error)
 	GetDropIndexSeries(grain, grainKey, from, to string) ([]*shortsstore.DropIndexPointRow, error)
+	// GetHousingMVRefresh reads housing_mv_refresh (migration 000124): when each
+	// named view was last refreshed. Absent views (or table) are simply missing.
+	GetHousingMVRefresh(mvNames []string) (map[string]shortsstore.HousingMVRefreshRow, error)
 
 	// Economy snapshot methods
 	// Register of Members'/Senators' Interests methods

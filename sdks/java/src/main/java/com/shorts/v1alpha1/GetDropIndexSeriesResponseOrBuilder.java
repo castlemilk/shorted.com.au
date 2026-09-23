@@ -57,9 +57,11 @@ public interface GetDropIndexSeriesResponseOrBuilder extends
   /**
    * <pre>
    * as_of: the latest computed_at among the returned points (when the
-   * collector last wrote this series). data_through: the latest returned
-   * snapshot_date — the index reads the crawl through the end of that day.
-   * Both unset when no point is returned.
+   * collector last wrote this series). data_through: the end of the latest
+   * returned snapshot day, or the crawl horizon the last housing MV refresh
+   * recorded if that is earlier — a snapshot is computed daily whether or not
+   * the crawl ran, so the date alone can outrun the data. Both unset when no
+   * point is returned.
    * </pre>
    *
    * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
@@ -69,9 +71,11 @@ public interface GetDropIndexSeriesResponseOrBuilder extends
   /**
    * <pre>
    * as_of: the latest computed_at among the returned points (when the
-   * collector last wrote this series). data_through: the latest returned
-   * snapshot_date — the index reads the crawl through the end of that day.
-   * Both unset when no point is returned.
+   * collector last wrote this series). data_through: the end of the latest
+   * returned snapshot day, or the crawl horizon the last housing MV refresh
+   * recorded if that is earlier — a snapshot is computed daily whether or not
+   * the crawl ran, so the date alone can outrun the data. Both unset when no
+   * point is returned.
    * </pre>
    *
    * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
@@ -81,9 +85,11 @@ public interface GetDropIndexSeriesResponseOrBuilder extends
   /**
    * <pre>
    * as_of: the latest computed_at among the returned points (when the
-   * collector last wrote this series). data_through: the latest returned
-   * snapshot_date — the index reads the crawl through the end of that day.
-   * Both unset when no point is returned.
+   * collector last wrote this series). data_through: the end of the latest
+   * returned snapshot day, or the crawl horizon the last housing MV refresh
+   * recorded if that is earlier — a snapshot is computed daily whether or not
+   * the crawl ran, so the date alone can outrun the data. Both unset when no
+   * point is returned.
    * </pre>
    *
    * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>

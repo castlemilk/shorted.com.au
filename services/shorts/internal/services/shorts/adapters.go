@@ -343,6 +343,10 @@ func (s *StoreAdapter) GetDropIndexSeries(grain, grainKey, from, to string) ([]*
 	return s.store.GetDropIndexSeries(grain, grainKey, from, to)
 }
 
+func (s *StoreAdapter) GetHousingMVRefresh(mvNames []string) (map[string]shorts.HousingMVRefreshRow, error) {
+	return s.store.GetHousingMVRefresh(mvNames)
+}
+
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
 }
