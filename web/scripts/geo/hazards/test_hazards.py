@@ -103,6 +103,23 @@ class MergeTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 merge_hazards.merge(wdir, vdir)
 
+    def test_masked_null_survives_as_null(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            wdir, vdir = self._write(tmp, self._full_states(), {"nsw-flood": {"10001": None}, "nsw-bushfire": {"10001": 0.0}})
+            merged = merge_hazards.merge(wdir, vdir)
+        self.assertIsNone(merged["10001"]["floodPlanningSharePct"])
+        self.assertEqual(merged["10001"]["bushfireProneSharePct"], 0.0)
+
+    def test_share_file_missing_a_state_suburb_refuses(self):
+        states = self._full_states({"NSW": {
+            "10001": {"sampledCellCount": 100, "waterObservedSharePct": 1.5, "permanentWaterSharePct": 0.0},
+            "10002": {"sampledCellCount": 100, "waterObservedSharePct": 0.0, "permanentWaterSharePct": 0.0},
+        }})
+        with tempfile.TemporaryDirectory() as tmp:
+            wdir, vdir = self._write(tmp, states, {"nsw-flood": {"10001": 3.0}})
+            with self.assertRaises(SystemExit):
+                merge_hazards.merge(wdir, vdir)
+
     def test_vector_row_for_wrong_state_refuses(self):
         with tempfile.TemporaryDirectory() as tmp:
             wdir, vdir = self._write(tmp, self._full_states(), {"nsw-flood": {"20001": 1.0}})
