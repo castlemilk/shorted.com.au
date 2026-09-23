@@ -479,7 +479,8 @@ type GetSuburbProfileOutput struct {
 	StateMember     string `json:"state_member,omitempty" jsonschema:"Empty for TAS and ACT, which are multi-member."`
 	StateParty      string `json:"state_party,omitempty"`
 
-	Council             string  `json:"council,omitempty" jsonschema:"Local government area."`
+	Council             string  `json:"council,omitempty" jsonschema:"Local government area holding most of the suburb's residents."`
+	CouncilAlsoSpans    string  `json:"council_also_spans,omitempty" jsonschema:"Other councils with >=5% of residents, e.g. 'Georges River 28%'."`
 	StateMedianPrice    float64 `json:"state_median_price,omitempty" jsonschema:"AUD, for comparison."`
 	NationalMedianPrice float64 `json:"national_median_price,omitempty" jsonschema:"AUD, for comparison."`
 
@@ -584,7 +585,8 @@ func getSuburbProfileHandler(src DataSource) sdk.ToolHandlerFor[GetSuburbProfile
 			StateMember:     summary.GetStateMember(),
 			StateParty:      summary.GetStateParty(),
 
-			Council:             msg.GetCouncil().GetLgaName(),
+			Council:             councilName(msg.GetCouncil()),
+			CouncilAlsoSpans:    councilAlsoSpans(msg.GetCouncilOverlaps()),
 			StateMedianPrice:    round2(base.GetStateMedianPrice()),
 			NationalMedianPrice: round2(base.GetNationalMedianPrice()),
 
@@ -833,4 +835,24 @@ func listSuburbPriceDropsHandler(src DataSource) sdk.ToolHandlerFor[ListSuburbPr
 		}
 		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: text}}}, out, nil
 	}
+}
+
+// councilName prefers the display name ('Campbelltown') over the ABS name
+// ('Campbelltown (NSW)'); the state is already on the profile.
+func councilName(c *shortsv1alpha1.LgaInfo) string {
+	if c.GetDisplayName() != "" {
+		return c.GetDisplayName()
+	}
+	return c.GetLgaName()
+}
+
+// councilAlsoSpans flattens the profile's council_overlaps into one short
+// string: a list of objects would cost schema preamble on every session for a
+// fact most suburbs do not have.
+func councilAlsoSpans(overlaps []*shortsv1alpha1.LgaOverlap) string {
+	parts := make([]string, 0, len(overlaps))
+	for _, o := range overlaps {
+		parts = append(parts, fmt.Sprintf("%s %.0f%%", o.GetDisplayName(), o.GetShare()*100))
+	}
+	return strings.Join(parts, ", ")
 }

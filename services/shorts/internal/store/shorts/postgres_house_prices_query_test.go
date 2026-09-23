@@ -226,3 +226,41 @@ func TestHousingRegionsQuery_PicksHousesNotUnits(t *testing.T) {
 		t.Error("latest-median LATERAL must not select attached-dwelling medians")
 	}
 }
+
+// The council block is its own tolerated query (like hazards): the 000126
+// columns land by hand on prod, and the base profile must not select them.
+// Its council median is the WHOLE council's, is licence-filtered, and is the
+// latest by period — never an average or a suburb figure.
+func TestSuburbCouncilQueries(t *testing.T) {
+	source := postgresHousePricesSource(t)
+	base := source[strings.Index(source, "func (s *postgresStore) GetSuburbProfile("):strings.Index(source, "p.Summary.Seifa = mapSuburbSeifa(rawSeifa)")]
+	for _, col := range []string{"lg.slug", "lg.display_name", "lg.erp_year", "lg.website", "dominant_share", "lga_series"} {
+		if strings.Contains(base, col) {
+			t.Errorf("the base profile query must not read 000126's %s", col)
+		}
+	}
+	for _, want := range []string{
+		"ls.measure = 'house_median_price'",
+		"ls.source_licence <> 'proprietary-tos-restricted'",
+		"ORDER BY ls.period DESC",
+		"sl.dominant_share",
+	} {
+		if !strings.Contains(suburbCouncilQuery, want) {
+			t.Errorf("suburbCouncilQuery missing %q", want)
+		}
+	}
+	for _, want := range []string{
+		"jsonb_to_recordset(sl.overlap_lgas)",
+		"o.lga_code24 <> sl.lga_code24",
+		"o.share >= $2",
+		"ORDER BY o.share DESC, o.lga_code24",
+		"WHEN l.kind IN ('council', 'unincorporated')",
+	} {
+		if !strings.Contains(suburbCouncilOverlapsQuery, want) {
+			t.Errorf("suburbCouncilOverlapsQuery missing %q", want)
+		}
+	}
+	if councilOverlapMinShare != 0.05 {
+		t.Errorf("councilOverlapMinShare = %v: the profile contract names councils >= 5%%", councilOverlapMinShare)
+	}
+}

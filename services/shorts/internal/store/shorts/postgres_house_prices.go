@@ -171,6 +171,14 @@ func nullableFloatPointer(value sql.NullFloat64) *float64 {
 	return &result
 }
 
+func nullableInt32Pointer(value sql.NullInt32) *int32 {
+	if !value.Valid {
+		return nil
+	}
+	result := value.Int32
+	return &result
+}
+
 func mapSuburbElevation(raw nullableSuburbElevation) *SuburbElevationRow {
 	if !raw.ElevationMinM.Valid && !raw.ElevationMedianM.Valid && !raw.ElevationMaxM.Valid &&
 		!raw.LandShareBelow1M.Valid && !raw.LandShareBelow2M.Valid && !raw.LandShareBelow5M.Valid {
@@ -350,6 +358,11 @@ type SuburbProfileRow struct {
 	Hazards *SuburbHazardRow
 	// Crawl-derived listing aggregates; nil when outside the crawl catalog.
 	ListingStats *SuburbListingStatsRow
+	// Council identity + ABS facts (000126); nil when the suburb has no
+	// council or the 000126 columns are not deployed yet.
+	Council *SuburbCouncilRow
+	// Other councils holding >= councilOverlapMinShare of the suburb, largest first.
+	CouncilOverlaps []CouncilOverlapRow
 	// full demographics
 	MedianWeeklyPerIncome float64
 	MedianWeeklyRent      float64
@@ -667,7 +680,136 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		log.Warnf("GetSuburbProfile(%s): suburb hazards unavailable: %v", salCode, err)
 	}
 	p.ListingStats = s.suburbListingStats(ctx, salCode)
+	// Its own queries, tolerated on failure like hazards: the 000126 columns
+	// land by hand on prod, and the base council card must survive without them.
+	if p.LgaCode != "" {
+		if council, overlaps, err := s.suburbCouncil(ctx, salCode); err == nil {
+			p.Council, p.CouncilOverlaps = council, overlaps
+		} else {
+			log.Warnf("GetSuburbProfile(%s): council facts unavailable: %v", salCode, err)
+		}
+	}
 	return &p, nil
+}
+
+// SuburbCouncilRow is the suburb's dominant council beyond the base columns
+// the profile query already reads. Pointer fields are NULL-as-absent: no
+// source covers this council, never a measured zero.
+type SuburbCouncilRow struct {
+	Slug                  string
+	DisplayName           string
+	Kind                  string
+	ErpYear               int32
+	PopGrowthPct          *float64
+	MedianAge             *float64
+	MedianHhdIncome       *int32
+	PctRented             *float64
+	MedianWeeklyRent      *int32
+	MedianMortgageMonthly *int32
+	AvgHouseholdSize      *float64
+	SeifaIrsadDecile      *int32
+	SeifaIrsdDecile       *int32
+	Website               string
+	WikidataQID           string
+	CentroidLat           *float64
+	CentroidLon           *float64
+	// Share of the suburb's residents in this council (mesh-block bridge).
+	DominantShare *float64
+	// Latest ABS council-level median established-house price + its FY label.
+	HouseMedian       *float64
+	HouseMedianPeriod string
+}
+
+// CouncilOverlapRow is another council a suburb spans.
+type CouncilOverlapRow struct {
+	LgaCode     string
+	DisplayName string
+	StateCode   string
+	Slug        string // '' for a council without a page
+	Share       float64
+}
+
+// councilOverlapMinShare is the smallest share of a suburb's residents that
+// names a second council on the profile. The bridge keeps every council >= 1%
+// (join-lga-mb.py); below 5% is boundary noise to a reader.
+const councilOverlapMinShare = 0.05
+
+// suburbCouncilQuery reads the dominant council's 000126 facts and its latest
+// council-level ABS house median. The median is a whole-council figure and is
+// labelled as one on every surface; it is never this suburb's price.
+const suburbCouncilQuery = `
+		SELECT COALESCE(lg.slug, ''), COALESCE(lg.display_name, lg.lga_name), COALESCE(lg.kind, ''),
+		       COALESCE(lg.erp_year, 0), lg.pop_growth_pct, lg.median_age, lg.median_hhd_income,
+		       lg.pct_rented, lg.median_weekly_rent, lg.median_mortgage_monthly, lg.avg_household_size,
+		       lg.seifa_irsad_decile, lg.seifa_irsd_decile,
+		       COALESCE(lg.website, ''), COALESCE(lg.wikidata_qid, ''), lg.centroid_lat, lg.centroid_lon,
+		       sl.dominant_share, hm.value, COALESCE(hm.period_label, '')
+		FROM suburb_lga sl
+		JOIN lga lg ON lg.lga_code24 = sl.lga_code24
+		LEFT JOIN LATERAL (
+			SELECT ls.value, ls.period_label
+			FROM lga_series ls
+			WHERE ls.lga_code24 = sl.lga_code24 AND ls.measure = 'house_median_price'
+			  AND ls.source_licence <> 'proprietary-tos-restricted'
+			ORDER BY ls.period DESC
+			LIMIT 1
+		) hm ON true
+		WHERE sl.sal_code = $1`
+
+// suburbCouncilOverlapsQuery expands suburb_lga.overlap_lgas (dominant first,
+// every council >= 1%) into the OTHER councils worth naming.
+const suburbCouncilOverlapsQuery = `
+		SELECT o.lga_code24, COALESCE(l.display_name, l.lga_name), l.state_code,
+		       CASE WHEN l.kind IN ('council', 'unincorporated') THEN COALESCE(l.slug, '') ELSE '' END,
+		       o.share
+		FROM suburb_lga sl
+		CROSS JOIN LATERAL jsonb_to_recordset(sl.overlap_lgas) AS o(lga_code24 text, share double precision)
+		JOIN lga l ON l.lga_code24 = o.lga_code24
+		WHERE sl.sal_code = $1 AND o.lga_code24 <> sl.lga_code24 AND o.share >= $2
+		ORDER BY o.share DESC, o.lga_code24`
+
+// suburbCouncil returns nil, nil, nil when the suburb has no council row.
+func (s *postgresStore) suburbCouncil(ctx context.Context, salCode string) (*SuburbCouncilRow, []CouncilOverlapRow, error) {
+	var (
+		c                                            SuburbCouncilRow
+		growth, age, rented, hhSize, lat, lon, share sql.NullFloat64
+		median                                       sql.NullFloat64
+		income, rent, mortgage, irsad, irsd          sql.NullInt32
+	)
+	err := s.db.QueryRow(ctx, suburbCouncilQuery, salCode).Scan(
+		&c.Slug, &c.DisplayName, &c.Kind, &c.ErpYear, &growth, &age, &income,
+		&rented, &rent, &mortgage, &hhSize, &irsad, &irsd,
+		&c.Website, &c.WikidataQID, &lat, &lon, &share, &median, &c.HouseMedianPeriod,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil, nil
+		}
+		return nil, nil, err
+	}
+	c.PopGrowthPct, c.MedianAge, c.PctRented = nullableFloatPointer(growth), nullableFloatPointer(age), nullableFloatPointer(rented)
+	c.AvgHouseholdSize, c.CentroidLat, c.CentroidLon = nullableFloatPointer(hhSize), nullableFloatPointer(lat), nullableFloatPointer(lon)
+	c.DominantShare, c.HouseMedian = nullableFloatPointer(share), nullableFloatPointer(median)
+	c.MedianHhdIncome, c.MedianWeeklyRent, c.MedianMortgageMonthly = nullableInt32Pointer(income), nullableInt32Pointer(rent), nullableInt32Pointer(mortgage)
+	c.SeifaIrsadDecile, c.SeifaIrsdDecile = nullableInt32Pointer(irsad), nullableInt32Pointer(irsd)
+	if c.HouseMedian == nil {
+		c.HouseMedianPeriod = ""
+	}
+
+	rows, err := s.db.Query(ctx, suburbCouncilOverlapsQuery, salCode, councilOverlapMinShare)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	var overlaps []CouncilOverlapRow
+	for rows.Next() {
+		var o CouncilOverlapRow
+		if err := rows.Scan(&o.LgaCode, &o.DisplayName, &o.StateCode, &o.Slug, &o.Share); err != nil {
+			return nil, nil, err
+		}
+		overlaps = append(overlaps, o)
+	}
+	return &c, overlaps, rows.Err()
 }
 
 // SuburbListingStatsRow is the crawl-derived listing aggregate for one suburb.

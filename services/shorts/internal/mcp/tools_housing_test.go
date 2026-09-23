@@ -73,7 +73,7 @@ var housingOutputAllowlist = map[string][]string{
 		"seifa_irsad_decile_aus", "seifa_irsad_decile_state",
 		"federal_division", "federal_member", "federal_party",
 		"state_district", "state_member", "state_party",
-		"council", "state_median_price", "national_median_price",
+		"council", "council_also_spans", "state_median_price", "national_median_price",
 		"crime_break_ins_rank", "crime_violent_rank",
 		"crime_motor_vehicle_rank", "crime_jurisdiction",
 		"listings_for_sale_count", "listings_median_asking",
@@ -372,7 +372,11 @@ func fullProfile() *shortsv1alpha1.GetSuburbProfileResponse {
 		Baselines: &shortsv1alpha1.ComparisonBaselines{
 			StateMedianPrice: 900_000, NationalMedianPrice: 850_000,
 		},
-		Council: &shortsv1alpha1.LgaInfo{LgaName: "Yarra"},
+		Council: &shortsv1alpha1.LgaInfo{LgaName: "Yarra (Vic.)", DisplayName: "Yarra"},
+		CouncilOverlaps: []*shortsv1alpha1.LgaOverlap{
+			{LgaCode: "24600", DisplayName: "Melbourne", Share: 0.123},
+			{LgaCode: "25900", DisplayName: "Port Phillip", Share: 0.06},
+		},
 		Crime: &shortsv1alpha1.SuburbCrime{
 			SourceJurisdiction: "NSW",
 			Stats: []*shortsv1alpha1.SuburbCrimeStat{
@@ -402,6 +406,9 @@ func TestGetSuburbProfileProjectsPublishableFacts(t *testing.T) {
 	}
 	if out.Council != "Yarra" || out.SeifaIrsadDecileAus != 9 {
 		t.Errorf("council/seifa projected wrong: %+v", out)
+	}
+	if out.CouncilAlsoSpans != "Melbourne 12%, Port Phillip 6%" {
+		t.Errorf("council_also_spans = %q", out.CouncilAlsoSpans)
 	}
 	if out.CrimeBreakInsRank != 62.5 || out.CrimeJurisdiction != "NSW" {
 		t.Errorf("crime ranks projected wrong: %+v", out)
