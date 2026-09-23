@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"sort"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
@@ -348,6 +349,8 @@ type SuburbProfileRow struct {
 	Elevation *SuburbElevationRow
 	// Hazard exposure shares; nil when no source covers the suburb.
 	Hazards *SuburbHazardRow
+	// Statutory planning layer; nil when no planning source covers the suburb.
+	Planning *SuburbPlanningRow
 	// Crawl-derived listing aggregates; nil when outside the crawl catalog.
 	ListingStats *SuburbListingStatsRow
 	// full demographics
@@ -666,6 +669,12 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 	} else {
 		log.Warnf("GetSuburbProfile(%s): suburb hazards unavailable: %v", salCode, err)
 	}
+	// Same tolerance: suburb_planning (000125) is hand-applied on prod.
+	if planning, err := s.suburbPlanning(ctx, salCode); err == nil {
+		p.Planning = planning
+	} else {
+		log.Warnf("GetSuburbProfile(%s): suburb planning unavailable: %v", salCode, err)
+	}
 	p.ListingStats = s.suburbListingStats(ctx, salCode)
 	return &p, nil
 }
@@ -781,6 +790,102 @@ func (s *postgresStore) suburbHazards(ctx context.Context, salCode string) (*Sub
 		return nil, nil
 	}
 	return row, nil
+}
+
+// ZoneFamilies is the harmonised zoning family set (program decision 8), in
+// the order the offline build resolves overlaps. suburb_planning carries one
+// zone_<family>_share_pct column per entry.
+var ZoneFamilies = []string{
+	"res_low", "res_medium_high", "centre_mixed", "industrial", "rural",
+	"conservation", "open_space", "infrastructure", "water", "other",
+}
+
+// ZoneFamilyShareRow is one family's share of a suburb.
+type ZoneFamilyShareRow struct {
+	Family   string
+	SharePct float64
+}
+
+// SuburbPlanningRow is one suburb's statutory planning layer. Nil pointers are
+// "no source covers this"; a genuine zero is a non-nil 0.
+type SuburbPlanningRow struct {
+	ZoneShares         []ZoneFamilyShareRow // non-zero families, largest first
+	ZoningCoveragePct  *float64
+	DominantZoneFamily string
+	HeritageSharePct   *float64
+	HeritageItemCount  *int32
+	NSWHeightMedianM   *float64
+	NSWHeightMaxM      *float64
+	NSWFSRMedian       *float64
+	NSWMinLotMedianM2  *float64
+	Instruments        []string
+	ZoningSource       string
+	HeritageSource     string
+	SourceLicence      string
+}
+
+const suburbPlanningQuery = `
+		SELECT zone_res_low_share_pct, zone_res_medium_high_share_pct, zone_centre_mixed_share_pct,
+		       zone_industrial_share_pct, zone_rural_share_pct, zone_conservation_share_pct,
+		       zone_open_space_share_pct, zone_infrastructure_share_pct, zone_water_share_pct,
+		       zone_other_share_pct,
+		       zoning_coverage_pct, COALESCE(dominant_zone_family, ''),
+		       heritage_share_pct, heritage_item_count,
+		       nsw_height_median_m, nsw_height_max_m, nsw_fsr_median, nsw_min_lot_median_m2,
+		       COALESCE(planning_instruments, '{}'::text[]),
+		       COALESCE(zoning_source, ''), COALESCE(heritage_source, ''), source_licence
+		FROM suburb_planning
+		WHERE sal_code = $1 AND source_licence <> 'proprietary-tos-restricted'`
+
+// suburbPlanning returns nil, nil when the suburb has no row or the row holds
+// nothing (a covered-state suburb no instrument reaches).
+func (s *postgresStore) suburbPlanning(ctx context.Context, salCode string) (*SuburbPlanningRow, error) {
+	shares := make([]sql.NullFloat64, len(ZoneFamilies))
+	var coverage, heritage, hMed, hMax, fsr, lot sql.NullFloat64
+	var items sql.NullInt32
+	row := &SuburbPlanningRow{}
+	dest := make([]any, 0, len(ZoneFamilies)+12)
+	for i := range shares {
+		dest = append(dest, &shares[i])
+	}
+	dest = append(dest, &coverage, &row.DominantZoneFamily, &heritage, &items,
+		&hMed, &hMax, &fsr, &lot, &row.Instruments, &row.ZoningSource, &row.HeritageSource, &row.SourceLicence)
+	if err := s.db.QueryRow(ctx, suburbPlanningQuery, salCode).Scan(dest...); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return buildSuburbPlanningRow(row, shares, coverage, heritage, hMed, hMax, fsr, lot, items), nil
+}
+
+// buildSuburbPlanningRow finishes a scanned row: pointer-ises the nullable
+// scalars, keeps only non-zero family shares (largest first, ties in family
+// order) and collapses an all-empty row to nil. Split out for tests.
+func buildSuburbPlanningRow(row *SuburbPlanningRow, shares []sql.NullFloat64,
+	coverage, heritage, hMed, hMax, fsr, lot sql.NullFloat64, items sql.NullInt32) *SuburbPlanningRow {
+	for i, family := range ZoneFamilies {
+		if i < len(shares) && shares[i].Valid && shares[i].Float64 > 0 {
+			row.ZoneShares = append(row.ZoneShares, ZoneFamilyShareRow{Family: family, SharePct: shares[i].Float64})
+		}
+	}
+	sort.SliceStable(row.ZoneShares, func(a, b int) bool { return row.ZoneShares[a].SharePct > row.ZoneShares[b].SharePct })
+	row.ZoningCoveragePct = nullableFloatPointer(coverage)
+	row.HeritageSharePct = nullableFloatPointer(heritage)
+	row.NSWHeightMedianM = nullableFloatPointer(hMed)
+	row.NSWHeightMaxM = nullableFloatPointer(hMax)
+	row.NSWFSRMedian = nullableFloatPointer(fsr)
+	row.NSWMinLotMedianM2 = nullableFloatPointer(lot)
+	if items.Valid {
+		v := items.Int32
+		row.HeritageItemCount = &v
+	}
+	if len(row.ZoneShares) == 0 && row.HeritageSharePct == nil && row.HeritageItemCount == nil &&
+		row.NSWHeightMedianM == nil && row.NSWFSRMedian == nil && row.NSWMinLotMedianM2 == nil &&
+		len(row.Instruments) == 0 {
+		return nil
+	}
+	return row
 }
 
 // similarSuburbs finds the k nearest suburbs nationally in a z-scored feature

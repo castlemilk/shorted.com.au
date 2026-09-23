@@ -26,6 +26,7 @@ const (
 	suburbMetricJoinCrime
 	suburbMetricJoinRegister
 	suburbMetricJoinHazards
+	suburbMetricJoinPlanning
 )
 
 type suburbMetricDefinition struct {
@@ -160,6 +161,52 @@ var suburbMetricRegistry = map[string]suburbMetricDefinition{
 	"permanent_water_share_pct": metric("permanent_water_share_pct", "h.permanent_water_share_pct", suburbMetricJoinHazards),
 	"flood_planning_share_pct":  metric("flood_planning_share_pct", "h.flood_planning_share_pct", suburbMetricJoinHazards),
 	"bushfire_prone_share_pct":  metric("bushfire_prone_share_pct", "h.bushfire_prone_share_pct", suburbMetricJoinHazards),
+
+	// suburb_planning (000125): zoning-family shares as % of the suburb, NULL
+	// where no scheme covers it (QLD/WA/NT, and any suburb the state's scheme
+	// does not reach). Licence-gated in the join.
+	"zone_res_low_share_pct":         metric("zone_res_low_share_pct", "pl.zone_res_low_share_pct", suburbMetricJoinPlanning),
+	"zone_res_medium_high_share_pct": metric("zone_res_medium_high_share_pct", "pl.zone_res_medium_high_share_pct", suburbMetricJoinPlanning),
+	"zone_centre_mixed_share_pct":    metric("zone_centre_mixed_share_pct", "pl.zone_centre_mixed_share_pct", suburbMetricJoinPlanning),
+	"zone_industrial_share_pct":      metric("zone_industrial_share_pct", "pl.zone_industrial_share_pct", suburbMetricJoinPlanning),
+	"zone_rural_share_pct":           metric("zone_rural_share_pct", "pl.zone_rural_share_pct", suburbMetricJoinPlanning),
+	"zone_conservation_share_pct":    metric("zone_conservation_share_pct", "pl.zone_conservation_share_pct", suburbMetricJoinPlanning),
+	"zone_open_space_share_pct":      metric("zone_open_space_share_pct", "pl.zone_open_space_share_pct", suburbMetricJoinPlanning),
+	"zoning_coverage_pct":            metric("zoning_coverage_pct", "pl.zoning_coverage_pct", suburbMetricJoinPlanning),
+	"dominant_zone_family": categoryMetric("dominant_zone_family",
+		zoneFamilyIndexExpression("pl.dominant_zone_family"), suburbMetricJoinPlanning, ZoneFamilyLabels),
+	"heritage_share_pct":    metric("heritage_share_pct", "pl.heritage_share_pct", suburbMetricJoinPlanning),
+	"heritage_item_count":   metric("heritage_item_count", "pl.heritage_item_count", suburbMetricJoinPlanning),
+	"nsw_height_median_m":   metric("nsw_height_median_m", "pl.nsw_height_median_m", suburbMetricJoinPlanning),
+	"nsw_fsr_median":        metric("nsw_fsr_median", "pl.nsw_fsr_median", suburbMetricJoinPlanning),
+	"nsw_min_lot_median_m2": metric("nsw_min_lot_median_m2", "pl.nsw_min_lot_median_m2", suburbMetricJoinPlanning),
+}
+
+// ZoneFamilyLabels are the reader-facing names of ZoneFamilies, index-aligned:
+// the dominant_zone_family column returns an index into this list.
+var ZoneFamilyLabels = []string{
+	"Low-density residential",
+	"General / medium / high-density residential",
+	"Centres & mixed use",
+	"Industrial & employment",
+	"Rural",
+	"Conservation",
+	"Open space & recreation",
+	"Infrastructure & special purpose",
+	"Waterways",
+	"Growth area, deferred or unzoned",
+}
+
+// zoneFamilyIndexExpression maps a family key column to its ZoneFamilies
+// index; NULL (no zoning) and any unknown key stay NULL.
+func zoneFamilyIndexExpression(column string) string {
+	var b strings.Builder
+	b.WriteString("CASE " + column)
+	for i, family := range ZoneFamilies {
+		fmt.Fprintf(&b, " WHEN '%s' THEN %d", family, i)
+	}
+	b.WriteString(" ELSE NULL END")
+	return b.String()
 }
 
 func metric(key, expression string, joins suburbMetricJoin) suburbMetricDefinition {
@@ -345,6 +392,9 @@ func buildSuburbMetricQuery(keys []string) (string, []suburbMetricDefinition, er
 	}
 	if joins&suburbMetricJoinHazards != 0 {
 		query.WriteString("\nLEFT JOIN suburb_hazard_exposure h ON h.sal_code = d.sal_code AND h.source_licence <> 'proprietary-tos-restricted'")
+	}
+	if joins&suburbMetricJoinPlanning != 0 {
+		query.WriteString("\nLEFT JOIN suburb_planning pl ON pl.sal_code = d.sal_code AND pl.source_licence <> 'proprietary-tos-restricted'")
 	}
 	query.WriteString("\nWHERE d.state_code = $1\nORDER BY d.sal_code")
 	return query.String(), definitions, nil

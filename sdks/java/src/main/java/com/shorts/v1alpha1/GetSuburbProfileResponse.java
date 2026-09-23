@@ -423,6 +423,50 @@ private static final long serialVersionUID = 0L;
     return hazards_ == null ? com.shorts.v1alpha1.SuburbHazardExposure.getDefaultInstance() : hazards_;
   }
 
+  public static final int PLANNING_FIELD_NUMBER = 12;
+  private com.shorts.v1alpha1.SuburbPlanning planning_;
+  /**
+   * <pre>
+   * Field 11 is reserved for council_overlaps (stream C).
+   * Profile-only planning block; absent when no planning source covers the
+   * suburb (WA, NT, and QLD beyond its heritage register).
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+   * @return Whether the planning field is set.
+   */
+  @java.lang.Override
+  public boolean hasPlanning() {
+    return ((bitField0_ & 0x00000200) != 0);
+  }
+  /**
+   * <pre>
+   * Field 11 is reserved for council_overlaps (stream C).
+   * Profile-only planning block; absent when no planning source covers the
+   * suburb (WA, NT, and QLD beyond its heritage register).
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+   * @return The planning.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbPlanning getPlanning() {
+    return planning_ == null ? com.shorts.v1alpha1.SuburbPlanning.getDefaultInstance() : planning_;
+  }
+  /**
+   * <pre>
+   * Field 11 is reserved for council_overlaps (stream C).
+   * Profile-only planning block; absent when no planning source covers the
+   * suburb (WA, NT, and QLD beyond its heritage register).
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.SuburbPlanningOrBuilder getPlanningOrBuilder() {
+    return planning_ == null ? com.shorts.v1alpha1.SuburbPlanning.getDefaultInstance() : planning_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -466,6 +510,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000100) != 0)) {
       output.writeMessage(10, getHazards());
+    }
+    if (((bitField0_ & 0x00000200) != 0)) {
+      output.writeMessage(12, getPlanning());
     }
     getUnknownFields().writeTo(output);
   }
@@ -515,6 +562,10 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000100) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(10, getHazards());
+    }
+    if (((bitField0_ & 0x00000200) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(12, getPlanning());
     }
     return size;
   }
@@ -587,6 +638,11 @@ private static final long serialVersionUID = 0L;
       if (!getHazards()
           .equals(other.getHazards())) return false;
     }
+    if (hasPlanning() != other.hasPlanning()) return false;
+    if (hasPlanning()) {
+      if (!getPlanning()
+          .equals(other.getPlanning())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -637,6 +693,10 @@ private static final long serialVersionUID = 0L;
     if (hasHazards()) {
       hash = (37 * hash) + HAZARDS_FIELD_NUMBER;
       hash = (53 * hash) + getHazards().hashCode();
+    }
+    if (hasPlanning()) {
+      hash = (37 * hash) + PLANNING_FIELD_NUMBER;
+      hash = (53 * hash) + getPlanning().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -778,6 +838,7 @@ private static final long serialVersionUID = 0L;
         internalGetListingStatsFieldBuilder();
         internalGetElevationFieldBuilder();
         internalGetHazardsFieldBuilder();
+        internalGetPlanningFieldBuilder();
       }
     }
     @java.lang.Override
@@ -835,6 +896,11 @@ private static final long serialVersionUID = 0L;
       if (hazardsBuilder_ != null) {
         hazardsBuilder_.dispose();
         hazardsBuilder_ = null;
+      }
+      planning_ = null;
+      if (planningBuilder_ != null) {
+        planningBuilder_.dispose();
+        planningBuilder_ = null;
       }
       return this;
     }
@@ -937,6 +1003,12 @@ private static final long serialVersionUID = 0L;
             : hazardsBuilder_.build();
         to_bitField0_ |= 0x00000100;
       }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.planning_ = planningBuilder_ == null
+            ? planning_
+            : planningBuilder_.build();
+        to_bitField0_ |= 0x00000200;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -1004,6 +1076,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasHazards()) {
         mergeHazards(other.getHazards());
+      }
+      if (other.hasPlanning()) {
+        mergePlanning(other.getPlanning());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1107,6 +1182,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000200;
               break;
             } // case 82
+            case 98: {
+              input.readMessage(
+                  internalGetPlanningFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 98
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2757,6 +2839,181 @@ private static final long serialVersionUID = 0L;
         hazards_ = null;
       }
       return hazardsBuilder_;
+    }
+
+    private com.shorts.v1alpha1.SuburbPlanning planning_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbPlanning, com.shorts.v1alpha1.SuburbPlanning.Builder, com.shorts.v1alpha1.SuburbPlanningOrBuilder> planningBuilder_;
+    /**
+     * <pre>
+     * Field 11 is reserved for council_overlaps (stream C).
+     * Profile-only planning block; absent when no planning source covers the
+     * suburb (WA, NT, and QLD beyond its heritage register).
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+     * @return Whether the planning field is set.
+     */
+    public boolean hasPlanning() {
+      return ((bitField0_ & 0x00000400) != 0);
+    }
+    /**
+     * <pre>
+     * Field 11 is reserved for council_overlaps (stream C).
+     * Profile-only planning block; absent when no planning source covers the
+     * suburb (WA, NT, and QLD beyond its heritage register).
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+     * @return The planning.
+     */
+    public com.shorts.v1alpha1.SuburbPlanning getPlanning() {
+      if (planningBuilder_ == null) {
+        return planning_ == null ? com.shorts.v1alpha1.SuburbPlanning.getDefaultInstance() : planning_;
+      } else {
+        return planningBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Field 11 is reserved for council_overlaps (stream C).
+     * Profile-only planning block; absent when no planning source covers the
+     * suburb (WA, NT, and QLD beyond its heritage register).
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+     */
+    public Builder setPlanning(com.shorts.v1alpha1.SuburbPlanning value) {
+      if (planningBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        planning_ = value;
+      } else {
+        planningBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Field 11 is reserved for council_overlaps (stream C).
+     * Profile-only planning block; absent when no planning source covers the
+     * suburb (WA, NT, and QLD beyond its heritage register).
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+     */
+    public Builder setPlanning(
+        com.shorts.v1alpha1.SuburbPlanning.Builder builderForValue) {
+      if (planningBuilder_ == null) {
+        planning_ = builderForValue.build();
+      } else {
+        planningBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Field 11 is reserved for council_overlaps (stream C).
+     * Profile-only planning block; absent when no planning source covers the
+     * suburb (WA, NT, and QLD beyond its heritage register).
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+     */
+    public Builder mergePlanning(com.shorts.v1alpha1.SuburbPlanning value) {
+      if (planningBuilder_ == null) {
+        if (((bitField0_ & 0x00000400) != 0) &&
+          planning_ != null &&
+          planning_ != com.shorts.v1alpha1.SuburbPlanning.getDefaultInstance()) {
+          getPlanningBuilder().mergeFrom(value);
+        } else {
+          planning_ = value;
+        }
+      } else {
+        planningBuilder_.mergeFrom(value);
+      }
+      if (planning_ != null) {
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Field 11 is reserved for council_overlaps (stream C).
+     * Profile-only planning block; absent when no planning source covers the
+     * suburb (WA, NT, and QLD beyond its heritage register).
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+     */
+    public Builder clearPlanning() {
+      bitField0_ = (bitField0_ & ~0x00000400);
+      planning_ = null;
+      if (planningBuilder_ != null) {
+        planningBuilder_.dispose();
+        planningBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Field 11 is reserved for council_overlaps (stream C).
+     * Profile-only planning block; absent when no planning source covers the
+     * suburb (WA, NT, and QLD beyond its heritage register).
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbPlanning.Builder getPlanningBuilder() {
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return internalGetPlanningFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Field 11 is reserved for council_overlaps (stream C).
+     * Profile-only planning block; absent when no planning source covers the
+     * suburb (WA, NT, and QLD beyond its heritage register).
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+     */
+    public com.shorts.v1alpha1.SuburbPlanningOrBuilder getPlanningOrBuilder() {
+      if (planningBuilder_ != null) {
+        return planningBuilder_.getMessageOrBuilder();
+      } else {
+        return planning_ == null ?
+            com.shorts.v1alpha1.SuburbPlanning.getDefaultInstance() : planning_;
+      }
+    }
+    /**
+     * <pre>
+     * Field 11 is reserved for council_overlaps (stream C).
+     * Profile-only planning block; absent when no planning source covers the
+     * suburb (WA, NT, and QLD beyond its heritage register).
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.SuburbPlanning, com.shorts.v1alpha1.SuburbPlanning.Builder, com.shorts.v1alpha1.SuburbPlanningOrBuilder> 
+        internalGetPlanningFieldBuilder() {
+      if (planningBuilder_ == null) {
+        planningBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.SuburbPlanning, com.shorts.v1alpha1.SuburbPlanning.Builder, com.shorts.v1alpha1.SuburbPlanningOrBuilder>(
+                getPlanning(),
+                getParentForChildren(),
+                isClean());
+        planning_ = null;
+      }
+      return planningBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetSuburbProfileResponse)

@@ -3538,6 +3538,13 @@ components:
             Crawl-derived listing aggregates; null when the suburb is outside the crawl
              catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off. (proto shorts.v1alpha1.SuburbListingStats)
           title: listing_stats
+        planning:
+          $ref: '#/components/schemas/shorts.v1alpha1.SuburbPlanning'
+          description: |-
+            Field 11 is reserved for council_overlaps (stream C).
+             Profile-only planning block; absent when no planning source covers the
+             suburb (WA, NT, and QLD beyond its heritage register). (proto shorts.v1alpha1.SuburbPlanning)
+          title: planning
         similar:
           description: most-similar suburbs nationally (knowledge graph) (proto shorts.v1alpha1.SimilarSuburb)
           items:
@@ -7955,6 +7962,99 @@ components:
           - "null"
       title: SuburbMetricPredicate
       type: object
+    shorts.v1alpha1.SuburbPlanning:
+      additionalProperties: false
+      description: |-
+        Statutory planning layer for one suburb, computed offline from the state
+         planning schemes (web/scripts/geo/planning/). Every scalar is optional: an
+         absent value means no open source covers it (QLD/WA/NT zoning, NSW-only
+         development standards), never zero. zone_shares lists only families with a
+         non-zero share, largest first, and sums to zoning_coverage_pct.
+      properties:
+        dominantZoneFamily:
+          description: ''''' when unzoned / no source (proto string)'
+          title: dominant_zone_family
+          type: string
+        heritageItemCount:
+          description: listed heritage places, counted once (proto int32)
+          format: int32
+          title: heritage_item_count
+          type:
+          - integer
+          - "null"
+        heritageSharePct:
+          description: |-
+            % of the suburb in a heritage conservation area / Heritage Overlay /
+             historic or character area (area classes only). (proto double)
+          format: double
+          title: heritage_share_pct
+          type:
+          - number
+          - "null"
+        heritageSource:
+          description: (proto string)
+          title: heritage_source
+          type: string
+        instruments:
+          description: planning instrument names, largest coverage first (proto string)
+          items:
+            type: string
+          title: instruments
+          type: array
+        nswFsrMedian:
+          description: (proto double)
+          format: double
+          title: nsw_fsr_median
+          type:
+          - number
+          - "null"
+        nswHeightMaxM:
+          description: (proto double)
+          format: double
+          title: nsw_height_max_m
+          type:
+          - number
+          - "null"
+        nswHeightMedianM:
+          description: |-
+            NSW development standards over the residential-zoned part of the suburb
+             (area-weighted): maximum building height (m), floor space ratio (n:1),
+             minimum subdivision lot size (m²). (proto double)
+          format: double
+          title: nsw_height_median_m
+          type:
+          - number
+          - "null"
+        nswMinLotMedianM2:
+          description: (proto double)
+          format: double
+          title: nsw_min_lot_median_m2
+          type:
+          - number
+          - "null"
+        sourceLicence:
+          description: e.g. 'CC-BY-4.0' (proto string)
+          title: source_licence
+          type: string
+        zoneShares:
+          description: (proto shorts.v1alpha1.ZoneFamilyShare)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.ZoneFamilyShare'
+          title: zone_shares
+          type: array
+        zoningCoveragePct:
+          description: '% of the suburb inside any zone polygon (proto double)'
+          format: double
+          title: zoning_coverage_pct
+          type:
+          - number
+          - "null"
+        zoningSource:
+          description: dataset id, '' when absent (proto string)
+          title: zoning_source
+          type: string
+      title: SuburbPlanning
+      type: object
     shorts.v1alpha1.SuburbPoliticianProperty:
       additionalProperties: false
       properties:
@@ -8804,6 +8904,24 @@ components:
           title: weekly_price_change
           type: number
       title: WeeklyReportTrendInsight
+      type: object
+    shorts.v1alpha1.ZoneFamilyShare:
+      additionalProperties: false
+      description: |-
+        One harmonised zoning family's share of a suburb (program decision 8).
+         family: res_low | res_medium_high | centre_mixed | industrial | rural |
+         conservation | open_space | infrastructure | water | other.
+      properties:
+        family:
+          description: (proto string)
+          title: family
+          type: string
+        sharePct:
+          description: '% of the whole suburb''s area, 0..100 (proto double)'
+          format: double
+          title: share_pct
+          type: number
+      title: ZoneFamilyShare
       type: object
     stocks.v1alpha1.CompanyPerson:
       additionalProperties: false

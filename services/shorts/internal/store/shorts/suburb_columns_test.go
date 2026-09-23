@@ -1,6 +1,7 @@
 package shorts
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"regexp"
@@ -20,6 +21,11 @@ func TestSuburbMetricRegistryCoversMapAndLandedColumns(t *testing.T) {
 		// server's own key names, so the two registries are pinned together.
 		"elevation_median_m", "land_share_below_5m",
 		"water_observed_share_pct", "flood_planning_share_pct", "bushfire_prone_share_pct",
+		// Planning layer (000125): the family shares worth a map, the
+		// categorical dominant family, heritage and NSW permitted height.
+		"zone_res_low_share_pct", "zone_res_medium_high_share_pct", "zone_centre_mixed_share_pct",
+		"zone_industrial_share_pct", "zone_rural_share_pct", "zone_conservation_share_pct",
+		"zone_open_space_share_pct", "dominant_zone_family", "heritage_share_pct", "nsw_height_median_m",
 	}
 	landed := []string{
 		"seifa_irsd_score", "seifa_irsd_decile_aus", "seifa_irsd_decile_state",
@@ -32,6 +38,7 @@ func TestSuburbMetricRegistryCoversMapAndLandedColumns(t *testing.T) {
 		"elevation_min_m", "elevation_max_m",
 		"land_share_below_1m", "land_share_below_2m",
 		"permanent_water_share_pct",
+		"zoning_coverage_pct", "heritage_item_count", "nsw_fsr_median", "nsw_min_lot_median_m2",
 	}
 	want := append(append([]string{}, existing...), landed...)
 	sort.Strings(want)
@@ -75,6 +82,10 @@ func TestSuburbMetricRegistryMapsKnownKeysToExpectedColumns(t *testing.T) {
 		"land_share_below_2m":             "d.land_share_below_2m",
 		"politician_property":             "rp.declared_property_count",
 		"labour_force_participation_rate": "d.labour_force_participation_rate",
+		"zone_res_low_share_pct":          "pl.zone_res_low_share_pct",
+		"heritage_share_pct":              "pl.heritage_share_pct",
+		"nsw_height_median_m":             "pl.nsw_height_median_m",
+		"dominant_zone_family":            "pl.dominant_zone_family",
 	}
 	for key, column := range tests {
 		def, ok := lookupSuburbMetric(key)
@@ -88,6 +99,45 @@ func TestSuburbMetricRegistryMapsKnownKeysToExpectedColumns(t *testing.T) {
 	}
 	if _, ok := lookupSuburbMetric("population; DROP TABLE suburb_demographics"); ok {
 		t.Fatal("caller-controlled SQL was accepted as a metric key")
+	}
+}
+
+func TestPlanningMetricsJoinTheLicenceGatedPlanningTable(t *testing.T) {
+	query, definitions, err := buildSuburbMetricQuery([]string{"zone_res_low_share_pct", "dominant_zone_family"})
+	if err != nil {
+		t.Fatalf("build query: %v", err)
+	}
+	if !strings.Contains(query, "LEFT JOIN suburb_planning pl ON pl.sal_code = d.sal_code AND pl.source_licence <> 'proprietary-tos-restricted'") {
+		t.Fatalf("planning metrics must LEFT JOIN the licence-gated table (uncovered suburbs stay NULL):\n%s", query)
+	}
+	if strings.Count(query, "suburb_planning") != 1 {
+		t.Fatalf("two planning metrics must share one join:\n%s", query)
+	}
+	if strings.Contains(query, "suburb_hazard_exposure") {
+		t.Fatalf("planning metrics must not join hazards:\n%s", query)
+	}
+	// The categorical column carries index-aligned labels, one per family.
+	dominant := definitions[1]
+	if len(dominant.categories) != len(ZoneFamilies) || len(ZoneFamilyLabels) != len(ZoneFamilies) {
+		t.Fatalf("dominant_zone_family labels %d, families %d", len(dominant.categories), len(ZoneFamilies))
+	}
+	for i, family := range ZoneFamilies {
+		if !strings.Contains(dominant.expression, fmt.Sprintf("WHEN '%s' THEN %d", family, i)) {
+			t.Errorf("dominant_zone_family does not map %q to index %d: %s", family, i, dominant.expression)
+		}
+	}
+	if !strings.HasSuffix(dominant.expression, "ELSE NULL END") {
+		t.Fatalf("an unzoned suburb must stay NULL, not fall into a category: %s", dominant.expression)
+	}
+	// Every family the migration stores is readable by the registry's naming.
+	sql, err := os.ReadFile("../../../../migrations/000125_add_suburb_planning.up.sql")
+	if err != nil {
+		t.Fatalf("read migration: %v", err)
+	}
+	for _, family := range ZoneFamilies {
+		if !strings.Contains(string(sql), "zone_"+family+"_share_pct") {
+			t.Errorf("migration lacks zone_%s_share_pct", family)
+		}
 	}
 }
 
