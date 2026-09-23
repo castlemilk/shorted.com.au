@@ -16,7 +16,7 @@ import (
 // Council (LGA) facts from the ABS Data API, all CC-BY-4.0, all keyed by ABS
 // code — never by name. Four operator modes share one parse path:
 //
-//	erp-lga                ERP_LGA2025 + ERP_COMP_LGA2025 → lga.population/erp_year/
+//	erp-lga                ERP_LGA<Y> + ERP_COMP_LGA<Y> (newest Y) → lga.population/erp_year/
 //	                       pop_growth_pct + lga_series (erp and its components)
 //	census-lga             C21_G02_LGA, C21_G37_LGA, ABS_SEIFA2021_LGA → lga columns
 //	council-regional       ABS_REGIONAL_LGA2021 ('Data by Region') → lga_series:
@@ -43,12 +43,19 @@ const (
 	regionalSource  = "abs_regional_lga"
 	baLGASource     = "abs_ba_lga"
 
-	lgaUnitPersons   = "persons"
-	lgaUnitCount     = "count"
-	lgaUnitAUD       = "AUD"
-	erpDataflowLGA   = "ERP_LGA2025"
-	erpCompDataflow  = "ERP_COMP_LGA2025"
-	regionalDataflow = "ABS_REGIONAL_LGA2021"
+	lgaUnitPersons = "persons"
+	lgaUnitCount   = "count"
+	lgaUnitAUD     = "AUD"
+	// erpFlowPrefix / erpCompFlowPrefix name one flow per ERP release:
+	// ERP_LGA<Y> is ERP at 30 June Y on LGA<Y> boundaries, published the
+	// following March-April. The newest is discovered each run (latestERPFlow).
+	erpFlowPrefix     = "ERP_LGA"
+	erpCompFlowPrefix = "ERP_COMP_LGA"
+	// erpCheckedVintage is the newest ERP vintage whose region codes lgaRecode
+	// and lgaSplitParts were checked against. Discovery never reads an older
+	// flow, and a newer one is ingested with a warning to review unknown codes.
+	erpCheckedVintage = 2025
+	regionalDataflow  = "ABS_REGIONAL_LGA2021"
 	// baFirstFY is the first building-approvals flow a cold run pulls
 	// (BA_LGA2021 = July 2021..June 2022). Earlier flows use LGA_2019/2020
 	// codes for councils merged since, which would be dropped as unknown.
@@ -247,7 +254,7 @@ func countCouncils(rows []LGASeriesRow) int {
 
 // ---------------------------------------------------------------- erp-lga ---
 
-// erpComponents maps ERP_COMP_LGA2025 POP_COMP codes to lga_series measures.
+// erpComponents maps ERP_COMP_LGA<Y> POP_COMP codes to lga_series measures.
 // Only the net components are kept; births/deaths and arrivals/departures sum
 // into them and nothing downstream needs them separately.
 var erpComponents = map[string]string{
@@ -321,27 +328,59 @@ func buildERP(erp, comp []lgaObs) ([]LGASeriesRow, []LGAPopulation) {
 	return series, pops
 }
 
-func ingestERPLGA(ctx context.Context, client *absdata.Client, ix lgaIndex) ([]LGASeriesRow, []LGAPopulation, error) {
-	recs, err := client.FetchSDMXCSV(ctx, erpDataflowLGA+",1.0.0", "ERP.LGA2025..A", "2001")
+// latestERPFlow fetches the newest published flow <prefix><Y>, trying the
+// current calendar year down to erpCheckedVintage. ABS answers 404 for a flow
+// it has not published yet, which means "try the year before"; any other
+// failure is returned. The region-type key is derived from the chosen flow
+// (keyFor(Y) builds it with LGA<Y>). The flow is referenced WITHOUT a version:
+// ABS versions differ per year (ERP_LGA2024 is 1.1, ERP_COMP_LGA2024 is 1.2),
+// and an unversioned reference resolves to the latest.
+func latestERPFlow(ctx context.Context, client *absdata.Client, prefix string, keyFor func(year int) string, now time.Time) (string, int, [][]string, error) {
+	for y := now.Year(); y >= erpCheckedVintage; y-- {
+		flow := fmt.Sprintf("%s%d", prefix, y)
+		recs, err := client.FetchSDMXCSV(ctx, flow, keyFor(y), "2001")
+		if absdata.IsNotFound(err) {
+			log.Printf("[erp-lga] %s not published", flow)
+			continue
+		}
+		if err != nil {
+			return "", 0, nil, fmt.Errorf("fetch %s: %w", flow, err)
+		}
+		if y > erpCheckedVintage {
+			log.Printf("[erp-lga] WARNING %s is newer than the LGA%d codes lgaRecode/lgaSplitParts were checked against: review the unknown codes below and extend the recode tables",
+				flow, erpCheckedVintage)
+		}
+		return flow, y, recs, nil
+	}
+	return "", 0, nil, fmt.Errorf("no %s flow published between %d and %d", prefix, erpCheckedVintage, now.Year())
+}
+
+func erpKey(y int) string     { return fmt.Sprintf("ERP.LGA%d..A", y) }
+func erpCompKey(y int) string { return fmt.Sprintf("3+6+9.LGA%d..A", y) }
+
+func ingestERPLGA(ctx context.Context, client *absdata.Client, ix lgaIndex, now time.Time) ([]LGASeriesRow, []LGAPopulation, error) {
+	erpFlow, _, recs, err := latestERPFlow(ctx, client, erpFlowPrefix, erpKey, now)
 	if err != nil {
-		return nil, nil, fmt.Errorf("fetch %s: %w", erpDataflowLGA, err)
+		return nil, nil, err
 	}
 	erpObs, err := parseLGAObs(recs, "REGION", "MEASURE")
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s: %w", erpDataflowLGA, err)
+		return nil, nil, fmt.Errorf("%s: %w", erpFlow, err)
 	}
-	recs, err = client.FetchSDMXCSV(ctx, erpCompDataflow+",1.0.0", "3+6+9.LGA2025..A", "2001")
+	// Components are discovered separately: the flow can trail the ERP flow
+	// of the same year, and a lagging component series is still correct.
+	compFlow, _, recs, err := latestERPFlow(ctx, client, erpCompFlowPrefix, erpCompKey, now)
 	if err != nil {
-		return nil, nil, fmt.Errorf("fetch %s: %w", erpCompDataflow, err)
+		return nil, nil, err
 	}
 	compObs, err := parseLGAObs(recs, "REGION", "POP_COMP")
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s: %w", erpCompDataflow, err)
+		return nil, nil, fmt.Errorf("%s: %w", compFlow, err)
 	}
 	erpObs, m := toLGA24(erpObs, ix, true)
-	log.Printf("[erp-lga] %s: %s", erpDataflowLGA, m.summary())
+	log.Printf("[erp-lga] %s: %s", erpFlow, m.summary())
 	compObs, m = toLGA24(compObs, ix, true)
-	log.Printf("[erp-lga] %s: %s", erpCompDataflow, m.summary())
+	log.Printf("[erp-lga] %s: %s", compFlow, m.summary())
 	series, pops := buildERP(erpObs, compObs)
 	if len(pops) < lgaMinCouncils {
 		return nil, nil, fmt.Errorf("ERP covers only %d councils (< %d)", len(pops), lgaMinCouncils)

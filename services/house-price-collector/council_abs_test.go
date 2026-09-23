@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/csv"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -268,7 +269,9 @@ func serveFixtures(t *testing.T, files map[string]string) *absdata.Client {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for flow, file := range files {
-			if strings.Contains(r.URL.Path, "/ABS,"+flow+",") {
+			// A flow is referenced as ABS,<flow>,<version> or, unversioned,
+			// ABS,<flow>/<key>.
+			if strings.Contains(r.URL.Path, "/ABS,"+flow+",") || strings.Contains(r.URL.Path, "/ABS,"+flow+"/") {
 				http.ServeFile(w, r, filepath.Join("testdata", "lga", file))
 				return
 			}
@@ -299,12 +302,14 @@ func TestIngestCouncilModesThroughTheClient(t *testing.T) {
 
 	// The floor refuses a pull that covers too few councils: a broken key or
 	// mapping must fail loudly, not write a sliver of the country.
-	if _, _, err := ingestERPLGA(ctx, client, ix); err == nil || !strings.Contains(err.Error(), "only") {
+	sept2026 := time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)
+	if _, _, err := ingestERPLGA(ctx, client, ix, sept2026); err == nil || !strings.Contains(err.Error(), "only") {
 		t.Errorf("ERP under the floor: err = %v", err)
 	}
 
 	withMinCouncils(t, 3)
-	if _, pops, err := ingestERPLGA(ctx, client, ix); err != nil || len(pops) != 4 {
+	// ERP_LGA2026 404s (not published yet), so discovery settles on 2025.
+	if _, pops, err := ingestERPLGA(ctx, client, ix, sept2026); err != nil || len(pops) != 4 {
 		t.Errorf("erp-lga: %d councils, err %v", len(pops), err)
 	}
 	if rows, err := ingestCensusLGA(ctx, client, ix); err != nil || len(rows) < 3 {
@@ -333,5 +338,65 @@ func TestIngestCouncilModesThroughTheClient(t *testing.T) {
 	cursor = time.Date(2027, time.June, 30, 0, 0, 0, 0, time.UTC) // → FY 2026..2027
 	if rows, err := ingestBuildingApprovalsLGA(ctx, client, ix, later, &cursor); err != nil || len(rows) == 0 {
 		t.Errorf("an unpublished current-FY flow must be skipped: %d rows, err %v", len(rows), err)
+	}
+}
+
+// ABS publishes a new ERP flow per release year. The scheduled job must pick
+// up the newest one on its own, with the region-type key that flow uses —
+// a pinned flow would re-read the same frozen year until the freshness alarm
+// failed every monthly run.
+func TestLatestERPFlowRollsForward(t *testing.T) {
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		switch {
+		case strings.Contains(r.URL.Path, "/ABS,ERP_GONE"):
+			w.WriteHeader(http.StatusNotFound)
+		case strings.Contains(r.URL.Path, "/ABS,ERP_LGA2027/"), strings.Contains(r.URL.Path, "/ABS,ERP_COMP_LGA2027/"),
+			strings.Contains(r.URL.Path, "/ABS,ERP_COMP_LGA2026/"):
+			w.WriteHeader(http.StatusNotFound)
+		case strings.Contains(r.URL.Path, "/ABS,ERP_LGA2026/ERP.LGA2026..A"),
+			strings.Contains(r.URL.Path, "/ABS,ERP_COMP_LGA2025/3+6+9.LGA2025..A"):
+			_, _ = w.Write([]byte("REGION,MEASURE,TIME_PERIOD,OBS_VALUE\n10050: Albury,ERP,2026,1\n"))
+		default:
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	client := absdata.NewClient().WithBaseURL(srv.URL)
+	ctx := context.Background()
+	may2027 := time.Date(2027, time.May, 1, 0, 0, 0, 0, time.UTC)
+
+	flow, year, _, err := latestERPFlow(ctx, client, erpFlowPrefix, erpKey, may2027)
+	if err != nil || flow != "ERP_LGA2026" || year != 2026 {
+		t.Fatalf("ERP discovery = %q %d %v, want ERP_LGA2026 (2027 not out yet)", flow, year, err)
+	}
+	// Components trail: 2027 and 2026 unpublished, 2025 is the newest.
+	flow, _, _, err = latestERPFlow(ctx, client, erpCompFlowPrefix, erpCompKey, may2027)
+	if err != nil || flow != "ERP_COMP_LGA2025" {
+		t.Fatalf("component discovery = %q %v, want ERP_COMP_LGA2025", flow, err)
+	}
+	for _, p := range paths {
+		if strings.Contains(p, ",1.0.0") {
+			t.Errorf("%s pins a version; ABS versions differ per year", p)
+		}
+	}
+
+	// A real failure is not "not published": it must not fall back a year.
+	paths = nil
+	if _, _, _, err := latestERPFlow(ctx, client, "ERP_BROKEN", erpKey, may2027); err == nil {
+		t.Error("a 500 must fail discovery, not fall back to an older flow")
+	}
+	if len(paths) == 0 || !strings.Contains(paths[0], "ERP_BROKEN2027") {
+		t.Errorf("discovery must start at the current year: %v", paths)
+	}
+
+	// Nothing at or after the checked vintage: fail, never read an older flow.
+	paths = nil
+	if _, _, _, err := latestERPFlow(ctx, client, "ERP_GONE", erpKey, may2027); err == nil {
+		t.Error("no flow at or after erpCheckedVintage must fail")
+	}
+	if n := len(paths); n != 3 || !strings.Contains(paths[n-1], fmt.Sprintf("ERP_GONE%d/", erpCheckedVintage)) {
+		t.Errorf("discovery must stop at erpCheckedVintage: %v", paths)
 	}
 }

@@ -55,7 +55,7 @@ migration 000056 after census" step in older docs is superseded.
 | `banners` | `suburb_demographics.banner_*` | From committed `suburb-archetypes.json` (`ARCHETYPES_FILE`) — no crawl |
 | `amenities` / `connectivity` | `suburb_amenities` / `suburb_connectivity` | Local-insights family; offline joins loaded via `AMENITIES_FILE` / `CONNECTIVITY_FILE` |
 | `lga` | `lga` identity, `suburb_lga` (replaced in one txn), slugs (minted once) | From committed `suburb-lga.json` + `lga-facts.json` (`LGA_DIR`), built offline by `web/scripts/geo/join-lga-mb.py`. Writes no population |
-| `erp-lga` | `lga.population/erp_year/pop_growth_pct`, `lga_series` erp + components | ABS `ERP_LGA2025` + `ERP_COMP_LGA2025`. Also in `all`. Clears any population ERP does not cover |
+| `erp-lga` | `lga.population/erp_year/pop_growth_pct`, `lga_series` erp + components | ABS `ERP_LGA<Y>` + `ERP_COMP_LGA<Y>`, newest `Y` discovered each run (`latestERPFlow`: current year down, 404 = not published). Also in `all`. Clears any population ERP does not cover |
 | `census-lga` | `lga` Census 2021 medians, `pct_rented`, SEIFA deciles | ABS `C21_G02_LGA`, `C21_G37_LGA`, `ABS_SEIFA2021_LGA`. A 2021 snapshot: re-run only if the dimension changes |
 | `council-regional` | `lga_series` council-level transfer medians/counts, FY approvals | ABS Data by Region `ABS_REGIONAL_LGA2021` v1.6.0. Annual, irregular: run when ABS re-releases |
 | `building-approvals-lga` | `lga_series` monthly dwelling approvals | ABS `BA_LGA<FY>`, key-filtered. Also in `all`. Cold run pulls FY2021–now; warm run re-pulls from the FY before its cursor (revisions); the current FY's flow 404s until its first release and is skipped |
@@ -104,6 +104,12 @@ policies (`councilFreshnessPolicies`) read `MAX(period)` from `lga_series`:
 **120 days** for monthly approvals (published ~5 weeks after the month) and
 **700 days** for annual ERP (a 30 June estimate published the following
 March–April). A breach fails the run exactly like a stale VG source.
+ABS publishes each ERP release as a NEW flow (`ERP_LGA2026` on `LGA2026`
+codes), so `erp-lga` never pins a year: it tries the current year downward and
+takes the first flow that exists. When it reads a flow newer than
+`erpCheckedVintage` it logs a WARNING — check that run's "unknown codes" line
+and extend `lgaRecode` / `lgaSplitParts` for any new council code, then bump
+`erpCheckedVintage`. Unknown codes are dropped, never guessed.
 `TestCouncilFreshnessPoliciesDoNotDrift` requires every scheduled council job
 to have a policy and vice versa. `census-lga`, `council-regional`,
 `wikidata-lga`, `lga`, `funding` and `council-financials` stay operator-run.

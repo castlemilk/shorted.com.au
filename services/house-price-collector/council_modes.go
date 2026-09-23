@@ -25,7 +25,7 @@ func runERPLGA(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return recordLGARun(ctx, pool, erpSource, nil, 0, err)
 	}
-	series, pops, err := ingestERPLGA(ctx, absdata.NewClient(), ix)
+	series, pops, err := ingestERPLGA(ctx, absdata.NewClient(), ix, time.Now().UTC())
 	if err != nil {
 		return recordLGARun(ctx, pool, erpSource, nil, 0, err)
 	}

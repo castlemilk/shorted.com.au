@@ -15,8 +15,10 @@ import (
 //
 //   - abs_ba_lga: monthly, published ~5 weeks after the reference month, and
 //     the job runs monthly — 120 days allows one missed release.
-//   - abs_erp_lga: annual ERP at 30 June, published the following March-April,
-//     so up to ~21 months old just before a release — 700 days allows that.
+//   - abs_erp_lga: annual ERP at 30 June, published the following March-April
+//     as a NEW flow (ERP_LGA<Y>), which erp-lga discovers each run
+//     (latestERPFlow). Up to ~21 months old just before a release — 700 days
+//     allows that, so this alarms when ABS skips a year or discovery breaks.
 //
 // census-lga (a 2021 snapshot), council-regional (annual, irregular) and
 // wikidata-lga (a committed snapshot) are operator-run and carry no policy.

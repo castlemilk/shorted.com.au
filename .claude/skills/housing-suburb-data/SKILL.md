@@ -115,6 +115,10 @@ done
   keeps its URL. Collisions within a state get `-<lga_code24>`.
 - **Scheduled:** `building-approvals-lga` + `erp-lga` run inside `-mode all`
   with `lga_series` freshness policies (120 / 700 days, `council_freshness.go`).
+  ERP is one ABS flow PER RELEASE (`ERP_LGA<Y>`); `latestERPFlow` discovers the
+  newest. A `WARNING ... newer than the LGA<Y> codes` log means a new vintage:
+  review its unknown codes, extend `lgaRecode`/`lgaSplitParts`, bump
+  `erpCheckedVintage`.
 - Profile read: `suburbCouncilQuery` / `suburbCouncilOverlapsQuery` in
   `postgres_house_prices.go` (tolerated, like hazards) → `LgaInfo` tags 13–32 +
   `council_overlaps` → `suburb-council-card.tsx`. Council-page links wait on
