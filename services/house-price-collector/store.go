@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -302,52 +303,44 @@ func upsertElectorates(ctx context.Context, pool *pgxpool.Pool, rows []Electorat
 	return n, nil
 }
 
-// applyFAGs matches each council's Financial Assistance Grant (by normalised
-// name + state) to the lga dimension and updates fed_fag_aud/year.
-func applyFAGs(ctx context.Context, pool *pgxpool.Pool, rows []FagRow) (int, error) {
-	type lgaKey struct{ norm, state string }
-	idx := map[lgaKey]string{}
-	q, err := pool.Query(ctx, `SELECT lga_code24, lga_name, state_code FROM lga`)
+// applyFAGs writes the resolved FAG history: every council-year to
+// lga_series, and each council's newest year onto lga.fed_fag_aud/year — in one
+// transaction, so the scalar never disagrees with the series it came from.
+func applyFAGs(ctx context.Context, pool *pgxpool.Pool, res fagResolution) (int, error) {
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return 0, err
 	}
-	for q.Next() {
-		var code, name, state string
-		if err := q.Scan(&code, &name, &state); err != nil {
-			q.Close()
-			return 0, err
-		}
-		idx[lgaKey{normCouncil(name), state}] = code
+	defer func() { _ = tx.Rollback(ctx) }()
+	n, err := upsertLGASeriesTx(ctx, tx, res.Series)
+	if err != nil {
+		return n, err
 	}
-	q.Close()
-	// A mid-stream read error surfaces only via Err() (Next() just returns false);
-	// without this the match index is silently truncated and the run still reports ok.
-	if err := q.Err(); err != nil {
-		return 0, err
+	codes := make([]string, 0, len(res.Latest))
+	for code := range res.Latest {
+		codes = append(codes, code)
 	}
-
+	sort.Strings(codes)
 	batch := &pgx.Batch{}
-	matched := 0
-	for _, r := range rows {
-		code, ok := idx[lgaKey{normCouncil(r.LGAName), r.StateCode}]
-		if !ok {
-			continue
-		}
+	for _, code := range codes {
+		r := res.Latest[code]
 		// FAG writes only the grant columns; fin_source/fin_source_licence describe
 		// the per-council FINANCIAL columns (avg_rates/op_surplus/asset_renewal) and
 		// are owned by the state financials ingest (e.g. vic_lgprf), so leave them.
 		batch.Queue(`UPDATE lga SET fed_fag_aud=$2, fed_fag_year=$3, fetched_at=now() WHERE lga_code24=$1`,
-			code, r.TotalAud, r.Year)
-		matched++
+			code, r.Value, r.PeriodLabel)
 	}
-	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
-	for i := 0; i < matched; i++ {
+	br := tx.SendBatch(ctx, batch)
+	for range codes {
 		if _, err := br.Exec(); err != nil {
-			return i, err
+			_ = br.Close()
+			return n, err
 		}
 	}
-	return matched, nil
+	if err := br.Close(); err != nil {
+		return n, err
+	}
+	return n, tx.Commit(ctx)
 }
 
 // upsertConnectivity writes each suburb's dominant NBN tech + quality proxy.

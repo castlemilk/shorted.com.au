@@ -69,6 +69,19 @@ func loadLGAIndex(ctx context.Context, pool *pgxpool.Pool) (lgaIndex, error) {
 	return ix, nil
 }
 
+// byName indexes the page-bearing councils by (state, normCouncil(name)), the
+// key every name-matched council source (FAG, LGPRF) joins on. Pseudo-areas
+// are left out: no grant or financial return is ever paid to 'No usual address'.
+func (ix lgaIndex) byName() map[fagCouncilKey]string {
+	out := make(map[fagCouncilKey]string, len(ix.kind))
+	for code := range ix.kind {
+		if ix.geographic(code) {
+			out[fagCouncilKey{ix.state[code], normCouncil(ix.name[code])}] = code
+		}
+	}
+	return out
+}
+
 // upsertLGADimension writes the council dimension rows. Slugs are not written
 // here: see assignLGASlugs, which never touches a slug already minted.
 func upsertLGADimension(ctx context.Context, pool *pgxpool.Pool, rows []LGARow) (int, error) {

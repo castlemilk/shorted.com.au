@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -328,24 +329,39 @@ func runVICFinancials(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
-// runFAGs fetches the national Financial Assistance Grants and attaches each
-// council's latest total to the lga dimension.
+// runFAGs fetches the federal FAG workbook, matches every council-year onto
+// the lga dimension, and writes the full history (lga_series) plus the latest
+// year (lga.fed_fag_*). It fails — rather than half-writing — when so few
+// councils match that the name normaliser, not the data, is what broke.
 func runFAGs(ctx context.Context, pool *pgxpool.Pool) error {
-	rows, err := ingestFAGs(ctx)
-	if err != nil {
-		log.Printf("[funding] ingest error: %v", err)
-		_ = updateRun(ctx, pool, fagSource, nil, 0, "error", err.Error())
-		return err
-	}
-	n, err := applyFAGs(ctx, pool, rows)
-	if err != nil {
-		log.Printf("[funding] apply error after %d: %v", n, err)
+	fail := func(n int, err error) error {
+		log.Printf("[funding] error after %d rows: %v", n, err)
 		_ = updateRun(ctx, pool, fagSource, nil, n, "error", err.Error())
 		return err
 	}
-	log.Printf("[funding] matched %d/%d councils to FAG grants", n, len(rows))
-	_ = updateRun(ctx, pool, fagSource, nil, n, "ok", "")
-	return nil
+	rows, err := ingestFAGs(ctx)
+	if err != nil {
+		return fail(0, err)
+	}
+	ix, err := loadLGAIndex(ctx, pool)
+	if err != nil {
+		return fail(0, err)
+	}
+	res, conflicts := resolveFAGs(rows, ix.byName())
+	for _, c := range conflicts {
+		log.Printf("[funding] two workbook names for one council-year, kept the later name: %s", c)
+	}
+	log.Printf("[funding] %d councils matched, %d workbook entities unmatched: %s",
+		len(res.Latest), len(res.Unmatched), strings.Join(res.Unmatched, "; "))
+	if len(res.Latest) < fagMinMatch {
+		return fail(0, fmt.Errorf("only %d councils matched the FAG workbook (< %d)", len(res.Latest), fagMinMatch))
+	}
+	n, err := applyFAGs(ctx, pool, res)
+	if err != nil {
+		return fail(n, err)
+	}
+	log.Printf("[funding] wrote %d council-years of FAG history (%d councils)", n, len(res.Latest))
+	return recordLGARun(ctx, pool, fagSource, latestSeriesPeriod(res.Series), n, nil)
 }
 
 // runConnectivity loads the precomputed per-suburb NBN tech and upserts it into
