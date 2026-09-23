@@ -212,11 +212,28 @@ rules, each of which is a wording rule as much as a data rule:
   | ACT flood | the convex hull of the modelled extent (the urban catchments) | the rural districts and new suburbs outside the model |
   | VIC, QLD, WA, ACT bushfire; VIC flood | statewide designations — a zero is a real zero | — |
 
-  A suburb less than 10% inside its covered land is NULL; a partly covered one
-  is the share of its covered land (so a suburb half under Evidence Required is
-  the share of the half the Code has assessed). The map hatches NULL as "No
+  A suburb less than **50%** covered is NULL. A partly covered one publishes
+  the mapped hazard land inside its covered part divided by the **whole**
+  suburb — a floor, and what every surface says it is ("the proportion of the
+  suburb's land area"); the card adds that it is a floor in the masked states
+  (`OverlayDef.masked`). The first cut divided by the covered land at a 10%
+  floor, which extrapolated the covered part over land nobody mapped and, where
+  the mask is not independent of the hazard, was wrong by construction: in SA
+  councils such as Tea Tree Gully the Code maps the creek corridor as Hazards
+  (Flooding) and every other parcel as Evidence Required, so the covered land
+  *was* the flood land and Dernancourt (10.7% flood, 89.3% Evidence Required)
+  and Surrey Downs published 100%. Measured on that cut: 40 SA suburbs at ≥90%
+  flood from under half coverage, and Middleton and Lower Longley (Kingborough,
+  10.8% and 20.6% covered) at 100% bushfire. The map hatches NULL as "No
   statutory layer"; the profile card says "Not mapped" with the reason
   (`OverlayDef.uncovered`), never 0%.
+- **A NULL statutory share still names its instrument.** `flood_source` /
+  `bushfire_source` are set whenever the state has a layer, share or no share,
+  so "the instrument does not cover this suburb" (source set, share NULL) is
+  distinguishable from "the state has no layer, or this row predates it"
+  (source empty). The card shows its "Not mapped: <reason>" tile only on the
+  first, so a web deploy ahead of a `-mode hazards` load never tells an
+  unloaded SA/TAS/ACT suburb it is Evidence Required.
 - **Attribution carries the licence per source.** SA's Code overlays and TAS's
   theLIST layers are CC BY 3.0 AU, everything else CC BY 4.0;
   `STATUTORY_HAZARD_CREDITS` in `suburb-profile.tsx` credits each under its own,
