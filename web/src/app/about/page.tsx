@@ -1,6 +1,7 @@
 import { type Metadata } from "next";
 import { getStatisticsWithCache } from "~/lib/statistics";
 import AboutClient from "./about-client";
+import { CompanySection } from "./company-section";
 import { type AboutPageStatistics } from "~/lib/statistics";
 import { siteConfig } from "~/@/config/site";
 import { EnhancedOrganizationSchema } from "~/@/components/seo/enhanced-structured-data";
@@ -121,7 +122,10 @@ export default async function Page() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutPageSchema) }}
       />
-      <AboutClient initialStatistics={statistics} />
+      <AboutClient
+        initialStatistics={statistics}
+        companySection={<CompanySection />}
+      />
     </>
   );
 }

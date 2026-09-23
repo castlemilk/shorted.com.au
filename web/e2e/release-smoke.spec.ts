@@ -65,7 +65,10 @@ const pageScenarios = [
   },
   {
     path: "/reports",
-    requiredText: [/Short Selling Reports/i, /Week 25, 2026/i],
+    // The index lists only the latest ~13 weeks, so a pinned week falls off it
+    // as new reports publish. Assert that SOME weekly report is listed; the
+    // pinned week is still checked by its direct URL below.
+    requiredText: [/Short Selling Reports/i, /Week \d{1,2}, 20\d{2}/i],
   },
   {
     path: "/reports/weekly/2026-W25",

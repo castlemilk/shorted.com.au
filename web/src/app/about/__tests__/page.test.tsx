@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import AboutClient from "../about-client";
+import { CompanySection } from "../company-section";
 import { type AboutPageStatistics } from "~/lib/statistics";
 
 // Mock next/link
@@ -10,12 +11,6 @@ jest.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
-}));
-
-jest.mock("next/image", () => ({
-  __esModule: true,
-  // eslint-disable-next-line @next/next/no-img-element
-  default: ({ src, alt }: { src: string; alt: string }) => <img src={src} alt={alt} />,
 }));
 
 // Mock UI components
@@ -154,11 +149,25 @@ describe("About Page", () => {
   });
 
   describe("Company & Founder Section", () => {
+    it("is slotted in by AboutClient", () => {
+      render(
+        <AboutClient
+          initialStatistics={mockStatistics}
+          companySection={<div data-testid="company-slot" />}
+        />
+      );
+
+      expect(screen.getByTestId("company-slot")).toBeInTheDocument();
+    });
+
     it("names the founder and links to his public profiles", () => {
-      render(<AboutClient initialStatistics={mockStatistics} />);
+      render(<CompanySection />);
 
       expect(screen.getByRole("heading", { name: "Ben Ebsworth" })).toBeInTheDocument();
-      expect(screen.getByAltText(/Ben Ebsworth, founder of Shorted/i)).toBeInTheDocument();
+      expect(screen.getByAltText(/Ben Ebsworth, founder of Shorted/i)).toHaveAttribute(
+        "src",
+        "/assets/blog/authors/ben-ebsworth-avatar.jpg"
+      );
 
       expect(screen.getByRole("link", { name: /benebsworth\.com/i })).toHaveAttribute(
         "href",
@@ -175,7 +184,7 @@ describe("About Page", () => {
     });
 
     it("states the company facts and business model", () => {
-      render(<AboutClient initialStatistics={mockStatistics} />);
+      render(<CompanySection />);
 
       expect(screen.getByText("Who's Behind Shorted")).toBeInTheDocument();
       expect(screen.getByText("Business model")).toBeInTheDocument();
@@ -343,9 +352,11 @@ describe("About Page", () => {
 
   describe("Responsive Layout", () => {
     it("renders with proper section structure", () => {
-      const { container } = render(<AboutClient initialStatistics={mockStatistics} />);
+      const { container } = render(
+        <AboutClient initialStatistics={mockStatistics} companySection={<CompanySection />} />
+      );
 
-      // Check for 9 sections (hero, value prop, industry intelligence, features, data trust, team, timeline, usage policy, cta)
+      // Check for 9 sections (hero, company, value prop, industry intelligence, features, data trust, timeline, usage policy, cta)
       const sections = container.querySelectorAll("section");
       expect(sections.length).toBe(9);
     });

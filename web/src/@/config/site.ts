@@ -78,6 +78,8 @@ export const siteConfig = {
     // Author profile slug in ~/@/data/authors.ts
     profilePath: "/authors/ben-ebsworth",
     image: "https://shorted.com.au/assets/blog/authors/ben-ebsworth.jpg",
+    // 224px square (2x of the 112px avatar on /about), ~11KB.
+    avatar: "/assets/blog/authors/ben-ebsworth-avatar.jpg",
     website: "https://benebsworth.com",
     linkedin: "https://www.linkedin.com/in/ben-ebsworth/",
     github: "https://github.com/castlemilk",
