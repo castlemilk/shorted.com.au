@@ -8,7 +8,8 @@ package com.shorts.v1alpha1;
 /**
  * <pre>
  * Measured hazard exposure per suburb — area shares, 0..100, absent when no
- * source covers the suburb. Every source is CC-BY-4.0.
+ * source covers the suburb. Every source is CC BY 4.0 except the SA Planning
+ * and Design Code and Tasmanian Planning Scheme overlays (CC BY 3.0 AU).
  *
  * water_observed_share_pct: share of the suburb's validly observed land where
  * DEA Water Observations (Landsat, 1987 onward, 30 m) detected surface water in
@@ -18,10 +19,20 @@ package com.shorts.v1alpha1;
  * share is a FLOOR on inundation, never a flood-risk estimate.
  *
  * flood_planning_share_pct: share inside a statutory flood planning overlay
- * (NSW EPI Flood; VIC LSIO/FO/SBO). A planning-control boundary, not a flood
- * extent; NSW councils own its currency. bushfire_prone_share_pct: share
- * designated bushfire prone for development control (NSW BFPL; VIC BMO).
- * Statutory shares exist for NSW and VIC only.
+ * (NSW EPI Flood; VIC LSIO/FO/SBO; SA Code Hazards (Flooding) and (Flooding –
+ * General); TAS Flood-prone Areas). A planning-control boundary, not a flood
+ * extent. ACT is the exception: its only open layer is the modelled 1% AEP
+ * flood extent, a model of one event. No open flood layer for QLD, WA or NT.
+ * bushfire_prone_share_pct: share designated bushfire prone for development
+ * control (NSW BFPL; VIC Designated Bushfire Prone Area; QLD, WA and ACT
+ * bushfire prone areas; SA and TAS code overlays). None for NT.
+ *
+ * Inside a state that has a layer, a statutory share is also absent where the
+ * instrument does not cover most of the suburb (NSW flood outside the councils
+ * that lodged a map; SA land under the Code's precautionary Evidence Required,
+ * Regional or Outback overlays; TAS councils with no mapped overlay). Where the
+ * suburb is partly covered the share is the mapped land over the WHOLE suburb,
+ * a floor.
  * </pre>
  *
  * Protobuf type {@code shorts.v1alpha1.SuburbHazardExposure}
@@ -197,6 +208,12 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private volatile java.lang.Object floodSource_ = "";
   /**
+   * <pre>
+   * Statutory instrument id the share was read against. Set with an absent
+   * share when the instrument does not cover the suburb; '' when the state has
+   * no open layer for that hazard.
+   * </pre>
+   *
    * <code>string flood_source = 6 [json_name = "floodSource"];</code>
    * @return The floodSource.
    */
@@ -214,6 +231,12 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
+   * <pre>
+   * Statutory instrument id the share was read against. Set with an absent
+   * share when the instrument does not cover the suburb; '' when the state has
+   * no open layer for that hazard.
+   * </pre>
+   *
    * <code>string flood_source = 6 [json_name = "floodSource"];</code>
    * @return The bytes for floodSource.
    */
@@ -526,7 +549,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Measured hazard exposure per suburb — area shares, 0..100, absent when no
-   * source covers the suburb. Every source is CC-BY-4.0.
+   * source covers the suburb. Every source is CC BY 4.0 except the SA Planning
+   * and Design Code and Tasmanian Planning Scheme overlays (CC BY 3.0 AU).
    *
    * water_observed_share_pct: share of the suburb's validly observed land where
    * DEA Water Observations (Landsat, 1987 onward, 30 m) detected surface water in
@@ -536,10 +560,20 @@ private static final long serialVersionUID = 0L;
    * share is a FLOOR on inundation, never a flood-risk estimate.
    *
    * flood_planning_share_pct: share inside a statutory flood planning overlay
-   * (NSW EPI Flood; VIC LSIO/FO/SBO). A planning-control boundary, not a flood
-   * extent; NSW councils own its currency. bushfire_prone_share_pct: share
-   * designated bushfire prone for development control (NSW BFPL; VIC BMO).
-   * Statutory shares exist for NSW and VIC only.
+   * (NSW EPI Flood; VIC LSIO/FO/SBO; SA Code Hazards (Flooding) and (Flooding –
+   * General); TAS Flood-prone Areas). A planning-control boundary, not a flood
+   * extent. ACT is the exception: its only open layer is the modelled 1% AEP
+   * flood extent, a model of one event. No open flood layer for QLD, WA or NT.
+   * bushfire_prone_share_pct: share designated bushfire prone for development
+   * control (NSW BFPL; VIC Designated Bushfire Prone Area; QLD, WA and ACT
+   * bushfire prone areas; SA and TAS code overlays). None for NT.
+   *
+   * Inside a state that has a layer, a statutory share is also absent where the
+   * instrument does not cover most of the suburb (NSW flood outside the councils
+   * that lodged a map; SA land under the Code's precautionary Evidence Required,
+   * Regional or Outback overlays; TAS councils with no mapped overlay). Where the
+   * suburb is partly covered the share is the mapped land over the WHOLE suburb,
+   * a floor.
    * </pre>
    *
    * Protobuf type {@code shorts.v1alpha1.SuburbHazardExposure}
@@ -1015,6 +1049,12 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object floodSource_ = "";
     /**
+     * <pre>
+     * Statutory instrument id the share was read against. Set with an absent
+     * share when the instrument does not cover the suburb; '' when the state has
+     * no open layer for that hazard.
+     * </pre>
+     *
      * <code>string flood_source = 6 [json_name = "floodSource"];</code>
      * @return The floodSource.
      */
@@ -1031,6 +1071,12 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Statutory instrument id the share was read against. Set with an absent
+     * share when the instrument does not cover the suburb; '' when the state has
+     * no open layer for that hazard.
+     * </pre>
+     *
      * <code>string flood_source = 6 [json_name = "floodSource"];</code>
      * @return The bytes for floodSource.
      */
@@ -1048,6 +1094,12 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
+     * <pre>
+     * Statutory instrument id the share was read against. Set with an absent
+     * share when the instrument does not cover the suburb; '' when the state has
+     * no open layer for that hazard.
+     * </pre>
+     *
      * <code>string flood_source = 6 [json_name = "floodSource"];</code>
      * @param value The floodSource to set.
      * @return This builder for chaining.
@@ -1061,6 +1113,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Statutory instrument id the share was read against. Set with an absent
+     * share when the instrument does not cover the suburb; '' when the state has
+     * no open layer for that hazard.
+     * </pre>
+     *
      * <code>string flood_source = 6 [json_name = "floodSource"];</code>
      * @return This builder for chaining.
      */
@@ -1071,6 +1129,12 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Statutory instrument id the share was read against. Set with an absent
+     * share when the instrument does not cover the suburb; '' when the state has
+     * no open layer for that hazard.
+     * </pre>
+     *
      * <code>string flood_source = 6 [json_name = "floodSource"];</code>
      * @param value The bytes for floodSource to set.
      * @return This builder for chaining.
