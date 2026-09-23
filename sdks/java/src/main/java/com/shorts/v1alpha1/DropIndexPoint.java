@@ -124,7 +124,10 @@ private static final long serialVersionUID = 0L;
   private double medianDropPct_ = 0D;
   /**
    * <pre>
-   * 0..1 fraction, depth of the typical cut
+   * 0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
+   * dropped addresses stand behind this point, so a "median" would be one or
+   * two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
+   * is 0.5%).
    * </pre>
    *
    * <code>double median_drop_pct = 3 [json_name = "medianDropPct"];</code>
@@ -896,7 +899,10 @@ private static final long serialVersionUID = 0L;
     private double medianDropPct_ ;
     /**
      * <pre>
-     * 0..1 fraction, depth of the typical cut
+     * 0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
+     * dropped addresses stand behind this point, so a "median" would be one or
+     * two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
+     * is 0.5%).
      * </pre>
      *
      * <code>double median_drop_pct = 3 [json_name = "medianDropPct"];</code>
@@ -908,7 +914,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 0..1 fraction, depth of the typical cut
+     * 0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
+     * dropped addresses stand behind this point, so a "median" would be one or
+     * two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
+     * is 0.5%).
      * </pre>
      *
      * <code>double median_drop_pct = 3 [json_name = "medianDropPct"];</code>
@@ -924,7 +933,10 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 0..1 fraction, depth of the typical cut
+     * 0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
+     * dropped addresses stand behind this point, so a "median" would be one or
+     * two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
+     * is 0.5%).
      * </pre>
      *
      * <code>double median_drop_pct = 3 [json_name = "medianDropPct"];</code>

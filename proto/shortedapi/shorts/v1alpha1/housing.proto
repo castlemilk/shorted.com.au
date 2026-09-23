@@ -486,6 +486,11 @@ message SuburbListingStats {
   int32  sold_count = 4;        // recent sold listings captured
   double avg_sold = 5;          // mean sold price, AUD; 0 if none
   double median_sold = 6;       // median sold price, AUD; 0 if none
+  // When mv_suburb_listing_stats was last refreshed (every now()-relative
+  // window in it is anchored here), and the newest crawl observation it could
+  // contain. Unset when the refresh has never been recorded.
+  google.protobuf.Timestamp as_of = 7;
+  google.protobuf.Timestamp data_through = 8;
 }
 
 message GetSuburbProfileResponse {
@@ -531,7 +536,11 @@ message ListHousingRegionsResponse {
 message ListSuburbPriceDropsRequest {
   string state_code = 1;   // optional filter, e.g. 'NSW'; '' = national
   int32  window_days = 2;  // reserved; the aggregate uses a fixed rolling window
-  string sort = 3;         // optional: 'count' (default) | 'avg' | 'max'
+  // optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+  // 'share' ranks by dropped_share among suburbs with at least 20 recently
+  // swept active addresses (the drop index's panel floor); thinner suburbs
+  // sort after every ranked one rather than topping the board on 1 of 3.
+  string sort = 3;
   int32  limit = 4;        // optional; default 50
 }
 
@@ -562,6 +571,13 @@ message SuburbPriceDrop {
 
 message ListSuburbPriceDropsResponse {
   repeated SuburbPriceDrop suburbs = 1;
+  // The OLDER refresh of the two views this board joins
+  // (mv_suburb_listing_stats, mv_suburb_price_drops), so the stamp never
+  // claims more freshness than the staler half. data_through: the newest crawl
+  // observation (price event or listing sighting) those refreshes could see.
+  // Both unset when no refresh has been recorded.
+  google.protobuf.Timestamp as_of = 2;
+  google.protobuf.Timestamp data_through = 3;
 }
 
 message ListSuburbDropListingsRequest {
@@ -759,11 +775,23 @@ message StatePriceDropSummary {
   double avg_sold = 14;            // AUD (0 if none)
   double median_sold = 15;         // AUD
   int32  suburbs_tracked = 16;     // tracked suburbs contributing listings
+  // Crawl coverage behind this row. catalog_suburbs is every suburb the crawl
+  // has ever produced a listing for (the drop index's coverage denominator);
+  // suburbs_swept_14d is the subset with a listing seen in the last 14 days.
+  // Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl
+  // coverage more than discounting, and the UI annotates it instead of ranking
+  // it. Both 0 before migration 000124.
+  int32  suburbs_swept_14d = 17;
+  int32  catalog_suburbs = 18;
 }
 
 message GetPriceDropsOverviewResponse {
   StatePriceDropSummary national = 1;          // the 'AU' row
   repeated StatePriceDropSummary states = 2;   // ordered by dropped_count desc
+  // When mv_state_price_drops was last refreshed, and the newest crawl
+  // observation that refresh could see. Unset when never recorded.
+  google.protobuf.Timestamp as_of = 3;
+  google.protobuf.Timestamp data_through = 4;
 }
 
 message ListAgencyPriceStatsRequest {
@@ -804,7 +832,11 @@ message ListAgencyPriceStatsResponse {
 message DropIndexPoint {
   string snapshot_date   = 1;  // 'YYYY-MM-DD'
   double drop_rate       = 2;  // 0..1 fraction, equal-weighted mean of per-suburb rates
-  double median_drop_pct = 3;  // 0..1 fraction, depth of the typical cut
+  // 0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
+  // dropped addresses stand behind this point, so a "median" would be one or
+  // two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
+  // is 0.5%).
+  double median_drop_pct = 3;
   int32  panel_suburbs   = 4;  // suburbs contributing to this point
   double coverage_ratio  = 5;  // panel suburbs / full suburb catalog for this snapshot date
   bool   is_gap          = 6;  // coverage too low to be a fair reading
@@ -820,13 +852,20 @@ message DropIndexPoint {
 }
 
 message GetDropIndexSeriesRequest {
-  string grain     = 1;  // 'national' | 'state' | 'suburb'
-  string grain_key = 2;  // 'AU' | state code | sal_code
+  // Anything outside these shapes is InvalidArgument.
+  string grain     = 1;  // 'national' (default) | 'state' | 'suburb'
+  string grain_key = 2;  // 'AU' | state code ('NSW', ...) | 5-digit sal_code
   string from      = 3;  // 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
-  string to        = 4;  // 'YYYY-MM-DD', inclusive; defaults to today
+  string to        = 4;  // 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today
 }
 
 message GetDropIndexSeriesResponse {
   repeated DropIndexPoint points = 1;
   string tracking_since = 2;  // 'YYYY-MM-DD' — earliest date the index exists for
+  // as_of: the latest computed_at among the returned points (when the
+  // collector last wrote this series). data_through: the latest returned
+  // snapshot_date — the index reads the crawl through the end of that day.
+  // Both unset when no point is returned.
+  google.protobuf.Timestamp as_of = 3;
+  google.protobuf.Timestamp data_through = 4;
 }

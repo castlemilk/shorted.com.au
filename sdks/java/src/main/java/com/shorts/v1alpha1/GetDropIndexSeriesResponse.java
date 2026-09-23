@@ -50,6 +50,7 @@ private static final long serialVersionUID = 0L;
             com.shorts.v1alpha1.GetDropIndexSeriesResponse.class, com.shorts.v1alpha1.GetDropIndexSeriesResponse.Builder.class);
   }
 
+  private int bitField0_;
   public static final int POINTS_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private java.util.List<com.shorts.v1alpha1.DropIndexPoint> points_;
@@ -138,6 +139,79 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int AS_OF_FIELD_NUMBER = 3;
+  private com.google.protobuf.Timestamp asOf_;
+  /**
+   * <pre>
+   * as_of: the latest computed_at among the returned points (when the
+   * collector last wrote this series). data_through: the latest returned
+   * snapshot_date — the index reads the crawl through the end of that day.
+   * Both unset when no point is returned.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+   * @return Whether the asOf field is set.
+   */
+  @java.lang.Override
+  public boolean hasAsOf() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * as_of: the latest computed_at among the returned points (when the
+   * collector last wrote this series). data_through: the latest returned
+   * snapshot_date — the index reads the crawl through the end of that day.
+   * Both unset when no point is returned.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  @java.lang.Override
+  public com.google.protobuf.Timestamp getAsOf() {
+    return asOf_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : asOf_;
+  }
+  /**
+   * <pre>
+   * as_of: the latest computed_at among the returned points (when the
+   * collector last wrote this series). data_through: the latest returned
+   * snapshot_date — the index reads the crawl through the end of that day.
+   * Both unset when no point is returned.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+   */
+  @java.lang.Override
+  public com.google.protobuf.TimestampOrBuilder getAsOfOrBuilder() {
+    return asOf_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : asOf_;
+  }
+
+  public static final int DATA_THROUGH_FIELD_NUMBER = 4;
+  private com.google.protobuf.Timestamp dataThrough_;
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+   * @return Whether the dataThrough field is set.
+   */
+  @java.lang.Override
+  public boolean hasDataThrough() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+   * @return The dataThrough.
+   */
+  @java.lang.Override
+  public com.google.protobuf.Timestamp getDataThrough() {
+    return dataThrough_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : dataThrough_;
+  }
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+   */
+  @java.lang.Override
+  public com.google.protobuf.TimestampOrBuilder getDataThroughOrBuilder() {
+    return dataThrough_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : dataThrough_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -158,6 +232,12 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(trackingSince_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 2, trackingSince_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeMessage(3, getAsOf());
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeMessage(4, getDataThrough());
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -173,6 +253,14 @@ private static final long serialVersionUID = 0L;
         }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(trackingSince_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(2, trackingSince_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(3, getAsOf());
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(4, getDataThrough());
     }
     return size;
   }
@@ -202,6 +290,16 @@ private static final long serialVersionUID = 0L;
         .equals(other.getPointsList())) return false;
     if (!getTrackingSince()
         .equals(other.getTrackingSince())) return false;
+    if (hasAsOf() != other.hasAsOf()) return false;
+    if (hasAsOf()) {
+      if (!getAsOf()
+          .equals(other.getAsOf())) return false;
+    }
+    if (hasDataThrough() != other.hasDataThrough()) return false;
+    if (hasDataThrough()) {
+      if (!getDataThrough()
+          .equals(other.getDataThrough())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -219,6 +317,14 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + TRACKING_SINCE_FIELD_NUMBER;
     hash = (53 * hash) + getTrackingSince().hashCode();
+    if (hasAsOf()) {
+      hash = (37 * hash) + AS_OF_FIELD_NUMBER;
+      hash = (53 * hash) + getAsOf().hashCode();
+    }
+    if (hasDataThrough()) {
+      hash = (37 * hash) + DATA_THROUGH_FIELD_NUMBER;
+      hash = (53 * hash) + getDataThrough().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -338,13 +444,21 @@ private static final long serialVersionUID = 0L;
 
     // Construct using com.shorts.v1alpha1.GetDropIndexSeriesResponse.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessage
+              .alwaysUseFieldBuilders) {
+        internalGetPointsFieldBuilder();
+        internalGetAsOfFieldBuilder();
+        internalGetDataThroughFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -358,6 +472,16 @@ private static final long serialVersionUID = 0L;
       }
       bitField0_ = (bitField0_ & ~0x00000001);
       trackingSince_ = "";
+      asOf_ = null;
+      if (asOfBuilder_ != null) {
+        asOfBuilder_.dispose();
+        asOfBuilder_ = null;
+      }
+      dataThrough_ = null;
+      if (dataThroughBuilder_ != null) {
+        dataThroughBuilder_.dispose();
+        dataThroughBuilder_ = null;
+      }
       return this;
     }
 
@@ -407,6 +531,20 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000002) != 0)) {
         result.trackingSince_ = trackingSince_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        result.asOf_ = asOfBuilder_ == null
+            ? asOf_
+            : asOfBuilder_.build();
+        to_bitField0_ |= 0x00000001;
+      }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.dataThrough_ = dataThroughBuilder_ == null
+            ? dataThrough_
+            : dataThroughBuilder_.build();
+        to_bitField0_ |= 0x00000002;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -452,6 +590,12 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000002;
         onChanged();
       }
+      if (other.hasAsOf()) {
+        mergeAsOf(other.getAsOf());
+      }
+      if (other.hasDataThrough()) {
+        mergeDataThrough(other.getDataThrough());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -496,6 +640,20 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 18
+            case 26: {
+              input.readMessage(
+                  internalGetAsOfFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000004;
+              break;
+            } // case 26
+            case 34: {
+              input.readMessage(
+                  internalGetDataThroughFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 34
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -843,6 +1001,311 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
+    }
+
+    private com.google.protobuf.Timestamp asOf_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> asOfBuilder_;
+    /**
+     * <pre>
+     * as_of: the latest computed_at among the returned points (when the
+     * collector last wrote this series). data_through: the latest returned
+     * snapshot_date — the index reads the crawl through the end of that day.
+     * Both unset when no point is returned.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+     * @return Whether the asOf field is set.
+     */
+    public boolean hasAsOf() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * as_of: the latest computed_at among the returned points (when the
+     * collector last wrote this series). data_through: the latest returned
+     * snapshot_date — the index reads the crawl through the end of that day.
+     * Both unset when no point is returned.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+     * @return The asOf.
+     */
+    public com.google.protobuf.Timestamp getAsOf() {
+      if (asOfBuilder_ == null) {
+        return asOf_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : asOf_;
+      } else {
+        return asOfBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * as_of: the latest computed_at among the returned points (when the
+     * collector last wrote this series). data_through: the latest returned
+     * snapshot_date — the index reads the crawl through the end of that day.
+     * Both unset when no point is returned.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+     */
+    public Builder setAsOf(com.google.protobuf.Timestamp value) {
+      if (asOfBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        asOf_ = value;
+      } else {
+        asOfBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * as_of: the latest computed_at among the returned points (when the
+     * collector last wrote this series). data_through: the latest returned
+     * snapshot_date — the index reads the crawl through the end of that day.
+     * Both unset when no point is returned.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+     */
+    public Builder setAsOf(
+        com.google.protobuf.Timestamp.Builder builderForValue) {
+      if (asOfBuilder_ == null) {
+        asOf_ = builderForValue.build();
+      } else {
+        asOfBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * as_of: the latest computed_at among the returned points (when the
+     * collector last wrote this series). data_through: the latest returned
+     * snapshot_date — the index reads the crawl through the end of that day.
+     * Both unset when no point is returned.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+     */
+    public Builder mergeAsOf(com.google.protobuf.Timestamp value) {
+      if (asOfBuilder_ == null) {
+        if (((bitField0_ & 0x00000004) != 0) &&
+          asOf_ != null &&
+          asOf_ != com.google.protobuf.Timestamp.getDefaultInstance()) {
+          getAsOfBuilder().mergeFrom(value);
+        } else {
+          asOf_ = value;
+        }
+      } else {
+        asOfBuilder_.mergeFrom(value);
+      }
+      if (asOf_ != null) {
+        bitField0_ |= 0x00000004;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * as_of: the latest computed_at among the returned points (when the
+     * collector last wrote this series). data_through: the latest returned
+     * snapshot_date — the index reads the crawl through the end of that day.
+     * Both unset when no point is returned.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+     */
+    public Builder clearAsOf() {
+      bitField0_ = (bitField0_ & ~0x00000004);
+      asOf_ = null;
+      if (asOfBuilder_ != null) {
+        asOfBuilder_.dispose();
+        asOfBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * as_of: the latest computed_at among the returned points (when the
+     * collector last wrote this series). data_through: the latest returned
+     * snapshot_date — the index reads the crawl through the end of that day.
+     * Both unset when no point is returned.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+     */
+    public com.google.protobuf.Timestamp.Builder getAsOfBuilder() {
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return internalGetAsOfFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * as_of: the latest computed_at among the returned points (when the
+     * collector last wrote this series). data_through: the latest returned
+     * snapshot_date — the index reads the crawl through the end of that day.
+     * Both unset when no point is returned.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+     */
+    public com.google.protobuf.TimestampOrBuilder getAsOfOrBuilder() {
+      if (asOfBuilder_ != null) {
+        return asOfBuilder_.getMessageOrBuilder();
+      } else {
+        return asOf_ == null ?
+            com.google.protobuf.Timestamp.getDefaultInstance() : asOf_;
+      }
+    }
+    /**
+     * <pre>
+     * as_of: the latest computed_at among the returned points (when the
+     * collector last wrote this series). data_through: the latest returned
+     * snapshot_date — the index reads the crawl through the end of that day.
+     * Both unset when no point is returned.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp as_of = 3 [json_name = "asOf"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
+        internalGetAsOfFieldBuilder() {
+      if (asOfBuilder_ == null) {
+        asOfBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>(
+                getAsOf(),
+                getParentForChildren(),
+                isClean());
+        asOf_ = null;
+      }
+      return asOfBuilder_;
+    }
+
+    private com.google.protobuf.Timestamp dataThrough_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> dataThroughBuilder_;
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+     * @return Whether the dataThrough field is set.
+     */
+    public boolean hasDataThrough() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+     * @return The dataThrough.
+     */
+    public com.google.protobuf.Timestamp getDataThrough() {
+      if (dataThroughBuilder_ == null) {
+        return dataThrough_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : dataThrough_;
+      } else {
+        return dataThroughBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+     */
+    public Builder setDataThrough(com.google.protobuf.Timestamp value) {
+      if (dataThroughBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        dataThrough_ = value;
+      } else {
+        dataThroughBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+     */
+    public Builder setDataThrough(
+        com.google.protobuf.Timestamp.Builder builderForValue) {
+      if (dataThroughBuilder_ == null) {
+        dataThrough_ = builderForValue.build();
+      } else {
+        dataThroughBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+     */
+    public Builder mergeDataThrough(com.google.protobuf.Timestamp value) {
+      if (dataThroughBuilder_ == null) {
+        if (((bitField0_ & 0x00000008) != 0) &&
+          dataThrough_ != null &&
+          dataThrough_ != com.google.protobuf.Timestamp.getDefaultInstance()) {
+          getDataThroughBuilder().mergeFrom(value);
+        } else {
+          dataThrough_ = value;
+        }
+      } else {
+        dataThroughBuilder_.mergeFrom(value);
+      }
+      if (dataThrough_ != null) {
+        bitField0_ |= 0x00000008;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+     */
+    public Builder clearDataThrough() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      dataThrough_ = null;
+      if (dataThroughBuilder_ != null) {
+        dataThroughBuilder_.dispose();
+        dataThroughBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+     */
+    public com.google.protobuf.Timestamp.Builder getDataThroughBuilder() {
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return internalGetDataThroughFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+     */
+    public com.google.protobuf.TimestampOrBuilder getDataThroughOrBuilder() {
+      if (dataThroughBuilder_ != null) {
+        return dataThroughBuilder_.getMessageOrBuilder();
+      } else {
+        return dataThrough_ == null ?
+            com.google.protobuf.Timestamp.getDefaultInstance() : dataThrough_;
+      }
+    }
+    /**
+     * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
+        internalGetDataThroughFieldBuilder() {
+      if (dataThroughBuilder_ == null) {
+        dataThroughBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>(
+                getDataThrough(),
+                getParentForChildren(),
+                isClean());
+        dataThrough_ = null;
+      }
+      return dataThroughBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetDropIndexSeriesResponse)

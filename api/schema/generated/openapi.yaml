@@ -4547,7 +4547,11 @@ components:
           type: number
           title: median_drop_pct
           format: double
-          description: 0..1 fraction, depth of the typical cut (proto double)
+          description: |-
+            0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
+             dropped addresses stand behind this point, so a "median" would be one or
+             two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
+             is 0.5%). (proto double)
         panelSuburbs:
           type: integer
           title: panel_suburbs
@@ -5182,11 +5186,11 @@ components:
         grain:
           type: string
           title: grain
-          description: '''national'' | ''state'' | ''suburb'' (proto string)'
+          description: Anything outside these shapes is InvalidArgument. 'national' (default) | 'state' | 'suburb' (proto string)
         grainKey:
           type: string
           title: grain_key
-          description: '''AU'' | state code | sal_code (proto string)'
+          description: '''AU'' | state code (''NSW'', ...) | 5-digit sal_code (proto string)'
         from:
           type: string
           title: from
@@ -5194,7 +5198,7 @@ components:
         to:
           type: string
           title: to
-          description: '''YYYY-MM-DD'', inclusive; defaults to today (proto string)'
+          description: '''YYYY-MM-DD'', inclusive; defaults to (and is capped at) today (proto string)'
       title: GetDropIndexSeriesRequest
       additionalProperties: false
     shorts.v1alpha1.GetDropIndexSeriesResponse:
@@ -5210,6 +5214,18 @@ components:
           type: string
           title: tracking_since
           description: '''YYYY-MM-DD'' — earliest date the index exists for (proto string)'
+        asOf:
+          title: as_of
+          description: |-
+            as_of: the latest computed_at among the returned points (when the
+             collector last wrote this series). data_through: the latest returned
+             snapshot_date — the index reads the crawl through the end of that day.
+             Both unset when no point is returned. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        dataThrough:
+          title: data_through
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: GetDropIndexSeriesResponse
       additionalProperties: false
     shorts.v1alpha1.GetEconomicSeriesRequest:
@@ -6103,6 +6119,16 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.StatePriceDropSummary'
           title: states
           description: ordered by dropped_count desc (proto shorts.v1alpha1.StatePriceDropSummary)
+        asOf:
+          title: as_of
+          description: |-
+            When mv_state_price_drops was last refreshed, and the newest crawl
+             observation that refresh could see. Unset when never recorded. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        dataThrough:
+          title: data_through
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: GetPriceDropsOverviewResponse
       additionalProperties: false
     shorts.v1alpha1.GetPropertyHistoryRequest:
@@ -8775,7 +8801,11 @@ components:
         sort:
           type: string
           title: sort
-          description: 'optional: ''count'' (default) | ''avg'' | ''max'' (proto string)'
+          description: |-
+            optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+             'share' ranks by dropped_share among suburbs with at least 20 recently
+             swept active addresses (the drop index's panel floor); thinner suburbs
+             sort after every ranked one rather than topping the board on 1 of 3. (proto string)
         limit:
           type: integer
           title: limit
@@ -8792,6 +8822,19 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.SuburbPriceDrop'
           title: suburbs
           description: (proto shorts.v1alpha1.SuburbPriceDrop)
+        asOf:
+          title: as_of
+          description: |-
+            The OLDER refresh of the two views this board joins
+             (mv_suburb_listing_stats, mv_suburb_price_drops), so the stamp never
+             claims more freshness than the staler half. data_through: the newest crawl
+             observation (price event or listing sighting) those refreshes could see.
+             Both unset when no refresh has been recorded. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        dataThrough:
+          title: data_through
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: ListSuburbPriceDropsResponse
       additionalProperties: false
     shorts.v1alpha1.ListTopDonorsRequest:
@@ -10798,6 +10841,22 @@ components:
           title: suburbs_tracked
           format: int32
           description: tracked suburbs contributing listings (proto int32)
+        suburbsSwept14d:
+          type: integer
+          title: suburbs_swept_14d
+          format: int32
+          description: |-
+            Crawl coverage behind this row. catalog_suburbs is every suburb the crawl
+             has ever produced a listing for (the drop index's coverage denominator);
+             suburbs_swept_14d is the subset with a listing seen in the last 14 days.
+             Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl
+             coverage more than discounting, and the UI annotates it instead of ranking
+             it. Both 0 before migration 000124. (proto int32)
+        catalogSuburbs:
+          type: integer
+          title: catalog_suburbs
+          format: int32
+          description: (proto int32)
       title: StatePriceDropSummary
       additionalProperties: false
       description: |-
@@ -11554,6 +11613,17 @@ components:
           title: median_sold
           format: double
           description: median sold price, AUD; 0 if none (proto double)
+        asOf:
+          title: as_of
+          description: |-
+            When mv_suburb_listing_stats was last refreshed (every now()-relative
+             window in it is anchored here), and the newest crawl observation it could
+             contain. Unset when the refresh has never been recorded. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        dataThrough:
+          title: data_through
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: SuburbListingStats
       additionalProperties: false
       description: |-

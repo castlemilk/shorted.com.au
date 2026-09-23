@@ -1217,7 +1217,7 @@
             "type": "boolean"
           },
           "medianDropPct": {
-            "description": "0..1 fraction, depth of the typical cut (proto double)",
+            "description": "0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3\n dropped addresses stand behind this point, so a \"median\" would be one or\n two listings' exact cuts (a real cut is never 0 — the crawl's noise floor\n is 0.5%). (proto double)",
             "format": "double",
             "title": "median_drop_pct",
             "type": "number"
@@ -1960,17 +1960,17 @@
             "type": "string"
           },
           "grain": {
-            "description": "'national' | 'state' | 'suburb' (proto string)",
+            "description": "Anything outside these shapes is InvalidArgument. 'national' (default) | 'state' | 'suburb' (proto string)",
             "title": "grain",
             "type": "string"
           },
           "grainKey": {
-            "description": "'AU' | state code | sal_code (proto string)",
+            "description": "'AU' | state code ('NSW', ...) | 5-digit sal_code (proto string)",
             "title": "grain_key",
             "type": "string"
           },
           "to": {
-            "description": "'YYYY-MM-DD', inclusive; defaults to today (proto string)",
+            "description": "'YYYY-MM-DD', inclusive; defaults to (and is capped at) today (proto string)",
             "title": "to",
             "type": "string"
           }
@@ -1981,6 +1981,16 @@
       "shorts.v1alpha1.GetDropIndexSeriesResponse": {
         "additionalProperties": false,
         "properties": {
+          "asOf": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "as_of: the latest computed_at among the returned points (when the\n collector last wrote this series). data_through: the latest returned\n snapshot_date — the index reads the crawl through the end of that day.\n Both unset when no point is returned. (proto google.protobuf.Timestamp)",
+            "title": "as_of"
+          },
+          "dataThrough": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "(proto google.protobuf.Timestamp)",
+            "title": "data_through"
+          },
           "points": {
             "description": "(proto shorts.v1alpha1.DropIndexPoint)",
             "items": {
@@ -3005,6 +3015,16 @@
       "shorts.v1alpha1.GetPriceDropsOverviewResponse": {
         "additionalProperties": false,
         "properties": {
+          "asOf": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "When mv_state_price_drops was last refreshed, and the newest crawl\n observation that refresh could see. Unset when never recorded. (proto google.protobuf.Timestamp)",
+            "title": "as_of"
+          },
+          "dataThrough": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "(proto google.protobuf.Timestamp)",
+            "title": "data_through"
+          },
           "national": {
             "$ref": "#/components/schemas/shorts.v1alpha1.StatePriceDropSummary",
             "description": "the 'AU' row (proto shorts.v1alpha1.StatePriceDropSummary)",
@@ -5999,7 +6019,7 @@
             "type": "integer"
           },
           "sort": {
-            "description": "optional: 'count' (default) | 'avg' | 'max' (proto string)",
+            "description": "optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.\n 'share' ranks by dropped_share among suburbs with at least 20 recently\n swept active addresses (the drop index's panel floor); thinner suburbs\n sort after every ranked one rather than topping the board on 1 of 3. (proto string)",
             "title": "sort",
             "type": "string"
           },
@@ -6021,6 +6041,16 @@
       "shorts.v1alpha1.ListSuburbPriceDropsResponse": {
         "additionalProperties": false,
         "properties": {
+          "asOf": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "The OLDER refresh of the two views this board joins\n (mv_suburb_listing_stats, mv_suburb_price_drops), so the stamp never\n claims more freshness than the staler half. data_through: the newest crawl\n observation (price event or listing sighting) those refreshes could see.\n Both unset when no refresh has been recorded. (proto google.protobuf.Timestamp)",
+            "title": "as_of"
+          },
+          "dataThrough": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "(proto google.protobuf.Timestamp)",
+            "title": "data_through"
+          },
           "suburbs": {
             "description": "(proto shorts.v1alpha1.SuburbPriceDrop)",
             "items": {
@@ -8267,6 +8297,12 @@
             "title": "avg_sold",
             "type": "number"
           },
+          "catalogSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "catalog_suburbs",
+            "type": "integer"
+          },
           "droppedCount": {
             "description": "physical addresses that cut asking price (30-day window, deduped) (proto int32)",
             "format": "int32",
@@ -8331,6 +8367,12 @@
             "description": "'NSW'|'VIC'|... or 'AU' for the national row (proto string)",
             "title": "state_code",
             "type": "string"
+          },
+          "suburbsSwept14d": {
+            "description": "Crawl coverage behind this row. catalog_suburbs is every suburb the crawl\n has ever produced a listing for (the drop index's coverage denominator);\n suburbs_swept_14d is the subset with a listing seen in the last 14 days.\n Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl\n coverage more than discounting, and the UI annotates it instead of ranking\n it. Both 0 before migration 000124. (proto int32)",
+            "format": "int32",
+            "title": "suburbs_swept_14d",
+            "type": "integer"
           },
           "suburbsTracked": {
             "description": "tracked suburbs contributing listings (proto int32)",
@@ -9178,6 +9220,11 @@
         "additionalProperties": false,
         "description": "Crawl-derived listing aggregates for one suburb (mv_suburb_listing_stats).\n\n This is the ONLY price signal available for the ~11,700 suburbs with no\n Valuer-General feed — QLD, WA, TAS, NT and ACT publish no open suburb-level\n median, and every commercial alternative is licensed.\n\n It is NOT a substitute for `SuburbSummary.latest_median_price` and must never\n be rendered as one:\n   - it is derived from CURRENT portal listings, not settled transfers;\n   - `median_sold` is the price listings were marked sold at, which is a\n     different measure from a Valuer-General median and is not comparable with\n     the NSW/VIC/SA figures;\n   - it covers whatever the crawl catalog reaches (500 suburbs nationally), so\n     it is not a population any rank can be computed against.\n\n LICENCE: these are DERIVED AGGREGATES. The underlying rows carry\n source_licence='proprietary-tos-restricted' and are never republished — see\n docs/feature/housing/data-sources.md. Counts and medians only.",
         "properties": {
+          "asOf": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "When mv_suburb_listing_stats was last refreshed (every now()-relative\n window in it is anchored here), and the newest crawl observation it could\n contain. Unset when the refresh has never been recorded. (proto google.protobuf.Timestamp)",
+            "title": "as_of"
+          },
           "avgAsking": {
             "description": "mean asking price of priced for-sale listings, AUD; 0 if none (proto double)",
             "format": "double",
@@ -9189,6 +9236,11 @@
             "format": "double",
             "title": "avg_sold",
             "type": "number"
+          },
+          "dataThrough": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "(proto google.protobuf.Timestamp)",
+            "title": "data_through"
           },
           "forSaleCount": {
             "description": "active for-sale listings captured (proto int32)",
