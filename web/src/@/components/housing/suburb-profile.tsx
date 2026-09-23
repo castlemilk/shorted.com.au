@@ -887,7 +887,7 @@ function Baseline({ label, left, dashed }: { label: string; left: string; dashed
 const STATUTORY_HAZARD_CREDITS: Record<string, { credit: string; licence: string }> = {
   nsw_epi_flood: { credit: "NSW Environmental Planning Instrument — Flood, NSW Department of Planning", licence: "CC BY 4.0" },
   vic_plan_overlay_lsio_fo_sbo: { credit: "Vicmap Planning overlays, Department of Transport and Planning Victoria", licence: "CC BY 4.0" },
-  sa_pdcode_hazards_flooding: { credit: "Planning and Design Code overlays (Hazards — Flooding), Government of South Australia", licence: "CC BY 3.0 AU" },
+  sa_pdcode_hazards_flooding: { credit: "Planning and Design Code overlays (Hazards — Flooding, and Flooding — General), Government of South Australia", licence: "CC BY 3.0 AU" },
   tas_tps_flood_prone: { credit: "Tasmanian Planning Scheme — Code Overlay (Flood-prone Areas), Tasmanian Planning Commission via theLIST", licence: "CC BY 3.0 AU" },
   act_flood_extent_1pct_aep: { credit: "ACT Flood Extent Model (1% AEP), ACT Government", licence: "CC BY 4.0" },
   nsw_bfpl: { credit: "NSW Bush Fire Prone Land, NSW Rural Fire Service", licence: "CC BY 4.0" },

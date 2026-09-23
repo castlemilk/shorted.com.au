@@ -47,12 +47,15 @@ func TestLoadHazardsPreservesNullVersusZeroAndNamesSources(t *testing.T) {
 	if nsw.FloodPlanningSharePct != nil {
 		t.Fatalf("JSON null must remain absent")
 	}
-	if nsw.FloodSource() != "" || nsw.BushfireSource() != "nsw_bfpl" || nsw.WaterSource() != hazardsWaterSource {
+	// A NULL share still names the instrument it was read against: NSW flood is
+	// NULL where no flood map was lodged, and the source is what tells the web
+	// that this is "not covered by the EPI Flood layer", not "never loaded".
+	if nsw.FloodSource() != "nsw_epi_flood" || nsw.BushfireSource() != "nsw_bfpl" || nsw.WaterSource() != hazardsWaterSource {
 		t.Fatalf("sources = %q %q %q", nsw.FloodSource(), nsw.BushfireSource(), nsw.WaterSource())
 	}
 	qld := rows[1]
-	if qld.BushfireSource() != "" || qld.FloodSource() != "" {
-		t.Fatalf("absent QLD shares must name no source, got %q %q", qld.FloodSource(), qld.BushfireSource())
+	if qld.BushfireSource() != "qld_qfd_bpa" || qld.FloodSource() != "" {
+		t.Fatalf("QLD names its bushfire layer and no flood layer, got %q %q", qld.FloodSource(), qld.BushfireSource())
 	}
 }
 
@@ -61,6 +64,7 @@ func TestEveryStateNamesItsStatutorySourcesPerHazard(t *testing.T) {
 		"20001": {"sampledCellCount": 250, "floodPlanningSharePct": 0, "bushfireProneSharePct": 3},
 		"30001": {"sampledCellCount": 250, "floodPlanningSharePct": null, "bushfireProneSharePct": 0},
 		"40001": {"sampledCellCount": 250, "floodPlanningSharePct": 7, "bushfireProneSharePct": 50},
+		"40002": {"sampledCellCount": 250, "floodPlanningSharePct": null, "bushfireProneSharePct": null},
 		"50001": {"sampledCellCount": 250, "floodPlanningSharePct": null, "bushfireProneSharePct": 100},
 		"60001": {"sampledCellCount": 250, "floodPlanningSharePct": null, "bushfireProneSharePct": 2},
 		"70001": {"sampledCellCount": 250, "floodPlanningSharePct": null, "bushfireProneSharePct": null},
@@ -77,12 +81,18 @@ func TestEveryStateNamesItsStatutorySourcesPerHazard(t *testing.T) {
 		"20001": {"vic_plan_overlay_lsio_fo_sbo", "vic_bpa", "CC-BY-4.0"},
 		"30001": {"", "qld_qfd_bpa", "CC-BY-4.0"},
 		"40001": {"sa_pdcode_hazards_flooding", "sa_pdcode_hazards_bushfire", "CC-BY-4.0; CC-BY-3.0-AU"},
+		// SA land wholly under the Code's precautionary overlays is NULL for
+		// both hazards, and the row still says which instrument said so.
+		"40002": {"sa_pdcode_hazards_flooding", "sa_pdcode_hazards_bushfire", "CC-BY-4.0; CC-BY-3.0-AU"},
 		"50001": {"", "wa_obrm_026_bpa", "CC-BY-4.0"},
-		// A TAS suburb outside every flood-mapping LPS is null for flood; its
-		// row still carries the bushfire layer's licence.
-		"60001": {"", "tas_tps_bushfire_prone", "CC-BY-4.0; CC-BY-3.0-AU"},
+		// A TAS suburb outside every flood-mapping LPS is null for flood and
+		// still names the flood layer that does not reach it.
+		"60001": {"tas_tps_flood_prone", "tas_tps_bushfire_prone", "CC-BY-4.0; CC-BY-3.0-AU"},
 		"70001": {"", "", "CC-BY-4.0"},
 		"80001": {"act_flood_extent_1pct_aep", "act_bpa_2026", "CC-BY-4.0"},
+	}
+	if len(rows) != len(wants) {
+		t.Fatalf("got %d rows, want %d", len(rows), len(wants))
 	}
 	for _, row := range rows {
 		got := want{row.FloodSource(), row.BushfireSource(), row.Licence()}

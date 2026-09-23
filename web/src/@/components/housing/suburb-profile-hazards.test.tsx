@@ -87,15 +87,67 @@ describe("Terrain & hazard exposure card", () => {
     render(
       <SuburbProfile
         salCode="12353"
-        profile={profile({ hazards: { waterObservedSharePct: 6, bushfireProneSharePct: 12, bushfireSource: "nsw_bfpl" } })}
+        profile={profile({ hazards: {
+          waterObservedSharePct: 6, bushfireProneSharePct: 12,
+          floodSource: "nsw_epi_flood", bushfireSource: "nsw_bfpl",
+        } })}
       />,
     );
     const tile = screen.getByRole("article", { name: /flood planning area/ });
     expect(tile).toHaveTextContent("Not mapped");
     expect(tile).not.toHaveTextContent("0%");
     const section = tile.closest("section")!;
-    expect(section.textContent).toMatch(/No flood map lodged in the NSW planning instruments here/);
+    expect(section.textContent).toMatch(/No flood map lodged in the NSW planning instruments for most of this suburb/);
     expect(section.textContent).not.toMatch(/No open statutory/);
+  });
+
+  test("a row from before a state's layer was loaded borrows no reason", () => {
+    // Prod rows loaded before the gap-fill carry water shares and nothing
+    // statutory for SA/TAS/ACT: null shares with no source. Deploying the web
+    // first must not tell every one of those suburbs it is Evidence Required.
+    for (const [stateCode, reason] of [
+      ["SA", /Evidence Required|Regional or Outback/],
+      ["TAS", /interim scheme|maps no flood-prone/],
+      ["ACT", /modelled flood catchments/],
+    ] as const) {
+      const { unmount } = render(
+        <SuburbProfile salCode="40001" profile={profile({ stateCode, hazards: { waterObservedSharePct: 4 } })} />,
+      );
+      const section = screen.getByRole("heading", { name: /Terrain & hazard exposure/ }).closest("section")!;
+      expect(screen.queryByText("Not mapped")).not.toBeInTheDocument();
+      expect(section.textContent).not.toMatch(reason);
+      unmount();
+    }
+  });
+
+  test("a TAS suburb mostly in Kingborough is not told its LPS maps no flood land", () => {
+    render(
+      <SuburbProfile
+        salCode="60403"
+        profile={profile({ stateCode: "TAS", hazards: {
+          waterObservedSharePct: 1, floodSource: "tas_tps_flood_prone", bushfireSource: "tas_tps_bushfire_prone",
+        } })}
+      />,
+    );
+    const section = screen.getByRole("heading", { name: /Terrain & hazard exposure/ }).closest("section")!;
+    expect(screen.getAllByText("Not mapped")).toHaveLength(2);
+    expect(section.textContent).toMatch(/still on an interim scheme \(Kingborough\)/);
+    expect(section.textContent).not.toMatch(/Local Provisions Schedule maps no/);
+  });
+
+  test("a masked state's share is described as a floor over the whole suburb", () => {
+    render(
+      <SuburbProfile
+        salCode="40362"
+        profile={profile({ stateCode: "SA", hazards: {
+          floodPlanningSharePct: 30, floodSource: "sa_pdcode_hazards_flooding",
+          bushfireProneSharePct: 0, bushfireSource: "sa_pdcode_hazards_bushfire",
+        } })}
+      />,
+    );
+    const section = screen.getByRole("heading", { name: /Terrain & hazard exposure/ }).closest("section")!;
+    expect(section.textContent).toMatch(/proportion of the suburb's land area; where part of a suburb is unmapped, only its mapped land counts, so the share is a floor/);
+    expect(screen.getByRole("article", { name: /flood planning area/ })).toHaveTextContent("Flooding – General");
   });
 
   test("a suburb with no hazards row claims nothing about coverage", () => {

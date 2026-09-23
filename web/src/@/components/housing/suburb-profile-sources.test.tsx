@@ -98,7 +98,7 @@ describe("suburb profile price gating", () => {
   it("credits each state's statutory layer under its own licence", () => {
     render(<SourcesLine {...base} statutoryHazardSources={["sa_pdcode_hazards_flooding", "sa_pdcode_hazards_bushfire"]} stateName="South Australia" />);
     // The P&D Code overlays are CC BY 3.0 AU, not the CC BY 4.0 of the other states.
-    expect(screen.getByText(/Hazards — Flooding\), Government of South Australia \(CC BY 3\.0 AU\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Hazards — Flooding, and Flooding — General\), Government of South Australia \(CC BY 3\.0 AU\)/)).toBeInTheDocument();
     expect(screen.getByText(/Hazards — Bushfire\), Government of South Australia \(CC BY 3\.0 AU\)/)).toBeInTheDocument();
   });
 

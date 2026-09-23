@@ -39,13 +39,21 @@ export function SuburbHazardCard({
   // Per hazard: QLD and WA publish a bushfire layer but no open flood layer.
   const floodInState = overlayAvailable("flood_planning", stateCode);
   const fireInState = overlayAvailable("bushfire_prone", stateCode);
-  // In a state that has the layer, a null share means the source's instruments
-  // do not reach this suburb (NSW: no council flood map lodged). Say so in the
-  // tile rather than dropping it, which would read the same as "no hazard".
-  // Only with a hazards row: no row at all means "not computed", not "uncovered".
-  const floodUncovered = hazards && floodInState && flood === undefined ? OVERLAY_BY_KEY.flood_planning.uncovered?.[stateCode] : undefined;
-  const fireUncovered = hazards && fireInState && fire === undefined ? OVERLAY_BY_KEY.bushfire_prone.uncovered?.[stateCode] : undefined;
+  // A null share WITH a source id means the instrument was read and does not
+  // reach this suburb (NSW: no council flood map lodged). Say so in the tile
+  // rather than dropping it, which would read the same as "no hazard". A null
+  // share with no source is a row loaded before that state's layer existed (or
+  // no row at all): claim nothing, or every SA/TAS/ACT suburb would borrow a
+  // reason that is only true of the gap-fill load.
+  const floodUncovered = floodInState && flood === undefined && hazards?.floodSource
+    ? OVERLAY_BY_KEY.flood_planning.uncovered?.[stateCode] : undefined;
+  const fireUncovered = fireInState && fire === undefined && hazards?.bushfireSource
+    ? OVERLAY_BY_KEY.bushfire_prone.uncovered?.[stateCode] : undefined;
   const missingLayers = [!floodInState && "flood", !fireInState && "bushfire"].filter(Boolean).join(" or ");
+  // States whose statutory shares are masked per suburb (partial coverage is
+  // possible), so a published share can undercount an unmapped remainder.
+  const partlyMapped = (hasFlood && OVERLAY_BY_KEY.flood_planning.masked?.includes(stateCode))
+    || (hasFire && OVERLAY_BY_KEY.bushfire_prone.masked?.includes(stateCode));
 
   const tiles: HazardTile[] = [];
   if (medianM !== undefined) {
@@ -119,7 +127,7 @@ export function SuburbHazardCard({
         </div>
       </div>
       <p className="mt-2.5 text-[11px] text-muted-foreground [text-wrap:pretty]">
-        Shares are the proportion of the suburb&apos;s land area. {hasWater ? OVERLAY_BY_KEY.water_observed.caveat + " " : ""}
+        Shares are the proportion of the suburb&apos;s land area{partlyMapped ? "; where part of a suburb is unmapped, only its mapped land counts, so the share is a floor" : ""}. {hasWater ? OVERLAY_BY_KEY.water_observed.caveat + " " : ""}
         {hasFlood ? overlayCaveat("flood_planning", stateCode) + " " : ""}
         {floodUncovered ? floodUncovered + " " : ""}
         {hasFire ? overlayCaveat("bushfire_prone", stateCode) + " " : ""}
@@ -154,7 +162,7 @@ const NOT_MAPPED = "Not mapped";
 const SOURCE_LABELS: Record<string, string> = {
   nsw_epi_flood: "NSW EPI Flood",
   vic_plan_overlay_lsio_fo_sbo: "Vicmap LSIO / FO / SBO",
-  sa_pdcode_hazards_flooding: "SA Code Hazards (Flooding)",
+  sa_pdcode_hazards_flooding: "SA Code Hazards (Flooding) + (Flooding – General)",
   tas_tps_flood_prone: "TPS Flood-prone Areas",
   act_flood_extent_1pct_aep: "ACT 1% AEP flood model",
   nsw_bfpl: "NSW RFS Bush Fire Prone Land",

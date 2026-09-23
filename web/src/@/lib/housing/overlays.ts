@@ -41,6 +41,12 @@ export type OverlayDef = {
    * instruments do not cover it. Shown instead of a share, never as 0%.
    */
   uncovered?: Record<string, string>;
+  /**
+   * States whose shares are read through a per-suburb coverage mask. A suburb
+   * at least half covered publishes its mapped land over the WHOLE suburb, so
+   * the share is a floor there and the card says so.
+   */
+  masked?: readonly string[];
 };
 
 export const ALL_STATES_WITH_WATER = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"] as const;
@@ -56,18 +62,19 @@ export const OVERLAYS: readonly OverlayDef[] = [
     source: "NSW EPI Flood (NSW Planning Portal); Vicmap Planning LSIO/FO/SBO; SA Planning and Design Code Hazards (Flooding); Tasmanian Planning Scheme Flood-prone Areas; ACT 1% AEP flood extent model",
     stateNotes: {
       NSW: "Only the councils that lodged a flood map in their planning instrument are covered; everywhere else is shown as no statutory layer, not as 0%. NSW councils have owned flood-map currency since July 2021, so the state layer may be older than a council's own study.",
-      SA: "Covers the Code's Hazards (Flooding) and (Flooding – General) overlays. Land under its precautionary Evidence Required overlay has not been assessed and is shown as no statutory layer.",
+      SA: "Covers the Code's Hazards (Flooding) and (Flooding – General) overlays. Land under its precautionary Evidence Required overlay has not been assessed; a suburb mostly under it is shown as no statutory layer.",
       TAS: "Only councils whose Local Provisions Schedule maps flood-prone areas are covered.",
     },
     stateCaveats: {
       ACT: "The ACT has no open flood planning overlay; this is the ACT Government's modelled 1% AEP flood extent, a model of one flood event rather than a planning control. Land outside the modelled urban catchments is shown as no statutory layer.",
     },
     uncovered: {
-      NSW: "No flood map lodged in the NSW planning instruments here; most councils keep theirs in a development control plan.",
-      SA: "Not yet assessed: the Code applies its precautionary Evidence Required overlay here.",
-      TAS: "This council's Local Provisions Schedule maps no flood-prone areas.",
+      NSW: "No flood map lodged in the NSW planning instruments for most of this suburb; most councils keep theirs in a development control plan.",
+      SA: "Not yet assessed: the Code applies its precautionary Evidence Required overlay to most of this suburb.",
+      TAS: "Most of this suburb lies in a council whose planning scheme maps no flood-prone areas, or that is still on an interim scheme (Kingborough).",
       ACT: "Outside the ACT's modelled flood catchments.",
     },
+    masked: ["NSW", "SA", "TAS", "ACT"],
     caveat: "A statutory planning-control boundary, not a flood extent, and it can lag the latest flood study.",
   },
   {
@@ -95,9 +102,10 @@ export const OVERLAYS: readonly OverlayDef[] = [
       TAS: "Kingborough is still on an interim planning scheme and is shown as no statutory layer.",
     },
     uncovered: {
-      SA: "Not yet assessed: the Code applies its precautionary Regional or Outback bushfire overlay here.",
+      SA: "Not yet assessed: the Code applies its precautionary Regional or Outback bushfire overlay to most of this suburb.",
       TAS: "Kingborough is still on an interim planning scheme, which this layer does not include.",
     },
+    masked: ["SA", "TAS"],
     caveat: "Designated for development control; a designation, not a prediction of fire behaviour.",
   },
 ];

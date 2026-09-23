@@ -36,7 +36,9 @@ import (
 // a state the share builder applies the same rule per suburb: NSW flood is
 // null outside the twelve instruments that lodged a flood map, TAS outside the
 // councils whose Local Provisions Schedule maps the overlay, SA wherever the
-// Code itself says the hazard is unassessed.
+// Code itself says the hazard is unassessed — each wherever less than half the
+// suburb is covered. A partly covered suburb's share is its mapped land over
+// the whole suburb, a floor.
 const (
 	hazardsWaterSource     = "dea_wo_fq_myear_3_v2_1_0"
 	hazardsLicence         = "CC-BY-4.0"
@@ -75,8 +77,8 @@ type HazardRow struct {
 	BushfireProneSharePct  *float64 `json:"bushfireProneSharePct"`
 }
 
-// WaterSource, FloodSource and BushfireSource name the dataset each share was
-// measured from, or "" when the share is absent, so the row explains itself.
+// WaterSource names the dataset the water shares were measured from, or ""
+// when both are absent (below the cell floor).
 func (row HazardRow) WaterSource() string {
 	if row.WaterObservedSharePct == nil && row.PermanentWaterSharePct == nil {
 		return ""
@@ -84,22 +86,25 @@ func (row HazardRow) WaterSource() string {
 	return hazardsWaterSource
 }
 
+// FloodSource and BushfireSource name the statutory instrument the share was
+// read against, whenever the state has one — including when the share is
+// NULL. So the row explains itself: a source with a NULL share is "this
+// instrument does not cover the suburb" (NSW: no flood map lodged; SA: Evidence
+// Required; TAS: no LPS map), and no source is "the state has no open layer",
+// or a row loaded before that state's layer existed. The web keys its
+// "Not mapped: <reason>" copy on the pair, so a row from an older load never
+// borrows a reason that is only true of this one.
 func (row HazardRow) FloodSource() string {
-	if row.FloodPlanningSharePct == nil {
-		return ""
-	}
 	return hazardVectorSources[stateDigit(row.SALCode)].flood
 }
 
 func (row HazardRow) BushfireSource() string {
-	if row.BushfireProneSharePct == nil {
-		return ""
-	}
 	return hazardVectorSources[stateDigit(row.SALCode)].bushfire
 }
 
 // Licence is what the row's source_licence column records: CC BY 4.0, joined
-// by the statutory layer's own licence when a share from one is present.
+// by the statutory layer's own licence when the row names one — a NULL read
+// off an SA or TAS mask is still derived from that layer.
 func (row HazardRow) Licence() string {
 	source := hazardVectorSources[stateDigit(row.SALCode)]
 	if source.licence == "" || (row.FloodSource() == "" && row.BushfireSource() == "") {
