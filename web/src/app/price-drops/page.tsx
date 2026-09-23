@@ -192,7 +192,12 @@ export default async function PriceDropsPage() {
 
         {!hasData ? (
           <p className="rounded-lg border border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-            Price-drop data is loading — check back shortly.
+            {/* A dated but empty rollup is not "loading": with every listing
+                gated on a 14-day sighting, a crawl outage longer than that
+                empties the views honestly. Say so instead of promising data. */}
+            {national && freshness.dataToLabel
+              ? `No listing has been seen in the 14 days to ${freshness.dataToLabel.replace(/^Data to /, "")}, so there is nothing current to rank until the listing crawl resumes.`
+              : "Price-drop data is loading — check back shortly."}
           </p>
         ) : (
           <>

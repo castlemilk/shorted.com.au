@@ -155,3 +155,19 @@ describe("PriceDropsPage agency copy", () => {
     expect(screen.queryByText(/may appear once per portal/)).not.toBeInTheDocument();
   });
 });
+
+describe("PriceDropsPage empty but dated", () => {
+  // 000124 gates "active" on a 14-day sighting, so an outage longer than that
+  // legitimately empties the rollup. That is not "loading".
+  it("explains an empty rollup instead of promising data", async () => {
+    getPriceDropsOverview.mockResolvedValue({
+      national: { totalActiveListings: 0 },
+      states: [],
+      asOf: ts("2026-10-05T02:00:00Z"),
+      dataThrough: ts("2026-09-15T01:46:00Z"),
+    });
+    render(await PriceDropsPage());
+    expect(screen.getByText(/No listing has been seen in the 14 days to 15 Sep 2026/)).toBeInTheDocument();
+    expect(screen.queryByText(/check back shortly/)).not.toBeInTheDocument();
+  });
+});
