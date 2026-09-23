@@ -38,6 +38,16 @@ jest.mock("@connectrpc/connect", () => ({
         { slug: "take-two", publishedAt: { seconds: BigInt(1_752_000_000) } },
       ],
     }),
+    listCouncils: async ({ stateCode }: { stateCode: string }) => ({
+      councils: stateCode === "ACT"
+        ? [{ slug: "unincorporated-act", kind: "unincorporated", dataThrough: "2026-07-31" }]
+        : [
+            { slug: `${stateCode.toLowerCase()}-city`, kind: "council", dataThrough: "2026-06-30" },
+            { slug: `${stateCode.toLowerCase()}-shire`, kind: "council", dataThrough: "" },
+            // Pseudo areas have no page and must never be advertised.
+            { slug: "no-usual-address", kind: "pseudo", dataThrough: "2026-06-30" },
+          ],
+    }),
     listStateSuburbs: async ({ stateCode }: { stateCode: string }) => ({
       suburbs: Array.from({ length: 5 }, (_, i) => ({
         salCode: `${stateCode}${i}`,
@@ -331,6 +341,20 @@ describe("sitemap children", () => {
       expect(entry).toBeDefined();
       expect(entry!.lastModified).toBe(state!.lastModified);
     }
+  });
+
+  it("lists every council page and a council index per state, dated from their data", async () => {
+    const housing = await buildHousingSitemap();
+    const byUrl = new Map(housing.map((e) => [e.url, e]));
+    for (const st of ["nsw", "vic", "qld", "sa", "wa", "tas", "nt"]) {
+      expect(byUrl.get(`https://shorted.com.au/housing/${st}/council`)?.lastModified).toBe("2026-06-30T00:00:00.000Z");
+      expect(byUrl.get(`https://shorted.com.au/housing/${st}/council/${st}-city`)?.lastModified).toBe("2026-06-30T00:00:00.000Z");
+      // No data date: listed, but with no invented lastmod.
+      expect(byUrl.has(`https://shorted.com.au/housing/${st}/council/${st}-shire`)).toBe(true);
+      expect(byUrl.get(`https://shorted.com.au/housing/${st}/council/${st}-shire`)?.lastModified).toBeUndefined();
+    }
+    expect(byUrl.has("https://shorted.com.au/housing/act/council/unincorporated-act")).toBe(true);
+    expect(housing.some((e) => e.url.endsWith("/council/no-usual-address"))).toBe(false);
   });
 
   it("lists the capital-prices hub and every capital registry slug", async () => {

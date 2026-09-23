@@ -100,3 +100,17 @@ describe("capital housing pages in the ISR sweep inventory", () => {
     expect(missing).toEqual([]);
   });
 });
+
+// The council index pages build as empty shells under SKIP_STATIC_GENERATION
+// (listCouncils skips at build). The post-promote sweep revalidates the whole
+// inventory, so every state's index must be in it. They are deliberately NOT
+// in the 15-minute shell re-prime set: their data changes monthly, and the
+// runtime bailOnEmptyRender already keeps an empty render out of the cache.
+describe("council index pages in the ISR sweep inventory", () => {
+  it("covers /housing/<state>/council for all eight states", () => {
+    const all = new Set(isrPages as string[]);
+    for (const st of ["nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"]) {
+      expect(all.has(`/housing/${st}/council`)).toBe(true);
+    }
+  });
+});
