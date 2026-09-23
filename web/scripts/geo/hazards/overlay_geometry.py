@@ -115,12 +115,14 @@ def polygonise_grid(grid, transform, state):
     from rasterio.features import geometry_mask, shapes
     from shapely.geometry import shape
 
-    from vector_share import polygonal
-
     inside = ~geometry_mask([state.__geo_interface__], out_shape=grid.shape, transform=transform)
     grid &= inside.astype("uint8")
+    # shapes() yields 4-connected components, which can share a corner but
+    # never an edge, so they already form a valid MultiPolygon. A GEOS union
+    # of them is a no-op that took 10+ minutes on WA's statewide designation.
     polys = [shape(g) for g, v in shapes(grid, mask=grid.astype(bool), transform=transform) if v]
-    return polygonal(shapely.union_all(polys)) if polys else shapely.geometry.MultiPolygon()
+    parts = [q for p in polys for q in (p.geoms if p.geom_type == "MultiPolygon" else [p])]
+    return shapely.geometry.MultiPolygon(parts)
 
 
 def coarse_mask(ds, window, transform, conf_ds=None):

@@ -272,5 +272,22 @@ class RasterShareTest(unittest.TestCase):
         self.assertEqual(vector_share.raster_share(grid, transform, box(5000, 5000, 5100, 5100)), 0.0)
 
 
+
+class PolygoniseGridTest(unittest.TestCase):
+    def test_corner_touching_cells_form_a_valid_multipolygon_clipped_to_the_state(self):
+        import rasterio
+        import overlay_geometry
+
+        grid = np.zeros((6, 6), dtype="uint8")
+        grid[0:2, 0:2] = 1   # meets the next block only at a corner
+        grid[2:4, 2:4] = 1
+        grid[5, 5] = 1       # outside the state polygon below
+        transform = rasterio.Affine(10, 0, 0, 0, -10, 60)
+        result = overlay_geometry.polygonise_grid(grid, transform, box(0, 10, 60, 60))
+        self.assertTrue(result.is_valid)
+        self.assertEqual(result.geom_type, "MultiPolygon")
+        self.assertEqual(len(result.geoms), 2)
+        self.assertEqual(result.area, 800.0)
+
 if __name__ == "__main__":
     unittest.main()
