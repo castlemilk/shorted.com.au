@@ -50,7 +50,7 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "orts/v1alpha1/politicians.proto\032\035shorts/" +
       "v1alpha1/reports.proto\032\036shorts/v1alpha1/" +
       "screener.proto\032\034shorts/v1alpha1/search.p" +
-      "roto\032\033shorts/v1alpha1/stock.proto2\271\276\001\n\024S" +
+      "roto\032\033shorts/v1alpha1/stock.proto2\236\307\001\n\024S" +
       "hortedStocksService\022\206\003\n\014GetTopShorts\022$.s" +
       "horts.v1alpha1.GetTopShortsRequest\032%.sho" +
       "rts.v1alpha1.GetTopShortsResponse\"\250\002\332A\023p" +
@@ -464,214 +464,242 @@ public final class ShortsProto extends com.google.protobuf.GeneratedFile {
       "erage_ratio/is_gap so a crawl outage ren" +
       "ders as a captioned break, not a fake co" +
       "llapse in discounting.\200\265\030\001\202\323\344\223\002\033\"\026/v1/ge" +
-      "tDropIndexSeries:\001*\022\315\002\n\022ListEconomicSeri" +
-      "es\022*.shorts.v1alpha1.ListEconomicSeriesR" +
-      "equest\032+.shorts.v1alpha1.ListEconomicSer" +
-      "iesResponse\"\335\001\272G\325\001\022\024List Economic Series" +
-      "\032\274\001Catalog of Australian economic series" +
-      " (petroleum, trade by state, GDP, labour" +
-      ", CPI, policy rates) with dimensions, un" +
-      "its and source attribution. Sourced from" +
-      " ABS, RBA and DCCEEW open data.\200\265\030\001\022\260\002\n\021" +
-      "GetEconomicSeries\022).shorts.v1alpha1.GetE" +
-      "conomicSeriesRequest\032*.shorts.v1alpha1.G" +
-      "etEconomicSeriesResponse\"\303\001\272G\273\001\022\023Get Eco" +
-      "nomic Series\032\243\001Time-series observations " +
-      "for named economic series keys (e.g. pet" +
-      "roleum.refinery_output.diesel.aus, trade" +
-      ".export_value.total.wa), with unit, freq" +
-      "uency and licence.\200\265\030\001\022\250\002\n\026ListSeriesCor" +
-      "relations\022..shorts.v1alpha1.ListSeriesCo" +
-      "rrelationsRequest\032/.shorts.v1alpha1.List" +
-      "SeriesCorrelationsResponse\"\254\001\272G\244\001\022\030List " +
-      "Series Correlations\032\207\001Precomputed rollin" +
-      "g Pearson correlations between a market-" +
-      "series anchor and eligible economic over" +
-      "lays, ranked by absolute correlation.\200\265\030" +
-      "\001\022\205\003\n\022ListStateCompanies\022*.shorts.v1alph" +
-      "a1.ListStateCompaniesRequest\032+.shorts.v1" +
-      "alpha1.ListStateCompaniesResponse\"\225\002\272G\215\002" +
-      "\022\024List State Companies\032\364\001ASX-listed comp" +
-      "anies operating in a given Australian st" +
-      "ate, ranked by exposure-weighted market " +
-      "cap. Exposure is LLM-estimated from comp" +
-      "any disclosures (operations/revenue spli" +
-      "t), with a registered-office fallback fo" +
-      "r companies not yet enriched.\200\265\030\001\022\353\002\n\031Ge" +
-      "tStateCompanyAggregates\0221.shorts.v1alpha" +
-      "1.GetStateCompanyAggregatesRequest\0322.sho" +
-      "rts.v1alpha1.GetStateCompanyAggregatesRe" +
-      "sponse\"\346\001\272G\336\001\022\034Get State Company Aggrega" +
-      "tes\032\275\001Per-state aggregates over the comp" +
-      "any state-exposure layer: company count " +
-      "(weight >= 0.2), exposure-weighted marke" +
-      "t cap, and exposure-weighted short inter" +
-      "est. Excludes region=international.\200\265\030\001\022" +
-      "\262\004\n\024GetCompanyTaxProfile\022,.shorts.v1alph" +
-      "a1.GetCompanyTaxProfileRequest\032-.shorts." +
-      "v1alpha1.GetCompanyTaxProfileResponse\"\274\003" +
-      "\272G\224\003\022\027Get Company Tax Profile\032\370\002An ASX-l" +
-      "isted entity\'s annual corporate-tax prof" +
-      "ile from the ATO Corporate Tax Transpare" +
-      "ncy dataset (total income, taxable incom" +
-      "e, tax payable per income year). Entitie" +
-      "s are matched to ASX codes only on exact" +
-      " ABN or exact normalized-name mapping. N" +
-      "il/absent taxable income or tax payable " +
-      "is meaningful and often legitimate (loss" +
-      "es/offsets) \342\200\224 total income is always r" +
-      "eported.\200\265\030\001\202\323\344\223\002\032\"\025/v1/companyTaxProfil" +
-      "e:\001*\022\322\002\n\027GetIndustryIntelligence\022/.short" +
-      "s.v1alpha1.GetIndustryIntelligenceReques" +
-      "t\0320.shorts.v1alpha1.GetIndustryIntellige" +
-      "nceResponse\"\323\001\272G\250\001\022\031Get Industry Intelli" +
-      "gence\032\212\001Imported, cited industry intelli" +
-      "gence records for a Shorted industry. On" +
-      "ly public-enabled sources and exact-revi" +
-      "ewed records are returned.\200\265\030\001\202\323\344\223\002\035\"\030/v" +
-      "1/industryIntelligence:\001*\022\346\001\n\025GetParliam" +
-      "entOverview\022-.shorts.v1alpha1.GetParliam" +
-      "entOverviewRequest\032..shorts.v1alpha1.Get" +
-      "ParliamentOverviewResponse\"n\272Gg\022\027Get Par" +
-      "liament Overview\032LCounts and as-at date " +
-      "for the Registers of Members\' and Senato" +
-      "rs\' Interests.\200\265\030\001\022\322\001\n\017ListPoliticians\022\'" +
-      ".shorts.v1alpha1.ListPoliticiansRequest\032" +
-      "(.shorts.v1alpha1.ListPoliticiansRespons" +
-      "e\"l\272Ge\022\020List Politicians\032QFederal parlia" +
-      "mentarians covered by the registers, wit" +
-      "h declared-interest counts.\200\265\030\001\022\354\001\n\rGetP" +
-      "olitician\022%.shorts.v1alpha1.GetPoliticia" +
-      "nRequest\032&.shorts.v1alpha1.GetPolitician" +
-      "Response\"\213\001\272G\203\001\022\016Get Politician\032qOne par" +
-      "liamentarian\'s declared interests and hi" +
-      "story. The registers record what is held" +
-      ", never quantity or value.\200\265\030\001\022\354\001\n\024ListS" +
-      "tockPoliticians\022,.shorts.v1alpha1.ListSt" +
-      "ockPoliticiansRequest\032-.shorts.v1alpha1." +
-      "ListStockPoliticiansResponse\"w\272Gp\022\026List " +
-      "Stock Politicians\032VParliamentarians decl" +
-      "aring an interest in a company, by holde" +
-      "r and declaration period.\200\265\030\001\022\346\001\n\024ListPo" +
-      "liticianStocks\022,.shorts.v1alpha1.ListPol" +
-      "iticianStocksRequest\032-.shorts.v1alpha1.L" +
-      "istPoliticianStocksResponse\"q\272Gj\022\026List P" +
-      "olitician Stocks\032PMost-declared ASX-list" +
-      "ed companies across federal parliament, " +
-      "counted by people.\200\265\030\001\022\367\001\n\025ListSuburbPol" +
-      "iticians\022-.shorts.v1alpha1.ListSuburbPol" +
-      "iticiansRequest\032..shorts.v1alpha1.ListSu" +
-      "burbPoliticiansResponse\"\177\272Gx\022\027List Subur" +
-      "b Politicians\032]Parliamentarians declarin" +
-      "g real estate in a suburb. The registers" +
-      " record suburb or area only.\200\265\030\001\022\202\002\n\033Lis" +
-      "tStatePoliticianHoldings\0223.shorts.v1alph" +
-      "a1.ListStatePoliticianHoldingsRequest\0324." +
-      "shorts.v1alpha1.ListStatePoliticianHoldi" +
-      "ngsResponse\"x\272Gq\022\036List State Politician " +
-      "Holdings\032OCompanies declared by the parl" +
-      "iamentarians representing one state or t" +
-      "erritory.\200\265\030\001\022\336\001\n\023ListRegisterChanges\022+." +
-      "shorts.v1alpha1.ListRegisterChangesReque" +
-      "st\032,.shorts.v1alpha1.ListRegisterChanges" +
-      "Response\"l\272Ge\022\025List Register Changes\032LRo" +
-      "ws added to or removed from the register" +
-      "s. A removal is not a transaction.\200\265\030\001\022\236" +
-      "\002\n\030ListShortInterestOverlap\0220.shorts.v1a" +
-      "lpha1.ListShortInterestOverlapRequest\0321." +
-      "shorts.v1alpha1.ListShortInterestOverlap" +
-      "Response\"\234\001\272G\224\001\022\033List Short Interest Ove" +
-      "rlap\032uDeclared interests in companies ca" +
-      "rrying short interest. The short percent" +
-      "age describes the company, not any holdi" +
-      "ng.\200\265\030\001\022\320\002\n\026GetPoliticianAnalytics\022..sho" +
-      "rts.v1alpha1.GetPoliticianAnalyticsReque" +
-      "st\032/.shorts.v1alpha1.GetPoliticianAnalyt" +
-      "icsResponse\"\324\001\272G\314\001\022\030Get Politician Analy" +
-      "tics\032\257\001How many parliamentarians of each" +
-      " party declare an interest in each indus" +
-      "try, and how members are distributed by " +
-      "state. Counts only; the registers record" +
-      " no quantity or value.\200\265\030\001\022v\n\023GetRegiste" +
-      "rExplorer\022+.shorts.v1alpha1.GetRegisterE" +
-      "xplorerRequest\032,.shorts.v1alpha1.GetRegi" +
-      "sterExplorerResponse\"\004\200\265\030\001\022\202\001\n\027ListPolit" +
-      "icianSummaries\022/.shorts.v1alpha1.ListPol" +
-      "iticianSummariesRequest\0320.shorts.v1alpha" +
-      "1.ListPoliticianSummariesResponse\"\004\200\265\030\001\022" +
-      "\221\001\n\034GetPoliticianExplorerProfile\0224.short" +
-      "s.v1alpha1.GetPoliticianExplorerProfileR" +
-      "equest\0325.shorts.v1alpha1.GetPoliticianEx" +
-      "plorerProfileResponse\"\004\200\265\030\001\022s\n\022ComparePo" +
-      "liticians\022*.shorts.v1alpha1.ComparePolit" +
-      "iciansRequest\032+.shorts.v1alpha1.CompareP" +
-      "oliticiansResponse\"\004\200\265\030\001\022\311\002\n\023GetRegister" +
-      "Activity\022+.shorts.v1alpha1.GetRegisterAc" +
-      "tivityRequest\032,.shorts.v1alpha1.GetRegis" +
-      "terActivityResponse\"\326\001\272G\316\001\022\025Get Register" +
-      " Activity\032\264\001Weekly counts of dated regis" +
-      "ter events, the members with the most ev" +
-      "ents, companies first declared in the wi" +
-      "ndow, and companies whose declarer count" +
-      " changed. Counts and dates only.\200\265\030\001\022\330\002\n" +
-      "\027ListDistinctiveHoldings\022/.shorts.v1alph" +
-      "a1.ListDistinctiveHoldingsRequest\0320.shor" +
-      "ts.v1alpha1.ListDistinctiveHoldingsRespo" +
-      "nse\"\331\001\272G\321\001\022\031List Distinctive Holdings\032\263\001" +
-      "A member\'s currently-declared listed com" +
-      "panies, each with the number of members " +
-      "declaring it across the whole register. " +
-      "A count of one means no other member cur" +
-      "rently declares it.\200\265\030\001\022\200\003\n\024GetDonations" +
-      "Overview\022,.shorts.v1alpha1.GetDonationsO" +
-      "verviewRequest\032-.shorts.v1alpha1.GetDona" +
-      "tionsOverviewResponse\"\212\002\272G\202\002\022\026Get Donati" +
-      "ons Overview\032\347\001Party-group funding rollu" +
-      "ps from AEC annual returns for one finan" +
-      "cial year, with the available years, cor" +
-      "pus counts, and the right-censoring and " +
-      "2027 reform notes every surface must ren" +
-      "der. Amounts are in cents, verbatim as l" +
-      "odged.\200\265\030\001\022\332\002\n\rListTopDonors\022%.shorts.v1" +
-      "alpha1.ListTopDonorsRequest\032&.shorts.v1a" +
-      "lpha1.ListTopDonorsResponse\"\371\001\272G\361\001\022\017List" +
-      " Top Donors\032\335\001Payers named in itemised A" +
-      "EC receipts into party branches for one " +
-      "financial year, with the source\'s receip" +
-      "t-type split (a conference fee is not a " +
-      "donation) and an ASX code only where an " +
-      "exact or curated name match exists.\200\265\030\001\022" +
-      "\336\002\n\020ListPartyFunding\022(.shorts.v1alpha1.L" +
-      "istPartyFundingRequest\032).shorts.v1alpha1" +
-      ".ListPartyFundingResponse\"\364\001\272G\354\001\022\022List P" +
-      "arty Funding\032\325\001One party group\'s AEC fun" +
-      "ding series by financial year, plus that" +
-      " year\'s top payers and listed-company pa" +
-      "yers. Rows from FY2027 are the reformed " +
-      "scheme and must not be charted continuou" +
-      "sly with what precedes them.\200\265\030\001\022\214\003\n\024Get" +
-      "PoliticianFunding\022,.shorts.v1alpha1.GetP" +
-      "oliticianFundingRequest\032-.shorts.v1alpha" +
-      "1.GetPoliticianFundingResponse\"\226\002\272G\216\002\022\026G" +
-      "et Politician Funding\032\363\001AEC returns that" +
-      " NAME one member: their annual member/se" +
-      "nator returns and their election candida" +
-      "te returns including lodged nil returns," +
-      " with the corpus coverage those figures " +
-      "sit inside. Money given to a party is ne" +
-      "ver attributed to a member.\200\265\030\001\032\025\312A\022api." +
-      "shorted.com.auB\240\003\n\023com.shorts.v1alpha1B\013" +
-      "ShortsProtoP\001ZYgithub.com/castlemilk/sho" +
-      "rted.com.au/services/gen/proto/go/shorts" +
-      "/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts." +
-      "V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1al" +
-      "pha1\\GPBMetadata\352\002\020Shorts::V1alpha1\272G\302\001\022" +
-      "\177\n\013Shorted API\022\rShorted API\'s\"(\022\016shorted" +
-      ".com.au\032\026support@shorted.com.au*3\n\023Propr" +
-      "ietary license\022\034https://shorted.com.au/t" +
-      "erms2\002v1\032\034\n\032https://api.shorted.com.au*!" +
-      ":\037\n\035\n\tAuthToken\022\020\n\016\n\004http*\006bearerb\006proto" +
-      "3"
+      "tDropIndexSeries:\001*\022\250\004\n\014ListCouncils\022$.s" +
+      "horts.v1alpha1.ListCouncilsRequest\032%.sho" +
+      "rts.v1alpha1.ListCouncilsResponse\"\312\003\272G\247\003" +
+      "\022\rList Councils\032\225\003Every council (local g" +
+      "overnment area) with a page in one state" +
+      ": ABS estimated resident population and " +
+      "growth, area and density, member suburb " +
+      "count, the council-wide ABS house median" +
+      ", Financial Assistance Grant per residen" +
+      "t, dwelling approvals per 1,000 resident" +
+      "s over the last 12 months, SEIFA IRSAD d" +
+      "ecile, population-weighted flood and bus" +
+      "hfire planning shares, and a k-floored a" +
+      "sking-price drop share.\200\265\030\001\202\323\344\223\002\025\"\020/v1/l" +
+      "istCouncils:\001*\022\267\004\n\021GetCouncilProfile\022).s" +
+      "horts.v1alpha1.GetCouncilProfileRequest\032" +
+      "*.shorts.v1alpha1.GetCouncilProfileRespo" +
+      "nse\"\312\003\272G\242\003\022\023Get Council Profile\032\212\003Everyt" +
+      "hing held for one council in one respons" +
+      "e: identity (ABS LGA 2024, Wikidata webs" +
+      "ite), current facts, ABS time series (po" +
+      "pulation, population components, council" +
+      "-wide house and attached medians, dwelli" +
+      "ng approvals, Financial Assistance Grant" +
+      "s), member suburbs with overlap shares, " +
+      "hazard and price rollups, representation" +
+      ", crawl-derived price drops floored at 3" +
+      ", and neighbouring councils.\200\265\030\001\202\323\344\223\002\032\"\025" +
+      "/v1/getCouncilProfile:\001*\022\315\002\n\022ListEconomi" +
+      "cSeries\022*.shorts.v1alpha1.ListEconomicSe" +
+      "riesRequest\032+.shorts.v1alpha1.ListEconom" +
+      "icSeriesResponse\"\335\001\272G\325\001\022\024List Economic S" +
+      "eries\032\274\001Catalog of Australian economic s" +
+      "eries (petroleum, trade by state, GDP, l" +
+      "abour, CPI, policy rates) with dimension" +
+      "s, units and source attribution. Sourced" +
+      " from ABS, RBA and DCCEEW open data.\200\265\030\001" +
+      "\022\260\002\n\021GetEconomicSeries\022).shorts.v1alpha1" +
+      ".GetEconomicSeriesRequest\032*.shorts.v1alp" +
+      "ha1.GetEconomicSeriesResponse\"\303\001\272G\273\001\022\023Ge" +
+      "t Economic Series\032\243\001Time-series observat" +
+      "ions for named economic series keys (e.g" +
+      ". petroleum.refinery_output.diesel.aus, " +
+      "trade.export_value.total.wa), with unit," +
+      " frequency and licence.\200\265\030\001\022\250\002\n\026ListSeri" +
+      "esCorrelations\022..shorts.v1alpha1.ListSer" +
+      "iesCorrelationsRequest\032/.shorts.v1alpha1" +
+      ".ListSeriesCorrelationsResponse\"\254\001\272G\244\001\022\030" +
+      "List Series Correlations\032\207\001Precomputed r" +
+      "olling Pearson correlations between a ma" +
+      "rket-series anchor and eligible economic" +
+      " overlays, ranked by absolute correlatio" +
+      "n.\200\265\030\001\022\205\003\n\022ListStateCompanies\022*.shorts.v" +
+      "1alpha1.ListStateCompaniesRequest\032+.shor" +
+      "ts.v1alpha1.ListStateCompaniesResponse\"\225" +
+      "\002\272G\215\002\022\024List State Companies\032\364\001ASX-listed" +
+      " companies operating in a given Australi" +
+      "an state, ranked by exposure-weighted ma" +
+      "rket cap. Exposure is LLM-estimated from" +
+      " company disclosures (operations/revenue" +
+      " split), with a registered-office fallba" +
+      "ck for companies not yet enriched.\200\265\030\001\022\353" +
+      "\002\n\031GetStateCompanyAggregates\0221.shorts.v1" +
+      "alpha1.GetStateCompanyAggregatesRequest\032" +
+      "2.shorts.v1alpha1.GetStateCompanyAggrega" +
+      "tesResponse\"\346\001\272G\336\001\022\034Get State Company Ag" +
+      "gregates\032\275\001Per-state aggregates over the" +
+      " company state-exposure layer: company c" +
+      "ount (weight >= 0.2), exposure-weighted " +
+      "market cap, and exposure-weighted short " +
+      "interest. Excludes region=international." +
+      "\200\265\030\001\022\262\004\n\024GetCompanyTaxProfile\022,.shorts.v" +
+      "1alpha1.GetCompanyTaxProfileRequest\032-.sh" +
+      "orts.v1alpha1.GetCompanyTaxProfileRespon" +
+      "se\"\274\003\272G\224\003\022\027Get Company Tax Profile\032\370\002An " +
+      "ASX-listed entity\'s annual corporate-tax" +
+      " profile from the ATO Corporate Tax Tran" +
+      "sparency dataset (total income, taxable " +
+      "income, tax payable per income year). En" +
+      "tities are matched to ASX codes only on " +
+      "exact ABN or exact normalized-name mappi" +
+      "ng. Nil/absent taxable income or tax pay" +
+      "able is meaningful and often legitimate " +
+      "(losses/offsets) \342\200\224 total income is alw" +
+      "ays reported.\200\265\030\001\202\323\344\223\002\032\"\025/v1/companyTaxP" +
+      "rofile:\001*\022\322\002\n\027GetIndustryIntelligence\022/." +
+      "shorts.v1alpha1.GetIndustryIntelligenceR" +
+      "equest\0320.shorts.v1alpha1.GetIndustryInte" +
+      "lligenceResponse\"\323\001\272G\250\001\022\031Get Industry In" +
+      "telligence\032\212\001Imported, cited industry in" +
+      "telligence records for a Shorted industr" +
+      "y. Only public-enabled sources and exact" +
+      "-reviewed records are returned.\200\265\030\001\202\323\344\223\002" +
+      "\035\"\030/v1/industryIntelligence:\001*\022\346\001\n\025GetPa" +
+      "rliamentOverview\022-.shorts.v1alpha1.GetPa" +
+      "rliamentOverviewRequest\032..shorts.v1alpha" +
+      "1.GetParliamentOverviewResponse\"n\272Gg\022\027Ge" +
+      "t Parliament Overview\032LCounts and as-at " +
+      "date for the Registers of Members\' and S" +
+      "enators\' Interests.\200\265\030\001\022\322\001\n\017ListPolitici" +
+      "ans\022\'.shorts.v1alpha1.ListPoliticiansReq" +
+      "uest\032(.shorts.v1alpha1.ListPoliticiansRe" +
+      "sponse\"l\272Ge\022\020List Politicians\032QFederal p" +
+      "arliamentarians covered by the registers" +
+      ", with declared-interest counts.\200\265\030\001\022\354\001\n" +
+      "\rGetPolitician\022%.shorts.v1alpha1.GetPoli" +
+      "ticianRequest\032&.shorts.v1alpha1.GetPolit" +
+      "icianResponse\"\213\001\272G\203\001\022\016Get Politician\032qOn" +
+      "e parliamentarian\'s declared interests a" +
+      "nd history. The registers record what is" +
+      " held, never quantity or value.\200\265\030\001\022\354\001\n\024" +
+      "ListStockPoliticians\022,.shorts.v1alpha1.L" +
+      "istStockPoliticiansRequest\032-.shorts.v1al" +
+      "pha1.ListStockPoliticiansResponse\"w\272Gp\022\026" +
+      "List Stock Politicians\032VParliamentarians" +
+      " declaring an interest in a company, by " +
+      "holder and declaration period.\200\265\030\001\022\346\001\n\024L" +
+      "istPoliticianStocks\022,.shorts.v1alpha1.Li" +
+      "stPoliticianStocksRequest\032-.shorts.v1alp" +
+      "ha1.ListPoliticianStocksResponse\"q\272Gj\022\026L" +
+      "ist Politician Stocks\032PMost-declared ASX" +
+      "-listed companies across federal parliam" +
+      "ent, counted by people.\200\265\030\001\022\367\001\n\025ListSubu" +
+      "rbPoliticians\022-.shorts.v1alpha1.ListSubu" +
+      "rbPoliticiansRequest\032..shorts.v1alpha1.L" +
+      "istSuburbPoliticiansResponse\"\177\272Gx\022\027List " +
+      "Suburb Politicians\032]Parliamentarians dec" +
+      "laring real estate in a suburb. The regi" +
+      "sters record suburb or area only.\200\265\030\001\022\202\002" +
+      "\n\033ListStatePoliticianHoldings\0223.shorts.v" +
+      "1alpha1.ListStatePoliticianHoldingsReque" +
+      "st\0324.shorts.v1alpha1.ListStatePolitician" +
+      "HoldingsResponse\"x\272Gq\022\036List State Politi" +
+      "cian Holdings\032OCompanies declared by the" +
+      " parliamentarians representing one state" +
+      " or territory.\200\265\030\001\022\336\001\n\023ListRegisterChang" +
+      "es\022+.shorts.v1alpha1.ListRegisterChanges" +
+      "Request\032,.shorts.v1alpha1.ListRegisterCh" +
+      "angesResponse\"l\272Ge\022\025List Register Change" +
+      "s\032LRows added to or removed from the reg" +
+      "isters. A removal is not a transaction.\200" +
+      "\265\030\001\022\236\002\n\030ListShortInterestOverlap\0220.short" +
+      "s.v1alpha1.ListShortInterestOverlapReque" +
+      "st\0321.shorts.v1alpha1.ListShortInterestOv" +
+      "erlapResponse\"\234\001\272G\224\001\022\033List Short Interes" +
+      "t Overlap\032uDeclared interests in compani" +
+      "es carrying short interest. The short pe" +
+      "rcentage describes the company, not any " +
+      "holding.\200\265\030\001\022\320\002\n\026GetPoliticianAnalytics\022" +
+      "..shorts.v1alpha1.GetPoliticianAnalytics" +
+      "Request\032/.shorts.v1alpha1.GetPoliticianA" +
+      "nalyticsResponse\"\324\001\272G\314\001\022\030Get Politician " +
+      "Analytics\032\257\001How many parliamentarians of" +
+      " each party declare an interest in each " +
+      "industry, and how members are distribute" +
+      "d by state. Counts only; the registers r" +
+      "ecord no quantity or value.\200\265\030\001\022v\n\023GetRe" +
+      "gisterExplorer\022+.shorts.v1alpha1.GetRegi" +
+      "sterExplorerRequest\032,.shorts.v1alpha1.Ge" +
+      "tRegisterExplorerResponse\"\004\200\265\030\001\022\202\001\n\027List" +
+      "PoliticianSummaries\022/.shorts.v1alpha1.Li" +
+      "stPoliticianSummariesRequest\0320.shorts.v1" +
+      "alpha1.ListPoliticianSummariesResponse\"\004" +
+      "\200\265\030\001\022\221\001\n\034GetPoliticianExplorerProfile\0224." +
+      "shorts.v1alpha1.GetPoliticianExplorerPro" +
+      "fileRequest\0325.shorts.v1alpha1.GetPolitic" +
+      "ianExplorerProfileResponse\"\004\200\265\030\001\022s\n\022Comp" +
+      "arePoliticians\022*.shorts.v1alpha1.Compare" +
+      "PoliticiansRequest\032+.shorts.v1alpha1.Com" +
+      "parePoliticiansResponse\"\004\200\265\030\001\022\311\002\n\023GetReg" +
+      "isterActivity\022+.shorts.v1alpha1.GetRegis" +
+      "terActivityRequest\032,.shorts.v1alpha1.Get" +
+      "RegisterActivityResponse\"\326\001\272G\316\001\022\025Get Reg" +
+      "ister Activity\032\264\001Weekly counts of dated " +
+      "register events, the members with the mo" +
+      "st events, companies first declared in t" +
+      "he window, and companies whose declarer " +
+      "count changed. Counts and dates only.\200\265\030" +
+      "\001\022\330\002\n\027ListDistinctiveHoldings\022/.shorts.v" +
+      "1alpha1.ListDistinctiveHoldingsRequest\0320" +
+      ".shorts.v1alpha1.ListDistinctiveHoldings" +
+      "Response\"\331\001\272G\321\001\022\031List Distinctive Holdin" +
+      "gs\032\263\001A member\'s currently-declared liste" +
+      "d companies, each with the number of mem" +
+      "bers declaring it across the whole regis" +
+      "ter. A count of one means no other membe" +
+      "r currently declares it.\200\265\030\001\022\200\003\n\024GetDona" +
+      "tionsOverview\022,.shorts.v1alpha1.GetDonat" +
+      "ionsOverviewRequest\032-.shorts.v1alpha1.Ge" +
+      "tDonationsOverviewResponse\"\212\002\272G\202\002\022\026Get D" +
+      "onations Overview\032\347\001Party-group funding " +
+      "rollups from AEC annual returns for one " +
+      "financial year, with the available years" +
+      ", corpus counts, and the right-censoring" +
+      " and 2027 reform notes every surface mus" +
+      "t render. Amounts are in cents, verbatim" +
+      " as lodged.\200\265\030\001\022\332\002\n\rListTopDonors\022%.shor" +
+      "ts.v1alpha1.ListTopDonorsRequest\032&.short" +
+      "s.v1alpha1.ListTopDonorsResponse\"\371\001\272G\361\001\022" +
+      "\017List Top Donors\032\335\001Payers named in itemi" +
+      "sed AEC receipts into party branches for" +
+      " one financial year, with the source\'s r" +
+      "eceipt-type split (a conference fee is n" +
+      "ot a donation) and an ASX code only wher" +
+      "e an exact or curated name match exists." +
+      "\200\265\030\001\022\336\002\n\020ListPartyFunding\022(.shorts.v1alp" +
+      "ha1.ListPartyFundingRequest\032).shorts.v1a" +
+      "lpha1.ListPartyFundingResponse\"\364\001\272G\354\001\022\022L" +
+      "ist Party Funding\032\325\001One party group\'s AE" +
+      "C funding series by financial year, plus" +
+      " that year\'s top payers and listed-compa" +
+      "ny payers. Rows from FY2027 are the refo" +
+      "rmed scheme and must not be charted cont" +
+      "inuously with what precedes them.\200\265\030\001\022\214\003" +
+      "\n\024GetPoliticianFunding\022,.shorts.v1alpha1" +
+      ".GetPoliticianFundingRequest\032-.shorts.v1" +
+      "alpha1.GetPoliticianFundingResponse\"\226\002\272G" +
+      "\216\002\022\026Get Politician Funding\032\363\001AEC returns" +
+      " that NAME one member: their annual memb" +
+      "er/senator returns and their election ca" +
+      "ndidate returns including lodged nil ret" +
+      "urns, with the corpus coverage those fig" +
+      "ures sit inside. Money given to a party " +
+      "is never attributed to a member.\200\265\030\001\032\025\312A" +
+      "\022api.shorted.com.auB\240\003\n\023com.shorts.v1alp" +
+      "ha1B\013ShortsProtoP\001ZYgithub.com/castlemil" +
+      "k/shorted.com.au/services/gen/proto/go/s" +
+      "horts/v1alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Sh" +
+      "orts.V1alpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts" +
+      "\\V1alpha1\\GPBMetadata\352\002\020Shorts::V1alpha1" +
+      "\272G\302\001\022\177\n\013Shorted API\022\rShorted API\'s\"(\022\016sh" +
+      "orted.com.au\032\026support@shorted.com.au*3\n\023" +
+      "Proprietary license\022\034https://shorted.com" +
+      ".au/terms2\002v1\032\034\n\032https://api.shorted.com" +
+      ".au*!:\037\n\035\n\tAuthToken\022\020\n\016\n\004http*\006bearerb\006" +
+      "proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
