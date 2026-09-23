@@ -291,8 +291,10 @@ Three actions, **all required** — miss one and the content the kill switch
 exists to pull keeps serving for up to 24h:
 
 1. **Flip the switch** on the shorts service and roll a revision:
-   `HOUSING_DROP_LISTINGS_ENABLED=false` (agency/agent names, per-address and
-   per-listing drops) and/or `HOUSING_VALUATIONS_ENABLED=false` (property.com.au
+   `HOUSING_DROP_LISTINGS_ENABLED=false` (EVERYTHING derived from the REA/Domain
+   crawl: agency names, per-address and per-listing drops, AND the suburb/state
+   aggregates, the discounting index and the profile's listing estimate — one
+   policy, [architecture.md §10.2](architecture.md)) and/or `HOUSING_VALUATIONS_ENABLED=false` (property.com.au
    AVM). Both default ON; falsey values are `false|0|off|no`.
 2. **Flush KV** with `/api/revalidate?…&flush=housing`. Do **not** use
    `/api/admin/flush-cache` with `target=housing` — it clears only

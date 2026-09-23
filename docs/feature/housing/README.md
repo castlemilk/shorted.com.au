@@ -68,9 +68,19 @@ only *derived aggregates* are a publishable surface. `CRAWL_TRACE` artifacts
 **2. Crawl-derived prices ship as aggregates with anonymity floors.** The
 price-drops rollups (`000086`) cap `drop_pct` at 40% (listing typos), dedup
 addresses across portals (a dual-listed cut counts once), and suppress agency
-drop depth until an agency has ≥3 dropped addresses. The agency RPC carries a
-kill switch (`HOUSING_DROP_LISTINGS_ENABLED`, ON by default). Known-open: the
-suburb-level floor is incomplete — see below.
+drop depth until an agency has ≥3 dropped addresses; 000109 floors every
+suburb/state price and percent column at 3 too, and 000124 withholds the drop
+index's median below 3 dropped addresses. Every read derived from the crawl —
+aggregates included — sits behind ONE kill switch
+(`HOUSING_DROP_LISTINGS_ENABLED`, ON by default; [architecture.md §10.2](architecture.md)).
+
+**2a. Price-drops figures are dated and recency-gated (000124).** A listing is
+"active" only if the crawl saw it in the last 14 days; every drops read carries
+`as_of` / `data_through` from `housing_mv_refresh`, and the page prints its
+data date and warns after 72h. States below 0.6 of their catalog swept in 14
+days are annotated, not ranked. Measured read-only on prod 2026-09-23 (crawl
+down since 09-15): 18,199 of 92,535 `is_active` listings pass the 14-day gate;
+swept/catalog is VIC 100/135, NSW 80/135, QLD 4/97, SA 0/66, WA 0/67.
 
 **3. Counts-only crosses to brandbrain; listing rows never do.** The
 distributed crawl queue at `api.brandbrain.dev` sees suburb names and
@@ -160,7 +170,8 @@ landed, and this section had become more wrong than right.
   `CLAUDE.md` still calls this known-open; that note is stale.)
 - **k-anon floor gaps the suburb rollup** — `mv_suburb_price_drops` carries
   `WHERE a.dropped_listing_count >= 3` in prod, and **0** rows are published
-  below the floor.
+  below the floor; `mv_suburb_listing_stats` is floored at 3 by 000109 (prod
+  `pg_matviews`, 2026-09-23).
 - **Real portal content in committed testdata** — the four `*-pagemeta.html`
   fixtures are now 900 and 657 bytes with **zero** address keys and **zero**
   price strings.
