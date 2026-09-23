@@ -1,6 +1,11 @@
 package absdata
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -78,5 +83,36 @@ func TestParseRBADate(t *testing.T) {
 	}
 	if _, ok := ParseRBADate("Jun-2025"); !ok {
 		t.Fatalf("Mon-YYYY form failed")
+	}
+}
+
+// A missing dataflow is a 404 the caller can recognise without matching text —
+// the council collector probes for next year's flow and must tell "not
+// published yet" from a real failure — while the message keeps its wording.
+func TestFetchSDMXCSVStatusError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "MISSING") {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("Could not find Dataflow"))
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer srv.Close()
+	c := &Client{http: srv.Client(), attempts: 1, backoff: time.Millisecond, base: srv.URL}
+
+	_, err := c.FetchSDMXCSV(context.Background(), "MISSING_FLOW", "all", "2025")
+	if !IsNotFound(err) {
+		t.Fatalf("IsNotFound(%v) = false, want true", err)
+	}
+	if want := "ABS MISSING_FLOW/all: HTTP 404: Could not find Dataflow"; err.Error() != want {
+		t.Errorf("message = %q, want %q", err.Error(), want)
+	}
+	_, err = c.FetchSDMXCSV(context.Background(), "BAD_FLOW", "all", "2025")
+	if err == nil || IsNotFound(err) {
+		t.Errorf("a 400 must be an error but not a not-found: %v", err)
+	}
+	if IsNotFound(fmt.Errorf("wrapped: %w", &StatusError{Status: http.StatusNotFound})) != true {
+		t.Error("IsNotFound must see through wrapping")
 	}
 }
