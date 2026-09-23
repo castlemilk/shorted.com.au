@@ -715,7 +715,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object dataThrough_ = "";
   /**
    * <pre>
-   * newest period in any council series, 'YYYY-MM-DD'; '' if none
+   * newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none
    * </pre>
    *
    * <code>string data_through = 22 [json_name = "dataThrough"];</code>
@@ -736,7 +736,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * newest period in any council series, 'YYYY-MM-DD'; '' if none
+   * newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none
    * </pre>
    *
    * <code>string data_through = 22 [json_name = "dataThrough"];</code>
@@ -2954,7 +2954,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object dataThrough_ = "";
     /**
      * <pre>
-     * newest period in any council series, 'YYYY-MM-DD'; '' if none
+     * newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none
      * </pre>
      *
      * <code>string data_through = 22 [json_name = "dataThrough"];</code>
@@ -2974,7 +2974,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * newest period in any council series, 'YYYY-MM-DD'; '' if none
+     * newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none
      * </pre>
      *
      * <code>string data_through = 22 [json_name = "dataThrough"];</code>
@@ -2995,7 +2995,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * newest period in any council series, 'YYYY-MM-DD'; '' if none
+     * newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none
      * </pre>
      *
      * <code>string data_through = 22 [json_name = "dataThrough"];</code>
@@ -3012,7 +3012,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * newest period in any council series, 'YYYY-MM-DD'; '' if none
+     * newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none
      * </pre>
      *
      * <code>string data_through = 22 [json_name = "dataThrough"];</code>
@@ -3026,7 +3026,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * newest period in any council series, 'YYYY-MM-DD'; '' if none
+     * newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none
      * </pre>
      *
      * <code>string data_through = 22 [json_name = "dataThrough"];</code>

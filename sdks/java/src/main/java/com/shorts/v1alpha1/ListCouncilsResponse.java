@@ -50,6 +50,7 @@ private static final long serialVersionUID = 0L;
             com.shorts.v1alpha1.ListCouncilsResponse.class, com.shorts.v1alpha1.ListCouncilsResponse.Builder.class);
   }
 
+  private int bitField0_;
   public static final int COUNCILS_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private java.util.List<com.shorts.v1alpha1.CouncilSummary> councils_;
@@ -158,6 +159,76 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int PRICE_DROPS_AS_OF_FIELD_NUMBER = 3;
+  private com.google.protobuf.Timestamp priceDropsAsOf_;
+  /**
+   * <pre>
+   * Freshness of every council's price_drop_share (program decision 9): when
+   * the shares were computed, and the newest crawl observation behind any of
+   * them. Both absent when no council publishes a share.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+   * @return Whether the priceDropsAsOf field is set.
+   */
+  @java.lang.Override
+  public boolean hasPriceDropsAsOf() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * Freshness of every council's price_drop_share (program decision 9): when
+   * the shares were computed, and the newest crawl observation behind any of
+   * them. Both absent when no council publishes a share.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+   * @return The priceDropsAsOf.
+   */
+  @java.lang.Override
+  public com.google.protobuf.Timestamp getPriceDropsAsOf() {
+    return priceDropsAsOf_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : priceDropsAsOf_;
+  }
+  /**
+   * <pre>
+   * Freshness of every council's price_drop_share (program decision 9): when
+   * the shares were computed, and the newest crawl observation behind any of
+   * them. Both absent when no council publishes a share.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+   */
+  @java.lang.Override
+  public com.google.protobuf.TimestampOrBuilder getPriceDropsAsOfOrBuilder() {
+    return priceDropsAsOf_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : priceDropsAsOf_;
+  }
+
+  public static final int PRICE_DROPS_DATA_THROUGH_FIELD_NUMBER = 4;
+  private com.google.protobuf.Timestamp priceDropsDataThrough_;
+  /**
+   * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+   * @return Whether the priceDropsDataThrough field is set.
+   */
+  @java.lang.Override
+  public boolean hasPriceDropsDataThrough() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+   * @return The priceDropsDataThrough.
+   */
+  @java.lang.Override
+  public com.google.protobuf.Timestamp getPriceDropsDataThrough() {
+    return priceDropsDataThrough_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : priceDropsDataThrough_;
+  }
+  /**
+   * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+   */
+  @java.lang.Override
+  public com.google.protobuf.TimestampOrBuilder getPriceDropsDataThroughOrBuilder() {
+    return priceDropsDataThrough_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : priceDropsDataThrough_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -178,6 +249,12 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(lgaVintage_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 2, lgaVintage_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeMessage(3, getPriceDropsAsOf());
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeMessage(4, getPriceDropsDataThrough());
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -193,6 +270,14 @@ private static final long serialVersionUID = 0L;
         }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(lgaVintage_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(2, lgaVintage_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(3, getPriceDropsAsOf());
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(4, getPriceDropsDataThrough());
     }
     return size;
   }
@@ -222,6 +307,16 @@ private static final long serialVersionUID = 0L;
         .equals(other.getCouncilsList())) return false;
     if (!getLgaVintage()
         .equals(other.getLgaVintage())) return false;
+    if (hasPriceDropsAsOf() != other.hasPriceDropsAsOf()) return false;
+    if (hasPriceDropsAsOf()) {
+      if (!getPriceDropsAsOf()
+          .equals(other.getPriceDropsAsOf())) return false;
+    }
+    if (hasPriceDropsDataThrough() != other.hasPriceDropsDataThrough()) return false;
+    if (hasPriceDropsDataThrough()) {
+      if (!getPriceDropsDataThrough()
+          .equals(other.getPriceDropsDataThrough())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -239,6 +334,14 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + LGA_VINTAGE_FIELD_NUMBER;
     hash = (53 * hash) + getLgaVintage().hashCode();
+    if (hasPriceDropsAsOf()) {
+      hash = (37 * hash) + PRICE_DROPS_AS_OF_FIELD_NUMBER;
+      hash = (53 * hash) + getPriceDropsAsOf().hashCode();
+    }
+    if (hasPriceDropsDataThrough()) {
+      hash = (37 * hash) + PRICE_DROPS_DATA_THROUGH_FIELD_NUMBER;
+      hash = (53 * hash) + getPriceDropsDataThrough().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -358,13 +461,21 @@ private static final long serialVersionUID = 0L;
 
     // Construct using com.shorts.v1alpha1.ListCouncilsResponse.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessage
+              .alwaysUseFieldBuilders) {
+        internalGetCouncilsFieldBuilder();
+        internalGetPriceDropsAsOfFieldBuilder();
+        internalGetPriceDropsDataThroughFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -378,6 +489,16 @@ private static final long serialVersionUID = 0L;
       }
       bitField0_ = (bitField0_ & ~0x00000001);
       lgaVintage_ = "";
+      priceDropsAsOf_ = null;
+      if (priceDropsAsOfBuilder_ != null) {
+        priceDropsAsOfBuilder_.dispose();
+        priceDropsAsOfBuilder_ = null;
+      }
+      priceDropsDataThrough_ = null;
+      if (priceDropsDataThroughBuilder_ != null) {
+        priceDropsDataThroughBuilder_.dispose();
+        priceDropsDataThroughBuilder_ = null;
+      }
       return this;
     }
 
@@ -427,6 +548,20 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000002) != 0)) {
         result.lgaVintage_ = lgaVintage_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        result.priceDropsAsOf_ = priceDropsAsOfBuilder_ == null
+            ? priceDropsAsOf_
+            : priceDropsAsOfBuilder_.build();
+        to_bitField0_ |= 0x00000001;
+      }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.priceDropsDataThrough_ = priceDropsDataThroughBuilder_ == null
+            ? priceDropsDataThrough_
+            : priceDropsDataThroughBuilder_.build();
+        to_bitField0_ |= 0x00000002;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -472,6 +607,12 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000002;
         onChanged();
       }
+      if (other.hasPriceDropsAsOf()) {
+        mergePriceDropsAsOf(other.getPriceDropsAsOf());
+      }
+      if (other.hasPriceDropsDataThrough()) {
+        mergePriceDropsDataThrough(other.getPriceDropsDataThrough());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -516,6 +657,20 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 18
+            case 26: {
+              input.readMessage(
+                  internalGetPriceDropsAsOfFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000004;
+              break;
+            } // case 26
+            case 34: {
+              input.readMessage(
+                  internalGetPriceDropsDataThroughFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 34
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -935,6 +1090,302 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00000002;
       onChanged();
       return this;
+    }
+
+    private com.google.protobuf.Timestamp priceDropsAsOf_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> priceDropsAsOfBuilder_;
+    /**
+     * <pre>
+     * Freshness of every council's price_drop_share (program decision 9): when
+     * the shares were computed, and the newest crawl observation behind any of
+     * them. Both absent when no council publishes a share.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+     * @return Whether the priceDropsAsOf field is set.
+     */
+    public boolean hasPriceDropsAsOf() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * Freshness of every council's price_drop_share (program decision 9): when
+     * the shares were computed, and the newest crawl observation behind any of
+     * them. Both absent when no council publishes a share.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+     * @return The priceDropsAsOf.
+     */
+    public com.google.protobuf.Timestamp getPriceDropsAsOf() {
+      if (priceDropsAsOfBuilder_ == null) {
+        return priceDropsAsOf_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : priceDropsAsOf_;
+      } else {
+        return priceDropsAsOfBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Freshness of every council's price_drop_share (program decision 9): when
+     * the shares were computed, and the newest crawl observation behind any of
+     * them. Both absent when no council publishes a share.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+     */
+    public Builder setPriceDropsAsOf(com.google.protobuf.Timestamp value) {
+      if (priceDropsAsOfBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        priceDropsAsOf_ = value;
+      } else {
+        priceDropsAsOfBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Freshness of every council's price_drop_share (program decision 9): when
+     * the shares were computed, and the newest crawl observation behind any of
+     * them. Both absent when no council publishes a share.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+     */
+    public Builder setPriceDropsAsOf(
+        com.google.protobuf.Timestamp.Builder builderForValue) {
+      if (priceDropsAsOfBuilder_ == null) {
+        priceDropsAsOf_ = builderForValue.build();
+      } else {
+        priceDropsAsOfBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Freshness of every council's price_drop_share (program decision 9): when
+     * the shares were computed, and the newest crawl observation behind any of
+     * them. Both absent when no council publishes a share.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+     */
+    public Builder mergePriceDropsAsOf(com.google.protobuf.Timestamp value) {
+      if (priceDropsAsOfBuilder_ == null) {
+        if (((bitField0_ & 0x00000004) != 0) &&
+          priceDropsAsOf_ != null &&
+          priceDropsAsOf_ != com.google.protobuf.Timestamp.getDefaultInstance()) {
+          getPriceDropsAsOfBuilder().mergeFrom(value);
+        } else {
+          priceDropsAsOf_ = value;
+        }
+      } else {
+        priceDropsAsOfBuilder_.mergeFrom(value);
+      }
+      if (priceDropsAsOf_ != null) {
+        bitField0_ |= 0x00000004;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Freshness of every council's price_drop_share (program decision 9): when
+     * the shares were computed, and the newest crawl observation behind any of
+     * them. Both absent when no council publishes a share.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+     */
+    public Builder clearPriceDropsAsOf() {
+      bitField0_ = (bitField0_ & ~0x00000004);
+      priceDropsAsOf_ = null;
+      if (priceDropsAsOfBuilder_ != null) {
+        priceDropsAsOfBuilder_.dispose();
+        priceDropsAsOfBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Freshness of every council's price_drop_share (program decision 9): when
+     * the shares were computed, and the newest crawl observation behind any of
+     * them. Both absent when no council publishes a share.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+     */
+    public com.google.protobuf.Timestamp.Builder getPriceDropsAsOfBuilder() {
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return internalGetPriceDropsAsOfFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Freshness of every council's price_drop_share (program decision 9): when
+     * the shares were computed, and the newest crawl observation behind any of
+     * them. Both absent when no council publishes a share.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+     */
+    public com.google.protobuf.TimestampOrBuilder getPriceDropsAsOfOrBuilder() {
+      if (priceDropsAsOfBuilder_ != null) {
+        return priceDropsAsOfBuilder_.getMessageOrBuilder();
+      } else {
+        return priceDropsAsOf_ == null ?
+            com.google.protobuf.Timestamp.getDefaultInstance() : priceDropsAsOf_;
+      }
+    }
+    /**
+     * <pre>
+     * Freshness of every council's price_drop_share (program decision 9): when
+     * the shares were computed, and the newest crawl observation behind any of
+     * them. Both absent when no council publishes a share.
+     * </pre>
+     *
+     * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
+        internalGetPriceDropsAsOfFieldBuilder() {
+      if (priceDropsAsOfBuilder_ == null) {
+        priceDropsAsOfBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>(
+                getPriceDropsAsOf(),
+                getParentForChildren(),
+                isClean());
+        priceDropsAsOf_ = null;
+      }
+      return priceDropsAsOfBuilder_;
+    }
+
+    private com.google.protobuf.Timestamp priceDropsDataThrough_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> priceDropsDataThroughBuilder_;
+    /**
+     * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+     * @return Whether the priceDropsDataThrough field is set.
+     */
+    public boolean hasPriceDropsDataThrough() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+     * @return The priceDropsDataThrough.
+     */
+    public com.google.protobuf.Timestamp getPriceDropsDataThrough() {
+      if (priceDropsDataThroughBuilder_ == null) {
+        return priceDropsDataThrough_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : priceDropsDataThrough_;
+      } else {
+        return priceDropsDataThroughBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+     */
+    public Builder setPriceDropsDataThrough(com.google.protobuf.Timestamp value) {
+      if (priceDropsDataThroughBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        priceDropsDataThrough_ = value;
+      } else {
+        priceDropsDataThroughBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+     */
+    public Builder setPriceDropsDataThrough(
+        com.google.protobuf.Timestamp.Builder builderForValue) {
+      if (priceDropsDataThroughBuilder_ == null) {
+        priceDropsDataThrough_ = builderForValue.build();
+      } else {
+        priceDropsDataThroughBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+     */
+    public Builder mergePriceDropsDataThrough(com.google.protobuf.Timestamp value) {
+      if (priceDropsDataThroughBuilder_ == null) {
+        if (((bitField0_ & 0x00000008) != 0) &&
+          priceDropsDataThrough_ != null &&
+          priceDropsDataThrough_ != com.google.protobuf.Timestamp.getDefaultInstance()) {
+          getPriceDropsDataThroughBuilder().mergeFrom(value);
+        } else {
+          priceDropsDataThrough_ = value;
+        }
+      } else {
+        priceDropsDataThroughBuilder_.mergeFrom(value);
+      }
+      if (priceDropsDataThrough_ != null) {
+        bitField0_ |= 0x00000008;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+     */
+    public Builder clearPriceDropsDataThrough() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      priceDropsDataThrough_ = null;
+      if (priceDropsDataThroughBuilder_ != null) {
+        priceDropsDataThroughBuilder_.dispose();
+        priceDropsDataThroughBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+     */
+    public com.google.protobuf.Timestamp.Builder getPriceDropsDataThroughBuilder() {
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return internalGetPriceDropsDataThroughFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+     */
+    public com.google.protobuf.TimestampOrBuilder getPriceDropsDataThroughOrBuilder() {
+      if (priceDropsDataThroughBuilder_ != null) {
+        return priceDropsDataThroughBuilder_.getMessageOrBuilder();
+      } else {
+        return priceDropsDataThrough_ == null ?
+            com.google.protobuf.Timestamp.getDefaultInstance() : priceDropsDataThrough_;
+      }
+    }
+    /**
+     * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
+        internalGetPriceDropsDataThroughFieldBuilder() {
+      if (priceDropsDataThroughBuilder_ == null) {
+        priceDropsDataThroughBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>(
+                getPriceDropsDataThrough(),
+                getParentForChildren(),
+                isClean());
+        priceDropsDataThrough_ = null;
+      }
+      return priceDropsDataThroughBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.ListCouncilsResponse)

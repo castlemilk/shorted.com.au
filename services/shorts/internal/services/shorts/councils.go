@@ -7,8 +7,11 @@ import (
 	"math"
 	"regexp"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
@@ -24,10 +27,12 @@ const councilSlugMaxLen = 96
 // ListCouncils returns every council with a page in one state (kind council or
 // unincorporated), with the rollups the council index and choropleth colour by.
 //
-// The price-drop share is a crawl-derived AGGREGATE (floored at 3 drops per
-// council) and follows ListSuburbPriceDrops' policy: served regardless of
-// HOUSING_DROP_LISTINGS_ENABLED, which gates only surfaces carrying addresses
-// or individual listings.
+// The price-drop share is derived from the ToS-restricted crawl, so it obeys
+// the HOUSING_DROP_LISTINGS_ENABLED kill switch like every crawl-derived read
+// (GetSuburbProfile's listing_stats, and every drops read once 000124's
+// policy lands): off means it is stripped. The check runs OUTSIDE the cache so
+// a flip takes effect on the next request, on a clone so the cached object is
+// never mutated. See withoutCouncilDrops.
 func (s *ShortsServer) ListCouncils(ctx context.Context, req *connect.Request[shortsv1alpha1.ListCouncilsRequest]) (*connect.Response[shortsv1alpha1.ListCouncilsResponse], error) {
 	params, err := normalizeHousingParams(housingParams{stateCode: req.Msg.StateCode}, housingParamRules{requireState: true})
 	if err != nil {
@@ -44,13 +49,67 @@ func (s *ShortsServer) ListCouncils(ctx context.Context, req *connect.Request[sh
 				out = append(out, councilSummaryProto(r))
 			}
 		}
-		return &shortsv1alpha1.ListCouncilsResponse{Councils: out, LgaVintage: shortsstore.CouncilLgaVintage}, nil
+		resp := &shortsv1alpha1.ListCouncilsResponse{Councils: out, LgaVintage: shortsstore.CouncilLgaVintage}
+		resp.PriceDropsAsOf, resp.PriceDropsDataThrough = councilDropsFreshness(rows)
+		return resp, nil
 	})
 	if err != nil {
 		s.logger.Errorf("database error in ListCouncils: %v", err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list councils"))
 	}
-	return connect.NewResponse(cached.(*shortsv1alpha1.ListCouncilsResponse)), nil
+	resp := cached.(*shortsv1alpha1.ListCouncilsResponse)
+	if !dropListingsEnabled() {
+		resp = withoutCouncilDropShares(resp)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+// councilDropsFreshness is the response-level as_of / data_through for the
+// councils' price-drop shares: the earliest computation time and the newest
+// crawl observation behind any published share. Both nil without a share.
+func councilDropsFreshness(rows []*shortsstore.CouncilSummaryRow) (asOf, dataThrough *timestamppb.Timestamp) {
+	var earliest, newest time.Time
+	for _, r := range rows {
+		if r == nil || r.PriceDropShare == nil {
+			continue
+		}
+		if r.PriceDropsAsOf != nil && (earliest.IsZero() || r.PriceDropsAsOf.Before(earliest)) {
+			earliest = *r.PriceDropsAsOf
+		}
+		if r.PriceDropsDataThrough != nil && r.PriceDropsDataThrough.After(newest) {
+			newest = *r.PriceDropsDataThrough
+		}
+	}
+	if !earliest.IsZero() {
+		asOf = timestamppb.New(earliest)
+	}
+	if !newest.IsZero() {
+		dataThrough = timestamppb.New(newest)
+	}
+	return asOf, dataThrough
+}
+
+// withoutCouncilDropShares is the kill-switch view of a cached ListCouncils
+// response: a clone with every crawl-derived field removed.
+func withoutCouncilDropShares(resp *shortsv1alpha1.ListCouncilsResponse) *shortsv1alpha1.ListCouncilsResponse {
+	stripped, _ := proto.Clone(resp).(*shortsv1alpha1.ListCouncilsResponse)
+	stripped.PriceDropsAsOf, stripped.PriceDropsDataThrough = nil, nil
+	for _, c := range stripped.Councils {
+		c.PriceDropShare = nil
+	}
+	return stripped
+}
+
+// withoutCouncilDrops is the kill-switch view of a cached council profile.
+func withoutCouncilDrops(resp *shortsv1alpha1.GetCouncilProfileResponse) *shortsv1alpha1.GetCouncilProfileResponse {
+	stripped, _ := proto.Clone(resp).(*shortsv1alpha1.GetCouncilProfileResponse)
+	if p := stripped.GetProfile(); p != nil {
+		p.PriceDrops = nil
+		if p.Summary != nil {
+			p.Summary.PriceDropShare = nil
+		}
+	}
+	return stripped
 }
 
 // normalizeCouncilSlug trims and lower-cases a slug. ok=false means it cannot
@@ -88,7 +147,11 @@ func (s *ShortsServer) GetCouncilProfile(ctx context.Context, req *connect.Reque
 		s.logger.Errorf("database error in GetCouncilProfile: %v", err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get council profile"))
 	}
-	return connect.NewResponse(cached.(*shortsv1alpha1.GetCouncilProfileResponse)), nil
+	resp := cached.(*shortsv1alpha1.GetCouncilProfileResponse)
+	if !dropListingsEnabled() {
+		resp = withoutCouncilDrops(resp)
+	}
+	return connect.NewResponse(resp), nil
 }
 
 // roundTo keeps the precision the inputs support: shares from a Census-2021
@@ -226,6 +289,12 @@ func councilProfileProto(stateCode string, p *shortsstore.CouncilProfileRow) *sh
 			DroppedListingCount: d.Dropped, TrackedListingCount: d.Tracked,
 			DroppedShare: roundTo(d.DroppedShare, 3), MedianDropPct: roundedPtr(d.MedianDropPct, 4),
 			SuburbsTracked: d.SuburbsTracked,
+		}
+		if !d.AsOf.IsZero() {
+			drops.AsOf = timestamppb.New(d.AsOf)
+		}
+		if d.DataThrough != nil {
+			drops.DataThrough = timestamppb.New(*d.DataThrough)
 		}
 		for _, sd := range d.Suburbs {
 			share := 0.0

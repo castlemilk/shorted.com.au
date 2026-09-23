@@ -73,4 +73,52 @@ public interface ListCouncilsResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getLgaVintageBytes();
+
+  /**
+   * <pre>
+   * Freshness of every council's price_drop_share (program decision 9): when
+   * the shares were computed, and the newest crawl observation behind any of
+   * them. Both absent when no council publishes a share.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+   * @return Whether the priceDropsAsOf field is set.
+   */
+  boolean hasPriceDropsAsOf();
+  /**
+   * <pre>
+   * Freshness of every council's price_drop_share (program decision 9): when
+   * the shares were computed, and the newest crawl observation behind any of
+   * them. Both absent when no council publishes a share.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+   * @return The priceDropsAsOf.
+   */
+  com.google.protobuf.Timestamp getPriceDropsAsOf();
+  /**
+   * <pre>
+   * Freshness of every council's price_drop_share (program decision 9): when
+   * the shares were computed, and the newest crawl observation behind any of
+   * them. Both absent when no council publishes a share.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp price_drops_as_of = 3 [json_name = "priceDropsAsOf"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getPriceDropsAsOfOrBuilder();
+
+  /**
+   * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+   * @return Whether the priceDropsDataThrough field is set.
+   */
+  boolean hasPriceDropsDataThrough();
+  /**
+   * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+   * @return The priceDropsDataThrough.
+   */
+  com.google.protobuf.Timestamp getPriceDropsDataThrough();
+  /**
+   * <code>.google.protobuf.Timestamp price_drops_data_through = 4 [json_name = "priceDropsDataThrough"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getPriceDropsDataThroughOrBuilder();
 }

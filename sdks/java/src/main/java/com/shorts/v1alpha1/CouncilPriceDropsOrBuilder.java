@@ -34,7 +34,7 @@ public interface CouncilPriceDropsOrBuilder extends
 
   /**
    * <pre>
-   * median of the member suburbs' own medians
+   * median cut over every cut listing in the council
    * </pre>
    *
    * <code>optional double median_drop_pct = 4 [json_name = "medianDropPct"];</code>
@@ -43,7 +43,7 @@ public interface CouncilPriceDropsOrBuilder extends
   boolean hasMedianDropPct();
   /**
    * <pre>
-   * median of the member suburbs' own medians
+   * median cut over every cut listing in the council
    * </pre>
    *
    * <code>optional double median_drop_pct = 4 [json_name = "medianDropPct"];</code>
@@ -100,4 +100,58 @@ public interface CouncilPriceDropsOrBuilder extends
    */
   com.shorts.v1alpha1.CouncilDropSuburbOrBuilder getSuburbsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * when these figures were computed
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+   * @return Whether the asOf field is set.
+   */
+  boolean hasAsOf();
+  /**
+   * <pre>
+   * when these figures were computed
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  com.google.protobuf.Timestamp getAsOf();
+  /**
+   * <pre>
+   * when these figures were computed
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getAsOfOrBuilder();
+
+  /**
+   * <pre>
+   * newest crawl observation behind them
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+   * @return Whether the dataThrough field is set.
+   */
+  boolean hasDataThrough();
+  /**
+   * <pre>
+   * newest crawl observation behind them
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+   * @return The dataThrough.
+   */
+  com.google.protobuf.Timestamp getDataThrough();
+  /**
+   * <pre>
+   * newest crawl observation behind them
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getDataThroughOrBuilder();
 }

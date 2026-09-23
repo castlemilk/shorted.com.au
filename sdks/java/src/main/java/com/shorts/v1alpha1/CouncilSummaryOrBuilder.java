@@ -348,7 +348,7 @@ public interface CouncilSummaryOrBuilder extends
 
   /**
    * <pre>
-   * newest period in any council series, 'YYYY-MM-DD'; '' if none
+   * newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none
    * </pre>
    *
    * <code>string data_through = 22 [json_name = "dataThrough"];</code>
@@ -357,7 +357,7 @@ public interface CouncilSummaryOrBuilder extends
   java.lang.String getDataThrough();
   /**
    * <pre>
-   * newest period in any council series, 'YYYY-MM-DD'; '' if none
+   * newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none
    * </pre>
    *
    * <code>string data_through = 22 [json_name = "dataThrough"];</code>

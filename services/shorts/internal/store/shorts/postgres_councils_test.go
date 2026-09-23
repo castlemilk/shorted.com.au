@@ -34,6 +34,10 @@ func TestCouncilQueryShapes(t *testing.T) {
 			"NULLIF(sl.overlap_lgas, '[]'::jsonb)",          // pre-overlap bridge rows still count
 		}, nil},
 		{"hazards", councilHazardRollupQuery, []string{
+			// Covered suburbs must hold half the member residents before the
+			// index prints one council-wide share with no coverage beside it.
+			"FILTER (WHERE h.flood_planning_share_pct IS NOT NULL) >= $4 * sum(m.w)",
+			"FILTER (WHERE h.bushfire_prone_share_pct IS NOT NULL) >= $4 * sum(m.w)",
 			// Both numerator and denominator count only covered suburbs, so a
 			// council with none divides by NULL and stays absent.
 			"sum(m.w * h.flood_planning_share_pct) FILTER (WHERE h.flood_planning_share_pct IS NOT NULL)",
@@ -42,12 +46,24 @@ func TestCouncilQueryShapes(t *testing.T) {
 			"/ NULLIF(sum(m.w) FILTER (WHERE h.bushfire_prone_share_pct IS NOT NULL), 0)",
 			"h.source_licence <> 'proprietary-tos-restricted'",
 		}, []string{"COALESCE(h.flood", "COALESCE(h.bushfire"}},
-		{"drops", councilSuburbDropsQuery, []string{
-			"mv_suburb_price_drops", "mv_suburb_listing_stats",
-			"COALESCE(pd.total_active_listings, st.for_sale_count)",
+		{"drops", councilDropsQuery, []string{
+			// Counted from the crawl tables so sub-floor suburbs' cuts reach
+			// the council total (the drops MV has already dropped them).
+			"JOIN property_price_events e ON e.listing_pk = lv.id",
+			// The drops views' own filters, and decision 9's "active".
+			"pl.is_active", "pl.last_seen_at >= now() - interval '14 days'",
+			"NULLIF(pl.address_key, '') IS NOT NULL",
+			"e.observed_at >= now() - interval '30 days'", "e.drop_pct <= 0.40",
+			"ORDER BY sal_code, address_key, total_abs DESC, source", // the view's address winner
+			// Numerator and denominator are the same population, at both grains.
+			"GROUP BY GROUPING SETS ((lga_code24, sal_code), (lga_code24))",
+			"count(DISTINCT address_key)",
+			"CASE WHEN x.n >= $3 THEN x.median_pct END", // no median over < 3 cuts
 			"JOIN house_price_regions r ON r.sal_code = sl.sal_code",
-			"ORDER BY sl.lga_code24, d.sal_code",
-		}, []string{"property_listings", "property_price_events", "overlap_lgas", "address"}},
+		}, []string{
+			"mv_suburb_price_drops", "mv_suburb_listing_stats", // floored / differently-scoped views
+			"overlap_lgas", "pl.price", "listing_id", "SELECT pl.address_key", "SELECT address_key",
+		}},
 		{"identity", councilIdentityQuery, []string{
 			"lg.state_code = $1 AND lg.slug = $2",
 			"lg.kind IN ('council', 'unincorporated')",
@@ -121,40 +137,61 @@ func TestDeriveCouncilRates(t *testing.T) {
 }
 
 func TestAggregateCouncilDropsFloorsAtTheCouncilAndNamesOnlyClearingSuburbs(t *testing.T) {
-	// Two suburbs with 2 drops each: neither may be named, but the council's 4
-	// clear the floor.
-	agg := aggregateCouncilDrops([]CouncilDropSuburbRow{
-		{SALCode: "1", Dropped: 2, Tracked: 40, MedianDropPct: fp(0.05)},
-		{SALCode: "2", Dropped: 2, Tracked: 60},
+	asOf := time.Date(2026, 9, 24, 0, 0, 0, 0, time.UTC)
+	through := asOf.Add(-time.Hour)
+	// The council total comes from the query's council row (every crawled
+	// member counted), not from summing the named suburbs: two suburbs with 2
+	// cuts each and one with 3 give a council of 7, of which only the 3 is named.
+	agg := aggregateCouncilDrops(&councilDrops{
+		AsOf:  asOf,
+		Total: CouncilDropSuburbRow{Dropped: 7, Tracked: 100, MedianDropPct: fp(0.04), DataThrough: &through},
+		Suburbs: []CouncilDropSuburbRow{
+			{SALCode: "1", Dropped: 2, Tracked: 40},
+			{SALCode: "2", Dropped: 2, Tracked: 50},
+			{SALCode: "3", Dropped: 3, Tracked: 10, MedianDropPct: fp(0.05)},
+		},
 	})
-	if agg == nil || agg.Dropped != 4 || agg.Tracked != 100 || agg.DroppedShare != 0.04 {
+	if agg == nil || agg.Dropped != 7 || agg.Tracked != 100 || agg.DroppedShare != 0.07 || agg.SuburbsTracked != 3 {
 		t.Fatalf("aggregate: %+v", agg)
 	}
-	if len(agg.Suburbs) != 0 || agg.MedianDropPct != nil {
-		t.Errorf("suburbs under the floor were named or their medians used: %+v", agg)
+	if agg.MedianDropPct == nil || *agg.MedianDropPct != 0.04 {
+		t.Errorf("council median is the council's own, over every cut: %v", agg.MedianDropPct)
+	}
+	if len(agg.Suburbs) != 1 || agg.Suburbs[0].SALCode != "3" {
+		t.Errorf("only suburbs clearing the floor are named: %+v", agg.Suburbs)
+	}
+	if !agg.AsOf.Equal(asOf) || agg.DataThrough == nil || !agg.DataThrough.Equal(through) {
+		t.Errorf("freshness not carried: as_of %v data_through %v", agg.AsOf, agg.DataThrough)
+	}
+
+	// Sub-floor suburbs alone clear the COUNCIL floor: 1 + 1 + 1 = 3.
+	agg = aggregateCouncilDrops(&councilDrops{
+		Total:   CouncilDropSuburbRow{Dropped: 3, Tracked: 30},
+		Suburbs: []CouncilDropSuburbRow{{SALCode: "1", Dropped: 1, Tracked: 10}, {SALCode: "2", Dropped: 1, Tracked: 10}, {SALCode: "3", Dropped: 1, Tracked: 10}},
+	})
+	if agg == nil || agg.Dropped != 3 || len(agg.Suburbs) != 0 {
+		t.Errorf("three single-cut suburbs must publish a council of 3, naming none: %+v", agg)
 	}
 
 	// Below 3 council-wide: nothing at all.
-	if got := aggregateCouncilDrops([]CouncilDropSuburbRow{{SALCode: "1", Dropped: 2, Tracked: 10}}); got != nil {
+	if got := aggregateCouncilDrops(&councilDrops{Total: CouncilDropSuburbRow{Dropped: 2, Tracked: 10}}); got != nil {
 		t.Errorf("2 drops published: %+v", got)
 	}
 	// Tracked listings with no drops: nothing (no share to publish).
-	if got := aggregateCouncilDrops([]CouncilDropSuburbRow{{SALCode: "1", Dropped: 0, Tracked: 10}}); got != nil {
+	if got := aggregateCouncilDrops(&councilDrops{Total: CouncilDropSuburbRow{Dropped: 0, Tracked: 10}}); got != nil {
 		t.Errorf("zero drops published: %+v", got)
 	}
 	if got := aggregateCouncilDrops(nil); got != nil {
 		t.Errorf("no coverage published: %+v", got)
 	}
 
-	// Median of the clearing suburbs' own medians; largest first, ties by code.
-	agg = aggregateCouncilDrops([]CouncilDropSuburbRow{
-		{SALCode: "b", Dropped: 3, Tracked: 10, MedianDropPct: fp(0.02)},
-		{SALCode: "a", Dropped: 3, Tracked: 10, MedianDropPct: fp(0.06)},
-		{SALCode: "c", Dropped: 9, Tracked: 10, MedianDropPct: fp(0.03)},
+	// Largest first, ties by code.
+	agg = aggregateCouncilDrops(&councilDrops{
+		Total: CouncilDropSuburbRow{Dropped: 15, Tracked: 30},
+		Suburbs: []CouncilDropSuburbRow{
+			{SALCode: "b", Dropped: 3, Tracked: 10}, {SALCode: "a", Dropped: 3, Tracked: 10}, {SALCode: "c", Dropped: 9, Tracked: 10},
+		},
 	})
-	if agg.MedianDropPct == nil || *agg.MedianDropPct != 0.03 {
-		t.Errorf("median of medians: %v", agg.MedianDropPct)
-	}
 	if got := []string{agg.Suburbs[0].SALCode, agg.Suburbs[1].SALCode, agg.Suburbs[2].SALCode}; strings.Join(got, "") != "cab" {
 		t.Errorf("suburb order %v", got)
 	}

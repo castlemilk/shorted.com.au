@@ -34,6 +34,11 @@ import (
 // same 5% floor the suburb profile uses to name a second council.
 const councilMemberMinShare = councilOverlapMinShare
 
+// councilHazardMinCoverage is the share of a council's member residents the
+// covered suburbs must hold before the index / choropleth print a council-wide
+// hazard share (see councilHazardRollupQuery).
+const councilHazardMinCoverage = 0.5
+
 // councilDropsMinCount is the k-anonymity floor for crawl-derived drops: a
 // council (and a named suburb) needs at least this many distinct cut listings.
 const councilDropsMinCount = 3
@@ -68,7 +73,11 @@ type CouncilSummaryRow struct {
 	FloodSharePct     *float64
 	BushfireSharePct  *float64
 	PriceDropShare    *float64
-	DataThrough       *time.Time // newest period in any of the council's series
+	DataThrough       *time.Time // newest period in any of the council's series, never in the future
+	// Freshness of PriceDropShare (program decision 9): when it was computed
+	// and the newest crawl observation behind it. Nil without a share.
+	PriceDropsAsOf        *time.Time
+	PriceDropsDataThrough *time.Time
 }
 
 // councilSummaryQuery is the base row for every council with a page in a state
@@ -94,7 +103,8 @@ const councilSummaryQuery = `
 		       hm.value, COALESCE(hm.period_label, ''),
 		       ap.total, COALESCE(ap.months, 0), COALESCE(to_char(ap.through, 'YYYY-MM'), ''),
 		       (SELECT max(x.period) FROM lga_series x
-		        WHERE x.lga_code24 = c.lga_code24 AND x.source_licence <> 'proprietary-tos-restricted')
+		        WHERE x.lga_code24 = c.lga_code24 AND x.source_licence <> 'proprietary-tos-restricted'
+		          AND x.period <= current_date)
 		FROM c
 		LEFT JOIN LATERAL (
 			SELECT s.value, s.period_label
@@ -138,37 +148,91 @@ const councilMembersCTE = `
 // councilHazardRollupQuery: population-weighted flood/bushfire planning shares
 // over member suburbs the source covers. A council none of whose suburbs is
 // covered gets NULL (the FILTERed denominator is NULL), never 0%.
+//
+// The index and the choropleth show this one number with no coverage beside
+// it, so it is also absent unless the covered suburbs hold at least $4 of the
+// council's member residents: "0%" resting on 5 mapped suburbs of 24 would read
+// as a measurement of the whole council. The hub's own rollup states its
+// covered-suburb count beside the figure and is not floored.
 const councilHazardRollupQuery = `
 		WITH` + councilMembersCTE + `
 		SELECT m.lga_code24,
-		       sum(m.w * h.flood_planning_share_pct) FILTER (WHERE h.flood_planning_share_pct IS NOT NULL)
-		         / NULLIF(sum(m.w) FILTER (WHERE h.flood_planning_share_pct IS NOT NULL), 0),
-		       sum(m.w * h.bushfire_prone_share_pct) FILTER (WHERE h.bushfire_prone_share_pct IS NOT NULL)
-		         / NULLIF(sum(m.w) FILTER (WHERE h.bushfire_prone_share_pct IS NOT NULL), 0)
+		       CASE WHEN sum(m.w) FILTER (WHERE h.flood_planning_share_pct IS NOT NULL) >= $4 * sum(m.w)
+		            THEN sum(m.w * h.flood_planning_share_pct) FILTER (WHERE h.flood_planning_share_pct IS NOT NULL)
+		                 / NULLIF(sum(m.w) FILTER (WHERE h.flood_planning_share_pct IS NOT NULL), 0) END,
+		       CASE WHEN sum(m.w) FILTER (WHERE h.bushfire_prone_share_pct IS NOT NULL) >= $4 * sum(m.w)
+		            THEN sum(m.w * h.bushfire_prone_share_pct) FILTER (WHERE h.bushfire_prone_share_pct IS NOT NULL)
+		                 / NULLIF(sum(m.w) FILTER (WHERE h.bushfire_prone_share_pct IS NOT NULL), 0) END
 		FROM m
 		LEFT JOIN suburb_hazard_exposure h ON h.sal_code = m.sal_code AND h.source_licence <> 'proprietary-tos-restricted'
 		GROUP BY m.lga_code24`
 
-// councilSuburbDropsQuery: crawl-derived aggregates for every crawled suburb
-// whose DOMINANT council this is — a listing sits at one address, so it is
-// never split by share. Aggregates only (the MVs); never listing rows.
-// tracked mirrors ListSuburbPriceDrops: the drops MV's active count, else the
-// listing-stats for-sale count.
-const councilSuburbDropsQuery = `
-		SELECT sl.lga_code24, d.sal_code, d.sal_name, COALESCE(d.postcode, ''),
-		       COALESCE(sum(pd.dropped_listing_count), 0)::bigint,
-		       COALESCE(sum(COALESCE(pd.total_active_listings, st.for_sale_count)), 0)::bigint,
-		       percentile_cont(0.5) WITHIN GROUP (ORDER BY pd.median_drop_pct)
-		         FILTER (WHERE pd.median_drop_pct IS NOT NULL)
-		FROM suburb_lga sl
-		JOIN lga l ON l.lga_code24 = sl.lga_code24
-		JOIN suburb_demographics d ON d.sal_code = sl.sal_code
-		JOIN house_price_regions r ON r.sal_code = sl.sal_code
-		JOIN mv_suburb_listing_stats st ON st.region_code = r.region_code
-		LEFT JOIN mv_suburb_price_drops pd ON pd.region_code = r.region_code
-		WHERE l.state_code = $1 AND ($2 = '' OR sl.lga_code24 = $2)
-		GROUP BY sl.lga_code24, d.sal_code, d.sal_name, d.postcode
-		ORDER BY sl.lga_code24, d.sal_code`
+// councilDropsQuery: asking-price cuts for every crawled suburb whose
+// DOMINANT council this is — a listing sits at one address, so it is never
+// split by share — plus one council-total row per council (sal_code NULL, from
+// the GROUPING SETS).
+//
+// It counts from the crawl tables, NOT from mv_suburb_price_drops: that view
+// drops every suburb with fewer than 3 cuts, so summing it loses exactly the
+// cuts a council-level floor exists to pool (measured on prod 2026-09-24: 65
+// cuts over 42 sub-floor suburbs in 24 councils) while their listings still
+// entered the denominator. Here numerator and denominator are one population
+// and the k>=3 floor applies to the council total. Only aggregates leave the
+// database; no listing row, address or price is selected.
+//
+// Every filter mirrors the drops views so the council and the suburb board
+// count the same thing: address-deduped (one winner per address, the source
+// with the largest total cut, as the view picks it), 30-day events, the 40%
+// sanity cap, and "active" = is_active AND seen in the last 14 days (program
+// decision 9 — the drill-downs and 000124's views use the same window).
+// $3 is the floor: a per-suburb median over fewer cuts is withheld.
+const councilDropsQuery = `
+		WITH sub AS (
+			SELECT sl.lga_code24, sl.sal_code, r.region_code
+			FROM suburb_lga sl
+			JOIN lga l ON l.lga_code24 = sl.lga_code24
+			JOIN house_price_regions r ON r.sal_code = sl.sal_code
+			WHERE l.state_code = $1 AND ($2 = '' OR sl.lga_code24 = $2)
+		), live AS (
+			SELECT sub.lga_code24, sub.sal_code, pl.id, pl.address_key, pl.last_seen_at
+			FROM sub
+			JOIN property_listings pl ON pl.region_code = sub.region_code
+			WHERE pl.is_active
+			  AND pl.last_seen_at >= now() - interval '14 days'
+			  AND NULLIF(pl.address_key, '') IS NOT NULL
+		), per_source AS (
+			SELECT lv.lga_code24, lv.sal_code, lv.address_key, e.source,
+			       max(e.drop_pct) AS max_pct, sum(e.drop_abs) AS total_abs, max(e.observed_at) AS cut_at
+			FROM live lv
+			JOIN property_price_events e ON e.listing_pk = lv.id
+			WHERE e.event_type = 'price_drop'
+			  AND e.observed_at >= now() - interval '30 days'
+			  AND e.drop_pct IS NOT NULL
+			  AND e.drop_pct <= 0.40
+			GROUP BY lv.lga_code24, lv.sal_code, lv.address_key, e.source
+		), cut AS (
+			SELECT DISTINCT ON (sal_code, address_key) lga_code24, sal_code, address_key, max_pct, cut_at
+			FROM per_source
+			ORDER BY sal_code, address_key, total_abs DESC, source
+		), tracked AS (
+			SELECT lga_code24, sal_code, count(DISTINCT address_key) AS n, max(last_seen_at) AS seen_at
+			FROM live
+			GROUP BY GROUPING SETS ((lga_code24, sal_code), (lga_code24))
+		), dropped AS (
+			SELECT lga_code24, sal_code, count(DISTINCT address_key) AS n,
+			       percentile_cont(0.5) WITHIN GROUP (ORDER BY max_pct) AS median_pct,
+			       max(cut_at) AS cut_at
+			FROM cut
+			GROUP BY GROUPING SETS ((lga_code24, sal_code), (lga_code24))
+		)
+		SELECT t.lga_code24, COALESCE(t.sal_code, ''), COALESCE(d.sal_name, ''), COALESCE(d.postcode, ''),
+		       COALESCE(x.n, 0)::bigint, t.n::bigint,
+		       CASE WHEN x.n >= $3 THEN x.median_pct END,
+		       GREATEST(t.seen_at, x.cut_at), now()
+		FROM tracked t
+		LEFT JOIN dropped x ON x.lga_code24 = t.lga_code24 AND x.sal_code IS NOT DISTINCT FROM t.sal_code
+		LEFT JOIN suburb_demographics d ON d.sal_code = t.sal_code
+		ORDER BY t.lga_code24, t.sal_code NULLS FIRST`
 
 // ListCouncils returns every council with a page in one state.
 func (s *postgresStore) ListCouncils(stateCode string) ([]*CouncilSummaryRow, error) {
@@ -220,12 +284,12 @@ func (s *postgresStore) councilSummaries(ctx context.Context, stateCode, lgaCode
 	if err := s.attachCouncilHazards(ctx, stateCode, lgaCode, byCode); err != nil {
 		log.Warnf("ListCouncils(%s): hazard rollup unavailable: %v", stateCode, err)
 	}
-	if drops, err := s.councilSuburbDrops(ctx, stateCode, lgaCode); err == nil {
-		for code, suburbs := range drops {
+	if drops, err := s.councilDrops(ctx, stateCode, lgaCode); err == nil {
+		for code, c := range drops {
 			if r := byCode[code]; r != nil {
-				if agg := aggregateCouncilDrops(suburbs); agg != nil {
-					share := agg.DroppedShare
-					r.PriceDropShare = &share
+				if agg := aggregateCouncilDrops(c); agg != nil {
+					share, asOf := agg.DroppedShare, agg.AsOf
+					r.PriceDropShare, r.PriceDropsAsOf, r.PriceDropsDataThrough = &share, &asOf, agg.DataThrough
 				}
 			}
 		}
@@ -265,7 +329,7 @@ func deriveCouncilRates(r *CouncilSummaryRow, area, fag, median, approvals *floa
 }
 
 func (s *postgresStore) attachCouncilHazards(ctx context.Context, stateCode, lgaCode string, byCode map[string]*CouncilSummaryRow) error {
-	rows, err := s.db.Query(ctx, councilHazardRollupQuery, stateCode, lgaCode, councilMemberMinShare)
+	rows, err := s.db.Query(ctx, councilHazardRollupQuery, stateCode, lgaCode, councilMemberMinShare, councilHazardMinCoverage)
 	if err != nil {
 		return err
 	}
@@ -283,14 +347,23 @@ func (s *postgresStore) attachCouncilHazards(ctx context.Context, stateCode, lga
 	return rows.Err()
 }
 
-// CouncilDropSuburbRow is one crawled suburb in a council.
+// CouncilDropSuburbRow is one crawled suburb in a council, or (SALCode "")
+// the council's own total.
 type CouncilDropSuburbRow struct {
 	SALCode       string
 	SALName       string
 	Postcode      string
 	Dropped       int32
 	Tracked       int32
-	MedianDropPct *float64 // 0..1 fraction; absent below the MV's own floor
+	MedianDropPct *float64   // 0..1 fraction; absent below the floor
+	DataThrough   *time.Time // newest crawl observation behind the row
+}
+
+// councilDrops is one council's scan: its total and its crawled suburbs.
+type councilDrops struct {
+	Total   CouncilDropSuburbRow
+	Suburbs []CouncilDropSuburbRow
+	AsOf    time.Time
 }
 
 // CouncilPriceDropsRow is the council-level aggregate.
@@ -298,58 +371,72 @@ type CouncilPriceDropsRow struct {
 	Dropped        int32
 	Tracked        int32
 	DroppedShare   float64
-	MedianDropPct  *float64
+	MedianDropPct  *float64 // median cut over every cut listing in the council
 	SuburbsTracked int32
 	Suburbs        []CouncilDropSuburbRow // only suburbs clearing the floor themselves
+	AsOf           time.Time              // when this was computed (decision 9 as_of)
+	DataThrough    *time.Time             // newest crawl observation behind it
 }
 
-func (s *postgresStore) councilSuburbDrops(ctx context.Context, stateCode, lgaCode string) (map[string][]CouncilDropSuburbRow, error) {
-	rows, err := s.db.Query(ctx, councilSuburbDropsQuery, stateCode, lgaCode)
+func (s *postgresStore) councilDrops(ctx context.Context, stateCode, lgaCode string) (map[string]*councilDrops, error) {
+	rows, err := s.db.Query(ctx, councilDropsQuery, stateCode, lgaCode, councilDropsMinCount)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := map[string][]CouncilDropSuburbRow{}
+	out := map[string]*councilDrops{}
 	for rows.Next() {
 		var code string
 		var r CouncilDropSuburbRow
 		var dropped, tracked int64
 		var median sql.NullFloat64
-		if err := rows.Scan(&code, &r.SALCode, &r.SALName, &r.Postcode, &dropped, &tracked, &median); err != nil {
+		var through sql.NullTime
+		var asOf time.Time
+		if err := rows.Scan(&code, &r.SALCode, &r.SALName, &r.Postcode, &dropped, &tracked, &median, &through, &asOf); err != nil {
 			return nil, err
 		}
 		r.Dropped, r.Tracked, r.MedianDropPct = int32(dropped), int32(tracked), nullableFloatPointer(median)
-		out[code] = append(out[code], r)
+		if through.Valid {
+			t := through.Time
+			r.DataThrough = &t
+		}
+		c := out[code]
+		if c == nil {
+			c = &councilDrops{AsOf: asOf}
+			out[code] = c
+		}
+		if r.SALCode == "" {
+			c.Total = r
+		} else {
+			c.Suburbs = append(c.Suburbs, r)
+		}
 	}
 	return out, rows.Err()
 }
 
-// aggregateCouncilDrops sums a council's crawled suburbs and applies the floor
-// at the COUNCIL level: fewer than councilDropsMinCount cut listings (or no
-// tracked listings) publishes nothing. The median cut is the median of the
-// member suburbs' own medians. Only suburbs that clear the floor themselves
-// are named, largest first.
-func aggregateCouncilDrops(suburbs []CouncilDropSuburbRow) *CouncilPriceDropsRow {
-	var agg CouncilPriceDropsRow
-	var medians []float64
-	for _, s := range suburbs {
-		agg.Dropped += s.Dropped
-		agg.Tracked += s.Tracked
+// aggregateCouncilDrops applies the floor to the COUNCIL total: fewer than
+// councilDropsMinCount cut listings (or no tracked listings) publishes nothing.
+// The total is counted from every crawled member suburb, so cuts in suburbs
+// under the floor still reach it. Only suburbs that clear the floor themselves
+// are named, largest first, and a median over fewer cuts is never carried.
+func aggregateCouncilDrops(c *councilDrops) *CouncilPriceDropsRow {
+	if c == nil || c.Total.Dropped < councilDropsMinCount || c.Total.Tracked <= 0 {
+		return nil
+	}
+	agg := CouncilPriceDropsRow{
+		Dropped: c.Total.Dropped, Tracked: c.Total.Tracked,
+		DroppedShare:  float64(c.Total.Dropped) / float64(c.Total.Tracked),
+		MedianDropPct: c.Total.MedianDropPct,
+		AsOf:          c.AsOf, DataThrough: c.Total.DataThrough,
+	}
+	for _, s := range c.Suburbs {
 		if s.Tracked > 0 {
 			agg.SuburbsTracked++
 		}
 		if s.Dropped >= councilDropsMinCount {
-			if s.MedianDropPct != nil {
-				medians = append(medians, *s.MedianDropPct)
-			}
 			agg.Suburbs = append(agg.Suburbs, s)
 		}
 	}
-	if agg.Dropped < councilDropsMinCount || agg.Tracked <= 0 {
-		return nil
-	}
-	agg.DroppedShare = float64(agg.Dropped) / float64(agg.Tracked)
-	agg.MedianDropPct = medianOf(medians)
 	sort.SliceStable(agg.Suburbs, func(i, j int) bool {
 		if agg.Suburbs[i].Dropped != agg.Suburbs[j].Dropped {
 			return agg.Suburbs[i].Dropped > agg.Suburbs[j].Dropped
@@ -632,7 +719,7 @@ func (s *postgresStore) GetCouncilProfile(stateCode, slug string) (*CouncilProfi
 	} else {
 		log.Warnf("GetCouncilProfile(%s): crime rollup unavailable: %v", code, err)
 	}
-	if drops, err := s.councilSuburbDrops(ctx, stateCode, code); err == nil {
+	if drops, err := s.councilDrops(ctx, stateCode, code); err == nil {
 		p.PriceDrops = aggregateCouncilDrops(drops[code])
 	} else {
 		log.Warnf("GetCouncilProfile(%s): price drops unavailable: %v", code, err)
@@ -847,8 +934,12 @@ func mustParseLgaAdjacency(raw []byte) map[string][]string {
 }
 
 // councilNeighbours merges the two neighbour signals: a shared suburb border
-// (topology, within the state) and suburbs split between the two councils
-// (the mesh-block bridge, which also reaches across state lines).
+// (topology) and suburbs split between the two councils (the mesh-block
+// bridge). BOTH are within one state: the topology is per state, and a suburb
+// and a council each nest inside a single state, so no suburb straddles a
+// state line. Cross-border pairs (Albury–Wodonga, Queanbeyan-Palerang–ACT,
+// Tweed–Gold Coast) are therefore never neighbours here, and the page says
+// "in the same state".
 func (s *postgresStore) councilNeighbours(ctx context.Context, code string) ([]CouncilNeighbourRow, error) {
 	byCode := map[string]*CouncilNeighbourRow{}
 	for _, n := range lgaAdjacency[code] {

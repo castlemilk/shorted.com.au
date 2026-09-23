@@ -684,19 +684,41 @@ council foundation: `lga` identity facts, `lga_series`, the mesh-block bridge).
   medians / max) uses dominant members only, unweighted.
 - **NULL ≠ 0 in rollups.** Hazard shares divide by the population of COVERED
   members only (both numerator and denominator `FILTER`ed); a council with no
-  covered member gets NULL and hatches on the map. Pinned by
-  `TestCouncilQueryShapes` (mutation-tested).
-- **Price drops** are summed from `mv_suburb_price_drops` over dominant members (a
-  listing sits at one address — never split by share), floored at 3 cut listings
-  COUNCIL-wide; a suburb is named only if it clears 3 itself; the median cut is
-  the median of member medians. Aggregate-only, so it follows `ListSuburbPriceDrops`
-  (not gated by `HOUSING_DROP_LISTINGS_ENABLED`). Prod had 73 of 108 crawled
-  councils clearing the floor on 2026-09-24.
+  covered member gets NULL and hatches on the map. The index / choropleth share
+  (one number, no coverage beside it) is also NULL unless covered members hold
+  ≥ 50% of the council's member residents (`councilHazardMinCoverage`); the hub
+  rollup states "over N of M member suburbs" instead. Pinned by
+  `TestCouncilQueryShapes` (mutation-tested) and the temp-table
+  `TestCouncilHazardRollupNeedsCoverage`. **Deploy prerequisite:** until stream
+  E's NSW coverage mask is loaded, prod stores 0 (not NULL) for the 3,833 NSW
+  suburbs outside the 12 flood-mapped LEPs, so every NSW council would read
+  "0%" flood — load E's hazards before this ships.
+- **Price drops** are counted from the crawl tables (`councilDropsQuery`), NOT
+  summed from `mv_suburb_price_drops`: that view omits every suburb under 3 cuts,
+  so summing it lost exactly the cuts a council floor exists to pool (prod
+  2026-09-24: 65 cuts in 42 sub-floor suburbs across 24 councils; 12850 read 8
+  of 14) while their listings stayed in the denominator. The query applies the
+  views' own filters (address-deduped winner, 30-day events, 40% cap) and
+  decision 9's "active" (`is_active AND last_seen_at >= now() - 14 days`), over
+  dominant members (a listing sits at one address — never split by share), with
+  one council-total row per council from `GROUPING SETS`. The floor is 3 cut
+  listings COUNCIL-wide; a suburb is named only if it clears 3 itself; the median
+  cut is over every cut listing in the council. 30–100 ms per state on prod
+  (read-only `EXPLAIN ANALYZE`). Every drops read carries `as_of` (computation
+  time) and `data_through` (newest crawl observation behind it). The share obeys
+  `HOUSING_DROP_LISTINGS_ENABLED` like every crawl-derived read: off strips
+  `price_drops` and every `price_drop_share` outside the cache, on a clone
+  (`TestCouncilRPCs_HonourTheDropListingsKillSwitch`). Takedown: flip the switch,
+  then `?flush=housing` (KV `cache:housing:council*`) and revalidate the council
+  pages.
 - **Neighbours** merge two signals: suburb-topology adjacency (two councils'
   dominant suburbs share an arc; `web/scripts/geo/build-lga-adjacency.mjs` →
   `services/shorts/internal/store/shorts/lga_adjacency.json`, `go:embed`, 535
-  councils, symmetric, within a state) and straddling suburbs (the bridge, which
-  also crosses state lines). Adjacency was chosen over straddle-only because the
+  councils, symmetric, within a state) and straddling suburbs (the bridge; also
+  within a state, since a suburb and a council each nest in one state). So
+  cross-border pairs (Albury–Wodonga, Queanbeyan-Palerang–ACT, Tweed–Gold Coast)
+  are never neighbours, Unincorporated ACT has none, and the page says "in the
+  same state". Adjacency was chosen over straddle-only because the
   straddle signal recovers only 39% of true borders and leaves 156 councils with
   no neighbour at all. Regenerate the JSON whenever the suburb topology or the
   bridge changes (`--check` fails on drift; `lga-adjacency.test.mjs`).

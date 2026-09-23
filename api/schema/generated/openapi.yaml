@@ -4316,7 +4316,7 @@ components:
             - "null"
           title: median_drop_pct
           format: double
-          description: median of the member suburbs' own medians (proto double)
+          description: median cut over every cut listing in the council (proto double)
         suburbsTracked:
           type: integer
           title: suburbs_tracked
@@ -4328,11 +4328,22 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.CouncilDropSuburb'
           title: suburbs
           description: Only suburbs that clear 3 drops themselves are named. (proto shorts.v1alpha1.CouncilDropSuburb)
+        asOf:
+          title: as_of
+          description: when these figures were computed (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        dataThrough:
+          title: data_through
+          description: newest crawl observation behind them (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: CouncilPriceDrops
       additionalProperties: false
       description: |-
-        Asking-price cuts summed over the suburbs whose dominant council this is
-         (each listing counted once). Floored at 3 drops council-wide.
+        Asking-price cuts in the last 30 days over the suburbs whose dominant
+         council this is, among listings active and seen by the crawl in the last 14
+         days (each address counted once). Counted from every crawled member suburb,
+         so cuts in suburbs below the floor still count; floored at 3 cuts
+         council-wide.
     shorts.v1alpha1.CouncilProfile:
       type: object
       properties:
@@ -4758,7 +4769,7 @@ components:
         dataThrough:
           type: string
           title: data_through
-          description: newest period in any council series, 'YYYY-MM-DD'; '' if none (proto string)
+          description: newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none (proto string)
       title: CouncilSummary
       additionalProperties: false
       description: |-
@@ -8816,6 +8827,17 @@ components:
           type: string
           title: lga_vintage
           description: boundary vintage, e.g. 'ABS ASGS LGA 2024' (proto string)
+        priceDropsAsOf:
+          title: price_drops_as_of
+          description: |-
+            Freshness of every council's price_drop_share (program decision 9): when
+             the shares were computed, and the newest crawl observation behind any of
+             them. Both absent when no council publishes a share. (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        priceDropsDataThrough:
+          title: price_drops_data_through
+          description: (proto google.protobuf.Timestamp)
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: ListCouncilsResponse
       additionalProperties: false
     shorts.v1alpha1.ListDistinctiveHoldingsRequest:

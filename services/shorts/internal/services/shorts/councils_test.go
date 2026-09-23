@@ -206,8 +206,7 @@ func TestGetCouncilProfile_MapsEveryBlock(t *testing.T) {
 	}
 }
 
-// The drops aggregate is crawl-derived: it follows ListSuburbPriceDrops, which
-// the kill switch does not gate. What it may never carry is a listing.
+// The drops aggregate is crawl-derived: it may never carry a listing.
 func TestGetCouncilProfile_DropsCarryNoListingFields(t *testing.T) {
 	fields := (&shortsv1alpha1.CouncilDropSuburb{}).ProtoReflect().Descriptor().Fields()
 	for i := 0; i < fields.Len(); i++ {
@@ -235,5 +234,72 @@ func TestCouncilRPCsArePublicOnDomainAndLegacyServices(t *testing.T) {
 				t.Errorf("%s.%s visibility = %v, want VISIBILITY_PUBLIC", svc, rpc, vis)
 			}
 		}
+	}
+}
+
+// HOUSING_DROP_LISTINGS_ENABLED=false must strip every crawl-derived council
+// field on the NEXT request — outside the backend cache, on a clone, so the
+// cached response (and a later flip back on) is untouched.
+func TestCouncilRPCs_HonourTheDropListingsKillSwitch(t *testing.T) {
+	asOf := time.Date(2026, 9, 24, 1, 0, 0, 0, time.UTC)
+	through := asOf.Add(-2 * time.Hour)
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	store.EXPECT().ListCouncils("NSW").Return([]*shortsstore.CouncilSummaryRow{
+		{LgaCode: "11570", Slug: "canterbury-bankstown", Kind: "council", StateCode: "NSW",
+			PriceDropShare: f64(0.07), PriceDropsAsOf: &asOf, PriceDropsDataThrough: &through},
+		{LgaCode: "12930", Slug: "georges-river", Kind: "council", StateCode: "NSW"},
+	}, nil).Times(1)
+	store.EXPECT().GetCouncilProfile("NSW", "canterbury-bankstown").Return(&shortsstore.CouncilProfileRow{
+		Summary: &shortsstore.CouncilSummaryRow{LgaCode: "11570", Slug: "canterbury-bankstown", PriceDropShare: f64(0.07)},
+		PriceDrops: &shortsstore.CouncilPriceDropsRow{Dropped: 7, Tracked: 100, DroppedShare: 0.07, AsOf: asOf, DataThrough: &through,
+			Suburbs: []shortsstore.CouncilDropSuburbRow{{SALCode: "12166", SALName: "Kingsgrove", Dropped: 4, Tracked: 30}}},
+	}, nil).Times(1)
+	srv := newTestServer(t, store)
+	list := func() *shortsv1alpha1.ListCouncilsResponse {
+		resp, err := srv.ListCouncils(context.Background(), connect.NewRequest(&shortsv1alpha1.ListCouncilsRequest{StateCode: "NSW"}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp.Msg
+	}
+	profile := func() *shortsv1alpha1.CouncilProfile {
+		resp, err := srv.GetCouncilProfile(context.Background(), connect.NewRequest(&shortsv1alpha1.GetCouncilProfileRequest{StateCode: "NSW", Slug: "canterbury-bankstown"}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp.Msg.Profile
+	}
+
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	on := list()
+	if on.Councils[0].GetPriceDropShare() != 0.07 || !on.PriceDropsAsOf.AsTime().Equal(asOf) || !on.PriceDropsDataThrough.AsTime().Equal(through) {
+		t.Fatalf("switch on: share and its dates must be served: %+v", on)
+	}
+	if p := profile(); p.PriceDrops == nil || !p.PriceDrops.AsOf.AsTime().Equal(asOf) || !p.PriceDrops.DataThrough.AsTime().Equal(through) {
+		t.Fatalf("switch on: drops and their dates must be served: %+v", p.PriceDrops)
+	}
+
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "false")
+	off := list()
+	for _, c := range off.Councils {
+		if c.PriceDropShare != nil {
+			t.Errorf("switch off: %s still carries a crawl-derived share", c.Slug)
+		}
+	}
+	if off.PriceDropsAsOf != nil || off.PriceDropsDataThrough != nil {
+		t.Error("switch off: drops freshness still served")
+	}
+	if len(off.Councils) != 2 || off.Councils[0].Slug != "canterbury-bankstown" {
+		t.Errorf("switch off must strip only the crawl fields: %+v", off.Councils)
+	}
+	if p := profile(); p.PriceDrops != nil || p.Summary.PriceDropShare != nil {
+		t.Errorf("switch off: profile still carries drops: %+v / %v", p.PriceDrops, p.Summary.PriceDropShare)
+	}
+
+	// The cached objects were cloned, not mutated: flipping back serves them again.
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+	if list().Councils[0].GetPriceDropShare() != 0.07 || profile().PriceDrops == nil {
+		t.Error("stripping mutated the cached response")
 	}
 }

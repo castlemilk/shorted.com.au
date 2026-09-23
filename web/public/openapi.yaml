@@ -861,9 +861,20 @@ components:
     shorts.v1alpha1.CouncilPriceDrops:
       additionalProperties: false
       description: |-
-        Asking-price cuts summed over the suburbs whose dominant council this is
-         (each listing counted once). Floored at 3 drops council-wide.
+        Asking-price cuts in the last 30 days over the suburbs whose dominant
+         council this is, among listings active and seen by the crawl in the last 14
+         days (each address counted once). Counted from every crawled member suburb,
+         so cuts in suburbs below the floor still count; floored at 3 cuts
+         council-wide.
       properties:
+        asOf:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: when these figures were computed (proto google.protobuf.Timestamp)
+          title: as_of
+        dataThrough:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: newest crawl observation behind them (proto google.protobuf.Timestamp)
+          title: data_through
         droppedListingCount:
           description: (proto int32)
           format: int32
@@ -875,7 +886,7 @@ components:
           title: dropped_share
           type: number
         medianDropPct:
-          description: median of the member suburbs' own medians (proto double)
+          description: median cut over every cut listing in the council (proto double)
           format: double
           title: median_drop_pct
           type:
@@ -1251,8 +1262,8 @@ components:
           title: council_house_median_period
           type: string
         dataThrough:
-          description: newest period in any council series, 'YYYY-MM-DD'; '' if none
-            (proto string)
+          description: newest period in any council series (never a future-dated allocation),
+            'YYYY-MM-DD'; '' if none (proto string)
           title: data_through
           type: string
         densityPerSqkm:
@@ -5171,6 +5182,17 @@ components:
           description: boundary vintage, e.g. 'ABS ASGS LGA 2024' (proto string)
           title: lga_vintage
           type: string
+        priceDropsAsOf:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: |-
+            Freshness of every council's price_drop_share (program decision 9): when
+             the shares were computed, and the newest crawl observation behind any of
+             them. Both absent when no council publishes a share. (proto google.protobuf.Timestamp)
+          title: price_drops_as_of
+        priceDropsDataThrough:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: (proto google.protobuf.Timestamp)
+          title: price_drops_data_through
       title: ListCouncilsResponse
       type: object
     shorts.v1alpha1.ListDistinctiveHoldingsRequest:

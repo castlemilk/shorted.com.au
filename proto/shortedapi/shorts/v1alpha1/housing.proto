@@ -898,6 +898,11 @@ message ListCouncilsRequest {
 message ListCouncilsResponse {
   repeated CouncilSummary councils = 1;  // population desc, then name
   string lga_vintage = 2;                // boundary vintage, e.g. 'ABS ASGS LGA 2024'
+  // Freshness of every council's price_drop_share (program decision 9): when
+  // the shares were computed, and the newest crawl observation behind any of
+  // them. Both absent when no council publishes a share.
+  google.protobuf.Timestamp price_drops_as_of = 3;
+  google.protobuf.Timestamp price_drops_data_through = 4;
 }
 
 // One council's headline row: the council index table and the council
@@ -924,7 +929,7 @@ message CouncilSummary {
   optional double flood_share_pct = 19;         // population-weighted over member suburbs
   optional double bushfire_share_pct = 20;      // population-weighted over member suburbs
   optional double price_drop_share = 21;        // 0..1, crawl-derived, only when >= 3 drops council-wide
-  string data_through = 22;                     // newest period in any council series, 'YYYY-MM-DD'; '' if none
+  string data_through = 22;                     // newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none
 }
 
 message GetCouncilProfileRequest {
@@ -1028,16 +1033,21 @@ message CouncilRepresentative {
   int32  suburb_count = 6;
 }
 
-// Asking-price cuts summed over the suburbs whose dominant council this is
-// (each listing counted once). Floored at 3 drops council-wide.
+// Asking-price cuts in the last 30 days over the suburbs whose dominant
+// council this is, among listings active and seen by the crawl in the last 14
+// days (each address counted once). Counted from every crawled member suburb,
+// so cuts in suburbs below the floor still count; floored at 3 cuts
+// council-wide.
 message CouncilPriceDrops {
   int32  dropped_listing_count = 1;
   int32  tracked_listing_count = 2;
   double dropped_share = 3;              // dropped / tracked
-  optional double median_drop_pct = 4;   // median of the member suburbs' own medians
+  optional double median_drop_pct = 4;   // median cut over every cut listing in the council
   int32  suburbs_tracked = 5;
   // Only suburbs that clear 3 drops themselves are named.
   repeated CouncilDropSuburb suburbs = 6;
+  google.protobuf.Timestamp as_of = 7;          // when these figures were computed
+  google.protobuf.Timestamp data_through = 8;   // newest crawl observation behind them
 }
 
 message CouncilDropSuburb {
