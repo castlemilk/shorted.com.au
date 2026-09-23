@@ -77,6 +77,21 @@ func setupSuburbExplorerSchema(t *testing.T, pool *pgxpool.Pool) {
 		seifa_ieo_score          INTEGER,
 		seifa_ieo_decile_aus     SMALLINT,
 		seifa_ieo_decile_state   SMALLINT,
+		elevation_min_m          DOUBLE PRECISION,
+		elevation_median_m       DOUBLE PRECISION,
+		elevation_max_m          DOUBLE PRECISION,
+		land_share_below_1m      DOUBLE PRECISION,
+		land_share_below_2m      DOUBLE PRECISION,
+		land_share_below_5m      DOUBLE PRECISION,
+		pct_low_personal_income         DOUBLE PRECISION,
+		pct_high_personal_income        DOUBLE PRECISION,
+		unemployment_rate               DOUBLE PRECISION,
+		labour_force_participation_rate DOUBLE PRECISION,
+		pct_bachelor_or_higher          DOUBLE PRECISION,
+		pct_separate_house              DOUBLE PRECISION,
+		pct_flat_apartment              DOUBLE PRECISION,
+		pct_couple_with_children        DOUBLE PRECISION,
+		pct_lone_person_household       DOUBLE PRECISION,
 		banner_archetype         TEXT,
 		banner_blurb             TEXT,
 		banner_landmarks         JSONB,
@@ -319,6 +334,41 @@ func TestGetSuburbProfile_DuplicateSALChoosesPublicPricedRegion(t *testing.T) {
 	require.NotNil(t, profile)
 	assert.Equal(t, "SUBURB:VIC-ASCOT VALE", profile.Summary.RegionCode)
 	assert.InDelta(t, 1300000.0, profile.Summary.LatestMedianPrice, 0.5)
+}
+
+// A SAL with both a crawl key and a Valuer-General key must be listed ONCE by
+// the similar-suburbs kNN, priced from its public region, and the kNN's LIMIT
+// must still bound the result. The bare region join this replaced returned
+// Lane Cove North and Pyrmont twice each for Bondi (8 rows for a 6-row ask).
+func TestSimilarSuburbs_DuplicateSALListedOnceWithinLimit(t *testing.T) {
+	pool, cleanup := setupHousingTestDatabase(t)
+	defer cleanup()
+	setupSuburbExplorerSchema(t, pool)
+	seedDuplicateSuburbRegion(t, pool)
+	s := &postgresStore{db: pool}
+	ctx := context.Background()
+
+	// Every other seeded suburb is a candidate: Norwood, Crownland, Ascot Vale.
+	all, err := s.similarSuburbs(ctx, salRichmond, 6)
+	require.NoError(t, err)
+	require.Len(t, all, 3, "one row per candidate suburb, however many region keys it carries")
+	seen := map[string]int{}
+	for _, r := range all {
+		seen[r.SALCode]++
+	}
+	for sal, n := range seen {
+		assert.Equal(t, 1, n, "SAL %s listed %d times", sal, n)
+	}
+
+	// Ascot Vale is Richmond's nearest neighbour (age 36 vs 35, income 2,100
+	// vs 2,200), so a LIMIT of 1 must return exactly it, priced publicly.
+	top, err := s.similarSuburbs(ctx, salRichmond, 1)
+	require.NoError(t, err)
+	require.Len(t, top, 1, "the kNN LIMIT must bound the priced result")
+	assert.Equal(t, salAscotVale, top[0].SALCode)
+	assert.Equal(t, "SUBURB:VIC-ASCOT VALE", top[0].RegionCode)
+	assert.InDelta(t, 1300000.0, top[0].LatestMedianPrice, 0.5,
+		"the public Valuer-General median wins over the proprietary crawl key")
 }
 
 func TestGetSuburbProfile_MapsNullableSEIFA(t *testing.T) {

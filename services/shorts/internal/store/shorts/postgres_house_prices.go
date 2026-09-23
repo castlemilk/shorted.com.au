@@ -826,18 +826,15 @@ func (s *postgresStore) similarSuburbs(ctx context.Context, salCode string, limi
 		)
 		-- Price is display-only (it never enters the distance), so defer the
 		-- per-candidate latest-median LATERAL probe until AFTER the top-k are
-		-- chosen: k probes instead of one per ~15k candidate suburbs.
-		SELECT ranked.sal_code, ranked.sal_name, ranked.state_code, COALESCE(h.value,0),
-		       COALESCE(r.region_code,''), ranked.dist
-		FROM ranked
-		LEFT JOIN house_price_regions r ON r.sal_code = ranked.sal_code AND r.region_type = 'suburb'
-		LEFT JOIN LATERAL (
-			SELECT hp.value FROM house_prices hp
-			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
-			  AND hp.source_licence <> 'proprietary-tos-restricted'
-			ORDER BY hp.period DESC LIMIT 1
-		) h ON true
-		ORDER BY ranked.dist ASC NULLS LAST`
+		-- chosen: k probes instead of one per ~15k candidate suburbs. It is the
+		-- SAME one-region-per-SAL preference the list and profile readers use:
+		-- a bare join on house_price_regions fanned out on every SAL carrying
+		-- both a crawl key and a Valuer-General key (329 in prod), so the list
+		-- repeated suburbs and returned more rows than its LIMIT.
+		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(r.value,0),
+		       COALESCE(r.region_code,''), d.dist
+		FROM ranked d` + preferredSuburbRegionJoin + `
+		ORDER BY d.dist ASC NULLS LAST, d.sal_code`
 	rows, err := s.db.Query(ctx, q, salCode, limit)
 	if err != nil {
 		return nil, err
