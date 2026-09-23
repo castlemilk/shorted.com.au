@@ -152,27 +152,43 @@ class CoverageMaskTest(unittest.TestCase):
         share, covered = vector_share.masked_share(self.SUBURB, [], coverage=[box(-50, -50, 150, 150)])
         self.assertEqual((share, covered), (0.0, 100.0))
 
-    def test_partly_covered_suburb_divides_by_its_covered_land(self):
-        # Half the suburb is inside the instrument, and half of THAT is mapped
-        # flood planning land: 50% of what the source speaks for, not 25%.
+    def test_partly_covered_suburb_divides_by_the_whole_suburb(self):
+        # 60% of the suburb is inside the instrument and half of that is mapped
+        # flood planning land: 30% of the suburb's land, a floor, never the 50%
+        # of the covered part extrapolated over land nobody mapped.
         share, covered = vector_share.masked_share(
-            self.SUBURB, [box(0, 0, 50, 50)], coverage=[box(0, 0, 50, 100)])
-        self.assertEqual(covered, 50.0)
-        self.assertEqual(share, 50.0)
+            self.SUBURB, [box(0, 0, 60, 50), box(80, 0, 100, 100)], coverage=[box(0, 0, 60, 100)])
+        self.assertEqual(covered, 60.0)
+        self.assertEqual(share, 30.0)
 
-    def test_a_boundary_sliver_of_coverage_does_not_speak_for_the_suburb(self):
+    def test_a_minority_of_coverage_does_not_speak_for_the_suburb(self):
+        # Kingborough's fringe: 20% inside a neighbouring LPS, 100% prone there.
         share, covered = vector_share.masked_share(
-            self.SUBURB, [box(0, 0, 5, 100)], coverage=[box(0, 0, 5, 100)])
+            self.SUBURB, [box(0, 0, 20, 100)], coverage=[box(0, 0, 20, 100)])
         self.assertIsNone(share)
-        self.assertEqual(covered, 5.0)
+        self.assertEqual(covered, 20.0)
 
     def test_unassessed_land_is_carved_out_of_coverage(self):
         # SA: "Evidence Required" land is precautionary — the Code says flood
         # risk there is unknown — so it is neither in nor out of the overlay.
         share, covered = vector_share.masked_share(
-            self.SUBURB, [box(0, 0, 10, 100)], unassessed=[box(50, 0, 100, 100)])
-        self.assertEqual(covered, 50.0)
-        self.assertEqual(share, 20.0)
+            self.SUBURB, [box(0, 0, 10, 100)], unassessed=[box(60, 0, 100, 100)])
+        self.assertEqual(covered, 60.0)
+        self.assertEqual(share, 10.0)
+
+    def test_unassessed_complement_of_the_hazard_is_not_100_percent(self):
+        # Tea Tree Gully: the Code maps the creek corridor as Hazards (Flooding)
+        # and every other parcel as Evidence Required, so the covered land is
+        # exactly the flood land. Dividing by it would publish 100% by
+        # construction; Dernancourt is 10.7% flood and 89.3% Evidence Required.
+        flood, rest = box(0, 0, 11, 100), box(11, 0, 100, 100)
+        share, covered = vector_share.masked_share(self.SUBURB, [flood], unassessed=[rest])
+        self.assertIsNone(share)
+        self.assertEqual(covered, 11.0)
+        # Past the majority bar the same shape is the floor it measures.
+        flood, rest = box(0, 0, 70, 100), box(70, 0, 100, 100)
+        share, covered = vector_share.masked_share(self.SUBURB, [flood], unassessed=[rest])
+        self.assertEqual((share, covered), (70.0, 70.0))
 
     def test_suburb_that_is_all_unassessed_is_null(self):
         share, _ = vector_share.masked_share(self.SUBURB, [], unassessed=[box(-1, -1, 101, 101)])

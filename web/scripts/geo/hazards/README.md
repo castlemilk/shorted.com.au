@@ -136,8 +136,11 @@ routinely self-touch in Albers and GEOS refuses to overlay them otherwise.
 
 **Coverage masks** (see data-sources.md for the per-state table): a suburb
 outside `--coverage-dir`, or wholly inside `--unassessed-dir`, is `null`; one
-less than 10% covered is `null`; a partly covered one is the share of its
-covered land, and `--coverage-out` records that denominator. `--coverage-hull`
+less than 50% covered is `null`; a partly covered one is the mapped hazard land
+in its covered part divided by the WHOLE suburb (a floor, never above the covered
+share), and `--coverage-out` records the covered share. Dividing by the covered
+land instead read 100% wherever SA's Evidence Required overlay tiles every parcel
+outside the mapped flood corridor (Dernancourt: 10.7% flood). `--coverage-hull`
 uses the layer's own convex hull, for a modelled extent published without its
 study area (ACT flood). Run one state at a time with `GDAL_CACHEMAX=512`: the
 SA flood share peaks at ~3.7 GB RSS (150,000 parcel polygons plus a 119,000-

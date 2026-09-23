@@ -28,12 +28,17 @@ were published as a measured 0%.
                     overlays, which exist precisely because no study was done).
 
 With a mask, a suburb whose covered part is under MIN_COVERED_PCT of its area
-is null, and every other suburb's share is the share of its COVERED land. That
-is a choice: dividing by the whole suburb would report a suburb half inside an
-unmapped council as half as exposed as it is. The covered fraction of each
-suburb is written to --coverage-out when asked, so a partial denominator is
-never invisible. Without a mask the whole suburb is covered and a suburb no
-polygon touches is a genuine 0.
+is null, and every other suburb's share is the mapped hazard land inside its
+covered part divided by the WHOLE suburb: a floor, and exactly what every
+surface says it is ("the proportion of the suburb's land area"). Dividing by
+the covered land instead extrapolates the covered part over the rest, and where
+the mask is not independent of the hazard it is wrong by construction: in SA
+councils such as Tea Tree Gully the Code maps only the creek corridor and puts
+every other parcel under Evidence Required, so the covered land IS the flood
+land and a covered-land share reads 100% (Dernancourt: 10.7% flood, 89.3%
+Evidence Required). The covered fraction of each suburb is written to
+--coverage-out when asked. Without a mask the whole suburb is covered and a
+suburb no polygon touches is a genuine 0.
 
   --coverage-hull   take coverage as the convex hull of the layer itself, for a
                     modelled extent published without its study area (ACT's
@@ -61,11 +66,13 @@ import argparse
 import json
 from pathlib import Path
 
-# Below this share of a suburb inside the coverage mask, the covered part is a
-# boundary sliver or a fringe too small to speak for the suburb: instrument
-# boundaries follow cadastre and SAL boundaries follow mesh blocks, and the two
-# disagree by metres along every council edge.
-MIN_COVERED_PCT = 10.0
+# Below this share of a suburb inside the coverage mask the suburb is null: the
+# source does not speak for most of it, and its floor would be read as a
+# measurement (a suburb 12% inside a mapping instrument and dry there is not a
+# measured 0%). A majority is the bar, not a sliver filter: at 10% the Kingborough
+# fringe suburbs Middleton (10.8% covered) and Lower Longley (20.6%) published a
+# share for a council the card says is unmapped.
+MIN_COVERED_PCT = 50.0
 
 # On the raster path a suburb must span this many cell centres before its share
 # is read from centre-sampled cells; a smaller one is read from every cell it
@@ -225,8 +232,9 @@ def masked_share(suburb_geom, candidates, coverage=None, unassessed=None,
     """(share, covered_pct) for one suburb.
 
     share is None when the masks leave less than `min_covered_pct` of the
-    suburb covered; otherwise it is the hazard's share of the covered land.
-    With neither mask this is exactly `share_for` and never None."""
+    suburb covered; otherwise it is the hazard land inside the covered part as
+    a share of the WHOLE suburb, so it never exceeds covered_pct. With neither
+    mask this is exactly `share_for` and never None."""
     if suburb_geom.is_empty or suburb_geom.area <= 0:
         return (0.0, 100.0) if coverage is None and unassessed is None else (None, 0.0)
     if coverage is None and unassessed is None:
@@ -235,7 +243,8 @@ def masked_share(suburb_geom, candidates, coverage=None, unassessed=None,
     covered_pct = round(min(100.0, covered.area / suburb_geom.area * 100.0), 4)
     if covered_pct < min_covered_pct:
         return None, covered_pct
-    return share_for(covered, candidates), covered_pct
+    hazard = clipped_union(covered, candidates).area if not covered.is_empty else 0.0
+    return round(min(covered_pct, max(0.0, hazard / suburb_geom.area * 100.0)), 4), covered_pct
 
 
 def load_suburbs(suburbs_path: Path):
