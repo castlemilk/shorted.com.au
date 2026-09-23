@@ -37,12 +37,27 @@ func runERPLGA(ctx context.Context, pool *pgxpool.Pool) error {
 	return recordLGARun(ctx, pool, erpSource, latestSeriesPeriod(series), n, err)
 }
 
+// clearNonERPPopulationSQL removes a population no ERP row vouches for: the
+// retired Census suburb-sum derivation wrote lga.population without erp_year,
+// and leaving it would show a 2021 sum beside 2025 ERP for the councils ERP
+// does not cover.
+const clearNonERPPopulationSQL = `UPDATE lga SET population = NULL, pop_growth_pct = NULL
+		WHERE erp_year IS NULL AND (population IS NOT NULL OR pop_growth_pct IS NOT NULL)`
+
 func applyERPLGA(ctx context.Context, pool *pgxpool.Pool, series []LGASeriesRow, pops []LGAPopulation) (int, int64, error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	n, cleared, err := applyERPLGATx(ctx, tx, series, pops)
+	if err != nil {
+		return n, 0, err
+	}
+	return n, cleared, tx.Commit(ctx)
+}
+
+func applyERPLGATx(ctx context.Context, tx pgx.Tx, series []LGASeriesRow, pops []LGAPopulation) (int, int64, error) {
 	n, err := upsertLGASeriesTx(ctx, tx, series)
 	if err != nil {
 		return n, 0, err
@@ -55,12 +70,11 @@ func applyERPLGA(ctx context.Context, pool *pgxpool.Pool, series []LGASeriesRow,
 	if err := execBatch(ctx, tx, batch, len(pops)); err != nil {
 		return n, 0, err
 	}
-	tag, err := tx.Exec(ctx, `UPDATE lga SET population = NULL, pop_growth_pct = NULL
-		WHERE erp_year IS NULL AND (population IS NOT NULL OR pop_growth_pct IS NOT NULL)`)
+	tag, err := tx.Exec(ctx, clearNonERPPopulationSQL)
 	if err != nil {
 		return n, 0, err
 	}
-	return n, tag.RowsAffected(), tx.Commit(ctx)
+	return n, tag.RowsAffected(), nil
 }
 
 // runCensusLGA: ABS Census 2021 council medians, tenure and SEIFA → lga.

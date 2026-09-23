@@ -262,12 +262,23 @@ func ingestLGA() ([]LGARow, []SuburbLGARow, error) {
 	if err := readJSONFile(lgaFile("suburb-lga.json"), &bridge); err != nil {
 		return nil, nil, fmt.Errorf("%w (suburb-lga.json must be the {sal: {lga, share, overlaps}} shape)", err)
 	}
-	subs, err := parseSuburbLGA(bridge, known)
+	subs, err := parseBridge(bridge, known)
 	if err != nil {
 		return nil, nil, err
 	}
-	if len(subs) < minSuburbLGABridgeRows {
-		return nil, nil, fmt.Errorf("suburb-lga.json has %d suburbs (< %d): refusing to replace the bridge with a truncated artifact", len(subs), minSuburbLGABridgeRows)
-	}
 	return lgas, subs, nil
+}
+
+// parseBridge parses the bridge artifact and refuses one too small to be
+// whole: -mode lga deletes every suburb the artifact does not list, so a
+// truncated file would silently unbridge most of the country.
+func parseBridge(bridge map[string]suburbLGAEntry, known map[string]bool) ([]SuburbLGARow, error) {
+	subs, err := parseSuburbLGA(bridge, known)
+	if err != nil {
+		return nil, err
+	}
+	if len(subs) < minSuburbLGABridgeRows {
+		return nil, fmt.Errorf("suburb-lga.json has %d suburbs (< %d): refusing to replace the bridge with a truncated artifact", len(subs), minSuburbLGABridgeRows)
+	}
+	return subs, nil
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"regexp"
 	"slices"
 	"sort"
@@ -235,6 +236,23 @@ func resolveFAGs(rows []FagRow, idx map[fagCouncilKey]string) (fagResolution, []
 	sort.Strings(res.Unmatched)
 	sort.Strings(conflicts)
 	return res, conflicts
+}
+
+// matchFAGs resolves the workbook onto the dimension, logs what did not
+// match, and refuses a resolution covering fewer than fagMinMatch councils:
+// that means the name normaliser broke, and writing it would leave most
+// councils on a stale grant beside a fresh history for a few.
+func matchFAGs(rows []FagRow, idx map[fagCouncilKey]string) (fagResolution, error) {
+	res, conflicts := resolveFAGs(rows, idx)
+	for _, c := range conflicts {
+		log.Printf("[funding] two workbook names for one council-year, kept the later name: %s", c)
+	}
+	log.Printf("[funding] %d councils matched, %d workbook entities unmatched: %s",
+		len(res.Latest), len(res.Unmatched), strings.Join(res.Unmatched, "; "))
+	if len(res.Latest) < fagMinMatch {
+		return res, fmt.Errorf("only %d councils matched the FAG workbook (< %d)", len(res.Latest), fagMinMatch)
+	}
+	return res, nil
 }
 
 // ingestFAGs fetches + parses the FAG workbook: every council-year row.

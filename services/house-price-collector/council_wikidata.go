@@ -187,25 +187,35 @@ func refreshWikidataSnapshot(ctx context.Context, path string, now time.Time) er
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("wikidata SPARQL: HTTP %d: %.200s", resp.StatusCode, raw)
 	}
-	councils, notes, err := parseWikidataLGA(raw)
+	snap, err := buildWikidataSnapshot(raw, now)
 	if err != nil {
 		return err
-	}
-	for _, n := range notes {
-		log.Printf("[wikidata-lga] %s", n)
-	}
-	if len(councils) < wikidataMinCouncils {
-		return fmt.Errorf("wikidata returned only %d councils (< %d): refusing to overwrite the snapshot", len(councils), wikidataMinCouncils)
-	}
-	snap := wikidataSnapshot{
-		Source: wikidataEndpoint, Licence: wikidataLicence,
-		FetchedAt: now.UTC().Format("2006-01-02"), Query: wikidataQuery, Councils: councils,
 	}
 	b, err := json.MarshalIndent(snap, "", " ") // map keys marshal sorted: a stable diff
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(path, append(b, '\n'), 0o644)
+}
+
+// buildWikidataSnapshot parses SPARQL results into the snapshot to commit,
+// refusing a result too small to be the whole country: a partial answer (a
+// timeout, a changed property) would otherwise overwrite a good snapshot.
+func buildWikidataSnapshot(raw []byte, now time.Time) (wikidataSnapshot, error) {
+	councils, notes, err := parseWikidataLGA(raw)
+	if err != nil {
+		return wikidataSnapshot{}, err
+	}
+	for _, n := range notes {
+		log.Printf("[wikidata-lga] %s", n)
+	}
+	if len(councils) < wikidataMinCouncils {
+		return wikidataSnapshot{}, fmt.Errorf("wikidata returned only %d councils (< %d): refusing to overwrite the snapshot", len(councils), wikidataMinCouncils)
+	}
+	return wikidataSnapshot{
+		Source: wikidataEndpoint, Licence: wikidataLicence,
+		FetchedAt: now.UTC().Format("2006-01-02"), Query: wikidataQuery, Councils: councils,
+	}, nil
 }
 
 func readWikidataSnapshot(path string) (wikidataSnapshot, error) {
@@ -236,12 +246,9 @@ func runWikidataLGA(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return recordLGARun(ctx, pool, wikidataSource, nil, 0, err)
 	}
-	codes, missing, unknown := wikidataMatch(snap.Councils, ix)
-	log.Printf("[wikidata-lga] snapshot %s: %d councils matched; no Wikidata item for %v; not in dimension %v",
-		snap.FetchedAt, len(codes), missing, unknown)
-	if len(codes) < wikidataMinCouncils {
-		return recordLGARun(ctx, pool, wikidataSource, nil, 0,
-			fmt.Errorf("only %d councils matched the Wikidata snapshot (< %d)", len(codes), wikidataMinCouncils))
+	codes, err := wikidataWrites(snap, ix)
+	if err != nil {
+		return recordLGARun(ctx, pool, wikidataSource, nil, 0, err)
 	}
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -265,6 +272,20 @@ func runWikidataLGA(ctx context.Context, pool *pgxpool.Pool) error {
 		fetched = &t
 	}
 	return recordLGARun(ctx, pool, wikidataSource, fetched, len(codes), nil)
+}
+
+// wikidataWrites is the set of councils runWikidataLGA writes, refused when
+// fewer than wikidataMinCouncils match: the snapshot and the dimension have
+// drifted apart (a recode, a regenerated dimension), and writing a few would
+// hide that.
+func wikidataWrites(snap wikidataSnapshot, ix lgaIndex) ([]string, error) {
+	codes, missing, unknown := wikidataMatch(snap.Councils, ix)
+	log.Printf("[wikidata-lga] snapshot %s: %d councils matched; no Wikidata item for %v; not in dimension %v",
+		snap.FetchedAt, len(codes), missing, unknown)
+	if len(codes) < wikidataMinCouncils {
+		return nil, fmt.Errorf("only %d councils matched the Wikidata snapshot (< %d)", len(codes), wikidataMinCouncils)
+	}
+	return codes, nil
 }
 
 // wikidataMatch returns the snapshot codes to write (real councils in the

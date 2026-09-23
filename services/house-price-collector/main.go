@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -370,14 +369,9 @@ func runFAGs(ctx context.Context, pool *pgxpool.Pool) error {
 	if err != nil {
 		return fail(0, err)
 	}
-	res, conflicts := resolveFAGs(rows, ix.byName())
-	for _, c := range conflicts {
-		log.Printf("[funding] two workbook names for one council-year, kept the later name: %s", c)
-	}
-	log.Printf("[funding] %d councils matched, %d workbook entities unmatched: %s",
-		len(res.Latest), len(res.Unmatched), strings.Join(res.Unmatched, "; "))
-	if len(res.Latest) < fagMinMatch {
-		return fail(0, fmt.Errorf("only %d councils matched the FAG workbook (< %d)", len(res.Latest), fagMinMatch))
+	res, err := matchFAGs(rows, ix.byName())
+	if err != nil {
+		return fail(0, err)
 	}
 	n, err := applyFAGs(ctx, pool, res)
 	if err != nil {

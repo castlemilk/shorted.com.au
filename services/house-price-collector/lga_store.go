@@ -116,6 +116,11 @@ func upsertLGADimension(ctx context.Context, pool *pgxpool.Pool, rows []LGARow) 
 // against the slugs already held in the database, and returns how many it
 // minted. The UPDATE is guarded by `slug IS NULL` and the partial unique index
 // idx_lga_state_slug, so a concurrent run can neither reassign nor duplicate.
+// mintSlugSQL writes a slug only where none exists — the database-side half
+// of "a council slug is never reassigned", which holds even against a
+// concurrent run that minted between this run's read and its write.
+const mintSlugSQL = `UPDATE lga SET slug = $2 WHERE lga_code24 = $1 AND slug IS NULL`
+
 func assignLGASlugs(ctx context.Context, pool *pgxpool.Pool, rows []LGARow) (int, error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -155,7 +160,7 @@ func assignLGASlugs(ctx context.Context, pool *pgxpool.Pool, rows []LGARow) (int
 	minted := mintLGASlugs(taken, pending)
 	n := 0
 	for code, slug := range minted {
-		tag, err := tx.Exec(ctx, `UPDATE lga SET slug = $2 WHERE lga_code24 = $1 AND slug IS NULL`, code, slug)
+		tag, err := tx.Exec(ctx, mintSlugSQL, code, slug)
 		if err != nil {
 			return n, fmt.Errorf("mint slug %s=%q: %w", code, slug, err)
 		}
@@ -174,6 +179,18 @@ func replaceSuburbLGA(ctx context.Context, pool *pgxpool.Pool, rows []SuburbLGAR
 		return 0, 0, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	n, removed, err := replaceSuburbLGATx(ctx, tx, rows)
+	if err != nil {
+		return n, 0, err
+	}
+	return n, removed, tx.Commit(ctx)
+}
+
+// deleteUnbridgedSQL drops every suburb the artifact no longer bridges, so
+// suburb_lga is exactly the artifact rather than the artifact plus leftovers.
+const deleteUnbridgedSQL = `DELETE FROM suburb_lga WHERE NOT (sal_code = ANY($1))`
+
+func replaceSuburbLGATx(ctx context.Context, tx pgx.Tx, rows []SuburbLGARow) (int, int64, error) {
 	const q = `
 		INSERT INTO suburb_lga (sal_code, lga_code24, dominant_share, overlap_lgas)
 		VALUES ($1, $2, $3, $4::jsonb)
@@ -205,11 +222,11 @@ func replaceSuburbLGA(ctx context.Context, pool *pgxpool.Pool, rows []SuburbLGAR
 			return n, 0, err
 		}
 	}
-	tag, err := tx.Exec(ctx, `DELETE FROM suburb_lga WHERE NOT (sal_code = ANY($1))`, sals)
+	tag, err := tx.Exec(ctx, deleteUnbridgedSQL, sals)
 	if err != nil {
 		return n, 0, err
 	}
-	return n, tag.RowsAffected(), tx.Commit(ctx)
+	return n, tag.RowsAffected(), nil
 }
 
 // upsertLGASeries idempotently writes council series rows, chunked so no one
