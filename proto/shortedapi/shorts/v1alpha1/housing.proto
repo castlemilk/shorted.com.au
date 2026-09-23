@@ -728,6 +728,9 @@ message ListAddressPriceDropsRequest {
 
 // One physical address (deduped by stable address_key) whose for-sale asking
 // price fell over the window, deep-linking to its per-address history page.
+// When the address is live on both portals (or relisted), every live advert
+// is judged on its own chain and the row carries the deepest qualifying cut;
+// the latest_* / current_* fields describe THAT advert.
 message AddressPriceDrop {
   string address_key = 1;
   string display_address = 2;
@@ -792,6 +795,11 @@ message GetPriceDropsOverviewResponse {
   // observation that refresh could see. Unset when never recorded.
   google.protobuf.Timestamp as_of = 3;
   google.protobuf.Timestamp data_through = 4;
+  // True when crawl-derived price-drop figures are switched off
+  // (HOUSING_DROP_LISTINGS_ENABLED=false, a takedown): every other field is
+  // empty ON PURPOSE and will stay so until the switch is flipped back. Lets a
+  // client tell that apart from a cold or failed fetch, which is worth retrying.
+  bool withheld = 5;
 }
 
 message ListAgencyPriceStatsRequest {
@@ -832,10 +840,8 @@ message ListAgencyPriceStatsResponse {
 message DropIndexPoint {
   string snapshot_date   = 1;  // 'YYYY-MM-DD'
   double drop_rate       = 2;  // 0..1 fraction, equal-weighted mean of per-suburb rates
-  // 0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
-  // dropped addresses stand behind this point, so a "median" would be one or
-  // two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
-  // is 0.5%).
+  // 0..1 fraction, depth of the typical cut. 0 when withheld — read
+  // median_withheld, never the 0, to tell withheld from a measurement.
   double median_drop_pct = 3;
   int32  panel_suburbs   = 4;  // suburbs contributing to this point
   double coverage_ratio  = 5;  // panel suburbs / full suburb catalog for this snapshot date
@@ -849,6 +855,12 @@ message DropIndexPoint {
   // withdrawing), while Domain shows 57 of 94 pairs genuinely >7 days apart.
   int32  withdrawn_then_relisted = 9;
   int32  delisted_count    = 10;  // withdrawn events in the trailing window (national grain only)
+  // True when median_drop_pct is withheld: fewer than 3 dropped addresses
+  // stand behind this point, so a "median" would be one or two listings'
+  // exact cuts (the stored median is NULL). median_drop_pct is then 0 and is
+  // not a measurement. A separate flag rather than `optional` presence on
+  // median_drop_pct, which would change that field's cardinality.
+  bool   median_withheld   = 11;
 }
 
 message GetDropIndexSeriesRequest {

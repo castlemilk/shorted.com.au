@@ -125,4 +125,17 @@ public interface GetPriceDropsOverviewResponseOrBuilder extends
    * <code>.google.protobuf.Timestamp data_through = 4 [json_name = "dataThrough"];</code>
    */
   com.google.protobuf.TimestampOrBuilder getDataThroughOrBuilder();
+
+  /**
+   * <pre>
+   * True when crawl-derived price-drop figures are switched off
+   * (HOUSING_DROP_LISTINGS_ENABLED=false, a takedown): every other field is
+   * empty ON PURPOSE and will stay so until the switch is flipped back. Lets a
+   * client tell that apart from a cold or failed fetch, which is worth retrying.
+   * </pre>
+   *
+   * <code>bool withheld = 5 [json_name = "withheld"];</code>
+   * @return The withheld.
+   */
+  boolean getWithheld();
 }

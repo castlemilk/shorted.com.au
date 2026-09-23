@@ -4664,6 +4664,9 @@ func (x *ListAddressPriceDropsRequest) GetSort() string {
 
 // One physical address (deduped by stable address_key) whose for-sale asking
 // price fell over the window, deep-linking to its per-address history page.
+// When the address is live on both portals (or relisted), every live advert
+// is judged on its own chain and the row carries the deepest qualifying cut;
+// the latest_* / current_* fields describe THAT advert.
 type AddressPriceDrop struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	AddressKey       string                 `protobuf:"bytes,1,opt,name=address_key,json=addressKey,proto3" json:"address_key,omitempty"`
@@ -5119,8 +5122,13 @@ type GetPriceDropsOverviewResponse struct {
 	States   []*StatePriceDropSummary `protobuf:"bytes,2,rep,name=states,proto3" json:"states,omitempty"`     // ordered by dropped_count desc
 	// When mv_state_price_drops was last refreshed, and the newest crawl
 	// observation that refresh could see. Unset when never recorded.
-	AsOf          *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
-	DataThrough   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`
+	AsOf        *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	DataThrough *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`
+	// True when crawl-derived price-drop figures are switched off
+	// (HOUSING_DROP_LISTINGS_ENABLED=false, a takedown): every other field is
+	// empty ON PURPOSE and will stay so until the switch is flipped back. Lets a
+	// client tell that apart from a cold or failed fetch, which is worth retrying.
+	Withheld      bool `protobuf:"varint,5,opt,name=withheld,proto3" json:"withheld,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5181,6 +5189,13 @@ func (x *GetPriceDropsOverviewResponse) GetDataThrough() *timestamppb.Timestamp 
 		return x.DataThrough
 	}
 	return nil
+}
+
+func (x *GetPriceDropsOverviewResponse) GetWithheld() bool {
+	if x != nil {
+		return x.Withheld
+	}
+	return false
 }
 
 type ListAgencyPriceStatsRequest struct {
@@ -5440,10 +5455,8 @@ type DropIndexPoint struct {
 	state        protoimpl.MessageState `protogen:"open.v1"`
 	SnapshotDate string                 `protobuf:"bytes,1,opt,name=snapshot_date,json=snapshotDate,proto3" json:"snapshot_date,omitempty"` // 'YYYY-MM-DD'
 	DropRate     float64                `protobuf:"fixed64,2,opt,name=drop_rate,json=dropRate,proto3" json:"drop_rate,omitempty"`           // 0..1 fraction, equal-weighted mean of per-suburb rates
-	// 0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
-	// dropped addresses stand behind this point, so a "median" would be one or
-	// two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
-	// is 0.5%).
+	// 0..1 fraction, depth of the typical cut. 0 when withheld — read
+	// median_withheld, never the 0, to tell withheld from a measurement.
 	MedianDropPct    float64 `protobuf:"fixed64,3,opt,name=median_drop_pct,json=medianDropPct,proto3" json:"median_drop_pct,omitempty"`
 	PanelSuburbs     int32   `protobuf:"varint,4,opt,name=panel_suburbs,json=panelSuburbs,proto3" json:"panel_suburbs,omitempty"`     // suburbs contributing to this point
 	CoverageRatio    float64 `protobuf:"fixed64,5,opt,name=coverage_ratio,json=coverageRatio,proto3" json:"coverage_ratio,omitempty"` // panel suburbs / full suburb catalog for this snapshot date
@@ -5457,8 +5470,14 @@ type DropIndexPoint struct {
 	// withdrawing), while Domain shows 57 of 94 pairs genuinely >7 days apart.
 	WithdrawnThenRelisted int32 `protobuf:"varint,9,opt,name=withdrawn_then_relisted,json=withdrawnThenRelisted,proto3" json:"withdrawn_then_relisted,omitempty"`
 	DelistedCount         int32 `protobuf:"varint,10,opt,name=delisted_count,json=delistedCount,proto3" json:"delisted_count,omitempty"` // withdrawn events in the trailing window (national grain only)
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// True when median_drop_pct is withheld: fewer than 3 dropped addresses
+	// stand behind this point, so a "median" would be one or two listings'
+	// exact cuts (the stored median is NULL). median_drop_pct is then 0 and is
+	// not a measurement. A separate flag rather than `optional` presence on
+	// median_drop_pct, which would change that field's cardinality.
+	MedianWithheld bool `protobuf:"varint,11,opt,name=median_withheld,json=medianWithheld,proto3" json:"median_withheld,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *DropIndexPoint) Reset() {
@@ -5559,6 +5578,13 @@ func (x *DropIndexPoint) GetDelistedCount() int32 {
 		return x.DelistedCount
 	}
 	return 0
+}
+
+func (x *DropIndexPoint) GetMedianWithheld() bool {
+	if x != nil {
+		return x.MedianWithheld
+	}
+	return false
 }
 
 type GetDropIndexSeriesRequest struct {
@@ -6269,12 +6295,13 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"medianSold\x12'\n" +
 	"\x0fsuburbs_tracked\x18\x10 \x01(\x05R\x0esuburbsTracked\x12*\n" +
 	"\x11suburbs_swept_14d\x18\x11 \x01(\x05R\x0fsuburbsSwept14d\x12'\n" +
-	"\x0fcatalog_suburbs\x18\x12 \x01(\x05R\x0ecatalogSuburbs\"\x93\x02\n" +
+	"\x0fcatalog_suburbs\x18\x12 \x01(\x05R\x0ecatalogSuburbs\"\xaf\x02\n" +
 	"\x1dGetPriceDropsOverviewResponse\x12B\n" +
 	"\bnational\x18\x01 \x01(\v2&.shorts.v1alpha1.StatePriceDropSummaryR\bnational\x12>\n" +
 	"\x06states\x18\x02 \x03(\v2&.shorts.v1alpha1.StatePriceDropSummaryR\x06states\x12/\n" +
 	"\x05as_of\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12=\n" +
-	"\fdata_through\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\vdataThrough\"f\n" +
+	"\fdata_through\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\vdataThrough\x12\x1a\n" +
+	"\bwithheld\x18\x05 \x01(\bR\bwithheld\"f\n" +
 	"\x1bListAgencyPriceStatsRequest\x12\x1d\n" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x12\n" +
@@ -6301,7 +6328,7 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\vagent_names\x18\r \x03(\tR\n" +
 	"agentNames\"]\n" +
 	"\x1cListAgencyPriceStatsResponse\x12=\n" +
-	"\bagencies\x18\x01 \x03(\v2!.shorts.v1alpha1.AgencyPriceStatsR\bagencies\"\x94\x03\n" +
+	"\bagencies\x18\x01 \x03(\v2!.shorts.v1alpha1.AgencyPriceStatsR\bagencies\"\xbd\x03\n" +
 	"\x0eDropIndexPoint\x12#\n" +
 	"\rsnapshot_date\x18\x01 \x01(\tR\fsnapshotDate\x12\x1b\n" +
 	"\tdrop_rate\x18\x02 \x01(\x01R\bdropRate\x12&\n" +
@@ -6313,7 +6340,8 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x11dropped_addresses\x18\b \x01(\x05R\x10droppedAddresses\x126\n" +
 	"\x17withdrawn_then_relisted\x18\t \x01(\x05R\x15withdrawnThenRelisted\x12%\n" +
 	"\x0edelisted_count\x18\n" +
-	" \x01(\x05R\rdelistedCount\"r\n" +
+	" \x01(\x05R\rdelistedCount\x12'\n" +
+	"\x0fmedian_withheld\x18\v \x01(\bR\x0emedianWithheld\"r\n" +
 	"\x19GetDropIndexSeriesRequest\x12\x14\n" +
 	"\x05grain\x18\x01 \x01(\tR\x05grain\x12\x1b\n" +
 	"\tgrain_key\x18\x02 \x01(\tR\bgrainKey\x12\x12\n" +

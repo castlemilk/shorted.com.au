@@ -140,7 +140,7 @@
       },
       "shorts.v1alpha1.AddressPriceDrop": {
         "additionalProperties": false,
-        "description": "One physical address (deduped by stable address_key) whose for-sale asking\n price fell over the window, deep-linking to its per-address history page.",
+        "description": "One physical address (deduped by stable address_key) whose for-sale asking\n price fell over the window, deep-linking to its per-address history page.\n When the address is live on both portals (or relisted), every live advert\n is judged on its own chain and the row carries the deepest qualifying cut;\n the latest_* / current_* fields describe THAT advert.",
         "properties": {
           "addressKey": {
             "description": "(proto string)",
@@ -1217,10 +1217,15 @@
             "type": "boolean"
           },
           "medianDropPct": {
-            "description": "0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3\n dropped addresses stand behind this point, so a \"median\" would be one or\n two listings' exact cuts (a real cut is never 0 — the crawl's noise floor\n is 0.5%). (proto double)",
+            "description": "0..1 fraction, depth of the typical cut. 0 when withheld — read\n median_withheld, never the 0, to tell withheld from a measurement. (proto double)",
             "format": "double",
             "title": "median_drop_pct",
             "type": "number"
+          },
+          "medianWithheld": {
+            "description": "True when median_drop_pct is withheld: fewer than 3 dropped addresses\n stand behind this point, so a \"median\" would be one or two listings'\n exact cuts (the stored median is NULL). median_drop_pct is then 0 and is\n not a measurement. A separate flag rather than `optional` presence on\n median_drop_pct, which would change that field's cardinality. (proto bool)",
+            "title": "median_withheld",
+            "type": "boolean"
           },
           "panelSuburbs": {
             "description": "suburbs contributing to this point (proto int32)",
@@ -3037,6 +3042,11 @@
             },
             "title": "states",
             "type": "array"
+          },
+          "withheld": {
+            "description": "True when crawl-derived price-drop figures are switched off\n (HOUSING_DROP_LISTINGS_ENABLED=false, a takedown): every other field is\n empty ON PURPOSE and will stay so until the switch is flipped back. Lets a\n client tell that apart from a cold or failed fetch, which is worth retrying. (proto bool)",
+            "title": "withheld",
+            "type": "boolean"
           }
         },
         "title": "GetPriceDropsOverviewResponse",

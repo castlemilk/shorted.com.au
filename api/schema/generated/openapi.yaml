@@ -3582,6 +3582,9 @@ components:
       description: |-
         One physical address (deduped by stable address_key) whose for-sale asking
          price fell over the window, deep-linking to its per-address history page.
+         When the address is live on both portals (or relisted), every live advert
+         is judged on its own chain and the row carries the deepest qualifying cut;
+         the latest_* / current_* fields describe THAT advert.
     shorts.v1alpha1.AgencyPriceStats:
       type: object
       properties:
@@ -4548,10 +4551,8 @@ components:
           title: median_drop_pct
           format: double
           description: |-
-            0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
-             dropped addresses stand behind this point, so a "median" would be one or
-             two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
-             is 0.5%). (proto double)
+            0..1 fraction, depth of the typical cut. 0 when withheld — read
+             median_withheld, never the 0, to tell withheld from a measurement. (proto double)
         panelSuburbs:
           type: integer
           title: panel_suburbs
@@ -4591,6 +4592,15 @@ components:
           title: delisted_count
           format: int32
           description: withdrawn events in the trailing window (national grain only) (proto int32)
+        medianWithheld:
+          type: boolean
+          title: median_withheld
+          description: |-
+            True when median_drop_pct is withheld: fewer than 3 dropped addresses
+             stand behind this point, so a "median" would be one or two listings'
+             exact cuts (the stored median is NULL). median_drop_pct is then 0 and is
+             not a measurement. A separate flag rather than `optional` presence on
+             median_drop_pct, which would change that field's cardinality. (proto bool)
       title: DropIndexPoint
       additionalProperties: false
       description: |-
@@ -6131,6 +6141,14 @@ components:
           title: data_through
           description: (proto google.protobuf.Timestamp)
           $ref: '#/components/schemas/google.protobuf.Timestamp'
+        withheld:
+          type: boolean
+          title: withheld
+          description: |-
+            True when crawl-derived price-drop figures are switched off
+             (HOUSING_DROP_LISTINGS_ENABLED=false, a takedown): every other field is
+             empty ON PURPOSE and will stay so until the switch is flipped back. Lets a
+             client tell that apart from a cold or failed fetch, which is worth retrying. (proto bool)
       title: GetPriceDropsOverviewResponse
       additionalProperties: false
     shorts.v1alpha1.GetPropertyHistoryRequest:

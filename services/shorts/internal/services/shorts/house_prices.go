@@ -880,7 +880,10 @@ func (s *ShortsServer) ListAddressPriceDrops(ctx context.Context, req *connect.R
 // the drop index's 0.6 coverage threshold.
 func (s *ShortsServer) GetPriceDropsOverview(ctx context.Context, req *connect.Request[shortsv1alpha1.GetPriceDropsOverviewRequest]) (*connect.Response[shortsv1alpha1.GetPriceDropsOverviewResponse], error) {
 	if !dropListingsEnabled() {
-		return connect.NewResponse(&shortsv1alpha1.GetPriceDropsOverviewResponse{}), nil
+		// Withheld, not empty: the page must not read a takedown as a cold
+		// fetch ("loading — check back shortly") and re-render it uncached on
+		// every request for as long as the switch is off.
+		return connect.NewResponse(&shortsv1alpha1.GetPriceDropsOverviewResponse{Withheld: true}), nil
 	}
 	cacheKey := s.cache.GetPriceDropsOverviewKey()
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
@@ -1103,7 +1106,8 @@ func (s *ShortsServer) GetDropIndexSeries(ctx context.Context, req *connect.Requ
 				continue
 			}
 			resp.Points = append(resp.Points, &shortsv1alpha1.DropIndexPoint{
-				SnapshotDate: r.SnapshotDate, DropRate: r.DropRate, MedianDropPct: r.MedianDropPct,
+				SnapshotDate: r.SnapshotDate, DropRate: r.DropRate,
+				MedianDropPct: r.MedianDropPct, MedianWithheld: r.MedianWithheld,
 				PanelSuburbs: r.PanelSuburbs, CoverageRatio: r.CoverageRatio, IsGap: r.IsGap,
 				ActiveAddresses: r.ActiveAddresses, DroppedAddresses: r.DroppedAddresses,
 				WithdrawnThenRelisted: r.WithdrawnThenRelisted, DelistedCount: r.DelistedCount,

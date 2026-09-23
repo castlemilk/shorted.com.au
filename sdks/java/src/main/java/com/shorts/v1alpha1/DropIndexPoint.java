@@ -124,10 +124,8 @@ private static final long serialVersionUID = 0L;
   private double medianDropPct_ = 0D;
   /**
    * <pre>
-   * 0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
-   * dropped addresses stand behind this point, so a "median" would be one or
-   * two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
-   * is 0.5%).
+   * 0..1 fraction, depth of the typical cut. 0 when withheld — read
+   * median_withheld, never the 0, to tell withheld from a measurement.
    * </pre>
    *
    * <code>double median_drop_pct = 3 [json_name = "medianDropPct"];</code>
@@ -239,6 +237,25 @@ private static final long serialVersionUID = 0L;
     return delistedCount_;
   }
 
+  public static final int MEDIAN_WITHHELD_FIELD_NUMBER = 11;
+  private boolean medianWithheld_ = false;
+  /**
+   * <pre>
+   * True when median_drop_pct is withheld: fewer than 3 dropped addresses
+   * stand behind this point, so a "median" would be one or two listings'
+   * exact cuts (the stored median is NULL). median_drop_pct is then 0 and is
+   * not a measurement. A separate flag rather than `optional` presence on
+   * median_drop_pct, which would change that field's cardinality.
+   * </pre>
+   *
+   * <code>bool median_withheld = 11 [json_name = "medianWithheld"];</code>
+   * @return The medianWithheld.
+   */
+  @java.lang.Override
+  public boolean getMedianWithheld() {
+    return medianWithheld_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -283,6 +300,9 @@ private static final long serialVersionUID = 0L;
     if (delistedCount_ != 0) {
       output.writeInt32(10, delistedCount_);
     }
+    if (medianWithheld_ != false) {
+      output.writeBool(11, medianWithheld_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -325,6 +345,10 @@ private static final long serialVersionUID = 0L;
     if (delistedCount_ != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(10, delistedCount_);
+    }
+    if (medianWithheld_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(11, medianWithheld_);
     }
     return size;
   }
@@ -373,6 +397,8 @@ private static final long serialVersionUID = 0L;
         != other.getWithdrawnThenRelisted()) return false;
     if (getDelistedCount()
         != other.getDelistedCount()) return false;
+    if (getMedianWithheld()
+        != other.getMedianWithheld()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -408,6 +434,9 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getWithdrawnThenRelisted();
     hash = (37 * hash) + DELISTED_COUNT_FIELD_NUMBER;
     hash = (53 * hash) + getDelistedCount();
+    hash = (37 * hash) + MEDIAN_WITHHELD_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getMedianWithheld());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -558,6 +587,7 @@ private static final long serialVersionUID = 0L;
       droppedAddresses_ = 0;
       withdrawnThenRelisted_ = 0;
       delistedCount_ = 0;
+      medianWithheld_ = false;
       return this;
     }
 
@@ -621,6 +651,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000200) != 0)) {
         result.delistedCount_ = delistedCount_;
       }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.medianWithheld_ = medianWithheld_;
+      }
     }
 
     @java.lang.Override
@@ -666,6 +699,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getDelistedCount() != 0) {
         setDelistedCount(other.getDelistedCount());
+      }
+      if (other.getMedianWithheld() != false) {
+        setMedianWithheld(other.getMedianWithheld());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -743,6 +779,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000200;
               break;
             } // case 80
+            case 88: {
+              medianWithheld_ = input.readBool();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 88
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -899,10 +940,8 @@ private static final long serialVersionUID = 0L;
     private double medianDropPct_ ;
     /**
      * <pre>
-     * 0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
-     * dropped addresses stand behind this point, so a "median" would be one or
-     * two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
-     * is 0.5%).
+     * 0..1 fraction, depth of the typical cut. 0 when withheld — read
+     * median_withheld, never the 0, to tell withheld from a measurement.
      * </pre>
      *
      * <code>double median_drop_pct = 3 [json_name = "medianDropPct"];</code>
@@ -914,10 +953,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
-     * dropped addresses stand behind this point, so a "median" would be one or
-     * two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
-     * is 0.5%).
+     * 0..1 fraction, depth of the typical cut. 0 when withheld — read
+     * median_withheld, never the 0, to tell withheld from a measurement.
      * </pre>
      *
      * <code>double median_drop_pct = 3 [json_name = "medianDropPct"];</code>
@@ -933,10 +970,8 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 0..1 fraction, depth of the typical cut. 0 = withheld: fewer than 3
-     * dropped addresses stand behind this point, so a "median" would be one or
-     * two listings' exact cuts (a real cut is never 0 — the crawl's noise floor
-     * is 0.5%).
+     * 0..1 fraction, depth of the typical cut. 0 when withheld — read
+     * median_withheld, never the 0, to tell withheld from a measurement.
      * </pre>
      *
      * <code>double median_drop_pct = 3 [json_name = "medianDropPct"];</code>
@@ -1241,6 +1276,62 @@ private static final long serialVersionUID = 0L;
     public Builder clearDelistedCount() {
       bitField0_ = (bitField0_ & ~0x00000200);
       delistedCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private boolean medianWithheld_ ;
+    /**
+     * <pre>
+     * True when median_drop_pct is withheld: fewer than 3 dropped addresses
+     * stand behind this point, so a "median" would be one or two listings'
+     * exact cuts (the stored median is NULL). median_drop_pct is then 0 and is
+     * not a measurement. A separate flag rather than `optional` presence on
+     * median_drop_pct, which would change that field's cardinality.
+     * </pre>
+     *
+     * <code>bool median_withheld = 11 [json_name = "medianWithheld"];</code>
+     * @return The medianWithheld.
+     */
+    @java.lang.Override
+    public boolean getMedianWithheld() {
+      return medianWithheld_;
+    }
+    /**
+     * <pre>
+     * True when median_drop_pct is withheld: fewer than 3 dropped addresses
+     * stand behind this point, so a "median" would be one or two listings'
+     * exact cuts (the stored median is NULL). median_drop_pct is then 0 and is
+     * not a measurement. A separate flag rather than `optional` presence on
+     * median_drop_pct, which would change that field's cardinality.
+     * </pre>
+     *
+     * <code>bool median_withheld = 11 [json_name = "medianWithheld"];</code>
+     * @param value The medianWithheld to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMedianWithheld(boolean value) {
+
+      medianWithheld_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * True when median_drop_pct is withheld: fewer than 3 dropped addresses
+     * stand behind this point, so a "median" would be one or two listings'
+     * exact cuts (the stored median is NULL). median_drop_pct is then 0 and is
+     * not a measurement. A separate flag rather than `optional` presence on
+     * median_drop_pct, which would change that field's cardinality.
+     * </pre>
+     *
+     * <code>bool median_withheld = 11 [json_name = "medianWithheld"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMedianWithheld() {
+      bitField0_ = (bitField0_ & ~0x00000400);
+      medianWithheld_ = false;
       onChanged();
       return this;
     }

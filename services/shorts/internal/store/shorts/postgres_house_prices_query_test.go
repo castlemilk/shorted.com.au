@@ -371,12 +371,17 @@ func TestHousingMVRefreshQuery_ReadsTheBookkeepingTable(t *testing.T) {
 	}
 }
 
-// TestGetDropIndexSeriesQuery_WithheldMedianReadsAsZero: median_drop_pct is
-// nullable since 000124 (withheld below 3 dropped addresses); a NULL must scan
-// as the documented 0, and computed_at is read for as_of.
-func TestGetDropIndexSeriesQuery_WithheldMedianReadsAsZero(t *testing.T) {
+// TestGetDropIndexSeriesQuery_WithheldMedianIsFlagged: median_drop_pct is
+// nullable since 000124 (withheld below 3 dropped addresses); a NULL scans as
+// 0 AND sets MedianWithheld, so the wire says withheld instead of leaving a
+// client to infer it from the 0. computed_at is read for as_of.
+func TestGetDropIndexSeriesQuery_WithheldMedianIsFlagged(t *testing.T) {
 	source := postgresHousePricesSource(t)
-	for _, want := range []string{"COALESCE(median_drop_pct, 0)", "computed_at\n\t\tFROM housing_drop_index_daily"} {
+	for _, want := range []string{
+		"COALESCE(median_drop_pct, 0), median_drop_pct IS NULL",
+		"&r.MedianDropPct, &r.MedianWithheld,",
+		"computed_at\n\t\tFROM housing_drop_index_daily",
+	} {
 		if !strings.Contains(source, want) {
 			t.Errorf("GetDropIndexSeries query missing %q", want)
 		}

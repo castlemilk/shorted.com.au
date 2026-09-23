@@ -1780,10 +1780,10 @@ type DropIndexPointRow struct {
 	SnapshotDate string
 	DropRate     float64
 	// MedianDropPct is 0 when the stored median is NULL: withheld because fewer
-	// than 3 dropped addresses stand behind it (migration 000124). A real cut is
-	// never 0 — the crawl's noise floor is 0.5% — so 0 cannot be mistaken for
-	// a reading.
+	// than 3 dropped addresses stand behind it (migration 000124). MedianWithheld
+	// says so explicitly, so no reader has to infer "withheld" from a 0.
 	MedianDropPct         float64
+	MedianWithheld        bool
 	PanelSuburbs          int32
 	CoverageRatio         float64
 	IsGap                 bool
@@ -1804,7 +1804,8 @@ func (s *postgresStore) GetDropIndexSeries(grain, grainKey, from, to string) ([]
 
 	const query = `
 		SELECT to_char(snapshot_date, 'YYYY-MM-DD'),
-		       drop_rate, COALESCE(median_drop_pct, 0), panel_suburbs, coverage_ratio, is_gap,
+		       drop_rate, COALESCE(median_drop_pct, 0), median_drop_pct IS NULL,
+		       panel_suburbs, coverage_ratio, is_gap,
 		       active_addresses, dropped_addresses, withdrawn_then_relisted, delisted_count,
 		       computed_at
 		FROM housing_drop_index_daily
@@ -1821,7 +1822,7 @@ func (s *postgresStore) GetDropIndexSeries(grain, grainKey, from, to string) ([]
 	var out []*DropIndexPointRow
 	for rows.Next() {
 		var r DropIndexPointRow
-		if err := rows.Scan(&r.SnapshotDate, &r.DropRate, &r.MedianDropPct, &r.PanelSuburbs,
+		if err := rows.Scan(&r.SnapshotDate, &r.DropRate, &r.MedianDropPct, &r.MedianWithheld, &r.PanelSuburbs,
 			&r.CoverageRatio, &r.IsGap, &r.ActiveAddresses, &r.DroppedAddresses,
 			&r.WithdrawnThenRelisted, &r.DelistedCount, &r.ComputedAt); err != nil {
 			return nil, err

@@ -302,6 +302,11 @@ exists to pull keeps serving for up to 24h:
    serves from (`PRICE_DROPS_TTL` = 86400s).
 3. **Revalidate ISR**: `/price-drops` (static, 1h) plus the suburb routes.
 
+Re-enabling is the same three steps with the switch flipped back. `/price-drops`
+caches its "not available" render (the overview reports `withheld`, which is
+stable, unlike a cold fetch), so without step 3 it keeps saying so for up to an
+hour.
+
 Known-open: the flag is checked before the *backend* cache while the web layer
 caches flag-on responses independently and no target bundles the three steps;
 `REVALIDATION_SECRET` travels as a query param compared non-constant-time; and

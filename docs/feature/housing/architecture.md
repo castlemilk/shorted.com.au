@@ -582,8 +582,9 @@ address winners deterministic. **000124** (2026-09) is the honesty pass:
   sitemap `lastmod` + Dataset JSON-LD `dateModified` from `as_of`. The index reports `as_of` =
   latest `computed_at` and `data_through` = its last snapshot day capped at the recorded crawl
   horizon — snapshots are written daily even while the rig is down.
-- **Index k-floor.** `housing_drop_index_daily.median_drop_pct` is NULL (served as 0 =
-  "withheld") below 3 dropped addresses at every grain; 1,819 historical suburb rows that
+- **Index k-floor.** `housing_drop_index_daily.median_drop_pct` is NULL (served as 0 with
+  `median_withheld = true`, so no client infers "withheld" from the 0) below 3 dropped
+  addresses at every grain; 1,819 historical suburb rows that
   published one or two listings' exact cuts are scrubbed. The index counts addresses by
   `address_key` (then `display_address`, then `listing_id`), the MVs' unit.
 
@@ -631,7 +632,11 @@ floor), thinner suburbs after every ranked one.
 **One kill-switch policy.** `HOUSING_DROP_LISTINGS_ENABLED=false` empties EVERY read derived
 from the REA/Domain crawl — the k≥3-floored aggregates as well as the per-listing surfaces —
 with an empty success (never an error, so the UI falls back to its no-data state), checked
-outside the backend cache so a flip takes effect on the next request. The MCP housing tools
+outside the backend cache so a flip takes effect on the next request. `GetPriceDropsOverview`
+— the read `/price-drops` gates its whole body on — also sets `withheld = true`, so the page
+shows neutral "not available" copy instead of "loading — check back shortly", and caches that
+render like any other rather than re-rendering uncached on every request for the length of the
+takedown. The MCP housing tools
 apply the same switch. Until 000124's branch it differed by surface: the profile and MCP
 withheld the aggregates while `ListSuburbPriceDrops` and the index kept serving the same MV
 rows, so a takedown left the most visible board up. A takedown concerns the source's data, not

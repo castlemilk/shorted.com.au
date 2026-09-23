@@ -216,6 +216,9 @@ func TestGetPriceDropsOverview_MapsCoverageAndFreshness(t *testing.T) {
 		t.Errorf("freshness = %v / %v, want %v / %v",
 			resp.Msg.GetAsOf().AsTime(), resp.Msg.GetDataThrough().AsTime(), refreshed, crawl)
 	}
+	if resp.Msg.GetWithheld() {
+		t.Error("an enabled switch must not report the overview as withheld")
+	}
 }
 
 // TestListSuburbPriceDrops_ShareSortIsAllowed: 'share' is a public sort now,
@@ -303,6 +306,20 @@ func TestDropsKillSwitch_OnePolicyForEveryCrawlDerivedRead(t *testing.T) {
 		})
 	}
 
+	// The overview is the one read a page gates its whole body on, so it says
+	// WHY it is empty: a takedown is not a cold fetch to retry.
+	t.Run("GetPriceDropsOverview says withheld", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		resp, err := newTestServer(t, mocks.NewMockShortsStore(ctrl)).GetPriceDropsOverview(
+			context.Background(), connect.NewRequest(&shortsv1alpha1.GetPriceDropsOverviewRequest{}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !resp.Msg.GetWithheld() {
+			t.Fatal("a disabled kill switch must be reported as withheld, not as an empty rollup")
+		}
+	})
+
 	t.Run("GetSuburbProfile listing_stats", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		store := mocks.NewMockShortsStore(ctrl)
@@ -351,3 +368,34 @@ func TestGetSuburbProfile_ListingStatsCarryFreshness(t *testing.T) {
 }
 
 func timePtr(t time.Time) *time.Time { return &t }
+
+// TestGetDropIndexSeries_FlagsAWithheldMedian: a NULL stored median (fewer than
+// 3 dropped addresses) travels as median_withheld, so no client has to infer
+// "withheld" from a 0 that looks like a measurement.
+func TestGetDropIndexSeries_FlagsAWithheldMedian(t *testing.T) {
+	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
+
+	ctrl := gomock.NewController(t)
+	store := mocks.NewMockShortsStore(ctrl)
+	store.EXPECT().GetDropIndexSeries("suburb", "20495", gomock.Any(), gomock.Any()).Return([]*shortsstore.DropIndexPointRow{
+		{SnapshotDate: "2026-09-21", DropRate: 0.05, MedianDropPct: 0.04},
+		{SnapshotDate: "2026-09-22", DropRate: 0.02, MedianWithheld: true},
+	}, nil)
+	store.EXPECT().GetHousingMVRefresh(gomock.Any()).Return(nil, nil).AnyTimes()
+
+	resp, err := newTestServer(t, store).GetDropIndexSeries(context.Background(),
+		connect.NewRequest(&shortsv1alpha1.GetDropIndexSeriesRequest{Grain: "suburb", GrainKey: "20495"}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	pts := resp.Msg.GetPoints()
+	if len(pts) != 2 {
+		t.Fatalf("want 2 points, got %d", len(pts))
+	}
+	if pts[0].GetMedianWithheld() || pts[0].GetMedianDropPct() != 0.04 {
+		t.Errorf("measured median mapped as %v / withheld=%v", pts[0].GetMedianDropPct(), pts[0].GetMedianWithheld())
+	}
+	if !pts[1].GetMedianWithheld() || pts[1].GetMedianDropPct() != 0 {
+		t.Errorf("withheld median mapped as %v / withheld=%v", pts[1].GetMedianDropPct(), pts[1].GetMedianWithheld())
+	}
+}
