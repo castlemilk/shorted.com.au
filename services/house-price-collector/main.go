@@ -226,7 +226,8 @@ func run() int {
 		// web/scripts/geo/hazards/ and loaded from the committed artifact.
 		return ingestExit(runHazards(ctx, pool))
 	case "lga":
-		// Council/LGA dimension + suburb→council bridge (ABS LGA_2024 PiP join).
+		// Council/LGA dimension + suburb→council bridge (ABS mesh-block allocation,
+		// web/scripts/geo/join-lga-mb.py).
 		return ingestExit(runLGA(ctx, pool))
 	case "connectivity":
 		// Dominant NBN access technology per suburb (centroid→footprint join).
@@ -367,8 +368,10 @@ func runConnectivity(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
-// runLGA loads the precomputed council dimension + suburb→council bridge and
-// upserts them (lga + suburb_lga), recording the run cursor under "abs_lga".
+// runLGA loads the precomputed council dimension + suburb→council bridge
+// (lga + suburb_lga), mints slugs for councils that have none, and records the
+// run cursor under "abs_lga". Population is not touched: it is ABS ERP, owned by
+// -mode erp-lga.
 func runLGA(ctx context.Context, pool *pgxpool.Pool) error {
 	lgas, subs, err := ingestLGA()
 	if err != nil {
@@ -382,16 +385,19 @@ func runLGA(ctx context.Context, pool *pgxpool.Pool) error {
 		_ = updateRun(ctx, pool, "abs_lga", nil, nl, "error", err.Error())
 		return err
 	}
-	ns, err := upsertSuburbLGA(ctx, pool, subs)
+	minted, err := assignLGASlugs(ctx, pool, lgas)
 	if err != nil {
-		log.Printf("[lga] bridge upsert error after %d: %v", ns, err)
+		log.Printf("[lga] slug minting error after %d: %v", minted, err)
+		_ = updateRun(ctx, pool, "abs_lga", nil, nl, "error", err.Error())
+		return err
+	}
+	ns, removed, err := replaceSuburbLGA(ctx, pool, subs)
+	if err != nil {
+		log.Printf("[lga] bridge replace error after %d: %v", ns, err)
 		_ = updateRun(ctx, pool, "abs_lga", nil, ns, "error", err.Error())
 		return err
 	}
-	if err := refreshLGAPopulation(ctx, pool); err != nil {
-		log.Printf("[lga] population rollup failed: %v", err)
-	}
-	log.Printf("[lga] upserted %d councils + %d suburb links (+ population rollup)", nl, ns)
+	log.Printf("[lga] upserted %d councils (%d new slugs) + %d suburb links (%d stale links removed)", nl, minted, ns, removed)
 	_ = updateRun(ctx, pool, "abs_lga", nil, ns, "ok", "")
 	return nil
 }
