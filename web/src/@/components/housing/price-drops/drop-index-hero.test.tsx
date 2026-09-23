@@ -63,3 +63,37 @@ test("a long series calls a direction", () => {
   expect(screen.queryByText(/not enough history yet to call a direction/i)).not.toBeInTheDocument();
   expect(screen.getByText(/flat since/i)).toBeInTheDocument();
 });
+
+// Every national day after 2026-08-26 was a gap, and the hero kept showing
+// 26 Aug's reading with no date. The reading must carry its date, and say when
+// it is older than the series.
+test("dates a current reading", () => {
+  render(<DropIndexHero points={pts()} trackingSince="2026-08-03" />);
+  expect(screen.getByTestId("drop-index-reading-date")).toHaveTextContent("Reading for 16 Aug");
+});
+
+test("says 'last reliable reading' when every newer day is a gap", () => {
+  const trailingGaps = [
+    ...pts(),
+    { ...pts()[1]!, snapshotDate: "2026-08-27" },
+    { ...pts()[1]!, snapshotDate: "2026-09-22" },
+  ];
+  render(<DropIndexHero points={trailingGaps} trackingSince="2026-08-03" />);
+  const label = screen.getByTestId("drop-index-reading-date");
+  expect(label).toHaveTextContent("Last reliable reading 16 Aug");
+  expect(label).toHaveTextContent(/too thin to publish a reading since 27 Aug/);
+});
+
+// A change between two rates is percentage POINTS: 10% -> 12.5% is "up 2.5
+// percentage points", never "up 2.5%".
+test("reports the change in percentage points", () => {
+  const series = longSeries(14).map((p, i) => ({ ...p, dropRate: i === 13 ? 0.125 : 0.1 }));
+  render(<DropIndexHero points={series} trackingSince="2026-08-01" />);
+  expect(screen.getByText(/up 2\.5 percentage points since 1 Aug/)).toBeInTheDocument();
+  expect(screen.queryByText(/up 2\.5%/)).not.toBeInTheDocument();
+});
+
+test("renders September dates the same on every runtime", () => {
+  render(<DropIndexHero points={longSeries(3, "2026-09-20")} trackingSince="2026-09-20" />);
+  expect(screen.getByTestId("drop-index-reading-date")).toHaveTextContent("Reading for 22 Sep");
+});

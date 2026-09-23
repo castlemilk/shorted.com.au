@@ -34,14 +34,29 @@ export const DROPS_STALE_AFTER_HOURS = 72;
 export const STATE_COVERAGE_RANK_THRESHOLD = 0.6;
 
 /** Timestamp -> Date; undefined for an unset or malformed stamp. */
-export function timestampToDate(ts: TimestampLike | undefined | null): Date | undefined {
+export function timestampToDate(
+  ts: TimestampLike | undefined | null,
+): Date | undefined {
   if (!ts) return undefined;
   const seconds = Number(ts.seconds);
   if (!Number.isFinite(seconds) || seconds <= 0) return undefined;
   return new Date(seconds * 1000 + Math.floor((ts.nanos ?? 0) / 1e6));
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 /**
  * "15 Sep 2026" in Sydney time — the calendar day an Australian reader would
@@ -49,7 +64,10 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
  * locale data: ICU spells September "Sept" for en-AU on some runtimes and
  * "Sep" on others, so server and client renders would disagree.
  */
-export function fmtDropsDate(d: Date, opts: { withYear?: boolean } = {}): string {
+export function fmtDropsDate(
+  d: Date,
+  opts: { withYear?: boolean } = {},
+): string {
   const parts = new Intl.DateTimeFormat("en-AU", {
     day: "numeric",
     month: "numeric",
@@ -79,7 +97,10 @@ export interface DropsFreshness {
 }
 
 export function dropsFreshness(
-  stamps: { asOf?: TimestampLike; dataThrough?: TimestampLike } | undefined | null,
+  stamps:
+    | { asOf?: TimestampLike; dataThrough?: TimestampLike }
+    | undefined
+    | null,
   now: Date = new Date(),
 ): DropsFreshness {
   const asOf = timestampToDate(stamps?.asOf);
@@ -90,7 +111,9 @@ export function dropsFreshness(
     asOfIso: asOf?.toISOString(),
     dataThroughIso: through?.toISOString(),
     dataToLabel: shown ? `Data to ${fmtDropsDate(shown)}` : undefined,
-    stale: [asOf, through].some((d) => d !== undefined && d.getTime() < staleBefore),
+    stale: [asOf, through].some(
+      (d) => d !== undefined && d.getTime() < staleBefore,
+    ),
   };
 }
 
@@ -106,7 +129,10 @@ export interface StateCoverage {
  * response from before migration 000124), which keeps the old behaviour —
  * ranked — rather than greying out every state.
  */
-export function stateCoverage(s: { suburbsSwept14d: number; catalogSuburbs: number }): StateCoverage {
+export function stateCoverage(s: {
+  suburbsSwept14d: number;
+  catalogSuburbs: number;
+}): StateCoverage {
   if (!s.catalogSuburbs || s.catalogSuburbs <= 0) return { ranked: true };
   const ratio = s.suburbsSwept14d / s.catalogSuburbs;
   return { ratio, ranked: ratio >= STATE_COVERAGE_RANK_THRESHOLD };
