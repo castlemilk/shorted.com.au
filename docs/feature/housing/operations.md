@@ -23,14 +23,15 @@ startup log before believing a run persisted. Official + suburb modes have no
 dry-run and write every run. Crawl modes need a warm host Chrome on
 `CRAWL_CDP_URL` and a residential IP — they do not work off a rig.
 
-**Two copies of the collector, and CI tests the wrong one.**
-`services/house-price-collector` (110 `.go` files) ships;
-`services/jobs/internal/jobs/houseprices` (108) is the consolidation fork behind
-`shorted house-prices`, in no Terraform environment, and already drifted.
-`run-tests` runs `cd services/jobs && go test ./...` plus the integration suite —
-**nothing runs `go test ./...` in the `services` module**, so the deployed
-collector's tests are local-only. It is also `if: github.event_name !=
-'pull_request'`: it gates the deploy, not the PR.
+**One collector.** `services/house-price-collector` is the only copy: the Cloud
+Run job, the rig launchers and every Taskfile task run it. The
+`services/jobs` port (`shorted house-prices`) was never scheduled, drifted, and
+was deleted on 2026-09-24; do not resurrect it without cutting the rig over in
+the same change (`services/jobs/README.md`). Its tests run on pull requests in
+`terraform-deploy.yml`'s `housing-contract-tests` job
+(`go test ./house-price-collector` in `services`). `run-tests` still runs only
+`cd services/jobs && go test ./...` plus the integration suite, and is
+`if: github.event_name != 'pull_request'`: it gates the deploy, not the PR.
 
 ## Prod
 

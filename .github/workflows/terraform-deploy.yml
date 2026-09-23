@@ -1331,10 +1331,6 @@ jobs:
         working-directory: services
         run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./house-price-collector
 
-      - name: Run housing jobs mirror tests
-        working-directory: services/jobs
-        run: GOWORK=off GOPRIVATE='github.com/skunkworq/*' go test ./internal/jobs/houseprices/...
-
       - name: Run housing wrapper lifecycle tests
         run: bash services/house-price-collector/deploy/housing-lifecycle-exit.test.sh
 

@@ -491,9 +491,6 @@ tasks:
       economy) have no dry-run at all and always write.
 
       Read `dryRun=` from the startup log before believing a run persisted.
-
-      Note there are TWO copies of this collector; the deployed one is
-      services/house-price-collector, not the services/jobs mirror.
     dir: services/house-price-collector
     requires: {vars: [MODE]}
     env: {DATABASE_URL: "{{.DB_LOCAL}}"}

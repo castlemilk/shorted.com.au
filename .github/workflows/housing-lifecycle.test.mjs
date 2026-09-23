@@ -240,10 +240,10 @@ test("terraform deploy workflow gates housing contracts on open pull requests", 
     job,
     /working-directory:\s*services\s+run:\s*GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test \.\/house-price-collector/,
   );
-  assert.match(
-    job,
-    /working-directory:\s*services\/jobs\s+run:\s*GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test \.\/internal\/jobs\/houseprices\/\.\.\./,
-  );
+  // The services/jobs houseprices mirror was retired (nothing scheduled it; the
+  // rig and the Cloud Run job both run house-price-collector). A test step for
+  // it would point at a package that no longer exists.
+  assert.doesNotMatch(job, /internal\/jobs\/houseprices/);
   assert.match(job, /bash services\/house-price-collector\/deploy\/housing-lifecycle-exit\.test\.sh/);
   assert.match(
     job,

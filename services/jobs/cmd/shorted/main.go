@@ -26,7 +26,6 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/announcements"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/discovery"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/economy"
-	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/houseprices"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/influence"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/marketdata"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/news"
@@ -45,7 +44,6 @@ func jobs() *runner.Registry {
 		discovery.Job(),
 		economy.Job(),
 		reportextract.DirectorTradesJob(),
-		houseprices.Job(),
 		influence.Job(),
 		marketdata.Group(),
 		news.Job(),
@@ -94,9 +92,9 @@ func main() {
 		os.Exit(2)
 	default:
 		// ExitCodeOf is 1 for ordinary failures; a job that needs a caller to
-		// branch on the code (house-prices' rig launchers key on 3/4/5/6/7)
-		// returns a *runner.ExitCodeError instead of calling os.Exit, so its
-		// deferred cleanup and the runner's end-of-job line still happen.
+		// branch on the code returns a *runner.ExitCodeError instead of calling
+		// os.Exit, so its deferred cleanup and the runner's end-of-job line
+		// still happen.
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(runner.ExitCodeOf(err))
 	}

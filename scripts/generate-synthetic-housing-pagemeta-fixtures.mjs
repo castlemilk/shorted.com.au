@@ -6,14 +6,8 @@ import { fileURLToPath } from "node:url";
 
 const defaultRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fixturePaths = {
-  rea: [
-    "services/house-price-collector/testdata/rea-pagemeta.html",
-    "services/jobs/internal/jobs/houseprices/testdata/rea-pagemeta.html",
-  ],
-  domain: [
-    "services/house-price-collector/testdata/domain-pagemeta.html",
-    "services/jobs/internal/jobs/houseprices/testdata/domain-pagemeta.html",
-  ],
+  rea: ["services/house-price-collector/testdata/rea-pagemeta.html"],
+  domain: ["services/house-price-collector/testdata/domain-pagemeta.html"],
 };
 
 function parseRoot(argv) {

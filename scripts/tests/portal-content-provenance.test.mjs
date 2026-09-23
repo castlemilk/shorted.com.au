@@ -13,8 +13,6 @@ const workflow = join(repoRoot, ".github/workflows/repo-hygiene.yml");
 const fixturePaths = [
   "services/house-price-collector/testdata/rea-pagemeta.html",
   "services/house-price-collector/testdata/domain-pagemeta.html",
-  "services/jobs/internal/jobs/houseprices/testdata/rea-pagemeta.html",
-  "services/jobs/internal/jobs/houseprices/testdata/domain-pagemeta.html",
 ];
 
 function temporaryRoot() {
@@ -263,7 +261,7 @@ test("workflow runs the provenance tests and gate for every protected path", () 
   assert.match(source, /node scripts\/check-portal-content-provenance\.mjs/);
 });
 
-test("generator deterministically reproduces all four committed fixtures", () => {
+test("generator deterministically reproduces both committed fixtures", () => {
   const root = temporaryRoot();
   const firstRun = run(generator, root);
   assert.equal(firstRun.status, 0, output(firstRun));
@@ -284,6 +282,4 @@ test("generator deterministically reproduces all four committed fixtures", () =>
   for (const path of fixturePaths) {
     assert.deepEqual(readFileSync(join(root, path)), firstContents.get(path), `${path} changed between generator runs`);
   }
-  assert.deepEqual(firstContents.get(fixturePaths[0]), firstContents.get(fixturePaths[2]));
-  assert.deepEqual(firstContents.get(fixturePaths[1]), firstContents.get(fixturePaths[3]));
 });
