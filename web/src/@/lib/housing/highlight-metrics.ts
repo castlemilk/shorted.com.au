@@ -223,6 +223,25 @@ export function nbnColor(cat: string): string {
   return NBN_COLORS[cat] ?? C.stone;
 }
 
+/**
+ * The NBN technology we are prepared to publish for a suburb, or null.
+ *
+ * The footprint join (web/scripts/geo/join-nbn.mjs) used to class every sample
+ * point outside the Fixed Line and Fixed Wireless footprints as Satellite, and
+ * the source publishes no satellite layer at all — so 7,491 of 15,329 suburbs,
+ * Bondi, Parramatta and Point Cook (66,781 people) among them, read "NBN
+ * SATELLITE". The join is fixed, but a suburb of more than 1,000 people is not
+ * satellite-served, so until every environment has loaded the corrected
+ * artifact that pairing is suppressed as no data. The API applies the same rule
+ * (nbnImplausibleSatellitePredicate in postgres_suburb_columns.go); this copy
+ * keeps an ISR page baked from an older response from repeating it.
+ */
+export function publishableNbnTech(tech: string | undefined, population: number): string | null {
+  if (!tech) return null;
+  if (tech.toUpperCase() === "SATELLITE" && population > 1000) return null;
+  return tech;
+}
+
 export const HIGHLIGHT_METRICS: HighlightMetric[] = [
   {
     kind: "continuous", key: "price", label: "Median house price",
@@ -391,7 +410,7 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
   {
     kind: "categorical", key: "nbn", label: "NBN technology",
     legendLabel: "Dominant NBN technology",
-    category: (s) => s.dominantNbnTech || null,
+    category: (s) => publishableNbnTech(s.dominantNbnTech, s.population),
     colorFor: nbnColor, order: NBN_ORDER,
   },
   // --- terrain (GA DEM-S, measured) ---

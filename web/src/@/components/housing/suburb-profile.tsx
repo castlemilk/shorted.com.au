@@ -46,7 +46,7 @@ import { SuburbScoreBand } from "./suburb-score-band";
 import { SuburbHazardCard } from "./suburb-hazard-card";
 import { RecentPriceDrops } from "./suburb-recent-price-drops-loader";
 import { STATE_NAMES, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
-import { crimeRankScale } from "@/lib/housing/highlight-metrics";
+import { crimeRankScale, publishableNbnTech } from "@/lib/housing/highlight-metrics";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { ordinal, type SuburbContext } from "@/lib/housing/suburb-stats";
 import { HousingIcon, type HousingIconName } from "./housing-icon";
@@ -273,7 +273,7 @@ export function SuburbProfile({
 
           <SuburbHazardCard elevation={data.elevation} hazards={data.hazards} stateCode={st} salCode={s.salCode} />
 
-          {a ? <AmenitiesGroup a={a} nbn={s.dominantNbnTech} /> : null}
+          {a ? <AmenitiesGroup a={a} nbn={publishableNbnTech(s.dominantNbnTech, d?.population ?? 0) ?? undefined} /> : null}
 
           <div className="grid gap-6 sm:grid-cols-2">
             {d ? <CultureCard d={d} /> : null}

@@ -214,3 +214,31 @@ func TestFilterSuburbMetricColumnsMatchCountEqualsPopulationCount(t *testing.T) 
 		t.Fatalf("match_count=%d population=%d, want 7", count, population)
 	}
 }
+
+// A 'Satellite' classification on a populous suburb is the artefact of the old
+// NBN footprint join (misses defaulted to Satellite), not a fact: the map metric
+// and both suburb readers must treat it as no data. Genuine remote satellite
+// suburbs, and every other technology, pass through untouched.
+func TestNbnImplausibleSatelliteIsNoDataOnEverySurface(t *testing.T) {
+	def, ok := lookupSuburbMetric("nbn")
+	if !ok {
+		t.Fatal("nbn metric missing")
+	}
+	guard := "WHEN " + nbnImplausibleSatellitePredicate + " THEN NULL"
+	satellite := "WHEN UPPER(c.dominant_nbn_tech) = 'SATELLITE' THEN 2"
+	gi, si := strings.Index(def.expression, guard), strings.Index(def.expression, satellite)
+	if gi < 0 || si < 0 || gi > si {
+		t.Fatalf("nbn metric must null implausible satellite rows before classing Satellite:\n%s", def.expression)
+	}
+	if !strings.Contains(nbnImplausibleSatellitePredicate, "COALESCE(d.population, 0) > 1000") {
+		t.Fatalf("guard threshold changed without updating its documentation: %s", nbnImplausibleSatellitePredicate)
+	}
+
+	source := postgresHousePricesSource(t)
+	if strings.Contains(source, "COALESCE(c.dominant_nbn_tech,'')") {
+		t.Fatal("suburb readers must publish NBN tech through nbnTechDisplayExpr, not the raw column")
+	}
+	if got := strings.Count(source, "` + nbnTechDisplayExpr + `"); got != 2 {
+		t.Fatalf("ListStateSuburbs and GetSuburbProfile must both use nbnTechDisplayExpr; got %d uses", got)
+	}
+}

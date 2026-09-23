@@ -2,6 +2,7 @@ import {
   HIGHLIGHT_METRICS,
   amberScale,
   crimeRankScale,
+  publishableNbnTech,
   type MetricKey,
   type SuburbMetricInput,
 } from "./highlight-metrics";
@@ -60,5 +61,28 @@ describe("crime highlight metrics", () => {
     const danger = crimeRankScale();
     expect(danger(0)).not.toBe(danger(100));
     expect(danger(50)).not.toBe(amberScale(0, 100)(50));
+  });
+});
+
+describe("NBN technology", () => {
+  const nbn = HIGHLIGHT_METRICS.find((m) => m.key === "nbn");
+
+  test("a populous suburb classed Satellite is no data, on the map and the tile", () => {
+    // Bondi (10,411 people) read "NBN SATELLITE" from the old join's fallback.
+    expect(publishableNbnTech("Satellite", 10_411)).toBeNull();
+    expect(nbn?.kind === "categorical" && nbn.category({ ...baseSuburb, dominantNbnTech: "Satellite", population: 10_411 })).toBeNull();
+  });
+
+  test("genuinely remote satellite suburbs and every other technology pass through", () => {
+    expect(publishableNbnTech("Satellite", 1_000)).toBe("Satellite");
+    expect(publishableNbnTech("Satellite", 180)).toBe("Satellite");
+    expect(publishableNbnTech("Fixed Line", 66_781)).toBe("Fixed Line");
+    expect(publishableNbnTech("Fixed Wireless", 5_000)).toBe("Fixed Wireless");
+    expect(nbn?.kind === "categorical" && nbn.category({ ...baseSuburb, dominantNbnTech: "Fixed Line" })).toBe("Fixed Line");
+  });
+
+  test("an unclassified suburb is no data, not a tier", () => {
+    expect(publishableNbnTech("", 5_000)).toBeNull();
+    expect(publishableNbnTech(undefined, 5_000)).toBeNull();
   });
 });

@@ -484,7 +484,7 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       COALESCE(a.dist_to_coast_km,0),
 		       COALESCE(a.schools_gov,0), COALESCE(a.schools_catholic,0), COALESCE(a.schools_independent,0),
 		       COALESCE(a.schools_primary,0), COALESCE(a.schools_secondary,0), COALESCE(a.nearest_secondary_km,0),
-		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0),
+		       ` + nbnTechDisplayExpr + `, COALESCE(c.connectivity_quality_score,0),
 		       cr.break_ins_rank, cr.violent_rank, cr.motor_vehicle_rank,
 		       COALESCE(rp.declared_property_count, 0)
 		FROM suburb_demographics d` + preferredSuburbRegionJoin + `
@@ -555,7 +555,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(a.dist_to_coast_km,0),
 		       COALESCE(a.schools_gov,0), COALESCE(a.schools_catholic,0), COALESCE(a.schools_independent,0),
 		       COALESCE(a.schools_primary,0), COALESCE(a.schools_secondary,0), COALESCE(a.nearest_secondary_km,0),
-		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0),
+		       ` + nbnTechDisplayExpr + `, COALESCE(c.connectivity_quality_score,0),
 		       COALESCE(d.median_weekly_per_income, 0), COALESCE(d.median_weekly_rent, 0),
 		       COALESCE(d.median_monthly_mortgage, 0), COALESCE(d.pct_owned_outright, 0),
 		       COALESCE(d.pct_owned_mortgage, 0), COALESCE(d.pct_rented, 0),
