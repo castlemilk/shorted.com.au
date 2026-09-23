@@ -196,7 +196,7 @@ applied migration.** `lga.population` was never ERP: until 000126's
 `-mode erp-lga` it was the SUM of member suburbs' Census 2021 counts (biased
 by the bridge error below, and blind to straddling suburbs). `suburb_lga` was
 never "by mesh-block weight": it was a centroid-in-polygon test on simplified
-geometry, which put 220 suburbs (416k residents) in the wrong council —
+geometry, which put 224 suburbs (416k residents) in the wrong council —
 Broken Hill in 'Unincorporated NSW', Truganina in Melton — and left 20 real
 suburbs (Kingsgrove, Malabar) with none.
 

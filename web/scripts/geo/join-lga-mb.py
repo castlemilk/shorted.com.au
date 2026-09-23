@@ -3,7 +3,7 @@
 
 Replaces join-lga.mjs, which tested whether each suburb's centroid (computed
 from heavily simplified topojson) fell inside a generalised LGA polygon. That
-put 220 suburbs (416k residents) in the wrong council -- Broken Hill in
+put 224 suburbs (416k residents) in the wrong council -- Broken Hill in
 "Unincorporated NSW", Truganina in Melton, Deniliquin in Murray River -- and
 left 20 coastal suburbs (Kingsgrove, Malabar ...) with no council at all.
 
