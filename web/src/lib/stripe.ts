@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { getPremiumPriceId } from "./stripe-plans";
+import { PLANS } from "~/@/config/pricing";
 
 // Defer the check to runtime to allow builds to succeed
 // The actual Stripe client is only used in API routes at runtime
@@ -31,45 +32,26 @@ const PRO_PRICE_ID = getPremiumPriceId();
 // Subscription tiers configuration
 export const SUBSCRIPTION_TIERS = {
   free: {
-    name: "Free",
+    name: PLANS.free.name,
     priceId: null,
-    price: 0,
+    price: PLANS.free.amountCents / 100,
     requestsPerDay: 100,
-    features: [
-      "Short position data",
-      "Weekly reports",
-      "Basic stock pages",
-      "Portfolio tracking",
-    ],
+    features: PLANS.free.features,
   },
   premium: {
-    name: "Premium",
+    name: PLANS.premium.name,
     priceId: PRO_PRICE_ID,
-    price: 4,
+    price: PLANS.premium.amountCents / 100,
     requestsPerDay: 10000,
-    features: [
-      "Everything in Free",
-      "AI Chat assistant",
-      "Market Pulse dashboard",
-      "Price & position alerts",
-      "Advanced dashboard widgets",
-      "Priority support",
-    ],
+    features: PLANS.premium.features,
   },
   // Backward compat: existing "pro" subscribers treated as premium
   pro: {
-    name: "Premium",
+    name: PLANS.premium.name,
     priceId: PRO_PRICE_ID,
-    price: 4,
+    price: PLANS.premium.amountCents / 100,
     requestsPerDay: 10000,
-    features: [
-      "Everything in Free",
-      "AI Chat assistant",
-      "Market Pulse dashboard",
-      "Price & position alerts",
-      "Advanced dashboard widgets",
-      "Priority support",
-    ],
+    features: PLANS.premium.features,
   },
   enterprise: {
     name: "Enterprise",

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useSubscription } from "~/@/hooks/use-subscription";
+import { planPricePerMonth } from "~/@/config/pricing";
 
 export function PremiumUpsellBanner() {
   const { data: session, status } = useSession();
@@ -29,7 +30,7 @@ export function PremiumUpsellBanner() {
               Unlock AI Chat, Pulse, Alerts & more
             </p>
             <p className="text-xs text-muted-foreground">
-              Upgrade to Premium for just $4/mo
+              Upgrade to Premium for just {planPricePerMonth("premium")}
             </p>
           </div>
         </div>

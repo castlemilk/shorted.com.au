@@ -20,6 +20,7 @@ import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { cn } from "~/@/lib/utils";
 import type { SubscriptionInfo } from "~/app/actions/subscription";
+import { planPrice } from "~/@/config/pricing";
 
 interface SubscriptionGateProps {
   subscription: SubscriptionInfo | null;
@@ -180,7 +181,8 @@ export function SubscriptionGate({
             Unlock API Access
           </CardTitle>
           <span className="text-2xl font-bold">
-            $20<span className="text-sm font-normal text-muted-foreground">/mo</span>
+            {planPrice("apiAccess")}
+            <span className="text-sm font-normal text-muted-foreground">/mo</span>
           </span>
         </div>
         <CardDescription>

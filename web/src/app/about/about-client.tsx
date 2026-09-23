@@ -35,6 +35,7 @@ import { SpotlightCard } from "~/@/components/marketing/spotlight-card";
 import { type AboutPageStatistics } from "~/lib/statistics";
 import { cn } from "~/@/lib/utils";
 import { siteConfig } from "~/@/config/site";
+import { PLANS, planPricePerMonth } from "~/@/config/pricing";
 
 interface AboutClientProps {
   initialStatistics: AboutPageStatistics;
@@ -178,7 +179,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
                 <SpotlightCard className="p-8">
                   <div className="flex flex-col items-center text-center">
                     <Image
-                      src="/assets/blog/authors/ben.png"
+                      src="/assets/blog/authors/ben-ebsworth.jpg"
                       alt={`${siteConfig.founder.name}, founder of Shorted`}
                       width={112}
                       height={112}
@@ -292,21 +293,21 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               </p>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <PlanCard
-                  name="Free"
-                  price="$0"
-                  description="Short positions, charts, industry heatmaps and reports for every ASX stock."
+                  name={PLANS.free.name}
+                  price={planPricePerMonth("free")}
+                  description={PLANS.free.tagline}
                   href="/signup"
                 />
                 <PlanCard
-                  name="Premium"
-                  price="$4/mo"
-                  description="AI chat, Market Pulse, alerts and advanced dashboards."
+                  name={PLANS.premium.name}
+                  price={planPricePerMonth("premium")}
+                  description={PLANS.premium.tagline}
                   href="/pricing"
                 />
                 <PlanCard
-                  name="API Access"
-                  price="$20/mo"
-                  description="API tokens and higher limits for developers and quant workflows."
+                  name={PLANS.apiAccess.name}
+                  price={planPricePerMonth("apiAccess")}
+                  description={PLANS.apiAccess.tagline}
                   href="/docs/api#authentication"
                 />
                 <PlanCard

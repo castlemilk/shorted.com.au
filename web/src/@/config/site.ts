@@ -77,7 +77,7 @@ export const siteConfig = {
     jobTitle: "Founder & Engineer",
     // Author profile slug in ~/@/data/authors.ts
     profilePath: "/authors/ben-ebsworth",
-    image: "https://shorted.com.au/assets/blog/authors/ben.png",
+    image: "https://shorted.com.au/assets/blog/authors/ben-ebsworth.jpg",
     website: "https://benebsworth.com",
     linkedin: "https://www.linkedin.com/in/ben-ebsworth/",
     github: "https://github.com/castlemilk",
