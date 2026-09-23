@@ -14,7 +14,9 @@ import type {
   CouncilSuburb,
   LgaInfo,
 } from "~/gen/shorts/v1alpha1/housing_pb";
+import { DropsStaleNotice } from "@/components/housing/price-drops/drops-stale-notice";
 import { councilHref } from "@/lib/housing/council";
+import { dropsFreshness, fmtDropsDate } from "@/lib/housing/drops-freshness";
 import {
   fmtInt, fmtMoney, fmtMonth, fmtShare, fmtSharePct, fmtSignedPct, type KeyFact,
 } from "@/lib/housing/council-page";
@@ -256,14 +258,6 @@ export function Rollups({
   );
 }
 
-/** A protobuf Timestamp as '24 Sep 2026' (AEST), or undefined when absent. */
-export function timestampDate(ts: { seconds: bigint | number } | undefined): string | undefined {
-  if (!ts) return undefined;
-  const ms = Number(ts.seconds) * 1000;
-  if (!Number.isFinite(ms) || ms <= 0) return undefined;
-  return new Date(ms).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: "Australia/Sydney" });
-}
-
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div className="rounded-xl border border-border/60 bg-card/40 p-4">
@@ -312,8 +306,13 @@ export function Representation({ federal, state }: { federal: readonly CouncilRe
 
 export function PriceDropsPulse({ stateCode, drops }: { stateCode: string; drops: CouncilPriceDrops | undefined }) {
   if (!drops) return null;
-  const asOf = timestampDate(drops.asOf);
-  const through = timestampDate(drops.dataThrough);
+  // The /price-drops freshness rules, not a local copy: dated in Sydney time
+  // with a fixed month table, and flagged stale past DROPS_STALE_AFTER_HOURS.
+  // Judged at render, so with this page's 24h ISR the notice can trail the 72h
+  // mark by up to a day; the dates in the lede are exact either way.
+  const freshness = dropsFreshness(drops);
+  const asOf = freshness.asOfIso ? fmtDropsDate(new Date(freshness.asOfIso)) : undefined;
+  const through = freshness.dataThroughIso ? fmtDropsDate(new Date(freshness.dataThroughIso)) : undefined;
   return (
     <Section
       id="price-drops"
@@ -327,6 +326,7 @@ export function PriceDropsPulse({ stateCode, drops }: { stateCode: string; drops
         </>
       }
     >
+      <DropsStaleNotice freshness={freshness} scope="in this section" testId="council-drops-stale" />
       <dl className="grid gap-3 sm:grid-cols-3">
         <Stat label="Listings cut" value={fmtInt(drops.droppedListingCount)} note={`of ${fmtInt(drops.trackedListingCount)} tracked`} />
         <Stat label="Share cut" value={`${(drops.droppedShare * 100).toFixed(1)}%`} />

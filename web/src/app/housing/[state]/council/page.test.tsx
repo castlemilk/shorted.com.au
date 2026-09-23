@@ -74,6 +74,31 @@ describe("state council index", () => {
     expect(props.councils[0]).not.toHaveProperty("$typeName");
   });
 
+  it("hands the map the drops share's freshness stamps as plain JSON", async () => {
+    const base = await (listCouncils() as Promise<{ councils: unknown[] }>);
+    listCouncils.mockClear();
+    listCouncils.mockResolvedValue({
+      councils: base.councils,
+      priceDropsAsOf: { seconds: BigInt(1790211600), nanos: 0 },
+      priceDropsDataThrough: { seconds: BigInt(1790193600), nanos: 0 },
+    });
+    render(await StateCouncilsPage(params("nsw")));
+    const props = indexMapProps.mock.calls[0]![0] as { dropsStamps: unknown };
+    // No bigint: it must survive the RSC boundary.
+    expect(props.dropsStamps).toEqual({
+      asOf: { seconds: 1790211600, nanos: 0 },
+      dataThrough: { seconds: 1790193600, nanos: 0 },
+    });
+    expect(JSON.parse(JSON.stringify(props.dropsStamps))).toEqual(props.dropsStamps);
+  });
+
+  it("passes no drops stamps when no council publishes a share", async () => {
+    render(await StateCouncilsPage(params("nsw")));
+    const props = indexMapProps.mock.calls[0]![0] as { dropsStamps: { asOf?: unknown; dataThrough?: unknown } };
+    expect(props.dropsStamps.asOf).toBeUndefined();
+    expect(props.dropsStamps.dataThrough).toBeUndefined();
+  });
+
   it("sorts by any column, with missing facts last in both directions", async () => {
     render(await StateCouncilsPage(params("nsw")));
     const names = () => screen.getAllByRole("row").slice(1).map((r) => within(r).getAllByRole("cell")[0]!.textContent);

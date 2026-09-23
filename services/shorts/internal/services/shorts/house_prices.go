@@ -614,9 +614,11 @@ func (s *ShortsServer) ListSuburbPriceDrops(ctx context.Context, req *connect.Re
 //
 // Takedown runbook (both steps are required):
 //  1. Set HOUSING_DROP_LISTINGS_ENABLED=false and restart/deploy the API.
-//  2. Flush KV and ISR immediately:
-//     curl -X POST -H "X-Revalidate-Secret: $REVALIDATION_SECRET" \
-//     "$REVALIDATION_URL?path=/price-drops,/housing&flush=housing"
+//  2. Flush KV and ISR immediately, naming every 24h route (revalidatePath
+//     does not cascade from /housing; -g stops curl globbing "[state]"):
+//     curl -g -X POST -H "X-Revalidate-Secret: $REVALIDATION_SECRET" \
+//     "$REVALIDATION_URL?flush=housing&path=/price-drops,/housing,/housing/[state],/housing/[state]/[suburb],/housing/[state]/council,/housing/[state]/council/[slug]"
+//     Canonical copy: docs/feature/housing/operations.md#takedown.
 func dropListingsEnabled() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("HOUSING_DROP_LISTINGS_ENABLED"))) {
 	case "false", "0", "off", "no":

@@ -25,7 +25,7 @@ suburb_demographics  (spine, sal_code)          suburb_crime_stats (000090)
   │ mv_agency_stats · mv_suburb_crime_latest               │
   └──────── refresh_housing_materialized_views() ──────────┘
                      │
-        HousingService (11 rpcs, housing.proto)
+        HousingService (17 rpcs, housing.proto)
 ```
 
 **Raw crawl rows are never a public surface.** Every crawled row carries

@@ -12,7 +12,7 @@ plus a property.com.au AVM enrichment tier), and the **price-drops board**
 
 Prod, as at 2026-08-09 (24-agent audit measurements): **88,689 crawl listings
 across 500 suburbs · 500-suburb crawl catalog · 22 collector modes (37 in code as of 2026-09-24; see pipeline.md) · 16
-official-ingest jobs · 11 `HousingService` RPCs.** VG suburb medians cover VIC
+official-ingest jobs · 11 `HousingService` RPCs (17 in code as of 2026-09-24).** VG suburb medians cover VIC
 739/3,076 and SA 426/1,764 suburbs; **NSW/QLD/WA sit at zero** (see
 known-open). If an older doc disagrees with these numbers — "115 suburbs",
 "~12k/22k listings", "7 modes", "Terraform not yet wired" — this line wins;

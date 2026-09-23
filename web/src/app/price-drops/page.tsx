@@ -13,6 +13,7 @@ import { StateDropsMap } from "@/components/housing/price-drops/state-drops-map-
 import { StateDropsBoard } from "@/components/housing/price-drops/state-drops-board";
 import { SuburbDropsLeaderboard } from "@/components/housing/price-drops/suburb-drops-leaderboard";
 import { AgencyDropsBoard } from "@/components/housing/price-drops/agency-drops-board";
+import { DropsStaleNotice } from "@/components/housing/price-drops/drops-stale-notice";
 import {
   getDropIndexSeries,
   getPriceDropsOverview,
@@ -179,18 +180,12 @@ export default async function PriceDropsPage() {
               ) : null}
             </p>
           ) : null}
-          {stale && freshness.dataToLabel ? (
-            <div
-              role="status"
-              data-testid="price-drops-stale"
-              className="mt-3 max-w-3xl rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
-            >
-              These figures have not been updated for more than three days. Every
-              &ldquo;last 30 days&rdquo; count on this page runs to{" "}
-              {freshness.dataToLabel.replace(/^Data to /, "")}, not to today, while
-              the listing crawl is interrupted.
-            </div>
-          ) : null}
+          <DropsStaleNotice
+            freshness={{ ...freshness, stale }}
+            scope="on this page"
+            testId="price-drops-stale"
+            className="mt-3"
+          />
           <p className="mt-2 text-sm text-muted-foreground">
             Part of the{" "}
             <Link href="/housing" className="font-medium text-primary underline-offset-4 hover:underline">

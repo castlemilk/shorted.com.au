@@ -697,7 +697,10 @@ Cloud Run RPC volume for the page down to ~hourly worst case.
   `manage_revalidation_secret = true` (prod) mirrors the short-data-sync module.
 - **Listing takedown runbook**: set `HOUSING_DROP_LISTINGS_ENABLED=false` (falsey disables),
   restart/deploy the API, then immediately run
-  `curl -X POST -H "X-Revalidate-Secret: $REVALIDATION_SECRET" "$REVALIDATION_URL?path=/price-drops,/housing&flush=housing"`.
+  `curl -g -X POST -H "X-Revalidate-Secret: $REVALIDATION_SECRET" "$REVALIDATION_URL?flush=housing&path=/price-drops,/housing,/housing/[state],/housing/[state]/[suburb],/housing/[state]/council,/housing/[state]/council/[slug]"`
+  (`-g` stops curl reading `[state]` as a glob). `revalidatePath` does not cascade, so each
+  24h route that renders a crawl-derived figure, including the council index and hub (§11),
+  is listed. The canonical steps are in [operations.md](operations.md#takedown).
   The flush removes any pre-change housing KV entries and revalidates the static ISR pages;
   the flag-gated agency/address server reads bypass KV on every render. Since the 000124
   branch the anonymous suburb/state aggregates and the index go dark too (one policy, §10.2);
@@ -780,8 +783,12 @@ council foundation: `lga` identity facts, `lga_series`, the mesh-block bridge).
   `HOUSING_DROP_LISTINGS_ENABLED` like every crawl-derived read: off strips
   `price_drops` and every `price_drop_share` outside the cache, on a clone
   (`TestCouncilRPCs_HonourTheDropListingsKillSwitch`). Takedown: flip the switch,
-  then `?flush=housing` (KV `cache:housing:council*`) and revalidate the council
-  pages.
+  then `?flush=housing` (KV `cache:housing:council*`) and revalidate
+  `/housing/[state]/council` and `/housing/[state]/council/[slug]` by name
+  (`/housing` does not cascade to them). The single call is in
+  [operations.md](operations.md#takedown) step 3. The hub's drops block and the
+  council maps' drops legend carry the /price-drops 72h stale notice
+  (`drops-freshness.ts`).
 - **Neighbours** merge two signals: suburb-topology adjacency (two councils'
   dominant suburbs share an arc; `web/scripts/geo/build-lga-adjacency.mjs` →
   `services/shorts/internal/store/shorts/lga_adjacency.json`, `go:embed`, 535

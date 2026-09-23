@@ -35,8 +35,9 @@ func main() {
 // run executes the selected mode and returns a process exit code: 0 = ok;
 // 1 = official-ingest, VG freshness, materialized-view finalization, or
 // OPERATOR-INGEST failure (census, electorates, banners, amenities, elevation, hazards,
-// lga, erp-lga, census-lga, council-regional, building-approvals-lga,
-// wikidata-lga, connectivity, funding, council-financials, crime — see ingestExit);
+// planning, lga, erp-lga, census-lga, council-regional, building-approvals-lga,
+// wikidata-lga, connectivity, funding, council-financials, crime, backfill-address
+// — see ingestExit);
 // 3 = re-warm the Chrome profile; 4 = Chrome/CDP unusable; 5 = REA session
 // cold; 6 = crawl freshness alarm; 7 = agent infrastructure failed before
 // any jobs completed (also used for enqueue/listings finalization failures);

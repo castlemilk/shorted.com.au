@@ -512,7 +512,7 @@ Operating manual (running, prompt iteration via `-print-prompt`/`-dry-run`, qual
 ## Housing (tracker + suburb explorer + listings crawl + price-drops)
 
 Five products over one fact/dimension data model, one chart system and one
-Connect-RPC service (`HousingService`, `housing.proto`, 11 rpcs): the
+Connect-RPC service (`HousingService`, `housing.proto`, 17 rpcs): the
 **Widow-Maker editorial feature** (`/features/the-widow-maker`, baked arrays), the
 **House Prices Tracker** (`/housing`, live ABS/RBA/Valuer-General ingest), the
 **suburb explorer** (`/housing` → `/housing/[state]` → `/housing/[state]/[suburb]`

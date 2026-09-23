@@ -67,6 +67,11 @@ export default async function StateCouncilsPage({ params }: PageProps) {
     floodSharePct: c.floodSharePct, bushfireSharePct: c.bushfireSharePct, priceDropShare: c.priceDropShare,
   }));
 
+  // Plain JSON too: the drops share's freshness stamps, for the map legend.
+  const plainStamp = (ts: { seconds: bigint; nanos: number } | undefined) =>
+    ts ? { seconds: Number(ts.seconds), nanos: ts.nanos } : undefined;
+  const dropsStamps = { asOf: plainStamp(res?.priceDropsAsOf), dataThrough: plainStamp(res?.priceDropsDataThrough) };
+
   const itemList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -123,7 +128,7 @@ export default async function StateCouncilsPage({ params }: PageProps) {
 
         {code !== "ACT" && rows.length > 1 ? (
           <section aria-label={`${name} council map`}>
-            <CouncilIndexMap stateCode={code} councils={rows} />
+            <CouncilIndexMap stateCode={code} councils={rows} dropsStamps={dropsStamps} />
           </section>
         ) : null}
 

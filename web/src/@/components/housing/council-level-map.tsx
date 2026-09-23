@@ -11,6 +11,8 @@ import {
   COUNCIL_METRIC_BY_KEY, councilMetricPeriods, councilMetricScale, type CouncilMetricInput, type CouncilMetricKey,
 } from "@/lib/housing/council-metrics";
 import { councilHref } from "@/lib/housing/council";
+import { dropsFreshness, type TimestampLike } from "@/lib/housing/drops-freshness";
+import { cn } from "@/lib/utils";
 
 const TIP_W = 220;
 const TIP_H = 120;
@@ -28,7 +30,7 @@ export type CouncilMapRow = CouncilMetricInput & Pick<CouncilSummary, "lgaCode" 
  * value for the metric hatches. Clicking a council opens its page.
  */
 export function CouncilLevelMap({
-  stateCode, topology, objectName, lgaBySal, councils, metricKey, overlays, legendExtra,
+  stateCode, topology, objectName, lgaBySal, councils, metricKey, overlays, legendExtra, dropsStamps,
 }: {
   stateCode: string;
   topology: Topology;
@@ -38,6 +40,12 @@ export function CouncilLevelMap({
   metricKey: CouncilMetricKey;
   overlays?: OverlayLayer[];
   legendExtra?: React.ReactNode;
+  /**
+   * ListCouncils' price_drops_as_of / price_drops_data_through. The
+   * price_drop_share metric is crawl-derived, so its legend is dated and
+   * carries the /price-drops 72h stale rule (drops-freshness.ts).
+   */
+  dropsStamps?: { asOf?: TimestampLike; dataThrough?: TimestampLike };
 }) {
   const router = useRouter();
   const metric = COUNCIL_METRIC_BY_KEY[metricKey];
@@ -67,6 +75,9 @@ export function CouncilLevelMap({
   // Date the legend by the period most councils are on, and say when some are
   // older — a 2021-22 median must not pass for a 2023-24 one.
   const periods = useMemo(() => councilMetricPeriods(metric, councils), [metric, councils]);
+  // Client-only render (the map waits on fetched geometry), so judging
+  // staleness against the viewer's clock cannot cause a hydration mismatch.
+  const dropsFresh = metricKey === "price_drop_share" ? dropsFreshness(dropsStamps) : undefined;
   const hovered = hover ? byCode.get(hover.code) : undefined;
   const hoveredValue = hovered ? metric.value(hovered) : null;
   const hoveredPeriod = hovered && hoveredValue != null ? metric.period?.(hovered) : undefined;
@@ -84,6 +95,21 @@ export function CouncilLevelMap({
           : ""}{" "}
         Council shapes join the suburbs each council holds most residents of (ABS mesh-block allocation).
       </p>
+      {dropsFresh?.dataToLabel ? (
+        <p
+          role={dropsFresh.stale ? "status" : undefined}
+          data-testid="council-drops-freshness"
+          className={cn(
+            "pointer-events-none max-w-[240px] rounded-md px-2 py-1 text-[10px] leading-snug backdrop-blur",
+            dropsFresh.stale ? "bg-amber-500/15 text-amber-900 dark:text-amber-200" : "bg-card/85 text-muted-foreground",
+          )}
+        >
+          {dropsFresh.dataToLabel}
+          {dropsFresh.stale
+            ? ". Not updated for more than three days: the 30-day window runs to that date, not to today, while the listing crawl is interrupted."
+            : "."}
+        </p>
+      ) : null}
       {legendExtra}
     </div>
   );

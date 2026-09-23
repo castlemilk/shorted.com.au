@@ -276,14 +276,17 @@ and a **browser UA** (a curl UA is edge-blocked). `post-deploy-smoke.yml` then
 re-primes via `/api/static-pages/warm-cache` — the first five entries,
 `/market`, `/housing`, `/economy`, `/compare`, `/price-drops`.
 
-**`/housing/[state]` and `/housing/[state]/[suburb]` are in neither list.** Both
-are `revalidate = 86400`, so after a promote they self-heal only on that 24h TTL
-unless revalidated explicitly (a `path` containing `[` revalidates the whole
-dynamic route). Manual fallback — `gcloud secrets versions access latest
---secret=REVALIDATION_SECRET --project rosy-clover-477102-t5`, then POST
-`/api/revalidate?secret=…&path=/price-drops,/housing&flush=housing`.
-`flush=housing` busts the whole `cache:housing:` prefix; the collector fires the
-same call after a run that wrote data ([pipeline.md](pipeline.md)).
+**`/housing/[state]`, `/housing/[state]/[suburb]` and
+`/housing/[state]/council/[slug]` are in neither list.** The eight council index
+pages are in `isr-pages.json`. All of these routes are `revalidate = 86400`, so
+after a promote they self-heal only on that 24h TTL unless revalidated
+explicitly. A `path` containing `[` revalidates the whole dynamic route. Manual
+fallback: get the secret with `gcloud secrets versions access latest
+--secret=REVALIDATION_SECRET --project rosy-clover-477102-t5`, then send the
+full route list from [Takedown](#takedown) step 3. `flush=housing` busts the
+whole `cache:housing:` prefix. The collector's own call after a run that wrote
+data sends only `path=/price-drops,/housing&flush=housing`
+([pipeline.md](pipeline.md)), so it does not reach the 24h routes.
 
 ## Takedown
 
@@ -300,7 +303,22 @@ exists to pull keeps serving for up to 24h:
    `/api/admin/flush-cache` with `target=housing` — it clears only
    `cache:housing:overview:`, not the `cache:housing:drops:*` keys the board
    serves from (`PRICE_DROPS_TTL` = 86400s).
-3. **Revalidate ISR**: `/price-drops` (static, 1h) plus the suburb routes.
+3. **Revalidate ISR** — every route that renders a crawl-derived figure:
+   `/price-drops` (static, 1h), `/housing` (1h), and the four 24h dynamic
+   routes `/housing/[state]`, `/housing/[state]/[suburb]`,
+   `/housing/[state]/council` and `/housing/[state]/council/[slug]`. The
+   council index and hub render the council `price_drop_share` and the hub's
+   price-drops block. List each route: the endpoint's `revalidatePath(path)`
+   does not cascade, so `/housing` alone leaves every page under it cached, and
+   a `[`-pattern revalidates only that one route (as type `page`). In one call:
+
+   ```bash
+   curl -g -X POST -H "X-Revalidate-Secret: $REVALIDATION_SECRET" \
+     "$REVALIDATION_URL?flush=housing&path=/price-drops,/housing,/housing/[state],/housing/[state]/[suburb],/housing/[state]/council,/housing/[state]/council/[slug]"
+   ```
+
+   `-g` (`--globoff`) is required, because curl otherwise reads `[state]` as a
+   URL glob range and refuses the request. The call covers step 2 as well.
 
 Re-enabling is the same three steps with the switch flipped back. `/price-drops`
 caches its "not available" render (the overview reports `withheld`, which is

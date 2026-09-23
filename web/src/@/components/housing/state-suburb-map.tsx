@@ -533,6 +533,7 @@ export function StateSuburbMap({
       <CouncilLevelMap
         stateCode={stateCode} topology={topo} objectName={objectName} lgaBySal={lgaBySal}
         councils={councils} metricKey={councilMetricKey} overlays={overlayLayers.layers}
+        dropsStamps={{ asOf: councilList.data?.priceDropsAsOf, dataThrough: councilList.data?.priceDropsDataThrough }}
         legendExtra={<OverlayLegend stateCode={stateCode} active={overlays} opacities={opacities} onRemove={removeOverlay} />}
       />,
     );

@@ -176,6 +176,36 @@ describe("council page", () => {
     expect(section).not.toHaveTextContent("median of suburb medians");
   });
 
+  describe("price-drops staleness (the /price-drops 72h rule)", () => {
+    // 2026-09-24T01:00Z and 2026-09-23T20:00Z, as above.
+    const drops = () => create(CouncilPriceDropsSchema, {
+      droppedListingCount: 7, trackedListingCount: 100, droppedShare: 0.07, suburbsTracked: 3,
+      asOf: { seconds: BigInt(1790211600), nanos: 0 } as never,
+      dataThrough: { seconds: BigInt(1790193600), nanos: 0 } as never,
+    });
+    afterEach(() => jest.useRealTimers());
+
+    it("warns once the crawl data behind the block is more than three days old", async () => {
+      jest.useFakeTimers({ now: new Date("2026-09-28T00:00:00Z"), doNotFake: ["nextTick", "setImmediate"] });
+      getCouncilProfile.mockResolvedValue(profile({ priceDrops: drops() }));
+      render(await CouncilPage(params("nsw", "canterbury-bankstown")));
+      const section = screen.getByRole("heading", { name: "Asking-price cuts" }).closest("section")!;
+      // Dated by the shared formatter: a fixed "Sep", never ICU's "Sept".
+      expect(section).toHaveTextContent("Computed 24 Sep 2026; newest crawl observation 24 Sep 2026.");
+      expect(within(section).getByTestId("council-drops-stale")).toHaveTextContent(
+        /not been updated for more than three days.*in this section runs to 24 Sep 2026, not to today/,
+      );
+    });
+
+    it("says nothing while the data is inside the window", async () => {
+      jest.useFakeTimers({ now: new Date("2026-09-25T00:00:00Z"), doNotFake: ["nextTick", "setImmediate"] });
+      getCouncilProfile.mockResolvedValue(profile({ priceDrops: drops() }));
+      render(await CouncilPage(params("nsw", "canterbury-bankstown")));
+      expect(screen.getByRole("heading", { name: "Asking-price cuts" })).toBeInTheDocument();
+      expect(screen.queryByTestId("council-drops-stale")).toBeNull();
+    });
+  });
+
   it("shows Victorian council finances with their year, and credits LGPRF only then", async () => {
     const vic = profile();
     Object.assign(vic.profile!.council!, { avgRates: 2_150, opSurplusRatio: -3.25, assetRenewalRatio: 96, finSource: "vic_lgprf", finYear: "2024-25" });

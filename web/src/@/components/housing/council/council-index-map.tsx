@@ -9,6 +9,7 @@ import { lgaCodesFromColumn } from "@/lib/housing/council-geometry";
 import {
   COUNCIL_METRICS, DEFAULT_COUNCIL_METRIC, type CouncilMetricKey,
 } from "@/lib/housing/council-metrics";
+import type { TimestampLike } from "@/lib/housing/drops-freshness";
 import { CouncilLevelMap, type CouncilMapRow } from "../council-level-map";
 import { HousingIcon } from "../housing-icon";
 import { useSuburbColumns } from "../use-suburb-columns";
@@ -18,6 +19,8 @@ export interface CouncilIndexMapProps {
   stateCode: string;
   /** The same ListCouncils rows the table renders, as plain JSON. */
   councils: readonly CouncilMapRow[];
+  /** ListCouncils' drops freshness stamps, as plain JSON (dates the drops legend). */
+  dropsStamps?: { asOf?: TimestampLike; dataThrough?: TimestampLike };
 }
 
 const LGA_COLUMN = ["lga_code"] as const;
@@ -28,7 +31,7 @@ const LGA_COLUMN = ["lga_code"] as const;
  * Shapes are merged from the suburb topology on the client, exactly as on the
  * state map, so this adds no geometry asset.
  */
-export function CouncilIndexMap({ stateCode, councils }: CouncilIndexMapProps) {
+export function CouncilIndexMap({ stateCode, councils, dropsStamps }: CouncilIndexMapProps) {
   const [metricKey, setMetricKey] = useState<CouncilMetricKey>(DEFAULT_COUNCIL_METRIC);
   const { data: topo, isError } = useTopojson(`/geo/suburbs/${stateCode}.topojson`);
   const column = useSuburbColumns(stateCode, LGA_COLUMN);
@@ -72,6 +75,7 @@ export function CouncilIndexMap({ stateCode, councils }: CouncilIndexMapProps) {
             lgaBySal={lgaBySal}
             councils={councils}
             metricKey={metricKey}
+            dropsStamps={dropsStamps}
           />
         ) : (
           <div className="absolute inset-0 animate-pulse bg-muted motion-reduce:animate-none" role="status" aria-label="Loading the council map" />
