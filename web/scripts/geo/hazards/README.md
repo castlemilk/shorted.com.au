@@ -170,6 +170,8 @@ $PY overlay_geometry.py vector --layer-dir $H/vector/nsw-flood --layer flood_pla
 $PY overlay_geometry.py vector --layer-dir $H/vector/nsw-bushfire --layer bushfire_prone --suburbs $SUB/NSW.topojson --out $H/overlays/NSW-bushfire_prone.geojson --raster-m 60
 $PY overlay_geometry.py vector --layer-dir $H/vector/qld-bushfire --layer bushfire_prone --suburbs $SUB/QLD.topojson --out $H/overlays/QLD-bushfire_prone.geojson --raster-m 60
 $PY overlay_geometry.py vector --layer-dir $H/vector/wa-bushfire  --layer bushfire_prone --suburbs $SUB/WA.topojson  --out $H/overlays/WA-bushfire_prone.geojson  --raster-m 60
+# SA flood: 150,000 parcel polygons; the GEOS union ran 15+ min without finishing, 30 m raster takes 88 s
+$PY overlay_geometry.py vector --layer-dir $H/vector/sa-flood     --layer flood_planning --suburbs $SUB/SA.topojson --out $H/overlays/SA-flood_planning.geojson --raster-m 30
 for st in ACT NT TAS SA WA VIC QLD NSW; do
   $PY overlay_geometry.py wofs --vrt $H/wofs.vrt --suburbs $SUB/$st.topojson --out $H/overlays/$st-water_observed.geojson
 done
