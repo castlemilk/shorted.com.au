@@ -99,6 +99,13 @@ func exitFor(mode string, code int) error {
 // connect and an unknown -mode; inside a shared binary that would skip deferred
 // cleanup and the runner's end-of-job logging, so those three paths return
 // errors with the same message text instead.
+// retiredCouncilModes write the lga dimension, which house-price-collector
+// now owns (mesh-block bridge, ABS ERP population, FAG history matched by
+// normalised name). This unscheduled fork still carries the older writers, and
+// running one would overwrite the collector's values with them, so they refuse
+// before touching the database. The fork itself is being retired.
+var retiredCouncilModes = map[string]bool{"lga": true, "funding": true, "council-financials": true}
+
 func Run(parent context.Context, args []string) error {
 	fs := flag.NewFlagSet("house-prices", flag.ContinueOnError)
 	mode := fs.String("mode", "all", modeList)
@@ -110,6 +117,9 @@ func Run(parent context.Context, args []string) error {
 	}
 	if fs.NArg() > 0 {
 		return fmt.Errorf("unexpected argument %q (house-prices takes only -mode)", fs.Arg(0))
+	}
+	if retiredCouncilModes[*mode] {
+		return fmt.Errorf("-mode %s is retired here: the council modes live in services/house-price-collector (-mode %s), which owns lga/suburb_lga/lga_series. This fork's copy writes the old per-name FAG match, the Census suburb-sum population and the pre-mesh-block bridge over them", *mode, *mode)
 	}
 
 	dbURL := os.Getenv("DATABASE_URL")

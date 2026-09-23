@@ -107,6 +107,18 @@ func TestModeListCoversEveryDispatchCase(t *testing.T) {
 	}
 }
 
+// The council modes write lga, which house-price-collector owns; the fork's
+// older writers must refuse before connecting rather than overwrite it.
+func TestCouncilModesRefuseBeforeTouchingTheDatabase(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://refuse-before-connect.invalid:1/x")
+	for _, mode := range []string{"lga", "funding", "council-financials"} {
+		err := Run(context.Background(), []string{"-mode", mode})
+		require.Error(t, err, "-mode %s", mode)
+		require.Contains(t, err.Error(), "house-price-collector", "-mode %s", mode)
+		require.NotContains(t, err.Error(), "db connect", "-mode %s must refuse before connecting", mode)
+	}
+}
+
 // TestExitForPreservesRigContract is the exit-code contract test.
 //
 // deploy/run-housing-crawl.sh branches on 3/4/5, run-housing-delta.sh and
