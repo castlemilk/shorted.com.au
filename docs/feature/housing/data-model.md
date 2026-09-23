@@ -183,7 +183,7 @@ state where not NULL — `idx_lga_state_slug`), `erp_year`, `wikidata_qid`,
 | Column(s) | Written by | Source |
 |---|---|---|
 | identity, `area_sqkm`, `dwellings`, `centroid_*` | `-mode lga` | `lga-facts.json` (ABS allocation files + geometry) |
-| `slug` | `-mode lga` | minted ONCE from `display_name`; never overwritten; a same-state collision gets `-<lga_code24>` |
+| `slug` | `-mode lga` | minted ONCE from `display_name`; never overwritten; a same-state collision gets `-<lga_code24>`. Apostrophes become a hyphen like `suburbSlug` (`Break O'Day` → `break-o-day`); `&` is spelled `and`. Resolve a council URL by looking up `lga.slug` (from the API), never by slugifying a name client-side |
 | `population`, `erp_year`, `pop_growth_pct` | `-mode erp-lga` | ABS ERP |
 | `median_*`, `avg_household_size`, `pct_rented`, `seifa_*_decile` | `-mode census-lga` | Census 2021 + SEIFA 2021 |
 | `fed_fag_aud`, `fed_fag_year` | `-mode funding` | FAG (latest year; history in `lga_series`) |

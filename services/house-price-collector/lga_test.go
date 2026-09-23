@@ -67,7 +67,9 @@ func TestLGAStateCode(t *testing.T) {
 func TestLGASlugBase(t *testing.T) {
 	cases := map[string]string{
 		"Albury":                       "albury",
-		"Break O'Day":                  "break-oday",
+		"Break O'Day":                  "break-o-day", // suburbSlug's rule: "O'Bil Bil" → "o-bil-bil"
+		"Break O’Day":                  "break-o-day",
+		"Coöperative Shire":            "cooperative-shire", // diacritics fold, never split a word
 		"Norwood Payneham & St Peters": "norwood-payneham-and-st-peters",
 		"Merri-bek":                    "merri-bek",
 		"Unincorp. Other Territories":  "unincorp-other-territories",

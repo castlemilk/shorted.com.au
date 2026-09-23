@@ -101,18 +101,23 @@ func lgaHasPage(kind string) bool {
 }
 
 // lgaSlugBase turns a display name into a URL segment: ASCII-folded,
-// lower-case, '&' spelled out, apostrophes dropped ("Break O'Day" →
-// "break-oday"), everything else collapsed to single hyphens.
+// lower-case, '&' spelled out, and every other non-alphanumeric run —
+// apostrophes included — collapsed to a single hyphen ("Break O'Day" →
+// "break-o-day"). The apostrophe rule matches suburbSlug in
+// web/src/@/lib/housing/states.ts ("O'Bil Bil" → "o-bil-bil"), so council and
+// suburb URLs under /housing/<state>/ follow one convention. Even so, a
+// council URL is resolved by looking up lga.slug, never by re-slugifying a
+// name: slugs are minted once, so a later rule change never moves a URL.
 func lgaSlugBase(display string) string {
 	s := norm.NFKD.String(strings.ToLower(display))
-	s = strings.NewReplacer("&", " and ", "'", "", "’", "", "‘", "").Replace(s)
+	s = strings.NewReplacer("&", " and ").Replace(s)
 	var b strings.Builder
 	dash := false
 	for _, r := range s {
 		switch {
-		case r > unicode.MaxASCII:
-			continue // combining marks left behind by NFKD
-		case unicode.IsLetter(r) || unicode.IsDigit(r):
+		case unicode.Is(unicode.Mn, r):
+			continue // combining marks left behind by NFKD ("é" → "e")
+		case r <= unicode.MaxASCII && (unicode.IsLetter(r) || unicode.IsDigit(r)):
 			b.WriteRune(r)
 			dash = false
 		case !dash && b.Len() > 0:
