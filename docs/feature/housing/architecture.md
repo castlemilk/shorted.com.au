@@ -659,3 +659,81 @@ Cloud Run RPC volume for the page down to ~hourly worst case.
   export + KV'd actions (cacheable transport!) + `bailOnEmptyRender()` on the empty branch +
   add to warm-cache `STATIC_PAGES` + include its KV keys under `cache:housing:` so the crawl
   ping busts it for free.
+
+## 11. The council hub (`/housing/[state]/council[/slug]`) — decision record
+
+Decided 2026-09-24 (stream D of the housing council program, stacked on the
+council foundation: `lga` identity facts, `lga_series`, the mesh-block bridge).
+
+- **Two RPCs, no MV.** `ListCouncils(state)` serves the index table and the
+  council choropleth from ONE row shape (`CouncilSummary`); `GetCouncilProfile(state,
+  slug)` embeds that same row, so the page, the index and the map never disagree.
+  Measured on the local DB (566 councils, 15,329 bridge rows, 137k `lga_series`
+  rows): ListCouncils 12–100 ms per state (NSW, 129 councils, the slowest),
+  GetCouncilProfile 43–54 ms (Brisbane, 191 suburbs, the slowest). Under heavy
+  machine load (~30) NSW reached ~1 s once; the hazard CTE alone is 16–20 ms.
+  Well under the ~400 ms bar in normal conditions, so no `mv_lga_profile` and no
+  000127; the API's MemoryCache + the web KV layer absorb repeats.
+- **Membership = the bridge.** A suburb belongs to its dominant council and to any
+  council holding ≥ 5% of its residents (`councilMemberMinShare` =
+  `councilOverlapMinShare`, the same floor the suburb profile uses). Every rollup
+  weights a member by the residents it contributes (Census 2021 persons × share).
+- **Never smear.** The council median is ABS's council-wide figure, labelled
+  "council-wide" with its FY on every surface. The member-suburb table shows each
+  suburb's OWN Valuer-General median or nothing; the price rollup (min / median of
+  medians / max) uses dominant members only, unweighted.
+- **NULL ≠ 0 in rollups.** Hazard shares divide by the population of COVERED
+  members only (both numerator and denominator `FILTER`ed); a council with no
+  covered member gets NULL and hatches on the map. The index / choropleth share
+  (one number, no coverage beside it) is also NULL unless covered members hold
+  ≥ 50% of the council's member residents (`councilHazardMinCoverage`); the hub
+  rollup states "over N of M member suburbs" instead. Pinned by
+  `TestCouncilQueryShapes` (mutation-tested) and the temp-table
+  `TestCouncilHazardRollupNeedsCoverage`. **Deploy prerequisite:** until stream
+  E's NSW coverage mask is loaded, prod stores 0 (not NULL) for the 3,833 NSW
+  suburbs outside the 12 flood-mapped LEPs, so every NSW council would read
+  "0%" flood — load E's hazards before this ships.
+- **Price drops** are counted from the crawl tables (`councilDropsQuery`), NOT
+  summed from `mv_suburb_price_drops`: that view omits every suburb under 3 cuts,
+  so summing it lost exactly the cuts a council floor exists to pool (prod
+  2026-09-24: 65 cuts in 42 sub-floor suburbs across 24 councils; 12850 read 8
+  of 14) while their listings stayed in the denominator. The query applies the
+  views' own filters (address-deduped winner, 30-day events, 40% cap) and
+  decision 9's "active" (`is_active AND last_seen_at >= now() - 14 days`), over
+  dominant members (a listing sits at one address — never split by share), with
+  one council-total row per council from `GROUPING SETS`. The floor is 3 cut
+  listings COUNCIL-wide; a suburb is named only if it clears 3 itself; the median
+  cut is over every cut listing in the council. 30–100 ms per state on prod
+  (read-only `EXPLAIN ANALYZE`). Every drops read carries `as_of` (computation
+  time) and `data_through` (newest crawl observation behind it). The share obeys
+  `HOUSING_DROP_LISTINGS_ENABLED` like every crawl-derived read: off strips
+  `price_drops` and every `price_drop_share` outside the cache, on a clone
+  (`TestCouncilRPCs_HonourTheDropListingsKillSwitch`). Takedown: flip the switch,
+  then `?flush=housing` (KV `cache:housing:council*`) and revalidate the council
+  pages.
+- **Neighbours** merge two signals: suburb-topology adjacency (two councils'
+  dominant suburbs share an arc; `web/scripts/geo/build-lga-adjacency.mjs` →
+  `services/shorts/internal/store/shorts/lga_adjacency.json`, `go:embed`, 535
+  councils, symmetric, within a state) and straddling suburbs (the bridge; also
+  within a state, since a suburb and a council each nest in one state). So
+  cross-border pairs (Albury–Wodonga, Queanbeyan-Palerang–ACT, Tweed–Gold Coast)
+  are never neighbours, Unincorporated ACT has none, and the page says "in the
+  same state". Adjacency was chosen over straddle-only because the
+  straddle signal recovers only 39% of true borders and leaves 156 councils with
+  no neighbour at all. Regenerate the JSON whenever the suburb topology or the
+  bridge changes (`--check` fails on drift; `lga-adjacency.test.mjs`).
+- **Council geometry is derived, never shipped.** The map gets each suburb's
+  dominant council as one more suburb column (`lga_code`, ~18 KB/state) and
+  builds fills with `topojson.mergeArcs`, outlines with `merge`, borders with
+  `mesh` (1–22 ms per state). The outline is the union of dominant suburbs — the
+  ABS allocation's grain, not the gazetted line — and the map says so.
+- **Kinds.** Pages exist for `council` and `unincorporated`; pseudo areas never
+  get one (and never enter the sitemap). An unincorporated page says no council
+  governs it; `Unincorporated ACT` is explained as the ACT Government's area
+  (no councils; the ACT Government receives the FAG). The ACT has no council
+  level or borders on the map.
+- **Caching.** Server actions use the ISR-tagged transport + an Upstash
+  last-good layer under `cache:housing:council*` (so the crawl-event flush also
+  refreshes the drop rollups), written and read back only when populated. The
+  eight index pages join `isr-pages.json`; council pages are prebuilt by
+  `generateStaticParams` and otherwise on-demand ISR.

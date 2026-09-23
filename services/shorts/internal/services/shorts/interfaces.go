@@ -136,6 +136,9 @@ type ShortsStore interface {
 	GetPriceDropsOverview() ([]*shortsstore.StatePriceDropSummaryRow, error)
 	ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*shortsstore.AgencyPriceStatsRow, error)
 	GetDropIndexSeries(grain, grainKey, from, to string) ([]*shortsstore.DropIndexPointRow, error)
+	// Council hub — see services/shorts/internal/services/shorts/councils.go.
+	ListCouncils(stateCode string) ([]*shortsstore.CouncilSummaryRow, error)
+	GetCouncilProfile(stateCode, slug string) (*shortsstore.CouncilProfileRow, error)
 
 	// Economy snapshot methods
 	// Register of Members'/Senators' Interests methods
@@ -238,6 +241,8 @@ type Cache interface {
 	GetPriceDropsOverviewKey() string
 	GetAgencyPriceStatsKey(stateCode, sort string, limit int32) string
 	GetDropIndexSeriesKey(grain, grainKey, from, to string) string
+	GetCouncilsKey(stateCode string) string
+	GetCouncilProfileKey(stateCode, slug string) string
 	// Register of Members'/Senators' Interests cache keys
 	ParliamentOverviewKey() string
 	ListPoliticiansKey(chamber, stateCode, partyAb, query string, limit, offset int32) string

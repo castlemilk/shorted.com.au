@@ -46,7 +46,7 @@ build: `web/scripts/geo/hazards/`; wording rules:
 |---|---|
 | **[data-sources.md](data-sources.md)** | Every source, its licence, the mandatory fetch posture (ABS WAF UA, warm Chrome), and which sources are ruled OUT and why |
 | **[data-model.md](data-model.md)** | Tables, MVs, the migration map (000053–000092), and the guards enforced in the database rather than by review |
-| **[pipeline.md](pipeline.md)** | The collector's 22 modes, what each writes, order dependencies, timeouts and the exit-code contract |
+| **[pipeline.md](pipeline.md)** | The collector's 27 modes, what each writes, order dependencies, timeouts and the exit-code contract |
 | **[operations.md](operations.md)** | Runbook: prod DDL regime, the residential-rig crawl, revalidation, and the landmines that have actually bitten |
 | [architecture.md](architecture.md) | The decision-and-incident record (the old 75KB monolith, moved here; its actively-wrong claims corrected inline, the rest assume residual drift) plus the extension recipes. Read it before touching crawl classification or caching |
 | [crawl-roadmap.md](crawl-roadmap.md) | Handover for the next crawl work: measured coverage/throughput/completeness numbers, what blocks per-property reporting and stock-over-time, and the coverage arithmetic for "all suburbs" |
@@ -96,8 +96,10 @@ the read path 500s. Same regime as politicians.
 | Route | What it is |
 |---|---|
 | `/housing` | Live tracker: BigStat tiles + capital-city medians + national states choropleth. ISR |
-| `/housing/[state]` | Suburb choropleth + list with the "Colour by" metric toggle (price, Census, electoral, crime) |
+| `/housing/[state]` | Suburb choropleth + list with the "Colour by" metric toggle (price, Census, electoral, crime). A **Suburbs \| Councils** level toggle (`?level=council&metric=<council key>`) colours councils by the `council-metrics.ts` registry, and a **Council borders** toggle (`?boundaries=councils`) draws council lines over the suburb map — both derived from the suburb topology, no boundary asset |
 | `/housing/[state]/[suburb]` | Suburb profile: banner, demographics, electoral, crime ranks, listings-derived stats |
+| `/housing/[state]/council` | State council index: council choropleth (client island fed the server's rows) + a sortable table of every council with a page (kind `council` \| `unincorporated`): ERP population + growth, density, council-wide house median, grant per resident, approvals per 1,000, IRSAD, flood/bushfire shares. ISR 86400 + KV; in the shell re-prime set |
+| `/housing/[state]/council/[slug]` | Council hub: identity, map (member suburbs, derived outline, neighbours), key facts, ABS series charts, Census/SEIFA, member-suburb table (own VG medians only), hazard/price/crime rollups, representation, k-floored price-drops pulse, neighbouring councils. ~550 pages, `generateStaticParams`, ISR 86400 + KV. `ListCouncils` / `GetCouncilProfile` |
 | `/housing/property/[addressKey]` | Per-address property history (AVM-fed — posture contested, see known-open) |
 | `/housing/calculators` | Housing calculators |
 | `/price-drops` | Price-cuts board: state / suburb / address / agency rollups. Static ISR (1h) + KV (24h), busted by the collector's post-crawl revalidate ping. `/housing/drops` 308-redirects here (`permanentRedirect`); `/housing/suburbs` also 308s to `/housing` (a `next.config.mjs` `permanent: true` redirect) |

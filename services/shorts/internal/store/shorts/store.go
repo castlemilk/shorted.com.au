@@ -195,6 +195,9 @@ type Store interface {
 	GetPriceDropsOverview() ([]*StatePriceDropSummaryRow, error)
 	ListAgencyPriceStats(stateCode, sort string, limit int32) ([]*AgencyPriceStatsRow, error)
 	GetDropIndexSeries(grain, grainKey, from, to string) ([]*DropIndexPointRow, error)
+	// Council hub (postgres_councils.go).
+	ListCouncils(stateCode string) ([]*CouncilSummaryRow, error)
+	GetCouncilProfile(stateCode, slug string) (*CouncilProfileRow, error)
 
 	// Register of Members'/Senators' Interests methods
 	GetRegisterOverview() (*RegisterOverviewRow, error)

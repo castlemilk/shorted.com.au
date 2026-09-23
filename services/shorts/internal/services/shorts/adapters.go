@@ -343,6 +343,14 @@ func (s *StoreAdapter) GetDropIndexSeries(grain, grainKey, from, to string) ([]*
 	return s.store.GetDropIndexSeries(grain, grainKey, from, to)
 }
 
+func (s *StoreAdapter) ListCouncils(stateCode string) ([]*shorts.CouncilSummaryRow, error) {
+	return s.store.ListCouncils(stateCode)
+}
+
+func (s *StoreAdapter) GetCouncilProfile(stateCode, slug string) (*shorts.CouncilProfileRow, error) {
+	return s.store.GetCouncilProfile(stateCode, slug)
+}
+
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
 }

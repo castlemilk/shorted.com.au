@@ -26,6 +26,7 @@ const (
 	suburbMetricJoinCrime
 	suburbMetricJoinRegister
 	suburbMetricJoinHazards
+	suburbMetricJoinCouncil
 )
 
 type suburbMetricDefinition struct {
@@ -160,6 +161,13 @@ var suburbMetricRegistry = map[string]suburbMetricDefinition{
 	"permanent_water_share_pct": metric("permanent_water_share_pct", "h.permanent_water_share_pct", suburbMetricJoinHazards),
 	"flood_planning_share_pct":  metric("flood_planning_share_pct", "h.flood_planning_share_pct", suburbMetricJoinHazards),
 	"bushfire_prone_share_pct":  metric("bushfire_prone_share_pct", "h.bushfire_prone_share_pct", suburbMetricJoinHazards),
+
+	// The suburb's DOMINANT council (suburb_lga, ABS mesh-block allocation) as
+	// its 5-digit ABS LGA code. An identifier column, not a metric: the map
+	// merges suburb polygons by it into council fills and outlines. ABS LGA
+	// codes are 5-digit integers, exact in float32 (< 2^24); the regex keeps
+	// any non-numeric code NULL rather than letting a cast fail the column.
+	"lga_code": metric("lga_code", `CASE WHEN sl.lga_code24 ~ '^[0-9]{5}$' THEN sl.lga_code24::int END`, suburbMetricJoinCouncil),
 }
 
 func metric(key, expression string, joins suburbMetricJoin) suburbMetricDefinition {
@@ -345,6 +353,9 @@ func buildSuburbMetricQuery(keys []string) (string, []suburbMetricDefinition, er
 	}
 	if joins&suburbMetricJoinHazards != 0 {
 		query.WriteString("\nLEFT JOIN suburb_hazard_exposure h ON h.sal_code = d.sal_code AND h.source_licence <> 'proprietary-tos-restricted'")
+	}
+	if joins&suburbMetricJoinCouncil != 0 {
+		query.WriteString("\nLEFT JOIN suburb_lga sl ON sl.sal_code = d.sal_code")
 	}
 	query.WriteString("\nWHERE d.state_code = $1\nORDER BY d.sal_code")
 	return query.String(), definitions, nil

@@ -25,6 +25,14 @@ and every base-table read in `postgres_house_prices.go` re-asserts it.
 | **NSW EPI Flood** (NSW Planning Portal, `Planning/Hazard` layer 1) + **NSW Bush Fire Prone Land** (NSW RFS) | CC-BY / CC-BY-4.0 | NSW `flood_planning` / `bushfire_prone` shares and overlays. Councils own flood currency since July 2021 — the caveat ships with the layer |
 | **Vicmap Planning overlays** LSIO / FO / SBO / BMO (DTP Victoria, WFS `open-data-platform:plan_overlay`, gazetted status only) | CC-BY-4.0 | VIC `flood_planning` / `bushfire_prone` shares and overlays |
 | **OSM (Overpass)**, ACARA, Geoscience Australia, NBN, IIP | ODbL / ToS / CC-BY / CC-BY-4.0 | local-insights amenity, school, health, connectivity, funding layers |
+| **ABS ASGS Ed.3 allocation files** (`SAL_2021_AUST.xlsx`, `LGA_2024_AUST.xlsx`) + **Census 2021 Mesh Block Counts** | CC-BY-4.0 | the suburb→council bridge: dominant council, its share, every council ≥ 1% (`join-lga-mb.py` → `suburb-lga.json`); council identity, dwellings, centroid (`lga-facts.json`). Raw files staged off-git |
+| **ABS ERP by LGA** (`ERP_LGA<Y>`, `ERP_COMP_LGA<Y>`; one flow per release, newest discovered each run) | CC-BY-4.0 | `lga.population` (ERP at 30 June), `erp_year`, `pop_growth_pct`; `lga_series` erp + natural increase, net internal / overseas migration |
+| **ABS Census 2021 by LGA** (`C21_G02_LGA`, `C21_G37_LGA`) + **SEIFA 2021 by LGA** (`ABS_SEIFA2021_LGA`) | CC-BY-4.0 | `lga` median age / household income / rent / mortgage, household size, % renting, IRSAD + IRSD national deciles |
+| **ABS Data by Region** (`ABS_REGIONAL_LGA2021` v1.6.0: `HOUSES_2..5`, `BUILDING_4`) | CC-BY-4.0 | `lga_series` **council-level** median established-house and attached-dwelling transfer prices + counts, FY dwelling approvals. A council's median, **never a suburb's** — see below |
+| **ABS Building Approvals by LGA** (`BA_LGA<FY>`, monthly, key-filtered `1.9.TOT.100+110+850...M`) | CC-BY-4.0 | `lga_series` monthly dwelling units approved: total, houses, other |
+| **Federal Financial Assistance Grants** (Dept of Infrastructure, `fa-grants-historical-2017-18-to-2025-26.xlsx`) | CC-BY-4.0 | `lga_series` `fag_total_aud` 2017-18..2025-26; latest year on `lga.fed_fag_*` |
+| **VIC LGPRF** Full Council Data Set (Local Government Victoria; URL read from the data.vic CKAN record `local-government-performance-reporting`, `license_id=cc-by`) | CC-BY-4.0 | `lga` avg rates, operating result, asset renewal — VIC only |
+| **Wikidata** (SPARQL, `P10112` ASGS LGA code → QID, `P856` official website) | CC0-1.0 | `lga.wikidata_qid`, `lga.website`, from the committed snapshot `services/house-price-collector/data/wikidata-lga.json`. Identity only: no Wikipedia prose, no Wikidata coordinates (centroids are computed from ABS geometry) |
 | **REA / Domain / property.com.au** | `proprietary-tos-restricted` | listings, price-change events, per-address AVM — **never republished raw** |
 | **BIS-via-FRED, OECD, ATO, ABS Lending** | open / public domain | the Widow-Maker feature's arrays, BAKED in `series.ts` |
 
@@ -150,7 +158,32 @@ negatively-geared landlords. Never fetched at runtime, **not in the DB**.
 and 0–100 scores, so we hold a Produced Work, not an ODbL share-alike database.
 ACARA's list carries "Source: ACARA" under the My School terms; NBN footprints
 are area-level only; `lga` financial columns are per-state licence-gated (VIC
-CC-BY-4.0 and ingested, NSW "Your Council" Crown copyright and NULL).
+CC-BY-4.0 and ingested, NSW "Your Council" Crown copyright and NULL). Council
+sources are listed in the IN table and under "Councils" below.
+
+## Councils: council-level figures stay council-level
+
+Everything in `lga` and `lga_series` describes a **whole council**. The ABS
+Data by Region house medians (`house_median_price`, `attached_median_price`)
+cover 501 councils — including QLD, WA, TAS and NT, where we have no
+Valuer-General suburb feed — and that is exactly why they are dangerous: one
+number for Brisbane City sitting under a Brisbane suburb reads as that suburb's
+price. So they are shown **only** as "council-wide house median (FY)", with the
+financial year, on the council card; they are **never** written to
+`house_prices`/`house_price_regions` and never spread across member suburbs.
+They are ABS medians of established-house *transfers* in the year ended 30 June,
+not Valuer-General sale records.
+
+Council identity joins on **ABS code**, never on names — except the two
+name-matched sources, FAG and VIC LGPRF, which match on `(state,
+normCouncil(name))` and report what they cannot match. Code vintages:
+LGA_2021 Moreland `25250` = LGA_2024 Merri-bek `24700`; LGA_2025 East Arnhem
+`71500` + Groote Archipelago `71700` = LGA_2024 East Arnhem `71300` (summed for
+people and approvals, dropped for medians).
+
+Not sourced, deliberately: mayors and councillor counts (no national open
+source; `mayor`, `councillor_count`, `aclg_group` stay NULL), council logos
+(each council's copyright), and NSW OLG "Your Council" (Crown copyright).
 
 ## Hazard layers — what the words mean
 

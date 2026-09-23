@@ -297,6 +297,19 @@ func (c *MemoryCache) GetDropIndexSeriesKey(grain, grainKey, from, to string) st
 	return c.generateKey("drop_index_series", grain, grainKey, from, to)
 }
 
+// GetCouncilsKey builds a cache key for ListCouncils responses. The state code
+// arrives normalized (upper-case, validated) from the handler.
+func (c *MemoryCache) GetCouncilsKey(stateCode string) string {
+	return c.generateKey("councils", stateCode)
+}
+
+// GetCouncilProfileKey builds a cache key for GetCouncilProfile responses.
+// Both parts arrive normalized: the state upper-case, the slug lower-case and
+// trimmed, so /housing/NSW/council/Yarra and .../yarra share one entry.
+func (c *MemoryCache) GetCouncilProfileKey(stateCode, slug string) string {
+	return c.generateKey("council_profile", stateCode, slug)
+}
+
 // ListEconomicSeriesKey builds a cache key for ListEconomicSeries responses.
 // --- Register of Members'/Senators' Interests ---
 

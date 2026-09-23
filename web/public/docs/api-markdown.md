@@ -292,6 +292,26 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/FilterSu
   -d '{}'
 ```
 
+#### `POST /shorts.v1alpha1.HousingService/GetCouncilProfile`
+
+One council's hub: identity, current facts, time series, member suburbs,
+ hazard/price/crime rollups, representation, price drops and neighbours.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `slug` | string | no | lga.slug — minted once, never reassigned (proto string) |
+| `stateCode` | string | no | NSW \| VIC \| QLD \| SA \| WA \| TAS \| NT \| ACT (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/GetCouncilProfile' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 #### `POST /shorts.v1alpha1.HousingService/GetDropIndexSeries`
 
 Daily discounting index series (national/state/suburb) for the price-drops chart.
@@ -473,6 +493,25 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/ListAgencyPriceStats' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.HousingService/ListCouncils`
+
+Every council with a page in one state (kind council | unincorporated),
+ with the rollup metrics the council index and choropleth colour by.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `stateCode` | string | no | required: NSW \| VIC \| QLD \| SA \| WA \| TAS \| NT \| ACT (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/ListCouncils' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \

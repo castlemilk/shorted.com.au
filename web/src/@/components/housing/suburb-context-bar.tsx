@@ -28,11 +28,14 @@ export function SuburbContextBar({
   stateCode,
   suburbName,
   salCode,
+  council,
   neighbours = [],
   basis = "none",
 }: {
   stateCode: string;
   suburbName: string;
+  /** The suburb's dominant council hub, linked from the trail when it has a page. */
+  council?: { name: string; href: string };
   /** Preselects this suburb on the state explorer — the link's accessible name
    * promises "view THIS suburb on the map", and the explorer reads `?sal=`. */
   salCode: string;
@@ -48,7 +51,7 @@ export function SuburbContextBar({
           scroller, `ml-auto` had no free space to distribute on a phone and the
           link ended up off-screen behind a horizontal swipe. */}
       <div className="flex h-11 min-w-0 flex-1 items-center gap-3 overflow-x-auto">
-        <HousingBreadcrumb stateCode={stateCode} suburb={suburbName} compact />
+        <HousingBreadcrumb stateCode={stateCode} council={council} suburb={suburbName} compact />
 
         {shown.length ? (
           <>

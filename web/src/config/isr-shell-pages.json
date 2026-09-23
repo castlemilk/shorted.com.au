@@ -4,5 +4,13 @@
   "/economy",
   "/compare",
   "/price-drops",
-  "/themes"
+  "/themes",
+  "/housing/nsw/council",
+  "/housing/vic/council",
+  "/housing/qld/council",
+  "/housing/sa/council",
+  "/housing/wa/council",
+  "/housing/tas/council",
+  "/housing/nt/council",
+  "/housing/act/council"
 ]

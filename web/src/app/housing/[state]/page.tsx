@@ -71,6 +71,13 @@ export default async function StatePage({ params }: PageProps) {
             >
               {name} economy
             </Link>
+            , browse every{" "}
+            <Link
+              href={`/housing/${stateSlug(code)}/council`}
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {name} council
+            </Link>
             , compare every state on the{" "}
             <Link
               href="/housing"

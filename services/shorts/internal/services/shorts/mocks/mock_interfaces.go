@@ -332,6 +332,21 @@ func (mr *MockShortsStoreMockRecorder) GetCompanyTaxProfile(productCode any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCompanyTaxProfile", reflect.TypeOf((*MockShortsStore)(nil).GetCompanyTaxProfile), productCode)
 }
 
+// GetCouncilProfile mocks base method.
+func (m *MockShortsStore) GetCouncilProfile(stateCode, slug string) (*shorts.CouncilProfileRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCouncilProfile", stateCode, slug)
+	ret0, _ := ret[0].(*shorts.CouncilProfileRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCouncilProfile indicates an expected call of GetCouncilProfile.
+func (mr *MockShortsStoreMockRecorder) GetCouncilProfile(stateCode, slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCouncilProfile", reflect.TypeOf((*MockShortsStore)(nil).GetCouncilProfile), stateCode, slug)
+}
+
 // GetCrawlRunStatuses mocks base method.
 func (m *MockShortsStore) GetCrawlRunStatuses() ([]*shorts.CrawlRunStatus, error) {
 	m.ctrl.T.Helper()
@@ -1186,6 +1201,21 @@ func (m *MockShortsStore) ListBroadcasts(limit int) ([]shorts.Broadcast, error) 
 func (mr *MockShortsStoreMockRecorder) ListBroadcasts(limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListBroadcasts", reflect.TypeOf((*MockShortsStore)(nil).ListBroadcasts), limit)
+}
+
+// ListCouncils mocks base method.
+func (m *MockShortsStore) ListCouncils(stateCode string) ([]*shorts.CouncilSummaryRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListCouncils", stateCode)
+	ret0, _ := ret[0].([]*shorts.CouncilSummaryRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCouncils indicates an expected call of ListCouncils.
+func (mr *MockShortsStoreMockRecorder) ListCouncils(stateCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCouncils", reflect.TypeOf((*MockShortsStore)(nil).ListCouncils), stateCode)
 }
 
 // ListDistinctiveHoldings mocks base method.
@@ -2050,6 +2080,34 @@ func (m *MockCache) GetCompanyTaxProfileKey(productCode string) string {
 func (mr *MockCacheMockRecorder) GetCompanyTaxProfileKey(productCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCompanyTaxProfileKey", reflect.TypeOf((*MockCache)(nil).GetCompanyTaxProfileKey), productCode)
+}
+
+// GetCouncilProfileKey mocks base method.
+func (m *MockCache) GetCouncilProfileKey(stateCode, slug string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCouncilProfileKey", stateCode, slug)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetCouncilProfileKey indicates an expected call of GetCouncilProfileKey.
+func (mr *MockCacheMockRecorder) GetCouncilProfileKey(stateCode, slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCouncilProfileKey", reflect.TypeOf((*MockCache)(nil).GetCouncilProfileKey), stateCode, slug)
+}
+
+// GetCouncilsKey mocks base method.
+func (m *MockCache) GetCouncilsKey(stateCode string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCouncilsKey", stateCode)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetCouncilsKey indicates an expected call of GetCouncilsKey.
+func (mr *MockCacheMockRecorder) GetCouncilsKey(stateCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCouncilsKey", reflect.TypeOf((*MockCache)(nil).GetCouncilsKey), stateCode)
 }
 
 // GetDirectorTradesKey mocks base method.

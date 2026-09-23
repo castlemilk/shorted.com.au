@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -302,52 +303,44 @@ func upsertElectorates(ctx context.Context, pool *pgxpool.Pool, rows []Electorat
 	return n, nil
 }
 
-// applyFAGs matches each council's Financial Assistance Grant (by normalised
-// name + state) to the lga dimension and updates fed_fag_aud/year.
-func applyFAGs(ctx context.Context, pool *pgxpool.Pool, rows []FagRow) (int, error) {
-	type lgaKey struct{ norm, state string }
-	idx := map[lgaKey]string{}
-	q, err := pool.Query(ctx, `SELECT lga_code24, lga_name, state_code FROM lga`)
+// applyFAGs writes the resolved FAG history: every council-year to
+// lga_series, and each council's newest year onto lga.fed_fag_aud/year — in one
+// transaction, so the scalar never disagrees with the series it came from.
+func applyFAGs(ctx context.Context, pool *pgxpool.Pool, res fagResolution) (int, error) {
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return 0, err
 	}
-	for q.Next() {
-		var code, name, state string
-		if err := q.Scan(&code, &name, &state); err != nil {
-			q.Close()
-			return 0, err
-		}
-		idx[lgaKey{normCouncil(name), state}] = code
+	defer func() { _ = tx.Rollback(ctx) }()
+	n, err := upsertLGASeriesTx(ctx, tx, res.Series)
+	if err != nil {
+		return n, err
 	}
-	q.Close()
-	// A mid-stream read error surfaces only via Err() (Next() just returns false);
-	// without this the match index is silently truncated and the run still reports ok.
-	if err := q.Err(); err != nil {
-		return 0, err
+	codes := make([]string, 0, len(res.Latest))
+	for code := range res.Latest {
+		codes = append(codes, code)
 	}
-
+	sort.Strings(codes)
 	batch := &pgx.Batch{}
-	matched := 0
-	for _, r := range rows {
-		code, ok := idx[lgaKey{normCouncil(r.LGAName), r.StateCode}]
-		if !ok {
-			continue
-		}
+	for _, code := range codes {
+		r := res.Latest[code]
 		// FAG writes only the grant columns; fin_source/fin_source_licence describe
 		// the per-council FINANCIAL columns (avg_rates/op_surplus/asset_renewal) and
 		// are owned by the state financials ingest (e.g. vic_lgprf), so leave them.
 		batch.Queue(`UPDATE lga SET fed_fag_aud=$2, fed_fag_year=$3, fetched_at=now() WHERE lga_code24=$1`,
-			code, r.TotalAud, r.Year)
-		matched++
+			code, r.Value, r.PeriodLabel)
 	}
-	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
-	for i := 0; i < matched; i++ {
+	br := tx.SendBatch(ctx, batch)
+	for range codes {
 		if _, err := br.Exec(); err != nil {
-			return i, err
+			_ = br.Close()
+			return n, err
 		}
 	}
-	return matched, nil
+	if err := br.Close(); err != nil {
+		return n, err
+	}
+	return n, tx.Commit(ctx)
 }
 
 // upsertConnectivity writes each suburb's dominant NBN tech + quality proxy.
@@ -361,64 +354,6 @@ func upsertConnectivity(ctx context.Context, pool *pgxpool.Pool, rows []Connecti
 	batch := &pgx.Batch{}
 	for _, r := range rows {
 		batch.Queue(q, r.SALCode, r.Tech, r.Score)
-	}
-	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
-	n := 0
-	for range rows {
-		if _, err := br.Exec(); err != nil {
-			return n, err
-		}
-		n++
-	}
-	return n, nil
-}
-
-// refreshLGAPopulation derives each council's population by summing its member
-// suburbs' Census populations (SALs tile the LGA) — no external fetch needed.
-func refreshLGAPopulation(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, `
-		UPDATE lga SET population = sub.pop FROM (
-			SELECT sl.lga_code24, SUM(sd.population)::int AS pop
-			FROM suburb_lga sl JOIN suburb_demographics sd ON sd.sal_code = sl.sal_code
-			WHERE sd.population IS NOT NULL
-			GROUP BY sl.lga_code24
-		) sub WHERE lga.lga_code24 = sub.lga_code24`)
-	return err
-}
-
-// upsertLGADimension writes the LGA (council) dimension rows.
-func upsertLGADimension(ctx context.Context, pool *pgxpool.Pool, rows []LGARow) (int, error) {
-	const q = `
-		INSERT INTO lga (lga_code24, lga_name, state_code, area_sqkm)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (lga_code24) DO UPDATE SET
-			lga_name = EXCLUDED.lga_name, state_code = EXCLUDED.state_code,
-			area_sqkm = EXCLUDED.area_sqkm, fetched_at = now()`
-	batch := &pgx.Batch{}
-	for _, r := range rows {
-		batch.Queue(q, r.Code, r.Name, r.StateCode, r.AreaSqkm)
-	}
-	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
-	n := 0
-	for range rows {
-		if _, err := br.Exec(); err != nil {
-			return n, err
-		}
-		n++
-	}
-	return n, nil
-}
-
-// upsertSuburbLGA writes the suburb→dominant-council bridge.
-func upsertSuburbLGA(ctx context.Context, pool *pgxpool.Pool, rows []SuburbLGARow) (int, error) {
-	const q = `
-		INSERT INTO suburb_lga (sal_code, lga_code24) VALUES ($1, $2)
-		ON CONFLICT (sal_code) DO UPDATE SET lga_code24 = EXCLUDED.lga_code24`
-	batch := &pgx.Batch{}
-	for _, r := range rows {
-		batch.Queue(q, r.SALCode, r.LGACode)
 	}
 	br := pool.SendBatch(ctx, batch)
 	defer func() { _ = br.Close() }()

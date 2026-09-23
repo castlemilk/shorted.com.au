@@ -680,6 +680,36 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
     for (const [slug, urls] of perState) perStateEntries.set(slug, urls);
   }
 
+  // Council hub: one index per state and one page per council with a page.
+  // lastmod is the newest period in any of the council's series (data, not
+  // render time); the index takes its newest council.
+  type CouncilUrl = { state: string; slug: string; lastModified?: string };
+  const perStateCouncils = new Map<string, CouncilUrl[]>();
+  if (!skipForBuild()) {
+    const housingClient = createClient(HousingService, connectTransport());
+    const perState = await Promise.all(
+      ALL_STATES.map(async (st) => {
+        try {
+          const res = await housingClient.listCouncils({ stateCode: st });
+          return [
+            stateSlug(st),
+            res.councils
+              .filter((c) => c.slug && (c.kind === "council" || c.kind === "unincorporated"))
+              .map((c) => ({
+                state: stateSlug(st),
+                slug: c.slug,
+                lastModified: c.dataThrough ? `${c.dataThrough}T00:00:00.000Z` : undefined,
+              })),
+          ] as const;
+        } catch (e) {
+          console.error(`housing council urls (${st}):`, e);
+          return [stateSlug(st), [] as CouncilUrl[]] as const;
+        }
+      }),
+    );
+    for (const [slug, urls] of perState) perStateCouncils.set(slug, urls);
+  }
+
   const allSuburbUrls = [...perStateEntries.values()].flat();
   const newestHousingPeriod = newestLastMod(
     allSuburbUrls.map((suburb) => suburb.lastModified),
@@ -741,6 +771,20 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
       url: `${baseUrl}/housing/${s.state}/${s.suburb}`,
       lastModified: s.lastModified,
     })),
+    ...[...perStateCouncils].flatMap(([state, councils]) =>
+      councils.length
+        ? [
+            {
+              url: `${baseUrl}/housing/${state}/council`,
+              lastModified: newestLastMod(councils.map((c) => c.lastModified)),
+            },
+            ...councils.map((c) => ({
+              url: `${baseUrl}/housing/${c.state}/council/${c.slug}`,
+              lastModified: c.lastModified,
+            })),
+          ]
+        : [],
+    ),
   ];
 }
 

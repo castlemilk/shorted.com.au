@@ -32,6 +32,8 @@ func TestSuburbMetricRegistryCoversMapAndLandedColumns(t *testing.T) {
 		"elevation_min_m", "elevation_max_m",
 		"land_share_below_1m", "land_share_below_2m",
 		"permanent_water_share_pct",
+		// Identifier column for the council level of the map, not a metric.
+		"lga_code",
 	}
 	want := append(append([]string{}, existing...), landed...)
 	sort.Strings(want)
@@ -108,6 +110,27 @@ func TestBuildSuburbMetricQuerySelectsOnlyRequestedColumnsInSALOrder(t *testing.
 		if strings.Contains(query, unwanted) {
 			t.Errorf("query selected/joined unrequested data %q:\n%s", unwanted, query)
 		}
+	}
+}
+
+// The council column joins the bridge only when asked for, reads the DOMINANT
+// council (never an overlap), and can never fail a column on an odd code.
+func TestLgaCodeColumnJoinsTheBridgeOnDemand(t *testing.T) {
+	query, _, err := buildSuburbMetricQuery([]string{"lga_code"})
+	if err != nil {
+		t.Fatalf("build query: %v", err)
+	}
+	for _, want := range []string{"LEFT JOIN suburb_lga sl ON sl.sal_code = d.sal_code", "sl.lga_code24 ~ '^[0-9]{5}$'", "sl.lga_code24::int"} {
+		if !strings.Contains(query, want) {
+			t.Errorf("lga_code query missing %q:\n%s", want, query)
+		}
+	}
+	if strings.Contains(query, "overlap_lgas") {
+		t.Error("the map colours a suburb by its dominant council only")
+	}
+	other, _, _ := buildSuburbMetricQuery([]string{"population"})
+	if strings.Contains(other, "suburb_lga") {
+		t.Error("columns that do not need the bridge must not join it")
 	}
 }
 

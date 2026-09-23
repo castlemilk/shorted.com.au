@@ -163,13 +163,71 @@ never paints 0.
 
 ## Local insights (000061–000064, 000066–000067)
 
-`lga` + `suburb_lga` bridge (dominant council + overlap shares),
 `suburb_amenities` (OSM/ACARA/GA counts + derived 0–100 scores; raw OSM
 points never stored — ODbL Produced Work), `suburb_connectivity` (NBN,
-area-level only), `suburb_funding` (IIP). `lga` financial columns are
-per-state licence-gated and stay NULL until cleared (NSW "Your Council" is
-Crown copyright); `fed_fag_aud/_year` (000066) + `fin_year` (000067) record
-grant and vintage.
+area-level only), `suburb_funding` (IIP). Councils are their own section below.
+
+## Councils: `lga`, `suburb_lga`, `lga_series` (000061, 000066–000067, 000126)
+
+**`lga`** is the council dimension and holds CURRENT scalar facts, one row per
+ABS LGA_2024 code (566: 541 councils, 6 unincorporated areas, 19 ABS
+pseudo-areas). 000126 adds `kind` (`council` | `unincorporated` | `pseudo`,
+CHECK), `display_name` (ABS name without the state suffix), `slug` (unique per
+state where not NULL — `idx_lga_state_slug`), `erp_year`, `wikidata_qid`,
+`website`, SEIFA IRSAD/IRSD deciles (CHECK 1..10), `dwellings`,
+`median_weekly_rent`, `median_mortgage_monthly`, `avg_household_size`.
+`state_code` is `'OT'` for Other Territories and `''` only for the pseudo-area
+'Outside Australia'. Pages exist for `council` and `unincorporated`; a
+`pseudo` row never gets a slug, a series row or a grant.
+
+| Column(s) | Written by | Source |
+|---|---|---|
+| identity, `area_sqkm`, `dwellings`, `centroid_*` | `-mode lga` | `lga-facts.json` (ABS allocation files + geometry) |
+| `slug` | `-mode lga` | minted ONCE from `display_name`; never overwritten; a same-state collision gets `-<lga_code24>`. Apostrophes become a hyphen like `suburbSlug` (`Break O'Day` → `break-o-day`); `&` is spelled `and`. Resolve a council URL by looking up `lga.slug` (from the API), never by slugifying a name client-side |
+| `population`, `erp_year`, `pop_growth_pct` | `-mode erp-lga` | ABS ERP |
+| `median_*`, `avg_household_size`, `pct_rented`, `seifa_*_decile` | `-mode census-lga` | Census 2021 + SEIFA 2021 |
+| `fed_fag_aud`, `fed_fag_year` | `-mode funding` | FAG (latest year; history in `lga_series`) |
+| `avg_rates`, `op_surplus_ratio`, `asset_renewal_ratio`, `fin_*` | `-mode council-financials` | VIC LGPRF |
+| `wikidata_qid`, `website` | `-mode wikidata-lga` | Wikidata snapshot |
+| `mayor`, `councillor_count`, `aclg_group` | nothing | no open national source — NULL by design |
+
+**Two claims in 000061's comments were false and are corrected here, not in the
+applied migration.** `lga.population` was never ERP: until 000126's
+`-mode erp-lga` it was the SUM of member suburbs' Census 2021 counts (biased
+by the bridge error below, and blind to straddling suburbs). `suburb_lga` was
+never "by mesh-block weight": it was a centroid-in-polygon test on simplified
+geometry, which put 224 suburbs (416k residents) in the wrong council —
+Broken Hill in 'Unincorporated NSW', Truganina in Melton — and left 20 real
+suburbs (Kingsgrove, Malabar) with none.
+
+**`suburb_lga`** is now exactly what 000061 promised: `web/scripts/geo/join-lga-mb.py`
+sums each suburb's ABS 2021 mesh blocks (SAL_2021 and LGA_2024 share them, so
+the split is exact), weighted by Census 2021 usual residents, then dwellings,
+then area. `lga_code24` is the dominant council, `dominant_share` (000126,
+0 < x ≤ 1) its share, and `overlap_lgas` every council holding ≥ 1%, dominant
+first, as `[{"lga_code24","share"}]`. 15,329 suburbs; 699 have
+`dominant_share < 0.95`. `-mode lga` replaces the table in one transaction and
+refuses an artifact under 10,000 rows.
+
+**`lga_series`** (000126) is the long table for every council fact with a time
+axis — one row per `(lga_code24, measure, period, source)`, `period` = the END
+of the reference period (30 June for a financial year or an ERP date, the last
+day for a month), `period_label` as the source writes it (`'2024-25'`,
+`'2026-06'`, `'2025'`), and `source_licence` DEFAULT `'CC-BY-4.0'` with a CHECK
+that it is never `'proprietary-tos-restricted'`.
+
+| measure | unit | source | cadence |
+|---|---|---|---|
+| `erp` | persons | `abs_erp_lga` | annual, 2001– |
+| `natural_increase`, `net_internal_migration`, `net_overseas_migration` | persons | `abs_erp_comp_lga` | annual FY |
+| `house_median_price`, `attached_median_price` | AUD | `abs_regional_lga` | annual FY — **council-wide, never a suburb's** |
+| `house_transfers`, `attached_transfers`, `dwelling_approvals_fy` | count | `abs_regional_lga` | annual FY |
+| `dwelling_approvals_total`, `_houses`, `_other` | count | `abs_ba_lga` | monthly |
+| `fag_total_aud` | AUD | `fed_fags` | annual FY, 2017-18– |
+
+The profile reads the dominant council's facts and latest
+`house_median_price` in its own tolerated query (`suburbCouncilQuery`), so a
+database without 000126 still serves the base council card.
 
 ## The MV layer
 
@@ -254,3 +312,4 @@ aborts the function and starves every MV after it.
 | 000088 / 000091 | `property_valuations` / `valuation_granularity` |
 | 000089 | `crawl_run_status` |
 | 000090 / 000092 | `suburb_crime_stats` + initial crime MV / deterministic gated rebuild + final refresh fn |
+| 000126 | council foundation: `lga` identity + ABS fact columns, `lga_series`, `suburb_lga.dominant_share` |

@@ -82,6 +82,17 @@ service HousingService {
   rpc GetDropIndexSeries (GetDropIndexSeriesRequest) returns (GetDropIndexSeriesResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+  // Every council with a page in one state (kind council | unincorporated),
+  // with the rollup metrics the council index and choropleth colour by.
+  rpc ListCouncils (ListCouncilsRequest) returns (ListCouncilsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // One council's hub: identity, current facts, time series, member suburbs,
+  // hazard/price/crime rollups, representation, price drops and neighbours.
+  rpc GetCouncilProfile (GetCouncilProfileRequest) returns (GetCouncilProfileResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
 }
 
 // ── Housing (house-price tracker) ────────────────────────────────────────────
@@ -407,7 +418,7 @@ message LgaInfo {
   string lga_name = 2;
   string state_code = 3;
   double area_sqkm = 4;
-  int32  population = 5;            // summed from member-suburb Census populations
+  int32  population = 5;            // ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded
   double fed_fag_aud = 6;          // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
   string fed_fag_year = 7;         // e.g. '2025-26'
   // Per-council financials (VIC LGPRF, CC-BY; 0/'' for states not yet sourced).
@@ -416,6 +427,44 @@ message LgaInfo {
   double asset_renewal_ratio = 10; // asset renewal + upgrade vs depreciation, %
   string fin_source = 11;          // financials provenance ('vic_lgprf'), '' if none
   string fin_year = 12;            // financials reporting year, e.g. '2024-25'
+  // Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+  // 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+  string slug = 13;                // URL segment, unique within state, never reassigned
+  string display_name = 14;        // ABS name without the state suffix: 'Campbelltown'
+  string kind = 15;                // council | unincorporated | pseudo
+  // Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,
+  // never a measured zero.
+  int32 erp_year = 16;                        // reference year of population; 0 if none
+  optional double pop_growth_pct = 17;        // ERP year-on-year change, %
+  optional double median_age = 18;            // Census 2021
+  optional int32 median_hhd_income = 19;      // Census 2021, $/week
+  optional double pct_rented = 20;            // Census 2021, % of households renting
+  optional int32 median_weekly_rent = 21;     // Census 2021, $/week
+  optional int32 median_mortgage_monthly = 22; // Census 2021, $/month
+  optional double avg_household_size = 23;    // Census 2021, persons
+  optional int32 seifa_irsad_decile = 24;     // SEIFA 2021 IRSAD, national decile 1..10
+  optional int32 seifa_irsd_decile = 25;      // SEIFA 2021 IRSD, national decile 1..10
+  string website = 26;                        // official website (Wikidata P856, CC0); '' if none
+  string wikidata_qid = 27;                   // e.g. 'Q1719401'; '' if none
+  optional double centroid_lat = 28;          // area-weighted centroid of the ABS boundary
+  optional double centroid_lon = 29;
+  // Share (0..1] of THIS suburb's residents who live in this council (ABS
+  // mesh-block allocation, Census 2021 persons). Absent outside a suburb profile.
+  optional double dominant_share = 30;
+  // Latest ABS 'Data by Region' median established-house transfer price for
+  // the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+  // present it as this suburb's median.
+  optional double council_house_median = 31;
+  string council_house_median_period = 32;    // e.g. '2023-24'; '' if none
+}
+
+// Another council a suburb spans, beyond the dominant one.
+message LgaOverlap {
+  string lga_code = 1;
+  string display_name = 2;
+  string state_code = 3;
+  string slug = 4;          // '' when the council has no page
+  double share = 5;         // 0..1 of the suburb's residents (Census 2021 mesh blocks)
 }
 
 // A suburb with a similar demographic + amenity profile (feature-vector kNN).
@@ -504,6 +553,9 @@ message GetSuburbProfileResponse {
   SuburbElevation elevation = 9;
   // Profile-only hazard block; absent when no hazard source covers the suburb.
   SuburbHazardExposure hazards = 10;
+  // Other councils holding >= 5% of this suburb's residents, largest first.
+  // Empty for a suburb wholly (or >= 95%) inside `council`.
+  repeated LgaOverlap council_overlaps = 11;
 }
 
 message ListHousingRegionsRequest {
@@ -829,4 +881,194 @@ message GetDropIndexSeriesRequest {
 message GetDropIndexSeriesResponse {
   repeated DropIndexPoint points = 1;
   string tracking_since = 2;  // 'YYYY-MM-DD' — earliest date the index exists for
+}
+
+// ── Councils (LGA hub) ───────────────────────────────────────────────────────
+//
+// Every council fact is COUNCIL-level. A council median is the whole council's
+// (ABS Data by Region) and is never presented as a suburb's price; suburb
+// medians appear only on the suburbs that have their own Valuer-General feed.
+// Optional fields are absent when no source covers the council — never a
+// measured zero.
+
+message ListCouncilsRequest {
+  string state_code = 1;  // required: NSW | VIC | QLD | SA | WA | TAS | NT | ACT
+}
+
+message ListCouncilsResponse {
+  repeated CouncilSummary councils = 1;  // population desc, then name
+  string lga_vintage = 2;                // boundary vintage, e.g. 'ABS ASGS LGA 2024'
+  // Freshness of every council's price_drop_share (program decision 9): when
+  // the shares were computed, and the newest crawl observation behind any of
+  // them. Both absent when no council publishes a share.
+  google.protobuf.Timestamp price_drops_as_of = 3;
+  google.protobuf.Timestamp price_drops_data_through = 4;
+}
+
+// One council's headline row: the council index table and the council
+// choropleth read exactly these fields.
+message CouncilSummary {
+  string lga_code = 1;
+  string slug = 2;
+  string display_name = 3;
+  string kind = 4;                              // council | unincorporated
+  string state_code = 5;
+  int32  population = 6;                        // ABS estimated resident population at 30 June erp_year; 0 if none
+  int32  erp_year = 7;
+  optional double pop_growth_pct = 8;           // ERP year-on-year change, %
+  optional double area_sqkm = 9;
+  optional double density_per_sqkm = 10;        // ERP / area
+  int32  member_suburb_count = 11;              // suburbs whose DOMINANT council this is
+  optional double council_house_median = 12;    // council-wide ABS established-house median
+  string council_house_median_period = 13;      // e.g. '2023-24'
+  optional double fag_per_resident = 14;        // latest Financial Assistance Grant / ERP, AUD
+  string fag_year = 15;                         // e.g. '2025-26'
+  optional double approvals_per_1000 = 16;      // dwelling approvals, last 12 months, per 1,000 residents
+  string approvals_through = 17;                // last month of that window, 'YYYY-MM'
+  optional int32 seifa_irsad_decile = 18;       // SEIFA 2021 IRSAD, national decile
+  optional double flood_share_pct = 19;         // population-weighted over member suburbs
+  optional double bushfire_share_pct = 20;      // population-weighted over member suburbs
+  optional double price_drop_share = 21;        // 0..1, crawl-derived, only when >= 3 drops council-wide
+  string data_through = 22;                     // newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none
+}
+
+message GetCouncilProfileRequest {
+  string state_code = 1;  // NSW | VIC | QLD | SA | WA | TAS | NT | ACT
+  string slug = 2;        // lga.slug — minted once, never reassigned
+}
+
+message GetCouncilProfileResponse {
+  CouncilProfile profile = 1;
+}
+
+message CouncilProfile {
+  // Identity + current facts. dominant_share is absent (it is a suburb fact).
+  LgaInfo council = 1;
+  // The same row ListCouncils serves, so the hub and the index never disagree.
+  CouncilSummary summary = 2;
+  string lga_vintage = 3;
+  repeated CouncilSeries series = 4;
+  // Every suburb whose dominant council this is, plus straddling suburbs where
+  // this council holds at least 5% of the residents. Population desc.
+  repeated CouncilSuburb suburbs = 5;
+  CouncilRollup rollup = 6;
+  // Federal electorates / state districts over the member suburbs, weighted by
+  // the residents each suburb contributes to this council. Largest first.
+  repeated CouncilRepresentative federal_electorates = 7;
+  repeated CouncilRepresentative state_districts = 8;
+  // Crawl-derived aggregate. Absent below 3 drops council-wide or with no
+  // crawl coverage.
+  CouncilPriceDrops price_drops = 9;
+  repeated CouncilNeighbour neighbours = 10;
+  string facts_as_of = 11;  // when the council facts were loaded, 'YYYY-MM-DD'
+}
+
+// One lga_series measure for the council, ascending by period.
+message CouncilSeries {
+  string measure = 1;         // e.g. 'erp', 'house_median_price', 'dwelling_approvals_total'
+  string unit = 2;            // persons | AUD | count
+  string frequency = 3;       // annual (30 June) | fy | monthly
+  string source = 4;
+  string source_licence = 5;
+  repeated CouncilSeriesPoint points = 6;
+}
+
+message CouncilSeriesPoint {
+  string period = 1;          // period end, 'YYYY-MM-DD'
+  string period_label = 2;    // '2025' | '2024-25' | '2026-07'
+  double value = 3;
+}
+
+message CouncilSuburb {
+  string sal_code = 1;
+  string sal_name = 2;
+  string postcode = 3;
+  int32  population = 4;                  // Census 2021 persons, whole suburb
+  double share = 5;                       // 0..1 of the suburb's residents in this council
+  bool   dominant = 6;                    // this is the suburb's dominant council
+  optional double vg_median = 7;          // the suburb's OWN Valuer-General median house price
+  string vg_median_period = 8;            // 'YYYY-MM-DD'; '' without a median
+  optional double flood_share_pct = 9;    // absent = no source covers the suburb
+  optional double bushfire_share_pct = 10;
+  optional double water_share_pct = 11;
+  optional int32  seifa_irsad_decile = 12; // national decile
+}
+
+// Rollups over the member suburbs, weighted by the residents each contributes
+// (population x share). Absent = no member suburb is covered.
+message CouncilRollup {
+  int32 member_suburbs = 1;
+  int32 dominant_suburbs = 2;
+  optional double flood_share_pct = 3;
+  int32 flood_covered_suburbs = 4;
+  optional double bushfire_share_pct = 5;
+  int32 bushfire_covered_suburbs = 6;
+  optional double water_share_pct = 7;
+  int32 water_covered_suburbs = 8;
+  // Member suburbs with their own Valuer-General median (unweighted).
+  int32 priced_suburbs = 9;
+  optional double median_min = 10;
+  optional double median_max = 11;
+  optional double median_of_medians = 12;
+  // Latest crime rates where the source covers member suburbs (NSW today).
+  repeated CouncilCrimeStat crime = 13;
+}
+
+message CouncilCrimeStat {
+  string crime_type = 1;
+  double rate_per_100k = 2;   // weighted by residents over covered suburbs
+  int32  fy_ending = 3;
+  int32  covered_suburbs = 4;
+  string source_jurisdiction = 5;
+  string source = 6;
+  string source_licence = 7;
+}
+
+message CouncilRepresentative {
+  string name = 1;              // electorate or district
+  string member = 2;
+  string party = 3;
+  string party_ab = 4;
+  double population_share = 5;  // 0..1 of the council's member-suburb residents
+  int32  suburb_count = 6;
+}
+
+// Asking-price cuts in the last 30 days over the suburbs whose dominant
+// council this is, among listings active and seen by the crawl in the last 14
+// days (each address counted once). Counted from every crawled member suburb,
+// so cuts in suburbs below the floor still count; floored at 3 cuts
+// council-wide.
+message CouncilPriceDrops {
+  int32  dropped_listing_count = 1;
+  int32  tracked_listing_count = 2;
+  double dropped_share = 3;              // dropped / tracked
+  optional double median_drop_pct = 4;   // median cut over every cut listing in the council
+  int32  suburbs_tracked = 5;
+  // Only suburbs that clear 3 drops themselves are named.
+  repeated CouncilDropSuburb suburbs = 6;
+  google.protobuf.Timestamp as_of = 7;          // when these figures were computed
+  google.protobuf.Timestamp data_through = 8;   // newest crawl observation behind them
+}
+
+message CouncilDropSuburb {
+  string sal_code = 1;
+  string sal_name = 2;
+  string postcode = 3;
+  int32  dropped_listing_count = 4;
+  int32  tracked_listing_count = 5;
+  double dropped_share = 6;
+  optional double median_drop_pct = 7;
+}
+
+message CouncilNeighbour {
+  string lga_code = 1;
+  string slug = 2;            // '' when the council has no page
+  string display_name = 3;
+  string kind = 4;
+  string state_code = 5;
+  // A dominant-member suburb shares a boundary with one of the neighbour's
+  // (ABS suburb topology, within the state).
+  bool   shares_border = 6;
+  // Suburbs split between the two councils (each >= 1% of residents).
+  int32  shared_suburbs = 7;
 }

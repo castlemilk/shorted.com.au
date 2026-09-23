@@ -8,6 +8,7 @@ describe("housing state cross-domain links", () => {
     expect(source).toContain("href={`/economy/${stateSlug(code)}`}");
     expect(source).toContain('href="/housing"');
     expect(source).toContain("href={`/price-drops?state=${stateSlug(code)}`}");
+    expect(source).toContain("href={`/housing/${stateSlug(code)}/council`}");
   });
 
   it("does not read search params in the ISR server page", () => {

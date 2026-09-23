@@ -780,6 +780,738 @@
         "title": "ComparisonBaselines",
         "type": "object"
       },
+      "shorts.v1alpha1.CouncilCrimeStat": {
+        "additionalProperties": false,
+        "properties": {
+          "coveredSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "covered_suburbs",
+            "type": "integer"
+          },
+          "crimeType": {
+            "description": "(proto string)",
+            "title": "crime_type",
+            "type": "string"
+          },
+          "fyEnding": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "fy_ending",
+            "type": "integer"
+          },
+          "ratePer100k": {
+            "description": "weighted by residents over covered suburbs (proto double)",
+            "format": "double",
+            "title": "rate_per_100k",
+            "type": "number"
+          },
+          "source": {
+            "description": "(proto string)",
+            "title": "source",
+            "type": "string"
+          },
+          "sourceJurisdiction": {
+            "description": "(proto string)",
+            "title": "source_jurisdiction",
+            "type": "string"
+          },
+          "sourceLicence": {
+            "description": "(proto string)",
+            "title": "source_licence",
+            "type": "string"
+          }
+        },
+        "title": "CouncilCrimeStat",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilDropSuburb": {
+        "additionalProperties": false,
+        "properties": {
+          "droppedListingCount": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "dropped_listing_count",
+            "type": "integer"
+          },
+          "droppedShare": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "dropped_share",
+            "type": "number"
+          },
+          "medianDropPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "median_drop_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "postcode": {
+            "description": "(proto string)",
+            "title": "postcode",
+            "type": "string"
+          },
+          "salCode": {
+            "description": "(proto string)",
+            "title": "sal_code",
+            "type": "string"
+          },
+          "salName": {
+            "description": "(proto string)",
+            "title": "sal_name",
+            "type": "string"
+          },
+          "trackedListingCount": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "tracked_listing_count",
+            "type": "integer"
+          }
+        },
+        "title": "CouncilDropSuburb",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilNeighbour": {
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "description": "(proto string)",
+            "title": "display_name",
+            "type": "string"
+          },
+          "kind": {
+            "description": "(proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "lgaCode": {
+            "description": "(proto string)",
+            "title": "lga_code",
+            "type": "string"
+          },
+          "sharedSuburbs": {
+            "description": "Suburbs split between the two councils (each \u003e= 1% of residents). (proto int32)",
+            "format": "int32",
+            "title": "shared_suburbs",
+            "type": "integer"
+          },
+          "sharesBorder": {
+            "description": "A dominant-member suburb shares a boundary with one of the neighbour's\n (ABS suburb topology, within the state). (proto bool)",
+            "title": "shares_border",
+            "type": "boolean"
+          },
+          "slug": {
+            "description": "'' when the council has no page (proto string)",
+            "title": "slug",
+            "type": "string"
+          },
+          "stateCode": {
+            "description": "(proto string)",
+            "title": "state_code",
+            "type": "string"
+          }
+        },
+        "title": "CouncilNeighbour",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilPriceDrops": {
+        "additionalProperties": false,
+        "description": "Asking-price cuts in the last 30 days over the suburbs whose dominant\n council this is, among listings active and seen by the crawl in the last 14\n days (each address counted once). Counted from every crawled member suburb,\n so cuts in suburbs below the floor still count; floored at 3 cuts\n council-wide.",
+        "properties": {
+          "asOf": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "when these figures were computed (proto google.protobuf.Timestamp)",
+            "title": "as_of"
+          },
+          "dataThrough": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "newest crawl observation behind them (proto google.protobuf.Timestamp)",
+            "title": "data_through"
+          },
+          "droppedListingCount": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "dropped_listing_count",
+            "type": "integer"
+          },
+          "droppedShare": {
+            "description": "dropped / tracked (proto double)",
+            "format": "double",
+            "title": "dropped_share",
+            "type": "number"
+          },
+          "medianDropPct": {
+            "description": "median cut over every cut listing in the council (proto double)",
+            "format": "double",
+            "title": "median_drop_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "suburbs": {
+            "description": "Only suburbs that clear 3 drops themselves are named. (proto shorts.v1alpha1.CouncilDropSuburb)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilDropSuburb"
+            },
+            "title": "suburbs",
+            "type": "array"
+          },
+          "suburbsTracked": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "suburbs_tracked",
+            "type": "integer"
+          },
+          "trackedListingCount": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "tracked_listing_count",
+            "type": "integer"
+          }
+        },
+        "title": "CouncilPriceDrops",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "council": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.LgaInfo",
+            "description": "Identity + current facts. dominant_share is absent (it is a suburb fact). (proto shorts.v1alpha1.LgaInfo)",
+            "title": "council"
+          },
+          "factsAsOf": {
+            "description": "when the council facts were loaded, 'YYYY-MM-DD' (proto string)",
+            "title": "facts_as_of",
+            "type": "string"
+          },
+          "federalElectorates": {
+            "description": "Federal electorates / state districts over the member suburbs, weighted by\n the residents each suburb contributes to this council. Largest first. (proto shorts.v1alpha1.CouncilRepresentative)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilRepresentative"
+            },
+            "title": "federal_electorates",
+            "type": "array"
+          },
+          "lgaVintage": {
+            "description": "(proto string)",
+            "title": "lga_vintage",
+            "type": "string"
+          },
+          "neighbours": {
+            "description": "(proto shorts.v1alpha1.CouncilNeighbour)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilNeighbour"
+            },
+            "title": "neighbours",
+            "type": "array"
+          },
+          "priceDrops": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.CouncilPriceDrops",
+            "description": "Crawl-derived aggregate. Absent below 3 drops council-wide or with no\n crawl coverage. (proto shorts.v1alpha1.CouncilPriceDrops)",
+            "title": "price_drops"
+          },
+          "rollup": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.CouncilRollup",
+            "description": "(proto shorts.v1alpha1.CouncilRollup)",
+            "title": "rollup"
+          },
+          "series": {
+            "description": "(proto shorts.v1alpha1.CouncilSeries)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilSeries"
+            },
+            "title": "series",
+            "type": "array"
+          },
+          "stateDistricts": {
+            "description": "(proto shorts.v1alpha1.CouncilRepresentative)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilRepresentative"
+            },
+            "title": "state_districts",
+            "type": "array"
+          },
+          "suburbs": {
+            "description": "Every suburb whose dominant council this is, plus straddling suburbs where\n this council holds at least 5% of the residents. Population desc. (proto shorts.v1alpha1.CouncilSuburb)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilSuburb"
+            },
+            "title": "suburbs",
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.CouncilSummary",
+            "description": "The same row ListCouncils serves, so the hub and the index never disagree. (proto shorts.v1alpha1.CouncilSummary)",
+            "title": "summary"
+          }
+        },
+        "title": "CouncilProfile",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilRepresentative": {
+        "additionalProperties": false,
+        "properties": {
+          "member": {
+            "description": "(proto string)",
+            "title": "member",
+            "type": "string"
+          },
+          "name": {
+            "description": "electorate or district (proto string)",
+            "title": "name",
+            "type": "string"
+          },
+          "party": {
+            "description": "(proto string)",
+            "title": "party",
+            "type": "string"
+          },
+          "partyAb": {
+            "description": "(proto string)",
+            "title": "party_ab",
+            "type": "string"
+          },
+          "populationShare": {
+            "description": "0..1 of the council's member-suburb residents (proto double)",
+            "format": "double",
+            "title": "population_share",
+            "type": "number"
+          },
+          "suburbCount": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "suburb_count",
+            "type": "integer"
+          }
+        },
+        "title": "CouncilRepresentative",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilRollup": {
+        "additionalProperties": false,
+        "description": "Rollups over the member suburbs, weighted by the residents each contributes\n (population x share). Absent = no member suburb is covered.",
+        "properties": {
+          "bushfireCoveredSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "bushfire_covered_suburbs",
+            "type": "integer"
+          },
+          "bushfireSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "bushfire_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "crime": {
+            "description": "Latest crime rates where the source covers member suburbs (NSW today). (proto shorts.v1alpha1.CouncilCrimeStat)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilCrimeStat"
+            },
+            "title": "crime",
+            "type": "array"
+          },
+          "dominantSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "dominant_suburbs",
+            "type": "integer"
+          },
+          "floodCoveredSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "flood_covered_suburbs",
+            "type": "integer"
+          },
+          "floodSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "flood_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "medianMax": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "median_max",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "medianMin": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "median_min",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "medianOfMedians": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "median_of_medians",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "memberSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "member_suburbs",
+            "type": "integer"
+          },
+          "pricedSuburbs": {
+            "description": "Member suburbs with their own Valuer-General median (unweighted). (proto int32)",
+            "format": "int32",
+            "title": "priced_suburbs",
+            "type": "integer"
+          },
+          "waterCoveredSuburbs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "water_covered_suburbs",
+            "type": "integer"
+          },
+          "waterSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "water_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "title": "CouncilRollup",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilSeries": {
+        "additionalProperties": false,
+        "description": "One lga_series measure for the council, ascending by period.",
+        "properties": {
+          "frequency": {
+            "description": "annual (30 June) | fy | monthly (proto string)",
+            "title": "frequency",
+            "type": "string"
+          },
+          "measure": {
+            "description": "e.g. 'erp', 'house_median_price', 'dwelling_approvals_total' (proto string)",
+            "title": "measure",
+            "type": "string"
+          },
+          "points": {
+            "description": "(proto shorts.v1alpha1.CouncilSeriesPoint)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilSeriesPoint"
+            },
+            "title": "points",
+            "type": "array"
+          },
+          "source": {
+            "description": "(proto string)",
+            "title": "source",
+            "type": "string"
+          },
+          "sourceLicence": {
+            "description": "(proto string)",
+            "title": "source_licence",
+            "type": "string"
+          },
+          "unit": {
+            "description": "persons | AUD | count (proto string)",
+            "title": "unit",
+            "type": "string"
+          }
+        },
+        "title": "CouncilSeries",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilSeriesPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "period": {
+            "description": "period end, 'YYYY-MM-DD' (proto string)",
+            "title": "period",
+            "type": "string"
+          },
+          "periodLabel": {
+            "description": "'2025' | '2024-25' | '2026-07' (proto string)",
+            "title": "period_label",
+            "type": "string"
+          },
+          "value": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "value",
+            "type": "number"
+          }
+        },
+        "title": "CouncilSeriesPoint",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilSuburb": {
+        "additionalProperties": false,
+        "properties": {
+          "bushfireSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "bushfire_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "dominant": {
+            "description": "this is the suburb's dominant council (proto bool)",
+            "title": "dominant",
+            "type": "boolean"
+          },
+          "floodSharePct": {
+            "description": "absent = no source covers the suburb (proto double)",
+            "format": "double",
+            "title": "flood_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "population": {
+            "description": "Census 2021 persons, whole suburb (proto int32)",
+            "format": "int32",
+            "title": "population",
+            "type": "integer"
+          },
+          "postcode": {
+            "description": "(proto string)",
+            "title": "postcode",
+            "type": "string"
+          },
+          "salCode": {
+            "description": "(proto string)",
+            "title": "sal_code",
+            "type": "string"
+          },
+          "salName": {
+            "description": "(proto string)",
+            "title": "sal_name",
+            "type": "string"
+          },
+          "seifaIrsadDecile": {
+            "description": "national decile (proto int32)",
+            "format": "int32",
+            "title": "seifa_irsad_decile",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "share": {
+            "description": "0..1 of the suburb's residents in this council (proto double)",
+            "format": "double",
+            "title": "share",
+            "type": "number"
+          },
+          "vgMedian": {
+            "description": "the suburb's OWN Valuer-General median house price (proto double)",
+            "format": "double",
+            "title": "vg_median",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "vgMedianPeriod": {
+            "description": "'YYYY-MM-DD'; '' without a median (proto string)",
+            "title": "vg_median_period",
+            "type": "string"
+          },
+          "waterSharePct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "water_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "title": "CouncilSuburb",
+        "type": "object"
+      },
+      "shorts.v1alpha1.CouncilSummary": {
+        "additionalProperties": false,
+        "description": "One council's headline row: the council index table and the council\n choropleth read exactly these fields.",
+        "properties": {
+          "approvalsPer1000": {
+            "description": "dwelling approvals, last 12 months, per 1,000 residents (proto double)",
+            "format": "double",
+            "title": "approvals_per_1000",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "approvalsThrough": {
+            "description": "last month of that window, 'YYYY-MM' (proto string)",
+            "title": "approvals_through",
+            "type": "string"
+          },
+          "areaSqkm": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "area_sqkm",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "bushfireSharePct": {
+            "description": "population-weighted over member suburbs (proto double)",
+            "format": "double",
+            "title": "bushfire_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "councilHouseMedian": {
+            "description": "council-wide ABS established-house median (proto double)",
+            "format": "double",
+            "title": "council_house_median",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "councilHouseMedianPeriod": {
+            "description": "e.g. '2023-24' (proto string)",
+            "title": "council_house_median_period",
+            "type": "string"
+          },
+          "dataThrough": {
+            "description": "newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none (proto string)",
+            "title": "data_through",
+            "type": "string"
+          },
+          "densityPerSqkm": {
+            "description": "ERP / area (proto double)",
+            "format": "double",
+            "title": "density_per_sqkm",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "displayName": {
+            "description": "(proto string)",
+            "title": "display_name",
+            "type": "string"
+          },
+          "erpYear": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "erp_year",
+            "type": "integer"
+          },
+          "fagPerResident": {
+            "description": "latest Financial Assistance Grant / ERP, AUD (proto double)",
+            "format": "double",
+            "title": "fag_per_resident",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "fagYear": {
+            "description": "e.g. '2025-26' (proto string)",
+            "title": "fag_year",
+            "type": "string"
+          },
+          "floodSharePct": {
+            "description": "population-weighted over member suburbs (proto double)",
+            "format": "double",
+            "title": "flood_share_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "council | unincorporated (proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "lgaCode": {
+            "description": "(proto string)",
+            "title": "lga_code",
+            "type": "string"
+          },
+          "memberSuburbCount": {
+            "description": "suburbs whose DOMINANT council this is (proto int32)",
+            "format": "int32",
+            "title": "member_suburb_count",
+            "type": "integer"
+          },
+          "popGrowthPct": {
+            "description": "ERP year-on-year change, % (proto double)",
+            "format": "double",
+            "title": "pop_growth_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "population": {
+            "description": "ABS estimated resident population at 30 June erp_year; 0 if none (proto int32)",
+            "format": "int32",
+            "title": "population",
+            "type": "integer"
+          },
+          "priceDropShare": {
+            "description": "0..1, crawl-derived, only when \u003e= 3 drops council-wide (proto double)",
+            "format": "double",
+            "title": "price_drop_share",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "seifaIrsadDecile": {
+            "description": "SEIFA 2021 IRSAD, national decile (proto int32)",
+            "format": "int32",
+            "title": "seifa_irsad_decile",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "slug": {
+            "description": "(proto string)",
+            "title": "slug",
+            "type": "string"
+          },
+          "stateCode": {
+            "description": "(proto string)",
+            "title": "state_code",
+            "type": "string"
+          }
+        },
+        "title": "CouncilSummary",
+        "type": "object"
+      },
       "shorts.v1alpha1.DeclaredInterest": {
         "additionalProperties": false,
         "description": "DeclaredInterest is one holding over one continuous period.\n\n declared_from_known distinguishes \"declared since this date\" from \"declared as\n at a statement whose date the form did not state\". A consumer must render the\n second as an unknown start and never substitute a guess.",
@@ -1775,6 +2507,35 @@
           }
         },
         "title": "GetCompanyTaxProfileResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetCouncilProfileRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "slug": {
+            "description": "lga.slug — minted once, never reassigned (proto string)",
+            "title": "slug",
+            "type": "string"
+          },
+          "stateCode": {
+            "description": "NSW | VIC | QLD | SA | WA | TAS | NT | ACT (proto string)",
+            "title": "state_code",
+            "type": "string"
+          }
+        },
+        "title": "GetCouncilProfileRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetCouncilProfileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.CouncilProfile",
+            "description": "(proto shorts.v1alpha1.CouncilProfile)",
+            "title": "profile"
+          }
+        },
+        "title": "GetCouncilProfileResponse",
         "type": "object"
       },
       "shorts.v1alpha1.GetDirectorTradesRequest": {
@@ -3983,6 +4744,14 @@
             "description": "council this suburb sits in ('' if unmatched) (proto shorts.v1alpha1.LgaInfo)",
             "title": "council"
           },
+          "councilOverlaps": {
+            "description": "Other councils holding \u003e= 5% of this suburb's residents, largest first.\n Empty for a suburb wholly (or \u003e= 95%) inside `council`. (proto shorts.v1alpha1.LgaOverlap)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.LgaOverlap"
+            },
+            "title": "council_overlaps",
+            "type": "array"
+          },
           "crime": {
             "$ref": "#/components/schemas/shorts.v1alpha1.SuburbCrime",
             "description": "null when the suburb has no gated crime data (proto shorts.v1alpha1.SuburbCrime)",
@@ -4866,11 +5635,72 @@
             "title": "asset_renewal_ratio",
             "type": "number"
           },
+          "avgHouseholdSize": {
+            "description": "Census 2021, persons (proto double)",
+            "format": "double",
+            "title": "avg_household_size",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
           "avgRates": {
             "description": "Per-council financials (VIC LGPRF, CC-BY; 0/'' for states not yet sourced). average rate per property assessment, AUD (proto double)",
             "format": "double",
             "title": "avg_rates",
             "type": "number"
+          },
+          "centroidLat": {
+            "description": "area-weighted centroid of the ABS boundary (proto double)",
+            "format": "double",
+            "title": "centroid_lat",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "centroidLon": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "centroid_lon",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "councilHouseMedian": {
+            "description": "Latest ABS 'Data by Region' median established-house transfer price for\n the WHOLE COUNCIL (year ended 30 June). A council-level figure: never\n present it as this suburb's median. (proto double)",
+            "format": "double",
+            "title": "council_house_median",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "councilHouseMedianPeriod": {
+            "description": "e.g. '2023-24'; '' if none (proto string)",
+            "title": "council_house_median_period",
+            "type": "string"
+          },
+          "displayName": {
+            "description": "ABS name without the state suffix: 'Campbelltown' (proto string)",
+            "title": "display_name",
+            "type": "string"
+          },
+          "dominantShare": {
+            "description": "Share (0..1] of THIS suburb's residents who live in this council (ABS\n mesh-block allocation, Census 2021 persons). Absent outside a suburb profile. (proto double)",
+            "format": "double",
+            "title": "dominant_share",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "erpYear": {
+            "description": "Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,\n never a measured zero. reference year of population; 0 if none (proto int32)",
+            "format": "int32",
+            "title": "erp_year",
+            "type": "integer"
           },
           "fedFagAud": {
             "description": "federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched (proto double)",
@@ -4893,6 +5723,11 @@
             "title": "fin_year",
             "type": "string"
           },
+          "kind": {
+            "description": "council | unincorporated | pseudo (proto string)",
+            "title": "kind",
+            "type": "string"
+          },
           "lgaCode": {
             "description": "(proto string)",
             "title": "lga_code",
@@ -4903,17 +5738,138 @@
             "title": "lga_name",
             "type": "string"
           },
+          "medianAge": {
+            "description": "Census 2021 (proto double)",
+            "format": "double",
+            "title": "median_age",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "medianHhdIncome": {
+            "description": "Census 2021, $/week (proto int32)",
+            "format": "int32",
+            "title": "median_hhd_income",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "medianMortgageMonthly": {
+            "description": "Census 2021, $/month (proto int32)",
+            "format": "int32",
+            "title": "median_mortgage_monthly",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "medianWeeklyRent": {
+            "description": "Census 2021, $/week (proto int32)",
+            "format": "int32",
+            "title": "median_weekly_rent",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "opSurplusRatio": {
             "description": "adjusted underlying (operating) result, % (negative = deficit) (proto double)",
             "format": "double",
             "title": "op_surplus_ratio",
             "type": "number"
           },
+          "pctRented": {
+            "description": "Census 2021, % of households renting (proto double)",
+            "format": "double",
+            "title": "pct_rented",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "popGrowthPct": {
+            "description": "ERP year-on-year change, % (proto double)",
+            "format": "double",
+            "title": "pop_growth_pct",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
           "population": {
-            "description": "summed from member-suburb Census populations (proto int32)",
+            "description": "ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded (proto int32)",
             "format": "int32",
             "title": "population",
             "type": "integer"
+          },
+          "seifaIrsadDecile": {
+            "description": "SEIFA 2021 IRSAD, national decile 1..10 (proto int32)",
+            "format": "int32",
+            "title": "seifa_irsad_decile",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "seifaIrsdDecile": {
+            "description": "SEIFA 2021 IRSD, national decile 1..10 (proto int32)",
+            "format": "int32",
+            "title": "seifa_irsd_decile",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "slug": {
+            "description": "Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind\n 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb. URL segment, unique within state, never reassigned (proto string)",
+            "title": "slug",
+            "type": "string"
+          },
+          "stateCode": {
+            "description": "(proto string)",
+            "title": "state_code",
+            "type": "string"
+          },
+          "website": {
+            "description": "official website (Wikidata P856, CC0); '' if none (proto string)",
+            "title": "website",
+            "type": "string"
+          },
+          "wikidataQid": {
+            "description": "e.g. 'Q1719401'; '' if none (proto string)",
+            "title": "wikidata_qid",
+            "type": "string"
+          }
+        },
+        "title": "LgaInfo",
+        "type": "object"
+      },
+      "shorts.v1alpha1.LgaOverlap": {
+        "additionalProperties": false,
+        "description": "Another council a suburb spans, beyond the dominant one.",
+        "properties": {
+          "displayName": {
+            "description": "(proto string)",
+            "title": "display_name",
+            "type": "string"
+          },
+          "lgaCode": {
+            "description": "(proto string)",
+            "title": "lga_code",
+            "type": "string"
+          },
+          "share": {
+            "description": "0..1 of the suburb's residents (Census 2021 mesh blocks) (proto double)",
+            "format": "double",
+            "title": "share",
+            "type": "number"
+          },
+          "slug": {
+            "description": "'' when the council has no page (proto string)",
+            "title": "slug",
+            "type": "string"
           },
           "stateCode": {
             "description": "(proto string)",
@@ -4921,7 +5877,7 @@
             "type": "string"
           }
         },
-        "title": "LgaInfo",
+        "title": "LgaOverlap",
         "type": "object"
       },
       "shorts.v1alpha1.ListAddressPriceDropsRequest": {
@@ -5004,6 +5960,48 @@
           }
         },
         "title": "ListAgencyPriceStatsResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListCouncilsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "stateCode": {
+            "description": "required: NSW | VIC | QLD | SA | WA | TAS | NT | ACT (proto string)",
+            "title": "state_code",
+            "type": "string"
+          }
+        },
+        "title": "ListCouncilsRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListCouncilsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "councils": {
+            "description": "population desc, then name (proto shorts.v1alpha1.CouncilSummary)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.CouncilSummary"
+            },
+            "title": "councils",
+            "type": "array"
+          },
+          "lgaVintage": {
+            "description": "boundary vintage, e.g. 'ABS ASGS LGA 2024' (proto string)",
+            "title": "lga_vintage",
+            "type": "string"
+          },
+          "priceDropsAsOf": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "Freshness of every council's price_drop_share (program decision 9): when\n the shares were computed, and the newest crawl observation behind any of\n them. Both absent when no council publishes a share. (proto google.protobuf.Timestamp)",
+            "title": "price_drops_as_of"
+          },
+          "priceDropsDataThrough": {
+            "$ref": "#/components/schemas/google.protobuf.Timestamp",
+            "description": "(proto google.protobuf.Timestamp)",
+            "title": "price_drops_data_through"
+          }
+        },
+        "title": "ListCouncilsResponse",
         "type": "object"
       },
       "shorts.v1alpha1.ListDistinctiveHoldingsRequest": {
@@ -11469,6 +12467,65 @@
         ]
       }
     },
+    "/shorts.v1alpha1.HousingService/GetCouncilProfile": {
+      "post": {
+        "description": "One council's hub: identity, current facts, time series, member suburbs,\n hazard/price/crime rollups, representation, price drops and neighbours.",
+        "operationId": "HousingService_GetCouncilProfile",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetCouncilProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetCouncilProfileResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetCouncilProfile",
+        "tags": [
+          "shorts.v1alpha1.HousingService"
+        ]
+      }
+    },
     "/shorts.v1alpha1.HousingService/GetDropIndexSeries": {
       "post": {
         "description": "Daily discounting index series (national/state/suburb) for the price-drops chart.",
@@ -12054,6 +13111,65 @@
           }
         },
         "summary": "ListAgencyPriceStats",
+        "tags": [
+          "shorts.v1alpha1.HousingService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.HousingService/ListCouncils": {
+      "post": {
+        "description": "Every council with a page in one state (kind council | unincorporated),\n with the rollup metrics the council index and choropleth colour by.",
+        "operationId": "HousingService_ListCouncils",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.ListCouncilsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.ListCouncilsResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "ListCouncils",
         "tags": [
           "shorts.v1alpha1.HousingService"
         ]

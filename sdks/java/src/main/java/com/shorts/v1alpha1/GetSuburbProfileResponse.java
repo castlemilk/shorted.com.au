@@ -29,6 +29,7 @@ private static final long serialVersionUID = 0L;
   }
   private GetSuburbProfileResponse() {
     similar_ = java.util.Collections.emptyList();
+    councilOverlaps_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -423,6 +424,72 @@ private static final long serialVersionUID = 0L;
     return hazards_ == null ? com.shorts.v1alpha1.SuburbHazardExposure.getDefaultInstance() : hazards_;
   }
 
+  public static final int COUNCIL_OVERLAPS_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private java.util.List<com.shorts.v1alpha1.LgaOverlap> councilOverlaps_;
+  /**
+   * <pre>
+   * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+   * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.shorts.v1alpha1.LgaOverlap> getCouncilOverlapsList() {
+    return councilOverlaps_;
+  }
+  /**
+   * <pre>
+   * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+   * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.shorts.v1alpha1.LgaOverlapOrBuilder> 
+      getCouncilOverlapsOrBuilderList() {
+    return councilOverlaps_;
+  }
+  /**
+   * <pre>
+   * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+   * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+   */
+  @java.lang.Override
+  public int getCouncilOverlapsCount() {
+    return councilOverlaps_.size();
+  }
+  /**
+   * <pre>
+   * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+   * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.LgaOverlap getCouncilOverlaps(int index) {
+    return councilOverlaps_.get(index);
+  }
+  /**
+   * <pre>
+   * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+   * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+   * </pre>
+   *
+   * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.LgaOverlapOrBuilder getCouncilOverlapsOrBuilder(
+      int index) {
+    return councilOverlaps_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -466,6 +533,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000100) != 0)) {
       output.writeMessage(10, getHazards());
+    }
+    for (int i = 0; i < councilOverlaps_.size(); i++) {
+      output.writeMessage(11, councilOverlaps_.get(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -516,6 +586,15 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(10, getHazards());
     }
+
+        {
+          final int count = councilOverlaps_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(councilOverlaps_.get(i));
+          }
+          size += 1 * count;
+        }
     return size;
   }
   @java.lang.Override
@@ -587,6 +666,8 @@ private static final long serialVersionUID = 0L;
       if (!getHazards()
           .equals(other.getHazards())) return false;
     }
+    if (!getCouncilOverlapsList()
+        .equals(other.getCouncilOverlapsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -637,6 +718,10 @@ private static final long serialVersionUID = 0L;
     if (hasHazards()) {
       hash = (37 * hash) + HAZARDS_FIELD_NUMBER;
       hash = (53 * hash) + getHazards().hashCode();
+    }
+    if (getCouncilOverlapsCount() > 0) {
+      hash = (37 * hash) + COUNCIL_OVERLAPS_FIELD_NUMBER;
+      hash = (53 * hash) + getCouncilOverlapsList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -778,6 +863,7 @@ private static final long serialVersionUID = 0L;
         internalGetListingStatsFieldBuilder();
         internalGetElevationFieldBuilder();
         internalGetHazardsFieldBuilder();
+        internalGetCouncilOverlapsFieldBuilder();
       }
     }
     @java.lang.Override
@@ -836,6 +922,13 @@ private static final long serialVersionUID = 0L;
         hazardsBuilder_.dispose();
         hazardsBuilder_ = null;
       }
+      if (councilOverlapsBuilder_ == null) {
+        councilOverlaps_ = java.util.Collections.emptyList();
+      } else {
+        councilOverlaps_ = null;
+        councilOverlapsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000400);
       return this;
     }
 
@@ -877,6 +970,15 @@ private static final long serialVersionUID = 0L;
         result.similar_ = similar_;
       } else {
         result.similar_ = similarBuilder_.build();
+      }
+      if (councilOverlapsBuilder_ == null) {
+        if (((bitField0_ & 0x00000400) != 0)) {
+          councilOverlaps_ = java.util.Collections.unmodifiableList(councilOverlaps_);
+          bitField0_ = (bitField0_ & ~0x00000400);
+        }
+        result.councilOverlaps_ = councilOverlaps_;
+      } else {
+        result.councilOverlaps_ = councilOverlapsBuilder_.build();
       }
     }
 
@@ -1005,6 +1107,32 @@ private static final long serialVersionUID = 0L;
       if (other.hasHazards()) {
         mergeHazards(other.getHazards());
       }
+      if (councilOverlapsBuilder_ == null) {
+        if (!other.councilOverlaps_.isEmpty()) {
+          if (councilOverlaps_.isEmpty()) {
+            councilOverlaps_ = other.councilOverlaps_;
+            bitField0_ = (bitField0_ & ~0x00000400);
+          } else {
+            ensureCouncilOverlapsIsMutable();
+            councilOverlaps_.addAll(other.councilOverlaps_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.councilOverlaps_.isEmpty()) {
+          if (councilOverlapsBuilder_.isEmpty()) {
+            councilOverlapsBuilder_.dispose();
+            councilOverlapsBuilder_ = null;
+            councilOverlaps_ = other.councilOverlaps_;
+            bitField0_ = (bitField0_ & ~0x00000400);
+            councilOverlapsBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetCouncilOverlapsFieldBuilder() : null;
+          } else {
+            councilOverlapsBuilder_.addAllMessages(other.councilOverlaps_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1107,6 +1235,19 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000200;
               break;
             } // case 82
+            case 90: {
+              com.shorts.v1alpha1.LgaOverlap m =
+                  input.readMessage(
+                      com.shorts.v1alpha1.LgaOverlap.parser(),
+                      extensionRegistry);
+              if (councilOverlapsBuilder_ == null) {
+                ensureCouncilOverlapsIsMutable();
+                councilOverlaps_.add(m);
+              } else {
+                councilOverlapsBuilder_.addMessage(m);
+              }
+              break;
+            } // case 90
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2757,6 +2898,336 @@ private static final long serialVersionUID = 0L;
         hazards_ = null;
       }
       return hazardsBuilder_;
+    }
+
+    private java.util.List<com.shorts.v1alpha1.LgaOverlap> councilOverlaps_ =
+      java.util.Collections.emptyList();
+    private void ensureCouncilOverlapsIsMutable() {
+      if (!((bitField0_ & 0x00000400) != 0)) {
+        councilOverlaps_ = new java.util.ArrayList<com.shorts.v1alpha1.LgaOverlap>(councilOverlaps_);
+        bitField0_ |= 0x00000400;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.LgaOverlap, com.shorts.v1alpha1.LgaOverlap.Builder, com.shorts.v1alpha1.LgaOverlapOrBuilder> councilOverlapsBuilder_;
+
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.LgaOverlap> getCouncilOverlapsList() {
+      if (councilOverlapsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(councilOverlaps_);
+      } else {
+        return councilOverlapsBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public int getCouncilOverlapsCount() {
+      if (councilOverlapsBuilder_ == null) {
+        return councilOverlaps_.size();
+      } else {
+        return councilOverlapsBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public com.shorts.v1alpha1.LgaOverlap getCouncilOverlaps(int index) {
+      if (councilOverlapsBuilder_ == null) {
+        return councilOverlaps_.get(index);
+      } else {
+        return councilOverlapsBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public Builder setCouncilOverlaps(
+        int index, com.shorts.v1alpha1.LgaOverlap value) {
+      if (councilOverlapsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureCouncilOverlapsIsMutable();
+        councilOverlaps_.set(index, value);
+        onChanged();
+      } else {
+        councilOverlapsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public Builder setCouncilOverlaps(
+        int index, com.shorts.v1alpha1.LgaOverlap.Builder builderForValue) {
+      if (councilOverlapsBuilder_ == null) {
+        ensureCouncilOverlapsIsMutable();
+        councilOverlaps_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        councilOverlapsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public Builder addCouncilOverlaps(com.shorts.v1alpha1.LgaOverlap value) {
+      if (councilOverlapsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureCouncilOverlapsIsMutable();
+        councilOverlaps_.add(value);
+        onChanged();
+      } else {
+        councilOverlapsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public Builder addCouncilOverlaps(
+        int index, com.shorts.v1alpha1.LgaOverlap value) {
+      if (councilOverlapsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureCouncilOverlapsIsMutable();
+        councilOverlaps_.add(index, value);
+        onChanged();
+      } else {
+        councilOverlapsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public Builder addCouncilOverlaps(
+        com.shorts.v1alpha1.LgaOverlap.Builder builderForValue) {
+      if (councilOverlapsBuilder_ == null) {
+        ensureCouncilOverlapsIsMutable();
+        councilOverlaps_.add(builderForValue.build());
+        onChanged();
+      } else {
+        councilOverlapsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public Builder addCouncilOverlaps(
+        int index, com.shorts.v1alpha1.LgaOverlap.Builder builderForValue) {
+      if (councilOverlapsBuilder_ == null) {
+        ensureCouncilOverlapsIsMutable();
+        councilOverlaps_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        councilOverlapsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public Builder addAllCouncilOverlaps(
+        java.lang.Iterable<? extends com.shorts.v1alpha1.LgaOverlap> values) {
+      if (councilOverlapsBuilder_ == null) {
+        ensureCouncilOverlapsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, councilOverlaps_);
+        onChanged();
+      } else {
+        councilOverlapsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public Builder clearCouncilOverlaps() {
+      if (councilOverlapsBuilder_ == null) {
+        councilOverlaps_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000400);
+        onChanged();
+      } else {
+        councilOverlapsBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public Builder removeCouncilOverlaps(int index) {
+      if (councilOverlapsBuilder_ == null) {
+        ensureCouncilOverlapsIsMutable();
+        councilOverlaps_.remove(index);
+        onChanged();
+      } else {
+        councilOverlapsBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public com.shorts.v1alpha1.LgaOverlap.Builder getCouncilOverlapsBuilder(
+        int index) {
+      return internalGetCouncilOverlapsFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public com.shorts.v1alpha1.LgaOverlapOrBuilder getCouncilOverlapsOrBuilder(
+        int index) {
+      if (councilOverlapsBuilder_ == null) {
+        return councilOverlaps_.get(index);  } else {
+        return councilOverlapsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public java.util.List<? extends com.shorts.v1alpha1.LgaOverlapOrBuilder> 
+         getCouncilOverlapsOrBuilderList() {
+      if (councilOverlapsBuilder_ != null) {
+        return councilOverlapsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(councilOverlaps_);
+      }
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public com.shorts.v1alpha1.LgaOverlap.Builder addCouncilOverlapsBuilder() {
+      return internalGetCouncilOverlapsFieldBuilder().addBuilder(
+          com.shorts.v1alpha1.LgaOverlap.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public com.shorts.v1alpha1.LgaOverlap.Builder addCouncilOverlapsBuilder(
+        int index) {
+      return internalGetCouncilOverlapsFieldBuilder().addBuilder(
+          index, com.shorts.v1alpha1.LgaOverlap.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Other councils holding &gt;= 5% of this suburb's residents, largest first.
+     * Empty for a suburb wholly (or &gt;= 95%) inside `council`.
+     * </pre>
+     *
+     * <code>repeated .shorts.v1alpha1.LgaOverlap council_overlaps = 11 [json_name = "councilOverlaps"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.LgaOverlap.Builder> 
+         getCouncilOverlapsBuilderList() {
+      return internalGetCouncilOverlapsFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.LgaOverlap, com.shorts.v1alpha1.LgaOverlap.Builder, com.shorts.v1alpha1.LgaOverlapOrBuilder> 
+        internalGetCouncilOverlapsFieldBuilder() {
+      if (councilOverlapsBuilder_ == null) {
+        councilOverlapsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.shorts.v1alpha1.LgaOverlap, com.shorts.v1alpha1.LgaOverlap.Builder, com.shorts.v1alpha1.LgaOverlapOrBuilder>(
+                councilOverlaps_,
+                ((bitField0_ & 0x00000400) != 0),
+                getParentForChildren(),
+                isClean());
+        councilOverlaps_ = null;
+      }
+      return councilOverlapsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetSuburbProfileResponse)

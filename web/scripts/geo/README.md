@@ -43,3 +43,28 @@ with the real DEM before `house-price-collector -mode elevation` is used.
 ## Attributes used
 - STE: `STE_CODE21`, `STE_NAME21`
 - SAL: `SAL_CODE21`, `SAL_NAME21`, `STE_NAME21`, `STE_CODE21`
+
+## Council (LGA) bridge
+
+`join-lga-mb.py` writes `web/public/geo/insights/suburb-lga.json` (each
+suburb's dominant council, its share, and every other council holding at least
+1% of it) and `lga-facts.json` (council identity: name, display name, state
+code, kind, area, Census 2021 dwellings, centroid). `house-price-collector -mode
+lga` loads both.
+
+It needs no geometry. SAL_2021 and LGA_2024 are both built from the same ASGS
+2021 mesh blocks, so the bridge is the exact sum of each suburb's mesh blocks,
+weighted by Census 2021 usual residents (dwellings, then area, when a suburb
+has nobody living in it). It replaced a centroid-in-polygon join that put 224
+suburbs in the wrong council and left 20 with none.
+
+Inputs, all ABS CC BY 4.0, staged outside git (e.g.
+`/Volumes/gamma-systems-2/shorted-council/abs/`):
+- ASGS Ed.3 allocation files `SAL_2021_AUST.xlsx` and `LGA_2024_AUST.xlsx`
+- Census 2021 `Mesh Block Counts, 2021.xlsx`
+- `abs-lga.geojson` from `fetch-abs-lga.mjs` (only for centroids; optional)
+
+    python3 -m pip install openpyxl
+    python3 web/scripts/geo/join-lga-mb.py --staging /Volumes/gamma-systems-2/shorted-council/abs
+    python3 -m unittest web/scripts/geo/test_join_lga_mb.py
+    node --test web/scripts/geo/lga-bridge.test.mjs
