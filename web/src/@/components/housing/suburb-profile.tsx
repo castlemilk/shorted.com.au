@@ -32,6 +32,7 @@ import type {
   LgaInfo,
   SuburbCrime,
   SuburbDemographics,
+  SuburbPlanning,
   SuburbSeifa,
   SuburbSeifaIndex,
   SuburbSummary,
@@ -44,6 +45,8 @@ import { SuburbLocatorMap } from "./suburb-locator-map-loader";
 import { SuburbNearbyList } from "./suburb-nearby-list";
 import { SuburbScoreBand } from "./suburb-score-band";
 import { SuburbHazardCard } from "./suburb-hazard-card";
+import { SuburbPlanningCard } from "./suburb-planning-card";
+import { PLANNING_SOURCE_CREDITS, planningSourceIds } from "@/lib/housing/planning-sources";
 import { RecentPriceDrops } from "./suburb-recent-price-drops-loader";
 import { STATE_NAMES, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
 import { crimeRankScale } from "@/lib/housing/highlight-metrics";
@@ -273,6 +276,8 @@ export function SuburbProfile({
 
           <SuburbHazardCard elevation={data.elevation} hazards={data.hazards} stateCode={st} salCode={s.salCode} />
 
+          <SuburbPlanningCard planning={data.planning} stateCode={st} salCode={s.salCode} />
+
           {a ? <AmenitiesGroup a={a} nbn={s.dominantNbnTech} /> : null}
 
           <div className="grid gap-6 sm:grid-cols-2">
@@ -340,6 +345,7 @@ export function SuburbProfile({
         hasTerrain={data.elevation?.elevationMedianM !== undefined}
         hasWaterObservations={data.hazards?.waterObservedSharePct !== undefined}
         statutoryHazardSources={[data.hazards?.floodSource, data.hazards?.bushfireSource].filter(Boolean) as string[]}
+        planningSources={planningCreditIds(data.planning)}
         stateName={stateName}
       />
     </div>
@@ -347,6 +353,20 @@ export function SuburbProfile({
 }
 
 type Demographics = SuburbDemographics;
+
+/**
+ * The planning source ids the planning card actually rendered: zoning only
+ * when a family share is shown, heritage only when a heritage value is.
+ */
+export function planningCreditIds(planning: SuburbPlanning | undefined): string[] {
+  if (!planning) return [];
+  const ids: string[] = [];
+  if ((planning.zoneShares ?? []).some((z) => z.sharePct > 0)) ids.push(...planningSourceIds(planning.zoningSource));
+  if (planning.heritageSharePct !== undefined || planning.heritageItemCount !== undefined) {
+    ids.push(...planningSourceIds(planning.heritageSource));
+  }
+  return ids;
+}
 
 type Summary = SuburbSummary;
 type Crime = SuburbCrime;
@@ -894,7 +914,7 @@ const STATUTORY_HAZARD_CREDITS: Record<string, string> = {
 export function SourcesLine({
   censusYear, hasCensus, hasPrice, hasAmenities, hasSchoolSectors,
   hasFederal, hasStateMember, hasTerrain = false, hasWaterObservations = false,
-  statutoryHazardSources = [], stateName,
+  statutoryHazardSources = [], planningSources = [], stateName,
 }: {
   censusYear?: number;
   hasCensus: boolean;
@@ -909,6 +929,8 @@ export function SourcesLine({
   hasWaterObservations?: boolean;
   /** Source ids from SuburbHazardExposure (flood_source / bushfire_source) actually rendered. */
   statutoryHazardSources?: string[];
+  /** Source ids from SuburbPlanning (zoning_source / heritage_source) the planning card rendered. */
+  planningSources?: string[];
   stateName: string;
 }) {
   const parts: ReactNode[] = [];
@@ -941,6 +963,10 @@ export function SourcesLine({
   for (const id of new Set(statutoryHazardSources)) {
     const credit = STATUTORY_HAZARD_CREDITS[id];
     if (credit) parts.push(<>{credit} (CC BY 4.0)</>);
+  }
+  for (const id of new Set(planningSources)) {
+    const source = PLANNING_SOURCE_CREDITS[id];
+    if (source) parts.push(<>{source.credit} ({source.licence})</>);
   }
   if (hasStateMember) {
     parts.push(
