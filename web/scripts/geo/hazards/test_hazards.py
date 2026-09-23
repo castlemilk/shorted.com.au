@@ -165,6 +165,52 @@ class CoverageMaskTest(unittest.TestCase):
         self.assertEqual(vector_share.masked_share(self.SUBURB, [], unassessed=[]), (0.0, 100.0))
 
 
+class BuildTest(unittest.TestCase):
+    """build() end to end over fetch-layer page sets, in WGS84 near Canberra."""
+
+    def _layer(self, root, name, polygons, done=True):
+        d = Path(root) / name
+        d.mkdir()
+        lines = [json.dumps({"type": "Feature", "properties": {}, "geometry": g.__geo_interface__}) for g in polygons]
+        (d / "page-00000.geojsonl").write_text("\n".join(lines) + "\n")
+        if done:
+            (d / ".done").write_text("{}")
+        return d
+
+    def _suburbs(self, root, boxes):
+        import geopandas as gpd
+
+        frame = gpd.GeoDataFrame({"SAL_CODE21": list(boxes)}, geometry=list(boxes.values()), crs="EPSG:4326")
+        path = Path(root) / "suburbs.geojson"
+        frame.to_file(path, driver="GeoJSON")
+        return path
+
+    def test_hull_nulls_suburbs_the_model_never_reached(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            layer = self._layer(tmp, "act-flood", [box(149.00, -35.30, 149.01, -35.29),
+                                                   box(149.05, -35.30, 149.06, -35.29)])
+            suburbs = self._suburbs(tmp, {
+                "80001": box(149.00, -35.30, 149.02, -35.29),   # half flooded
+                "80002": box(149.03, -35.30, 149.04, -35.29),   # inside the hull, dry
+                "80003": box(148.80, -35.60, 148.81, -35.59),   # far outside
+            })
+            shares, covered = vector_share.build(layer, suburbs, coverage_hull=True)
+            no_mask, _ = vector_share.build(layer, suburbs)
+        self.assertAlmostEqual(shares["80001"], 50.0, delta=0.5)
+        self.assertEqual(shares["80002"], 0.0)
+        self.assertIsNone(shares["80003"])
+        self.assertEqual(covered["80003"], 0.0)
+        # Without the mask the same suburb is a (false) measured zero.
+        self.assertEqual(no_mask["80003"], 0.0)
+
+    def test_layer_without_done_marker_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            layer = self._layer(tmp, "partial", [box(149.0, -35.3, 149.01, -35.29)], done=False)
+            suburbs = self._suburbs(tmp, {"80001": box(149.0, -35.3, 149.02, -35.29)})
+            with self.assertRaises(SystemExit):
+                vector_share.build(layer, suburbs)
+
+
 class RasterShareTest(unittest.TestCase):
     """The streamed-grid path QLD bushfire uses: 10 m cells over a 1 km square."""
 

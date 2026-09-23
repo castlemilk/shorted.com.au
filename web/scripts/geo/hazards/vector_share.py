@@ -35,6 +35,12 @@ suburb is written to --coverage-out when asked, so a partial denominator is
 never invisible. Without a mask the whole suburb is covered and a suburb no
 polygon touches is a genuine 0.
 
+  --coverage-hull   take coverage as the convex hull of the layer itself, for a
+                    modelled extent published without its study area (ACT's
+                    1% AEP flood extent covers urban Canberra's waterways; the
+                    rural districts outside the modelled area are not "no
+                    flood"). Conservative by construction: nothing outside the
+                    hull can have been modelled.
   --raster-m        burn the layer onto a grid of this cell size and take each
                     suburb's share of burnt cells instead. For layers too big to
                     hold as geometry: QLD's bushfire prone area is 2.56 million
@@ -270,16 +276,25 @@ def build_raster(layer_dir: Path, suburbs_path: Path, cell_m: float) -> tuple[di
 
 
 def build(layer_dir: Path, suburbs_path: Path, coverage_dir: Path | None = None,
-          unassessed_dir: Path | None = None) -> tuple[dict, dict]:
+          unassessed_dir: Path | None = None, coverage_hull: bool = False) -> tuple[dict, dict]:
     """Per-SAL shares, and the covered share of each suburb (100 without masks)."""
+    import shapely
     from shapely.strtree import STRtree
 
+    # Indexed by PART, not by feature: WA's 148 bush fire prone features are
+    # 43,000 parts and 24 million vertices, and a per-LGA multipolygon would
+    # otherwise be clipped whole against every suburb it merely overlaps.
+    # The union before dividing makes this area-neutral.
     layer = load_layer(layer_dir)
-    tree = STRtree(layer.values)
+    parts = shapely.get_parts(layer.values)
+    tree = STRtree(parts)
     masks = {}
+    if coverage_hull:
+        hull = [shapely.union_all(parts).convex_hull]
+        masks["coverage"] = (STRtree(hull), hull)
     for key, mask_dir in (("coverage", coverage_dir), ("unassessed", unassessed_dir)):
         if mask_dir is not None:
-            geoms = load_layer(mask_dir).values
+            geoms = shapely.get_parts(load_layer(mask_dir).values)
             masks[key] = (STRtree(geoms), geoms)
     suburbs = load_suburbs(suburbs_path)
 
@@ -297,7 +312,7 @@ def build(layer_dir: Path, suburbs_path: Path, coverage_dir: Path | None = None,
         if geom is None or geom.is_empty:
             shares[sal], coverage[sal] = (0.0, 100.0) if not masks else (None, 0.0)
             continue
-        hits = [layer.values[i] for i in tree.query(geom, predicate="intersects")]
+        hits = [parts[i] for i in tree.query(geom, predicate="intersects")]
         shares[sal], coverage[sal] = masked_share(
             geom, hits, candidates("coverage", geom), candidates("unassessed", geom),
         )
@@ -315,15 +330,20 @@ def main() -> None:
                         help="fetched layer of land the source declares unassessed (carved out of coverage)")
     parser.add_argument("--coverage-out", type=Path, default=None,
                         help="also write each suburb's covered share (keep it OUT of the merge's vector dir)")
+    parser.add_argument("--coverage-hull", action="store_true",
+                        help="coverage = convex hull of the layer (a modelled extent with no published study area)")
     parser.add_argument("--raster-m", type=float, default=0,
                         help="share of burnt cells on a grid of this cell size instead of a GEOS union")
     args = parser.parse_args()
     if args.raster_m:
-        if args.coverage_dir or args.unassessed_dir:
-            parser.error("--raster-m is for statewide layers; it does not take --coverage-dir/--unassessed-dir")
+        if args.coverage_dir or args.unassessed_dir or args.coverage_hull:
+            parser.error("--raster-m is for statewide layers; it takes no coverage or unassessed mask")
         result, covered = build_raster(args.layer_dir, args.suburbs, args.raster_m)
     else:
-        result, covered = build(args.layer_dir, args.suburbs, args.coverage_dir, args.unassessed_dir)
+        if args.coverage_dir and args.coverage_hull:
+            parser.error("--coverage-dir and --coverage-hull are alternatives")
+        result, covered = build(args.layer_dir, args.suburbs, args.coverage_dir, args.unassessed_dir,
+                                args.coverage_hull)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(result, separators=(",", ":")) + "\n")
     if args.coverage_out:

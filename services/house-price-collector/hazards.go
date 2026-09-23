@@ -12,27 +12,56 @@ import (
 // Per-suburb hazard exposure, computed offline by web/scripts/geo/hazards/ and
 // loaded from web/public/geo/insights/suburb-hazards.json.
 //
-// Three sources, all CC-BY-4.0:
+// Three kinds of source, each openly licensed (CC BY 4.0 unless noted):
 //   - DEA Water Observations Statistics (Landsat, 1987 onward, 30 m),
 //     © Commonwealth of Australia (Geoscience Australia) — the share of a
 //     suburb's validly observed land seen under water at least occasionally,
 //     and the share that is permanent water. A floor on inundation, never a
 //     flood-risk estimate: the satellite under-observes flood peaks.
 //   - Statutory flood planning overlays — NSW EPI Flood (NSW Planning Portal),
-//     VIC LSIO/FO/SBO (Vicmap Planning). Planning-control boundaries, not
-//     flood extents; NSW councils have owned currency since July 2021.
-//   - Bushfire prone land — NSW BFPL (NSW RFS), VIC BMO (Vicmap Planning).
+//     VIC LSIO/FO/SBO (Vicmap Planning), SA Planning and Design Code Hazards
+//     (Flooding) + (Flooding – General) (CC BY 3.0 AU), TAS Planning Scheme
+//     Flood-prone Areas code overlay (CC BY 3.0 AU). Planning-control
+//     boundaries, not flood extents. ACT's is the exception: its only open
+//     layer is the modelled 1% AEP flood extent, which is not a planning
+//     overlay, and every surface that shows it says so.
+//   - Bushfire prone designations — NSW BFPL (NSW RFS), VIC Designated
+//     Bushfire Prone Area (Building Regulations, like-for-like with NSW BFPL;
+//     it replaced the narrower BMO planning overlay), QLD Bushfire Prone Area
+//     (QFD), WA Bush Fire Prone Areas OBRM-026, SA Code Hazards (Bushfire –
+//     High/Medium/General/Urban Interface) (CC BY 3.0 AU), TAS Bushfire-prone
+//     Areas code overlay (CC BY 3.0 AU), ACT Bushfire Prone Area 2026.
 //
-// NULL means "no source covers this suburb"; a genuine 0 is stored as 0.
+// NULL means "no source covers this suburb"; a genuine 0 is stored as 0. Inside
+// a state the share builder applies the same rule per suburb: NSW flood is
+// null outside the twelve instruments that lodged a flood map, TAS outside the
+// councils whose Local Provisions Schedule maps the overlay, SA wherever the
+// Code itself says the hazard is unassessed.
 const (
-	hazardsWaterSource    = "dea_wo_fq_myear_3_v2_1_0"
-	hazardsLicence        = "CC-BY-4.0"
+	hazardsWaterSource     = "dea_wo_fq_myear_3_v2_1_0"
+	hazardsLicence         = "CC-BY-4.0"
 	minimumHazardCellCount = 25
 )
 
-var hazardVectorSources = map[string]struct{ flood, bushfire string }{
+// hazardVectorSource names the statutory datasets for one state, keyed by the
+// ABS state digit (1 = NSW … 8 = ACT). An empty id means the state has no open
+// layer for that hazard, and validate() refuses a share for it.
+type hazardVectorSource struct {
+	flood, bushfire string
+	// licence of the statutory layers when it is not CC BY 4.0. The water
+	// share on the same row is always CC BY 4.0, so a row that carries one of
+	// these layers records both.
+	licence string
+}
+
+var hazardVectorSources = map[string]hazardVectorSource{
 	"1": {flood: "nsw_epi_flood", bushfire: "nsw_bfpl"},
-	"2": {flood: "vic_plan_overlay_lsio_fo_sbo", bushfire: "vic_plan_overlay_bmo"},
+	"2": {flood: "vic_plan_overlay_lsio_fo_sbo", bushfire: "vic_bpa"},
+	"3": {bushfire: "qld_qfd_bpa"},
+	"4": {flood: "sa_pdcode_hazards_flooding", bushfire: "sa_pdcode_hazards_bushfire", licence: "CC-BY-3.0-AU"},
+	"5": {bushfire: "wa_obrm_026_bpa"},
+	"6": {flood: "tas_tps_flood_prone", bushfire: "tas_tps_bushfire_prone", licence: "CC-BY-3.0-AU"},
+	"8": {flood: "act_flood_extent_1pct_aep", bushfire: "act_bpa_2026"},
 }
 
 // HazardRow is one suburb's hazard exposure. Pointers preserve the distinction
@@ -67,6 +96,16 @@ func (row HazardRow) BushfireSource() string {
 		return ""
 	}
 	return hazardVectorSources[stateDigit(row.SALCode)].bushfire
+}
+
+// Licence is what the row's source_licence column records: CC BY 4.0, joined
+// by the statutory layer's own licence when a share from one is present.
+func (row HazardRow) Licence() string {
+	source := hazardVectorSources[stateDigit(row.SALCode)]
+	if source.licence == "" || (row.FloodSource() == "" && row.BushfireSource() == "") {
+		return hazardsLicence
+	}
+	return hazardsLicence + "; " + source.licence
 }
 
 // ABS SAL codes lead with the state digit (1 = NSW … 8 = ACT).
@@ -135,9 +174,15 @@ func (row HazardRow) validate() error {
 		*row.WaterObservedSharePct+*row.PermanentWaterSharePct > 100.0001 {
 		return fmt.Errorf("water shares are disjoint and cannot sum past 100")
 	}
-	if (row.FloodPlanningSharePct != nil || row.BushfireProneSharePct != nil) &&
-		hazardVectorSources[stateDigit(row.SALCode)] == (struct{ flood, bushfire string }{}) {
-		return fmt.Errorf("vector share present for a state with no statutory source")
+	// Checked per hazard, not per state: QLD and WA have a bushfire layer but
+	// no open flood layer, and a flood share there would be stored with a
+	// blank source.
+	source := hazardVectorSources[stateDigit(row.SALCode)]
+	if row.FloodPlanningSharePct != nil && source.flood == "" {
+		return fmt.Errorf("flood share present for a state with no statutory flood source")
+	}
+	if row.BushfireProneSharePct != nil && source.bushfire == "" {
+		return fmt.Errorf("bushfire share present for a state with no statutory bushfire source")
 	}
 	return nil
 }
