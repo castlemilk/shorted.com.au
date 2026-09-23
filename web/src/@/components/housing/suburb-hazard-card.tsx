@@ -164,6 +164,9 @@ const SOURCE_LABELS: Record<string, string> = {
   wa_obrm_026_bpa: "WA Bush Fire Prone Areas",
   tas_tps_bushfire_prone: "TPS Bushfire-prone Areas",
   act_bpa_2026: "ACT Bushfire Prone Area 2026",
+  // Retired id: rows loaded before the VIC switch to the BPA carry it until
+  // the next -mode hazards load. Kept so the web can deploy first.
+  vic_plan_overlay_bmo: "Vicmap BMO",
 };
 
 function sourceLabel(id: string): string | undefined {

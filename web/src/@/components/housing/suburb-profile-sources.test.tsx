@@ -108,6 +108,11 @@ describe("suburb profile price gating", () => {
     expect(screen.queryByText(/Bushfire Management Overlay/)).not.toBeInTheDocument();
   });
 
+  it("still credits the retired VIC BMO id, so a web deploy ahead of the data load keeps attribution", () => {
+    render(<SourcesLine {...base} statutoryHazardSources={["vic_plan_overlay_bmo"]} stateName="Victoria" />);
+    expect(screen.getByText(/Bushfire Management Overlay.*\(CC BY 4\.0\)/)).toBeInTheDocument();
+  });
+
   it("credits no hazard dataset on a suburb without one", () => {
     render(<SourcesLine {...base} hasCensus />);
     expect(screen.queryByText(/DEM-S/)).not.toBeInTheDocument();

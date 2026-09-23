@@ -897,6 +897,10 @@ const STATUTORY_HAZARD_CREDITS: Record<string, { credit: string; licence: string
   wa_obrm_026_bpa: { credit: "Bush Fire Prone Areas (OBRM-026), Office of Bushfire Risk Management WA", licence: "CC BY 4.0" },
   tas_tps_bushfire_prone: { credit: "Tasmanian Planning Scheme — Code Overlay (Bushfire-prone Areas), Tasmanian Planning Commission via theLIST", licence: "CC BY 3.0 AU" },
   act_bpa_2026: { credit: "Bushfire Prone Area 2026, ACT Government", licence: "CC BY 4.0" },
+  // Retired id (VIC bushfire before the switch to the BPA). Rows loaded earlier
+  // carry it until the next -mode hazards load, and attribution must not lapse
+  // in between, so the web can deploy before the data.
+  vic_plan_overlay_bmo: { credit: "Vicmap Planning Bushfire Management Overlay, Department of Transport and Planning Victoria", licence: "CC BY 4.0" },
 };
 
 export function SourcesLine({
