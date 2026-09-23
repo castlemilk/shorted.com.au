@@ -145,8 +145,9 @@ polygon unassessed mask).
 
 **QLD bushfire uses `--raster-m 30`**: 2.56 million polygonised-raster
 fragments do not fit a per-suburb GEOS union in memory, so the pages are
-streamed one at a time onto a 30 m grid (~4 GB for QLD) and each suburb reads
-its share of burnt cells (every touched cell for a suburb under 25 cells).
+streamed onto a 30 m grid (4 GB for QLD) in 100,000-geometry batches and each
+suburb reads its share of burnt cells (every touched cell for a suburb under 25
+cells). Measured 2026-09-24: 12 minutes, 10 GB peak RSS.
 
 Ground-truth checks worth running on the merged artifact:
 

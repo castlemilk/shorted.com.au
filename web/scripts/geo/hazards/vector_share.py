@@ -46,9 +46,10 @@ polygon touches is a genuine 0.
                     hold as geometry: QLD's bushfire prone area is 2.56 million
                     polygonised-raster fragments (3.6 GB of GeoJSON), and a
                     per-suburb GEOS union of those runs out of memory and time.
-                    Pages are streamed into the grid one at a time, so memory is
-                    the grid (QLD at 30 m: ~4 GB), never the input. Masks are
-                    not supported on this path; it is for statewide layers.
+                    Pages are streamed into the grid in batches, so memory is
+                    the grid plus one batch (QLD at 30 m: 4 GB grid, 10 GB
+                    peak, 12 minutes), never the whole input. Masks are not
+                    supported on this path; it is for statewide layers.
 
     python3 vector_share.py --layer-dir vector/nsw-flood --suburbs web/public/geo/suburbs/NSW.topojson \
         --coverage-dir vector/nsw-flood-epi-application --out out/nsw-flood.json
