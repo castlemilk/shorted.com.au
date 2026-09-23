@@ -184,7 +184,13 @@ test("the probe timeout is configurable, but only as a plain duration", () => {
   assert.equal(ok.status, 0, ok.stderr);
   assert.match(ok.calls[0].argv.join("\n"), /SET LOCAL statement_timeout = '5min';/);
 
-  for (const bad of ["0", "1min'; COMMIT; --", "forever"]) {
+  const day = run(["read-only", "-c", "SELECT 1"], { env: { PROD_PSQL_READ_TIMEOUT: "1440min" } });
+  assert.equal(day.status, 0, day.stderr);
+
+  // Past 24h is refused here: the server rejects a statement_timeout beyond its
+  // int range, and in the interactive shell a failed SET is a guard that did
+  // not take effect.
+  for (const bad of ["0", "1min'; COMMIT; --", "forever", "1441min", "86400001ms", "999999999min", "999999999999999999999s"]) {
     const res = run(["read-only", "-c", "SELECT 1"], { env: { PROD_PSQL_READ_TIMEOUT: bad } });
     assert.equal(res.status, 2, `accepted ${JSON.stringify(bad)}`);
     assert.deepEqual(res.calls, []);
@@ -200,6 +206,40 @@ test("a probe that would end its own transaction is refused", () => {
     assert.match(stderr, /refusing this probe/);
     assert.deepEqual(calls, []);
   }
+});
+
+test("a probe cannot hide a COMMIT by making the screen and the server lex it differently", () => {
+  // Each of these got a CREATE TABLE committed on a scratch PG 17 through the
+  // old screen: the screen thought the COMMIT was inside a quote, a comment or
+  // one statement, and the server did not.
+  const tail = "; COMMIT; CREATE TABLE evil (x int); COMMIT; ";
+  const probes = {
+    "`$` inside an identifier (x$$$ is one identifier)": `SELECT 1 AS x$$$${tail}SELECT 'a$$'`,
+    "a non-ASCII identifier before $$": `SELECT 1 AS é$$${tail}SELECT 'a$$'`,
+    "a non-ASCII dollar-quote tag": `SELECT $é$ $$ $é$${tail}SELECT $$x$$`,
+    "a line comment ended by a bare CR": `SELECT 1 --x\r${tail}\n`,
+    "`begin atomic` as a column and an alias": `SELECT begin atomic FROM (SELECT 1 AS begin) s${tail}SELECT 1 AS end`,
+    "a number, then a dollar quote": `SELECT 1$$ $$${tail}SELECT $$x$$`,
+    "a parameter, then a dollar quote": `SELECT $1$$ $$${tail}SELECT $$x$$`,
+    // With standard_conforming_strings off, \' does not end '...'.
+    "a backslash before a quote in a plain string": `SELECT '\\' '${tail}SELECT 'x'`,
+  };
+  for (const [what, sql] of Object.entries(probes)) {
+    assert.equal(classify(sql, { probe: true }).verdict, "refuse", what);
+  }
+  // Still lexed as the server lexes them, so ordinary probes pass.
+  for (const sql of [
+    "SELECT x$y, $$a;COMMIT$$, $t$;$t$, E'\\\\'';COMMIT', 'C:\\\\' FROM t",
+    "SELECT 1 -- COMMIT; trailing\nFROM t",
+    "SELECT 1e5, .5, 0x1F, $1 FROM t WHERE c ~ '\\d+'",
+  ]) {
+    assert.equal(classify(sql, { probe: true }).verdict, "transaction", sql);
+  }
+  // A real BEGIN ATOMIC body still counts as one statement when applying.
+  assert.equal(
+    splitStatements("CREATE OR REPLACE FUNCTION g() RETURNS int LANGUAGE sql BEGIN ATOMIC SELECT 1; END;").length,
+    1,
+  );
 });
 
 test("a probe takes only SQL and output flags", () => {
@@ -218,6 +258,9 @@ test("the interactive shell loads the read-only rc file, with its timeout, and n
   assert.equal(psqlrc, rcFile, "the shell must load the read-only startup file");
   assert.ok(!argv.includes("-X"), "-X would skip the startup file that opens the READ ONLY transaction");
   assert.ok(argv.includes("prod_timeout=60s"), JSON.stringify(argv));
+  // In a startup file ON_ERROR_STOP ends the FILE at a failed SET, skipping the
+  // check and the kill, and psql opens the shell anyway.
+  assert.ok(!argv.some((a) => /ON_ERROR_STOP/.test(a)), JSON.stringify(argv));
   assertNoSessionSet(argv);
 });
 
@@ -236,6 +279,8 @@ test("the read-only rc file opens ONE read-only transaction, checks it, and kill
   for (const l of lines) assert.doesNotMatch(l, /^\s*SET\s+(?!LOCAL\b)/i, `session-level SET: ${l}`);
 
   const idx = (re) => lines.findIndex((l) => re.test(l));
+  const stopOff = idx(/^\\set ON_ERROR_STOP off$/);
+  const rollbackOff = idx(/^\\set ON_ERROR_ROLLBACK off$/);
   const begin = idx(/^BEGIN READ ONLY;/);
   const setRo = idx(/^SET LOCAL default_transaction_read_only = on;/);
   const setTimeout = idx(/^SET LOCAL statement_timeout = :'prod_timeout';/);
@@ -244,9 +289,13 @@ test("the read-only rc file opens ONE read-only transaction, checks it, and kill
   const errRollback = idx(/^\\set ON_ERROR_ROLLBACK on/);
   const kill = idx(/^\\! kill -TERM \$PPID/);
   const elseBranch = idx(/^\\else/);
-  for (const [name, i] of Object.entries({ begin, setRo, setTimeout, gset, ifGuard, errRollback, kill, elseBranch })) {
+  for (const [name, i] of Object.entries({ stopOff, rollbackOff, begin, setRo, setTimeout, gset, ifGuard, errRollback, kill, elseBranch })) {
     assert.notEqual(i, -1, `rc file lost ${name}`);
   }
+  // Whatever -v or the system psqlrc set, a failed statement must fall through
+  // to the check and the kill, not end the file (ON_ERROR_STOP) or be rolled
+  // back to a savepoint and ignored (ON_ERROR_ROLLBACK).
+  assert.ok(stopOff < begin && rollbackOff < begin, "error handling forced off before the guard runs");
   assert.ok(begin < setRo && setRo < setTimeout && setTimeout < gset && gset < ifGuard, "BEGIN, SETs, check, then branch");
   // Set before the check, ON_ERROR_ROLLBACK would roll a failed SET back to a
   // savepoint and the shell would open without it.
@@ -470,6 +519,18 @@ test(
       assert.doesNotMatch(broken.stdout, /ran after a failed guard/);
       assert.match(broken.stderr, /did NOT take effect/);
       assert.notEqual(broken.status, 0);
+      // A guard STATEMENT that errors, with ON_ERROR_STOP on as a caller might
+      // pass it: the out-of-range SET used to end the rc file before the check,
+      // and psql went on to read input on an unguarded connection.
+      const errored = spawnSync("psql", [dsn, "-v", "ON_ERROR_STOP=1", "-v", "prod_timeout=999999999min"], {
+        env: { ...env, PSQLRC: rcFile },
+        input: "ROLLBACK;\nSELECT 'ran after a failed guard ' || current_setting('transaction_read_only') AS s;\n",
+        encoding: "utf8",
+      });
+      assert.match(errored.stderr, /exceeds integer range/);
+      assert.doesNotMatch(errored.stdout, /ran after a failed guard/);
+      assert.match(errored.stderr, /did NOT take effect/);
+      assert.notEqual(errored.status, 0);
     } finally {
       psql(["-q", "-c", "DROP TABLE IF EXISTS prod_psql_live_a, prod_psql_live_b"]);
       rmSync(dir, { recursive: true, force: true });

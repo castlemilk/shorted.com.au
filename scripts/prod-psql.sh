@@ -90,9 +90,17 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 classifier="$script_dir/prod-psql-classify.mjs"
 
 # The bound on read-only work. It is interpolated into SQL, so only a plain
-# duration gets through.
+# duration gets through, and only up to 24h: statement_timeout is an int of
+# milliseconds, and a value past that range makes the server reject the SET.
 read_timeout="${PROD_PSQL_READ_TIMEOUT:-60s}"
-[[ "$read_timeout" =~ ^[1-9][0-9]*(ms|s|min)$ ]] || die "PROD_PSQL_READ_TIMEOUT must look like 60s, 500ms or 5min"
+[[ "$read_timeout" =~ ^([1-9][0-9]{0,7})(ms|s|min)$ ]] ||
+	die "PROD_PSQL_READ_TIMEOUT must look like 60s, 500ms or 5min"
+case "${BASH_REMATCH[2]}" in
+ms) read_timeout_ms=${BASH_REMATCH[1]} ;;
+s) read_timeout_ms=$((BASH_REMATCH[1] * 1000)) ;;
+min) read_timeout_ms=$((BASH_REMATCH[1] * 60000)) ;;
+esac
+((read_timeout_ms <= 86400000)) || die "PROD_PSQL_READ_TIMEOUT must be 24h (1440min) or less"
 
 # Prints the settings the work will actually run with, as a NOTICE (stderr, so
 # a probe's stdout stays clean), then refuses to continue if the guard is not
@@ -129,8 +137,10 @@ read-only)
 	if (($# == 0)); then
 		[[ -t 0 ]] || die "no -c/-f given and stdin is not a terminal; pass the probe with -c SQL"
 		# Interactive: the rc file opens ONE READ ONLY transaction for the whole
-		# shell, checks it, and terminates psql if the check fails.
-		PSQLRC="$script_dir/prod-psql-read-only.psqlrc" exec psql "$PGURL" -v ON_ERROR_STOP=1 \
+		# shell, checks it, and terminates psql if the check fails. No
+		# ON_ERROR_STOP: in a startup file it would end the file at a failed SET,
+		# before the check, and psql would open the shell anyway.
+		PSQLRC="$script_dir/prod-psql-read-only.psqlrc" exec psql "$PGURL" \
 			-v prod_timeout="$read_timeout"
 	fi
 

@@ -27,12 +27,35 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+// Postgres's lexer (src/backend/parser/scan.l), as far as splitting needs it.
+// Any byte >= 0x80 is an identifier character, and so is `$` after the first
+// character, so `x$$` and `é$$` are identifiers, not the start of a dollar
+// quote. Getting either wrong lets the classifier and the server disagree about
+// where a quote starts, and whatever the classifier thinks is quoted it never
+// screens.
+const IDENT_START = /[A-Za-z_\u0080-\uffff]/;
+const IDENT_CONT = /[A-Za-z0-9_$\u0080-\uffff]/;
+const DOLLAR_DELIM = /\$(?:[A-Za-z_\u0080-\uffff][A-Za-z0-9_\u0080-\uffff]*)?\$/y; // sticky: matches at lastIndex only
+// A numeric literal and any trailing junk. Postgres 15+ rejects `1abc` outright,
+// so over-reading letters here only ever swallows a syntax error; it never reads
+// past a `$`, quote, comment or semicolon.
+const NUMBER_CHAR = /[0-9A-Za-z_.]/;
+
 /**
  * Split SQL into top-level statements. Returns [{ text, meta }], where text is
  * the statement with comments removed and every string or quoted identifier
  * replaced by a placeholder, so keyword tests cannot match inside them.
+ *
+ * Tokens that can sit right before a `$` (identifiers, numbers, parameters) are
+ * consumed whole, so a `$` is only ever examined where the server would start a
+ * new token there.
+ *
+ * backslashQuotes: lex '...' as if standard_conforming_strings were off, where
+ *   \' does not end the string. The server's setting is invisible from here.
+ * atomicBodies: keep a CREATE FUNCTION/PROCEDURE ... BEGIN ATOMIC ... END body
+ *   (which has semicolons in it) as one statement, the way psql does.
  */
-export function splitStatements(sql) {
+export function splitStatements(sql, { backslashQuotes = false, atomicBodies = true } = {}) {
   const out = [];
   let cur = "";
   let i = 0;
@@ -42,6 +65,26 @@ export function splitStatements(sql) {
   const push = () => {
     if (cur.trim()) out.push({ text: cur.trim(), meta: false });
     cur = "";
+  };
+
+  // i is on the opening quote. Returns the index just past the closing one.
+  const skipString = (from, escaped) => {
+    let j = from + 1;
+    while (j < n) {
+      if (escaped && sql[j] === "\\") {
+        j += 2;
+        continue;
+      }
+      if (sql[j] === "'") {
+        if (sql[j + 1] === "'") {
+          j += 2;
+          continue;
+        }
+        break;
+      }
+      j++;
+    }
+    return j + 1;
   };
 
   while (i < n) {
@@ -58,8 +101,8 @@ export function splitStatements(sql) {
     }
 
     if (c === "-" && next === "-") {
-      const end = sql.indexOf("\n", i);
-      i = end === -1 ? n : end;
+      // A line comment ends at \n OR \r (scan.l: non_newline is [^\n\r]).
+      while (i < n && sql[i] !== "\n" && sql[i] !== "\r") i++;
       continue;
     }
     if (c === "/" && next === "*") {
@@ -79,24 +122,9 @@ export function splitStatements(sql) {
       continue;
     }
     if (c === "'") {
-      // E'...' strings allow backslash escapes; standard ones only ''.
-      const escaped = /[eE]$/.test(cur) && !/[A-Za-z0-9_][eE]$/.test(cur);
-      i++;
-      while (i < n) {
-        if (escaped && sql[i] === "\\") {
-          i += 2;
-          continue;
-        }
-        if (sql[i] === "'") {
-          if (sql[i + 1] === "'") {
-            i += 2;
-            continue;
-          }
-          break;
-        }
-        i++;
-      }
-      i++;
+      // B'', X'', N'' and U&'' end the same way a plain '' does. E'' is
+      // handled with the identifier it starts as, below.
+      i = skipString(i, backslashQuotes);
       cur += "'s'";
       atLineStart = false;
       continue;
@@ -119,21 +147,59 @@ export function splitStatements(sql) {
       continue;
     }
     if (c === "$") {
-      const m = /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/.exec(sql.slice(i));
-      // A $ after an identifier character is part of the identifier ($1 is a
-      // parameter), not the start of a dollar quote.
-      if (m && !/[A-Za-z0-9_]$/.test(cur)) {
+      DOLLAR_DELIM.lastIndex = i;
+      const m = DOLLAR_DELIM.exec(sql);
+      if (m) {
+        // The body ends at the first exact repeat of the opening delimiter,
+        // which is also where scan.l's xdolq state ends it.
         const tag = m[0];
         const end = sql.indexOf(tag, i + tag.length);
         i = end === -1 ? n : end + tag.length;
-        cur += "$body$";
+        cur += " $body$ ";
         atLineStart = false;
         continue;
       }
+      // $1 is a parameter. A lone $ is a syntax error the server will report.
+      let j = i + 1;
+      while (j < n && /[0-9]/.test(sql[j])) j++;
+      cur += sql.slice(i, j);
+      i = j;
+      atLineStart = false;
+      continue;
+    }
+    if (IDENT_START.test(c)) {
+      let j = i + 1;
+      while (j < n && IDENT_CONT.test(sql[j])) j++;
+      const word = sql.slice(i, j);
+      if ((word === "e" || word === "E") && sql[j] === "'") {
+        // E'...' is lexed as one token; there a backslash escapes the quote.
+        i = skipString(j, true);
+        cur += "'s'";
+      } else {
+        cur += word;
+        i = j;
+      }
+      atLineStart = false;
+      continue;
+    }
+    if (/[0-9]/.test(c) || (c === "." && /[0-9]/.test(next ?? ""))) {
+      let j = i + 1;
+      while (j < n && NUMBER_CHAR.test(sql[j])) j++;
+      cur += sql.slice(i, j);
+      i = j;
+      atLineStart = false;
+      continue;
     }
     if (c === ";") {
       // CREATE FUNCTION ... BEGIN ATOMIC ... END has semicolons in its body.
-      if (/\bBEGIN\s+ATOMIC\b/i.test(cur) && !/\bEND\s*$/i.test(cur.trim())) {
+      // Only a CREATE FUNCTION/PROCEDURE can open one (psqlscan.l keys on the
+      // same words); anywhere else `begin atomic` is a column and an alias.
+      if (
+        atomicBodies &&
+        /^\s*CREATE\s+(OR\s+REPLACE\s+)?(FUNCTION|PROCEDURE)\b/i.test(cur) &&
+        /\bBEGIN\s+ATOMIC\b/i.test(cur) &&
+        !/\bEND\s*$/i.test(cur.trim())
+      ) {
         cur += c;
         i++;
         continue;
@@ -182,7 +248,19 @@ const TXN_OTHER = /^(ROLLBACK(?! TO\b)|ABORT|PREPARE TRANSACTION|COMMIT PREPARED
  * "transaction", "session" or "refuse".
  */
 export function classify(sql, { probe = false } = {}) {
-  const stmts = splitStatements(sql);
+  if (!probe) return classifyStatements(splitStatements(sql), false);
+  // A probe must pass under BOTH readings of '...': the server lexes the whole
+  // -c string before running any of it, with its own standard_conforming_strings,
+  // which the screen cannot see. No grammar heuristics either: a probe's
+  // statements are split purely lexically.
+  for (const backslashQuotes of [false, true]) {
+    const result = classifyStatements(splitStatements(sql, { backslashQuotes, atomicBodies: false }), true);
+    if (result.verdict !== "transaction") return result;
+  }
+  return { verdict: "transaction", reason: "" };
+}
+
+function classifyStatements(stmts, probe) {
   if (stmts.length === 0) return { verdict: "refuse", reason: "no SQL statements found" };
 
   const meta = stmts.find((s) => s.meta);
