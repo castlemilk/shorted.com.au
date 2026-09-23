@@ -22,7 +22,7 @@ import {
 } from "~/app/actions/getHousing";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { LLMMeta } from "@/components/seo/llm-meta";
-import { dropsFreshness, fmtDropsDate } from "@/lib/housing/drops-freshness";
+import { dropsFreshness, fmtDropsDate, timestampToDate } from "@/lib/housing/drops-freshness";
 import { pageTitle, sectionTitle, eyebrow, lede } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +92,9 @@ export default async function PriceDropsPage() {
   const states = overview?.states ?? [];
   const suburbRows = (suburbs?.suburbs ?? []).slice(0, 15);
   const hasData = Boolean(national && national.totalActiveListings > 0);
+  // The kill switch (a takedown) empties every crawl-derived read on purpose.
+  // That is neither "loading" nor a cold fetch worth retrying per request.
+  const withheld = overview?.withheld === true;
   // Every figure below is a rolling window anchored at the last view refresh,
   // so the page says what date it runs to, and warns once that date is old.
   // Computed at render: ISR regenerates at most hourly, and the crawl flush
@@ -99,9 +102,15 @@ export default async function PriceDropsPage() {
   const freshness = dropsFreshness(overview);
   const stale = freshness.stale || dropsFreshness(suburbs).stale;
   const catalogSuburbs = national?.catalogSuburbs ?? 0;
+  // The index's own data horizon: its snapshots are written daily even while
+  // the crawl is down, so the reading must be dated against this, not the
+  // snapshot date alone.
+  const indexDataThroughIso = timestampToDate(dropIndex.dataThrough)?.toISOString();
   // A failed/cold fetch must not bake the "data is loading" shell into the
-  // route cache for the whole revalidate window.
-  if (!hasData) bailOnEmptyRender();
+  // route cache for the whole revalidate window. A withheld response is
+  // deliberate and stable, so it caches like any other render (the takedown
+  // runbook revalidates the route when the switch flips either way).
+  if (!hasData && !withheld) bailOnEmptyRender();
 
   // Start the 493KB CF-edge-cached boundary fetch while the client-only map
   // chunk hydrates. Matching crossOrigin is required for useTopojson's fetch()
@@ -195,9 +204,11 @@ export default async function PriceDropsPage() {
             {/* A dated but empty rollup is not "loading": with every listing
                 gated on a 14-day sighting, a crawl outage longer than that
                 empties the views honestly. Say so instead of promising data. */}
-            {national && freshness.dataToLabel
-              ? `No listing has been seen in the 14 days to ${freshness.dataToLabel.replace(/^Data to /, "")}, so there is nothing current to rank until the listing crawl resumes.`
-              : "Price-drop data is loading — check back shortly."}
+            {withheld
+              ? "Price-drop figures are not available at the moment."
+              : national && freshness.dataToLabel
+                ? `No listing has been seen since ${freshness.dataToLabel.replace(/^Data to /, "")}. Every figure here counts only listings seen in the last 14 days, so there is nothing current to rank until the listing crawl resumes.`
+                : "Price-drop data is loading — check back shortly."}
           </p>
         ) : (
           <>
@@ -205,7 +216,11 @@ export default async function PriceDropsPage() {
               <Suspense
                 fallback={<div className="h-[160px] w-full animate-pulse rounded-xl bg-muted" />}
               >
-                <DropIndexHero points={dropIndex.points} trackingSince={dropIndex.trackingSince} />
+                <DropIndexHero
+                  points={dropIndex.points}
+                  trackingSince={dropIndex.trackingSince}
+                  dataThroughIso={indexDataThroughIso}
+                />
               </Suspense>
             ) : null}
 
@@ -242,7 +257,9 @@ export default async function PriceDropsPage() {
               </p>
             </section>
 
-            {dropIndex.points.length > 0 ? <CapitulationBoard points={dropIndex.points} /> : null}
+            {dropIndex.points.length > 0 ? (
+              <CapitulationBoard points={dropIndex.points} dataThroughIso={indexDataThroughIso} />
+            ) : null}
 
             <section className="space-y-4">
               <SectionHeader

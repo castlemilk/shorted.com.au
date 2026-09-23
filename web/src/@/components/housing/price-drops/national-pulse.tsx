@@ -1,6 +1,7 @@
 import type { StatePriceDropSummary } from "~/gen/shorts/v1alpha1/housing_pb";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { HousingIcon, type HousingIconName } from "@/components/housing/housing-icon";
+import { stateCoverage } from "@/lib/housing/drops-freshness";
 
 /**
  * The national headline strip for /price-drops: how many addresses cut their
@@ -9,6 +10,12 @@ import { HousingIcon, type HousingIconName } from "@/components/housing/housing-
  * the right form here).
  */
 export function NationalPulse({ national }: { national: StatePriceDropSummary }) {
+  // The share is held to the same coverage rule as the states on the board:
+  // below it, the pooled share mostly measures which suburbs the crawl reached
+  // (measured 2026-09-23: 184 of 500 swept, 65% of the active addresses in
+  // VIC), and printing it beside the ranked states would read as a national
+  // rate. The counts in the other tiles stay — they are true of what was seen.
+  const shareRanked = stateCoverage(national).ranked;
   const tiles: { icon: HousingIconName; label: string; value: string; sub: string }[] = [
     {
       icon: "median-price",
@@ -31,9 +38,13 @@ export function NationalPulse({ national }: { national: StatePriceDropSummary })
     {
       icon: "city",
       label: "Share of listings cut",
-      value: national.droppedShare > 0 ? `${(national.droppedShare * 100).toFixed(1)}%` : "—",
-      sub:
-        national.catalogSuburbs > 0
+      value:
+        shareRanked && national.droppedShare > 0
+          ? `${(national.droppedShare * 100).toFixed(1)}%`
+          : "—",
+      sub: !shareRanked
+        ? `Withheld — only ${national.suburbsSwept14d} of ${national.catalogSuburbs} tracked suburbs swept in 14 days`
+        : national.catalogSuburbs > 0
           ? `${national.suburbsSwept14d} of ${national.catalogSuburbs} tracked suburbs swept in 14 days`
           : `${national.suburbsTracked} tracked suburbs`,
     },

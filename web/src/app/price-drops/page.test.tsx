@@ -167,7 +167,39 @@ describe("PriceDropsPage empty but dated", () => {
       dataThrough: ts("2026-09-15T01:46:00Z"),
     });
     render(await PriceDropsPage());
-    expect(screen.getByText(/No listing has been seen in the 14 days to 15 Sep 2026/)).toBeInTheDocument();
+    // data_through IS the newest sighting, so listings were seen on that day:
+    // the page must say "since", never "in the 14 days to" it.
+    expect(screen.getByText(/No listing has been seen since 15 Sep 2026\./)).toBeInTheDocument();
+    expect(screen.queryByText(/in the 14 days to/)).not.toBeInTheDocument();
     expect(screen.queryByText(/check back shortly/)).not.toBeInTheDocument();
+  });
+});
+
+describe("PriceDropsPage kill switch", () => {
+  // A takedown empties every crawl-derived read on purpose. It is not
+  // "loading", and it must not force every request to render uncached.
+  it("says the figures are unavailable and keeps the render cacheable", async () => {
+    const { bailOnEmptyRender } = jest.requireMock("~/app/actions/config") as {
+      bailOnEmptyRender: jest.Mock;
+    };
+    bailOnEmptyRender.mockClear();
+    getPriceDropsOverview.mockResolvedValue({ states: [], withheld: true });
+    render(await PriceDropsPage());
+
+    expect(screen.getByText("Price-drop figures are not available at the moment.")).toBeInTheDocument();
+    expect(screen.queryByText(/check back shortly/)).not.toBeInTheDocument();
+    expect(bailOnEmptyRender).not.toHaveBeenCalled();
+  });
+
+  it("still bails a cold, empty fetch out of the route cache", async () => {
+    const { bailOnEmptyRender } = jest.requireMock("~/app/actions/config") as {
+      bailOnEmptyRender: jest.Mock;
+    };
+    bailOnEmptyRender.mockClear();
+    getPriceDropsOverview.mockResolvedValue(undefined);
+    render(await PriceDropsPage());
+
+    expect(screen.getByText(/check back shortly/)).toBeInTheDocument();
+    expect(bailOnEmptyRender).toHaveBeenCalled();
   });
 });

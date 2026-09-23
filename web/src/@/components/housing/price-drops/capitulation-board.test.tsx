@@ -34,3 +34,10 @@ test("labels delistings as leaving the market, not as withdrawals", () => {
   expect(screen.queryByText("Withdrawn (30d)")).not.toBeInTheDocument();
   expect(screen.getByText(/whether sold or withdrawn/)).toBeInTheDocument();
 });
+
+test("says when the counters' data ends before the reading's date", () => {
+  render(<CapitulationBoard points={pts()} dataThroughIso="2026-08-15T03:00:00.000Z" />);
+  expect(screen.getByTestId("capitulation-reading-date")).toHaveTextContent(
+    /Reading for 16 Aug — the listing data behind it runs only to 15 Aug/,
+  );
+});

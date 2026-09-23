@@ -20,11 +20,19 @@ export interface DropIndexPointView {
   droppedAddresses: number;
   withdrawnThenRelisted: number;
   delistedCount: number;
+  /** Set when medianDropPct is withheld (fewer than 3 dropped addresses). */
+  medianWithheld?: boolean;
 }
 
 export interface DropIndexHeroProps {
   points: DropIndexPointView[];
   trackingSince: string;
+  /**
+   * ISO instant the series' crawl data runs to (GetDropIndexSeries'
+   * data_through). An ISO string, not the Timestamp message, so the prop stays
+   * serializable across the RSC boundary.
+   */
+  dataThroughIso?: string;
   /**
    * Serializable formatter key — never pass a formatter function as a prop
    * from a server page (functions cannot cross the RSC boundary). The only
@@ -78,6 +86,11 @@ export interface DropIndexReading {
    * series and must say so.
    */
   gapsSince?: string;
+  /**
+   * Set when the crawl data behind the reading ends on an earlier day than
+   * the reading's own snapshot date: the day it ends.
+   */
+  dataTo?: string;
 }
 
 /**
@@ -87,20 +100,54 @@ export interface DropIndexReading {
  * 2026-09-23 the page showed 26 Aug's figures, undated, a month after every
  * later day had been a gap. Returns undefined when nothing is publishable.
  */
-export function describeReading(points: DropIndexPointView[]): DropIndexReading | undefined {
+export function describeReading(
+  points: DropIndexPointView[],
+  dataThroughIso?: string,
+): DropIndexReading | undefined {
   const usable = points.filter((p) => !p.isGap);
   const latest = usable[usable.length - 1];
   if (!latest) return undefined;
+  const dataTo = crawlEndsBefore(latest.snapshotDate, dataThroughIso);
   const newest = points[points.length - 1]!;
   if (newest.snapshotDate === latest.snapshotDate) {
-    return { latest, label: `Reading for ${fmtDate(latest.snapshotDate)}` };
+    return { latest, label: `Reading for ${fmtDate(latest.snapshotDate)}`, dataTo };
   }
   const firstGap = points.find((p) => p.snapshotDate > latest.snapshotDate);
   return {
     latest,
     label: `Last reliable reading ${fmtDate(latest.snapshotDate)}`,
     gapsSince: firstGap ? fmtDate(firstGap.snapshotDate) : undefined,
+    dataTo,
   };
+}
+
+/**
+ * The collector writes a snapshot every day whether or not the crawl ran, and
+ * the 14-day sweep window keeps coverage above the gap threshold for up to ~13
+ * days after the crawl stops — so "Reading for 23 Sep" can sit over data that
+ * ended on 15 Sep (measured on prod 2026-09-24, VIC). Returns the day the data
+ * ends when that is before the snapshot date. Both are compared as UTC
+ * calendar days: snapshot dates are UTC dates (the collector's `from` is
+ * yesterday in UTC).
+ */
+function crawlEndsBefore(snapshotDate: string, dataThroughIso?: string): string | undefined {
+  if (!dataThroughIso) return undefined;
+  const through = new Date(dataThroughIso);
+  if (Number.isNaN(through.getTime())) return undefined;
+  const throughDay = through.toISOString().slice(0, 10);
+  return throughDay < snapshotDate ? fmtDate(throughDay) : undefined;
+}
+
+/** The reading's date line: label, plus why it should be read with care. */
+export function readingCaption(reading: DropIndexReading): string {
+  const notes: string[] = [];
+  if (reading.gapsSince) {
+    notes.push(`crawl coverage has been too thin to publish a reading since ${reading.gapsSince}`);
+  }
+  if (reading.dataTo) {
+    notes.push(`the listing data behind it runs only to ${reading.dataTo}`);
+  }
+  return notes.length > 0 ? `${reading.label} — ${notes.join("; ")}` : reading.label;
 }
 
 /**
@@ -110,11 +157,16 @@ export function describeReading(points: DropIndexPointView[]): DropIndexReading 
  * as a market crash that never happened. Renders null when nothing is left
  * to plot (e.g. an empty or all-gap response).
  */
-export function DropIndexHero({ points, trackingSince, format = "percent" }: DropIndexHeroProps) {
+export function DropIndexHero({
+  points,
+  trackingSince,
+  dataThroughIso,
+  format = "percent",
+}: DropIndexHeroProps) {
   void format; // reserved for future non-percent grains; documented as a serializable key above
 
   const plotted = points.filter((p) => !p.isGap);
-  const reading = describeReading(points);
+  const reading = describeReading(points, dataThroughIso);
   if (!reading) return null;
 
   const { latest } = reading;
@@ -140,14 +192,13 @@ export function DropIndexHero({ points, trackingSince, format = "percent" }: Dro
       <p
         className={cn(
           "mt-1 text-sm font-medium",
-          reading.gapsSince ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground",
+          reading.gapsSince !== undefined || reading.dataTo !== undefined
+            ? "text-amber-700 dark:text-amber-400"
+            : "text-muted-foreground",
         )}
         data-testid="drop-index-reading-date"
       >
-        {reading.label}
-        {reading.gapsSince
-          ? ` — crawl coverage has been too thin to publish a reading since ${reading.gapsSince}`
-          : null}
+        {readingCaption(reading)}
       </p>
       <div className="mt-2 flex flex-wrap items-baseline gap-3">
         <span className="font-mono text-4xl font-semibold tabular-nums text-foreground">

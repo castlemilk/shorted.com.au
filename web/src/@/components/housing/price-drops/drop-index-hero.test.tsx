@@ -97,3 +97,30 @@ test("renders September dates the same on every runtime", () => {
   render(<DropIndexHero points={longSeries(3, "2026-09-20")} trackingSince="2026-09-20" />);
   expect(screen.getByTestId("drop-index-reading-date")).toHaveTextContent("Reading for 22 Sep");
 });
+
+// The collector writes a snapshot every day even while the crawl is down, and
+// the 14-day sweep window keeps it above the gap threshold for up to ~13 days
+// (prod, 2026-09-24: VIC "reading for 23 Sep" over data that ended 15 Sep).
+test("says when the reading's data ends before its snapshot date", () => {
+  render(
+    <DropIndexHero
+      points={longSeries(3, "2026-09-21")}
+      trackingSince="2026-09-21"
+      dataThroughIso="2026-09-15T01:46:00.000Z"
+    />,
+  );
+  const label = screen.getByTestId("drop-index-reading-date");
+  expect(label).toHaveTextContent("Reading for 23 Sep");
+  expect(label).toHaveTextContent(/listing data behind it runs only to 15 Sep/);
+});
+
+test("adds no note when the data reaches the snapshot day", () => {
+  render(
+    <DropIndexHero
+      points={longSeries(3, "2026-09-20")}
+      trackingSince="2026-09-20"
+      dataThroughIso="2026-09-22T23:59:59.000Z"
+    />,
+  );
+  expect(screen.getByTestId("drop-index-reading-date")).toHaveTextContent(/^Reading for 22 Sep$/);
+});
