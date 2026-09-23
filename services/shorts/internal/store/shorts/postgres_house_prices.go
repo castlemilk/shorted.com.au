@@ -1429,39 +1429,51 @@ var addressPriceDropsSorts = map[string]string{
 // window days.
 //
 // The board compares an address's EARLIEST comparable ask in the window with
-// its CURRENT ask, over the advert chain of the dwelling now on the market.
-// It used to take the earliest ask at the address from ANY listing, checking
-// bedrooms only, which bypassed the collector's comparableKinds rule and the
-// cross-portal rule. Measured 2026-09-23: 247 of 1,374 rows (18%), and 16 of
-// the default top 50, had no underlying price_drop event at all — e.g. a
-// "$1,125,000" fixed ask against the low end of a "$850,000 - $930,000"
-// range, shown as -24%. An event joins the chain only when it is:
+// its CURRENT ask, over the advert chain of one live advert. It used to take
+// the earliest ask at the address from ANY listing, checking bedrooms only,
+// which bypassed the collector's comparableKinds rule and the cross-portal
+// rule. Measured 2026-09-23: 247 of 1,374 rows (18%), and 16 of the default
+// top 50, had no underlying price_drop event at all — e.g. a "$1,125,000"
+// fixed ask against the low end of a "$850,000 - $930,000" range, shown as
+// -24%. An event joins an advert's chain only when it is:
 //
-//   - the same dwelling: same bedroom count as the current listing when that
-//     count is known (a collapsed multi-unit address_key otherwise feeds one
-//     unit's ask in as another's "first");
+//   - the same dwelling: same bedroom count as the advert when that count is
+//     known (a collapsed multi-unit address_key otherwise feeds one unit's ask
+//     in as another's "first");
 //   - a comparable price kind, mirroring the collector's comparableKinds
 //     (crawl_listings_price.go): fixed <-> offers_over, or the same range kind.
 //     Range asks are stored as their low bound, so a fixed ask replaced by a
 //     range guide is a re-pricing, never a cut;
-//   - an earlier ask of THIS advert, never the other portal's concurrent one:
-//     an other-portal listing counts only if it was last seen more than 14
-//     days before the current listing first appeared (loadAddressPrior's
-//     live window). Two portals showing different asks at once is not a cut.
+//   - an earlier ask of THIS advert, never a concurrent one: a same-portal
+//     listing counts only if it was last seen before this advert first
+//     appeared (a relist), and an other-portal listing only if it was last
+//     seen more than 14 days before (loadAddressPrior's live window). Two
+//     adverts showing different asks at once is not a cut.
 //
-// And an address is listed only if its chain holds a real price_drop event in
+// And an address is listed only if a chain holds a real price_drop event in
 // the window under the aggregates' 40% cap, so this board shows only cuts the
 // collector detected — the same events mv_suburb_price_drops counts. The
 // candidate set is restricted to addresses with a drop event before anything
-// else is joined, which is also what keeps the query well inside its timeout
-// (it grouped every property_listings row per call before).
+// else is joined, which is also what keeps the query well inside its timeout.
 //
-// "Current" is the most recently seen active, priced, live-URL listing seen in
-// the last 14 days: the same liveness every listing MV uses (000124).
+// EVERY live advert at the address is evaluated, not only the most recently
+// seen one. An address is often live on both portals at once, and the chain
+// rule above keeps each portal's events off the other's chain — so judging
+// only the most recently swept advert dropped a real REA cut whenever the
+// Domain advert happened to be swept later, and put it back after the next
+// REA sweep. Measured 2026-09-24: 83 addresses (on 1,000) with a detected cut
+// on a live advert were hidden that way. When several adverts qualify, the
+// deepest cut is shown (then the larger dollar cut, then source and id), a
+// choice made on prices alone so the row does not change with sweep order —
+// the same way mv_suburb_price_drops keeps one portal per address.
+//
+// "Live" is active, priced, a live URL, seen in the last 14 days (the
+// liveness every listing MV uses, 000124), and not superseded by a later
+// same-portal advert for the same dwelling — a stale advert still inside the
+// 14 days must not present its old ask as current.
 const addressPriceDropsQuery = `
-		WITH cur AS (
-			SELECT DISTINCT ON (pl.address_key)
-			       pl.address_key,
+		WITH live AS (
+			SELECT pl.address_key,
 			       pl.id                            AS listing_pk,
 			       pl.source                        AS latest_source,
 			       pl.first_seen_at,
@@ -1490,13 +1502,19 @@ const addressPriceDropsQuery = `
 			      WHERE d.address_key = pl.address_key
 			        AND d.event_type = 'price_drop'
 			        AND d.observed_at >= now() - make_interval(days => $2))
-			ORDER BY pl.address_key, pl.last_seen_at DESC, pl.price DESC, pl.id DESC
+			  AND NOT EXISTS (
+			      SELECT 1 FROM property_listings nx
+			      WHERE nx.address_key = pl.address_key
+			        AND nx.source = pl.source
+			        AND nx.id <> pl.id
+			        AND nx.first_seen_at > pl.last_seen_at
+			        AND (pl.bedrooms IS NULL OR nx.bedrooms IS NULL OR nx.bedrooms = pl.bedrooms))
 		),
 		chain AS (
-			SELECT c.address_key, e.id, e.observed_at, e.event_type, e.price,
+			SELECT c.listing_pk AS advert, e.id, e.observed_at, e.event_type, e.price,
 			       e.prev_price, e.drop_pct,
 			       e.observed_at > epl.first_seen_at AS listing_level
-			FROM cur c
+			FROM live c
 			JOIN property_price_events e ON e.address_key = c.address_key
 			JOIN property_listings epl ON epl.id = e.listing_pk
 			WHERE e.observed_at >= now() - make_interval(days => $2)
@@ -1504,11 +1522,11 @@ const addressPriceDropsQuery = `
 			  AND ((e.price_kind IN ('fixed', 'offers_over') AND c.price_kind IN ('fixed', 'offers_over'))
 			       OR (e.price_kind = c.price_kind AND c.price_kind IN ('range_low', 'range_high')))
 			  AND (epl.id = c.listing_pk
-			       OR epl.source = c.latest_source
+			       OR (epl.source = c.latest_source AND epl.last_seen_at < c.first_seen_at)
 			       OR epl.last_seen_at < c.first_seen_at - interval '14 days')
 		),
 		asks AS (
-			SELECT address_key, observed_at, 1 AS ord, id, price,
+			SELECT advert, observed_at, 1 AS ord, id, price,
 			       event_type = 'price_drop' AND drop_pct <= 0.40 AS is_cut
 			FROM chain
 			UNION ALL
@@ -1519,45 +1537,51 @@ const addressPriceDropsQuery = `
 			-- advert's FIRST sighting (observed_at = first_seen_at: the
 			-- address-relist path) is excluded — its prev_price came from a
 			-- different advert, possibly one the chain rules above reject.
-			SELECT address_key, observed_at, 0, id, prev_price, false FROM chain
+			SELECT advert, observed_at, 0, id, prev_price, false FROM chain
 			WHERE event_type IN ('price_drop', 'price_rise') AND listing_level
 		),
 		firstp AS (
-			SELECT address_key,
+			SELECT advert,
 			       (ARRAY_AGG(price ORDER BY observed_at ASC, ord ASC, id ASC)
 			          FILTER (WHERE price > 0))[1] AS first_price,
 			       BOOL_OR(is_cut) AS has_drop
 			FROM asks
-			GROUP BY address_key
+			GROUP BY advert
+		),
+		best AS (
+			SELECT DISTINCT ON (c.address_key)
+			       c.*, f.first_price,
+			       (f.first_price - c.current_price)                 AS drop_abs,
+			       (f.first_price - c.current_price) / f.first_price AS drop_pct
+			FROM live c
+			JOIN firstp f ON f.advert = c.listing_pk
+			WHERE f.has_drop
+			  AND f.first_price > 0
+			  AND f.first_price > c.current_price
+			  AND (f.first_price - c.current_price) / f.first_price >= 0.03
+			  -- Sanity cap in the spirit of the aggregate MVs (000083): a >40%
+			  -- move is a listing typo correction (e.g. an extra-zero $7.5M ->
+			  -- $750k fix), not a vendor discount. NOTE this board's cap is on
+			  -- the CUMULATIVE window reduction (first_price -> current), while
+			  -- the MVs cap each individual drop event — an address that really
+			  -- fell >40% through several capped cuts is excluded here but still
+			  -- counted in the aggregates.
+			  AND (f.first_price - c.current_price) / f.first_price <= 0.40
+			ORDER BY c.address_key, drop_pct DESC, drop_abs DESC, c.latest_source ASC, c.listing_pk DESC
 		),
 		nlist AS (
 			SELECT pl.address_key, COUNT(DISTINCT pl.source || ':' || pl.listing_id) AS num_listings
 			FROM property_listings pl
-			JOIN cur c ON c.address_key = pl.address_key
+			JOIN best b ON b.address_key = pl.address_key
 			GROUP BY pl.address_key
 		)
-		SELECT c.address_key, c.display_address, c.suburb, c.state_code, c.postcode,
-		       f.first_price, c.current_price,
-		       (f.first_price - c.current_price)                  AS drop_abs,
-		       (f.first_price - c.current_price) / f.first_price  AS drop_pct,
+		SELECT b.address_key, b.display_address, b.suburb, b.state_code, b.postcode,
+		       b.first_price, b.current_price, b.drop_abs, b.drop_pct,
 		       COALESCE(n.num_listings, 1)                        AS num_listings,
-		       c.latest_source, c.latest_listing_url, c.last_observed_at,
-		       c.property_type, c.bedrooms, c.bathrooms, c.agency_name, c.agent_names
-		FROM cur c
-		JOIN firstp f ON f.address_key = c.address_key
-		LEFT JOIN nlist n ON n.address_key = c.address_key
-		WHERE f.has_drop
-		  AND f.first_price > 0
-		  AND f.first_price > c.current_price
-		  AND (f.first_price - c.current_price) / f.first_price >= 0.03
-		  -- Sanity cap in the spirit of the aggregate MVs (000083): a >40%
-		  -- move is a listing typo correction (e.g. an extra-zero $7.5M ->
-		  -- $750k fix), not a vendor discount. NOTE this board's cap is on the
-		  -- CUMULATIVE window reduction (first_price -> current), while the MVs
-		  -- cap each individual drop event — an address that really fell >40%
-		  -- through several capped cuts is excluded here but still counted in
-		  -- the aggregates.
-		  AND (f.first_price - c.current_price) / f.first_price <= 0.40
+		       b.latest_source, b.latest_listing_url, b.last_observed_at,
+		       b.property_type, b.bedrooms, b.bathrooms, b.agency_name, b.agent_names
+		FROM best b
+		LEFT JOIN nlist n ON n.address_key = b.address_key
 		`
 
 // ListAddressPriceDrops ranks individual physical addresses (deduped by

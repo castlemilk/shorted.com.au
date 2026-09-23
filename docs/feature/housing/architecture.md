@@ -591,16 +591,23 @@ address winners deterministic. **000124** (2026-09) is the honesty pass:
 `first_price` is the earliest ask in the window from events that are (a) the same dwelling —
 same bedroom count when known; (b) a comparable price kind, mirroring the collector's
 `comparableKinds` (fixed ↔ offers_over, or the same range kind; range asks are stored as their
-low bound, so a fixed ask replaced by a range guide is never a "cut"); (c) never the other
-portal's concurrent advert — another portal's listing counts only if last seen >14 days before
-the current one first appeared. A listing-level move contributes its `prev_price` (so a cut early
+low bound, so a fixed ask replaced by a range guide is never a "cut"); (c) never a concurrent
+advert — a same-portal listing counts only if it ended before this advert first appeared (a
+relist), another portal's only if last seen >14 days before. A listing-level move contributes its `prev_price` (so a cut early
 in the window keeps its "before" ask); an address-relist move's `prev_price` does not (it came
 from a different advert). An address is listed only if its chain holds a real `price_drop`
 event under the 40% cap. Measured read-only on prod 2026-09-23: the old query listed 1,374
 addresses, 247 (18%) with no drop event behind them — e.g. a "$1,125,000" fixed ask against the
 low end of an "$850,000 – $930,000" range shown as −24%; the new one lists 1,000, all backed by
 an event, in ~0.2s instead of ~6.8s (the candidate set is restricted to addresses with a drop
-event before anything else is joined). The collector applies the same rule upstream:
+event before anything else is joined). **Every live advert at the address is judged on its own
+chain**, and the row shows the deepest qualifying cut (then larger $, source, id). The first cut
+judged only the most recently swept advert, so a home live on both portals lost its REA cut
+whenever Domain happened to be swept later and got it back after the next REA sweep — 79–83
+addresses hidden on prod (2026-09-24), all still counted by `mv_suburb_price_drops`. Choosing on
+prices, not sweep order, is what keeps the row stable; an advert superseded by a later
+same-portal relist is not "live" (its old ask is not current). Same day: 1,083 addresses, a
+superset of the 1,000, top 50 in ~0.7s. The collector applies the same rule upstream:
 `loadAddressPrior` skips the other portal's advert seen within 14 days and a different bedroom
 count (about 298 of 700 first-sighting drops were those two artefacts).
 

@@ -254,10 +254,29 @@ func TestAddressPriceDropsQuery_ComparesOnlyTheSameAdvertChain(t *testing.T) {
 		"WHERE f.has_drop",
 		// The MVs' liveness, not the old 21 days.
 		"pl.last_seen_at >= now() - interval '14 days'",
+		// A same-portal earlier advert joins only once it has ended (a
+		// relist), never while it is live alongside this one.
+		"(epl.source = c.latest_source AND epl.last_seen_at < c.first_seen_at)",
+		// Every live advert is judged on its own chain and the address keeps
+		// the deepest qualifying cut — chosen on prices, not on which portal
+		// the crawl swept last.
+		"GROUP BY advert",
+		"SELECT DISTINCT ON (c.address_key)",
+		"ORDER BY c.address_key, drop_pct DESC, drop_abs DESC, c.latest_source ASC, c.listing_pk DESC",
+		// A stale advert superseded by a later same-portal relist is not live.
+		"AND nx.first_seen_at > pl.last_seen_at",
 	} {
 		if !strings.Contains(q, want) {
 			t.Errorf("addressPriceDropsQuery missing %q", want)
 		}
+	}
+	// Picking ONE "current" advert per address by last_seen_at is what hid
+	// real cuts depending on sweep order (reviewer, 2026-09-24: 79 addresses).
+	if strings.Contains(q, "DISTINCT ON (pl.address_key)") {
+		t.Error("addressPriceDropsQuery must not pick one advert per address before judging chains")
+	}
+	if strings.Contains(q, "OR epl.source = c.latest_source\n") {
+		t.Error("a same-portal advert must not join the chain while it is still live")
 	}
 	if strings.Contains(q, "21 days") {
 		t.Error("addressPriceDropsQuery must use the 14-day liveness every listing MV uses")
