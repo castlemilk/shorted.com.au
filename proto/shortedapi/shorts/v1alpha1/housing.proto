@@ -239,6 +239,50 @@ message SuburbHazardExposure {
   string bushfire_source = 7;
 }
 
+// One harmonised zoning family's share of a suburb (program decision 8).
+// family: res_low | res_medium_high | centre_mixed | industrial | rural |
+// conservation | open_space | infrastructure | water | other.
+message ZoneFamilyShare {
+  string family = 1;
+  double share_pct = 2; // % of the whole suburb's area, 0..100
+}
+
+// Statutory planning layer for one suburb, computed offline from the state
+// planning schemes (web/scripts/geo/planning/). Every scalar is optional: an
+// absent value means no open source covers it (QLD/WA/NT zoning, NSW-only
+// development standards), never zero. zone_shares lists only families with a
+// non-zero share, largest first, and sums to zoning_coverage_pct.
+message SuburbPlanning {
+  repeated ZoneFamilyShare zone_shares = 1;
+  // % of the suburb inside any zone polygon. Under 50 it is the only value
+  // set: the rest of the suburb is planned by an instrument these layers do
+  // not carry, so no shares, dominant family or heritage are measured.
+  optional double zoning_coverage_pct = 2;
+  string dominant_zone_family = 3;           // '' when unzoned / no source
+  // % of the suburb in a heritage conservation area / Heritage Overlay /
+  // historic or character area (area classes only).
+  optional double heritage_share_pct = 4;
+  optional int32 heritage_item_count = 5;    // listed heritage places, counted once
+  // NSW development standards over the residential-zoned part of the suburb
+  // (area-weighted): maximum building height (m), floor space ratio (n:1),
+  // minimum subdivision lot size (m²).
+  optional double nsw_height_median_m = 6;
+  optional double nsw_height_max_m = 7;
+  optional double nsw_fsr_median = 8;
+  optional double nsw_min_lot_median_m2 = 9;
+  repeated string instruments = 10;          // planning instrument names, largest coverage first
+  string zoning_source = 11;                 // dataset id, '' when absent
+  string heritage_source = 12;
+  string source_licence = 13;                // e.g. 'CC-BY-4.0'
+  // % of the suburb's residential-zoned land each NSW standard is actually
+  // mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+  // centres; a standard mapped on under half the residential land has no
+  // median/max above, because it would be the centre's number.
+  optional double nsw_height_mapped_pct = 14;
+  optional double nsw_fsr_mapped_pct = 15;
+  optional double nsw_min_lot_mapped_pct = 16;
+}
+
 message SuburbSummary {
   string sal_code = 1;
   string sal_name = 2;
@@ -556,6 +600,9 @@ message GetSuburbProfileResponse {
   // Other councils holding >= 5% of this suburb's residents, largest first.
   // Empty for a suburb wholly (or >= 95%) inside `council`.
   repeated LgaOverlap council_overlaps = 11;
+  // Profile-only planning block; absent when no planning source covers the
+  // suburb (WA, NT, and QLD beyond its heritage register).
+  SuburbPlanning planning = 12;
 }
 
 message ListHousingRegionsRequest {

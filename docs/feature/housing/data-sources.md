@@ -24,6 +24,9 @@ and every base-table read in `postgres_house_prices.go` re-asserts it.
 | **DEA Water Observations Statistics** (Geoscience Australia, Landsat multi-year frequency `ga_ls_wo_fq_myear_3` v2.1.0, 1987–) | CC-BY-4.0 | per-suburb share of land observed under water at least occasionally, and permanent water; the national `water_observed` map overlay. 1,037 COG tiles, 17 GB, anonymous S3 |
 | **NSW EPI Flood** (NSW Planning Portal, `Planning/Hazard` layer 1) + **NSW Bush Fire Prone Land** (NSW RFS) | CC-BY / CC-BY-4.0 | NSW `flood_planning` / `bushfire_prone` shares and overlays. Councils own flood currency since July 2021 — the caveat ships with the layer |
 | **Vicmap Planning overlays** LSIO / FO / SBO / BMO (DTP Victoria, WFS `open-data-platform:plan_overlay`, gazetted status only) | CC-BY-4.0 | VIC `flood_planning` / `bushfire_prone` shares and overlays |
+| **Statewide planning zones** — NSW EPI Land Zoning (NSW Planning Portal, `Principal_Planning_Layers/MapServer/11`); Vicmap Planning `plan_zone` (gazetted); SA Planning and Design Code Zones (PlanSA zip); Tasmanian Planning Scheme zones (theLIST `PlanningOnline/13`) + Kingborough Interim Planning Scheme 2015 (`PlanningOnline/4`); ACT Territory Plan Land Use Zones (ACTmapi) | CC-BY (NSW) / CC-BY-4.0 (VIC, ACT) / CC-BY-3.0-AU (SA, TAS) | `suburb_planning` zoning-family shares, dominant family, instrument names; the categorical `zoning` overlay. See "Planning layer" below |
+| **Heritage areas + listings** — NSW EPI Heritage; Vicmap Heritage Overlay (`plan_overlay` HO, gazetted); SA Code heritage/character overlays; TAS TPS Local Historic Heritage Code; ACT Heritage Register (filtered); Queensland Heritage Register boundaries | CC-BY / CC-BY-4.0 / CC-BY-3.0-AU (SA, TAS) | `heritage_share_pct`, `heritage_item_count`; the `heritage` overlay |
+| **NSW development standards** — EPI Height of Buildings (`/7`), Floor Space Ratio (`/4`), Minimum Lot Size (`/14`) + their clause-application layers (NSW Planning Portal) | CC-BY | `nsw_height_median_m`, `nsw_height_max_m`, `nsw_fsr_median`, `nsw_min_lot_median_m2` + their `nsw_*_mapped_pct`; credited on the card and the page's sources line as `nsw_epi_development_standards` |
 | **OSM (Overpass)**, ACARA, Geoscience Australia, NBN, IIP | ODbL / ToS / CC-BY / CC-BY-4.0 | local-insights amenity, school, health, connectivity, funding layers |
 | **ABS ASGS Ed.3 allocation files** (`SAL_2021_AUST.xlsx`, `LGA_2024_AUST.xlsx`) + **Census 2021 Mesh Block Counts** | CC-BY-4.0 | the suburb→council bridge: dominant council, its share, every council ≥ 1% (`join-lga-mb.py` → `suburb-lga.json`); council identity, dwellings, centroid (`lga-facts.json`). Raw files staged off-git |
 | **ABS ERP by LGA** (`ERP_LGA<Y>`, `ERP_COMP_LGA<Y>`; one flow per release, newest discovered each run) | CC-BY-4.0 | `lga.population` (ERP at 30 June), `erp_year`, `pop_growth_pct`; `lga_series` erp + natural increase, net internal / overseas migration |
@@ -220,6 +223,131 @@ footprints, not flood extents, behind a token) and the 2013 QFAO (an interim
 product behind a custom-order download that says it is not for parcels);
 per-council flood studies (hundreds of portals with no common schema); every
 commercial flood-risk score.
+
+## Planning layer — zoning, heritage, NSW development standards
+
+Fetched 2026-09-23 (UA `shorted-housing/1.0 (+https://shorted.com.au)`, resumable
+NDJSON pages with `.done` markers) to `/Volumes/gamma-systems-2/shorted-planning/
+vector/<layer>/`; `manifest.json` there records per layer the source URL,
+licence, counts, fields and every distinct code. Raw geometry is never
+committed — only the derived artifact and the simplified overlays.
+
+| Layer | Source URL | Licence | Features |
+|---|---|---|---|
+| `nsw-zoning` | `mapprod3.environment.nsw.gov.au/arcgis/rest/services/Planning/Principal_Planning_Layers/MapServer/11` (data.nsw `environment-planning-instrument-local-environmental-plan-land-zoning`) | CC BY (data.nsw `cc-by`) | 70,511 |
+| `nsw-heritage` | `…/Principal_Planning_Layers/MapServer/8` (data.nsw `environmental-planning-instrument-heritage-her`) | CC BY | 40,340 |
+| `nsw-hob` / `nsw-fsr` / `nsw-lotsize` (+ `*-additional`) | `…/MapServer/7`, `/4`, `/14` (+ `/6`, `/3`, `/13` clause areas) | CC BY | 40,978 / 34,844 / 41,667 (+548 / 5,591 / 980) |
+| `nsw-landapp` | `…/MapServer/1` (LEP land application) | CC BY | 203 |
+| `vic-zoning` | `opendata.maps.vic.gov.au/geoserver/wfs` `open-data-platform:plan_zone`, `zone_status='g'` | CC BY 4.0 | 51,247 |
+| `vic-heritage` | same WFS, `plan_overlay` `zone_code LIKE 'HO%'`, gazetted | CC BY 4.0 | 25,048 |
+| `sa-zones` / `sa-overlays` | `dptiapps.com.au/dataportal/PDCodeZones_geojson.zip` / `PDCodeOverlays_shp.zip` (heritage + character classes only) | CC BY 3.0 AU (License.txt in the zip; data.sa lists CC BY 4.0 — we record the one that shipped with the bytes) | 5,402 / 16,591 |
+| `tas-zones` (+ `tas-zones-kingborough-interim`) | `services.thelist.tas.gov.au/arcgis/rest/services/Public/PlanningOnline/MapServer/13` (+ `/4`) | CC BY 3.0 AU (theLIST CSW `gmd:useLimitation`) | 12,774 (+743) |
+| `tas-heritage` | `…/PlanningOnline/MapServer/14`, `CODE='Local Historical Heritage Code'` | CC BY 3.0 AU | 4,675 |
+| `act-zones` | `services1.arcgis.com/E5n4f1VY84i0xSjy/…/ACTGOV_TP_LAND_USE_ZONE/FeatureServer/1` | CC BY 4.0 (ACT) | 5,911 |
+| `act-heritage` | `…/ACTGOV_Heritage_Register/FeatureServer/1`, filtered server-side | CC BY 4.0 (ACT) | 2,601 of 7,470 |
+| `qld-heritage` | `spatial-gis.information.qld.gov.au/…/AdminBoundariesFramework/FeatureServer/78` | CC BY 4.0 | 1,798 |
+
+**Zoning families.** Every state's zones map onto ten harmonised families
+(program decision 8): `res_low`, `res_medium_high`, `centre_mixed`,
+`industrial`, `rural`, `conservation`, `open_space`, `infrastructure`, `water`,
+`other`. The maps live in `web/scripts/geo/planning/zone_families.py`, and an
+unknown code **fails the build** — it never falls silently into `other`. Choices
+worth knowing before you read a number:
+
+- NSW is keyed by code **and** class, because codes are reused: E2 is Commercial
+  Centre after the 2023 employment-zone reform but Environmental Conservation in
+  the pre-reform LEPs still carrying it (likewise E4). SP1–SP3 are
+  infrastructure; **SP5 Metropolitan Centre (the Sydney CBD) is `centre_mixed`
+  and SP4 Enterprise is `industrial`** — mapping by the SP prefix painted the CBD
+  as infrastructure. RU5 Village stays `rural` (the Standard Instrument groups it
+  there). DM Deferred Matter and UL Unzoned Land are `other`.
+- VIC: NRZ/LDRZ/TZ `res_low`; GRZ/RGZ/HCTZ `res_medium_high`; ACZ/C1Z/C2Z/MUZ/CCZ/
+  DZ/PRZ `centre_mixed`; RCZ `conservation`; SUZ/PUZ/TRZ/PZ `infrastructure`; UFZ
+  `water`. **UGZ, CDZ, PDZ and CA are `other`**: an Urban Growth Zone's uses come
+  from a later Precinct Structure Plan, CDZ/PDZ are site-specific schedules, and
+  CA is Commonwealth land outside the scheme.
+- SA Code "Neighbourhood" zones split by intensity (Established/Suburban/Hills →
+  `res_low`; General/Housing Diversity/Urban → `res_medium_high`); Deferred Urban
+  is `other`. TAS: Kingborough's interim scheme is mapped with the same table.
+  ACT: DES (Designated, planned by the NCA) is `other`; NUZ3–5 `conservation`.
+
+Overlaps between instruments (a NSW SEPP precinct zoning land its LEP also maps,
+usually as Deferred Matter) resolve by precedence — SEPP over LEP — so the
+family shares **sum to `zoning_coverage_pct`**, never past it.
+
+**Heritage: which classes count.** `heritage_share_pct` is the union of the
+AREA classes; `heritage_item_count` counts distinct listed ITEMS, each once, in
+the suburb holding its largest polygon. Locations are never listed.
+
+| State | Area classes (share) | Item classes (count) | Excluded |
+|---|---|---|---|
+| NSW | Conservation Area – General / Landscape / Archaeological; Heritage Conservation Area | Item – General / Landscape / Archaeological; Local Heritage – General (distinct `EPI_NAME`+`H_ID`) | every Aboriginal class (cultural sensitivity) |
+| VIC | every gazetted Heritage Overlay polygon (the HO does not separate precincts from places) | — (NULL: the VHR was not fetched and HO numbers mix both) | Heritage Inventory (archaeological sites) |
+| SA | Historic Area, Character Area, State Heritage Area | Local Heritage Place, State Heritage Place (distinct `value`) | Heritage Adjacency (a buffer, not a listing); Character Preservation District (Barossa/McLaren Vale landscape Acts) |
+| TAS | Local heritage precinct, Local historic landscape precinct | Local heritage place (distinct `LPS`+`OV_CAT` where the LPS fills `OV_CAT` — Devonport and six Southern Midlands places; every other LPS leaves it blank, so each polygon is one place, which overcounts a place drawn in pieces and cannot be detected) | Significant trees; archaeological-potential places. **Mapped council by council** (18 of 28 LPS): a value is only measured where the suburb's governing LPS maps that class, else NULL |
+| ACT | registered Historic places (register boundary) | the same places (distinct `HeritageID`) | natural places; restricted rows and Aboriginal places are filtered at fetch |
+| QLD | — (the register is places, not areas) | Queensland Heritage Register places | — |
+
+**Item counts are not like-for-like across states.** QLD counts only the
+Queensland Heritage Register (State-listed places); NSW, SA and TAS count local
+planning-scheme listings (SA adds State places); ACT counts its register. Paddington
+QLD shows 15, Paddington NSW 103. The card's tile names the list per source and
+the footnote says the counts do not compare across states.
+
+**Coverage gate (both the zoning families and heritage).** `zoning_coverage_pct`
+is always the measured share of the suburb the scheme layer maps. Below **50%**
+it is the only planning value written: the rest of the suburb is planned by an
+instrument these layers do not carry, so a heritage share would count that land
+as "no heritage" and a dominant family would come from a sliver (The Rocks:
+2.9% in the Sydney LEP, previously 0% heritage and 0 listed places; Broken Hill:
+1.3%). 15 suburbs, 14 NSW + 1 VIC, as at 2026-09-24. The card says the map
+covers only X% and gives no mix or heritage. Enforced in `planning_share.py`
+(`MIN_MEASURED_COVERAGE_PCT`), in the collector's `validate()` and by migration
+000125's `suburb_planning_measured_check`.
+
+**NSW development standards** are area-weighted over the suburb's
+residential-zoned land (`res_low` + `res_medium_high`): median and maximum
+Height of Buildings (RL heights — an elevation above datum, not a height — are
+dropped), median FSR, median minimum lot size (hectares normalised to m²). The
+`*-additional` layers are clause-application areas (`CA`, street frontage)
+that carry no number bar four HOB polygons; the mapped base standard still
+applies beneath them, so the base layer supplies the numbers and those four
+override it where they lie. Clause-based exceptions are not modelled, and the
+card says so.
+
+**A standard is reported only where it is mapped on at least half the
+residential land.** Many LEPs map FSR, and some map height, only in their
+centres or precincts, so a median over the mapped part alone is the centre's
+number. Castle Hill's FSR was mapped on 4.9% of its residential land and stored
+as 1.6:1; Wagga Wagga's height was mapped on 4.5% and stored as 16 m, "up to
+25 m". Each standard now stores `nsw_*_mapped_pct` (the share of residential land
+it is mapped on, where 0 is a measured nowhere), and the median/max only when
+that is ≥ 50%. As at 2026-09-24, of 2,099 suburbs with residential land, FSR
+is mapped on under half for 1,488, height for 746 and lot size for 195. So 611
+suburbs have an FSR, 1,353 a height and 1,904 a lot size (previously 856 /
+1,463 / 2,043). The card names a withheld standard and its mapped share. Below
+95% it prints "mapped on X% of residential land" under the value. Enforced in the
+same three places (`CONTROL_MIN_MAPPED_PCT`).
+
+**NSW licence is recorded as published: `CC-BY`, unversioned.** data.nsw lists
+every EPI layer as `license_id 'cc-by'` with the unversioned
+`opendefinition.org/licenses/cc-by` URL. No version is stated, so none is
+claimed: rows carry `source_licence = 'CC-BY'`, the NSW overlays are stamped
+`CC-BY` and the credits read "CC BY".
+
+**Ruled out** (recorded so it is not re-proposed):
+- **WA zoning, R-Codes, region schemes, scheme boundaries and heritage** — DPLH
+  "Custom (Active Acceptance)": internal business or personal use only, no
+  external display. Derived shares are a display of the information. WA stays
+  NULL; the overlay picker says why.
+- **QLD statewide zoning** — none exists (77 council schemes). Brisbane, Gold
+  Coast and Sunshine Coast publish CC-BY zoning, but a three-council patchwork is
+  not a state layer. QLD gets heritage item counts only.
+- **NT zoning** — no open vector layer (NR Maps is WMS-only; the NT Atlas is
+  legacy ArcIMS). NULL.
+- **VIC `planning_scheme_boundary`** — no open licence found (its metadata record
+  403s); `plan_zone` carries the scheme's LGA on every polygon instead.
+- **Tasmanian Heritage Register** — "Other Licence", internal use, ~10% complete.
 
 ## OUT — settled, not deferred
 

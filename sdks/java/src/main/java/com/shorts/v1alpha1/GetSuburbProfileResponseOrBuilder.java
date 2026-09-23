@@ -315,4 +315,34 @@ public interface GetSuburbProfileResponseOrBuilder extends
    */
   com.shorts.v1alpha1.LgaOverlapOrBuilder getCouncilOverlapsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * Profile-only planning block; absent when no planning source covers the
+   * suburb (WA, NT, and QLD beyond its heritage register).
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+   * @return Whether the planning field is set.
+   */
+  boolean hasPlanning();
+  /**
+   * <pre>
+   * Profile-only planning block; absent when no planning source covers the
+   * suburb (WA, NT, and QLD beyond its heritage register).
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+   * @return The planning.
+   */
+  com.shorts.v1alpha1.SuburbPlanning getPlanning();
+  /**
+   * <pre>
+   * Profile-only planning block; absent when no planning source covers the
+   * suburb (WA, NT, and QLD beyond its heritage register).
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.SuburbPlanning planning = 12 [json_name = "planning"];</code>
+   */
+  com.shorts.v1alpha1.SuburbPlanningOrBuilder getPlanningOrBuilder();
 }

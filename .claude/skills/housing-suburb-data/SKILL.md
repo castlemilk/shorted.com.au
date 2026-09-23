@@ -64,6 +64,7 @@ runs only the official ABS/RBA tier plus an MV refresh.
 | Census expanded (7 rates + tenure) | `census` | same DataPack, tables below | 8,931–8,952 |
 | SEIFA | `seifa` | ABS SEIFA by SAL | 14,355 |
 | Elevation (6 cols) | `elevation` | GA 1 Second DEM-S | 15,307 |
+| Planning (`suburb_planning`, 000125) | `planning` | Statewide zoning (NSW/VIC/SA/TAS/ACT) → 10 harmonised families, heritage areas + items (+QLD register), NSW HOB/FSR/lot size; built by `web/scripts/geo/planning/` (README there), artifact embedded in the collector | pending first prod load (local 2026-09-23: 13,324 rows) |
 | Hazard exposure (`suburb_hazard_exposure`) | `hazards` | DEA Water Observations (national) + NSW/VIC statutory flood & bushfire overlays; built by `web/scripts/geo/hazards/` (README there) | pending first prod load |
 | VG suburb medians | `vg-nsw` / `vg-vic` / `vg-sa` | state Valuer-General | NSW 2,433 · VIC 766 · SA 426 |
 | Amenities / NBN / banners | `amenities` `connectivity` `banners` | precomputed offline JSON | — |
@@ -298,6 +299,35 @@ docker run --rm -v "$PWD":/work -w /work -e SKIP_ENV_VALIDATION=1 \
 `test:visual` chains `storybook:build &&` for a reason — running
 `npx playwright test` alone screenshots the stale bundle and will tell you a
 broken change is fine.
+
+### Planning metrics — the categorical column and the categorical overlay
+
+The planning layer added the two categorical paths the map lacked:
+
+- **`kind: "column-categorical"`** (`dominant_zone_family`): the server's
+  column carries `category_labels` and each value is an index into them.
+  `useSuburbColumns` returns `categories` (label maps) beside `data`; colours
+  come from the serializable palette in `lib/housing/zone-families.ts`, looked
+  up by label. The Go label list (`ZoneFamilyLabels`), the Go family order
+  (`ZoneFamilies`), the Python `FAMILIES` and the TS palette are pinned together
+  by `zone-families.test.ts` — change one, change all four.
+- **`kind: "categorical"` overlays** (`zoning`): one dissolved feature per class
+  with `properties.family`; `OverlayLayerPaths` fills per feature and the legend
+  lists the classes. Hover identify runs `geoContains` on the pointer's map
+  location against bbox-pruned polygon parts (overlays keep
+  `pointer-events: none`, so suburb hover still works) and adds "Planning zones
+  here: <family>" to the tooltip.
+
+Wording rules: zones are **grouped** into families "so states compare" — the
+council's scheme is the authority for any one lot. NSW height/FSR/lot size are
+the LEP standards area-weighted over residential land; clause exceptions are not
+modelled. QLD has no statewide zoning (heritage items only); WA and NT have no
+row at all — never render them as 0.
+
+To rebuild after a re-fetch: refresh `zone_codes.json` from the manifest, run
+`test_planning.py` (an unmapped code fails it), then `planning_share.py state|
+merge` and `planning_overlays.py` + `build-overlays.mjs` per the README, then
+`-mode planning`.
 
 ## 6. After any ingest
 

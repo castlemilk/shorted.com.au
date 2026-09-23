@@ -431,6 +431,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 		response.Hazards = suburbHazardsProto(p.Hazards)
 		attachCouncilFacts(response.Council, p.Council)
 		response.CouncilOverlaps = councilOverlapsProto(p.CouncilOverlaps)
+		response.Planning = suburbPlanningProto(p.Planning)
 		return response, nil
 	})
 	if err != nil {

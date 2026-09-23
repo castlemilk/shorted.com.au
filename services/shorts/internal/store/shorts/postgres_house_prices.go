@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"sort"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
@@ -356,6 +357,8 @@ type SuburbProfileRow struct {
 	Elevation *SuburbElevationRow
 	// Hazard exposure shares; nil when no source covers the suburb.
 	Hazards *SuburbHazardRow
+	// Statutory planning layer; nil when no planning source covers the suburb.
+	Planning *SuburbPlanningRow
 	// Crawl-derived listing aggregates; nil when outside the crawl catalog.
 	ListingStats *SuburbListingStatsRow
 	// Council identity + ABS facts (000126); nil when the suburb has no
@@ -679,6 +682,12 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 	} else {
 		log.Warnf("GetSuburbProfile(%s): suburb hazards unavailable: %v", salCode, err)
 	}
+	// Same tolerance: suburb_planning (000125) is hand-applied on prod.
+	if planning, err := s.suburbPlanning(ctx, salCode); err == nil {
+		p.Planning = planning
+	} else {
+		log.Warnf("GetSuburbProfile(%s): suburb planning unavailable: %v", salCode, err)
+	}
 	p.ListingStats = s.suburbListingStats(ctx, salCode)
 	// Its own queries, tolerated on failure like hazards: the 000126 columns
 	// land by hand on prod, and the base council card must survive without them.
@@ -923,6 +932,120 @@ func (s *postgresStore) suburbHazards(ctx context.Context, salCode string) (*Sub
 		return nil, nil
 	}
 	return row, nil
+}
+
+// ZoneFamilies is the harmonised zoning family set (program decision 8), in
+// the order the offline build resolves overlaps. suburb_planning carries one
+// zone_<family>_share_pct column per entry.
+var ZoneFamilies = []string{
+	"res_low", "res_medium_high", "centre_mixed", "industrial", "rural",
+	"conservation", "open_space", "infrastructure", "water", "other",
+}
+
+// ZoneFamilyShareRow is one family's share of a suburb.
+type ZoneFamilyShareRow struct {
+	Family   string
+	SharePct float64
+}
+
+// SuburbPlanningRow is one suburb's statutory planning layer. Nil pointers are
+// "no source covers this"; a genuine zero is a non-nil 0.
+type SuburbPlanningRow struct {
+	ZoneShares         []ZoneFamilyShareRow // non-zero families, largest first
+	ZoningCoveragePct  *float64
+	DominantZoneFamily string
+	HeritageSharePct   *float64
+	HeritageItemCount  *int32
+	NSWHeightMedianM   *float64
+	NSWHeightMaxM      *float64
+	NSWFSRMedian       *float64
+	NSWMinLotMedianM2  *float64
+	// % of the residential land each standard is mapped on (a measured 0 is
+	// 0). A standard mapped on under half of it carries no median/max.
+	NSWHeightMappedPct *float64
+	NSWFSRMappedPct    *float64
+	NSWMinLotMappedPct *float64
+	Instruments        []string
+	ZoningSource       string
+	HeritageSource     string
+	SourceLicence      string
+}
+
+const suburbPlanningQuery = `
+		SELECT zone_res_low_share_pct, zone_res_medium_high_share_pct, zone_centre_mixed_share_pct,
+		       zone_industrial_share_pct, zone_rural_share_pct, zone_conservation_share_pct,
+		       zone_open_space_share_pct, zone_infrastructure_share_pct, zone_water_share_pct,
+		       zone_other_share_pct,
+		       zoning_coverage_pct, COALESCE(dominant_zone_family, ''),
+		       heritage_share_pct, heritage_item_count,
+		       nsw_height_median_m, nsw_height_max_m, nsw_fsr_median, nsw_min_lot_median_m2,
+		       nsw_height_mapped_pct, nsw_fsr_mapped_pct, nsw_min_lot_mapped_pct,
+		       COALESCE(planning_instruments, '{}'::text[]),
+		       COALESCE(zoning_source, ''), COALESCE(heritage_source, ''), source_licence
+		FROM suburb_planning
+		WHERE sal_code = $1 AND source_licence <> 'proprietary-tos-restricted'`
+
+// planningScan holds the nullable scalars of one suburbPlanningQuery row.
+type planningScan struct {
+	Coverage, Heritage, HMed, HMax, FSR, Lot sql.NullFloat64
+	HMapped, FSRMapped, LotMapped            sql.NullFloat64
+	Items                                    sql.NullInt32
+}
+
+// suburbPlanning returns nil, nil when the suburb has no row or the row holds
+// nothing (a covered-state suburb no instrument reaches).
+func (s *postgresStore) suburbPlanning(ctx context.Context, salCode string) (*SuburbPlanningRow, error) {
+	shares := make([]sql.NullFloat64, len(ZoneFamilies))
+	var sc planningScan
+	row := &SuburbPlanningRow{}
+	dest := make([]any, 0, len(ZoneFamilies)+15)
+	for i := range shares {
+		dest = append(dest, &shares[i])
+	}
+	dest = append(dest, &sc.Coverage, &row.DominantZoneFamily, &sc.Heritage, &sc.Items,
+		&sc.HMed, &sc.HMax, &sc.FSR, &sc.Lot, &sc.HMapped, &sc.FSRMapped, &sc.LotMapped,
+		&row.Instruments, &row.ZoningSource, &row.HeritageSource, &row.SourceLicence)
+	if err := s.db.QueryRow(ctx, suburbPlanningQuery, salCode).Scan(dest...); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return buildSuburbPlanningRow(row, shares, sc), nil
+}
+
+// buildSuburbPlanningRow finishes a scanned row: pointer-ises the nullable
+// scalars, keeps only non-zero family shares (largest first, ties in family
+// order) and collapses an all-empty row to nil. A row carrying only a partial
+// coverage (the scheme layers reach under half the suburb, so nothing else was
+// measured) is kept: the card says so rather than vanishing. Split out for tests.
+func buildSuburbPlanningRow(row *SuburbPlanningRow, shares []sql.NullFloat64, sc planningScan) *SuburbPlanningRow {
+	for i, family := range ZoneFamilies {
+		if i < len(shares) && shares[i].Valid && shares[i].Float64 > 0 {
+			row.ZoneShares = append(row.ZoneShares, ZoneFamilyShareRow{Family: family, SharePct: shares[i].Float64})
+		}
+	}
+	sort.SliceStable(row.ZoneShares, func(a, b int) bool { return row.ZoneShares[a].SharePct > row.ZoneShares[b].SharePct })
+	row.ZoningCoveragePct = nullableFloatPointer(sc.Coverage)
+	row.HeritageSharePct = nullableFloatPointer(sc.Heritage)
+	row.NSWHeightMedianM = nullableFloatPointer(sc.HMed)
+	row.NSWHeightMaxM = nullableFloatPointer(sc.HMax)
+	row.NSWFSRMedian = nullableFloatPointer(sc.FSR)
+	row.NSWMinLotMedianM2 = nullableFloatPointer(sc.Lot)
+	row.NSWHeightMappedPct = nullableFloatPointer(sc.HMapped)
+	row.NSWFSRMappedPct = nullableFloatPointer(sc.FSRMapped)
+	row.NSWMinLotMappedPct = nullableFloatPointer(sc.LotMapped)
+	if sc.Items.Valid {
+		v := sc.Items.Int32
+		row.HeritageItemCount = &v
+	}
+	partlyCovered := row.ZoningCoveragePct != nil && *row.ZoningCoveragePct > 0
+	if len(row.ZoneShares) == 0 && row.HeritageSharePct == nil && row.HeritageItemCount == nil &&
+		row.NSWHeightMedianM == nil && row.NSWFSRMedian == nil && row.NSWMinLotMedianM2 == nil &&
+		len(row.Instruments) == 0 && !partlyCovered {
+		return nil
+	}
+	return row
 }
 
 // similarSuburbs finds the k nearest suburbs nationally in a z-scored feature

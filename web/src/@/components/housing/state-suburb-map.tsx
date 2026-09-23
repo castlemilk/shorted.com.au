@@ -4,12 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { listCouncilsClient } from "~/app/actions/client/getHousingClient";
-import { ChoroplethMap } from "./choropleth-map";
+import { ChoroplethMap, type OverlayHit } from "./choropleth-map";
 import { MapLegend } from "./map-legend";
 import { CategoricalLegend } from "./categorical-legend";
 import { makePriceScale, robustDomainTop } from "@/lib/housing/price-scale";
 import {
-  HIGHLIGHT_METRICS, METRIC_BY_KEY, METRIC_ICON, amberScale, type MetricKey, type HighlightMetric,
+  HIGHLIGHT_METRICS, METRIC_BY_KEY, METRIC_ICON, amberScale, isColumnSourced, type MetricKey, type HighlightMetric,
 } from "@/lib/housing/highlight-metrics";
 import {
   OVERLAYS, OVERLAY_BY_KEY, overlayAvailable, parseOverlayParam, serializeOverlayParam, type OverlayKey,
@@ -56,9 +56,10 @@ export type SuburbDatum = {
 const TOOLTIP_W = 224;
 const TOOLTIP_H = 260;
 
-const ROW_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind !== "column");
+const ROW_METRICS = HIGHLIGHT_METRICS.filter((m) => !isColumnSourced(m));
 const TERRAIN_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind === "column" && m.group === "terrain");
 const HAZARD_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind === "column" && m.group === "hazard");
+const PLANNING_METRICS = HIGHLIGHT_METRICS.filter((m) => isColumnSourced(m) && m.group === "planning");
 
 // Per-viewer overlay opacities. A convenience, not state worth a URL: the
 // right weighting depends on the reader's display, so it is remembered here
@@ -153,7 +154,7 @@ export function StateSuburbMap({
 }) {
   const { data: topo, isLoading, isError } = useTopojson(`/geo/suburbs/${stateCode}.topojson`);
   const searchParams = useSearchParams();
-  const [hover, setHover] = useState<{ d: SuburbDatum; x: number; y: number } | null>(null);
+  const [hover, setHover] = useState<{ d: SuburbDatum; x: number; y: number; hits?: OverlayHit[] } | null>(null);
   const deepLinkedMetric = searchParams.get("metric");
   // The ACT is one council (Unincorporated ACT): no council level, no borders.
   const councilsSupported = stateCode !== "ACT";
@@ -263,7 +264,7 @@ export function StateSuburbMap({
     () => overlays.filter((k) => overlayAvailable(k, stateCode)), [overlays, stateCode]);
   const columnKeys = useMemo(() => {
     const keys = new Set<string>();
-    if (metric.kind === "column") keys.add(metric.key);
+    if (isColumnSourced(metric)) keys.add(metric.key);
     for (const k of activeOverlays) keys.add(OVERLAY_BY_KEY[k].metricKey);
     return [...keys];
   }, [metric, activeOverlays]);
@@ -294,7 +295,7 @@ export function StateSuburbMap({
   // Continuous metric → value map + scale over its own range. Row metrics read
   // the SuburbDatum; column metrics read the fetched column.
   const continuous = useMemo(() => {
-    if (metric.kind === "categorical") return null;
+    if (metric.kind === "categorical" || metric.kind === "column-categorical") return null;
     if (metric.key === "price") {
       return {
         valueById: priceValueById, scale: priceScale.scale,
@@ -326,6 +327,15 @@ export function StateSuburbMap({
 
   // Categorical metric → category map + the legend entries actually present.
   const categorical = useMemo(() => {
+    if (metric.kind === "column-categorical") {
+      // Server-labelled column: the legend lists the dictionary entries present.
+      const col = columns.categories?.get(metric.key);
+      if (!col) return null;
+      const present = new Set<string>();
+      for (const c of col.byId.values()) if (c) present.add(c);
+      const entries = col.labels.filter((l) => present.has(l)).map((l) => ({ label: l, color: metric.colorForLabel(l) }));
+      return { categoryById: col.byId, entries };
+    }
     if (metric.kind !== "categorical") return null;
     const m = new Map<string, string | null>();
     const present = new Set<string>();
@@ -336,12 +346,17 @@ export function StateSuburbMap({
     }
     const entries = metric.order.filter((o) => present.has(o)).map((o) => ({ label: o, color: metric.colorFor(o) }));
     return { categoryById: m, entries };
-  }, [metric, suburbs]);
+  }, [metric, suburbs, columns.categories]);
 
   // Tooltip rows: the column metric being coloured (if any) and one row per
   // active overlay, so the picture and the number travel together.
-  const extrasFor = useCallback((salCode: string): TooltipExtra[] => {
+  const extrasFor = useCallback((salCode: string, hits?: readonly OverlayHit[]): TooltipExtra[] => {
     const rows: TooltipExtra[] = [];
+    // Hover identify: the zoning class under the pointer, first — it answers
+    // "what is THIS spot zoned?", which the suburb-level share cannot.
+    for (const h of hits ?? []) {
+      rows.push({ label: `${OVERLAY_BY_KEY[h.key as OverlayKey]?.label ?? h.key} here`, value: h.label, color: h.color });
+    }
     const seen = new Set<string>();
     const push = (key: string, label: string, format: (v: number) => string, color?: string, missing = "—") => {
       if (seen.has(key)) return;
@@ -355,14 +370,24 @@ export function StateSuburbMap({
     // alone do not say which side is which.
     const council = showCouncilBorders ? councilNameByCode.get(lgaBySal.get(salCode) ?? "") : undefined;
     if (council) rows.push({ label: "Council", value: council });
+    const pushCategory = (key: string, label: string, colorForLabel: (l: string) => string, missing = "—") => {
+      if (seen.has(key)) return;
+      seen.add(key);
+      const col = columns.categories?.get(key);
+      if (!col) return;
+      const v = col.byId.get(salCode);
+      rows.push({ label, value: v ?? missing, color: v ? colorForLabel(v) : undefined });
+    };
     if (metric.kind === "column") push(metric.key, metric.label, metric.format);
+    if (metric.kind === "column-categorical") pushCategory(metric.key, metric.label, metric.colorForLabel);
     for (const k of activeOverlays) {
       const o = OVERLAY_BY_KEY[k];
-      const def = METRIC_BY_KEY[o.metricKey];
-      push(o.metricKey, o.shareLabel, def.kind === "column" ? def.format : (v) => `${Math.round(v)}%`, o.color);
+      const def = METRIC_BY_KEY[o.metricKey as MetricKey];
+      if (def?.kind === "column-categorical") pushCategory(o.metricKey, o.shareLabel, def.colorForLabel);
+      else push(o.metricKey, o.shareLabel, def?.kind === "column" ? def.format : (v) => `${Math.round(v)}%`, o.color);
     }
     return rows;
-  }, [metric, activeOverlays, columns.data, showCouncilBorders, councilNameByCode, lgaBySal]);
+  }, [metric, activeOverlays, columns.data, columns.categories, showCouncilBorders, councilNameByCode, lgaBySal]);
 
   // Council borders over the suburb map: shared arcs between suburbs in
   // different councils (topojson.mesh), drawn as a non-scaling line layer.
@@ -440,6 +465,11 @@ export function StateSuburbMap({
             <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">Hazard exposure</SelectLabel>
             {HAZARD_METRICS.map(metricItem)}
           </SelectGroup>
+          <SelectSeparator />
+          <SelectGroup>
+            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">Planning</SelectLabel>
+            {PLANNING_METRICS.map(metricItem)}
+          </SelectGroup>
         </SelectContent>
       </Select>
       {councilsSupported ? (
@@ -509,10 +539,11 @@ export function StateSuburbMap({
   }
 
   const selected = selectedSalCode ? byCode.get(selectedSalCode) : undefined;
-  const columnPending = metric.kind === "column" && !continuous && columns.isLoading;
-  const columnFailed = metric.kind === "column" && !continuous && !columns.isLoading;
+  const columnReady = metric.kind === "column-categorical" ? Boolean(categorical) : Boolean(continuous);
+  const columnPending = isColumnSourced(metric) && !columnReady && columns.isLoading;
+  const columnFailed = isColumnSourced(metric) && !columnReady && !columns.isLoading;
 
-  const colourLegend = metric.kind === "categorical"
+  const colourLegend = metric.kind === "categorical" || metric.kind === "column-categorical"
     ? (categorical?.entries.length
         ? <CategoricalLegend label={metric.legendLabel} entries={categorical.entries} />
         : null)
@@ -536,10 +567,10 @@ export function StateSuburbMap({
           fill
           topology={topo}
           objectName={objectName}
-          valueById={continuous?.valueById ?? (metric.kind === "column" ? new Map() : priceValueById)}
+          valueById={continuous?.valueById ?? (isColumnSourced(metric) ? new Map() : priceValueById)}
           colorScale={(v) => (continuous?.scale ?? priceScale.scale)(v)}
           categoryById={categorical?.categoryById}
-          categoryColor={metric.kind === "categorical" ? metric.colorFor : undefined}
+          categoryColor={metric.kind === "categorical" ? metric.colorFor : metric.kind === "column-categorical" ? metric.colorForLabel : undefined}
           fitValueById={priceValueById}
           nameById={nameById}
           selectedId={selectedSalCode}
@@ -551,11 +582,11 @@ export function StateSuburbMap({
           overlays={overlayLayers.layers}
           lines={councilLines}
           onFeatureClick={(id) => onSelect(id)}
-          onFeatureHover={(id, evt) => {
+          onFeatureHover={(id, evt, hits) => {
             onHover?.(id);
             if (!id || !evt) return setHover(null);
             const d = byCode.get(id);
-            if (d) setHover({ d, x: evt.clientX, y: evt.clientY });
+            if (d) setHover({ d, x: evt.clientX, y: evt.clientY, hits });
           }}
         />
 
@@ -593,7 +624,7 @@ export function StateSuburbMap({
               top: hover.y + TOOLTIP_H + 18 > window.innerHeight ? hover.y - TOOLTIP_H : hover.y + 14,
             }}
           >
-            <SuburbTooltip summary={hover.d} regionCode={hover.d.regionCode} extras={extrasFor(hover.d.salCode)} />
+            <SuburbTooltip summary={hover.d} regionCode={hover.d.regionCode} extras={extrasFor(hover.d.salCode, hover.hits)} />
           </div>
         ) : null}
     </>,

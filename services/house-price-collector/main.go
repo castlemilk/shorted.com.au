@@ -47,7 +47,7 @@ func main() {
 // failure (see runDropIndex in drop_index.go).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
+	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
 	flag.Parse()
 
 	// install-driver needs no DB, no Chrome, no timeout plumbing — dispatch it
@@ -232,6 +232,11 @@ func run() int {
 		// planning + bushfire-prone overlays), computed offline by
 		// web/scripts/geo/hazards/ and loaded from the committed artifact.
 		return ingestExit(runHazards(ctx, pool))
+	case "planning":
+		// Per-suburb planning layer (zoning-family mix, heritage share + item
+		// count, NSW development standards, instruments), computed offline by
+		// web/scripts/geo/planning/ and loaded from the embedded artifact.
+		return ingestExit(runPlanning(ctx, pool))
 	case "lga":
 		// Council/LGA dimension + suburb→council bridge (ABS mesh-block allocation,
 		// web/scripts/geo/join-lga-mb.py).
@@ -282,7 +287,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|elevation|hazards|lga|erp-lga|census-lga|council-regional|building-approvals-lga|wikidata-lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|elevation|hazards|planning|lga|erp-lga|census-lga|council-regional|building-approvals-lga|wikidata-lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
 	}
 	return 0
 }
@@ -493,6 +498,26 @@ func runHazards(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 	log.Printf("[hazards] upserted %d/%d suburbs (licence=%s)", updated, len(rows), hazardsLicence)
 	_ = updateRun(ctx, pool, hazardsWaterSource, nil, updated, "ok", "")
+	return nil
+}
+
+// runPlanning loads the offline planning artifact into suburb_planning. It
+// never fetches a source or touches geometry.
+func runPlanning(ctx context.Context, pool *pgxpool.Pool) error {
+	rows, err := ingestPlanning()
+	if err != nil {
+		log.Printf("[planning] ingest error: %v", err)
+		_ = updateRun(ctx, pool, planningCursor, nil, 0, "error", err.Error())
+		return err
+	}
+	updated, err := upsertPlanning(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[planning] upsert error after %d: %v", updated, err)
+		_ = updateRun(ctx, pool, planningCursor, nil, updated, "error", err.Error())
+		return err
+	}
+	log.Printf("[planning] upserted %d/%d suburbs", updated, len(rows))
+	_ = updateRun(ctx, pool, planningCursor, nil, updated, "ok", "")
 	return nil
 }
 

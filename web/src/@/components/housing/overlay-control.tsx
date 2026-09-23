@@ -103,7 +103,7 @@ export function OverlayControl({
                     <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground [text-wrap:pretty]">
                       {isAvailable
                         ? `${o.caveat} ${o.stateNotes?.[stateCode] ?? ""}`.trim()
-                        : `No open statutory layer for ${STATE_NAMES[stateCode] ?? stateCode} yet.`}
+                        : (o.unavailableNotes?.[stateCode] ?? `No open statutory layer for ${STATE_NAMES[stateCode] ?? stateCode} yet.`)}
                     </span>
                   </label>
                   {isActive ? (
@@ -154,8 +154,10 @@ export function OverlayLegend({
         {shown.map((o) => {
           const alpha = Math.round((opacities?.[o.key] ?? OVERLAY_FILL_OPACITY) * 255).toString(16).padStart(2, "0");
           return (
-            <li key={o.key} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-              <span className="inline-block h-2.5 w-3.5 shrink-0 rounded-sm border" style={{ background: `${o.color}${alpha}`, borderColor: o.color }} />
+            <li key={o.key} className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+              {o.kind === "categorical" ? null : (
+                <span className="inline-block h-2.5 w-3.5 shrink-0 rounded-sm border" style={{ background: `${o.color}${alpha}`, borderColor: o.color }} />
+              )}
               <span className="flex-1">{o.label}</span>
               {onRemove ? (
                 <button
@@ -165,6 +167,16 @@ export function OverlayLegend({
                 >
                   <span className="text-[11px] leading-none">×</span>
                 </button>
+              ) : null}
+              {o.kind === "categorical" && o.classes ? (
+                <ul className="grid w-full grid-cols-2 gap-x-2 gap-y-0.5 pl-0.5" aria-label={`${o.label} classes`}>
+                  {o.classes.map((c) => (
+                    <li key={c.value} className="flex min-w-0 items-center gap-1">
+                      <span className="inline-block h-2 w-2.5 shrink-0 rounded-sm border" style={{ background: `${c.color}${alpha}`, borderColor: c.color }} />
+                      <span className="truncate" title={c.label}>{c.label}</span>
+                    </li>
+                  ))}
+                </ul>
               ) : null}
             </li>
           );

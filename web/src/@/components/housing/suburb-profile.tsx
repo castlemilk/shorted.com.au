@@ -44,6 +44,8 @@ import { SuburbNearbyList } from "./suburb-nearby-list";
 import { SuburbScoreBand } from "./suburb-score-band";
 import { SuburbHazardCard } from "./suburb-hazard-card";
 import { SuburbCouncilCard } from "./suburb-council-card";
+import { SuburbPlanningCard } from "./suburb-planning-card";
+import { PLANNING_SOURCE_CREDITS, planningCreditIds } from "@/lib/housing/planning-sources";
 import { RecentPriceDrops } from "./suburb-recent-price-drops-loader";
 import { STATE_NAMES, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
 import { crimeRankScale } from "@/lib/housing/highlight-metrics";
@@ -272,6 +274,8 @@ export function SuburbProfile({
 
           <SuburbHazardCard elevation={data.elevation} hazards={data.hazards} stateCode={st} salCode={s.salCode} />
 
+          <SuburbPlanningCard planning={data.planning} stateCode={st} salCode={s.salCode} />
+
           {a ? <AmenitiesGroup a={a} nbn={s.dominantNbnTech} /> : null}
 
           <div className="grid gap-6 sm:grid-cols-2">
@@ -339,6 +343,7 @@ export function SuburbProfile({
         hasTerrain={data.elevation?.elevationMedianM !== undefined}
         hasWaterObservations={data.hazards?.waterObservedSharePct !== undefined}
         statutoryHazardSources={[data.hazards?.floodSource, data.hazards?.bushfireSource].filter(Boolean) as string[]}
+        planningSources={planningCreditIds(data.planning)}
         stateName={stateName}
       />
     </div>
@@ -866,7 +871,7 @@ const STATUTORY_HAZARD_CREDITS: Record<string, string> = {
 export function SourcesLine({
   censusYear, hasCensus, hasPrice, hasAmenities, hasSchoolSectors,
   hasFederal, hasStateMember, hasTerrain = false, hasWaterObservations = false,
-  statutoryHazardSources = [], stateName,
+  statutoryHazardSources = [], planningSources = [], stateName,
 }: {
   censusYear?: number;
   hasCensus: boolean;
@@ -881,6 +886,8 @@ export function SourcesLine({
   hasWaterObservations?: boolean;
   /** Source ids from SuburbHazardExposure (flood_source / bushfire_source) actually rendered. */
   statutoryHazardSources?: string[];
+  /** Planning source ids the planning card rendered (planningCreditIds). */
+  planningSources?: string[];
   stateName: string;
 }) {
   const parts: ReactNode[] = [];
@@ -913,6 +920,10 @@ export function SourcesLine({
   for (const id of new Set(statutoryHazardSources)) {
     const credit = STATUTORY_HAZARD_CREDITS[id];
     if (credit) parts.push(<>{credit} (CC BY 4.0)</>);
+  }
+  for (const id of new Set(planningSources)) {
+    const source = PLANNING_SOURCE_CREDITS[id];
+    if (source) parts.push(<>{source.credit} ({source.licence})</>);
   }
   if (hasStateMember) {
     parts.push(
