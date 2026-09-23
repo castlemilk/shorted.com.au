@@ -64,7 +64,7 @@ const (
 // lgaStateCode maps an ABS STATE_NAME_2021 to our state code. It extends the
 // electorate map with "Other Territories" (Christmas Island, Cocos (Keeling)
 // Islands, Jervis Bay, Norfolk Island): those are real councils and need a
-// state for their URL. "Outside Australia" stays '' — it is a pseudo-area with
+// state for their URL. "Outside Australia" stays empty — it is a pseudo-area with
 // no state by definition.
 func lgaStateCode(absState string) string {
 	if s := strings.TrimSpace(absState); s == "Other Territories" {
