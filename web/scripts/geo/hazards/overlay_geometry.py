@@ -87,42 +87,37 @@ def write_geojson(geom_3577, layer: str, out: Path, extra: dict) -> None:
 def vector(args) -> None:
     import shapely
 
-    from vector_share import load_layer, polygonal
+    from vector_share import burn_layer, load_layer, polygonal
 
-    layer = load_layer(args.layer_dir)
     suburbs = load_suburbs(args.suburbs)
     state = polygonal(shapely.union_all(suburbs.geometry.values, grid_size=0.01))
     if args.raster_m:
-        # A GEOS union of 235,000 parcel polygons (NSW bush fire prone land)
-        # exhausts memory. Burning them onto a coarse grid and polygonising is
-        # bounded by the state's extent instead, and at 1–48× map zoom a 60 m
-        # cell is below what the reader can see anyway.
-        dissolved = rasterised_union(layer.values, state, args.raster_m)
+        # A GEOS union of 235,000 parcel polygons (NSW bush fire prone land),
+        # let alone QLD's 2.56 million, exhausts memory. Burning the pages onto
+        # a coarse grid one at a time and polygonising is bounded by the state's
+        # extent instead, and at 1–48× map zoom a 60 m cell is below what the
+        # reader can see anyway.
+        grid, transform, source_polygons = burn_layer(args.layer_dir, state.bounds, args.raster_m)
+        dissolved = polygonise_grid(grid, transform, state)
     else:
+        layer = load_layer(args.layer_dir)
+        source_polygons = len(layer)
         dissolved = polygonal(shapely.union_all(layer.values, grid_size=0.01).intersection(state, grid_size=0.01))
     simplified = dissolved.simplify(SIMPLIFY_M, preserve_topology=True)
     cleaned = drop_small_parts(simplified, MIN_PART_M2)
-    write_geojson(cleaned, args.layer, args.out, {"source_polygons": int(len(layer))})
-    print(f"wrote {args.out}: {len(layer)} polygons -> {cleaned.area / 1e6:.0f} km²")
+    write_geojson(cleaned, args.layer, args.out, {"source_polygons": int(source_polygons)})
+    print(f"wrote {args.out}: {source_polygons} polygons -> {cleaned.area / 1e6:.0f} km²")
 
 
-def rasterised_union(geoms, state, cell_m: float):
-    """Union by rasterisation: burn every polygon onto a cell_m grid over the
-    state, mask to the state, polygonise. Memory is the grid, not the input."""
-    import rasterio
-    from rasterio.features import geometry_mask, rasterize, shapes
-    from shapely.geometry import shape
+def polygonise_grid(grid, transform, state):
+    """Mask a burnt grid to the state and polygonise it."""
     import shapely
+    from rasterio.features import geometry_mask, shapes
+    from shapely.geometry import shape
 
     from vector_share import polygonal
 
-    minx, miny, maxx, maxy = state.bounds
-    width = int(np.ceil((maxx - minx) / cell_m))
-    height = int(np.ceil((maxy - miny) / cell_m))
-    transform = rasterio.Affine(cell_m, 0, minx, 0, -cell_m, maxy)
-    grid = rasterize(((g, 1) for g in geoms if not g.is_empty), out_shape=(height, width),
-                     transform=transform, fill=0, dtype="uint8", all_touched=False)
-    inside = ~geometry_mask([state.__geo_interface__], out_shape=(height, width), transform=transform)
+    inside = ~geometry_mask([state.__geo_interface__], out_shape=grid.shape, transform=transform)
     grid &= inside.astype("uint8")
     polys = [shape(g) for g, v in shapes(grid, mask=grid.astype(bool), transform=transform) if v]
     return polygonal(shapely.union_all(polys)) if polys else shapely.geometry.MultiPolygon()
