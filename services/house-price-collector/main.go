@@ -36,7 +36,8 @@ func main() {
 // run executes the selected mode and returns a process exit code: 0 = ok;
 // 1 = official-ingest, VG freshness, materialized-view finalization, or
 // OPERATOR-INGEST failure (census, electorates, banners, amenities, elevation, hazards,
-// lga, connectivity, funding, council-financials, crime — see ingestExit);
+// lga, erp-lga, census-lga, council-regional, building-approvals-lga,
+// wikidata-lga, connectivity, funding, council-financials, crime — see ingestExit);
 // 3 = re-warm the Chrome profile; 4 = Chrome/CDP unusable; 5 = REA session
 // cold; 6 = crawl freshness alarm; 7 = agent infrastructure failed before
 // any jobs completed (also used for enqueue/listings finalization failures);
@@ -47,7 +48,7 @@ func main() {
 // failure (see runDropIndex in drop_index.go).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
+	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
 	flag.Parse()
 
 	// install-driver needs no DB, no Chrome, no timeout plumbing — dispatch it
@@ -75,14 +76,20 @@ func run() int {
 	case "official", "abs", "all":
 		jobs := scheduledOfficialJobs()
 		total, failures := runOfficial(ctx, pool, jobs)
+		// Council (LGA) sources write lga_series, not house_prices, so they run
+		// beside the official jobs rather than through them — but count toward
+		// the same failure budget and alarm through the same freshness check.
+		councilTotal, councilFailures := runScheduledCouncil(ctx, pool, scheduledCouncilJobs())
+		total, failures = total+councilTotal, failures+councilFailures
 		vgFreshnessExitCode := assertOfficialVGFreshness(
 			ctx,
 			pool,
 			freshnessPoliciesForOfficialJobs(jobs, vgFreshnessPolicies),
 		)
+		councilFreshnessExitCode := assertCouncilFreshness(ctx, pool)
 		refreshErr := refresh(ctx, pool)
 		maxFailures := envInt("HOUSING_OFFICIAL_MAX_FAILURES", total-1)
-		if officialLifecycleFatal(total, failures, maxFailures, refreshErr) || vgFreshnessExitCode != 0 {
+		if officialLifecycleFatal(total, failures, maxFailures, refreshErr) || vgFreshnessExitCode != 0 || councilFreshnessExitCode != 0 {
 			if officialRunFatal(total, failures, maxFailures) {
 				log.Printf("official ingest failed policy: %d/%d sources failed (maximum %d)", failures, total, boundedOfficialMaxFailures(total, maxFailures))
 			}
@@ -230,6 +237,22 @@ func run() int {
 		// Council/LGA dimension + suburb→council bridge (ABS mesh-block allocation,
 		// web/scripts/geo/join-lga-mb.py).
 		return ingestExit(runLGA(ctx, pool))
+	case "erp-lga":
+		// ABS ERP by council (+ its components) → lga.population + lga_series.
+		return ingestExit(runERPLGA(ctx, pool))
+	case "census-lga":
+		// ABS Census 2021 council medians, tenure and SEIFA 2021 deciles → lga.
+		return ingestExit(runCensusLGA(ctx, pool))
+	case "council-regional":
+		// ABS Data by Region council-level transfer medians/counts → lga_series.
+		return ingestExit(runCouncilRegional(ctx, pool))
+	case "building-approvals-lga":
+		// ABS monthly dwelling approvals by council → lga_series.
+		return ingestExit(runBuildingApprovalsLGA(ctx, pool))
+	case "wikidata-lga":
+		// Council QID + official website from the committed Wikidata (CC0)
+		// snapshot; WIKIDATA_REFRESH=true re-queries and rewrites it first.
+		return ingestExit(runWikidataLGA(ctx, pool))
 	case "connectivity":
 		// Dominant NBN access technology per suburb (centroid→footprint join).
 		return ingestExit(runConnectivity(ctx, pool))
@@ -260,7 +283,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|elevation|hazards|lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|elevation|hazards|lga|erp-lga|census-lga|council-regional|building-approvals-lga|wikidata-lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
 	}
 	return 0
 }

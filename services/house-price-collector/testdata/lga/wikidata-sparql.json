@@ -1,0 +1,11 @@
+{"head":{"vars":["item","code","website"]},"results":{"bindings":[
+{"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q1719401"},"code":{"type":"literal","value":"LGA10050"},"website":{"type":"uri","value":"https://www.alburycity.nsw.gov.au"}},
+{"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q1947531"},"code":{"type":"literal","value":"LGA25250"},"website":{"type":"uri","value":"https://www.merri-bek.vic.gov.au"}},
+{"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q3688163"},"code":{"type":"literal","value":"LGA71300"},"website":{"type":"uri","value":"http://www.eastarnhem.nt.gov.au/about/"}},
+{"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q3688163"},"code":{"type":"literal","value":"LGA71300"},"website":{"type":"uri","value":"https://eastarnhem.nt.gov.au"}},
+{"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q815555"},"code":{"type":"literal","value":"LGA20910"}},
+{"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q99999999"},"code":{"type":"literal","value":"LGA20910"},"website":{"type":"uri","value":"https://example.org"}},
+{"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q5"},"code":{"type":"literal","value":"LGA10130"},"website":{"type":"literal","value":"armidale.nsw.gov.au"}},
+{"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q6"},"code":{"type":"literal","value":"SAL10001"}},
+{"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q7"},"code":{"type":"literal","value":"LGA99999"}}
+]}}

@@ -1,0 +1,16 @@
+DATAFLOW,MEASURE: Measure,REGION_TYPE: Region Type,REGION: Region,FREQ: Frequency,TIME_PERIOD: Time Period,OBS_VALUE,UNIT_MEASURE: Unit of Measure,OBS_STATUS: Observation Status,OBS_COMMENT: Observation Comment,REPYEAREND: Reporting Year End Day
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),71500: East Arnhem,A: Annual,2023,8100,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),71500: East Arnhem,A: Annual,2024,8108,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),71500: East Arnhem,A: Annual,2025,8130,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),20910: Bayside (Vic.),A: Annual,2023,104134,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),20910: Bayside (Vic.),A: Annual,2024,105833,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),20910: Bayside (Vic.),A: Annual,2025,107164,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),24700: Merri-bek,A: Annual,2023,180477,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),24700: Merri-bek,A: Annual,2024,185486,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),24700: Merri-bek,A: Annual,2025,189108,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),71700: Groote Archipelago,A: Annual,2023,2011,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),71700: Groote Archipelago,A: Annual,2024,2050,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),71700: Groote Archipelago,A: Annual,2025,2095,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),10050: Albury,A: Annual,2023,57880,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),10050: Albury,A: Annual,2024,58768,PSNS: Persons,,,30-6: Year Ending 30 June
+ABS:ERP_LGA2025(1.0.0),ERP: Estimated Resident Population,LGA2025: Local Government Areas (2025),10050: Albury,A: Annual,2025,59538,PSNS: Persons,,,30-6: Year Ending 30 June

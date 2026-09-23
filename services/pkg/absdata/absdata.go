@@ -42,6 +42,14 @@ func NewClient() *Client {
 	}
 }
 
+// WithBaseURL returns a copy of c that fetches SDMX data from base instead of
+// the live ABS API — for tests that serve captured fixtures.
+func (c *Client) WithBaseURL(base string) *Client {
+	cp := *c
+	cp.base = strings.TrimRight(base, "/")
+	return &cp
+}
+
 // get issues a retrying GET with the caller's headers. It returns the last
 // response even on failure so callers keep their own error wording.
 func (c *Client) get(ctx context.Context, url string, header http.Header) (*http.Response, error) {

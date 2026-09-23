@@ -99,7 +99,7 @@ func TestFetchSDMXCSVStatusError(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer srv.Close()
-	c := &Client{http: srv.Client(), attempts: 1, backoff: time.Millisecond, base: srv.URL}
+	c := (&Client{http: srv.Client(), attempts: 1, backoff: time.Millisecond}).WithBaseURL(srv.URL + "/")
 
 	_, err := c.FetchSDMXCSV(context.Background(), "MISSING_FLOW", "all", "2025")
 	if !IsNotFound(err) {
