@@ -26,9 +26,11 @@ here: `000086`, `000090`, `000092`, `000054` and others drop and recreate
 materialized views, which would rebuild them on every deploy; `000105` inserts
 without `ON CONFLICT` and would duplicate rows.
 
-**Hand-applied** — run by an operator against the session pooler (5432) with
-`PGOPTIONS="-c statement_timeout=0"`, then recorded below. `task db:prod:apply
-FILE=… CONFIRM=prod` is the supported path.
+**Hand-applied** — run by an operator with `task db:prod:apply FILE=…
+CONFIRM=prod` (session pooler 5432, one transaction, `SET LOCAL
+statement_timeout = 0`), then recorded below. Entries before 2026-09-24 were
+applied with `PGOPTIONS="-c statement_timeout=0"`, which Supavisor drops: they
+ran under the role's 2-minute default and happened to fit.
 
 ## Baseline
 

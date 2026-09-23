@@ -115,9 +115,14 @@ when the layer is toggled on.
 
 ```bash
 cd services/house-price-collector
-DATABASE_URL="${PROD/:6543/:5432}" PGOPTIONS="-c statement_timeout=0" \
+DATABASE_URL="${PROD/:6543/:5432}" \
 CENSUS_GEO_DIR="$PWD/../../web/public/geo/suburbs" GOWORK=off go run . -mode hazards
 ```
+
+(No `PGOPTIONS`: this used to pass `-c statement_timeout=0`, which never took
+effect, because Supavisor drops startup options. The load ran under the role's
+2-minute default and fit; the MV refresh at the end sets its own
+`SET LOCAL statement_timeout = 0`.)
 
 Then verify through the RPC, not the table:
 

@@ -26,8 +26,9 @@ Operating manual for the ~15,345 SAL suburb rows behind `/housing/[state]` and
    (`Tot_Tot`, `Total`) as unsafe to resolve across tables.
 3. **Prod does not run `migrate up`.** The deploy applies a hardcoded allowlist
    and force-writes `schema_migrations` to 75, so the DB cannot tell you what it
-   has. Hand-apply on the **session pooler (5432)** with
-   `PGOPTIONS="-c statement_timeout=0"`, then record it in
+   has. Hand-apply with `task db:prod:apply FILE=… CONFIRM=prod` (session pooler
+   5432, one transaction, `SET LOCAL statement_timeout = 0`; `PGOPTIONS` does
+   nothing, Supavisor drops it), then record it in
    `services/migrations/PROD_APPLIED.md`. `scripts/tests/migration-drift.test.mjs`
    fails the build if you forget.
 4. **Anything added to the deploy allowlist RE-RUNS ON EVERY DEPLOY.** It must be
@@ -98,7 +99,7 @@ Run it:
 
 ```bash
 cd services/house-price-collector
-DATABASE_URL="${PROD/:6543/:5432}" PGOPTIONS="-c statement_timeout=0" \
+DATABASE_URL="${PROD/:6543/:5432}" \
 CENSUS_GEO_DIR="$PWD/../../web/public/geo/suburbs" \
 CENSUS_DATAPACK_PATH=/path/to/gcp_sal.zip \
 GOWORK=off go run . -mode census

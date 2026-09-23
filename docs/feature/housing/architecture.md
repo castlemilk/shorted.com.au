@@ -437,7 +437,7 @@ Keyed by `sal_code` (ABS SAL_CODE21, PK). Indexed on `(state_code)` and `(sal_na
 
 ### Prod DDL procedure
 
-Housing migrations are applied **manually** against prod Supabase via the **session pooler port 5432** (not txn pooler 6543) with `PGOPTIONS="-c statement_timeout=0"` (needed for `REFRESH … CONCURRENTLY`). The full housing migration set:
+Housing migrations are applied **manually** against prod Supabase via the **session pooler port 5432** (not txn pooler 6543), in one transaction with `SET LOCAL statement_timeout = 0` (needed for `REFRESH … CONCURRENTLY`), through `task db:prod:apply`. `PGOPTIONS="-c statement_timeout=0"`, the old recipe, does nothing: Supavisor drops startup options, so it left the 2-minute role default in place (measured 2026-09-23). The full housing migration set:
 
 | Migration | Adds |
 |-----------|------|
@@ -451,8 +451,7 @@ Housing migrations are applied **manually** against prod Supabase via the **sess
 | `000092` | deterministic gated `mv_suburb_crime_latest` rebuild + guarded refresh wiring |
 
 ```bash
-PGOPTIONS="-c statement_timeout=0" psql "postgresql://…@…:5432/postgres" \
-  -f services/migrations/000057_add_suburb_culture_demographics.up.sql
+task db:prod:apply FILE=services/migrations/000057_add_suburb_culture_demographics.up.sql CONFIRM=prod
 ```
 
 ### Manual ingest runs

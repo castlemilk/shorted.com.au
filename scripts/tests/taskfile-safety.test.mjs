@@ -217,3 +217,24 @@ test("tasks whose misuse is silent carry long help", () => {
     assert.match(taskBody(name), /\n\s+summary:\s*\|/, `${name} needs a summary explaining its landmine`);
   }
 });
+
+test("live runbooks do not prescribe a PGOPTIONS guard", () => {
+  // The docs are where the PGOPTIONS recipe was copied from, so fixing the
+  // tasks alone would leave the next operator to paste it back. A runbook may
+  // explain why PGOPTIONS does nothing; it may not put it in a command.
+  const runbooks = [
+    "CLAUDE.md",
+    "docs/feature/housing/operations.md",
+    "docs/feature/housing/architecture.md",
+    "docs/feature/politicians/operations.md",
+    "docs/economy-architecture.md",
+    ".claude/skills/housing-suburb-data/SKILL.md",
+    "services/migrations/PROD_APPLIED.md",
+    "web/scripts/geo/hazards/README.md",
+  ];
+  for (const path of runbooks) {
+    const text = readFileSync(join(repoRoot, path), "utf8");
+    const fenced = [...text.matchAll(/```[^\n]*\n([\s\S]*?)```/g)].map((m) => m[1]).join("\n");
+    assert.doesNotMatch(fenced, /PGOPTIONS=/, `${path} has a PGOPTIONS command; use task db:prod:apply / db:prod:refresh`);
+  }
+});
