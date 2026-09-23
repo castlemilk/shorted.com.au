@@ -348,5 +348,47 @@ class ControlValues(unittest.TestCase):
         self.assertEqual(ps.governing_tas_lps({"Kingborough Interim Planning Scheme 2015": 1.0}), "")
 
 
+try:
+    import rasterio  # noqa: F401
+    import planning_overlays as po
+except ImportError:  # pragma: no cover
+    po = None
+
+
+@unittest.skipIf(po is None or ps is None, "needs rasterio/shapely (use the DEM venv)")
+class OverlayRasterDissolve(unittest.TestCase):
+    """The drawable zoning layer: burnt in precedence order, one feature per family."""
+
+    def test_sepp_wins_the_overlap_and_each_family_is_one_feature(self):
+        import tempfile
+
+        from shapely.geometry import shape
+
+        def feature(props, x0, y0, x1, y1):
+            ring = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]
+            return {"type": "Feature", "properties": props, "geometry": {"type": "Polygon", "coordinates": [ring]}}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            layer = Path(tmp) / "vector" / "nsw-zoning"
+            layer.mkdir(parents=True)
+            lep = {"SYM_CODE": "R2", "LAY_CLASS": "Low Density Residential", "EPI_TYPE": "LEP"}
+            sepp = {"SYM_CODE": "R4", "LAY_CLASS": "High Density Residential", "EPI_TYPE": "SEPP"}
+            park = {"SYM_CODE": "RE1", "LAY_CLASS": "Public Recreation", "EPI_TYPE": "LEP"}
+            rows = [
+                feature(lep, 151.00, -33.90, 151.02, -33.88),   # ~1.85 km x 2.2 km
+                feature(sepp, 151.01, -33.90, 151.02, -33.89),  # its south-east quarter
+                feature(park, 151.03, -33.90, 151.04, -33.89),
+            ]
+            (layer / "page-00000.geojsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+            (layer / ".done").write_text("{}")
+            feats = po.zoning("NSW", Path(tmp), cell_m=20.0)
+
+        families = [f["properties"]["family"] for f in feats]
+        self.assertEqual(families, ["res_low", "res_medium_high", "open_space"])  # FAMILIES order, one each
+        area = {f["properties"]["family"]: shape(f["geometry"]).area for f in feats}
+        # The SEPP R4 quarter is carved OUT of the LEP R2 block: R2 keeps ~3/4.
+        self.assertAlmostEqual(area["res_medium_high"] / (area["res_low"] + area["res_medium_high"]), 0.25, delta=0.03)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,7 @@
-import { scaleSequential, scaleSequentialSqrt, scaleDiverging, scaleSqrt } from "d3-scale";
+import { scaleLinear, scaleSequential, scaleSequentialSqrt, scaleDiverging, scaleSqrt } from "d3-scale";
 import { interpolateBlues, interpolateOranges, interpolateRdBu, interpolateYlOrRd } from "d3-scale-chromatic";
 import { fmtPriceShort } from "./price-scale";
+import { ZONE_FAMILY_COLORS, ZONE_FAMILY_SHORT, zoneFamilyColorForLabel, type ZoneFamily } from "./zone-families";
 import type { HousingIconName } from "@/components/housing/housing-icons.generated";
 
 /**
@@ -52,7 +53,11 @@ export type MetricKey =
   // Column-sourced metrics are named EXACTLY as the server registry keys
   // (postgres_suburb_columns.go) — the Go test pins the two vocabularies together.
   | "elevation_median_m" | "land_share_below_5m"
-  | "water_observed_share_pct" | "flood_planning_share_pct" | "bushfire_prone_share_pct";
+  | "water_observed_share_pct" | "flood_planning_share_pct" | "bushfire_prone_share_pct"
+  // Planning layer (suburb_planning, 000125)
+  | "zone_res_low_share_pct" | "zone_res_medium_high_share_pct" | "zone_centre_mixed_share_pct"
+  | "zone_industrial_share_pct" | "zone_rural_share_pct" | "zone_conservation_share_pct"
+  | "zone_open_space_share_pct" | "dominant_zone_family" | "heritage_share_pct" | "nsw_height_median_m";
 
 type Base = { key: MetricKey; label: string; legendLabel: string };
 
@@ -90,10 +95,28 @@ export type ColumnMetric = Base & {
   /** Legend "no data" wording — column metrics have per-state coverage. */
   noDataLabel?: string;
   /** Section label in the picker. */
-  group: "terrain" | "hazard";
+  group: "terrain" | "hazard" | "planning";
 };
 
-export type HighlightMetric = ContinuousMetric | CategoricalMetric | ColumnMetric;
+/**
+ * A CATEGORICAL metric fetched as a packed column: each present value is an
+ * index into the column's server-sent `categoryLabels` dictionary (the label
+ * set is the server's, so a new category never needs a web deploy to name
+ * it). Colours are looked up by label from a serializable palette.
+ */
+export type ColumnCategoricalMetric = Base & {
+  kind: "column-categorical";
+  colorForLabel: (label: string) => string;
+  noDataLabel?: string;
+  group: "planning";
+};
+
+export type HighlightMetric = ContinuousMetric | CategoricalMetric | ColumnMetric | ColumnCategoricalMetric;
+
+/** Column-sourced (packed column fetch) rather than read from the suburb row. */
+export function isColumnSourced(m: HighlightMetric): m is ColumnMetric | ColumnCategoricalMetric {
+  return m.kind === "column" || m.kind === "column-categorical";
+}
 
 const fmtCompact = (v: number) =>
   v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${Math.round(v / 1000)}k` : `${Math.round(v)}`;
@@ -425,7 +448,50 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     format: fmtPct, domain: [0, 100], makeScale: () => fireScale(0, 100),
     noDataLabel: "No statutory layer",
   },
+  // --- planning (statutory zoning grouped into harmonised families) ---
+  {
+    kind: "column-categorical", key: "dominant_zone_family", label: "Main zoning",
+    legendLabel: "Largest zoning family", group: "planning",
+    colorForLabel: zoneFamilyColorForLabel, noDataLabel: "No open zoning source",
+  },
+  zoneShareMetric("zone_res_low_share_pct", "res_low", "Low-density residential zoning"),
+  zoneShareMetric("zone_res_medium_high_share_pct", "res_medium_high", "Medium/high-density residential zoning"),
+  zoneShareMetric("zone_centre_mixed_share_pct", "centre_mixed", "Centres & mixed-use zoning"),
+  zoneShareMetric("zone_industrial_share_pct", "industrial", "Industrial zoning"),
+  zoneShareMetric("zone_rural_share_pct", "rural", "Rural zoning"),
+  zoneShareMetric("zone_conservation_share_pct", "conservation", "Conservation zoning"),
+  zoneShareMetric("zone_open_space_share_pct", "open_space", "Open space zoning"),
+  {
+    kind: "column", key: "heritage_share_pct", label: "Heritage areas",
+    legendLabel: "Land in a heritage area", group: "planning",
+    format: fmtPct, domain: [0, 100], makeScale: () => familyScale("#8c5a3c", 0, 100),
+    noDataLabel: "No open heritage layer",
+  },
+  {
+    kind: "column", key: "nsw_height_median_m", label: "Permitted height (NSW)",
+    legendLabel: "Typical max building height on residential land (m)", group: "planning",
+    format: (v) => `${v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)} m`, sqrt: true,
+    noDataLabel: "NSW only",
+  },
 ];
+
+function zoneShareMetric(key: MetricKey, family: ZoneFamily, label: string): ColumnMetric {
+  // label: the picker row; legendLabel: the legend heading.
+  return {
+    kind: "column", key, label, legendLabel: `Share of suburb zoned ${ZONE_FAMILY_SHORT[family].toLowerCase()}`,
+    group: "planning", format: fmtPct, domain: [0, 100],
+    makeScale: () => familyScale(ZONE_FAMILY_COLORS[family], 0, 100),
+    noDataLabel: "No open zoning source",
+  };
+}
+
+/** Near-white → the family's own map colour, so a share map and the zoning
+ * overlay speak the same colour language. */
+export function familyScale(color: string, min: number, max: number): (v: number) => string {
+  // d3-scale interpolates colour strings itself (as terrainScale relies on).
+  const scale = scaleLinear<string>().domain([min, Math.max(min + 1, max)]).range(["#f7f5f0", color]).clamp(true);
+  return (v: number) => scale(v);
+}
 
 export const METRIC_BY_KEY: Record<MetricKey, HighlightMetric> =
   Object.fromEntries(HIGHLIGHT_METRICS.map((m) => [m.key, m])) as Record<MetricKey, HighlightMetric>;
@@ -444,6 +510,11 @@ export const METRIC_ICON: Record<MetricKey, HousingIconName> = {
   elevation_median_m: "hills-ranges", land_share_below_5m: "coastal-beach",
   water_observed_share_pct: "river-valley", flood_planning_share_pct: "harbour",
   bushfire_prone_share_pct: "bushland",
+  dominant_zone_family: "council", zone_res_low_share_pct: "leafy-suburban",
+  zone_res_medium_high_share_pct: "dwellings", zone_centre_mixed_share_pct: "city",
+  zone_industrial_share_pct: "urban-skyline", zone_rural_share_pct: "farmland",
+  zone_conservation_share_pct: "bushland", zone_open_space_share_pct: "parkland",
+  heritage_share_pct: "inner-terraces", nsw_height_median_m: "urban-skyline",
 };
 
 /** Amber sequential ramp over [min,max] for a continuous metric. */
