@@ -289,5 +289,6 @@ class PolygoniseGridTest(unittest.TestCase):
         self.assertEqual(len(result.geoms), 2)
         self.assertEqual(result.area, 800.0)
 
+
 if __name__ == "__main__":
     unittest.main()

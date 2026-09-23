@@ -45,7 +45,11 @@ export const LAYER_META = {
   },
 };
 
-const RETENTION = ["100%", "50%", "25%", "12%", "6%", "3%", "1.5%"];
+// The last rungs are for polygonised rasters (QLD, WA bushfire): their input is
+// stair-stepped 60–120 m cell edges, so a percentage of it keeps far more
+// vertices than the same percentage of a vector layer. Measured 2026-09-24:
+// both fit at 1% (522 KB, 524 KB) and not at 1.5% (703 KB, 719 KB).
+const RETENTION = ["100%", "50%", "25%", "12%", "6%", "3%", "1.5%", "1%", "0.75%"];
 
 function build(file) {
   const [state, layerWithExt] = basename(file).split("-");

@@ -168,8 +168,9 @@ $PY overlay_geometry.py vector --layer-dir $H/vector/nsw-flood --layer flood_pla
 # … likewise for every <st>-flood / <st>-bushfire layer above (VIC bushfire from vic-bpa);
 # the raster path for the parcel-scale or statewide ones:
 $PY overlay_geometry.py vector --layer-dir $H/vector/nsw-bushfire --layer bushfire_prone --suburbs $SUB/NSW.topojson --out $H/overlays/NSW-bushfire_prone.geojson --raster-m 60
-$PY overlay_geometry.py vector --layer-dir $H/vector/qld-bushfire --layer bushfire_prone --suburbs $SUB/QLD.topojson --out $H/overlays/QLD-bushfire_prone.geojson --raster-m 60
 $PY overlay_geometry.py vector --layer-dir $H/vector/wa-bushfire  --layer bushfire_prone --suburbs $SUB/WA.topojson  --out $H/overlays/WA-bushfire_prone.geojson  --raster-m 60
+# QLD's designation is too fragmented for 60 m / 2 ha to fit 600 KB (1.45 MB at 1.5%):
+$PY overlay_geometry.py vector --layer-dir $H/vector/qld-bushfire --layer bushfire_prone --suburbs $SUB/QLD.topojson --out $H/overlays/QLD-bushfire_prone.geojson --raster-m 120 --min-part-ha 25
 # SA flood: 150,000 parcel polygons; the GEOS union ran 15+ min without finishing, 30 m raster takes 88 s
 $PY overlay_geometry.py vector --layer-dir $H/vector/sa-flood     --layer flood_planning --suburbs $SUB/SA.topojson --out $H/overlays/SA-flood_planning.geojson --raster-m 30
 for st in ACT NT TAS SA WA VIC QLD NSW; do
@@ -187,8 +188,12 @@ committed files disagree with it in either direction.
 `overlay_geometry.py vector --raster-m 60` is the path for NSW bushfire prone
 land, QLD's bushfire prone area and WA's OBRM-026: a GEOS union of 235,000
 parcel polygons (or 2.56 million fragments, or 24 million vertices) exhausts
-memory, so the pages are burnt one at a time onto a 60 m grid over the state and
-polygonised instead. The satellite
+memory, so the pages are burnt in batches onto a 60 m grid over the state and
+polygonised instead. The polygonised cells go to mapshaper unsimplified: GEOS
+simplification of a statewide raster's components (tens of thousands of holes
+each) did not finish in 10 minutes, and mapshaper simplifies the stair-steps
+itself, which is why `RETENTION` reaches down to 0.75%. The drawing is a
+generalisation; every share is computed at full resolution by `vector_share.py`. The satellite
 overlays get `WATER_MAX_BYTES` (1.2 MB) rather than the 600 KB statutory budget
 because a polygonised raster is speckle by nature and the file is fetched only
 when the layer is toggled on.

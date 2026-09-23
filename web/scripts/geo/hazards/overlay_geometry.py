@@ -98,13 +98,18 @@ def vector(args) -> None:
         # extent instead, and at 1–48× map zoom a 60 m cell is below what the
         # reader can see anyway.
         grid, transform, source_polygons = burn_layer(args.layer_dir, state.bounds, args.raster_m)
-        dissolved = polygonise_grid(grid, transform, state)
+        # Speckle and pinholes out, then straight to mapshaper, which
+        # simplifies the stair-stepped cell edges itself. GEOS simplification
+        # of a polygonised statewide raster does not finish: its largest
+        # components carry tens of thousands of holes, and both simplifiers
+        # validate hole-in-shell per ring (10+ minutes per state, measured on
+        # WA and QLD, with and without topology preservation).
+        cleaned = drop_small_parts(polygonise_grid(grid, transform, state), args.min_part_ha * 10_000)
     else:
         layer = load_layer(args.layer_dir)
         source_polygons = len(layer)
         dissolved = polygonal(shapely.union_all(layer.values, grid_size=0.01).intersection(state, grid_size=0.01))
-    simplified = dissolved.simplify(SIMPLIFY_M, preserve_topology=True)
-    cleaned = drop_small_parts(simplified, MIN_PART_M2)
+        cleaned = drop_small_parts(dissolved.simplify(SIMPLIFY_M, preserve_topology=True), args.min_part_ha * 10_000)
     write_geojson(cleaned, args.layer, args.out, {"source_polygons": int(source_polygons)})
     print(f"wrote {args.out}: {source_polygons} polygons -> {cleaned.area / 1e6:.0f} km²")
 
@@ -193,6 +198,8 @@ def main() -> None:
     v.add_argument("--suburbs", type=Path, required=True)
     v.add_argument("--out", type=Path, required=True)
     v.add_argument("--raster-m", type=float, default=0, help="rasterise-then-polygonise at this cell size instead of a GEOS union")
+    v.add_argument("--min-part-ha", type=float, default=MIN_PART_M2 / 10_000,
+                   help="drop parts and holes smaller than this (QLD's fragmented designation needs more than 2 ha to fit the budget)")
     w = sub.add_parser("wofs")
     w.add_argument("--vrt", type=Path, required=True)
     w.add_argument("--suburbs", type=Path, required=True)
