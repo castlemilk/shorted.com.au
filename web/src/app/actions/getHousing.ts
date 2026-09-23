@@ -1,7 +1,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { create, fromJson, toJson, type JsonValue } from "@bufbuild/protobuf";
-import { GetDropIndexSeriesResponseSchema, GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse, type GetDropIndexSeriesResponse } from "~/gen/shorts/v1alpha1/housing_pb";
+import { GetCouncilProfileResponseSchema, ListCouncilsResponseSchema, type GetCouncilProfileResponse, type ListCouncilsResponse, GetDropIndexSeriesResponseSchema, GetHousingOverviewResponseSchema, GetPriceDropsOverviewResponseSchema, ListSuburbPriceDropsResponseSchema, type GetHousingOverviewResponse, type GetHousePriceSeriesResponse, type ListStateSuburbsResponse, type GetSuburbProfileResponse, type ListSuburbPriceDropsResponse, type ListSuburbDropListingsResponse, type GetPriceDropsOverviewResponse, type ListAgencyPriceStatsResponse, type ListAddressPriceDropsResponse, type GetDropIndexSeriesResponse } from "~/gen/shorts/v1alpha1/housing_pb";
 import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { cache } from "react";
 import {

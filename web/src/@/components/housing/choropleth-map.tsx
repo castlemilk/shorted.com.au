@@ -50,6 +50,23 @@ export interface OverlayLayer {
 
 const DEFAULT_OVERLAY_OPACITY = 0.38;
 
+/**
+ * A line layer drawn above the fills and overlays: council borders, a council
+ * outline, neighbouring councils. Pre-projected GeoJSON (built from the same
+ * topology, so it shares its arcs); pinned to screen pixels with
+ * non-scaling-stroke and never takes pointer events.
+ */
+export interface LineLayer {
+  key: string;
+  geometry: Geometry;
+  /** CSS colour; defaults to the foreground token. */
+  color?: string;
+  /** Screen px. */
+  width?: number;
+  dash?: string;
+  opacity?: number;
+}
+
 export interface ChoroplethMapProps {
   topology: Topology;
   objectName: string;
@@ -89,6 +106,13 @@ export interface ChoroplethMapProps {
   legend?: ReactNode;
   /** Hazard/context layers drawn above the choropleth (see OverlayLayer). */
   overlays?: OverlayLayer[];
+  /** Boundary lines drawn above fills and overlays (see LineLayer). */
+  lines?: LineLayer[];
+  /**
+   * Hatch features with no value (default). Off where "no value" means "not
+   * the subject" (the council page's map), not "no data".
+   */
+  hatchNoData?: boolean;
 }
 
 export function ChoroplethMap(props: ChoroplethMapProps) {
@@ -108,7 +132,7 @@ function ChoroplethInner({
   topology, objectName, valueById, categoryById, categoryColor, nameById, colorScale,
   fitValueById, selectedId, hoveredId: hoveredIdProp, focusId,
   onFeatureClick, onFeatureHover, width, height, ariaLabel,
-  fitToData, fitToId, interactive = true, legend, overlays,
+  fitToData, fitToId, interactive = true, legend, overlays, lines, hatchNoData = true,
 }: ChoroplethMapProps & { width: number; height: number }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
@@ -292,7 +316,10 @@ function ChoroplethInner({
     const v = valueById.get(id);
     return v == null ? { fill: NO_DATA_FILL, hasData: false } : { fill: colorScale(v), hasData: true };
   };
+  const linePaths = useMemo(() => (lines ?? []).map((l) => ({ ...l, d: pathForGeo(l.geometry) })).filter((l) => l.d),
+    [lines, pathForGeo]);
   const noDataClip = useMemo(() => {
+    if (!hatchNoData) return "";
     const parts: string[] = [];
     for (const f of features) {
       const id = String(f.id);
@@ -300,7 +327,7 @@ function ChoroplethInner({
     }
     return parts.join(" ");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fillFor is derived from these
-  }, [features, pathById, valueById, categoryById, categoryColor]);
+  }, [features, pathById, valueById, categoryById, categoryColor, hatchNoData]);
 
   // overlay the emphasized features on top so their thicker stroke isn't clipped.
   // dedupe: hoveredId often === selectedId, which would emit duplicate React keys
@@ -350,6 +377,14 @@ function ChoroplethInner({
           ) : null}
           {overlayPaths.map((layer) => (
             <OverlayLayerPaths key={`overlay-${layer.key}`} layerKey={layer.key} color={layer.color} opacity={layer.opacity} d={layer.d} />
+          ))}
+          {linePaths.map((l) => (
+            <path
+              key={`line-${l.key}`} data-line={l.key} d={l.d} fill="none"
+              strokeWidth={l.width ?? 1} strokeDasharray={l.dash} strokeOpacity={l.opacity ?? 0.85}
+              strokeLinejoin="round"
+              style={{ stroke: l.color ?? "hsl(var(--foreground))", vectorEffect: "non-scaling-stroke", pointerEvents: "none" }}
+            />
           ))}
           {emphasizedIds
             .filter((id) => byId.has(id))
