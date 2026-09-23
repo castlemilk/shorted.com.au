@@ -121,8 +121,40 @@ done
   `erpCheckedVintage`.
 - Profile read: `suburbCouncilQuery` / `suburbCouncilOverlapsQuery` in
   `postgres_house_prices.go` (tolerated, like hazards) → `LgaInfo` tags 13–32 +
-  `council_overlaps` → `suburb-council-card.tsx`. Council-page links wait on
-  `COUNCIL_PAGES_ENABLED` in `web/src/@/lib/housing/council.ts`.
+  `council_overlaps` → `suburb-council-card.tsx`, which links the council page
+  (`COUNCIL_PAGES_ENABLED` in `web/src/@/lib/housing/council.ts` is the one
+  switch that unlinks every surface).
+
+### Council pages (the hub)
+
+`/housing/[state]/council` (state index) and `/housing/[state]/council/[slug]`
+(the hub), plus the map's council level. Decision record: `architecture.md` §11.
+
+- **Reads:** `ListCouncils` / `GetCouncilProfile` (`councils.go` handler →
+  `store/shorts/postgres_councils.go`). Only the identity query fails a request;
+  hazards, crime, drops, neighbours are tolerated blocks (`log.Warnf`). Cache keys
+  `GetCouncilsKey` / `GetCouncilProfileKey` (state upper-cased, slug lower-cased).
+- **A council is empty on the page?** Check, in order: `lga.slug` + `kind IN
+  ('council','unincorporated')` (no page otherwise); `suburb_lga` rows for it
+  (member table, map, rollups all come from the bridge); `lga_series` for the
+  charts; `suburb_hazard_exposure` coverage for the hazard block (NULL = no
+  covered member, by design).
+- **Membership/weights:** dominant suburbs + straddlers ≥ 5%; rollups weight by
+  population × share. Price drops use dominant members only, floored at 3
+  council-wide; suburbs are named only at ≥ 3 of their own.
+- **Neighbours:** `lga_adjacency.json` (go:embed) from
+  `node web/scripts/geo/build-lga-adjacency.mjs` — rerun after ANY change to
+  `web/public/geo/suburbs/*.topojson` or `suburb-lga.json`, then
+  `node --test web/scripts/geo/lga-adjacency.test.mjs` (fails on drift).
+- **Map council level:** the `lga_code` suburb column (registry key, joins
+  `suburb_lga` only when requested) + `council-geometry.ts` (mergeArcs / merge /
+  mesh). New council metric = a `CouncilSummary` field (store + proto + handler
+  rounding) and a row in `web/src/@/lib/housing/council-metrics.ts`; the server
+  only ever passes the key.
+- **Verify** through the RPC: `curl -s -XPOST -H 'content-type: application/json'
+  $API/shorts.v1alpha1.HousingService/GetCouncilProfile -d '{"stateCode":"NSW","slug":"canterbury-bankstown"}'`.
+- **Revalidate after a council data load:** `?flush=housing` (keys live under
+  `cache:housing:council*`) and the paths `/housing/<st>/council`.
 
 ## 2. Census expanded — the verified table mapping
 

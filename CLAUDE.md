@@ -521,7 +521,7 @@ terrain / hazard shares, plus toggleable flood-planning, observed-water and
 bushfire **overlays** synced to `?metric=`/`?overlays=`), the
 **residential listings crawl** (REA/Domain via warm host-Chrome CDP on residential
 Macs, plus a property.com.au AVM tier), and the **price-drops board**
-(`/price-drops`). **All LIVE on prod** — as at 2026-08-09: 88,689 crawl listings
+(`/price-drops`), plus the **council hub** — `/housing/[state]/council` + `/housing/[state]/council/[slug]` (`ListCouncils`/`GetCouncilProfile`, map council level + borders; `architecture.md` §11; built 2026-09-24, awaiting its 000126 prod DDL + deploy). **The five products are LIVE on prod** — as at 2026-08-09: 88,689 crawl listings
 across 500 suburbs, a **500-suburb** crawl catalog, **22** collector modes, 16
 official-ingest jobs, 27 housing migrations (000053–000092). The
 `house-price-collector` Cloud Run job **is** wired into CI + both TF environments
