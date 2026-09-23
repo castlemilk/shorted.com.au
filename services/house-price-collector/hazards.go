@@ -188,3 +188,32 @@ func (row HazardRow) validate() error {
 }
 
 func ingestHazards() ([]HazardRow, error) { return loadHazards(hazardsPath()) }
+
+// hazardCoverageSummary is "NSW 4542 709/4542, VIC …": rows, then how many
+// carry a flood and a bushfire share, per state in ABS digit order.
+func hazardCoverageSummary(rows []HazardRow) string {
+	type counts struct{ rows, flood, fire int }
+	byState := map[string]*counts{}
+	for _, row := range rows {
+		c := byState[stateDigit(row.SALCode)]
+		if c == nil {
+			c = &counts{}
+			byState[stateDigit(row.SALCode)] = c
+		}
+		c.rows++
+		if row.FloodPlanningSharePct != nil {
+			c.flood++
+		}
+		if row.BushfireProneSharePct != nil {
+			c.fire++
+		}
+	}
+	names := []string{"", "NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT", "OT"}
+	parts := make([]string, 0, len(byState))
+	for digit := 1; digit < len(names); digit++ {
+		if c := byState[fmt.Sprint(digit)]; c != nil {
+			parts = append(parts, fmt.Sprintf("%s %d %d/%d", names[digit], c.rows, c.flood, c.fire))
+		}
+	}
+	return strings.Join(parts, ", ")
+}

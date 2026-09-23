@@ -131,3 +131,15 @@ func TestLoadHazardsRejectsOutOfRangeAndUnsourcedRows(t *testing.T) {
 		})
 	}
 }
+
+func TestHazardCoverageSummaryCountsNonNullSharesPerState(t *testing.T) {
+	share := func(v float64) *float64 { return &v }
+	rows := []HazardRow{
+		{SALCode: "10001", FloodPlanningSharePct: share(0), BushfireProneSharePct: share(5)},
+		{SALCode: "10002", BushfireProneSharePct: share(0)},
+		{SALCode: "70001"},
+	}
+	if got, want := hazardCoverageSummary(rows), "NSW 2 1/2, NT 1 0/0"; got != want {
+		t.Fatalf("summary = %q, want %q", got, want)
+	}
+}
