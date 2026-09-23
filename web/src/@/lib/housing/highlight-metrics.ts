@@ -154,6 +154,13 @@ const LANGUAGE_ORDER = [
 // language pockets stand out.
 const LANGUAGE_MIN_PCT = 5;
 
+// The collector withholds the whole Census culture block (labels and shares)
+// below this population (censusDerivedRateMinPopulation in
+// services/house-price-collector/census_expanded.go): at a few dozen perturbed
+// residents a plurality is noise. Such a suburb has no language, so it must be
+// no data here rather than fall through to the "English" base.
+const CENSUS_CULTURE_MIN_POPULATION = 100;
+
 export function religionColor(cat: string): string {
   return RELIGION_COLORS[cat] ?? C.stone;
 }
@@ -283,7 +290,7 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     kind: "categorical", key: "language", label: "Language",
     legendLabel: "Top language at home",
     category: (s) => {
-      if (s.population <= 0) return null;
+      if (s.population < CENSUS_CULTURE_MIN_POPULATION) return null;
       if (s.topLanguage && s.pctTopLanguage >= LANGUAGE_MIN_PCT) return s.topLanguage;
       return "English";
     },

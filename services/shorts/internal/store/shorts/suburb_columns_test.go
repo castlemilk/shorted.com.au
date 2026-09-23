@@ -242,3 +242,19 @@ func TestNbnImplausibleSatelliteIsNoDataOnEverySurface(t *testing.T) {
 		t.Fatalf("ListStateSuburbs and GetSuburbProfile must both use nbnTechDisplayExpr; got %d uses", got)
 	}
 }
+
+// The collector withholds a sub-100-resident suburb's culture block (label and
+// share alike). The language layer must read that as no data, not fall
+// through to its "English" base category the way a thin top language does.
+func TestLanguageMetricTreatsSubFloorSuburbsAsNoData(t *testing.T) {
+	def, ok := lookupSuburbMetric("language")
+	if !ok {
+		t.Fatal("language metric missing")
+	}
+	floor := "WHEN d.population IS NULL OR d.population < 100 THEN NULL"
+	english := "THEN 13"
+	fi, ei := strings.Index(def.expression, floor), strings.Index(def.expression, english)
+	if fi < 0 || ei < 0 || fi > ei {
+		t.Fatalf("language metric must null sub-floor suburbs before the English fallback:\n%s", def.expression)
+	}
+}

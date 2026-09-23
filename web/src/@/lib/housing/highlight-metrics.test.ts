@@ -86,3 +86,21 @@ describe("NBN technology", () => {
     expect(publishableNbnTech(undefined, 5_000)).toBeNull();
   });
 });
+
+describe("language", () => {
+  const language = HIGHLIGHT_METRICS.find((m) => m.key === "language");
+  const category = (over: Partial<SuburbMetricInput>) =>
+    language?.kind === "categorical" ? language.category({ ...baseSuburb, ...over }) : undefined;
+
+  test("a suburb below the Census culture floor is no data, not 'English'", () => {
+    // The collector withholds label and share under 100 residents.
+    expect(category({ population: 80, topLanguage: "", pctTopLanguage: 0 })).toBeNull();
+    expect(category({ population: 0 })).toBeNull();
+  });
+
+  test("at the floor, a thin or absent top language still reads as the English base", () => {
+    expect(category({ population: 100, topLanguage: "", pctTopLanguage: 0 })).toBe("English");
+    expect(category({ population: 5_000, topLanguage: "Greek", pctTopLanguage: 3 })).toBe("English");
+    expect(category({ population: 5_000, topLanguage: "Greek", pctTopLanguage: 12 })).toBe("Greek");
+  });
+});

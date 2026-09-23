@@ -86,8 +86,11 @@ var suburbMetricRegistry = map[string]suburbMetricDefinition{
 		"No religion", "Catholic", "Anglican", "Other Christian", "Islam",
 		"Hinduism", "Buddhism", "Judaism", "Other",
 	}),
+	// Below the Census derived-rate floor (100 residents, censusDerivedRateMinPopulation
+	// in the collector) the culture block is withheld, label and share alike. A
+	// missing label must read as no data there, not fall through to "English".
 	"language": categoryMetric("language", `CASE
-		WHEN d.population IS NULL OR d.population <= 0 THEN NULL
+		WHEN d.population IS NULL OR d.population < 100 THEN NULL
 		WHEN NULLIF(d.top_language, '') IS NULL OR COALESCE(d.pct_top_language, 0) < 5 THEN 13
 		WHEN d.top_language = 'Mandarin' THEN 0
 		WHEN d.top_language = 'Cantonese' THEN 1

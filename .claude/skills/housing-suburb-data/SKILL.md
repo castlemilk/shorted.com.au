@@ -113,6 +113,15 @@ rates misleading) and 21 more are zero-denominator: the "No usual address
 (State)" pseudo-SALs and Acton ACT have population but no occupied private
 dwellings. A full 15,345 would mean the suppression broke.
 
+Dwelling-, household- and labour-force-denominated shares carry their own
+floors on top (50 in their own denominator), and an overfull group of exclusive
+shares (>101%) is withheld whole, so after 2026-09-24 expect roughly: tenure
+7,538, dwelling structure 7,892, household composition 7,918, unemployment
+8,659, top religion 8,951 (the culture block now shares the population floor).
+Sanity query after a load — all three should be 0 / 0 / ≤4:
+`count(*) FILTER (WHERE pct_owned_outright+pct_owned_mortgage+pct_rented > 101)`,
+`… pct_top_religion > 100`, `… unemployment_rate > 50`.
+
 ## 3. Elevation — GA DEM-S
 
 **ELVIS is not required.** Direct, resumable HTTP:

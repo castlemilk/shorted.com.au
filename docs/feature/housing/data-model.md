@@ -121,7 +121,24 @@ licence-gated `LEFT JOIN`. Filled by `-mode hazards` from
 Both families are NULL below `censusDerivedRateMinPopulation = 100` (Census
 randomisation makes tiny-cell rates misleading) and wherever the denominator is
 zero — the "No usual address (State)" pseudo-SALs and Acton ACT have population
-but no occupied private dwellings.
+but no occupied private dwellings. The same population floor now covers the
+culture block (born overseas, English only, top religion/language labels and
+shares): below it 97 localities of 3–17 residents published a top religion over
+100%.
+
+The population floor does not protect a share whose denominator is DWELLINGS,
+HOUSEHOLDS or the LABOUR FORCE, so each has its own floor
+(`census_expanded.go`): tenure, dwelling structure and household composition
+are NULL below `censusDwellingShareMinDenominator = 50` in their own
+denominator, unemployment below `censusLabourForceMinDenominator = 50`. And a
+group of mutually exclusive shares of one denominator (tenure; house vs flat;
+couple-with-kids vs lone person; low vs high income) that sums past
+`censusShareGroupMaxTotalPct = 101` is withheld whole — ABS perturbation makes
+such a group internally inconsistent, and clamping one member would publish a
+plausible-looking guess. `dwelling_count` is a count, not a share, and is kept.
+Measured on the 2021 DataPack (local re-run 2026-09-24): tenure summing >101%
+588 → 0, top religion >100% 97 → 0, unemployment >50% 11 → 4 (the four are
+remote NT communities with a labour force of 50+, which ABS genuinely reports).
 
 ## The crawl pair (+ satellites)
 
@@ -166,7 +183,9 @@ never paints 0.
 `lga` + `suburb_lga` bridge (dominant council + overlap shares),
 `suburb_amenities` (OSM/ACARA/GA counts + derived 0–100 scores; raw OSM
 points never stored — ODbL Produced Work), `suburb_connectivity` (NBN,
-area-level only), `suburb_funding` (IIP). `lga` financial columns are
+area-level only; `dominant_nbn_tech` NULL where no published footprint covers
+the suburb — the source has no satellite layer, so a miss is never read as
+Satellite), `suburb_funding` (IIP). `lga` financial columns are
 per-state licence-gated and stay NULL until cleared (NSW "Your Council" is
 Crown copyright); `fed_fag_aud/_year` (000066) + `fin_year` (000067) record
 grant and vintage.
