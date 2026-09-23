@@ -118,6 +118,26 @@ licence-gated `LEFT JOIN`. Filled by `-mode hazards` from
 `web/public/geo/insights/suburb-hazards.json`; the drawable overlays live in
 `web/public/geo/hazards/<STATE>-<layer>.topojson`.
 
+**`suburb_planning` (000125)** is its own table keyed by `sal_code`: one
+`zone_<family>_share_pct` per harmonised family (`res_low`, `res_medium_high`,
+`centre_mixed`, `industrial`, `rural`, `conservation`, `open_space`,
+`infrastructure`, `water`, `other`), `zoning_coverage_pct` (the family shares sum
+to it), `dominant_zone_family` (CHECK-constrained to the ten),
+`heritage_share_pct` + `heritage_item_count`, the NSW-only
+`nsw_height_median_m` / `nsw_height_max_m` / `nsw_fsr_median` /
+`nsw_min_lot_median_m2` over residential land, `planning_instruments TEXT[]`,
+`zoning_source` / `heritage_source` ids and the licence DEFAULT + CHECK. Every
+share is CHECK-bounded 0–100. **NULL = no source**: WA and NT have no row, QLD
+rows carry only `heritage_item_count`, a covered-state suburb no scheme reaches
+has `zoning_coverage_pct = 0` and NULL families, and in TAS heritage is NULL
+where the governing LPS maps no heritage class. Read on
+`GetSuburbProfile.planning` (tolerated query) and in the column registry
+(licence-gated `LEFT JOIN suburb_planning pl`), including the categorical
+`dominant_zone_family` column with server-sent labels. Filled by `-mode planning`
+from the artifact embedded in the collector
+(`services/house-price-collector/data/suburb-planning.json`, override
+`PLANNING_FILE`); built by `web/scripts/geo/planning/` (README there).
+
 Both families are NULL below `censusDerivedRateMinPopulation = 100` (Census
 randomisation makes tiny-cell rates misleading) and wherever the denominator is
 zero — the "No usual address (State)" pseudo-SALs and Acton ACT have population
@@ -254,3 +274,4 @@ aborts the function and starves every MV after it.
 | 000088 / 000091 | `property_valuations` / `valuation_granularity` |
 | 000089 | `crawl_run_status` |
 | 000090 / 000092 | `suburb_crime_stats` + initial crime MV / deterministic gated rebuild + final refresh fn |
+| 000125 | `suburb_planning`: zoning-family shares + coverage + dominant family, heritage share + item count, NSW height/FSR/lot-size standards, instruments, sources, licence CHECK |
