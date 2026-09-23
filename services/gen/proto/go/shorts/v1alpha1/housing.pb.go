@@ -5970,6 +5970,7 @@ type CouncilSummary struct {
 	FloodSharePct            *float64               `protobuf:"fixed64,19,opt,name=flood_share_pct,json=floodSharePct,proto3,oneof" json:"flood_share_pct,omitempty"`                            // population-weighted over member suburbs
 	BushfireSharePct         *float64               `protobuf:"fixed64,20,opt,name=bushfire_share_pct,json=bushfireSharePct,proto3,oneof" json:"bushfire_share_pct,omitempty"`                   // population-weighted over member suburbs
 	PriceDropShare           *float64               `protobuf:"fixed64,21,opt,name=price_drop_share,json=priceDropShare,proto3,oneof" json:"price_drop_share,omitempty"`                         // 0..1, crawl-derived, only when >= 3 drops council-wide
+	DataThrough              string                 `protobuf:"bytes,22,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`                                            // newest period in any council series, 'YYYY-MM-DD'; '' if none
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -6149,6 +6150,13 @@ func (x *CouncilSummary) GetPriceDropShare() float64 {
 		return *x.PriceDropShare
 	}
 	return 0
+}
+
+func (x *CouncilSummary) GetDataThrough() string {
+	if x != nil {
+		return x.DataThrough
+	}
+	return ""
 }
 
 type GetCouncilProfileRequest struct {
@@ -7911,7 +7919,7 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x14ListCouncilsResponse\x12;\n" +
 	"\bcouncils\x18\x01 \x03(\v2\x1f.shorts.v1alpha1.CouncilSummaryR\bcouncils\x12\x1f\n" +
 	"\vlga_vintage\x18\x02 \x01(\tR\n" +
-	"lgaVintage\"\xb0\b\n" +
+	"lgaVintage\"\xd3\b\n" +
 	"\x0eCouncilSummary\x12\x19\n" +
 	"\blga_code\x18\x01 \x01(\tR\algaCode\x12\x12\n" +
 	"\x04slug\x18\x02 \x01(\tR\x04slug\x12!\n" +
@@ -7937,7 +7945,8 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x12seifa_irsad_decile\x18\x12 \x01(\x05H\x06R\x10seifaIrsadDecile\x88\x01\x01\x12+\n" +
 	"\x0fflood_share_pct\x18\x13 \x01(\x01H\aR\rfloodSharePct\x88\x01\x01\x121\n" +
 	"\x12bushfire_share_pct\x18\x14 \x01(\x01H\bR\x10bushfireSharePct\x88\x01\x01\x12-\n" +
-	"\x10price_drop_share\x18\x15 \x01(\x01H\tR\x0epriceDropShare\x88\x01\x01B\x11\n" +
+	"\x10price_drop_share\x18\x15 \x01(\x01H\tR\x0epriceDropShare\x88\x01\x01\x12!\n" +
+	"\fdata_through\x18\x16 \x01(\tR\vdataThroughB\x11\n" +
 	"\x0f_pop_growth_pctB\f\n" +
 	"\n" +
 	"_area_sqkmB\x13\n" +

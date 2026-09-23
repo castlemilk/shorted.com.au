@@ -1250,6 +1250,11 @@ components:
           description: e.g. '2023-24' (proto string)
           title: council_house_median_period
           type: string
+        dataThrough:
+          description: newest period in any council series, 'YYYY-MM-DD'; '' if none
+            (proto string)
+          title: data_through
+          type: string
         densityPerSqkm:
           description: ERP / area (proto double)
           format: double

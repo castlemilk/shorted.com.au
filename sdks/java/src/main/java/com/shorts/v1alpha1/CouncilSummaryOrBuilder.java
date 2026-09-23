@@ -345,4 +345,24 @@ public interface CouncilSummaryOrBuilder extends
    * @return The priceDropShare.
    */
   double getPriceDropShare();
+
+  /**
+   * <pre>
+   * newest period in any council series, 'YYYY-MM-DD'; '' if none
+   * </pre>
+   *
+   * <code>string data_through = 22 [json_name = "dataThrough"];</code>
+   * @return The dataThrough.
+   */
+  java.lang.String getDataThrough();
+  /**
+   * <pre>
+   * newest period in any council series, 'YYYY-MM-DD'; '' if none
+   * </pre>
+   *
+   * <code>string data_through = 22 [json_name = "dataThrough"];</code>
+   * @return The bytes for dataThrough.
+   */
+  com.google.protobuf.ByteString
+      getDataThroughBytes();
 }

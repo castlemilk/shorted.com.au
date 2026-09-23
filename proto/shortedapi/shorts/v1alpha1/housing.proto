@@ -924,6 +924,7 @@ message CouncilSummary {
   optional double flood_share_pct = 19;         // population-weighted over member suburbs
   optional double bushfire_share_pct = 20;      // population-weighted over member suburbs
   optional double price_drop_share = 21;        // 0..1, crawl-derived, only when >= 3 drops council-wide
+  string data_through = 22;                     // newest period in any council series, 'YYYY-MM-DD'; '' if none
 }
 
 message GetCouncilProfileRequest {

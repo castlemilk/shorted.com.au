@@ -4755,6 +4755,10 @@ components:
           title: price_drop_share
           format: double
           description: 0..1, crawl-derived, only when >= 3 drops council-wide (proto double)
+        dataThrough:
+          type: string
+          title: data_through
+          description: newest period in any council series, 'YYYY-MM-DD'; '' if none (proto string)
       title: CouncilSummary
       additionalProperties: false
       description: |-

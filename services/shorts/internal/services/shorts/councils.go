@@ -126,6 +126,9 @@ func councilSummaryProto(r *shortsstore.CouncilSummaryRow) *shortsv1alpha1.Counc
 	if r.HouseMedian != nil && r.HouseMedianPeriod != "" {
 		out.CouncilHouseMedian, out.CouncilHouseMedianPeriod = r.HouseMedian, r.HouseMedianPeriod
 	}
+	if r.DataThrough != nil {
+		out.DataThrough = r.DataThrough.Format("2006-01-02")
+	}
 	return out
 }
 

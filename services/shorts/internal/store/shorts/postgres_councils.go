@@ -68,6 +68,7 @@ type CouncilSummaryRow struct {
 	FloodSharePct     *float64
 	BushfireSharePct  *float64
 	PriceDropShare    *float64
+	DataThrough       *time.Time // newest period in any of the council's series
 }
 
 // councilSummaryQuery is the base row for every council with a page in a state
@@ -91,7 +92,9 @@ const councilSummaryQuery = `
 		       c.growth, c.area, c.irsad, c.fag, c.fag_year,
 		       (SELECT count(*) FROM suburb_lga sl WHERE sl.lga_code24 = c.lga_code24) AS members,
 		       hm.value, COALESCE(hm.period_label, ''),
-		       ap.total, COALESCE(ap.months, 0), COALESCE(to_char(ap.through, 'YYYY-MM'), '')
+		       ap.total, COALESCE(ap.months, 0), COALESCE(to_char(ap.through, 'YYYY-MM'), ''),
+		       (SELECT max(x.period) FROM lga_series x
+		        WHERE x.lga_code24 = c.lga_code24 AND x.source_licence <> 'proprietary-tos-restricted')
 		FROM c
 		LEFT JOIN LATERAL (
 			SELECT s.value, s.period_label
@@ -190,13 +193,18 @@ func (s *postgresStore) councilSummaries(ctx context.Context, stateCode, lgaCode
 			irsad                     sql.NullInt32
 			members                   int64
 			approvalMonths            int64
+			through                   sql.NullTime
 		)
 		if err := rows.Scan(&r.LgaCode, &r.Slug, &r.DisplayName, &r.Kind, &r.StateCode, &r.Population, &r.ErpYear,
 			&growth, &area, &irsad, &fag, &r.FagYear, &members, &median, &r.HouseMedianPeriod,
-			&approvals, &approvalMonths, &r.ApprovalsThrough); err != nil {
+			&approvals, &approvalMonths, &r.ApprovalsThrough, &through); err != nil {
 			return nil, err
 		}
 		r.MemberSuburbCount = int32(members)
+		if through.Valid {
+			t := through.Time
+			r.DataThrough = &t
+		}
 		r.PopGrowthPct, r.SeifaIrsadDecile = nullableFloatPointer(growth), nullableInt32Pointer(irsad)
 		deriveCouncilRates(&r, nullableFloatPointer(area), nullableFloatPointer(fag), nullableFloatPointer(median),
 			nullableFloatPointer(approvals), approvalMonths)

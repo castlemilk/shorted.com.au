@@ -886,7 +886,7 @@ public final class HousingProto extends com.google.protobuf.GeneratedFile {
       "ate_code\030\001 \001(\tR\tstateCode\"t\n\024ListCouncil" +
       "sResponse\022;\n\010councils\030\001 \003(\0132\037.shorts.v1a" +
       "lpha1.CouncilSummaryR\010councils\022\037\n\013lga_vi" +
-      "ntage\030\002 \001(\tR\nlgaVintage\"\260\010\n\016CouncilSumma" +
+      "ntage\030\002 \001(\tR\nlgaVintage\"\323\010\n\016CouncilSumma" +
       "ry\022\031\n\010lga_code\030\001 \001(\tR\007lgaCode\022\022\n\004slug\030\002 " +
       "\001(\tR\004slug\022!\n\014display_name\030\003 \001(\tR\013display" +
       "Name\022\022\n\004kind\030\004 \001(\tR\004kind\022\035\n\nstate_code\030\005" +
@@ -908,162 +908,163 @@ public final class HousingProto extends com.google.protobuf.GeneratedFile {
       "_pct\030\023 \001(\001H\007R\rfloodSharePct\210\001\001\0221\n\022bushfi" +
       "re_share_pct\030\024 \001(\001H\010R\020bushfireSharePct\210\001" +
       "\001\022-\n\020price_drop_share\030\025 \001(\001H\tR\016priceDrop" +
-      "Share\210\001\001B\021\n\017_pop_growth_pctB\014\n\n_area_sqk" +
-      "mB\023\n\021_density_per_sqkmB\027\n\025_council_house" +
-      "_medianB\023\n\021_fag_per_residentB\025\n\023_approva" +
-      "ls_per_1000B\025\n\023_seifa_irsad_decileB\022\n\020_f" +
-      "lood_share_pctB\025\n\023_bushfire_share_pctB\023\n" +
-      "\021_price_drop_share\"M\n\030GetCouncilProfileR" +
-      "equest\022\035\n\nstate_code\030\001 \001(\tR\tstateCode\022\022\n" +
-      "\004slug\030\002 \001(\tR\004slug\"V\n\031GetCouncilProfileRe" +
-      "sponse\0229\n\007profile\030\001 \001(\0132\037.shorts.v1alpha" +
-      "1.CouncilProfileR\007profile\"\234\005\n\016CouncilPro" +
-      "file\0222\n\007council\030\001 \001(\0132\030.shorts.v1alpha1." +
-      "LgaInfoR\007council\0229\n\007summary\030\002 \001(\0132\037.shor" +
-      "ts.v1alpha1.CouncilSummaryR\007summary\022\037\n\013l" +
-      "ga_vintage\030\003 \001(\tR\nlgaVintage\0226\n\006series\030\004" +
-      " \003(\0132\036.shorts.v1alpha1.CouncilSeriesR\006se" +
-      "ries\0228\n\007suburbs\030\005 \003(\0132\036.shorts.v1alpha1." +
-      "CouncilSuburbR\007suburbs\0226\n\006rollup\030\006 \001(\0132\036" +
-      ".shorts.v1alpha1.CouncilRollupR\006rollup\022W" +
-      "\n\023federal_electorates\030\007 \003(\0132&.shorts.v1a" +
-      "lpha1.CouncilRepresentativeR\022federalElec" +
-      "torates\022O\n\017state_districts\030\010 \003(\0132&.short" +
-      "s.v1alpha1.CouncilRepresentativeR\016stateD" +
-      "istricts\022C\n\013price_drops\030\t \001(\0132\".shorts.v" +
-      "1alpha1.CouncilPriceDropsR\npriceDrops\022A\n" +
-      "\nneighbours\030\n \003(\0132!.shorts.v1alpha1.Coun" +
-      "cilNeighbourR\nneighbours\022\036\n\013facts_as_of\030" +
-      "\013 \001(\tR\tfactsAsOf\"\327\001\n\rCouncilSeries\022\030\n\007me" +
-      "asure\030\001 \001(\tR\007measure\022\022\n\004unit\030\002 \001(\tR\004unit" +
-      "\022\034\n\tfrequency\030\003 \001(\tR\tfrequency\022\026\n\006source" +
-      "\030\004 \001(\tR\006source\022%\n\016source_licence\030\005 \001(\tR\r" +
-      "sourceLicence\022;\n\006points\030\006 \003(\0132#.shorts.v" +
-      "1alpha1.CouncilSeriesPointR\006points\"e\n\022Co" +
-      "uncilSeriesPoint\022\026\n\006period\030\001 \001(\tR\006period" +
-      "\022!\n\014period_label\030\002 \001(\tR\013periodLabel\022\024\n\005v" +
-      "alue\030\003 \001(\001R\005value\"\243\004\n\rCouncilSuburb\022\031\n\010s" +
-      "al_code\030\001 \001(\tR\007salCode\022\031\n\010sal_name\030\002 \001(\t" +
-      "R\007salName\022\032\n\010postcode\030\003 \001(\tR\010postcode\022\036\n" +
-      "\npopulation\030\004 \001(\005R\npopulation\022\024\n\005share\030\005" +
-      " \001(\001R\005share\022\032\n\010dominant\030\006 \001(\010R\010dominant\022" +
-      " \n\tvg_median\030\007 \001(\001H\000R\010vgMedian\210\001\001\022(\n\020vg_" +
-      "median_period\030\010 \001(\tR\016vgMedianPeriod\022+\n\017f" +
-      "lood_share_pct\030\t \001(\001H\001R\rfloodSharePct\210\001\001" +
-      "\0221\n\022bushfire_share_pct\030\n \001(\001H\002R\020bushfire" +
-      "SharePct\210\001\001\022+\n\017water_share_pct\030\013 \001(\001H\003R\r" +
-      "waterSharePct\210\001\001\0221\n\022seifa_irsad_decile\030\014" +
-      " \001(\005H\004R\020seifaIrsadDecile\210\001\001B\014\n\n_vg_media" +
-      "nB\022\n\020_flood_share_pctB\025\n\023_bushfire_share" +
-      "_pctB\022\n\020_water_share_pctB\025\n\023_seifa_irsad" +
-      "_decile\"\334\005\n\rCouncilRollup\022%\n\016member_subu" +
-      "rbs\030\001 \001(\005R\rmemberSuburbs\022)\n\020dominant_sub" +
-      "urbs\030\002 \001(\005R\017dominantSuburbs\022+\n\017flood_sha" +
-      "re_pct\030\003 \001(\001H\000R\rfloodSharePct\210\001\001\0222\n\025floo" +
-      "d_covered_suburbs\030\004 \001(\005R\023floodCoveredSub" +
-      "urbs\0221\n\022bushfire_share_pct\030\005 \001(\001H\001R\020bush" +
-      "fireSharePct\210\001\001\0228\n\030bushfire_covered_subu" +
-      "rbs\030\006 \001(\005R\026bushfireCoveredSuburbs\022+\n\017wat" +
-      "er_share_pct\030\007 \001(\001H\002R\rwaterSharePct\210\001\001\0222" +
-      "\n\025water_covered_suburbs\030\010 \001(\005R\023waterCove" +
-      "redSuburbs\022%\n\016priced_suburbs\030\t \001(\005R\rpric" +
-      "edSuburbs\022\"\n\nmedian_min\030\n \001(\001H\003R\tmedianM" +
-      "in\210\001\001\022\"\n\nmedian_max\030\013 \001(\001H\004R\tmedianMax\210\001" +
-      "\001\022/\n\021median_of_medians\030\014 \001(\001H\005R\017medianOf" +
-      "Medians\210\001\001\0227\n\005crime\030\r \003(\0132!.shorts.v1alp" +
-      "ha1.CouncilCrimeStatR\005crimeB\022\n\020_flood_sh" +
-      "are_pctB\025\n\023_bushfire_share_pctB\022\n\020_water" +
-      "_share_pctB\r\n\013_median_minB\r\n\013_median_max" +
-      "B\024\n\022_median_of_medians\"\213\002\n\020CouncilCrimeS" +
-      "tat\022\035\n\ncrime_type\030\001 \001(\tR\tcrimeType\022\"\n\rra" +
-      "te_per_100k\030\002 \001(\001R\013ratePer100k\022\033\n\tfy_end" +
-      "ing\030\003 \001(\005R\010fyEnding\022\'\n\017covered_suburbs\030\004" +
-      " \001(\005R\016coveredSuburbs\022/\n\023source_jurisdict" +
-      "ion\030\005 \001(\tR\022sourceJurisdiction\022\026\n\006source\030" +
-      "\006 \001(\tR\006source\022%\n\016source_licence\030\007 \001(\tR\rs" +
-      "ourceLicence\"\302\001\n\025CouncilRepresentative\022\022" +
-      "\n\004name\030\001 \001(\tR\004name\022\026\n\006member\030\002 \001(\tR\006memb" +
-      "er\022\024\n\005party\030\003 \001(\tR\005party\022\031\n\010party_ab\030\004 \001" +
-      "(\tR\007partyAb\022)\n\020population_share\030\005 \001(\001R\017p" +
-      "opulationShare\022!\n\014suburb_count\030\006 \001(\005R\013su" +
-      "burbCount\"\310\002\n\021CouncilPriceDrops\0222\n\025dropp" +
-      "ed_listing_count\030\001 \001(\005R\023droppedListingCo" +
-      "unt\0222\n\025tracked_listing_count\030\002 \001(\005R\023trac" +
-      "kedListingCount\022#\n\rdropped_share\030\003 \001(\001R\014" +
-      "droppedShare\022+\n\017median_drop_pct\030\004 \001(\001H\000R" +
-      "\rmedianDropPct\210\001\001\022\'\n\017suburbs_tracked\030\005 \001" +
-      "(\005R\016suburbsTracked\022<\n\007suburbs\030\006 \003(\0132\".sh" +
-      "orts.v1alpha1.CouncilDropSuburbR\007suburbs" +
-      "B\022\n\020_median_drop_pct\"\263\002\n\021CouncilDropSubu" +
-      "rb\022\031\n\010sal_code\030\001 \001(\tR\007salCode\022\031\n\010sal_nam" +
-      "e\030\002 \001(\tR\007salName\022\032\n\010postcode\030\003 \001(\tR\010post" +
-      "code\0222\n\025dropped_listing_count\030\004 \001(\005R\023dro" +
-      "ppedListingCount\0222\n\025tracked_listing_coun" +
-      "t\030\005 \001(\005R\023trackedListingCount\022#\n\rdropped_" +
-      "share\030\006 \001(\001R\014droppedShare\022+\n\017median_drop" +
-      "_pct\030\007 \001(\001H\000R\rmedianDropPct\210\001\001B\022\n\020_media" +
-      "n_drop_pct\"\343\001\n\020CouncilNeighbour\022\031\n\010lga_c" +
-      "ode\030\001 \001(\tR\007lgaCode\022\022\n\004slug\030\002 \001(\tR\004slug\022!" +
-      "\n\014display_name\030\003 \001(\tR\013displayName\022\022\n\004kin" +
-      "d\030\004 \001(\tR\004kind\022\035\n\nstate_code\030\005 \001(\tR\tstate" +
-      "Code\022#\n\rshares_border\030\006 \001(\010R\014sharesBorde" +
-      "r\022%\n\016shared_suburbs\030\007 \001(\005R\rsharedSuburbs" +
-      "2\322\017\n\016HousingService\022s\n\022GetHousingOvervie" +
-      "w\022*.shorts.v1alpha1.GetHousingOverviewRe" +
-      "quest\032+.shorts.v1alpha1.GetHousingOvervi" +
-      "ewResponse\"\004\200\265\030\001\022v\n\023GetHousePriceSeries\022" +
-      "+.shorts.v1alpha1.GetHousePriceSeriesReq" +
-      "uest\032,.shorts.v1alpha1.GetHousePriceSeri" +
-      "esResponse\"\004\200\265\030\001\022m\n\020ListStateSuburbs\022(.s" +
-      "horts.v1alpha1.ListStateSuburbsRequest\032)" +
-      ".shorts.v1alpha1.ListStateSuburbsRespons" +
-      "e\"\004\200\265\030\001\022g\n\016GetSuburbIndex\022&.shorts.v1alp" +
-      "ha1.GetSuburbIndexRequest\032\'.shorts.v1alp" +
-      "ha1.GetSuburbIndexResponse\"\004\200\265\030\001\022\177\n\026GetS" +
-      "uburbMetricColumns\022..shorts.v1alpha1.Get" +
-      "SuburbMetricColumnsRequest\032/.shorts.v1al" +
-      "pha1.GetSuburbMetricColumnsResponse\"\004\200\265\030" +
-      "\001\022d\n\rFilterSuburbs\022%.shorts.v1alpha1.Fil" +
-      "terSuburbsRequest\032&.shorts.v1alpha1.Filt" +
-      "erSuburbsResponse\"\004\200\265\030\001\022m\n\020GetSuburbProf" +
-      "ile\022(.shorts.v1alpha1.GetSuburbProfileRe" +
-      "quest\032).shorts.v1alpha1.GetSuburbProfile" +
-      "Response\"\004\200\265\030\001\022s\n\022ListHousingRegions\022*.s" +
-      "horts.v1alpha1.ListHousingRegionsRequest" +
-      "\032+.shorts.v1alpha1.ListHousingRegionsRes" +
-      "ponse\"\004\200\265\030\001\022y\n\024ListSuburbPriceDrops\022,.sh" +
-      "orts.v1alpha1.ListSuburbPriceDropsReques" +
-      "t\032-.shorts.v1alpha1.ListSuburbPriceDrops" +
-      "Response\"\004\200\265\030\001\022\177\n\026ListSuburbDropListings" +
-      "\022..shorts.v1alpha1.ListSuburbDropListing" +
-      "sRequest\032/.shorts.v1alpha1.ListSuburbDro" +
-      "pListingsResponse\"\004\200\265\030\001\022s\n\022GetPropertyHi" +
-      "story\022*.shorts.v1alpha1.GetPropertyHisto" +
-      "ryRequest\032+.shorts.v1alpha1.GetPropertyH" +
-      "istoryResponse\"\004\200\265\030\001\022|\n\025ListAddressPrice" +
-      "Drops\022-.shorts.v1alpha1.ListAddressPrice" +
-      "DropsRequest\032..shorts.v1alpha1.ListAddre" +
-      "ssPriceDropsResponse\"\004\200\265\030\001\022|\n\025GetPriceDr" +
-      "opsOverview\022-.shorts.v1alpha1.GetPriceDr" +
-      "opsOverviewRequest\032..shorts.v1alpha1.Get" +
-      "PriceDropsOverviewResponse\"\004\200\265\030\001\022y\n\024List" +
-      "AgencyPriceStats\022,.shorts.v1alpha1.ListA" +
-      "gencyPriceStatsRequest\032-.shorts.v1alpha1" +
-      ".ListAgencyPriceStatsResponse\"\004\200\265\030\001\022s\n\022G" +
-      "etDropIndexSeries\022*.shorts.v1alpha1.GetD" +
-      "ropIndexSeriesRequest\032+.shorts.v1alpha1." +
-      "GetDropIndexSeriesResponse\"\004\200\265\030\001\022a\n\014List" +
-      "Councils\022$.shorts.v1alpha1.ListCouncilsR" +
-      "equest\032%.shorts.v1alpha1.ListCouncilsRes" +
-      "ponse\"\004\200\265\030\001\022p\n\021GetCouncilProfile\022).short" +
-      "s.v1alpha1.GetCouncilProfileRequest\032*.sh" +
-      "orts.v1alpha1.GetCouncilProfileResponse\"" +
-      "\004\200\265\030\001B\333\001\n\023com.shorts.v1alpha1B\014HousingPr" +
-      "otoP\001ZYgithub.com/castlemilk/shorted.com" +
-      ".au/services/gen/proto/go/shorts/v1alpha" +
-      "1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1" +
-      "\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPB" +
-      "Metadata\352\002\020Shorts::V1alpha1b\006proto3"
+      "Share\210\001\001\022!\n\014data_through\030\026 \001(\tR\013dataThro" +
+      "ughB\021\n\017_pop_growth_pctB\014\n\n_area_sqkmB\023\n\021" +
+      "_density_per_sqkmB\027\n\025_council_house_medi" +
+      "anB\023\n\021_fag_per_residentB\025\n\023_approvals_pe" +
+      "r_1000B\025\n\023_seifa_irsad_decileB\022\n\020_flood_" +
+      "share_pctB\025\n\023_bushfire_share_pctB\023\n\021_pri" +
+      "ce_drop_share\"M\n\030GetCouncilProfileReques" +
+      "t\022\035\n\nstate_code\030\001 \001(\tR\tstateCode\022\022\n\004slug" +
+      "\030\002 \001(\tR\004slug\"V\n\031GetCouncilProfileRespons" +
+      "e\0229\n\007profile\030\001 \001(\0132\037.shorts.v1alpha1.Cou" +
+      "ncilProfileR\007profile\"\234\005\n\016CouncilProfile\022" +
+      "2\n\007council\030\001 \001(\0132\030.shorts.v1alpha1.LgaIn" +
+      "foR\007council\0229\n\007summary\030\002 \001(\0132\037.shorts.v1" +
+      "alpha1.CouncilSummaryR\007summary\022\037\n\013lga_vi" +
+      "ntage\030\003 \001(\tR\nlgaVintage\0226\n\006series\030\004 \003(\0132" +
+      "\036.shorts.v1alpha1.CouncilSeriesR\006series\022" +
+      "8\n\007suburbs\030\005 \003(\0132\036.shorts.v1alpha1.Counc" +
+      "ilSuburbR\007suburbs\0226\n\006rollup\030\006 \001(\0132\036.shor" +
+      "ts.v1alpha1.CouncilRollupR\006rollup\022W\n\023fed" +
+      "eral_electorates\030\007 \003(\0132&.shorts.v1alpha1" +
+      ".CouncilRepresentativeR\022federalElectorat" +
+      "es\022O\n\017state_districts\030\010 \003(\0132&.shorts.v1a" +
+      "lpha1.CouncilRepresentativeR\016stateDistri" +
+      "cts\022C\n\013price_drops\030\t \001(\0132\".shorts.v1alph" +
+      "a1.CouncilPriceDropsR\npriceDrops\022A\n\nneig" +
+      "hbours\030\n \003(\0132!.shorts.v1alpha1.CouncilNe" +
+      "ighbourR\nneighbours\022\036\n\013facts_as_of\030\013 \001(\t" +
+      "R\tfactsAsOf\"\327\001\n\rCouncilSeries\022\030\n\007measure" +
+      "\030\001 \001(\tR\007measure\022\022\n\004unit\030\002 \001(\tR\004unit\022\034\n\tf" +
+      "requency\030\003 \001(\tR\tfrequency\022\026\n\006source\030\004 \001(" +
+      "\tR\006source\022%\n\016source_licence\030\005 \001(\tR\rsourc" +
+      "eLicence\022;\n\006points\030\006 \003(\0132#.shorts.v1alph" +
+      "a1.CouncilSeriesPointR\006points\"e\n\022Council" +
+      "SeriesPoint\022\026\n\006period\030\001 \001(\tR\006period\022!\n\014p" +
+      "eriod_label\030\002 \001(\tR\013periodLabel\022\024\n\005value\030" +
+      "\003 \001(\001R\005value\"\243\004\n\rCouncilSuburb\022\031\n\010sal_co" +
+      "de\030\001 \001(\tR\007salCode\022\031\n\010sal_name\030\002 \001(\tR\007sal" +
+      "Name\022\032\n\010postcode\030\003 \001(\tR\010postcode\022\036\n\npopu" +
+      "lation\030\004 \001(\005R\npopulation\022\024\n\005share\030\005 \001(\001R" +
+      "\005share\022\032\n\010dominant\030\006 \001(\010R\010dominant\022 \n\tvg" +
+      "_median\030\007 \001(\001H\000R\010vgMedian\210\001\001\022(\n\020vg_media" +
+      "n_period\030\010 \001(\tR\016vgMedianPeriod\022+\n\017flood_" +
+      "share_pct\030\t \001(\001H\001R\rfloodSharePct\210\001\001\0221\n\022b" +
+      "ushfire_share_pct\030\n \001(\001H\002R\020bushfireShare" +
+      "Pct\210\001\001\022+\n\017water_share_pct\030\013 \001(\001H\003R\rwater" +
+      "SharePct\210\001\001\0221\n\022seifa_irsad_decile\030\014 \001(\005H" +
+      "\004R\020seifaIrsadDecile\210\001\001B\014\n\n_vg_medianB\022\n\020" +
+      "_flood_share_pctB\025\n\023_bushfire_share_pctB" +
+      "\022\n\020_water_share_pctB\025\n\023_seifa_irsad_deci" +
+      "le\"\334\005\n\rCouncilRollup\022%\n\016member_suburbs\030\001" +
+      " \001(\005R\rmemberSuburbs\022)\n\020dominant_suburbs\030" +
+      "\002 \001(\005R\017dominantSuburbs\022+\n\017flood_share_pc" +
+      "t\030\003 \001(\001H\000R\rfloodSharePct\210\001\001\0222\n\025flood_cov" +
+      "ered_suburbs\030\004 \001(\005R\023floodCoveredSuburbs\022" +
+      "1\n\022bushfire_share_pct\030\005 \001(\001H\001R\020bushfireS" +
+      "harePct\210\001\001\0228\n\030bushfire_covered_suburbs\030\006" +
+      " \001(\005R\026bushfireCoveredSuburbs\022+\n\017water_sh" +
+      "are_pct\030\007 \001(\001H\002R\rwaterSharePct\210\001\001\0222\n\025wat" +
+      "er_covered_suburbs\030\010 \001(\005R\023waterCoveredSu" +
+      "burbs\022%\n\016priced_suburbs\030\t \001(\005R\rpricedSub" +
+      "urbs\022\"\n\nmedian_min\030\n \001(\001H\003R\tmedianMin\210\001\001" +
+      "\022\"\n\nmedian_max\030\013 \001(\001H\004R\tmedianMax\210\001\001\022/\n\021" +
+      "median_of_medians\030\014 \001(\001H\005R\017medianOfMedia" +
+      "ns\210\001\001\0227\n\005crime\030\r \003(\0132!.shorts.v1alpha1.C" +
+      "ouncilCrimeStatR\005crimeB\022\n\020_flood_share_p" +
+      "ctB\025\n\023_bushfire_share_pctB\022\n\020_water_shar" +
+      "e_pctB\r\n\013_median_minB\r\n\013_median_maxB\024\n\022_" +
+      "median_of_medians\"\213\002\n\020CouncilCrimeStat\022\035" +
+      "\n\ncrime_type\030\001 \001(\tR\tcrimeType\022\"\n\rrate_pe" +
+      "r_100k\030\002 \001(\001R\013ratePer100k\022\033\n\tfy_ending\030\003" +
+      " \001(\005R\010fyEnding\022\'\n\017covered_suburbs\030\004 \001(\005R" +
+      "\016coveredSuburbs\022/\n\023source_jurisdiction\030\005" +
+      " \001(\tR\022sourceJurisdiction\022\026\n\006source\030\006 \001(\t" +
+      "R\006source\022%\n\016source_licence\030\007 \001(\tR\rsource" +
+      "Licence\"\302\001\n\025CouncilRepresentative\022\022\n\004nam" +
+      "e\030\001 \001(\tR\004name\022\026\n\006member\030\002 \001(\tR\006member\022\024\n" +
+      "\005party\030\003 \001(\tR\005party\022\031\n\010party_ab\030\004 \001(\tR\007p" +
+      "artyAb\022)\n\020population_share\030\005 \001(\001R\017popula" +
+      "tionShare\022!\n\014suburb_count\030\006 \001(\005R\013suburbC" +
+      "ount\"\310\002\n\021CouncilPriceDrops\0222\n\025dropped_li" +
+      "sting_count\030\001 \001(\005R\023droppedListingCount\0222" +
+      "\n\025tracked_listing_count\030\002 \001(\005R\023trackedLi" +
+      "stingCount\022#\n\rdropped_share\030\003 \001(\001R\014dropp" +
+      "edShare\022+\n\017median_drop_pct\030\004 \001(\001H\000R\rmedi" +
+      "anDropPct\210\001\001\022\'\n\017suburbs_tracked\030\005 \001(\005R\016s" +
+      "uburbsTracked\022<\n\007suburbs\030\006 \003(\0132\".shorts." +
+      "v1alpha1.CouncilDropSuburbR\007suburbsB\022\n\020_" +
+      "median_drop_pct\"\263\002\n\021CouncilDropSuburb\022\031\n" +
+      "\010sal_code\030\001 \001(\tR\007salCode\022\031\n\010sal_name\030\002 \001" +
+      "(\tR\007salName\022\032\n\010postcode\030\003 \001(\tR\010postcode\022" +
+      "2\n\025dropped_listing_count\030\004 \001(\005R\023droppedL" +
+      "istingCount\0222\n\025tracked_listing_count\030\005 \001" +
+      "(\005R\023trackedListingCount\022#\n\rdropped_share" +
+      "\030\006 \001(\001R\014droppedShare\022+\n\017median_drop_pct\030" +
+      "\007 \001(\001H\000R\rmedianDropPct\210\001\001B\022\n\020_median_dro" +
+      "p_pct\"\343\001\n\020CouncilNeighbour\022\031\n\010lga_code\030\001" +
+      " \001(\tR\007lgaCode\022\022\n\004slug\030\002 \001(\tR\004slug\022!\n\014dis" +
+      "play_name\030\003 \001(\tR\013displayName\022\022\n\004kind\030\004 \001" +
+      "(\tR\004kind\022\035\n\nstate_code\030\005 \001(\tR\tstateCode\022" +
+      "#\n\rshares_border\030\006 \001(\010R\014sharesBorder\022%\n\016" +
+      "shared_suburbs\030\007 \001(\005R\rsharedSuburbs2\322\017\n\016" +
+      "HousingService\022s\n\022GetHousingOverview\022*.s" +
+      "horts.v1alpha1.GetHousingOverviewRequest" +
+      "\032+.shorts.v1alpha1.GetHousingOverviewRes" +
+      "ponse\"\004\200\265\030\001\022v\n\023GetHousePriceSeries\022+.sho" +
+      "rts.v1alpha1.GetHousePriceSeriesRequest\032" +
+      ",.shorts.v1alpha1.GetHousePriceSeriesRes" +
+      "ponse\"\004\200\265\030\001\022m\n\020ListStateSuburbs\022(.shorts" +
+      ".v1alpha1.ListStateSuburbsRequest\032).shor" +
+      "ts.v1alpha1.ListStateSuburbsResponse\"\004\200\265" +
+      "\030\001\022g\n\016GetSuburbIndex\022&.shorts.v1alpha1.G" +
+      "etSuburbIndexRequest\032\'.shorts.v1alpha1.G" +
+      "etSuburbIndexResponse\"\004\200\265\030\001\022\177\n\026GetSuburb" +
+      "MetricColumns\022..shorts.v1alpha1.GetSubur" +
+      "bMetricColumnsRequest\032/.shorts.v1alpha1." +
+      "GetSuburbMetricColumnsResponse\"\004\200\265\030\001\022d\n\r" +
+      "FilterSuburbs\022%.shorts.v1alpha1.FilterSu" +
+      "burbsRequest\032&.shorts.v1alpha1.FilterSub" +
+      "urbsResponse\"\004\200\265\030\001\022m\n\020GetSuburbProfile\022(" +
+      ".shorts.v1alpha1.GetSuburbProfileRequest" +
+      "\032).shorts.v1alpha1.GetSuburbProfileRespo" +
+      "nse\"\004\200\265\030\001\022s\n\022ListHousingRegions\022*.shorts" +
+      ".v1alpha1.ListHousingRegionsRequest\032+.sh" +
+      "orts.v1alpha1.ListHousingRegionsResponse" +
+      "\"\004\200\265\030\001\022y\n\024ListSuburbPriceDrops\022,.shorts." +
+      "v1alpha1.ListSuburbPriceDropsRequest\032-.s" +
+      "horts.v1alpha1.ListSuburbPriceDropsRespo" +
+      "nse\"\004\200\265\030\001\022\177\n\026ListSuburbDropListings\022..sh" +
+      "orts.v1alpha1.ListSuburbDropListingsRequ" +
+      "est\032/.shorts.v1alpha1.ListSuburbDropList" +
+      "ingsResponse\"\004\200\265\030\001\022s\n\022GetPropertyHistory" +
+      "\022*.shorts.v1alpha1.GetPropertyHistoryReq" +
+      "uest\032+.shorts.v1alpha1.GetPropertyHistor" +
+      "yResponse\"\004\200\265\030\001\022|\n\025ListAddressPriceDrops" +
+      "\022-.shorts.v1alpha1.ListAddressPriceDrops" +
+      "Request\032..shorts.v1alpha1.ListAddressPri" +
+      "ceDropsResponse\"\004\200\265\030\001\022|\n\025GetPriceDropsOv" +
+      "erview\022-.shorts.v1alpha1.GetPriceDropsOv" +
+      "erviewRequest\032..shorts.v1alpha1.GetPrice" +
+      "DropsOverviewResponse\"\004\200\265\030\001\022y\n\024ListAgenc" +
+      "yPriceStats\022,.shorts.v1alpha1.ListAgency" +
+      "PriceStatsRequest\032-.shorts.v1alpha1.List" +
+      "AgencyPriceStatsResponse\"\004\200\265\030\001\022s\n\022GetDro" +
+      "pIndexSeries\022*.shorts.v1alpha1.GetDropIn" +
+      "dexSeriesRequest\032+.shorts.v1alpha1.GetDr" +
+      "opIndexSeriesResponse\"\004\200\265\030\001\022a\n\014ListCounc" +
+      "ils\022$.shorts.v1alpha1.ListCouncilsReques" +
+      "t\032%.shorts.v1alpha1.ListCouncilsResponse" +
+      "\"\004\200\265\030\001\022p\n\021GetCouncilProfile\022).shorts.v1a" +
+      "lpha1.GetCouncilProfileRequest\032*.shorts." +
+      "v1alpha1.GetCouncilProfileResponse\"\004\200\265\030\001" +
+      "B\333\001\n\023com.shorts.v1alpha1B\014HousingProtoP\001" +
+      "ZYgithub.com/castlemilk/shorted.com.au/s" +
+      "ervices/gen/proto/go/shorts/v1alpha1;sho" +
+      "rtsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Sh" +
+      "orts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMetad" +
+      "ata\352\002\020Shorts::V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -1460,7 +1461,7 @@ public final class HousingProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_CouncilSummary_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_CouncilSummary_descriptor,
-        new java.lang.String[] { "LgaCode", "Slug", "DisplayName", "Kind", "StateCode", "Population", "ErpYear", "PopGrowthPct", "AreaSqkm", "DensityPerSqkm", "MemberSuburbCount", "CouncilHouseMedian", "CouncilHouseMedianPeriod", "FagPerResident", "FagYear", "ApprovalsPer1000", "ApprovalsThrough", "SeifaIrsadDecile", "FloodSharePct", "BushfireSharePct", "PriceDropShare", });
+        new java.lang.String[] { "LgaCode", "Slug", "DisplayName", "Kind", "StateCode", "Population", "ErpYear", "PopGrowthPct", "AreaSqkm", "DensityPerSqkm", "MemberSuburbCount", "CouncilHouseMedian", "CouncilHouseMedianPeriod", "FagPerResident", "FagYear", "ApprovalsPer1000", "ApprovalsThrough", "SeifaIrsadDecile", "FloodSharePct", "BushfireSharePct", "PriceDropShare", "DataThrough", });
     internal_static_shorts_v1alpha1_GetCouncilProfileRequest_descriptor =
       getDescriptor().getMessageType(65);
     internal_static_shorts_v1alpha1_GetCouncilProfileRequest_fieldAccessorTable = new

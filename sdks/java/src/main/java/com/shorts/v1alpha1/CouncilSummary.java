@@ -41,6 +41,7 @@ private static final long serialVersionUID = 0L;
     councilHouseMedianPeriod_ = "";
     fagYear_ = "";
     approvalsThrough_ = "";
+    dataThrough_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -709,6 +710,53 @@ private static final long serialVersionUID = 0L;
     return priceDropShare_;
   }
 
+  public static final int DATA_THROUGH_FIELD_NUMBER = 22;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object dataThrough_ = "";
+  /**
+   * <pre>
+   * newest period in any council series, 'YYYY-MM-DD'; '' if none
+   * </pre>
+   *
+   * <code>string data_through = 22 [json_name = "dataThrough"];</code>
+   * @return The dataThrough.
+   */
+  @java.lang.Override
+  public java.lang.String getDataThrough() {
+    java.lang.Object ref = dataThrough_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      dataThrough_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * newest period in any council series, 'YYYY-MM-DD'; '' if none
+   * </pre>
+   *
+   * <code>string data_through = 22 [json_name = "dataThrough"];</code>
+   * @return The bytes for dataThrough.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getDataThroughBytes() {
+    java.lang.Object ref = dataThrough_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      dataThrough_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -785,6 +833,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000200) != 0)) {
       output.writeDouble(21, priceDropShare_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(dataThrough_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 22, dataThrough_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -865,6 +916,9 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000200) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(21, priceDropShare_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(dataThrough_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(22, dataThrough_);
     }
     return size;
   }
@@ -971,6 +1025,8 @@ private static final long serialVersionUID = 0L;
           != java.lang.Double.doubleToLongBits(
               other.getPriceDropShare())) return false;
     }
+    if (!getDataThrough()
+        .equals(other.getDataThrough())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1053,6 +1109,8 @@ private static final long serialVersionUID = 0L;
       hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
           java.lang.Double.doubleToLongBits(getPriceDropShare()));
     }
+    hash = (37 * hash) + DATA_THROUGH_FIELD_NUMBER;
+    hash = (53 * hash) + getDataThrough().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1210,6 +1268,7 @@ private static final long serialVersionUID = 0L;
       floodSharePct_ = 0D;
       bushfireSharePct_ = 0D;
       priceDropShare_ = 0D;
+      dataThrough_ = "";
       return this;
     }
 
@@ -1317,6 +1376,9 @@ private static final long serialVersionUID = 0L;
         result.priceDropShare_ = priceDropShare_;
         to_bitField0_ |= 0x00000200;
       }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.dataThrough_ = dataThrough_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -1410,6 +1472,11 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasPriceDropShare()) {
         setPriceDropShare(other.getPriceDropShare());
+      }
+      if (!other.getDataThrough().isEmpty()) {
+        dataThrough_ = other.dataThrough_;
+        bitField0_ |= 0x00200000;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1542,6 +1609,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00100000;
               break;
             } // case 169
+            case 178: {
+              dataThrough_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00200000;
+              break;
+            } // case 178
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2875,6 +2947,98 @@ private static final long serialVersionUID = 0L;
     public Builder clearPriceDropShare() {
       bitField0_ = (bitField0_ & ~0x00100000);
       priceDropShare_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object dataThrough_ = "";
+    /**
+     * <pre>
+     * newest period in any council series, 'YYYY-MM-DD'; '' if none
+     * </pre>
+     *
+     * <code>string data_through = 22 [json_name = "dataThrough"];</code>
+     * @return The dataThrough.
+     */
+    public java.lang.String getDataThrough() {
+      java.lang.Object ref = dataThrough_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        dataThrough_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * newest period in any council series, 'YYYY-MM-DD'; '' if none
+     * </pre>
+     *
+     * <code>string data_through = 22 [json_name = "dataThrough"];</code>
+     * @return The bytes for dataThrough.
+     */
+    public com.google.protobuf.ByteString
+        getDataThroughBytes() {
+      java.lang.Object ref = dataThrough_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        dataThrough_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * newest period in any council series, 'YYYY-MM-DD'; '' if none
+     * </pre>
+     *
+     * <code>string data_through = 22 [json_name = "dataThrough"];</code>
+     * @param value The dataThrough to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDataThrough(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      dataThrough_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * newest period in any council series, 'YYYY-MM-DD'; '' if none
+     * </pre>
+     *
+     * <code>string data_through = 22 [json_name = "dataThrough"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDataThrough() {
+      dataThrough_ = getDefaultInstance().getDataThrough();
+      bitField0_ = (bitField0_ & ~0x00200000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * newest period in any council series, 'YYYY-MM-DD'; '' if none
+     * </pre>
+     *
+     * <code>string data_through = 22 [json_name = "dataThrough"];</code>
+     * @param value The bytes for dataThrough to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDataThroughBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      dataThrough_ = value;
+      bitField0_ |= 0x00200000;
       onChanged();
       return this;
     }
