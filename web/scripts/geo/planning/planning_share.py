@@ -26,10 +26,18 @@ keeps what is left; within a tier, families claim in FAMILIES order. The family
 shares therefore sum to the zoning coverage exactly.
 
 NULL vs 0 (the program rule): a state with no source produces no value at all
-(QLD zoning, WA, NT). Inside a covered state a suburb no polygon touches is a
-measured 0 for coverage — but its family shares, dominant family and heritage
-are NULL, because no instrument covers it (offshore and "no usual address"
-pseudo-suburbs, unincorporated land outside every LEP).
+(QLD zoning, WA, NT). Inside a covered state, zoning_coverage_pct is always the
+measured share the scheme layer maps — but the family shares, dominant family,
+heritage and development standards are only written where that coverage is at
+least MIN_MEASURED_COVERAGE_PCT. Below it the rest of the suburb is planned by
+an instrument these layers do not carry (The Rocks: 2.9% in the Sydney LEP, the
+rest a State precinct), so a "0% heritage" or a dominant family taken from a
+sliver would be a measurement of land we never looked at. The same rule, one
+level down: a development standard (height, FSR, lot size) is only reported
+where the LEP maps it on at least CONTROL_MIN_MAPPED_PCT of the suburb's
+residential land, because many LEPs map FSR only in their centres (Castle Hill:
+4.9% of residential land) and a median of that is the centre's number, not the
+suburb's. The mapped share itself is always written, so a reader sees the basis.
 """
 
 from __future__ import annotations
@@ -54,6 +62,13 @@ GRID = 0.01  # 1 cm snap, as vector_share.py
 INSTRUMENT_MIN_SHARE = 1.0  # % of the suburb an instrument must cover to be named
 MAX_SLIVER_M2 = 50.0  # a control piece smaller than this cannot set the maximum
 RESIDENTIAL = ("res_low", "res_medium_high")
+# Below this zoning coverage (% of the suburb) nothing but the coverage itself
+# is reported: the suburb is mostly planned by an instrument we do not carry.
+# Mirrored in services/house-price-collector/planning.go and migration 000125.
+MIN_MEASURED_COVERAGE_PCT = 50.0
+# A development standard is reported only where the LEP maps it on at least
+# this share of the suburb's residential land. Same three mirrors.
+CONTROL_MIN_MAPPED_PCT = 50.0
 
 # --- Per-state configuration ------------------------------------------------
 # zoning: [(layer, tier)] — lower tier number claims area first.
@@ -62,7 +77,10 @@ STATES: dict[str, dict] = {
         "zoning": [("nsw-zoning", None)],  # tier from EPI_TYPE: SEPP 0, LEP 1
         "heritage": "nsw-heritage",
         "controls": True,
-        "licence": "CC-BY-4.0",
+        # data.nsw.gov.au publishes these as license_id 'cc-by' with the
+        # unversioned opendefinition URL — record what was published, not a
+        # version nobody stated.
+        "licence": "CC-BY",
     },
     "VIC": {"zoning": [("vic-zoning", 0)], "heritage": "vic-heritage", "licence": "CC-BY-4.0"},
     # data.sa.gov.au lists CC BY 4.0; the License.txt shipped inside the zips
@@ -153,9 +171,15 @@ def heritage_class(layer: str, props: dict):
         if name in TAS_HERITAGE_AREAS:
             return True, None
         if name in TAS_HERITAGE_ITEMS:
-            # The code overlay carries no per-place identifier; each mapped
-            # place polygon is one place.
-            return False, ("tas", props.get("OBJECTID"))
+            # OV_CAT is the LPS's place reference (Devonport "DEV-C6.1.92"),
+            # and one place can span several polygons (DEV-C6.1.92 spans 4), so
+            # it is the key where it exists. Only Devonport and six Southern
+            # Midlands places fill it; every other LPS leaves it blank and each
+            # mapped polygon is taken as one place — an overcount wherever a
+            # place is drawn in pieces, which the layer gives no way to detect.
+            lps = (props.get("LPS") or "").strip()
+            ref = (props.get("OV_CAT") or "").strip()
+            return False, (("tas", lps, ref) if ref else ("tas", lps, f"oid:{props.get('OBJECTID')}"))
         return None
     if layer == "act-heritage":
         # Fetched pre-filtered: registered, not data-restricted, not an
@@ -439,6 +463,9 @@ def clip(geoms, sub):
 
 
 def control_stats(name: str, residential):
+    """-> (median, max, mapped_pct) over the residential land. mapped_pct is the
+    share of that land the standard is mapped on (0 when none); the median and
+    max are None unless mapped_pct >= CONTROL_MIN_MAPPED_PCT."""
     import shapely
 
     bg, bv, btree, xg, xv, xtree = _G[f"ctl_{name}"]
@@ -466,10 +493,14 @@ def control_stats(name: str, residential):
             pieces.append((value, geom))
     pairs = [(v, g.area) for v, g in pieces if g.area > 0]
     if not pairs:
-        return None, None
+        return None, None, 0.0
+    mapped = shapely.union_all([g for _, g in pieces if g.area > 0], grid_size=GRID).area
+    mapped_pct = r4(min(100.0, mapped / residential.area * 100.0))
+    if mapped_pct < CONTROL_MIN_MAPPED_PCT:
+        return None, None, mapped_pct
     median = weighted_median(pairs)
     substantial = [v for v, a in pairs if a >= MAX_SLIVER_M2]
-    return median, (max(substantial) if substantial else max(v for v, _ in pairs))
+    return median, (max(substantial) if substantial else max(v for v, _ in pairs)), mapped_pct
 
 
 def suburb_row(i: int):
@@ -514,26 +545,35 @@ def suburb_row(i: int):
                 if fam in RESIDENTIAL:
                     residential.append(g)
                 covered = g if covered is None else polygonal(shapely.union(covered, g, grid_size=GRID))
-        cov = 0.0 if covered is None else min(100.0, covered.area / area * 100.0)
-        row["zoningCoveragePct"] = r4(cov)
+        # Rounded before it gates anything, so the stored value and the gate
+        # can never disagree (the collector and the DB re-check the stored one).
+        cov = 0.0 if covered is None else r4(min(100.0, covered.area / area * 100.0))
+        row["zoningCoveragePct"] = cov
         row["zoningSource"] = "+".join(sorted(sources)) if sources else ZONING_SOURCE[cfg["zoning"][0][0]]
-        if cov > 0:
+        if cov >= MIN_MEASURED_COVERAGE_PCT:
             shares = {f: r4(min(100.0, a / area * 100.0)) for f, a in fam_area.items()}
             row["zoneSharesPct"] = {f: v for f, v in shares.items() if v and v > 0}
             row["dominantZoneFamily"] = max(FAMILIES, key=lambda f: (fam_area[f], -FAMILIES.index(f)))
             if cfg.get("controls") and residential:
                 res = polygonal(shapely.union_all(residential, grid_size=GRID))
                 if not res.is_empty and res.area > 0:
-                    h_med, h_max = control_stats("height", res)
-                    f_med, _ = control_stats("fsr", res)
-                    l_med, _ = control_stats("lot", res)
+                    h_med, h_max, h_cov = control_stats("height", res)
+                    f_med, _, f_cov = control_stats("fsr", res)
+                    l_med, _, l_cov = control_stats("lot", res)
                     row["nswHeightMedianM"] = r4(h_med)
                     row["nswHeightMaxM"] = r4(h_max)
                     row["nswFsrMedian"] = r4(f_med)
                     row["nswMinLotMedianM2"] = r4(l_med)
+                    row["nswHeightMappedPct"] = r4(h_cov)
+                    row["nswFsrMappedPct"] = r4(f_cov)
+                    row["nswMinLotMappedPct"] = r4(l_cov)
                     row["nswResidentialSharePct"] = r4(res.area / area * 100.0)
 
+    # Any zoning at all names instruments; only a suburb the scheme layers cover
+    # for the most part is MEASURED — heritage over the rest would count land no
+    # carried instrument maps as "no heritage".
     zoned = "zoning" not in _G or (covered is not None and covered.area > 0)
+    measured = "zoning" not in _G or row["zoningCoveragePct"] >= MIN_MEASURED_COVERAGE_PCT
     hlayer = _G["heritage_layer"]
     measure_areas = hlayer in HAS_HERITAGE_AREAS
     measure_items = hlayer in HAS_HERITAGE_ITEMS
@@ -541,7 +581,7 @@ def suburb_row(i: int):
         lps = governing_tas_lps(instruments)
         measure_areas = lps in _G["tas_lps_areas"]
         measure_items = lps in _G["tas_lps_items"]
-    if zoned and (measure_areas or measure_items):
+    if measured and (measure_areas or measure_items):
         row["heritageSource"] = HERITAGE_SOURCE[hlayer]
         if measure_areas:
             tree = _G.get("heritage_tree")

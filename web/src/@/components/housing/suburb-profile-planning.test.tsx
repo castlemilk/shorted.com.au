@@ -9,7 +9,8 @@ import {
   SuburbSummarySchema,
   ZoneFamilyShareSchema,
 } from "~/gen/shorts/v1alpha1/housing_pb";
-import { SuburbProfile, SourcesLine, planningCreditIds } from "./suburb-profile";
+import { planningCreditIds } from "@/lib/housing/planning-sources";
+import { SuburbProfile, SourcesLine } from "./suburb-profile";
 import { SuburbPlanningCard, fmtLot, fmtRatio } from "./suburb-planning-card";
 
 jest.mock("./suburb-banner-map", () => ({ SuburbBannerMap: () => null }));
@@ -27,7 +28,7 @@ const planning = (fields: Record<string, unknown>) =>
       create(ZoneFamilyShareSchema, z)),
   });
 
-const nsw = planning({
+const nswFields = {
   zoneShares: [
     { family: "res_low", sharePct: 62.4 },
     { family: "open_space", sharePct: 20 },
@@ -41,11 +42,15 @@ const nsw = planning({
   nswHeightMaxM: 21.5,
   nswFsrMedian: 0.5,
   nswMinLotMedianM2: 450,
+  nswHeightMappedPct: 64.8,
+  nswFsrMappedPct: 100,
+  nswMinLotMappedPct: 99.2,
   instruments: ["Ku-ring-gai Local Environmental Plan 2015"],
   zoningSource: "nsw_epi_land_zoning",
   heritageSource: "nsw_epi_heritage",
-  sourceLicence: "CC-BY-4.0",
-});
+  sourceLicence: "CC-BY",
+};
+const nsw = planning(nswFields);
 
 describe("Planning & zoning card", () => {
   test("renders the zoning mix as a stacked bar with labels, plus heritage and NSW controls", () => {
@@ -66,7 +71,61 @@ describe("Planning & zoning card", () => {
     expect(screen.getByRole("article", { name: "Floor space ratio" })).toHaveTextContent("0.5:1");
     expect(screen.getByRole("article", { name: "Minimum lot size" })).toHaveTextContent("450 m²");
     expect(screen.getByText(/Ku-ring-gai Local Environmental Plan 2015/)).toBeInTheDocument();
-    expect(screen.getByText(/Source: NSW EPI Land Zoning; NSW EPI Heritage/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Source: NSW EPI Land Zoning; NSW EPI Heritage; NSW EPI Height of Buildings, Floor Space Ratio and Lot Size/),
+    ).toBeInTheDocument();
+  });
+
+  test("says what share of residential land a standard is mapped on, only when it is not nearly all", () => {
+    render(<SuburbPlanningCard planning={nsw} stateCode="NSW" salCode="12345" />);
+    expect(screen.getByRole("article", { name: "Max building height" })).toHaveTextContent("mapped on 65% of residential land");
+    expect(screen.getByRole("article", { name: "Floor space ratio" })).not.toHaveTextContent(/mapped on/);
+    expect(screen.getByRole("article", { name: "Minimum lot size" })).not.toHaveTextContent(/mapped on/);
+    expect(screen.getByText(/where the LEP maps that standard, given only where it maps it on at least half/)).toBeInTheDocument();
+  });
+
+  test("a standard mapped on a sliver of residential land is not shown, and the card says why", () => {
+    // Castle Hill: the LEP maps FSR on 4.9% of the residential land — the centre.
+    render(
+      <SuburbPlanningCard
+        planning={planning({ ...nswFields, nswFsrMedian: undefined, nswFsrMappedPct: 4.9 })}
+        stateCode="NSW" salCode="10846"
+      />,
+    );
+    expect(screen.queryByRole("article", { name: "Floor space ratio" })).not.toBeInTheDocument();
+    expect(screen.getByText(/under half of the suburb's residential land .*: floor space ratio \(4\.9%\)/)).toBeInTheDocument();
+  });
+
+  test("a suburb the zoning map barely reaches shows only that, never a 0% heritage", () => {
+    // The Rocks: 2.9% in the Sydney LEP; the build stores the coverage alone.
+    render(
+      <SuburbPlanningCard
+        planning={planning({
+          zoningCoveragePct: 2.926,
+          zoningSource: "nsw_epi_land_zoning",
+          instruments: ["Sydney Local Environmental Plan 2012"],
+        })}
+        stateCode="NSW" salCode="13856"
+      />,
+    );
+    expect(screen.getByText(/covers only 2\.9% of this suburb/)).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /Zoning mix/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "In a heritage area" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Listed heritage places" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Source: NSW EPI Land Zoning\./)).toBeInTheDocument();
+  });
+
+  test("the listed-places note names the list, because the lists are not alike", () => {
+    const { rerender } = render(<SuburbPlanningCard planning={nsw} stateCode="NSW" salCode="12345" />);
+    expect(screen.getByRole("article", { name: "Listed heritage places" })).toHaveTextContent("items in the LEP heritage schedule");
+    expect(screen.getByText(/do not compare across states/)).toBeInTheDocument();
+    rerender(
+      <SuburbPlanningCard
+        planning={planning({ heritageItemCount: 15, heritageSource: "qld_heritage_register" })}
+        stateCode="QLD" salCode="30001"
+      />,
+    );
+    expect(screen.getByRole("article", { name: "Listed heritage places" })).toHaveTextContent("State-listed only");
   });
 
   test("links the zoning overlay on the state map", () => {
@@ -143,6 +202,29 @@ describe("planning attribution", () => {
     expect(screen.getByText(/Kingborough Interim Planning Scheme 2015 Zones/)).toBeInTheDocument();
     // heritage had no rendered value, so it is not credited
     expect(screen.queryByText(/Local Historic Heritage/)).not.toBeInTheDocument();
+  });
+
+  test("credits the NSW development-standard maps whenever the card shows or discusses them", () => {
+    render(
+      <SourcesLine
+        censusYear={2021} hasCensus={false} hasPrice={false} hasAmenities={false} hasSchoolSectors={false}
+        hasFederal={false} hasStateMember={false} stateName="New South Wales"
+        planningSources={planningCreditIds(nsw)}
+      />,
+    );
+    expect(screen.getByText(/Land Zoning, NSW Department of Planning \(CC BY\)/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Height of Buildings, Floor Space Ratio and Minimum Lot Size, NSW Department of Planning \(CC BY\)/),
+    ).toBeInTheDocument();
+    // Withheld-only still credits it: the card states a mapped share from it.
+    expect(planningCreditIds(planning({
+      zoneShares: [{ family: "res_low", sharePct: 99 }], zoningCoveragePct: 99, zoningSource: "nsw_epi_land_zoning",
+      nswFsrMappedPct: 4.9,
+    }))).toEqual(["nsw_epi_land_zoning", "nsw_epi_development_standards"]);
+    // A partial-coverage note credits the zoning layer it measured.
+    expect(planningCreditIds(planning({ zoningCoveragePct: 2.9, zoningSource: "nsw_epi_land_zoning" }))).toEqual([
+      "nsw_epi_land_zoning",
+    ]);
   });
 
   test("credits nothing for a suburb without a planning block", () => {

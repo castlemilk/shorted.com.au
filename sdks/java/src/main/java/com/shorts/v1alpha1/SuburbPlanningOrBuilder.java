@@ -36,7 +36,9 @@ public interface SuburbPlanningOrBuilder extends
 
   /**
    * <pre>
-   * % of the suburb inside any zone polygon
+   * % of the suburb inside any zone polygon. Under 50 it is the only value
+   * set: the rest of the suburb is planned by an instrument these layers do
+   * not carry, so no shares, dominant family or heritage are measured.
    * </pre>
    *
    * <code>optional double zoning_coverage_pct = 2 [json_name = "zoningCoveragePct"];</code>
@@ -45,7 +47,9 @@ public interface SuburbPlanningOrBuilder extends
   boolean hasZoningCoveragePct();
   /**
    * <pre>
-   * % of the suburb inside any zone polygon
+   * % of the suburb inside any zone polygon. Under 50 it is the only value
+   * set: the rest of the suburb is planned by an instrument these layers do
+   * not carry, so no shares, dominant family or heritage are measured.
    * </pre>
    *
    * <code>optional double zoning_coverage_pct = 2 [json_name = "zoningCoveragePct"];</code>
@@ -261,4 +265,51 @@ public interface SuburbPlanningOrBuilder extends
    */
   com.google.protobuf.ByteString
       getSourceLicenceBytes();
+
+  /**
+   * <pre>
+   * % of the suburb's residential-zoned land each NSW standard is actually
+   * mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+   * centres; a standard mapped on under half the residential land has no
+   * median/max above, because it would be the centre's number.
+   * </pre>
+   *
+   * <code>optional double nsw_height_mapped_pct = 14 [json_name = "nswHeightMappedPct"];</code>
+   * @return Whether the nswHeightMappedPct field is set.
+   */
+  boolean hasNswHeightMappedPct();
+  /**
+   * <pre>
+   * % of the suburb's residential-zoned land each NSW standard is actually
+   * mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+   * centres; a standard mapped on under half the residential land has no
+   * median/max above, because it would be the centre's number.
+   * </pre>
+   *
+   * <code>optional double nsw_height_mapped_pct = 14 [json_name = "nswHeightMappedPct"];</code>
+   * @return The nswHeightMappedPct.
+   */
+  double getNswHeightMappedPct();
+
+  /**
+   * <code>optional double nsw_fsr_mapped_pct = 15 [json_name = "nswFsrMappedPct"];</code>
+   * @return Whether the nswFsrMappedPct field is set.
+   */
+  boolean hasNswFsrMappedPct();
+  /**
+   * <code>optional double nsw_fsr_mapped_pct = 15 [json_name = "nswFsrMappedPct"];</code>
+   * @return The nswFsrMappedPct.
+   */
+  double getNswFsrMappedPct();
+
+  /**
+   * <code>optional double nsw_min_lot_mapped_pct = 16 [json_name = "nswMinLotMappedPct"];</code>
+   * @return Whether the nswMinLotMappedPct field is set.
+   */
+  boolean hasNswMinLotMappedPct();
+  /**
+   * <code>optional double nsw_min_lot_mapped_pct = 16 [json_name = "nswMinLotMappedPct"];</code>
+   * @return The nswMinLotMappedPct.
+   */
+  double getNswMinLotMappedPct();
 }

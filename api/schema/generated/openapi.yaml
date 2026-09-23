@@ -11654,7 +11654,10 @@ components:
             - "null"
           title: zoning_coverage_pct
           format: double
-          description: '% of the suburb inside any zone polygon (proto double)'
+          description: |-
+            % of the suburb inside any zone polygon. Under 50 it is the only value
+             set: the rest of the suburb is planned by an instrument these layers do
+             not carry, so no shares, dominant family or heritage are measured. (proto double)
         dominantZoneFamily:
           type: string
           title: dominant_zone_family
@@ -11724,6 +11727,31 @@ components:
           type: string
           title: source_licence
           description: e.g. 'CC-BY-4.0' (proto string)
+        nswHeightMappedPct:
+          type:
+            - number
+            - "null"
+          title: nsw_height_mapped_pct
+          format: double
+          description: |-
+            % of the suburb's residential-zoned land each NSW standard is actually
+             mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+             centres; a standard mapped on under half the residential land has no
+             median/max above, because it would be the centre's number. (proto double)
+        nswFsrMappedPct:
+          type:
+            - number
+            - "null"
+          title: nsw_fsr_mapped_pct
+          format: double
+          description: (proto double)
+        nswMinLotMappedPct:
+          type:
+            - number
+            - "null"
+          title: nsw_min_lot_mapped_pct
+          format: double
+          description: (proto double)
       title: SuburbPlanning
       additionalProperties: false
       description: |-

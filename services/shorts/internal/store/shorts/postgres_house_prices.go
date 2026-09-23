@@ -818,6 +818,11 @@ type SuburbPlanningRow struct {
 	NSWHeightMaxM      *float64
 	NSWFSRMedian       *float64
 	NSWMinLotMedianM2  *float64
+	// % of the residential land each standard is mapped on (a measured 0 is
+	// 0). A standard mapped on under half of it carries no median/max.
+	NSWHeightMappedPct *float64
+	NSWFSRMappedPct    *float64
+	NSWMinLotMappedPct *float64
 	Instruments        []string
 	ZoningSource       string
 	HeritageSource     string
@@ -832,57 +837,70 @@ const suburbPlanningQuery = `
 		       zoning_coverage_pct, COALESCE(dominant_zone_family, ''),
 		       heritage_share_pct, heritage_item_count,
 		       nsw_height_median_m, nsw_height_max_m, nsw_fsr_median, nsw_min_lot_median_m2,
+		       nsw_height_mapped_pct, nsw_fsr_mapped_pct, nsw_min_lot_mapped_pct,
 		       COALESCE(planning_instruments, '{}'::text[]),
 		       COALESCE(zoning_source, ''), COALESCE(heritage_source, ''), source_licence
 		FROM suburb_planning
 		WHERE sal_code = $1 AND source_licence <> 'proprietary-tos-restricted'`
 
+// planningScan holds the nullable scalars of one suburbPlanningQuery row.
+type planningScan struct {
+	Coverage, Heritage, HMed, HMax, FSR, Lot sql.NullFloat64
+	HMapped, FSRMapped, LotMapped            sql.NullFloat64
+	Items                                    sql.NullInt32
+}
+
 // suburbPlanning returns nil, nil when the suburb has no row or the row holds
 // nothing (a covered-state suburb no instrument reaches).
 func (s *postgresStore) suburbPlanning(ctx context.Context, salCode string) (*SuburbPlanningRow, error) {
 	shares := make([]sql.NullFloat64, len(ZoneFamilies))
-	var coverage, heritage, hMed, hMax, fsr, lot sql.NullFloat64
-	var items sql.NullInt32
+	var sc planningScan
 	row := &SuburbPlanningRow{}
-	dest := make([]any, 0, len(ZoneFamilies)+12)
+	dest := make([]any, 0, len(ZoneFamilies)+15)
 	for i := range shares {
 		dest = append(dest, &shares[i])
 	}
-	dest = append(dest, &coverage, &row.DominantZoneFamily, &heritage, &items,
-		&hMed, &hMax, &fsr, &lot, &row.Instruments, &row.ZoningSource, &row.HeritageSource, &row.SourceLicence)
+	dest = append(dest, &sc.Coverage, &row.DominantZoneFamily, &sc.Heritage, &sc.Items,
+		&sc.HMed, &sc.HMax, &sc.FSR, &sc.Lot, &sc.HMapped, &sc.FSRMapped, &sc.LotMapped,
+		&row.Instruments, &row.ZoningSource, &row.HeritageSource, &row.SourceLicence)
 	if err := s.db.QueryRow(ctx, suburbPlanningQuery, salCode).Scan(dest...); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return buildSuburbPlanningRow(row, shares, coverage, heritage, hMed, hMax, fsr, lot, items), nil
+	return buildSuburbPlanningRow(row, shares, sc), nil
 }
 
 // buildSuburbPlanningRow finishes a scanned row: pointer-ises the nullable
 // scalars, keeps only non-zero family shares (largest first, ties in family
-// order) and collapses an all-empty row to nil. Split out for tests.
-func buildSuburbPlanningRow(row *SuburbPlanningRow, shares []sql.NullFloat64,
-	coverage, heritage, hMed, hMax, fsr, lot sql.NullFloat64, items sql.NullInt32) *SuburbPlanningRow {
+// order) and collapses an all-empty row to nil. A row carrying only a partial
+// coverage (the scheme layers reach under half the suburb, so nothing else was
+// measured) is kept: the card says so rather than vanishing. Split out for tests.
+func buildSuburbPlanningRow(row *SuburbPlanningRow, shares []sql.NullFloat64, sc planningScan) *SuburbPlanningRow {
 	for i, family := range ZoneFamilies {
 		if i < len(shares) && shares[i].Valid && shares[i].Float64 > 0 {
 			row.ZoneShares = append(row.ZoneShares, ZoneFamilyShareRow{Family: family, SharePct: shares[i].Float64})
 		}
 	}
 	sort.SliceStable(row.ZoneShares, func(a, b int) bool { return row.ZoneShares[a].SharePct > row.ZoneShares[b].SharePct })
-	row.ZoningCoveragePct = nullableFloatPointer(coverage)
-	row.HeritageSharePct = nullableFloatPointer(heritage)
-	row.NSWHeightMedianM = nullableFloatPointer(hMed)
-	row.NSWHeightMaxM = nullableFloatPointer(hMax)
-	row.NSWFSRMedian = nullableFloatPointer(fsr)
-	row.NSWMinLotMedianM2 = nullableFloatPointer(lot)
-	if items.Valid {
-		v := items.Int32
+	row.ZoningCoveragePct = nullableFloatPointer(sc.Coverage)
+	row.HeritageSharePct = nullableFloatPointer(sc.Heritage)
+	row.NSWHeightMedianM = nullableFloatPointer(sc.HMed)
+	row.NSWHeightMaxM = nullableFloatPointer(sc.HMax)
+	row.NSWFSRMedian = nullableFloatPointer(sc.FSR)
+	row.NSWMinLotMedianM2 = nullableFloatPointer(sc.Lot)
+	row.NSWHeightMappedPct = nullableFloatPointer(sc.HMapped)
+	row.NSWFSRMappedPct = nullableFloatPointer(sc.FSRMapped)
+	row.NSWMinLotMappedPct = nullableFloatPointer(sc.LotMapped)
+	if sc.Items.Valid {
+		v := sc.Items.Int32
 		row.HeritageItemCount = &v
 	}
+	partlyCovered := row.ZoningCoveragePct != nil && *row.ZoningCoveragePct > 0
 	if len(row.ZoneShares) == 0 && row.HeritageSharePct == nil && row.HeritageItemCount == nil &&
 		row.NSWHeightMedianM == nil && row.NSWFSRMedian == nil && row.NSWMinLotMedianM2 == nil &&
-		len(row.Instruments) == 0 {
+		len(row.Instruments) == 0 && !partlyCovered {
 		return nil
 	}
 	return row

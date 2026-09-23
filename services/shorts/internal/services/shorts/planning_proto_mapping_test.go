@@ -22,6 +22,8 @@ func TestSuburbPlanningProtoKeepsZeroDropsAbsentAndOrdersShares(t *testing.T) {
 		HeritageSharePct:   &zero,
 		HeritageItemCount:  &items,
 		NSWHeightMedianM:   &height,
+		NSWHeightMappedPct: &cov,
+		NSWFSRMappedPct:    &zero,
 		Instruments:        []string{"Ku-ring-gai Local Environmental Plan 2015"},
 		ZoningSource:       "nsw_epi_land_zoning",
 		HeritageSource:     "nsw_epi_heritage",
@@ -35,6 +37,10 @@ func TestSuburbPlanningProtoKeepsZeroDropsAbsentAndOrdersShares(t *testing.T) {
 	}
 	if got.NswFsrMedian != nil || got.NswMinLotMedianM2 != nil || got.NswHeightMaxM != nil {
 		t.Fatalf("absent NSW controls must stay absent")
+	}
+	if got.NswHeightMappedPct == nil || *got.NswHeightMappedPct != 97.5 || got.NswFsrMappedPct == nil ||
+		*got.NswFsrMappedPct != 0 || got.NswMinLotMappedPct != nil {
+		t.Fatalf("mapped shares must keep presence: %+v", got)
 	}
 	if got.GetHeritageItemCount() != 4 || got.GetNswHeightMedianM() != 9.5 || got.GetDominantZoneFamily() != "res_low" {
 		t.Fatalf("unexpected mapping: %+v", got)

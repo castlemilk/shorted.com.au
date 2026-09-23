@@ -49,11 +49,15 @@ $PY planning_share.py merge --in-dir $P/out --out ../../../../services/house-pri
 ```
 
 Measured 2026-09-23 on a 12-core Mac: ACT 12 s, TAS 36 s, QLD 1 s, SA 22 s,
-VIC 26 s, NSW 2.5 min; peak RSS 1.8 GB (TAS). Per state it streams the NDJSON
+VIC 26 s, NSW 2.5 min; peak RSS 1.8 GB (TAS; 2.3 GB on the 2026-09-24 rebuild). Per state it streams the NDJSON
 pages, projects to EPSG:3577, snaps to 1 cm, then per suburb: clips each zone
 polygon, resolves overlaps by precedence (NSW SEPP over LEP; TAS TPS over the
 Kingborough interim scheme), unions per family and divides by the suburb's
-area. `GDAL_CACHEMAX` is capped at 256 MB. WA and NT get no rows; QLD rows
+area. Two gates keep a partial measurement from reading as the suburb's
+(`MIN_MEASURED_COVERAGE_PCT`, `CONTROL_MIN_MAPPED_PCT`, both 50, mirrored in the
+collector and in migration 000125's CHECK). Below 50% zoning coverage only the
+coverage is written. A NSW standard mapped on under 50% of the residential land
+keeps its `*MappedPct` but gets no median or max. `GDAL_CACHEMAX` is capped at 256 MB. WA and NT get no rows; QLD rows
 carry only the heritage item count.
 
 ## 3. Overlays

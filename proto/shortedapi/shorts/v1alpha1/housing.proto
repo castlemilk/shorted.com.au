@@ -243,7 +243,10 @@ message ZoneFamilyShare {
 // non-zero share, largest first, and sums to zoning_coverage_pct.
 message SuburbPlanning {
   repeated ZoneFamilyShare zone_shares = 1;
-  optional double zoning_coverage_pct = 2;   // % of the suburb inside any zone polygon
+  // % of the suburb inside any zone polygon. Under 50 it is the only value
+  // set: the rest of the suburb is planned by an instrument these layers do
+  // not carry, so no shares, dominant family or heritage are measured.
+  optional double zoning_coverage_pct = 2;
   string dominant_zone_family = 3;           // '' when unzoned / no source
   // % of the suburb in a heritage conservation area / Heritage Overlay /
   // historic or character area (area classes only).
@@ -260,6 +263,13 @@ message SuburbPlanning {
   string zoning_source = 11;                 // dataset id, '' when absent
   string heritage_source = 12;
   string source_licence = 13;                // e.g. 'CC-BY-4.0'
+  // % of the suburb's residential-zoned land each NSW standard is actually
+  // mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+  // centres; a standard mapped on under half the residential land has no
+  // median/max above, because it would be the centre's number.
+  optional double nsw_height_mapped_pct = 14;
+  optional double nsw_fsr_mapped_pct = 15;
+  optional double nsw_min_lot_mapped_pct = 16;
 }
 
 message SuburbSummary {

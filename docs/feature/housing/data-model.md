@@ -125,12 +125,16 @@ licence-gated `LEFT JOIN`. Filled by `-mode hazards` from
 to it), `dominant_zone_family` (CHECK-constrained to the ten),
 `heritage_share_pct` + `heritage_item_count`, the NSW-only
 `nsw_height_median_m` / `nsw_height_max_m` / `nsw_fsr_median` /
-`nsw_min_lot_median_m2` over residential land, `planning_instruments TEXT[]`,
+`nsw_min_lot_median_m2` over residential land plus `nsw_*_mapped_pct` (the share
+of residential land each standard is mapped on), `planning_instruments TEXT[]`,
 `zoning_source` / `heritage_source` ids and the licence DEFAULT + CHECK. Every
 share is CHECK-bounded 0–100. **NULL = no source**: WA and NT have no row, QLD
 rows carry only `heritage_item_count`, a covered-state suburb no scheme reaches
 has `zoning_coverage_pct = 0` and NULL families, and in TAS heritage is NULL
-where the governing LPS maps no heritage class. Read on
+where the governing LPS maps no heritage class. Two gates are CHECK-enforced
+(`suburb_planning_measured_check`). Under 50% zoning coverage, no dominant
+family and no heritage are stored, and the collector also writes no family
+shares. A NSW standard's median/max needs its `nsw_*_mapped_pct` ≥ 50. Read on
 `GetSuburbProfile.planning` (tolerated query) and in the column registry
 (licence-gated `LEFT JOIN suburb_planning pl`), including the categorical
 `dominant_zone_family` column with server-sent labels. Filled by `-mode planning`
@@ -274,4 +278,4 @@ aborts the function and starves every MV after it.
 | 000088 / 000091 | `property_valuations` / `valuation_granularity` |
 | 000089 | `crawl_run_status` |
 | 000090 / 000092 | `suburb_crime_stats` + initial crime MV / deterministic gated rebuild + final refresh fn |
-| 000125 | `suburb_planning`: zoning-family shares + coverage + dominant family, heritage share + item count, NSW height/FSR/lot-size standards, instruments, sources, licence CHECK |
+| 000125 | `suburb_planning`: zoning-family shares + coverage + dominant family, heritage share + item count, NSW height/FSR/lot-size standards + their mapped shares, instruments, sources, licence CHECK, coverage-gate CHECK |

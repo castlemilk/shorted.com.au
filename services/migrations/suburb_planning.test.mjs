@@ -23,6 +23,9 @@ const shareColumns = [
   ...families.map((f) => `zone_${f}_share_pct`),
   "zoning_coverage_pct",
   "heritage_share_pct",
+  "nsw_height_mapped_pct",
+  "nsw_fsr_mapped_pct",
+  "nsw_min_lot_mapped_pct",
 ];
 
 test("the table is replay-safe and keyed to the suburb spine", () => {
@@ -69,6 +72,23 @@ test("NSW controls, instruments and sources are present and nullable", () => {
   assert.match(up, /planning_instruments\s+TEXT\[\],/);
   assert.match(up, /zoning_source\s+TEXT,/);
   assert.match(up, /heritage_source\s+TEXT,/);
+});
+
+test("nothing but coverage is stored for a suburb the scheme layers mostly miss", () => {
+  const check = up.match(/suburb_planning_measured_check CHECK \(([\s\S]*?)\n  \),/);
+  assert.ok(check, "measured CHECK present");
+  const body = check[1].replace(/\s+/g, " ");
+  // Dominant family and heritage need coverage >= 50 in a zoning state.
+  assert.match(body, /dominant_zone_family IS NULL AND heritage_share_pct IS NULL AND heritage_item_count IS NULL\) OR zoning_coverage_pct IS NULL OR zoning_coverage_pct >= 50/);
+  // Each NSW standard needs its own mapped share >= 50 of residential land.
+  for (const [value, mapped] of [
+    ["nsw_height_median_m", "nsw_height_mapped_pct"],
+    ["nsw_height_max_m", "nsw_height_mapped_pct"],
+    ["nsw_fsr_median", "nsw_fsr_mapped_pct"],
+    ["nsw_min_lot_median_m2", "nsw_min_lot_mapped_pct"],
+  ]) {
+    assert.match(body, new RegExp(`${value} IS NULL OR ${mapped} >= 50`), value);
+  }
 });
 
 test("the unlicensed state is unstorable", () => {

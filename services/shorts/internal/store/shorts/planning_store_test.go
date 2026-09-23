@@ -29,12 +29,13 @@ func TestBuildSuburbPlanningRowKeepsZeroDropsAbsentAndSortsShares(t *testing.T) 
 	shares[1] = sql.NullFloat64{Float64: 55, Valid: true} // res_medium_high
 	shares[3] = sql.NullFloat64{Float64: 0, Valid: true}  // industrial, measured 0
 	shares[6] = sql.NullFloat64{Float64: 20, Valid: true} // open_space ties res_low
-	row := buildSuburbPlanningRow(&SuburbPlanningRow{DominantZoneFamily: "res_medium_high"}, shares,
-		sql.NullFloat64{Float64: 95, Valid: true},
-		sql.NullFloat64{Float64: 0, Valid: true}, // heritage share measured 0
-		sql.NullFloat64{}, sql.NullFloat64{}, sql.NullFloat64{}, sql.NullFloat64{},
-		sql.NullInt32{Int32: 0, Valid: true},
-	)
+	row := buildSuburbPlanningRow(&SuburbPlanningRow{DominantZoneFamily: "res_medium_high"}, shares, planningScan{
+		Coverage:  sql.NullFloat64{Float64: 95, Valid: true},
+		Heritage:  sql.NullFloat64{Float64: 0, Valid: true}, // heritage share measured 0
+		Items:     sql.NullInt32{Int32: 0, Valid: true},
+		FSRMapped: sql.NullFloat64{Float64: 0, Valid: true}, // FSR mapped nowhere: a measured 0
+		HMapped:   sql.NullFloat64{Float64: 4.5, Valid: true},
+	})
 	if row == nil {
 		t.Fatal("a zoned suburb must produce a block")
 	}
@@ -51,14 +52,30 @@ func TestBuildSuburbPlanningRowKeepsZeroDropsAbsentAndSortsShares(t *testing.T) 
 	if row.NSWHeightMedianM != nil || row.NSWFSRMedian != nil {
 		t.Fatalf("absent NSW controls must stay nil")
 	}
+	if row.NSWFSRMappedPct == nil || *row.NSWFSRMappedPct != 0 || row.NSWHeightMappedPct == nil ||
+		*row.NSWHeightMappedPct != 4.5 || row.NSWMinLotMappedPct != nil {
+		t.Fatalf("mapped shares must keep presence: %+v", row)
+	}
 }
 
 func TestBuildSuburbPlanningRowCollapsesAnEmptyRowToNil(t *testing.T) {
 	shares := make([]sql.NullFloat64, len(ZoneFamilies))
-	row := buildSuburbPlanningRow(&SuburbPlanningRow{ZoningSource: "nsw_epi_land_zoning"}, shares,
-		sql.NullFloat64{Float64: 0, Valid: true}, sql.NullFloat64{},
-		sql.NullFloat64{}, sql.NullFloat64{}, sql.NullFloat64{}, sql.NullFloat64{}, sql.NullInt32{})
+	row := buildSuburbPlanningRow(&SuburbPlanningRow{ZoningSource: "nsw_epi_land_zoning"}, shares, planningScan{
+		Coverage: sql.NullFloat64{Float64: 0, Valid: true},
+	})
 	if row != nil {
 		t.Fatalf("a suburb no instrument reaches must render no card, got %+v", row)
+	}
+}
+
+func TestBuildSuburbPlanningRowKeepsAPartialCoverageOnItsOwn(t *testing.T) {
+	// The Rocks: the scheme layers zone 2.9% of it, so the build stored the
+	// coverage and nothing else. The card must still say so.
+	shares := make([]sql.NullFloat64, len(ZoneFamilies))
+	row := buildSuburbPlanningRow(&SuburbPlanningRow{ZoningSource: "nsw_epi_land_zoning"}, shares, planningScan{
+		Coverage: sql.NullFloat64{Float64: 2.926, Valid: true},
+	})
+	if row == nil || row.ZoningCoveragePct == nil || *row.ZoningCoveragePct != 2.926 || len(row.ZoneShares) != 0 {
+		t.Fatalf("a partial coverage must survive on its own, got %+v", row)
 	}
 }

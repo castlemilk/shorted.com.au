@@ -1147,10 +1147,13 @@ func (x *ZoneFamilyShare) GetSharePct() float64 {
 // development standards), never zero. zone_shares lists only families with a
 // non-zero share, largest first, and sums to zoning_coverage_pct.
 type SuburbPlanning struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	ZoneShares         []*ZoneFamilyShare     `protobuf:"bytes,1,rep,name=zone_shares,json=zoneShares,proto3" json:"zone_shares,omitempty"`
-	ZoningCoveragePct  *float64               `protobuf:"fixed64,2,opt,name=zoning_coverage_pct,json=zoningCoveragePct,proto3,oneof" json:"zoning_coverage_pct,omitempty"` // % of the suburb inside any zone polygon
-	DominantZoneFamily string                 `protobuf:"bytes,3,opt,name=dominant_zone_family,json=dominantZoneFamily,proto3" json:"dominant_zone_family,omitempty"`      // '' when unzoned / no source
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	ZoneShares []*ZoneFamilyShare     `protobuf:"bytes,1,rep,name=zone_shares,json=zoneShares,proto3" json:"zone_shares,omitempty"`
+	// % of the suburb inside any zone polygon. Under 50 it is the only value
+	// set: the rest of the suburb is planned by an instrument these layers do
+	// not carry, so no shares, dominant family or heritage are measured.
+	ZoningCoveragePct  *float64 `protobuf:"fixed64,2,opt,name=zoning_coverage_pct,json=zoningCoveragePct,proto3,oneof" json:"zoning_coverage_pct,omitempty"`
+	DominantZoneFamily string   `protobuf:"bytes,3,opt,name=dominant_zone_family,json=dominantZoneFamily,proto3" json:"dominant_zone_family,omitempty"` // '' when unzoned / no source
 	// % of the suburb in a heritage conservation area / Heritage Overlay /
 	// historic or character area (area classes only).
 	HeritageSharePct  *float64 `protobuf:"fixed64,4,opt,name=heritage_share_pct,json=heritageSharePct,proto3,oneof" json:"heritage_share_pct,omitempty"`
@@ -1166,8 +1169,15 @@ type SuburbPlanning struct {
 	ZoningSource      string   `protobuf:"bytes,11,opt,name=zoning_source,json=zoningSource,proto3" json:"zoning_source,omitempty"` // dataset id, '' when absent
 	HeritageSource    string   `protobuf:"bytes,12,opt,name=heritage_source,json=heritageSource,proto3" json:"heritage_source,omitempty"`
 	SourceLicence     string   `protobuf:"bytes,13,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"` // e.g. 'CC-BY-4.0'
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// % of the suburb's residential-zoned land each NSW standard is actually
+	// mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+	// centres; a standard mapped on under half the residential land has no
+	// median/max above, because it would be the centre's number.
+	NswHeightMappedPct *float64 `protobuf:"fixed64,14,opt,name=nsw_height_mapped_pct,json=nswHeightMappedPct,proto3,oneof" json:"nsw_height_mapped_pct,omitempty"`
+	NswFsrMappedPct    *float64 `protobuf:"fixed64,15,opt,name=nsw_fsr_mapped_pct,json=nswFsrMappedPct,proto3,oneof" json:"nsw_fsr_mapped_pct,omitempty"`
+	NswMinLotMappedPct *float64 `protobuf:"fixed64,16,opt,name=nsw_min_lot_mapped_pct,json=nswMinLotMappedPct,proto3,oneof" json:"nsw_min_lot_mapped_pct,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *SuburbPlanning) Reset() {
@@ -1289,6 +1299,27 @@ func (x *SuburbPlanning) GetSourceLicence() string {
 		return x.SourceLicence
 	}
 	return ""
+}
+
+func (x *SuburbPlanning) GetNswHeightMappedPct() float64 {
+	if x != nil && x.NswHeightMappedPct != nil {
+		return *x.NswHeightMappedPct
+	}
+	return 0
+}
+
+func (x *SuburbPlanning) GetNswFsrMappedPct() float64 {
+	if x != nil && x.NswFsrMappedPct != nil {
+		return *x.NswFsrMappedPct
+	}
+	return 0
+}
+
+func (x *SuburbPlanning) GetNswMinLotMappedPct() float64 {
+	if x != nil && x.NswMinLotMappedPct != nil {
+		return *x.NswMinLotMappedPct
+	}
+	return 0
 }
 
 type SuburbSummary struct {
@@ -5929,7 +5960,7 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x19_bushfire_prone_share_pct\"F\n" +
 	"\x0fZoneFamilyShare\x12\x16\n" +
 	"\x06family\x18\x01 \x01(\tR\x06family\x12\x1b\n" +
-	"\tshare_pct\x18\x02 \x01(\x01R\bsharePct\"\x9e\x06\n" +
+	"\tshare_pct\x18\x02 \x01(\x01R\bsharePct\"\x8d\b\n" +
 	"\x0eSuburbPlanning\x12A\n" +
 	"\vzone_shares\x18\x01 \x03(\v2 .shorts.v1alpha1.ZoneFamilyShareR\n" +
 	"zoneShares\x123\n" +
@@ -5945,14 +5976,20 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	" \x03(\tR\vinstruments\x12#\n" +
 	"\rzoning_source\x18\v \x01(\tR\fzoningSource\x12'\n" +
 	"\x0fheritage_source\x18\f \x01(\tR\x0eheritageSource\x12%\n" +
-	"\x0esource_licence\x18\r \x01(\tR\rsourceLicenceB\x16\n" +
+	"\x0esource_licence\x18\r \x01(\tR\rsourceLicence\x126\n" +
+	"\x15nsw_height_mapped_pct\x18\x0e \x01(\x01H\aR\x12nswHeightMappedPct\x88\x01\x01\x120\n" +
+	"\x12nsw_fsr_mapped_pct\x18\x0f \x01(\x01H\bR\x0fnswFsrMappedPct\x88\x01\x01\x127\n" +
+	"\x16nsw_min_lot_mapped_pct\x18\x10 \x01(\x01H\tR\x12nswMinLotMappedPct\x88\x01\x01B\x16\n" +
 	"\x14_zoning_coverage_pctB\x15\n" +
 	"\x13_heritage_share_pctB\x16\n" +
 	"\x14_heritage_item_countB\x16\n" +
 	"\x14_nsw_height_median_mB\x13\n" +
 	"\x11_nsw_height_max_mB\x11\n" +
 	"\x0f_nsw_fsr_medianB\x18\n" +
-	"\x16_nsw_min_lot_median_m2\"\xcb\n" +
+	"\x16_nsw_min_lot_median_m2B\x18\n" +
+	"\x16_nsw_height_mapped_pctB\x15\n" +
+	"\x13_nsw_fsr_mapped_pctB\x19\n" +
+	"\x17_nsw_min_lot_mapped_pct\"\xcb\n" +
 	"\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +

@@ -452,7 +452,8 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
   {
     kind: "column-categorical", key: "dominant_zone_family", label: "Main zoning",
     legendLabel: "Largest zoning family", group: "planning",
-    colorForLabel: zoneFamilyColorForLabel, noDataLabel: "No open zoning source",
+    // No data = no open zoning source, or one that maps under half the suburb.
+    colorForLabel: zoneFamilyColorForLabel, noDataLabel: "No open zoning map covers it",
   },
   zoneShareMetric("zone_res_low_share_pct", "res_low", "Low-density residential zoning"),
   zoneShareMetric("zone_res_medium_high_share_pct", "res_medium_high", "Medium/high-density residential zoning"),
@@ -465,13 +466,15 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     kind: "column", key: "heritage_share_pct", label: "Heritage areas",
     legendLabel: "Land in a heritage area", group: "planning",
     format: fmtPct, domain: [0, 100], makeScale: () => familyScale("#8c5a3c", 0, 100),
-    noDataLabel: "No open heritage layer",
+    noDataLabel: "No open heritage layer covers it",
   },
   {
     kind: "column", key: "nsw_height_median_m", label: "Permitted height (NSW)",
     legendLabel: "Typical max building height on residential land (m)", group: "planning",
     format: (v) => `${v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)} m`, sqrt: true,
-    noDataLabel: "NSW only",
+    // No data outside NSW, and where the LEP maps height on under half the
+    // residential land (the median would be the centre's number).
+    noDataLabel: "NSW only, where mapped",
   },
 ];
 
@@ -481,7 +484,7 @@ function zoneShareMetric(key: MetricKey, family: ZoneFamily, label: string): Col
     kind: "column", key, label, legendLabel: `Share of suburb zoned ${ZONE_FAMILY_SHORT[family].toLowerCase()}`,
     group: "planning", format: fmtPct, domain: [0, 100],
     makeScale: () => familyScale(ZONE_FAMILY_COLORS[family], 0, 100),
-    noDataLabel: "No open zoning source",
+    noDataLabel: "No open zoning map covers it",
   };
 }
 

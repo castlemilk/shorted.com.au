@@ -19,16 +19,18 @@ const inDir = resolve(process.argv[2] ?? "/Volumes/gamma-systems-2/shorted-plann
 const outDir = resolve(process.argv[3] ?? resolve(here, "../../../public/geo/planning"));
 export const MAX_BYTES = 1_200_000;
 
+// Licences as each publisher states them: data.nsw publishes the NSW EPI layers
+// as license_id 'cc-by' with no version, so they are stamped "CC-BY".
 export const LAYER_META = {
   zoning: {
-    NSW: { source: "NSW EPI Land Zoning (NSW Planning Portal)", licence: "CC-BY-4.0" },
+    NSW: { source: "NSW EPI Land Zoning (NSW Planning Portal)", licence: "CC-BY" },
     VIC: { source: "Vicmap Planning — planning scheme zones (DTP Victoria)", licence: "CC-BY-4.0" },
     SA: { source: "SA Planning and Design Code zones (PlanSA)", licence: "CC-BY-3.0-AU" },
     TAS: { source: "Tasmanian Planning Scheme zones + Kingborough Interim Planning Scheme (theLIST)", licence: "CC-BY-3.0-AU" },
     ACT: { source: "ACT Territory Plan land use zones (ACTmapi)", licence: "CC-BY-4.0" },
   },
   heritage: {
-    NSW: { source: "NSW EPI Heritage — conservation areas (NSW Planning Portal)", licence: "CC-BY-4.0" },
+    NSW: { source: "NSW EPI Heritage — conservation areas (NSW Planning Portal)", licence: "CC-BY" },
     VIC: { source: "Vicmap Planning Heritage Overlay (DTP Victoria)", licence: "CC-BY-4.0" },
     SA: { source: "SA Planning and Design Code Historic Area / Character Area / State Heritage Area overlays (PlanSA)", licence: "CC-BY-3.0-AU" },
     TAS: { source: "Tasmanian Planning Scheme Local Historic Heritage Code precincts (theLIST)", licence: "CC-BY-3.0-AU" },

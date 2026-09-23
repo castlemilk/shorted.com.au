@@ -32,7 +32,6 @@ import type {
   LgaInfo,
   SuburbCrime,
   SuburbDemographics,
-  SuburbPlanning,
   SuburbSeifa,
   SuburbSeifaIndex,
   SuburbSummary,
@@ -46,7 +45,7 @@ import { SuburbNearbyList } from "./suburb-nearby-list";
 import { SuburbScoreBand } from "./suburb-score-band";
 import { SuburbHazardCard } from "./suburb-hazard-card";
 import { SuburbPlanningCard } from "./suburb-planning-card";
-import { PLANNING_SOURCE_CREDITS, planningSourceIds } from "@/lib/housing/planning-sources";
+import { PLANNING_SOURCE_CREDITS, planningCreditIds } from "@/lib/housing/planning-sources";
 import { RecentPriceDrops } from "./suburb-recent-price-drops-loader";
 import { STATE_NAMES, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
 import { crimeRankScale } from "@/lib/housing/highlight-metrics";
@@ -353,20 +352,6 @@ export function SuburbProfile({
 }
 
 type Demographics = SuburbDemographics;
-
-/**
- * The planning source ids the planning card actually rendered: zoning only
- * when a family share is shown, heritage only when a heritage value is.
- */
-export function planningCreditIds(planning: SuburbPlanning | undefined): string[] {
-  if (!planning) return [];
-  const ids: string[] = [];
-  if ((planning.zoneShares ?? []).some((z) => z.sharePct > 0)) ids.push(...planningSourceIds(planning.zoningSource));
-  if (planning.heritageSharePct !== undefined || planning.heritageItemCount !== undefined) {
-    ids.push(...planningSourceIds(planning.heritageSource));
-  }
-  return ids;
-}
 
 type Summary = SuburbSummary;
 type Crime = SuburbCrime;
@@ -929,7 +914,7 @@ export function SourcesLine({
   hasWaterObservations?: boolean;
   /** Source ids from SuburbHazardExposure (flood_source / bushfire_source) actually rendered. */
   statutoryHazardSources?: string[];
-  /** Source ids from SuburbPlanning (zoning_source / heritage_source) the planning card rendered. */
+  /** Planning source ids the planning card rendered (planningCreditIds). */
   planningSources?: string[];
   stateName: string;
 }) {

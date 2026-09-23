@@ -109,7 +109,9 @@ private static final long serialVersionUID = 0L;
   private double zoningCoveragePct_ = 0D;
   /**
    * <pre>
-   * % of the suburb inside any zone polygon
+   * % of the suburb inside any zone polygon. Under 50 it is the only value
+   * set: the rest of the suburb is planned by an instrument these layers do
+   * not carry, so no shares, dominant family or heritage are measured.
    * </pre>
    *
    * <code>optional double zoning_coverage_pct = 2 [json_name = "zoningCoveragePct"];</code>
@@ -121,7 +123,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * % of the suburb inside any zone polygon
+   * % of the suburb inside any zone polygon. Under 50 it is the only value
+   * set: the rest of the suburb is planned by an instrument these layers do
+   * not carry, so no shares, dominant family or heritage are measured.
    * </pre>
    *
    * <code>optional double zoning_coverage_pct = 2 [json_name = "zoningCoveragePct"];</code>
@@ -509,6 +513,77 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int NSW_HEIGHT_MAPPED_PCT_FIELD_NUMBER = 14;
+  private double nswHeightMappedPct_ = 0D;
+  /**
+   * <pre>
+   * % of the suburb's residential-zoned land each NSW standard is actually
+   * mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+   * centres; a standard mapped on under half the residential land has no
+   * median/max above, because it would be the centre's number.
+   * </pre>
+   *
+   * <code>optional double nsw_height_mapped_pct = 14 [json_name = "nswHeightMappedPct"];</code>
+   * @return Whether the nswHeightMappedPct field is set.
+   */
+  @java.lang.Override
+  public boolean hasNswHeightMappedPct() {
+    return ((bitField0_ & 0x00000080) != 0);
+  }
+  /**
+   * <pre>
+   * % of the suburb's residential-zoned land each NSW standard is actually
+   * mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+   * centres; a standard mapped on under half the residential land has no
+   * median/max above, because it would be the centre's number.
+   * </pre>
+   *
+   * <code>optional double nsw_height_mapped_pct = 14 [json_name = "nswHeightMappedPct"];</code>
+   * @return The nswHeightMappedPct.
+   */
+  @java.lang.Override
+  public double getNswHeightMappedPct() {
+    return nswHeightMappedPct_;
+  }
+
+  public static final int NSW_FSR_MAPPED_PCT_FIELD_NUMBER = 15;
+  private double nswFsrMappedPct_ = 0D;
+  /**
+   * <code>optional double nsw_fsr_mapped_pct = 15 [json_name = "nswFsrMappedPct"];</code>
+   * @return Whether the nswFsrMappedPct field is set.
+   */
+  @java.lang.Override
+  public boolean hasNswFsrMappedPct() {
+    return ((bitField0_ & 0x00000100) != 0);
+  }
+  /**
+   * <code>optional double nsw_fsr_mapped_pct = 15 [json_name = "nswFsrMappedPct"];</code>
+   * @return The nswFsrMappedPct.
+   */
+  @java.lang.Override
+  public double getNswFsrMappedPct() {
+    return nswFsrMappedPct_;
+  }
+
+  public static final int NSW_MIN_LOT_MAPPED_PCT_FIELD_NUMBER = 16;
+  private double nswMinLotMappedPct_ = 0D;
+  /**
+   * <code>optional double nsw_min_lot_mapped_pct = 16 [json_name = "nswMinLotMappedPct"];</code>
+   * @return Whether the nswMinLotMappedPct field is set.
+   */
+  @java.lang.Override
+  public boolean hasNswMinLotMappedPct() {
+    return ((bitField0_ & 0x00000200) != 0);
+  }
+  /**
+   * <code>optional double nsw_min_lot_mapped_pct = 16 [json_name = "nswMinLotMappedPct"];</code>
+   * @return The nswMinLotMappedPct.
+   */
+  @java.lang.Override
+  public double getNswMinLotMappedPct() {
+    return nswMinLotMappedPct_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -561,6 +636,15 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sourceLicence_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 13, sourceLicence_);
+    }
+    if (((bitField0_ & 0x00000080) != 0)) {
+      output.writeDouble(14, nswHeightMappedPct_);
+    }
+    if (((bitField0_ & 0x00000100) != 0)) {
+      output.writeDouble(15, nswFsrMappedPct_);
+    }
+    if (((bitField0_ & 0x00000200) != 0)) {
+      output.writeDouble(16, nswMinLotMappedPct_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -622,6 +706,18 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sourceLicence_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(13, sourceLicence_);
+    }
+    if (((bitField0_ & 0x00000080) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(14, nswHeightMappedPct_);
+    }
+    if (((bitField0_ & 0x00000100) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(15, nswFsrMappedPct_);
+    }
+    if (((bitField0_ & 0x00000200) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(16, nswMinLotMappedPct_);
     }
     return size;
   }
@@ -700,6 +796,24 @@ private static final long serialVersionUID = 0L;
         .equals(other.getHeritageSource())) return false;
     if (!getSourceLicence()
         .equals(other.getSourceLicence())) return false;
+    if (hasNswHeightMappedPct() != other.hasNswHeightMappedPct()) return false;
+    if (hasNswHeightMappedPct()) {
+      if (java.lang.Double.doubleToLongBits(getNswHeightMappedPct())
+          != java.lang.Double.doubleToLongBits(
+              other.getNswHeightMappedPct())) return false;
+    }
+    if (hasNswFsrMappedPct() != other.hasNswFsrMappedPct()) return false;
+    if (hasNswFsrMappedPct()) {
+      if (java.lang.Double.doubleToLongBits(getNswFsrMappedPct())
+          != java.lang.Double.doubleToLongBits(
+              other.getNswFsrMappedPct())) return false;
+    }
+    if (hasNswMinLotMappedPct() != other.hasNswMinLotMappedPct()) return false;
+    if (hasNswMinLotMappedPct()) {
+      if (java.lang.Double.doubleToLongBits(getNswMinLotMappedPct())
+          != java.lang.Double.doubleToLongBits(
+              other.getNswMinLotMappedPct())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -761,6 +875,21 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getHeritageSource().hashCode();
     hash = (37 * hash) + SOURCE_LICENCE_FIELD_NUMBER;
     hash = (53 * hash) + getSourceLicence().hashCode();
+    if (hasNswHeightMappedPct()) {
+      hash = (37 * hash) + NSW_HEIGHT_MAPPED_PCT_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          java.lang.Double.doubleToLongBits(getNswHeightMappedPct()));
+    }
+    if (hasNswFsrMappedPct()) {
+      hash = (37 * hash) + NSW_FSR_MAPPED_PCT_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          java.lang.Double.doubleToLongBits(getNswFsrMappedPct()));
+    }
+    if (hasNswMinLotMappedPct()) {
+      hash = (37 * hash) + NSW_MIN_LOT_MAPPED_PCT_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          java.lang.Double.doubleToLongBits(getNswMinLotMappedPct()));
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -920,6 +1049,9 @@ private static final long serialVersionUID = 0L;
       zoningSource_ = "";
       heritageSource_ = "";
       sourceLicence_ = "";
+      nswHeightMappedPct_ = 0D;
+      nswFsrMappedPct_ = 0D;
+      nswMinLotMappedPct_ = 0D;
       return this;
     }
 
@@ -1010,6 +1142,18 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00001000) != 0)) {
         result.sourceLicence_ = sourceLicence_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.nswHeightMappedPct_ = nswHeightMappedPct_;
+        to_bitField0_ |= 0x00000080;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.nswFsrMappedPct_ = nswFsrMappedPct_;
+        to_bitField0_ |= 0x00000100;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.nswMinLotMappedPct_ = nswMinLotMappedPct_;
+        to_bitField0_ |= 0x00000200;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1102,6 +1246,15 @@ private static final long serialVersionUID = 0L;
         sourceLicence_ = other.sourceLicence_;
         bitField0_ |= 0x00001000;
         onChanged();
+      }
+      if (other.hasNswHeightMappedPct()) {
+        setNswHeightMappedPct(other.getNswHeightMappedPct());
+      }
+      if (other.hasNswFsrMappedPct()) {
+        setNswFsrMappedPct(other.getNswFsrMappedPct());
+      }
+      if (other.hasNswMinLotMappedPct()) {
+        setNswMinLotMappedPct(other.getNswMinLotMappedPct());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1202,6 +1355,21 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00001000;
               break;
             } // case 106
+            case 113: {
+              nswHeightMappedPct_ = input.readDouble();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 113
+            case 121: {
+              nswFsrMappedPct_ = input.readDouble();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 121
+            case 129: {
+              nswMinLotMappedPct_ = input.readDouble();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 129
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1462,7 +1630,9 @@ private static final long serialVersionUID = 0L;
     private double zoningCoveragePct_ ;
     /**
      * <pre>
-     * % of the suburb inside any zone polygon
+     * % of the suburb inside any zone polygon. Under 50 it is the only value
+     * set: the rest of the suburb is planned by an instrument these layers do
+     * not carry, so no shares, dominant family or heritage are measured.
      * </pre>
      *
      * <code>optional double zoning_coverage_pct = 2 [json_name = "zoningCoveragePct"];</code>
@@ -1474,7 +1644,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * % of the suburb inside any zone polygon
+     * % of the suburb inside any zone polygon. Under 50 it is the only value
+     * set: the rest of the suburb is planned by an instrument these layers do
+     * not carry, so no shares, dominant family or heritage are measured.
      * </pre>
      *
      * <code>optional double zoning_coverage_pct = 2 [json_name = "zoningCoveragePct"];</code>
@@ -1486,7 +1658,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * % of the suburb inside any zone polygon
+     * % of the suburb inside any zone polygon. Under 50 it is the only value
+     * set: the rest of the suburb is planned by an instrument these layers do
+     * not carry, so no shares, dominant family or heritage are measured.
      * </pre>
      *
      * <code>optional double zoning_coverage_pct = 2 [json_name = "zoningCoveragePct"];</code>
@@ -1502,7 +1676,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * % of the suburb inside any zone polygon
+     * % of the suburb inside any zone polygon. Under 50 it is the only value
+     * set: the rest of the suburb is planned by an instrument these layers do
+     * not carry, so no shares, dominant family or heritage are measured.
      * </pre>
      *
      * <code>optional double zoning_coverage_pct = 2 [json_name = "zoningCoveragePct"];</code>
@@ -2306,6 +2482,154 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       sourceLicence_ = value;
       bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+
+    private double nswHeightMappedPct_ ;
+    /**
+     * <pre>
+     * % of the suburb's residential-zoned land each NSW standard is actually
+     * mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+     * centres; a standard mapped on under half the residential land has no
+     * median/max above, because it would be the centre's number.
+     * </pre>
+     *
+     * <code>optional double nsw_height_mapped_pct = 14 [json_name = "nswHeightMappedPct"];</code>
+     * @return Whether the nswHeightMappedPct field is set.
+     */
+    @java.lang.Override
+    public boolean hasNswHeightMappedPct() {
+      return ((bitField0_ & 0x00002000) != 0);
+    }
+    /**
+     * <pre>
+     * % of the suburb's residential-zoned land each NSW standard is actually
+     * mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+     * centres; a standard mapped on under half the residential land has no
+     * median/max above, because it would be the centre's number.
+     * </pre>
+     *
+     * <code>optional double nsw_height_mapped_pct = 14 [json_name = "nswHeightMappedPct"];</code>
+     * @return The nswHeightMappedPct.
+     */
+    @java.lang.Override
+    public double getNswHeightMappedPct() {
+      return nswHeightMappedPct_;
+    }
+    /**
+     * <pre>
+     * % of the suburb's residential-zoned land each NSW standard is actually
+     * mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+     * centres; a standard mapped on under half the residential land has no
+     * median/max above, because it would be the centre's number.
+     * </pre>
+     *
+     * <code>optional double nsw_height_mapped_pct = 14 [json_name = "nswHeightMappedPct"];</code>
+     * @param value The nswHeightMappedPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNswHeightMappedPct(double value) {
+
+      nswHeightMappedPct_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * % of the suburb's residential-zoned land each NSW standard is actually
+     * mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+     * centres; a standard mapped on under half the residential land has no
+     * median/max above, because it would be the centre's number.
+     * </pre>
+     *
+     * <code>optional double nsw_height_mapped_pct = 14 [json_name = "nswHeightMappedPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNswHeightMappedPct() {
+      bitField0_ = (bitField0_ & ~0x00002000);
+      nswHeightMappedPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double nswFsrMappedPct_ ;
+    /**
+     * <code>optional double nsw_fsr_mapped_pct = 15 [json_name = "nswFsrMappedPct"];</code>
+     * @return Whether the nswFsrMappedPct field is set.
+     */
+    @java.lang.Override
+    public boolean hasNswFsrMappedPct() {
+      return ((bitField0_ & 0x00004000) != 0);
+    }
+    /**
+     * <code>optional double nsw_fsr_mapped_pct = 15 [json_name = "nswFsrMappedPct"];</code>
+     * @return The nswFsrMappedPct.
+     */
+    @java.lang.Override
+    public double getNswFsrMappedPct() {
+      return nswFsrMappedPct_;
+    }
+    /**
+     * <code>optional double nsw_fsr_mapped_pct = 15 [json_name = "nswFsrMappedPct"];</code>
+     * @param value The nswFsrMappedPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNswFsrMappedPct(double value) {
+
+      nswFsrMappedPct_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional double nsw_fsr_mapped_pct = 15 [json_name = "nswFsrMappedPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNswFsrMappedPct() {
+      bitField0_ = (bitField0_ & ~0x00004000);
+      nswFsrMappedPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double nswMinLotMappedPct_ ;
+    /**
+     * <code>optional double nsw_min_lot_mapped_pct = 16 [json_name = "nswMinLotMappedPct"];</code>
+     * @return Whether the nswMinLotMappedPct field is set.
+     */
+    @java.lang.Override
+    public boolean hasNswMinLotMappedPct() {
+      return ((bitField0_ & 0x00008000) != 0);
+    }
+    /**
+     * <code>optional double nsw_min_lot_mapped_pct = 16 [json_name = "nswMinLotMappedPct"];</code>
+     * @return The nswMinLotMappedPct.
+     */
+    @java.lang.Override
+    public double getNswMinLotMappedPct() {
+      return nswMinLotMappedPct_;
+    }
+    /**
+     * <code>optional double nsw_min_lot_mapped_pct = 16 [json_name = "nswMinLotMappedPct"];</code>
+     * @param value The nswMinLotMappedPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNswMinLotMappedPct(double value) {
+
+      nswMinLotMappedPct_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional double nsw_min_lot_mapped_pct = 16 [json_name = "nswMinLotMappedPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNswMinLotMappedPct() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      nswMinLotMappedPct_ = 0D;
       onChanged();
       return this;
     }

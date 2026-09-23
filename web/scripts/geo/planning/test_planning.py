@@ -251,6 +251,75 @@ class ShareGeometry(unittest.TestCase):
         _, row = ps.suburb_row(0)
         self.assertEqual(row["nswHeightMedianM"], 12.0)
 
+    def test_controls_report_their_mapped_share_of_residential_land(self):
+        _, row = ps.suburb_row(0)
+        self.assertAlmostEqual(row["nswHeightMappedPct"], 100.0, places=3)
+        self.assertAlmostEqual(row["nswFsrMappedPct"], 100.0, places=3)
+        self.assertAlmostEqual(row["nswMinLotMappedPct"], 100.0, places=3)
+
+    def test_a_standard_mapped_on_a_sliver_of_residential_land_is_withheld(self):
+        # Castle Hill's shape: the LEP maps FSR only in the centre — here 800 of
+        # the 8,000 m² of residential land (10%), at a centre-sized 3:1. A median
+        # of that is the centre's number, so it is withheld; the mapped share is
+        # still written so the basis is visible.
+        import numpy as np
+        from shapely.strtree import STRtree
+
+        fsr = [self.box(0, 0, 8, 100)]
+        ps._G["ctl_fsr"] = (np.array(fsr, dtype=object), [3.0], STRtree(fsr), np.array([], dtype=object), [], None)
+        _, row = ps.suburb_row(0)
+        self.assertIsNone(row["nswFsrMedian"])
+        self.assertAlmostEqual(row["nswFsrMappedPct"], 10.0, places=3)
+        # The other standards are mapped everywhere and unaffected.
+        self.assertEqual(row["nswHeightMedianM"], 9.0)
+        self.assertEqual(row["nswMinLotMedianM2"], 450.0)
+
+    def test_a_standard_mapped_on_half_the_residential_land_is_reported(self):
+        import numpy as np
+        from shapely.strtree import STRtree
+
+        fsr = [self.box(0, 0, 40, 100)]  # 4,000 of 8,000 m² — exactly the floor
+        ps._G["ctl_fsr"] = (np.array(fsr, dtype=object), [0.6], STRtree(fsr), np.array([], dtype=object), [], None)
+        _, row = ps.suburb_row(0)
+        self.assertAlmostEqual(row["nswFsrMappedPct"], 50.0, places=3)
+        self.assertEqual(row["nswFsrMedian"], 0.6)
+
+    def test_a_suburb_the_scheme_mostly_misses_reports_only_its_coverage(self):
+        # The Rocks' shape: the LEP zones a 30% strip; the rest is planned by an
+        # instrument these layers do not carry. Heritage over the whole suburb
+        # would count that land as "no heritage", a dominant family would come
+        # from the strip — so only the measured coverage (and the instrument
+        # that zones the strip) is written.
+        import numpy as np
+        from shapely.strtree import STRtree
+
+        zoning = [self.box(0, 0, 30, 100)]
+        ps._G["zoning"] = np.array(zoning, dtype=object)
+        ps._G["zoning_meta"] = [(1, "res_low", "nsw-zoning", ("Test LEP 2020",))]
+        ps._G["zoning_tree"] = STRtree(ps._G["zoning"])
+        ps._G["landapp"] = (np.array([], dtype=object), [], STRtree([]))
+        _, row = ps.suburb_row(0)
+        self.assertAlmostEqual(row["zoningCoveragePct"], 30.0, places=3)
+        self.assertEqual(row["zoningSource"], "nsw_epi_land_zoning")
+        self.assertEqual(row["planningInstruments"], ["Test LEP 2020"])
+        for key in ("zoneSharesPct", "dominantZoneFamily", "heritageSource", "heritageSharePct",
+                    "heritageItemCount", "nswHeightMedianM", "nswFsrMedian", "nswMinLotMedianM2",
+                    "nswHeightMappedPct"):
+            self.assertNotIn(key, row, key)
+
+    def test_a_suburb_half_covered_is_measured(self):
+        import numpy as np
+        from shapely.strtree import STRtree
+
+        zoning = [self.box(0, 0, 50, 100)]
+        ps._G["zoning"] = np.array(zoning, dtype=object)
+        ps._G["zoning_meta"] = [(1, "res_low", "nsw-zoning", ("Test LEP 2020",))]
+        ps._G["zoning_tree"] = STRtree(ps._G["zoning"])
+        _, row = ps.suburb_row(0)
+        self.assertAlmostEqual(row["zoningCoveragePct"], 50.0, places=3)
+        self.assertEqual(row["dominantZoneFamily"], "res_low")
+        self.assertAlmostEqual(row["heritageSharePct"], 15.0, places=3)
+
     def test_instruments_are_named_largest_first(self):
         _, row = ps.suburb_row(0)
         self.assertEqual(row["planningInstruments"], ["Test LEP 2020", "Test SEPP 2021"])
@@ -334,6 +403,17 @@ class ControlValues(unittest.TestCase):
         self.assertEqual(ps.heritage_class("sa-overlays", {"name": "Historic Area"}), (True, None))
         self.assertIsNone(ps.heritage_class("tas-heritage", {"OV_NAME": "Significant trees"}))
         self.assertIsNone(ps.heritage_class("act-heritage", {"HRcategory": "Natural place or object"}))
+
+    def test_tas_places_key_on_their_reference_and_fall_back_to_the_polygon(self):
+        dev = {"OV_NAME": "Local heritage place", "LPS": "Devonport Local Provisions Schedule"}
+        a = ps.heritage_class("tas-heritage", {**dev, "OV_CAT": "DEV-C6.1.92  ", "OBJECTID": 1})
+        b = ps.heritage_class("tas-heritage", {**dev, "OV_CAT": "DEV-C6.1.92", "OBJECTID": 2})
+        self.assertEqual(a, b)  # one place drawn as two polygons is one item
+        blank = {"OV_NAME": "Local heritage place", "LPS": "Launceston Local Provisions Schedule", "OV_CAT": " "}
+        c = ps.heritage_class("tas-heritage", {**blank, "OBJECTID": 3})
+        d = ps.heritage_class("tas-heritage", {**blank, "OBJECTID": 4})
+        self.assertNotEqual(c, d)
+        self.assertFalse(c[0])
 
     def test_vic_scheme_names(self):
         self.assertEqual(ps.vic_scheme_name("GREATER GEELONG"), "Greater Geelong Planning Scheme")

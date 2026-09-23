@@ -21,9 +21,10 @@ const planningUpsertSQL = `
 		 zoning_coverage_pct, dominant_zone_family,
 		 heritage_share_pct, heritage_item_count,
 		 nsw_height_median_m, nsw_height_max_m, nsw_fsr_median, nsw_min_lot_median_m2,
+		 nsw_height_mapped_pct, nsw_fsr_mapped_pct, nsw_min_lot_mapped_pct,
 		 planning_instruments, zoning_source, heritage_source, source_licence, computed_at)
 	SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
-	       $20, NULLIF($21, ''), NULLIF($22, ''), $23, now()
+	       $20, $21, $22, $23, NULLIF($24, ''), NULLIF($25, ''), $26, now()
 	WHERE EXISTS (SELECT 1 FROM suburb_demographics WHERE sal_code = $1)
 	ON CONFLICT (sal_code) DO UPDATE SET
 		zone_res_low_share_pct = EXCLUDED.zone_res_low_share_pct,
@@ -44,6 +45,9 @@ const planningUpsertSQL = `
 		nsw_height_max_m = EXCLUDED.nsw_height_max_m,
 		nsw_fsr_median = EXCLUDED.nsw_fsr_median,
 		nsw_min_lot_median_m2 = EXCLUDED.nsw_min_lot_median_m2,
+		nsw_height_mapped_pct = EXCLUDED.nsw_height_mapped_pct,
+		nsw_fsr_mapped_pct = EXCLUDED.nsw_fsr_mapped_pct,
+		nsw_min_lot_mapped_pct = EXCLUDED.nsw_min_lot_mapped_pct,
 		planning_instruments = EXCLUDED.planning_instruments,
 		zoning_source = EXCLUDED.zoning_source,
 		heritage_source = EXCLUDED.heritage_source,
@@ -65,6 +69,7 @@ func planningUpsertArgs(row PlanningRow) []any {
 		row.ZoningCoveragePct, row.DominantZoneFamily,
 		row.HeritageSharePct, row.HeritageItemCount,
 		row.NSWHeightMedianM, row.NSWHeightMaxM, row.NSWFSRMedian, row.NSWMinLotMedianM2,
+		row.NSWHeightMappedPct, row.NSWFSRMappedPct, row.NSWMinLotMappedPct,
 		instruments, row.ZoningSource, row.HeritageSource, row.Licence,
 	)
 }

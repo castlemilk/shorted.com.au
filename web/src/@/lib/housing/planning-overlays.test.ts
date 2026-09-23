@@ -58,7 +58,7 @@ describe("planning overlays", () => {
     const topo = read(file);
     expect(topo.properties).toMatchObject({ layer: "zoning", state });
     expect(topo.properties?.source?.length).toBeGreaterThan(5);
-    expect(topo.properties?.licence).toMatch(/^CC-BY-/);
+    expect(topo.properties?.licence).toMatch(/^CC-BY(-|$)/);
     expect(topo.properties?.asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     const geometries = Object.values(topo.objects)[0]!.geometries;
     const families = geometries.map((g) => g.properties?.family);
@@ -74,7 +74,7 @@ describe("planning overlays", () => {
     expect(statSync(join(planningDir, file)).size).toBeLessThanOrEqual(MAX_BYTES);
     const topo = read(file);
     expect(topo.properties).toMatchObject({ layer: "heritage", state });
-    expect(topo.properties?.licence).toMatch(/^CC-BY-/);
+    expect(topo.properties?.licence).toMatch(/^CC-BY(-|$)/);
     expect(Object.values(topo.objects)[0]!.geometries).toHaveLength(1);
   });
 
