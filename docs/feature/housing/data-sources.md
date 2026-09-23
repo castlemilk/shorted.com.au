@@ -22,8 +22,14 @@ and every base-table read in `postgres_house_prices.go` re-asserts it.
 | **State parliament member tables** (Wikipedia) | CC BY-SA — attribute | state member + party; 6 single-member states, TAS/ACT NULL by design |
 | **NSW BOCSAR** + **ABS CVS/ERP** | CC-BY / CC-BY-4.0 | suburb crime rates + national percentile ranks (NSW only) |
 | **DEA Water Observations Statistics** (Geoscience Australia, Landsat multi-year frequency `ga_ls_wo_fq_myear_3` v2.1.0, 1987–) | CC-BY-4.0 | per-suburb share of land observed under water at least occasionally, and permanent water; the national `water_observed` map overlay. 1,037 COG tiles, 17 GB, anonymous S3 |
-| **NSW EPI Flood** (NSW Planning Portal, `Planning/Hazard` layer 1) + **NSW Bush Fire Prone Land** (NSW RFS) | CC-BY / CC-BY-4.0 | NSW `flood_planning` / `bushfire_prone` shares and overlays. Councils own flood currency since July 2021 — the caveat ships with the layer |
-| **Vicmap Planning overlays** LSIO / FO / SBO / BMO (DTP Victoria, WFS `open-data-platform:plan_overlay`, gazetted status only) | CC-BY-4.0 | VIC `flood_planning` / `bushfire_prone` shares and overlays |
+| **NSW EPI Flood** (NSW Planning Portal, `Planning/Hazard` layer 1) + **EPI Land Application** (`EPI_Primary_Planning_Layers` layer 6, coverage mask) + **NSW Bush Fire Prone Land** (NSW RFS) | CC-BY / CC-BY-4.0 | NSW `flood_planning` / `bushfire_prone` shares and overlays. Flood is NULL outside the 12 instruments that lodged a map. Councils own flood currency since July 2021 — the caveat ships with the layer |
+| **Vicmap Planning overlays** LSIO / FO / SBO (DTP Victoria, WFS `open-data-platform:plan_overlay`, gazetted status only) | CC-BY-4.0 | VIC `flood_planning` share and overlay |
+| **VIC Designated Bushfire Prone Area** (Building Regulations, WFS `open-data-platform:bushfire_prone_area`) | CC-BY-4.0 | VIC `bushfire_prone` share and overlay (replaced the narrower BMO planning overlay, 2026-09) |
+| **SA Planning and Design Code overlays** (PlanSA bulk shapefile `PDCodeOverlays_shp.zip`) | CC-BY-3.0-AU | SA `flood_planning` (Hazards (Flooding) + (Flooding – General)) / `bushfire_prone` (Hazards (Bushfire) High/Medium/General/Urban Interface); the precautionary overlays are the unassessed mask |
+| **Tasmanian Planning Scheme Code Overlay** (theLIST `PlanningOnline` layer 14) + LGA boundaries (layer 8, coverage mask) | CC-BY-3.0-AU | TAS `flood_planning` (Flood-prone Areas) / `bushfire_prone` (Bushfire-prone Areas) |
+| **QLD Bushfire Prone Area** (Queensland Fire Department, `Hosted/BPA` feature service) | CC-BY-4.0 | QLD `bushfire_prone` share and overlay |
+| **WA Bush Fire Prone Areas OBRM-026** (DFES / OBRM, SLIP `Bush_Fire_Prone_Areas` layer 23) | CC-BY-4.0 | WA `bushfire_prone` share and overlay |
+| **ACT Bushfire Prone Area 2026** (Overview) + **ACT Flood Extent Model 1% AEP** (ACTmapi) | CC-BY-4.0 | ACT `bushfire_prone` and `flood_planning` (the latter a modelled extent, labelled as such) |
 | **OSM (Overpass)**, ACARA, Geoscience Australia, NBN, IIP | ODbL / ToS / CC-BY / CC-BY-4.0 | local-insights amenity, school, health, connectivity, funding layers |
 | **REA / Domain / property.com.au** | `proprietary-tos-restricted` | listings, price-change events, per-address AVM — **never republished raw** |
 | **BIS-via-FRED, OECD, ATO, ABS Lending** | open / public domain | the Widow-Maker feature's arrays, BAKED in `series.ts` |
@@ -173,20 +179,72 @@ rules, each of which is a wording rule as much as a data rule:
   defect to tune away.
 - **Statutory layers are planning-control boundaries, not flood extents.** NSW's
   EPI Flood layer is whatever councils have lodged (614 polygons statewide, with
-  a comment field warning it may lag the latest study); VIC's LSIO/FO/SBO are
-  planning-scheme overlays. The instrument is named on the card and in the
-  overlay picker.
-- **No source is not zero.** QLD, WA, SA, TAS, NT and ACT have no open statutory
-  flood or bushfire layer we can republish, so their statutory shares are NULL
-  and the overlay picker lists the layer greyed with the reason. They do get the
-  national satellite layer.
+  a comment field warning it may lag the latest study); VIC's LSIO/FO/SBO,
+  SA's Code overlays and TAS's code overlays are planning-scheme overlays. The
+  instrument is named on the card and in the overlay picker. **The one
+  exception is ACT flood**: the ACT publishes no open flood planning overlay,
+  only its modelled 1% AEP flood extent, so there — and only there — the layer
+  is described as a model of one flood event, never as a planning control
+  (`stateCaveats.ACT` in `overlays.ts` replaces the generic caveat).
+- **Bushfire layers are designations, and they must be the same kind of
+  designation.** NSW Bush Fire Prone Land, VIC's Designated Bushfire Prone Area,
+  QLD's Bushfire Prone Area, WA's OBRM-026 and ACT's Bushfire Prone Area are all
+  the broad "prone" designation that triggers building controls. VIC used to be
+  the narrower Bushfire Management Overlay, which made a VIC share incomparable
+  with a NSW one; it is the BPA since 2026-09 (`bushfire_source = 'vic_bpa'`).
+  SA and TAS are planning-code overlays of the same intent. QLD's includes the
+  potential-impact buffer, and its regional vintages differ (SEQ 2017,
+  elsewhere 2014) — both stated in the layer note.
+- **No source is not zero — per state AND per suburb.** NT has no open statutory
+  flood or bushfire layer we can republish, and QLD and WA have no open flood
+  layer, so those shares are NULL and the overlay picker lists the layer greyed
+  with the reason. Inside a state that has a layer, a suburb the source's
+  instruments do not reach is NULL too, never 0 (`vector_share.py
+  --coverage-dir` / `--unassessed-dir` / `--coverage-hull`):
+
+  | State / layer | Covered | NULL (no statutory layer here) |
+  |---|---|---|
+  | NSW flood | land under one of the 12 instruments in the EPI Flood layer (10 LEPs + 2 precinct SEPPs), via their EPI Land Application boundaries | everywhere else — those councils keep flood maps in a DCP. Before the mask 4,350 suburbs, Lismore and Windsor among them, showed a measured 0% |
+  | SA flood | the Code's mapped Hazards (Flooding) and (Flooding – General) | land under the precautionary **Hazards (Flooding – Evidence Required)** overlay, which the Code applies "where flood risk is unknown" pending studies |
+  | SA bushfire | High / Medium / General / Urban Interface overlays | land under the precautionary **Regional** and **Outback** overlays, applied where no vegetation mapping exists |
+  | TAS flood | the 21 councils whose Local Provisions Schedule maps Flood-prone Areas | the other 7 councils (no LPS flood map) and Kingborough (interim scheme) |
+  | TAS bushfire | the 28 councils on the Tasmanian Planning Scheme (every LPS maps the overlay, so land outside it is not bushfire-prone under C13.3.1(a)) | Kingborough, still on its interim scheme |
+  | ACT flood | the convex hull of the modelled extent (the urban catchments) | the rural districts and new suburbs outside the model |
+  | VIC, QLD, WA, ACT bushfire; VIC flood | statewide designations — a zero is a real zero | — |
+
+  A suburb less than 10% inside its covered land is NULL; a partly covered one
+  is the share of its covered land (so a suburb half under Evidence Required is
+  the share of the half the Code has assessed). The map hatches NULL as "No
+  statutory layer"; the profile card says "Not mapped" with the reason
+  (`OverlayDef.uncovered`), never 0%.
+- **Attribution carries the licence per source.** SA's Code overlays and TAS's
+  theLIST layers are CC BY 3.0 AU, everything else CC BY 4.0;
+  `STATUTORY_HAZARD_CREDITS` in `suburb-profile.tsx` credits each under its own,
+  and `suburb_hazard_exposure.source_licence` records `CC-BY-4.0; CC-BY-3.0-AU`
+  on rows that carry an SA or TAS layer.
+
+Fetched 2026-09-23 (SA bulk file modified 2026-08-18; NSW and VIC flood layers
+2026-09-08):
+
+| Source id | Endpoint | Filter |
+|---|---|---|
+| `nsw_epi_flood` | `mapprod3.environment.nsw.gov.au/arcgis/rest/services/Planning/Hazard/MapServer/1` | `LAY_CLASS IN ('Flood Planning Area','Flood Prone and Major Creeks Land','1 in 100 AEP Flood Extent')`; mask `EPI_Primary_Planning_Layers/MapServer/6` for the same 12 `EPI_NAME`s |
+| `vic_plan_overlay_lsio_fo_sbo` | `opendata.maps.vic.gov.au/geoserver/wfs` `plan_overlay` | `zone_code` LSIO/FO/SBO, `zone_status='g'` |
+| `vic_bpa` | same WFS, `open-data-platform:bushfire_prone_area` | all 76 |
+| `sa_pdcode_hazards_flooding` / `_bushfire` | `dptiapps.com.au/dataportal/PDCodeOverlays_shp.zip` (data.sa.gov.au "Planning and Design Code overlays") | `name` as above; staged with `extract_layer.py` |
+| `tas_tps_flood_prone` / `tas_tps_bushfire_prone` | `services.thelist.tas.gov.au/…/PlanningOnline/MapServer/14` | `CODE='Flood-prone Hazard Areas Code'` / `'Bushfire-prone Areas Code'`; mask layer 8 |
+| `qld_qfd_bpa` | `utility.arcgis.com/usrsvcs/servers/3ec80e95fa084ef9901205df0a7a74ec/rest/services/Hosted/BPA/FeatureServer/0` | all 2,556,671 (range-paged on `fid`) |
+| `wa_obrm_026_bpa` | `public-services.slip.wa.gov.au/…/Bush_Fire_Prone_Areas/MapServer/23` | all 148 |
+| `act_bpa_2026` | `services1.arcgis.com/E5n4f1VY84i0xSjy/…/Bushfire_Prone_Area_Overview_2026/FeatureServer/0` | all 21 |
+| `act_flood_extent_1pct_aep` | `services1.arcgis.com/E5n4f1VY84i0xSjy/…/ACTGOV_FLOOD_EXTENT/FeatureServer/0` | the one dissolved extent |
 
 Ruled out for this layer (recorded so it is not re-proposed): the insurer-only
 NFID; QLD's `FloodCheck/BasinOnePercentAEP` service (raster map-index
 footprints, not flood extents, behind a token) and the 2013 QFAO (an interim
-product behind a custom-order download that says it is not for parcels);
-per-council flood studies (hundreds of portals with no common schema); every
-commercial flood-risk score.
+product that says it is not for parcels — deferred, not refused); WA DWER
+floodplain mapping (an active-acceptance licence, not CC-BY); per-council flood
+studies (hundreds of portals with no common schema); every commercial
+flood-risk score.
 
 ## OUT — settled, not deferred
 
