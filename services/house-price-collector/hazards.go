@@ -194,7 +194,7 @@ func (row HazardRow) validate() error {
 
 func ingestHazards() ([]HazardRow, error) { return loadHazards(hazardsPath()) }
 
-// hazardCoverageSummary is "NSW 4542 709/4542, VIC …": rows, then how many
+// hazardCoverageSummary is "NSW 4542 646/4542, VIC …": rows, then how many
 // carry a flood and a bushfire share, per state in ABS digit order.
 func hazardCoverageSummary(rows []HazardRow) string {
 	type counts struct{ rows, flood, fire int }

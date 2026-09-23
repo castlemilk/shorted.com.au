@@ -218,4 +218,4 @@ curl -sS -X POST -A "Mozilla/5.0" -H "Content-Type: application/json" \
 ```
 
 NT's `flood_planning_share_pct` null mask must be all ones; NSW's must match
-the artifact's null count (3,833), not be all zeros.
+the artifact's null count (3,896), not be all zeros.
