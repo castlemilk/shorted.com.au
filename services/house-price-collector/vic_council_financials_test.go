@@ -27,8 +27,19 @@ func TestPickVICLGPRFURL(t *testing.T) {
 		t.Errorf("a new release was not picked up: %q", got)
 	}
 
+	for _, ok := range []string{"cc-by-4.0", "CC-BY-4.0", "cc-by-3.0-au"} {
+		if _, err := pickVICLGPRFURL([]byte(strings.Replace(string(raw), `"cc-by"`, `"`+ok+`"`, 1))); err != nil {
+			t.Errorf("licence %s is plain CC BY: %v", ok, err)
+		}
+	}
+
 	for name, bad := range map[string]string{
 		"licence changed": strings.Replace(string(raw), `"cc-by"`, `"other-closed"`, 1),
+		"non-commercial":  strings.Replace(string(raw), `"cc-by"`, `"cc-by-nc"`, 1),
+		"nc versioned":    strings.Replace(string(raw), `"cc-by"`, `"cc-by-nc-4.0"`, 1),
+		"no derivatives":  strings.Replace(string(raw), `"cc-by"`, `"cc-by-nd"`, 1),
+		"nc-nd":           strings.Replace(string(raw), `"cc-by"`, `"cc-by-nc-nd-4.0"`, 1),
+		"share-alike":     strings.Replace(string(raw), `"cc-by"`, `"cc-by-sa-4.0"`, 1),
 		"no workbook":     strings.Replace(string(raw), `"XLSX"`, `"PDF"`, 1),
 		"not success":     strings.Replace(string(raw), `"success": true`, `"success": false`, 1),
 		"not json":        "<html>",

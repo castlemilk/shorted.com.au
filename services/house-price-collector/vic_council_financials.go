@@ -78,6 +78,13 @@ type vicCKANPackage struct {
 
 var lgprfFullSetRe = regexp.MustCompile(`(?i)full[- ](council[- ])?data[- ]set`)
 
+// ckanCCBYRe is the allowlist of CKAN license_ids that are plain CC BY
+// (attribution only): "cc-by", optionally versioned and AU-ported
+// ("cc-by-4.0", "cc-by-3.0-au"). A prefix test would also pass cc-by-nc,
+// cc-by-nd and cc-by-sa — terms we cannot meet on a paid product (NC) or a
+// derived dataset (ND, SA).
+var ckanCCBYRe = regexp.MustCompile(`^cc-by(-\d(\.\d)?)?(-au)?$`)
+
 // pickVICLGPRFURL chooses the Full Council Data Set workbook from the CKAN
 // record. It refuses a record that is no longer CC-BY — our licence basis —
 // rather than silently ingesting under changed terms.
@@ -89,7 +96,7 @@ func pickVICLGPRFURL(raw []byte) (string, error) {
 	if !pkg.Success {
 		return "", fmt.Errorf("LGPRF catalogue record: success=false")
 	}
-	if lic := strings.ToLower(pkg.Result.LicenseID); !strings.HasPrefix(lic, "cc-by") {
+	if lic := strings.ToLower(strings.TrimSpace(pkg.Result.LicenseID)); !ckanCCBYRe.MatchString(lic) {
 		return "", fmt.Errorf("LGPRF catalogue licence is %q, not CC-BY", pkg.Result.LicenseID)
 	}
 	for _, r := range pkg.Result.Resources {
