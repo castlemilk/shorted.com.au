@@ -669,9 +669,10 @@ council foundation: `lga` identity facts, `lga_series`, the mesh-block bridge).
   council choropleth from ONE row shape (`CouncilSummary`); `GetCouncilProfile(state,
   slug)` embeds that same row, so the page, the index and the map never disagree.
   Measured on the local DB (566 councils, 15,329 bridge rows, 137k `lga_series`
-  rows): ListCouncils 7–40 ms per state, GetCouncilProfile 43–64 ms (Brisbane, 191
-  suburbs, the slowest); on a machine at load ~30, 0.2–1.0 s — the hazard CTE is
-  ~16–20 ms in isolation. Under the ~400 ms bar, so no `mv_lga_profile` and no
+  rows): ListCouncils 12–100 ms per state (NSW, 129 councils, the slowest),
+  GetCouncilProfile 43–54 ms (Brisbane, 191 suburbs, the slowest). Under heavy
+  machine load (~30) NSW reached ~1 s once; the hazard CTE alone is 16–20 ms.
+  Well under the ~400 ms bar in normal conditions, so no `mv_lga_profile` and no
   000127; the API's MemoryCache + the web KV layer absorb repeats.
 - **Membership = the bridge.** A suburb belongs to its dominant council and to any
   council holding ≥ 5% of its residents (`councilMemberMinShare` =
