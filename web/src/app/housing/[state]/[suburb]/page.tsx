@@ -6,6 +6,7 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { SuburbContextBar } from "@/components/housing/suburb-context-bar";
 import { SuburbProfile } from "@/components/housing/suburb-profile";
+import { councilHref } from "@/lib/housing/council";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { getSuburbProfile, resolveSuburbSalCode } from "~/app/actions/getHousing";
 import { getStateSuburbIndex } from "~/app/actions/getHousingStateIndex";
@@ -136,6 +137,13 @@ export default async function SuburbPage({ params }: PageProps) {
       })
     : undefined;
 
+  // The dominant council's hub, when it has one (a pseudo area or an
+  // unslugged council has no page, and councilHref says so).
+  const councilUrl = profile.council ? councilHref(profile.council.stateCode, profile.council.slug) : null;
+  const councilLink = councilUrl && profile.council
+    ? { name: profile.council.displayName || profile.council.lgaName, href: councilUrl }
+    : undefined;
+
   return (
     <DashboardLayout>
       {/* Same rule as the on-page provenance line: describe what this suburb
@@ -159,6 +167,7 @@ export default async function SuburbPage({ params }: PageProps) {
           stateCode={code}
           suburbName={name}
           salCode={sal}
+          council={councilLink}
           neighbours={context?.nearby}
           basis={context?.nearbyBasis}
         />

@@ -140,8 +140,14 @@ done
   charts; `suburb_hazard_exposure` coverage for the hazard block (NULL = no
   covered member, by design).
 - **Membership/weights:** dominant suburbs + straddlers ≥ 5%; rollups weight by
-  population × share. Price drops use dominant members only, floored at 3
-  council-wide; suburbs are named only at ≥ 3 of their own.
+  population × share. Price drops use dominant members only, counted from the
+  crawl tables (`councilDropsQuery`, NOT the floored `mv_suburb_price_drops`, so
+  sub-floor suburbs' cuts reach the council), floored at 3 council-wide; suburbs
+  are named only at ≥ 3 of their own. They obey `HOUSING_DROP_LISTINGS_ENABLED`
+  and carry `as_of` / `data_through`.
+- **Index hazard share blank?** The index/choropleth share needs covered member
+  suburbs holding ≥ 50% of the council's residents (`councilHazardMinCoverage`);
+  the hub rollup states "over N of M member suburbs" instead.
 - **Neighbours:** `lga_adjacency.json` (go:embed) from
   `node web/scripts/geo/build-lga-adjacency.mjs` — rerun after ANY change to
   `web/public/geo/suburbs/*.topojson` or `suburb-lga.json`, then

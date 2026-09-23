@@ -1,6 +1,7 @@
 // NO "use client" — server-rendered sections of the council hub. Pure props in,
 // markup out; every number is already on GetCouncilProfileResponse. Absent
-// facts are omitted (never shown as 0) and every figure carries its date.
+// facts are omitted (never shown as 0), and a section dates its figures
+// wherever the data carries a date.
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type {
@@ -15,7 +16,7 @@ import type {
 } from "~/gen/shorts/v1alpha1/housing_pb";
 import { councilHref } from "@/lib/housing/council";
 import {
-  fmtInt, fmtMoney, fmtMonth, fmtShare, fmtSharePct, type KeyFact,
+  fmtInt, fmtMoney, fmtMonth, fmtShare, fmtSharePct, fmtSignedPct, type KeyFact,
 } from "@/lib/housing/council-page";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
@@ -84,6 +85,30 @@ export function PeopleAndHousing({ council: c }: { council: LgaInfo }) {
           </dl>
         ) : null}
       </div>
+    </Section>
+  );
+}
+
+/**
+ * Council finances, where a state publishes them (Victoria's LGPRF today). The
+ * zeros LgaInfo carries for "no data" are never shown: the block needs a rate.
+ */
+export function CouncilFinances({ council: c }: { council: LgaInfo }) {
+  if (!(c.avgRates > 0) || !c.finSource) return null;
+  const source = c.finSource === "vic_lgprf" ? "Local Government Victoria's Performance Reporting Framework (LGPRF)" : "the state's council performance reporting";
+  return (
+    <Section
+      id="finances"
+      title="Council finances"
+      lede={`From ${source}${c.finYear ? `, ${c.finYear}` : ""}.`}
+    >
+      <dl className="grid gap-3 sm:grid-cols-3">
+        <Stat label="Average rates per property" value={fmtMoney(c.avgRates)} note={c.finYear || undefined} />
+        <Stat label="Operating result" value={fmtSignedPct(c.opSurplusRatio)} note="adjusted underlying result; negative = deficit" />
+        {c.assetRenewalRatio > 0 ? (
+          <Stat label="Asset renewal" value={`${Math.round(c.assetRenewalRatio)}%`} note="renewal and upgrade spend vs depreciation" />
+        ) : null}
+      </dl>
     </Section>
   );
 }
@@ -157,12 +182,23 @@ const CRIME_LABEL: Record<string, string> = {
 };
 
 /** Hazard + price rollups over member suburbs, and crime where a source covers them. */
-export function Rollups({ stateCode, rollup }: { stateCode: string; rollup: CouncilRollup }) {
+export function Rollups({
+  stateCode, rollup, pricedPeriods = [],
+}: {
+  stateCode: string;
+  rollup: CouncilRollup;
+  /** vg_median_period of the dominant priced member suburbs ('YYYY-MM-DD'). */
+  pricedPeriods?: readonly string[];
+}) {
   const hazards: Array<{ label: string; value: number; covered: number; overlay: string }> = [];
   if (rollup.floodSharePct !== undefined) hazards.push({ label: "Flood planning land", value: rollup.floodSharePct, covered: rollup.floodCoveredSuburbs, overlay: "flood_planning" });
   if (rollup.bushfireSharePct !== undefined) hazards.push({ label: "Bushfire-prone land", value: rollup.bushfireSharePct, covered: rollup.bushfireCoveredSuburbs, overlay: "bushfire_prone" });
   if (rollup.waterSharePct !== undefined) hazards.push({ label: "Observed surface water (1986–present)", value: rollup.waterSharePct, covered: rollup.waterCoveredSuburbs, overlay: "water_observed" });
   const priced = rollup.pricedSuburbs > 0 && rollup.medianMin !== undefined && rollup.medianMax !== undefined;
+  const periods = [...new Set(pricedPeriods)].sort();
+  const periodNote = periods.length === 0 ? "each suburb's latest period"
+    : periods.length === 1 ? `periods ending ${fmtMonth(periods[0]!)}`
+    : `periods ending ${fmtMonth(periods[0]!)} to ${fmtMonth(periods[periods.length - 1]!)}`;
   const crime: readonly CouncilCrimeStat[] = rollup.crime ?? [];
   if (!hazards.length && !priced && !crime.length) return null;
   return (
@@ -178,7 +214,10 @@ export function Rollups({ stateCode, rollup }: { stateCode: string; rollup: Coun
               <div key={h.label} className="rounded-xl border border-border/60 bg-card/40 p-4">
                 <h3 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{h.label}</h3>
                 <p className="mt-1.5 text-2xl font-semibold tabular-nums">{fmtSharePct(h.value)}</p>
-                <p className="mt-1 text-[11px] text-muted-foreground">Over {fmtInt(h.covered)} covered suburb{h.covered === 1 ? "" : "s"}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Over {fmtInt(h.covered)} of {fmtInt(rollup.memberSuburbs)} member suburb{rollup.memberSuburbs === 1 ? "" : "s"}
+                  {h.covered < rollup.memberSuburbs ? " (the rest are not mapped)" : ""}
+                </p>
                 <Link href={`/housing/${stateSlug(stateCode)}?overlays=${h.overlay}`} className="mt-2 inline-block text-[11px] text-primary hover:underline">
                   Show the layer on the map →
                 </Link>
@@ -191,7 +230,7 @@ export function Rollups({ stateCode, rollup }: { stateCode: string; rollup: Coun
         <Section
           id="prices"
           title="Suburb prices"
-          lede={`Across the ${fmtInt(rollup.pricedSuburbs)} member suburb${rollup.pricedSuburbs === 1 ? "" : "s"} with their own Valuer-General median (unweighted; each suburb's latest period).`}
+          lede={`Across the ${fmtInt(rollup.pricedSuburbs)} member suburb${rollup.pricedSuburbs === 1 ? "" : "s"} with their own Valuer-General median (unweighted; each suburb's latest figure, ${periodNote}).`}
         >
           <dl className="grid gap-3 sm:grid-cols-3">
             <Stat label="Lowest suburb median" value={fmtPriceShort(rollup.medianMin!)} />
@@ -215,6 +254,14 @@ export function Rollups({ stateCode, rollup }: { stateCode: string; rollup: Coun
       ) : null}
     </>
   );
+}
+
+/** A protobuf Timestamp as '24 Sep 2026' (AEST), or undefined when absent. */
+export function timestampDate(ts: { seconds: bigint | number } | undefined): string | undefined {
+  if (!ts) return undefined;
+  const ms = Number(ts.seconds) * 1000;
+  if (!Number.isFinite(ms) || ms <= 0) return undefined;
+  return new Date(ms).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: "Australia/Sydney" });
 }
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -265,16 +312,25 @@ export function Representation({ federal, state }: { federal: readonly CouncilRe
 
 export function PriceDropsPulse({ stateCode, drops }: { stateCode: string; drops: CouncilPriceDrops | undefined }) {
   if (!drops) return null;
+  const asOf = timestampDate(drops.asOf);
+  const through = timestampDate(drops.dataThrough);
   return (
     <Section
       id="price-drops"
       title="Asking-price cuts"
-      lede={`Listings tracked by the Shorted crawl across ${fmtInt(drops.suburbsTracked)} suburb${drops.suburbsTracked === 1 ? "" : "s"} of this council, active in the last 14 days. An aggregate only: published at 3 or more cut listings, and a suburb is named only when it has 3 of its own.`}
+      lede={
+        <>
+          Cuts in the last 30 days to listings the Shorted crawl has seen in the last 14 days, across {fmtInt(drops.suburbsTracked)} suburb
+          {drops.suburbsTracked === 1 ? "" : "s"} of this council. An aggregate only: published at 3 or more cut listings council-wide
+          (cuts in every crawled suburb count), and a suburb is named only when it has 3 of its own.
+          {asOf ? <> Computed {asOf}{through ? <>; newest crawl observation {through}</> : null}.</> : null}
+        </>
+      }
     >
       <dl className="grid gap-3 sm:grid-cols-3">
         <Stat label="Listings cut" value={fmtInt(drops.droppedListingCount)} note={`of ${fmtInt(drops.trackedListingCount)} tracked`} />
         <Stat label="Share cut" value={`${(drops.droppedShare * 100).toFixed(1)}%`} />
-        {drops.medianDropPct !== undefined ? <Stat label="Typical cut" value={`${(drops.medianDropPct * 100).toFixed(1)}%`} note="median of suburb medians" /> : null}
+        {drops.medianDropPct !== undefined ? <Stat label="Typical cut" value={`${(drops.medianDropPct * 100).toFixed(1)}%`} note="median over every cut listing" /> : null}
       </dl>
       {drops.suburbs?.length ? (
         <p className="text-sm text-muted-foreground">
@@ -299,7 +355,7 @@ export function Neighbours({ neighbours }: { neighbours: readonly CouncilNeighbo
     <Section
       id="neighbours"
       title="Neighbouring councils"
-      lede="Councils whose suburbs share a boundary with this one's, and councils it splits a suburb with."
+      lede="Councils in the same state whose suburbs share a boundary with this one's, and councils it splits a suburb with. Councils across a state or territory border are not listed."
     >
       <ul className="flex flex-wrap gap-2">
         {neighbours.map((n) => {
@@ -348,7 +404,7 @@ export function SourcesLine({ profile: p }: { profile: CouncilProfile }) {
     measures.has("house_median_price") || measures.has("attached_median_price") ? "Council-wide medians: ABS Data by Region." : "",
     measures.has("dwelling_approvals_total") ? "Approvals: ABS Building Approvals." : "",
     c.fedFagAud > 0 || measures.has("fag_total_aud") ? "Grants: Financial Assistance Grants, Dept of Infrastructure." : "",
-    c.finSource === "vic_lgprf" ? "Financials: Local Government Victoria (LGPRF)." : "",
+    c.finSource === "vic_lgprf" && c.avgRates > 0 ? `Financials: Local Government Victoria (LGPRF)${c.finYear ? `, ${c.finYear}` : ""}.` : "",
     (p.suburbs ?? []).some((x) => x.vgMedian !== undefined) ? "Suburb prices: state Valuer-General." : "",
     p.rollup && (p.rollup.floodSharePct !== undefined || p.rollup.bushfireSharePct !== undefined) ? "Flood and bushfire: state planning layers." : "",
     p.rollup?.waterSharePct !== undefined ? "Observed water: Geoscience Australia DEA Water Observations." : "",
@@ -358,7 +414,7 @@ export function SourcesLine({ profile: p }: { profile: CouncilProfile }) {
   ].filter(Boolean);
   return (
     <p className="border-t border-border/50 pt-4 text-[11px] leading-relaxed text-muted-foreground [text-wrap:pretty]">
-      {parts.join(" ")} {licensors(c.fedFagAud > 0 || measures.has("fag_total_aud"), c.finSource === "vic_lgprf")} data CC BY 4.0.
+      {parts.join(" ")} {licensors(c.fedFagAud > 0 || measures.has("fag_total_aud"), c.finSource === "vic_lgprf" && c.avgRates > 0)} data CC BY 4.0.
       {p.factsAsOf ? ` Council facts loaded ${p.factsAsOf}.` : ""}
     </p>
   );

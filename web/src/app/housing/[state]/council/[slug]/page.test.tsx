@@ -4,6 +4,7 @@ import { create } from "@bufbuild/protobuf";
 import { render, screen, within } from "@testing-library/react";
 
 import {
+  CouncilDropSuburbSchema,
   CouncilPriceDropsSchema,
   CouncilProfileSchema,
   CouncilRollupSchema,
@@ -27,7 +28,13 @@ const notFound = jest.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
 });
 
-jest.mock("next/navigation", () => ({ notFound: () => notFound() }));
+const permanentRedirect = jest.fn((url: string) => {
+  throw new Error(`NEXT_REDIRECT:${url}`);
+});
+jest.mock("next/navigation", () => ({
+  notFound: () => notFound(),
+  permanentRedirect: (url: string) => permanentRedirect(url),
+}));
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
   DashboardLayout: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
@@ -111,7 +118,9 @@ describe("council page", () => {
     expect(tiles.getByRole("heading", { name: "Population" }).parentElement!).toHaveTextContent("ABS estimated resident population, 30 June 2025");
     const tile = screen.getByText("Council-wide house median").parentElement!;
     expect(tile).toHaveTextContent("FY 2023-24");
-    expect(screen.getByText(/Data through 2026-07-31/)).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toHaveTextContent(/Council series run to Jul(y)? 2026\./);
+    // No blanket claim that every figure is dated: not every source is.
+    expect(screen.queryByText(/Every figure below carries its own date/)).toBeNull();
     expect(screen.getByText(/Wikidata \(CC0\)/)).toBeInTheDocument();
     expect(bailOnEmptyRender).not.toHaveBeenCalled();
   });
@@ -148,13 +157,70 @@ describe("council page", () => {
     expect(screen.queryByText(/Flood planning land/)).toBeNull();
   });
 
-  it("shows the price-drops pulse only when the aggregate is present", async () => {
+  it("shows the price-drops pulse only when the aggregate is present, dated", async () => {
     getCouncilProfile.mockResolvedValue(profile({
-      priceDrops: create(CouncilPriceDropsSchema, { droppedListingCount: 7, trackedListingCount: 100, droppedShare: 0.07, suburbsTracked: 3 }),
+      priceDrops: create(CouncilPriceDropsSchema, {
+        droppedListingCount: 7, trackedListingCount: 100, droppedShare: 0.07, suburbsTracked: 3, medianDropPct: 0.04,
+        // 2026-09-24T01:00Z and 2026-09-23T20:00Z
+        asOf: { seconds: BigInt(1790211600), nanos: 0 } as never,
+        dataThrough: { seconds: BigInt(1790193600), nanos: 0 } as never,
+        suburbs: [create(CouncilDropSuburbSchema, { salCode: "10001", salName: "BANKSTOWN", postcode: "2200", droppedListingCount: 3, trackedListingCount: 40 })],
+      }),
     }));
     render(await CouncilPage(params("nsw", "canterbury-bankstown")));
-    expect(screen.getByRole("heading", { name: "Asking-price cuts" })).toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Asking-price cuts" }).closest("section")!;
     expect(screen.getByText("7.0%")).toBeInTheDocument();
+    expect(section).toHaveTextContent(/Computed 24 Sept? 2026; newest crawl observation 24 Sept? 2026\./);
+    expect(section).toHaveTextContent("seen in the last 14 days");
+    expect(section).toHaveTextContent("median over every cut listing");
+    expect(section).not.toHaveTextContent("median of suburb medians");
+  });
+
+  it("shows Victorian council finances with their year, and credits LGPRF only then", async () => {
+    const vic = profile();
+    Object.assign(vic.profile!.council!, { avgRates: 2_150, opSurplusRatio: -3.25, assetRenewalRatio: 96, finSource: "vic_lgprf", finYear: "2024-25" });
+    getCouncilProfile.mockResolvedValue(vic);
+    render(await CouncilPage(params("nsw", "canterbury-bankstown")));
+    const finances = screen.getByRole("heading", { name: "Council finances" }).closest("section")!;
+    expect(finances).toHaveTextContent("$2,150");
+    expect(finances).toHaveTextContent("-3.3%");
+    expect(finances).toHaveTextContent("2024-25");
+    expect(screen.getByText(/Financials: Local Government Victoria \(LGPRF\), 2024-25/)).toBeInTheDocument();
+  });
+
+  it("does not credit LGPRF when no finances are shown", async () => {
+    const vic = profile();
+    Object.assign(vic.profile!.council!, { avgRates: 0, finSource: "vic_lgprf" });
+    getCouncilProfile.mockResolvedValue(vic);
+    render(await CouncilPage(params("nsw", "canterbury-bankstown")));
+    expect(screen.queryByRole("heading", { name: "Council finances" })).toBeNull();
+    expect(screen.queryByText(/LGPRF/)).toBeNull();
+    expect(screen.queryByText(/Local Government Victoria/)).toBeNull();
+  });
+
+  it("redirects a non-canonical slug to the council's own URL", async () => {
+    await expect(CouncilPage(params("nsw", "Canterbury-Bankstown"))).rejects.toThrow(
+      "NEXT_REDIRECT:/housing/nsw/council/canterbury-bankstown",
+    );
+  });
+
+  it("does not let ISR pin a hub whose member suburbs failed to load", async () => {
+    getCouncilProfile.mockResolvedValue(profile({ suburbs: [] }));
+    render(await CouncilPage(params("nsw", "canterbury-bankstown")));
+    expect(bailOnEmptyRender).toHaveBeenCalledTimes(1);
+  });
+
+  it("says how much of the council a hazard share rests on", async () => {
+    render(await CouncilPage(params("nsw", "canterbury-bankstown")));
+    expect(screen.getByText(/Over 41 of 2 member suburbs/)).toBeInTheDocument();
+  });
+
+  it("scopes neighbours to the state in the copy", async () => {
+    getCouncilProfile.mockResolvedValue(profile({
+      neighbours: [{ lgaCode: "12930", slug: "georges-river", displayName: "Georges River", kind: "council", stateCode: "NSW", sharesBorder: true, sharedSuburbs: 0 } as never],
+    }));
+    render(await CouncilPage(params("nsw", "canterbury-bankstown")));
+    expect(screen.getByRole("heading", { name: "Neighbouring councils" }).closest("section")!).toHaveTextContent("in the same state");
   });
 
   it("explains that no council governs an unincorporated area, and that the ACT is the ACT Government's", async () => {
@@ -163,13 +229,17 @@ describe("council page", () => {
     act.profile!.summary!.displayName = "Unincorporated ACT";
     act.profile!.summary!.slug = "unincorporated-act";
     getCouncilProfile.mockResolvedValue(act);
-    render(await CouncilPage(params("act", "unincorporated-act")));
+    const { container: actPage } = render(await CouncilPage(params("act", "unincorporated-act")));
     expect(screen.getByRole("note")).toHaveTextContent(/ACT has no local councils/);
     expect(screen.getByRole("note")).toHaveTextContent(/ACT Government/);
+    // No council map exists for the ACT: never point at one.
+    expect(actPage.querySelector('a[href*="level=council"]')).toBeNull();
+    expect(actPage).not.toHaveTextContent(/every Australian Capital Territory council/);
 
     const nsw = profile();
     nsw.profile!.summary!.kind = "unincorporated";
     nsw.profile!.summary!.displayName = "Unincorporated NSW";
+    nsw.profile!.summary!.slug = "unincorporated-nsw";
     getCouncilProfile.mockResolvedValue(nsw);
     render(await CouncilPage(params("nsw", "unincorporated-nsw")));
     expect(screen.getAllByRole("note")[1]).toHaveTextContent(/No council governs Unincorporated NSW/);

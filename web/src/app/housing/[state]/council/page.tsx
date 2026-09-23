@@ -5,9 +5,10 @@ import { notFound } from "next/navigation";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
+import { CouncilIndexMap } from "~/@/components/housing/council/council-client";
+import { CouncilIndexTable, type CouncilIndexRow } from "~/@/components/housing/council/council-index-table";
 import { councilHref } from "~/@/lib/housing/council";
-import { SITE, councilIndexPath, fmtInt, fmtSharePct, fmtSignedPct } from "~/@/lib/housing/council-page";
-import { fmtPriceShort } from "~/@/lib/housing/price-scale";
+import { SITE, councilIndexPath } from "~/@/lib/housing/council-page";
 import { ALL_STATES, STATE_NAMES, slugToState, stateSlug } from "~/@/lib/housing/states";
 import { cn } from "~/@/lib/utils";
 import { eyebrow, pageTitle } from "~/@/lib/typography";
@@ -50,10 +51,21 @@ export default async function StateCouncilsPage({ params }: PageProps) {
   const councils = res?.councils ?? [];
   if (councils.length === 0) bailOnEmptyRender();
   const erpYear = councils.find((c) => c.erpYear > 0)?.erpYear;
-  const approvalsThrough = councils.find((c) => c.approvalsThrough)?.approvalsThrough;
-  const medianPeriod = councils.find((c) => c.councilHouseMedianPeriod)?.councilHouseMedianPeriod;
-  const anyHazard = councils.some((c) => c.floodSharePct !== undefined || c.bushfireSharePct !== undefined);
+  const approvalsThrough = mostCommon(councils.map((c) => c.approvalsThrough));
+  // Headers carry the period most councils are on; a council on another
+  // period shows its own beside the value.
+  const medianPeriod = mostCommon(councils.map((c) => c.councilHouseMedianPeriod));
+  const fagYear = mostCommon(councils.map((c) => (c.fagPerResident !== undefined ? c.fagYear : "")));
   const url = `${SITE}${councilIndexPath(code)}`;
+  // Plain JSON for the client table and map (never a protobuf message object).
+  const rows: CouncilIndexRow[] = councils.map((c) => ({
+    lgaCode: c.lgaCode, slug: c.slug, displayName: c.displayName, kind: c.kind,
+    population: c.population, erpYear: c.erpYear, popGrowthPct: c.popGrowthPct, densityPerSqkm: c.densityPerSqkm,
+    councilHouseMedian: c.councilHouseMedian, councilHouseMedianPeriod: c.councilHouseMedianPeriod,
+    fagPerResident: c.fagPerResident, fagYear: c.fagYear, approvalsPer1000: c.approvalsPer1000,
+    approvalsThrough: c.approvalsThrough, seifaIrsadDecile: c.seifaIrsadDecile,
+    floodSharePct: c.floodSharePct, bushfireSharePct: c.bushfireSharePct, priceDropShare: c.priceDropShare,
+  }));
 
   const itemList = {
     "@context": "https://schema.org",
@@ -93,70 +105,53 @@ export default async function StateCouncilsPage({ params }: PageProps) {
           <p className={cn(eyebrow, "mb-2 font-medium")}>Local government</p>
           <h1 className={cn(pageTitle, "leading-[1.08]")}>{name} councils</h1>
           <p className="mt-4 max-w-3xl text-base leading-relaxed text-muted-foreground">
-            {code === "ACT"
-              ? "The ACT has no local councils: the ACT Government delivers municipal services across the whole territory, which ABS treats as one unincorporated area."
-              : `Every ${name} local government area with the facts we hold for it. Population is the ABS estimated resident population${erpYear ? ` at 30 June ${erpYear}` : ""}; house medians are council-wide, not any suburb's.`}{" "}
-            <Link href={`/housing/${stateSlug(code)}?level=council`} className="text-primary hover:underline">See them on the map →</Link>
+            {code === "ACT" ? (
+              <>
+                The ACT has no local councils: the ACT Government delivers municipal services across the whole territory, which ABS treats
+                as one unincorporated area.{" "}
+                <Link href={`/housing/${stateSlug(code)}`} className="text-primary hover:underline">Explore ACT suburbs on the map →</Link>
+              </>
+            ) : (
+              <>
+                Every {name} local government area with the facts we hold for it. Population is the ABS estimated resident
+                population{erpYear ? ` at 30 June ${erpYear}` : ""}; house medians are council-wide, not any suburb&rsquo;s. Sort the
+                table by any column.
+              </>
+            )}
           </p>
         </header>
+
+        {code !== "ACT" && rows.length > 1 ? (
+          <section aria-label={`${name} council map`}>
+            <CouncilIndexMap stateCode={code} councils={rows} />
+          </section>
+        ) : null}
 
         {councils.length === 0 ? (
           <p className="text-sm text-muted-foreground">Council data is loading. Please try again shortly.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-border/60">
-            <table className="w-full min-w-[760px] text-sm">
-              <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th scope="col" className="px-3 py-2 font-medium">Council</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium">Population{erpYear ? ` (${erpYear})` : ""}</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium">Growth</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium">Per km²</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium">House median{medianPeriod ? ` (${medianPeriod})` : ""}</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium">Grant / resident</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium">Approvals / 1,000</th>
-                  <th scope="col" className="px-3 py-2 text-right font-medium">IRSAD</th>
-                  {anyHazard ? <th scope="col" className="px-3 py-2 text-right font-medium">Flood / bushfire</th> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {councils.map((c) => {
-                  const href = councilHref(code, c.slug, true);
-                  return (
-                    <tr key={c.lgaCode} className="border-t border-border/40">
-                      <td className="px-3 py-1.5">
-                        {href ? <Link href={href} className="font-medium hover:underline">{c.displayName}</Link> : c.displayName}
-                        {c.kind === "unincorporated" ? <span className="ml-1.5 text-[10px] text-muted-foreground">unincorporated</span> : null}
-                      </td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{c.population > 0 ? fmtInt(c.population) : ""}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{c.popGrowthPct !== undefined ? fmtSignedPct(c.popGrowthPct) : ""}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{c.densityPerSqkm !== undefined ? fmtInt(c.densityPerSqkm) : ""}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">
-                        {c.councilHouseMedian !== undefined && c.councilHouseMedianPeriod
-                          ? `${fmtPriceShort(c.councilHouseMedian)}${c.councilHouseMedianPeriod !== medianPeriod ? ` (${c.councilHouseMedianPeriod})` : ""}`
-                          : ""}
-                      </td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{c.fagPerResident !== undefined && c.fagYear ? `$${fmtInt(c.fagPerResident)}` : ""}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{c.approvalsPer1000 !== undefined ? c.approvalsPer1000.toFixed(1) : ""}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums">{c.seifaIrsadDecile ?? ""}</td>
-                      {anyHazard ? (
-                        <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">
-                          {c.floodSharePct !== undefined ? fmtSharePct(c.floodSharePct) : "–"} / {c.bushfireSharePct !== undefined ? fmtSharePct(c.bushfireSharePct) : "–"}
-                        </td>
-                      ) : null}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <CouncilIndexTable stateCode={code} councils={rows} erpYear={erpYear} medianPeriod={medianPeriod} fagYear={fagYear} />
         )}
         <p className="text-[11px] leading-relaxed text-muted-foreground [text-wrap:pretty]">
           ABS ASGS 2024 local government areas and estimated resident population; council-wide medians from ABS Data by Region;
-          grants from the Financial Assistance Grants (Dept of Infrastructure), per ABS resident; approvals from ABS Building Approvals
-          {approvalsThrough ? `, 12 months to ${approvalsThrough}` : ""}; SEIFA 2021. Hazard shares are population-weighted over member
-          suburbs a state layer covers; a blank cell means no source covers it, not zero. ABS, Dept of Infrastructure and state data CC BY 4.0.
+          grants from the Financial Assistance Grants (Dept of Infrastructure){fagYear ? `, ${fagYear},` : ""} per ABS resident; approvals
+          from ABS Building Approvals{approvalsThrough ? `, 12 months to ${approvalsThrough}` : ""}; SEIFA 2021. Hazard shares are
+          population-weighted over member suburbs a state layer covers, and shown only where covered suburbs hold at least half the
+          council&rsquo;s residents; a dash means no source covers enough of it, not zero. ABS, Dept of Infrastructure and state data CC BY 4.0.
         </p>
       </div>
     </DashboardLayout>
   );
+}
+
+/** The most common non-empty value (ties to the later-sorting, i.e. newer, period). */
+function mostCommon(values: readonly string[]): string | undefined {
+  const counts = new Map<string, number>();
+  for (const v of values) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let best: string | undefined;
+  for (const [v, n] of counts) {
+    const bn = best ? counts.get(best)! : 0;
+    if (n > bn || (n === bn && best !== undefined && v > best)) best = v;
+  }
+  return best;
 }

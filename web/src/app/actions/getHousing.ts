@@ -412,13 +412,30 @@ function writeCouncilCache(schema: Parameters<typeof toJson>[0], key: string, va
   }
 }
 
+/** A ListCouncils response worth caching or serving from cache: any council. */
+export function isPopulatedCouncilList(r: ListCouncilsResponse): boolean {
+  return r.councils.length > 0;
+}
+
+/**
+ * A council profile worth caching: identity present AND, when the council has
+ * member suburbs, the member-suburb block too. The store tolerates a failed
+ * member-suburb query (empty section), and pinning that for the 24h TTL would
+ * serve a hub with no map, table or rollups.
+ */
+export function isPopulatedCouncilProfile(r: GetCouncilProfileResponse): boolean {
+  const p = r.profile;
+  if (!p?.summary?.lgaCode) return false;
+  return p.summary.memberSuburbCount === 0 || (p.suburbs?.length ?? 0) > 0;
+}
+
 /** Every council with a page in one state, largest first. */
 export const listCouncils = cache(
   withRetryAndNotFound(
     async (stateCode: string): Promise<ListCouncilsResponse | undefined> => {
       if (skipForBuild()) return undefined;
       const key = CACHE_KEYS.councils(stateCode);
-      const populated = (r: ListCouncilsResponse) => r.councils.length > 0;
+      const populated = isPopulatedCouncilList;
       const hit = readCouncilCache<ListCouncilsResponse>(ListCouncilsResponseSchema, await getCached<JsonValue>(key), populated);
       if (hit) return hit;
       const resp = await createSuburbIsrHousingClient().listCouncils({ stateCode });
@@ -434,10 +451,14 @@ export const listCouncils = cache(
  */
 export const getCouncilProfile = cache(
   withRetryAndThrowNotFound(
-    async (stateCode: string, slug: string): Promise<GetCouncilProfileResponse | undefined> => {
+    async (stateCode: string, rawSlug: string): Promise<GetCouncilProfileResponse | undefined> => {
       if (skipForBuild()) return undefined;
+      // The API lower-cases and trims the slug; key the cache the same way so
+      // /council/Sydney and /council/sydney share one entry (the page then
+      // redirects to the canonical URL).
+      const slug = rawSlug.trim().toLowerCase();
       const key = CACHE_KEYS.councilProfile(stateCode, slug);
-      const populated = (r: GetCouncilProfileResponse) => Boolean(r.profile?.summary?.lgaCode);
+      const populated = isPopulatedCouncilProfile;
       const hit = readCouncilCache<GetCouncilProfileResponse>(GetCouncilProfileResponseSchema, await getCached<JsonValue>(key), populated);
       if (hit) return hit;
       const resp = await createSuburbIsrHousingClient().getCouncilProfile({ stateCode, slug });

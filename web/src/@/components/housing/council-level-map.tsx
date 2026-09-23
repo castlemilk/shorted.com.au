@@ -7,11 +7,19 @@ import type { CouncilSummary } from "~/gen/shorts/v1alpha1/housing_pb";
 import { ChoroplethMap, type OverlayLayer } from "./choropleth-map";
 import { MapLegend } from "./map-legend";
 import { councilTopology } from "@/lib/housing/council-geometry";
-import { COUNCIL_METRIC_BY_KEY, councilMetricScale, type CouncilMetricKey } from "@/lib/housing/council-metrics";
+import {
+  COUNCIL_METRIC_BY_KEY, councilMetricPeriods, councilMetricScale, type CouncilMetricInput, type CouncilMetricKey,
+} from "@/lib/housing/council-metrics";
 import { councilHref } from "@/lib/housing/council";
 
 const TIP_W = 220;
 const TIP_H = 120;
+
+/**
+ * What the council map reads from each council: a CouncilSummary satisfies it,
+ * and so does a plain JSON row passed from a server page.
+ */
+export type CouncilMapRow = CouncilMetricInput & Pick<CouncilSummary, "lgaCode" | "slug" | "displayName" | "kind">;
 
 /**
  * The state map at council level: one fill per council, merged on the fly from
@@ -26,7 +34,7 @@ export function CouncilLevelMap({
   topology: Topology;
   objectName: string;
   lgaBySal: ReadonlyMap<string, string | null>;
-  councils: readonly CouncilSummary[];
+  councils: readonly CouncilMapRow[];
   metricKey: CouncilMetricKey;
   overlays?: OverlayLayer[];
   legendExtra?: React.ReactNode;
@@ -56,9 +64,12 @@ export function CouncilLevelMap({
     return m;
   }, [councils]);
 
-  const sample = councils.find((c) => metric.value(c) != null);
+  // Date the legend by the period most councils are on, and say when some are
+  // older — a 2021-22 median must not pass for a 2023-24 one.
+  const periods = useMemo(() => councilMetricPeriods(metric, councils), [metric, councils]);
   const hovered = hover ? byCode.get(hover.code) : undefined;
   const hoveredValue = hovered ? metric.value(hovered) : null;
+  const hoveredPeriod = hovered && hoveredValue != null ? metric.period?.(hovered) : undefined;
 
   const legend = (
     <div className="flex flex-col gap-1.5">
@@ -67,7 +78,11 @@ export function CouncilLevelMap({
         noDataLabel={metric.noDataLabel} signed={metric.diverging}
       />
       <p className="pointer-events-none max-w-[240px] rounded-md bg-card/85 px-2 py-1 text-[10px] leading-snug text-muted-foreground backdrop-blur">
-        {metric.source(sample)}. Council shapes join the suburbs each council holds most residents of (ABS mesh-block allocation).
+        {metric.source(periods.modalSample)}.
+        {periods.offModal > 0
+          ? ` ${periods.offModal} council${periods.offModal === 1 ? "'s" : "s'"} latest figure is older (from ${periods.oldest}); hover for each council's period.`
+          : ""}{" "}
+        Council shapes join the suburbs each council holds most residents of (ABS mesh-block allocation).
       </p>
       {legendExtra}
     </div>
@@ -118,6 +133,11 @@ export function CouncilLevelMap({
               {hoveredValue == null ? metric.noDataLabel : metric.format(hoveredValue)}
             </span>
           </div>
+          {hoveredPeriod ? (
+            <div className={`text-right text-[10px] ${hoveredPeriod !== periods.modal ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+              {hoveredPeriod}
+            </div>
+          ) : null}
           {hovered.slug ? <div className="mt-1.5 text-[10px] text-primary">Click for the council page</div> : null}
         </div>
       ) : null}

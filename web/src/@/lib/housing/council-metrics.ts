@@ -35,6 +35,12 @@ export interface CouncilMetric {
   format: (v: number) => string;
   /** Plain-language source + date for the legend footnote. */
   source: (sample: CouncilMetricInput | undefined) => string;
+  /**
+   * The period this council's value is for, when councils can differ ('2023-24',
+   * '2026-07'). Lets the map say which year each council shows instead of
+   * implying every council is as current as the first one.
+   */
+  period?: (c: CouncilMetricInput) => string | undefined;
   sqrt?: boolean;
   domain?: [number, number];
   /** Diverging around zero (growth can be negative). */
@@ -70,18 +76,21 @@ export const COUNCIL_METRICS: readonly CouncilMetric[] = [
   {
     key: "house_median", label: "Council-wide house median", legendLabel: "Council-wide established-house median", icon: "median-price",
     value: (c) => (c.councilHouseMedianPeriod ? present(c.councilHouseMedian) : null), format: fmtPriceShort, sqrt: true,
+    period: (c) => c.councilHouseMedianPeriod || undefined,
     source: (s) => `ABS Data by Region, whole-council transfers${s?.councilHouseMedianPeriod ? `, ${s.councilHouseMedianPeriod}` : ""}`,
     noDataLabel: "No council median",
   },
   {
     key: "fag_per_resident", label: "Federal grants per resident", legendLabel: "Financial Assistance Grant per resident", icon: "grants",
     value: (c) => (c.fagYear ? present(c.fagPerResident) : null), format: (v) => `$${Math.round(v).toLocaleString("en-AU")}`, sqrt: true,
+    period: (c) => c.fagYear || undefined,
     source: (s) => `Financial Assistance Grants${s?.fagYear ? ` ${s.fagYear}` : ""} over ABS estimated resident population`,
     noDataLabel: "No grant matched",
   },
   {
     key: "approvals_per_1000", label: "Dwelling approvals", legendLabel: "Dwellings approved per 1,000 residents, last 12 months", icon: "dwellings",
     value: (c) => (c.approvalsThrough ? present(c.approvalsPer1000) : null), format: (v) => v.toFixed(1), sqrt: true,
+    period: (c) => (c.approvalsThrough ? `12 months to ${c.approvalsThrough}` : undefined),
     source: (s) => `ABS Building Approvals, 12 months to ${s?.approvalsThrough ? s.approvalsThrough : "latest month"}`,
     noDataLabel: "No approvals series",
   },
@@ -119,6 +128,43 @@ export const DEFAULT_COUNCIL_METRIC: CouncilMetricKey = "population";
 
 export function isCouncilMetricKey(value: string | null | undefined): value is CouncilMetricKey {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(COUNCIL_METRIC_BY_KEY, value);
+}
+
+export interface CouncilMetricPeriods {
+  /** The period most councils with a value are on. */
+  modal?: string;
+  /** A council on the modal period — what the legend's source line is dated by. */
+  modalSample?: CouncilMetricInput;
+  /** Oldest and newest periods present; equal unless the councils differ. */
+  oldest?: string;
+  newest?: string;
+  /** Councils with a value on a period other than the modal one. */
+  offModal: number;
+}
+
+/**
+ * Which periods a metric's values span across the councils shown. Period
+ * labels ('2023-24', '12 months to 2026-07') sort chronologically as strings.
+ */
+export function councilMetricPeriods(metric: CouncilMetric, councils: readonly CouncilMetricInput[]): CouncilMetricPeriods {
+  const counts = new Map<string, number>();
+  const sample = new Map<string, CouncilMetricInput>();
+  for (const c of councils) {
+    if (metric.value(c) == null) continue;
+    const p = metric.period?.(c);
+    if (!p) continue;
+    counts.set(p, (counts.get(p) ?? 0) + 1);
+    if (!sample.has(p)) sample.set(p, c);
+  }
+  if (counts.size === 0) return { modalSample: councils.find((c) => metric.value(c) != null), offModal: 0 };
+  const byCount = [...counts].sort((a, b) => b[1] - a[1] || b[0].localeCompare(a[0]));
+  const sorted = [...counts.keys()].sort();
+  const modal = byCount[0]![0];
+  const total = [...counts.values()].reduce((a, b) => a + b, 0);
+  return {
+    modal, modalSample: sample.get(modal), oldest: sorted[0], newest: sorted[sorted.length - 1],
+    offModal: total - counts.get(modal)!,
+  };
 }
 
 /** Colour scale for a metric over the values actually present. */

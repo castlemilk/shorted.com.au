@@ -2,6 +2,7 @@ import {
   COUNCIL_METRICS,
   COUNCIL_METRIC_BY_KEY,
   DEFAULT_COUNCIL_METRIC,
+  councilMetricPeriods,
   councilMetricScale,
   isCouncilMetricKey,
   type CouncilMetricInput,
@@ -76,5 +77,17 @@ describe("council metric registry", () => {
     expect(COUNCIL_METRIC_BY_KEY.population_growth.format(1.05)).toBe("+1.1%");
     expect(COUNCIL_METRIC_BY_KEY.flood_share.format(0.4)).toBe("<1%");
     expect(COUNCIL_METRIC_BY_KEY.irsad_decile.format(7)).toBe("Decile 7");
+  });
+
+  test("mixed periods are reported, not hidden behind the first council's year", () => {
+    const m = COUNCIL_METRIC_BY_KEY.house_median;
+    const at = (period: string, v = 900_000) => ({ ...base, councilHouseMedian: v, councilHouseMedianPeriod: period });
+    const p = councilMetricPeriods(m, [at("2021-22"), at("2023-24"), at("2023-24"), at("2022-23"), base]);
+    expect(p).toMatchObject({ modal: "2023-24", oldest: "2021-22", newest: "2023-24", offModal: 2 });
+    expect(p.modalSample?.councilHouseMedianPeriod).toBe("2023-24");
+    expect(m.period?.(at("2021-22"))).toBe("2021-22");
+    const same = councilMetricPeriods(m, [at("2023-24"), at("2023-24")]);
+    expect(same.offModal).toBe(0);
+    expect(same.oldest).toBe(same.newest);
   });
 });

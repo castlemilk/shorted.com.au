@@ -248,8 +248,13 @@ export function StateSuburbMap({
     queryKey: ["councils", stateCode],
     queryFn: () => listCouncilsClient(stateCode),
     staleTime: 60 * 60 * 1000,
-    enabled: councilsSupported && level === "council",
+    // Borders mode needs it too: the suburb tooltip names the council.
+    enabled: needCouncils,
   });
+  const councilNameByCode = useMemo(
+    () => new Map((councilList.data?.councils ?? []).map((c) => [c.lgaCode, c.displayName] as const)),
+    [councilList.data],
+  );
 
   // Columnar fetch: the coloured metric when it is column-sourced, plus the
   // share behind every active overlay so the tooltip can quote a number for the
@@ -346,6 +351,10 @@ export function StateSuburbMap({
       const v = col.get(salCode);
       rows.push({ label, value: v == null ? missing : format(v), color });
     };
+    // With council borders on, name the suburb's dominant council — the lines
+    // alone do not say which side is which.
+    const council = showCouncilBorders ? councilNameByCode.get(lgaBySal.get(salCode) ?? "") : undefined;
+    if (council) rows.push({ label: "Council", value: council });
     if (metric.kind === "column") push(metric.key, metric.label, metric.format);
     for (const k of activeOverlays) {
       const o = OVERLAY_BY_KEY[k];
@@ -353,7 +362,7 @@ export function StateSuburbMap({
       push(o.metricKey, o.shareLabel, def.kind === "column" ? def.format : (v) => `${Math.round(v)}%`, o.color);
     }
     return rows;
-  }, [metric, activeOverlays, columns.data]);
+  }, [metric, activeOverlays, columns.data, showCouncilBorders, councilNameByCode, lgaBySal]);
 
   // Council borders over the suburb map: shared arcs between suburbs in
   // different councils (topojson.mesh), drawn as a non-scaling line layer.

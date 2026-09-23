@@ -40,6 +40,14 @@ describe("isr-shell-pages.json", () => {
       "/compare",
       "/price-drops",
       "/themes",
+      "/housing/nsw/council",
+      "/housing/vic/council",
+      "/housing/qld/council",
+      "/housing/sa/council",
+      "/housing/wa/council",
+      "/housing/tas/council",
+      "/housing/nt/council",
+      "/housing/act/council",
     ]);
   });
 });
@@ -102,15 +110,19 @@ describe("capital housing pages in the ISR sweep inventory", () => {
 });
 
 // The council index pages build as empty shells under SKIP_STATIC_GENERATION
-// (listCouncils skips at build). The post-promote sweep revalidates the whole
-// inventory, so every state's index must be in it. They are deliberately NOT
-// in the 15-minute shell re-prime set: their data changes monthly, and the
-// runtime bailOnEmptyRender already keeps an empty render out of the cache.
-describe("council index pages in the ISR sweep inventory", () => {
+// (listCouncils skips at build), so an invalidate alone would hand the first
+// post-deploy visitor "Council data is loading" (stale-while-revalidate serves
+// the shell once). They are in BOTH sets: the post-promote sweep inventory and
+// the shell re-prime. The 15-minute re-prime costs 8 regenerations that read
+// the 24h KV entry, not the API. bailOnEmptyRender still keeps a runtime empty
+// render out of the cache.
+describe("council index pages in the ISR sweep and shell re-prime", () => {
   it("covers /housing/<state>/council for all eight states", () => {
     const all = new Set(isrPages as string[]);
+    const shells = new Set(isrShellPages as string[]);
     for (const st of ["nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"]) {
       expect(all.has(`/housing/${st}/council`)).toBe(true);
+      expect(shells.has(`/housing/${st}/council`)).toBe(true);
     }
   });
 });

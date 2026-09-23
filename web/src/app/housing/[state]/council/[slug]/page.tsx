@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 import { CouncilHubMap, CouncilSeriesChart } from "~/@/components/housing/council/council-client";
 import {
-  CouncilWebsite, KeyFactTiles, MemberSuburbs, Neighbours, PeopleAndHousing, PriceDropsPulse,
+  CouncilFinances, CouncilWebsite, KeyFactTiles, MemberSuburbs, Neighbours, PeopleAndHousing, PriceDropsPulse,
   Representation, Rollups, Section, SourcesLine,
 } from "~/@/components/housing/council/council-sections";
 import {
   SITE, councilChartGroups, councilIndexPath, councilJsonLd, councilKeyFacts, councilPath,
-  fmtInt, kindNote,
+  fmtInt, fmtMonth, kindNote,
 } from "~/@/lib/housing/council-page";
 import { ALL_STATES, STATE_NAMES, slugToState, stateSlug } from "~/@/lib/housing/states";
 import { cn } from "~/@/lib/utils";
@@ -94,9 +94,14 @@ export default async function CouncilPage({ params }: PageProps) {
 
   const s = profile.summary;
   const c = profile.council;
+  // The API resolves /council/Sydney to sydney; serve one URL per council.
+  if (s.slug && s.slug !== slug) permanentRedirect(councilPath(code, s.slug));
   // Repeated fields default to [] on the wire; guard anyway so a partial cached
   // entry degrades to missing sections rather than a crash.
   const suburbs = profile.suburbs ?? [];
+  // A council with members whose member-suburb block failed to load is a
+  // partial render: serve it, but do not let ISR pin it for a day.
+  if (s.memberSuburbCount > 0 && suburbs.length === 0) bailOnEmptyRender();
   const neighbours = profile.neighbours ?? [];
   const stateName = STATE_NAMES[code]!;
   const pageUrl = `${SITE}${councilPath(code, s.slug)}`;
@@ -145,7 +150,7 @@ export default async function CouncilPage({ params }: PageProps) {
             {c.website ? <> Council website: <CouncilWebsite website={c.website} />.</> : null}
           </p>
           {s.dataThrough ? (
-            <p className="mt-2 text-xs text-muted-foreground">Data through {s.dataThrough}. Every figure below carries its own date.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Council series run to {fmtMonth(s.dataThrough)}.</p>
           ) : null}
           {note ? (
             <p className="mt-4 max-w-3xl rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-muted-foreground" role="note">
@@ -185,17 +190,31 @@ export default async function CouncilPage({ params }: PageProps) {
         ) : null}
 
         <PeopleAndHousing council={c} />
+        <CouncilFinances council={c} />
         <MemberSuburbs stateCode={code} suburbs={suburbs} councilName={s.displayName} />
-        {profile.rollup ? <Rollups stateCode={code} rollup={profile.rollup} /> : null}
+        {profile.rollup ? (
+          <Rollups
+            stateCode={code}
+            rollup={profile.rollup}
+            pricedPeriods={suburbs.filter((x) => x.dominant && x.vgMedian !== undefined && x.vgMedianPeriod).map((x) => x.vgMedianPeriod)}
+          />
+        ) : null}
         <Representation federal={profile.federalElectorates ?? []} state={profile.stateDistricts ?? []} />
         <PriceDropsPulse stateCode={code} drops={profile.priceDrops} />
         <Neighbours neighbours={neighbours} />
 
-        <p className="text-sm text-muted-foreground">
-          Compare it with every {stateName} council on the{" "}
-          <Link href={`/housing/${stateSlug(code)}?level=council`} className="text-primary hover:underline">council map</Link> or the{" "}
-          <Link href={councilIndexPath(code)} className="text-primary hover:underline">{stateName} council list</Link>.
-        </p>
+        {code === "ACT" ? (
+          <p className="text-sm text-muted-foreground">
+            Explore the territory&rsquo;s suburbs on the{" "}
+            <Link href={`/housing/${stateSlug(code)}`} className="text-primary hover:underline">{stateName} suburb map</Link>.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Compare it with every {stateName} council on the{" "}
+            <Link href={`/housing/${stateSlug(code)}?level=council`} className="text-primary hover:underline">council map</Link> or the{" "}
+            <Link href={councilIndexPath(code)} className="text-primary hover:underline">{stateName} council list</Link>.
+          </p>
+        )}
         <SourcesLine profile={profile} />
       </div>
     </DashboardLayout>

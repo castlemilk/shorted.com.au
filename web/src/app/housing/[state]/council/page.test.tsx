@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import StateCouncilsPage, { generateMetadata, generateStaticParams } from "./page";
 
@@ -18,6 +18,13 @@ jest.mock("~/@/components/seo/breadcrumbs", () => ({ Breadcrumbs: () => null }))
 jest.mock("~/@/components/seo/enhanced-structured-data", () => ({ BreadcrumbListSchema: () => null }));
 jest.mock("~/app/actions/config", () => ({ bailOnEmptyRender: () => bailOnEmptyRender() }));
 jest.mock("~/app/actions/getHousing", () => ({ listCouncils: (...args: unknown[]) => listCouncils(...args) }));
+const indexMapProps = jest.fn();
+jest.mock("~/@/components/housing/council/council-client", () => ({
+  CouncilIndexMap: (props: unknown) => {
+    indexMapProps(props);
+    return <div data-testid="council-index-map" />;
+  },
+}));
 
 const params = (state: string) => ({ params: Promise.resolve({ state }) });
 
@@ -51,8 +58,36 @@ describe("state council index", () => {
     const unincorporated = screen.getByRole("link", { name: "Unincorporated NSW" }).closest("tr")!;
     expect(within(unincorporated).getByText("unincorporated")).toBeInTheDocument();
     expect(unincorporated).not.toHaveTextContent("$");
-    expect(unincorporated).toHaveTextContent("– / –");
+    expect(within(unincorporated).getAllByText("–")).toHaveLength(2); // flood, bushfire: no source
     expect(bailOnEmptyRender).not.toHaveBeenCalled();
+  });
+
+  it("embeds the council choropleth, fed the same rows as plain JSON", async () => {
+    render(await StateCouncilsPage(params("nsw")));
+    expect(screen.getByTestId("council-index-map")).toBeInTheDocument();
+    const props = indexMapProps.mock.calls[0]![0] as { stateCode: string; councils: Array<Record<string, unknown>> };
+    expect(props.stateCode).toBe("NSW");
+    expect(props.councils.map((c) => c.lgaCode)).toEqual(["11570", "19399"]);
+    // Serializable across the RSC boundary: no protobuf $typeName, no functions.
+    expect(JSON.parse(JSON.stringify(props.councils))).toEqual(props.councils.map((c) =>
+      Object.fromEntries(Object.entries(c).filter(([, v]) => v !== undefined))));
+    expect(props.councils[0]).not.toHaveProperty("$typeName");
+  });
+
+  it("sorts by any column, with missing facts last in both directions", async () => {
+    render(await StateCouncilsPage(params("nsw")));
+    const names = () => screen.getAllByRole("row").slice(1).map((r) => within(r).getAllByRole("cell")[0]!.textContent);
+    expect(names()[0]).toMatch(/Canterbury-Bankstown/); // population desc by default
+    const growth = screen.getByRole("button", { name: "Growth" });
+    fireEvent.click(growth); // desc
+    expect(names()[0]).toMatch(/Canterbury-Bankstown/);
+    fireEvent.click(growth); // asc: the council with no growth figure still sorts last
+    expect(names()[0]).toMatch(/Canterbury-Bankstown/);
+    expect(screen.getByRole("columnheader", { name: "Growth" })).toHaveAttribute("aria-sort", "ascending");
+    fireEvent.click(screen.getByRole("button", { name: "Council" })); // name asc
+    expect(names()[0]).toMatch(/Canterbury-Bankstown/);
+    fireEvent.click(screen.getByRole("button", { name: "Council" })); // name desc
+    expect(names()[0]).toMatch(/Unincorporated NSW/);
   });
 
   it("bails out of ISR when the list comes back empty, and 404s an unknown state", async () => {
@@ -62,9 +97,11 @@ describe("state council index", () => {
     await expect(StateCouncilsPage(params("atlantis"))).rejects.toThrow("NEXT_NOT_FOUND");
   });
 
-  it("explains the ACT and keeps a canonical URL", async () => {
+  it("explains the ACT, with no council map to point at, and keeps a canonical URL", async () => {
     render(await StateCouncilsPage(params("act")));
     expect(screen.getByText(/ACT has no local councils/)).toBeInTheDocument();
+    expect(screen.queryByTestId("council-index-map")).toBeNull();
+    for (const link of screen.getAllByRole("link")) expect(link.getAttribute("href")).not.toContain("level=council");
     const meta = await generateMetadata(params("act"));
     expect(meta.alternates?.canonical).toBe("https://shorted.com.au/housing/act/council");
   });
