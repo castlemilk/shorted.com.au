@@ -29,7 +29,6 @@ import { SuburbPoliticianPropertyCard } from "@/components/politicians/suburb-po
 import Link from "next/link";
 import type {
   GetSuburbProfileResponse,
-  LgaInfo,
   SuburbCrime,
   SuburbDemographics,
   SuburbSeifa,
@@ -44,6 +43,7 @@ import { SuburbLocatorMap } from "./suburb-locator-map-loader";
 import { SuburbNearbyList } from "./suburb-nearby-list";
 import { SuburbScoreBand } from "./suburb-score-band";
 import { SuburbHazardCard } from "./suburb-hazard-card";
+import { SuburbCouncilCard } from "./suburb-council-card";
 import { RecentPriceDrops } from "./suburb-recent-price-drops-loader";
 import { STATE_NAMES, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
 import { crimeRankScale } from "@/lib/housing/highlight-metrics";
@@ -54,7 +54,6 @@ import { HousingIcon, type HousingIconName } from "./housing-icon";
 const fmtAUD = (v: number) =>
   v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M` : v >= 1_000 ? `$${Math.round(v / 1000)}k` : `$${Math.round(v)}`;
 const fmtMoney = (v: number) => `$${Math.round(v).toLocaleString()}`;
-const fmtSignedPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
 
 function fmtPeriod(seconds?: number | bigint): string | null {
   const n = Number(seconds ?? 0);
@@ -281,7 +280,7 @@ export function SuburbProfile({
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2">
-            {data.council?.lgaName ? <CouncilCard c={data.council} /> : null}
+            {data.council?.lgaName ? <SuburbCouncilCard council={data.council} overlaps={data.councilOverlaps} /> : null}
             <FederalRep s={s} />
           </div>
 
@@ -557,33 +556,6 @@ function FederalRep({ s }: { s: Summary }) {
         <CultureRow label="Two-party-preferred" value={lean} />
         <CultureRow label="State electorate" value={s.stateDistrict || "—"} />
         <CultureRow label="State MP" value={s.stateMember ? `${titleCaseName(s.stateMember)}${s.statePartyAb ? ` (${s.statePartyAb})` : ""}` : "—"} />
-      </DlCard>
-    </section>
-  );
-}
-
-type Council = LgaInfo;
-function CouncilCard({ c }: { c: Council }) {
-  if (!c.lgaName) return null;
-  return (
-    <section>
-      <SectionHeading icon="council">Local council</SectionHeading>
-      <DlCard
-        footnote={`Council boundary: ABS ASGS LGA 2024. Federal grants: Financial Assistance Grants, Dept of Infrastructure.${
-          c.finSource === "vic_lgprf" ? ` Financials: VIC Local Government Performance Reporting${c.finYear ? ` ${c.finYear}` : ""}, Local Government Victoria.` : ""
-        } All CC BY 4.0.`}
-      >
-        <CultureRow label="Council (LGA)" value={c.lgaName} />
-        <CultureRow label="Population / area" value={c.population > 0 ? `${c.population.toLocaleString()}${c.areaSqkm > 0 ? ` · ${Math.round(c.areaSqkm).toLocaleString()} km²` : ""}` : "—"} />
-        <CultureRow label="Density" value={c.population > 0 && c.areaSqkm > 0 ? `${Math.round(c.population / c.areaSqkm).toLocaleString()}/km²` : "—"} />
-        <CultureRow label="Federal grants" value={c.fedFagAud > 0 ? `${fmtAUD(c.fedFagAud)}/yr${c.population > 0 ? ` · ${fmtMoney(c.fedFagAud / c.population)}/resident` : ""}` : "—"} />
-        {c.avgRates > 0 ? (
-          <>
-            <CultureRow label="Avg rates / property" value={fmtMoney(c.avgRates)} />
-            <CultureRow label="Operating result" value={fmtSignedPct(c.opSurplusRatio)} />
-            <CultureRow label="Asset renewal" value={`${Math.round(c.assetRenewalRatio)}%`} />
-          </>
-        ) : null}
       </DlCard>
     </section>
   );
