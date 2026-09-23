@@ -34,9 +34,12 @@ func TestCouncilQueryShapes(t *testing.T) {
 			"NULLIF(sl.overlap_lgas, '[]'::jsonb)",          // pre-overlap bridge rows still count
 		}, nil},
 		{"hazards", councilHazardRollupQuery, []string{
-			"FILTER (WHERE h.flood_planning_share_pct IS NOT NULL)",
-			"FILTER (WHERE h.bushfire_prone_share_pct IS NOT NULL)",
-			"NULLIF(sum(m.w) FILTER",
+			// Both numerator and denominator count only covered suburbs, so a
+			// council with none divides by NULL and stays absent.
+			"sum(m.w * h.flood_planning_share_pct) FILTER (WHERE h.flood_planning_share_pct IS NOT NULL)",
+			"/ NULLIF(sum(m.w) FILTER (WHERE h.flood_planning_share_pct IS NOT NULL), 0)",
+			"sum(m.w * h.bushfire_prone_share_pct) FILTER (WHERE h.bushfire_prone_share_pct IS NOT NULL)",
+			"/ NULLIF(sum(m.w) FILTER (WHERE h.bushfire_prone_share_pct IS NOT NULL), 0)",
 			"h.source_licence <> 'proprietary-tos-restricted'",
 		}, []string{"COALESCE(h.flood", "COALESCE(h.bushfire"}},
 		{"drops", councilSuburbDropsQuery, []string{
