@@ -58,6 +58,21 @@ describe("SuburbCouncilCard", () => {
     expect(screen.getByText(/established-house transfers across the whole council, financial year 2023-24/)).toBeInTheDocument();
   });
 
+  test("the licence line names every CC BY licensor the card shows, VIC financials included", () => {
+    const vic = create(LgaInfoSchema, {
+      ...kingsgrove(), lgaCode: "24600", lgaName: "Melbourne", displayName: "Melbourne", stateCode: "VIC",
+      finSource: "vic_lgprf", finYear: "2024-25", avgRates: 2_100, opSurplusRatio: 3.2, assetRenewalRatio: 95,
+    });
+    const { unmount } = render(<SuburbCouncilCard council={vic} />);
+    expect(screen.getByText(/data CC BY 4\.0/)).toHaveTextContent(
+      "ABS, Dept of Infrastructure and Local Government Victoria data CC BY 4.0",
+    );
+    unmount();
+    render(<SuburbCouncilCard council={kingsgrove()} />);
+    expect(screen.getByText(/data CC BY 4\.0/)).toHaveTextContent("ABS and Dept of Infrastructure data CC BY 4.0");
+    expect(screen.getByText(/data CC BY 4\.0/)).not.toHaveTextContent("Local Government Victoria");
+  });
+
   test("leaves out what no source covers, and a single-council suburb has no split", () => {
     const bare = create(LgaInfoSchema, { lgaCode: "10050", lgaName: "Albury", population: 59_538, erpYear: 2025, stateCode: "NSW" });
     render(<SuburbCouncilCard council={bare} />);

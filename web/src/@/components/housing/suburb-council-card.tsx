@@ -53,6 +53,14 @@ export function SuburbCouncilCard({
       ? `Financials: VIC Local Government Performance Reporting${c.finYear ? ` ${c.finYear}` : ""}, Local Government Victoria.`
       : "",
   ].filter(Boolean);
+  // Every CC BY licensor whose data the card shows is named in the licence
+  // line — the attribution the licence asks for, not just a source credit.
+  const ccBy = [
+    "ABS",
+    c.fedFagAud > 0 ? "Dept of Infrastructure" : "",
+    c.finSource === "vic_lgprf" ? "Local Government Victoria" : "",
+  ].filter(Boolean);
+  const ccByNames = ccBy.length > 1 ? `${ccBy.slice(0, -1).join(", ")} and ${ccBy[ccBy.length - 1]}` : ccBy[0];
 
   return (
     <section>
@@ -119,7 +127,7 @@ export function SuburbCouncilCard({
           ) : null}
         </dl>
         <p className="mt-2.5 text-[11px] text-muted-foreground [text-wrap:pretty]">
-          {sources.join(" ")} ABS and Dept of Infrastructure data CC BY 4.0
+          {sources.join(" ")} {ccByNames} data CC BY 4.0
           {c.website ? "; council website from Wikidata (CC0)" : ""}.
         </p>
       </div>
