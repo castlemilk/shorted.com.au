@@ -446,9 +446,9 @@ message SuburbBanner {
 // Latest reliable crime observation for one crime type (2-yr pooled,
 // CVS-adjusted; small_pop/unreliable rows are gated out server-side).
 message SuburbCrimeStat {
-  string crime_type = 1;       // 'break_ins' | 'violent' | 'motor_vehicle' (+ future types)
+  string crime_type = 1;       // 'break_ins' | 'violent' | 'motor_vehicle' | 'property_damage' (+ future types)
   double rate_per_100k = 2;    // adjusted offences per 100k residents (can be 0)
-  double pct_rank = 3;         // 0..100 national pop-weighted percentile; > 0 always
+  double pct_rank = 3;         // 0..100 pop-weighted percentile WITHIN the suburb's state (never across states); > 0 always
   int32 fy_ending = 4;         // 2025 = FY2024-25 (end year of the pooled window)
 }
 

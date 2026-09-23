@@ -3,10 +3,12 @@ import { render, screen } from "@testing-library/react";
 import {
   GetSuburbProfileResponseSchema,
   SuburbAmenitiesSchema,
+  SuburbCrimeSchema,
+  SuburbCrimeStatSchema,
   SuburbDemographicsSchema,
   SuburbSummarySchema,
 } from "~/gen/shorts/v1alpha1/housing_pb";
-import { SuburbProfile } from "./suburb-profile";
+import { CrimeCard, SuburbProfile } from "./suburb-profile";
 
 jest.mock("./suburb-banner-map", () => ({ SuburbBannerMap: () => null }));
 jest.mock("./housing-charts", () => ({ HousingSeriesChart: () => null }));
@@ -47,5 +49,49 @@ describe("NBN tile", () => {
 
     render(<SuburbProfile salCode="10462" profile={profile({ nbn: "Fixed Line" })} />);
     expect(screen.getByText("FIXED LINE")).toBeInTheDocument();
+  });
+});
+
+describe("suburb name", () => {
+  test("the h1 carries the ABS name as delivered, never re-cased", () => {
+    render(<SuburbProfile salCode="21524" profile={profile({ salName: "McCrae", stateCode: "VIC" })} />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^McCrae$/);
+  });
+
+  test("a state-only qualifier leaves the h1 — the subtitle already names the state", () => {
+    render(<SuburbProfile salCode="32250" profile={profile({ salName: "Paddington (Qld)", stateCode: "QLD" })} />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Paddington$/);
+    expect(screen.queryByText(/\(qld\)/)).not.toBeInTheDocument(); // the old lowercased mangling
+    expect(screen.getByText(/^Queensland/)).toBeInTheDocument();
+  });
+
+  test("an LGA qualifier moves into the subtitle", () => {
+    render(<SuburbProfile salCode="11687" profile={profile({ salName: "Glenroy (Albury - NSW)" })} />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Glenroy$/);
+    expect(screen.getByText(/^Albury · New South Wales/)).toBeInTheDocument();
+  });
+});
+
+describe("crime card", () => {
+  const crime = (types: string[]) =>
+    create(SuburbCrimeSchema, {
+      stats: types.map((crimeType, i) =>
+        create(SuburbCrimeStatSchema, { crimeType, ratePer100k: 900 + i, pctRank: 40 + i, fyEnding: 2025 }),
+      ),
+    });
+
+  test("property damage has a proper label, and four types sit in a four-up grid", () => {
+    const { container } = render(<CrimeCard crime={crime(["break_ins", "motor_vehicle", "property_damage", "violent"])} />);
+    expect(screen.getByText("Property damage")).toBeInTheDocument();
+    expect(screen.queryByText("property damage")).not.toBeInTheDocument();
+    const grid = container.querySelector(".grid")!;
+    expect(grid.className).toContain("lg:grid-cols-4");
+    expect(grid.className).not.toContain("grid-cols-3");
+  });
+
+  test("three types keep the three-column grid; an unknown type still reads as a label", () => {
+    const { container } = render(<CrimeCard crime={crime(["break_ins", "fraud_and_deception", "violent"])} />);
+    expect(container.querySelector(".grid")!.className).toContain("sm:grid-cols-3");
+    expect(screen.getByText("Fraud and deception")).toBeInTheDocument();
   });
 });

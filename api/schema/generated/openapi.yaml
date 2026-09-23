@@ -11140,7 +11140,7 @@ components:
         crimeType:
           type: string
           title: crime_type
-          description: '''break_ins'' | ''violent'' | ''motor_vehicle'' (+ future types) (proto string)'
+          description: '''break_ins'' | ''violent'' | ''motor_vehicle'' | ''property_damage'' (+ future types) (proto string)'
         ratePer100k:
           type: number
           title: rate_per_100k
@@ -11150,7 +11150,7 @@ components:
           type: number
           title: pct_rank
           format: double
-          description: 0..100 national pop-weighted percentile; > 0 always (proto double)
+          description: 0..100 pop-weighted percentile WITHIN the suburb's state (never across states); > 0 always (proto double)
         fyEnding:
           type: integer
           title: fy_ending

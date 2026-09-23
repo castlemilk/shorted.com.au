@@ -1600,7 +1600,7 @@ export const SuburbBannerSchema: GenMessage<SuburbBanner> = /*@__PURE__*/
  */
 export type SuburbCrimeStat = Message<"shorts.v1alpha1.SuburbCrimeStat"> & {
   /**
-   * 'break_ins' | 'violent' | 'motor_vehicle' (+ future types)
+   * 'break_ins' | 'violent' | 'motor_vehicle' | 'property_damage' (+ future types)
    *
    * @generated from field: string crime_type = 1;
    */
@@ -1614,7 +1614,7 @@ export type SuburbCrimeStat = Message<"shorts.v1alpha1.SuburbCrimeStat"> & {
   ratePer100k: number;
 
   /**
-   * 0..100 national pop-weighted percentile; > 0 always
+   * 0..100 pop-weighted percentile WITHIN the suburb's state (never across states); > 0 always
    *
    * @generated from field: double pct_rank = 3;
    */

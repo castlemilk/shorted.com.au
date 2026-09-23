@@ -45,7 +45,7 @@ import { SuburbNearbyList } from "./suburb-nearby-list";
 import { SuburbScoreBand } from "./suburb-score-band";
 import { SuburbHazardCard } from "./suburb-hazard-card";
 import { RecentPriceDrops } from "./suburb-recent-price-drops-loader";
-import { STATE_NAMES, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
+import { STATE_NAMES, splitSalName, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
 import { crimeRankScale, publishableNbnTech } from "@/lib/housing/highlight-metrics";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { ordinal, type SuburbContext } from "@/lib/housing/suburb-stats";
@@ -99,6 +99,10 @@ export function SuburbProfile({
   const chartRegion = priced ? regionForSeries : undefined;
   const asOf = fmtPeriod(s.latestPeriod?.seconds);
   const stateName = STATE_NAMES[st] ?? s.stateCode;
+  // The h1 carries the place; ABS's "(Qld)"-style qualifier only disambiguates
+  // repeated names, and the subtitle already names the state, so only an LGA
+  // part of it ("Glenroy (Albury - NSW)" → Albury) moves into the subtitle.
+  const { place, region } = splitSalName(s.salName);
   const a = s.amenities;
 
   const pctVs = (base?: number) => (priced && base && base > 0)
@@ -139,8 +143,8 @@ export function SuburbProfile({
   return (
     <div className="space-y-6">
       <SuburbBanner
-        name={s.salName}
-        sub={`${stateName}${s.postcode ? ` · ${s.postcode}` : ""}${d?.censusYear ? ` · Census ${d.censusYear}` : ""}`}
+        name={place}
+        sub={`${region ? `${region} · ` : ""}${stateName}${s.postcode ? ` · ${s.postcode}` : ""}${d?.censusYear ? ` · Census ${d.censusYear}` : ""}`}
         stat={priced ? fmtAUD(s.latestMedianPrice) : undefined}
         statDelta={priced && s.yoyPct !== 0
           ? { text: `${s.yoyPct >= 0 ? "+" : ""}${s.yoyPct.toFixed(1)}% yr`, positive: s.yoyPct >= 0 }
@@ -210,7 +214,7 @@ export function SuburbProfile({
                     only here, so it can never sit beside an official median. */}
                 <SuburbListingEstimate
                   stats={data.listingStats}
-                  suburbName={titleCaseName(s.salName)}
+                  suburbName={s.salName}
                   fmt={fmtAUD}
                 />
               </>
@@ -312,7 +316,7 @@ export function SuburbProfile({
                   <Link key={n.salCode} href={suburbHref(n.stateCode, { salName: n.salName, salCode: n.salCode, postcode: "" })}
                     className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground">
                     <span className="truncate">
-                      {titleCaseName(n.salName)} <span className="text-[10px] uppercase text-muted-foreground">{n.stateCode}</span>
+                      {n.salName} <span className="text-[10px] uppercase text-muted-foreground">{n.stateCode}</span>
                     </span>
                     <span className="shrink-0 font-mono text-[11px] tabular-nums">
                       {n.latestMedianPrice > 0 ? fmtPriceShort(n.latestMedianPrice) : `${Math.round(n.similarity * 100)}% match`}
@@ -471,6 +475,13 @@ const CRIME_LABELS: Record<string, string> = {
   break_ins: "Break-ins",
   violent: "Violent crime",
   motor_vehicle: "Car theft",
+  property_damage: "Property damage",
+};
+/** A type the table above has not caught up with still reads as a label
+ * ("Fraud"), not as a raw key in lower case. */
+const crimeLabel = (type: string) => {
+  const fallback = type.replace(/_/g, " ");
+  return CRIME_LABELS[type] ?? fallback.charAt(0).toUpperCase() + fallback.slice(1);
 };
 const fyLabel = (fy: number) => `FY${fy - 1}–${String(fy).slice(2)}`;
 
@@ -509,13 +520,15 @@ export function CrimeCard({ crime }: { crime: Crime | undefined }) {
   return (
     <section>
       <SectionHeading icon="dwellings">Crime &amp; safety</SectionHeading>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* Four types (property damage joined the three originals) sit 2×2 then
+          in one row; a 3-column grid left the fourth card alone on a line. */}
+      <div className={`grid gap-3 ${stats.length >= 4 ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"}`}>
         {stats.map((c) => {
           const swatch = String(rankScale(c.pctRank));
           return (
             <div key={c.crimeType} className="rounded-lg border border-border bg-card p-4">
               <div className="text-xs text-muted-foreground">
-                {CRIME_LABELS[c.crimeType] ?? c.crimeType.replace(/_/g, " ")}
+                {crimeLabel(c.crimeType)}
               </div>
               <div className="mt-1 font-mono text-lg tabular-nums text-foreground">
                 {Math.round(c.ratePer100k).toLocaleString()}
@@ -847,7 +860,7 @@ function CompareBar({
           ) : null}
         </span>
         <span className="truncate font-semibold text-foreground">
-          {titleCaseName(name)} {fmt(suburb)}
+          {name} {fmt(suburb)}
         </span>
       </div>
     </div>

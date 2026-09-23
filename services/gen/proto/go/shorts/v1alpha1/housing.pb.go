@@ -2679,9 +2679,9 @@ func (x *SuburbBanner) GetBgUrl() string {
 // CVS-adjusted; small_pop/unreliable rows are gated out server-side).
 type SuburbCrimeStat struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	CrimeType     string                 `protobuf:"bytes,1,opt,name=crime_type,json=crimeType,proto3" json:"crime_type,omitempty"`           // 'break_ins' | 'violent' | 'motor_vehicle' (+ future types)
+	CrimeType     string                 `protobuf:"bytes,1,opt,name=crime_type,json=crimeType,proto3" json:"crime_type,omitempty"`           // 'break_ins' | 'violent' | 'motor_vehicle' | 'property_damage' (+ future types)
 	RatePer_100K  float64                `protobuf:"fixed64,2,opt,name=rate_per_100k,json=ratePer100k,proto3" json:"rate_per_100k,omitempty"` // adjusted offences per 100k residents (can be 0)
-	PctRank       float64                `protobuf:"fixed64,3,opt,name=pct_rank,json=pctRank,proto3" json:"pct_rank,omitempty"`               // 0..100 national pop-weighted percentile; > 0 always
+	PctRank       float64                `protobuf:"fixed64,3,opt,name=pct_rank,json=pctRank,proto3" json:"pct_rank,omitempty"`               // 0..100 pop-weighted percentile WITHIN the suburb's state (never across states); > 0 always
 	FyEnding      int32                  `protobuf:"varint,4,opt,name=fy_ending,json=fyEnding,proto3" json:"fy_ending,omitempty"`             // 2025 = FY2024-25 (end year of the pooled window)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

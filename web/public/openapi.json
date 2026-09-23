@@ -8727,7 +8727,7 @@
         "description": "Latest reliable crime observation for one crime type (2-yr pooled,\n CVS-adjusted; small_pop/unreliable rows are gated out server-side).",
         "properties": {
           "crimeType": {
-            "description": "'break_ins' | 'violent' | 'motor_vehicle' (+ future types) (proto string)",
+            "description": "'break_ins' | 'violent' | 'motor_vehicle' | 'property_damage' (+ future types) (proto string)",
             "title": "crime_type",
             "type": "string"
           },
@@ -8738,7 +8738,7 @@
             "type": "integer"
           },
           "pctRank": {
-            "description": "0..100 national pop-weighted percentile; \u003e 0 always (proto double)",
+            "description": "0..100 pop-weighted percentile WITHIN the suburb's state (never across states); \u003e 0 always (proto double)",
             "format": "double",
             "title": "pct_rank",
             "type": "number"

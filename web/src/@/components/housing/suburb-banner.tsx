@@ -3,7 +3,6 @@
 // server HTML. The one interactive child (SuburbBannerMap) is its own "use
 // client" module, which makes the boundary start there instead of here.
 import { safeBannerUrl } from "@/lib/housing/banner-url";
-import { titleCaseName } from "@/lib/housing/states";
 import { HousingIcon } from "./housing-icon";
 import { HOUSING_ICONS, type HousingIconName } from "./housing-icons.generated";
 import { SuburbBannerMap } from "./suburb-banner-map";
@@ -87,7 +86,7 @@ export function SuburbBanner({
             <div className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">Housing</div>
           </div>
           <h1 className="mt-1 font-serif text-4xl font-semibold text-foreground sm:text-6xl">
-            {titleCaseName(name)}
+            {name}
           </h1>
           <p className="mt-1 font-mono text-sm text-muted-foreground">{sub}</p>
           {stat ? (
