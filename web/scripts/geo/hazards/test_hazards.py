@@ -220,6 +220,17 @@ class BuildTest(unittest.TestCase):
         # Without the mask the same suburb is a (false) measured zero.
         self.assertEqual(no_mask["80003"], 0.0)
 
+    def test_raster_path_streams_pages_to_the_same_answer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            layer = self._layer(tmp, "qld-bushfire", [box(149.00, -35.30, 149.01, -35.29),
+                                                      box(149.00, -35.30, 149.01, -35.29)])
+            suburbs = self._suburbs(tmp, {"30001": box(149.00, -35.30, 149.02, -35.29),
+                                          "30002": box(149.03, -35.30, 149.04, -35.29)})
+            shares, covered = vector_share.build_raster(layer, suburbs, cell_m=10)
+        self.assertAlmostEqual(shares["30001"], 50.0, delta=1.5)
+        self.assertEqual(shares["30002"], 0.0)
+        self.assertEqual(covered, {"30001": 100.0, "30002": 100.0})
+
     def test_layer_without_done_marker_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             layer = self._layer(tmp, "partial", [box(149.0, -35.3, 149.01, -35.29)], done=False)

@@ -72,6 +72,10 @@ MIN_COVERED_PCT = 10.0
 # measured suburb without a value.
 MIN_RASTER_CELLS = 25
 
+# Geometries per rasterize call on the raster path (bounds memory held as
+# geometry while amortising the per-call cost of wrapping a multi-GB grid).
+BURN_BATCH = 100_000
+
 
 def page_geometries(page: Path) -> list:
     """The non-empty, valid WGS84 geometries of one fetched page."""
@@ -124,13 +128,25 @@ def burn_layer(layer_dir: Path, bounds, cell_m: float):
     transform = rasterio.Affine(cell_m, 0, minx, 0, -cell_m, maxy)
     grid = np.zeros((height, width), dtype="uint8")
     burnt = 0
+    pending: list = []
+
+    def flush():
+        # Each rasterize call wraps the whole grid (~1 s at QLD's 4 GB), so
+        # pages are burnt in batches, not one call per 2,000-feature page.
+        if pending:
+            rasterize(((g, 1) for g in pending), out=grid, transform=transform)
+            pending.clear()
+
     for page in layer_pages(layer_dir):
         geoms = page_geometries(page)
         if not geoms:
             continue
         projected = gpd.GeoSeries(geoms, crs="EPSG:4326").to_crs("EPSG:3577")
-        rasterize(((g, 1) for g in projected.values if not g.is_empty), out=grid, transform=transform)
+        pending.extend(g for g in projected.values if not g.is_empty)
         burnt += len(geoms)
+        if len(pending) >= BURN_BATCH:
+            flush()
+    flush()
     if not burnt:
         raise SystemExit(f"{layer_dir}: no geometries")
     return grid, transform, burnt
