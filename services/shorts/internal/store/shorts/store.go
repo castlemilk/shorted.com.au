@@ -198,6 +198,7 @@ type Store interface {
 	// Council hub (postgres_councils.go).
 	ListCouncils(stateCode string) ([]*CouncilSummaryRow, error)
 	GetCouncilProfile(stateCode, slug string) (*CouncilProfileRow, error)
+	GetHousingMVRefresh(mvNames []string) (map[string]HousingMVRefreshRow, error)
 
 	// Register of Members'/Senators' Interests methods
 	GetRegisterOverview() (*RegisterOverviewRow, error)

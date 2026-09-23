@@ -321,9 +321,9 @@ Request body fields:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `from` | string | no | 'YYYY-MM-DD', inclusive; clamped to 2026-08-13 (proto string) |
-| `grain` | string | no | 'national' \| 'state' \| 'suburb' (proto string) |
-| `grainKey` | string | no | 'AU' \| state code \| sal_code (proto string) |
-| `to` | string | no | 'YYYY-MM-DD', inclusive; defaults to today (proto string) |
+| `grain` | string | no | Anything outside these shapes is InvalidArgument. 'national' (default) \| 'state' \| 'suburb' (proto string) |
+| `grainKey` | string | no | 'AU' \| state code ('NSW', ...) \| 5-digit sal_code (proto string) |
+| `to` | string | no | 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today (proto string) |
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.HousingService/GetDropIndexSeries' \
@@ -589,7 +589,7 @@ Request body fields:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `limit` | integer (int32) | no | optional; default 50 (proto int32) |
-| `sort` | string | no | optional: 'count' (default) \| 'avg' \| 'max' (proto string) |
+| `sort` | string | no | optional: 'count' (default) \| 'avg' \| 'max' \| 'asking' \| 'sold' \| 'share'. 'share' ranks by dropped_share among suburbs with at least 20 recently swept active addresses (the drop index's panel floor); thinner suburbs sort after every ranked one rather than topping the board on 1 of 3. (proto string) |
 | `stateCode` | string | no | optional filter, e.g. 'NSW'; '' = national (proto string) |
 | `windowDays` | integer (int32) | no | reserved; the aggregate uses a fixed rolling window (proto int32) |
 

@@ -351,6 +351,10 @@ func (s *StoreAdapter) GetCouncilProfile(stateCode, slug string) (*shorts.Counci
 	return s.store.GetCouncilProfile(stateCode, slug)
 }
 
+func (s *StoreAdapter) GetHousingMVRefresh(mvNames []string) (map[string]shorts.HousingMVRefreshRow, error) {
+	return s.store.GetHousingMVRefresh(mvNames)
+}
+
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
 }

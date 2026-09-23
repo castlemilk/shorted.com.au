@@ -139,6 +139,9 @@ type ShortsStore interface {
 	// Council hub — see services/shorts/internal/services/shorts/councils.go.
 	ListCouncils(stateCode string) ([]*shortsstore.CouncilSummaryRow, error)
 	GetCouncilProfile(stateCode, slug string) (*shortsstore.CouncilProfileRow, error)
+	// GetHousingMVRefresh reads housing_mv_refresh (migration 000124): when each
+	// named view was last refreshed. Absent views (or table) are simply missing.
+	GetHousingMVRefresh(mvNames []string) (map[string]shortsstore.HousingMVRefreshRow, error)
 
 	// Economy snapshot methods
 	// Register of Members'/Senators' Interests methods

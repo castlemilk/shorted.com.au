@@ -534,7 +534,7 @@ official-ingest jobs, 27 housing migrations (000053–000092). The
 | `docs/feature/housing/README.md` | Current state + dated prod numbers, the five rules that shape every change, surfaces, known-open items |
 | `docs/feature/housing/data-sources.md` | Every source + licence, mandatory fetch posture, and what is ruled OUT (and why) |
 | `docs/feature/housing/data-model.md` | Tables, MVs, migration map, and where each guard is actually enforced (DB vs code) |
-| `docs/feature/housing/pipeline.md` | The 22 collector modes, the 16 official jobs, run order, timeouts, exit-code contract |
+| `docs/feature/housing/pipeline.md` | The 37 collector modes, the 16 official jobs, run order, timeouts, exit-code contract |
 | `docs/feature/housing/operations.md` | Runbook: prod DDL, rig crawl recovery, revalidation, takedown, credentials |
 | `docs/feature/housing/architecture.md` | Decision/incident record + extension recipes — read before touching crawl classification or caching |
 

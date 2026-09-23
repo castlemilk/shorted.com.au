@@ -115,26 +115,61 @@ func loadListing(ctx context.Context, tx pgx.Tx, source, listingID string) (*sto
 	return &s, nil
 }
 
-// loadAddressPrior returns the most-recently-seen ACTIVE listing at addressKey,
-// EXCLUDING the current (source, listingID) itself, across ANY source/
-// listing_id — the candidate prior for addressPriceMove's relist-drop check
-// (crawl_listings_diff.go). Returns nil when no other active listing is known
-// at this address. "Most recent" is last_seen_at DESC, so a stale/never-
-// refreshed sighting never wins over a listing this same suburb sweep just
-// confirmed is still live.
-func loadAddressPrior(ctx context.Context, tx pgx.Tx, addressKey, excludeListingID, excludeSource string) (*storedListing, error) {
-	if addressKey == "" {
-		return nil, nil
-	}
-	var s storedListing
-	err := tx.QueryRow(ctx, `
+// addressPriorLiveWindow is how recently a listing on the OTHER portal may have
+// been seen and still count as live right now. It is one full rotation of the
+// crawl catalog — the same 14 days that defines "active" for every listing
+// rollup (migration 000124) and the drop index's sweep window
+// (indexSweepWindowDays) — because the two portals' sweeps of one suburb can
+// land days apart within a rotation.
+const addressPriorLiveWindow = 14 * 24 * time.Hour
+
+// addressPriorSQL is the query behind loadAddressPrior, extracted so tests can
+// assert its shape (TestAddressPriorSQLExcludesConcurrentPortalAndOtherDwellings).
+//
+// $1 address_key, $2 source, $3 listing_id (the new listing, excluded),
+// $4 its bedroom count (NULL = unknown), $5 the live-window cutoff.
+func addressPriorSQL() string {
+	return `
 		SELECT id, listing_id, address_key, price, price_kind, listing_status, is_active, missed_sweeps
 		FROM property_listings
 		WHERE address_key = $1 AND is_active
 		  AND NOT (source = $2 AND listing_id = $3)
-		ORDER BY last_seen_at DESC
-		LIMIT 1`,
-		addressKey, excludeSource, excludeListingID).
+		  -- The same home advertised on the other portal right now is not a
+		  -- relist: the two portals simply show different asks.
+		  AND NOT (source <> $2 AND last_seen_at >= $5)
+		  -- One address_key can collapse several units listed without a unit
+		  -- number; a different bedroom count is a different dwelling.
+		  AND ($4::smallint IS NULL OR bedrooms IS NULL OR bedrooms = $4::smallint)
+		ORDER BY last_seen_at DESC, id DESC
+		LIMIT 1`
+}
+
+// loadAddressPrior returns the most-recently-seen ACTIVE listing at addressKey
+// that could genuinely be an earlier advert of the SAME dwelling — the
+// candidate prior for addressPriceMove's relist-drop check
+// (crawl_listings_diff.go). It excludes the current (source, listingID) itself
+// and two look-alikes that are not relists:
+//
+//   - a listing on the OTHER portal seen within addressPriorLiveWindow of
+//     runTs: that is the same home advertised on both portals at once, and a
+//     difference between the two asks is not a price cut;
+//   - a listing whose bedroom count differs from bedrooms when both are known:
+//     a multi-unit address collapsed onto one address_key, not the same home.
+//
+// Measured 2026-09-23: of 700 first-sighting drops, ~196 compared against a
+// concurrent other-portal listing and 102 against a different bedroom count.
+// Both fed every drop MV and the index as real cuts.
+//
+// Returns nil when no eligible prior exists. "Most recent" is last_seen_at
+// DESC (id DESC as a deterministic tiebreak), so a stale sighting never wins
+// over a listing this same suburb sweep just confirmed is still live.
+func loadAddressPrior(ctx context.Context, tx pgx.Tx, addressKey, excludeListingID, excludeSource string, bedrooms *int16, runTs time.Time) (*storedListing, error) {
+	if addressKey == "" {
+		return nil, nil
+	}
+	var s storedListing
+	err := tx.QueryRow(ctx, addressPriorSQL(),
+		addressKey, excludeSource, excludeListingID, bedrooms, runTs.Add(-addressPriorLiveWindow)).
 		Scan(&s.PK, &s.ListingID, &s.AddressKey, &s.Price, &s.PriceKind, &s.Status, &s.IsActive, &s.MissedSweeps)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil

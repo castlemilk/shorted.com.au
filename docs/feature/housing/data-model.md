@@ -258,31 +258,59 @@ database without 000126 still serves the base council card.
 | MV | Migration | Grain | Floor / gate |
 |---|---|---|---|
 | `mv_housing_headline` | 000053, rebuilt 000054 | region × measure × dwelling (latest, QoQ/YoY) | **licence exclusion baked into the MV** — the MV carries no `source_licence`, so 000054 filters `proprietary-tos-restricted` before ranking |
-| `mv_suburb_listing_stats` | 000077 | `region_code` asking/sold aggregates | **NONE — this is the k-anon gap** (below) |
-| `mv_suburb_price_drops` | 000076, rebuilt 000086 | `region_code` 30-day drop signal | n≥3 dropped addresses; 40% cap; address dedup |
-| `mv_state_price_drops` | 000086 | `state_code` + `'AU'` national row (GROUPING SETS) | 40% cap; address dedup; junk `state_code='AU'` rows excluded (they'd collide with the national row and abort the CONCURRENT refresh via the unique index) |
-| `mv_agency_stats` | 000086 | `(source, agency_id, state_code)` — per-portal, no entity resolution | row floor `active_listings >= 3`; `avg_drop_pct`/`total_drop_value` NULL until **≥3 dropped addresses**; `agent_names` capped at 6 |
+| `mv_suburb_listing_stats` | 000077, rebuilt 000109, 000124 | `region_code` asking/sold aggregates | `avg/median_asking` NULL below 3 priced addresses, `avg/median_sold` below 3 sold (000109); 14-day liveness (000124) |
+| `mv_suburb_price_drops` | 000076, rebuilt 000086, 000109, 000124 | `region_code` 30-day drop signal | n≥3 dropped addresses; 40% cap; `address_key` unit; 14-day liveness |
+| `mv_state_price_drops` | 000086, rebuilt 000109, 000124 | `state_code` + `'AU'` national row (GROUPING SETS) | 40% cap; `address_key` unit; every price/percent column NULL below 3; junk `state_code='AU'` rows excluded (they'd collide with the national row and abort the CONCURRENT refresh via the unique index); 14-day liveness; `suburbs_swept_14d` / `catalog_suburbs` coverage (000124) |
+| `mv_agency_stats` | 000086, rebuilt 000109, 000124 | `(source, agency_id, state_code)` — per-portal, no entity resolution | row floor `active_listings >= 3`; `avg_drop_pct`/`total_drop_value` NULL until **≥3 dropped addresses**; `agent_names` always empty (000109); 14-day liveness |
 | `mv_suburb_crime_latest` | 000090, rebuilt 000092 | `(sal_code, crime_type)` pooled latest | `NOT small_pop AND NOT unreliable`, WA ToU excluded |
 
-Shared dedup shape (000086, numerators AND denominators):
-`COALESCE(NULLIF(address_key,''), source||':'||listing_id)`; per-address
-dollar sums take the single portal that observed the most cutting, so a
-dual-listed cut counts once while multiple real cuts still sum.
+Shared unit (000109, numerators AND denominators): the physical address,
+`NULLIF(address_key, '') IS NOT NULL` — keyless rows are excluded rather than
+counted per portal listing. Per-address dollar sums take the single portal
+that observed the most cutting, so a dual-listed cut counts once while
+multiple real cuts still sum.
+
+**"Active" (000124)** is `is_active AND last_seen_at >= now() - interval '14
+days'` in every active/asking CTE of all four listing MVs — and in the API
+drill-downs (`ListSuburbDropListings`, `ListAddressPriceDrops`). `is_active`
+alone only flips after a completed sweep of the listing's own suburb, so a
+suburb the crawl stops reaching kept every listing "active" forever: measured
+2026-09-23, 72,483 of 92,535 active listings (78%) were unseen for 21+ days,
+and the state board ranked crawl coverage (VIC 4.4% vs WA 1.2%) instead of
+discounting. 14 days is one full catalog rotation, the drop index's sweep
+window. Consequence to know: a crawl outage longer than 14 days empties the
+views on their next refresh — which is the honest reading, and the page says so.
+
+**Coverage (000124).** `mv_state_price_drops.catalog_suburbs` is the drop
+index's coverage denominator verbatim (`queryCatalogSizes`: distinct
+`sal_code` the crawl has ever produced a listing for); `suburbs_swept_14d` is
+the subset with any listing seen in the last 14 days. The UI ranks a state only
+at ≥0.6 (the index's gap threshold) and annotates the rest.
+
+### `housing_mv_refresh` (000124)
+
+`(mv_name PK, refreshed_at, data_through)`, one row per view, upserted by
+`refresh_housing_materialized_views()` only after that view refreshed.
+`refreshed_at` is the refreshing transaction's `now()` — the instant every
+`now()`-relative window in the view was evaluated. `data_through` is the newest
+crawl observation (`max(observed_at)` of price events, `max(last_seen_at)` of
+listings), read BEFORE the refresh so it can only understate what the view
+holds; NULL for non-crawl views (`mv_housing_headline`, `mv_suburb_crime_latest`).
+The API serves them as `as_of` / `data_through` on every drops read; a missing
+table (a DB before 000124) reads as "unknown", never as an error.
 
 ### `refresh_housing_materialized_views()`
 
-Final body is 000092's: `mv_housing_headline` first (unguarded), then five
-guarded blocks (CONCURRENTLY → blocking fallback) for the other MVs. The
+Final body is 000124's: six independently guarded blocks (CONCURRENTLY →
+blocking fallback → warning) for `mv_housing_headline`,
+`mv_suburb_price_drops`, `mv_suburb_listing_stats`, `mv_state_price_drops`,
+`mv_agency_stats` and `mv_suburb_crime_latest`, each catching
+`query_canceled OR OTHERS` (000107 — plpgsql's `OTHERS` does not match the
+57014 a `statement_timeout` raises, so one timed-out MV used to starve every MV
+after it), each followed by its own guarded `housing_mv_refresh` upsert. The
 collector calls it after every run (`store.go`
-`SELECT refresh_housing_materialized_views()`); it is decoupled from the
-daily shorts `refresh_all_materialized_views()`.
-
-**Landmine (known-open, fix in flight):** the guards are plain
-`EXCEPTION WHEN OTHERS`, and plpgsql's `OTHERS` deliberately does NOT match
-`query_canceled` (57014) — exactly what a `statement_timeout` raises. This is
-the failure mode 000095 fixed for the shorts refresh (19 days of silently
-stale MVs); the housing function never got that pattern, so one timed-out MV
-aborts the function and starves every MV after it.
+`SELECT refresh_housing_materialized_views()`); it is decoupled from the daily
+shorts `refresh_all_materialized_views()`.
 
 ## Where each guard actually lives
 
@@ -290,27 +318,26 @@ aborts the function and starves every MV after it.
 |---|---|
 | Licence exclusion on the headline surface | **DB** — baked into `mv_housing_headline` (000054) |
 | Licence exclusion on base-table series/suburb reads | **Code** — `source_licence <> 'proprietary-tos-restricted'` re-asserted in every `postgres_house_prices.go` query body |
-| 40% cap, address dedup, `AU` guard, drop floors | **DB** — MV definitions (000086) |
+| 40% cap, address dedup, `AU` guard, k≥3 floors, 14-day liveness | **DB** — MV definitions (000109, 000124) |
+| Drop-index median withheld below 3 dropped addresses | **Collector** (`kFlooredMedian`, written NULL at every grain) **+ DB** (column nullable, historical sub-floor rows scrubbed in 000124) |
 | Agency k-anon (≥3 dropped addresses) | **DB** — `CASE WHEN COUNT(*) >= 3` in `mv_agency_stats` |
 | Crime small-pop/unreliable/WA gate | **DB** (000092 MV) **+ code** re-assert |
-| Per-listing surfaces off by kill switch | **Code** — `dropListingsEnabled()` reads `HOUSING_DROP_LISTINGS_ENABLED` (default ON) in the handler |
+| Every crawl-derived read off by kill switch — per-listing surfaces AND aggregates (boards, overview, index, profile `listing_stats`, MCP) | **Code** — `dropListingsEnabled()` reads `HOUSING_DROP_LISTINGS_ENABLED` (default ON) in each handler, outside the cache |
 | AVM servability (`fetch_status='ok'`) | **Code** — `GetPropertyValuation` WHERE clause |
 | "Gate per-dwelling use on `valuation_granularity='exact'`" | **Documented only** — a migration comment (000091); the store returns `'building'` rows too |
 | "Raw profile is internal enrichment only" (000088) | **Documented only — and currently contradicted** (below) |
 
-## Known-open (2026-08-09 audit; fixes in flight on `feat/housing-*`)
+## Known-open (2026-08-09 audit, re-checked 2026-09-23)
 
-- **The k-anon floor stops at the drop MVs.** `mv_suburb_listing_stats` has
-  no n-floor, and the ungated `ListSuburbPriceDrops` serves every suburb in
-  it — a 1-listing suburb's `median_asking` IS that listing's exact asking
-  price. The n≥3 privacy rationale in 000076/000086 is silently bypassed by
-  the asking/sold aggregates.
+Fixed since the audit and removed from this list: the listing-stats k-anon gap
+(000109 floors `mv_suburb_listing_stats` at 3 priced / 3 sold addresses —
+verified in prod `pg_matviews` 2026-09-23) and the refresh function's missing
+`query_canceled` guard (000107, verified in prod `pg_proc`).
+
 - **Per-address AVM serving contradicts 000088's posture.** The migration
   says the raw profile is "stored for internal enrichment only"; the read
   path (`GetPropertyValuation`, surfaced via the flag-gated property-history
   drill-down) returns per-address estimates + full `sales_history`.
-- **`refresh_housing_materialized_views()` lacks the 000095 guard pattern**
-  (above).
 - **4 committed testdata files carry real portal page content**
   (`rea-pagemeta.html` + `domain-pagemeta.html`, duplicated under
   `services/house-price-collector/testdata/` and
@@ -335,6 +362,13 @@ aborts the function and starves every MV after it.
 | 000087 | `property_listing_details` |
 | 000088 / 000091 | `property_valuations` / `valuation_granularity` |
 | 000089 | `crawl_run_status` |
-| 000090 / 000092 | `suburb_crime_stats` + initial crime MV / deterministic gated rebuild + final refresh fn |
+| 000090 / 000092 | `suburb_crime_stats` + initial crime MV / deterministic gated rebuild + refresh fn |
+| 000107 | `refresh_housing_materialized_views()` catches `query_canceled` per block |
+| 000108 | headline source lags |
+| 000109 | listing-rollup correctness: `address_key` unit, k≥3 floors on every price/percent column, 12-month sold window, deterministic winners |
+| 000110 / 000111 | `housing_drop_index_daily` / relisted-lower rename |
+| 000113 / 000114 / 000115 | suburb SEIFA / expanded Census / elevation |
+| 000122 | `suburb_hazard_exposure` |
+| 000124 | 14-day liveness on the four listing MVs, state coverage columns, `housing_mv_refresh` + recording refresh fn, nullable (k-floored) `housing_drop_index_daily.median_drop_pct` |
 | 000125 | `suburb_planning`: zoning-family shares + coverage + dominant family, heritage share + item count, NSW height/FSR/lot-size standards + their mapped shares, instruments, sources, licence CHECK, coverage-gate CHECK |
 | 000126 | council foundation: `lga` identity + ABS fact columns, `lga_series`, `suburb_lga.dominant_share` |

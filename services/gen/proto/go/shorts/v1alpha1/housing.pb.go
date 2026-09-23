@@ -3316,13 +3316,18 @@ func (x *SuburbCrime) GetSourceLicence() string {
 // source_licence='proprietary-tos-restricted' and are never republished — see
 // docs/feature/housing/data-sources.md. Counts and medians only.
 type SuburbListingStats struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ForSaleCount  int32                  `protobuf:"varint,1,opt,name=for_sale_count,json=forSaleCount,proto3" json:"for_sale_count,omitempty"` // active for-sale listings captured
-	AvgAsking     float64                `protobuf:"fixed64,2,opt,name=avg_asking,json=avgAsking,proto3" json:"avg_asking,omitempty"`           // mean asking price of priced for-sale listings, AUD; 0 if none
-	MedianAsking  float64                `protobuf:"fixed64,3,opt,name=median_asking,json=medianAsking,proto3" json:"median_asking,omitempty"`  // median asking price, AUD; 0 if none
-	SoldCount     int32                  `protobuf:"varint,4,opt,name=sold_count,json=soldCount,proto3" json:"sold_count,omitempty"`            // recent sold listings captured
-	AvgSold       float64                `protobuf:"fixed64,5,opt,name=avg_sold,json=avgSold,proto3" json:"avg_sold,omitempty"`                 // mean sold price, AUD; 0 if none
-	MedianSold    float64                `protobuf:"fixed64,6,opt,name=median_sold,json=medianSold,proto3" json:"median_sold,omitempty"`        // median sold price, AUD; 0 if none
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	ForSaleCount int32                  `protobuf:"varint,1,opt,name=for_sale_count,json=forSaleCount,proto3" json:"for_sale_count,omitempty"` // active for-sale listings captured
+	AvgAsking    float64                `protobuf:"fixed64,2,opt,name=avg_asking,json=avgAsking,proto3" json:"avg_asking,omitempty"`           // mean asking price of priced for-sale listings, AUD; 0 if none
+	MedianAsking float64                `protobuf:"fixed64,3,opt,name=median_asking,json=medianAsking,proto3" json:"median_asking,omitempty"`  // median asking price, AUD; 0 if none
+	SoldCount    int32                  `protobuf:"varint,4,opt,name=sold_count,json=soldCount,proto3" json:"sold_count,omitempty"`            // recent sold listings captured
+	AvgSold      float64                `protobuf:"fixed64,5,opt,name=avg_sold,json=avgSold,proto3" json:"avg_sold,omitempty"`                 // mean sold price, AUD; 0 if none
+	MedianSold   float64                `protobuf:"fixed64,6,opt,name=median_sold,json=medianSold,proto3" json:"median_sold,omitempty"`        // median sold price, AUD; 0 if none
+	// When mv_suburb_listing_stats was last refreshed (every now()-relative
+	// window in it is anchored here), and the newest crawl observation it could
+	// contain. Unset when the refresh has never been recorded.
+	AsOf          *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	DataThrough   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3397,6 +3402,20 @@ func (x *SuburbListingStats) GetMedianSold() float64 {
 		return x.MedianSold
 	}
 	return 0
+}
+
+func (x *SuburbListingStats) GetAsOf() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOf
+	}
+	return nil
+}
+
+func (x *SuburbListingStats) GetDataThrough() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DataThrough
+	}
+	return nil
 }
 
 type GetSuburbProfileResponse struct {
@@ -3746,11 +3765,15 @@ func (x *ListHousingRegionsResponse) GetRegions() []*HousingRegion {
 }
 
 type ListSuburbPriceDropsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	StateCode     string                 `protobuf:"bytes,1,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`     // optional filter, e.g. 'NSW'; '' = national
-	WindowDays    int32                  `protobuf:"varint,2,opt,name=window_days,json=windowDays,proto3" json:"window_days,omitempty"` // reserved; the aggregate uses a fixed rolling window
-	Sort          string                 `protobuf:"bytes,3,opt,name=sort,proto3" json:"sort,omitempty"`                                // optional: 'count' (default) | 'avg' | 'max'
-	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`                             // optional; default 50
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	StateCode  string                 `protobuf:"bytes,1,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`     // optional filter, e.g. 'NSW'; '' = national
+	WindowDays int32                  `protobuf:"varint,2,opt,name=window_days,json=windowDays,proto3" json:"window_days,omitempty"` // reserved; the aggregate uses a fixed rolling window
+	// optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+	// 'share' ranks by dropped_share among suburbs with at least 20 recently
+	// swept active addresses (the drop index's panel floor); thinner suburbs
+	// sort after every ranked one rather than topping the board on 1 of 3.
+	Sort          string `protobuf:"bytes,3,opt,name=sort,proto3" json:"sort,omitempty"`
+	Limit         int32  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"` // optional; default 50
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4005,8 +4028,15 @@ func (x *SuburbPriceDrop) GetDroppedValue() float64 {
 }
 
 type ListSuburbPriceDropsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Suburbs       []*SuburbPriceDrop     `protobuf:"bytes,1,rep,name=suburbs,proto3" json:"suburbs,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Suburbs []*SuburbPriceDrop     `protobuf:"bytes,1,rep,name=suburbs,proto3" json:"suburbs,omitempty"`
+	// The OLDER refresh of the two views this board joins
+	// (mv_suburb_listing_stats, mv_suburb_price_drops), so the stamp never
+	// claims more freshness than the staler half. data_through: the newest crawl
+	// observation (price event or listing sighting) those refreshes could see.
+	// Both unset when no refresh has been recorded.
+	AsOf          *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	DataThrough   *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4044,6 +4074,20 @@ func (*ListSuburbPriceDropsResponse) Descriptor() ([]byte, []int) {
 func (x *ListSuburbPriceDropsResponse) GetSuburbs() []*SuburbPriceDrop {
 	if x != nil {
 		return x.Suburbs
+	}
+	return nil
+}
+
+func (x *ListSuburbPriceDropsResponse) GetAsOf() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOf
+	}
+	return nil
+}
+
+func (x *ListSuburbPriceDropsResponse) GetDataThrough() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DataThrough
 	}
 	return nil
 }
@@ -5122,6 +5166,9 @@ func (x *ListAddressPriceDropsRequest) GetSort() string {
 
 // One physical address (deduped by stable address_key) whose for-sale asking
 // price fell over the window, deep-linking to its per-address history page.
+// When the address is live on both portals (or relisted), every live advert
+// is judged on its own chain and the row carries the deepest qualifying cut;
+// the latest_* / current_* fields describe THAT advert.
 type AddressPriceDrop struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	AddressKey       string                 `protobuf:"bytes,1,opt,name=address_key,json=addressKey,proto3" json:"address_key,omitempty"`
@@ -5403,8 +5450,16 @@ type StatePriceDropSummary struct {
 	AvgSold             float64                `protobuf:"fixed64,14,opt,name=avg_sold,json=avgSold,proto3" json:"avg_sold,omitempty"`                     // AUD (0 if none)
 	MedianSold          float64                `protobuf:"fixed64,15,opt,name=median_sold,json=medianSold,proto3" json:"median_sold,omitempty"`            // AUD
 	SuburbsTracked      int32                  `protobuf:"varint,16,opt,name=suburbs_tracked,json=suburbsTracked,proto3" json:"suburbs_tracked,omitempty"` // tracked suburbs contributing listings
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Crawl coverage behind this row. catalog_suburbs is every suburb the crawl
+	// has ever produced a listing for (the drop index's coverage denominator);
+	// suburbs_swept_14d is the subset with a listing seen in the last 14 days.
+	// Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl
+	// coverage more than discounting, and the UI annotates it instead of ranking
+	// it. Both 0 before migration 000124.
+	SuburbsSwept_14D int32 `protobuf:"varint,17,opt,name=suburbs_swept_14d,json=suburbsSwept14d,proto3" json:"suburbs_swept_14d,omitempty"`
+	CatalogSuburbs   int32 `protobuf:"varint,18,opt,name=catalog_suburbs,json=catalogSuburbs,proto3" json:"catalog_suburbs,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *StatePriceDropSummary) Reset() {
@@ -5549,10 +5604,33 @@ func (x *StatePriceDropSummary) GetSuburbsTracked() int32 {
 	return 0
 }
 
+func (x *StatePriceDropSummary) GetSuburbsSwept_14D() int32 {
+	if x != nil {
+		return x.SuburbsSwept_14D
+	}
+	return 0
+}
+
+func (x *StatePriceDropSummary) GetCatalogSuburbs() int32 {
+	if x != nil {
+		return x.CatalogSuburbs
+	}
+	return 0
+}
+
 type GetPriceDropsOverviewResponse struct {
-	state         protoimpl.MessageState   `protogen:"open.v1"`
-	National      *StatePriceDropSummary   `protobuf:"bytes,1,opt,name=national,proto3" json:"national,omitempty"` // the 'AU' row
-	States        []*StatePriceDropSummary `protobuf:"bytes,2,rep,name=states,proto3" json:"states,omitempty"`     // ordered by dropped_count desc
+	state    protoimpl.MessageState   `protogen:"open.v1"`
+	National *StatePriceDropSummary   `protobuf:"bytes,1,opt,name=national,proto3" json:"national,omitempty"` // the 'AU' row
+	States   []*StatePriceDropSummary `protobuf:"bytes,2,rep,name=states,proto3" json:"states,omitempty"`     // ordered by dropped_count desc
+	// When mv_state_price_drops was last refreshed, and the newest crawl
+	// observation that refresh could see. Unset when never recorded.
+	AsOf        *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	DataThrough *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`
+	// True when crawl-derived price-drop figures are switched off
+	// (HOUSING_DROP_LISTINGS_ENABLED=false, a takedown): every other field is
+	// empty ON PURPOSE and will stay so until the switch is flipped back. Lets a
+	// client tell that apart from a cold or failed fetch, which is worth retrying.
+	Withheld      bool `protobuf:"varint,5,opt,name=withheld,proto3" json:"withheld,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5599,6 +5677,27 @@ func (x *GetPriceDropsOverviewResponse) GetStates() []*StatePriceDropSummary {
 		return x.States
 	}
 	return nil
+}
+
+func (x *GetPriceDropsOverviewResponse) GetAsOf() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOf
+	}
+	return nil
+}
+
+func (x *GetPriceDropsOverviewResponse) GetDataThrough() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DataThrough
+	}
+	return nil
+}
+
+func (x *GetPriceDropsOverviewResponse) GetWithheld() bool {
+	if x != nil {
+		return x.Withheld
+	}
+	return false
 }
 
 type ListAgencyPriceStatsRequest struct {
@@ -5855,15 +5954,17 @@ func (x *ListAgencyPriceStatsResponse) GetAgencies() []*AgencyPriceStats {
 // rather than a collapse in discounting. Computing that twice would let the two
 // sides disagree.
 type DropIndexPoint struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	SnapshotDate     string                 `protobuf:"bytes,1,opt,name=snapshot_date,json=snapshotDate,proto3" json:"snapshot_date,omitempty"`        // 'YYYY-MM-DD'
-	DropRate         float64                `protobuf:"fixed64,2,opt,name=drop_rate,json=dropRate,proto3" json:"drop_rate,omitempty"`                  // 0..1 fraction, equal-weighted mean of per-suburb rates
-	MedianDropPct    float64                `protobuf:"fixed64,3,opt,name=median_drop_pct,json=medianDropPct,proto3" json:"median_drop_pct,omitempty"` // 0..1 fraction, depth of the typical cut
-	PanelSuburbs     int32                  `protobuf:"varint,4,opt,name=panel_suburbs,json=panelSuburbs,proto3" json:"panel_suburbs,omitempty"`       // suburbs contributing to this point
-	CoverageRatio    float64                `protobuf:"fixed64,5,opt,name=coverage_ratio,json=coverageRatio,proto3" json:"coverage_ratio,omitempty"`   // panel suburbs / full suburb catalog for this snapshot date
-	IsGap            bool                   `protobuf:"varint,6,opt,name=is_gap,json=isGap,proto3" json:"is_gap,omitempty"`                            // coverage too low to be a fair reading
-	ActiveAddresses  int32                  `protobuf:"varint,7,opt,name=active_addresses,json=activeAddresses,proto3" json:"active_addresses,omitempty"`
-	DroppedAddresses int32                  `protobuf:"varint,8,opt,name=dropped_addresses,json=droppedAddresses,proto3" json:"dropped_addresses,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	SnapshotDate string                 `protobuf:"bytes,1,opt,name=snapshot_date,json=snapshotDate,proto3" json:"snapshot_date,omitempty"` // 'YYYY-MM-DD'
+	DropRate     float64                `protobuf:"fixed64,2,opt,name=drop_rate,json=dropRate,proto3" json:"drop_rate,omitempty"`           // 0..1 fraction, equal-weighted mean of per-suburb rates
+	// 0..1 fraction, depth of the typical cut. 0 when withheld — read
+	// median_withheld, never the 0, to tell withheld from a measurement.
+	MedianDropPct    float64 `protobuf:"fixed64,3,opt,name=median_drop_pct,json=medianDropPct,proto3" json:"median_drop_pct,omitempty"`
+	PanelSuburbs     int32   `protobuf:"varint,4,opt,name=panel_suburbs,json=panelSuburbs,proto3" json:"panel_suburbs,omitempty"`     // suburbs contributing to this point
+	CoverageRatio    float64 `protobuf:"fixed64,5,opt,name=coverage_ratio,json=coverageRatio,proto3" json:"coverage_ratio,omitempty"` // panel suburbs / full suburb catalog for this snapshot date
+	IsGap            bool    `protobuf:"varint,6,opt,name=is_gap,json=isGap,proto3" json:"is_gap,omitempty"`                          // coverage too low to be a fair reading
+	ActiveAddresses  int32   `protobuf:"varint,7,opt,name=active_addresses,json=activeAddresses,proto3" json:"active_addresses,omitempty"`
+	DroppedAddresses int32   `protobuf:"varint,8,opt,name=dropped_addresses,json=droppedAddresses,proto3" json:"dropped_addresses,omitempty"`
 	// Distinct listings withdrawn then relisted with a >7 day gap, in the
 	// trailing window (national grain only). The gap floor excludes crawl
 	// sweep noise: measured 2026-08-17, 188 of 450 REA delist->relist pairs
@@ -5871,8 +5972,14 @@ type DropIndexPoint struct {
 	// withdrawing), while Domain shows 57 of 94 pairs genuinely >7 days apart.
 	WithdrawnThenRelisted int32 `protobuf:"varint,9,opt,name=withdrawn_then_relisted,json=withdrawnThenRelisted,proto3" json:"withdrawn_then_relisted,omitempty"`
 	DelistedCount         int32 `protobuf:"varint,10,opt,name=delisted_count,json=delistedCount,proto3" json:"delisted_count,omitempty"` // withdrawn events in the trailing window (national grain only)
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// True when median_drop_pct is withheld: fewer than 3 dropped addresses
+	// stand behind this point, so a "median" would be one or two listings'
+	// exact cuts (the stored median is NULL). median_drop_pct is then 0 and is
+	// not a measurement. A separate flag rather than `optional` presence on
+	// median_drop_pct, which would change that field's cardinality.
+	MedianWithheld bool `protobuf:"varint,11,opt,name=median_withheld,json=medianWithheld,proto3" json:"median_withheld,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *DropIndexPoint) Reset() {
@@ -5975,12 +6082,20 @@ func (x *DropIndexPoint) GetDelistedCount() int32 {
 	return 0
 }
 
+func (x *DropIndexPoint) GetMedianWithheld() bool {
+	if x != nil {
+		return x.MedianWithheld
+	}
+	return false
+}
+
 type GetDropIndexSeriesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Grain         string                 `protobuf:"bytes,1,opt,name=grain,proto3" json:"grain,omitempty"`                       // 'national' | 'state' | 'suburb'
-	GrainKey      string                 `protobuf:"bytes,2,opt,name=grain_key,json=grainKey,proto3" json:"grain_key,omitempty"` // 'AU' | state code | sal_code
-	From          string                 `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`                         // 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
-	To            string                 `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`                             // 'YYYY-MM-DD', inclusive; defaults to today
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Anything outside these shapes is InvalidArgument.
+	Grain         string `protobuf:"bytes,1,opt,name=grain,proto3" json:"grain,omitempty"`                       // 'national' (default) | 'state' | 'suburb'
+	GrainKey      string `protobuf:"bytes,2,opt,name=grain_key,json=grainKey,proto3" json:"grain_key,omitempty"` // 'AU' | state code ('NSW', ...) | 5-digit sal_code
+	From          string `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`                         // 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
+	To            string `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`                             // 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6047,6 +6162,14 @@ type GetDropIndexSeriesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Points        []*DropIndexPoint      `protobuf:"bytes,1,rep,name=points,proto3" json:"points,omitempty"`
 	TrackingSince string                 `protobuf:"bytes,2,opt,name=tracking_since,json=trackingSince,proto3" json:"tracking_since,omitempty"` // 'YYYY-MM-DD' — earliest date the index exists for
+	// as_of: the latest computed_at among the returned points (when the
+	// collector last wrote this series). data_through: the end of the latest
+	// returned snapshot day, or the crawl horizon the last housing MV refresh
+	// recorded if that is earlier — a snapshot is computed daily whether or not
+	// the crawl ran, so the date alone can outrun the data. Both unset when no
+	// point is returned.
+	AsOf          *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	DataThrough   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6093,6 +6216,20 @@ func (x *GetDropIndexSeriesResponse) GetTrackingSince() string {
 		return x.TrackingSince
 	}
 	return ""
+}
+
+func (x *GetDropIndexSeriesResponse) GetAsOf() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOf
+	}
+	return nil
+}
+
+func (x *GetDropIndexSeriesResponse) GetDataThrough() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DataThrough
+	}
+	return nil
 }
 
 type ListCouncilsRequest struct {
@@ -7912,7 +8049,7 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x05stats\x18\x01 \x03(\v2 .shorts.v1alpha1.SuburbCrimeStatR\x05stats\x12/\n" +
 	"\x13source_jurisdiction\x18\x02 \x01(\tR\x12sourceJurisdiction\x12\x16\n" +
 	"\x06source\x18\x03 \x01(\tR\x06source\x12%\n" +
-	"\x0esource_licence\x18\x04 \x01(\tR\rsourceLicence\"\xd9\x01\n" +
+	"\x0esource_licence\x18\x04 \x01(\tR\rsourceLicence\"\xc9\x02\n" +
 	"\x12SuburbListingStats\x12$\n" +
 	"\x0efor_sale_count\x18\x01 \x01(\x05R\fforSaleCount\x12\x1d\n" +
 	"\n" +
@@ -7922,7 +8059,9 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"sold_count\x18\x04 \x01(\x05R\tsoldCount\x12\x19\n" +
 	"\bavg_sold\x18\x05 \x01(\x01R\aavgSold\x12\x1f\n" +
 	"\vmedian_sold\x18\x06 \x01(\x01R\n" +
-	"medianSold\"\x8a\x06\n" +
+	"medianSold\x12/\n" +
+	"\x05as_of\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12=\n" +
+	"\fdata_through\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vdataThrough\"\x8a\x06\n" +
 	"\x18GetSuburbProfileResponse\x128\n" +
 	"\asummary\x18\x01 \x01(\v2\x1e.shorts.v1alpha1.SuburbSummaryR\asummary\x12G\n" +
 	"\fdemographics\x18\x02 \x01(\v2#.shorts.v1alpha1.SuburbDemographicsR\fdemographics\x12B\n" +
@@ -7993,9 +8132,11 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\bavg_sold\x18\x11 \x01(\x01R\aavgSold\x12\x1f\n" +
 	"\vmedian_sold\x18\x12 \x01(\x01R\n" +
 	"medianSold\x12#\n" +
-	"\rdropped_value\x18\x13 \x01(\x01R\fdroppedValue\"Z\n" +
+	"\rdropped_value\x18\x13 \x01(\x01R\fdroppedValue\"\xca\x01\n" +
 	"\x1cListSuburbPriceDropsResponse\x12:\n" +
-	"\asuburbs\x18\x01 \x03(\v2 .shorts.v1alpha1.SuburbPriceDropR\asuburbs\"\x92\x01\n" +
+	"\asuburbs\x18\x01 \x03(\v2 .shorts.v1alpha1.SuburbPriceDropR\asuburbs\x12/\n" +
+	"\x05as_of\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12=\n" +
+	"\fdata_through\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vdataThrough\"\x92\x01\n" +
 	"\x1dListSuburbDropListingsRequest\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x1f\n" +
 	"\vregion_code\x18\x02 \x01(\tR\n" +
@@ -8155,7 +8296,7 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"agentNames\"`\n" +
 	"\x1dListAddressPriceDropsResponse\x12?\n" +
 	"\taddresses\x18\x01 \x03(\v2!.shorts.v1alpha1.AddressPriceDropR\taddresses\"\x1e\n" +
-	"\x1cGetPriceDropsOverviewRequest\"\xdb\x04\n" +
+	"\x1cGetPriceDropsOverviewRequest\"\xb0\x05\n" +
 	"\x15StatePriceDropSummary\x12\x1d\n" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12#\n" +
@@ -8179,10 +8320,15 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\bavg_sold\x18\x0e \x01(\x01R\aavgSold\x12\x1f\n" +
 	"\vmedian_sold\x18\x0f \x01(\x01R\n" +
 	"medianSold\x12'\n" +
-	"\x0fsuburbs_tracked\x18\x10 \x01(\x05R\x0esuburbsTracked\"\xa3\x01\n" +
+	"\x0fsuburbs_tracked\x18\x10 \x01(\x05R\x0esuburbsTracked\x12*\n" +
+	"\x11suburbs_swept_14d\x18\x11 \x01(\x05R\x0fsuburbsSwept14d\x12'\n" +
+	"\x0fcatalog_suburbs\x18\x12 \x01(\x05R\x0ecatalogSuburbs\"\xaf\x02\n" +
 	"\x1dGetPriceDropsOverviewResponse\x12B\n" +
 	"\bnational\x18\x01 \x01(\v2&.shorts.v1alpha1.StatePriceDropSummaryR\bnational\x12>\n" +
-	"\x06states\x18\x02 \x03(\v2&.shorts.v1alpha1.StatePriceDropSummaryR\x06states\"f\n" +
+	"\x06states\x18\x02 \x03(\v2&.shorts.v1alpha1.StatePriceDropSummaryR\x06states\x12/\n" +
+	"\x05as_of\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12=\n" +
+	"\fdata_through\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\vdataThrough\x12\x1a\n" +
+	"\bwithheld\x18\x05 \x01(\bR\bwithheld\"f\n" +
 	"\x1bListAgencyPriceStatsRequest\x12\x1d\n" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x12\n" +
@@ -8209,7 +8355,7 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\vagent_names\x18\r \x03(\tR\n" +
 	"agentNames\"]\n" +
 	"\x1cListAgencyPriceStatsResponse\x12=\n" +
-	"\bagencies\x18\x01 \x03(\v2!.shorts.v1alpha1.AgencyPriceStatsR\bagencies\"\x94\x03\n" +
+	"\bagencies\x18\x01 \x03(\v2!.shorts.v1alpha1.AgencyPriceStatsR\bagencies\"\xbd\x03\n" +
 	"\x0eDropIndexPoint\x12#\n" +
 	"\rsnapshot_date\x18\x01 \x01(\tR\fsnapshotDate\x12\x1b\n" +
 	"\tdrop_rate\x18\x02 \x01(\x01R\bdropRate\x12&\n" +
@@ -8221,15 +8367,18 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x11dropped_addresses\x18\b \x01(\x05R\x10droppedAddresses\x126\n" +
 	"\x17withdrawn_then_relisted\x18\t \x01(\x05R\x15withdrawnThenRelisted\x12%\n" +
 	"\x0edelisted_count\x18\n" +
-	" \x01(\x05R\rdelistedCount\"r\n" +
+	" \x01(\x05R\rdelistedCount\x12'\n" +
+	"\x0fmedian_withheld\x18\v \x01(\bR\x0emedianWithheld\"r\n" +
 	"\x19GetDropIndexSeriesRequest\x12\x14\n" +
 	"\x05grain\x18\x01 \x01(\tR\x05grain\x12\x1b\n" +
 	"\tgrain_key\x18\x02 \x01(\tR\bgrainKey\x12\x12\n" +
 	"\x04from\x18\x03 \x01(\tR\x04from\x12\x0e\n" +
-	"\x02to\x18\x04 \x01(\tR\x02to\"|\n" +
+	"\x02to\x18\x04 \x01(\tR\x02to\"\xec\x01\n" +
 	"\x1aGetDropIndexSeriesResponse\x127\n" +
 	"\x06points\x18\x01 \x03(\v2\x1f.shorts.v1alpha1.DropIndexPointR\x06points\x12%\n" +
-	"\x0etracking_since\x18\x02 \x01(\tR\rtrackingSince\"4\n" +
+	"\x0etracking_since\x18\x02 \x01(\tR\rtrackingSince\x12/\n" +
+	"\x05as_of\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12=\n" +
+	"\fdata_through\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\vdataThrough\"4\n" +
 	"\x13ListCouncilsRequest\x12\x1d\n" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\"\x90\x02\n" +
@@ -8535,89 +8684,97 @@ var file_shorts_v1alpha1_housing_proto_depIdxs = []int32{
 	22, // 16: shorts.v1alpha1.FilterSuburbsRequest.predicates:type_name -> shorts.v1alpha1.SuburbMetricPredicate
 	31, // 17: shorts.v1alpha1.SuburbBanner.landmarks:type_name -> shorts.v1alpha1.SuburbLandmark
 	33, // 18: shorts.v1alpha1.SuburbCrime.stats:type_name -> shorts.v1alpha1.SuburbCrimeStat
-	14, // 19: shorts.v1alpha1.GetSuburbProfileResponse.summary:type_name -> shorts.v1alpha1.SuburbSummary
-	26, // 20: shorts.v1alpha1.GetSuburbProfileResponse.demographics:type_name -> shorts.v1alpha1.SuburbDemographics
-	27, // 21: shorts.v1alpha1.GetSuburbProfileResponse.baselines:type_name -> shorts.v1alpha1.ComparisonBaselines
-	28, // 22: shorts.v1alpha1.GetSuburbProfileResponse.council:type_name -> shorts.v1alpha1.LgaInfo
-	30, // 23: shorts.v1alpha1.GetSuburbProfileResponse.similar:type_name -> shorts.v1alpha1.SimilarSuburb
-	32, // 24: shorts.v1alpha1.GetSuburbProfileResponse.banner:type_name -> shorts.v1alpha1.SuburbBanner
-	34, // 25: shorts.v1alpha1.GetSuburbProfileResponse.crime:type_name -> shorts.v1alpha1.SuburbCrime
-	35, // 26: shorts.v1alpha1.GetSuburbProfileResponse.listing_stats:type_name -> shorts.v1alpha1.SuburbListingStats
-	10, // 27: shorts.v1alpha1.GetSuburbProfileResponse.elevation:type_name -> shorts.v1alpha1.SuburbElevation
-	11, // 28: shorts.v1alpha1.GetSuburbProfileResponse.hazards:type_name -> shorts.v1alpha1.SuburbHazardExposure
-	29, // 29: shorts.v1alpha1.GetSuburbProfileResponse.council_overlaps:type_name -> shorts.v1alpha1.LgaOverlap
-	13, // 30: shorts.v1alpha1.GetSuburbProfileResponse.planning:type_name -> shorts.v1alpha1.SuburbPlanning
-	79, // 31: shorts.v1alpha1.HousingRegion.latest_period:type_name -> google.protobuf.Timestamp
-	38, // 32: shorts.v1alpha1.ListHousingRegionsResponse.regions:type_name -> shorts.v1alpha1.HousingRegion
-	41, // 33: shorts.v1alpha1.ListSuburbPriceDropsResponse.suburbs:type_name -> shorts.v1alpha1.SuburbPriceDrop
-	79, // 34: shorts.v1alpha1.SuburbDropListing.observed_at:type_name -> google.protobuf.Timestamp
-	44, // 35: shorts.v1alpha1.ListSuburbDropListingsResponse.listings:type_name -> shorts.v1alpha1.SuburbDropListing
-	47, // 36: shorts.v1alpha1.GetPropertyHistoryResponse.current:type_name -> shorts.v1alpha1.PropertyListingSnapshot
-	48, // 37: shorts.v1alpha1.GetPropertyHistoryResponse.events:type_name -> shorts.v1alpha1.PropertyPriceEvent
-	51, // 38: shorts.v1alpha1.GetPropertyHistoryResponse.valuation:type_name -> shorts.v1alpha1.PropertyValuation
-	50, // 39: shorts.v1alpha1.PropertyValuation.sales_history:type_name -> shorts.v1alpha1.PropertyValuationSale
-	53, // 40: shorts.v1alpha1.ListAddressPriceDropsResponse.addresses:type_name -> shorts.v1alpha1.AddressPriceDrop
-	56, // 41: shorts.v1alpha1.GetPriceDropsOverviewResponse.national:type_name -> shorts.v1alpha1.StatePriceDropSummary
-	56, // 42: shorts.v1alpha1.GetPriceDropsOverviewResponse.states:type_name -> shorts.v1alpha1.StatePriceDropSummary
-	59, // 43: shorts.v1alpha1.ListAgencyPriceStatsResponse.agencies:type_name -> shorts.v1alpha1.AgencyPriceStats
-	61, // 44: shorts.v1alpha1.GetDropIndexSeriesResponse.points:type_name -> shorts.v1alpha1.DropIndexPoint
-	66, // 45: shorts.v1alpha1.ListCouncilsResponse.councils:type_name -> shorts.v1alpha1.CouncilSummary
-	79, // 46: shorts.v1alpha1.ListCouncilsResponse.price_drops_as_of:type_name -> google.protobuf.Timestamp
-	79, // 47: shorts.v1alpha1.ListCouncilsResponse.price_drops_data_through:type_name -> google.protobuf.Timestamp
-	69, // 48: shorts.v1alpha1.GetCouncilProfileResponse.profile:type_name -> shorts.v1alpha1.CouncilProfile
-	28, // 49: shorts.v1alpha1.CouncilProfile.council:type_name -> shorts.v1alpha1.LgaInfo
-	66, // 50: shorts.v1alpha1.CouncilProfile.summary:type_name -> shorts.v1alpha1.CouncilSummary
-	70, // 51: shorts.v1alpha1.CouncilProfile.series:type_name -> shorts.v1alpha1.CouncilSeries
-	72, // 52: shorts.v1alpha1.CouncilProfile.suburbs:type_name -> shorts.v1alpha1.CouncilSuburb
-	73, // 53: shorts.v1alpha1.CouncilProfile.rollup:type_name -> shorts.v1alpha1.CouncilRollup
-	75, // 54: shorts.v1alpha1.CouncilProfile.federal_electorates:type_name -> shorts.v1alpha1.CouncilRepresentative
-	75, // 55: shorts.v1alpha1.CouncilProfile.state_districts:type_name -> shorts.v1alpha1.CouncilRepresentative
-	76, // 56: shorts.v1alpha1.CouncilProfile.price_drops:type_name -> shorts.v1alpha1.CouncilPriceDrops
-	78, // 57: shorts.v1alpha1.CouncilProfile.neighbours:type_name -> shorts.v1alpha1.CouncilNeighbour
-	71, // 58: shorts.v1alpha1.CouncilSeries.points:type_name -> shorts.v1alpha1.CouncilSeriesPoint
-	74, // 59: shorts.v1alpha1.CouncilRollup.crime:type_name -> shorts.v1alpha1.CouncilCrimeStat
-	77, // 60: shorts.v1alpha1.CouncilPriceDrops.suburbs:type_name -> shorts.v1alpha1.CouncilDropSuburb
-	79, // 61: shorts.v1alpha1.CouncilPriceDrops.as_of:type_name -> google.protobuf.Timestamp
-	79, // 62: shorts.v1alpha1.CouncilPriceDrops.data_through:type_name -> google.protobuf.Timestamp
-	0,  // 63: shorts.v1alpha1.HousingService.GetHousingOverview:input_type -> shorts.v1alpha1.GetHousingOverviewRequest
-	3,  // 64: shorts.v1alpha1.HousingService.GetHousePriceSeries:input_type -> shorts.v1alpha1.GetHousePriceSeriesRequest
-	6,  // 65: shorts.v1alpha1.HousingService.ListStateSuburbs:input_type -> shorts.v1alpha1.ListStateSuburbsRequest
-	16, // 66: shorts.v1alpha1.HousingService.GetSuburbIndex:input_type -> shorts.v1alpha1.GetSuburbIndexRequest
-	19, // 67: shorts.v1alpha1.HousingService.GetSuburbMetricColumns:input_type -> shorts.v1alpha1.GetSuburbMetricColumnsRequest
-	23, // 68: shorts.v1alpha1.HousingService.FilterSuburbs:input_type -> shorts.v1alpha1.FilterSuburbsRequest
-	25, // 69: shorts.v1alpha1.HousingService.GetSuburbProfile:input_type -> shorts.v1alpha1.GetSuburbProfileRequest
-	37, // 70: shorts.v1alpha1.HousingService.ListHousingRegions:input_type -> shorts.v1alpha1.ListHousingRegionsRequest
-	40, // 71: shorts.v1alpha1.HousingService.ListSuburbPriceDrops:input_type -> shorts.v1alpha1.ListSuburbPriceDropsRequest
-	43, // 72: shorts.v1alpha1.HousingService.ListSuburbDropListings:input_type -> shorts.v1alpha1.ListSuburbDropListingsRequest
-	46, // 73: shorts.v1alpha1.HousingService.GetPropertyHistory:input_type -> shorts.v1alpha1.GetPropertyHistoryRequest
-	52, // 74: shorts.v1alpha1.HousingService.ListAddressPriceDrops:input_type -> shorts.v1alpha1.ListAddressPriceDropsRequest
-	55, // 75: shorts.v1alpha1.HousingService.GetPriceDropsOverview:input_type -> shorts.v1alpha1.GetPriceDropsOverviewRequest
-	58, // 76: shorts.v1alpha1.HousingService.ListAgencyPriceStats:input_type -> shorts.v1alpha1.ListAgencyPriceStatsRequest
-	62, // 77: shorts.v1alpha1.HousingService.GetDropIndexSeries:input_type -> shorts.v1alpha1.GetDropIndexSeriesRequest
-	64, // 78: shorts.v1alpha1.HousingService.ListCouncils:input_type -> shorts.v1alpha1.ListCouncilsRequest
-	67, // 79: shorts.v1alpha1.HousingService.GetCouncilProfile:input_type -> shorts.v1alpha1.GetCouncilProfileRequest
-	2,  // 80: shorts.v1alpha1.HousingService.GetHousingOverview:output_type -> shorts.v1alpha1.GetHousingOverviewResponse
-	5,  // 81: shorts.v1alpha1.HousingService.GetHousePriceSeries:output_type -> shorts.v1alpha1.GetHousePriceSeriesResponse
-	15, // 82: shorts.v1alpha1.HousingService.ListStateSuburbs:output_type -> shorts.v1alpha1.ListStateSuburbsResponse
-	18, // 83: shorts.v1alpha1.HousingService.GetSuburbIndex:output_type -> shorts.v1alpha1.GetSuburbIndexResponse
-	21, // 84: shorts.v1alpha1.HousingService.GetSuburbMetricColumns:output_type -> shorts.v1alpha1.GetSuburbMetricColumnsResponse
-	24, // 85: shorts.v1alpha1.HousingService.FilterSuburbs:output_type -> shorts.v1alpha1.FilterSuburbsResponse
-	36, // 86: shorts.v1alpha1.HousingService.GetSuburbProfile:output_type -> shorts.v1alpha1.GetSuburbProfileResponse
-	39, // 87: shorts.v1alpha1.HousingService.ListHousingRegions:output_type -> shorts.v1alpha1.ListHousingRegionsResponse
-	42, // 88: shorts.v1alpha1.HousingService.ListSuburbPriceDrops:output_type -> shorts.v1alpha1.ListSuburbPriceDropsResponse
-	45, // 89: shorts.v1alpha1.HousingService.ListSuburbDropListings:output_type -> shorts.v1alpha1.ListSuburbDropListingsResponse
-	49, // 90: shorts.v1alpha1.HousingService.GetPropertyHistory:output_type -> shorts.v1alpha1.GetPropertyHistoryResponse
-	54, // 91: shorts.v1alpha1.HousingService.ListAddressPriceDrops:output_type -> shorts.v1alpha1.ListAddressPriceDropsResponse
-	57, // 92: shorts.v1alpha1.HousingService.GetPriceDropsOverview:output_type -> shorts.v1alpha1.GetPriceDropsOverviewResponse
-	60, // 93: shorts.v1alpha1.HousingService.ListAgencyPriceStats:output_type -> shorts.v1alpha1.ListAgencyPriceStatsResponse
-	63, // 94: shorts.v1alpha1.HousingService.GetDropIndexSeries:output_type -> shorts.v1alpha1.GetDropIndexSeriesResponse
-	65, // 95: shorts.v1alpha1.HousingService.ListCouncils:output_type -> shorts.v1alpha1.ListCouncilsResponse
-	68, // 96: shorts.v1alpha1.HousingService.GetCouncilProfile:output_type -> shorts.v1alpha1.GetCouncilProfileResponse
-	80, // [80:97] is the sub-list for method output_type
-	63, // [63:80] is the sub-list for method input_type
-	63, // [63:63] is the sub-list for extension type_name
-	63, // [63:63] is the sub-list for extension extendee
-	0,  // [0:63] is the sub-list for field type_name
+	79, // 19: shorts.v1alpha1.SuburbListingStats.as_of:type_name -> google.protobuf.Timestamp
+	79, // 20: shorts.v1alpha1.SuburbListingStats.data_through:type_name -> google.protobuf.Timestamp
+	14, // 21: shorts.v1alpha1.GetSuburbProfileResponse.summary:type_name -> shorts.v1alpha1.SuburbSummary
+	26, // 22: shorts.v1alpha1.GetSuburbProfileResponse.demographics:type_name -> shorts.v1alpha1.SuburbDemographics
+	27, // 23: shorts.v1alpha1.GetSuburbProfileResponse.baselines:type_name -> shorts.v1alpha1.ComparisonBaselines
+	28, // 24: shorts.v1alpha1.GetSuburbProfileResponse.council:type_name -> shorts.v1alpha1.LgaInfo
+	30, // 25: shorts.v1alpha1.GetSuburbProfileResponse.similar:type_name -> shorts.v1alpha1.SimilarSuburb
+	32, // 26: shorts.v1alpha1.GetSuburbProfileResponse.banner:type_name -> shorts.v1alpha1.SuburbBanner
+	34, // 27: shorts.v1alpha1.GetSuburbProfileResponse.crime:type_name -> shorts.v1alpha1.SuburbCrime
+	35, // 28: shorts.v1alpha1.GetSuburbProfileResponse.listing_stats:type_name -> shorts.v1alpha1.SuburbListingStats
+	10, // 29: shorts.v1alpha1.GetSuburbProfileResponse.elevation:type_name -> shorts.v1alpha1.SuburbElevation
+	11, // 30: shorts.v1alpha1.GetSuburbProfileResponse.hazards:type_name -> shorts.v1alpha1.SuburbHazardExposure
+	29, // 31: shorts.v1alpha1.GetSuburbProfileResponse.council_overlaps:type_name -> shorts.v1alpha1.LgaOverlap
+	13, // 32: shorts.v1alpha1.GetSuburbProfileResponse.planning:type_name -> shorts.v1alpha1.SuburbPlanning
+	79, // 33: shorts.v1alpha1.HousingRegion.latest_period:type_name -> google.protobuf.Timestamp
+	38, // 34: shorts.v1alpha1.ListHousingRegionsResponse.regions:type_name -> shorts.v1alpha1.HousingRegion
+	41, // 35: shorts.v1alpha1.ListSuburbPriceDropsResponse.suburbs:type_name -> shorts.v1alpha1.SuburbPriceDrop
+	79, // 36: shorts.v1alpha1.ListSuburbPriceDropsResponse.as_of:type_name -> google.protobuf.Timestamp
+	79, // 37: shorts.v1alpha1.ListSuburbPriceDropsResponse.data_through:type_name -> google.protobuf.Timestamp
+	79, // 38: shorts.v1alpha1.SuburbDropListing.observed_at:type_name -> google.protobuf.Timestamp
+	44, // 39: shorts.v1alpha1.ListSuburbDropListingsResponse.listings:type_name -> shorts.v1alpha1.SuburbDropListing
+	47, // 40: shorts.v1alpha1.GetPropertyHistoryResponse.current:type_name -> shorts.v1alpha1.PropertyListingSnapshot
+	48, // 41: shorts.v1alpha1.GetPropertyHistoryResponse.events:type_name -> shorts.v1alpha1.PropertyPriceEvent
+	51, // 42: shorts.v1alpha1.GetPropertyHistoryResponse.valuation:type_name -> shorts.v1alpha1.PropertyValuation
+	50, // 43: shorts.v1alpha1.PropertyValuation.sales_history:type_name -> shorts.v1alpha1.PropertyValuationSale
+	53, // 44: shorts.v1alpha1.ListAddressPriceDropsResponse.addresses:type_name -> shorts.v1alpha1.AddressPriceDrop
+	56, // 45: shorts.v1alpha1.GetPriceDropsOverviewResponse.national:type_name -> shorts.v1alpha1.StatePriceDropSummary
+	56, // 46: shorts.v1alpha1.GetPriceDropsOverviewResponse.states:type_name -> shorts.v1alpha1.StatePriceDropSummary
+	79, // 47: shorts.v1alpha1.GetPriceDropsOverviewResponse.as_of:type_name -> google.protobuf.Timestamp
+	79, // 48: shorts.v1alpha1.GetPriceDropsOverviewResponse.data_through:type_name -> google.protobuf.Timestamp
+	59, // 49: shorts.v1alpha1.ListAgencyPriceStatsResponse.agencies:type_name -> shorts.v1alpha1.AgencyPriceStats
+	61, // 50: shorts.v1alpha1.GetDropIndexSeriesResponse.points:type_name -> shorts.v1alpha1.DropIndexPoint
+	79, // 51: shorts.v1alpha1.GetDropIndexSeriesResponse.as_of:type_name -> google.protobuf.Timestamp
+	79, // 52: shorts.v1alpha1.GetDropIndexSeriesResponse.data_through:type_name -> google.protobuf.Timestamp
+	66, // 53: shorts.v1alpha1.ListCouncilsResponse.councils:type_name -> shorts.v1alpha1.CouncilSummary
+	79, // 54: shorts.v1alpha1.ListCouncilsResponse.price_drops_as_of:type_name -> google.protobuf.Timestamp
+	79, // 55: shorts.v1alpha1.ListCouncilsResponse.price_drops_data_through:type_name -> google.protobuf.Timestamp
+	69, // 56: shorts.v1alpha1.GetCouncilProfileResponse.profile:type_name -> shorts.v1alpha1.CouncilProfile
+	28, // 57: shorts.v1alpha1.CouncilProfile.council:type_name -> shorts.v1alpha1.LgaInfo
+	66, // 58: shorts.v1alpha1.CouncilProfile.summary:type_name -> shorts.v1alpha1.CouncilSummary
+	70, // 59: shorts.v1alpha1.CouncilProfile.series:type_name -> shorts.v1alpha1.CouncilSeries
+	72, // 60: shorts.v1alpha1.CouncilProfile.suburbs:type_name -> shorts.v1alpha1.CouncilSuburb
+	73, // 61: shorts.v1alpha1.CouncilProfile.rollup:type_name -> shorts.v1alpha1.CouncilRollup
+	75, // 62: shorts.v1alpha1.CouncilProfile.federal_electorates:type_name -> shorts.v1alpha1.CouncilRepresentative
+	75, // 63: shorts.v1alpha1.CouncilProfile.state_districts:type_name -> shorts.v1alpha1.CouncilRepresentative
+	76, // 64: shorts.v1alpha1.CouncilProfile.price_drops:type_name -> shorts.v1alpha1.CouncilPriceDrops
+	78, // 65: shorts.v1alpha1.CouncilProfile.neighbours:type_name -> shorts.v1alpha1.CouncilNeighbour
+	71, // 66: shorts.v1alpha1.CouncilSeries.points:type_name -> shorts.v1alpha1.CouncilSeriesPoint
+	74, // 67: shorts.v1alpha1.CouncilRollup.crime:type_name -> shorts.v1alpha1.CouncilCrimeStat
+	77, // 68: shorts.v1alpha1.CouncilPriceDrops.suburbs:type_name -> shorts.v1alpha1.CouncilDropSuburb
+	79, // 69: shorts.v1alpha1.CouncilPriceDrops.as_of:type_name -> google.protobuf.Timestamp
+	79, // 70: shorts.v1alpha1.CouncilPriceDrops.data_through:type_name -> google.protobuf.Timestamp
+	0,  // 71: shorts.v1alpha1.HousingService.GetHousingOverview:input_type -> shorts.v1alpha1.GetHousingOverviewRequest
+	3,  // 72: shorts.v1alpha1.HousingService.GetHousePriceSeries:input_type -> shorts.v1alpha1.GetHousePriceSeriesRequest
+	6,  // 73: shorts.v1alpha1.HousingService.ListStateSuburbs:input_type -> shorts.v1alpha1.ListStateSuburbsRequest
+	16, // 74: shorts.v1alpha1.HousingService.GetSuburbIndex:input_type -> shorts.v1alpha1.GetSuburbIndexRequest
+	19, // 75: shorts.v1alpha1.HousingService.GetSuburbMetricColumns:input_type -> shorts.v1alpha1.GetSuburbMetricColumnsRequest
+	23, // 76: shorts.v1alpha1.HousingService.FilterSuburbs:input_type -> shorts.v1alpha1.FilterSuburbsRequest
+	25, // 77: shorts.v1alpha1.HousingService.GetSuburbProfile:input_type -> shorts.v1alpha1.GetSuburbProfileRequest
+	37, // 78: shorts.v1alpha1.HousingService.ListHousingRegions:input_type -> shorts.v1alpha1.ListHousingRegionsRequest
+	40, // 79: shorts.v1alpha1.HousingService.ListSuburbPriceDrops:input_type -> shorts.v1alpha1.ListSuburbPriceDropsRequest
+	43, // 80: shorts.v1alpha1.HousingService.ListSuburbDropListings:input_type -> shorts.v1alpha1.ListSuburbDropListingsRequest
+	46, // 81: shorts.v1alpha1.HousingService.GetPropertyHistory:input_type -> shorts.v1alpha1.GetPropertyHistoryRequest
+	52, // 82: shorts.v1alpha1.HousingService.ListAddressPriceDrops:input_type -> shorts.v1alpha1.ListAddressPriceDropsRequest
+	55, // 83: shorts.v1alpha1.HousingService.GetPriceDropsOverview:input_type -> shorts.v1alpha1.GetPriceDropsOverviewRequest
+	58, // 84: shorts.v1alpha1.HousingService.ListAgencyPriceStats:input_type -> shorts.v1alpha1.ListAgencyPriceStatsRequest
+	62, // 85: shorts.v1alpha1.HousingService.GetDropIndexSeries:input_type -> shorts.v1alpha1.GetDropIndexSeriesRequest
+	64, // 86: shorts.v1alpha1.HousingService.ListCouncils:input_type -> shorts.v1alpha1.ListCouncilsRequest
+	67, // 87: shorts.v1alpha1.HousingService.GetCouncilProfile:input_type -> shorts.v1alpha1.GetCouncilProfileRequest
+	2,  // 88: shorts.v1alpha1.HousingService.GetHousingOverview:output_type -> shorts.v1alpha1.GetHousingOverviewResponse
+	5,  // 89: shorts.v1alpha1.HousingService.GetHousePriceSeries:output_type -> shorts.v1alpha1.GetHousePriceSeriesResponse
+	15, // 90: shorts.v1alpha1.HousingService.ListStateSuburbs:output_type -> shorts.v1alpha1.ListStateSuburbsResponse
+	18, // 91: shorts.v1alpha1.HousingService.GetSuburbIndex:output_type -> shorts.v1alpha1.GetSuburbIndexResponse
+	21, // 92: shorts.v1alpha1.HousingService.GetSuburbMetricColumns:output_type -> shorts.v1alpha1.GetSuburbMetricColumnsResponse
+	24, // 93: shorts.v1alpha1.HousingService.FilterSuburbs:output_type -> shorts.v1alpha1.FilterSuburbsResponse
+	36, // 94: shorts.v1alpha1.HousingService.GetSuburbProfile:output_type -> shorts.v1alpha1.GetSuburbProfileResponse
+	39, // 95: shorts.v1alpha1.HousingService.ListHousingRegions:output_type -> shorts.v1alpha1.ListHousingRegionsResponse
+	42, // 96: shorts.v1alpha1.HousingService.ListSuburbPriceDrops:output_type -> shorts.v1alpha1.ListSuburbPriceDropsResponse
+	45, // 97: shorts.v1alpha1.HousingService.ListSuburbDropListings:output_type -> shorts.v1alpha1.ListSuburbDropListingsResponse
+	49, // 98: shorts.v1alpha1.HousingService.GetPropertyHistory:output_type -> shorts.v1alpha1.GetPropertyHistoryResponse
+	54, // 99: shorts.v1alpha1.HousingService.ListAddressPriceDrops:output_type -> shorts.v1alpha1.ListAddressPriceDropsResponse
+	57, // 100: shorts.v1alpha1.HousingService.GetPriceDropsOverview:output_type -> shorts.v1alpha1.GetPriceDropsOverviewResponse
+	60, // 101: shorts.v1alpha1.HousingService.ListAgencyPriceStats:output_type -> shorts.v1alpha1.ListAgencyPriceStatsResponse
+	63, // 102: shorts.v1alpha1.HousingService.GetDropIndexSeries:output_type -> shorts.v1alpha1.GetDropIndexSeriesResponse
+	65, // 103: shorts.v1alpha1.HousingService.ListCouncils:output_type -> shorts.v1alpha1.ListCouncilsResponse
+	68, // 104: shorts.v1alpha1.HousingService.GetCouncilProfile:output_type -> shorts.v1alpha1.GetCouncilProfileResponse
+	88, // [88:105] is the sub-list for method output_type
+	71, // [71:88] is the sub-list for method input_type
+	71, // [71:71] is the sub-list for extension type_name
+	71, // [71:71] is the sub-list for extension extendee
+	0,  // [0:71] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_housing_proto_init() }

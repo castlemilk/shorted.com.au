@@ -48,6 +48,9 @@ jest.mock("@connectrpc/connect", () => ({
             { slug: "no-usual-address", kind: "pseudo", dataThrough: "2026-06-30" },
           ],
     }),
+    getPriceDropsOverview: async () => ({
+      asOf: { seconds: BigInt(1_757_901_600), nanos: 0 },
+    }),
     listStateSuburbs: async ({ stateCode }: { stateCode: string }) => ({
       suburbs: Array.from({ length: 5 }, (_, i) => ({
         salCode: `${stateCode}${i}`,
@@ -306,6 +309,14 @@ describe("sitemap children", () => {
     const reports = await buildReportsSitemap();
     const yearly = reports.find((e) => e.url.endsWith("/reports/yearly/2025"))!;
     expect(yearly.lastModified).toBe("2026-01-01T00:00:00.000Z");
+  });
+
+  // The price-drops board used to carry no lastmod because no read path had a
+  // data date. It now follows the view refresh the page's JSON-LD reports.
+  it("dates /price-drops from the price-drops view refresh", async () => {
+    const housing = await buildHousingSitemap();
+    const drops = housing.find((e) => e.url === "https://shorted.com.au/price-drops");
+    expect(drops?.lastModified).toBe(new Date(1_757_901_600 * 1000).toISOString());
   });
 
   it("gives priced suburbs their own period and leaves unpriced ones bare", async () => {

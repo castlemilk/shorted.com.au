@@ -499,6 +499,21 @@ func (mr *MockShortsStoreMockRecorder) GetHousePriceSeries(regionCode, measure, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousePriceSeries", reflect.TypeOf((*MockShortsStore)(nil).GetHousePriceSeries), regionCode, measure, dwellingType)
 }
 
+// GetHousingMVRefresh mocks base method.
+func (m *MockShortsStore) GetHousingMVRefresh(mvNames []string) (map[string]shorts.HousingMVRefreshRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHousingMVRefresh", mvNames)
+	ret0, _ := ret[0].(map[string]shorts.HousingMVRefreshRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHousingMVRefresh indicates an expected call of GetHousingMVRefresh.
+func (mr *MockShortsStoreMockRecorder) GetHousingMVRefresh(mvNames any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousingMVRefresh", reflect.TypeOf((*MockShortsStore)(nil).GetHousingMVRefresh), mvNames)
+}
+
 // GetHousingOverview mocks base method.
 func (m *MockShortsStore) GetHousingOverview(regionType string) ([]*shorts.HousingMetricRow, error) {
 	m.ctrl.T.Helper()
