@@ -350,7 +350,14 @@ export default async function PressPage() {
           Contact
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Shorted.com.au is built and run by Ben Ebsworth. For data questions,
+          Shorted.com.au is built and run by{" "}
+          <Link
+            href="/about#founder"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Ben Ebsworth
+          </Link>
+          . For data questions,
           interview requests, a custom cut of the data, or corrections, email{" "}
           <a
             href={`mailto:${PRESS_EMAIL}`}

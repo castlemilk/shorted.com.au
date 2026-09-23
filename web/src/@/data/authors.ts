@@ -59,9 +59,10 @@ export const AUTHORS: Author[] = [
       "Independent — no broker relationships or paid coverage",
     ],
     sameAs: {
-      linkedin: "https://www.linkedin.com/in/benebsworth/",
+      linkedin: "https://www.linkedin.com/in/ben-ebsworth/",
       twitter: "https://x.com/shorted___",
       github: "https://github.com/castlemilk",
+      website: "https://benebsworth.com",
     },
   },
   // ============================================================

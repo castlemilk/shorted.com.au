@@ -182,7 +182,7 @@ export default async function ApiDocsIndex() {
                       which matched nothing charged anywhere.
                       Source of truth is the Stripe price behind
                       STRIPE_API_ACCESS_PRICE_ID; if that changes, change it
-                      here and in /roadmap, which also states $20.
+                      here, in /roadmap and in /about, which also state $20.
                     */}
                     <td className="py-3 pr-4 font-medium text-foreground">
                       API Access{" "}

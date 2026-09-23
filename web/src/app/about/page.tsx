@@ -3,25 +3,29 @@ import { getStatisticsWithCache } from "~/lib/statistics";
 import AboutClient from "./about-client";
 import { type AboutPageStatistics } from "~/lib/statistics";
 import { siteConfig } from "~/@/config/site";
+import { EnhancedOrganizationSchema } from "~/@/components/seo/enhanced-structured-data";
+
+const TITLE = "About Shorted — Company, Founder & ASX Short Data Platform";
+const DESCRIPTION =
+  "Shorted.com.au is an independent Melbourne-built fintech platform, founded by Ben Ebsworth, that turns ASIC short position data into charts, alerts and an API. Free to use, with Premium and API plans.";
 
 export const metadata: Metadata = {
-  title: "About Shorted - ASX Short Position & Industry Intelligence",
-  description:
-    "Learn about Shorted.com.au, Australia's short position intelligence platform for daily ASIC data, industry crowding signals, top stocks, and alerts.",
+  title: TITLE,
+  description: DESCRIPTION,
   keywords: [
     "about Shorted",
+    "Shorted.com.au founder",
+    "Ben Ebsworth",
     "ASX short selling data",
     "ASIC short positions",
-    "industry intelligence",
-    "ASX industry short interest",
-    "Australian stock market",
+    "Australian fintech startup",
     "short interest tracker",
-    "free stock data Australia",
+    "ASX short data API",
   ],
+  authors: [{ name: siteConfig.founder.name, url: siteConfig.founder.website }],
   openGraph: {
-    title: "About Shorted - ASX Short Position & Industry Intelligence",
-    description:
-      "Learn about Shorted.com.au, Australia's short position platform for ASIC-backed stock and industry intelligence.",
+    title: TITLE,
+    description: DESCRIPTION,
     url: `${siteConfig.url}/about`,
     siteName: siteConfig.name,
     type: "website",
@@ -31,12 +35,34 @@ export const metadata: Metadata = {
     site: "@shorted___",
     creator: "@shorted___",
     card: "summary_large_image",
-    title: "About Shorted - ASX Short Position & Industry Intelligence",
-    description:
-      "Learn about Shorted.com.au, Australia's short position platform for stock and industry intelligence.",
+    title: TITLE,
+    description: DESCRIPTION,
   },
   alternates: {
     canonical: `${siteConfig.url}/about`,
+  },
+};
+
+const aboutPageSchema = {
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  name: TITLE,
+  description: DESCRIPTION,
+  url: `${siteConfig.url}/about`,
+  inLanguage: "en-AU",
+  about: { "@type": "Organization", name: siteConfig.name, url: siteConfig.url },
+  mainEntity: {
+    "@type": "Person",
+    name: siteConfig.founder.name,
+    jobTitle: siteConfig.founder.jobTitle,
+    url: `${siteConfig.url}${siteConfig.founder.profilePath}`,
+    image: siteConfig.founder.image,
+    worksFor: { "@type": "Organization", name: siteConfig.name, url: siteConfig.url },
+    sameAs: [
+      siteConfig.founder.website,
+      siteConfig.founder.linkedin,
+      siteConfig.founder.github,
+    ],
   },
 };
 
@@ -88,5 +114,14 @@ export default async function Page() {
   // Use timeout-protected fetch to ensure page always renders quickly
   const statistics = await getStatisticsWithTimeout();
 
-  return <AboutClient initialStatistics={statistics} />;
+  return (
+    <>
+      <EnhancedOrganizationSchema />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(aboutPageSchema) }}
+      />
+      <AboutClient initialStatistics={statistics} />
+    </>
+  );
 }

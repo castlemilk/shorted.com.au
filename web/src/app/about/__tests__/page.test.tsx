@@ -12,6 +12,12 @@ jest.mock("next/link", () => ({
   ),
 }));
 
+jest.mock("next/image", () => ({
+  __esModule: true,
+  // eslint-disable-next-line @next/next/no-img-element
+  default: ({ src, alt }: { src: string; alt: string }) => <img src={src} alt={alt} />,
+}));
+
 // Mock UI components
 jest.mock("~/@/components/ui/button", () => ({
   Button: ({
@@ -64,6 +70,7 @@ jest.mock("lucide-react", () => ({
   BarChart3: () => <span data-testid="icon-barchart3" />,
   Bell: () => <span data-testid="icon-bell" />,
   Bot: () => <span data-testid="icon-bot" />,
+  Building2: () => <span data-testid="icon-building2" />,
   ChevronRight: () => <span data-testid="icon-chevron-right" />,
   Code2: () => <span data-testid="icon-code2" />,
   Database: () => <span data-testid="icon-database" />,
@@ -74,6 +81,7 @@ jest.mock("lucide-react", () => ({
   LineChart: () => <span data-testid="icon-linechart" />,
   Linkedin: () => <span data-testid="icon-linkedin" />,
   Lock: () => <span data-testid="icon-lock" />,
+  Mail: () => <span data-testid="icon-mail" />,
   Newspaper: () => <span data-testid="icon-newspaper" />,
   Rocket: () => <span data-testid="icon-rocket" />,
   Search: () => <span data-testid="icon-search" />,
@@ -142,6 +150,39 @@ describe("About Page", () => {
 
       // Daily updates
       expect(screen.getAllByText("Daily").length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Company & Founder Section", () => {
+    it("names the founder and links to his public profiles", () => {
+      render(<AboutClient initialStatistics={mockStatistics} />);
+
+      expect(screen.getByRole("heading", { name: "Ben Ebsworth" })).toBeInTheDocument();
+      expect(screen.getByAltText(/Ben Ebsworth, founder of Shorted/i)).toBeInTheDocument();
+
+      expect(screen.getByRole("link", { name: /benebsworth\.com/i })).toHaveAttribute(
+        "href",
+        "https://benebsworth.com"
+      );
+      expect(screen.getByRole("link", { name: /LinkedIn/i })).toHaveAttribute(
+        "href",
+        "https://www.linkedin.com/in/ben-ebsworth/"
+      );
+      expect(screen.getByRole("link", { name: /Author profile/i })).toHaveAttribute(
+        "href",
+        "/authors/ben-ebsworth"
+      );
+    });
+
+    it("states the company facts and business model", () => {
+      render(<AboutClient initialStatistics={mockStatistics} />);
+
+      expect(screen.getByText("Who's Behind Shorted")).toBeInTheDocument();
+      expect(screen.getByText("Business model")).toBeInTheDocument();
+      expect(screen.getByText("Online, worldwide")).toBeInTheDocument();
+      expect(screen.getByText("How Shorted Makes Money")).toBeInTheDocument();
+      expect(screen.getByText("$4/mo")).toBeInTheDocument();
+      expect(screen.getByText("$20/mo")).toBeInTheDocument();
     });
   });
 

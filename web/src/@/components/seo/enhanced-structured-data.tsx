@@ -201,11 +201,32 @@ export function EnhancedOrganizationSchema() {
       height: siteConfig.logo.height,
     },
     description: siteConfig.description,
-    foundingDate: "2024",
-    areaServed: {
-      "@type": "Country",
-      name: "Australia",
+    foundingDate: siteConfig.company.foundingDate,
+    foundingLocation: {
+      "@type": "Place",
+      name: `${siteConfig.company.city}, ${siteConfig.company.countryName}`,
     },
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: siteConfig.company.city,
+      addressRegion: siteConfig.company.region,
+      addressCountry: siteConfig.company.country,
+    },
+    founder: {
+      "@type": "Person",
+      name: siteConfig.founder.name,
+      jobTitle: siteConfig.founder.jobTitle,
+      url: `${siteConfig.url}${siteConfig.founder.profilePath}`,
+      image: siteConfig.founder.image,
+      sameAs: [
+        siteConfig.founder.website,
+        siteConfig.founder.linkedin,
+        siteConfig.founder.github,
+      ],
+    },
+    // The data covers ASX stocks, but the product is a web/API service
+    // available worldwide.
+    areaServed: "Worldwide",
     knowsAbout: [
       "Short Selling",
       "ASX Stock Market",
