@@ -330,6 +330,12 @@ export function CouncilWebsite({ website }: { website: string }) {
   );
 }
 
+/** "ABS, Dept of Infrastructure and state government" — only licensors whose data is shown. */
+function licensors(grants: boolean, lgprf: boolean): string {
+  const names = ["ABS", grants ? "Dept of Infrastructure" : "", lgprf ? "Local Government Victoria" : "", "state government"].filter(Boolean);
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 /** One sources line naming every licensor whose data the page shows. */
 export function SourcesLine({ profile: p }: { profile: CouncilProfile }) {
   const c = p.council!;
@@ -352,7 +358,7 @@ export function SourcesLine({ profile: p }: { profile: CouncilProfile }) {
   ].filter(Boolean);
   return (
     <p className="border-t border-border/50 pt-4 text-[11px] leading-relaxed text-muted-foreground [text-wrap:pretty]">
-      {parts.join(" ")} ABS, Dept of Infrastructure{c.finSource === "vic_lgprf" ? ", Local Government Victoria" : ""} and state data CC BY 4.0.
+      {parts.join(" ")} {licensors(c.fedFagAud > 0 || measures.has("fag_total_aud"), c.finSource === "vic_lgprf")} data CC BY 4.0.
       {p.factsAsOf ? ` Council facts loaded ${p.factsAsOf}.` : ""}
     </p>
   );
