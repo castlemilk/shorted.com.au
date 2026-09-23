@@ -148,7 +148,7 @@ func TestGetCouncilProfile_MapsEveryBlock(t *testing.T) {
 			{SALCode: "99999", SALName: "Unpriced", Population: 10, Share: 0.07, Dominant: false,
 				VGMedian: f64(1), VGMedianPeriod: nil},
 		},
-		Rollup: shortsstore.CouncilRollupRow{MemberSuburbs: 2, DominantSuburbs: 1, BushfireSharePct: f64(5.19327), BushfireCoveredSuburbs: 41},
+		Rollup:       shortsstore.CouncilRollupRow{MemberSuburbs: 2, DominantSuburbs: 1, BushfireSharePct: f64(5.19327), BushfireCoveredSuburbs: 41},
 		FederalSeats: []shortsstore.CouncilRepresentativeRow{{Name: "Watson", PopulationShare: 0.6, SuburbCount: 12}},
 		PriceDrops: &shortsstore.CouncilPriceDropsRow{Dropped: 7, Tracked: 100, DroppedShare: 0.07, MedianDropPct: f64(0.04123),
 			Suburbs: []shortsstore.CouncilDropSuburbRow{{SALCode: "12166", SALName: "Kingsgrove", Dropped: 4, Tracked: 30}}},

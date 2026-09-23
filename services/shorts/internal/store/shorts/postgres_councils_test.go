@@ -30,7 +30,7 @@ func TestCouncilQueryShapes(t *testing.T) {
 		{"members", councilMembersCTE, []string{
 			"jsonb_to_recordset(",
 			"o.lga_code24 = sl.lga_code24 OR o.share >= $3", // dominant always, straddlers from 5%
-			"COALESCE(d.population, 0)::float8 * o.share",  // residents contributed
+			"COALESCE(d.population, 0)::float8 * o.share",   // residents contributed
 			"NULLIF(sl.overlap_lgas, '[]'::jsonb)",          // pre-overlap bridge rows still count
 		}, nil},
 		{"hazards", councilHazardRollupQuery, []string{
