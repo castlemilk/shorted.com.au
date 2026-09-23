@@ -8,7 +8,7 @@ import { suburbHref } from "@/lib/housing/states";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { HousingIcon } from "./housing-icon";
 
-type SortKey = "count" | "asking" | "sold" | "max";
+type SortKey = "count" | "share" | "asking" | "sold" | "max";
 
 export interface SuburbPriceDropsPanelProps {
   /** State filter; '' shows a national ranking. */
@@ -53,6 +53,7 @@ export function SuburbPriceDropsPanel({ stateCode = "", title = "Suburb prices &
         </h2>
         <div className="flex items-center gap-1">
           <SortBtn k="count" label="Most cuts" />
+          <SortBtn k="share" label="Share cut" />
           <SortBtn k="asking" label="Avg asking" />
           <SortBtn k="sold" label="Avg sold" />
           <SortBtn k="max" label="Biggest cut" />
@@ -61,12 +62,15 @@ export function SuburbPriceDropsPanel({ stateCode = "", title = "Suburb prices &
       <p className="mb-3 text-xs text-muted-foreground">
         Average asking &amp; recent sold prices per suburb, with the count of for-sale listings that reduced
         their asking price in the last 30 days. Derived from realestate.com.au &amp; domain.com.au listings.
+        {sort === "share"
+          ? " Share cut ranks only suburbs with at least 20 listings seen in the last 14 days, so one cut among a handful of listings cannot top the board."
+          : null}
       </p>
       {isLoading ? (
         <div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
                 <th className="px-3 py-2 font-medium">Suburb</th>
@@ -74,6 +78,7 @@ export function SuburbPriceDropsPanel({ stateCode = "", title = "Suburb prices &
                 <th className="px-3 py-2 text-right font-medium">Avg asking</th>
                 <th className="px-3 py-2 text-right font-medium">Avg sold</th>
                 <th className="px-3 py-2 text-right font-medium">Cuts (30d)</th>
+                <th className="px-3 py-2 text-right font-medium">Share cut</th>
                 <th className="px-3 py-2 text-right font-medium">Biggest cut</th>
               </tr>
             </thead>
@@ -99,6 +104,9 @@ export function SuburbPriceDropsPanel({ stateCode = "", title = "Suburb prices &
                   </td>
                   <td className="px-3 py-2 text-right font-mono tabular-nums text-foreground">
                     {r.droppedListingCount > 0 ? r.droppedListingCount : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono tabular-nums text-foreground">
+                    {r.droppedShare > 0 ? `${(r.droppedShare * 100).toFixed(1)}%` : "—"}
                   </td>
                   <td className="px-3 py-2 text-right font-mono tabular-nums text-[color:var(--semantic-red)]">
                     {r.maxDropPct > 0 ? `−${Math.round(r.maxDropPct * 100)}%` : "—"}

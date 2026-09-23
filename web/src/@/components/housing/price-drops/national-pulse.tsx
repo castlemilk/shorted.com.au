@@ -14,7 +14,7 @@ export function NationalPulse({ national }: { national: StatePriceDropSummary })
       icon: "median-price",
       label: "Addresses cut (30d)",
       value: national.droppedCount.toLocaleString("en-AU"),
-      sub: `of ${national.totalActiveListings.toLocaleString("en-AU")} tracked active listings`,
+      sub: `of ${national.totalActiveListings.toLocaleString("en-AU")} listings seen in the last 14 days`,
     },
     {
       icon: "price-index",
@@ -32,7 +32,10 @@ export function NationalPulse({ national }: { national: StatePriceDropSummary })
       icon: "city",
       label: "Share of listings cut",
       value: national.droppedShare > 0 ? `${(national.droppedShare * 100).toFixed(1)}%` : "—",
-      sub: `${national.suburbsTracked} tracked metro suburbs`,
+      sub:
+        national.catalogSuburbs > 0
+          ? `${national.suburbsSwept14d} of ${national.catalogSuburbs} tracked suburbs swept in 14 days`
+          : `${national.suburbsTracked} tracked suburbs`,
     },
   ];
   return (
