@@ -481,7 +481,7 @@ func upsertHazards(ctx context.Context, pool *pgxpool.Pool, rows []HazardRow) (i
 		batch.Queue(q, row.SALCode, row.WaterObservedSharePct, row.PermanentWaterSharePct,
 			row.SampledCellCount, row.WaterSource(),
 			row.FloodPlanningSharePct, row.FloodSource(),
-			row.BushfireProneSharePct, row.BushfireSource(), hazardsLicence)
+			row.BushfireProneSharePct, row.BushfireSource(), row.Licence())
 	}
 	results := pool.SendBatch(ctx, batch)
 	defer func() { _ = results.Close() }()

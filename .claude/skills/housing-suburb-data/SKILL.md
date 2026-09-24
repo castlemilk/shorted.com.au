@@ -66,7 +66,7 @@ runs only the official ABS/RBA tier plus an MV refresh.
 | SEIFA | `seifa` | ABS SEIFA by SAL | 14,355 |
 | Elevation (6 cols) | `elevation` | GA 1 Second DEM-S | 15,307 |
 | Planning (`suburb_planning`, 000125) | `planning` | Statewide zoning (NSW/VIC/SA/TAS/ACT) → 10 harmonised families, heritage areas + items (+QLD register), NSW HOB/FSR/lot size; built by `web/scripts/geo/planning/` (README there), artifact embedded in the collector | pending first prod load (local 2026-09-23: 13,324 rows) |
-| Hazard exposure (`suburb_hazard_exposure`) | `hazards` | DEA Water Observations (national) + NSW/VIC statutory flood & bushfire overlays; built by `web/scripts/geo/hazards/` (README there) | pending first prod load |
+| Hazard exposure (`suburb_hazard_exposure`) | `hazards` | DEA Water Observations (national) + statutory flood (NSW, VIC, SA, TAS; ACT modelled extent) and bushfire prone (all but NT) layers; built by `web/scripts/geo/hazards/` (README there). NULL inside a state where the source does not cover at least half the suburb; a partly covered share is a floor over the whole suburb; `*_source` is set even on a NULL share ("instrument does not cover it") — see data-sources.md | loaded 2026-09-08: 15,329 rows, statutory shares NSW + VIC only (VIC bushfire still BMO); the 2026-09 gap-fill artifact awaits a prod `-mode hazards` |
 | VG suburb medians | `vg-nsw` / `vg-vic` / `vg-sa` | state Valuer-General | NSW 2,433 · VIC 766 · SA 426 |
 | Amenities / NBN / banners | `amenities` `connectivity` `banners` | precomputed offline JSON | — |
 | Council (LGA) layer | `lga` + 7 council modes — see §1a | ABS mesh-block allocation, ABS ERP/Census/Data by Region/BA, FAG, LGPRF, Wikidata | local 2026-09-23: 547/547 councils |

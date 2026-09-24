@@ -47,12 +47,58 @@ func TestLoadHazardsPreservesNullVersusZeroAndNamesSources(t *testing.T) {
 	if nsw.FloodPlanningSharePct != nil {
 		t.Fatalf("JSON null must remain absent")
 	}
-	if nsw.FloodSource() != "" || nsw.BushfireSource() != "nsw_bfpl" || nsw.WaterSource() != hazardsWaterSource {
+	// A NULL share still names the instrument it was read against: NSW flood is
+	// NULL where no flood map was lodged, and the source is what tells the web
+	// that this is "not covered by the EPI Flood layer", not "never loaded".
+	if nsw.FloodSource() != "nsw_epi_flood" || nsw.BushfireSource() != "nsw_bfpl" || nsw.WaterSource() != hazardsWaterSource {
 		t.Fatalf("sources = %q %q %q", nsw.FloodSource(), nsw.BushfireSource(), nsw.WaterSource())
 	}
 	qld := rows[1]
-	if qld.BushfireSource() != "" || qld.FloodSource() != "" {
-		t.Fatalf("QLD has no statutory source, got %q %q", qld.FloodSource(), qld.BushfireSource())
+	if qld.BushfireSource() != "qld_qfd_bpa" || qld.FloodSource() != "" {
+		t.Fatalf("QLD names its bushfire layer and no flood layer, got %q %q", qld.FloodSource(), qld.BushfireSource())
+	}
+}
+
+func TestEveryStateNamesItsStatutorySourcesPerHazard(t *testing.T) {
+	path := writeHazardsFixture(t, `{
+		"20001": {"sampledCellCount": 250, "floodPlanningSharePct": 0, "bushfireProneSharePct": 3},
+		"30001": {"sampledCellCount": 250, "floodPlanningSharePct": null, "bushfireProneSharePct": 0},
+		"40001": {"sampledCellCount": 250, "floodPlanningSharePct": 7, "bushfireProneSharePct": 50},
+		"40002": {"sampledCellCount": 250, "floodPlanningSharePct": null, "bushfireProneSharePct": null},
+		"50001": {"sampledCellCount": 250, "floodPlanningSharePct": null, "bushfireProneSharePct": 100},
+		"60001": {"sampledCellCount": 250, "floodPlanningSharePct": null, "bushfireProneSharePct": 2},
+		"70001": {"sampledCellCount": 250, "floodPlanningSharePct": null, "bushfireProneSharePct": null},
+		"80001": {"sampledCellCount": 250, "floodPlanningSharePct": 4, "bushfireProneSharePct": 60}
+	}`)
+	rows, err := loadHazards(path)
+	if err != nil {
+		t.Fatalf("loadHazards: %v", err)
+	}
+	type want struct{ flood, bushfire, licence string }
+	wants := map[string]want{
+		// VIC bushfire is the Building Regulations designation now, like-for-like
+		// with NSW Bush Fire Prone Land — never the narrower BMO planning overlay.
+		"20001": {"vic_plan_overlay_lsio_fo_sbo", "vic_bpa", "CC-BY-4.0"},
+		"30001": {"", "qld_qfd_bpa", "CC-BY-4.0"},
+		"40001": {"sa_pdcode_hazards_flooding", "sa_pdcode_hazards_bushfire", "CC-BY-4.0; CC-BY-3.0-AU"},
+		// SA land wholly under the Code's precautionary overlays is NULL for
+		// both hazards, and the row still says which instrument said so.
+		"40002": {"sa_pdcode_hazards_flooding", "sa_pdcode_hazards_bushfire", "CC-BY-4.0; CC-BY-3.0-AU"},
+		"50001": {"", "wa_obrm_026_bpa", "CC-BY-4.0"},
+		// A TAS suburb outside every flood-mapping LPS is null for flood and
+		// still names the flood layer that does not reach it.
+		"60001": {"tas_tps_flood_prone", "tas_tps_bushfire_prone", "CC-BY-4.0; CC-BY-3.0-AU"},
+		"70001": {"", "", "CC-BY-4.0"},
+		"80001": {"act_flood_extent_1pct_aep", "act_bpa_2026", "CC-BY-4.0"},
+	}
+	if len(rows) != len(wants) {
+		t.Fatalf("got %d rows, want %d", len(rows), len(wants))
+	}
+	for _, row := range rows {
+		got := want{row.FloodSource(), row.BushfireSource(), row.Licence()}
+		if got != wants[row.SALCode] {
+			t.Errorf("SAL %s: got %+v, want %+v", row.SALCode, got, wants[row.SALCode])
+		}
 	}
 }
 
@@ -75,11 +121,15 @@ func TestLoadHazardsGatesWaterSharesOnTheCellFloorButNotVectorShares(t *testing.
 
 func TestLoadHazardsRejectsOutOfRangeAndUnsourcedRows(t *testing.T) {
 	cases := map[string]string{
-		"share over 100":       `{"10001": {"sampledCellCount": 100, "waterObservedSharePct": 101}}`,
-		"negative share":       `{"10001": {"sampledCellCount": 100, "bushfireProneSharePct": -1}}`,
-		"water sum past 100":   `{"10001": {"sampledCellCount": 100, "waterObservedSharePct": 60, "permanentWaterSharePct": 50}}`,
-		"statutory share QLD":  `{"30001": {"sampledCellCount": 100, "floodPlanningSharePct": 5}}`,
-		"blank sal code":       `{"": {"sampledCellCount": 100}}`,
+		"share over 100":     `{"10001": {"sampledCellCount": 100, "waterObservedSharePct": 101}}`,
+		"negative share":     `{"10001": {"sampledCellCount": 100, "bushfireProneSharePct": -1}}`,
+		"water sum past 100": `{"10001": {"sampledCellCount": 100, "waterObservedSharePct": 60, "permanentWaterSharePct": 50}}`,
+		"statutory share NT": `{"70001": {"sampledCellCount": 100, "bushfireProneSharePct": 5}}`,
+		// QLD and WA have a bushfire layer but no open flood layer: the check is
+		// per hazard, or these would load with a blank flood_source.
+		"flood share QLD": `{"30001": {"sampledCellCount": 100, "floodPlanningSharePct": 5}}`,
+		"flood share WA":  `{"50001": {"sampledCellCount": 100, "floodPlanningSharePct": 5}}`,
+		"blank sal code":  `{"": {"sampledCellCount": 100}}`,
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -89,5 +139,17 @@ func TestLoadHazardsRejectsOutOfRangeAndUnsourcedRows(t *testing.T) {
 				t.Fatalf("error should name the artifact: %v", err)
 			}
 		})
+	}
+}
+
+func TestHazardCoverageSummaryCountsNonNullSharesPerState(t *testing.T) {
+	share := func(v float64) *float64 { return &v }
+	rows := []HazardRow{
+		{SALCode: "10001", FloodPlanningSharePct: share(0), BushfireProneSharePct: share(5)},
+		{SALCode: "10002", BushfireProneSharePct: share(0)},
+		{SALCode: "70001"},
+	}
+	if got, want := hazardCoverageSummary(rows), "NSW 2 1/2, NT 1 0/0"; got != want {
+		t.Fatalf("summary = %q, want %q", got, want)
 	}
 }

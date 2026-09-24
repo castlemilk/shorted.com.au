@@ -87,45 +87,47 @@ def write_geojson(geom_3577, layer: str, out: Path, extra: dict) -> None:
 def vector(args) -> None:
     import shapely
 
-    from vector_share import load_layer, polygonal
+    from vector_share import burn_layer, load_layer, polygonal
 
-    layer = load_layer(args.layer_dir)
     suburbs = load_suburbs(args.suburbs)
     state = polygonal(shapely.union_all(suburbs.geometry.values, grid_size=0.01))
     if args.raster_m:
-        # A GEOS union of 235,000 parcel polygons (NSW bush fire prone land)
-        # exhausts memory. Burning them onto a coarse grid and polygonising is
-        # bounded by the state's extent instead, and at 1–48× map zoom a 60 m
-        # cell is below what the reader can see anyway.
-        dissolved = rasterised_union(layer.values, state, args.raster_m)
+        # A GEOS union of 235,000 parcel polygons (NSW bush fire prone land),
+        # let alone QLD's 2.56 million, exhausts memory. Burning the pages onto
+        # a coarse grid one at a time and polygonising is bounded by the state's
+        # extent instead, and at 1–48× map zoom a 60 m cell is below what the
+        # reader can see anyway.
+        grid, transform, source_polygons = burn_layer(args.layer_dir, state.bounds, args.raster_m)
+        # Speckle and pinholes out, then straight to mapshaper, which
+        # simplifies the stair-stepped cell edges itself. GEOS simplification
+        # of a polygonised statewide raster does not finish: its largest
+        # components carry tens of thousands of holes, and both simplifiers
+        # validate hole-in-shell per ring (10+ minutes per state, measured on
+        # WA and QLD, with and without topology preservation).
+        cleaned = drop_small_parts(polygonise_grid(grid, transform, state), args.min_part_ha * 10_000)
     else:
+        layer = load_layer(args.layer_dir)
+        source_polygons = len(layer)
         dissolved = polygonal(shapely.union_all(layer.values, grid_size=0.01).intersection(state, grid_size=0.01))
-    simplified = dissolved.simplify(SIMPLIFY_M, preserve_topology=True)
-    cleaned = drop_small_parts(simplified, MIN_PART_M2)
-    write_geojson(cleaned, args.layer, args.out, {"source_polygons": int(len(layer))})
-    print(f"wrote {args.out}: {len(layer)} polygons -> {cleaned.area / 1e6:.0f} km²")
+        cleaned = drop_small_parts(dissolved.simplify(SIMPLIFY_M, preserve_topology=True), args.min_part_ha * 10_000)
+    write_geojson(cleaned, args.layer, args.out, {"source_polygons": int(source_polygons)})
+    print(f"wrote {args.out}: {source_polygons} polygons -> {cleaned.area / 1e6:.0f} km²")
 
 
-def rasterised_union(geoms, state, cell_m: float):
-    """Union by rasterisation: burn every polygon onto a cell_m grid over the
-    state, mask to the state, polygonise. Memory is the grid, not the input."""
-    import rasterio
-    from rasterio.features import geometry_mask, rasterize, shapes
-    from shapely.geometry import shape
+def polygonise_grid(grid, transform, state):
+    """Mask a burnt grid to the state and polygonise it."""
     import shapely
+    from rasterio.features import geometry_mask, shapes
+    from shapely.geometry import shape
 
-    from vector_share import polygonal
-
-    minx, miny, maxx, maxy = state.bounds
-    width = int(np.ceil((maxx - minx) / cell_m))
-    height = int(np.ceil((maxy - miny) / cell_m))
-    transform = rasterio.Affine(cell_m, 0, minx, 0, -cell_m, maxy)
-    grid = rasterize(((g, 1) for g in geoms if not g.is_empty), out_shape=(height, width),
-                     transform=transform, fill=0, dtype="uint8", all_touched=False)
-    inside = ~geometry_mask([state.__geo_interface__], out_shape=(height, width), transform=transform)
+    inside = ~geometry_mask([state.__geo_interface__], out_shape=grid.shape, transform=transform)
     grid &= inside.astype("uint8")
+    # shapes() yields 4-connected components, which can share a corner but
+    # never an edge, so they already form a valid MultiPolygon. A GEOS union
+    # of them is a no-op that took 10+ minutes on WA's statewide designation.
     polys = [shape(g) for g, v in shapes(grid, mask=grid.astype(bool), transform=transform) if v]
-    return polygonal(shapely.union_all(polys)) if polys else shapely.geometry.MultiPolygon()
+    parts = [q for p in polys for q in (p.geoms if p.geom_type == "MultiPolygon" else [p])]
+    return shapely.geometry.MultiPolygon(parts)
 
 
 def coarse_mask(ds, window, transform, conf_ds=None):
@@ -196,6 +198,8 @@ def main() -> None:
     v.add_argument("--suburbs", type=Path, required=True)
     v.add_argument("--out", type=Path, required=True)
     v.add_argument("--raster-m", type=float, default=0, help="rasterise-then-polygonise at this cell size instead of a GEOS union")
+    v.add_argument("--min-part-ha", type=float, default=MIN_PART_M2 / 10_000,
+                   help="drop parts and holes smaller than this (QLD's fragmented designation needs more than 2 ha to fit the budget)")
     w = sub.add_parser("wofs")
     w.add_argument("--vrt", type=Path, required=True)
     w.add_argument("--suburbs", type=Path, required=True)

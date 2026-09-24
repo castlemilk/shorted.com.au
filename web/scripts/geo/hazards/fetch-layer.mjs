@@ -11,12 +11,21 @@
 //
 // Usage:
 //   node fetch-layer.mjs --kind arcgis --url <layer/query base> --out <dir> --name nsw-flood \
-//        [--where "1=1"] [--page 1000] [--fields "A,B"]
+//        [--where "1=1"] [--page 1000] [--fields "A,B"] [--rangeField fid]
 //   node fetch-layer.mjs --kind wfs --url <wfs endpoint> --type open-data-platform:plan_overlay \
 //        --out <dir> --name vic-lsio --cql "zone_code LIKE 'LSIO%'" [--page 5000]
 //
+// `--rangeField <integer field>` pages by value window instead of by offset:
+// page N holds `field >= min + N*page AND field < min + (N+1)*page`. ArcGIS
+// resolves `resultOffset` by walking the result set, so on a multi-million-row
+// layer (QLD bushfire prone area, 2.56M polygons) a page past offset ~1M takes
+// longer than the proxy's 30 s budget and comes back empty, while the same
+// page as an indexed range answers in ~2.5 s. A window can hold fewer rows
+// than `--page` (ids have gaps) or none; it is still written, so the page index
+// stays the resume point, and completeness is proven by the row total.
+//
 // Sources and licences: docs/feature/housing/data-sources.md.
-import { mkdirSync, existsSync, writeFileSync, renameSync, readdirSync } from "node:fs";
+import { mkdirSync, existsSync, writeFileSync, renameSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const UA = "shorted-housing/1.0 (+https://shorted.com.au)";
@@ -44,21 +53,32 @@ if (existsSync(doneMarker)) {
 }
 
 async function fetchJSON(target, attempt = 1) {
-  const res = await fetch(target, { headers: { "User-Agent": UA, Accept: "application/json" } });
-  const text = await res.text();
+  const retry = async (why) => {
+    const wait = 2000 * attempt;
+    console.warn(`  ${why}; retry ${attempt} in ${wait}ms`);
+    await new Promise((r) => setTimeout(r, wait));
+    return fetchJSON(target, attempt + 1);
+  };
+  let res;
+  let text;
+  try {
+    res = await fetch(target, { headers: { "User-Agent": UA, Accept: "application/json" } });
+    text = await res.text();
+  } catch (err) {
+    // A reset connection over a thousand-page run is routine, not fatal.
+    if (attempt < 5) return retry(`network error (${err.message})`);
+    throw err;
+  }
   if (!res.ok) {
-    if (attempt < 5) {
-      const wait = 2000 * attempt;
-      console.warn(`  HTTP ${res.status}; retry ${attempt} in ${wait}ms`);
-      await new Promise((r) => setTimeout(r, wait));
-      return fetchJSON(target, attempt + 1);
-    }
+    if (attempt < 5) return retry(`HTTP ${res.status}`);
     throw new Error(`HTTP ${res.status} for ${target}: ${text.slice(0, 200)}`);
   }
   let json;
   try {
     json = JSON.parse(text);
   } catch (err) {
+    // Hosted-service proxies answer a timed-out query with 200 and an empty body.
+    if (attempt < 5) return retry("non-JSON response");
     throw new Error(`non-JSON response for ${target}: ${text.slice(0, 200)}`);
   }
   if (json.error) {
@@ -83,6 +103,12 @@ function existingPages() {
   return readdirSync(dir).filter((f) => /^page-\d+\.geojsonl$/.test(f)).length;
 }
 
+function existingRows() {
+  return readdirSync(dir)
+    .filter((f) => /^page-\d+\.geojsonl$/.test(f))
+    .reduce((n, f) => n + readFileSync(resolve(dir, f), "utf8").split("\n").filter(Boolean).length, 0);
+}
+
 async function runArcgis() {
   const where = arg("where", "1=1");
   const fields = arg("fields", "*");
@@ -90,6 +116,7 @@ async function runArcgis() {
   const countUrl = `${url}?where=${encodeURIComponent(where)}&returnCountOnly=true&f=json`;
   const { count } = await fetchJSON(countUrl);
   console.log(`${name}: ${count} features expected`);
+  if (arg("rangeField")) return runArcgisRanges(where, fields, count, arg("rangeField"));
   let offset = existingPages() * pageSize;
   let page = existingPages();
   let size = pageSize;
@@ -139,6 +166,35 @@ async function runArcgis() {
   console.log(`\n${name}: fetched ${total}`);
   if (total < count) throw new Error(`${name}: fetched ${total} of ${count}`);
   writeFileSync(doneMarker, JSON.stringify({ count, fetchedAt: new Date().toISOString(), url, where }) + "\n");
+}
+
+function queryParams(where, fields) {
+  const q = new URLSearchParams({
+    where, outFields: fields, outSR: "4326", geometryPrecision: "6", returnGeometry: "true", f: "geojson",
+  });
+  for (const [k, v] of new URLSearchParams(arg("extra", ""))) q.set(k, v);
+  return q;
+}
+
+async function runArcgisRanges(where, fields, count, field) {
+  const stats = JSON.stringify(["min", "max"].map((t) => ({ statisticType: t, onStatisticField: field, outStatisticFieldName: t })));
+  const statsUrl = `${url}?where=${encodeURIComponent(where)}&outStatistics=${encodeURIComponent(stats)}&f=json`;
+  const { min, max } = (await fetchJSON(statsUrl)).features[0].attributes;
+  if (!Number.isInteger(min) || !Number.isInteger(max)) throw new Error(`${name}: ${field} is not an integer range (${min}..${max})`);
+  let page = existingPages();
+  let total = existingRows();
+  for (let lo = min + page * pageSize; lo <= max; lo += pageSize, page += 1) {
+    const window = `(${where}) AND ${field} >= ${lo} AND ${field} < ${lo + pageSize}`;
+    const json = await fetchJSON(`${url}?${queryParams(window, fields)}`);
+    if (json.exceededTransferLimit) throw new Error(`${name}: window ${lo} exceeded the server's transfer limit; lower --page`);
+    const feats = json.features ?? [];
+    writePage(page, feats);
+    total += feats.length;
+    process.stdout.write(`  ${total}/${count} (window ${lo})\r`);
+  }
+  console.log(`\n${name}: fetched ${total}`);
+  if (total !== count) throw new Error(`${name}: fetched ${total} of ${count}`);
+  writeFileSync(doneMarker, JSON.stringify({ count, fetchedAt: new Date().toISOString(), url, where, rangeField: field }) + "\n");
 }
 
 async function runWfs() {

@@ -10,14 +10,17 @@ Output, keyed by sal_code, sorted:
     "sampledCellCount": 1234,            # WOfS valid cells (quality-gate provenance)
     "waterObservedSharePct": 3.2 | null,
     "permanentWaterSharePct": 0.4 | null,
-    "floodPlanningSharePct": 12.5 | null, # null = no statutory source for the state
+    "floodPlanningSharePct": 12.5 | null, # null = no statutory source covers the suburb
     "bushfireProneSharePct": 40.1 | null
   }
 
 Refuses a partial WOfS state set: a suburb missing from the national raster
 pass would otherwise be indistinguishable from one the raster never covered.
 Vector layers are per-state by nature — a state without a source simply
-contributes null — but a state that HAS a source directory must be complete.
+contributes null — but a state that HAS a source file must list every one of
+its suburbs: a share file from a partial run would otherwise leave the missing
+suburbs null, which reads as "no source covers this" when one does. Inside a
+complete file a null is the coverage mask speaking (vector_share.py).
 """
 
 from __future__ import annotations
@@ -64,7 +67,13 @@ def merge(wofs_dir: Path, vector_dir: Path) -> dict:
         if field is None:
             print(f"REFUSING: unknown vector layer file {path.name}", file=sys.stderr)
             sys.exit(1)
-        for sal, share in json.loads(path.read_text()).items():
+        shares = json.loads(path.read_text())
+        missing_sals = sorted(sal for sal, st in seen.items() if st == state_key.upper() and sal not in shares)
+        if missing_sals:
+            print(f"REFUSING: {path.name} omits {len(missing_sals)} {state_key.upper()} suburbs "
+                  f"(e.g. {missing_sals[:3]}); rerun vector_share.py for the whole state", file=sys.stderr)
+            sys.exit(1)
+        for sal, share in shares.items():
             if sal not in merged:
                 print(f"REFUSING: {path.name} has SAL {sal} absent from the WOfS pass", file=sys.stderr)
                 sys.exit(1)

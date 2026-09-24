@@ -29,8 +29,10 @@ See [handover-2026-08-27.md](handover-2026-08-27.md) for how each was verified.
 
 **Added 2026-09 (hazard overlays round):** the map has **overlays** — a second
 layer drawn above "Colour by" and toggled independently: flood planning area
-(NSW/VIC), observed surface water (national, DEA Water Observations 1987–) and
-bushfire prone land (NSW/VIC), each with its per-suburb area share on the
+(NSW/VIC; SA, TAS and ACT's modelled extent added in the 2026-09 gap-fill),
+observed surface water (national, DEA Water Observations 1987–) and bushfire
+prone land (NSW/VIC; every state but NT after the gap-fill), each with its
+per-suburb area share on the
 tooltip and a **Terrain & hazard exposure** card on the suburb page (which also
 surfaces the elevation pipeline for the first time). "Colour by" gained
 elevation, low-lying land and the three hazard shares, all delivered through

@@ -497,7 +497,10 @@ func runHazards(ctx context.Context, pool *pgxpool.Pool) error {
 		_ = updateRun(ctx, pool, hazardsWaterSource, nil, updated, "error", err.Error())
 		return err
 	}
-	log.Printf("[hazards] upserted %d/%d suburbs (licence=%s)", updated, len(rows), hazardsLicence)
+	// Per-state coverage in the run log, so a load that silently lost a
+	// state's statutory layer (or regressed NSW flood nulls to zeros) shows.
+	log.Printf("[hazards] upserted %d/%d suburbs; per state (rows flood/bushfire non-null): %s",
+		updated, len(rows), hazardCoverageSummary(rows))
 	_ = updateRun(ctx, pool, hazardsWaterSource, nil, updated, "ok", "")
 	return nil
 }

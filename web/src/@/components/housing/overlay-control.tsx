@@ -2,7 +2,7 @@
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { OVERLAYS, OVERLAY_FILL_OPACITY, creditedOverlays, overlayAvailable, type OverlayKey } from "@/lib/housing/overlays";
+import { OVERLAYS, OVERLAY_FILL_OPACITY, creditedOverlays, overlayAvailable, overlayCaveat, type OverlayKey } from "@/lib/housing/overlays";
 import { STATE_NAMES } from "@/lib/housing/states";
 import { cn } from "@/lib/utils";
 
@@ -102,7 +102,7 @@ export function OverlayControl({
                     </span>
                     <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground [text-wrap:pretty]">
                       {isAvailable
-                        ? `${o.caveat} ${o.stateNotes?.[stateCode] ?? ""}`.trim()
+                        ? overlayCaveat(o.key, stateCode)
                         : (o.unavailableNotes?.[stateCode] ?? `No open statutory layer for ${STATE_NAMES[stateCode] ?? stateCode} yet.`)}
                     </span>
                   </label>

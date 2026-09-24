@@ -107,11 +107,22 @@ on the map is the source data, not a bug.
 `water_observed_share_pct` / `permanent_water_share_pct` (DEA Water Observations,
 Landsat 1987–, 30 m — the share of validly observed land seen under water in
 ≥1% of clear passes but <90%, and the ≥90% remainder), `flood_planning_share_pct`
-(NSW EPI Flood; VIC LSIO/FO/SBO) and `bushfire_prone_share_pct` (NSW BFPL; VIC
-BMO), each with a `*_source` id, all CHECK-bounded to 0–100, `source_licence`
-CHECK-excluding the restricted value. **NULL is "no source covers this suburb";
-0 is a measured zero** — the map's null mask and the profile card both rely on
-that, and statutory shares exist for NSW and VIC only. Read on
+(NSW EPI Flood; VIC LSIO/FO/SBO; SA Code Hazards (Flooding); TAS Flood-prone
+Areas; ACT 1% AEP modelled extent) and `bushfire_prone_share_pct` (NSW BFPL; VIC
+Designated BPA; QLD, WA, ACT bushfire prone area; SA and TAS code overlays),
+each with a `*_source` id (`hazardVectorSources` in the collector — set
+whenever the state has that layer, so a NULL share with a source reads "the
+instrument does not cover this suburb" and one without reads "no layer, or a
+pre-gap-fill row"), all
+CHECK-bounded to 0–100, `source_licence` CHECK-excluding the restricted value
+(`CC-BY-4.0`, or `CC-BY-4.0; CC-BY-3.0-AU` on rows carrying an SA or TAS
+layer). **NULL is "no source covers this suburb"; 0 is a measured zero** — the
+map's null mask and the profile card both rely on that. It holds per suburb as
+well as per state: NSW flood is NULL outside the 12 instruments that lodged a
+map, SA wherever the Code says the hazard is unassessed, TAS outside LPS
+coverage (data-sources.md has the table), and wherever less than half the
+suburb is covered; a partly covered suburb's share is its mapped land over the
+whole suburb, a floor. Read on
 `GetSuburbProfile.hazards` (its own tolerated query, so a missing table logs
 rather than 500s) and as four keys in the columnar metric registry via a
 licence-gated `LEFT JOIN`. Filled by `-mode hazards` from

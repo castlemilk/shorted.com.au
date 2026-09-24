@@ -980,7 +980,8 @@ func (x *SuburbElevation) GetLandShareBelow_5M() float64 {
 }
 
 // Measured hazard exposure per suburb — area shares, 0..100, absent when no
-// source covers the suburb. Every source is CC-BY-4.0.
+// source covers the suburb. Every source is CC BY 4.0 except the SA Planning
+// and Design Code and Tasmanian Planning Scheme overlays (CC BY 3.0 AU).
 //
 // water_observed_share_pct: share of the suburb's validly observed land where
 // DEA Water Observations (Landsat, 1987 onward, 30 m) detected surface water in
@@ -990,10 +991,20 @@ func (x *SuburbElevation) GetLandShareBelow_5M() float64 {
 // share is a FLOOR on inundation, never a flood-risk estimate.
 //
 // flood_planning_share_pct: share inside a statutory flood planning overlay
-// (NSW EPI Flood; VIC LSIO/FO/SBO). A planning-control boundary, not a flood
-// extent; NSW councils own its currency. bushfire_prone_share_pct: share
-// designated bushfire prone for development control (NSW BFPL; VIC BMO).
-// Statutory shares exist for NSW and VIC only.
+// (NSW EPI Flood; VIC LSIO/FO/SBO; SA Code Hazards (Flooding) and (Flooding –
+// General); TAS Flood-prone Areas). A planning-control boundary, not a flood
+// extent. ACT is the exception: its only open layer is the modelled 1% AEP
+// flood extent, a model of one event. No open flood layer for QLD, WA or NT.
+// bushfire_prone_share_pct: share designated bushfire prone for development
+// control (NSW BFPL; VIC Designated Bushfire Prone Area; QLD, WA and ACT
+// bushfire prone areas; SA and TAS code overlays). None for NT.
+//
+// Inside a state that has a layer, a statutory share is also absent where the
+// instrument does not cover most of the suburb (NSW flood outside the councils
+// that lodged a map; SA land under the Code's precautionary Evidence Required,
+// Regional or Outback overlays; TAS councils with no mapped overlay). Where the
+// suburb is partly covered the share is the mapped land over the WHOLE suburb,
+// a floor.
 type SuburbHazardExposure struct {
 	state                  protoimpl.MessageState `protogen:"open.v1"`
 	WaterObservedSharePct  *float64               `protobuf:"fixed64,1,opt,name=water_observed_share_pct,json=waterObservedSharePct,proto3,oneof" json:"water_observed_share_pct,omitempty"`
@@ -1001,10 +1012,13 @@ type SuburbHazardExposure struct {
 	FloodPlanningSharePct  *float64               `protobuf:"fixed64,3,opt,name=flood_planning_share_pct,json=floodPlanningSharePct,proto3,oneof" json:"flood_planning_share_pct,omitempty"`
 	BushfireProneSharePct  *float64               `protobuf:"fixed64,4,opt,name=bushfire_prone_share_pct,json=bushfireProneSharePct,proto3,oneof" json:"bushfire_prone_share_pct,omitempty"`
 	WaterSource            string                 `protobuf:"bytes,5,opt,name=water_source,json=waterSource,proto3" json:"water_source,omitempty"` // dataset id, '' when absent
-	FloodSource            string                 `protobuf:"bytes,6,opt,name=flood_source,json=floodSource,proto3" json:"flood_source,omitempty"`
-	BushfireSource         string                 `protobuf:"bytes,7,opt,name=bushfire_source,json=bushfireSource,proto3" json:"bushfire_source,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// Statutory instrument id the share was read against. Set with an absent
+	// share when the instrument does not cover the suburb; ” when the state has
+	// no open layer for that hazard.
+	FloodSource    string `protobuf:"bytes,6,opt,name=flood_source,json=floodSource,proto3" json:"flood_source,omitempty"`
+	BushfireSource string `protobuf:"bytes,7,opt,name=bushfire_source,json=bushfireSource,proto3" json:"bushfire_source,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *SuburbHazardExposure) Reset() {

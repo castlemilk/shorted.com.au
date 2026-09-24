@@ -861,11 +861,23 @@ function Baseline({ label, left, dashed }: { label: string; left: string; dashed
 // Attribution strings keyed by SuburbHazardExposure source ids. Each is a
 // licence obligation of the dataset it names; an id absent here credits nothing
 // rather than something wrong.
-const STATUTORY_HAZARD_CREDITS: Record<string, string> = {
-  nsw_epi_flood: "NSW Environmental Planning Instrument — Flood, NSW Department of Planning",
-  vic_plan_overlay_lsio_fo_sbo: "Vicmap Planning overlays, Department of Transport and Planning Victoria",
-  nsw_bfpl: "NSW Bush Fire Prone Land, NSW Rural Fire Service",
-  vic_plan_overlay_bmo: "Vicmap Planning Bushfire Management Overlay, Department of Transport and Planning Victoria",
+const STATUTORY_HAZARD_CREDITS: Record<string, { credit: string; licence: string }> = {
+  nsw_epi_flood: { credit: "NSW Environmental Planning Instrument — Flood, NSW Department of Planning", licence: "CC BY 4.0" },
+  vic_plan_overlay_lsio_fo_sbo: { credit: "Vicmap Planning overlays, Department of Transport and Planning Victoria", licence: "CC BY 4.0" },
+  sa_pdcode_hazards_flooding: { credit: "Planning and Design Code overlays (Hazards — Flooding, and Flooding — General), Government of South Australia", licence: "CC BY 3.0 AU" },
+  tas_tps_flood_prone: { credit: "Tasmanian Planning Scheme — Code Overlay (Flood-prone Areas), Tasmanian Planning Commission via theLIST", licence: "CC BY 3.0 AU" },
+  act_flood_extent_1pct_aep: { credit: "ACT Flood Extent Model (1% AEP), ACT Government", licence: "CC BY 4.0" },
+  nsw_bfpl: { credit: "NSW Bush Fire Prone Land, NSW Rural Fire Service", licence: "CC BY 4.0" },
+  vic_bpa: { credit: "Designated Bushfire Prone Area, Department of Transport and Planning Victoria", licence: "CC BY 4.0" },
+  qld_qfd_bpa: { credit: "Bushfire Prone Area — Queensland series, Queensland Fire Department", licence: "CC BY 4.0" },
+  sa_pdcode_hazards_bushfire: { credit: "Planning and Design Code overlays (Hazards — Bushfire), Government of South Australia", licence: "CC BY 3.0 AU" },
+  wa_obrm_026_bpa: { credit: "Bush Fire Prone Areas (OBRM-026), Office of Bushfire Risk Management WA", licence: "CC BY 4.0" },
+  tas_tps_bushfire_prone: { credit: "Tasmanian Planning Scheme — Code Overlay (Bushfire-prone Areas), Tasmanian Planning Commission via theLIST", licence: "CC BY 3.0 AU" },
+  act_bpa_2026: { credit: "Bushfire Prone Area 2026, ACT Government", licence: "CC BY 4.0" },
+  // Retired id (VIC bushfire before the switch to the BPA). Rows loaded earlier
+  // carry it until the next -mode hazards load, and attribution must not lapse
+  // in between, so the web can deploy before the data.
+  vic_plan_overlay_bmo: { credit: "Vicmap Planning Bushfire Management Overlay, Department of Transport and Planning Victoria", licence: "CC BY 4.0" },
 };
 
 export function SourcesLine({
@@ -884,7 +896,7 @@ export function SourcesLine({
   hasTerrain?: boolean;
   /** DEA Water Observations share rendered on the page. */
   hasWaterObservations?: boolean;
-  /** Source ids from SuburbHazardExposure (flood_source / bushfire_source) actually rendered. */
+  /** Source ids from SuburbHazardExposure (flood_source / bushfire_source): a share or a "Not mapped" tile read off that layer. */
   statutoryHazardSources?: string[];
   /** Planning source ids the planning card rendered (planningCreditIds). */
   planningSources?: string[];
@@ -918,8 +930,8 @@ export function SourcesLine({
   if (hasTerrain) parts.push(<>Geoscience Australia 1 Second DEM-S (CC BY 4.0)</>);
   if (hasWaterObservations) parts.push(<>DEA Water Observations Statistics, Geoscience Australia (CC BY 4.0)</>);
   for (const id of new Set(statutoryHazardSources)) {
-    const credit = STATUTORY_HAZARD_CREDITS[id];
-    if (credit) parts.push(<>{credit} (CC BY 4.0)</>);
+    const entry = STATUTORY_HAZARD_CREDITS[id];
+    if (entry) parts.push(<>{entry.credit} ({entry.licence})</>);
   }
   for (const id of new Set(planningSources)) {
     const source = PLANNING_SOURCE_CREDITS[id];
