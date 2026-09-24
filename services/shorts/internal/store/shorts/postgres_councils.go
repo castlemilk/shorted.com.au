@@ -234,6 +234,24 @@ const councilDropsQuery = `
 		LEFT JOIN suburb_demographics d ON d.sal_code = t.sal_code
 		ORDER BY t.lga_code24, t.sal_code NULLS FIRST`
 
+// councilDropsMVQuery reads the same rows from mv_council_price_drops
+// (migration 000127): councilDropsQuery computed once per housing refresh
+// instead of on every cold council read, which on prod walked 18,640 buffers
+// of property_listings and made the first NSW ListCouncils after a deploy take
+// 11s. The view's definition is councilDropsQuery with the state/council
+// filters lifted into columns (TestCouncilDropsMVMatchesLiveQuery pins that),
+// so the rows are identical to the live query run at refresh time; as_of is
+// that refresh (housing_mv_refresh.refreshed_at), the instant every window in
+// the view was evaluated. No bookkeeping row means no as_of, so nothing is
+// published rather than an undated share.
+const councilDropsMVQuery = `
+		SELECT m.lga_code24, m.sal_code, m.sal_name, m.postcode, m.dropped, m.tracked,
+		       m.median_drop_pct, m.data_through, f.refreshed_at
+		FROM mv_council_price_drops m
+		JOIN housing_mv_refresh f ON f.mv_name = 'mv_council_price_drops'
+		WHERE m.state_code = $1 AND ($2 = '' OR m.lga_code24 = $2)
+		ORDER BY m.lga_code24, m.sal_code`
+
 // ListCouncils returns every council with a page in one state.
 func (s *postgresStore) ListCouncils(stateCode string) ([]*CouncilSummaryRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -378,8 +396,22 @@ type CouncilPriceDropsRow struct {
 	DataThrough    *time.Time             // newest crawl observation behind it
 }
 
+// councilDrops reads the council price-drop rows from mv_council_price_drops,
+// falling back to the live councilDropsQuery only where the view does not
+// exist (a database before migration 000127), so dev and test databases keep
+// working and a code-before-DDL deploy degrades to the old latency rather
+// than to no drops at all.
 func (s *postgresStore) councilDrops(ctx context.Context, stateCode, lgaCode string) (map[string]*councilDrops, error) {
-	rows, err := s.db.Query(ctx, councilDropsQuery, stateCode, lgaCode, councilDropsMinCount)
+	out, err := s.scanCouncilDrops(ctx, councilDropsMVQuery, stateCode, lgaCode)
+	if err != nil && isUndefinedTable(err) {
+		log.Warnf("council drops: mv_council_price_drops absent, using the live query: %v", err)
+		return s.scanCouncilDrops(ctx, councilDropsQuery, stateCode, lgaCode, councilDropsMinCount)
+	}
+	return out, err
+}
+
+func (s *postgresStore) scanCouncilDrops(ctx context.Context, query string, args ...any) (map[string]*councilDrops, error) {
+	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
