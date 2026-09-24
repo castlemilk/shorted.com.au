@@ -402,10 +402,25 @@ type CouncilPriceDropsRow struct {
 // working and a code-before-DDL deploy degrades to the old latency rather
 // than to no drops at all.
 func (s *postgresStore) councilDrops(ctx context.Context, stateCode, lgaCode string) (map[string]*councilDrops, error) {
-	out, err := s.scanCouncilDrops(ctx, councilDropsMVQuery, stateCode, lgaCode)
+	return fallbackOnUndefinedTable(
+		func() (map[string]*councilDrops, error) {
+			return s.scanCouncilDrops(ctx, councilDropsMVQuery, stateCode, lgaCode)
+		},
+		func(err error) (map[string]*councilDrops, error) {
+			log.Warnf("council drops: mv_council_price_drops absent, using the live query: %v", err)
+			return s.scanCouncilDrops(ctx, councilDropsQuery, stateCode, lgaCode, councilDropsMinCount)
+		},
+	)
+}
+
+// fallbackOnUndefinedTable runs primary and, ONLY when it failed because a
+// relation does not exist (42P01), runs fallback instead. Any other error is
+// returned as is: falling back on, say, a timeout would hide a sick view
+// behind the slow live query.
+func fallbackOnUndefinedTable[T any](primary func() (T, error), fallback func(error) (T, error)) (T, error) {
+	out, err := primary()
 	if err != nil && isUndefinedTable(err) {
-		log.Warnf("council drops: mv_council_price_drops absent, using the live query: %v", err)
-		return s.scanCouncilDrops(ctx, councilDropsQuery, stateCode, lgaCode, councilDropsMinCount)
+		return fallback(err)
 	}
 	return out, err
 }
@@ -979,13 +994,7 @@ func mustParseLgaAdjacency(raw []byte) (neighbours, crossState map[string][]stri
 // ABS council geometry can see. A cross-border neighbour carries its own
 // state, so the page links it to that state's council URL.
 func (s *postgresStore) councilNeighbours(ctx context.Context, code string) ([]CouncilNeighbourRow, error) {
-	byCode := map[string]*CouncilNeighbourRow{}
-	for _, n := range lgaAdjacency[code] {
-		byCode[n] = &CouncilNeighbourRow{LgaCode: n, SharesBorder: true}
-	}
-	for _, n := range lgaCrossState[code] {
-		byCode[n] = &CouncilNeighbourRow{LgaCode: n, SharesBorder: true, CrossState: true}
-	}
+	byCode := councilBorderNeighbours(code)
 	rows, err := s.db.Query(ctx, councilStraddleNeighboursQuery, code)
 	if err != nil {
 		return nil, err
@@ -1032,7 +1041,28 @@ func (s *postgresStore) councilNeighbours(ctx context.Context, code string) ([]C
 	if err := idRows.Err(); err != nil {
 		return nil, err
 	}
-	// Same-state neighbours first, then those across the border.
+	sortCouncilNeighbours(out)
+	return out, nil
+}
+
+// councilBorderNeighbours is the geometry half of councilNeighbours, read from
+// the embedded adjacency: same-state councils sharing a suburb border, then
+// councils across a state line. It is split out so a unit test can pin the
+// cross-border merge (Albury -> Wodonga) without a database.
+func councilBorderNeighbours(code string) map[string]*CouncilNeighbourRow {
+	byCode := map[string]*CouncilNeighbourRow{}
+	for _, n := range lgaAdjacency[code] {
+		byCode[n] = &CouncilNeighbourRow{LgaCode: n, SharesBorder: true}
+	}
+	for _, n := range lgaCrossState[code] {
+		byCode[n] = &CouncilNeighbourRow{LgaCode: n, SharesBorder: true, CrossState: true}
+	}
+	return byCode
+}
+
+// sortCouncilNeighbours orders same-state neighbours first, then those across
+// the border, each by name.
+func sortCouncilNeighbours(out []CouncilNeighbourRow) {
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].CrossState != out[j].CrossState {
 			return !out[i].CrossState
@@ -1042,5 +1072,4 @@ func (s *postgresStore) councilNeighbours(ctx context.Context, code string) ([]C
 		}
 		return out[i].LgaCode < out[j].LgaCode
 	})
-	return out, nil
 }

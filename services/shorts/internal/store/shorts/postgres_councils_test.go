@@ -1,9 +1,13 @@
 package shorts
 
 import (
+	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func fp(v float64) *float64 { return &v }
@@ -289,5 +293,72 @@ func TestLgaCrossStateEmbedded(t *testing.T) {
 				t.Errorf("%s -> %s is one-way", a, b)
 			}
 		}
+	}
+}
+
+// councilNeighbours is otherwise covered only by the integration-tagged
+// TestCouncilHubCrossBorderNeighbours, which no CI job runs. This pins its
+// geometry half: disabling the cross-state merge used to pass every unit test.
+func TestCouncilBorderNeighboursMergesCrossState(t *testing.T) {
+	got := councilBorderNeighbours("10050") // Albury (NSW)
+	wodonga := got["27170"]
+	if wodonga == nil || !wodonga.CrossState || !wodonga.SharesBorder {
+		t.Fatalf("Albury -> Wodonga = %+v, want a cross-state border neighbour", wodonga)
+	}
+	sameState := 0
+	for code, n := range got {
+		if code[0] == '1' {
+			sameState++
+			if n.CrossState {
+				t.Errorf("%s is NSW but flagged cross-state", code)
+			}
+		}
+	}
+	if sameState == 0 {
+		t.Error("Albury has no same-state neighbours; the topology merge was dropped")
+	}
+	// The ACT is all border: every neighbour is across it.
+	act := councilBorderNeighbours("89399")
+	if len(act) == 0 {
+		t.Fatal("Unincorporated ACT has no neighbours")
+	}
+	for code, n := range act {
+		if !n.CrossState {
+			t.Errorf("ACT -> %s not flagged cross-state", code)
+		}
+	}
+}
+
+func TestSortCouncilNeighboursPutsSameStateFirst(t *testing.T) {
+	rows := []CouncilNeighbourRow{
+		{LgaCode: "27170", DisplayName: "Wodonga", CrossState: true},
+		{LgaCode: "16350", DisplayName: "Greater Hume"},
+		{LgaCode: "21890", DisplayName: "Indigo", CrossState: true},
+		{LgaCode: "14920", DisplayName: "Federation"},
+	}
+	sortCouncilNeighbours(rows)
+	var got []string
+	for _, r := range rows {
+		got = append(got, r.DisplayName)
+	}
+	if want := []string{"Federation", "Greater Hume", "Indigo", "Wodonga"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("order = %v, want %v", got, want)
+	}
+}
+
+func TestFallbackOnUndefinedTableOnlyForAMissingRelation(t *testing.T) {
+	missing := &pgconn.PgError{Code: "42P01"}
+	calls := 0
+	fb := func(error) (string, error) { calls++; return "live", nil }
+
+	if got, err := fallbackOnUndefinedTable(func() (string, error) { return "", missing }, fb); err != nil || got != "live" || calls != 1 {
+		t.Fatalf("missing view: got %q/%v after %d fallback calls, want the live query once", got, err, calls)
+	}
+	timeout := &pgconn.PgError{Code: "57014"}
+	if _, err := fallbackOnUndefinedTable(func() (string, error) { return "", timeout }, fb); !errors.Is(err, timeout) || calls != 1 {
+		t.Fatalf("a timeout must surface, not fall back: err %v, fallback calls %d", err, calls)
+	}
+	if got, err := fallbackOnUndefinedTable(func() (string, error) { return "mv", nil }, fb); err != nil || got != "mv" || calls != 1 {
+		t.Fatalf("healthy view: got %q/%v, fallback calls %d", got, err, calls)
 	}
 }
