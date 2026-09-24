@@ -146,7 +146,7 @@ export default async function HousingRankingPage({ params }: PageProps) {
 
   const data = await getHousingRankingData(ranking.stateCode);
   const rankedRows = data ? rankSuburbs(data.suburbs, ranking.metric) : [];
-  if (rankedRows.length === 0) bailOnEmptyRender();
+  if (rankedRows.length === 0) await bailOnEmptyRender();
 
   const visibleRows = rankedRows.slice(0, MAX_RENDERED_ROWS);
   const stateName = STATE_NAMES[ranking.stateCode]!;

@@ -49,7 +49,7 @@ export default async function StateCouncilsPage({ params }: PageProps) {
   const name = STATE_NAMES[code]!;
   const res = await listCouncils(code);
   const councils = res?.councils ?? [];
-  if (councils.length === 0) bailOnEmptyRender();
+  if (councils.length === 0) await bailOnEmptyRender();
   const erpYear = councils.find((c) => c.erpYear > 0)?.erpYear;
   const approvalsThrough = mostCommon(councils.map((c) => c.approvalsThrough));
   // Headers carry the period most councils are on; a council on another

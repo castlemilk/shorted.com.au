@@ -18,7 +18,7 @@ import { HousingIcon } from "./housing-icon";
 import { useTopojson } from "./use-topojson";
 import { useSuburbColumns } from "./use-suburb-columns";
 import { useOverlayLayers } from "./use-overlay-layers";
-import { OverlayControl, OverlayLegend, type OverlayOpacities } from "./overlay-control";
+import { OverlayControl, OverlayLegend, OverlaySources, type OverlayOpacities } from "./overlay-control";
 import { SuburbTooltip, type TooltipExtra } from "./suburb-tooltip";
 import { CouncilLevelMap } from "./council-level-map";
 import { councilBorders, lgaCodesFromColumn } from "@/lib/housing/council-geometry";
@@ -503,6 +503,10 @@ export function StateSuburbMap({
       <div className="relative flex min-h-[460px] flex-1 flex-col overflow-hidden rounded-xl">
         {children}
       </div>
+      <OverlaySources
+        stateCode={stateCode} active={activeOverlays}
+        metricKey={level === "council" ? undefined : metric.key} className="mt-2"
+      />
     </div>
   );
 
@@ -546,7 +550,8 @@ export function StateSuburbMap({
 
   const colourLegend = metric.kind === "categorical" || metric.kind === "column-categorical"
     ? (categorical?.entries.length
-        ? <CategoricalLegend label={metric.legendLabel} entries={categorical.entries} />
+        ? <CategoricalLegend label={metric.legendLabel} entries={categorical.entries}
+            noDataLabel={metric.kind === "column-categorical" ? (metric.noDataLabel ?? "No data") : "No data"} />
         : null)
     : (continuous
         ? <MapLegend

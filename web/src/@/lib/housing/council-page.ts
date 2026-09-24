@@ -9,6 +9,7 @@
  */
 import type { CouncilProfile, CouncilSeries, CouncilSummary } from "~/gen/shorts/v1alpha1/housing_pb";
 import type { HousingSeriesFormat } from "@/components/housing/series-data";
+import { fmtCouncilShare, fmtDensity } from "./council";
 import { fmtPriceShort } from "./price-scale";
 import { STATE_NAMES, stateSlug } from "./states";
 
@@ -31,7 +32,8 @@ export const fmtInt = (v: number) => Math.round(v).toLocaleString("en-AU");
 export const fmtMoney = (v: number) => `$${fmtInt(v)}`;
 export const fmtSignedPct = (v: number, dp = 1) => `${v > 0 ? "+" : ""}${v.toFixed(dp)}%`;
 export const fmtSharePct = (v: number) => (v > 0 && v < 1 ? "<1%" : `${Math.round(v)}%`);
-export const fmtShare = (share: number) => `${Math.max(1, Math.round(share * 100))}%`;
+/** One formatter for a suburb's resident share, so the hub and the suburb card agree. */
+export const fmtShare = fmtCouncilShare;
 
 /** '2026-06-30' → 'Jun 2026'. */
 export function fmtMonth(period: string): string {
@@ -61,7 +63,7 @@ export function councilKeyFacts(s: CouncilSummary): KeyFact[] {
   if (s.densityPerSqkm !== undefined) {
     facts.push({
       label: "Density",
-      value: `${fmtInt(s.densityPerSqkm)}/km²`,
+      value: `${fmtDensity(s.densityPerSqkm)}/km²`,
       note: `${s.areaSqkm !== undefined ? `${fmtInt(s.areaSqkm)} km² · ` : ""}ERP ${s.erpYear} over the ABS 2024 boundary`,
     });
   }

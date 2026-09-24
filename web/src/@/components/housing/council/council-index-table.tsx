@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import type { CouncilMapRow } from "../council-level-map";
-import { councilHref } from "@/lib/housing/council";
+import { councilHref, fmtDensity } from "@/lib/housing/council";
 import { fmtInt, fmtSharePct, fmtSignedPct } from "@/lib/housing/council-page";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 
@@ -63,7 +63,7 @@ export function CouncilIndexTable({
       },
       {
         key: "density", label: "Per km²", numeric: true, value: (c) => c.densityPerSqkm ?? null,
-        cell: (c) => (c.densityPerSqkm !== undefined ? fmtInt(c.densityPerSqkm) : ""),
+        cell: (c) => (c.densityPerSqkm !== undefined ? fmtDensity(c.densityPerSqkm) : ""),
       },
       {
         key: "median", label: `House median${medianPeriod ? ` (${medianPeriod})` : ""}`, numeric: true,

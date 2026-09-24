@@ -169,13 +169,28 @@ func roundedPtr(v *float64, places int) *float64 {
 	return &r
 }
 
+// densityPtr rounds residents per km² to one decimal, except below 1 where
+// that rounding reaches 0 for people who are there (Unincorporated NSW is 975
+// residents over 93,209 km², 0.0105/km², which one decimal published as 0).
+// A sparse density is sent at full precision and formatted by the client.
+func densityPtr(v *float64) *float64 {
+	if v == nil || math.IsNaN(*v) || math.IsInf(*v, 0) {
+		return nil
+	}
+	if *v < 1 {
+		d := *v
+		return &d
+	}
+	return roundedPtr(v, 1)
+}
+
 func councilSummaryProto(r *shortsstore.CouncilSummaryRow) *shortsv1alpha1.CouncilSummary {
 	out := &shortsv1alpha1.CouncilSummary{
 		LgaCode: r.LgaCode, Slug: r.Slug, DisplayName: r.DisplayName, Kind: r.Kind, StateCode: r.StateCode,
 		Population: r.Population, ErpYear: r.ErpYear,
 		PopGrowthPct:      roundedPtr(r.PopGrowthPct, 2),
 		AreaSqkm:          roundedPtr(r.AreaSqkm, 1),
-		DensityPerSqkm:    roundedPtr(r.DensityPerSqkm, 1),
+		DensityPerSqkm:    densityPtr(r.DensityPerSqkm),
 		MemberSuburbCount: r.MemberSuburbCount,
 		FagPerResident:    roundedPtr(r.FagPerResident, 2),
 		FagYear:           r.FagYear,
@@ -242,7 +257,11 @@ func councilProfileProto(stateCode string, p *shortsstore.CouncilProfileRow) *sh
 	for _, sub := range p.Suburbs {
 		cs := &shortsv1alpha1.CouncilSuburb{
 			SalCode: sub.SALCode, SalName: sub.SALName, Postcode: sub.Postcode, Population: sub.Population,
-			Share: roundTo(sub.Share, 3), Dominant: sub.Dominant,
+			// Unrounded, like the suburb profile's dominant_share. Every client
+			// rounds this to a whole percent; rounding it here first rounded it
+			// twice (0.4946 -> 0.495 -> "50%" on the hub, "49%" on the suburb
+			// card reading the same fact).
+			Share: sub.Share, Dominant: sub.Dominant,
 			FloodSharePct:    roundedPtr(sub.FloodSharePct, 1),
 			BushfireSharePct: roundedPtr(sub.BushfireSharePct, 1),
 			WaterSharePct:    roundedPtr(sub.WaterSharePct, 1),

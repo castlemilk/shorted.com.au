@@ -56,7 +56,7 @@ export default async function RegisterChangesPage() {
   // "unavailable" rails into a static page long after the rpc recovered — the
   // outage wording is honest live and stale within minutes. Bailing keeps the
   // last good page instead.
-  if (!page.ok || !page.railsOk || page.events.length === 0) bailOnEmptyRender();
+  if (!page.ok || !page.railsOk || page.events.length === 0) await bailOnEmptyRender();
 
   // The party filter's options come from the ROLL, never from the palette:
   // PARTY_LABEL maps both LP and LIB onto "Liberal", and the backend filters on

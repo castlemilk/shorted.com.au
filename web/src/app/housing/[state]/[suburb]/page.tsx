@@ -83,14 +83,14 @@ export default async function SuburbPage({ params }: PageProps) {
   if (!code) notFound();
   // Depends only on `code`, so it starts here and is awaited after the profile —
   // otherwise the page serialises three RPCs it could overlap two of.
-  const stateIndex = getStateSuburbIndex(code).catch((error: unknown) => {
+  const stateIndex = getStateSuburbIndex(code).catch(async (error: unknown) => {
     // Degrade to the profile the RPC already returned — but say so, or a
     // persistent state-index outage just looks like a quietly emptier page.
     console.warn(`[suburb] state suburb index unavailable for ${code}:`, error);
     // And do not let ISR bake the degraded render: without this the rank-less
     // page is a perfectly valid cache entry and gets served for the full 24h
     // window, long after the backend recovers.
-    bailOnEmptyRender();
+    await bailOnEmptyRender();
     return [];
   });
 

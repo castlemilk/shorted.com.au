@@ -143,7 +143,7 @@ func TestGetCouncilProfile_MapsEveryBlock(t *testing.T) {
 				Points: []shortsstore.CouncilSeriesPointRow{{Period: period, PeriodLabel: "2026-06", Value: 140}}},
 		},
 		Suburbs: []shortsstore.CouncilSuburbRow{
-			{SALCode: "12166", SALName: "Kingsgrove", Population: 14000, Share: 0.49123, Dominant: true,
+			{SALCode: "12166", SALName: "Kingsgrove", Population: 14000, Share: 0.4946, Dominant: true,
 				VGMedian: f64(1_900_000), VGMedianPeriod: &period, BushfireSharePct: f64(0)},
 			{SALCode: "99999", SALName: "Unpriced", Population: 10, Share: 0.07, Dominant: false,
 				VGMedian: f64(1), VGMedianPeriod: nil},
@@ -180,8 +180,14 @@ func TestGetCouncilProfile_MapsEveryBlock(t *testing.T) {
 		t.Errorf("approvals frequency %q", p.Series[1].Frequency)
 	}
 	k := p.Suburbs[0]
-	if k.Share != 0.491 || !k.Dominant || k.GetVgMedian() != 1_900_000 || k.VgMedianPeriod != "2026-06-30" {
+	if !k.Dominant || k.GetVgMedian() != 1_900_000 || k.VgMedianPeriod != "2026-06-30" {
 		t.Errorf("member suburb: %+v", k)
+	}
+	// The share reaches the client unrounded, exactly as the suburb profile's
+	// dominant_share does: both surfaces round it once, to a whole percent.
+	// Pre-rounding to 0.495 made the hub say 50% where the card said 49%.
+	if k.Share != 0.4946 {
+		t.Errorf("member share %v: must not be pre-rounded (clients round it once)", k.Share)
 	}
 	if k.BushfireSharePct == nil || *k.BushfireSharePct != 0 {
 		t.Error("a measured 0% bushfire share must survive as a present 0")
@@ -301,5 +307,21 @@ func TestCouncilRPCs_HonourTheDropListingsKillSwitch(t *testing.T) {
 	t.Setenv("HOUSING_DROP_LISTINGS_ENABLED", "true")
 	if list().Councils[0].GetPriceDropShare() != 0.07 || profile().PriceDrops == nil {
 		t.Error("stripping mutated the cached response")
+	}
+}
+
+// A remote council's density is well under 1/km², and one decimal published it
+// as 0 (Unincorporated NSW: 975 residents over 93,209 km²).
+func TestCouncilSummary_SparseDensityIsNeverRoundedToZero(t *testing.T) {
+	sparse := councilSummaryProto(&shortsstore.CouncilSummaryRow{LgaCode: "19499", DensityPerSqkm: f64(975.0 / 93209.0)})
+	if got := sparse.GetDensityPerSqkm(); got <= 0 || got > 0.011 {
+		t.Errorf("sparse density %v: must survive as a small positive number", got)
+	}
+	dense := councilSummaryProto(&shortsstore.CouncilSummaryRow{LgaCode: "11570", DensityPerSqkm: f64(5197.743589)})
+	if got := dense.GetDensityPerSqkm(); got != 5197.7 {
+		t.Errorf("dense density %v: want one decimal", got)
+	}
+	if councilSummaryProto(&shortsstore.CouncilSummaryRow{LgaCode: "1"}).DensityPerSqkm != nil {
+		t.Error("an absent density must stay absent")
 	}
 }

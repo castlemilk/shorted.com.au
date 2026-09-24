@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 
 export default async function ShortInterestOverlapPage() {
   const data = await listShortInterestOverlap(2, 60);
-  if (!data || data.overlaps.length === 0) bailOnEmptyRender();
+  if (!data || data.overlaps.length === 0) await bailOnEmptyRender();
 
   return (
     <>

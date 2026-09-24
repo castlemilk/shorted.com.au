@@ -107,11 +107,24 @@ export default async function PriceDropsPage() {
   // the crawl is down, so the reading must be dated against this, not the
   // snapshot date alone.
   const indexDataThroughIso = timestampToDate(dropIndex.dataThrough)?.toISOString();
+  // What an empty page says. Only "loading" is a failed or cold fetch; the
+  // other two are real, stable answers.
+  //  - withheld: the kill switch (a takedown) empties every crawl-derived read
+  //    on purpose; the takedown runbook revalidates the route when it flips.
+  //  - dated: the views answered, with a data date, and counted no listing
+  //    seen in the last 14 days — a crawl outage longer than that. It stays
+  //    true until the crawl lands, and the crawl flush revalidates the route.
+  const emptyState: "withheld" | "dated" | "loading" | null = hasData
+    ? null
+    : withheld
+      ? "withheld"
+      : national && freshness.dataToLabel
+        ? "dated"
+        : "loading";
   // A failed/cold fetch must not bake the "data is loading" shell into the
-  // route cache for the whole revalidate window. A withheld response is
-  // deliberate and stable, so it caches like any other render (the takedown
-  // runbook revalidates the route when the switch flips either way).
-  if (!hasData && !withheld) bailOnEmptyRender();
+  // route cache for the whole revalidate window. The two stable answers cache
+  // like any other render.
+  if (emptyState === "loading") await bailOnEmptyRender();
 
   // Start the 493KB CF-edge-cached boundary fetch while the client-only map
   // chunk hydrates. Matching crossOrigin is required for useTopojson's fetch()
@@ -194,15 +207,19 @@ export default async function PriceDropsPage() {
           </p>
         </header>
 
-        {!hasData ? (
-          <p className="rounded-lg border border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+        {emptyState ? (
+          <p
+            className="rounded-lg border border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground"
+            data-testid="price-drops-empty"
+            data-empty-state={emptyState}
+          >
             {/* A dated but empty rollup is not "loading": with every listing
                 gated on a 14-day sighting, a crawl outage longer than that
                 empties the views honestly. Say so instead of promising data. */}
-            {withheld
+            {emptyState === "withheld"
               ? "Price-drop figures are not available at the moment."
-              : national && freshness.dataToLabel
-                ? `No listing has been seen since ${freshness.dataToLabel.replace(/^Data to /, "")}. Every figure here counts only listings seen in the last 14 days, so there is nothing current to rank until the listing crawl resumes.`
+              : emptyState === "dated"
+                ? `No listing has been seen since ${(freshness.dataToLabel ?? "").replace(/^Data to /, "")}. Every figure here counts only listings seen in the last 14 days, so there is nothing current to rank until the listing crawl resumes.`
                 : "Price-drop data is loading — check back shortly."}
           </p>
         ) : (

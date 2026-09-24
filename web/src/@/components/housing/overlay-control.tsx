@@ -2,7 +2,7 @@
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { OVERLAYS, OVERLAY_FILL_OPACITY, overlayAvailable, type OverlayKey } from "@/lib/housing/overlays";
+import { OVERLAYS, OVERLAY_FILL_OPACITY, creditedOverlays, overlayAvailable, type OverlayKey } from "@/lib/housing/overlays";
 import { STATE_NAMES } from "@/lib/housing/states";
 import { cn } from "@/lib/utils";
 
@@ -193,5 +193,36 @@ function LayersGlyph() {
       <path d="m1.5 8.5 6.5 3.5 6.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
       <path d="m1.5 11.5 6.5 3.5 6.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" opacity="0.6" />
     </svg>
+  );
+}
+
+/**
+ * The credit line for the planning and hazard layers on the map. Their CC BY
+ * attribution travels with the data, and the static sources line under the
+ * map names only the census and amenity sources. Renders nothing when no such
+ * layer is drawn.
+ */
+export function OverlaySources({
+  stateCode, active, metricKey, className,
+}: {
+  stateCode: string;
+  active: readonly OverlayKey[];
+  /** The suburb "Colour by" metric; omit at council level (its legend credits itself). */
+  metricKey?: string;
+  className?: string;
+}) {
+  const credited = creditedOverlays(stateCode, active, metricKey);
+  if (!credited.length) return null;
+  return (
+    <p data-testid="overlay-sources" className={cn("text-[11px] leading-relaxed text-muted-foreground", className)}>
+      Map layer sources (CC BY):{" "}
+      {credited.map((o, i) => (
+        <span key={o.key}>
+          {i > 0 ? " · " : ""}
+          <span className="font-medium text-foreground/80">{o.label}</span>: {o.source}
+        </span>
+      ))}
+      .
+    </p>
   );
 }

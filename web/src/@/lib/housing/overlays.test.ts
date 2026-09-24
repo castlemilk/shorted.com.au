@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
-  ALL_STATES_WITH_WATER, OVERLAYS, overlayAssetUrl, overlayAvailable,
+  ALL_STATES_WITH_WATER, OVERLAYS, creditedOverlays, overlayAssetUrl, overlayAvailable,
   parseOverlayParam, serializeOverlayParam,
 } from "./overlays";
 
@@ -39,5 +39,32 @@ describe("overlay registry", () => {
     ]);
     expect(parseOverlayParam(null)).toEqual([]);
     expect(serializeOverlayParam(["water_observed", "flood_planning"])).toBe("flood_planning,water_observed");
+  });
+});
+
+describe("creditedOverlays", () => {
+  // The map page drew CC BY planning and hazard layers while its sources line
+  // named only OSM/ABS/ACARA/GA/NBN/BOCSAR.
+  test("credits every active overlay the state has", () => {
+    expect(creditedOverlays("VIC", ["zoning"]).map((o) => o.key)).toEqual(["zoning"]);
+    expect(creditedOverlays("NSW", ["heritage", "flood_planning"]).map((o) => o.key)).toEqual(["flood_planning", "heritage"]);
+  });
+
+  test("credits the layer behind a planning or hazard colour-by metric", () => {
+    expect(creditedOverlays("VIC", [], "dominant_zone_family").map((o) => o.key)).toEqual(["zoning"]);
+    expect(creditedOverlays("SA", [], "zone_res_low_share_pct").map((o) => o.key)).toEqual(["zoning"]);
+    expect(creditedOverlays("NSW", [], "heritage_share_pct").map((o) => o.key)).toEqual(["heritage"]);
+    expect(creditedOverlays("NSW", [], "bushfire_prone_share_pct").map((o) => o.key)).toEqual(["bushfire_prone"]);
+  });
+
+  test("credits nothing that is not drawn", () => {
+    expect(creditedOverlays("NSW", [], "price")).toEqual([]);
+    // QLD has no statewide zoning: nothing is drawn, so nothing is credited.
+    expect(creditedOverlays("QLD", ["zoning"], "dominant_zone_family")).toEqual([]);
+  });
+
+  test("names each source once", () => {
+    const keys = creditedOverlays("VIC", ["zoning"], "dominant_zone_family").map((o) => o.key);
+    expect(keys).toEqual(["zoning"]);
   });
 });

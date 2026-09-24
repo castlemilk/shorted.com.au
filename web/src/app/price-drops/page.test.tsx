@@ -173,6 +173,27 @@ describe("PriceDropsPage empty but dated", () => {
     expect(screen.queryByText(/in the 14 days to/)).not.toBeInTheDocument();
     expect(screen.queryByText(/check back shortly/)).not.toBeInTheDocument();
   });
+
+  // The dated empty rollup is a stable answer that holds until the crawl lands
+  // (and the crawl flush revalidates the route), so it must cache like any
+  // other render. Bailing it is what 500'd /price-drops in the running app:
+  // the old bail opted a static route out of the cache at runtime.
+  it("caches the dated empty rollup instead of bailing it", async () => {
+    const { bailOnEmptyRender } = jest.requireMock("~/app/actions/config") as {
+      bailOnEmptyRender: jest.Mock;
+    };
+    bailOnEmptyRender.mockClear();
+    getPriceDropsOverview.mockResolvedValue({
+      national: { totalActiveListings: 0, soldCount: 70, suburbsTracked: 7 },
+      states: [],
+      asOf: ts("2026-09-23T02:00:00Z"),
+      dataThrough: ts("2026-08-17T01:46:00Z"),
+    });
+    render(await PriceDropsPage());
+
+    expect(screen.getByTestId("price-drops-empty")).toHaveAttribute("data-empty-state", "dated");
+    expect(bailOnEmptyRender).not.toHaveBeenCalled();
+  });
 });
 
 describe("PriceDropsPage kill switch", () => {

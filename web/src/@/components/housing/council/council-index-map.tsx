@@ -25,6 +25,9 @@ export interface CouncilIndexMapProps {
 
 const LGA_COLUMN = ["lga_code"] as const;
 
+/** The map frame's height class; >= ChoroplethMap's own 460px fill floor. */
+export const COUNCIL_INDEX_MAP_HEIGHT = "h-[480px]";
+
 /**
  * The state council index's choropleth: the council level of the state map,
  * fed by the rows the server already fetched (no second ListCouncils call).
@@ -43,7 +46,7 @@ export function CouncilIndexMap({ stateCode, councils, dropsStamps }: CouncilInd
   const ready = topo && lgaBySal.size > 0;
 
   return (
-    <div className="flex min-h-[480px] flex-col">
+    <div className="flex flex-col">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <span className="shrink-0 text-xs text-muted-foreground">Colour by</span>
         <Select value={metricKey} onValueChange={(v) => setMetricKey(v as CouncilMetricKey)}>
@@ -62,7 +65,12 @@ export function CouncilIndexMap({ stateCode, councils, dropsStamps }: CouncilInd
           </SelectContent>
         </Select>
       </div>
-      <div className="relative flex min-h-[440px] flex-1 flex-col overflow-hidden rounded-xl">
+      {/* A DEFINITE height, not a min-height: the choropleth fills its parent
+          through ParentSize (height: 100%), and a percentage of a min-height-only
+          box resolves to 0 — the map measured 1120x0 and never mounted. The
+          state map gets away with min-heights only because its grid row gives
+          the chain a definite height; this section has none. */}
+      <div className={`relative flex ${COUNCIL_INDEX_MAP_HEIGHT} flex-col overflow-hidden rounded-xl`} data-testid="council-index-map-frame">
         {failed ? (
           <div className="absolute inset-0 flex items-center justify-center bg-muted/30 p-6 text-center text-sm text-muted-foreground" role="status">
             Council map unavailable right now — every council is in the table below.

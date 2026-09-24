@@ -148,6 +148,26 @@ export function overlayAvailable(key: OverlayKey, stateCode: string): boolean {
   return OVERLAY_BY_KEY[key].states.includes(stateCode);
 }
 
+/**
+ * The layers whose data is on the map right now and so must be credited under
+ * it: every active overlay this state has, plus the layer behind the "Colour
+ * by" metric (a zoning or heritage share is derived from the same CC BY
+ * source as the overlay). Registry order, no duplicates. The static sources
+ * line under the map names OSM/ABS/ACARA and none of these.
+ */
+export function creditedOverlays(
+  stateCode: string,
+  active: readonly OverlayKey[],
+  metricKey?: string,
+): OverlayDef[] {
+  const fromMetric = (o: OverlayDef) =>
+    metricKey !== undefined &&
+    (o.metricKey === metricKey || (o.key === "zoning" && /^zone_[a-z_]+_share_pct$/.test(metricKey)));
+  return OVERLAYS.filter(
+    (o) => overlayAvailable(o.key, stateCode) && (active.includes(o.key) || fromMetric(o)),
+  );
+}
+
 export function overlayAssetUrl(stateCode: string, key: OverlayKey): string {
   return `/geo/${OVERLAY_BY_KEY[key].assetDir ?? "hazards"}/${stateCode}-${key}.topojson`;
 }

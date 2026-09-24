@@ -200,7 +200,7 @@ export default async function ThemePage({ params }: PageProps) {
 
   // A failed/cold snapshot must not bake the copy-only shell into the route
   // cache for the whole revalidate window.
-  if (rows.length === 0) bailOnEmptyRender();
+  if (rows.length === 0) await bailOnEmptyRender();
 
   // News follows the table's own ordering (most shorted first), so the strip
   // covers the names a reader is actually here for.

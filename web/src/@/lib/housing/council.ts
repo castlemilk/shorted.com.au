@@ -31,3 +31,16 @@ export function councilHref(
 export function fmtCouncilShare(share: number): string {
   return `${Math.max(1, Math.round(share * 100))}%`;
 }
+
+/**
+ * Residents per km², never a bare 0 for a council people live in: whole
+ * numbers from 10 up, one decimal below that, "<0.1" under 0.05. Remote
+ * councils run to 0.01/km² (Unincorporated NSW, 975 residents over 93,209 km²),
+ * and a rounded "0" reads as empty land.
+ */
+export function fmtDensity(v: number): string {
+  if (!(v > 0)) return "0";
+  if (v >= 9.95) return Math.round(v).toLocaleString("en-AU");
+  if (v >= 0.05) return v.toFixed(1);
+  return "<0.1";
+}

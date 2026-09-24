@@ -11,6 +11,7 @@ import { scaleDiverging, scaleSequential, scaleSequentialSqrt } from "d3-scale";
 import { interpolateOranges, interpolatePuOr } from "d3-scale-chromatic";
 import type { CouncilSummary } from "~/gen/shorts/v1alpha1/housing_pb";
 import type { HousingIconName } from "@/components/housing/housing-icons.generated";
+import { fmtDensity } from "./council";
 import { fmtPriceShort } from "./price-scale";
 
 /** The CouncilSummary fields a metric reads (a structural subset). */
@@ -69,7 +70,7 @@ export const COUNCIL_METRICS: readonly CouncilMetric[] = [
   },
   {
     key: "density", label: "Density", legendLabel: "Residents per km²", icon: "dwellings",
-    value: (c) => present(c.densityPerSqkm), format: (v) => `${fmtCount(v)}/km²`, sqrt: true,
+    value: (c) => present(c.densityPerSqkm), format: (v) => `${fmtDensity(v)}/km²`, sqrt: true,
     source: (s) => `ABS estimated resident population${s?.erpYear ? ` ${s.erpYear}` : ""} over ABS LGA 2024 area`,
     noDataLabel: "No estimate",
   },

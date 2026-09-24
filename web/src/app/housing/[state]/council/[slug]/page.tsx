@@ -81,8 +81,8 @@ export default async function CouncilPage({ params }: PageProps) {
   const { code, profile, missing } = await load(state, slug);
   if (!code || missing) notFound();
   if (!profile?.summary || !profile.council) {
-    // A transient API failure: render the shell uncached so the next request retries.
-    bailOnEmptyRender();
+    // A transient API failure: cache the shell for a minute only, so ISR retries soon.
+    await bailOnEmptyRender();
     return (
       <DashboardLayout>
         <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-muted-foreground">
@@ -101,7 +101,7 @@ export default async function CouncilPage({ params }: PageProps) {
   const suburbs = profile.suburbs ?? [];
   // A council with members whose member-suburb block failed to load is a
   // partial render: serve it, but do not let ISR pin it for a day.
-  if (s.memberSuburbCount > 0 && suburbs.length === 0) bailOnEmptyRender();
+  if (s.memberSuburbCount > 0 && suburbs.length === 0) await bailOnEmptyRender();
   const neighbours = profile.neighbours ?? [];
   const stateName = STATE_NAMES[code]!;
   const pageUrl = `${SITE}${councilPath(code, s.slug)}`;

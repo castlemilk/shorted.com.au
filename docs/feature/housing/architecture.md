@@ -679,11 +679,23 @@ Layer map for one `/price-drops` view:
    warm (`/api/static-pages/warm-cache`, `/price-drops` is in `STATIC_PAGES`; the CI re-prime
    needs the Cloudflare bypass).
 2. **KV**: actions never cache an empty response.
-3. **Route cache**: `bailOnEmptyRender()` — calls `unstable_noStore()` exactly when a page
-   renders its data-empty fallback, so a failed regen fetch (cold min-instances=0 Cloud Run
-   after a deploy) is served once UNCACHED instead of pinning "data is loading" for the full
-   window. It NO-OPS during the build so routes STAY static ISR. Wired into
-   `/housing /price-drops /economy /compare` — wire it into any new static data page.
+3. **Route cache**: `await bailOnEmptyRender()` — exactly when a page renders its data-empty
+   fallback, it caps that render's ISR lifetime at `EMPTY_RENDER_REVALIDATE_SECONDS` (60s) by
+   reading a no-op `unstable_cache` entry with that revalidate (a route's revalidate is the
+   lowest any read in the render asks for). A failed regen fetch (cold min-instances=0 Cloud
+   Run after a deploy) is therefore cached for a minute, then retried, instead of pinning
+   "data is loading" for the full window. It NO-OPS during the build so routes STAY static
+   ISR. Wired into `/housing /price-drops /economy /compare`, the council pages and more —
+   wire it into any new static data page, and only on a FAILED/cold branch: a stable empty
+   answer (a takedown's `withheld`, or `/price-drops`' dated "no listing seen since" state)
+   caches like any other render.
+   **It used to call `unstable_noStore()`, and that 500'd.** On a route prerendered as static,
+   Next 14 turns noStore at runtime into a DynamicServerError (digest `DYNAMIC_SERVER_USAGE`,
+   "Page changed from static to dynamic"). A background regeneration swallowed it and kept the
+   old page, but every BLOCKING render — no cached entry, or the first request after
+   `revalidatePath` — answered 500: `/price-drops` whenever the crawl had been down 14 days,
+   and the council index/hub whenever the API was unreachable (2026-09-24, running-app
+   verification). Never call `unstable_noStore()` from a static ISR page.
 
 Measured effect: 380–640ms force-dynamic TTFB → **40–58ms `x-vercel-cache: HIT`**, with
 Cloud Run RPC volume for the page down to ~hourly worst case.
