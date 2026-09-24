@@ -52,8 +52,9 @@ export function SuburbHazardCard({
   const missingLayers = [!floodInState && "flood", !fireInState && "bushfire"].filter(Boolean).join(" or ");
   // States whose statutory shares are masked per suburb (partial coverage is
   // possible), so a published share can undercount an unmapped remainder.
-  const partlyMapped = (hasFlood && OVERLAY_BY_KEY.flood_planning.masked?.includes(stateCode))
-    || (hasFire && OVERLAY_BY_KEY.bushfire_prone.masked?.includes(stateCode));
+  const partlyMapped =
+    (hasFlood && OVERLAY_BY_KEY.flood_planning.masked?.includes(stateCode) === true) ||
+    (hasFire && OVERLAY_BY_KEY.bushfire_prone.masked?.includes(stateCode) === true);
 
   const tiles: HazardTile[] = [];
   if (medianM !== undefined) {
