@@ -18,20 +18,24 @@ func TestSuburbMetricRegistryCoversMapAndLandedColumns(t *testing.T) {
 		"nearest_train", "distance_to_coast", "nbn",
 		// Column-sourced map metrics: declared in the UI MetricKey union under the
 		// server's own key names, so the two registries are pinned together.
-		"elevation_median_m", "land_share_below_5m",
+		"seifa_irsd_decile_state", "seifa_irsad_decile_state", "seifa_ier_decile_state", "seifa_ieo_decile_state",
+		"unemployment_rate", "pct_bachelor_or_higher", "pct_low_personal_income", "pct_high_personal_income",
+		"pct_flat_apartment", "pct_lone_person_household", "pct_couple_with_children",
+		"elevation_median_m", "land_share_below_1m", "land_share_below_2m", "land_share_below_5m",
+		"permanent_water_share_pct",
 		"water_observed_share_pct", "flood_planning_share_pct", "bushfire_prone_share_pct",
 	}
+	// Served by the API but deliberately not on the map picker: raw SEIFA scores
+	// and national deciles (the map ranks within a state), participation and
+	// separate-house share (near-complements of keys above), and elevation
+	// min/max (a creek bed and a peak, not a suburb-wide property).
 	landed := []string{
-		"seifa_irsd_score", "seifa_irsd_decile_aus", "seifa_irsd_decile_state",
-		"seifa_irsad_score", "seifa_irsad_decile_aus", "seifa_irsad_decile_state",
-		"seifa_ier_score", "seifa_ier_decile_aus", "seifa_ier_decile_state",
-		"seifa_ieo_score", "seifa_ieo_decile_aus", "seifa_ieo_decile_state",
-		"pct_low_personal_income", "pct_high_personal_income", "unemployment_rate",
-		"labour_force_participation_rate", "pct_bachelor_or_higher", "pct_separate_house",
-		"pct_flat_apartment", "pct_couple_with_children", "pct_lone_person_household",
+		"seifa_irsd_score", "seifa_irsd_decile_aus",
+		"seifa_irsad_score", "seifa_irsad_decile_aus",
+		"seifa_ier_score", "seifa_ier_decile_aus",
+		"seifa_ieo_score", "seifa_ieo_decile_aus",
+		"labour_force_participation_rate", "pct_separate_house",
 		"elevation_min_m", "elevation_max_m",
-		"land_share_below_1m", "land_share_below_2m",
-		"permanent_water_share_pct",
 	}
 	want := append(append([]string{}, existing...), landed...)
 	sort.Strings(want)

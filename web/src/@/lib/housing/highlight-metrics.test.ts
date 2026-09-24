@@ -1,5 +1,7 @@
 import {
+  COLUMN_METRIC_GROUPS,
   HIGHLIGHT_METRICS,
+  METRIC_ICON,
   amberScale,
   crimeRankScale,
   publishableNbnTech,
@@ -102,5 +104,48 @@ describe("language", () => {
     expect(category({ population: 100, topLanguage: "", pctTopLanguage: 0 })).toBe("English");
     expect(category({ population: 5_000, topLanguage: "Greek", pctTopLanguage: 3 })).toBe("English");
     expect(category({ population: 5_000, topLanguage: "Greek", pctTopLanguage: 12 })).toBe("Greek");
+  });
+});
+
+describe("column metrics already served by the API", () => {
+  const column = (key: MetricKey) => {
+    const m = HIGHLIGHT_METRICS.find((candidate) => candidate.key === key);
+    if (m?.kind !== "column") throw new Error(`${key} is not a column metric`);
+    return m;
+  };
+
+  test("every column metric sits in a picker section and has an icon", () => {
+    const groups = new Set<string>(COLUMN_METRIC_GROUPS.map((g) => g.key));
+    for (const m of HIGHLIGHT_METRICS) {
+      expect(METRIC_ICON[m.key]).toBeTruthy();
+      if (m.kind === "column") expect(groups).toContain(m.group);
+    }
+  });
+
+  test("SEIFA deciles are the within-state deciles, on a fixed 1–10 scale", () => {
+    for (const key of ["seifa_irsd_decile_state", "seifa_irsad_decile_state", "seifa_ier_decile_state", "seifa_ieo_decile_state"] as const) {
+      const m = column(key);
+      expect(m.group).toBe("socio-economic");
+      expect(m.domain).toEqual([1, 10]);
+      expect(m.format(3)).toBe("Decile 3");
+      expect(m.legendLabel).toMatch(/within the state/);
+    }
+  });
+
+  test("Census rates say a missing value is the ingest floor, not zero", () => {
+    for (const key of ["unemployment_rate", "pct_bachelor_or_higher", "pct_low_personal_income", "pct_high_personal_income",
+      "pct_flat_apartment", "pct_lone_person_household", "pct_couple_with_children"] as const) {
+      expect(column(key).noDataLabel).toBe("Below Census floor");
+    }
+    expect(column("pct_flat_apartment").group).toBe("households");
+  });
+
+  test("low-lying and permanent-water shares use the water ramp, never the price amber", () => {
+    for (const key of ["land_share_below_1m", "land_share_below_2m", "permanent_water_share_pct"] as const) {
+      const m = column(key);
+      expect(m.group).toBe("terrain");
+      expect(m.makeScale).toBeDefined();
+      expect(m.makeScale!(0, 25)(10)).not.toBe(amberScale(0, 25)(10));
+    }
   });
 });

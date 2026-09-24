@@ -199,6 +199,20 @@ still paint (d3 clamps output) and the legend labels that tick `≥`.
 Metrics with an explicit `domain` (crime ranks, political lean — `[0,100]`) are
 untouched.
 
+**Column metrics** (`kind: "column"`) are served by `GetSuburbMetricColumns`
+under the server registry's own key (`postgres_suburb_columns.go`); the UI
+`MetricKey` union and the Go registry are pinned together by
+`TestSuburbMetricRegistryCoversMapAndLandedColumns` — a key the map offers goes
+in its `existing` list, a key the API serves but the map deliberately does not
+offer stays in `landed` (with the reason in the comment). Each column metric
+names a picker section (`group`, one of `COLUMN_METRIC_GROUPS`) and needs a
+`METRIC_ICON`. On the picker since 2026-09-24: the four within-state SEIFA
+deciles, unemployment, bachelor+, low/high personal income, flats/apartments,
+living alone, couples with kids, land below 1 m / 2 m and permanent water.
+Deliberately off it: raw SEIFA scores and national deciles (the map ranks within
+a state), participation and separate-house share (near-complements), and
+elevation min/max (a creek bed and a peak, not a suburb-wide property).
+
 **Charts cannot SSR and functions cannot cross the RSC boundary.** Import charts
 `dynamic(..., { ssr: false })` from a `"use client"` module and pass a
 *serializable* key (`MetricKey`, `format="aud"|"percent"`), never a formatter or
