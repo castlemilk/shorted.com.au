@@ -246,19 +246,27 @@ export function nbnColor(cat: string): string {
 /**
  * The NBN technology we are prepared to publish for a suburb, or null.
  *
- * The footprint join (web/scripts/geo/join-nbn.mjs) used to class every sample
- * point outside the Fixed Line and Fixed Wireless footprints as Satellite, and
- * the source publishes no satellite layer at all — so 7,491 of 15,329 suburbs,
- * Bondi, Parramatta and Point Cook (66,781 people) among them, read "NBN
- * SATELLITE". The join is fixed, but a suburb of more than 1,000 people is not
- * satellite-served, so until every environment has loaded the corrected
- * artifact that pairing is suppressed as no data. The API applies the same rule
- * (nbnImplausibleSatellitePredicate in postgres_suburb_columns.go); this copy
- * keeps an ISR page baked from an older response from repeating it.
+ * Both coarse tiers have been over-claimed by the footprint join
+ * (web/scripts/geo/join-nbn.mjs). It once classed every sample point outside
+ * the Fixed Line and Fixed Wireless footprints as Satellite — the source
+ * publishes no satellite layer — so 7,491 of 15,329 suburbs, Bondi, Parramatta
+ * and Point Cook (66,781 people) among them, read "NBN SATELLITE". And the
+ * wireless footprint is a coarse tower grid that reaches over towns: Dubbo,
+ * Orange, Pakenham and Sunbury read "Fixed Wireless", and one grid cell over
+ * one sample point labelled Rouse Hill (11,349 people). Satellite on more than
+ * 1,000 people and Fixed Wireless on more than 5,000 are therefore published
+ * as no data. The API applies the same rule (nbnImplausibleTechPredicate in
+ * postgres_suburb_columns.go); this copy keeps an ISR page baked from an older
+ * response from repeating it.
  */
+export const NBN_SATELLITE_MAX_POPULATION = 1_000;
+export const NBN_FIXED_WIRELESS_MAX_POPULATION = 5_000;
+
 export function publishableNbnTech(tech: string | undefined, population: number): string | null {
   if (!tech) return null;
-  if (tech.toUpperCase() === "SATELLITE" && population > 1000) return null;
+  const t = tech.toUpperCase();
+  if (t === "SATELLITE" && population > NBN_SATELLITE_MAX_POPULATION) return null;
+  if ((t === "FIXED WIRELESS" || t === "FW") && population > NBN_FIXED_WIRELESS_MAX_POPULATION) return null;
   return tech;
 }
 

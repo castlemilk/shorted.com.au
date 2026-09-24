@@ -219,31 +219,48 @@ func TestFilterSuburbMetricColumnsMatchCountEqualsPopulationCount(t *testing.T) 
 	}
 }
 
-// A 'Satellite' classification on a populous suburb is the artefact of the old
-// NBN footprint join (misses defaulted to Satellite), not a fact: the map metric
-// and both suburb readers must treat it as no data. Genuine remote satellite
-// suburbs, and every other technology, pass through untouched.
-func TestNbnImplausibleSatelliteIsNoDataOnEverySurface(t *testing.T) {
+// A 'Satellite' or 'Fixed Wireless' classification on a populous suburb is an
+// artefact of a coarse footprint join, not a fact: the map metric and both
+// suburb readers must treat it as no data, score included. Genuine remote
+// satellite and rural wireless suburbs, and fixed line, pass through untouched.
+func TestNbnImplausibleTechIsNoDataOnEverySurface(t *testing.T) {
 	def, ok := lookupSuburbMetric("nbn")
 	if !ok {
 		t.Fatal("nbn metric missing")
 	}
-	guard := "WHEN " + nbnImplausibleSatellitePredicate + " THEN NULL"
-	satellite := "WHEN UPPER(c.dominant_nbn_tech) = 'SATELLITE' THEN 2"
-	gi, si := strings.Index(def.expression, guard), strings.Index(def.expression, satellite)
-	if gi < 0 || si < 0 || gi > si {
-		t.Fatalf("nbn metric must null implausible satellite rows before classing Satellite:\n%s", def.expression)
+	guard := "WHEN " + nbnImplausibleTechPredicate + " THEN NULL"
+	gi := strings.Index(def.expression, guard)
+	for _, tier := range []string{
+		"WHEN UPPER(c.dominant_nbn_tech) IN ('FW', 'FIXED WIRELESS') THEN 1",
+		"WHEN UPPER(c.dominant_nbn_tech) = 'SATELLITE' THEN 2",
+	} {
+		if ti := strings.Index(def.expression, tier); gi < 0 || ti < 0 || gi > ti {
+			t.Fatalf("nbn metric must null implausible rows before classing %q:\n%s", tier, def.expression)
+		}
 	}
-	if !strings.Contains(nbnImplausibleSatellitePredicate, "COALESCE(d.population, 0) > 1000") {
-		t.Fatalf("guard threshold changed without updating its documentation: %s", nbnImplausibleSatellitePredicate)
+	for _, threshold := range []string{
+		"UPPER(c.dominant_nbn_tech) = 'SATELLITE' AND COALESCE(d.population, 0) > 1000",
+		"UPPER(c.dominant_nbn_tech) IN ('FW', 'FIXED WIRELESS') AND COALESCE(d.population, 0) > 5000",
+	} {
+		if !strings.Contains(nbnImplausibleTechPredicate, threshold) {
+			t.Fatalf("guard threshold changed without updating its documentation (want %q): %s", threshold, nbnImplausibleTechPredicate)
+		}
+	}
+	if !strings.Contains(nbnScoreDisplayExpr, nbnImplausibleTechPredicate) {
+		t.Fatalf("the quality score must be withheld by the same predicate as the tech: %s", nbnScoreDisplayExpr)
 	}
 
 	source := postgresHousePricesSource(t)
 	if strings.Contains(source, "COALESCE(c.dominant_nbn_tech,'')") {
 		t.Fatal("suburb readers must publish NBN tech through nbnTechDisplayExpr, not the raw column")
 	}
-	if got := strings.Count(source, "` + nbnTechDisplayExpr + `"); got != 2 {
-		t.Fatalf("ListStateSuburbs and GetSuburbProfile must both use nbnTechDisplayExpr; got %d uses", got)
+	if strings.Contains(source, "COALESCE(c.connectivity_quality_score,0)") {
+		t.Fatal("suburb readers must publish the NBN score through nbnScoreDisplayExpr, not the raw column")
+	}
+	for _, expr := range []string{"` + nbnTechDisplayExpr + `", "` + nbnScoreDisplayExpr + `"} {
+		if got := strings.Count(source, expr); got != 2 {
+			t.Fatalf("ListStateSuburbs and GetSuburbProfile must both use %s; got %d uses", expr, got)
+		}
 	}
 }
 

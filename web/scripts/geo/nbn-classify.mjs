@@ -30,18 +30,29 @@ export function techAtPoint(lon, lat, { fixedLine, fixedWireless, satellite }) {
 }
 
 /**
- * Suburb-level result from per-point votes. The dominant technology is the
- * majority among points some footprint actually classified (ties break toward
- * the better tier, in TECHS order); unknown points abstain rather than vote.
- * A suburb where no point landed in any footprint has no technology — tech and
- * score are null, which the collector stores as NULL ("no source covers this"),
- * never as a guessed tier.
+ * Suburb-level result from per-point votes. A technology needs a strict
+ * majority of covered points, and footprints must cover at least half of all
+ * sampled points. Ties, pluralities and sparse coverage are unknown, including
+ * sparse Fixed Line hits: Bondi's 3 hits and 13 misses cannot establish a tier.
+ *
+ * Coarse Fixed Wireless and satellite footprints need an additional safeguard:
+ * the winning tier must cover at least half of ALL sampled points, with no
+ * Fixed Line hit present. A coarse grid can reach over unmapped fixed-line
+ * premises, so mixed evidence stays unknown. The former abstention rule let
+ * one hit and 11 misses label Rouse Hill Fixed Wireless.
+ *
+ * Unknown suburbs have neither a technology nor a quality score; the collector
+ * stores both as NULL.
  */
 export function classifySuburb(votes) {
-  let tech = null, best = 0;
-  for (const t of TECHS) {
-    const v = votes[t] ?? 0;
-    if (v > best) { best = v; tech = t; }
+  const n = (t) => votes[t] ?? 0;
+  const covered = TECHS.reduce((sum, t) => sum + n(t), 0);
+  const total = covered + n(UNKNOWN);
+  if (covered === 0 || covered * 2 < total) return { tech: null, score: null };
+
+  let tech = TECHS.find((t) => n(t) * 2 > covered) ?? null;
+  if (tech && tech !== "Fixed Line" && (n("Fixed Line") > 0 || n(tech) * 2 < total)) {
+    tech = null;
   }
   return { tech, score: tech ? SCORE[tech] : null };
 }

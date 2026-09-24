@@ -1,9 +1,10 @@
 // Join ABS SAL suburbs → dominant NBN access technology. NBN footprints cover
 // PREMISES areas, so a single suburb centroid often lands in a park/water gap;
 // instead we sample a grid of interior points per suburb and take the majority
-// technology among the points a footprint actually covers. NBN Coverage
+// technology among covered points, requiring at least 50% sample coverage.
+// Coarse tiers need stronger evidence (see nbn-classify.mjs). NBN Coverage
 // Footprints 2024, CC-BY-4.0. Outputs web/public/geo/insights/suburb-nbn.json
-//   { salCode: { tech, score } }   (tech/score null = no footprint covers it)
+//   { salCode: { tech, score } }   (tech/score null = insufficient evidence)
 //
 // A point outside every footprint is UNKNOWN, never Satellite — see
 // nbn-classify.mjs for why the old fallback labelled Bondi 'Satellite'. The

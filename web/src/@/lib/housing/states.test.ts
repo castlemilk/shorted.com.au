@@ -14,6 +14,22 @@ describe("suburb names", () => {
     expect(titleCaseName("SMITH-JONES")).toBe("Smith-Jones");
   });
 
+  // Federal members arrive as "Given SURNAME": the shouted word is fixed, the
+  // proper-cased ones are left alone.
+  test.each([
+    ["Fiona PHILLIPS", "Fiona Phillips"],
+    ["Clare O'NEIL", "Clare O'Neil"],
+    ["Emma McBRIDE", "Emma McBride"],
+    ["Michael McCORMACK", "Michael McCormack"],
+    ["Alice JORDAN-BAIRD", "Alice Jordan-Baird"],
+    ["Julie-Ann CAMPBELL", "Julie-Ann Campbell"],
+    ["Luke John GOSLING", "Luke John Gosling"],
+    ["Gabrielle de Vietri", "Gabrielle de Vietri"],
+    ["Hon Michael O'Brien", "Hon Michael O'Brien"],
+  ])("member %s → %s", (raw, shown) => {
+    expect(titleCaseName(raw)).toBe(shown);
+  });
+
   test("the qualifier splits off, keeping only its LGA part as a region", () => {
     expect(splitSalName("Paddington (Qld)")).toEqual({ place: "Paddington", region: null });
     expect(splitSalName("Richmond (Vic.)")).toEqual({ place: "Richmond", region: null });

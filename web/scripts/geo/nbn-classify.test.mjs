@@ -24,13 +24,52 @@ test("a suburb no footprint touched has no technology (NULL), never Satellite", 
   assert.deepEqual(classifySuburb({}), { tech: null, score: null });
 });
 
-test("unknown points abstain: a partly covered suburb takes its covered majority", () => {
-  // Bondi's real shape: a patchy fixed-line layer covers a few sample points.
-  assert.deepEqual(classifySuburb({ "Fixed Line": 3, [UNKNOWN]: 13 }), { tech: "Fixed Line", score: 90 });
-  assert.deepEqual(classifySuburb({ "Fixed Line": 2, "Fixed Wireless": 5, [UNKNOWN]: 9 }), { tech: "Fixed Wireless", score: 55 });
+test("every tier requires coverage on at least half of all sampled points", () => {
+  // Bondi's patchy fixed-line footprint is not enough to assert a suburb tier.
+  assert.deepEqual(classifySuburb({ "Fixed Line": 3, [UNKNOWN]: 13 }), { tech: null, score: null });
+  assert.deepEqual(classifySuburb({ "Fixed Line": 1, [UNKNOWN]: 11 }), { tech: null, score: null });
+  assert.deepEqual(classifySuburb({ "Fixed Line": 4, [UNKNOWN]: 5 }), { tech: null, score: null });
+  assert.deepEqual(classifySuburb({ "Fixed Line": 5, [UNKNOWN]: 5 }), { tech: "Fixed Line", score: 90 });
 });
 
-test("ties break toward the better tier", () => {
-  assert.equal(classifySuburb({ "Fixed Line": 4, "Fixed Wireless": 4 }).tech, "Fixed Line");
-  assert.equal(classifySuburb({ "Fixed Wireless": 2, Satellite: 2 }).tech, "Fixed Wireless");
+test("fixed line needs a strict majority of covered points, with adequate total coverage", () => {
+  assert.deepEqual(classifySuburb({ "Fixed Line": 3, "Fixed Wireless": 2, [UNKNOWN]: 5 }), { tech: "Fixed Line", score: 90 });
+  assert.deepEqual(classifySuburb({ "Fixed Line": 3, "Fixed Wireless": 2, [UNKNOWN]: 6 }), { tech: null, score: null });
+  // A plurality is insufficient even when every sample has coverage.
+  assert.deepEqual(classifySuburb({ "Fixed Line": 4, "Fixed Wireless": 3, Satellite: 2 }), { tech: null, score: null });
+});
+
+test("fixed wireless needs half of ALL sample points, misses included", () => {
+  // Rouse Hill (11,349 people): one coarse tower cell over one point of 12.
+  assert.deepEqual(classifySuburb({ "Fixed Wireless": 1, [UNKNOWN]: 11 }), { tech: null, score: null });
+  // Jordan Springs 0/3/13, Muswellbrook 0/4/6: a covered plurality is not enough.
+  assert.equal(classifySuburb({ "Fixed Wireless": 3, [UNKNOWN]: 13 }).tech, null);
+  assert.equal(classifySuburb({ "Fixed Wireless": 4, [UNKNOWN]: 6 }).tech, null);
+  // Genuinely wireless country: every point, or at least half of them.
+  assert.deepEqual(classifySuburb({ "Fixed Wireless": 14 }), { tech: "Fixed Wireless", score: 55 });
+  assert.equal(classifySuburb({ "Fixed Wireless": 6, [UNKNOWN]: 6 }).tech, "Fixed Wireless");
+});
+
+test("fixed line out-voted by a coarse tier is ambiguous, not wireless", () => {
+  // Pimpama 2/4/6, Wallan 3/6/7, Dubbo 1/7/3: fixed line is present, so the
+  // wireless grid over the rest is not evidence the premises are wireless.
+  assert.deepEqual(classifySuburb({ "Fixed Line": 2, "Fixed Wireless": 4, [UNKNOWN]: 6 }), { tech: null, score: null });
+  assert.equal(classifySuburb({ "Fixed Line": 1, "Fixed Wireless": 7, [UNKNOWN]: 3 }).tech, null);
+  assert.equal(classifySuburb({ "Fixed Line": 2, "Fixed Wireless": 5, [UNKNOWN]: 9 }).tech, null);
+});
+
+test("ties have no strict majority and publish neither a tier nor a quality score", () => {
+  assert.deepEqual(classifySuburb({ "Fixed Line": 4, "Fixed Wireless": 4 }), { tech: null, score: null });
+  assert.deepEqual(classifySuburb({ "Fixed Wireless": 2, Satellite: 2 }), { tech: null, score: null });
+  assert.deepEqual(classifySuburb({ "Fixed Line": 2, "Fixed Wireless": 2, Satellite: 2 }), { tech: null, score: null });
+});
+
+test("coarse tiers require half of all samples even if most covered points agree", () => {
+  assert.deepEqual(classifySuburb({ "Fixed Wireless": 3, Satellite: 2, [UNKNOWN]: 5 }), { tech: null, score: null });
+  assert.deepEqual(classifySuburb({ "Fixed Wireless": 5, Satellite: 2, [UNKNOWN]: 3 }), { tech: "Fixed Wireless", score: 55 });
+});
+
+test("satellite, like fixed wireless, needs half of all points", () => {
+  assert.equal(classifySuburb({ Satellite: 1, [UNKNOWN]: 9 }).tech, null);
+  assert.equal(classifySuburb({ Satellite: 5, [UNKNOWN]: 5 }).tech, "Satellite");
 });

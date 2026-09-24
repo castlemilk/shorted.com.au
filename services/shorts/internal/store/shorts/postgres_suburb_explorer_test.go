@@ -478,3 +478,57 @@ func TestSuburbProfileBaselines_ABSMediansAndStateCensusShares(t *testing.T) {
 	assert.Empty(t, norwood.CapitalRegionName)
 	assert.Nil(t, norwood.ABSMedianPeriod)
 }
+
+// An implausible NBN classification — Satellite on more than 1,000 residents,
+// Fixed Wireless on more than 5,000 — reads as no data on BOTH suburb readers,
+// and its quality score goes with it: a published score of 55 beside no
+// technology would still assert the tier. Plausible rows pass untouched.
+func TestNbnImplausibleTechWithholdsTechAndScore(t *testing.T) {
+	pool, cleanup := setupHousingTestDatabase(t)
+	defer cleanup()
+	setupSuburbExplorerSchema(t, pool)
+	s := &postgresStore{db: pool}
+	ctx := context.Background()
+
+	// Richmond 26,000 people: wireless is implausible. Crownland 1,200: wireless
+	// is plausible, satellite is not. Norwood 7,000: fixed line always passes.
+	_, err := pool.Exec(ctx, `
+		INSERT INTO suburb_connectivity (sal_code, dominant_nbn_tech, connectivity_quality_score) VALUES
+			($1, 'Fixed Wireless', 55), ($2, 'Fixed Wireless', 55), ($3, 'Fixed Line', 90)`,
+		salRichmond, salCrownland, salNorwood)
+	require.NoError(t, err)
+
+	type nbn struct {
+		tech  string
+		score float64
+	}
+	read := func() (list map[string]nbn, profile map[string]nbn) {
+		list, profile = map[string]nbn{}, map[string]nbn{}
+		for _, st := range []string{"VIC", "SA"} {
+			rows, err := s.ListStateSuburbs(st, "", 0)
+			require.NoError(t, err)
+			for _, r := range rows {
+				list[r.SALCode] = nbn{r.DominantNbnTech, r.ConnectivityQualityScore}
+			}
+		}
+		for _, sal := range []string{salRichmond, salCrownland, salNorwood} {
+			p, err := s.GetSuburbProfile(sal)
+			require.NoError(t, err)
+			profile[sal] = nbn{p.Summary.DominantNbnTech, p.Summary.ConnectivityQualityScore}
+		}
+		return list, profile
+	}
+
+	list, profile := read()
+	for name, got := range map[string]map[string]nbn{"ListStateSuburbs": list, "GetSuburbProfile": profile} {
+		assert.Equal(t, nbn{"", 0}, got[salRichmond], "%s: wireless on 26,000 people must read as no data, score included", name)
+		assert.Equal(t, nbn{"Fixed Wireless", 55}, got[salCrownland], "%s: wireless on 1,200 people is plausible", name)
+		assert.Equal(t, nbn{"Fixed Line", 90}, got[salNorwood], "%s: fixed line is never withheld", name)
+	}
+
+	_, err = pool.Exec(ctx, `UPDATE suburb_connectivity SET dominant_nbn_tech = 'Satellite', connectivity_quality_score = 20 WHERE sal_code = $1`, salCrownland)
+	require.NoError(t, err)
+	list, profile = read()
+	assert.Equal(t, nbn{"", 0}, list[salCrownland], "ListStateSuburbs: satellite on 1,200 people must read as no data, score included")
+	assert.Equal(t, nbn{"", 0}, profile[salCrownland], "GetSuburbProfile: satellite on 1,200 people must read as no data, score included")
+}

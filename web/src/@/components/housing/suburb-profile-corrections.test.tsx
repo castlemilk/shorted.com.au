@@ -75,6 +75,19 @@ describe("suburb name", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Glenroy$/);
     expect(subtitle()).toHaveTextContent(/^Albury · New South Wales$/);
   });
+
+  test("MP surnames are title-cased while the ABS place name is preserved", () => {
+    const p = profile({ salName: "McCrae", stateCode: "VIC" });
+    Object.assign(p.summary!, {
+      federalMember: "Fiona PHILLIPS", federalDivision: "Gilmore",
+      stateMember: "Gabrielle de Vietri", stateDistrict: "Richmond",
+    });
+    render(<SuburbProfile salCode="21524" profile={p} />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^McCrae$/);
+    expect(screen.getByText("Fiona Phillips")).toBeInTheDocument();
+    expect(screen.getByText("Gabrielle de Vietri")).toBeInTheDocument();
+    expect(screen.queryByText("Fiona PHILLIPS")).not.toBeInTheDocument();
+  });
 });
 
 describe("crime card", () => {
@@ -102,6 +115,16 @@ describe("crime card", () => {
 });
 
 describe("unpriced suburb", () => {
+  test.each([
+    ["NSW", "Mayfield (Newcastle - NSW)", 9_760, /we have no suburb median/],
+    ["VIC", "Tiny Creek", 120, /we have no suburb median/],
+    ["SA", "Mount Gambier", 25_591, /metropolitan Adelaide only/],
+  ] as const)("%s profile explains coverage without assuming thin sales", (stateCode, salName, population, reason) => {
+    render(<SuburbProfile salCode="10462" profile={profile({ stateCode, salName, population })} />);
+    expect(screen.getByText(reason)).toBeInTheDocument();
+    expect(screen.queryByText(/does not have them|rarely has them/)).not.toBeInTheDocument();
+  });
+
   test("says why there is no median, per state, and never 'yet'", () => {
     const { unmount } = render(<SuburbProfile salCode="32250" profile={profile({ salName: "Paddington (Qld)", stateCode: "QLD" })} />);
     expect(screen.getByText(/licensed brokers/)).toBeInTheDocument();

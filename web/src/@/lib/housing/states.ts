@@ -21,15 +21,14 @@ export const GCCSA_TO_STATE: Record<string, string> = {
 };
 
 /**
- * Title-case an ALL-CAPS place or member name: "MCMAHONS POINT" → "Mcmahons
- * Point", "O'CONNOR" → "O'Connor", "ST KILDA EAST" → "St Kilda East".
+ * Title-case the SHOUTED words of a name, word by word: "Fiona PHILLIPS" →
+ * "Fiona Phillips", "Emma McBRIDE" → "Emma McBride", "Clare O'NEIL" → "Clare
+ * O'Neil", "ST KILDA EAST" → "St Kilda East".
  *
- * Only for sources that deliver UPPERCASE (MP names and the like). ABS suburb
- * names are already proper-cased — render them as delivered, never through
- * this: lowercasing first is what turned "McCrae" into "Mccrae" and
- * "Paddington (Qld)" into "Paddington (qld)" on 2,290 profiles. Input that
- * already carries a lowercase letter is returned untouched for the same
- * reason, so a mixed-case name can never be mangled by a stray call.
+ * Federal members arrive as "Given SURNAME", so normalise per word. Preserve
+ * existing mixed case ("McCrae", "Julie-Ann", "de"), except for uppercase
+ * suffixes after Mc/Mac. ABS suburb names are rendered as delivered and do
+ * not pass through this helper.
  *
  * Use this instead of CSS `capitalize`. `capitalize` only touches the first
  * letter of each word — so it cannot handle the apostrophe and hyphen cases —
@@ -37,9 +36,14 @@ export const GCCSA_TO_STATE: Record<string, string> = {
  * anyone copying the text gets "mcmahons point".
  */
 export const titleCaseName = (n: string) =>
-  /[a-z]/.test(n)
-    ? n
-    : n.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_, p: string, c: string) => p + c.toUpperCase());
+  n.replace(/\S+/g, (word) => {
+    const mc = /^(Mac|Mc)([A-Z][A-Z'-]*[A-Z])$/.exec(word);
+    if (mc) return mc[1]! + titleCaseWord(mc[2]!);
+    return /^[A-Z][A-Z'-]*[A-Z]$/.test(word) ? titleCaseWord(word) : word;
+  });
+
+const titleCaseWord = (w: string) =>
+  w.toLowerCase().replace(/(^|['-])([a-z])/g, (_, p: string, c: string) => p + c.toUpperCase());
 
 /**
  * Split an ABS SAL name into the place and the disambiguating qualifier ABS

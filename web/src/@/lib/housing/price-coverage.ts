@@ -3,21 +3,34 @@
  * reason is a property of the state's data, not of the suburb. The profile used
  * to say "No median price series … yet" everywhere, which promised a series
  * that, for five states, is not coming (docs/feature/housing/data-sources.md).
+ *
+ * Missing data can reflect source coverage, sales thresholds or an unresolved
+ * suburb match. Population does not establish which reason applies.
  */
 
-/** Valuer-General suburb medians we ingest (NSW PSI, VIC VPSR, SA CKAN). */
-const VG_PRICED_STATES = new Set(["NSW", "VIC", "SA"]);
+/** Valuer-General suburb medians we ingest from whole-state feeds (NSW PSI, VIC VPSR). */
+const VG_PRICED_STATES = new Set(["NSW", "VIC"]);
 
 /** States that sell their sales records through licensed brokers. */
 const COMMERCIALLY_LICENSED_STATES = new Set(["QLD", "WA"]);
 
 export type PriceGap = { headline: string; detail: string };
 
-export function priceSeriesGap(stateCode: string, stateName: string, suburbName: string): PriceGap {
+export function priceSeriesGap(
+  stateCode: string,
+  stateName: string,
+  suburbName: string,
+): PriceGap {
+  if (stateCode === "SA") {
+    return {
+      headline: `No Valuer-General median for ${suburbName}.`,
+      detail: `South Australia's open Valuer-General suburb median feed covers metropolitan Adelaide only. We have no median for ${suburbName} from this feed.`,
+    };
+  }
   if (VG_PRICED_STATES.has(stateCode)) {
     return {
       headline: `No Valuer-General median for ${suburbName}.`,
-      detail: `${stateName}'s Valuer-General data is open, but a median needs enough settled house sales in one period, and ${suburbName} does not have them.`,
+      detail: `${stateName}'s Valuer-General sales data is open, but we have no suburb median for ${suburbName} from it.`,
     };
   }
   if (COMMERCIALLY_LICENSED_STATES.has(stateCode)) {

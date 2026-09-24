@@ -75,11 +75,20 @@ describe("NBN technology", () => {
     expect(nbn?.kind === "categorical" && nbn.category({ ...baseSuburb, dominantNbnTech: "Satellite", population: 10_411 })).toBeNull();
   });
 
-  test("genuinely remote satellite suburbs and every other technology pass through", () => {
+  test("a town classed Fixed Wireless is no data, on the map and the tile", () => {
+    // Rouse Hill (11,349) and Dubbo (43,516) read "Fixed Wireless" off the
+    // coarse tower grid; a town that size is not wireless-served.
+    expect(publishableNbnTech("Fixed Wireless", 11_349)).toBeNull();
+    expect(publishableNbnTech("FW", 43_516)).toBeNull();
+    expect(nbn?.kind === "categorical" && nbn.category({ ...baseSuburb, dominantNbnTech: "Fixed Wireless", population: 5_001 })).toBeNull();
+  });
+
+  test("genuinely remote satellite, rural wireless and fixed line pass through", () => {
     expect(publishableNbnTech("Satellite", 1_000)).toBe("Satellite");
     expect(publishableNbnTech("Satellite", 180)).toBe("Satellite");
     expect(publishableNbnTech("Fixed Line", 66_781)).toBe("Fixed Line");
     expect(publishableNbnTech("Fixed Wireless", 5_000)).toBe("Fixed Wireless");
+    expect(publishableNbnTech("Fixed Wireless", 1_200)).toBe("Fixed Wireless");
     expect(nbn?.kind === "categorical" && nbn.category({ ...baseSuburb, dominantNbnTech: "Fixed Line" })).toBe("Fixed Line");
   });
 
