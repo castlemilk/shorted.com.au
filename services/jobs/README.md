@@ -21,8 +21,6 @@ services/jobs/
   internal/jobs/announcements/`shorted announcements` (was services/asx-announcement-crawler)
   internal/jobs/discovery/    `shorted discovery`  (was services/asx-discovery)
   internal/jobs/economy/      `shorted economy`    (was services/economy-collector)
-  internal/jobs/houseprices/  `shorted house-prices -mode …` (21 modes)
-                              (was services/house-price-collector)
   internal/jobs/influence/    `shorted influence`  (was services/influence-collector)
   internal/jobs/marketdata/   `shorted market-data serve|sync|audit-gaps|historical-backfill`
                               (was services/market-data-sync)
@@ -49,7 +47,7 @@ services/jobs/
 | `announcements` | `services/asx-announcement-crawler` | yes — `shorted-announcements` (cutover 1; old scheduler paused) |
 | `discovery` | `services/asx-discovery` | yes — the EXISTING `asx-discovery` job now runs the `shorted-jobs-browser` image with args `["discovery"]` (cutover 3, in-place; no old scheduler to pause) |
 | `economy` | `services/economy-collector` | yes — `shorted-economy` (cutover 1; old scheduler paused) |
-| `house-prices` | `services/house-price-collector` | **not yet** — ported (Phase 2d), no Terraform change, no rig cutover; see below |
+| ~~`house-prices`~~ | `services/house-price-collector` | **retired 2026-09-24** — the port was never scheduled and was deleted; `services/house-price-collector` is the only copy. See "Phase 2d (house-prices) — retired" |
 | `influence` | `services/influence-collector` | no — laptop-only tool |
 | `market-data serve` | `services/market-data-sync` (default mode) | yes — the EXISTING `market-data-sync` Cloud Run SERVICE now runs the `shorted-jobs` image with args `["market-data","serve"]` (cutover 3, in-place revision swap; same URI/SA/scheduler) |
 | `market-data sync` | `services/market-data-sync -cli` | n/a — CLI mode; the deployed surface is `serve` (cutover 3) |
@@ -301,160 +299,26 @@ docker build -f services/jobs/Dockerfile.browser --secret id=github_token,env=GH
 ```
 
 Both images use `ENTRYPOINT ["/shorted"]`, so a Cloud Run Job passes the
-subcommand as args (`args = ["discovery"]`). `house-prices`' Cloud Run mode
-(`-mode official`) needs no browser and rides the standard image; its CDP crawl
-modes drive a host Chrome on the residential Macs and need no browser in the
-image at all (that is what the source service's `Dockerfile.crawl` encodes).
+subcommand as args (`args = ["discovery"]`).
 
-## Phase 2d port notes (house-prices)
+## Phase 2d (house-prices) — retired
 
-The biggest single port: `services/house-price-collector` (~23.4k LoC across 105
-Go files, 21 `-mode` values) → `shorted house-prices -mode <mode>`. **CODE ONLY**
-— no Terraform, no launchd/plist change, no schedule change, no deletion. The
-old service is untouched, still builds and still runs everywhere it runs today.
+`services/house-price-collector` was ported here as `shorted house-prices`
+(#358), code only: no Terraform, launchd or schedule change. The cutover never
+happened. The Cloud Run job (`terraform/modules/house-price-collector`), the
+residential-rig launchers (`services/house-price-collector/deploy/`, which exec
+`$HOME/bin/house-price-collector`) and every Taskfile task kept running the
+original service. Meanwhile the copy drifted: by 2026-09-23 it was 119 files
+against the collector's 138, `store.go` differed by 110 lines, and fixes (NSW VG,
+LGA, the MV refresh timeout) landed in one copy only. It was deleted on
+2026-09-24 rather than kept in sync.
 
-### Three deployment surfaces, one binary
-
-This service is unusual: it is deployed three different ways, and this slice
-changes NONE of them.
-
-| Surface | What it runs | Status after this PR |
-|---|---|---|
-| **Cloud Run Job** (`terraform/modules/house-price-collector`) | monthly `-mode official` | unchanged — still the old image/module |
-| **Residential Mac rigs** (`services/house-price-collector/deploy/*.sh` + `*.plist.template`) | `-mode agent\|enqueue\|listings\|crawl\|details\|property\|warmcheck\|freshness` against a **host** Chrome over CDP | unchanged — the launchers still exec `$HOME/bin/house-price-collector` |
-| **Local operator runs** | `-mode census\|electorates\|banners\|amenities\|lga\|connectivity\|funding\|council-financials\|crime\|backfill-address\|purge\|refresh` | unchanged |
-
-**The rig cutover is deliberately NOT in this PR.** Flipping
-`HOUSING_CRAWL_BIN` on a residential Mac has to be tested on a real rig against
-live REA/Domain (warm Chrome, Kasada clearance, launchd env, the exit-code
-branches) — that is its own step with its own verification, not something to
-bundle into a mechanical port. What this PR guarantees is that
-`shorted house-prices -mode X` is an **argument-wise drop-in**: same flag
-(`-mode`), same 21 values (+ the undocumented `abs` alias for `official`), same
-environment contract, same exit codes. The eventual cutover is one line per
-launcher (`BIN=…/shorted` + a leading `house-prices` argument), or simply
-`HOUSING_CRAWL_BIN='…/shorted house-prices'` if the launchers' quoting is
-adjusted to allow it.
-
-### The exit-code contract (the thing that shapes this port)
-
-Every other job in this binary has ONE failure code. house-prices has six, and
-the rig launchers branch on them:
-
-| Code | Meaning | Who branches on it |
-|---|---|---|
-| 0 | ok | all |
-| 3 | re-warm the crawl Chrome (Kasada/Akamai clearance expired) | `run-housing-crawl.sh` (notify + exit 3), `run-housing-delta.sh` / `run-housing-full.sh` (`case … in 3\|4)`), `run-housing-agent.sh` |
-| 4 | fetcher init failed — Chrome/CDP unusable (wedged tab / stale `SingletonLock`) | `run-housing-crawl.sh` hard-recovers (SIGKILL + clear lock + relaunch) — a plain relaunch loop would spin forever |
-| 5 | warmcheck says the REA session is cold (Kasada stub) | `run-housing-crawl.sh` re-warms, retries twice, then exits 5 |
-| 6 | crawl-freshness ALARM | `run-housing-delta.sh` / `run-housing-full.sh` propagate it |
-| 7 | agent infrastructure failed before any jobs completed | drain wrappers notify and preserve it; a failure after completed work remains 0 |
-
-The runner maps *every* error to exit 1, so this needed an explicit mechanism.
-Three options were considered:
-
-1. `os.Exit(n)` inside the job — **rejected**: it skips `defer pool.Close()`,
-   skips the runner's `[job] done … status=error` line, and puts a hard exit
-   inside a shared binary where any future job could inherit it.
-2. A house-prices-only wrapper in `cmd/shorted/main.go` — **rejected**: main
-   would have to know about one job's internals.
-3. **Chosen:** a small, documented runner extension.
-   `runner.ExitCodeError{Code, Err}` is an ordinary error that carries a code;
-   `runner.ExitCodeOf(err)` is the single error→status mapping (`nil`→0, plain
-   error→1, `ExitCodeError`→`Code`, and a zero `Code` degrades to 1 so a
-   "successful error" is not expressible). `main` calls
-   `os.Exit(runner.ExitCodeOf(err))`.
-
-Inside the job, the mode helpers (`runWarmCheck`, `runAgent`, `runDetails`,
-`runProperty`, `runFreshness`, and `runCrawl`/`runListings`' rewarm bools) still
-return their original `int`/`bool` — **byte-identical to the standalone
-code** — and only the dispatch converts, via `exitFor(mode, code)`. So the
-crawl stack's own circuit-breakers and codes were not touched at all.
-
-Cleanup, logging and the code all survive together:
-
-```
-$ DATABASE_URL=… CRAWL_CDP_URL=http://127.0.0.1:9 shorted house-prices -mode warmcheck
-[job] start name=shorted house-prices at=2026-07-26T06:00:32Z
-[warmcheck] fetcher init failed (connect over CDP to http://127.0.0.1:9: …) — Chrome unreachable
-[job] done name=shorted house-prices duration=499ms status=error error=-mode warmcheck: crawl fetcher init failed — Chrome/CDP unusable (exit 4)
-error: -mode warmcheck: crawl fetcher init failed — Chrome/CDP unusable (exit 4)
-$ echo $?
-4
-```
-
-Covered by `internal/runner/runner_test.go`
-(`TestExitCodeErrorSurvivesDispatch` — asserts the code survives dispatch, the
-deferred cleanup ran, and the `status=error` line was still emitted) and
-`internal/jobs/houseprices/job_test.go` (`TestExitForPreservesRigContract` —
-pins 3/4/5/6 to the modes the launchers branch on).
-
-### The crawl stack came across byte-faithful
-
-`crawl_*.go` (CDP fetcher, Kasada warmcheck, smart pagination, sweep-poison /
-broadening gates, the circuit breaker, brandbrain token auto-refresh,
-`CRAWL_TRACE`) is battle-hardened against live anti-bot systems. **Every copied
-file differs from its original in the `package` line and nothing else** — no
-timing, header, retry, jitter or cancellation change. (Verified mechanically:
-`diff <(tail -n +2 old) <(tail -n +2 new)` is empty for all 103 files;
-`job.go`/`revalidate.go` are the two intentional exceptions.) That includes
-leaving three files gofmt-unclean exactly as they are upstream
-(`crawl_cdp.go`, `crawl_details_extract_test.go`, `crawl_details_test.go`) — a
-reformat would have been a non-mechanical change to this code.
-
-`store.go` also came across verbatim, so the tuned pool posture is preserved:
-`QueryExecModeSimpleProtocol` + `MaxConns = 4` for the Supabase transaction
-pooler (6543). It deliberately does **not** go through `platform.Connect`, for
-the same reason `market-data` doesn't.
-
-### `revalidate.go` — this service originated `platform.PingRevalidate`
-
-The shared helper was lifted from this file, and it still covers the housing
-contract exactly: POST `?path=/price-drops,/housing&flush=housing` with the
-secret in `X-Revalidate-Secret`, no `tag`, `Content-Type: application/json`,
-non-2xx tolerated, 45s deadline on a
-**detached** context (so a run's `CRAWL_TIMEOUT_MIN` expiring between the write
-and the ping can't kill the cache bust for already-committed data). So the local
-copy became a thin adapter that fills a `platform.RevalidateRequest` — the ~10
-crawl-side `pingRevalidate("agent")` call sites stay byte-identical, and the
-ported `revalidate_test.go` still asserts the path/flush query and secret-header
-contract end-to-end. The only observable change is the log text (`cache bust
-ok` instead of `housing cache bust ok`) and that transport errors are
-URL-redacted before logging.
-
-### Deliberate divergences
-
-| Area | Standalone | Here | Why |
-|---|---|---|---|
-| entry point | `main()` → `os.Exit(run())`, `run() int` | `Run(ctx, args) error` + `runner.ExitCodeError` | see the exit-code section; deferred cleanup + the runner's end line now always run |
-| `log.Fatal` ×3 (missing `DATABASE_URL`, `db connect`, unknown `-mode`) | exits immediately | returned errors, message texts preserved | `defer pool.Close()` runs; the runner logs `status=error`; still exit 1 |
-| root context | `context.Background()` + `CRAWL_TIMEOUT_MIN` | the runner's **signal** context + the same `CRAWL_TIMEOUT_MIN` | SIGTERM now cancels a run (launchd/Cloud Run stop). The timeout value, the per-mode defaults (240 min for agent/listings/crawl/details/property/crime, 15 otherwise) and every crawl-internal deadline are unchanged; the detached finalizers (`refresh`, the queue submit, `pingRevalidate`) still ignore it by design |
-| positional args | `flag.Parse()` left them in `flag.Args()`, ignored — `house-price-collector official` silently ran the DEFAULT `-mode all` | rejected with `unexpected argument "official"` | `all` runs a full ABS/RBA ingest; a typo'd invocation should not do that |
-| `-dry-run` | no such flag | not declared → a global `shorted -dry-run house-prices …` is refused | the per-mode dry-runs are env-driven (`CRAWL_DRY_RUN`, `PURGE_DRY_RUN`, `CRIME_DRY_RUN`, …, most defaulting ON) and unchanged; the runner must not imply a dry run it can't deliver |
-| `pingRevalidate` | local implementation | `platform.PingRevalidate` adapter | same wire contract; adds secret redaction, changes one log string |
-| log flags | package default (`LstdFlags`) | `LstdFlags\|Lmsgprefix` (set by `cmd/shorted/main.go`) | shared with every other job; no prefix is set, so line output is unchanged in practice |
-| `-mode` help text | inline string | `modeList` const, asserted against the dispatch switch by `TestModeListCoversEveryDispatchCase` | a mode added without updating the help (or dropped from the switch) now fails a test rather than a rig |
-
-Everything else — all 21 modes, the mode→helper mapping, the per-mode timeout
-table, `refresh`'s detached `finalizeTimeout` + `linkSuburbSalCodes` +
-`refreshHousingMV` order, the `official` job list and its per-source
-`updateRun` error handling, the `abs` alias — is unchanged.
-
-### Not ported
-
-- **`Dockerfile` / `Dockerfile.crawl`** from the source service. The Cloud Run
-  Job's `-mode official` needs no browser and would ride the standard
-  `services/jobs/Dockerfile`; `Dockerfile.crawl` exists precisely because the
-  crawl modes ship **without** Chromium and drive a host Chrome over CDP, which
-  is a rig concern, not an image concern. Both are decisions for the cutover PR.
-- **`deploy/`** (6 shell launchers + 5 launchd plist templates + a 22 KB
-  runbook). Untouched on purpose — see "the rig cutover is not in this PR".
-
-### Tests
-
-All 316 tests came across (every one of them env-gated where it needs a DB,
-a live CDP Chrome or real ABS/BOCSAR files, so `go test ./...` stays offline),
-plus 9 new dispatch/exit-code tests here and 3 in `internal/runner`.
+What it left behind is still live and still tested: the `runner.ExitCodeError`
+/ `runner.ExitCodeOf` extension (see "Conventions for new jobs" §5) and
+`TestExitCodeErrorSurvivesDispatch` in `internal/runner/runner_test.go`. If the
+collector ever moves into this binary, port it fresh from
+`services/house-price-collector` and cut the rig over in the same change; its
+launchers branch on exit codes 3/4/5/6/7 (see that service's `deploy/README.md`).
 
 ## Phase 3 port notes (report-extract / director-trades)
 
@@ -734,8 +598,9 @@ procedure: `internal/jobs/shortdatasync/README.md`.
    scheduler) branches on specific codes, return a `*runner.ExitCodeError`
    instead of calling `os.Exit` — `main` maps it through `runner.ExitCodeOf`.
    Document the codes at the job, and keep the job's own helpers returning
-   whatever they returned before (convert once, at the dispatch). Today only
-   `house-prices` needs this (3/4/5/6/7 for the residential-rig launchers).
+   whatever they returned before (convert once, at the dispatch). No job
+   registered today returns one; it was built for the retired `house-prices`
+   port, whose residential-rig launchers branch on 3/4/5/6/7.
 6. Register it in `cmd/shorted/main.go`.
 
 ## Building the image

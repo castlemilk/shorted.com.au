@@ -23,14 +23,15 @@ startup log before believing a run persisted. Official + suburb modes have no
 dry-run and write every run. Crawl modes need a warm host Chrome on
 `CRAWL_CDP_URL` and a residential IP — they do not work off a rig.
 
-**Two copies of the collector, and CI tests the wrong one.**
-`services/house-price-collector` (110 `.go` files) ships;
-`services/jobs/internal/jobs/houseprices` (108) is the consolidation fork behind
-`shorted house-prices`, in no Terraform environment, and already drifted.
-`run-tests` runs `cd services/jobs && go test ./...` plus the integration suite —
-**nothing runs `go test ./...` in the `services` module**, so the deployed
-collector's tests are local-only. It is also `if: github.event_name !=
-'pull_request'`: it gates the deploy, not the PR.
+**One collector.** `services/house-price-collector` is the only copy: the Cloud
+Run job, the rig launchers and every Taskfile task run it. The
+`services/jobs` port (`shorted house-prices`) was never scheduled, drifted, and
+was deleted on 2026-09-24; do not resurrect it without cutting the rig over in
+the same change (`services/jobs/README.md`). Its tests run on pull requests in
+`terraform-deploy.yml`'s `housing-contract-tests` job
+(`go test ./house-price-collector` in `services`). `run-tests` still runs only
+`cd services/jobs && go test ./...` plus the integration suite, and is
+`if: github.event_name != 'pull_request'`: it gates the deploy, not the PR.
 
 ## Prod
 
@@ -41,9 +42,16 @@ collector's tests are local-only. It is also `if: github.event_name !=
 `add_state_exposure`, the economy migration; housing's rollups were authored as
 000083 and renumbered to `000086` — don't read it as coverage.)
 
-Apply housing DDL **by hand, before the merge**, via the **session pooler
-(5432)** — not the txn pooler 6543 — with `PGOPTIONS="-c statement_timeout=0"`,
-so a `REFRESH MATERIALIZED VIEW CONCURRENTLY` inside the migration can finish.
+Apply housing DDL **by hand, before the merge**, with
+`task db:prod:apply FILE=services/migrations/<file>.up.sql CONFIRM=prod`. It uses
+the **session pooler (5432)** — never the txn pooler 6543 — and runs the file in
+one transaction after `SET LOCAL statement_timeout = 0`, so a
+`REFRESH MATERIALIZED VIEW CONCURRENTLY` inside the migration can finish; an error
+rolls the whole file back. **Do not use `PGOPTIONS="-c statement_timeout=0"`**:
+Supavisor drops startup options, so that ran every migration under the role's
+2-minute default (measured 2026-09-23). A file Postgres cannot run in a
+transaction (`CREATE INDEX CONCURRENTLY`, `VACUUM`) falls back to a session-level
+SET with a WARNING and an explicit `RESET ALL` (`scripts/prod-psql.sh`).
 URL in `services/.env`. **Prod `schema_migrations` lies**: the same step
 force-writes one row, version 75, while prod carries objects from
 000086/000090/000092. Never `make migrate-up` against prod.
@@ -116,18 +124,25 @@ status code 3 / INVALID_ARGUMENT, so the schedule never ran once between
 
 `refresh_housing_materialized_views()` is decoupled from the shorts
 `refresh_all_materialized_views()`; the collector calls it after every run over
-the **txn pooler** (6543, `QueryExecModeSimpleProtocol`, `MaxConns=4`) with no
-session `statement_timeout` override. By hand, use the session pooler:
+the **txn pooler** (6543, `QueryExecModeSimpleProtocol`, `MaxConns=4`), prefixed
+with `SET LOCAL statement_timeout = 0` in the same implicit transaction
+(`refreshHousingMV`, `store.go`). By hand:
 
 ```bash
-PGOPTIONS="-c statement_timeout=0" psql "$SESSION_POOLER_URL" \
-  -c "SELECT refresh_housing_materialized_views();"
+task db:prod:refresh WHICH=housing CONFIRM=prod
 ```
 
-That is also the workaround for the known-open guard gap — 000092's
-`EXCEPTION WHEN OTHERS` does not catch the `query_canceled` a `statement_timeout`
-raises, so one timed-out MV starves every MV after it
-([data-model.md](data-model.md)). Fix in flight.
+That runs on the session pooler, in one transaction, after
+`SET LOCAL statement_timeout = 0`. The function (000107) catches a failed view,
+RAISEs `WARNING 'Skipping mv_…'` and returns normally, so psql alone exits 0 with
+a view left stale; the task exits 1 on any `Skipping` line. The old recipe,
+`PGOPTIONS="-c statement_timeout=0" psql …`, ran under the 2-minute role default
+because Supavisor drops startup options, and a view that hit it was skipped
+silently. The freshness sentinel's `MV_REFRESH_AGE` check (72h, from
+`housing_mv_refresh`) is the backstop.
+
+For a read-only look at prod, use `task db:prod:psql -- -At -c "SQL"`: one
+`BEGIN READ ONLY; SET LOCAL statement_timeout = '60s'; …; ROLLBACK`.
 
 ## Restarting the crawl after a silence
 

@@ -199,8 +199,9 @@ func (c *collector) runCorrelations(ctx context.Context) error {
 }
 
 // exitCodeDegraded is the all-mode PARTIAL-failure exit code (see
-// allModesOutcome). Distinct from every code `shorted house-prices` uses, so a
-// number is never ambiguous across the binary.
+// allModesOutcome). Distinct from codes 3-7, the residential-rig contract of
+// the retired `shorted house-prices` port (still used by
+// services/house-price-collector), so a number is never ambiguous.
 const exitCodeDegraded = 10
 
 // runAll walks allJobModes, tallying failures rather than stopping: one drifted

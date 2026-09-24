@@ -32,9 +32,59 @@ test("housing freshness workflow enforces the read-only production sentinel cont
   assert.match(workflow, /permissions:\s*\n\s+contents:\s*read/);
   assert.match(workflow, /DATABASE_URL:\s*\$\{\{\s*secrets\.DATABASE_URL_PROD\s*\}\}/);
 
-  assert.match(workflow, /default_transaction_read_only=on/);
+  // The read-only guard is the transaction itself. It used to be
+  // PGOPTIONS="-c default_transaction_read_only=on", which Supabase's pooler
+  // drops, so the session read back `off` (measured 2026-09-23). A guard must
+  // live in the SQL: BEGIN READ ONLY, SET LOCAL, and a check that raises
+  // before the query runs.
+  assert.doesNotMatch(workflow, /PGOPTIONS\s*[:=]\s*["']?-c/, "PGOPTIONS is dropped by the pooler; it guards nothing");
   assert.match(workflow, /--set=ON_ERROR_STOP=1/);
   assert.match(workflow, /\bWITH\b[\s\S]*\bSELECT\b/);
+  const guardedSql = workflow.match(/<<'SQL'\n([\s\S]*?)\n[ \t]*SQL$/m)?.[1] ?? "";
+  assert.match(
+    guardedSql,
+    /^\s*BEGIN READ ONLY;\s*\n\s*SET LOCAL statement_timeout = '60s';\s*\n\s*DO \$guard\$[\s\S]*?current_setting\('transaction_read_only'\) <> 'on'[\s\S]*?RAISE EXCEPTION[\s\S]*?\$guard\$;\s*\n\s*WITH /,
+    "the query must open with BEGIN READ ONLY, SET LOCAL statement_timeout and a raising guard, in that order",
+  );
+  assert.match(guardedSql, /ROLLBACK;\s*$/, "the transaction must be closed without keeping anything");
+  assert.doesNotMatch(guardedSql, /^\s*(COMMIT|END)\s*;/m, "nothing may end the read-only transaction early");
+
+  // The sentinel is the alarm for a dead rig, so it must not run on the rig.
+  // The self-hosted Cuttlefish runners are containers on the rig laptop; when
+  // the rig went down they went down too and the sentinel never ran
+  // (2026-09-21/22 cancelled in the queue).
+  const freshnessJob = workflow.slice(workflow.indexOf("\n  freshness:\n"));
+  assert.match(freshnessJob, /^ {4}runs-on:\s*ubuntu-latest\s*$/m, "the sentinel must run on a GitHub-hosted runner");
+  assert.doesNotMatch(freshnessJob, /runs-on:.*self-hosted/, "the sentinel must not share the rig's failure domain");
+  assert.match(freshnessJob, /docker run --rm -i postgres:15-alpine/, "psql comes from a pinned image, not the runner's");
+
+  // MV refresh age. housing_mv_refresh (000124) may not exist yet, and a query
+  // that names a missing table fails at parse time and takes every other check
+  // with it, so it is read dynamically, and absence falls back to the newest
+  // event (the collector refreshes after every crawl write).
+  assert.match(
+    workflow,
+    /mv_refresh\s+AS\s*\([\s\S]*?to_regclass\('public\.housing_mv_refresh'\)\s+IS\s+NULL\s+THEN\s+ARRAY\[\]::xml\[\][\s\S]*?query_to_xml\(\s*'SELECT mv_name, refreshed_at FROM public\.housing_mv_refresh'/,
+    "housing_mv_refresh must be read only when to_regclass finds it",
+  );
+  assert.doesNotMatch(
+    guardedSql.replace(/'[^']*'/g, "''"),
+    /\bFROM\s+housing_mv_refresh\b/i,
+    "a static reference to housing_mv_refresh would fail the whole query where 000124 is not applied",
+  );
+  assert.match(
+    workflow,
+    /'MV_REFRESH_AGE'[\s\S]*?FROM\s+mv_refresh\s+AS\s+m\s+WHERE\s+m\.refreshed_at\s*<\s*now\(\)\s*-\s*interval\s*'72 hours'/i,
+    "a view not refreshed within 72h must be reported",
+  );
+  assert.match(
+    workflow,
+    /'MV_REFRESH_AGE'\s*,\s*'property_price_events \(fallback\)'[\s\S]*?FROM\s+event_maximum\s+AS\s+e\s+WHERE\s+NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+mv_refresh\s*\)[\s\S]*?max_observed_at\s*<\s*now\(\)\s*-\s*interval\s*'72 hours'/i,
+    "without housing_mv_refresh, MV age must fall back to max(observed_at)",
+  );
+  // The INFO row is split off before a report decides pass/fail.
+  assert.match(workflow, /grep \$'\^INFO\\t' "\$raw_file" >"\$info_file"/);
+  assert.match(workflow, /grep -v \$'\^INFO\\t' "\$raw_file" >"\$report_file"/);
 
   // Scope the mutation check to the SQL heredoc, not the whole YAML. The rule is
   // "the freshness QUERY is read-only" — asserting it over the entire file also
@@ -132,7 +182,7 @@ test("housing freshness workflow enforces the read-only production sentinel cont
   );
   assert.match(
     workflow,
-    /Thresholds:[^\n]*72h[^\n]*132h[^\n]*30h/i,
+    /Thresholds:[^\n]*72h[^\n]*MV refresh age \*\*72h\*\*[^\n]*132h[^\n]*30h/i,
     "the step summary must state every threshold it enforces",
   );
 
@@ -190,10 +240,10 @@ test("terraform deploy workflow gates housing contracts on open pull requests", 
     job,
     /working-directory:\s*services\s+run:\s*GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test \.\/house-price-collector/,
   );
-  assert.match(
-    job,
-    /working-directory:\s*services\/jobs\s+run:\s*GOWORK=off GOPRIVATE='github\.com\/skunkworq\/\*' go test \.\/internal\/jobs\/houseprices\/\.\.\./,
-  );
+  // The services/jobs houseprices mirror was retired (nothing scheduled it; the
+  // rig and the Cloud Run job both run house-price-collector). A test step for
+  // it would point at a package that no longer exists.
+  assert.doesNotMatch(job, /internal\/jobs\/houseprices/);
   assert.match(job, /bash services\/house-price-collector\/deploy\/housing-lifecycle-exit\.test\.sh/);
   assert.match(
     job,

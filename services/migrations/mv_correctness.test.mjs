@@ -150,11 +150,10 @@ func later(ctx context.Context, pool *pgxpool.Pool) error {
   );
 });
 
-test("both housing collectors disable caller-side timeout transaction-locally before refreshing", async (t) => {
-  for (const path of [
-    "../house-price-collector/store.go",
-    "../jobs/internal/jobs/houseprices/store.go",
-  ]) {
+// The services/jobs houseprices port was retired on 2026-09-24; the collector
+// is the only copy left.
+test("the housing collector disables caller-side timeout transaction-locally before refreshing", async (t) => {
+  for (const path of ["../house-price-collector/store.go"]) {
     await t.test(path, () => {
       const store = readFileSync(new URL(path, import.meta.url), "utf8");
       const command = refreshHousingMVCommand(store, path);
