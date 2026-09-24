@@ -54,8 +54,8 @@ export function splitSalName(name: string): { place: string; region: string | nu
   const m = /^(.*\S)\s*\(([^()]+)\)$/.exec(name.trim());
   if (!m) return { place: name.trim(), region: null };
   const parts = m[2]!.split(" - ").map((p) => p.trim());
-  const region = parts.length > 1 ? parts.slice(0, -1).join(" - ") : null;
-  return { place: m[1]!, region: region || null };
+  const region = parts.length > 1 ? parts.slice(0, -1).join(" - ") : "";
+  return { place: m[1]!, region: region === "" ? null : region };
 }
 
 /** Canonical suburb slug (kebab name + postcode), used in every suburb URL. */
