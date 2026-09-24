@@ -18,6 +18,10 @@ import (
 type officialJob struct {
 	name string
 	fn   func(context.Context) ([]Observation, error)
+	// replace, when set, is asked after fn succeeds which slice the run is
+	// authoritative for. A non-nil scope makes the write an upsert PLUS a prune
+	// of that slice's unemitted rows, in one transaction (see replaceScope).
+	replace func() *replaceScope
 }
 
 type officialJobIO struct {
@@ -25,7 +29,10 @@ type officialJobIO struct {
 	loadLastPeriod     func(context.Context, string) (*time.Time, error)
 	upsertRegions      func(context.Context, []Observation) error
 	upsertObservations func(context.Context, []Observation) (int, error)
-	updateRun          func(context.Context, string, *time.Time, int, string, string) error
+	// replaceObservations is the authoritative write: upsert obs and prune the
+	// scope's unemitted rows atomically. Used only when job.replace yields a scope.
+	replaceObservations func(context.Context, []Observation, replaceScope) (int, int64, error)
+	updateRun           func(context.Context, string, *time.Time, int, string, string) error
 }
 
 func main() {
@@ -598,21 +605,21 @@ func refresh(_ context.Context, pool *pgxpool.Pool) error {
 // residential rig, which invokes the dedicated -mode vg-nsw path below.
 func scheduledOfficialJobs() []officialJob {
 	return []officialJob{
-		{"abs_res_dwell_st", ingestRESDWELLST},
-		{"abs_res_dwell", ingestRESDWELL},
-		{"abs_rppi", ingestRPPI},
-		{"abs_lend_housing", ingestLENDHOUSING},
-		{"abs_derived_index", ingestDerivedPriceIndex},
-		{"rba", ingestRBADebtToIncome},
-		{"rba_f6_rates", ingestRBAMortgageRates},
-		{"rba_cash_rate", ingestRBACashRate},
-		{"rba_housing_credit", ingestRBAHousingCredit},
-		{"rba_balance_sheet", ingestRBAHouseholdBalanceSheet},
-		{"abs_wpi", ingestWPI},
-		{"abs_cpi_rents", ingestCPIRents},
-		{"abs_price_to_income", ingestPriceToIncome},
-		{"vg_sa", ingestSAMetroMedians},
-		{"vg_vic", ingestVICSuburbMedians},
+		{name: "abs_res_dwell_st", fn: ingestRESDWELLST},
+		{name: "abs_res_dwell", fn: ingestRESDWELL},
+		{name: "abs_rppi", fn: ingestRPPI},
+		{name: "abs_lend_housing", fn: ingestLENDHOUSING},
+		{name: "abs_derived_index", fn: ingestDerivedPriceIndex},
+		{name: "rba", fn: ingestRBADebtToIncome},
+		{name: "rba_f6_rates", fn: ingestRBAMortgageRates},
+		{name: "rba_cash_rate", fn: ingestRBACashRate},
+		{name: "rba_housing_credit", fn: ingestRBAHousingCredit},
+		{name: "rba_balance_sheet", fn: ingestRBAHouseholdBalanceSheet},
+		{name: "abs_wpi", fn: ingestWPI},
+		{name: "abs_cpi_rents", fn: ingestCPIRents},
+		{name: "abs_price_to_income", fn: ingestPriceToIncome},
+		{name: "vg_sa", fn: ingestSAMetroMedians},
+		{name: "vg_vic", fn: ingestVICSuburbMedians},
 	}
 }
 
@@ -661,6 +668,9 @@ func runOfficialJob(ctx context.Context, pool *pgxpool.Pool, job officialJob) bo
 		upsertObservations: func(ctx context.Context, obs []Observation) (int, error) {
 			return upsertObservations(ctx, pool, obs)
 		},
+		replaceObservations: func(ctx context.Context, obs []Observation, scope replaceScope) (int, int64, error) {
+			return replaceObservations(ctx, pool, obs, scope)
+		},
 		updateRun: func(ctx context.Context, source string, lastPeriod *time.Time, rows int, status, detail string) error {
 			return updateRun(ctx, pool, source, lastPeriod, rows, status, detail)
 		},
@@ -707,11 +717,31 @@ func runOfficialJobWith(ctx context.Context, job officialJob, io officialJobIO) 
 		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", err.Error())
 		return false
 	}
-	n, err := io.upsertObservations(ctx, obs)
+	var scope *replaceScope
+	if job.replace != nil {
+		scope = job.replace()
+	}
+	var (
+		n      int
+		pruned int64
+	)
+	if scope != nil {
+		n, pruned, err = io.replaceObservations(ctx, obs, *scope)
+	} else {
+		n, err = io.upsertObservations(ctx, obs)
+	}
 	if err != nil {
+		// A replace is one transaction: on error nothing was written, so the
+		// recorded row count is 0 rather than the rolled-back batch's.
+		if scope != nil {
+			n = 0
+		}
 		log.Printf("[%s] fact upsert error after %d: %v", job.name, n, err)
 		_ = io.updateRun(ctx, job.name, persistedPeriod, n, "error", err.Error())
 		return false
+	}
+	if scope != nil {
+		log.Printf("[%s] pruned %d unemitted row(s) across authoritative years %v", job.name, pruned, scope.Years)
 	}
 	if err := io.updateRun(ctx, job.name, last, n, "ok", ""); err != nil {
 		log.Printf("[%s] persist successful run cursor: %v", job.name, err)
@@ -739,17 +769,17 @@ func runNSWVGRig(ingest func() bool, assertFreshness func() int, refreshViews fu
 // source: ingest it, assert its own freshness policy, refresh the views, and
 // return a non-zero exit code if either the ingest or the freshness gate failed
 // — so launchd cannot report a silent success.
-func runVGRig(ctx context.Context, pool *pgxpool.Pool, source string, ingest func(context.Context) ([]Observation, error)) int {
+func runVGRig(ctx context.Context, pool *pgxpool.Pool, job officialJob) int {
 	var policies []vgFreshnessPolicy
 	for _, policy := range vgFreshnessPolicies {
-		if policy.source == source {
+		if policy.source == job.name {
 			policies = append(policies, policy)
 		}
 	}
 	var refreshErr error
 	exitCode := runNSWVGRig(
 		func() bool {
-			return runOfficialJob(ctx, pool, officialJob{name: source, fn: ingest})
+			return runOfficialJob(ctx, pool, job)
 		},
 		func() int {
 			return assertOfficialVGFreshness(ctx, pool, policies)
@@ -765,7 +795,7 @@ func runVGRig(ctx context.Context, pool *pgxpool.Pool, source string, ingest fun
 }
 
 func runNSWVG(ctx context.Context, pool *pgxpool.Pool) int {
-	return runVGRig(ctx, pool, nswSource, ingestNSWSuburbMedians)
+	return runVGRig(ctx, pool, newNSWVGJob())
 }
 
 // runVICVG is the VIC counterpart. land.vic.gov.au is Cloudflare-challenged from
@@ -774,7 +804,7 @@ func runNSWVG(ctx context.Context, pool *pgxpool.Pool) int {
 // so, like NSW, it needs a residential rig. Measured from one: listing page
 // 149ms, workbook 63ms, 8,739 suburb-year observations parsed in 275ms.
 func runVICVG(ctx context.Context, pool *pgxpool.Pool) int {
-	return runVGRig(ctx, pool, vicSource, ingestVICSuburbMedians)
+	return runVGRig(ctx, pool, officialJob{name: vicSource, fn: ingestVICSuburbMedians})
 }
 
 func boundedOfficialMaxFailures(total, configured int) int {
