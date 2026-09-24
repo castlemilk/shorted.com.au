@@ -1,7 +1,9 @@
 import { create } from "@bufbuild/protobuf";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import {
+  ComparisonBaselinesSchema,
   GetSuburbProfileResponseSchema,
+  StateCensusAveragesSchema,
   SuburbAmenitiesSchema,
   SuburbCrimeSchema,
   SuburbCrimeStatSchema,
@@ -108,5 +110,47 @@ describe("unpriced suburb", () => {
 
     render(<SuburbProfile salCode="60001" profile={profile({ salName: "Hobart", stateCode: "TAS" })} />);
     expect(screen.getByText(/no open Valuer-General sales feed/)).toBeInTheDocument();
+  });
+});
+
+describe("comparison baselines", () => {
+  const priced = (baselines: Parameters<typeof create<typeof ComparisonBaselinesSchema>>[1]) => {
+    const p = profile({});
+    p.summary!.latestMedianPrice = 3_400_000;
+    p.summary!.yoyPct = 4.1;
+    p.summary!.regionCode = "SUBURB:NSW-BONDI";
+    p.demographics!.medianWeeklyHhdIncome = 2_600;
+    p.baselines = create(ComparisonBaselinesSchema, baselines);
+    return p;
+  };
+
+  test("price references are the ABS capital and rest-of-state medians, never an 'AU' average", () => {
+    render(<SuburbProfile salCode="10462" profile={priced({
+      capitalMedianPrice: 1_485_000, capitalRegionName: "Greater Sydney", capitalRegionCode: "1GSYD",
+      restOfStateMedianPrice: 825_000, restOfStateRegionName: "Rest of NSW", absMedianPeriod: "2026-03-31",
+      stateMedianWeeklyHhdIncome: 1_583, nationalMedianWeeklyHhdIncome: 1_540,
+    })} />);
+    const bar = screen.getByText("Median house price", { selector: "span" }).closest("div")!.parentElement!;
+    expect(bar).toHaveTextContent("vs Greater Sydney");
+    expect(bar).toHaveTextContent("vs Rest of NSW");
+    expect(bar).not.toHaveTextContent(/vs AU\b/);
+    expect(within(bar).getByRole("link", { name: /Greater Sydney/ })).toHaveAttribute("href", "/housing/capitals/greater-sydney");
+    expect(screen.getByText(/ABS median established-house transfer prices for the Mar 2026 quarter/)).toBeInTheDocument();
+    expect(screen.queryByText(/average of the latest suburb medians/)).not.toBeInTheDocument();
+  });
+
+  test("income references are named as the median suburb", () => {
+    render(<SuburbProfile salCode="10462" profile={priced({ stateMedianWeeklyHhdIncome: 1_583, nationalMedianWeeklyHhdIncome: 1_540 })} />);
+    expect(screen.getByRole("link", { name: /NSW median suburb/ })).toBeInTheDocument();
+    expect(screen.getByText(/AU median suburb/)).toBeInTheDocument();
+  });
+
+  test("the household cards are mounted from the same response", () => {
+    const p = priced({ stateCensus: create(StateCensusAveragesSchema, { pctRented: 32.7, pctOwnedOutright: 31.4, pctOwnedMortgage: 32.6 }) });
+    Object.assign(p.demographics!, { dwellingCount: 4_921, pctOwnedOutright: 17, pctOwnedMortgage: 18, pctRented: 61, unemploymentRate: 3.2 });
+    render(<SuburbProfile salCode="10462" profile={p} />);
+    expect(screen.getByRole("heading", { name: /Housing stock/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Who lives here/ })).toBeInTheDocument();
+    expect(screen.getByText(/NSW: 31% owned outright/)).toBeInTheDocument();
   });
 });

@@ -44,11 +44,13 @@ import { SuburbLocatorMap } from "./suburb-locator-map-loader";
 import { SuburbNearbyList } from "./suburb-nearby-list";
 import { SuburbScoreBand } from "./suburb-score-band";
 import { SuburbHazardCard } from "./suburb-hazard-card";
+import { SuburbHousingStockCard, SuburbWhoLivesHereCard } from "./suburb-household-card";
 import { RecentPriceDrops } from "./suburb-recent-price-drops-loader";
 import { STATE_NAMES, splitSalName, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
 import { crimeRankScale, publishableNbnTech } from "@/lib/housing/highlight-metrics";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { priceSeriesGap } from "@/lib/housing/price-coverage";
+import { CAPITALS } from "@/lib/housing/capitals";
 import { ordinal, type SuburbContext } from "@/lib/housing/suburb-stats";
 import { HousingIcon, type HousingIconName } from "./housing-icon";
 
@@ -107,8 +109,25 @@ export function SuburbProfile({
   const priceGap = priceSeriesGap(st, stateName, s.salName);
   const a = s.amenities;
 
-  const pctVs = (base?: number) => (priced && base && base > 0)
-    ? Math.round((s.latestMedianPrice / base - 1) * 100) : null;
+  // Price references: ABS established-house medians for the state's capital and
+  // the rest of the state. There is no open national median house price, so no
+  // "AU" price tick (the old one averaged NSW, VIC and SA suburbs).
+  const capitalSlug = CAPITALS.find((c) => c.regionCode === b?.capitalRegionCode)?.slug;
+  const priceRefs: CompareRef[] = [];
+  if (b?.capitalMedianPrice) {
+    const short = b.capitalRegionName.replace(/^Greater /, "");
+    priceRefs.push({
+      tick: short.length > 12 ? st : short, label: b.capitalRegionName, value: b.capitalMedianPrice,
+      href: capitalSlug ? `/housing/capitals/${capitalSlug}` : undefined,
+    });
+  }
+  if (b?.restOfStateMedianPrice) {
+    priceRefs.push({ tick: "Rest of state", label: b.restOfStateRegionName, value: b.restOfStateMedianPrice, dashed: true });
+  }
+  const incomeRefs: CompareRef[] = [
+    { tick: st, label: `${st} median suburb`, value: b?.stateMedianWeeklyHhdIncome ?? 0, href: st ? `/housing/${stateSlug(st)}` : undefined },
+    { tick: "AU", label: "AU median suburb", value: b?.nationalMedianWeeklyHhdIncome ?? 0, href: "/housing", dashed: true },
+  ];
 
   const repaymentsHref = priced
     ? `/housing/calculators?price=${Math.round(s.latestMedianPrice)}${st ? `&state=${st}` : ""}`
@@ -119,10 +138,9 @@ export function SuburbProfile({
       ? { text: `${value >= base ? "▲" : "▼"} ${Math.abs(Math.round((value / base - 1) * 100))}% vs ${st}`, positive: value >= base }
       : undefined;
 
-  // No `dwelling_count` tile: the column is NULL for every suburb in the corpus
-  // (see crawl_targets.go), and housing-link-network.test.ts pins it out.
-  // No "Born overseas" either — CultureCard owns the cultural figures, and it was
-  // appearing in both.
+  // Dwellings, tenure and the Census household mix live in the Housing stock and
+  // Who lives here cards below. No "Born overseas" here either — CultureCard
+  // owns the cultural figures, and it was appearing in both.
   const peopleTiles: Tile[] = [
     { label: "Population", value: d?.population ? d.population.toLocaleString() : "—", icon: "population" },
     { label: "Median age", value: d?.medianAge ? `${d.medianAge} yrs` : "—", icon: "age" },
@@ -203,14 +221,14 @@ export function SuburbProfile({
                 </div>
                 <p className="mt-3 text-[11px] text-muted-foreground">
                   Rolling median of settled transfers, state Valuer-General open data (CC BY 4.0).
-                  {b?.stateMedianPrice ? ` ${stateName} average of suburb medians: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}
+                  {b?.stateMedianPrice ? ` Median of ${stateName} suburb medians: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}
                 </p>
               </>
             ) : (
               <>
                 <div className="flex flex-col items-center justify-center gap-1 py-8 text-center text-sm text-muted-foreground">
                   <p>{priceGap.headline}</p>
-                  <p className="text-xs [text-wrap:pretty]">{priceGap.detail}{b?.stateMedianPrice ? ` ${stateName} average of suburb medians: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}</p>
+                  <p className="text-xs [text-wrap:pretty]">{priceGap.detail}{b?.capitalMedianPrice ? ` ABS median established-house price, ${b.capitalRegionName}: ${fmtPriceShort(b.capitalMedianPrice)}${b.restOfStateMedianPrice ? `; ${b.restOfStateRegionName}: ${fmtPriceShort(b.restOfStateMedianPrice)}` : ""}.` : ""}</p>
                 </div>
                 {/* The only price signal these suburbs have. Rendered here, and
                     only here, so it can never sit beside an official median. */}
@@ -247,22 +265,27 @@ export function SuburbProfile({
                 {priced ? (
                   <CompareBar
                     label="Median house price" name={s.salName} suburb={s.latestMedianPrice}
-                    state={b?.stateMedianPrice ?? 0} nation={b?.nationalMedianPrice ?? 0}
-                    stateCode={st} stateHref={st ? `/housing/${stateSlug(st)}` : undefined} nationHref="/housing"
-                    fmt={fmtAUD} deltaState={pctVs(b?.stateMedianPrice)} deltaNation={pctVs(b?.nationalMedianPrice)}
+                    refs={priceRefs} fmt={fmtAUD} showDeltas
                   />
                 ) : null}
                 <CompareBar
                   label="Household income / wk" name={s.salName} suburb={d?.medianWeeklyHhdIncome ?? 0}
-                  state={b?.stateMedianWeeklyHhdIncome ?? 0} nation={b?.nationalMedianWeeklyHhdIncome ?? 0}
-                  stateCode={st} stateHref={st ? `/housing/${stateSlug(st)}` : undefined} nationHref="/housing" fmt={fmtMoney}
+                  refs={incomeRefs} fmt={fmtMoney}
                 />
               </div>
               <p className="mt-4 text-[11px] text-muted-foreground [text-wrap:pretty]">
                 Percentiles rank this suburb against {stateName} suburbs that carry the metric —
-                never across states, and never against suburbs where it is missing. The state and
-                national figures are the average of the latest suburb medians in that area, not a
-                transaction-weighted median.
+                never across states, and never against suburbs where it is missing.
+                {priceRefs.length > 0 ? (
+                  <>
+                    {" "}Price references are ABS median established-house transfer prices
+                    {b?.absMedianPeriod ? ` for the ${quarterLabel(b.absMedianPeriod)} quarter` : ""} (CC BY 4.0);
+                    the suburb figure is a Valuer-General median over a different window, so read
+                    the gap as indicative.
+                  </>
+                ) : null}
+                {" "}Income references are the Census 2021 median of the middle suburb in {stateName} and
+                nationally, not a household-weighted median.
               </p>
             </div>
           ) : null}
@@ -274,6 +297,9 @@ export function SuburbProfile({
               <TileGrid tiles={peopleTiles} />
             </section>
           ) : null}
+
+          <SuburbWhoLivesHereCard d={d} state={b?.stateCensus} stateCode={st} />
+          <SuburbHousingStockCard d={d} state={b?.stateCensus} stateCode={st} />
 
           <SeifaProfile seifa={s.seifa} stateName={stateName} />
 
@@ -815,53 +841,72 @@ function FilledMetricTrack({
  * which put the national mark at 1.71:1 on the track and left no way to tell
  * which mark was which.
  */
+type CompareRef = {
+  /** Short label on the tick above the bar. */
+  tick: string;
+  /** Full label in the figures line and the delta text. */
+  label: string;
+  value: number;
+  href?: string;
+  dashed?: boolean;
+};
+
+const quarterLabel = (isoDate: string) => {
+  const [y, m] = isoDate.split("-").map(Number);
+  return y && m ? `${["Mar", "Jun", "Sep", "Dec"][Math.floor((m - 1) / 3)]} ${y}` : isoDate;
+};
+
+/**
+ * The suburb's figure as a filled bar, with each reference as a tick. The
+ * references are named in full under the bar, and every one is labelled by what
+ * it is (an ABS region, the median suburb) rather than a bare state code.
+ */
 function CompareBar({
-  label, name, suburb, state, nation, fmt, stateCode, stateHref, nationHref, deltaState, deltaNation,
+  label, name, suburb, refs, fmt, showDeltas = false,
 }: {
-  label: string; name: string; suburb: number; state: number; nation: number; fmt: (v: number) => string;
-  stateCode: string; stateHref?: string; nationHref?: string;
-  deltaState?: number | null; deltaNation?: number | null;
+  label: string; name: string; suburb: number; refs: CompareRef[]; fmt: (v: number) => string; showDeltas?: boolean;
 }) {
   if (suburb <= 0) return null;
-  const max = Math.max(suburb, state, nation) * 1.02;
+  const shown = refs.filter((r) => r.value > 0);
+  const max = Math.max(suburb, ...shown.map((r) => r.value)) * 1.02;
   const share = (v: number) => Math.min(100, Math.max(0, (v / max) * 100));
   const pctOf = (v: number) => `${share(v)}%`;
+  const deltas = showDeltas
+    ? shown.map((r) => ({ label: r.label, pct: Math.round((suburb / r.value - 1) * 100) }))
+    : [];
+  // Two references that close overlap into an unreadable smudge; below the
+  // collision threshold they share one tick and one label.
+  const collide = shown.length === 2 && Math.abs(share(shown[0]!.value) - share(shown[1]!.value)) < 9;
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-xs text-foreground">{label}</span>
-        <span className="text-[11px] text-muted-foreground">
-          {typeof deltaState === "number" ? (
-            <><span className="font-semibold text-primary">{deltaState >= 0 ? "+" : ""}{deltaState}%</span> vs {stateCode}</>
-          ) : null}
-          {typeof deltaState === "number" && typeof deltaNation === "number" ? " · " : null}
-          {typeof deltaNation === "number" ? (
-            <><span className="font-semibold text-primary">{deltaNation >= 0 ? "+" : ""}{deltaNation}%</span> vs AU</>
-          ) : null}
+        <span className="text-right text-[11px] text-muted-foreground">
+          {deltas.map((dl, i) => (
+            <span key={dl.label}>
+              {i > 0 ? " · " : null}
+              <span className="font-semibold text-primary">{dl.pct >= 0 ? "+" : ""}{dl.pct}%</span> vs {dl.label}
+            </span>
+          ))}
         </span>
       </div>
       <FilledMetricTrack fillPercent={share(suburb)}>
-        {/* The two baselines are usually within a few percent of each other, and
-            two labels that close overlap into an unreadable smudge. Below the
-            collision threshold they share one label and one tick. */}
-        {state > 0 && nation > 0 && Math.abs(share(state) - share(nation)) < 9 ? (
-          <Baseline label={`AU · ${stateCode}`} left={pctOf((state + nation) / 2)} dashed={false} />
+        {collide ? (
+          <Baseline label={`${shown[0]!.tick} · ${shown[1]!.tick}`} left={pctOf((shown[0]!.value + shown[1]!.value) / 2)} dashed={false} />
         ) : (
-          <>
-            {state > 0 ? <Baseline label={stateCode} left={pctOf(state)} dashed={false} /> : null}
-            {nation > 0 ? <Baseline label="AU" left={pctOf(nation)} dashed /> : null}
-          </>
+          shown.map((r) => <Baseline key={r.label} label={r.tick} left={pctOf(r.value)} dashed={Boolean(r.dashed)} />)
         )}
       </FilledMetricTrack>
       <div className="mt-1 flex justify-between gap-3 font-mono text-[10px] tabular-nums text-muted-foreground">
         <span>
-          {nation > 0 ? (
-            nationHref ? <Link href={nationHref} className="hit-target underline-offset-2 hover:text-foreground hover:underline">AU {fmt(nation)}</Link> : `AU ${fmt(nation)}`
-          ) : null}
-          {nation > 0 && state > 0 ? " · " : null}
-          {state > 0 ? (
-            stateHref ? <Link href={stateHref} className="hit-target underline-offset-2 hover:text-foreground hover:underline">{stateCode} {fmt(state)}</Link> : `${stateCode} ${fmt(state)}`
-          ) : null}
+          {shown.map((r, i) => (
+            <span key={r.label}>
+              {i > 0 ? " · " : null}
+              {r.href ? (
+                <Link href={r.href} className="hit-target underline-offset-2 hover:text-foreground hover:underline">{r.label} {fmt(r.value)}</Link>
+              ) : `${r.label} ${fmt(r.value)}`}
+            </span>
+          ))}
         </span>
         <span className="truncate font-semibold text-foreground">
           {name} {fmt(suburb)}

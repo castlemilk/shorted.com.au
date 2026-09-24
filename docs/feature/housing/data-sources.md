@@ -75,9 +75,12 @@ medians), **G13A–E** (language at home), **G14** (religion). Inputs are
 `CENSUS_DATAPACK_PATH` + `CENSUS_GEO_DIR` — the boundary TopoJSON is the
 authoritative `sal_code` registry, so a suburb with no boundary gets no row.
 
-**Tenure is not ingested.** `pct_owned_*` / `pct_rented` / `dwelling_count`
-exist as columns (000055) but G33/G37 are unparsed, so they are reserved NULLs.
-Don't build a metric on them.
+**Tenure, dwelling structure and household mix ARE ingested** (G36/G37/G42 via
+`census_expanded.go`) with their own small-area floors — see
+[data-model.md](data-model.md). The profile renders them in the *Who lives
+here* and *Housing stock* cards against state shares rebuilt from the suburbs
+(`ComparisonBaselines.state_census`), and the map offers the Census rates under
+*Colour by*.
 
 ## Electoral
 
