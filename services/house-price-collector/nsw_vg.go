@@ -136,7 +136,9 @@ func newNSWVGJob() officialJob {
 // nswReplaceScope is the slice a vg_nsw run may prune: the annual house
 // medians of each year that fetched at least minSales filtered sales. A year
 // that failed never reaches here (the ingest errors on incomplete coverage);
-// a year that fetched thin is logged and left unpruned.
+// a year that fetched thin is left unpruned and recorded in Withheld, which
+// fails the rig's exit code — a thin trailing COMPLETE year is a truncated
+// download, never a normal outcome.
 func nswReplaceScope(counts map[int]int, minSales int) *replaceScope {
 	scope := &replaceScope{Source: nswSource, Measure: "median_price", DwellingType: "house", PeriodFreq: "A"}
 	years := make([]int, 0, len(counts))
@@ -147,6 +149,7 @@ func nswReplaceScope(counts map[int]int, minSales int) *replaceScope {
 	for _, yr := range years {
 		if counts[yr] < minSales {
 			log.Printf("[vg_nsw] %d: only %d house sales (< %d) — upserted but NOT pruned", yr, counts[yr], minSales)
+			scope.Withheld = append(scope.Withheld, fmt.Sprintf("%d: only %d house sales (under the %d floor)", yr, counts[yr], minSales))
 			continue
 		}
 		scope.Years = append(scope.Years, yr)

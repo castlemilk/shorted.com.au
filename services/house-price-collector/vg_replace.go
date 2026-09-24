@@ -31,6 +31,22 @@ type replaceScope struct {
 	// Years are the calendar years whose full emission set this run holds.
 	// A year absent here is upserted but never pruned.
 	Years []int
+	// Withheld explains each fetched year left out of Years because its
+	// emission set cannot be trusted (a thin download). It is carried into
+	// replaceResult.HeldBack so the run can say so with its exit code.
+	Withheld []string
+}
+
+// replaceResult is what one authoritative write did. HeldBack lists every
+// fetched year that kept its stale rows — a thin download, or a prune over
+// replaceMaxPruneShare. The upsert still commits (the new medians are better
+// than the old ones), but a held year means the parser or the download
+// probably regressed, so the rig must exit non-zero rather than log and
+// carry on (see exitVGPruneHeldBack).
+type replaceResult struct {
+	Upserted int
+	Pruned   int64
+	HeldBack []string
 }
 
 // replaceMaxPruneShare is the most of one year's stored rows a single run may
@@ -38,7 +54,8 @@ type replaceScope struct {
 // this catches the other way an emission set shrinks by accident, a parser
 // regression that silently drops a district or a zone. Measured 2026-09-24:
 // the legitimate whole-building clean-up pruned 1.6% (2023), 1.5% (2024) and
-// 4.9% (2025). A year over the cap keeps every row and says so in the log.
+// 4.9% (2025). A year over the cap keeps every row, says so in the log, and
+// fails the rig's exit code (exitVGPruneHeldBack) so the wrapper alerts.
 const replaceMaxPruneShare = 0.20
 
 // yearPruneStats is one authoritative year as stored after the upsert: total
@@ -110,39 +127,43 @@ var replacePruneSQL = `
 
 // replaceObservations upserts obs and, in the same transaction, deletes every
 // row of the scope's authoritative years that obs does not contain — subject
-// to replaceMaxPruneShare. It returns the rows upserted and the rows pruned.
-func replaceObservations(ctx context.Context, pool *pgxpool.Pool, obs []Observation, scope replaceScope) (int, int64, error) {
+// to replaceMaxPruneShare. The result's HeldBack names every year that kept
+// its stale rows, whether withheld up front or over the prune cap.
+func replaceObservations(ctx context.Context, pool *pgxpool.Pool, obs []Observation, scope replaceScope) (replaceResult, error) {
+	res := replaceResult{HeldBack: append([]string(nil), scope.Withheld...)}
 	tx, err := pool.Begin(ctx)
 	if err != nil {
-		return 0, 0, err
+		return res, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	n, err := upsertObservationsOn(ctx, tx, obs)
+	res.Upserted, err = upsertObservationsOn(ctx, tx, obs)
 	if err != nil {
-		return n, 0, err
+		return res, err
 	}
-	pruned, err := pruneUnemitted(ctx, tx, obs, scope)
+	pruned, held, err := pruneUnemitted(ctx, tx, obs, scope)
 	if err != nil {
-		return n, 0, fmt.Errorf("prune unemitted %s rows: %w", scope.Source, err)
+		return res, fmt.Errorf("prune unemitted %s rows: %w", scope.Source, err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return n, 0, err
+		return res, err
 	}
-	return n, pruned, nil
+	res.Pruned = pruned
+	res.HeldBack = append(res.HeldBack, held...)
+	return res, nil
 }
 
-func pruneUnemitted(ctx context.Context, tx pgx.Tx, obs []Observation, scope replaceScope) (int64, error) {
+func pruneUnemitted(ctx context.Context, tx pgx.Tx, obs []Observation, scope replaceScope) (int64, []string, error) {
 	if len(scope.Years) == 0 {
 		log.Printf("[%s] no authoritative year this run; nothing pruned", scope.Source)
-		return 0, nil
+		return 0, nil, nil
 	}
 	regions, periods := emittedKeys(obs, scope)
 	args := []any{scope.Source, scope.Measure, scope.DwellingType, scope.PeriodFreq, scope.Years, regions, periods}
 
 	rows, err := tx.Query(ctx, replaceStatsSQL, args...)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	stats, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (yearPruneStats, error) {
 		var s yearPruneStats
@@ -150,19 +171,19 @@ func pruneUnemitted(ctx context.Context, tx pgx.Tx, obs []Observation, scope rep
 		return s, err
 	})
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	allowed, held := prunableYears(stats, replaceMaxPruneShare)
 	for _, h := range held {
 		log.Printf("[%s] WARNING prune held back for %s — every row kept; investigate the parser before re-running", scope.Source, h)
 	}
 	if len(allowed) == 0 {
-		return 0, nil
+		return 0, held, nil
 	}
 	args[4] = allowed
 	rows, err = tx.Query(ctx, replacePruneSQL, args...)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	type prunedRow struct {
 		region string
@@ -175,7 +196,7 @@ func pruneUnemitted(ctx context.Context, tx pgx.Tx, obs []Observation, scope rep
 		return p, err
 	})
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	perYear := map[int]int{}
 	var examples []string
@@ -191,5 +212,5 @@ func pruneUnemitted(ctx context.Context, tx pgx.Tx, obs []Observation, scope rep
 	if len(examples) > 0 {
 		log.Printf("[%s] pruned e.g. %s", scope.Source, strings.Join(examples, "; "))
 	}
-	return int64(len(gone)), nil
+	return int64(len(gone)), held, nil
 }

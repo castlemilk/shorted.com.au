@@ -41,6 +41,10 @@ func TestNSWReplaceScopeNeverPrunesAThinYear(t *testing.T) {
 	if want := []int{2023, 2025}; !reflect.DeepEqual(scope.Years, want) {
 		t.Fatalf("years = %v, want %v", scope.Years, want)
 	}
+	// ...and says so where the exit code can see it, not only in the log.
+	if len(scope.Withheld) != 1 || !strings.HasPrefix(scope.Withheld[0], "2024: only 1200 house sales") {
+		t.Fatalf("withheld = %q, want the thin 2024 reported", scope.Withheld)
+	}
 	if got := nswReplaceScope(nil, nswReplaceMinSales).Years; len(got) != 0 {
 		t.Fatalf("no counts must mean no authoritative year, got %v", got)
 	}
@@ -86,9 +90,9 @@ func replaceJobIO(t *testing.T, calls *[]string) officialJobIO {
 			*calls = append(*calls, "upsert")
 			return 1, nil
 		},
-		replaceObservations: func(_ context.Context, _ []Observation, scope replaceScope) (int, int64, error) {
+		replaceObservations: func(_ context.Context, _ []Observation, scope replaceScope) (replaceResult, error) {
 			*calls = append(*calls, fmt.Sprintf("replace%v", scope.Years))
-			return 1, 3, nil
+			return replaceResult{Upserted: 1, Pruned: 3}, nil
 		},
 		updateRun: func(context.Context, string, *time.Time, int, string, string) error { return nil },
 	}
@@ -136,8 +140,8 @@ func TestRunOfficialJobRecordsZeroRowsWhenTheReplaceRollsBack(t *testing.T) {
 	var rows int
 	var status string
 	io := replaceJobIO(t, new([]string))
-	io.replaceObservations = func(context.Context, []Observation, replaceScope) (int, int64, error) {
-		return 5782, 0, errors.New("prune failed")
+	io.replaceObservations = func(context.Context, []Observation, replaceScope) (replaceResult, error) {
+		return replaceResult{Upserted: 5782}, errors.New("prune failed")
 	}
 	io.updateRun = func(_ context.Context, _ string, _ *time.Time, n int, s, _ string) error {
 		rows, status = n, s
@@ -153,5 +157,49 @@ func TestRunOfficialJobRecordsZeroRowsWhenTheReplaceRollsBack(t *testing.T) {
 	}
 	if rows != 0 || status != "error" {
 		t.Fatalf("recorded %d rows / %q; a rolled-back transaction wrote nothing", rows, status)
+	}
+}
+
+// A held-back prune commits the upsert and advances the cursor, but must reach
+// the caller: logging it and returning plain success is how the rig used to
+// exit 0 on a parser regression.
+func TestRunOfficialJobSurfacesAHeldBackPrune(t *testing.T) {
+	var status, detail string
+	var rows int
+	io := replaceJobIO(t, new([]string))
+	io.replaceObservations = func(_ context.Context, _ []Observation, scope replaceScope) (replaceResult, error) {
+		return replaceResult{Upserted: 5782, HeldBack: append(scope.Withheld, "2025: 459 of 2295 rows unemitted (over 20% prune cap)")}, nil
+	}
+	io.updateRun = func(_ context.Context, _ string, _ *time.Time, n int, s, d string) error {
+		rows, status, detail = n, s, d
+		return nil
+	}
+	job := officialJob{
+		name: nswSource,
+		fn: func(context.Context) ([]Observation, error) {
+			return []Observation{{Source: nswSource, Period: time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)}}, nil
+		},
+		replace: func() *replaceScope {
+			return &replaceScope{Years: []int{2025}, Withheld: []string{"2024: only 1200 house sales (under the 50000 floor)"}}
+		},
+	}
+	ok, held := runOfficialJobOutcome(context.Background(), job, io)
+	if !ok {
+		t.Fatal("a committed replace must report success")
+	}
+	if len(held) != 2 {
+		t.Fatalf("held = %q, want the thin 2024 and the capped 2025", held)
+	}
+	if rows != 5782 || status != "ok" || !strings.Contains(detail, "prune held back") || !strings.Contains(detail, "2024:") {
+		t.Fatalf("recorded %d/%q/%q, want the committed rows, ok, and the held years in detail", rows, status, detail)
+	}
+
+	// A clean replace records no detail and reports nothing held.
+	io.replaceObservations = func(context.Context, []Observation, replaceScope) (replaceResult, error) {
+		return replaceResult{Upserted: 5782, Pruned: 169}, nil
+	}
+	job.replace = func() *replaceScope { return &replaceScope{Years: []int{2025}} }
+	if ok, held := runOfficialJobOutcome(context.Background(), job, io); !ok || len(held) != 0 || detail != "" {
+		t.Fatalf("clean replace = %v/%q/detail %q, want ok, none held, empty detail", ok, held, detail)
 	}
 }

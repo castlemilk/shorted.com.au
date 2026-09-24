@@ -103,6 +103,12 @@ run before any write; a year whose unemitted share exceeds 20%
 (`replaceMaxPruneShare`) keeps every row and logs `WARNING prune held back`
 (a parser regression, not a clean-up — the real one was 1.5–4.9%). The log
 prints per-year prune counts and examples. Other sources still upsert only.
+A held year (thin OR over the cap) is not only a log line: the upsert still
+commits and the cursor advances, but the run row's `detail` records
+`prune held back — …` and the rig exits **9** (`exitVGPruneHeldBack`), so the
+wrapper alerts. Watch the cap as the window rolls: in 2027 the ~300 pooled 2025
+rows fall out of the thin-suburb pool, putting 2025 near 13.7% stale (estimated 2026-09-24) — under
+the cap, but close.
 
 **Known-open (fix in flight on feat/housing-\* branches):** a failed official
 job logs, writes an `error` cursor and **continues — the process still exits 0**,
@@ -172,6 +178,7 @@ mid-write (this bit the bundled macOS agent).
 | 4 | Fetcher init failed — wedged/cold Chrome (`agent`); wrapper Chrome relaunch failed (`run-housing-crawl.sh`) |
 | 5 | `warmcheck`: REA returned the Kasada stub — Chrome must relaunch with an REA startup URL |
 | 6 | `freshness` ALARM — the board is silently going stale |
+| 9 | `vg-nsw`: ingest committed and views refreshed, but a fetched year kept its stale rows (under 50k sales, or prune over 20%) — suspect a truncated download or parser regression |
 
 ### A re-warm costs minutes, not a day (2026-09-11)
 

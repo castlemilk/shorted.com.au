@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -31,7 +32,7 @@ type officialJobIO struct {
 	upsertObservations func(context.Context, []Observation) (int, error)
 	// replaceObservations is the authoritative write: upsert obs and prune the
 	// scope's unemitted rows atomically. Used only when job.replace yields a scope.
-	replaceObservations func(context.Context, []Observation, replaceScope) (int, int64, error)
+	replaceObservations func(context.Context, []Observation, replaceScope) (replaceResult, error)
 	updateRun           func(context.Context, string, *time.Time, int, string, string) error
 }
 
@@ -48,8 +49,10 @@ func main() {
 // 3 = re-warm the Chrome profile; 4 = Chrome/CDP unusable; 5 = REA session
 // cold; 6 = crawl freshness alarm; 7 = agent infrastructure failed before
 // any jobs completed (also used for enqueue/listings finalization failures);
-// and 8 = the crawl ENVIRONMENT is broken (Playwright driver missing) — an
-// operator must reinstall it, no Chrome action or scheduler re-run will help.
+// 8 = the crawl ENVIRONMENT is broken (Playwright driver missing) — an
+// operator must reinstall it, no Chrome action or scheduler re-run will help;
+// and 9 = a VG rig ingest committed but held back a year's prune
+// (exitVGPruneHeldBack — thin download or a parser regression).
 // Keeping 8 distinct from 4 is deliberate: see crawl_env.go for the outage that
 // bought that distinction. drop-index also returns 1 on a query or write
 // failure (see runDropIndex in drop_index.go).
@@ -655,7 +658,14 @@ func runOfficial(ctx context.Context, pool *pgxpool.Pool, jobs []officialJob) (t
 // one official source. The bool is used by source-specific rig modes that must
 // propagate failures, while the scheduled multi-source job can continue onward.
 func runOfficialJob(ctx context.Context, pool *pgxpool.Pool, job officialJob) bool {
-	return runOfficialJobWith(ctx, job, officialJobIO{
+	ok, _ := runOfficialJobReporting(ctx, pool, job)
+	return ok
+}
+
+// runOfficialJobReporting is runOfficialJob plus the years an authoritative
+// write left unpruned (see replaceResult.HeldBack), for the VG rig's exit code.
+func runOfficialJobReporting(ctx context.Context, pool *pgxpool.Pool, job officialJob) (bool, []string) {
+	return runOfficialJobOutcome(ctx, job, officialJobIO{
 		lockSource: func(ctx context.Context, source string) (func(), error) {
 			return lockOfficialJobSource(ctx, pool, source)
 		},
@@ -668,7 +678,7 @@ func runOfficialJob(ctx context.Context, pool *pgxpool.Pool, job officialJob) bo
 		upsertObservations: func(ctx context.Context, obs []Observation) (int, error) {
 			return upsertObservations(ctx, pool, obs)
 		},
-		replaceObservations: func(ctx context.Context, obs []Observation, scope replaceScope) (int, int64, error) {
+		replaceObservations: func(ctx context.Context, obs []Observation, scope replaceScope) (replaceResult, error) {
 			return replaceObservations(ctx, pool, obs, scope)
 		},
 		updateRun: func(ctx context.Context, source string, lastPeriod *time.Time, rows int, status, detail string) error {
@@ -678,29 +688,37 @@ func runOfficialJob(ctx context.Context, pool *pgxpool.Pool, job officialJob) bo
 }
 
 func runOfficialJobWith(ctx context.Context, job officialJob, io officialJobIO) bool {
+	ok, _ := runOfficialJobOutcome(ctx, job, io)
+	return ok
+}
+
+// runOfficialJobOutcome is the pipeline itself. heldBack is non-empty only on a
+// successful authoritative write that kept some year's stale rows: the data is
+// committed and the cursor advances, but the caller must still surface it.
+func runOfficialJobOutcome(ctx context.Context, job officialJob, io officialJobIO) (ok bool, heldBack []string) {
 	unlock, err := io.lockSource(ctx, job.name)
 	if err != nil {
 		log.Printf("[%s] acquire source lock: %v", job.name, err)
-		return false
+		return false, nil
 	}
 	defer unlock()
 
 	persistedPeriod, err := io.loadLastPeriod(ctx, job.name)
 	if err != nil {
 		log.Printf("[%s] load persisted cursor: %v", job.name, err)
-		return false
+		return false, nil
 	}
 
 	obs, err := job.fn(ctx)
 	if err != nil {
 		log.Printf("[%s] fetch error: %v", job.name, err)
 		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", err.Error())
-		return false
+		return false, nil
 	}
 	if len(obs) == 0 {
 		log.Printf("[%s] no observations returned", job.name)
 		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", "no observations")
-		return false
+		return false, nil
 	}
 	last := latestPeriod(obs)
 	if persistedPeriod != nil && last != nil && last.Before(*persistedPeriod) {
@@ -710,23 +728,24 @@ func runOfficialJobWith(ctx context.Context, job officialJob, io officialJobIO) 
 		)
 		log.Printf("[%s] %s", job.name, detail)
 		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", detail)
-		return false
+		return false, nil
 	}
 	if err := io.upsertRegions(ctx, obs); err != nil {
 		log.Printf("[%s] region upsert error: %v", job.name, err)
 		_ = io.updateRun(ctx, job.name, persistedPeriod, 0, "error", err.Error())
-		return false
+		return false, nil
 	}
 	var scope *replaceScope
 	if job.replace != nil {
 		scope = job.replace()
 	}
 	var (
-		n      int
-		pruned int64
+		n   int
+		res replaceResult
 	)
 	if scope != nil {
-		n, pruned, err = io.replaceObservations(ctx, obs, *scope)
+		res, err = io.replaceObservations(ctx, obs, *scope)
+		n = res.Upserted
 	} else {
 		n, err = io.upsertObservations(ctx, obs)
 	}
@@ -738,23 +757,41 @@ func runOfficialJobWith(ctx context.Context, job officialJob, io officialJobIO) 
 		}
 		log.Printf("[%s] fact upsert error after %d: %v", job.name, n, err)
 		_ = io.updateRun(ctx, job.name, persistedPeriod, n, "error", err.Error())
-		return false
+		return false, nil
 	}
+	detail := ""
 	if scope != nil {
-		log.Printf("[%s] pruned %d unemitted row(s) across authoritative years %v", job.name, pruned, scope.Years)
+		log.Printf("[%s] pruned %d unemitted row(s) across authoritative years %v", job.name, res.Pruned, scope.Years)
+		if len(res.HeldBack) > 0 {
+			// Status stays "ok": the upsert committed and the cursor is real.
+			// The detail is the durable trace; the exit code is the alert.
+			detail = "prune held back — " + strings.Join(res.HeldBack, "; ")
+			log.Printf("[%s] LOUD: %s", job.name, detail)
+		}
 	}
-	if err := io.updateRun(ctx, job.name, last, n, "ok", ""); err != nil {
+	if err := io.updateRun(ctx, job.name, last, n, "ok", detail); err != nil {
 		log.Printf("[%s] persist successful run cursor: %v", job.name, err)
-		return false
+		return false, nil
 	}
 	log.Printf("[%s] upserted %d observations (latest %s)", job.name, n, fmtPeriod(last))
-	return true
+	return true, res.HeldBack
 }
 
+// exitVGPruneHeldBack is the VG rig's exit when the ingest COMMITTED but some
+// fetched year kept its stale rows: a thin download (nswReplaceMinSales) or a
+// prune over replaceMaxPruneShare. Both mean the parser or the download
+// probably regressed. Logging it and exiting 0 is the housing collector's
+// recurring silent-failure shape, so the rig exits non-zero and the wrapper
+// alerts. Distinct from 1 because the data IS written and the views refreshed;
+// the fix is to read the log, not to re-run.
+const exitVGPruneHeldBack = 9
+
 // runNSWVGRig keeps the source-specific exit/refresh contract independently
-// testable without requiring a database or live NSW download.
-func runNSWVGRig(ingest func() bool, assertFreshness func() int, refreshViews func()) int {
-	if !ingest() {
+// testable without requiring a database or live NSW download. ingest reports
+// success and any years an authoritative write held back.
+func runNSWVGRig(ingest func() (bool, []string), assertFreshness func() int, refreshViews func()) int {
+	ok, heldBack := ingest()
+	if !ok {
 		return 1
 	}
 	freshnessExitCode := assertFreshness()
@@ -762,13 +799,17 @@ func runNSWVGRig(ingest func() bool, assertFreshness func() int, refreshViews fu
 	if freshnessExitCode != 0 {
 		return 1
 	}
+	if len(heldBack) > 0 {
+		return exitVGPruneHeldBack
+	}
 	return 0
 }
 
 // runVGRig is the shared residential-rig path for a single Valuer-General
 // source: ingest it, assert its own freshness policy, refresh the views, and
 // return a non-zero exit code if either the ingest or the freshness gate failed
-// — so launchd cannot report a silent success.
+// (1), or the ingest committed but held back a year's prune
+// (exitVGPruneHeldBack) — so launchd cannot report a silent success.
 func runVGRig(ctx context.Context, pool *pgxpool.Pool, job officialJob) int {
 	var policies []vgFreshnessPolicy
 	for _, policy := range vgFreshnessPolicies {
@@ -778,8 +819,8 @@ func runVGRig(ctx context.Context, pool *pgxpool.Pool, job officialJob) int {
 	}
 	var refreshErr error
 	exitCode := runNSWVGRig(
-		func() bool {
-			return runOfficialJob(ctx, pool, job)
+		func() (bool, []string) {
+			return runOfficialJobReporting(ctx, pool, job)
 		},
 		func() int {
 			return assertOfficialVGFreshness(ctx, pool, policies)
@@ -788,10 +829,10 @@ func runVGRig(ctx context.Context, pool *pgxpool.Pool, job officialJob) int {
 			refreshErr = refresh(ctx, pool)
 		},
 	)
-	if exitCode != 0 || refreshErr != nil {
+	if refreshErr != nil {
 		return 1
 	}
-	return 0
+	return exitCode
 }
 
 func runNSWVG(ctx context.Context, pool *pgxpool.Pool) int {

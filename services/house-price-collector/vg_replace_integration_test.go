@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -111,18 +112,22 @@ func TestReplaceObservations_PrunesOnlyTheAuthoritativeYears_Integration(t *test
 	}
 	// 2023 fetched thin, so it is not authoritative: Rhodes 2023 must survive.
 	scope := replaceScope{Source: nswSource, Measure: "median_price", DwellingType: "house", PeriodFreq: "A", Years: []int{2024, 2025}}
-	n, pruned, err := replaceObservations(ctx, pool, obs, scope)
+	res, err := replaceObservations(ctx, pool, obs, scope)
 	if err != nil {
 		t.Fatalf("replace: %v", err)
 	}
-	if n != 2 {
-		t.Errorf("upserted %d, want 2", n)
+	if res.Upserted != 2 {
+		t.Errorf("upserted %d, want 2", res.Upserted)
 	}
 	// In scope, 2024 holds Bondi + St Leonards and 2025 Bondi + Point Piper (the
 	// unit and transfer-count rows are outside it), so each year is 1 stale of
-	// 2 — over the 20% cap. Assert the cap first...
-	if pruned != 0 {
-		t.Fatalf("pruned %d rows from two-row years; the prune cap must hold them back", pruned)
+	// 2 — over the 20% cap. Assert the cap first, and that it is REPORTED:
+	// a held year that only reaches the log is the silent-failure shape.
+	if res.Pruned != 0 {
+		t.Fatalf("pruned %d rows from two-row years; the prune cap must hold them back", res.Pruned)
+	}
+	if len(res.HeldBack) != 2 || !strings.HasPrefix(res.HeldBack[0], "2024:") || !strings.HasPrefix(res.HeldBack[1], "2025:") {
+		t.Fatalf("held back = %q, want 2024 and 2025 reported", res.HeldBack)
 	}
 
 	// ...then a realistic year, where the stale rows are a small share.
@@ -133,12 +138,12 @@ func TestReplaceObservations_PrunesOnlyTheAuthoritativeYears_Integration(t *test
 		}
 		obs = append(obs, nswMedian(region, 2024, 1e6), nswMedian(region, 2025, 1e6))
 	}
-	n, pruned, err = replaceObservations(ctx, pool, obs, scope)
+	res, err = replaceObservations(ctx, pool, obs, scope)
 	if err != nil {
 		t.Fatalf("replace: %v", err)
 	}
-	if n != 42 || pruned != 2 {
-		t.Fatalf("upserted/pruned = %d/%d, want 42/2 (St Leonards 2024, Point Piper 2025)", n, pruned)
+	if res.Upserted != 42 || res.Pruned != 2 || len(res.HeldBack) != 0 {
+		t.Fatalf("upserted/pruned/held = %d/%d/%q, want 42/2/none (St Leonards 2024, Point Piper 2025)", res.Upserted, res.Pruned, res.HeldBack)
 	}
 	got := storedKeys(t, ctx, pool)
 	for _, gone := range []string{
@@ -175,10 +180,14 @@ func TestReplaceObservations_PrunesOnlyTheAuthoritativeYears_Integration(t *test
 func TestReplaceObservations_NoAuthoritativeYearIsAPlainUpsert_Integration(t *testing.T) {
 	pool, ctx := replaceTestPool(t)
 	before := storedKeys(t, ctx, pool)
-	scope := replaceScope{Source: nswSource, Measure: "median_price", DwellingType: "house", PeriodFreq: "A"}
-	n, pruned, err := replaceObservations(ctx, pool, []Observation{nswMedian("SUBURB:NSW-BONDI", 2025, 1)}, scope)
-	if err != nil || n != 1 || pruned != 0 {
-		t.Fatalf("replace = %d/%d/%v, want 1/0/nil", n, pruned, err)
+	scope := replaceScope{Source: nswSource, Measure: "median_price", DwellingType: "house", PeriodFreq: "A",
+		Withheld: []string{"2025: only 1200 house sales (under the 50000 floor)"}}
+	res, err := replaceObservations(ctx, pool, []Observation{nswMedian("SUBURB:NSW-BONDI", 2025, 1)}, scope)
+	if err != nil || res.Upserted != 1 || res.Pruned != 0 {
+		t.Fatalf("replace = %d/%d/%v, want 1/0/nil", res.Upserted, res.Pruned, err)
+	}
+	if len(res.HeldBack) != 1 || !strings.HasPrefix(res.HeldBack[0], "2025:") {
+		t.Fatalf("held back = %q; a withheld thin year must be reported", res.HeldBack)
 	}
 	if after := storedKeys(t, ctx, pool); len(after) != len(before) {
 		t.Fatalf("rows %d -> %d; a scope with no years must delete nothing", len(before), len(after))
@@ -192,7 +201,7 @@ func TestReplaceObservations_AFailedUpsertPrunesNothing_Integration(t *testing.T
 	// An unknown region violates the FK mid-batch: the transaction rolls back,
 	// so neither the good row nor any prune may land.
 	obs := []Observation{nswMedian("SUBURB:NSW-BONDI", 2025, 1), nswMedian("SUBURB:NSW-NOWHERE", 2025, 1)}
-	if _, _, err := replaceObservations(ctx, pool, obs, scope); err == nil {
+	if _, err := replaceObservations(ctx, pool, obs, scope); err == nil {
 		t.Fatal("replace with a dangling region succeeded")
 	}
 	after := storedKeys(t, ctx, pool)
