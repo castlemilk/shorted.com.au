@@ -1,5 +1,6 @@
 // Fetch ABS ASGS Ed.3 LGA_2024 generalized boundaries (CC-BY-4.0) as GeoJSON
-// for the suburb→LGA point-in-polygon join. Writes .staging/abs-lga.geojson.
+// for the suburb→LGA point-in-polygon join and the cross-border council
+// adjacency (build-lga-cross-border.mjs). Writes .staging/abs-lga.geojson.
 // Usage: node fetch-abs-lga.mjs
 import fs from "node:fs";
 import path from "node:path";

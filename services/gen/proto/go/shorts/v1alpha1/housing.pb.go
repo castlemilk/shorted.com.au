@@ -7811,8 +7811,11 @@ type CouncilNeighbour struct {
 	DisplayName string                 `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	Kind        string                 `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"`
 	StateCode   string                 `protobuf:"bytes,5,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
-	// A dominant-member suburb shares a boundary with one of the neighbour's
-	// (ABS suburb topology, within the state).
+	// The two councils touch. Within a state: a dominant-member suburb shares
+	// a boundary with one of the neighbour's (ABS suburb topology). Across a
+	// state or territory line (Albury-Wodonga, Queanbeyan-Palerang-ACT): their
+	// ABS council boundaries touch (within 50 m). A cross-border neighbour is
+	// the one whose state_code differs from the profiled council's.
 	SharesBorder bool `protobuf:"varint,6,opt,name=shares_border,json=sharesBorder,proto3" json:"shares_border,omitempty"`
 	// Suburbs split between the two councils (each >= 1% of residents).
 	SharedSuburbs int32 `protobuf:"varint,7,opt,name=shared_suburbs,json=sharedSuburbs,proto3" json:"shared_suburbs,omitempty"`

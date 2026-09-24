@@ -201,7 +201,7 @@ export default async function CouncilPage({ params }: PageProps) {
         ) : null}
         <Representation federal={profile.federalElectorates ?? []} state={profile.stateDistricts ?? []} />
         <PriceDropsPulse stateCode={code} drops={profile.priceDrops} />
-        <Neighbours neighbours={neighbours} />
+        <Neighbours neighbours={neighbours} stateCode={code} />
 
         {code === "ACT" ? (
           <p className="text-sm text-muted-foreground">

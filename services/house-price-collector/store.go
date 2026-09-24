@@ -83,6 +83,16 @@ func upsertRegions(ctx context.Context, pool *pgxpool.Pool, obs []Observation) e
 // upsertObservations idempotently writes facts (UNIQUE key = region, measure,
 // dwelling, period, source) — re-runs update value/preliminary/fetched_at.
 func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Observation) (int, error) {
+	return upsertObservationsOn(ctx, pool, obs)
+}
+
+// batchSender is what a fact upsert needs: a pool for the ordinary path, a
+// transaction when the upsert must commit together with a prune.
+type batchSender interface {
+	SendBatch(context.Context, *pgx.Batch) pgx.BatchResults
+}
+
+func upsertObservationsOn(ctx context.Context, db batchSender, obs []Observation) (int, error) {
 	const q = `
 		INSERT INTO house_prices
 			(region_code, measure, dwelling_type, period, period_freq, value, unit,
@@ -97,7 +107,7 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Observati
 		batch.Queue(q, o.RegionCode, o.Measure, o.DwellingType, o.Period, o.PeriodFreq,
 			o.Value, o.Unit, o.IsPreliminary, o.Source, o.SourceLicence, contentHash(o))
 	}
-	br := pool.SendBatch(ctx, batch)
+	br := db.SendBatch(ctx, batch)
 	n := 0
 	for range obs {
 		if _, err := br.Exec(); err != nil {

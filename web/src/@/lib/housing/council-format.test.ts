@@ -1,4 +1,4 @@
-import { fmtCouncilShare, fmtDensity } from "./council";
+import { councilHref, crossBorderJurisdiction, fmtCouncilShare, fmtDensity } from "./council";
 import { councilKeyFacts, fmtShare } from "./council-page";
 import { COUNCIL_METRICS } from "./council-metrics";
 import type { CouncilSummary } from "~/gen/shorts/v1alpha1/housing_pb";
@@ -37,5 +37,19 @@ describe("member share", () => {
     expect(fmtShare(0.4946)).toBe("49%");
     expect(fmtCouncilShare(0.4946)).toBe("49%");
     expect(fmtShare).toBe(fmtCouncilShare);
+  });
+});
+
+describe("cross-border neighbour chip", () => {
+  it("reads a state or territory by its code", () => {
+    expect(crossBorderJurisdiction("VIC")).toBe("VIC");
+    expect(crossBorderJurisdiction("ACT")).toBe("ACT");
+  });
+
+  // Shoalhaven <-> 99399 (Unincorp. Other Territories): the only land border
+  // is Jervis Bay. A bare "OT" told the reader nothing.
+  it("names Jervis Bay instead of the Other Territories code", () => {
+    expect(crossBorderJurisdiction("OT")).toBe("Jervis Bay Territory");
+    expect(councilHref("OT", "unincorp-other-territories", true)).toBeNull();
   });
 });

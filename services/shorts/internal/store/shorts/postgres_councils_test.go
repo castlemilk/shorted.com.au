@@ -1,9 +1,13 @@
 package shorts
 
 import (
+	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func fp(v float64) *float64 { return &v }
@@ -253,5 +257,108 @@ func TestLgaAdjacencyEmbedded(t *testing.T) {
 				t.Errorf("%s -> %s is one-way", a, b)
 			}
 		}
+	}
+}
+
+func TestLgaCrossStateEmbedded(t *testing.T) {
+	if len(lgaCrossState) < 50 {
+		t.Fatalf("embedded cross-border adjacency has %d councils", len(lgaCrossState))
+	}
+	has := func(m map[string][]string, a, b string) bool {
+		for _, x := range m[a] {
+			if x == b {
+				return true
+			}
+		}
+		return false
+	}
+	// Albury (NSW) <-> Wodonga (VIC), across the Murray: a cross-border pair,
+	// never a same-state one.
+	if !has(lgaCrossState, "10050", "27170") || !has(lgaCrossState, "27170", "10050") {
+		t.Errorf("Albury <-> Wodonga missing from cross_state: %v / %v", lgaCrossState["10050"], lgaCrossState["27170"])
+	}
+	if has(lgaAdjacency, "10050", "27170") {
+		t.Error("Albury -> Wodonga must not be listed as a same-state neighbour")
+	}
+	// The ACT's only neighbours are across its border.
+	if len(lgaCrossState["89399"]) == 0 || len(lgaAdjacency["89399"]) != 0 {
+		t.Errorf("Unincorporated ACT: cross %v, same-state %v", lgaCrossState["89399"], lgaAdjacency["89399"])
+	}
+	for a, list := range lgaCrossState {
+		for _, b := range list {
+			if a[0] == b[0] {
+				t.Errorf("%s -> %s is same-state but listed as cross-border", a, b)
+			}
+			if !has(lgaCrossState, b, a) {
+				t.Errorf("%s -> %s is one-way", a, b)
+			}
+		}
+	}
+}
+
+// councilNeighbours is otherwise covered only by the integration-tagged
+// TestCouncilHubCrossBorderNeighbours, which no CI job runs. This pins its
+// geometry half: disabling the cross-state merge used to pass every unit test.
+func TestCouncilBorderNeighboursMergesCrossState(t *testing.T) {
+	got := councilBorderNeighbours("10050") // Albury (NSW)
+	wodonga := got["27170"]
+	if wodonga == nil || !wodonga.CrossState || !wodonga.SharesBorder {
+		t.Fatalf("Albury -> Wodonga = %+v, want a cross-state border neighbour", wodonga)
+	}
+	sameState := 0
+	for code, n := range got {
+		if code[0] == '1' {
+			sameState++
+			if n.CrossState {
+				t.Errorf("%s is NSW but flagged cross-state", code)
+			}
+		}
+	}
+	if sameState == 0 {
+		t.Error("Albury has no same-state neighbours; the topology merge was dropped")
+	}
+	// The ACT is all border: every neighbour is across it.
+	act := councilBorderNeighbours("89399")
+	if len(act) == 0 {
+		t.Fatal("Unincorporated ACT has no neighbours")
+	}
+	for code, n := range act {
+		if !n.CrossState {
+			t.Errorf("ACT -> %s not flagged cross-state", code)
+		}
+	}
+}
+
+func TestSortCouncilNeighboursPutsSameStateFirst(t *testing.T) {
+	rows := []CouncilNeighbourRow{
+		{LgaCode: "27170", DisplayName: "Wodonga", CrossState: true},
+		{LgaCode: "16350", DisplayName: "Greater Hume"},
+		{LgaCode: "21890", DisplayName: "Indigo", CrossState: true},
+		{LgaCode: "14920", DisplayName: "Federation"},
+	}
+	sortCouncilNeighbours(rows)
+	var got []string
+	for _, r := range rows {
+		got = append(got, r.DisplayName)
+	}
+	if want := []string{"Federation", "Greater Hume", "Indigo", "Wodonga"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("order = %v, want %v", got, want)
+	}
+}
+
+func TestFallbackOnUndefinedTableOnlyForAMissingRelation(t *testing.T) {
+	missing := &pgconn.PgError{Code: "42P01"}
+	calls := 0
+	fb := func(error) (string, error) { calls++; return "live", nil }
+
+	if got, err := fallbackOnUndefinedTable(func() (string, error) { return "", missing }, fb); err != nil || got != "live" || calls != 1 {
+		t.Fatalf("missing view: got %q/%v after %d fallback calls, want the live query once", got, err, calls)
+	}
+	timeout := &pgconn.PgError{Code: "57014"}
+	if _, err := fallbackOnUndefinedTable(func() (string, error) { return "", timeout }, fb); !errors.Is(err, timeout) || calls != 1 {
+		t.Fatalf("a timeout must surface, not fall back: err %v, fallback calls %d", err, calls)
+	}
+	if got, err := fallbackOnUndefinedTable(func() (string, error) { return "mv", nil }, fb); err != nil || got != "mv" || calls != 1 {
+		t.Fatalf("healthy view: got %q/%v, fallback calls %d", got, err, calls)
 	}
 }

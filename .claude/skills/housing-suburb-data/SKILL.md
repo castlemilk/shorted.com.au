@@ -67,7 +67,7 @@ runs only the official ABS/RBA tier plus an MV refresh.
 | Elevation (6 cols) | `elevation` | GA 1 Second DEM-S | 15,307 |
 | Planning (`suburb_planning`, 000125) | `planning` | Statewide zoning (NSW/VIC/SA/TAS/ACT) → 10 harmonised families, heritage areas + items (+QLD register), NSW HOB/FSR/lot size; built by `web/scripts/geo/planning/` (README there), artifact embedded in the collector | pending first prod load (local 2026-09-23: 13,324 rows) |
 | Hazard exposure (`suburb_hazard_exposure`) | `hazards` | DEA Water Observations (national) + statutory flood (NSW, VIC, SA, TAS; ACT modelled extent) and bushfire prone (all but NT) layers; built by `web/scripts/geo/hazards/` (README there). NULL inside a state where the source does not cover at least half the suburb; a partly covered share is a floor over the whole suburb; `*_source` is set even on a NULL share ("instrument does not cover it") — see data-sources.md | loaded 2026-09-08: 15,329 rows, statutory shares NSW + VIC only (VIC bushfire still BMO); the 2026-09 gap-fill artifact awaits a prod `-mode hazards` |
-| VG suburb medians | `vg-nsw` / `vg-vic` / `vg-sa` | state Valuer-General | NSW 2,433 · VIC 766 · SA 426 |
+| VG suburb medians | `vg-nsw` / `vg-vic` / `vg-sa` | state Valuer-General; `vg-nsw` REPLACES each fetched year (prunes unemitted medians in the upsert's transaction; never a year under 50k sales or losing > 20%) | NSW 2,433 · VIC 766 · SA 426 |
 | Amenities / NBN / banners | `amenities` `connectivity` `banners` | precomputed offline JSON | — |
 | Council (LGA) layer | `lga` + 7 council modes — see §1a | ABS mesh-block allocation, ABS ERP/Census/Data by Region/BA, FAG, LGPRF, Wikidata | local 2026-09-23: 547/547 councils |
 
@@ -146,14 +146,23 @@ done
   crawl tables (`councilDropsQuery`, NOT the floored `mv_suburb_price_drops`, so
   sub-floor suburbs' cuts reach the council), floored at 3 council-wide; suburbs
   are named only at ≥ 3 of their own. They obey `HOUSING_DROP_LISTINGS_ENABLED`
-  and carry `as_of` / `data_through`.
+  and carry `as_of` / `data_through`. The API reads them from
+  `mv_council_price_drops` (000127, that query per refresh; `as_of` = its
+  `housing_mv_refresh` stamp) and falls back to the live query only where the
+  view is absent. **Council drops stale or missing?** Check
+  `housing_mv_refresh` for `mv_council_price_drops`, then run the refresh.
 - **Index hazard share blank?** The index/choropleth share needs covered member
   suburbs holding ≥ 50% of the council's residents (`councilHazardMinCoverage`);
   the hub rollup states "over N of M member suburbs" instead.
 - **Neighbours:** `lga_adjacency.json` (go:embed) from
   `node web/scripts/geo/build-lga-adjacency.mjs` — rerun after ANY change to
-  `web/public/geo/suburbs/*.topojson` or `suburb-lga.json`, then
+  `web/public/geo/suburbs/*.topojson`, `suburb-lga.json` or
+  `web/scripts/geo/lga-cross-border.json`, then
   `node --test web/scripts/geo/lga-adjacency.test.mjs` (fails on drift).
+  `neighbours` is same-state (suburb topology); `cross_state` is councils
+  across a state/territory border whose ABS LGA_2024 boundaries touch (≤ 50 m),
+  built by `build-lga-cross-border.mjs` from `.staging/abs-lga.geojson`
+  (`fetch-abs-lga.mjs`); rerun it only on a new LGA edition.
 - **Map council level:** the `lga_code` suburb column (registry key, joins
   `suburb_lga` only when requested) + `council-geometry.ts` (mergeArcs / merge /
   mesh). New council metric = a `CouncilSummary` field (store + proto + handler

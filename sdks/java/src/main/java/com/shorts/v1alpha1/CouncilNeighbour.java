@@ -260,8 +260,11 @@ private static final long serialVersionUID = 0L;
   private boolean sharesBorder_ = false;
   /**
    * <pre>
-   * A dominant-member suburb shares a boundary with one of the neighbour's
-   * (ABS suburb topology, within the state).
+   * The two councils touch. Within a state: a dominant-member suburb shares
+   * a boundary with one of the neighbour's (ABS suburb topology). Across a
+   * state or territory line (Albury-Wodonga, Queanbeyan-Palerang-ACT): their
+   * ABS council boundaries touch (within 50 m). A cross-border neighbour is
+   * the one whose state_code differs from the profiled council's.
    * </pre>
    *
    * <code>bool shares_border = 6 [json_name = "sharesBorder"];</code>
@@ -1111,8 +1114,11 @@ private static final long serialVersionUID = 0L;
     private boolean sharesBorder_ ;
     /**
      * <pre>
-     * A dominant-member suburb shares a boundary with one of the neighbour's
-     * (ABS suburb topology, within the state).
+     * The two councils touch. Within a state: a dominant-member suburb shares
+     * a boundary with one of the neighbour's (ABS suburb topology). Across a
+     * state or territory line (Albury-Wodonga, Queanbeyan-Palerang-ACT): their
+     * ABS council boundaries touch (within 50 m). A cross-border neighbour is
+     * the one whose state_code differs from the profiled council's.
      * </pre>
      *
      * <code>bool shares_border = 6 [json_name = "sharesBorder"];</code>
@@ -1124,8 +1130,11 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * A dominant-member suburb shares a boundary with one of the neighbour's
-     * (ABS suburb topology, within the state).
+     * The two councils touch. Within a state: a dominant-member suburb shares
+     * a boundary with one of the neighbour's (ABS suburb topology). Across a
+     * state or territory line (Albury-Wodonga, Queanbeyan-Palerang-ACT): their
+     * ABS council boundaries touch (within 50 m). A cross-border neighbour is
+     * the one whose state_code differs from the profiled council's.
      * </pre>
      *
      * <code>bool shares_border = 6 [json_name = "sharesBorder"];</code>
@@ -1141,8 +1150,11 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * A dominant-member suburb shares a boundary with one of the neighbour's
-     * (ABS suburb topology, within the state).
+     * The two councils touch. Within a state: a dominant-member suburb shares
+     * a boundary with one of the neighbour's (ABS suburb topology). Across a
+     * state or territory line (Albury-Wodonga, Queanbeyan-Palerang-ACT): their
+     * ABS council boundaries touch (within 50 m). A cross-border neighbour is
+     * the one whose state_code differs from the profiled council's.
      * </pre>
      *
      * <code>bool shares_border = 6 [json_name = "sharesBorder"];</code>

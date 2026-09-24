@@ -25,6 +25,17 @@ export function councilHref(
 }
 
 /**
+ * How a cross-border neighbour's jurisdiction reads on its chip: the state or
+ * territory code (VIC, ACT) — except the ABS "Other Territories" pseudo-state
+ * (OT), which no reader knows by its code. Of its members only Jervis Bay
+ * Territory has a land border with any council (Shoalhaven), so that is the
+ * name shown. OT has no /housing route either, so the chip stays unlinked.
+ */
+export function crossBorderJurisdiction(stateCode: string): string {
+  return stateCode === "OT" ? "Jervis Bay Territory" : stateCode;
+}
+
+/**
  * A share of a suburb's residents as a whole percent, never "0%": the bridge
  * keeps every council above 1%, so anything shown is at least 1%.
  */

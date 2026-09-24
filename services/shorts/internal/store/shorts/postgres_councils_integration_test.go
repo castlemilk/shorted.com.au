@@ -300,3 +300,54 @@ func TestCouncilHazardRollupNeedsCoverage(t *testing.T) {
 		t.Errorf("council F bushfire at 50%% coverage = %v, want 10", b)
 	}
 }
+
+// Albury's neighbours include Wodonga across the Murray, carrying its OWN state
+// so the page links /housing/vic/council/wodonga, after the same-state ones.
+func TestCouncilHubCrossBorderNeighbours(t *testing.T) {
+	store := openCouncilHubDB(t)
+	p, err := store.GetCouncilProfile("NSW", "albury")
+	if err != nil {
+		t.Fatalf("GetCouncilProfile(NSW/albury): %v", err)
+	}
+	var wodonga *CouncilNeighbourRow
+	seenCross := false
+	for i, n := range p.Neighbours {
+		if n.CrossState {
+			seenCross = true
+		} else if seenCross {
+			t.Errorf("same-state neighbour %s listed after a cross-border one", n.DisplayName)
+		}
+		if n.LgaCode == "27170" {
+			wodonga = &p.Neighbours[i]
+		}
+	}
+	if wodonga == nil {
+		t.Fatalf("Albury neighbours %+v lack Wodonga", p.Neighbours)
+	}
+	if !wodonga.CrossState || !wodonga.SharesBorder || wodonga.StateCode != "VIC" || wodonga.Slug != "wodonga" {
+		t.Errorf("Wodonga = %+v, want a cross-border VIC neighbour with its own slug", *wodonga)
+	}
+
+	// Tweed: Gold Coast (QLD) sorts before Kyogle (NSW) by name, but the
+	// same-state neighbours come first.
+	tweed, err := store.GetCouncilProfile("NSW", "tweed")
+	if err != nil {
+		t.Fatalf("GetCouncilProfile(NSW/tweed): %v", err)
+	}
+	var order []string
+	for _, n := range tweed.Neighbours {
+		order = append(order, n.StateCode+":"+n.DisplayName)
+	}
+	crossFrom := len(tweed.Neighbours)
+	for i, n := range tweed.Neighbours {
+		if n.CrossState && i < crossFrom {
+			crossFrom = i
+		}
+		if !n.CrossState && i > crossFrom {
+			t.Errorf("Tweed neighbours %v: same-state %s after a cross-border one", order, n.DisplayName)
+		}
+	}
+	if crossFrom == len(tweed.Neighbours) {
+		t.Errorf("Tweed neighbours %v: no cross-border neighbour (Gold Coast, Scenic Rim)", order)
+	}
+}

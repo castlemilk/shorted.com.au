@@ -234,6 +234,24 @@ const councilDropsQuery = `
 		LEFT JOIN suburb_demographics d ON d.sal_code = t.sal_code
 		ORDER BY t.lga_code24, t.sal_code NULLS FIRST`
 
+// councilDropsMVQuery reads the same rows from mv_council_price_drops
+// (migration 000127): councilDropsQuery computed once per housing refresh
+// instead of on every cold council read, which on prod walked 18,640 buffers
+// of property_listings and made the first NSW ListCouncils after a deploy take
+// 11s. The view's definition is councilDropsQuery with the state/council
+// filters lifted into columns (TestCouncilDropsMVMatchesLiveQuery pins that),
+// so the rows are identical to the live query run at refresh time; as_of is
+// that refresh (housing_mv_refresh.refreshed_at), the instant every window in
+// the view was evaluated. No bookkeeping row means no as_of, so nothing is
+// published rather than an undated share.
+const councilDropsMVQuery = `
+		SELECT m.lga_code24, m.sal_code, m.sal_name, m.postcode, m.dropped, m.tracked,
+		       m.median_drop_pct, m.data_through, f.refreshed_at
+		FROM mv_council_price_drops m
+		JOIN housing_mv_refresh f ON f.mv_name = 'mv_council_price_drops'
+		WHERE m.state_code = $1 AND ($2 = '' OR m.lga_code24 = $2)
+		ORDER BY m.lga_code24, m.sal_code`
+
 // ListCouncils returns every council with a page in one state.
 func (s *postgresStore) ListCouncils(stateCode string) ([]*CouncilSummaryRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -378,8 +396,37 @@ type CouncilPriceDropsRow struct {
 	DataThrough    *time.Time             // newest crawl observation behind it
 }
 
+// councilDrops reads the council price-drop rows from mv_council_price_drops,
+// falling back to the live councilDropsQuery only where the view does not
+// exist (a database before migration 000127), so dev and test databases keep
+// working and a code-before-DDL deploy degrades to the old latency rather
+// than to no drops at all.
 func (s *postgresStore) councilDrops(ctx context.Context, stateCode, lgaCode string) (map[string]*councilDrops, error) {
-	rows, err := s.db.Query(ctx, councilDropsQuery, stateCode, lgaCode, councilDropsMinCount)
+	return fallbackOnUndefinedTable(
+		func() (map[string]*councilDrops, error) {
+			return s.scanCouncilDrops(ctx, councilDropsMVQuery, stateCode, lgaCode)
+		},
+		func(err error) (map[string]*councilDrops, error) {
+			log.Warnf("council drops: mv_council_price_drops absent, using the live query: %v", err)
+			return s.scanCouncilDrops(ctx, councilDropsQuery, stateCode, lgaCode, councilDropsMinCount)
+		},
+	)
+}
+
+// fallbackOnUndefinedTable runs primary and, ONLY when it failed because a
+// relation does not exist (42P01), runs fallback instead. Any other error is
+// returned as is: falling back on, say, a timeout would hide a sick view
+// behind the slow live query.
+func fallbackOnUndefinedTable[T any](primary func() (T, error), fallback func(error) (T, error)) (T, error) {
+	out, err := primary()
+	if err != nil && isUndefinedTable(err) {
+		return fallback(err)
+	}
+	return out, err
+}
+
+func (s *postgresStore) scanCouncilDrops(ctx context.Context, query string, args ...any) (map[string]*councilDrops, error) {
+	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -572,6 +619,9 @@ type CouncilNeighbourRow struct {
 	StateCode     string
 	SharesBorder  bool
 	SharedSuburbs int32
+	// CrossState marks a neighbour across a state or territory border
+	// (lga_adjacency.json cross_state). Its StateCode is its own state.
+	CrossState bool
 }
 
 // councilIdentityQuery resolves (state, slug) to one council with a page and
@@ -918,33 +968,33 @@ func (s *postgresStore) councilCrime(ctx context.Context, stateCode, code string
 //go:embed lga_adjacency.json
 var lgaAdjacencyJSON []byte
 
-// lgaAdjacency is council -> councils sharing a suburb boundary, derived from
-// the committed suburb topology by web/scripts/geo/build-lga-adjacency.mjs.
+// lgaAdjacency is council -> councils in the same state sharing a suburb
+// boundary, derived from the committed suburb topology; lgaCrossState is
+// council -> councils ACROSS a state or territory border whose ABS boundaries
+// touch (within 50 m). Both come from web/scripts/geo/build-lga-adjacency.mjs.
 // The database holds no geometry, so this is the only adjacency source.
-var lgaAdjacency = mustParseLgaAdjacency(lgaAdjacencyJSON)
+var lgaAdjacency, lgaCrossState = mustParseLgaAdjacency(lgaAdjacencyJSON)
 
-func mustParseLgaAdjacency(raw []byte) map[string][]string {
+func mustParseLgaAdjacency(raw []byte) (neighbours, crossState map[string][]string) {
 	var doc struct {
 		Neighbours map[string][]string `json:"neighbours"`
+		CrossState map[string][]string `json:"cross_state"`
 	}
 	if err := json.Unmarshal(raw, &doc); err != nil {
 		panic(fmt.Sprintf("lga_adjacency.json: %v", err))
 	}
-	return doc.Neighbours
+	return doc.Neighbours, doc.CrossState
 }
 
-// councilNeighbours merges the two neighbour signals: a shared suburb border
-// (topology) and suburbs split between the two councils (the mesh-block
-// bridge). BOTH are within one state: the topology is per state, and a suburb
-// and a council each nest inside a single state, so no suburb straddles a
-// state line. Cross-border pairs (Albury–Wodonga, Queanbeyan-Palerang–ACT,
-// Tweed–Gold Coast) are therefore never neighbours here, and the page says
-// "in the same state".
+// councilNeighbours merges three neighbour signals: a shared suburb border
+// (topology, within a state), suburbs split between the two councils (the
+// mesh-block bridge, also within a state: a suburb and a council each nest in
+// one state) and a shared council boundary ACROSS a state or territory line
+// (Albury–Wodonga, Queanbeyan-Palerang–ACT, Tweed–Gold Coast), which only the
+// ABS council geometry can see. A cross-border neighbour carries its own
+// state, so the page links it to that state's council URL.
 func (s *postgresStore) councilNeighbours(ctx context.Context, code string) ([]CouncilNeighbourRow, error) {
-	byCode := map[string]*CouncilNeighbourRow{}
-	for _, n := range lgaAdjacency[code] {
-		byCode[n] = &CouncilNeighbourRow{LgaCode: n, SharesBorder: true}
-	}
+	byCode := councilBorderNeighbours(code)
 	rows, err := s.db.Query(ctx, councilStraddleNeighboursQuery, code)
 	if err != nil {
 		return nil, err
@@ -985,17 +1035,41 @@ func (s *postgresStore) councilNeighbours(ctx context.Context, code string) ([]C
 			return nil, err
 		}
 		base := byCode[c]
-		r.LgaCode, r.SharesBorder, r.SharedSuburbs = c, base.SharesBorder, base.SharedSuburbs
+		r.LgaCode, r.SharesBorder, r.SharedSuburbs, r.CrossState = c, base.SharesBorder, base.SharedSuburbs, base.CrossState
 		out = append(out, r)
 	}
 	if err := idRows.Err(); err != nil {
 		return nil, err
 	}
+	sortCouncilNeighbours(out)
+	return out, nil
+}
+
+// councilBorderNeighbours is the geometry half of councilNeighbours, read from
+// the embedded adjacency: same-state councils sharing a suburb border, then
+// councils across a state line. It is split out so a unit test can pin the
+// cross-border merge (Albury -> Wodonga) without a database.
+func councilBorderNeighbours(code string) map[string]*CouncilNeighbourRow {
+	byCode := map[string]*CouncilNeighbourRow{}
+	for _, n := range lgaAdjacency[code] {
+		byCode[n] = &CouncilNeighbourRow{LgaCode: n, SharesBorder: true}
+	}
+	for _, n := range lgaCrossState[code] {
+		byCode[n] = &CouncilNeighbourRow{LgaCode: n, SharesBorder: true, CrossState: true}
+	}
+	return byCode
+}
+
+// sortCouncilNeighbours orders same-state neighbours first, then those across
+// the border, each by name.
+func sortCouncilNeighbours(out []CouncilNeighbourRow) {
 	sort.Slice(out, func(i, j int) bool {
+		if out[i].CrossState != out[j].CrossState {
+			return !out[i].CrossState
+		}
 		if out[i].DisplayName != out[j].DisplayName {
 			return out[i].DisplayName < out[j].DisplayName
 		}
 		return out[i].LgaCode < out[j].LgaCode
 	})
-	return out, nil
 }

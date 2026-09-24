@@ -47,8 +47,15 @@ the live portal and sit behind `HOUSING_DROP_LISTINGS_ENABLED`.
   `sal_code`): ABS parenthesises a name because it repeats, and an unordered
   `UPDATE … FROM` linked the NSW VG "Mayfield" series to Mayfield
   (Shoalhaven), 36 people, not Mayfield (Newcastle), 9,760. The link only
-  fills NULLs, so rows linked before 2026-09-24 keep their old pick until
-  relinked by hand (33 in prod, 222 listings under them).
+  fills NULLs, so rows linked before 2026-09-24 kept their old pick: 33 on
+  prod. **000128** re-points them to the same populous pick, but only where
+  the region's postcode does not contradict it (same-postcode, exact-linked
+  neighbours sit in the new SAL's council more often than the old one's, or,
+  with no evidence, the new SAL is ≥2× as populous). It moves 30 and holds 3
+  that are right today (Greenlands 2631, South Arm 2460, Rosewood 2652). The
+  crawl's copies of a moved link (`property_listings.sal_code`,
+  `property_price_events.sal_code`, the drop index's suburb rows) move with
+  it. Exact-name links are never touched.
 - `house_prices` — narrow **EAV fact**: one row per region × measure ×
   dwelling × period × source, **UNIQUE on exactly that tuple**.
   `source_licence` (default `CC-BY-4.0`) rides on every row for republish
@@ -304,6 +311,7 @@ database without 000126 still serves the base council card.
 | `mv_state_price_drops` | 000086, rebuilt 000109, 000124 | `state_code` + `'AU'` national row (GROUPING SETS) | 40% cap; `address_key` unit; every price/percent column NULL below 3; junk `state_code='AU'` rows excluded (they'd collide with the national row and abort the CONCURRENT refresh via the unique index); 14-day liveness; `suburbs_swept_14d` / `catalog_suburbs` coverage (000124) |
 | `mv_agency_stats` | 000086, rebuilt 000109, 000124 | `(source, agency_id, state_code)` — per-portal, no entity resolution | row floor `active_listings >= 3`; `avg_drop_pct`/`total_drop_value` NULL until **≥3 dropped addresses**; `agent_names` always empty (000109); 14-day liveness |
 | `mv_suburb_crime_latest` | 000090, rebuilt 000092 | `(sal_code, crime_type)` pooled latest | `NOT small_pop AND NOT unreliable`, WA ToU excluded |
+| `mv_council_price_drops` | 000127 | `(state_code, lga_code24, sal_code)`; `sal_code = ''` is the council total (GROUPING SETS) | the council store's live query (`councilDropsQuery`) verbatim: address winner, 30-day window, 40% cap, 14-day liveness; suburb median NULL below 3 cuts. The council-level k≥3 floor stays in Go (`aggregateCouncilDrops`) |
 
 Shared unit (000109, numerators AND denominators): the physical address,
 `NULLIF(address_key, '') IS NOT NULL` — keyless rows are excluded rather than
@@ -338,14 +346,16 @@ crawl observation (`max(observed_at)` of price events, `max(last_seen_at)` of
 listings), read BEFORE the refresh so it can only understate what the view
 holds; NULL for non-crawl views (`mv_housing_headline`, `mv_suburb_crime_latest`).
 The API serves them as `as_of` / `data_through` on every drops read; a missing
-table (a DB before 000124) reads as "unknown", never as an error.
+table (a DB before 000124) reads as "unknown", never as an error. The council
+drops read (000127) inner-joins its row: an undated view publishes nothing.
 
 ### `refresh_housing_materialized_views()`
 
-Final body is 000124's: six independently guarded blocks (CONCURRENTLY →
-blocking fallback → warning) for `mv_housing_headline`,
+Final body is 000127's: 000124's six independently guarded blocks
+(CONCURRENTLY → blocking fallback → warning) for `mv_housing_headline`,
 `mv_suburb_price_drops`, `mv_suburb_listing_stats`, `mv_state_price_drops`,
-`mv_agency_stats` and `mv_suburb_crime_latest`, each catching
+`mv_agency_stats` and `mv_suburb_crime_latest`, verbatim, then a seventh for
+`mv_council_price_drops`, each catching
 `query_canceled OR OTHERS` (000107 — plpgsql's `OTHERS` does not match the
 57014 a `statement_timeout` raises, so one timed-out MV used to starve every MV
 after it), each followed by its own guarded `housing_mv_refresh` upsert. The
@@ -413,3 +423,5 @@ verified in prod `pg_matviews` 2026-09-23) and the refresh function's missing
 | 000124 | 14-day liveness on the four listing MVs, state coverage columns, `housing_mv_refresh` + recording refresh fn, nullable (k-floored) `housing_drop_index_daily.median_drop_pct` |
 | 000125 | `suburb_planning`: zoning-family shares + coverage + dominant family, heritage share + item count, NSW height/FSR/lot-size standards + their mapped shares, instruments, sources, licence CHECK, coverage-gate CHECK |
 | 000126 | council foundation: `lga` identity + ABS fact columns, `lga_series`, `suburb_lga.dominant_share` |
+| 000127 | `mv_council_price_drops` (council drops, once per refresh instead of per cold read) + its refresh block; partial index `idx_lga_series_public_latest` for the council index's `data_through` |
+| 000128 | data repair: re-point 30 stripped-pass `sal_code` links to the populous same-name SAL, postcode-guarded, with their crawl copies |

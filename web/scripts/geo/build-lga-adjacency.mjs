@@ -4,14 +4,19 @@
 // Two councils are neighbours when a suburb whose DOMINANT council is one
 // shares a boundary arc with a suburb whose dominant council is the other.
 // Same arcs as the map draws, so a neighbour on the council page is exactly a
-// council whose outline touches this one on the map. Within a state only: the
-// suburb topology is per state, so Albury and Wodonga are not neighbours here.
+// council whose outline touches this one on the map. The suburb topology is
+// per state, so that signal never crosses a state line; the councils that meet
+// ACROSS one (Albury–Wodonga, Queanbeyan-Palerang–ACT, Tweed–Gold Coast, the
+// Murray) come from build-lga-cross-border.mjs, computed from the ABS council
+// boundaries, and are kept apart under `cross_state` so a reader can tell them
+// from same-state neighbours.
 //
-// Inputs (both committed): web/public/geo/suburbs/<ST>.topojson and the
-// mesh-block bridge web/public/geo/insights/suburb-lga.json (join-lga-mb.py).
+// Inputs (all committed): web/public/geo/suburbs/<ST>.topojson, the mesh-block
+// bridge web/public/geo/insights/suburb-lga.json (join-lga-mb.py) and the
+// cross-border pairs web/scripts/geo/lga-cross-border.json.
 // Output: services/shorts/internal/store/shorts/lga_adjacency.json, embedded
 // into the API (go:embed) — the database holds no geometry, and this changes
-// only when the ASGS vintage or the bridge does.
+// only when the ASGS vintage, the bridge or the boundaries do.
 //
 //   node web/scripts/geo/build-lga-adjacency.mjs          # write
 //   node web/scripts/geo/build-lga-adjacency.mjs --check  # exit 1 on drift
@@ -22,6 +27,7 @@ import { neighbors } from "topojson-client";
 const here = import.meta.dirname;
 const web = path.join(here, "../..");
 export const OUTPUT = path.join(web, "../services/shorts/internal/store/shorts/lga_adjacency.json");
+export const CROSS_BORDER = path.join(here, "lga-cross-border.json");
 export const STATES = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"];
 
 /**
@@ -54,28 +60,53 @@ export function councilAdjacency(bridge, topologies) {
   return result;
 }
 
+/**
+ * @param {{a: string, b: string}[]} pairs cross-border council pairs
+ * @returns {Record<string, string[]>} council -> sorted cross-border neighbours, symmetric
+ */
+export function crossStateAdjacency(pairs) {
+  const out = new Map();
+  const link = (a, b) => {
+    if (!out.has(a)) out.set(a, new Set());
+    out.get(a).add(b);
+  };
+  for (const { a, b } of pairs) {
+    if (a === b) continue;
+    link(a, b);
+    link(b, a);
+  }
+  const result = {};
+  for (const code of [...out.keys()].sort()) result[code] = [...out.get(code)].sort();
+  return result;
+}
+
 export function build() {
   const bridge = JSON.parse(fs.readFileSync(path.join(web, "public/geo/insights/suburb-lga.json"), "utf8"));
   const topologies = {};
   for (const st of STATES) {
     topologies[st] = JSON.parse(fs.readFileSync(path.join(web, `public/geo/suburbs/${st}.topojson`), "utf8"));
   }
+  const crossBorder = JSON.parse(fs.readFileSync(CROSS_BORDER, "utf8"));
   return {
-    source: "ABS ASGS 2021 suburbs (SAL) topology + ABS mesh-block council allocation, CC BY 4.0",
-    method: "dominant-council suburbs sharing a boundary arc, within a state",
+    source: "ABS ASGS 2021 suburbs (SAL) topology + ABS mesh-block council allocation; ABS ASGS Ed.3 LGA_2024 boundaries, CC BY 4.0",
+    method: "neighbours: dominant-council suburbs sharing a boundary arc, within a state; cross_state: " + crossBorder.method,
     neighbours: councilAdjacency(bridge, topologies),
+    cross_state: crossStateAdjacency(crossBorder.pairs),
   };
 }
 
 // One council per line: a boundary change reads as a one-line diff.
 export function serialize(doc) {
-  const rows = Object.entries(doc.neighbours).map(([code, list]) => `  ${JSON.stringify(code)}: ${JSON.stringify(list)}`);
+  const rows = (map) => Object.entries(map).map(([code, list]) => `  ${JSON.stringify(code)}: ${JSON.stringify(list)}`).join(",\n");
   return [
     "{",
     `"source": ${JSON.stringify(doc.source)},`,
     `"method": ${JSON.stringify(doc.method)},`,
     `"neighbours": {`,
-    rows.join(",\n"),
+    rows(doc.neighbours),
+    "},",
+    `"cross_state": {`,
+    rows(doc.cross_state),
     "}",
     "}",
     "",

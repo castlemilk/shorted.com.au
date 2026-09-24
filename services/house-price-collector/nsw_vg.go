@@ -107,20 +107,74 @@ type nswFetcher interface {
 	FetchBytes(context.Context, string, string) ([]byte, string, error)
 }
 
-func ingestNSWSuburbMedians(ctx context.Context) ([]Observation, error) {
-	client, err := stealthhttp.New(stealthhttp.WithTimeout(120 * time.Second))
-	if err != nil {
-		return nil, fmt.Errorf("stealth init: %w", err)
+// nswReplaceMinSales is the fewest filtered house sales a fetched year must
+// yield before the run is allowed to prune that year's unemitted medians. A
+// full NSW year is 92k-109k (2023-2025, measured 2026-09-24); a year under half
+// that is a truncated or partial file, and pruning from it would delete real
+// suburbs. Such a year is still upserted, never pruned.
+const nswReplaceMinSales = 50000
+
+// newNSWVGJob is the rig's vg_nsw job: the live PSI ingest, authoritative for
+// every requested year that fetched in full.
+func newNSWVGJob() officialJob {
+	var counts map[int]int
+	return officialJob{
+		name: nswSource,
+		fn: func(ctx context.Context) ([]Observation, error) {
+			client, err := stealthhttp.New(stealthhttp.WithTimeout(120 * time.Second))
+			if err != nil {
+				return nil, fmt.Errorf("stealth init: %w", err)
+			}
+			obs, c, err := ingestNSWSuburbMediansCounted(ctx, client, nswRecentYears(nswYears))
+			counts = c
+			return obs, err
+		},
+		replace: func() *replaceScope { return nswReplaceScope(counts, nswReplaceMinSales) },
 	}
-	return ingestNSWSuburbMediansWithFetcher(ctx, client, nswRecentYears(nswYears))
+}
+
+// nswReplaceScope is the slice a vg_nsw run may prune: the annual house
+// medians of each year that fetched at least minSales filtered sales. A year
+// that failed never reaches here (the ingest errors on incomplete coverage);
+// a year that fetched thin is left unpruned and recorded in Withheld, which
+// fails the rig's exit code — a thin trailing COMPLETE year is a truncated
+// download, never a normal outcome.
+func nswReplaceScope(counts map[int]int, minSales int) *replaceScope {
+	scope := &replaceScope{Source: nswSource, Measure: "median_price", DwellingType: "house", PeriodFreq: "A"}
+	years := make([]int, 0, len(counts))
+	for yr := range counts {
+		years = append(years, yr)
+	}
+	sort.Ints(years)
+	for _, yr := range years {
+		if counts[yr] < minSales {
+			log.Printf("[vg_nsw] %d: only %d house sales (< %d) — upserted but NOT pruned", yr, counts[yr], minSales)
+			scope.Withheld = append(scope.Withheld, fmt.Sprintf("%d: only %d house sales (under the %d floor)", yr, counts[yr], minSales))
+			continue
+		}
+		scope.Years = append(scope.Years, yr)
+	}
+	return scope
+}
+
+func ingestNSWSuburbMedians(ctx context.Context) ([]Observation, error) {
+	return newNSWVGJob().fn(ctx)
 }
 
 func ingestNSWSuburbMediansWithFetcher(ctx context.Context, fetcher nswFetcher, years []int) ([]Observation, error) {
+	obs, _, err := ingestNSWSuburbMediansCounted(ctx, fetcher, years)
+	return obs, err
+}
+
+// ingestNSWSuburbMediansCounted also returns each fetched year's filtered
+// house-sale count, which decides whether that year may be pruned.
+func ingestNSWSuburbMediansCounted(ctx context.Context, fetcher nswFetcher, years []int) ([]Observation, map[int]int, error) {
 	// name → year → aggregate. Keyed by UPPER suburb name (the sal_code backfill
 	// matches case-insensitively, so casing is irrelevant to the join).
 	agg := map[string]map[int]*nswAgg{}
 	fetchedYears := make([]int, 0, len(years))
 	missingYears := make([]int, 0, len(years))
+	counts := make(map[int]int, len(years))
 	for _, yr := range years {
 		url := fmt.Sprintf("%s%d.zip", nswPSIBase, yr)
 		b, _, err := fetcher.FetchBytes(ctx, url, nswAccept)
@@ -156,10 +210,11 @@ func ingestNSWSuburbMediansWithFetcher(ctx context.Context, fetcher nswFetcher, 
 			}
 		}
 		fetchedYears = append(fetchedYears, yr)
+		counts[yr] = len(sales)
 		log.Printf("[vg_nsw] %d: %d house sales", yr, len(sales))
 	}
 	if len(fetchedYears) != len(years) {
-		return nil, fmt.Errorf(
+		return nil, nil, fmt.Errorf(
 			"incomplete NSW PSI coverage: fetched %d/%d requested years; missing %v",
 			len(fetchedYears), len(years), missingYears,
 		)
@@ -173,7 +228,7 @@ func ingestNSWSuburbMediansWithFetcher(ctx context.Context, fetcher nswFetcher, 
 		}
 	}
 	log.Printf("[vg_nsw] %d suburb-year medians (%d thin suburbs via %dyr pool) across %d years", len(obs), pooledN, nswYears, len(fetchedYears))
-	return obs, nil
+	return obs, counts, nil
 }
 
 func buildNSWObservations(agg map[string]map[int]*nswAgg, fetchedYears []int) []Observation {

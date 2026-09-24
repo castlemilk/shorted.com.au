@@ -15,7 +15,7 @@ import type {
   LgaInfo,
 } from "~/gen/shorts/v1alpha1/housing_pb";
 import { DropsStaleNotice } from "@/components/housing/price-drops/drops-stale-notice";
-import { councilHref } from "@/lib/housing/council";
+import { councilHref, crossBorderJurisdiction } from "@/lib/housing/council";
 import { dropsFreshness, fmtDropsDate } from "@/lib/housing/drops-freshness";
 import {
   fmtInt, fmtMoney, fmtMonth, fmtShare, fmtSharePct, fmtSignedPct, type KeyFact,
@@ -349,30 +349,61 @@ export function PriceDropsPulse({ stateCode, drops }: { stateCode: string; drops
   );
 }
 
-export function Neighbours({ neighbours }: { neighbours: readonly CouncilNeighbour[] }) {
+/** A neighbour chip: linked to the council's own state URL when it has a page. */
+function NeighbourChip({ n, detail }: { n: CouncilNeighbour; detail: string }) {
+  const href = councilHref(n.stateCode, n.slug);
+  const label = <>{n.displayName}{detail ? <span className="ml-1 text-[10px] text-muted-foreground">{detail}</span> : null}</>;
+  return (
+    <li>
+      {href ? (
+        <Link href={href} className="inline-flex items-center rounded-md border border-border px-2.5 py-1 text-sm hover:bg-muted">{label}</Link>
+      ) : (
+        <span className="inline-flex items-center rounded-md border border-border/50 px-2.5 py-1 text-sm text-muted-foreground">{label}</span>
+      )}
+    </li>
+  );
+}
+
+/**
+ * Same-state neighbours (suburb topology + split suburbs), then the councils
+ * across a state or territory border whose ABS boundaries touch this one's.
+ * A neighbour is cross-border when its state is not this council's.
+ */
+export function Neighbours({ neighbours, stateCode }: { neighbours: readonly CouncilNeighbour[]; stateCode: string }) {
   if (!neighbours.length) return null;
+  const same = neighbours.filter((n) => n.stateCode === stateCode);
+  const across = neighbours.filter((n) => n.stateCode !== stateCode);
   return (
     <Section
       id="neighbours"
       title="Neighbouring councils"
-      lede="Councils in the same state whose suburbs share a boundary with this one's, and councils it splits a suburb with. Councils across a state or territory border are not listed."
+      lede={
+        across.length
+          ? "Councils whose suburbs share a boundary with this one's, councils it splits a suburb with, and councils across the state or territory border whose boundaries meet it."
+          : "Councils in the same state whose suburbs share a boundary with this one's, and councils it splits a suburb with."
+      }
     >
-      <ul className="flex flex-wrap gap-2">
-        {neighbours.map((n) => {
-          const href = councilHref(n.stateCode, n.slug);
-          const detail = [n.sharesBorder ? "" : "shares suburbs", n.sharedSuburbs > 0 && n.sharesBorder ? `${n.sharedSuburbs} shared suburb${n.sharedSuburbs === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ");
-          const label = <>{n.displayName}{detail ? <span className="ml-1 text-[10px] text-muted-foreground">{detail}</span> : null}</>;
-          return (
-            <li key={n.lgaCode}>
-              {href ? (
-                <Link href={href} className="inline-flex items-center rounded-md border border-border px-2.5 py-1 text-sm hover:bg-muted">{label}</Link>
-              ) : (
-                <span className="inline-flex items-center rounded-md border border-border/50 px-2.5 py-1 text-sm text-muted-foreground">{label}</span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      {same.length ? (
+        <ul className="flex flex-wrap gap-2">
+          {same.map((n) => (
+            <NeighbourChip
+              key={n.lgaCode}
+              n={n}
+              detail={[n.sharesBorder ? "" : "shares suburbs", n.sharedSuburbs > 0 && n.sharesBorder ? `${n.sharedSuburbs} shared suburb${n.sharedSuburbs === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ")}
+            />
+          ))}
+        </ul>
+      ) : null}
+      {across.length ? (
+        <div className="space-y-2">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Across the border</h3>
+          <ul className="flex flex-wrap gap-2" aria-label="Neighbouring councils across the border">
+            {across.map((n) => (
+              <NeighbourChip key={n.lgaCode} n={n} detail={crossBorderJurisdiction(n.stateCode)} />
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </Section>
   );
 }
