@@ -104,6 +104,13 @@ func TestCouncilDropsMVEqualsLiveQueryAndFallsBack(t *testing.T) {
 	if _, err := pool.Exec(ctx, "CREATE MATERIALIZED VIEW mv_council_price_drops AS "+councilDropsMVBody(t)); err != nil {
 		t.Fatalf("create view from 000127: %v", err)
 	}
+	// The refresh function refreshes it CONCURRENTLY, which needs 000127's
+	// unique index to hold over real rows (the council total is keyed '').
+	if _, err := pool.Exec(ctx, `
+		CREATE UNIQUE INDEX idx_mv_council_price_drops_key ON mv_council_price_drops (state_code, lga_code24, sal_code);
+		REFRESH MATERIALIZED VIEW CONCURRENTLY mv_council_price_drops;`); err != nil {
+		t.Fatalf("concurrent refresh: %v", err)
+	}
 	refreshed := time.Now().Add(-time.Minute).UTC().Truncate(time.Microsecond)
 	if _, err := pool.Exec(ctx, `INSERT INTO housing_mv_refresh VALUES ('mv_council_price_drops', $1, now())`, refreshed); err != nil {
 		t.Fatal(err)
