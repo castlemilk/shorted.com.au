@@ -68,3 +68,24 @@ Inputs, all ABS CC BY 4.0, staged outside git (e.g.
     python3 web/scripts/geo/join-lga-mb.py --staging /Volumes/gamma-systems-2/shorted-council/abs
     python3 -m unittest web/scripts/geo/test_join_lga_mb.py
     node --test web/scripts/geo/lga-bridge.test.mjs
+
+## Council adjacency
+
+`services/shorts/internal/store/shorts/lga_adjacency.json` (go:embed) holds the
+council page's neighbours in two maps:
+
+- `neighbours`: councils in the SAME state whose dominant suburbs share a
+  boundary arc (`build-lga-adjacency.mjs`, from the committed suburb topology
+  and bridge). The topology is per state, so it never crosses a border.
+- `cross_state`: councils in DIFFERENT states whose ABS LGA_2024 boundaries
+  touch or come within 50 m (`build-lga-cross-border.mjs`, from
+  `.staging/abs-lga.geojson`; pseudo areas excluded). 76 pairs: Albury–Wodonga,
+  Queanbeyan-Palerang/Yass Valley/Snowy–ACT, Tweed–Gold Coast, the Murray
+  River councils, Shoalhaven–Jervis Bay and the desert borders. The pairs are
+  committed as `lga-cross-border.json`, so the artifact rebuilds from
+  committed inputs.
+
+      node web/scripts/geo/fetch-abs-lga.mjs            # only if .staging/abs-lga.geojson is absent
+      node web/scripts/geo/build-lga-cross-border.mjs   # after an LGA boundary edition change
+      node web/scripts/geo/build-lga-adjacency.mjs      # after any topology/bridge/pairs change
+      node --test web/scripts/geo/lga-adjacency.test.mjs web/scripts/geo/lga-cross-border.test.mjs

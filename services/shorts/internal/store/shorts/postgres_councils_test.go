@@ -255,3 +255,39 @@ func TestLgaAdjacencyEmbedded(t *testing.T) {
 		}
 	}
 }
+
+func TestLgaCrossStateEmbedded(t *testing.T) {
+	if len(lgaCrossState) < 50 {
+		t.Fatalf("embedded cross-border adjacency has %d councils", len(lgaCrossState))
+	}
+	has := func(m map[string][]string, a, b string) bool {
+		for _, x := range m[a] {
+			if x == b {
+				return true
+			}
+		}
+		return false
+	}
+	// Albury (NSW) <-> Wodonga (VIC), across the Murray: a cross-border pair,
+	// never a same-state one.
+	if !has(lgaCrossState, "10050", "27170") || !has(lgaCrossState, "27170", "10050") {
+		t.Errorf("Albury <-> Wodonga missing from cross_state: %v / %v", lgaCrossState["10050"], lgaCrossState["27170"])
+	}
+	if has(lgaAdjacency, "10050", "27170") {
+		t.Error("Albury -> Wodonga must not be listed as a same-state neighbour")
+	}
+	// The ACT's only neighbours are across its border.
+	if len(lgaCrossState["89399"]) == 0 || len(lgaAdjacency["89399"]) != 0 {
+		t.Errorf("Unincorporated ACT: cross %v, same-state %v", lgaCrossState["89399"], lgaAdjacency["89399"])
+	}
+	for a, list := range lgaCrossState {
+		for _, b := range list {
+			if a[0] == b[0] {
+				t.Errorf("%s -> %s is same-state but listed as cross-border", a, b)
+			}
+			if !has(lgaCrossState, b, a) {
+				t.Errorf("%s -> %s is one-way", a, b)
+			}
+		}
+	}
+}

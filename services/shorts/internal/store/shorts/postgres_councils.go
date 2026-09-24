@@ -604,6 +604,9 @@ type CouncilNeighbourRow struct {
 	StateCode     string
 	SharesBorder  bool
 	SharedSuburbs int32
+	// CrossState marks a neighbour across a state or territory border
+	// (lga_adjacency.json cross_state). Its StateCode is its own state.
+	CrossState bool
 }
 
 // councilIdentityQuery resolves (state, slug) to one council with a page and
@@ -950,32 +953,38 @@ func (s *postgresStore) councilCrime(ctx context.Context, stateCode, code string
 //go:embed lga_adjacency.json
 var lgaAdjacencyJSON []byte
 
-// lgaAdjacency is council -> councils sharing a suburb boundary, derived from
-// the committed suburb topology by web/scripts/geo/build-lga-adjacency.mjs.
+// lgaAdjacency is council -> councils in the same state sharing a suburb
+// boundary, derived from the committed suburb topology; lgaCrossState is
+// council -> councils ACROSS a state or territory border whose ABS boundaries
+// touch (within 50 m). Both come from web/scripts/geo/build-lga-adjacency.mjs.
 // The database holds no geometry, so this is the only adjacency source.
-var lgaAdjacency = mustParseLgaAdjacency(lgaAdjacencyJSON)
+var lgaAdjacency, lgaCrossState = mustParseLgaAdjacency(lgaAdjacencyJSON)
 
-func mustParseLgaAdjacency(raw []byte) map[string][]string {
+func mustParseLgaAdjacency(raw []byte) (neighbours, crossState map[string][]string) {
 	var doc struct {
 		Neighbours map[string][]string `json:"neighbours"`
+		CrossState map[string][]string `json:"cross_state"`
 	}
 	if err := json.Unmarshal(raw, &doc); err != nil {
 		panic(fmt.Sprintf("lga_adjacency.json: %v", err))
 	}
-	return doc.Neighbours
+	return doc.Neighbours, doc.CrossState
 }
 
-// councilNeighbours merges the two neighbour signals: a shared suburb border
-// (topology) and suburbs split between the two councils (the mesh-block
-// bridge). BOTH are within one state: the topology is per state, and a suburb
-// and a council each nest inside a single state, so no suburb straddles a
-// state line. Cross-border pairs (Albury–Wodonga, Queanbeyan-Palerang–ACT,
-// Tweed–Gold Coast) are therefore never neighbours here, and the page says
-// "in the same state".
+// councilNeighbours merges three neighbour signals: a shared suburb border
+// (topology, within a state), suburbs split between the two councils (the
+// mesh-block bridge, also within a state: a suburb and a council each nest in
+// one state) and a shared council boundary ACROSS a state or territory line
+// (Albury–Wodonga, Queanbeyan-Palerang–ACT, Tweed–Gold Coast), which only the
+// ABS council geometry can see. A cross-border neighbour carries its own
+// state, so the page links it to that state's council URL.
 func (s *postgresStore) councilNeighbours(ctx context.Context, code string) ([]CouncilNeighbourRow, error) {
 	byCode := map[string]*CouncilNeighbourRow{}
 	for _, n := range lgaAdjacency[code] {
 		byCode[n] = &CouncilNeighbourRow{LgaCode: n, SharesBorder: true}
+	}
+	for _, n := range lgaCrossState[code] {
+		byCode[n] = &CouncilNeighbourRow{LgaCode: n, SharesBorder: true, CrossState: true}
 	}
 	rows, err := s.db.Query(ctx, councilStraddleNeighboursQuery, code)
 	if err != nil {
@@ -1017,13 +1026,17 @@ func (s *postgresStore) councilNeighbours(ctx context.Context, code string) ([]C
 			return nil, err
 		}
 		base := byCode[c]
-		r.LgaCode, r.SharesBorder, r.SharedSuburbs = c, base.SharesBorder, base.SharedSuburbs
+		r.LgaCode, r.SharesBorder, r.SharedSuburbs, r.CrossState = c, base.SharesBorder, base.SharedSuburbs, base.CrossState
 		out = append(out, r)
 	}
 	if err := idRows.Err(); err != nil {
 		return nil, err
 	}
+	// Same-state neighbours first, then those across the border.
 	sort.Slice(out, func(i, j int) bool {
+		if out[i].CrossState != out[j].CrossState {
+			return !out[i].CrossState
+		}
 		if out[i].DisplayName != out[j].DisplayName {
 			return out[i].DisplayName < out[j].DisplayName
 		}

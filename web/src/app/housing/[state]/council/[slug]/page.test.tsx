@@ -245,12 +245,49 @@ describe("council page", () => {
     expect(screen.getByText(/Over 41 of 2 member suburbs/)).toBeInTheDocument();
   });
 
-  it("scopes neighbours to the state in the copy", async () => {
+  it("scopes neighbours to the state in the copy when none is across a border", async () => {
     getCouncilProfile.mockResolvedValue(profile({
       neighbours: [{ lgaCode: "12930", slug: "georges-river", displayName: "Georges River", kind: "council", stateCode: "NSW", sharesBorder: true, sharedSuburbs: 0 } as never],
     }));
     render(await CouncilPage(params("nsw", "canterbury-bankstown")));
-    expect(screen.getByRole("heading", { name: "Neighbouring councils" }).closest("section")!).toHaveTextContent("in the same state");
+    const section = screen.getByRole("heading", { name: "Neighbouring councils" }).closest("section")!;
+    expect(section).toHaveTextContent("in the same state");
+    expect(within(section).queryByText("Across the border")).toBeNull();
+  });
+
+  it("lists councils across a state border, each linked to its own state's page", async () => {
+    getCouncilProfile.mockResolvedValue(profile({
+      neighbours: [
+        { lgaCode: "13340", slug: "greater-hume", displayName: "Greater Hume", kind: "council", stateCode: "NSW", sharesBorder: true, sharedSuburbs: 0 },
+        { lgaCode: "27170", slug: "wodonga", displayName: "Wodonga", kind: "council", stateCode: "VIC", sharesBorder: true, sharedSuburbs: 0 },
+        { lgaCode: "26670", slug: "towong", displayName: "Towong", kind: "council", stateCode: "VIC", sharesBorder: true, sharedSuburbs: 0 },
+      ] as never,
+    }));
+    render(await CouncilPage(params("nsw", "canterbury-bankstown")));
+    const section = screen.getByRole("heading", { name: "Neighbouring councils" }).closest("section")!;
+    expect(section).toHaveTextContent("across the state or territory border");
+    expect(section).not.toHaveTextContent("are not listed");
+    const across = within(section).getByRole("list", { name: "Neighbouring councils across the border" });
+    const wodonga = within(across).getByRole("link", { name: /Wodonga/ });
+    expect(wodonga).toHaveAttribute("href", "/housing/vic/council/wodonga");
+    expect(wodonga).toHaveTextContent("VIC");
+    expect(within(across).queryByRole("link", { name: /Greater Hume/ })).toBeNull();
+    expect(within(section).getByRole("link", { name: /Greater Hume/ })).toHaveAttribute("href", "/housing/nsw/council/greater-hume");
+  });
+
+  it("keeps cross-border neighbours off the state map's neighbour outline", async () => {
+    getCouncilProfile.mockResolvedValue(profile({
+      neighbours: [
+        { lgaCode: "13340", slug: "greater-hume", displayName: "Greater Hume", kind: "council", stateCode: "NSW", sharesBorder: true, sharedSuburbs: 0 },
+        { lgaCode: "27170", slug: "wodonga", displayName: "Wodonga", kind: "council", stateCode: "VIC", sharesBorder: true, sharedSuburbs: 0 },
+      ] as never,
+    }));
+    hubMap.mockClear();
+    render(await CouncilPage(params("nsw", "canterbury-bankstown")));
+    // The hub map draws one state's suburb geometry: a VIC council has no
+    // outline there, so it must not be passed as one.
+    expect(hubMap).toHaveBeenCalledTimes(1);
+    expect((hubMap.mock.calls[0]![0] as { neighbourCodes: string[] }).neighbourCodes).toEqual(["13340"]);
   });
 
   it("explains that no council governs an unincorporated area, and that the ACT is the ACT Government's", async () => {
