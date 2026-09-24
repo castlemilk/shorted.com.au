@@ -135,6 +135,13 @@ landed, and this section had become more wrong than right.
   has **2,433** priced NSW suburbs (5,937 observations, latest period
   2025-12-31); it lands from the residential rig via `-mode vg-nsw`. VIC has
   also moved on a year, from the Dec-2024 freeze to 2025-12-31.
+  The NSW parser used to take every non-strata RESIDENCE transfer, so a
+  multi-property contract (lodged as one B-record per property, each carrying
+  the contract total) produced St Leonards $110.5M and Rhodes $22.5M. It now
+  drops multi-property dealings, non-residence natures, business/mixed-use/
+  industrial/special-purpose zones, part interests and development-sized lots
+  in R1/R3/R4 (`selectNSWHouseSales`, `nsw_vg.go`). **Prod needs a `-mode
+  vg-nsw` re-run from the rig + an MV refresh before the medians change.**
   **QLD (0/3,235) and WA (0/1,701) remain at zero — and that is expected, not
   outstanding**: both states sell sales data through brokers, so it is
   commercially blocked rather than unbuilt. The handover's "settled — do not
