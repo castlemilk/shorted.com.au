@@ -5,6 +5,7 @@ import { Intro } from "~/@/components/ui/intro";
 import { MoreStories } from "~/@/components/ui/more-stories";
 import { getAllPosts } from "~/@/lib/api";
 import { MDXRemote } from "next-mdx-remote/rsc";
+import remarkGfm from "remark-gfm";
 import { type Post } from "~/@/interfaces/post";
 import Info from "~/@/components/ui/info";
 // Use client wrapper to avoid SSR issues with protobuf imports
@@ -12,6 +13,10 @@ import RegisterEmailClient from "~/@/components/ui/register-email-client";
 // Lazy load Prism CSS only for blog pages
 import "prismjs/themes/prism-tomorrow.css";
 import { siteConfig } from "~/@/config/site";
+// Live housing series for the house-price posts. Already an ssr:false client
+// island (housing-charts.tsx), so it is safe to hand to MDX from this server
+// component — the same posture as RegisterEmailClient below.
+import { HousingSeriesChart } from "~/@/components/housing/housing-charts";
 
 export const metadata: Metadata = {
   title: "ASX Short Selling Blog — Analysis & Insights",
@@ -56,7 +61,10 @@ export default async function Index() {
   const morePosts = allPosts.slice(1);
 
   const components = {
-    h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h1 className="text-4xl font-bold mt-8 mb-4" {...props}>{children}</h1>,
+    // The index already carries the page's one <h1> (Intro); a post's own
+    // title heading demotes to <h2> here, as it does on /blog/[slug]. The
+    // crawl flagged this page for two H1s.
+    h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h2 className="text-4xl font-bold mt-8 mb-4" {...props}>{children}</h2>,
     h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h2 className="text-3xl font-semibold mt-6 mb-3" {...props}>{children}</h2>,
     h3: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h3 className="text-2xl font-medium mt-4 mb-2" {...props}>{children}</h3>,
     h4: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h4 className="text-xl font-medium mt-3 mb-2" {...props}>{children}</h4>,
@@ -73,6 +81,9 @@ export default async function Index() {
     td: (props: React.HTMLAttributes<HTMLTableCellElement>) => <td className="px-4 py-2 text-left" {...props} />,
     RegisterEmail: (props: Record<string, unknown>) => <RegisterEmailClient {...props} />,
     Info: (props: { title: string; children: React.ReactNode }) => <Info {...props} />,
+    HousingChart: (props: { regionCode: string; measure: string; dwellingType?: string; format?: "aud" | "percent" | "index"; ariaLabel: string; height?: number }) => (
+      <HousingSeriesChart {...props} />
+    ),
   };
 
   return (
@@ -89,7 +100,13 @@ export default async function Index() {
             excerpt={heroPost.excerpt}
           >
             <div className="max-w-2xl mx-auto custom-mdx-content">
-              <MDXRemote source={heroPost.content} components={components} />
+              {/* remark-gfm as on /blog/[slug]: the hero post is rendered in
+                  full here, and the house-price posts carry GFM tables. */}
+              <MDXRemote
+                source={heroPost.content}
+                components={components}
+                options={{ mdxOptions: { remarkPlugins: [remarkGfm] } }}
+              />
             </div>
           </HeroPost>
         )}

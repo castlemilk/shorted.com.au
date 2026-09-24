@@ -40,7 +40,7 @@ import { HousingSeriesChart } from "./housing-charts";
 import { SuburbBanner } from "./suburb-banner";
 import { SuburbDistributionPanels } from "./suburb-distribution-card";
 import { SuburbListingEstimate } from "./suburb-listing-estimate";
-import { SuburbLocatorMap } from "./suburb-locator-map-loader";
+import { SuburbLocatorMap } from "./suburb-locator-map";
 import { SuburbNearbyList } from "./suburb-nearby-list";
 import { SuburbScoreBand } from "./suburb-score-band";
 import { SuburbHazardCard } from "./suburb-hazard-card";
@@ -49,6 +49,7 @@ import { STATE_NAMES, stateSlug, suburbHref, titleCaseName } from "@/lib/housing
 import { crimeRankScale } from "@/lib/housing/highlight-metrics";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { ordinal, type SuburbContext } from "@/lib/housing/suburb-stats";
+import type { SuburbPageGeometry } from "@/lib/housing/suburb-geometry.server";
 import { HousingIcon, type HousingIconName } from "./housing-icon";
 
 const fmtAUD = (v: number) =>
@@ -69,10 +70,12 @@ export type SuburbProfileProps = {
   profile?: GetSuburbProfileResponse;
   /** State ranks, distributions and neighbours, derived in the page. */
   context?: SuburbContext;
+  /** Server-projected boundary paths (banner inset, state locator); null hides both maps. */
+  geometry?: SuburbPageGeometry | null;
 };
 
 export function SuburbProfile({
-  salCode, regionCode, stateCode, profile, context,
+  salCode, regionCode, stateCode, profile, context, geometry,
 }: SuburbProfileProps) {
   const data = profile;
   const st = stateCode ?? data?.summary?.stateCode ?? "";
@@ -153,8 +156,7 @@ export function SuburbProfile({
           bgKey: data.banner.bgKey,
           bgUrl: data.banner.bgUrl || undefined,
         } : undefined}
-        stateCode={st}
-        salCode={s.salCode}
+        locator={geometry?.locator}
       />
 
       <SuburbScoreBand
@@ -295,7 +297,9 @@ export function SuburbProfile({
 
         {/* right rail */}
         <div className="min-w-0 space-y-5">
-          {st ? <SuburbLocatorMap stateCode={st} salCode={s.salCode} salName={s.salName} /> : null}
+          {st ? (
+            <SuburbLocatorMap stateCode={st} salCode={s.salCode} salName={s.salName} model={geometry?.stateLocator} />
+          ) : null}
 
           {st && context ? (
             <SuburbNearbyList stateCode={st} nearby={context.nearby} basis={context.nearbyBasis} />

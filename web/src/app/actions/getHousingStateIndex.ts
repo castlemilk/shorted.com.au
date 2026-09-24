@@ -55,9 +55,13 @@ export const getStateSuburbIndex = (stateCode: string): Promise<SuburbLike[]> =>
         yoyPct: s.yoyPct,
         medianWeeklyHhdIncome: s.medianWeeklyHhdIncome,
         amenityScore: s.amenities?.amenityDensityScore ?? 0,
+        population: s.population,
       }));
     },
-    ["housing-state-suburb-index", stateCode],
+    // "v2": the projection gained `population` (the state page's server-rendered
+    // suburb directory ranks by it). A new key rather than a silent shape change,
+    // so a cached v1 entry cannot be served for 24h without the field.
+    ["housing-state-suburb-index", "v2", stateCode],
     // Matches the suburb route's own 24h ISR window, and joins the `housing`
     // tag so /api/revalidate?flush=housing drops it with everything else.
     // No per-state tag: nothing revalidates at state granularity, so it would be

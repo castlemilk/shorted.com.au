@@ -6,8 +6,13 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { HousingBreadcrumb } from "@/components/housing/housing-breadcrumb";
 import { StateSuburbExplorer } from "@/components/housing/state-suburb-explorer-loader";
+import { StateSuburbDirectorySection } from "@/components/housing/state-suburb-directory";
+import { buildStateSuburbDirectory } from "@/lib/housing/state-suburb-directory";
+import { fmtPriceShort } from "@/lib/housing/price-scale";
+import { bailOnEmptyRender } from "~/app/actions/config";
+import { getStateSuburbIndex } from "~/app/actions/getHousingStateIndex";
 import { SuburbPriceDropsPanel } from "@/components/housing/suburb-price-drops-panel-loader";
-import { ALL_STATES, STATE_NAMES, slugToState, stateSlug } from "@/lib/housing/states";
+import { ALL_STATES, STATE_NAMES, slugToState, stateSlug, titleCaseName } from "@/lib/housing/states";
 
 export const revalidate = 86400;
 
@@ -24,7 +29,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const name = STATE_NAMES[code]!;
   const url = `https://shorted.com.au/housing/${stateSlug(code)}`;
   const title = `${name} Suburb House Prices`;
-  const description = `Median house prices and ABS Census demographics by suburb across ${name}.`;
+  // Lead with the state's own numbers when the (24h-cached) index is available;
+  // the templated sentence is the fallback, never an error, so a backend blip
+  // cannot turn into a missing description on an ISR page.
+  let description = `Median house prices and ABS Census demographics by suburb across ${name}.`;
+  try {
+    const d = buildStateSuburbDirectory(await getStateSuburbIndex(code));
+    const dearest = d.mostExpensive[0];
+    if (d.pricedCount > 0) {
+      description =
+        `Median house prices for ${d.pricedCount.toLocaleString("en-AU")} ${name} suburbs from Valuer-General open data` +
+        (d.averageOfMedians ? ` (average of suburb medians ${fmtPriceShort(d.averageOfMedians)})` : "") +
+        (dearest ? `, from ${titleCaseName(dearest.salName)} at ${fmtPriceShort(dearest.latestMedianPrice)} down` : "") +
+        `. ABS Census demographics, electorates, schools and amenities for all ${d.total.toLocaleString("en-AU")} suburbs.`;
+    } else if (d.total > 0) {
+      description =
+        `Suburb profiles for ${d.total.toLocaleString("en-AU")} ${name} suburbs: ABS Census population, income and age, ` +
+        `schools, amenities, councils and electorates. No published Valuer-General price feed for ${name}.`;
+    }
+  } catch (error) {
+    console.warn(`[housing/state] suburb index unavailable for metadata (${code}):`, error);
+  }
   return {
     title, description,
     alternates: { canonical: url },
@@ -39,6 +64,17 @@ export default async function StatePage({ params }: PageProps) {
   if (!code) notFound();
   const name = STATE_NAMES[code]!;
   const url = `https://shorted.com.au/housing/${stateSlug(code)}`;
+  // The crawlable directory needs the state's suburb list. It is the same
+  // 24h-cached projection every suburb page in the state reads, so this adds
+  // no new upstream load — and on failure the page degrades to the explorer
+  // alone without letting ISR bake the degraded render (bailOnEmptyRender).
+  const directory = await getStateSuburbIndex(code)
+    .then((suburbs) => buildStateSuburbDirectory(suburbs))
+    .catch((error: unknown) => {
+      console.warn(`[housing/state] suburb index unavailable for ${code}:`, error);
+      bailOnEmptyRender();
+      return null;
+    });
   return (
     <DashboardLayout>
       <LLMMeta title={`${name} Suburb House Prices`}
@@ -52,6 +88,7 @@ export default async function StatePage({ params }: PageProps) {
           <p className="mt-3 max-w-2xl text-muted-foreground">Suburbs shaded by their latest median house price where available, over an ABS Census base. Hover for demographics, click to open the full profile.</p>
         </header>
         <StateSuburbExplorer stateCode={code} />
+        {directory ? <StateSuburbDirectorySection stateCode={code} directory={directory} /> : null}
         <SuburbPriceDropsPanel stateCode={code} title={`${name} suburb prices & movers`} />
         <aside
           aria-labelledby="related-state-context-heading"

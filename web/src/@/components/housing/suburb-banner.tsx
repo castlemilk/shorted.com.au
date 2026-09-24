@@ -1,12 +1,13 @@
 // Server component: no hooks, no handlers — just markup over already-resolved
 // props. It carries the page's <h1> and headline price, so it must stay in the
-// server HTML. The one interactive child (SuburbBannerMap) is its own "use
-// client" module, which makes the boundary start there instead of here.
+// server HTML. The locator inset is now a server component too (the paths are
+// projected during render), so nothing below this line hydrates.
 import { safeBannerUrl } from "@/lib/housing/banner-url";
 import { titleCaseName } from "@/lib/housing/states";
 import { HousingIcon } from "./housing-icon";
 import { HOUSING_ICONS, type HousingIconName } from "./housing-icons.generated";
 import { SuburbBannerMap } from "./suburb-banner-map";
+import type { SuburbLocatorModel } from "@/lib/housing/suburb-geometry";
 
 function isHousingIconName(value: string): value is HousingIconName {
   return Object.prototype.hasOwnProperty.call(HOUSING_ICONS.icons, value);
@@ -24,9 +25,11 @@ export type SuburbBannerData = {
  * live RPC-supplied bgUrl override), a serif/mono type stack, and a small
  * static locator map. bgKey selects the light/dark AVIF pair committed under
  * /public/housing-banners/bg — see the RPC's GetSuburbProfileResponse.banner.
+ * The locator is server-projected SVG (lib/housing/suburb-geometry), so the
+ * whole banner is static markup: no client island, no boundary fetch.
  */
 export function SuburbBanner({
-  name, sub, stat, statDelta, statNote, statSub, banner, stateCode, salCode,
+  name, sub, stat, statDelta, statNote, statSub, banner, locator,
 }: {
   name: string;
   sub: string;
@@ -39,8 +42,8 @@ export function SuburbBanner({
   /** Fallback line when there is no figure at all (unpriced suburb). */
   statSub?: string;
   banner?: SuburbBannerData;
-  stateCode: string;
-  salCode: string;
+  /** Pre-projected locator paths from lib/housing/suburb-geometry; null hides the inset. */
+  locator?: SuburbLocatorModel | null;
 }) {
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: proto string fields default to "" which must be treated as falsy
   const key = banner?.bgKey || banner?.archetype || "leafy-suburban";
@@ -120,9 +123,11 @@ export function SuburbBanner({
           ) : null}
         </div>
 
-        <div className="hidden aspect-square w-40 shrink-0 rounded-xl border border-border/60 bg-card/70 p-2 backdrop-blur-sm sm:block sm:w-52">
-          <SuburbBannerMap stateCode={stateCode} salCode={salCode} />
-        </div>
+        {locator ? (
+          <div className="hidden aspect-square w-40 shrink-0 rounded-xl border border-border/60 bg-card/70 p-2 backdrop-blur-sm sm:block sm:w-52">
+            <SuburbBannerMap model={locator} />
+          </div>
+        ) : null}
       </div>
 
     </div>

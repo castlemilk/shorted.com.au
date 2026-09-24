@@ -73,8 +73,8 @@ describe("metadata tells the truth about what the page shows", () => {
       stateName: "New South Wales",
       latestMedianPrice: 1_200_000,
     });
-    expect(title).toBe("Sampleton House Prices & Demographics");
-    expect(description).toContain("Median house price");
+    expect(title).toBe("Sampleton House Prices & Demographics | $1.2M Median");
+    expect(description).toMatch(/median house price \$1\.2M/);
   });
 
   it("stops promising a median price when there is none", () => {
@@ -93,5 +93,50 @@ describe("metadata tells the truth about what the page shows", () => {
     expect(suburbHasPrice({ latestMedianPrice: 1 })).toBe(true);
     expect(suburbHasPrice({ latestMedianPrice: 0 })).toBe(false);
     expect(suburbHasPrice({})).toBe(false);
+  });
+});
+
+describe("suburbMetaCopy — number-led copy", () => {
+  it("leads a priced suburb with the median, period and move, then the Census facts", () => {
+    const { title, description } = suburbMetaCopy({
+      name: "Bondi Beach",
+      stateName: "New South Wales",
+      latestMedianPrice: 4_250_000,
+      yoyPct: 3.25,
+      latestPeriodSeconds: Date.UTC(2026, 5, 30) / 1000,
+      population: 12_000,
+      medianAge: 36,
+      medianWeeklyHhdIncome: 3_012.4,
+      lgaName: "Waverley",
+      federalDivision: "Wentworth",
+    });
+    expect(title).toBe("Bondi Beach House Prices & Demographics | $4.3M Median");
+    expect(description).toBe(
+      "Bondi Beach, New South Wales: median house price $4.3M (Jun 2026), +3.3% over the year. " +
+        "population 12,000, median age 36, household income $3,012/wk. Waverley council, Wentworth electorate. " +
+        "ABS Census demographics, price history, schools and amenities.",
+    );
+  });
+
+  it("describes an unpriced suburb by its Census facts and council, never a price", () => {
+    const { title, description } = suburbMetaCopy({
+      name: "Noosa Heads",
+      stateName: "Queensland",
+      latestMedianPrice: 0,
+      population: 4_400,
+      medianAge: 51,
+      lgaName: "Noosa",
+    });
+    expect(title).toBe("Noosa Heads Suburb Profile & Demographics | Noosa");
+    expect(description).toBe(
+      "Noosa Heads, Queensland suburb profile: population 4,400, median age 51 (ABS Census). " +
+        "Noosa council. Demographics, schools, amenities and local context.",
+    );
+    expect(description).not.toMatch(/\$/);
+  });
+
+  it("omits every fact it does not have rather than printing zeros", () => {
+    const { description } = suburbMetaCopy({ name: "Lidster", stateName: "New South Wales", latestMedianPrice: 0 });
+    expect(description).toBe("Lidster, New South Wales suburb profile. Demographics, schools, amenities and local context.");
   });
 });

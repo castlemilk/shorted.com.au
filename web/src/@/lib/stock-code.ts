@@ -69,3 +69,17 @@ export function isValidStockCode(code: string | undefined | null): boolean {
   if (STOP_WORDS.has(trimmed)) return false;
   return true;
 }
+
+/**
+ * Whether /shorts/[code] can serve this security at all.
+ *
+ * Stricter than {@link isValidStockCode} (which is the search/UI acceptance
+ * rule): the API's GetStock rejects anything outside 3-4 alphanumerics, so a
+ * five-character deferred-settlement or hybrid code (SGLLV, ATBHQ) that the
+ * ASIC feed still reports is a guaranteed 404 as a page. Callers that render
+ * feed rows use this to decide between a link and plain text.
+ */
+export function hasStockPage(code: string | undefined | null): boolean {
+  if (!code) return false;
+  return /^[A-Z0-9]{3,4}$/i.test(code.trim());
+}

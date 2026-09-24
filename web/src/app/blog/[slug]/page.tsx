@@ -6,6 +6,10 @@ import { type Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { siteConfig } from "~/@/config/site";
+// Live housing series for the house-price posts. Already an ssr:false client
+// island (housing-charts.tsx), so it is safe to hand to MDX from this server
+// component — the same posture as RegisterEmailClient below.
+import { HousingSeriesChart } from "~/@/components/housing/housing-charts";
 import { ArticleSchema } from "~/@/components/seo/article-schema";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
@@ -93,6 +97,9 @@ export default async function Post({ params }: Params) {
     ),
     Info: (props: { title: string; children: React.ReactNode }) => (
       <Info {...props} />
+    ),
+    HousingChart: (props: { regionCode: string; measure: string; dwellingType?: string; format?: "aud" | "percent" | "index"; ariaLabel: string; height?: number }) => (
+      <HousingSeriesChart {...props} />
     ),
   };
 

@@ -40,6 +40,24 @@ metric) rather than the row payload, and the view syncs to `?metric=` /
 build: `web/scripts/geo/hazards/`; wording rules:
 [data-sources.md](data-sources.md#hazard-layers--what-the-words-mean).
 
+**Added 2026-09-24 (SEO round):** the suburb page's two small maps — the banner
+inset and the "where it is in the state" locator — are **server-rendered SVG**.
+`lib/housing/suburb-geometry.ts` (pure: bounds, centroid, locator + state
+models) and `suburb-geometry.server.ts` (node:fs loader, per-process memo)
+project the committed ABS boundary once during ISR; the page no longer fetches
+`/geo/suburbs/<STATE>.topojson` (310–336 KB compressed, 1.2–1.3 MB decoded)
+in the browser. The same geometry feeds the suburb Open Graph card
+(boundary silhouette), the `geo.*` meta tags and the `Place` JSON-LD
+(`suburb-structured-data.tsx`). Two landmines: (1) `outputFileTracingIncludes`
+in `next.config.mjs` must list `public/geo/suburbs/*.topojson` for both the
+suburb page and its OG route, or prod silently renders no maps; (2) the ABS SAL
+set contains **null-geometry placeholders** ("No usual address", "Migratory -
+Offshore - Shipping") — `eachRing` skips them; a regression there takes every
+map in the state down. `/housing/[state]` also gained a server-rendered suburb
+directory (`state-suburb-directory.tsx`) because Search Console showed suburb
+pages reachable only through the sitemap; and `suburbHref` no longer appends
+`?sal=` (the page resolves from the path). Audit: `docs/seo-audit-2026-09.md`.
+
 ## Read these in this order
 
 | Doc | What it answers |

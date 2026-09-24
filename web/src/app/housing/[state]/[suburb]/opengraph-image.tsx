@@ -1,16 +1,20 @@
-/* eslint-disable @next/next/no-img-element -- satori (next/og) only accepts <img>, not next/image */
+/* eslint-disable @next/next/no-img-element, jsx-a11y/alt-text */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
-import { getSuburbProfile, resolveSuburbSalCode } from "~/app/actions/getHousing";
-import { STATE_NAMES, slugToState } from "@/lib/housing/states";
-import { fmtPriceShort } from "@/lib/housing/price-scale";
 
-export const alt = "Suburb House Prices & Demographics — Shorted.com.au";
-export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
-// nodejs (not edge) so the profile fetch below can use the same Connect-RPC
-// server actions the page uses.
+import { getSuburbProfile, resolveSuburbSalCode } from "~/app/actions/getHousing";
+import { STATE_NAMES, slugToState, titleCaseName } from "@/lib/housing/states";
+import { fmtPriceShort } from "@/lib/housing/price-scale";
+import { getSuburbGeometry } from "@/lib/housing/suburb-geometry.server";
+import { suburbCardStats, suburbCardSubtitle } from "@/lib/housing/suburb-card-copy";
+import { OG_CONTENT_TYPE, OG_SIZE, OgSceneCard, getOgLogo } from "@/lib/og/card";
+
+export const alt = "Suburb house prices & demographics — Shorted.com.au";
+export const size = OG_SIZE;
+export const contentType = OG_CONTENT_TYPE;
+// nodejs (not edge): the profile fetch uses the same Connect-RPC server actions
+// the page uses, and the boundary + scene assets are read off disk.
 export const runtime = "nodejs";
 // Regenerate daily — matches the page's own revalidate, so a later-arriving
 // median price / archetype (or a transient RPC failure) doesn't freeze into
@@ -23,15 +27,37 @@ export function generateStaticParams(): Array<{ state: string; suburb: string }>
   return [];
 }
 
-/** kebab-slug -> Title Case, dropping a trailing postcode segment (e.g.
- * "bondi-beach-2026" -> "Bondi Beach"). This is the guaranteed fallback name
- * — it needs no DB access, so it renders even against an empty local DB. */
+/** kebab-slug -> Title Case, dropping a trailing postcode segment. The
+ * guaranteed fallback name — it needs no DB access, so it renders even against
+ * an empty local DB. */
 function titleCase(slug: string): string {
   const parts = slug.split("-").filter(Boolean);
-  if (parts.length > 1 && /^\d{3,4}$/.test(parts[parts.length - 1] ?? "")) {
-    parts.pop();
-  }
+  if (parts.length > 1 && /^\d{3,4}$/.test(parts[parts.length - 1] ?? "")) parts.pop();
   return parts.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+const SCENES = new Set([
+  "bushland", "coastal-beach", "farmland", "harbour", "hills-ranges",
+  "inner-terraces", "leafy-suburban", "parkland", "river-valley", "urban-skyline",
+]);
+
+/**
+ * The archetype's dark-toned scene JPEG as a data URI — the same art family the
+ * page banner draws (the banner uses the AVIF band; satori cannot decode AVIF,
+ * hence the JPEG bake). process.cwd() at runtime can resolve to either the repo
+ * root or web/, so try both. Unknown archetypes fall back to the plain canvas.
+ */
+function sceneDataUri(archetype: string): string {
+  const key = SCENES.has(archetype) ? archetype : "leafy-suburban";
+  for (const base of [process.cwd(), join(process.cwd(), "web")]) {
+    try {
+      const p = join(base, "public", "housing-banners", "og", `${key}.jpg`);
+      return `data:image/jpeg;base64,${readFileSync(p).toString("base64")}`;
+    } catch {
+      // try the next candidate
+    }
+  }
+  return "";
 }
 
 export default async function Image({
@@ -44,10 +70,14 @@ export default async function Image({
   let name = titleCase(suburb);
   let stateName = "";
   let archetype = "leafy-suburban";
-  let priceLabel: string | undefined;
+  let subtitle: string | undefined;
+  let stats: ReturnType<typeof suburbCardStats> = [];
+  let silhouette: ReturnType<typeof getSuburbGeometry> extends infer G
+    ? G extends { locator: infer L } ? L | null : null
+    : null = null;
 
-  // Best-effort enrichment. The local DB is empty and prod must never 500 on
-  // a crawler/share fetch, so any failure here just falls back to the
+  // Best-effort enrichment. The local DB is empty and prod must never 500 on a
+  // crawler/share fetch, so any failure here just falls back to the
   // slug-derived name + defaults above.
   try {
     const code = slugToState(state);
@@ -58,158 +88,47 @@ export default async function Image({
         // Transient failures return undefined and real misses throw; either way
         // this best-effort card falls back to its slug-derived content.
         const profile = await getSuburbProfile(sal);
-        if (profile?.summary?.salName) name = profile.summary.salName;
+        if (profile?.summary?.salName) name = titleCaseName(profile.summary.salName);
         if (profile?.banner?.archetype) archetype = profile.banner.archetype;
-        if (profile?.summary && profile.summary.latestMedianPrice > 0) {
-          priceLabel = fmtPriceShort(profile.summary.latestMedianPrice);
+        if (profile?.summary) {
+          subtitle = suburbCardSubtitle({
+            stateName,
+            archetype,
+            blurb: profile.banner?.blurb,
+            lgaName: profile.council?.lgaName,
+          });
+          stats = suburbCardStats({
+            latestMedianPrice: profile.summary.latestMedianPrice,
+            yoyPct: profile.summary.yoyPct,
+            population: profile.demographics?.population,
+            medianWeeklyHhdIncome: profile.demographics?.medianWeeklyHhdIncome,
+            medianAge: profile.demographics?.medianAge,
+            seifaDecile: profile.summary.seifa?.irsad?.decileAus,
+            fmtPrice: fmtPriceShort,
+          });
         }
+        // The same projected boundary the page's banner inset renders.
+        silhouette = getSuburbGeometry(code, sal)?.locator ?? null;
       }
     }
   } catch (err) {
     console.error(`[opengraph-image] suburb profile fetch failed for ${state}/${suburb}:`, err);
   }
 
-  const archetypeLabel = titleCase(archetype);
-
-  // Embed the archetype's dark-toned OG scene JPEG as a data URI — satori
-  // (next/og) can decode JPEG (unlike AVIF), so this is a separate bake
-  // target from the AVIF banner bands used on the page itself. process.cwd()
-  // at runtime can resolve to either the repo root or web/, so try both.
-  let bgDataUri = "";
-  try {
-    const p = join(process.cwd(), "web", "public", "housing-banners", "og", `${archetype}.jpg`);
-    bgDataUri = `data:image/jpeg;base64,${readFileSync(p).toString("base64")}`;
-  } catch {
-    try {
-      const p = join(process.cwd(), "public", "housing-banners", "og", `${archetype}.jpg`);
-      bgDataUri = `data:image/jpeg;base64,${readFileSync(p).toString("base64")}`;
-    } catch {
-      // fall back to the gradient-only look below
-    }
-  }
+  const [logoSrc, sceneSrc] = [await getOgLogo(), sceneDataUri(archetype)];
 
   return new ImageResponse(
     (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          position: "relative",
-          backgroundColor: "#0C0C0C",
-          color: "#E8DDB5",
-          fontFamily: "Georgia, serif",
-        }}
-      >
-        {bgDataUri ? (
-          <img
-            src={bgDataUri}
-            alt=""
-            width={size.width}
-            height={size.height}
-            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        ) : null}
-
-        {/* Scrim: satori (next/og) doesn't parse sized radial-gradients — a linear
-            amber-to-near-black glow reads as the same warm brand bloom safely. When
-            a scene image sits underneath, a flat dark wash is layered first so the
-            monospace detail rows stay legible against bright sky/foliage anywhere
-            on the card, not just where the diagonal gradient happens to be dark. */}
-        {bgDataUri ? (
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              backgroundColor: "rgba(8,8,8,0.6)",
-            }}
-          />
-        ) : null}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            backgroundImage: "linear-gradient(150deg, rgba(255,169,77,0.20) 0%, rgba(12,12,12,0) 55%)",
-          }}
-        />
-
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            padding: "64px 72px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 14,
-              fontFamily: "monospace",
-              fontSize: 22,
-              letterSpacing: 6,
-              textTransform: "uppercase",
-              color: "#FFA94D",
-            }}
-          >
-            Shorted · Housing
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <div style={{ display: "flex" }}>
-              <span style={{ fontSize: 104, lineHeight: 1.02, fontWeight: 600, color: "#F3EAC8" }}>
-                {name}
-              </span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                fontFamily: "monospace",
-                fontSize: 28,
-                color: "#B7A98A",
-              }}
-            >
-              {stateName ? <span>{stateName}</span> : null}
-              {stateName ? <span style={{ color: "#6b5530" }}>·</span> : null}
-              <span>{archetypeLabel}</span>
-              {priceLabel ? <span style={{ color: "#6b5530" }}>·</span> : null}
-              {priceLabel ? <span style={{ color: "#FFA94D", fontWeight: 700 }}>{priceLabel} median</span> : null}
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              borderTop: "2px solid rgba(255,169,77,0.5)",
-              paddingTop: 24,
-              fontFamily: "monospace",
-              fontSize: 22,
-              color: "#9C8F72",
-            }}
-          >
-            <span>shorted.com.au</span>
-            <span>House prices &amp; demographics</span>
-          </div>
-        </div>
-      </div>
+      <OgSceneCard
+        eyebrow={stateName ? `House prices · ${stateName}` : "House prices"}
+        title={name}
+        subtitle={subtitle ?? "Median house prices, ABS Census demographics and local context."}
+        stats={stats}
+        sceneSrc={sceneSrc}
+        silhouette={silhouette}
+        footer="shorted.com.au/housing"
+        logoSrc={logoSrc}
+      />
     ),
     { ...size },
   );

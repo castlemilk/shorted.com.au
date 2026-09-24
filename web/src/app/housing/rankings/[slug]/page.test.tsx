@@ -132,7 +132,7 @@ describe("HousingRankingPage", () => {
     const hrefs = screen
       .getAllByRole("link")
       .map((link) => link.getAttribute("href"));
-    expect(hrefs).toContain("/housing/nsw/alpha-2000?sal=10001");
+    expect(hrefs).toContain("/housing/nsw/alpha-2000");
     for (const related of ranking.related) {
       expect(hrefs).toContain(`/housing/rankings/${related}`);
     }
@@ -144,7 +144,7 @@ describe("HousingRankingPage", () => {
         itemType: "Place",
         items: expect.arrayContaining([
           expect.objectContaining({
-            url: `${siteConfig.url}/housing/nsw/alpha-2000?sal=10001`,
+            url: `${siteConfig.url}/housing/nsw/alpha-2000`,
           }),
         ]),
       }),

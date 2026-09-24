@@ -2,147 +2,63 @@
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { getServerShortsApiUrl } from "~/app/actions/config";
 
-export const alt = "Industry Short Positions - Shorted.com.au";
-export const size = {
-  width: 1200,
-  height: 630,
-};
-export const contentType = "image/png";
+import { getIndustryStocks } from "~/app/actions/industry/getIndustryData";
+import { getStock } from "~/app/actions/getStock";
+import { getSectorImagePathPng } from "~/@/lib/sector-images";
+import {
+  OG,
+  OG_CONTENT_TYPE,
+  OG_SERIF,
+  OG_SIZE,
+  OgLogoChip,
+  getCompanyLogo,
+  getOgLogo,
+  type CompanyLogo,
+} from "~/@/lib/og/card";
 
+export const alt = "Most shorted ASX stocks by industry — Shorted.com.au";
+export const size = OG_SIZE;
+export const contentType = OG_CONTENT_TYPE;
 // Self-healing cache: regenerate daily so a transient fetch failure doesn't
 // freeze a broken image for a year via Next.js's default immutable cache.
 export const revalidate = 86400;
 
-let cachedBg: string | null = null;
-let cachedLogo: string | null = null;
-
-async function getAssetBase64(path: string): Promise<string> {
-  try {
-    const ext = path.split(".").pop() ?? "png";
-    const mime = ext === "webp" ? "image/webp" : "image/png";
-    const data = await readFile(join(process.cwd(), path));
-    return `data:${mime};base64,${data.toString("base64")}`;
-  } catch {
-    // ignore
-  }
-  try {
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ?? "https://shorted.com.au";
-    const res = await fetch(`${siteUrl}/${path.replace(/^public\//, "")}`);
-    const buf = Buffer.from(await res.arrayBuffer());
-    const ext = path.split(".").pop() ?? "png";
-    const mime = ext === "webp" ? "image/webp" : "image/png";
-    return `data:${mime};base64,${buf.toString("base64")}`;
-  } catch {
-    // ignore
-  }
-  return "";
-}
-
-async function getBackgroundImage(): Promise<string> {
-  if (cachedBg) return cachedBg;
-  cachedBg = await getAssetBase64("public/assets/preview-background.png");
-  return cachedBg;
-}
-
-async function getLogoImage(): Promise<string> {
-  if (cachedLogo) return cachedLogo;
-  cachedLogo = await getAssetBase64("public/assets/logo-small.png");
-  return cachedLogo;
-}
-
-// Use the shared sector image mapping to resolve industry name → filename
-import { getSectorImagePathPng } from "~/@/lib/sector-images";
-
+/**
+ * The sector medallion is the same PNG the page's hero renders (lib/sector-images),
+ * read off disk with an HTTP fallback for runtimes where cwd is not the app root.
+ */
 async function getSectorImage(industryName: string): Promise<string> {
-  // getSectorImagePathPng returns a public asset path — prepend "public".
-  const relPath = getSectorImagePathPng(industryName);
-  const pngSrc = await getAssetBase64(`public${relPath}`);
-  if (pngSrc) return pngSrc;
-  // Fallback to webp
-  return getAssetBase64(`public${relPath.replace(".png", ".webp")}`);
-}
-
-// Fetch industry data from API
-interface IndustryOGData {
-  name: string;
-  stockCount: number;
-  avgShortPercent: number;
-  topStockCode: string;
-  topStockPercent: number;
-  highlyShortedCount: number;
-}
-
-async function getIndustryOGData(
-  slug: string,
-): Promise<IndustryOGData | null> {
-  try {
-    const apiUrl = getServerShortsApiUrl();
-    const res = await fetch(
-      `${apiUrl}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Connect-Protocol-Version": "1", "User-Agent": "shorted-og/1.0" },
-        body: JSON.stringify({
-          period: "3m",
-          limit: 50,
-          viewMode: 0,
-        }),
-        next: { revalidate: 3600 },
-      },
-    );
-    if (!res.ok) return null;
-
-    const data = (await res.json()) as {
-      stocks?: Array<{
-        productCode?: string;
-        industry?: string;
-        shortPosition?: number;
-      }>;
-    };
-
-    const INVALID = new Set(["Class Pend", "Not Applic", "Not Applicable", ""]);
-    const matching: Array<{ code: string; percent: number; industry: string }> =
-      [];
-
-    for (const stock of data.stocks ?? []) {
-      let industry = stock.industry?.trim() ?? "Other";
-      if (INVALID.has(industry)) industry = "Other";
-
-      const stockSlug = industry
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
-
-      if (stockSlug === slug) {
-        matching.push({
-          code: stock.productCode ?? "",
-          percent: stock.shortPosition ?? 0,
-          industry,
-        });
-      }
+  const rel = getSectorImagePathPng(industryName);
+  for (const base of [process.cwd(), join(process.cwd(), "web")]) {
+    try {
+      const data = await readFile(join(base, "public", rel));
+      return `data:image/png;base64,${data.toString("base64")}`;
+    } catch {
+      // try the next candidate
     }
-
-    if (matching.length === 0) return null;
-
-    matching.sort((a, b) => b.percent - a.percent);
-    const top = matching[0]!;
-    const totalPercent = matching.reduce((sum, s) => sum + s.percent, 0);
-    const highlyShorted = matching.filter((s) => s.percent > 10).length;
-
-    return {
-      name: top.industry,
-      stockCount: matching.length,
-      avgShortPercent: totalPercent / matching.length,
-      topStockCode: top.code,
-      topStockPercent: top.percent,
-      highlyShortedCount: highlyShorted,
-    };
-  } catch {
-    return null;
   }
+  try {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://shorted.com.au";
+    const res = await fetch(`${siteUrl}${rel}`, { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) return "";
+    return `data:image/png;base64,${Buffer.from(await res.arrayBuffer()).toString("base64")}`;
+  } catch {
+    return "";
+  }
+}
+
+interface LeaderRow {
+  code: string;
+  shortPercent: number;
+  brand: CompanyLogo;
+}
+
+function heat(pct: number): string {
+  if (pct >= 15) return OG.red;
+  if (pct >= 10) return "#fb923c";
+  if (pct >= 5) return OG.orange;
+  return OG.text;
 }
 
 export default async function Image({
@@ -152,370 +68,191 @@ export default async function Image({
 }) {
   const { slug } = await params;
 
-  const [bgSrc, logoSrc, industryData] = await Promise.all([
-    getBackgroundImage(),
-    getLogoImage(),
-    getIndustryOGData(slug),
-  ]);
+  let industryName = slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  let stockCount = 0;
+  let avgShort = 0;
+  let highlyShorted = 0;
+  let leaders: LeaderRow[] = [];
 
-  const industryName = industryData?.name ?? slug.replace(/-/g, " ");
-  const sectorSrc = await getSectorImage(industryName);
-  const stockCount = industryData?.stockCount ?? 0;
-  const avgShort = industryData?.avgShortPercent ?? 0;
-  const topCode = industryData?.topStockCode ?? "";
-  const topPct = industryData?.topStockPercent ?? 0;
-  const highlyShorted = industryData?.highlyShortedCount ?? 0;
+  // Best-effort: the same React-cached read the page makes. Any failure leaves
+  // the slug-derived name on a plain card — never a 500 for a share fetch.
+  try {
+    const { industry, stocks } = await getIndustryStocks(slug);
+    if (industry) {
+      industryName = industry.name;
+      stockCount = industry.stockCount;
+      avgShort = industry.avgShortPercent;
+      highlyShorted = stocks.filter((s) => s.shortPercent > 10).length;
+      const top = stocks.slice(0, 3);
+      // Company marks are optional garnish with a hard timeout each; a slow GCS
+      // read yields a row without a chip, never a blank card.
+      const brands = await Promise.all(
+        top.map(async (s) => {
+          try {
+            const stock = await getStock(s.code);
+            return getCompanyLogo(stock?.logoUrl);
+          } catch {
+            return { src: "", aspect: 1 };
+          }
+        }),
+      );
+      leaders = top.map((s, i) => ({ code: s.code, shortPercent: s.shortPercent, brand: brands[i] ?? { src: "", aspect: 1 } }));
+    }
+  } catch (err) {
+    console.error(`[opengraph-image] industry fetch failed for ${slug}:`, err);
+  }
+
+  const [logoSrc, sectorSrc] = await Promise.all([getOgLogo(), getSectorImage(industryName)]);
 
   return new ImageResponse(
     (
       <div
         style={{
-          width: "100%",
           height: "100%",
+          width: "100%",
           display: "flex",
+          flexDirection: "column",
+          backgroundColor: OG.bg,
+          backgroundImage: `linear-gradient(135deg, ${OG.bg} 0%, ${OG.bgAlt} 55%, ${OG.bg} 100%)`,
+          padding: "56px 64px",
           position: "relative",
-          backgroundColor: "#0a0a0a",
         }}
       >
-        {/* Background image */}
-        {bgSrc && (
-          <img
-            src={bgSrc}
-            width={1200}
-            height={630}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              opacity: 0.4,
-            }}
-          />
-        )}
-
-        {/* Gradient overlay */}
+        {/* top rule — the shared canvas */}
         <div
           style={{
+            display: "flex",
             position: "absolute",
             top: 0,
             left: 0,
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            background:
-              "linear-gradient(135deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.75) 100%)",
+            right: 0,
+            height: 8,
+            backgroundImage: `linear-gradient(90deg, ${OG.orange} 0%, ${OG.orangeDim} 100%)`,
           }}
         />
 
-        {/* Main card */}
-        <div
-          style={{
-            position: "absolute",
-            top: 32,
-            left: 48,
-            right: 48,
-            bottom: 32,
-            display: "flex",
-            borderRadius: 20,
-            border: "1px solid rgba(255, 169, 77, 0.2)",
-            backgroundColor: "rgba(10, 10, 10, 0.7)",
-            boxShadow:
-              "0 0 60px rgba(255, 169, 77, 0.08), inset 0 0 60px rgba(255, 169, 77, 0.02)",
-            overflow: "hidden",
-          }}
-        >
-          {/* Left section - sector image + branding */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 340,
-              flexShrink: 0,
-              borderRight: "1px solid rgba(255, 169, 77, 0.12)",
-              background:
-                "linear-gradient(180deg, rgba(255,169,77,0.06) 0%, rgba(255,169,77,0.02) 100%)",
-              padding: "40px 30px",
-            }}
-          >
-            {/* Sector medallion */}
-            {sectorSrc && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 200,
-                  height: 200,
-                  borderRadius: 100,
-                  border: "2px solid rgba(255, 169, 77, 0.3)",
-                  boxShadow:
-                    "0 0 40px rgba(255, 169, 77, 0.15), inset 0 0 20px rgba(255, 169, 77, 0.05)",
-                  overflow: "hidden",
-                  marginBottom: 24,
-                }}
-              >
-                <img
-                  src={sectorSrc}
-                  width={192}
-                  height={192}
-                  style={{ borderRadius: 96 }}
-                />
-              </div>
-            )}
-
-            {/* Shorted logo */}
-            {logoSrc && (
-              <img
-                src={logoSrc}
-                width={80}
-                height={80}
-                style={{ marginTop: 8, opacity: 0.9 }}
-              />
-            )}
-
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 700,
-                color: "#FFA94D",
-                letterSpacing: "0.15em",
-                marginTop: 8,
-                textTransform: "uppercase",
-              }}
-            >
-              SHORTED.COM.AU
-            </div>
-          </div>
-
-          {/* Right section - data */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              flex: 1,
-              padding: "44px 50px",
-              justifyContent: "space-between",
-            }}
-          >
-            {/* Header */}
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <div
-                style={{
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: "#d4a017",
-                  letterSpacing: "0.15em",
-                  textTransform: "uppercase",
-                  marginBottom: 8,
-                }}
-              >
-                Industry Short Positions
-              </div>
-              <div
-                style={{
-                  fontSize: 48,
-                  fontWeight: 800,
-                  color: "#FFA94D",
-                  letterSpacing: "-0.01em",
-                  lineHeight: 1.1,
-                  textShadow: "0 0 30px rgba(255,169,77,0.2)",
-                }}
-              >
-                {industryName}
-              </div>
-            </div>
-
-            {/* Stats grid */}
+        <div style={{ display: "flex", flex: 1, gap: 44, alignItems: "flex-start" }}>
+          {/* copy + stats */}
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
             <div
               style={{
                 display: "flex",
-                gap: 20,
-                marginTop: 32,
+                fontSize: 22,
+                letterSpacing: 3,
+                textTransform: "uppercase",
+                color: OG.orange,
+                fontWeight: 600,
               }}
             >
-              {/* Avg Short % */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  flex: 1,
-                  padding: "18px 22px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(255, 169, 77, 0.2)",
-                  backgroundColor: "rgba(255, 169, 77, 0.06)",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "#8a7040",
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Avg Short %
-                </div>
-                <div
-                  style={{
-                    fontSize: 38,
-                    fontWeight: 800,
-                    color: "#FFA94D",
-                    marginTop: 4,
-                    textShadow: "0 0 20px rgba(255,169,77,0.3)",
-                  }}
-                >
-                  {avgShort > 0 ? `${avgShort.toFixed(1)}%` : "N/A"}
-                </div>
-              </div>
-
-              {/* Stocks Tracked */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  flex: 1,
-                  padding: "18px 22px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(255, 169, 77, 0.2)",
-                  backgroundColor: "rgba(255, 169, 77, 0.06)",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "#8a7040",
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Stocks Tracked
-                </div>
-                <div
-                  style={{
-                    fontSize: 38,
-                    fontWeight: 800,
-                    color: "#FFA94D",
-                    marginTop: 4,
-                  }}
-                >
-                  {stockCount}
-                </div>
-              </div>
-
-              {/* Highly Shorted */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  flex: 1,
-                  padding: "18px 22px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(255, 169, 77, 0.2)",
-                  backgroundColor: "rgba(255, 169, 77, 0.06)",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "#8a7040",
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Above 10%
-                </div>
-                <div
-                  style={{
-                    fontSize: 38,
-                    fontWeight: 800,
-                    color: highlyShorted > 0 ? "#ef4444" : "#FFA94D",
-                    marginTop: 4,
-                  }}
-                >
-                  {highlyShorted}
-                </div>
-              </div>
+              Most shorted ASX stocks
+            </div>
+            <div
+              style={{
+                display: "flex",
+                marginTop: 18,
+                fontSize: industryName.length > 26 ? 50 : 62,
+                lineHeight: 1.06,
+                fontFamily: OG_SERIF,
+                color: OG.text,
+                fontWeight: 700,
+                maxWidth: 720,
+              }}
+            >
+              {industryName}
             </div>
 
-            {/* Top shorted stock callout */}
-            {topCode && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 20,
-                  marginTop: 24,
-                  padding: "14px 24px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(239, 68, 68, 0.3)",
-                  backgroundColor: "rgba(239, 68, 68, 0.08)",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "#ef4444",
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Most Shorted
-                </div>
-                <div
-                  style={{
-                    fontSize: 32,
-                    fontWeight: 800,
-                    color: "#FFA94D",
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  {topCode}
-                </div>
-                <div
-                  style={{
-                    fontSize: 28,
-                    fontWeight: 700,
-                    color: "#ef4444",
-                  }}
-                >
-                  {topPct.toFixed(1)}%
-                </div>
+            {stockCount > 0 && (
+              <div style={{ display: "flex", marginTop: 22, gap: 40 }}>
+                {[
+                  { label: "Avg short interest", value: `${avgShort.toFixed(1)}%` },
+                  { label: "Stocks tracked", value: String(stockCount) },
+                  { label: "Above 10%", value: String(highlyShorted), tone: highlyShorted > 0 ? OG.red : OG.text },
+                ].map((s) => (
+                  <div key={s.label} style={{ display: "flex", flexDirection: "column" }}>
+                    <div style={{ display: "flex", fontSize: 17, letterSpacing: 1.5, textTransform: "uppercase", color: OG.textDim }}>
+                      {s.label}
+                    </div>
+                    <div style={{ display: "flex", marginTop: 4, fontSize: 34, fontWeight: 700, color: s.tone ?? OG.text }}>
+                      {s.value}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* Footer */}
+            {leaders.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", marginTop: 20, gap: 8 }}>
+                {leaders.map((row, i) => (
+                  <div
+                    key={row.code}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 16,
+                      padding: "6px 14px",
+                      borderRadius: 12,
+                      border: `1px solid ${OG.border}`,
+                      backgroundColor: "rgba(255,255,255,0.03)",
+                      width: 620,
+                    }}
+                  >
+                    <div style={{ display: "flex", width: 26, fontSize: 20, color: OG.textDim, fontWeight: 700 }}>
+                      {i + 1}
+                    </div>
+                    {row.brand.src ? <OgLogoChip logo={row.brand} size={36} /> : null}
+                    <div style={{ display: "flex", fontSize: 26, fontWeight: 700, color: OG.text, fontFamily: OG_SERIF }}>
+                      {row.code}
+                    </div>
+                    <div style={{ display: "flex", marginLeft: "auto", fontSize: 26, fontWeight: 700, color: heat(row.shortPercent) }}>
+                      {row.shortPercent.toFixed(2)}% shorted
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* sector medallion — the page hero's own image */}
+          {sectorSrc ? (
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
-                marginTop: "auto",
-                paddingTop: 16,
-                fontSize: 14,
-                color: "#6b5530",
-                letterSpacing: "0.03em",
+                justifyContent: "center",
+                width: 300,
+                height: 300,
+                borderRadius: 150,
+                border: `2px solid rgba(255,169,77,0.35)`,
+                boxShadow: "0 0 60px rgba(255,169,77,0.12)",
+                backgroundColor: "rgba(255,169,77,0.05)",
+                overflow: "hidden",
+                flexShrink: 0,
               }}
             >
-              <span>Official ASIC Data</span>
-              <span>|</span>
-              <span>T+4 Delay</span>
-              <span>|</span>
-              <span>shorted.com.au</span>
+              <img src={sectorSrc} width={272} height={272} style={{ borderRadius: 136 }} />
             </div>
+          ) : null}
+        </div>
+
+        {/* footer pinned to the bottom */}
+        <div
+          style={{
+            display: "flex",
+            marginTop: "auto",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderTop: `1px solid ${OG.border}`,
+            paddingTop: 24,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            {logoSrc && <img src={logoSrc} width={48} height={48} style={{ borderRadius: 8 }} />}
+            <div style={{ display: "flex", fontSize: 26, fontWeight: 700, color: OG.text }}>Shorted</div>
           </div>
+          <div style={{ display: "flex", fontSize: 22, color: OG.textDim }}>Official ASIC data · T+4 · shorted.com.au</div>
         </div>
       </div>
     ),
-    {
-      ...size,
-    },
+    size,
   );
 }

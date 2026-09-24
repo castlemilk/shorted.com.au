@@ -6,12 +6,14 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { SuburbContextBar } from "@/components/housing/suburb-context-bar";
 import { SuburbProfile } from "@/components/housing/suburb-profile";
+import { SuburbStructuredData } from "@/components/housing/suburb-structured-data";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { getSuburbProfile, resolveSuburbSalCode } from "~/app/actions/getHousing";
 import { getStateSuburbIndex } from "~/app/actions/getHousingStateIndex";
 import { NotFoundError } from "~/app/actions/withRetry";
-import { STATE_NAMES, slugToState, stateSlug, suburbSlug } from "@/lib/housing/states";
+import { STATE_NAMES, slugToState, stateSlug, suburbSlug, titleCaseName } from "@/lib/housing/states";
 import { deriveSuburbContext, type SuburbContext } from "@/lib/housing/suburb-stats";
+import { getSuburbGeometry } from "@/lib/housing/suburb-geometry.server";
 import { isSuburbIndexable, suburbMetaCopy } from "@/lib/seo/suburb-indexability";
 
 export const revalidate = 86400;
@@ -52,11 +54,43 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // Valuer-General feed — every one in QLD, WA, ACT, TAS and NT — stops
   // promising a median house price it has never had.
   const summary = profile?.summary;
+  const demographics = profile?.demographics;
+  const displayName = summary ? titleCaseName(summary.salName) : name;
   const { title, description } = suburbMetaCopy({
-    name,
+    name: displayName,
     stateName: STATE_NAMES[code] ?? code,
     latestMedianPrice: summary?.latestMedianPrice,
+    yoyPct: summary?.yoyPct,
+    latestPeriodSeconds: summary?.latestPeriod?.seconds,
+    population: demographics?.population,
+    medianAge: demographics?.medianAge,
+    medianWeeklyHhdIncome: demographics?.medianWeeklyHhdIncome,
+    lgaName: profile?.council?.lgaName,
+    federalDivision: summary?.federalDivision,
   });
+
+  // Coordinates from the committed ABS boundary (the same geometry the page's
+  // locator draws). The classic geo.* tags are what Bing, DuckDuckGo and the
+  // LLM crawlers still read for place pages; Google gets the same point via
+  // the Place JSON-LD in the page body.
+  const centroid = sal ? getSuburbGeometry(code, sal)?.centroid : undefined;
+  const geoMeta: Record<string, string> = {
+    "geo.region": `AU-${code}`,
+    "geo.placename": `${displayName}, ${STATE_NAMES[code] ?? code}, Australia`,
+  };
+  if (centroid) {
+    geoMeta["geo.position"] = `${centroid.lat.toFixed(5)};${centroid.lon.toFixed(5)}`;
+    geoMeta.ICBM = `${centroid.lat.toFixed(5)}, ${centroid.lon.toFixed(5)}`;
+  }
+  const priced = (summary?.latestMedianPrice ?? 0) > 0;
+  const keywords = [
+    priced ? `${displayName} house prices` : `${displayName} suburb profile`,
+    priced ? `${displayName} median house price` : `${displayName} demographics`,
+    `${displayName} population`,
+    `${displayName} ${code}`,
+    ...(profile?.council?.lgaName ? [`${displayName} lga`, `${profile.council.lgaName} council suburbs`] : []),
+    ...(priced ? [`${displayName} suburb profile`, `${displayName} demographics`] : []),
+  ];
 
   // The sitemap gate was a DISCOVERY gate: with no robots directive here, every
   // suburb URL was indexable regardless of what the sitemap advertised. This
@@ -69,10 +103,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   });
 
   return {
-    title, description, alternates: { canonical: url },
+    title, description, keywords, alternates: { canonical: url },
     robots: indexable ? undefined : { index: false, follow: true },
     openGraph: { type: "website", url, title, description, siteName: "Shorted", locale: "en_AU" },
     twitter: { card: "summary_large_image", title, description, creator: "@shorted___" },
+    other: geoMeta,
   };
 }
 
@@ -119,6 +154,11 @@ export default async function SuburbPage({ params }: PageProps) {
   const name = profile.summary.salName;
   const priced = profile.summary.latestMedianPrice > 0;
 
+  // Boundary paths for the banner inset and the state locator, projected here
+  // during ISR from the committed ABS TopoJSON. This replaced a client fetch of
+  // the whole state file (336 KB gzipped for NSW) on every suburb visit.
+  const geometry = getSuburbGeometry(code, sal);
+
   // Rank this suburb inside its own state, and pick its neighbours. This is what
   // retired the 5,000-row fetch the nearby rail used to run in every visitor's
   // browser: the ranking now happens once, on the server, off a cached index.
@@ -154,6 +194,22 @@ export default async function SuburbPage({ params }: PageProps) {
           ? [`${name} house prices`, `${name} demographics`]
           : [`${name} demographics`, `${name} suburb profile`]}
       />
+      <SuburbStructuredData
+        name={titleCaseName(name)}
+        url={`https://shorted.com.au/housing/${stateSlug(code)}/${canonicalSlug}`}
+        stateCode={code}
+        centroid={geometry?.centroid ? { lat: geometry.centroid.lat, lon: geometry.centroid.lon } : null}
+        lgaName={profile.council?.lgaName}
+        population={profile.demographics?.population}
+        medianAge={profile.demographics?.medianAge}
+        medianWeeklyHhdIncome={profile.demographics?.medianWeeklyHhdIncome}
+        latestMedianPrice={profile.summary.latestMedianPrice}
+        latestPeriodIso={priced && profile.summary.latestPeriod?.seconds
+          ? new Date(Number(profile.summary.latestPeriod.seconds) * 1000).toISOString().slice(0, 10)
+          : null}
+        yoyPct={profile.summary.yoyPct}
+        censusYear={profile.demographics?.censusYear}
+      />
       <div className="mx-auto max-w-[1072px] px-4 pb-14">
         <SuburbContextBar
           stateCode={code}
@@ -179,6 +235,7 @@ export default async function SuburbPage({ params }: PageProps) {
             stateCode={code}
             profile={profile}
             context={context}
+            geometry={geometry}
           />
         </div>
       </div>
