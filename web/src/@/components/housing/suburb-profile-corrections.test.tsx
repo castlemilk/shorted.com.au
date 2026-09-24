@@ -53,6 +53,9 @@ describe("NBN tile", () => {
 });
 
 describe("suburb name", () => {
+  // The banner's subtitle is the line directly under the h1.
+  const subtitle = () => screen.getByRole("heading", { level: 1 }).nextElementSibling;
+
   test("the h1 carries the ABS name as delivered, never re-cased", () => {
     render(<SuburbProfile salCode="21524" profile={profile({ salName: "McCrae", stateCode: "VIC" })} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^McCrae$/);
@@ -62,13 +65,13 @@ describe("suburb name", () => {
     render(<SuburbProfile salCode="32250" profile={profile({ salName: "Paddington (Qld)", stateCode: "QLD" })} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Paddington$/);
     expect(screen.queryByText(/\(qld\)/)).not.toBeInTheDocument(); // the old lowercased mangling
-    expect(screen.getByText(/^Queensland/)).toBeInTheDocument();
+    expect(subtitle()).toHaveTextContent(/^Queensland$/);
   });
 
   test("an LGA qualifier moves into the subtitle", () => {
     render(<SuburbProfile salCode="11687" profile={profile({ salName: "Glenroy (Albury - NSW)" })} />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Glenroy$/);
-    expect(screen.getByText(/^Albury · New South Wales/)).toBeInTheDocument();
+    expect(subtitle()).toHaveTextContent(/^Albury · New South Wales$/);
   });
 });
 
