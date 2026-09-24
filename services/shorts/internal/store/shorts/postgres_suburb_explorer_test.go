@@ -294,11 +294,12 @@ func TestHousingLicenceGate_SuburbProfile(t *testing.T) {
 	assert.Equal(t, int32(2), p.Summary.PoliticianPropertyCount,
 		"profile summary must carry the register MV's declared-property count")
 
-	// State baseline = avg latest public median across priced VIC suburbs
+	// State baseline = median latest public median across priced VIC suburbs
 	// (RICHMOND 1,250,000; CROWNLAND excluded — proprietary only).
 	assert.InDelta(t, 1250000.0, p.StateMedianPrice, 0.5, "state baseline must exclude proprietary")
-	// National baseline = avg over all priced suburbs (RICHMOND + NORWOOD).
-	assert.InDelta(t, 1100000.0, p.NationalMedianPrice, 0.5, "national baseline must exclude proprietary")
+	// No national price baseline: none exists openly, and the old one averaged
+	// three VG states under an "AU" label.
+	assert.Zero(t, p.NationalMedianPrice, "the national price baseline must stay withheld")
 
 	for _, pv := range proprietaryValues {
 		assert.NotEqual(t, pv, p.Summary.LatestMedianPrice, "proprietary median leaked into profile headline")
@@ -397,4 +398,83 @@ func TestGetSuburbProfile_MapsNullableSEIFA(t *testing.T) {
 	absent, err := s.GetSuburbProfile(salNorwood)
 	require.NoError(t, err)
 	assert.Nil(t, absent.Summary.Seifa, "all-NULL source columns must remain distinguishable from decile zero")
+}
+
+// The profile's reference prices are ABS established-house medians for the
+// suburb's state (capital + rest of state), not an average of suburb medians;
+// the state baseline is a MEDIAN, so one development-site outlier cannot move
+// it; and the household cards get dwelling/resident-weighted state shares that
+// skip suburbs withheld by the ingest floors.
+func TestSuburbProfileBaselines_ABSMediansAndStateCensusShares(t *testing.T) {
+	pool, cleanup := setupHousingTestDatabase(t)
+	defer cleanup()
+	setupSuburbExplorerSchema(t, pool)
+	ctx := context.Background()
+
+	_, err := pool.Exec(ctx, `
+		INSERT INTO house_price_regions (region_code, region_type, region_name, state_code) VALUES
+			('2GMEL', 'gccsa',         'Greater Melbourne', 'VIC'),
+			('2RVIC', 'rest_of_state', 'Rest of Vic.',      'VIC'),
+			('SUBURB:VIC-OUTLIER', 'suburb', 'OUTLIER', 'VIC'),
+			('SUBURB:VIC-MIDDLE',  'suburb', 'MIDDLE',  'VIC')`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO house_prices
+			(region_code, measure, dwelling_type, period, period_freq, value, unit, source, source_licence, content_hash) VALUES
+			('2GMEL', 'median_price', 'established_house', '2025-12-31', 'Q', 840000, 'AUD', 'abs_res_dwell', 'CC-BY-4.0', 'a1'),
+			('2GMEL', 'median_price', 'established_house', '2026-03-31', 'Q', 850000, 'AUD', 'abs_res_dwell', 'CC-BY-4.0', 'a2'),
+			('2RVIC', 'median_price', 'established_house', '2026-03-31', 'Q', 625000, 'AUD', 'abs_res_dwell', 'CC-BY-4.0', 'a3'),
+			('2GMEL', 'median_price', 'attached',          '2026-03-31', 'Q', 999000, 'AUD', 'abs_res_dwell', 'CC-BY-4.0', 'a4'), -- above the house median on purpose: it must not be read
+			('SUBURB:VIC-OUTLIER', 'median_price', 'house', '2024-06-30', 'A', 110500000, 'AUD', 'vg_vic', 'CC-BY-4.0', 'o1'),
+			('SUBURB:VIC-MIDDLE',  'median_price', 'house', '2024-06-30', 'A', 1000000,   'AUD', 'vg_vic', 'CC-BY-4.0', 'm1')`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `REFRESH MATERIALIZED VIEW mv_housing_headline`)
+	require.NoError(t, err)
+
+	// Richmond: 1,000 dwellings, 20% rented; Crownland: 3,000 dwellings, 40%
+	// rented. The dwelling-weighted VIC share is 35%, not the plain mean 30%.
+	// A third VIC suburb below the floor (NULL shares) must not dilute it.
+	_, err = pool.Exec(ctx, `
+		UPDATE suburb_demographics SET dwelling_count = 1000, pct_rented = 20, unemployment_rate = 3
+		WHERE sal_code = $1`, salRichmond)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		UPDATE suburb_demographics SET dwelling_count = 3000, pct_rented = 40, unemployment_rate = 6
+		WHERE sal_code = $1`, salCrownland)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `
+		INSERT INTO suburb_demographics (sal_code, sal_name, state_code, population, dwelling_count, median_weekly_hhd_income)
+		VALUES ('29998', 'Tiny', 'VIC', 40, 900, 900)`)
+	require.NoError(t, err)
+
+	s := &postgresStore{db: pool}
+	p, err := s.GetSuburbProfile(salRichmond)
+	require.NoError(t, err)
+	require.NotNil(t, p)
+
+	assert.Equal(t, 850000.0, p.CapitalMedianPrice, "capital reference is the LATEST ABS established-house median")
+	assert.Equal(t, "Greater Melbourne", p.CapitalRegionName)
+	assert.Equal(t, "2GMEL", p.CapitalRegionCode)
+	assert.Equal(t, 625000.0, p.RestOfStateMedianPrice)
+	assert.Equal(t, "Rest of Vic.", p.RestOfStateRegionName)
+	require.NotNil(t, p.ABSMedianPeriod)
+	assert.Equal(t, "2026-03-31", p.ABSMedianPeriod.Format("2006-01-02"))
+
+	// VIC public suburb medians: 1.0M, 1.25M, 110.5M -> median 1.25M (a mean
+	// would be ~37.6M).
+	assert.InDelta(t, 1250000.0, p.StateMedianPrice, 0.5, "state price baseline must be a median, immune to one outlier")
+
+	assert.InDelta(t, 35.0, p.StateCensus.PctRented, 1e-9, "tenure is dwelling-weighted over suburbs that carry it")
+	// Unemployment is resident-weighted: (26000*3 + 1200*6) / 27200.
+	assert.InDelta(t, (26000*3.0+1200*6.0)/27200.0, p.StateCensus.UnemploymentRate, 1e-9)
+	assert.Zero(t, p.StateCensus.PctBachelorOrHigher, "a share no suburb carries is not computable, not 0%")
+	// VIC incomes 2200, 1500, 900 -> median 1500.
+	assert.InDelta(t, 1500.0, p.StateMedianHhdIncome, 0.5, "state income reference is the median suburb")
+
+	// A state with no ABS regions seeded gets empty references, not another state's.
+	norwood, err := s.GetSuburbProfile(salNorwood)
+	require.NoError(t, err)
+	assert.Zero(t, norwood.CapitalMedianPrice)
+	assert.Empty(t, norwood.CapitalRegionName)
+	assert.Nil(t, norwood.ABSMedianPeriod)
 }

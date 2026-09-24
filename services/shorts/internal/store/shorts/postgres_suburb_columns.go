@@ -60,7 +60,8 @@ var partyCategoryLabels = []string{
 const nbnImplausibleSatellitePredicate = `(UPPER(c.dominant_nbn_tech) = 'SATELLITE' AND COALESCE(d.population, 0) > 1000)`
 
 // nbnTechDisplayExpr is the NBN technology the suburb readers publish: the
-// stored value, or '' when it is an implausible satellite classification.
+// stored value, or an empty string when it is an implausible satellite
+// classification.
 const nbnTechDisplayExpr = `CASE WHEN ` + nbnImplausibleSatellitePredicate + ` THEN '' ELSE COALESCE(c.dominant_nbn_tech, '') END`
 
 // suburbMetricRegistry is the single authority for public metric key -> SQL

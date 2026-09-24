@@ -369,6 +369,15 @@ type SuburbProfileRow struct {
 	NationalMedianPrice     float64
 	StateMedianHhdIncome    float64
 	NationalMedianHhdIncome float64
+	// ABS established-house medians for the state's capital + rest of state.
+	CapitalMedianPrice     float64
+	CapitalRegionName      string
+	CapitalRegionCode      string
+	RestOfStateMedianPrice float64
+	RestOfStateRegionName  string
+	ABSMedianPeriod        *time.Time
+	// State Census references for the household cards (0 = not computable).
+	StateCensus StateCensusAveragesRow
 	// council (LGA)
 	LgaCode       string
 	LgaName       string
@@ -530,6 +539,69 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 	return out, rows.Err()
 }
 
+// StateCensusAveragesRow is a state's Census shares rebuilt from its suburbs
+// (see stateCensusAveragesJoin). 0 = not computable for the state.
+type StateCensusAveragesRow struct {
+	PctOwnedOutright             float64
+	PctOwnedMortgage             float64
+	PctRented                    float64
+	PctSeparateHouse             float64
+	PctFlatApartment             float64
+	PctCoupleWithChildren        float64
+	PctLonePersonHousehold       float64
+	UnemploymentRate             float64
+	LabourForceParticipationRate float64
+	PctBachelorOrHigher          float64
+	PctLowPersonalIncome         float64
+	PctHighPersonalIncome        float64
+}
+
+// suburbProfileABSReferenceJoin attaches the ABS established-house medians
+// (RES_DWELL) for the suburb's state: its Greater Capital City and the rest of
+// the state. mv_housing_headline already holds one latest row per region and
+// applies the licence gate, so this reads at most two rows.
+const suburbProfileABSReferenceJoin = `
+		LEFT JOIN LATERAL (
+		  SELECT MAX(hh.value) FILTER (WHERE ar.region_type = 'gccsa')              AS capital_price,
+		         MAX(ar.region_name) FILTER (WHERE ar.region_type = 'gccsa')        AS capital_name,
+		         MAX(ar.region_code) FILTER (WHERE ar.region_type = 'gccsa')        AS capital_code,
+		         MAX(hh.value) FILTER (WHERE ar.region_type = 'rest_of_state')      AS rest_price,
+		         MAX(ar.region_name) FILTER (WHERE ar.region_type = 'rest_of_state') AS rest_name,
+		         MAX(hh.period)                                                    AS period
+		  FROM house_price_regions ar
+		  JOIN mv_housing_headline hh ON hh.region_code = ar.region_code
+		  WHERE ar.state_code = d.state_code
+		    AND ar.region_type IN ('gccsa', 'rest_of_state')
+		    AND hh.measure = 'median_price' AND hh.dwelling_type = 'established_house'
+		) abs_ref ON true`
+
+// stateCensusAveragesJoin computes, in one pass over the state's suburbs, the
+// state references for the income bar and the household cards. Each share is
+// rebuilt as SUM(share × weight) / SUM(weight) over the suburbs that carry it
+// (a suburb below an ingest floor is NULL and drops out of both sums), weighted
+// by the denominator it is a share of: dwelling_count for tenure, structure and
+// household mix, population for the person rates (the labour force is not
+// stored, so unemployment is resident-weighted).
+const stateCensusAveragesJoin = `
+		LEFT JOIN LATERAL (
+		  SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY sd.median_weekly_hhd_income)
+		           FILTER (WHERE sd.median_weekly_hhd_income > 0) AS median_hhd_income,
+		         SUM(sd.pct_owned_outright * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_owned_outright IS NOT NULL), 0) AS pct_owned_outright,
+		         SUM(sd.pct_owned_mortgage * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_owned_mortgage IS NOT NULL), 0) AS pct_owned_mortgage,
+		         SUM(sd.pct_rented * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_rented IS NOT NULL), 0) AS pct_rented,
+		         SUM(sd.pct_separate_house * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_separate_house IS NOT NULL), 0) AS pct_separate_house,
+		         SUM(sd.pct_flat_apartment * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_flat_apartment IS NOT NULL), 0) AS pct_flat_apartment,
+		         SUM(sd.pct_couple_with_children * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_couple_with_children IS NOT NULL), 0) AS pct_couple_with_children,
+		         SUM(sd.pct_lone_person_household * sd.dwelling_count) / NULLIF(SUM(sd.dwelling_count) FILTER (WHERE sd.pct_lone_person_household IS NOT NULL), 0) AS pct_lone_person_household,
+		         SUM(sd.unemployment_rate * sd.population) / NULLIF(SUM(sd.population) FILTER (WHERE sd.unemployment_rate IS NOT NULL), 0) AS unemployment_rate,
+		         SUM(sd.labour_force_participation_rate * sd.population) / NULLIF(SUM(sd.population) FILTER (WHERE sd.labour_force_participation_rate IS NOT NULL), 0) AS labour_force_participation_rate,
+		         SUM(sd.pct_bachelor_or_higher * sd.population) / NULLIF(SUM(sd.population) FILTER (WHERE sd.pct_bachelor_or_higher IS NOT NULL), 0) AS pct_bachelor_or_higher,
+		         SUM(sd.pct_low_personal_income * sd.population) / NULLIF(SUM(sd.population) FILTER (WHERE sd.pct_low_personal_income IS NOT NULL), 0) AS pct_low_personal_income,
+		         SUM(sd.pct_high_personal_income * sd.population) / NULLIF(SUM(sd.population) FILTER (WHERE sd.pct_high_personal_income IS NOT NULL), 0) AS pct_high_personal_income
+		  FROM suburb_demographics sd
+		  WHERE sd.state_code = d.state_code
+		) sc ON true`
+
 // GetSuburbProfile returns one suburb's full demographics + headline price +
 // state/national comparison baselines.
 func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, error) {
@@ -562,23 +634,30 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(d.dwelling_count, 0), COALESCE(d.census_year, 2021),
 		       COALESCE(d.pct_english_only, 0), COALESCE(d.pct_top_religion, 0),
 		       COALESCE(d.pct_no_religion, 0),
-		       -- state baseline: avg of the LATEST median per priced suburb in the state (covers VIC annual)
-		       COALESCE((SELECT avg(latest) FROM (
+		       -- state baseline: MEDIAN of the latest public median per priced suburb in
+		       -- the state (covers VIC annual). A mean let one $110.5M development sale
+		       -- move NSW by ~$45k.
+		       COALESCE((SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY latest) FROM (
 		                 SELECT DISTINCT ON (hp.region_code) hp.value AS latest
 		                 FROM house_prices hp JOIN house_price_regions sr ON sr.region_code = hp.region_code
 		                 WHERE sr.state_code = d.state_code AND sr.region_type = 'suburb' AND hp.source_licence <> 'proprietary-tos-restricted'
 		                   AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
 		                 ORDER BY hp.region_code, hp.period DESC) s), 0),
-		       -- national baseline: avg of the latest median across ALL priced suburbs (AUS has no median_price row)
-		       COALESCE((SELECT avg(latest) FROM (
-		                 SELECT DISTINCT ON (hp.region_code) hp.value AS latest
-		                 FROM house_prices hp JOIN house_price_regions sr ON sr.region_code = hp.region_code
-		                 WHERE sr.region_type = 'suburb' AND hp.source_licence <> 'proprietary-tos-restricted'
-		                   AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
-		                 ORDER BY hp.region_code, hp.period DESC) s), 0),
-		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics
-		                 WHERE state_code = d.state_code), 0),
-		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics), 0),
+		       -- no national price baseline: no open national median house price
+		       -- exists, and the old one averaged NSW+VIC+SA suburbs under "AU".
+		       0::float8,
+		       -- income: the median suburb's median, in the state and nationally.
+		       COALESCE(sc.median_hhd_income, 0),
+		       COALESCE((SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY median_weekly_hhd_income)
+		                 FROM suburb_demographics WHERE median_weekly_hhd_income > 0), 0),
+		       COALESCE(abs_ref.capital_price, 0), COALESCE(abs_ref.capital_name, ''), COALESCE(abs_ref.capital_code, ''),
+		       COALESCE(abs_ref.rest_price, 0), COALESCE(abs_ref.rest_name, ''), abs_ref.period,
+		       COALESCE(sc.pct_owned_outright, 0), COALESCE(sc.pct_owned_mortgage, 0), COALESCE(sc.pct_rented, 0),
+		       COALESCE(sc.pct_separate_house, 0), COALESCE(sc.pct_flat_apartment, 0),
+		       COALESCE(sc.pct_couple_with_children, 0), COALESCE(sc.pct_lone_person_household, 0),
+		       COALESCE(sc.unemployment_rate, 0), COALESCE(sc.labour_force_participation_rate, 0),
+		       COALESCE(sc.pct_bachelor_or_higher, 0),
+		       COALESCE(sc.pct_low_personal_income, 0), COALESCE(sc.pct_high_personal_income, 0),
 		       COALESCE(lg.lga_code24,''), COALESCE(lg.lga_name,''), COALESCE(lg.state_code,''), COALESCE(lg.area_sqkm,0), COALESCE(lg.population,0),
 		       COALESCE(lg.fed_fag_aud,0), COALESCE(lg.fed_fag_year,''),
 		       COALESCE(lg.avg_rates,0), COALESCE(lg.op_surplus_ratio,0), COALESCE(lg.asset_renewal_ratio,0),
@@ -602,7 +681,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
 		LEFT JOIN suburb_lga sl ON sl.sal_code = d.sal_code
 		LEFT JOIN lga lg ON lg.lga_code24 = sl.lga_code24
-		LEFT JOIN mv_register_suburb_property rp ON rp.sal_code = d.sal_code
+		LEFT JOIN mv_register_suburb_property rp ON rp.sal_code = d.sal_code` + suburbProfileABSReferenceJoin + stateCensusAveragesJoin + `
 		WHERE d.sal_code = $1
 		LIMIT 1`
 	var p SuburbProfileRow
@@ -627,6 +706,14 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.PctOwnedOutright, &p.PctOwnedMortgage, &p.PctRented, &p.DwellingCount, &p.CensusYear,
 		&p.PctEnglishOnly, &p.PctTopReligion, &p.PctNoReligion,
 		&p.StateMedianPrice, &p.NationalMedianPrice, &p.StateMedianHhdIncome, &p.NationalMedianHhdIncome,
+		&p.CapitalMedianPrice, &p.CapitalRegionName, &p.CapitalRegionCode,
+		&p.RestOfStateMedianPrice, &p.RestOfStateRegionName, &p.ABSMedianPeriod,
+		&p.StateCensus.PctOwnedOutright, &p.StateCensus.PctOwnedMortgage, &p.StateCensus.PctRented,
+		&p.StateCensus.PctSeparateHouse, &p.StateCensus.PctFlatApartment,
+		&p.StateCensus.PctCoupleWithChildren, &p.StateCensus.PctLonePersonHousehold,
+		&p.StateCensus.UnemploymentRate, &p.StateCensus.LabourForceParticipationRate,
+		&p.StateCensus.PctBachelorOrHigher,
+		&p.StateCensus.PctLowPersonalIncome, &p.StateCensus.PctHighPersonalIncome,
 		&p.LgaCode, &p.LgaName, &p.LgaState, &p.LgaAreaSqkm, &p.LgaPopulation,
 		&p.LgaFagAud, &p.LgaFagYear,
 		&p.LgaAvgRates, &p.LgaOpSurplusRatio, &p.LgaAssetRenewalRatio, &p.LgaFinSource, &p.LgaFinYear,
