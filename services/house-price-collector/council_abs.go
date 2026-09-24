@@ -488,7 +488,7 @@ func ingestCensusLGA(ctx context.Context, client *absdata.Client, ix lgaIndex) (
 	}
 	rows := buildLGACensus(got[0], got[1], got[2])
 	if len(rows) < lgaMinCouncils {
-		return nil, fmt.Errorf("Census LGA pulls cover only %d councils (< %d)", len(rows), lgaMinCouncils)
+		return nil, fmt.Errorf("census LGA pulls cover only %d councils (< %d)", len(rows), lgaMinCouncils)
 	}
 	return rows, nil
 }
@@ -548,7 +548,7 @@ func ingestCouncilRegional(ctx context.Context, client *absdata.Client, ix lgaIn
 	log.Printf("[council-regional] %s", m.summary())
 	rows := buildRegional(mapped)
 	if n := countCouncils(rows); n < lgaMinCouncils {
-		return nil, fmt.Errorf("Data by Region covers only %d councils (< %d)", n, lgaMinCouncils)
+		return nil, fmt.Errorf("data by region covers only %d councils (< %d)", n, lgaMinCouncils)
 	}
 	return rows, nil
 }
