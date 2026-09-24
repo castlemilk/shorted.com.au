@@ -58,7 +58,7 @@ export function SuburbTooltip({
           <span className="text-sm leading-none">×</span>
         </button>
       ) : null}
-      <div className="pr-5 font-serif text-sm capitalize text-foreground">{summary.salName.toLowerCase()}</div>
+      <div className="pr-5 font-serif text-sm text-foreground">{summary.salName}</div>
       <div className="text-[11px] text-muted-foreground">{summary.postcode}</div>
       <div className="mt-2 flex items-baseline justify-between">
         <span className="font-mono text-lg tabular-nums text-foreground">

@@ -69,4 +69,52 @@ public interface SuburbListingStatsOrBuilder extends
    * @return The medianSold.
    */
   double getMedianSold();
+
+  /**
+   * <pre>
+   * When mv_suburb_listing_stats was last refreshed (every now()-relative
+   * window in it is anchored here), and the newest crawl observation it could
+   * contain. Unset when the refresh has never been recorded.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+   * @return Whether the asOf field is set.
+   */
+  boolean hasAsOf();
+  /**
+   * <pre>
+   * When mv_suburb_listing_stats was last refreshed (every now()-relative
+   * window in it is anchored here), and the newest crawl observation it could
+   * contain. Unset when the refresh has never been recorded.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  com.google.protobuf.Timestamp getAsOf();
+  /**
+   * <pre>
+   * When mv_suburb_listing_stats was last refreshed (every now()-relative
+   * window in it is anchored here), and the newest crawl observation it could
+   * contain. Unset when the refresh has never been recorded.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 7 [json_name = "asOf"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getAsOfOrBuilder();
+
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+   * @return Whether the dataThrough field is set.
+   */
+  boolean hasDataThrough();
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+   * @return The dataThrough.
+   */
+  com.google.protobuf.Timestamp getDataThrough();
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 8 [json_name = "dataThrough"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getDataThroughOrBuilder();
 }

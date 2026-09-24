@@ -806,6 +806,32 @@ service ShortedStocksService {
     };
   }
 
+  // Every council with a page in one state, with the council choropleth rollups.
+  rpc ListCouncils (ListCouncilsRequest) returns (ListCouncilsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/listCouncils"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Councils",
+      description: "Every council (local government area) with a page in one state: ABS estimated resident population and growth, area and density, member suburb count, the council-wide ABS house median, Financial Assistance Grant per resident, dwelling approvals per 1,000 residents over the last 12 months, SEIFA IRSAD decile, population-weighted flood and bushfire planning shares, and a k-floored asking-price drop share."
+    };
+  }
+
+  // One council's hub: identity, facts, series, member suburbs and rollups.
+  rpc GetCouncilProfile (GetCouncilProfileRequest) returns (GetCouncilProfileResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/getCouncilProfile"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Council Profile",
+      description: "Everything held for one council in one response: identity (ABS LGA 2024, Wikidata website), current facts, ABS time series (population, population components, council-wide house and attached medians, dwelling approvals, Financial Assistance Grants), member suburbs with overlap shares, hazard and price rollups, representation, crawl-derived price drops floored at 3, and neighbouring councils."
+    };
+  }
+
   // List economic series catalog entries (Australian economy snapshot layer).
   rpc ListEconomicSeries (ListEconomicSeriesRequest) returns (ListEconomicSeriesResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;

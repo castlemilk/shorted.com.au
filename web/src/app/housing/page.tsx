@@ -92,7 +92,7 @@ export default async function HousingPage() {
   const metrics = overview?.metrics ?? [];
   // A failed/cold fetch must not bake the "data is loading" shell into the
   // route cache for the whole revalidate window.
-  if (metrics.length === 0) bailOnEmptyRender();
+  if (metrics.length === 0) await bailOnEmptyRender();
 
   const national = metrics.find((m) => m.regionCode === "AUS" && m.measure === "mean_price");
   const dti = metrics.find((m) => m.regionCode === "AUS" && m.measure === "debt_to_income");

@@ -216,6 +216,9 @@ components:
       description: |-
         One physical address (deduped by stable address_key) whose for-sale asking
          price fell over the window, deep-linking to its per-address history page.
+         When the address is live on both portals (or relisted), every live advert
+         is judged on its own chain and the row carries the deepest qualifying cut;
+         the latest_* / current_* fields describe THAT advert.
       properties:
         addressKey:
           description: (proto string)
@@ -724,8 +727,32 @@ components:
       description: State + national reference medians for the profile's comparison
         bars.
       properties:
+        absMedianPeriod:
+          description: quarter end, "2026-03-31" (proto string)
+          title: abs_median_period
+          type: string
+        capitalMedianPrice:
+          description: |-
+            ABS established-house medians (RES_DWELL, CC-BY-4.0) for the suburb's
+             state: its Greater Capital City and the rest of the state, read from
+             mv_housing_headline. 0 / "" where the state has no such region (the ACT
+             has no rest of state). (proto double)
+          format: double
+          title: capital_median_price
+          type: number
+        capitalRegionCode:
+          description: ABS GCCSA code, e.g. "1GSYD" (proto string)
+          title: capital_region_code
+          type: string
+        capitalRegionName:
+          description: e.g. "Greater Sydney" (proto string)
+          title: capital_region_name
+          type: string
         nationalMedianPrice:
-          description: (proto double)
+          description: |-
+            Always 0. No open national median house price exists (ABS's
+             established-house medians stop at capital city / rest of state, below);
+             this used to average NSW, VIC and SA suburb medians under an "AU" label. (proto double)
           format: double
           title: national_median_price
           type: number
@@ -734,17 +761,641 @@ components:
           format: double
           title: national_median_weekly_hhd_income
           type: number
-        stateMedianPrice:
+        restOfStateMedianPrice:
           description: (proto double)
+          format: double
+          title: rest_of_state_median_price
+          type: number
+        restOfStateRegionName:
+          description: e.g. "Rest of NSW" (proto string)
+          title: rest_of_state_region_name
+          type: string
+        stateCensus:
+          $ref: '#/components/schemas/shorts.v1alpha1.StateCensusAverages'
+          description: State references for the Who-lives-here and Housing-stock cards.
+            (proto shorts.v1alpha1.StateCensusAverages)
+          title: state_census
+        stateMedianPrice:
+          description: |-
+            Median of the latest public Valuer-General suburb medians in the state —
+             NSW, VIC and SA only, 0 elsewhere. A median, not a mean: one $110.5M
+             development sale moved the old NSW average by ~$45k. (proto double)
           format: double
           title: state_median_price
           type: number
         stateMedianWeeklyHhdIncome:
-          description: (proto double)
+          description: |-
+            Census 2021 median weekly household income of the MEDIAN suburb — in the
+             state, and across every suburb nationally. Not a household-weighted median. (proto double)
           format: double
           title: state_median_weekly_hhd_income
           type: number
       title: ComparisonBaselines
+      type: object
+    shorts.v1alpha1.CouncilCrimeStat:
+      additionalProperties: false
+      properties:
+        coveredSuburbs:
+          description: (proto int32)
+          format: int32
+          title: covered_suburbs
+          type: integer
+        crimeType:
+          description: (proto string)
+          title: crime_type
+          type: string
+        fyEnding:
+          description: (proto int32)
+          format: int32
+          title: fy_ending
+          type: integer
+        ratePer100k:
+          description: weighted by residents over covered suburbs (proto double)
+          format: double
+          title: rate_per_100k
+          type: number
+        source:
+          description: (proto string)
+          title: source
+          type: string
+        sourceJurisdiction:
+          description: (proto string)
+          title: source_jurisdiction
+          type: string
+        sourceLicence:
+          description: (proto string)
+          title: source_licence
+          type: string
+      title: CouncilCrimeStat
+      type: object
+    shorts.v1alpha1.CouncilDropSuburb:
+      additionalProperties: false
+      properties:
+        droppedListingCount:
+          description: (proto int32)
+          format: int32
+          title: dropped_listing_count
+          type: integer
+        droppedShare:
+          description: (proto double)
+          format: double
+          title: dropped_share
+          type: number
+        medianDropPct:
+          description: (proto double)
+          format: double
+          title: median_drop_pct
+          type:
+          - number
+          - "null"
+        postcode:
+          description: (proto string)
+          title: postcode
+          type: string
+        salCode:
+          description: (proto string)
+          title: sal_code
+          type: string
+        salName:
+          description: (proto string)
+          title: sal_name
+          type: string
+        trackedListingCount:
+          description: (proto int32)
+          format: int32
+          title: tracked_listing_count
+          type: integer
+      title: CouncilDropSuburb
+      type: object
+    shorts.v1alpha1.CouncilNeighbour:
+      additionalProperties: false
+      properties:
+        displayName:
+          description: (proto string)
+          title: display_name
+          type: string
+        kind:
+          description: (proto string)
+          title: kind
+          type: string
+        lgaCode:
+          description: (proto string)
+          title: lga_code
+          type: string
+        sharedSuburbs:
+          description: Suburbs split between the two councils (each >= 1% of residents).
+            (proto int32)
+          format: int32
+          title: shared_suburbs
+          type: integer
+        sharesBorder:
+          description: |-
+            A dominant-member suburb shares a boundary with one of the neighbour's
+             (ABS suburb topology, within the state). (proto bool)
+          title: shares_border
+          type: boolean
+        slug:
+          description: ''''' when the council has no page (proto string)'
+          title: slug
+          type: string
+        stateCode:
+          description: (proto string)
+          title: state_code
+          type: string
+      title: CouncilNeighbour
+      type: object
+    shorts.v1alpha1.CouncilPriceDrops:
+      additionalProperties: false
+      description: |-
+        Asking-price cuts in the last 30 days over the suburbs whose dominant
+         council this is, among listings active and seen by the crawl in the last 14
+         days (each address counted once). Counted from every crawled member suburb,
+         so cuts in suburbs below the floor still count; floored at 3 cuts
+         council-wide.
+      properties:
+        asOf:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: when these figures were computed (proto google.protobuf.Timestamp)
+          title: as_of
+        dataThrough:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: newest crawl observation behind them (proto google.protobuf.Timestamp)
+          title: data_through
+        droppedListingCount:
+          description: (proto int32)
+          format: int32
+          title: dropped_listing_count
+          type: integer
+        droppedShare:
+          description: dropped / tracked (proto double)
+          format: double
+          title: dropped_share
+          type: number
+        medianDropPct:
+          description: median cut over every cut listing in the council (proto double)
+          format: double
+          title: median_drop_pct
+          type:
+          - number
+          - "null"
+        suburbs:
+          description: Only suburbs that clear 3 drops themselves are named. (proto
+            shorts.v1alpha1.CouncilDropSuburb)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilDropSuburb'
+          title: suburbs
+          type: array
+        suburbsTracked:
+          description: (proto int32)
+          format: int32
+          title: suburbs_tracked
+          type: integer
+        trackedListingCount:
+          description: (proto int32)
+          format: int32
+          title: tracked_listing_count
+          type: integer
+      title: CouncilPriceDrops
+      type: object
+    shorts.v1alpha1.CouncilProfile:
+      additionalProperties: false
+      properties:
+        council:
+          $ref: '#/components/schemas/shorts.v1alpha1.LgaInfo'
+          description: Identity + current facts. dominant_share is absent (it is a
+            suburb fact). (proto shorts.v1alpha1.LgaInfo)
+          title: council
+        factsAsOf:
+          description: when the council facts were loaded, 'YYYY-MM-DD' (proto string)
+          title: facts_as_of
+          type: string
+        federalElectorates:
+          description: |-
+            Federal electorates / state districts over the member suburbs, weighted by
+             the residents each suburb contributes to this council. Largest first. (proto shorts.v1alpha1.CouncilRepresentative)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilRepresentative'
+          title: federal_electorates
+          type: array
+        lgaVintage:
+          description: (proto string)
+          title: lga_vintage
+          type: string
+        neighbours:
+          description: (proto shorts.v1alpha1.CouncilNeighbour)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilNeighbour'
+          title: neighbours
+          type: array
+        priceDrops:
+          $ref: '#/components/schemas/shorts.v1alpha1.CouncilPriceDrops'
+          description: |-
+            Crawl-derived aggregate. Absent below 3 drops council-wide or with no
+             crawl coverage. (proto shorts.v1alpha1.CouncilPriceDrops)
+          title: price_drops
+        rollup:
+          $ref: '#/components/schemas/shorts.v1alpha1.CouncilRollup'
+          description: (proto shorts.v1alpha1.CouncilRollup)
+          title: rollup
+        series:
+          description: (proto shorts.v1alpha1.CouncilSeries)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilSeries'
+          title: series
+          type: array
+        stateDistricts:
+          description: (proto shorts.v1alpha1.CouncilRepresentative)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilRepresentative'
+          title: state_districts
+          type: array
+        suburbs:
+          description: |-
+            Every suburb whose dominant council this is, plus straddling suburbs where
+             this council holds at least 5% of the residents. Population desc. (proto shorts.v1alpha1.CouncilSuburb)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilSuburb'
+          title: suburbs
+          type: array
+        summary:
+          $ref: '#/components/schemas/shorts.v1alpha1.CouncilSummary'
+          description: The same row ListCouncils serves, so the hub and the index
+            never disagree. (proto shorts.v1alpha1.CouncilSummary)
+          title: summary
+      title: CouncilProfile
+      type: object
+    shorts.v1alpha1.CouncilRepresentative:
+      additionalProperties: false
+      properties:
+        member:
+          description: (proto string)
+          title: member
+          type: string
+        name:
+          description: electorate or district (proto string)
+          title: name
+          type: string
+        party:
+          description: (proto string)
+          title: party
+          type: string
+        partyAb:
+          description: (proto string)
+          title: party_ab
+          type: string
+        populationShare:
+          description: 0..1 of the council's member-suburb residents (proto double)
+          format: double
+          title: population_share
+          type: number
+        suburbCount:
+          description: (proto int32)
+          format: int32
+          title: suburb_count
+          type: integer
+      title: CouncilRepresentative
+      type: object
+    shorts.v1alpha1.CouncilRollup:
+      additionalProperties: false
+      description: |-
+        Rollups over the member suburbs, weighted by the residents each contributes
+         (population x share). Absent = no member suburb is covered.
+      properties:
+        bushfireCoveredSuburbs:
+          description: (proto int32)
+          format: int32
+          title: bushfire_covered_suburbs
+          type: integer
+        bushfireSharePct:
+          description: (proto double)
+          format: double
+          title: bushfire_share_pct
+          type:
+          - number
+          - "null"
+        crime:
+          description: Latest crime rates where the source covers member suburbs (NSW
+            today). (proto shorts.v1alpha1.CouncilCrimeStat)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilCrimeStat'
+          title: crime
+          type: array
+        dominantSuburbs:
+          description: (proto int32)
+          format: int32
+          title: dominant_suburbs
+          type: integer
+        floodCoveredSuburbs:
+          description: (proto int32)
+          format: int32
+          title: flood_covered_suburbs
+          type: integer
+        floodSharePct:
+          description: (proto double)
+          format: double
+          title: flood_share_pct
+          type:
+          - number
+          - "null"
+        medianMax:
+          description: (proto double)
+          format: double
+          title: median_max
+          type:
+          - number
+          - "null"
+        medianMin:
+          description: (proto double)
+          format: double
+          title: median_min
+          type:
+          - number
+          - "null"
+        medianOfMedians:
+          description: (proto double)
+          format: double
+          title: median_of_medians
+          type:
+          - number
+          - "null"
+        memberSuburbs:
+          description: (proto int32)
+          format: int32
+          title: member_suburbs
+          type: integer
+        pricedSuburbs:
+          description: Member suburbs with their own Valuer-General median (unweighted).
+            (proto int32)
+          format: int32
+          title: priced_suburbs
+          type: integer
+        waterCoveredSuburbs:
+          description: (proto int32)
+          format: int32
+          title: water_covered_suburbs
+          type: integer
+        waterSharePct:
+          description: (proto double)
+          format: double
+          title: water_share_pct
+          type:
+          - number
+          - "null"
+      title: CouncilRollup
+      type: object
+    shorts.v1alpha1.CouncilSeries:
+      additionalProperties: false
+      description: One lga_series measure for the council, ascending by period.
+      properties:
+        frequency:
+          description: annual (30 June) | fy | monthly (proto string)
+          title: frequency
+          type: string
+        measure:
+          description: e.g. 'erp', 'house_median_price', 'dwelling_approvals_total'
+            (proto string)
+          title: measure
+          type: string
+        points:
+          description: (proto shorts.v1alpha1.CouncilSeriesPoint)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilSeriesPoint'
+          title: points
+          type: array
+        source:
+          description: (proto string)
+          title: source
+          type: string
+        sourceLicence:
+          description: (proto string)
+          title: source_licence
+          type: string
+        unit:
+          description: persons | AUD | count (proto string)
+          title: unit
+          type: string
+      title: CouncilSeries
+      type: object
+    shorts.v1alpha1.CouncilSeriesPoint:
+      additionalProperties: false
+      properties:
+        period:
+          description: period end, 'YYYY-MM-DD' (proto string)
+          title: period
+          type: string
+        periodLabel:
+          description: '''2025'' | ''2024-25'' | ''2026-07'' (proto string)'
+          title: period_label
+          type: string
+        value:
+          description: (proto double)
+          format: double
+          title: value
+          type: number
+      title: CouncilSeriesPoint
+      type: object
+    shorts.v1alpha1.CouncilSuburb:
+      additionalProperties: false
+      properties:
+        bushfireSharePct:
+          description: (proto double)
+          format: double
+          title: bushfire_share_pct
+          type:
+          - number
+          - "null"
+        dominant:
+          description: this is the suburb's dominant council (proto bool)
+          title: dominant
+          type: boolean
+        floodSharePct:
+          description: absent = no source covers the suburb (proto double)
+          format: double
+          title: flood_share_pct
+          type:
+          - number
+          - "null"
+        population:
+          description: Census 2021 persons, whole suburb (proto int32)
+          format: int32
+          title: population
+          type: integer
+        postcode:
+          description: (proto string)
+          title: postcode
+          type: string
+        salCode:
+          description: (proto string)
+          title: sal_code
+          type: string
+        salName:
+          description: (proto string)
+          title: sal_name
+          type: string
+        seifaIrsadDecile:
+          description: national decile (proto int32)
+          format: int32
+          title: seifa_irsad_decile
+          type:
+          - integer
+          - "null"
+        share:
+          description: 0..1 of the suburb's residents in this council (proto double)
+          format: double
+          title: share
+          type: number
+        vgMedian:
+          description: the suburb's OWN Valuer-General median house price (proto double)
+          format: double
+          title: vg_median
+          type:
+          - number
+          - "null"
+        vgMedianPeriod:
+          description: '''YYYY-MM-DD''; '''' without a median (proto string)'
+          title: vg_median_period
+          type: string
+        waterSharePct:
+          description: (proto double)
+          format: double
+          title: water_share_pct
+          type:
+          - number
+          - "null"
+      title: CouncilSuburb
+      type: object
+    shorts.v1alpha1.CouncilSummary:
+      additionalProperties: false
+      description: |-
+        One council's headline row: the council index table and the council
+         choropleth read exactly these fields.
+      properties:
+        approvalsPer1000:
+          description: dwelling approvals, last 12 months, per 1,000 residents (proto
+            double)
+          format: double
+          title: approvals_per_1000
+          type:
+          - number
+          - "null"
+        approvalsThrough:
+          description: last month of that window, 'YYYY-MM' (proto string)
+          title: approvals_through
+          type: string
+        areaSqkm:
+          description: (proto double)
+          format: double
+          title: area_sqkm
+          type:
+          - number
+          - "null"
+        bushfireSharePct:
+          description: population-weighted over member suburbs (proto double)
+          format: double
+          title: bushfire_share_pct
+          type:
+          - number
+          - "null"
+        councilHouseMedian:
+          description: council-wide ABS established-house median (proto double)
+          format: double
+          title: council_house_median
+          type:
+          - number
+          - "null"
+        councilHouseMedianPeriod:
+          description: e.g. '2023-24' (proto string)
+          title: council_house_median_period
+          type: string
+        dataThrough:
+          description: newest period in any council series (never a future-dated allocation),
+            'YYYY-MM-DD'; '' if none (proto string)
+          title: data_through
+          type: string
+        densityPerSqkm:
+          description: ERP / area (proto double)
+          format: double
+          title: density_per_sqkm
+          type:
+          - number
+          - "null"
+        displayName:
+          description: (proto string)
+          title: display_name
+          type: string
+        erpYear:
+          description: (proto int32)
+          format: int32
+          title: erp_year
+          type: integer
+        fagPerResident:
+          description: latest Financial Assistance Grant / ERP, AUD (proto double)
+          format: double
+          title: fag_per_resident
+          type:
+          - number
+          - "null"
+        fagYear:
+          description: e.g. '2025-26' (proto string)
+          title: fag_year
+          type: string
+        floodSharePct:
+          description: population-weighted over member suburbs (proto double)
+          format: double
+          title: flood_share_pct
+          type:
+          - number
+          - "null"
+        kind:
+          description: council | unincorporated (proto string)
+          title: kind
+          type: string
+        lgaCode:
+          description: (proto string)
+          title: lga_code
+          type: string
+        memberSuburbCount:
+          description: suburbs whose DOMINANT council this is (proto int32)
+          format: int32
+          title: member_suburb_count
+          type: integer
+        popGrowthPct:
+          description: ERP year-on-year change, % (proto double)
+          format: double
+          title: pop_growth_pct
+          type:
+          - number
+          - "null"
+        population:
+          description: ABS estimated resident population at 30 June erp_year; 0 if
+            none (proto int32)
+          format: int32
+          title: population
+          type: integer
+        priceDropShare:
+          description: 0..1, crawl-derived, only when >= 3 drops council-wide (proto
+            double)
+          format: double
+          title: price_drop_share
+          type:
+          - number
+          - "null"
+        seifaIrsadDecile:
+          description: SEIFA 2021 IRSAD, national decile (proto int32)
+          format: int32
+          title: seifa_irsad_decile
+          type:
+          - integer
+          - "null"
+        slug:
+          description: (proto string)
+          title: slug
+          type: string
+        stateCode:
+          description: (proto string)
+          title: state_code
+          type: string
+      title: CouncilSummary
       type: object
     shorts.v1alpha1.DeclaredInterest:
       additionalProperties: false
@@ -1157,10 +1808,21 @@ components:
           title: is_gap
           type: boolean
         medianDropPct:
-          description: 0..1 fraction, depth of the typical cut (proto double)
+          description: |-
+            0..1 fraction, depth of the typical cut. 0 when withheld — read
+             median_withheld, never the 0, to tell withheld from a measurement. (proto double)
           format: double
           title: median_drop_pct
           type: number
+        medianWithheld:
+          description: |-
+            True when median_drop_pct is withheld: fewer than 3 dropped addresses
+             stand behind this point, so a "median" would be one or two listings'
+             exact cuts (the stored median is NULL). median_drop_pct is then 0 and is
+             not a measurement. A separate flag rather than `optional` presence on
+             median_drop_pct, which would change that field's cardinality. (proto bool)
+          title: median_withheld
+          type: boolean
         panelSuburbs:
           description: suburbs contributing to this point (proto int32)
           format: int32
@@ -1614,6 +2276,28 @@ components:
           type: array
       title: GetCompanyTaxProfileResponse
       type: object
+    shorts.v1alpha1.GetCouncilProfileRequest:
+      additionalProperties: false
+      properties:
+        slug:
+          description: lga.slug — minted once, never reassigned (proto string)
+          title: slug
+          type: string
+        stateCode:
+          description: NSW | VIC | QLD | SA | WA | TAS | NT | ACT (proto string)
+          title: state_code
+          type: string
+      title: GetCouncilProfileRequest
+      type: object
+    shorts.v1alpha1.GetCouncilProfileResponse:
+      additionalProperties: false
+      properties:
+        profile:
+          $ref: '#/components/schemas/shorts.v1alpha1.CouncilProfile'
+          description: (proto shorts.v1alpha1.CouncilProfile)
+          title: profile
+      title: GetCouncilProfileResponse
+      type: object
     shorts.v1alpha1.GetDirectorTradesRequest:
       additionalProperties: false
       description: Request for GetDirectorTrades RPC
@@ -1764,15 +2448,18 @@ components:
           title: from
           type: string
         grain:
-          description: '''national'' | ''state'' | ''suburb'' (proto string)'
+          description: Anything outside these shapes is InvalidArgument. 'national'
+            (default) | 'state' | 'suburb' (proto string)
           title: grain
           type: string
         grainKey:
-          description: '''AU'' | state code | sal_code (proto string)'
+          description: '''AU'' | state code (''NSW'', ...) | 5-digit sal_code (proto
+            string)'
           title: grain_key
           type: string
         to:
-          description: '''YYYY-MM-DD'', inclusive; defaults to today (proto string)'
+          description: '''YYYY-MM-DD'', inclusive; defaults to (and is capped at)
+            today (proto string)'
           title: to
           type: string
       title: GetDropIndexSeriesRequest
@@ -1780,6 +2467,20 @@ components:
     shorts.v1alpha1.GetDropIndexSeriesResponse:
       additionalProperties: false
       properties:
+        asOf:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: |-
+            as_of: the latest computed_at among the returned points (when the
+             collector last wrote this series). data_through: the end of the latest
+             returned snapshot day, or the crawl horizon the last housing MV refresh
+             recorded if that is earlier — a snapshot is computed daily whether or not
+             the crawl ran, so the date alone can outrun the data. Both unset when no
+             point is returned. (proto google.protobuf.Timestamp)
+          title: as_of
+        dataThrough:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: (proto google.protobuf.Timestamp)
+          title: data_through
         points:
           description: (proto shorts.v1alpha1.DropIndexPoint)
           items:
@@ -2646,6 +3347,16 @@ components:
     shorts.v1alpha1.GetPriceDropsOverviewResponse:
       additionalProperties: false
       properties:
+        asOf:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: |-
+            When mv_state_price_drops was last refreshed, and the newest crawl
+             observation that refresh could see. Unset when never recorded. (proto google.protobuf.Timestamp)
+          title: as_of
+        dataThrough:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: (proto google.protobuf.Timestamp)
+          title: data_through
         national:
           $ref: '#/components/schemas/shorts.v1alpha1.StatePriceDropSummary'
           description: the 'AU' row (proto shorts.v1alpha1.StatePriceDropSummary)
@@ -2656,6 +3367,14 @@ components:
             $ref: '#/components/schemas/shorts.v1alpha1.StatePriceDropSummary'
           title: states
           type: array
+        withheld:
+          description: |-
+            True when crawl-derived price-drop figures are switched off
+             (HOUSING_DROP_LISTINGS_ENABLED=false, a takedown): every other field is
+             empty ON PURPOSE and will stay so until the switch is flipped back. Lets a
+             client tell that apart from a cold or failed fetch, which is worth retrying. (proto bool)
+          title: withheld
+          type: boolean
       title: GetPriceDropsOverviewResponse
       type: object
     shorts.v1alpha1.GetPropertyHistoryRequest:
@@ -3513,6 +4232,14 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.LgaInfo'
           description: council this suburb sits in ('' if unmatched) (proto shorts.v1alpha1.LgaInfo)
           title: council
+        councilOverlaps:
+          description: |-
+            Other councils holding >= 5% of this suburb's residents, largest first.
+             Empty for a suburb wholly (or >= 95%) inside `council`. (proto shorts.v1alpha1.LgaOverlap)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.LgaOverlap'
+          title: council_overlaps
+          type: array
         crime:
           $ref: '#/components/schemas/shorts.v1alpha1.SuburbCrime'
           description: null when the suburb has no gated crime data (proto shorts.v1alpha1.SuburbCrime)
@@ -3538,6 +4265,12 @@ components:
             Crawl-derived listing aggregates; null when the suburb is outside the crawl
              catalog or the HOUSING_DROP_LISTINGS_ENABLED kill switch is off. (proto shorts.v1alpha1.SuburbListingStats)
           title: listing_stats
+        planning:
+          $ref: '#/components/schemas/shorts.v1alpha1.SuburbPlanning'
+          description: |-
+            Profile-only planning block; absent when no planning source covers the
+             suburb (WA, NT, and QLD beyond its heritage register). (proto shorts.v1alpha1.SuburbPlanning)
+          title: planning
         similar:
           description: most-similar suburbs nationally (knowledge graph) (proto shorts.v1alpha1.SimilarSuburb)
           items:
@@ -4251,12 +4984,68 @@ components:
           format: double
           title: asset_renewal_ratio
           type: number
+        avgHouseholdSize:
+          description: Census 2021, persons (proto double)
+          format: double
+          title: avg_household_size
+          type:
+          - number
+          - "null"
         avgRates:
           description: Per-council financials (VIC LGPRF, CC-BY; 0/'' for states not
             yet sourced). average rate per property assessment, AUD (proto double)
           format: double
           title: avg_rates
           type: number
+        centroidLat:
+          description: area-weighted centroid of the ABS boundary (proto double)
+          format: double
+          title: centroid_lat
+          type:
+          - number
+          - "null"
+        centroidLon:
+          description: (proto double)
+          format: double
+          title: centroid_lon
+          type:
+          - number
+          - "null"
+        councilHouseMedian:
+          description: |-
+            Latest ABS 'Data by Region' median established-house transfer price for
+             the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+             present it as this suburb's median. (proto double)
+          format: double
+          title: council_house_median
+          type:
+          - number
+          - "null"
+        councilHouseMedianPeriod:
+          description: e.g. '2023-24'; '' if none (proto string)
+          title: council_house_median_period
+          type: string
+        displayName:
+          description: 'ABS name without the state suffix: ''Campbelltown'' (proto
+            string)'
+          title: display_name
+          type: string
+        dominantShare:
+          description: |-
+            Share (0..1] of THIS suburb's residents who live in this council (ABS
+             mesh-block allocation, Census 2021 persons). Absent outside a suburb profile. (proto double)
+          format: double
+          title: dominant_share
+          type:
+          - number
+          - "null"
+        erpYear:
+          description: |-
+            Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,
+             never a measured zero. reference year of population; 0 if none (proto int32)
+          format: int32
+          title: erp_year
+          type: integer
         fedFagAud:
           description: federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
             (proto double)
@@ -4275,6 +5064,10 @@ components:
           description: financials reporting year, e.g. '2024-25' (proto string)
           title: fin_year
           type: string
+        kind:
+          description: council | unincorporated | pseudo (proto string)
+          title: kind
+          type: string
         lgaCode:
           description: (proto string)
           title: lga_code
@@ -4283,22 +5076,121 @@ components:
           description: (proto string)
           title: lga_name
           type: string
+        medianAge:
+          description: Census 2021 (proto double)
+          format: double
+          title: median_age
+          type:
+          - number
+          - "null"
+        medianHhdIncome:
+          description: Census 2021, $/week (proto int32)
+          format: int32
+          title: median_hhd_income
+          type:
+          - integer
+          - "null"
+        medianMortgageMonthly:
+          description: Census 2021, $/month (proto int32)
+          format: int32
+          title: median_mortgage_monthly
+          type:
+          - integer
+          - "null"
+        medianWeeklyRent:
+          description: Census 2021, $/week (proto int32)
+          format: int32
+          title: median_weekly_rent
+          type:
+          - integer
+          - "null"
         opSurplusRatio:
           description: adjusted underlying (operating) result, % (negative = deficit)
             (proto double)
           format: double
           title: op_surplus_ratio
           type: number
+        pctRented:
+          description: Census 2021, % of households renting (proto double)
+          format: double
+          title: pct_rented
+          type:
+          - number
+          - "null"
+        popGrowthPct:
+          description: ERP year-on-year change, % (proto double)
+          format: double
+          title: pop_growth_pct
+          type:
+          - number
+          - "null"
         population:
-          description: summed from member-suburb Census populations (proto int32)
+          description: ABS Estimated Resident Population at 30 June erp_year; 0 if
+            not loaded (proto int32)
           format: int32
           title: population
           type: integer
+        seifaIrsadDecile:
+          description: SEIFA 2021 IRSAD, national decile 1..10 (proto int32)
+          format: int32
+          title: seifa_irsad_decile
+          type:
+          - integer
+          - "null"
+        seifaIrsdDecile:
+          description: SEIFA 2021 IRSD, national decile 1..10 (proto int32)
+          format: int32
+          title: seifa_irsd_decile
+          type:
+          - integer
+          - "null"
+        slug:
+          description: |-
+            Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+             'council' and 'unincorporated'; 'pseudo' areas never reach a suburb. URL segment, unique within state, never reassigned (proto string)
+          title: slug
+          type: string
         stateCode:
           description: (proto string)
           title: state_code
           type: string
+        website:
+          description: official website (Wikidata P856, CC0); '' if none (proto string)
+          title: website
+          type: string
+        wikidataQid:
+          description: e.g. 'Q1719401'; '' if none (proto string)
+          title: wikidata_qid
+          type: string
       title: LgaInfo
+      type: object
+    shorts.v1alpha1.LgaOverlap:
+      additionalProperties: false
+      description: Another council a suburb spans, beyond the dominant one.
+      properties:
+        displayName:
+          description: (proto string)
+          title: display_name
+          type: string
+        lgaCode:
+          description: (proto string)
+          title: lga_code
+          type: string
+        share:
+          description: 0..1 of the suburb's residents (Census 2021 mesh blocks) (proto
+            double)
+          format: double
+          title: share
+          type: number
+        slug:
+          description: ''''' when the council has no page (proto string)'
+          title: slug
+          type: string
+        stateCode:
+          description: (proto string)
+          title: state_code
+          type: string
+      title: LgaOverlap
       type: object
     shorts.v1alpha1.ListAddressPriceDropsRequest:
       additionalProperties: false
@@ -4364,6 +5256,42 @@ components:
           title: agencies
           type: array
       title: ListAgencyPriceStatsResponse
+      type: object
+    shorts.v1alpha1.ListCouncilsRequest:
+      additionalProperties: false
+      properties:
+        stateCode:
+          description: 'required: NSW | VIC | QLD | SA | WA | TAS | NT | ACT (proto
+            string)'
+          title: state_code
+          type: string
+      title: ListCouncilsRequest
+      type: object
+    shorts.v1alpha1.ListCouncilsResponse:
+      additionalProperties: false
+      properties:
+        councils:
+          description: population desc, then name (proto shorts.v1alpha1.CouncilSummary)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.CouncilSummary'
+          title: councils
+          type: array
+        lgaVintage:
+          description: boundary vintage, e.g. 'ABS ASGS LGA 2024' (proto string)
+          title: lga_vintage
+          type: string
+        priceDropsAsOf:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: |-
+            Freshness of every council's price_drop_share (program decision 9): when
+             the shares were computed, and the newest crawl observation behind any of
+             them. Both absent when no council publishes a share. (proto google.protobuf.Timestamp)
+          title: price_drops_as_of
+        priceDropsDataThrough:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: (proto google.protobuf.Timestamp)
+          title: price_drops_data_through
+      title: ListCouncilsResponse
       type: object
     shorts.v1alpha1.ListDistinctiveHoldingsRequest:
       additionalProperties: false
@@ -5155,7 +6083,11 @@ components:
           title: limit
           type: integer
         sort:
-          description: 'optional: ''count'' (default) | ''avg'' | ''max'' (proto string)'
+          description: |-
+            optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+             'share' ranks by dropped_share among suburbs with at least 20 recently
+             swept active addresses (the drop index's panel floor); thinner suburbs
+             sort after every ranked one rather than topping the board on 1 of 3. (proto string)
           title: sort
           type: string
         stateCode:
@@ -5173,6 +6105,19 @@ components:
     shorts.v1alpha1.ListSuburbPriceDropsResponse:
       additionalProperties: false
       properties:
+        asOf:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: |-
+            The OLDER refresh of the two views this board joins
+             (mv_suburb_listing_stats, mv_suburb_price_drops), so the stamp never
+             claims more freshness than the staler half. data_through: the newest crawl
+             observation (price event or listing sighting) those refreshes could see.
+             Both unset when no refresh has been recorded. (proto google.protobuf.Timestamp)
+          title: as_of
+        dataThrough:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: (proto google.protobuf.Timestamp)
+          title: data_through
         suburbs:
           description: (proto shorts.v1alpha1.SuburbPriceDrop)
           items:
@@ -6980,6 +7925,77 @@ components:
       - SORT_DIRECTION_ASC
       title: SortDirection
       type: string
+    shorts.v1alpha1.StateCensusAverages:
+      additionalProperties: false
+      description: |-
+        Census 2021 shares for a whole state, rebuilt from its suburbs: each suburb's
+         share weighted by the denominator it is a share of — occupied dwellings for
+         tenure, structure and household mix; residents for the person rates (the
+         labour force is not stored, so unemployment is resident-weighted too). Only
+         suburbs above the ingest floors contribute. 0 = not computable.
+      properties:
+        labourForceParticipationRate:
+          description: (proto double)
+          format: double
+          title: labour_force_participation_rate
+          type: number
+        pctBachelorOrHigher:
+          description: (proto double)
+          format: double
+          title: pct_bachelor_or_higher
+          type: number
+        pctCoupleWithChildren:
+          description: (proto double)
+          format: double
+          title: pct_couple_with_children
+          type: number
+        pctFlatApartment:
+          description: (proto double)
+          format: double
+          title: pct_flat_apartment
+          type: number
+        pctHighPersonalIncome:
+          description: (proto double)
+          format: double
+          title: pct_high_personal_income
+          type: number
+        pctLonePersonHousehold:
+          description: (proto double)
+          format: double
+          title: pct_lone_person_household
+          type: number
+        pctLowPersonalIncome:
+          description: (proto double)
+          format: double
+          title: pct_low_personal_income
+          type: number
+        pctOwnedMortgage:
+          description: (proto double)
+          format: double
+          title: pct_owned_mortgage
+          type: number
+        pctOwnedOutright:
+          description: (proto double)
+          format: double
+          title: pct_owned_outright
+          type: number
+        pctRented:
+          description: (proto double)
+          format: double
+          title: pct_rented
+          type: number
+        pctSeparateHouse:
+          description: (proto double)
+          format: double
+          title: pct_separate_house
+          type: number
+        unemploymentRate:
+          description: (proto double)
+          format: double
+          title: unemployment_rate
+          type: number
+      title: StateCensusAverages
+      type: object
     shorts.v1alpha1.StateCompany:
       additionalProperties: false
       properties:
@@ -7071,6 +8087,11 @@ components:
           format: double
           title: avg_sold
           type: number
+        catalogSuburbs:
+          description: (proto int32)
+          format: int32
+          title: catalog_suburbs
+          type: integer
         droppedCount:
           description: physical addresses that cut asking price (30-day window, deduped)
             (proto int32)
@@ -7128,6 +8149,17 @@ components:
             string)'
           title: state_code
           type: string
+        suburbsSwept14d:
+          description: |-
+            Crawl coverage behind this row. catalog_suburbs is every suburb the crawl
+             has ever produced a listing for (the drop index's coverage denominator);
+             suburbs_swept_14d is the subset with a listing seen in the last 14 days.
+             Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl
+             coverage more than discounting, and the UI annotates it instead of ranking
+             it. Both 0 before migration 000124. (proto int32)
+          format: int32
+          title: suburbs_swept_14d
+          type: integer
         suburbsTracked:
           description: tracked suburbs contributing listings (proto int32)
           format: int32
@@ -7458,8 +8490,8 @@ components:
          CVS-adjusted; small_pop/unreliable rows are gated out server-side).
       properties:
         crimeType:
-          description: '''break_ins'' | ''violent'' | ''motor_vehicle'' (+ future
-            types) (proto string)'
+          description: '''break_ins'' | ''violent'' | ''motor_vehicle'' | ''property_damage''
+            (+ future types) (proto string)'
           title: crime_type
           type: string
         fyEnding:
@@ -7468,8 +8500,8 @@ components:
           title: fy_ending
           type: integer
         pctRank:
-          description: 0..100 national pop-weighted percentile; > 0 always (proto
-            double)
+          description: 0..100 pop-weighted percentile WITHIN the suburb's state (never
+            across states); > 0 always (proto double)
           format: double
           title: pct_rank
           type: number
@@ -7755,7 +8787,8 @@ components:
       additionalProperties: false
       description: |-
         Measured hazard exposure per suburb — area shares, 0..100, absent when no
-         source covers the suburb. Every source is CC-BY-4.0.
+         source covers the suburb. Every source is CC BY 4.0 except the SA Planning
+         and Design Code and Tasmanian Planning Scheme overlays (CC BY 3.0 AU).
 
          water_observed_share_pct: share of the suburb's validly observed land where
          DEA Water Observations (Landsat, 1987 onward, 30 m) detected surface water in
@@ -7765,10 +8798,20 @@ components:
          share is a FLOOR on inundation, never a flood-risk estimate.
 
          flood_planning_share_pct: share inside a statutory flood planning overlay
-         (NSW EPI Flood; VIC LSIO/FO/SBO). A planning-control boundary, not a flood
-         extent; NSW councils own its currency. bushfire_prone_share_pct: share
-         designated bushfire prone for development control (NSW BFPL; VIC BMO).
-         Statutory shares exist for NSW and VIC only.
+         (NSW EPI Flood; VIC LSIO/FO/SBO; SA Code Hazards (Flooding) and (Flooding –
+         General); TAS Flood-prone Areas). A planning-control boundary, not a flood
+         extent. ACT is the exception: its only open layer is the modelled 1% AEP
+         flood extent, a model of one event. No open flood layer for QLD, WA or NT.
+         bushfire_prone_share_pct: share designated bushfire prone for development
+         control (NSW BFPL; VIC Designated Bushfire Prone Area; QLD, WA and ACT
+         bushfire prone areas; SA and TAS code overlays). None for NT.
+
+         Inside a state that has a layer, a statutory share is also absent where the
+         instrument does not cover most of the suburb (NSW flood outside the councils
+         that lodged a map; SA land under the Code's precautionary Evidence Required,
+         Regional or Outback overlays; TAS councils with no mapped overlay). Where the
+         suburb is partly covered the share is the mapped land over the WHOLE suburb,
+         a floor.
       properties:
         bushfireProneSharePct:
           description: (proto double)
@@ -7789,7 +8832,10 @@ components:
           - number
           - "null"
         floodSource:
-          description: (proto string)
+          description: |-
+            Statutory instrument id the share was read against. Set with an absent
+             share when the instrument does not cover the suburb; '' when the state has
+             no open layer for that hazard. (proto string)
           title: flood_source
           type: string
         permanentWaterSharePct:
@@ -7865,6 +8911,13 @@ components:
          source_licence='proprietary-tos-restricted' and are never republished — see
          docs/feature/housing/data-sources.md. Counts and medians only.
       properties:
+        asOf:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: |-
+            When mv_suburb_listing_stats was last refreshed (every now()-relative
+             window in it is anchored here), and the newest crawl observation it could
+             contain. Unset when the refresh has never been recorded. (proto google.protobuf.Timestamp)
+          title: as_of
         avgAsking:
           description: mean asking price of priced for-sale listings, AUD; 0 if none
             (proto double)
@@ -7876,6 +8929,10 @@ components:
           format: double
           title: avg_sold
           type: number
+        dataThrough:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          description: (proto google.protobuf.Timestamp)
+          title: data_through
         forSaleCount:
           description: active for-sale listings captured (proto int32)
           format: int32
@@ -7954,6 +9011,127 @@ components:
           - number
           - "null"
       title: SuburbMetricPredicate
+      type: object
+    shorts.v1alpha1.SuburbPlanning:
+      additionalProperties: false
+      description: |-
+        Statutory planning layer for one suburb, computed offline from the state
+         planning schemes (web/scripts/geo/planning/). Every scalar is optional: an
+         absent value means no open source covers it (QLD/WA/NT zoning, NSW-only
+         development standards), never zero. zone_shares lists only families with a
+         non-zero share, largest first, and sums to zoning_coverage_pct.
+      properties:
+        dominantZoneFamily:
+          description: ''''' when unzoned / no source (proto string)'
+          title: dominant_zone_family
+          type: string
+        heritageItemCount:
+          description: listed heritage places, counted once (proto int32)
+          format: int32
+          title: heritage_item_count
+          type:
+          - integer
+          - "null"
+        heritageSharePct:
+          description: |-
+            % of the suburb in a heritage conservation area / Heritage Overlay /
+             historic or character area (area classes only). (proto double)
+          format: double
+          title: heritage_share_pct
+          type:
+          - number
+          - "null"
+        heritageSource:
+          description: (proto string)
+          title: heritage_source
+          type: string
+        instruments:
+          description: planning instrument names, largest coverage first (proto string)
+          items:
+            type: string
+          title: instruments
+          type: array
+        nswFsrMappedPct:
+          description: (proto double)
+          format: double
+          title: nsw_fsr_mapped_pct
+          type:
+          - number
+          - "null"
+        nswFsrMedian:
+          description: (proto double)
+          format: double
+          title: nsw_fsr_median
+          type:
+          - number
+          - "null"
+        nswHeightMappedPct:
+          description: |-
+            % of the suburb's residential-zoned land each NSW standard is actually
+             mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+             centres; a standard mapped on under half the residential land has no
+             median/max above, because it would be the centre's number. (proto double)
+          format: double
+          title: nsw_height_mapped_pct
+          type:
+          - number
+          - "null"
+        nswHeightMaxM:
+          description: (proto double)
+          format: double
+          title: nsw_height_max_m
+          type:
+          - number
+          - "null"
+        nswHeightMedianM:
+          description: |-
+            NSW development standards over the residential-zoned part of the suburb
+             (area-weighted): maximum building height (m), floor space ratio (n:1),
+             minimum subdivision lot size (m²). (proto double)
+          format: double
+          title: nsw_height_median_m
+          type:
+          - number
+          - "null"
+        nswMinLotMappedPct:
+          description: (proto double)
+          format: double
+          title: nsw_min_lot_mapped_pct
+          type:
+          - number
+          - "null"
+        nswMinLotMedianM2:
+          description: (proto double)
+          format: double
+          title: nsw_min_lot_median_m2
+          type:
+          - number
+          - "null"
+        sourceLicence:
+          description: e.g. 'CC-BY-4.0' (proto string)
+          title: source_licence
+          type: string
+        zoneShares:
+          description: (proto shorts.v1alpha1.ZoneFamilyShare)
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.ZoneFamilyShare'
+          title: zone_shares
+          type: array
+        zoningCoveragePct:
+          description: |-
+            % of the suburb inside any zone polygon. Under 50 it is the only value
+             set: the rest of the suburb is planned by an instrument these layers do
+             not carry, so no shares, dominant family or heritage are measured. (proto double)
+          format: double
+          title: zoning_coverage_pct
+          type:
+          - number
+          - "null"
+        zoningSource:
+          description: dataset id, '' when absent (proto string)
+          title: zoning_source
+          type: string
+      title: SuburbPlanning
       type: object
     shorts.v1alpha1.SuburbPoliticianProperty:
       additionalProperties: false
@@ -8804,6 +9982,24 @@ components:
           title: weekly_price_change
           type: number
       title: WeeklyReportTrendInsight
+      type: object
+    shorts.v1alpha1.ZoneFamilyShare:
+      additionalProperties: false
+      description: |-
+        One harmonised zoning family's share of a suburb (program decision 8).
+         family: res_low | res_medium_high | centre_mixed | industrial | rural |
+         conservation | open_space | infrastructure | water | other.
+      properties:
+        family:
+          description: (proto string)
+          title: family
+          type: string
+        sharePct:
+          description: '% of the whole suburb''s area, 0..100 (proto double)'
+          format: double
+          title: share_pct
+          type: number
+      title: ZoneFamilyShare
       type: object
     stocks.v1alpha1.CompanyPerson:
       additionalProperties: false
@@ -9933,6 +11129,44 @@ paths:
       summary: FilterSuburbs
       tags:
       - shorts.v1alpha1.HousingService
+  /shorts.v1alpha1.HousingService/GetCouncilProfile:
+    post:
+      description: |-
+        One council's hub: identity, current facts, time series, member suburbs,
+         hazard/price/crime rollups, representation, price drops and neighbours.
+      operationId: HousingService_GetCouncilProfile
+      parameters:
+      - in: header
+        name: Connect-Protocol-Version
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - in: header
+        name: Connect-Timeout-Ms
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetCouncilProfileRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetCouncilProfileResponse'
+          description: Success
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+          description: Error
+      summary: GetCouncilProfile
+      tags:
+      - shorts.v1alpha1.HousingService
   /shorts.v1alpha1.HousingService/GetDropIndexSeries:
     post:
       description: Daily discounting index series (national/state/suburb) for the
@@ -10297,6 +11531,44 @@ paths:
                 $ref: '#/components/schemas/connect.error'
           description: Error
       summary: ListAgencyPriceStats
+      tags:
+      - shorts.v1alpha1.HousingService
+  /shorts.v1alpha1.HousingService/ListCouncils:
+    post:
+      description: |-
+        Every council with a page in one state (kind council | unincorporated),
+         with the rollup metrics the council index and choropleth colour by.
+      operationId: HousingService_ListCouncils
+      parameters:
+      - in: header
+        name: Connect-Protocol-Version
+        required: true
+        schema:
+          $ref: '#/components/schemas/connect-protocol-version'
+      - in: header
+        name: Connect-Timeout-Ms
+        schema:
+          $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListCouncilsRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListCouncilsResponse'
+          description: Success
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+          description: Error
+      summary: ListCouncils
       tags:
       - shorts.v1alpha1.HousingService
   /shorts.v1alpha1.HousingService/ListHousingRegions:

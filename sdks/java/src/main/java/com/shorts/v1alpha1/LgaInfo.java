@@ -38,6 +38,12 @@ private static final long serialVersionUID = 0L;
     fedFagYear_ = "";
     finSource_ = "";
     finYear_ = "";
+    slug_ = "";
+    displayName_ = "";
+    kind_ = "";
+    website_ = "";
+    wikidataQid_ = "";
+    councilHouseMedianPeriod_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -58,6 +64,7 @@ private static final long serialVersionUID = 0L;
             com.shorts.v1alpha1.LgaInfo.class, com.shorts.v1alpha1.LgaInfo.Builder.class);
   }
 
+  private int bitField0_;
   public static final int LGA_CODE_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private volatile java.lang.Object lgaCode_ = "";
@@ -190,7 +197,7 @@ private static final long serialVersionUID = 0L;
   private int population_ = 0;
   /**
    * <pre>
-   * summed from member-suburb Census populations
+   * ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded
    * </pre>
    *
    * <code>int32 population = 5 [json_name = "population"];</code>
@@ -402,6 +409,655 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int SLUG_FIELD_NUMBER = 13;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object slug_ = "";
+  /**
+   * <pre>
+   * Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+   * 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+   * </pre>
+   *
+   * <code>string slug = 13 [json_name = "slug"];</code>
+   * @return The slug.
+   */
+  @java.lang.Override
+  public java.lang.String getSlug() {
+    java.lang.Object ref = slug_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      slug_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+   * 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+   * </pre>
+   *
+   * <code>string slug = 13 [json_name = "slug"];</code>
+   * @return The bytes for slug.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getSlugBytes() {
+    java.lang.Object ref = slug_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      slug_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int DISPLAY_NAME_FIELD_NUMBER = 14;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object displayName_ = "";
+  /**
+   * <pre>
+   * ABS name without the state suffix: 'Campbelltown'
+   * </pre>
+   *
+   * <code>string display_name = 14 [json_name = "displayName"];</code>
+   * @return The displayName.
+   */
+  @java.lang.Override
+  public java.lang.String getDisplayName() {
+    java.lang.Object ref = displayName_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      displayName_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * ABS name without the state suffix: 'Campbelltown'
+   * </pre>
+   *
+   * <code>string display_name = 14 [json_name = "displayName"];</code>
+   * @return The bytes for displayName.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getDisplayNameBytes() {
+    java.lang.Object ref = displayName_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      displayName_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int KIND_FIELD_NUMBER = 15;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object kind_ = "";
+  /**
+   * <pre>
+   * council | unincorporated | pseudo
+   * </pre>
+   *
+   * <code>string kind = 15 [json_name = "kind"];</code>
+   * @return The kind.
+   */
+  @java.lang.Override
+  public java.lang.String getKind() {
+    java.lang.Object ref = kind_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      kind_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * council | unincorporated | pseudo
+   * </pre>
+   *
+   * <code>string kind = 15 [json_name = "kind"];</code>
+   * @return The bytes for kind.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getKindBytes() {
+    java.lang.Object ref = kind_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      kind_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int ERP_YEAR_FIELD_NUMBER = 16;
+  private int erpYear_ = 0;
+  /**
+   * <pre>
+   * Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,
+   * never a measured zero.
+   * </pre>
+   *
+   * <code>int32 erp_year = 16 [json_name = "erpYear"];</code>
+   * @return The erpYear.
+   */
+  @java.lang.Override
+  public int getErpYear() {
+    return erpYear_;
+  }
+
+  public static final int POP_GROWTH_PCT_FIELD_NUMBER = 17;
+  private double popGrowthPct_ = 0D;
+  /**
+   * <pre>
+   * ERP year-on-year change, %
+   * </pre>
+   *
+   * <code>optional double pop_growth_pct = 17 [json_name = "popGrowthPct"];</code>
+   * @return Whether the popGrowthPct field is set.
+   */
+  @java.lang.Override
+  public boolean hasPopGrowthPct() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * ERP year-on-year change, %
+   * </pre>
+   *
+   * <code>optional double pop_growth_pct = 17 [json_name = "popGrowthPct"];</code>
+   * @return The popGrowthPct.
+   */
+  @java.lang.Override
+  public double getPopGrowthPct() {
+    return popGrowthPct_;
+  }
+
+  public static final int MEDIAN_AGE_FIELD_NUMBER = 18;
+  private double medianAge_ = 0D;
+  /**
+   * <pre>
+   * Census 2021
+   * </pre>
+   *
+   * <code>optional double median_age = 18 [json_name = "medianAge"];</code>
+   * @return Whether the medianAge field is set.
+   */
+  @java.lang.Override
+  public boolean hasMedianAge() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <pre>
+   * Census 2021
+   * </pre>
+   *
+   * <code>optional double median_age = 18 [json_name = "medianAge"];</code>
+   * @return The medianAge.
+   */
+  @java.lang.Override
+  public double getMedianAge() {
+    return medianAge_;
+  }
+
+  public static final int MEDIAN_HHD_INCOME_FIELD_NUMBER = 19;
+  private int medianHhdIncome_ = 0;
+  /**
+   * <pre>
+   * Census 2021, $/week
+   * </pre>
+   *
+   * <code>optional int32 median_hhd_income = 19 [json_name = "medianHhdIncome"];</code>
+   * @return Whether the medianHhdIncome field is set.
+   */
+  @java.lang.Override
+  public boolean hasMedianHhdIncome() {
+    return ((bitField0_ & 0x00000004) != 0);
+  }
+  /**
+   * <pre>
+   * Census 2021, $/week
+   * </pre>
+   *
+   * <code>optional int32 median_hhd_income = 19 [json_name = "medianHhdIncome"];</code>
+   * @return The medianHhdIncome.
+   */
+  @java.lang.Override
+  public int getMedianHhdIncome() {
+    return medianHhdIncome_;
+  }
+
+  public static final int PCT_RENTED_FIELD_NUMBER = 20;
+  private double pctRented_ = 0D;
+  /**
+   * <pre>
+   * Census 2021, % of households renting
+   * </pre>
+   *
+   * <code>optional double pct_rented = 20 [json_name = "pctRented"];</code>
+   * @return Whether the pctRented field is set.
+   */
+  @java.lang.Override
+  public boolean hasPctRented() {
+    return ((bitField0_ & 0x00000008) != 0);
+  }
+  /**
+   * <pre>
+   * Census 2021, % of households renting
+   * </pre>
+   *
+   * <code>optional double pct_rented = 20 [json_name = "pctRented"];</code>
+   * @return The pctRented.
+   */
+  @java.lang.Override
+  public double getPctRented() {
+    return pctRented_;
+  }
+
+  public static final int MEDIAN_WEEKLY_RENT_FIELD_NUMBER = 21;
+  private int medianWeeklyRent_ = 0;
+  /**
+   * <pre>
+   * Census 2021, $/week
+   * </pre>
+   *
+   * <code>optional int32 median_weekly_rent = 21 [json_name = "medianWeeklyRent"];</code>
+   * @return Whether the medianWeeklyRent field is set.
+   */
+  @java.lang.Override
+  public boolean hasMedianWeeklyRent() {
+    return ((bitField0_ & 0x00000010) != 0);
+  }
+  /**
+   * <pre>
+   * Census 2021, $/week
+   * </pre>
+   *
+   * <code>optional int32 median_weekly_rent = 21 [json_name = "medianWeeklyRent"];</code>
+   * @return The medianWeeklyRent.
+   */
+  @java.lang.Override
+  public int getMedianWeeklyRent() {
+    return medianWeeklyRent_;
+  }
+
+  public static final int MEDIAN_MORTGAGE_MONTHLY_FIELD_NUMBER = 22;
+  private int medianMortgageMonthly_ = 0;
+  /**
+   * <pre>
+   * Census 2021, $/month
+   * </pre>
+   *
+   * <code>optional int32 median_mortgage_monthly = 22 [json_name = "medianMortgageMonthly"];</code>
+   * @return Whether the medianMortgageMonthly field is set.
+   */
+  @java.lang.Override
+  public boolean hasMedianMortgageMonthly() {
+    return ((bitField0_ & 0x00000020) != 0);
+  }
+  /**
+   * <pre>
+   * Census 2021, $/month
+   * </pre>
+   *
+   * <code>optional int32 median_mortgage_monthly = 22 [json_name = "medianMortgageMonthly"];</code>
+   * @return The medianMortgageMonthly.
+   */
+  @java.lang.Override
+  public int getMedianMortgageMonthly() {
+    return medianMortgageMonthly_;
+  }
+
+  public static final int AVG_HOUSEHOLD_SIZE_FIELD_NUMBER = 23;
+  private double avgHouseholdSize_ = 0D;
+  /**
+   * <pre>
+   * Census 2021, persons
+   * </pre>
+   *
+   * <code>optional double avg_household_size = 23 [json_name = "avgHouseholdSize"];</code>
+   * @return Whether the avgHouseholdSize field is set.
+   */
+  @java.lang.Override
+  public boolean hasAvgHouseholdSize() {
+    return ((bitField0_ & 0x00000040) != 0);
+  }
+  /**
+   * <pre>
+   * Census 2021, persons
+   * </pre>
+   *
+   * <code>optional double avg_household_size = 23 [json_name = "avgHouseholdSize"];</code>
+   * @return The avgHouseholdSize.
+   */
+  @java.lang.Override
+  public double getAvgHouseholdSize() {
+    return avgHouseholdSize_;
+  }
+
+  public static final int SEIFA_IRSAD_DECILE_FIELD_NUMBER = 24;
+  private int seifaIrsadDecile_ = 0;
+  /**
+   * <pre>
+   * SEIFA 2021 IRSAD, national decile 1..10
+   * </pre>
+   *
+   * <code>optional int32 seifa_irsad_decile = 24 [json_name = "seifaIrsadDecile"];</code>
+   * @return Whether the seifaIrsadDecile field is set.
+   */
+  @java.lang.Override
+  public boolean hasSeifaIrsadDecile() {
+    return ((bitField0_ & 0x00000080) != 0);
+  }
+  /**
+   * <pre>
+   * SEIFA 2021 IRSAD, national decile 1..10
+   * </pre>
+   *
+   * <code>optional int32 seifa_irsad_decile = 24 [json_name = "seifaIrsadDecile"];</code>
+   * @return The seifaIrsadDecile.
+   */
+  @java.lang.Override
+  public int getSeifaIrsadDecile() {
+    return seifaIrsadDecile_;
+  }
+
+  public static final int SEIFA_IRSD_DECILE_FIELD_NUMBER = 25;
+  private int seifaIrsdDecile_ = 0;
+  /**
+   * <pre>
+   * SEIFA 2021 IRSD, national decile 1..10
+   * </pre>
+   *
+   * <code>optional int32 seifa_irsd_decile = 25 [json_name = "seifaIrsdDecile"];</code>
+   * @return Whether the seifaIrsdDecile field is set.
+   */
+  @java.lang.Override
+  public boolean hasSeifaIrsdDecile() {
+    return ((bitField0_ & 0x00000100) != 0);
+  }
+  /**
+   * <pre>
+   * SEIFA 2021 IRSD, national decile 1..10
+   * </pre>
+   *
+   * <code>optional int32 seifa_irsd_decile = 25 [json_name = "seifaIrsdDecile"];</code>
+   * @return The seifaIrsdDecile.
+   */
+  @java.lang.Override
+  public int getSeifaIrsdDecile() {
+    return seifaIrsdDecile_;
+  }
+
+  public static final int WEBSITE_FIELD_NUMBER = 26;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object website_ = "";
+  /**
+   * <pre>
+   * official website (Wikidata P856, CC0); '' if none
+   * </pre>
+   *
+   * <code>string website = 26 [json_name = "website"];</code>
+   * @return The website.
+   */
+  @java.lang.Override
+  public java.lang.String getWebsite() {
+    java.lang.Object ref = website_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      website_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * official website (Wikidata P856, CC0); '' if none
+   * </pre>
+   *
+   * <code>string website = 26 [json_name = "website"];</code>
+   * @return The bytes for website.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getWebsiteBytes() {
+    java.lang.Object ref = website_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      website_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int WIKIDATA_QID_FIELD_NUMBER = 27;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object wikidataQid_ = "";
+  /**
+   * <pre>
+   * e.g. 'Q1719401'; '' if none
+   * </pre>
+   *
+   * <code>string wikidata_qid = 27 [json_name = "wikidataQid"];</code>
+   * @return The wikidataQid.
+   */
+  @java.lang.Override
+  public java.lang.String getWikidataQid() {
+    java.lang.Object ref = wikidataQid_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      wikidataQid_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * e.g. 'Q1719401'; '' if none
+   * </pre>
+   *
+   * <code>string wikidata_qid = 27 [json_name = "wikidataQid"];</code>
+   * @return The bytes for wikidataQid.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getWikidataQidBytes() {
+    java.lang.Object ref = wikidataQid_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      wikidataQid_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int CENTROID_LAT_FIELD_NUMBER = 28;
+  private double centroidLat_ = 0D;
+  /**
+   * <pre>
+   * area-weighted centroid of the ABS boundary
+   * </pre>
+   *
+   * <code>optional double centroid_lat = 28 [json_name = "centroidLat"];</code>
+   * @return Whether the centroidLat field is set.
+   */
+  @java.lang.Override
+  public boolean hasCentroidLat() {
+    return ((bitField0_ & 0x00000200) != 0);
+  }
+  /**
+   * <pre>
+   * area-weighted centroid of the ABS boundary
+   * </pre>
+   *
+   * <code>optional double centroid_lat = 28 [json_name = "centroidLat"];</code>
+   * @return The centroidLat.
+   */
+  @java.lang.Override
+  public double getCentroidLat() {
+    return centroidLat_;
+  }
+
+  public static final int CENTROID_LON_FIELD_NUMBER = 29;
+  private double centroidLon_ = 0D;
+  /**
+   * <code>optional double centroid_lon = 29 [json_name = "centroidLon"];</code>
+   * @return Whether the centroidLon field is set.
+   */
+  @java.lang.Override
+  public boolean hasCentroidLon() {
+    return ((bitField0_ & 0x00000400) != 0);
+  }
+  /**
+   * <code>optional double centroid_lon = 29 [json_name = "centroidLon"];</code>
+   * @return The centroidLon.
+   */
+  @java.lang.Override
+  public double getCentroidLon() {
+    return centroidLon_;
+  }
+
+  public static final int DOMINANT_SHARE_FIELD_NUMBER = 30;
+  private double dominantShare_ = 0D;
+  /**
+   * <pre>
+   * Share (0..1] of THIS suburb's residents who live in this council (ABS
+   * mesh-block allocation, Census 2021 persons). Absent outside a suburb profile.
+   * </pre>
+   *
+   * <code>optional double dominant_share = 30 [json_name = "dominantShare"];</code>
+   * @return Whether the dominantShare field is set.
+   */
+  @java.lang.Override
+  public boolean hasDominantShare() {
+    return ((bitField0_ & 0x00000800) != 0);
+  }
+  /**
+   * <pre>
+   * Share (0..1] of THIS suburb's residents who live in this council (ABS
+   * mesh-block allocation, Census 2021 persons). Absent outside a suburb profile.
+   * </pre>
+   *
+   * <code>optional double dominant_share = 30 [json_name = "dominantShare"];</code>
+   * @return The dominantShare.
+   */
+  @java.lang.Override
+  public double getDominantShare() {
+    return dominantShare_;
+  }
+
+  public static final int COUNCIL_HOUSE_MEDIAN_FIELD_NUMBER = 31;
+  private double councilHouseMedian_ = 0D;
+  /**
+   * <pre>
+   * Latest ABS 'Data by Region' median established-house transfer price for
+   * the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+   * present it as this suburb's median.
+   * </pre>
+   *
+   * <code>optional double council_house_median = 31 [json_name = "councilHouseMedian"];</code>
+   * @return Whether the councilHouseMedian field is set.
+   */
+  @java.lang.Override
+  public boolean hasCouncilHouseMedian() {
+    return ((bitField0_ & 0x00001000) != 0);
+  }
+  /**
+   * <pre>
+   * Latest ABS 'Data by Region' median established-house transfer price for
+   * the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+   * present it as this suburb's median.
+   * </pre>
+   *
+   * <code>optional double council_house_median = 31 [json_name = "councilHouseMedian"];</code>
+   * @return The councilHouseMedian.
+   */
+  @java.lang.Override
+  public double getCouncilHouseMedian() {
+    return councilHouseMedian_;
+  }
+
+  public static final int COUNCIL_HOUSE_MEDIAN_PERIOD_FIELD_NUMBER = 32;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object councilHouseMedianPeriod_ = "";
+  /**
+   * <pre>
+   * e.g. '2023-24'; '' if none
+   * </pre>
+   *
+   * <code>string council_house_median_period = 32 [json_name = "councilHouseMedianPeriod"];</code>
+   * @return The councilHouseMedianPeriod.
+   */
+  @java.lang.Override
+  public java.lang.String getCouncilHouseMedianPeriod() {
+    java.lang.Object ref = councilHouseMedianPeriod_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      councilHouseMedianPeriod_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * e.g. '2023-24'; '' if none
+   * </pre>
+   *
+   * <code>string council_house_median_period = 32 [json_name = "councilHouseMedianPeriod"];</code>
+   * @return The bytes for councilHouseMedianPeriod.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getCouncilHouseMedianPeriodBytes() {
+    java.lang.Object ref = councilHouseMedianPeriod_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      councilHouseMedianPeriod_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -452,6 +1108,66 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(finYear_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 12, finYear_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(slug_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 13, slug_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(displayName_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 14, displayName_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(kind_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 15, kind_);
+    }
+    if (erpYear_ != 0) {
+      output.writeInt32(16, erpYear_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeDouble(17, popGrowthPct_);
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeDouble(18, medianAge_);
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      output.writeInt32(19, medianHhdIncome_);
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      output.writeDouble(20, pctRented_);
+    }
+    if (((bitField0_ & 0x00000010) != 0)) {
+      output.writeInt32(21, medianWeeklyRent_);
+    }
+    if (((bitField0_ & 0x00000020) != 0)) {
+      output.writeInt32(22, medianMortgageMonthly_);
+    }
+    if (((bitField0_ & 0x00000040) != 0)) {
+      output.writeDouble(23, avgHouseholdSize_);
+    }
+    if (((bitField0_ & 0x00000080) != 0)) {
+      output.writeInt32(24, seifaIrsadDecile_);
+    }
+    if (((bitField0_ & 0x00000100) != 0)) {
+      output.writeInt32(25, seifaIrsdDecile_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(website_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 26, website_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(wikidataQid_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 27, wikidataQid_);
+    }
+    if (((bitField0_ & 0x00000200) != 0)) {
+      output.writeDouble(28, centroidLat_);
+    }
+    if (((bitField0_ & 0x00000400) != 0)) {
+      output.writeDouble(29, centroidLon_);
+    }
+    if (((bitField0_ & 0x00000800) != 0)) {
+      output.writeDouble(30, dominantShare_);
+    }
+    if (((bitField0_ & 0x00001000) != 0)) {
+      output.writeDouble(31, councilHouseMedian_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(councilHouseMedianPeriod_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 32, councilHouseMedianPeriod_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -497,6 +1213,80 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(finYear_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(12, finYear_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(slug_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(13, slug_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(displayName_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(14, displayName_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(kind_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(15, kind_);
+    }
+    if (erpYear_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(16, erpYear_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(17, popGrowthPct_);
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(18, medianAge_);
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(19, medianHhdIncome_);
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(20, pctRented_);
+    }
+    if (((bitField0_ & 0x00000010) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(21, medianWeeklyRent_);
+    }
+    if (((bitField0_ & 0x00000020) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(22, medianMortgageMonthly_);
+    }
+    if (((bitField0_ & 0x00000040) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(23, avgHouseholdSize_);
+    }
+    if (((bitField0_ & 0x00000080) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(24, seifaIrsadDecile_);
+    }
+    if (((bitField0_ & 0x00000100) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(25, seifaIrsdDecile_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(website_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(26, website_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(wikidataQid_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(27, wikidataQid_);
+    }
+    if (((bitField0_ & 0x00000200) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(28, centroidLat_);
+    }
+    if (((bitField0_ & 0x00000400) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(29, centroidLon_);
+    }
+    if (((bitField0_ & 0x00000800) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(30, dominantShare_);
+    }
+    if (((bitField0_ & 0x00001000) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(31, councilHouseMedian_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(councilHouseMedianPeriod_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(32, councilHouseMedianPeriod_);
     }
     return size;
   }
@@ -551,6 +1341,93 @@ private static final long serialVersionUID = 0L;
         .equals(other.getFinSource())) return false;
     if (!getFinYear()
         .equals(other.getFinYear())) return false;
+    if (!getSlug()
+        .equals(other.getSlug())) return false;
+    if (!getDisplayName()
+        .equals(other.getDisplayName())) return false;
+    if (!getKind()
+        .equals(other.getKind())) return false;
+    if (getErpYear()
+        != other.getErpYear()) return false;
+    if (hasPopGrowthPct() != other.hasPopGrowthPct()) return false;
+    if (hasPopGrowthPct()) {
+      if (java.lang.Double.doubleToLongBits(getPopGrowthPct())
+          != java.lang.Double.doubleToLongBits(
+              other.getPopGrowthPct())) return false;
+    }
+    if (hasMedianAge() != other.hasMedianAge()) return false;
+    if (hasMedianAge()) {
+      if (java.lang.Double.doubleToLongBits(getMedianAge())
+          != java.lang.Double.doubleToLongBits(
+              other.getMedianAge())) return false;
+    }
+    if (hasMedianHhdIncome() != other.hasMedianHhdIncome()) return false;
+    if (hasMedianHhdIncome()) {
+      if (getMedianHhdIncome()
+          != other.getMedianHhdIncome()) return false;
+    }
+    if (hasPctRented() != other.hasPctRented()) return false;
+    if (hasPctRented()) {
+      if (java.lang.Double.doubleToLongBits(getPctRented())
+          != java.lang.Double.doubleToLongBits(
+              other.getPctRented())) return false;
+    }
+    if (hasMedianWeeklyRent() != other.hasMedianWeeklyRent()) return false;
+    if (hasMedianWeeklyRent()) {
+      if (getMedianWeeklyRent()
+          != other.getMedianWeeklyRent()) return false;
+    }
+    if (hasMedianMortgageMonthly() != other.hasMedianMortgageMonthly()) return false;
+    if (hasMedianMortgageMonthly()) {
+      if (getMedianMortgageMonthly()
+          != other.getMedianMortgageMonthly()) return false;
+    }
+    if (hasAvgHouseholdSize() != other.hasAvgHouseholdSize()) return false;
+    if (hasAvgHouseholdSize()) {
+      if (java.lang.Double.doubleToLongBits(getAvgHouseholdSize())
+          != java.lang.Double.doubleToLongBits(
+              other.getAvgHouseholdSize())) return false;
+    }
+    if (hasSeifaIrsadDecile() != other.hasSeifaIrsadDecile()) return false;
+    if (hasSeifaIrsadDecile()) {
+      if (getSeifaIrsadDecile()
+          != other.getSeifaIrsadDecile()) return false;
+    }
+    if (hasSeifaIrsdDecile() != other.hasSeifaIrsdDecile()) return false;
+    if (hasSeifaIrsdDecile()) {
+      if (getSeifaIrsdDecile()
+          != other.getSeifaIrsdDecile()) return false;
+    }
+    if (!getWebsite()
+        .equals(other.getWebsite())) return false;
+    if (!getWikidataQid()
+        .equals(other.getWikidataQid())) return false;
+    if (hasCentroidLat() != other.hasCentroidLat()) return false;
+    if (hasCentroidLat()) {
+      if (java.lang.Double.doubleToLongBits(getCentroidLat())
+          != java.lang.Double.doubleToLongBits(
+              other.getCentroidLat())) return false;
+    }
+    if (hasCentroidLon() != other.hasCentroidLon()) return false;
+    if (hasCentroidLon()) {
+      if (java.lang.Double.doubleToLongBits(getCentroidLon())
+          != java.lang.Double.doubleToLongBits(
+              other.getCentroidLon())) return false;
+    }
+    if (hasDominantShare() != other.hasDominantShare()) return false;
+    if (hasDominantShare()) {
+      if (java.lang.Double.doubleToLongBits(getDominantShare())
+          != java.lang.Double.doubleToLongBits(
+              other.getDominantShare())) return false;
+    }
+    if (hasCouncilHouseMedian() != other.hasCouncilHouseMedian()) return false;
+    if (hasCouncilHouseMedian()) {
+      if (java.lang.Double.doubleToLongBits(getCouncilHouseMedian())
+          != java.lang.Double.doubleToLongBits(
+              other.getCouncilHouseMedian())) return false;
+    }
+    if (!getCouncilHouseMedianPeriod()
+        .equals(other.getCouncilHouseMedianPeriod())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -591,6 +1468,80 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getFinSource().hashCode();
     hash = (37 * hash) + FIN_YEAR_FIELD_NUMBER;
     hash = (53 * hash) + getFinYear().hashCode();
+    hash = (37 * hash) + SLUG_FIELD_NUMBER;
+    hash = (53 * hash) + getSlug().hashCode();
+    hash = (37 * hash) + DISPLAY_NAME_FIELD_NUMBER;
+    hash = (53 * hash) + getDisplayName().hashCode();
+    hash = (37 * hash) + KIND_FIELD_NUMBER;
+    hash = (53 * hash) + getKind().hashCode();
+    hash = (37 * hash) + ERP_YEAR_FIELD_NUMBER;
+    hash = (53 * hash) + getErpYear();
+    if (hasPopGrowthPct()) {
+      hash = (37 * hash) + POP_GROWTH_PCT_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          java.lang.Double.doubleToLongBits(getPopGrowthPct()));
+    }
+    if (hasMedianAge()) {
+      hash = (37 * hash) + MEDIAN_AGE_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          java.lang.Double.doubleToLongBits(getMedianAge()));
+    }
+    if (hasMedianHhdIncome()) {
+      hash = (37 * hash) + MEDIAN_HHD_INCOME_FIELD_NUMBER;
+      hash = (53 * hash) + getMedianHhdIncome();
+    }
+    if (hasPctRented()) {
+      hash = (37 * hash) + PCT_RENTED_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          java.lang.Double.doubleToLongBits(getPctRented()));
+    }
+    if (hasMedianWeeklyRent()) {
+      hash = (37 * hash) + MEDIAN_WEEKLY_RENT_FIELD_NUMBER;
+      hash = (53 * hash) + getMedianWeeklyRent();
+    }
+    if (hasMedianMortgageMonthly()) {
+      hash = (37 * hash) + MEDIAN_MORTGAGE_MONTHLY_FIELD_NUMBER;
+      hash = (53 * hash) + getMedianMortgageMonthly();
+    }
+    if (hasAvgHouseholdSize()) {
+      hash = (37 * hash) + AVG_HOUSEHOLD_SIZE_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          java.lang.Double.doubleToLongBits(getAvgHouseholdSize()));
+    }
+    if (hasSeifaIrsadDecile()) {
+      hash = (37 * hash) + SEIFA_IRSAD_DECILE_FIELD_NUMBER;
+      hash = (53 * hash) + getSeifaIrsadDecile();
+    }
+    if (hasSeifaIrsdDecile()) {
+      hash = (37 * hash) + SEIFA_IRSD_DECILE_FIELD_NUMBER;
+      hash = (53 * hash) + getSeifaIrsdDecile();
+    }
+    hash = (37 * hash) + WEBSITE_FIELD_NUMBER;
+    hash = (53 * hash) + getWebsite().hashCode();
+    hash = (37 * hash) + WIKIDATA_QID_FIELD_NUMBER;
+    hash = (53 * hash) + getWikidataQid().hashCode();
+    if (hasCentroidLat()) {
+      hash = (37 * hash) + CENTROID_LAT_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          java.lang.Double.doubleToLongBits(getCentroidLat()));
+    }
+    if (hasCentroidLon()) {
+      hash = (37 * hash) + CENTROID_LON_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          java.lang.Double.doubleToLongBits(getCentroidLon()));
+    }
+    if (hasDominantShare()) {
+      hash = (37 * hash) + DOMINANT_SHARE_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          java.lang.Double.doubleToLongBits(getDominantShare()));
+    }
+    if (hasCouncilHouseMedian()) {
+      hash = (37 * hash) + COUNCIL_HOUSE_MEDIAN_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+          java.lang.Double.doubleToLongBits(getCouncilHouseMedian()));
+    }
+    hash = (37 * hash) + COUNCIL_HOUSE_MEDIAN_PERIOD_FIELD_NUMBER;
+    hash = (53 * hash) + getCouncilHouseMedianPeriod().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -738,6 +1689,26 @@ private static final long serialVersionUID = 0L;
       assetRenewalRatio_ = 0D;
       finSource_ = "";
       finYear_ = "";
+      slug_ = "";
+      displayName_ = "";
+      kind_ = "";
+      erpYear_ = 0;
+      popGrowthPct_ = 0D;
+      medianAge_ = 0D;
+      medianHhdIncome_ = 0;
+      pctRented_ = 0D;
+      medianWeeklyRent_ = 0;
+      medianMortgageMonthly_ = 0;
+      avgHouseholdSize_ = 0D;
+      seifaIrsadDecile_ = 0;
+      seifaIrsdDecile_ = 0;
+      website_ = "";
+      wikidataQid_ = "";
+      centroidLat_ = 0D;
+      centroidLon_ = 0D;
+      dominantShare_ = 0D;
+      councilHouseMedian_ = 0D;
+      councilHouseMedianPeriod_ = "";
       return this;
     }
 
@@ -807,6 +1778,81 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000800) != 0)) {
         result.finYear_ = finYear_;
       }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.slug_ = slug_;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        result.displayName_ = displayName_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.kind_ = kind_;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.erpYear_ = erpYear_;
+      }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.popGrowthPct_ = popGrowthPct_;
+        to_bitField0_ |= 0x00000001;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.medianAge_ = medianAge_;
+        to_bitField0_ |= 0x00000002;
+      }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.medianHhdIncome_ = medianHhdIncome_;
+        to_bitField0_ |= 0x00000004;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.pctRented_ = pctRented_;
+        to_bitField0_ |= 0x00000008;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
+        result.medianWeeklyRent_ = medianWeeklyRent_;
+        to_bitField0_ |= 0x00000010;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.medianMortgageMonthly_ = medianMortgageMonthly_;
+        to_bitField0_ |= 0x00000020;
+      }
+      if (((from_bitField0_ & 0x00400000) != 0)) {
+        result.avgHouseholdSize_ = avgHouseholdSize_;
+        to_bitField0_ |= 0x00000040;
+      }
+      if (((from_bitField0_ & 0x00800000) != 0)) {
+        result.seifaIrsadDecile_ = seifaIrsadDecile_;
+        to_bitField0_ |= 0x00000080;
+      }
+      if (((from_bitField0_ & 0x01000000) != 0)) {
+        result.seifaIrsdDecile_ = seifaIrsdDecile_;
+        to_bitField0_ |= 0x00000100;
+      }
+      if (((from_bitField0_ & 0x02000000) != 0)) {
+        result.website_ = website_;
+      }
+      if (((from_bitField0_ & 0x04000000) != 0)) {
+        result.wikidataQid_ = wikidataQid_;
+      }
+      if (((from_bitField0_ & 0x08000000) != 0)) {
+        result.centroidLat_ = centroidLat_;
+        to_bitField0_ |= 0x00000200;
+      }
+      if (((from_bitField0_ & 0x10000000) != 0)) {
+        result.centroidLon_ = centroidLon_;
+        to_bitField0_ |= 0x00000400;
+      }
+      if (((from_bitField0_ & 0x20000000) != 0)) {
+        result.dominantShare_ = dominantShare_;
+        to_bitField0_ |= 0x00000800;
+      }
+      if (((from_bitField0_ & 0x40000000) != 0)) {
+        result.councilHouseMedian_ = councilHouseMedian_;
+        to_bitField0_ |= 0x00001000;
+      }
+      if (((from_bitField0_ & 0x80000000) != 0)) {
+        result.councilHouseMedianPeriod_ = councilHouseMedianPeriod_;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -867,6 +1913,78 @@ private static final long serialVersionUID = 0L;
       if (!other.getFinYear().isEmpty()) {
         finYear_ = other.finYear_;
         bitField0_ |= 0x00000800;
+        onChanged();
+      }
+      if (!other.getSlug().isEmpty()) {
+        slug_ = other.slug_;
+        bitField0_ |= 0x00001000;
+        onChanged();
+      }
+      if (!other.getDisplayName().isEmpty()) {
+        displayName_ = other.displayName_;
+        bitField0_ |= 0x00002000;
+        onChanged();
+      }
+      if (!other.getKind().isEmpty()) {
+        kind_ = other.kind_;
+        bitField0_ |= 0x00004000;
+        onChanged();
+      }
+      if (other.getErpYear() != 0) {
+        setErpYear(other.getErpYear());
+      }
+      if (other.hasPopGrowthPct()) {
+        setPopGrowthPct(other.getPopGrowthPct());
+      }
+      if (other.hasMedianAge()) {
+        setMedianAge(other.getMedianAge());
+      }
+      if (other.hasMedianHhdIncome()) {
+        setMedianHhdIncome(other.getMedianHhdIncome());
+      }
+      if (other.hasPctRented()) {
+        setPctRented(other.getPctRented());
+      }
+      if (other.hasMedianWeeklyRent()) {
+        setMedianWeeklyRent(other.getMedianWeeklyRent());
+      }
+      if (other.hasMedianMortgageMonthly()) {
+        setMedianMortgageMonthly(other.getMedianMortgageMonthly());
+      }
+      if (other.hasAvgHouseholdSize()) {
+        setAvgHouseholdSize(other.getAvgHouseholdSize());
+      }
+      if (other.hasSeifaIrsadDecile()) {
+        setSeifaIrsadDecile(other.getSeifaIrsadDecile());
+      }
+      if (other.hasSeifaIrsdDecile()) {
+        setSeifaIrsdDecile(other.getSeifaIrsdDecile());
+      }
+      if (!other.getWebsite().isEmpty()) {
+        website_ = other.website_;
+        bitField0_ |= 0x02000000;
+        onChanged();
+      }
+      if (!other.getWikidataQid().isEmpty()) {
+        wikidataQid_ = other.wikidataQid_;
+        bitField0_ |= 0x04000000;
+        onChanged();
+      }
+      if (other.hasCentroidLat()) {
+        setCentroidLat(other.getCentroidLat());
+      }
+      if (other.hasCentroidLon()) {
+        setCentroidLon(other.getCentroidLon());
+      }
+      if (other.hasDominantShare()) {
+        setDominantShare(other.getDominantShare());
+      }
+      if (other.hasCouncilHouseMedian()) {
+        setCouncilHouseMedian(other.getCouncilHouseMedian());
+      }
+      if (!other.getCouncilHouseMedianPeriod().isEmpty()) {
+        councilHouseMedianPeriod_ = other.councilHouseMedianPeriod_;
+        bitField0_ |= 0x80000000;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -955,6 +2073,106 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000800;
               break;
             } // case 98
+            case 106: {
+              slug_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 106
+            case 114: {
+              displayName_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00002000;
+              break;
+            } // case 114
+            case 122: {
+              kind_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 122
+            case 128: {
+              erpYear_ = input.readInt32();
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 128
+            case 137: {
+              popGrowthPct_ = input.readDouble();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 137
+            case 145: {
+              medianAge_ = input.readDouble();
+              bitField0_ |= 0x00020000;
+              break;
+            } // case 145
+            case 152: {
+              medianHhdIncome_ = input.readInt32();
+              bitField0_ |= 0x00040000;
+              break;
+            } // case 152
+            case 161: {
+              pctRented_ = input.readDouble();
+              bitField0_ |= 0x00080000;
+              break;
+            } // case 161
+            case 168: {
+              medianWeeklyRent_ = input.readInt32();
+              bitField0_ |= 0x00100000;
+              break;
+            } // case 168
+            case 176: {
+              medianMortgageMonthly_ = input.readInt32();
+              bitField0_ |= 0x00200000;
+              break;
+            } // case 176
+            case 185: {
+              avgHouseholdSize_ = input.readDouble();
+              bitField0_ |= 0x00400000;
+              break;
+            } // case 185
+            case 192: {
+              seifaIrsadDecile_ = input.readInt32();
+              bitField0_ |= 0x00800000;
+              break;
+            } // case 192
+            case 200: {
+              seifaIrsdDecile_ = input.readInt32();
+              bitField0_ |= 0x01000000;
+              break;
+            } // case 200
+            case 210: {
+              website_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x02000000;
+              break;
+            } // case 210
+            case 218: {
+              wikidataQid_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x04000000;
+              break;
+            } // case 218
+            case 225: {
+              centroidLat_ = input.readDouble();
+              bitField0_ |= 0x08000000;
+              break;
+            } // case 225
+            case 233: {
+              centroidLon_ = input.readDouble();
+              bitField0_ |= 0x10000000;
+              break;
+            } // case 233
+            case 241: {
+              dominantShare_ = input.readDouble();
+              bitField0_ |= 0x20000000;
+              break;
+            } // case 241
+            case 249: {
+              councilHouseMedian_ = input.readDouble();
+              bitField0_ |= 0x40000000;
+              break;
+            } // case 249
+            case 258: {
+              councilHouseMedianPeriod_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x80000000;
+              break;
+            } // case 258
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1223,7 +2441,7 @@ private static final long serialVersionUID = 0L;
     private int population_ ;
     /**
      * <pre>
-     * summed from member-suburb Census populations
+     * ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded
      * </pre>
      *
      * <code>int32 population = 5 [json_name = "population"];</code>
@@ -1235,7 +2453,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * summed from member-suburb Census populations
+     * ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded
      * </pre>
      *
      * <code>int32 population = 5 [json_name = "population"];</code>
@@ -1251,7 +2469,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * summed from member-suburb Census populations
+     * ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded
      * </pre>
      *
      * <code>int32 population = 5 [json_name = "population"];</code>
@@ -1712,6 +2930,1334 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       finYear_ = value;
       bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object slug_ = "";
+    /**
+     * <pre>
+     * Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+     * 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+     * </pre>
+     *
+     * <code>string slug = 13 [json_name = "slug"];</code>
+     * @return The slug.
+     */
+    public java.lang.String getSlug() {
+      java.lang.Object ref = slug_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        slug_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+     * 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+     * </pre>
+     *
+     * <code>string slug = 13 [json_name = "slug"];</code>
+     * @return The bytes for slug.
+     */
+    public com.google.protobuf.ByteString
+        getSlugBytes() {
+      java.lang.Object ref = slug_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        slug_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+     * 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+     * </pre>
+     *
+     * <code>string slug = 13 [json_name = "slug"];</code>
+     * @param value The slug to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSlug(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      slug_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+     * 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+     * </pre>
+     *
+     * <code>string slug = 13 [json_name = "slug"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSlug() {
+      slug_ = getDefaultInstance().getSlug();
+      bitField0_ = (bitField0_ & ~0x00001000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+     * 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+     * </pre>
+     *
+     * <code>string slug = 13 [json_name = "slug"];</code>
+     * @param value The bytes for slug to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSlugBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      slug_ = value;
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object displayName_ = "";
+    /**
+     * <pre>
+     * ABS name without the state suffix: 'Campbelltown'
+     * </pre>
+     *
+     * <code>string display_name = 14 [json_name = "displayName"];</code>
+     * @return The displayName.
+     */
+    public java.lang.String getDisplayName() {
+      java.lang.Object ref = displayName_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        displayName_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * ABS name without the state suffix: 'Campbelltown'
+     * </pre>
+     *
+     * <code>string display_name = 14 [json_name = "displayName"];</code>
+     * @return The bytes for displayName.
+     */
+    public com.google.protobuf.ByteString
+        getDisplayNameBytes() {
+      java.lang.Object ref = displayName_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        displayName_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * ABS name without the state suffix: 'Campbelltown'
+     * </pre>
+     *
+     * <code>string display_name = 14 [json_name = "displayName"];</code>
+     * @param value The displayName to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDisplayName(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      displayName_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ABS name without the state suffix: 'Campbelltown'
+     * </pre>
+     *
+     * <code>string display_name = 14 [json_name = "displayName"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDisplayName() {
+      displayName_ = getDefaultInstance().getDisplayName();
+      bitField0_ = (bitField0_ & ~0x00002000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ABS name without the state suffix: 'Campbelltown'
+     * </pre>
+     *
+     * <code>string display_name = 14 [json_name = "displayName"];</code>
+     * @param value The bytes for displayName to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDisplayNameBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      displayName_ = value;
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object kind_ = "";
+    /**
+     * <pre>
+     * council | unincorporated | pseudo
+     * </pre>
+     *
+     * <code>string kind = 15 [json_name = "kind"];</code>
+     * @return The kind.
+     */
+    public java.lang.String getKind() {
+      java.lang.Object ref = kind_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        kind_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * council | unincorporated | pseudo
+     * </pre>
+     *
+     * <code>string kind = 15 [json_name = "kind"];</code>
+     * @return The bytes for kind.
+     */
+    public com.google.protobuf.ByteString
+        getKindBytes() {
+      java.lang.Object ref = kind_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        kind_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * council | unincorporated | pseudo
+     * </pre>
+     *
+     * <code>string kind = 15 [json_name = "kind"];</code>
+     * @param value The kind to set.
+     * @return This builder for chaining.
+     */
+    public Builder setKind(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      kind_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * council | unincorporated | pseudo
+     * </pre>
+     *
+     * <code>string kind = 15 [json_name = "kind"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearKind() {
+      kind_ = getDefaultInstance().getKind();
+      bitField0_ = (bitField0_ & ~0x00004000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * council | unincorporated | pseudo
+     * </pre>
+     *
+     * <code>string kind = 15 [json_name = "kind"];</code>
+     * @param value The bytes for kind to set.
+     * @return This builder for chaining.
+     */
+    public Builder setKindBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      kind_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    private int erpYear_ ;
+    /**
+     * <pre>
+     * Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,
+     * never a measured zero.
+     * </pre>
+     *
+     * <code>int32 erp_year = 16 [json_name = "erpYear"];</code>
+     * @return The erpYear.
+     */
+    @java.lang.Override
+    public int getErpYear() {
+      return erpYear_;
+    }
+    /**
+     * <pre>
+     * Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,
+     * never a measured zero.
+     * </pre>
+     *
+     * <code>int32 erp_year = 16 [json_name = "erpYear"];</code>
+     * @param value The erpYear to set.
+     * @return This builder for chaining.
+     */
+    public Builder setErpYear(int value) {
+
+      erpYear_ = value;
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,
+     * never a measured zero.
+     * </pre>
+     *
+     * <code>int32 erp_year = 16 [json_name = "erpYear"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearErpYear() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      erpYear_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private double popGrowthPct_ ;
+    /**
+     * <pre>
+     * ERP year-on-year change, %
+     * </pre>
+     *
+     * <code>optional double pop_growth_pct = 17 [json_name = "popGrowthPct"];</code>
+     * @return Whether the popGrowthPct field is set.
+     */
+    @java.lang.Override
+    public boolean hasPopGrowthPct() {
+      return ((bitField0_ & 0x00010000) != 0);
+    }
+    /**
+     * <pre>
+     * ERP year-on-year change, %
+     * </pre>
+     *
+     * <code>optional double pop_growth_pct = 17 [json_name = "popGrowthPct"];</code>
+     * @return The popGrowthPct.
+     */
+    @java.lang.Override
+    public double getPopGrowthPct() {
+      return popGrowthPct_;
+    }
+    /**
+     * <pre>
+     * ERP year-on-year change, %
+     * </pre>
+     *
+     * <code>optional double pop_growth_pct = 17 [json_name = "popGrowthPct"];</code>
+     * @param value The popGrowthPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPopGrowthPct(double value) {
+
+      popGrowthPct_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ERP year-on-year change, %
+     * </pre>
+     *
+     * <code>optional double pop_growth_pct = 17 [json_name = "popGrowthPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPopGrowthPct() {
+      bitField0_ = (bitField0_ & ~0x00010000);
+      popGrowthPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double medianAge_ ;
+    /**
+     * <pre>
+     * Census 2021
+     * </pre>
+     *
+     * <code>optional double median_age = 18 [json_name = "medianAge"];</code>
+     * @return Whether the medianAge field is set.
+     */
+    @java.lang.Override
+    public boolean hasMedianAge() {
+      return ((bitField0_ & 0x00020000) != 0);
+    }
+    /**
+     * <pre>
+     * Census 2021
+     * </pre>
+     *
+     * <code>optional double median_age = 18 [json_name = "medianAge"];</code>
+     * @return The medianAge.
+     */
+    @java.lang.Override
+    public double getMedianAge() {
+      return medianAge_;
+    }
+    /**
+     * <pre>
+     * Census 2021
+     * </pre>
+     *
+     * <code>optional double median_age = 18 [json_name = "medianAge"];</code>
+     * @param value The medianAge to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMedianAge(double value) {
+
+      medianAge_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Census 2021
+     * </pre>
+     *
+     * <code>optional double median_age = 18 [json_name = "medianAge"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMedianAge() {
+      bitField0_ = (bitField0_ & ~0x00020000);
+      medianAge_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private int medianHhdIncome_ ;
+    /**
+     * <pre>
+     * Census 2021, $/week
+     * </pre>
+     *
+     * <code>optional int32 median_hhd_income = 19 [json_name = "medianHhdIncome"];</code>
+     * @return Whether the medianHhdIncome field is set.
+     */
+    @java.lang.Override
+    public boolean hasMedianHhdIncome() {
+      return ((bitField0_ & 0x00040000) != 0);
+    }
+    /**
+     * <pre>
+     * Census 2021, $/week
+     * </pre>
+     *
+     * <code>optional int32 median_hhd_income = 19 [json_name = "medianHhdIncome"];</code>
+     * @return The medianHhdIncome.
+     */
+    @java.lang.Override
+    public int getMedianHhdIncome() {
+      return medianHhdIncome_;
+    }
+    /**
+     * <pre>
+     * Census 2021, $/week
+     * </pre>
+     *
+     * <code>optional int32 median_hhd_income = 19 [json_name = "medianHhdIncome"];</code>
+     * @param value The medianHhdIncome to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMedianHhdIncome(int value) {
+
+      medianHhdIncome_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Census 2021, $/week
+     * </pre>
+     *
+     * <code>optional int32 median_hhd_income = 19 [json_name = "medianHhdIncome"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMedianHhdIncome() {
+      bitField0_ = (bitField0_ & ~0x00040000);
+      medianHhdIncome_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private double pctRented_ ;
+    /**
+     * <pre>
+     * Census 2021, % of households renting
+     * </pre>
+     *
+     * <code>optional double pct_rented = 20 [json_name = "pctRented"];</code>
+     * @return Whether the pctRented field is set.
+     */
+    @java.lang.Override
+    public boolean hasPctRented() {
+      return ((bitField0_ & 0x00080000) != 0);
+    }
+    /**
+     * <pre>
+     * Census 2021, % of households renting
+     * </pre>
+     *
+     * <code>optional double pct_rented = 20 [json_name = "pctRented"];</code>
+     * @return The pctRented.
+     */
+    @java.lang.Override
+    public double getPctRented() {
+      return pctRented_;
+    }
+    /**
+     * <pre>
+     * Census 2021, % of households renting
+     * </pre>
+     *
+     * <code>optional double pct_rented = 20 [json_name = "pctRented"];</code>
+     * @param value The pctRented to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPctRented(double value) {
+
+      pctRented_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Census 2021, % of households renting
+     * </pre>
+     *
+     * <code>optional double pct_rented = 20 [json_name = "pctRented"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPctRented() {
+      bitField0_ = (bitField0_ & ~0x00080000);
+      pctRented_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private int medianWeeklyRent_ ;
+    /**
+     * <pre>
+     * Census 2021, $/week
+     * </pre>
+     *
+     * <code>optional int32 median_weekly_rent = 21 [json_name = "medianWeeklyRent"];</code>
+     * @return Whether the medianWeeklyRent field is set.
+     */
+    @java.lang.Override
+    public boolean hasMedianWeeklyRent() {
+      return ((bitField0_ & 0x00100000) != 0);
+    }
+    /**
+     * <pre>
+     * Census 2021, $/week
+     * </pre>
+     *
+     * <code>optional int32 median_weekly_rent = 21 [json_name = "medianWeeklyRent"];</code>
+     * @return The medianWeeklyRent.
+     */
+    @java.lang.Override
+    public int getMedianWeeklyRent() {
+      return medianWeeklyRent_;
+    }
+    /**
+     * <pre>
+     * Census 2021, $/week
+     * </pre>
+     *
+     * <code>optional int32 median_weekly_rent = 21 [json_name = "medianWeeklyRent"];</code>
+     * @param value The medianWeeklyRent to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMedianWeeklyRent(int value) {
+
+      medianWeeklyRent_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Census 2021, $/week
+     * </pre>
+     *
+     * <code>optional int32 median_weekly_rent = 21 [json_name = "medianWeeklyRent"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMedianWeeklyRent() {
+      bitField0_ = (bitField0_ & ~0x00100000);
+      medianWeeklyRent_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int medianMortgageMonthly_ ;
+    /**
+     * <pre>
+     * Census 2021, $/month
+     * </pre>
+     *
+     * <code>optional int32 median_mortgage_monthly = 22 [json_name = "medianMortgageMonthly"];</code>
+     * @return Whether the medianMortgageMonthly field is set.
+     */
+    @java.lang.Override
+    public boolean hasMedianMortgageMonthly() {
+      return ((bitField0_ & 0x00200000) != 0);
+    }
+    /**
+     * <pre>
+     * Census 2021, $/month
+     * </pre>
+     *
+     * <code>optional int32 median_mortgage_monthly = 22 [json_name = "medianMortgageMonthly"];</code>
+     * @return The medianMortgageMonthly.
+     */
+    @java.lang.Override
+    public int getMedianMortgageMonthly() {
+      return medianMortgageMonthly_;
+    }
+    /**
+     * <pre>
+     * Census 2021, $/month
+     * </pre>
+     *
+     * <code>optional int32 median_mortgage_monthly = 22 [json_name = "medianMortgageMonthly"];</code>
+     * @param value The medianMortgageMonthly to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMedianMortgageMonthly(int value) {
+
+      medianMortgageMonthly_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Census 2021, $/month
+     * </pre>
+     *
+     * <code>optional int32 median_mortgage_monthly = 22 [json_name = "medianMortgageMonthly"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMedianMortgageMonthly() {
+      bitField0_ = (bitField0_ & ~0x00200000);
+      medianMortgageMonthly_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private double avgHouseholdSize_ ;
+    /**
+     * <pre>
+     * Census 2021, persons
+     * </pre>
+     *
+     * <code>optional double avg_household_size = 23 [json_name = "avgHouseholdSize"];</code>
+     * @return Whether the avgHouseholdSize field is set.
+     */
+    @java.lang.Override
+    public boolean hasAvgHouseholdSize() {
+      return ((bitField0_ & 0x00400000) != 0);
+    }
+    /**
+     * <pre>
+     * Census 2021, persons
+     * </pre>
+     *
+     * <code>optional double avg_household_size = 23 [json_name = "avgHouseholdSize"];</code>
+     * @return The avgHouseholdSize.
+     */
+    @java.lang.Override
+    public double getAvgHouseholdSize() {
+      return avgHouseholdSize_;
+    }
+    /**
+     * <pre>
+     * Census 2021, persons
+     * </pre>
+     *
+     * <code>optional double avg_household_size = 23 [json_name = "avgHouseholdSize"];</code>
+     * @param value The avgHouseholdSize to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAvgHouseholdSize(double value) {
+
+      avgHouseholdSize_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Census 2021, persons
+     * </pre>
+     *
+     * <code>optional double avg_household_size = 23 [json_name = "avgHouseholdSize"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAvgHouseholdSize() {
+      bitField0_ = (bitField0_ & ~0x00400000);
+      avgHouseholdSize_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private int seifaIrsadDecile_ ;
+    /**
+     * <pre>
+     * SEIFA 2021 IRSAD, national decile 1..10
+     * </pre>
+     *
+     * <code>optional int32 seifa_irsad_decile = 24 [json_name = "seifaIrsadDecile"];</code>
+     * @return Whether the seifaIrsadDecile field is set.
+     */
+    @java.lang.Override
+    public boolean hasSeifaIrsadDecile() {
+      return ((bitField0_ & 0x00800000) != 0);
+    }
+    /**
+     * <pre>
+     * SEIFA 2021 IRSAD, national decile 1..10
+     * </pre>
+     *
+     * <code>optional int32 seifa_irsad_decile = 24 [json_name = "seifaIrsadDecile"];</code>
+     * @return The seifaIrsadDecile.
+     */
+    @java.lang.Override
+    public int getSeifaIrsadDecile() {
+      return seifaIrsadDecile_;
+    }
+    /**
+     * <pre>
+     * SEIFA 2021 IRSAD, national decile 1..10
+     * </pre>
+     *
+     * <code>optional int32 seifa_irsad_decile = 24 [json_name = "seifaIrsadDecile"];</code>
+     * @param value The seifaIrsadDecile to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSeifaIrsadDecile(int value) {
+
+      seifaIrsadDecile_ = value;
+      bitField0_ |= 0x00800000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * SEIFA 2021 IRSAD, national decile 1..10
+     * </pre>
+     *
+     * <code>optional int32 seifa_irsad_decile = 24 [json_name = "seifaIrsadDecile"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSeifaIrsadDecile() {
+      bitField0_ = (bitField0_ & ~0x00800000);
+      seifaIrsadDecile_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int seifaIrsdDecile_ ;
+    /**
+     * <pre>
+     * SEIFA 2021 IRSD, national decile 1..10
+     * </pre>
+     *
+     * <code>optional int32 seifa_irsd_decile = 25 [json_name = "seifaIrsdDecile"];</code>
+     * @return Whether the seifaIrsdDecile field is set.
+     */
+    @java.lang.Override
+    public boolean hasSeifaIrsdDecile() {
+      return ((bitField0_ & 0x01000000) != 0);
+    }
+    /**
+     * <pre>
+     * SEIFA 2021 IRSD, national decile 1..10
+     * </pre>
+     *
+     * <code>optional int32 seifa_irsd_decile = 25 [json_name = "seifaIrsdDecile"];</code>
+     * @return The seifaIrsdDecile.
+     */
+    @java.lang.Override
+    public int getSeifaIrsdDecile() {
+      return seifaIrsdDecile_;
+    }
+    /**
+     * <pre>
+     * SEIFA 2021 IRSD, national decile 1..10
+     * </pre>
+     *
+     * <code>optional int32 seifa_irsd_decile = 25 [json_name = "seifaIrsdDecile"];</code>
+     * @param value The seifaIrsdDecile to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSeifaIrsdDecile(int value) {
+
+      seifaIrsdDecile_ = value;
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * SEIFA 2021 IRSD, national decile 1..10
+     * </pre>
+     *
+     * <code>optional int32 seifa_irsd_decile = 25 [json_name = "seifaIrsdDecile"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSeifaIrsdDecile() {
+      bitField0_ = (bitField0_ & ~0x01000000);
+      seifaIrsdDecile_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object website_ = "";
+    /**
+     * <pre>
+     * official website (Wikidata P856, CC0); '' if none
+     * </pre>
+     *
+     * <code>string website = 26 [json_name = "website"];</code>
+     * @return The website.
+     */
+    public java.lang.String getWebsite() {
+      java.lang.Object ref = website_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        website_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * official website (Wikidata P856, CC0); '' if none
+     * </pre>
+     *
+     * <code>string website = 26 [json_name = "website"];</code>
+     * @return The bytes for website.
+     */
+    public com.google.protobuf.ByteString
+        getWebsiteBytes() {
+      java.lang.Object ref = website_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        website_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * official website (Wikidata P856, CC0); '' if none
+     * </pre>
+     *
+     * <code>string website = 26 [json_name = "website"];</code>
+     * @param value The website to set.
+     * @return This builder for chaining.
+     */
+    public Builder setWebsite(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      website_ = value;
+      bitField0_ |= 0x02000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * official website (Wikidata P856, CC0); '' if none
+     * </pre>
+     *
+     * <code>string website = 26 [json_name = "website"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearWebsite() {
+      website_ = getDefaultInstance().getWebsite();
+      bitField0_ = (bitField0_ & ~0x02000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * official website (Wikidata P856, CC0); '' if none
+     * </pre>
+     *
+     * <code>string website = 26 [json_name = "website"];</code>
+     * @param value The bytes for website to set.
+     * @return This builder for chaining.
+     */
+    public Builder setWebsiteBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      website_ = value;
+      bitField0_ |= 0x02000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object wikidataQid_ = "";
+    /**
+     * <pre>
+     * e.g. 'Q1719401'; '' if none
+     * </pre>
+     *
+     * <code>string wikidata_qid = 27 [json_name = "wikidataQid"];</code>
+     * @return The wikidataQid.
+     */
+    public java.lang.String getWikidataQid() {
+      java.lang.Object ref = wikidataQid_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        wikidataQid_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * e.g. 'Q1719401'; '' if none
+     * </pre>
+     *
+     * <code>string wikidata_qid = 27 [json_name = "wikidataQid"];</code>
+     * @return The bytes for wikidataQid.
+     */
+    public com.google.protobuf.ByteString
+        getWikidataQidBytes() {
+      java.lang.Object ref = wikidataQid_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        wikidataQid_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * e.g. 'Q1719401'; '' if none
+     * </pre>
+     *
+     * <code>string wikidata_qid = 27 [json_name = "wikidataQid"];</code>
+     * @param value The wikidataQid to set.
+     * @return This builder for chaining.
+     */
+    public Builder setWikidataQid(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      wikidataQid_ = value;
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * e.g. 'Q1719401'; '' if none
+     * </pre>
+     *
+     * <code>string wikidata_qid = 27 [json_name = "wikidataQid"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearWikidataQid() {
+      wikidataQid_ = getDefaultInstance().getWikidataQid();
+      bitField0_ = (bitField0_ & ~0x04000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * e.g. 'Q1719401'; '' if none
+     * </pre>
+     *
+     * <code>string wikidata_qid = 27 [json_name = "wikidataQid"];</code>
+     * @param value The bytes for wikidataQid to set.
+     * @return This builder for chaining.
+     */
+    public Builder setWikidataQidBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      wikidataQid_ = value;
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+
+    private double centroidLat_ ;
+    /**
+     * <pre>
+     * area-weighted centroid of the ABS boundary
+     * </pre>
+     *
+     * <code>optional double centroid_lat = 28 [json_name = "centroidLat"];</code>
+     * @return Whether the centroidLat field is set.
+     */
+    @java.lang.Override
+    public boolean hasCentroidLat() {
+      return ((bitField0_ & 0x08000000) != 0);
+    }
+    /**
+     * <pre>
+     * area-weighted centroid of the ABS boundary
+     * </pre>
+     *
+     * <code>optional double centroid_lat = 28 [json_name = "centroidLat"];</code>
+     * @return The centroidLat.
+     */
+    @java.lang.Override
+    public double getCentroidLat() {
+      return centroidLat_;
+    }
+    /**
+     * <pre>
+     * area-weighted centroid of the ABS boundary
+     * </pre>
+     *
+     * <code>optional double centroid_lat = 28 [json_name = "centroidLat"];</code>
+     * @param value The centroidLat to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCentroidLat(double value) {
+
+      centroidLat_ = value;
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * area-weighted centroid of the ABS boundary
+     * </pre>
+     *
+     * <code>optional double centroid_lat = 28 [json_name = "centroidLat"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCentroidLat() {
+      bitField0_ = (bitField0_ & ~0x08000000);
+      centroidLat_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double centroidLon_ ;
+    /**
+     * <code>optional double centroid_lon = 29 [json_name = "centroidLon"];</code>
+     * @return Whether the centroidLon field is set.
+     */
+    @java.lang.Override
+    public boolean hasCentroidLon() {
+      return ((bitField0_ & 0x10000000) != 0);
+    }
+    /**
+     * <code>optional double centroid_lon = 29 [json_name = "centroidLon"];</code>
+     * @return The centroidLon.
+     */
+    @java.lang.Override
+    public double getCentroidLon() {
+      return centroidLon_;
+    }
+    /**
+     * <code>optional double centroid_lon = 29 [json_name = "centroidLon"];</code>
+     * @param value The centroidLon to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCentroidLon(double value) {
+
+      centroidLon_ = value;
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>optional double centroid_lon = 29 [json_name = "centroidLon"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCentroidLon() {
+      bitField0_ = (bitField0_ & ~0x10000000);
+      centroidLon_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double dominantShare_ ;
+    /**
+     * <pre>
+     * Share (0..1] of THIS suburb's residents who live in this council (ABS
+     * mesh-block allocation, Census 2021 persons). Absent outside a suburb profile.
+     * </pre>
+     *
+     * <code>optional double dominant_share = 30 [json_name = "dominantShare"];</code>
+     * @return Whether the dominantShare field is set.
+     */
+    @java.lang.Override
+    public boolean hasDominantShare() {
+      return ((bitField0_ & 0x20000000) != 0);
+    }
+    /**
+     * <pre>
+     * Share (0..1] of THIS suburb's residents who live in this council (ABS
+     * mesh-block allocation, Census 2021 persons). Absent outside a suburb profile.
+     * </pre>
+     *
+     * <code>optional double dominant_share = 30 [json_name = "dominantShare"];</code>
+     * @return The dominantShare.
+     */
+    @java.lang.Override
+    public double getDominantShare() {
+      return dominantShare_;
+    }
+    /**
+     * <pre>
+     * Share (0..1] of THIS suburb's residents who live in this council (ABS
+     * mesh-block allocation, Census 2021 persons). Absent outside a suburb profile.
+     * </pre>
+     *
+     * <code>optional double dominant_share = 30 [json_name = "dominantShare"];</code>
+     * @param value The dominantShare to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDominantShare(double value) {
+
+      dominantShare_ = value;
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Share (0..1] of THIS suburb's residents who live in this council (ABS
+     * mesh-block allocation, Census 2021 persons). Absent outside a suburb profile.
+     * </pre>
+     *
+     * <code>optional double dominant_share = 30 [json_name = "dominantShare"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDominantShare() {
+      bitField0_ = (bitField0_ & ~0x20000000);
+      dominantShare_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double councilHouseMedian_ ;
+    /**
+     * <pre>
+     * Latest ABS 'Data by Region' median established-house transfer price for
+     * the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+     * present it as this suburb's median.
+     * </pre>
+     *
+     * <code>optional double council_house_median = 31 [json_name = "councilHouseMedian"];</code>
+     * @return Whether the councilHouseMedian field is set.
+     */
+    @java.lang.Override
+    public boolean hasCouncilHouseMedian() {
+      return ((bitField0_ & 0x40000000) != 0);
+    }
+    /**
+     * <pre>
+     * Latest ABS 'Data by Region' median established-house transfer price for
+     * the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+     * present it as this suburb's median.
+     * </pre>
+     *
+     * <code>optional double council_house_median = 31 [json_name = "councilHouseMedian"];</code>
+     * @return The councilHouseMedian.
+     */
+    @java.lang.Override
+    public double getCouncilHouseMedian() {
+      return councilHouseMedian_;
+    }
+    /**
+     * <pre>
+     * Latest ABS 'Data by Region' median established-house transfer price for
+     * the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+     * present it as this suburb's median.
+     * </pre>
+     *
+     * <code>optional double council_house_median = 31 [json_name = "councilHouseMedian"];</code>
+     * @param value The councilHouseMedian to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCouncilHouseMedian(double value) {
+
+      councilHouseMedian_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Latest ABS 'Data by Region' median established-house transfer price for
+     * the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+     * present it as this suburb's median.
+     * </pre>
+     *
+     * <code>optional double council_house_median = 31 [json_name = "councilHouseMedian"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCouncilHouseMedian() {
+      bitField0_ = (bitField0_ & ~0x40000000);
+      councilHouseMedian_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object councilHouseMedianPeriod_ = "";
+    /**
+     * <pre>
+     * e.g. '2023-24'; '' if none
+     * </pre>
+     *
+     * <code>string council_house_median_period = 32 [json_name = "councilHouseMedianPeriod"];</code>
+     * @return The councilHouseMedianPeriod.
+     */
+    public java.lang.String getCouncilHouseMedianPeriod() {
+      java.lang.Object ref = councilHouseMedianPeriod_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        councilHouseMedianPeriod_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * e.g. '2023-24'; '' if none
+     * </pre>
+     *
+     * <code>string council_house_median_period = 32 [json_name = "councilHouseMedianPeriod"];</code>
+     * @return The bytes for councilHouseMedianPeriod.
+     */
+    public com.google.protobuf.ByteString
+        getCouncilHouseMedianPeriodBytes() {
+      java.lang.Object ref = councilHouseMedianPeriod_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        councilHouseMedianPeriod_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * e.g. '2023-24'; '' if none
+     * </pre>
+     *
+     * <code>string council_house_median_period = 32 [json_name = "councilHouseMedianPeriod"];</code>
+     * @param value The councilHouseMedianPeriod to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCouncilHouseMedianPeriod(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      councilHouseMedianPeriod_ = value;
+      bitField0_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * e.g. '2023-24'; '' if none
+     * </pre>
+     *
+     * <code>string council_house_median_period = 32 [json_name = "councilHouseMedianPeriod"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCouncilHouseMedianPeriod() {
+      councilHouseMedianPeriod_ = getDefaultInstance().getCouncilHouseMedianPeriod();
+      bitField0_ = (bitField0_ & ~0x80000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * e.g. '2023-24'; '' if none
+     * </pre>
+     *
+     * <code>string council_house_median_period = 32 [json_name = "councilHouseMedianPeriod"];</code>
+     * @param value The bytes for councilHouseMedianPeriod to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCouncilHouseMedianPeriodBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      councilHouseMedianPeriod_ = value;
+      bitField0_ |= 0x80000000;
       onChanged();
       return this;
     }

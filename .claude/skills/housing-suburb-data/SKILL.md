@@ -26,8 +26,9 @@ Operating manual for the ~15,345 SAL suburb rows behind `/housing/[state]` and
    (`Tot_Tot`, `Total`) as unsafe to resolve across tables.
 3. **Prod does not run `migrate up`.** The deploy applies a hardcoded allowlist
    and force-writes `schema_migrations` to 75, so the DB cannot tell you what it
-   has. Hand-apply on the **session pooler (5432)** with
-   `PGOPTIONS="-c statement_timeout=0"`, then record it in
+   has. Hand-apply with `task db:prod:apply FILE=… CONFIRM=prod` (session pooler
+   5432, one transaction, `SET LOCAL statement_timeout = 0`; `PGOPTIONS` does
+   nothing, Supavisor drops it), then record it in
    `services/migrations/PROD_APPLIED.md`. `scripts/tests/migration-drift.test.mjs`
    fails the build if you forget.
 4. **Anything added to the deploy allowlist RE-RUNS ON EVERY DEPLOY.** It must be
@@ -64,13 +65,104 @@ runs only the official ABS/RBA tier plus an MV refresh.
 | Census expanded (7 rates + tenure) | `census` | same DataPack, tables below | 8,931–8,952 |
 | SEIFA | `seifa` | ABS SEIFA by SAL | 14,355 |
 | Elevation (6 cols) | `elevation` | GA 1 Second DEM-S | 15,307 |
-| Hazard exposure (`suburb_hazard_exposure`) | `hazards` | DEA Water Observations (national) + NSW/VIC statutory flood & bushfire overlays; built by `web/scripts/geo/hazards/` (README there) | pending first prod load |
+| Planning (`suburb_planning`, 000125) | `planning` | Statewide zoning (NSW/VIC/SA/TAS/ACT) → 10 harmonised families, heritage areas + items (+QLD register), NSW HOB/FSR/lot size; built by `web/scripts/geo/planning/` (README there), artifact embedded in the collector | pending first prod load (local 2026-09-23: 13,324 rows) |
+| Hazard exposure (`suburb_hazard_exposure`) | `hazards` | DEA Water Observations (national) + statutory flood (NSW, VIC, SA, TAS; ACT modelled extent) and bushfire prone (all but NT) layers; built by `web/scripts/geo/hazards/` (README there). NULL inside a state where the source does not cover at least half the suburb; a partly covered share is a floor over the whole suburb; `*_source` is set even on a NULL share ("instrument does not cover it") — see data-sources.md | loaded 2026-09-08: 15,329 rows, statutory shares NSW + VIC only (VIC bushfire still BMO); the 2026-09 gap-fill artifact awaits a prod `-mode hazards` |
 | VG suburb medians | `vg-nsw` / `vg-vic` / `vg-sa` | state Valuer-General | NSW 2,433 · VIC 766 · SA 426 |
-| Amenities / LGA / NBN / banners | `amenities` `lga` `connectivity` `banners` | precomputed offline JSON | — |
+| Amenities / NBN / banners | `amenities` `connectivity` `banners` | precomputed offline JSON | — |
+| Council (LGA) layer | `lga` + 7 council modes — see §1a | ABS mesh-block allocation, ABS ERP/Census/Data by Region/BA, FAG, LGPRF, Wikidata | local 2026-09-23: 547/547 councils |
 
 **QLD and WA have no VG tier and will not get one** — both sell sales data
 through brokers. See `data-sources.md`; do not re-open, and do not substitute the
 LGA-level percentage-change layer as a price proxy.
+
+## 1a. Councils (LGA)
+
+Three tables: `lga` (current scalar facts), `suburb_lga` (suburb → dominant
+council + `dominant_share` + `overlap_lgas` ≥ 1%), `lga_series` (every council
+fact with a time axis). Schema + column ownership: `docs/feature/housing/data-model.md`
+"Councils". Sources + the council-level-only rule: `data-sources.md` "Councils".
+
+Run order (each mode refuses an empty dimension, so `lga` first):
+
+```bash
+cd services
+export DATABASE_URL=...   # local: postgresql://admin:password@localhost:5438/shorts
+LGA_DIR=../web/public/geo/insights GOWORK=off go run ./house-price-collector -mode lga
+for m in erp-lga census-lga council-regional building-approvals-lga wikidata-lga funding council-financials; do
+  GOWORK=off go run ./house-price-collector -mode $m
+done
+```
+
+- **The bridge is an offline build.** `web/scripts/geo/join-lga-mb.py` sums ABS
+  2021 mesh blocks (persons → dwellings → area). Inputs are ~55MB of ABS xlsx,
+  staged off-git (`/Volumes/gamma-systems-2/shorted-council/abs/`); outputs are
+  the committed `suburb-lga.json` + `lga-facts.json`. `lga.go` re-derives
+  kind/display name/state and refuses an artifact that disagrees.
+- **Join on ABS code, never names** — except FAG and LGPRF, which match on
+  `(state, normCouncil(name))`. `normCouncil` removes council-type words as
+  WHOLE words (a substring strip once made "Campbelltown" → "campbell").
+  Unmatched FAG entities after the 2026-09 fix are all non-councils (NSW village
+  committees, Lord Howe Island Board, SA Aboriginal corporations, the NT LGA).
+- **Code vintages** live in `council_abs.go`: `lgaRecode` (Moreland 25250 →
+  Merri-bek 24700) and `lgaSplitParts` (LGA_2025 East Arnhem 71500 + Groote
+  Archipelago 71700 → 71300; additive measures only, both parts required).
+  A new ABS recode shows up as "unknown codes [...]" in the mode's log — add it
+  there, never guess.
+- **Every pull must cover ≥ 500 councils** (`lgaMinCouncils`, `fagMinMatch`,
+  `wikidataMinCouncils`) or the mode fails instead of writing a sliver.
+- **Council medians are council-wide.** `lga_series` `house_median_price` is
+  ABS's council median; never write it to `house_prices` or show it as a
+  suburb's price.
+- **Slugs are minted once.** `assignLGASlugs` only fills NULL slugs; a rename
+  keeps its URL. Collisions within a state get `-<lga_code24>`.
+- **Scheduled:** `building-approvals-lga` + `erp-lga` run inside `-mode all`
+  with `lga_series` freshness policies (120 / 700 days, `council_freshness.go`).
+  ERP is one ABS flow PER RELEASE (`ERP_LGA<Y>`); `latestERPFlow` discovers the
+  newest. A `WARNING ... newer than the LGA<Y> codes` log means a new vintage:
+  review its unknown codes, extend `lgaRecode`/`lgaSplitParts`, bump
+  `erpCheckedVintage`.
+- Profile read: `suburbCouncilQuery` / `suburbCouncilOverlapsQuery` in
+  `postgres_house_prices.go` (tolerated, like hazards) → `LgaInfo` tags 13–32 +
+  `council_overlaps` → `suburb-council-card.tsx`, which links the council page
+  (`COUNCIL_PAGES_ENABLED` in `web/src/@/lib/housing/council.ts` is the one
+  switch that unlinks every surface).
+
+### Council pages (the hub)
+
+`/housing/[state]/council` (state index) and `/housing/[state]/council/[slug]`
+(the hub), plus the map's council level. Decision record: `architecture.md` §11.
+
+- **Reads:** `ListCouncils` / `GetCouncilProfile` (`councils.go` handler →
+  `store/shorts/postgres_councils.go`). Only the identity query fails a request;
+  hazards, crime, drops, neighbours are tolerated blocks (`log.Warnf`). Cache keys
+  `GetCouncilsKey` / `GetCouncilProfileKey` (state upper-cased, slug lower-cased).
+- **A council is empty on the page?** Check, in order: `lga.slug` + `kind IN
+  ('council','unincorporated')` (no page otherwise); `suburb_lga` rows for it
+  (member table, map, rollups all come from the bridge); `lga_series` for the
+  charts; `suburb_hazard_exposure` coverage for the hazard block (NULL = no
+  covered member, by design).
+- **Membership/weights:** dominant suburbs + straddlers ≥ 5%; rollups weight by
+  population × share. Price drops use dominant members only, counted from the
+  crawl tables (`councilDropsQuery`, NOT the floored `mv_suburb_price_drops`, so
+  sub-floor suburbs' cuts reach the council), floored at 3 council-wide; suburbs
+  are named only at ≥ 3 of their own. They obey `HOUSING_DROP_LISTINGS_ENABLED`
+  and carry `as_of` / `data_through`.
+- **Index hazard share blank?** The index/choropleth share needs covered member
+  suburbs holding ≥ 50% of the council's residents (`councilHazardMinCoverage`);
+  the hub rollup states "over N of M member suburbs" instead.
+- **Neighbours:** `lga_adjacency.json` (go:embed) from
+  `node web/scripts/geo/build-lga-adjacency.mjs` — rerun after ANY change to
+  `web/public/geo/suburbs/*.topojson` or `suburb-lga.json`, then
+  `node --test web/scripts/geo/lga-adjacency.test.mjs` (fails on drift).
+- **Map council level:** the `lga_code` suburb column (registry key, joins
+  `suburb_lga` only when requested) + `council-geometry.ts` (mergeArcs / merge /
+  mesh). New council metric = a `CouncilSummary` field (store + proto + handler
+  rounding) and a row in `web/src/@/lib/housing/council-metrics.ts`; the server
+  only ever passes the key.
+- **Verify** through the RPC: `curl -s -XPOST -H 'content-type: application/json'
+  $API/shorts.v1alpha1.HousingService/GetCouncilProfile -d '{"stateCode":"NSW","slug":"canterbury-bankstown"}'`.
+- **Revalidate after a council data load:** `?flush=housing` (keys live under
+  `cache:housing:council*`) and the paths `/housing/<st>/council`.
 
 ## 2. Census expanded — the verified table mapping
 
@@ -98,7 +190,7 @@ Run it:
 
 ```bash
 cd services/house-price-collector
-DATABASE_URL="${PROD/:6543/:5432}" PGOPTIONS="-c statement_timeout=0" \
+DATABASE_URL="${PROD/:6543/:5432}" \
 CENSUS_GEO_DIR="$PWD/../../web/public/geo/suburbs" \
 CENSUS_DATAPACK_PATH=/path/to/gcp_sal.zip \
 GOWORK=off go run . -mode census
@@ -112,6 +204,15 @@ the container image, which is why this mode never once succeeded in Cloud Run.
 rates misleading) and 21 more are zero-denominator: the "No usual address
 (State)" pseudo-SALs and Acton ACT have population but no occupied private
 dwellings. A full 15,345 would mean the suppression broke.
+
+Dwelling-, household- and labour-force-denominated shares carry their own
+floors on top (50 in their own denominator), and an overfull group of exclusive
+shares (>101%) is withheld whole, so after 2026-09-24 expect roughly: tenure
+7,538, dwelling structure 7,892, household composition 7,918, unemployment
+8,659, top religion 8,951 (the culture block now shares the population floor).
+Sanity query after a load — all three should be 0 / 0 / ≤4:
+`count(*) FILTER (WHERE pct_owned_outright+pct_owned_mortgage+pct_rented > 101)`,
+`… pct_top_religion > 100`, `… unemployment_rate > 50`.
 
 ## 3. Elevation — GA DEM-S
 
@@ -190,6 +291,20 @@ still paint (d3 clamps output) and the legend labels that tick `≥`.
 Metrics with an explicit `domain` (crime ranks, political lean — `[0,100]`) are
 untouched.
 
+**Column metrics** (`kind: "column"`) are served by `GetSuburbMetricColumns`
+under the server registry's own key (`postgres_suburb_columns.go`); the UI
+`MetricKey` union and the Go registry are pinned together by
+`TestSuburbMetricRegistryCoversMapAndLandedColumns` — a key the map offers goes
+in its `existing` list, a key the API serves but the map deliberately does not
+offer stays in `landed` (with the reason in the comment). Each column metric
+names a picker section (`group`, one of `COLUMN_METRIC_GROUPS`) and needs a
+`METRIC_ICON`. On the picker since 2026-09-24: the four within-state SEIFA
+deciles, unemployment, bachelor+, low/high personal income, flats/apartments,
+living alone, couples with kids, land below 1 m / 2 m and permanent water.
+Deliberately off it: raw SEIFA scores and national deciles (the map ranks within
+a state), participation and separate-house share (near-complements), and
+elevation min/max (a creek bed and a peak, not a suburb-wide property).
+
 **Charts cannot SSR and functions cannot cross the RSC boundary.** Import charts
 `dynamic(..., { ssr: false })` from a `"use client"` module and pass a
 *serializable* key (`MetricKey`, `format="aud"|"percent"`), never a formatter or
@@ -208,6 +323,35 @@ docker run --rm -v "$PWD":/work -w /work -e SKIP_ENV_VALIDATION=1 \
 `test:visual` chains `storybook:build &&` for a reason — running
 `npx playwright test` alone screenshots the stale bundle and will tell you a
 broken change is fine.
+
+### Planning metrics — the categorical column and the categorical overlay
+
+The planning layer added the two categorical paths the map lacked:
+
+- **`kind: "column-categorical"`** (`dominant_zone_family`): the server's
+  column carries `category_labels` and each value is an index into them.
+  `useSuburbColumns` returns `categories` (label maps) beside `data`; colours
+  come from the serializable palette in `lib/housing/zone-families.ts`, looked
+  up by label. The Go label list (`ZoneFamilyLabels`), the Go family order
+  (`ZoneFamilies`), the Python `FAMILIES` and the TS palette are pinned together
+  by `zone-families.test.ts` — change one, change all four.
+- **`kind: "categorical"` overlays** (`zoning`): one dissolved feature per class
+  with `properties.family`; `OverlayLayerPaths` fills per feature and the legend
+  lists the classes. Hover identify runs `geoContains` on the pointer's map
+  location against bbox-pruned polygon parts (overlays keep
+  `pointer-events: none`, so suburb hover still works) and adds "Planning zones
+  here: <family>" to the tooltip.
+
+Wording rules: zones are **grouped** into families "so states compare" — the
+council's scheme is the authority for any one lot. NSW height/FSR/lot size are
+the LEP standards area-weighted over residential land; clause exceptions are not
+modelled. QLD has no statewide zoning (heritage items only); WA and NT have no
+row at all — never render them as 0.
+
+To rebuild after a re-fetch: refresh `zone_codes.json` from the manifest, run
+`test_planning.py` (an unmapped code fails it), then `planning_share.py state|
+merge` and `planning_overlays.py` + `build-overlays.mjs` per the README, then
+`-mode planning`.
 
 ## 6. After any ingest
 

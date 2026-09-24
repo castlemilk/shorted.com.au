@@ -79,19 +79,16 @@ var ErrUsage = errors.New("usage")
 // fail". The runner's default contract is one failure code (1); this is the
 // documented escape hatch.
 //
-// `shorted house-prices` is the main user: its residential-rig launchers
-// (services/house-price-collector/deploy/*.sh) branch on
-//
-//	3 = re-warm the crawl Chrome (Kasada/Akamai clearance expired)
-//	4 = fetcher init failed — Chrome/CDP unusable (hard-recover)
-//	5 = warmcheck says the session is cold
-//	6 = crawl-freshness ALARM
-//	7 = agent infrastructure failed before any jobs completed
-//
-// `shorted economy -mode all` adds one, so that operators and alerting can tell
-// a drifted source apart from an outage (Cloud Run reports both as "failed"):
+// `shorted economy -mode all` is the user today, so that operators and
+// alerting can tell a drifted source apart from an outage (Cloud Run reports
+// both as "failed"):
 //
 //	10 = DEGRADED — some sources collected, some failed (exit 1 = none did)
+//
+// Codes 3-7 are reserved: they were the residential-rig contract of the
+// `shorted house-prices` port, retired on 2026-09-24. That contract lives on
+// in services/house-price-collector (its deploy/*.sh launchers branch on
+// them), so do not reuse those numbers here for something else.
 //
 // A job returns this INSTEAD of calling os.Exit, so deferred cleanup (pool
 // close) still runs and the runner still emits its `status=error` line; main

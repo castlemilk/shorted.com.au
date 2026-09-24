@@ -31,8 +31,10 @@ before the merge** — or the API ships selecting columns prod lacks and every
 politician read path 500s. That is what happened in the #364 release, caught only
 by the release smoke.
 
-Apply via the **session pooler (5432)**, not the transaction pooler (6543), with
-`PGOPTIONS="-c statement_timeout=0"`. The URL is in `services/.env`.
+Apply with `task db:prod:apply FILE=… CONFIRM=prod`: the **session pooler
+(5432)**, not the transaction pooler (6543), one transaction with
+`SET LOCAL statement_timeout = 0`. (`PGOPTIONS="-c statement_timeout=0"` does
+nothing: Supavisor drops startup options.) The URL is in `services/.env`.
 
 **Prod `schema_migrations` lies.** It said 75 while objects from 81/86/90
 existed, because prod DDL is applied by hand. `make migrate-up` against prod

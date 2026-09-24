@@ -42,8 +42,17 @@ const topology = {
   arcs: [],
 } as unknown as Topology;
 
-function state(stateCode: string, droppedShare: number): StatePriceDropSummary {
-  return { stateCode, droppedShare } as StatePriceDropSummary;
+function state(
+  stateCode: string,
+  droppedShare: number,
+  coverage: { swept: number; catalog: number } = { swept: 100, catalog: 100 },
+): StatePriceDropSummary {
+  return {
+    stateCode,
+    droppedShare,
+    suburbsSwept14d: coverage.swept,
+    catalogSuburbs: coverage.catalog,
+  } as StatePriceDropSummary;
 }
 
 describe("StateDropsMap", () => {
@@ -69,7 +78,29 @@ describe("StateDropsMap", () => {
       "New South Wales — 4.2% of tracked listings cut in 30 days",
     );
     expect(screen.getByText("Listings cut (30d)")).toBeInTheDocument();
-    expect(screen.getByText("Not tracked")).toBeInTheDocument();
+    expect(
+      screen.getByText("Not tracked, or too little crawl coverage to rank"),
+    ).toBeInTheDocument();
+  });
+
+  // Measured 2026-09-23: WA had 3 of 67 catalog suburbs swept in 30 days, so
+  // its low share said nothing about WA's market. It must not be coloured
+  // into the ranking, nor stretch the colour scale.
+  it("draws an under-covered state as no-data and names its coverage", () => {
+    render(
+      <StateDropsMap
+        states={[
+          state("NSW", 0.037, { swept: 101, catalog: 135 }),
+          state("WA", 0.2, { swept: 3, catalog: 67 }),
+        ]}
+      />,
+    );
+
+    expect(mapProps?.valueById.get("5")).toBeNull();
+    expect(mapProps?.nameById?.get("5")).toBe(
+      "Western Australia — not ranked: only 3 of 67 tracked suburbs swept in the last 14 days",
+    );
+    expect(mapProps?.colorScale.domain()[1]).toBeCloseTo(3.7);
   });
 
   it("sets the existing state deep link without dropping other query parameters", () => {

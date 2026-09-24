@@ -315,6 +315,37 @@ private static final long serialVersionUID = 0L;
     return suburbsTracked_;
   }
 
+  public static final int SUBURBS_SWEPT_14D_FIELD_NUMBER = 17;
+  private int suburbsSwept14D_ = 0;
+  /**
+   * <pre>
+   * Crawl coverage behind this row. catalog_suburbs is every suburb the crawl
+   * has ever produced a listing for (the drop index's coverage denominator);
+   * suburbs_swept_14d is the subset with a listing seen in the last 14 days.
+   * Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl
+   * coverage more than discounting, and the UI annotates it instead of ranking
+   * it. Both 0 before migration 000124.
+   * </pre>
+   *
+   * <code>int32 suburbs_swept_14d = 17 [json_name = "suburbsSwept14d"];</code>
+   * @return The suburbsSwept14d.
+   */
+  @java.lang.Override
+  public int getSuburbsSwept14D() {
+    return suburbsSwept14D_;
+  }
+
+  public static final int CATALOG_SUBURBS_FIELD_NUMBER = 18;
+  private int catalogSuburbs_ = 0;
+  /**
+   * <code>int32 catalog_suburbs = 18 [json_name = "catalogSuburbs"];</code>
+   * @return The catalogSuburbs.
+   */
+  @java.lang.Override
+  public int getCatalogSuburbs() {
+    return catalogSuburbs_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -376,6 +407,12 @@ private static final long serialVersionUID = 0L;
     }
     if (suburbsTracked_ != 0) {
       output.writeInt32(16, suburbsTracked_);
+    }
+    if (suburbsSwept14D_ != 0) {
+      output.writeInt32(17, suburbsSwept14D_);
+    }
+    if (catalogSuburbs_ != 0) {
+      output.writeInt32(18, catalogSuburbs_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -444,6 +481,14 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeInt32Size(16, suburbsTracked_);
     }
+    if (suburbsSwept14D_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(17, suburbsSwept14D_);
+    }
+    if (catalogSuburbs_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(18, catalogSuburbs_);
+    }
     return size;
   }
   @java.lang.Override
@@ -509,6 +554,10 @@ private static final long serialVersionUID = 0L;
             other.getMedianSold())) return false;
     if (getSuburbsTracked()
         != other.getSuburbsTracked()) return false;
+    if (getSuburbsSwept14D()
+        != other.getSuburbsSwept14D()) return false;
+    if (getCatalogSuburbs()
+        != other.getCatalogSuburbs()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -561,6 +610,10 @@ private static final long serialVersionUID = 0L;
         java.lang.Double.doubleToLongBits(getMedianSold()));
     hash = (37 * hash) + SUBURBS_TRACKED_FIELD_NUMBER;
     hash = (53 * hash) + getSuburbsTracked();
+    hash = (37 * hash) + SUBURBS_SWEPT_14D_FIELD_NUMBER;
+    hash = (53 * hash) + getSuburbsSwept14D();
+    hash = (37 * hash) + CATALOG_SUBURBS_FIELD_NUMBER;
+    hash = (53 * hash) + getCatalogSuburbs();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -714,6 +767,8 @@ private static final long serialVersionUID = 0L;
       avgSold_ = 0D;
       medianSold_ = 0D;
       suburbsTracked_ = 0;
+      suburbsSwept14D_ = 0;
+      catalogSuburbs_ = 0;
       return this;
     }
 
@@ -795,6 +850,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00008000) != 0)) {
         result.suburbsTracked_ = suburbsTracked_;
       }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.suburbsSwept14D_ = suburbsSwept14D_;
+      }
+      if (((from_bitField0_ & 0x00020000) != 0)) {
+        result.catalogSuburbs_ = catalogSuburbs_;
+      }
     }
 
     @java.lang.Override
@@ -858,6 +919,12 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getSuburbsTracked() != 0) {
         setSuburbsTracked(other.getSuburbsTracked());
+      }
+      if (other.getSuburbsSwept14D() != 0) {
+        setSuburbsSwept14D(other.getSuburbsSwept14D());
+      }
+      if (other.getCatalogSuburbs() != 0) {
+        setCatalogSuburbs(other.getCatalogSuburbs());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -965,6 +1032,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00008000;
               break;
             } // case 128
+            case 136: {
+              suburbsSwept14D_ = input.readInt32();
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 136
+            case 144: {
+              catalogSuburbs_ = input.readInt32();
+              bitField0_ |= 0x00020000;
+              break;
+            } // case 144
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1694,6 +1771,97 @@ private static final long serialVersionUID = 0L;
     public Builder clearSuburbsTracked() {
       bitField0_ = (bitField0_ & ~0x00008000);
       suburbsTracked_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int suburbsSwept14D_ ;
+    /**
+     * <pre>
+     * Crawl coverage behind this row. catalog_suburbs is every suburb the crawl
+     * has ever produced a listing for (the drop index's coverage denominator);
+     * suburbs_swept_14d is the subset with a listing seen in the last 14 days.
+     * Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl
+     * coverage more than discounting, and the UI annotates it instead of ranking
+     * it. Both 0 before migration 000124.
+     * </pre>
+     *
+     * <code>int32 suburbs_swept_14d = 17 [json_name = "suburbsSwept14d"];</code>
+     * @return The suburbsSwept14d.
+     */
+    @java.lang.Override
+    public int getSuburbsSwept14D() {
+      return suburbsSwept14D_;
+    }
+    /**
+     * <pre>
+     * Crawl coverage behind this row. catalog_suburbs is every suburb the crawl
+     * has ever produced a listing for (the drop index's coverage denominator);
+     * suburbs_swept_14d is the subset with a listing seen in the last 14 days.
+     * Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl
+     * coverage more than discounting, and the UI annotates it instead of ranking
+     * it. Both 0 before migration 000124.
+     * </pre>
+     *
+     * <code>int32 suburbs_swept_14d = 17 [json_name = "suburbsSwept14d"];</code>
+     * @param value The suburbsSwept14d to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSuburbsSwept14D(int value) {
+
+      suburbsSwept14D_ = value;
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Crawl coverage behind this row. catalog_suburbs is every suburb the crawl
+     * has ever produced a listing for (the drop index's coverage denominator);
+     * suburbs_swept_14d is the subset with a listing seen in the last 14 days.
+     * Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl
+     * coverage more than discounting, and the UI annotates it instead of ranking
+     * it. Both 0 before migration 000124.
+     * </pre>
+     *
+     * <code>int32 suburbs_swept_14d = 17 [json_name = "suburbsSwept14d"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSuburbsSwept14D() {
+      bitField0_ = (bitField0_ & ~0x00010000);
+      suburbsSwept14D_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int catalogSuburbs_ ;
+    /**
+     * <code>int32 catalog_suburbs = 18 [json_name = "catalogSuburbs"];</code>
+     * @return The catalogSuburbs.
+     */
+    @java.lang.Override
+    public int getCatalogSuburbs() {
+      return catalogSuburbs_;
+    }
+    /**
+     * <code>int32 catalog_suburbs = 18 [json_name = "catalogSuburbs"];</code>
+     * @param value The catalogSuburbs to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCatalogSuburbs(int value) {
+
+      catalogSuburbs_ = value;
+      bitField0_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>int32 catalog_suburbs = 18 [json_name = "catalogSuburbs"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCatalogSuburbs() {
+      bitField0_ = (bitField0_ & ~0x00020000);
+      catalogSuburbs_ = 0;
       onChanged();
       return this;
     }

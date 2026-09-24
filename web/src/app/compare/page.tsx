@@ -102,7 +102,7 @@ export default async function CompareIndexPage() {
   const pairs = await buildFeaturedPairs();
   // A failed/cold fetch must not bake the "pairs are being built" shell into
   // the route cache for the whole revalidate window.
-  if (pairs.length === 0) bailOnEmptyRender();
+  if (pairs.length === 0) await bailOnEmptyRender();
 
   const breadcrumbItems = [{ label: "Compare", href: "/compare" }];
 

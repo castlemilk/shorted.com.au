@@ -39,3 +39,23 @@ export function decodeMatchMask(salCodes: readonly string[], matchMask: Uint8Arr
   }
   return out;
 }
+
+/**
+ * Decodes a CATEGORICAL column: each present value is a zero-based index into
+ * the column's `categoryLabels` dictionary. A NULL, a non-integer or an
+ * out-of-range index all decode to null — a label the dictionary does not
+ * carry is "no data", never a guess at the neighbouring category.
+ */
+export function decodeCategoricalColumn(
+  salCodes: readonly string[],
+  values: ArrayLike<number>,
+  nullMask: Uint8Array,
+  labels: readonly string[],
+): Map<string, string | null> {
+  const numeric = decodeColumn(salCodes, values, nullMask);
+  const out = new Map<string, string | null>();
+  for (const [sal, v] of numeric) {
+    out.set(sal, v != null && Number.isInteger(v) && v >= 0 && v < labels.length ? labels[v]! : null);
+  }
+  return out;
+}

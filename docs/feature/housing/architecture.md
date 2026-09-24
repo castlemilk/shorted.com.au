@@ -227,7 +227,7 @@ The boundary→suburb spatial join + member/party roll-up are **precomputed once
 ### 5.5 RPCs
 
 - `ListStateSuburbs(state_code, query, limit)` → `SuburbSummary[]` — the 30-field summary (identity + latest price + headline demographics + culture + federal/state representation + three gated crime ranks) that powers the state choropleth + list.
-- `GetSuburbProfile(sal_code)` → `{ SuburbSummary, SuburbDemographics, ComparisonBaselines, SuburbCrime? }` — the profile page (full demographics + state/national comparison bars + an absent-when-uncovered crime block).
+- `GetSuburbProfile(sal_code)` → `{ SuburbSummary, SuburbDemographics, ComparisonBaselines, SuburbCrime? }` — the profile page (full demographics + comparison bars + an absent-when-uncovered crime block). `ComparisonBaselines` carries the ABS established-house medians for the state's capital and rest of state (from `mv_housing_headline`), the median of the state's VG suburb medians, the median suburb's household income (state + national), and `state_census` (dwelling/resident-weighted state shares for the household cards). `national_median_price` is always 0: no open national median house price exists, and the old value averaged NSW+VIC+SA suburbs under an "AU" label.
 - `ListHousingRegions(region_type, state_code, query, limit)` → `HousingRegion[]` — a **parallel, older** regions-based explorer (merged from `main` before the suburb map landed). Kept alongside the suburb map (which supersedes it for the UI; `/housing/suburbs` 301-redirects to `/housing`). New work should use `ListStateSuburbs`/`GetSuburbProfile`.
 
 Handlers in `house_prices.go`, queries in `postgres_house_prices.go`. The suburb queries LEFT-JOIN the latest median via a LATERAL subquery (covers VIC annual + national quarterly), with YoY vs the obs ~1yr prior; baselines are the avg latest median per priced suburb (state + national). Crime ranks use a FILTER-aggregate LEFT JOIN over `mv_suburb_crime_latest`; profile stats use the same pooled-latest MV. Both reads re-assert `NOT small_pop AND NOT unreliable`, so uncovered/gated suburbs remain no-data rather than zero. All cached via `s.cache.Get<Name>Key`.
@@ -437,7 +437,7 @@ Keyed by `sal_code` (ABS SAL_CODE21, PK). Indexed on `(state_code)` and `(sal_na
 
 ### Prod DDL procedure
 
-Housing migrations are applied **manually** against prod Supabase via the **session pooler port 5432** (not txn pooler 6543) with `PGOPTIONS="-c statement_timeout=0"` (needed for `REFRESH … CONCURRENTLY`). The full housing migration set:
+Housing migrations are applied **manually** against prod Supabase via the **session pooler port 5432** (not txn pooler 6543), in one transaction with `SET LOCAL statement_timeout = 0` (needed for `REFRESH … CONCURRENTLY`), through `task db:prod:apply`. `PGOPTIONS="-c statement_timeout=0"`, the old recipe, does nothing: Supavisor drops startup options, so it left the 2-minute role default in place (measured 2026-09-23). The full housing migration set:
 
 | Migration | Adds |
 |-----------|------|
@@ -451,8 +451,7 @@ Housing migrations are applied **manually** against prod Supabase via the **sess
 | `000092` | deterministic gated `mv_suburb_crime_latest` rebuild + guarded refresh wiring |
 
 ```bash
-PGOPTIONS="-c statement_timeout=0" psql "postgresql://…@…:5432/postgres" \
-  -f services/migrations/000057_add_suburb_culture_demographics.up.sql
+task db:prod:apply FILE=services/migrations/000057_add_suburb_culture_demographics.up.sql CONFIRM=prod
 ```
 
 ### Manual ingest runs
@@ -564,14 +563,84 @@ suburb profiles cross-link in.
 All three MVs are folded into `refresh_housing_materialized_views()` (guarded CONCURRENTLY
 fallback), refreshed by every collector post-run path.
 
+**Later rebuilds.** 000109 moved every aggregate to the `address_key` unit (keyless rows
+excluded, not counted per portal listing), floored every price/percent column at 3, and made
+address winners deterministic. **000124** (2026-09) is the honesty pass:
+
+- **14-day liveness.** "Active" is `is_active AND last_seen_at >= now() - 14 days` in all four
+  listing MVs and both drill-downs. `is_active` only flips after a completed sweep of the
+  listing's own suburb, so unswept suburbs kept zombie listings in every denominator: 78% of
+  prod's 92,535 "active" listings were unseen for 21+ days, and the state board ranked crawl
+  coverage (VIC 4.4% vs WA 1.2%) rather than discounting.
+- **Coverage.** `mv_state_price_drops.suburbs_swept_14d` / `catalog_suburbs` (the drop
+  index's catalog). The map and state board rank a state only at ≥0.6 swept/catalog (the
+  index's gap threshold); below it the row is shown, annotated, and not coloured or barred.
+- **Freshness.** `housing_mv_refresh` records each view's refresh (`as_of`) and the newest crawl
+  observation it could see (`data_through`). Every drops read carries both; a board joining two
+  views reports the staler. The page prints "Data to <date>", warns after 72h, and feeds the
+  sitemap `lastmod` + Dataset JSON-LD `dateModified` from `as_of`. The index reports `as_of` =
+  latest `computed_at` and `data_through` = its last snapshot day capped at the recorded crawl
+  horizon — snapshots are written daily even while the rig is down.
+- **Index k-floor.** `housing_drop_index_daily.median_drop_pct` is NULL (served as 0 with
+  `median_withheld = true`, so no client infers "withheld" from the 0) below 3 dropped
+  addresses at every grain; 1,819 historical suburb rows that
+  published one or two listings' exact cuts are scrubbed. The index counts addresses by
+  `address_key` (then `display_address`, then `listing_id`), the MVs' unit.
+
+**The address board (`ListAddressPriceDrops`) compares an advert chain, not an address.**
+`first_price` is the earliest ask in the window from events that are (a) the same dwelling —
+same bedroom count when known; (b) a comparable price kind, mirroring the collector's
+`comparableKinds` (fixed ↔ offers_over, or the same range kind; range asks are stored as their
+low bound, so a fixed ask replaced by a range guide is never a "cut"); (c) never a concurrent
+advert — a same-portal listing counts only if it ended before this advert first appeared (a
+relist), another portal's only if last seen >14 days before. A listing-level move contributes its `prev_price` (so a cut early
+in the window keeps its "before" ask); an address-relist move's `prev_price` does not (it came
+from a different advert). An address is listed only if its chain holds a real `price_drop`
+event under the 40% cap. Measured read-only on prod 2026-09-23: the old query listed 1,374
+addresses, 247 (18%) with no drop event behind them — e.g. a "$1,125,000" fixed ask against the
+low end of an "$850,000 – $930,000" range shown as −24%; the new one lists 1,000, all backed by
+an event, in ~0.2s instead of ~6.8s (the candidate set is restricted to addresses with a drop
+event before anything else is joined). **Every live advert at the address is judged on its own
+chain**, and the row shows the deepest qualifying cut (then larger $, source, id). The first cut
+judged only the most recently swept advert, so a home live on both portals lost its REA cut
+whenever Domain happened to be swept later and got it back after the next REA sweep — 79–83
+addresses hidden on prod (2026-09-24), all still counted by `mv_suburb_price_drops`. Choosing on
+prices, not sweep order, is what keeps the row stable; an advert superseded by a later
+same-portal relist is not "live" (its old ask is not current). Same day: 1,083 addresses, a
+superset of the 1,000, top 50 in ~0.7s. The collector applies the same rule upstream:
+`loadAddressPrior` skips the other portal's advert seen within 14 days and a different bedroom
+count (about 298 of 700 first-sighting drops were those two artefacts).
+
+**Deterministic rankings.** Every drops `ORDER BY` ends on the row's unique key
+(`region_code`, `address_key`, `(source, agency_id, state_code)`, `state_code`); a 5-way tie
+sat across the /housing panel's cut-off on 2026-09-23. `ListSuburbPriceDrops` also sorts by
+`share` — `dropped_share` among suburbs with ≥20 recently swept listings (the index's panel
+floor), thinner suburbs after every ranked one.
+
 ### 10.2 RPCs & gating
 
 | RPC | Gate | Notes |
 |-----|------|-------|
-| `GetPriceDropsOverview` | none (anonymous aggregates) | national + per-state rows |
-| `ListSuburbPriceDrops` | none | drives /price-drops suburb board + the /housing panels; tolerant `to_jsonb(d)->>'dropped_value'` select so code-first deploys survive the pre-migration MV shape |
-| `ListAgencyPriceStats` | **`HOUSING_DROP_LISTINGS_ENABLED`** | carries agency/agent NAMES from ToS-restricted rows → same kill switch as the per-listing surfaces; inputs normalized before the MemoryCache key |
-| `ListSuburbDropListings` / `ListAddressPriceDrops` / `GetPropertyHistory` | `HOUSING_DROP_LISTINGS_ENABLED` | per-listing deep-link-out surfaces; now also return `agency_name` + `agent_names` |
+| `GetPriceDropsOverview` | `HOUSING_DROP_LISTINGS_ENABLED` | anonymous aggregates: national + per-state rows with coverage; `as_of`/`data_through` |
+| `ListSuburbPriceDrops` | `HOUSING_DROP_LISTINGS_ENABLED` | anonymous aggregates; drives /price-drops suburb board + the /housing panels; sorts `count`/`avg`/`max`/`share`/`asking`/`sold`; tolerant `to_jsonb(d)->>'dropped_value'` select so code-first deploys survive the pre-migration MV shape |
+| `GetDropIndexSeries` | `HOUSING_DROP_LISTINGS_ENABLED` | public; input validated — grain ∈ national/state/suburb, key `AU` / state code / 5-digit SAL, ISO dates, `to` capped at today — else `InvalidArgument` |
+| `ListAgencyPriceStats` | `HOUSING_DROP_LISTINGS_ENABLED` | carries agency NAMES from ToS-restricted rows; inputs normalized before the MemoryCache key |
+| `ListSuburbDropListings` / `ListAddressPriceDrops` / `GetPropertyHistory` | `HOUSING_DROP_LISTINGS_ENABLED` | per-listing deep-link-out surfaces; also return `agency_name` + `agent_names` |
+| `GetSuburbProfile.listing_stats` | `HOUSING_DROP_LISTINGS_ENABLED` | stripped on read, clone-before-strip; carries `as_of`/`data_through` |
+
+**One kill-switch policy.** `HOUSING_DROP_LISTINGS_ENABLED=false` empties EVERY read derived
+from the REA/Domain crawl — the k≥3-floored aggregates as well as the per-listing surfaces —
+with an empty success (never an error, so the UI falls back to its no-data state), checked
+outside the backend cache so a flip takes effect on the next request. `GetPriceDropsOverview`
+— the read `/price-drops` gates its whole body on — also sets `withheld = true`, so the page
+shows neutral "not available" copy instead of "loading — check back shortly", and caches that
+render like any other rather than re-rendering uncached on every request for the length of the
+takedown. The MCP housing tools
+apply the same switch. Until 000124's branch it differed by surface: the profile and MCP
+withheld the aggregates while `ListSuburbPriceDrops` and the index kept serving the same MV
+rows, so a takedown left the most visible board up. A takedown concerns the source's data, not
+how finely we present it. `dropListingsEnabled()` in `house_prices.go` is the single definition
+(MCP carries a documented copy because of the import direction).
 
 Licence posture unchanged from §6/§7: raw listing rows never republished; aggregates are the
 publishable surface; per-listing rows deep-link OUT to the live portal page.
@@ -609,11 +678,23 @@ Layer map for one `/price-drops` view:
    warm (`/api/static-pages/warm-cache`, `/price-drops` is in `STATIC_PAGES`; the CI re-prime
    needs the Cloudflare bypass).
 2. **KV**: actions never cache an empty response.
-3. **Route cache**: `bailOnEmptyRender()` — calls `unstable_noStore()` exactly when a page
-   renders its data-empty fallback, so a failed regen fetch (cold min-instances=0 Cloud Run
-   after a deploy) is served once UNCACHED instead of pinning "data is loading" for the full
-   window. It NO-OPS during the build so routes STAY static ISR. Wired into
-   `/housing /price-drops /economy /compare` — wire it into any new static data page.
+3. **Route cache**: `await bailOnEmptyRender()` — exactly when a page renders its data-empty
+   fallback, it caps that render's ISR lifetime at `EMPTY_RENDER_REVALIDATE_SECONDS` (60s) by
+   reading a no-op `unstable_cache` entry with that revalidate (a route's revalidate is the
+   lowest any read in the render asks for). A failed regen fetch (cold min-instances=0 Cloud
+   Run after a deploy) is therefore cached for a minute, then retried, instead of pinning
+   "data is loading" for the full window. It NO-OPS during the build so routes STAY static
+   ISR. Wired into `/housing /price-drops /economy /compare`, the council pages and more —
+   wire it into any new static data page, and only on a FAILED/cold branch: a stable empty
+   answer (a takedown's `withheld`, or `/price-drops`' dated "no listing seen since" state)
+   caches like any other render.
+   **It used to call `unstable_noStore()`, and that 500'd.** On a route prerendered as static,
+   Next 14 turns noStore at runtime into a DynamicServerError (digest `DYNAMIC_SERVER_USAGE`,
+   "Page changed from static to dynamic"). A background regeneration swallowed it and kept the
+   old page, but every BLOCKING render — no cached entry, or the first request after
+   `revalidatePath` — answered 500: `/price-drops` whenever the crawl had been down 14 days,
+   and the council index/hub whenever the API was unreachable (2026-09-24, running-app
+   verification). Never call `unstable_noStore()` from a static ISR page.
 
 Measured effect: 380–640ms force-dynamic TTFB → **40–58ms `x-vercel-cache: HIT`**, with
 Cloud Run RPC volume for the page down to ~hourly worst case.
@@ -627,14 +708,18 @@ Cloud Run RPC volume for the page down to ~hourly worst case.
   `manage_revalidation_secret = true` (prod) mirrors the short-data-sync module.
 - **Listing takedown runbook**: set `HOUSING_DROP_LISTINGS_ENABLED=false` (falsey disables),
   restart/deploy the API, then immediately run
-  `curl -X POST -H "X-Revalidate-Secret: $REVALIDATION_SECRET" "$REVALIDATION_URL?path=/price-drops,/housing&flush=housing"`.
+  `curl -g -X POST -H "X-Revalidate-Secret: $REVALIDATION_SECRET" "$REVALIDATION_URL?flush=housing&path=/price-drops,/housing,/housing/[state],/housing/[state]/[suburb],/housing/[state]/council,/housing/[state]/council/[slug]"`
+  (`-g` stops curl reading `[state]` as a glob). `revalidatePath` does not cascade, so each
+  24h route that renders a crawl-derived figure, including the council index and hub (§11),
+  is listed. The canonical steps are in [operations.md](operations.md#takedown).
   The flush removes any pre-change housing KV entries and revalidates the static ISR pages;
-  the flag-gated agency/address server reads bypass KV on every render. The anonymous
-  suburb/state aggregates stay up.
+  the flag-gated agency/address server reads bypass KV on every render. Since the 000124
+  branch the anonymous suburb/state aggregates and the index go dark too (one policy, §10.2);
+  /price-drops then renders its no-data state.
 - **AVM takedown/default**: `HOUSING_VALUATIONS_ENABLED` is OFF by default and must be set
   explicitly true to expose the property.com.au per-address AVM/sales-history enrichment.
   False/unset omits only the valuation block while listing history follows the listing gate.
-- **Blurb backfill** (optional): cost-lean runner pattern = target only the ~115 crawl-catalog
+- **Blurb backfill** (optional): cost-lean runner pattern = target only the 500 crawl-catalog
   suburbs (`property_listings` sal link) + shim `agy --effort low` (~7s/call) ≈ 15–20 min ≈ $1–2,
   vs ~18h/$30–60 for the full priced set. No overwrite flag; a valid LLM `archetype_hint`
   OVERWRITES the classifier's background choice.
@@ -659,3 +744,85 @@ Cloud Run RPC volume for the page down to ~hourly worst case.
   export + KV'd actions (cacheable transport!) + `bailOnEmptyRender()` on the empty branch +
   add to warm-cache `STATIC_PAGES` + include its KV keys under `cache:housing:` so the crawl
   ping busts it for free.
+
+## 11. The council hub (`/housing/[state]/council[/slug]`) — decision record
+
+Decided 2026-09-24 (stream D of the housing council program, stacked on the
+council foundation: `lga` identity facts, `lga_series`, the mesh-block bridge).
+
+- **Two RPCs, no MV.** `ListCouncils(state)` serves the index table and the
+  council choropleth from ONE row shape (`CouncilSummary`); `GetCouncilProfile(state,
+  slug)` embeds that same row, so the page, the index and the map never disagree.
+  Measured on the local DB (566 councils, 15,329 bridge rows, 137k `lga_series`
+  rows): ListCouncils 12–100 ms per state (NSW, 129 councils, the slowest),
+  GetCouncilProfile 43–54 ms (Brisbane, 191 suburbs, the slowest). Under heavy
+  machine load (~30) NSW reached ~1 s once; the hazard CTE alone is 16–20 ms.
+  Well under the ~400 ms bar in normal conditions, so no `mv_lga_profile` and no
+  000127; the API's MemoryCache + the web KV layer absorb repeats.
+- **Membership = the bridge.** A suburb belongs to its dominant council and to any
+  council holding ≥ 5% of its residents (`councilMemberMinShare` =
+  `councilOverlapMinShare`, the same floor the suburb profile uses). Every rollup
+  weights a member by the residents it contributes (Census 2021 persons × share).
+- **Never smear.** The council median is ABS's council-wide figure, labelled
+  "council-wide" with its FY on every surface. The member-suburb table shows each
+  suburb's OWN Valuer-General median or nothing; the price rollup (min / median of
+  medians / max) uses dominant members only, unweighted.
+- **NULL ≠ 0 in rollups.** Hazard shares divide by the population of COVERED
+  members only (both numerator and denominator `FILTER`ed); a council with no
+  covered member gets NULL and hatches on the map. The index / choropleth share
+  (one number, no coverage beside it) is also NULL unless covered members hold
+  ≥ 50% of the council's member residents (`councilHazardMinCoverage`); the hub
+  rollup states "over N of M member suburbs" instead. Pinned by
+  `TestCouncilQueryShapes` (mutation-tested) and the temp-table
+  `TestCouncilHazardRollupNeedsCoverage`. **Deploy prerequisite:** until stream
+  E's NSW coverage mask is loaded, prod stores 0 (not NULL) for the 3,833 NSW
+  suburbs outside the 12 flood-mapped LEPs, so every NSW council would read
+  "0%" flood — load E's hazards before this ships.
+- **Price drops** are counted from the crawl tables (`councilDropsQuery`), NOT
+  summed from `mv_suburb_price_drops`: that view omits every suburb under 3 cuts,
+  so summing it lost exactly the cuts a council floor exists to pool (prod
+  2026-09-24: 65 cuts in 42 sub-floor suburbs across 24 councils; 12850 read 8
+  of 14) while their listings stayed in the denominator. The query applies the
+  views' own filters (address-deduped winner, 30-day events, 40% cap) and
+  decision 9's "active" (`is_active AND last_seen_at >= now() - 14 days`), over
+  dominant members (a listing sits at one address — never split by share), with
+  one council-total row per council from `GROUPING SETS`. The floor is 3 cut
+  listings COUNCIL-wide; a suburb is named only if it clears 3 itself; the median
+  cut is over every cut listing in the council. 30–100 ms per state on prod
+  (read-only `EXPLAIN ANALYZE`). Every drops read carries `as_of` (computation
+  time) and `data_through` (newest crawl observation behind it). The share obeys
+  `HOUSING_DROP_LISTINGS_ENABLED` like every crawl-derived read: off strips
+  `price_drops` and every `price_drop_share` outside the cache, on a clone
+  (`TestCouncilRPCs_HonourTheDropListingsKillSwitch`). Takedown: flip the switch,
+  then `?flush=housing` (KV `cache:housing:council*`) and revalidate
+  `/housing/[state]/council` and `/housing/[state]/council/[slug]` by name
+  (`/housing` does not cascade to them). The single call is in
+  [operations.md](operations.md#takedown) step 3. The hub's drops block and the
+  council maps' drops legend carry the /price-drops 72h stale notice
+  (`drops-freshness.ts`).
+- **Neighbours** merge two signals: suburb-topology adjacency (two councils'
+  dominant suburbs share an arc; `web/scripts/geo/build-lga-adjacency.mjs` →
+  `services/shorts/internal/store/shorts/lga_adjacency.json`, `go:embed`, 535
+  councils, symmetric, within a state) and straddling suburbs (the bridge; also
+  within a state, since a suburb and a council each nest in one state). So
+  cross-border pairs (Albury–Wodonga, Queanbeyan-Palerang–ACT, Tweed–Gold Coast)
+  are never neighbours, Unincorporated ACT has none, and the page says "in the
+  same state". Adjacency was chosen over straddle-only because the
+  straddle signal recovers only 39% of true borders and leaves 156 councils with
+  no neighbour at all. Regenerate the JSON whenever the suburb topology or the
+  bridge changes (`--check` fails on drift; `lga-adjacency.test.mjs`).
+- **Council geometry is derived, never shipped.** The map gets each suburb's
+  dominant council as one more suburb column (`lga_code`, ~18 KB/state) and
+  builds fills with `topojson.mergeArcs`, outlines with `merge`, borders with
+  `mesh` (1–22 ms per state). The outline is the union of dominant suburbs — the
+  ABS allocation's grain, not the gazetted line — and the map says so.
+- **Kinds.** Pages exist for `council` and `unincorporated`; pseudo areas never
+  get one (and never enter the sitemap). An unincorporated page says no council
+  governs it; `Unincorporated ACT` is explained as the ACT Government's area
+  (no councils; the ACT Government receives the FAG). The ACT has no council
+  level or borders on the map.
+- **Caching.** Server actions use the ISR-tagged transport + an Upstash
+  last-good layer under `cache:housing:council*` (so the crawl-event flush also
+  refreshes the drop rollups), written and read back only when populated. The
+  eight index pages join `isr-pages.json`; council pages are prebuilt by
+  `generateStaticParams` and otherwise on-demand ISR.

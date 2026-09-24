@@ -143,7 +143,7 @@ export default async function CapitalDetailPage({ params }: PageProps) {
   const hasSeries = Boolean(
     snapshot?.house ?? snapshot?.unit ?? snapshot?.restOfState,
   );
-  if (!hasSeries) bailOnEmptyRender();
+  if (!hasSeries) await bailOnEmptyRender();
 
   const house = snapshot?.house ?? null;
   const unit = snapshot?.unit ?? null;

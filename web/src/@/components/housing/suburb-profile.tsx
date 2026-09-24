@@ -29,7 +29,6 @@ import { SuburbPoliticianPropertyCard } from "@/components/politicians/suburb-po
 import Link from "next/link";
 import type {
   GetSuburbProfileResponse,
-  LgaInfo,
   SuburbCrime,
   SuburbDemographics,
   SuburbSeifa,
@@ -44,17 +43,22 @@ import { SuburbLocatorMap } from "./suburb-locator-map-loader";
 import { SuburbNearbyList } from "./suburb-nearby-list";
 import { SuburbScoreBand } from "./suburb-score-band";
 import { SuburbHazardCard } from "./suburb-hazard-card";
+import { SuburbCouncilCard } from "./suburb-council-card";
+import { SuburbPlanningCard } from "./suburb-planning-card";
+import { PLANNING_SOURCE_CREDITS, planningCreditIds } from "@/lib/housing/planning-sources";
+import { SuburbHousingStockCard, SuburbWhoLivesHereCard } from "./suburb-household-card";
 import { RecentPriceDrops } from "./suburb-recent-price-drops-loader";
-import { STATE_NAMES, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
-import { crimeRankScale } from "@/lib/housing/highlight-metrics";
+import { STATE_NAMES, splitSalName, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
+import { crimeRankScale, publishableNbnTech } from "@/lib/housing/highlight-metrics";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
+import { priceSeriesGap } from "@/lib/housing/price-coverage";
+import { CAPITALS } from "@/lib/housing/capitals";
 import { ordinal, type SuburbContext } from "@/lib/housing/suburb-stats";
 import { HousingIcon, type HousingIconName } from "./housing-icon";
 
 const fmtAUD = (v: number) =>
   v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M` : v >= 1_000 ? `$${Math.round(v / 1000)}k` : `$${Math.round(v)}`;
 const fmtMoney = (v: number) => `$${Math.round(v).toLocaleString()}`;
-const fmtSignedPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
 
 function fmtPeriod(seconds?: number | bigint): string | null {
   const n = Number(seconds ?? 0);
@@ -99,10 +103,32 @@ export function SuburbProfile({
   const chartRegion = priced ? regionForSeries : undefined;
   const asOf = fmtPeriod(s.latestPeriod?.seconds);
   const stateName = STATE_NAMES[st] ?? s.stateCode;
+  // The h1 carries the place; ABS's "(Qld)"-style qualifier only disambiguates
+  // repeated names, and the subtitle already names the state, so only an LGA
+  // part of it ("Glenroy (Albury - NSW)" → Albury) moves into the subtitle.
+  const { place, region } = splitSalName(s.salName);
+  const priceGap = priceSeriesGap(st, stateName, s.salName);
   const a = s.amenities;
 
-  const pctVs = (base?: number) => (priced && base && base > 0)
-    ? Math.round((s.latestMedianPrice / base - 1) * 100) : null;
+  // Price references: ABS established-house medians for the state's capital and
+  // the rest of the state. There is no open national median house price, so no
+  // "AU" price tick (the old one averaged NSW, VIC and SA suburbs).
+  const capitalSlug = CAPITALS.find((c) => c.regionCode === b?.capitalRegionCode)?.slug;
+  const priceRefs: CompareRef[] = [];
+  if (b?.capitalMedianPrice) {
+    const short = b.capitalRegionName.replace(/^Greater /, "");
+    priceRefs.push({
+      tick: short.length > 12 ? st : short, label: b.capitalRegionName, value: b.capitalMedianPrice,
+      href: capitalSlug ? `/housing/capitals/${capitalSlug}` : undefined,
+    });
+  }
+  if (b?.restOfStateMedianPrice) {
+    priceRefs.push({ tick: "Rest of state", label: b.restOfStateRegionName, value: b.restOfStateMedianPrice, dashed: true });
+  }
+  const incomeRefs: CompareRef[] = [
+    { tick: st, label: `${st} median suburb`, value: b?.stateMedianWeeklyHhdIncome ?? 0, href: st ? `/housing/${stateSlug(st)}` : undefined },
+    { tick: "AU", label: "AU median suburb", value: b?.nationalMedianWeeklyHhdIncome ?? 0, href: "/housing", dashed: true },
+  ];
 
   const repaymentsHref = priced
     ? `/housing/calculators?price=${Math.round(s.latestMedianPrice)}${st ? `&state=${st}` : ""}`
@@ -113,10 +139,9 @@ export function SuburbProfile({
       ? { text: `${value >= base ? "▲" : "▼"} ${Math.abs(Math.round((value / base - 1) * 100))}% vs ${st}`, positive: value >= base }
       : undefined;
 
-  // No `dwelling_count` tile: the column is NULL for every suburb in the corpus
-  // (see crawl_targets.go), and housing-link-network.test.ts pins it out.
-  // No "Born overseas" either — CultureCard owns the cultural figures, and it was
-  // appearing in both.
+  // Dwellings, tenure and the Census household mix live in the Housing stock and
+  // Who lives here cards below. No "Born overseas" here either — CultureCard
+  // owns the cultural figures, and it was appearing in both.
   const peopleTiles: Tile[] = [
     { label: "Population", value: d?.population ? d.population.toLocaleString() : "—", icon: "population" },
     { label: "Median age", value: d?.medianAge ? `${d.medianAge} yrs` : "—", icon: "age" },
@@ -139,8 +164,8 @@ export function SuburbProfile({
   return (
     <div className="space-y-6">
       <SuburbBanner
-        name={s.salName}
-        sub={`${stateName}${s.postcode ? ` · ${s.postcode}` : ""}${d?.censusYear ? ` · Census ${d.censusYear}` : ""}`}
+        name={place}
+        sub={`${region ? `${region} · ` : ""}${stateName}${s.postcode ? ` · ${s.postcode}` : ""}${d?.censusYear ? ` · Census ${d.censusYear}` : ""}`}
         stat={priced ? fmtAUD(s.latestMedianPrice) : undefined}
         statDelta={priced && s.yoyPct !== 0
           ? { text: `${s.yoyPct >= 0 ? "+" : ""}${s.yoyPct.toFixed(1)}% yr`, positive: s.yoyPct >= 0 }
@@ -197,20 +222,20 @@ export function SuburbProfile({
                 </div>
                 <p className="mt-3 text-[11px] text-muted-foreground">
                   Rolling median of settled transfers, state Valuer-General open data (CC BY 4.0).
-                  {b?.stateMedianPrice ? ` ${stateName} average of suburb medians: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}
+                  {b?.stateMedianPrice ? ` Median of ${stateName} suburb medians: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}
                 </p>
               </>
             ) : (
               <>
                 <div className="flex flex-col items-center justify-center gap-1 py-8 text-center text-sm text-muted-foreground">
-                  <p>No median price series for {s.salName} yet.</p>
-                  <p className="text-xs">Valuer-General pricing is unavailable for this suburb.{b?.stateMedianPrice ? ` ${stateName} average of suburb medians: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}</p>
+                  <p>{priceGap.headline}</p>
+                  <p className="text-xs [text-wrap:pretty]">{priceGap.detail}{b?.capitalMedianPrice ? ` ABS median established-house price, ${b.capitalRegionName}: ${fmtPriceShort(b.capitalMedianPrice)}${b.restOfStateMedianPrice ? `; ${b.restOfStateRegionName}: ${fmtPriceShort(b.restOfStateMedianPrice)}` : ""}.` : ""}</p>
                 </div>
                 {/* The only price signal these suburbs have. Rendered here, and
                     only here, so it can never sit beside an official median. */}
                 <SuburbListingEstimate
                   stats={data.listingStats}
-                  suburbName={titleCaseName(s.salName)}
+                  suburbName={s.salName}
                   fmt={fmtAUD}
                 />
               </>
@@ -241,22 +266,27 @@ export function SuburbProfile({
                 {priced ? (
                   <CompareBar
                     label="Median house price" name={s.salName} suburb={s.latestMedianPrice}
-                    state={b?.stateMedianPrice ?? 0} nation={b?.nationalMedianPrice ?? 0}
-                    stateCode={st} stateHref={st ? `/housing/${stateSlug(st)}` : undefined} nationHref="/housing"
-                    fmt={fmtAUD} deltaState={pctVs(b?.stateMedianPrice)} deltaNation={pctVs(b?.nationalMedianPrice)}
+                    refs={priceRefs} fmt={fmtAUD} showDeltas
                   />
                 ) : null}
                 <CompareBar
                   label="Household income / wk" name={s.salName} suburb={d?.medianWeeklyHhdIncome ?? 0}
-                  state={b?.stateMedianWeeklyHhdIncome ?? 0} nation={b?.nationalMedianWeeklyHhdIncome ?? 0}
-                  stateCode={st} stateHref={st ? `/housing/${stateSlug(st)}` : undefined} nationHref="/housing" fmt={fmtMoney}
+                  refs={incomeRefs} fmt={fmtMoney}
                 />
               </div>
               <p className="mt-4 text-[11px] text-muted-foreground [text-wrap:pretty]">
                 Percentiles rank this suburb against {stateName} suburbs that carry the metric —
-                never across states, and never against suburbs where it is missing. The state and
-                national figures are the average of the latest suburb medians in that area, not a
-                transaction-weighted median.
+                never across states, and never against suburbs where it is missing.
+                {priceRefs.length > 0 ? (
+                  <>
+                    {" "}Price references are ABS median established-house transfer prices
+                    {b?.absMedianPeriod ? ` for the ${quarterLabel(b.absMedianPeriod)} quarter` : ""} (CC BY 4.0);
+                    the suburb figure is a Valuer-General median over a different window, so read
+                    the gap as indicative.
+                  </>
+                ) : null}
+                {" "}Income references are the Census 2021 median of the middle suburb in {stateName} and
+                nationally, not a household-weighted median.
               </p>
             </div>
           ) : null}
@@ -269,11 +299,16 @@ export function SuburbProfile({
             </section>
           ) : null}
 
+          <SuburbWhoLivesHereCard d={d} state={b?.stateCensus} stateCode={st} />
+          <SuburbHousingStockCard d={d} state={b?.stateCensus} stateCode={st} />
+
           <SeifaProfile seifa={s.seifa} stateName={stateName} />
 
           <SuburbHazardCard elevation={data.elevation} hazards={data.hazards} stateCode={st} salCode={s.salCode} />
 
-          {a ? <AmenitiesGroup a={a} nbn={s.dominantNbnTech} /> : null}
+          <SuburbPlanningCard planning={data.planning} stateCode={st} salCode={s.salCode} />
+
+          {a ? <AmenitiesGroup a={a} nbn={publishableNbnTech(s.dominantNbnTech, d?.population ?? 0) ?? undefined} /> : null}
 
           <div className="grid gap-6 sm:grid-cols-2">
             {d ? <CultureCard d={d} /> : null}
@@ -281,7 +316,7 @@ export function SuburbProfile({
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2">
-            {data.council?.lgaName ? <CouncilCard c={data.council} /> : null}
+            {data.council?.lgaName ? <SuburbCouncilCard council={data.council} overlaps={data.councilOverlaps} /> : null}
             <FederalRep s={s} />
           </div>
 
@@ -312,7 +347,7 @@ export function SuburbProfile({
                   <Link key={n.salCode} href={suburbHref(n.stateCode, { salName: n.salName, salCode: n.salCode, postcode: "" })}
                     className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground">
                     <span className="truncate">
-                      {titleCaseName(n.salName)} <span className="text-[10px] uppercase text-muted-foreground">{n.stateCode}</span>
+                      {n.salName} <span className="text-[10px] uppercase text-muted-foreground">{n.stateCode}</span>
                     </span>
                     <span className="shrink-0 font-mono text-[11px] tabular-nums">
                       {n.latestMedianPrice > 0 ? fmtPriceShort(n.latestMedianPrice) : `${Math.round(n.similarity * 100)}% match`}
@@ -340,6 +375,7 @@ export function SuburbProfile({
         hasTerrain={data.elevation?.elevationMedianM !== undefined}
         hasWaterObservations={data.hazards?.waterObservedSharePct !== undefined}
         statutoryHazardSources={[data.hazards?.floodSource, data.hazards?.bushfireSource].filter(Boolean) as string[]}
+        planningSources={planningCreditIds(data.planning)}
         stateName={stateName}
       />
     </div>
@@ -471,6 +507,13 @@ const CRIME_LABELS: Record<string, string> = {
   break_ins: "Break-ins",
   violent: "Violent crime",
   motor_vehicle: "Car theft",
+  property_damage: "Property damage",
+};
+/** A type the table above has not caught up with still reads as a label
+ * ("Fraud"), not as a raw key in lower case. */
+const crimeLabel = (type: string) => {
+  const fallback = type.replace(/_/g, " ");
+  return CRIME_LABELS[type] ?? fallback.charAt(0).toUpperCase() + fallback.slice(1);
 };
 const fyLabel = (fy: number) => `FY${fy - 1}–${String(fy).slice(2)}`;
 
@@ -509,13 +552,15 @@ export function CrimeCard({ crime }: { crime: Crime | undefined }) {
   return (
     <section>
       <SectionHeading icon="dwellings">Crime &amp; safety</SectionHeading>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* Four types (property damage joined the three originals) sit 2×2 then
+          in one row; a 3-column grid left the fourth card alone on a line. */}
+      <div className={`grid gap-3 ${stats.length >= 4 ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"}`}>
         {stats.map((c) => {
           const swatch = String(rankScale(c.pctRank));
           return (
             <div key={c.crimeType} className="rounded-lg border border-border bg-card p-4">
               <div className="text-xs text-muted-foreground">
-                {CRIME_LABELS[c.crimeType] ?? c.crimeType.replace(/_/g, " ")}
+                {crimeLabel(c.crimeType)}
               </div>
               <div className="mt-1 font-mono text-lg tabular-nums text-foreground">
                 {Math.round(c.ratePer100k).toLocaleString()}
@@ -557,33 +602,6 @@ function FederalRep({ s }: { s: Summary }) {
         <CultureRow label="Two-party-preferred" value={lean} />
         <CultureRow label="State electorate" value={s.stateDistrict || "—"} />
         <CultureRow label="State MP" value={s.stateMember ? `${titleCaseName(s.stateMember)}${s.statePartyAb ? ` (${s.statePartyAb})` : ""}` : "—"} />
-      </DlCard>
-    </section>
-  );
-}
-
-type Council = LgaInfo;
-function CouncilCard({ c }: { c: Council }) {
-  if (!c.lgaName) return null;
-  return (
-    <section>
-      <SectionHeading icon="council">Local council</SectionHeading>
-      <DlCard
-        footnote={`Council boundary: ABS ASGS LGA 2024. Federal grants: Financial Assistance Grants, Dept of Infrastructure.${
-          c.finSource === "vic_lgprf" ? ` Financials: VIC Local Government Performance Reporting${c.finYear ? ` ${c.finYear}` : ""}, Local Government Victoria.` : ""
-        } All CC BY 4.0.`}
-      >
-        <CultureRow label="Council (LGA)" value={c.lgaName} />
-        <CultureRow label="Population / area" value={c.population > 0 ? `${c.population.toLocaleString()}${c.areaSqkm > 0 ? ` · ${Math.round(c.areaSqkm).toLocaleString()} km²` : ""}` : "—"} />
-        <CultureRow label="Density" value={c.population > 0 && c.areaSqkm > 0 ? `${Math.round(c.population / c.areaSqkm).toLocaleString()}/km²` : "—"} />
-        <CultureRow label="Federal grants" value={c.fedFagAud > 0 ? `${fmtAUD(c.fedFagAud)}/yr${c.population > 0 ? ` · ${fmtMoney(c.fedFagAud / c.population)}/resident` : ""}` : "—"} />
-        {c.avgRates > 0 ? (
-          <>
-            <CultureRow label="Avg rates / property" value={fmtMoney(c.avgRates)} />
-            <CultureRow label="Operating result" value={fmtSignedPct(c.opSurplusRatio)} />
-            <CultureRow label="Asset renewal" value={`${Math.round(c.assetRenewalRatio)}%`} />
-          </>
-        ) : null}
       </DlCard>
     </section>
   );
@@ -641,16 +659,18 @@ function AmenitiesGroup({ a, nbn }: { a: NonNullable<Summary["amenities"]>; nbn?
 
 function SchoolSectorCard({ a }: { a: NonNullable<Summary["amenities"]> }) {
   const total = a.schoolsGov + a.schoolsCatholic + a.schoolsIndependent;
-  // Coverage signal: uncovered states scan to 0 across the board; require some
-  // sector data (or a nearest-secondary) before rendering. Scoped to VIC & QLD.
+  // Coverage signal: a suburb with no ACARA school inside it scans to 0 across
+  // the board; require some sector data (or a nearest-secondary) before
+  // rendering. ACARA covers every state (prod 2026-09-24: sector counts on
+  // 4,940 suburbs, nearest-secondary on 15,320).
   if (total <= 0 && !(a.nearestSecondaryKm > 0)) return null;
   return (
     <section>
       <SectionHeading icon="school">Schools by sector</SectionHeading>
       <DlCard footnote="School sector & type: ACARA (Australian Curriculum, Assessment and Reporting Authority), School Location dataset.">
-        {/* NSW publishes no ACARA sector split, so these render 0 / 0 / 0 there.
-            A row of zeros is a claim that the suburb has no schools, which is
-            false — it means we have no sector data. Show them only when we do. */}
+        {/* A suburb with no school inside it reads 0 / 0 / 0. A row of zeros
+            reads as a claim, so the counts show only when there is at least one
+            school; the nearest-secondary distance still renders without them. */}
         {total > 0 ? (
           <>
             <CultureRow label="Government / Catholic / Indep." value={`${a.schoolsGov} / ${a.schoolsCatholic} / ${a.schoolsIndependent}`} />
@@ -798,56 +818,75 @@ function FilledMetricTrack({
  * which put the national mark at 1.71:1 on the track and left no way to tell
  * which mark was which.
  */
+type CompareRef = {
+  /** Short label on the tick above the bar. */
+  tick: string;
+  /** Full label in the figures line and the delta text. */
+  label: string;
+  value: number;
+  href?: string;
+  dashed?: boolean;
+};
+
+const quarterLabel = (isoDate: string) => {
+  const [y, m] = isoDate.split("-").map(Number);
+  return y && m ? `${["Mar", "Jun", "Sep", "Dec"][Math.floor((m - 1) / 3)]} ${y}` : isoDate;
+};
+
+/**
+ * The suburb's figure as a filled bar, with each reference as a tick. The
+ * references are named in full under the bar, and every one is labelled by what
+ * it is (an ABS region, the median suburb) rather than a bare state code.
+ */
 function CompareBar({
-  label, name, suburb, state, nation, fmt, stateCode, stateHref, nationHref, deltaState, deltaNation,
+  label, name, suburb, refs, fmt, showDeltas = false,
 }: {
-  label: string; name: string; suburb: number; state: number; nation: number; fmt: (v: number) => string;
-  stateCode: string; stateHref?: string; nationHref?: string;
-  deltaState?: number | null; deltaNation?: number | null;
+  label: string; name: string; suburb: number; refs: CompareRef[]; fmt: (v: number) => string; showDeltas?: boolean;
 }) {
   if (suburb <= 0) return null;
-  const max = Math.max(suburb, state, nation) * 1.02;
+  const shown = refs.filter((r) => r.value > 0);
+  const max = Math.max(suburb, ...shown.map((r) => r.value)) * 1.02;
   const share = (v: number) => Math.min(100, Math.max(0, (v / max) * 100));
   const pctOf = (v: number) => `${share(v)}%`;
+  const deltas = showDeltas
+    ? shown.map((r) => ({ label: r.label, pct: Math.round((suburb / r.value - 1) * 100) }))
+    : [];
+  // Two references that close overlap into an unreadable smudge; below the
+  // collision threshold they share one tick and one label.
+  const collide = shown.length === 2 && Math.abs(share(shown[0]!.value) - share(shown[1]!.value)) < 9;
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-xs text-foreground">{label}</span>
-        <span className="text-[11px] text-muted-foreground">
-          {typeof deltaState === "number" ? (
-            <><span className="font-semibold text-primary">{deltaState >= 0 ? "+" : ""}{deltaState}%</span> vs {stateCode}</>
-          ) : null}
-          {typeof deltaState === "number" && typeof deltaNation === "number" ? " · " : null}
-          {typeof deltaNation === "number" ? (
-            <><span className="font-semibold text-primary">{deltaNation >= 0 ? "+" : ""}{deltaNation}%</span> vs AU</>
-          ) : null}
+        <span className="text-right text-[11px] text-muted-foreground">
+          {deltas.map((dl, i) => (
+            <span key={dl.label}>
+              {i > 0 ? " · " : null}
+              <span className="font-semibold text-primary">{dl.pct >= 0 ? "+" : ""}{dl.pct}%</span> vs {dl.label}
+            </span>
+          ))}
         </span>
       </div>
       <FilledMetricTrack fillPercent={share(suburb)}>
-        {/* The two baselines are usually within a few percent of each other, and
-            two labels that close overlap into an unreadable smudge. Below the
-            collision threshold they share one label and one tick. */}
-        {state > 0 && nation > 0 && Math.abs(share(state) - share(nation)) < 9 ? (
-          <Baseline label={`AU · ${stateCode}`} left={pctOf((state + nation) / 2)} dashed={false} />
+        {collide ? (
+          <Baseline label={`${shown[0]!.tick} · ${shown[1]!.tick}`} left={pctOf((shown[0]!.value + shown[1]!.value) / 2)} dashed={false} />
         ) : (
-          <>
-            {state > 0 ? <Baseline label={stateCode} left={pctOf(state)} dashed={false} /> : null}
-            {nation > 0 ? <Baseline label="AU" left={pctOf(nation)} dashed /> : null}
-          </>
+          shown.map((r) => <Baseline key={r.label} label={r.tick} left={pctOf(r.value)} dashed={Boolean(r.dashed)} />)
         )}
       </FilledMetricTrack>
       <div className="mt-1 flex justify-between gap-3 font-mono text-[10px] tabular-nums text-muted-foreground">
         <span>
-          {nation > 0 ? (
-            nationHref ? <Link href={nationHref} className="hit-target underline-offset-2 hover:text-foreground hover:underline">AU {fmt(nation)}</Link> : `AU ${fmt(nation)}`
-          ) : null}
-          {nation > 0 && state > 0 ? " · " : null}
-          {state > 0 ? (
-            stateHref ? <Link href={stateHref} className="hit-target underline-offset-2 hover:text-foreground hover:underline">{stateCode} {fmt(state)}</Link> : `${stateCode} ${fmt(state)}`
-          ) : null}
+          {shown.map((r, i) => (
+            <span key={r.label}>
+              {i > 0 ? " · " : null}
+              {r.href ? (
+                <Link href={r.href} className="hit-target underline-offset-2 hover:text-foreground hover:underline">{r.label} {fmt(r.value)}</Link>
+              ) : `${r.label} ${fmt(r.value)}`}
+            </span>
+          ))}
         </span>
         <span className="truncate font-semibold text-foreground">
-          {titleCaseName(name)} {fmt(suburb)}
+          {name} {fmt(suburb)}
         </span>
       </div>
     </div>
@@ -884,17 +923,29 @@ function Baseline({ label, left, dashed }: { label: string; left: string; dashed
 // Attribution strings keyed by SuburbHazardExposure source ids. Each is a
 // licence obligation of the dataset it names; an id absent here credits nothing
 // rather than something wrong.
-const STATUTORY_HAZARD_CREDITS: Record<string, string> = {
-  nsw_epi_flood: "NSW Environmental Planning Instrument — Flood, NSW Department of Planning",
-  vic_plan_overlay_lsio_fo_sbo: "Vicmap Planning overlays, Department of Transport and Planning Victoria",
-  nsw_bfpl: "NSW Bush Fire Prone Land, NSW Rural Fire Service",
-  vic_plan_overlay_bmo: "Vicmap Planning Bushfire Management Overlay, Department of Transport and Planning Victoria",
+const STATUTORY_HAZARD_CREDITS: Record<string, { credit: string; licence: string }> = {
+  nsw_epi_flood: { credit: "NSW Environmental Planning Instrument — Flood, NSW Department of Planning", licence: "CC BY 4.0" },
+  vic_plan_overlay_lsio_fo_sbo: { credit: "Vicmap Planning overlays, Department of Transport and Planning Victoria", licence: "CC BY 4.0" },
+  sa_pdcode_hazards_flooding: { credit: "Planning and Design Code overlays (Hazards — Flooding, and Flooding — General), Government of South Australia", licence: "CC BY 3.0 AU" },
+  tas_tps_flood_prone: { credit: "Tasmanian Planning Scheme — Code Overlay (Flood-prone Areas), Tasmanian Planning Commission via theLIST", licence: "CC BY 3.0 AU" },
+  act_flood_extent_1pct_aep: { credit: "ACT Flood Extent Model (1% AEP), ACT Government", licence: "CC BY 4.0" },
+  nsw_bfpl: { credit: "NSW Bush Fire Prone Land, NSW Rural Fire Service", licence: "CC BY 4.0" },
+  vic_bpa: { credit: "Designated Bushfire Prone Area, Department of Transport and Planning Victoria", licence: "CC BY 4.0" },
+  qld_qfd_bpa: { credit: "Bushfire Prone Area — Queensland series, Queensland Fire Department", licence: "CC BY 4.0" },
+  sa_pdcode_hazards_bushfire: { credit: "Planning and Design Code overlays (Hazards — Bushfire), Government of South Australia", licence: "CC BY 3.0 AU" },
+  wa_obrm_026_bpa: { credit: "Bush Fire Prone Areas (OBRM-026), Office of Bushfire Risk Management WA", licence: "CC BY 4.0" },
+  tas_tps_bushfire_prone: { credit: "Tasmanian Planning Scheme — Code Overlay (Bushfire-prone Areas), Tasmanian Planning Commission via theLIST", licence: "CC BY 3.0 AU" },
+  act_bpa_2026: { credit: "Bushfire Prone Area 2026, ACT Government", licence: "CC BY 4.0" },
+  // Retired id (VIC bushfire before the switch to the BPA). Rows loaded earlier
+  // carry it until the next -mode hazards load, and attribution must not lapse
+  // in between, so the web can deploy before the data.
+  vic_plan_overlay_bmo: { credit: "Vicmap Planning Bushfire Management Overlay, Department of Transport and Planning Victoria", licence: "CC BY 4.0" },
 };
 
 export function SourcesLine({
   censusYear, hasCensus, hasPrice, hasAmenities, hasSchoolSectors,
   hasFederal, hasStateMember, hasTerrain = false, hasWaterObservations = false,
-  statutoryHazardSources = [], stateName,
+  statutoryHazardSources = [], planningSources = [], stateName,
 }: {
   censusYear?: number;
   hasCensus: boolean;
@@ -907,8 +958,10 @@ export function SourcesLine({
   hasTerrain?: boolean;
   /** DEA Water Observations share rendered on the page. */
   hasWaterObservations?: boolean;
-  /** Source ids from SuburbHazardExposure (flood_source / bushfire_source) actually rendered. */
+  /** Source ids from SuburbHazardExposure (flood_source / bushfire_source): a share or a "Not mapped" tile read off that layer. */
   statutoryHazardSources?: string[];
+  /** Planning source ids the planning card rendered (planningCreditIds). */
+  planningSources?: string[];
   stateName: string;
 }) {
   const parts: ReactNode[] = [];
@@ -939,8 +992,12 @@ export function SourcesLine({
   if (hasTerrain) parts.push(<>Geoscience Australia 1 Second DEM-S (CC BY 4.0)</>);
   if (hasWaterObservations) parts.push(<>DEA Water Observations Statistics, Geoscience Australia (CC BY 4.0)</>);
   for (const id of new Set(statutoryHazardSources)) {
-    const credit = STATUTORY_HAZARD_CREDITS[id];
-    if (credit) parts.push(<>{credit} (CC BY 4.0)</>);
+    const entry = STATUTORY_HAZARD_CREDITS[id];
+    if (entry) parts.push(<>{entry.credit} ({entry.licence})</>);
+  }
+  for (const id of new Set(planningSources)) {
+    const source = PLANNING_SOURCE_CREDITS[id];
+    if (source) parts.push(<>{source.credit} ({source.licence})</>);
   }
   if (hasStateMember) {
     parts.push(

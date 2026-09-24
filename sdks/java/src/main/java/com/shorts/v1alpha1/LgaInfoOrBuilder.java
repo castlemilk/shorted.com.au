@@ -54,7 +54,7 @@ public interface LgaInfoOrBuilder extends
 
   /**
    * <pre>
-   * summed from member-suburb Census populations
+   * ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded
    * </pre>
    *
    * <code>int32 population = 5 [json_name = "population"];</code>
@@ -161,4 +161,382 @@ public interface LgaInfoOrBuilder extends
    */
   com.google.protobuf.ByteString
       getFinYearBytes();
+
+  /**
+   * <pre>
+   * Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+   * 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+   * </pre>
+   *
+   * <code>string slug = 13 [json_name = "slug"];</code>
+   * @return The slug.
+   */
+  java.lang.String getSlug();
+  /**
+   * <pre>
+   * Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+   * 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+   * </pre>
+   *
+   * <code>string slug = 13 [json_name = "slug"];</code>
+   * @return The bytes for slug.
+   */
+  com.google.protobuf.ByteString
+      getSlugBytes();
+
+  /**
+   * <pre>
+   * ABS name without the state suffix: 'Campbelltown'
+   * </pre>
+   *
+   * <code>string display_name = 14 [json_name = "displayName"];</code>
+   * @return The displayName.
+   */
+  java.lang.String getDisplayName();
+  /**
+   * <pre>
+   * ABS name without the state suffix: 'Campbelltown'
+   * </pre>
+   *
+   * <code>string display_name = 14 [json_name = "displayName"];</code>
+   * @return The bytes for displayName.
+   */
+  com.google.protobuf.ByteString
+      getDisplayNameBytes();
+
+  /**
+   * <pre>
+   * council | unincorporated | pseudo
+   * </pre>
+   *
+   * <code>string kind = 15 [json_name = "kind"];</code>
+   * @return The kind.
+   */
+  java.lang.String getKind();
+  /**
+   * <pre>
+   * council | unincorporated | pseudo
+   * </pre>
+   *
+   * <code>string kind = 15 [json_name = "kind"];</code>
+   * @return The bytes for kind.
+   */
+  com.google.protobuf.ByteString
+      getKindBytes();
+
+  /**
+   * <pre>
+   * Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,
+   * never a measured zero.
+   * </pre>
+   *
+   * <code>int32 erp_year = 16 [json_name = "erpYear"];</code>
+   * @return The erpYear.
+   */
+  int getErpYear();
+
+  /**
+   * <pre>
+   * ERP year-on-year change, %
+   * </pre>
+   *
+   * <code>optional double pop_growth_pct = 17 [json_name = "popGrowthPct"];</code>
+   * @return Whether the popGrowthPct field is set.
+   */
+  boolean hasPopGrowthPct();
+  /**
+   * <pre>
+   * ERP year-on-year change, %
+   * </pre>
+   *
+   * <code>optional double pop_growth_pct = 17 [json_name = "popGrowthPct"];</code>
+   * @return The popGrowthPct.
+   */
+  double getPopGrowthPct();
+
+  /**
+   * <pre>
+   * Census 2021
+   * </pre>
+   *
+   * <code>optional double median_age = 18 [json_name = "medianAge"];</code>
+   * @return Whether the medianAge field is set.
+   */
+  boolean hasMedianAge();
+  /**
+   * <pre>
+   * Census 2021
+   * </pre>
+   *
+   * <code>optional double median_age = 18 [json_name = "medianAge"];</code>
+   * @return The medianAge.
+   */
+  double getMedianAge();
+
+  /**
+   * <pre>
+   * Census 2021, $/week
+   * </pre>
+   *
+   * <code>optional int32 median_hhd_income = 19 [json_name = "medianHhdIncome"];</code>
+   * @return Whether the medianHhdIncome field is set.
+   */
+  boolean hasMedianHhdIncome();
+  /**
+   * <pre>
+   * Census 2021, $/week
+   * </pre>
+   *
+   * <code>optional int32 median_hhd_income = 19 [json_name = "medianHhdIncome"];</code>
+   * @return The medianHhdIncome.
+   */
+  int getMedianHhdIncome();
+
+  /**
+   * <pre>
+   * Census 2021, % of households renting
+   * </pre>
+   *
+   * <code>optional double pct_rented = 20 [json_name = "pctRented"];</code>
+   * @return Whether the pctRented field is set.
+   */
+  boolean hasPctRented();
+  /**
+   * <pre>
+   * Census 2021, % of households renting
+   * </pre>
+   *
+   * <code>optional double pct_rented = 20 [json_name = "pctRented"];</code>
+   * @return The pctRented.
+   */
+  double getPctRented();
+
+  /**
+   * <pre>
+   * Census 2021, $/week
+   * </pre>
+   *
+   * <code>optional int32 median_weekly_rent = 21 [json_name = "medianWeeklyRent"];</code>
+   * @return Whether the medianWeeklyRent field is set.
+   */
+  boolean hasMedianWeeklyRent();
+  /**
+   * <pre>
+   * Census 2021, $/week
+   * </pre>
+   *
+   * <code>optional int32 median_weekly_rent = 21 [json_name = "medianWeeklyRent"];</code>
+   * @return The medianWeeklyRent.
+   */
+  int getMedianWeeklyRent();
+
+  /**
+   * <pre>
+   * Census 2021, $/month
+   * </pre>
+   *
+   * <code>optional int32 median_mortgage_monthly = 22 [json_name = "medianMortgageMonthly"];</code>
+   * @return Whether the medianMortgageMonthly field is set.
+   */
+  boolean hasMedianMortgageMonthly();
+  /**
+   * <pre>
+   * Census 2021, $/month
+   * </pre>
+   *
+   * <code>optional int32 median_mortgage_monthly = 22 [json_name = "medianMortgageMonthly"];</code>
+   * @return The medianMortgageMonthly.
+   */
+  int getMedianMortgageMonthly();
+
+  /**
+   * <pre>
+   * Census 2021, persons
+   * </pre>
+   *
+   * <code>optional double avg_household_size = 23 [json_name = "avgHouseholdSize"];</code>
+   * @return Whether the avgHouseholdSize field is set.
+   */
+  boolean hasAvgHouseholdSize();
+  /**
+   * <pre>
+   * Census 2021, persons
+   * </pre>
+   *
+   * <code>optional double avg_household_size = 23 [json_name = "avgHouseholdSize"];</code>
+   * @return The avgHouseholdSize.
+   */
+  double getAvgHouseholdSize();
+
+  /**
+   * <pre>
+   * SEIFA 2021 IRSAD, national decile 1..10
+   * </pre>
+   *
+   * <code>optional int32 seifa_irsad_decile = 24 [json_name = "seifaIrsadDecile"];</code>
+   * @return Whether the seifaIrsadDecile field is set.
+   */
+  boolean hasSeifaIrsadDecile();
+  /**
+   * <pre>
+   * SEIFA 2021 IRSAD, national decile 1..10
+   * </pre>
+   *
+   * <code>optional int32 seifa_irsad_decile = 24 [json_name = "seifaIrsadDecile"];</code>
+   * @return The seifaIrsadDecile.
+   */
+  int getSeifaIrsadDecile();
+
+  /**
+   * <pre>
+   * SEIFA 2021 IRSD, national decile 1..10
+   * </pre>
+   *
+   * <code>optional int32 seifa_irsd_decile = 25 [json_name = "seifaIrsdDecile"];</code>
+   * @return Whether the seifaIrsdDecile field is set.
+   */
+  boolean hasSeifaIrsdDecile();
+  /**
+   * <pre>
+   * SEIFA 2021 IRSD, national decile 1..10
+   * </pre>
+   *
+   * <code>optional int32 seifa_irsd_decile = 25 [json_name = "seifaIrsdDecile"];</code>
+   * @return The seifaIrsdDecile.
+   */
+  int getSeifaIrsdDecile();
+
+  /**
+   * <pre>
+   * official website (Wikidata P856, CC0); '' if none
+   * </pre>
+   *
+   * <code>string website = 26 [json_name = "website"];</code>
+   * @return The website.
+   */
+  java.lang.String getWebsite();
+  /**
+   * <pre>
+   * official website (Wikidata P856, CC0); '' if none
+   * </pre>
+   *
+   * <code>string website = 26 [json_name = "website"];</code>
+   * @return The bytes for website.
+   */
+  com.google.protobuf.ByteString
+      getWebsiteBytes();
+
+  /**
+   * <pre>
+   * e.g. 'Q1719401'; '' if none
+   * </pre>
+   *
+   * <code>string wikidata_qid = 27 [json_name = "wikidataQid"];</code>
+   * @return The wikidataQid.
+   */
+  java.lang.String getWikidataQid();
+  /**
+   * <pre>
+   * e.g. 'Q1719401'; '' if none
+   * </pre>
+   *
+   * <code>string wikidata_qid = 27 [json_name = "wikidataQid"];</code>
+   * @return The bytes for wikidataQid.
+   */
+  com.google.protobuf.ByteString
+      getWikidataQidBytes();
+
+  /**
+   * <pre>
+   * area-weighted centroid of the ABS boundary
+   * </pre>
+   *
+   * <code>optional double centroid_lat = 28 [json_name = "centroidLat"];</code>
+   * @return Whether the centroidLat field is set.
+   */
+  boolean hasCentroidLat();
+  /**
+   * <pre>
+   * area-weighted centroid of the ABS boundary
+   * </pre>
+   *
+   * <code>optional double centroid_lat = 28 [json_name = "centroidLat"];</code>
+   * @return The centroidLat.
+   */
+  double getCentroidLat();
+
+  /**
+   * <code>optional double centroid_lon = 29 [json_name = "centroidLon"];</code>
+   * @return Whether the centroidLon field is set.
+   */
+  boolean hasCentroidLon();
+  /**
+   * <code>optional double centroid_lon = 29 [json_name = "centroidLon"];</code>
+   * @return The centroidLon.
+   */
+  double getCentroidLon();
+
+  /**
+   * <pre>
+   * Share (0..1] of THIS suburb's residents who live in this council (ABS
+   * mesh-block allocation, Census 2021 persons). Absent outside a suburb profile.
+   * </pre>
+   *
+   * <code>optional double dominant_share = 30 [json_name = "dominantShare"];</code>
+   * @return Whether the dominantShare field is set.
+   */
+  boolean hasDominantShare();
+  /**
+   * <pre>
+   * Share (0..1] of THIS suburb's residents who live in this council (ABS
+   * mesh-block allocation, Census 2021 persons). Absent outside a suburb profile.
+   * </pre>
+   *
+   * <code>optional double dominant_share = 30 [json_name = "dominantShare"];</code>
+   * @return The dominantShare.
+   */
+  double getDominantShare();
+
+  /**
+   * <pre>
+   * Latest ABS 'Data by Region' median established-house transfer price for
+   * the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+   * present it as this suburb's median.
+   * </pre>
+   *
+   * <code>optional double council_house_median = 31 [json_name = "councilHouseMedian"];</code>
+   * @return Whether the councilHouseMedian field is set.
+   */
+  boolean hasCouncilHouseMedian();
+  /**
+   * <pre>
+   * Latest ABS 'Data by Region' median established-house transfer price for
+   * the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+   * present it as this suburb's median.
+   * </pre>
+   *
+   * <code>optional double council_house_median = 31 [json_name = "councilHouseMedian"];</code>
+   * @return The councilHouseMedian.
+   */
+  double getCouncilHouseMedian();
+
+  /**
+   * <pre>
+   * e.g. '2023-24'; '' if none
+   * </pre>
+   *
+   * <code>string council_house_median_period = 32 [json_name = "councilHouseMedianPeriod"];</code>
+   * @return The councilHouseMedianPeriod.
+   */
+  java.lang.String getCouncilHouseMedianPeriod();
+  /**
+   * <pre>
+   * e.g. '2023-24'; '' if none
+   * </pre>
+   *
+   * <code>string council_house_median_period = 32 [json_name = "councilHouseMedianPeriod"];</code>
+   * @return The bytes for councilHouseMedianPeriod.
+   */
+  com.google.protobuf.ByteString
+      getCouncilHouseMedianPeriodBytes();
 }

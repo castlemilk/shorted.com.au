@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { suburbHref, titleCaseName } from "~/@/lib/housing/states";
+import { suburbHref } from "~/@/lib/housing/states";
 import type {
   RankedSuburb,
   RankingMetric,
@@ -101,7 +101,7 @@ export function HousingRankingTable({
                   href={suburbHref(row.stateCode, row)}
                   className="text-primary hover:underline"
                 >
-                  {titleCaseName(row.salName)}
+                  {row.salName}
                 </Link>
               </th>
               <td className="hidden px-3 py-2 text-muted-foreground sm:table-cell">

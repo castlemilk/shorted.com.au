@@ -394,6 +394,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				AvgSold:      p.ListingStats.AvgSold,
 				MedianSold:   p.ListingStats.MedianSold,
 			}
+			listingStats.AsOf, listingStats.DataThrough = s.dropsFreshness(mvSuburbListingStats)
 		}
 		demographics := &shortsv1alpha1.SuburbDemographics{
 			Population: p.Summary.Population, MedianAge: p.Summary.MedianAge,
@@ -415,6 +416,13 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				StateMedianPrice: p.StateMedianPrice, NationalMedianPrice: p.NationalMedianPrice,
 				StateMedianWeeklyHhdIncome:    p.StateMedianHhdIncome,
 				NationalMedianWeeklyHhdIncome: p.NationalMedianHhdIncome,
+				CapitalMedianPrice:            p.CapitalMedianPrice,
+				CapitalRegionName:             p.CapitalRegionName,
+				CapitalRegionCode:             p.CapitalRegionCode,
+				RestOfStateMedianPrice:        p.RestOfStateMedianPrice,
+				RestOfStateRegionName:         p.RestOfStateRegionName,
+				AbsMedianPeriod:               formatDateOrEmpty(p.ABSMedianPeriod),
+				StateCensus:                   stateCensusAveragesProto(p.StateCensus),
 			},
 			Council: &shortsv1alpha1.LgaInfo{
 				LgaCode: p.LgaCode, LgaName: p.LgaName, StateCode: p.LgaState, AreaSqkm: p.LgaAreaSqkm,
@@ -429,6 +437,9 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 		}
 		attachSuburbElevation(response.ProtoReflect(), p.Elevation)
 		response.Hazards = suburbHazardsProto(p.Hazards)
+		attachCouncilFacts(response.Council, p.Council)
+		response.CouncilOverlaps = councilOverlapsProto(p.CouncilOverlaps)
+		response.Planning = suburbPlanningProto(p.Planning)
 		return response, nil
 	})
 	if err != nil {
@@ -496,19 +507,69 @@ func (s *ShortsServer) ListHousingRegions(ctx context.Context, req *connect.Requ
 	return connect.NewResponse(cached.(*shortsv1alpha1.ListHousingRegionsResponse)), nil
 }
 
+// Housing materialized views whose refresh migration 000124 records in
+// housing_mv_refresh; the price-drops reads stamp their responses from these.
+const (
+	mvSuburbListingStats = "mv_suburb_listing_stats"
+	mvSuburbPriceDrops   = "mv_suburb_price_drops"
+	mvStatePriceDrops    = "mv_state_price_drops"
+)
+
+// dropsFreshness returns the as_of / data_through stamp for a response built
+// from the named views: the OLDEST refreshed_at and the OLDEST data_through
+// among them, so a board joining two views never claims more freshness than
+// its staler half. Any view without a recorded refresh — or a database before
+// migration 000124, or a failed read — leaves the stamp unset ("unknown"):
+// freshness decorates the data, it must never fail the read.
+func (s *ShortsServer) dropsFreshness(mvNames ...string) (asOf, dataThrough *timestamppb.Timestamp) {
+	rows, err := s.store.GetHousingMVRefresh(mvNames)
+	if err != nil {
+		s.logger.Warnf("housing_mv_refresh read failed; serving price drops undated: %v", err)
+		return nil, nil
+	}
+	var oldestRefresh, oldestThrough time.Time
+	throughKnown := true
+	for _, name := range mvNames {
+		r, ok := rows[name]
+		if !ok {
+			return nil, nil
+		}
+		if oldestRefresh.IsZero() || r.RefreshedAt.Before(oldestRefresh) {
+			oldestRefresh = r.RefreshedAt
+		}
+		if r.DataThrough == nil {
+			throughKnown = false
+		} else if oldestThrough.IsZero() || r.DataThrough.Before(oldestThrough) {
+			oldestThrough = *r.DataThrough
+		}
+	}
+	if oldestRefresh.IsZero() {
+		return nil, nil
+	}
+	asOf = timestamppb.New(oldestRefresh)
+	if throughKnown && !oldestThrough.IsZero() {
+		dataThrough = timestamppb.New(oldestThrough)
+	}
+	return asOf, dataThrough
+}
+
 // ListSuburbPriceDrops ranks suburbs by recent for-sale asking-price reductions.
 // This is the DERIVED aggregate surface (mv_suburb_price_drops) — no addresses or
-// individual listings are returned, so it is always public.
+// individual listings are returned, so it needs no sign-in; it still honours
+// the crawl kill switch (see dropListingsEnabled).
 func (s *ShortsServer) ListSuburbPriceDrops(ctx context.Context, req *connect.Request[shortsv1alpha1.ListSuburbPriceDropsRequest]) (*connect.Response[shortsv1alpha1.ListSuburbPriceDropsResponse], error) {
 	m := req.Msg
 	params, paramErr := normalizeHousingParams(housingParams{
 		stateCode: m.StateCode, sort: m.Sort, limit: m.Limit,
 	}, housingParamRules{
-		defaultSort: "count", allowedSorts: map[string]struct{}{"count": {}, "avg": {}, "max": {}, "asking": {}, "sold": {}},
+		defaultSort: "count", allowedSorts: map[string]struct{}{"count": {}, "avg": {}, "max": {}, "share": {}, "asking": {}, "sold": {}},
 		defaultLimit: 50, maxLimit: 500,
 	})
 	if paramErr != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, paramErr)
+	}
+	if !dropListingsEnabled() {
+		return connect.NewResponse(&shortsv1alpha1.ListSuburbPriceDropsResponse{}), nil
 	}
 	cacheKey := s.cache.GetSuburbPriceDropsKey(params.stateCode, params.sort, params.limit)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
@@ -531,7 +592,8 @@ func (s *ShortsServer) ListSuburbPriceDrops(ctx context.Context, req *connect.Re
 				DroppedValue: r.DroppedValue,
 			})
 		}
-		return &shortsv1alpha1.ListSuburbPriceDropsResponse{Suburbs: out}, nil
+		asOf, dataThrough := s.dropsFreshness(mvSuburbListingStats, mvSuburbPriceDrops)
+		return &shortsv1alpha1.ListSuburbPriceDropsResponse{Suburbs: out, AsOf: asOf, DataThrough: dataThrough}, nil
 	})
 	if err != nil {
 		s.logger.Errorf("database error in ListSuburbPriceDrops: %v", err)
@@ -540,18 +602,30 @@ func (s *ShortsServer) ListSuburbPriceDrops(ctx context.Context, req *connect.Re
 	return connect.NewResponse(cached.(*shortsv1alpha1.ListSuburbPriceDropsResponse)), nil
 }
 
-// dropListingsEnabled gates the per-address / per-listing surfaces (the
-// drops-by-address board, per-address history, suburb-drop deep-links, and the
-// suburb drops panel) that read the ToS-restricted REA/Domain listing rows.
-// Enabled by DEFAULT — no opt-in env is needed to ship it live. Set
-// HOUSING_DROP_LISTINGS_ENABLED to a falsey value ("false"/"0"/"off"/"no") only
-// as an explicit kill switch.
+// dropListingsEnabled is THE kill switch for everything served from the
+// ToS-restricted REA/Domain crawl. Enabled by DEFAULT — no opt-in env is needed
+// to ship it live. Set HOUSING_DROP_LISTINGS_ENABLED to a falsey value
+// ("false"/"0"/"off"/"no") only as an explicit kill switch.
+//
+// ONE policy, applied identically on every surface: when the switch is off,
+// every read DERIVED from crawl rows returns empty (never an error, so the UI
+// degrades to its no-data state) — the per-listing / per-address / agency
+// surfaces AND the k>=3-floored aggregates: ListSuburbPriceDrops,
+// GetPriceDropsOverview, GetDropIndexSeries, the profile's listing_stats, and
+// the MCP housing tools that mirror them. A takedown concerns the source's
+// data, not how finely we present it, so one flip must leave nothing from that
+// source live. It used to differ by surface (the profile and MCP withheld the
+// aggregates while ListSuburbPriceDrops kept serving the same MV rows), so a
+// takedown left the most visible board up. The check runs outside the backend
+// cache on every surface, so a flip takes effect on the next request.
 //
 // Takedown runbook (both steps are required):
 //  1. Set HOUSING_DROP_LISTINGS_ENABLED=false and restart/deploy the API.
-//  2. Flush KV and ISR immediately:
-//     curl -X POST -H "X-Revalidate-Secret: $REVALIDATION_SECRET" \
-//     "$REVALIDATION_URL?path=/price-drops,/housing&flush=housing"
+//  2. Flush KV and ISR immediately, naming every 24h route (revalidatePath
+//     does not cascade from /housing; -g stops curl globbing "[state]"):
+//     curl -g -X POST -H "X-Revalidate-Secret: $REVALIDATION_SECRET" \
+//     "$REVALIDATION_URL?flush=housing&path=/price-drops,/housing,/housing/[state],/housing/[state]/[suburb],/housing/[state]/council,/housing/[state]/council/[slug]"
+//     Canonical copy: docs/feature/housing/operations.md#takedown.
 func dropListingsEnabled() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("HOUSING_DROP_LISTINGS_ENABLED"))) {
 	case "false", "0", "off", "no":
@@ -812,9 +886,17 @@ func (s *ShortsServer) ListAddressPriceDrops(ctx context.Context, req *connect.R
 // GetPriceDropsOverview returns the per-state rollup of recent asking-price
 // reductions plus asking/sold price aggregates, with an 'AU' national summary.
 // This is a DERIVED aggregate surface (mv_state_price_drops) — no addresses or
-// individual listings are returned, so it is always public (same posture as
-// ListSuburbPriceDrops).
+// individual listings are returned, so it needs no sign-in (same posture as
+// ListSuburbPriceDrops, including the crawl kill switch). Each state row
+// carries its crawl coverage; the UI annotates rather than ranks a state below
+// the drop index's 0.6 coverage threshold.
 func (s *ShortsServer) GetPriceDropsOverview(ctx context.Context, req *connect.Request[shortsv1alpha1.GetPriceDropsOverviewRequest]) (*connect.Response[shortsv1alpha1.GetPriceDropsOverviewResponse], error) {
+	if !dropListingsEnabled() {
+		// Withheld, not empty: the page must not read a takedown as a cold
+		// fetch ("loading — check back shortly") and re-render it uncached on
+		// every request for as long as the switch is off.
+		return connect.NewResponse(&shortsv1alpha1.GetPriceDropsOverviewResponse{Withheld: true}), nil
+	}
 	cacheKey := s.cache.GetPriceDropsOverviewKey()
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
 		rows, err := s.store.GetPriceDropsOverview()
@@ -822,6 +904,7 @@ func (s *ShortsServer) GetPriceDropsOverview(ctx context.Context, req *connect.R
 			return nil, err
 		}
 		resp := &shortsv1alpha1.GetPriceDropsOverviewResponse{}
+		resp.AsOf, resp.DataThrough = s.dropsFreshness(mvStatePriceDrops)
 		for _, r := range rows {
 			if r == nil {
 				continue
@@ -833,7 +916,8 @@ func (s *ShortsServer) GetPriceDropsOverview(ctx context.Context, req *connect.R
 				DroppedShare: r.DroppedShare, ForSaleCount: r.ForSaleCount, ForSalePriced: r.ForSalePriced,
 				AvgAsking: r.AvgAsking, MedianAsking: r.MedianAsking,
 				SoldCount: r.SoldCount, AvgSold: r.AvgSold, MedianSold: r.MedianSold,
-				SuburbsTracked: r.SuburbsTracked,
+				SuburbsTracked:   r.SuburbsTracked,
+				SuburbsSwept_14D: r.SuburbsSwept14d, CatalogSuburbs: r.CatalogSuburbs,
 			}
 			if r.StateCode == "AU" {
 				resp.National = row
@@ -910,52 +994,186 @@ func (s *ShortsServer) ListAgencyPriceStats(ctx context.Context, req *connect.Re
 // own event window is still filling in, not because discounting increased.
 const dropIndexTrackingSince = "2026-08-13"
 
-// GetDropIndexSeries returns a stored discounting-index series for a grain
-// (national/state/suburb). It never serves dates before dropIndexTrackingSince —
-// ISO date strings sort lexically, so a plain string comparison suffices to
-// clamp `from`.
-func (s *ShortsServer) GetDropIndexSeries(ctx context.Context, req *connect.Request[shortsv1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[shortsv1alpha1.GetDropIndexSeriesResponse], error) {
-	m := req.Msg
-	grain := m.Grain
-	if grain == "" {
-		grain = "national"
+// dropIndexGrains are the only grains housing_drop_index_daily holds.
+var dropIndexGrains = map[string]struct{}{"national": {}, "state": {}, "suburb": {}}
+
+// dropIndexParams is a validated, normalized GetDropIndexSeries request.
+type dropIndexParams struct {
+	grain, grainKey, from, to string
+}
+
+// normalizeDropIndexParams validates GetDropIndexSeries input. It is a public,
+// anonymous RPC whose inputs become a MemoryCache key and a ::date cast, so
+// every field is allow-listed or parsed rather than passed through: a malformed
+// date used to reach Postgres and come back as CodeInternal, and an arbitrary
+// grain_key minted an unbounded number of cache entries. Anything outside the
+// documented shapes is InvalidArgument.
+//
+//   - grain: 'national' (default) | 'state' | 'suburb'.
+//   - grain_key: 'AU' for national (the default), an Australian state code for
+//     state, a 5-digit ABS SAL code for suburb.
+//   - from/to: 'YYYY-MM-DD'. from is clamped up to dropIndexTrackingSince; to
+//     defaults to — and is capped at — today (UTC), so a future date cannot
+//     mint a fresh cache key per day.
+func normalizeDropIndexParams(m *shortsv1alpha1.GetDropIndexSeriesRequest, today time.Time) (dropIndexParams, error) {
+	p := dropIndexParams{
+		grain:    strings.ToLower(strings.TrimSpace(m.GetGrain())),
+		grainKey: strings.ToUpper(strings.TrimSpace(m.GetGrainKey())),
 	}
-	grainKey := m.GrainKey
-	if grainKey == "" {
-		grainKey = "AU"
+	if p.grain == "" {
+		p.grain = "national"
 	}
-	from := m.From
-	if from == "" || from < dropIndexTrackingSince {
-		from = dropIndexTrackingSince
+	if _, ok := dropIndexGrains[p.grain]; !ok {
+		return p, fmt.Errorf("grain must be one of national, state, suburb")
 	}
-	to := m.To
-	if to == "" {
-		to = time.Now().UTC().Format("2006-01-02")
+	switch p.grain {
+	case "national":
+		if p.grainKey == "" {
+			p.grainKey = "AU"
+		}
+		if p.grainKey != "AU" {
+			return p, fmt.Errorf("grain_key for grain national must be AU")
+		}
+	case "state":
+		if _, ok := australianStateCodes[p.grainKey]; !ok {
+			return p, fmt.Errorf("grain_key for grain state must be an Australian state code")
+		}
+	case "suburb":
+		if !isSALCode(p.grainKey) {
+			return p, fmt.Errorf("grain_key for grain suburb must be a 5-digit SAL code")
+		}
 	}
 
-	cacheKey := s.cache.GetDropIndexSeriesKey(grain, grainKey, from, to)
+	todayISO := today.UTC().Format("2006-01-02")
+	p.from = strings.TrimSpace(m.GetFrom())
+	p.to = strings.TrimSpace(m.GetTo())
+	for _, d := range []struct{ name, value string }{{"from", p.from}, {"to", p.to}} {
+		if d.value == "" {
+			continue
+		}
+		if _, err := time.Parse("2006-01-02", d.value); err != nil {
+			return p, fmt.Errorf("%s must be a YYYY-MM-DD date", d.name)
+		}
+	}
+	// ISO dates sort lexically, so string comparison is a date comparison.
+	if p.from == "" || p.from < dropIndexTrackingSince {
+		p.from = dropIndexTrackingSince
+	}
+	if p.to == "" || p.to > todayISO {
+		p.to = todayISO
+	}
+	if p.from > p.to {
+		return p, fmt.Errorf("to must not be before from (%s)", p.from)
+	}
+	return p, nil
+}
+
+// isSALCode reports whether s is an ABS Suburbs and Localities code: exactly
+// five ASCII digits.
+func isSALCode(s string) bool {
+	if len(s) != 5 {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// GetDropIndexSeries returns a stored discounting-index series for a grain
+// (national/state/suburb). It never serves dates before dropIndexTrackingSince,
+// rejects input outside the documented shapes (normalizeDropIndexParams), and
+// honours the crawl kill switch like every other crawl-derived read
+// (dropListingsEnabled).
+//
+// as_of is the latest computed_at among the returned points. data_through is
+// the EARLIER of the latest returned snapshot's end and the crawl horizon the
+// last housing MV refresh recorded: the collector computes a snapshot every
+// day whether or not the crawl ran, so a dead rig keeps producing "fresh"
+// snapshot dates over frozen data, and the snapshot date alone would claim a
+// currency the numbers do not have.
+func (s *ShortsServer) GetDropIndexSeries(ctx context.Context, req *connect.Request[shortsv1alpha1.GetDropIndexSeriesRequest]) (*connect.Response[shortsv1alpha1.GetDropIndexSeriesResponse], error) {
+	p, paramErr := normalizeDropIndexParams(req.Msg, time.Now())
+	if paramErr != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, paramErr)
+	}
+	if !dropListingsEnabled() {
+		return connect.NewResponse(&shortsv1alpha1.GetDropIndexSeriesResponse{TrackingSince: dropIndexTrackingSince}), nil
+	}
+
+	cacheKey := s.cache.GetDropIndexSeriesKey(p.grain, p.grainKey, p.from, p.to)
 	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		rows, err := s.store.GetDropIndexSeries(grain, grainKey, from, to)
+		rows, err := s.store.GetDropIndexSeries(p.grain, p.grainKey, p.from, p.to)
 		if err != nil {
 			return nil, err
 		}
-		points := make([]*shortsv1alpha1.DropIndexPoint, 0, len(rows))
+		resp := &shortsv1alpha1.GetDropIndexSeriesResponse{TrackingSince: dropIndexTrackingSince}
+		resp.Points = make([]*shortsv1alpha1.DropIndexPoint, 0, len(rows))
+		var computedAt time.Time
+		lastSnapshot := ""
 		for _, r := range rows {
 			if r == nil {
 				continue
 			}
-			points = append(points, &shortsv1alpha1.DropIndexPoint{
-				SnapshotDate: r.SnapshotDate, DropRate: r.DropRate, MedianDropPct: r.MedianDropPct,
+			resp.Points = append(resp.Points, &shortsv1alpha1.DropIndexPoint{
+				SnapshotDate: r.SnapshotDate, DropRate: r.DropRate,
+				MedianDropPct: r.MedianDropPct, MedianWithheld: r.MedianWithheld,
 				PanelSuburbs: r.PanelSuburbs, CoverageRatio: r.CoverageRatio, IsGap: r.IsGap,
 				ActiveAddresses: r.ActiveAddresses, DroppedAddresses: r.DroppedAddresses,
 				WithdrawnThenRelisted: r.WithdrawnThenRelisted, DelistedCount: r.DelistedCount,
 			})
+			if r.ComputedAt.After(computedAt) {
+				computedAt = r.ComputedAt
+			}
+			if r.SnapshotDate > lastSnapshot {
+				lastSnapshot = r.SnapshotDate
+			}
 		}
-		return &shortsv1alpha1.GetDropIndexSeriesResponse{Points: points, TrackingSince: dropIndexTrackingSince}, nil
+		if len(resp.Points) == 0 {
+			return resp, nil
+		}
+		if !computedAt.IsZero() {
+			resp.AsOf = timestamppb.New(computedAt)
+		}
+		if day, err := time.Parse("2006-01-02", lastSnapshot); err == nil {
+			through := day.Add(24*time.Hour - time.Second)
+			if _, crawl := s.dropsFreshness(mvStatePriceDrops); crawl != nil && crawl.AsTime().Before(through) {
+				through = crawl.AsTime()
+			}
+			resp.DataThrough = timestamppb.New(through)
+		}
+		return resp, nil
 	})
 	if err != nil {
 		s.logger.Errorf("database error in GetDropIndexSeries: %v", err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get drop index series"))
 	}
 	return connect.NewResponse(cached.(*shortsv1alpha1.GetDropIndexSeriesResponse)), nil
+}
+
+// formatDateOrEmpty renders a nullable date as YYYY-MM-DD, or "" when absent.
+func formatDateOrEmpty(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format("2006-01-02")
+}
+
+func stateCensusAveragesProto(row shortsstore.StateCensusAveragesRow) *shortsv1alpha1.StateCensusAverages {
+	return &shortsv1alpha1.StateCensusAverages{
+		PctOwnedOutright:             row.PctOwnedOutright,
+		PctOwnedMortgage:             row.PctOwnedMortgage,
+		PctRented:                    row.PctRented,
+		PctSeparateHouse:             row.PctSeparateHouse,
+		PctFlatApartment:             row.PctFlatApartment,
+		PctCoupleWithChildren:        row.PctCoupleWithChildren,
+		PctLonePersonHousehold:       row.PctLonePersonHousehold,
+		UnemploymentRate:             row.UnemploymentRate,
+		LabourForceParticipationRate: row.LabourForceParticipationRate,
+		PctBachelorOrHigher:          row.PctBachelorOrHigher,
+		PctLowPersonalIncome:         row.PctLowPersonalIncome,
+		PctHighPersonalIncome:        row.PctHighPersonalIncome,
+	}
 }

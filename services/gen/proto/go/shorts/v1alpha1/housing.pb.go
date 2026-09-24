@@ -980,7 +980,8 @@ func (x *SuburbElevation) GetLandShareBelow_5M() float64 {
 }
 
 // Measured hazard exposure per suburb — area shares, 0..100, absent when no
-// source covers the suburb. Every source is CC-BY-4.0.
+// source covers the suburb. Every source is CC BY 4.0 except the SA Planning
+// and Design Code and Tasmanian Planning Scheme overlays (CC BY 3.0 AU).
 //
 // water_observed_share_pct: share of the suburb's validly observed land where
 // DEA Water Observations (Landsat, 1987 onward, 30 m) detected surface water in
@@ -990,10 +991,20 @@ func (x *SuburbElevation) GetLandShareBelow_5M() float64 {
 // share is a FLOOR on inundation, never a flood-risk estimate.
 //
 // flood_planning_share_pct: share inside a statutory flood planning overlay
-// (NSW EPI Flood; VIC LSIO/FO/SBO). A planning-control boundary, not a flood
-// extent; NSW councils own its currency. bushfire_prone_share_pct: share
-// designated bushfire prone for development control (NSW BFPL; VIC BMO).
-// Statutory shares exist for NSW and VIC only.
+// (NSW EPI Flood; VIC LSIO/FO/SBO; SA Code Hazards (Flooding) and (Flooding –
+// General); TAS Flood-prone Areas). A planning-control boundary, not a flood
+// extent. ACT is the exception: its only open layer is the modelled 1% AEP
+// flood extent, a model of one event. No open flood layer for QLD, WA or NT.
+// bushfire_prone_share_pct: share designated bushfire prone for development
+// control (NSW BFPL; VIC Designated Bushfire Prone Area; QLD, WA and ACT
+// bushfire prone areas; SA and TAS code overlays). None for NT.
+//
+// Inside a state that has a layer, a statutory share is also absent where the
+// instrument does not cover most of the suburb (NSW flood outside the councils
+// that lodged a map; SA land under the Code's precautionary Evidence Required,
+// Regional or Outback overlays; TAS councils with no mapped overlay). Where the
+// suburb is partly covered the share is the mapped land over the WHOLE suburb,
+// a floor.
 type SuburbHazardExposure struct {
 	state                  protoimpl.MessageState `protogen:"open.v1"`
 	WaterObservedSharePct  *float64               `protobuf:"fixed64,1,opt,name=water_observed_share_pct,json=waterObservedSharePct,proto3,oneof" json:"water_observed_share_pct,omitempty"`
@@ -1001,10 +1012,13 @@ type SuburbHazardExposure struct {
 	FloodPlanningSharePct  *float64               `protobuf:"fixed64,3,opt,name=flood_planning_share_pct,json=floodPlanningSharePct,proto3,oneof" json:"flood_planning_share_pct,omitempty"`
 	BushfireProneSharePct  *float64               `protobuf:"fixed64,4,opt,name=bushfire_prone_share_pct,json=bushfireProneSharePct,proto3,oneof" json:"bushfire_prone_share_pct,omitempty"`
 	WaterSource            string                 `protobuf:"bytes,5,opt,name=water_source,json=waterSource,proto3" json:"water_source,omitempty"` // dataset id, '' when absent
-	FloodSource            string                 `protobuf:"bytes,6,opt,name=flood_source,json=floodSource,proto3" json:"flood_source,omitempty"`
-	BushfireSource         string                 `protobuf:"bytes,7,opt,name=bushfire_source,json=bushfireSource,proto3" json:"bushfire_source,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// Statutory instrument id the share was read against. Set with an absent
+	// share when the instrument does not cover the suburb; ” when the state has
+	// no open layer for that hazard.
+	FloodSource    string `protobuf:"bytes,6,opt,name=flood_source,json=floodSource,proto3" json:"flood_source,omitempty"`
+	BushfireSource string `protobuf:"bytes,7,opt,name=bushfire_source,json=bushfireSource,proto3" json:"bushfire_source,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *SuburbHazardExposure) Reset() {
@@ -1086,6 +1100,242 @@ func (x *SuburbHazardExposure) GetBushfireSource() string {
 	return ""
 }
 
+// One harmonised zoning family's share of a suburb (program decision 8).
+// family: res_low | res_medium_high | centre_mixed | industrial | rural |
+// conservation | open_space | infrastructure | water | other.
+type ZoneFamilyShare struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Family        string                 `protobuf:"bytes,1,opt,name=family,proto3" json:"family,omitempty"`
+	SharePct      float64                `protobuf:"fixed64,2,opt,name=share_pct,json=sharePct,proto3" json:"share_pct,omitempty"` // % of the whole suburb's area, 0..100
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ZoneFamilyShare) Reset() {
+	*x = ZoneFamilyShare{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ZoneFamilyShare) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ZoneFamilyShare) ProtoMessage() {}
+
+func (x *ZoneFamilyShare) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ZoneFamilyShare.ProtoReflect.Descriptor instead.
+func (*ZoneFamilyShare) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ZoneFamilyShare) GetFamily() string {
+	if x != nil {
+		return x.Family
+	}
+	return ""
+}
+
+func (x *ZoneFamilyShare) GetSharePct() float64 {
+	if x != nil {
+		return x.SharePct
+	}
+	return 0
+}
+
+// Statutory planning layer for one suburb, computed offline from the state
+// planning schemes (web/scripts/geo/planning/). Every scalar is optional: an
+// absent value means no open source covers it (QLD/WA/NT zoning, NSW-only
+// development standards), never zero. zone_shares lists only families with a
+// non-zero share, largest first, and sums to zoning_coverage_pct.
+type SuburbPlanning struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	ZoneShares []*ZoneFamilyShare     `protobuf:"bytes,1,rep,name=zone_shares,json=zoneShares,proto3" json:"zone_shares,omitempty"`
+	// % of the suburb inside any zone polygon. Under 50 it is the only value
+	// set: the rest of the suburb is planned by an instrument these layers do
+	// not carry, so no shares, dominant family or heritage are measured.
+	ZoningCoveragePct  *float64 `protobuf:"fixed64,2,opt,name=zoning_coverage_pct,json=zoningCoveragePct,proto3,oneof" json:"zoning_coverage_pct,omitempty"`
+	DominantZoneFamily string   `protobuf:"bytes,3,opt,name=dominant_zone_family,json=dominantZoneFamily,proto3" json:"dominant_zone_family,omitempty"` // '' when unzoned / no source
+	// % of the suburb in a heritage conservation area / Heritage Overlay /
+	// historic or character area (area classes only).
+	HeritageSharePct  *float64 `protobuf:"fixed64,4,opt,name=heritage_share_pct,json=heritageSharePct,proto3,oneof" json:"heritage_share_pct,omitempty"`
+	HeritageItemCount *int32   `protobuf:"varint,5,opt,name=heritage_item_count,json=heritageItemCount,proto3,oneof" json:"heritage_item_count,omitempty"` // listed heritage places, counted once
+	// NSW development standards over the residential-zoned part of the suburb
+	// (area-weighted): maximum building height (m), floor space ratio (n:1),
+	// minimum subdivision lot size (m²).
+	NswHeightMedianM  *float64 `protobuf:"fixed64,6,opt,name=nsw_height_median_m,json=nswHeightMedianM,proto3,oneof" json:"nsw_height_median_m,omitempty"`
+	NswHeightMaxM     *float64 `protobuf:"fixed64,7,opt,name=nsw_height_max_m,json=nswHeightMaxM,proto3,oneof" json:"nsw_height_max_m,omitempty"`
+	NswFsrMedian      *float64 `protobuf:"fixed64,8,opt,name=nsw_fsr_median,json=nswFsrMedian,proto3,oneof" json:"nsw_fsr_median,omitempty"`
+	NswMinLotMedianM2 *float64 `protobuf:"fixed64,9,opt,name=nsw_min_lot_median_m2,json=nswMinLotMedianM2,proto3,oneof" json:"nsw_min_lot_median_m2,omitempty"`
+	Instruments       []string `protobuf:"bytes,10,rep,name=instruments,proto3" json:"instruments,omitempty"`                       // planning instrument names, largest coverage first
+	ZoningSource      string   `protobuf:"bytes,11,opt,name=zoning_source,json=zoningSource,proto3" json:"zoning_source,omitempty"` // dataset id, '' when absent
+	HeritageSource    string   `protobuf:"bytes,12,opt,name=heritage_source,json=heritageSource,proto3" json:"heritage_source,omitempty"`
+	SourceLicence     string   `protobuf:"bytes,13,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"` // e.g. 'CC-BY-4.0'
+	// % of the suburb's residential-zoned land each NSW standard is actually
+	// mapped on (0 = nowhere). Many LEPs map FSR, and some height, only in their
+	// centres; a standard mapped on under half the residential land has no
+	// median/max above, because it would be the centre's number.
+	NswHeightMappedPct *float64 `protobuf:"fixed64,14,opt,name=nsw_height_mapped_pct,json=nswHeightMappedPct,proto3,oneof" json:"nsw_height_mapped_pct,omitempty"`
+	NswFsrMappedPct    *float64 `protobuf:"fixed64,15,opt,name=nsw_fsr_mapped_pct,json=nswFsrMappedPct,proto3,oneof" json:"nsw_fsr_mapped_pct,omitempty"`
+	NswMinLotMappedPct *float64 `protobuf:"fixed64,16,opt,name=nsw_min_lot_mapped_pct,json=nswMinLotMappedPct,proto3,oneof" json:"nsw_min_lot_mapped_pct,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *SuburbPlanning) Reset() {
+	*x = SuburbPlanning{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SuburbPlanning) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SuburbPlanning) ProtoMessage() {}
+
+func (x *SuburbPlanning) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SuburbPlanning.ProtoReflect.Descriptor instead.
+func (*SuburbPlanning) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *SuburbPlanning) GetZoneShares() []*ZoneFamilyShare {
+	if x != nil {
+		return x.ZoneShares
+	}
+	return nil
+}
+
+func (x *SuburbPlanning) GetZoningCoveragePct() float64 {
+	if x != nil && x.ZoningCoveragePct != nil {
+		return *x.ZoningCoveragePct
+	}
+	return 0
+}
+
+func (x *SuburbPlanning) GetDominantZoneFamily() string {
+	if x != nil {
+		return x.DominantZoneFamily
+	}
+	return ""
+}
+
+func (x *SuburbPlanning) GetHeritageSharePct() float64 {
+	if x != nil && x.HeritageSharePct != nil {
+		return *x.HeritageSharePct
+	}
+	return 0
+}
+
+func (x *SuburbPlanning) GetHeritageItemCount() int32 {
+	if x != nil && x.HeritageItemCount != nil {
+		return *x.HeritageItemCount
+	}
+	return 0
+}
+
+func (x *SuburbPlanning) GetNswHeightMedianM() float64 {
+	if x != nil && x.NswHeightMedianM != nil {
+		return *x.NswHeightMedianM
+	}
+	return 0
+}
+
+func (x *SuburbPlanning) GetNswHeightMaxM() float64 {
+	if x != nil && x.NswHeightMaxM != nil {
+		return *x.NswHeightMaxM
+	}
+	return 0
+}
+
+func (x *SuburbPlanning) GetNswFsrMedian() float64 {
+	if x != nil && x.NswFsrMedian != nil {
+		return *x.NswFsrMedian
+	}
+	return 0
+}
+
+func (x *SuburbPlanning) GetNswMinLotMedianM2() float64 {
+	if x != nil && x.NswMinLotMedianM2 != nil {
+		return *x.NswMinLotMedianM2
+	}
+	return 0
+}
+
+func (x *SuburbPlanning) GetInstruments() []string {
+	if x != nil {
+		return x.Instruments
+	}
+	return nil
+}
+
+func (x *SuburbPlanning) GetZoningSource() string {
+	if x != nil {
+		return x.ZoningSource
+	}
+	return ""
+}
+
+func (x *SuburbPlanning) GetHeritageSource() string {
+	if x != nil {
+		return x.HeritageSource
+	}
+	return ""
+}
+
+func (x *SuburbPlanning) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+func (x *SuburbPlanning) GetNswHeightMappedPct() float64 {
+	if x != nil && x.NswHeightMappedPct != nil {
+		return *x.NswHeightMappedPct
+	}
+	return 0
+}
+
+func (x *SuburbPlanning) GetNswFsrMappedPct() float64 {
+	if x != nil && x.NswFsrMappedPct != nil {
+		return *x.NswFsrMappedPct
+	}
+	return 0
+}
+
+func (x *SuburbPlanning) GetNswMinLotMappedPct() float64 {
+	if x != nil && x.NswMinLotMappedPct != nil {
+		return *x.NswMinLotMappedPct
+	}
+	return 0
+}
+
 type SuburbSummary struct {
 	state                 protoimpl.MessageState `protogen:"open.v1"`
 	SalCode               string                 `protobuf:"bytes,1,opt,name=sal_code,json=salCode,proto3" json:"sal_code,omitempty"`
@@ -1149,7 +1399,7 @@ type SuburbSummary struct {
 
 func (x *SuburbSummary) Reset() {
 	*x = SuburbSummary{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1161,7 +1411,7 @@ func (x *SuburbSummary) String() string {
 func (*SuburbSummary) ProtoMessage() {}
 
 func (x *SuburbSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1174,7 +1424,7 @@ func (x *SuburbSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbSummary.ProtoReflect.Descriptor instead.
 func (*SuburbSummary) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{12}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *SuburbSummary) GetSalCode() string {
@@ -1410,7 +1660,7 @@ type ListStateSuburbsResponse struct {
 
 func (x *ListStateSuburbsResponse) Reset() {
 	*x = ListStateSuburbsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1422,7 +1672,7 @@ func (x *ListStateSuburbsResponse) String() string {
 func (*ListStateSuburbsResponse) ProtoMessage() {}
 
 func (x *ListStateSuburbsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1435,7 +1685,7 @@ func (x *ListStateSuburbsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStateSuburbsResponse.ProtoReflect.Descriptor instead.
 func (*ListStateSuburbsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{13}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListStateSuburbsResponse) GetSuburbs() []*SuburbSummary {
@@ -1456,7 +1706,7 @@ type GetSuburbIndexRequest struct {
 
 func (x *GetSuburbIndexRequest) Reset() {
 	*x = GetSuburbIndexRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[14]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1468,7 +1718,7 @@ func (x *GetSuburbIndexRequest) String() string {
 func (*GetSuburbIndexRequest) ProtoMessage() {}
 
 func (x *GetSuburbIndexRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[14]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1481,7 +1731,7 @@ func (x *GetSuburbIndexRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSuburbIndexRequest.ProtoReflect.Descriptor instead.
 func (*GetSuburbIndexRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{14}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetSuburbIndexRequest) GetStateCode() string {
@@ -1502,7 +1752,7 @@ type SuburbIndexEntry struct {
 
 func (x *SuburbIndexEntry) Reset() {
 	*x = SuburbIndexEntry{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[15]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1514,7 +1764,7 @@ func (x *SuburbIndexEntry) String() string {
 func (*SuburbIndexEntry) ProtoMessage() {}
 
 func (x *SuburbIndexEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[15]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1527,7 +1777,7 @@ func (x *SuburbIndexEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbIndexEntry.ProtoReflect.Descriptor instead.
 func (*SuburbIndexEntry) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{15}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *SuburbIndexEntry) GetSalCode() string {
@@ -1562,7 +1812,7 @@ type GetSuburbIndexResponse struct {
 
 func (x *GetSuburbIndexResponse) Reset() {
 	*x = GetSuburbIndexResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[16]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1574,7 +1824,7 @@ func (x *GetSuburbIndexResponse) String() string {
 func (*GetSuburbIndexResponse) ProtoMessage() {}
 
 func (x *GetSuburbIndexResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[16]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1587,7 +1837,7 @@ func (x *GetSuburbIndexResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSuburbIndexResponse.ProtoReflect.Descriptor instead.
 func (*GetSuburbIndexResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{16}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetSuburbIndexResponse) GetSuburbs() []*SuburbIndexEntry {
@@ -1614,7 +1864,7 @@ type GetSuburbMetricColumnsRequest struct {
 
 func (x *GetSuburbMetricColumnsRequest) Reset() {
 	*x = GetSuburbMetricColumnsRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[17]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1626,7 +1876,7 @@ func (x *GetSuburbMetricColumnsRequest) String() string {
 func (*GetSuburbMetricColumnsRequest) ProtoMessage() {}
 
 func (x *GetSuburbMetricColumnsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[17]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1639,7 +1889,7 @@ func (x *GetSuburbMetricColumnsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSuburbMetricColumnsRequest.ProtoReflect.Descriptor instead.
 func (*GetSuburbMetricColumnsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{17}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetSuburbMetricColumnsRequest) GetStateCode() string {
@@ -1675,7 +1925,7 @@ type SuburbMetricColumn struct {
 
 func (x *SuburbMetricColumn) Reset() {
 	*x = SuburbMetricColumn{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[18]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1687,7 +1937,7 @@ func (x *SuburbMetricColumn) String() string {
 func (*SuburbMetricColumn) ProtoMessage() {}
 
 func (x *SuburbMetricColumn) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[18]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1700,7 +1950,7 @@ func (x *SuburbMetricColumn) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbMetricColumn.ProtoReflect.Descriptor instead.
 func (*SuburbMetricColumn) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{18}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *SuburbMetricColumn) GetMetricKey() string {
@@ -1742,7 +1992,7 @@ type GetSuburbMetricColumnsResponse struct {
 
 func (x *GetSuburbMetricColumnsResponse) Reset() {
 	*x = GetSuburbMetricColumnsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[19]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1754,7 +2004,7 @@ func (x *GetSuburbMetricColumnsResponse) String() string {
 func (*GetSuburbMetricColumnsResponse) ProtoMessage() {}
 
 func (x *GetSuburbMetricColumnsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[19]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1767,7 +2017,7 @@ func (x *GetSuburbMetricColumnsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSuburbMetricColumnsResponse.ProtoReflect.Descriptor instead.
 func (*GetSuburbMetricColumnsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{19}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetSuburbMetricColumnsResponse) GetColumns() []*SuburbMetricColumn {
@@ -1795,7 +2045,7 @@ type SuburbMetricPredicate struct {
 
 func (x *SuburbMetricPredicate) Reset() {
 	*x = SuburbMetricPredicate{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[20]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1807,7 +2057,7 @@ func (x *SuburbMetricPredicate) String() string {
 func (*SuburbMetricPredicate) ProtoMessage() {}
 
 func (x *SuburbMetricPredicate) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[20]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1820,7 +2070,7 @@ func (x *SuburbMetricPredicate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbMetricPredicate.ProtoReflect.Descriptor instead.
 func (*SuburbMetricPredicate) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{20}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *SuburbMetricPredicate) GetMetricKey() string {
@@ -1854,7 +2104,7 @@ type FilterSuburbsRequest struct {
 
 func (x *FilterSuburbsRequest) Reset() {
 	*x = FilterSuburbsRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[21]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1866,7 +2116,7 @@ func (x *FilterSuburbsRequest) String() string {
 func (*FilterSuburbsRequest) ProtoMessage() {}
 
 func (x *FilterSuburbsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[21]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1879,7 +2129,7 @@ func (x *FilterSuburbsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FilterSuburbsRequest.ProtoReflect.Descriptor instead.
 func (*FilterSuburbsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{21}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *FilterSuburbsRequest) GetStateCode() string {
@@ -1909,7 +2159,7 @@ type FilterSuburbsResponse struct {
 
 func (x *FilterSuburbsResponse) Reset() {
 	*x = FilterSuburbsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[22]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1921,7 +2171,7 @@ func (x *FilterSuburbsResponse) String() string {
 func (*FilterSuburbsResponse) ProtoMessage() {}
 
 func (x *FilterSuburbsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[22]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1934,7 +2184,7 @@ func (x *FilterSuburbsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FilterSuburbsResponse.ProtoReflect.Descriptor instead.
 func (*FilterSuburbsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{22}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *FilterSuburbsResponse) GetMatchMask() []byte {
@@ -1967,7 +2217,7 @@ type GetSuburbProfileRequest struct {
 
 func (x *GetSuburbProfileRequest) Reset() {
 	*x = GetSuburbProfileRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[23]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1979,7 +2229,7 @@ func (x *GetSuburbProfileRequest) String() string {
 func (*GetSuburbProfileRequest) ProtoMessage() {}
 
 func (x *GetSuburbProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[23]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1992,7 +2242,7 @@ func (x *GetSuburbProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSuburbProfileRequest.ProtoReflect.Descriptor instead.
 func (*GetSuburbProfileRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{23}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetSuburbProfileRequest) GetSalCode() string {
@@ -2040,7 +2290,7 @@ type SuburbDemographics struct {
 
 func (x *SuburbDemographics) Reset() {
 	*x = SuburbDemographics{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[24]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2052,7 +2302,7 @@ func (x *SuburbDemographics) String() string {
 func (*SuburbDemographics) ProtoMessage() {}
 
 func (x *SuburbDemographics) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[24]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2065,7 +2315,7 @@ func (x *SuburbDemographics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbDemographics.ProtoReflect.Descriptor instead.
 func (*SuburbDemographics) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{24}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *SuburbDemographics) GetPopulation() int32 {
@@ -2259,18 +2509,38 @@ func (x *SuburbDemographics) GetPctLonePersonHousehold() float64 {
 
 // State + national reference medians for the profile's comparison bars.
 type ComparisonBaselines struct {
-	state                         protoimpl.MessageState `protogen:"open.v1"`
-	StateMedianPrice              float64                `protobuf:"fixed64,1,opt,name=state_median_price,json=stateMedianPrice,proto3" json:"state_median_price,omitempty"`
-	NationalMedianPrice           float64                `protobuf:"fixed64,2,opt,name=national_median_price,json=nationalMedianPrice,proto3" json:"national_median_price,omitempty"`
-	StateMedianWeeklyHhdIncome    float64                `protobuf:"fixed64,3,opt,name=state_median_weekly_hhd_income,json=stateMedianWeeklyHhdIncome,proto3" json:"state_median_weekly_hhd_income,omitempty"`
-	NationalMedianWeeklyHhdIncome float64                `protobuf:"fixed64,4,opt,name=national_median_weekly_hhd_income,json=nationalMedianWeeklyHhdIncome,proto3" json:"national_median_weekly_hhd_income,omitempty"`
-	unknownFields                 protoimpl.UnknownFields
-	sizeCache                     protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Median of the latest public Valuer-General suburb medians in the state —
+	// NSW, VIC and SA only, 0 elsewhere. A median, not a mean: one $110.5M
+	// development sale moved the old NSW average by ~$45k.
+	StateMedianPrice float64 `protobuf:"fixed64,1,opt,name=state_median_price,json=stateMedianPrice,proto3" json:"state_median_price,omitempty"`
+	// Always 0. No open national median house price exists (ABS's
+	// established-house medians stop at capital city / rest of state, below);
+	// this used to average NSW, VIC and SA suburb medians under an "AU" label.
+	NationalMedianPrice float64 `protobuf:"fixed64,2,opt,name=national_median_price,json=nationalMedianPrice,proto3" json:"national_median_price,omitempty"`
+	// Census 2021 median weekly household income of the MEDIAN suburb — in the
+	// state, and across every suburb nationally. Not a household-weighted median.
+	StateMedianWeeklyHhdIncome    float64 `protobuf:"fixed64,3,opt,name=state_median_weekly_hhd_income,json=stateMedianWeeklyHhdIncome,proto3" json:"state_median_weekly_hhd_income,omitempty"`
+	NationalMedianWeeklyHhdIncome float64 `protobuf:"fixed64,4,opt,name=national_median_weekly_hhd_income,json=nationalMedianWeeklyHhdIncome,proto3" json:"national_median_weekly_hhd_income,omitempty"`
+	// ABS established-house medians (RES_DWELL, CC-BY-4.0) for the suburb's
+	// state: its Greater Capital City and the rest of the state, read from
+	// mv_housing_headline. 0 / "" where the state has no such region (the ACT
+	// has no rest of state).
+	CapitalMedianPrice     float64 `protobuf:"fixed64,5,opt,name=capital_median_price,json=capitalMedianPrice,proto3" json:"capital_median_price,omitempty"`
+	CapitalRegionName      string  `protobuf:"bytes,6,opt,name=capital_region_name,json=capitalRegionName,proto3" json:"capital_region_name,omitempty"` // e.g. "Greater Sydney"
+	CapitalRegionCode      string  `protobuf:"bytes,7,opt,name=capital_region_code,json=capitalRegionCode,proto3" json:"capital_region_code,omitempty"` // ABS GCCSA code, e.g. "1GSYD"
+	RestOfStateMedianPrice float64 `protobuf:"fixed64,8,opt,name=rest_of_state_median_price,json=restOfStateMedianPrice,proto3" json:"rest_of_state_median_price,omitempty"`
+	RestOfStateRegionName  string  `protobuf:"bytes,9,opt,name=rest_of_state_region_name,json=restOfStateRegionName,proto3" json:"rest_of_state_region_name,omitempty"` // e.g. "Rest of NSW"
+	AbsMedianPeriod        string  `protobuf:"bytes,10,opt,name=abs_median_period,json=absMedianPeriod,proto3" json:"abs_median_period,omitempty"`                      // quarter end, "2026-03-31"
+	// State references for the Who-lives-here and Housing-stock cards.
+	StateCensus   *StateCensusAverages `protobuf:"bytes,11,opt,name=state_census,json=stateCensus,proto3" json:"state_census,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ComparisonBaselines) Reset() {
 	*x = ComparisonBaselines{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[25]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2282,7 +2552,7 @@ func (x *ComparisonBaselines) String() string {
 func (*ComparisonBaselines) ProtoMessage() {}
 
 func (x *ComparisonBaselines) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[25]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2295,7 +2565,7 @@ func (x *ComparisonBaselines) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ComparisonBaselines.ProtoReflect.Descriptor instead.
 func (*ComparisonBaselines) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{25}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ComparisonBaselines) GetStateMedianPrice() float64 {
@@ -2326,6 +2596,192 @@ func (x *ComparisonBaselines) GetNationalMedianWeeklyHhdIncome() float64 {
 	return 0
 }
 
+func (x *ComparisonBaselines) GetCapitalMedianPrice() float64 {
+	if x != nil {
+		return x.CapitalMedianPrice
+	}
+	return 0
+}
+
+func (x *ComparisonBaselines) GetCapitalRegionName() string {
+	if x != nil {
+		return x.CapitalRegionName
+	}
+	return ""
+}
+
+func (x *ComparisonBaselines) GetCapitalRegionCode() string {
+	if x != nil {
+		return x.CapitalRegionCode
+	}
+	return ""
+}
+
+func (x *ComparisonBaselines) GetRestOfStateMedianPrice() float64 {
+	if x != nil {
+		return x.RestOfStateMedianPrice
+	}
+	return 0
+}
+
+func (x *ComparisonBaselines) GetRestOfStateRegionName() string {
+	if x != nil {
+		return x.RestOfStateRegionName
+	}
+	return ""
+}
+
+func (x *ComparisonBaselines) GetAbsMedianPeriod() string {
+	if x != nil {
+		return x.AbsMedianPeriod
+	}
+	return ""
+}
+
+func (x *ComparisonBaselines) GetStateCensus() *StateCensusAverages {
+	if x != nil {
+		return x.StateCensus
+	}
+	return nil
+}
+
+// Census 2021 shares for a whole state, rebuilt from its suburbs: each suburb's
+// share weighted by the denominator it is a share of — occupied dwellings for
+// tenure, structure and household mix; residents for the person rates (the
+// labour force is not stored, so unemployment is resident-weighted too). Only
+// suburbs above the ingest floors contribute. 0 = not computable.
+type StateCensusAverages struct {
+	state                        protoimpl.MessageState `protogen:"open.v1"`
+	PctOwnedOutright             float64                `protobuf:"fixed64,1,opt,name=pct_owned_outright,json=pctOwnedOutright,proto3" json:"pct_owned_outright,omitempty"`
+	PctOwnedMortgage             float64                `protobuf:"fixed64,2,opt,name=pct_owned_mortgage,json=pctOwnedMortgage,proto3" json:"pct_owned_mortgage,omitempty"`
+	PctRented                    float64                `protobuf:"fixed64,3,opt,name=pct_rented,json=pctRented,proto3" json:"pct_rented,omitempty"`
+	PctSeparateHouse             float64                `protobuf:"fixed64,4,opt,name=pct_separate_house,json=pctSeparateHouse,proto3" json:"pct_separate_house,omitempty"`
+	PctFlatApartment             float64                `protobuf:"fixed64,5,opt,name=pct_flat_apartment,json=pctFlatApartment,proto3" json:"pct_flat_apartment,omitempty"`
+	PctCoupleWithChildren        float64                `protobuf:"fixed64,6,opt,name=pct_couple_with_children,json=pctCoupleWithChildren,proto3" json:"pct_couple_with_children,omitempty"`
+	PctLonePersonHousehold       float64                `protobuf:"fixed64,7,opt,name=pct_lone_person_household,json=pctLonePersonHousehold,proto3" json:"pct_lone_person_household,omitempty"`
+	UnemploymentRate             float64                `protobuf:"fixed64,8,opt,name=unemployment_rate,json=unemploymentRate,proto3" json:"unemployment_rate,omitempty"`
+	LabourForceParticipationRate float64                `protobuf:"fixed64,9,opt,name=labour_force_participation_rate,json=labourForceParticipationRate,proto3" json:"labour_force_participation_rate,omitempty"`
+	PctBachelorOrHigher          float64                `protobuf:"fixed64,10,opt,name=pct_bachelor_or_higher,json=pctBachelorOrHigher,proto3" json:"pct_bachelor_or_higher,omitempty"`
+	PctLowPersonalIncome         float64                `protobuf:"fixed64,11,opt,name=pct_low_personal_income,json=pctLowPersonalIncome,proto3" json:"pct_low_personal_income,omitempty"`
+	PctHighPersonalIncome        float64                `protobuf:"fixed64,12,opt,name=pct_high_personal_income,json=pctHighPersonalIncome,proto3" json:"pct_high_personal_income,omitempty"`
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
+}
+
+func (x *StateCensusAverages) Reset() {
+	*x = StateCensusAverages{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StateCensusAverages) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StateCensusAverages) ProtoMessage() {}
+
+func (x *StateCensusAverages) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StateCensusAverages.ProtoReflect.Descriptor instead.
+func (*StateCensusAverages) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *StateCensusAverages) GetPctOwnedOutright() float64 {
+	if x != nil {
+		return x.PctOwnedOutright
+	}
+	return 0
+}
+
+func (x *StateCensusAverages) GetPctOwnedMortgage() float64 {
+	if x != nil {
+		return x.PctOwnedMortgage
+	}
+	return 0
+}
+
+func (x *StateCensusAverages) GetPctRented() float64 {
+	if x != nil {
+		return x.PctRented
+	}
+	return 0
+}
+
+func (x *StateCensusAverages) GetPctSeparateHouse() float64 {
+	if x != nil {
+		return x.PctSeparateHouse
+	}
+	return 0
+}
+
+func (x *StateCensusAverages) GetPctFlatApartment() float64 {
+	if x != nil {
+		return x.PctFlatApartment
+	}
+	return 0
+}
+
+func (x *StateCensusAverages) GetPctCoupleWithChildren() float64 {
+	if x != nil {
+		return x.PctCoupleWithChildren
+	}
+	return 0
+}
+
+func (x *StateCensusAverages) GetPctLonePersonHousehold() float64 {
+	if x != nil {
+		return x.PctLonePersonHousehold
+	}
+	return 0
+}
+
+func (x *StateCensusAverages) GetUnemploymentRate() float64 {
+	if x != nil {
+		return x.UnemploymentRate
+	}
+	return 0
+}
+
+func (x *StateCensusAverages) GetLabourForceParticipationRate() float64 {
+	if x != nil {
+		return x.LabourForceParticipationRate
+	}
+	return 0
+}
+
+func (x *StateCensusAverages) GetPctBachelorOrHigher() float64 {
+	if x != nil {
+		return x.PctBachelorOrHigher
+	}
+	return 0
+}
+
+func (x *StateCensusAverages) GetPctLowPersonalIncome() float64 {
+	if x != nil {
+		return x.PctLowPersonalIncome
+	}
+	return 0
+}
+
+func (x *StateCensusAverages) GetPctHighPersonalIncome() float64 {
+	if x != nil {
+		return x.PctHighPersonalIncome
+	}
+	return 0
+}
+
 // Local Government Area (council) a suburb belongs to (Local Insights, W2).
 type LgaInfo struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
@@ -2333,7 +2789,7 @@ type LgaInfo struct {
 	LgaName    string                 `protobuf:"bytes,2,opt,name=lga_name,json=lgaName,proto3" json:"lga_name,omitempty"`
 	StateCode  string                 `protobuf:"bytes,3,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
 	AreaSqkm   float64                `protobuf:"fixed64,4,opt,name=area_sqkm,json=areaSqkm,proto3" json:"area_sqkm,omitempty"`
-	Population int32                  `protobuf:"varint,5,opt,name=population,proto3" json:"population,omitempty"`                    // summed from member-suburb Census populations
+	Population int32                  `protobuf:"varint,5,opt,name=population,proto3" json:"population,omitempty"`                    // ABS Estimated Resident Population at 30 June erp_year; 0 if not loaded
 	FedFagAud  float64                `protobuf:"fixed64,6,opt,name=fed_fag_aud,json=fedFagAud,proto3" json:"fed_fag_aud,omitempty"`  // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
 	FedFagYear string                 `protobuf:"bytes,7,opt,name=fed_fag_year,json=fedFagYear,proto3" json:"fed_fag_year,omitempty"` // e.g. '2025-26'
 	// Per-council financials (VIC LGPRF, CC-BY; 0/” for states not yet sourced).
@@ -2342,13 +2798,42 @@ type LgaInfo struct {
 	AssetRenewalRatio float64 `protobuf:"fixed64,10,opt,name=asset_renewal_ratio,json=assetRenewalRatio,proto3" json:"asset_renewal_ratio,omitempty"` // asset renewal + upgrade vs depreciation, %
 	FinSource         string  `protobuf:"bytes,11,opt,name=fin_source,json=finSource,proto3" json:"fin_source,omitempty"`                             // financials provenance ('vic_lgprf'), '' if none
 	FinYear           string  `protobuf:"bytes,12,opt,name=fin_year,json=finYear,proto3" json:"fin_year,omitempty"`                                   // financials reporting year, e.g. '2024-25'
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Council identity (ABS LGA_2024 + Wikidata, CC0). Pages exist for kind
+	// 'council' and 'unincorporated'; 'pseudo' areas never reach a suburb.
+	Slug        string `protobuf:"bytes,13,opt,name=slug,proto3" json:"slug,omitempty"`                                  // URL segment, unique within state, never reassigned
+	DisplayName string `protobuf:"bytes,14,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"` // ABS name without the state suffix: 'Campbelltown'
+	Kind        string `protobuf:"bytes,15,opt,name=kind,proto3" json:"kind,omitempty"`                                  // council | unincorporated | pseudo
+	// Council facts (ABS, CC-BY-4.0). Absent = no source covers this council,
+	// never a measured zero.
+	ErpYear               int32    `protobuf:"varint,16,opt,name=erp_year,json=erpYear,proto3" json:"erp_year,omitempty"`                                                   // reference year of population; 0 if none
+	PopGrowthPct          *float64 `protobuf:"fixed64,17,opt,name=pop_growth_pct,json=popGrowthPct,proto3,oneof" json:"pop_growth_pct,omitempty"`                           // ERP year-on-year change, %
+	MedianAge             *float64 `protobuf:"fixed64,18,opt,name=median_age,json=medianAge,proto3,oneof" json:"median_age,omitempty"`                                      // Census 2021
+	MedianHhdIncome       *int32   `protobuf:"varint,19,opt,name=median_hhd_income,json=medianHhdIncome,proto3,oneof" json:"median_hhd_income,omitempty"`                   // Census 2021, $/week
+	PctRented             *float64 `protobuf:"fixed64,20,opt,name=pct_rented,json=pctRented,proto3,oneof" json:"pct_rented,omitempty"`                                      // Census 2021, % of households renting
+	MedianWeeklyRent      *int32   `protobuf:"varint,21,opt,name=median_weekly_rent,json=medianWeeklyRent,proto3,oneof" json:"median_weekly_rent,omitempty"`                // Census 2021, $/week
+	MedianMortgageMonthly *int32   `protobuf:"varint,22,opt,name=median_mortgage_monthly,json=medianMortgageMonthly,proto3,oneof" json:"median_mortgage_monthly,omitempty"` // Census 2021, $/month
+	AvgHouseholdSize      *float64 `protobuf:"fixed64,23,opt,name=avg_household_size,json=avgHouseholdSize,proto3,oneof" json:"avg_household_size,omitempty"`               // Census 2021, persons
+	SeifaIrsadDecile      *int32   `protobuf:"varint,24,opt,name=seifa_irsad_decile,json=seifaIrsadDecile,proto3,oneof" json:"seifa_irsad_decile,omitempty"`                // SEIFA 2021 IRSAD, national decile 1..10
+	SeifaIrsdDecile       *int32   `protobuf:"varint,25,opt,name=seifa_irsd_decile,json=seifaIrsdDecile,proto3,oneof" json:"seifa_irsd_decile,omitempty"`                   // SEIFA 2021 IRSD, national decile 1..10
+	Website               string   `protobuf:"bytes,26,opt,name=website,proto3" json:"website,omitempty"`                                                                   // official website (Wikidata P856, CC0); '' if none
+	WikidataQid           string   `protobuf:"bytes,27,opt,name=wikidata_qid,json=wikidataQid,proto3" json:"wikidata_qid,omitempty"`                                        // e.g. 'Q1719401'; '' if none
+	CentroidLat           *float64 `protobuf:"fixed64,28,opt,name=centroid_lat,json=centroidLat,proto3,oneof" json:"centroid_lat,omitempty"`                                // area-weighted centroid of the ABS boundary
+	CentroidLon           *float64 `protobuf:"fixed64,29,opt,name=centroid_lon,json=centroidLon,proto3,oneof" json:"centroid_lon,omitempty"`
+	// Share (0..1] of THIS suburb's residents who live in this council (ABS
+	// mesh-block allocation, Census 2021 persons). Absent outside a suburb profile.
+	DominantShare *float64 `protobuf:"fixed64,30,opt,name=dominant_share,json=dominantShare,proto3,oneof" json:"dominant_share,omitempty"`
+	// Latest ABS 'Data by Region' median established-house transfer price for
+	// the WHOLE COUNCIL (year ended 30 June). A council-level figure: never
+	// present it as this suburb's median.
+	CouncilHouseMedian       *float64 `protobuf:"fixed64,31,opt,name=council_house_median,json=councilHouseMedian,proto3,oneof" json:"council_house_median,omitempty"`
+	CouncilHouseMedianPeriod string   `protobuf:"bytes,32,opt,name=council_house_median_period,json=councilHouseMedianPeriod,proto3" json:"council_house_median_period,omitempty"` // e.g. '2023-24'; '' if none
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *LgaInfo) Reset() {
 	*x = LgaInfo{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[26]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2360,7 +2845,7 @@ func (x *LgaInfo) String() string {
 func (*LgaInfo) ProtoMessage() {}
 
 func (x *LgaInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[26]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2373,7 +2858,7 @@ func (x *LgaInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LgaInfo.ProtoReflect.Descriptor instead.
 func (*LgaInfo) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{26}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *LgaInfo) GetLgaCode() string {
@@ -2460,6 +2945,223 @@ func (x *LgaInfo) GetFinYear() string {
 	return ""
 }
 
+func (x *LgaInfo) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetErpYear() int32 {
+	if x != nil {
+		return x.ErpYear
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetPopGrowthPct() float64 {
+	if x != nil && x.PopGrowthPct != nil {
+		return *x.PopGrowthPct
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetMedianAge() float64 {
+	if x != nil && x.MedianAge != nil {
+		return *x.MedianAge
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetMedianHhdIncome() int32 {
+	if x != nil && x.MedianHhdIncome != nil {
+		return *x.MedianHhdIncome
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetPctRented() float64 {
+	if x != nil && x.PctRented != nil {
+		return *x.PctRented
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetMedianWeeklyRent() int32 {
+	if x != nil && x.MedianWeeklyRent != nil {
+		return *x.MedianWeeklyRent
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetMedianMortgageMonthly() int32 {
+	if x != nil && x.MedianMortgageMonthly != nil {
+		return *x.MedianMortgageMonthly
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetAvgHouseholdSize() float64 {
+	if x != nil && x.AvgHouseholdSize != nil {
+		return *x.AvgHouseholdSize
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetSeifaIrsadDecile() int32 {
+	if x != nil && x.SeifaIrsadDecile != nil {
+		return *x.SeifaIrsadDecile
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetSeifaIrsdDecile() int32 {
+	if x != nil && x.SeifaIrsdDecile != nil {
+		return *x.SeifaIrsdDecile
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetWebsite() string {
+	if x != nil {
+		return x.Website
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetWikidataQid() string {
+	if x != nil {
+		return x.WikidataQid
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetCentroidLat() float64 {
+	if x != nil && x.CentroidLat != nil {
+		return *x.CentroidLat
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetCentroidLon() float64 {
+	if x != nil && x.CentroidLon != nil {
+		return *x.CentroidLon
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetDominantShare() float64 {
+	if x != nil && x.DominantShare != nil {
+		return *x.DominantShare
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetCouncilHouseMedian() float64 {
+	if x != nil && x.CouncilHouseMedian != nil {
+		return *x.CouncilHouseMedian
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetCouncilHouseMedianPeriod() string {
+	if x != nil {
+		return x.CouncilHouseMedianPeriod
+	}
+	return ""
+}
+
+// Another council a suburb spans, beyond the dominant one.
+type LgaOverlap struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LgaCode       string                 `protobuf:"bytes,1,opt,name=lga_code,json=lgaCode,proto3" json:"lga_code,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	StateCode     string                 `protobuf:"bytes,3,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
+	Slug          string                 `protobuf:"bytes,4,opt,name=slug,proto3" json:"slug,omitempty"`     // '' when the council has no page
+	Share         float64                `protobuf:"fixed64,5,opt,name=share,proto3" json:"share,omitempty"` // 0..1 of the suburb's residents (Census 2021 mesh blocks)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LgaOverlap) Reset() {
+	*x = LgaOverlap{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LgaOverlap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LgaOverlap) ProtoMessage() {}
+
+func (x *LgaOverlap) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LgaOverlap.ProtoReflect.Descriptor instead.
+func (*LgaOverlap) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *LgaOverlap) GetLgaCode() string {
+	if x != nil {
+		return x.LgaCode
+	}
+	return ""
+}
+
+func (x *LgaOverlap) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *LgaOverlap) GetStateCode() string {
+	if x != nil {
+		return x.StateCode
+	}
+	return ""
+}
+
+func (x *LgaOverlap) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *LgaOverlap) GetShare() float64 {
+	if x != nil {
+		return x.Share
+	}
+	return 0
+}
+
 // A suburb with a similar demographic + amenity profile (feature-vector kNN).
 type SimilarSuburb struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
@@ -2475,7 +3177,7 @@ type SimilarSuburb struct {
 
 func (x *SimilarSuburb) Reset() {
 	*x = SimilarSuburb{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[27]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2487,7 +3189,7 @@ func (x *SimilarSuburb) String() string {
 func (*SimilarSuburb) ProtoMessage() {}
 
 func (x *SimilarSuburb) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[27]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2500,7 +3202,7 @@ func (x *SimilarSuburb) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SimilarSuburb.ProtoReflect.Descriptor instead.
 func (*SimilarSuburb) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{27}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *SimilarSuburb) GetSalCode() string {
@@ -2556,7 +3258,7 @@ type SuburbLandmark struct {
 
 func (x *SuburbLandmark) Reset() {
 	*x = SuburbLandmark{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[28]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2568,7 +3270,7 @@ func (x *SuburbLandmark) String() string {
 func (*SuburbLandmark) ProtoMessage() {}
 
 func (x *SuburbLandmark) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[28]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2581,7 +3283,7 @@ func (x *SuburbLandmark) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbLandmark.ProtoReflect.Descriptor instead.
 func (*SuburbLandmark) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{28}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *SuburbLandmark) GetName() string {
@@ -2612,7 +3314,7 @@ type SuburbBanner struct {
 
 func (x *SuburbBanner) Reset() {
 	*x = SuburbBanner{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[29]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2624,7 +3326,7 @@ func (x *SuburbBanner) String() string {
 func (*SuburbBanner) ProtoMessage() {}
 
 func (x *SuburbBanner) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[29]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2637,7 +3339,7 @@ func (x *SuburbBanner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbBanner.ProtoReflect.Descriptor instead.
 func (*SuburbBanner) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{29}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *SuburbBanner) GetArchetype() string {
@@ -2679,9 +3381,9 @@ func (x *SuburbBanner) GetBgUrl() string {
 // CVS-adjusted; small_pop/unreliable rows are gated out server-side).
 type SuburbCrimeStat struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	CrimeType     string                 `protobuf:"bytes,1,opt,name=crime_type,json=crimeType,proto3" json:"crime_type,omitempty"`           // 'break_ins' | 'violent' | 'motor_vehicle' (+ future types)
+	CrimeType     string                 `protobuf:"bytes,1,opt,name=crime_type,json=crimeType,proto3" json:"crime_type,omitempty"`           // 'break_ins' | 'violent' | 'motor_vehicle' | 'property_damage' (+ future types)
 	RatePer_100K  float64                `protobuf:"fixed64,2,opt,name=rate_per_100k,json=ratePer100k,proto3" json:"rate_per_100k,omitempty"` // adjusted offences per 100k residents (can be 0)
-	PctRank       float64                `protobuf:"fixed64,3,opt,name=pct_rank,json=pctRank,proto3" json:"pct_rank,omitempty"`               // 0..100 national pop-weighted percentile; > 0 always
+	PctRank       float64                `protobuf:"fixed64,3,opt,name=pct_rank,json=pctRank,proto3" json:"pct_rank,omitempty"`               // 0..100 pop-weighted percentile WITHIN the suburb's state (never across states); > 0 always
 	FyEnding      int32                  `protobuf:"varint,4,opt,name=fy_ending,json=fyEnding,proto3" json:"fy_ending,omitempty"`             // 2025 = FY2024-25 (end year of the pooled window)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2689,7 +3391,7 @@ type SuburbCrimeStat struct {
 
 func (x *SuburbCrimeStat) Reset() {
 	*x = SuburbCrimeStat{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[30]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2701,7 +3403,7 @@ func (x *SuburbCrimeStat) String() string {
 func (*SuburbCrimeStat) ProtoMessage() {}
 
 func (x *SuburbCrimeStat) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[30]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2714,7 +3416,7 @@ func (x *SuburbCrimeStat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbCrimeStat.ProtoReflect.Descriptor instead.
 func (*SuburbCrimeStat) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{30}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *SuburbCrimeStat) GetCrimeType() string {
@@ -2759,7 +3461,7 @@ type SuburbCrime struct {
 
 func (x *SuburbCrime) Reset() {
 	*x = SuburbCrime{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[31]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2771,7 +3473,7 @@ func (x *SuburbCrime) String() string {
 func (*SuburbCrime) ProtoMessage() {}
 
 func (x *SuburbCrime) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[31]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2784,7 +3486,7 @@ func (x *SuburbCrime) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbCrime.ProtoReflect.Descriptor instead.
 func (*SuburbCrime) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{31}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *SuburbCrime) GetStats() []*SuburbCrimeStat {
@@ -2834,20 +3536,25 @@ func (x *SuburbCrime) GetSourceLicence() string {
 // source_licence='proprietary-tos-restricted' and are never republished — see
 // docs/feature/housing/data-sources.md. Counts and medians only.
 type SuburbListingStats struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ForSaleCount  int32                  `protobuf:"varint,1,opt,name=for_sale_count,json=forSaleCount,proto3" json:"for_sale_count,omitempty"` // active for-sale listings captured
-	AvgAsking     float64                `protobuf:"fixed64,2,opt,name=avg_asking,json=avgAsking,proto3" json:"avg_asking,omitempty"`           // mean asking price of priced for-sale listings, AUD; 0 if none
-	MedianAsking  float64                `protobuf:"fixed64,3,opt,name=median_asking,json=medianAsking,proto3" json:"median_asking,omitempty"`  // median asking price, AUD; 0 if none
-	SoldCount     int32                  `protobuf:"varint,4,opt,name=sold_count,json=soldCount,proto3" json:"sold_count,omitempty"`            // recent sold listings captured
-	AvgSold       float64                `protobuf:"fixed64,5,opt,name=avg_sold,json=avgSold,proto3" json:"avg_sold,omitempty"`                 // mean sold price, AUD; 0 if none
-	MedianSold    float64                `protobuf:"fixed64,6,opt,name=median_sold,json=medianSold,proto3" json:"median_sold,omitempty"`        // median sold price, AUD; 0 if none
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	ForSaleCount int32                  `protobuf:"varint,1,opt,name=for_sale_count,json=forSaleCount,proto3" json:"for_sale_count,omitempty"` // active for-sale listings captured
+	AvgAsking    float64                `protobuf:"fixed64,2,opt,name=avg_asking,json=avgAsking,proto3" json:"avg_asking,omitempty"`           // mean asking price of priced for-sale listings, AUD; 0 if none
+	MedianAsking float64                `protobuf:"fixed64,3,opt,name=median_asking,json=medianAsking,proto3" json:"median_asking,omitempty"`  // median asking price, AUD; 0 if none
+	SoldCount    int32                  `protobuf:"varint,4,opt,name=sold_count,json=soldCount,proto3" json:"sold_count,omitempty"`            // recent sold listings captured
+	AvgSold      float64                `protobuf:"fixed64,5,opt,name=avg_sold,json=avgSold,proto3" json:"avg_sold,omitempty"`                 // mean sold price, AUD; 0 if none
+	MedianSold   float64                `protobuf:"fixed64,6,opt,name=median_sold,json=medianSold,proto3" json:"median_sold,omitempty"`        // median sold price, AUD; 0 if none
+	// When mv_suburb_listing_stats was last refreshed (every now()-relative
+	// window in it is anchored here), and the newest crawl observation it could
+	// contain. Unset when the refresh has never been recorded.
+	AsOf          *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	DataThrough   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SuburbListingStats) Reset() {
 	*x = SuburbListingStats{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[32]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2859,7 +3566,7 @@ func (x *SuburbListingStats) String() string {
 func (*SuburbListingStats) ProtoMessage() {}
 
 func (x *SuburbListingStats) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[32]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2872,7 +3579,7 @@ func (x *SuburbListingStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbListingStats.ProtoReflect.Descriptor instead.
 func (*SuburbListingStats) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{32}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *SuburbListingStats) GetForSaleCount() int32 {
@@ -2917,6 +3624,20 @@ func (x *SuburbListingStats) GetMedianSold() float64 {
 	return 0
 }
 
+func (x *SuburbListingStats) GetAsOf() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOf
+	}
+	return nil
+}
+
+func (x *SuburbListingStats) GetDataThrough() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DataThrough
+	}
+	return nil
+}
+
 type GetSuburbProfileResponse struct {
 	state        protoimpl.MessageState `protogen:"open.v1"`
 	Summary      *SuburbSummary         `protobuf:"bytes,1,opt,name=summary,proto3" json:"summary,omitempty"`
@@ -2933,14 +3654,20 @@ type GetSuburbProfileResponse struct {
 	// or below the collector's published cell-count quality floor.
 	Elevation *SuburbElevation `protobuf:"bytes,9,opt,name=elevation,proto3" json:"elevation,omitempty"`
 	// Profile-only hazard block; absent when no hazard source covers the suburb.
-	Hazards       *SuburbHazardExposure `protobuf:"bytes,10,opt,name=hazards,proto3" json:"hazards,omitempty"`
+	Hazards *SuburbHazardExposure `protobuf:"bytes,10,opt,name=hazards,proto3" json:"hazards,omitempty"`
+	// Other councils holding >= 5% of this suburb's residents, largest first.
+	// Empty for a suburb wholly (or >= 95%) inside `council`.
+	CouncilOverlaps []*LgaOverlap `protobuf:"bytes,11,rep,name=council_overlaps,json=councilOverlaps,proto3" json:"council_overlaps,omitempty"`
+	// Profile-only planning block; absent when no planning source covers the
+	// suburb (WA, NT, and QLD beyond its heritage register).
+	Planning      *SuburbPlanning `protobuf:"bytes,12,opt,name=planning,proto3" json:"planning,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetSuburbProfileResponse) Reset() {
 	*x = GetSuburbProfileResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[33]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2952,7 +3679,7 @@ func (x *GetSuburbProfileResponse) String() string {
 func (*GetSuburbProfileResponse) ProtoMessage() {}
 
 func (x *GetSuburbProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[33]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2965,7 +3692,7 @@ func (x *GetSuburbProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSuburbProfileResponse.ProtoReflect.Descriptor instead.
 func (*GetSuburbProfileResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{33}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *GetSuburbProfileResponse) GetSummary() *SuburbSummary {
@@ -3038,6 +3765,20 @@ func (x *GetSuburbProfileResponse) GetHazards() *SuburbHazardExposure {
 	return nil
 }
 
+func (x *GetSuburbProfileResponse) GetCouncilOverlaps() []*LgaOverlap {
+	if x != nil {
+		return x.CouncilOverlaps
+	}
+	return nil
+}
+
+func (x *GetSuburbProfileResponse) GetPlanning() *SuburbPlanning {
+	if x != nil {
+		return x.Planning
+	}
+	return nil
+}
+
 type ListHousingRegionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RegionType    string                 `protobuf:"bytes,1,opt,name=region_type,json=regionType,proto3" json:"region_type,omitempty"` // optional filter, e.g. 'suburb' | 'gccsa' | 'state'
@@ -3050,7 +3791,7 @@ type ListHousingRegionsRequest struct {
 
 func (x *ListHousingRegionsRequest) Reset() {
 	*x = ListHousingRegionsRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[34]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3062,7 +3803,7 @@ func (x *ListHousingRegionsRequest) String() string {
 func (*ListHousingRegionsRequest) ProtoMessage() {}
 
 func (x *ListHousingRegionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[34]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3075,7 +3816,7 @@ func (x *ListHousingRegionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListHousingRegionsRequest.ProtoReflect.Descriptor instead.
 func (*ListHousingRegionsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{34}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListHousingRegionsRequest) GetRegionType() string {
@@ -3122,7 +3863,7 @@ type HousingRegion struct {
 
 func (x *HousingRegion) Reset() {
 	*x = HousingRegion{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[35]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3134,7 +3875,7 @@ func (x *HousingRegion) String() string {
 func (*HousingRegion) ProtoMessage() {}
 
 func (x *HousingRegion) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[35]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3147,7 +3888,7 @@ func (x *HousingRegion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HousingRegion.ProtoReflect.Descriptor instead.
 func (*HousingRegion) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{35}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *HousingRegion) GetRegionCode() string {
@@ -3208,7 +3949,7 @@ type ListHousingRegionsResponse struct {
 
 func (x *ListHousingRegionsResponse) Reset() {
 	*x = ListHousingRegionsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[36]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3220,7 +3961,7 @@ func (x *ListHousingRegionsResponse) String() string {
 func (*ListHousingRegionsResponse) ProtoMessage() {}
 
 func (x *ListHousingRegionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[36]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3233,7 +3974,7 @@ func (x *ListHousingRegionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListHousingRegionsResponse.ProtoReflect.Descriptor instead.
 func (*ListHousingRegionsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{36}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ListHousingRegionsResponse) GetRegions() []*HousingRegion {
@@ -3244,18 +3985,22 @@ func (x *ListHousingRegionsResponse) GetRegions() []*HousingRegion {
 }
 
 type ListSuburbPriceDropsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	StateCode     string                 `protobuf:"bytes,1,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`     // optional filter, e.g. 'NSW'; '' = national
-	WindowDays    int32                  `protobuf:"varint,2,opt,name=window_days,json=windowDays,proto3" json:"window_days,omitempty"` // reserved; the aggregate uses a fixed rolling window
-	Sort          string                 `protobuf:"bytes,3,opt,name=sort,proto3" json:"sort,omitempty"`                                // optional: 'count' (default) | 'avg' | 'max'
-	Limit         int32                  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`                             // optional; default 50
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	StateCode  string                 `protobuf:"bytes,1,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`     // optional filter, e.g. 'NSW'; '' = national
+	WindowDays int32                  `protobuf:"varint,2,opt,name=window_days,json=windowDays,proto3" json:"window_days,omitempty"` // reserved; the aggregate uses a fixed rolling window
+	// optional: 'count' (default) | 'avg' | 'max' | 'asking' | 'sold' | 'share'.
+	// 'share' ranks by dropped_share among suburbs with at least 20 recently
+	// swept active addresses (the drop index's panel floor); thinner suburbs
+	// sort after every ranked one rather than topping the board on 1 of 3.
+	Sort          string `protobuf:"bytes,3,opt,name=sort,proto3" json:"sort,omitempty"`
+	Limit         int32  `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"` // optional; default 50
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListSuburbPriceDropsRequest) Reset() {
 	*x = ListSuburbPriceDropsRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[37]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3267,7 +4012,7 @@ func (x *ListSuburbPriceDropsRequest) String() string {
 func (*ListSuburbPriceDropsRequest) ProtoMessage() {}
 
 func (x *ListSuburbPriceDropsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[37]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3280,7 +4025,7 @@ func (x *ListSuburbPriceDropsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSuburbPriceDropsRequest.ProtoReflect.Descriptor instead.
 func (*ListSuburbPriceDropsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{37}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ListSuburbPriceDropsRequest) GetStateCode() string {
@@ -3341,7 +4086,7 @@ type SuburbPriceDrop struct {
 
 func (x *SuburbPriceDrop) Reset() {
 	*x = SuburbPriceDrop{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[38]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3353,7 +4098,7 @@ func (x *SuburbPriceDrop) String() string {
 func (*SuburbPriceDrop) ProtoMessage() {}
 
 func (x *SuburbPriceDrop) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[38]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3366,7 +4111,7 @@ func (x *SuburbPriceDrop) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbPriceDrop.ProtoReflect.Descriptor instead.
 func (*SuburbPriceDrop) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{38}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *SuburbPriceDrop) GetRegionCode() string {
@@ -3503,15 +4248,22 @@ func (x *SuburbPriceDrop) GetDroppedValue() float64 {
 }
 
 type ListSuburbPriceDropsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Suburbs       []*SuburbPriceDrop     `protobuf:"bytes,1,rep,name=suburbs,proto3" json:"suburbs,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Suburbs []*SuburbPriceDrop     `protobuf:"bytes,1,rep,name=suburbs,proto3" json:"suburbs,omitempty"`
+	// The OLDER refresh of the two views this board joins
+	// (mv_suburb_listing_stats, mv_suburb_price_drops), so the stamp never
+	// claims more freshness than the staler half. data_through: the newest crawl
+	// observation (price event or listing sighting) those refreshes could see.
+	// Both unset when no refresh has been recorded.
+	AsOf          *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	DataThrough   *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListSuburbPriceDropsResponse) Reset() {
 	*x = ListSuburbPriceDropsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[39]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3523,7 +4275,7 @@ func (x *ListSuburbPriceDropsResponse) String() string {
 func (*ListSuburbPriceDropsResponse) ProtoMessage() {}
 
 func (x *ListSuburbPriceDropsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[39]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3536,12 +4288,26 @@ func (x *ListSuburbPriceDropsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSuburbPriceDropsResponse.ProtoReflect.Descriptor instead.
 func (*ListSuburbPriceDropsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{39}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ListSuburbPriceDropsResponse) GetSuburbs() []*SuburbPriceDrop {
 	if x != nil {
 		return x.Suburbs
+	}
+	return nil
+}
+
+func (x *ListSuburbPriceDropsResponse) GetAsOf() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOf
+	}
+	return nil
+}
+
+func (x *ListSuburbPriceDropsResponse) GetDataThrough() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DataThrough
 	}
 	return nil
 }
@@ -3558,7 +4324,7 @@ type ListSuburbDropListingsRequest struct {
 
 func (x *ListSuburbDropListingsRequest) Reset() {
 	*x = ListSuburbDropListingsRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[40]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3570,7 +4336,7 @@ func (x *ListSuburbDropListingsRequest) String() string {
 func (*ListSuburbDropListingsRequest) ProtoMessage() {}
 
 func (x *ListSuburbDropListingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[40]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3583,7 +4349,7 @@ func (x *ListSuburbDropListingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSuburbDropListingsRequest.ProtoReflect.Descriptor instead.
 func (*ListSuburbDropListingsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{40}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ListSuburbDropListingsRequest) GetSalCode() string {
@@ -3638,7 +4404,7 @@ type SuburbDropListing struct {
 
 func (x *SuburbDropListing) Reset() {
 	*x = SuburbDropListing{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[41]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3650,7 +4416,7 @@ func (x *SuburbDropListing) String() string {
 func (*SuburbDropListing) ProtoMessage() {}
 
 func (x *SuburbDropListing) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[41]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3663,7 +4429,7 @@ func (x *SuburbDropListing) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbDropListing.ProtoReflect.Descriptor instead.
 func (*SuburbDropListing) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{41}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *SuburbDropListing) GetSource() string {
@@ -3780,7 +4546,7 @@ type ListSuburbDropListingsResponse struct {
 
 func (x *ListSuburbDropListingsResponse) Reset() {
 	*x = ListSuburbDropListingsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[42]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3792,7 +4558,7 @@ func (x *ListSuburbDropListingsResponse) String() string {
 func (*ListSuburbDropListingsResponse) ProtoMessage() {}
 
 func (x *ListSuburbDropListingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[42]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3805,7 +4571,7 @@ func (x *ListSuburbDropListingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSuburbDropListingsResponse.ProtoReflect.Descriptor instead.
 func (*ListSuburbDropListingsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{42}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ListSuburbDropListingsResponse) GetListings() []*SuburbDropListing {
@@ -3824,7 +4590,7 @@ type GetPropertyHistoryRequest struct {
 
 func (x *GetPropertyHistoryRequest) Reset() {
 	*x = GetPropertyHistoryRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[43]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3836,7 +4602,7 @@ func (x *GetPropertyHistoryRequest) String() string {
 func (*GetPropertyHistoryRequest) ProtoMessage() {}
 
 func (x *GetPropertyHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[43]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3849,7 +4615,7 @@ func (x *GetPropertyHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPropertyHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetPropertyHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{43}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *GetPropertyHistoryRequest) GetAddressKey() string {
@@ -3886,7 +4652,7 @@ type PropertyListingSnapshot struct {
 
 func (x *PropertyListingSnapshot) Reset() {
 	*x = PropertyListingSnapshot{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[44]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3898,7 +4664,7 @@ func (x *PropertyListingSnapshot) String() string {
 func (*PropertyListingSnapshot) ProtoMessage() {}
 
 func (x *PropertyListingSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[44]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3911,7 +4677,7 @@ func (x *PropertyListingSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropertyListingSnapshot.ProtoReflect.Descriptor instead.
 func (*PropertyListingSnapshot) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{44}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *PropertyListingSnapshot) GetSource() string {
@@ -4053,7 +4819,7 @@ type PropertyPriceEvent struct {
 
 func (x *PropertyPriceEvent) Reset() {
 	*x = PropertyPriceEvent{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[45]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4065,7 +4831,7 @@ func (x *PropertyPriceEvent) String() string {
 func (*PropertyPriceEvent) ProtoMessage() {}
 
 func (x *PropertyPriceEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[45]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4078,7 +4844,7 @@ func (x *PropertyPriceEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropertyPriceEvent.ProtoReflect.Descriptor instead.
 func (*PropertyPriceEvent) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{45}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *PropertyPriceEvent) GetObservedAt() string {
@@ -4184,7 +4950,7 @@ type GetPropertyHistoryResponse struct {
 
 func (x *GetPropertyHistoryResponse) Reset() {
 	*x = GetPropertyHistoryResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[46]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4196,7 +4962,7 @@ func (x *GetPropertyHistoryResponse) String() string {
 func (*GetPropertyHistoryResponse) ProtoMessage() {}
 
 func (x *GetPropertyHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[46]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4209,7 +4975,7 @@ func (x *GetPropertyHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPropertyHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetPropertyHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{46}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *GetPropertyHistoryResponse) GetAddressKey() string {
@@ -4312,7 +5078,7 @@ type PropertyValuationSale struct {
 
 func (x *PropertyValuationSale) Reset() {
 	*x = PropertyValuationSale{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[47]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4324,7 +5090,7 @@ func (x *PropertyValuationSale) String() string {
 func (*PropertyValuationSale) ProtoMessage() {}
 
 func (x *PropertyValuationSale) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[47]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4337,7 +5103,7 @@ func (x *PropertyValuationSale) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropertyValuationSale.ProtoReflect.Descriptor instead.
 func (*PropertyValuationSale) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{47}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *PropertyValuationSale) GetDate() string {
@@ -4403,7 +5169,7 @@ type PropertyValuation struct {
 
 func (x *PropertyValuation) Reset() {
 	*x = PropertyValuation{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[48]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4415,7 +5181,7 @@ func (x *PropertyValuation) String() string {
 func (*PropertyValuation) ProtoMessage() {}
 
 func (x *PropertyValuation) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[48]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4428,7 +5194,7 @@ func (x *PropertyValuation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropertyValuation.ProtoReflect.Descriptor instead.
 func (*PropertyValuation) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{48}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *PropertyValuation) GetSource() string {
@@ -4562,7 +5328,7 @@ type ListAddressPriceDropsRequest struct {
 
 func (x *ListAddressPriceDropsRequest) Reset() {
 	*x = ListAddressPriceDropsRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[49]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4574,7 +5340,7 @@ func (x *ListAddressPriceDropsRequest) String() string {
 func (*ListAddressPriceDropsRequest) ProtoMessage() {}
 
 func (x *ListAddressPriceDropsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[49]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4587,7 +5353,7 @@ func (x *ListAddressPriceDropsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAddressPriceDropsRequest.ProtoReflect.Descriptor instead.
 func (*ListAddressPriceDropsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{49}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *ListAddressPriceDropsRequest) GetStateCode() string {
@@ -4620,6 +5386,9 @@ func (x *ListAddressPriceDropsRequest) GetSort() string {
 
 // One physical address (deduped by stable address_key) whose for-sale asking
 // price fell over the window, deep-linking to its per-address history page.
+// When the address is live on both portals (or relisted), every live advert
+// is judged on its own chain and the row carries the deepest qualifying cut;
+// the latest_* / current_* fields describe THAT advert.
 type AddressPriceDrop struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	AddressKey       string                 `protobuf:"bytes,1,opt,name=address_key,json=addressKey,proto3" json:"address_key,omitempty"`
@@ -4646,7 +5415,7 @@ type AddressPriceDrop struct {
 
 func (x *AddressPriceDrop) Reset() {
 	*x = AddressPriceDrop{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[50]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4658,7 +5427,7 @@ func (x *AddressPriceDrop) String() string {
 func (*AddressPriceDrop) ProtoMessage() {}
 
 func (x *AddressPriceDrop) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[50]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4671,7 +5440,7 @@ func (x *AddressPriceDrop) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddressPriceDrop.ProtoReflect.Descriptor instead.
 func (*AddressPriceDrop) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{50}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *AddressPriceDrop) GetAddressKey() string {
@@ -4809,7 +5578,7 @@ type ListAddressPriceDropsResponse struct {
 
 func (x *ListAddressPriceDropsResponse) Reset() {
 	*x = ListAddressPriceDropsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[51]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4821,7 +5590,7 @@ func (x *ListAddressPriceDropsResponse) String() string {
 func (*ListAddressPriceDropsResponse) ProtoMessage() {}
 
 func (x *ListAddressPriceDropsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[51]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4834,7 +5603,7 @@ func (x *ListAddressPriceDropsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAddressPriceDropsResponse.ProtoReflect.Descriptor instead.
 func (*ListAddressPriceDropsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{51}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *ListAddressPriceDropsResponse) GetAddresses() []*AddressPriceDrop {
@@ -4852,7 +5621,7 @@ type GetPriceDropsOverviewRequest struct {
 
 func (x *GetPriceDropsOverviewRequest) Reset() {
 	*x = GetPriceDropsOverviewRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[52]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4864,7 +5633,7 @@ func (x *GetPriceDropsOverviewRequest) String() string {
 func (*GetPriceDropsOverviewRequest) ProtoMessage() {}
 
 func (x *GetPriceDropsOverviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[52]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4877,7 +5646,7 @@ func (x *GetPriceDropsOverviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPriceDropsOverviewRequest.ProtoReflect.Descriptor instead.
 func (*GetPriceDropsOverviewRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{52}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{56}
 }
 
 // State-grain rollup of the tracked listing corpus: recent asking-price
@@ -4901,13 +5670,21 @@ type StatePriceDropSummary struct {
 	AvgSold             float64                `protobuf:"fixed64,14,opt,name=avg_sold,json=avgSold,proto3" json:"avg_sold,omitempty"`                     // AUD (0 if none)
 	MedianSold          float64                `protobuf:"fixed64,15,opt,name=median_sold,json=medianSold,proto3" json:"median_sold,omitempty"`            // AUD
 	SuburbsTracked      int32                  `protobuf:"varint,16,opt,name=suburbs_tracked,json=suburbsTracked,proto3" json:"suburbs_tracked,omitempty"` // tracked suburbs contributing listings
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Crawl coverage behind this row. catalog_suburbs is every suburb the crawl
+	// has ever produced a listing for (the drop index's coverage denominator);
+	// suburbs_swept_14d is the subset with a listing seen in the last 14 days.
+	// Below 0.6 swept/catalog (the index's gap threshold) the row measures crawl
+	// coverage more than discounting, and the UI annotates it instead of ranking
+	// it. Both 0 before migration 000124.
+	SuburbsSwept_14D int32 `protobuf:"varint,17,opt,name=suburbs_swept_14d,json=suburbsSwept14d,proto3" json:"suburbs_swept_14d,omitempty"`
+	CatalogSuburbs   int32 `protobuf:"varint,18,opt,name=catalog_suburbs,json=catalogSuburbs,proto3" json:"catalog_suburbs,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *StatePriceDropSummary) Reset() {
 	*x = StatePriceDropSummary{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[53]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4919,7 +5696,7 @@ func (x *StatePriceDropSummary) String() string {
 func (*StatePriceDropSummary) ProtoMessage() {}
 
 func (x *StatePriceDropSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[53]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4932,7 +5709,7 @@ func (x *StatePriceDropSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StatePriceDropSummary.ProtoReflect.Descriptor instead.
 func (*StatePriceDropSummary) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{53}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *StatePriceDropSummary) GetStateCode() string {
@@ -5047,17 +5824,40 @@ func (x *StatePriceDropSummary) GetSuburbsTracked() int32 {
 	return 0
 }
 
+func (x *StatePriceDropSummary) GetSuburbsSwept_14D() int32 {
+	if x != nil {
+		return x.SuburbsSwept_14D
+	}
+	return 0
+}
+
+func (x *StatePriceDropSummary) GetCatalogSuburbs() int32 {
+	if x != nil {
+		return x.CatalogSuburbs
+	}
+	return 0
+}
+
 type GetPriceDropsOverviewResponse struct {
-	state         protoimpl.MessageState   `protogen:"open.v1"`
-	National      *StatePriceDropSummary   `protobuf:"bytes,1,opt,name=national,proto3" json:"national,omitempty"` // the 'AU' row
-	States        []*StatePriceDropSummary `protobuf:"bytes,2,rep,name=states,proto3" json:"states,omitempty"`     // ordered by dropped_count desc
+	state    protoimpl.MessageState   `protogen:"open.v1"`
+	National *StatePriceDropSummary   `protobuf:"bytes,1,opt,name=national,proto3" json:"national,omitempty"` // the 'AU' row
+	States   []*StatePriceDropSummary `protobuf:"bytes,2,rep,name=states,proto3" json:"states,omitempty"`     // ordered by dropped_count desc
+	// When mv_state_price_drops was last refreshed, and the newest crawl
+	// observation that refresh could see. Unset when never recorded.
+	AsOf        *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	DataThrough *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`
+	// True when crawl-derived price-drop figures are switched off
+	// (HOUSING_DROP_LISTINGS_ENABLED=false, a takedown): every other field is
+	// empty ON PURPOSE and will stay so until the switch is flipped back. Lets a
+	// client tell that apart from a cold or failed fetch, which is worth retrying.
+	Withheld      bool `protobuf:"varint,5,opt,name=withheld,proto3" json:"withheld,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetPriceDropsOverviewResponse) Reset() {
 	*x = GetPriceDropsOverviewResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[54]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5069,7 +5869,7 @@ func (x *GetPriceDropsOverviewResponse) String() string {
 func (*GetPriceDropsOverviewResponse) ProtoMessage() {}
 
 func (x *GetPriceDropsOverviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[54]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5082,7 +5882,7 @@ func (x *GetPriceDropsOverviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPriceDropsOverviewResponse.ProtoReflect.Descriptor instead.
 func (*GetPriceDropsOverviewResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{54}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *GetPriceDropsOverviewResponse) GetNational() *StatePriceDropSummary {
@@ -5099,6 +5899,27 @@ func (x *GetPriceDropsOverviewResponse) GetStates() []*StatePriceDropSummary {
 	return nil
 }
 
+func (x *GetPriceDropsOverviewResponse) GetAsOf() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOf
+	}
+	return nil
+}
+
+func (x *GetPriceDropsOverviewResponse) GetDataThrough() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DataThrough
+	}
+	return nil
+}
+
+func (x *GetPriceDropsOverviewResponse) GetWithheld() bool {
+	if x != nil {
+		return x.Withheld
+	}
+	return false
+}
+
 type ListAgencyPriceStatsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	StateCode     string                 `protobuf:"bytes,1,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"` // optional filter, e.g. 'NSW'; '' = national
@@ -5110,7 +5931,7 @@ type ListAgencyPriceStatsRequest struct {
 
 func (x *ListAgencyPriceStatsRequest) Reset() {
 	*x = ListAgencyPriceStatsRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[55]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5122,7 +5943,7 @@ func (x *ListAgencyPriceStatsRequest) String() string {
 func (*ListAgencyPriceStatsRequest) ProtoMessage() {}
 
 func (x *ListAgencyPriceStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[55]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5135,7 +5956,7 @@ func (x *ListAgencyPriceStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgencyPriceStatsRequest.ProtoReflect.Descriptor instead.
 func (*ListAgencyPriceStatsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{55}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *ListAgencyPriceStatsRequest) GetStateCode() string {
@@ -5183,7 +6004,7 @@ type AgencyPriceStats struct {
 
 func (x *AgencyPriceStats) Reset() {
 	*x = AgencyPriceStats{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[56]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5195,7 +6016,7 @@ func (x *AgencyPriceStats) String() string {
 func (*AgencyPriceStats) ProtoMessage() {}
 
 func (x *AgencyPriceStats) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[56]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5208,7 +6029,7 @@ func (x *AgencyPriceStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgencyPriceStats.ProtoReflect.Descriptor instead.
 func (*AgencyPriceStats) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{56}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *AgencyPriceStats) GetSource() string {
@@ -5311,7 +6132,7 @@ type ListAgencyPriceStatsResponse struct {
 
 func (x *ListAgencyPriceStatsResponse) Reset() {
 	*x = ListAgencyPriceStatsResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[57]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5323,7 +6144,7 @@ func (x *ListAgencyPriceStatsResponse) String() string {
 func (*ListAgencyPriceStatsResponse) ProtoMessage() {}
 
 func (x *ListAgencyPriceStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[57]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5336,7 +6157,7 @@ func (x *ListAgencyPriceStatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgencyPriceStatsResponse.ProtoReflect.Descriptor instead.
 func (*ListAgencyPriceStatsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{57}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *ListAgencyPriceStatsResponse) GetAgencies() []*AgencyPriceStats {
@@ -5353,15 +6174,17 @@ func (x *ListAgencyPriceStatsResponse) GetAgencies() []*AgencyPriceStats {
 // rather than a collapse in discounting. Computing that twice would let the two
 // sides disagree.
 type DropIndexPoint struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	SnapshotDate     string                 `protobuf:"bytes,1,opt,name=snapshot_date,json=snapshotDate,proto3" json:"snapshot_date,omitempty"`        // 'YYYY-MM-DD'
-	DropRate         float64                `protobuf:"fixed64,2,opt,name=drop_rate,json=dropRate,proto3" json:"drop_rate,omitempty"`                  // 0..1 fraction, equal-weighted mean of per-suburb rates
-	MedianDropPct    float64                `protobuf:"fixed64,3,opt,name=median_drop_pct,json=medianDropPct,proto3" json:"median_drop_pct,omitempty"` // 0..1 fraction, depth of the typical cut
-	PanelSuburbs     int32                  `protobuf:"varint,4,opt,name=panel_suburbs,json=panelSuburbs,proto3" json:"panel_suburbs,omitempty"`       // suburbs contributing to this point
-	CoverageRatio    float64                `protobuf:"fixed64,5,opt,name=coverage_ratio,json=coverageRatio,proto3" json:"coverage_ratio,omitempty"`   // panel suburbs / full suburb catalog for this snapshot date
-	IsGap            bool                   `protobuf:"varint,6,opt,name=is_gap,json=isGap,proto3" json:"is_gap,omitempty"`                            // coverage too low to be a fair reading
-	ActiveAddresses  int32                  `protobuf:"varint,7,opt,name=active_addresses,json=activeAddresses,proto3" json:"active_addresses,omitempty"`
-	DroppedAddresses int32                  `protobuf:"varint,8,opt,name=dropped_addresses,json=droppedAddresses,proto3" json:"dropped_addresses,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	SnapshotDate string                 `protobuf:"bytes,1,opt,name=snapshot_date,json=snapshotDate,proto3" json:"snapshot_date,omitempty"` // 'YYYY-MM-DD'
+	DropRate     float64                `protobuf:"fixed64,2,opt,name=drop_rate,json=dropRate,proto3" json:"drop_rate,omitempty"`           // 0..1 fraction, equal-weighted mean of per-suburb rates
+	// 0..1 fraction, depth of the typical cut. 0 when withheld — read
+	// median_withheld, never the 0, to tell withheld from a measurement.
+	MedianDropPct    float64 `protobuf:"fixed64,3,opt,name=median_drop_pct,json=medianDropPct,proto3" json:"median_drop_pct,omitempty"`
+	PanelSuburbs     int32   `protobuf:"varint,4,opt,name=panel_suburbs,json=panelSuburbs,proto3" json:"panel_suburbs,omitempty"`     // suburbs contributing to this point
+	CoverageRatio    float64 `protobuf:"fixed64,5,opt,name=coverage_ratio,json=coverageRatio,proto3" json:"coverage_ratio,omitempty"` // panel suburbs / full suburb catalog for this snapshot date
+	IsGap            bool    `protobuf:"varint,6,opt,name=is_gap,json=isGap,proto3" json:"is_gap,omitempty"`                          // coverage too low to be a fair reading
+	ActiveAddresses  int32   `protobuf:"varint,7,opt,name=active_addresses,json=activeAddresses,proto3" json:"active_addresses,omitempty"`
+	DroppedAddresses int32   `protobuf:"varint,8,opt,name=dropped_addresses,json=droppedAddresses,proto3" json:"dropped_addresses,omitempty"`
 	// Distinct listings withdrawn then relisted with a >7 day gap, in the
 	// trailing window (national grain only). The gap floor excludes crawl
 	// sweep noise: measured 2026-08-17, 188 of 450 REA delist->relist pairs
@@ -5369,13 +6192,19 @@ type DropIndexPoint struct {
 	// withdrawing), while Domain shows 57 of 94 pairs genuinely >7 days apart.
 	WithdrawnThenRelisted int32 `protobuf:"varint,9,opt,name=withdrawn_then_relisted,json=withdrawnThenRelisted,proto3" json:"withdrawn_then_relisted,omitempty"`
 	DelistedCount         int32 `protobuf:"varint,10,opt,name=delisted_count,json=delistedCount,proto3" json:"delisted_count,omitempty"` // withdrawn events in the trailing window (national grain only)
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// True when median_drop_pct is withheld: fewer than 3 dropped addresses
+	// stand behind this point, so a "median" would be one or two listings'
+	// exact cuts (the stored median is NULL). median_drop_pct is then 0 and is
+	// not a measurement. A separate flag rather than `optional` presence on
+	// median_drop_pct, which would change that field's cardinality.
+	MedianWithheld bool `protobuf:"varint,11,opt,name=median_withheld,json=medianWithheld,proto3" json:"median_withheld,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *DropIndexPoint) Reset() {
 	*x = DropIndexPoint{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[58]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5387,7 +6216,7 @@ func (x *DropIndexPoint) String() string {
 func (*DropIndexPoint) ProtoMessage() {}
 
 func (x *DropIndexPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[58]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5400,7 +6229,7 @@ func (x *DropIndexPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DropIndexPoint.ProtoReflect.Descriptor instead.
 func (*DropIndexPoint) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{58}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *DropIndexPoint) GetSnapshotDate() string {
@@ -5473,19 +6302,27 @@ func (x *DropIndexPoint) GetDelistedCount() int32 {
 	return 0
 }
 
+func (x *DropIndexPoint) GetMedianWithheld() bool {
+	if x != nil {
+		return x.MedianWithheld
+	}
+	return false
+}
+
 type GetDropIndexSeriesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Grain         string                 `protobuf:"bytes,1,opt,name=grain,proto3" json:"grain,omitempty"`                       // 'national' | 'state' | 'suburb'
-	GrainKey      string                 `protobuf:"bytes,2,opt,name=grain_key,json=grainKey,proto3" json:"grain_key,omitempty"` // 'AU' | state code | sal_code
-	From          string                 `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`                         // 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
-	To            string                 `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`                             // 'YYYY-MM-DD', inclusive; defaults to today
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Anything outside these shapes is InvalidArgument.
+	Grain         string `protobuf:"bytes,1,opt,name=grain,proto3" json:"grain,omitempty"`                       // 'national' (default) | 'state' | 'suburb'
+	GrainKey      string `protobuf:"bytes,2,opt,name=grain_key,json=grainKey,proto3" json:"grain_key,omitempty"` // 'AU' | state code ('NSW', ...) | 5-digit sal_code
+	From          string `protobuf:"bytes,3,opt,name=from,proto3" json:"from,omitempty"`                         // 'YYYY-MM-DD', inclusive; clamped to 2026-08-13
+	To            string `protobuf:"bytes,4,opt,name=to,proto3" json:"to,omitempty"`                             // 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetDropIndexSeriesRequest) Reset() {
 	*x = GetDropIndexSeriesRequest{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[59]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5497,7 +6334,7 @@ func (x *GetDropIndexSeriesRequest) String() string {
 func (*GetDropIndexSeriesRequest) ProtoMessage() {}
 
 func (x *GetDropIndexSeriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[59]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5510,7 +6347,7 @@ func (x *GetDropIndexSeriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDropIndexSeriesRequest.ProtoReflect.Descriptor instead.
 func (*GetDropIndexSeriesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{59}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *GetDropIndexSeriesRequest) GetGrain() string {
@@ -5545,13 +6382,21 @@ type GetDropIndexSeriesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Points        []*DropIndexPoint      `protobuf:"bytes,1,rep,name=points,proto3" json:"points,omitempty"`
 	TrackingSince string                 `protobuf:"bytes,2,opt,name=tracking_since,json=trackingSince,proto3" json:"tracking_since,omitempty"` // 'YYYY-MM-DD' — earliest date the index exists for
+	// as_of: the latest computed_at among the returned points (when the
+	// collector last wrote this series). data_through: the end of the latest
+	// returned snapshot day, or the crawl horizon the last housing MV refresh
+	// recorded if that is earlier — a snapshot is computed daily whether or not
+	// the crawl ran, so the date alone can outrun the data. Both unset when no
+	// point is returned.
+	AsOf          *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	DataThrough   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetDropIndexSeriesResponse) Reset() {
 	*x = GetDropIndexSeriesResponse{}
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[60]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5563,7 +6408,7 @@ func (x *GetDropIndexSeriesResponse) String() string {
 func (*GetDropIndexSeriesResponse) ProtoMessage() {}
 
 func (x *GetDropIndexSeriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[60]
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5576,7 +6421,7 @@ func (x *GetDropIndexSeriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDropIndexSeriesResponse.ProtoReflect.Descriptor instead.
 func (*GetDropIndexSeriesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{60}
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *GetDropIndexSeriesResponse) GetPoints() []*DropIndexPoint {
@@ -5591,6 +6436,1467 @@ func (x *GetDropIndexSeriesResponse) GetTrackingSince() string {
 		return x.TrackingSince
 	}
 	return ""
+}
+
+func (x *GetDropIndexSeriesResponse) GetAsOf() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOf
+	}
+	return nil
+}
+
+func (x *GetDropIndexSeriesResponse) GetDataThrough() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DataThrough
+	}
+	return nil
+}
+
+type ListCouncilsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StateCode     string                 `protobuf:"bytes,1,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"` // required: NSW | VIC | QLD | SA | WA | TAS | NT | ACT
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListCouncilsRequest) Reset() {
+	*x = ListCouncilsRequest{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCouncilsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCouncilsRequest) ProtoMessage() {}
+
+func (x *ListCouncilsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCouncilsRequest.ProtoReflect.Descriptor instead.
+func (*ListCouncilsRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *ListCouncilsRequest) GetStateCode() string {
+	if x != nil {
+		return x.StateCode
+	}
+	return ""
+}
+
+type ListCouncilsResponse struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Councils   []*CouncilSummary      `protobuf:"bytes,1,rep,name=councils,proto3" json:"councils,omitempty"`                       // population desc, then name
+	LgaVintage string                 `protobuf:"bytes,2,opt,name=lga_vintage,json=lgaVintage,proto3" json:"lga_vintage,omitempty"` // boundary vintage, e.g. 'ABS ASGS LGA 2024'
+	// Freshness of every council's price_drop_share (program decision 9): when
+	// the shares were computed, and the newest crawl observation behind any of
+	// them. Both absent when no council publishes a share.
+	PriceDropsAsOf        *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=price_drops_as_of,json=priceDropsAsOf,proto3" json:"price_drops_as_of,omitempty"`
+	PriceDropsDataThrough *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=price_drops_data_through,json=priceDropsDataThrough,proto3" json:"price_drops_data_through,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ListCouncilsResponse) Reset() {
+	*x = ListCouncilsResponse{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[66]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCouncilsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCouncilsResponse) ProtoMessage() {}
+
+func (x *ListCouncilsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[66]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCouncilsResponse.ProtoReflect.Descriptor instead.
+func (*ListCouncilsResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{66}
+}
+
+func (x *ListCouncilsResponse) GetCouncils() []*CouncilSummary {
+	if x != nil {
+		return x.Councils
+	}
+	return nil
+}
+
+func (x *ListCouncilsResponse) GetLgaVintage() string {
+	if x != nil {
+		return x.LgaVintage
+	}
+	return ""
+}
+
+func (x *ListCouncilsResponse) GetPriceDropsAsOf() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PriceDropsAsOf
+	}
+	return nil
+}
+
+func (x *ListCouncilsResponse) GetPriceDropsDataThrough() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PriceDropsDataThrough
+	}
+	return nil
+}
+
+// One council's headline row: the council index table and the council
+// choropleth read exactly these fields.
+type CouncilSummary struct {
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	LgaCode                  string                 `protobuf:"bytes,1,opt,name=lga_code,json=lgaCode,proto3" json:"lga_code,omitempty"`
+	Slug                     string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
+	DisplayName              string                 `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Kind                     string                 `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"` // council | unincorporated
+	StateCode                string                 `protobuf:"bytes,5,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
+	Population               int32                  `protobuf:"varint,6,opt,name=population,proto3" json:"population,omitempty"` // ABS estimated resident population at 30 June erp_year; 0 if none
+	ErpYear                  int32                  `protobuf:"varint,7,opt,name=erp_year,json=erpYear,proto3" json:"erp_year,omitempty"`
+	PopGrowthPct             *float64               `protobuf:"fixed64,8,opt,name=pop_growth_pct,json=popGrowthPct,proto3,oneof" json:"pop_growth_pct,omitempty"` // ERP year-on-year change, %
+	AreaSqkm                 *float64               `protobuf:"fixed64,9,opt,name=area_sqkm,json=areaSqkm,proto3,oneof" json:"area_sqkm,omitempty"`
+	DensityPerSqkm           *float64               `protobuf:"fixed64,10,opt,name=density_per_sqkm,json=densityPerSqkm,proto3,oneof" json:"density_per_sqkm,omitempty"`                         // ERP / area
+	MemberSuburbCount        int32                  `protobuf:"varint,11,opt,name=member_suburb_count,json=memberSuburbCount,proto3" json:"member_suburb_count,omitempty"`                       // suburbs whose DOMINANT council this is
+	CouncilHouseMedian       *float64               `protobuf:"fixed64,12,opt,name=council_house_median,json=councilHouseMedian,proto3,oneof" json:"council_house_median,omitempty"`             // council-wide ABS established-house median
+	CouncilHouseMedianPeriod string                 `protobuf:"bytes,13,opt,name=council_house_median_period,json=councilHouseMedianPeriod,proto3" json:"council_house_median_period,omitempty"` // e.g. '2023-24'
+	FagPerResident           *float64               `protobuf:"fixed64,14,opt,name=fag_per_resident,json=fagPerResident,proto3,oneof" json:"fag_per_resident,omitempty"`                         // latest Financial Assistance Grant / ERP, AUD
+	FagYear                  string                 `protobuf:"bytes,15,opt,name=fag_year,json=fagYear,proto3" json:"fag_year,omitempty"`                                                        // e.g. '2025-26'
+	ApprovalsPer_1000        *float64               `protobuf:"fixed64,16,opt,name=approvals_per_1000,json=approvalsPer1000,proto3,oneof" json:"approvals_per_1000,omitempty"`                   // dwelling approvals, last 12 months, per 1,000 residents
+	ApprovalsThrough         string                 `protobuf:"bytes,17,opt,name=approvals_through,json=approvalsThrough,proto3" json:"approvals_through,omitempty"`                             // last month of that window, 'YYYY-MM'
+	SeifaIrsadDecile         *int32                 `protobuf:"varint,18,opt,name=seifa_irsad_decile,json=seifaIrsadDecile,proto3,oneof" json:"seifa_irsad_decile,omitempty"`                    // SEIFA 2021 IRSAD, national decile
+	FloodSharePct            *float64               `protobuf:"fixed64,19,opt,name=flood_share_pct,json=floodSharePct,proto3,oneof" json:"flood_share_pct,omitempty"`                            // population-weighted over member suburbs
+	BushfireSharePct         *float64               `protobuf:"fixed64,20,opt,name=bushfire_share_pct,json=bushfireSharePct,proto3,oneof" json:"bushfire_share_pct,omitempty"`                   // population-weighted over member suburbs
+	PriceDropShare           *float64               `protobuf:"fixed64,21,opt,name=price_drop_share,json=priceDropShare,proto3,oneof" json:"price_drop_share,omitempty"`                         // 0..1, crawl-derived, only when >= 3 drops council-wide
+	DataThrough              string                 `protobuf:"bytes,22,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"`                                            // newest period in any council series (never a future-dated allocation), 'YYYY-MM-DD'; '' if none
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *CouncilSummary) Reset() {
+	*x = CouncilSummary{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[67]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CouncilSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CouncilSummary) ProtoMessage() {}
+
+func (x *CouncilSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[67]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CouncilSummary.ProtoReflect.Descriptor instead.
+func (*CouncilSummary) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{67}
+}
+
+func (x *CouncilSummary) GetLgaCode() string {
+	if x != nil {
+		return x.LgaCode
+	}
+	return ""
+}
+
+func (x *CouncilSummary) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *CouncilSummary) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *CouncilSummary) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *CouncilSummary) GetStateCode() string {
+	if x != nil {
+		return x.StateCode
+	}
+	return ""
+}
+
+func (x *CouncilSummary) GetPopulation() int32 {
+	if x != nil {
+		return x.Population
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetErpYear() int32 {
+	if x != nil {
+		return x.ErpYear
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetPopGrowthPct() float64 {
+	if x != nil && x.PopGrowthPct != nil {
+		return *x.PopGrowthPct
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetAreaSqkm() float64 {
+	if x != nil && x.AreaSqkm != nil {
+		return *x.AreaSqkm
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetDensityPerSqkm() float64 {
+	if x != nil && x.DensityPerSqkm != nil {
+		return *x.DensityPerSqkm
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetMemberSuburbCount() int32 {
+	if x != nil {
+		return x.MemberSuburbCount
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetCouncilHouseMedian() float64 {
+	if x != nil && x.CouncilHouseMedian != nil {
+		return *x.CouncilHouseMedian
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetCouncilHouseMedianPeriod() string {
+	if x != nil {
+		return x.CouncilHouseMedianPeriod
+	}
+	return ""
+}
+
+func (x *CouncilSummary) GetFagPerResident() float64 {
+	if x != nil && x.FagPerResident != nil {
+		return *x.FagPerResident
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetFagYear() string {
+	if x != nil {
+		return x.FagYear
+	}
+	return ""
+}
+
+func (x *CouncilSummary) GetApprovalsPer_1000() float64 {
+	if x != nil && x.ApprovalsPer_1000 != nil {
+		return *x.ApprovalsPer_1000
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetApprovalsThrough() string {
+	if x != nil {
+		return x.ApprovalsThrough
+	}
+	return ""
+}
+
+func (x *CouncilSummary) GetSeifaIrsadDecile() int32 {
+	if x != nil && x.SeifaIrsadDecile != nil {
+		return *x.SeifaIrsadDecile
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetFloodSharePct() float64 {
+	if x != nil && x.FloodSharePct != nil {
+		return *x.FloodSharePct
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetBushfireSharePct() float64 {
+	if x != nil && x.BushfireSharePct != nil {
+		return *x.BushfireSharePct
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetPriceDropShare() float64 {
+	if x != nil && x.PriceDropShare != nil {
+		return *x.PriceDropShare
+	}
+	return 0
+}
+
+func (x *CouncilSummary) GetDataThrough() string {
+	if x != nil {
+		return x.DataThrough
+	}
+	return ""
+}
+
+type GetCouncilProfileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StateCode     string                 `protobuf:"bytes,1,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"` // NSW | VIC | QLD | SA | WA | TAS | NT | ACT
+	Slug          string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`                            // lga.slug — minted once, never reassigned
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCouncilProfileRequest) Reset() {
+	*x = GetCouncilProfileRequest{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCouncilProfileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCouncilProfileRequest) ProtoMessage() {}
+
+func (x *GetCouncilProfileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCouncilProfileRequest.ProtoReflect.Descriptor instead.
+func (*GetCouncilProfileRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *GetCouncilProfileRequest) GetStateCode() string {
+	if x != nil {
+		return x.StateCode
+	}
+	return ""
+}
+
+func (x *GetCouncilProfileRequest) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+type GetCouncilProfileResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Profile       *CouncilProfile        `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCouncilProfileResponse) Reset() {
+	*x = GetCouncilProfileResponse{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCouncilProfileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCouncilProfileResponse) ProtoMessage() {}
+
+func (x *GetCouncilProfileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCouncilProfileResponse.ProtoReflect.Descriptor instead.
+func (*GetCouncilProfileResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *GetCouncilProfileResponse) GetProfile() *CouncilProfile {
+	if x != nil {
+		return x.Profile
+	}
+	return nil
+}
+
+type CouncilProfile struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Identity + current facts. dominant_share is absent (it is a suburb fact).
+	Council *LgaInfo `protobuf:"bytes,1,opt,name=council,proto3" json:"council,omitempty"`
+	// The same row ListCouncils serves, so the hub and the index never disagree.
+	Summary    *CouncilSummary  `protobuf:"bytes,2,opt,name=summary,proto3" json:"summary,omitempty"`
+	LgaVintage string           `protobuf:"bytes,3,opt,name=lga_vintage,json=lgaVintage,proto3" json:"lga_vintage,omitempty"`
+	Series     []*CouncilSeries `protobuf:"bytes,4,rep,name=series,proto3" json:"series,omitempty"`
+	// Every suburb whose dominant council this is, plus straddling suburbs where
+	// this council holds at least 5% of the residents. Population desc.
+	Suburbs []*CouncilSuburb `protobuf:"bytes,5,rep,name=suburbs,proto3" json:"suburbs,omitempty"`
+	Rollup  *CouncilRollup   `protobuf:"bytes,6,opt,name=rollup,proto3" json:"rollup,omitempty"`
+	// Federal electorates / state districts over the member suburbs, weighted by
+	// the residents each suburb contributes to this council. Largest first.
+	FederalElectorates []*CouncilRepresentative `protobuf:"bytes,7,rep,name=federal_electorates,json=federalElectorates,proto3" json:"federal_electorates,omitempty"`
+	StateDistricts     []*CouncilRepresentative `protobuf:"bytes,8,rep,name=state_districts,json=stateDistricts,proto3" json:"state_districts,omitempty"`
+	// Crawl-derived aggregate. Absent below 3 drops council-wide or with no
+	// crawl coverage.
+	PriceDrops    *CouncilPriceDrops  `protobuf:"bytes,9,opt,name=price_drops,json=priceDrops,proto3" json:"price_drops,omitempty"`
+	Neighbours    []*CouncilNeighbour `protobuf:"bytes,10,rep,name=neighbours,proto3" json:"neighbours,omitempty"`
+	FactsAsOf     string              `protobuf:"bytes,11,opt,name=facts_as_of,json=factsAsOf,proto3" json:"facts_as_of,omitempty"` // when the council facts were loaded, 'YYYY-MM-DD'
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CouncilProfile) Reset() {
+	*x = CouncilProfile{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CouncilProfile) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CouncilProfile) ProtoMessage() {}
+
+func (x *CouncilProfile) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CouncilProfile.ProtoReflect.Descriptor instead.
+func (*CouncilProfile) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *CouncilProfile) GetCouncil() *LgaInfo {
+	if x != nil {
+		return x.Council
+	}
+	return nil
+}
+
+func (x *CouncilProfile) GetSummary() *CouncilSummary {
+	if x != nil {
+		return x.Summary
+	}
+	return nil
+}
+
+func (x *CouncilProfile) GetLgaVintage() string {
+	if x != nil {
+		return x.LgaVintage
+	}
+	return ""
+}
+
+func (x *CouncilProfile) GetSeries() []*CouncilSeries {
+	if x != nil {
+		return x.Series
+	}
+	return nil
+}
+
+func (x *CouncilProfile) GetSuburbs() []*CouncilSuburb {
+	if x != nil {
+		return x.Suburbs
+	}
+	return nil
+}
+
+func (x *CouncilProfile) GetRollup() *CouncilRollup {
+	if x != nil {
+		return x.Rollup
+	}
+	return nil
+}
+
+func (x *CouncilProfile) GetFederalElectorates() []*CouncilRepresentative {
+	if x != nil {
+		return x.FederalElectorates
+	}
+	return nil
+}
+
+func (x *CouncilProfile) GetStateDistricts() []*CouncilRepresentative {
+	if x != nil {
+		return x.StateDistricts
+	}
+	return nil
+}
+
+func (x *CouncilProfile) GetPriceDrops() *CouncilPriceDrops {
+	if x != nil {
+		return x.PriceDrops
+	}
+	return nil
+}
+
+func (x *CouncilProfile) GetNeighbours() []*CouncilNeighbour {
+	if x != nil {
+		return x.Neighbours
+	}
+	return nil
+}
+
+func (x *CouncilProfile) GetFactsAsOf() string {
+	if x != nil {
+		return x.FactsAsOf
+	}
+	return ""
+}
+
+// One lga_series measure for the council, ascending by period.
+type CouncilSeries struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Measure       string                 `protobuf:"bytes,1,opt,name=measure,proto3" json:"measure,omitempty"`     // e.g. 'erp', 'house_median_price', 'dwelling_approvals_total'
+	Unit          string                 `protobuf:"bytes,2,opt,name=unit,proto3" json:"unit,omitempty"`           // persons | AUD | count
+	Frequency     string                 `protobuf:"bytes,3,opt,name=frequency,proto3" json:"frequency,omitempty"` // annual (30 June) | fy | monthly
+	Source        string                 `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
+	SourceLicence string                 `protobuf:"bytes,5,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	Points        []*CouncilSeriesPoint  `protobuf:"bytes,6,rep,name=points,proto3" json:"points,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CouncilSeries) Reset() {
+	*x = CouncilSeries{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CouncilSeries) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CouncilSeries) ProtoMessage() {}
+
+func (x *CouncilSeries) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CouncilSeries.ProtoReflect.Descriptor instead.
+func (*CouncilSeries) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *CouncilSeries) GetMeasure() string {
+	if x != nil {
+		return x.Measure
+	}
+	return ""
+}
+
+func (x *CouncilSeries) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *CouncilSeries) GetFrequency() string {
+	if x != nil {
+		return x.Frequency
+	}
+	return ""
+}
+
+func (x *CouncilSeries) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *CouncilSeries) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+func (x *CouncilSeries) GetPoints() []*CouncilSeriesPoint {
+	if x != nil {
+		return x.Points
+	}
+	return nil
+}
+
+type CouncilSeriesPoint struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Period        string                 `protobuf:"bytes,1,opt,name=period,proto3" json:"period,omitempty"`                              // period end, 'YYYY-MM-DD'
+	PeriodLabel   string                 `protobuf:"bytes,2,opt,name=period_label,json=periodLabel,proto3" json:"period_label,omitempty"` // '2025' | '2024-25' | '2026-07'
+	Value         float64                `protobuf:"fixed64,3,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CouncilSeriesPoint) Reset() {
+	*x = CouncilSeriesPoint{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CouncilSeriesPoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CouncilSeriesPoint) ProtoMessage() {}
+
+func (x *CouncilSeriesPoint) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CouncilSeriesPoint.ProtoReflect.Descriptor instead.
+func (*CouncilSeriesPoint) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *CouncilSeriesPoint) GetPeriod() string {
+	if x != nil {
+		return x.Period
+	}
+	return ""
+}
+
+func (x *CouncilSeriesPoint) GetPeriodLabel() string {
+	if x != nil {
+		return x.PeriodLabel
+	}
+	return ""
+}
+
+func (x *CouncilSeriesPoint) GetValue() float64 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+type CouncilSuburb struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	SalCode          string                 `protobuf:"bytes,1,opt,name=sal_code,json=salCode,proto3" json:"sal_code,omitempty"`
+	SalName          string                 `protobuf:"bytes,2,opt,name=sal_name,json=salName,proto3" json:"sal_name,omitempty"`
+	Postcode         string                 `protobuf:"bytes,3,opt,name=postcode,proto3" json:"postcode,omitempty"`
+	Population       int32                  `protobuf:"varint,4,opt,name=population,proto3" json:"population,omitempty"`                                     // Census 2021 persons, whole suburb
+	Share            float64                `protobuf:"fixed64,5,opt,name=share,proto3" json:"share,omitempty"`                                              // 0..1 of the suburb's residents in this council
+	Dominant         bool                   `protobuf:"varint,6,opt,name=dominant,proto3" json:"dominant,omitempty"`                                         // this is the suburb's dominant council
+	VgMedian         *float64               `protobuf:"fixed64,7,opt,name=vg_median,json=vgMedian,proto3,oneof" json:"vg_median,omitempty"`                  // the suburb's OWN Valuer-General median house price
+	VgMedianPeriod   string                 `protobuf:"bytes,8,opt,name=vg_median_period,json=vgMedianPeriod,proto3" json:"vg_median_period,omitempty"`      // 'YYYY-MM-DD'; '' without a median
+	FloodSharePct    *float64               `protobuf:"fixed64,9,opt,name=flood_share_pct,json=floodSharePct,proto3,oneof" json:"flood_share_pct,omitempty"` // absent = no source covers the suburb
+	BushfireSharePct *float64               `protobuf:"fixed64,10,opt,name=bushfire_share_pct,json=bushfireSharePct,proto3,oneof" json:"bushfire_share_pct,omitempty"`
+	WaterSharePct    *float64               `protobuf:"fixed64,11,opt,name=water_share_pct,json=waterSharePct,proto3,oneof" json:"water_share_pct,omitempty"`
+	SeifaIrsadDecile *int32                 `protobuf:"varint,12,opt,name=seifa_irsad_decile,json=seifaIrsadDecile,proto3,oneof" json:"seifa_irsad_decile,omitempty"` // national decile
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CouncilSuburb) Reset() {
+	*x = CouncilSuburb{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CouncilSuburb) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CouncilSuburb) ProtoMessage() {}
+
+func (x *CouncilSuburb) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CouncilSuburb.ProtoReflect.Descriptor instead.
+func (*CouncilSuburb) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *CouncilSuburb) GetSalCode() string {
+	if x != nil {
+		return x.SalCode
+	}
+	return ""
+}
+
+func (x *CouncilSuburb) GetSalName() string {
+	if x != nil {
+		return x.SalName
+	}
+	return ""
+}
+
+func (x *CouncilSuburb) GetPostcode() string {
+	if x != nil {
+		return x.Postcode
+	}
+	return ""
+}
+
+func (x *CouncilSuburb) GetPopulation() int32 {
+	if x != nil {
+		return x.Population
+	}
+	return 0
+}
+
+func (x *CouncilSuburb) GetShare() float64 {
+	if x != nil {
+		return x.Share
+	}
+	return 0
+}
+
+func (x *CouncilSuburb) GetDominant() bool {
+	if x != nil {
+		return x.Dominant
+	}
+	return false
+}
+
+func (x *CouncilSuburb) GetVgMedian() float64 {
+	if x != nil && x.VgMedian != nil {
+		return *x.VgMedian
+	}
+	return 0
+}
+
+func (x *CouncilSuburb) GetVgMedianPeriod() string {
+	if x != nil {
+		return x.VgMedianPeriod
+	}
+	return ""
+}
+
+func (x *CouncilSuburb) GetFloodSharePct() float64 {
+	if x != nil && x.FloodSharePct != nil {
+		return *x.FloodSharePct
+	}
+	return 0
+}
+
+func (x *CouncilSuburb) GetBushfireSharePct() float64 {
+	if x != nil && x.BushfireSharePct != nil {
+		return *x.BushfireSharePct
+	}
+	return 0
+}
+
+func (x *CouncilSuburb) GetWaterSharePct() float64 {
+	if x != nil && x.WaterSharePct != nil {
+		return *x.WaterSharePct
+	}
+	return 0
+}
+
+func (x *CouncilSuburb) GetSeifaIrsadDecile() int32 {
+	if x != nil && x.SeifaIrsadDecile != nil {
+		return *x.SeifaIrsadDecile
+	}
+	return 0
+}
+
+// Rollups over the member suburbs, weighted by the residents each contributes
+// (population x share). Absent = no member suburb is covered.
+type CouncilRollup struct {
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	MemberSuburbs          int32                  `protobuf:"varint,1,opt,name=member_suburbs,json=memberSuburbs,proto3" json:"member_suburbs,omitempty"`
+	DominantSuburbs        int32                  `protobuf:"varint,2,opt,name=dominant_suburbs,json=dominantSuburbs,proto3" json:"dominant_suburbs,omitempty"`
+	FloodSharePct          *float64               `protobuf:"fixed64,3,opt,name=flood_share_pct,json=floodSharePct,proto3,oneof" json:"flood_share_pct,omitempty"`
+	FloodCoveredSuburbs    int32                  `protobuf:"varint,4,opt,name=flood_covered_suburbs,json=floodCoveredSuburbs,proto3" json:"flood_covered_suburbs,omitempty"`
+	BushfireSharePct       *float64               `protobuf:"fixed64,5,opt,name=bushfire_share_pct,json=bushfireSharePct,proto3,oneof" json:"bushfire_share_pct,omitempty"`
+	BushfireCoveredSuburbs int32                  `protobuf:"varint,6,opt,name=bushfire_covered_suburbs,json=bushfireCoveredSuburbs,proto3" json:"bushfire_covered_suburbs,omitempty"`
+	WaterSharePct          *float64               `protobuf:"fixed64,7,opt,name=water_share_pct,json=waterSharePct,proto3,oneof" json:"water_share_pct,omitempty"`
+	WaterCoveredSuburbs    int32                  `protobuf:"varint,8,opt,name=water_covered_suburbs,json=waterCoveredSuburbs,proto3" json:"water_covered_suburbs,omitempty"`
+	// Member suburbs with their own Valuer-General median (unweighted).
+	PricedSuburbs   int32    `protobuf:"varint,9,opt,name=priced_suburbs,json=pricedSuburbs,proto3" json:"priced_suburbs,omitempty"`
+	MedianMin       *float64 `protobuf:"fixed64,10,opt,name=median_min,json=medianMin,proto3,oneof" json:"median_min,omitempty"`
+	MedianMax       *float64 `protobuf:"fixed64,11,opt,name=median_max,json=medianMax,proto3,oneof" json:"median_max,omitempty"`
+	MedianOfMedians *float64 `protobuf:"fixed64,12,opt,name=median_of_medians,json=medianOfMedians,proto3,oneof" json:"median_of_medians,omitempty"`
+	// Latest crime rates where the source covers member suburbs (NSW today).
+	Crime         []*CouncilCrimeStat `protobuf:"bytes,13,rep,name=crime,proto3" json:"crime,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CouncilRollup) Reset() {
+	*x = CouncilRollup{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CouncilRollup) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CouncilRollup) ProtoMessage() {}
+
+func (x *CouncilRollup) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CouncilRollup.ProtoReflect.Descriptor instead.
+func (*CouncilRollup) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *CouncilRollup) GetMemberSuburbs() int32 {
+	if x != nil {
+		return x.MemberSuburbs
+	}
+	return 0
+}
+
+func (x *CouncilRollup) GetDominantSuburbs() int32 {
+	if x != nil {
+		return x.DominantSuburbs
+	}
+	return 0
+}
+
+func (x *CouncilRollup) GetFloodSharePct() float64 {
+	if x != nil && x.FloodSharePct != nil {
+		return *x.FloodSharePct
+	}
+	return 0
+}
+
+func (x *CouncilRollup) GetFloodCoveredSuburbs() int32 {
+	if x != nil {
+		return x.FloodCoveredSuburbs
+	}
+	return 0
+}
+
+func (x *CouncilRollup) GetBushfireSharePct() float64 {
+	if x != nil && x.BushfireSharePct != nil {
+		return *x.BushfireSharePct
+	}
+	return 0
+}
+
+func (x *CouncilRollup) GetBushfireCoveredSuburbs() int32 {
+	if x != nil {
+		return x.BushfireCoveredSuburbs
+	}
+	return 0
+}
+
+func (x *CouncilRollup) GetWaterSharePct() float64 {
+	if x != nil && x.WaterSharePct != nil {
+		return *x.WaterSharePct
+	}
+	return 0
+}
+
+func (x *CouncilRollup) GetWaterCoveredSuburbs() int32 {
+	if x != nil {
+		return x.WaterCoveredSuburbs
+	}
+	return 0
+}
+
+func (x *CouncilRollup) GetPricedSuburbs() int32 {
+	if x != nil {
+		return x.PricedSuburbs
+	}
+	return 0
+}
+
+func (x *CouncilRollup) GetMedianMin() float64 {
+	if x != nil && x.MedianMin != nil {
+		return *x.MedianMin
+	}
+	return 0
+}
+
+func (x *CouncilRollup) GetMedianMax() float64 {
+	if x != nil && x.MedianMax != nil {
+		return *x.MedianMax
+	}
+	return 0
+}
+
+func (x *CouncilRollup) GetMedianOfMedians() float64 {
+	if x != nil && x.MedianOfMedians != nil {
+		return *x.MedianOfMedians
+	}
+	return 0
+}
+
+func (x *CouncilRollup) GetCrime() []*CouncilCrimeStat {
+	if x != nil {
+		return x.Crime
+	}
+	return nil
+}
+
+type CouncilCrimeStat struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	CrimeType          string                 `protobuf:"bytes,1,opt,name=crime_type,json=crimeType,proto3" json:"crime_type,omitempty"`
+	RatePer_100K       float64                `protobuf:"fixed64,2,opt,name=rate_per_100k,json=ratePer100k,proto3" json:"rate_per_100k,omitempty"` // weighted by residents over covered suburbs
+	FyEnding           int32                  `protobuf:"varint,3,opt,name=fy_ending,json=fyEnding,proto3" json:"fy_ending,omitempty"`
+	CoveredSuburbs     int32                  `protobuf:"varint,4,opt,name=covered_suburbs,json=coveredSuburbs,proto3" json:"covered_suburbs,omitempty"`
+	SourceJurisdiction string                 `protobuf:"bytes,5,opt,name=source_jurisdiction,json=sourceJurisdiction,proto3" json:"source_jurisdiction,omitempty"`
+	Source             string                 `protobuf:"bytes,6,opt,name=source,proto3" json:"source,omitempty"`
+	SourceLicence      string                 `protobuf:"bytes,7,opt,name=source_licence,json=sourceLicence,proto3" json:"source_licence,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *CouncilCrimeStat) Reset() {
+	*x = CouncilCrimeStat{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CouncilCrimeStat) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CouncilCrimeStat) ProtoMessage() {}
+
+func (x *CouncilCrimeStat) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CouncilCrimeStat.ProtoReflect.Descriptor instead.
+func (*CouncilCrimeStat) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *CouncilCrimeStat) GetCrimeType() string {
+	if x != nil {
+		return x.CrimeType
+	}
+	return ""
+}
+
+func (x *CouncilCrimeStat) GetRatePer_100K() float64 {
+	if x != nil {
+		return x.RatePer_100K
+	}
+	return 0
+}
+
+func (x *CouncilCrimeStat) GetFyEnding() int32 {
+	if x != nil {
+		return x.FyEnding
+	}
+	return 0
+}
+
+func (x *CouncilCrimeStat) GetCoveredSuburbs() int32 {
+	if x != nil {
+		return x.CoveredSuburbs
+	}
+	return 0
+}
+
+func (x *CouncilCrimeStat) GetSourceJurisdiction() string {
+	if x != nil {
+		return x.SourceJurisdiction
+	}
+	return ""
+}
+
+func (x *CouncilCrimeStat) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *CouncilCrimeStat) GetSourceLicence() string {
+	if x != nil {
+		return x.SourceLicence
+	}
+	return ""
+}
+
+type CouncilRepresentative struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Name            string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // electorate or district
+	Member          string                 `protobuf:"bytes,2,opt,name=member,proto3" json:"member,omitempty"`
+	Party           string                 `protobuf:"bytes,3,opt,name=party,proto3" json:"party,omitempty"`
+	PartyAb         string                 `protobuf:"bytes,4,opt,name=party_ab,json=partyAb,proto3" json:"party_ab,omitempty"`
+	PopulationShare float64                `protobuf:"fixed64,5,opt,name=population_share,json=populationShare,proto3" json:"population_share,omitempty"` // 0..1 of the council's member-suburb residents
+	SuburbCount     int32                  `protobuf:"varint,6,opt,name=suburb_count,json=suburbCount,proto3" json:"suburb_count,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *CouncilRepresentative) Reset() {
+	*x = CouncilRepresentative{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[76]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CouncilRepresentative) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CouncilRepresentative) ProtoMessage() {}
+
+func (x *CouncilRepresentative) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[76]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CouncilRepresentative.ProtoReflect.Descriptor instead.
+func (*CouncilRepresentative) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{76}
+}
+
+func (x *CouncilRepresentative) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CouncilRepresentative) GetMember() string {
+	if x != nil {
+		return x.Member
+	}
+	return ""
+}
+
+func (x *CouncilRepresentative) GetParty() string {
+	if x != nil {
+		return x.Party
+	}
+	return ""
+}
+
+func (x *CouncilRepresentative) GetPartyAb() string {
+	if x != nil {
+		return x.PartyAb
+	}
+	return ""
+}
+
+func (x *CouncilRepresentative) GetPopulationShare() float64 {
+	if x != nil {
+		return x.PopulationShare
+	}
+	return 0
+}
+
+func (x *CouncilRepresentative) GetSuburbCount() int32 {
+	if x != nil {
+		return x.SuburbCount
+	}
+	return 0
+}
+
+// Asking-price cuts in the last 30 days over the suburbs whose dominant
+// council this is, among listings active and seen by the crawl in the last 14
+// days (each address counted once). Counted from every crawled member suburb,
+// so cuts in suburbs below the floor still count; floored at 3 cuts
+// council-wide.
+type CouncilPriceDrops struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	DroppedListingCount int32                  `protobuf:"varint,1,opt,name=dropped_listing_count,json=droppedListingCount,proto3" json:"dropped_listing_count,omitempty"`
+	TrackedListingCount int32                  `protobuf:"varint,2,opt,name=tracked_listing_count,json=trackedListingCount,proto3" json:"tracked_listing_count,omitempty"`
+	DroppedShare        float64                `protobuf:"fixed64,3,opt,name=dropped_share,json=droppedShare,proto3" json:"dropped_share,omitempty"`            // dropped / tracked
+	MedianDropPct       *float64               `protobuf:"fixed64,4,opt,name=median_drop_pct,json=medianDropPct,proto3,oneof" json:"median_drop_pct,omitempty"` // median cut over every cut listing in the council
+	SuburbsTracked      int32                  `protobuf:"varint,5,opt,name=suburbs_tracked,json=suburbsTracked,proto3" json:"suburbs_tracked,omitempty"`
+	// Only suburbs that clear 3 drops themselves are named.
+	Suburbs       []*CouncilDropSuburb   `protobuf:"bytes,6,rep,name=suburbs,proto3" json:"suburbs,omitempty"`
+	AsOf          *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`                      // when these figures were computed
+	DataThrough   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=data_through,json=dataThrough,proto3" json:"data_through,omitempty"` // newest crawl observation behind them
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CouncilPriceDrops) Reset() {
+	*x = CouncilPriceDrops{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[77]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CouncilPriceDrops) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CouncilPriceDrops) ProtoMessage() {}
+
+func (x *CouncilPriceDrops) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[77]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CouncilPriceDrops.ProtoReflect.Descriptor instead.
+func (*CouncilPriceDrops) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *CouncilPriceDrops) GetDroppedListingCount() int32 {
+	if x != nil {
+		return x.DroppedListingCount
+	}
+	return 0
+}
+
+func (x *CouncilPriceDrops) GetTrackedListingCount() int32 {
+	if x != nil {
+		return x.TrackedListingCount
+	}
+	return 0
+}
+
+func (x *CouncilPriceDrops) GetDroppedShare() float64 {
+	if x != nil {
+		return x.DroppedShare
+	}
+	return 0
+}
+
+func (x *CouncilPriceDrops) GetMedianDropPct() float64 {
+	if x != nil && x.MedianDropPct != nil {
+		return *x.MedianDropPct
+	}
+	return 0
+}
+
+func (x *CouncilPriceDrops) GetSuburbsTracked() int32 {
+	if x != nil {
+		return x.SuburbsTracked
+	}
+	return 0
+}
+
+func (x *CouncilPriceDrops) GetSuburbs() []*CouncilDropSuburb {
+	if x != nil {
+		return x.Suburbs
+	}
+	return nil
+}
+
+func (x *CouncilPriceDrops) GetAsOf() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOf
+	}
+	return nil
+}
+
+func (x *CouncilPriceDrops) GetDataThrough() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DataThrough
+	}
+	return nil
+}
+
+type CouncilDropSuburb struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	SalCode             string                 `protobuf:"bytes,1,opt,name=sal_code,json=salCode,proto3" json:"sal_code,omitempty"`
+	SalName             string                 `protobuf:"bytes,2,opt,name=sal_name,json=salName,proto3" json:"sal_name,omitempty"`
+	Postcode            string                 `protobuf:"bytes,3,opt,name=postcode,proto3" json:"postcode,omitempty"`
+	DroppedListingCount int32                  `protobuf:"varint,4,opt,name=dropped_listing_count,json=droppedListingCount,proto3" json:"dropped_listing_count,omitempty"`
+	TrackedListingCount int32                  `protobuf:"varint,5,opt,name=tracked_listing_count,json=trackedListingCount,proto3" json:"tracked_listing_count,omitempty"`
+	DroppedShare        float64                `protobuf:"fixed64,6,opt,name=dropped_share,json=droppedShare,proto3" json:"dropped_share,omitempty"`
+	MedianDropPct       *float64               `protobuf:"fixed64,7,opt,name=median_drop_pct,json=medianDropPct,proto3,oneof" json:"median_drop_pct,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *CouncilDropSuburb) Reset() {
+	*x = CouncilDropSuburb{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[78]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CouncilDropSuburb) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CouncilDropSuburb) ProtoMessage() {}
+
+func (x *CouncilDropSuburb) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[78]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CouncilDropSuburb.ProtoReflect.Descriptor instead.
+func (*CouncilDropSuburb) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *CouncilDropSuburb) GetSalCode() string {
+	if x != nil {
+		return x.SalCode
+	}
+	return ""
+}
+
+func (x *CouncilDropSuburb) GetSalName() string {
+	if x != nil {
+		return x.SalName
+	}
+	return ""
+}
+
+func (x *CouncilDropSuburb) GetPostcode() string {
+	if x != nil {
+		return x.Postcode
+	}
+	return ""
+}
+
+func (x *CouncilDropSuburb) GetDroppedListingCount() int32 {
+	if x != nil {
+		return x.DroppedListingCount
+	}
+	return 0
+}
+
+func (x *CouncilDropSuburb) GetTrackedListingCount() int32 {
+	if x != nil {
+		return x.TrackedListingCount
+	}
+	return 0
+}
+
+func (x *CouncilDropSuburb) GetDroppedShare() float64 {
+	if x != nil {
+		return x.DroppedShare
+	}
+	return 0
+}
+
+func (x *CouncilDropSuburb) GetMedianDropPct() float64 {
+	if x != nil && x.MedianDropPct != nil {
+		return *x.MedianDropPct
+	}
+	return 0
+}
+
+type CouncilNeighbour struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	LgaCode     string                 `protobuf:"bytes,1,opt,name=lga_code,json=lgaCode,proto3" json:"lga_code,omitempty"`
+	Slug        string                 `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"` // '' when the council has no page
+	DisplayName string                 `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Kind        string                 `protobuf:"bytes,4,opt,name=kind,proto3" json:"kind,omitempty"`
+	StateCode   string                 `protobuf:"bytes,5,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
+	// A dominant-member suburb shares a boundary with one of the neighbour's
+	// (ABS suburb topology, within the state).
+	SharesBorder bool `protobuf:"varint,6,opt,name=shares_border,json=sharesBorder,proto3" json:"shares_border,omitempty"`
+	// Suburbs split between the two councils (each >= 1% of residents).
+	SharedSuburbs int32 `protobuf:"varint,7,opt,name=shared_suburbs,json=sharedSuburbs,proto3" json:"shared_suburbs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CouncilNeighbour) Reset() {
+	*x = CouncilNeighbour{}
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[79]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CouncilNeighbour) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CouncilNeighbour) ProtoMessage() {}
+
+func (x *CouncilNeighbour) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_housing_proto_msgTypes[79]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CouncilNeighbour.ProtoReflect.Descriptor instead.
+func (*CouncilNeighbour) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_housing_proto_rawDescGZIP(), []int{79}
+}
+
+func (x *CouncilNeighbour) GetLgaCode() string {
+	if x != nil {
+		return x.LgaCode
+	}
+	return ""
+}
+
+func (x *CouncilNeighbour) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *CouncilNeighbour) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *CouncilNeighbour) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *CouncilNeighbour) GetStateCode() string {
+	if x != nil {
+		return x.StateCode
+	}
+	return ""
+}
+
+func (x *CouncilNeighbour) GetSharesBorder() bool {
+	if x != nil {
+		return x.SharesBorder
+	}
+	return false
+}
+
+func (x *CouncilNeighbour) GetSharedSuburbs() int32 {
+	if x != nil {
+		return x.SharedSuburbs
+	}
+	return 0
 }
 
 var File_shorts_v1alpha1_housing_proto protoreflect.FileDescriptor
@@ -5710,7 +8016,39 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x19_water_observed_share_pctB\x1c\n" +
 	"\x1a_permanent_water_share_pctB\x1b\n" +
 	"\x19_flood_planning_share_pctB\x1b\n" +
-	"\x19_bushfire_prone_share_pct\"\xcb\n" +
+	"\x19_bushfire_prone_share_pct\"F\n" +
+	"\x0fZoneFamilyShare\x12\x16\n" +
+	"\x06family\x18\x01 \x01(\tR\x06family\x12\x1b\n" +
+	"\tshare_pct\x18\x02 \x01(\x01R\bsharePct\"\x8d\b\n" +
+	"\x0eSuburbPlanning\x12A\n" +
+	"\vzone_shares\x18\x01 \x03(\v2 .shorts.v1alpha1.ZoneFamilyShareR\n" +
+	"zoneShares\x123\n" +
+	"\x13zoning_coverage_pct\x18\x02 \x01(\x01H\x00R\x11zoningCoveragePct\x88\x01\x01\x120\n" +
+	"\x14dominant_zone_family\x18\x03 \x01(\tR\x12dominantZoneFamily\x121\n" +
+	"\x12heritage_share_pct\x18\x04 \x01(\x01H\x01R\x10heritageSharePct\x88\x01\x01\x123\n" +
+	"\x13heritage_item_count\x18\x05 \x01(\x05H\x02R\x11heritageItemCount\x88\x01\x01\x122\n" +
+	"\x13nsw_height_median_m\x18\x06 \x01(\x01H\x03R\x10nswHeightMedianM\x88\x01\x01\x12,\n" +
+	"\x10nsw_height_max_m\x18\a \x01(\x01H\x04R\rnswHeightMaxM\x88\x01\x01\x12)\n" +
+	"\x0ensw_fsr_median\x18\b \x01(\x01H\x05R\fnswFsrMedian\x88\x01\x01\x125\n" +
+	"\x15nsw_min_lot_median_m2\x18\t \x01(\x01H\x06R\x11nswMinLotMedianM2\x88\x01\x01\x12 \n" +
+	"\vinstruments\x18\n" +
+	" \x03(\tR\vinstruments\x12#\n" +
+	"\rzoning_source\x18\v \x01(\tR\fzoningSource\x12'\n" +
+	"\x0fheritage_source\x18\f \x01(\tR\x0eheritageSource\x12%\n" +
+	"\x0esource_licence\x18\r \x01(\tR\rsourceLicence\x126\n" +
+	"\x15nsw_height_mapped_pct\x18\x0e \x01(\x01H\aR\x12nswHeightMappedPct\x88\x01\x01\x120\n" +
+	"\x12nsw_fsr_mapped_pct\x18\x0f \x01(\x01H\bR\x0fnswFsrMappedPct\x88\x01\x01\x127\n" +
+	"\x16nsw_min_lot_mapped_pct\x18\x10 \x01(\x01H\tR\x12nswMinLotMappedPct\x88\x01\x01B\x16\n" +
+	"\x14_zoning_coverage_pctB\x15\n" +
+	"\x13_heritage_share_pctB\x16\n" +
+	"\x14_heritage_item_countB\x16\n" +
+	"\x14_nsw_height_median_mB\x13\n" +
+	"\x11_nsw_height_max_mB\x11\n" +
+	"\x0f_nsw_fsr_medianB\x18\n" +
+	"\x16_nsw_min_lot_median_m2B\x18\n" +
+	"\x16_nsw_height_mapped_pctB\x15\n" +
+	"\x13_nsw_fsr_mapped_pctB\x19\n" +
+	"\x17_nsw_min_lot_mapped_pct\"\xcb\n" +
 	"\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
@@ -5832,12 +8170,35 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x12pct_separate_house\x18\x18 \x01(\x01R\x10pctSeparateHouse\x12,\n" +
 	"\x12pct_flat_apartment\x18\x19 \x01(\x01R\x10pctFlatApartment\x127\n" +
 	"\x18pct_couple_with_children\x18\x1a \x01(\x01R\x15pctCoupleWithChildren\x129\n" +
-	"\x19pct_lone_person_household\x18\x1b \x01(\x01R\x16pctLonePersonHousehold\"\x85\x02\n" +
+	"\x19pct_lone_person_household\x18\x1b \x01(\x01R\x16pctLonePersonHousehold\"\x82\x05\n" +
 	"\x13ComparisonBaselines\x12,\n" +
 	"\x12state_median_price\x18\x01 \x01(\x01R\x10stateMedianPrice\x122\n" +
 	"\x15national_median_price\x18\x02 \x01(\x01R\x13nationalMedianPrice\x12B\n" +
 	"\x1estate_median_weekly_hhd_income\x18\x03 \x01(\x01R\x1astateMedianWeeklyHhdIncome\x12H\n" +
-	"!national_median_weekly_hhd_income\x18\x04 \x01(\x01R\x1dnationalMedianWeeklyHhdIncome\"\x8e\x03\n" +
+	"!national_median_weekly_hhd_income\x18\x04 \x01(\x01R\x1dnationalMedianWeeklyHhdIncome\x120\n" +
+	"\x14capital_median_price\x18\x05 \x01(\x01R\x12capitalMedianPrice\x12.\n" +
+	"\x13capital_region_name\x18\x06 \x01(\tR\x11capitalRegionName\x12.\n" +
+	"\x13capital_region_code\x18\a \x01(\tR\x11capitalRegionCode\x12:\n" +
+	"\x1arest_of_state_median_price\x18\b \x01(\x01R\x16restOfStateMedianPrice\x128\n" +
+	"\x19rest_of_state_region_name\x18\t \x01(\tR\x15restOfStateRegionName\x12*\n" +
+	"\x11abs_median_period\x18\n" +
+	" \x01(\tR\x0fabsMedianPeriod\x12G\n" +
+	"\fstate_census\x18\v \x01(\v2$.shorts.v1alpha1.StateCensusAveragesR\vstateCensus\"\xf9\x04\n" +
+	"\x13StateCensusAverages\x12,\n" +
+	"\x12pct_owned_outright\x18\x01 \x01(\x01R\x10pctOwnedOutright\x12,\n" +
+	"\x12pct_owned_mortgage\x18\x02 \x01(\x01R\x10pctOwnedMortgage\x12\x1d\n" +
+	"\n" +
+	"pct_rented\x18\x03 \x01(\x01R\tpctRented\x12,\n" +
+	"\x12pct_separate_house\x18\x04 \x01(\x01R\x10pctSeparateHouse\x12,\n" +
+	"\x12pct_flat_apartment\x18\x05 \x01(\x01R\x10pctFlatApartment\x127\n" +
+	"\x18pct_couple_with_children\x18\x06 \x01(\x01R\x15pctCoupleWithChildren\x129\n" +
+	"\x19pct_lone_person_household\x18\a \x01(\x01R\x16pctLonePersonHousehold\x12+\n" +
+	"\x11unemployment_rate\x18\b \x01(\x01R\x10unemploymentRate\x12E\n" +
+	"\x1flabour_force_participation_rate\x18\t \x01(\x01R\x1clabourForceParticipationRate\x123\n" +
+	"\x16pct_bachelor_or_higher\x18\n" +
+	" \x01(\x01R\x13pctBachelorOrHigher\x125\n" +
+	"\x17pct_low_personal_income\x18\v \x01(\x01R\x14pctLowPersonalIncome\x127\n" +
+	"\x18pct_high_personal_income\x18\f \x01(\x01R\x15pctHighPersonalIncome\"\xda\v\n" +
 	"\aLgaInfo\x12\x19\n" +
 	"\blga_code\x18\x01 \x01(\tR\algaCode\x12\x19\n" +
 	"\blga_name\x18\x02 \x01(\tR\algaName\x12\x1d\n" +
@@ -5856,7 +8217,51 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	" \x01(\x01R\x11assetRenewalRatio\x12\x1d\n" +
 	"\n" +
 	"fin_source\x18\v \x01(\tR\tfinSource\x12\x19\n" +
-	"\bfin_year\x18\f \x01(\tR\afinYear\"\xd5\x01\n" +
+	"\bfin_year\x18\f \x01(\tR\afinYear\x12\x12\n" +
+	"\x04slug\x18\r \x01(\tR\x04slug\x12!\n" +
+	"\fdisplay_name\x18\x0e \x01(\tR\vdisplayName\x12\x12\n" +
+	"\x04kind\x18\x0f \x01(\tR\x04kind\x12\x19\n" +
+	"\berp_year\x18\x10 \x01(\x05R\aerpYear\x12)\n" +
+	"\x0epop_growth_pct\x18\x11 \x01(\x01H\x00R\fpopGrowthPct\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"median_age\x18\x12 \x01(\x01H\x01R\tmedianAge\x88\x01\x01\x12/\n" +
+	"\x11median_hhd_income\x18\x13 \x01(\x05H\x02R\x0fmedianHhdIncome\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"pct_rented\x18\x14 \x01(\x01H\x03R\tpctRented\x88\x01\x01\x121\n" +
+	"\x12median_weekly_rent\x18\x15 \x01(\x05H\x04R\x10medianWeeklyRent\x88\x01\x01\x12;\n" +
+	"\x17median_mortgage_monthly\x18\x16 \x01(\x05H\x05R\x15medianMortgageMonthly\x88\x01\x01\x121\n" +
+	"\x12avg_household_size\x18\x17 \x01(\x01H\x06R\x10avgHouseholdSize\x88\x01\x01\x121\n" +
+	"\x12seifa_irsad_decile\x18\x18 \x01(\x05H\aR\x10seifaIrsadDecile\x88\x01\x01\x12/\n" +
+	"\x11seifa_irsd_decile\x18\x19 \x01(\x05H\bR\x0fseifaIrsdDecile\x88\x01\x01\x12\x18\n" +
+	"\awebsite\x18\x1a \x01(\tR\awebsite\x12!\n" +
+	"\fwikidata_qid\x18\x1b \x01(\tR\vwikidataQid\x12&\n" +
+	"\fcentroid_lat\x18\x1c \x01(\x01H\tR\vcentroidLat\x88\x01\x01\x12&\n" +
+	"\fcentroid_lon\x18\x1d \x01(\x01H\n" +
+	"R\vcentroidLon\x88\x01\x01\x12*\n" +
+	"\x0edominant_share\x18\x1e \x01(\x01H\vR\rdominantShare\x88\x01\x01\x125\n" +
+	"\x14council_house_median\x18\x1f \x01(\x01H\fR\x12councilHouseMedian\x88\x01\x01\x12=\n" +
+	"\x1bcouncil_house_median_period\x18  \x01(\tR\x18councilHouseMedianPeriodB\x11\n" +
+	"\x0f_pop_growth_pctB\r\n" +
+	"\v_median_ageB\x14\n" +
+	"\x12_median_hhd_incomeB\r\n" +
+	"\v_pct_rentedB\x15\n" +
+	"\x13_median_weekly_rentB\x1a\n" +
+	"\x18_median_mortgage_monthlyB\x15\n" +
+	"\x13_avg_household_sizeB\x15\n" +
+	"\x13_seifa_irsad_decileB\x14\n" +
+	"\x12_seifa_irsd_decileB\x0f\n" +
+	"\r_centroid_latB\x0f\n" +
+	"\r_centroid_lonB\x11\n" +
+	"\x0f_dominant_shareB\x17\n" +
+	"\x15_council_house_median\"\x93\x01\n" +
+	"\n" +
+	"LgaOverlap\x12\x19\n" +
+	"\blga_code\x18\x01 \x01(\tR\algaCode\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1d\n" +
+	"\n" +
+	"state_code\x18\x03 \x01(\tR\tstateCode\x12\x12\n" +
+	"\x04slug\x18\x04 \x01(\tR\x04slug\x12\x14\n" +
+	"\x05share\x18\x05 \x01(\x01R\x05share\"\xd5\x01\n" +
 	"\rSimilarSuburb\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
@@ -5887,7 +8292,7 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x05stats\x18\x01 \x03(\v2 .shorts.v1alpha1.SuburbCrimeStatR\x05stats\x12/\n" +
 	"\x13source_jurisdiction\x18\x02 \x01(\tR\x12sourceJurisdiction\x12\x16\n" +
 	"\x06source\x18\x03 \x01(\tR\x06source\x12%\n" +
-	"\x0esource_licence\x18\x04 \x01(\tR\rsourceLicence\"\xd9\x01\n" +
+	"\x0esource_licence\x18\x04 \x01(\tR\rsourceLicence\"\xc9\x02\n" +
 	"\x12SuburbListingStats\x12$\n" +
 	"\x0efor_sale_count\x18\x01 \x01(\x05R\fforSaleCount\x12\x1d\n" +
 	"\n" +
@@ -5897,7 +8302,9 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"sold_count\x18\x04 \x01(\x05R\tsoldCount\x12\x19\n" +
 	"\bavg_sold\x18\x05 \x01(\x01R\aavgSold\x12\x1f\n" +
 	"\vmedian_sold\x18\x06 \x01(\x01R\n" +
-	"medianSold\"\x85\x05\n" +
+	"medianSold\x12/\n" +
+	"\x05as_of\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12=\n" +
+	"\fdata_through\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vdataThrough\"\x8a\x06\n" +
 	"\x18GetSuburbProfileResponse\x128\n" +
 	"\asummary\x18\x01 \x01(\v2\x1e.shorts.v1alpha1.SuburbSummaryR\asummary\x12G\n" +
 	"\fdemographics\x18\x02 \x01(\v2#.shorts.v1alpha1.SuburbDemographicsR\fdemographics\x12B\n" +
@@ -5909,7 +8316,9 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\rlisting_stats\x18\b \x01(\v2#.shorts.v1alpha1.SuburbListingStatsR\flistingStats\x12>\n" +
 	"\televation\x18\t \x01(\v2 .shorts.v1alpha1.SuburbElevationR\televation\x12?\n" +
 	"\ahazards\x18\n" +
-	" \x01(\v2%.shorts.v1alpha1.SuburbHazardExposureR\ahazards\"\x87\x01\n" +
+	" \x01(\v2%.shorts.v1alpha1.SuburbHazardExposureR\ahazards\x12F\n" +
+	"\x10council_overlaps\x18\v \x03(\v2\x1b.shorts.v1alpha1.LgaOverlapR\x0fcouncilOverlaps\x12;\n" +
+	"\bplanning\x18\f \x01(\v2\x1f.shorts.v1alpha1.SuburbPlanningR\bplanning\"\x87\x01\n" +
 	"\x19ListHousingRegionsRequest\x12\x1f\n" +
 	"\vregion_type\x18\x01 \x01(\tR\n" +
 	"regionType\x12\x1d\n" +
@@ -5966,9 +8375,11 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\bavg_sold\x18\x11 \x01(\x01R\aavgSold\x12\x1f\n" +
 	"\vmedian_sold\x18\x12 \x01(\x01R\n" +
 	"medianSold\x12#\n" +
-	"\rdropped_value\x18\x13 \x01(\x01R\fdroppedValue\"Z\n" +
+	"\rdropped_value\x18\x13 \x01(\x01R\fdroppedValue\"\xca\x01\n" +
 	"\x1cListSuburbPriceDropsResponse\x12:\n" +
-	"\asuburbs\x18\x01 \x03(\v2 .shorts.v1alpha1.SuburbPriceDropR\asuburbs\"\x92\x01\n" +
+	"\asuburbs\x18\x01 \x03(\v2 .shorts.v1alpha1.SuburbPriceDropR\asuburbs\x12/\n" +
+	"\x05as_of\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12=\n" +
+	"\fdata_through\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vdataThrough\"\x92\x01\n" +
 	"\x1dListSuburbDropListingsRequest\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x1f\n" +
 	"\vregion_code\x18\x02 \x01(\tR\n" +
@@ -6128,7 +8539,7 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"agentNames\"`\n" +
 	"\x1dListAddressPriceDropsResponse\x12?\n" +
 	"\taddresses\x18\x01 \x03(\v2!.shorts.v1alpha1.AddressPriceDropR\taddresses\"\x1e\n" +
-	"\x1cGetPriceDropsOverviewRequest\"\xdb\x04\n" +
+	"\x1cGetPriceDropsOverviewRequest\"\xb0\x05\n" +
 	"\x15StatePriceDropSummary\x12\x1d\n" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12#\n" +
@@ -6152,10 +8563,15 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\bavg_sold\x18\x0e \x01(\x01R\aavgSold\x12\x1f\n" +
 	"\vmedian_sold\x18\x0f \x01(\x01R\n" +
 	"medianSold\x12'\n" +
-	"\x0fsuburbs_tracked\x18\x10 \x01(\x05R\x0esuburbsTracked\"\xa3\x01\n" +
+	"\x0fsuburbs_tracked\x18\x10 \x01(\x05R\x0esuburbsTracked\x12*\n" +
+	"\x11suburbs_swept_14d\x18\x11 \x01(\x05R\x0fsuburbsSwept14d\x12'\n" +
+	"\x0fcatalog_suburbs\x18\x12 \x01(\x05R\x0ecatalogSuburbs\"\xaf\x02\n" +
 	"\x1dGetPriceDropsOverviewResponse\x12B\n" +
 	"\bnational\x18\x01 \x01(\v2&.shorts.v1alpha1.StatePriceDropSummaryR\bnational\x12>\n" +
-	"\x06states\x18\x02 \x03(\v2&.shorts.v1alpha1.StatePriceDropSummaryR\x06states\"f\n" +
+	"\x06states\x18\x02 \x03(\v2&.shorts.v1alpha1.StatePriceDropSummaryR\x06states\x12/\n" +
+	"\x05as_of\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12=\n" +
+	"\fdata_through\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\vdataThrough\x12\x1a\n" +
+	"\bwithheld\x18\x05 \x01(\bR\bwithheld\"f\n" +
 	"\x1bListAgencyPriceStatsRequest\x12\x1d\n" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x12\n" +
@@ -6182,7 +8598,7 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\vagent_names\x18\r \x03(\tR\n" +
 	"agentNames\"]\n" +
 	"\x1cListAgencyPriceStatsResponse\x12=\n" +
-	"\bagencies\x18\x01 \x03(\v2!.shorts.v1alpha1.AgencyPriceStatsR\bagencies\"\x94\x03\n" +
+	"\bagencies\x18\x01 \x03(\v2!.shorts.v1alpha1.AgencyPriceStatsR\bagencies\"\xbd\x03\n" +
 	"\x0eDropIndexPoint\x12#\n" +
 	"\rsnapshot_date\x18\x01 \x01(\tR\fsnapshotDate\x12\x1b\n" +
 	"\tdrop_rate\x18\x02 \x01(\x01R\bdropRate\x12&\n" +
@@ -6194,15 +8610,188 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x11dropped_addresses\x18\b \x01(\x05R\x10droppedAddresses\x126\n" +
 	"\x17withdrawn_then_relisted\x18\t \x01(\x05R\x15withdrawnThenRelisted\x12%\n" +
 	"\x0edelisted_count\x18\n" +
-	" \x01(\x05R\rdelistedCount\"r\n" +
+	" \x01(\x05R\rdelistedCount\x12'\n" +
+	"\x0fmedian_withheld\x18\v \x01(\bR\x0emedianWithheld\"r\n" +
 	"\x19GetDropIndexSeriesRequest\x12\x14\n" +
 	"\x05grain\x18\x01 \x01(\tR\x05grain\x12\x1b\n" +
 	"\tgrain_key\x18\x02 \x01(\tR\bgrainKey\x12\x12\n" +
 	"\x04from\x18\x03 \x01(\tR\x04from\x12\x0e\n" +
-	"\x02to\x18\x04 \x01(\tR\x02to\"|\n" +
+	"\x02to\x18\x04 \x01(\tR\x02to\"\xec\x01\n" +
 	"\x1aGetDropIndexSeriesResponse\x127\n" +
 	"\x06points\x18\x01 \x03(\v2\x1f.shorts.v1alpha1.DropIndexPointR\x06points\x12%\n" +
-	"\x0etracking_since\x18\x02 \x01(\tR\rtrackingSince2\xfd\r\n" +
+	"\x0etracking_since\x18\x02 \x01(\tR\rtrackingSince\x12/\n" +
+	"\x05as_of\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12=\n" +
+	"\fdata_through\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\vdataThrough\"4\n" +
+	"\x13ListCouncilsRequest\x12\x1d\n" +
+	"\n" +
+	"state_code\x18\x01 \x01(\tR\tstateCode\"\x90\x02\n" +
+	"\x14ListCouncilsResponse\x12;\n" +
+	"\bcouncils\x18\x01 \x03(\v2\x1f.shorts.v1alpha1.CouncilSummaryR\bcouncils\x12\x1f\n" +
+	"\vlga_vintage\x18\x02 \x01(\tR\n" +
+	"lgaVintage\x12E\n" +
+	"\x11price_drops_as_of\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x0epriceDropsAsOf\x12S\n" +
+	"\x18price_drops_data_through\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x15priceDropsDataThrough\"\xd3\b\n" +
+	"\x0eCouncilSummary\x12\x19\n" +
+	"\blga_code\x18\x01 \x01(\tR\algaCode\x12\x12\n" +
+	"\x04slug\x18\x02 \x01(\tR\x04slug\x12!\n" +
+	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x12\n" +
+	"\x04kind\x18\x04 \x01(\tR\x04kind\x12\x1d\n" +
+	"\n" +
+	"state_code\x18\x05 \x01(\tR\tstateCode\x12\x1e\n" +
+	"\n" +
+	"population\x18\x06 \x01(\x05R\n" +
+	"population\x12\x19\n" +
+	"\berp_year\x18\a \x01(\x05R\aerpYear\x12)\n" +
+	"\x0epop_growth_pct\x18\b \x01(\x01H\x00R\fpopGrowthPct\x88\x01\x01\x12 \n" +
+	"\tarea_sqkm\x18\t \x01(\x01H\x01R\bareaSqkm\x88\x01\x01\x12-\n" +
+	"\x10density_per_sqkm\x18\n" +
+	" \x01(\x01H\x02R\x0edensityPerSqkm\x88\x01\x01\x12.\n" +
+	"\x13member_suburb_count\x18\v \x01(\x05R\x11memberSuburbCount\x125\n" +
+	"\x14council_house_median\x18\f \x01(\x01H\x03R\x12councilHouseMedian\x88\x01\x01\x12=\n" +
+	"\x1bcouncil_house_median_period\x18\r \x01(\tR\x18councilHouseMedianPeriod\x12-\n" +
+	"\x10fag_per_resident\x18\x0e \x01(\x01H\x04R\x0efagPerResident\x88\x01\x01\x12\x19\n" +
+	"\bfag_year\x18\x0f \x01(\tR\afagYear\x121\n" +
+	"\x12approvals_per_1000\x18\x10 \x01(\x01H\x05R\x10approvalsPer1000\x88\x01\x01\x12+\n" +
+	"\x11approvals_through\x18\x11 \x01(\tR\x10approvalsThrough\x121\n" +
+	"\x12seifa_irsad_decile\x18\x12 \x01(\x05H\x06R\x10seifaIrsadDecile\x88\x01\x01\x12+\n" +
+	"\x0fflood_share_pct\x18\x13 \x01(\x01H\aR\rfloodSharePct\x88\x01\x01\x121\n" +
+	"\x12bushfire_share_pct\x18\x14 \x01(\x01H\bR\x10bushfireSharePct\x88\x01\x01\x12-\n" +
+	"\x10price_drop_share\x18\x15 \x01(\x01H\tR\x0epriceDropShare\x88\x01\x01\x12!\n" +
+	"\fdata_through\x18\x16 \x01(\tR\vdataThroughB\x11\n" +
+	"\x0f_pop_growth_pctB\f\n" +
+	"\n" +
+	"_area_sqkmB\x13\n" +
+	"\x11_density_per_sqkmB\x17\n" +
+	"\x15_council_house_medianB\x13\n" +
+	"\x11_fag_per_residentB\x15\n" +
+	"\x13_approvals_per_1000B\x15\n" +
+	"\x13_seifa_irsad_decileB\x12\n" +
+	"\x10_flood_share_pctB\x15\n" +
+	"\x13_bushfire_share_pctB\x13\n" +
+	"\x11_price_drop_share\"M\n" +
+	"\x18GetCouncilProfileRequest\x12\x1d\n" +
+	"\n" +
+	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x12\n" +
+	"\x04slug\x18\x02 \x01(\tR\x04slug\"V\n" +
+	"\x19GetCouncilProfileResponse\x129\n" +
+	"\aprofile\x18\x01 \x01(\v2\x1f.shorts.v1alpha1.CouncilProfileR\aprofile\"\x9c\x05\n" +
+	"\x0eCouncilProfile\x122\n" +
+	"\acouncil\x18\x01 \x01(\v2\x18.shorts.v1alpha1.LgaInfoR\acouncil\x129\n" +
+	"\asummary\x18\x02 \x01(\v2\x1f.shorts.v1alpha1.CouncilSummaryR\asummary\x12\x1f\n" +
+	"\vlga_vintage\x18\x03 \x01(\tR\n" +
+	"lgaVintage\x126\n" +
+	"\x06series\x18\x04 \x03(\v2\x1e.shorts.v1alpha1.CouncilSeriesR\x06series\x128\n" +
+	"\asuburbs\x18\x05 \x03(\v2\x1e.shorts.v1alpha1.CouncilSuburbR\asuburbs\x126\n" +
+	"\x06rollup\x18\x06 \x01(\v2\x1e.shorts.v1alpha1.CouncilRollupR\x06rollup\x12W\n" +
+	"\x13federal_electorates\x18\a \x03(\v2&.shorts.v1alpha1.CouncilRepresentativeR\x12federalElectorates\x12O\n" +
+	"\x0fstate_districts\x18\b \x03(\v2&.shorts.v1alpha1.CouncilRepresentativeR\x0estateDistricts\x12C\n" +
+	"\vprice_drops\x18\t \x01(\v2\".shorts.v1alpha1.CouncilPriceDropsR\n" +
+	"priceDrops\x12A\n" +
+	"\n" +
+	"neighbours\x18\n" +
+	" \x03(\v2!.shorts.v1alpha1.CouncilNeighbourR\n" +
+	"neighbours\x12\x1e\n" +
+	"\vfacts_as_of\x18\v \x01(\tR\tfactsAsOf\"\xd7\x01\n" +
+	"\rCouncilSeries\x12\x18\n" +
+	"\ameasure\x18\x01 \x01(\tR\ameasure\x12\x12\n" +
+	"\x04unit\x18\x02 \x01(\tR\x04unit\x12\x1c\n" +
+	"\tfrequency\x18\x03 \x01(\tR\tfrequency\x12\x16\n" +
+	"\x06source\x18\x04 \x01(\tR\x06source\x12%\n" +
+	"\x0esource_licence\x18\x05 \x01(\tR\rsourceLicence\x12;\n" +
+	"\x06points\x18\x06 \x03(\v2#.shorts.v1alpha1.CouncilSeriesPointR\x06points\"e\n" +
+	"\x12CouncilSeriesPoint\x12\x16\n" +
+	"\x06period\x18\x01 \x01(\tR\x06period\x12!\n" +
+	"\fperiod_label\x18\x02 \x01(\tR\vperiodLabel\x12\x14\n" +
+	"\x05value\x18\x03 \x01(\x01R\x05value\"\xa3\x04\n" +
+	"\rCouncilSuburb\x12\x19\n" +
+	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
+	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1a\n" +
+	"\bpostcode\x18\x03 \x01(\tR\bpostcode\x12\x1e\n" +
+	"\n" +
+	"population\x18\x04 \x01(\x05R\n" +
+	"population\x12\x14\n" +
+	"\x05share\x18\x05 \x01(\x01R\x05share\x12\x1a\n" +
+	"\bdominant\x18\x06 \x01(\bR\bdominant\x12 \n" +
+	"\tvg_median\x18\a \x01(\x01H\x00R\bvgMedian\x88\x01\x01\x12(\n" +
+	"\x10vg_median_period\x18\b \x01(\tR\x0evgMedianPeriod\x12+\n" +
+	"\x0fflood_share_pct\x18\t \x01(\x01H\x01R\rfloodSharePct\x88\x01\x01\x121\n" +
+	"\x12bushfire_share_pct\x18\n" +
+	" \x01(\x01H\x02R\x10bushfireSharePct\x88\x01\x01\x12+\n" +
+	"\x0fwater_share_pct\x18\v \x01(\x01H\x03R\rwaterSharePct\x88\x01\x01\x121\n" +
+	"\x12seifa_irsad_decile\x18\f \x01(\x05H\x04R\x10seifaIrsadDecile\x88\x01\x01B\f\n" +
+	"\n" +
+	"_vg_medianB\x12\n" +
+	"\x10_flood_share_pctB\x15\n" +
+	"\x13_bushfire_share_pctB\x12\n" +
+	"\x10_water_share_pctB\x15\n" +
+	"\x13_seifa_irsad_decile\"\xdc\x05\n" +
+	"\rCouncilRollup\x12%\n" +
+	"\x0emember_suburbs\x18\x01 \x01(\x05R\rmemberSuburbs\x12)\n" +
+	"\x10dominant_suburbs\x18\x02 \x01(\x05R\x0fdominantSuburbs\x12+\n" +
+	"\x0fflood_share_pct\x18\x03 \x01(\x01H\x00R\rfloodSharePct\x88\x01\x01\x122\n" +
+	"\x15flood_covered_suburbs\x18\x04 \x01(\x05R\x13floodCoveredSuburbs\x121\n" +
+	"\x12bushfire_share_pct\x18\x05 \x01(\x01H\x01R\x10bushfireSharePct\x88\x01\x01\x128\n" +
+	"\x18bushfire_covered_suburbs\x18\x06 \x01(\x05R\x16bushfireCoveredSuburbs\x12+\n" +
+	"\x0fwater_share_pct\x18\a \x01(\x01H\x02R\rwaterSharePct\x88\x01\x01\x122\n" +
+	"\x15water_covered_suburbs\x18\b \x01(\x05R\x13waterCoveredSuburbs\x12%\n" +
+	"\x0epriced_suburbs\x18\t \x01(\x05R\rpricedSuburbs\x12\"\n" +
+	"\n" +
+	"median_min\x18\n" +
+	" \x01(\x01H\x03R\tmedianMin\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"median_max\x18\v \x01(\x01H\x04R\tmedianMax\x88\x01\x01\x12/\n" +
+	"\x11median_of_medians\x18\f \x01(\x01H\x05R\x0fmedianOfMedians\x88\x01\x01\x127\n" +
+	"\x05crime\x18\r \x03(\v2!.shorts.v1alpha1.CouncilCrimeStatR\x05crimeB\x12\n" +
+	"\x10_flood_share_pctB\x15\n" +
+	"\x13_bushfire_share_pctB\x12\n" +
+	"\x10_water_share_pctB\r\n" +
+	"\v_median_minB\r\n" +
+	"\v_median_maxB\x14\n" +
+	"\x12_median_of_medians\"\x8b\x02\n" +
+	"\x10CouncilCrimeStat\x12\x1d\n" +
+	"\n" +
+	"crime_type\x18\x01 \x01(\tR\tcrimeType\x12\"\n" +
+	"\rrate_per_100k\x18\x02 \x01(\x01R\vratePer100k\x12\x1b\n" +
+	"\tfy_ending\x18\x03 \x01(\x05R\bfyEnding\x12'\n" +
+	"\x0fcovered_suburbs\x18\x04 \x01(\x05R\x0ecoveredSuburbs\x12/\n" +
+	"\x13source_jurisdiction\x18\x05 \x01(\tR\x12sourceJurisdiction\x12\x16\n" +
+	"\x06source\x18\x06 \x01(\tR\x06source\x12%\n" +
+	"\x0esource_licence\x18\a \x01(\tR\rsourceLicence\"\xc2\x01\n" +
+	"\x15CouncilRepresentative\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
+	"\x06member\x18\x02 \x01(\tR\x06member\x12\x14\n" +
+	"\x05party\x18\x03 \x01(\tR\x05party\x12\x19\n" +
+	"\bparty_ab\x18\x04 \x01(\tR\apartyAb\x12)\n" +
+	"\x10population_share\x18\x05 \x01(\x01R\x0fpopulationShare\x12!\n" +
+	"\fsuburb_count\x18\x06 \x01(\x05R\vsuburbCount\"\xb8\x03\n" +
+	"\x11CouncilPriceDrops\x122\n" +
+	"\x15dropped_listing_count\x18\x01 \x01(\x05R\x13droppedListingCount\x122\n" +
+	"\x15tracked_listing_count\x18\x02 \x01(\x05R\x13trackedListingCount\x12#\n" +
+	"\rdropped_share\x18\x03 \x01(\x01R\fdroppedShare\x12+\n" +
+	"\x0fmedian_drop_pct\x18\x04 \x01(\x01H\x00R\rmedianDropPct\x88\x01\x01\x12'\n" +
+	"\x0fsuburbs_tracked\x18\x05 \x01(\x05R\x0esuburbsTracked\x12<\n" +
+	"\asuburbs\x18\x06 \x03(\v2\".shorts.v1alpha1.CouncilDropSuburbR\asuburbs\x12/\n" +
+	"\x05as_of\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12=\n" +
+	"\fdata_through\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vdataThroughB\x12\n" +
+	"\x10_median_drop_pct\"\xb3\x02\n" +
+	"\x11CouncilDropSuburb\x12\x19\n" +
+	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
+	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1a\n" +
+	"\bpostcode\x18\x03 \x01(\tR\bpostcode\x122\n" +
+	"\x15dropped_listing_count\x18\x04 \x01(\x05R\x13droppedListingCount\x122\n" +
+	"\x15tracked_listing_count\x18\x05 \x01(\x05R\x13trackedListingCount\x12#\n" +
+	"\rdropped_share\x18\x06 \x01(\x01R\fdroppedShare\x12+\n" +
+	"\x0fmedian_drop_pct\x18\a \x01(\x01H\x00R\rmedianDropPct\x88\x01\x01B\x12\n" +
+	"\x10_median_drop_pct\"\xe3\x01\n" +
+	"\x10CouncilNeighbour\x12\x19\n" +
+	"\blga_code\x18\x01 \x01(\tR\algaCode\x12\x12\n" +
+	"\x04slug\x18\x02 \x01(\tR\x04slug\x12!\n" +
+	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x12\n" +
+	"\x04kind\x18\x04 \x01(\tR\x04kind\x12\x1d\n" +
+	"\n" +
+	"state_code\x18\x05 \x01(\tR\tstateCode\x12#\n" +
+	"\rshares_border\x18\x06 \x01(\bR\fsharesBorder\x12%\n" +
+	"\x0eshared_suburbs\x18\a \x01(\x05R\rsharedSuburbs2\xd2\x0f\n" +
 	"\x0eHousingService\x12s\n" +
 	"\x12GetHousingOverview\x12*.shorts.v1alpha1.GetHousingOverviewRequest\x1a+.shorts.v1alpha1.GetHousingOverviewResponse\"\x04\x80\xb5\x18\x01\x12v\n" +
 	"\x13GetHousePriceSeries\x12+.shorts.v1alpha1.GetHousePriceSeriesRequest\x1a,.shorts.v1alpha1.GetHousePriceSeriesResponse\"\x04\x80\xb5\x18\x01\x12m\n" +
@@ -6218,7 +8807,9 @@ const file_shorts_v1alpha1_housing_proto_rawDesc = "" +
 	"\x15ListAddressPriceDrops\x12-.shorts.v1alpha1.ListAddressPriceDropsRequest\x1a..shorts.v1alpha1.ListAddressPriceDropsResponse\"\x04\x80\xb5\x18\x01\x12|\n" +
 	"\x15GetPriceDropsOverview\x12-.shorts.v1alpha1.GetPriceDropsOverviewRequest\x1a..shorts.v1alpha1.GetPriceDropsOverviewResponse\"\x04\x80\xb5\x18\x01\x12y\n" +
 	"\x14ListAgencyPriceStats\x12,.shorts.v1alpha1.ListAgencyPriceStatsRequest\x1a-.shorts.v1alpha1.ListAgencyPriceStatsResponse\"\x04\x80\xb5\x18\x01\x12s\n" +
-	"\x12GetDropIndexSeries\x12*.shorts.v1alpha1.GetDropIndexSeriesRequest\x1a+.shorts.v1alpha1.GetDropIndexSeriesResponse\"\x04\x80\xb5\x18\x01B\xdb\x01\n" +
+	"\x12GetDropIndexSeries\x12*.shorts.v1alpha1.GetDropIndexSeriesRequest\x1a+.shorts.v1alpha1.GetDropIndexSeriesResponse\"\x04\x80\xb5\x18\x01\x12a\n" +
+	"\fListCouncils\x12$.shorts.v1alpha1.ListCouncilsRequest\x1a%.shorts.v1alpha1.ListCouncilsResponse\"\x04\x80\xb5\x18\x01\x12p\n" +
+	"\x11GetCouncilProfile\x12).shorts.v1alpha1.GetCouncilProfileRequest\x1a*.shorts.v1alpha1.GetCouncilProfileResponse\"\x04\x80\xb5\x18\x01B\xdb\x01\n" +
 	"\x13com.shorts.v1alpha1B\fHousingProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
@@ -6233,7 +8824,7 @@ func file_shorts_v1alpha1_housing_proto_rawDescGZIP() []byte {
 	return file_shorts_v1alpha1_housing_proto_rawDescData
 }
 
-var file_shorts_v1alpha1_housing_proto_msgTypes = make([]protoimpl.MessageInfo, 61)
+var file_shorts_v1alpha1_housing_proto_msgTypes = make([]protoimpl.MessageInfo, 80)
 var file_shorts_v1alpha1_housing_proto_goTypes = []any{
 	(*GetHousingOverviewRequest)(nil),      // 0: shorts.v1alpha1.GetHousingOverviewRequest
 	(*HousingMetric)(nil),                  // 1: shorts.v1alpha1.HousingMetric
@@ -6247,135 +8838,188 @@ var file_shorts_v1alpha1_housing_proto_goTypes = []any{
 	(*SuburbSeifa)(nil),                    // 9: shorts.v1alpha1.SuburbSeifa
 	(*SuburbElevation)(nil),                // 10: shorts.v1alpha1.SuburbElevation
 	(*SuburbHazardExposure)(nil),           // 11: shorts.v1alpha1.SuburbHazardExposure
-	(*SuburbSummary)(nil),                  // 12: shorts.v1alpha1.SuburbSummary
-	(*ListStateSuburbsResponse)(nil),       // 13: shorts.v1alpha1.ListStateSuburbsResponse
-	(*GetSuburbIndexRequest)(nil),          // 14: shorts.v1alpha1.GetSuburbIndexRequest
-	(*SuburbIndexEntry)(nil),               // 15: shorts.v1alpha1.SuburbIndexEntry
-	(*GetSuburbIndexResponse)(nil),         // 16: shorts.v1alpha1.GetSuburbIndexResponse
-	(*GetSuburbMetricColumnsRequest)(nil),  // 17: shorts.v1alpha1.GetSuburbMetricColumnsRequest
-	(*SuburbMetricColumn)(nil),             // 18: shorts.v1alpha1.SuburbMetricColumn
-	(*GetSuburbMetricColumnsResponse)(nil), // 19: shorts.v1alpha1.GetSuburbMetricColumnsResponse
-	(*SuburbMetricPredicate)(nil),          // 20: shorts.v1alpha1.SuburbMetricPredicate
-	(*FilterSuburbsRequest)(nil),           // 21: shorts.v1alpha1.FilterSuburbsRequest
-	(*FilterSuburbsResponse)(nil),          // 22: shorts.v1alpha1.FilterSuburbsResponse
-	(*GetSuburbProfileRequest)(nil),        // 23: shorts.v1alpha1.GetSuburbProfileRequest
-	(*SuburbDemographics)(nil),             // 24: shorts.v1alpha1.SuburbDemographics
-	(*ComparisonBaselines)(nil),            // 25: shorts.v1alpha1.ComparisonBaselines
-	(*LgaInfo)(nil),                        // 26: shorts.v1alpha1.LgaInfo
-	(*SimilarSuburb)(nil),                  // 27: shorts.v1alpha1.SimilarSuburb
-	(*SuburbLandmark)(nil),                 // 28: shorts.v1alpha1.SuburbLandmark
-	(*SuburbBanner)(nil),                   // 29: shorts.v1alpha1.SuburbBanner
-	(*SuburbCrimeStat)(nil),                // 30: shorts.v1alpha1.SuburbCrimeStat
-	(*SuburbCrime)(nil),                    // 31: shorts.v1alpha1.SuburbCrime
-	(*SuburbListingStats)(nil),             // 32: shorts.v1alpha1.SuburbListingStats
-	(*GetSuburbProfileResponse)(nil),       // 33: shorts.v1alpha1.GetSuburbProfileResponse
-	(*ListHousingRegionsRequest)(nil),      // 34: shorts.v1alpha1.ListHousingRegionsRequest
-	(*HousingRegion)(nil),                  // 35: shorts.v1alpha1.HousingRegion
-	(*ListHousingRegionsResponse)(nil),     // 36: shorts.v1alpha1.ListHousingRegionsResponse
-	(*ListSuburbPriceDropsRequest)(nil),    // 37: shorts.v1alpha1.ListSuburbPriceDropsRequest
-	(*SuburbPriceDrop)(nil),                // 38: shorts.v1alpha1.SuburbPriceDrop
-	(*ListSuburbPriceDropsResponse)(nil),   // 39: shorts.v1alpha1.ListSuburbPriceDropsResponse
-	(*ListSuburbDropListingsRequest)(nil),  // 40: shorts.v1alpha1.ListSuburbDropListingsRequest
-	(*SuburbDropListing)(nil),              // 41: shorts.v1alpha1.SuburbDropListing
-	(*ListSuburbDropListingsResponse)(nil), // 42: shorts.v1alpha1.ListSuburbDropListingsResponse
-	(*GetPropertyHistoryRequest)(nil),      // 43: shorts.v1alpha1.GetPropertyHistoryRequest
-	(*PropertyListingSnapshot)(nil),        // 44: shorts.v1alpha1.PropertyListingSnapshot
-	(*PropertyPriceEvent)(nil),             // 45: shorts.v1alpha1.PropertyPriceEvent
-	(*GetPropertyHistoryResponse)(nil),     // 46: shorts.v1alpha1.GetPropertyHistoryResponse
-	(*PropertyValuationSale)(nil),          // 47: shorts.v1alpha1.PropertyValuationSale
-	(*PropertyValuation)(nil),              // 48: shorts.v1alpha1.PropertyValuation
-	(*ListAddressPriceDropsRequest)(nil),   // 49: shorts.v1alpha1.ListAddressPriceDropsRequest
-	(*AddressPriceDrop)(nil),               // 50: shorts.v1alpha1.AddressPriceDrop
-	(*ListAddressPriceDropsResponse)(nil),  // 51: shorts.v1alpha1.ListAddressPriceDropsResponse
-	(*GetPriceDropsOverviewRequest)(nil),   // 52: shorts.v1alpha1.GetPriceDropsOverviewRequest
-	(*StatePriceDropSummary)(nil),          // 53: shorts.v1alpha1.StatePriceDropSummary
-	(*GetPriceDropsOverviewResponse)(nil),  // 54: shorts.v1alpha1.GetPriceDropsOverviewResponse
-	(*ListAgencyPriceStatsRequest)(nil),    // 55: shorts.v1alpha1.ListAgencyPriceStatsRequest
-	(*AgencyPriceStats)(nil),               // 56: shorts.v1alpha1.AgencyPriceStats
-	(*ListAgencyPriceStatsResponse)(nil),   // 57: shorts.v1alpha1.ListAgencyPriceStatsResponse
-	(*DropIndexPoint)(nil),                 // 58: shorts.v1alpha1.DropIndexPoint
-	(*GetDropIndexSeriesRequest)(nil),      // 59: shorts.v1alpha1.GetDropIndexSeriesRequest
-	(*GetDropIndexSeriesResponse)(nil),     // 60: shorts.v1alpha1.GetDropIndexSeriesResponse
-	(*timestamppb.Timestamp)(nil),          // 61: google.protobuf.Timestamp
+	(*ZoneFamilyShare)(nil),                // 12: shorts.v1alpha1.ZoneFamilyShare
+	(*SuburbPlanning)(nil),                 // 13: shorts.v1alpha1.SuburbPlanning
+	(*SuburbSummary)(nil),                  // 14: shorts.v1alpha1.SuburbSummary
+	(*ListStateSuburbsResponse)(nil),       // 15: shorts.v1alpha1.ListStateSuburbsResponse
+	(*GetSuburbIndexRequest)(nil),          // 16: shorts.v1alpha1.GetSuburbIndexRequest
+	(*SuburbIndexEntry)(nil),               // 17: shorts.v1alpha1.SuburbIndexEntry
+	(*GetSuburbIndexResponse)(nil),         // 18: shorts.v1alpha1.GetSuburbIndexResponse
+	(*GetSuburbMetricColumnsRequest)(nil),  // 19: shorts.v1alpha1.GetSuburbMetricColumnsRequest
+	(*SuburbMetricColumn)(nil),             // 20: shorts.v1alpha1.SuburbMetricColumn
+	(*GetSuburbMetricColumnsResponse)(nil), // 21: shorts.v1alpha1.GetSuburbMetricColumnsResponse
+	(*SuburbMetricPredicate)(nil),          // 22: shorts.v1alpha1.SuburbMetricPredicate
+	(*FilterSuburbsRequest)(nil),           // 23: shorts.v1alpha1.FilterSuburbsRequest
+	(*FilterSuburbsResponse)(nil),          // 24: shorts.v1alpha1.FilterSuburbsResponse
+	(*GetSuburbProfileRequest)(nil),        // 25: shorts.v1alpha1.GetSuburbProfileRequest
+	(*SuburbDemographics)(nil),             // 26: shorts.v1alpha1.SuburbDemographics
+	(*ComparisonBaselines)(nil),            // 27: shorts.v1alpha1.ComparisonBaselines
+	(*StateCensusAverages)(nil),            // 28: shorts.v1alpha1.StateCensusAverages
+	(*LgaInfo)(nil),                        // 29: shorts.v1alpha1.LgaInfo
+	(*LgaOverlap)(nil),                     // 30: shorts.v1alpha1.LgaOverlap
+	(*SimilarSuburb)(nil),                  // 31: shorts.v1alpha1.SimilarSuburb
+	(*SuburbLandmark)(nil),                 // 32: shorts.v1alpha1.SuburbLandmark
+	(*SuburbBanner)(nil),                   // 33: shorts.v1alpha1.SuburbBanner
+	(*SuburbCrimeStat)(nil),                // 34: shorts.v1alpha1.SuburbCrimeStat
+	(*SuburbCrime)(nil),                    // 35: shorts.v1alpha1.SuburbCrime
+	(*SuburbListingStats)(nil),             // 36: shorts.v1alpha1.SuburbListingStats
+	(*GetSuburbProfileResponse)(nil),       // 37: shorts.v1alpha1.GetSuburbProfileResponse
+	(*ListHousingRegionsRequest)(nil),      // 38: shorts.v1alpha1.ListHousingRegionsRequest
+	(*HousingRegion)(nil),                  // 39: shorts.v1alpha1.HousingRegion
+	(*ListHousingRegionsResponse)(nil),     // 40: shorts.v1alpha1.ListHousingRegionsResponse
+	(*ListSuburbPriceDropsRequest)(nil),    // 41: shorts.v1alpha1.ListSuburbPriceDropsRequest
+	(*SuburbPriceDrop)(nil),                // 42: shorts.v1alpha1.SuburbPriceDrop
+	(*ListSuburbPriceDropsResponse)(nil),   // 43: shorts.v1alpha1.ListSuburbPriceDropsResponse
+	(*ListSuburbDropListingsRequest)(nil),  // 44: shorts.v1alpha1.ListSuburbDropListingsRequest
+	(*SuburbDropListing)(nil),              // 45: shorts.v1alpha1.SuburbDropListing
+	(*ListSuburbDropListingsResponse)(nil), // 46: shorts.v1alpha1.ListSuburbDropListingsResponse
+	(*GetPropertyHistoryRequest)(nil),      // 47: shorts.v1alpha1.GetPropertyHistoryRequest
+	(*PropertyListingSnapshot)(nil),        // 48: shorts.v1alpha1.PropertyListingSnapshot
+	(*PropertyPriceEvent)(nil),             // 49: shorts.v1alpha1.PropertyPriceEvent
+	(*GetPropertyHistoryResponse)(nil),     // 50: shorts.v1alpha1.GetPropertyHistoryResponse
+	(*PropertyValuationSale)(nil),          // 51: shorts.v1alpha1.PropertyValuationSale
+	(*PropertyValuation)(nil),              // 52: shorts.v1alpha1.PropertyValuation
+	(*ListAddressPriceDropsRequest)(nil),   // 53: shorts.v1alpha1.ListAddressPriceDropsRequest
+	(*AddressPriceDrop)(nil),               // 54: shorts.v1alpha1.AddressPriceDrop
+	(*ListAddressPriceDropsResponse)(nil),  // 55: shorts.v1alpha1.ListAddressPriceDropsResponse
+	(*GetPriceDropsOverviewRequest)(nil),   // 56: shorts.v1alpha1.GetPriceDropsOverviewRequest
+	(*StatePriceDropSummary)(nil),          // 57: shorts.v1alpha1.StatePriceDropSummary
+	(*GetPriceDropsOverviewResponse)(nil),  // 58: shorts.v1alpha1.GetPriceDropsOverviewResponse
+	(*ListAgencyPriceStatsRequest)(nil),    // 59: shorts.v1alpha1.ListAgencyPriceStatsRequest
+	(*AgencyPriceStats)(nil),               // 60: shorts.v1alpha1.AgencyPriceStats
+	(*ListAgencyPriceStatsResponse)(nil),   // 61: shorts.v1alpha1.ListAgencyPriceStatsResponse
+	(*DropIndexPoint)(nil),                 // 62: shorts.v1alpha1.DropIndexPoint
+	(*GetDropIndexSeriesRequest)(nil),      // 63: shorts.v1alpha1.GetDropIndexSeriesRequest
+	(*GetDropIndexSeriesResponse)(nil),     // 64: shorts.v1alpha1.GetDropIndexSeriesResponse
+	(*ListCouncilsRequest)(nil),            // 65: shorts.v1alpha1.ListCouncilsRequest
+	(*ListCouncilsResponse)(nil),           // 66: shorts.v1alpha1.ListCouncilsResponse
+	(*CouncilSummary)(nil),                 // 67: shorts.v1alpha1.CouncilSummary
+	(*GetCouncilProfileRequest)(nil),       // 68: shorts.v1alpha1.GetCouncilProfileRequest
+	(*GetCouncilProfileResponse)(nil),      // 69: shorts.v1alpha1.GetCouncilProfileResponse
+	(*CouncilProfile)(nil),                 // 70: shorts.v1alpha1.CouncilProfile
+	(*CouncilSeries)(nil),                  // 71: shorts.v1alpha1.CouncilSeries
+	(*CouncilSeriesPoint)(nil),             // 72: shorts.v1alpha1.CouncilSeriesPoint
+	(*CouncilSuburb)(nil),                  // 73: shorts.v1alpha1.CouncilSuburb
+	(*CouncilRollup)(nil),                  // 74: shorts.v1alpha1.CouncilRollup
+	(*CouncilCrimeStat)(nil),               // 75: shorts.v1alpha1.CouncilCrimeStat
+	(*CouncilRepresentative)(nil),          // 76: shorts.v1alpha1.CouncilRepresentative
+	(*CouncilPriceDrops)(nil),              // 77: shorts.v1alpha1.CouncilPriceDrops
+	(*CouncilDropSuburb)(nil),              // 78: shorts.v1alpha1.CouncilDropSuburb
+	(*CouncilNeighbour)(nil),               // 79: shorts.v1alpha1.CouncilNeighbour
+	(*timestamppb.Timestamp)(nil),          // 80: google.protobuf.Timestamp
 }
 var file_shorts_v1alpha1_housing_proto_depIdxs = []int32{
-	61, // 0: shorts.v1alpha1.HousingMetric.period:type_name -> google.protobuf.Timestamp
+	80, // 0: shorts.v1alpha1.HousingMetric.period:type_name -> google.protobuf.Timestamp
 	1,  // 1: shorts.v1alpha1.GetHousingOverviewResponse.metrics:type_name -> shorts.v1alpha1.HousingMetric
-	61, // 2: shorts.v1alpha1.GetHousingOverviewResponse.as_of:type_name -> google.protobuf.Timestamp
-	61, // 3: shorts.v1alpha1.HousePricePoint.period:type_name -> google.protobuf.Timestamp
+	80, // 2: shorts.v1alpha1.GetHousingOverviewResponse.as_of:type_name -> google.protobuf.Timestamp
+	80, // 3: shorts.v1alpha1.HousePricePoint.period:type_name -> google.protobuf.Timestamp
 	4,  // 4: shorts.v1alpha1.GetHousePriceSeriesResponse.points:type_name -> shorts.v1alpha1.HousePricePoint
 	8,  // 5: shorts.v1alpha1.SuburbSeifa.irsd:type_name -> shorts.v1alpha1.SuburbSeifaIndex
 	8,  // 6: shorts.v1alpha1.SuburbSeifa.irsad:type_name -> shorts.v1alpha1.SuburbSeifaIndex
 	8,  // 7: shorts.v1alpha1.SuburbSeifa.ier:type_name -> shorts.v1alpha1.SuburbSeifaIndex
 	8,  // 8: shorts.v1alpha1.SuburbSeifa.ieo:type_name -> shorts.v1alpha1.SuburbSeifaIndex
-	61, // 9: shorts.v1alpha1.SuburbSummary.latest_period:type_name -> google.protobuf.Timestamp
-	7,  // 10: shorts.v1alpha1.SuburbSummary.amenities:type_name -> shorts.v1alpha1.SuburbAmenities
-	9,  // 11: shorts.v1alpha1.SuburbSummary.seifa:type_name -> shorts.v1alpha1.SuburbSeifa
-	12, // 12: shorts.v1alpha1.ListStateSuburbsResponse.suburbs:type_name -> shorts.v1alpha1.SuburbSummary
-	15, // 13: shorts.v1alpha1.GetSuburbIndexResponse.suburbs:type_name -> shorts.v1alpha1.SuburbIndexEntry
-	18, // 14: shorts.v1alpha1.GetSuburbMetricColumnsResponse.columns:type_name -> shorts.v1alpha1.SuburbMetricColumn
-	20, // 15: shorts.v1alpha1.FilterSuburbsRequest.predicates:type_name -> shorts.v1alpha1.SuburbMetricPredicate
-	28, // 16: shorts.v1alpha1.SuburbBanner.landmarks:type_name -> shorts.v1alpha1.SuburbLandmark
-	30, // 17: shorts.v1alpha1.SuburbCrime.stats:type_name -> shorts.v1alpha1.SuburbCrimeStat
-	12, // 18: shorts.v1alpha1.GetSuburbProfileResponse.summary:type_name -> shorts.v1alpha1.SuburbSummary
-	24, // 19: shorts.v1alpha1.GetSuburbProfileResponse.demographics:type_name -> shorts.v1alpha1.SuburbDemographics
-	25, // 20: shorts.v1alpha1.GetSuburbProfileResponse.baselines:type_name -> shorts.v1alpha1.ComparisonBaselines
-	26, // 21: shorts.v1alpha1.GetSuburbProfileResponse.council:type_name -> shorts.v1alpha1.LgaInfo
-	27, // 22: shorts.v1alpha1.GetSuburbProfileResponse.similar:type_name -> shorts.v1alpha1.SimilarSuburb
-	29, // 23: shorts.v1alpha1.GetSuburbProfileResponse.banner:type_name -> shorts.v1alpha1.SuburbBanner
-	31, // 24: shorts.v1alpha1.GetSuburbProfileResponse.crime:type_name -> shorts.v1alpha1.SuburbCrime
-	32, // 25: shorts.v1alpha1.GetSuburbProfileResponse.listing_stats:type_name -> shorts.v1alpha1.SuburbListingStats
-	10, // 26: shorts.v1alpha1.GetSuburbProfileResponse.elevation:type_name -> shorts.v1alpha1.SuburbElevation
-	11, // 27: shorts.v1alpha1.GetSuburbProfileResponse.hazards:type_name -> shorts.v1alpha1.SuburbHazardExposure
-	61, // 28: shorts.v1alpha1.HousingRegion.latest_period:type_name -> google.protobuf.Timestamp
-	35, // 29: shorts.v1alpha1.ListHousingRegionsResponse.regions:type_name -> shorts.v1alpha1.HousingRegion
-	38, // 30: shorts.v1alpha1.ListSuburbPriceDropsResponse.suburbs:type_name -> shorts.v1alpha1.SuburbPriceDrop
-	61, // 31: shorts.v1alpha1.SuburbDropListing.observed_at:type_name -> google.protobuf.Timestamp
-	41, // 32: shorts.v1alpha1.ListSuburbDropListingsResponse.listings:type_name -> shorts.v1alpha1.SuburbDropListing
-	44, // 33: shorts.v1alpha1.GetPropertyHistoryResponse.current:type_name -> shorts.v1alpha1.PropertyListingSnapshot
-	45, // 34: shorts.v1alpha1.GetPropertyHistoryResponse.events:type_name -> shorts.v1alpha1.PropertyPriceEvent
-	48, // 35: shorts.v1alpha1.GetPropertyHistoryResponse.valuation:type_name -> shorts.v1alpha1.PropertyValuation
-	47, // 36: shorts.v1alpha1.PropertyValuation.sales_history:type_name -> shorts.v1alpha1.PropertyValuationSale
-	50, // 37: shorts.v1alpha1.ListAddressPriceDropsResponse.addresses:type_name -> shorts.v1alpha1.AddressPriceDrop
-	53, // 38: shorts.v1alpha1.GetPriceDropsOverviewResponse.national:type_name -> shorts.v1alpha1.StatePriceDropSummary
-	53, // 39: shorts.v1alpha1.GetPriceDropsOverviewResponse.states:type_name -> shorts.v1alpha1.StatePriceDropSummary
-	56, // 40: shorts.v1alpha1.ListAgencyPriceStatsResponse.agencies:type_name -> shorts.v1alpha1.AgencyPriceStats
-	58, // 41: shorts.v1alpha1.GetDropIndexSeriesResponse.points:type_name -> shorts.v1alpha1.DropIndexPoint
-	0,  // 42: shorts.v1alpha1.HousingService.GetHousingOverview:input_type -> shorts.v1alpha1.GetHousingOverviewRequest
-	3,  // 43: shorts.v1alpha1.HousingService.GetHousePriceSeries:input_type -> shorts.v1alpha1.GetHousePriceSeriesRequest
-	6,  // 44: shorts.v1alpha1.HousingService.ListStateSuburbs:input_type -> shorts.v1alpha1.ListStateSuburbsRequest
-	14, // 45: shorts.v1alpha1.HousingService.GetSuburbIndex:input_type -> shorts.v1alpha1.GetSuburbIndexRequest
-	17, // 46: shorts.v1alpha1.HousingService.GetSuburbMetricColumns:input_type -> shorts.v1alpha1.GetSuburbMetricColumnsRequest
-	21, // 47: shorts.v1alpha1.HousingService.FilterSuburbs:input_type -> shorts.v1alpha1.FilterSuburbsRequest
-	23, // 48: shorts.v1alpha1.HousingService.GetSuburbProfile:input_type -> shorts.v1alpha1.GetSuburbProfileRequest
-	34, // 49: shorts.v1alpha1.HousingService.ListHousingRegions:input_type -> shorts.v1alpha1.ListHousingRegionsRequest
-	37, // 50: shorts.v1alpha1.HousingService.ListSuburbPriceDrops:input_type -> shorts.v1alpha1.ListSuburbPriceDropsRequest
-	40, // 51: shorts.v1alpha1.HousingService.ListSuburbDropListings:input_type -> shorts.v1alpha1.ListSuburbDropListingsRequest
-	43, // 52: shorts.v1alpha1.HousingService.GetPropertyHistory:input_type -> shorts.v1alpha1.GetPropertyHistoryRequest
-	49, // 53: shorts.v1alpha1.HousingService.ListAddressPriceDrops:input_type -> shorts.v1alpha1.ListAddressPriceDropsRequest
-	52, // 54: shorts.v1alpha1.HousingService.GetPriceDropsOverview:input_type -> shorts.v1alpha1.GetPriceDropsOverviewRequest
-	55, // 55: shorts.v1alpha1.HousingService.ListAgencyPriceStats:input_type -> shorts.v1alpha1.ListAgencyPriceStatsRequest
-	59, // 56: shorts.v1alpha1.HousingService.GetDropIndexSeries:input_type -> shorts.v1alpha1.GetDropIndexSeriesRequest
-	2,  // 57: shorts.v1alpha1.HousingService.GetHousingOverview:output_type -> shorts.v1alpha1.GetHousingOverviewResponse
-	5,  // 58: shorts.v1alpha1.HousingService.GetHousePriceSeries:output_type -> shorts.v1alpha1.GetHousePriceSeriesResponse
-	13, // 59: shorts.v1alpha1.HousingService.ListStateSuburbs:output_type -> shorts.v1alpha1.ListStateSuburbsResponse
-	16, // 60: shorts.v1alpha1.HousingService.GetSuburbIndex:output_type -> shorts.v1alpha1.GetSuburbIndexResponse
-	19, // 61: shorts.v1alpha1.HousingService.GetSuburbMetricColumns:output_type -> shorts.v1alpha1.GetSuburbMetricColumnsResponse
-	22, // 62: shorts.v1alpha1.HousingService.FilterSuburbs:output_type -> shorts.v1alpha1.FilterSuburbsResponse
-	33, // 63: shorts.v1alpha1.HousingService.GetSuburbProfile:output_type -> shorts.v1alpha1.GetSuburbProfileResponse
-	36, // 64: shorts.v1alpha1.HousingService.ListHousingRegions:output_type -> shorts.v1alpha1.ListHousingRegionsResponse
-	39, // 65: shorts.v1alpha1.HousingService.ListSuburbPriceDrops:output_type -> shorts.v1alpha1.ListSuburbPriceDropsResponse
-	42, // 66: shorts.v1alpha1.HousingService.ListSuburbDropListings:output_type -> shorts.v1alpha1.ListSuburbDropListingsResponse
-	46, // 67: shorts.v1alpha1.HousingService.GetPropertyHistory:output_type -> shorts.v1alpha1.GetPropertyHistoryResponse
-	51, // 68: shorts.v1alpha1.HousingService.ListAddressPriceDrops:output_type -> shorts.v1alpha1.ListAddressPriceDropsResponse
-	54, // 69: shorts.v1alpha1.HousingService.GetPriceDropsOverview:output_type -> shorts.v1alpha1.GetPriceDropsOverviewResponse
-	57, // 70: shorts.v1alpha1.HousingService.ListAgencyPriceStats:output_type -> shorts.v1alpha1.ListAgencyPriceStatsResponse
-	60, // 71: shorts.v1alpha1.HousingService.GetDropIndexSeries:output_type -> shorts.v1alpha1.GetDropIndexSeriesResponse
-	57, // [57:72] is the sub-list for method output_type
-	42, // [42:57] is the sub-list for method input_type
-	42, // [42:42] is the sub-list for extension type_name
-	42, // [42:42] is the sub-list for extension extendee
-	0,  // [0:42] is the sub-list for field type_name
+	12, // 9: shorts.v1alpha1.SuburbPlanning.zone_shares:type_name -> shorts.v1alpha1.ZoneFamilyShare
+	80, // 10: shorts.v1alpha1.SuburbSummary.latest_period:type_name -> google.protobuf.Timestamp
+	7,  // 11: shorts.v1alpha1.SuburbSummary.amenities:type_name -> shorts.v1alpha1.SuburbAmenities
+	9,  // 12: shorts.v1alpha1.SuburbSummary.seifa:type_name -> shorts.v1alpha1.SuburbSeifa
+	14, // 13: shorts.v1alpha1.ListStateSuburbsResponse.suburbs:type_name -> shorts.v1alpha1.SuburbSummary
+	17, // 14: shorts.v1alpha1.GetSuburbIndexResponse.suburbs:type_name -> shorts.v1alpha1.SuburbIndexEntry
+	20, // 15: shorts.v1alpha1.GetSuburbMetricColumnsResponse.columns:type_name -> shorts.v1alpha1.SuburbMetricColumn
+	22, // 16: shorts.v1alpha1.FilterSuburbsRequest.predicates:type_name -> shorts.v1alpha1.SuburbMetricPredicate
+	28, // 17: shorts.v1alpha1.ComparisonBaselines.state_census:type_name -> shorts.v1alpha1.StateCensusAverages
+	32, // 18: shorts.v1alpha1.SuburbBanner.landmarks:type_name -> shorts.v1alpha1.SuburbLandmark
+	34, // 19: shorts.v1alpha1.SuburbCrime.stats:type_name -> shorts.v1alpha1.SuburbCrimeStat
+	80, // 20: shorts.v1alpha1.SuburbListingStats.as_of:type_name -> google.protobuf.Timestamp
+	80, // 21: shorts.v1alpha1.SuburbListingStats.data_through:type_name -> google.protobuf.Timestamp
+	14, // 22: shorts.v1alpha1.GetSuburbProfileResponse.summary:type_name -> shorts.v1alpha1.SuburbSummary
+	26, // 23: shorts.v1alpha1.GetSuburbProfileResponse.demographics:type_name -> shorts.v1alpha1.SuburbDemographics
+	27, // 24: shorts.v1alpha1.GetSuburbProfileResponse.baselines:type_name -> shorts.v1alpha1.ComparisonBaselines
+	29, // 25: shorts.v1alpha1.GetSuburbProfileResponse.council:type_name -> shorts.v1alpha1.LgaInfo
+	31, // 26: shorts.v1alpha1.GetSuburbProfileResponse.similar:type_name -> shorts.v1alpha1.SimilarSuburb
+	33, // 27: shorts.v1alpha1.GetSuburbProfileResponse.banner:type_name -> shorts.v1alpha1.SuburbBanner
+	35, // 28: shorts.v1alpha1.GetSuburbProfileResponse.crime:type_name -> shorts.v1alpha1.SuburbCrime
+	36, // 29: shorts.v1alpha1.GetSuburbProfileResponse.listing_stats:type_name -> shorts.v1alpha1.SuburbListingStats
+	10, // 30: shorts.v1alpha1.GetSuburbProfileResponse.elevation:type_name -> shorts.v1alpha1.SuburbElevation
+	11, // 31: shorts.v1alpha1.GetSuburbProfileResponse.hazards:type_name -> shorts.v1alpha1.SuburbHazardExposure
+	30, // 32: shorts.v1alpha1.GetSuburbProfileResponse.council_overlaps:type_name -> shorts.v1alpha1.LgaOverlap
+	13, // 33: shorts.v1alpha1.GetSuburbProfileResponse.planning:type_name -> shorts.v1alpha1.SuburbPlanning
+	80, // 34: shorts.v1alpha1.HousingRegion.latest_period:type_name -> google.protobuf.Timestamp
+	39, // 35: shorts.v1alpha1.ListHousingRegionsResponse.regions:type_name -> shorts.v1alpha1.HousingRegion
+	42, // 36: shorts.v1alpha1.ListSuburbPriceDropsResponse.suburbs:type_name -> shorts.v1alpha1.SuburbPriceDrop
+	80, // 37: shorts.v1alpha1.ListSuburbPriceDropsResponse.as_of:type_name -> google.protobuf.Timestamp
+	80, // 38: shorts.v1alpha1.ListSuburbPriceDropsResponse.data_through:type_name -> google.protobuf.Timestamp
+	80, // 39: shorts.v1alpha1.SuburbDropListing.observed_at:type_name -> google.protobuf.Timestamp
+	45, // 40: shorts.v1alpha1.ListSuburbDropListingsResponse.listings:type_name -> shorts.v1alpha1.SuburbDropListing
+	48, // 41: shorts.v1alpha1.GetPropertyHistoryResponse.current:type_name -> shorts.v1alpha1.PropertyListingSnapshot
+	49, // 42: shorts.v1alpha1.GetPropertyHistoryResponse.events:type_name -> shorts.v1alpha1.PropertyPriceEvent
+	52, // 43: shorts.v1alpha1.GetPropertyHistoryResponse.valuation:type_name -> shorts.v1alpha1.PropertyValuation
+	51, // 44: shorts.v1alpha1.PropertyValuation.sales_history:type_name -> shorts.v1alpha1.PropertyValuationSale
+	54, // 45: shorts.v1alpha1.ListAddressPriceDropsResponse.addresses:type_name -> shorts.v1alpha1.AddressPriceDrop
+	57, // 46: shorts.v1alpha1.GetPriceDropsOverviewResponse.national:type_name -> shorts.v1alpha1.StatePriceDropSummary
+	57, // 47: shorts.v1alpha1.GetPriceDropsOverviewResponse.states:type_name -> shorts.v1alpha1.StatePriceDropSummary
+	80, // 48: shorts.v1alpha1.GetPriceDropsOverviewResponse.as_of:type_name -> google.protobuf.Timestamp
+	80, // 49: shorts.v1alpha1.GetPriceDropsOverviewResponse.data_through:type_name -> google.protobuf.Timestamp
+	60, // 50: shorts.v1alpha1.ListAgencyPriceStatsResponse.agencies:type_name -> shorts.v1alpha1.AgencyPriceStats
+	62, // 51: shorts.v1alpha1.GetDropIndexSeriesResponse.points:type_name -> shorts.v1alpha1.DropIndexPoint
+	80, // 52: shorts.v1alpha1.GetDropIndexSeriesResponse.as_of:type_name -> google.protobuf.Timestamp
+	80, // 53: shorts.v1alpha1.GetDropIndexSeriesResponse.data_through:type_name -> google.protobuf.Timestamp
+	67, // 54: shorts.v1alpha1.ListCouncilsResponse.councils:type_name -> shorts.v1alpha1.CouncilSummary
+	80, // 55: shorts.v1alpha1.ListCouncilsResponse.price_drops_as_of:type_name -> google.protobuf.Timestamp
+	80, // 56: shorts.v1alpha1.ListCouncilsResponse.price_drops_data_through:type_name -> google.protobuf.Timestamp
+	70, // 57: shorts.v1alpha1.GetCouncilProfileResponse.profile:type_name -> shorts.v1alpha1.CouncilProfile
+	29, // 58: shorts.v1alpha1.CouncilProfile.council:type_name -> shorts.v1alpha1.LgaInfo
+	67, // 59: shorts.v1alpha1.CouncilProfile.summary:type_name -> shorts.v1alpha1.CouncilSummary
+	71, // 60: shorts.v1alpha1.CouncilProfile.series:type_name -> shorts.v1alpha1.CouncilSeries
+	73, // 61: shorts.v1alpha1.CouncilProfile.suburbs:type_name -> shorts.v1alpha1.CouncilSuburb
+	74, // 62: shorts.v1alpha1.CouncilProfile.rollup:type_name -> shorts.v1alpha1.CouncilRollup
+	76, // 63: shorts.v1alpha1.CouncilProfile.federal_electorates:type_name -> shorts.v1alpha1.CouncilRepresentative
+	76, // 64: shorts.v1alpha1.CouncilProfile.state_districts:type_name -> shorts.v1alpha1.CouncilRepresentative
+	77, // 65: shorts.v1alpha1.CouncilProfile.price_drops:type_name -> shorts.v1alpha1.CouncilPriceDrops
+	79, // 66: shorts.v1alpha1.CouncilProfile.neighbours:type_name -> shorts.v1alpha1.CouncilNeighbour
+	72, // 67: shorts.v1alpha1.CouncilSeries.points:type_name -> shorts.v1alpha1.CouncilSeriesPoint
+	75, // 68: shorts.v1alpha1.CouncilRollup.crime:type_name -> shorts.v1alpha1.CouncilCrimeStat
+	78, // 69: shorts.v1alpha1.CouncilPriceDrops.suburbs:type_name -> shorts.v1alpha1.CouncilDropSuburb
+	80, // 70: shorts.v1alpha1.CouncilPriceDrops.as_of:type_name -> google.protobuf.Timestamp
+	80, // 71: shorts.v1alpha1.CouncilPriceDrops.data_through:type_name -> google.protobuf.Timestamp
+	0,  // 72: shorts.v1alpha1.HousingService.GetHousingOverview:input_type -> shorts.v1alpha1.GetHousingOverviewRequest
+	3,  // 73: shorts.v1alpha1.HousingService.GetHousePriceSeries:input_type -> shorts.v1alpha1.GetHousePriceSeriesRequest
+	6,  // 74: shorts.v1alpha1.HousingService.ListStateSuburbs:input_type -> shorts.v1alpha1.ListStateSuburbsRequest
+	16, // 75: shorts.v1alpha1.HousingService.GetSuburbIndex:input_type -> shorts.v1alpha1.GetSuburbIndexRequest
+	19, // 76: shorts.v1alpha1.HousingService.GetSuburbMetricColumns:input_type -> shorts.v1alpha1.GetSuburbMetricColumnsRequest
+	23, // 77: shorts.v1alpha1.HousingService.FilterSuburbs:input_type -> shorts.v1alpha1.FilterSuburbsRequest
+	25, // 78: shorts.v1alpha1.HousingService.GetSuburbProfile:input_type -> shorts.v1alpha1.GetSuburbProfileRequest
+	38, // 79: shorts.v1alpha1.HousingService.ListHousingRegions:input_type -> shorts.v1alpha1.ListHousingRegionsRequest
+	41, // 80: shorts.v1alpha1.HousingService.ListSuburbPriceDrops:input_type -> shorts.v1alpha1.ListSuburbPriceDropsRequest
+	44, // 81: shorts.v1alpha1.HousingService.ListSuburbDropListings:input_type -> shorts.v1alpha1.ListSuburbDropListingsRequest
+	47, // 82: shorts.v1alpha1.HousingService.GetPropertyHistory:input_type -> shorts.v1alpha1.GetPropertyHistoryRequest
+	53, // 83: shorts.v1alpha1.HousingService.ListAddressPriceDrops:input_type -> shorts.v1alpha1.ListAddressPriceDropsRequest
+	56, // 84: shorts.v1alpha1.HousingService.GetPriceDropsOverview:input_type -> shorts.v1alpha1.GetPriceDropsOverviewRequest
+	59, // 85: shorts.v1alpha1.HousingService.ListAgencyPriceStats:input_type -> shorts.v1alpha1.ListAgencyPriceStatsRequest
+	63, // 86: shorts.v1alpha1.HousingService.GetDropIndexSeries:input_type -> shorts.v1alpha1.GetDropIndexSeriesRequest
+	65, // 87: shorts.v1alpha1.HousingService.ListCouncils:input_type -> shorts.v1alpha1.ListCouncilsRequest
+	68, // 88: shorts.v1alpha1.HousingService.GetCouncilProfile:input_type -> shorts.v1alpha1.GetCouncilProfileRequest
+	2,  // 89: shorts.v1alpha1.HousingService.GetHousingOverview:output_type -> shorts.v1alpha1.GetHousingOverviewResponse
+	5,  // 90: shorts.v1alpha1.HousingService.GetHousePriceSeries:output_type -> shorts.v1alpha1.GetHousePriceSeriesResponse
+	15, // 91: shorts.v1alpha1.HousingService.ListStateSuburbs:output_type -> shorts.v1alpha1.ListStateSuburbsResponse
+	18, // 92: shorts.v1alpha1.HousingService.GetSuburbIndex:output_type -> shorts.v1alpha1.GetSuburbIndexResponse
+	21, // 93: shorts.v1alpha1.HousingService.GetSuburbMetricColumns:output_type -> shorts.v1alpha1.GetSuburbMetricColumnsResponse
+	24, // 94: shorts.v1alpha1.HousingService.FilterSuburbs:output_type -> shorts.v1alpha1.FilterSuburbsResponse
+	37, // 95: shorts.v1alpha1.HousingService.GetSuburbProfile:output_type -> shorts.v1alpha1.GetSuburbProfileResponse
+	40, // 96: shorts.v1alpha1.HousingService.ListHousingRegions:output_type -> shorts.v1alpha1.ListHousingRegionsResponse
+	43, // 97: shorts.v1alpha1.HousingService.ListSuburbPriceDrops:output_type -> shorts.v1alpha1.ListSuburbPriceDropsResponse
+	46, // 98: shorts.v1alpha1.HousingService.ListSuburbDropListings:output_type -> shorts.v1alpha1.ListSuburbDropListingsResponse
+	50, // 99: shorts.v1alpha1.HousingService.GetPropertyHistory:output_type -> shorts.v1alpha1.GetPropertyHistoryResponse
+	55, // 100: shorts.v1alpha1.HousingService.ListAddressPriceDrops:output_type -> shorts.v1alpha1.ListAddressPriceDropsResponse
+	58, // 101: shorts.v1alpha1.HousingService.GetPriceDropsOverview:output_type -> shorts.v1alpha1.GetPriceDropsOverviewResponse
+	61, // 102: shorts.v1alpha1.HousingService.ListAgencyPriceStats:output_type -> shorts.v1alpha1.ListAgencyPriceStatsResponse
+	64, // 103: shorts.v1alpha1.HousingService.GetDropIndexSeries:output_type -> shorts.v1alpha1.GetDropIndexSeriesResponse
+	66, // 104: shorts.v1alpha1.HousingService.ListCouncils:output_type -> shorts.v1alpha1.ListCouncilsResponse
+	69, // 105: shorts.v1alpha1.HousingService.GetCouncilProfile:output_type -> shorts.v1alpha1.GetCouncilProfileResponse
+	89, // [89:106] is the sub-list for method output_type
+	72, // [72:89] is the sub-list for method input_type
+	72, // [72:72] is the sub-list for extension type_name
+	72, // [72:72] is the sub-list for extension extendee
+	0,  // [0:72] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_housing_proto_init() }
@@ -6385,14 +9029,21 @@ func file_shorts_v1alpha1_housing_proto_init() {
 	}
 	file_shorts_v1alpha1_housing_proto_msgTypes[10].OneofWrappers = []any{}
 	file_shorts_v1alpha1_housing_proto_msgTypes[11].OneofWrappers = []any{}
-	file_shorts_v1alpha1_housing_proto_msgTypes[20].OneofWrappers = []any{}
+	file_shorts_v1alpha1_housing_proto_msgTypes[13].OneofWrappers = []any{}
+	file_shorts_v1alpha1_housing_proto_msgTypes[22].OneofWrappers = []any{}
+	file_shorts_v1alpha1_housing_proto_msgTypes[29].OneofWrappers = []any{}
+	file_shorts_v1alpha1_housing_proto_msgTypes[67].OneofWrappers = []any{}
+	file_shorts_v1alpha1_housing_proto_msgTypes[73].OneofWrappers = []any{}
+	file_shorts_v1alpha1_housing_proto_msgTypes[74].OneofWrappers = []any{}
+	file_shorts_v1alpha1_housing_proto_msgTypes[77].OneofWrappers = []any{}
+	file_shorts_v1alpha1_housing_proto_msgTypes[78].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_housing_proto_rawDesc), len(file_shorts_v1alpha1_housing_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   61,
+			NumMessages:   80,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

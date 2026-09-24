@@ -327,3 +327,63 @@ func TestCapitulationWindowAppliesToRelistDateNotDelistDate(t *testing.T) {
 		t.Fatalf("capitulation query must not also window on the delist date:\n%s", sql)
 	}
 }
+
+// The index must count the SAME physical-address unit as the listing MVs
+// (address_key), or the hero index and the national tile disagree about how
+// many homes are on the market (measured +32% under display_address). Both
+// CTEs must lead with address_key and keep the old chain only as a fallback
+// for rows the extractor could not key.
+func TestSuburbDaysCountsAddressKeysFirst(t *testing.T) {
+	sql := suburbDaysSQL()
+	const unit = "count(DISTINCT coalesce(nullif(l.address_key, ''), nullif(l.display_address, ''), l.listing_id))"
+
+	active := sql[strings.Index(sql, "active AS ("):strings.Index(sql, "dropped AS (")]
+	dropped := sql[strings.Index(sql, "dropped AS ("):]
+	for name, cte := range map[string]string{"active": active, "dropped": dropped} {
+		if !strings.Contains(cte, unit) {
+			t.Errorf("%s CTE must count %s, got:\n%s", name, unit, cte)
+		}
+	}
+	if strings.Contains(sql, "count(DISTINCT coalesce(nullif(l.display_address, ''), l.listing_id))") {
+		t.Error("suburbDaysSQL still counts display_address as the primary unit")
+	}
+}
+
+// A suburb with one or two cut homes must not publish that home's exact cut
+// as its "median" — the public suburb series leaked 1,794 such rows. The rate
+// stays: it is a count ratio, not a listing's price.
+func TestSuburbPointWithholdsMedianBelowTheKFloor(t *testing.T) {
+	for dropped := 0; dropped < indexMedianKFloor; dropped++ {
+		got := suburbPoint(suburbDay{salCode: "x", active: 40, dropped: dropped, medianDropPct: 0.061})
+		if got.MedianDropPct != nil {
+			t.Fatalf("dropped=%d: MedianDropPct = %v, want nil (withheld)", dropped, *got.MedianDropPct)
+		}
+		if want := float64(dropped) / 40; math.Abs(got.DropRate-want) > 1e-9 {
+			t.Fatalf("dropped=%d: DropRate = %.4f, want %.4f — the rate is not an exact cut", dropped, got.DropRate, want)
+		}
+	}
+
+	got := suburbPoint(suburbDay{salCode: "x", active: 40, dropped: indexMedianKFloor, medianDropPct: 0.061})
+	if got.MedianDropPct == nil || math.Abs(*got.MedianDropPct-0.061) > 1e-9 {
+		t.Fatalf("at the floor the median must publish, got %v", got.MedianDropPct)
+	}
+}
+
+// The same floor applies to an aggregate: a national or state day backed by
+// fewer than three cut homes discloses them just as a suburb row would.
+func TestAggregateMedianWithheldBelowTheKFloor(t *testing.T) {
+	thin := []suburbDay{
+		{salCode: "a", active: 40, dropped: 1, medianDropPct: 0.07},
+		{salCode: "b", active: 40, dropped: 1, medianDropPct: 0.03},
+		{salCode: "c", active: 40, dropped: 0},
+	}
+	if got := aggregateIndex(thin, 20, 0.6, 3); got.MedianDropPct != nil {
+		t.Fatalf("2 dropped addresses: MedianDropPct = %v, want nil", *got.MedianDropPct)
+	}
+
+	enough := append(thin, suburbDay{salCode: "d", active: 40, dropped: 1, medianDropPct: 0.05})
+	got := aggregateIndex(enough, 20, 0.6, 4)
+	if got.MedianDropPct == nil || math.Abs(*got.MedianDropPct-0.05) > 1e-9 {
+		t.Fatalf("3 dropped addresses: MedianDropPct = %v, want 0.05", got.MedianDropPct)
+	}
+}

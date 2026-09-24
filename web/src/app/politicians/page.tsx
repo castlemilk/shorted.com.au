@@ -237,7 +237,7 @@ export default async function PoliticiansPage() {
     overview?.politicianCount,
     explorer?.politicianCount,
   );
-  if (politicianCount === 0) bailOnEmptyRender();
+  if (politicianCount === 0) await bailOnEmptyRender();
 
   // THE OVERVIEW'S AS-AT FIRST, and it is not interchangeable with the
   // explorer's. `overview.as_at` is the newest LODGEMENT date in the corpus —

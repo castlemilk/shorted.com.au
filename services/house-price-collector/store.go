@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -178,6 +179,16 @@ func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
 // (exact) + 000068 (parenthetical-stripped fallback for ABS names like
 // "Abbotsford (NSW)"). Run every ingest so newly-added suburbs (any state)
 // self-link without a manual SQL step. Idempotent: only touches NULL sal_codes.
+//
+// The stripped pass is where one name meets several SALs: ABS parenthesises a
+// name precisely because it repeats ("Mayfield (Newcastle - NSW)", 9,760
+// people; "Mayfield (Shoalhaven - NSW)", 36). An UPDATE … FROM with several
+// matching rows applies an arbitrary one, and prod linked the VG "Mayfield"
+// series to the 36-person locality — the populous suburb then read as
+// unpriced and the locality showed Newcastle's median. The pass now takes the
+// most populous candidate (sal_code breaks a tie, so a re-run is stable):
+// suburb_demographics carries no postcode to match on, and a suburb-level
+// median exists because the place has sales, which the populous one does.
 func linkSuburbSalCodes(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
 	var total int64
 	tag, err := pool.Exec(ctx, `
@@ -189,17 +200,28 @@ func linkSuburbSalCodes(ctx context.Context, pool *pgxpool.Pool) (int64, error) 
 		return total, fmt.Errorf("sal link (exact): %w", err)
 	}
 	total += tag.RowsAffected()
-	tag, err = pool.Exec(ctx, `
-		UPDATE house_price_regions r SET sal_code = d.sal_code
-		FROM suburb_demographics d
-		WHERE r.sal_code IS NULL AND r.region_type = 'suburb' AND r.state_code = d.state_code
-		  AND upper(trim(r.region_name)) = upper(trim(regexp_replace(d.sal_name, '\s*\(.*\)\s*$', '')))`)
+	tag, err = pool.Exec(ctx, linkStrippedSalSQL)
 	if err != nil {
 		return total, fmt.Errorf("sal link (stripped): %w", err)
 	}
 	total += tag.RowsAffected()
 	return total, nil
 }
+
+// linkStrippedSalSQL links each still-unlinked suburb region to the MOST
+// POPULOUS SAL whose name, qualifier stripped, matches it in the same state.
+const linkStrippedSalSQL = `
+		UPDATE house_price_regions r SET sal_code = pick.sal_code
+		FROM (
+			SELECT DISTINCT ON (u.region_code) u.region_code, d.sal_code
+			FROM house_price_regions u
+			JOIN suburb_demographics d
+			  ON d.state_code = u.state_code
+			 AND upper(trim(u.region_name)) = upper(trim(regexp_replace(d.sal_name, '\s*\(.*\)\s*$', '')))
+			WHERE u.sal_code IS NULL AND u.region_type = 'suburb'
+			ORDER BY u.region_code, COALESCE(d.population, 0) DESC, d.sal_code
+		) pick
+		WHERE r.region_code = pick.region_code AND r.sal_code IS NULL`
 
 // upsertDemographics idempotently writes one row per boundary suburb (PK =
 // sal_code). Nullable *int/*float64 fields bind directly (pgx maps nil → NULL),
@@ -302,52 +324,44 @@ func upsertElectorates(ctx context.Context, pool *pgxpool.Pool, rows []Electorat
 	return n, nil
 }
 
-// applyFAGs matches each council's Financial Assistance Grant (by normalised
-// name + state) to the lga dimension and updates fed_fag_aud/year.
-func applyFAGs(ctx context.Context, pool *pgxpool.Pool, rows []FagRow) (int, error) {
-	type lgaKey struct{ norm, state string }
-	idx := map[lgaKey]string{}
-	q, err := pool.Query(ctx, `SELECT lga_code24, lga_name, state_code FROM lga`)
+// applyFAGs writes the resolved FAG history: every council-year to
+// lga_series, and each council's newest year onto lga.fed_fag_aud/year — in one
+// transaction, so the scalar never disagrees with the series it came from.
+func applyFAGs(ctx context.Context, pool *pgxpool.Pool, res fagResolution) (int, error) {
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return 0, err
 	}
-	for q.Next() {
-		var code, name, state string
-		if err := q.Scan(&code, &name, &state); err != nil {
-			q.Close()
-			return 0, err
-		}
-		idx[lgaKey{normCouncil(name), state}] = code
+	defer func() { _ = tx.Rollback(ctx) }()
+	n, err := upsertLGASeriesTx(ctx, tx, res.Series)
+	if err != nil {
+		return n, err
 	}
-	q.Close()
-	// A mid-stream read error surfaces only via Err() (Next() just returns false);
-	// without this the match index is silently truncated and the run still reports ok.
-	if err := q.Err(); err != nil {
-		return 0, err
+	codes := make([]string, 0, len(res.Latest))
+	for code := range res.Latest {
+		codes = append(codes, code)
 	}
-
+	sort.Strings(codes)
 	batch := &pgx.Batch{}
-	matched := 0
-	for _, r := range rows {
-		code, ok := idx[lgaKey{normCouncil(r.LGAName), r.StateCode}]
-		if !ok {
-			continue
-		}
+	for _, code := range codes {
+		r := res.Latest[code]
 		// FAG writes only the grant columns; fin_source/fin_source_licence describe
 		// the per-council FINANCIAL columns (avg_rates/op_surplus/asset_renewal) and
 		// are owned by the state financials ingest (e.g. vic_lgprf), so leave them.
 		batch.Queue(`UPDATE lga SET fed_fag_aud=$2, fed_fag_year=$3, fetched_at=now() WHERE lga_code24=$1`,
-			code, r.TotalAud, r.Year)
-		matched++
+			code, r.Value, r.PeriodLabel)
 	}
-	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
-	for i := 0; i < matched; i++ {
+	br := tx.SendBatch(ctx, batch)
+	for range codes {
 		if _, err := br.Exec(); err != nil {
-			return i, err
+			_ = br.Close()
+			return n, err
 		}
 	}
-	return matched, nil
+	if err := br.Close(); err != nil {
+		return n, err
+	}
+	return n, tx.Commit(ctx)
 }
 
 // upsertConnectivity writes each suburb's dominant NBN tech + quality proxy.
@@ -361,64 +375,6 @@ func upsertConnectivity(ctx context.Context, pool *pgxpool.Pool, rows []Connecti
 	batch := &pgx.Batch{}
 	for _, r := range rows {
 		batch.Queue(q, r.SALCode, r.Tech, r.Score)
-	}
-	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
-	n := 0
-	for range rows {
-		if _, err := br.Exec(); err != nil {
-			return n, err
-		}
-		n++
-	}
-	return n, nil
-}
-
-// refreshLGAPopulation derives each council's population by summing its member
-// suburbs' Census populations (SALs tile the LGA) — no external fetch needed.
-func refreshLGAPopulation(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, `
-		UPDATE lga SET population = sub.pop FROM (
-			SELECT sl.lga_code24, SUM(sd.population)::int AS pop
-			FROM suburb_lga sl JOIN suburb_demographics sd ON sd.sal_code = sl.sal_code
-			WHERE sd.population IS NOT NULL
-			GROUP BY sl.lga_code24
-		) sub WHERE lga.lga_code24 = sub.lga_code24`)
-	return err
-}
-
-// upsertLGADimension writes the LGA (council) dimension rows.
-func upsertLGADimension(ctx context.Context, pool *pgxpool.Pool, rows []LGARow) (int, error) {
-	const q = `
-		INSERT INTO lga (lga_code24, lga_name, state_code, area_sqkm)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (lga_code24) DO UPDATE SET
-			lga_name = EXCLUDED.lga_name, state_code = EXCLUDED.state_code,
-			area_sqkm = EXCLUDED.area_sqkm, fetched_at = now()`
-	batch := &pgx.Batch{}
-	for _, r := range rows {
-		batch.Queue(q, r.Code, r.Name, r.StateCode, r.AreaSqkm)
-	}
-	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
-	n := 0
-	for range rows {
-		if _, err := br.Exec(); err != nil {
-			return n, err
-		}
-		n++
-	}
-	return n, nil
-}
-
-// upsertSuburbLGA writes the suburb→dominant-council bridge.
-func upsertSuburbLGA(ctx context.Context, pool *pgxpool.Pool, rows []SuburbLGARow) (int, error) {
-	const q = `
-		INSERT INTO suburb_lga (sal_code, lga_code24) VALUES ($1, $2)
-		ON CONFLICT (sal_code) DO UPDATE SET lga_code24 = EXCLUDED.lga_code24`
-	batch := &pgx.Batch{}
-	for _, r := range rows {
-		batch.Queue(q, r.SALCode, r.LGACode)
 	}
 	br := pool.SendBatch(ctx, batch)
 	defer func() { _ = br.Close() }()
@@ -546,7 +502,7 @@ func upsertHazards(ctx context.Context, pool *pgxpool.Pool, rows []HazardRow) (i
 		batch.Queue(q, row.SALCode, row.WaterObservedSharePct, row.PermanentWaterSharePct,
 			row.SampledCellCount, row.WaterSource(),
 			row.FloodPlanningSharePct, row.FloodSource(),
-			row.BushfireProneSharePct, row.BushfireSource(), hazardsLicence)
+			row.BushfireProneSharePct, row.BushfireSource(), row.Licence())
 	}
 	results := pool.SendBatch(ctx, batch)
 	defer func() { _ = results.Close() }()

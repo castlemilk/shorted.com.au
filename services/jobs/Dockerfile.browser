@@ -14,10 +14,9 @@
 # weekly-report, market-data). Bolting ~500 MiB of Chromium + Debian onto it
 # would tax every one of them to serve the one job that needs a browser.
 #
-# WHO USES IT: `shorted discovery` (was services/asx-discovery). If the
-# house-prices crawler's non-CDP modes are ever containerised they belong here
-# too; its CDP modes talk to a host Chrome on the residential Macs and need no
-# browser in the image at all.
+# WHO USES IT: `shorted discovery` (was services/asx-discovery). The
+# `shorted house-prices` port that was once meant to join it was retired on
+# 2026-09-24; the housing crawler stays in services/house-price-collector.
 #
 # The stealth stage/private-module dance is identical to ./Dockerfile — see the
 # comment block there for why neither go.mod carries a checked-in replace.

@@ -380,7 +380,7 @@ func realisticHousingSource(src *fakeDataSource) {
 			MedianWeeklyRent: 550, MedianMonthlyMortgage: 2_800, PctRented: 48.2345, CensusYear: 2021,
 		},
 		Baselines: &shortsv1alpha1.ComparisonBaselines{
-			StateMedianPrice: 900_000, NationalMedianPrice: 850_000,
+			StateMedianPrice: 900_000, CapitalMedianPrice: 850_000,
 		},
 		Council: &shortsv1alpha1.LgaInfo{LgaName: "Yarra"},
 		Crime: &shortsv1alpha1.SuburbCrime{

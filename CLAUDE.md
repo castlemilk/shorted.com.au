@@ -512,7 +512,7 @@ Operating manual (running, prompt iteration via `-print-prompt`/`-dry-run`, qual
 ## Housing (tracker + suburb explorer + listings crawl + price-drops)
 
 Five products over one fact/dimension data model, one chart system and one
-Connect-RPC service (`HousingService`, `housing.proto`, 11 rpcs): the
+Connect-RPC service (`HousingService`, `housing.proto`, 17 rpcs): the
 **Widow-Maker editorial feature** (`/features/the-widow-maker`, baked arrays), the
 **House Prices Tracker** (`/housing`, live ABS/RBA/Valuer-General ingest), the
 **suburb explorer** (`/housing` → `/housing/[state]` → `/housing/[state]/[suburb]`
@@ -521,7 +521,7 @@ terrain / hazard shares, plus toggleable flood-planning, observed-water and
 bushfire **overlays** synced to `?metric=`/`?overlays=`), the
 **residential listings crawl** (REA/Domain via warm host-Chrome CDP on residential
 Macs, plus a property.com.au AVM tier), and the **price-drops board**
-(`/price-drops`). **All LIVE on prod** — as at 2026-08-09: 88,689 crawl listings
+(`/price-drops`), plus the **council hub** — `/housing/[state]/council` + `/housing/[state]/council/[slug]` (`ListCouncils`/`GetCouncilProfile`, map council level + borders; `architecture.md` §11; built 2026-09-24, awaiting its 000126 prod DDL + deploy). **The five products are LIVE on prod** — as at 2026-08-09: 88,689 crawl listings
 across 500 suburbs, a **500-suburb** crawl catalog, **22** collector modes, 16
 official-ingest jobs, 27 housing migrations (000053–000092). The
 `house-price-collector` Cloud Run job **is** wired into CI + both TF environments
@@ -534,21 +534,21 @@ official-ingest jobs, 27 housing migrations (000053–000092). The
 | `docs/feature/housing/README.md` | Current state + dated prod numbers, the five rules that shape every change, surfaces, known-open items |
 | `docs/feature/housing/data-sources.md` | Every source + licence, mandatory fetch posture, and what is ruled OUT (and why) |
 | `docs/feature/housing/data-model.md` | Tables, MVs, migration map, and where each guard is actually enforced (DB vs code) |
-| `docs/feature/housing/pipeline.md` | The 22 collector modes, the 16 official jobs, run order, timeouts, exit-code contract |
+| `docs/feature/housing/pipeline.md` | The 37 collector modes, the 16 official jobs, run order, timeouts, exit-code contract |
 | `docs/feature/housing/operations.md` | Runbook: prod DDL, rig crawl recovery, revalidation, takedown, credentials |
 | `docs/feature/housing/architecture.md` | Decision/incident record + extension recipes — read before touching crawl classification or caching |
 
 ### Landmines
 
-- **The prod deploy does NOT run `migrate up`** — it applies a hardcoded allowlist that contains **zero housing migrations**. Apply housing DDL BY HAND (session pooler **5432**, `PGOPTIONS="-c statement_timeout=0"`) *before* merging code that reads the new columns, or every housing read path 500s. Prod `schema_migrations` lies (force-written to 75).
-- **MV refresh needs that same session pooler.** Run `refresh_housing_materialized_views()` on 5432 with `statement_timeout=0`; the txn pooler (6543) kills it mid-`REFRESH … CONCURRENTLY`. The starvation hazard this used to warn about — an `EXCEPTION WHEN OTHERS` guard that does not catch the `query_canceled` a statement timeout raises, so one timed-out MV starves every MV after it — **is fixed**: `000107_harden_housing_mv_refresh` landed and prod's function handles `query_canceled` (verified against `pg_proc`, 2026-08-28). The pooler rule still stands, and the collector already issues `SET LOCAL statement_timeout = 0` before the call.
+- **The prod deploy does NOT run `migrate up`** — it applies a hardcoded allowlist that contains **zero housing migrations**. Apply housing DDL BY HAND (`task db:prod:apply FILE=… CONFIRM=prod`: session pooler **5432**, one transaction with `SET LOCAL statement_timeout = 0`; `PGOPTIONS` does nothing, Supavisor drops it) *before* merging code that reads the new columns, or every housing read path 500s. Prod `schema_migrations` lies (force-written to 75).
+- **MV refresh needs that same session pooler.** Run `refresh_housing_materialized_views()` via `task db:prod:refresh WHICH=housing CONFIRM=prod` (5432, `SET LOCAL statement_timeout = 0`, exits 1 if a view was skipped); the txn pooler (6543) kills it mid-`REFRESH … CONCURRENTLY`. The starvation hazard this used to warn about — an `EXCEPTION WHEN OTHERS` guard that does not catch the `query_canceled` a statement timeout raises, so one timed-out MV starves every MV after it — **is fixed**: `000107_harden_housing_mv_refresh` landed and prod's function handles `query_canceled` (verified against `pg_proc`, 2026-08-28). The pooler rule still stands, and the collector already issues `SET LOCAL statement_timeout = 0` before the call.
 - **Charts can't SSR, and functions can't cross the RSC boundary.** Every interactive chart is imported `dynamic(..., { ssr: false })` from a `"use client"` module; pass a **serializable key** (`format="aud"|"percent"|"index"`, `MetricKey` from `highlight-metrics.ts`) and look the formatter/colour scale up client-side — never pass a formatter or scale as a prop from a server page.
 - **Reading `searchParams` in a server page silently forces dynamic rendering** even with `revalidate` exported, killing the ISR that serves `/price-drops` in 40–58ms. Read `?state=` client-side via `useSearchParams` under a real `<Suspense>` boundary (the `next/dynamic` fallback does not satisfy it).
 - **ABS WAF**: `abs.go` MUST send `User-Agent: shorted-housing/1.0 (+https://shorted.com.au)` + `Accept: application/vnd.sdmx.data+csv;labels=both` — a bare request 403s. Conversely, don't hand-set a UA on the crawl tier; `stealthhttp`'s native engine supplies browser-realistic TLS/headers.
 - **Crawl rows are never republished raw.** REA/Domain/property.com.au rows carry `source_licence='proprietary-tos-restricted'` (a column DEFAULT, so the unlicensed state is unstorable); only derived aggregates are a publishable surface, only counts-only summaries cross to brandbrain, and `CRAWL_TRACE` artifacts stay local + gitignored. Kill switches: `HOUSING_DROP_LISTINGS_ENABLED` / `HOUSING_VALUATIONS_ENABLED` (both ON by default).
 - **A hand-run crawl writes nothing.** `CRAWL_DRY_RUN` / `CRIME_DRY_RUN` / `PURGE_DRY_RUN` default to true in code; only the launchd wrappers export `false`. Check `dryRun=` in the startup log before believing a run persisted.
 - **Crawl throughput and its alarm are ONE decision.** `CRAWL_DELTA_MAX_SUBURBS` (now **120**) is the ceiling of the whole crawl — 500 suburbs ÷ cap = the rotation — and `CRAWL_FRESHNESS_ALARM_HOURS` (now **120h**) must match it. The old 60/72h pairing implied an 8.3-day rotation against a 3-day alarm, so the alarm fired on the designed steady state and stopped meaning anything (measured 2026-08-18: median 117h, oldest 305h). Change one, change the other. **Reaching that throughput is a third thing, and it was broken:** a re-warm (exit 3) used to end the run and hand the rest back to the *schedule*, which fires at 10:00 daily — so one routine Kasada re-warm cost a whole day. Measured 2026-09-10: 21 of 38 jobs against a 120 cap, the ~4-day rotation stretched to weeks, 502 suburbs past the alarm. `hc_drain_until_empty` now cools down and retries in the same run (`CRAWL_REWARM_COOLDOWN_SEC` 900, `CRAWL_REWARM_MAX_RETRIES` 2, `0` disables), still returning 3 once the budget is spent so the exit contract and the alarm keep their meaning. It raises no ceiling — it makes the rig reach the one already set. **Judge a run by SUCCEEDED jobs, never by "processed"** — processed counts jobs claimed and immediately DEFERRED because the portal circuit was open, so a long run of deferrals reads as throughput. Measured 2026-09-11: budget 2 gave 85 processed / **34 succeeded** / 35 deferred and cleared 38 stale suburbs; budget 4 gave 323 processed / **26 succeeded** / 241 deferred / 56 failed and cleared 19. More retries against an open circuit is just asking a blocking portal again.
-- **Alerting: the sentinel is the only layer that survives a dead rig.** `.github/workflows/housing-freshness.yml` (daily, read-only, files one GitHub issue) checks per-suburb `CATALOG_STALENESS` (132h) + `RIG_STATUS` alongside global `EVENT_SILENCE` — the global check alone stayed **green through a two-day outage**. Rig-side, every terminal wrapper failure pushes via `hc_alert` (notification + `CRAWL_ALERT_WEBHOOK`, falling back to `CRAWL_FRESHNESS_WEBHOOK`); unset webhook = notification only.
+- **Alerting: the sentinel is the only layer that survives a dead rig.** `.github/workflows/housing-freshness.yml` (daily, GitHub-hosted — never the rig's self-hosted runners, which die with the rig — read-only, files one GitHub issue) checks MV refresh age (72h), per-suburb `CATALOG_STALENESS` (132h) + `RIG_STATUS` alongside global `EVENT_SILENCE` — the global check alone stayed **green through a two-day outage**. Rig-side, every terminal wrapper failure pushes via `hc_alert` (notification + `CRAWL_ALERT_WEBHOOK`, falling back to `CRAWL_FRESHNESS_WEBHOOK`); unset webhook = notification only.
 - **The rig is a hand deploy and has drifted before** (binary 4h17m behind the fix it was assumed to carry). Use `deploy/stage-rig.sh` (`--check` is read-only — run it FIRST in any crawl incident); wrappers log `vcs.revision` at run start. The Playwright driver now lives at `CRAWL_PW_DRIVER_DIR` (`~/.shorted-housing-crawl/pw-driver`), **not** `~/Library/Caches` where a sweep deleted it; repair with `-mode install-driver`.
 
 ## Economy (map explorer + state pages + series platform)
@@ -556,7 +556,7 @@ official-ingest jobs, 27 housing migrations (000053–000092). The
 `/economy` (map-first hub, ISR) → `/economy/[state]` (SSG ×8, banner heroes with
 centered state silhouettes, breadcrumbs) over a **generic economic-series
 layer**: `economic_series` + `economic_observations` (migrations
-000081/000082/000083/000085) fed by `services/economy-collector`
+000081/000082/000083/000085) fed by `shorted economy` (`services/jobs/internal/jobs/economy`)
 (**11 sources**: rba, cpi, labour, trade, gdp=SFD, petroleum, govfin+detail,
 approvals, retail, population, markets-derived) on a monthly Cloud Run Job,
 read by the public **`EconomyService`** (economy.proto after the proto split):
@@ -568,7 +568,7 @@ read by the public **`EconomyService`** (economy.proto after the proto split):
 
 | File | Purpose |
 |------|---------|
-| `services/economy-collector/` | All importers (`-mode all`); probe-pinned constants; fail-closed filters |
+| `services/jobs/internal/jobs/economy/` | All importers (`shorted economy -mode all`); probe-pinned constants; fail-closed filters |
 | `services/pkg/absdata/` | Shared ABS SDMX-CSV + RBA CSV clients (WAF-safe UA is mandatory) |
 | `services/migrations/000081…000085` | Series layer, registry kind/method extensions, state_exposure + MV |
 | `services/shorts/.../economy.go`, `state_exposure.go` | RPC handlers (normalized cache keys) |
@@ -577,7 +577,7 @@ read by the public **`EconomyService`** (economy.proto after the proto split):
 | `web/src/@/components/economy/` | Map explorer, state charts/companies/correlations, dual-axis chart, `<EconomyIcon>` sprite |
 | `web/src/app/economy/` + `[state]/` | Hub + state pages; actions in `app/actions/getEconomy.ts` (KV last-good layer) |
 | `web/scripts/economy-icons/` | Icon-set generation pipeline (housing-icons clone) |
-| `terraform/modules/economy-collector/` | Cloud Run Job + monthly scheduler (5th, 17:00 UTC) |
+| `terraform/environments/prod/main.tf` `module "shorted_job_economy"` | Cloud Run Job `shorted-economy` + monthly scheduler (5th, 17:00 UTC) |
 
 ### Landmines (details: `docs/economy-architecture.md`)
 
@@ -593,9 +593,10 @@ read by the public **`EconomyService`** (economy.proto after the proto split):
   Never derive series keys from source labels — stable codes/static maps only.
 - **Prod company-metadata lacks `sector`/`description`** (local has them) —
   query only columns present in both.
-- **Prod MV refresh**: session pooler 5432 + `statement_timeout=0` (txn pooler
-  kills `refresh_all_materialized_views`).
-- First collector run in a new env is manual: `gcloud run jobs execute economy-collector`.
+- **Prod MV refresh**: `task db:prod:refresh CONFIRM=prod` (session pooler 5432,
+  `SET LOCAL statement_timeout = 0`; the txn pooler kills
+  `refresh_all_materialized_views`).
+- First collector run in a new env is manual: `gcloud run jobs execute shorted-economy`.
 
 Full architecture + extension recipes (new SDMX/XLSX source, new map metric,
 new derived series): `docs/economy-architecture.md`.
@@ -642,8 +643,8 @@ must never fire from a deploy). `make register-photos` / `register-index`.
 ### Landmines
 
 - **The prod deploy does NOT run `migrate up`** — it applies a hardcoded
-  allowlist. Apply new migrations BY HAND (session pooler 5432,
-  `statement_timeout=0`) BEFORE merging, or the API ships selecting columns prod
+  allowlist. Apply new migrations BY HAND (`task db:prod:apply`: session pooler
+  5432, `SET LOCAL statement_timeout = 0`) BEFORE merging, or the API ships selecting columns prod
   lacks and every politician read path 500s.
 - `run-tests` is `if: github.event_name != 'pull_request'` — Go tests gate the
   DEPLOY, not the PR. **golangci-lint runs in no CI job at all.**

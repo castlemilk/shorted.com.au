@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { StatePriceDropSummary } from "~/gen/shorts/v1alpha1/housing_pb";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { STATE_NAMES, stateSlug } from "@/lib/housing/states";
+import { stateCoverage } from "@/lib/housing/drops-freshness";
 import { cn } from "@/lib/utils";
 
 /**
@@ -9,6 +10,12 @@ import { cn } from "@/lib/utils";
  * bar (single hue, magnitude job) plus the asking/sold aggregates rolled up
  * from every tracked listing. Server-rendered — plain HTML bars, no chart
  * runtime, fully indexable.
+ *
+ * Only states whose crawl coverage clears the rank threshold (stateCoverage)
+ * get a bar and a place in the ranking. The rest follow them, with their
+ * coverage in place of the bar: their share measures how much of the state
+ * the crawl reached, not how hard it is discounting. Their other figures stay
+ * — they are still true of the listings that were seen.
  */
 export function StateDropsBoard({
   states,
@@ -18,7 +25,11 @@ export function StateDropsBoard({
   highlightState?: string;
 }) {
   if (states.length === 0) return null;
-  const maxShare = Math.max(...states.map((s) => s.droppedShare), 0.0001);
+  // Stable partition: the API's own ordering within each group is preserved.
+  const ranked = states.filter((s) => stateCoverage(s).ranked);
+  const unranked = states.filter((s) => !stateCoverage(s).ranked);
+  const rows = [...ranked, ...unranked];
+  const maxShare = Math.max(...ranked.map((s) => s.droppedShare), 0.0001);
 
   return (
     <div className="overflow-x-auto rounded-xl border border-border bg-card">
@@ -36,12 +47,16 @@ export function StateDropsBoard({
           </tr>
         </thead>
         <tbody>
-          {states.map((s) => (
+          {rows.map((s) => {
+            const coverage = stateCoverage(s);
+            return (
             <tr
               key={s.stateCode}
+              data-ranked={coverage.ranked ? "true" : "false"}
               className={cn(
                 "border-b border-border/60 last:border-0 hover:bg-muted/30",
                 highlightState === s.stateCode && "bg-primary/5",
+                !coverage.ranked && "text-muted-foreground",
               )}
             >
               <td className="px-4 py-3">
@@ -53,17 +68,23 @@ export function StateDropsBoard({
                 </Link>
               </td>
               <td className="px-3 py-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-full max-w-[180px] overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-[color:var(--semantic-red)]"
-                      style={{ width: s.droppedShare > 0 ? `${Math.max((s.droppedShare / maxShare) * 100, 2)}%` : 0 }}
-                    />
+                {coverage.ranked ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-full max-w-[180px] overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-[color:var(--semantic-red)]"
+                        style={{ width: s.droppedShare > 0 ? `${Math.max((s.droppedShare / maxShare) * 100, 2)}%` : 0 }}
+                      />
+                    </div>
+                    <span className="shrink-0 font-mono text-xs tabular-nums text-foreground">
+                      {(s.droppedShare * 100).toFixed(1)}%
+                    </span>
                   </div>
-                  <span className="shrink-0 font-mono text-xs tabular-nums text-foreground">
-                    {(s.droppedShare * 100).toFixed(1)}%
+                ) : (
+                  <span className="text-xs">
+                    Not ranked — {s.suburbsSwept14d} of {s.catalogSuburbs} suburbs swept in 14 days
                   </span>
-                </div>
+                )}
               </td>
               <td className="px-3 py-3 text-right font-mono tabular-nums text-foreground">{s.droppedCount}</td>
               <td className="px-3 py-3 text-right font-mono tabular-nums text-[color:var(--semantic-red)]">
@@ -83,7 +104,8 @@ export function StateDropsBoard({
                 {s.totalActiveListings.toLocaleString("en-AU")}
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>

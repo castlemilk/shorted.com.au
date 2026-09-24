@@ -35,7 +35,9 @@ func main() {
 // run executes the selected mode and returns a process exit code: 0 = ok;
 // 1 = official-ingest, VG freshness, materialized-view finalization, or
 // OPERATOR-INGEST failure (census, electorates, banners, amenities, elevation, hazards,
-// lga, connectivity, funding, council-financials, crime — see ingestExit);
+// planning, lga, erp-lga, census-lga, council-regional, building-approvals-lga,
+// wikidata-lga, connectivity, funding, council-financials, crime, backfill-address
+// — see ingestExit);
 // 3 = re-warm the Chrome profile; 4 = Chrome/CDP unusable; 5 = REA session
 // cold; 6 = crawl freshness alarm; 7 = agent infrastructure failed before
 // any jobs completed (also used for enqueue/listings finalization failures);
@@ -46,7 +48,7 @@ func main() {
 // failure (see runDropIndex in drop_index.go).
 // Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
+	mode := flag.String("mode", "all", "official | vg-nsw | vg-vic | crawl | listings | details | property | property-resolve | agent | enqueue | freshness | purge | mcp | warmcheck | install-driver | backfill-address | census | seifa | electorates | banners | amenities | elevation | hazards | planning | lga | erp-lga | census-lga | council-regional | building-approvals-lga | wikidata-lga | connectivity | funding | council-financials | crime | drop-index | refresh | all")
 	flag.Parse()
 
 	// install-driver needs no DB, no Chrome, no timeout plumbing — dispatch it
@@ -74,14 +76,20 @@ func run() int {
 	case "official", "abs", "all":
 		jobs := scheduledOfficialJobs()
 		total, failures := runOfficial(ctx, pool, jobs)
+		// Council (LGA) sources write lga_series, not house_prices, so they run
+		// beside the official jobs rather than through them — but count toward
+		// the same failure budget and alarm through the same freshness check.
+		councilTotal, councilFailures := runScheduledCouncil(ctx, pool, scheduledCouncilJobs())
+		total, failures = total+councilTotal, failures+councilFailures
 		vgFreshnessExitCode := assertOfficialVGFreshness(
 			ctx,
 			pool,
 			freshnessPoliciesForOfficialJobs(jobs, vgFreshnessPolicies),
 		)
+		councilFreshnessExitCode := assertCouncilFreshness(ctx, pool)
 		refreshErr := refresh(ctx, pool)
 		maxFailures := envInt("HOUSING_OFFICIAL_MAX_FAILURES", total-1)
-		if officialLifecycleFatal(total, failures, maxFailures, refreshErr) || vgFreshnessExitCode != 0 {
+		if officialLifecycleFatal(total, failures, maxFailures, refreshErr) || vgFreshnessExitCode != 0 || councilFreshnessExitCode != 0 {
 			if officialRunFatal(total, failures, maxFailures) {
 				log.Printf("official ingest failed policy: %d/%d sources failed (maximum %d)", failures, total, boundedOfficialMaxFailures(total, maxFailures))
 			}
@@ -225,9 +233,31 @@ func run() int {
 		// planning + bushfire-prone overlays), computed offline by
 		// web/scripts/geo/hazards/ and loaded from the committed artifact.
 		return ingestExit(runHazards(ctx, pool))
+	case "planning":
+		// Per-suburb planning layer (zoning-family mix, heritage share + item
+		// count, NSW development standards, instruments), computed offline by
+		// web/scripts/geo/planning/ and loaded from the embedded artifact.
+		return ingestExit(runPlanning(ctx, pool))
 	case "lga":
-		// Council/LGA dimension + suburb→council bridge (ABS LGA_2024 PiP join).
+		// Council/LGA dimension + suburb→council bridge (ABS mesh-block allocation,
+		// web/scripts/geo/join-lga-mb.py).
 		return ingestExit(runLGA(ctx, pool))
+	case "erp-lga":
+		// ABS ERP by council (+ its components) → lga.population + lga_series.
+		return ingestExit(runERPLGA(ctx, pool))
+	case "census-lga":
+		// ABS Census 2021 council medians, tenure and SEIFA 2021 deciles → lga.
+		return ingestExit(runCensusLGA(ctx, pool))
+	case "council-regional":
+		// ABS Data by Region council-level transfer medians/counts → lga_series.
+		return ingestExit(runCouncilRegional(ctx, pool))
+	case "building-approvals-lga":
+		// ABS monthly dwelling approvals by council → lga_series.
+		return ingestExit(runBuildingApprovalsLGA(ctx, pool))
+	case "wikidata-lga":
+		// Council QID + official website from the committed Wikidata (CC0)
+		// snapshot; WIKIDATA_REFRESH=true re-queries and rewrites it first.
+		return ingestExit(runWikidataLGA(ctx, pool))
 	case "connectivity":
 		// Dominant NBN access technology per suburb (centroid→footprint join).
 		return ingestExit(runConnectivity(ctx, pool))
@@ -258,7 +288,7 @@ func run() int {
 			return 1
 		}
 	default:
-		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|elevation|hazards|lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|vg-nsw|vg-vic|crawl|listings|details|property|property-resolve|agent|enqueue|freshness|warmcheck|backfill-address|census|seifa|electorates|banners|amenities|elevation|hazards|planning|lga|erp-lga|census-lga|council-regional|building-approvals-lga|wikidata-lga|connectivity|funding|council-financials|crime|drop-index|refresh|all)", *mode)
 	}
 	return 0
 }
@@ -327,24 +357,34 @@ func runVICFinancials(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
-// runFAGs fetches the national Financial Assistance Grants and attaches each
-// council's latest total to the lga dimension.
+// runFAGs fetches the federal FAG workbook, matches every council-year onto
+// the lga dimension, and writes the full history (lga_series) plus the latest
+// year (lga.fed_fag_*). It fails — rather than half-writing — when so few
+// councils match that the name normaliser, not the data, is what broke.
 func runFAGs(ctx context.Context, pool *pgxpool.Pool) error {
-	rows, err := ingestFAGs(ctx)
-	if err != nil {
-		log.Printf("[funding] ingest error: %v", err)
-		_ = updateRun(ctx, pool, fagSource, nil, 0, "error", err.Error())
-		return err
-	}
-	n, err := applyFAGs(ctx, pool, rows)
-	if err != nil {
-		log.Printf("[funding] apply error after %d: %v", n, err)
+	fail := func(n int, err error) error {
+		log.Printf("[funding] error after %d rows: %v", n, err)
 		_ = updateRun(ctx, pool, fagSource, nil, n, "error", err.Error())
 		return err
 	}
-	log.Printf("[funding] matched %d/%d councils to FAG grants", n, len(rows))
-	_ = updateRun(ctx, pool, fagSource, nil, n, "ok", "")
-	return nil
+	rows, err := ingestFAGs(ctx)
+	if err != nil {
+		return fail(0, err)
+	}
+	ix, err := loadLGAIndex(ctx, pool)
+	if err != nil {
+		return fail(0, err)
+	}
+	res, err := matchFAGs(rows, ix.byName())
+	if err != nil {
+		return fail(0, err)
+	}
+	n, err := applyFAGs(ctx, pool, res)
+	if err != nil {
+		return fail(n, err)
+	}
+	log.Printf("[funding] wrote %d council-years of FAG history (%d councils)", n, len(res.Latest))
+	return recordLGARun(ctx, pool, fagSource, latestSeriesPeriod(res.Series), n, nil)
 }
 
 // runConnectivity loads the precomputed per-suburb NBN tech and upserts it into
@@ -367,8 +407,10 @@ func runConnectivity(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
-// runLGA loads the precomputed council dimension + suburb→council bridge and
-// upserts them (lga + suburb_lga), recording the run cursor under "abs_lga".
+// runLGA loads the precomputed council dimension + suburb→council bridge
+// (lga + suburb_lga), mints slugs for councils that have none, and records the
+// run cursor under "abs_lga". Population is not touched: it is ABS ERP, owned by
+// -mode erp-lga.
 func runLGA(ctx context.Context, pool *pgxpool.Pool) error {
 	lgas, subs, err := ingestLGA()
 	if err != nil {
@@ -382,16 +424,19 @@ func runLGA(ctx context.Context, pool *pgxpool.Pool) error {
 		_ = updateRun(ctx, pool, "abs_lga", nil, nl, "error", err.Error())
 		return err
 	}
-	ns, err := upsertSuburbLGA(ctx, pool, subs)
+	minted, err := assignLGASlugs(ctx, pool, lgas)
 	if err != nil {
-		log.Printf("[lga] bridge upsert error after %d: %v", ns, err)
+		log.Printf("[lga] slug minting error after %d: %v", minted, err)
+		_ = updateRun(ctx, pool, "abs_lga", nil, nl, "error", err.Error())
+		return err
+	}
+	ns, removed, err := replaceSuburbLGA(ctx, pool, subs)
+	if err != nil {
+		log.Printf("[lga] bridge replace error after %d: %v", ns, err)
 		_ = updateRun(ctx, pool, "abs_lga", nil, ns, "error", err.Error())
 		return err
 	}
-	if err := refreshLGAPopulation(ctx, pool); err != nil {
-		log.Printf("[lga] population rollup failed: %v", err)
-	}
-	log.Printf("[lga] upserted %d councils + %d suburb links (+ population rollup)", nl, ns)
+	log.Printf("[lga] upserted %d councils (%d new slugs) + %d suburb links (%d stale links removed)", nl, minted, ns, removed)
 	_ = updateRun(ctx, pool, "abs_lga", nil, ns, "ok", "")
 	return nil
 }
@@ -452,8 +497,31 @@ func runHazards(ctx context.Context, pool *pgxpool.Pool) error {
 		_ = updateRun(ctx, pool, hazardsWaterSource, nil, updated, "error", err.Error())
 		return err
 	}
-	log.Printf("[hazards] upserted %d/%d suburbs (licence=%s)", updated, len(rows), hazardsLicence)
+	// Per-state coverage in the run log, so a load that silently lost a
+	// state's statutory layer (or regressed NSW flood nulls to zeros) shows.
+	log.Printf("[hazards] upserted %d/%d suburbs; per state (rows flood/bushfire non-null): %s",
+		updated, len(rows), hazardCoverageSummary(rows))
 	_ = updateRun(ctx, pool, hazardsWaterSource, nil, updated, "ok", "")
+	return nil
+}
+
+// runPlanning loads the offline planning artifact into suburb_planning. It
+// never fetches a source or touches geometry.
+func runPlanning(ctx context.Context, pool *pgxpool.Pool) error {
+	rows, err := ingestPlanning()
+	if err != nil {
+		log.Printf("[planning] ingest error: %v", err)
+		_ = updateRun(ctx, pool, planningCursor, nil, 0, "error", err.Error())
+		return err
+	}
+	updated, err := upsertPlanning(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[planning] upsert error after %d: %v", updated, err)
+		_ = updateRun(ctx, pool, planningCursor, nil, updated, "error", err.Error())
+		return err
+	}
+	log.Printf("[planning] upserted %d/%d suburbs", updated, len(rows))
+	_ = updateRun(ctx, pool, planningCursor, nil, updated, "ok", "")
 	return nil
 }
 
