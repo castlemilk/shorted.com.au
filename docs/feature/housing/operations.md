@@ -141,6 +141,13 @@ because Supavisor drops startup options, and a view that hit it was skipped
 silently. The freshness sentinel's `MV_REFRESH_AGE` check (72h, from
 `housing_mv_refresh`) is the backstop.
 
+Since 000127 the function also refreshes `mv_council_price_drops` (last, in
+its own guarded block), so the council hub's and council index's price-drop
+share is as fresh as the last refresh, and its `as_of` is that refresh. A
+council page showing no drops block while `/price-drops` has data: check
+`SELECT * FROM housing_mv_refresh WHERE mv_name = 'mv_council_price_drops'`
+(no row = nothing published, by design), then refresh.
+
 For a read-only look at prod, use `task db:prod:psql -- -At -c "SQL"`: one
 `BEGIN READ ONLY; SET LOCAL statement_timeout = '60s'; …; ROLLBACK`.
 

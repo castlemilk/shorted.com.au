@@ -154,8 +154,14 @@ landed, and this section had become more wrong than right.
   the contract total) produced St Leonards $110.5M and Rhodes $22.5M. It now
   drops multi-property dealings, non-residence natures, business/mixed-use/
   industrial/special-purpose zones, part interests and development-sized lots
-  in R1/R3/R4 (`selectNSWHouseSales`, `nsw_vg.go`). **Prod needs a `-mode
-  vg-nsw` re-run from the rig + an MV refresh before the medians change.**
+  in R1/R3/R4 (`selectNSWHouseSales`, `nsw_vg.go`). The rig re-ran on
+  2026-09-24 and upserted 5,782 filtered medians, but an upsert never deletes:
+  169 suburb-years the filter no longer emits kept their inflated value (St
+  Leonards 2024 $110.5M, Rhodes 2023 $22.5M, Point Piper 2025 $60.5M). The
+  vg_nsw job now REPLACES each fetched year (`vg_replace.go`): in the upsert's
+  transaction it deletes that year's unemitted medians, unless the year
+  fetched under 50,000 sales or would lose over 20% of its rows. **Prod needs
+  one more `-mode vg-nsw` rig run on the new binary to clear the 169.**
   **QLD (0/3,235) and WA (0/1,701) remain at zero — and that is expected, not
   outstanding**: both states sell sales data through brokers, so it is
   commercially blocked rather than unbuilt. The handover's "settled — do not

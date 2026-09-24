@@ -788,9 +788,20 @@ council foundation: `lga` identity facts, `lga_series`, the mesh-block bridge).
   dominant members (a listing sits at one address — never split by share), with
   one council-total row per council from `GROUPING SETS`. The floor is 3 cut
   listings COUNCIL-wide; a suburb is named only if it clears 3 itself; the median
-  cut is over every cut listing in the council. 30–100 ms per state on prod
-  (read-only `EXPLAIN ANALYZE`). Every drops read carries `as_of` (computation
-  time) and `data_through` (newest crawl observation behind it). The share obeys
+  cut is over every cut listing in the council. **Served from
+  `mv_council_price_drops` (000127)**, which is that query computed once per
+  `refresh_housing_materialized_views()`: warm it ran 60–280 ms per state, but
+  its live step probes `property_listings` once per crawled suburb (NSW 2,568
+  probes, 18,640 buffers of a table the crawl rewrites daily), so the first
+  NSW ListCouncils after a deploy took 11s (pg_stat_statements: drops 5.8s,
+  summary 2.8s, hazards 0.9s, in sequence). The view is `councilDropsQuery`
+  with the state/council filter lifted into columns and nothing else changed
+  (`TestCouncilDropsMVMatchesLiveQuery` pins the CTEs textually; a prod
+  read-only comparison returned the same 229 rows for all states); the live
+  query stays as the fallback where the view does not exist. Every drops read
+  carries `as_of` (the view's `housing_mv_refresh.refreshed_at`, when its
+  windows were evaluated; no stamp, no share) and `data_through` (newest crawl
+  observation behind it). The share obeys
   `HOUSING_DROP_LISTINGS_ENABLED` like every crawl-derived read: off strips
   `price_drops` and every `price_drop_share` outside the cache, on a clone
   (`TestCouncilRPCs_HonourTheDropListingsKillSwitch`). Takedown: flip the switch,
@@ -800,17 +811,24 @@ council foundation: `lga` identity facts, `lga_series`, the mesh-block bridge).
   [operations.md](operations.md#takedown) step 3. The hub's drops block and the
   council maps' drops legend carry the /price-drops 72h stale notice
   (`drops-freshness.ts`).
-- **Neighbours** merge two signals: suburb-topology adjacency (two councils'
+- **Neighbours** merge three signals: suburb-topology adjacency (two councils'
   dominant suburbs share an arc; `web/scripts/geo/build-lga-adjacency.mjs` →
-  `services/shorts/internal/store/shorts/lga_adjacency.json`, `go:embed`, 535
-  councils, symmetric, within a state) and straddling suburbs (the bridge; also
-  within a state, since a suburb and a council each nest in one state). So
-  cross-border pairs (Albury–Wodonga, Queanbeyan-Palerang–ACT, Tweed–Gold Coast)
-  are never neighbours, Unincorporated ACT has none, and the page says "in the
-  same state". Adjacency was chosen over straddle-only because the
+  `services/shorts/internal/store/shorts/lga_adjacency.json` `neighbours`,
+  `go:embed`, 535 councils, symmetric, within a state), straddling suburbs (the
+  bridge; also within a state, since a suburb and a council each nest in one
+  state) and **cross-border adjacency** (`cross_state` in the same artifact:
+  councils in different states whose ABS LGA_2024 boundaries touch or come
+  within 50 m, `build-lga-cross-border.mjs` → committed
+  `web/scripts/geo/lga-cross-border.json`, 76 pairs: Albury–Wodonga,
+  Queanbeyan-Palerang/Yass Valley/Snowy–ACT, Tweed–Gold Coast, the Murray River
+  councils). A cross-border neighbour carries its own `state_code`; the page
+  lists it under "Across the border", links it to its own state's council URL
+  and keeps it off the single-state hub map. Adjacency was chosen over straddle-only because the
   straddle signal recovers only 39% of true borders and leaves 156 councils with
   no neighbour at all. Regenerate the JSON whenever the suburb topology or the
-  bridge changes (`--check` fails on drift; `lga-adjacency.test.mjs`).
+  bridge changes, and re-run `build-lga-cross-border.mjs` after an LGA boundary
+  edition change (`--check` fails on drift; `lga-adjacency.test.mjs`,
+  `lga-cross-border.test.mjs`).
 - **Council geometry is derived, never shipped.** The map gets each suburb's
   dominant council as one more suburb column (`lga_code`, ~18 KB/state) and
   builds fills with `topojson.mergeArcs`, outlines with `merge`, borders with

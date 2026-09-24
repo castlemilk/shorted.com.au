@@ -91,6 +91,19 @@ migration 000056 after census" step in older docs is superseded.
 suburb tiers `vg_sa`, `vg_vic`, `vg_nsw`. Each records a `house_price_ingest_runs`
 cursor (`ok`/`error`).
 
+**An NSW PSI run is authoritative for each year it fetched.** A suburb-year
+the filters stop emitting has no median any more, but an upsert alone would
+keep the stored one forever (2026-09-24: 169 stale rows, e.g. St Leonards 2024
+$110.5M, after the whole-building filter). So `vg-nsw` writes through
+`replaceObservations` (`vg_replace.go`): the upsert plus, in the SAME
+transaction, a delete of that year's `vg_nsw` annual house medians the run did
+not emit. Guards: a year under 50,000 filtered sales (`nswReplaceMinSales`; a
+full year is 92k–109k) is upserted but never pruned; a failed year aborts the
+run before any write; a year whose unemitted share exceeds 20%
+(`replaceMaxPruneShare`) keeps every row and logs `WARNING prune held back`
+(a parser regression, not a clean-up — the real one was 1.5–4.9%). The log
+prints per-year prune counts and examples. Other sources still upsert only.
+
 **Known-open (fix in flight on feat/housing-\* branches):** a failed official
 job logs, writes an `error` cursor and **continues — the process still exits 0**,
 and no freshness sentinel covers the official tier (`-mode freshness` watches
