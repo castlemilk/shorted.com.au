@@ -47,6 +47,37 @@ var partyCategoryLabels = []string{
 	"Australian Motoring Enthusiast", "Australia's Voice", "Other",
 }
 
+// nbnImplausibleTechPredicate matches an NBN classification on a suburb too
+// populous for it to be true. Both tiers it covers come from coarse footprints
+// that the join (web/scripts/geo/join-nbn.mjs) has over-trusted before:
+//
+//   - Satellite on more than 1,000 residents. The original join defaulted every
+//     sample point outside the Fixed Line and Fixed Wireless footprints to
+//     Satellite, so 7,491 of 15,329 suburbs — Bondi, Parramatta, Point Cook
+//     (66,781 people) — were published as satellite-served. Satellite is a
+//     remote-area technology.
+//   - Fixed Wireless on more than 5,000 residents. The wireless footprint is a
+//     coarse tower grid that reaches over towns whose premises are fixed line
+//     (Dubbo, Orange, Pakenham, Sunbury were all labelled wireless), and a
+//     later join let one grid cell over one sample point label Rouse Hill
+//     (11,349 people) wireless. A town that size is not wireless-served.
+//
+// Until every environment has loaded a corrected suburb-nbn.json — and as a
+// backstop after that — these rows read as no data rather than a false fact.
+// Shared by the map metric and the profile/list readers so the three surfaces
+// cannot disagree about one suburb.
+const nbnImplausibleTechPredicate = `((UPPER(c.dominant_nbn_tech) = 'SATELLITE' AND COALESCE(d.population, 0) > 1000)` +
+	` OR (UPPER(c.dominant_nbn_tech) IN ('FW', 'FIXED WIRELESS') AND COALESCE(d.population, 0) > 5000))`
+
+// nbnTechDisplayExpr is the NBN technology the suburb readers publish: the
+// stored value, or an empty string when the classification is implausible.
+const nbnTechDisplayExpr = `CASE WHEN ` + nbnImplausibleTechPredicate + ` THEN '' ELSE COALESCE(c.dominant_nbn_tech, '') END`
+
+// nbnScoreDisplayExpr withholds the quality score with the technology: a score
+// is a property of the tier, so a suppressed tier must not leave its score
+// behind (the collector stores an unknown tier with no score, too).
+const nbnScoreDisplayExpr = `CASE WHEN ` + nbnImplausibleTechPredicate + ` THEN 0 ELSE COALESCE(c.connectivity_quality_score, 0) END`
+
 // suburbMetricRegistry is the single authority for public metric key -> SQL
 // expression mapping. Both column delivery and filtering resolve through it.
 // Categorical expressions return the zero-based index into categories.
@@ -70,8 +101,11 @@ var suburbMetricRegistry = map[string]suburbMetricDefinition{
 		"No religion", "Catholic", "Anglican", "Other Christian", "Islam",
 		"Hinduism", "Buddhism", "Judaism", "Other",
 	}),
+	// Below the Census derived-rate floor (100 residents, censusDerivedRateMinPopulation
+	// in the collector) the culture block is withheld, label and share alike. A
+	// missing label must read as no data there, not fall through to "English".
 	"language": categoryMetric("language", `CASE
-		WHEN d.population IS NULL OR d.population <= 0 THEN NULL
+		WHEN d.population IS NULL OR d.population < 100 THEN NULL
 		WHEN NULLIF(d.top_language, '') IS NULL OR COALESCE(d.pct_top_language, 0) < 5 THEN 13
 		WHEN d.top_language = 'Mandarin' THEN 0
 		WHEN d.top_language = 'Cantonese' THEN 1
@@ -120,6 +154,7 @@ var suburbMetricRegistry = map[string]suburbMetricDefinition{
 	"distance_to_coast": metric("distance_to_coast", "a.dist_to_coast_km", suburbMetricJoinAmenities),
 	"nbn": categoryMetric("nbn", `CASE
 		WHEN NULLIF(c.dominant_nbn_tech, '') IS NULL THEN NULL
+		WHEN `+nbnImplausibleTechPredicate+` THEN NULL
 		WHEN UPPER(c.dominant_nbn_tech) IN ('FTTP', 'HFC', 'FTTC', 'FTTB', 'FTTN', 'FIXED LINE') THEN 0
 		WHEN UPPER(c.dominant_nbn_tech) IN ('FW', 'FIXED WIRELESS') THEN 1
 		WHEN UPPER(c.dominant_nbn_tech) = 'SATELLITE' THEN 2

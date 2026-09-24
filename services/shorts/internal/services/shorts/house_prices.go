@@ -416,6 +416,13 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				StateMedianPrice: p.StateMedianPrice, NationalMedianPrice: p.NationalMedianPrice,
 				StateMedianWeeklyHhdIncome:    p.StateMedianHhdIncome,
 				NationalMedianWeeklyHhdIncome: p.NationalMedianHhdIncome,
+				CapitalMedianPrice:            p.CapitalMedianPrice,
+				CapitalRegionName:             p.CapitalRegionName,
+				CapitalRegionCode:             p.CapitalRegionCode,
+				RestOfStateMedianPrice:        p.RestOfStateMedianPrice,
+				RestOfStateRegionName:         p.RestOfStateRegionName,
+				AbsMedianPeriod:               formatDateOrEmpty(p.ABSMedianPeriod),
+				StateCensus:                   stateCensusAveragesProto(p.StateCensus),
 			},
 			Council: &shortsv1alpha1.LgaInfo{
 				LgaCode: p.LgaCode, LgaName: p.LgaName, StateCode: p.LgaState, AreaSqkm: p.LgaAreaSqkm,
@@ -1144,4 +1151,29 @@ func (s *ShortsServer) GetDropIndexSeries(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get drop index series"))
 	}
 	return connect.NewResponse(cached.(*shortsv1alpha1.GetDropIndexSeriesResponse)), nil
+}
+
+// formatDateOrEmpty renders a nullable date as YYYY-MM-DD, or "" when absent.
+func formatDateOrEmpty(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format("2006-01-02")
+}
+
+func stateCensusAveragesProto(row shortsstore.StateCensusAveragesRow) *shortsv1alpha1.StateCensusAverages {
+	return &shortsv1alpha1.StateCensusAverages{
+		PctOwnedOutright:             row.PctOwnedOutright,
+		PctOwnedMortgage:             row.PctOwnedMortgage,
+		PctRented:                    row.PctRented,
+		PctSeparateHouse:             row.PctSeparateHouse,
+		PctFlatApartment:             row.PctFlatApartment,
+		PctCoupleWithChildren:        row.PctCoupleWithChildren,
+		PctLonePersonHousehold:       row.PctLonePersonHousehold,
+		UnemploymentRate:             row.UnemploymentRate,
+		LabourForceParticipationRate: row.LabourForceParticipationRate,
+		PctBachelorOrHigher:          row.PctBachelorOrHigher,
+		PctLowPersonalIncome:         row.PctLowPersonalIncome,
+		PctHighPersonalIncome:        row.PctHighPersonalIncome,
+	}
 }

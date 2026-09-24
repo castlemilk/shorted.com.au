@@ -42,7 +42,7 @@ jest.mock("~/app/actions/getHousingRankingData", () => ({
 const SUBURBS = [
   {
     salCode: "10002",
-    salName: "BETA HEIGHTS",
+    salName: "Beta Heights",
     stateCode: "NSW",
     postcode: "2001",
     latestMedianPrice: 650_000,
@@ -52,7 +52,7 @@ const SUBURBS = [
   },
   {
     salCode: "10001",
-    salName: "ALPHA",
+    salName: "Alpha",
     stateCode: "NSW",
     postcode: "2000",
     latestMedianPrice: 450_000,
@@ -62,7 +62,7 @@ const SUBURBS = [
   },
   {
     salCode: "10003",
-    salName: "GAMMA-BY-SEA",
+    salName: "Gamma-by-Sea (NSW)",
     stateCode: "NSW",
     postcode: "2002",
     latestMedianPrice: 725_500,
@@ -124,7 +124,7 @@ describe("HousingRankingPage", () => {
       .getAllByRole("row")
       .slice(1)
       .map((row) => within(row).getByRole("rowheader").textContent);
-    expect(names).toEqual(["Alpha", "Beta Heights", "Gamma-By-Sea"]);
+    expect(names).toEqual(["Alpha", "Beta Heights", "Gamma-by-Sea (NSW)"]); // ABS casing, never re-cased
     expect(table.getByText("+3.2%")).toBeInTheDocument();
     expect(table.getByText("-1.2%")).toBeInTheDocument();
     expect(table.getByText("$2,100")).toBeInTheDocument();
@@ -172,7 +172,7 @@ describe("HousingRankingPage", () => {
         ...SUBURBS,
         {
           salCode: "10004",
-          salName: "DELTA",
+          salName: "Delta",
           stateCode: "NSW",
           postcode: "2003",
           latestMedianPrice: 500_000,

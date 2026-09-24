@@ -52,7 +52,11 @@ export type MetricKey =
   | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "school_sector" | "nearest_train" | "distance_to_coast" | "nbn"
   // Column-sourced metrics are named EXACTLY as the server registry keys
   // (postgres_suburb_columns.go) — the Go test pins the two vocabularies together.
-  | "elevation_median_m" | "land_share_below_5m"
+  | "seifa_irsd_decile_state" | "seifa_irsad_decile_state" | "seifa_ier_decile_state" | "seifa_ieo_decile_state"
+  | "unemployment_rate" | "pct_bachelor_or_higher" | "pct_low_personal_income" | "pct_high_personal_income"
+  | "pct_flat_apartment" | "pct_lone_person_household" | "pct_couple_with_children"
+  | "elevation_median_m" | "land_share_below_1m" | "land_share_below_2m" | "land_share_below_5m"
+  | "permanent_water_share_pct"
   | "water_observed_share_pct" | "flood_planning_share_pct" | "bushfire_prone_share_pct"
   // Planning layer (suburb_planning, 000125)
   | "zone_res_low_share_pct" | "zone_res_medium_high_share_pct" | "zone_centre_mixed_share_pct"
@@ -95,8 +99,18 @@ export type ColumnMetric = Base & {
   /** Legend "no data" wording — column metrics have per-state coverage. */
   noDataLabel?: string;
   /** Section label in the picker. */
-  group: "terrain" | "hazard" | "planning";
+  group: ColumnMetricGroup;
 };
+
+/** Picker sections for column metrics, in display order. */
+export const COLUMN_METRIC_GROUPS = [
+  { key: "socio-economic", label: "Socio-economic" },
+  { key: "households", label: "Households & dwellings" },
+  { key: "terrain", label: "Terrain" },
+  { key: "hazard", label: "Hazard exposure" },
+  { key: "planning", label: "Planning & zoning" },
+] as const;
+export type ColumnMetricGroup = (typeof COLUMN_METRIC_GROUPS)[number]["key"];
 
 /**
  * A CATEGORICAL metric fetched as a packed column: each present value is an
@@ -177,6 +191,13 @@ const LANGUAGE_ORDER = [
 // language pockets stand out.
 const LANGUAGE_MIN_PCT = 5;
 
+// The collector withholds the whole Census culture block (labels and shares)
+// below this population (censusDerivedRateMinPopulation in
+// services/house-price-collector/census_expanded.go): at a few dozen perturbed
+// residents a plurality is noise. Such a suburb has no language, so it must be
+// no data here rather than fall through to the "English" base.
+const CENSUS_CULTURE_MIN_POPULATION = 100;
+
 export function religionColor(cat: string): string {
   return RELIGION_COLORS[cat] ?? C.stone;
 }
@@ -246,6 +267,33 @@ export function nbnColor(cat: string): string {
   return NBN_COLORS[cat] ?? C.stone;
 }
 
+/**
+ * The NBN technology we are prepared to publish for a suburb, or null.
+ *
+ * Both coarse tiers have been over-claimed by the footprint join
+ * (web/scripts/geo/join-nbn.mjs). It once classed every sample point outside
+ * the Fixed Line and Fixed Wireless footprints as Satellite — the source
+ * publishes no satellite layer — so 7,491 of 15,329 suburbs, Bondi, Parramatta
+ * and Point Cook (66,781 people) among them, read "NBN SATELLITE". And the
+ * wireless footprint is a coarse tower grid that reaches over towns: Dubbo,
+ * Orange, Pakenham and Sunbury read "Fixed Wireless", and one grid cell over
+ * one sample point labelled Rouse Hill (11,349 people). Satellite on more than
+ * 1,000 people and Fixed Wireless on more than 5,000 are therefore published
+ * as no data. The API applies the same rule (nbnImplausibleTechPredicate in
+ * postgres_suburb_columns.go); this copy keeps an ISR page baked from an older
+ * response from repeating it.
+ */
+export const NBN_SATELLITE_MAX_POPULATION = 1_000;
+export const NBN_FIXED_WIRELESS_MAX_POPULATION = 5_000;
+
+export function publishableNbnTech(tech: string | undefined, population: number): string | null {
+  if (!tech) return null;
+  const t = tech.toUpperCase();
+  if (t === "SATELLITE" && population > NBN_SATELLITE_MAX_POPULATION) return null;
+  if ((t === "FIXED WIRELESS" || t === "FW") && population > NBN_FIXED_WIRELESS_MAX_POPULATION) return null;
+  return tech;
+}
+
 export const HIGHLIGHT_METRICS: HighlightMetric[] = [
   {
     kind: "continuous", key: "price", label: "Median house price",
@@ -287,7 +335,7 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     kind: "categorical", key: "language", label: "Language",
     legendLabel: "Top language at home",
     category: (s) => {
-      if (s.population <= 0) return null;
+      if (s.population < CENSUS_CULTURE_MIN_POPULATION) return null;
       if (s.topLanguage && s.pctTopLanguage >= LANGUAGE_MIN_PCT) return s.topLanguage;
       return "English";
     },
@@ -414,10 +462,70 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
   {
     kind: "categorical", key: "nbn", label: "NBN technology",
     legendLabel: "Dominant NBN technology",
-    category: (s) => s.dominantNbnTech || null,
+    category: (s) => publishableNbnTech(s.dominantNbnTech, s.population),
     colorFor: nbnColor, order: NBN_ORDER,
   },
+  // --- socio-economic (ABS SEIFA 2021 + Census 2021 G17/G43/G49) ---
+  // SEIFA deciles are ranked WITHIN the state, like every percentile on the
+  // map; the Australia-wide deciles stay on the profile's SEIFA card. Decile 1
+  // is the most disadvantaged tenth for IRSD/IRSAD, lowest-resourced for IER
+  // and lowest education/occupation for IEO.
+  ...(
+    [
+      ["seifa_irsd_decile_state", "Disadvantage (IRSD)", "IRSD decile within the state (1 = most disadvantaged)"],
+      ["seifa_irsad_decile_state", "Advantage (IRSAD)", "IRSAD decile within the state (10 = most advantaged)"],
+      ["seifa_ier_decile_state", "Economic resources (IER)", "IER decile within the state (10 = most resourced)"],
+      ["seifa_ieo_decile_state", "Education & occupation (IEO)", "IEO decile within the state (10 = highest)"],
+    ] as const
+  ).map(([key, label, legendLabel]): ColumnMetric => ({
+    kind: "column", key, label, legendLabel, group: "socio-economic",
+    format: (v) => `Decile ${Math.round(v)}`, domain: [1, 10],
+    noDataLabel: "Not ranked (small or no population)",
+  })),
+  // Census rates below are withheld under 100 residents (and, for the
+  // dwelling-, household- and labour-force-denominated ones, under 50 in their
+  // own denominator) at ingest — census_expanded.go. No data there is a floor,
+  // not a zero.
+  {
+    kind: "column", key: "unemployment_rate", label: "Unemployment",
+    legendLabel: "Unemployment rate (% of labour force)", group: "socio-economic",
+    format: fmtPct1, noDataLabel: "Below Census floor",
+  },
+  {
+    kind: "column", key: "pct_bachelor_or_higher", label: "Bachelor degree+",
+    legendLabel: "Residents 15+ with a bachelor degree or higher", group: "socio-economic",
+    format: fmtPct, noDataLabel: "Below Census floor",
+  },
+  {
+    kind: "column", key: "pct_low_personal_income", label: "Low income",
+    legendLabel: "Residents 15+ earning $1–$499 a week", group: "socio-economic",
+    format: fmtPct, noDataLabel: "Below Census floor",
+  },
+  {
+    kind: "column", key: "pct_high_personal_income", label: "High income",
+    legendLabel: "Residents 15+ earning $2,000+ a week", group: "socio-economic",
+    format: fmtPct, noDataLabel: "Below Census floor",
+  },
+  // --- households & dwellings (Census 2021 G36/G42) ---
+  {
+    kind: "column", key: "pct_flat_apartment", label: "Flats & apartments",
+    legendLabel: "Occupied dwellings that are flats or apartments", group: "households",
+    format: fmtPct, noDataLabel: "Below Census floor",
+  },
+  {
+    kind: "column", key: "pct_lone_person_household", label: "Living alone",
+    legendLabel: "Households of one person", group: "households",
+    format: fmtPct, noDataLabel: "Below Census floor",
+  },
+  {
+    kind: "column", key: "pct_couple_with_children", label: "Couples with kids",
+    legendLabel: "Households that are a couple family with children", group: "households",
+    format: fmtPct, noDataLabel: "Below Census floor",
+  },
   // --- terrain (GA DEM-S, measured) ---
+  // elevation_min_m / elevation_max_m stay off the picker: a suburb's lowest
+  // point is its creek bed and its highest grows with its area, so neither
+  // colours a map meaningfully. The profile's terrain card shows both.
   {
     kind: "column", key: "elevation_median_m", label: "Elevation",
     legendLabel: "Median elevation (m above sea level)", group: "terrain",
@@ -425,9 +533,27 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     makeScale: (min, max) => terrainScale(min, max),
   },
   {
+    kind: "column", key: "land_share_below_1m", label: "Land below 1 m",
+    legendLabel: "Land below 1 m elevation", group: "terrain",
+    format: fmtPct1, domain: [0, 25], makeScale: () => waterScale(0, 25),
+  },
+  {
+    kind: "column", key: "land_share_below_2m", label: "Land below 2 m",
+    legendLabel: "Land below 2 m elevation", group: "terrain",
+    format: fmtPct1, domain: [0, 50], makeScale: () => waterScale(0, 50),
+  },
+  {
     kind: "column", key: "land_share_below_5m", label: "Low-lying land",
     legendLabel: "Land below 5 m elevation", group: "terrain",
     format: fmtPct, domain: [0, 100], makeScale: () => waterScale(0, 100),
+  },
+  {
+    // The 90%-of-observations-wet remainder of the DEA WOfS record: lakes,
+    // estuaries and dams, not floods (those are the hazard layer below).
+    kind: "column", key: "permanent_water_share_pct", label: "Permanent water",
+    legendLabel: "Area that is permanent water (wet 90%+ of observations)", group: "terrain",
+    format: fmtPct1, domain: [0, 25], makeScale: () => waterScale(0, 25),
+    noDataLabel: "Not observed",
   },
   // --- hazard exposure (measured area shares; see lib/housing/overlays.ts for wording) ---
   {
@@ -510,7 +636,15 @@ export const METRIC_ICON: Record<MetricKey, HousingIconName> = {
   amenity_density: "amenity-density", supermarkets: "supermarket", pubs: "pubs",
   grocery: "grocery", healthcare: "healthcare", school_sector: "school",
   nearest_train: "train", distance_to_coast: "coast", nbn: "nbn",
-  elevation_median_m: "hills-ranges", land_share_below_5m: "coastal-beach",
+  seifa_irsd_decile_state: "income", seifa_irsad_decile_state: "income",
+  seifa_ier_decile_state: "debt", seifa_ieo_decile_state: "school",
+  unemployment_rate: "population", pct_bachelor_or_higher: "school",
+  pct_low_personal_income: "income", pct_high_personal_income: "income",
+  pct_flat_apartment: "urban-skyline", pct_lone_person_household: "dwellings",
+  pct_couple_with_children: "leafy-suburban",
+  elevation_median_m: "hills-ranges", land_share_below_1m: "coastal-beach",
+  land_share_below_2m: "coastal-beach", land_share_below_5m: "coastal-beach",
+  permanent_water_share_pct: "river-valley",
   water_observed_share_pct: "river-valley", flood_planning_share_pct: "harbour",
   bushfire_prone_share_pct: "bushland",
   dominant_zone_family: "council", zone_res_low_share_pct: "leafy-suburban",

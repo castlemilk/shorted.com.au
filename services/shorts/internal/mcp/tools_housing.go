@@ -479,10 +479,10 @@ type GetSuburbProfileOutput struct {
 	StateMember     string `json:"state_member,omitempty" jsonschema:"Empty for TAS and ACT, which are multi-member."`
 	StateParty      string `json:"state_party,omitempty"`
 
-	Council             string  `json:"council,omitempty" jsonschema:"Local government area holding most of the suburb's residents."`
-	CouncilAlsoSpans    string  `json:"council_also_spans,omitempty" jsonschema:"Other councils with >=5% of residents, e.g. 'Georges River 28%'."`
-	StateMedianPrice    float64 `json:"state_median_price,omitempty" jsonschema:"AUD, for comparison."`
-	NationalMedianPrice float64 `json:"national_median_price,omitempty" jsonschema:"AUD, for comparison."`
+	Council            string  `json:"council,omitempty" jsonschema:"Local government area holding most of the suburb's residents."`
+	CouncilAlsoSpans   string  `json:"council_also_spans,omitempty" jsonschema:"Other councils with >=5% of residents, e.g. 'Georges River 28%'."`
+	StateMedianPrice   float64 `json:"state_median_price,omitempty" jsonschema:"AUD. Median of the state's Valuer-General suburb medians (NSW, VIC, SA only)."`
+	CapitalMedianPrice float64 `json:"capital_median_price,omitempty" jsonschema:"AUD. ABS median established-house price for the state's capital city, latest quarter. No national median exists."`
 
 	CrimeBreakInsRank     float64 `json:"crime_break_ins_rank,omitempty" jsonschema:"Percentile WITHIN THE SUBURB'S OWN STATE, 0-100, higher = more reported crime."`
 	CrimeViolentRank      float64 `json:"crime_violent_rank,omitempty" jsonschema:"Same basis, 0-100."`
@@ -585,10 +585,10 @@ func getSuburbProfileHandler(src DataSource) sdk.ToolHandlerFor[GetSuburbProfile
 			StateMember:     summary.GetStateMember(),
 			StateParty:      summary.GetStateParty(),
 
-			Council:             councilName(msg.GetCouncil()),
-			CouncilAlsoSpans:    councilAlsoSpans(msg.GetCouncilOverlaps()),
-			StateMedianPrice:    round2(base.GetStateMedianPrice()),
-			NationalMedianPrice: round2(base.GetNationalMedianPrice()),
+			Council:            councilName(msg.GetCouncil()),
+			CouncilAlsoSpans:   councilAlsoSpans(msg.GetCouncilOverlaps()),
+			StateMedianPrice:   round2(base.GetStateMedianPrice()),
+			CapitalMedianPrice: round2(base.GetCapitalMedianPrice()),
 
 			CrimeJurisdiction: msg.GetCrime().GetSourceJurisdiction(),
 		}

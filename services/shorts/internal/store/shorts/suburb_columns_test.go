@@ -19,7 +19,11 @@ func TestSuburbMetricRegistryCoversMapAndLandedColumns(t *testing.T) {
 		"nearest_train", "distance_to_coast", "nbn",
 		// Column-sourced map metrics: declared in the UI MetricKey union under the
 		// server's own key names, so the two registries are pinned together.
-		"elevation_median_m", "land_share_below_5m",
+		"seifa_irsd_decile_state", "seifa_irsad_decile_state", "seifa_ier_decile_state", "seifa_ieo_decile_state",
+		"unemployment_rate", "pct_bachelor_or_higher", "pct_low_personal_income", "pct_high_personal_income",
+		"pct_flat_apartment", "pct_lone_person_household", "pct_couple_with_children",
+		"elevation_median_m", "land_share_below_1m", "land_share_below_2m", "land_share_below_5m",
+		"permanent_water_share_pct",
 		"water_observed_share_pct", "flood_planning_share_pct", "bushfire_prone_share_pct",
 		// Planning layer (000125): the family shares worth a map, the
 		// categorical dominant family, heritage and NSW permitted height.
@@ -27,17 +31,17 @@ func TestSuburbMetricRegistryCoversMapAndLandedColumns(t *testing.T) {
 		"zone_industrial_share_pct", "zone_rural_share_pct", "zone_conservation_share_pct",
 		"zone_open_space_share_pct", "dominant_zone_family", "heritage_share_pct", "nsw_height_median_m",
 	}
+	// Served by the API but deliberately not on the map picker: raw SEIFA scores
+	// and national deciles (the map ranks within a state), participation and
+	// separate-house share (near-complements of keys above), and elevation
+	// min/max (a creek bed and a peak, not a suburb-wide property).
 	landed := []string{
-		"seifa_irsd_score", "seifa_irsd_decile_aus", "seifa_irsd_decile_state",
-		"seifa_irsad_score", "seifa_irsad_decile_aus", "seifa_irsad_decile_state",
-		"seifa_ier_score", "seifa_ier_decile_aus", "seifa_ier_decile_state",
-		"seifa_ieo_score", "seifa_ieo_decile_aus", "seifa_ieo_decile_state",
-		"pct_low_personal_income", "pct_high_personal_income", "unemployment_rate",
-		"labour_force_participation_rate", "pct_bachelor_or_higher", "pct_separate_house",
-		"pct_flat_apartment", "pct_couple_with_children", "pct_lone_person_household",
+		"seifa_irsd_score", "seifa_irsd_decile_aus",
+		"seifa_irsad_score", "seifa_irsad_decile_aus",
+		"seifa_ier_score", "seifa_ier_decile_aus",
+		"seifa_ieo_score", "seifa_ieo_decile_aus",
+		"labour_force_participation_rate", "pct_separate_house",
 		"elevation_min_m", "elevation_max_m",
-		"land_share_below_1m", "land_share_below_2m",
-		"permanent_water_share_pct",
 		// Identifier column for the council level of the map, not a metric.
 		"lga_code",
 		"zoning_coverage_pct", "heritage_item_count", "nsw_fsr_median", "nsw_min_lot_median_m2",
@@ -285,5 +289,66 @@ func TestFilterSuburbMetricColumnsMatchCountEqualsPopulationCount(t *testing.T) 
 	}
 	if count != population || count != 7 {
 		t.Fatalf("match_count=%d population=%d, want 7", count, population)
+	}
+}
+
+// A 'Satellite' or 'Fixed Wireless' classification on a populous suburb is an
+// artefact of a coarse footprint join, not a fact: the map metric and both
+// suburb readers must treat it as no data, score included. Genuine remote
+// satellite and rural wireless suburbs, and fixed line, pass through untouched.
+func TestNbnImplausibleTechIsNoDataOnEverySurface(t *testing.T) {
+	def, ok := lookupSuburbMetric("nbn")
+	if !ok {
+		t.Fatal("nbn metric missing")
+	}
+	guard := "WHEN " + nbnImplausibleTechPredicate + " THEN NULL"
+	gi := strings.Index(def.expression, guard)
+	for _, tier := range []string{
+		"WHEN UPPER(c.dominant_nbn_tech) IN ('FW', 'FIXED WIRELESS') THEN 1",
+		"WHEN UPPER(c.dominant_nbn_tech) = 'SATELLITE' THEN 2",
+	} {
+		if ti := strings.Index(def.expression, tier); gi < 0 || ti < 0 || gi > ti {
+			t.Fatalf("nbn metric must null implausible rows before classing %q:\n%s", tier, def.expression)
+		}
+	}
+	for _, threshold := range []string{
+		"UPPER(c.dominant_nbn_tech) = 'SATELLITE' AND COALESCE(d.population, 0) > 1000",
+		"UPPER(c.dominant_nbn_tech) IN ('FW', 'FIXED WIRELESS') AND COALESCE(d.population, 0) > 5000",
+	} {
+		if !strings.Contains(nbnImplausibleTechPredicate, threshold) {
+			t.Fatalf("guard threshold changed without updating its documentation (want %q): %s", threshold, nbnImplausibleTechPredicate)
+		}
+	}
+	if !strings.Contains(nbnScoreDisplayExpr, nbnImplausibleTechPredicate) {
+		t.Fatalf("the quality score must be withheld by the same predicate as the tech: %s", nbnScoreDisplayExpr)
+	}
+
+	source := postgresHousePricesSource(t)
+	if strings.Contains(source, "COALESCE(c.dominant_nbn_tech,'')") {
+		t.Fatal("suburb readers must publish NBN tech through nbnTechDisplayExpr, not the raw column")
+	}
+	if strings.Contains(source, "COALESCE(c.connectivity_quality_score,0)") {
+		t.Fatal("suburb readers must publish the NBN score through nbnScoreDisplayExpr, not the raw column")
+	}
+	for _, expr := range []string{"` + nbnTechDisplayExpr + `", "` + nbnScoreDisplayExpr + `"} {
+		if got := strings.Count(source, expr); got != 2 {
+			t.Fatalf("ListStateSuburbs and GetSuburbProfile must both use %s; got %d uses", expr, got)
+		}
+	}
+}
+
+// The collector withholds a sub-100-resident suburb's culture block (label and
+// share alike). The language layer must read that as no data, not fall
+// through to its "English" base category the way a thin top language does.
+func TestLanguageMetricTreatsSubFloorSuburbsAsNoData(t *testing.T) {
+	def, ok := lookupSuburbMetric("language")
+	if !ok {
+		t.Fatal("language metric missing")
+	}
+	floor := "WHEN d.population IS NULL OR d.population < 100 THEN NULL"
+	english := "THEN 13"
+	fi, ei := strings.Index(def.expression, floor), strings.Index(def.expression, english)
+	if fi < 0 || ei < 0 || fi > ei {
+		t.Fatalf("language metric must null sub-floor suburbs before the English fallback:\n%s", def.expression)
 	}
 }

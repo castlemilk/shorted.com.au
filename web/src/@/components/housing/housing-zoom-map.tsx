@@ -372,7 +372,7 @@ function ZoomInner({
           className="pointer-events-none fixed z-50 rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md"
           style={{ left: hover.x + 12, top: hover.y + 12 }}
         >
-          <span className="font-medium capitalize">{hover.name.toLowerCase()}</span>
+          <span className="font-medium">{hover.name}</span>
           {hover.price > 0 ? <span className="ml-1.5 font-mono tabular-nums text-muted-foreground">{fmtPriceShort(hover.price)}</span> : <span className="ml-1.5 text-muted-foreground">no price</span>}
         </div>
       ) : null}

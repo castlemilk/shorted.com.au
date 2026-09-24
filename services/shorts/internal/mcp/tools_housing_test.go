@@ -73,7 +73,7 @@ var housingOutputAllowlist = map[string][]string{
 		"seifa_irsad_decile_aus", "seifa_irsad_decile_state",
 		"federal_division", "federal_member", "federal_party",
 		"state_district", "state_member", "state_party",
-		"council", "council_also_spans", "state_median_price", "national_median_price",
+		"council", "council_also_spans", "state_median_price", "capital_median_price",
 		"crime_break_ins_rank", "crime_violent_rank",
 		"crime_motor_vehicle_rank", "crime_jurisdiction",
 		"listings_for_sale_count", "listings_median_asking",
@@ -370,7 +370,7 @@ func fullProfile() *shortsv1alpha1.GetSuburbProfileResponse {
 			MedianWeeklyRent: 550, MedianMonthlyMortgage: 2_800, PctRented: 48.2, CensusYear: 2021,
 		},
 		Baselines: &shortsv1alpha1.ComparisonBaselines{
-			StateMedianPrice: 900_000, NationalMedianPrice: 850_000,
+			StateMedianPrice: 900_000, CapitalMedianPrice: 850_000,
 		},
 		Council: &shortsv1alpha1.LgaInfo{LgaName: "Yarra (Vic.)", DisplayName: "Yarra"},
 		CouncilOverlaps: []*shortsv1alpha1.LgaOverlap{

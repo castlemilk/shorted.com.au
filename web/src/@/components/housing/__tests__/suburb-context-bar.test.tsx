@@ -14,7 +14,7 @@ describe("SuburbContextBar council link", () => {
     render(
       <SuburbContextBar
         stateCode="NSW"
-        suburbName="KINGSGROVE"
+        suburbName="Kingsgrove"
         salCode="12166"
         council={{ name: "Canterbury-Bankstown", href: "/housing/nsw/council/canterbury-bankstown" }}
       />,
@@ -23,11 +23,11 @@ describe("SuburbContextBar council link", () => {
     expect(link.getAttribute("href")).toBe("/housing/nsw/council/canterbury-bankstown");
     const trail = screen.getByRole("navigation", { name: "Breadcrumb" }).textContent ?? "";
     expect(trail.indexOf("New South Wales")).toBeLessThan(trail.indexOf("Canterbury-Bankstown"));
-    expect(trail.indexOf("Canterbury-Bankstown")).toBeLessThan(trail.indexOf("kingsgrove"));
+    expect(trail.indexOf("Canterbury-Bankstown")).toBeLessThan(trail.indexOf("Kingsgrove"));
   });
 
   it("renders no council segment when the council has no page", () => {
-    render(<SuburbContextBar stateCode="NSW" suburbName="KINGSGROVE" salCode="12166" />);
+    render(<SuburbContextBar stateCode="NSW" suburbName="Kingsgrove" salCode="12166" />);
     expect(screen.queryByRole("link", { name: /council/i })).toBeNull();
     expect(screen.getByRole("navigation", { name: "Breadcrumb" }).querySelectorAll("a")).toHaveLength(1);
   });

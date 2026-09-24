@@ -71,7 +71,7 @@ export function HousingBreadcrumb({
       {suburb ? (
         <>
           <Sep />
-          <span className="capitalize text-foreground">{suburb.toLowerCase()}</span>
+          <span className="text-foreground">{suburb}</span>
         </>
       ) : null}
     </nav>

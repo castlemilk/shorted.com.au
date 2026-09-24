@@ -15,7 +15,7 @@
 import Link from "next/link";
 
 import { HousingBreadcrumb } from "./housing-breadcrumb";
-import { STATE_NAMES, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
+import { STATE_NAMES, stateSlug, suburbHref } from "@/lib/housing/states";
 import type { SuburbContext } from "@/lib/housing/suburb-stats";
 
 export type ContextNeighbour = {
@@ -68,7 +68,7 @@ export function SuburbContextBar({
                   href={suburbHref(stateCode, n)}
                   className="hit-target-touch inline-flex items-center whitespace-nowrap rounded px-1.5 py-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
-                  {titleCaseName(n.salName)}
+                  {n.salName}
                 </Link>
                 </span>
               ))}

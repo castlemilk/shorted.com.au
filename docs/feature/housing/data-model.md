@@ -43,6 +43,12 @@ the live portal and sit behind `HOUSING_DROP_LISTINGS_ENABLED`.
   qualifier fallback (000068). No manual re-apply is needed after a census
   re-ingest — `-mode refresh` runs `linkSuburbSalCodes` before the MV refresh
   ([pipeline.md](pipeline.md)), superseding the old "re-apply 000056" step.
+  The stripped pass takes the **most populous** matching SAL (ties →
+  `sal_code`): ABS parenthesises a name because it repeats, and an unordered
+  `UPDATE … FROM` linked the NSW VG "Mayfield" series to Mayfield
+  (Shoalhaven), 36 people, not Mayfield (Newcastle), 9,760. The link only
+  fills NULLs, so rows linked before 2026-09-24 keep their old pick until
+  relinked by hand (33 in prod, 222 listings under them).
 - `house_prices` — narrow **EAV fact**: one row per region × measure ×
   dwelling × period × source, **UNIQUE on exactly that tuple**.
   `source_licence` (default `CC-BY-4.0`) rides on every row for republish
@@ -156,7 +162,24 @@ from the artifact embedded in the collector
 Both families are NULL below `censusDerivedRateMinPopulation = 100` (Census
 randomisation makes tiny-cell rates misleading) and wherever the denominator is
 zero — the "No usual address (State)" pseudo-SALs and Acton ACT have population
-but no occupied private dwellings.
+but no occupied private dwellings. The same population floor now covers the
+culture block (born overseas, English only, top religion/language labels and
+shares): below it 97 localities of 3–17 residents published a top religion over
+100%.
+
+The population floor does not protect a share whose denominator is DWELLINGS,
+HOUSEHOLDS or the LABOUR FORCE, so each has its own floor
+(`census_expanded.go`): tenure, dwelling structure and household composition
+are NULL below `censusDwellingShareMinDenominator = 50` in their own
+denominator, unemployment below `censusLabourForceMinDenominator = 50`. And a
+group of mutually exclusive shares of one denominator (tenure; house vs flat;
+couple-with-kids vs lone person; low vs high income) that sums past
+`censusShareGroupMaxTotalPct = 101` is withheld whole — ABS perturbation makes
+such a group internally inconsistent, and clamping one member would publish a
+plausible-looking guess. `dwelling_count` is a count, not a share, and is kept.
+Measured on the 2021 DataPack (local re-run 2026-09-24): tenure summing >101%
+588 → 0, top religion >100% 97 → 0, unemployment >50% 11 → 4 (the four are
+remote NT communities with a labour force of 50+, which ABS genuinely reports).
 
 ## The crawl pair (+ satellites)
 
@@ -200,7 +223,14 @@ never paints 0.
 
 `suburb_amenities` (OSM/ACARA/GA counts + derived 0–100 scores; raw OSM
 points never stored — ODbL Produced Work), `suburb_connectivity` (NBN,
-area-level only), `suburb_funding` (IIP). Councils are their own section below.
+area-level only; `dominant_nbn_tech` NULL where the footprints do not settle
+it — the source has no satellite layer, so a miss is never read as Satellite,
+and the coarse Fixed Wireless tower grid must cover at least half of a
+suburb's sample points with no Fixed Line point before it names the suburb
+(`web/scripts/geo/nbn-classify.mjs`; artifact 2026-09-24: Fixed Line 2,730 /
+Fixed Wireless 4,406 / NULL 8,193; the old join had Satellite 7,491). The readers also publish Satellite on more
+than 1,000 residents and Fixed Wireless on more than 5,000 as no data, score
+included (`nbnImplausibleTechPredicate`)), `suburb_funding` (IIP). Councils are their own section below.
 
 ## Councils: `lga`, `suburb_lga`, `lga_series` (000061, 000066–000067, 000126)
 

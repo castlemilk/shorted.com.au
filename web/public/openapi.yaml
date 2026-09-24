@@ -727,8 +727,32 @@ components:
       description: State + national reference medians for the profile's comparison
         bars.
       properties:
+        absMedianPeriod:
+          description: quarter end, "2026-03-31" (proto string)
+          title: abs_median_period
+          type: string
+        capitalMedianPrice:
+          description: |-
+            ABS established-house medians (RES_DWELL, CC-BY-4.0) for the suburb's
+             state: its Greater Capital City and the rest of the state, read from
+             mv_housing_headline. 0 / "" where the state has no such region (the ACT
+             has no rest of state). (proto double)
+          format: double
+          title: capital_median_price
+          type: number
+        capitalRegionCode:
+          description: ABS GCCSA code, e.g. "1GSYD" (proto string)
+          title: capital_region_code
+          type: string
+        capitalRegionName:
+          description: e.g. "Greater Sydney" (proto string)
+          title: capital_region_name
+          type: string
         nationalMedianPrice:
-          description: (proto double)
+          description: |-
+            Always 0. No open national median house price exists (ABS's
+             established-house medians stop at capital city / rest of state, below);
+             this used to average NSW, VIC and SA suburb medians under an "AU" label. (proto double)
           format: double
           title: national_median_price
           type: number
@@ -737,13 +761,32 @@ components:
           format: double
           title: national_median_weekly_hhd_income
           type: number
-        stateMedianPrice:
+        restOfStateMedianPrice:
           description: (proto double)
+          format: double
+          title: rest_of_state_median_price
+          type: number
+        restOfStateRegionName:
+          description: e.g. "Rest of NSW" (proto string)
+          title: rest_of_state_region_name
+          type: string
+        stateCensus:
+          $ref: '#/components/schemas/shorts.v1alpha1.StateCensusAverages'
+          description: State references for the Who-lives-here and Housing-stock cards.
+            (proto shorts.v1alpha1.StateCensusAverages)
+          title: state_census
+        stateMedianPrice:
+          description: |-
+            Median of the latest public Valuer-General suburb medians in the state —
+             NSW, VIC and SA only, 0 elsewhere. A median, not a mean: one $110.5M
+             development sale moved the old NSW average by ~$45k. (proto double)
           format: double
           title: state_median_price
           type: number
         stateMedianWeeklyHhdIncome:
-          description: (proto double)
+          description: |-
+            Census 2021 median weekly household income of the MEDIAN suburb — in the
+             state, and across every suburb nationally. Not a household-weighted median. (proto double)
           format: double
           title: state_median_weekly_hhd_income
           type: number
@@ -7882,6 +7925,77 @@ components:
       - SORT_DIRECTION_ASC
       title: SortDirection
       type: string
+    shorts.v1alpha1.StateCensusAverages:
+      additionalProperties: false
+      description: |-
+        Census 2021 shares for a whole state, rebuilt from its suburbs: each suburb's
+         share weighted by the denominator it is a share of — occupied dwellings for
+         tenure, structure and household mix; residents for the person rates (the
+         labour force is not stored, so unemployment is resident-weighted too). Only
+         suburbs above the ingest floors contribute. 0 = not computable.
+      properties:
+        labourForceParticipationRate:
+          description: (proto double)
+          format: double
+          title: labour_force_participation_rate
+          type: number
+        pctBachelorOrHigher:
+          description: (proto double)
+          format: double
+          title: pct_bachelor_or_higher
+          type: number
+        pctCoupleWithChildren:
+          description: (proto double)
+          format: double
+          title: pct_couple_with_children
+          type: number
+        pctFlatApartment:
+          description: (proto double)
+          format: double
+          title: pct_flat_apartment
+          type: number
+        pctHighPersonalIncome:
+          description: (proto double)
+          format: double
+          title: pct_high_personal_income
+          type: number
+        pctLonePersonHousehold:
+          description: (proto double)
+          format: double
+          title: pct_lone_person_household
+          type: number
+        pctLowPersonalIncome:
+          description: (proto double)
+          format: double
+          title: pct_low_personal_income
+          type: number
+        pctOwnedMortgage:
+          description: (proto double)
+          format: double
+          title: pct_owned_mortgage
+          type: number
+        pctOwnedOutright:
+          description: (proto double)
+          format: double
+          title: pct_owned_outright
+          type: number
+        pctRented:
+          description: (proto double)
+          format: double
+          title: pct_rented
+          type: number
+        pctSeparateHouse:
+          description: (proto double)
+          format: double
+          title: pct_separate_house
+          type: number
+        unemploymentRate:
+          description: (proto double)
+          format: double
+          title: unemployment_rate
+          type: number
+      title: StateCensusAverages
+      type: object
     shorts.v1alpha1.StateCompany:
       additionalProperties: false
       properties:
@@ -8376,8 +8490,8 @@ components:
          CVS-adjusted; small_pop/unreliable rows are gated out server-side).
       properties:
         crimeType:
-          description: '''break_ins'' | ''violent'' | ''motor_vehicle'' (+ future
-            types) (proto string)'
+          description: '''break_ins'' | ''violent'' | ''motor_vehicle'' | ''property_damage''
+            (+ future types) (proto string)'
           title: crime_type
           type: string
         fyEnding:
@@ -8386,8 +8500,8 @@ components:
           title: fy_ending
           type: integer
         pctRank:
-          description: 0..100 national pop-weighted percentile; > 0 always (proto
-            double)
+          description: 0..100 pop-weighted percentile WITHIN the suburb's state (never
+            across states); > 0 always (proto double)
           format: double
           title: pct_rank
           type: number

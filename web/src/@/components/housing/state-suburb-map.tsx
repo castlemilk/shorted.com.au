@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { listCouncilsClient } from "~/app/actions/client/getHousingClient";
@@ -9,7 +9,7 @@ import { MapLegend } from "./map-legend";
 import { CategoricalLegend } from "./categorical-legend";
 import { makePriceScale, robustDomainTop } from "@/lib/housing/price-scale";
 import {
-  HIGHLIGHT_METRICS, METRIC_BY_KEY, METRIC_ICON, amberScale, isColumnSourced, type MetricKey, type HighlightMetric,
+  COLUMN_METRIC_GROUPS, HIGHLIGHT_METRICS, METRIC_BY_KEY, METRIC_ICON, amberScale, isColumnSourced, type MetricKey, type HighlightMetric,
 } from "@/lib/housing/highlight-metrics";
 import {
   OVERLAYS, OVERLAY_BY_KEY, overlayAvailable, parseOverlayParam, serializeOverlayParam, type OverlayKey,
@@ -57,9 +57,12 @@ const TOOLTIP_W = 224;
 const TOOLTIP_H = 260;
 
 const ROW_METRICS = HIGHLIGHT_METRICS.filter((m) => !isColumnSourced(m));
-const TERRAIN_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind === "column" && m.group === "terrain");
-const HAZARD_METRICS = HIGHLIGHT_METRICS.filter((m) => m.kind === "column" && m.group === "hazard");
-const PLANNING_METRICS = HIGHLIGHT_METRICS.filter((m) => isColumnSourced(m) && m.group === "planning");
+// Column metrics (continuous and categorical) are picker sections, in
+// COLUMN_METRIC_GROUPS order.
+const COLUMN_SECTIONS = COLUMN_METRIC_GROUPS.map((group) => ({
+  ...group,
+  metrics: HIGHLIGHT_METRICS.filter((m) => isColumnSourced(m) && m.group === group.key),
+})).filter((section) => section.metrics.length > 0);
 
 // Per-viewer overlay opacities. A convenience, not state worth a URL: the
 // right weighting depends on the reader's display, so it is remembered here
@@ -455,21 +458,15 @@ export function StateSuburbMap({
         </SelectTrigger>
         <SelectContent>
           {ROW_METRICS.map(metricItem)}
-          <SelectSeparator />
-          <SelectGroup>
-            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">Terrain</SelectLabel>
-            {TERRAIN_METRICS.map(metricItem)}
-          </SelectGroup>
-          <SelectSeparator />
-          <SelectGroup>
-            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">Hazard exposure</SelectLabel>
-            {HAZARD_METRICS.map(metricItem)}
-          </SelectGroup>
-          <SelectSeparator />
-          <SelectGroup>
-            <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">Planning</SelectLabel>
-            {PLANNING_METRICS.map(metricItem)}
-          </SelectGroup>
+          {COLUMN_SECTIONS.map((section) => (
+            <Fragment key={section.key}>
+              <SelectSeparator />
+              <SelectGroup>
+                <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">{section.label}</SelectLabel>
+                {section.metrics.map(metricItem)}
+              </SelectGroup>
+            </Fragment>
+          ))}
         </SelectContent>
       </Select>
       {councilsSupported ? (

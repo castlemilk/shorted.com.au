@@ -193,8 +193,13 @@ func TestSuburbReaders_PreferOnePublicPricedRegionPerSAL(t *testing.T) {
 			t.Errorf("preferred suburb-region join missing %q", want)
 		}
 	}
-	if got := strings.Count(querySource, "` + preferredSuburbRegionJoin + `"); got != 2 {
-		t.Errorf("preferred suburb-region join must be shared by list and profile queries; got %d uses", got)
+	if got := strings.Count(querySource, "` + preferredSuburbRegionJoin + `"); got != 3 {
+		t.Errorf("preferred suburb-region join must be shared by the list, profile and similar-suburbs queries; got %d uses", got)
+	}
+	// The similar-suburbs kNN used to price its top-k through a bare join, so a
+	// SAL carrying a crawl key and a Valuer-General key was listed twice.
+	if strings.Contains(querySource, "LEFT JOIN house_price_regions r ON r.sal_code = ranked.sal_code") {
+		t.Fatal("similar suburbs must not fan its top-k out across every region sharing a SAL")
 	}
 }
 
