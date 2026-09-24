@@ -15,7 +15,7 @@ import type {
   LgaInfo,
 } from "~/gen/shorts/v1alpha1/housing_pb";
 import { DropsStaleNotice } from "@/components/housing/price-drops/drops-stale-notice";
-import { councilHref } from "@/lib/housing/council";
+import { councilHref, crossBorderJurisdiction } from "@/lib/housing/council";
 import { dropsFreshness, fmtDropsDate } from "@/lib/housing/drops-freshness";
 import {
   fmtInt, fmtMoney, fmtMonth, fmtShare, fmtSharePct, fmtSignedPct, type KeyFact,
@@ -399,7 +399,7 @@ export function Neighbours({ neighbours, stateCode }: { neighbours: readonly Cou
           <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Across the border</h3>
           <ul className="flex flex-wrap gap-2" aria-label="Neighbouring councils across the border">
             {across.map((n) => (
-              <NeighbourChip key={n.lgaCode} n={n} detail={n.stateCode} />
+              <NeighbourChip key={n.lgaCode} n={n} detail={crossBorderJurisdiction(n.stateCode)} />
             ))}
           </ul>
         </div>
