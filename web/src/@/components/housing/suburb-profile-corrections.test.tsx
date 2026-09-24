@@ -95,3 +95,15 @@ describe("crime card", () => {
     expect(screen.getByText("Fraud and deception")).toBeInTheDocument();
   });
 });
+
+describe("unpriced suburb", () => {
+  test("says why there is no median, per state, and never 'yet'", () => {
+    const { unmount } = render(<SuburbProfile salCode="32250" profile={profile({ salName: "Paddington (Qld)", stateCode: "QLD" })} />);
+    expect(screen.getByText(/licensed brokers/)).toBeInTheDocument();
+    expect(screen.queryByText(/\byet\b/)).not.toBeInTheDocument();
+    unmount();
+
+    render(<SuburbProfile salCode="60001" profile={profile({ salName: "Hobart", stateCode: "TAS" })} />);
+    expect(screen.getByText(/no open Valuer-General sales feed/)).toBeInTheDocument();
+  });
+});

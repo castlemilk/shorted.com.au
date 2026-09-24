@@ -48,6 +48,7 @@ import { RecentPriceDrops } from "./suburb-recent-price-drops-loader";
 import { STATE_NAMES, splitSalName, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
 import { crimeRankScale, publishableNbnTech } from "@/lib/housing/highlight-metrics";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
+import { priceSeriesGap } from "@/lib/housing/price-coverage";
 import { ordinal, type SuburbContext } from "@/lib/housing/suburb-stats";
 import { HousingIcon, type HousingIconName } from "./housing-icon";
 
@@ -103,6 +104,7 @@ export function SuburbProfile({
   // repeated names, and the subtitle already names the state, so only an LGA
   // part of it ("Glenroy (Albury - NSW)" → Albury) moves into the subtitle.
   const { place, region } = splitSalName(s.salName);
+  const priceGap = priceSeriesGap(st, stateName, s.salName);
   const a = s.amenities;
 
   const pctVs = (base?: number) => (priced && base && base > 0)
@@ -207,8 +209,8 @@ export function SuburbProfile({
             ) : (
               <>
                 <div className="flex flex-col items-center justify-center gap-1 py-8 text-center text-sm text-muted-foreground">
-                  <p>No median price series for {s.salName} yet.</p>
-                  <p className="text-xs">Valuer-General pricing is unavailable for this suburb.{b?.stateMedianPrice ? ` ${stateName} average of suburb medians: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}</p>
+                  <p>{priceGap.headline}</p>
+                  <p className="text-xs [text-wrap:pretty]">{priceGap.detail}{b?.stateMedianPrice ? ` ${stateName} average of suburb medians: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}</p>
                 </div>
                 {/* The only price signal these suburbs have. Rendered here, and
                     only here, so it can never sit beside an official median. */}
@@ -654,16 +656,18 @@ function AmenitiesGroup({ a, nbn }: { a: NonNullable<Summary["amenities"]>; nbn?
 
 function SchoolSectorCard({ a }: { a: NonNullable<Summary["amenities"]> }) {
   const total = a.schoolsGov + a.schoolsCatholic + a.schoolsIndependent;
-  // Coverage signal: uncovered states scan to 0 across the board; require some
-  // sector data (or a nearest-secondary) before rendering. Scoped to VIC & QLD.
+  // Coverage signal: a suburb with no ACARA school inside it scans to 0 across
+  // the board; require some sector data (or a nearest-secondary) before
+  // rendering. ACARA covers every state (prod 2026-09-24: sector counts on
+  // 4,940 suburbs, nearest-secondary on 15,320).
   if (total <= 0 && !(a.nearestSecondaryKm > 0)) return null;
   return (
     <section>
       <SectionHeading icon="school">Schools by sector</SectionHeading>
       <DlCard footnote="School sector & type: ACARA (Australian Curriculum, Assessment and Reporting Authority), School Location dataset.">
-        {/* NSW publishes no ACARA sector split, so these render 0 / 0 / 0 there.
-            A row of zeros is a claim that the suburb has no schools, which is
-            false — it means we have no sector data. Show them only when we do. */}
+        {/* A suburb with no school inside it reads 0 / 0 / 0. A row of zeros
+            reads as a claim, so the counts show only when there is at least one
+            school; the nearest-secondary distance still renders without them. */}
         {total > 0 ? (
           <>
             <CultureRow label="Government / Catholic / Indep." value={`${a.schoolsGov} / ${a.schoolsCatholic} / ${a.schoolsIndependent}`} />
