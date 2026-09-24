@@ -4885,8 +4885,11 @@ export type CouncilNeighbour = Message<"shorts.v1alpha1.CouncilNeighbour"> & {
   stateCode: string;
 
   /**
-   * A dominant-member suburb shares a boundary with one of the neighbour's
-   * (ABS suburb topology, within the state).
+   * The two councils touch. Within a state: a dominant-member suburb shares
+   * a boundary with one of the neighbour's (ABS suburb topology). Across a
+   * state or territory line (Albury-Wodonga, Queanbeyan-Palerang-ACT): their
+   * ABS council boundaries touch (within 50 m). A cross-border neighbour is
+   * the one whose state_code differs from the profiled council's.
    *
    * @generated from field: bool shares_border = 6;
    */
