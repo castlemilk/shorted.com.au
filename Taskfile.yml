@@ -322,6 +322,61 @@ tasks:
     cmds:
       - npx tsx src/index.ts import-mdx {{.TARGET}} --publish
 
+  news:publish:remote:
+    desc: "Publish ONE merged content/news article via the prod Cloud Run job (SLUG=..., CONFIRM=prod)"
+    summary: |
+      Publishes a merged article with NO prod credentials on this machine: it
+      calls POST https://api.shorted.com.au/api/admin/news/publish, which runs
+      the shorted-news-publish Cloud Run job. The job holds DATABASE_URL, the
+      model keys, the revalidation secret and GCS write access, and runs the
+      full chain — images, vision check, published_at, revalidate.
+
+      Only the INTERNAL_SERVICE_SECRET is needed here (env var, else read from
+      prod Secret Manager with gcloud).
+
+      Three things that fail quietly:
+        * The article must be MERGED TO MAIN and the deploy finished: the job
+          publishes from content/news baked into its image, so an unmerged or
+          just-merged article is "not found" in the job log.
+        * NO_IMAGES=1 publishes with the cover as hero. Images cost ~$0.32 and
+          an article without its hero looks unfinished; the default is ON.
+        * A second call while one is running is refused (409). FORCE=1
+          overrides it and pays for images twice.
+
+      Polls until the run finishes and prints the log link either way.
+    requires: {vars: [SLUG, CONFIRM]}
+    preconditions:
+      - sh: '[ "{{.CONFIRM}}" = "prod" ]'
+        msg: "refusing: pass CONFIRM=prod to publish to the live site"
+    cmds:
+      - |
+        set -eu
+        secret="${INTERNAL_SERVICE_SECRET:-}"
+        if [ -z "$secret" ]; then
+          secret=$(gcloud secrets versions access latest --secret=INTERNAL_SERVICE_SECRET --project=rosy-clover-477102-t5)
+        fi
+        api=https://api.shorted.com.au/api/admin/news/publish
+        body=$(python3 -c 'import json,sys;print(json.dumps({"slug":sys.argv[1],"images":sys.argv[2]!="1","force":sys.argv[3]=="1"}))' \
+          "{{.SLUG}}" "{{.NO_IMAGES | default "0"}}" "{{.FORCE | default "0"}}")
+        resp=$(curl -sS --max-time 60 -X POST "$api" \
+          -H "Content-Type: application/json" -H "x-internal-secret: $secret" \
+          -H "x-admin-actor: task news:publish:remote ($(git config user.email || whoami))" \
+          -d "$body")
+        echo "$resp"
+        exec_name=$(printf '%s' "$resp" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("executionName",""))' 2>/dev/null || true)
+        [ -n "$exec_name" ] || { echo "not started"; exit 1; }
+        for _ in $(seq 1 140); do
+          sleep 15
+          st=$(curl -sS --max-time 60 -H "x-internal-secret: $secret" "$api?execution=$exec_name")
+          status=$(printf '%s' "$st" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("status",""))' 2>/dev/null || true)
+          echo "$(date +%H:%M:%S) $status"
+          case "$status" in
+            succeeded) echo "$st"; echo "live: https://shorted.com.au/news/{{.SLUG}}"; exit 0 ;;
+            failed|unknown) echo "$st"; exit 1 ;;
+          esac
+        done
+        echo "still running after 35 min: $exec_name"; exit 1
+
   news:publish:check:
     desc: "Dry-run the /news publish — parses and validates, writes nothing"
     dir: scripts/take-writer

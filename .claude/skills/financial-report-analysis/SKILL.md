@@ -134,6 +134,18 @@ with a hole in it.
 
 ## 5. Publishing
 
+**From anywhere (no prod credentials needed — the default for cloud sessions):**
+once the article is merged to `main` and the deploy has finished, the
+`shorted-news-publish` Cloud Run job publishes it with images:
+
+```bash
+CONFIRM=prod task news:publish:remote SLUG=<slug>   # needs only INTERNAL_SERVICE_SECRET
+# = POST https://api.shorted.com.au/api/admin/news/publish {"slug":"<slug>"}, then poll
+#   GET ?execution=<name>. Details: scripts/take-writer/SERVERLESS.md
+```
+
+**Locally, with the prod DSN** (no images unless you run regen-images after):
+
 ```bash
 task news:publish:check                     # dry run, writes nothing
 CONFIRM=prod task news:publish              # whole content/news dir

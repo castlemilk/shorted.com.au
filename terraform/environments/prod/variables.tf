@@ -114,6 +114,12 @@ variable "signals_collector_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/signals-collector:latest"
 }
 
+variable "take_writer_image" {
+  description = "Docker image URL for the take-writer newsroom CLI (scripts/take-writer), with content/news baked in"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/take-writer:latest"
+}
+
 variable "report_extractor_image" {
   description = "Docker image URL shared by both report-extractor jobs"
   type        = string

@@ -255,6 +255,13 @@ jobs:
           - name: report-extractor
             dockerfile: services/report-extractor/Dockerfile
             context: services/report-extractor
+          # The newsroom CLI (shorted-news-publish job). content/news is fed in
+          # as a NAMED context so each merged article is baked into the image
+          # without widening the build context to the whole repo.
+          - name: take-writer
+            dockerfile: scripts/take-writer/Dockerfile
+            context: scripts/take-writer
+            build_contexts: content=content/news
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -289,6 +296,7 @@ jobs:
         with:
           context: ${{ matrix.service.context }}
           file: ${{ matrix.service.dockerfile }}
+          build-contexts: ${{ matrix.service.build_contexts }}
           platforms: linux/amd64
           push: true
           tags: |
@@ -463,6 +471,7 @@ jobs:
             -var="shorted_jobs_browser_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs-browser:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="take_writer_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/take-writer:${{ needs.determine-environment.outputs.image-tag }}" \
             -out=tfplan
         # No continue-on-error: a failing plan must fail the PR check. This was
         # advisory-only for months and silently swallowed a missing-variable
@@ -835,6 +844,7 @@ jobs:
             -var="shorted_jobs_browser_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorted-jobs-browser:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="take_writer_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/take-writer:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve
 
