@@ -112,25 +112,89 @@ export function suburbHasPrice(input: { latestMedianPrice?: number | null }): bo
   return (input.latestMedianPrice ?? 0) > 0;
 }
 
-/**
- * Title and description that match what the page can actually show.
- *
- * The priced variant keeps the existing wording, so ~3,600 already-indexed URLs
- * keep their titles and no established ranking is disturbed.
- */
-export function suburbMetaCopy(input: {
+/** "Jun 2026" for a Valuer-General period timestamp, or null. */
+export function periodLabel(seconds?: number | bigint | null): string | null {
+  if (seconds === undefined || seconds === null) return null;
+  const n = Number(seconds);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const d = new Date(n * 1000);
+  // Hand-rolled rather than toLocaleDateString: ICU's en-AU "short" months are
+  // "June", "July" and "Sept", which read as inconsistent next to "Mar".
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+
+function fmtPriceShort(v: number): string {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1)}M`;
+  if (v >= 1_000) return `$${Math.round(v / 1000)}k`;
+  return `$${Math.round(v)}`;
+}
+
+export interface SuburbMetaInput {
   name: string;
   stateName: string;
   latestMedianPrice?: number | null;
-}): { title: string; description: string } {
+  yoyPct?: number | null;
+  latestPeriodSeconds?: number | bigint | null;
+  population?: number | null;
+  medianAge?: number | null;
+  medianWeeklyHhdIncome?: number | null;
+  lgaName?: string | null;
+  federalDivision?: string | null;
+}
+
+/**
+ * Title and description that match what the page can actually show, and say
+ * the numbers up front.
+ *
+ * The priced title keeps its established leading phrase ("X House Prices &
+ * Demographics") so the ~3,600 already-indexed URLs are not re-evaluated on a
+ * new title — and appends the live median, the same freshness signal that
+ * moved the per-ticker stock cluster onto page one after "22.80% Shorted" went
+ * into those titles. The description leads with the figure a searcher typed
+ * "X median house price" to find, then the Census facts, then the council,
+ * which Search Console shows ranking around position 10 for "X lga".
+ */
+export function suburbMetaCopy(input: SuburbMetaInput): { title: string; description: string } {
+  const facts: string[] = [];
+  if ((input.population ?? 0) > 0) facts.push(`population ${(input.population!).toLocaleString("en-AU")}`);
+  if ((input.medianAge ?? 0) > 0) facts.push(`median age ${input.medianAge}`);
+  if ((input.medianWeeklyHhdIncome ?? 0) > 0) {
+    facts.push(`household income $${Math.round(input.medianWeeklyHhdIncome!).toLocaleString("en-AU")}/wk`);
+  }
+  const civic: string[] = [];
+  if (input.lgaName) civic.push(`${input.lgaName} council`);
+  if (input.federalDivision) civic.push(`${input.federalDivision} electorate`);
+
   if (suburbHasPrice(input)) {
+    const price = fmtPriceShort(input.latestMedianPrice!);
+    const period = periodLabel(input.latestPeriodSeconds);
+    const yoy = input.yoyPct ?? 0;
+    const lead =
+      `${input.name}, ${input.stateName}: median house price ${price}` +
+      (period ? ` (${period})` : "") +
+      (yoy !== 0 ? `, ${yoy > 0 ? "+" : ""}${yoy.toFixed(1)}% over the year` : "") +
+      ".";
+    const tail = [
+      facts.length ? `${facts.join(", ")}.` : "",
+      civic.length ? `${civic.join(", ")}.` : "",
+      "ABS Census demographics, price history, schools and amenities.",
+    ].filter(Boolean).join(" ");
     return {
-      title: `${input.name} House Prices & Demographics`,
-      description: `Median house price, ABS Census demographics and trends for ${input.name}, ${input.stateName}.`,
+      title: `${input.name} House Prices & Demographics | ${price} Median`,
+      description: `${lead} ${tail}`,
     };
   }
+  const lead = facts.length
+    ? `${input.name}, ${input.stateName} suburb profile: ${facts.join(", ")} (ABS Census).`
+    : `${input.name}, ${input.stateName} suburb profile.`;
+  const tail = [
+    civic.length ? `${civic.join(", ")}.` : "",
+    "Demographics, schools, amenities and local context.",
+  ].filter(Boolean).join(" ");
   return {
-    title: `${input.name} Suburb Profile & Demographics`,
-    description: `ABS Census demographics, amenities and local insights for ${input.name}, ${input.stateName}.`,
+    title: `${input.name} Suburb Profile & Demographics${input.lgaName ? ` | ${input.lgaName}` : ""}`,
+    description: `${lead} ${tail}`,
   };
 }

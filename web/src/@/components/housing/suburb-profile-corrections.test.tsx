@@ -14,7 +14,7 @@ import { CrimeCard, SuburbProfile } from "./suburb-profile";
 
 jest.mock("./suburb-banner-map", () => ({ SuburbBannerMap: () => null }));
 jest.mock("./housing-charts", () => ({ HousingSeriesChart: () => null }));
-jest.mock("./suburb-locator-map-loader", () => ({ SuburbLocatorMap: () => null }));
+jest.mock("./suburb-locator-map", () => ({ SuburbLocatorMap: () => null }));
 jest.mock("./suburb-recent-price-drops-loader", () => ({ RecentPriceDrops: () => null }));
 jest.mock("@/components/politicians/suburb-politician-property-card-loader", () => ({
   SuburbPoliticianPropertyCard: () => null,

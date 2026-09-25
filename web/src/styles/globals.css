@@ -65,6 +65,20 @@
        #121212, so .dark aliases them straight through. */
     --semantic-green-text: #15803d;    /* 4.93:1 on --card */
     --semantic-red-text: #b91c1c;      /* 6.42:1 on --card */
+
+    /* mdxcn figure tokens (src/@/registry/default, Tailwind-3 port of the
+       registry's @theme vars). Accent follows the site's amber, not mdxcn's
+       blue; the frame is the dashed border every figure draws. */
+    --graph-accent: hsl(28 82% 34%);
+    --graph-accent-2: hsl(16 59% 55%);
+    --graph-accent-3: #15803d;
+    --graph-frame: hsl(19 18% 24% / 0.28);
+    --graph-muted: hsl(19 12% 40%);
+    --graph-faint: hsl(32 15% 88%);
+    --contrast-14: hsl(19 18% 24% / 0.14);
+    --contrast-23: hsl(19 18% 24% / 0.23);
+    --contrast-45: hsl(19 18% 24% / 0.45);
+    --contrast-70: hsl(19 18% 24% / 0.70);
     --secondary-text: 93 40% 26%;      /* Deep olive - 6.6:1 on --card (--secondary is a fill, 2.6:1) */
 
     /* Terminal effect variables */
@@ -125,6 +139,18 @@
        needed, so the text tokens alias the fills. */
     --semantic-green-text: #4ade80;
     --semantic-red-text: #f87171;
+
+    /* mdxcn figure tokens, dark: phosphor amber accent on the terminal black. */
+    --graph-accent: hsl(32 100% 65%);
+    --graph-accent-2: hsl(19 71% 60%);
+    --graph-accent-3: #4ade80;
+    --graph-frame: hsl(48 20% 55% / 0.45);
+    --graph-muted: hsl(48 20% 55%);
+    --graph-faint: hsl(32 15% 18%);
+    --contrast-14: hsl(48 52% 81% / 0.14);
+    --contrast-23: hsl(48 52% 81% / 0.23);
+    --contrast-45: hsl(48 52% 81% / 0.45);
+    --contrast-70: hsl(48 52% 81% / 0.70);
     --secondary-text: 96 33% 63%;      /* 8.0:1 on --card */
 
     /* Terminal effects - enhanced in dark mode */
@@ -696,4 +722,28 @@ code[class*="language-"] {
 .dark .token.important,
 .dark .token.variable {
   color: hsl(16 59% 55%) !important;
+}
+
+
+/* mdxcn figure frame utilities — the registry ships these as Tailwind v4
+   `@utility` blocks; this is the same CSS as plain classes for Tailwind 3. */
+@layer utilities {
+  .graph-frame {
+    background-image:
+      repeating-linear-gradient(to right, var(--graph-frame) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(to bottom, var(--graph-frame) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(to right, var(--graph-frame) 0 2px, transparent 2px 7px),
+      repeating-linear-gradient(to bottom, var(--graph-frame) 0 2px, transparent 2px 7px);
+    background-repeat: repeat-x, repeat-y, repeat-x, repeat-y;
+    background-position: 0 0, 100% 0, 0 100%, 0 0;
+    background-size: 100% 1px, 1px 100%, 100% 1px, 1px 100%;
+  }
+  .graph-rule {
+    height: 1px;
+    background-image: repeating-linear-gradient(to right, var(--graph-frame) 0 2px, transparent 2px 7px);
+  }
+  .graph-rule-y {
+    width: 1px;
+    background-image: repeating-linear-gradient(to bottom, var(--graph-frame) 0 2px, transparent 2px 7px);
+  }
 }

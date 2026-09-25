@@ -33,6 +33,7 @@ import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getSectorImagePath, getSectorImageAlt } from "~/@/lib/sector-images";
 import { buildIndustryIntelligenceStory } from "~/@/lib/industry-intelligence";
 import { buildIndustryNarrative } from "./industry-narrative";
+import { hasStockPage } from "~/@/lib/stock-code";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -214,7 +215,7 @@ export default async function IndustryPage({ params }: PageProps) {
       <ItemListStructuredData
         name={`Most Shorted ${industry.name} Stocks on the ASX`}
         description={`Ranked list of ${industry.stockCount} ${industry.name.toLowerCase()} stocks by short interest percentage, sourced from official ASIC data.`}
-        items={stocks.slice(0, 20).map((s) => ({
+        items={stocks.filter((s) => hasStockPage(s.code)).slice(0, 20).map((s) => ({
           name: `${s.code} Short Position`,
           url: `${siteConfig.url}/shorts/${s.code}`,
           description: `${s.code} has ${s.shortPercent.toFixed(2)}% of shares sold short`,
@@ -369,8 +370,14 @@ export default async function IndustryPage({ params }: PageProps) {
             <div className="divide-y divide-border/40">
               {stocks.slice(0, 50).map((stock, index) => {
                 const change = stock.change ?? 0;
+                // The ASIC feed carries securities the stock page cannot serve
+                // (five-character deferred-settlement and hybrid codes such as
+                // SGLLV: GetStock rejects anything outside 3-4 alphanumerics).
+                // A row for one of those stays a row — a link would be a
+                // crawlable 404, which the site audit flagged.
+                const Row = hasStockPage(stock.code) ? Link : "div";
                 return (
-                  <Link
+                  <Row
                     key={stock.code}
                     href={`/shorts/${stock.code}`}
                     className="grid grid-cols-[60px_1fr_100px_100px_48px] md:grid-cols-[60px_1fr_120px_120px_48px] gap-4 px-4 py-4 items-center hover:bg-muted/50 transition-colors group"
@@ -428,7 +435,7 @@ export default async function IndustryPage({ params }: PageProps) {
                     <div className="flex justify-end">
                       <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                     </div>
-                  </Link>
+                  </Row>
                 );
               })}
             </div>

@@ -1,0 +1,87 @@
+---
+title: "How to Read a Suburb Profile: Price, Income, SEIFA, Hazards and What They Say Before You Buy"
+excerpt: "A suburb page on Shorted carries a Valuer-General median, a Census profile, four SEIFA indexes, amenity and school counts, electorates, elevation and hazard shares, recent asking-price cuts and the suburbs most like it. Here is how each layer is built, what it can and cannot tell you, and how to read them together, using Altona North as the worked example."
+coverImage: "/assets/blog/how-to-read-a-suburb-profile/cover.png"
+date: "2026-09-24"
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben-ebsworth.jpg"
+ogImage:
+  url: "/assets/blog/how-to-read-a-suburb-profile/cover.png"
+---
+
+# How to read a suburb profile
+
+Shorted has a profile for every one of Australia's 15,345 ABS suburbs. Some carry an official house-price series, all carry a Census profile, and most carry the amenity, electoral, terrain and hazard layers built over the past year. The pages are dense on purpose. This is a guide to reading one, layer by layer, using [Altona North](/housing/vic/altona-north) in Melbourne's inner west as the running example because it has every layer populated.
+
+## The banner: what kind of place is this
+
+The banner classifies each suburb into one of ten archetypes, from urban skyline to farmland, using local-insights signals rather than a model or a crawl, and gives a one-line description. Altona North is "urban skyline": an inner-city suburb of Hobsons Bay. The small inset map draws the suburb's ABS boundary among its neighbours, and the same boundary is what the share card uses when you post the page.
+
+The headline figure, where it exists, is the median house price. Altona North's is $960,000 for the December 2025 quarter, up 4.9 per cent over the year.
+
+## The price series: a rolling median of settled sales
+
+The chart under the banner is a rolling median of settled house transfers from the state Valuer-General, published as open data. Three things to keep in mind:
+
+- **It is a median of sales, not a valuation of the stock.** A quarter with mostly small houses selling reads low; a quarter of estate sales reads high.
+- **The window matters.** Suburbs with few sales use a wider window, and the page tells you the period the latest figure covers.
+- **Only NSW, Victoria and South Australia publish an open feed.** A Queensland or Western Australian suburb has no official median here, and the page says so rather than substituting a crawled number.
+
+Below the chart, "How it compares" places the suburb on the distribution of every priced suburb in its state and gives a percentile. Altona North's $960,000 sits above the Victorian average of suburb medians ($765,000) and above the Greater Melbourne house median ($850,000). Percentiles are always within the state, never across it, because each Valuer-General counts differently.
+
+## People and housing: the Census layer
+
+The 2021 Census supplies population, age, income, rent, mortgage and tenure. Altona North: 12,962 people, median age 37, median household income $1,695 a week against a Victorian median of $1,583, median rent $400 a week, median mortgage $2,167 a month. Just over a third of homes are owned outright, 30 per cent are mortgaged and 31 per cent rented. Sixty-nine per cent of dwellings are separate houses and 3 per cent flats, which for an inner suburb is unusually house-heavy and explains a good deal of the price.
+
+The culture card reads the same source: 37 per cent of residents were born overseas, and Arabic is the most common language other than English, spoken at home by 5.5 per cent. A quarter of adults hold a bachelor's degree or higher; unemployment at the Census was 5.8 per cent against 5.1 per cent for Victoria.
+
+Every figure here carries a 2021 vintage. Prices update quarterly; the people do not update until the 2026 Census results land.
+
+## SEIFA: four indexes, not one score
+
+The ABS Socio-Economic Indexes for Areas rank every suburb on four separate scales, each reported as a decile within Australia and within the state. Altona North scores 990 on the general advantage-and-disadvantage index (IRSAD), decile 6 nationally and 5 within Victoria, about the middle. But its economic-resources index (IER) is in decile 2 and its education-and-occupation index (IEO) is in decile 7. Read together they describe a suburb where households have modest assets but above-average qualifications, which is a common profile in the inner west and one a single number would hide.
+
+## Amenities and schools: counts, not rankings
+
+The amenity score (Altona North: 84 out of 100) is a density measure built from OpenStreetMap: four schools, four supermarkets, nineteen parks, 3.3 kilometres to the coast. Shorted stores only the derived counts, never the raw map points, and it publishes school sector counts (government, Catholic, independent) rather than performance. There are no NAPLAN scores or school rankings on any suburb page, and there will not be: the My School terms of use do not permit it.
+
+## Council, electorates and representatives
+
+Each suburb is placed in its local government area and federal and state electorates by spatial join. Altona North sits in Hobsons Bay (population 97,031 across 64 square kilometres), the federal division of Gellibrand held by Tim Watts for Labor, and the state district of Williamstown held by Melissa Horne. The federal card links through to the [register of interests](/politicians) for the sitting member, and a separate card lists any properties in the suburb declared by federal parliamentarians, as a count of declarations only. Registers record what is held, never how much.
+
+## Terrain and hazard exposure: read the words carefully
+
+This card is the one to slow down on, because the labels are precise.
+
+**Elevation** comes from Geoscience Australia's one-second digital elevation model. Altona North ranges from 4 to 29 metres above sea level with a median of 16, and 0.36 per cent of its land lies below five metres.
+
+**Observed under water** is the share of the suburb's area that Landsat satellites have recorded as wet, masked for confidence, from the Digital Earth Australia Water Observations dataset going back to 1987. Altona North: 1.4 per cent, with no permanent water. This is a record of water that was seen. It is a floor on inundation, not a ceiling, because satellites revisit every one to two weeks and clouds hide events, and it is never a probability. The page will not call it "flood risk", and neither should you.
+
+**Flood planning overlay** is a different thing again: the share of the suburb inside a statutory planning control, in Victoria the LSIO, FO and SBO overlays. Altona North: 9.4 per cent. A planning overlay is a boundary councils have adopted for development controls, not a mapped flood extent, and it can lag the latest study.
+
+**Bushfire prone land**, 5.9 per cent here, is likewise the statutory designation.
+
+Queensland, WA, SA, Tasmania and the territories have no open statutory flood or bushfire layer, so their cards show the satellite layer only and say why the other rows are empty.
+
+## Crime: NSW only, and ranked within the state
+
+Crime percentiles come from the NSW Bureau of Crime Statistics and Research and appear only for New South Wales suburbs, ranked against other NSW suburbs with a reliable count. Victoria's data is not published at suburb grain in a form Shorted can use, and Western Australia's is licensed for non-commercial use only, so Altona North shows nothing here. An empty crime card means no data, not no crime.
+
+## Listings, price cuts and similar suburbs
+
+The right rail shows what the listings crawl currently sees: 125 homes for sale in Altona North at a median asking price of $890,000, and 19 recent sold captures at a median of $870,000. Those sold figures are incidental captures and indicative only. The recent-cuts panel shows that 30 of those 125 listings, 24 per cent, have reduced their asking price in the past month, a median cut of 4.3 per cent. Set against the settled median of $960,000, that is a suburb where asking prices have moved under the last quarter's sales, which is [unusual](/blog/where-asking-prices-are-being-cut-australia-2026).
+
+"Similar suburbs" is a nearest-neighbour match on the demographic and amenity profile, nationally. Altona North's closest matches are Maylands and Como in Perth, Balcatta, Revesby and Glebe in Sydney, and Ballajura. Comparing prices across those six is a quick way to see what a profile like this costs in another city.
+
+## Reading the layers together
+
+Taken one at a time, each card is a fact. Taken together they are a description. Altona North is a house-heavy inner suburb with middling advantage, low household assets, above-average education, strong amenity, a price a fifth above the metropolitan median, a modest low-lying share, a meaningful planning-overlay share, and a listings market that is currently softer than its last settled quarter. None of that is advice. All of it is checkable, and every card links to its source.
+
+## The map, the rankings and the calculators
+
+The [state map](/housing/vic) colours every suburb by any of these layers: median price, Census income, SEIFA decile, crime rank, elevation, low-lying land or hazard share, with flood-planning, observed-water and bushfire overlays that can be toggled on top. The view is in the URL, so a map is a link you can send. The [rankings](/housing/rankings/fastest-growing-suburbs-vic) order priced suburbs by price, growth and affordability with the same population floors. And the [calculators](/housing/calculators) take a suburb's median straight into a repayment, a stamp duty estimate and a rent-versus-buy comparison.
+
+---
+
+*Sources on every suburb page: ABS Census 2021 and ASGS boundaries (CC BY 4.0); state Valuer-General open data (CC BY 4.0); ABS SEIFA 2021; Geoscience Australia 1 Second DEM; Digital Earth Australia Water Observations (CC BY 4.0); state planning overlays; OpenStreetMap contributors (ODbL) for amenity counts; Australian Electoral Commission; NSW BOCSAR. Listing-derived figures are aggregates only. Nothing here is financial advice.*

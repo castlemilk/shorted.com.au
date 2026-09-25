@@ -64,6 +64,17 @@ module.exports = {
                 ]
   		},
   		colors: {
+  			// mdxcn figure tokens (see src/@/registry/default/README.md)
+  			"graph-accent": "var(--graph-accent)",
+  			"graph-accent-2": "var(--graph-accent-2)",
+  			"graph-accent-3": "var(--graph-accent-3)",
+  			"graph-frame": "var(--graph-frame)",
+  			"graph-muted": "var(--graph-muted)",
+  			"graph-faint": "var(--graph-faint)",
+  			"contrast-14": "var(--contrast-14)",
+  			"contrast-23": "var(--contrast-23)",
+  			"contrast-45": "var(--contrast-45)",
+  			"contrast-70": "var(--contrast-70)",
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',

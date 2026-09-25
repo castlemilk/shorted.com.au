@@ -1,186 +1,89 @@
-/* eslint-disable @next/next/no-img-element -- satori (next/og) only accepts <img>, not next/image */
+/* eslint-disable @next/next/no-img-element, jsx-a11y/alt-text */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
-export const alt = "Australian House Prices Tracker";
-export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
+import { getHousingOverview } from "~/app/actions/getHousing";
+import { fmtPriceShort } from "@/lib/housing/price-scale";
+import { OG_CONTENT_TYPE, OG_SIZE, OgSceneCard, getOgLogo } from "@/lib/og/card";
 
-// Static copy, so the card can never fail on a flaky upstream. Cached for a
-// day like the data-driven cards.
+export const alt = "Australian House Prices Tracker — Shorted.com.au";
+export const size = OG_SIZE;
+export const contentType = OG_CONTENT_TYPE;
+// Refreshed daily like the data-driven cards; the copy below is the fallback
+// a flaky upstream gets, never a 500.
 export const revalidate = 86400;
 
 /**
- * The housing HUB card, in the same visual language as the per-suburb cards:
- * an archetype scene JPEG under a dark scrim and warm serif type. The hub has
- * no suburb to key an archetype from, so it borrows the most representative
- * bake (leafy-suburban) — the same committed asset the suburb cards embed. A
- * missing file degrades to the gradient-only look, never a 500.
+ * The housing HUB card on the same scene canvas as the per-suburb cards. The
+ * hub has no suburb to key an archetype from, so it borrows the most
+ * representative bake (leafy-suburban) — the same committed asset the suburb
+ * cards embed — and carries the three biggest capital medians from the same
+ * ABS series the page's tiles render.
  */
-export default async function Image() {
-  // INLINE LITERAL paths, not a loop over a path array: Vercel's file tracer
-  // only bundles what it can statically resolve, and the loop variant shipped
-  // to prod with no JPEG in the lambda — the card silently lost its scene.
-  // The per-suburb card's literal reads have traced correctly since it
-  // shipped; mirror them exactly.
-  let bgDataUri = "";
-  try {
-    const p = join(
-      process.cwd(),
-      "public",
-      "housing-banners",
-      "og",
-      "leafy-suburban.jpg",
-    );
-    bgDataUri = `data:image/jpeg;base64,${readFileSync(p).toString("base64")}`;
-  } catch {
+function sceneDataUri(): string {
+  // INLINE LITERAL paths: Vercel's tracer bundles only what it can statically
+  // resolve (next.config outputFileTracingIncludes covers this route too).
+  for (const base of [process.cwd(), join(process.cwd(), "web")]) {
     try {
-      const p = join(
-        process.cwd(),
-        "web",
-        "public",
-        "housing-banners",
-        "og",
-        "leafy-suburban.jpg",
-      );
-      bgDataUri = `data:image/jpeg;base64,${readFileSync(p).toString("base64")}`;
+      const p = join(base, "public", "housing-banners", "og", "leafy-suburban.jpg");
+      return `data:image/jpeg;base64,${readFileSync(p).toString("base64")}`;
     } catch {
-      // fall back to the gradient-only look below
+      // try the next candidate
     }
+  }
+  return "";
+}
+
+const CAPITALS: Record<string, string> = {
+  "1GSYD": "Sydney",
+  "2GMEL": "Melbourne",
+  "3GBRI": "Brisbane",
+  "4GADE": "Adelaide",
+  "5GPER": "Perth",
+  "6GHOB": "Hobart",
+  "7GDAR": "Darwin",
+  "8ACTE": "Canberra",
+};
+
+export default async function Image() {
+  let subtitle = "Capital-city medians, suburb profiles, price cuts and rankings from ABS, RBA and Valuer-General open data.";
+  let stats: Array<{ label: string; value: string; tone?: "up" | "down" | "flat" }> = [];
+  try {
+    const overview = await getHousingOverview("gccsa");
+    const medians = (overview?.metrics ?? [])
+      .filter((m) => m.measure === "median_price" && m.dwellingType === "established_house" && CAPITALS[m.regionCode])
+      .sort((a, b) => b.value - a.value);
+    if (medians.length) {
+      stats = medians.slice(0, 3).map((m) => ({
+        label: `${CAPITALS[m.regionCode]} · ${m.yoyPct >= 0 ? "+" : ""}${m.yoyPct.toFixed(1)}% yr`,
+        value: fmtPriceShort(m.value),
+        // Rising prices read as growth here (green), the opposite of the
+        // short-interest convention on the stock cards.
+        tone: m.yoyPct >= 0 ? "down" : "up",
+      }));
+      const period = medians[0]?.period?.seconds;
+      if (period) {
+        const d = new Date(Number(period) * 1000);
+        subtitle = `Established-house medians for the ${d.toLocaleDateString("en-AU", { month: "long", year: "numeric", timeZone: "UTC" })} quarter, with every suburb's profile, price cuts and rankings beneath.`;
+      }
+    }
+  } catch (err) {
+    console.error("[opengraph-image] housing overview unavailable:", err);
   }
 
   return new ImageResponse(
     (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          position: "relative",
-          backgroundColor: "#0C0C0C",
-          color: "#E8DDB5",
-          fontFamily: "Georgia, serif",
-        }}
-      >
-        {bgDataUri ? (
-          <img
-            src={bgDataUri}
-            alt=""
-            width={size.width}
-            height={size.height}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
-          />
-        ) : null}
-
-        {bgDataUri ? (
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              backgroundColor: "rgba(8,8,8,0.6)",
-            }}
-          />
-        ) : null}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            backgroundImage:
-              "linear-gradient(150deg, rgba(255,169,77,0.20) 0%, rgba(12,12,12,0) 55%)",
-          }}
-        />
-
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            padding: "64px 72px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 14,
-              fontFamily: "monospace",
-              fontSize: 22,
-              letterSpacing: 6,
-              textTransform: "uppercase",
-              color: "#FFA94D",
-            }}
-          >
-            Shorted · Housing
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <div style={{ display: "flex" }}>
-              <span
-                style={{
-                  fontSize: 84,
-                  lineHeight: 1.05,
-                  fontWeight: 600,
-                  color: "#F3EAC8",
-                }}
-              >
-                Australian house prices
-              </span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                fontFamily: "monospace",
-                fontSize: 28,
-                color: "#B7A98A",
-              }}
-            >
-              <span>ABS &amp; RBA data</span>
-              <span style={{ color: "#6b5530" }}>·</span>
-              <span>Every suburb, mapped</span>
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              borderTop: "2px solid rgba(255,169,77,0.5)",
-              paddingTop: 24,
-              fontFamily: "monospace",
-              fontSize: 22,
-              color: "#9C8F72",
-            }}
-          >
-            <span>shorted.com.au</span>
-            <span>House prices &amp; demographics</span>
-          </div>
-        </div>
-      </div>
+      <OgSceneCard
+        eyebrow="Australian house prices"
+        title="House prices, suburb by suburb"
+        subtitle={subtitle}
+        stats={stats}
+        sceneSrc={sceneDataUri()}
+        footer="shorted.com.au/housing"
+        logoSrc={await getOgLogo()}
+      />
     ),
-    { ...size },
+    size,
   );
 }

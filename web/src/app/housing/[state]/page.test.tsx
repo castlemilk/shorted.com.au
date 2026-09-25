@@ -15,3 +15,17 @@ describe("housing state cross-domain links", () => {
     expect(source).not.toContain("searchParams");
   });
 });
+
+describe("housing state page crawlability", () => {
+  const source = readFileSync(resolve(__dirname, "page.tsx"), "utf8");
+
+  it("server-renders a suburb directory so suburb pages are not sitemap-only orphans", () => {
+    // The explorer is an ssr:false island; without this section the state
+    // page's HTML linked to no suburb at all (Search Console URL inspection,
+    // 2026-09: suburb pages referred only by the sitemap).
+    expect(source).toContain("<StateSuburbDirectorySection");
+    expect(source).toContain("getStateSuburbIndex(code)");
+    // A failed index must not be baked into the 24h ISR entry.
+    expect(source).toContain("bailOnEmptyRender()");
+  });
+});

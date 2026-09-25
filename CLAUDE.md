@@ -841,6 +841,36 @@ Next.js contributes only the consent screen.
 
 Full record: `docs/superpowers/handover-2026-08-29-mcp-oauth.md`.
 
+## Blog MDX palette (mdxcn figures)
+
+`/blog` posts (`web/_blogs/*.mdx`) render through ONE component map,
+`web/src/@/components/blog/mdx-components.tsx`, shared by the index (hero post)
+and `/blog/[slug]`. Besides the site's own islands (`Info`, `RegisterEmail`,
+`HousingChart`, `ScrollReveal`, `CountUp`) it exposes the **vendored mdxcn
+figures** — `Callout`, `Quote`, `Steps`, `GraphStat`, `GraphRank`,
+`GraphSlope`, `GraphTimeline`, `GraphTable`, `GraphSpark`, `GraphMeter`,
+`GraphWaterfall`, `GraphCompare`, `GraphFlow` and their child items — copied
+from the mdxcn shadcn registry (MIT) into `web/src/@/registry/default/`.
+
+- **Tailwind 3, not 4.** mdxcn ships `@utility`/`@theme`; the port lives in
+  `src/styles/globals.css` (`.graph-frame`, `.graph-rule*`, `--graph-*` tokens
+  mapped to the site's amber) and `tailwind.config.ts` (`graph-*` colours). Do
+  not run the shadcn CLI against this repo for mdxcn — it would write v4 CSS.
+  How to vendor another figure: `web/src/@/registry/default/README.md`.
+- `motion` is the only new dependency; figures are `"use client"` and respect
+  `useReducedMotion`.
+- The **newsroom palette is separate** (`components/news/mdx/`, three-place
+  sync rule in `$newsroom`) and mdxcn's `Stat` child clashes with its `Stat`.
+- **Write figure data in mdxcn's markdown-list form inside the figure**
+  (`- 29.7% Fawkner`; bold the accent row; ` — ` before a hint), never as
+  `items={[...]}` / `max={30}` expression props and never as `<Stat>` /
+  `<Rank>` marker children. Measured 2026-09-25: expression props are dropped
+  by the flight serialiser (the payload carried `{"title": …}` and nothing
+  else) and markers reach the client parent as unnamed `React.lazy` client
+  references (or, if server-defined, as nothing) — the frame renders, the rows
+  do not. The list form arrives as plain host `<ul>/<li>` in every pass.
+  `BLOG_MDX_FIGURES` in the map lists every name a post may use.
+
 ## Twitter / X Automation
 
 `@shorted___` is the live X handle. The bot is a self-contained Node + TypeScript project at `scripts/twitter/` that pulls live ASIC short data, market news, and director trades from the public shorted.com.au API and posts curated tweets.

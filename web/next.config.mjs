@@ -416,6 +416,18 @@ export default withBundleAnalyzer(
         "/housing/opengraph-image": ["./public/housing-banners/og/**/*"],
         "/housing/[state]/[suburb]/opengraph-image": [
           "./public/housing-banners/og/**/*",
+          "./public/geo/suburbs/*.topojson",
+          "./public/geo/states.topojson",
+          "./public/icon-512.png",
+          "./public/logo.png",
+        ],
+        // The suburb PAGE projects its banner inset and state locator from the
+        // same boundary files during ISR (lib/housing/suburb-geometry.server).
+        // Computed readFileSync paths again — untraced without this, and the
+        // maps would silently vanish on prod while passing every local test.
+        "/housing/[state]/[suburb]": [
+          "./public/geo/suburbs/*.topojson",
+          "./public/geo/states.topojson",
         ],
         "/housing/[state]/opengraph-image": [
           "./public/geo/states.topojson",

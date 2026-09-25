@@ -27,6 +27,21 @@ interface RelatedStocksProps {
 }
 
 /**
+ * ASX feeds classify some securities as "Not Applic" / "Class Pend" / "Other".
+ * Those are placeholders, not sectors: /industry/not-applic rendered a 200
+ * shell that Google crawled from stock pages, then canonicalised to a spam
+ * domain (Search Console, 2026-09). The industry pages already map them to
+ * nothing, so the link must never be emitted in the first place.
+ */
+export const PLACEHOLDER_INDUSTRY_SLUGS: ReadonlySet<string> = new Set([
+  "not-applic",
+  "not-applicable",
+  "class-pend",
+  "other",
+  "",
+]);
+
+/**
  * Component to display related stocks by industry for internal linking.
  * Improves SEO by creating contextual links between stock pages.
  */
@@ -80,7 +95,7 @@ export function RelatedStocks({
           ))}
         </div>
 
-        {stocks.length > 5 && industrySlug && (
+        {stocks.length > 5 && industrySlug && !PLACEHOLDER_INDUSTRY_SLUGS.has(industrySlug) && (
           <Link
             href={`/industry/${industrySlug}`}
             className="mt-4 text-sm text-primary hover:underline flex items-center gap-1"

@@ -87,7 +87,6 @@ describe("suburb profile route caching contract", () => {
     it("routes every connect-web island through an ssr:false loader", () => {
       for (const loader of [
         "./housing-charts",
-        "./suburb-locator-map-loader",
         "./suburb-recent-price-drops-loader",
       ]) {
         expect(profile).toContain(`from "${loader}"`);
@@ -96,11 +95,32 @@ describe("suburb profile route caching contract", () => {
       for (const direct of [
         './suburb-nearby-rail"',
         './suburb-recent-price-drops"',
-        './suburb-locator-map"',
         './housing-series-chart"',
       ]) {
         expect(profile).not.toContain(`from "${direct}`);
       }
+    });
+
+    it("renders both suburb maps as server SVG, not client islands", () => {
+      // The locator and banner inset used to be "use client" islands that
+      // fetched the whole state's boundary TopoJSON. They now take
+      // pre-projected paths (lib/housing/suburb-geometry) and must stay
+      // hook-free server components, so the boundary fetch never returns.
+      const locator = readFileSync(
+        resolve(__dirname, "../../../../../@/components/housing/suburb-locator-map.tsx"),
+        "utf8",
+      );
+      const banner = readFileSync(
+        resolve(__dirname, "../../../../../@/components/housing/suburb-banner-map.tsx"),
+        "utf8",
+      );
+      for (const src of [locator, banner]) {
+        expect(src).not.toMatch(/^"use client"/m);
+        expect(src).not.toContain("useTopojson");
+        expect(src).not.toContain("topojson");
+      }
+      expect(profile).toContain('from "./suburb-locator-map"');
+      expect(source).toContain("getSuburbGeometry(code, sal)");
     });
   });
 });
