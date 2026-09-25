@@ -19,17 +19,15 @@
  * `dynamic()` exports are true async chunks: downloaded only when a post
  * renders the figure, still server-rendered so the text is crawlable.
  *
- * WHY THE CHILD ITEMS ARE LOCAL MARKERS. `<Stat>`, `<Rank>`, `<Slope>` … are
- * null-rendering placeholders whose props the parent reads; mdxcn matches
- * them by NAME (`graphItem` / `displayName`, see `typeName` in graph-frame),
- * not by identity, precisely so a React Server client reference still
- * resolves. Defining the markers here keeps the parent modules out of the
- * static graph; `mdx-components.test.tsx` pins the name contract.
+ * Figure data is written in mdxcn's markdown-list form inside the figure
+ * (`- 29.7% Fawkner`), never as `<Stat>`-style markers or `items={[...]}`
+ * props — see mdxcn-figures.tsx for why neither survives the server/client
+ * boundary. `mdx-components.test.tsx` pins the list form.
  *
  * `h1` deliberately renders as <h2>: both routes already carry the page's
  * single <h1>. The August crawl flagged /blog for two H1s.
  */
-import type { ComponentType, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import Info from "~/@/components/ui/info";
 import RegisterEmailClient from "~/@/components/ui/register-email-client";
@@ -38,35 +36,13 @@ import * as lazy from "./mdxcn-figures";
 
 type H = React.HTMLAttributes<HTMLHeadingElement>;
 
-/**
- * A child-item marker with mdxcn's naming contract. Never renders; the parent
- * figure reads `props` off the element.
- */
-export function graphItem<P extends object>(name: string): ComponentType<P> & { graphItem: string } {
-  const Item = (() => null) as unknown as ComponentType<P> & { graphItem: string; displayName?: string };
-  Item.displayName = name;
-  Item.graphItem = name;
-  return Item;
-}
-
 /** Names a post may use as JSX. Kept as a list so a test can pin it. */
 export const BLOG_MDX_FIGURES = [
-  "Callout", "Quote", "Steps", "Step",
-  "GraphStat", "Stat", "GraphKpi", "GraphSlope", "Slope", "GraphRank", "Rank",
-  "GraphTimeline", "Event", "GraphTable", "Head", "Row", "Cell", "Foot",
-  "GraphSpark", "GraphMeter", "GraphWaterfall", "Delta", "GraphCompare", "Col",
-  "GraphFlow", "Path", "ScrollReveal", "CountUp", "HousingChart", "Info", "RegisterEmail",
+  "Callout", "Quote", "Steps",
+  "GraphStat", "GraphKpi", "GraphSlope", "GraphRank", "GraphTimeline", "GraphTable",
+  "GraphSpark", "GraphMeter", "GraphWaterfall", "GraphCompare", "GraphFlow",
+  "ScrollReveal", "CountUp", "HousingChart", "Info", "RegisterEmail",
 ] as const;
-
-/** The child-item names mdxcn parents look for; each marker's `graphItem` must equal its key. */
-export const BLOG_MDX_ITEM_MARKERS = [
-  "Step", "Stat", "Slope", "Rank", "Event", "Head", "Row", "Cell", "Foot", "Delta", "Col", "Path",
-] as const;
-
-const items = Object.fromEntries(BLOG_MDX_ITEM_MARKERS.map((name) => [name, graphItem<Record<string, unknown>>(name)])) as Record<
-  (typeof BLOG_MDX_ITEM_MARKERS)[number],
-  ReturnType<typeof graphItem<Record<string, unknown>>>
->;
 
 export const blogMdxComponents = {
   h1: ({ children, ...props }: H) => <h2 className="text-4xl font-bold mt-8 mb-4" {...props}>{children}</h2>,
@@ -112,6 +88,4 @@ export const blogMdxComponents = {
   GraphCompare: lazy.GraphCompare,
   GraphFlow: lazy.GraphFlow,
 
-  // mdxcn child items — local markers matched by name
-  ...items,
 };

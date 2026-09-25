@@ -860,7 +860,14 @@ from the mdxcn shadcn registry (MIT) into `web/src/@/registry/default/`.
   `useReducedMotion`.
 - The **newsroom palette is separate** (`components/news/mdx/`, three-place
   sync rule in `$newsroom`) and mdxcn's `Stat` child clashes with its `Stat`.
-- Prefer the `items={[...]}` data form in posts (it is what the tests pin);
+- **Write figure data in mdxcn's markdown-list form inside the figure**
+  (`- 29.7% Fawkner`; bold the accent row; ` — ` before a hint), never as
+  `items={[...]}` / `max={30}` expression props and never as `<Stat>` /
+  `<Rank>` marker children. Measured 2026-09-25: expression props are dropped
+  by the flight serialiser (the payload carried `{"title": …}` and nothing
+  else) and markers reach the client parent as unnamed `React.lazy` client
+  references (or, if server-defined, as nothing) — the frame renders, the rows
+  do not. The list form arrives as plain host `<ul>/<li>` in every pass.
   `BLOG_MDX_FIGURES` in the map lists every name a post may use.
 
 ## Twitter / X Automation

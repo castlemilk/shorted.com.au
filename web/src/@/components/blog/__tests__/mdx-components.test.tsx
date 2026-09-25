@@ -15,7 +15,7 @@ beforeAll(() => {
 jest.mock("~/@/components/housing/housing-charts", () => ({ HousingSeriesChart: () => null }));
 jest.mock("~/@/components/ui/register-email-client", () => () => null);
 
-import { BLOG_MDX_FIGURES, BLOG_MDX_ITEM_MARKERS, blogMdxComponents } from "../mdx-components";
+import { BLOG_MDX_FIGURES, blogMdxComponents } from "../mdx-components";
 import { GraphRank } from "@/registry/default/graph-rank/graph-rank";
 import { GraphStat } from "@/registry/default/graph-stat/graph-stat";
 
@@ -28,16 +28,6 @@ describe("blog MDX component map", () => {
     const { container } = render(blogMdxComponents.h1({ children: "Title" }));
     expect(container.querySelector("h2")).toHaveTextContent("Title");
     expect(container.querySelector("h1")).toBeNull();
-  });
-
-  it("keeps the child-item markers on mdxcn's naming contract", () => {
-    // Parents match children by `graphItem` / `displayName`, not identity
-    // (graph-frame `typeName`). A renamed marker would silently drop rows.
-    for (const name of BLOG_MDX_ITEM_MARKERS) {
-      const marker = blogMdxComponents[name] as { graphItem?: string; displayName?: string };
-      expect(marker.graphItem).toBe(name);
-      expect(marker.displayName).toBe(name);
-    }
   });
 
   it("renders a vendored figure from data-form items", () => {
@@ -57,19 +47,37 @@ describe("blog MDX component map", () => {
     expect(screen.getByText("Melbourne")).toBeInTheDocument();
   });
 
-  it("lets a parent read the map's local markers as children", () => {
-    // The whole point of the local markers: the lazily loaded parent must
-    // still find <Stat> rows written in a post.
-    const { Stat } = blogMdxComponents;
+  it("reads the markdown-list form a post writes inside a figure", () => {
+    // What MDX hands the parent after the server pass: plain host <ul>/<li>
+    // (the map's ul/li overrides render to hosts). First token is the value,
+    // bold marks the accent row, " — " separates a hint. This is the only
+    // authoring form that survives the server/client boundary — see
+    // mdxcn-figures.tsx.
     render(
-      <GraphStat title="Australia, March quarter 2026">
-        <Stat value="$1.11M" label="mean dwelling price" hint="+10.3% over the year" accent />
-        <Stat value="177.7%" label="household debt to income" />
+      <GraphStat title="30 days to 24 September 2026, 500-suburb panel">
+        <ul>
+          <li><strong>10.5%</strong> of listings cut their price</li>
+          <li>4.3% median cut — average 5.3%</li>
+          <li>$110M asking price removed</li>
+        </ul>
       </GraphStat>,
     );
-    expect(screen.getByText("$1.11M")).toBeInTheDocument();
-    expect(screen.getByText("mean dwelling price")).toBeInTheDocument();
-    expect(screen.getByText("+10.3% over the year")).toBeInTheDocument();
-    expect(screen.getByText("177.7%")).toBeInTheDocument();
+    expect(screen.getByText("10.5%")).toBeInTheDocument();
+    expect(screen.getByText("of listings cut their price")).toBeInTheDocument();
+    expect(screen.getByText("4.3%")).toBeInTheDocument();
+    expect(screen.getByText("average 5.3%")).toBeInTheDocument();
+    expect(screen.getByText("$110M")).toBeInTheDocument();
+
+    render(
+      <GraphRank title="Share of listings discounted, past 30 days">
+        <ul>
+          <li>29.7% Fawkner</li>
+          <li>20.5% Altona Meadows</li>
+        </ul>
+      </GraphRank>,
+    );
+    expect(screen.getByText("Fawkner")).toBeInTheDocument();
+    expect(screen.getByText("29.7%")).toBeInTheDocument();
+    expect(screen.getByText("Altona Meadows")).toBeInTheDocument();
   });
 });

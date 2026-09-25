@@ -32,3 +32,12 @@ utilities 3.4 has.
 
 Upstream motion rules, kept: opacity and transform only, ~220 ms, no loops,
 `useReducedMotion` respected.
+
+## Authoring form (this matters)
+
+In `_blogs` posts, write figure data as the markdown-list form inside the
+figure — `- 29.7% Fawkner`, bold for the accent row, ` — ` before a hint —
+with a blank line after the opening tag. Neither `items={[...]}` props nor
+`<Stat>`/`<Rank>` markers survive the React Server Components boundary here
+(see `components/blog/mdxcn-figures.tsx`); the list form does, because it
+reaches the parent as host `<ul>/<li>` elements.

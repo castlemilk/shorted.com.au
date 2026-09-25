@@ -14,6 +14,17 @@
  * HTML for crawlers and nothing shifts on hydration.
  *
  * `ScrollReveal` pulls react-spring; it is lazy for the same reason.
+ *
+ * NO CHILD-ITEM MARKERS. mdxcn's `<Stat>` / `<Rank>` / `<Slope>` markers are
+ * matched by the parent by NAME (`typeName` in graph-frame). Through React
+ * Server Components a marker arrives at the client parent as a `React.lazy`
+ * client reference whose name is unreadable, and a server-defined marker is
+ * executed on the server and arrives as nothing — measured both ways on
+ * 2026-09-25 (the frame rendered, the rows did not). Posts therefore use the
+ * figures' markdown-list form (`- 29.7% Fawkner`, bold for accent, ` — ` for
+ * a hint), which reaches the parent as plain host <ul>/<li> elements in every
+ * pass. Expression props (`items={[...]}`) are lost for the same family of
+ * reasons: the flight serialiser drops them, so only string props survive.
  */
 import dynamic from "next/dynamic";
 
