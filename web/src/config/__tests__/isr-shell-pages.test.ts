@@ -126,3 +126,34 @@ describe("council index pages in the ISR sweep and shell re-prime", () => {
     }
   });
 });
+
+// The state indexes build with an empty suburb directory (the directory read
+// skips at build), the suburb, council and industry pages read live data, and
+// the editorial indexes list rows published between deploys. Until 2026-09-25
+// none of them were in the sweep, so every promote handed them out as
+// build-time placeholders for up to their 24h TTL unless someone ran
+// `task deploy:revalidate` by hand with the right path list. A path containing
+// `[` revalidates the whole dynamic route (see api/revalidate/route.ts).
+describe("state, suburb, industry and editorial routes in the ISR sweep inventory", () => {
+  it("covers the eight state indexes and the dynamic routes", () => {
+    const all = new Set(isrPages as string[]);
+    for (const st of ["nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act"]) {
+      expect(all.has(`/housing/${st}`)).toBe(true);
+    }
+    for (const pattern of [
+      "/housing/[state]/[suburb]",
+      "/housing/[state]/council/[slug]",
+      "/industry-intelligence",
+      "/industry/[slug]",
+      "/blog",
+      "/news",
+      "/news/[slug]",
+    ]) {
+      expect(all.has(pattern)).toBe(true);
+    }
+  });
+
+  it("has no duplicates in the full inventory", () => {
+    expect(new Set(isrPages as string[]).size).toBe(isrPages.length);
+  });
+});

@@ -689,7 +689,11 @@ tasks:
       names — an unknown one is ignored and STILL returns 200. Read `flushedKeys`
       back from the response to confirm anything actually happened.
 
-      /housing/[state] and /housing/[state]/[suburb] are in no automated list.
+      The state indexes, /housing/[state]/[suburb], /housing/[state]/council/[slug],
+      /industry/[slug], /news/[slug] and the editorial indexes are in
+      web/src/config/isr-pages.json, so the workflow sweeps them post-promote;
+      reach for this task when a sweep failed (continue-on-error) or you
+      need a targeted path outside that list.
     requires: {vars: [CONFIRM]}
     preconditions:
       - sh: '[ "{{.CONFIRM}}" = "prod" ]'

@@ -62,5 +62,20 @@
   "/themes/tech-software",
   "/themes/ai-data-centres",
   "/themes/banks",
-  "/themes/biotech"
+  "/themes/biotech",
+  "/housing/nsw",
+  "/housing/vic",
+  "/housing/qld",
+  "/housing/sa",
+  "/housing/wa",
+  "/housing/tas",
+  "/housing/nt",
+  "/housing/act",
+  "/housing/[state]/[suburb]",
+  "/housing/[state]/council/[slug]",
+  "/industry-intelligence",
+  "/industry/[slug]",
+  "/blog",
+  "/news",
+  "/news/[slug]"
 ]
