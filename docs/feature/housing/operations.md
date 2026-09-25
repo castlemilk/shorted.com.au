@@ -298,11 +298,12 @@ and a **browser UA** (a curl UA is edge-blocked). `post-deploy-smoke.yml` then
 re-primes via `/api/static-pages/warm-cache` — the first five entries,
 `/market`, `/housing`, `/economy`, `/compare`, `/price-drops`.
 
-**`/housing/[state]`, `/housing/[state]/[suburb]` and
-`/housing/[state]/council/[slug]` are in neither list.** The eight council index
-pages are in `isr-pages.json`. All of these routes are `revalidate = 86400`, so
-after a promote they self-heal only on that 24h TTL unless revalidated
-explicitly. A `path` containing `[` revalidates the whole dynamic route. Manual
+**The eight state indexes, `/housing/[state]/[suburb]` and
+`/housing/[state]/council/[slug]` are in `isr-pages.json` (2026-09-25), alongside
+the eight council index pages**, so the post-promote sweep covers them; a `path`
+containing `[` revalidates the whole dynamic route. They are still not in the
+re-prime set, and all of them are `revalidate = 86400`, so if the sweep step
+fails (it is `continue-on-error`) they self-heal only on that 24h TTL. Manual
 fallback: get the secret with `gcloud secrets versions access latest
 --secret=REVALIDATION_SECRET --project rosy-clover-477102-t5`, then send the
 full route list from [Takedown](#takedown) step 3. `flush=housing` busts the
