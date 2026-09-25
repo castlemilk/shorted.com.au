@@ -940,7 +940,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// POST /api/admin/news/publish (start) + GET ?execution= (poll).
 	// Runs the shorted-news-publish job with an argv built server-side from a
 	// validated slug; the caller never supplies content. See news_publish.go.
-	mux.HandleFunc("/api/admin/news/publish", adminAuthMiddleware(adminNewsPublishHandler(logger, s.jobsCollector)))
+	mux.HandleFunc("/api/admin/news/publish", newsPublishAuthMiddleware(adminNewsPublishHandler(logger, s.jobsCollector)))
 
 	// Admin: list broadcasts
 	mux.HandleFunc("/api/admin/broadcasts", adminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {

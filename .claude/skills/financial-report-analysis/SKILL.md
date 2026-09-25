@@ -139,7 +139,7 @@ once the article is merged to `main` and the deploy has finished, the
 `shorted-news-publish` Cloud Run job publishes it with images:
 
 ```bash
-CONFIRM=prod task news:publish:remote SLUG=<slug>   # needs only INTERNAL_SERVICE_SECRET
+CONFIRM=prod task news:publish:remote SLUG=<slug>   # needs only NEWS_PUBLISH_TOKEN (publish-only)
 # = POST https://api.shorted.com.au/api/admin/news/publish {"slug":"<slug>"}, then poll
 #   GET ?execution=<name>. Details: scripts/take-writer/SERVERLESS.md
 ```

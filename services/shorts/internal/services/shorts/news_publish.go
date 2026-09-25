@@ -10,6 +10,9 @@ package shorts
 //	GET  /api/admin/news/publish?execution=<name>
 //	  → 200 {"status":"running"|"succeeded"|"failed", "logUri":..., "message":...}
 //
+// Auth: the INTERNAL_SERVICE_SECRET, or the narrower NEWS_PUBLISH_TOKEN that
+// only this route accepts (news_publish_auth.go).
+//
 // The work happens in the shorted-news-publish Cloud Run job (take-writer
 // `publish-content`), which holds DATABASE_URL, the model keys, the
 // revalidation secret and GCS write access. The handler is a courier: it never
@@ -41,7 +44,7 @@ func adminNewsPublishHandler(logger *log.Logger, publisher newsPublisher) http.H
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-internal-secret, x-admin-actor")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-internal-secret, x-news-publish-token, x-admin-actor")
 
 		switch r.Method {
 		case http.MethodOptions:
