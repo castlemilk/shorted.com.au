@@ -145,7 +145,10 @@ func AdminRegistry() []AdminTool {
 // NewAdminServer builds the admin MCP server. It has tools only: no resources
 // or prompts, which describe the public data surface.
 func NewAdminServer(pub AdminPublisher) *sdk.Server {
-	server := sdk.NewServer(&sdk.Implementation{Name: AdminServerName, Title: AdminServerTitle, Version: ServerVersion}, nil)
+	server := sdk.NewServer(&sdk.Implementation{
+		Name: AdminServerName, Title: AdminServerTitle, Version: ServerVersion,
+		WebsiteURL: WebsiteURL, Icons: Icons(),
+	}, nil)
 	if pub != nil {
 		for _, t := range AdminRegistry() {
 			t.register(server, pub)
