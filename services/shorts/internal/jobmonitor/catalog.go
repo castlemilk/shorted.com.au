@@ -84,6 +84,16 @@ var catalog = map[string]catalogEntry{
 		Note: "`shorted weekly-report` — weekly + monthly on one job; replaced weekly-report-generator",
 	},
 
+	// --- Operator-invoked (no schedule) ----------------------------------------
+	"shorted-news-publish": {
+		DisplayName: "News Publish",
+		Category:    "News",
+		// Runs only via POST /api/admin/news/publish, which supplies the slug as
+		// an argument override. Its deployed args are a read-only `list-drafts`,
+		// so a bare execution publishes nothing.
+		Note: "take-writer `publish-content --slug=…` — run via /api/admin/news/publish, never on a schedule",
+	},
+
 	// --- Surviving standalone jobs ---------------------------------------------
 	"shorts-data-sync": {
 		DisplayName: "Short Positions Sync",

@@ -45,7 +45,7 @@ function allTaskNames() {
 test("every production-write task requires an explicit CONFIRM", () => {
   // `prompt:` is not enough for these: `task --yes` and any non-TTY caller sail
   // straight through it. A required variable cannot be bypassed by accident.
-  const prodWriters = ["db:prod:apply", "db:prod:refresh", "job:prod:exec", "deploy:revalidate"];
+  const prodWriters = ["db:prod:apply", "db:prod:refresh", "job:prod:exec", "deploy:revalidate", "news:publish:remote"];
 
   for (const name of prodWriters) {
     const body = taskBody(name);
@@ -212,6 +212,7 @@ test("tasks whose misuse is silent carry long help", () => {
     "test:lint",
     "test:e2e",
     "deploy:revalidate",
+    "news:publish:remote",
     "dev:ports",
   ]) {
     assert.match(taskBody(name), /\n\s+summary:\s*\|/, `${name} needs a summary explaining its landmine`);

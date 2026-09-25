@@ -148,6 +148,7 @@ Commands:
   validate-article Screenshot + Gemini-vision cohesion check with auto-fix loop (--slug=SLUG [--rounds=2])
   results-watch   List companies that just filed results, ranked by short interest (--since-days=N [--limit=N])
   import-mdx      Upsert a hand-written MDX article as a DRAFT (--file=... | --dir=... [--dry-run] [--publish])
+  publish-content Import ONE content/news article by slug and publish it with images (--slug=SLUG [--dir=...] [--no-images] [--no-validate]) — the Cloud Run entrypoint
   list-drafts     List unpublished drafts; --slug=SLUG prints one draft's full body + citations
   publish         Publish a draft: images → validate → set published_at → tweet (--slug=SLUG [--no-images] [--no-validate] [--tweet])
   narrative Multi-section journalism-engine Take for one --stock=CODE
@@ -405,6 +406,16 @@ async function main(): Promise<void> {
         dir: args.dir,
         dryRun: args.dryRun,
         publish: args.publish,
+      });
+      break;
+    }
+    case "publish-content": {
+      const { publishContent } = await import("./import-mdx.js");
+      await publishContent({
+        slug: args.slug,
+        dir: args.dir,
+        noImages: args.noImages,
+        noValidate: args.noValidate,
       });
       break;
     }

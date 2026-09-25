@@ -22,6 +22,8 @@ function moduleBlock(name) {
 test("production uses separate Gemini secrets per paid workload", () => {
   assert.match(moduleBlock("chat_service"), /gemini_secret_name\s+=\s+"GEMINI_API_KEY_CHAT"/);
   assert.match(moduleBlock("shorted_job_news"), /GEMINI_API_KEY\s+=\s+"GEMINI_API_KEY_NEWS"/);
+  // The publish job is the same newsroom workload, so it shares the news key.
+  assert.match(moduleBlock("shorted_job_news_publish"), /GEMINI_API_KEY\s+=\s+"GEMINI_API_KEY_NEWS"/);
   assert.match(moduleBlock("report_extractor"), /gemini_secret_name\s+=\s+"GEMINI_API_KEY_REPORT_EXTRACTOR"/);
 });
 

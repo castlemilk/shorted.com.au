@@ -110,6 +110,37 @@ ON CONFLICT (slug) DO UPDATE SET
 RETURNING slug, published_at
 `;
 
+/** Upsert parsed articles into editorial_takes, one row per slug. */
+async function upsertParsed(dbUrl: string, parsed: ParsedTake[]): Promise<void> {
+  const pg = new PgClient({ connectionString: dbUrl });
+  await pg.connect();
+  try {
+    for (const p of parsed) {
+      const fm = p.frontmatter;
+      const res = await pg.query(UPSERT, [
+        fm.slug,
+        fm.headline,
+        fm.standfirst ?? null,
+        fm.byline ?? null,
+        fm.stockCode ?? "",
+        fm.tier ?? "take",
+        fm.bodyFormat ?? "markdown",
+        p.body,
+        fm.ogImageUrl ?? "",
+        p.wordCount,
+        "hand-written",
+      ]);
+      const row = res.rows[0];
+      const state = row.published_at
+        ? `ALREADY PUBLISHED ${new Date(row.published_at).toISOString().slice(0, 10)} (content updated in place)`
+        : "draft";
+      console.log(`  upserted ${row.slug}  [${state}]`);
+    }
+  } finally {
+    await pg.end();
+  }
+}
+
 export async function importMdx(opts: {
   file?: string;
   dir?: string;
@@ -158,33 +189,7 @@ export async function importMdx(opts: {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL not set");
 
-  const pg = new PgClient({ connectionString: dbUrl });
-  await pg.connect();
-  try {
-    for (const p of parsed) {
-      const fm = p.frontmatter;
-      const res = await pg.query(UPSERT, [
-        fm.slug,
-        fm.headline,
-        fm.standfirst ?? null,
-        fm.byline ?? null,
-        fm.stockCode ?? "",
-        fm.tier ?? "take",
-        fm.bodyFormat ?? "markdown",
-        p.body,
-        fm.ogImageUrl ?? "",
-        p.wordCount,
-        "hand-written",
-      ]);
-      const row = res.rows[0];
-      const state = row.published_at
-        ? `ALREADY PUBLISHED ${new Date(row.published_at).toISOString().slice(0, 10)} (content updated in place)`
-        : "draft";
-      console.log(`  upserted ${row.slug}  [${state}]`);
-    }
-  } finally {
-    await pg.end();
-  }
+  await upsertParsed(dbUrl, parsed);
 
   if (!opts.publish) {
     console.log("\nreview:  npx tsx src/index.ts list-drafts");
@@ -202,4 +207,89 @@ export async function importMdx(opts: {
       noValidate: true,
     });
   }
+}
+
+// --- publish-content: the Cloud Run entrypoint ------------------------------
+//
+// The shorted-news-publish job runs this, with the slug supplied by the shorts
+// API (POST /api/admin/news/publish), which validates it against the same
+// pattern before building the argv. The content/news directory is baked into
+// the image at build time, so what gets published is exactly what was merged
+// to main — the API never carries an article body.
+
+/**
+ * The slug shape. Deliberately narrower than what import-mdx accepts from a
+ * file: this one arrives from the network. Mirrored in the shorts API
+ * (services/shorts/internal/jobmonitor/publish.go `slugPattern`) — change both.
+ */
+export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const MAX_SLUG_LENGTH = 120;
+
+export function assertValidSlug(slug: string): void {
+  if (!slug || slug.length > MAX_SLUG_LENGTH || !SLUG_PATTERN.test(slug)) {
+    throw new Error(`invalid slug ${JSON.stringify(slug)}: want lowercase kebab-case, <= ${MAX_SLUG_LENGTH} chars`);
+  }
+}
+
+/** Where the article files live: CONTENT_DIR (the image sets it), else the repo layout. */
+export function defaultContentDir(): string {
+  return process.env.CONTENT_DIR || resolve("../../content/news");
+}
+
+/**
+ * Find the file whose FRONTMATTER slug matches. Files are matched on their
+ * contents, not their names, because the slug is what the row is keyed on and
+ * a file can be renamed without changing it. Exactly one match is required.
+ */
+export function findContentBySlug(dir: string, slug: string): { file: string; parsed: ParsedTake } {
+  assertValidSlug(slug);
+  const matches: { file: string; parsed: ParsedTake }[] = [];
+  for (const name of readdirSync(dir).sort()) {
+    if (!name.endsWith(".mdx")) continue;
+    const file = join(dir, name);
+    let parsed: ParsedTake;
+    try {
+      parsed = parseTakeMdx(readFileSync(file, "utf8"));
+    } catch {
+      // A broken sibling must not block publishing a good article; it will
+      // fail loudly the day someone tries to publish IT.
+      continue;
+    }
+    if (parsed.frontmatter.slug === slug) matches.push({ file, parsed });
+  }
+  if (matches.length === 0) {
+    throw new Error(`no article with slug ${slug} in ${dir} — is it merged to main, and was the image rebuilt since?`);
+  }
+  if (matches.length > 1) {
+    throw new Error(`slug ${slug} is claimed by ${matches.length} files: ${matches.map((m) => m.file).join(", ")}`);
+  }
+  return matches[0]!;
+}
+
+/**
+ * Import ONE article by slug and publish it through the full chain
+ * (images -> validate -> published_at -> revalidate). Idempotent: an article
+ * that is already published has its content updated in place and nothing else.
+ */
+export async function publishContent(opts: {
+  slug?: string;
+  dir?: string;
+  noImages?: boolean;
+  noValidate?: boolean;
+}): Promise<void> {
+  if (!opts.slug) throw new Error("--slug=SLUG required for publish-content");
+  const dir = resolve(opts.dir ?? defaultContentDir());
+  const { file, parsed } = findContentBySlug(dir, opts.slug);
+  console.log(`[publish-content] ${opts.slug} <- ${file} (${parsed.wordCount} words)`);
+
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) throw new Error("DATABASE_URL not set");
+  await upsertParsed(dbUrl, [parsed]);
+
+  const { publishTake } = await import("./publish.js");
+  await publishTake({
+    slug: opts.slug,
+    noImages: opts.noImages,
+    noValidate: opts.noValidate,
+  });
 }

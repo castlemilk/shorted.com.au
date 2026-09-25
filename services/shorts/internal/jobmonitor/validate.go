@@ -266,10 +266,16 @@ func (c *Collector) RunValidation(ctx context.Context, req ValidationRequest) (*
 	}, nil
 }
 
-// resolveValidationTarget finds shorts-data-sync in the collected fleet. Same
-// posture as resolveRunTarget: the caller never names a resource, and an
-// unknown/retired/non-job row refuses here rather than at GCP.
+// resolveValidationTarget finds shorts-data-sync in the collected fleet.
 func (c *Collector) resolveValidationTarget(ctx context.Context) (*JobStatus, error) {
+	return c.resolveNamedTarget(ctx, ValidationJobName)
+}
+
+// resolveNamedTarget finds one server-chosen job in the collected fleet. Same
+// posture as resolveRunTarget: the name is always a constant of this package,
+// never caller input, and an unknown/retired/non-job row refuses here rather
+// than at GCP.
+func (c *Collector) resolveNamedTarget(ctx context.Context, jobName string) (*JobStatus, error) {
 	if c.cfg.ProjectID == "" {
 		return nil, ErrNoProject
 	}
@@ -278,7 +284,7 @@ func (c *Collector) resolveValidationTarget(ctx context.Context) (*JobStatus, er
 		return nil, err
 	}
 	for i := range jobs {
-		if jobs[i].Name != ValidationJobName {
+		if jobs[i].Name != jobName {
 			continue
 		}
 		if jobs[i].Type != "job" || jobs[i].Region == "" {
@@ -405,20 +411,9 @@ func (c *Collector) SetArtifactReader(r ArtifactReader)   { c.artifactReader = r
 // console polls the same endpoint, sees the same three states, and treats
 // ErrSummaryNotFound the same way.
 func (c *Collector) ValidationResult(ctx context.Context, executionName string) (*ValidationReport, error) {
-	execName := strings.TrimSpace(executionName)
-	// A full resource path is accepted for convenience, but ONLY the last
-	// segment is ever used, and only when the rest of the path is the exact
-	// shape Cloud Run emits. Anything else (a relative path, a traversal, a
-	// different resource kind) is refused outright rather than silently reduced
-	// to its basename — "../../etc/passwd" must not become "passwd".
-	if strings.Contains(execName, "/") {
-		if !executionPathPattern.MatchString(execName) {
-			return nil, ErrInvalidExecution
-		}
-		execName = basename(execName)
-	}
-	if !executionNamePattern.MatchString(execName) {
-		return nil, ErrInvalidExecution
+	execName, err := normalizeExecutionName(executionName)
+	if err != nil {
+		return nil, err
 	}
 	target, err := c.resolveValidationTarget(ctx)
 	if err != nil {
@@ -490,6 +485,28 @@ func (c *Collector) ValidationResult(ctx context.Context, executionName string) 
 		return rep, ErrSummaryNotFound
 	}
 	return rep, nil
+}
+
+// normalizeExecutionName validates a caller-supplied execution name before it
+// is interpolated into a resource path.
+//
+// A full resource path is accepted for convenience, but ONLY the last segment
+// is ever used, and only when the rest of the path is the exact shape Cloud Run
+// emits. Anything else (a relative path, a traversal, a different resource
+// kind) is refused outright rather than silently reduced to its basename —
+// "../../etc/passwd" must not become "passwd".
+func normalizeExecutionName(in string) (string, error) {
+	execName := strings.TrimSpace(in)
+	if strings.Contains(execName, "/") {
+		if !executionPathPattern.MatchString(execName) {
+			return "", ErrInvalidExecution
+		}
+		execName = basename(execName)
+	}
+	if !executionNamePattern.MatchString(execName) {
+		return "", ErrInvalidExecution
+	}
+	return execName, nil
 }
 
 // executionState collapses Cloud Run's counters into the three states the

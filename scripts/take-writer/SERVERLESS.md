@@ -82,6 +82,50 @@ To enable in an environment:
    to the GCS bucket.
 3. `terraform apply`.
 
+## Publishing a hand-written article from anywhere (LIVE in prod)
+
+`shorted-news-publish` is a prod Cloud Run Job (take-writer image, provisioned
+by `module "shorted_job_news_publish"` in `terraform/environments/prod/main.tf`)
+that publishes ONE merged `content/news/*.mdx` article with the full chain:
+upsert → images → vision check → `published_at` → revalidate `/news`. The
+caller needs no database URL, model keys or GCS credentials — only the
+`INTERNAL_SERVICE_SECRET`.
+
+```bash
+# from a checkout (reads INTERNAL_SERVICE_SECRET from env, else gcloud):
+CONFIRM=prod task news:publish:remote SLUG=<slug>            # images on
+CONFIRM=prod task news:publish:remote SLUG=<slug> NO_IMAGES=1
+
+# or directly:
+curl -X POST https://api.shorted.com.au/api/admin/news/publish \
+  -H "x-internal-secret: $INTERNAL_SERVICE_SECRET" -H "Content-Type: application/json" \
+  -d '{"slug":"<slug>"}'                       # → 202 {"executionName":...}
+curl -H "x-internal-secret: $INTERNAL_SERVICE_SECRET" \
+  "https://api.shorted.com.au/api/admin/news/publish?execution=<executionName>"
+                                               # → {"status":"running|succeeded|failed","logUri":...}
+```
+
+How it is kept narrow:
+
+- **The article must be merged to `main`.** `content/news` is baked into the
+  image at build time (a named `content` build context — `docker build
+  --build-context content=../../content/news .`), and CI rebuilds it on every
+  push to main. The API carries a slug, never an article body.
+- **The API builds the argv** (`publish-content --slug=<slug> [--no-images]`)
+  from a slug matching `^[a-z0-9]+(-[a-z0-9]+)*$`
+  (`services/shorts/internal/jobmonitor/publish.go`, mirrored in
+  `src/import-mdx.ts`; `scripts/tests/news-publish-job.test.mjs` pins they agree).
+- **Only the shorts-api SA can pass an override**, via `roles/run.developer`
+  scoped to this one job. The job is not in the fleet "Run now" map, and its
+  deployed args are `list-drafts`, so a bare execution writes nothing.
+- **No retries, and a running publish refuses a second** (409, `force:true`
+  overrides): a retry would pay for images twice.
+- Gemini uses `GEMINI_API_KEY_NEWS` (per-workload isolation); images go to
+  `shorted-company-logos-prod`.
+
+The locally run `publish-content --slug=...` does the same thing against
+whatever `DATABASE_URL` you export (it reads `../../content/news` by default).
+
 ## Local CLI usage (unchanged)
 
 ```bash

@@ -166,6 +166,13 @@ resource "google_storage_bucket_iam_member" "company_logos_writer" {
   member = "serviceAccount:${module.enrichment_processor.service_account_email}"
 }
 
+# The news publish job writes article hero/layout images (takes/<slug>-*.png).
+resource "google_storage_bucket_iam_member" "company_logos_news_publish_writer" {
+  bucket = google_storage_bucket.shared_assets["company_logos"].name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.shorted_job_news_publish.service_account_email}"
+}
+
 resource "google_storage_bucket_iam_member" "financial_reports_writer" {
   bucket = google_storage_bucket.shared_assets["financial_reports"].name
   role   = "roles/storage.objectAdmin"
@@ -697,6 +704,67 @@ module "shorted_job_news" {
   ]
 }
 
+# `publish-content` — publish ONE merged content/news article to /news.
+#
+# Operator-invoked only: no schedule. It runs when POST /api/admin/news/publish
+# executes it with an argv override built server-side from a validated slug
+# (services/shorts/internal/jobmonitor/publish.go). The article files are baked
+# into the take-writer image at build time, so the job can publish exactly
+# what was merged to main and nothing a caller supplies.
+#
+# Its DEPLOYED args are a read-only `list-drafts`: a bare execution (a manual
+# console click, a stray :run) prints the draft queue and writes nothing. The
+# only way to publish is the override, and the only principal that may pass an
+# override is the shorts-api SA, via the job-scoped run.developer grant below.
+module "shorted_job_news_publish" {
+  source = "../../modules/shorted-job"
+
+  name        = "shorted-news-publish"
+  description = "Publish one content/news article (admin API only, never scheduled)"
+  project_id  = var.project_id
+  region      = var.region
+  environment = "production"
+  image_url   = var.take_writer_image
+
+  args     = ["list-drafts"]
+  schedule = ""
+
+  env = {
+    ENVIRONMENT = "production"
+    CONTENT_DIR = "/app/content/news"
+    # Hero + layout images land in the prod-owned public bucket; the job SA's
+    # write access is company_logos_news_publish_writer below.
+    GCS_LOGO_BUCKET = local.shared_asset_buckets.company_logos
+    # The draft page is not live yet, and the image has no Chromium: judge
+    # images individually rather than from a full-page screenshot.
+    VALIDATOR_SCREENSHOT = "0"
+  }
+
+  # All four secrets already exist in prod Secret Manager. Gemini uses the
+  # NEWS workload's key (per-workload isolation; see
+  # gemini-secret-isolation.test.mjs) — this is the same newsroom workload.
+  secret_env = {
+    DATABASE_URL        = "DATABASE_URL"
+    GEMINI_API_KEY      = "GEMINI_API_KEY_NEWS"
+    OPENAI_API_KEY      = "OPENAI_API_KEY"
+    REVALIDATION_SECRET = "REVALIDATION_SECRET"
+  }
+
+  # Image generation dominates: a hero at `high` has been measured at ~180s
+  # before falling back to `medium`, plus three layout images and a vision
+  # check. max_retries = 0 because a retry re-pays for images, and a failed
+  # publish leaves the article a draft — safe to re-run by hand.
+  timeout_seconds = 1800
+  max_retries     = 0
+  cpu             = "1"
+  memory          = "1Gi"
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
 # `shorted signals` — replaces module.signals_collector.
 # workers=2: brandbrain single-instance 502s above ~2 concurrent grounded calls.
 module "shorted_job_signals" {
@@ -915,6 +983,21 @@ resource "google_cloud_run_v2_job_iam_member" "shorts_api_validate_sync" {
   project  = var.project_id
   location = var.region
   name     = module.short_data_sync.job_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.shorts_api.service_account_email}"
+}
+
+# News publish — POST /api/admin/news/publish.
+#
+# Same pairing as the validation grant above: run.developer (runWithOverrides)
+# scoped to this ONE job, and an argv the service constructs from a slug
+# validated against ^[a-z0-9]+(-[a-z0-9]+)*$. The job is deliberately NOT in
+# local.admin_runnable_jobs: "Run now" has nothing useful to do with it, and
+# the override grant is the only execution path it needs.
+resource "google_cloud_run_v2_job_iam_member" "shorts_api_news_publish" {
+  project  = var.project_id
+  location = var.region
+  name     = module.shorted_job_news_publish.job_name
   role     = "roles/run.developer"
   member   = "serviceAccount:${module.shorts_api.service_account_email}"
 }
