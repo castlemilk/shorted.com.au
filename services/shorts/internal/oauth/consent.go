@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
-	"github.com/castlemilk/shorted.com.au/services/shorts/internal/mcp"
 )
 
 // ConsentTicketTTL is how long a human's approval stays spendable.
@@ -104,6 +103,8 @@ var scopeDescriptions = map[string]string{
 	"housing:read":  "Read Australian house prices, suburb statistics and price drops",
 	"economy:read":  "Read Australian economic series and state economic data",
 	"politics:read": "Read federal politicians' declared registers of interests",
+	// Admin resource (/mcp/admin) only — grantable to administrators alone.
+	"news:publish": "Publish merged articles to shorted.com.au/news, including generating their images",
 }
 
 // DescribeScopes turns a space-delimited grant into ordered, human-readable
@@ -115,7 +116,7 @@ func DescribeScopes(scope string) []ScopeDescription {
 		granted[s] = true
 	}
 	out := make([]ScopeDescription, 0, len(granted))
-	for _, s := range mcp.Scopes { // published order, not map order
+	for _, s := range allScopes() { // published order, not map order
 		if granted[s] {
 			out = append(out, ScopeDescription{Scope: s, Description: scopeDescriptions[s]})
 		}
@@ -135,6 +136,9 @@ type ConsentConfig struct {
 	Authorize func(*http.Request) bool
 	// Now is injectable for tests. Defaults to time.Now.
 	Now func() time.Time
+	// AdminEntitlement decides who may be granted the admin MCP resource. Nil
+	// makes that resource ungrantable. See resources.go.
+	AdminEntitlement Entitlement
 }
 
 // consentRequest is the shape of both endpoints' bodies. Describe ignores
@@ -166,8 +170,7 @@ type consentHandler struct {
 	tickets   ConsentStore
 	authorize func(*http.Request) bool
 	now       func() time.Time
-	resources []string
-	scopes    map[string]bool
+	resources []grantableResource
 }
 
 // NewConsentDescribeHandler builds the read-only POST /oauth/consent/describe
@@ -209,10 +212,6 @@ func newConsentHandler(cfg ConsentConfig, mint bool) http.Handler {
 		now = time.Now
 	}
 	issuer := cfg.Endpoints.issuer()
-	scopes := make(map[string]bool, len(mcp.Scopes))
-	for _, s := range mcp.Scopes {
-		scopes[s] = true
-	}
 	return &consentHandler{
 		mint:      mint,
 		issuer:    issuer,
@@ -220,8 +219,7 @@ func newConsentHandler(cfg ConsentConfig, mint bool) http.Handler {
 		tickets:   cfg.Tickets,
 		authorize: cfg.Authorize,
 		now:       now,
-		resources: []string{mcp.ResourceURI(issuer)},
-		scopes:    scopes,
+		resources: grantableResources(issuer, cfg.AdminEntitlement),
 	}
 }
 
@@ -254,10 +252,11 @@ func (h *consentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, resource, scope, ok := h.validate(w, r, req)
+	client, target, scope, ok := h.validate(w, r, req)
 	if !ok {
 		return
 	}
+	resource := target.uri
 
 	if !h.mint {
 		writeConsentJSON(w, map[string]any{
@@ -281,6 +280,22 @@ func (h *consentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(req.UserID) == "" {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_request",
 			"user_id is required — a ticket records who approved")
+		return
+	}
+
+	// An approval the grant would refuse is not minted: the admin resource is
+	// only ever ticketed for a user the entitlement approves.
+	entitled, err := target.entitledTo(r.Context(), req.UserID)
+	if err != nil {
+		log.Errorf("oauth consent: entitlement check for %s failed: %v", resource, err)
+		writeOAuthError(w, http.StatusServiceUnavailable, "temporarily_unavailable",
+			"could not confirm access to this resource; try again")
+		return
+	}
+	if !entitled {
+		log.Warnf("oauth consent: user is not entitled to %s", resource)
+		writeOAuthError(w, http.StatusForbidden, "access_denied",
+			"this account may not be granted access to this resource")
 		return
 	}
 
@@ -316,25 +331,25 @@ func (h *consentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // validate applies the SAME checks the grant applies, so the request the human
 // is shown is the request the grant will accept. Divergence between the two is
 // how a consent screen ends up describing one thing and authorising another.
-func (h *consentHandler) validate(w http.ResponseWriter, r *http.Request, req consentRequest) (*Client, string, string, bool) {
+func (h *consentHandler) validate(w http.ResponseWriter, r *http.Request, req consentRequest) (*Client, *grantableResource, string, bool) {
 	if req.ClientID == "" {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_client", "client_id is required")
-		return nil, "", "", false
+		return nil, nil, "", false
 	}
 	client, err := h.store.GetClient(r.Context(), req.ClientID)
 	if err != nil {
 		log.Errorf("oauth consent: client lookup failed: %v", err)
 		writeOAuthError(w, http.StatusInternalServerError, "server_error", "client lookup failed")
-		return nil, "", "", false
+		return nil, nil, "", false
 	}
 	if client == nil {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_client", "unknown client_id")
-		return nil, "", "", false
+		return nil, nil, "", false
 	}
 	if len(client.GrantTypes) > 0 && !containsString(client.GrantTypes, "authorization_code") {
 		writeOAuthError(w, http.StatusBadRequest, "unauthorized_client",
 			"this client is not registered for the authorization_code grant")
-		return nil, "", "", false
+		return nil, nil, "", false
 	}
 
 	// Exact string match, for the same reason as the grant: anything looser is
@@ -342,18 +357,18 @@ func (h *consentHandler) validate(w http.ResponseWriter, r *http.Request, req co
 	// one destination and honouring another.
 	if req.RedirectURI == "" {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_request", "redirect_uri is required")
-		return nil, "", "", false
+		return nil, nil, "", false
 	}
 	if !matchRedirectURI(client.RedirectURIs, req.RedirectURI) {
 		log.Warnf("oauth consent: redirect_uri %q is not registered for client %q", req.RedirectURI, client.ClientID)
 		writeOAuthError(w, http.StatusBadRequest, "invalid_request",
 			"redirect_uri does not exactly match a registered redirect URI")
-		return nil, "", "", false
+		return nil, nil, "", false
 	}
 
 	if req.CodeChallenge == "" {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_request", "code_challenge is required")
-		return nil, "", "", false
+		return nil, nil, "", false
 	}
 	// RFC 7636 §4.3 makes an omitted method mean "plain". Accepting the empty
 	// string would therefore be a silent downgrade, so absence is refused
@@ -361,25 +376,22 @@ func (h *consentHandler) validate(w http.ResponseWriter, r *http.Request, req co
 	if req.CodeChallengeMethod != "S256" {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_request",
 			"code_challenge_method must be S256")
-		return nil, "", "", false
+		return nil, nil, "", false
 	}
 
-	resource := req.Resource
-	if resource == "" && len(h.resources) == 1 {
-		resource = h.resources[0]
-	}
-	if !containsString(h.resources, resource) {
+	target, ok := resolveResource(h.resources, req.Resource)
+	if !ok {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_target",
 			"resource is not a resource served by this authorization server")
-		return nil, "", "", false
+		return nil, nil, "", false
 	}
 
-	scope, ok := normaliseScope(h.scopes, req.Scope, client.Scope)
+	scope, ok := normaliseScope(target, req.Scope, client.Scope)
 	if !ok {
 		writeOAuthError(w, http.StatusBadRequest, "invalid_scope", "unsupported scope requested")
-		return nil, "", "", false
+		return nil, nil, "", false
 	}
-	return client, resource, scope, true
+	return client, target, scope, true
 }
 
 func writeConsentJSON(w http.ResponseWriter, body map[string]any) {

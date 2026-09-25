@@ -14,6 +14,7 @@ import (
 
 	"connectrpc.com/connect"
 	connectcors "connectrpc.com/cors"
+	mcpauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/rs/cors"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
@@ -265,6 +266,36 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mux.Handle("/mcp", mcpHandler)
 	mux.Handle("/mcp/", mcpHandler)
 
+	// ADMIN MCP server — publishing, for administrators only. A separate OAuth
+	// resource (/mcp/admin) with its own scope (news:publish); see
+	// internal/mcp/admin.go for why it is not tools on the public server.
+	//
+	// Exact patterns, so they beat "/mcp/" above by ServeMux's longest-match
+	// rule — without them the PUBLIC server would answer /mcp/admin.
+	//
+	// Order, outermost first:
+	//   1. RequireBearerToken — no anonymous path; a missing token gets the 401
+	//      + RFC 9728 challenge that starts a client's OAuth flow, a wrong
+	//      audience or missing news:publish is refused.
+	//   2. RequireAdmin — re-checks admin status on EVERY request, so removing
+	//      someone from ADMIN_EMAILS stops them within the check's cache TTL,
+	//      not when their refresh family expires.
+	//   3. The admin MCP handler (publish_news_article, news_publish_status).
+	adminChecker := newAdminCheckerFromEnv()
+	var adminEntitlement oauth.Entitlement
+	var adminCheck mcp.AdminCheck
+	if adminChecker != nil {
+		adminEntitlement = adminChecker.IsAdmin
+		adminCheck = adminChecker.IsAdmin
+	}
+	adminMCPHandler := mcpauth.RequireBearerToken(
+		mcp.NewTokenVerifier(s.tokenService, mcp.AdminResourceURI(apiBaseURL)),
+		mcp.AdminBearerTokenOptions(apiBaseURL),
+	)(mcp.RequireAdmin(adminCheck)(mcp.AdminHandler(s.jobsCollector)))
+	mux.Handle("/mcp/admin", adminMCPHandler)
+	mux.Handle("/mcp/admin/", adminMCPHandler)
+	mux.Handle(mcp.AdminProtectedResourceMetadataPath, mcp.AdminProtectedResourceMetadataHandler(apiBaseURL))
+
 	// RFC 9728 protected resource metadata. This is the document the
 	// WWW-Authenticate challenge points at, and the first thing an MCP client
 	// fetches when it decides it needs to authenticate — it is how a client
@@ -366,6 +397,8 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		Store:     oauthClients,
 		Tickets:   s.oauthStore,
 		Authorize: consentAuthorizer,
+		// The admin MCP resource is ticketed only for an administrator.
+		AdminEntitlement: adminEntitlement,
 	}
 	// What the human must be shown, computed by the same validation the grant
 	// applies — so the screen cannot describe one request and authorise another.
@@ -383,6 +416,8 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		Identity:  firebaseIdentityVerifier{},
 		Store:     oauthClients,
 		Consent:   s.oauthStore,
+		// Re-checked at grant time: an approval is about the past.
+		AdminEntitlement: adminEntitlement,
 	})))
 	// RFC 7591 dynamic client registration. Deprecated in protocol 2026-07-28
 	// in favour of CIMD above, but retained because Claude and ChatGPT still
@@ -404,6 +439,8 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		Store:       oauthClients,
 		Minter:      s.tokenService,
 		ResolveTier: oauth.TierResolver(authOpts.SubscriptionLookup),
+		// Re-checked on every code exchange AND every refresh.
+		AdminEntitlement: adminEntitlement,
 	})))
 
 	// Add health check endpoint

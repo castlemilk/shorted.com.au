@@ -841,6 +841,15 @@ Next.js contributes only the consent screen.
 
 Full record: `docs/superpowers/handover-2026-08-29-mcp-oauth.md`.
 
+**Admin MCP server — `/mcp/admin`** (`docs/mcp-admin.md`). A SECOND resource
+for administrators: `publish_news_article` / `news_publish_status`, scope
+`news:publish`, connected once as a claude.ai custom connector. It is a
+separate OAuth resource with its own scope vocabulary (`oauth/resources.go`) —
+never add a write tool or a non-`:read` scope to the public server or
+`mcp.Scopes`. Admin = verified email on the web app's `ADMIN_EMAILS`, resolved
+from the token's uid via the web app's `/api/internal/admin-check` and
+re-checked at ticket, grant, token, every refresh and every request.
+
 ## Blog MDX palette (mdxcn figures)
 
 `/blog` posts (`web/_blogs/*.mdx`) render through ONE component map,
