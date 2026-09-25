@@ -68,6 +68,15 @@ jobs:
         with:
           version: ${{ env.GOLANGCI_VERSION }}
           working-directory: services
+          # verify: false is deliberate. The action's default pre-step runs
+          # `golangci-lint config verify`, which downloads the JSON schema from
+          # golangci-lint.run on every run. From the self-hosted runners that
+          # fetch times out ("context deadline exceeded"), failing the job
+          # before a single file is linted. That broke main at 6240fd95 on code
+          # that had passed lint 50 minutes earlier. The lint run itself still
+          # loads and rejects a malformed config; schema-check it locally with
+          # `golangci-lint config verify` in services/ when editing it.
+          verify: false
           # --concurrency 1 mirrors `make lint-backend`: the linter OOMs on this
           # module at higher concurrency on constrained runners.
           args: --concurrency 1 --timeout 300s ./...
