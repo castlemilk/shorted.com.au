@@ -1,6 +1,7 @@
 package shorts
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"regexp"
@@ -18,20 +19,32 @@ func TestSuburbMetricRegistryCoversMapAndLandedColumns(t *testing.T) {
 		"nearest_train", "distance_to_coast", "nbn",
 		// Column-sourced map metrics: declared in the UI MetricKey union under the
 		// server's own key names, so the two registries are pinned together.
-		"elevation_median_m", "land_share_below_5m",
-		"water_observed_share_pct", "flood_planning_share_pct", "bushfire_prone_share_pct",
-	}
-	landed := []string{
-		"seifa_irsd_score", "seifa_irsd_decile_aus", "seifa_irsd_decile_state",
-		"seifa_irsad_score", "seifa_irsad_decile_aus", "seifa_irsad_decile_state",
-		"seifa_ier_score", "seifa_ier_decile_aus", "seifa_ier_decile_state",
-		"seifa_ieo_score", "seifa_ieo_decile_aus", "seifa_ieo_decile_state",
-		"pct_low_personal_income", "pct_high_personal_income", "unemployment_rate",
-		"labour_force_participation_rate", "pct_bachelor_or_higher", "pct_separate_house",
-		"pct_flat_apartment", "pct_couple_with_children", "pct_lone_person_household",
-		"elevation_min_m", "elevation_max_m",
-		"land_share_below_1m", "land_share_below_2m",
+		"seifa_irsd_decile_state", "seifa_irsad_decile_state", "seifa_ier_decile_state", "seifa_ieo_decile_state",
+		"unemployment_rate", "pct_bachelor_or_higher", "pct_low_personal_income", "pct_high_personal_income",
+		"pct_flat_apartment", "pct_lone_person_household", "pct_couple_with_children",
+		"elevation_median_m", "land_share_below_1m", "land_share_below_2m", "land_share_below_5m",
 		"permanent_water_share_pct",
+		"water_observed_share_pct", "flood_planning_share_pct", "bushfire_prone_share_pct",
+		// Planning layer (000125): the family shares worth a map, the
+		// categorical dominant family, heritage and NSW permitted height.
+		"zone_res_low_share_pct", "zone_res_medium_high_share_pct", "zone_centre_mixed_share_pct",
+		"zone_industrial_share_pct", "zone_rural_share_pct", "zone_conservation_share_pct",
+		"zone_open_space_share_pct", "dominant_zone_family", "heritage_share_pct", "nsw_height_median_m",
+	}
+	// Served by the API but deliberately not on the map picker: raw SEIFA scores
+	// and national deciles (the map ranks within a state), participation and
+	// separate-house share (near-complements of keys above), and elevation
+	// min/max (a creek bed and a peak, not a suburb-wide property).
+	landed := []string{
+		"seifa_irsd_score", "seifa_irsd_decile_aus",
+		"seifa_irsad_score", "seifa_irsad_decile_aus",
+		"seifa_ier_score", "seifa_ier_decile_aus",
+		"seifa_ieo_score", "seifa_ieo_decile_aus",
+		"labour_force_participation_rate", "pct_separate_house",
+		"elevation_min_m", "elevation_max_m",
+		// Identifier column for the council level of the map, not a metric.
+		"lga_code",
+		"zoning_coverage_pct", "heritage_item_count", "nsw_fsr_median", "nsw_min_lot_median_m2",
 	}
 	want := append(append([]string{}, existing...), landed...)
 	sort.Strings(want)
@@ -75,6 +88,10 @@ func TestSuburbMetricRegistryMapsKnownKeysToExpectedColumns(t *testing.T) {
 		"land_share_below_2m":             "d.land_share_below_2m",
 		"politician_property":             "rp.declared_property_count",
 		"labour_force_participation_rate": "d.labour_force_participation_rate",
+		"zone_res_low_share_pct":          "pl.zone_res_low_share_pct",
+		"heritage_share_pct":              "pl.heritage_share_pct",
+		"nsw_height_median_m":             "pl.nsw_height_median_m",
+		"dominant_zone_family":            "pl.dominant_zone_family",
 	}
 	for key, column := range tests {
 		def, ok := lookupSuburbMetric(key)
@@ -88,6 +105,45 @@ func TestSuburbMetricRegistryMapsKnownKeysToExpectedColumns(t *testing.T) {
 	}
 	if _, ok := lookupSuburbMetric("population; DROP TABLE suburb_demographics"); ok {
 		t.Fatal("caller-controlled SQL was accepted as a metric key")
+	}
+}
+
+func TestPlanningMetricsJoinTheLicenceGatedPlanningTable(t *testing.T) {
+	query, definitions, err := buildSuburbMetricQuery([]string{"zone_res_low_share_pct", "dominant_zone_family"})
+	if err != nil {
+		t.Fatalf("build query: %v", err)
+	}
+	if !strings.Contains(query, "LEFT JOIN suburb_planning pl ON pl.sal_code = d.sal_code AND pl.source_licence <> 'proprietary-tos-restricted'") {
+		t.Fatalf("planning metrics must LEFT JOIN the licence-gated table (uncovered suburbs stay NULL):\n%s", query)
+	}
+	if strings.Count(query, "suburb_planning") != 1 {
+		t.Fatalf("two planning metrics must share one join:\n%s", query)
+	}
+	if strings.Contains(query, "suburb_hazard_exposure") {
+		t.Fatalf("planning metrics must not join hazards:\n%s", query)
+	}
+	// The categorical column carries index-aligned labels, one per family.
+	dominant := definitions[1]
+	if len(dominant.categories) != len(ZoneFamilies) || len(ZoneFamilyLabels) != len(ZoneFamilies) {
+		t.Fatalf("dominant_zone_family labels %d, families %d", len(dominant.categories), len(ZoneFamilies))
+	}
+	for i, family := range ZoneFamilies {
+		if !strings.Contains(dominant.expression, fmt.Sprintf("WHEN '%s' THEN %d", family, i)) {
+			t.Errorf("dominant_zone_family does not map %q to index %d: %s", family, i, dominant.expression)
+		}
+	}
+	if !strings.HasSuffix(dominant.expression, "ELSE NULL END") {
+		t.Fatalf("an unzoned suburb must stay NULL, not fall into a category: %s", dominant.expression)
+	}
+	// Every family the migration stores is readable by the registry's naming.
+	sql, err := os.ReadFile("../../../../migrations/000125_add_suburb_planning.up.sql")
+	if err != nil {
+		t.Fatalf("read migration: %v", err)
+	}
+	for _, family := range ZoneFamilies {
+		if !strings.Contains(string(sql), "zone_"+family+"_share_pct") {
+			t.Errorf("migration lacks zone_%s_share_pct", family)
+		}
 	}
 }
 
@@ -108,6 +164,27 @@ func TestBuildSuburbMetricQuerySelectsOnlyRequestedColumnsInSALOrder(t *testing.
 		if strings.Contains(query, unwanted) {
 			t.Errorf("query selected/joined unrequested data %q:\n%s", unwanted, query)
 		}
+	}
+}
+
+// The council column joins the bridge only when asked for, reads the DOMINANT
+// council (never an overlap), and can never fail a column on an odd code.
+func TestLgaCodeColumnJoinsTheBridgeOnDemand(t *testing.T) {
+	query, _, err := buildSuburbMetricQuery([]string{"lga_code"})
+	if err != nil {
+		t.Fatalf("build query: %v", err)
+	}
+	for _, want := range []string{"LEFT JOIN suburb_lga sl ON sl.sal_code = d.sal_code", "sl.lga_code24 ~ '^[0-9]{5}$'", "sl.lga_code24::int"} {
+		if !strings.Contains(query, want) {
+			t.Errorf("lga_code query missing %q:\n%s", want, query)
+		}
+	}
+	if strings.Contains(query, "overlap_lgas") {
+		t.Error("the map colours a suburb by its dominant council only")
+	}
+	other, _, _ := buildSuburbMetricQuery([]string{"population"})
+	if strings.Contains(other, "suburb_lga") {
+		t.Error("columns that do not need the bridge must not join it")
 	}
 }
 
@@ -212,5 +289,66 @@ func TestFilterSuburbMetricColumnsMatchCountEqualsPopulationCount(t *testing.T) 
 	}
 	if count != population || count != 7 {
 		t.Fatalf("match_count=%d population=%d, want 7", count, population)
+	}
+}
+
+// A 'Satellite' or 'Fixed Wireless' classification on a populous suburb is an
+// artefact of a coarse footprint join, not a fact: the map metric and both
+// suburb readers must treat it as no data, score included. Genuine remote
+// satellite and rural wireless suburbs, and fixed line, pass through untouched.
+func TestNbnImplausibleTechIsNoDataOnEverySurface(t *testing.T) {
+	def, ok := lookupSuburbMetric("nbn")
+	if !ok {
+		t.Fatal("nbn metric missing")
+	}
+	guard := "WHEN " + nbnImplausibleTechPredicate + " THEN NULL"
+	gi := strings.Index(def.expression, guard)
+	for _, tier := range []string{
+		"WHEN UPPER(c.dominant_nbn_tech) IN ('FW', 'FIXED WIRELESS') THEN 1",
+		"WHEN UPPER(c.dominant_nbn_tech) = 'SATELLITE' THEN 2",
+	} {
+		if ti := strings.Index(def.expression, tier); gi < 0 || ti < 0 || gi > ti {
+			t.Fatalf("nbn metric must null implausible rows before classing %q:\n%s", tier, def.expression)
+		}
+	}
+	for _, threshold := range []string{
+		"UPPER(c.dominant_nbn_tech) = 'SATELLITE' AND COALESCE(d.population, 0) > 1000",
+		"UPPER(c.dominant_nbn_tech) IN ('FW', 'FIXED WIRELESS') AND COALESCE(d.population, 0) > 5000",
+	} {
+		if !strings.Contains(nbnImplausibleTechPredicate, threshold) {
+			t.Fatalf("guard threshold changed without updating its documentation (want %q): %s", threshold, nbnImplausibleTechPredicate)
+		}
+	}
+	if !strings.Contains(nbnScoreDisplayExpr, nbnImplausibleTechPredicate) {
+		t.Fatalf("the quality score must be withheld by the same predicate as the tech: %s", nbnScoreDisplayExpr)
+	}
+
+	source := postgresHousePricesSource(t)
+	if strings.Contains(source, "COALESCE(c.dominant_nbn_tech,'')") {
+		t.Fatal("suburb readers must publish NBN tech through nbnTechDisplayExpr, not the raw column")
+	}
+	if strings.Contains(source, "COALESCE(c.connectivity_quality_score,0)") {
+		t.Fatal("suburb readers must publish the NBN score through nbnScoreDisplayExpr, not the raw column")
+	}
+	for _, expr := range []string{"` + nbnTechDisplayExpr + `", "` + nbnScoreDisplayExpr + `"} {
+		if got := strings.Count(source, expr); got != 2 {
+			t.Fatalf("ListStateSuburbs and GetSuburbProfile must both use %s; got %d uses", expr, got)
+		}
+	}
+}
+
+// The collector withholds a sub-100-resident suburb's culture block (label and
+// share alike). The language layer must read that as no data, not fall
+// through to its "English" base category the way a thin top language does.
+func TestLanguageMetricTreatsSubFloorSuburbsAsNoData(t *testing.T) {
+	def, ok := lookupSuburbMetric("language")
+	if !ok {
+		t.Fatal("language metric missing")
+	}
+	floor := "WHEN d.population IS NULL OR d.population < 100 THEN NULL"
+	english := "THEN 13"
+	fi, ei := strings.Index(def.expression, floor), strings.Index(def.expression, english)
+	if fi < 0 || ei < 0 || fi > ei {
+		t.Fatalf("language metric must null sub-floor suburbs before the English fallback:\n%s", def.expression)
 	}
 }

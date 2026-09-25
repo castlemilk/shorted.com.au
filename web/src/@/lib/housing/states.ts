@@ -21,11 +21,14 @@ export const GCCSA_TO_STATE: Record<string, string> = {
 };
 
 /**
- * Title-case an ALL-CAPS place or member name: "MCMAHONS POINT" → "Mcmahons
- * Point", "O'CONNOR" → "O'Connor", "ST KILDA EAST" → "St Kilda East",
- * "PRESTON (VIC.)" → "Preston (Vic.)" — the ABS state qualifier sits in
- * parentheses, which CSS `capitalize` and the previous boundary set both
- * missed, so every qualified suburb rendered as "Preston (vic.)".
+ * Title-case the SHOUTED words of a name, word by word: "Fiona PHILLIPS" →
+ * "Fiona Phillips", "Emma McBRIDE" → "Emma McBride", "Clare O'NEIL" → "Clare
+ * O'Neil", "ST KILDA EAST" → "St Kilda East".
+ *
+ * Federal members arrive as "Given SURNAME", so normalise per word. Preserve
+ * existing mixed case ("McCrae", "Julie-Ann", "de"), except for uppercase
+ * suffixes after Mc/Mac. ABS suburb names are rendered as delivered and do
+ * not pass through this helper.
  *
  * Use this instead of CSS `capitalize`. `capitalize` only touches the first
  * letter of each word — so it cannot handle the apostrophe and hyphen cases —
@@ -33,24 +36,38 @@ export const GCCSA_TO_STATE: Record<string, string> = {
  * anyone copying the text gets "mcmahons point".
  */
 export const titleCaseName = (n: string) =>
-  n.toLowerCase().replace(/(^|[\s'(-])([a-z])/g, (_, p: string, c: string) => p + c.toUpperCase());
+  n.replace(/\S+/g, (word) => {
+    const mc = /^(Mac|Mc)([A-Z][A-Z'-]*[A-Z])$/.exec(word);
+    if (mc) return mc[1]! + titleCaseWord(mc[2]!);
+    return /^[A-Z][A-Z'-]*[A-Z]$/.test(word) ? titleCaseWord(word) : word;
+  });
+
+const titleCaseWord = (w: string) =>
+  w.toLowerCase().replace(/(^|['-])([a-z])/g, (_, p: string, c: string) => p + c.toUpperCase());
+
+/**
+ * Split an ABS SAL name into the place and the disambiguating qualifier ABS
+ * appends to repeated names: "Paddington (Qld)" → { place: "Paddington",
+ * region: null }, "Glenroy (Albury - NSW)" → { place: "Glenroy", region:
+ * "Albury" }. `region` is the qualifier minus its state part (the page already
+ * names the state), so it is null when the qualifier is only a state. Casing is
+ * kept exactly as delivered. Lists that mix suburbs keep the full salName —
+ * there the qualifier is what tells two Paddingtons apart.
+ */
+export function splitSalName(name: string): { place: string; region: string | null } {
+  const m = /^(.*\S)\s*\(([^()]+)\)$/.exec(name.trim());
+  if (!m) return { place: name.trim(), region: null };
+  const parts = m[2]!.split(" - ").map((p) => p.trim());
+  const region = parts.length > 1 ? parts.slice(0, -1).join(" - ") : "";
+  return { place: m[1]!, region: region === "" ? null : region };
+}
 
 /** Canonical suburb slug (kebab name + postcode), used in every suburb URL. */
 export const suburbSlug = (salName: string, postcode: string) =>
   `${salName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}${postcode ? `-${postcode}` : ""}`;
 
-/**
- * The single source of truth for a suburb's URL: the clean canonical path.
- *
- * This used to append `?sal=<code>` as a resolution fast-path. The page now
- * resolves the suburb from the path alone (resolveSuburbSalCode) and ignores
- * the query, and the canonical it declares has no query — so every internal
- * link was creating a second, parameterised URL for crawlers to fetch, fold
- * and report on (Search Console showed `?sal=` variants earning impressions).
- * `salCode` stays in the signature so callers need not change and so a future
- * disambiguation can use it without another migration.
- */
+/** The single source of truth for a suburb's URL — load-bearing `?sal=`. */
 export const suburbHref = (
   stateCode: string,
   s: { salName: string; postcode: string; salCode: string },
-) => `/housing/${stateSlug(stateCode)}/${suburbSlug(s.salName, s.postcode)}`;
+) => `/housing/${stateSlug(stateCode)}/${suburbSlug(s.salName, s.postcode)}?sal=${s.salCode}`;

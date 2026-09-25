@@ -158,10 +158,12 @@ func (lc *listingsCrawler) diffListing(ctx context.Context, tx pgx.Tx, l RawList
 
 	// Address-level relist-drop detection: a brand-new listing_id (this portal has
 	// never seen it) at a KNOWN address, priced against that address's most recent
-	// active listing across ANY source/listing_id — the drop a listing_id-keyed
+	// eligible earlier advert of the same dwelling — the drop a listing_id-keyed
 	// diff alone can never see. Only for genuinely new listing_ids (prev == nil).
+	// loadAddressPrior skips the other portal's concurrent listing and other units
+	// at a collapsed address, neither of which is a relist.
 	if prev == nil && l.AddressKey != "" {
-		addrPrior, err := loadAddressPrior(ctx, tx, l.AddressKey, l.ListingID, source)
+		addrPrior, err := loadAddressPrior(ctx, tx, l.AddressKey, l.ListingID, source, l.Bedrooms, runTs)
 		if err != nil {
 			return 0, err
 		}
@@ -320,11 +322,13 @@ func priceMoveEvent(cfg listingsConfig, base priceEvent, priorPrice *float64, pr
 }
 
 // addressPriceMove computes a price_drop/price_rise for a brand-new listing_id
-// against addrPrior — the most recent ACTIVE listing at the same address,
-// possibly a different listing_id and/or source (loadAddressPrior,
+// against addrPrior — the most recent eligible ACTIVE listing of the same
+// dwelling, possibly a different listing_id and/or source (loadAddressPrior,
 // crawl_listings_store.go). This is the "the property relisted at a lower
 // price" signal a listing_id-keyed diff alone can never see: a relist under a
-// fresh id, or the same address picked up on the other portal. addrPrior==nil
+// fresh id, or a home that left one portal and reappeared on the other (never
+// the other portal's concurrent advert, and never another unit at a collapsed
+// address — loadAddressPrior excludes both). addrPrior==nil
 // (no known prior at this address) is a no-op, and the same noise/comparable-
 // kind gates as the listing-level diff apply, so a relist "discount" is held
 // to the identical bar as an ordinary price drop — a listing re-crawled at

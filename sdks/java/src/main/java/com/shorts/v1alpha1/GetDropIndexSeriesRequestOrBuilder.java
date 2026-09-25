@@ -12,7 +12,7 @@ public interface GetDropIndexSeriesRequestOrBuilder extends
 
   /**
    * <pre>
-   * 'national' | 'state' | 'suburb'
+   * Anything outside these shapes is InvalidArgument.
    * </pre>
    *
    * <code>string grain = 1 [json_name = "grain"];</code>
@@ -21,7 +21,7 @@ public interface GetDropIndexSeriesRequestOrBuilder extends
   java.lang.String getGrain();
   /**
    * <pre>
-   * 'national' | 'state' | 'suburb'
+   * Anything outside these shapes is InvalidArgument.
    * </pre>
    *
    * <code>string grain = 1 [json_name = "grain"];</code>
@@ -32,7 +32,7 @@ public interface GetDropIndexSeriesRequestOrBuilder extends
 
   /**
    * <pre>
-   * 'AU' | state code | sal_code
+   * 'AU' | state code ('NSW', ...) | 5-digit sal_code
    * </pre>
    *
    * <code>string grain_key = 2 [json_name = "grainKey"];</code>
@@ -41,7 +41,7 @@ public interface GetDropIndexSeriesRequestOrBuilder extends
   java.lang.String getGrainKey();
   /**
    * <pre>
-   * 'AU' | state code | sal_code
+   * 'AU' | state code ('NSW', ...) | 5-digit sal_code
    * </pre>
    *
    * <code>string grain_key = 2 [json_name = "grainKey"];</code>
@@ -72,7 +72,7 @@ public interface GetDropIndexSeriesRequestOrBuilder extends
 
   /**
    * <pre>
-   * 'YYYY-MM-DD', inclusive; defaults to today
+   * 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today
    * </pre>
    *
    * <code>string to = 4 [json_name = "to"];</code>
@@ -81,7 +81,7 @@ public interface GetDropIndexSeriesRequestOrBuilder extends
   java.lang.String getTo();
   /**
    * <pre>
-   * 'YYYY-MM-DD', inclusive; defaults to today
+   * 'YYYY-MM-DD', inclusive; defaults to (and is capped at) today
    * </pre>
    *
    * <code>string to = 4 [json_name = "to"];</code>

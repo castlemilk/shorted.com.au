@@ -15,7 +15,7 @@
 import Link from "next/link";
 
 import { HousingBreadcrumb } from "./housing-breadcrumb";
-import { STATE_NAMES, stateSlug, suburbHref, titleCaseName } from "@/lib/housing/states";
+import { STATE_NAMES, stateSlug, suburbHref } from "@/lib/housing/states";
 import type { SuburbContext } from "@/lib/housing/suburb-stats";
 
 export type ContextNeighbour = {
@@ -28,11 +28,14 @@ export function SuburbContextBar({
   stateCode,
   suburbName,
   salCode,
+  council,
   neighbours = [],
   basis = "none",
 }: {
   stateCode: string;
   suburbName: string;
+  /** The suburb's dominant council hub, linked from the trail when it has a page. */
+  council?: { name: string; href: string };
   /** Preselects this suburb on the state explorer — the link's accessible name
    * promises "view THIS suburb on the map", and the explorer reads `?sal=`. */
   salCode: string;
@@ -48,7 +51,7 @@ export function SuburbContextBar({
           scroller, `ml-auto` had no free space to distribute on a phone and the
           link ended up off-screen behind a horizontal swipe. */}
       <div className="flex h-11 min-w-0 flex-1 items-center gap-3 overflow-x-auto">
-        <HousingBreadcrumb stateCode={stateCode} suburb={suburbName} compact />
+        <HousingBreadcrumb stateCode={stateCode} council={council} suburb={suburbName} compact />
 
         {shown.length ? (
           <>
@@ -65,7 +68,7 @@ export function SuburbContextBar({
                   href={suburbHref(stateCode, n)}
                   className="hit-target-touch inline-flex items-center whitespace-nowrap rounded px-1.5 py-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
-                  {titleCaseName(n.salName)}
+                  {n.salName}
                 </Link>
                 </span>
               ))}

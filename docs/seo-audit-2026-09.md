@@ -91,10 +91,11 @@ population, plus every ranking page the state has), built from the same
 state pages out of the crawl's "thin content" bucket (they were 107–115
 words). Test: `housing/[state]/page.test.tsx`.
 
-A third, smaller one: every internal suburb link carried `?sal=<code>`, a
-resolution fast-path the page no longer uses — so Search Console was
-reporting `?sal=` variants of suburb URLs earning their own impressions.
-`suburbHref` now emits the clean canonical path (`states.test.ts`).
+A third, smaller one, **left open**: every internal suburb link carries
+`?sal=<code>`, so Search Console reports `?sal=` variants of suburb URLs
+earning their own impressions. The canonical tag consolidates them, and
+`main` pins the query as load-bearing (`states.test.ts`), so removing it is
+a decision for the housing owners rather than an SEO edit.
 
 ## 3. Housing: what people search for, and what we said back
 

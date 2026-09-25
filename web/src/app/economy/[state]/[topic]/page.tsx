@@ -429,7 +429,7 @@ export default async function EconomyTopicPage({ params }: PageProps) {
     listStateCompanies(state, 8).catch(() => undefined),
   ]);
   const series = snapshot?.series ?? [];
-  if (series.length === 0) bailOnEmptyRender();
+  if (series.length === 0) await bailOnEmptyRender();
 
   // Apply the stock-page editorial rule: expose only evidence-backed LLM
   // operating estimates. Headquarters fallbacks and basis-less rows would

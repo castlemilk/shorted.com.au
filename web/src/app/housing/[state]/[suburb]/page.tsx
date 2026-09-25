@@ -7,6 +7,7 @@ import { LLMMeta } from "@/components/seo/llm-meta";
 import { SuburbContextBar } from "@/components/housing/suburb-context-bar";
 import { SuburbProfile } from "@/components/housing/suburb-profile";
 import { SuburbStructuredData } from "@/components/housing/suburb-structured-data";
+import { councilHref } from "@/lib/housing/council";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { getSuburbProfile, resolveSuburbSalCode } from "~/app/actions/getHousing";
 import { getStateSuburbIndex } from "~/app/actions/getHousingStateIndex";
@@ -117,14 +118,14 @@ export default async function SuburbPage({ params }: PageProps) {
   if (!code) notFound();
   // Depends only on `code`, so it starts here and is awaited after the profile —
   // otherwise the page serialises three RPCs it could overlap two of.
-  const stateIndex = getStateSuburbIndex(code).catch((error: unknown) => {
+  const stateIndex = getStateSuburbIndex(code).catch(async (error: unknown) => {
     // Degrade to the profile the RPC already returned — but say so, or a
     // persistent state-index outage just looks like a quietly emptier page.
     console.warn(`[suburb] state suburb index unavailable for ${code}:`, error);
     // And do not let ISR bake the degraded render: without this the rank-less
     // page is a perfectly valid cache entry and gets served for the full 24h
     // window, long after the backend recovers.
-    bailOnEmptyRender();
+    await bailOnEmptyRender();
     return [];
   });
 
@@ -176,6 +177,13 @@ export default async function SuburbPage({ params }: PageProps) {
       })
     : undefined;
 
+  // The dominant council's hub, when it has one (a pseudo area or an
+  // unslugged council has no page, and councilHref says so).
+  const councilUrl = profile.council ? councilHref(profile.council.stateCode, profile.council.slug) : null;
+  const councilLink = councilUrl && profile.council
+    ? { name: profile.council.displayName || profile.council.lgaName, href: councilUrl }
+    : undefined;
+
   return (
     <DashboardLayout>
       {/* Same rule as the on-page provenance line: describe what this suburb
@@ -215,6 +223,7 @@ export default async function SuburbPage({ params }: PageProps) {
           stateCode={code}
           suburbName={name}
           salCode={sal}
+          council={councilLink}
           neighbours={context?.nearby}
           basis={context?.nearbyBasis}
         />

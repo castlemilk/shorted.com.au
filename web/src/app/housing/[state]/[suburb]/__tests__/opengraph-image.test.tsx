@@ -52,7 +52,7 @@ describe("suburb Open Graph image", () => {
   it("draws the page's own boundary and figures onto the scene card", async () => {
     resolveSuburbSalCode.mockResolvedValue("22121");
     getSuburbProfile.mockResolvedValue({
-      summary: { salName: "PRESTON (VIC.)", latestMedianPrice: 1_200_000, yoyPct: 3.2, seifa: { irsad: { decileAus: 7 } } },
+      summary: { salName: "Preston (Vic.)", latestMedianPrice: 1_200_000, yoyPct: 3.2, seifa: { irsad: { decileAus: 7 } } },
       demographics: { population: 33_790, medianWeeklyHhdIncome: 1_980, medianAge: 36 },
       banner: { archetype: "inner-terraces", blurb: "" },
       council: { lgaName: "Darebin" },
@@ -82,7 +82,7 @@ describe("suburb Open Graph image", () => {
   it("never states a price for an unpriced suburb, and never throws", async () => {
     resolveSuburbSalCode.mockResolvedValue("30001");
     getSuburbProfile.mockResolvedValue({
-      summary: { salName: "NOOSA HEADS", latestMedianPrice: 0, yoyPct: 0 },
+      summary: { salName: "Noosa Heads", latestMedianPrice: 0, yoyPct: 0 },
       demographics: { population: 4_400, medianWeeklyHhdIncome: 1_500, medianAge: 51 },
       banner: { archetype: "coastal-beach", blurb: "Surf town at the tip of the Sunshine Coast." },
     });

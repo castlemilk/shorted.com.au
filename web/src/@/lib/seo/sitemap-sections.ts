@@ -69,6 +69,7 @@ import { createSlug } from "~/@/lib/industry-slug";
 import { ALL_STATES, stateSlug, suburbSlug } from "~/@/lib/housing/states";
 import { isSuburbSitemapEligible } from "~/@/lib/seo/suburb-indexability";
 import { newestLastMod, type SitemapEntry } from "~/@/lib/seo/sitemap-xml";
+import { timestampToDate } from "~/@/lib/housing/drops-freshness";
 
 const baseUrl = siteConfig.url;
 const API_URL = getServerShortsApiUrl();
@@ -637,9 +638,20 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
 
   type SuburbUrl = { state: string; suburb: string; lastModified?: string };
   const perStateEntries = new Map<string, SuburbUrl[]>();
+  // /price-drops' lastmod is the refresh of the view its headline figures come
+  // from (as_of, migration 000124) — the same instant the page's Dataset
+  // JSON-LD reports as dateModified. Unknown stays bare, never render time.
+  let priceDropsLastMod: string | undefined;
 
   if (!skipForBuild()) {
     const housingClient = createClient(HousingService, connectTransport());
+    const priceDropsAsOf = housingClient
+      .getPriceDropsOverview({})
+      .then((res) => timestampToDate(res.asOf)?.toISOString())
+      .catch((e: unknown) => {
+        console.error("price-drops as_of:", e);
+        return undefined;
+      });
     const perState = await Promise.all(
       ALL_STATES.map(async (st) => {
         try {
@@ -678,6 +690,37 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
       }),
     );
     for (const [slug, urls] of perState) perStateEntries.set(slug, urls);
+    priceDropsLastMod = await priceDropsAsOf;
+  }
+
+  // Council hub: one index per state and one page per council with a page.
+  // lastmod is the newest period in any of the council's series (data, not
+  // render time); the index takes its newest council.
+  type CouncilUrl = { state: string; slug: string; lastModified?: string };
+  const perStateCouncils = new Map<string, CouncilUrl[]>();
+  if (!skipForBuild()) {
+    const housingClient = createClient(HousingService, connectTransport());
+    const perState = await Promise.all(
+      ALL_STATES.map(async (st) => {
+        try {
+          const res = await housingClient.listCouncils({ stateCode: st });
+          return [
+            stateSlug(st),
+            res.councils
+              .filter((c) => c.slug && (c.kind === "council" || c.kind === "unincorporated"))
+              .map((c) => ({
+                state: stateSlug(st),
+                slug: c.slug,
+                lastModified: c.dataThrough ? `${c.dataThrough}T00:00:00.000Z` : undefined,
+              })),
+          ] as const;
+        } catch (e) {
+          console.error(`housing council urls (${st}):`, e);
+          return [stateSlug(st), [] as CouncilUrl[]] as const;
+        }
+      }),
+    );
+    for (const [slug, urls] of perState) perStateCouncils.set(slug, urls);
   }
 
   const allSuburbUrls = [...perStateEntries.values()].flat();
@@ -722,10 +765,9 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
         ),
       };
     }),
-    // Calculators are static tools; the price-drops board is crawl-driven and
-    // exposes no data date on any read path — neither fabricates a lastmod.
+    // Calculators are static tools with no data date — no fabricated lastmod.
     { url: `${baseUrl}/housing/calculators` },
-    { url: `${baseUrl}/price-drops` },
+    { url: `${baseUrl}/price-drops`, lastModified: priceDropsLastMod },
     // NOTE: /housing/suburbs is deliberately NOT listed — next.config.mjs 301s
     // it to /housing (the hub page was deprecated 2026-06-29); sitemapping it
     // would advertise a permanent redirect.
@@ -741,6 +783,20 @@ export async function buildHousingSitemap(): Promise<SitemapEntry[]> {
       url: `${baseUrl}/housing/${s.state}/${s.suburb}`,
       lastModified: s.lastModified,
     })),
+    ...[...perStateCouncils].flatMap(([state, councils]) =>
+      councils.length
+        ? [
+            {
+              url: `${baseUrl}/housing/${state}/council`,
+              lastModified: newestLastMod(councils.map((c) => c.lastModified)),
+            },
+            ...councils.map((c) => ({
+              url: `${baseUrl}/housing/${c.state}/council/${c.slug}`,
+              lastModified: c.lastModified,
+            })),
+          ]
+        : [],
+    ),
   ];
 }
 

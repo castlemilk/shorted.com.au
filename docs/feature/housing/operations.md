@@ -23,14 +23,15 @@ startup log before believing a run persisted. Official + suburb modes have no
 dry-run and write every run. Crawl modes need a warm host Chrome on
 `CRAWL_CDP_URL` and a residential IP — they do not work off a rig.
 
-**Two copies of the collector, and CI tests the wrong one.**
-`services/house-price-collector` (110 `.go` files) ships;
-`services/jobs/internal/jobs/houseprices` (108) is the consolidation fork behind
-`shorted house-prices`, in no Terraform environment, and already drifted.
-`run-tests` runs `cd services/jobs && go test ./...` plus the integration suite —
-**nothing runs `go test ./...` in the `services` module**, so the deployed
-collector's tests are local-only. It is also `if: github.event_name !=
-'pull_request'`: it gates the deploy, not the PR.
+**One collector.** `services/house-price-collector` is the only copy: the Cloud
+Run job, the rig launchers and every Taskfile task run it. The
+`services/jobs` port (`shorted house-prices`) was never scheduled, drifted, and
+was deleted on 2026-09-24; do not resurrect it without cutting the rig over in
+the same change (`services/jobs/README.md`). Its tests run on pull requests in
+`terraform-deploy.yml`'s `housing-contract-tests` job
+(`go test ./house-price-collector` in `services`). `run-tests` still runs only
+`cd services/jobs && go test ./...` plus the integration suite, and is
+`if: github.event_name != 'pull_request'`: it gates the deploy, not the PR.
 
 ## Prod
 
@@ -41,9 +42,16 @@ collector's tests are local-only. It is also `if: github.event_name !=
 `add_state_exposure`, the economy migration; housing's rollups were authored as
 000083 and renumbered to `000086` — don't read it as coverage.)
 
-Apply housing DDL **by hand, before the merge**, via the **session pooler
-(5432)** — not the txn pooler 6543 — with `PGOPTIONS="-c statement_timeout=0"`,
-so a `REFRESH MATERIALIZED VIEW CONCURRENTLY` inside the migration can finish.
+Apply housing DDL **by hand, before the merge**, with
+`task db:prod:apply FILE=services/migrations/<file>.up.sql CONFIRM=prod`. It uses
+the **session pooler (5432)** — never the txn pooler 6543 — and runs the file in
+one transaction after `SET LOCAL statement_timeout = 0`, so a
+`REFRESH MATERIALIZED VIEW CONCURRENTLY` inside the migration can finish; an error
+rolls the whole file back. **Do not use `PGOPTIONS="-c statement_timeout=0"`**:
+Supavisor drops startup options, so that ran every migration under the role's
+2-minute default (measured 2026-09-23). A file Postgres cannot run in a
+transaction (`CREATE INDEX CONCURRENTLY`, `VACUUM`) falls back to a session-level
+SET with a WARNING and an explicit `RESET ALL` (`scripts/prod-psql.sh`).
 URL in `services/.env`. **Prod `schema_migrations` lies**: the same step
 force-writes one row, version 75, while prod carries objects from
 000086/000090/000092. Never `make migrate-up` against prod.
@@ -116,18 +124,32 @@ status code 3 / INVALID_ARGUMENT, so the schedule never ran once between
 
 `refresh_housing_materialized_views()` is decoupled from the shorts
 `refresh_all_materialized_views()`; the collector calls it after every run over
-the **txn pooler** (6543, `QueryExecModeSimpleProtocol`, `MaxConns=4`) with no
-session `statement_timeout` override. By hand, use the session pooler:
+the **txn pooler** (6543, `QueryExecModeSimpleProtocol`, `MaxConns=4`), prefixed
+with `SET LOCAL statement_timeout = 0` in the same implicit transaction
+(`refreshHousingMV`, `store.go`). By hand:
 
 ```bash
-PGOPTIONS="-c statement_timeout=0" psql "$SESSION_POOLER_URL" \
-  -c "SELECT refresh_housing_materialized_views();"
+task db:prod:refresh WHICH=housing CONFIRM=prod
 ```
 
-That is also the workaround for the known-open guard gap — 000092's
-`EXCEPTION WHEN OTHERS` does not catch the `query_canceled` a `statement_timeout`
-raises, so one timed-out MV starves every MV after it
-([data-model.md](data-model.md)). Fix in flight.
+That runs on the session pooler, in one transaction, after
+`SET LOCAL statement_timeout = 0`. The function (000107) catches a failed view,
+RAISEs `WARNING 'Skipping mv_…'` and returns normally, so psql alone exits 0 with
+a view left stale; the task exits 1 on any `Skipping` line. The old recipe,
+`PGOPTIONS="-c statement_timeout=0" psql …`, ran under the 2-minute role default
+because Supavisor drops startup options, and a view that hit it was skipped
+silently. The freshness sentinel's `MV_REFRESH_AGE` check (72h, from
+`housing_mv_refresh`) is the backstop.
+
+Since 000127 the function also refreshes `mv_council_price_drops` (last, in
+its own guarded block), so the council hub's and council index's price-drop
+share is as fresh as the last refresh, and its `as_of` is that refresh. A
+council page showing no drops block while `/price-drops` has data: check
+`SELECT * FROM housing_mv_refresh WHERE mv_name = 'mv_council_price_drops'`
+(no row = nothing published, by design), then refresh.
+
+For a read-only look at prod, use `task db:prod:psql -- -At -c "SQL"`: one
+`BEGIN READ ONLY; SET LOCAL statement_timeout = '60s'; …; ROLLBACK`.
 
 ## Restarting the crawl after a silence
 
@@ -276,14 +298,17 @@ and a **browser UA** (a curl UA is edge-blocked). `post-deploy-smoke.yml` then
 re-primes via `/api/static-pages/warm-cache` — the first five entries,
 `/market`, `/housing`, `/economy`, `/compare`, `/price-drops`.
 
-**`/housing/[state]` and `/housing/[state]/[suburb]` are in neither list.** Both
-are `revalidate = 86400`, so after a promote they self-heal only on that 24h TTL
-unless revalidated explicitly (a `path` containing `[` revalidates the whole
-dynamic route). Manual fallback — `gcloud secrets versions access latest
---secret=REVALIDATION_SECRET --project rosy-clover-477102-t5`, then POST
-`/api/revalidate?secret=…&path=/price-drops,/housing&flush=housing`.
-`flush=housing` busts the whole `cache:housing:` prefix; the collector fires the
-same call after a run that wrote data ([pipeline.md](pipeline.md)).
+**`/housing/[state]`, `/housing/[state]/[suburb]` and
+`/housing/[state]/council/[slug]` are in neither list.** The eight council index
+pages are in `isr-pages.json`. All of these routes are `revalidate = 86400`, so
+after a promote they self-heal only on that 24h TTL unless revalidated
+explicitly. A `path` containing `[` revalidates the whole dynamic route. Manual
+fallback: get the secret with `gcloud secrets versions access latest
+--secret=REVALIDATION_SECRET --project rosy-clover-477102-t5`, then send the
+full route list from [Takedown](#takedown) step 3. `flush=housing` busts the
+whole `cache:housing:` prefix. The collector's own call after a run that wrote
+data sends only `path=/price-drops,/housing&flush=housing`
+([pipeline.md](pipeline.md)), so it does not reach the 24h routes.
 
 ## Takedown
 
@@ -291,14 +316,36 @@ Three actions, **all required** — miss one and the content the kill switch
 exists to pull keeps serving for up to 24h:
 
 1. **Flip the switch** on the shorts service and roll a revision:
-   `HOUSING_DROP_LISTINGS_ENABLED=false` (agency/agent names, per-address and
-   per-listing drops) and/or `HOUSING_VALUATIONS_ENABLED=false` (property.com.au
+   `HOUSING_DROP_LISTINGS_ENABLED=false` (EVERYTHING derived from the REA/Domain
+   crawl: agency names, per-address and per-listing drops, AND the suburb/state
+   aggregates, the discounting index and the profile's listing estimate — one
+   policy, [architecture.md §10.2](architecture.md)) and/or `HOUSING_VALUATIONS_ENABLED=false` (property.com.au
    AVM). Both default ON; falsey values are `false|0|off|no`.
 2. **Flush KV** with `/api/revalidate?…&flush=housing`. Do **not** use
    `/api/admin/flush-cache` with `target=housing` — it clears only
    `cache:housing:overview:`, not the `cache:housing:drops:*` keys the board
    serves from (`PRICE_DROPS_TTL` = 86400s).
-3. **Revalidate ISR**: `/price-drops` (static, 1h) plus the suburb routes.
+3. **Revalidate ISR** — every route that renders a crawl-derived figure:
+   `/price-drops` (static, 1h), `/housing` (1h), and the four 24h dynamic
+   routes `/housing/[state]`, `/housing/[state]/[suburb]`,
+   `/housing/[state]/council` and `/housing/[state]/council/[slug]`. The
+   council index and hub render the council `price_drop_share` and the hub's
+   price-drops block. List each route: the endpoint's `revalidatePath(path)`
+   does not cascade, so `/housing` alone leaves every page under it cached, and
+   a `[`-pattern revalidates only that one route (as type `page`). In one call:
+
+   ```bash
+   curl -g -X POST -H "X-Revalidate-Secret: $REVALIDATION_SECRET" \
+     "$REVALIDATION_URL?flush=housing&path=/price-drops,/housing,/housing/[state],/housing/[state]/[suburb],/housing/[state]/council,/housing/[state]/council/[slug]"
+   ```
+
+   `-g` (`--globoff`) is required, because curl otherwise reads `[state]` as a
+   URL glob range and refuses the request. The call covers step 2 as well.
+
+Re-enabling is the same three steps with the switch flipped back. `/price-drops`
+caches its "not available" render (the overview reports `withheld`, which is
+stable, unlike a cold fetch), so without step 3 it keeps saying so for up to an
+hour.
 
 Known-open: the flag is checked before the *backend* cache while the web layer
 caches flag-on responses independently and no target bundles the three steps;

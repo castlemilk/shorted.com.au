@@ -55,8 +55,10 @@ replacement has run green in prod ≥1 scheduled cycle)
    as `shorted market-data serve`, scheduler hits the same endpoint)
 7. `discovery` (asx-discovery — playwright+Chromium; standard image grows a
    browser layer OR keeps its own image variant)
-8. `house-prices` (house-price-collector — biggest, many modes; migrate last
-   of the Go set; crawl modes keep Dockerfile.crawl / host-run contract)
+8. ~~`house-prices`~~ (house-price-collector) — **retired 2026-09-24.** The
+   port was built but never scheduled, so it was deleted; the housing crawler
+   stays in `services/house-price-collector`. See services/jobs/README.md,
+   "Phase 2d (house-prices) — retired".
 
 **Phase 3 — Python→Go ports (each replaces a deployed job; port + parity-run
 before cutover):**

@@ -1,30 +1,64 @@
-import { suburbHref, suburbSlug, titleCaseName } from "./states";
+import { splitSalName, suburbHref, suburbSlug, titleCaseName } from "./states";
 
-describe("titleCaseName", () => {
-  it.each([
-    ["MCMAHONS POINT", "Mcmahons Point"],
-    ["O'CONNOR", "O'Connor"],
-    ["ST KILDA EAST", "St Kilda East"],
-    ["PRESTON (VIC.)", "Preston (Vic.)"],
-    ["ACT REMAINDER - BELCONNEN", "Act Remainder - Belconnen"],
-  ])("%s → %s", (input, expected) => {
-    expect(titleCaseName(input)).toBe(expected);
+describe("suburb names", () => {
+  test("ABS names are never re-cased", () => {
+    // Lowercase-then-capitalise is what published "Mccrae" and "Paddington (qld)".
+    expect(titleCaseName("McCrae")).toBe("McCrae");
+    expect(titleCaseName("Paddington (Qld)")).toBe("Paddington (Qld)");
+    expect(titleCaseName("Carramar (WA)")).toBe("Carramar (WA)");
+  });
+
+  test("UPPERCASE sources are still title-cased", () => {
+    expect(titleCaseName("ST KILDA EAST")).toBe("St Kilda East");
+    expect(titleCaseName("O'CONNOR")).toBe("O'Connor");
+    expect(titleCaseName("SMITH-JONES")).toBe("Smith-Jones");
+  });
+
+  // Federal members arrive as "Given SURNAME": the shouted word is fixed, the
+  // proper-cased ones are left alone.
+  test.each([
+    ["Fiona PHILLIPS", "Fiona Phillips"],
+    ["Clare O'NEIL", "Clare O'Neil"],
+    ["Emma McBRIDE", "Emma McBride"],
+    ["Michael McCORMACK", "Michael McCormack"],
+    ["Alice JORDAN-BAIRD", "Alice Jordan-Baird"],
+    ["Julie-Ann CAMPBELL", "Julie-Ann Campbell"],
+    ["Luke John GOSLING", "Luke John Gosling"],
+    ["Gabrielle de Vietri", "Gabrielle de Vietri"],
+    ["Hon Michael O'Brien", "Hon Michael O'Brien"],
+  ])("member %s → %s", (raw, shown) => {
+    expect(titleCaseName(raw)).toBe(shown);
+  });
+
+  test("the qualifier splits off, keeping only its LGA part as a region", () => {
+    expect(splitSalName("Paddington (Qld)")).toEqual({ place: "Paddington", region: null });
+    expect(splitSalName("Richmond (Vic.)")).toEqual({ place: "Richmond", region: null });
+    expect(splitSalName("Glenroy (Albury - NSW)")).toEqual({ place: "Glenroy", region: "Albury" });
+    expect(splitSalName("Stony Creek (Central Goldfields - Vic.)")).toEqual({ place: "Stony Creek", region: "Central Goldfields" });
+    expect(splitSalName("McCrae")).toEqual({ place: "McCrae", region: null });
+    expect(splitSalName("ACT Remainder - Booth")).toEqual({ place: "ACT Remainder - Booth", region: null });
   });
 });
 
-describe("suburb URLs", () => {
-  it("slugifies the ABS name and appends a postcode only when one exists", () => {
-    expect(suburbSlug("PRESTON (VIC.)", "")).toBe("preston-vic");
-    expect(suburbSlug("Bondi Beach", "2026")).toBe("bondi-beach-2026");
+// Every indexed suburb URL is minted from the raw salName, so the name fix must
+// not move one of them. These are the slugs the site already serves.
+describe("suburb slugs are unchanged by the name fix", () => {
+  test.each([
+    ["Bondi", "", "bondi"],
+    ["Paddington (Qld)", "", "paddington-qld"],
+    ["Carramar (WA)", "", "carramar-wa"],
+    ["Richmond (Vic.)", "", "richmond-vic"],
+    ["Glenroy (Albury - NSW)", "", "glenroy-albury-nsw"],
+    ["McCrae", "", "mccrae"],
+    ["McMahons Point", "", "mcmahons-point"],
+    ["O'Connor (ACT)", "", "o-connor-act"],
+    ["St Kilda East", "3183", "st-kilda-east-3183"],
+  ])("%s → %s", (name, postcode, slug) => {
+    expect(suburbSlug(name, postcode)).toBe(slug);
   });
 
-  it("links to the clean canonical path with no query string", () => {
-    // The page resolves the suburb from the path, and the canonical it
-    // advertises has no ?sal=. Carrying the SAL code on every internal link
-    // made each suburb a second, parameterised URL for crawlers to fetch and
-    // fold — measured in Search Console as ?sal= variants earning impressions.
-    expect(suburbHref("VIC", { salName: "PRESTON (VIC.)", postcode: "", salCode: "22121" })).toBe(
-      "/housing/vic/preston-vic",
-    );
+  test("the href keeps the load-bearing ?sal=", () => {
+    expect(suburbHref("QLD", { salName: "Paddington (Qld)", postcode: "", salCode: "32250" }))
+      .toBe("/housing/qld/paddington-qld?sal=32250");
   });
 });

@@ -1,0 +1,9 @@
+DATAFLOW,LGA_2021: Local Government Areas - 2021,SEIFAINDEXTYPE: Index Type,SEIFA_MEASURE: Measure,TIME_PERIOD: Time Period,OBS_VALUE,UNIT_MEASURE: Unit of Measure,OBS_STATUS: Observation Status,OBS_COMMENT: Observation Comment
+ABS:ABS_SEIFA2021_LGA(1.0.0),10050: Albury,IRSAD: Index of Relative Socio-economic Advantage and Disadvantage,RWAD: Rank within Australia - Decile,2021,5,RANK_DC: Rank Decile,,
+ABS:ABS_SEIFA2021_LGA(1.0.0),10050: Albury,IRSD: Index of Relative Socio-economic Disadvantage,RWAD: Rank within Australia - Decile,2021,5,RANK_DC: Rank Decile,,
+ABS:ABS_SEIFA2021_LGA(1.0.0),25250: Moreland,IRSD: Index of Relative Socio-economic Disadvantage,RWAD: Rank within Australia - Decile,2021,8,RANK_DC: Rank Decile,,
+ABS:ABS_SEIFA2021_LGA(1.0.0),20910: Bayside (Vic.),IRSAD: Index of Relative Socio-economic Advantage and Disadvantage,RWAD: Rank within Australia - Decile,2021,10,RANK_DC: Rank Decile,,
+ABS:ABS_SEIFA2021_LGA(1.0.0),19499: No usual address (NSW),IRSD: Index of Relative Socio-economic Disadvantage,RWAD: Rank within Australia - Decile,2021,,RANK_DC: Rank Decile,,
+ABS:ABS_SEIFA2021_LGA(1.0.0),20910: Bayside (Vic.),IRSD: Index of Relative Socio-economic Disadvantage,RWAD: Rank within Australia - Decile,2021,10,RANK_DC: Rank Decile,,
+ABS:ABS_SEIFA2021_LGA(1.0.0),19499: No usual address (NSW),IRSAD: Index of Relative Socio-economic Advantage and Disadvantage,RWAD: Rank within Australia - Decile,2021,,RANK_DC: Rank Decile,,
+ABS:ABS_SEIFA2021_LGA(1.0.0),25250: Moreland,IRSAD: Index of Relative Socio-economic Advantage and Disadvantage,RWAD: Rank within Australia - Decile,2021,9,RANK_DC: Rank Decile,,

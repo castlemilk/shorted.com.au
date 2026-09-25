@@ -21,7 +21,12 @@ older than the configured 550-day horizon writes an error to
 `house_price_ingest_runs` and exits non-zero. The dedicated `vg-nsw` mode fetches
 only NSW PSI from an approved residential Mac, writes regions/facts/run status,
 asserts NSW freshness, refreshes housing views after a successful ingest, and
-propagates exit `1` on failure.
+propagates exit `1` on failure. Exit `9` means the ingest COMMITTED and the views
+refreshed, but a fetched year kept its stale medians — it fetched under 50,000
+sales, or pruning it would remove over 20% of its rows. Both point at a
+truncated download or a parser regression: read the `WARNING prune held back` /
+`upserted but NOT pruned` log lines (also stored in the run row's `detail`)
+before re-running. The wrapper sends a distinct notification for it.
 
 No Chrome or Playwright setup is needed for this source. Build the same collector
 binary used by the crawl:

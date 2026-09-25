@@ -70,9 +70,9 @@ export default async function StatePage({ params }: PageProps) {
   // alone without letting ISR bake the degraded render (bailOnEmptyRender).
   const directory = await getStateSuburbIndex(code)
     .then((suburbs) => buildStateSuburbDirectory(suburbs))
-    .catch((error: unknown) => {
+    .catch(async (error: unknown) => {
       console.warn(`[housing/state] suburb index unavailable for ${code}:`, error);
-      bailOnEmptyRender();
+      await bailOnEmptyRender();
       return null;
     });
   return (
@@ -107,6 +107,13 @@ export default async function StatePage({ params }: PageProps) {
               className="font-medium text-primary underline-offset-4 hover:underline"
             >
               {name} economy
+            </Link>
+            , browse every{" "}
+            <Link
+              href={`/housing/${stateSlug(code)}/council`}
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {name} council
             </Link>
             , compare every state on the{" "}
             <Link

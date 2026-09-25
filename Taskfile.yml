@@ -197,14 +197,30 @@ tasks:
     cmds: [make migrate-down]
 
   db:prod:psql:
-    desc: Read-only psql against prod (transaction pooler)
+    desc: Read-only psql against prod (session pooler, one READ ONLY transaction)
     summary: |
-      Opens on the TRANSACTION pooler (6543) with the session forced read-only,
-      which is the right tool for probes and the wrong one for DDL.
+      With arguments, runs a one-shot probe as ONE transaction and prints the
+      effective settings (as a NOTICE, on stderr) before it:
+        BEGIN READ ONLY; SET LOCAL statement_timeout = '60s'; <check>; <SQL>; ROLLBACK;
+        task db:prod:psql -- -At -c "SELECT max(observed_at) FROM property_price_events"
+      A probe that contains COMMIT/ROLLBACK/BEGIN is refused, because in one
+      string a COMMIT ends the read-only transaction and the rest could write.
 
-      For anything that writes or runs multiple statements — DDL, MV refresh,
-      VACUUM — use db:prod:apply / db:prod:refresh, which use the SESSION pooler
-      (5432). The txn pooler kills long statements mid-flight.
+      With no arguments, opens a shell that is ONE READ ONLY transaction for as
+      long as it lasts. Typos roll back to a savepoint; if you end the
+      transaction yourself, the guard ends with it, so quit and reopen instead.
+
+      Every guard is transaction-scoped (SET LOCAL). PGOPTIONS cannot do this:
+      Supavisor drops startup options on both poolers, and this task used to
+      rely on it, so the "forced read-only" shell could write. A session-level
+      SET is not used either: whether Supavisor resets session state before
+      handing the backend to the next client is unverified, and a read-only
+      default left behind would fail that client's writes.
+      See scripts/prod-psql.sh. PROD_PSQL_READ_TIMEOUT overrides the 60s bound.
+
+      Runs on the SESSION pooler (5432). The wrapper refuses 6543. A shell holds
+      one of the session pool's few connections while it is open, so quit when
+      you are done. For DDL or an MV refresh use db:prod:apply / db:prod:refresh.
     interactive: true
     # The DSN rides in env, not in the command string. task echoes cmds AFTER
     # template interpolation, so '{{.DB_PROD_TXN}}' printed the production
@@ -213,12 +229,13 @@ tasks:
     # literally and the shell expands it at runtime, so the command stays
     # visible and the secret does not.
     env:
-      PGOPTIONS: "-c default_transaction_read_only=on"
-      PGURL: "{{.DB_PROD_TXN}}"
+      PGURL: "{{.DB_PROD_SESSION}}"
     preconditions:
-      - sh: '[ -n "{{.DB_PROD_TXN}}" ]'
+      - sh: '[ -n "{{.DB_PROD_SESSION}}" ]'
         msg: "no prod DSN found in services/.env"
-    cmds: ['psql "$PGURL"']
+      - sh: 'echo "{{.DB_PROD_SESSION}}" | grep -q ":5432/"'
+        msg: "refusing: prod psql runs on the SESSION pooler (5432), got a non-5432 DSN"
+    cmds: ['scripts/prod-psql.sh read-only {{.CLI_ARGS}}']
 
   db:prod:apply:
     desc: "Hand-apply ONE migration to prod (FILE=..., CONFIRM=prod)"
@@ -230,6 +247,14 @@ tasks:
       Rules that are not optional:
         * SESSION pooler (5432). The txn pooler (6543) kills DDL mid-statement.
         * statement_timeout=0, or a large CREATE INDEX dies half-done.
+          scripts/prod-psql.sh runs the file under `psql --single-transaction`
+          with `SET LOCAL statement_timeout = 0` first, checks it took, and
+          ends with RESET ALL. PGOPTIONS does nothing here, because Supavisor
+          drops it, so a migration applied that way ran under the role's
+          2-minute default. Only a file Postgres cannot run in one transaction
+          (CREATE INDEX CONCURRENTLY, VACUUM, its own mid-file COMMIT) falls
+          back to a session-level SET, with a printed WARNING and RESET ALL.
+          A migration now applies all-or-nothing: an error rolls back the file.
         * DB BEFORE CODE. Merging read code first makes every read path 500.
         * Order matters: 000083 re-creates refresh_all_materialized_views with a
           PRE-hardening body, so anything touching that function runs AFTER it.
@@ -244,10 +269,9 @@ tasks:
       - sh: 'echo "{{.DB_PROD_SESSION}}" | grep -q ":5432/"'
         msg: "refusing: prod DDL needs the SESSION pooler (5432), got a non-5432 DSN"
     env:
-      PGOPTIONS: "-c statement_timeout=0"
       PGURL: "{{.DB_PROD_SESSION}}"
     cmds:
-      - 'psql "$PGURL" -v ON_ERROR_STOP=1 -f {{.FILE}}'
+      - 'scripts/prod-psql.sh apply "{{.FILE}}"'
 
   news:publish:
     desc: "Publish hand-written articles from content/news to /news (CONFIRM=prod)"
@@ -310,10 +334,16 @@ tasks:
     desc: "Refresh prod materialized views (WHICH=all|housing|register, CONFIRM=prod)"
     summary: |
       SESSION pooler (5432) with statement_timeout=0. On the txn pooler (6543)
-      a REFRESH ... CONCURRENTLY is killed mid-flight, and the plpgsql
-      `EXCEPTION WHEN OTHERS` guard does NOT catch the query_canceled that a
-      statement timeout raises — so one timed-out view starves every view after
-      it. That is exactly how five MVs went stale for 19 days.
+      a REFRESH ... CONCURRENTLY is killed mid-flight. That is how five MVs went
+      stale for 19 days.
+
+      scripts/prod-psql.sh runs the call under `psql --single-transaction`
+      with `SET LOCAL statement_timeout = 0` first and checks it took.
+      PGOPTIONS cannot do it: Supavisor drops it, so the refresh used to run
+      under the role's 2-minute default. That failure is SILENT: the refresh
+      functions catch a failed view and RAISE only a WARNING ('Skipping mv_…'),
+      so a view that hit the limit was skipped and the call still reported
+      success. The wrapper now exits 1 when any view was skipped.
 
       Do not use scripts/refresh-materialized-views.sh: it rewrites 5432 to 6543.
     requires: {vars: [CONFIRM]}
@@ -333,7 +363,7 @@ tasks:
           housing)  fn=refresh_housing_materialized_views ;;
           register) fn=refresh_register_materialized_views ;;
         esac
-        PGOPTIONS="-c statement_timeout=0" psql "$PGURL" -v ON_ERROR_STOP=1 -c "SELECT $fn();"
+        scripts/prod-psql.sh refresh "$fn"
 
   db:prod:migrate:
     desc: "(refuses — see db:prod:apply)"
@@ -461,9 +491,6 @@ tasks:
       economy) have no dry-run at all and always write.
 
       Read `dryRun=` from the startup log before believing a run persisted.
-
-      Note there are TWO copies of this collector; the deployed one is
-      services/house-price-collector, not the services/jobs mirror.
     dir: services/house-price-collector
     requires: {vars: [MODE]}
     env: {DATABASE_URL: "{{.DB_LOCAL}}"}
@@ -503,7 +530,12 @@ tasks:
       # Session pooler: the upsert batches are multi-statement.
       DATABASE_URL: "{{.DB_PROD_SESSION}}"
       FRED_API_KEY: "{{.FRED_API_KEY}}"
-      PGOPTIONS: "-c statement_timeout=0"
+      # No PGOPTIONS. This used to set "-c statement_timeout=0". pgx sends
+      # PGOPTIONS as a startup option, and Supavisor drops startup options, so
+      # it never took effect: the run gets the role's default timeout, the same
+      # one the scheduled shorted-economy job has always run under. If an
+      # importer ever needs longer, it must SET LOCAL in its own transaction
+      # (see refreshHousingMV in services/house-price-collector/store.go).
     cmds:
       - 'GOWORK=off go run . economy -mode {{.MODE}}'
 
@@ -660,18 +692,18 @@ tasks:
     # the DSN — the env indirection below is. Relying on silent for that put the
     # credential one `silent: false` away from being printed.
     silent: true
+    # Read-only because the wrapper opens a READ ONLY transaction, not because
+    # the SQL happens to be SELECTs. Same wrapper, same pooler as db:prod:psql.
     env:
-      PGURL: "{{.DB_PROD_TXN}}"
+      PGURL: "{{.DB_PROD_SESSION}}"
     preconditions:
-      - sh: '[ -n "{{.DB_PROD_TXN}}" ]'
+      - sh: '[ -n "{{.DB_PROD_SESSION}}" ]'
         msg: "no prod DSN found in services/.env"
     cmds:
       - |
-        psql "$PGURL" -tAc "
-          SELECT 'ingest ' || source || ' = ' || status || COALESCE(' (' || left(detail,60) || ')','')
-          FROM house_price_ingest_runs WHERE status <> 'ok' ORDER BY source;"
-        psql "$PGURL" -tAc "
-          SELECT 'vg ' || source || ' ' || status || ' ' || COALESCE(last_period::date::text,'-')
-          FROM house_price_ingest_runs WHERE source LIKE 'vg_%' ORDER BY source;"
-        psql "$PGURL" -tAc "
-          SELECT 'property links banked: ' || count(*) FROM property_valuations WHERE COALESCE(profile_url,'') <> '';"
+        scripts/prod-psql.sh read-only -tA \
+          -c "SELECT 'ingest ' || source || ' = ' || status || COALESCE(' (' || left(detail,60) || ')','')
+              FROM house_price_ingest_runs WHERE status <> 'ok' ORDER BY source" \
+          -c "SELECT 'vg ' || source || ' ' || status || ' ' || COALESCE(last_period::date::text,'-')
+              FROM house_price_ingest_runs WHERE source LIKE 'vg_%' ORDER BY source" \
+          -c "SELECT 'property links banked: ' || count(*) FROM property_valuations WHERE COALESCE(profile_url,'') <> ''"

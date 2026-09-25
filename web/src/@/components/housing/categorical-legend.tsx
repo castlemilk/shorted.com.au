@@ -6,11 +6,13 @@
  * stays relevant. Mirrors MapLegend's card styling.
  */
 export function CategoricalLegend({
-  label, entries, showNoData = true,
+  label, entries, showNoData = true, noDataLabel = "No data",
 }: {
   label: string;
   entries: { label: string; color: string }[];
   showNoData?: boolean;
+  /** The metric's own wording for a hatched suburb ("No open zoning map covers it"). */
+  noDataLabel?: string;
 }) {
   return (
     <div className="pointer-events-none max-w-[230px] rounded-lg border border-border bg-card/90 px-3 py-2 shadow-sm backdrop-blur">
@@ -32,7 +34,7 @@ export function CategoricalLegend({
                 "repeating-linear-gradient(45deg, hsl(var(--muted)), hsl(var(--muted)) 2px, hsl(var(--border)) 2px, hsl(var(--border)) 3px)",
             }}
           />
-          No data
+          {noDataLabel}
         </div>
       ) : null}
     </div>

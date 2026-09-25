@@ -3,7 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,9 +35,16 @@ import (
 // normalised council name (reusing normCouncil — LGPRF names councils
 // "Melbourne City"/"Alpine Shire", handled by the bare-type-word strip).
 const (
-	vicLGPRFURL   = "https://www.localgovernment.vic.gov.au/__data/assets/excel_doc/0019/191008/LGPRF-2020-2025-Full-Council-Data-Set-Nov25-Final-Release.xlsx"
-	vicFinSource  = "vic_lgprf"
-	vicFinLicence = "CC-BY-4.0"
+	// vicLGPRFURL is the fallback when the catalogue cannot be read: the
+	// release current at 2026-01. The live URL is discovered each run
+	// (discoverVICLGPRFURL), because every annual release gets a new asset path.
+	vicLGPRFURL = "https://www.localgovernment.vic.gov.au/__data/assets/excel_doc/0019/191008/LGPRF-2020-2025-Full-Council-Data-Set-Nov25-Final-Release.xlsx"
+	// vicLGPRFPackageURL is the Victorian Government Data Directory (CKAN)
+	// record for the LGPRF — the same record whose license_id=cc-by is our
+	// licence evidence. Plain JSON, not behind the Cloudflare challenge.
+	vicLGPRFPackageURL = "https://discover.data.vic.gov.au/api/3/action/package_show?id=local-government-performance-reporting"
+	vicFinSource       = "vic_lgprf"
+	vicFinLicence      = "CC-BY-4.0"
 
 	// LGPRF financial indicator IDs we surface (→ existing lga columns):
 	finIDAvgRates     = "E4"  // Average rate per property assessment ($)      → avg_rates
@@ -52,13 +63,93 @@ type VicFinRow struct {
 	AssetRenewPct *float64 // asset renewal vs depreciation, %
 }
 
+// vicCKANPackage is the slice of a CKAN package_show response we read.
+type vicCKANPackage struct {
+	Success bool `json:"success"`
+	Result  struct {
+		LicenseID string `json:"license_id"`
+		Resources []struct {
+			Name   string `json:"name"`
+			Format string `json:"format"`
+			URL    string `json:"url"`
+		} `json:"resources"`
+	} `json:"result"`
+}
+
+var lgprfFullSetRe = regexp.MustCompile(`(?i)full[- ](council[- ])?data[- ]set`)
+
+// ckanCCBYRe is the allowlist of CKAN license_ids that are plain CC BY
+// (attribution only): "cc-by", optionally versioned and AU-ported
+// ("cc-by-4.0", "cc-by-3.0-au"). A prefix test would also pass cc-by-nc,
+// cc-by-nd and cc-by-sa — terms we cannot meet on a paid product (NC) or a
+// derived dataset (ND, SA).
+var ckanCCBYRe = regexp.MustCompile(`^cc-by(-\d(\.\d)?)?(-au)?$`)
+
+// pickVICLGPRFURL chooses the Full Council Data Set workbook from the CKAN
+// record. It refuses a record that is no longer CC-BY — our licence basis —
+// rather than silently ingesting under changed terms.
+func pickVICLGPRFURL(raw []byte) (string, error) {
+	var pkg vicCKANPackage
+	if err := json.Unmarshal(raw, &pkg); err != nil {
+		return "", fmt.Errorf("LGPRF catalogue record: %w", err)
+	}
+	if !pkg.Success {
+		return "", fmt.Errorf("LGPRF catalogue record: success=false")
+	}
+	if lic := strings.ToLower(strings.TrimSpace(pkg.Result.LicenseID)); !ckanCCBYRe.MatchString(lic) {
+		return "", fmt.Errorf("LGPRF catalogue licence is %q, not CC-BY", pkg.Result.LicenseID)
+	}
+	for _, r := range pkg.Result.Resources {
+		if strings.EqualFold(strings.TrimSpace(r.Format), "xlsx") &&
+			(lgprfFullSetRe.MatchString(r.Name) || lgprfFullSetRe.MatchString(r.URL)) &&
+			strings.HasPrefix(r.URL, "https://") {
+			return r.URL, nil
+		}
+	}
+	return "", fmt.Errorf("LGPRF catalogue record lists no Full Data Set XLSX")
+}
+
+// discoverVICLGPRFURL reads the current workbook URL from the data directory,
+// falling back to the pinned release (logged) when the catalogue is unreachable
+// or unrecognisable — the fallback is a stale year, never a wrong source.
+func discoverVICLGPRFURL(ctx context.Context) string {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, vicLGPRFPackageURL, nil)
+	if err != nil {
+		return vicLGPRFURL
+	}
+	req.Header.Set("User-Agent", absUA)
+	req.Header.Set("Accept", "application/json")
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	if err != nil {
+		log.Printf("[council-financials] catalogue unreachable, using pinned release: %v", err)
+		return vicLGPRFURL
+	}
+	defer func() { _ = resp.Body.Close() }()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err == nil && resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	var url string
+	if err == nil {
+		url, err = pickVICLGPRFURL(raw)
+	}
+	if err != nil {
+		log.Printf("[council-financials] catalogue unusable, using pinned release: %v", err)
+		return vicLGPRFURL
+	}
+	if url != vicLGPRFURL {
+		log.Printf("[council-financials] catalogue lists a newer release than the pinned one: %s", url)
+	}
+	return url
+}
+
 // fetchVICLGPRF pulls the LGPRF workbook bytes via the stealth native engine.
 func fetchVICLGPRF(ctx context.Context) ([]byte, error) {
 	client, err := stealthhttp.New(stealthhttp.WithTimeout(60 * time.Second))
 	if err != nil {
 		return nil, fmt.Errorf("stealth init: %w", err)
 	}
-	b, _, err := client.FetchBytes(ctx, vicLGPRFURL, xlsxAccept)
+	b, _, err := client.FetchBytes(ctx, discoverVICLGPRFURL(ctx), xlsxAccept)
 	if err != nil {
 		return nil, fmt.Errorf("fetch VIC LGPRF: %w", err)
 	}

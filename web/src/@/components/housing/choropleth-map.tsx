@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { geoMercator, geoPath } from "d3-geo";
+import { geoBounds, geoContains, geoMercator, geoPath } from "d3-geo";
 import { zoom as d3zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior } from "d3-zoom";
 import { select } from "d3-selection";
 import { feature } from "topojson-client";
@@ -46,9 +46,47 @@ export interface OverlayLayer {
   color: string;
   /** default OVERLAY_FILL_OPACITY */
   opacity?: number;
+  /** Categorical layer: each feature is filled by `classColors[properties[classProperty]]`
+   * (falling back to `color`) instead of one colour for the whole layer. */
+  classProperty?: string;
+  classColors?: Record<string, string>;
+  /** Reader-facing class names; with these set the layer is IDENTIFIED under
+   * the pointer and reported through onFeatureHover's third argument. */
+  classLabels?: Record<string, string>;
 }
 
+/** A categorical overlay class under the pointer (hover identify). */
+export interface OverlayHit {
+  key: string;
+  value: string;
+  label: string;
+  color: string;
+}
+
+export type IdentifyPart = {
+  key: string; value: string; label: string; color: string;
+  bounds: [[number, number], [number, number]];
+  polygon: Feature<Geometry>;
+};
+
 const DEFAULT_OVERLAY_OPACITY = 0.38;
+
+/**
+ * A line layer drawn above the fills and overlays: council borders, a council
+ * outline, neighbouring councils. Pre-projected GeoJSON (built from the same
+ * topology, so it shares its arcs); pinned to screen pixels with
+ * non-scaling-stroke and never takes pointer events.
+ */
+export interface LineLayer {
+  key: string;
+  geometry: Geometry;
+  /** CSS colour; defaults to the foreground token. */
+  color?: string;
+  /** Screen px. */
+  width?: number;
+  dash?: string;
+  opacity?: number;
+}
 
 export interface ChoroplethMapProps {
   topology: Topology;
@@ -74,7 +112,10 @@ export interface ChoroplethMapProps {
    *  when cleared. */
   focusId?: string;
   onFeatureClick?: (id: string) => void;
-  onFeatureHover?: (id: string | null, evt?: React.PointerEvent) => void;
+  /** `overlayHits`: the categorical overlay classes under the pointer, found by
+   * geoContains on the pointer's map location — overlays themselves take no
+   * pointer events, so suburb hover keeps working underneath them. */
+  onFeatureHover?: (id: string | null, evt?: React.PointerEvent, overlayHits?: OverlayHit[]) => void;
   height?: number;
   ariaLabel: string;
   /** Initial view fits the bbox of data-bearing features (the priced cluster). */
@@ -89,6 +130,13 @@ export interface ChoroplethMapProps {
   legend?: ReactNode;
   /** Hazard/context layers drawn above the choropleth (see OverlayLayer). */
   overlays?: OverlayLayer[];
+  /** Boundary lines drawn above fills and overlays (see LineLayer). */
+  lines?: LineLayer[];
+  /**
+   * Hatch features with no value (default). Off where "no value" means "not
+   * the subject" (the council page's map), not "no data".
+   */
+  hatchNoData?: boolean;
 }
 
 export function ChoroplethMap(props: ChoroplethMapProps) {
@@ -108,7 +156,7 @@ function ChoroplethInner({
   topology, objectName, valueById, categoryById, categoryColor, nameById, colorScale,
   fitValueById, selectedId, hoveredId: hoveredIdProp, focusId,
   onFeatureClick, onFeatureHover, width, height, ariaLabel,
-  fitToData, fitToId, interactive = true, legend, overlays,
+  fitToData, fitToId, interactive = true, legend, overlays, lines, hatchNoData = true,
 }: ChoroplethMapProps & { width: number; height: number }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
@@ -124,7 +172,7 @@ function ChoroplethInner({
   // recompute the projection or reset the zoom. `fitData` is the stable set the
   // overview frames to (the priced cluster), falling back to valueById.
   const fitData = fitValueById ?? valueById;
-  const { features, pathById, pathForGeo, initialTransform, byId, focusTransformFor } = useMemo(() => {
+  const { features, pathById, pathForGeo, invert, initialTransform, byId, focusTransformFor } = useMemo(() => {
     const obj = topology.objects[objectName] as GeometryCollection;
     const fc = feature(topology, obj) as unknown as { features: Feature<Geometry>[] };
     const projection = geoMercator().fitSize([width, height], {
@@ -166,6 +214,7 @@ function ChoroplethInner({
       byId: idMap,
       pathById: dMap,
       pathForGeo: (geo: Geometry) => path(geo as never) ?? "",
+      invert: (xy: [number, number]) => projection.invert?.(xy) ?? null,
       initialTransform: transform,
       focusTransformFor: (id: string) => {
         const f = idMap.get(id);
@@ -182,11 +231,52 @@ function ChoroplethInner({
     const fc = feature(layer.topology, layer.topology.objects[objectName] as GeometryCollection) as unknown as {
       features: Feature<Geometry>[];
     };
+    if (!layer.classProperty) {
+      return {
+        key: layer.key, color: layer.color, opacity: layer.opacity,
+        d: fc.features.map((f) => pathForGeo(f.geometry)).filter(Boolean),
+      };
+    }
+    // Categorical: one path per class feature, filled by its class.
+    const drawn = fc.features
+      .map((f) => ({ d: pathForGeo(f.geometry), fill: overlayClassColor(layer, f) }))
+      .filter((x) => x.d);
     return {
       key: layer.key, color: layer.color, opacity: layer.opacity,
-      d: fc.features.map((f) => pathForGeo(f.geometry)).filter(Boolean),
+      d: drawn.map((x) => x.d), fills: drawn.map((x) => x.fill),
     };
   }), [overlays, pathForGeo]);
+
+  // Hover identify for categorical layers: every polygon part with its
+  // lon/lat bounds, so a pointer move tests a handful of candidates rather
+  // than every ring in the state.
+  const identifyParts = useMemo(() => {
+    const parts: IdentifyPart[] = [];
+    for (const layer of overlays ?? []) {
+      if (!layer.classProperty || !layer.classLabels) continue;
+      const objectName = Object.keys(layer.topology.objects)[0];
+      if (!objectName) continue;
+      const fc = feature(layer.topology, layer.topology.objects[objectName] as GeometryCollection) as unknown as {
+        features: Feature<Geometry>[];
+      };
+      for (const f of fc.features) {
+        const value = String((f.properties as Record<string, unknown> | null)?.[layer.classProperty] ?? "");
+        const label = layer.classLabels[value];
+        if (!label) continue;
+        const polys = f.geometry.type === "MultiPolygon"
+          ? f.geometry.coordinates.map((c) => ({ type: "Polygon", coordinates: c }) as Geometry)
+          : f.geometry.type === "Polygon" ? [f.geometry] : [];
+        for (const g of polys) {
+          const polygon = { type: "Feature", properties: null, geometry: g } as Feature<Geometry>;
+          parts.push({
+            key: layer.key, value, label, color: overlayClassColor(layer, f),
+            bounds: geoBounds(polygon as never) as [[number, number], [number, number]], polygon,
+          });
+        }
+      }
+    }
+    return parts;
+  }, [overlays]);
 
   initialTransformRef.current = initialTransform;
   const focusTransformForRef = useRef(focusTransformFor);
@@ -271,9 +361,19 @@ function ChoroplethInner({
   const onClickRef = useRef(onFeatureClick); onClickRef.current = onFeatureClick;
   const onHoverRef = useRef(onFeatureHover); onHoverRef.current = onFeatureHover;
   const handleClick = useCallback((id: string) => onClickRef.current?.(id), []);
+  const identifyRef = useRef({ parts: identifyParts, invert });
+  identifyRef.current = { parts: identifyParts, invert };
   const handleHover = useCallback((id: string | null, evt?: React.PointerEvent) => {
     setLocalHover(id);
-    onHoverRef.current?.(id, evt);
+    const { parts, invert: inv } = identifyRef.current;
+    let hits: OverlayHit[] | undefined;
+    if (evt && parts.length && svgRef.current) {
+      const rect = svgRef.current.getBoundingClientRect();
+      const local = committedRef.current.invert([evt.clientX - rect.left, evt.clientY - rect.top]);
+      const lonLat = inv(local as [number, number]);
+      hits = lonLat ? identifyAt(parts, lonLat) : [];
+    }
+    onHoverRef.current?.(id, evt, hits);
   }, []);
   const clickable = interactive && !!onFeatureClick;
 
@@ -292,7 +392,10 @@ function ChoroplethInner({
     const v = valueById.get(id);
     return v == null ? { fill: NO_DATA_FILL, hasData: false } : { fill: colorScale(v), hasData: true };
   };
+  const linePaths = useMemo(() => (lines ?? []).map((l) => ({ ...l, d: pathForGeo(l.geometry) })).filter((l) => l.d),
+    [lines, pathForGeo]);
   const noDataClip = useMemo(() => {
+    if (!hatchNoData) return "";
     const parts: string[] = [];
     for (const f of features) {
       const id = String(f.id);
@@ -300,7 +403,7 @@ function ChoroplethInner({
     }
     return parts.join(" ");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fillFor is derived from these
-  }, [features, pathById, valueById, categoryById, categoryColor]);
+  }, [features, pathById, valueById, categoryById, categoryColor, hatchNoData]);
 
   // overlay the emphasized features on top so their thicker stroke isn't clipped.
   // dedupe: hoveredId often === selectedId, which would emit duplicate React keys
@@ -349,7 +452,18 @@ function ChoroplethInner({
             />
           ) : null}
           {overlayPaths.map((layer) => (
-            <OverlayLayerPaths key={`overlay-${layer.key}`} layerKey={layer.key} color={layer.color} opacity={layer.opacity} d={layer.d} />
+            <OverlayLayerPaths
+              key={`overlay-${layer.key}`} layerKey={layer.key} color={layer.color} opacity={layer.opacity} d={layer.d}
+              fills={"fills" in layer ? layer.fills : undefined}
+            />
+          ))}
+          {linePaths.map((l) => (
+            <path
+              key={`line-${l.key}`} data-line={l.key} d={l.d} fill="none"
+              strokeWidth={l.width ?? 1} strokeDasharray={l.dash} strokeOpacity={l.opacity ?? 0.85}
+              strokeLinejoin="round"
+              style={{ stroke: l.color ?? "hsl(var(--foreground))", vectorEffect: "non-scaling-stroke", pointerEvents: "none" }}
+            />
           ))}
           {emphasizedIds
             .filter((id) => byId.has(id))
@@ -426,21 +540,51 @@ const SuburbPath = memo(function SuburbPath({
 
 /** One overlay layer; memoised so a hover never re-serialises its geometry. */
 const OverlayLayerPaths = memo(function OverlayLayerPaths({
-  layerKey, color, opacity, d,
-}: { layerKey: string; color: string; opacity?: number; d: string[] }) {
+  layerKey, color, opacity, d, fills,
+}: { layerKey: string; color: string; opacity?: number; d: string[]; fills?: string[] }) {
   return (
     <g data-overlay={layerKey} style={{ pointerEvents: "none" }}>
       {d.map((path, i) => (
         <path
           key={i} d={path}
-          fill={color} fillOpacity={opacity ?? DEFAULT_OVERLAY_OPACITY}
-          stroke={color} strokeWidth={0.6} strokeOpacity={Math.min(1, (opacity ?? DEFAULT_OVERLAY_OPACITY) + 0.5)}
+          fill={fills?.[i] ?? color} fillOpacity={opacity ?? DEFAULT_OVERLAY_OPACITY}
+          stroke={fills?.[i] ?? color} strokeWidth={0.6} strokeOpacity={Math.min(1, (opacity ?? DEFAULT_OVERLAY_OPACITY) + 0.5)}
           style={{ vectorEffect: "non-scaling-stroke" }}
         />
       ))}
     </g>
   );
 });
+
+function overlayClassColor(layer: OverlayLayer, f: Feature<Geometry>): string {
+  if (!layer.classProperty) return layer.color;
+  const value = (f.properties as Record<string, unknown> | null)?.[layer.classProperty];
+  return (typeof value === "string" ? layer.classColors?.[value] : undefined) ?? layer.color;
+}
+
+/** Categorical overlay classes whose polygons contain lon/lat (bbox-pruned). */
+export function identifyAt(
+  parts: readonly IdentifyPart[],
+  [lon, lat]: [number, number],
+  contains: (polygon: Feature<Geometry>, point: [number, number]) => boolean = (p, pt) => geoContains(p as never, pt),
+): OverlayHit[] {
+  const hits: OverlayHit[] = [];
+  const seen = new Set<string>();
+  for (const p of parts) {
+    const [[w, s], [e, n]] = p.bounds;
+    if (lat < s || lat > n) continue;
+    // geoBounds wraps across the antimeridian as w > e; not reachable in
+    // Australia, but kept correct.
+    if (w <= e ? lon < w || lon > e : lon < w && lon > e) continue;
+    const id = `${p.key}:${p.value}`;
+    if (seen.has(id)) continue;
+    if (contains(p.polygon, [lon, lat])) {
+      seen.add(id);
+      hits.push({ key: p.key, value: p.value, label: p.label, color: p.color });
+    }
+  }
+  return hits;
+}
 
 function ZoomBtn({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
   return (

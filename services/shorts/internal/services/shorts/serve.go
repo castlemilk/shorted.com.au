@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -1155,8 +1156,8 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// (health, search, admin, docs), then with h2c for HTTP/2 support.
 	handler := shortedotel.HTTPMiddleware(mux)
 
-	return http.ListenAndServe(
-		address,
+	srv := &http.Server{
+		Addr: address,
 		// Use h2c so we can serve HTTP/2 without TLS.
 		//
 		// Deprecated in favour of http.Server.Protocols + SetUnencryptedHTTP2, but
@@ -1166,6 +1167,13 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		// Swapping it is a change to how this API negotiates every connection and
 		// belongs in its own change with its own verification, not here.
 		//nolint:staticcheck // SA1019: see above — deliberate, tracked separately.
-		h2c.NewHandler(handler, &http2.Server{}),
-	)
+		Handler: h2c.NewHandler(handler, &http2.Server{}),
+	}
+	ln, err := net.Listen("tcp", address)
+	if err != nil {
+		return err
+	}
+	// Returns when ctx ends (SIGTERM/SIGINT in main), after a bounded drain, so
+	// main reaches s.Close() and flushes the monthly quota buffer.
+	return serveUntilDone(ctx, srv, ln, ShutdownGrace)
 }

@@ -42,7 +42,8 @@ public interface DropIndexPointOrBuilder extends
 
   /**
    * <pre>
-   * 0..1 fraction, depth of the typical cut
+   * 0..1 fraction, depth of the typical cut. 0 when withheld — read
+   * median_withheld, never the 0, to tell withheld from a measurement.
    * </pre>
    *
    * <code>double median_drop_pct = 3 [json_name = "medianDropPct"];</code>
@@ -115,4 +116,18 @@ public interface DropIndexPointOrBuilder extends
    * @return The delistedCount.
    */
   int getDelistedCount();
+
+  /**
+   * <pre>
+   * True when median_drop_pct is withheld: fewer than 3 dropped addresses
+   * stand behind this point, so a "median" would be one or two listings'
+   * exact cuts (the stored median is NULL). median_drop_pct is then 0 and is
+   * not a measurement. A separate flag rather than `optional` presence on
+   * median_drop_pct, which would change that field's cardinality.
+   * </pre>
+   *
+   * <code>bool median_withheld = 11 [json_name = "medianWithheld"];</code>
+   * @return The medianWithheld.
+   */
+  boolean getMedianWithheld();
 }

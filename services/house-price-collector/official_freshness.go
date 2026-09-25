@@ -13,6 +13,14 @@ import (
 type vgFreshnessPolicy struct {
 	source     string
 	maxAgeDays int
+	table      string // fact table MAX(period) is read from; "" = house_prices
+}
+
+func (p vgFreshnessPolicy) factTable() string {
+	if p.table == "" {
+		return "house_prices"
+	}
+	return p.table
 }
 
 var vgFreshnessPolicies = []vgFreshnessPolicy{
@@ -63,13 +71,14 @@ func loadVGFreshness(ctx context.Context, pool *pgxpool.Pool) (map[string]*time.
 
 func classifyVGFreshness(now time.Time, policy vgFreshnessPolicy, maxPeriod *time.Time) string {
 	if maxPeriod == nil {
-		return fmt.Sprintf("LOUD: %s house_prices has never succeeded; no persisted period exists", policy.source)
+		return fmt.Sprintf("LOUD: %s %s has never succeeded; no persisted period exists", policy.source, policy.factTable())
 	}
 	threshold := time.Duration(policy.maxAgeDays) * 24 * time.Hour
 	if now.After(maxPeriod.Add(threshold)) {
 		return fmt.Sprintf(
-			"LOUD: %s house_prices MAX(period) %s is stale beyond %d-day threshold",
+			"LOUD: %s %s MAX(period) %s is stale beyond %d-day threshold",
 			policy.source,
+			policy.factTable(),
 			maxPeriod.Format("2006-01-02"),
 			policy.maxAgeDays,
 		)

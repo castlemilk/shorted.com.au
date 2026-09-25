@@ -25,17 +25,31 @@ export const LAYER_META = {
   flood_planning: {
     NSW: { source: "NSW Environmental Planning Instrument — Flood (NSW Planning Portal)", licence: "CC-BY-4.0" },
     VIC: { source: "Vicmap Planning overlays LSIO/FO/SBO (DTP Victoria)", licence: "CC-BY-4.0" },
+    SA: { source: "Planning and Design Code overlays Hazards (Flooding) and (Flooding – General) (PlanSA)", licence: "CC-BY-3.0-AU" },
+    TAS: { source: "Tasmanian Planning Scheme Code Overlay — Flood-prone Areas (theLIST)", licence: "CC-BY-3.0-AU" },
+    // Not a planning overlay: the ACT publishes none openly. overlays.ts
+    // carries the matching stateCaveat.
+    ACT: { source: "ACT Flood Extent Model, 1% AEP (ACT Government) — a modelled extent", licence: "CC-BY-4.0" },
   },
   bushfire_prone: {
     NSW: { source: "NSW Bush Fire Prone Land (NSW Rural Fire Service)", licence: "CC-BY-4.0" },
-    VIC: { source: "Vicmap Planning overlay BMO (DTP Victoria)", licence: "CC-BY-4.0" },
+    VIC: { source: "Designated Bushfire Prone Area (DTP Victoria)", licence: "CC-BY-4.0" },
+    QLD: { source: "Bushfire Prone Area — Queensland series (Queensland Fire Department)", licence: "CC-BY-4.0" },
+    SA: { source: "Planning and Design Code overlays Hazards (Bushfire) High/Medium/General/Urban Interface (PlanSA)", licence: "CC-BY-3.0-AU" },
+    WA: { source: "Bush Fire Prone Areas OBRM-026 (Office of Bushfire Risk Management)", licence: "CC-BY-4.0" },
+    TAS: { source: "Tasmanian Planning Scheme Code Overlay — Bushfire-prone Areas (theLIST)", licence: "CC-BY-3.0-AU" },
+    ACT: { source: "Bushfire Prone Area 2026 (ACT Government)", licence: "CC-BY-4.0" },
   },
   water_observed: {
     "*": { source: "DEA Water Observations Statistics 1987– (Geoscience Australia)", licence: "CC-BY-4.0" },
   },
 };
 
-const RETENTION = ["100%", "50%", "25%", "12%", "6%", "3%", "1.5%"];
+// The last rungs are for polygonised rasters (QLD, WA bushfire): their input is
+// stair-stepped 60–120 m cell edges, so a percentage of it keeps far more
+// vertices than the same percentage of a vector layer. Measured 2026-09-24:
+// both fit at 1% (522 KB, 524 KB) and not at 1.5% (703 KB, 719 KB).
+const RETENTION = ["100%", "50%", "25%", "12%", "6%", "3%", "1.5%", "1%", "0.75%"];
 
 function build(file) {
   const [state, layerWithExt] = basename(file).split("-");

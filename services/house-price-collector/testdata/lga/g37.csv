@@ -1,0 +1,11 @@
+DATAFLOW,TENLLD: Tenure and landlord type,STRD: Dwelling structure,REGION: Region,REGION_TYPE: Region Type,STATE: State,TIME_PERIOD: Time Period,OBS_VALUE
+ABS:C21_G37_LGA(1.0.0),_T: Total,_T: Total,29799: Migratory - Offshore - Shipping (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,0
+ABS:C21_G37_LGA(1.0.0),_T: Total,_T: Total,71300: East Arnhem,LGA2021: Local Government Areas (2021),7: Northern Territory,2021,1450
+ABS:C21_G37_LGA(1.0.0),R_T: Rented: Total,_T: Total,25250: Moreland,LGA2021: Local Government Areas (2021),2: Victoria,2021,25980
+ABS:C21_G37_LGA(1.0.0),R_T: Rented: Total,_T: Total,10050: Albury,LGA2021: Local Government Areas (2021),1: New South Wales,2021,7489
+ABS:C21_G37_LGA(1.0.0),R_T: Rented: Total,_T: Total,71300: East Arnhem,LGA2021: Local Government Areas (2021),7: Northern Territory,2021,1143
+ABS:C21_G37_LGA(1.0.0),R_T: Rented: Total,_T: Total,20910: Bayside (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,8446
+ABS:C21_G37_LGA(1.0.0),_T: Total,_T: Total,20910: Bayside (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,37936
+ABS:C21_G37_LGA(1.0.0),_T: Total,_T: Total,10050: Albury,LGA2021: Local Government Areas (2021),1: New South Wales,2021,22182
+ABS:C21_G37_LGA(1.0.0),R_T: Rented: Total,_T: Total,29799: Migratory - Offshore - Shipping (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,0
+ABS:C21_G37_LGA(1.0.0),_T: Total,_T: Total,25250: Moreland,LGA2021: Local Government Areas (2021),2: Victoria,2021,67871

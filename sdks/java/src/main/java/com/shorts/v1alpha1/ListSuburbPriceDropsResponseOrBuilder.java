@@ -33,4 +33,58 @@ public interface ListSuburbPriceDropsResponseOrBuilder extends
    */
   com.shorts.v1alpha1.SuburbPriceDropOrBuilder getSuburbsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * The OLDER refresh of the two views this board joins
+   * (mv_suburb_listing_stats, mv_suburb_price_drops), so the stamp never
+   * claims more freshness than the staler half. data_through: the newest crawl
+   * observation (price event or listing sighting) those refreshes could see.
+   * Both unset when no refresh has been recorded.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 2 [json_name = "asOf"];</code>
+   * @return Whether the asOf field is set.
+   */
+  boolean hasAsOf();
+  /**
+   * <pre>
+   * The OLDER refresh of the two views this board joins
+   * (mv_suburb_listing_stats, mv_suburb_price_drops), so the stamp never
+   * claims more freshness than the staler half. data_through: the newest crawl
+   * observation (price event or listing sighting) those refreshes could see.
+   * Both unset when no refresh has been recorded.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 2 [json_name = "asOf"];</code>
+   * @return The asOf.
+   */
+  com.google.protobuf.Timestamp getAsOf();
+  /**
+   * <pre>
+   * The OLDER refresh of the two views this board joins
+   * (mv_suburb_listing_stats, mv_suburb_price_drops), so the stamp never
+   * claims more freshness than the staler half. data_through: the newest crawl
+   * observation (price event or listing sighting) those refreshes could see.
+   * Both unset when no refresh has been recorded.
+   * </pre>
+   *
+   * <code>.google.protobuf.Timestamp as_of = 2 [json_name = "asOf"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getAsOfOrBuilder();
+
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 3 [json_name = "dataThrough"];</code>
+   * @return Whether the dataThrough field is set.
+   */
+  boolean hasDataThrough();
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 3 [json_name = "dataThrough"];</code>
+   * @return The dataThrough.
+   */
+  com.google.protobuf.Timestamp getDataThrough();
+  /**
+   * <code>.google.protobuf.Timestamp data_through = 3 [json_name = "dataThrough"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getDataThroughOrBuilder();
 }

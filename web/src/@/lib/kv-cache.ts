@@ -261,6 +261,12 @@ export const CACHE_KEYS = {
     sort: string,
   ) =>
     `cache:housing:drops:addresses:${stateCode || "all"}:${windowDays}:${limit}:${sort}`,
+  // Council hub (ListCouncils / GetCouncilProfile). Under cache:housing: so the
+  // crawl-event flush also refreshes the k-floored price-drop rollups they carry;
+  // the 24h HOUSING_TTL bounds everything else (council facts change monthly).
+  councils: (stateCode: string) => `cache:housing:councils:${stateCode}`,
+  councilProfile: (stateCode: string, slug: string) =>
+    `cache:housing:council:${stateCode}:${slug}`,
   // Tooltip cache keys
   tooltipData: (productCode: string) =>
     `${TOOLTIP_CACHE_PREFIX}${productCode}`,

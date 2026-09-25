@@ -11,8 +11,8 @@ plus a property.com.au AVM enrichment tier), and the **price-drops board**
 (`/price-drops`). **All live on prod.**
 
 Prod, as at 2026-08-09 (24-agent audit measurements): **88,689 crawl listings
-across 500 suburbs · 500-suburb crawl catalog · 22 collector modes · 16
-official-ingest jobs · 11 `HousingService` RPCs.** VG suburb medians cover VIC
+across 500 suburbs · 500-suburb crawl catalog · 22 collector modes (37 in code as of 2026-09-24; see pipeline.md) · 16
+official-ingest jobs · 11 `HousingService` RPCs (17 in code as of 2026-09-24).** VG suburb medians cover VIC
 739/3,076 and SA 426/1,764 suburbs; **NSW/QLD/WA sit at zero** (see
 known-open). If an older doc disagrees with these numbers — "115 suburbs",
 "~12k/22k listings", "7 modes", "Terraform not yet wired" — this line wins;
@@ -29,8 +29,10 @@ See [handover-2026-08-27.md](handover-2026-08-27.md) for how each was verified.
 
 **Added 2026-09 (hazard overlays round):** the map has **overlays** — a second
 layer drawn above "Colour by" and toggled independently: flood planning area
-(NSW/VIC), observed surface water (national, DEA Water Observations 1987–) and
-bushfire prone land (NSW/VIC), each with its per-suburb area share on the
+(NSW/VIC; SA, TAS and ACT's modelled extent added in the 2026-09 gap-fill),
+observed surface water (national, DEA Water Observations 1987–) and bushfire
+prone land (NSW/VIC; every state but NT after the gap-fill), each with its
+per-suburb area share on the
 tooltip and a **Terrain & hazard exposure** card on the suburb page (which also
 surfaces the elevation pipeline for the first time). "Colour by" gained
 elevation, low-lying land and the three hazard shares, all delivered through
@@ -55,8 +57,7 @@ set contains **null-geometry placeholders** ("No usual address", "Migratory -
 Offshore - Shipping") — `eachRing` skips them; a regression there takes every
 map in the state down. `/housing/[state]` also gained a server-rendered suburb
 directory (`state-suburb-directory.tsx`) because Search Console showed suburb
-pages reachable only through the sitemap; and `suburbHref` no longer appends
-`?sal=` (the page resolves from the path). Audit: `docs/seo-audit-2026-09.md`.
+pages reachable only through the sitemap. Audit: `docs/seo-audit-2026-09.md`.
 
 ## Read these in this order
 
@@ -64,7 +65,7 @@ pages reachable only through the sitemap; and `suburbHref` no longer appends
 |---|---|
 | **[data-sources.md](data-sources.md)** | Every source, its licence, the mandatory fetch posture (ABS WAF UA, warm Chrome), and which sources are ruled OUT and why |
 | **[data-model.md](data-model.md)** | Tables, MVs, the migration map (000053–000092), and the guards enforced in the database rather than by review |
-| **[pipeline.md](pipeline.md)** | The collector's 22 modes, what each writes, order dependencies, timeouts and the exit-code contract |
+| **[pipeline.md](pipeline.md)** | The collector's 37 modes, what each writes, order dependencies, timeouts and the exit-code contract |
 | **[operations.md](operations.md)** | Runbook: prod DDL regime, the residential-rig crawl, revalidation, and the landmines that have actually bitten |
 | [architecture.md](architecture.md) | The decision-and-incident record (the old 75KB monolith, moved here; its actively-wrong claims corrected inline, the rest assume residual drift) plus the extension recipes. Read it before touching crawl classification or caching |
 | [crawl-roadmap.md](crawl-roadmap.md) | Handover for the next crawl work: measured coverage/throughput/completeness numbers, what blocks per-property reporting and stock-over-time, and the coverage arithmetic for "all suburbs" |
@@ -86,9 +87,19 @@ only *derived aggregates* are a publishable surface. `CRAWL_TRACE` artifacts
 **2. Crawl-derived prices ship as aggregates with anonymity floors.** The
 price-drops rollups (`000086`) cap `drop_pct` at 40% (listing typos), dedup
 addresses across portals (a dual-listed cut counts once), and suppress agency
-drop depth until an agency has ≥3 dropped addresses. The agency RPC carries a
-kill switch (`HOUSING_DROP_LISTINGS_ENABLED`, ON by default). Known-open: the
-suburb-level floor is incomplete — see below.
+drop depth until an agency has ≥3 dropped addresses; 000109 floors every
+suburb/state price and percent column at 3 too, and 000124 withholds the drop
+index's median below 3 dropped addresses. Every read derived from the crawl —
+aggregates included — sits behind ONE kill switch
+(`HOUSING_DROP_LISTINGS_ENABLED`, ON by default; [architecture.md §10.2](architecture.md)).
+
+**2a. Price-drops figures are dated and recency-gated (000124).** A listing is
+"active" only if the crawl saw it in the last 14 days; every drops read carries
+`as_of` / `data_through` from `housing_mv_refresh`, and the page prints its
+data date and warns after 72h. States below 0.6 of their catalog swept in 14
+days are annotated, not ranked. Measured read-only on prod 2026-09-23 (crawl
+down since 09-15): 18,199 of 92,535 `is_active` listings pass the 14-day gate;
+swept/catalog is VIC 100/135, NSW 80/135, QLD 4/97, SA 0/66, WA 0/67.
 
 **3. Counts-only crosses to brandbrain; listing rows never do.** The
 distributed crawl queue at `api.brandbrain.dev` sees suburb names and
@@ -114,8 +125,10 @@ the read path 500s. Same regime as politicians.
 | Route | What it is |
 |---|---|
 | `/housing` | Live tracker: BigStat tiles + capital-city medians + national states choropleth. ISR |
-| `/housing/[state]` | Suburb choropleth + list with the "Colour by" metric toggle (price, Census, electoral, crime) |
+| `/housing/[state]` | Suburb choropleth + list with the "Colour by" metric toggle (price, Census, electoral, crime). A **Suburbs \| Councils** level toggle (`?level=council&metric=<council key>`) colours councils by the `council-metrics.ts` registry, and a **Council borders** toggle (`?boundaries=councils`) draws council lines over the suburb map — both derived from the suburb topology, no boundary asset |
 | `/housing/[state]/[suburb]` | Suburb profile: banner, demographics, electoral, crime ranks, listings-derived stats |
+| `/housing/[state]/council` | State council index: council choropleth (client island fed the server's rows) + a sortable table of every council with a page (kind `council` \| `unincorporated`): ERP population + growth, density, council-wide house median, grant per resident, approvals per 1,000, IRSAD, flood/bushfire shares. ISR 86400 + KV; in the shell re-prime set |
+| `/housing/[state]/council/[slug]` | Council hub: identity, map (member suburbs, derived outline, neighbours), key facts, ABS series charts, Census/SEIFA, member-suburb table (own VG medians only), hazard/price/crime rollups, representation, k-floored price-drops pulse, neighbouring councils. ~550 pages, `generateStaticParams`, ISR 86400 + KV. `ListCouncils` / `GetCouncilProfile` |
 | `/housing/property/[addressKey]` | Per-address property history (AVM-fed — posture contested, see known-open) |
 | `/housing/calculators` | Housing calculators |
 | `/price-drops` | Price-cuts board: state / suburb / address / agency rollups. Static ISR (1h) + KV (24h), busted by the collector's post-crawl revalidate ping. `/housing/drops` 308-redirects here (`permanentRedirect`); `/housing/suburbs` also 308s to `/housing` (a `next.config.mjs` `permanent: true` redirect) |
@@ -153,6 +166,19 @@ landed, and this section had become more wrong than right.
   has **2,433** priced NSW suburbs (5,937 observations, latest period
   2025-12-31); it lands from the residential rig via `-mode vg-nsw`. VIC has
   also moved on a year, from the Dec-2024 freeze to 2025-12-31.
+  The NSW parser used to take every non-strata RESIDENCE transfer, so a
+  multi-property contract (lodged as one B-record per property, each carrying
+  the contract total) produced St Leonards $110.5M and Rhodes $22.5M. It now
+  drops multi-property dealings, non-residence natures, business/mixed-use/
+  industrial/special-purpose zones, part interests and development-sized lots
+  in R1/R3/R4 (`selectNSWHouseSales`, `nsw_vg.go`). The rig re-ran on
+  2026-09-24 and upserted 5,782 filtered medians, but an upsert never deletes:
+  169 suburb-years the filter no longer emits kept their inflated value (St
+  Leonards 2024 $110.5M, Rhodes 2023 $22.5M, Point Piper 2025 $60.5M). The
+  vg_nsw job now REPLACES each fetched year (`vg_replace.go`): in the upsert's
+  transaction it deletes that year's unemitted medians, unless the year
+  fetched under 50,000 sales or would lose over 20% of its rows. **Prod needs
+  one more `-mode vg-nsw` rig run on the new binary to clear the 169.**
   **QLD (0/3,235) and WA (0/1,701) remain at zero — and that is expected, not
   outstanding**: both states sell sales data through brokers, so it is
   commercially blocked rather than unbuilt. The handover's "settled — do not
@@ -178,7 +204,8 @@ landed, and this section had become more wrong than right.
   `CLAUDE.md` still calls this known-open; that note is stale.)
 - **k-anon floor gaps the suburb rollup** — `mv_suburb_price_drops` carries
   `WHERE a.dropped_listing_count >= 3` in prod, and **0** rows are published
-  below the floor.
+  below the floor; `mv_suburb_listing_stats` is floored at 3 by 000109 (prod
+  `pg_matviews`, 2026-09-23).
 - **Real portal content in committed testdata** — the four `*-pagemeta.html`
   fixtures are now 900 and 657 bytes with **zero** address keys and **zero**
   price strings.

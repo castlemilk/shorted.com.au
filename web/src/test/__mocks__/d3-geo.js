@@ -35,4 +35,9 @@ const geoPath = (_projection, context) => {
   return path;
 };
 
-module.exports = { geoMercator, geoPath };
+// Hover identify (categorical overlays) imports these; tests that exercise
+// identifyAt inject their own containment test.
+const geoBounds = (_feature) => [[-180, -90], [180, 90]];
+const geoContains = (_object, _point) => false;
+
+module.exports = { geoMercator, geoPath, geoBounds, geoContains };

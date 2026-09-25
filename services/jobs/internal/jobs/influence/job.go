@@ -107,8 +107,7 @@ func Run(parent context.Context, args []string) error {
 	// default, and falls into the `case "tax"` arm — ingesting the entire ATO
 	// corporate-tax corpus instead of draining the register fetch queue. The
 	// operator runbook is literally --args="influence,-mode,register-fetch", so
-	// losing one token does it. discovery, house-prices and news already guard
-	// this way.
+	// losing one token does it. discovery and news already guard this way.
 	if fs.NArg() > 0 {
 		return fmt.Errorf("unexpected argument %q (influence takes only -mode, -register-limit, -source-limit and -dry)", fs.Arg(0))
 	}

@@ -13,12 +13,6 @@ const portalWrapperShapeAllowlist = new Set([
   "services/house-price-collector/crawl_property_extract_test.go",
   "services/house-price-collector/crawl_test.go",
   "services/house-price-collector/crawl_warmcheck_test.go",
-  "services/jobs/internal/jobs/houseprices/crawl_details_extract_test.go",
-  "services/jobs/internal/jobs/houseprices/crawl_listings_extract_test.go",
-  "services/jobs/internal/jobs/houseprices/crawl_listings_test.go",
-  "services/jobs/internal/jobs/houseprices/crawl_property_extract_test.go",
-  "services/jobs/internal/jobs/houseprices/crawl_test.go",
-  "services/jobs/internal/jobs/houseprices/crawl_warmcheck_test.go",
 ]);
 
 function parseRoot(argv) {

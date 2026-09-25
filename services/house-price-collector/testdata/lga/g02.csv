@@ -1,0 +1,27 @@
+DATAFLOW,MEDAVG: Median/Average,REGION: Region,REGION_TYPE: Region Type,STATE: State,TIME_PERIOD: Time Period,OBS_VALUE
+ABS:C21_G02_LGA(1.0.0),8: Average household size,25250: Moreland,LGA2021: Local Government Areas (2021),2: Victoria,2021,2.4
+ABS:C21_G02_LGA(1.0.0),6: Median rent ($/weekly),71300: East Arnhem,LGA2021: Local Government Areas (2021),7: Northern Territory,2021,80
+ABS:C21_G02_LGA(1.0.0),1: Median age of persons,20910: Bayside (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,45
+ABS:C21_G02_LGA(1.0.0),1: Median age of persons,25250: Moreland,LGA2021: Local Government Areas (2021),2: Victoria,2021,35
+ABS:C21_G02_LGA(1.0.0),5: Median mortgage repayment ($/monthly),71300: East Arnhem,LGA2021: Local Government Areas (2021),7: Northern Territory,2021,997
+ABS:C21_G02_LGA(1.0.0),4: Median total household income ($/weekly),29799: Migratory - Offshore - Shipping (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,0
+ABS:C21_G02_LGA(1.0.0),4: Median total household income ($/weekly),10050: Albury,LGA2021: Local Government Areas (2021),1: New South Wales,2021,1430
+ABS:C21_G02_LGA(1.0.0),5: Median mortgage repayment ($/monthly),29799: Migratory - Offshore - Shipping (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,0
+ABS:C21_G02_LGA(1.0.0),4: Median total household income ($/weekly),71300: East Arnhem,LGA2021: Local Government Areas (2021),7: Northern Territory,2021,1395
+ABS:C21_G02_LGA(1.0.0),5: Median mortgage repayment ($/monthly),20910: Bayside (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,3000
+ABS:C21_G02_LGA(1.0.0),4: Median total household income ($/weekly),25250: Moreland,LGA2021: Local Government Areas (2021),2: Victoria,2021,1943
+ABS:C21_G02_LGA(1.0.0),4: Median total household income ($/weekly),20910: Bayside (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,2487
+ABS:C21_G02_LGA(1.0.0),5: Median mortgage repayment ($/monthly),25250: Moreland,LGA2021: Local Government Areas (2021),2: Victoria,2021,2034
+ABS:C21_G02_LGA(1.0.0),8: Average household size,10050: Albury,LGA2021: Local Government Areas (2021),1: New South Wales,2021,2.3
+ABS:C21_G02_LGA(1.0.0),1: Median age of persons,10050: Albury,LGA2021: Local Government Areas (2021),1: New South Wales,2021,39
+ABS:C21_G02_LGA(1.0.0),1: Median age of persons,29799: Migratory - Offshore - Shipping (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,50
+ABS:C21_G02_LGA(1.0.0),6: Median rent ($/weekly),10050: Albury,LGA2021: Local Government Areas (2021),1: New South Wales,2021,270
+ABS:C21_G02_LGA(1.0.0),8: Average household size,29799: Migratory - Offshore - Shipping (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,0
+ABS:C21_G02_LGA(1.0.0),8: Average household size,71300: East Arnhem,LGA2021: Local Government Areas (2021),7: Northern Territory,2021,4.8
+ABS:C21_G02_LGA(1.0.0),6: Median rent ($/weekly),29799: Migratory - Offshore - Shipping (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,0
+ABS:C21_G02_LGA(1.0.0),1: Median age of persons,71300: East Arnhem,LGA2021: Local Government Areas (2021),7: Northern Territory,2021,28
+ABS:C21_G02_LGA(1.0.0),5: Median mortgage repayment ($/monthly),10050: Albury,LGA2021: Local Government Areas (2021),1: New South Wales,2021,1473
+ABS:C21_G02_LGA(1.0.0),6: Median rent ($/weekly),20910: Bayside (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,520
+ABS:C21_G02_LGA(1.0.0),6: Median rent ($/weekly),25250: Moreland,LGA2021: Local Government Areas (2021),2: Victoria,2021,400
+ABS:C21_G02_LGA(1.0.0),8: Average household size,20910: Bayside (Vic.),LGA2021: Local Government Areas (2021),2: Victoria,2021,2.5
+ABS:C21_G02_LGA(1.0.0),1: Median age of persons,19499: No usual address (NSW),LGA2021: Local Government Areas (2021),1: New South Wales,2021,0
