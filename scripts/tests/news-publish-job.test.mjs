@@ -96,3 +96,16 @@ test("the Go and TypeScript slug rules agree", () => {
   const tsMax = /export const MAX_SLUG_LENGTH = (\d+);/.exec(importMdx)?.[1];
   assert.equal(goMax, tsMax);
 });
+
+test("a publish-only token is generated into Secret Manager and handed to the API", () => {
+  const api = read("../../terraform/modules/shorts-api/main.tf");
+  assert.match(api, /resource "random_password" "news_publish_token"/);
+  assert.match(api, /secret_id = "NEWS_PUBLISH_TOKEN"/);
+  assert.match(api, /name = "NEWS_PUBLISH_TOKEN"/);
+  assert.match(prodMain, /source\s+=\s+"hashicorp\/random"/);
+  // Only the publish route accepts it.
+  const serve = read("../../services/shorts/internal/services/shorts/serve.go");
+  const uses = serve.match(/newsPublishAuthMiddleware\(/g) ?? [];
+  assert.equal(uses.length, 1);
+  assert.match(serve, /"\/api\/admin\/news\/publish", newsPublishAuthMiddleware\(/);
+});

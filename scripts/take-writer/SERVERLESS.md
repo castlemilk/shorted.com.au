@@ -88,19 +88,25 @@ To enable in an environment:
 by `module "shorted_job_news_publish"` in `terraform/environments/prod/main.tf`)
 that publishes ONE merged `content/news/*.mdx` article with the full chain:
 upsert → images → vision check → `published_at` → revalidate `/news`. The
-caller needs no database URL, model keys or GCS credentials — only the
-`INTERNAL_SERVICE_SECRET`.
+caller needs no database URL, model keys or GCS credentials — only
+`NEWS_PUBLISH_TOKEN`, a Terraform-generated secret that **only this endpoint
+accepts** (the `INTERNAL_SERVICE_SECRET` also works, but it opens every admin
+route). Read it with:
 
 ```bash
-# from a checkout (reads INTERNAL_SERVICE_SECRET from env, else gcloud):
+gcloud secrets versions access latest --secret=NEWS_PUBLISH_TOKEN --project=rosy-clover-477102-t5
+```
+
+```bash
+# from a checkout (NEWS_PUBLISH_TOKEN from env, else INTERNAL_SERVICE_SECRET, else gcloud):
 CONFIRM=prod task news:publish:remote SLUG=<slug>            # images on
 CONFIRM=prod task news:publish:remote SLUG=<slug> NO_IMAGES=1
 
 # or directly:
 curl -X POST https://api.shorted.com.au/api/admin/news/publish \
-  -H "x-internal-secret: $INTERNAL_SERVICE_SECRET" -H "Content-Type: application/json" \
+  -H "x-news-publish-token: $NEWS_PUBLISH_TOKEN" -H "Content-Type: application/json" \
   -d '{"slug":"<slug>"}'                       # → 202 {"executionName":...}
-curl -H "x-internal-secret: $INTERNAL_SERVICE_SECRET" \
+curl -H "x-news-publish-token: $NEWS_PUBLISH_TOKEN" \
   "https://api.shorted.com.au/api/admin/news/publish?execution=<executionName>"
                                                # → {"status":"running|succeeded|failed","logUri":...}
 ```

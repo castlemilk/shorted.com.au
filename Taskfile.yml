@@ -331,8 +331,9 @@ tasks:
       model keys, the revalidation secret and GCS write access, and runs the
       full chain — images, vision check, published_at, revalidate.
 
-      Only the INTERNAL_SERVICE_SECRET is needed here (env var, else read from
-      prod Secret Manager with gcloud).
+      Credential, narrowest first: NEWS_PUBLISH_TOKEN (opens ONLY this route),
+      else INTERNAL_SERVICE_SECRET (every admin route), else NEWS_PUBLISH_TOKEN
+      read from prod Secret Manager with gcloud.
 
       Three things that fail quietly:
         * The article must be MERGED TO MAIN and the deploy finished: the job
@@ -351,15 +352,19 @@ tasks:
     cmds:
       - |
         set -eu
-        secret="${INTERNAL_SERVICE_SECRET:-}"
-        if [ -z "$secret" ]; then
-          secret=$(gcloud secrets versions access latest --secret=INTERNAL_SERVICE_SECRET --project=rosy-clover-477102-t5)
+        # Narrowest credential first: NEWS_PUBLISH_TOKEN opens only this route.
+        if [ -n "${NEWS_PUBLISH_TOKEN:-}" ]; then
+          auth="x-news-publish-token: $NEWS_PUBLISH_TOKEN"
+        elif [ -n "${INTERNAL_SERVICE_SECRET:-}" ]; then
+          auth="x-internal-secret: $INTERNAL_SERVICE_SECRET"
+        else
+          auth="x-news-publish-token: $(gcloud secrets versions access latest --secret=NEWS_PUBLISH_TOKEN --project=rosy-clover-477102-t5)"
         fi
         api=https://api.shorted.com.au/api/admin/news/publish
         body=$(python3 -c 'import json,sys;print(json.dumps({"slug":sys.argv[1],"images":sys.argv[2]!="1","force":sys.argv[3]=="1"}))' \
           "{{.SLUG}}" "{{.NO_IMAGES | default "0"}}" "{{.FORCE | default "0"}}")
         resp=$(curl -sS --max-time 60 -X POST "$api" \
-          -H "Content-Type: application/json" -H "x-internal-secret: $secret" \
+          -H "Content-Type: application/json" -H "$auth" \
           -H "x-admin-actor: task news:publish:remote ($(git config user.email || whoami))" \
           -d "$body")
         echo "$resp"
@@ -367,7 +372,7 @@ tasks:
         [ -n "$exec_name" ] || { echo "not started"; exit 1; }
         for _ in $(seq 1 140); do
           sleep 15
-          st=$(curl -sS --max-time 60 -H "x-internal-secret: $secret" "$api?execution=$exec_name")
+          st=$(curl -sS --max-time 60 -H "$auth" "$api?execution=$exec_name")
           status=$(printf '%s' "$st" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("status",""))' 2>/dev/null || true)
           echo "$(date +%H:%M:%S) $status"
           case "$status" in
