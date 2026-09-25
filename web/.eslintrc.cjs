@@ -103,6 +103,17 @@ const config = {
       },
     },
     {
+      // Vendored mdxcn figures (src/@/registry/default, MIT). Upstream style
+      // uses `||` for defaults and one redundant assertion; keeping the source
+      // byte-comparable to the registry makes re-vendoring a diff, not a
+      // merge, so the two style rules are relaxed here rather than patched.
+      files: ["src/@/registry/default/**/*"],
+      rules: {
+        "@typescript-eslint/prefer-nullish-coalescing": "off",
+        "@typescript-eslint/no-unnecessary-type-assertion": "off",
+      },
+    },
+    {
       files: ["**/__tests__/**/*", "**/*.test.*", "**/test/**/*"],
       rules: {
         "@typescript-eslint/no-explicit-any": "off",

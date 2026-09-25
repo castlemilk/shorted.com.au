@@ -6,10 +6,7 @@ import { type Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { siteConfig } from "~/@/config/site";
-// Live housing series for the house-price posts. Already an ssr:false client
-// island (housing-charts.tsx), so it is safe to hand to MDX from this server
-// component — the same posture as RegisterEmailClient below.
-import { HousingSeriesChart } from "~/@/components/housing/housing-charts";
+import { blogMdxComponents } from "~/@/components/blog/mdx-components";
 import { ArticleSchema } from "~/@/components/seo/article-schema";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
@@ -19,12 +16,6 @@ import {
   calculateReadingTime,
   formatReadingTime,
 } from "~/@/utils/reading-time";
-import Info from "~/@/components/ui/info";
-// SSR-safe wrapper: the raw RegisterEmail is a client component that imports a
-// Connect-RPC server action, which crashes RSC rendering inside MDXRemote
-// (see CLAUDE.md "SSR Issues with @connectrpc/connect"). The dynamic ssr:false
-// wrapper is what the blog index already uses.
-import RegisterEmailClient from "~/@/components/ui/register-email-client";
 // Lazy load Prism CSS only for blog posts
 import "prismjs/themes/prism-tomorrow.css";
 
@@ -46,62 +37,7 @@ export default async function Post({ params }: Params) {
   const readingTime = calculateReadingTime(String(post.content));
   const postUrl = `${siteConfig.url}/blog/${params.slug}`;
 
-  const components = {
-    h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h2 className="text-4xl font-bold mt-8 mb-4" {...props}>{children}</h2>
-    ),
-    h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h2 className="text-3xl font-semibold mt-6 mb-3" {...props}>{children}</h2>
-    ),
-    h3: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h3 className="text-2xl font-medium mt-4 mb-2" {...props}>{children}</h3>
-    ),
-    h4: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h4 className="text-xl font-medium mt-3 mb-2" {...props}>{children}</h4>
-    ),
-    h5: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h5 className="text-lg font-medium mt-2 mb-1" {...props}>{children}</h5>
-    ),
-    h6: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h6 className="text-base font-medium mt-2 mb-1" {...props}>{children}</h6>
-    ),
-    a: ({ children, ...props }: React.HTMLAttributes<HTMLAnchorElement>) => (
-      <a className="text-primary hover:underline" {...props}>{children}</a>
-    ),
-    p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
-      <p className="mt-4 mb-4" {...props} />
-    ),
-    ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
-      <ul className="list-disc list-inside mt-2 mb-2" {...props} />
-    ),
-    ol: (props: React.HTMLAttributes<HTMLOListElement>) => (
-      <ol className="list-decimal list-inside mt-2 mb-2" {...props} />
-    ),
-    li: (props: React.HTMLAttributes<HTMLLIElement>) => (
-      <li className="mt-1 mb-1" {...props} />
-    ),
-    table: (props: React.HTMLAttributes<HTMLTableElement>) => (
-      <table className="w-full mt-4 mb-4" {...props} />
-    ),
-    tr: (props: React.HTMLAttributes<HTMLTableRowElement>) => (
-      <tr className="border-b border-border" {...props} />
-    ),
-    th: (props: React.HTMLAttributes<HTMLTableCellElement>) => (
-      <th className="px-4 py-2 text-left" {...props} />
-    ),
-    td: (props: React.HTMLAttributes<HTMLTableCellElement>) => (
-      <td className="px-4 py-2 text-left" {...props} />
-    ),
-    RegisterEmail: (props: Record<string, unknown>) => (
-      <RegisterEmailClient {...props} />
-    ),
-    Info: (props: { title: string; children: React.ReactNode }) => (
-      <Info {...props} />
-    ),
-    HousingChart: (props: { regionCode: string; measure: string; dwellingType?: string; format?: "aud" | "percent" | "index"; ariaLabel: string; height?: number }) => (
-      <HousingSeriesChart {...props} />
-    ),
-  };
+  const components = blogMdxComponents;
 
   return (
     <main>
