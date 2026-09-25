@@ -312,3 +312,25 @@ describe("the handoff after a decision", () => {
     expect(screen.getByRole("button", { name: /approve/i })).toBeEnabled();
   });
 });
+
+describe("the admin (write) scope", () => {
+  it("replaces the read-only promise with a write-access warning", () => {
+    renderScreen({
+      described: {
+        ok: true,
+        details: {
+          ...(described.ok ? described.details : ({} as never)),
+          scope: "news:publish",
+          scopes: [{ scope: "news:publish", description: "Publish merged articles" }],
+        },
+      },
+    });
+    expect(screen.queryByText(/Read-only/)).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(/write access/i);
+  });
+
+  it("keeps the read-only promise for read scopes", () => {
+    renderScreen();
+    expect(screen.getByText(/Read-only/)).toBeInTheDocument();
+  });
+});

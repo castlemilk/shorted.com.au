@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "~/server/auth";
+import { isAdminEmail } from "~/server/admin";
 import { getServerShortsApiUrl } from "~/app/actions/config";
 
 /**
@@ -34,6 +35,12 @@ const INTERNAL_SECRET =
   process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
 
 /** The parameters an OAuth client puts on the authorize URL. */
+// The admin MCP server's resource identifier ends in /mcp/admin on every
+// deployment (the API derives it from its own origin).
+function isAdminResource(resource: string): boolean {
+  return /\/mcp\/admin\/?$/.test(resource.trim());
+}
+
 export interface AuthorizationRequest {
   clientId: string;
   redirectUri: string;
@@ -183,6 +190,17 @@ export async function approveAuthorization(
       ok: false,
       error: "access_denied",
       description: "Sign in before approving access.",
+    };
+  }
+  // The admin MCP server (/mcp/admin) is for administrators only. The API
+  // refuses to ticket it for anyone else regardless; checking here too turns
+  // that refusal into a clear message instead of a generic error.
+  if (isAdminResource(request.resource) && !isAdminEmail(session?.user?.email)) {
+    return {
+      ok: false,
+      error: "access_denied",
+      description:
+        "Only Shorted administrators can connect the admin (publishing) server.",
     };
   }
 

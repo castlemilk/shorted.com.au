@@ -294,10 +294,25 @@ export function ConsentScreen({
                 </li>
               ))}
             </ul>
-            <p className="text-xs text-muted-foreground">
-              Read-only. It cannot change anything in your account, and this
-              does not grant access to your billing or API keys.
-            </p>
+            {details.scopes.every((line) => line.scope.endsWith(":read")) ? (
+              <p className="text-xs text-muted-foreground">
+                Read-only. It cannot change anything in your account, and this
+                does not grant access to your billing or API keys.
+              </p>
+            ) : (
+              // A write scope (today only news:publish, on the admin server).
+              // The read-only promise above would be false here, so it is
+              // replaced rather than kept alongside a caveat.
+              <p
+                role="alert"
+                className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-900 dark:text-amber-200"
+              >
+                This grants <strong>write access</strong>: it can publish
+                articles to shorted.com.au, which spends money on image
+                generation and changes the live site. Administrators only.
+                Approve only if you started this connection yourself.
+              </p>
+            )}
           </section>
 
           {/* Where the credential goes. Verbatim, unshortened, and never a
