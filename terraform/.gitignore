@@ -4,6 +4,9 @@
 *.tfstate.backup
 .terraform/
 .terraform.lock.hcl
+# The prod lock file IS committed: it pins provider versions and hashes so a
+# new provider release cannot change a deploy unannounced (see prod/main.tf).
+!environments/prod/.terraform.lock.hcl
 terraform.tfvars
 override.tf
 override.tf.json
