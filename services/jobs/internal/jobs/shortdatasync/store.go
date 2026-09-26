@@ -120,6 +120,41 @@ func (s *pgStore) ExistingKeys(ctx context.Context, from time.Time) (map[string]
 	return out, rows.Err()
 }
 
+// codesOnDateSQL reads the product codes the table holds for ONE observation
+// date — the comparison side of the reconcile pass (reconcile.go).
+//
+// Trimmed, because pre-2023 ASIC files padded some codes ("WBT "), and a row
+// stored under a padded code must count as present: otherwise a wide repair
+// would write a second, trimmed copy of it and double-count that date.
+//
+// A half-open day range rather than equality, so a time-of-day component on a
+// row can never hide it from the comparison. It is a range scan of the
+// (DATE, PRODUCT_CODE) unique index the upsert already depends on.
+const codesOnDateSQL = `
+        SELECT DISTINCT btrim("PRODUCT_CODE")
+        FROM shorts
+        WHERE "DATE" >= $1 AND "DATE" < $2 AND "PRODUCT_CODE" IS NOT NULL`
+
+// CodesOnDate returns the (trimmed) product codes already stored for date d.
+func (s *pgStore) CodesOnDate(ctx context.Context, d time.Time) (map[string]struct{}, error) {
+	day := truncateDay(d)
+	rows, err := s.db.Query(ctx, codesOnDateSQL, day, day.AddDate(0, 0, 1))
+	if err != nil {
+		return nil, fmt.Errorf("codes on %s: %w", day.Format("2006-01-02"), err)
+	}
+	defer rows.Close()
+
+	out := map[string]struct{}{}
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, fmt.Errorf("codes on %s: scan: %w", day.Format("2006-01-02"), err)
+		}
+		out[code] = struct{}{}
+	}
+	return out, rows.Err()
+}
+
 // rowsForCodesSQL reads the CURRENT rows for a handful of product codes over
 // the sync window. Read-only, parameterised, and bounded by the caller's
 // validated code list (max 20) — it is the only extra database access a

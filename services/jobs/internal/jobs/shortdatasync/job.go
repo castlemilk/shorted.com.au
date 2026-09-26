@@ -13,6 +13,9 @@
 //	→ one sync_status row for the admin jobs dashboard.
 //
 //	-days N          how far back to look when the shorts table is empty (SYNC_DAYS_SHORTS)
+//	-reconcile-days N re-check the last N published dates for missing rows and
+//	                 write them (SYNC_RECONCILE_DAYS, default 20; 0 disables) —
+//	                 see reconcile.go
 //	-batch-size N    recorded into sync_status.checkpoint_batch_size (SYNC_BATCH_SIZE)
 //	-sync-algolia    trigger the Algolia index sync after a successful run (SYNC_ALGOLIA)
 //	-dry-run         run the whole pipeline, write NOTHING
@@ -97,6 +100,20 @@ const (
 	maxValidateDays = 30
 )
 
+// The RECONCILE window (every live run). See reconcile.go.
+const (
+	// defaultReconcileDays is how many of the most recent published ASIC dates
+	// every run re-checks for missing rows. Twenty business days is about four
+	// weeks: a date one bad run damages is retried by each of the next twenty,
+	// for twenty ~45KB downloads and twenty small SELECTs a day.
+	defaultReconcileDays = 20
+	// maxReconcileDays caps a repair run. 750 published dates is about three
+	// years — past the oldest known damage (December 2025) with room to spare,
+	// while a typo like 7500 is refused rather than walking a decade of files
+	// inside a one-hour job timeout.
+	maxReconcileDays = 750
+)
+
 // config is the parsed flag set, threaded explicitly (package-level flag vars
 // would leak across subcommands).
 type config struct {
@@ -112,6 +129,10 @@ type config struct {
 	// published ASIC dates a `-stocks` run re-parses. Read on that path ONLY —
 	// a sync and a plain `-shadow` parity run never consult it.
 	validateDays int
+	// reconcileDays is the RECONCILE window: how many of the most recent
+	// published dates at or before the run's starting MAX("DATE") are
+	// re-checked for missing rows. Live and dry runs only; 0 disables.
+	reconcileDays int
 }
 
 // Job returns the `shorted short-data-sync` subcommand.
@@ -188,6 +209,8 @@ func parseConfig(ctx context.Context, args []string) (config, error) {
 		"Comma-separated ASX product codes (max 20) to produce a per-stock validation report for; requires -shadow")
 	fs.IntVar(&cfg.validateDays, "validate-days", defaultValidateDays,
 		fmt.Sprintf("VALIDATION ONLY (requires -stocks): how many of the most recent PUBLISHED ASIC dates to re-parse, ignoring what is already ingested (1-%d)", maxValidateDays))
+	fs.IntVar(&cfg.reconcileDays, "reconcile-days", platform.GetEnvInt("SYNC_RECONCILE_DAYS", defaultReconcileDays),
+		fmt.Sprintf("Re-check the last N PUBLISHED ASIC dates already ingested and write any rows missing from them (0-%d, 0 disables; env SYNC_RECONCILE_DAYS)", maxReconcileDays))
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return config{}, runner.ErrUsage
@@ -203,15 +226,28 @@ func parseConfig(ctx context.Context, args []string) (config, error) {
 	if cfg.validateDays < 1 || cfg.validateDays > maxValidateDays {
 		return config{}, fmt.Errorf("invalid -validate-days %d (want 1-%d)", cfg.validateDays, maxValidateDays)
 	}
+	if cfg.reconcileDays < 0 || cfg.reconcileDays > maxReconcileDays {
+		return config{}, fmt.Errorf("invalid -reconcile-days %d (want 0-%d; 0 disables the pass)", cfg.reconcileDays, maxReconcileDays)
+	}
 	if cfg.shadow {
 		cfg.dryRun = true
 	}
-	validateDaysSet := false
+	validateDaysSet, reconcileDaysSet := false, false
 	fs.Visit(func(f *flag.Flag) {
-		if f.Name == "validate-days" {
+		switch f.Name {
+		case "validate-days":
 			validateDaysSet = true
+		case "reconcile-days":
+			reconcileDaysSet = true
 		}
 	})
+	if cfg.shadow && reconcileDaysSet {
+		// Refused, not ignored: a shadow run is the pinned parity path and
+		// never reconciles. Only the FLAG is refused — SYNC_RECONCILE_DAYS in
+		// the job's env must not break the admin console's -shadow runs, which
+		// inherit it.
+		return config{}, fmt.Errorf("-reconcile-days has no effect on a -shadow run; preview a repair with -dry-run instead")
+	}
 	if raw := strings.TrimSpace(*stocks); raw != "" {
 		// A SCOPED LIVE RUN IS REFUSED, on purpose. `-stocks` narrows what the
 		// report talks about; it does NOT narrow what the pipeline writes. A
@@ -278,14 +314,35 @@ func runSync(ctx context.Context, cfg config, store *pgStore, client *http.Clien
 		}
 	}
 
-	recordCount, err := syncShorts(ctx, cfg, store, client, now, nil)
-	if err != nil {
+	fail := func(err error) error {
 		if rec != nil {
 			rec.Fail(ctx, truncateBytes([]byte(err.Error()), 1000))
 		}
 		return err
 	}
+
+	// Read BEFORE the forward window writes anything: the reconcile pass owns
+	// every published date up to here, the forward window every date after.
+	reconcileUpTo, haveData, err := store.LastShortsDate(ctx)
+	if err != nil {
+		return fail(err)
+	}
+
+	recordCount, err := syncShorts(ctx, cfg, store, client, now, nil)
+	if err != nil {
+		return fail(err)
+	}
 	log.Printf("✅ Shorts update complete: %d total records updated", recordCount)
+
+	// An empty table is an initial load: the forward window just wrote all of
+	// it, so there is nothing behind it to reconcile.
+	if haveData {
+		rep, err := reconcileRecent(ctx, cfg, store, client, reconcileUpTo)
+		if err != nil {
+			return fail(err)
+		}
+		recordCount += rep.RowsWritten
+	}
 
 	logHealth(ctx, store)
 

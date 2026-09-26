@@ -121,9 +121,12 @@ Deployment is CI-driven: `.github/workflows/terraform-deploy.yml` builds the
 
 The sync is `shorted short-data-sync` (`services/jobs/internal/jobs/shortdatasync/`) and runs:
 
-1. **ASIC Sync**: Downloads latest short position CSV
-2. **Stock Price Sync**: Updates prices for all tracked stocks
-3. **Algolia Sync**: Updates search index (optional)
+1. **ASIC Sync**: Downloads each newly published short position CSV (`MAX("DATE") + 1 → today`)
+2. **Reconcile**: Re-checks the last 20 published dates and writes any rows they are missing (`-reconcile-days`)
+3. **MV refresh + frontend revalidation**
+4. **Algolia Sync**: Updates search index (optional, off in prod)
+
+Stock prices are not part of this job — see above.
 
 ## Algolia Search Index
 
@@ -257,6 +260,26 @@ psql postgresql://admin:password@localhost:5438/shorts \
   -c "TRUNCATE shorts RESTART IDENTITY;"
 make populate-data
 ```
+
+### Short Data Missing on Past Dates (a stock's history "stops" or has holes)
+
+The live API can be current while past dates hold only part of what ASIC
+published. The forward window (`MAX("DATE") + 1 → today`) never revisits a date
+once any row of it lands. Every run now ends with a reconcile pass that re-checks
+the last 20 published dates and writes only the missing rows. A hole older than
+that needs a one-off wider pass: preview with `-dry-run`, then run it live.
+
+```bash
+gcloud run jobs execute shorts-data-sync \
+  --project=rosy-clover-477102-t5 --region=australia-southeast2 \
+  --args=short-data-sync,-dry-run,-reconcile-days,250 --wait   # then drop -dry-run
+```
+
+To measure it without DB access, compare `get_market_snapshot`'s `total_count`
+(public MCP at `https://api.shorted.com.au/mcp`) with the row count of
+`https://download.asic.gov.au/short-selling/RR<yyyymmdd>-001-SSDailyAggShortPos.csv`.
+Full runbook, costs and the 2026 incident numbers:
+`services/jobs/internal/jobs/shortdatasync/README.md` §Reconcile.
 
 ### Missing Stock Prices
 
