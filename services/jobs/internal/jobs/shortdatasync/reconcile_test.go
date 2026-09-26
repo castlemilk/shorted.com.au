@@ -7,9 +7,12 @@ package shortdatasync
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -634,5 +637,96 @@ func TestReconcileFlagsRefusedOnShadow(t *testing.T) {
 	t.Setenv("SYNC_RECONCILE_ROTATION", "7")
 	if _, err := parseConfig(context.Background(), []string{"-shadow", "-stocks", "WBT"}); err != nil {
 		t.Fatalf("the job env must not break a console validation run: %v", err)
+	}
+}
+
+// --- the stored report (range runs) ------------------------------------------
+
+func TestReconcileObjectPath(t *testing.T) {
+	if got := reconcileObjectPath("shorts-data-sync-v4l1d"); got != "reconcile/shorts-data-sync-v4l1d.json" {
+		t.Fatalf("object path = %q — the repair workflow reads exactly this key", got)
+	}
+}
+
+// TestReconcileReportListsEveryDate: the stored report is the audit trail of a
+// repair, so it lists every date that differed — not the 20 the log line shows
+// — including dates that only hold extra rows.
+func TestReconcileReportListsEveryDate(t *testing.T) {
+	store := newFakeReconcileStore()
+	bodies := map[int][]byte{}
+	var window []asicFile
+	for i := 0; i < 30; i++ {
+		d := yyyymmdd(utcDay(2026, 1, 1).AddDate(0, 0, i))
+		bodies[d] = asicCSV("BHP")
+		window = append(window, asicFile{Date: d, Version: "001"})
+	}
+	store.holds("2026-02-01", "BHP", "OLD") // complete, plus one row ASIC no longer carries
+	bodies[20260201] = asicCSV("BHP")
+	window = append(window, asicFile{Date: 20260201, Version: "001"})
+
+	rep, err := reconcileFiles(context.Background(), store, fetchFrom(bodies, nil), window, true)
+	if err != nil {
+		t.Fatalf("reconcileFiles: %v", err)
+	}
+	if rep.Diverged != 30 || len(rep.Dates) != 31 {
+		t.Fatalf("diverged = %d, dates = %d; want 30 needing writes and 31 listed", rep.Diverged, len(rep.Dates))
+	}
+
+	w := &recordingWriter{}
+	publishReconcileArtifact(context.Background(), rep, true, "range 20260101 → 20260201", w,
+		"shorted-short-selling-data-prod", "shorts-data-sync-abcde")
+	if w.calls != 1 || w.bucket != "shorted-short-selling-data-prod" || w.object != "reconcile/shorts-data-sync-abcde.json" {
+		t.Fatalf("wrote %d object(s) to gs://%s/%s", w.calls, w.bucket, w.object)
+	}
+	var got reconcileArtifactReport
+	if err := json.Unmarshal(w.body, &got); err != nil {
+		t.Fatalf("stored report is not JSON: %v", err)
+	}
+	if !got.DryRun || got.Diverged != 30 || got.RowsMissing != 30 || len(got.Dates) != 31 || got.Failed == nil {
+		t.Fatalf("stored report = %+v", got)
+	}
+	last := got.Dates[len(got.Dates)-1]
+	if last.Date != "2026-02-01" || last.Extra != 1 || last.Missing != 0 {
+		t.Fatalf("the extra-only date must be listed with its count: %+v", last)
+	}
+}
+
+// TestReconcileReportSkipsAndFailsSoft: no coordinates means no write, and a
+// refused write never fails the run — the repair already happened.
+func TestReconcileReportSkipsAndFailsSoft(t *testing.T) {
+	w := &recordingWriter{}
+	for _, c := range [][2]string{{"", "shorts-data-sync-abcde"}, {"bucket", ""}, {"bucket", "Not An Execution"}} {
+		publishReconcileArtifact(context.Background(), reconcileReport{}, false, "", w, c[0], c[1])
+	}
+	if w.calls != 0 {
+		t.Fatalf("a run without a bucket or an execution id must not write, got %d write(s)", w.calls)
+	}
+	w.err = errors.New("403")
+	publishReconcileArtifact(context.Background(), reconcileReport{}, false, "", w, "bucket", "shorts-data-sync-abcde")
+	if w.calls != 1 {
+		t.Fatalf("the write must be attempted once, got %d", w.calls)
+	}
+}
+
+// TestRepairWorkflowReadsTheReconcileObject pins the cross-file contract: the
+// workflow that runs a repair reads back exactly the object the job writes,
+// from the job it executes, with the flag this package defines.
+func TestRepairWorkflowReadsTheReconcileObject(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", ".github", "workflows", "shorts-data-repair.yml"))
+	if err != nil {
+		t.Fatalf("read workflow: %v", err)
+	}
+	wf := string(b)
+	for _, want := range []string{
+		`gs://$BUCKET/` + reconcileObjectPrefix + `$EXECUTION.json`,
+		"JOB: shorts-data-sync",
+		`args="short-data-sync"`,
+		"-reconcile-from",
+		"-reconcile-to",
+		"-dry-run",
+	} {
+		if !strings.Contains(wf, want) {
+			t.Fatalf("shorts-data-repair.yml must contain %q", want)
+		}
 	}
 }

@@ -271,7 +271,8 @@ re-checks the last 20 published dates plus a rotating 1/28 of the whole
 archive, so every date since 2010 is re-verified every four weeks, and writes
 only the rows that are missing or changed. It never deletes. To heal
 everything now, run the whole archive once: preview with `-dry-run`, then run
-it live.
+it live. With no local credentials, run the **Shorts Data Repair** GitHub
+workflow (`from = 2010-01-01`, dry run first). With `gcloud`:
 
 ```bash
 gcloud run jobs execute shorts-data-sync \

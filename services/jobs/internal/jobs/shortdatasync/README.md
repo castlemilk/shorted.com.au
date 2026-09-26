@@ -151,12 +151,21 @@ validation runs keep working.
 
 ### Repairing history (one-off, after the image carrying this ships)
 
-The rotation heals everything within four weeks on its own. To heal it now, run
-the whole archive once with `-reconcile-from`, which replaces both windows with
-an explicit range (`-reconcile-to` bounds it):
+The rotation heals everything within four weeks on its own. To heal it now,
+reconcile the whole archive once with `-reconcile-from`, which replaces both
+windows with an explicit range (`-reconcile-to` bounds it).
+
+**From GitHub (no local credentials).** Run the **Shorts Data Repair**
+workflow (`.github/workflows/shorts-data-repair.yml`) with `from = 2010-01-01`.
+Run it first with `dry_run` ticked (the default), read the report, then run it
+again unticked. It executes this job through CI's workload identity, and its
+run summary shows the stored report: every date that differed, and what was
+written.
+
+**From a shell with `gcloud`:**
 
 ```bash
-# 1. Preview: read-only, logs every diverged date and what it would write.
+# 1. Preview: read-only, reports every diverged date and what it would write.
 gcloud run jobs execute shorts-data-sync \
   --project=rosy-clover-477102-t5 --region=australia-southeast2 \
   --args=short-data-sync,-dry-run,-reconcile-from,2010-01-01 \
@@ -170,11 +179,14 @@ gcloud run jobs execute shorts-data-sync \
 ```
 
 `--args` replaces the deployed args, so `short-data-sync` must come first.
-`--task-timeout` lifts the job's 1h limit for this execution only. To stay
-inside it instead, split the range, for example
-`-reconcile-from,2010-01-01,-reconcile-to,2019-12-31` and then
-`-reconcile-from,2020-01-01`. The pass is idempotent, so a split or a re-run
-never double-writes. Read the outcome from the summary line:
+`--task-timeout` lifts the job's 1h limit for this execution only; the whole
+archive takes 15–30 minutes. The pass is idempotent, so a split range
+(`-reconcile-to`) or a re-run never double-writes.
+
+A range run stores its full findings at
+`gs://shorted-short-selling-data-prod/reconcile/<execution>.json`: counts plus
+every date that differed. That object is how CI reads the result, since Cloud
+Logging is not readable from CI. The run log carries the same summary line:
 
 ```
 🩹 Reconcile: N of 4116 published date(s) diverged from ASIC (M missing, C changed) — wrote M+C of M+C row(s). …

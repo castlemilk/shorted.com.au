@@ -56,6 +56,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -105,11 +106,24 @@ type reconcileReport struct {
 	// RowsPadded counts rows whose values differ but that are stored under a
 	// padded legacy code, and so are left alone rather than duplicated.
 	RowsPadded int
-	// Dates names the diverged dates, oldest first, capped at maxDatesLogged.
-	Dates []string
+	// Dates is every date that differed from ASIC in any way, oldest first —
+	// uncapped, because a range run's stored report is the audit trail. The log
+	// line shows the first maxDatesLogged of the ones that needed writes.
+	Dates []reconcileDate
 	// Failed names the files that could not be fetched, parsed or compared.
 	// They are retried by a later run, whose window covers them again.
 	Failed []string
+}
+
+// reconcileDate is one date's difference from its current ASIC file.
+type reconcileDate struct {
+	Date    string `json:"date"`
+	File    string `json:"file"`
+	Rows    int    `json:"rows"`
+	Missing int    `json:"missing"`
+	Changed int    `json:"changed"`
+	Extra   int    `json:"extra,omitempty"`
+	Padded  int    `json:"padded,omitempty"`
 }
 
 // reconcileRecent runs the pass over this run's reconcile window. upTo is the
@@ -145,6 +159,12 @@ func reconcileRecent(ctx context.Context, cfg config, store reconcileStore, clie
 	// Logged on a cancelled pass too: whatever it wrote before the signal is
 	// committed, and the run log should say so.
 	rep.logSummary(cfg.dryRun)
+	if !cfg.reconcileFrom.IsZero() {
+		// A range run is an operator's repair or its preview; CI reads what it
+		// found from this object, since it cannot read Cloud Logging.
+		publishReconcileArtifact(ctx, rep, cfg.dryRun, desc, gcsObjectWriter{},
+			validationBucket(), os.Getenv("CLOUD_RUN_EXECUTION"))
+	}
 	return rep, err
 }
 
@@ -266,6 +286,13 @@ func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, 
 		d := diffDate(rows, have)
 		rep.RowsExtra += d.extra
 		rep.RowsPadded += d.padded
+		day := obsDate.Format("2006-01-02")
+		if len(d.missing)+len(d.changed)+d.extra+d.padded > 0 {
+			rep.Dates = append(rep.Dates, reconcileDate{
+				Date: day, File: name, Rows: len(rows),
+				Missing: len(d.missing), Changed: len(d.changed), Extra: d.extra, Padded: d.padded,
+			})
+		}
 		write := append(d.missing, d.changed...)
 		if len(write) == 0 {
 			rep.Clean++
@@ -274,10 +301,6 @@ func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, 
 		rep.Diverged++
 		rep.RowsMissing += len(d.missing)
 		rep.RowsChanged += len(d.changed)
-		day := obsDate.Format("2006-01-02")
-		if len(rep.Dates) < maxDatesLogged {
-			rep.Dates = append(rep.Dates, fmt.Sprintf("%s %d missing/%d changed of %d", day, len(d.missing), len(d.changed), len(rows)))
-		}
 		if dryRun {
 			log.Printf("  [dry-run] %s: %d missing, %d changed of %d row(s) — would write them", day, len(d.missing), len(d.changed), len(rows))
 			continue
@@ -373,12 +396,19 @@ func (r reconcileReport) logSummary(dryRun bool) {
 		if dryRun {
 			action = fmt.Sprintf("would write %d row(s)", r.RowsMissing+r.RowsChanged)
 		}
-		more := ""
-		if r.Diverged > len(r.Dates) {
-			more = fmt.Sprintf(" (+%d more)", r.Diverged-len(r.Dates))
+		var shown []string
+		for _, d := range r.Dates {
+			if d.Missing+d.Changed == 0 {
+				continue
+			}
+			if len(shown) == maxDatesLogged {
+				shown = append(shown, fmt.Sprintf("(+%d more)", r.Diverged-maxDatesLogged))
+				break
+			}
+			shown = append(shown, fmt.Sprintf("%s %d missing/%d changed of %d", d.Date, d.Missing, d.Changed, d.Rows))
 		}
-		log.Printf("🩹 Reconcile: %d of %d published date(s) diverged from ASIC (%d missing, %d changed) — %s. %s%s",
-			r.Diverged, r.Files, r.RowsMissing, r.RowsChanged, action, strings.Join(r.Dates, ", "), more)
+		log.Printf("🩹 Reconcile: %d of %d published date(s) diverged from ASIC (%d missing, %d changed) — %s. %s",
+			r.Diverged, r.Files, r.RowsMissing, r.RowsChanged, action, strings.Join(shown, ", "))
 	}
 	if r.RowsExtra > 0 {
 		log.Printf("🩹 Reconcile: %d row(s) are held that the current ASIC files do not carry — left in place", r.RowsExtra)

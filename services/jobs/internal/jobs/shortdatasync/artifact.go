@@ -197,3 +197,94 @@ func publishValidationArtifact(
 
 // validationBucket is the configured bucket name ("" when unset).
 func validationBucket() string { return platform.GetEnv(bucketEnvVar, "") }
+
+// reconcileObjectPrefix is where a RANGE reconcile (-reconcile-from: the
+// one-off repair of history, or its -dry-run preview) stores its report, beside
+// validations/. The path is a contract with .github/workflows/shorts-data-repair.yml,
+// which reads it back: CI cannot read Cloud Logging (see above), so this
+// object is how a repair shows what it found and wrote.
+const reconcileObjectPrefix = "reconcile/"
+
+// reconcileObjectPath is the object key for one execution's range reconcile.
+func reconcileObjectPath(execution string) string {
+	return reconcileObjectPrefix + execution + ".json"
+}
+
+// reconcileArtifactReport is the stored form of a range reconcile.
+type reconcileArtifactReport struct {
+	SchemaVersion int             `json:"schema_version"`
+	GeneratedAt   string          `json:"generated_at"`
+	Execution     string          `json:"execution"`
+	DryRun        bool            `json:"dry_run"`
+	Window        string          `json:"window"`
+	Files         int             `json:"files"`
+	Clean         int             `json:"clean"`
+	Diverged      int             `json:"diverged"`
+	RowsMissing   int             `json:"rows_missing"`
+	RowsChanged   int             `json:"rows_changed"`
+	RowsWritten   int             `json:"rows_written"`
+	RowsExtra     int             `json:"rows_extra"`
+	RowsPadded    int             `json:"rows_padded"`
+	Failed        []string        `json:"failed"`
+	Dates         []reconcileDate `json:"dates"`
+}
+
+// publishReconcileArtifact stores a range reconcile's report at
+// gs://<bucket>/reconcile/<execution>.json. Fail-soft, like the validation
+// report: a repair that ran must not fail because its receipt could not be
+// filed, and the run log carries the same numbers.
+func publishReconcileArtifact(ctx context.Context, rep reconcileReport, dryRun bool, window string, w objectWriter, bucket, execution string) {
+	skipped := ""
+	switch {
+	case bucket == "":
+		skipped = bucketEnvVar + " is not set"
+	case execution == "":
+		skipped = "CLOUD_RUN_EXECUTION is not set (not a Cloud Run execution)"
+	case !executionNamePattern.MatchString(execution):
+		skipped = fmt.Sprintf("CLOUD_RUN_EXECUTION %q is not a Cloud Run execution name", execution)
+	}
+	if skipped != "" {
+		log.Printf("⚠️  reconcile report not stored: %s", skipped)
+		return
+	}
+
+	report := reconcileArtifactReport{
+		SchemaVersion: 1,
+		GeneratedAt:   time.Now().UTC().Format(time.RFC3339),
+		Execution:     execution,
+		DryRun:        dryRun,
+		Window:        window,
+		Files:         rep.Files,
+		Clean:         rep.Clean,
+		Diverged:      rep.Diverged,
+		RowsMissing:   rep.RowsMissing,
+		RowsChanged:   rep.RowsChanged,
+		RowsWritten:   rep.RowsWritten,
+		RowsExtra:     rep.RowsExtra,
+		RowsPadded:    rep.RowsPadded,
+		Failed:        rep.Failed,
+		Dates:         rep.Dates,
+	}
+	// Empty lists serialise as [] rather than null, so a reader never has to
+	// tell "none" from "missing".
+	if report.Failed == nil {
+		report.Failed = []string{}
+	}
+	if report.Dates == nil {
+		report.Dates = []reconcileDate{}
+	}
+	body, err := json.Marshal(report)
+	if err != nil {
+		log.Printf("⚠️  could not encode the reconcile report: %v", err)
+		return
+	}
+	object := reconcileObjectPath(execution)
+	uri := "gs://" + bucket + "/" + object
+	writeCtx, cancel := context.WithTimeout(ctx, artifactWriteTimeout)
+	defer cancel()
+	if err := w.WriteObject(writeCtx, bucket, object, validationArtifactContentType, body); err != nil {
+		log.Printf("⚠️  could not store the reconcile report at %s: %v", uri, err)
+		return
+	}
+	log.Printf("📦 reconcile report stored at %s", uri)
+}

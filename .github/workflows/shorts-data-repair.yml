@@ -1,0 +1,145 @@
+# Shorts (ASIC short-position) data repair: reconcile a date range of the
+# `shorts` table against ASIC's CURRENT archive, on demand.
+#
+# Every scheduled `shorts-data-sync` run already reconciles the last 20
+# published dates plus a rotating 1/28 of the whole archive, so history
+# converges on ASIC within four weeks on its own
+# (services/jobs/internal/jobs/shortdatasync/README.md §Reconcile). This is the
+# on-demand version. It executes the SAME job with `-reconcile-from` (and
+# optionally `-reconcile-to`), which writes only rows that are missing or whose
+# values differ from the file ASIC publishes now, never deletes, and is safe to
+# re-run.
+#
+# It needs the job image that carries `-reconcile-from`, so it is useful only
+# once that has deployed. The job and its image are unchanged by this file.
+#
+# CI cannot read Cloud Logging: project-level log access is deliberately not
+# granted (terraform/modules/short-data-sync/main.tf). So the job stores its
+# findings at gs://$BUCKET/reconcile/<execution>.json, and this workflow prints
+# that object into the run summary. The path is a contract with
+# reconcileObjectPath (artifact.go), pinned by
+# TestRepairWorkflowReadsTheReconcileObject.
+name: Shorts Data Repair
+
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "Reconcile every published date from (YYYY-MM-DD)"
+        required: true
+        default: "2010-01-01"
+      to:
+        description: "…up to (YYYY-MM-DD; blank = the latest ingested date)"
+        required: false
+        default: ""
+      dry_run:
+        description: "Preview only: report what it would write, write nothing"
+        type: boolean
+        required: true
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+# One repair at a time. Overlapping runs would not corrupt anything (every write
+# is an idempotent upsert of ASIC's own row), but their reports would interleave.
+concurrency:
+  group: shorts-data-repair
+  cancel-in-progress: false
+
+env:
+  PROJECT: rosy-clover-477102-t5
+  REGION: australia-southeast2
+  JOB: shorts-data-sync
+  # short_selling_bucket_name in terraform/environments/prod/main.tf.
+  BUCKET: shorted-short-selling-data-prod
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    # The full archive (~4,100 dates) takes 15-30 minutes; the job's own task
+    # timeout is lifted to 2h below.
+    timeout-minutes: 150
+    steps:
+      - name: Validate inputs
+        env:
+          FROM: ${{ inputs.from }}
+          TO: ${{ inputs.to }}
+        run: |
+          set -euo pipefail
+          re='^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          [[ "$FROM" =~ $re ]] || { echo "::error::from must be YYYY-MM-DD, got '$FROM'"; exit 1; }
+          if [[ -n "$TO" && ! "$TO" =~ $re ]]; then
+            echo "::error::to must be YYYY-MM-DD or blank, got '$TO'"; exit 1
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      # --args REPLACES the deployed args, so it must carry the subcommand.
+      - name: Execute the reconcile
+        id: run
+        env:
+          FROM: ${{ inputs.from }}
+          TO: ${{ inputs.to }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -uo pipefail
+          args="short-data-sync"
+          if [[ "$DRY_RUN" == "true" ]]; then args+=",-dry-run"; fi
+          args+=",-reconcile-from,$FROM"
+          if [[ -n "$TO" ]]; then args+=",-reconcile-to,$TO"; fi
+          echo "Executing $JOB with args: $args"
+
+          gcloud run jobs execute "$JOB" --project "$PROJECT" --region "$REGION" \
+            --args="$args" --task-timeout=7200s --wait 2>&1 | tee "$RUNNER_TEMP/execute.log"
+          rc=${PIPESTATUS[0]}
+
+          execution="$(grep -oE 'Execution \[[a-z0-9-]+\]|executions describe [a-z0-9-]+' "$RUNNER_TEMP/execute.log" \
+            | head -n1 | grep -oE '[a-z0-9-]+$|\[[a-z0-9-]+\]' | tr -d '[]' || true)"
+          if [[ -z "$execution" ]]; then
+            execution="$(gcloud run jobs executions list --job "$JOB" --project "$PROJECT" --region "$REGION" \
+              --limit 1 --format='value(metadata.name)' || true)"
+          fi
+          echo "execution=$execution" >> "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      - name: Report
+        if: always() && steps.run.outputs.execution != ''
+        env:
+          EXECUTION: ${{ steps.run.outputs.execution }}
+        run: |
+          set -euo pipefail
+          object="gs://$BUCKET/reconcile/$EXECUTION.json"
+          report="$RUNNER_TEMP/report.json"
+          if ! gcloud storage cat "$object" > "$report"; then
+            echo "::warning::no reconcile report at $object (the run may have stopped before the pass finished)"
+            exit 0
+          fi
+          # One compact line in the log, so `gh run view --log` is enough.
+          jq -c 'del(.dates) + {dates_listed: (.dates | length)}' "$report"
+          jq -r '
+            "## Shorts data " + (if .dry_run then "repair PREVIEW (dry run, nothing written)" else "repair" end),
+            "",
+            "Execution `\(.execution)`: \(.window)",
+            "",
+            "| Dates checked | Match ASIC | Diverged | Missing rows | Changed rows | Written | Extra (kept) | Padded (kept) |",
+            "|---|---|---|---|---|---|---|---|",
+            "| \(.files) | \(.clean) | \(.diverged) | \(.rows_missing) | \(.rows_changed) | \(.rows_written) | \(.rows_extra) | \(.rows_padded) |",
+            "",
+            (if (.failed | length) > 0 then "Could not check (retried by a later run): " + (.failed | join(", ")) + "\n" else empty end),
+            "<details><summary>Every date that differed from ASIC (\(.dates | length))</summary>",
+            "",
+            "| Date | File | Rows | Missing | Changed | Extra | Padded |",
+            "|---|---|---|---|---|---|---|",
+            (.dates[] | "| \(.date) | \(.file) | \(.rows) | \(.missing) | \(.changed) | \(.extra // 0) | \(.padded // 0) |"),
+            "",
+            "</details>"
+          ' "$report" >> "$GITHUB_STEP_SUMMARY"
