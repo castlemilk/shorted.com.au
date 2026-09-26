@@ -27,6 +27,9 @@ working; a flag wins when both are present.
 | Python env var | Go flag | Default | Notes |
 |---|---|---|---|
 | `SYNC_DAYS_SHORTS` | `-days` | 7 | Look-back used when the `shorts` table is EMPTY. With data present the window is always `MAX("DATE") + 1 day` → today. |
+| `SYNC_RECONCILE_DAYS` | `-reconcile-days` | 20 | Go-only. The most recent published dates re-checked against ASIC every live/dry run; 0 disables. See [Reconcile](#reconcile--keeping-the-table-converged-on-asics-archive). |
+| `SYNC_RECONCILE_ROTATION` | `-reconcile-rotation` | 28 | Go-only. Also re-check a rotating 1/K of the whole archive, so every date is re-verified every K days; 0 disables. |
+| — | `-reconcile-from` / `-reconcile-to` | unset | Go-only. Reconcile an explicit date range instead of both windows: the one-off repair of history. |
 | `SYNC_BATCH_SIZE` | `-batch-size` | 500 | Only written to `sync_status.checkpoint_batch_size` for dashboard continuity — there is no stock batching left to size. |
 | `SYNC_ALGOLIA` | `-sync-algolia` | false | Triggers the index sync after a successful run. |
 | `DATABASE_URL` | — (env only) | — | Required. |
@@ -87,6 +90,110 @@ deployed script the same day this port was written: the `SET statement_timeout =
 0; SELECT refresh_all_materialized_views()` **single-statement** MV refresh, and
 `trigger_frontend_revalidation` (fires only when `record_count > 0`, never fails
 the run, same tag/path/flush values).
+
+## Reconcile — keeping the table converged on ASIC's archive
+
+The forward window is `MAX("DATE") + 1 day → today`. Once ANY row of a date
+lands, `MAX("DATE")` moves past it and that date is never offered to the
+pipeline again. So anything that happens to an old date stays wrong for good,
+and none of it fails a run:
+
+* a file fails to download or parse and is skipped while a **newer** file in the
+  same window loads (files run newest first);
+* a run is interrupted after the newest file committed but before older ones did;
+* individual rows fail to write and are counted, not fatal (`UpsertRows`);
+* ASIC **republishes** a date with corrections. The index then lists a newer
+  version for it (`002`, `003`, `010`…), and nothing looks at it again.
+
+All four happened. On 2026-02-03 the table held 78 of the 685 rows ASIC
+published, 2026-04-09 and 2021-11-04 held none, and after ASIC corrected its
+August 2025 – April 2026 files the table kept the superseded figures: CUV reads
+about 12% short through late 2025 where ASIC's corrected files say about 6%.
+It was reported as WBT's short data "stopping".
+
+### What every run does
+
+Every live run ends with a reconcile pass (`reconcile.go`) over the union of
+two windows, both stopping at the `MAX("DATE")` the run *started* with. Later
+dates belong to the forward window, so nothing is counted twice.
+
+| Window | Flag / env | Default | Catches |
+|---|---|---|---|
+| The most recent N published dates | `-reconcile-days` / `SYNC_RECONCILE_DAYS` | 20 | Recent damage, healed the next day |
+| A rotating 1/K of the whole archive | `-reconcile-rotation` / `SYNC_RECONCILE_ROTATION` | 28 | Everything else. The i-th published date is checked on days where i ≡ day (mod K), so every date since 2010 is re-verified every four weeks, with no state stored |
+
+For each date it downloads the file ASIC **currently** publishes (the index's
+version), reads the rows the table holds, and writes the rows that are
+**missing** or whose **values differ**, through the same `UpsertRows`:
+
+* Share counts compare exactly. Percentages allow a relative 1e-9, because the
+  old pandas loader could land one ULP from Go's parse of the same string. A
+  real correction moves a figure by orders of magnitude more. NULL and NaN never
+  match, so they are repaired.
+* Codes compare trimmed on both sides. A row stored under a legacy padded code
+  (`"WBT "`) counts as present, and is never rewritten under the trimmed code,
+  which would double-count the date.
+* **Nothing is ever deleted.** Rows the table holds that the current file does
+  not carry are counted in the log, for a person to decide about.
+
+A healthy table costs one ~45KB download and one indexed `SELECT` per checked
+date, about 170 a day, and writes nothing. A file the pass cannot fetch, parse
+or compare is logged and retried by a later run; it never fails the run. Four
+ASIC source files are permanently unusable and are logged each time they come
+round: 2013-09-04, 2015-01-20 and 2017-10-02 are served empty, and 2015-03-17 is
+an HTML page. Repaired rows count toward `shorts_records_updated`, so they
+trigger the MV refresh and the revalidation ping like new data does.
+
+`-dry-run` runs the pass read-only and logs what it would write. `-shadow`
+never reconciles: the parity contract is unchanged, and any `-reconcile-*` flag
+alongside `-shadow` is refused. The env vars are tolerated, so the console's
+validation runs keep working.
+
+### Repairing history (one-off, after the image carrying this ships)
+
+The rotation heals everything within four weeks on its own. To heal it now,
+reconcile the whole archive once with `-reconcile-from`, which replaces both
+windows with an explicit range (`-reconcile-to` bounds it).
+
+**From GitHub (no local credentials).** Run the **Shorts Data Repair**
+workflow (`.github/workflows/shorts-data-repair.yml`) with `from = 2010-01-01`.
+Run it first with `dry_run` ticked (the default), read the report, then run it
+again unticked. It executes this job through CI's workload identity, and its
+run summary shows the stored report: every date that differed, and what was
+written.
+
+**From a shell with `gcloud`:**
+
+```bash
+# 1. Preview: read-only, reports every diverged date and what it would write.
+gcloud run jobs execute shorts-data-sync \
+  --project=rosy-clover-477102-t5 --region=australia-southeast2 \
+  --args=short-data-sync,-dry-run,-reconcile-from,2010-01-01 \
+  --task-timeout=2h --wait
+
+# 2. Repair: writes only the missing and changed rows, then refreshes MVs and revalidates.
+gcloud run jobs execute shorts-data-sync \
+  --project=rosy-clover-477102-t5 --region=australia-southeast2 \
+  --args=short-data-sync,-reconcile-from,2010-01-01 \
+  --task-timeout=2h --wait
+```
+
+`--args` replaces the deployed args, so `short-data-sync` must come first.
+`--task-timeout` lifts the job's 1h limit for this execution only; the whole
+archive takes 15–30 minutes. The pass is idempotent, so a split range
+(`-reconcile-to`) or a re-run never double-writes.
+
+A range run stores its full findings at
+`gs://shorted-short-selling-data-prod/reconcile/<execution>.json`: counts plus
+every date that differed. That object is how CI reads the result, since Cloud
+Logging is not readable from CI. The run log carries the same summary line:
+
+```
+🩹 Reconcile: N of 4116 published date(s) diverged from ASIC (M missing, C changed) — wrote M+C of M+C row(s). …
+```
+
+Running it again must print `4112 of 4116 published date(s) match ASIC, the
+rest could not be checked` — the rest being the four unusable source files.
 
 ## Shadow comparison (run this BEFORE the cutover PR)
 

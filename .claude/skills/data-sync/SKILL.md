@@ -121,9 +121,12 @@ Deployment is CI-driven: `.github/workflows/terraform-deploy.yml` builds the
 
 The sync is `shorted short-data-sync` (`services/jobs/internal/jobs/shortdatasync/`) and runs:
 
-1. **ASIC Sync**: Downloads latest short position CSV
-2. **Stock Price Sync**: Updates prices for all tracked stocks
-3. **Algolia Sync**: Updates search index (optional)
+1. **ASIC Sync**: Downloads each newly published short position CSV (`MAX("DATE") + 1 → today`)
+2. **Reconcile**: Re-checks the last 20 published dates plus a rotating 1/28 of the archive against ASIC's current files, and writes what is missing or changed
+3. **MV refresh + frontend revalidation**
+4. **Algolia Sync**: Updates search index (optional, off in prod)
+
+Stock prices are not part of this job — see above.
 
 ## Algolia Search Index
 
@@ -257,6 +260,32 @@ psql postgresql://admin:password@localhost:5438/shorts \
   -c "TRUNCATE shorts RESTART IDENTITY;"
 make populate-data
 ```
+
+### Short Data Wrong or Missing on Past Dates (a stock's history "stops", has holes, or disagrees with ASIC)
+
+The live API can be current while past dates are short or stale. The forward
+window (`MAX("DATE") + 1 → today`) never revisits a date once any row of it
+lands, and ASIC republishes corrected files (index version `002`, `010`…)
+that nothing used to re-read. Every run now ends with a reconcile pass. It
+re-checks the last 20 published dates plus a rotating 1/28 of the whole
+archive, so every date since 2010 is re-verified every four weeks, and writes
+only the rows that are missing or changed. It never deletes. To heal
+everything now, run the whole archive once: preview with `-dry-run`, then run
+it live. With no local credentials, run the **Shorts Data Repair** GitHub
+workflow (`from = 2010-01-01`, dry run first). With `gcloud`:
+
+```bash
+gcloud run jobs execute shorts-data-sync \
+  --project=rosy-clover-477102-t5 --region=australia-southeast2 \
+  --args=short-data-sync,-dry-run,-reconcile-from,2010-01-01 --task-timeout=2h --wait   # then drop -dry-run
+```
+
+To measure it without DB access, compare `get_market_snapshot`'s `total_count`
+(public MCP at `https://api.shorted.com.au/mcp`; it counts rows with percent > 0)
+or `get_stock_history` at `full_resolution` with the file the index lists for
+that date: `https://download.asic.gov.au/short-selling/RR<yyyymmdd>-<version>-SSDailyAggShortPos.csv`.
+Never assume version `001`: 345 dates have been republished. Full runbook:
+`services/jobs/internal/jobs/shortdatasync/README.md` §Reconcile.
 
 ### Missing Stock Prices
 
