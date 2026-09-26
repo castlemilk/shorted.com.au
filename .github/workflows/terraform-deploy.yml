@@ -430,6 +430,13 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+          # CREATE ONLY. This job has no GitHub environment, so it sees the
+          # REPO-level secrets; terraform-apply and deploy-vercel-prod run in the
+          # `prod` environment. When the two values differ, a plan job that
+          # writes versions fights the apply job: two versions per deploy and a
+          # window where the API's `latest` disagrees with the web app. The plan
+          # only needs the secrets to EXIST; the apply job owns their values.
+          ENSURE_SECRET_CREATE_ONLY: "1"
         run: |
           # Single source of truth: scripts/ensure-secret.sh. It only adds a new
           # version when the value actually changed, comparing sha256 of the

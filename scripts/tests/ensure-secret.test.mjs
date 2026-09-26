@@ -11,7 +11,7 @@ const script = new URL("../ensure-secret.sh", import.meta.url).pathname;
 // behaviour is scripted. The shim records every invocation so tests can assert
 // what was (and was NOT) attempted — the incident modes here are all about the
 // script taking a mutating action on bad evidence.
-function run({ describe, access, valueArg = "some-value" }) {
+function run({ describe, access, valueArg = "some-value", env = {} }) {
   const dir = mkdtempSync(join(tmpdir(), "ensure-secret-"));
   const calls = join(dir, "calls.log");
   const shim = `#!/usr/bin/env bash
@@ -27,7 +27,7 @@ esac
   chmodSync(join(dir, "gcloud"), 0o755);
   try {
     const stdout = execFileSync("bash", [script, "MY_SECRET", valueArg], {
-      env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, GCP_PROJECT_ID: "test-project" },
+      env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, GCP_PROJECT_ID: "test-project", ...env },
       encoding: "utf8",
     });
     const log = existsSync(calls)
@@ -74,4 +74,24 @@ test("a changed value adds a version, never a create", () => {
   });
   assert.match(calls, /versions add/);
   assert.doesNotMatch(calls, /secrets create/);
+});
+
+test("create-only mode never versions an existing secret (the plan-vs-apply fight)", () => {
+  const { calls, stdout } = run({
+    describe: "exit 0",
+    access: 'printf "%s" "old-value"; exit 0',
+    env: { ENSURE_SECRET_CREATE_ONLY: "1" },
+  });
+  assert.doesNotMatch(calls, /versions add/);
+  assert.doesNotMatch(calls, /versions access/, "must not even read the value");
+  assert.match(stdout, /create-only/);
+});
+
+test("create-only mode still creates a missing secret", () => {
+  const { calls } = run({
+    describe: 'echo "ERROR: NOT_FOUND: Secret [MY_SECRET] not found." >&2; exit 1',
+    access: "exit 1",
+    env: { ENSURE_SECRET_CREATE_ONLY: "1" },
+  });
+  assert.match(calls, /secrets create/);
 });
