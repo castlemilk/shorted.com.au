@@ -69,6 +69,9 @@ type Store interface {
 	SearchStocks(string, int32) ([]*stockv1alpha1.Stock, error)
 	GetMarketByDate(date string, limit, offset int32, includeZero, ordinaryOnly bool) ([]*stockv1alpha1.Stock, int, error)
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
+	// GetNextAvailableDate returns the first trading date after `after`
+	// (YYYY-MM-DD), or "" when `after` is the latest.
+	GetNextAvailableDate(after string) (string, error)
 	GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
 	// GetCrawlRunStatuses returns the residential-crawl health records (migration
