@@ -1656,6 +1656,37 @@ func (s *postgresStore) GetAvailableDates(limit int, before string) ([]string, s
 	return dates, earliest.Format("2006-01-02"), latest.Format("2006-01-02"), totalCount, nil
 }
 
+// GetNextAvailableDate returns the first trading date after `after`, or "" if
+// there is none.
+//
+// GetMarketByDate used to derive next_date from the 90 most recent dates, so
+// every date older than those 90 reported the oldest of them as its next date:
+// on 2026-09-26 both 2024-01-02 and 2015-03-02 said 2026-05-18, and a client
+// stepping forward from an old date jumped years at once.
+func (s *postgresStore) GetNextAvailableDate(after string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// MIN over no rows is NULL, which scans into a nil *time.Time.
+	var next *time.Time
+	err := s.db.QueryRow(ctx,
+		`SELECT MIN(date) FROM mv_available_dates WHERE date > $1::date`, after).Scan(&next)
+	if err != nil {
+		// Same fallback as GetAvailableDates, for a database without the MV
+		// (migration 000049). The (DATE, PRODUCT_CODE) unique index serves it.
+		log.Infof("mv_available_dates not available, using fallback query: %v", err)
+		err = s.db.QueryRow(ctx,
+			`SELECT MIN("DATE") FROM shorts WHERE "DATE" >= $1::date + 1`, after).Scan(&next)
+		if err != nil {
+			return "", fmt.Errorf("failed to query next available date: %w", err)
+		}
+	}
+	if next == nil {
+		return "", nil
+	}
+	return next.Format("2006-01-02"), nil
+}
+
 func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
 	// Build dynamic query with filters
 	baseQuery := `

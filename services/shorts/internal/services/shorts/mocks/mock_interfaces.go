@@ -621,6 +621,21 @@ func (mr *MockShortsStoreMockRecorder) GetMarketNews(limit, source, priceSensiti
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketNews", reflect.TypeOf((*MockShortsStore)(nil).GetMarketNews), limit, source, priceSensitiveOnly)
 }
 
+// GetNextAvailableDate mocks base method.
+func (m *MockShortsStore) GetNextAvailableDate(after string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNextAvailableDate", after)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNextAvailableDate indicates an expected call of GetNextAvailableDate.
+func (mr *MockShortsStoreMockRecorder) GetNextAvailableDate(after any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNextAvailableDate", reflect.TypeOf((*MockShortsStore)(nil).GetNextAvailableDate), after)
+}
+
 // GetPeerComparison mocks base method.
 func (m *MockShortsStore) GetPeerComparison(stockCode string, limit int32) (*shorts.PeerComparisonResult, error) {
 	m.ctrl.T.Helper()

@@ -68,6 +68,10 @@ func (s *StoreAdapter) GetAvailableDates(limit int, before string) ([]string, st
 	return s.store.GetAvailableDates(limit, before)
 }
 
+func (s *StoreAdapter) GetNextAvailableDate(after string) (string, error) {
+	return s.store.GetNextAvailableDate(after)
+}
+
 func (s *StoreAdapter) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
 	return s.store.GetSyncStatus(filter)
 }

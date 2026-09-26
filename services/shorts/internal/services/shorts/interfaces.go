@@ -25,6 +25,7 @@ type ShortsStore interface {
 	SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error)
 	GetMarketByDate(date string, limit, offset int32, includeZero, ordinaryOnly bool) ([]*stocksv1alpha1.Stock, int, error)
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
+	GetNextAvailableDate(after string) (string, error)
 	GetSyncStatus(filter shortsstore.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
 	GetCrawlRunStatuses() ([]*shortsstore.CrawlRunStatus, error)
