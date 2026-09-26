@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -120,37 +121,45 @@ func (s *pgStore) ExistingKeys(ctx context.Context, from time.Time) (map[string]
 	return out, rows.Err()
 }
 
-// codesOnDateSQL reads the product codes the table holds for ONE observation
-// date — the comparison side of the reconcile pass (reconcile.go).
-//
-// Trimmed, because pre-2023 ASIC files padded some codes ("WBT "), and a row
-// stored under a padded code must count as present: otherwise a wide repair
-// would write a second, trimmed copy of it and double-count that date.
+// rowsOnDateSQL reads the rows the table holds for ONE observation date — the
+// comparison side of the reconcile pass (reconcile.go).
 //
 // A half-open day range rather than equality, so a time-of-day component on a
 // row can never hide it from the comparison. It is a range scan of the
 // (DATE, PRODUCT_CODE) unique index the upsert already depends on.
-const codesOnDateSQL = `
-        SELECT DISTINCT btrim("PRODUCT_CODE")
+const rowsOnDateSQL = `
+        SELECT "PRODUCT_CODE",
+               "REPORTED_SHORT_POSITIONS", "TOTAL_PRODUCT_IN_ISSUE",
+               "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
         FROM shorts
         WHERE "DATE" >= $1 AND "DATE" < $2 AND "PRODUCT_CODE" IS NOT NULL`
 
-// CodesOnDate returns the (trimmed) product codes already stored for date d.
-func (s *pgStore) CodesOnDate(ctx context.Context, d time.Time) (map[string]struct{}, error) {
+// RowsOnDate returns the rows already stored for date d, keyed by TRIMMED code.
+//
+// Trimmed with the same strings.TrimSpace parseFile applies to a file's codes,
+// because pre-2023 files padded some codes ("WBT ") and legacy loads stored
+// them that way: a padded row must count as present, or a repair would write a
+// second, trimmed copy and double-count the date. When a date holds both forms,
+// the exact one wins — it is the row an upsert would touch.
+func (s *pgStore) RowsOnDate(ctx context.Context, d time.Time) (map[string]storedRow, error) {
 	day := truncateDay(d)
-	rows, err := s.db.Query(ctx, codesOnDateSQL, day, day.AddDate(0, 0, 1))
+	rows, err := s.db.Query(ctx, rowsOnDateSQL, day, day.AddDate(0, 0, 1))
 	if err != nil {
-		return nil, fmt.Errorf("codes on %s: %w", day.Format("2006-01-02"), err)
+		return nil, fmt.Errorf("rows on %s: %w", day.Format("2006-01-02"), err)
 	}
 	defer rows.Close()
 
-	out := map[string]struct{}{}
+	out := map[string]storedRow{}
 	for rows.Next() {
-		var code string
-		if err := rows.Scan(&code); err != nil {
-			return nil, fmt.Errorf("codes on %s: scan: %w", day.Format("2006-01-02"), err)
+		var st storedRow
+		if err := rows.Scan(&st.Code, &st.Short, &st.Issue, &st.Pct); err != nil {
+			return nil, fmt.Errorf("rows on %s: scan: %w", day.Format("2006-01-02"), err)
 		}
-		out[code] = struct{}{}
+		key := strings.TrimSpace(st.Code)
+		if prev, ok := out[key]; ok && prev.Code == key {
+			continue
+		}
+		out[key] = st
 	}
 	return out, rows.Err()
 }

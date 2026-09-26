@@ -1,100 +1,128 @@
 package shortdatasync
 
-// reconcile.go is the pass that goes BACK over dates the forward window has
-// already moved past, and writes the rows ASIC published that the table does
-// not hold.
+// reconcile.go keeps the shorts table converged on ASIC's CURRENT archive: it
+// goes back over dates the forward window has already moved past, and writes
+// every row that is missing or whose values no longer match what ASIC
+// publishes for that date.
 //
-// # Why the forward window alone loses data for good
+// # Why the forward window alone drifts from ASIC for good
 //
 // The sync window is MAX("DATE") + 1 day → today (syncFileWindow). That is the
-// right window for NEW data and a trap for DAMAGED data: the moment any row of
-// a date lands, MAX("DATE") moves past it and the date is never offered to the
-// pipeline again. Three ordinary events leave a date short:
+// right window for NEW data and a trap for anything that happens to OLD data:
+// once any row of a date lands, MAX("DATE") moves past it and the date is never
+// offered to the pipeline again. So each of these stays wrong forever:
 //
-//   - a file fails to download or parse and is skipped, while a NEWER file in
-//     the same window loads (files run newest first, in ASIC index order);
-//   - a run is interrupted (timeout, SIGTERM) after the newest file committed
-//     but before the older ones did;
-//   - individual rows fail to write and are counted rather than fatal
-//     (UpsertRows — the Python's posture, kept deliberately).
+//   - a file that failed to download or parse and was skipped while a NEWER
+//     file in the same window loaded (files run newest first);
+//   - a run interrupted after the newest file committed but before older ones;
+//   - rows that failed to write and were counted rather than fatal (UpsertRows,
+//     the Python's posture, kept deliberately);
+//   - a file ASIC REPUBLISHED with corrections after it was ingested. The index
+//     then lists a newer version for the date (002, 003, 010…) and nothing
+//     looked at it again: on 2025-08-11 the table still says BPT was 5.23%
+//     short, from version 001, where ASIC's corrected 002 says 3.20%.
 //
-// None of the three fails the run, so nothing alerted. Measured against ASIC's
-// own files on 2026-09-26, every stock had lost rows on dates between December
-// 2025 and July 2026 — most dates in February 2026 held about half of what ASIC
-// published, and 2026-04-09 held none at all. It surfaced as a user report that
-// WBT's short data had "stopped": its chart was missing 14 dates since January.
+// None of these fails a run, so none alerted. Found by auditing every ASIC file
+// since 2010 against prod on 2026-09-26 (package README §Reconcile).
 //
 // # What the pass does
 //
-// Every live run re-reads the most recent N PUBLISHED ASIC dates at or before
-// the MAX("DATE") the run started with (-reconcile-days / SYNC_RECONCILE_DAYS),
-// compares each file's product codes with the codes the table holds for that
-// date, and writes ONLY the missing keys through the same UpsertRows the sync
-// uses. A complete date costs one download and one small SELECT; nothing
-// already present is rewritten, so a healthy table sees no writes at all.
+// For each date in the window it downloads the date's CURRENT file (the version
+// the index lists), reads the rows the table holds for that date, and writes
+// the rows that are missing or whose values differ, through the same UpsertRows
+// the sync uses. Nothing that already matches is rewritten, and nothing is ever
+// deleted: rows the table holds that the current file does not are counted and
+// reported, for a person to decide about.
 //
-// Dates AFTER that starting MAX("DATE") belong to the forward window, and the
-// split is what keeps the two from double-counting: a dry run's new dates are
-// reported once, by the window that would write them. A date the forward window
-// damages today is inside tomorrow's reconcile window.
+// Every live run checks the union of two windows:
 //
-// A wider window is the historical repair: `-reconcile-days 250` walks the last
-// 250 published dates once. `-dry-run` previews it and writes nothing.
+//   - the most recent N published dates (-reconcile-days, default 20), so recent
+//     damage heals the next day;
+//   - a ROTATING slice of the whole archive (-reconcile-rotation, default 28):
+//     the i-th published date is checked on days where i ≡ day (mod 28), so every
+//     date since 2010 is re-verified once every four weeks at about 1/28 of the
+//     archive a day. That is what catches a republication of an old date, or
+//     damage older than the recent window, without storing any state.
+//
+// Both stop at the MAX("DATE") the run STARTED with. Later dates belong to the
+// forward window, which keeps a dry run from reporting a new date twice.
+//
+// -reconcile-from/-reconcile-to replace both with an explicit range: the
+// one-off repair of history. -dry-run previews any of it and writes nothing.
 
 import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 )
 
+// storedRow is one row the table already holds for a date.
+type storedRow struct {
+	// Code is the code as STORED. Legacy loads kept the padding some pre-2023
+	// files put on a code ("WBT "); such a row counts as present, but it cannot
+	// be corrected in place without creating a trimmed duplicate.
+	Code string
+	// Pointers because a NULL is itself a difference worth repairing: the read
+	// paths skip rows whose percentage is NULL.
+	Short, Issue, Pct *float64
+}
+
 // reconcileStore is the slice of pgStore the pass needs, narrowed so the pass
 // is testable without Postgres.
 type reconcileStore interface {
-	CodesOnDate(ctx context.Context, d time.Time) (map[string]struct{}, error)
+	RowsOnDate(ctx context.Context, d time.Time) (map[string]storedRow, error)
 	UpsertRows(ctx context.Context, rows []shortsRow) (int, error)
 }
 
 // fetchFunc returns one ASIC file's bytes.
 type fetchFunc func(ctx context.Context, f asicFile) ([]byte, error)
 
-// maxShortDatesLogged bounds the per-date detail in the summary line, so a wide
-// repair cannot turn one log line into hundreds.
-const maxShortDatesLogged = 20
+// maxDatesLogged bounds the per-date detail in the summary line, so a full
+// repair cannot turn one log line into thousands.
+const maxDatesLogged = 20
 
 // reconcileReport is what one pass found and did.
 type reconcileReport struct {
 	// Files is how many published dates were examined.
 	Files int
-	// Complete counts dates that already held every row their file carries.
-	Complete int
-	// Short counts dates missing at least one row.
-	Short int
-	// RowsMissing is how many rows the files carried that the table did not.
-	RowsMissing int
-	// RowsWritten is how many of those were written — always 0 on a dry run.
+	// Clean counts dates with nothing to write.
+	Clean int
+	// Diverged counts dates with at least one missing or changed row.
+	Diverged int
+	// RowsMissing and RowsChanged are what the files carry that the table does
+	// not, or holds with different values.
+	RowsMissing, RowsChanged int
+	// RowsWritten is how many were written — always 0 on a dry run.
 	RowsWritten int
-	// ShortDates names the short dates, oldest first, capped at
-	// maxShortDatesLogged ("2026-02-03 608/686").
-	ShortDates []string
+	// RowsExtra counts rows the table holds that the current files do not.
+	// Reported, never deleted.
+	RowsExtra int
+	// RowsPadded counts rows whose values differ but that are stored under a
+	// padded legacy code, and so are left alone rather than duplicated.
+	RowsPadded int
+	// Dates names the diverged dates, oldest first, capped at maxDatesLogged.
+	Dates []string
 	// Failed names the files that could not be fetched, parsed or compared.
-	// They are retried by the next run, whose window still covers them.
+	// They are retried by a later run, whose window covers them again.
 	Failed []string
 }
 
-// reconcileRecent runs the pass over the reconcile window ending at upTo, the
-// MAX("DATE") read BEFORE the forward window wrote anything.
+// reconcileRecent runs the pass over this run's reconcile window. upTo is the
+// MAX("DATE") read BEFORE the forward window wrote anything; today picks the
+// rotation slice.
 //
 // It never fails the run over a bad file or a failed comparison: the forward
-// sync has already succeeded, and a date it cannot check today is checked again
-// tomorrow. Only cancellation is returned, so a SIGTERM stops the pass the way
-// it stops the sync.
-func reconcileRecent(ctx context.Context, cfg config, store reconcileStore, client *http.Client, upTo time.Time) (reconcileReport, error) {
-	if cfg.reconcileDays < 1 {
-		log.Printf("🩹 Reconcile disabled (-reconcile-days 0)")
+// sync has already succeeded, and a date it cannot check today is checked
+// again later. Only cancellation is returned, so a SIGTERM stops the pass the
+// way it stops the sync.
+func reconcileRecent(ctx context.Context, cfg config, store reconcileStore, client *http.Client, upTo, today time.Time) (reconcileReport, error) {
+	if cfg.reconcileFrom.IsZero() && cfg.reconcileDays < 1 && cfg.reconcileRotation < 1 {
+		log.Printf("🩹 Reconcile disabled (-reconcile-days 0 -reconcile-rotation 0)")
 		return reconcileReport{}, nil
 	}
 	// A second fetch of the ~140KB index rather than threading the forward
@@ -107,9 +135,8 @@ func reconcileRecent(ctx context.Context, cfg config, store reconcileStore, clie
 		log.Printf("⚠️  Reconcile skipped: could not fetch the ASIC file list: %v", err)
 		return reconcileReport{}, nil
 	}
-	files := reconcileWindow(index, cfg.reconcileDays, upTo)
-	log.Printf("🩹 RECONCILE: re-checking %d published date(s) up to %s for missing rows",
-		len(files), upTo.Format("2006-01-02"))
+	files, desc := reconcileSelection(index, cfg, upTo, today)
+	log.Printf("🩹 RECONCILE: checking %d published date(s) against their current ASIC files — %s", len(files), desc)
 
 	fetch := func(ctx context.Context, f asicFile) ([]byte, error) {
 		return downloadFile(ctx, client, f.downloadURL())
@@ -121,25 +148,69 @@ func reconcileRecent(ctx context.Context, cfg config, store reconcileStore, clie
 	return rep, err
 }
 
-// reconcileWindow selects the most recent `days` published dates at or before
-// upTo, ONE file per date (the highest version), oldest first.
-//
-// One file per date because the pass only fills keys that are missing: the
-// newest version is the one to fill them from, and a second version of the same
-// date would otherwise be reported twice on a dry run. (No date in the ASIC
-// index has ever carried two versions; this keeps the pass honest if one does.)
-// Oldest first so the log reads as a timeline — no date in this window moves
-// MAX("DATE"), so the order is immaterial to correctness.
-func reconcileWindow(index []asicFile, days int, upTo time.Time) []asicFile {
-	limit := yyyymmdd(upTo)
-	eligible := make([]asicFile, 0, len(index))
-	for _, f := range index {
-		if f.Date <= limit {
-			eligible = append(eligible, f)
+// reconcileSelection picks the files one run reconciles, oldest first, and
+// describes the choice for the log.
+func reconcileSelection(index []asicFile, cfg config, upTo, today time.Time) ([]asicFile, string) {
+	all := currentFiles(index, upTo)
+	if !cfg.reconcileFrom.IsZero() {
+		from, to := yyyymmdd(cfg.reconcileFrom), yyyymmdd(upTo)
+		if !cfg.reconcileTo.IsZero() && yyyymmdd(cfg.reconcileTo) < to {
+			to = yyyymmdd(cfg.reconcileTo)
+		}
+		var out []asicFile
+		for _, f := range all {
+			if f.Date >= from && f.Date <= to {
+				out = append(out, f)
+			}
+		}
+		return out, fmt.Sprintf("range %d → %d", from, to)
+	}
+
+	pick := make(map[int]struct{}, cfg.reconcileDays+len(all)/28+1)
+	recent := cfg.reconcileDays
+	if recent > len(all) {
+		recent = len(all)
+	}
+	for _, f := range all[len(all)-recent:] {
+		pick[f.Date] = struct{}{}
+	}
+	rotated, slot := 0, 0
+	if cfg.reconcileRotation > 0 {
+		slot = int((today.Unix() / 86400) % int64(cfg.reconcileRotation))
+		for i, f := range all {
+			if i%cfg.reconcileRotation == slot {
+				pick[f.Date] = struct{}{}
+				rotated++
+			}
 		}
 	}
+	out := make([]asicFile, 0, len(pick))
+	for _, f := range all {
+		if _, ok := pick[f.Date]; ok {
+			out = append(out, f)
+		}
+	}
+	desc := fmt.Sprintf("the last %d up to %s", recent, upTo.Format("2006-01-02"))
+	if cfg.reconcileRotation > 0 {
+		desc += fmt.Sprintf(", plus rotation slice %d/%d of the archive (%d dates)", slot, cfg.reconcileRotation, rotated)
+	}
+	return out, desc
+}
+
+// currentFiles is the index reduced to ONE file per date — the highest version,
+// which is the one ASIC currently publishes for it — at or before upTo, oldest
+// first.
+//
+// Oldest first keeps the i-th date's rotation slot stable as new dates are
+// appended, and makes the log read as a timeline. No date here moves
+// MAX("DATE"), so the order is immaterial to correctness.
+func currentFiles(index []asicFile, upTo time.Time) []asicFile {
+	limit := yyyymmdd(upTo)
 	byDate := map[int]asicFile{}
-	for _, f := range selectRecentFiles(eligible, days) {
+	for _, f := range index {
+		if f.Date > limit {
+			continue
+		}
 		if cur, ok := byDate[f.Date]; !ok || f.Version > cur.Version {
 			byDate[f.Date] = f
 		}
@@ -152,7 +223,7 @@ func reconcileWindow(index []asicFile, days int, upTo time.Time) []asicFile {
 	return out
 }
 
-// reconcileFiles compares each file with the table and writes the missing rows.
+// reconcileFiles compares each file with the table and writes the difference.
 func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, files []asicFile, dryRun bool) (reconcileReport, error) {
 	var rep reconcileReport
 	for _, f := range files {
@@ -183,7 +254,7 @@ func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, 
 			rep.fail(name, "date", err)
 			continue
 		}
-		have, err := store.CodesOnDate(ctx, obsDate)
+		have, err := store.RowsOnDate(ctx, obsDate)
 		if err != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return rep, ctxErr
@@ -192,45 +263,94 @@ func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, 
 			continue
 		}
 
-		missing := missingRows(rows, have)
-		if len(missing) == 0 {
-			rep.Complete++
+		d := diffDate(rows, have)
+		rep.RowsExtra += d.extra
+		rep.RowsPadded += d.padded
+		write := append(d.missing, d.changed...)
+		if len(write) == 0 {
+			rep.Clean++
 			continue
 		}
-		rep.Short++
-		rep.RowsMissing += len(missing)
-		label := fmt.Sprintf("%s %d/%d", obsDate.Format("2006-01-02"), len(missing), len(rows))
-		if len(rep.ShortDates) < maxShortDatesLogged {
-			rep.ShortDates = append(rep.ShortDates, label)
+		rep.Diverged++
+		rep.RowsMissing += len(d.missing)
+		rep.RowsChanged += len(d.changed)
+		day := obsDate.Format("2006-01-02")
+		if len(rep.Dates) < maxDatesLogged {
+			rep.Dates = append(rep.Dates, fmt.Sprintf("%s %d missing/%d changed of %d", day, len(d.missing), len(d.changed), len(rows)))
 		}
 		if dryRun {
-			log.Printf("  [dry-run] %s: %d of %d row(s) missing — would write them", obsDate.Format("2006-01-02"), len(missing), len(rows))
+			log.Printf("  [dry-run] %s: %d missing, %d changed of %d row(s) — would write them", day, len(d.missing), len(d.changed), len(rows))
 			continue
 		}
-		written, err := store.UpsertRows(ctx, missing)
+		written, err := store.UpsertRows(ctx, write)
 		rep.RowsWritten += written
 		if err != nil {
 			// UpsertRows returns only cancellation; a failed row is counted,
-			// logged by UpsertRows, and retried by the next run's window.
+			// logged by UpsertRows, and retried by a later run's window.
 			return rep, err
 		}
-		log.Printf("  🩹 %s: %d of %d row(s) were missing — wrote %d", obsDate.Format("2006-01-02"), len(missing), len(rows), written)
+		log.Printf("  🩹 %s: %d missing, %d changed of %d row(s) — wrote %d", day, len(d.missing), len(d.changed), len(rows), written)
 	}
 	return rep, nil
 }
 
-// missingRows returns the rows whose product code the table does not hold for
-// their date. Both sides are trimmed: parseFile trims the file's codes, and
-// CodesOnDate trims the table's.
-func missingRows(rows []shortsRow, have map[string]struct{}) []shortsRow {
-	var out []shortsRow
-	for _, r := range rows {
-		if _, ok := have[r.ProductCode]; ok {
-			continue
+// dateDiff is how one date's stored rows differ from its current file.
+type dateDiff struct {
+	missing []shortsRow // in the file, not in the table
+	changed []shortsRow // in both with different values — the FILE's values
+	padded  int         // differ, but stored under a padded legacy code
+	extra   int         // in the table, not in the file
+}
+
+// diffDate compares one date's file rows (codes trimmed by parseFile) with the
+// rows the table holds (keyed by trimmed code by RowsOnDate).
+func diffDate(file []shortsRow, have map[string]storedRow) dateDiff {
+	var d dateDiff
+	inFile := make(map[string]struct{}, len(file))
+	for _, r := range file {
+		inFile[r.ProductCode] = struct{}{}
+		st, ok := have[r.ProductCode]
+		switch {
+		case !ok:
+			d.missing = append(d.missing, r)
+		case sameValues(r, st):
+		case st.Code != r.ProductCode:
+			// Upserting under the trimmed code would add a second row beside
+			// the padded one and double-count the date.
+			d.padded++
+		default:
+			d.changed = append(d.changed, r)
 		}
-		out = append(out, r)
 	}
-	return out
+	for code := range have {
+		if _, ok := inFile[code]; !ok {
+			d.extra++
+		}
+	}
+	return d
+}
+
+// sameValues compares a file row with a stored one. Share counts are whole
+// numbers and compare exactly. The percentage allows a relative 1e-9: the
+// Python loader's float parser could land a ULP away from Go's for the same
+// eight-decimal string, and a ULP is not a correction — a real one moves the
+// figure by orders of magnitude more. A NULL or NaN never matches, so it is
+// repaired.
+func sameValues(r shortsRow, st storedRow) bool {
+	if st.Short == nil || st.Issue == nil || st.Pct == nil {
+		return false
+	}
+	if *st.Short != r.ReportedShortPositions || *st.Issue != r.TotalProductInIssue {
+		return false
+	}
+	a, b := *st.Pct, r.Percent
+	if a == b {
+		return true
+	}
+	if math.IsNaN(a) || math.IsNaN(b) {
+		return false
+	}
+	return math.Abs(a-b) <= 1e-9*math.Max(1, math.Max(math.Abs(a), math.Abs(b)))
 }
 
 func (r *reconcileReport) fail(file, stage string, err error) {
@@ -238,29 +358,35 @@ func (r *reconcileReport) fail(file, stage string, err error) {
 	r.Failed = append(r.Failed, file)
 }
 
-// logSummary prints the pass's one-line outcome. A repair is the interesting
-// case — it means an earlier run lost rows — so it names the dates.
+// logSummary prints the pass's outcome. A repair is the interesting case — it
+// means an earlier run lost or kept stale rows — so it names the dates.
 func (r reconcileReport) logSummary(dryRun bool) {
 	switch {
 	case r.Files == 0:
 		log.Printf("🩹 Reconcile: no published dates in the window")
-	case r.Short == 0 && len(r.Failed) == 0:
-		log.Printf("🩹 Reconcile: all %d published date(s) complete", r.Complete)
-	case r.Short == 0:
-		log.Printf("🩹 Reconcile: %d of %d published date(s) complete, the rest could not be checked", r.Complete, r.Files)
+	case r.Diverged == 0 && len(r.Failed) == 0:
+		log.Printf("🩹 Reconcile: all %d published date(s) match ASIC", r.Clean)
+	case r.Diverged == 0:
+		log.Printf("🩹 Reconcile: %d of %d published date(s) match ASIC, the rest could not be checked", r.Clean, r.Files)
 	default:
-		action := fmt.Sprintf("wrote %d of %d missing row(s)", r.RowsWritten, r.RowsMissing)
+		action := fmt.Sprintf("wrote %d of %d row(s)", r.RowsWritten, r.RowsMissing+r.RowsChanged)
 		if dryRun {
-			action = fmt.Sprintf("would write %d missing row(s)", r.RowsMissing)
+			action = fmt.Sprintf("would write %d row(s)", r.RowsMissing+r.RowsChanged)
 		}
 		more := ""
-		if r.Short > len(r.ShortDates) {
-			more = fmt.Sprintf(" (+%d more)", r.Short-len(r.ShortDates))
+		if r.Diverged > len(r.Dates) {
+			more = fmt.Sprintf(" (+%d more)", r.Diverged-len(r.Dates))
 		}
-		log.Printf("🩹 Reconcile: %d of %d published date(s) were missing rows — %s. Missing/published: %s%s",
-			r.Short, r.Files, action, strings.Join(r.ShortDates, ", "), more)
+		log.Printf("🩹 Reconcile: %d of %d published date(s) diverged from ASIC (%d missing, %d changed) — %s. %s%s",
+			r.Diverged, r.Files, r.RowsMissing, r.RowsChanged, action, strings.Join(r.Dates, ", "), more)
+	}
+	if r.RowsExtra > 0 {
+		log.Printf("🩹 Reconcile: %d row(s) are held that the current ASIC files do not carry — left in place", r.RowsExtra)
+	}
+	if r.RowsPadded > 0 {
+		log.Printf("🩹 Reconcile: %d row(s) differ but are stored under a padded legacy code — left in place", r.RowsPadded)
 	}
 	if len(r.Failed) > 0 {
-		log.Printf("⚠️  Reconcile could not check %d file(s), retried next run: %s", len(r.Failed), strings.Join(r.Failed, ", "))
+		log.Printf("⚠️  Reconcile could not check %d file(s), retried by a later run: %s", len(r.Failed), strings.Join(r.Failed, ", "))
 	}
 }

@@ -13,9 +13,13 @@
 //	→ one sync_status row for the admin jobs dashboard.
 //
 //	-days N          how far back to look when the shorts table is empty (SYNC_DAYS_SHORTS)
-//	-reconcile-days N re-check the last N published dates for missing rows and
-//	                 write them (SYNC_RECONCILE_DAYS, default 20; 0 disables) —
-//	                 see reconcile.go
+//	-reconcile-days N re-check the last N published dates against ASIC and write
+//	                 what is missing or changed (SYNC_RECONCILE_DAYS, default 20)
+//	-reconcile-rotation K also re-check a rotating 1/K of the whole archive, so
+//	                 every date is re-verified every K days (SYNC_RECONCILE_ROTATION,
+//	                 default 28; 0 disables) — see reconcile.go
+//	-reconcile-from D / -reconcile-to D  reconcile an explicit date range instead
+//	                 (the one-off repair of history)
 //	-batch-size N    recorded into sync_status.checkpoint_batch_size (SYNC_BATCH_SIZE)
 //	-sync-algolia    trigger the Algolia index sync after a successful run (SYNC_ALGOLIA)
 //	-dry-run         run the whole pipeline, write NOTHING
@@ -107,11 +111,14 @@ const (
 	// weeks: a date one bad run damages is retried by each of the next twenty,
 	// for twenty ~45KB downloads and twenty small SELECTs a day.
 	defaultReconcileDays = 20
-	// maxReconcileDays caps a repair run. 750 published dates is about three
-	// years — past the oldest known damage (December 2025) with room to spare,
-	// while a typo like 7500 is refused rather than walking a decade of files
-	// inside a one-hour job timeout.
+	// maxReconcileDays caps the rolling window. Reaching further back is what
+	// the rotation (routinely) and -reconcile-from (on demand) are for.
 	maxReconcileDays = 750
+	// defaultReconcileRotation re-verifies every date in the archive once every
+	// 28 days, at ~1/28 of it (~150 files) per daily run.
+	defaultReconcileRotation = 28
+	// maxReconcileRotation keeps a slice from shrinking to nothing useful.
+	maxReconcileRotation = 365
 )
 
 // config is the parsed flag set, threaded explicitly (package-level flag vars
@@ -131,8 +138,14 @@ type config struct {
 	validateDays int
 	// reconcileDays is the RECONCILE window: how many of the most recent
 	// published dates at or before the run's starting MAX("DATE") are
-	// re-checked for missing rows. Live and dry runs only; 0 disables.
+	// re-checked against ASIC. Live and dry runs only; 0 disables.
 	reconcileDays int
+	// reconcileRotation adds a rotating 1/K slice of the whole archive to every
+	// run's reconcile window; 0 disables.
+	reconcileRotation int
+	// reconcileFrom/reconcileTo, when set, REPLACE both windows with an explicit
+	// range (the one-off repair). Zero when unset.
+	reconcileFrom, reconcileTo time.Time
 }
 
 // Job returns the `shorted short-data-sync` subcommand.
@@ -210,7 +223,13 @@ func parseConfig(ctx context.Context, args []string) (config, error) {
 	fs.IntVar(&cfg.validateDays, "validate-days", defaultValidateDays,
 		fmt.Sprintf("VALIDATION ONLY (requires -stocks): how many of the most recent PUBLISHED ASIC dates to re-parse, ignoring what is already ingested (1-%d)", maxValidateDays))
 	fs.IntVar(&cfg.reconcileDays, "reconcile-days", platform.GetEnvInt("SYNC_RECONCILE_DAYS", defaultReconcileDays),
-		fmt.Sprintf("Re-check the last N PUBLISHED ASIC dates already ingested and write any rows missing from them (0-%d, 0 disables; env SYNC_RECONCILE_DAYS)", maxReconcileDays))
+		fmt.Sprintf("Re-check the last N PUBLISHED ASIC dates already ingested and write whatever is missing or changed (0-%d, 0 disables; env SYNC_RECONCILE_DAYS)", maxReconcileDays))
+	fs.IntVar(&cfg.reconcileRotation, "reconcile-rotation", platform.GetEnvInt("SYNC_RECONCILE_ROTATION", defaultReconcileRotation),
+		fmt.Sprintf("Also re-check a rotating 1/K of the whole archive each run, so every date is re-verified every K days (0-%d, 0 disables; env SYNC_RECONCILE_ROTATION)", maxReconcileRotation))
+	reconcileFrom := fs.String("reconcile-from", "",
+		"Reconcile every published date from this one (YYYY-MM-DD) instead of the rolling windows — the one-off repair of history")
+	reconcileTo := fs.String("reconcile-to", "",
+		"With -reconcile-from: stop at this date (YYYY-MM-DD) instead of the latest ingested one")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return config{}, runner.ErrUsage
@@ -227,26 +246,59 @@ func parseConfig(ctx context.Context, args []string) (config, error) {
 		return config{}, fmt.Errorf("invalid -validate-days %d (want 1-%d)", cfg.validateDays, maxValidateDays)
 	}
 	if cfg.reconcileDays < 0 || cfg.reconcileDays > maxReconcileDays {
-		return config{}, fmt.Errorf("invalid -reconcile-days %d (want 0-%d; 0 disables the pass)", cfg.reconcileDays, maxReconcileDays)
+		return config{}, fmt.Errorf("invalid -reconcile-days %d (want 0-%d; 0 disables the recent window)", cfg.reconcileDays, maxReconcileDays)
+	}
+	if cfg.reconcileRotation < 0 || cfg.reconcileRotation > maxReconcileRotation {
+		return config{}, fmt.Errorf("invalid -reconcile-rotation %d (want 0-%d; 0 disables the rotation)", cfg.reconcileRotation, maxReconcileRotation)
+	}
+	if raw := strings.TrimSpace(*reconcileFrom); raw != "" {
+		d, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid -reconcile-from %q (want YYYY-MM-DD)", raw)
+		}
+		cfg.reconcileFrom = d
+	}
+	if raw := strings.TrimSpace(*reconcileTo); raw != "" {
+		if cfg.reconcileFrom.IsZero() {
+			return config{}, fmt.Errorf("-reconcile-to requires -reconcile-from")
+		}
+		d, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return config{}, fmt.Errorf("invalid -reconcile-to %q (want YYYY-MM-DD)", raw)
+		}
+		if d.Before(cfg.reconcileFrom) {
+			return config{}, fmt.Errorf("-reconcile-to %s is before -reconcile-from %s", raw, cfg.reconcileFrom.Format("2006-01-02"))
+		}
+		cfg.reconcileTo = d
 	}
 	if cfg.shadow {
 		cfg.dryRun = true
 	}
-	validateDaysSet, reconcileDaysSet := false, false
+	validateDaysSet := false
+	var reconcileFlags []string
 	fs.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "validate-days":
 			validateDaysSet = true
-		case "reconcile-days":
-			reconcileDaysSet = true
+		case "reconcile-days", "reconcile-rotation", "reconcile-from", "reconcile-to":
+			reconcileFlags = append(reconcileFlags, "-"+f.Name)
 		}
 	})
-	if cfg.shadow && reconcileDaysSet {
+	if cfg.shadow && len(reconcileFlags) > 0 {
 		// Refused, not ignored: a shadow run is the pinned parity path and
-		// never reconciles. Only the FLAG is refused — SYNC_RECONCILE_DAYS in
+		// never reconciles. Only the FLAGS are refused — SYNC_RECONCILE_* in
 		// the job's env must not break the admin console's -shadow runs, which
 		// inherit it.
-		return config{}, fmt.Errorf("-reconcile-days has no effect on a -shadow run; preview a repair with -dry-run instead")
+		return config{}, fmt.Errorf("%s has no effect on a -shadow run; preview a repair with -dry-run instead", strings.Join(reconcileFlags, " "))
+	}
+	if !cfg.reconcileFrom.IsZero() {
+		for _, name := range reconcileFlags {
+			if name == "-reconcile-days" || name == "-reconcile-rotation" {
+				// A range REPLACES the rolling windows; setting both would
+				// silently ignore one of them.
+				return config{}, fmt.Errorf("%s has no effect with -reconcile-from, which replaces the rolling windows", name)
+			}
+		}
 	}
 	if raw := strings.TrimSpace(*stocks); raw != "" {
 		// A SCOPED LIVE RUN IS REFUSED, on purpose. `-stocks` narrows what the
@@ -337,7 +389,7 @@ func runSync(ctx context.Context, cfg config, store *pgStore, client *http.Clien
 	// An empty table is an initial load: the forward window just wrote all of
 	// it, so there is nothing behind it to reconcile.
 	if haveData {
-		rep, err := reconcileRecent(ctx, cfg, store, client, reconcileUpTo)
+		rep, err := reconcileRecent(ctx, cfg, store, client, reconcileUpTo, truncateDay(now))
 		if err != nil {
 			return fail(err)
 		}
