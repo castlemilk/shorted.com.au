@@ -129,6 +129,13 @@ resource "google_cloud_run_v2_service" "stock_price_ingestion" {
         #
         # This costs nothing in steady state. A startup probe runs only while an
         # instance is starting.
+        #
+        # The budget alone did not hold: 00503 (2026-09-26) never bound within
+        # it either. Before uvicorn could bind, the app imported ~1,140 modules,
+        # pandas, numpy and yfinance among them, none of which /health needs.
+        # It now binds after ~380 and loads the rest on the first sync
+        # (cloud_run_service.py), so this budget covers a third of the import
+        # work it used to.
         failure_threshold = 6
       }
 
