@@ -294,8 +294,15 @@ func TestDiffDateClassifiesEveryCase(t *testing.T) {
 		"WBT": {Code: "WBT ", Short: ptr(8), Issue: ptr(70), Pct: ptr(11.4)},
 		"SAM": {Code: "SAM", Short: ptr(1), Issue: ptr(2), Pct: ptr(50)},
 		"OLD": {Code: "OLD", Short: ptr(1), Issue: ptr(2), Pct: ptr(50)}, // not in the current file
+		// Listed by the file with a "-" percentage (total in issue 0), which
+		// parseFileListing drops from the rows but keeps in the listing.
+		"SP1": {Code: "SP1", Short: ptr(1473939), Issue: ptr(0), Pct: nil},
 	}
-	d := diffDate(file, have)
+	listed := map[string]struct{}{"SP1": {}}
+	for _, r := range file {
+		listed[r.ProductCode] = struct{}{}
+	}
+	d := diffDate(file, listed, have)
 	codes := func(rs []shortsRow) string {
 		var s []string
 		for _, r := range rs {
@@ -421,6 +428,31 @@ func TestReconcileNeverDuplicatesAPaddedCode(t *testing.T) {
 	}
 	if rep.Clean != 2 || rep.RowsPadded != 1 {
 		t.Fatalf("report = %+v, want both dates clean and one padded difference reported", rep)
+	}
+}
+
+// TestReconcileKeepsRowsTheFileListsWithoutAPercentage: the seven "extra" rows
+// the 2026-09-26 full-archive preview reported were all like SP1 here. ASIC's
+// current file still carries them, with total in issue 0 and "-" as the
+// percentage; the parser drops that record, and the pass counted the stored
+// row as one ASIC no longer publishes. Only a code the file does not list at
+// all is extra.
+func TestReconcileKeepsRowsTheFileListsWithoutAPercentage(t *testing.T) {
+	store := newFakeReconcileStore()
+	store.holds("2023-02-06", "BHP")
+	store.put("2023-02-06", storedRow{Code: "SP1", Short: ptr(1473939), Issue: ptr(0), Pct: nil})
+	store.put("2023-02-06", storedRow{Code: "OLD", Short: ptr(1), Issue: ptr(2), Pct: ptr(50)})
+	body := append(asicCSV("BHP"), []byte("SOUTHERN X PAYMENTS ORDINARY,SP1,1473939,0,-\r\n")...)
+
+	rep, err := reconcileFiles(context.Background(), store, fetchFrom(map[int][]byte{20230206: body}, nil), files(20230206), false)
+	if err != nil {
+		t.Fatalf("reconcileFiles: %v", err)
+	}
+	if rep.RowsExtra != 1 || rep.Clean != 1 || len(store.upserts) != 0 {
+		t.Fatalf("report = %+v, writes = %v; want OLD alone extra, nothing written", rep, store.written())
+	}
+	if len(rep.Dates) != 1 || len(rep.Dates[0].ExtraRows) != 1 || rep.Dates[0].ExtraRows[0].Code != "OLD" {
+		t.Fatalf("dates = %+v, want only OLD named", rep.Dates)
 	}
 }
 
