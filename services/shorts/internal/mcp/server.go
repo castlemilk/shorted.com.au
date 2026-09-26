@@ -29,9 +29,11 @@ const (
 // no tools — useful for protocol-level tests.
 func NewServer(src DataSource) *sdk.Server {
 	server := sdk.NewServer(&sdk.Implementation{
-		Name:    ServerName,
-		Title:   ServerTitle,
-		Version: ServerVersion,
+		Name:       ServerName,
+		Title:      ServerTitle,
+		Version:    ServerVersion,
+		WebsiteURL: WebsiteURL,
+		Icons:      Icons(),
 	}, nil)
 
 	// Resources and prompts are static: they carry the interpretation context
