@@ -102,8 +102,13 @@ type AdminCheck func(ctx context.Context, userID string) (bool, error)
 // has been verified. It must be composed INSIDE auth.RequireBearerToken, which
 // is what puts the TokenInfo it reads into the context.
 //
-// Fails closed: no token info, no check configured, or a failed lookup are all
-// 403. A token is only a claim about the past; this is the check about now.
+// Fails closed, but says WHICH kind of closed. A definite "not an admin" (or no
+// token info, or no check configured) is 403. A failed LOOKUP is 503 with
+// Retry-After: the caller is quite possibly an admin and we could not ask.
+// Answering that with 403 made a transient web-app hiccup look like an
+// authorization failure, and a client treats an authorization failure by
+// dropping its sign-in — an admin was logged out of the connector for a timeout
+// on our side. Neither answer lets anyone through.
 func RequireAdmin(check AdminCheck) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +118,12 @@ func RequireAdmin(check AdminCheck) func(http.Handler) http.Handler {
 				return
 			}
 			ok, err := check(r.Context(), info.UserID)
-			if err != nil || !ok {
+			if err != nil {
+				w.Header().Set("Retry-After", "5")
+				http.Error(w, "administrator check temporarily unavailable; retry shortly", http.StatusServiceUnavailable)
+				return
+			}
+			if !ok {
 				http.Error(w, "forbidden: administrator access required", http.StatusForbidden)
 				return
 			}

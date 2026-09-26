@@ -138,13 +138,26 @@ func TestATokenWithoutNewsPublishIsRefused(t *testing.T) {
 	}
 }
 
+// A lookup that FAILS is not a "no": it must not read as an authorization
+// failure (a client drops its sign-in on those), and it must not let the
+// request through either.
+func TestAFailedAdminLookupIsRetryableNotForbidden(t *testing.T) {
+	pub := &fakePublisher{}
+	down := func(context.Context, string) (bool, error) { return false, errors.New("down") }
+	srv := adminStack(t, stubClaims{claims: adminClaims()}, down, pub)
+	resp, _ := adminCall(t, srv, "t", publishCall)
+	if resp.StatusCode != http.StatusServiceUnavailable || resp.Header.Get("Retry-After") == "" || pub.req.Slug != "" {
+		t.Fatalf("status = %d retry-after = %q published = %q; want 503 + Retry-After and nothing",
+			resp.StatusCode, resp.Header.Get("Retry-After"), pub.req.Slug)
+	}
+}
+
 // A valid admin token for someone who is no longer an admin: refused NOW, not
 // when the token expires.
 func TestARevokedAdminIsRefusedEvenWithAValidToken(t *testing.T) {
 	for name, check := range map[string]AdminCheck{
-		"not an admin":   onlyAdmin("someone-else"),
-		"lookup failure": func(context.Context, string) (bool, error) { return false, errors.New("down") },
-		"no check":       nil,
+		"not an admin": onlyAdmin("someone-else"),
+		"no check":     nil,
 	} {
 		pub := &fakePublisher{}
 		srv := adminStack(t, stubClaims{claims: adminClaims()}, check, pub)
