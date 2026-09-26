@@ -12,6 +12,12 @@ package mcp
 //     api.shorted.com.au, which served nothing at /favicon.ico, so FaviconHandler
 //     serves the website's favicon from the API binary itself — embedded, so it
 //     cannot 404 on a CDN or website outage.
+//
+// A /favicon.ico alone was NOT enough (measured 2026-09-26: Google's favicon
+// service still answered 404 for api.shorted.com.au). Favicon resolvers start
+// from the host's ROOT DOCUMENT and read its <link rel="icon">; the API's root
+// was a 404, so they never got as far as /favicon.ico. RootHandler gives the
+// host a real page that names its icons.
 
 import (
 	_ "embed"
@@ -30,6 +36,36 @@ func Icons() []sdk.Icon {
 		{Source: WebsiteURL + "/icon-512.png", MIMEType: "image/png", Sizes: []string{"512x512"}},
 		{Source: WebsiteURL + "/favicon.ico", MIMEType: "image/x-icon", Sizes: []string{"32x32"}},
 	}
+}
+
+// RootPath matches exactly "/" (Go 1.22 pattern syntax) — a bare "/" would
+// catch every unmatched path and turn the API's 404s into 200s.
+const RootPath = "GET /{$}"
+
+const rootPage = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shorted API</title>
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/png" href="` + WebsiteURL + `/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="` + WebsiteURL + `/apple-touch-icon.png">
+<meta name="robots" content="noindex">
+</head>
+<body>
+<p>Shorted API. See <a href="` + WebsiteURL + `">shorted.com.au</a>; MCP guide at <a href="` + DocumentationURL + `">` + DocumentationURL + `</a>.</p>
+</body>
+</html>
+`
+
+// RootHandler serves the API host's root document: a minimal page whose only
+// job is to name the host's icons for favicon resolvers.
+func RootHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		_, _ = w.Write([]byte(rootPage))
+	})
 }
 
 //go:embed assets/favicon.ico

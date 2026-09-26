@@ -60,3 +60,32 @@ func TestFaviconIsServedFromTheAPIHost(t *testing.T) {
 		t.Fatalf("embedded favicon is not an ICO file")
 	}
 }
+
+// Favicon resolvers read the root document's <link rel="icon">, and the root
+// route must match "/" ONLY — never swallow the API's other 404s.
+func TestRootDocumentNamesTheIconsAndMatchesOnlySlash(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.Handle(RootPath, RootHandler())
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), `rel="icon"`) ||
+		!strings.Contains(string(body), "/favicon.ico") {
+		t.Fatalf("root: status %d body %s", resp.StatusCode, body)
+	}
+
+	resp, err = http.Get(srv.URL + "/no-such-path")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("unmatched path: status %d, want 404", resp.StatusCode)
+	}
+}
