@@ -6,22 +6,34 @@
 terraform {
   required_version = ">= 1.5.0"
 
+  # EXACT provider versions, plus the committed .terraform.lock.hcl beside this
+  # file. Both used to float ("~> 5.19", lock file gitignored), so every deploy
+  # installed whatever was newest. On 2026-09-26 cloudflare v5.26.0 shipped
+  # mid-week, added a DNS attribute (include_shadow_metadata), turned all five
+  # DNS records into no-op "updates", and then failed the apply with the
+  # provider's own "inconsistent result after apply" bug — on a PR that
+  # touched no Terraform. Upgrade on purpose: bump the version here, run
+  # `terraform init -upgrade -backend=false`, then
+  #   terraform providers lock -platform=linux_amd64 -platform=linux_arm64 \
+  #     -platform=darwin_amd64 -platform=darwin_arm64
+  # (all four, or init fails on whichever runner/laptop is missing), commit the
+  # lock file, and read the plan.
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 5.0"
+      version = "5.45.2"
     }
     time = {
       source  = "hashicorp/time"
-      version = "~> 0.9"
+      version = "0.14.2"
     }
     random = {
       source  = "hashicorp/random"
-      version = "~> 3.6"
+      version = "3.9.1"
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 5.19"
+      version = "5.26.0"
     }
   }
 
