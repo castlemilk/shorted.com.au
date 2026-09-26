@@ -269,7 +269,10 @@ lands, and ASIC republishes corrected files (index version `002`, `010`…)
 that nothing used to re-read. Every run now ends with a reconcile pass. It
 re-checks the last 20 published dates plus a rotating 1/28 of the whole
 archive, so every date since 2010 is re-verified every four weeks, and writes
-only the rows that are missing or changed. It never deletes. To heal
+only the rows that are missing or changed. It never deletes: rows ASIC's
+current files no longer carry are named in the run log and in a range run's
+report (`extra_rows`, code as stored plus values) for a person to decide
+about. To heal
 everything now, run the whole archive once: preview with `-dry-run`, then run
 it live. With no local credentials, run the **Shorts Data Repair** GitHub
 workflow (`from = 2010-01-01`, dry run first). With `gcloud`:

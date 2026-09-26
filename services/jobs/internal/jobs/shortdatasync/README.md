@@ -134,7 +134,10 @@ version), reads the rows the table holds, and writes the rows that are
   (`"WBT "`) counts as present, and is never rewritten under the trimmed code,
   which would double-count the date.
 * **Nothing is ever deleted.** Rows the table holds that the current file does
-  not carry are counted in the log, for a person to decide about.
+  not carry are named in the log and in a range run's report, code as stored
+  plus the values held, for a person to decide about. A range run's workflow
+  summary lists them in a table, and its log line carries them as
+  `extra_rows`.
 
 A healthy table costs one ~45KB download and one indexed `SELECT` per checked
 date, about 170 a day, and writes nothing. A file the pass cannot fetch, parse
@@ -185,7 +188,7 @@ archive takes 15–30 minutes. The pass is idempotent, so a split range
 
 A range run stores its full findings at
 `gs://shorted-short-selling-data-prod/reconcile/<execution>.json`: counts plus
-every date that differed. That object is how CI reads the result, since Cloud
+every date that differed, each extra row named under `extra_rows`. That object is how CI reads the result, since Cloud
 Logging is not readable from CI. The run log carries the same summary line:
 
 ```

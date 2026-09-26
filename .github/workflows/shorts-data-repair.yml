@@ -123,8 +123,11 @@ jobs:
             echo "::warning::no reconcile report at $object (the run may have stopped before the pass finished)"
             exit 0
           fi
-          # One compact line in the log, so `gh run view --log` is enough.
-          jq -c 'del(.dates) + {dates_listed: (.dates | length)}' "$report"
+          # One compact line in the log, so `gh run view --log` is enough. It
+          # names every extra row (the step summary is not in the log, and
+          # those rows are the ones a person has to decide about).
+          jq -c 'del(.dates) + {dates_listed: (.dates | length),
+            extra_rows: [.dates[] | .date as $d | (.extra_rows // [])[] | {date: $d} + .]}' "$report"
           jq -r '
             "## Shorts data " + (if .dry_run then "repair PREVIEW (dry run, nothing written)" else "repair" end),
             "",
@@ -135,6 +138,12 @@ jobs:
             "| \(.files) | \(.clean) | \(.diverged) | \(.rows_missing) | \(.rows_changed) | \(.rows_written) | \(.rows_extra) | \(.rows_padded) |",
             "",
             (if (.failed | length) > 0 then "Could not check (retried by a later run): " + (.failed | join(", ")) + "\n" else empty end),
+            (if .rows_extra > 0 then
+              "### Rows the table holds that ASIC'"'"'s current files do not (left in place)\n\n" +
+              "| Date | Code (as stored) | Short positions | Total in issue | % short |\n|---|---|---|---|---|\n" +
+              ([.dates[] | .date as $d | (.extra_rows // [])[] |
+                "| \($d) | `\(.code | @json)` | \(.short) | \(.issue) | \(.pct) |"] | join("\n")) + "\n"
+            else empty end),
             "<details><summary>Every date that differed from ASIC (\(.dates | length))</summary>",
             "",
             "| Date | File | Rows | Missing | Changed | Extra | Padded |",

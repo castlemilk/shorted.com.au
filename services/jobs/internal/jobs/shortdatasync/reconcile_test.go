@@ -312,8 +312,8 @@ func TestDiffDateClassifiesEveryCase(t *testing.T) {
 	if d.changed[0].ReportedShortPositions != 72962562 || d.changed[0].Percent != 3.1982416 {
 		t.Fatalf("a changed row must carry the FILE's values: %+v", d.changed[0])
 	}
-	if d.padded != 1 || d.extra != 1 {
-		t.Fatalf("padded = %d, extra = %d, want 1 and 1", d.padded, d.extra)
+	if d.padded != 1 || len(d.extra) != 1 || d.extra[0].Code != "OLD" || *d.extra[0].Short != 1 {
+		t.Fatalf("padded = %d, extra = %+v; want 1, and OLD with the values the table holds", d.padded, d.extra)
 	}
 }
 
@@ -689,6 +689,34 @@ func TestReconcileReportListsEveryDate(t *testing.T) {
 	if last.Date != "2026-02-01" || last.Extra != 1 || last.Missing != 0 {
 		t.Fatalf("the extra-only date must be listed with its count: %+v", last)
 	}
+	// A count alone gives a person nothing to decide with: the report names
+	// the row and the values the table holds (OLD sits at position 1, so
+	// holds() stored fileRow(1) for it).
+	if len(last.ExtraRows) != 1 {
+		t.Fatalf("extra_rows = %+v, want the one row", last.ExtraRows)
+	}
+	x := last.ExtraRows[0]
+	if x.Code != "OLD" || x.Short == nil || *x.Short != 2000 || *x.Issue != 1000000 || *x.Pct != 0.2 {
+		t.Fatalf("extra row = %s, want \"OLD\" 2000/1000000/0.2%%", x)
+	}
+	if !strings.Contains(string(w.body), `"extra_rows":[{"code":"OLD","short":2000,"issue":1000000,"pct":0.2}]`) {
+		t.Fatalf("stored report does not name the extra row: %s", w.body)
+	}
+	for _, d := range got.Dates[:30] {
+		if d.ExtraRows != nil {
+			t.Fatalf("%s has no extra rows but lists %+v", d.Date, d.ExtraRows)
+		}
+	}
+}
+
+// TestExtraRowStringShowsPaddingAndNulls: the log line is the only place a
+// scheduled run names extra rows, so it must show a padded code and a NULL as
+// what they are.
+func TestExtraRowStringShowsPaddingAndNulls(t *testing.T) {
+	got := extraRow{Code: "WBT ", Short: ptr(1500), Issue: ptr(3000000), Pct: nil}.String()
+	if got != `"WBT " 1500/3000000/NULL%` {
+		t.Fatalf("String() = %s", got)
+	}
 }
 
 // TestReconcileReportSkipsAndFailsSoft: no coordinates means no write, and a
@@ -724,6 +752,8 @@ func TestRepairWorkflowReadsTheReconcileObject(t *testing.T) {
 		"-reconcile-from",
 		"-reconcile-to",
 		"-dry-run",
+		// The log line is all a caller without the step summary can read.
+		"extra_rows: [.dates[]",
 	} {
 		if !strings.Contains(wf, want) {
 			t.Fatalf("shorts-data-repair.yml must contain %q", want)

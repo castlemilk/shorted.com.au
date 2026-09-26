@@ -31,8 +31,8 @@ package shortdatasync
 // the index lists), reads the rows the table holds for that date, and writes
 // the rows that are missing or whose values differ, through the same UpsertRows
 // the sync uses. Nothing that already matches is rewritten, and nothing is ever
-// deleted: rows the table holds that the current file does not are counted and
-// reported, for a person to decide about.
+// deleted: rows the table holds that the current file does not ("extra") are
+// reported by code and stored values, for a person to decide about.
 //
 // Every live run checks the union of two windows:
 //
@@ -58,6 +58,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -101,7 +102,7 @@ type reconcileReport struct {
 	// RowsWritten is how many were written — always 0 on a dry run.
 	RowsWritten int
 	// RowsExtra counts rows the table holds that the current files do not.
-	// Reported, never deleted.
+	// Reported (each is named in its date's ExtraRows), never deleted.
 	RowsExtra int
 	// RowsPadded counts rows whose values differ but that are stored under a
 	// padded legacy code, and so are left alone rather than duplicated.
@@ -124,6 +125,39 @@ type reconcileDate struct {
 	Changed int    `json:"changed"`
 	Extra   int    `json:"extra,omitempty"`
 	Padded  int    `json:"padded,omitempty"`
+	// ExtraRows names every extra row with the values the table holds, so a
+	// person can see what they are deciding about.
+	ExtraRows []extraRow `json:"extra_rows,omitempty"`
+}
+
+// extraRow is a stored row that the date's current ASIC file does not carry.
+type extraRow struct {
+	// Code as stored, padding included.
+	Code  string   `json:"code"`
+	Short *float64 `json:"short"`
+	Issue *float64 `json:"issue"`
+	Pct   *float64 `json:"pct"`
+}
+
+// String renders the row for the log: the code quoted so padding shows, then
+// short/issue/percent as stored.
+func (x extraRow) String() string {
+	v := func(f *float64) string {
+		if f == nil {
+			return "NULL"
+		}
+		return strconv.FormatFloat(*f, 'f', -1, 64)
+	}
+	return fmt.Sprintf("%q %s/%s/%s%%", x.Code, v(x.Short), v(x.Issue), v(x.Pct))
+}
+
+func toExtraRows(rows []storedRow) []extraRow {
+	out := make([]extraRow, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, extraRow(r))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Code < out[j].Code })
+	return out
 }
 
 // reconcileRecent runs the pass over this run's reconcile window. upTo is the
@@ -284,13 +318,14 @@ func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, 
 		}
 
 		d := diffDate(rows, have)
-		rep.RowsExtra += d.extra
+		rep.RowsExtra += len(d.extra)
 		rep.RowsPadded += d.padded
 		day := obsDate.Format("2006-01-02")
-		if len(d.missing)+len(d.changed)+d.extra+d.padded > 0 {
+		if len(d.missing)+len(d.changed)+len(d.extra)+d.padded > 0 {
 			rep.Dates = append(rep.Dates, reconcileDate{
 				Date: day, File: name, Rows: len(rows),
-				Missing: len(d.missing), Changed: len(d.changed), Extra: d.extra, Padded: d.padded,
+				Missing: len(d.missing), Changed: len(d.changed), Extra: len(d.extra), Padded: d.padded,
+				ExtraRows: toExtraRows(d.extra),
 			})
 		}
 		write := append(d.missing, d.changed...)
@@ -322,7 +357,7 @@ type dateDiff struct {
 	missing []shortsRow // in the file, not in the table
 	changed []shortsRow // in both with different values — the FILE's values
 	padded  int         // differ, but stored under a padded legacy code
-	extra   int         // in the table, not in the file
+	extra   []storedRow // in the table, not in the file
 }
 
 // diffDate compares one date's file rows (codes trimmed by parseFile) with the
@@ -345,9 +380,9 @@ func diffDate(file []shortsRow, have map[string]storedRow) dateDiff {
 			d.changed = append(d.changed, r)
 		}
 	}
-	for code := range have {
+	for code, st := range have {
 		if _, ok := inFile[code]; !ok {
-			d.extra++
+			d.extra = append(d.extra, st)
 		}
 	}
 	return d
@@ -411,7 +446,19 @@ func (r reconcileReport) logSummary(dryRun bool) {
 			r.Diverged, r.Files, r.RowsMissing, r.RowsChanged, action, strings.Join(shown, ", "))
 	}
 	if r.RowsExtra > 0 {
-		log.Printf("🩹 Reconcile: %d row(s) are held that the current ASIC files do not carry — left in place", r.RowsExtra)
+		var shown []string
+	extras:
+		for _, d := range r.Dates {
+			for _, x := range d.ExtraRows {
+				if len(shown) == maxDatesLogged {
+					shown = append(shown, fmt.Sprintf("(+%d more)", r.RowsExtra-maxDatesLogged))
+					break extras
+				}
+				shown = append(shown, d.Date+" "+x.String())
+			}
+		}
+		log.Printf("🩹 Reconcile: %d row(s) are held that the current ASIC files do not carry — left in place: %s",
+			r.RowsExtra, strings.Join(shown, ", "))
 	}
 	if r.RowsPadded > 0 {
 		log.Printf("🩹 Reconcile: %d row(s) differ but are stored under a padded legacy code — left in place", r.RowsPadded)
