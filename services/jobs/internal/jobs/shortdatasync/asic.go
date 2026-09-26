@@ -211,9 +211,24 @@ var errNoUsableHeader = errors.New("csv header is missing required columns")
 // backfill (`-days 5000`) therefore ingests MORE than the Python would; a
 // 7-day run is identical.
 func parseFile(fileName string, body []byte) ([]shortsRow, error) {
+	rows, _, err := parseFileListing(fileName, body)
+	return rows, err
+}
+
+// parseFileListing is parseFile plus the trimmed code of EVERY record the file
+// lists, including the ones it drops.
+//
+// The reconcile pass needs that difference. ASIC prints "-" as the percentage
+// when a product's total in issue is 0, e.g. "SOUTHERN X PAYMENTS
+// ORDINARY,SP1,1473939,0,-" on 2023-02-06. parseNumeric rejects "-", so the
+// row is dropped and never ingested. The legacy loader stored such rows with a
+// NULL percentage, and without this listing the pass reported those rows as
+// ones "the current ASIC files do not carry", which read as permission to
+// delete real data (seven of them on 2026-09-26).
+func parseFileListing(fileName string, body []byte) ([]shortsRow, map[string]struct{}, error) {
 	obsDate, err := dateFromFileName(fileName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	text := decodeBytes(body)
@@ -225,9 +240,9 @@ func parseFile(fileName string, body []byte) ([]shortsRow, error) {
 	header, err := r.Read()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			return nil, errNoUsableHeader
+			return nil, nil, errNoUsableHeader
 		}
-		return nil, err
+		return nil, nil, err
 	}
 	idx := map[string]int{}
 	for i, h := range header {
@@ -235,11 +250,12 @@ func parseFile(fileName string, body []byte) ([]shortsRow, error) {
 	}
 	for _, want := range []string{colProduct, colCode, colShort, colIssue, colPercent} {
 		if _, ok := idx[want]; !ok {
-			return nil, fmt.Errorf("%w: %s", errNoUsableHeader, want)
+			return nil, nil, fmt.Errorf("%w: %s", errNoUsableHeader, want)
 		}
 	}
 
 	var rows []shortsRow
+	listed := map[string]struct{}{}
 	for {
 		rec, err := r.Read()
 		if err != nil {
@@ -251,7 +267,12 @@ func parseFile(fileName string, body []byte) ([]shortsRow, error) {
 			if errors.As(err, &pe) {
 				continue
 			}
-			return rows, err
+			return rows, listed, err
+		}
+		if i := idx[colCode]; i < len(rec) {
+			if code := strings.TrimSpace(rec[i]); code != "" {
+				listed[code] = struct{}{}
+			}
 		}
 		row, ok := rowFromRecord(rec, idx, obsDate)
 		if !ok {
@@ -259,7 +280,7 @@ func parseFile(fileName string, body []byte) ([]shortsRow, error) {
 		}
 		rows = append(rows, row)
 	}
-	return rows, nil
+	return rows, listed, nil
 }
 
 // rowFromRecord maps one CSV record onto a shortsRow, reporting false for

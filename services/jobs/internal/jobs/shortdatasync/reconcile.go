@@ -295,7 +295,7 @@ func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, 
 			rep.fail(name, "download", err)
 			continue
 		}
-		rows, err := parseFile(name, body)
+		rows, listed, err := parseFileListing(name, body)
 		if err != nil {
 			rep.fail(name, "parse", err)
 			continue
@@ -317,7 +317,7 @@ func reconcileFiles(ctx context.Context, store reconcileStore, fetch fetchFunc, 
 			continue
 		}
 
-		d := diffDate(rows, have)
+		d := diffDate(rows, listed, have)
 		rep.RowsExtra += len(d.extra)
 		rep.RowsPadded += d.padded
 		day := obsDate.Format("2006-01-02")
@@ -361,12 +361,13 @@ type dateDiff struct {
 }
 
 // diffDate compares one date's file rows (codes trimmed by parseFile) with the
-// rows the table holds (keyed by trimmed code by RowsOnDate).
-func diffDate(file []shortsRow, have map[string]storedRow) dateDiff {
+// rows the table holds (keyed by trimmed code by RowsOnDate). listed is every
+// code the file carries, including records parseFileListing dropped: a stored
+// row whose code the file lists is not extra, even when the file gives it no
+// percentage to compare against ("-" when the total in issue is 0).
+func diffDate(file []shortsRow, listed map[string]struct{}, have map[string]storedRow) dateDiff {
 	var d dateDiff
-	inFile := make(map[string]struct{}, len(file))
 	for _, r := range file {
-		inFile[r.ProductCode] = struct{}{}
 		st, ok := have[r.ProductCode]
 		switch {
 		case !ok:
@@ -381,7 +382,7 @@ func diffDate(file []shortsRow, have map[string]storedRow) dateDiff {
 		}
 	}
 	for code, st := range have {
-		if _, ok := inFile[code]; !ok {
+		if _, ok := listed[code]; !ok {
 			d.extra = append(d.extra, st)
 		}
 	}

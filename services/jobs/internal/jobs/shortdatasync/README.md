@@ -138,6 +138,12 @@ version), reads the rows the table holds, and writes the rows that are
   plus the values held, for a person to decide about. A range run's workflow
   summary lists them in a table, and its log line carries them as
   `extra_rows`.
+* "Not carry" means the file does not list the code at all. ASIC prints `-` as
+  the percentage when a product's total in issue is 0 (26 records in the whole
+  archive, 2023 onwards). The parser drops those records, so the sync never
+  ingests them, but the legacy loader stored 7 of them with a NULL percentage.
+  They match the file and are not extra. The first full-archive preview
+  (2026-09-26) reported exactly those 7 as extra, before this rule existed.
 
 A healthy table costs one ~45KB download and one indexed `SELECT` per checked
 date, about 170 a day, and writes nothing. A file the pass cannot fetch, parse
