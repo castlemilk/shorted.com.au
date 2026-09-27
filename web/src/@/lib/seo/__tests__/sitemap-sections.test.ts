@@ -138,6 +138,7 @@ import {
   renderUrlset,
 } from "../sitemap-xml";
 import { THEME_SLUGS } from "~/@/lib/themes/registry";
+import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
 import {
   HOUSING_RANKINGS,
   HOUSING_RANKING_SLUGS,
@@ -207,6 +208,7 @@ describe("sitemap children", () => {
       ["/authors/", "sitemap-core.xml"],
       ["/scans/", "sitemap-core.xml"],
       ["/themes/", "sitemap-core.xml"],
+      ["/picks/", "sitemap-core.xml"],
       ["/directory/", "sitemap-core.xml"],
       ["/market/", "sitemap-core.xml"],
       ["/industry/", "sitemap-core.xml"],
@@ -242,6 +244,18 @@ describe("sitemap children", () => {
     }
     // ASIC-derived, so it carries a real data date rather than no lastmod.
     expect(hub!.lastModified).toBeTruthy();
+  });
+
+  // Picks are driven by the daily price sweep, not the ASIC date this builder
+  // fetches, so they carry no lastmod rather than a borrowed one.
+  it("lists the stock picker hub and every registry strategy without a fabricated lastmod", async () => {
+    const core = await buildCoreSitemap();
+    const urls = ["/picks", ...STRATEGY_SLUGS.map((slug) => `/picks/${slug}`)];
+    for (const path of urls) {
+      const entry = core.find((e) => e.url === `https://shorted.com.au${path}`);
+      expect(entry).toBeDefined();
+      expect(entry!.lastModified).toBeUndefined();
+    }
   });
 
   it("lists every published economy topic pair in the core sitemap without a fabricated lastmod", async () => {

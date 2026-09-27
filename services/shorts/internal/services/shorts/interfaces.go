@@ -7,6 +7,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 //go:generate mockgen -source=interfaces.go -destination=mocks/mock_interfaces.go -package=mocks
@@ -105,6 +106,12 @@ type ShortsStore interface {
 
 	// Bear/bull verdict methods
 	GetStockVerdictInputs(productCode string) (*shortsstore.VerdictInputs, error)
+
+	// Stock picker methods (strategies.go, fundamentals.go)
+	ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error)
+	GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error)
+	GetStockFundamentals(ctx context.Context, code, periodType string, limit int32) ([]shortsstore.FundamentalsPeriodRow, error)
+	GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error)
 
 	// Corporate tax (influence layer) methods
 	GetCompanyTaxProfile(productCode string) (*shortsstore.CompanyTaxProfile, error)
@@ -212,6 +219,9 @@ type Cache interface {
 	Get(key string) (interface{}, bool)
 	Set(key string, value interface{})
 	GetOrSet(key string, computeFn func() (interface{}, error)) (interface{}, error)
+	// GetOrSetWithTTL is GetOrSet with a per-entry lifetime, for data that
+	// changes once a day and is expensive to recompute (the strategy picks).
+	GetOrSetWithTTL(key string, ttl time.Duration, computeFn func() (interface{}, error)) (interface{}, error)
 	Delete(key string)
 	Clear()
 	Size() int
@@ -282,6 +292,10 @@ type Cache interface {
 	GetScreenStocksKey(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) string
 	GetBattlegroundStocksKey(view shortsv1alpha1.BattlegroundView, limit, offset int32) string
 	GetStockVerdictKey(productCode string) string
+	GetStockFundamentalsKey(stockCode, periodType string, limit int32) string
+	GetStrategyUniverseKey() string
+	GetStrategyPicksKey(strategyID string) string
+	GetMarketRegimeKey(indexCode string) string
 	GetCompanyTaxProfileKey(productCode string) string
 	GetIndustryIntelligenceKey(industry string, stockCode string, recordLimit int32) string
 	GetShortCampaignScoreboardKey(industry string, limit, offset int32) string

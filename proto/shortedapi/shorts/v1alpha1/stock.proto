@@ -73,6 +73,13 @@ service StockService {
   rpc GetCompanyTaxProfile (GetCompanyTaxProfileRequest) returns (GetCompanyTaxProfileResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // Per-period reported fundamentals (revenue, net income, EPS, cash flow,
+  // shares) and year-on-year growth for a stock. Every value carries a has_*
+  // flag: a missing figure is absent, never zero.
+  rpc GetStockFundamentals (GetStockFundamentalsRequest) returns (GetStockFundamentalsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
 }
 
 // Request for GetStockSummary RPC, specifying the product code.
@@ -422,4 +429,80 @@ message StockSignal {
   string severity = 6;          // 'high' | 'medium' | 'low' (adverse only)
   double confidence = 7;
   repeated string citations = 8;
+}
+
+// Request for GetStockFundamentals.
+message GetStockFundamentalsRequest {
+  string stock_code = 1;    // ASX code, e.g. "BHP".
+  string period_type = 2;   // Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+  int32 limit = 3;          // Max periods, newest first (default 12, max 40).
+}
+
+// One reported period. Values are in `currency` exactly as the source reports
+// them (BHP reports in USD). has_* is false when the source omitted a figure.
+message FundamentalsPeriod {
+  string period_type = 1;          // "annual" | "half" | "quarter" | "ttm" (trailing twelve months).
+  string period_end = 2;           // YYYY-MM-DD.
+  int32 fiscal_year = 3;           // 0 when unknown.
+  string currency = 4;
+  double revenue = 5;
+  bool has_revenue = 6;
+  double net_income = 7;
+  bool has_net_income = 8;
+  double eps_basic = 9;
+  bool has_eps_basic = 10;
+  double eps_diluted = 11;
+  bool has_eps_diluted = 12;
+  double operating_cash_flow = 13;
+  bool has_operating_cash_flow = 14;
+  double shares_outstanding = 15;
+  bool has_shares_outstanding = 16;
+  string source = 17;              // e.g. "yahoo-timeseries".
+  string fetched_at = 18;          // RFC 3339.
+  double free_cash_flow = 19;
+  bool has_free_cash_flow = 20;
+}
+
+// Year-on-year growth, always against the same series one year earlier
+// (annual vs prior annual, TTM vs the TTM point a year earlier), never across
+// series. A *_pct is absent (has_* false) when either side is missing or the
+// prior value is zero or negative.
+message FundamentalsGrowth {
+  string basis_period_type = 1;       // Series the EPS growth was computed on: "half", "ttm" or "annual".
+  string latest_period_end = 2;       // YYYY-MM-DD of the latest period in that series.
+  double revenue_yoy_pct = 3;         // Revenue growth on revenue_basis_period_type vs the same series a year earlier.
+  bool has_revenue_yoy = 4;
+  double revenue_yoy_prior_pct = 5;   // The same growth one period earlier, for acceleration.
+  bool has_revenue_yoy_prior = 6;
+  double eps_yoy_pct = 7;
+  bool has_eps_yoy = 8;
+  double eps_yoy_prior_pct = 9;
+  bool has_eps_yoy_prior = 10;
+  bool net_income_positive = 11;      // Latest annual net income above zero.
+  int32 periods_available = 12;
+  double revenue_ttm = 13;            // Latest trailing-twelve-month points.
+  bool has_revenue_ttm = 14;
+  double net_income_ttm = 15;
+  bool has_net_income_ttm = 16;
+  double eps_ttm = 17;
+  bool has_eps_ttm = 18;
+  // Series the revenue growth was computed on: "half" (latest half-year from a
+  // company filing vs the same half a year earlier, used when it is newer than
+  // the latest annual) or "annual". Empty when unknown.
+  string revenue_basis_period_type = 19;
+  // Latest half-year vs the same half a year earlier, from company filings,
+  // whether or not the half is the chosen basis.
+  double revenue_half_yoy_pct = 20;
+  bool has_revenue_half_yoy = 21;
+  double eps_half_yoy_pct = 22;
+  bool has_eps_half_yoy = 23;
+  string half_latest_period_end = 24;  // YYYY-MM-DD of the latest half-year row; empty when none.
+}
+
+// Response for GetStockFundamentals.
+message GetStockFundamentalsResponse {
+  string stock_code = 1;
+  repeated FundamentalsPeriod periods = 2;   // Newest first.
+  FundamentalsGrowth growth = 3;
+  bool has_growth = 4;                       // False when no growth row exists yet.
 }

@@ -20,6 +20,12 @@ session (including Claude Code on the web) with two tools:
 Only merged articles can be published — the job image bakes `content/news` in
 at build time, and the tool takes a slug, never a body.
 
+**This connector exposes ONLY those two publish tools; it is not a superset of
+the public server.** A research client — one that needs short positions,
+strategy picks, fundamentals, housing, economy or the register of interests —
+must also connect the public URL, `https://api.shorted.com.au/mcp`, as its own
+connector.
+
 ## Who can use it
 
 An administrator is a Shorted account whose **verified** email is on the web

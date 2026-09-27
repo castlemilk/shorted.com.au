@@ -40,6 +40,7 @@ describe("isr-shell-pages.json", () => {
       "/compare",
       "/price-drops",
       "/themes",
+      "/picks",
       "/housing/nsw/council",
       "/housing/vic/council",
       "/housing/qld/council",
@@ -67,6 +68,23 @@ describe("theme pages in the ISR sweep inventory", () => {
     const all = new Set(isrPages as string[]);
     expect(all.has("/themes")).toBe(true);
     const missing = THEME_SLUGS.filter((slug) => !all.has(`/themes/${slug}`));
+    expect(missing).toEqual([]);
+  });
+});
+
+// /picks and /picks/[strategy] build as the same deliberately-empty static
+// shells as the themes (getStrategyPicks skips at build), so every strategy in
+// the registry must be in the post-promote sweep or it ships each deploy empty
+// until its first natural revalidation.
+describe("stock picker pages in the ISR sweep inventory", () => {
+  it("covers /picks and every registry strategy", () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { STRATEGY_SLUGS } = require("~/@/lib/strategies/registry") as {
+      STRATEGY_SLUGS: string[];
+    };
+    const all = new Set(isrPages as string[]);
+    expect(all.has("/picks")).toBe(true);
+    const missing = STRATEGY_SLUGS.filter((slug) => !all.has(`/picks/${slug}`));
     expect(missing).toEqual([]);
   });
 });

@@ -274,8 +274,14 @@ func toolCallFixtures() []toolCall {
 		{"get_stock_details", map[string]any{"code": "BHP"}},
 		{"get_director_trades", map[string]any{"code": "BHP"}},
 		{"get_peer_comparison", map[string]any{"code": "PLS"}},
+		// At the ceilings, not the defaults: these two are the only tools whose
+		// worst case is reachable in one ordinary call and is far larger than
+		// the default (25 picks x 7 rules; 40 periods).
+		{"get_stock_fundamentals", map[string]any{"code": "BHP", "limit": 40}},
 		{"search_stocks", map[string]any{"query": "minerals"}},
 		{"screen_stocks", map[string]any{"min_short_pct": 5.0}},
+		{"list_strategies", map[string]any{}},
+		{"get_strategy_picks", map[string]any{"strategy_id": "minervini-trend-template", "limit": 25}},
 		{"get_stock_news", map[string]any{"code": "PLS"}},
 		{"list_reports", map[string]any{}},
 		{"get_report", map[string]any{"slug": "2026-W23"}},

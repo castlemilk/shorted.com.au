@@ -322,6 +322,12 @@
     "/opengraph-image": {
       "firstLoadKB": 0
     },
+    "/picks": {
+      "firstLoadKB": 138
+    },
+    "/picks/[strategy]": {
+      "firstLoadKB": 135
+    },
     "/portfolio": {
       "firstLoadKB": 142
     },

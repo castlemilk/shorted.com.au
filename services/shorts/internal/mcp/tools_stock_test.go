@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -434,6 +436,41 @@ func TestGetPeerComparisonReturnsSubjectAndPeers(t *testing.T) {
 	}
 }
 
+// Peers come from mv_screener_data, which COALESCEs a missing market cap, P/E
+// or dividend yield to 0. Those must be absent, on the subject and the peers
+// alike, and real values must pass through.
+func TestGetPeerComparisonOmitsUnknownValuationFieldsRatherThanEmittingZero(t *testing.T) {
+	src := &fakeDataSource{peerComparison: &shortsv1alpha1.GetPeerComparisonResponse{
+		Industry: "Materials",
+		Subject:  &shortsv1alpha1.PeerStock{StockCode: "ZZZ", ShortPositionPercent: 3.1},
+		Peers: []*shortsv1alpha1.PeerStock{
+			{StockCode: "IGO", ShortPositionPercent: 9.2, MarketCap: 4e9, PeRatio: 18.2, DividendYield: 1.1},
+			{StockCode: "AAA", ShortPositionPercent: 1.0},
+		},
+	}}
+
+	_, out, err := getPeerComparisonHandler(src)(context.Background(), nil, GetPeerComparisonInput{Code: "ZZZ"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for label, entry := range map[string]any{"subject": out.Subject, "peer": out.Peers[1]} {
+		raw, _ := json.Marshal(entry)
+		for _, key := range []string{"market_cap", "pe_ratio", "dividend_yield"} {
+			if strings.Contains(string(raw), `"`+key+`"`) {
+				t.Errorf("%s: unknown %s emitted (%s) — a 0 reads as a real value", label, key, raw)
+			}
+		}
+	}
+	igo := out.Peers[0]
+	if igo.MarketCap == nil || *igo.MarketCap != 4e9 || igo.PERatio == nil || *igo.PERatio != 18.2 ||
+		igo.DividendYield == nil || *igo.DividendYield != 1.1 {
+		t.Errorf("known values not passed through: %+v", igo)
+	}
+	if !strings.Contains(getPeerComparisonDescription, "absent when unknown, never zero") {
+		t.Error("the description must say unknown values are absent")
+	}
+}
+
 // A subject the backend could not resolve must not be reported as a peer set
 // with a nil centre — the comparison is meaningless without it.
 func TestGetPeerComparisonReportsAMissingSubject(t *testing.T) {
@@ -441,5 +478,249 @@ func TestGetPeerComparisonReportsAMissingSubject(t *testing.T) {
 
 	if _, _, err := getPeerComparisonHandler(src)(context.Background(), nil, GetPeerComparisonInput{Code: "ZZZZ"}); err == nil {
 		t.Fatal("expected an error when the subject stock is absent")
+	}
+}
+
+// ------------------------------------------------------ get_stock_fundamentals
+
+func fundamentalsFixture() *shortsv1alpha1.GetStockFundamentalsResponse {
+	return &shortsv1alpha1.GetStockFundamentalsResponse{
+		StockCode: "BHP",
+		Periods: []*shortsv1alpha1.FundamentalsPeriod{
+			{
+				PeriodType: "annual", PeriodEnd: "2026-06-30", FiscalYear: 2026, Currency: "USD", Source: "yahoo-timeseries",
+				FetchedAt: "2026-09-26T08:00:00Z",
+				Revenue:   55_658_000_000, HasRevenue: true,
+				// Reported as exactly zero: a measurement, and must be emitted.
+				NetIncome: 0, HasNetIncome: true,
+				EpsDiluted: 1.23, HasEpsDiluted: true,
+				// Present in the proto as 0 with no flag: NOT reported.
+				OperatingCashFlow: 0, HasOperatingCashFlow: false,
+				SharesOutstanding: 5_071_000_000, HasSharesOutstanding: true,
+			},
+			{PeriodType: "half", PeriodEnd: "2025-12-31", FiscalYear: 2026, Currency: "USD", Revenue: 27e9, HasRevenue: true},
+			// A company that changed reporting currency: the old year must say so.
+			{PeriodType: "annual", PeriodEnd: "2015-06-30", FiscalYear: 2015, Currency: "AUD", Revenue: 44e9, HasRevenue: true},
+		},
+		HasGrowth: true,
+		Growth: &shortsv1alpha1.FundamentalsGrowth{
+			BasisPeriodType: "ttm", LatestPeriodEnd: "2026-06-30",
+			RevenueYoyPct: 12.345, HasRevenueYoy: true,
+			EpsYoyPct: -4.5678, HasEpsYoy: true,
+			RevenueYoyPriorPct: 0, HasRevenueYoyPrior: false,
+			NetIncomePositive: true, PeriodsAvailable: 22,
+			RevenueTtm: 55e9, HasRevenueTtm: true,
+		},
+	}
+}
+
+func TestGetStockFundamentalsValidatesBeforeCallingTheRPC(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   GetStockFundamentalsInput
+		want string
+	}{
+		{"bad code", GetStockFundamentalsInput{Code: "not a ticker"}, "ASX ticker"},
+		{"bad period type", GetStockFundamentalsInput{Code: "BHP", PeriodType: "monthly"}, "annual, ttm, half, quarter"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := &fakeDataSource{fundamentals: fundamentalsFixture()}
+			_, _, err := getStockFundamentalsHandler(src)(context.Background(), nil, tc.in)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected an error naming %q, got %v", tc.want, err)
+			}
+			if src.gotFundamentals != nil {
+				t.Error("reached the RPC despite failing validation")
+			}
+		})
+	}
+}
+
+func TestGetStockFundamentalsNormalisesAndClampsTheRequest(t *testing.T) {
+	for _, tc := range []struct {
+		limit int
+		want  int32
+	}{{0, defaultFundamentalsLimit}, {-1, defaultFundamentalsLimit}, {12, 12}, {500, maxFundamentalsLimit}} {
+		src := &fakeDataSource{fundamentals: &shortsv1alpha1.GetStockFundamentalsResponse{}}
+		in := GetStockFundamentalsInput{Code: " bhp ", PeriodType: " Annual ", Limit: tc.limit}
+		if _, _, err := getStockFundamentalsHandler(src)(context.Background(), nil, in); err != nil {
+			t.Fatalf("limit %d: unexpected error: %v", tc.limit, err)
+		}
+		got := src.gotFundamentals
+		if got.GetLimit() != tc.want || got.GetStockCode() != "BHP" || got.GetPeriodType() != "annual" {
+			t.Errorf("limit %d: request = %+v, want limit %d, BHP, annual", tc.limit, got, tc.want)
+		}
+	}
+}
+
+func TestGetStockFundamentalsHonoursTheHasFlags(t *testing.T) {
+	src := &fakeDataSource{fundamentals: fundamentalsFixture()}
+
+	res, out, err := getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.Code != "BHP" || out.Currency != "USD" || out.Count != 3 {
+		t.Fatalf("header: %+v", out)
+	}
+
+	latest := out.Periods[0]
+	if latest.PeriodType != "annual" || latest.PeriodEnd != "2026-06-30" || latest.FiscalYear != 2026 || latest.Source != "yahoo-timeseries" {
+		t.Errorf("period header: %+v", latest)
+	}
+	if latest.Revenue == nil || *latest.Revenue != 55_658_000_000 {
+		t.Errorf("revenue: %v", latest.Revenue)
+	}
+	if latest.NetIncome == nil || *latest.NetIncome != 0 {
+		t.Errorf("a reported zero net income must be emitted as 0, got %v", latest.NetIncome)
+	}
+	raw, _ := json.Marshal(latest)
+	for _, key := range []string{"operating_cash_flow", "free_cash_flow", "eps_basic", "currency"} {
+		if strings.Contains(string(raw), `"`+key+`"`) {
+			t.Errorf("%s emitted without being reported (or, for currency, without differing): %s", key, raw)
+		}
+	}
+	if out.Periods[1].Currency != "" {
+		t.Errorf("a period in the result's currency should not restate it: %q", out.Periods[1].Currency)
+	}
+	if out.Periods[2].Currency != "AUD" {
+		t.Errorf("a period in a different currency must carry it, got %q", out.Periods[2].Currency)
+	}
+
+	g := out.Growth
+	if g == nil {
+		t.Fatal("growth dropped")
+	}
+	if g.BasisPeriodType != "ttm" || g.PeriodsAvailable != 22 || !g.NetIncomePositive {
+		t.Errorf("growth header: %+v", g)
+	}
+	if g.RevenueYoYPct == nil || *g.RevenueYoYPct != 12.35 || g.EPSYoYPct == nil || *g.EPSYoYPct != -4.57 {
+		t.Errorf("growth figures: revenue=%v eps=%v", g.RevenueYoYPct, g.EPSYoYPct)
+	}
+	if g.RevenueYoYPriorPct != nil || g.EPSTTM != nil || g.RevenueHalfYoYPct != nil || g.EPSHalfYoYPct != nil {
+		t.Errorf("unflagged growth figures must be absent: prior=%v eps_ttm=%v rev_half=%v eps_half=%v",
+			g.RevenueYoYPriorPct, g.EPSTTM, g.RevenueHalfYoYPct, g.EPSHalfYoYPct)
+	}
+	if strings.Contains(mustJSON(t, g), "half_latest_period_end") {
+		t.Errorf("half_latest_period_end emitted without a half row: %+v", g)
+	}
+	whole, _ := json.Marshal(out)
+	if strings.Contains(string(whole), "fetched_at") {
+		t.Errorf("fetched_at leaked: %s", whole)
+	}
+
+	text := textOf(t, res)
+	for _, want := range []string{"BHP", "3 reported periods", "USD", "Revenue +12.3% year on year (annual)", "EPS -4.6% year on year (ttm)", "Not financial advice"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("summary missing %q: %q", want, text)
+		}
+	}
+}
+
+func TestGetStockFundamentalsNamesTheHalfBasis(t *testing.T) {
+	fixture := fundamentalsFixture()
+	fixture.Growth.BasisPeriodType = "half"
+	fixture.Growth.RevenueBasisPeriodType = "half"
+	fixture.Growth.HalfLatestPeriodEnd = "2025-12-31"
+	fixture.Growth.RevenueHalfYoyPct, fixture.Growth.HasRevenueHalfYoy = 12.345, true
+	fixture.Growth.EpsHalfYoyPct, fixture.Growth.HasEpsHalfYoy = 0, false
+	src := &fakeDataSource{fundamentals: fixture}
+
+	res, out, err := getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	g := out.Growth
+	if g == nil || g.BasisPeriodType != "half" || g.RevenueBasisPeriodType != "half" || g.HalfLatestPeriodEnd != "2025-12-31" {
+		t.Fatalf("half basis dropped: %+v", g)
+	}
+	if g.RevenueHalfYoYPct == nil || *g.RevenueHalfYoYPct != 12.35 {
+		t.Errorf("revenue_half_yoy_pct: %v", g.RevenueHalfYoYPct)
+	}
+	if g.EPSHalfYoYPct != nil {
+		t.Errorf("an unflagged half EPS growth must be absent, got %v", *g.EPSHalfYoYPct)
+	}
+	text := textOf(t, res)
+	for _, want := range []string{"Revenue +12.3% year on year (half)", "EPS -4.6% year on year (half)"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("summary missing %q: %q", want, text)
+		}
+	}
+}
+
+func TestGetStockFundamentalsOmitsGrowthWithoutTheFlag(t *testing.T) {
+	fixture := fundamentalsFixture()
+	fixture.HasGrowth = false
+	src := &fakeDataSource{fundamentals: fixture}
+
+	_, out, err := getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.Growth != nil {
+		t.Errorf("growth emitted although has_growth is false: %+v", out.Growth)
+	}
+}
+
+func TestGetStockFundamentalsSaysSoWhenNothingIsHeld(t *testing.T) {
+	src := &fakeDataSource{fundamentals: &shortsv1alpha1.GetStockFundamentalsResponse{StockCode: "XYZ"}}
+
+	res, out, err := getStockFundamentalsHandler(src)(context.Background(), nil,
+		GetStockFundamentalsInput{Code: "XYZ", PeriodType: "quarter"})
+	if err != nil {
+		t.Fatalf("a known stock without fundamentals is a result, not an error: %v", err)
+	}
+	if out.Count != 0 || out.Periods == nil || out.Growth != nil {
+		t.Errorf("empty result malformed: %+v", out)
+	}
+	text := textOf(t, res)
+	for _, want := range []string{"No reported fundamentals", "XYZ", "half-yearly"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("summary missing %q: %q", want, text)
+		}
+	}
+}
+
+func TestGetStockFundamentalsReportsAnUnknownTickerDistinctly(t *testing.T) {
+	src := &fakeDataSource{err: connect.NewError(connect.CodeNotFound, errors.New("stock not found: ZZZZ"))}
+	_, _, err := getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "ZZZZ"})
+	if err == nil || !strings.Contains(err.Error(), "search_stocks") {
+		t.Errorf("not-found should point at search_stocks, got %v", err)
+	}
+
+	src = &fakeDataSource{err: connect.NewError(connect.CodeInternal, errors.New("database on fire"))}
+	_, _, err = getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP"})
+	if err == nil || strings.Contains(err.Error(), "search_stocks") {
+		t.Errorf("an internal error must not be reported as a bad ticker, got %v", err)
+	}
+
+	if _, _, err := getStockFundamentalsHandler(&fakeDataSource{})(context.Background(), nil,
+		GetStockFundamentalsInput{Code: "BHP"}); err == nil {
+		t.Error("expected an error when the RPC returns no body")
+	}
+}
+
+// The description is the only warning a model gets before it quotes a USD
+// revenue as AUD or reads a missing quarter as a bad one.
+func TestGetStockFundamentalsDescriptionCarriesItsCaveats(t *testing.T) {
+	for _, want := range []string{"REPORTING currency", "USD", "same series", "absent, never zero",
+		"half-yearly", "quarterly", "market data provider", "not estimates or financial advice"} {
+		if !strings.Contains(getStockFundamentalsDescription, want) {
+			t.Errorf("description missing %q", want)
+		}
+	}
+}
+
+// validFundamentalsPeriodTypes duplicates the store's set so the tool can
+// reject a typo itself. A drift either way is a filter the handler refuses or
+// a valid one the tool refuses — pin them together.
+func TestFundamentalsPeriodTypesMatchTheStore(t *testing.T) {
+	if len(validFundamentalsPeriodTypes) != len(shortsstore.FundamentalsPeriodTypes) {
+		t.Fatalf("tool accepts %v, store accepts %v", validFundamentalsPeriodTypes, shortsstore.FundamentalsPeriodTypes)
+	}
+	for _, pt := range validFundamentalsPeriodTypes {
+		if !shortsstore.FundamentalsPeriodTypes[pt] {
+			t.Errorf("tool accepts period type %q, which the store rejects", pt)
+		}
 	}
 }

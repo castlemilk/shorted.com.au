@@ -157,21 +157,21 @@ type ScreenStocksInput struct {
 }
 
 type ScreenedStock struct {
-	Rank                 int     `json:"rank" jsonschema:"Position in the sorted result, 1 = first."`
-	Code                 string  `json:"code"`
-	Name                 string  `json:"name,omitempty"`
-	Industry             string  `json:"industry,omitempty"`
-	ShortPercent         float64 `json:"short_percent" jsonschema:"Percent of shares on issue, 0-100."`
-	ShortPercentChange4W float64 `json:"short_percent_change_4w" jsonschema:"Four-week change, percentage points."`
-	DaysToCover          float64 `json:"days_to_cover" jsonschema:"Short position divided by 20-day average volume. 0 when unknown."`
-	LatestPrice          float64 `json:"latest_price" jsonschema:"Close in AUD. 0 when unknown."`
-	PriceChange1M        float64 `json:"price_change_1m" jsonschema:"Percent."`
-	MarketCap            float64 `json:"market_cap" jsonschema:"AUD. 0 when unknown."`
-	PERatio              float64 `json:"pe_ratio" jsonschema:"0 when unknown or not meaningful."`
-	DividendYield        float64 `json:"dividend_yield" jsonschema:"Trailing, percent."`
-	NetDirectorBuyValue  float64 `json:"net_director_buy_value" jsonschema:"Disclosed buys minus sells, AUD."`
-	NewsCount30D         int     `json:"news_count_30d" jsonschema:"Articles in the last 30 days."`
-	AvgSentiment         float64 `json:"avg_sentiment" jsonschema:"Mean MODEL-CLASSIFIED sentiment of those articles, -1 to 1. 0 when there is no news."`
+	Rank                 int      `json:"rank" jsonschema:"Position in the sorted result, 1 = first."`
+	Code                 string   `json:"code"`
+	Name                 string   `json:"name,omitempty"`
+	Industry             string   `json:"industry,omitempty"`
+	ShortPercent         float64  `json:"short_percent" jsonschema:"Percent of shares on issue, 0-100."`
+	ShortPercentChange4W float64  `json:"short_percent_change_4w" jsonschema:"Four-week change, percentage points."`
+	DaysToCover          *float64 `json:"days_to_cover,omitempty" jsonschema:"Short position divided by 20-day average volume."`
+	LatestPrice          *float64 `json:"latest_price,omitempty" jsonschema:"Close in AUD."`
+	PriceChange1M        float64  `json:"price_change_1m" jsonschema:"Percent."`
+	MarketCap            *float64 `json:"market_cap,omitempty" jsonschema:"AUD."`
+	PERatio              *float64 `json:"pe_ratio,omitempty"`
+	DividendYield        *float64 `json:"dividend_yield,omitempty" jsonschema:"Trailing, percent."`
+	NetDirectorBuyValue  float64  `json:"net_director_buy_value" jsonschema:"Disclosed buys minus sells, AUD."`
+	NewsCount30D         int      `json:"news_count_30d" jsonschema:"Articles in the last 30 days."`
+	AvgSentiment         float64  `json:"avg_sentiment" jsonschema:"Mean MODEL-CLASSIFIED sentiment of those articles, -1 to 1. 0 when there is no news."`
 }
 
 type ScreenStocksOutput struct {
@@ -190,6 +190,7 @@ const screenStocksDescription = "Filter ASX-listed stocks by CRITERIA and return
 	"have recently bought. Sortable by any of short_pct, short_pct_change, market_cap, price_change_1m, " +
 	"pe_ratio, dividend_yield, net_director_buy, news_sentiment or days_to_cover, ascending or descending. " +
 	"Every bound is optional and omitting one means no bound — it does NOT mean zero. " +
+	"In results, pe_ratio, dividend_yield, market_cap, latest_price and days_to_cover are absent when unknown, never zero. " +
 	"Default 20 stocks, hard maximum 50; total_count reports how many actually matched, so a full result means " +
 	"there are more. " +
 	"Use list_top_shorts instead for a plain \"what is most shorted\" ranking with no criteria, and " +
@@ -286,6 +287,11 @@ func screenStocksHandler(src DataSource) sdk.ToolHandlerFor[ScreenStocksInput, S
 			// raw volumes, franking percentages and price-sensitive counts, none
 			// of which answer a screening question and all of which would join
 			// the published contract by default.
+			//
+			// mv_screener_data COALESCEs a missing P/E, dividend yield, market
+			// cap, price or days-to-cover to 0, so 0 is the unknown sentinel on
+			// those five; knownFloat makes it an absent field rather than a P/E
+			// of zero that a model would quote.
 			out.Stocks = append(out.Stocks, ScreenedStock{
 				Rank:                 i + 1,
 				Code:                 stock.GetStockCode(),
@@ -293,12 +299,12 @@ func screenStocksHandler(src DataSource) sdk.ToolHandlerFor[ScreenStocksInput, S
 				Industry:             stock.GetIndustry(),
 				ShortPercent:         finite(stock.GetShortPct()),
 				ShortPercentChange4W: finite(stock.GetShortPctChange_4W()),
-				DaysToCover:          finite(stock.GetDaysToCover()),
-				LatestPrice:          finite(stock.GetLatestPrice()),
+				DaysToCover:          knownFloat(stock.GetDaysToCover()),
+				LatestPrice:          knownFloat(stock.GetLatestPrice()),
 				PriceChange1M:        finite(stock.GetPriceChange_1M()),
-				MarketCap:            finite(stock.GetMarketCap()),
-				PERatio:              finite(stock.GetPeRatio()),
-				DividendYield:        finite(stock.GetDividendYield()),
+				MarketCap:            knownFloat(stock.GetMarketCap()),
+				PERatio:              knownFloat(stock.GetPeRatio()),
+				DividendYield:        knownFloat(stock.GetDividendYield()),
 				NetDirectorBuyValue:  finite(stock.GetNetDirectorBuyValue()),
 				NewsCount30D:         int(stock.GetNewsCount_30D()),
 				AvgSentiment:         finite(stock.GetAvgSentiment()),
@@ -313,9 +319,13 @@ func screenStocksHandler(src DataSource) sdk.ToolHandlerFor[ScreenStocksInput, S
 			summary = "No ASX stocks matched those criteria. Try loosening a bound, or dropping the industry filter."
 		} else {
 			lead := out.Stocks[0]
-			summary = fmt.Sprintf("%d of %d matching ASX stocks, sorted by %s %s. First: %s (%s) at %.2f%% short, %.1f days to cover.",
+			dtc := "days to cover unknown"
+			if lead.DaysToCover != nil {
+				dtc = fmt.Sprintf("%.1f days to cover", *lead.DaysToCover)
+			}
+			summary = fmt.Sprintf("%d of %d matching ASX stocks, sorted by %s %s. First: %s (%s) at %.2f%% short, %s.",
 				out.Count, out.TotalCount, sortName, direction, lead.Code,
-				nonEmpty(lead.Name, "name unknown"), lead.ShortPercent, lead.DaysToCover)
+				nonEmpty(lead.Name, "name unknown"), lead.ShortPercent, dtc)
 			summary += asicCaveat
 		}
 

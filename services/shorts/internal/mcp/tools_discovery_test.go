@@ -2,7 +2,9 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -11,6 +13,7 @@ import (
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -239,6 +242,56 @@ func TestScreenStocksClampsTheLimitAndProjectsRows(t *testing.T) {
 	}
 	if len(out.Stocks) != 1 || out.Stocks[0].Code != "PLS" || out.Stocks[0].Rank != 1 {
 		t.Fatalf("row not projected: %+v", out.Stocks)
+	}
+}
+
+// The screener MV COALESCEs a missing P/E, dividend yield, market cap, price
+// and days-to-cover to 0. Emitting that 0 is how a connected model came to
+// report "a P/E of zero"; each must be ABSENT instead, and a real value must
+// still come through untouched.
+func TestScreenStocksOmitsUnknownValuationFieldsRatherThanEmittingZero(t *testing.T) {
+	src := &fakeDataSource{screenStocks: &shortsv1alpha1.ScreenStocksResponse{
+		Stocks: []*shortsv1alpha1.ScreenerStock{
+			{StockCode: "ZZZ", CompanyName: "UNKNOWN METRICS LTD", ShortPct: 7.5},
+			{StockCode: "PLS", ShortPct: 19.43, DaysToCover: 6.2, LatestPrice: 2.34,
+				MarketCap: 7_123_456_789, PeRatio: 22.1, DividendYield: 0.9},
+		},
+		TotalCount: 2,
+	}}
+
+	res, out, err := screenStocksHandler(src)(context.Background(), nil, ScreenStocksInput{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	raw, err := json.Marshal(out.Stocks[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"pe_ratio", "dividend_yield", "market_cap", "latest_price", "days_to_cover"} {
+		if strings.Contains(string(raw), `"`+key+`"`) {
+			t.Errorf("unknown %s was emitted (%s) — absent means unknown, a 0 reads as a real value", key, raw)
+		}
+	}
+
+	known := out.Stocks[1]
+	for name, got := range map[string]*float64{
+		"pe_ratio": known.PERatio, "dividend_yield": known.DividendYield, "market_cap": known.MarketCap,
+		"latest_price": known.LatestPrice, "days_to_cover": known.DaysToCover,
+	} {
+		if got == nil {
+			t.Errorf("known %s was dropped", name)
+		}
+	}
+	if *known.PERatio != 22.1 || *known.MarketCap != 7_123_456_789 || *known.DaysToCover != 6.2 {
+		t.Errorf("known values altered: %+v", known)
+	}
+	// The lead row's days-to-cover is unknown, so the summary must not say 0.0.
+	if text := textOf(t, res); !strings.Contains(text, "days to cover unknown") {
+		t.Errorf("summary should say days to cover is unknown for the lead row, got %q", text)
+	}
+	if !strings.Contains(screenStocksDescription, "absent when unknown, never zero") {
+		t.Error("the description must say unknown values are absent, or a model will look for a 0")
 	}
 }
 
@@ -623,4 +676,448 @@ func TestGetStockNewsDeclaresItsSentimentIsModelAssigned(t *testing.T) {
 		return
 	}
 	t.Fatal("get_stock_news is not registered")
+}
+
+// ------------------------------------------------------------- list_strategies
+
+func strategiesFixture() *shortsv1alpha1.ListStrategiesResponse {
+	return &shortsv1alpha1.ListStrategiesResponse{
+		Strategies: []*shortsv1alpha1.Strategy{
+			{
+				Id: "zanger-breakout", Name: "Zanger Breakout", Author: "Dan Zanger",
+				Tagline:               "Buy fast growers breaking out of a tight base.",
+				DescriptionParagraphs: []string{"A LONG BIOGRAPHICAL PARAGRAPH THAT BELONGS ON THE PAGE."},
+				Rules: []*shortsv1alpha1.StrategyRule{
+					{Id: "growth", Title: "Explosive growth", Core: true, Evaluation: "EVALUATION PROSE", DataSource: "stock_fundamentals"},
+					{Id: "rs", Title: "Relative strength", Core: false, DataSource: "stock_prices"},
+				},
+				Metadata: &shortsv1alpha1.StrategyMetadata{Style: "momentum-breakout", HoldingPeriod: "Weeks to months"},
+				Caveats:  []string{"A CAVEAT"},
+			},
+			{Id: "canslim", Name: "CAN SLIM", Author: "William J. O'Neil"},
+		},
+		Regime: &shortsv1alpha1.MarketRegime{
+			IndexCode: "XJO", AsOf: "2026-09-25", Regime: "uptrend",
+			Verdict: "Uptrend: XJO is above its 50-day average.", Close: 8123.4,
+		},
+	}
+}
+
+func TestListStrategiesProjectsRulesAndRegimeButNotProse(t *testing.T) {
+	src := &fakeDataSource{strategies: strategiesFixture()}
+
+	res, out, err := listStrategiesHandler(src)(context.Background(), nil, ListStrategiesInput{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if src.gotStrategies == nil {
+		t.Fatal("ListStrategies was not called")
+	}
+	if out.Count != 2 || len(out.Strategies) != 2 {
+		t.Fatalf("count = %d, want 2", out.Count)
+	}
+	z := out.Strategies[0]
+	if z.ID != "zanger-breakout" || z.Author != "Dan Zanger" || z.Style != "momentum-breakout" || z.HoldingPeriod != "Weeks to months" {
+		t.Errorf("strategy not projected: %+v", z)
+	}
+	if len(z.Rules) != 2 || z.Rules[0] != (StrategyRuleSummary{ID: "growth", Title: "Explosive growth", Core: true}) || z.Rules[1].Core {
+		t.Errorf("rules not projected: %+v", z.Rules)
+	}
+	if out.Regime != (MarketRegimeSummary{IndexCode: "XJO", AsOf: "2026-09-25", Regime: "uptrend", Verdict: "Uptrend: XJO is above its 50-day average."}) {
+		t.Errorf("regime not projected: %+v", out.Regime)
+	}
+	// A strategy with no rules still serialises rules as [], never null.
+	if out.Strategies[1].Rules == nil {
+		t.Error("rules should be an empty list, not null")
+	}
+
+	raw, _ := json.Marshal(out)
+	for _, prose := range []string{"BIOGRAPHICAL", "EVALUATION PROSE", "A CAVEAT"} {
+		if strings.Contains(string(raw), prose) {
+			t.Errorf("list_strategies leaked %q — the page carries the prose, the tool carries the shape", prose)
+		}
+	}
+	text := textOf(t, res)
+	for _, want := range []string{"zanger-breakout", "canslim", "get_strategy_picks", "uptrend", "Not financial advice"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("summary missing %q: %q", want, text)
+		}
+	}
+}
+
+func TestListStrategiesSaysSoWhenTheRegimeIsUnknown(t *testing.T) {
+	fixture := strategiesFixture()
+	fixture.Regime = &shortsv1alpha1.MarketRegime{IndexCode: "XJO", Verdict: "Market regime unavailable: not enough XJO data."}
+	src := &fakeDataSource{strategies: fixture}
+
+	res, out, err := listStrategiesHandler(src)(context.Background(), nil, ListStrategiesInput{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.Regime.Regime != "" {
+		t.Errorf("regime = %q, want absent", out.Regime.Regime)
+	}
+	if !strings.Contains(textOf(t, res), "Market regime unavailable") {
+		t.Errorf("an unknown regime must be stated, got %q", textOf(t, res))
+	}
+}
+
+func TestListStrategiesHandlesEmptyErrorsAndNilBodies(t *testing.T) {
+	res, out, err := listStrategiesHandler(&fakeDataSource{strategies: &shortsv1alpha1.ListStrategiesResponse{}})(
+		context.Background(), nil, ListStrategiesInput{})
+	if err != nil {
+		t.Fatalf("an empty list is a result, not an error: %v", err)
+	}
+	if out.Count != 0 || out.Strategies == nil || out.Regime.IndexCode != strategies.DefaultIndexCode {
+		t.Errorf("empty result malformed: %+v", out)
+	}
+	if !strings.Contains(textOf(t, res), "No strategies") {
+		t.Errorf("empty result should say so, got %q", textOf(t, res))
+	}
+
+	if _, _, err := listStrategiesHandler(&fakeDataSource{})(context.Background(), nil, ListStrategiesInput{}); err == nil {
+		t.Error("expected an error when the RPC returns no body")
+	}
+	src := &fakeDataSource{err: connect.NewError(connect.CodeInternal, errors.New("database on fire"))}
+	if _, _, err := listStrategiesHandler(src)(context.Background(), nil, ListStrategiesInput{}); err == nil {
+		t.Error("expected the backend error to surface")
+	}
+}
+
+// ---------------------------------------------------------- get_strategy_picks
+
+// The schema description is the only place a model learns the ids before it
+// has called list_strategies, so it must name every one the registry holds.
+func TestGetStrategyPicksSchemaNamesEveryStrategyID(t *testing.T) {
+	field, ok := reflect.TypeOf(GetStrategyPicksInput{}).FieldByName("StrategyID")
+	if !ok {
+		t.Fatal("no StrategyID field")
+	}
+	tag := field.Tag.Get("jsonschema")
+	ids := strategyIDs()
+	if len(ids) == 0 {
+		t.Fatal("registry is empty — this test would pass vacuously")
+	}
+	for _, id := range ids {
+		if !strings.Contains(tag, id) {
+			t.Errorf("strategy_id description does not name %q: %q", id, tag)
+		}
+	}
+}
+
+func TestGetStrategyPicksValidatesBeforeCallingTheRPC(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   GetStrategyPicksInput
+		want string
+	}{
+		{"missing id", GetStrategyPicksInput{StrategyID: "  "}, "zanger-breakout"},
+		{"unknown id", GetStrategyPicksInput{StrategyID: "buffett-value"}, "minervini-trend-template"},
+		{"bad status", GetStrategyPicksInput{StrategyID: "canslim", Status: "hot"}, "triggered"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := &fakeDataSource{strategyPicks: &shortsv1alpha1.GetStrategyPicksResponse{}}
+			_, _, err := getStrategyPicksHandler(src)(context.Background(), nil, tc.in)
+			if err == nil {
+				t.Fatal("expected a validation error")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("error should name the valid values (%q), got %q", tc.want, err.Error())
+			}
+			if src.gotStrategyPicks != nil {
+				t.Error("reached the RPC despite failing validation")
+			}
+		})
+	}
+}
+
+func TestGetStrategyPicksNormalisesAndClampsTheRequest(t *testing.T) {
+	for _, tc := range []struct {
+		limit int
+		want  int32
+	}{
+		{0, defaultStrategyPicksLimit},
+		{-3, defaultStrategyPicksLimit},
+		{7, 7},
+		{9999, maxStrategyPicksLimit},
+	} {
+		src := &fakeDataSource{strategyPicks: &shortsv1alpha1.GetStrategyPicksResponse{}}
+		in := GetStrategyPicksInput{StrategyID: " Zanger-Breakout ", Status: " SETUP ", Limit: tc.limit}
+		if _, _, err := getStrategyPicksHandler(src)(context.Background(), nil, in); err != nil {
+			t.Fatalf("limit %d: unexpected error: %v", tc.limit, err)
+		}
+		got := src.gotStrategyPicks
+		if got.GetLimit() != tc.want {
+			t.Errorf("limit %d sent as %d, want %d", tc.limit, got.GetLimit(), tc.want)
+		}
+		if got.GetStrategyId() != "zanger-breakout" || got.GetStatus() != "setup" {
+			t.Errorf("request not normalised: id=%q status=%q", got.GetStrategyId(), got.GetStatus())
+		}
+	}
+}
+
+func picksFixture() *shortsv1alpha1.GetStrategyPicksResponse {
+	return &shortsv1alpha1.GetStrategyPicksResponse{
+		Strategy: &shortsv1alpha1.Strategy{
+			Id: "zanger-breakout", Name: "Zanger Breakout", Author: "Dan Zanger", Tagline: "Breakouts.",
+			Rules: []*shortsv1alpha1.StrategyRule{{Id: "growth", DataSource: "stock_fundamentals"}},
+		},
+		Regime:     &shortsv1alpha1.MarketRegime{IndexCode: "XJO", AsOf: "2026-09-25", Regime: "neutral", Verdict: "Be selective."},
+		TotalCount: 40, UniverseCount: 1200, FundamentalsCoverageCount: 900, AsOf: "2026-09-25",
+		Picks: []*shortsv1alpha1.StrategyPick{
+			{
+				Rank: 1, StockCode: "PLS", CompanyName: "PILBARA MINERALS", Industry: "Metals & Mining",
+				Status: "triggered", Score: 87.4, Close: 2.34, Pivot: 2.2, BaseDepthPct: 18.456, BaseLengthDays: 45,
+				VolumeRatio_50D: 2.345, RevenueYoyPct: 41.237, HasRevenueYoy: true,
+				// Known flat EPS: zero is a MEASUREMENT here, and must survive.
+				EpsYoyPct: 0, HasEpsYoy: true,
+				Rs_3MPct: 12.5, ShortPct: 6.2, MarketCap: 7e9, LogoUrl: "https://x/pls.png",
+				HasClose: true, HasRs_3MPct: true, HasShortPct: true, HasMarketCap: true,
+				Rules: []*shortsv1alpha1.RuleResult{
+					{RuleId: "growth", Status: "pass", Detail: "Revenue +41% YoY"},
+					{RuleId: "breakout", Status: "pass", Detail: "Broke out on 2026-09-24"},
+					{RuleId: "rs", Status: "fail", Detail: "Lagged the S&P/ASX 200 by 2.0 points over 3 months"},
+					{RuleId: "liquidity", Status: "unknown", Detail: "Not enough history to measure turnover"},
+				},
+			},
+			{
+				// Every NULL feature dereferenced to 0 by the handler, every
+				// has_* flag false, and no growth data at all.
+				Rank: 2, StockCode: "ZZZ", Status: "watch", Score: 12,
+				Rules: []*shortsv1alpha1.RuleResult{{RuleId: "liquidity", Status: "pass"}},
+			},
+		},
+	}
+}
+
+func TestGetStrategyPicksProjectsOutcomesAndOmitsUnknownFigures(t *testing.T) {
+	src := &fakeDataSource{strategyPicks: picksFixture()}
+
+	res, out, err := getStrategyPicksHandler(src)(context.Background(), nil, GetStrategyPicksInput{StrategyID: "zanger-breakout"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.Strategy != (StrategyHeader{ID: "zanger-breakout", Name: "Zanger Breakout", Author: "Dan Zanger", Tagline: "Breakouts."}) {
+		t.Errorf("strategy header: %+v", out.Strategy)
+	}
+	if out.Regime.Regime != "neutral" || out.Regime.Verdict != "Be selective." {
+		t.Errorf("regime: %+v", out.Regime)
+	}
+	if out.UniverseCount != 1200 || out.FundamentalsCoverageCount != 900 || out.TotalCount != 40 || out.Count != 2 || out.AsOf != "2026-09-25" {
+		t.Errorf("counts: %+v", out)
+	}
+
+	p := out.Picks[0]
+	if p.Code != "PLS" || p.Rank != 1 || p.Status != "triggered" || p.Score != 87.4 || p.Industry != "Metals & Mining" {
+		t.Errorf("pick header: %+v", p)
+	}
+	if p.Pivot == nil || *p.Pivot != 2.2 || p.BaseDepthPct == nil || *p.BaseDepthPct != 18.46 || p.BaseLengthDays != 45 {
+		t.Errorf("base figures: pivot=%v depth=%v length=%d", p.Pivot, p.BaseDepthPct, p.BaseLengthDays)
+	}
+	if p.RevenueYoYPct == nil || *p.RevenueYoYPct != 41.24 {
+		t.Errorf("revenue growth: %v", p.RevenueYoYPct)
+	}
+	if p.EPSYoYPct == nil || *p.EPSYoYPct != 0 {
+		t.Errorf("a known 0%% EPS growth must be emitted as 0, got %v", p.EPSYoYPct)
+	}
+	if p.Close == nil || *p.Close != 2.34 || p.RS3MPct == nil || *p.RS3MPct != 12.5 || p.ShortPct == nil || *p.ShortPct != 6.2 {
+		t.Errorf("flagged headline figures: close=%v rs=%v short=%v", p.Close, p.RS3MPct, p.ShortPct)
+	}
+	if !reflect.DeepEqual(p.Passed, []string{"growth", "breakout"}) || !reflect.DeepEqual(p.Failed, []string{"rs"}) ||
+		!reflect.DeepEqual(p.Unknown, []string{"liquidity"}) {
+		t.Errorf("outcomes: passed=%v failed=%v unknown=%v", p.Passed, p.Failed, p.Unknown)
+	}
+	if len(p.Evidence) != 2 || !strings.Contains(p.Evidence["rs"], "Lagged") || !strings.Contains(p.Evidence["liquidity"], "turnover") {
+		t.Errorf("evidence should cover exactly the failed and unknown rules: %+v", p.Evidence)
+	}
+
+	raw, _ := json.Marshal(out.Picks[1])
+	for _, key := range []string{"close", "pivot", "base_depth_pct", "base_length_days", "volume_ratio_50d",
+		"revenue_yoy_pct", "eps_yoy_pct", "rs_3m_pct", "short_pct", "evidence"} {
+		if strings.Contains(string(raw), `"`+key+`"`) {
+			t.Errorf("unknown %s emitted on a row with no data: %s", key, raw)
+		}
+	}
+	whole, _ := json.Marshal(out)
+	if strings.Contains(string(whole), "logo") || strings.Contains(string(whole), "market_cap") {
+		t.Errorf("projection leaked unpublished fields: %s", whole)
+	}
+
+	text := textOf(t, res)
+	for _, want := range []string{"2 picks for Zanger Breakout: 1 triggered, 0 setup", "of 40 matching", "neutral",
+		"First: PLS", "pivot A$2.20", "Fundamentals cover 900 of 1200", "https://shorted.com.au/picks/zanger-breakout",
+		"Not financial advice"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("summary missing %q: %q", want, text)
+		}
+	}
+}
+
+// The has_* flags, not the value, decide whether close, relative strength and
+// short percent are emitted. A measured zero (a stock exactly in line with the
+// index, an ASIC row reporting no position) is a reading and must survive; a
+// value without its flag is not one and must not.
+func TestGetStrategyPicksPresenceFlagsDecideCloseRSAndShortPct(t *testing.T) {
+	src := &fakeDataSource{strategyPicks: &shortsv1alpha1.GetStrategyPicksResponse{
+		UniverseCount: 2,
+		Picks: []*shortsv1alpha1.StrategyPick{
+			{
+				Rank: 1, StockCode: "ZRO", Status: "watch", Score: 30,
+				Close: 1.5, HasClose: true,
+				Rs_3MPct: 0, HasRs_3MPct: true,
+				ShortPct: 0, HasShortPct: true,
+				// A 0 pivot has no flag and is never a real level.
+				Pivot: 0,
+			},
+			{
+				// Values without flags: the flag is authoritative.
+				Rank: 2, StockCode: "NOF", Status: "watch", Score: 20,
+				Close: 3.2, Rs_3MPct: 4.5, ShortPct: 7.1,
+			},
+		},
+	}}
+
+	_, out, err := getStrategyPicksHandler(src)(context.Background(), nil, GetStrategyPicksInput{StrategyID: "crowded-short-breakout"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(out.Picks) != 2 {
+		t.Fatalf("want 2 picks, got %d", len(out.Picks))
+	}
+	zro := out.Picks[0]
+	if zro.Close == nil || *zro.Close != 1.5 {
+		t.Errorf("flagged close: %v", zro.Close)
+	}
+	if zro.RS3MPct == nil || *zro.RS3MPct != 0 {
+		t.Errorf("a measured 0 relative strength must be emitted as 0, got %v", zro.RS3MPct)
+	}
+	if zro.ShortPct == nil || *zro.ShortPct != 0 {
+		t.Errorf("a reported 0%% short position must be emitted as 0, got %v", zro.ShortPct)
+	}
+	if zro.Pivot != nil {
+		t.Errorf("an unflagged 0 pivot must stay absent, got %v", *zro.Pivot)
+	}
+	raw, _ := json.Marshal(zro)
+	for _, key := range []string{`"rs_3m_pct":0`, `"short_pct":0`} {
+		if !strings.Contains(string(raw), key) {
+			t.Errorf("want %s in %s", key, raw)
+		}
+	}
+
+	raw, _ = json.Marshal(out.Picks[1])
+	for _, key := range []string{"close", "rs_3m_pct", "short_pct"} {
+		if strings.Contains(string(raw), `"`+key+`"`) {
+			t.Errorf("%s emitted without its has_* flag: %s", key, raw)
+		}
+	}
+}
+
+// The evidence allowance is what keeps a 25-pick call inside the payload
+// budget. Outcomes must stay complete on every row even once it is spent, and
+// the result must SAY it ran out rather than look like rows with no failures.
+func TestGetStrategyPicksSpendsEvidenceInRankOrderAndSaysWhenItRunsOut(t *testing.T) {
+	long := strings.Repeat("A long evidence sentence about a rule that failed. ", 6)
+	picks := make([]*shortsv1alpha1.StrategyPick, 0, maxStrategyPicksLimit)
+	for i := 0; i < maxStrategyPicksLimit; i++ {
+		picks = append(picks, &shortsv1alpha1.StrategyPick{
+			Rank: int32(i + 1), StockCode: "ABC", Status: "watch",
+			Rules: []*shortsv1alpha1.RuleResult{
+				{RuleId: "liquidity", Status: "pass", Detail: long},
+				{RuleId: "trend_stack", Status: "fail", Detail: long},
+				{RuleId: "off_high", Status: "fail", Detail: long},
+				{RuleId: "rs_leader", Status: "unknown", Detail: long},
+			},
+		})
+	}
+	src := &fakeDataSource{strategyPicks: &shortsv1alpha1.GetStrategyPicksResponse{Picks: picks, UniverseCount: 900}}
+
+	res, out, err := getStrategyPicksHandler(src)(context.Background(), nil,
+		GetStrategyPicksInput{StrategyID: "minervini-trend-template", Limit: maxStrategyPicksLimit})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !out.DetailTrimmed {
+		t.Fatal("detail_trimmed should be set once the allowance is spent")
+	}
+	if len(out.Picks[0].Evidence) != 3 {
+		t.Errorf("the top pick must carry all its evidence, got %d entries", len(out.Picks[0].Evidence))
+	}
+	last := out.Picks[len(out.Picks)-1]
+	if len(last.Evidence) != 0 {
+		t.Errorf("evidence should have run out before the last row, got %+v", last.Evidence)
+	}
+	spent := 0
+	for _, p := range out.Picks {
+		if len(p.Failed) != 2 || len(p.Unknown) != 1 || len(p.Passed) != 1 {
+			t.Fatalf("rank %d: outcomes must stay complete after the evidence runs out: %+v", p.Rank, p)
+		}
+		for id, detail := range p.Evidence {
+			if len([]rune(detail)) > maxRuleEvidenceChars+len([]rune(truncationMarker)) {
+				t.Errorf("evidence for %s is %d runes, over the cap", id, len([]rune(detail)))
+			}
+			if !strings.HasSuffix(detail, truncationMarker) {
+				t.Errorf("an over-long sentence must be marked as cut: %q", detail)
+			}
+			spent += len(id) + len(detail)
+		}
+	}
+	if spent > maxPickEvidenceBytes {
+		t.Errorf("spent %d bytes of evidence, over the %d allowance", spent, maxPickEvidenceBytes)
+	}
+	if !strings.Contains(textOf(t, res), "trimmed") {
+		t.Errorf("the summary should say evidence was trimmed, got %q", textOf(t, res))
+	}
+}
+
+func TestGetStrategyPicksExplainsAnEmptyResult(t *testing.T) {
+	fundamentals := []*shortsv1alpha1.StrategyRule{{Id: "growth", DataSource: "stock_fundamentals"}}
+	pricesOnly := []*shortsv1alpha1.StrategyRule{{Id: "trend_stack", DataSource: "stock_prices"}}
+	downtrend := &shortsv1alpha1.MarketRegime{IndexCode: "XJO", Regime: "downtrend", Verdict: "Stand aside: XJO is below its 200-day average."}
+
+	for _, tc := range []struct {
+		name   string
+		status string
+		resp   *shortsv1alpha1.GetStrategyPicksResponse
+		want   []string
+	}{
+		{"empty universe", "", &shortsv1alpha1.GetStrategyPicksResponse{
+			Strategy: &shortsv1alpha1.Strategy{Name: "Zanger Breakout", Rules: fundamentals}},
+			[]string{"No picks for Zanger Breakout", "universe is empty"}},
+		{"no fundamentals yet", "", &shortsv1alpha1.GetStrategyPicksResponse{
+			Strategy: &shortsv1alpha1.Strategy{Name: "CAN SLIM", Rules: fundamentals}, UniverseCount: 800, Regime: downtrend},
+			[]string{"No picks for CAN SLIM", "None of the 800", "fundamentals", "Stand aside"}},
+		{"status filter", "triggered", &shortsv1alpha1.GetStrategyPicksResponse{
+			Strategy: &shortsv1alpha1.Strategy{Name: "Minervini Trend Template", Rules: pricesOnly}, UniverseCount: 800, Regime: downtrend},
+			[]string{"with status triggered", "omit the status filter", "downtrend"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := &fakeDataSource{strategyPicks: tc.resp}
+			res, out, err := getStrategyPicksHandler(src)(context.Background(), nil,
+				GetStrategyPicksInput{StrategyID: "canslim", Status: tc.status})
+			if err != nil {
+				t.Fatalf("no picks is a result, not an error: %v", err)
+			}
+			if out.Count != 0 || out.Picks == nil {
+				t.Errorf("empty result malformed: count=%d picks=%v", out.Count, out.Picks)
+			}
+			text := textOf(t, res)
+			for _, want := range tc.want {
+				if !strings.Contains(text, want) {
+					t.Errorf("summary missing %q: %q", want, text)
+				}
+			}
+		})
+	}
+}
+
+func TestGetStrategyPicksSurfacesBackendErrorsAndNilBodies(t *testing.T) {
+	in := GetStrategyPicksInput{StrategyID: "canslim"}
+	if _, _, err := getStrategyPicksHandler(&fakeDataSource{})(context.Background(), nil, in); err == nil {
+		t.Error("expected an error when the RPC returns no body")
+	}
+	src := &fakeDataSource{err: connect.NewError(connect.CodeInternal, errors.New("failed to evaluate strategy"))}
+	_, _, err := getStrategyPicksHandler(src)(context.Background(), nil, in)
+	if err == nil || !strings.Contains(err.Error(), "canslim") {
+		t.Errorf("backend error should surface naming the strategy, got %v", err)
+	}
 }

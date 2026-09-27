@@ -79,9 +79,9 @@ var ErrUsage = errors.New("usage")
 // fail". The runner's default contract is one failure code (1); this is the
 // documented escape hatch.
 //
-// `shorted economy -mode all` is the user today, so that operators and
-// alerting can tell a drifted source apart from an outage (Cloud Run reports
-// both as "failed"):
+// `shorted economy -mode all` and `shorted picks -mode fundamentals` use it,
+// so that operators and alerting can tell a drifted source apart from an
+// outage (Cloud Run reports both as "failed"):
 //
 //	10 = DEGRADED — some sources collected, some failed (exit 1 = none did)
 //

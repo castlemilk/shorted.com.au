@@ -85,7 +85,7 @@ Shorted.com.au is a platform for tracking short selling positions in the Austral
 | ---------------- | ---- | -------------------------------- | ---------------------------------------------- |
 | Frontend         | 3020 | `web/`                           | Next.js app with dashboard, stock pages        |
 | Shorts API       | 9091 | `services/shorts/`               | Main API for short position data               |
-| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 25 read-only tools + OAuth 2.1 (same process as the Shorts API) |
+| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 28 read-only tools + OAuth 2.1 (same process as the Shorts API) |
 | Market Data      | 8090 | `services/market-data/`          | Historical stock prices                        |
 | Chat Service     | -    | `services/chat-service/`         | AI chat with Gemini LLM + 8 API tools          |
 | News Aggregator  | -    | `services/news-aggregator/`      | RSS news aggregation + Gemini sentiment        |
@@ -498,6 +498,43 @@ Stock screener with server-side filtering (`services/shorts/internal/services/sh
 - **Frontend**: `/screener` page + `screener-widget.tsx` dashboard widget
 - **Days to Cover**: Added in migration 000028
 
+## Stock picker (`/picks`, strategy-driven shortlists)
+
+`/picks` hub + `/picks/[strategy]` (ISR 3600, static params from
+`web/src/@/lib/strategies/registry.ts`) over `StrategyService`
+(`strategies.proto`: `ListStrategies`, `GetStrategyPicks`) and
+`StockService.GetStockFundamentals`. Four strategies ship: `zanger-breakout`,
+`canslim`, `minervini-trend-template`, `crowded-short-breakout`. Every rule
+evaluates to **pass / fail / unknown**; unknown (missing data) never counts as a
+pass and blocks status `triggered`. Design contract: `docs/plans/stock-picker.md`.
+
+| Piece | Where |
+|---|---|
+| Strategy prose, rules, weights, evaluator (no DB) | `services/shorts/internal/strategies/` (prose lives HERE once; the web registry holds SEO metadata only) |
+| Store over the views | `services/shorts/internal/store/shorts/postgres_strategies.go` (a missing view = empty universe, never a 500) |
+| Data: `stock_fundamentals` (+ `_sync`), `mv_fundamentals_growth` | migration `000129`; `shorted picks -mode fundamentals` (Yahoo fundamentals-timeseries via stealthhttp, Markit key-statistics fallback, recent 4D/4E filers first, capped per run) |
+| Data: `mv_price_features`, `mv_market_regime`, `refresh_strategy_views()` | migration `000130`; `shorted picks -mode refresh` weekdays 13:30 UTC, AFTER the price sweep (not inside `refresh_all_materialized_views()` at 10:00, which runs before prices land) |
+| MCP | `list_strategies`, `get_strategy_picks`, `get_stock_fundamentals` |
+
+### Landmines
+
+- **Fundamentals are in the company's REPORTING currency** (BHP is USD) and
+  growth is same-series only: annual on annual for revenue, TTM on TTM for EPS.
+  Yahoo has NO half-year totals for ASX companies; the half-year delta is the
+  TTM-minus-FY identity. `*_yoy_pct` is NULL when a side is missing or the prior
+  is <= 0; the API carries `has_*` flags for exactly this reason. Never COALESCE
+  an unknown to 0 here (that is the screener MV defect the MCP tools now paper over).
+- **The base is anchored.** After a breakout `mv_price_features` reports
+  `base_high` / `base_low` / `base_length_days` as at the breakout session, so the
+  pivot is the level cleared (the invalidation level), and `base_length_days`
+  counts from the FIRST touch of the high (a flat base reads its full length).
+  Both were defects found by applying the migration to a scratch Postgres; the
+  window is 40 sessions, so a base is never longer than 40.
+- **Prod does not run `migrate up`**: hand-apply `000129` + `000130` BEFORE the API
+  merges, then `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"`
+  a few times (cap 400/run) and `--args="picks,-mode,refresh"`. Until then the
+  pages render an empty universe and say so.
+
 ## Weekly/Monthly/Yearly Reports
 
 LLM-generated short-selling reports at `/reports` (weekly `2026-W23`, monthly `2026-05`, yearly `2025` — one `weekly_reports` table, slug shape disambiguates).
@@ -665,11 +702,11 @@ must never fire from a deploy). `make register-photos` / `register-index`.
   the new row by name mints duplicates. The crawl is incremental (re-queue when the listing
   date ≥ fetch date). Runbook: operations.md "Re-crawling prod".
 
-## MCP server — OAuth 2.1, 25 tools, protocol `2026-07-28`
+## MCP server — OAuth 2.1, 28 tools, protocol `2026-07-28`
 
 `https://api.shorted.com.au/mcp` — read-only Model Context Protocol access to
 everything above: short positions, stocks, housing, economy, the register of
-interests. **LIVE on prod**, streamable HTTP, 25 tools, 3 resources, 3 prompts.
+interests. **LIVE on prod**, streamable HTTP, 28 tools, 3 resources, 3 prompts.
 Go SDK (`modelcontextprotocol/go-sdk`), served by the shorts API.
 
 **The product promise, and the constraint every change here answers to:** a user
@@ -688,7 +725,7 @@ Next.js contributes only the consent screen.
 
 | File | Purpose |
 |------|---------|
-| `services/shorts/internal/mcp/` | Server, registry, 25 tools, catalog, resources, prompts |
+| `services/shorts/internal/mcp/` | Server, registry, 28 tools, catalog, resources, prompts |
 | `services/shorts/internal/mcp/auth.go` | Audience-bound verification, RFC 9728 metadata, `OptionalBearerToken` |
 | `services/shorts/internal/mcp/ratelimit.go` | Per-tool-call cost, identity, JSON-RPC 429 |
 | `services/shorts/internal/oauth/` | AS metadata, consent tickets, grant, token, CIMD + DCR |
@@ -736,7 +773,7 @@ Next.js contributes only the consent screen.
   caller at their ceiling gets a plain 429: they have already done what a
   challenge asks, and what they need is `upgrade_url`. Do NOT "fix" adoption by
   gating anonymous access. (Before this, OAuth was live but fully dormant —
-  measured 2026-08-30, a real client connected, got 24 tools (25 today), stored no auth
+  measured 2026-08-30, a real client connected, got 24 tools (28 today), stored no auth
   state and never started the flow.)
 - **`RATE_LIMIT_ENABLED` is now TRUE in prod (Terraform, `shorts-api` module).**
   It was off everywhere until the app layer could tell our own traffic apart:
@@ -824,7 +861,7 @@ Next.js contributes only the consent screen.
   **Postgres accepts `-NaN`/`+NaN` where Go's `ParseFloat` does not**, so that
   guard cannot lean on `ParseFloat` alone.
 - **The MCP SDK emits no `$defs`/`$ref`** — every nested struct is inlined at
-  every use site. `tools/list` is ~74KB for 25 tools, paid every session; the
+  every use site. `tools/list` is ~84KB for 28 tools, paid every session; the
   lever is fewer fields and fewer redundant descriptions, never flattening.
 - **The SDK exports no setter for `TokenInfo` in a context.** A test wanting an
   authenticated request must drive `auth.RequireBearerToken` — which is

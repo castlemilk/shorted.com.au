@@ -52,5 +52,9 @@ test("production keeps report extractor limits explicit", () => {
   const block = prodMainTf.slice(start, next > -1 ? next : prodMainTf.length);
 
   assert.match(block, /director_limit\s+=\s+20/);
-  assert.match(block, /reports_limit\s+=\s+10/);
+  // Raised 10 -> 40 (twice weekly) on purpose: the weekly run is the only path
+  // to half-year totals for the stock picker (see the comment in prod
+  // main.tf). A further raise should be as deliberate as this one.
+  assert.match(block, /reports_limit\s+=\s+40/);
+  assert.match(block, /reports_schedule\s+=\s+"0 14 \* \* 0,3"/);
 });

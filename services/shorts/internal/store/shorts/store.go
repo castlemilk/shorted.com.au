@@ -8,6 +8,7 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 )
 
 // Row is a minimal interface for scanning a single database row.
@@ -169,6 +170,14 @@ type Store interface {
 
 	// Bear/bull verdict methods
 	GetStockVerdictInputs(productCode string) (*VerdictInputs, error)
+
+	// Stock picker (postgres_strategies.go; plan docs/plans/stock-picker.md §3.2).
+	// A missing relation (dev without migrations 000129/000130) yields an
+	// empty result, never an error.
+	ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error)
+	GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error)
+	GetStockFundamentals(ctx context.Context, code, periodType string, limit int32) ([]FundamentalsPeriodRow, error)
+	GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error)
 
 	// Corporate tax (influence layer) methods
 	GetCompanyTaxProfile(productCode string) (*CompanyTaxProfile, error)

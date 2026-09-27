@@ -57,6 +57,7 @@ import { getReportsList } from "~/app/actions/reports/getReportData";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import { SCAN_SLUGS } from "~/@/lib/scans/registry";
 import { THEME_SLUGS } from "~/@/lib/themes/registry";
+import { STRATEGY_SLUGS } from "~/@/lib/strategies/registry";
 import {
   HOUSING_RANKINGS,
   HOUSING_RANKING_SLUGS,
@@ -302,6 +303,11 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
       url: `${baseUrl}/themes/${slug}`,
       lastModified: latestDataDate,
     })),
+    // Stock picker: strategy slugs from the registry. NO lastmod: the picks
+    // are driven by the daily PRICE sweep, whose date this builder does not
+    // fetch, and stamping the ASIC date on them would be a fabricated signal.
+    { url: `${baseUrl}/picks` },
+    ...STRATEGY_SLUGS.map((slug) => ({ url: `${baseUrl}/picks/${slug}` })),
     // Open data hub + press kit — both citation surfaces we point journalists at.
     { url: `${baseUrl}/data`, lastModified: latestDataDate },
     { url: `${baseUrl}/press` },

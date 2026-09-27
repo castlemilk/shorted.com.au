@@ -209,6 +209,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mount(shortsv1alpha1connect.NewEconomyServiceHandler(s, interceptors))
 	mount(shortsv1alpha1connect.NewIndustryIntelligenceServiceHandler(s, interceptors))
 	mount(shortsv1alpha1connect.NewPoliticiansServiceHandler(s, interceptors))
+	mount(shortsv1alpha1connect.NewStrategyServiceHandler(s, interceptors))
 	// Operator console. Its own package, not shorts.v1alpha1: every rpc there
 	// must also exist on the legacy public ShortedStocksService, and admin write
 	// methods do not belong on the surface external API consumers hold.
@@ -221,7 +222,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// constrains them to VISIBILITY_PUBLIC methods.
 	//
 	// OAuth 2.1 resource-server wrapping. A bearer token is OPTIONAL: no
-	// Authorization header still means anonymous access to all 24 tools, which
+	// Authorization header still means anonymous access to all 28 tools, which
 	// is what makes this server adoptable. A token that IS presented is
 	// verified — signature, expiry, and RFC 8707 audience binding to this
 	// deployment's /mcp resource — and its identity attached to the request

@@ -45,7 +45,7 @@ plugins:
   # template is v1 (v1's `path` is v2's `local`).
   #
   # `services=` excludes the legacy monolithic ShortedStocksService, which
-  # duplicates every rpc of the 12 domain services for public-API back-compat.
+  # duplicates every rpc of the 13 domain services for public-API back-compat.
   # Generating both would double every path in the document. It is ONE service
   # per `services=` entry: buf joins `opt` with commas and the plugin splits
   # its parameter string on commas first, so a comma-separated list is parsed
@@ -77,6 +77,7 @@ plugins:
       - services=shorts.v1alpha1.PoliticiansService
       - services=shorts.v1alpha1.AlertsService
       - services=shorts.v1alpha1.BillingService
+      - services=shorts.v1alpha1.StrategyService
       - trim-unused-types
       - short-operation-ids
       - without-default-tags

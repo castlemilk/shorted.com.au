@@ -256,6 +256,15 @@ const (
 	// ShortedStocksServiceGetIndustryIntelligenceProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetIndustryIntelligence RPC.
 	ShortedStocksServiceGetIndustryIntelligenceProcedure = "/shorts.v1alpha1.ShortedStocksService/GetIndustryIntelligence"
+	// ShortedStocksServiceGetStockFundamentalsProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetStockFundamentals RPC.
+	ShortedStocksServiceGetStockFundamentalsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockFundamentals"
+	// ShortedStocksServiceListStrategiesProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListStrategies RPC.
+	ShortedStocksServiceListStrategiesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListStrategies"
+	// ShortedStocksServiceGetStrategyPicksProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetStrategyPicks RPC.
+	ShortedStocksServiceGetStrategyPicksProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStrategyPicks"
 	// ShortedStocksServiceGetParliamentOverviewProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetParliamentOverview RPC.
 	ShortedStocksServiceGetParliamentOverviewProcedure = "/shorts.v1alpha1.ShortedStocksService/GetParliamentOverview"
@@ -395,6 +404,9 @@ var (
 	shortedStocksServiceGetStateCompanyAggregatesMethodDescriptor       = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStateCompanyAggregates")
 	shortedStocksServiceGetCompanyTaxProfileMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetCompanyTaxProfile")
 	shortedStocksServiceGetIndustryIntelligenceMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("GetIndustryIntelligence")
+	shortedStocksServiceGetStockFundamentalsMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockFundamentals")
+	shortedStocksServiceListStrategiesMethodDescriptor                  = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStrategies")
+	shortedStocksServiceGetStrategyPicksMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStrategyPicks")
 	shortedStocksServiceGetParliamentOverviewMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("GetParliamentOverview")
 	shortedStocksServiceListPoliticiansMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPoliticians")
 	shortedStocksServiceGetPoliticianMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPolitician")
@@ -569,6 +581,12 @@ type ShortedStocksServiceClient interface {
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
 	// Get imported, cited industry intelligence facts for an industry.
 	GetIndustryIntelligence(context.Context, *connect.Request[v1alpha1.GetIndustryIntelligenceRequest]) (*connect.Response[v1alpha1.GetIndustryIntelligenceResponse], error)
+	// Per-period reported fundamentals and year-on-year growth for a stock.
+	GetStockFundamentals(context.Context, *connect.Request[v1alpha1.GetStockFundamentalsRequest]) (*connect.Response[v1alpha1.GetStockFundamentalsResponse], error)
+	// List every stock-picking strategy with its rules and the market regime.
+	ListStrategies(context.Context, *connect.Request[v1alpha1.ListStrategiesRequest]) (*connect.Response[v1alpha1.ListStrategiesResponse], error)
+	// Ranked picks for one strategy with a per-rule breakdown.
+	GetStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error)
 	// Parliament-wide register counts and the as-at date.
 	GetParliamentOverview(context.Context, *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error)
 	// Browse/filter parliamentarians.
@@ -1066,6 +1084,24 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetIndustryIntelligenceMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getStockFundamentals: connect.NewClient[v1alpha1.GetStockFundamentalsRequest, v1alpha1.GetStockFundamentalsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetStockFundamentalsProcedure,
+			connect.WithSchema(shortedStocksServiceGetStockFundamentalsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listStrategies: connect.NewClient[v1alpha1.ListStrategiesRequest, v1alpha1.ListStrategiesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListStrategiesProcedure,
+			connect.WithSchema(shortedStocksServiceListStrategiesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getStrategyPicks: connect.NewClient[v1alpha1.GetStrategyPicksRequest, v1alpha1.GetStrategyPicksResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetStrategyPicksProcedure,
+			connect.WithSchema(shortedStocksServiceGetStrategyPicksMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getParliamentOverview: connect.NewClient[v1alpha1.GetParliamentOverviewRequest, v1alpha1.GetParliamentOverviewResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetParliamentOverviewProcedure,
@@ -1265,6 +1301,9 @@ type shortedStocksServiceClient struct {
 	getStateCompanyAggregates       *connect.Client[v1alpha1.GetStateCompanyAggregatesRequest, v1alpha1.GetStateCompanyAggregatesResponse]
 	getCompanyTaxProfile            *connect.Client[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse]
 	getIndustryIntelligence         *connect.Client[v1alpha1.GetIndustryIntelligenceRequest, v1alpha1.GetIndustryIntelligenceResponse]
+	getStockFundamentals            *connect.Client[v1alpha1.GetStockFundamentalsRequest, v1alpha1.GetStockFundamentalsResponse]
+	listStrategies                  *connect.Client[v1alpha1.ListStrategiesRequest, v1alpha1.ListStrategiesResponse]
+	getStrategyPicks                *connect.Client[v1alpha1.GetStrategyPicksRequest, v1alpha1.GetStrategyPicksResponse]
 	getParliamentOverview           *connect.Client[v1alpha1.GetParliamentOverviewRequest, v1alpha1.GetParliamentOverviewResponse]
 	listPoliticians                 *connect.Client[v1alpha1.ListPoliticiansRequest, v1alpha1.ListPoliticiansResponse]
 	getPolitician                   *connect.Client[v1alpha1.GetPoliticianRequest, v1alpha1.GetPoliticianResponse]
@@ -1660,6 +1699,21 @@ func (c *shortedStocksServiceClient) GetIndustryIntelligence(ctx context.Context
 	return c.getIndustryIntelligence.CallUnary(ctx, req)
 }
 
+// GetStockFundamentals calls shorts.v1alpha1.ShortedStocksService.GetStockFundamentals.
+func (c *shortedStocksServiceClient) GetStockFundamentals(ctx context.Context, req *connect.Request[v1alpha1.GetStockFundamentalsRequest]) (*connect.Response[v1alpha1.GetStockFundamentalsResponse], error) {
+	return c.getStockFundamentals.CallUnary(ctx, req)
+}
+
+// ListStrategies calls shorts.v1alpha1.ShortedStocksService.ListStrategies.
+func (c *shortedStocksServiceClient) ListStrategies(ctx context.Context, req *connect.Request[v1alpha1.ListStrategiesRequest]) (*connect.Response[v1alpha1.ListStrategiesResponse], error) {
+	return c.listStrategies.CallUnary(ctx, req)
+}
+
+// GetStrategyPicks calls shorts.v1alpha1.ShortedStocksService.GetStrategyPicks.
+func (c *shortedStocksServiceClient) GetStrategyPicks(ctx context.Context, req *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error) {
+	return c.getStrategyPicks.CallUnary(ctx, req)
+}
+
 // GetParliamentOverview calls shorts.v1alpha1.ShortedStocksService.GetParliamentOverview.
 func (c *shortedStocksServiceClient) GetParliamentOverview(ctx context.Context, req *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error) {
 	return c.getParliamentOverview.CallUnary(ctx, req)
@@ -1915,6 +1969,12 @@ type ShortedStocksServiceHandler interface {
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
 	// Get imported, cited industry intelligence facts for an industry.
 	GetIndustryIntelligence(context.Context, *connect.Request[v1alpha1.GetIndustryIntelligenceRequest]) (*connect.Response[v1alpha1.GetIndustryIntelligenceResponse], error)
+	// Per-period reported fundamentals and year-on-year growth for a stock.
+	GetStockFundamentals(context.Context, *connect.Request[v1alpha1.GetStockFundamentalsRequest]) (*connect.Response[v1alpha1.GetStockFundamentalsResponse], error)
+	// List every stock-picking strategy with its rules and the market regime.
+	ListStrategies(context.Context, *connect.Request[v1alpha1.ListStrategiesRequest]) (*connect.Response[v1alpha1.ListStrategiesResponse], error)
+	// Ranked picks for one strategy with a per-rule breakdown.
+	GetStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error)
 	// Parliament-wide register counts and the as-at date.
 	GetParliamentOverview(context.Context, *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error)
 	// Browse/filter parliamentarians.
@@ -2408,6 +2468,24 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetIndustryIntelligenceMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetStockFundamentalsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetStockFundamentalsProcedure,
+		svc.GetStockFundamentals,
+		connect.WithSchema(shortedStocksServiceGetStockFundamentalsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListStrategiesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListStrategiesProcedure,
+		svc.ListStrategies,
+		connect.WithSchema(shortedStocksServiceListStrategiesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetStrategyPicksHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetStrategyPicksProcedure,
+		svc.GetStrategyPicks,
+		connect.WithSchema(shortedStocksServiceGetStrategyPicksMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	shortedStocksServiceGetParliamentOverviewHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetParliamentOverviewProcedure,
 		svc.GetParliamentOverview,
@@ -2678,6 +2756,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetCompanyTaxProfileHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetIndustryIntelligenceProcedure:
 			shortedStocksServiceGetIndustryIntelligenceHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetStockFundamentalsProcedure:
+			shortedStocksServiceGetStockFundamentalsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListStrategiesProcedure:
+			shortedStocksServiceListStrategiesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetStrategyPicksProcedure:
+			shortedStocksServiceGetStrategyPicksHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetParliamentOverviewProcedure:
 			shortedStocksServiceGetParliamentOverviewHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListPoliticiansProcedure:
@@ -3021,6 +3105,18 @@ func (UnimplementedShortedStocksServiceHandler) GetCompanyTaxProfile(context.Con
 
 func (UnimplementedShortedStocksServiceHandler) GetIndustryIntelligence(context.Context, *connect.Request[v1alpha1.GetIndustryIntelligenceRequest]) (*connect.Response[v1alpha1.GetIndustryIntelligenceResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetIndustryIntelligence is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetStockFundamentals(context.Context, *connect.Request[v1alpha1.GetStockFundamentalsRequest]) (*connect.Response[v1alpha1.GetStockFundamentalsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStockFundamentals is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListStrategies(context.Context, *connect.Request[v1alpha1.ListStrategiesRequest]) (*connect.Response[v1alpha1.ListStrategiesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListStrategies is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStrategyPicks is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetParliamentOverview(context.Context, *connect.Request[v1alpha1.GetParliamentOverviewRequest]) (*connect.Response[v1alpha1.GetParliamentOverviewResponse], error) {

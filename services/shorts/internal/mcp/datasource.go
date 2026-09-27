@@ -50,6 +50,8 @@ type DataSource interface {
 	GetDirectorTrades(context.Context, *connect.Request[shortsv1alpha1.GetDirectorTradesRequest]) (*connect.Response[shortsv1alpha1.GetDirectorTradesResponse], error)
 	// GetPeerComparison: shorts.v1alpha1.StockService.GetPeerComparison
 	GetPeerComparison(context.Context, *connect.Request[shortsv1alpha1.GetPeerComparisonRequest]) (*connect.Response[shortsv1alpha1.GetPeerComparisonResponse], error)
+	// GetStockFundamentals: shorts.v1alpha1.StockService.GetStockFundamentals
+	GetStockFundamentals(context.Context, *connect.Request[shortsv1alpha1.GetStockFundamentalsRequest]) (*connect.Response[shortsv1alpha1.GetStockFundamentalsResponse], error)
 
 	// --- SearchService ---
 
@@ -60,6 +62,13 @@ type DataSource interface {
 
 	// ScreenStocks: shorts.v1alpha1.ScreenerService.ScreenStocks
 	ScreenStocks(context.Context, *connect.Request[shortsv1alpha1.ScreenStocksRequest]) (*connect.Response[shortsv1alpha1.ScreenStocksResponse], error)
+
+	// --- StrategyService ---
+
+	// ListStrategies: shorts.v1alpha1.StrategyService.ListStrategies
+	ListStrategies(context.Context, *connect.Request[shortsv1alpha1.ListStrategiesRequest]) (*connect.Response[shortsv1alpha1.ListStrategiesResponse], error)
+	// GetStrategyPicks: shorts.v1alpha1.StrategyService.GetStrategyPicks
+	GetStrategyPicks(context.Context, *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error)
 
 	// --- NewsService ---
 

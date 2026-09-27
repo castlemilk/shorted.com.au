@@ -3219,6 +3219,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetStockFinancialHighlightsResponse'
+  /shorts.v1alpha1.StockService/GetStockFundamentals:
+    post:
+      tags:
+        - shorts.v1alpha1.StockService
+      summary: GetStockFundamentals
+      description: |-
+        Per-period reported fundamentals (revenue, net income, EPS, cash flow,
+         shares) and year-on-year growth for a stock. Every value carries a has_*
+         flag: a missing figure is absent, never zero.
+      operationId: StockService_GetStockFundamentals
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStockFundamentalsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetStockFundamentalsResponse'
   /shorts.v1alpha1.StockService/GetStockGraph:
     post:
       tags:
@@ -3365,6 +3404,82 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetStockVerdictResponse'
+  /shorts.v1alpha1.StrategyService/GetStrategyPicks:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: GetStrategyPicks
+      description: |-
+        Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
+         score and a per-rule pass / fail / unknown breakdown for each stock.
+      operationId: StrategyService_GetStrategyPicks
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStrategyPicksRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetStrategyPicksResponse'
+  /shorts.v1alpha1.StrategyService/ListStrategies:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: ListStrategies
+      description: |-
+        List every strategy with its rules, metadata, caveats and sources, plus
+         the current market regime (S&P/ASX 200).
+      operationId: StrategyService_ListStrategies
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListStrategiesRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListStrategiesResponse'
 servers:
   - url: https://api.shorted.com.au
 components:
@@ -5654,6 +5769,223 @@ components:
       title: FinancialYearOption
       additionalProperties: false
       description: FinancialYearOption is one selectable year, with how much is in it.
+    shorts.v1alpha1.FundamentalsGrowth:
+      type: object
+      properties:
+        basisPeriodType:
+          type: string
+          title: basis_period_type
+          description: 'Series the EPS growth was computed on: "half", "ttm" or "annual". (proto string)'
+        latestPeriodEnd:
+          type: string
+          title: latest_period_end
+          description: YYYY-MM-DD of the latest period in that series. (proto string)
+        revenueYoyPct:
+          type: number
+          title: revenue_yoy_pct
+          format: double
+          description: Revenue growth on revenue_basis_period_type vs the same series a year earlier. (proto double)
+        hasRevenueYoy:
+          type: boolean
+          title: has_revenue_yoy
+          description: (proto bool)
+        revenueYoyPriorPct:
+          type: number
+          title: revenue_yoy_prior_pct
+          format: double
+          description: The same growth one period earlier, for acceleration. (proto double)
+        hasRevenueYoyPrior:
+          type: boolean
+          title: has_revenue_yoy_prior
+          description: (proto bool)
+        epsYoyPct:
+          type: number
+          title: eps_yoy_pct
+          format: double
+          description: (proto double)
+        hasEpsYoy:
+          type: boolean
+          title: has_eps_yoy
+          description: (proto bool)
+        epsYoyPriorPct:
+          type: number
+          title: eps_yoy_prior_pct
+          format: double
+          description: (proto double)
+        hasEpsYoyPrior:
+          type: boolean
+          title: has_eps_yoy_prior
+          description: (proto bool)
+        netIncomePositive:
+          type: boolean
+          title: net_income_positive
+          description: Latest annual net income above zero. (proto bool)
+        periodsAvailable:
+          type: integer
+          title: periods_available
+          format: int32
+          description: (proto int32)
+        revenueTtm:
+          type: number
+          title: revenue_ttm
+          format: double
+          description: Latest trailing-twelve-month points. (proto double)
+        hasRevenueTtm:
+          type: boolean
+          title: has_revenue_ttm
+          description: (proto bool)
+        netIncomeTtm:
+          type: number
+          title: net_income_ttm
+          format: double
+          description: (proto double)
+        hasNetIncomeTtm:
+          type: boolean
+          title: has_net_income_ttm
+          description: (proto bool)
+        epsTtm:
+          type: number
+          title: eps_ttm
+          format: double
+          description: (proto double)
+        hasEpsTtm:
+          type: boolean
+          title: has_eps_ttm
+          description: (proto bool)
+        revenueBasisPeriodType:
+          type: string
+          title: revenue_basis_period_type
+          description: |-
+            Series the revenue growth was computed on: "half" (latest half-year from a
+             company filing vs the same half a year earlier, used when it is newer than
+             the latest annual) or "annual". Empty when unknown. (proto string)
+        revenueHalfYoyPct:
+          type: number
+          title: revenue_half_yoy_pct
+          format: double
+          description: |-
+            Latest half-year vs the same half a year earlier, from company filings,
+             whether or not the half is the chosen basis. (proto double)
+        hasRevenueHalfYoy:
+          type: boolean
+          title: has_revenue_half_yoy
+          description: (proto bool)
+        epsHalfYoyPct:
+          type: number
+          title: eps_half_yoy_pct
+          format: double
+          description: (proto double)
+        hasEpsHalfYoy:
+          type: boolean
+          title: has_eps_half_yoy
+          description: (proto bool)
+        halfLatestPeriodEnd:
+          type: string
+          title: half_latest_period_end
+          description: YYYY-MM-DD of the latest half-year row; empty when none. (proto string)
+      title: FundamentalsGrowth
+      additionalProperties: false
+      description: |-
+        Year-on-year growth, always against the same series one year earlier
+         (annual vs prior annual, TTM vs the TTM point a year earlier), never across
+         series. A *_pct is absent (has_* false) when either side is missing or the
+         prior value is zero or negative.
+    shorts.v1alpha1.FundamentalsPeriod:
+      type: object
+      properties:
+        periodType:
+          type: string
+          title: period_type
+          description: '"annual" | "half" | "quarter" | "ttm" (trailing twelve months). (proto string)'
+        periodEnd:
+          type: string
+          title: period_end
+          description: YYYY-MM-DD. (proto string)
+        fiscalYear:
+          type: integer
+          title: fiscal_year
+          format: int32
+          description: 0 when unknown. (proto int32)
+        currency:
+          type: string
+          title: currency
+          description: (proto string)
+        revenue:
+          type: number
+          title: revenue
+          format: double
+          description: (proto double)
+        hasRevenue:
+          type: boolean
+          title: has_revenue
+          description: (proto bool)
+        netIncome:
+          type: number
+          title: net_income
+          format: double
+          description: (proto double)
+        hasNetIncome:
+          type: boolean
+          title: has_net_income
+          description: (proto bool)
+        epsBasic:
+          type: number
+          title: eps_basic
+          format: double
+          description: (proto double)
+        hasEpsBasic:
+          type: boolean
+          title: has_eps_basic
+          description: (proto bool)
+        epsDiluted:
+          type: number
+          title: eps_diluted
+          format: double
+          description: (proto double)
+        hasEpsDiluted:
+          type: boolean
+          title: has_eps_diluted
+          description: (proto bool)
+        operatingCashFlow:
+          type: number
+          title: operating_cash_flow
+          format: double
+          description: (proto double)
+        hasOperatingCashFlow:
+          type: boolean
+          title: has_operating_cash_flow
+          description: (proto bool)
+        sharesOutstanding:
+          type: number
+          title: shares_outstanding
+          format: double
+          description: (proto double)
+        hasSharesOutstanding:
+          type: boolean
+          title: has_shares_outstanding
+          description: (proto bool)
+        source:
+          type: string
+          title: source
+          description: e.g. "yahoo-timeseries". (proto string)
+        fetchedAt:
+          type: string
+          title: fetched_at
+          description: RFC 3339. (proto string)
+        freeCashFlow:
+          type: number
+          title: free_cash_flow
+          format: double
+          description: (proto double)
+        hasFreeCashFlow:
+          type: boolean
+          title: has_free_cash_flow
+          description: (proto bool)
+      title: FundamentalsPeriod
+      additionalProperties: false
+      description: |-
+        One reported period. Values are in `currency` exactly as the source reports
+         them (BHP reports in USD). has_* is false when the source omitted a figure.
     shorts.v1alpha1.GetAvailableDatesRequest:
       type: object
       properties:
@@ -7438,6 +7770,49 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.StockFinancialHighlights'
       title: HighlightsEntry
       additionalProperties: false
+    shorts.v1alpha1.GetStockFundamentalsRequest:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: ASX code, e.g. "BHP". (proto string)
+        periodType:
+          type: string
+          title: period_type
+          description: 'Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type. (proto string)'
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: Max periods, newest first (default 12, max 40). (proto int32)
+      title: GetStockFundamentalsRequest
+      additionalProperties: false
+      description: Request for GetStockFundamentals.
+    shorts.v1alpha1.GetStockFundamentalsResponse:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        periods:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundamentalsPeriod'
+          title: periods
+          description: Newest first. (proto shorts.v1alpha1.FundamentalsPeriod)
+        growth:
+          title: growth
+          description: (proto shorts.v1alpha1.FundamentalsGrowth)
+          $ref: '#/components/schemas/shorts.v1alpha1.FundamentalsGrowth'
+        hasGrowth:
+          type: boolean
+          title: has_growth
+          description: False when no growth row exists yet. (proto bool)
+      title: GetStockFundamentalsResponse
+      additionalProperties: false
+      description: Response for GetStockFundamentals.
     shorts.v1alpha1.GetStockGraphRequest:
       type: object
       properties:
@@ -7665,6 +8040,69 @@ components:
       title: GetStockVerdictResponse
       additionalProperties: false
       description: Response for GetStockVerdict RPC
+    shorts.v1alpha1.GetStrategyPicksRequest:
+      type: object
+      properties:
+        strategyId:
+          type: string
+          title: strategy_id
+          description: Required, e.g. "zanger-breakout". (proto string)
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: Default 20, max 100. (proto int32)
+        offset:
+          type: integer
+          title: offset
+          format: int32
+          description: (proto int32)
+        status:
+          type: string
+          title: status
+          description: 'Optional filter: "triggered" | "setup" | "watch". (proto string)'
+      title: GetStrategyPicksRequest
+      additionalProperties: false
+      description: Request for GetStrategyPicks.
+    shorts.v1alpha1.GetStrategyPicksResponse:
+      type: object
+      properties:
+        strategy:
+          title: strategy
+          description: (proto shorts.v1alpha1.Strategy)
+          $ref: '#/components/schemas/shorts.v1alpha1.Strategy'
+        regime:
+          title: regime
+          description: (proto shorts.v1alpha1.MarketRegime)
+          $ref: '#/components/schemas/shorts.v1alpha1.MarketRegime'
+        picks:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StrategyPick'
+          title: picks
+          description: (proto shorts.v1alpha1.StrategyPick)
+        totalCount:
+          type: integer
+          title: total_count
+          format: int32
+          description: Picks matching the status filter, before paging. (proto int32)
+        universeCount:
+          type: integer
+          title: universe_count
+          format: int32
+          description: Stocks evaluated. (proto int32)
+        fundamentalsCoverageCount:
+          type: integer
+          title: fundamentals_coverage_count
+          format: int32
+          description: Evaluated stocks with growth data. (proto int32)
+        asOf:
+          type: string
+          title: as_of
+          description: YYYY-MM-DD of the latest price in the universe. (proto string)
+      title: GetStrategyPicksResponse
+      additionalProperties: false
+      description: Response for GetStrategyPicks.
     shorts.v1alpha1.GetSuburbIndexRequest:
       type: object
       properties:
@@ -9673,6 +10111,27 @@ components:
           description: (proto string)
       title: ListStockPoliticiansResponse
       additionalProperties: false
+    shorts.v1alpha1.ListStrategiesRequest:
+      type: object
+      title: ListStrategiesRequest
+      additionalProperties: false
+      description: Request for ListStrategies.
+    shorts.v1alpha1.ListStrategiesResponse:
+      type: object
+      properties:
+        strategies:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.Strategy'
+          title: strategies
+          description: (proto shorts.v1alpha1.Strategy)
+        regime:
+          title: regime
+          description: Verdict is strategy-neutral here; GetStrategyPicks phrases it per strategy. (proto shorts.v1alpha1.MarketRegime)
+          $ref: '#/components/schemas/shorts.v1alpha1.MarketRegime'
+      title: ListStrategiesResponse
+      additionalProperties: false
+      description: Response for ListStrategies.
     shorts.v1alpha1.ListSuburbDropListingsRequest:
       type: object
       properties:
@@ -9919,6 +10378,48 @@ components:
           $ref: '#/components/schemas/shorts.v1alpha1.EditorialTake'
       title: MarkTakeTweetPublishedResponse
       additionalProperties: false
+    shorts.v1alpha1.MarketRegime:
+      type: object
+      properties:
+        indexCode:
+          type: string
+          title: index_code
+          description: (proto string)
+        asOf:
+          type: string
+          title: as_of
+          description: YYYY-MM-DD of the last index close. (proto string)
+        regime:
+          type: string
+          title: regime
+          description: '"uptrend" | "neutral" | "downtrend"; empty when unavailable. (proto string)'
+        close:
+          type: number
+          title: close
+          format: double
+          description: (proto double)
+        sma50:
+          type: number
+          title: sma50
+          format: double
+          description: (proto double)
+        sma200:
+          type: number
+          title: sma200
+          format: double
+          description: (proto double)
+        pctOff52wHigh:
+          type: number
+          title: pct_off_52w_high
+          format: double
+          description: Negative or zero. (proto double)
+        verdict:
+          type: string
+          title: verdict
+          description: 'Strategy-specific sentence, e.g. "Stand aside: XJO below its 200-day average." (proto string)'
+      title: MarketRegime
+      additionalProperties: false
+      description: The broad market trend, read from an index (the S&P/ASX 200, "XJO").
     shorts.v1alpha1.MemberAnnualReturn:
       type: object
       properties:
@@ -11160,6 +11661,33 @@ components:
       title: ReportListItem
       additionalProperties: false
       description: Summary of a published report for archive/index pages
+    shorts.v1alpha1.RuleResult:
+      type: object
+      properties:
+        ruleId:
+          type: string
+          title: rule_id
+          description: (proto string)
+        status:
+          type: string
+          title: status
+          description: '"pass" | "fail" | "unknown". (proto string)'
+        detail:
+          type: string
+          title: detail
+          description: Human-readable evidence, e.g. "Revenue +41% YoY (FY to 2026-06-30)". (proto string)
+        value:
+          type: number
+          title: value
+          format: double
+          description: The number the rule tested, when there is one. (proto double)
+        hasValue:
+          type: boolean
+          title: has_value
+          description: False when value is absent (unknown), never read value then. (proto bool)
+      title: RuleResult
+      additionalProperties: false
+      description: The outcome of one rule for one stock.
     shorts.v1alpha1.ScreenStocksRequest:
       type: object
       properties:
@@ -12026,6 +12554,242 @@ components:
       title: StockSignal
       additionalProperties: false
       description: A single reputation/risk signal for a stock
+    shorts.v1alpha1.Strategy:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: Stable slug, e.g. "zanger-breakout". (proto string)
+        name:
+          type: string
+          title: name
+          description: (proto string)
+        author:
+          type: string
+          title: author
+          description: e.g. "Dan Zanger". (proto string)
+        tagline:
+          type: string
+          title: tagline
+          description: One sentence. (proto string)
+        descriptionParagraphs:
+          type: array
+          items:
+            type: string
+          title: description_paragraphs
+          description: 2-4 paragraphs, plain text. (proto string)
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StrategyRule'
+          title: rules
+          description: (proto shorts.v1alpha1.StrategyRule)
+        metadata:
+          title: metadata
+          description: (proto shorts.v1alpha1.StrategyMetadata)
+          $ref: '#/components/schemas/shorts.v1alpha1.StrategyMetadata'
+        caveats:
+          type: array
+          items:
+            type: string
+          title: caveats
+          description: What our data cannot see. (proto string)
+        sources:
+          type: array
+          items:
+            type: string
+          title: sources
+          description: Attribution lines. (proto string)
+      title: Strategy
+      additionalProperties: false
+      description: A named stock-picking strategy and how we evaluate it.
+    shorts.v1alpha1.StrategyMetadata:
+      type: object
+      properties:
+        style:
+          type: string
+          title: style
+          description: e.g. "momentum-breakout", "trend-following". (proto string)
+        holdingPeriod:
+          type: string
+          title: holding_period
+          description: e.g. "weeks to months". (proto string)
+        riskPosture:
+          type: string
+          title: risk_posture
+          description: e.g. "cut on a failed breakout (back inside the base)". (proto string)
+        universe:
+          type: string
+          title: universe
+          description: e.g. "ASX equities with at least A$250k daily turnover". (proto string)
+        refreshCadence:
+          type: string
+          title: refresh_cadence
+          description: e.g. "daily after the price sweep". (proto string)
+        ruleCount:
+          type: integer
+          title: rule_count
+          format: int32
+          description: (proto int32)
+      title: StrategyMetadata
+      additionalProperties: false
+      description: Descriptive metadata for a strategy.
+    shorts.v1alpha1.StrategyPick:
+      type: object
+      properties:
+        rank:
+          type: integer
+          title: rank
+          format: int32
+          description: 1-based, across the full (unfiltered) list. (proto int32)
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        status:
+          type: string
+          title: status
+          description: '"triggered" | "setup" | "watch". (proto string)'
+        score:
+          type: number
+          title: score
+          format: double
+          description: 0-100, orders rows within a status. (proto double)
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.RuleResult'
+          title: rules
+          description: (proto shorts.v1alpha1.RuleResult)
+        close:
+          type: number
+          title: close
+          format: double
+          description: Headline numbers for the table. Meaningful only when has_close. (proto double)
+        asOf:
+          type: string
+          title: as_of
+          description: YYYY-MM-DD of the last price. (proto string)
+        pctOff52wHigh:
+          type: number
+          title: pct_off_52w_high
+          format: double
+          description: (proto double)
+        volumeRatio50d:
+          type: number
+          title: volume_ratio_50d
+          format: double
+          description: (proto double)
+        baseDepthPct:
+          type: number
+          title: base_depth_pct
+          format: double
+          description: (proto double)
+        baseLengthDays:
+          type: integer
+          title: base_length_days
+          format: int32
+          description: (proto int32)
+        pivot:
+          type: number
+          title: pivot
+          format: double
+          description: 'The base high: the breakout and invalidation level. (proto double)'
+        revenueYoyPct:
+          type: number
+          title: revenue_yoy_pct
+          format: double
+          description: (proto double)
+        hasRevenueYoy:
+          type: boolean
+          title: has_revenue_yoy
+          description: (proto bool)
+        epsYoyPct:
+          type: number
+          title: eps_yoy_pct
+          format: double
+          description: (proto double)
+        hasEpsYoy:
+          type: boolean
+          title: has_eps_yoy
+          description: (proto bool)
+        rs3mPct:
+          type: number
+          title: rs_3m_pct
+          format: double
+          description: Meaningful only when has_rs_3m_pct. (proto double)
+        shortPct:
+          type: number
+          title: short_pct
+          format: double
+          description: Meaningful only when has_short_pct. (proto double)
+        marketCap:
+          type: number
+          title: market_cap
+          format: double
+          description: Meaningful only when has_market_cap. (proto double)
+        logoUrl:
+          type: string
+          title: logo_url
+          description: (proto string)
+        hasRs3mPct:
+          type: boolean
+          title: has_rs_3m_pct
+          description: True when rs_3m_pct is set (enough stock and XJO history for the 3m window). (proto bool)
+        hasShortPct:
+          type: boolean
+          title: has_short_pct
+          description: True when short_pct is set (the stock has a reported ASIC short position). (proto bool)
+        hasMarketCap:
+          type: boolean
+          title: has_market_cap
+          description: True when market_cap is set. (proto bool)
+        hasClose:
+          type: boolean
+          title: has_close
+          description: True when close is set (the stock has a valid last price). (proto bool)
+      title: StrategyPick
+      additionalProperties: false
+      description: One ranked stock for a strategy.
+    shorts.v1alpha1.StrategyRule:
+      type: object
+      properties:
+        id:
+          type: string
+          title: id
+          description: e.g. "growth", "base", "breakout", "regime", "rs", "liquidity", "short_interest". (proto string)
+        title:
+          type: string
+          title: title
+          description: (proto string)
+        ruleText:
+          type: string
+          title: rule_text
+          description: The rule in the author's terms. (proto string)
+        evaluation:
+          type: string
+          title: evaluation
+          description: Exactly how we test it, with thresholds. (proto string)
+        core:
+          type: boolean
+          title: core
+          description: Must pass for status "triggered". (proto bool)
+        dataSource:
+          type: string
+          title: data_source
+          description: '"stock_fundamentals", "stock_prices", "index_prices" or "asic_shorts". (proto string)'
+      title: StrategyRule
+      additionalProperties: false
+      description: 'One rule of a strategy: the author''s version and exactly how we test it.'
     shorts.v1alpha1.SubscriptionStatus:
       type: string
       title: SubscriptionStatus
