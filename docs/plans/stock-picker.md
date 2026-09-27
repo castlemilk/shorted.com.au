@@ -1,7 +1,7 @@
 # Stock picker: strategy-driven picks over fundamentals + price structure
 
-Status: design fixed 2026-09-27, implementation in flight on
-`claude/upbeat-feynman-d7i92k`. This document is the contract between the
+Status: design fixed 2026-09-27, implemented on `claude/upbeat-feynman-d7i92k`
+(all four streams landed the same day; §8 lists the follow-ups). This document is the contract between the
 four implementation streams; column names, proto names and strategy ids here
 are binding. Update it when something changes.
 
@@ -311,7 +311,7 @@ Also on `StockService` (stock.proto) AND legacy `ShortedStocksService`:
 
 ```protobuf
 rpc GetStockFundamentals (GetStockFundamentalsRequest) returns (GetStockFundamentalsResponse) { VISIBILITY_PUBLIC }
-message GetStockFundamentalsRequest { string stock_code = 1; string period_type = 2; /* optional annual|half|quarter */ int32 limit = 3; /* default 12 */ }
+message GetStockFundamentalsRequest { string stock_code = 1; string period_type = 2; /* optional annual|half|quarter */ int32 limit = 3; /* default 12, max 40 */ }
 message FundamentalsPeriod { string period_type = 1; string period_end = 2; int32 fiscal_year = 3; string currency = 4;
   double revenue = 5; bool has_revenue = 6; double net_income = 7; bool has_net_income = 8;
   double eps_basic = 9; bool has_eps_basic = 10; double eps_diluted = 11; bool has_eps_diluted = 12;
@@ -429,3 +429,18 @@ Connector defects found while probing the live server (fix in this stream):
    lacks.
 2. First fundamentals run is manual: `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"` a few times (cap 400/run) to reach coverage, then `--args="picks,-mode,refresh"`.
 3. Revalidate `/picks` and `/picks/*` after the first refresh.
+
+## 8. Follow-ups found during implementation
+
+- `StrategyPick` has no `has_rs_3m_pct` / `has_short_pct` flags; the web view
+  infers "known" from the strategy's `rs` rule value and treats short % 0 as
+  "no reported position". Add the flags at the next proto change.
+- `mv_price_features` bounds a base at the 40-session window; a longer flat
+  base reads as 40. Widen the window if a strategy needs longer bases.
+- `GetStockFundamentals` is served on the API and MCP but no page renders it
+  yet; a fundamentals block on `/shorts/[code]` is the natural home.
+- `local.admin_runnable_jobs` does not include `shorted-picks` because the
+  jobmonitor catalog has no entry; add both together if "Run now" is wanted.
+- Coverage: no environment has run the fundamentals job yet, so
+  `fundamentals_coverage_count` starts at 0 and the Zanger / CAN SLIM growth
+  rules read unknown until the first sweeps complete.

@@ -498,6 +498,43 @@ Stock screener with server-side filtering (`services/shorts/internal/services/sh
 - **Frontend**: `/screener` page + `screener-widget.tsx` dashboard widget
 - **Days to Cover**: Added in migration 000028
 
+## Stock picker (`/picks`, strategy-driven shortlists)
+
+`/picks` hub + `/picks/[strategy]` (ISR 3600, static params from
+`web/src/@/lib/strategies/registry.ts`) over `StrategyService`
+(`strategies.proto`: `ListStrategies`, `GetStrategyPicks`) and
+`StockService.GetStockFundamentals`. Four strategies ship: `zanger-breakout`,
+`canslim`, `minervini-trend-template`, `crowded-short-breakout`. Every rule
+evaluates to **pass / fail / unknown**; unknown (missing data) never counts as a
+pass and blocks status `triggered`. Design contract: `docs/plans/stock-picker.md`.
+
+| Piece | Where |
+|---|---|
+| Strategy prose, rules, weights, evaluator (no DB) | `services/shorts/internal/strategies/` (prose lives HERE once; the web registry holds SEO metadata only) |
+| Store over the views | `services/shorts/internal/store/shorts/postgres_strategies.go` (a missing view = empty universe, never a 500) |
+| Data: `stock_fundamentals` (+ `_sync`), `mv_fundamentals_growth` | migration `000129`; `shorted picks -mode fundamentals` (Yahoo fundamentals-timeseries via stealthhttp, Markit key-statistics fallback, recent 4D/4E filers first, capped per run) |
+| Data: `mv_price_features`, `mv_market_regime`, `refresh_strategy_views()` | migration `000130`; `shorted picks -mode refresh` weekdays 13:30 UTC, AFTER the price sweep (not inside `refresh_all_materialized_views()` at 10:00, which runs before prices land) |
+| MCP | `list_strategies`, `get_strategy_picks`, `get_stock_fundamentals` |
+
+### Landmines
+
+- **Fundamentals are in the company's REPORTING currency** (BHP is USD) and
+  growth is same-series only: annual on annual for revenue, TTM on TTM for EPS.
+  Yahoo has NO half-year totals for ASX companies; the half-year delta is the
+  TTM-minus-FY identity. `*_yoy_pct` is NULL when a side is missing or the prior
+  is <= 0; the API carries `has_*` flags for exactly this reason. Never COALESCE
+  an unknown to 0 here (that is the screener MV defect the MCP tools now paper over).
+- **The base is anchored.** After a breakout `mv_price_features` reports
+  `base_high` / `base_low` / `base_length_days` as at the breakout session, so the
+  pivot is the level cleared (the invalidation level), and `base_length_days`
+  counts from the FIRST touch of the high (a flat base reads its full length).
+  Both were defects found by applying the migration to a scratch Postgres; the
+  window is 40 sessions, so a base is never longer than 40.
+- **Prod does not run `migrate up`**: hand-apply `000129` + `000130` BEFORE the API
+  merges, then `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"`
+  a few times (cap 400/run) and `--args="picks,-mode,refresh"`. Until then the
+  pages render an empty universe and say so.
+
 ## Weekly/Monthly/Yearly Reports
 
 LLM-generated short-selling reports at `/reports` (weekly `2026-W23`, monthly `2026-05`, yearly `2025` — one `weekly_reports` table, slug shape disambiguates).
