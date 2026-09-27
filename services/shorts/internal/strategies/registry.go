@@ -205,9 +205,9 @@ func zangerBreakout() Strategy {
 				ID:       RuleBase,
 				Title:    "A recognisable base",
 				RuleText: "Wait for the stock to build a proper base, such as a cup-and-handle, flat base, flag, pennant or ascending triangle, before buying.",
-				Evaluation: "Pass when the stock has consolidated for 20 to 120 sessions since setting its high over the prior 40 sessions (the pivot), " +
+				Evaluation: "Pass when the stock has consolidated for at least 20 sessions since first setting its high over the prior 40 sessions (the pivot), " +
 					"the base is no more than 25% deep from that high to its low, and the close is at or above the base low. " +
-					"Within 5 sessions of a breakout the 40-session window includes the breakout itself, so the length test is skipped and the base must still be no more than 25% deep with the close at or above its low. " +
+					"After a breakout the base is measured as at the breakout session, so the pivot and length describe the base the stock actually cleared. " +
 					"We detect that a tight consolidation exists and report its depth and length; we do not classify its shape. Unknown when the base cannot be measured from price history.",
 				Core:       true,
 				DataSource: SourcePrices,

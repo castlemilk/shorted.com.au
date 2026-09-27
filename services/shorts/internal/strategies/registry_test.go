@@ -230,7 +230,7 @@ func TestProseHasNoDashCharactersOrStrayWhitespace(t *testing.T) {
 func TestEvaluationProseStatesTheThresholds(t *testing.T) {
 	mustContain := map[string][]string{
 		RuleGrowth:        {"25%", "loss to a net profit", "Unknown when neither"},
-		RuleBase:          {"20 to 120 sessions", "25% deep", "base low", "do not classify its shape"},
+		RuleBase:          {"at least 20 sessions", "25% deep", "base low", "do not classify its shape"},
 		RuleBreakout:      {"last 5 sessions", "40 sessions", "1.5 times the 50-day average", "pivot"},
 		RuleRegime:        {"50-day", "200-day", "downtrend"},
 		RuleRS:            {"3-month", "above zero"},

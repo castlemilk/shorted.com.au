@@ -134,9 +134,8 @@ func TestRuleBase(t *testing.T) {
 		{name: "tight base passes", cand: base(12, 30, 9.5, 8.8), want: RulePass, wantValue: f(12),
 			wantDetail: []string{"30-session base", "12.0% deep", "A$9.50", "A$8.80"}},
 		{name: "length 20 passes", cand: base(10, 20, 9, 8), want: RulePass, wantValue: f(10)},
-		{name: "length 120 passes", cand: base(10, 120, 9, 8), want: RulePass, wantValue: f(10)},
+		{name: "length 40 (window ceiling) passes", cand: base(10, 40, 9, 8), want: RulePass, wantValue: f(10)},
 		{name: "length 19 fails", cand: base(10, 19, 9, 8), want: RuleFail, wantValue: f(10), wantDetail: []string{"only 19 sessions", "under 20"}},
-		{name: "length 121 fails", cand: base(10, 121, 9, 8), want: RuleFail, wantValue: f(10), wantDetail: []string{"over 120"}},
 		{name: "depth 25 passes", cand: base(25, 30, 9, 8), want: RulePass, wantValue: f(25)},
 		{name: "depth 25.1 fails", cand: base(25.1, 30, 9, 8), want: RuleFail, wantValue: f(25.1), wantDetail: []string{"deeper than 25%"}},
 		{name: "close at the low passes", cand: base(10, 30, 8, 8), want: RulePass, wantValue: f(10)},
@@ -144,22 +143,21 @@ func TestRuleBase(t *testing.T) {
 		{name: "several reasons listed", cand: base(40, 5, 7, 8), want: RuleFail, wantValue: f(40), wantDetail: []string{"only 5", "deeper", "below the base low"}},
 	})
 
-	// Within 5 sessions of a breakout the [t-40, t-1] window includes the
-	// breakout high, so base_length_days collapses; the length test is
-	// skipped, depth and the base low still apply.
+	// mv_price_features anchors the base at the breakout session, so after a
+	// breakout the length still describes the base that was cleared and a
+	// genuinely short base is not excused by the breakout flag.
 	through := func(depth float64, length int32, close, low float64, breakout bool) Candidate {
 		c := base(depth, length, close, low)
 		c.BreakoutRecent = b(breakout)
 		return c
 	}
 	runRuleCases(t, ruleBase, []ruleCase{
-		{name: "the session after a breakout still passes", cand: through(12.6, 1, 10.2, 9, true), want: RulePass, wantValue: f(12.6),
-			wantDetail: []string{"measured through the breakout", "12.6% deep over the last 40 sessions"}},
-		{name: "five sessions after a breakout still passes", cand: through(12.6, 5, 10.2, 9, true), want: RulePass, wantValue: f(12.6)},
-		{name: "a short base six sessions old is not a breakout artefact", cand: through(12.6, 6, 10.2, 9, true), want: RuleFail, wantValue: f(12.6), wantDetail: []string{"only 6 sessions"}},
+		{name: "a 30-session base cleared by a recent breakout passes", cand: through(12.6, 30, 10.2, 9, true), want: RulePass, wantValue: f(12.6),
+			wantDetail: []string{"30-session base", "12.6% deep"}},
+		{name: "a short base is not excused by a breakout", cand: through(12.6, 5, 10.2, 9, true), want: RuleFail, wantValue: f(12.6), wantDetail: []string{"only 5 sessions"}},
 		{name: "a short base without a breakout fails", cand: through(12.6, 1, 10.2, 9, false), want: RuleFail, wantValue: f(12.6)},
-		{name: "a deep base through a breakout fails", cand: through(30, 2, 10.2, 7, true), want: RuleFail, wantValue: f(30), wantDetail: []string{"deeper than 25%"}},
-		{name: "a close back under the base low fails", cand: through(12, 2, 8.9, 9, true), want: RuleFail, wantValue: f(12), wantDetail: []string{"below the base low"}},
+		{name: "a deep base cleared by a breakout fails", cand: through(30, 30, 10.2, 7, true), want: RuleFail, wantValue: f(30), wantDetail: []string{"deeper than 25%"}},
+		{name: "a close back under the base low fails", cand: through(12, 30, 8.9, 9, true), want: RuleFail, wantValue: f(12), wantDetail: []string{"below the base low"}},
 	})
 }
 
@@ -170,16 +168,13 @@ func TestRuleBreakout(t *testing.T) {
 		{name: "breakout passes with date and pivot", cand: Candidate{AsOf: asOf, Close: 10, BaseHigh: f(9.5), BreakoutRecent: b(true), BreakoutDate: d("2026-09-24")},
 			want: RulePass, wantValue: f((10/9.5 - 1) * 100), wantDetail: []string{"Broke out on 2026-09-24", "1.5x average volume", "pivot A$9.50"}},
 		{name: "breakout without a date", cand: Candidate{Close: 10, BreakoutRecent: b(true)}, want: RulePass, wantDetail: []string{"last 5 sessions"}},
-		{name: "breakout high inside the window is not called the pivot", cand: Candidate{AsOf: asOf, Close: 10.2, BaseHigh: f(10.3), BaseLengthDays: i32(1), BreakoutRecent: b(true), BreakoutDate: d("2026-09-24")},
-			want: RulePass, wantValue: f((10.2/10.3 - 1) * 100), wantDetail: []string{"Broke out on 2026-09-24"}},
+		{name: "a one-session base still names the anchored pivot", cand: Candidate{AsOf: asOf, Close: 10.2, BaseHigh: f(9.8), BaseLengthDays: i32(1), BreakoutRecent: b(true), BreakoutDate: d("2026-09-24")},
+			want: RulePass, wantValue: f((10.2/9.8 - 1) * 100), wantDetail: []string{"Broke out on 2026-09-24", "pivot A$9.80"}},
 		{name: "no breakout fails with distance to pivot", cand: Candidate{Close: 9, BaseHigh: f(10), BreakoutRecent: b(false)},
 			want: RuleFail, wantValue: f(-10), wantDetail: []string{"A$10.00 pivot", "-10.0% from the pivot"}},
 		{name: "no breakout and no pivot", cand: Candidate{Close: 9, BreakoutRecent: b(false)}, want: RuleFail},
 		{name: "zero pivot yields no value", cand: Candidate{Close: 9, BaseHigh: f(0), BreakoutRecent: b(false)}, want: RuleFail},
 	})
-	if out := ruleBreakout(&Candidate{Close: 10.2, BaseHigh: f(10.3), BaseLengthDays: i32(1), BreakoutRecent: b(true)}, &evalEnv{}); strings.Contains(out.Detail, "pivot") {
-		t.Errorf("a base high set by the breakout itself must not be reported as the pivot: %q", out.Detail)
-	}
 	if out := ruleBreakout(&Candidate{Close: 10, BaseHigh: f(9.5), BaseLengthDays: i32(30), BreakoutRecent: b(true)}, &evalEnv{}); !strings.Contains(out.Detail, "pivot A$9.50") {
 		t.Errorf("a pre-breakout base high is the pivot: %q", out.Detail)
 	}

@@ -54,7 +54,9 @@ const (
 	growthMinPct        = 25.0
 	revenueGrowthMinPct = 20.0
 	baseMinSessions     = 20
-	baseMaxSessions     = 120
+	// baseWindowSessions is the view's base window ([t-40, t-1] as at the anchor
+	// session), so base_length_days is always 1..40 and this is the only ceiling.
+	baseWindowSessions  = 40
 	baseMaxDepthPct     = 25.0
 	// breakoutWindowSessions is how far back breakout_recent looks (plan §2.3).
 	breakoutWindowSessions = 5
@@ -171,32 +173,25 @@ func ruleRevenueGrowth(c *Candidate, _ *evalEnv) outcome {
 
 // ---------------------------------------------------------------- price structure
 
-// ruleBase (Zanger): base_length_days in [20, 120], base_depth_pct <= 25 and
+// ruleBase (Zanger): base_length_days >= 20, base_depth_pct <= 25 and
 // close >= base_low.
 //
-// Measuring THROUGH a breakout. base_high / base_low / base_length_days cover
-// sessions [t-40, t-1], so from the session after a breakout onwards that
-// window contains the breakout itself: base_high becomes the breakout high and
-// base_length_days collapses to the handful of sessions since it. Read
-// literally, the length test would then fail every stock the day after it
-// breaks out, and the strategy could only ever trigger on the breakout day.
-// So when breakout_recent is true AND the pivot high was set inside the
-// 5-session breakout window, the length test is skipped (it no longer measures
-// the base) and the base must still be tight (depth <= 25% across the 40
-// sessions) with the close at or above its low.
+// mv_price_features anchors the base: with a breakout in the last 5 sessions
+// the base columns describe the consolidation as at the breakout session (the
+// level it cleared and how long it took to build), otherwise the 40 sessions
+// before as_of. base_length_days counts from the FIRST session within 2% of
+// the base high, so a flat base or a retest reads as its full length and the
+// value is bounded by the 40-session window. There is therefore no upper bound
+// to test here and nothing to special-case after a breakout.
 func ruleBase(c *Candidate, _ *evalEnv) outcome {
 	if c.BaseDepthPct == nil || c.BaseLengthDays == nil || c.BaseLow == nil {
 		return unknown("Base cannot be measured from price history yet")
 	}
 	depth, length, low := *c.BaseDepthPct, int(*c.BaseLengthDays), *c.BaseLow
-	throughBreakout := c.BreakoutRecent != nil && *c.BreakoutRecent && length <= breakoutWindowSessions
 
 	var reasons []string
-	if !throughBreakout && length < baseMinSessions {
-		reasons = append(reasons, fmt.Sprintf("only %d sessions since the pivot high, under %d", length, baseMinSessions))
-	}
-	if length > baseMaxSessions {
-		reasons = append(reasons, fmt.Sprintf("%d sessions long, over %d", length, baseMaxSessions))
+	if length < baseMinSessions {
+		reasons = append(reasons, fmt.Sprintf("only %d sessions since the pivot high was first set, under %d", length, baseMinSessions))
 	}
 	if depth > baseMaxDepthPct {
 		reasons = append(reasons, fmt.Sprintf("%.1f%% deep, deeper than 25%%", depth))
@@ -208,9 +203,6 @@ func ruleBase(c *Candidate, _ *evalEnv) outcome {
 		return fail("No tight base: "+strings.Join(reasons, "; "), depth, true)
 	}
 	detail := fmt.Sprintf("%d-session base, %.1f%% deep; close %s holds above the base low %s", length, depth, price(c.Close), price(low))
-	if throughBreakout {
-		detail = fmt.Sprintf("Base measured through the breakout: %.1f%% deep over the last 40 sessions; close %s holds above the base low %s", depth, price(c.Close), price(low))
-	}
 	return pass(detail, depth, true, (baseMaxDepthPct-depth)/20)
 }
 
@@ -236,11 +228,9 @@ func ruleBreakout(c *Candidate, _ *evalEnv) outcome {
 			}
 		}
 		detail += ": a close above the prior 40-session high on at least 1.5x average volume"
-		// Once the breakout session is inside the [t-40, t-1] window, base_high
-		// is the breakout's own high, not the pivot it cleared; naming it the
-		// pivot would misstate the invalidation level.
-		pivotIsPreBreakout := c.BaseLengthDays == nil || int(*c.BaseLengthDays) > breakoutWindowSessions
-		if c.BaseHigh != nil && pivotIsPreBreakout {
+		// mv_price_features anchors the base at the breakout session, so
+		// base_high is the level the stock cleared: the invalidation level.
+		if c.BaseHigh != nil {
 			detail += fmt.Sprintf("; pivot %s", price(*c.BaseHigh))
 		}
 		return pass(detail, value, hasValue, strength)
