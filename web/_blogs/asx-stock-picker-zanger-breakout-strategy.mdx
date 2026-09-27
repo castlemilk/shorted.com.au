@@ -1,0 +1,145 @@
+---
+title: "A Stock Picker for the ASX: Dan Zanger's Breakout Rules, Tested Against Real Data"
+excerpt: "Shorted's new stock picker runs four named strategies over every ASX stock we track, starting with Dan Zanger's breakout method. Every rule is scored pass, fail or unknown against published data: ASIC short positions, daily prices and volume, the S&P/ASX 200 trend and newly typed company fundamentals. Here is what each rule tests, where the numbers come from, and what the picker cannot see."
+coverImage: "/assets/blog/asx-stock-picker-zanger-breakout-strategy/cover.png"
+date: "2026-09-27"
+author:
+  name: Ben Ebsworth
+  picture: "/assets/blog/authors/ben-ebsworth.jpg"
+ogImage:
+  url: "/assets/blog/asx-stock-picker-zanger-breakout-strategy/cover.png"
+---
+
+# A stock picker for the ASX
+
+The [stock picker](/picks) is a rules engine. It takes four published trading strategies, writes each rule down as a test with a fixed threshold, and runs those tests every weekday evening over every ASX stock with enough price history. For each stock you see which rules passed, which failed, and which could not be tested at all.
+
+It is not advice, and it is not a pattern recogniser. It never decides a chart resembles a cup-and-handle. It measures what public data can measure (growth in reported revenue and earnings, the depth of a consolidation, a close above it on heavy volume, the trend of the index) and reports the result. No language model sits in the evaluation path, so the same inputs always give the same answer.
+
+The first strategy is [Dan Zanger's breakout method](/picks/zanger-breakout).
+
+## Who Dan Zanger is
+
+Dan Zanger is a former swimming-pool contractor who reportedly turned about US$11,000 into more than US$18 million during the 1998 to 2000 technology boom, trading US growth stocks. Fortune examined his trading records for a December 2000 profile, and his 29,233% gain over a single twelve-month stretch is widely reported as a world record for a personal portfolio. We cite that figure as reported; we have not audited it.
+
+His method is simple to state and hard to follow. Find companies with explosive earnings and sales growth. Wait for the share price to build a recognisable base. Buy as it breaks out of that base on a surge in volume, and sell quickly if it slips back in. Concentrate on a handful of leaders, and read the market before any single chart, because breakouts fail far more often in a falling market.
+
+## Seven rules, one table
+
+Here is how each of Zanger's ideas maps to a test. Three are not screens; they shape what we report and how we rank.
+
+<GraphTable title="Zanger's rules, as we test them">
+
+| Rule | What we test | Data |
+| --- | --- | --- |
+| 1. Explosive growth | Revenue or EPS up 25%+ a year, or loss to profit | Company fundamentals |
+| 2. A recognisable base | 20+ sessions since the pivot high, at most 25% deep | Daily prices |
+| 3. Breakout on volume | Close above prior 40-session high on 1.5x volume | Daily prices, volume |
+| 4. Cut the loss | Not screened: the pivot is reported as the exit level | Daily prices |
+| 5. Concentrate | Not screened: ranked hard, status then score | Ranking |
+| 6. Read the market | XJO close vs its 50-day and 200-day averages | XJO index |
+| 7. Let winners run | 3-month return above XJO (scored, not required) | Prices, XJO |
+
+</GraphTable>
+
+In full: growth passes when the latest annual revenue is up at least 25% on the prior year, or EPS is up at least 25% on the same series a year earlier, or the company has swung from a net loss to a net profit. The base passes when the stock has consolidated for at least 20 sessions since first setting its high over the prior 40 sessions (that high is the pivot), the base is no more than 25% deep from that high to its low, and the close is at or above the base low. The breakout passes when any of the last 5 sessions closed above the highest high of the 40 sessions before it, on volume at least 1.5 times the 50-day average.
+
+After a breakout the base is measured as at the breakout session, so the pivot stays the level the stock actually cleared rather than moving up with the breakout's own high.
+
+One core rule is ours rather than Zanger's: liquidity. A stock must average at least A$250,000 a day in turnover over the last 20 sessions to trigger.
+
+## Pass, fail, unknown
+
+Every rule returns one of three results, and the third one matters most.
+
+<Callout type="warning" title="Unknown never passes">
+
+A rule reads **unknown** when the data to test it is missing: no fundamentals for the stock yet, fewer than 200 sessions of index history, not enough price history to measure a base. Unknown is never counted as a pass. A stock with an unknown core rule cannot reach **triggered**, however strong the rest of its row looks.
+
+</Callout>
+
+Treating missing growth data as zero would put more stocks at the top of the list, and the list would be partly guesswork. Each strategy page instead states how many of the stocks evaluated have fundamentals.
+
+The statuses follow from the rule results:
+
+- **Triggered**: every core rule passes. For Zanger that is growth, base, breakout, liquidity and a market not in a downtrend.
+- **Setup**: every core rule except the breakout passes. Base and growth are there; the move has not happened.
+- **Watch**: some rules pass. Ranked below the other two.
+
+Within a status, rows are ordered by a weighted score from 0 to 100.
+
+## Reading the market first
+
+The market rule reads the S&P/ASX 200 (XJO): uptrend when the index closes above its 50-day average and the 50-day is above the 200-day, neutral when it closes above the 200-day without that stack, downtrend when it closes below the 200-day.
+
+The rule passes on uptrend or neutral. In a downtrend it fails and the Zanger verdict turns to "stand aside": no stock can trigger until the trend turns. The picks stay visible; you are told plainly that the method says not to buy them.
+
+## Where the data comes from
+
+<Steps title="THE DAILY PIPELINE">
+
+1. ASIC short positions
+
+   Published four trading days after the date a position is held, so always a few days old. Only the crowded-short strategy reads them.
+
+2. Daily prices and volume
+
+   End-of-day prices and volume for every ASX stock, swept each weekday from 10:00 UTC over about two and a half hours.
+
+3. XJO for the market regime
+
+   The index close and its 50-day and 200-day averages.
+
+4. Typed company fundamentals
+
+   Annual and trailing-twelve-month revenue, net profit, EPS and cash flow, per period, in the company's reporting currency.
+
+5. **Refresh and evaluate**
+
+   At 13:30 UTC on weekdays, after the sweep lands, price features, regime and growth are recomputed and the strategies re-scored.
+
+</Steps>
+
+The fundamentals are the new part, and they come with caveats.
+
+**The vendor series.** The primary source is Yahoo's fundamentals timeseries, fetched at the price sweep's pace (about four seconds a request). It carries up to four fiscal years of annual rows and a trailing-twelve-month (TTM) EPS point at every half-year. When Yahoo fails for a stock, or its latest annual row is visibly behind, ASX/Markit key statistics fill only the years Yahoo has not caught up with. A daily run takes up to 400 stocks: Appendix 4D or 4E filers from the last 14 days first, then the stocks asked longest ago. The universe of about 2,300 codes takes around six runs, then each stock is refreshed about weekly.
+
+**Company filings.** The newest layer reads the figures companies lodge in their Appendix 4D (half-year) and 4E (full-year) results from ASX announcements, stored as typed rows beside the vendor data with the source on every row. They fill the half-year gaps the vendor leaves, and because the extractor runs on the filings themselves they usually land within a week of the announcement rather than after the vendor's four-to-eight-week lag. Vendor figures are never overwritten by an extracted one for the same period; extraction only fills what the vendor lacks.
+
+**Reporting currency.** Figures stay in the currency the company reports in (BHP's are in US dollars). Growth is only computed within one series and one currency, where exchange rates cancel out.
+
+**No half-year totals from the vendor.** Yahoo's quarterly series are empty for ASX companies, so revenue growth is annual on annual. EPS growth is TTM on TTM against the point about a year earlier, because TTM EPS updates every half-year; where it is missing we fall back to annual. For the latest half we use an exact identity: latest TTM minus the last full year equals the latest half minus the same half a year earlier. That is used only as a sign, shown as supporting evidence, never as a percentage and never to change a result.
+
+**Lag.** Vendor annual rows can arrive four to eight weeks or more after a small company files, which is why recent filers go to the front of the queue.
+
+**Price precision.** Prices are stored to two decimal places, which is too coarse to measure a sub-cent stock. The A$250,000 turnover floor excludes them.
+
+**Base length.** Bases are measured inside a 40-session window. Zanger's bases can run for months; a longer flat base here reads as 40 sessions.
+
+## The other three strategies
+
+**[CAN SLIM](/picks/canslim)** is William J. O'Neil's system. We map the letters ASX data supports: EPS up at least 25% (TTM standing in for quarterly), revenue up at least 20% as a scored extra, a close within 5% of the 52-week high, relative strength in the top quartile of stocks evaluated, the XJO trend and the turnover floor. Institutional sponsorship is not evaluated.
+
+**[The Minervini Trend Template](/picks/minervini-trend-template)** is Mark Minervini's Stage 2 filter, and it is pure price: close above the 150-day average and the 150-day above the 200-day, the 200-day higher than a month ago, the close at least 1.3 times the 52-week low and no more than 25% below the 52-week high, and top-quartile relative strength. It needs no fundamentals, and it finds candidates, not entries.
+
+**[The crowded-short breakout](/picks/crowded-short-breakout)** is ours. It requires a reported short position of at least 5% of shares on issue and a fresh breakout on volume; days to cover of 5 or more, relative strength and the market trend add to the score. Short sellers are often right, and a crowded short with no breakout is a warning, not a buy signal.
+
+## How to use it
+
+Start at [/picks](/picks), which shows the XJO regime and each strategy's counts by status. Read the regime first; it is the method's first rule.
+
+Open a strategy. Triggered rows passed every core rule today. Setup rows are the watchlist: base and growth in place, breakout still to come. Hover a rule dot to see the measured value behind it.
+
+The pivot column is the level a failed breakout falls back through. It is not a stop or a target; where you put either is your call. For a stock that interests you, open /shorts/CODE (for example [/shorts/BHP](/shorts/BHP)) and check the fundamentals block on the Financials tab: four annual periods in the reporting currency, the growth line and where the figures came from.
+
+For your own filters, the [screener](/screener) and [scans](/scans) use the same data. The `list_strategies`, `get_strategy_picks` and `get_stock_fundamentals` tools on our MCP server give an AI assistant the same strategies, rule results and statements ([connection guide](/docs/mcp.md)).
+
+## What it cannot do
+
+- It does not classify chart shapes. A tight base that passes may not be one Zanger himself would trade.
+- It sees end-of-day prices only: no intraday breakouts, no timing within the session, no news released after the close.
+- Fundamentals can be months old, and small caps arrive late.
+- It does not size positions, set stops or tell you when to sell a winner.
+- It does not know why a stock is heavily shorted, or anything about your circumstances.
+
+_This content is for informational purposes only and does not constitute financial advice. A stock passing a strategy's rules is not a recommendation. Always conduct your own research before making investment decisions._
