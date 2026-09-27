@@ -646,6 +646,73 @@ module "shorted_job_economy_freshness" {
   ]
 }
 
+# `shorted picks` — the stock picker's data layer (docs/plans/stock-picker.md
+# §2.6). ONE job, two schedules:
+#
+#   - primary, weekdays 13:30 UTC, `-mode refresh`: SET LOCAL
+#     statement_timeout = 0; SELECT refresh_strategy_views() (migration 000130:
+#     mv_market_regime, mv_fundamentals_growth, mv_price_features). After the
+#     price sweep (module.shorted_job_price_sync starts 10:00 UTC, ~2.5h),
+#     which is why this is NOT part of refresh_all_materialized_views() at
+#     10:00. Fails (exit 1) if any view was skipped.
+#   - "fundamentals", daily 15:00 UTC, `-mode fundamentals`: Yahoo
+#     fundamentals-timeseries through pkg/stealthhttp at the sweep's 4s pace,
+#     Markit key statistics as the fallback, up to PICKS_FUNDAMENTALS_MAX_CODES
+#     (400) codes a run, recent 4D/4E filers first, then stalest first. Exit 10
+#     = DEGRADED (under half the attempted codes answered, or Yahoo failed for
+#     most of them); exit 1 = nothing answered. The job stops taking new codes
+#     after PICKS_FUNDAMENTALS_BUDGET_MIN (45) so it ends inside the 3600s
+#     timeout; stalest-first order means the next run resumes where it stopped.
+#
+# ORDERING: migrations 000129 + 000130 must exist before the first run (the
+# deploy allowlist replays them; the operator hand-applies them before the API
+# merges, plan §7). First fundamentals coverage is manual — see
+# services/jobs/README.md "picks".
+#
+# Not in local.admin_runnable_jobs: the jobmonitor catalog does not list it
+# yet, and a grant without a catalog entry is a permission with no caller.
+module "shorted_job_picks" {
+  source = "../../modules/shorted-job"
+
+  name             = "shorted-picks"
+  description      = "Stock picker: refresh_strategy_views() after the price sweep (weekdays)"
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  image_url        = var.shorted_jobs_image
+
+  args     = ["picks", "-mode", "refresh"]
+  schedule = "30 13 * * 1-5" # weekdays 13:30 UTC, after the 10:00 UTC price sweep
+
+  schedules = [
+    {
+      name_suffix   = "fundamentals"
+      cron          = "0 15 * * *" # daily 15:00 UTC (01:00 AEST)
+      description   = "Daily per-period fundamentals pull (Yahoo timeseries, Markit fallback), capped and stalest-first"
+      args_override = ["picks", "-mode", "fundamentals"]
+    },
+  ]
+
+  env = {
+    ENVIRONMENT = "production"
+    GCP_PROJECT = var.project_id
+  }
+
+  secret_env = {
+    DATABASE_URL = "DATABASE_URL"
+  }
+
+  timeout_seconds = 3600
+  cpu             = "1"
+  memory          = "512Mi"
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
 # `shorted weekly-report` — replaces module.weekly_report_generator.
 # Two schedules on one job, exactly as before: weekly (no override) + monthly
 # (REPORT_TYPE=monthly via container_overrides). The ported job resolves the

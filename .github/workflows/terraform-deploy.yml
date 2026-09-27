@@ -738,6 +738,23 @@ jobs:
           # -freshness all SELECT the two columns, and this step runs BEFORE
           # `terraform apply` swaps the jobs image, so the DDL cannot land after
           # the code that reads it.
+          #
+          # 000129 and 000130 (stock picker) are the same shape: each is ONE
+          # BEGIN ... COMMIT holding CREATE TABLE / CREATE INDEX /
+          # CREATE MATERIALIZED VIEW ... IF NOT EXISTS, CREATE OR REPLACE
+          # FUNCTION refresh_strategy_views(), ALTER FUNCTION ... SET and
+          # COMMENT. No row is read or written by DDL and no view is dropped,
+          # so a replay is a no-op (the views are only BUILT when absent; they
+          # are refreshed by `shorted picks -mode refresh`, never here). They
+          # sit after 000095 because 000130 defines a guarded refresh function
+          # (a new one; it does not touch refresh_all_materialized_views()),
+          # and 000130 after 000129 because refresh_strategy_views() refreshes
+          # 000129's mv_fundamentals_growth. The operator hand-applies both
+          # BEFORE the API that reads them merges (docs/plans/stock-picker.md
+          # §7), so on prod this replay only ever re-issues the function; the
+          # SET LOCAL statement_timeout = 0 each file opens with is what keeps
+          # a first build from dying under the role's 2-minute default if that
+          # step was missed.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -756,7 +773,9 @@ jobs:
               -f /migrations/000121_economic_series_internal_only.up.sql \
               -f /migrations/000095_harden_mv_refresh.up.sql \
               -f /migrations/000122_add_suburb_hazard_exposure.up.sql \
-              -f /migrations/000123_register_document_succession.up.sql
+              -f /migrations/000123_register_document_succession.up.sql \
+              -f /migrations/000129_add_stock_fundamentals.up.sql \
+              -f /migrations/000130_add_price_features.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
 

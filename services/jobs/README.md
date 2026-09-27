@@ -25,6 +25,8 @@ services/jobs/
   internal/jobs/marketdata/   `shorted market-data serve|sync|audit-gaps|historical-backfill`
                               (was services/market-data-sync)
   internal/jobs/news/         `shorted news`       (was services/news-aggregator)
+  internal/jobs/picks/        `shorted picks`      stock-picker data: per-period fundamentals
+                              + refresh_strategy_views() (new, not a port)
   internal/jobs/reportextract/`shorted report-extract concurrent|sequential`
                               + `shorted director-trades`
                               (was services/report-extractor, Python)
@@ -54,6 +56,7 @@ services/jobs/
 | `market-data audit-gaps` | `services/market-data-sync/cmd/audit-gaps` | no — laptop-only tool |
 | `market-data historical-backfill` | `services/market-data-sync/cmd/historical-backfill` | no — laptop-only tool |
 | `news` | `services/news-aggregator` | yes — `shorted-news`, 1 job + 5 schedules (cutover 2; all 5 old schedulers paused) |
+| `picks` | — (new job, stock picker) | `shorted-picks` in `terraform/environments/prod/main.tf`: `-mode refresh` weekdays 13:30 UTC + `-mode fundamentals` daily 15:00 UTC. See "picks" |
 | `director-trades` | `services/report-extractor/extract_director_trades.py` | **not yet** — ported (Phase 3), no Terraform change; `director-trade-extractor` still runs the Python image |
 | `report-extract concurrent` | `services/report-extractor/extract_reports_concurrent.py` | **not yet** — ported (Phase 3); `financial-report-extractor` still runs the Python image |
 | `report-extract sequential` | `services/report-extractor/extract.py` | no — laptop-only CLI |
@@ -620,6 +623,77 @@ procedure: `internal/jobs/shortdatasync/README.md`.
   sorted-tuple checksum) on stdout for diffing against the Python's actual
   writes. 46 offline tests, including golden fixtures cut from real ASIC files.
 
+## picks
+
+`shorted picks` is the data layer of the stock picker
+(`docs/plans/stock-picker.md` §2). It is a new job, not a port.
+
+| Mode | What it does |
+|---|---|
+| `-mode fundamentals` | Pulls typed per-period fundamentals into `stock_fundamentals` (migration 000129) and records every attempt in `stock_fundamentals_sync`. Source: Yahoo fundamentals-timeseries through `pkg/stealthhttp` (a plain client is 429'd; no cookie or crumb needed), 4s between requests like the price sweep. Fallback: Markit key statistics (plain HTTPS, 1/s), asked only when Yahoo failed or published nothing, or its annual series is visibly behind (a TTM point a year past the latest annual, or an annual older than ~15 months). Only the fallback's annual rows for years Yahoo has not caught up with are added. |
+| `-mode refresh` | `BEGIN; SET LOCAL statement_timeout = 0; SELECT refresh_strategy_views(); COMMIT` as one simple-protocol command (migration 000130: `mv_market_regime`, `mv_fundamentals_growth`, `mv_price_features`). Fails if the function reports any `Skipping <view>` warning, because the function itself returns normally when a view is skipped. |
+| `-mode all` (default) | fundamentals, then refresh. |
+
+**Selection** (fundamentals): the universe is every code with a `stock_prices`
+row in the last 90 days plus every `mv_screener_data` code (the MV is optional:
+42P01 is tolerated). Codes with a results filing in `asx_announcements` in the
+last 14 days go first, whatever their last attempt, except one attempted in the
+last 20 hours (a same-day re-run). Filings are classified by headline with the
+regexes ported from `scripts/take-writer/src/results-watch.ts`
+(`filings.go`; keep the two in step), never by `announcement_type`. Everything
+else goes stalest first (never attempted, then the oldest `last_attempt_at`),
+skipping codes attempted in the last 6 days. The run is capped at
+`PICKS_FUNDAMENTALS_MAX_CODES`.
+
+**What is stored**: annual rows (`period_type='annual'`) and TTM rows (`'ttm'`),
+`period_end` exactly as the source dates it, values in the REPORTING currency
+(BHP is USD) with the row's `currency`. `fiscal_year` is derived from the
+company's own balance date (its latest annual row; June when there is none, so
+the ASX default is "month >= 7 -> next FY"). A 52/53-week year ending in the
+first days of July counts as June. Non-finite values and values outside
+`1e-12 <= |v| <= 1e18` are set to NULL before the write; the table has the same
+CHECK as a backstop. On conflict, a value the new fetch does not carry keeps the
+stored one (same currency only). That is what keeps TTM revenue history: Yahoo
+drops TTM revenue from older points.
+
+**Flags / env**
+
+| Flag / env | Default | |
+|---|---|---|
+| `-mode` | `all` | `fundamentals` \| `refresh` \| `all` |
+| `-dry-run` (or global `-dry-run`) | false | fetch + parse + log. No upsert, no attempt row, no refresh. With `-codes` it needs no database. |
+| `-codes A,B` | — | fetch these codes instead of the selection (ignores the 6-day skip and the cap) |
+| `-no-fallback` | false | never ask Markit |
+| `-verbose` | false | log every Postgres notice |
+| `-max-codes` / `PICKS_FUNDAMENTALS_MAX_CODES` | 400 | codes per fundamentals run (positive integers only) |
+| `PICKS_FUNDAMENTALS_BUDGET_MIN` | 45 | stop taking new codes after this many minutes, so the run ends inside the job's 3600s timeout; the next run resumes stalest-first. Not a failure. |
+| `DATABASE_URL` | required | except for `-dry-run -mode fundamentals -codes ...` |
+
+**Exit codes**
+
+| Code | Meaning |
+|---|---|
+| 0 | at least half of the attempted codes loaded rows or answered empty (an ETF with no statements is an answer, not an outage), or nothing was due |
+| 10 | DEGRADED: under half answered, or Yahoo failed for more than half of them even if Markit covered the gaps |
+| 1 | nothing answered, the DB failed, the refresh failed or skipped a view, or the run was cancelled |
+
+A run also stops after 25 consecutive failed codes (the price sweep's rule), so
+a blocking upstream is not asked 400 times.
+
+**First run in an environment**
+
+1. Migrations 000129 and 000130 must be in the database first. The deploy
+   allowlist replays both. On prod, hand-apply them BEFORE the API that reads
+   them merges: `task db:prod:apply FILE=services/migrations/000129_add_stock_fundamentals.up.sql CONFIRM=prod`,
+   then the same for 000130.
+2. Check the upstream without writing:
+   `shorted -dry-run picks -mode fundamentals -codes BHP,DRO,SKS`.
+3. Build coverage: `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"`
+   a few times (400 codes a run, ~30 minutes each; ~2,300 codes is about six
+   runs), then `--args="picks,-mode,refresh"`. The daily 15:00 UTC schedule
+   keeps topping it up after that.
+4. Revalidate `/picks` and `/picks/*` after the first refresh.
+
 ## Conventions for new jobs
 
 1. Add `internal/jobs/<name>/` with a `Job() runner.Job` constructor.
@@ -640,9 +714,9 @@ procedure: `internal/jobs/shortdatasync/README.md`.
    scheduler) branches on specific codes, return a `*runner.ExitCodeError`
    instead of calling `os.Exit` — `main` maps it through `runner.ExitCodeOf`.
    Document the codes at the job, and keep the job's own helpers returning
-   whatever they returned before (convert once, at the dispatch). No job
-   registered today returns one; it was built for the retired `house-prices`
-   port, whose residential-rig launchers branch on 3/4/5/6/7.
+   whatever they returned before (convert once, at the dispatch). `economy`
+   and `picks` return 10 (DEGRADED); 3-7 stay reserved for the retired
+   `house-prices` port, whose residential-rig launchers branch on them.
 6. Register it in `cmd/shorted/main.go`.
 
 ## Building the image
