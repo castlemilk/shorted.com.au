@@ -432,15 +432,28 @@ Connector defects found while probing the live server (fix in this stream):
 
 ## 8. Follow-ups found during implementation
 
-- `StrategyPick` has no `has_rs_3m_pct` / `has_short_pct` flags; the web view
-  infers "known" from the strategy's `rs` rule value and treats short % 0 as
-  "no reported position". Add the flags at the next proto change.
-- `mv_price_features` bounds a base at the 40-session window; a longer flat
-  base reads as 40. Widen the window if a strategy needs longer bases.
-- `GetStockFundamentals` is served on the API and MCP but no page renders it
-  yet; a fundamentals block on `/shorts/[code]` is the natural home.
-- `local.admin_runnable_jobs` does not include `shorted-picks` because the
-  jobmonitor catalog has no entry; add both together if "Run now" is wanted.
-- Coverage: no environment has run the fundamentals job yet, so
+- DONE: `StrategyPick` now carries `has_rs_3m_pct`, `has_short_pct`,
+  `has_market_cap` and `has_close` (fields 23-26). The handler sets them from
+  the evaluator's `Candidate` pointers (`has_close` is `close > 0`, since
+  `Candidate.Close` is not nullable and `mv_price_features` only admits a
+  positive close). The web mapper (`web/src/@/lib/strategies/map.ts`) and the
+  MCP `get_strategy_picks` projection read the flags, so a measured zero (RS
+  exactly in line with XJO, an ASIC row reporting no position) survives and an
+  unflagged value is absent. The pivot / base fields still have no flag and
+  still read 0 as unknown.
+- OPEN: `mv_price_features` bounds a base at the 40-session window; a longer
+  flat base reads as 40. Widen the window if a strategy needs longer bases.
+- DONE: `/shorts/[code]` renders a fundamentals block on the Financials tab
+  (`web/src/@/components/stocks/fundamentals-block.tsx`, fed by
+  `web/src/app/actions/getStockFundamentals.ts`, `stock_pb` only): the last
+  four annual periods (revenue, NPAT, diluted EPS, operating cash flow) in the
+  reporting currency, a growth line (revenue YoY, EPS YoY with its basis,
+  "prior loss, now profit" on a turnaround) and a provenance line. It renders
+  nothing for a stock without coverage.
+- DONE: `shorted-picks` is in `local.admin_runnable_jobs` and has a jobmonitor
+  catalog entry (`services/shorts/internal/jobmonitor/catalog.go`, "Market
+  data"). "Run now" executes the deployed `-mode refresh`; the fundamentals
+  pull runs only on its own schedule.
+- OPEN (operational): no environment has run the fundamentals job yet, so
   `fundamentals_coverage_count` starts at 0 and the Zanger / CAN SLIM growth
-  rules read unknown until the first sweeps complete.
+  rules read unknown until the first sweeps complete (plan §7).
