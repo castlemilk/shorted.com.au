@@ -60,22 +60,23 @@ Typed, per-period statement lines. One row per (stock, period_type, period_end).
 ```sql
 CREATE TABLE IF NOT EXISTS stock_fundamentals (
     stock_code          VARCHAR(10)      NOT NULL,
-    period_type         VARCHAR(8)       NOT NULL,  -- 'annual' | 'half' | 'quarter'
+    period_type         VARCHAR(8)       NOT NULL,  -- 'annual' | 'half' | 'quarter' | 'ttm'
     period_end          DATE             NOT NULL,
     fiscal_year         SMALLINT,                   -- FY the period belongs to (ASX FY ends 30 June)
     currency            VARCHAR(8)       NOT NULL DEFAULT 'AUD',
     revenue             DOUBLE PRECISION,           -- total revenue, whole currency units
-    net_income          DOUBLE PRECISION,           -- NPAT
+    net_income          DOUBLE PRECISION,           -- NPAT (NetIncomeCommonStockholders)
     eps_basic           DOUBLE PRECISION,
     eps_diluted         DOUBLE PRECISION,
     operating_cash_flow DOUBLE PRECISION,
+    free_cash_flow      DOUBLE PRECISION,
     shares_outstanding  DOUBLE PRECISION,
     source              VARCHAR(32)      NOT NULL,  -- 'yahoo-timeseries' etc
     source_fetched_at   TIMESTAMPTZ      NOT NULL DEFAULT now(),
     created_at          TIMESTAMPTZ      NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ      NOT NULL DEFAULT now(),
     CONSTRAINT stock_fundamentals_pk PRIMARY KEY (stock_code, period_type, period_end),
-    CONSTRAINT stock_fundamentals_period_type_check CHECK (period_type IN ('annual','half','quarter'))
+    CONSTRAINT stock_fundamentals_period_type_check CHECK (period_type IN ('annual','half','quarter','ttm'))
 );
 CREATE INDEX IF NOT EXISTS idx_stock_fundamentals_code_end ON stock_fundamentals (stock_code, period_end DESC);
 
@@ -94,27 +95,44 @@ extraction writes here.
 
 ### 2.2 `mv_fundamentals_growth` — same migration
 
-One row per stock. Growth is computed against the SAME period type one year
-earlier (annual vs prior annual; half vs the half ending ~12 months earlier),
-never half vs annual. The row uses the most recent period of the type with the
-most history for that stock, preferring `half` when both exist with >= 3 rows
-(ASX reports semi-annually, and a half-year row is fresher than the annual).
+One row per stock. Growth is computed against the SAME series one year earlier,
+never across series (annual vs annual, TTM vs the TTM point ~12 months earlier).
+Yahoo carries no half-year TOTALS for ASX companies (probe 2026-09-27: the
+"quarterly" series are empty), so the bases are:
+
+- revenue / net income / operating cash flow: `annual` vs prior `annual`.
+- EPS: `ttm` vs the `ttm` point 10-14 months earlier when both exist (TTM EPS
+  arrives every half-year, so it is the freshest series), else `annual`.
+  `basis_period_type` records which one was used for EPS.
+- Half-year delta (exact identity, no half-year totals needed): latest TTM minus
+  the latest full year equals the latest half minus the same half a year
+  earlier. Exposed as `revenue_half_delta` / `net_income_half_delta` (absolute,
+  reporting currency) when both a TTM point AFTER the latest annual period_end
+  and that annual row exist; else NULL. The evaluator uses it only as a sign
+  (is the latest half better than the same half last year), never as a %.
 
 ```
 stock_code, basis_period_type, latest_period_end,
+latest_annual_period_end,
 revenue_latest, revenue_prior, revenue_yoy_pct,
 revenue_yoy_prior_pct,            -- growth of the period before, for acceleration
 eps_latest, eps_prior, eps_yoy_pct,
 eps_yoy_prior_pct,
-net_income_latest, net_income_positive (bool),
+net_income_latest, net_income_prior, net_income_positive (bool),
 operating_cash_flow_latest,
+revenue_ttm, net_income_ttm, eps_ttm,          -- latest TTM points, NULL when absent
+revenue_half_delta, net_income_half_delta,     -- see above
+currency,
 periods_available (int), fetched_at
 ```
 
 `*_yoy_pct` is NULL (not 0) when either side is missing or the prior is <= 0
 (growth from a loss to a profit is reported via `net_income_positive` turning
-true and `eps_yoy_pct` NULL, with the evaluator treating "prior loss, now
-profit" as a pass for the EPS rule). Unique index on `stock_code`.
+true with `net_income_prior <= 0`, and the evaluator treats "prior loss, now
+profit" as a pass for the growth rule; `eps_yoy_pct` stays NULL). Unique index
+on `stock_code`. A `CASE WHEN prior > 0` guard, never a division that can
+produce Inf; the `key_metrics` incident (`docs/superpowers/handover-2026-08-29-mcp-oauth.md`)
+is why.
 
 ### 2.3 `mv_price_features` — migration `000130_add_price_features`
 
@@ -183,12 +201,50 @@ sweep), plus one extra schedule `0 15 * * *` UTC with `args_override =
 ["picks", "-mode", "fundamentals"]`. `secret_env = { DATABASE_URL }`.
 Register in `cmd/shorted/main.go`, document in `services/jobs/README.md`.
 
-### 2.7 Upstream fundamentals source
+### 2.7 Upstream fundamentals source (probe 2026-09-27, report in the session scratchpad `fundamentals-sources.md`)
 
-Filled from the data-source probe (scratchpad `fundamentals-sources.md`), see
-§7 for the outcome. The job's fetcher is behind a small interface
-(`Fetcher.Fundamentals(ctx, code) ([]PeriodRow, error)`) so the provider can be
-swapped; the first provider is the one the probe validated.
+Primary: **Yahoo fundamentals-timeseries**, the same host and the same
+`pkg/stealthhttp` client the price sweep already uses (plain curl is 429'd on
+every Yahoo endpoint; the stealth client gets 200 everywhere; this endpoint needs
+no cookie or crumb). One GET per code:
+
+```
+GET https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/{CODE}.AX
+  ?type=annualTotalRevenue,annualNetIncomeCommonStockholders,annualDilutedEPS,annualBasicEPS,
+        annualOperatingCashFlow,annualFreeCashFlow,annualOrdinarySharesNumber,
+        trailingTotalRevenue,trailingNetIncomeCommonStockholders,trailingDilutedEPS,
+        trailingOperatingCashFlow,trailingFreeCashFlow
+  &period1=1262304000&period2=<now + 1 year, unix seconds>
+```
+
+What it holds for ASX: 4 fiscal years of annual rows (revenue, net income, EPS,
+OCF, FCF, shares), TTM EPS at every half-year, TTM revenue / profit / cash flow
+as the latest one or two points. Quarterly series are EMPTY for ASX. Values are
+in the REPORTING currency (BHP is USD) and each point carries `currencyCode`:
+store it, compute growth only within a series. Annual rows lag 4-8+ weeks for
+small caps after a filing. Pace: 4s between requests like the sweep (a full
+2,300-code pass is ~2.6h, hence the per-run cap and stalest-first order).
+
+Fallback: **ASX / Markit key statistics**
+(`https://asx.api.markitdigital.com/asx-research/1.0/companies/{CODE}/key-statistics`,
+plain HTTPS works, no bot wall observed): 4 annual revenue / profit rows, TTM EPS,
+share count, TTM cash flow; fresher than Yahoo for small caps. Parsing quirks:
+period-end dates are Excel serial numbers, missing values are `-32768`, ratios
+use `-99999.99` for "not meaningful"; treat both sentinels as NULL. Use it when
+Yahoo fails for a code or its latest annual `period_end` is older than Markit's.
+
+Ruled out: legacy `www.asx.com.au/asx/1/...` (retired, 404), Alpha Vantage
+fundamentals (US only), paid vendors (EODHD A$/US$60/mo personal, FMP US$99,
+Twelve Data ~US$229; none free for ASX). Licensing posture is the one already
+accepted for prices and `key_metrics`: unofficial endpoints, we publish derived
+growth figures, not statements. The clean upgrade path later is EODHD with a
+commercial licence or the existing `report-extractor` reading Appendix 4D/4E
+PDFs, and the fetcher interface exists so either can slot in.
+
+Re-pull trigger: `asx_announcements` headlines classified by the regexes in
+`scripts/take-writer/src/results-watch.ts` (`classifyResultsFiling`; never
+`announcement_type`). A code with a 4D/4E in the last 14 days is pulled first
+regardless of its `last_attempt_at`.
 
 ## 3. API layer (stream B)
 
