@@ -222,7 +222,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// constrains them to VISIBILITY_PUBLIC methods.
 	//
 	// OAuth 2.1 resource-server wrapping. A bearer token is OPTIONAL: no
-	// Authorization header still means anonymous access to all 24 tools, which
+	// Authorization header still means anonymous access to all 28 tools, which
 	// is what makes this server adoptable. A token that IS presented is
 	// verified — signature, expiry, and RFC 8707 audience binding to this
 	// deployment's /mcp resource — and its identity attached to the request

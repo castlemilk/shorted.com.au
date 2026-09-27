@@ -3,6 +3,8 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/castlemilk/shorted.com.au/services/pkg/asxcalendar"
 
 	"connectrpc.com/connect"
@@ -527,13 +529,13 @@ type GetPeerComparisonInput struct {
 }
 
 type PeerStockEntry struct {
-	Code          string  `json:"code" jsonschema:"ASX ticker code."`
-	Name          string  `json:"name,omitempty" jsonschema:"Company name."`
-	ShortPercent  float64 `json:"short_percent" jsonschema:"Reported short positions as a percentage of shares on issue, 0-100."`
-	MarketCap     float64 `json:"market_cap" jsonschema:"Market capitalisation in AUD. 0 when unknown."`
-	PERatio       float64 `json:"pe_ratio" jsonschema:"Price-to-earnings ratio. 0 when unknown or not meaningful."`
-	DividendYield float64 `json:"dividend_yield" jsonschema:"Trailing dividend yield, percent. 0 when unknown."`
-	PriceChange1M float64 `json:"price_change_1m" jsonschema:"One-month price change, percent."`
+	Code          string   `json:"code" jsonschema:"ASX ticker code."`
+	Name          string   `json:"name,omitempty" jsonschema:"Company name."`
+	ShortPercent  float64  `json:"short_percent" jsonschema:"Reported short positions as a percentage of shares on issue, 0-100."`
+	MarketCap     *float64 `json:"market_cap,omitempty" jsonschema:"Market capitalisation in AUD."`
+	PERatio       *float64 `json:"pe_ratio,omitempty" jsonschema:"Price-to-earnings ratio."`
+	DividendYield *float64 `json:"dividend_yield,omitempty" jsonschema:"Trailing dividend yield, percent."`
+	PriceChange1M float64  `json:"price_change_1m" jsonschema:"One-month price change, percent."`
 }
 
 type GetPeerComparisonOutput struct {
@@ -548,8 +550,8 @@ const getPeerComparisonDescription = "Compare one ASX stock against other compan
 	"one-month price change. Returns the subject stock with the same metrics so the numbers can be read " +
 	"side by side. Default 5 peers, hard maximum 20. " +
 	"Peers are selected by Shorted's own industry classification, not GICS, and are the nearest neighbours by " +
-	"industry — not a curated or analyst-defined comparable set. Metrics are 0 where unknown, which is common " +
-	"for P/E and dividend yield on small caps; treat 0 as missing, not as a real value. " +
+	"industry — not a curated or analyst-defined comparable set. market_cap, pe_ratio and dividend_yield are " +
+	"absent when unknown, never zero; that is common for P/E and dividend yield on small caps. " +
 	"Short data is ASIC's, published T+4 business days; prices are end-of-day, not live."
 
 func getPeerComparisonTool() Tool {
@@ -623,14 +625,18 @@ func getPeerComparisonHandler(src DataSource) sdk.ToolHandlerFor[GetPeerComparis
 // projectPeer narrows a PeerStock to the published fields. The proto also
 // carries a logo URL, which is a rendering concern with no place in a tool
 // result.
+//
+// Peers are read from mv_screener_data, which COALESCEs a missing market cap,
+// P/E or dividend yield to 0, so 0 is the unknown sentinel on those three and
+// knownFloat makes it an absent field rather than a real-looking zero.
 func projectPeer(p *shortsv1alpha1.PeerStock) *PeerStockEntry {
 	return &PeerStockEntry{
 		Code:          p.GetStockCode(),
 		Name:          p.GetCompanyName(),
 		ShortPercent:  finite(p.GetShortPositionPercent()),
-		MarketCap:     finite(p.GetMarketCap()),
-		PERatio:       finite(p.GetPeRatio()),
-		DividendYield: finite(p.GetDividendYield()),
+		MarketCap:     knownFloat(p.GetMarketCap()),
+		PERatio:       knownFloat(p.GetPeRatio()),
+		DividendYield: knownFloat(p.GetDividendYield()),
 		PriceChange1M: finite(p.GetPriceChange_1M()),
 	}
 }
@@ -765,4 +771,220 @@ func getStockPricesHandler(src DataSource) sdk.ToolHandlerFor[GetStockPricesInpu
 
 		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: summary}}}, out, nil
 	}
+}
+
+// ---------------------------------------------------------------------------
+// get_stock_fundamentals
+// ---------------------------------------------------------------------------
+
+const (
+	defaultFundamentalsLimit = 8
+	// maxFundamentalsLimit is exactly the handler's own ceiling (validated in
+	// fundamentals.go), so a clamp is never an InvalidArgument round trip.
+	// Forty periods is ten years of annual, half and TTM rows together.
+	maxFundamentalsLimit = 40
+)
+
+// validFundamentalsPeriodTypes mirrors shortsstore.FundamentalsPeriodTypes.
+// Validated here so a typo is a message the model can act on rather than an
+// InvalidArgument it has to decode.
+var validFundamentalsPeriodTypes = []string{"annual", "ttm", "half", "quarter"}
+
+type GetStockFundamentalsInput struct {
+	Code       string `json:"code" jsonschema:"ASX ticker code, e.g. BHP."`
+	PeriodType string `json:"period_type,omitempty" jsonschema:"annual, ttm, half or quarter. Omit for all."`
+	Limit      int    `json:"limit,omitempty" jsonschema:"1-40, default 8."`
+}
+
+// FundamentalsPeriodRow is one reported period. Every figure is a pointer that
+// is absent when the filing did not report it: proto3 cannot tell 0 from
+// missing, which is why the RPC carries has_* flags, and this is where they
+// are honoured.
+type FundamentalsPeriodRow struct {
+	PeriodType        string   `json:"period_type"`
+	PeriodEnd         string   `json:"period_end"`
+	FiscalYear        int      `json:"fiscal_year,omitempty"`
+	Currency          string   `json:"currency,omitempty" jsonschema:"Only where it differs from the result's."`
+	Revenue           *float64 `json:"revenue,omitempty"`
+	NetIncome         *float64 `json:"net_income,omitempty"`
+	EPSDiluted        *float64 `json:"eps_diluted,omitempty"`
+	EPSBasic          *float64 `json:"eps_basic,omitempty"`
+	OperatingCashFlow *float64 `json:"operating_cash_flow,omitempty"`
+	FreeCashFlow      *float64 `json:"free_cash_flow,omitempty"`
+	SharesOutstanding *float64 `json:"shares_outstanding,omitempty"`
+	Source            string   `json:"source,omitempty"`
+}
+
+type FundamentalsGrowthSummary struct {
+	BasisPeriodType    string   `json:"basis_period_type,omitempty" jsonschema:"Series EPS growth uses: ttm or annual."`
+	LatestPeriodEnd    string   `json:"latest_period_end,omitempty"`
+	RevenueYoYPct      *float64 `json:"revenue_yoy_pct,omitempty" jsonschema:"Annual on annual."`
+	EPSYoYPct          *float64 `json:"eps_yoy_pct,omitempty"`
+	RevenueYoYPriorPct *float64 `json:"revenue_yoy_prior_pct,omitempty" jsonschema:"The same growth a period earlier, for acceleration."`
+	EPSYoYPriorPct     *float64 `json:"eps_yoy_prior_pct,omitempty"`
+	NetIncomePositive  bool     `json:"net_income_positive" jsonschema:"Latest annual. False also when unknown."`
+	PeriodsAvailable   int      `json:"periods_available"`
+	RevenueTTM         *float64 `json:"revenue_ttm,omitempty"`
+	NetIncomeTTM       *float64 `json:"net_income_ttm,omitempty"`
+	EPSTTM             *float64 `json:"eps_ttm,omitempty"`
+}
+
+type GetStockFundamentalsOutput struct {
+	Code     string                     `json:"code"`
+	Currency string                     `json:"currency,omitempty" jsonschema:"Reporting currency of every figure. Not always AUD."`
+	Count    int                        `json:"count"`
+	Periods  []FundamentalsPeriodRow    `json:"periods" jsonschema:"Newest first."`
+	Growth   *FundamentalsGrowthSummary `json:"growth,omitempty"`
+}
+
+const getStockFundamentalsDescription = "Reported financial statements for one ASX-listed company, per period, newest " +
+	"first: revenue, net income, diluted and basic EPS, operating and free cash flow and shares outstanding for annual, " +
+	"half-year, quarterly and trailing-twelve-month (ttm) periods, plus revenue and EPS growth year on year and the same " +
+	"growth a period earlier, to show acceleration. Figures are in the company's REPORTING currency (whole units, EPS " +
+	"per share), which is not always AUD: BHP reports in USD. Growth compares the same series a year apart (annual on " +
+	"annual, ttm on ttm). A figure not reported is absent, never zero. ASX companies report half-yearly, so quarterly is " +
+	"usually empty. Company-filed statement data via a market data provider, not estimates or financial advice; small " +
+	"caps can lag their filing by weeks. No price or short data: use get_stock_prices and get_stock."
+
+func getStockFundamentalsTool() Tool {
+	tool := Tool{
+		Name:        "get_stock_fundamentals",
+		Title:       "Get a company's reported fundamentals",
+		Description: getStockFundamentalsDescription,
+		RPC:         "shorts.v1alpha1.StockService.GetStockFundamentals",
+		Domain:      "stock",
+	}
+	tool.register = func(server *sdk.Server, src DataSource) {
+		sdk.AddTool(server, tool.spec(), getStockFundamentalsHandler(src))
+	}
+	return tool
+}
+
+func getStockFundamentalsHandler(src DataSource) sdk.ToolHandlerFor[GetStockFundamentalsInput, GetStockFundamentalsOutput] {
+	return func(ctx context.Context, _ *sdk.CallToolRequest, in GetStockFundamentalsInput) (*sdk.CallToolResult, GetStockFundamentalsOutput, error) {
+		code, err := normaliseCode(in.Code)
+		if err != nil {
+			return nil, GetStockFundamentalsOutput{}, err
+		}
+		periodType := strings.ToLower(strings.TrimSpace(in.PeriodType))
+		if periodType != "" && !contains(validFundamentalsPeriodTypes, periodType) {
+			return nil, GetStockFundamentalsOutput{}, fmt.Errorf(
+				"%q is not a period type: use one of %s, or omit it for every type",
+				in.PeriodType, strings.Join(validFundamentalsPeriodTypes, ", "))
+		}
+		limit := clampLimit(in.Limit, defaultFundamentalsLimit, maxFundamentalsLimit)
+
+		res, err := src.GetStockFundamentals(ctx, connect.NewRequest(&shortsv1alpha1.GetStockFundamentalsRequest{
+			StockCode:  code,
+			PeriodType: periodType,
+			Limit:      limit,
+		}))
+		if err != nil {
+			if connect.CodeOf(err) == connect.CodeNotFound {
+				return nil, GetStockFundamentalsOutput{}, fmt.Errorf(
+					"no ASX stock found with code %s — check the ticker, or use search_stocks to find it by company name", code)
+			}
+			return nil, GetStockFundamentalsOutput{}, fmt.Errorf("could not get fundamentals for %s: %w", code, err)
+		}
+		if res == nil || res.Msg == nil {
+			return nil, GetStockFundamentalsOutput{}, fmt.Errorf("no data returned for %s", code)
+		}
+
+		msg := res.Msg
+		out := GetStockFundamentalsOutput{
+			Code:    nonEmpty(msg.GetStockCode(), code),
+			Periods: []FundamentalsPeriodRow{},
+		}
+		// One currency for the whole result, taken from the newest period
+		// that states one. A company that changed reporting currency keeps a
+		// per-row currency on the periods that differ, so an old USD year can
+		// never be read as AUD.
+		for _, p := range msg.GetPeriods() {
+			if c := strings.TrimSpace(p.GetCurrency()); c != "" {
+				out.Currency = c
+				break
+			}
+		}
+		for _, p := range msg.GetPeriods() {
+			if p == nil {
+				continue
+			}
+			row := FundamentalsPeriodRow{
+				PeriodType:        p.GetPeriodType(),
+				PeriodEnd:         p.GetPeriodEnd(),
+				FiscalYear:        int(p.GetFiscalYear()),
+				Revenue:           optionalFloat(p.GetRevenue(), p.GetHasRevenue()),
+				NetIncome:         optionalFloat(p.GetNetIncome(), p.GetHasNetIncome()),
+				EPSDiluted:        optionalFloat(p.GetEpsDiluted(), p.GetHasEpsDiluted()),
+				EPSBasic:          optionalFloat(p.GetEpsBasic(), p.GetHasEpsBasic()),
+				OperatingCashFlow: optionalFloat(p.GetOperatingCashFlow(), p.GetHasOperatingCashFlow()),
+				FreeCashFlow:      optionalFloat(p.GetFreeCashFlow(), p.GetHasFreeCashFlow()),
+				SharesOutstanding: optionalFloat(p.GetSharesOutstanding(), p.GetHasSharesOutstanding()),
+				Source:            p.GetSource(),
+			}
+			if c := strings.TrimSpace(p.GetCurrency()); c != "" && c != out.Currency {
+				row.Currency = c
+			}
+			out.Periods = append(out.Periods, row)
+			if len(out.Periods) == int(limit) {
+				break
+			}
+		}
+		out.Count = len(out.Periods)
+
+		if g := msg.GetGrowth(); msg.GetHasGrowth() && g != nil {
+			out.Growth = &FundamentalsGrowthSummary{
+				BasisPeriodType:    g.GetBasisPeriodType(),
+				LatestPeriodEnd:    g.GetLatestPeriodEnd(),
+				RevenueYoYPct:      roundedOptional(g.GetRevenueYoyPct(), g.GetHasRevenueYoy()),
+				EPSYoYPct:          roundedOptional(g.GetEpsYoyPct(), g.GetHasEpsYoy()),
+				RevenueYoYPriorPct: roundedOptional(g.GetRevenueYoyPriorPct(), g.GetHasRevenueYoyPrior()),
+				EPSYoYPriorPct:     roundedOptional(g.GetEpsYoyPriorPct(), g.GetHasEpsYoyPrior()),
+				NetIncomePositive:  g.GetNetIncomePositive(),
+				PeriodsAvailable:   int(g.GetPeriodsAvailable()),
+				RevenueTTM:         optionalFloat(g.GetRevenueTtm(), g.GetHasRevenueTtm()),
+				NetIncomeTTM:       optionalFloat(g.GetNetIncomeTtm(), g.GetHasNetIncomeTtm()),
+				EPSTTM:             optionalFloat(g.GetEpsTtm(), g.GetHasEpsTtm()),
+			}
+		}
+
+		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: describeFundamentals(out, periodType)}}}, out, nil
+	}
+}
+
+func describeFundamentals(out GetStockFundamentalsOutput, periodType string) string {
+	if out.Count == 0 && out.Growth == nil {
+		s := "No reported fundamentals are held for " + out.Code
+		if periodType != "" {
+			s += " with period type " + periodType
+			if periodType == "quarter" {
+				s += " (ASX companies report half-yearly, so quarterly periods are usually empty; try half or ttm)"
+			}
+		}
+		return s + " yet. Coverage is still being filled in; this does not mean the company reported nothing."
+	}
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("%s: %d reported periods", out.Code, out.Count))
+	if out.Count > 0 {
+		latest := out.Periods[0]
+		b.WriteString(fmt.Sprintf(", latest %s to %s", latest.PeriodType, latest.PeriodEnd))
+	}
+	if out.Currency != "" {
+		b.WriteString(", in " + out.Currency)
+	}
+	b.WriteString(".")
+	if g := out.Growth; g != nil {
+		if g.RevenueYoYPct != nil {
+			b.WriteString(fmt.Sprintf(" Revenue %+.1f%% year on year.", *g.RevenueYoYPct))
+		}
+		if g.EPSYoYPct != nil {
+			b.WriteString(fmt.Sprintf(" EPS %+.1f%% year on year (%s).", *g.EPSYoYPct, nonEmpty(g.BasisPeriodType, "annual")))
+		}
+		if g.RevenueYoYPct == nil && g.EPSYoYPct == nil {
+			b.WriteString(" Not enough comparable periods for year-on-year growth.")
+		}
+	}
+	b.WriteString(" Company-filed figures in the reporting currency; absent means not reported. Not financial advice.")
+	return b.String()
 }

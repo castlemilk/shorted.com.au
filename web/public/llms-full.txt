@@ -134,7 +134,7 @@ The daily report published by ASIC contains:
 - [OpenAPI 3.1 description](https://shorted.com.au/openapi.json): Machine-readable description of every public endpoint. YAML twin at [/openapi.yaml](https://shorted.com.au/openapi.yaml).
 - [API reference (markdown)](https://shorted.com.au/docs/api.md): JavaScript-free reference with worked curl examples.
 - [API catalog (RFC 9727)](https://shorted.com.au/.well-known/api-catalog): Link set pointing at everything on this list.
-- [MCP server](https://api.shorted.com.au/mcp): Model Context Protocol endpoint (streamable HTTP, protocol 2026-07-28, 24 read-only tools), described by [/.well-known/mcp/server-card.json](https://shorted.com.au/.well-known/mcp/server-card.json).
+- [MCP server](https://api.shorted.com.au/mcp): Model Context Protocol endpoint (streamable HTTP, protocol 2026-07-28, 28 read-only tools), described by [/.well-known/mcp/server-card.json](https://shorted.com.au/.well-known/mcp/server-card.json).
 
 The API is not limited to short positions. It also covers Australian house
 prices and per-suburb metrics, ABS/RBA economic series by state, and the federal

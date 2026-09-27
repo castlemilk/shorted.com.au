@@ -96,7 +96,7 @@ func dedupe(in []string) []string {
 
 // The tools/list response is preamble: every client pays it, in full, at the
 // start of every session, before the user has asked anything. It was 23.4KB at
-// 9 tools, 46KB at 14, and 72KB at the full 24.
+// 9 tools, 46KB at 14, 72KB at 24, 75.8KB at 25 and 84.0KB at 28.
 //
 // The ceiling was raised from 64KB (set when there were 14 tools) after the
 // surface was measured at ~3.0KB per tool. Getting 24 tools under 64KB was
@@ -104,6 +104,20 @@ func dedupe(in []string) []string {
 // the coverage lists that stop an empty register reading as "this member
 // declared nothing", and the per-series source/licence that carries the CC-BY
 // credit we are obliged to pass on. Losing those is worse than the bytes.
+//
+// It was raised again from 76KB to 88KB for the stock picker's three tools —
+// list_strategies, get_strategy_picks and get_stock_fundamentals — which took
+// tools/list from 77,571 bytes (253 under the old ceiling) to 86,030. They were
+// trimmed first, from 10,328 bytes to 8,617 (2.9KB per tool, under the 3.1KB
+// surface average): int32 fields became int (jsonschema-go emits a 45-byte
+// min/max pair for every int32), and field descriptions that restated the tool
+// description or the field name went. What is left is load-bearing: the four
+// strategy ids a model must type, "absent when unknown, never zero", the
+// reporting-currency warning (BHP reports in USD, and a USD revenue figure
+// read as AUD understates it by about a third), and "false also when unknown" on
+// the one boolean that cannot carry absence. Fitting 28 tools under 76KB would
+// have meant deleting ~10KB of exactly that kind of prose from tools that
+// already exist.
 //
 // WHEN THIS FAILS, THE LEVER IS FEWER FIELDS AND FEWER FIELD DESCRIPTIONS.
 // It is NOT flattening or type reuse, and this is counter-intuitive enough to
@@ -120,7 +134,7 @@ func dedupe(in []string) []string {
 // LLM-provenance label, is not on the table — those are what make tool
 // selection and honest citation work.
 func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
-	const budget = 76 * 1024
+	const budget = 88 * 1024
 
 	ctx := context.Background()
 	server := NewServer(&fakeDataSource{})

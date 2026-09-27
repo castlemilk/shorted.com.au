@@ -10,6 +10,7 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -208,10 +209,122 @@ func realisticSource() *fakeDataSource {
 	}
 
 	realisticDiscoverySource(src)
+	realisticStrategySource(src)
 	realisticHousingSource(src)
 	realisticEconomySource(src)
 	realisticPoliticsSource(src)
 	return src
+}
+
+// realisticStrategySource fills the strategy and fundamentals fixtures at each
+// tool's CEILING rather than its default, because both have a worst case one
+// ordinary call can reach:
+//
+//   - list_strategies from the REAL registry, so a strategy gaining a rule or
+//     a longer tagline is measured here without anyone remembering to.
+//   - get_strategy_picks at 25 picks of the widest strategy (7 rules), every
+//     pick a watch-status row that passes ONE rule and fails or cannot
+//     evaluate the rest, each with an evidence sentence over the truncation
+//     limit. That is the row the evidence allowance exists for; a triggered
+//     row fails at most one or two rules and costs far less.
+//   - get_stock_fundamentals at 40 periods with every figure reported.
+func realisticStrategySource(src *fakeDataSource) {
+	regime := &shortsv1alpha1.MarketRegime{
+		IndexCode: "XJO", AsOf: "2026-09-25", Regime: "downtrend",
+		Close: 8_123.45, Sma50: 8_234.56, Sma200: 8_345.67, PctOff_52WHigh: -7.1234,
+		Verdict: "Stand aside: XJO is below its 200-day average. Breakouts fail more often in a falling market, " +
+			"so no stock can trigger until the trend turns.",
+	}
+
+	registry := strategies.Registry()
+	list := make([]*shortsv1alpha1.Strategy, 0, len(registry))
+	widest := registry[0]
+	for _, st := range registry {
+		if len(st.Rules) > len(widest.Rules) {
+			widest = st
+		}
+		list = append(list, strategyFixture(st))
+	}
+	src.strategies = &shortsv1alpha1.ListStrategiesResponse{Strategies: list, Regime: regime}
+
+	evidence := "Close A$12.34, 150-day A$13.45, 200-day A$14.56: close is not above the 150-day; " +
+		"150-day is not above the 200-day, and the 200-day has fallen for a month"
+	picks := make([]*shortsv1alpha1.StrategyPick, 0, maxStrategyPicksLimit)
+	for i := 0; i < maxStrategyPicksLimit; i++ {
+		rules := make([]*shortsv1alpha1.RuleResult, 0, len(widest.Rules))
+		for j, r := range widest.Rules {
+			status := "fail"
+			switch {
+			case j == len(widest.Rules)-1:
+				status = "pass"
+			case j == 0:
+				status = "unknown"
+			}
+			rules = append(rules, &shortsv1alpha1.RuleResult{
+				RuleId: r.ID, Status: status, Detail: evidence, Value: 12.3456, HasValue: true,
+			})
+		}
+		picks = append(picks, &shortsv1alpha1.StrategyPick{
+			Rank: int32(i + 1), StockCode: fmt.Sprintf("PK%02d", i), CompanyName: "PILBARA MINERALS LIMITED",
+			Industry: "Metals & Mining", Status: "watch", Score: 41.2345, Rules: rules,
+			Close: 12.3456, AsOf: "2026-09-25", PctOff_52WHigh: -31.2345, VolumeRatio_50D: 1.8765,
+			BaseDepthPct: 18.7654, BaseLengthDays: 87, Pivot: 14.5678,
+			RevenueYoyPct: 41.2345, HasRevenueYoy: true, EpsYoyPct: -12.3456, HasEpsYoy: true,
+			Rs_3MPct: -8.7654, ShortPct: 6.5432, MarketCap: 7_123_456_789,
+			LogoUrl: "https://storage.googleapis.com/shorted/logos/pls.png",
+		})
+	}
+	src.strategyPicks = &shortsv1alpha1.GetStrategyPicksResponse{
+		Strategy: strategyFixture(widest), Regime: regime, Picks: picks,
+		TotalCount: 212, UniverseCount: 1_234, FundamentalsCoverageCount: 987, AsOf: "2026-09-25",
+	}
+
+	periods := make([]*shortsv1alpha1.FundamentalsPeriod, 0, maxFundamentalsLimit)
+	types := []string{"annual", "half", "ttm"}
+	for i := 0; i < maxFundamentalsLimit; i++ {
+		periods = append(periods, &shortsv1alpha1.FundamentalsPeriod{
+			PeriodType: types[i%3], PeriodEnd: fmt.Sprintf("20%02d-06-30", 26-i/3), FiscalYear: int32(2026 - i/3),
+			Currency: "USD", Source: "yahoo-timeseries", FetchedAt: "2026-09-26T08:12:34Z",
+			Revenue: 55_658_123_456.78, HasRevenue: true, NetIncome: -12_345_678_901.23, HasNetIncome: true,
+			EpsBasic: 1.234567, HasEpsBasic: true, EpsDiluted: 1.223456, HasEpsDiluted: true,
+			OperatingCashFlow: 18_765_432_109.87, HasOperatingCashFlow: true,
+			FreeCashFlow: 9_876_543_210.98, HasFreeCashFlow: true,
+			SharesOutstanding: 5_071_234_567, HasSharesOutstanding: true,
+		})
+	}
+	src.fundamentals = &shortsv1alpha1.GetStockFundamentalsResponse{
+		StockCode: "BHP", Periods: periods, HasGrowth: true,
+		Growth: &shortsv1alpha1.FundamentalsGrowth{
+			BasisPeriodType: "ttm", LatestPeriodEnd: "2026-06-30",
+			RevenueYoyPct: 41.2345, HasRevenueYoy: true, RevenueYoyPriorPct: 12.3456, HasRevenueYoyPrior: true,
+			EpsYoyPct: 55.4321, HasEpsYoy: true, EpsYoyPriorPct: 20.9876, HasEpsYoyPrior: true,
+			NetIncomePositive: true, PeriodsAvailable: 40,
+			RevenueTtm: 55_658_123_456.78, HasRevenueTtm: true, NetIncomeTtm: 12_345_678_901.23, HasNetIncomeTtm: true,
+			EpsTtm: 2.345678, HasEpsTtm: true,
+		},
+	}
+}
+
+// strategyFixture renders a registry strategy the way the handler does, prose
+// and all, so the list fixture costs what production costs.
+func strategyFixture(st strategies.Strategy) *shortsv1alpha1.Strategy {
+	rules := make([]*shortsv1alpha1.StrategyRule, 0, len(st.Rules))
+	for _, r := range st.Rules {
+		rules = append(rules, &shortsv1alpha1.StrategyRule{
+			Id: r.ID, Title: r.Title, RuleText: r.RuleText, Evaluation: r.Evaluation,
+			Core: r.Core, DataSource: r.DataSource,
+		})
+	}
+	return &shortsv1alpha1.Strategy{
+		Id: st.ID, Name: st.Name, Author: st.Author, Tagline: st.Tagline,
+		DescriptionParagraphs: st.Description, Rules: rules,
+		Metadata: &shortsv1alpha1.StrategyMetadata{
+			Style: st.Metadata.Style, HoldingPeriod: st.Metadata.HoldingPeriod,
+			RiskPosture: st.Metadata.RiskPosture, Universe: st.Metadata.Universe,
+			RefreshCadence: st.Metadata.RefreshCadence, RuleCount: int32(len(st.Rules)),
+		},
+		Caveats: st.Caveats, Sources: st.Sources,
+	}
 }
 
 // realisticPoliticsSource fills the register fixtures at each tool's worst

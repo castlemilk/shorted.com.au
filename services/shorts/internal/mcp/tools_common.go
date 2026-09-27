@@ -279,6 +279,56 @@ func finite(v float64) float64 {
 	return v
 }
 
+// optionalFloat is the projection for a proto double gated by a has_* flag:
+// nil (and so absent from the result, via omitempty) when the flag is false or
+// the value is non-finite. A pointer rather than a float64 with omitempty,
+// because on these fields zero is a real measurement — flat EPS growth is
+// 0.0%, not "unknown" — and omitempty on a float64 would drop it.
+func optionalFloat(v float64, has bool) *float64 {
+	if !has || math.IsInf(v, 0) || math.IsNaN(v) {
+		return nil
+	}
+	return &v
+}
+
+// knownFloat is the projection for a proto double whose source uses 0 as its
+// "unknown" sentinel — mv_screener_data COALESCEs a missing P/E, dividend
+// yield, market cap, price or days-to-cover to 0, and the strategy handler
+// dereferences a NULL feature to 0. Emitting that 0 is how a model came to
+// read "a P/E of zero"; nil makes the field absent instead, which is what the
+// descriptions promise. Non-finite values are unknown too (see finite).
+func knownFloat(v float64) *float64 {
+	if v == 0 || math.IsInf(v, 0) || math.IsNaN(v) {
+		return nil
+	}
+	return &v
+}
+
+// knownRounded is knownFloat after rounding to two decimal places, for ratios
+// and percentages whose extra digits are noise and bytes.
+func knownRounded(v float64) *float64 {
+	if p := knownFloat(v); p != nil {
+		// A known value too small to survive the rounding keeps its raw
+		// digits: emitting 0 would be the very sentinel this avoids.
+		if r := math.Round(*p*100) / 100; r != 0 {
+			return &r
+		}
+		return p
+	}
+	return nil
+}
+
+// roundedOptional is optionalFloat after the same two-decimal rounding. Zero
+// is a legitimate value here (the has_* flag says it was measured), so unlike
+// knownRounded it may round to 0.
+func roundedOptional(v float64, has bool) *float64 {
+	if p := optionalFloat(v, has); p != nil {
+		r := math.Round(*p*100) / 100
+		return &r
+	}
+	return nil
+}
+
 // fromFloat32 widens a float32 proto field to float64 without dragging the
 // binary32 representation error into the JSON. A plain float64(x) turns a
 // stored 19.43 into 19.430000305175781, which is both wrong-looking to a reader

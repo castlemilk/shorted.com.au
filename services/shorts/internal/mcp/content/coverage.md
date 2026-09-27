@@ -22,6 +22,19 @@ labour force, trade, state final demand, petroleum, government finance,
 building approvals, retail, population — plus operations-weighted
 company-to-state exposure aggregates.
 
+**Strategy picks and fundamentals.** Four named stock-picking strategies
+(Zanger Breakout, CAN SLIM, Minervini Trend Template and a house Crowded-Short
+Breakout) evaluated daily over end-of-day prices, reported fundamentals and ASIC
+short interest, each stock getting a pass, fail or unknown on every rule, plus
+the S&P/ASX 200 market regime. The fundamentals behind them are company-filed
+statement figures (revenue, earnings, EPS, cash flow, shares) collected through
+a market data provider, in each company's **reporting currency** — not always
+AUD — with a figure the filing did not report left absent rather than zero.
+ASX companies report half-yearly, so quarterly periods are usually empty, and
+fundamentals do not yet cover every stock: where they are missing, growth rules
+read unknown and those stocks cannot trigger. This is a rules-based screen, not
+a recommendation.
+
 **Politicians.** The federal Registers of Members' and Senators' Interests,
 parsed into structured facts: which politician declared which asset class,
 which listed company, which suburb, in which parliament.
@@ -59,6 +72,8 @@ absent politician-to-company link means "not confidently resolved", not
 |---|---|---|
 | Short positions | daily | T+4 trading days |
 | Prices, news, director trades | daily | same day to a few days |
+| Strategy picks | daily, after the evening price sweep | end of day |
+| Company fundamentals | as companies file (half-yearly for most ASX stocks) | days to weeks after filing |
 | Reports | weekly, monthly, yearly | published after period close |
 | House prices, economic series | monthly or quarterly, per source | weeks to a quarter, set by ABS/RBA |
 | Register of interests | per parliamentary update | days after publication |

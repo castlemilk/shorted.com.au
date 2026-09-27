@@ -85,7 +85,7 @@ Shorted.com.au is a platform for tracking short selling positions in the Austral
 | ---------------- | ---- | -------------------------------- | ---------------------------------------------- |
 | Frontend         | 3020 | `web/`                           | Next.js app with dashboard, stock pages        |
 | Shorts API       | 9091 | `services/shorts/`               | Main API for short position data               |
-| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 25 read-only tools + OAuth 2.1 (same process as the Shorts API) |
+| MCP server       | 9091 | `services/shorts/internal/mcp/`  | `/mcp` — 28 read-only tools + OAuth 2.1 (same process as the Shorts API) |
 | Market Data      | 8090 | `services/market-data/`          | Historical stock prices                        |
 | Chat Service     | -    | `services/chat-service/`         | AI chat with Gemini LLM + 8 API tools          |
 | News Aggregator  | -    | `services/news-aggregator/`      | RSS news aggregation + Gemini sentiment        |
@@ -665,11 +665,11 @@ must never fire from a deploy). `make register-photos` / `register-index`.
   the new row by name mints duplicates. The crawl is incremental (re-queue when the listing
   date ≥ fetch date). Runbook: operations.md "Re-crawling prod".
 
-## MCP server — OAuth 2.1, 25 tools, protocol `2026-07-28`
+## MCP server — OAuth 2.1, 28 tools, protocol `2026-07-28`
 
 `https://api.shorted.com.au/mcp` — read-only Model Context Protocol access to
 everything above: short positions, stocks, housing, economy, the register of
-interests. **LIVE on prod**, streamable HTTP, 25 tools, 3 resources, 3 prompts.
+interests. **LIVE on prod**, streamable HTTP, 28 tools, 3 resources, 3 prompts.
 Go SDK (`modelcontextprotocol/go-sdk`), served by the shorts API.
 
 **The product promise, and the constraint every change here answers to:** a user
@@ -688,7 +688,7 @@ Next.js contributes only the consent screen.
 
 | File | Purpose |
 |------|---------|
-| `services/shorts/internal/mcp/` | Server, registry, 25 tools, catalog, resources, prompts |
+| `services/shorts/internal/mcp/` | Server, registry, 28 tools, catalog, resources, prompts |
 | `services/shorts/internal/mcp/auth.go` | Audience-bound verification, RFC 9728 metadata, `OptionalBearerToken` |
 | `services/shorts/internal/mcp/ratelimit.go` | Per-tool-call cost, identity, JSON-RPC 429 |
 | `services/shorts/internal/oauth/` | AS metadata, consent tickets, grant, token, CIMD + DCR |
@@ -736,7 +736,7 @@ Next.js contributes only the consent screen.
   caller at their ceiling gets a plain 429: they have already done what a
   challenge asks, and what they need is `upgrade_url`. Do NOT "fix" adoption by
   gating anonymous access. (Before this, OAuth was live but fully dormant —
-  measured 2026-08-30, a real client connected, got 24 tools (25 today), stored no auth
+  measured 2026-08-30, a real client connected, got 24 tools (28 today), stored no auth
   state and never started the flow.)
 - **`RATE_LIMIT_ENABLED` is now TRUE in prod (Terraform, `shorts-api` module).**
   It was off everywhere until the app layer could tell our own traffic apart:
@@ -824,7 +824,7 @@ Next.js contributes only the consent screen.
   **Postgres accepts `-NaN`/`+NaN` where Go's `ParseFloat` does not**, so that
   guard cannot lean on `ParseFloat` alone.
 - **The MCP SDK emits no `$defs`/`$ref`** — every nested struct is inlined at
-  every use site. `tools/list` is ~74KB for 25 tools, paid every session; the
+  every use site. `tools/list` is ~84KB for 28 tools, paid every session; the
   lever is fewer fields and fewer redundant descriptions, never flattening.
 - **The SDK exports no setter for `TokenInfo` in a context.** A test wanting an
   authenticated request must drive `auth.RequireBearerToken` — which is

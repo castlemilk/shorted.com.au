@@ -19,12 +19,16 @@ it will discover the flow, open a browser once, and come back authorised.
 
 ## What it covers
 
-Twenty-four read-only tools across four domains:
+Twenty-eight read-only tools across four domains:
 
 - **Market and stocks** — ASIC short positions for ASX-listed securities,
   rankings, industry treemaps, squeeze candidates, price and short-interest
   history, director trades, peer comparison, search, a screener, per-stock news,
-  and published weekly/monthly/yearly reports.
+  and published weekly/monthly/yearly reports. Also named stock-picking
+  strategies (`list_strategies`, `get_strategy_picks`: Zanger Breakout, CAN
+  SLIM, Minervini Trend Template and a crowded-short breakout, each stock
+  scored pass/fail/unknown rule by rule) and company-filed fundamentals
+  (`get_stock_fundamentals`, in each company's reporting currency).
 - **Housing** — official ABS/RBA house-price series, per-suburb profiles with
   Census and electoral overlays, and derived price-drop aggregates.
 - **Economy** — the ABS/RBA economic-series layer (CPI, labour, trade, state

@@ -7,6 +7,7 @@ import (
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"google.golang.org/protobuf/proto"
 )
 
 // fakeDataSource is the test double every tool test drives.
@@ -33,6 +34,9 @@ type fakeDataSource struct {
 	gotStockDetails   *shortsv1alpha1.GetStockDetailsRequest
 	gotDirectorTrades *shortsv1alpha1.GetDirectorTradesRequest
 	gotPeerComparison *shortsv1alpha1.GetPeerComparisonRequest
+	gotFundamentals   *shortsv1alpha1.GetStockFundamentalsRequest
+	gotStrategies     *shortsv1alpha1.ListStrategiesRequest
+	gotStrategyPicks  *shortsv1alpha1.GetStrategyPicksRequest
 	gotSearchStocks   *shortsv1alpha1.SearchStocksRequest
 	gotScreenStocks   *shortsv1alpha1.ScreenStocksRequest
 	gotStockNews      *shortsv1alpha1.GetStockNewsRequest
@@ -63,6 +67,9 @@ type fakeDataSource struct {
 	stockDetails   *stocksv1alpha1.StockDetails
 	directorTrades *shortsv1alpha1.GetDirectorTradesResponse
 	peerComparison *shortsv1alpha1.GetPeerComparisonResponse
+	fundamentals   *shortsv1alpha1.GetStockFundamentalsResponse
+	strategies     *shortsv1alpha1.ListStrategiesResponse
+	strategyPicks  *shortsv1alpha1.GetStrategyPicksResponse
 	searchStocks   *shortsv1alpha1.SearchStocksResponse
 	screenStocks   *shortsv1alpha1.ScreenStocksResponse
 	stockNews      *shortsv1alpha1.GetStockNewsResponse
@@ -224,6 +231,42 @@ func (f *fakeDataSource) GetPeerComparison(_ context.Context, req *connect.Reque
 		return nil, f.err
 	}
 	return connect.NewResponse(f.peerComparison), nil
+}
+
+func (f *fakeDataSource) GetStockFundamentals(_ context.Context, req *connect.Request[shortsv1alpha1.GetStockFundamentalsRequest]) (*connect.Response[shortsv1alpha1.GetStockFundamentalsResponse], error) {
+	f.gotFundamentals = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.fundamentals), nil
+}
+
+func (f *fakeDataSource) ListStrategies(_ context.Context, req *connect.Request[shortsv1alpha1.ListStrategiesRequest]) (*connect.Response[shortsv1alpha1.ListStrategiesResponse], error) {
+	f.gotStrategies = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.strategies), nil
+}
+
+// GetStrategyPicks honours the request's limit, as the server does: the tool
+// asks for the page it will publish, and a fake that returned every canned
+// pick regardless would let the payload budget measure a result no client can
+// receive.
+func (f *fakeDataSource) GetStrategyPicks(_ context.Context, req *connect.Request[shortsv1alpha1.GetStrategyPicksRequest]) (*connect.Response[shortsv1alpha1.GetStrategyPicksResponse], error) {
+	f.gotStrategyPicks = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.strategyPicks == nil {
+		return connect.NewResponse(f.strategyPicks), nil
+	}
+	if limit := int(req.Msg.GetLimit()); limit > 0 && len(f.strategyPicks.Picks) > limit {
+		out := proto.Clone(f.strategyPicks).(*shortsv1alpha1.GetStrategyPicksResponse)
+		out.Picks = out.Picks[:limit]
+		return connect.NewResponse(out), nil
+	}
+	return connect.NewResponse(f.strategyPicks), nil
 }
 
 func (f *fakeDataSource) SearchStocks(_ context.Context, req *connect.Request[shortsv1alpha1.SearchStocksRequest]) (*connect.Response[shortsv1alpha1.SearchStocksResponse], error) {

@@ -54,10 +54,14 @@ func Registry() []Tool {
 		getStockDetailsTool(),
 		getDirectorTradesTool(),
 		getPeerComparisonTool(),
+		getStockFundamentalsTool(),
 
-		// Discovery — finding stocks by name, or by criteria.
+		// Discovery — finding stocks by name, by criteria, or by a named
+		// strategy's rules. See tools_strategies.go.
 		searchStocksTool(),
 		screenStocksTool(),
+		listStrategiesTool(),
+		getStrategyPicksTool(),
 
 		// News and reports.
 		getStockNewsTool(),
