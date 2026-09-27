@@ -39,9 +39,13 @@ type RunReport struct {
 	Duration    string   `json:"duration"`
 	Error       string   `json:"error,omitempty"`
 
-	Stocks   int `json:"stocks"`
-	Synced   int `json:"synced"`
-	UpToDate int `json:"up_to_date"`
+	Stocks int `json:"stocks"`
+	// BeyondListing: how many of the stocks neither the ASX company listing nor
+	// the top shorted carry (ETFs and other products), swept because they were
+	// reported short or priced in the last recentDays. Scheduled runs only.
+	BeyondListing int `json:"beyond_listing"`
+	Synced        int `json:"synced"`
+	UpToDate      int `json:"up_to_date"`
 	// NoSession: the provider had no session in a window of at most
 	// maxClosedWeekdays weekdays. A holiday, or a bar not yet published; not a
 	// failure strike.
@@ -205,8 +209,8 @@ func (r *RunReport) log() {
 	if r.Error != "" {
 		verb = "stopped"
 	}
-	log.Printf("🎉 Price sync %s in %s: %d stocks; %d synced (%d sessions fetched, %d written), %d already current, %d no session yet, %d no data, %d failed, %d blocked",
-		verb, r.Duration, r.Stocks, r.Synced, r.Fetched, r.Written, r.UpToDate, r.NoSession, r.NoData, r.Failed, r.Blocked)
+	log.Printf("🎉 Price sync %s in %s: %d stocks (%d beyond the company listing); %d synced (%d sessions fetched, %d written), %d already current, %d no session yet, %d no data, %d failed, %d blocked",
+		verb, r.Duration, r.Stocks, r.BeyondListing, r.Synced, r.Fetched, r.Written, r.UpToDate, r.NoSession, r.NoData, r.Failed, r.Blocked)
 	if r.From != "" {
 		log.Printf("🔁 Against stored since %s: %d sessions new, %d changed (%d by 2x or more), %d stored sessions the provider does not have (%d on a weekend)",
 			r.From, r.New, r.Changed, r.ChangedTwofold, r.StoredOnly, r.StoredOnlyWeekend)

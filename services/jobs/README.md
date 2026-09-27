@@ -202,6 +202,14 @@ being gaps), and never reached the end: 37 of 51 sampled stocks had no price
 after 2026-08-20. It is a Cloud Run Job now, and each stock costs at most one
 request:
 
+- **Stocks**: every company on the ASX listing (`asx-stocks/latest.csv`), the
+  top shorted, and what the listing does not carry but is still trading: every
+  code in the last 90 days of ASIC short reports and every code holding a
+  session within 90 days of the newest stored one. The listing is companies
+  only, so ETFs (GDX, VAS, IOZ, STW) had never been swept; the old service
+  reached them through its gap repair, and they stopped with it on 2026-08-20.
+  Recent, not ever: Yahoo holds nothing for a delisted ASX code (#591), and
+  both windows run from the newest data, so an outage cannot age a code out.
 - **Window**: from the day after the stock's latest stored session to the last
   closed ASX session (a weekday, from 17:00 Sydney time). A stock already there
   is not requested at all. No gap repair in the sweep; gaps are `audit-gaps`,
@@ -219,7 +227,7 @@ request:
 - **Alpha Vantage** is asked only when Yahoo fails to answer, never when Yahoo
   says a window has no session, and a response for a different security is
   refused (#583's guard, which only ever reached the retired standalone
-  service).
+  service). Its requests time out at 30s (`http.DefaultClient` never did).
 - **Failures**: "no data" over a window of more than three weekdays is a strike
   (three strikes block a code for 7 days); a 429, 5xx or timeout is not, and 25
   in a row stop the run. `RecordFailure` had never written a row in prod (its
@@ -232,7 +240,13 @@ sessions the provider does not have (reported, never deleted); `-dry-run`
 fetches and compares and writes nothing. Each run stores a report at
 `gs://<GCS_BUCKET_NAME>/price-sync/<execution>.json`, which the **Price Sync**
 workflow (`.github/workflows/price-sync.yml`) runs and prints; CI cannot read
-Cloud Logging.
+Cloud Logging. The workflow starts the execution detached and waits at most
+340 minutes; a run that outlasts that (a long `task_timeout`, a whole-market
+`from`) is read later by dispatching it with `report_only` set to the
+execution's name or `latest`, which starts nothing. A task that times out
+still writes its report (SIGTERM ends the sweep, which then publishes), and the
+workflow prints how the execution ended beside it: a timeout or a retry shows
+there, not in the report.
 
 ### Not ported
 

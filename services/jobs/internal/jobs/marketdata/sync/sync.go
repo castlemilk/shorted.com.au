@@ -72,7 +72,8 @@ func NewSyncManager(
 // RunOptions widens or narrows one sweep. The zero value is the scheduled run.
 type RunOptions struct {
 	// Codes limits the sweep to these codes, and ignores failure blocks for
-	// them. Empty means every listed stock plus the top shorted.
+	// them. Empty means every listed company, the top shorted, and the codes
+	// beyond the listing that are still trading (beyondListing).
 	Codes []string
 	// From re-fetches every stock from this date, whatever is already stored,
 	// overwriting stored sessions with the provider's, and reports where the two
@@ -123,12 +124,17 @@ func (m *SyncManager) RunWith(ctx context.Context, opts RunOptions) (*RunReport,
 	if err != nil {
 		return nil, fmt.Errorf("read latest stored sessions: %w", err)
 	}
+	if len(opts.Codes) == 0 {
+		beyond := m.beyondListing(ctx, stocks, latest, lastClosed)
+		stocks = append(stocks, beyond...)
+		report.BeyondListing = len(beyond)
+	}
 	stocks = stalestFirst(stocks, latest)
 	report.Stocks = len(stocks)
 
 	priorityCount := stocklist.CountPriority(stocks)
-	log.Printf("🚀 Price sync: %d stocks (%d priority, %d blocked), sessions through %s%s",
-		len(stocks), priorityCount, len(blocked), report.LastSession, opts.describe())
+	log.Printf("🚀 Price sync: %d stocks (%d priority, %d beyond the company listing, %d blocked), sessions through %s%s",
+		len(stocks), priorityCount, report.BeyondListing, len(blocked), report.LastSession, opts.describe())
 
 	runID := uuid.New().String()
 	if !opts.DryRun {
@@ -268,8 +274,8 @@ func (m *SyncManager) syncAlgolia(ctx context.Context, runID string, records []a
 	}
 }
 
-// stocksFor is the run's stock list: the given codes, or every listed stock
-// with the top shorted first.
+// stocksFor is the run's stock list: the given codes, or every listed company
+// with the top shorted first. RunWith adds the codes beyond the listing.
 func (m *SyncManager) stocksFor(ctx context.Context, opts RunOptions) ([]stocklist.Stock, error) {
 	if len(opts.Codes) > 0 {
 		out := make([]stocklist.Stock, 0, len(opts.Codes))

@@ -97,3 +97,10 @@ func TestAlphaVantageToleratesAbsentMetaData(t *testing.T) {
 		t.Fatalf("absent Meta Data must not fail the fetch: %v", err)
 	}
 }
+
+// A request the server accepts and never answers must not hold the sweep.
+func TestAlphaVantageRequestsAreBounded(t *testing.T) {
+	if d := alphaVantageClient.Timeout; d <= 0 || d > time.Minute {
+		t.Fatalf("alpha vantage requests need a timeout of at most a minute, got %v", d)
+	}
+}

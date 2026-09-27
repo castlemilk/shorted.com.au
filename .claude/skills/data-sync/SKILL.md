@@ -293,17 +293,20 @@ Never assume version `001`: 345 dates have been republished. Full runbook:
 
 ### Stale or Wrong Prices
 
-The price job takes every listed stock stalest first, one request each, from
-the day after its latest stored session to the last closed session, and stores
-a report at `gs://shorted-short-selling-data-prod/price-sync/<execution>.json`.
+The price job takes every listed stock, plus ETFs and other codes reported
+short or priced in the last 90 days, stalest first, one request each, from the
+day after its latest stored session to the last closed session, and stores a
+report at `gs://shorted-short-selling-data-prod/price-sync/<execution>.json`.
 Without local credentials, use the **Price Sync** GitHub workflow: a plain run
 is the catch-up after an outage (each stock resumes where its prices stop). To
 check stored prices against Yahoo, run it with `from` (and optionally `codes`)
 and `dry_run` on: the report lists every session whose stored close differs
 (largest ratio first; 2x or more is a different security or a $0 bar) and every
 stored session Yahoo does not have, e.g. weekend-dated rows. Run it again with
-`dry_run` off to overwrite them; it never deletes. Runbook:
-`services/jobs/README.md` §Daily price sweep.
+`dry_run` off to overwrite them; it never deletes. A run longer than the
+workflow's ~5.5h wait (raise the job's 6h with `task_timeout`) is read later
+with `report_only` (an execution name, or `latest`), which starts nothing.
+Runbook: `services/jobs/README.md` §Daily price sweep.
 
 To look without DB access, compare `get_stock_prices` (public MCP at
 `https://api.shorted.com.au/mcp`, with `from`/`to`) against Yahoo's chart for

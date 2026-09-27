@@ -223,6 +223,28 @@ func TestStalestFirst(t *testing.T) {
 	assert.Equal(t, "TOP1", stocks[0].Code, "the input is not reordered")
 }
 
+func TestRecentlyPriced(t *testing.T) {
+	t.Parallel()
+	lastClosed := mustDate("2026-09-25")
+	latest := map[string]time.Time{
+		"BHP":  mustDate("2026-09-25"),
+		"VAS":  mustDate("2026-08-21"), // five weeks behind: the outage it must survive
+		"EDGE": mustDate("2026-06-27"), // 90 days before the newest
+		"GONE": mustDate("2026-06-26"), // 91: delisted, as far as the sweep knows
+	}
+	assert.Equal(t, []string{"BHP", "EDGE", "VAS"}, recentlyPriced(latest, lastClosed))
+
+	// The window runs from the newest stored session, not from today: after a
+	// long outage every code is equally behind, and none of them ages out.
+	assert.Equal(t, []string{"BHP", "EDGE", "VAS"}, recentlyPriced(latest, mustDate("2027-03-01")))
+
+	// A stray future-dated row cannot drag the window past every real code.
+	latest["BAD"] = mustDate("2031-01-01")
+	assert.Equal(t, []string{"BAD", "BHP", "EDGE", "VAS"}, recentlyPriced(latest, lastClosed))
+
+	assert.Empty(t, recentlyPriced(nil, lastClosed))
+}
+
 func TestSessionsIn(t *testing.T) {
 	t.Parallel()
 	recs := []providers.PriceRecord{
@@ -329,12 +351,15 @@ func TestPriceSyncWorkflowReadsTheReport(t *testing.T) {
 		`args="market-data@sync"`,
 		`--args="^@^$args"`,
 		"@-dry-run", "@-from@", "@-codes@",
+		// Started detached, so a run that outlasts the wait keeps its name and
+		// can be reported later without starting another.
+		"--async", "report_only", "--task-timeout", "executions describe",
 	} {
 		assert.Contains(t, wf, want)
 	}
 	// Every field the summary reads is one the report writes.
 	for _, field := range []string{"execution", "dry_run", "from", "codes", "last_session", "duration", "error",
-		"stocks", "synced", "up_to_date", "no_session", "no_data", "failed", "blocked",
+		"stocks", "beyond_listing", "synced", "up_to_date", "no_session", "no_data", "failed", "blocked",
 		"sessions_fetched", "sessions_written", "sessions_new", "sessions_changed", "sessions_changed_twofold",
 		"stored_only", "stored_only_weekend", "stored_only_by_code", "changes", "stored_only_rows",
 		"failed_codes", "no_data_codes"} {
@@ -349,7 +374,7 @@ func TestPriceSyncWorkflowReadsTheReport(t *testing.T) {
 	require.NoError(t, err)
 	var keys map[string]any
 	require.NoError(t, json.Unmarshal(report, &keys))
-	for _, field := range []string{"execution", "stocks", "sessions_new", "stored_only_weekend", "changes", "no_data_codes"} {
+	for _, field := range []string{"execution", "stocks", "beyond_listing", "sessions_new", "stored_only_weekend", "changes", "no_data_codes"} {
 		assert.Contains(t, keys, field)
 	}
 }
