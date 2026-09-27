@@ -3,9 +3,12 @@ package sync
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
+	gosync "sync"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -18,6 +21,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// newStockHistoryYears is how far back a stock with no stored prices starts.
+const newStockHistoryYears = 10
+
+// maxConsecutiveFailures ends a sweep that its providers are refusing. Only
+// transport failures count (a 429, a 5xx, a timeout); "no data" is an answer.
+// At the providers' pace, 25 in a row is minutes of a blocked upstream, and
+// carrying on would only spend the rest of the run being refused.
+const maxConsecutiveFailures = 25
+
 // SyncManager coordinates the market data sync process
 type SyncManager struct {
 	db             *pgxpool.Pool
@@ -27,8 +39,13 @@ type SyncManager struct {
 	stocklist      *stocklist.Service
 	algolia        *algolia.Syncer
 	providers      []providers.DataProvider
-	gapDetector    *GapDetector
 	failureTracker *FailureTracker
+
+	// now is the clock the last closed session is read from.
+	now func() time.Time
+
+	paceMu   gosync.Mutex
+	nextCall map[string]time.Time // provider name -> earliest start of its next request
 }
 
 // NewSyncManager creates a new SyncManager with all dependencies
@@ -38,7 +55,6 @@ func NewSyncManager(
 	cfg *config.Config,
 	dataProviders []providers.DataProvider,
 ) *SyncManager {
-	ft := NewFailureTracker(db)
 	return &SyncManager{
 		db:             db,
 		gcs:            gcs,
@@ -47,332 +63,465 @@ func NewSyncManager(
 		stocklist:      stocklist.New(db, gcs),
 		algolia:        algolia.New(cfg.AlgoliaAppID, cfg.AlgoliaAdminKey, cfg.AlgoliaIndex),
 		providers:      dataProviders,
-		gapDetector:    NewGapDetector(db, dataProviders),
-		failureTracker: ft,
+		failureTracker: NewFailureTracker(db),
+		now:            time.Now,
+		nextCall:       make(map[string]time.Time),
 	}
 }
 
-// Run executes the full sync process with prioritization
+// RunOptions widens or narrows one sweep. The zero value is the scheduled run.
+type RunOptions struct {
+	// Codes limits the sweep to these codes, and ignores failure blocks for
+	// them. Empty means every listed stock plus the top shorted.
+	Codes []string
+	// From re-fetches every stock from this date, whatever is already stored,
+	// overwriting stored sessions with the provider's, and reports where the two
+	// differed. Zero means each stock from the day after its latest stored
+	// session.
+	From time.Time
+	// DryRun fetches and compares, and writes nothing to the database: no
+	// prices, company metadata, checkpoints, failure records or view refresh.
+	DryRun bool
+}
+
+// Run executes the scheduled sweep.
 func (m *SyncManager) Run(ctx context.Context) error {
-	// 1. Get prioritized stock list from GCS + DB
-	stocks, err := m.stocklist.GetPrioritizedStocks(ctx, m.config.GCSBucketName, m.config.PriorityStockCount)
+	_, err := m.RunWith(ctx, RunOptions{})
+	return err
+}
+
+// RunWith sweeps the stock list once.
+//
+// Each stock is fetched in ONE request, from the day after its latest stored
+// session to the last closed one, and a stock already holding that session is
+// not requested at all. Stocks are taken stalest first, so a run that stops
+// part way (a timeout, a refusing upstream) is resumed by the next run instead
+// of being restarted from the top of the list. The service this replaced
+// restarted from the top every day and never reached the end: it spent ~8s a
+// stock re-fetching holiday closures as "gaps", and died with its 600s request.
+func (m *SyncManager) RunWith(ctx context.Context, opts RunOptions) (*RunReport, error) {
+	started := time.Now()
+	lastClosed := lastClosedSession(m.now())
+	report := &RunReport{DryRun: opts.DryRun, Codes: opts.Codes, LastSession: lastClosed.Format("2006-01-02")}
+	if !opts.From.IsZero() {
+		report.From = opts.From.Format("2006-01-02")
+	}
+
+	stocks, err := m.stocksFor(ctx, opts)
 	if err != nil {
-		return fmt.Errorf("failed to get stock list: %w", err)
+		return nil, err
 	}
-
-	// Ensure failure tracking table exists (safety net for environments without migration)
-	m.failureTracker.EnsureTable(ctx)
-
-	// Load blocked symbols upfront for efficient filtering
-	blockedSymbols := m.failureTracker.GetBlockedSymbols(ctx)
-	if len(blockedSymbols) > 0 {
-		log.Printf("🚫 %d symbols blocked due to repeated failures (will retry after block period)", len(blockedSymbols))
+	blocked := map[string]bool{}
+	if !opts.DryRun {
+		// Safety net for environments without the migration.
+		m.failureTracker.EnsureTable(ctx)
 	}
-
-	// Prefetch the latest stored date per stock in ONE query, replacing a
-	// per-stock SELECT MAX(date) inside the loop below (the N+1 — this was
-	// ~992k calls over the DB's lifetime). Falls back to per-stock lookups.
-	latestDates, err := m.getLatestPriceDates(ctx)
+	if len(opts.Codes) == 0 {
+		blocked = m.failureTracker.GetBlockedSymbols(ctx)
+	}
+	latest, err := m.latestPriceDates(ctx, !opts.DryRun)
 	if err != nil {
-		log.Printf("⚠️ Failed to prefetch latest price dates (%v); falling back to per-stock lookup", err)
-		latestDates = nil
+		return nil, fmt.Errorf("read latest stored sessions: %w", err)
 	}
+	stocks = stalestFirst(stocks, latest)
+	report.Stocks = len(stocks)
 
 	priorityCount := stocklist.CountPriority(stocks)
-	log.Printf("🚀 Syncing %d stocks (%d priority, %d remaining, %d blocked)",
-		len(stocks), priorityCount, len(stocks)-priorityCount, len(blockedSymbols))
+	log.Printf("🚀 Price sync: %d stocks (%d priority, %d blocked), sessions through %s%s",
+		len(stocks), priorityCount, len(blocked), report.LastSession, opts.describe())
 
-	// 2. Start checkpoint - generate UUID for run ID
 	runID := uuid.New().String()
-	if err := m.checkpoint.StartRun(ctx, runID, len(stocks), priorityCount); err != nil {
-		return fmt.Errorf("failed to start run: %w", err)
+	if !opts.DryRun {
+		if err := m.checkpoint.StartRun(ctx, runID, len(stocks), priorityCount); err != nil {
+			return nil, fmt.Errorf("failed to start run: %w", err)
+		}
 	}
 
-	// 3. Process stocks
-	successful, failed, skipped := 0, 0, 0
-	priorityProcessed := 0
-	pricesUpdated := 0
-	var algoliaRecords []algolia.StockRecord
-
+	var (
+		consecutive, priorityProcessed, processed int
+		algoliaRecords                            []algolia.StockRecord
+		runErr                                    error
+	)
 	for i, stock := range stocks {
-		select {
-		case <-ctx.Done():
+		if err := ctx.Err(); err != nil {
 			log.Printf("⏹️ Sync interrupted at %d/%d", i, len(stocks))
-			return ctx.Err()
-		default:
+			runErr = err
+			break
 		}
-
-		// Skip blocked symbols (known-bad Yahoo Finance symbols)
-		if blockedSymbols[stock.Code] {
-			skipped++
-			continue
-		}
-
-		recordsAdded, err := m.syncStock(ctx, stock.Code, latestDates)
-		if err != nil {
-			if providers.IsNoDataError(err) {
-				log.Printf("⏭️ [%d/%d] Skipped %s (no data): %v", i+1, len(stocks), stock.Code, err)
-				skipped++
-				// Record the failure — after enough consecutive failures, the symbol will be auto-blocked
-				m.failureTracker.RecordFailure(ctx, stock.Code, err.Error())
-			} else {
-				log.Printf("❌ [%d/%d] Failed to sync %s: %v", i+1, len(stocks), stock.Code, err)
-				failed++
-			}
-		} else {
-			successful++
-			pricesUpdated += recordsAdded
-
-			// Reset failure counter on success
-			m.failureTracker.RecordSuccess(ctx, stock.Code)
-
-			// Collect for Algolia sync if enabled
-			if m.config.SyncAlgolia {
-				algoliaRecords = append(algoliaRecords, algolia.StockRecord{
-					ObjectID:  stock.Code,
-					StockCode: stock.Code,
-				})
-			}
-		}
-
+		processed = i + 1
 		if stock.IsPriority {
 			priorityProcessed++
 		}
+		if blocked[stock.Code] {
+			report.Blocked++
+			continue
+		}
 
-		// Update checkpoint every 10 stocks or at the end
-		if (i+1)%10 == 0 || (i+1) == len(stocks) {
-			if err := m.checkpoint.UpdateProgress(ctx, runID, i+1, successful, failed, skipped, priorityProcessed); err != nil {
-				log.Printf("⚠️ Failed to update progress: %v", err)
+		res, err := m.syncStock(ctx, stock.Code, latest[stock.Code], lastClosed, opts)
+		report.Fetched += res.fetched
+		report.Written += res.written
+		switch {
+		case err == nil && res.upToDate:
+			report.UpToDate++
+		case err == nil:
+			consecutive = 0
+			report.Synced++
+			report.addDiff(res.diff)
+			if !opts.DryRun {
+				m.failureTracker.RecordSuccess(ctx, stock.Code)
+			}
+			if m.config.SyncAlgolia {
+				algoliaRecords = append(algoliaRecords, algolia.StockRecord{ObjectID: stock.Code, StockCode: stock.Code})
+			}
+		case providers.IsNoDataError(err):
+			consecutive = 0
+			if weekdaysIn(res.from, res.to) <= maxClosedWeekdays {
+				report.NoSession++
+				log.Printf("⏭️ [%d/%d] %s: no session from %s to %s yet", i+1, len(stocks), stock.Code,
+					res.from.Format("2006-01-02"), res.to.Format("2006-01-02"))
+				break
+			}
+			report.NoData++
+			report.NoDataCodes = appendCapped(report.NoDataCodes, stock.Code)
+			log.Printf("⏭️ [%d/%d] %s: %v", i+1, len(stocks), stock.Code, err)
+			if !opts.DryRun {
+				m.failureTracker.RecordFailure(ctx, stock.Code, err.Error())
+			}
+		case ctx.Err() != nil:
+			runErr = ctx.Err()
+		default:
+			consecutive++
+			report.Failed++
+			report.FailedCodes = appendCapped(report.FailedCodes, stock.Code)
+			log.Printf("❌ [%d/%d] %s: %v", i+1, len(stocks), stock.Code, err)
+			if consecutive >= maxConsecutiveFailures {
+				runErr = fmt.Errorf("stopped after %d consecutive fetch failures, the last %s: %w (the next run resumes from the stalest stock)",
+					consecutive, stock.Code, err)
 			}
 		}
-
-		// Log priority completion milestone
-		if priorityProcessed == priorityCount && stock.IsPriority {
-			log.Printf("✅ Priority stocks completed: %d/%d synced successfully", priorityProcessed, priorityCount)
+		if runErr != nil {
+			break
 		}
 
-		// Rate limiting: Wait between stocks to be respectful to APIs
-		// The syncStock function already waits before API calls, but we add a small
-		// additional delay between stocks to ensure we're being extra respectful
-		// This prevents rapid-fire requests even if individual calls are rate-limited
-		if i < len(stocks)-1 { // Don't wait after the last stock
-			if len(m.providers) > 0 {
-				// Use a conservative delay: the provider's rate limit ensures spacing
-				// We already waited in syncStock, so this is just a small buffer
-				rateLimit := m.providers[0].GetRateLimit()
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(rateLimit):
-					// Log every 10 stocks to show progress without spamming
-					if (i+1)%10 == 0 {
-						log.Printf("⏳ Rate limiting: %d/%d stocks processed (waiting %v between stocks)", i+1, len(stocks), rateLimit)
-					}
-				}
+		if !opts.DryRun && (i+1)%25 == 0 {
+			m.saveProgress(ctx, runID, i+1, report, priorityProcessed)
+		}
+	}
+
+	if !opts.DryRun {
+		m.saveProgress(ctx, runID, processed, report, priorityProcessed)
+		if err := m.checkpoint.UpdatePricesCount(ctx, runID, report.Written); err != nil {
+			log.Printf("⚠️ Failed to update prices count: %v", err)
+		}
+		if report.Written > 0 {
+			if err := m.refreshStockPriceCoverage(ctx); err != nil {
+				log.Printf("⚠️ Failed to refresh stock price coverage view: %v", err)
 			}
 		}
-	}
-
-	// Update prices count
-	if err := m.checkpoint.UpdatePricesCount(ctx, runID, pricesUpdated); err != nil {
-		log.Printf("⚠️ Failed to update prices count: %v", err)
-	}
-
-	if pricesUpdated > 0 {
-		if err := m.refreshStockPriceCoverage(ctx); err != nil {
-			log.Printf("⚠️ Failed to refresh stock price coverage view: %v", err)
+		if m.config.SyncAlgolia && len(algoliaRecords) > 0 {
+			m.syncAlgolia(ctx, runID, algoliaRecords)
 		}
-	}
-
-	// 4. Sync Algolia if enabled — fetch enriched metadata from DB
-	if m.config.SyncAlgolia && len(algoliaRecords) > 0 {
-		log.Printf("🔍 Enriching %d Algolia records from company-metadata...", len(algoliaRecords))
-		enrichedRecords, err := m.buildEnrichedAlgoliaRecords(ctx, algoliaRecords)
-		if err != nil {
-			log.Printf("⚠️ Failed to enrich Algolia records, using basic records: %v", err)
-			enrichedRecords = algoliaRecords
-		} else {
-			log.Printf("🔍 Enriched %d records with metadata", len(enrichedRecords))
-		}
-
-		log.Printf("🔍 Starting Algolia sync for %d records...", len(enrichedRecords))
-		count, err := m.algolia.SyncInBatches(ctx, enrichedRecords, 1000)
-		if err != nil {
-			log.Printf("⚠️ Algolia sync failed: %v", err)
-		} else {
-			log.Printf("🔍 Synced %d records to Algolia", count)
-			if err := m.checkpoint.UpdateAlgoliaCount(ctx, runID, count); err != nil {
-				log.Printf("⚠️ Failed to update Algolia count: %v", err)
+		if runErr != nil {
+			if err := m.checkpoint.FailRun(ctx, runID, runErr.Error()); err != nil {
+				log.Printf("⚠️ Failed to mark run as failed: %v", err)
 			}
+		} else if err := m.checkpoint.CompleteRun(ctx, runID); err != nil {
+			log.Printf("⚠️ Failed to mark run as complete: %v", err)
 		}
 	}
 
-	// 5. Complete the run
-	if err := m.checkpoint.CompleteRun(ctx, runID); err != nil {
-		log.Printf("⚠️ Failed to mark run as complete: %v", err)
+	report.Duration = time.Since(started).Round(time.Second).String()
+	if runErr != nil {
+		report.Error = runErr.Error()
 	}
-
-	log.Printf("🎉 Sync complete: %d successful, %d failed, %d skipped (no data), %d price records", successful, failed, skipped, pricesUpdated)
-	return nil
+	report.log()
+	// A cancelled context cannot carry the upload; the report is still logged.
+	report.publish(context.WithoutCancel(ctx), m.gcs, m.config.GCSBucketName)
+	return report, runErr
 }
 
-// getLatestPriceDates returns the most recent stored date per stock_code in a
-// single GROUP BY query, replacing the per-stock SELECT MAX(date) N+1.
-func (m *SyncManager) getLatestPriceDates(ctx context.Context) (map[string]time.Time, error) {
-	rows, err := m.db.Query(ctx, latestPriceDatesQuery)
-	if err != nil {
-		logCoverageFallback(err)
-		rows, err = m.db.Query(ctx, latestPriceDatesFallbackQuery)
-		if err != nil {
-			return nil, err
-		}
+// saveProgress writes the run's counters to its checkpoint row.
+func (m *SyncManager) saveProgress(ctx context.Context, runID string, processed int, r *RunReport, priorityProcessed int) {
+	successful := r.Synced + r.UpToDate
+	skipped := r.NoSession + r.NoData + r.Blocked
+	if err := m.checkpoint.UpdateProgress(ctx, runID, processed, successful, r.Failed, skipped, priorityProcessed); err != nil {
+		log.Printf("⚠️ Failed to update progress: %v", err)
 	}
+}
 
+// syncAlgolia pushes the synced stocks' enriched records to Algolia.
+func (m *SyncManager) syncAlgolia(ctx context.Context, runID string, records []algolia.StockRecord) {
+	log.Printf("🔍 Enriching %d Algolia records from company-metadata...", len(records))
+	enriched, err := m.buildEnrichedAlgoliaRecords(ctx, records)
+	if err != nil {
+		log.Printf("⚠️ Failed to enrich Algolia records, using basic records: %v", err)
+		enriched = records
+	}
+	count, err := m.algolia.SyncInBatches(ctx, enriched, 1000)
+	if err != nil {
+		log.Printf("⚠️ Algolia sync failed: %v", err)
+		return
+	}
+	log.Printf("🔍 Synced %d records to Algolia", count)
+	if err := m.checkpoint.UpdateAlgoliaCount(ctx, runID, count); err != nil {
+		log.Printf("⚠️ Failed to update Algolia count: %v", err)
+	}
+}
+
+// stocksFor is the run's stock list: the given codes, or every listed stock
+// with the top shorted first.
+func (m *SyncManager) stocksFor(ctx context.Context, opts RunOptions) ([]stocklist.Stock, error) {
+	if len(opts.Codes) > 0 {
+		out := make([]stocklist.Stock, 0, len(opts.Codes))
+		seen := make(map[string]bool, len(opts.Codes))
+		for _, c := range opts.Codes {
+			c = strings.ToUpper(strings.TrimSpace(c))
+			if c != "" && !seen[c] {
+				seen[c] = true
+				out = append(out, stocklist.Stock{Code: c})
+			}
+		}
+		return out, nil
+	}
+	list := m.stocklist.GetPrioritizedStocks
+	if opts.DryRun {
+		list = m.stocklist.GetPrioritizedStocksReadOnly
+	}
+	stocks, err := list(ctx, m.config.GCSBucketName, m.config.PriorityStockCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stock list: %w", err)
+	}
+	return stocks, nil
+}
+
+// latestPriceDates maps each stock to its latest stored session. Every window
+// starts from it, so it has to be current: the coverage view is refreshed
+// first (it lags whenever a run ends before its own refresh), and the table is
+// read directly when the view cannot be refreshed, or must not be (a dry run).
+func (m *SyncManager) latestPriceDates(ctx context.Context, refresh bool) (map[string]time.Time, error) {
+	if refresh {
+		err := m.refreshStockPriceCoverage(ctx)
+		if err == nil {
+			rows, qerr := m.db.Query(ctx, latestPriceDatesQuery)
+			if qerr == nil {
+				return scanLatestPriceDates(rows)
+			}
+			err = qerr
+		}
+		logCoverageFallback(err)
+	}
+	rows, err := m.db.Query(ctx, latestPriceDatesFallbackQuery)
+	if err != nil {
+		return nil, err
+	}
 	return scanLatestPriceDates(rows)
 }
 
-// SyncStock syncs price data for a single stock, returns number of records added
-// This is a public method that can be called from the API
+// stalestFirst orders stocks by their latest stored session, oldest first, so
+// the stocks a stopped run never reached are the first the next run takes.
+// Equal dates keep the list's order (top shorted first). Stocks with nothing
+// stored go last: each costs a multi-year fetch.
+func stalestFirst(stocks []stocklist.Stock, latest map[string]time.Time) []stocklist.Stock {
+	out := append([]stocklist.Stock(nil), stocks...)
+	sort.SliceStable(out, func(i, j int) bool {
+		a, aStored := latest[out[i].Code]
+		b, bStored := latest[out[j].Code]
+		if aStored != bStored {
+			return aStored
+		}
+		return a.Before(b)
+	})
+	return out
+}
+
+// SyncStock brings one stock up to the last closed session and returns the
+// number of sessions written. It backs POST /api/sync/stock/{symbol}.
 func (m *SyncManager) SyncStock(ctx context.Context, symbol string) (int, error) {
-	return m.syncStock(ctx, symbol, nil)
+	var latest *time.Time
+	if err := m.db.QueryRow(ctx, "SELECT MAX(date) FROM stock_prices WHERE stock_code = $1", symbol).Scan(&latest); err != nil {
+		return 0, fmt.Errorf("read latest session for %s: %w", symbol, err)
+	}
+	var from time.Time
+	if latest != nil {
+		from = *latest
+	}
+	res, err := m.syncStock(ctx, symbol, from, lastClosedSession(m.now()), RunOptions{})
+	return res.written, err
 }
 
-// syncStock syncs price data for a single stock, returns number of records added.
-// latestDates is an optional prefetched stock_code -> latest stored date map
-// (built once per Run) to avoid a per-stock SELECT MAX(date) N+1; pass nil for
-// the single-stock API path to look it up directly.
-func (m *SyncManager) syncStock(ctx context.Context, symbol string, latestDates map[string]time.Time) (int, error) {
-	totalRecords := 0
-
-	// STEP 1: Check for gaps FIRST - this determines if we need to sync even if "up to date"
-	gaps := m.detectGapsQuietly(ctx, symbol)
-	hasGaps := len(gaps) > 0
-
-	// STEP 2: Determine the stock's latest stored date.
-	var latestDate time.Time
-	if latestDates != nil {
-		latestDate = latestDates[symbol] // zero value when absent → treated as a new stock
-	} else {
-		_ = m.db.QueryRow(ctx, "SELECT MAX(date) FROM stock_prices WHERE stock_code = $1", symbol).Scan(&latestDate)
-	}
-
-	startDate := time.Now().AddDate(-10, 0, 0) // Default 10 years of history
-	isNewStock := true
-	if !latestDate.IsZero() {
-		startDate = latestDate.AddDate(0, 0, 1)
-		isNewStock = false
-	}
-
-	// Adjust endDate: use end of yesterday if requesting today's data
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	endDate := now
-
-	// Determine sync status
-	needsNewData := startDate.Before(today) || startDate.Equal(today)
-	isUpToDate := !needsNewData && !isNewStock
-
-	// Log sync decision with context
-	if hasGaps {
-		log.Printf("🔍 %s: Found %d gap(s) to repair", symbol, len(gaps))
-	}
-
-	if isUpToDate && !hasGaps {
-		log.Printf("⏭️ %s: Up to date (latest: %s), no gaps", symbol, latestDate.Format("2006-01-02"))
-		return 0, nil
-	}
-
-	if isUpToDate && hasGaps {
-		log.Printf("🔧 %s: Up to date but has %d gap(s) - repairing", symbol, len(gaps))
-		gapRecords := m.repairGaps(ctx, symbol, gaps)
-		return gapRecords, nil
-	}
-
-	// If startDate is today, adjust endDate to yesterday
-	if !startDate.Before(today) {
-		endDate = today.AddDate(0, 0, -1).Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-	}
-
-	// STEP 3: Fetch new incremental data
-	if needsNewData || isNewStock {
-		log.Printf("📥 %s: Fetching data from %s to %s", symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
-
-		var records []providers.PriceRecord
-		var syncErr error
-		for _, p := range m.providers {
-			// Rate limiting
-			select {
-			case <-ctx.Done():
-				return 0, ctx.Err()
-			case <-time.After(p.GetRateLimit()):
-			}
-
-			records, syncErr = p.FetchHistoricalData(ctx, symbol, startDate, endDate)
-			if syncErr == nil && len(records) > 0 {
-				log.Printf("✅ %s: Fetched %d new records from %s", symbol, len(records), p.Name())
-				break
-			}
-			if syncErr != nil {
-				log.Printf("⚠️ %s: Provider %s failed: %v", symbol, p.Name(), syncErr)
-			}
-		}
-
-		if len(records) > 0 {
-			if err := m.upsertRecords(ctx, records); err != nil {
-				return 0, err
-			}
-			totalRecords += len(records)
-		} else if !hasGaps {
-			// No new records and no gaps to repair — likely a delisted stock
-			return 0, providers.NewNoDataError(symbol, "all providers returned no data")
-		}
-	}
-
-	// STEP 4: Repair gaps (if any were detected earlier)
-	if hasGaps {
-		gapRecords := m.repairGaps(ctx, symbol, gaps)
-		totalRecords += gapRecords
-	}
-
-	return totalRecords, nil
+// stockResult is what one stock's sync did.
+type stockResult struct {
+	from, to time.Time // the window asked for
+	upToDate bool      // the latest stored session is already the last closed one
+	fetched  int       // sessions the provider returned in the window
+	written  int       // sessions upserted (0 in a dry run)
+	diff     priceDiff // provider against stored; with RunOptions.From only
 }
 
-// detectGapsQuietly checks for gaps without logging (used for initial assessment)
-func (m *SyncManager) detectGapsQuietly(ctx context.Context, symbol string) []Gap {
-	if m.gapDetector == nil {
-		return nil
+// syncStock fetches one stock's window and upserts it.
+//
+// It does not look for gaps. The gap repair that used to run here flagged every
+// holiday closure of four or more days (each Easter, each Christmas) as a gap
+// and re-requested it, for every stock, on every run, forever: the provider has
+// no session there to return, so the gap never closed. Gaps are the business
+// of `audit-gaps`, `historical-backfill` and /api/gaps.
+func (m *SyncManager) syncStock(ctx context.Context, symbol string, latest, lastClosed time.Time, opts RunOptions) (stockResult, error) {
+	res := stockResult{to: lastClosed}
+	switch {
+	case !opts.From.IsZero():
+		res.from = utcDate(opts.From)
+	case latest.IsZero():
+		res.from = lastClosed.AddDate(-newStockHistoryYears, 0, 0)
+	default:
+		res.from = utcDate(latest).AddDate(0, 0, 1)
+	}
+	if res.from.After(res.to) {
+		res.upToDate = true
+		return res, nil
 	}
 
-	gaps, err := m.gapDetector.DetectGaps(ctx, symbol, 4)
+	records, err := m.fetch(ctx, symbol, res.from, res.to)
 	if err != nil {
-		return nil
+		return res, err
 	}
-	return gaps
+	records = sessionsIn(symbol, records, res.from, res.to)
+	if len(records) == 0 {
+		return res, providers.NewNoDataError(symbol, fmt.Sprintf("no sessions from %s to %s",
+			res.from.Format("2006-01-02"), res.to.Format("2006-01-02")))
+	}
+	res.fetched = len(records)
+
+	if !opts.From.IsZero() {
+		stored, err := m.storedSessions(ctx, symbol, res.from, res.to)
+		if err != nil {
+			return res, err
+		}
+		res.diff = comparePrices(symbol, records, stored)
+	}
+	if opts.DryRun {
+		log.Printf("🔎 %s: %d sessions %s to %s (dry run: not written)", symbol, len(records),
+			records[0].Date.Format("2006-01-02"), records[len(records)-1].Date.Format("2006-01-02"))
+		return res, nil
+	}
+	if err := m.upsertRecords(ctx, symbol, records); err != nil {
+		return res, err
+	}
+	res.written = len(records)
+	log.Printf("✅ %s: %d sessions %s to %s", symbol, len(records),
+		records[0].Date.Format("2006-01-02"), records[len(records)-1].Date.Format("2006-01-02"))
+	return res, nil
 }
 
-// repairGaps repairs the given gaps and returns the number of records added
-func (m *SyncManager) repairGaps(ctx context.Context, symbol string, gaps []Gap) int {
-	if len(gaps) == 0 {
-		return 0
+// fetch asks the providers in order and returns the first one's sessions.
+//
+// A provider answering "no data" ends the chain: that is an answer (a holiday, a
+// halt, a delisting), and asking the next provider for a session that did not
+// happen is how #583 wrote NASDAQ's AMD over ASX:AMD, because Alpha Vantage
+// answers an ASX code it does not carry with the US security of the same name.
+// The next provider is asked only when one FAILS to answer (a 429, a 5xx, a
+// timeout), and a "no data" from it then does not make the stock a no-data
+// strike, because the primary never said so.
+func (m *SyncManager) fetch(ctx context.Context, symbol string, from, to time.Time) ([]providers.PriceRecord, error) {
+	var failures []error
+	for _, p := range m.providers {
+		if err := m.pace(ctx, p); err != nil {
+			return nil, err
+		}
+		records, err := p.FetchHistoricalData(ctx, symbol, from, to)
+		switch {
+		case err == nil && len(records) > 0:
+			return records, nil
+		case err == nil || providers.IsNoDataError(err):
+			if err == nil {
+				err = providers.NewNoDataError(symbol, p.Name()+" returned no sessions")
+			}
+			if len(failures) > 0 {
+				log.Printf("⚠️ %s: %s: %v", symbol, p.Name(), err)
+				return nil, errors.Join(failures...)
+			}
+			return nil, err
+		case ctx.Err() != nil:
+			return nil, ctx.Err()
+		default:
+			log.Printf("⚠️ %s: %s failed: %v", symbol, p.Name(), err)
+			failures = append(failures, fmt.Errorf("%s: %w", p.Name(), err))
+		}
 	}
+	if len(failures) == 0 {
+		return nil, errors.New("no price provider configured")
+	}
+	return nil, errors.Join(failures...)
+}
 
-	totalRepaired := 0
-	for _, gap := range gaps {
-		log.Printf("   🔧 Repairing gap: %s to %s (%d days)",
-			gap.StartDate.Format("2006-01-02"),
-			gap.EndDate.Format("2006-01-02"),
-			gap.Days)
+// pace holds each provider to its rate limit, measured between the starts of
+// consecutive requests to it. The loop used to sleep the limit before every
+// request AND again between stocks, including stocks it made no request for.
+func (m *SyncManager) pace(ctx context.Context, p providers.DataProvider) error {
+	m.paceMu.Lock()
+	if m.nextCall == nil {
+		m.nextCall = make(map[string]time.Time)
+	}
+	wait := time.Until(m.nextCall[p.Name()])
+	m.nextCall[p.Name()] = time.Now().Add(max(wait, 0) + p.GetRateLimit())
+	m.paceMu.Unlock()
 
-		repaired, err := m.gapDetector.RepairGap(ctx, gap)
-		if err != nil {
-			log.Printf("   ⚠️ Failed to repair gap: %v", err)
+	if wait <= 0 {
+		return nil
+	}
+	t := time.NewTimer(wait)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
+}
+
+// sessionsIn keeps one record per session inside [from, to], sorted, and drops
+// weekend-dated records: the ASX does not trade then, so one is a provider's
+// date arithmetic gone wrong (the UTC conversion that filed Monday under
+// Sunday), never a session.
+func sessionsIn(symbol string, records []providers.PriceRecord, from, to time.Time) []providers.PriceRecord {
+	byDate := make(map[time.Time]providers.PriceRecord, len(records))
+	for _, r := range records {
+		r.Date = utcDate(r.Date)
+		switch {
+		case r.Date.Before(from) || r.Date.After(to):
+			continue
+		case r.Date.Weekday() == time.Saturday || r.Date.Weekday() == time.Sunday:
+			log.Printf("⚠️ %s: dropping a %s-dated record (%s): not an ASX session", symbol, r.Date.Weekday(), r.Date.Format("2006-01-02"))
 			continue
 		}
-		totalRepaired += repaired
-		log.Printf("   ✅ Repaired %d records", repaired)
+		byDate[r.Date] = r // a later duplicate wins, as the row-at-a-time upsert did
 	}
+	out := make([]providers.PriceRecord, 0, len(byDate))
+	for _, r := range byDate {
+		out = append(out, r)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Date.Before(out[j].Date) })
+	return out
+}
 
-	return totalRepaired
+// storedSessions reads the stored closes in [from, to].
+func (m *SyncManager) storedSessions(ctx context.Context, symbol string, from, to time.Time) (map[time.Time]storedSession, error) {
+	rows, err := m.db.Query(ctx,
+		`SELECT date, close::float8 FROM stock_prices WHERE stock_code = $1 AND date BETWEEN $2::date AND $3::date`,
+		symbol, from.Format("2006-01-02"), to.Format("2006-01-02"))
+	if err != nil {
+		return nil, fmt.Errorf("read stored sessions for %s: %w", symbol, err)
+	}
+	defer rows.Close()
+	out := make(map[time.Time]storedSession)
+	for rows.Next() {
+		var d time.Time
+		var s storedSession
+		if err := rows.Scan(&d, &s.close); err != nil {
+			return nil, fmt.Errorf("scan stored session for %s: %w", symbol, err)
+		}
+		out[utcDate(d)] = s
+	}
+	return out, rows.Err()
 }
 
 // buildEnrichedAlgoliaRecords queries company-metadata to populate all enriched fields
@@ -532,24 +681,40 @@ func (m *SyncManager) buildEnrichedAlgoliaRecords(ctx context.Context, basicReco
 	return result, nil
 }
 
-// upsertRecords inserts or updates price records in the database
-func (m *SyncManager) upsertRecords(ctx context.Context, records []providers.PriceRecord) error {
-	for _, r := range records {
-		_, err := m.db.Exec(ctx, `
-			INSERT INTO stock_prices (stock_code, date, open, high, low, close, adjusted_close, volume)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			ON CONFLICT (stock_code, date) DO UPDATE SET
-				open = EXCLUDED.open,
-				high = EXCLUDED.high,
-				low = EXCLUDED.low,
-				close = EXCLUDED.close,
-				adjusted_close = EXCLUDED.adjusted_close,
-				volume = EXCLUDED.volume,
-				updated_at = CURRENT_TIMESTAMP
-		`, r.StockCode, r.Date, r.Open, r.High, r.Low, r.Close, r.AdjustedClose, r.Volume)
-		if err != nil {
-			return fmt.Errorf("failed to upsert record for %s on %s: %w", r.StockCode, r.Date, err)
-		}
+// upsertPricesSQL writes one stock's sessions in one statement. Dates travel
+// as text and are cast by the database, so a session is stored under exactly
+// the date the provider gave it, whatever the connection's TimeZone.
+const upsertPricesSQL = `
+	INSERT INTO stock_prices (stock_code, date, open, high, low, close, adjusted_close, volume)
+	SELECT $1, t.date, t.open, t.high, t.low, t.close, t.adjusted_close, t.volume
+	FROM unnest($2::date[], $3::float8[], $4::float8[], $5::float8[], $6::float8[], $7::float8[], $8::int8[])
+		AS t(date, open, high, low, close, adjusted_close, volume)
+	ON CONFLICT (stock_code, date) DO UPDATE SET
+		open = EXCLUDED.open,
+		high = EXCLUDED.high,
+		low = EXCLUDED.low,
+		close = EXCLUDED.close,
+		adjusted_close = EXCLUDED.adjusted_close,
+		volume = EXCLUDED.volume,
+		updated_at = CURRENT_TIMESTAMP`
+
+// upsertRecords writes one stock's sessions, at most one per date (see
+// sessionsIn), in a single round trip. It used to be a statement per row, which
+// a five-week catch-up across the market makes ~50,000 pooler round trips.
+func (m *SyncManager) upsertRecords(ctx context.Context, symbol string, records []providers.PriceRecord) error {
+	n := len(records)
+	dates := make([]string, n)
+	opens, highs, lows := make([]float64, n), make([]float64, n), make([]float64, n)
+	closes, adjusted := make([]float64, n), make([]float64, n)
+	volumes := make([]int64, n)
+	for i, r := range records {
+		dates[i] = r.Date.Format("2006-01-02")
+		opens[i], highs[i], lows[i] = r.Open, r.High, r.Low
+		closes[i], adjusted[i] = r.Close, r.AdjustedClose
+		volumes[i] = r.Volume
+	}
+	if _, err := m.db.Exec(ctx, upsertPricesSQL, symbol, dates, opens, highs, lows, closes, adjusted, volumes); err != nil {
+		return fmt.Errorf("upsert %d sessions for %s: %w", n, symbol, err)
 	}
 	return nil
 }

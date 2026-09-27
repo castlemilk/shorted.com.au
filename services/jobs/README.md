@@ -50,7 +50,7 @@ services/jobs/
 | ~~`house-prices`~~ | `services/house-price-collector` | **retired 2026-09-24** — the port was never scheduled and was deleted; `services/house-price-collector` is the only copy. See "Phase 2d (house-prices) — retired" |
 | `influence` | `services/influence-collector` | no — laptop-only tool |
 | `market-data serve` | `services/market-data-sync` (default mode) | yes — the EXISTING `market-data-sync` Cloud Run SERVICE now runs the `shorted-jobs` image with args `["market-data","serve"]` (cutover 3, in-place revision swap; same URI/SA/scheduler) |
-| `market-data sync` | `services/market-data-sync -cli` | n/a — CLI mode; the deployed surface is `serve` (cutover 3) |
+| `market-data sync` | `services/market-data-sync -cli` | yes — `shorted-price-sync`, the daily price sweep (weekdays 10:00 UTC); the `market-data-sync-daily` scheduler that drove `serve`'s `POST /api/sync/all` is paused. See "Daily price sweep" |
 | `market-data audit-gaps` | `services/market-data-sync/cmd/audit-gaps` | no — laptop-only tool |
 | `market-data historical-backfill` | `services/market-data-sync/cmd/historical-backfill` | no — laptop-only tool |
 | `news` | `services/news-aggregator` | yes — `shorted-news`, 1 job + 5 schedules (cutover 2; all 5 old schedulers paused) |
@@ -188,6 +188,48 @@ dry-run, so a global `-dry-run` is refused rather than silently uploading.
 | discovery download-dir cleanup | `defer os.RemoveAll` registered only **after** a successful download | registered as soon as the dir may exist | a failed scrape left the scratch dir behind |
 | `POST /api/sync/all` background goroutine | `context.Background()` | **unchanged** | deliberately outlives both the request and the shutdown drain; the sweep is checkpointed/resumable. Documented at the call site rather than "fixed". |
 | OTel identity | service `shorted-market-data-sync`, metric attr `market-data-sync`; `asx-discovery` | unchanged | dashboard continuity — the two market-data identities differed in the original and are carried over as-is |
+
+### Daily price sweep (`market-data sync`, job `shorted-price-sync`)
+
+Until 2026-09 the daily sweep ran behind `serve`'s `POST /api/sync/all`: a
+goroutine on a CPU-throttled service with a 600s request ceiling. It restarted
+from the top of the list every day, spent ~8s a stock re-fetching holiday
+closures as "gaps" (Easter and Christmas never close, so they never stopped
+being gaps), and never reached the end: 37 of 51 sampled stocks had no price
+after 2026-08-20. It is a Cloud Run Job now, and each stock costs at most one
+request:
+
+- **Window**: from the day after the stock's latest stored session to the last
+  closed ASX session (a weekday, from 17:00 Sydney time). A stock already there
+  is not requested at all. No gap repair in the sweep; gaps are `audit-gaps`,
+  `historical-backfill` and `/api/gaps`.
+- **Order**: stalest first (ties keep the top-shorted-first order; stocks with
+  nothing stored go last), so a run that stops early is resumed by the next.
+- **Session dates** come from Sydney time. Yahoo stamps a bar with the session's
+  open in UTC, which in daylight time is the previous UTC day; the UTC date
+  filed every October-April session a day early (Monday under Sunday), and each
+  Friday, then "missing", was filled from Alpha Vantage with the US security of
+  the same name (BHP's Fridays in Oct-Nov 2025 hold $55-57, NYSE's price, against
+~$43 on the ASX).
+- **Yahoo** goes through `pkg/stealthhttp` (a plain client is answered 429).
+  Null bars are skipped, not stored as $0.
+- **Alpha Vantage** is asked only when Yahoo fails to answer, never when Yahoo
+  says a window has no session, and a response for a different security is
+  refused (#583's guard, which only ever reached the retired standalone
+  service).
+- **Failures**: "no data" over a window of more than three weekdays is a strike
+  (three strikes block a code for 7 days); a 429, 5xx or timeout is not, and 25
+  in a row stop the run. `RecordFailure` had never written a row in prod (its
+  timestamp arithmetic failed under the simple protocol), so blocks start now.
+- **Writes**: one statement per stock (an `unnest` upsert).
+
+Flags: `-from DATE` re-fetches every stock (or `-codes A,B`) from `DATE`,
+overwriting stored sessions and reporting where they differed and which stored
+sessions the provider does not have (reported, never deleted); `-dry-run`
+fetches and compares and writes nothing. Each run stores a report at
+`gs://<GCS_BUCKET_NAME>/price-sync/<execution>.json`, which the **Price Sync**
+workflow (`.github/workflows/price-sync.yml`) runs and prints; CI cannot read
+Cloud Logging.
 
 ### Not ported
 

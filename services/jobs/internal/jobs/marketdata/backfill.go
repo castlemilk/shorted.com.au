@@ -107,7 +107,11 @@ func runBackfill(ctx context.Context, args []string) error {
 	gcsClient, closeGCS := backfillGCSClient(ctx, cfgFlags)
 	defer closeGCS()
 
-	dataProviders := buildProviders(cfg)
+	dataProviders, closeProviders, err := buildProviders(cfg)
+	if err != nil {
+		return err
+	}
+	defer closeProviders()
 
 	stocks, err := backfillStockList(ctx, pool, gcsClient, cfg, cfgFlags)
 	if err != nil {

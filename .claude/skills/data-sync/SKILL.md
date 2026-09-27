@@ -98,7 +98,8 @@ cd services && make history.stock-data.status
 ## Daily Sync Pipeline
 
 The daily sync ingests ASIC short positions. Stock prices are a SEPARATE
-job (`shorted market-data sync`, the weekday `market-data-sync` scheduler):
+job (`shorted market-data sync`, Cloud Run Job `shorted-price-sync`, weekdays
+10:00 UTC; see "Stale or Wrong Prices" below):
 
 ```bash
 # Run locally
@@ -289,6 +290,24 @@ or `get_stock_history` at `full_resolution` with the file the index lists for
 that date: `https://download.asic.gov.au/short-selling/RR<yyyymmdd>-<version>-SSDailyAggShortPos.csv`.
 Never assume version `001`: 345 dates have been republished. Full runbook:
 `services/jobs/internal/jobs/shortdatasync/README.md` §Reconcile.
+
+### Stale or Wrong Prices
+
+The price job takes every listed stock stalest first, one request each, from
+the day after its latest stored session to the last closed session, and stores
+a report at `gs://shorted-short-selling-data-prod/price-sync/<execution>.json`.
+Without local credentials, use the **Price Sync** GitHub workflow: a plain run
+is the catch-up after an outage (each stock resumes where its prices stop). To
+check stored prices against Yahoo, run it with `from` (and optionally `codes`)
+and `dry_run` on: the report lists every session whose stored close differs
+(largest ratio first; 2x or more is a different security or a $0 bar) and every
+stored session Yahoo does not have, e.g. weekend-dated rows. Run it again with
+`dry_run` off to overwrite them; it never deletes. Runbook:
+`services/jobs/README.md` §Daily price sweep.
+
+To look without DB access, compare `get_stock_prices` (public MCP at
+`https://api.shorted.com.au/mcp`, with `from`/`to`) against Yahoo's chart for
+`<CODE>.AX`. Prices are stored to two decimals (`DECIMAL(10,2)`).
 
 ### Missing Stock Prices
 
