@@ -233,6 +233,12 @@ request:
   in a row stop the run. `RecordFailure` had never written a row in prod (its
   timestamp arithmetic failed under the simple protocol), so blocks start now.
 - **Writes**: one statement per stock (an `unnest` upsert).
+- **Deadline**: each stock gets 6 minutes, whatever it is waiting on (a
+  provider, the database), and a stock that runs out is a failure, not a
+  strike. The catch-up's first attempt on 2026-09-27 reached its 6-hour task
+  timeout after at most ~1,700 mostly one-request stocks; its retry did the
+  remaining 127 ten-year fetches in 28 minutes. The cause is not in the report
+  that survived, so the report now records where the time goes (below).
 
 Flags: `-from DATE` re-fetches every stock (or `-codes A,B`) from `DATE`,
 overwriting stored sessions and reporting where they differed and which stored
@@ -246,7 +252,11 @@ Cloud Logging. The workflow starts the execution detached and waits at most
 execution's name or `latest`, which starts nothing. A task that times out
 still writes its report (SIGTERM ends the sweep, which then publishes), and the
 workflow prints how the execution ended beside it: a timeout or a retry shows
-there, not in the report.
+there, not in the report. The report also says where the time went (each
+provider's requests and seconds, the wait on rate limits, the ten slowest
+stocks), is published every 100 stocks while the run goes (`in_progress`), and
+each attempt keeps its own copy at `price-sync/<execution>/attempt-<n>.json`,
+because a retry overwrites the execution's report.
 
 ### Not ported
 

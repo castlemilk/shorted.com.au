@@ -233,10 +233,11 @@ jobs:
           jq -r '
             "## Price sync " + (if .dry_run then "PREVIEW (dry run, nothing written)" else "run" end),
             "",
-            "Execution `\(.execution)`: sessions through \(.last_session)" +
+            "Execution `\(.execution)`, attempt \(.attempt // 0): sessions through \(.last_session)" +
               (if .from then ", re-fetched from \(.from)" else "" end) +
               (if .codes then ", codes \(.codes | join(", "))" else "" end) + ", in \(.duration)",
             "",
+            (if .in_progress then "**In progress:** a snapshot published while the run was going; it is still running, or was stopped before its final report.\n" else empty end),
             (if .error then "**Stopped:** \(.error)\n" else empty end),
             "| Stocks | …beyond the company listing | Synced | Already current | No session yet | No data | Failed | Blocked | Sessions fetched | Written |",
             "|---|---|---|---|---|---|---|---|---|---|",
@@ -252,5 +253,33 @@ jobs:
               "\n\n</details>\n"
             else empty end),
             (if (.failed_codes // []) | length > 0 then "Failed (retried first by the next run): " + (.failed_codes | join(", ")) + "\n" else empty end),
-            (if (.no_data_codes // []) | length > 0 then "No data: " + (.no_data_codes | join(", ")) else empty end)
+            (if (.no_data_codes // []) | length > 0 then "No data: " + (.no_data_codes | join(", ")) + "\n" else empty end),
+            (if (.providers // {}) | length > 0 then
+              "### Where the time went\n\n" +
+              "| Provider | Requests | Answered | No data | Failed | Seconds in requests |\n|---|---|---|---|---|---|\n" +
+              ([.providers | to_entries[] | "| \(.key) | \(.value.requests) | \(.value.answered) | \(.value.no_data) | \(.value.failed) | \(.value.seconds) |"] | join("\n")) +
+              "\n\nWaited \(.paced_seconds // 0)s on rate limits. Slowest stocks: " +
+              ([.slowest[]? | "\(.code) \(.seconds)s (\(.outcome))"] | join(", ")) + "\n"
+            else empty end)
           ' "$report" >> "$GITHUB_STEP_SUMMARY"
+
+          # Each attempt also keeps its own report, which a retry cannot
+          # overwrite: after a timeout, the first attempt is usually the one
+          # that did the work.
+          attempts="$(gcloud storage ls "gs://$BUCKET/price-sync/$EXECUTION/attempt-*.json" 2>/dev/null || true)"
+          if (( $(grep -c . <<< "$attempts") > 1 )); then
+            {
+              echo "### Every attempt"
+              echo ""
+              echo "| Attempt | Duration | Stocks | Synced | Already current | No data | Failed | Written | Stopped |"
+              echo "|---|---|---|---|---|---|---|---|---|"
+            } >> "$GITHUB_STEP_SUMMARY"
+            while read -r object; do
+              if body="$(gcloud storage cat "$object")"; then
+                jq -c '{attempt, in_progress, duration, error, stocks, synced, up_to_date, no_data, failed,
+                  sessions_written, providers, paced_seconds, slowest}' <<< "$body"
+                jq -r '"| \(.attempt) | \(.duration)\(if .in_progress then " (snapshot)" else "" end) | \(.stocks) | \(.synced) | \(.up_to_date) | \(.no_data) | \(.failed) | \(.sessions_written) | \(.error // "") |"' \
+                  <<< "$body" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            done <<< "$attempts"
+          fi

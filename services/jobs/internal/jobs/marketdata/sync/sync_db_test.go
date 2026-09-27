@@ -196,6 +196,11 @@ func TestSweepAgainstPostgres(t *testing.T) {
 	assert.Equal(t, 1, report.NoData, "OLD: nine months with no session is")
 	assert.Equal(t, []string{"OLD"}, report.NoDataCodes)
 	assert.Zero(t, report.Failed)
+	// Where the time went: one request per stock that needed one.
+	assert.Equal(t, ProviderStats{Requests: 4, Answered: 2, NoData: 2, Seconds: report.Providers["yahoo"].Seconds}, report.Providers["yahoo"])
+	require.NotEmpty(t, report.Slowest)
+	assert.Zero(t, report.Attempt)
+	assert.False(t, report.InProgress)
 
 	// BHP gained exactly the week it lacked, through the batched upsert.
 	assert.Equal(t, 5, count(`SELECT count(*) FROM stock_prices WHERE stock_code = 'BHP' AND date BETWEEN '2026-09-21' AND '2026-09-25'`))

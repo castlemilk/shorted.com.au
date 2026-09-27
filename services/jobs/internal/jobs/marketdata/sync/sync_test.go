@@ -362,7 +362,7 @@ func TestPriceSyncWorkflowReadsTheReport(t *testing.T) {
 		"stocks", "beyond_listing", "synced", "up_to_date", "no_session", "no_data", "failed", "blocked",
 		"sessions_fetched", "sessions_written", "sessions_new", "sessions_changed", "sessions_changed_twofold",
 		"stored_only", "stored_only_weekend", "stored_only_by_code", "changes", "stored_only_rows",
-		"failed_codes", "no_data_codes"} {
+		"failed_codes", "no_data_codes", "providers", "paced_seconds", "slowest", "attempt", "in_progress"} {
 		assert.Contains(t, wf, "."+field, "the workflow reads .%s", field)
 	}
 	report, err := json.Marshal(RunReport{
@@ -370,11 +370,13 @@ func TestPriceSyncWorkflowReadsTheReport(t *testing.T) {
 		Changes: []PriceChange{{}}, StoredOnlyRows: []StoredRow{{}}, StoredOnlyByCode: map[string]int{"BHP": 1},
 		FailedCodes: []string{"A"}, NoDataCodes: []string{"B"},
 		New: 1, Changed: 1, ChangedTwofold: 1, StoredOnly: 1, StoredOnlyWeekend: 1,
+		Providers: map[string]ProviderStats{"yahoo": {}}, Slowest: []StockTiming{{}}, InProgress: true,
 	})
 	require.NoError(t, err)
 	var keys map[string]any
 	require.NoError(t, json.Unmarshal(report, &keys))
-	for _, field := range []string{"execution", "stocks", "beyond_listing", "sessions_new", "stored_only_weekend", "changes", "no_data_codes"} {
+	for _, field := range []string{"execution", "stocks", "beyond_listing", "sessions_new", "stored_only_weekend", "changes", "no_data_codes",
+		"providers", "paced_seconds", "slowest", "attempt", "in_progress"} {
 		assert.Contains(t, keys, field)
 	}
 }
