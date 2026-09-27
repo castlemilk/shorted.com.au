@@ -40,8 +40,19 @@ func New(db *pgxpool.Pool, gcs *storage.Client) *Service {
 	return &Service{db: db, gcs: gcs}
 }
 
-// GetPrioritizedStocks returns all stocks with top shorted first
+// GetPrioritizedStocks returns all stocks with top shorted first, and upserts
+// the listing's names, industries and market caps into company-metadata.
 func (s *Service) GetPrioritizedStocks(ctx context.Context, bucket string, priorityCount int) ([]Stock, error) {
+	return s.prioritizedStocks(ctx, bucket, priorityCount, true)
+}
+
+// GetPrioritizedStocksReadOnly is GetPrioritizedStocks without the
+// company-metadata upsert, for a run that must write nothing.
+func (s *Service) GetPrioritizedStocksReadOnly(ctx context.Context, bucket string, priorityCount int) ([]Stock, error) {
+	return s.prioritizedStocks(ctx, bucket, priorityCount, false)
+}
+
+func (s *Service) prioritizedStocks(ctx context.Context, bucket string, priorityCount int, syncMetadata bool) ([]Stock, error) {
 	// 1. Fetch full list from GCS (source of truth) and sync company metadata
 	companies, err := s.fetchCompaniesFromGCS(ctx, bucket, "asx-stocks/latest.csv")
 	if err != nil {
@@ -51,11 +62,13 @@ func (s *Service) GetPrioritizedStocks(ctx context.Context, bucket string, prior
 	log.Printf("📋 Fetched %d companies from GCS", len(companies))
 
 	// 2. Sync company metadata to database (upsert industry, name, market cap)
-	synced, err := s.syncCompanyMetadata(ctx, companies)
-	if err != nil {
-		log.Printf("⚠️ Warning: failed to sync company metadata: %v", err)
-	} else {
-		log.Printf("✅ Synced %d companies to company-metadata", synced)
+	if syncMetadata {
+		synced, err := s.syncCompanyMetadata(ctx, companies)
+		if err != nil {
+			log.Printf("⚠️ Warning: failed to sync company metadata: %v", err)
+		} else {
+			log.Printf("✅ Synced %d companies to company-metadata", synced)
+		}
 	}
 
 	// 3. Extract stock codes for price sync

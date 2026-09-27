@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"regexp"
+	"strings"
 	"time"
 
 	msync "github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/marketdata/sync"
@@ -17,29 +19,27 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// syncJob returns the `shorted market-data sync` subcommand — the standalone
-// binary's `-cli` mode: initialise, run one full prioritised sweep, exit.
+// syncJob returns the `shorted market-data sync` subcommand: one sweep of every
+// listed stock, stalest first, each up to the last closed session. It is the
+// daily price job (Cloud Run Job shorted-price-sync).
 //
-// DryRun is false: the sweep always writes stock_prices (and, when SYNC_ALGOLIA
-// is set, Algolia), and the standalone binary had no dry-run path.
+//	-from DATE   re-fetch every stock from DATE, overwriting stored sessions with
+//	             the provider's, and report where they differed
+//	-codes A,B   only these codes (failure blocks ignored)
+//	-dry-run     fetch and compare, write nothing to the database
 func syncJob() runner.Job {
 	return runner.Func{
 		JobName: "sync",
-		Desc:    "run one full prioritised price sync and exit (was market-data-sync -cli)",
+		Desc:    "sweep every stock's prices up to the last closed session, stalest first, and exit",
+		DryRun:  true,
 		Fn:      runSync,
 	}
 }
 
 func runSync(ctx context.Context, args []string) error {
-	fs := flag.NewFlagSet("market-data sync", flag.ContinueOnError)
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return runner.ErrUsage
-		}
+	opts, err := parseSyncFlags(runner.FromContext(ctx).DryRun, args)
+	if err != nil {
 		return err
-	}
-	if fs.NArg() > 0 {
-		return fmt.Errorf("unexpected argument %q", fs.Arg(0))
 	}
 
 	cfg, err := loadConfig()
@@ -70,7 +70,7 @@ func runSync(ctx context.Context, args []string) error {
 	)
 
 	start := time.Now()
-	syncErr := syncManager.Run(syncCtx)
+	_, syncErr := syncManager.RunWith(syncCtx, opts)
 	duration := time.Since(start).Seconds()
 	span.End()
 
@@ -101,3 +101,41 @@ func runSync(ctx context.Context, args []string) error {
 	log.Printf("🎉 Market Data Sync completed successfully")
 	return nil
 }
+
+// parseSyncFlags reads the sync subcommand's flags into run options. -dry-run
+// defaults to the global flag, so `shorted -dry-run market-data sync` previews.
+func parseSyncFlags(globalDryRun bool, args []string) (msync.RunOptions, error) {
+	var opts msync.RunOptions
+	fs := flag.NewFlagSet("market-data sync", flag.ContinueOnError)
+	from := fs.String("from", "", "re-fetch every stock from this date (YYYY-MM-DD), overwriting stored sessions, and report differences")
+	codes := fs.String("codes", "", "comma-separated codes to sync instead of the whole list (failure blocks ignored)")
+	fs.BoolVar(&opts.DryRun, "dry-run", globalDryRun, "fetch and compare with what is stored; write nothing to the database")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return opts, runner.ErrUsage
+		}
+		return opts, err
+	}
+	if fs.NArg() > 0 {
+		return opts, fmt.Errorf("unexpected argument %q", fs.Arg(0))
+	}
+	if *from != "" {
+		t, err := time.Parse("2006-01-02", *from)
+		if err != nil {
+			return opts, fmt.Errorf("-from %q: want YYYY-MM-DD", *from)
+		}
+		opts.From = t
+	}
+	for _, c := range strings.Split(*codes, ",") {
+		if c = strings.ToUpper(strings.TrimSpace(c)); c != "" {
+			if !stockCodePattern.MatchString(c) {
+				return opts, fmt.Errorf("-codes: %q is not an ASX code", c)
+			}
+			opts.Codes = append(opts.Codes, c)
+		}
+	}
+	return opts, nil
+}
+
+// stockCodePattern is an ASX code: three to six letters and digits.
+var stockCodePattern = regexp.MustCompile(`^[A-Z0-9]{3,6}$`)

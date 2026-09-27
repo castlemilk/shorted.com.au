@@ -475,6 +475,79 @@ module "shorted_job_index_sync" {
   ]
 }
 
+# `shorted market-data sync` — the daily ASX price sweep into stock_prices.
+#
+# Replaces the sweep module.market_discovery_sync's service ran behind
+# POST /api/sync/all (that scheduler is paused). That sweep ran in a goroutine
+# on a CPU-throttled service, restarted from the top of the list each day and
+# never reached the end: 37 of 51 sampled stocks had no price after 20 August
+# 2026. A job runs to completion, and this one takes stocks stalest first, so a
+# run that stops early is resumed by the next rather than restarted.
+#
+# One request per stock (~2,000 codes at Yahoo's 4s pace) is a ~2.5 hour run;
+# the timeout leaves room for a catch-up. Scheduled at 20:00 AEST / 21:00 AEDT,
+# after the close, so every run has the day's session.
+#
+# Region: next to the database. Each stock is a few round trips, which from
+# us-central1 cost ~150ms apiece against the Sydney pooler.
+module "shorted_job_price_sync" {
+  source = "../../modules/shorted-job"
+
+  name             = "shorted-price-sync"
+  description      = "Daily ASX prices into stock_prices, every listed stock, stalest first"
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1"
+  environment      = "production"
+  image_url        = var.shorted_jobs_image
+
+  args = [
+    "market-data",
+    "sync",
+  ]
+
+  schedule = "0 10 * * 1-5" # weekdays 10:00 UTC, the retired scheduler's slot
+
+  env = {
+    ENVIRONMENT = "production"
+    # The listed-stock CSV (asx-stocks/latest.csv) and the run report
+    # (price-sync/<execution>.json) both live in the short-selling bucket.
+    GCS_BUCKET_NAME             = local.short_selling_bucket_name
+    PRIORITY_STOCK_COUNT        = "100"
+    DB_MAX_CONNS                = "2"
+    DB_MIN_CONNS                = "0"
+    OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
+    OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
+  }
+
+  secret_env = {
+    DATABASE_URL               = "DATABASE_URL"
+    ALPHA_VANTAGE_API_KEY      = "ALPHA_VANTAGE_API_KEY"
+    OTEL_EXPORTER_OTLP_HEADERS = "OTEL_EXPORTER_OTLP_HEADERS"
+  }
+
+  timeout_seconds = 21600 # 6h: a daily run is ~2.5h
+  # One retry: a run that stops early (a refusing upstream trips its circuit
+  # breaker) resumes from the stalest stock rather than repeating work.
+  max_retries = 1
+  cpu         = "1"
+  memory      = "512Mi"
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# The price job reads the listed-stock CSV and writes its run report in the
+# short-selling bucket (CI reads the report there: it cannot read Cloud
+# Logging). Bucket-level, as the retired service's grant was.
+resource "google_storage_bucket_iam_member" "price_sync_bucket" {
+  bucket = local.short_selling_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${module.shorted_job_price_sync.service_account_email}"
+}
+
 # `shorted economy -mode all` — replaces module.economy_collector.
 module "shorted_job_economy" {
   source = "../../modules/shorted-job"
@@ -1134,6 +1207,12 @@ module "market_discovery_sync" {
   market_data_sync_image_override = var.shorted_jobs_image
   market_data_sync_command        = ["/shorted"]
   market_data_sync_args           = ["market-data", "serve"]
+
+  # The daily price sweep is module.shorted_job_price_sync. The service stays
+  # up for its /api/gaps and /api/sync/stock endpoints; only the weekday
+  # trigger of its sweep is paused. Rollback: false here, and paused = true on
+  # shorted_job_price_sync.
+  market_data_sync_scheduler_paused = true
 
   asx_discovery_image_override = var.shorted_jobs_browser_image
   asx_discovery_command        = ["/shorted"]

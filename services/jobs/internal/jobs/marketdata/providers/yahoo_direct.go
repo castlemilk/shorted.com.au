@@ -4,340 +4,282 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"net/url"
+	"sort"
+	"strings"
 	"time"
+	_ "time/tzdata" // the jobs image is distroless; embed the zone session dates depend on
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 )
 
-// YahooFinanceDirectProvider implements a direct HTTP client for Yahoo Finance API
-// This bypasses the broken piquette/finance-go library
-type YahooFinanceDirectProvider struct {
-	client *http.Client
+// asxLocation is the exchange's zone, which is what a session's DATE is in.
+//
+// Yahoo stamps a daily bar with the session's open in UTC. 10:00 AEST is 00:00Z
+// the same day, but 10:00 AEDT (October to April) is 23:00Z the PREVIOUS day.
+// This provider used to take the UTC date of that timestamp, so every summer
+// session was filed under the day before: Monday's bar landed on the Sunday.
+// That is why prod holds Sunday-dated prices from November 2025 to March 2026.
+var asxLocation = mustLoadLocation("Australia/Sydney")
+
+func mustLoadLocation(name string) *time.Location {
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		panic(fmt.Sprintf("load %s: %v", name, err)) // unreachable with time/tzdata embedded
+	}
+	return loc
 }
 
-// NewYahooFinanceDirectProvider creates a new direct Yahoo Finance provider
-func NewYahooFinanceDirectProvider() *YahooFinanceDirectProvider {
-	return &YahooFinanceDirectProvider{
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+// chartFetcher fetches one Yahoo chart document. *stealthhttp.Client satisfies
+// it; tests substitute a stub.
+type chartFetcher interface {
+	FetchBytes(ctx context.Context, pageURL, accept string) ([]byte, string, error)
+}
+
+// yahooRequestInterval spaces requests. Yahoo publishes no limit; four seconds
+// is 900 an hour, and a full sweep of the market (~2,000 codes) fits inside
+// one run at that pace.
+const yahooRequestInterval = 4 * time.Second
+
+// YahooFinanceDirectProvider reads Yahoo's v8 chart API.
+type YahooFinanceDirectProvider struct {
+	fetch    chartFetcher
+	close    func() error
+	interval time.Duration
+}
+
+// NewYahooFinanceDirectProvider builds the provider on the stealth client.
+//
+// It used a plain net/http client, which Yahoo answers with HTTP 429 "Too Many
+// Requests" whatever the request rate: the wall is a TLS and header fingerprint
+// (index_sync.go, which hit it first). Reproduced on 2026-09-27 for BHP.AX: 429
+// from a plain client, 29 daily bars from this one.
+func NewYahooFinanceDirectProvider() (*YahooFinanceDirectProvider, error) {
+	c, err := stealthhttp.New(stealthhttp.WithTimeout(45 * time.Second))
+	if err != nil {
+		return nil, fmt.Errorf("yahoo: stealth client: %w", err)
 	}
+	return &YahooFinanceDirectProvider{fetch: c, close: c.Close, interval: yahooRequestInterval}, nil
+}
+
+// Close releases the stealth client.
+func (p *YahooFinanceDirectProvider) Close() error {
+	if p.close == nil {
+		return nil
+	}
+	return p.close()
 }
 
 func (p *YahooFinanceDirectProvider) Name() string {
 	return "Yahoo Finance (Direct)"
 }
 
+// GetRateLimit is the interval between requests.
 func (p *YahooFinanceDirectProvider) GetRateLimit() time.Duration {
-	// Be respectful: 3-4 seconds between requests to avoid overwhelming Yahoo Finance
-	// This gives ~900-1200 requests/hour, well below any reasonable rate limits
-	// Yahoo Finance doesn't publish official limits, but being conservative prevents:
-	// - IP blocking
-	// - Rate limit errors
-	// - Being flagged as abusive
-	return 4 * time.Second
+	return p.interval
 }
 
-// yahooChartResponse represents the Yahoo Finance v8 API response structure
+// yahooChartResponse is the slice of the v8 chart payload this provider reads.
+// Prices are pointers because Yahoo sends null for a session with no trade
+// data; decoding null into a float64 left 0, which was stored as a $0 price.
 type yahooChartResponse struct {
 	Chart struct {
 		Result []struct {
-			Meta struct {
-				Symbol string `json:"symbol"`
-			} `json:"meta"`
 			Timestamp  []int64 `json:"timestamp"`
 			Indicators struct {
 				Quote []struct {
-					Open   []float64 `json:"open"`
-					High   []float64 `json:"high"`
-					Low    []float64 `json:"low"`
-					Close  []float64 `json:"close"`
-					Volume []int64   `json:"volume"`
+					Open   []*float64 `json:"open"`
+					High   []*float64 `json:"high"`
+					Low    []*float64 `json:"low"`
+					Close  []*float64 `json:"close"`
+					Volume []*int64   `json:"volume"`
 				} `json:"quote"`
 				AdjClose []struct {
-					AdjClose []float64 `json:"adjclose"`
+					AdjClose []*float64 `json:"adjclose"`
 				} `json:"adjclose"`
 			} `json:"indicators"`
 		} `json:"result"`
-		Error interface{} `json:"error"`
+		Error *struct {
+			Code        string `json:"code"`
+			Description string `json:"description"`
+		} `json:"error"`
 	} `json:"chart"`
 }
 
-// FetchHistoricalData fetches historical stock data directly from Yahoo Finance API
-// For long date ranges (>2 years), it chunks requests to ensure full daily data fidelity
+// FetchHistoricalData returns the sessions from startDate's day to endDate's
+// day inclusive (UTC calendar dates; the sync passes midnight-UTC dates).
+//
+// A range over two years is fetched in two-year chunks, newest first. An empty
+// newest chunk ends the fetch (a code Yahoo does not carry has no older
+// sessions worth four more requests), and so does the first chunk to fail or
+// come back empty after one with sessions: the newer sessions are kept, and
+// anything older is the historical backfill's to fill.
 func (p *YahooFinanceDirectProvider) FetchHistoricalData(ctx context.Context, symbol string, startDate, endDate time.Time) ([]PriceRecord, error) {
-	// Yahoo Finance requires .AX suffix for ASX stocks
-	yfTicker := symbol
-	if !containsSuffix(yfTicker, ".AX") {
-		yfTicker = fmt.Sprintf("%s.AX", symbol)
+	ticker := symbol
+	if !strings.HasSuffix(ticker, ".AX") {
+		ticker = symbol + ".AX"
+	}
+	from, to := utcDay(startDate), utcDay(endDate)
+	if to.Before(from) {
+		return nil, NewNoDataError(symbol, fmt.Sprintf("empty range %s to %s", from.Format("2006-01-02"), to.Format("2006-01-02")))
 	}
 
-	// For long date ranges (>2 years), chunk into smaller requests to ensure full data fidelity
-	// Yahoo Finance may sample/limit data points for very long ranges
-	daysDiff := int(endDate.Sub(startDate).Hours() / 24)
-	log.Printf("🔍 %s: Date range %s to %s = %d days", yfTicker, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), daysDiff)
-	if daysDiff > 730 { // More than 2 years
-		log.Printf("📦 Using chunked requests for %s (%d days > 730)", yfTicker, daysDiff)
-		return p.fetchHistoricalDataChunked(ctx, yfTicker, symbol, startDate, endDate)
-	}
-
-	// For shorter ranges, use single request
-	log.Printf("📥 Using single request for %s (%d days <= 730)", yfTicker, daysDiff)
-	return p.fetchHistoricalDataSingle(ctx, yfTicker, symbol, startDate, endDate)
-}
-
-// fetchHistoricalDataSingle fetches data for a single date range (up to 2 years)
-func (p *YahooFinanceDirectProvider) fetchHistoricalDataSingle(ctx context.Context, yfTicker, symbol string, startDate, endDate time.Time) ([]PriceRecord, error) {
-	// We now use period1/period2 Unix timestamps directly in makeAPIRequest
-	// This ensures we get daily data for the exact date range specified
-	// (using range=max caused Yahoo Finance to return weekly/monthly data)
-	return p.makeAPIRequest(ctx, yfTicker, symbol, startDate, endDate)
-}
-
-// fetchHistoricalDataChunked fetches data in 2-year chunks to ensure full daily data fidelity
-func (p *YahooFinanceDirectProvider) fetchHistoricalDataChunked(ctx context.Context, yfTicker, symbol string, startDate, endDate time.Time) ([]PriceRecord, error) {
-	var allRecords []PriceRecord
-	currentStart := startDate
-
-	// Chunk into 2-year periods (730 days)
-	chunkDays := 730
-	chunkDuration := time.Duration(chunkDays) * 24 * time.Hour
-
-	totalDays := int(endDate.Sub(startDate).Hours() / 24)
-	expectedChunks := (totalDays / chunkDays) + 1
-	log.Printf("📦 Chunking %s: %d days into ~%d chunks of 2 years each", yfTicker, totalDays, expectedChunks)
-
-	chunkNum := 0
-	for currentStart.Before(endDate) {
-		chunkNum++
-		// Calculate chunk end date
-		chunkEnd := currentStart.Add(chunkDuration)
-		if chunkEnd.After(endDate) {
-			chunkEnd = endDate
+	const chunkDays = 730
+	var all []PriceRecord
+	for chunkTo := to; !chunkTo.Before(from); chunkTo = chunkTo.AddDate(0, 0, -(chunkDays + 1)) {
+		chunkFrom := chunkTo.AddDate(0, 0, -chunkDays)
+		if chunkFrom.Before(from) {
+			chunkFrom = from
 		}
-
-		log.Printf("📦 [%d/%d] Fetching chunk %s to %s for %s", chunkNum, expectedChunks,
-			currentStart.Format("2006-01-02"), chunkEnd.Format("2006-01-02"), yfTicker)
-
-		// Fetch this chunk
-		chunkRecords, err := p.fetchHistoricalDataSingle(ctx, yfTicker, symbol, currentStart, chunkEnd)
+		if chunkTo != to {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(p.GetRateLimit()):
+			}
+		}
+		records, err := p.fetchRange(ctx, ticker, symbol, chunkFrom, chunkTo)
 		if err != nil {
-			// Log error but continue with next chunk
-			log.Printf("⚠️ Error fetching chunk %s to %s for %s: %v",
-				currentStart.Format("2006-01-02"), chunkEnd.Format("2006-01-02"), yfTicker, err)
-			// Move to next chunk
-			currentStart = chunkEnd.AddDate(0, 0, 1)
-			continue
-		}
-
-		log.Printf("✅ [%d/%d] Chunk returned %d records for %s", chunkNum, expectedChunks, len(chunkRecords), yfTicker)
-		allRecords = append(allRecords, chunkRecords...)
-
-		// Move to next chunk
-		currentStart = chunkEnd.AddDate(0, 0, 1)
-
-		// Rate limiting between chunks
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(p.GetRateLimit()):
-		}
-	}
-
-	log.Printf("📊 Combined %d chunks into %d total records for %s", chunkNum, len(allRecords), yfTicker)
-
-	// Remove duplicates (in case of overlap) and sort by date
-	recordsMap := make(map[string]PriceRecord)
-	for _, record := range allRecords {
-		dateKey := record.Date.Format("2006-01-02")
-		if existing, exists := recordsMap[dateKey]; !exists || record.Date.After(existing.Date) {
-			recordsMap[dateKey] = record
-		}
-	}
-
-	// Convert back to slice and sort
-	var finalRecords []PriceRecord
-	for _, record := range recordsMap {
-		finalRecords = append(finalRecords, record)
-	}
-
-	// Sort by date
-	for i := 0; i < len(finalRecords)-1; i++ {
-		for j := i + 1; j < len(finalRecords); j++ {
-			if finalRecords[i].Date.After(finalRecords[j].Date) {
-				finalRecords[i], finalRecords[j] = finalRecords[j], finalRecords[i]
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return nil, ctxErr
 			}
+			if len(all) == 0 {
+				return nil, err
+			}
+			if !IsNoDataError(err) {
+				log.Printf("⚠️ %s: sessions before %s not fetched: %v", ticker, chunkTo.AddDate(0, 0, 1).Format("2006-01-02"), err)
+			}
+			break
 		}
+		all = append(all, records...)
 	}
-
-	return finalRecords, nil
+	return dedupeByDate(all), nil
 }
 
-// makeAPIRequest makes a single API request to Yahoo Finance
-func (p *YahooFinanceDirectProvider) makeAPIRequest(ctx context.Context, yfTicker, symbol string, startDate, endDate time.Time) ([]PriceRecord, error) {
-	// Build API URL
-	apiURL := fmt.Sprintf("https://query1.finance.yahoo.com/v8/finance/chart/%s", url.QueryEscape(yfTicker))
-	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Add query parameters
-	// IMPORTANT: Use period1/period2 Unix timestamps for date ranges instead of "range" parameter
-	// When using range=max, Yahoo Finance may return weekly/monthly data instead of daily
-	// Using explicit period1/period2 ensures we get daily data for the specified range
-	q := req.URL.Query()
+// fetchRange requests one window. period1/period2 are padded by two days on
+// each side, because an AEDT session's timestamp falls on the previous UTC day,
+// and the result is then cut back to [from, to] by SESSION date.
+func (p *YahooFinanceDirectProvider) fetchRange(ctx context.Context, ticker, symbol string, from, to time.Time) ([]PriceRecord, error) {
+	q := url.Values{}
 	q.Set("interval", "1d")
-	q.Set("period1", fmt.Sprintf("%d", startDate.Unix()))
-	q.Set("period2", fmt.Sprintf("%d", endDate.Unix()))
+	q.Set("period1", fmt.Sprint(from.AddDate(0, 0, -2).Unix()))
+	q.Set("period2", fmt.Sprint(to.AddDate(0, 0, 2).Unix()))
 	q.Set("includePrePost", "false")
-	req.URL.RawQuery = q.Encode()
+	u := "https://query1.finance.yahoo.com/v8/finance/chart/" + url.PathEscape(ticker) + "?" + q.Encode()
 
-	// Set headers to mimic browser request
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-
-	// Make request
-	resp, err := p.client.Do(req)
+	body, _, err := p.fetch.FetchBytes(ctx, u, "application/json")
 	if err != nil {
-		return nil, fmt.Errorf("HTTP request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		if resp.StatusCode == http.StatusNotFound {
-			return nil, NewNoDataError(symbol, fmt.Sprintf("HTTP 404: %s", string(body)))
+		if stealthhttp.StatusError(err) == 404 {
+			return nil, NewNoDataError(symbol, "yahoo: HTTP 404")
 		}
-		return nil, fmt.Errorf("yahoo finance API returned status %d: %s", resp.StatusCode, string(body))
+		// A 429, a 5xx or a transport failure is NOT "no data". Reporting it as
+		// such is what lets the failure tracker block a live stock for 30 days.
+		return nil, fmt.Errorf("yahoo %s: %w", ticker, err)
+	}
+	records, err := parseYahooChart(body, symbol)
+	if err != nil {
+		return nil, err
+	}
+	var out []PriceRecord
+	for _, r := range records {
+		if !r.Date.Before(from) && !r.Date.After(to) {
+			out = append(out, r)
+		}
+	}
+	if len(out) == 0 {
+		return nil, NewNoDataError(symbol, fmt.Sprintf("no sessions from %s to %s", from.Format("2006-01-02"), to.Format("2006-01-02")))
+	}
+	return out, nil
+}
+
+// parseYahooChart turns a chart document into one record per session with a
+// close. Each record's Date is the session date in Sydney, at midnight UTC,
+// which is what the stock_prices DATE column stores.
+func parseYahooChart(body []byte, symbol string) ([]PriceRecord, error) {
+	var doc yahooChartResponse
+	if err := json.Unmarshal(body, &doc); err != nil {
+		return nil, fmt.Errorf("yahoo %s: parse: %w", symbol, err)
+	}
+	if e := doc.Chart.Error; e != nil {
+		if strings.EqualFold(e.Code, "Not Found") {
+			return nil, NewNoDataError(symbol, "yahoo: "+e.Description)
+		}
+		return nil, fmt.Errorf("yahoo %s: %s: %s", symbol, e.Code, e.Description)
+	}
+	if len(doc.Chart.Result) == 0 || len(doc.Chart.Result[0].Indicators.Quote) == 0 {
+		return nil, NewNoDataError(symbol, "yahoo: no quote data")
+	}
+	res := doc.Chart.Result[0]
+	quote := res.Indicators.Quote[0]
+	var adj []*float64
+	if len(res.Indicators.AdjClose) > 0 {
+		adj = res.Indicators.AdjClose[0].AdjClose
+	}
+	at := func(s []*float64, i int) *float64 {
+		if i < len(s) {
+			return s[i]
+		}
+		return nil
 	}
 
-	// Parse JSON response
-	var chartResp yahooChartResponse
-	if err := json.NewDecoder(resp.Body).Decode(&chartResp); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
-	}
-
-	// Check for API errors
-	if chartResp.Chart.Error != nil {
-		errorBytes, _ := json.Marshal(chartResp.Chart.Error)
-		return nil, fmt.Errorf("yahoo finance API error: %s", string(errorBytes))
-	}
-
-	// Check if we have results
-	if len(chartResp.Chart.Result) == 0 {
-		return nil, NewNoDataError(symbol, "no results returned")
-	}
-
-	result := chartResp.Chart.Result[0]
-	timestamps := result.Timestamp
-
-	// Check if we have quote data
-	if len(result.Indicators.Quote) == 0 {
-		return nil, NewNoDataError(symbol, "no quote data returned")
-	}
-
-	quote := result.Indicators.Quote[0]
-	opens := quote.Open
-	highs := quote.High
-	lows := quote.Low
-	closes := quote.Close
-	volumes := quote.Volume
-
-	// Get adjusted close if available
-	var adjCloses []float64
-	if len(result.Indicators.AdjClose) > 0 && len(result.Indicators.AdjClose[0].AdjClose) > 0 {
-		adjCloses = result.Indicators.AdjClose[0].AdjClose
-	}
-
-	// Convert to PriceRecord slice
-	var records []PriceRecord
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	yesterday := today.AddDate(0, 0, -1)
-
-	// Adjust date range: if requesting today's data but Yahoo Finance only has up to yesterday,
-	// we should accept yesterday's data as valid
-	adjustedStartDate := startDate
-	adjustedEndDate := endDate
-
-	// Only adjust dates if we're requesting recent data (within last few days)
-	// For historical backfills (10 years), we don't want to adjust the range
-	daysSinceStart := int(time.Since(startDate).Hours() / 24)
-	if daysSinceStart <= 5 {
-		// If requesting today's data (startDate is today or later), adjust to accept yesterday
-		if !startDate.Before(today) {
-			// If startDate is today, adjust it to yesterday to allow yesterday's data
-			if startDate.Equal(today) || (startDate.After(today) && startDate.Before(today.Add(24*time.Hour))) {
-				adjustedStartDate = yesterday
+	var out []PriceRecord
+	for i, ts := range res.Timestamp {
+		closePrice := at(quote.Close, i)
+		if closePrice == nil {
+			continue // no trade data for the session: store nothing rather than $0
+		}
+		orClose := func(v *float64) float64 {
+			if v == nil {
+				return *closePrice
 			}
-			// Adjust endDate to end of yesterday if requesting today/future
-			if endDate.After(today) || endDate.Equal(today) {
-				adjustedEndDate = yesterday.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-			}
+			return *v
 		}
-	}
-
-	// Log what Yahoo Finance returned BEFORE filtering
-	if len(timestamps) > 0 {
-		earliestReturned := time.Unix(timestamps[0], 0)
-		latestReturned := time.Unix(timestamps[len(timestamps)-1], 0)
-		log.Printf("📊 Yahoo Finance returned %d timestamps for %s: %s to %s",
-			len(timestamps), yfTicker, earliestReturned.Format("2006-01-02"), latestReturned.Format("2006-01-02"))
-	}
-
-	var filteredCount int
-	for i, ts := range timestamps {
-		// Filter by date range (using adjusted dates)
-		recordDate := time.Unix(ts, 0)
-		if recordDate.Before(adjustedStartDate) || recordDate.After(adjustedEndDate) {
-			filteredCount++
-			continue
+		var volume int64
+		if i < len(quote.Volume) && quote.Volume[i] != nil {
+			volume = *quote.Volume[i]
 		}
-
-		// Skip if we don't have all required data
-		if i >= len(opens) || i >= len(highs) || i >= len(lows) || i >= len(closes) || i >= len(volumes) {
-			continue
+		adjClose := *closePrice
+		if a := at(adj, i); a != nil && *a > 0 {
+			adjClose = *a
 		}
-
-		// Use adjusted close if available, otherwise use regular close
-		adjClose := closes[i]
-		if i < len(adjCloses) && adjCloses[i] > 0 {
-			adjClose = adjCloses[i]
-		}
-
-		records = append(records, PriceRecord{
+		out = append(out, PriceRecord{
 			StockCode:     symbol,
-			Date:          recordDate,
-			Open:          opens[i],
-			High:          highs[i],
-			Low:           lows[i],
-			Close:         closes[i],
+			Date:          SessionDate(ts),
+			Open:          orClose(at(quote.Open, i)),
+			High:          orClose(at(quote.High, i)),
+			Low:           orClose(at(quote.Low, i)),
+			Close:         *closePrice,
 			AdjustedClose: adjClose,
-			Volume:        volumes[i],
+			Volume:        volume,
 		})
 	}
+	return out, nil
+}
 
-	// Debug: Log filtering stats for long date ranges
-	daysSinceStartForLog := int(time.Since(startDate).Hours() / 24)
-	if daysSinceStartForLog > 365 && filteredCount > 0 {
-		log.Printf("📊 Filtered %d records outside date range for %s (kept %d)", filteredCount, yfTicker, len(records))
+// SessionDate is the ASX session a Yahoo bar timestamp belongs to: its
+// calendar date in Sydney, as midnight UTC.
+func SessionDate(ts int64) time.Time {
+	t := time.Unix(ts, 0).In(asxLocation)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+// utcDay truncates t to its UTC calendar date.
+func utcDay(t time.Time) time.Time {
+	t = t.UTC()
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+// dedupeByDate keeps one record per date (chunks can overlap) and sorts them.
+func dedupeByDate(records []PriceRecord) []PriceRecord {
+	byDate := make(map[time.Time]PriceRecord, len(records))
+	for _, r := range records {
+		byDate[r.Date] = r
 	}
-
-	if len(records) == 0 {
-		// No data in the requested range — expected for delisted stocks
-		if len(timestamps) > 0 {
-			latestDataDate := time.Unix(timestamps[len(timestamps)-1], 0)
-			earliestDataDate := time.Unix(timestamps[0], 0)
-			return nil, NewNoDataError(symbol, fmt.Sprintf("no data in range %s to %s (available: %s to %s, filtered %d/%d)",
-				startDate.Format("2006-01-02"), endDate.Format("2006-01-02"),
-				earliestDataDate.Format("2006-01-02"), latestDataDate.Format("2006-01-02"), filteredCount, len(timestamps)))
-		}
-		return nil, NewNoDataError(symbol, fmt.Sprintf("no data in range %s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02")))
+	out := make([]PriceRecord, 0, len(byDate))
+	for _, r := range byDate {
+		out = append(out, r)
 	}
-
-	return records, nil
+	sort.Slice(out, func(i, j int) bool { return out[i].Date.Before(out[j].Date) })
+	return out
 }

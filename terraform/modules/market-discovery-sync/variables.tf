@@ -117,3 +117,9 @@ variable "otel_endpoint" {
   type        = string
   default     = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
 }
+
+variable "market_data_sync_scheduler_paused" {
+  description = "Pause the weekday market-data-sync-daily scheduler (POST /api/sync/all). The service stays deployed and callable; the daily price sweep runs as the shorted-price-sync Cloud Run Job instead."
+  type        = bool
+  default     = false
+}

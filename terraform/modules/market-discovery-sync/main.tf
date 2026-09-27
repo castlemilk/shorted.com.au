@@ -349,7 +349,12 @@ resource "google_cloud_scheduler_job" "asx_discovery_weekly" {
 }
 
 # Daily Market Data Sync Scheduler (Mon-Fri 8PM AEST = 10AM UTC)
-# Triggers full sync via HTTP API
+# Triggers full sync via HTTP API.
+#
+# Paused in prod (market_data_sync_scheduler_paused): the sweep this starts runs
+# in a goroutine after the 202, on a CPU-throttled service with a 600s request
+# ceiling, restarts from the top of the list every day and never reached the
+# end of it. The daily sweep is the shorted-price-sync Cloud Run Job now.
 resource "google_cloud_scheduler_job" "market_data_sync_daily" {
   name             = "market-data-sync-daily"
   description      = "Sync stock prices daily via HTTP API"
@@ -358,6 +363,7 @@ resource "google_cloud_scheduler_job" "market_data_sync_daily" {
   attempt_deadline = "1800s" # Max allowed is 30 minutes
   project          = var.project_id
   region           = var.scheduler_region
+  paused           = var.market_data_sync_scheduler_paused
 
   http_target {
     http_method = "POST"

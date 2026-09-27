@@ -68,13 +68,18 @@ func loadConfig() (*config.Config, error) {
 
 // deps are the collaborators the serve and sync paths share.
 type deps struct {
-	pool      *pgxpool.Pool
-	gcs       *storage.Client
-	providers []providers.DataProvider
+	pool           *pgxpool.Pool
+	gcs            *storage.Client
+	providers      []providers.DataProvider
+	closeProviders func()
 }
 
-// close releases the pool and GCS client. Safe on a partially-built deps.
+// close releases the pool, the GCS client and the providers. Safe on a
+// partially-built deps.
 func (d *deps) close() {
+	if d.closeProviders != nil {
+		d.closeProviders()
+	}
 	if d.pool != nil {
 		d.pool.Close()
 	}
@@ -122,7 +127,11 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*deps, error) {
 		log.Printf("ℹ️ Using local ASX CSV file, skipping GCS initialization")
 	}
 
-	d.providers = buildProviders(cfg)
+	d.providers, d.closeProviders, err = buildProviders(cfg)
+	if err != nil {
+		d.close()
+		return nil, err
+	}
 	return d, nil
 }
 
@@ -138,16 +147,26 @@ func newGCSClient(ctx context.Context) (*storage.Client, error) {
 	return storage.NewClient(ctx, opts...)
 }
 
-// buildProviders returns the provider chain: Yahoo Finance Direct first, Alpha
-// Vantage as a fallback when a key is configured.
-func buildProviders(cfg *config.Config) []providers.DataProvider {
-	out := []providers.DataProvider{providers.NewYahooFinanceDirectProvider()}
+// buildProviders returns the provider chain, Yahoo Finance Direct first and
+// Alpha Vantage as a fallback when a key is configured, and a func that
+// releases them.
+func buildProviders(cfg *config.Config) ([]providers.DataProvider, func(), error) {
+	yahoo, err := providers.NewYahooFinanceDirectProvider()
+	if err != nil {
+		return nil, nil, err
+	}
+	out := []providers.DataProvider{yahoo}
 	log.Printf("✅ Yahoo Finance Direct provider initialized")
 	if cfg.HasAlphaVantage() {
 		out = append(out, providers.NewAlphaVantageProvider(cfg.AlphaVantageAPIKey))
 		log.Printf("✅ Alpha Vantage provider initialized (fallback)")
 	}
-	return out
+	closeAll := func() {
+		if err := yahoo.Close(); err != nil {
+			log.Printf("⚠️ closing Yahoo client: %v", err)
+		}
+	}
+	return out, closeAll, nil
 }
 
 // buildDBPoolConfig reproduces the standalone service's pool posture exactly.
