@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { getStockData } from "./getStockData";
+import { getDailyShortSeries, reportDate } from "./getDailyShortSeries";
 
 /**
  * The date of the most recent ASIC short-position report that actually
@@ -12,43 +12,17 @@ import { getStockData } from "./getStockData";
  * ~1,600 indexed stock pages, and the kind of factual error that costs
  * E-E-A-T on a data site.
  *
- * Reads the SAME cached series the page already renders (getStockData is
- * unstable_cache-backed and ISR-safe, and React-cached per request), so this
- * adds no backend call on any page that also renders the history block.
- * Returns null when no dated point exists — callers must degrade to omitting
- * the date rather than inventing one.
+ * Read from the daily series, not getStockData's "max": that one is bucketed
+ * into weeks, and its last point is dated the Monday the week began, so a page
+ * rendered on a Thursday report claimed to be "as of" Monday. The daily series
+ * is the one the page's summary and history figures read, React-cached per
+ * request, so the page makes the call once. Returns null when no dated point
+ * exists: callers must degrade to omitting the date rather than inventing one.
  */
 export const getLatestShortDate = cache(
   async (productCode: string): Promise<Date | null> => {
-    const series = await getStockData(productCode, "max");
-    let latest = 0;
-    for (const point of series?.points ?? []) {
-      const ms = timestampToMillis(point?.timestamp);
-      if (ms !== null && ms > latest) latest = ms;
-    }
-    return latest > 0 ? new Date(latest) : null;
+    const series = await getDailyShortSeries(productCode);
+    const latest = series[series.length - 1];
+    return latest ? reportDate(latest) : null;
   },
 );
-
-/**
- * Points arrive either as protobuf Timestamps ({seconds, nanos}, seconds a
- * bigint over the wire) or as ISO strings when the edge-read JSON path served
- * the response — handle both.
- */
-function timestampToMillis(value: unknown): number | null {
-  if (!value) return null;
-  if (typeof value === "string") {
-    const ms = new Date(value).getTime();
-    return Number.isFinite(ms) ? ms : null;
-  }
-  if (typeof value === "object" && "seconds" in value) {
-    const { seconds, nanos } = value as {
-      seconds?: bigint | number | string;
-      nanos?: number;
-    };
-    const secs = Number(seconds ?? 0);
-    if (!Number.isFinite(secs) || secs <= 0) return null;
-    return secs * 1000 + Number(nanos ?? 0) / 1_000_000;
-  }
-  return null;
-}

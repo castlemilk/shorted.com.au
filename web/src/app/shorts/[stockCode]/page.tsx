@@ -314,7 +314,7 @@ const Page = async ({ params }: PageProps) => {
     : "in the latest ASIC report";
 
   // Trailing-window deltas for the summary paragraph. Reads the SAME
-  // React-cached "max" series getLatestShortDate already pulled, so it costs
+  // React-cached daily series getLatestShortDate already pulled, so it costs
   // no extra backend call; returns all-nulls (clauses omitted) on failure.
   const shortDeltas = await getShortInterestDeltas(stockCode);
 

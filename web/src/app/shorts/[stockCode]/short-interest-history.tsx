@@ -1,4 +1,7 @@
-import { getStockData } from "~/app/actions/getStockData";
+import {
+  getDailyShortSeries,
+  reportDate,
+} from "~/app/actions/getDailyShortSeries";
 import {
   SHORTS_API_URL,
   buildApiUrl,
@@ -18,13 +21,6 @@ interface HistoryStats {
   change1y: number | null;
   allTimeHigh: Point;
   allTimeLow: Point;
-}
-
-function toDate(ts: { seconds?: bigint | number } | undefined): Date | null {
-  const s = ts?.seconds;
-  if (typeof s === "bigint") return new Date(Number(s) * 1000);
-  if (typeof s === "number") return new Date(s * 1000);
-  return null;
 }
 
 function valueAtOrBefore(points: Point[], target: Date): number | null {
@@ -101,8 +97,10 @@ function fmtDelta(d: number | null): string {
   return `${sign}${d.toFixed(2)}pp`;
 }
 
+// Report dates are calendar dates held at midnight UTC; formatted in the
+// server's own zone, one west of UTC would name the previous day's month.
 function fmtMonthYear(d: Date): string {
-  return d.toLocaleDateString("en-AU", { month: "long", year: "numeric" });
+  return d.toLocaleDateString("en-AU", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
 function trendWord(d: number | null): string {
@@ -118,6 +116,12 @@ function trendWord(d: number | null): string {
  * search engines and AI answer engines self-contained quotable facts that
  * the JS-rendered charts can't provide.
  *
+ * Every figure is computed from each ASIC report (the daily series), as the
+ * provenance paragraph says. The chart's MAX series is weekly means, and
+ * figures taken from it were wrong in a way nothing flagged: the "current
+ * level" was a week's average, extremes were flattened into their weeks, and
+ * changes were measured between two means.
+ *
  * No FAQPage structured data on purpose — Google restricted FAQ rich
  * results to government/health sites in 2023; visible text is what counts.
  */
@@ -129,17 +133,14 @@ export async function ShortInterestHistory({
   companyName: string;
 }) {
   const [series, rankInfo] = await Promise.all([
-    getStockData(stockCode, "max"),
+    getDailyShortSeries(stockCode),
     getShortRank(stockCode),
   ]);
 
-  const points: Point[] = (series?.points ?? [])
-    .map((p) => {
-      const date = toDate(p.timestamp);
-      return date ? { date, pct: p.shortPosition } : null;
-    })
-    .filter((p): p is Point => p !== null)
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  const points: Point[] = series.map((p) => ({
+    date: reportDate(p),
+    pct: p.pct,
+  }));
 
   const stats = computeStats(points);
   if (!stats || stats.latest.pct <= 0) return null;

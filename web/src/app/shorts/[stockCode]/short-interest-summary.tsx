@@ -1,13 +1,16 @@
-import { getStockData } from "~/app/actions/getStockData";
+import {
+  getDailyShortSeries,
+  reportDate,
+} from "~/app/actions/getDailyShortSeries";
 
 /**
  * Templated short-interest summary — the prose paragraph that competitors beat
  * our data-only stock pages with on "[ticker] short interest" queries.
  *
  * Deliberately factual template prose, not synthesized editorial: every clause
- * is a formatted number from data this page ALREADY fetched. `getStockData`
- * is React-cached per render and is the same series `getLatestShortDate`
- * reads, so this adds zero backend calls.
+ * is a formatted number from data this page ALREADY fetched. The daily series
+ * is React-cached per render and is the same one `getLatestShortDate` reads,
+ * so this adds zero backend calls.
  *
  * Every clause degrades independently. A missing delta drops its sentence; a
  * missing report date falls back to "in the latest ASIC report". Nothing here
@@ -17,18 +20,6 @@ import { getStockData } from "~/app/actions/getStockData";
 interface Point {
   date: Date;
   pct: number;
-}
-
-function toDate(value: unknown): Date | null {
-  if (!value) return null;
-  if (typeof value === "string") {
-    const ms = new Date(value).getTime();
-    return Number.isFinite(ms) ? new Date(ms) : null;
-  }
-  const seconds = (value as { seconds?: bigint | number }).seconds;
-  if (typeof seconds === "bigint") return new Date(Number(seconds) * 1000);
-  if (typeof seconds === "number") return new Date(seconds * 1000);
-  return null;
 }
 
 /** Latest value at or before `target`; null when the series doesn't reach back. */
@@ -50,9 +41,13 @@ export interface ShortInterestDeltas {
 
 /**
  * Percentage-point changes over trailing windows, measured from the LATEST
- * point in the series (never from `new Date()` — ASIC publishes T+4, so
+ * report in the series (never from `new Date()` — ASIC publishes T+4, so
  * "30 days ago" anchored on today would silently shorten every window).
- * Returns all-nulls rather than throwing when the series is unavailable.
+ *
+ * Computed from every ASIC report, not the weekly means the chart's MAX series
+ * holds: those moved each change by the difference between two weeks' means
+ * and flattened the peak into its week. Returns all-nulls rather than throwing
+ * when the series is unavailable.
  */
 export async function getShortInterestDeltas(
   stockCode: string,
@@ -64,20 +59,15 @@ export async function getShortInterestDeltas(
     peakPct: null,
     peakDate: null,
   };
-  let series: Awaited<ReturnType<typeof getStockData>>;
+  let points: Point[];
   try {
-    series = await getStockData(stockCode, "max");
+    points = (await getDailyShortSeries(stockCode)).map((p) => ({
+      date: reportDate(p),
+      pct: p.pct,
+    }));
   } catch {
     return empty;
   }
-
-  const points: Point[] = (series?.points ?? [])
-    .map((p) => {
-      const date = toDate(p.timestamp);
-      return date ? { date, pct: p.shortPosition } : null;
-    })
-    .filter((p): p is Point => p !== null)
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
 
   const latest = points[points.length - 1];
   if (!latest) return empty;
