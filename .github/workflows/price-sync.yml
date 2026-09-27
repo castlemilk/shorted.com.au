@@ -225,11 +225,13 @@ jobs:
           fi
           # Everything a caller reading only the log needs: the counts on one
           # line, then one line per change and per stored-only session (each
-          # list is capped at 200 by the job; the counts are exact).
-          jq -c 'del(.changes, .stored_only_rows, .stored_only_by_code)' "$report"
+          # list is capped at 200 by the job; the counts are exact), then every
+          # changed session summarised by month and by code (not capped).
+          jq -c 'del(.changes, .stored_only_rows, .stored_only_by_code, .changed_by_code)' "$report"
           jq -c '.changes[]? | {change: .}' "$report"
           jq -c '.stored_only_rows[]? | {stored_only: .}' "$report"
           jq -c 'select(.stored_only_by_code != null) | {stored_only_by_code}' "$report"
+          jq -c '.changed_by_code // {} | to_entries | sort_by(-.value.changed)[] | {changed_code: .key} + .value' "$report"
           jq -r '
             "## Price sync " + (if .dry_run then "PREVIEW (dry run, nothing written)" else "run" end),
             "",
@@ -247,6 +249,13 @@ jobs:
               "### Against what was stored\n\n" +
               "| New | Changed | Changed 2x or more | Stored, provider has none | …of them on a weekend |\n|---|---|---|---|---|\n" +
               "| \(.sessions_new // 0) | \(.sessions_changed // 0) | \(.sessions_changed_twofold // 0) | \(.stored_only // 0) | \(.stored_only_weekend // 0) |\n\n" +
+              "Changed sessions by month: " +
+              ([.changed_by_month // {} | to_entries | sort_by(.key)[] | "\(.key) \(.value)"] | join(", ")) + "\n\n" +
+              "<details><summary>Codes with the most changed sessions (\(.changed_by_code // {} | length) codes changed)</summary>\n\n" +
+              "| Code | Changed | 2x or more | First | Last | Ratio range |\n|---|---|---|---|---|---|\n" +
+              ([.changed_by_code // {} | to_entries | sort_by(-.value.changed)[:50][] |
+                "| \(.key) | \(.value.changed) | \(.value.twofold // 0) | \(.value.first) | \(.value.last) | \(.value.min_ratio)–\(.value.max_ratio) |"] | join("\n")) +
+              "\n\n</details>\n\n" +
               "<details><summary>Largest changes (\(.changes // [] | length) shown)</summary>\n\n" +
               "| Code | Date | Stored | Provider | Ratio |\n|---|---|---|---|---|\n" +
               ([.changes[]? | "| \(.code) | \(.date) | \(.stored) | \(.provider) | \(.ratio) |"] | join("\n")) +

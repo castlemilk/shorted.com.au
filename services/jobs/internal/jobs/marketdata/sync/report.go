@@ -71,6 +71,13 @@ type RunReport struct {
 	StoredOnlyByCode  map[string]int `json:"stored_only_by_code,omitempty"`
 	Changes           []PriceChange  `json:"changes,omitempty"`
 	StoredOnlyRows    []StoredRow    `json:"stored_only_rows,omitempty"`
+	// Every changed session, summarised: Changes keeps only the largest
+	// ratios, and most damage is not large. A session filed a day early moves
+	// by a day's move; a consolidation moves every session before it by the
+	// same ratio. By month shows the first (it is seasonal: daylight time); by
+	// code shows the second (a narrow ratio band ending on one date).
+	ChangedByMonth map[string]int         `json:"changed_by_month,omitempty"`
+	ChangedByCode  map[string]CodeChanges `json:"changed_by_code,omitempty"`
 
 	FailedCodes []string `json:"failed_codes,omitempty"`
 	NoDataCodes []string `json:"no_data_codes,omitempty"`
@@ -98,6 +105,16 @@ type PriceChange struct {
 	// Ratio is the larger close over the smaller: 2 or more is not a revision
 	// but a different security, a $0 bar or an unadjusted split.
 	Ratio float64 `json:"ratio"`
+}
+
+// CodeChanges summarises one code's changed sessions.
+type CodeChanges struct {
+	Changed  int     `json:"changed"`
+	Twofold  int     `json:"twofold,omitempty"`
+	First    string  `json:"first"`
+	Last     string  `json:"last"`
+	MinRatio float64 `json:"min_ratio"`
+	MaxRatio float64 `json:"max_ratio"`
 }
 
 // StoredRow is a stored session the provider does not have.
@@ -186,6 +203,29 @@ func (r *RunReport) addDiff(d priceDiff) {
 		if c.Ratio >= 2 {
 			r.ChangedTwofold++
 		}
+		if r.ChangedByMonth == nil {
+			r.ChangedByMonth = make(map[string]int)
+			r.ChangedByCode = make(map[string]CodeChanges)
+		}
+		r.ChangedByMonth[c.Date[:7]]++
+		cc, seen := r.ChangedByCode[c.Code]
+		cc.Changed++
+		if c.Ratio >= 2 {
+			cc.Twofold++
+		}
+		if !seen || c.Date < cc.First {
+			cc.First = c.Date
+		}
+		if !seen || c.Date > cc.Last {
+			cc.Last = c.Date
+		}
+		if !seen || c.Ratio < cc.MinRatio {
+			cc.MinRatio = c.Ratio
+		}
+		if !seen || c.Ratio > cc.MaxRatio {
+			cc.MaxRatio = c.Ratio
+		}
+		r.ChangedByCode[c.Code] = cc
 	}
 	r.Changes = append(r.Changes, d.changes...)
 	sort.SliceStable(r.Changes, func(i, j int) bool { return r.Changes[i].Ratio > r.Changes[j].Ratio })

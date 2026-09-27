@@ -302,6 +302,12 @@ func TestComparePrices(t *testing.T) {
 	assert.Equal(t, 1, r.StoredOnlyWeekend)
 	assert.Equal(t, map[string]int{"BHP": 1}, r.StoredOnlyByCode)
 	assert.Equal(t, ratioNoPrice, r.Changes[0].Ratio, "largest ratio first")
+	// Every change is summarised, however small its ratio.
+	assert.Equal(t, map[string]int{"2025-10": 2, "2025-11": 1}, r.ChangedByMonth)
+	bhp := r.ChangedByCode["BHP"]
+	assert.Equal(t, CodeChanges{Changed: 3, Twofold: 1, First: "2025-10-27", Last: "2025-11-04",
+		MinRatio: bhp.MinRatio, MaxRatio: ratioNoPrice}, bhp)
+	assert.InDelta(t, 43.54/43.34, bhp.MinRatio, 1e-9, "the day-shifted Monday")
 
 	// The report is stored as JSON, which has no infinity.
 	_, err := json.Marshal(r)
@@ -327,6 +333,8 @@ func TestReportListsAreCapped(t *testing.T) {
 	assert.Len(t, r.StoredOnlyRows, reportListCap)
 	assert.Equal(t, reportListCap+50, r.StoredOnly)
 	assert.Len(t, r.StoredOnlyByCode, reportListCap+50)
+	assert.Len(t, r.ChangedByCode, reportListCap+50, "summaries are not capped")
+	assert.Equal(t, map[string]int{"2026-09": reportListCap + 50}, r.ChangedByMonth)
 	assert.Len(t, r.FailedCodes, reportListCap)
 }
 
@@ -362,7 +370,8 @@ func TestPriceSyncWorkflowReadsTheReport(t *testing.T) {
 		"stocks", "beyond_listing", "synced", "up_to_date", "no_session", "no_data", "failed", "blocked",
 		"sessions_fetched", "sessions_written", "sessions_new", "sessions_changed", "sessions_changed_twofold",
 		"stored_only", "stored_only_weekend", "stored_only_by_code", "changes", "stored_only_rows",
-		"failed_codes", "no_data_codes", "providers", "paced_seconds", "slowest", "attempt", "in_progress"} {
+		"failed_codes", "no_data_codes", "providers", "paced_seconds", "slowest", "attempt", "in_progress",
+		"changed_by_month", "changed_by_code"} {
 		assert.Contains(t, wf, "."+field, "the workflow reads .%s", field)
 	}
 	report, err := json.Marshal(RunReport{
