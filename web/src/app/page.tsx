@@ -280,9 +280,24 @@ export default async function Page() {
         <BrowseByIndustry />
       </Suspense>
 
-      {/* Macro dashboards — cross-links to the housing + economy surfaces */}
+      {/* Dashboards — cross-links to the picker, housing + economy surfaces */}
       <section className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Link
+            href="/picks"
+            className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50"
+          >
+            <p className={eyebrow}>Stock picker</p>
+            <h2 className="mt-1 font-serif text-xl font-semibold">
+              Strategy picks
+              <ChevronRight className="ml-1 inline h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Dan Zanger&apos;s breakout rules, CAN SLIM and the Minervini trend
+              template run over every ASX stock: market regime, ranked
+              shortlist and every rule shown pass, fail or unknown.
+            </p>
+          </Link>
           <Link
             href="/economy"
             className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50"
@@ -398,6 +413,13 @@ export default async function Page() {
             className="underline underline-offset-4 hover:text-foreground"
           >
             daily short interest scans
+          </Link>
+          , the{" "}
+          <Link
+            href="/picks"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            strategy-driven stock picker
           </Link>
           , the{" "}
           <Link
