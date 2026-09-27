@@ -90,8 +90,12 @@ CREATE TABLE IF NOT EXISTS stock_fundamentals_sync (
 ```
 
 Values are stored EXACTLY as the source reports them; non-finite values are
-rejected at the write funnel (same rule as `key_metrics_finite.go`). No LLM
-extraction writes here.
+rejected at the write funnel (same rule as `key_metrics_finite.go`). No LLM runs
+in the write path. Filing rows (source `asx-filing-extraction`, §2.6
+`-mode filings`) are parsed from the report-extractor's stored Gemini output,
+but only values that can be found in the extraction's own quoted sentence, in
+an unambiguous unit, are accepted, and a filing never overwrites a vendor
+value.
 
 ### 2.2 `mv_fundamentals_growth` — same migration
 
@@ -111,6 +115,23 @@ Yahoo carries no half-year TOTALS for ASX companies (probe 2026-09-27: the
   and that annual row exist; else NULL. The evaluator uses it only as a sign
   (is the latest half better than the same half last year), never as a %.
 
+**Half-year growth from filings (added 2026-09-27).** Company filings carry the
+half-year totals Yahoo lacks; `-mode filings` stores them as `half` rows. The
+view adds `revenue_half_yoy_pct`, `net_income_half_yoy_pct`,
+`eps_half_yoy_pct` (latest half vs the half 10-14 months earlier, same guards:
+NULL unless the prior is > 0 and both share a currency; EPS compares diluted
+with diluted when both halves carry it, else basic with basic),
+`half_latest_period_end`, and `revenue_basis_period_type`. As originally
+intended, **half is preferred when it is fresher**, per series: when a half
+growth exists and the half ends strictly AFTER that series' vendor basis
+(`a1` for revenue; `e1` on the ttm basis / `ae1` on the annual for EPS), the
+series' `*_latest`, `*_prior`, `*_yoy_pct` and `*_yoy_prior_pct` are the half
+values, `basis_period_type = 'half'` (EPS) / `revenue_basis_period_type =
+'half'` (revenue) and, for EPS, `latest_period_end` is the half's end. A TTM
+point on the same date as the half keeps the ttm basis (as fresh, smoother).
+The columns are appended after `fetched_at`; every earlier column keeps its
+name and position.
+
 ```
 stock_code, basis_period_type, latest_period_end,
 latest_annual_period_end,
@@ -123,7 +144,10 @@ operating_cash_flow_latest,
 revenue_ttm, net_income_ttm, eps_ttm,          -- latest TTM points, NULL when absent
 revenue_half_delta, net_income_half_delta,     -- see above
 currency,
-periods_available (int), fetched_at
+periods_available (int), fetched_at,
+revenue_half_yoy_pct, net_income_half_yoy_pct, eps_half_yoy_pct,   -- half vs same half a year earlier
+half_latest_period_end,
+revenue_basis_period_type                      -- 'half' | 'annual'
 ```
 
 `*_yoy_pct` is NULL (not 0) when either side is missing or the prior is <= 0
@@ -190,15 +214,40 @@ Modes:
   `stock_fundamentals_sync`. Pace via `pkg/stealthhttp` at the same cadence the
   price sweep uses. Exit 0 if >= 50% of attempted codes succeeded, exit 10
   (DEGRADED, economy's convention) otherwise.
+- `-mode filings`: parse `financial_report_extractions.metrics` (revenue, net
+  profit, EPS from the report-extractor's Gemini reading of 4D/4E and other
+  results documents) into typed `half` / `annual` rows, source
+  `asx-filing-extraction`. DB-only, a deterministic rebuild each run. The rules
+  (value must be found in its own quote; EPS unit read next to its number,
+  cents -> dollars, ambiguous = skipped; statutory NPAT only; magnitude and
+  NPAT/shares cross-checks; currency from an explicit marker, else the vendor's
+  reporting currency, else AUD) and the period parser (headline gate rejecting
+  notices, webinars, AGM results, dividend admin and quarterlies; quarter /
+  forecast / comparative periods rejected; half words beat annual words; an
+  explicit date beats an FY label placed on the company's balance date; H1 of a
+  June year ends 31 December of the prior calendar year; the period must end
+  within 7 days after and 15 months before the report date) are documented in
+  `services/jobs/README.md` "picks" and pinned by `filings_period_test.go` /
+  `filings_ingest_test.go`.
+  **Conflict policy**, in the SQL (`filingUpsertSQL`): a vendor row's non-null
+  value is never overwritten; a filing fills only its NULL columns, and only in
+  the same currency; a filing row is replaced whole; periods the vendor lacks
+  (every half) are inserted whole; a filing row the run no longer produces for
+  that code is pruned (never a vendor row). When Yahoo later publishes a period
+  a filing wrote first, `upsertSQL` makes the row the vendor's (its values win,
+  the filing's survive only where it has none).
 - `-mode refresh`: `SET LOCAL statement_timeout = 0; SELECT refresh_strategy_views()`.
-- `-mode all`: fundamentals then refresh.
-- `-dry-run` honoured (fetch + parse + log, write nothing).
+- `-mode all`: fundamentals, then filings, then refresh (each step runs even
+  after an earlier one degraded; the worst verdict decides the exit code).
+- `-dry-run` honoured (fetch/read + parse + log, write nothing).
 
 Source and endpoint: see §2.7. Terraform: `module "shorted_job_picks"` on the
 `shorted-job` module, `name = "shorted-picks"`, primary schedule
 `30 13 * * 1-5` UTC with `args = ["picks", "-mode", "refresh"]` (after the
 sweep), plus one extra schedule `0 15 * * *` UTC with `args_override =
-["picks", "-mode", "fundamentals"]`. `secret_env = { DATABASE_URL }`.
+["picks", "-mode", "all"]` (fundamentals, then filings, then the refresh, so
+each pull reaches the views the same night; was `-mode fundamentals` until
+2026-09-27). `secret_env = { DATABASE_URL }`.
 Register in `cmd/shorted/main.go`, document in `services/jobs/README.md`.
 
 ### 2.7 Upstream fundamentals source (probe 2026-09-27, report in the session scratchpad `fundamentals-sources.md`)
@@ -240,6 +289,24 @@ accepted for prices and `key_metrics`: unofficial endpoints, we publish derived
 growth figures, not statements. The clean upgrade path later is EODHD with a
 commercial licence or the existing `report-extractor` reading Appendix 4D/4E
 PDFs, and the fetcher interface exists so either can slot in.
+
+**Filings (built 2026-09-27).** The report-extractor path is now wired, as a
+separate mode rather than a Fetcher (it reads stored extractions, it does not
+fetch per code): `financial-report-extractor` (Gemini over 4D/4E PDFs) ->
+`financial_report_extractions.metrics` -> `shorted picks -mode filings` ->
+`stock_fundamentals` (`half` rows, and `annual` rows Yahoo lags on). The
+extractor's run was raised from 10 reports on Sundays to 40 on Wednesdays and
+Sundays 14:00 UTC (`module.report_extractor` in prod `main.tf`), because it is
+the only path to half-year totals. Its selection now targets statutory
+filings in the Go port (`reportextract/select.go`: presentations, webinars,
+notices, AGM results, dividend admin and quarterlies excluded; Appendix 4D/4E
+and results releases sort first), BUT prod still runs the Python extractor
+image, whose `--top-shorted-first` order spends the 40 slots until the Go port
+is cut over (`services/jobs/README.md` "Phase 3 port notes": a
+`modules/shorted-job` pair running `report-extract concurrent -recent 2 -limit
+<reports_limit> -workers 2 -max-pages 6 -top-shorted-first` with the same
+Gemini env, `scheduler_paused = true` on the old module, after the PDF-text
+parity run). Not done here.
 
 Re-pull trigger: `asx_announcements` headlines classified by the regexes in
 `scripts/take-writer/src/results-watch.ts` (`classifyResultsFiling`; never
@@ -427,7 +494,7 @@ Connector defects found while probing the live server (fix in this stream):
    (`task db:prod:apply FILE=… CONFIRM=prod`, session pooler 5432) — the deploy
    allowlist also replays them, but the API must not ship reading columns prod
    lacks.
-2. First fundamentals run is manual: `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"` a few times (cap 400/run) to reach coverage, then `--args="picks,-mode,refresh"`.
+2. First fundamentals run is manual: `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"` a few times (cap 400/run) to reach coverage, then `--args="picks,-mode,filings,-dry-run"` (read the `skipped={...}` reasons), `--args="picks,-mode,filings"`, then `--args="picks,-mode,refresh"`. After that the daily 15:00 UTC `-mode all` keeps all three current.
 3. Revalidate `/picks` and `/picks/*` after the first refresh.
 
 ## 8. Follow-ups found during implementation
@@ -457,3 +524,32 @@ Connector defects found while probing the live server (fix in this stream):
 - OPEN (operational): no environment has run the fundamentals job yet, so
   `fundamentals_coverage_count` starts at 0 and the Zanger / CAN SLIM growth
   rules read unknown until the first sweeps complete (plan §7).
+- DONE (data layer, 2026-09-27): filings -> half-year growth. `shorted picks
+  -mode filings` (§2.6), `mv_fundamentals_growth` half columns and the
+  half-preferred basis (§2.2), the daily 15:00 UTC schedule now runs `-mode
+  all`, the report-extractor runs 40 reports twice weekly, and its Go port
+  targets statutory filings first (§2.7). Verified on a scratch Postgres 16:
+  000117 + 000129 applied (and replayed), the view's half columns and basis
+  switch checked against eight synthetic companies (fresher half, TTM on the
+  same date, loss / zero priors, mixed currencies, older half, filing-only,
+  basic vs diluted, an 18-month gap), the conflict policy exercised by
+  `TestFilingUpsertPolicyAgainstPostgres`, and the real binary run over
+  synthetic extraction rows (it caught a balance-date bug: 31 December + 6
+  months via AddDate is 1 July).
+- OPEN (enablement, manual): the first `gcloud run jobs execute shorted-picks
+  --args="picks,-mode,filings,-dry-run"` against prod, reading the logged
+  `skipped={...}` reasons before the first real run; until then the half
+  columns are NULL and every basis is ttm/annual as before. Half rows only
+  accumulate as the extractor processes 4D/4Es, and in prod that is still the
+  Python selection (above) until the Go cut-over.
+- OPEN (API, not done here, `services/shorts` is another stream): the API's
+  labels assume revenue growth is annual and EPS growth is ttm/annual.
+  `strategies/rules.go` `annualLabel` must read the new
+  `revenue_basis_period_type` (say "H1 to 31 Dec 2025 vs a year earlier" when
+  it is `half`, using `half_latest_period_end`), `epsLabel` needs a `"half"`
+  case (it returns "" today), `postgres_strategies.go` `growthColumns` /
+  `Growth` need the five new columns if the UI or MCP are to show them, and
+  the MCP `basis_period_type` description ("ttm or annual") gains `half`.
+  On the web, `fundamentals-block.tsx` hard-codes revenue as "YoY (annual)"
+  and `basisLabel` passes `half` through raw. Until then a half-basis figure
+  is correct but labelled with the FY end.

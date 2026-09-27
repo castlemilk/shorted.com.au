@@ -88,6 +88,13 @@ const PLAN_COLUMNS = [
   "currency",
   "periods_available",
   "fetched_at",
+  // Half-year growth from filing rows (added 2026-09-27, appended so every
+  // earlier column keeps its position).
+  "revenue_half_yoy_pct",
+  "net_income_half_yoy_pct",
+  "eps_half_yoy_pct",
+  "half_latest_period_end",
+  "revenue_basis_period_type",
 ];
 
 // ---------------------------------------------------------------------------
@@ -199,7 +206,7 @@ test("it has the unique index REFRESH ... CONCURRENTLY needs", () => {
 test("every division in the view is behind a `> 0` CASE guard on its divisor", () => {
   const body = code(viewBody(up, "mv_fundamentals_growth"));
   const divisions = [...body.matchAll(/\/\s*([a-z0-9_]+\.[a-z_]+)/g)].map((m) => m[1]);
-  assert.ok(divisions.length >= 6, `expected the growth ratios, found ${divisions.length}`);
+  assert.ok(divisions.length >= 11, `expected the growth ratios (6 vendor + 5 half), found ${divisions.length}`);
   for (const divisor of divisions) {
     const guard = new RegExp(`CASE WHEN ${divisor.replace(".", "\\.")} > 0\\b`);
     assert.match(body, guard, `division by ${divisor} must be guarded by CASE WHEN ${divisor} > 0`);
@@ -216,6 +223,8 @@ test("growth is only computed within one currency", () => {
     ["e0", "em1"],
     ["ae1", "ae0"],
     ["ae0", "aem1"],
+    ["h1", "h0"],
+    ["h0", "hm1"],
   ]) {
     assert.match(body, new RegExp(`${latest}\\.currency = ${prior}\\.currency`), `${latest} vs ${prior}`);
   }
@@ -224,13 +233,71 @@ test("growth is only computed within one currency", () => {
 test("the prior point must be 10-14 months before the latest (same series a year earlier)", () => {
   const body = code(viewBody(up, "mv_fundamentals_growth"));
   const windows = body.match(/INTERVAL '14 months'\)::date\s+AND \([a-z0-9]+\.period_end - INTERVAL '10 months'\)/g) ?? [];
-  assert.equal(windows.length, 6, "a0, am1, ae0, aem1, e0 and em1 each need the 10-14 month window");
+  assert.equal(windows.length, 8, "a0, am1, ae0, aem1, e0, em1, h0 and hm1 each need the 10-14 month window");
 });
 
-test("EPS basis is ttm only when a ttm pair exists, else annual", () => {
+test("EPS basis is half when a fresher half pair exists, else ttm when a ttm pair exists, else annual", () => {
   const body = code(viewBody(up, "mv_fundamentals_growth"));
-  assert.match(body, /CASE WHEN eps_ttm_ok\.ok THEN 'ttm' ELSE 'annual' END/);
+  assert.match(body, /CASE WHEN half_basis\.eps THEN 'half' WHEN eps_ttm_ok\.ok THEN 'ttm' ELSE 'annual' END/);
   assert.match(body, /e1\.period_end IS NOT NULL AND e0\.period_end IS NOT NULL/);
+});
+
+// ---------------------------------------------------------------------------
+// half-year growth (filing rows)
+
+test("half growth compares the latest half with the same half a year earlier", () => {
+  const body = code(viewBody(up, "mv_fundamentals_growth"));
+  // h1 is the latest 'half' row; h0 sits 10-14 months before it.
+  assert.match(body, /WHERE f\.stock_code = c\.stock_code AND f\.period_type = 'half'\s+ORDER BY f\.period_end DESC\s+LIMIT 1\s+\) h1 ON true/);
+  assert.match(body, /f\.period_type = 'half'\s+AND f\.period_end BETWEEN \(h1\.period_end - INTERVAL '14 months'\)::date\s+AND \(h1\.period_end - INTERVAL '10 months'\)::date[\s\S]*?\) h0 ON true/);
+  for (const [col, divisor] of [
+    ["revenue_yoy", "h0.revenue"],
+    ["net_income_yoy", "h0.net_income"],
+    ["eps_yoy", "he.prior"],
+  ]) {
+    const guard = new RegExp(
+      `CASE WHEN ${divisor.replace(".", "\\.")} > 0 AND [a-z0-9_.]+ IS NOT NULL AND h1\\.currency = h0\\.currency\\s+THEN [^;]*?END\\s+AS ${col}\\b`,
+    );
+    assert.match(body, guard, `${col}: NULL unless the prior is > 0 and both halves share a currency`);
+  }
+  assert.match(body, /hg\.revenue_yoy\s+AS revenue_half_yoy_pct/);
+  assert.match(body, /hg\.net_income_yoy\s+AS net_income_half_yoy_pct/);
+  assert.match(body, /hg\.eps_yoy\s+AS eps_half_yoy_pct/);
+  assert.match(body, /h1\.period_end\s+AS half_latest_period_end/);
+});
+
+test("half EPS never compares diluted with basic", () => {
+  const body = code(viewBody(up, "mv_fundamentals_growth"));
+  assert.match(
+    body,
+    /CASE WHEN h1\.eps_diluted IS NOT NULL AND h0\.eps_diluted IS NOT NULL THEN h1\.eps_diluted ELSE h1\.eps_basic END\s+AS latest/,
+  );
+  assert.match(
+    body,
+    /CASE WHEN h1\.eps_diluted IS NOT NULL AND h0\.eps_diluted IS NOT NULL THEN h0\.eps_diluted ELSE h0\.eps_basic END\s+AS prior/,
+  );
+});
+
+test("the half basis wins only when its growth exists and the half is strictly newer", () => {
+  const body = code(viewBody(up, "mv_fundamentals_growth"));
+  assert.match(body, /hg\.revenue_yoy IS NOT NULL\s+AND \(a1\.period_end IS NULL OR h1\.period_end > a1\.period_end\)\) AS rev/);
+  assert.match(body, /hg\.eps_yoy IS NOT NULL[\s\S]*?h1\.period_end > CASE WHEN eps_ttm_ok\.ok THEN e1\.period_end ELSE ae1\.period_end END\)\) AS eps/);
+  // Each switched column moves as a set, so latest / prior / growth never mix bases.
+  assert.match(body, /CASE WHEN half_basis\.rev THEN h1\.revenue ELSE a1\.revenue END\s+AS revenue_latest/);
+  assert.match(body, /CASE WHEN half_basis\.rev THEN h0\.revenue ELSE a0\.revenue END\s+AS revenue_prior/);
+  assert.match(body, /CASE WHEN half_basis\.rev THEN hg\.revenue_yoy\s+ELSE/);
+  assert.match(body, /CASE WHEN half_basis\.rev THEN hg\.revenue_yoy_prior\s+ELSE/);
+  assert.match(body, /CASE WHEN half_basis\.eps THEN he\.latest/);
+  assert.match(body, /CASE WHEN half_basis\.eps THEN he\.prior/);
+  assert.match(body, /CASE WHEN half_basis\.eps THEN hg\.eps_yoy\s+WHEN/);
+  assert.match(body, /CASE WHEN half_basis\.eps THEN hg\.eps_yoy_prior\s+WHEN/);
+  assert.match(body, /CASE WHEN half_basis\.eps THEN h1\.period_end/);
+  assert.match(body, /CASE WHEN half_basis\.rev THEN 'half' ELSE 'annual' END::varchar\(8\)\s+AS revenue_basis_period_type/);
+});
+
+test("the in-place edit is flagged for databases that built the earlier view", () => {
+  assert.match(up, /EDITED IN PLACE ONCE, 2026-09-27/);
+  assert.match(up, /DROP MATERIALIZED VIEW mv_fundamentals_growth;` then re-apply this/);
 });
 
 test("half deltas need a ttm point one HALF after the latest annual, not a year after", () => {

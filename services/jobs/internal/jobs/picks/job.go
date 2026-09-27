@@ -8,19 +8,30 @@
 //	                    codes attempted in the last six days. Upserts
 //	                    stock_fundamentals, records every attempt in
 //	                    stock_fundamentals_sync.
+//	-mode filings       Parse revenue / net profit / EPS out of
+//	                    financial_report_extractions.metrics (the
+//	                    report-extractor's Gemini reading of Appendix 4D/4E
+//	                    and other results documents) into typed 'half' and
+//	                    'annual' stock_fundamentals rows, source
+//	                    'asx-filing-extraction'. Never overwrites a vendor
+//	                    value (filingUpsertSQL). No network, no LLM.
 //	-mode refresh       SET LOCAL statement_timeout = 0; SELECT
 //	                    refresh_strategy_views() — mv_market_regime,
 //	                    mv_fundamentals_growth, mv_price_features. Scheduled
 //	                    after the daily price sweep.
-//	-mode all           fundamentals, then refresh.
+//	-mode all           fundamentals, then filings, then refresh.
 //
 // Exit codes (runner.ExitCodeError, economy's convention):
 //
 //	0   ok (>= 50% of attempted codes loaded or answered empty)
 //	1   failure: DB unreachable, refresh failed or skipped a view, every
-//	    attempted code failed, or the run was cancelled
-//	10  DEGRADED: fewer than 50% of attempted codes answered, or Yahoo failed
-//	    for more than half of them (the fallback covered what it could)
+//	    attempted code failed, every filing write failed, or the run was
+//	    cancelled
+//	10  DEGRADED: fewer than 50% of attempted codes answered, Yahoo failed
+//	    for more than half of them (the fallback covered what it could), or
+//	    some codes' filing rows failed to write
+//
+// In -mode all every step runs and the worst verdict wins (worstError).
 package picks
 
 import (
@@ -42,6 +53,7 @@ import (
 
 const (
 	modeFundamentals = "fundamentals"
+	modeFilings      = "filings"
 	modeRefresh      = "refresh"
 	modeAll          = "all"
 )
@@ -57,7 +69,7 @@ const defaultBudget = 45 * time.Minute
 func Job() runner.Job {
 	return runner.Func{
 		JobName: "picks",
-		Desc:    "stock picker data: per-period fundamentals + refresh_strategy_views()",
+		Desc:    "stock picker data: per-period fundamentals, filing half-years + refresh_strategy_views()",
 		DryRun:  true,
 		Fn:      Run,
 	}
@@ -67,8 +79,8 @@ func Job() runner.Job {
 func Run(parent context.Context, args []string) error {
 	g := runner.FromContext(parent)
 	fs := flag.NewFlagSet("picks", flag.ContinueOnError)
-	mode := fs.String("mode", modeAll, "fundamentals | refresh | all")
-	dryRun := fs.Bool("dry-run", g.DryRun, "fetch + parse + log; write nothing (no upsert, no attempt row, no refresh)")
+	mode := fs.String("mode", modeAll, "fundamentals | filings | refresh | all")
+	dryRun := fs.Bool("dry-run", g.DryRun, "fetch/read + parse + log; write nothing (no upsert, no attempt row, no refresh)")
 	verbose := fs.Bool("verbose", g.Verbose, "log Postgres notices")
 	maxCodes := fs.Int("max-codes", envPositiveInt("PICKS_FUNDAMENTALS_MAX_CODES", defaultMaxCodes), "codes per fundamentals run (env PICKS_FUNDAMENTALS_MAX_CODES)")
 	codesFlag := fs.String("codes", "", "comma-separated codes to fetch instead of the selection (ignores the 6-day skip and the cap)")
@@ -83,9 +95,9 @@ func Run(parent context.Context, args []string) error {
 		return fmt.Errorf("unexpected arguments: %v", fs.Args())
 	}
 	switch *mode {
-	case modeFundamentals, modeRefresh, modeAll:
+	case modeFundamentals, modeFilings, modeRefresh, modeAll:
 	default:
-		return fmt.Errorf("unknown -mode %q (want fundamentals|refresh|all)", *mode)
+		return fmt.Errorf("unknown -mode %q (want fundamentals|filings|refresh|all)", *mode)
 	}
 	var codes []string
 	if strings.TrimSpace(*codesFlag) != "" {
@@ -96,9 +108,10 @@ func Run(parent context.Context, args []string) error {
 	ctx := parent
 
 	// A dry run over explicit codes needs no database at all (useful for
-	// checking the upstream from a laptop). Everything else opens the pool.
+	// checking the upstream from a laptop). Everything else opens the pool,
+	// including a dry run of -mode filings, which reads (never writes).
 	var st store
-	needDB := !(*dryRun && len(codes) > 0 && *mode == modeFundamentals)
+	needDB := !*dryRun || len(codes) == 0 || *mode != modeFundamentals
 	if needDB {
 		notices := &noticeLog{}
 		if *verbose {
@@ -114,7 +127,7 @@ func Run(parent context.Context, args []string) error {
 		st = &pgStore{pool: pool, notices: notices}
 	}
 
-	var fundamentalsErr error
+	var stepErrs []error
 	if *mode == modeFundamentals || *mode == modeAll {
 		yahoo, closeYahoo, err := newYahooTimeseries()
 		if err != nil {
@@ -134,25 +147,77 @@ func Run(parent context.Context, args []string) error {
 		if !*noFallback {
 			cfg.fallback = newMarkitKeyStatistics()
 		}
-		_, fundamentalsErr = runFundamentals(ctx, cfg)
+		_, err = runFundamentals(ctx, cfg)
 		if *mode == modeFundamentals {
-			return fundamentalsErr
+			return err
 		}
+		stepErrs = append(stepErrs, stepError("fundamentals", err))
 		if ctx.Err() != nil {
-			return fundamentalsErr
+			return worstError(stepErrs...)
 		}
 	}
 
-	if err := runRefresh(ctx, st, *dryRun, log.Printf); err != nil {
-		if fundamentalsErr != nil {
-			// The refresh failure is the worse outcome (exit 1); keep the
-			// fundamentals verdict in the message without letting its exit
-			// code win.
-			return fmt.Errorf("%w (fundamentals: %v)", err, fundamentalsErr)
+	if *mode == modeFilings || *mode == modeAll {
+		_, err := runFilings(ctx, st, *dryRun, log.Printf)
+		if *mode == modeFilings {
+			return err
 		}
+		stepErrs = append(stepErrs, stepError("filings", err))
+		if ctx.Err() != nil {
+			return worstError(stepErrs...)
+		}
+	}
+
+	// The refresh runs even after a degraded or failed pull: whatever did
+	// land should reach the views, and the stale-view check is its own verdict.
+	err := runRefresh(ctx, st, *dryRun, log.Printf)
+	if *mode == modeRefresh {
 		return err
 	}
-	return fundamentalsErr
+	return worstError(append(stepErrs, stepError("refresh", err))...)
+}
+
+// stepError labels one -mode all step's error, keeping its exit code.
+func stepError(step string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", step, err)
+}
+
+// worstError folds the steps of -mode all into one verdict: a plain error
+// (exit 1) beats a DEGRADED one (exit 10), which beats success. The worst
+// step's error is wrapped (%w, so runner.ExitCodeOf still finds its code);
+// the others ride along in the message only.
+func worstError(errs ...error) error {
+	var worst error
+	worstRank := 0
+	var others []string
+	for _, err := range errs {
+		if err == nil {
+			continue
+		}
+		rank := 2 // plain error: exit 1
+		var ec *runner.ExitCodeError
+		if errors.As(err, &ec) && ec.Code != 1 && ec.Code != 0 {
+			rank = 1
+		}
+		if rank > worstRank {
+			if worst != nil {
+				others = append(others, worst.Error())
+			}
+			worst, worstRank = err, rank
+		} else {
+			others = append(others, err.Error())
+		}
+	}
+	if worst == nil {
+		return nil
+	}
+	if len(others) == 0 {
+		return worst
+	}
+	return fmt.Errorf("%w (also: %s)", worst, strings.Join(others, "; "))
 }
 
 // runRefresh calls refresh_strategy_views() and fails when any view was

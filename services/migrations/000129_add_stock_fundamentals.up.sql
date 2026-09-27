@@ -6,9 +6,14 @@
 -- typed, with the period they belong to. "company-metadata".key_metrics has
 -- one untyped snapshot per company and no period, so it cannot say what
 -- revenue was a year ago. This adds one row per (stock, period_type,
--- period_end), written only by `shorted picks -mode fundamentals` from Yahoo's
--- fundamentals-timeseries (fallback: Markit key statistics). No LLM writes
--- here.
+-- period_end), written only by the `shorted picks` job: -mode fundamentals
+-- from Yahoo's fundamentals-timeseries (fallback: Markit key statistics), and
+-- -mode filings, which parses the half-year and full-year totals the
+-- report-extractor already pulled out of Appendix 4D/4E filings
+-- (financial_report_extractions.metrics) into typed rows, source
+-- 'asx-filing-extraction'. No LLM runs in this path: the filing mode only
+-- accepts a value it can find in the extraction's own quoted sentence, and it
+-- never overwrites a vendor's value (picks/store.go filingUpsertSQL).
 --
 -- WHY TTM. Yahoo carries no half-year totals for ASX companies (probe
 -- 2026-09-27: every "quarterly" P&L series is empty). What it does carry is a
@@ -46,6 +51,15 @@
 -- on every deploy. Changing the view's definition later therefore needs a NEW
 -- migration that is hand-applied, never an edit here.
 --
+-- EDITED IN PLACE ONCE, 2026-09-27, before any shared database applied it:
+-- the half-year columns (revenue_half_yoy_pct, net_income_half_yoy_pct,
+-- eps_half_yoy_pct, half_latest_period_end, revenue_basis_period_type) and the
+-- half-preferred basis selection were added to mv_fundamentals_growth. A
+-- database that already built the EARLIER definition (a laptop or scratch DB)
+-- keeps it, because CREATE MATERIALIZED VIEW IF NOT EXISTS is a no-op there.
+-- Fix: `DROP MATERIALIZED VIEW mv_fundamentals_growth;` then re-apply this
+-- file (the tables are untouched; the view is rebuilt from them).
+--
 -- Hand-apply BEFORE merging the API that reads it (plan §7): session pooler
 -- 5432, `task db:prod:apply FILE=... CONFIRM=prod`. The whole file is one
 -- BEGIN ... COMMIT with the timeout disarmed in-session (Supavisor drops
@@ -71,7 +85,7 @@ CREATE TABLE IF NOT EXISTS stock_fundamentals (
     operating_cash_flow DOUBLE PRECISION,
     free_cash_flow      DOUBLE PRECISION,
     shares_outstanding  DOUBLE PRECISION,
-    source              VARCHAR(32)      NOT NULL,  -- 'yahoo-timeseries' | 'markit-key-statistics'
+    source              VARCHAR(32)      NOT NULL,  -- 'yahoo-timeseries' | 'markit-key-statistics' | 'asx-filing-extraction'
     source_fetched_at   TIMESTAMPTZ      NOT NULL DEFAULT now(),
     created_at          TIMESTAMPTZ      NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ      NOT NULL DEFAULT now(),
@@ -99,7 +113,7 @@ CREATE INDEX IF NOT EXISTS idx_stock_fundamentals_code_end
     ON stock_fundamentals (stock_code, period_end DESC);
 
 COMMENT ON TABLE stock_fundamentals IS
-    'Typed per-period statement lines (annual / ttm today; half / quarter reserved), reporting currency, exactly as the source reports them. Written only by `shorted picks -mode fundamentals`. Non-finite and implausible values are refused (stock_fundamentals_finite_check).';
+    'Typed per-period statement lines, reporting currency. annual / ttm from vendors (`shorted picks -mode fundamentals`: Yahoo timeseries, Markit fallback), half (and annual rows vendors lag on) from company filings (`shorted picks -mode filings`, source asx-filing-extraction, never overwriting a vendor value); quarter reserved. Non-finite and implausible values are refused (stock_fundamentals_finite_check).';
 
 -- ---------------------------------------------------------------------------
 -- 2. stock_fundamentals_sync: one row per code, every fetch attempt recorded
@@ -123,9 +137,29 @@ CREATE TABLE IF NOT EXISTS stock_fundamentals_sync (
 --   EPS (diluted, the only EPS series fetched on both bases): the latest TTM
 --     point with an EPS (e1) vs the TTM point 10-14 months before it (e0),
 --     when both exist and e1 is not older than the latest annual EPS; else
---     annual (ae1 vs ae0). basis_period_type records which, and
---     latest_period_end is the date of the EPS basis's latest point (the
---     revenue basis's date is latest_annual_period_end).
+--     annual (ae1 vs ae0).
+--   Half-year growth (filing rows, period_type 'half'): the latest half (h1)
+--     vs the half 10-14 months before it (h0), i.e. the same half a year
+--     earlier; the prior growth is h0 vs hm1. Exposed as revenue_half_yoy_pct
+--     / net_income_half_yoy_pct / eps_half_yoy_pct with half_latest_period_end,
+--     under the same guards (NULL unless the prior is > 0 and the two share a
+--     currency). Half EPS compares diluted with diluted when both halves carry
+--     it, else basic with basic, never one with the other.
+--   HALF IS PREFERRED WHEN IT IS FRESHER (plan §2.2's original intent; the
+--     vendor cannot supply halves, filings can). Per series:
+--       revenue: when revenue_half_yoy_pct exists and h1 ends AFTER a1,
+--         revenue_latest / _prior / _yoy_pct / _yoy_prior_pct are the half
+--         values and revenue_basis_period_type = 'half' (else 'annual').
+--       EPS: when eps_half_yoy_pct exists and h1 ends AFTER the EPS basis's
+--         latest point (e1 on the ttm basis, ae1 on the annual), eps_latest /
+--         _prior / _yoy_pct / _yoy_prior_pct are the half values,
+--         basis_period_type = 'half' and latest_period_end = h1's end.
+--     Strictly after: a TTM point on the same date as the half is as fresh
+--     and smoother, so it keeps the basis. basis_period_type still records
+--     the EPS series ('half' | 'ttm' | 'annual'); latest_period_end is the
+--     date of the EPS basis's latest point (the revenue basis's date is
+--     latest_annual_period_end, or half_latest_period_end when
+--     revenue_basis_period_type = 'half').
 --   Half deltas: the latest TTM row (t1) minus a1, only when t1 is 5-7 months
 --     after a1 (i.e. it IS the first half after that year: at +12 months the
 --     same subtraction is a full-year change, not a half) and in the same
@@ -135,7 +169,7 @@ CREATE TABLE IF NOT EXISTS stock_fundamentals_sync (
 -- change of balance date yields NULL rather than a growth rate across two
 -- different spans.
 --
--- Cost: the table is ~2,300 codes x ~10 rows; every LATERAL is a primary-key
+-- Cost: the table is ~2,300 codes x ~12 rows; every LATERAL is a primary-key
 -- range probe (stock_code, period_type, period_end).
 -- ---------------------------------------------------------------------------
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_fundamentals_growth AS
@@ -148,28 +182,37 @@ WITH codes AS (
 )
 SELECT
     c.stock_code,
-    CASE WHEN eps_ttm_ok.ok THEN 'ttm' ELSE 'annual' END::varchar(8)       AS basis_period_type,
-    CASE WHEN eps_ttm_ok.ok THEN e1.period_end
-         ELSE COALESCE(ae1.period_end, a1.period_end, t1.period_end) END    AS latest_period_end,
+    CASE WHEN half_basis.eps THEN 'half' WHEN eps_ttm_ok.ok THEN 'ttm' ELSE 'annual' END::varchar(8) AS basis_period_type,
+    CASE WHEN half_basis.eps THEN h1.period_end
+         WHEN eps_ttm_ok.ok THEN e1.period_end
+         ELSE COALESCE(ae1.period_end, a1.period_end, t1.period_end, h1.period_end) END AS latest_period_end,
     a1.period_end                                                          AS latest_annual_period_end,
 
-    a1.revenue                                                             AS revenue_latest,
-    a0.revenue                                                             AS revenue_prior,
-    CASE WHEN a0.revenue > 0 AND a1.revenue IS NOT NULL AND a1.currency = a0.currency
-         THEN (a1.revenue - a0.revenue) / a0.revenue * 100 END             AS revenue_yoy_pct,
-    CASE WHEN am1.revenue > 0 AND a0.revenue IS NOT NULL AND a0.currency = am1.currency
-         THEN (a0.revenue - am1.revenue) / am1.revenue * 100 END           AS revenue_yoy_prior_pct,
+    CASE WHEN half_basis.rev THEN h1.revenue ELSE a1.revenue END           AS revenue_latest,
+    CASE WHEN half_basis.rev THEN h0.revenue ELSE a0.revenue END           AS revenue_prior,
+    CASE WHEN half_basis.rev THEN hg.revenue_yoy
+         ELSE CASE WHEN a0.revenue > 0 AND a1.revenue IS NOT NULL AND a1.currency = a0.currency
+                   THEN (a1.revenue - a0.revenue) / a0.revenue * 100 END
+    END                                                                    AS revenue_yoy_pct,
+    CASE WHEN half_basis.rev THEN hg.revenue_yoy_prior
+         ELSE CASE WHEN am1.revenue > 0 AND a0.revenue IS NOT NULL AND a0.currency = am1.currency
+                   THEN (a0.revenue - am1.revenue) / am1.revenue * 100 END
+    END                                                                    AS revenue_yoy_prior_pct,
 
-    CASE WHEN eps_ttm_ok.ok THEN e1.eps_diluted ELSE ae1.eps_diluted END   AS eps_latest,
-    CASE WHEN eps_ttm_ok.ok THEN e0.eps_diluted ELSE ae0.eps_diluted END   AS eps_prior,
-    CASE WHEN eps_ttm_ok.ok THEN
+    CASE WHEN half_basis.eps THEN he.latest
+         WHEN eps_ttm_ok.ok THEN e1.eps_diluted ELSE ae1.eps_diluted END   AS eps_latest,
+    CASE WHEN half_basis.eps THEN he.prior
+         WHEN eps_ttm_ok.ok THEN e0.eps_diluted ELSE ae0.eps_diluted END   AS eps_prior,
+    CASE WHEN half_basis.eps THEN hg.eps_yoy
+         WHEN eps_ttm_ok.ok THEN
              CASE WHEN e0.eps_diluted > 0 AND e1.currency = e0.currency
                   THEN (e1.eps_diluted - e0.eps_diluted) / e0.eps_diluted * 100 END
          ELSE
              CASE WHEN ae0.eps_diluted > 0 AND ae1.eps_diluted IS NOT NULL AND ae1.currency = ae0.currency
                   THEN (ae1.eps_diluted - ae0.eps_diluted) / ae0.eps_diluted * 100 END
     END                                                                    AS eps_yoy_pct,
-    CASE WHEN eps_ttm_ok.ok THEN
+    CASE WHEN half_basis.eps THEN hg.eps_yoy_prior
+         WHEN eps_ttm_ok.ok THEN
              CASE WHEN em1.eps_diluted > 0 AND e0.currency = em1.currency
                   THEN (e0.eps_diluted - em1.eps_diluted) / em1.eps_diluted * 100 END
          ELSE
@@ -189,9 +232,15 @@ SELECT
     CASE WHEN half_ok.ok THEN t1.revenue - a1.revenue END                  AS revenue_half_delta,
     CASE WHEN half_ok.ok THEN t1.net_income - a1.net_income END            AS net_income_half_delta,
 
-    COALESCE(a1.currency, t1.currency)::varchar(8)                         AS currency,
+    COALESCE(a1.currency, t1.currency, h1.currency)::varchar(8)            AS currency,
     c.periods_available,
-    c.fetched_at
+    c.fetched_at,
+
+    hg.revenue_yoy                                                         AS revenue_half_yoy_pct,
+    hg.net_income_yoy                                                      AS net_income_half_yoy_pct,
+    hg.eps_yoy                                                             AS eps_half_yoy_pct,
+    h1.period_end                                                          AS half_latest_period_end,
+    CASE WHEN half_basis.rev THEN 'half' ELSE 'annual' END::varchar(8)     AS revenue_basis_period_type
 FROM codes c
 -- Annual rows (revenue / net income / OCF basis).
 LEFT JOIN LATERAL (
@@ -280,6 +329,55 @@ LEFT JOIN LATERAL (
     ORDER BY f.period_end DESC
     LIMIT 1
 ) em1 ON true
+-- Half rows (company filings). h1 is the latest half; h0 the same half a year
+-- earlier; hm1 the one a year before that.
+LEFT JOIN LATERAL (
+    SELECT f.period_end, f.currency, f.revenue, f.net_income, f.eps_basic, f.eps_diluted
+    FROM stock_fundamentals f
+    WHERE f.stock_code = c.stock_code AND f.period_type = 'half'
+    ORDER BY f.period_end DESC
+    LIMIT 1
+) h1 ON true
+LEFT JOIN LATERAL (
+    SELECT f.period_end, f.currency, f.revenue, f.net_income, f.eps_basic, f.eps_diluted
+    FROM stock_fundamentals f
+    WHERE f.stock_code = c.stock_code AND f.period_type = 'half'
+      AND f.period_end BETWEEN (h1.period_end - INTERVAL '14 months')::date
+                           AND (h1.period_end - INTERVAL '10 months')::date
+    ORDER BY f.period_end DESC
+    LIMIT 1
+) h0 ON true
+LEFT JOIN LATERAL (
+    SELECT f.period_end, f.currency, f.revenue, f.eps_basic, f.eps_diluted
+    FROM stock_fundamentals f
+    WHERE f.stock_code = c.stock_code AND f.period_type = 'half'
+      AND f.period_end BETWEEN (h0.period_end - INTERVAL '14 months')::date
+                           AND (h0.period_end - INTERVAL '10 months')::date
+    ORDER BY f.period_end DESC
+    LIMIT 1
+) hm1 ON true
+-- Half EPS on ONE measure per pair: diluted when both halves carry it, else
+-- basic (a filing usually quotes basic only).
+CROSS JOIN LATERAL (
+    SELECT CASE WHEN h1.eps_diluted IS NOT NULL AND h0.eps_diluted IS NOT NULL THEN h1.eps_diluted ELSE h1.eps_basic END   AS latest,
+           CASE WHEN h1.eps_diluted IS NOT NULL AND h0.eps_diluted IS NOT NULL THEN h0.eps_diluted ELSE h0.eps_basic END   AS prior,
+           CASE WHEN h0.eps_diluted IS NOT NULL AND hm1.eps_diluted IS NOT NULL THEN h0.eps_diluted ELSE h0.eps_basic END  AS prior_latest,
+           CASE WHEN h0.eps_diluted IS NOT NULL AND hm1.eps_diluted IS NOT NULL THEN hm1.eps_diluted ELSE hm1.eps_basic END AS prior_prior
+) he
+-- Half-on-half growth, same guards as every other *_yoy_pct.
+CROSS JOIN LATERAL (
+    SELECT
+        CASE WHEN h0.revenue > 0 AND h1.revenue IS NOT NULL AND h1.currency = h0.currency
+             THEN (h1.revenue - h0.revenue) / h0.revenue * 100 END          AS revenue_yoy,
+        CASE WHEN hm1.revenue > 0 AND h0.revenue IS NOT NULL AND h0.currency = hm1.currency
+             THEN (h0.revenue - hm1.revenue) / hm1.revenue * 100 END        AS revenue_yoy_prior,
+        CASE WHEN h0.net_income > 0 AND h1.net_income IS NOT NULL AND h1.currency = h0.currency
+             THEN (h1.net_income - h0.net_income) / h0.net_income * 100 END AS net_income_yoy,
+        CASE WHEN he.prior > 0 AND he.latest IS NOT NULL AND h1.currency = h0.currency
+             THEN (he.latest - he.prior) / he.prior * 100 END               AS eps_yoy,
+        CASE WHEN he.prior_prior > 0 AND he.prior_latest IS NOT NULL AND h0.currency = hm1.currency
+             THEN (he.prior_latest - he.prior_prior) / he.prior_prior * 100 END AS eps_yoy_prior
+) hg
 -- The TTM EPS basis applies when a TTM pair exists and it is not staler than
 -- the latest annual EPS (a small-cap whose Markit annual row landed first has
 -- no annual EPS, so this only ever prefers the fresher series).
@@ -287,6 +385,15 @@ CROSS JOIN LATERAL (
     SELECT (e1.period_end IS NOT NULL AND e0.period_end IS NOT NULL
             AND (ae1.period_end IS NULL OR e1.period_end >= ae1.period_end)) AS ok
 ) eps_ttm_ok
+-- The half basis applies per series when its half growth exists and the half
+-- is STRICTLY newer than that series' vendor basis.
+CROSS JOIN LATERAL (
+    SELECT (hg.revenue_yoy IS NOT NULL
+            AND (a1.period_end IS NULL OR h1.period_end > a1.period_end)) AS rev,
+           (hg.eps_yoy IS NOT NULL
+            AND (CASE WHEN eps_ttm_ok.ok THEN e1.period_end ELSE ae1.period_end END IS NULL
+                 OR h1.period_end > CASE WHEN eps_ttm_ok.ok THEN e1.period_end ELSE ae1.period_end END)) AS eps
+) half_basis
 CROSS JOIN LATERAL (
     SELECT (t1.period_end IS NOT NULL AND a1.period_end IS NOT NULL
             AND t1.currency = a1.currency
@@ -300,6 +407,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_fundamentals_growth_stock_code
     ON mv_fundamentals_growth (stock_code);
 
 COMMENT ON MATERIALIZED VIEW mv_fundamentals_growth IS
-    'One row per stock: revenue/net income/OCF growth annual vs prior annual, EPS growth TTM vs TTM a year earlier (else annual), half-year deltas via TTM - FY. Every *_yoy_pct is NULL unless the prior is > 0, same currency, 10-14 months earlier. Refreshed by refresh_strategy_views() (000130).';
+    'One row per stock: revenue/net income/OCF growth annual vs prior annual, EPS growth TTM vs TTM a year earlier (else annual), half vs the same half a year earlier from filing rows (*_half_yoy_pct), and revenue/EPS switch to the half basis when the half is newer (revenue_basis_period_type / basis_period_type = half). Half-year deltas via TTM - FY. Every *_yoy_pct is NULL unless the prior is > 0, same currency, 10-14 months earlier. Refreshed by refresh_strategy_views() (000130).';
 
 COMMIT;

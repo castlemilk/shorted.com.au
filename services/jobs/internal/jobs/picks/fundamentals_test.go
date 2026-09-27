@@ -27,6 +27,11 @@ type fakeStore struct {
 
 	refreshed int
 	skipped   []string
+
+	extractions     []filingExtraction
+	vendor          map[string][]vendorAnnual
+	filingUpserts   map[string][]PeriodRow
+	filingUpsertErr map[string]error
 }
 
 func (f *fakeStore) UniverseCodes(context.Context) ([]string, error) { return f.universe, nil }
@@ -61,7 +66,26 @@ func (f *fakeStore) RefreshStrategyViews(context.Context) ([]string, error) {
 	return f.skipped, nil
 }
 
-func (f *fakeStore) writes() int { return len(f.upserts) + len(f.attempts) + f.refreshed }
+func (f *fakeStore) FilingExtractions(context.Context) ([]filingExtraction, error) {
+	return f.extractions, nil
+}
+func (f *fakeStore) VendorAnnuals(context.Context) (map[string][]vendorAnnual, error) {
+	return f.vendor, nil
+}
+func (f *fakeStore) UpsertFilingPeriods(_ context.Context, code string, rows []PeriodRow, _ time.Time) error {
+	if err := f.filingUpsertErr[code]; err != nil {
+		return err
+	}
+	if f.filingUpserts == nil {
+		f.filingUpserts = map[string][]PeriodRow{}
+	}
+	f.filingUpserts[code] = rows
+	return nil
+}
+
+func (f *fakeStore) writes() int {
+	return len(f.upserts) + len(f.attempts) + f.refreshed + len(f.filingUpserts)
+}
 
 // fakeFetcher answers from a per-code table; an absent code answers empty.
 type fakeFetcher struct {

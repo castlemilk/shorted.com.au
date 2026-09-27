@@ -46,9 +46,7 @@ func TestSelectCodesCapAndSkipBoundary(t *testing.T) {
 	assert.Equal(t, []string{"OLD"}, selectCodes([]string{"OLD", "NEW"}, last, nil, now, 0))
 
 	var universe []string
-	for _, c := range []string{"A1", "A2", "A3", "A4", "A5"} {
-		universe = append(universe, c)
-	}
+	universe = append(universe, []string{"A1", "A2", "A3", "A4", "A5"}...)
 	assert.Equal(t, []string{"A1", "A2", "A3"}, selectCodes(universe, nil, map[string]bool{}, now, 3), "the cap applies")
 	assert.Equal(t, []string{"A4", "A1", "A2"}, selectCodes(universe, nil, map[string]bool{"A4": true}, now, 3),
 		"a filer counts toward the cap but goes first")

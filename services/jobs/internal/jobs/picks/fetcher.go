@@ -6,25 +6,31 @@ import (
 	"time"
 )
 
-// Period types stored in stock_fundamentals.period_type. 'half' and 'quarter'
-// are allowed by the table's CHECK but no source we use today carries them
-// for ASX companies (Yahoo's quarterly P&L series are empty for the ASX).
+// Period types stored in stock_fundamentals.period_type. No vendor we use
+// carries half-year totals for ASX companies (Yahoo's quarterly P&L series are
+// empty for the ASX); 'half' rows come only from company filings
+// (-mode filings, filings_ingest.go). 'quarter' is allowed by the table's
+// CHECK and written by nothing.
 const (
 	periodAnnual = "annual"
+	periodHalf   = "half"
 	periodTTM    = "ttm"
 )
 
 // Source identifiers stored in stock_fundamentals.source (VARCHAR(32)).
+// Every source other than sourceFiling is a VENDOR for the filing conflict
+// policy (filingUpsertSQL): a filing never overwrites a vendor's value.
 const (
 	sourceYahoo  = "yahoo-timeseries"
 	sourceMarkit = "markit-key-statistics"
+	sourceFiling = "asx-filing-extraction"
 )
 
 // PeriodRow is one stock_fundamentals row: one period of one stock's typed
 // statement lines, in the REPORTING currency, exactly as the source reports
 // them. A nil value is "the source did not report it", never zero.
 type PeriodRow struct {
-	PeriodType string    // periodAnnual | periodTTM
+	PeriodType string    // periodAnnual | periodTTM | periodHalf (filings only)
 	PeriodEnd  time.Time // the period's balance date, midnight UTC
 	// FiscalYear is derived (assignFiscalYears), never taken from the source.
 	FiscalYear        *int16

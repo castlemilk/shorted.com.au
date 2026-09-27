@@ -558,6 +558,26 @@ hyphen-or-nothing between the words, so `"On market buyback"` is KEPT by both
 implementations. Pinned by `TestKnownNoisePatternGapsMatchPython` so a future
 "fix" is a deliberate decision.
 
+**9. Selection targeting now DIVERGES from Python (2026-09-27, on purpose).**
+`parseReportRows` applies `isExtractionTarget` after the Python noise filter:
+presentations, webinars, briefings, "to present", results-date notices, any
+"Notice of", AGM "Results of Meeting", dividend notices and every quarterly /
+Appendix 4C / activities report are excluded (a statutory marker overrides
+all but the quarterly rule), and `prioritiseForExtraction` orders statutory
+Appendix 4D/4E filings FIRST, then other results documents, then the rest
+(most-shorted, then newest, within a tier; `-top-shorted-first` is no longer
+the primary key). Reason: the weekly run is the only path to half-year totals
+for the stock picker (`shorted picks -mode filings`), and ~98% of what the
+Python order extracted had no metrics. `isFinancialReportTitle` itself is
+unchanged and still pinned against Python. This changes what the CUT-OVER
+does: the Go job will extract a different (statutory) set than the Python job
+it replaces. The cut-over itself is unchanged and not done: a
+`modules/shorted-job` pair with the args above (`report-extract concurrent
+-recent 2 -limit <reports_limit> -workers 2 -max-pages 6 -top-shorted-first`,
+same `GEMINI_MAX_RUN_ITEMS` / `GEMINI_MAX_RUN_WORKERS` env and Gemini secret),
+`scheduler_paused = true` on the old module, after the side-by-side PDF parity
+run callout 1 requires.
+
 ### Not ported
 
 - **`compare_models.py`** — a scratch model-comparison harness (no infra, no
@@ -631,8 +651,9 @@ procedure: `internal/jobs/shortdatasync/README.md`.
 | Mode | What it does |
 |---|---|
 | `-mode fundamentals` | Pulls typed per-period fundamentals into `stock_fundamentals` (migration 000129) and records every attempt in `stock_fundamentals_sync`. Source: Yahoo fundamentals-timeseries through `pkg/stealthhttp` (a plain client is 429'd; no cookie or crumb needed), 4s between requests like the price sweep. Fallback: Markit key statistics (plain HTTPS, 1/s), asked only when Yahoo failed or published nothing, or its annual series is visibly behind (a TTM point a year past the latest annual, or an annual older than ~15 months). Only the fallback's annual rows for years Yahoo has not caught up with are added. |
+| `-mode filings` | Reads every `financial_report_extractions` row whose `metrics` JSONB has a revenue / net profit / EPS class (the report-extractor's Gemini reading of Appendix 4D/4E and other results documents) and writes typed `'half'` and `'annual'` rows into `stock_fundamentals`, source `asx-filing-extraction`. The only source of half-year totals (Yahoo has none for the ASX). DB-only: no network, no LLM. A deterministic rebuild: every run re-reads every extraction. |
 | `-mode refresh` | `BEGIN; SET LOCAL statement_timeout = 0; SELECT refresh_strategy_views(); COMMIT` as one simple-protocol command (migration 000130: `mv_market_regime`, `mv_fundamentals_growth`, `mv_price_features`). Fails if the function reports any `Skipping <view>` warning, because the function itself returns normally when a view is skipped. |
-| `-mode all` (default) | fundamentals, then refresh. |
+| `-mode all` (default) | fundamentals, then filings, then refresh. The refresh runs even after a degraded pull; the worst step decides the exit code. |
 
 **Selection** (fundamentals): the universe is every code with a `stock_prices`
 row in the last 90 days plus every `mv_screener_data` code (the MV is optional:
@@ -656,12 +677,111 @@ CHECK as a backstop. On conflict, a value the new fetch does not carry keeps the
 stored one (same currency only). That is what keeps TTM revenue history: Yahoo
 drops TTM revenue from older points.
 
+**Filings (`-mode filings`)**. What is read, and what keeps an LLM mistake out
+of the table (`filings_ingest.go`, `filings_period.go`):
+
+- Only `revenue`, `net_profit` and `eps` classes (plus a few aliases), in both
+  stored shapes (one object, or a list when the class repeated). `dividend`,
+  `guidance`, `ebitda` etc. are ignored.
+- **A value is taken only when it can be found in its own `source_text`**, in
+  a unit the quote makes unambiguous; otherwise it is skipped, never guessed.
+  `value_millions` becomes whole currency units (x 1e6) when the quote carries
+  the same number with a scale ("$45.2 million", "$1.2bn", "$45,213,000") or a
+  `$m` / `$'000` heading. A bare "45.2" with no scale is skipped (in a `$'000`
+  table the same digits are thousands).
+- **EPS** is stored in currency units per share (dollars, like Yahoo). The unit
+  is read next to the value's own number in the quote: followed by `c` /
+  `cents` / `cps` / `¢` is cents (divided by 100); written `$0.94` with no scale
+  is dollars; no unit next to it falls back to "cents" elsewhere in the quote,
+  then to the attribute name (`value_cents` / `value_dollars`). A bare
+  `value` with no unit anywhere is skipped. "Loss per share" or a
+  parenthesised number is negative. Diluted when the nearest qualifier before
+  the number says so, both on "basic and diluted", else basic. When NPAT and a
+  vendor share count are known, an EPS more than 5x away from NPAT / shares is
+  dropped (a cents-vs-dollars slip is 100x).
+- Net profit is statutory: a quote naming underlying / normalised / adjusted /
+  pro forma / EBITDA / segment figures is skipped. A loss is stored negative.
+- Revenue more than 10x, or under 1/50th of, the company's nearest vendor
+  annual revenue (within two years, same currency) is dropped: a thousand-fold
+  unit slip either way.
+- Currency: an explicit marker in the quote (US$, USD, US cents, NZ$, £, €,
+  A$) wins; otherwise the company's vendor reporting currency (BHP's bare "$"
+  is USD); otherwise AUD. Two different markers in one quote: skipped.
+- One document giving two different values for one period: skipped. Several
+  documents for one period: per column, a statutory Appendix 4D/4E beats
+  another results document, which beats anything else; then the document
+  filed closest after the period end; then the URL.
+
+**Period parser** (`parsePeriod`), in order:
+
+1. The headline gates the report: scheduling notices, webinars, "to present",
+   any "Notice of", AGM "Results of Meeting", dividend admin (the
+   `notAFiling` list, with the `strongFiling` override) and every quarterly /
+   Appendix 4C / activities report are rejected before any metric is read.
+2. A period naming a quarter, nine months, YTD, guidance, a forecast (`FY27E`)
+   or a comparative (`pcp`, "prior") is rejected.
+3. Type: half words (H1, 1H, HY, 2H, half-year, interim, six months) win over
+   annual words (FY, full year, annual, twelve months, year). Neither: the
+   headline decides (4D / half-year -> half; 4E / annual report / full year /
+   preliminary final -> annual), else rejected.
+4. End: an explicit date wins ("30 June 2025", "31/12/2024", "December 2024").
+   Otherwise the FY label (FY25, FY2025, 1H26, H1 FY2025, 1HFY26, 2025/26,
+   CY2025) goes on the company's balance date: FY Y ends in the balance month
+   of Y; H1 ends six months earlier (June year: H1 FY26 = 31 Dec 2025;
+   December year, e.g. DroneShield: H1 FY26 = 30 Jun 2026); H2 ends with the
+   year. No year at all ("H1"): the latest such end on or before the report
+   date, within five months. No year and no report date: rejected.
+5. Balance month: the period's own date, else a dated headline ("... year
+   ended 31 December 2025"; a dated half-year headline is its month + 6), else
+   the vendor's annual rows, else June.
+6. With a report date: the period must end no later than 7 days after it (a
+   later end is guidance) and no more than 15 months before it (a comparative).
+7. Every end is folded to a month end (a 52/53-week year to 2 July 2023 is
+   June 2023), and an annual end within 10 days of a vendor annual row takes
+   the vendor's date, so one period is one key.
+
+**Conflict policy** (in the SQL, `filingUpsertSQL`, tested against Postgres
+by `TestFilingUpsertPolicyAgainstPostgres` when `PICKS_TEST_DATABASE_URL` is
+set):
+
+```sql
+ON CONFLICT (stock_code, period_type, period_end) DO UPDATE SET
+    revenue = CASE WHEN f.source <> 'asx-filing-extraction'
+                   THEN CASE WHEN f.currency = EXCLUDED.currency THEN COALESCE(f.revenue, EXCLUDED.revenue) ELSE f.revenue END
+                   ELSE EXCLUDED.revenue END,
+    -- ... the same for net_income, eps_basic, eps_diluted;
+    -- currency / source / source_fetched_at stay the vendor's on a vendor row
+```
+
+- A **vendor** row (any source but `asx-filing-extraction`: Yahoo, Markit, a
+  future licensed feed) is never overwritten: a filing only fills its NULL
+  columns, and only in the same currency.
+- A **filing** row is replaced whole (the run's merge is the complete
+  picture).
+- No row (every half; an annual Yahoo has not published yet): inserted whole.
+- A filing row of the code that the run no longer produces is deleted in the
+  same statement (scoped to that code and to the filing source; a vendor row is
+  never deleted). A code that stops producing rows ENTIRELY keeps its old ones:
+  to clean up after a parser change, `DELETE FROM stock_fundamentals WHERE
+  source = 'asx-filing-extraction'` and re-run `-mode filings` (safe: it is a
+  rebuild).
+- The reverse direction is `upsertSQL`'s: when Yahoo later publishes a period
+  a filing wrote first, the vendor's values win, the filing's survive only
+  where Yahoo has none, and the row becomes the vendor's.
+- No-op updates are skipped, so `updated_at` moves only when a value did.
+- Nothing is written to `stock_fundamentals_sync` (that is the vendor attempt
+  log that drives the six-day skip).
+
+Exit: 0; 10 (DEGRADED) when some codes' writes failed; 1 when every write
+failed or a read failed. A missing `financial_report_extractions` table is
+"nothing to ingest", not a failure.
+
 **Flags / env**
 
 | Flag / env | Default | |
 |---|---|---|
-| `-mode` | `all` | `fundamentals` \| `refresh` \| `all` |
-| `-dry-run` (or global `-dry-run`) | false | fetch + parse + log. No upsert, no attempt row, no refresh. With `-codes` it needs no database. |
+| `-mode` | `all` | `fundamentals` \| `filings` \| `refresh` \| `all` |
+| `-dry-run` (or global `-dry-run`) | false | fetch/read + parse + log. No upsert, no attempt row, no refresh (`-mode filings` logs every row it would write). With `-codes` (fundamentals only) it needs no database. |
 | `-codes A,B` | — | fetch these codes instead of the selection (ignores the 6-day skip and the cap) |
 | `-no-fallback` | false | never ask Markit |
 | `-verbose` | false | log every Postgres notice |
@@ -677,6 +797,10 @@ drops TTM revenue from older points.
 | 10 | DEGRADED: under half answered, or Yahoo failed for more than half of them even if Markit covered the gaps |
 | 1 | nothing answered, the DB failed, the refresh failed or skipped a view, or the run was cancelled |
 
+In `-mode all` each step runs even when an earlier one degraded, and the worst
+verdict wins (a plain failure beats DEGRADED); the other steps' errors ride
+along in the message.
+
 A run also stops after 25 consecutive failed codes (the price sweep's rule), so
 a blocking upstream is not asked 400 times.
 
@@ -690,9 +814,24 @@ a blocking upstream is not asked 400 times.
    `shorted -dry-run picks -mode fundamentals -codes BHP,DRO,SKS`.
 3. Build coverage: `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"`
    a few times (400 codes a run, ~30 minutes each; ~2,300 codes is about six
-   runs), then `--args="picks,-mode,refresh"`. The daily 15:00 UTC schedule
-   keeps topping it up after that.
+   runs), then `--args="picks,-mode,filings"` (check the log's `skipped={...}`
+   reasons first with `--args="picks,-mode,filings,-dry-run"`), then
+   `--args="picks,-mode,refresh"`. The daily 15:00 UTC schedule runs
+   `-mode all` (fundamentals, filings, refresh) after that.
 4. Revalidate `/picks` and `/picks/*` after the first refresh.
+
+**Enablement state (2026-09-27).** Scheduled: weekdays 13:30 UTC `-mode
+refresh`; daily 15:00 UTC `-mode all`. The half-year rows depend on the
+report-extractor (`module.report_extractor`, now 40 reports, Wednesday and
+Sunday 14:00 UTC), which in prod is still the PYTHON image: its selection is
+`--recent 2 --top-shorted-first` over every typed results document, so until
+the Go port is cut over most of those 40 slots go to the most-shorted
+companies' documents in short-interest order, presentations included. The
+statutory-filing-first targeting lives in `reportextract/select.go`
+(`isExtractionTarget`, `filingPriority`, `prioritiseForExtraction`) and reaches
+prod only with the cut-over below ("Phase 3 port notes"). Manual: migrations
+000129/000130 by hand, the first coverage runs above, and the first
+`-mode filings` run once extractions exist.
 
 ## Conventions for new jobs
 

@@ -36,12 +36,17 @@ var currencyRe = regexp.MustCompile(`^[A-Z]{3,8}$`)
 
 // sanitizeRows is the last step before a write: every non-storable value is
 // set to NULL (and counted), and a row is dropped when its period type is not
-// one the table accepts, its currency is not a plausible code, it has no
-// period end, or no value survives.
+// one this job writes ('half' only from the filing source), its currency is
+// not a plausible code, it has no period end, or no value survives.
 func sanitizeRows(rows []PeriodRow) (out []PeriodRow, rejectedValues int) {
 	out = make([]PeriodRow, 0, len(rows))
 	for _, r := range rows {
-		if r.PeriodType != periodAnnual && r.PeriodType != periodTTM {
+		switch {
+		case r.PeriodType == periodAnnual || r.PeriodType == periodTTM:
+		case r.PeriodType == periodHalf && r.Source == sourceFiling:
+			// Half rows come only from filings; a vendor claiming one is a
+			// parser bug, not data.
+		default:
 			continue
 		}
 		if r.PeriodEnd.IsZero() || !currencyRe.MatchString(r.Currency) || r.Source == "" {
