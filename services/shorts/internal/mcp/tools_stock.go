@@ -965,10 +965,10 @@ func describeFundamentals(out GetStockFundamentalsOutput, periodType string) str
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("%s: %d reported periods", out.Code, out.Count))
+	fmt.Fprintf(&b, "%s: %d reported periods", out.Code, out.Count)
 	if out.Count > 0 {
 		latest := out.Periods[0]
-		b.WriteString(fmt.Sprintf(", latest %s to %s", latest.PeriodType, latest.PeriodEnd))
+		fmt.Fprintf(&b, ", latest %s to %s", latest.PeriodType, latest.PeriodEnd)
 	}
 	if out.Currency != "" {
 		b.WriteString(", in " + out.Currency)
@@ -976,10 +976,10 @@ func describeFundamentals(out GetStockFundamentalsOutput, periodType string) str
 	b.WriteString(".")
 	if g := out.Growth; g != nil {
 		if g.RevenueYoYPct != nil {
-			b.WriteString(fmt.Sprintf(" Revenue %+.1f%% year on year.", *g.RevenueYoYPct))
+			fmt.Fprintf(&b, " Revenue %+.1f%% year on year.", *g.RevenueYoYPct)
 		}
 		if g.EPSYoYPct != nil {
-			b.WriteString(fmt.Sprintf(" EPS %+.1f%% year on year (%s).", *g.EPSYoYPct, nonEmpty(g.BasisPeriodType, "annual")))
+			fmt.Fprintf(&b, " EPS %+.1f%% year on year (%s).", *g.EPSYoYPct, nonEmpty(g.BasisPeriodType, "annual"))
 		}
 		if g.RevenueYoYPct == nil && g.EPSYoYPct == nil {
 			b.WriteString(" Not enough comparable periods for year-on-year growth.")
