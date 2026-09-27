@@ -157,7 +157,7 @@ const (
 	caveatSubCent  = "Prices are stored to 2 decimal places, so sub-cent stocks cannot be measured reliably; the A$250,000 turnover floor excludes them."
 	caveatEOD      = "Everything is measured on end-of-day prices after the evening sweep. We do not see intraday breakouts, the time of day a move happened, or news released after the close."
 	caveatNotAdvic = "This is a screen, not a recommendation. Nothing here is financial advice."
-	caveatHalfYear = "ASX companies report half-yearly and there are no quarterly totals, so growth is measured annual on annual for revenue and on trailing-twelve-month EPS where available. Figures can be months old, and small caps often arrive weeks after they file."
+	caveatHalfYear = "ASX companies report half-yearly and there are no quarterly totals, so growth is measured annual on annual for revenue and on trailing-twelve-month EPS where available, switching to the latest half-year against the same half a year earlier, taken from the company's own filing, when that half is fresher. Figures can be months old, and small caps often arrive weeks after they file."
 
 	metaUniverse = "ASX equities with at least 60 sessions of price history; only those with at least A$250,000 average daily turnover can trigger"
 	metaCadence  = "Daily, after the evening price sweep"
@@ -197,6 +197,7 @@ func zangerBreakout() Strategy {
 				RuleText: "Buy companies with explosive earnings and sales growth. The biggest winners usually show both, and the growth is often accelerating.",
 				Evaluation: "Pass when the latest annual revenue is up at least 25% on the prior year, or EPS is up at least 25% on the same series a year earlier " +
 					"(trailing twelve months where available, otherwise annual), or the company has swung from a net loss to a net profit. " +
+					"When a half-year result from the company's own filing is fresher than those figures, revenue and EPS are measured on that half against the same half a year earlier instead. " +
 					"Unknown when neither growth figure is available. A latest half-year that improved on the same half a year earlier is shown as supporting evidence but does not change the result.",
 				Core:       true,
 				DataSource: SourceFundamentals,
@@ -291,16 +292,18 @@ func canslim() Strategy {
 				Title:    "Earnings growth (C and A)",
 				RuleText: "Current quarterly earnings per share up at least 25% on the same quarter a year earlier, backed by strong annual earnings growth.",
 				Evaluation: "Pass when EPS is up at least 25% on the same series a year earlier (trailing twelve months where available, otherwise annual), " +
-					"or the company has swung from a net loss to a net profit. ASX companies report half-yearly, not quarterly, so a trailing-twelve-month comparison is the closest honest proxy. " +
+					"or the company has swung from a net loss to a net profit. ASX companies report half-yearly, not quarterly, so a trailing-twelve-month comparison is the closest honest proxy, " +
+					"and when a half-year result from the company's own filing is fresher, EPS is measured on that half against the same half a year earlier. " +
 					"Unknown when there is no EPS growth figure.",
 				Core:       true,
 				DataSource: SourceFundamentals,
 			},
 			{
-				ID:         RuleRevenueGrowth,
-				Title:      "Sales growth",
-				RuleText:   "Earnings growth should be backed by strong sales growth, not just cost cutting.",
-				Evaluation: "Pass when the latest annual revenue is up at least 20% on the prior year. Unknown when either year is missing.",
+				ID:       RuleRevenueGrowth,
+				Title:    "Sales growth",
+				RuleText: "Earnings growth should be backed by strong sales growth, not just cost cutting.",
+				Evaluation: "Pass when the latest annual revenue is up at least 20% on the prior year, or, when a half-year result from the company's own filing is fresher, " +
+					"when that half is up at least 20% on the same half a year earlier. Unknown when either period is missing.",
 				Core:       false,
 				DataSource: SourceFundamentals,
 			},

@@ -597,8 +597,12 @@ func TestGetStockFundamentalsHonoursTheHasFlags(t *testing.T) {
 	if g.RevenueYoYPct == nil || *g.RevenueYoYPct != 12.35 || g.EPSYoYPct == nil || *g.EPSYoYPct != -4.57 {
 		t.Errorf("growth figures: revenue=%v eps=%v", g.RevenueYoYPct, g.EPSYoYPct)
 	}
-	if g.RevenueYoYPriorPct != nil || g.EPSTTM != nil {
-		t.Errorf("unflagged growth figures must be absent: prior=%v eps_ttm=%v", g.RevenueYoYPriorPct, g.EPSTTM)
+	if g.RevenueYoYPriorPct != nil || g.EPSTTM != nil || g.RevenueHalfYoYPct != nil || g.EPSHalfYoYPct != nil {
+		t.Errorf("unflagged growth figures must be absent: prior=%v eps_ttm=%v rev_half=%v eps_half=%v",
+			g.RevenueYoYPriorPct, g.EPSTTM, g.RevenueHalfYoYPct, g.EPSHalfYoYPct)
+	}
+	if strings.Contains(mustJSON(t, g), "half_latest_period_end") {
+		t.Errorf("half_latest_period_end emitted without a half row: %+v", g)
 	}
 	whole, _ := json.Marshal(out)
 	if strings.Contains(string(whole), "fetched_at") {
@@ -606,7 +610,38 @@ func TestGetStockFundamentalsHonoursTheHasFlags(t *testing.T) {
 	}
 
 	text := textOf(t, res)
-	for _, want := range []string{"BHP", "3 reported periods", "USD", "Revenue +12.3%", "EPS -4.6%", "Not financial advice"} {
+	for _, want := range []string{"BHP", "3 reported periods", "USD", "Revenue +12.3% year on year (annual)", "EPS -4.6% year on year (ttm)", "Not financial advice"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("summary missing %q: %q", want, text)
+		}
+	}
+}
+
+func TestGetStockFundamentalsNamesTheHalfBasis(t *testing.T) {
+	fixture := fundamentalsFixture()
+	fixture.Growth.BasisPeriodType = "half"
+	fixture.Growth.RevenueBasisPeriodType = "half"
+	fixture.Growth.HalfLatestPeriodEnd = "2025-12-31"
+	fixture.Growth.RevenueHalfYoyPct, fixture.Growth.HasRevenueHalfYoy = 12.345, true
+	fixture.Growth.EpsHalfYoyPct, fixture.Growth.HasEpsHalfYoy = 0, false
+	src := &fakeDataSource{fundamentals: fixture}
+
+	res, out, err := getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	g := out.Growth
+	if g == nil || g.BasisPeriodType != "half" || g.RevenueBasisPeriodType != "half" || g.HalfLatestPeriodEnd != "2025-12-31" {
+		t.Fatalf("half basis dropped: %+v", g)
+	}
+	if g.RevenueHalfYoYPct == nil || *g.RevenueHalfYoYPct != 12.35 {
+		t.Errorf("revenue_half_yoy_pct: %v", g.RevenueHalfYoYPct)
+	}
+	if g.EPSHalfYoYPct != nil {
+		t.Errorf("an unflagged half EPS growth must be absent, got %v", *g.EPSHalfYoYPct)
+	}
+	text := textOf(t, res)
+	for _, want := range []string{"Revenue +12.3% year on year (half)", "EPS -4.6% year on year (half)"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("summary missing %q: %q", want, text)
 		}

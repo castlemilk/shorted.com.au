@@ -229,14 +229,14 @@ func TestProseHasNoDashCharactersOrStrayWhitespace(t *testing.T) {
 // The evaluation prose must state the numbers the code actually uses.
 func TestEvaluationProseStatesTheThresholds(t *testing.T) {
 	mustContain := map[string][]string{
-		RuleGrowth:        {"25%", "loss to a net profit", "Unknown when neither"},
+		RuleGrowth:        {"25%", "loss to a net profit", "Unknown when neither", "half-year result from the company's own filing", "same half a year earlier"},
 		RuleBase:          {"at least 20 sessions", "25% deep", "base low", "do not classify its shape"},
 		RuleBreakout:      {"last 5 sessions", "40 sessions", "1.5 times the 50-day average", "pivot"},
 		RuleRegime:        {"50-day", "200-day", "downtrend"},
 		RuleRS:            {"3-month", "above zero"},
 		RuleLiquidity:     {"A$250,000", "20 sessions", "sub-cent", "2 decimal places"},
-		RuleEPSGrowth:     {"25%", "half-yearly", "loss to a net profit"},
-		RuleRevenueGrowth: {"20%"},
+		RuleEPSGrowth:     {"25%", "half-yearly", "loss to a net profit", "company's own filing", "same half a year earlier"},
+		RuleRevenueGrowth: {"20%", "company's own filing", "same half a year earlier"},
 		RuleNearHigh:      {"within 5%", "52-week high"},
 		RuleRSLeader:      {"top quartile", "75th percentile", "6-month"},
 		RuleTrendStack:    {"150-day", "200-day"},

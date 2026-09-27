@@ -5775,7 +5775,7 @@ components:
         basisPeriodType:
           type: string
           title: basis_period_type
-          description: 'Series the EPS growth was computed on: "ttm" or "annual". (proto string)'
+          description: 'Series the EPS growth was computed on: "half", "ttm" or "annual". (proto string)'
         latestPeriodEnd:
           type: string
           title: latest_period_end
@@ -5784,7 +5784,7 @@ components:
           type: number
           title: revenue_yoy_pct
           format: double
-          description: Latest annual revenue vs the prior annual. (proto double)
+          description: Revenue growth on revenue_basis_period_type vs the same series a year earlier. (proto double)
         hasRevenueYoy:
           type: boolean
           title: has_revenue_yoy
@@ -5852,6 +5852,37 @@ components:
           type: boolean
           title: has_eps_ttm
           description: (proto bool)
+        revenueBasisPeriodType:
+          type: string
+          title: revenue_basis_period_type
+          description: |-
+            Series the revenue growth was computed on: "half" (latest half-year from a
+             company filing vs the same half a year earlier, used when it is newer than
+             the latest annual) or "annual". Empty when unknown. (proto string)
+        revenueHalfYoyPct:
+          type: number
+          title: revenue_half_yoy_pct
+          format: double
+          description: |-
+            Latest half-year vs the same half a year earlier, from company filings,
+             whether or not the half is the chosen basis. (proto double)
+        hasRevenueHalfYoy:
+          type: boolean
+          title: has_revenue_half_yoy
+          description: (proto bool)
+        epsHalfYoyPct:
+          type: number
+          title: eps_half_yoy_pct
+          format: double
+          description: (proto double)
+        hasEpsHalfYoy:
+          type: boolean
+          title: has_eps_half_yoy
+          description: (proto bool)
+        halfLatestPeriodEnd:
+          type: string
+          title: half_latest_period_end
+          description: YYYY-MM-DD of the latest half-year row; empty when none. (proto string)
       title: FundamentalsGrowth
       additionalProperties: false
       description: |-

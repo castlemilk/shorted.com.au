@@ -816,17 +816,21 @@ type FundamentalsPeriodRow struct {
 }
 
 type FundamentalsGrowthSummary struct {
-	BasisPeriodType    string   `json:"basis_period_type,omitempty" jsonschema:"Series EPS growth uses: ttm or annual."`
-	LatestPeriodEnd    string   `json:"latest_period_end,omitempty"`
-	RevenueYoYPct      *float64 `json:"revenue_yoy_pct,omitempty" jsonschema:"Annual on annual."`
-	EPSYoYPct          *float64 `json:"eps_yoy_pct,omitempty"`
-	RevenueYoYPriorPct *float64 `json:"revenue_yoy_prior_pct,omitempty" jsonschema:"The same growth a period earlier, for acceleration."`
-	EPSYoYPriorPct     *float64 `json:"eps_yoy_prior_pct,omitempty"`
-	NetIncomePositive  bool     `json:"net_income_positive" jsonschema:"Latest annual. False also when unknown."`
-	PeriodsAvailable   int      `json:"periods_available"`
-	RevenueTTM         *float64 `json:"revenue_ttm,omitempty"`
-	NetIncomeTTM       *float64 `json:"net_income_ttm,omitempty"`
-	EPSTTM             *float64 `json:"eps_ttm,omitempty"`
+	BasisPeriodType        string   `json:"basis_period_type,omitempty" jsonschema:"Series EPS growth uses: ttm, annual or half."`
+	RevenueBasisPeriodType string   `json:"revenue_basis_period_type,omitempty" jsonschema:"Series revenue growth uses: annual or half."`
+	LatestPeriodEnd        string   `json:"latest_period_end,omitempty"`
+	RevenueYoYPct          *float64 `json:"revenue_yoy_pct,omitempty"`
+	EPSYoYPct              *float64 `json:"eps_yoy_pct,omitempty"`
+	RevenueYoYPriorPct     *float64 `json:"revenue_yoy_prior_pct,omitempty" jsonschema:"The same growth a period earlier, for acceleration."`
+	EPSYoYPriorPct         *float64 `json:"eps_yoy_prior_pct,omitempty"`
+	RevenueHalfYoYPct      *float64 `json:"revenue_half_yoy_pct,omitempty" jsonschema:"Latest filed half vs the same half a year earlier."`
+	EPSHalfYoYPct          *float64 `json:"eps_half_yoy_pct,omitempty"`
+	HalfLatestPeriodEnd    string   `json:"half_latest_period_end,omitempty"`
+	NetIncomePositive      bool     `json:"net_income_positive" jsonschema:"Latest annual. False also when unknown."`
+	PeriodsAvailable       int      `json:"periods_available"`
+	RevenueTTM             *float64 `json:"revenue_ttm,omitempty"`
+	NetIncomeTTM           *float64 `json:"net_income_ttm,omitempty"`
+	EPSTTM                 *float64 `json:"eps_ttm,omitempty"`
 }
 
 type GetStockFundamentalsOutput struct {
@@ -842,7 +846,7 @@ const getStockFundamentalsDescription = "Reported financial statements for one A
 	"half-year, quarterly and trailing-twelve-month (ttm) periods, plus revenue and EPS growth year on year and the same " +
 	"growth a period earlier, to show acceleration. Figures are in the company's REPORTING currency (whole units, EPS " +
 	"per share), which is not always AUD: BHP reports in USD. Growth compares the same series a year apart (annual on " +
-	"annual, ttm on ttm). A figure not reported is absent, never zero. ASX companies report half-yearly, so quarterly is " +
+	"annual, ttm on ttm, or a fresher filed half on the same half a year earlier). A figure not reported is absent, never zero. ASX companies report half-yearly, so quarterly is " +
 	"usually empty. Company-filed statement data via a market data provider, not estimates or financial advice; small " +
 	"caps can lag their filing by weeks. No price or short data: use get_stock_prices and get_stock."
 
@@ -934,17 +938,21 @@ func getStockFundamentalsHandler(src DataSource) sdk.ToolHandlerFor[GetStockFund
 
 		if g := msg.GetGrowth(); msg.GetHasGrowth() && g != nil {
 			out.Growth = &FundamentalsGrowthSummary{
-				BasisPeriodType:    g.GetBasisPeriodType(),
-				LatestPeriodEnd:    g.GetLatestPeriodEnd(),
-				RevenueYoYPct:      roundedOptional(g.GetRevenueYoyPct(), g.GetHasRevenueYoy()),
-				EPSYoYPct:          roundedOptional(g.GetEpsYoyPct(), g.GetHasEpsYoy()),
-				RevenueYoYPriorPct: roundedOptional(g.GetRevenueYoyPriorPct(), g.GetHasRevenueYoyPrior()),
-				EPSYoYPriorPct:     roundedOptional(g.GetEpsYoyPriorPct(), g.GetHasEpsYoyPrior()),
-				NetIncomePositive:  g.GetNetIncomePositive(),
-				PeriodsAvailable:   int(g.GetPeriodsAvailable()),
-				RevenueTTM:         optionalFloat(g.GetRevenueTtm(), g.GetHasRevenueTtm()),
-				NetIncomeTTM:       optionalFloat(g.GetNetIncomeTtm(), g.GetHasNetIncomeTtm()),
-				EPSTTM:             optionalFloat(g.GetEpsTtm(), g.GetHasEpsTtm()),
+				BasisPeriodType:        g.GetBasisPeriodType(),
+				RevenueBasisPeriodType: g.GetRevenueBasisPeriodType(),
+				LatestPeriodEnd:        g.GetLatestPeriodEnd(),
+				RevenueYoYPct:          roundedOptional(g.GetRevenueYoyPct(), g.GetHasRevenueYoy()),
+				EPSYoYPct:              roundedOptional(g.GetEpsYoyPct(), g.GetHasEpsYoy()),
+				RevenueYoYPriorPct:     roundedOptional(g.GetRevenueYoyPriorPct(), g.GetHasRevenueYoyPrior()),
+				EPSYoYPriorPct:         roundedOptional(g.GetEpsYoyPriorPct(), g.GetHasEpsYoyPrior()),
+				RevenueHalfYoYPct:      roundedOptional(g.GetRevenueHalfYoyPct(), g.GetHasRevenueHalfYoy()),
+				EPSHalfYoYPct:          roundedOptional(g.GetEpsHalfYoyPct(), g.GetHasEpsHalfYoy()),
+				HalfLatestPeriodEnd:    g.GetHalfLatestPeriodEnd(),
+				NetIncomePositive:      g.GetNetIncomePositive(),
+				PeriodsAvailable:       int(g.GetPeriodsAvailable()),
+				RevenueTTM:             optionalFloat(g.GetRevenueTtm(), g.GetHasRevenueTtm()),
+				NetIncomeTTM:           optionalFloat(g.GetNetIncomeTtm(), g.GetHasNetIncomeTtm()),
+				EPSTTM:                 optionalFloat(g.GetEpsTtm(), g.GetHasEpsTtm()),
 			}
 		}
 
@@ -976,7 +984,7 @@ func describeFundamentals(out GetStockFundamentalsOutput, periodType string) str
 	b.WriteString(".")
 	if g := out.Growth; g != nil {
 		if g.RevenueYoYPct != nil {
-			fmt.Fprintf(&b, " Revenue %+.1f%% year on year.", *g.RevenueYoYPct)
+			fmt.Fprintf(&b, " Revenue %+.1f%% year on year (%s).", *g.RevenueYoYPct, nonEmpty(g.RevenueBasisPeriodType, "annual"))
 		}
 		if g.EPSYoYPct != nil {
 			fmt.Fprintf(&b, " EPS %+.1f%% year on year (%s).", *g.EPSYoYPct, nonEmpty(g.BasisPeriodType, "annual"))

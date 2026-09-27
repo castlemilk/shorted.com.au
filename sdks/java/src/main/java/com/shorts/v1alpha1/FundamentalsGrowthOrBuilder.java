@@ -12,7 +12,7 @@ public interface FundamentalsGrowthOrBuilder extends
 
   /**
    * <pre>
-   * Series the EPS growth was computed on: "ttm" or "annual".
+   * Series the EPS growth was computed on: "half", "ttm" or "annual".
    * </pre>
    *
    * <code>string basis_period_type = 1 [json_name = "basisPeriodType"];</code>
@@ -21,7 +21,7 @@ public interface FundamentalsGrowthOrBuilder extends
   java.lang.String getBasisPeriodType();
   /**
    * <pre>
-   * Series the EPS growth was computed on: "ttm" or "annual".
+   * Series the EPS growth was computed on: "half", "ttm" or "annual".
    * </pre>
    *
    * <code>string basis_period_type = 1 [json_name = "basisPeriodType"];</code>
@@ -52,7 +52,7 @@ public interface FundamentalsGrowthOrBuilder extends
 
   /**
    * <pre>
-   * Latest annual revenue vs the prior annual.
+   * Revenue growth on revenue_basis_period_type vs the same series a year earlier.
    * </pre>
    *
    * <code>double revenue_yoy_pct = 3 [json_name = "revenueYoyPct"];</code>
@@ -161,4 +161,77 @@ public interface FundamentalsGrowthOrBuilder extends
    * @return The hasEpsTtm.
    */
   boolean getHasEpsTtm();
+
+  /**
+   * <pre>
+   * Series the revenue growth was computed on: "half" (latest half-year from a
+   * company filing vs the same half a year earlier, used when it is newer than
+   * the latest annual) or "annual". Empty when unknown.
+   * </pre>
+   *
+   * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
+   * @return The revenueBasisPeriodType.
+   */
+  java.lang.String getRevenueBasisPeriodType();
+  /**
+   * <pre>
+   * Series the revenue growth was computed on: "half" (latest half-year from a
+   * company filing vs the same half a year earlier, used when it is newer than
+   * the latest annual) or "annual". Empty when unknown.
+   * </pre>
+   *
+   * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
+   * @return The bytes for revenueBasisPeriodType.
+   */
+  com.google.protobuf.ByteString
+      getRevenueBasisPeriodTypeBytes();
+
+  /**
+   * <pre>
+   * Latest half-year vs the same half a year earlier, from company filings,
+   * whether or not the half is the chosen basis.
+   * </pre>
+   *
+   * <code>double revenue_half_yoy_pct = 20 [json_name = "revenueHalfYoyPct"];</code>
+   * @return The revenueHalfYoyPct.
+   */
+  double getRevenueHalfYoyPct();
+
+  /**
+   * <code>bool has_revenue_half_yoy = 21 [json_name = "hasRevenueHalfYoy"];</code>
+   * @return The hasRevenueHalfYoy.
+   */
+  boolean getHasRevenueHalfYoy();
+
+  /**
+   * <code>double eps_half_yoy_pct = 22 [json_name = "epsHalfYoyPct"];</code>
+   * @return The epsHalfYoyPct.
+   */
+  double getEpsHalfYoyPct();
+
+  /**
+   * <code>bool has_eps_half_yoy = 23 [json_name = "hasEpsHalfYoy"];</code>
+   * @return The hasEpsHalfYoy.
+   */
+  boolean getHasEpsHalfYoy();
+
+  /**
+   * <pre>
+   * YYYY-MM-DD of the latest half-year row; empty when none.
+   * </pre>
+   *
+   * <code>string half_latest_period_end = 24 [json_name = "halfLatestPeriodEnd"];</code>
+   * @return The halfLatestPeriodEnd.
+   */
+  java.lang.String getHalfLatestPeriodEnd();
+  /**
+   * <pre>
+   * YYYY-MM-DD of the latest half-year row; empty when none.
+   * </pre>
+   *
+   * <code>string half_latest_period_end = 24 [json_name = "halfLatestPeriodEnd"];</code>
+   * @return The bytes for halfLatestPeriodEnd.
+   */
+  com.google.protobuf.ByteString
+      getHalfLatestPeriodEndBytes();
 }

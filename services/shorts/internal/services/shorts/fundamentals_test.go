@@ -91,6 +91,10 @@ func TestGetStockFundamentals_MapsPeriodsGrowthAndHasFlags(t *testing.T) {
 	assert.False(t, g.HasNetIncomeTtm)
 	assert.True(t, g.HasEpsTtm)
 	assert.InDelta(t, 1.9, g.EpsTtm, 1e-9)
+	assert.Equal(t, "", g.RevenueBasisPeriodType)
+	assert.Equal(t, "", g.HalfLatestPeriodEnd)
+	assert.False(t, g.HasRevenueHalfYoy)
+	assert.False(t, g.HasEpsHalfYoy)
 
 	// Cached: the identical request does not reach the store again (gomock
 	// fails the test on an unexpected second call).
@@ -188,6 +192,32 @@ func TestGetStockFundamentals_GrowthWithoutPeriodsSkipsTheExistenceCheck(t *test
 	assert.True(t, resp.Msg.HasGrowth)
 	assert.Equal(t, "", resp.Msg.Growth.LatestPeriodEnd)
 	assert.False(t, resp.Msg.Growth.HasRevenueYoy)
+}
+
+// A half-year from a company filing that is newer than the vendor series
+// becomes the basis; the response names it rather than implying annual/TTM.
+func TestGetStockFundamentals_MapsTheHalfBasis(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	half := spDate("2026-12-31")
+	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "WTC", "", int32(12)).Return(nil, nil)
+	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "WTC").Return(&strategies.Growth{
+		BasisPeriodType: "half", RevenueBasisPeriodType: "half", LatestPeriodEnd: &half, HalfLatestPeriodEnd: &half,
+		RevenueYoYPct: f64(22), EPSYoYPct: f64(31),
+		RevenueHalfYoYPct: f64(22), NetIncomeHalfYoYPct: f64(18), EPSHalfYoYPct: f64(31),
+	}, nil)
+
+	resp, err := newTestServer(t, mockStore).GetStockFundamentals(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStockFundamentalsRequest{StockCode: "WTC"}))
+	require.NoError(t, err)
+	g := resp.Msg.Growth
+	require.NotNil(t, g)
+	assert.Equal(t, "half", g.BasisPeriodType)
+	assert.Equal(t, "half", g.RevenueBasisPeriodType)
+	assert.Equal(t, "2026-12-31", g.HalfLatestPeriodEnd)
+	assert.True(t, g.HasRevenueHalfYoy)
+	assert.InDelta(t, 22, g.RevenueHalfYoyPct, 1e-9)
+	assert.True(t, g.HasEpsHalfYoy)
+	assert.InDelta(t, 31, g.EpsHalfYoyPct, 1e-9)
 }
 
 func TestGetStockFundamentals_StoreErrorsAreInternal(t *testing.T) {

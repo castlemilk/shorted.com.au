@@ -2177,10 +2177,15 @@ components:
          prior value is zero or negative.
       properties:
         basisPeriodType:
-          description: 'Series the EPS growth was computed on: "ttm" or "annual".
+          description: 'Series the EPS growth was computed on: "half", "ttm" or "annual".
             (proto string)'
           title: basis_period_type
           type: string
+        epsHalfYoyPct:
+          description: (proto double)
+          format: double
+          title: eps_half_yoy_pct
+          type: number
         epsTtm:
           description: (proto double)
           format: double
@@ -2196,6 +2201,15 @@ components:
           format: double
           title: eps_yoy_prior_pct
           type: number
+        halfLatestPeriodEnd:
+          description: YYYY-MM-DD of the latest half-year row; empty when none. (proto
+            string)
+          title: half_latest_period_end
+          type: string
+        hasEpsHalfYoy:
+          description: (proto bool)
+          title: has_eps_half_yoy
+          type: boolean
         hasEpsTtm:
           description: (proto bool)
           title: has_eps_ttm
@@ -2211,6 +2225,10 @@ components:
         hasNetIncomeTtm:
           description: (proto bool)
           title: has_net_income_ttm
+          type: boolean
+        hasRevenueHalfYoy:
+          description: (proto bool)
+          title: has_revenue_half_yoy
           type: boolean
         hasRevenueTtm:
           description: (proto bool)
@@ -2242,13 +2260,28 @@ components:
           format: int32
           title: periods_available
           type: integer
+        revenueBasisPeriodType:
+          description: |-
+            Series the revenue growth was computed on: "half" (latest half-year from a
+             company filing vs the same half a year earlier, used when it is newer than
+             the latest annual) or "annual". Empty when unknown. (proto string)
+          title: revenue_basis_period_type
+          type: string
+        revenueHalfYoyPct:
+          description: |-
+            Latest half-year vs the same half a year earlier, from company filings,
+             whether or not the half is the chosen basis. (proto double)
+          format: double
+          title: revenue_half_yoy_pct
+          type: number
         revenueTtm:
           description: Latest trailing-twelve-month points. (proto double)
           format: double
           title: revenue_ttm
           type: number
         revenueYoyPct:
-          description: Latest annual revenue vs the prior annual. (proto double)
+          description: Revenue growth on revenue_basis_period_type vs the same series
+            a year earlier. (proto double)
           format: double
           title: revenue_yoy_pct
           type: number

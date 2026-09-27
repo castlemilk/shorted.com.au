@@ -44,12 +44,23 @@ export interface StockFundamentalsPeriod {
 }
 
 export interface StockFundamentalsGrowth {
-  /** Series the EPS growth was computed on: "ttm" or "annual". */
+  /** Series the EPS growth was computed on: "half", "ttm" or "annual". */
   basisPeriodType: string;
-  /** Latest annual revenue vs the prior annual, in percent. */
+  /**
+   * Series the revenue growth was computed on: "half" (the latest half-year
+   * from a company filing vs the same half a year earlier, used when it is
+   * newer than the latest annual) or "annual". "" when the API predates it.
+   */
+  revenueBasisPeriodType: string;
+  /** Revenue vs the same series a year earlier, in percent. */
   revenueYoyPct: number | null;
   /** EPS vs the same series a year earlier; null when the prior is <= 0. */
   epsYoyPct: number | null;
+  /** Latest filed half vs the same half a year earlier, whatever the basis. */
+  revenueHalfYoyPct: number | null;
+  epsHalfYoyPct: number | null;
+  /** YYYY-MM-DD of the latest half-year row; "" when none. */
+  halfLatestPeriodEnd: string;
 }
 
 export interface StockFundamentals {
@@ -75,15 +86,22 @@ function mapPeriod(p: FundamentalsPeriod): StockFundamentalsPeriod {
   };
 }
 
-function mapGrowth(
+export function mapGrowth(
   growth: FundamentalsGrowth | undefined,
   hasGrowth: boolean,
 ): StockFundamentalsGrowth | null {
   if (!growth || !hasGrowth) return null;
   return {
     basisPeriodType: growth.basisPeriodType,
+    revenueBasisPeriodType: growth.revenueBasisPeriodType ?? "",
     revenueYoyPct: flagged(growth.revenueYoyPct, growth.hasRevenueYoy),
     epsYoyPct: flagged(growth.epsYoyPct, growth.hasEpsYoy),
+    revenueHalfYoyPct: flagged(
+      growth.revenueHalfYoyPct,
+      growth.hasRevenueHalfYoy,
+    ),
+    epsHalfYoyPct: flagged(growth.epsHalfYoyPct, growth.hasEpsHalfYoy),
+    halfLatestPeriodEnd: growth.halfLatestPeriodEnd ?? "",
   };
 }
 
@@ -122,7 +140,7 @@ export const getStockFundamentals = cache(
     try {
       return await unstable_cache(
         () => fetchStockFundamentals(code),
-        ["stock-fundamentals", code, `annual-${STOCK_FUNDAMENTALS_PERIODS}-v1`],
+        ["stock-fundamentals", code, `annual-${STOCK_FUNDAMENTALS_PERIODS}-v2`],
         {
           tags: stockPageCacheTags("fundamentals", code),
           revalidate: STOCK_PAGE_CACHE_SECONDS,

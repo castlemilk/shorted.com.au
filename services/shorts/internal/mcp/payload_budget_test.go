@@ -302,6 +302,8 @@ func realisticStrategySource(src *fakeDataSource) {
 			NetIncomePositive: true, PeriodsAvailable: 40,
 			RevenueTtm: 55_658_123_456.78, HasRevenueTtm: true, NetIncomeTtm: 12_345_678_901.23, HasNetIncomeTtm: true,
 			EpsTtm: 2.345678, HasEpsTtm: true,
+			RevenueBasisPeriodType: "half", HalfLatestPeriodEnd: "2026-06-30",
+			RevenueHalfYoyPct: 38.7654, HasRevenueHalfYoy: true, EpsHalfYoyPct: 61.2345, HasEpsHalfYoy: true,
 		},
 	}
 }

@@ -93,7 +93,24 @@ func TestRuleGrowth(t *testing.T) {
 		{name: "negative half delta is not mentioned", cand: withGrowth(Growth{RevenueYoYPct: f(30), RevenueHalfDelta: f(-5)}), want: RulePass, wantValue: f(30)},
 		{name: "acceleration is described", cand: withGrowth(Growth{RevenueYoYPct: f(40), RevenueYoYPriorPct: f(20)}),
 			want: RulePass, wantValue: f(40), wantDetail: []string{"accelerating from +20.0%"}},
+		{name: "half revenue basis is labelled as half on half",
+			cand: withGrowth(Growth{RevenueBasisPeriodType: "half", RevenueYoYPct: f(31), HalfLatestPeriodEnd: d("2026-12-31"), LatestAnnualPeriodEnd: d("2026-06-30")}),
+			want: RulePass, wantValue: f(31), wantDetail: []string{"Revenue +31.0% YoY (half-year to 2026-12-31 vs same half a year earlier)"}},
+		{name: "half eps basis is labelled as half on half",
+			cand: withGrowth(Growth{BasisPeriodType: "half", EPSYoYPct: f(40), LatestPeriodEnd: d("2026-12-31"), HalfLatestPeriodEnd: d("2026-12-31")}),
+			want: RulePass, wantValue: f(40), wantDetail: []string{"EPS +40.0% YoY (half-year to 2026-12-31 vs same half a year earlier)"}},
+		{name: "annual revenue basis keeps the FY label", cand: withGrowth(Growth{RevenueBasisPeriodType: "annual", RevenueYoYPct: f(26), LatestAnnualPeriodEnd: d("2026-06-30"), HalfLatestPeriodEnd: d("2025-12-31")}),
+			want: RulePass, wantValue: f(26), wantDetail: []string{"Revenue +26.0% YoY (FY ending 2026-06-30)"}},
 	})
+
+	// On the half revenue basis the half delta is the headline, not evidence.
+	half := ruleGrowth(&Candidate{Growth: &Growth{RevenueBasisPeriodType: "half", RevenueYoYPct: f(30), RevenueHalfDelta: f(5)}}, &evalEnv{})
+	if strings.Contains(half.Detail, "latest half-year revenue up") {
+		t.Errorf("half revenue basis must not restate the half delta as evidence: %q", half.Detail)
+	}
+	if strings.Contains(half.Detail, "FY ending") || strings.Contains(half.Detail, "(annual)") {
+		t.Errorf("half revenue basis must not be labelled annual: %q", half.Detail)
+	}
 
 	out := ruleGrowth(&Candidate{Growth: &Growth{RevenueYoYPct: f(30), RevenueHalfDelta: f(-5)}}, &evalEnv{})
 	if strings.Contains(out.Detail, "half-year") {
@@ -109,6 +126,11 @@ func TestRuleEPSGrowth(t *testing.T) {
 			want: RulePass, wantValue: f(25), wantDetail: []string{"FY ending 2025-06-30"}},
 		{name: "under", cand: withGrowth(Growth{EPSYoYPct: f(24.99)}), want: RuleFail, wantValue: f(24.99)},
 		{name: "turnaround passes", cand: withGrowth(Growth{NetIncomePrior: f(-1), NetIncomePositive: b(true)}), want: RulePass},
+		{name: "half basis without a half end date falls back to latest_period_end",
+			cand: withGrowth(Growth{EPSYoYPct: f(30), BasisPeriodType: "half", LatestPeriodEnd: d("2026-12-31")}),
+			want: RulePass, wantValue: f(30), wantDetail: []string{"half-year to 2026-12-31 vs same half a year earlier"}},
+		{name: "half basis with no dates is still labelled half", cand: withGrowth(Growth{EPSYoYPct: f(10), BasisPeriodType: "half"}),
+			want: RuleFail, wantValue: f(10), wantDetail: []string{"(half-year vs same half a year earlier)"}},
 		{name: "turnaround with a weak eps figure still passes", cand: withGrowth(Growth{EPSYoYPct: f(3), NetIncomePrior: f(-1), NetIncomePositive: b(true)}),
 			want: RulePass, wantValue: f(3)},
 	})
@@ -120,6 +142,9 @@ func TestRuleRevenueGrowth(t *testing.T) {
 		{name: "null revenue", cand: withGrowth(Growth{EPSYoYPct: f(50)}), want: RuleUnknown},
 		{name: "at 20", cand: withGrowth(Growth{RevenueYoYPct: f(20)}), want: RulePass, wantValue: f(20)},
 		{name: "under 20", cand: withGrowth(Growth{RevenueYoYPct: f(19.9)}), want: RuleFail, wantValue: f(19.9), wantDetail: []string{"+20%"}},
+		{name: "half basis at 20 passes with the half label",
+			cand: withGrowth(Growth{RevenueBasisPeriodType: "half", RevenueYoYPct: f(20), HalfLatestPeriodEnd: d("2026-12-31")}),
+			want: RulePass, wantValue: f(20), wantDetail: []string{"half-year to 2026-12-31 vs same half a year earlier"}},
 	})
 }
 

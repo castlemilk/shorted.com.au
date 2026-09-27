@@ -3,12 +3,14 @@ import "@testing-library/jest-dom";
 import { render, screen, within } from "@testing-library/react";
 import {
   FundamentalsBlock,
+  basisLabel,
   formatCompactAmount,
   formatPerShare,
   isTurnaround,
 } from "../fundamentals-block";
 import type {
   StockFundamentals,
+  StockFundamentalsGrowth,
   StockFundamentalsPeriod,
 } from "~/app/actions/getStockFundamentals";
 
@@ -23,6 +25,21 @@ function period(
     netIncome: 9_010_000_000,
     epsDiluted: 1.7734,
     operatingCashFlow: 18_690_000_000,
+    ...overrides,
+  };
+}
+
+function growth(
+  overrides: Partial<StockFundamentalsGrowth> = {},
+): StockFundamentalsGrowth {
+  return {
+    basisPeriodType: "annual",
+    revenueBasisPeriodType: "annual",
+    revenueYoyPct: null,
+    epsYoyPct: null,
+    revenueHalfYoyPct: null,
+    epsHalfYoyPct: null,
+    halfLatestPeriodEnd: "",
     ...overrides,
   };
 }
@@ -46,7 +63,12 @@ function bhp(overrides: Partial<StockFundamentals> = {}): StockFundamentals {
       }),
       period({ periodEnd: "2022-06-30", fiscalYear: 2022, epsDiluted: null }),
     ],
-    growth: { basisPeriodType: "ttm", revenueYoyPct: 11.1, epsYoyPct: -4.25 },
+    growth: growth({
+      basisPeriodType: "ttm",
+      revenueBasisPeriodType: "annual",
+      revenueYoyPct: 11.1,
+      epsYoyPct: -4.25,
+    }),
     ...overrides,
   };
 }
@@ -131,6 +153,67 @@ describe("FundamentalsBlock", () => {
     );
     // DESIGN.md: no em dashes in UI copy.
     expect(text).not.toContain("—");
+    // No half-year figures: no half line and no filing provenance.
+    expect(text).not.toContain("same half a year earlier");
+    expect(text).not.toContain("half-year filings");
+  });
+
+  it("labels revenue and EPS on the half basis and names the filings", () => {
+    render(
+      <FundamentalsBlock
+        fundamentals={bhp({
+          growth: growth({
+            basisPeriodType: "half",
+            revenueBasisPeriodType: "half",
+            revenueYoyPct: 22.04,
+            epsYoyPct: 31.2,
+            revenueHalfYoyPct: 22.04,
+            epsHalfYoyPct: 31.2,
+            halfLatestPeriodEnd: "2025-12-31",
+          }),
+        })}
+      />,
+    );
+    const region = screen.getByRole("region", {
+      name: /reported fundamentals/i,
+    });
+    const text = region.textContent ?? "";
+    expect(text).toContain("revenue +22.0% YoY (half-year)");
+    expect(text).toContain("EPS +31.2% YoY (half-year)");
+    expect(text).not.toContain("(annual)");
+    // Both headlines already are the half figures: no duplicate line.
+    expect(text).not.toContain("Half-year to");
+    expect(text).toContain(
+      "Company-filed figures via market data provider and ASX half-year filings; reporting currency; not financial advice.",
+    );
+  });
+
+  it("shows the half-year line when the headline basis is annual or TTM", () => {
+    render(
+      <FundamentalsBlock
+        fundamentals={bhp({
+          growth: growth({
+            basisPeriodType: "ttm",
+            revenueBasisPeriodType: "annual",
+            revenueYoyPct: 11.1,
+            epsYoyPct: 8,
+            revenueHalfYoyPct: 4.26,
+            epsHalfYoyPct: null,
+            halfLatestPeriodEnd: "2025-12-31",
+          }),
+        })}
+      />,
+    );
+    const text =
+      screen.getByRole("region", { name: /reported fundamentals/i })
+        .textContent ?? "";
+    expect(text).toContain("revenue +11.1% YoY (annual)");
+    expect(text).toContain("EPS +8.0% YoY (TTM)");
+    expect(text).toContain(
+      "Half-year to Dec 2025: revenue +4.3% · EPS n/a vs the same half a year earlier",
+    );
+    expect(text).toContain("and ASX half-year filings");
+    expect(text).not.toContain("—");
   });
 
   it("reads n/a for missing growth and says prior loss, now profit on a turnaround", () => {
@@ -145,11 +228,7 @@ describe("FundamentalsBlock", () => {
               netIncome: -45_000_000,
             }),
           ],
-          growth: {
-            basisPeriodType: "annual",
-            revenueYoyPct: null,
-            epsYoyPct: null,
-          },
+          growth: growth({ revenueBasisPeriodType: "" }),
         })}
       />,
     );
@@ -201,6 +280,12 @@ describe("FundamentalsBlock", () => {
 });
 
 describe("formatters", () => {
+  it("names every growth basis", () => {
+    expect(basisLabel("ttm")).toBe("TTM");
+    expect(basisLabel("annual")).toBe("annual");
+    expect(basisLabel("half")).toBe("half-year");
+  });
+
   it("formats compact amounts with a true minus and n/a for missing", () => {
     expect(formatCompactAmount(1_234_000_000_000)).toBe("1.23T");
     expect(formatCompactAmount(55_658_000_000)).toBe("55.66B");

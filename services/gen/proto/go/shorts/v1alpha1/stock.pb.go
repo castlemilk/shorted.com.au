@@ -2810,9 +2810,9 @@ func (x *FundamentalsPeriod) GetHasFreeCashFlow() bool {
 // prior value is zero or negative.
 type FundamentalsGrowth struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
-	BasisPeriodType    string                 `protobuf:"bytes,1,opt,name=basis_period_type,json=basisPeriodType,proto3" json:"basis_period_type,omitempty"` // Series the EPS growth was computed on: "ttm" or "annual".
+	BasisPeriodType    string                 `protobuf:"bytes,1,opt,name=basis_period_type,json=basisPeriodType,proto3" json:"basis_period_type,omitempty"` // Series the EPS growth was computed on: "half", "ttm" or "annual".
 	LatestPeriodEnd    string                 `protobuf:"bytes,2,opt,name=latest_period_end,json=latestPeriodEnd,proto3" json:"latest_period_end,omitempty"` // YYYY-MM-DD of the latest period in that series.
-	RevenueYoyPct      float64                `protobuf:"fixed64,3,opt,name=revenue_yoy_pct,json=revenueYoyPct,proto3" json:"revenue_yoy_pct,omitempty"`     // Latest annual revenue vs the prior annual.
+	RevenueYoyPct      float64                `protobuf:"fixed64,3,opt,name=revenue_yoy_pct,json=revenueYoyPct,proto3" json:"revenue_yoy_pct,omitempty"`     // Revenue growth on revenue_basis_period_type vs the same series a year earlier.
 	HasRevenueYoy      bool                   `protobuf:"varint,4,opt,name=has_revenue_yoy,json=hasRevenueYoy,proto3" json:"has_revenue_yoy,omitempty"`
 	RevenueYoyPriorPct float64                `protobuf:"fixed64,5,opt,name=revenue_yoy_prior_pct,json=revenueYoyPriorPct,proto3" json:"revenue_yoy_prior_pct,omitempty"` // The same growth one period earlier, for acceleration.
 	HasRevenueYoyPrior bool                   `protobuf:"varint,6,opt,name=has_revenue_yoy_prior,json=hasRevenueYoyPrior,proto3" json:"has_revenue_yoy_prior,omitempty"`
@@ -2828,8 +2828,19 @@ type FundamentalsGrowth struct {
 	HasNetIncomeTtm    bool                   `protobuf:"varint,16,opt,name=has_net_income_ttm,json=hasNetIncomeTtm,proto3" json:"has_net_income_ttm,omitempty"`
 	EpsTtm             float64                `protobuf:"fixed64,17,opt,name=eps_ttm,json=epsTtm,proto3" json:"eps_ttm,omitempty"`
 	HasEpsTtm          bool                   `protobuf:"varint,18,opt,name=has_eps_ttm,json=hasEpsTtm,proto3" json:"has_eps_ttm,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Series the revenue growth was computed on: "half" (latest half-year from a
+	// company filing vs the same half a year earlier, used when it is newer than
+	// the latest annual) or "annual". Empty when unknown.
+	RevenueBasisPeriodType string `protobuf:"bytes,19,opt,name=revenue_basis_period_type,json=revenueBasisPeriodType,proto3" json:"revenue_basis_period_type,omitempty"`
+	// Latest half-year vs the same half a year earlier, from company filings,
+	// whether or not the half is the chosen basis.
+	RevenueHalfYoyPct   float64 `protobuf:"fixed64,20,opt,name=revenue_half_yoy_pct,json=revenueHalfYoyPct,proto3" json:"revenue_half_yoy_pct,omitempty"`
+	HasRevenueHalfYoy   bool    `protobuf:"varint,21,opt,name=has_revenue_half_yoy,json=hasRevenueHalfYoy,proto3" json:"has_revenue_half_yoy,omitempty"`
+	EpsHalfYoyPct       float64 `protobuf:"fixed64,22,opt,name=eps_half_yoy_pct,json=epsHalfYoyPct,proto3" json:"eps_half_yoy_pct,omitempty"`
+	HasEpsHalfYoy       bool    `protobuf:"varint,23,opt,name=has_eps_half_yoy,json=hasEpsHalfYoy,proto3" json:"has_eps_half_yoy,omitempty"`
+	HalfLatestPeriodEnd string  `protobuf:"bytes,24,opt,name=half_latest_period_end,json=halfLatestPeriodEnd,proto3" json:"half_latest_period_end,omitempty"` // YYYY-MM-DD of the latest half-year row; empty when none.
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *FundamentalsGrowth) Reset() {
@@ -2986,6 +2997,48 @@ func (x *FundamentalsGrowth) GetHasEpsTtm() bool {
 		return x.HasEpsTtm
 	}
 	return false
+}
+
+func (x *FundamentalsGrowth) GetRevenueBasisPeriodType() string {
+	if x != nil {
+		return x.RevenueBasisPeriodType
+	}
+	return ""
+}
+
+func (x *FundamentalsGrowth) GetRevenueHalfYoyPct() float64 {
+	if x != nil {
+		return x.RevenueHalfYoyPct
+	}
+	return 0
+}
+
+func (x *FundamentalsGrowth) GetHasRevenueHalfYoy() bool {
+	if x != nil {
+		return x.HasRevenueHalfYoy
+	}
+	return false
+}
+
+func (x *FundamentalsGrowth) GetEpsHalfYoyPct() float64 {
+	if x != nil {
+		return x.EpsHalfYoyPct
+	}
+	return 0
+}
+
+func (x *FundamentalsGrowth) GetHasEpsHalfYoy() bool {
+	if x != nil {
+		return x.HasEpsHalfYoy
+	}
+	return false
+}
+
+func (x *FundamentalsGrowth) GetHalfLatestPeriodEnd() string {
+	if x != nil {
+		return x.HalfLatestPeriodEnd
+	}
+	return ""
 }
 
 // Response for GetStockFundamentals.
@@ -3312,7 +3365,7 @@ const file_shorts_v1alpha1_stock_proto_rawDesc = "" +
 	"\n" +
 	"fetched_at\x18\x12 \x01(\tR\tfetchedAt\x12$\n" +
 	"\x0efree_cash_flow\x18\x13 \x01(\x01R\ffreeCashFlow\x12+\n" +
-	"\x12has_free_cash_flow\x18\x14 \x01(\bR\x0fhasFreeCashFlow\"\xea\x05\n" +
+	"\x12has_free_cash_flow\x18\x14 \x01(\bR\x0fhasFreeCashFlow\"\x8e\b\n" +
 	"\x12FundamentalsGrowth\x12*\n" +
 	"\x11basis_period_type\x18\x01 \x01(\tR\x0fbasisPeriodType\x12*\n" +
 	"\x11latest_period_end\x18\x02 \x01(\tR\x0flatestPeriodEnd\x12&\n" +
@@ -3333,7 +3386,13 @@ const file_shorts_v1alpha1_stock_proto_rawDesc = "" +
 	"\x0enet_income_ttm\x18\x0f \x01(\x01R\fnetIncomeTtm\x12+\n" +
 	"\x12has_net_income_ttm\x18\x10 \x01(\bR\x0fhasNetIncomeTtm\x12\x17\n" +
 	"\aeps_ttm\x18\x11 \x01(\x01R\x06epsTtm\x12\x1e\n" +
-	"\vhas_eps_ttm\x18\x12 \x01(\bR\thasEpsTtm\"\xd8\x01\n" +
+	"\vhas_eps_ttm\x18\x12 \x01(\bR\thasEpsTtm\x129\n" +
+	"\x19revenue_basis_period_type\x18\x13 \x01(\tR\x16revenueBasisPeriodType\x12/\n" +
+	"\x14revenue_half_yoy_pct\x18\x14 \x01(\x01R\x11revenueHalfYoyPct\x12/\n" +
+	"\x14has_revenue_half_yoy\x18\x15 \x01(\bR\x11hasRevenueHalfYoy\x12'\n" +
+	"\x10eps_half_yoy_pct\x18\x16 \x01(\x01R\repsHalfYoyPct\x12'\n" +
+	"\x10has_eps_half_yoy\x18\x17 \x01(\bR\rhasEpsHalfYoy\x123\n" +
+	"\x16half_latest_period_end\x18\x18 \x01(\tR\x13halfLatestPeriodEnd\"\xd8\x01\n" +
 	"\x1cGetStockFundamentalsResponse\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12=\n" +

@@ -98,6 +98,8 @@ func TestStrategyCandidatesQueryReadsThePlannedColumns(t *testing.T) {
 		"revenue_ttm", "net_income_ttm", "eps_ttm",
 		"revenue_half_delta", "net_income_half_delta",
 		"currency", "periods_available", "fetched_at",
+		"revenue_basis_period_type", "revenue_half_yoy_pct", "net_income_half_yoy_pct",
+		"eps_half_yoy_pct", "half_latest_period_end",
 	}
 	screener := []string{"company_name", "industry", "logo_url", "short_pct", "days_to_cover", "avg_volume_20d", "market_cap"}
 	metadata := []string{"company_name", "industry", "logo_icon_gcs_url", "logo_gcs_url", "key_metrics"}

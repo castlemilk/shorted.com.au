@@ -104,7 +104,12 @@ const growthColumns = `
 	g.net_income_half_delta::float8,
 	COALESCE(g.currency::text, ''),
 	COALESCE(g.periods_available, 0)::int4,
-	g.fetched_at::timestamptz`
+	g.fetched_at::timestamptz,
+	COALESCE(g.revenue_basis_period_type::text, ''),
+	g.revenue_half_yoy_pct::float8,
+	g.net_income_half_yoy_pct::float8,
+	g.eps_half_yoy_pct::float8,
+	g.half_latest_period_end::date`
 
 // growthScanTargets returns the scan destinations matching growthColumns.
 func growthScanTargets(g *strategies.Growth) []any {
@@ -132,6 +137,11 @@ func growthScanTargets(g *strategies.Growth) []any {
 		&g.Currency,
 		&g.PeriodsAvailable,
 		&g.FetchedAt,
+		&g.RevenueBasisPeriodType,
+		&g.RevenueHalfYoYPct,
+		&g.NetIncomeHalfYoYPct,
+		&g.EPSHalfYoYPct,
+		&g.HalfLatestPeriodEnd,
 	}
 }
 
@@ -142,6 +152,7 @@ func sanitiseGrowth(g *strategies.Growth) {
 		&g.NetIncomeLatest, &g.NetIncomePrior, &g.OperatingCashFlowLatest,
 		&g.RevenueTTM, &g.NetIncomeTTM, &g.EPSTTM,
 		&g.RevenueHalfDelta, &g.NetIncomeHalfDelta,
+		&g.RevenueHalfYoYPct, &g.NetIncomeHalfYoYPct, &g.EPSHalfYoYPct,
 	)
 }
 

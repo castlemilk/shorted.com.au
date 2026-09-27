@@ -107,11 +107,15 @@ func buildFundamentalsResponse(code string, periods []shortsstore.FundamentalsPe
 	}
 	if growth != nil {
 		fg := &shortsv1alpha1.FundamentalsGrowth{
-			BasisPeriodType:  growth.BasisPeriodType,
-			PeriodsAvailable: growth.PeriodsAvailable,
+			BasisPeriodType:        growth.BasisPeriodType,
+			RevenueBasisPeriodType: growth.RevenueBasisPeriodType,
+			PeriodsAvailable:       growth.PeriodsAvailable,
 		}
 		if growth.LatestPeriodEnd != nil {
 			fg.LatestPeriodEnd = growth.LatestPeriodEnd.Format("2006-01-02")
+		}
+		if growth.HalfLatestPeriodEnd != nil {
+			fg.HalfLatestPeriodEnd = growth.HalfLatestPeriodEnd.Format("2006-01-02")
 		}
 		if growth.NetIncomePositive != nil {
 			fg.NetIncomePositive = *growth.NetIncomePositive
@@ -123,6 +127,8 @@ func buildFundamentalsResponse(code string, periods []shortsstore.FundamentalsPe
 		fg.RevenueTtm, fg.HasRevenueTtm = optional(growth.RevenueTTM)
 		fg.NetIncomeTtm, fg.HasNetIncomeTtm = optional(growth.NetIncomeTTM)
 		fg.EpsTtm, fg.HasEpsTtm = optional(growth.EPSTTM)
+		fg.RevenueHalfYoyPct, fg.HasRevenueHalfYoy = optional(growth.RevenueHalfYoYPct)
+		fg.EpsHalfYoyPct, fg.HasEpsHalfYoy = optional(growth.EPSHalfYoYPct)
 		resp.Growth = fg
 		resp.HasGrowth = true
 	}

@@ -113,10 +113,22 @@ export function isTurnaround(periods: StockFundamentalsPeriod[]): boolean {
   return latest.netIncome > 0 && prior.netIncome <= 0;
 }
 
-function basisLabel(basis: string): string {
+/**
+ * Names the series a growth figure compares, a year apart: "TTM" (trailing
+ * twelve months), "annual", or "half-year" (the latest half from a company
+ * filing vs the same half a year earlier, used when it is fresher).
+ */
+export function basisLabel(basis: string): string {
   if (basis === "ttm") return "TTM";
   if (basis === "annual") return "annual";
+  if (basis === "half") return "half-year";
   return basis;
+}
+
+/** "Dec 2025" for a YYYY-MM-DD, or "" when it does not parse. */
+function monthYear(iso: string): string {
+  const d = parseIsoDate(iso);
+  return d ? `${SHORT_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}` : "";
 }
 
 interface Row {
@@ -169,6 +181,26 @@ export function FundamentalsBlock({ fundamentals }: FundamentalsBlockProps) {
   const growth = fundamentals.growth;
   const turnaround = isTurnaround(periods);
   const epsBasis = growth ? basisLabel(growth.basisPeriodType) : "";
+  // An API that predates revenue_basis_period_type only ever computed revenue
+  // annual on annual, so an empty basis still reads "annual".
+  const revenueBasisType = growth?.revenueBasisPeriodType ?? "";
+  const revenueBasis = basisLabel(
+    revenueBasisType === "" ? "annual" : revenueBasisType,
+  );
+  // The half-on-half line adds information only when at least one headline
+  // figure is NOT already on the half basis.
+  const revenueHalf = growth?.revenueHalfYoyPct ?? null;
+  const epsHalf = growth?.epsHalfYoyPct ?? null;
+  const bothOnHalf =
+    growth?.revenueBasisPeriodType === "half" &&
+    growth?.basisPeriodType === "half";
+  const showHalfLine =
+    (revenueHalf !== null || epsHalf !== null) && !bothOnHalf;
+  const halfEnd = monthYear(growth?.halfLatestPeriodEnd ?? "");
+  const usesHalf =
+    showHalfLine ||
+    growth?.revenueBasisPeriodType === "half" ||
+    growth?.basisPeriodType === "half";
   const yearsLabel =
     periods.length === 1
       ? "Latest financial year"
@@ -252,7 +284,7 @@ export function FundamentalsBlock({ fundamentals }: FundamentalsBlockProps) {
           <span className="text-foreground">
             {formatSigned(growth?.revenueYoyPct ?? null)}
           </span>{" "}
-          YoY (annual) · EPS{" "}
+          YoY ({revenueBasis}) · EPS{" "}
           <span className="text-foreground">
             {formatSigned(growth?.epsYoyPct ?? null)}
           </span>{" "}
@@ -265,8 +297,22 @@ export function FundamentalsBlock({ fundamentals }: FundamentalsBlockProps) {
           ) : null}
         </p>
 
+        {showHalfLine ? (
+          <p className="font-mono text-xs tabular-nums text-muted-foreground">
+            <span className="text-foreground">
+              Half-year{halfEnd ? ` to ${halfEnd}` : ""}:
+            </span>{" "}
+            revenue{" "}
+            <span className="text-foreground">{formatSigned(revenueHalf)}</span>{" "}
+            · EPS{" "}
+            <span className="text-foreground">{formatSigned(epsHalf)}</span> vs
+            the same half a year earlier
+          </p>
+        ) : null}
+
         <p className="text-[11px] text-muted-foreground">
-          Company-filed figures via market data provider; reporting currency;
+          Company-filed figures via market data provider
+          {usesHalf ? " and ASX half-year filings" : ""}; reporting currency;
           not financial advice.
         </p>
       </CardContent>

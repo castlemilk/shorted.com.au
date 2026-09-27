@@ -56,8 +56,8 @@ const (
 	baseMinSessions     = 20
 	// baseWindowSessions is the view's base window ([t-40, t-1] as at the anchor
 	// session), so base_length_days is always 1..40 and this is the only ceiling.
-	baseWindowSessions  = 40
-	baseMaxDepthPct     = 25.0
+	baseWindowSessions = 40
+	baseMaxDepthPct    = 25.0
 	// breakoutWindowSessions is how far back breakout_recent looks (plan §2.3).
 	breakoutWindowSessions = 5
 	nearHighMaxOffPct      = -5.0
@@ -98,7 +98,7 @@ func ruleGrowth(c *Candidate, _ *evalEnv) outcome {
 
 	var parts []string
 	if rev != nil {
-		parts = append(parts, growthPhrase("Revenue", *rev, g.RevenueYoYPriorPct, annualLabel(g)))
+		parts = append(parts, growthPhrase("Revenue", *rev, g.RevenueYoYPriorPct, revenueLabel(g)))
 	}
 	if eps != nil {
 		parts = append(parts, growthPhrase("EPS", *eps, g.EPSYoYPriorPct, epsLabel(g)))
@@ -154,7 +154,8 @@ func ruleEPSGrowth(c *Candidate, _ *evalEnv) outcome {
 	}
 }
 
-// ruleRevenueGrowth (CAN SLIM): annual revenue YoY >= 20%.
+// ruleRevenueGrowth (CAN SLIM): revenue YoY >= 20% on revenue_basis_period_type
+// (latest annual, or the latest filed half vs the same half a year earlier).
 func ruleRevenueGrowth(c *Candidate, _ *evalEnv) outcome {
 	g := c.Growth
 	if g == nil {
@@ -164,7 +165,7 @@ func ruleRevenueGrowth(c *Candidate, _ *evalEnv) outcome {
 		return unknown("No revenue growth figure yet")
 	}
 	rev := *g.RevenueYoYPct
-	parts := append([]string{growthPhrase("Revenue", rev, g.RevenueYoYPriorPct, annualLabel(g))}, halfYearEvidence(g)...)
+	parts := append([]string{growthPhrase("Revenue", rev, g.RevenueYoYPriorPct, revenueLabel(g))}, halfYearEvidence(g)...)
 	if rev >= revenueGrowthMinPct {
 		return pass(sentence(parts), rev, true, (rev-revenueGrowthMinPct)/60)
 	}
@@ -496,17 +497,35 @@ func growthPhrase(label string, yoy float64, prior *float64, basis string) strin
 	return s
 }
 
-// annualLabel names the annual series revenue growth is computed on.
-func annualLabel(g *Growth) string {
+// revenueLabel names the series revenue growth is computed on
+// (revenue_basis_period_type): the latest half-year from a company filing
+// against the same half a year earlier, or the latest annual.
+func revenueLabel(g *Growth) string {
+	if g.RevenueBasisPeriodType == "half" {
+		return halfLabel(g)
+	}
 	if g.LatestAnnualPeriodEnd != nil {
 		return "FY ending " + day(*g.LatestAnnualPeriodEnd)
 	}
 	return "annual"
 }
 
+// halfLabel names a half-on-half comparison.
+func halfLabel(g *Growth) string {
+	if g.HalfLatestPeriodEnd != nil {
+		return "half-year to " + day(*g.HalfLatestPeriodEnd) + " vs same half a year earlier"
+	}
+	return "half-year vs same half a year earlier"
+}
+
 // epsLabel names the series EPS growth is computed on (basis_period_type).
 func epsLabel(g *Growth) string {
 	switch g.BasisPeriodType {
+	case "half":
+		if g.HalfLatestPeriodEnd == nil && g.LatestPeriodEnd != nil {
+			return "half-year to " + day(*g.LatestPeriodEnd) + " vs same half a year earlier"
+		}
+		return halfLabel(g)
 	case "ttm":
 		if g.LatestPeriodEnd != nil {
 			return "12 months to " + day(*g.LatestPeriodEnd)
@@ -526,9 +545,12 @@ func epsLabel(g *Growth) string {
 
 // halfYearEvidence reports a latest half that beat the same half a year
 // earlier. Sign only, never a percentage, and never a pass condition.
+//
+// When revenue is already measured on the half basis the revenue line would
+// restate the headline figure, so it is left out.
 func halfYearEvidence(g *Growth) []string {
 	var out []string
-	if g.RevenueHalfDelta != nil && *g.RevenueHalfDelta > 0 {
+	if g.RevenueBasisPeriodType != "half" && g.RevenueHalfDelta != nil && *g.RevenueHalfDelta > 0 {
 		out = append(out, "latest half-year revenue up on the same half a year earlier")
 	}
 	if g.NetIncomeHalfDelta != nil && *g.NetIncomeHalfDelta > 0 {

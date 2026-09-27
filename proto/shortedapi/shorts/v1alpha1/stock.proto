@@ -468,9 +468,9 @@ message FundamentalsPeriod {
 // series. A *_pct is absent (has_* false) when either side is missing or the
 // prior value is zero or negative.
 message FundamentalsGrowth {
-  string basis_period_type = 1;       // Series the EPS growth was computed on: "ttm" or "annual".
+  string basis_period_type = 1;       // Series the EPS growth was computed on: "half", "ttm" or "annual".
   string latest_period_end = 2;       // YYYY-MM-DD of the latest period in that series.
-  double revenue_yoy_pct = 3;         // Latest annual revenue vs the prior annual.
+  double revenue_yoy_pct = 3;         // Revenue growth on revenue_basis_period_type vs the same series a year earlier.
   bool has_revenue_yoy = 4;
   double revenue_yoy_prior_pct = 5;   // The same growth one period earlier, for acceleration.
   bool has_revenue_yoy_prior = 6;
@@ -486,6 +486,17 @@ message FundamentalsGrowth {
   bool has_net_income_ttm = 16;
   double eps_ttm = 17;
   bool has_eps_ttm = 18;
+  // Series the revenue growth was computed on: "half" (latest half-year from a
+  // company filing vs the same half a year earlier, used when it is newer than
+  // the latest annual) or "annual". Empty when unknown.
+  string revenue_basis_period_type = 19;
+  // Latest half-year vs the same half a year earlier, from company filings,
+  // whether or not the half is the chosen basis.
+  double revenue_half_yoy_pct = 20;
+  bool has_revenue_half_yoy = 21;
+  double eps_half_yoy_pct = 22;
+  bool has_eps_half_yoy = 23;
+  string half_latest_period_end = 24;  // YYYY-MM-DD of the latest half-year row; empty when none.
 }
 
 // Response for GetStockFundamentals.

@@ -37,6 +37,8 @@ private static final long serialVersionUID = 0L;
   private FundamentalsGrowth() {
     basisPeriodType_ = "";
     latestPeriodEnd_ = "";
+    revenueBasisPeriodType_ = "";
+    halfLatestPeriodEnd_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -62,7 +64,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object basisPeriodType_ = "";
   /**
    * <pre>
-   * Series the EPS growth was computed on: "ttm" or "annual".
+   * Series the EPS growth was computed on: "half", "ttm" or "annual".
    * </pre>
    *
    * <code>string basis_period_type = 1 [json_name = "basisPeriodType"];</code>
@@ -83,7 +85,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Series the EPS growth was computed on: "ttm" or "annual".
+   * Series the EPS growth was computed on: "half", "ttm" or "annual".
    * </pre>
    *
    * <code>string basis_period_type = 1 [json_name = "basisPeriodType"];</code>
@@ -155,7 +157,7 @@ private static final long serialVersionUID = 0L;
   private double revenueYoyPct_ = 0D;
   /**
    * <pre>
-   * Latest annual revenue vs the prior annual.
+   * Revenue growth on revenue_basis_period_type vs the same series a year earlier.
    * </pre>
    *
    * <code>double revenue_yoy_pct = 3 [json_name = "revenueYoyPct"];</code>
@@ -343,6 +345,153 @@ private static final long serialVersionUID = 0L;
     return hasEpsTtm_;
   }
 
+  public static final int REVENUE_BASIS_PERIOD_TYPE_FIELD_NUMBER = 19;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object revenueBasisPeriodType_ = "";
+  /**
+   * <pre>
+   * Series the revenue growth was computed on: "half" (latest half-year from a
+   * company filing vs the same half a year earlier, used when it is newer than
+   * the latest annual) or "annual". Empty when unknown.
+   * </pre>
+   *
+   * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
+   * @return The revenueBasisPeriodType.
+   */
+  @java.lang.Override
+  public java.lang.String getRevenueBasisPeriodType() {
+    java.lang.Object ref = revenueBasisPeriodType_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      revenueBasisPeriodType_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Series the revenue growth was computed on: "half" (latest half-year from a
+   * company filing vs the same half a year earlier, used when it is newer than
+   * the latest annual) or "annual". Empty when unknown.
+   * </pre>
+   *
+   * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
+   * @return The bytes for revenueBasisPeriodType.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRevenueBasisPeriodTypeBytes() {
+    java.lang.Object ref = revenueBasisPeriodType_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      revenueBasisPeriodType_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int REVENUE_HALF_YOY_PCT_FIELD_NUMBER = 20;
+  private double revenueHalfYoyPct_ = 0D;
+  /**
+   * <pre>
+   * Latest half-year vs the same half a year earlier, from company filings,
+   * whether or not the half is the chosen basis.
+   * </pre>
+   *
+   * <code>double revenue_half_yoy_pct = 20 [json_name = "revenueHalfYoyPct"];</code>
+   * @return The revenueHalfYoyPct.
+   */
+  @java.lang.Override
+  public double getRevenueHalfYoyPct() {
+    return revenueHalfYoyPct_;
+  }
+
+  public static final int HAS_REVENUE_HALF_YOY_FIELD_NUMBER = 21;
+  private boolean hasRevenueHalfYoy_ = false;
+  /**
+   * <code>bool has_revenue_half_yoy = 21 [json_name = "hasRevenueHalfYoy"];</code>
+   * @return The hasRevenueHalfYoy.
+   */
+  @java.lang.Override
+  public boolean getHasRevenueHalfYoy() {
+    return hasRevenueHalfYoy_;
+  }
+
+  public static final int EPS_HALF_YOY_PCT_FIELD_NUMBER = 22;
+  private double epsHalfYoyPct_ = 0D;
+  /**
+   * <code>double eps_half_yoy_pct = 22 [json_name = "epsHalfYoyPct"];</code>
+   * @return The epsHalfYoyPct.
+   */
+  @java.lang.Override
+  public double getEpsHalfYoyPct() {
+    return epsHalfYoyPct_;
+  }
+
+  public static final int HAS_EPS_HALF_YOY_FIELD_NUMBER = 23;
+  private boolean hasEpsHalfYoy_ = false;
+  /**
+   * <code>bool has_eps_half_yoy = 23 [json_name = "hasEpsHalfYoy"];</code>
+   * @return The hasEpsHalfYoy.
+   */
+  @java.lang.Override
+  public boolean getHasEpsHalfYoy() {
+    return hasEpsHalfYoy_;
+  }
+
+  public static final int HALF_LATEST_PERIOD_END_FIELD_NUMBER = 24;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object halfLatestPeriodEnd_ = "";
+  /**
+   * <pre>
+   * YYYY-MM-DD of the latest half-year row; empty when none.
+   * </pre>
+   *
+   * <code>string half_latest_period_end = 24 [json_name = "halfLatestPeriodEnd"];</code>
+   * @return The halfLatestPeriodEnd.
+   */
+  @java.lang.Override
+  public java.lang.String getHalfLatestPeriodEnd() {
+    java.lang.Object ref = halfLatestPeriodEnd_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      halfLatestPeriodEnd_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * YYYY-MM-DD of the latest half-year row; empty when none.
+   * </pre>
+   *
+   * <code>string half_latest_period_end = 24 [json_name = "halfLatestPeriodEnd"];</code>
+   * @return The bytes for halfLatestPeriodEnd.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getHalfLatestPeriodEndBytes() {
+    java.lang.Object ref = halfLatestPeriodEnd_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      halfLatestPeriodEnd_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -410,6 +559,24 @@ private static final long serialVersionUID = 0L;
     }
     if (hasEpsTtm_ != false) {
       output.writeBool(18, hasEpsTtm_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(revenueBasisPeriodType_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 19, revenueBasisPeriodType_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(revenueHalfYoyPct_) != 0) {
+      output.writeDouble(20, revenueHalfYoyPct_);
+    }
+    if (hasRevenueHalfYoy_ != false) {
+      output.writeBool(21, hasRevenueHalfYoy_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(epsHalfYoyPct_) != 0) {
+      output.writeDouble(22, epsHalfYoyPct_);
+    }
+    if (hasEpsHalfYoy_ != false) {
+      output.writeBool(23, hasEpsHalfYoy_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(halfLatestPeriodEnd_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 24, halfLatestPeriodEnd_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -485,6 +652,28 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(18, hasEpsTtm_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(revenueBasisPeriodType_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(19, revenueBasisPeriodType_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(revenueHalfYoyPct_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(20, revenueHalfYoyPct_);
+    }
+    if (hasRevenueHalfYoy_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(21, hasRevenueHalfYoy_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(epsHalfYoyPct_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(22, epsHalfYoyPct_);
+    }
+    if (hasEpsHalfYoy_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(23, hasEpsHalfYoy_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(halfLatestPeriodEnd_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(24, halfLatestPeriodEnd_);
+    }
     return size;
   }
   @java.lang.Override
@@ -552,6 +741,20 @@ private static final long serialVersionUID = 0L;
             other.getEpsTtm())) return false;
     if (getHasEpsTtm()
         != other.getHasEpsTtm()) return false;
+    if (!getRevenueBasisPeriodType()
+        .equals(other.getRevenueBasisPeriodType())) return false;
+    if (java.lang.Double.doubleToLongBits(getRevenueHalfYoyPct())
+        != java.lang.Double.doubleToLongBits(
+            other.getRevenueHalfYoyPct())) return false;
+    if (getHasRevenueHalfYoy()
+        != other.getHasRevenueHalfYoy()) return false;
+    if (java.lang.Double.doubleToLongBits(getEpsHalfYoyPct())
+        != java.lang.Double.doubleToLongBits(
+            other.getEpsHalfYoyPct())) return false;
+    if (getHasEpsHalfYoy()
+        != other.getHasEpsHalfYoy()) return false;
+    if (!getHalfLatestPeriodEnd()
+        .equals(other.getHalfLatestPeriodEnd())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -614,6 +817,22 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_EPS_TTM_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasEpsTtm());
+    hash = (37 * hash) + REVENUE_BASIS_PERIOD_TYPE_FIELD_NUMBER;
+    hash = (53 * hash) + getRevenueBasisPeriodType().hashCode();
+    hash = (37 * hash) + REVENUE_HALF_YOY_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getRevenueHalfYoyPct()));
+    hash = (37 * hash) + HAS_REVENUE_HALF_YOY_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasRevenueHalfYoy());
+    hash = (37 * hash) + EPS_HALF_YOY_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getEpsHalfYoyPct()));
+    hash = (37 * hash) + HAS_EPS_HALF_YOY_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasEpsHalfYoy());
+    hash = (37 * hash) + HALF_LATEST_PERIOD_END_FIELD_NUMBER;
+    hash = (53 * hash) + getHalfLatestPeriodEnd().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -770,6 +989,12 @@ private static final long serialVersionUID = 0L;
       hasNetIncomeTtm_ = false;
       epsTtm_ = 0D;
       hasEpsTtm_ = false;
+      revenueBasisPeriodType_ = "";
+      revenueHalfYoyPct_ = 0D;
+      hasRevenueHalfYoy_ = false;
+      epsHalfYoyPct_ = 0D;
+      hasEpsHalfYoy_ = false;
+      halfLatestPeriodEnd_ = "";
       return this;
     }
 
@@ -857,6 +1082,24 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00020000) != 0)) {
         result.hasEpsTtm_ = hasEpsTtm_;
       }
+      if (((from_bitField0_ & 0x00040000) != 0)) {
+        result.revenueBasisPeriodType_ = revenueBasisPeriodType_;
+      }
+      if (((from_bitField0_ & 0x00080000) != 0)) {
+        result.revenueHalfYoyPct_ = revenueHalfYoyPct_;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
+        result.hasRevenueHalfYoy_ = hasRevenueHalfYoy_;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.epsHalfYoyPct_ = epsHalfYoyPct_;
+      }
+      if (((from_bitField0_ & 0x00400000) != 0)) {
+        result.hasEpsHalfYoy_ = hasEpsHalfYoy_;
+      }
+      if (((from_bitField0_ & 0x00800000) != 0)) {
+        result.halfLatestPeriodEnd_ = halfLatestPeriodEnd_;
+      }
     }
 
     @java.lang.Override
@@ -928,6 +1171,28 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getHasEpsTtm() != false) {
         setHasEpsTtm(other.getHasEpsTtm());
+      }
+      if (!other.getRevenueBasisPeriodType().isEmpty()) {
+        revenueBasisPeriodType_ = other.revenueBasisPeriodType_;
+        bitField0_ |= 0x00040000;
+        onChanged();
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getRevenueHalfYoyPct()) != 0) {
+        setRevenueHalfYoyPct(other.getRevenueHalfYoyPct());
+      }
+      if (other.getHasRevenueHalfYoy() != false) {
+        setHasRevenueHalfYoy(other.getHasRevenueHalfYoy());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getEpsHalfYoyPct()) != 0) {
+        setEpsHalfYoyPct(other.getEpsHalfYoyPct());
+      }
+      if (other.getHasEpsHalfYoy() != false) {
+        setHasEpsHalfYoy(other.getHasEpsHalfYoy());
+      }
+      if (!other.getHalfLatestPeriodEnd().isEmpty()) {
+        halfLatestPeriodEnd_ = other.halfLatestPeriodEnd_;
+        bitField0_ |= 0x00800000;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1045,6 +1310,36 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00020000;
               break;
             } // case 144
+            case 154: {
+              revenueBasisPeriodType_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00040000;
+              break;
+            } // case 154
+            case 161: {
+              revenueHalfYoyPct_ = input.readDouble();
+              bitField0_ |= 0x00080000;
+              break;
+            } // case 161
+            case 168: {
+              hasRevenueHalfYoy_ = input.readBool();
+              bitField0_ |= 0x00100000;
+              break;
+            } // case 168
+            case 177: {
+              epsHalfYoyPct_ = input.readDouble();
+              bitField0_ |= 0x00200000;
+              break;
+            } // case 177
+            case 184: {
+              hasEpsHalfYoy_ = input.readBool();
+              bitField0_ |= 0x00400000;
+              break;
+            } // case 184
+            case 194: {
+              halfLatestPeriodEnd_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00800000;
+              break;
+            } // case 194
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1065,7 +1360,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object basisPeriodType_ = "";
     /**
      * <pre>
-     * Series the EPS growth was computed on: "ttm" or "annual".
+     * Series the EPS growth was computed on: "half", "ttm" or "annual".
      * </pre>
      *
      * <code>string basis_period_type = 1 [json_name = "basisPeriodType"];</code>
@@ -1085,7 +1380,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Series the EPS growth was computed on: "ttm" or "annual".
+     * Series the EPS growth was computed on: "half", "ttm" or "annual".
      * </pre>
      *
      * <code>string basis_period_type = 1 [json_name = "basisPeriodType"];</code>
@@ -1106,7 +1401,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Series the EPS growth was computed on: "ttm" or "annual".
+     * Series the EPS growth was computed on: "half", "ttm" or "annual".
      * </pre>
      *
      * <code>string basis_period_type = 1 [json_name = "basisPeriodType"];</code>
@@ -1123,7 +1418,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Series the EPS growth was computed on: "ttm" or "annual".
+     * Series the EPS growth was computed on: "half", "ttm" or "annual".
      * </pre>
      *
      * <code>string basis_period_type = 1 [json_name = "basisPeriodType"];</code>
@@ -1137,7 +1432,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Series the EPS growth was computed on: "ttm" or "annual".
+     * Series the EPS growth was computed on: "half", "ttm" or "annual".
      * </pre>
      *
      * <code>string basis_period_type = 1 [json_name = "basisPeriodType"];</code>
@@ -1249,7 +1544,7 @@ private static final long serialVersionUID = 0L;
     private double revenueYoyPct_ ;
     /**
      * <pre>
-     * Latest annual revenue vs the prior annual.
+     * Revenue growth on revenue_basis_period_type vs the same series a year earlier.
      * </pre>
      *
      * <code>double revenue_yoy_pct = 3 [json_name = "revenueYoyPct"];</code>
@@ -1261,7 +1556,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Latest annual revenue vs the prior annual.
+     * Revenue growth on revenue_basis_period_type vs the same series a year earlier.
      * </pre>
      *
      * <code>double revenue_yoy_pct = 3 [json_name = "revenueYoyPct"];</code>
@@ -1277,7 +1572,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Latest annual revenue vs the prior annual.
+     * Revenue growth on revenue_basis_period_type vs the same series a year earlier.
      * </pre>
      *
      * <code>double revenue_yoy_pct = 3 [json_name = "revenueYoyPct"];</code>
@@ -1802,6 +2097,343 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasEpsTtm() {
       bitField0_ = (bitField0_ & ~0x00020000);
       hasEpsTtm_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object revenueBasisPeriodType_ = "";
+    /**
+     * <pre>
+     * Series the revenue growth was computed on: "half" (latest half-year from a
+     * company filing vs the same half a year earlier, used when it is newer than
+     * the latest annual) or "annual". Empty when unknown.
+     * </pre>
+     *
+     * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
+     * @return The revenueBasisPeriodType.
+     */
+    public java.lang.String getRevenueBasisPeriodType() {
+      java.lang.Object ref = revenueBasisPeriodType_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        revenueBasisPeriodType_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Series the revenue growth was computed on: "half" (latest half-year from a
+     * company filing vs the same half a year earlier, used when it is newer than
+     * the latest annual) or "annual". Empty when unknown.
+     * </pre>
+     *
+     * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
+     * @return The bytes for revenueBasisPeriodType.
+     */
+    public com.google.protobuf.ByteString
+        getRevenueBasisPeriodTypeBytes() {
+      java.lang.Object ref = revenueBasisPeriodType_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        revenueBasisPeriodType_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Series the revenue growth was computed on: "half" (latest half-year from a
+     * company filing vs the same half a year earlier, used when it is newer than
+     * the latest annual) or "annual". Empty when unknown.
+     * </pre>
+     *
+     * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
+     * @param value The revenueBasisPeriodType to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRevenueBasisPeriodType(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      revenueBasisPeriodType_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Series the revenue growth was computed on: "half" (latest half-year from a
+     * company filing vs the same half a year earlier, used when it is newer than
+     * the latest annual) or "annual". Empty when unknown.
+     * </pre>
+     *
+     * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRevenueBasisPeriodType() {
+      revenueBasisPeriodType_ = getDefaultInstance().getRevenueBasisPeriodType();
+      bitField0_ = (bitField0_ & ~0x00040000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Series the revenue growth was computed on: "half" (latest half-year from a
+     * company filing vs the same half a year earlier, used when it is newer than
+     * the latest annual) or "annual". Empty when unknown.
+     * </pre>
+     *
+     * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
+     * @param value The bytes for revenueBasisPeriodType to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRevenueBasisPeriodTypeBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      revenueBasisPeriodType_ = value;
+      bitField0_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+
+    private double revenueHalfYoyPct_ ;
+    /**
+     * <pre>
+     * Latest half-year vs the same half a year earlier, from company filings,
+     * whether or not the half is the chosen basis.
+     * </pre>
+     *
+     * <code>double revenue_half_yoy_pct = 20 [json_name = "revenueHalfYoyPct"];</code>
+     * @return The revenueHalfYoyPct.
+     */
+    @java.lang.Override
+    public double getRevenueHalfYoyPct() {
+      return revenueHalfYoyPct_;
+    }
+    /**
+     * <pre>
+     * Latest half-year vs the same half a year earlier, from company filings,
+     * whether or not the half is the chosen basis.
+     * </pre>
+     *
+     * <code>double revenue_half_yoy_pct = 20 [json_name = "revenueHalfYoyPct"];</code>
+     * @param value The revenueHalfYoyPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRevenueHalfYoyPct(double value) {
+
+      revenueHalfYoyPct_ = value;
+      bitField0_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Latest half-year vs the same half a year earlier, from company filings,
+     * whether or not the half is the chosen basis.
+     * </pre>
+     *
+     * <code>double revenue_half_yoy_pct = 20 [json_name = "revenueHalfYoyPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRevenueHalfYoyPct() {
+      bitField0_ = (bitField0_ & ~0x00080000);
+      revenueHalfYoyPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasRevenueHalfYoy_ ;
+    /**
+     * <code>bool has_revenue_half_yoy = 21 [json_name = "hasRevenueHalfYoy"];</code>
+     * @return The hasRevenueHalfYoy.
+     */
+    @java.lang.Override
+    public boolean getHasRevenueHalfYoy() {
+      return hasRevenueHalfYoy_;
+    }
+    /**
+     * <code>bool has_revenue_half_yoy = 21 [json_name = "hasRevenueHalfYoy"];</code>
+     * @param value The hasRevenueHalfYoy to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasRevenueHalfYoy(boolean value) {
+
+      hasRevenueHalfYoy_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_revenue_half_yoy = 21 [json_name = "hasRevenueHalfYoy"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasRevenueHalfYoy() {
+      bitField0_ = (bitField0_ & ~0x00100000);
+      hasRevenueHalfYoy_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double epsHalfYoyPct_ ;
+    /**
+     * <code>double eps_half_yoy_pct = 22 [json_name = "epsHalfYoyPct"];</code>
+     * @return The epsHalfYoyPct.
+     */
+    @java.lang.Override
+    public double getEpsHalfYoyPct() {
+      return epsHalfYoyPct_;
+    }
+    /**
+     * <code>double eps_half_yoy_pct = 22 [json_name = "epsHalfYoyPct"];</code>
+     * @param value The epsHalfYoyPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEpsHalfYoyPct(double value) {
+
+      epsHalfYoyPct_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double eps_half_yoy_pct = 22 [json_name = "epsHalfYoyPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEpsHalfYoyPct() {
+      bitField0_ = (bitField0_ & ~0x00200000);
+      epsHalfYoyPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasEpsHalfYoy_ ;
+    /**
+     * <code>bool has_eps_half_yoy = 23 [json_name = "hasEpsHalfYoy"];</code>
+     * @return The hasEpsHalfYoy.
+     */
+    @java.lang.Override
+    public boolean getHasEpsHalfYoy() {
+      return hasEpsHalfYoy_;
+    }
+    /**
+     * <code>bool has_eps_half_yoy = 23 [json_name = "hasEpsHalfYoy"];</code>
+     * @param value The hasEpsHalfYoy to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasEpsHalfYoy(boolean value) {
+
+      hasEpsHalfYoy_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_eps_half_yoy = 23 [json_name = "hasEpsHalfYoy"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasEpsHalfYoy() {
+      bitField0_ = (bitField0_ & ~0x00400000);
+      hasEpsHalfYoy_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object halfLatestPeriodEnd_ = "";
+    /**
+     * <pre>
+     * YYYY-MM-DD of the latest half-year row; empty when none.
+     * </pre>
+     *
+     * <code>string half_latest_period_end = 24 [json_name = "halfLatestPeriodEnd"];</code>
+     * @return The halfLatestPeriodEnd.
+     */
+    public java.lang.String getHalfLatestPeriodEnd() {
+      java.lang.Object ref = halfLatestPeriodEnd_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        halfLatestPeriodEnd_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the latest half-year row; empty when none.
+     * </pre>
+     *
+     * <code>string half_latest_period_end = 24 [json_name = "halfLatestPeriodEnd"];</code>
+     * @return The bytes for halfLatestPeriodEnd.
+     */
+    public com.google.protobuf.ByteString
+        getHalfLatestPeriodEndBytes() {
+      java.lang.Object ref = halfLatestPeriodEnd_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        halfLatestPeriodEnd_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the latest half-year row; empty when none.
+     * </pre>
+     *
+     * <code>string half_latest_period_end = 24 [json_name = "halfLatestPeriodEnd"];</code>
+     * @param value The halfLatestPeriodEnd to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHalfLatestPeriodEnd(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      halfLatestPeriodEnd_ = value;
+      bitField0_ |= 0x00800000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the latest half-year row; empty when none.
+     * </pre>
+     *
+     * <code>string half_latest_period_end = 24 [json_name = "halfLatestPeriodEnd"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHalfLatestPeriodEnd() {
+      halfLatestPeriodEnd_ = getDefaultInstance().getHalfLatestPeriodEnd();
+      bitField0_ = (bitField0_ & ~0x00800000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD of the latest half-year row; empty when none.
+     * </pre>
+     *
+     * <code>string half_latest_period_end = 24 [json_name = "halfLatestPeriodEnd"];</code>
+     * @param value The bytes for halfLatestPeriodEnd to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHalfLatestPeriodEndBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      halfLatestPeriodEnd_ = value;
+      bitField0_ |= 0x00800000;
       onChanged();
       return this;
     }

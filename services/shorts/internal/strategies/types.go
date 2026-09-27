@@ -79,13 +79,19 @@ const LiquidityFloorAUD = 250_000.0
 // field is nullable: *_yoy_pct is NULL (not 0) when either side is missing or
 // the prior is <= 0.
 type Growth struct {
-	BasisPeriodType       string // series the EPS growth used: "ttm" or "annual"
+	BasisPeriodType       string // series the EPS growth used: "half", "ttm" or "annual"
 	LatestPeriodEnd       *time.Time
 	LatestAnnualPeriodEnd *time.Time
 
+	// RevenueBasisPeriodType is the series the revenue growth used: "half"
+	// (latest half-year from a company filing vs the same half a year
+	// earlier, when that half is newer than the latest annual) or "annual".
+	// Empty on a database that built the view before the half basis existed.
+	RevenueBasisPeriodType string
+
 	RevenueLatest      *float64
 	RevenuePrior       *float64
-	RevenueYoYPct      *float64 // latest annual vs prior annual
+	RevenueYoYPct      *float64 // RevenueBasisPeriodType vs the same series a year earlier
 	RevenueYoYPriorPct *float64
 
 	EPSLatest      *float64
@@ -107,6 +113,14 @@ type Growth struct {
 	// year). Used ONLY as a sign, as supporting evidence.
 	RevenueHalfDelta   *float64
 	NetIncomeHalfDelta *float64
+
+	// Half-year vs the same half a year earlier, from company-filing half
+	// rows, whether or not the half is the chosen basis. Same NULL rules as
+	// every *_yoy_pct. HalfLatestPeriodEnd is the latest half row's end.
+	RevenueHalfYoYPct   *float64
+	NetIncomeHalfYoYPct *float64
+	EPSHalfYoYPct       *float64
+	HalfLatestPeriodEnd *time.Time
 
 	Currency         string
 	PeriodsAvailable int32
