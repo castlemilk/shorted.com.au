@@ -42,6 +42,11 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { siteConfig } from "~/@/config/site";
 import { getAllPosts } from "~/@/lib/api";
+import {
+  BLOG_CATEGORY_SLUGS,
+  blogCategoryPath,
+  resolveCategory,
+} from "~/@/lib/blog/categories";
 import { HousingService } from "~/gen/shorts/v1alpha1/housing_pb";
 import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
 import { NewsService } from "~/gen/shorts/v1alpha1/news_pb";
@@ -261,7 +266,6 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
   const staticRoutes: SitemapEntry[] = [
     { url: baseUrl, lastModified: latestDataDate },
     { url: `${baseUrl}/about` },
-    { url: `${baseUrl}/blog` },
     { url: `${baseUrl}/terms` },
     { url: `${baseUrl}/roadmap` },
     { url: `${baseUrl}/pricing` },
@@ -315,11 +319,33 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     { url: `${baseUrl}/privacy` },
   ];
 
-  // Blog posts carry their own publish date.
-  const blogRoutes: SitemapEntry[] = getAllPosts().map((post) => ({
+  // Blog posts carry their own publish date (or a declared revision date).
+  const blogPosts = getAllPosts();
+  const blogRoutes: SitemapEntry[] = blogPosts.map((post) => ({
     url: `${baseUrl}/blog/${post.slug}`,
-    lastModified: post.date,
+    lastModified: post.updated ?? post.date,
   }));
+  // The hub itself changes on every publish: newest member's date.
+  const blogHubRoute: SitemapEntry = {
+    url: `${baseUrl}/blog`,
+    lastModified: newestLastMod(blogRoutes.map((r) => r.lastModified)),
+  };
+  // Category hubs (/blog/category/[slug]) carry the newest date of a post
+  // filed under them; a category with no posts is not advertised.
+  const blogCategoryRoutes: SitemapEntry[] = BLOG_CATEGORY_SLUGS.flatMap(
+    (slug) => {
+      const dates = blogPosts
+        .filter((post) => resolveCategory(post).slug === slug)
+        .map((post) => post.updated ?? post.date);
+      if (dates.length === 0) return [];
+      const newest = dates.reduce((a, b) =>
+        new Date(b).getTime() > new Date(a).getTime() ? b : a,
+      );
+      return [
+        { url: `${baseUrl}${blogCategoryPath(slug)}`, lastModified: newest },
+      ];
+    },
+  );
 
   // Industry pages. Fetched directly (not via getAllIndustrySlugs) so the fetch
   // carries the ISR-safe cache mode; slug rules use the canonical helper.
@@ -465,7 +491,9 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
     ...directoryRoutes,
     ...marketRoutes,
     ...learnRoutes,
+    blogHubRoute,
     ...blogRoutes,
+    ...blogCategoryRoutes,
     ...authorRoutes,
     ...docRoutes,
     newsHub,

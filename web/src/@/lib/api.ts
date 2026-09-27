@@ -5,6 +5,27 @@ import path, { join } from "path";
 
 const blogsDirectory = join(process.cwd(), "_blogs");
 
+/**
+ * gray-matter's YAML parser turns an unquoted `date: 2026-09-01` into a JS
+ * Date, and a Date stringifies as "Tue Sep 01 2026 00:00:00 GMT+0000 (...)",
+ * which is not a valid <time dateTime>, sitemap lastmod or schema.org date.
+ * Every post so far quotes its dates; this makes the unquoted form safe too.
+ */
+export function normalizePostData<T extends Record<string, unknown>>(
+  data: T,
+): T {
+  const out: Record<string, unknown> = { ...data };
+  for (const key of ["date", "updated"] as const) {
+    const value = out[key];
+    if (value instanceof Date) {
+      out[key] = Number.isNaN(value.getTime())
+        ? undefined
+        : value.toISOString().slice(0, 10);
+    }
+  }
+  return out as T;
+}
+
 export function getPostSlugs() {
   return fs.readdirSync(blogsDirectory);
 }
@@ -16,7 +37,7 @@ export function getPostBySlug(slug: string): Post | null {
     const fileContents = fs.readFileSync(fullPath, "utf8");
     const { data, content } = matter(fileContents);
 
-    return { ...data, slug: realSlug, content } as Post;
+    return { ...normalizePostData(data), slug: realSlug, content } as Post;
   } catch {
     return null;
   }
@@ -33,7 +54,7 @@ export function getAllPosts(): Post[] {
       const { data, content } = matter(fileContents);
 
       return {
-        ...(data as Omit<Post, "slug" | "content">),
+        ...(normalizePostData(data) as Omit<Post, "slug" | "content">),
         content,
         slug: fileName.replace(/\.(mdx?)$/i, ""),
       } as Post;

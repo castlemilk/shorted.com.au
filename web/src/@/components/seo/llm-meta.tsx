@@ -12,6 +12,11 @@ interface LLMMetaProps {
   dataSource?: string;
   dataFrequency?: string;
   lastUpdated?: string;
+  /** When the page was first published. Defaults to lastUpdated, which is
+   *  right for data pages and wrong for an article that has been revised:
+   *  the BlogPosting node beside this one carries the original date, and
+   *  two nodes disagreeing on datePublished is worse than one. */
+  datePublished?: string;
   requiresAuth?: boolean;
 }
 
@@ -103,6 +108,7 @@ export function LLMMeta({
   dataSource = "ASIC",
   dataFrequency = "daily",
   lastUpdated,
+  datePublished,
   requiresAuth = false,
 }: LLMMetaProps) {
   // Provenance is derived from `dataSource` so non-ASIC surfaces (housing,
@@ -186,7 +192,7 @@ export function LLMMeta({
     },
 
     // Temporal information
-    datePublished: lastUpdated,
+    datePublished: datePublished ?? lastUpdated,
     dateModified: lastUpdated,
 
     // Usage rights

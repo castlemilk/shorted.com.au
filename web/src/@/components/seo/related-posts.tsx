@@ -1,73 +1,37 @@
-import Link from 'next/link';
-import { getAllPosts } from '@/lib/api';
-import { Card } from '@/components/ui/card';
-import { calculateReadingTime, formatReadingTime } from '@/utils/reading-time';
+import { sectionTitle } from "~/@/lib/typography";
+import { getAllPosts } from "~/@/lib/api";
+import { pickRelated, toBlogCard } from "~/@/lib/blog/cards";
+import { BlogPostGrid } from "~/@/components/blog/blog-post-grid";
 
 interface RelatedPostsProps {
   currentSlug: string;
   maxPosts?: number;
 }
 
+/**
+ * "Keep reading" rail under an article: same category first, then the
+ * newest of everything else, never the article itself.
+ */
 export function RelatedPosts({ currentSlug, maxPosts = 3 }: RelatedPostsProps) {
-  const allPosts = getAllPosts();
-  
-  // Filter out current post and get related posts
-  const relatedPosts = allPosts
-    .filter(post => post.slug !== currentSlug)
-    .slice(0, maxPosts);
+  const related = pickRelated(
+    getAllPosts().map(toBlogCard),
+    currentSlug,
+    maxPosts,
+  );
 
-  if (relatedPosts.length === 0) {
+  if (related.length === 0) {
     return null;
   }
 
   return (
-    <section className="mt-16 pt-8 border-t border-border">
-      <h2 className="text-2xl font-bold mb-6">Related Articles</h2>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {relatedPosts.map((post) => (
-          <Card key={post.slug} className="p-6 hover:shadow-lg transition-shadow">
-            <article>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <time dateTime={post.date}>
-                    {new Date(post.date).toLocaleDateString('en-AU', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </time>
-                  <span>•</span>
-                  <span>{formatReadingTime(calculateReadingTime(post.content))}</span>
-                </div>
-                
-                <h3 className="text-lg font-semibold line-clamp-2">
-                  <Link 
-                    href={`/blog/${post.slug}`}
-                    className="hover:text-primary transition-colors"
-                  >
-                    {post.title}
-                  </Link>
-                </h3>
-                
-                {post.excerpt && (
-                  <p className="text-muted-foreground text-sm line-clamp-3">
-                    {post.excerpt}
-                  </p>
-                )}
-                
-                <div className="pt-2">
-                  <Link 
-                    href={`/blog/${post.slug}`}
-                    className="text-primary hover:text-primary/80 text-sm font-medium"
-                  >
-                    Read more →
-                  </Link>
-                </div>
-              </div>
-            </article>
-          </Card>
-        ))}
-      </div>
+    <section
+      aria-labelledby="related-posts-heading"
+      className="mt-16 border-t border-border pt-8"
+    >
+      <h2 id="related-posts-heading" className={sectionTitle}>
+        Keep reading
+      </h2>
+      <BlogPostGrid cards={related} variant="compact" className="mt-6" />
     </section>
   );
 }

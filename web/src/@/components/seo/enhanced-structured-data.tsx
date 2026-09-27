@@ -150,11 +150,18 @@ export function ItemListStructuredData({
     name: string;
     url: string;
     description?: string;
+    /** Article-family extras (BlogPosting): a listed article with only
+     *  name/url reads as a partial Article to validators. Absolute URLs. */
+    headline?: string;
+    image?: string;
+    datePublished?: string;
+    dateModified?: string;
+    author?: { name: string; url?: string };
   }>;
   name: string;
   description?: string;
   /** Schema.org type for each listed entity; stock lists retain the default. */
-  itemType?: "FinancialProduct" | "Place" | "WebPage";
+  itemType?: "FinancialProduct" | "Place" | "WebPage" | "BlogPosting";
 }) {
   if (!items || items.length === 0) return <></>;
 
@@ -172,6 +179,13 @@ export function ItemListStructuredData({
         name: item.name,
         url: item.url,
         description: item.description,
+        ...(item.headline ? { headline: item.headline } : {}),
+        ...(item.image ? { image: item.image } : {}),
+        ...(item.datePublished ? { datePublished: item.datePublished } : {}),
+        ...(item.dateModified ? { dateModified: item.dateModified } : {}),
+        ...(item.author
+          ? { author: { "@type": "Person", ...item.author } }
+          : {}),
       },
     })),
   };
