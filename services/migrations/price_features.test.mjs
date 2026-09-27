@@ -193,12 +193,42 @@ test("averages require their full window (no short-history SMA)", () => {
   assert.match(body, /count\(\*\) FILTER \(WHERE r\.rn BETWEEN 22 AND 221\) = 200/, "sma200_1m_ago needs 200 sessions");
 });
 
-test("the base is the 40 sessions before as_of, and its length counts back from the pivot", () => {
+test("the base is the 40 sessions before its anchor: the earliest recent breakout, else as_of", () => {
+  // Without the anchor, the day after a breakout the prior-40 window holds the
+  // breakout's own high and base_high (the API's invalidation level) jumps to
+  // it: 10.30 reported against a real pivot of 9.80 on a scratch PG16.
   const body = viewBody(up, "mv_price_features");
   assert.match(body, /max\(px\.high\)\s+OVER \(w ROWS BETWEEN 40 PRECEDING AND 1 PRECEDING\)\s+AS prior40_high/);
-  assert.match(body, /max\(r\.prior40_high\) FILTER \(WHERE r\.rn = 1 AND r\.prior40_n = 40\)\s+AS base_high/);
-  assert.match(body, /min\(r\.low\) FILTER \(WHERE r\.rn BETWEEN 2 AND 41\)/);
-  assert.match(body, /\(min\(r\.rn\) FILTER \(WHERE r\.rn BETWEEN 2 AND 41 AND r\.high = r\.pivot\) - 1\)::int AS base_length_days/);
+  assert.match(
+    body,
+    /COALESCE\(max\(r\.rn\) FILTER \(WHERE r\.rn <= 5 AND r\.is_breakout\)\s+OVER \(PARTITION BY r\.stock_code\), 1\)\s+AS anchor_rn/,
+    "anchor = the EARLIEST (largest rn) breakout in the last 5 sessions, else as_of",
+  );
+  assert.match(
+    body,
+    /max\(a\.prior40_high\) FILTER \(WHERE a\.rn = a\.anchor_rn AND a\.prior40_n = 40\)\s+OVER \(PARTITION BY a\.stock_code\)\s+AS pivot/,
+    "the pivot is the anchor's prior-40 high: the level the breakout cleared",
+  );
+  assert.match(body, /max\(r\.pivot\)\s+AS base_high/);
+  assert.match(body, /min\(r\.low\) FILTER \(WHERE r\.rn BETWEEN r\.anchor_rn \+ 1 AND r\.anchor_rn \+ 40\)/);
+  assert.doesNotMatch(body, /FILTER \(WHERE r\.rn = 1 AND r\.prior40_n = 40\)\s+AS base_high/, "base_high must not float with as_of");
+});
+
+test("base_length_days counts from the EARLIEST session within 2% of the pivot", () => {
+  // Counting back to the most recent touch read a flat base or an exact
+  // retest (common with 2-decimal prices) as 1 session, failing the 20-session
+  // minimum for every such stock.
+  const body = viewBody(up, "mv_price_features");
+  assert.match(
+    body,
+    /\(max\(r\.rn\) FILTER \(WHERE r\.rn BETWEEN r\.anchor_rn \+ 1 AND r\.anchor_rn \+ 40\s+AND r\.high >= 0\.98 \* r\.pivot\)\s+- max\(r\.anchor_rn\)\)::int\s+AS base_length_days/,
+  );
+  assert.doesNotMatch(body, /r\.high = r\.pivot/, "an exact-equality touch is the old, broken definition");
+});
+
+test("breakout_recent / breakout_date keep their meaning (the latest breakout)", () => {
+  const body = viewBody(up, "mv_price_features");
+  assert.match(body, /max\(r\.date\)\s+FILTER \(WHERE r\.rn <= 5 AND r\.is_breakout\)\s+AS breakout_date/);
 });
 
 test("a breakout is a close above the prior-40 high on >= 1.5x prior-50 volume, within 5 sessions", () => {

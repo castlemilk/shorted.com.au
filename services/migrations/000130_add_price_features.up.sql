@@ -32,6 +32,17 @@
 -- compares greater than every number, so `close <= 99999999.99`, the
 -- DECIMAL(10,2) maximum, excludes it).
 --
+-- THE BASE (base_high / base_low / base_depth_pct / base_length_days) is
+-- described as at an anchor session: the earliest breakout of the last five
+-- sessions when there is one, else as_of. Otherwise the pivot moves the day
+-- after a breakout (the breakout's own high enters the prior-40 window) and
+-- base_high, which the API serves as the invalidation level, stops being the
+-- level the stock cleared. base_length_days counts back to the EARLIEST
+-- session in that 40-session window whose high is within 2% of base_high, so
+-- a flat base counts its full length rather than 1 (an exact retest of the
+-- high is common with prices stored to 2 decimals). Both found by the API
+-- stream on a scratch Postgres 16, before any environment applied 000130.
+--
 -- The guarded refresh is 000095's pattern verbatim: every REFRESH in its own
 -- BEGIN/EXCEPTION block, CONCURRENTLY first, a plain refresh as fallback, and
 -- handlers that name `query_canceled` explicitly (plpgsql's WHEN OTHERS does
@@ -149,12 +160,27 @@ COMMENT ON MATERIALIZED VIEW mv_market_regime IS
 --                    NULL with fewer than 20 of them
 --   volume_ratio_50d volume(as_of) / avg_volume_50d
 --   dollar_volume_20d avg(close * volume) over rn 1..20 (>= 10 sessions)
---   base_high/low    max(high)/min(low) over sessions [t-40, t-1] = rn 2..41
---                    (the pivot), only with all 40 sessions
---   base_length_days sessions since base_high was set: the most recent rn in
---                    2..41 whose high equals it, minus 1 (so >= 1)
 --   breakout_recent  any of rn 1..5 closed above ITS OWN prior-40-session high
---                    with volume >= 1.5 x ITS OWN prior-50-session average
+--                    with volume >= 1.5 x ITS OWN prior-50-session average;
+--                    breakout_date is the most recent such session
+--   The BASE is described as at an anchor session t:
+--     t = the EARLIEST breakout session in rn 1..5 when breakout_recent,
+--         else as_of (rn 1).
+--   Anchoring is what keeps the pivot still. From the day after a breakout
+--   the plain [as_of-40, as_of-1] window contains the breakout's own high, so
+--   the "pivot" would jump to that (measured on a scratch PG16: 10.30 reported
+--   against a real pivot of 9.80) and the invalidation level the API shows
+--   would be meaningless. The earliest breakout, not the latest, because on
+--   consecutive breakout days the later ones only clear the first day's high,
+--   not the base.
+--   base_high/low    max(high)/min(low) over sessions [t-40, t-1] (the pivot:
+--                    the level the breakout cleared, or will have to clear),
+--                    only with all 40 sessions
+--   base_length_days sessions elapsed since the EARLIEST session in
+--                    [t-40, t-1] whose high is within 2% of base_high, so a
+--                    flat base (or an exact retest, common with prices stored
+--                    to 2 decimals) counts its full length instead of 1; 1..40
+--                    (the window is 40 sessions, so 40 is the ceiling)
 --   ret_<N>m_pct     close vs the close on the last session on or before
 --                    as_of - N months (calendar), NULL when that session is
 --                    more than 10 days before the target (a gap is not a
@@ -208,16 +234,29 @@ seq AS (
 ranked AS (
     SELECT s.*,
            s.n_sessions - s.rn_asc + 1 AS rn,
-           -- The latest session's prior-40 high (the pivot) on every row, so
-           -- base_length_days can find where it was set without a second scan.
-           last_value(s.prior40_high) OVER (PARTITION BY s.stock_code ORDER BY s.date
-                                            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS pivot,
            COALESCE(s.prior40_n = 40
                     AND s.close > s.prior40_high
                     AND s.prior50_n >= 20
                     AND s.prior50_avg_volume > 0
                     AND s.volume >= 1.5 * s.prior50_avg_volume, false)            AS is_breakout
     FROM seq s
+),
+anchored AS (
+    -- The base's anchor session on every row: the earliest (largest rn)
+    -- breakout in rn 1..5, else as_of. A whole-partition window over input
+    -- already sorted by (stock_code, date): no second sort, no second scan.
+    SELECT r.*,
+           COALESCE(max(r.rn) FILTER (WHERE r.rn <= 5 AND r.is_breakout)
+                        OVER (PARTITION BY r.stock_code), 1)                   AS anchor_rn
+    FROM ranked r
+),
+pivoted AS (
+    -- The anchor's prior-40 high (the pivot) on every row, so the base's low
+    -- and length can be read off the anchor's window in the aggregate below.
+    SELECT a.*,
+           max(a.prior40_high) FILTER (WHERE a.rn = a.anchor_rn AND a.prior40_n = 40)
+               OVER (PARTITION BY a.stock_code)                                AS pivot
+    FROM anchored a
 ),
 agg AS (
     SELECT r.stock_code,
@@ -243,10 +282,14 @@ agg AS (
                 THEN avg(r.volume::float8) FILTER (WHERE r.rn BETWEEN 2 AND 51) END AS avg_volume_50d,
            CASE WHEN count(*) FILTER (WHERE r.rn <= 20) >= 10
                 THEN avg(r.close * r.volume::float8) FILTER (WHERE r.rn <= 20) END  AS dollar_volume_20d,
-           max(r.prior40_high) FILTER (WHERE r.rn = 1 AND r.prior40_n = 40)     AS base_high,
-           CASE WHEN count(*) FILTER (WHERE r.rn BETWEEN 2 AND 41) = 40
-                THEN min(r.low) FILTER (WHERE r.rn BETWEEN 2 AND 41) END        AS base_low,
-           (min(r.rn) FILTER (WHERE r.rn BETWEEN 2 AND 41 AND r.high = r.pivot) - 1)::int AS base_length_days,
+           -- The base over the anchor's window [t-40, t-1] = rn anchor_rn+1 ..
+           -- anchor_rn+40 (anchor_rn is constant within a stock).
+           max(r.pivot)                                                         AS base_high,
+           CASE WHEN count(*) FILTER (WHERE r.rn BETWEEN r.anchor_rn + 1 AND r.anchor_rn + 40) = 40
+                THEN min(r.low) FILTER (WHERE r.rn BETWEEN r.anchor_rn + 1 AND r.anchor_rn + 40) END AS base_low,
+           (max(r.rn) FILTER (WHERE r.rn BETWEEN r.anchor_rn + 1 AND r.anchor_rn + 40
+                                AND r.high >= 0.98 * r.pivot)
+            - max(r.anchor_rn))::int                                            AS base_length_days,
            COALESCE(bool_or(r.is_breakout) FILTER (WHERE r.rn <= 5), false)     AS breakout_recent,
            max(r.date)   FILTER (WHERE r.rn <= 5 AND r.is_breakout)             AS breakout_date,
            max(r.d1m)    FILTER (WHERE r.rn = 1)                                AS d1m,
@@ -258,7 +301,7 @@ agg AS (
            max(r.d12m)   FILTER (WHERE r.rn = 1)                                AS d12m,
            max(r.c12m)   FILTER (WHERE r.rn = 1)                                AS c12m,
            count(*)::int                                                        AS sessions_available
-    FROM ranked r
+    FROM pivoted r
     WHERE r.n_sessions >= 60
       AND r.rn <= 260
     GROUP BY r.stock_code
