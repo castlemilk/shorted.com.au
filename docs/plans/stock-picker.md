@@ -494,7 +494,7 @@ Connector defects found while probing the live server (fix in this stream):
    (`task db:prod:apply FILE=… CONFIRM=prod`, session pooler 5432) — the deploy
    allowlist also replays them, but the API must not ship reading columns prod
    lacks.
-2. First fundamentals run is manual: `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"` a few times (cap 400/run) to reach coverage, then `--args="picks,-mode,filings,-dry-run"` (read the `skipped={...}` reasons), `--args="picks,-mode,filings"`, then `--args="picks,-mode,refresh"`. After that the daily 15:00 UTC `-mode all` keeps all three current.
+2. First fundamentals run is on demand, not scheduled: through the admin MCP connector (`run_picks_job {mode: "fundamentals"}` a few times, cap 400/run, then `filings`, then `refresh`; `docs/mcp-admin.md`) or `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"` a few times, then `--args="picks,-mode,filings,-dry-run"` (read the `skipped={...}` reasons), `--args="picks,-mode,filings"`, then `--args="picks,-mode,refresh"`. After that the daily 15:00 UTC `-mode all` keeps all three current.
 3. Revalidate `/picks` and `/picks/*` after the first refresh.
 
 ## 8. Follow-ups found during implementation
@@ -519,8 +519,14 @@ Connector defects found while probing the live server (fix in this stream):
   nothing for a stock without coverage.
 - DONE: `shorted-picks` is in `local.admin_runnable_jobs` and has a jobmonitor
   catalog entry (`services/shorts/internal/jobmonitor/catalog.go`, "Market
-  data"). "Run now" executes the deployed `-mode refresh`; the fundamentals
-  pull runs only on its own schedule.
+  data"). "Run now" executes the deployed `-mode refresh`.
+- DONE (2026-09-27): every mode is runnable on demand from an agent. The admin
+  MCP server (`/mcp/admin`) gained `run_picks_job {mode}` / `picks_job_status`
+  under a new `jobs:run` scope, backed by `jobmonitor.RunPicks` (argv
+  `picks -mode <mode>` built from the closed enum, already-running guard) and a
+  `run.developer` grant on that one job (`shorts_api_picks_overrides`). Admin
+  scopes are now checked per tool, so the existing publish-only connector keeps
+  working and is told to reconnect for the new scope.
 - OPEN (operational): no environment has run the fundamentals job yet, so
   `fundamentals_coverage_count` starts at 0 and the Zanger / CAN SLIM growth
   rules read unknown until the first sweeps complete (plan §7).

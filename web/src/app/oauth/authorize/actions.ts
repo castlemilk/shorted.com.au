@@ -200,7 +200,7 @@ export async function approveAuthorization(
       ok: false,
       error: "access_denied",
       description:
-        "Only Shorted administrators can connect the admin (publishing) server.",
+        "Only Shorted administrators can connect the admin (publishing, data jobs) server.",
     };
   }
 

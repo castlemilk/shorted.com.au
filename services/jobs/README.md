@@ -812,10 +812,15 @@ a blocking upstream is not asked 400 times.
    then the same for 000130.
 2. Check the upstream without writing:
    `shorted -dry-run picks -mode fundamentals -codes BHP,DRO,SKS`.
-3. Build coverage: `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"`
+3. Build coverage, either from an agent through the admin MCP connector
+   (`docs/mcp-admin.md`: `run_picks_job {mode: "fundamentals"}` a few times,
+   then `filings`, then `refresh`, polling `picks_job_status`; the tool's
+   `next` field carries this order) or by hand:
+   `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"`
    a few times (400 codes a run, ~30 minutes each; ~2,300 codes is about six
    runs), then `--args="picks,-mode,filings"` (check the log's `skipped={...}`
-   reasons first with `--args="picks,-mode,filings,-dry-run"`), then
+   reasons first with `--args="picks,-mode,filings,-dry-run"` — the dry run is
+   gcloud-only, the MCP tool has no flag for it), then
    `--args="picks,-mode,refresh"`. The daily 15:00 UTC schedule runs
    `-mode all` (fundamentals, filings, refresh) after that.
 4. Revalidate `/picks` and `/picks/*` after the first refresh.

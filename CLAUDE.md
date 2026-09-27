@@ -531,9 +531,11 @@ pass and blocks status `triggered`. Design contract: `docs/plans/stock-picker.md
   Both were defects found by applying the migration to a scratch Postgres; the
   window is 40 sessions, so a base is never longer than 40.
 - **Prod does not run `migrate up`**: hand-apply `000129` + `000130` BEFORE the API
-  merges, then `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"`
-  a few times (cap 400/run) and `--args="picks,-mode,refresh"`. Until then the
-  pages render an empty universe and say so.
+  merges, then build coverage with the admin MCP connector's `run_picks_job`
+  (`mode: fundamentals` a few times, cap 400/run, then `filings`, then `refresh`)
+  or `gcloud run jobs execute shorted-picks --region australia-southeast2
+  --args="picks,-mode,fundamentals"`. Until then the pages render an empty
+  universe and say so.
 
 ## Weekly/Monthly/Yearly Reports
 
@@ -879,11 +881,17 @@ Next.js contributes only the consent screen.
 Full record: `docs/superpowers/handover-2026-08-29-mcp-oauth.md`.
 
 **Admin MCP server — `/mcp/admin`** (`docs/mcp-admin.md`). A SECOND resource
-for administrators: `publish_news_article` / `news_publish_status`, scope
-`news:publish`, connected once as a claude.ai custom connector. It is a
+for administrators, connected once as a claude.ai custom connector:
+`publish_news_article` / `news_publish_status` (scope `news:publish`) and
+`run_picks_job` / `picks_job_status` (scope `jobs:run`, starts `shorted picks
+-mode fundamentals|filings|refresh|all` via a `run.developer` grant on that one
+job, argv built server-side from the enum in `jobmonitor/picks.go`). It is a
 separate OAuth resource with its own scope vocabulary (`oauth/resources.go`) —
 never add a write tool or a non-`:read` scope to the public server or
-`mcp.Scopes`. Admin = verified email on the web app's `ADMIN_EMAILS`, resolved
+`mcp.Scopes`. Admin scopes name actions and are checked PER TOOL; the HTTP
+layer requires at least one, never all, so adding a scope does not log an
+existing connector out (a token minted before the scope gets a tool error
+naming it). Admin = verified email on the web app's `ADMIN_EMAILS`, resolved
 from the token's uid via the web app's `/api/internal/admin-check` and
 re-checked at ticket, grant, token, every refresh and every request.
 
