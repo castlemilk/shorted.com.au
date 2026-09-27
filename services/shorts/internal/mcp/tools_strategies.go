@@ -479,8 +479,8 @@ func describePicks(out GetStrategyPicksOutput, status string, st *shortsv1alpha1
 	}
 	b.WriteString(".")
 	if usesFundamentals(st) && out.UniverseCount > 0 {
-		b.WriteString(fmt.Sprintf(" Fundamentals cover %d of %d stocks evaluated; without them the growth rules read unknown.",
-			out.FundamentalsCoverageCount, out.UniverseCount))
+		fmt.Fprintf(&b, " Fundamentals cover %d of %d stocks evaluated; without them the growth rules read unknown.",
+			out.FundamentalsCoverageCount, out.UniverseCount)
 	}
 	if out.DetailTrimmed {
 		b.WriteString(" Evidence was trimmed further down the list; ask for fewer picks or a single status to see all of it.")
