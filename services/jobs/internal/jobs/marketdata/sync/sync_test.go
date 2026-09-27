@@ -223,6 +223,28 @@ func TestStalestFirst(t *testing.T) {
 	assert.Equal(t, "TOP1", stocks[0].Code, "the input is not reordered")
 }
 
+func TestRecentlyPriced(t *testing.T) {
+	t.Parallel()
+	lastClosed := mustDate("2026-09-25")
+	latest := map[string]time.Time{
+		"BHP":  mustDate("2026-09-25"),
+		"VAS":  mustDate("2026-08-21"), // five weeks behind: the outage it must survive
+		"EDGE": mustDate("2026-06-27"), // 90 days before the newest
+		"GONE": mustDate("2026-06-26"), // 91: delisted, as far as the sweep knows
+	}
+	assert.Equal(t, []string{"BHP", "EDGE", "VAS"}, recentlyPriced(latest, lastClosed))
+
+	// The window runs from the newest stored session, not from today: after a
+	// long outage every code is equally behind, and none of them ages out.
+	assert.Equal(t, []string{"BHP", "EDGE", "VAS"}, recentlyPriced(latest, mustDate("2027-03-01")))
+
+	// A stray future-dated row cannot drag the window past every real code.
+	latest["BAD"] = mustDate("2031-01-01")
+	assert.Equal(t, []string{"BAD", "BHP", "EDGE", "VAS"}, recentlyPriced(latest, lastClosed))
+
+	assert.Empty(t, recentlyPriced(nil, lastClosed))
+}
+
 func TestSessionsIn(t *testing.T) {
 	t.Parallel()
 	recs := []providers.PriceRecord{
@@ -280,6 +302,12 @@ func TestComparePrices(t *testing.T) {
 	assert.Equal(t, 1, r.StoredOnlyWeekend)
 	assert.Equal(t, map[string]int{"BHP": 1}, r.StoredOnlyByCode)
 	assert.Equal(t, ratioNoPrice, r.Changes[0].Ratio, "largest ratio first")
+	// Every change is summarised, however small its ratio.
+	assert.Equal(t, map[string]int{"2025-10": 2, "2025-11": 1}, r.ChangedByMonth)
+	bhp := r.ChangedByCode["BHP"]
+	assert.Equal(t, CodeChanges{Changed: 3, Twofold: 1, First: "2025-10-27", Last: "2025-11-04",
+		MinRatio: bhp.MinRatio, MaxRatio: ratioNoPrice}, bhp)
+	assert.InDelta(t, 43.54/43.34, bhp.MinRatio, 1e-9, "the day-shifted Monday")
 
 	// The report is stored as JSON, which has no infinity.
 	_, err := json.Marshal(r)
@@ -305,6 +333,8 @@ func TestReportListsAreCapped(t *testing.T) {
 	assert.Len(t, r.StoredOnlyRows, reportListCap)
 	assert.Equal(t, reportListCap+50, r.StoredOnly)
 	assert.Len(t, r.StoredOnlyByCode, reportListCap+50)
+	assert.Len(t, r.ChangedByCode, reportListCap+50, "summaries are not capped")
+	assert.Equal(t, map[string]int{"2026-09": reportListCap + 50}, r.ChangedByMonth)
 	assert.Len(t, r.FailedCodes, reportListCap)
 }
 
@@ -329,15 +359,19 @@ func TestPriceSyncWorkflowReadsTheReport(t *testing.T) {
 		`args="market-data@sync"`,
 		`--args="^@^$args"`,
 		"@-dry-run", "@-from@", "@-codes@",
+		// Started detached, so a run that outlasts the wait keeps its name and
+		// can be reported later without starting another.
+		"--async", "report_only", "--task-timeout", "executions describe",
 	} {
 		assert.Contains(t, wf, want)
 	}
 	// Every field the summary reads is one the report writes.
 	for _, field := range []string{"execution", "dry_run", "from", "codes", "last_session", "duration", "error",
-		"stocks", "synced", "up_to_date", "no_session", "no_data", "failed", "blocked",
+		"stocks", "beyond_listing", "synced", "up_to_date", "no_session", "no_data", "failed", "blocked",
 		"sessions_fetched", "sessions_written", "sessions_new", "sessions_changed", "sessions_changed_twofold",
 		"stored_only", "stored_only_weekend", "stored_only_by_code", "changes", "stored_only_rows",
-		"failed_codes", "no_data_codes"} {
+		"failed_codes", "no_data_codes", "providers", "paced_seconds", "slowest", "attempt", "in_progress",
+		"changed_by_month", "changed_by_code"} {
 		assert.Contains(t, wf, "."+field, "the workflow reads .%s", field)
 	}
 	report, err := json.Marshal(RunReport{
@@ -345,11 +379,13 @@ func TestPriceSyncWorkflowReadsTheReport(t *testing.T) {
 		Changes: []PriceChange{{}}, StoredOnlyRows: []StoredRow{{}}, StoredOnlyByCode: map[string]int{"BHP": 1},
 		FailedCodes: []string{"A"}, NoDataCodes: []string{"B"},
 		New: 1, Changed: 1, ChangedTwofold: 1, StoredOnly: 1, StoredOnlyWeekend: 1,
+		Providers: map[string]ProviderStats{"yahoo": {}}, Slowest: []StockTiming{{}}, InProgress: true,
 	})
 	require.NoError(t, err)
 	var keys map[string]any
 	require.NoError(t, json.Unmarshal(report, &keys))
-	for _, field := range []string{"execution", "stocks", "sessions_new", "stored_only_weekend", "changes", "no_data_codes"} {
+	for _, field := range []string{"execution", "stocks", "beyond_listing", "sessions_new", "stored_only_weekend", "changes", "no_data_codes",
+		"providers", "paced_seconds", "slowest", "attempt", "in_progress"} {
 		assert.Contains(t, keys, field)
 	}
 }

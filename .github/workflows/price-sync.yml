@@ -17,6 +17,13 @@
 # gs://$BUCKET/price-sync/<execution>.json and this workflow prints it. The path
 # is a contract with ReportObjectPrefix (services/jobs/internal/jobs/marketdata/
 # sync/report.go), pinned by TestPriceSyncWorkflowReadsTheReport.
+#
+# The execution is started detached and its name recorded before any waiting,
+# so a run that outlasts the wait (a re-fetch, a long task_timeout) can still be
+# reported: dispatch again with report_only set to the execution's name, or to
+# `latest`, and nothing is started. A task that times out still writes its
+# report (SIGTERM stops the sweep, which then publishes what it did); how the
+# execution itself ended, including a timeout or a retry, is printed beside it.
 name: Price Sync
 
 on:
@@ -35,15 +42,25 @@ on:
         type: boolean
         required: true
         default: true
+      task_timeout:
+        description: "Task timeout for this run, e.g. 12h (blank = the job's 6h). Past ~5.5h the workflow stops waiting; read it later with report_only"
+        required: false
+        default: ""
+      report_only:
+        description: "Start nothing: print the report of this execution (a name, or 'latest')"
+        required: false
+        default: ""
 
 permissions:
   contents: read
   id-token: write
 
 # One run at a time: two sweeps would fetch the same stocks twice, and their
-# reports would describe overlapping work.
+# reports would describe overlapping work. A report_only dispatch starts
+# nothing, so it gets a group of its own rather than queueing behind a run that
+# is still waiting.
 concurrency:
-  group: price-sync
+  group: ${{ inputs.report_only == '' && 'price-sync' || format('price-sync-report-{0}', github.run_id) }}
   cancel-in-progress: false
 
 env:
@@ -56,15 +73,16 @@ env:
 jobs:
   run:
     runs-on: ubuntu-latest
-    # A whole-market run is ~2.5 hours at the provider's pace. The job's own
-    # task timeout is 6h; GitHub stops waiting before that, and the job carries
-    # on regardless.
-    timeout-minutes: 350
+    # The wait below gives up at 340 minutes, so the report is printed by this
+    # run rather than lost to a cancellation; this is only its backstop.
+    timeout-minutes: 355
     steps:
       - name: Validate inputs
         env:
           FROM: ${{ inputs.from }}
           CODES: ${{ inputs.codes }}
+          TASK_TIMEOUT: ${{ inputs.task_timeout }}
+          REPORT_ONLY: ${{ inputs.report_only }}
         run: |
           set -euo pipefail
           if [[ -n "$FROM" && ! "$FROM" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
@@ -72,6 +90,12 @@ jobs:
           fi
           if [[ -n "$CODES" && ! "$CODES" =~ ^[A-Za-z0-9]{3,6}(,[A-Za-z0-9]{3,6})*$ ]]; then
             echo "::error::codes must be comma-separated ASX codes, got '$CODES'"; exit 1
+          fi
+          if [[ -n "$TASK_TIMEOUT" && ! "$TASK_TIMEOUT" =~ ^[1-9][0-9]{0,5}[smh]$ ]]; then
+            echo "::error::task_timeout must be a duration like 12h or 90m, got '$TASK_TIMEOUT'"; exit 1
+          fi
+          if [[ -n "$REPORT_ONLY" && ! "$REPORT_ONLY" =~ ^(latest|[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)$ ]]; then
+            echo "::error::report_only must be an execution name or 'latest', got '$REPORT_ONLY'"; exit 1
           fi
 
       - name: Authenticate to Google Cloud
@@ -83,75 +107,188 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v3
 
+      - name: Find the execution
+        id: find
+        if: inputs.report_only != ''
+        env:
+          REPORT_ONLY: ${{ inputs.report_only }}
+        run: |
+          set -euo pipefail
+          execution="$REPORT_ONLY"
+          if [[ "$execution" == "latest" ]]; then
+            execution="$(gcloud run jobs executions list --job "$JOB" --project "$PROJECT" --region "$REGION" \
+              --sort-by='~metadata.creationTimestamp' --limit 1 --format='value(metadata.name)')"
+          fi
+          if [[ -z "$execution" ]]; then
+            echo "::error::no execution of $JOB found"; exit 1
+          fi
+          echo "execution=$execution" >> "$GITHUB_OUTPUT"
+
       # --args REPLACES the deployed args, so it must carry the subcommand. The
       # list is '@'-delimited (gcloud's ^@^ escape) because -codes holds commas.
-      - name: Execute the sync
-        id: run
+      # --async returns once the execution exists, and its name is recorded
+      # before anything waits on it.
+      - name: Start the sync
+        id: start
+        if: inputs.report_only == ''
         env:
           FROM: ${{ inputs.from }}
           CODES: ${{ inputs.codes }}
           DRY_RUN: ${{ inputs.dry_run }}
+          TASK_TIMEOUT: ${{ inputs.task_timeout }}
         run: |
-          set -uo pipefail
+          set -euo pipefail
           args="market-data@sync"
           if [[ "$DRY_RUN" == "true" ]]; then args+="@-dry-run"; fi
           if [[ -n "$FROM" ]]; then args+="@-from@$FROM"; fi
           if [[ -n "$CODES" ]]; then args+="@-codes@$CODES"; fi
-          echo "Executing $JOB with args: ${args//@/ }"
+          overrides=()
+          if [[ -n "$TASK_TIMEOUT" ]]; then overrides+=(--task-timeout "$TASK_TIMEOUT"); fi
+          echo "Executing $JOB with args: ${args//@/ }${TASK_TIMEOUT:+ (task timeout $TASK_TIMEOUT)}"
 
+          rc=0
           gcloud run jobs execute "$JOB" --project "$PROJECT" --region "$REGION" \
-            --args="^@^$args" --wait 2>&1 | tee "$RUNNER_TEMP/execute.log"
-          rc=${PIPESTATUS[0]}
-
-          execution="$(grep -oE 'Execution \[[a-z0-9-]+\]|executions describe [a-z0-9-]+' "$RUNNER_TEMP/execute.log" \
-            | head -n1 | grep -oE '[a-z0-9-]+$|\[[a-z0-9-]+\]' | tr -d '[]' || true)"
-          if [[ -z "$execution" ]]; then
-            execution="$(gcloud run jobs executions list --job "$JOB" --project "$PROJECT" --region "$REGION" \
-              --limit 1 --format='value(metadata.name)' || true)"
+            --args="^@^$args" "${overrides[@]}" --async --format='value(metadata.name)' \
+            > "$RUNNER_TEMP/execution" 2> "$RUNNER_TEMP/execute.log" || rc=$?
+          cat "$RUNNER_TEMP/execute.log" >&2
+          if (( rc != 0 )); then exit "$rc"; fi
+          execution="$(tr -d '[:space:]' < "$RUNNER_TEMP/execution")"
+          if [[ ! "$execution" =~ ^[a-z0-9-]+$ ]]; then
+            execution="$(grep -oE 'Execution \[[a-z0-9-]+\]' "$RUNNER_TEMP/execute.log" | head -n1 | grep -oE '[a-z0-9-]+\]$' | tr -d ']' || true)"
           fi
+          if [[ -z "$execution" ]]; then
+            echo "::error::the execution started, but its name could not be read; dispatch again with report_only=latest"; exit 1
+          fi
+          echo "Execution: $execution"
           echo "execution=$execution" >> "$GITHUB_OUTPUT"
-          exit "$rc"
+
+      - name: Wait for the sync
+        if: inputs.report_only == ''
+        env:
+          EXECUTION: ${{ steps.start.outputs.execution }}
+        run: |
+          set -uo pipefail
+          deadline=$(( $(date +%s) + 340 * 60 ))
+          while :; do
+            completed="$(gcloud run jobs executions describe "$EXECUTION" --project "$PROJECT" --region "$REGION" \
+              --format='value(status.completionTime)' 2>/dev/null || true)"
+            if [[ -n "$completed" ]]; then
+              echo "$EXECUTION finished at $completed"; break
+            fi
+            if (( $(date +%s) >= deadline )); then
+              echo "::warning::$EXECUTION is still running; dispatch again with report_only=$EXECUTION once it finishes"
+              break
+            fi
+            sleep 60
+          done
 
       - name: Report
-        if: always() && steps.run.outputs.execution != ''
+        if: always() && (steps.start.outputs.execution != '' || steps.find.outputs.execution != '')
         env:
-          EXECUTION: ${{ steps.run.outputs.execution }}
+          EXECUTION: ${{ steps.start.outputs.execution || steps.find.outputs.execution }}
         run: |
           set -euo pipefail
+          # How the execution ended, which the report cannot say: a timeout, a
+          # retry, a task that died before it could write anything.
+          status="$RUNNER_TEMP/execution.json"
+          if gcloud run jobs executions describe "$EXECUTION" --project "$PROJECT" --region "$REGION" --format=json > "$status"; then
+            jq -c '{execution: .metadata.name, started: .status.startTime, completed: .status.completionTime,
+              task_timeout_seconds: .spec.template.spec.timeoutSeconds, succeeded: .status.succeededCount,
+              failed: .status.failedCount, cancelled: .status.cancelledCount, retried: .status.retriedCount,
+              conditions: [.status.conditions[]? | select(.message != null) | {type, status, message}]}' "$status"
+            jq -r '
+              "## Execution `\(.metadata.name)`",
+              "",
+              "Started \(.status.startTime // "not yet"), " +
+                (if .status.completionTime then "finished \(.status.completionTime)" else "**still running**" end) +
+                "; task timeout \(.spec.template.spec.timeoutSeconds // "?")s, " +
+                "\(.status.succeededCount // 0) succeeded, \(.status.failedCount // 0) failed, \(.status.retriedCount // 0) retried",
+              "",
+              ([.status.conditions[]? | select(.message != null) | "- \(.type): \(.message)"] | join("\n") | select(. != "")),
+              ""
+            ' "$status" >> "$GITHUB_STEP_SUMMARY"
+            ended="$(jq -r 'if .status.completionTime then "yes" else "no" end' "$status")"
+          else
+            echo "::warning::could not describe $EXECUTION; the report follows without its status"
+            ended="unknown"
+          fi
+
           object="gs://$BUCKET/price-sync/$EXECUTION.json"
           report="$RUNNER_TEMP/report.json"
           if ! gcloud storage cat "$object" > "$report"; then
-            echo "::warning::no report at $object (the run may have stopped before it finished)"
+            case "$ended" in
+              no) echo "::notice::$EXECUTION is still running, and writes its report when it ends; dispatch again with report_only=$EXECUTION" ;;
+              yes) echo "::warning::no report at $object: the execution ended before the sweep could write one" ;;
+              *) echo "::warning::no report at $object, and the execution's status is unavailable" ;;
+            esac
             exit 0
           fi
           # Everything a caller reading only the log needs: the counts on one
           # line, then one line per change and per stored-only session (each
-          # list is capped at 200 by the job; the counts are exact).
-          jq -c 'del(.changes, .stored_only_rows, .stored_only_by_code)' "$report"
+          # list is capped at 200 by the job; the counts are exact), then every
+          # changed session summarised by month and by code (not capped).
+          jq -c 'del(.changes, .stored_only_rows, .stored_only_by_code, .changed_by_code)' "$report"
           jq -c '.changes[]? | {change: .}' "$report"
           jq -c '.stored_only_rows[]? | {stored_only: .}' "$report"
           jq -c 'select(.stored_only_by_code != null) | {stored_only_by_code}' "$report"
+          jq -c '.changed_by_code // {} | to_entries | sort_by(-.value.changed)[] | {changed_code: .key} + .value' "$report"
           jq -r '
             "## Price sync " + (if .dry_run then "PREVIEW (dry run, nothing written)" else "run" end),
             "",
-            "Execution `\(.execution)`: sessions through \(.last_session)" +
+            "Execution `\(.execution)`, attempt \(.attempt // 0): sessions through \(.last_session)" +
               (if .from then ", re-fetched from \(.from)" else "" end) +
               (if .codes then ", codes \(.codes | join(", "))" else "" end) + ", in \(.duration)",
             "",
+            (if .in_progress then "**In progress:** a snapshot published while the run was going; it is still running, or was stopped before its final report.\n" else empty end),
             (if .error then "**Stopped:** \(.error)\n" else empty end),
-            "| Stocks | Synced | Already current | No session yet | No data | Failed | Blocked | Sessions fetched | Written |",
-            "|---|---|---|---|---|---|---|---|---|",
-            "| \(.stocks) | \(.synced) | \(.up_to_date) | \(.no_session) | \(.no_data) | \(.failed) | \(.blocked) | \(.sessions_fetched) | \(.sessions_written) |",
+            "| Stocks | …beyond the company listing | Synced | Already current | No session yet | No data | Failed | Blocked | Sessions fetched | Written |",
+            "|---|---|---|---|---|---|---|---|---|---|",
+            "| \(.stocks) | \(.beyond_listing // 0) | \(.synced) | \(.up_to_date) | \(.no_session) | \(.no_data) | \(.failed) | \(.blocked) | \(.sessions_fetched) | \(.sessions_written) |",
             "",
             (if .from then
               "### Against what was stored\n\n" +
               "| New | Changed | Changed 2x or more | Stored, provider has none | …of them on a weekend |\n|---|---|---|---|---|\n" +
               "| \(.sessions_new // 0) | \(.sessions_changed // 0) | \(.sessions_changed_twofold // 0) | \(.stored_only // 0) | \(.stored_only_weekend // 0) |\n\n" +
+              "Changed sessions by month: " +
+              ([.changed_by_month // {} | to_entries | sort_by(.key)[] | "\(.key) \(.value)"] | join(", ")) + "\n\n" +
+              "<details><summary>Codes with the most changed sessions (\(.changed_by_code // {} | length) codes changed)</summary>\n\n" +
+              "| Code | Changed | 2x or more | First | Last | Ratio range |\n|---|---|---|---|---|---|\n" +
+              ([.changed_by_code // {} | to_entries | sort_by(-.value.changed)[:50][] |
+                "| \(.key) | \(.value.changed) | \(.value.twofold // 0) | \(.value.first) | \(.value.last) | \(.value.min_ratio)–\(.value.max_ratio) |"] | join("\n")) +
+              "\n\n</details>\n\n" +
               "<details><summary>Largest changes (\(.changes // [] | length) shown)</summary>\n\n" +
               "| Code | Date | Stored | Provider | Ratio |\n|---|---|---|---|---|\n" +
               ([.changes[]? | "| \(.code) | \(.date) | \(.stored) | \(.provider) | \(.ratio) |"] | join("\n")) +
               "\n\n</details>\n"
             else empty end),
             (if (.failed_codes // []) | length > 0 then "Failed (retried first by the next run): " + (.failed_codes | join(", ")) + "\n" else empty end),
-            (if (.no_data_codes // []) | length > 0 then "No data: " + (.no_data_codes | join(", ")) else empty end)
+            (if (.no_data_codes // []) | length > 0 then "No data: " + (.no_data_codes | join(", ")) + "\n" else empty end),
+            (if (.providers // {}) | length > 0 then
+              "### Where the time went\n\n" +
+              "| Provider | Requests | Answered | No data | Failed | Seconds in requests |\n|---|---|---|---|---|---|\n" +
+              ([.providers | to_entries[] | "| \(.key) | \(.value.requests) | \(.value.answered) | \(.value.no_data) | \(.value.failed) | \(.value.seconds) |"] | join("\n")) +
+              "\n\nWaited \(.paced_seconds // 0)s on rate limits. Slowest stocks: " +
+              ([.slowest[]? | "\(.code) \(.seconds)s (\(.outcome))"] | join(", ")) + "\n"
+            else empty end)
           ' "$report" >> "$GITHUB_STEP_SUMMARY"
+
+          # Each attempt also keeps its own report, which a retry cannot
+          # overwrite: after a timeout, the first attempt is usually the one
+          # that did the work.
+          attempts="$(gcloud storage ls "gs://$BUCKET/price-sync/$EXECUTION/attempt-*.json" 2>/dev/null || true)"
+          if (( $(grep -c . <<< "$attempts") > 1 )); then
+            {
+              echo "### Every attempt"
+              echo ""
+              echo "| Attempt | Duration | Stocks | Synced | Already current | No data | Failed | Written | Stopped |"
+              echo "|---|---|---|---|---|---|---|---|---|"
+            } >> "$GITHUB_STEP_SUMMARY"
+            while read -r object; do
+              if body="$(gcloud storage cat "$object")"; then
+                jq -c '{attempt, in_progress, duration, error, stocks, synced, up_to_date, no_data, failed,
+                  sessions_written, providers, paced_seconds, slowest}' <<< "$body"
+                jq -r '"| \(.attempt) | \(.duration)\(if .in_progress then " (snapshot)" else "" end) | \(.stocks) | \(.synced) | \(.up_to_date) | \(.no_data) | \(.failed) | \(.sessions_written) | \(.error // "") |"' \
+                  <<< "$body" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            done <<< "$attempts"
+          fi

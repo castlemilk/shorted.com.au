@@ -34,6 +34,7 @@ import (
 // 000073 only the part before newsIndexMarker is applied: the rest indexes and
 // refreshes tables this schema does not have.
 var priceMigrations = []string{
+	"000001_initial_schema.up.sql",
 	"000002_stock_prices.up.sql",
 	"000006_add_sync_status.up.sql",
 	"000008_add_sync_checkpoint.up.sql",
@@ -195,6 +196,11 @@ func TestSweepAgainstPostgres(t *testing.T) {
 	assert.Equal(t, 1, report.NoData, "OLD: nine months with no session is")
 	assert.Equal(t, []string{"OLD"}, report.NoDataCodes)
 	assert.Zero(t, report.Failed)
+	// Where the time went: one request per stock that needed one.
+	assert.Equal(t, ProviderStats{Requests: 4, Answered: 2, NoData: 2, Seconds: report.Providers["yahoo"].Seconds}, report.Providers["yahoo"])
+	require.NotEmpty(t, report.Slowest)
+	assert.Zero(t, report.Attempt)
+	assert.False(t, report.InProgress)
 
 	// BHP gained exactly the week it lacked, through the batched upsert.
 	assert.Equal(t, 5, count(`SELECT count(*) FROM stock_prices WHERE stock_code = 'BHP' AND date BETWEEN '2026-09-21' AND '2026-09-25'`))
@@ -255,6 +261,59 @@ func TestSweepAgainstPostgres(t *testing.T) {
 	_, ok = closeOn("BHP", "2025-11-02")
 	assert.True(t, ok, "stored-only rows are reported, never deleted")
 	assert.Positive(t, report.Written)
+}
+
+// TestScheduledSweepCarriesCodesBeyondTheListing drives the scheduled path, the
+// one no -codes run exercises: the listing, then what it does not carry.
+func TestScheduledSweepCarriesCodesBeyondTheListing(t *testing.T) {
+	pool := newPriceDB(t)
+	ctx := context.Background()
+	exec := func(sql string, args ...any) {
+		t.Helper()
+		_, err := pool.Exec(ctx, sql, args...)
+		require.NoError(t, err)
+	}
+
+	// The ASX company listing: BHP only. ETFs are not companies.
+	listing := filepath.Join(t.TempDir(), "latest.csv")
+	require.NoError(t, os.WriteFile(listing, []byte("ASX code,Company name,GICs industry group\nBHP,BHP GROUP LIMITED,Materials\n"), 0o600))
+	t.Setenv("LOCAL_ASX_CSV", listing)
+
+	exec(`INSERT INTO shorts ("DATE", "PRODUCT", "PRODUCT_CODE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") VALUES
+		('2026-09-21', 'BHP GROUP LIMITED ORDINARY', 'BHP', 0.5),
+		('2026-09-21', 'VANECK GOLD MINERS ETF', 'GDX', 0.1),
+		('2026-09-21', 'BETASHARES NASDAQ 100 ETF', 'NDQ', 0.1),
+		('2026-06-23', 'VANECK MSCI WORLD QUALITY ETF', 'QUAL', 0.1),
+		('2026-06-22', 'GONE LIMITED ORDINARY', 'GONE', 1.2)`)
+	exec(`INSERT INTO stock_prices (stock_code, date, close) VALUES
+		('BHP', '2026-09-24', 43.0),
+		('GDX', '2026-08-20', 117.96),
+		('VAS', '2026-08-21', 112.54),
+		('GONE', '2026-06-01', 0.1),
+		('DEAD', '2026-06-25', 0.2)`)
+
+	provider := &fakeProvider{name: "yahoo", fn: weekdaySessions}
+	// One priority stock, BHP: the top shorted list carries any code it finds,
+	// listed or not, and at 10 it would carry GDX and NDQ here.
+	m := NewSyncManager(pool, nil, &config.Config{PriorityStockCount: 1}, []providers.DataProvider{provider})
+	m.now = func() time.Time { return time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC) }
+
+	report, err := m.RunWith(ctx, RunOptions{DryRun: true})
+	require.NoError(t, err)
+
+	// GDX and NDQ from the last 90 days of reports (QUAL's 23 June is day 90),
+	// VAS from its prices; GONE was last reported and priced too long ago,
+	// DEAD last priced 91 days before the newest session.
+	assert.Equal(t, 5, report.Stocks)
+	assert.Equal(t, 4, report.BeyondListing)
+	var asked []string
+	for _, c := range provider.calls {
+		asked = append(asked, c[0].Format("2006-01-02"))
+	}
+	assert.Equal(t, []string{"2026-08-21", "2026-08-22", "2026-09-25", "2016-09-25", "2016-09-25"}, asked,
+		"GDX, VAS, BHP, then NDQ and QUAL, which hold no prices yet, last")
+	assert.Equal(t, 5, report.Synced)
+	assert.Zero(t, report.Written, "a dry run")
 }
 
 func TestSweepStopsWhenTheUpstreamRefuses(t *testing.T) {

@@ -39,9 +39,13 @@ type RunReport struct {
 	Duration    string   `json:"duration"`
 	Error       string   `json:"error,omitempty"`
 
-	Stocks   int `json:"stocks"`
-	Synced   int `json:"synced"`
-	UpToDate int `json:"up_to_date"`
+	Stocks int `json:"stocks"`
+	// BeyondListing: how many of the stocks neither the ASX company listing nor
+	// the top shorted carry (ETFs and other products), swept because they were
+	// reported short or priced in the last recentDays. Scheduled runs only.
+	BeyondListing int `json:"beyond_listing"`
+	Synced        int `json:"synced"`
+	UpToDate      int `json:"up_to_date"`
 	// NoSession: the provider had no session in a window of at most
 	// maxClosedWeekdays weekdays. A holiday, or a bar not yet published; not a
 	// failure strike.
@@ -67,9 +71,28 @@ type RunReport struct {
 	StoredOnlyByCode  map[string]int `json:"stored_only_by_code,omitempty"`
 	Changes           []PriceChange  `json:"changes,omitempty"`
 	StoredOnlyRows    []StoredRow    `json:"stored_only_rows,omitempty"`
+	// Every changed session, summarised: Changes keeps only the largest
+	// ratios, and most damage is not large. A session filed a day early moves
+	// by a day's move; a consolidation moves every session before it by the
+	// same ratio. By month shows the first (it is seasonal: daylight time); by
+	// code shows the second (a narrow ratio band ending on one date).
+	ChangedByMonth map[string]int         `json:"changed_by_month,omitempty"`
+	ChangedByCode  map[string]CodeChanges `json:"changed_by_code,omitempty"`
 
 	FailedCodes []string `json:"failed_codes,omitempty"`
 	NoDataCodes []string `json:"no_data_codes,omitempty"`
+
+	// Where the time went: each provider's requests, the time spent holding
+	// providers to their rate limits, and the slowest stocks.
+	Providers    map[string]ProviderStats `json:"providers,omitempty"`
+	PacedSeconds float64                  `json:"paced_seconds"`
+	Slowest      []StockTiming            `json:"slowest,omitempty"`
+
+	// Attempt is the Cloud Run task attempt: 0, or the retry after a failure
+	// or a timeout. Each attempt's report is also kept on its own.
+	Attempt int `json:"attempt"`
+	// InProgress marks a report published while the run was still going.
+	InProgress bool `json:"in_progress,omitempty"`
 }
 
 // PriceChange is a stored close that differs from the provider's for the same
@@ -82,6 +105,16 @@ type PriceChange struct {
 	// Ratio is the larger close over the smaller: 2 or more is not a revision
 	// but a different security, a $0 bar or an unadjusted split.
 	Ratio float64 `json:"ratio"`
+}
+
+// CodeChanges summarises one code's changed sessions.
+type CodeChanges struct {
+	Changed  int     `json:"changed"`
+	Twofold  int     `json:"twofold,omitempty"`
+	First    string  `json:"first"`
+	Last     string  `json:"last"`
+	MinRatio float64 `json:"min_ratio"`
+	MaxRatio float64 `json:"max_ratio"`
 }
 
 // StoredRow is a stored session the provider does not have.
@@ -170,6 +203,29 @@ func (r *RunReport) addDiff(d priceDiff) {
 		if c.Ratio >= 2 {
 			r.ChangedTwofold++
 		}
+		if r.ChangedByMonth == nil {
+			r.ChangedByMonth = make(map[string]int)
+			r.ChangedByCode = make(map[string]CodeChanges)
+		}
+		r.ChangedByMonth[c.Date[:7]]++
+		cc, seen := r.ChangedByCode[c.Code]
+		cc.Changed++
+		if c.Ratio >= 2 {
+			cc.Twofold++
+		}
+		if !seen || c.Date < cc.First {
+			cc.First = c.Date
+		}
+		if !seen || c.Date > cc.Last {
+			cc.Last = c.Date
+		}
+		if !seen || c.Ratio < cc.MinRatio {
+			cc.MinRatio = c.Ratio
+		}
+		if !seen || c.Ratio > cc.MaxRatio {
+			cc.MaxRatio = c.Ratio
+		}
+		r.ChangedByCode[c.Code] = cc
 	}
 	r.Changes = append(r.Changes, d.changes...)
 	sort.SliceStable(r.Changes, func(i, j int) bool { return r.Changes[i].Ratio > r.Changes[j].Ratio })
@@ -205,8 +261,8 @@ func (r *RunReport) log() {
 	if r.Error != "" {
 		verb = "stopped"
 	}
-	log.Printf("🎉 Price sync %s in %s: %d stocks; %d synced (%d sessions fetched, %d written), %d already current, %d no session yet, %d no data, %d failed, %d blocked",
-		verb, r.Duration, r.Stocks, r.Synced, r.Fetched, r.Written, r.UpToDate, r.NoSession, r.NoData, r.Failed, r.Blocked)
+	log.Printf("🎉 Price sync %s in %s: %d stocks (%d beyond the company listing); %d synced (%d sessions fetched, %d written), %d already current, %d no session yet, %d no data, %d failed, %d blocked",
+		verb, r.Duration, r.Stocks, r.BeyondListing, r.Synced, r.Fetched, r.Written, r.UpToDate, r.NoSession, r.NoData, r.Failed, r.Blocked)
 	if r.From != "" {
 		log.Printf("🔁 Against stored since %s: %d sessions new, %d changed (%d by 2x or more), %d stored sessions the provider does not have (%d on a weekend)",
 			r.From, r.New, r.Changed, r.ChangedTwofold, r.StoredOnly, r.StoredOnlyWeekend)
@@ -217,13 +273,20 @@ func (r *RunReport) log() {
 			log.Printf("   %s %s: stored %.4f, provider %.4f (x%.2f)", c.Code, c.Date, c.Stored, c.Provider, c.Ratio)
 		}
 	}
+	for name, p := range r.Providers {
+		log.Printf("⏱️ %s: %d requests (%d answered, %d no data, %d failed) in %.0fs", name, p.Requests, p.Answered, p.NoData, p.Failed, p.Seconds)
+	}
+	if len(r.Slowest) > 0 {
+		log.Printf("⏱️ Waited %.0fs on rate limits; slowest stocks: %v", r.PacedSeconds, r.Slowest)
+	}
 	if r.Error != "" {
 		log.Printf("❌ %s", r.Error)
 	}
 }
 
-// publish stores the report at gs://<bucket>/price-sync/<execution>.json. It
-// is best effort: the report describes the run and must not fail it.
+// publish stores the report at gs://<bucket>/price-sync/<execution>.json, and
+// again under the attempt (reportObjects). It is best effort: the report
+// describes the run and must not fail it.
 func (r *RunReport) publish(ctx context.Context, gcs *storage.Client, bucket string) {
 	execution := os.Getenv("CLOUD_RUN_EXECUTION")
 	switch {
@@ -238,21 +301,42 @@ func (r *RunReport) publish(ctx context.Context, gcs *storage.Client, bucket str
 		log.Printf("⚠️ report: %v", err)
 		return
 	}
+	objects := reportObjects(execution, r.Attempt)
+	for _, object := range objects {
+		if err := writeObject(ctx, gcs, bucket, object, body); err != nil {
+			log.Printf("⚠️ report: gs://%s/%s: %v", bucket, object, err)
+			return
+		}
+	}
+	if !r.InProgress {
+		log.Printf("📄 Report: gs://%s/%s", bucket, objects[0])
+	}
+}
+
+// reportObjects names where a report is stored: the execution's object, which
+// the workflow reads and the latest attempt overwrites, and the attempt's own,
+// which a retry cannot. The catch-up's first attempt did most of its work and
+// then timed out, and its retry overwrote the only record of it.
+func reportObjects(execution string, attempt int) []string {
+	return []string{
+		ReportObjectPrefix + execution + ".json",
+		fmt.Sprintf("%s%s/attempt-%d.json", ReportObjectPrefix, execution, attempt),
+	}
+}
+
+func writeObject(ctx context.Context, gcs *storage.Client, bucket, object string, body []byte) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	object := ReportObjectPrefix + execution + ".json"
 	w := gcs.Bucket(bucket).Object(object).NewWriter(ctx)
 	w.ContentType = "application/json"
 	if _, err := w.Write(body); err != nil {
 		_ = w.Close()
-		log.Printf("⚠️ report: write gs://%s/%s: %v", bucket, object, err)
-		return
+		return fmt.Errorf("write: %w", err)
 	}
 	if err := w.Close(); err != nil {
-		log.Printf("⚠️ report: close gs://%s/%s: %v", bucket, object, err)
-		return
+		return fmt.Errorf("close: %w", err)
 	}
-	log.Printf("📄 Report: gs://%s/%s", bucket, object)
+	return nil
 }
 
 // describe is the run's options for the start-of-run log line.

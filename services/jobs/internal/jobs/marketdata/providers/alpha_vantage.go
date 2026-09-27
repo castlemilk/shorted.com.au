@@ -14,6 +14,11 @@ import (
 
 const alphaVantageDefaultURL = "https://www.alphavantage.co/query"
 
+// alphaVantageClient bounds each request. It was http.DefaultClient, which has
+// no timeout: a request the server accepted and never answered would hold the
+// sweep until the task's own timeout, hours later.
+var alphaVantageClient = &http.Client{Timeout: 30 * time.Second}
+
 type AlphaVantageProvider struct {
 	apiKey string
 	// baseURL is the query endpoint. Overridable so the symbol check can be
@@ -75,7 +80,7 @@ func (p *AlphaVantageProvider) FetchHistoricalData(ctx context.Context, symbol s
 		return nil, err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := alphaVantageClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

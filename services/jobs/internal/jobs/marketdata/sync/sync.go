@@ -43,6 +43,8 @@ type SyncManager struct {
 
 	// now is the clock the last closed session is read from.
 	now func() time.Time
+	// stockTimeout overrides the package's stockTimeout (tests).
+	stockTimeout time.Duration
 
 	paceMu   gosync.Mutex
 	nextCall map[string]time.Time // provider name -> earliest start of its next request
@@ -72,7 +74,8 @@ func NewSyncManager(
 // RunOptions widens or narrows one sweep. The zero value is the scheduled run.
 type RunOptions struct {
 	// Codes limits the sweep to these codes, and ignores failure blocks for
-	// them. Empty means every listed stock plus the top shorted.
+	// them. Empty means every listed company, the top shorted, and the codes
+	// beyond the listing that are still trading (beyondListing).
 	Codes []string
 	// From re-fetches every stock from this date, whatever is already stored,
 	// overwriting stored sessions with the provider's, and reports where the two
@@ -102,7 +105,9 @@ func (m *SyncManager) Run(ctx context.Context) error {
 func (m *SyncManager) RunWith(ctx context.Context, opts RunOptions) (*RunReport, error) {
 	started := time.Now()
 	lastClosed := lastClosedSession(m.now())
-	report := &RunReport{DryRun: opts.DryRun, Codes: opts.Codes, LastSession: lastClosed.Format("2006-01-02")}
+	report := &RunReport{DryRun: opts.DryRun, Codes: opts.Codes, LastSession: lastClosed.Format("2006-01-02"), Attempt: taskAttempt()}
+	stats := newRunStats()
+	ctx = withRunStats(ctx, stats)
 	if !opts.From.IsZero() {
 		report.From = opts.From.Format("2006-01-02")
 	}
@@ -123,12 +128,17 @@ func (m *SyncManager) RunWith(ctx context.Context, opts RunOptions) (*RunReport,
 	if err != nil {
 		return nil, fmt.Errorf("read latest stored sessions: %w", err)
 	}
+	if len(opts.Codes) == 0 {
+		beyond := m.beyondListing(ctx, stocks, latest, lastClosed)
+		stocks = append(stocks, beyond...)
+		report.BeyondListing = len(beyond)
+	}
 	stocks = stalestFirst(stocks, latest)
 	report.Stocks = len(stocks)
 
 	priorityCount := stocklist.CountPriority(stocks)
-	log.Printf("🚀 Price sync: %d stocks (%d priority, %d blocked), sessions through %s%s",
-		len(stocks), priorityCount, len(blocked), report.LastSession, opts.describe())
+	log.Printf("🚀 Price sync: %d stocks (%d priority, %d beyond the company listing, %d blocked), sessions through %s%s",
+		len(stocks), priorityCount, report.BeyondListing, len(blocked), report.LastSession, opts.describe())
 
 	runID := uuid.New().String()
 	if !opts.DryRun {
@@ -157,13 +167,17 @@ func (m *SyncManager) RunWith(ctx context.Context, opts RunOptions) (*RunReport,
 			continue
 		}
 
-		res, err := m.syncStock(ctx, stock.Code, latest[stock.Code], lastClosed, opts)
+		began := time.Now()
+		res, err := m.syncStockWithin(ctx, stock.Code, latest[stock.Code], lastClosed, opts)
 		report.Fetched += res.fetched
 		report.Written += res.written
+		outcome := "failed"
 		switch {
 		case err == nil && res.upToDate:
+			outcome = "up_to_date"
 			report.UpToDate++
 		case err == nil:
+			outcome = "synced"
 			consecutive = 0
 			report.Synced++
 			report.addDiff(res.diff)
@@ -175,7 +189,9 @@ func (m *SyncManager) RunWith(ctx context.Context, opts RunOptions) (*RunReport,
 			}
 		case providers.IsNoDataError(err):
 			consecutive = 0
+			outcome = "no_data"
 			if weekdaysIn(res.from, res.to) <= maxClosedWeekdays {
+				outcome = "no_session"
 				report.NoSession++
 				log.Printf("⏭️ [%d/%d] %s: no session from %s to %s yet", i+1, len(stocks), stock.Code,
 					res.from.Format("2006-01-02"), res.to.Format("2006-01-02"))
@@ -188,6 +204,7 @@ func (m *SyncManager) RunWith(ctx context.Context, opts RunOptions) (*RunReport,
 				m.failureTracker.RecordFailure(ctx, stock.Code, err.Error())
 			}
 		case ctx.Err() != nil:
+			outcome = "interrupted"
 			runErr = ctx.Err()
 		default:
 			consecutive++
@@ -199,12 +216,16 @@ func (m *SyncManager) RunWith(ctx context.Context, opts RunOptions) (*RunReport,
 					consecutive, stock.Code, err)
 			}
 		}
+		stats.stock(stock.Code, time.Since(began), outcome)
 		if runErr != nil {
 			break
 		}
 
 		if !opts.DryRun && (i+1)%25 == 0 {
 			m.saveProgress(ctx, runID, i+1, report, priorityProcessed)
+		}
+		if (i+1)%snapshotEvery == 0 {
+			m.snapshot(ctx, report, stats, started)
 		}
 	}
 
@@ -234,10 +255,40 @@ func (m *SyncManager) RunWith(ctx context.Context, opts RunOptions) (*RunReport,
 	if runErr != nil {
 		report.Error = runErr.Error()
 	}
+	report.InProgress = false
+	stats.fill(report)
 	report.log()
 	// A cancelled context cannot carry the upload; the report is still logged.
 	report.publish(context.WithoutCancel(ctx), m.gcs, m.config.GCSBucketName)
 	return report, runErr
+}
+
+// syncStockWithin is syncStock under the stock's deadline, so that nothing one
+// stock waits on (a provider, the database) can hold the rest of the run.
+func (m *SyncManager) syncStockWithin(ctx context.Context, symbol string, latest, lastClosed time.Time, opts RunOptions) (stockResult, error) {
+	limit := m.stockTimeout
+	if limit <= 0 {
+		limit = stockTimeout
+	}
+	stockCtx, cancel := context.WithTimeout(ctx, limit)
+	defer cancel()
+	res, err := m.syncStock(stockCtx, symbol, latest, lastClosed, opts)
+	if err != nil && ctx.Err() == nil && errors.Is(stockCtx.Err(), context.DeadlineExceeded) {
+		err = fmt.Errorf("no answer within %s: %w", limit, err)
+	}
+	return res, err
+}
+
+// snapshot publishes the report so far, marked in progress, so that a run that
+// is killed, or is still going, can be read.
+func (m *SyncManager) snapshot(ctx context.Context, report *RunReport, stats *runStats, started time.Time) {
+	if ctx.Err() != nil {
+		return
+	}
+	report.Duration = time.Since(started).Round(time.Second).String()
+	report.InProgress = true
+	stats.fill(report)
+	report.publish(ctx, m.gcs, m.config.GCSBucketName)
 }
 
 // saveProgress writes the run's counters to its checkpoint row.
@@ -268,8 +319,8 @@ func (m *SyncManager) syncAlgolia(ctx context.Context, runID string, records []a
 	}
 }
 
-// stocksFor is the run's stock list: the given codes, or every listed stock
-// with the top shorted first.
+// stocksFor is the run's stock list: the given codes, or every listed company
+// with the top shorted first. RunWith adds the codes beyond the listing.
 func (m *SyncManager) stocksFor(ctx context.Context, opts RunOptions) ([]stocklist.Stock, error) {
 	if len(opts.Codes) > 0 {
 		out := make([]stocklist.Stock, 0, len(opts.Codes))
@@ -427,7 +478,9 @@ func (m *SyncManager) fetch(ctx context.Context, symbol string, from, to time.Ti
 		if err := m.pace(ctx, p); err != nil {
 			return nil, err
 		}
+		began := time.Now()
 		records, err := p.FetchHistoricalData(ctx, symbol, from, to)
+		runStatsFrom(ctx).request(p.Name(), time.Since(began), len(records), err)
 		switch {
 		case err == nil && len(records) > 0:
 			return records, nil
@@ -468,6 +521,7 @@ func (m *SyncManager) pace(ctx context.Context, p providers.DataProvider) error 
 	if wait <= 0 {
 		return nil
 	}
+	runStatsFrom(ctx).wait(wait)
 	t := time.NewTimer(wait)
 	defer t.Stop()
 	select {
