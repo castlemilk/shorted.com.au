@@ -52,6 +52,15 @@ describe("date + reading-time formatting", () => {
     expect(formatBlogDate("2023-10-07T00:00:00.000Z")).toBe("7 Oct 2023");
   });
 
+  it("shows a timestamp on the Australian calendar, not the UTC one", () => {
+    expect(formatBlogDate("2026-10-01T09:00:00+10:00")).toBe("1 Oct 2026");
+    expect(formatBlogDateLong("2026-10-01T09:00:00+10:00")).toBe(
+      "1 October 2026",
+    );
+    // Midnight UTC on the 7th is late morning on the 7th in Sydney.
+    expect(formatBlogDate("2023-10-07T00:00:00.000Z")).toBe("7 Oct 2023");
+  });
+
   it("returns the raw string for an unparseable date", () => {
     expect(formatBlogDate("not a date")).toBe("not a date");
   });

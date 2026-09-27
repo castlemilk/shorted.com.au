@@ -18,6 +18,7 @@ import { SocialShare } from "~/@/components/seo/social-share";
 import { RelatedPosts } from "~/@/components/seo/related-posts";
 import { blogCategoryPath } from "~/@/lib/blog/categories";
 import { blogPostPath, toBlogCard } from "~/@/lib/blog/cards";
+import { stripLeadingHeading } from "~/@/lib/blog/body";
 // Prism theme for fenced code blocks — only blog posts pay for it.
 import "prismjs/themes/prism-tomorrow.css";
 
@@ -101,7 +102,9 @@ export default async function Post({ params }: Params) {
 
           <div className="custom-mdx-content mx-auto mt-10 max-w-2xl">
             <MDXRemote
-              source={post.content}
+              // The masthead already renders the title; the body's own
+              // `# Title` line would repeat it as an oversized h2.
+              source={stripLeadingHeading(post.content)}
               components={blogMdxComponents}
               options={{
                 parseFrontmatter: false,

@@ -89,7 +89,11 @@ export function BlogPostHeader({
       </div>
 
       {card.coverImage ? (
-        <figure className="relative mt-8 aspect-[3/2] overflow-hidden rounded-lg border border-border bg-muted md:aspect-[2/1]">
+        /* Contained, not cropped, on the same dark panel as the featured
+           card: covers come as 3:2 illustrations, 1.9:1 OG cards with the
+           title in the pixels, and one portrait screenshot, and a fixed
+           box with object-cover cut into two of the three. */
+        <figure className="relative mt-8 aspect-video overflow-hidden rounded-lg border border-border bg-gradient-to-br from-orange-950/60 via-stone-950 to-stone-950">
           <Image
             src={card.coverImage}
             // Content, not decoration: this file is also the og:image and
@@ -99,7 +103,7 @@ export function BlogPostHeader({
             // The article's LCP element.
             priority
             sizes="(max-width: 768px) 100vw, 768px"
-            className="object-cover"
+            className="object-contain"
           />
         </figure>
       ) : null}

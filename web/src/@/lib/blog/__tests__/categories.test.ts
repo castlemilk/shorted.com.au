@@ -74,6 +74,27 @@ describe("blog category registry", () => {
     expect(
       resolveCategory({ slug: "asx-sectors-most-shorted-2027" }).slug,
     ).toBe("guides");
+    // Tokens match whole slug segments, not substrings.
+    expect(
+      resolveCategory({ slug: "current-short-interest-on-cba" }).slug,
+    ).toBe("guides");
+    expect(resolveCategory({ slug: "a-thousand-shorts-later" }).slug).toBe(
+      "guides",
+    );
+    expect(resolveCategory({ slug: "parent-company-shorts" }).slug).toBe(
+      "guides",
+    );
+    expect(
+      resolveCategory({ slug: "most-shorted-asx-stocks-october-2026-update" })
+        .slug,
+    ).toBe("analysis");
+    expect(resolveCategory({ slug: "melbourne-rent-tracker" }).slug).toBe(
+      "housing",
+    );
+    // A declared value survives stray whitespace and capitals.
+    expect(resolveCategory({ slug: "x", category: " Housing " }).slug).toBe(
+      "housing",
+    );
     expect(
       resolveCategory({ slug: "most-shorted-asx-stocks-august" }).slug,
     ).toBe("analysis");

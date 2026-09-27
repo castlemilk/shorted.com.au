@@ -79,24 +79,27 @@ export function blogCategoryPath(slug: BlogCategorySlug): string {
  * Ordered most-specific first; anything unmatched is a guide, which is
  * what most of the back catalogue is.
  */
+// Tokens are anchored on slug boundaries (`(^|-)token(-|$)`): a bare
+// substring match filed "current-short-interest" under housing (`rent`)
+// and "a-thousand-shorts" too (`hous`).
 const HEURISTICS: ReadonlyArray<{ test: RegExp; slug: BlogCategorySlug }> = [
   {
-    test: /hous|suburb|listing|asking-price|price-drop|property|rent/i,
+    test: /(^|-)(hous(e|es|ing)?|suburbs?|listings?|asking-prices?|price-drops?|property|rent(al|als|s)?)(-|$)/i,
     slug: "housing",
   },
   {
-    test: /^shorted-|platform|mcp|release|hello-world|introducing|update/i,
+    test: /^shorted-|(^|-)(platform|mcp|releases?|hello-world|introducing|changelog)(-|$)/i,
     slug: "product",
   },
   {
     // Explainers: "how to", "explained", "what is", comparisons, the
     // sector primer. Checked before analysis so a guide about the most
     // shorted sectors is not filed as a data story.
-    test: /how-to|guide|explained|what-|cost-|days-to-cover|-vs-|sectors/i,
+    test: /(^|-)(how-to|guides?|explained|what-(is|are)|cost-to|days-to-cover|vs|sectors?)(-|$)/i,
     slug: "guides",
   },
   {
-    test: /most-shorted|candidates|hormuz|oil|iran|rotation|deep-dive/i,
+    test: /(^|-)(most-shorted|candidates|hormuz|oil|iran|rotation|deep-dive)(-|$)/i,
     slug: "analysis",
   },
 ];
@@ -109,7 +112,9 @@ export function resolveCategory(post: {
   slug: string;
   category?: string;
 }): BlogCategory {
-  const declared = post.category ? BY_SLUG.get(post.category) : undefined;
+  const declared = post.category
+    ? BY_SLUG.get(post.category.trim().toLowerCase())
+    : undefined;
   if (declared) return declared;
   const guess =
     HEURISTICS.find((h) => h.test.test(post.slug))?.slug ?? "guides";

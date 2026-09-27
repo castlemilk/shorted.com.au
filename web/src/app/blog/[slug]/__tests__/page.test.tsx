@@ -90,7 +90,11 @@ describe("blog article page", () => {
     ).toBeInTheDocument();
     // The eyebrow is a <p>; the rail's card labels are spans.
     expect(screen.getByText("Guides", { selector: "p" })).toBeInTheDocument();
-    expect(screen.getByTestId("mdx")).toHaveTextContent(BODY_SENTINEL);
+    // The body's leading `# Title` is stripped: the masthead is the h1.
+    const mdx = screen.getByTestId("mdx");
+    expect(mdx).toHaveTextContent(BODY_SENTINEL);
+    expect(mdx.textContent!.trimStart().startsWith("#")).toBe(false);
+    expect(mdx.textContent!.trimStart().startsWith(BODY_SENTINEL)).toBe(true);
     expect(screen.getByRole("link", { name: /Ben Ebsworth/ })).toHaveAttribute(
       "href",
       "/authors/ben-ebsworth",

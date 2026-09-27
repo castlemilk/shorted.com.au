@@ -45,27 +45,48 @@ export function blogPostPath(slug: string): string {
   return `/blog/${slug}`;
 }
 
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * A frontmatter date is either a calendar day ("2026-09-24"), which must
+ * render as that day whatever the server's clock says, or a timestamp,
+ * which names an instant and is shown on the calendar Australian readers
+ * live by (so "2026-10-01T09:00:00+10:00" is 1 Oct, not 30 Sep).
+ */
+function displayDate(iso: string): { date: Date; timeZone: string } | null {
+  const day = DATE_ONLY.exec(iso);
+  if (day) {
+    return {
+      date: new Date(Date.UTC(+day[1]!, +day[2]! - 1, +day[3]!)),
+      timeZone: "UTC",
+    };
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return { date, timeZone: "Australia/Sydney" };
+}
+
 /** "24 Sep 2026" in en-AU; an unparseable date renders as the raw string. */
 export function formatBlogDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-AU", {
+  const d = displayDate(iso);
+  if (!d) return iso;
+  return d.date.toLocaleDateString("en-AU", {
     day: "numeric",
     month: "short",
     year: "numeric",
-    timeZone: "UTC",
+    timeZone: d.timeZone,
   });
 }
 
 /** Long form for the article header: "24 September 2026". */
 export function formatBlogDateLong(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-AU", {
+  const d = displayDate(iso);
+  if (!d) return iso;
+  return d.date.toLocaleDateString("en-AU", {
     day: "numeric",
     month: "long",
     year: "numeric",
-    timeZone: "UTC",
+    timeZone: d.timeZone,
   });
 }
 
