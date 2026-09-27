@@ -119,8 +119,14 @@ jest.mock("~/lib/openapi/parser", () => ({
 
 jest.mock("~/@/lib/api", () => ({
   getAllPosts: () => [
-    { slug: "post-one", date: "2026-05-01T00:00:00.000Z" },
-    { slug: "post-two", date: "2026-06-01T00:00:00.000Z" },
+    { slug: "post-one", date: "2026-05-01T00:00:00.000Z", category: "guides" },
+    {
+      slug: "post-two",
+      date: "2026-06-01T00:00:00.000Z",
+      updated: "2026-07-15T00:00:00.000Z",
+      category: "guides",
+    },
+    { slug: "post-three", date: "2026-04-01T00:00:00.000Z", category: "housing" },
   ],
 }));
 
@@ -229,6 +235,21 @@ describe("sitemap children", () => {
 
   // The theme URLs come from the registry, so a new theme reaches the sitemap
   // without anyone remembering to hand-edit a list.
+  it("dates the blog hub and each category hub from their newest post, honouring revisions", async () => {
+    const core = await buildCoreSitemap();
+    const lastmod = (path: string) =>
+      core.find((e) => e.url === `https://shorted.com.au${path}`)?.lastModified;
+
+    // A revision moves the post, its shelf and the hub forward together.
+    expect(lastmod("/blog/post-two")).toBe("2026-07-15T00:00:00.000Z");
+    expect(lastmod("/blog/category/guides")).toBe("2026-07-15T00:00:00.000Z");
+    expect(lastmod("/blog")).toBe("2026-07-15T00:00:00.000Z");
+    expect(lastmod("/blog/category/housing")).toBe("2026-04-01T00:00:00.000Z");
+    // Empty shelves are not advertised.
+    expect(core.some((e) => e.url.endsWith("/blog/category/product"))).toBe(false);
+    expect(core.some((e) => e.url.endsWith("/blog/category/analysis"))).toBe(false);
+  });
+
   it("lists the themes hub and every registry theme, dated like the other ASIC pages", async () => {
     const core = await buildCoreSitemap();
     const hub = core.find((e) => e.url === "https://shorted.com.au/themes");

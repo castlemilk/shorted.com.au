@@ -1,22 +1,24 @@
-import { notFound } from "next/navigation";
-import { getPostBySlug } from "~/@/lib/api";
-import Container from "~/@/components/ui/container";
-import { PostHeader } from "~/@/components/ui/post-header";
 import { type Metadata } from "next";
+import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+
+import { getPostBySlug } from "~/@/lib/api";
 import { siteConfig } from "~/@/config/site";
+import { AUTHORS } from "~/@/data/authors";
 import { blogMdxComponents } from "~/@/components/blog/mdx-components";
+import { BlogPostHeader } from "~/@/components/blog/blog-post-header";
 import { ArticleSchema } from "~/@/components/seo/article-schema";
-import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
+import {
+  Breadcrumbs,
+  BreadcrumbStructuredData,
+} from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { SocialShare } from "~/@/components/seo/social-share";
 import { RelatedPosts } from "~/@/components/seo/related-posts";
-import {
-  calculateReadingTime,
-  formatReadingTime,
-} from "~/@/utils/reading-time";
-// Lazy load Prism CSS only for blog posts
+import { blogCategoryPath } from "~/@/lib/blog/categories";
+import { blogPostPath, toBlogCard } from "~/@/lib/blog/cards";
+// Prism theme for fenced code blocks — only blog posts pay for it.
 import "prismjs/themes/prism-tomorrow.css";
 
 export const revalidate = 3600; // Revalidate hourly — blog posts change infrequently
@@ -27,6 +29,9 @@ interface Params {
   };
 }
 
+const authorSlugFor = (name?: string): string | undefined =>
+  AUTHORS.find((a) => a.name === name)?.slug;
+
 export default async function Post({ params }: Params) {
   const post = getPostBySlug(params.slug);
 
@@ -34,85 +39,70 @@ export default async function Post({ params }: Params) {
     return notFound();
   }
 
-  const readingTime = calculateReadingTime(String(post.content));
-  const postUrl = `${siteConfig.url}/blog/${params.slug}`;
+  const card = toBlogCard(post);
+  const postUrl = `${siteConfig.url}${blogPostPath(params.slug)}`;
+  const description =
+    post.excerpt ||
+    `Read ${post.title} on Shorted - insights into ASX short positions and market analysis.`;
+  const authorName = post.author?.name || siteConfig.author;
+  const authorSlug = authorSlugFor(post.author?.name);
+  const keywords = [
+    ...(post.tags ?? []),
+    card.category.label,
+    "ASX short selling",
+    "market analysis",
+  ];
 
-  const components = blogMdxComponents;
+  const breadcrumbItems = [
+    { label: "Blog", href: "/blog" },
+    { label: card.category.label, href: blogCategoryPath(card.category.slug) },
+    { label: post.title, href: blogPostPath(params.slug) },
+  ];
 
+  // Plain container rather than DashboardLayout: its sidebar mounts client
+  // side for signed-in readers and would reflow the article after first
+  // paint. Long-form reading has no dashboard nav to offer.
   return (
-    <main>
-      <BreadcrumbStructuredData
-        items={[
-          { label: "Blog", href: "/blog" },
-          { label: post.title, href: `/blog/${params.slug}` },
-        ]}
-      />
+    <main className="container py-6">
+      <BreadcrumbStructuredData items={breadcrumbItems} />
       <ArticleSchema
+        type="BlogPosting"
         title={post.title}
-        description={
-          post.excerpt ||
-          `Read ${post.title} on Shorted - insights into ASX short positions and market analysis.`
-        }
+        description={description}
         datePublished={post.date}
-        authorName={post.author?.name || siteConfig.author}
+        dateModified={post.updated}
+        authorName={authorName}
+        authorSlug={authorSlug}
         authorImage={post.author?.picture}
         image={post.ogImage?.url || siteConfig.ogImage}
         url={postUrl}
-        keywords={[
-          ...siteConfig.keywords,
-          "blog",
-          "market insights",
-          "investment analysis",
-        ]}
+        articleSection={card.category.label}
+        keywords={keywords}
       />
       <LLMMeta
         title={post.title}
-        description={
-          post.excerpt ||
-          `${post.title} - Expert analysis on ASX short positions, market trends, and ASIC regulations.`
-        }
-        keywords={[
-          "blog",
-          "market insights",
-          "investment analysis",
-          "ASX short selling",
-          "market analysis",
-        ]}
+        description={description}
+        keywords={keywords}
         dataSource="Shorted Blog"
-        dataFrequency="weekly"
-        lastUpdated={post.date}
+        dataFrequency="irregular"
+        datePublished={post.date}
+        lastUpdated={post.updated ?? post.date}
       />
 
-      <Container>
-        <article className="mb-32">
-          <PostHeader
-            title={post.title}
-            coverImage={post.coverImage}
-            date={post.date}
-            author={post.author}
+      <div className="mx-auto max-w-4xl">
+        <Breadcrumbs items={breadcrumbItems} className="mb-6" />
+
+        <article className="mb-16">
+          <BlogPostHeader
+            card={card}
+            updated={post.updated}
+            authorHref={authorSlug ? `/authors/${authorSlug}` : undefined}
           />
 
-          {/* Reading time indicator */}
-          <div className="max-w-2xl mx-auto mb-8">
-            <div className="flex items-center gap-4 text-sm text-muted-foreground border-b border-border pb-4">
-              <time dateTime={post.date}>
-                {new Date(post.date).toLocaleDateString("en-AU", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </time>
-              <span>•</span>
-              <span>{formatReadingTime(readingTime)}</span>
-              <span>•</span>
-              <span>By {post.author?.name || siteConfig.author}</span>
-            </div>
-          </div>
-
-          <div className="max-w-2xl mx-auto custom-mdx-content">
+          <div className="custom-mdx-content mx-auto mt-10 max-w-2xl">
             <MDXRemote
               source={post.content}
-              components={components}
+              components={blogMdxComponents}
               options={{
                 parseFrontmatter: false,
                 mdxOptions: {
@@ -123,21 +113,17 @@ export default async function Post({ params }: Params) {
             />
           </div>
 
-          {/* Social sharing */}
-          <div className="max-w-2xl mx-auto mt-12">
+          <div className="mx-auto mt-12 max-w-2xl">
             <SocialShare
               url={postUrl}
               title={post.title}
               description={post.excerpt || ""}
             />
           </div>
-
-          {/* Related posts */}
-          <div className="max-w-4xl mx-auto">
-            <RelatedPosts currentSlug={params.slug} />
-          </div>
         </article>
-      </Container>
+
+        <RelatedPosts currentSlug={params.slug} />
+      </div>
     </main>
   );
 }
@@ -149,29 +135,34 @@ export function generateMetadata({ params }: Params): Metadata {
     return notFound();
   }
 
+  const card = toBlogCard(post);
   const title = post.title;
   const description =
     post.excerpt ||
     `${post.title} - Expert analysis on ASX short positions, market trends, and ASIC regulations. Learn about Australian stock market short selling with data-driven insights.`;
+  const authorName = post.author?.name || siteConfig.author;
+  const url = `${siteConfig.url}${blogPostPath(params.slug)}`;
 
   return {
     title,
     description,
     keywords: [
+      ...(post.tags ?? []),
+      card.category.label,
       ...siteConfig.keywords,
       "blog",
-      "market insights",
-      "investment analysis",
-      "stock market news",
     ],
-    authors: [{ name: post.author?.name || siteConfig.author }],
+    authors: [{ name: authorName }],
     openGraph: {
       type: "article",
       title,
       description,
-      url: `${siteConfig.url}/blog/${params.slug}`,
+      url,
       publishedTime: post.date,
-      authors: [post.author?.name || siteConfig.author],
+      modifiedTime: post.updated,
+      authors: [authorName],
+      section: card.category.label,
+      tags: post.tags,
       images: [
         {
           url: post.ogImage?.url || siteConfig.ogImage,
@@ -190,11 +181,11 @@ export function generateMetadata({ params }: Params): Metadata {
       images: [post.ogImage?.url || siteConfig.ogImage],
     },
     alternates: {
-      canonical: `${siteConfig.url}/blog/${params.slug}`,
+      canonical: url,
       languages: {
-        "en-AU": `${siteConfig.url}/blog/${params.slug}`,
-        "en": `${siteConfig.url}/blog/${params.slug}`,
-        "x-default": `${siteConfig.url}/blog/${params.slug}`,
+        "en-AU": url,
+        en: url,
+        "x-default": url,
       },
     },
     robots: {

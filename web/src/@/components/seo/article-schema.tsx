@@ -1,6 +1,8 @@
 import { siteConfig } from "~/@/config/site";
 
 interface ArticleSchemaProps {
+  /** Schema.org type. BlogPosting for `/blog`, NewsArticle for the newsroom. */
+  type?: "Article" | "BlogPosting" | "NewsArticle";
   title: string;
   description: string;
   datePublished: string;
@@ -12,6 +14,8 @@ interface ArticleSchemaProps {
   image?: string;
   url: string;
   keywords?: string[];
+  /** Section / category label; defaults to "Finance". */
+  articleSection?: string;
 }
 
 // Google's Article rich-result requirements expect fully-qualified image URLs;
@@ -20,6 +24,7 @@ const absoluteUrl = (u?: string): string | undefined =>
   u && u.startsWith("/") ? `https://shorted.com.au${u}` : u;
 
 export function ArticleSchema({
+  type = "Article",
   title,
   description,
   datePublished,
@@ -30,10 +35,11 @@ export function ArticleSchema({
   image,
   url,
   keywords = [],
+  articleSection = "Finance",
 }: ArticleSchemaProps) {
   const schema = {
     "@context": "https://schema.org",
-    "@type": "Article",
+    "@type": type,
     headline: title,
     description: description,
     image: image ? [absoluteUrl(image)] : [],
@@ -62,7 +68,7 @@ export function ArticleSchema({
       "@id": url,
     },
     keywords: keywords.join(", "),
-    articleSection: "Finance",
+    articleSection,
     inLanguage: "en-AU",
     isAccessibleForFree: true,
     speakable: {
