@@ -22,12 +22,15 @@ import (
 //
 // Two things shape the projections here.
 //
-// ZERO IS NOT A READING. The strategy handler dereferences a NULL price
-// feature (pivot, base depth, volume ratio, relative strength) to 0, and a
-// stock with no ASIC position carries short_pct 0. Emitting those zeros is the
-// screener's old defect again — a model reads "pivot 0" as a price — so every
-// such field is a pointer that is absent when the source said nothing. Growth
-// fields have real has_* flags and use them.
+// ZERO IS NOT A READING. Emitting a 0 for a figure the source never measured
+// is the screener's old defect again (a model reads "pivot 0" as a price), so
+// every numeric field is a pointer that is absent when the source said
+// nothing. Where the proto carries a has_* flag the flag decides, so a
+// measured zero survives: growth, close, 3-month relative strength (exactly in
+// line with the index) and short percent (an ASIC row reporting no position).
+// The base fields (pivot, base depth, volume ratio) have no flag: the handler
+// dereferences a NULL feature to 0 and none of them is legitimately 0, so a
+// zero there still reads as unknown.
 //
 // THE PER-RULE EVIDENCE IS WHAT BLOWS THE BUDGET. A pick carries 6-7 rule
 // results, each with an evidence sentence of up to ~200 characters. At the
@@ -389,15 +392,15 @@ func projectPick(p *shortsv1alpha1.StrategyPick) StrategyPickRow {
 		Industry:       p.GetIndustry(),
 		Status:         p.GetStatus(),
 		Score:          finite(p.GetScore()),
-		Close:          knownFloat(p.GetClose()),
+		Close:          optionalFloat(p.GetClose(), p.GetHasClose()),
 		Pivot:          knownFloat(p.GetPivot()),
 		BaseDepthPct:   knownRounded(p.GetBaseDepthPct()),
 		BaseLengthDays: int(p.GetBaseLengthDays()),
 		VolumeRatio50D: knownRounded(p.GetVolumeRatio_50D()),
 		RevenueYoYPct:  roundedOptional(p.GetRevenueYoyPct(), p.GetHasRevenueYoy()),
 		EPSYoYPct:      roundedOptional(p.GetEpsYoyPct(), p.GetHasEpsYoy()),
-		RS3MPct:        knownRounded(p.GetRs_3MPct()),
-		ShortPct:       knownRounded(p.GetShortPct()),
+		RS3MPct:        roundedOptional(p.GetRs_3MPct(), p.GetHasRs_3MPct()),
+		ShortPct:       roundedOptional(p.GetShortPct(), p.GetHasShortPct()),
 	}
 	if row.BaseLengthDays < 0 {
 		row.BaseLengthDays = 0

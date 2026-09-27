@@ -93,7 +93,7 @@ message StrategyPick {
   repeated RuleResult rules = 7;
 
   // Headline numbers for the table.
-  double close = 8;
+  double close = 8;              // Meaningful only when has_close.
   string as_of = 9;              // YYYY-MM-DD of the last price.
   double pct_off_52w_high = 10;
   double volume_ratio_50d = 11;
@@ -104,10 +104,24 @@ message StrategyPick {
   bool has_revenue_yoy = 16;
   double eps_yoy_pct = 17;
   bool has_eps_yoy = 18;
-  double rs_3m_pct = 19;
-  double short_pct = 20;         // 0 when the stock has no reported short position.
-  double market_cap = 21;        // 0 when unknown.
+  double rs_3m_pct = 19;         // Meaningful only when has_rs_3m_pct.
+  double short_pct = 20;         // Meaningful only when has_short_pct.
+  double market_cap = 21;        // Meaningful only when has_market_cap.
   string logo_url = 22;
+
+  // Presence flags for the headline numbers above. proto3 doubles cannot tell
+  // 0 from missing, and "0 means unknown" is the screener defect this feature
+  // must not repeat: reading short_pct 0 as "no short interest" is wrong for a
+  // stock we simply have no ASIC row for.
+
+  // True when rs_3m_pct is set (enough stock and XJO history for the 3m window).
+  bool has_rs_3m_pct = 23;
+  // True when short_pct is set (the stock has a reported ASIC short position).
+  bool has_short_pct = 24;
+  // True when market_cap is set.
+  bool has_market_cap = 25;
+  // True when close is set (the stock has a valid last price).
+  bool has_close = 26;
 }
 
 // Request for GetStrategyPicks.

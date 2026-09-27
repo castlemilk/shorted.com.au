@@ -34,6 +34,7 @@ import {
 } from "~/@/components/company/enriched-company-section";
 import { CompanyTaxCard } from "~/@/components/company/company-tax-card";
 import { FinancialDigest } from "~/@/components/company/financial-digest";
+import { FundamentalsBlock } from "~/@/components/stocks/fundamentals-block";
 import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
 import { CommunityTab } from "~/@/components/company/community/community-tab";
 import { StockEvidencePanelClient } from "~/@/components/company/stock-evidence-panel-client";
@@ -76,6 +77,7 @@ import {
   getStockFinancialHighlights,
   type StockFinancialHighlight,
 } from "~/app/actions/reports/getReportData";
+import { getStockFundamentals } from "~/app/actions/getStockFundamentals";
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
@@ -255,6 +257,11 @@ const Page = async ({ params }: PageProps) => {
   ]).catch(
     (): Record<string, StockFinancialHighlight[]> => ({}),
   );
+  // Reported annual fundamentals (Financials tab) — cached 24h, degrades to
+  // null (the block then renders nothing), same batch as the highlights.
+  const fundamentalsPromise = getStockFundamentals(stockCode).catch(
+    (): Awaited<ReturnType<typeof getStockFundamentals>> => null,
+  );
   // Latest headlines for the crawlable research section below the tabs —
   // ISR-safe accessor, degrades to an empty list.
   const stockNewsPromise = getStockHeadlines(stockCode, 5);
@@ -295,6 +302,7 @@ const Page = async ({ params }: PageProps) => {
 
   const financialHighlightsMap = await financialHighlightsPromise;
   const financialHighlights = financialHighlightsMap?.[stockCode] ?? [];
+  const fundamentals = await fundamentalsPromise;
   const newsArticles = await stockNewsPromise;
   const latestShortDate = await latestShortDatePromise;
   const stateExposureIndex = await stateExposureIndexPromise;
@@ -752,6 +760,8 @@ const Page = async ({ params }: PageProps) => {
         financialsContent={
           <div className="flex flex-col gap-4 md:gap-6">
             <FinancialDigest highlights={financialHighlights} />
+            {/* Renders nothing for a stock without fundamentals coverage. */}
+            <FundamentalsBlock fundamentals={fundamentals} />
             <Suspense fallback={<CompanyFinancialsPlaceholder />}>
               <CompanyFinancials stockCode={stockCode} />
             </Suspense>

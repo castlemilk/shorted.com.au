@@ -77,6 +77,14 @@ var catalog = map[string]catalogEntry{
 		Category:    "Signals",
 		Note:        "`shorted signals` — brandbrain grounded signals; replaced signals-collector",
 	},
+	"shorted-picks": {
+		DisplayName: "Stock Picker Data",
+		Category:    "Market data",
+		// Two schedulers on one job: refresh (weekdays 13:30 UTC, after the price
+		// sweep) + fundamentals (daily 15:00 UTC, args override). "Run now" sends
+		// no overrides, so it executes the deployed `-mode refresh`.
+		Note: "`shorted picks` — refresh_strategy_views() weekdays + daily fundamentals pull; Run now = refresh",
+	},
 	"shorted-weekly-report": {
 		DisplayName: "Weekly & Monthly Reports",
 		Category:    "Reports",

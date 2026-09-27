@@ -271,6 +271,7 @@ func realisticStrategySource(src *fakeDataSource) {
 			BaseDepthPct: 18.7654, BaseLengthDays: 87, Pivot: 14.5678,
 			RevenueYoyPct: 41.2345, HasRevenueYoy: true, EpsYoyPct: -12.3456, HasEpsYoy: true,
 			Rs_3MPct: -8.7654, ShortPct: 6.5432, MarketCap: 7_123_456_789,
+			HasClose: true, HasRs_3MPct: true, HasShortPct: true, HasMarketCap: true,
 			LogoUrl: "https://storage.googleapis.com/shorted/logos/pls.png",
 		})
 	}

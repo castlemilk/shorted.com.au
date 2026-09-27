@@ -12643,7 +12643,7 @@ components:
           type: number
           title: close
           format: double
-          description: Headline numbers for the table. (proto double)
+          description: Headline numbers for the table. Meaningful only when has_close. (proto double)
         asOf:
           type: string
           title: as_of
@@ -12695,21 +12695,37 @@ components:
           type: number
           title: rs_3m_pct
           format: double
-          description: (proto double)
+          description: Meaningful only when has_rs_3m_pct. (proto double)
         shortPct:
           type: number
           title: short_pct
           format: double
-          description: 0 when the stock has no reported short position. (proto double)
+          description: Meaningful only when has_short_pct. (proto double)
         marketCap:
           type: number
           title: market_cap
           format: double
-          description: 0 when unknown. (proto double)
+          description: Meaningful only when has_market_cap. (proto double)
         logoUrl:
           type: string
           title: logo_url
           description: (proto string)
+        hasRs3mPct:
+          type: boolean
+          title: has_rs_3m_pct
+          description: True when rs_3m_pct is set (enough stock and XJO history for the 3m window). (proto bool)
+        hasShortPct:
+          type: boolean
+          title: has_short_pct
+          description: True when short_pct is set (the stock has a reported ASIC short position). (proto bool)
+        hasMarketCap:
+          type: boolean
+          title: has_market_cap
+          description: True when market_cap is set. (proto bool)
+        hasClose:
+          type: boolean
+          title: has_close
+          description: True when close is set (the stock has a valid last price). (proto bool)
       title: StrategyPick
       additionalProperties: false
       description: One ranked stock for a strategy.

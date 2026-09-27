@@ -32,6 +32,10 @@ function protoPick(overrides: Partial<StrategyPick> = {}): StrategyPick {
     shortPct: 0,
     marketCap: 0,
     logoUrl: "",
+    hasRs3mPct: false,
+    hasShortPct: false,
+    hasMarketCap: false,
+    hasClose: true,
     ...overrides,
   } as unknown as StrategyPick;
 }
@@ -52,22 +56,44 @@ describe("mapPick", () => {
     expect(row.epsYoyPct).toBe(-12.5);
   });
 
-  it("reads 3-month RS availability from the rs rule when the strategy has one", () => {
-    const known = mapPick(
-      protoPick({
-        rs3mPct: 0,
-        rules: [{ ruleId: "rs", status: "fail", detail: "Matched the index", value: 0, hasValue: true }],
-      } as unknown as Partial<StrategyPick>),
-    );
-    expect(known.rs3mPct).toBe(0);
+  it("keeps a measured zero RS and short position when the has flags say they are real", () => {
+    const row = mapPick(protoPick({ rs3mPct: 0, hasRs3mPct: true, shortPct: 0, hasShortPct: true }));
+    expect(row.rs3mPct).toBe(0);
+    expect(row.shortPct).toBe(0);
+  });
 
-    const missing = mapPick(
+  it("lets the has flags, not the value or the rules, decide availability", () => {
+    // A value without its flag is not a reading, whatever it says.
+    const unflagged = mapPick(
       protoPick({
-        rs3mPct: 0,
-        rules: [{ ruleId: "rs", status: "unknown", detail: "Not enough history", value: 0, hasValue: false }],
+        close: 12.5,
+        hasClose: false,
+        rs3mPct: 4.2,
+        shortPct: 6.1,
+        marketCap: 2e9,
+        // The rs rule's own value no longer stands in for the flag.
+        rules: [{ ruleId: "rs", status: "pass", detail: "Led the index", value: 4.2, hasValue: true }],
       } as unknown as Partial<StrategyPick>),
     );
-    expect(missing.rs3mPct).toBeNull();
+    expect(unflagged.close).toBeNull();
+    expect(unflagged.rs3mPct).toBeNull();
+    expect(unflagged.shortPct).toBeNull();
+    expect(unflagged.marketCap).toBeNull();
+
+    // A strategy without an rs rule (crowded-short) still shows a known RS.
+    const flagged = mapPick(
+      protoPick({ rs3mPct: -3.4, hasRs3mPct: true, shortPct: 7.25, hasShortPct: true, marketCap: 2e9, hasMarketCap: true }),
+    );
+    expect(flagged.close).toBe(45.1);
+    expect(flagged.rs3mPct).toBe(-3.4);
+    expect(flagged.shortPct).toBe(7.25);
+    expect(flagged.marketCap).toBe(2e9);
+  });
+
+  it("treats a flagged zero market cap or close as unknown: neither is a real size or price", () => {
+    const row = mapPick(protoPick({ close: 0, hasClose: true, marketCap: 0, hasMarketCap: true }));
+    expect(row.close).toBeNull();
+    expect(row.marketCap).toBeNull();
   });
 
   it("drops base depth with a zero-length base and normalises unknown statuses", () => {

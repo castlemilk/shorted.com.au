@@ -462,6 +462,10 @@ private static final long serialVersionUID = 0L;
   public static final int RS_3M_PCT_FIELD_NUMBER = 19;
   private double rs3MPct_ = 0D;
   /**
+   * <pre>
+   * Meaningful only when has_rs_3m_pct.
+   * </pre>
+   *
    * <code>double rs_3m_pct = 19 [json_name = "rs3mPct"];</code>
    * @return The rs3mPct.
    */
@@ -474,7 +478,7 @@ private static final long serialVersionUID = 0L;
   private double shortPct_ = 0D;
   /**
    * <pre>
-   * 0 when the stock has no reported short position.
+   * Meaningful only when has_short_pct.
    * </pre>
    *
    * <code>double short_pct = 20 [json_name = "shortPct"];</code>
@@ -489,7 +493,7 @@ private static final long serialVersionUID = 0L;
   private double marketCap_ = 0D;
   /**
    * <pre>
-   * 0 when unknown.
+   * Meaningful only when has_market_cap.
    * </pre>
    *
    * <code>double market_cap = 21 [json_name = "marketCap"];</code>
@@ -537,6 +541,66 @@ private static final long serialVersionUID = 0L;
     } else {
       return (com.google.protobuf.ByteString) ref;
     }
+  }
+
+  public static final int HAS_RS_3M_PCT_FIELD_NUMBER = 23;
+  private boolean hasRs3MPct_ = false;
+  /**
+   * <pre>
+   * True when rs_3m_pct is set (enough stock and XJO history for the 3m window).
+   * </pre>
+   *
+   * <code>bool has_rs_3m_pct = 23 [json_name = "hasRs3mPct"];</code>
+   * @return The hasRs3mPct.
+   */
+  @java.lang.Override
+  public boolean getHasRs3MPct() {
+    return hasRs3MPct_;
+  }
+
+  public static final int HAS_SHORT_PCT_FIELD_NUMBER = 24;
+  private boolean hasShortPct_ = false;
+  /**
+   * <pre>
+   * True when short_pct is set (the stock has a reported ASIC short position).
+   * </pre>
+   *
+   * <code>bool has_short_pct = 24 [json_name = "hasShortPct"];</code>
+   * @return The hasShortPct.
+   */
+  @java.lang.Override
+  public boolean getHasShortPct() {
+    return hasShortPct_;
+  }
+
+  public static final int HAS_MARKET_CAP_FIELD_NUMBER = 25;
+  private boolean hasMarketCap_ = false;
+  /**
+   * <pre>
+   * True when market_cap is set.
+   * </pre>
+   *
+   * <code>bool has_market_cap = 25 [json_name = "hasMarketCap"];</code>
+   * @return The hasMarketCap.
+   */
+  @java.lang.Override
+  public boolean getHasMarketCap() {
+    return hasMarketCap_;
+  }
+
+  public static final int HAS_CLOSE_FIELD_NUMBER = 26;
+  private boolean hasClose_ = false;
+  /**
+   * <pre>
+   * True when close is set (the stock has a valid last price).
+   * </pre>
+   *
+   * <code>bool has_close = 26 [json_name = "hasClose"];</code>
+   * @return The hasClose.
+   */
+  @java.lang.Override
+  public boolean getHasClose() {
+    return hasClose_;
   }
 
   private byte memoizedIsInitialized = -1;
@@ -618,6 +682,18 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(logoUrl_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 22, logoUrl_);
+    }
+    if (hasRs3MPct_ != false) {
+      output.writeBool(23, hasRs3MPct_);
+    }
+    if (hasShortPct_ != false) {
+      output.writeBool(24, hasShortPct_);
+    }
+    if (hasMarketCap_ != false) {
+      output.writeBool(25, hasMarketCap_);
+    }
+    if (hasClose_ != false) {
+      output.writeBool(26, hasClose_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -710,6 +786,22 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(logoUrl_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(22, logoUrl_);
     }
+    if (hasRs3MPct_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(23, hasRs3MPct_);
+    }
+    if (hasShortPct_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(24, hasShortPct_);
+    }
+    if (hasMarketCap_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(25, hasMarketCap_);
+    }
+    if (hasClose_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(26, hasClose_);
+    }
     return size;
   }
   @java.lang.Override
@@ -789,6 +881,14 @@ private static final long serialVersionUID = 0L;
             other.getMarketCap())) return false;
     if (!getLogoUrl()
         .equals(other.getLogoUrl())) return false;
+    if (getHasRs3MPct()
+        != other.getHasRs3MPct()) return false;
+    if (getHasShortPct()
+        != other.getHasShortPct()) return false;
+    if (getHasMarketCap()
+        != other.getHasMarketCap()) return false;
+    if (getHasClose()
+        != other.getHasClose()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -859,6 +959,18 @@ private static final long serialVersionUID = 0L;
         java.lang.Double.doubleToLongBits(getMarketCap()));
     hash = (37 * hash) + LOGO_URL_FIELD_NUMBER;
     hash = (53 * hash) + getLogoUrl().hashCode();
+    hash = (37 * hash) + HAS_RS_3M_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasRs3MPct());
+    hash = (37 * hash) + HAS_SHORT_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasShortPct());
+    hash = (37 * hash) + HAS_MARKET_CAP_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasMarketCap());
+    hash = (37 * hash) + HAS_CLOSE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasClose());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1022,6 +1134,10 @@ private static final long serialVersionUID = 0L;
       shortPct_ = 0D;
       marketCap_ = 0D;
       logoUrl_ = "";
+      hasRs3MPct_ = false;
+      hasShortPct_ = false;
+      hasMarketCap_ = false;
+      hasClose_ = false;
       return this;
     }
 
@@ -1130,6 +1246,18 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00200000) != 0)) {
         result.logoUrl_ = logoUrl_;
+      }
+      if (((from_bitField0_ & 0x00400000) != 0)) {
+        result.hasRs3MPct_ = hasRs3MPct_;
+      }
+      if (((from_bitField0_ & 0x00800000) != 0)) {
+        result.hasShortPct_ = hasShortPct_;
+      }
+      if (((from_bitField0_ & 0x01000000) != 0)) {
+        result.hasMarketCap_ = hasMarketCap_;
+      }
+      if (((from_bitField0_ & 0x02000000) != 0)) {
+        result.hasClose_ = hasClose_;
       }
     }
 
@@ -1245,6 +1373,18 @@ private static final long serialVersionUID = 0L;
         logoUrl_ = other.logoUrl_;
         bitField0_ |= 0x00200000;
         onChanged();
+      }
+      if (other.getHasRs3MPct() != false) {
+        setHasRs3MPct(other.getHasRs3MPct());
+      }
+      if (other.getHasShortPct() != false) {
+        setHasShortPct(other.getHasShortPct());
+      }
+      if (other.getHasMarketCap() != false) {
+        setHasMarketCap(other.getHasMarketCap());
+      }
+      if (other.getHasClose() != false) {
+        setHasClose(other.getHasClose());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1390,6 +1530,26 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00200000;
               break;
             } // case 178
+            case 184: {
+              hasRs3MPct_ = input.readBool();
+              bitField0_ |= 0x00400000;
+              break;
+            } // case 184
+            case 192: {
+              hasShortPct_ = input.readBool();
+              bitField0_ |= 0x00800000;
+              break;
+            } // case 192
+            case 200: {
+              hasMarketCap_ = input.readBool();
+              bitField0_ |= 0x01000000;
+              break;
+            } // case 200
+            case 208: {
+              hasClose_ = input.readBool();
+              bitField0_ |= 0x02000000;
+              break;
+            } // case 208
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2481,6 +2641,10 @@ private static final long serialVersionUID = 0L;
 
     private double rs3MPct_ ;
     /**
+     * <pre>
+     * Meaningful only when has_rs_3m_pct.
+     * </pre>
+     *
      * <code>double rs_3m_pct = 19 [json_name = "rs3mPct"];</code>
      * @return The rs3mPct.
      */
@@ -2489,6 +2653,10 @@ private static final long serialVersionUID = 0L;
       return rs3MPct_;
     }
     /**
+     * <pre>
+     * Meaningful only when has_rs_3m_pct.
+     * </pre>
+     *
      * <code>double rs_3m_pct = 19 [json_name = "rs3mPct"];</code>
      * @param value The rs3mPct to set.
      * @return This builder for chaining.
@@ -2501,6 +2669,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * Meaningful only when has_rs_3m_pct.
+     * </pre>
+     *
      * <code>double rs_3m_pct = 19 [json_name = "rs3mPct"];</code>
      * @return This builder for chaining.
      */
@@ -2514,7 +2686,7 @@ private static final long serialVersionUID = 0L;
     private double shortPct_ ;
     /**
      * <pre>
-     * 0 when the stock has no reported short position.
+     * Meaningful only when has_short_pct.
      * </pre>
      *
      * <code>double short_pct = 20 [json_name = "shortPct"];</code>
@@ -2526,7 +2698,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 0 when the stock has no reported short position.
+     * Meaningful only when has_short_pct.
      * </pre>
      *
      * <code>double short_pct = 20 [json_name = "shortPct"];</code>
@@ -2542,7 +2714,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 0 when the stock has no reported short position.
+     * Meaningful only when has_short_pct.
      * </pre>
      *
      * <code>double short_pct = 20 [json_name = "shortPct"];</code>
@@ -2558,7 +2730,7 @@ private static final long serialVersionUID = 0L;
     private double marketCap_ ;
     /**
      * <pre>
-     * 0 when unknown.
+     * Meaningful only when has_market_cap.
      * </pre>
      *
      * <code>double market_cap = 21 [json_name = "marketCap"];</code>
@@ -2570,7 +2742,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 0 when unknown.
+     * Meaningful only when has_market_cap.
      * </pre>
      *
      * <code>double market_cap = 21 [json_name = "marketCap"];</code>
@@ -2586,7 +2758,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * 0 when unknown.
+     * Meaningful only when has_market_cap.
      * </pre>
      *
      * <code>double market_cap = 21 [json_name = "marketCap"];</code>
@@ -2667,6 +2839,182 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       logoUrl_ = value;
       bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasRs3MPct_ ;
+    /**
+     * <pre>
+     * True when rs_3m_pct is set (enough stock and XJO history for the 3m window).
+     * </pre>
+     *
+     * <code>bool has_rs_3m_pct = 23 [json_name = "hasRs3mPct"];</code>
+     * @return The hasRs3mPct.
+     */
+    @java.lang.Override
+    public boolean getHasRs3MPct() {
+      return hasRs3MPct_;
+    }
+    /**
+     * <pre>
+     * True when rs_3m_pct is set (enough stock and XJO history for the 3m window).
+     * </pre>
+     *
+     * <code>bool has_rs_3m_pct = 23 [json_name = "hasRs3mPct"];</code>
+     * @param value The hasRs3mPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasRs3MPct(boolean value) {
+
+      hasRs3MPct_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * True when rs_3m_pct is set (enough stock and XJO history for the 3m window).
+     * </pre>
+     *
+     * <code>bool has_rs_3m_pct = 23 [json_name = "hasRs3mPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasRs3MPct() {
+      bitField0_ = (bitField0_ & ~0x00400000);
+      hasRs3MPct_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasShortPct_ ;
+    /**
+     * <pre>
+     * True when short_pct is set (the stock has a reported ASIC short position).
+     * </pre>
+     *
+     * <code>bool has_short_pct = 24 [json_name = "hasShortPct"];</code>
+     * @return The hasShortPct.
+     */
+    @java.lang.Override
+    public boolean getHasShortPct() {
+      return hasShortPct_;
+    }
+    /**
+     * <pre>
+     * True when short_pct is set (the stock has a reported ASIC short position).
+     * </pre>
+     *
+     * <code>bool has_short_pct = 24 [json_name = "hasShortPct"];</code>
+     * @param value The hasShortPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasShortPct(boolean value) {
+
+      hasShortPct_ = value;
+      bitField0_ |= 0x00800000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * True when short_pct is set (the stock has a reported ASIC short position).
+     * </pre>
+     *
+     * <code>bool has_short_pct = 24 [json_name = "hasShortPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasShortPct() {
+      bitField0_ = (bitField0_ & ~0x00800000);
+      hasShortPct_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasMarketCap_ ;
+    /**
+     * <pre>
+     * True when market_cap is set.
+     * </pre>
+     *
+     * <code>bool has_market_cap = 25 [json_name = "hasMarketCap"];</code>
+     * @return The hasMarketCap.
+     */
+    @java.lang.Override
+    public boolean getHasMarketCap() {
+      return hasMarketCap_;
+    }
+    /**
+     * <pre>
+     * True when market_cap is set.
+     * </pre>
+     *
+     * <code>bool has_market_cap = 25 [json_name = "hasMarketCap"];</code>
+     * @param value The hasMarketCap to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasMarketCap(boolean value) {
+
+      hasMarketCap_ = value;
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * True when market_cap is set.
+     * </pre>
+     *
+     * <code>bool has_market_cap = 25 [json_name = "hasMarketCap"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasMarketCap() {
+      bitField0_ = (bitField0_ & ~0x01000000);
+      hasMarketCap_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasClose_ ;
+    /**
+     * <pre>
+     * True when close is set (the stock has a valid last price).
+     * </pre>
+     *
+     * <code>bool has_close = 26 [json_name = "hasClose"];</code>
+     * @return The hasClose.
+     */
+    @java.lang.Override
+    public boolean getHasClose() {
+      return hasClose_;
+    }
+    /**
+     * <pre>
+     * True when close is set (the stock has a valid last price).
+     * </pre>
+     *
+     * <code>bool has_close = 26 [json_name = "hasClose"];</code>
+     * @param value The hasClose to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasClose(boolean value) {
+
+      hasClose_ = value;
+      bitField0_ |= 0x02000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * True when close is set (the stock has a valid last price).
+     * </pre>
+     *
+     * <code>bool has_close = 26 [json_name = "hasClose"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasClose() {
+      bitField0_ = (bitField0_ & ~0x02000000);
+      hasClose_ = false;
       onChanged();
       return this;
     }

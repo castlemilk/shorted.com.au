@@ -272,6 +272,14 @@ func strategyPickProto(p strategies.Pick) *shortsv1alpha1.StrategyPick {
 		ShortPct:        deref(c.ShortPct),
 		MarketCap:       deref(c.MarketCap),
 		LogoUrl:         c.LogoURL,
+		// Presence flags: a 0 in the doubles above is ambiguous without them.
+		HasRs_3MPct:  c.RS3mPct != nil,
+		HasShortPct:  c.ShortPct != nil,
+		HasMarketCap: c.MarketCap != nil,
+		// Candidate.Close is not nullable: the store leaves it 0 for a NULL or
+		// non-finite close, and mv_price_features only admits close > 0, so a
+		// positive close is exactly "the stock has a valid last price".
+		HasClose: c.Close > 0,
 	}
 	if !c.AsOf.IsZero() {
 		out.AsOf = c.AsOf.Format("2006-01-02")

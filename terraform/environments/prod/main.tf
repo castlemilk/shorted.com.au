@@ -669,8 +669,10 @@ module "shorted_job_economy_freshness" {
 # merges, plan §7). First fundamentals coverage is manual — see
 # services/jobs/README.md "picks".
 #
-# Not in local.admin_runnable_jobs: the jobmonitor catalog does not list it
-# yet, and a grant without a catalog entry is a permission with no caller.
+# In local.admin_runnable_jobs, paired with its jobmonitor catalog entry
+# (services/shorts/internal/jobmonitor/catalog.go): "Run now" executes the
+# deployed args, i.e. `-mode refresh`; the fundamentals pull runs only on its
+# own schedule (its args are a scheduler override Run now never sends).
 module "shorted_job_picks" {
   source = "../../modules/shorted-job"
 
@@ -1097,6 +1099,7 @@ locals {
     (module.shorted_job_economy.job_name)                 = var.region
     (module.shorted_job_weekly_report.job_name)           = var.region
     (module.shorted_job_news.job_name)                    = var.region
+    (module.shorted_job_picks.job_name)                   = var.region
     (module.shorted_job_signals.job_name)                 = var.region
     (module.report_extractor.director_job_name)           = var.region
     (module.report_extractor.reports_job_name)            = var.region

@@ -10276,7 +10276,7 @@
             "type": "integer"
           },
           "close": {
-            "description": "Headline numbers for the table. (proto double)",
+            "description": "Headline numbers for the table. Meaningful only when has_close. (proto double)",
             "format": "double",
             "title": "close",
             "type": "number"
@@ -10292,14 +10292,34 @@
             "title": "eps_yoy_pct",
             "type": "number"
           },
+          "hasClose": {
+            "description": "True when close is set (the stock has a valid last price). (proto bool)",
+            "title": "has_close",
+            "type": "boolean"
+          },
           "hasEpsYoy": {
             "description": "(proto bool)",
             "title": "has_eps_yoy",
             "type": "boolean"
           },
+          "hasMarketCap": {
+            "description": "True when market_cap is set. (proto bool)",
+            "title": "has_market_cap",
+            "type": "boolean"
+          },
           "hasRevenueYoy": {
             "description": "(proto bool)",
             "title": "has_revenue_yoy",
+            "type": "boolean"
+          },
+          "hasRs3mPct": {
+            "description": "True when rs_3m_pct is set (enough stock and XJO history for the 3m window). (proto bool)",
+            "title": "has_rs_3m_pct",
+            "type": "boolean"
+          },
+          "hasShortPct": {
+            "description": "True when short_pct is set (the stock has a reported ASIC short position). (proto bool)",
+            "title": "has_short_pct",
             "type": "boolean"
           },
           "industry": {
@@ -10313,7 +10333,7 @@
             "type": "string"
           },
           "marketCap": {
-            "description": "0 when unknown. (proto double)",
+            "description": "Meaningful only when has_market_cap. (proto double)",
             "format": "double",
             "title": "market_cap",
             "type": "number"
@@ -10343,7 +10363,7 @@
             "type": "number"
           },
           "rs3mPct": {
-            "description": "(proto double)",
+            "description": "Meaningful only when has_rs_3m_pct. (proto double)",
             "format": "double",
             "title": "rs_3m_pct",
             "type": "number"
@@ -10363,7 +10383,7 @@
             "type": "number"
           },
           "shortPct": {
-            "description": "0 when the stock has no reported short position. (proto double)",
+            "description": "Meaningful only when has_short_pct. (proto double)",
             "format": "double",
             "title": "short_pct",
             "type": "number"

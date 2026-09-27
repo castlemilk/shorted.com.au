@@ -6,10 +6,10 @@
 // it; nothing else needs to.
 //
 // This is the ONE place proto3's "0 means missing" is resolved. Fields with a
-// has_* flag honour it; fields without one are nulled where 0 is not a real
-// value (a price, a pivot, a base length, a volume multiple) and, for the
-// 3-month relative strength, the rs rule's own has_value decides when the
-// strategy carries that rule.
+// has_* flag honour it, so a measured zero survives (flat growth, a stock
+// exactly in line with the index, an ASIC row reporting no position); fields
+// without one are nulled where 0 is not a real value (a pivot, a base length,
+// a volume multiple).
 
 import type {
   MarketRegime,
@@ -106,15 +106,8 @@ function mapRuleResult(result: RuleResult): RuleResultRow {
   };
 }
 
-/** Rule ids whose value IS the 3-month relative strength (plan §1). */
-const RS_3M_RULE_IDS = new Set(["rs"]);
-
 export function mapPick(pick: StrategyPick): PickRow {
   const rules = pick.rules ?? [];
-  const rsRule = rules.find((rule) => RS_3M_RULE_IDS.has(rule.ruleId));
-  // Without an rs rule there is no flag to consult, and an exact 0.0-point
-  // lead over the index is far less likely than a missing value.
-  const hasRs3m = rsRule ? rsRule.hasValue : pick.rs3mPct !== 0;
   return {
     rank: pick.rank,
     code: pick.stockCode,
@@ -123,7 +116,7 @@ export function mapPick(pick: StrategyPick): PickRow {
     status: toPickStatus(pick.status),
     score: finiteOrNull(pick.score) ?? 0,
     rules: rules.map(mapRuleResult),
-    close: positiveOrNull(pick.close),
+    close: pick.hasClose ? positiveOrNull(pick.close) : null,
     asOf: pick.asOf,
     pivot: positiveOrNull(pick.pivot),
     // A base needs at least one session, so length 0 means no base was read,
@@ -133,10 +126,10 @@ export function mapPick(pick: StrategyPick): PickRow {
     volumeRatio: positiveOrNull(pick.volumeRatio50d),
     revenueYoyPct: pick.hasRevenueYoy ? finiteOrNull(pick.revenueYoyPct) : null,
     epsYoyPct: pick.hasEpsYoy ? finiteOrNull(pick.epsYoyPct) : null,
-    rs3mPct: hasRs3m ? finiteOrNull(pick.rs3mPct) : null,
-    // 0 means no reported ASIC short position (proto contract).
-    shortPct: positiveOrNull(pick.shortPct),
-    marketCap: positiveOrNull(pick.marketCap),
+    rs3mPct: pick.hasRs3mPct ? finiteOrNull(pick.rs3mPct) : null,
+    shortPct: pick.hasShortPct ? finiteOrNull(pick.shortPct) : null,
+    // A reported market cap of 0 is not a company size; treat it as unknown.
+    marketCap: pick.hasMarketCap ? positiveOrNull(pick.marketCap) : null,
     logoUrl: pick.logoUrl,
   };
 }

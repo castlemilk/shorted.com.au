@@ -199,6 +199,10 @@ public interface StrategyPickOrBuilder extends
   boolean getHasEpsYoy();
 
   /**
+   * <pre>
+   * Meaningful only when has_rs_3m_pct.
+   * </pre>
+   *
    * <code>double rs_3m_pct = 19 [json_name = "rs3mPct"];</code>
    * @return The rs3mPct.
    */
@@ -206,7 +210,7 @@ public interface StrategyPickOrBuilder extends
 
   /**
    * <pre>
-   * 0 when the stock has no reported short position.
+   * Meaningful only when has_short_pct.
    * </pre>
    *
    * <code>double short_pct = 20 [json_name = "shortPct"];</code>
@@ -216,7 +220,7 @@ public interface StrategyPickOrBuilder extends
 
   /**
    * <pre>
-   * 0 when unknown.
+   * Meaningful only when has_market_cap.
    * </pre>
    *
    * <code>double market_cap = 21 [json_name = "marketCap"];</code>
@@ -235,4 +239,44 @@ public interface StrategyPickOrBuilder extends
    */
   com.google.protobuf.ByteString
       getLogoUrlBytes();
+
+  /**
+   * <pre>
+   * True when rs_3m_pct is set (enough stock and XJO history for the 3m window).
+   * </pre>
+   *
+   * <code>bool has_rs_3m_pct = 23 [json_name = "hasRs3mPct"];</code>
+   * @return The hasRs3mPct.
+   */
+  boolean getHasRs3MPct();
+
+  /**
+   * <pre>
+   * True when short_pct is set (the stock has a reported ASIC short position).
+   * </pre>
+   *
+   * <code>bool has_short_pct = 24 [json_name = "hasShortPct"];</code>
+   * @return The hasShortPct.
+   */
+  boolean getHasShortPct();
+
+  /**
+   * <pre>
+   * True when market_cap is set.
+   * </pre>
+   *
+   * <code>bool has_market_cap = 25 [json_name = "hasMarketCap"];</code>
+   * @return The hasMarketCap.
+   */
+  boolean getHasMarketCap();
+
+  /**
+   * <pre>
+   * True when close is set (the stock has a valid last price).
+   * </pre>
+   *
+   * <code>bool has_close = 26 [json_name = "hasClose"];</code>
+   * @return The hasClose.
+   */
+  boolean getHasClose();
 }

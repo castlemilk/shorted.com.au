@@ -113,7 +113,7 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       " \001(\tR\007verdict\"\210\001\n\nRuleResult\022\027\n\007rule_id\030" +
       "\001 \001(\tR\006ruleId\022\026\n\006status\030\002 \001(\tR\006status\022\026\n" +
       "\006detail\030\003 \001(\tR\006detail\022\024\n\005value\030\004 \001(\001R\005va" +
-      "lue\022\033\n\thas_value\030\005 \001(\010R\010hasValue\"\310\005\n\014Str" +
+      "lue\022\033\n\thas_value\030\005 \001(\010R\010hasValue\"\322\006\n\014Str" +
       "ategyPick\022\022\n\004rank\030\001 \001(\005R\004rank\022\035\n\nstock_c" +
       "ode\030\002 \001(\tR\tstockCode\022!\n\014company_name\030\003 \001" +
       "(\tR\013companyName\022\032\n\010industry\030\004 \001(\tR\010indus" +
@@ -131,35 +131,38 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       "\022\036\n\013has_eps_yoy\030\022 \001(\010R\thasEpsYoy\022\032\n\trs_3" +
       "m_pct\030\023 \001(\001R\007rs3mPct\022\033\n\tshort_pct\030\024 \001(\001R" +
       "\010shortPct\022\035\n\nmarket_cap\030\025 \001(\001R\tmarketCap" +
-      "\022\031\n\010logo_url\030\026 \001(\tR\007logoUrl\"\200\001\n\027GetStrat" +
-      "egyPicksRequest\022\037\n\013strategy_id\030\001 \001(\tR\nst" +
-      "rategyId\022\024\n\005limit\030\002 \001(\005R\005limit\022\026\n\006offset" +
-      "\030\003 \001(\005R\006offset\022\026\n\006status\030\004 \001(\tR\006status\"\332" +
-      "\002\n\030GetStrategyPicksResponse\0225\n\010strategy\030" +
-      "\001 \001(\0132\031.shorts.v1alpha1.StrategyR\010strate" +
-      "gy\0225\n\006regime\030\002 \001(\0132\035.shorts.v1alpha1.Mar" +
-      "ketRegimeR\006regime\0223\n\005picks\030\003 \003(\0132\035.short" +
-      "s.v1alpha1.StrategyPickR\005picks\022\037\n\013total_" +
-      "count\030\004 \001(\005R\ntotalCount\022%\n\016universe_coun" +
-      "t\030\005 \001(\005R\runiverseCount\022>\n\033fundamentals_c" +
-      "overage_count\030\006 \001(\005R\031fundamentalsCoverag" +
-      "eCount\022\023\n\005as_of\030\007 \001(\tR\004asOf\"\027\n\025ListStrat" +
-      "egiesRequest\"\212\001\n\026ListStrategiesResponse\022" +
-      "9\n\nstrategies\030\001 \003(\0132\031.shorts.v1alpha1.St" +
-      "rategyR\nstrategies\0225\n\006regime\030\002 \001(\0132\035.sho" +
-      "rts.v1alpha1.MarketRegimeR\006regime2\351\001\n\017St" +
-      "rategyService\022g\n\016ListStrategies\022&.shorts" +
-      ".v1alpha1.ListStrategiesRequest\032\'.shorts" +
-      ".v1alpha1.ListStrategiesResponse\"\004\200\265\030\001\022m" +
-      "\n\020GetStrategyPicks\022(.shorts.v1alpha1.Get" +
-      "StrategyPicksRequest\032).shorts.v1alpha1.G" +
-      "etStrategyPicksResponse\"\004\200\265\030\001B\336\001\n\023com.sh" +
-      "orts.v1alpha1B\017StrategiesProtoP\001ZYgithub" +
-      ".com/castlemilk/shorted.com.au/services/" +
-      "gen/proto/go/shorts/v1alpha1;shortsv1alp" +
-      "ha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017Shorts\\V1a" +
-      "lpha1\342\002\033Shorts\\V1alpha1\\GPBMetadata\352\002\020Sh" +
-      "orts::V1alpha1b\006proto3"
+      "\022\031\n\010logo_url\030\026 \001(\tR\007logoUrl\022!\n\rhas_rs_3m" +
+      "_pct\030\027 \001(\010R\nhasRs3mPct\022\"\n\rhas_short_pct\030" +
+      "\030 \001(\010R\013hasShortPct\022$\n\016has_market_cap\030\031 \001" +
+      "(\010R\014hasMarketCap\022\033\n\thas_close\030\032 \001(\010R\010has" +
+      "Close\"\200\001\n\027GetStrategyPicksRequest\022\037\n\013str" +
+      "ategy_id\030\001 \001(\tR\nstrategyId\022\024\n\005limit\030\002 \001(" +
+      "\005R\005limit\022\026\n\006offset\030\003 \001(\005R\006offset\022\026\n\006stat" +
+      "us\030\004 \001(\tR\006status\"\332\002\n\030GetStrategyPicksRes" +
+      "ponse\0225\n\010strategy\030\001 \001(\0132\031.shorts.v1alpha" +
+      "1.StrategyR\010strategy\0225\n\006regime\030\002 \001(\0132\035.s" +
+      "horts.v1alpha1.MarketRegimeR\006regime\0223\n\005p" +
+      "icks\030\003 \003(\0132\035.shorts.v1alpha1.StrategyPic" +
+      "kR\005picks\022\037\n\013total_count\030\004 \001(\005R\ntotalCoun" +
+      "t\022%\n\016universe_count\030\005 \001(\005R\runiverseCount" +
+      "\022>\n\033fundamentals_coverage_count\030\006 \001(\005R\031f" +
+      "undamentalsCoverageCount\022\023\n\005as_of\030\007 \001(\tR" +
+      "\004asOf\"\027\n\025ListStrategiesRequest\"\212\001\n\026ListS" +
+      "trategiesResponse\0229\n\nstrategies\030\001 \003(\0132\031." +
+      "shorts.v1alpha1.StrategyR\nstrategies\0225\n\006" +
+      "regime\030\002 \001(\0132\035.shorts.v1alpha1.MarketReg" +
+      "imeR\006regime2\351\001\n\017StrategyService\022g\n\016ListS" +
+      "trategies\022&.shorts.v1alpha1.ListStrategi" +
+      "esRequest\032\'.shorts.v1alpha1.ListStrategi" +
+      "esResponse\"\004\200\265\030\001\022m\n\020GetStrategyPicks\022(.s" +
+      "horts.v1alpha1.GetStrategyPicksRequest\032)" +
+      ".shorts.v1alpha1.GetStrategyPicksRespons" +
+      "e\"\004\200\265\030\001B\336\001\n\023com.shorts.v1alpha1B\017Strateg" +
+      "iesProtoP\001ZYgithub.com/castlemilk/shorte" +
+      "d.com.au/services/gen/proto/go/shorts/v1" +
+      "alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1a" +
+      "lpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alpha" +
+      "1\\GPBMetadata\352\002\020Shorts::V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -201,7 +204,7 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_StrategyPick_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StrategyPick_descriptor,
-        new java.lang.String[] { "Rank", "StockCode", "CompanyName", "Industry", "Status", "Score", "Rules", "Close", "AsOf", "PctOff52WHigh", "VolumeRatio50D", "BaseDepthPct", "BaseLengthDays", "Pivot", "RevenueYoyPct", "HasRevenueYoy", "EpsYoyPct", "HasEpsYoy", "Rs3MPct", "ShortPct", "MarketCap", "LogoUrl", });
+        new java.lang.String[] { "Rank", "StockCode", "CompanyName", "Industry", "Status", "Score", "Rules", "Close", "AsOf", "PctOff52WHigh", "VolumeRatio50D", "BaseDepthPct", "BaseLengthDays", "Pivot", "RevenueYoyPct", "HasRevenueYoy", "EpsYoyPct", "HasEpsYoy", "Rs3MPct", "ShortPct", "MarketCap", "LogoUrl", "HasRs3MPct", "HasShortPct", "HasMarketCap", "HasClose", });
     internal_static_shorts_v1alpha1_GetStrategyPicksRequest_descriptor =
       getDescriptor().getMessageType(6);
     internal_static_shorts_v1alpha1_GetStrategyPicksRequest_fieldAccessorTable = new

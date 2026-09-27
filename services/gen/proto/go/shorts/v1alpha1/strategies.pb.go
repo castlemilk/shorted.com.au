@@ -490,7 +490,7 @@ type StrategyPick struct {
 	Score       float64                `protobuf:"fixed64,6,opt,name=score,proto3" json:"score,omitempty"` // 0-100, orders rows within a status.
 	Rules       []*RuleResult          `protobuf:"bytes,7,rep,name=rules,proto3" json:"rules,omitempty"`
 	// Headline numbers for the table.
-	Close           float64 `protobuf:"fixed64,8,opt,name=close,proto3" json:"close,omitempty"`
+	Close           float64 `protobuf:"fixed64,8,opt,name=close,proto3" json:"close,omitempty"`         // Meaningful only when has_close.
 	AsOf            string  `protobuf:"bytes,9,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"` // YYYY-MM-DD of the last price.
 	PctOff_52WHigh  float64 `protobuf:"fixed64,10,opt,name=pct_off_52w_high,json=pctOff52wHigh,proto3" json:"pct_off_52w_high,omitempty"`
 	VolumeRatio_50D float64 `protobuf:"fixed64,11,opt,name=volume_ratio_50d,json=volumeRatio50d,proto3" json:"volume_ratio_50d,omitempty"`
@@ -501,12 +501,20 @@ type StrategyPick struct {
 	HasRevenueYoy   bool    `protobuf:"varint,16,opt,name=has_revenue_yoy,json=hasRevenueYoy,proto3" json:"has_revenue_yoy,omitempty"`
 	EpsYoyPct       float64 `protobuf:"fixed64,17,opt,name=eps_yoy_pct,json=epsYoyPct,proto3" json:"eps_yoy_pct,omitempty"`
 	HasEpsYoy       bool    `protobuf:"varint,18,opt,name=has_eps_yoy,json=hasEpsYoy,proto3" json:"has_eps_yoy,omitempty"`
-	Rs_3MPct        float64 `protobuf:"fixed64,19,opt,name=rs_3m_pct,json=rs3mPct,proto3" json:"rs_3m_pct,omitempty"`
-	ShortPct        float64 `protobuf:"fixed64,20,opt,name=short_pct,json=shortPct,proto3" json:"short_pct,omitempty"`    // 0 when the stock has no reported short position.
-	MarketCap       float64 `protobuf:"fixed64,21,opt,name=market_cap,json=marketCap,proto3" json:"market_cap,omitempty"` // 0 when unknown.
+	Rs_3MPct        float64 `protobuf:"fixed64,19,opt,name=rs_3m_pct,json=rs3mPct,proto3" json:"rs_3m_pct,omitempty"`     // Meaningful only when has_rs_3m_pct.
+	ShortPct        float64 `protobuf:"fixed64,20,opt,name=short_pct,json=shortPct,proto3" json:"short_pct,omitempty"`    // Meaningful only when has_short_pct.
+	MarketCap       float64 `protobuf:"fixed64,21,opt,name=market_cap,json=marketCap,proto3" json:"market_cap,omitempty"` // Meaningful only when has_market_cap.
 	LogoUrl         string  `protobuf:"bytes,22,opt,name=logo_url,json=logoUrl,proto3" json:"logo_url,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// True when rs_3m_pct is set (enough stock and XJO history for the 3m window).
+	HasRs_3MPct bool `protobuf:"varint,23,opt,name=has_rs_3m_pct,json=hasRs3mPct,proto3" json:"has_rs_3m_pct,omitempty"`
+	// True when short_pct is set (the stock has a reported ASIC short position).
+	HasShortPct bool `protobuf:"varint,24,opt,name=has_short_pct,json=hasShortPct,proto3" json:"has_short_pct,omitempty"`
+	// True when market_cap is set.
+	HasMarketCap bool `protobuf:"varint,25,opt,name=has_market_cap,json=hasMarketCap,proto3" json:"has_market_cap,omitempty"`
+	// True when close is set (the stock has a valid last price).
+	HasClose      bool `protobuf:"varint,26,opt,name=has_close,json=hasClose,proto3" json:"has_close,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StrategyPick) Reset() {
@@ -691,6 +699,34 @@ func (x *StrategyPick) GetLogoUrl() string {
 		return x.LogoUrl
 	}
 	return ""
+}
+
+func (x *StrategyPick) GetHasRs_3MPct() bool {
+	if x != nil {
+		return x.HasRs_3MPct
+	}
+	return false
+}
+
+func (x *StrategyPick) GetHasShortPct() bool {
+	if x != nil {
+		return x.HasShortPct
+	}
+	return false
+}
+
+func (x *StrategyPick) GetHasMarketCap() bool {
+	if x != nil {
+		return x.HasMarketCap
+	}
+	return false
+}
+
+func (x *StrategyPick) GetHasClose() bool {
+	if x != nil {
+		return x.HasClose
+	}
+	return false
 }
 
 // Request for GetStrategyPicks.
@@ -994,7 +1030,7 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x16\n" +
 	"\x06detail\x18\x03 \x01(\tR\x06detail\x12\x14\n" +
 	"\x05value\x18\x04 \x01(\x01R\x05value\x12\x1b\n" +
-	"\thas_value\x18\x05 \x01(\bR\bhasValue\"\xc8\x05\n" +
+	"\thas_value\x18\x05 \x01(\bR\bhasValue\"\xd2\x06\n" +
 	"\fStrategyPick\x12\x12\n" +
 	"\x04rank\x18\x01 \x01(\x05R\x04rank\x12\x1d\n" +
 	"\n" +
@@ -1020,7 +1056,12 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\tshort_pct\x18\x14 \x01(\x01R\bshortPct\x12\x1d\n" +
 	"\n" +
 	"market_cap\x18\x15 \x01(\x01R\tmarketCap\x12\x19\n" +
-	"\blogo_url\x18\x16 \x01(\tR\alogoUrl\"\x80\x01\n" +
+	"\blogo_url\x18\x16 \x01(\tR\alogoUrl\x12!\n" +
+	"\rhas_rs_3m_pct\x18\x17 \x01(\bR\n" +
+	"hasRs3mPct\x12\"\n" +
+	"\rhas_short_pct\x18\x18 \x01(\bR\vhasShortPct\x12$\n" +
+	"\x0ehas_market_cap\x18\x19 \x01(\bR\fhasMarketCap\x12\x1b\n" +
+	"\thas_close\x18\x1a \x01(\bR\bhasClose\"\x80\x01\n" +
 	"\x17GetStrategyPicksRequest\x12\x1f\n" +
 	"\vstrategy_id\x18\x01 \x01(\tR\n" +
 	"strategyId\x12\x14\n" +

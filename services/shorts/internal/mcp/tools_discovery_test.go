@@ -872,6 +872,7 @@ func picksFixture() *shortsv1alpha1.GetStrategyPicksResponse {
 				// Known flat EPS: zero is a MEASUREMENT here, and must survive.
 				EpsYoyPct: 0, HasEpsYoy: true,
 				Rs_3MPct: 12.5, ShortPct: 6.2, MarketCap: 7e9, LogoUrl: "https://x/pls.png",
+				HasClose: true, HasRs_3MPct: true, HasShortPct: true, HasMarketCap: true,
 				Rules: []*shortsv1alpha1.RuleResult{
 					{RuleId: "growth", Status: "pass", Detail: "Revenue +41% YoY"},
 					{RuleId: "breakout", Status: "pass", Detail: "Broke out on 2026-09-24"},
@@ -880,8 +881,8 @@ func picksFixture() *shortsv1alpha1.GetStrategyPicksResponse {
 				},
 			},
 			{
-				// Every NULL feature dereferenced to 0 by the handler, and no
-				// growth data at all.
+				// Every NULL feature dereferenced to 0 by the handler, every
+				// has_* flag false, and no growth data at all.
 				Rank: 2, StockCode: "ZZZ", Status: "watch", Score: 12,
 				Rules: []*shortsv1alpha1.RuleResult{{RuleId: "liquidity", Status: "pass"}},
 			},
@@ -919,6 +920,9 @@ func TestGetStrategyPicksProjectsOutcomesAndOmitsUnknownFigures(t *testing.T) {
 	if p.EPSYoYPct == nil || *p.EPSYoYPct != 0 {
 		t.Errorf("a known 0%% EPS growth must be emitted as 0, got %v", p.EPSYoYPct)
 	}
+	if p.Close == nil || *p.Close != 2.34 || p.RS3MPct == nil || *p.RS3MPct != 12.5 || p.ShortPct == nil || *p.ShortPct != 6.2 {
+		t.Errorf("flagged headline figures: close=%v rs=%v short=%v", p.Close, p.RS3MPct, p.ShortPct)
+	}
 	if !reflect.DeepEqual(p.Passed, []string{"growth", "breakout"}) || !reflect.DeepEqual(p.Failed, []string{"rs"}) ||
 		!reflect.DeepEqual(p.Unknown, []string{"liquidity"}) {
 		t.Errorf("outcomes: passed=%v failed=%v unknown=%v", p.Passed, p.Failed, p.Unknown)
@@ -945,6 +949,65 @@ func TestGetStrategyPicksProjectsOutcomesAndOmitsUnknownFigures(t *testing.T) {
 		"Not financial advice"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("summary missing %q: %q", want, text)
+		}
+	}
+}
+
+// The has_* flags, not the value, decide whether close, relative strength and
+// short percent are emitted. A measured zero (a stock exactly in line with the
+// index, an ASIC row reporting no position) is a reading and must survive; a
+// value without its flag is not one and must not.
+func TestGetStrategyPicksPresenceFlagsDecideCloseRSAndShortPct(t *testing.T) {
+	src := &fakeDataSource{strategyPicks: &shortsv1alpha1.GetStrategyPicksResponse{
+		UniverseCount: 2,
+		Picks: []*shortsv1alpha1.StrategyPick{
+			{
+				Rank: 1, StockCode: "ZRO", Status: "watch", Score: 30,
+				Close: 1.5, HasClose: true,
+				Rs_3MPct: 0, HasRs_3MPct: true,
+				ShortPct: 0, HasShortPct: true,
+				// A 0 pivot has no flag and is never a real level.
+				Pivot: 0,
+			},
+			{
+				// Values without flags: the flag is authoritative.
+				Rank: 2, StockCode: "NOF", Status: "watch", Score: 20,
+				Close: 3.2, Rs_3MPct: 4.5, ShortPct: 7.1,
+			},
+		},
+	}}
+
+	_, out, err := getStrategyPicksHandler(src)(context.Background(), nil, GetStrategyPicksInput{StrategyID: "crowded-short-breakout"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(out.Picks) != 2 {
+		t.Fatalf("want 2 picks, got %d", len(out.Picks))
+	}
+	zro := out.Picks[0]
+	if zro.Close == nil || *zro.Close != 1.5 {
+		t.Errorf("flagged close: %v", zro.Close)
+	}
+	if zro.RS3MPct == nil || *zro.RS3MPct != 0 {
+		t.Errorf("a measured 0 relative strength must be emitted as 0, got %v", zro.RS3MPct)
+	}
+	if zro.ShortPct == nil || *zro.ShortPct != 0 {
+		t.Errorf("a reported 0%% short position must be emitted as 0, got %v", zro.ShortPct)
+	}
+	if zro.Pivot != nil {
+		t.Errorf("an unflagged 0 pivot must stay absent, got %v", *zro.Pivot)
+	}
+	raw, _ := json.Marshal(zro)
+	for _, key := range []string{`"rs_3m_pct":0`, `"short_pct":0`} {
+		if !strings.Contains(string(raw), key) {
+			t.Errorf("want %s in %s", key, raw)
+		}
+	}
+
+	raw, _ = json.Marshal(out.Picks[1])
+	for _, key := range []string{"close", "rs_3m_pct", "short_pct"} {
+		if strings.Contains(string(raw), `"`+key+`"`) {
+			t.Errorf("%s emitted without its has_* flag: %s", key, raw)
 		}
 	}
 }

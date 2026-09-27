@@ -212,6 +212,10 @@ func TestGetStrategyPicks_RanksEvaluatesAndMapsEveryField(t *testing.T) {
 	assert.InDelta(t, 10, rdy.Rs_3MPct, 1e-9)
 	assert.InDelta(t, 6.5, rdy.ShortPct, 1e-9)
 	assert.InDelta(t, 1.2e9, rdy.MarketCap, 1)
+	assert.True(t, rdy.HasRs_3MPct)
+	assert.True(t, rdy.HasShortPct)
+	assert.True(t, rdy.HasMarketCap)
+	assert.True(t, rdy.HasClose)
 	assert.Greater(t, rdy.Score, 60.0)
 	assert.LessOrEqual(t, rdy.Score, 100.0)
 
@@ -227,7 +231,11 @@ func TestGetStrategyPicks_RanksEvaluatesAndMapsEveryField(t *testing.T) {
 	assert.False(t, wat.HasRevenueYoy, "no growth row: has_revenue_yoy must be false, not a zero growth")
 	assert.False(t, wat.HasEpsYoy)
 	assert.Equal(t, float64(0), wat.ShortPct)
+	assert.False(t, wat.HasShortPct, "no ASIC row: has_short_pct must be false, not a zero short position")
 	assert.Equal(t, float64(0), wat.MarketCap)
+	assert.False(t, wat.HasMarketCap)
+	assert.True(t, wat.HasRs_3MPct)
+	assert.True(t, wat.HasClose)
 	for _, r := range wat.Rules {
 		if r.RuleId == strategies.RuleGrowth {
 			assert.Equal(t, "unknown", r.Status)
@@ -439,4 +447,29 @@ func TestStrategyServiceIsMounted(t *testing.T) {
 	src := readRepoFile(t, "serve.go")
 	assert.Contains(t, src, "mount(shortsv1alpha1connect.NewStrategyServiceHandler(s, interceptors))",
 		"StrategyService must be mounted through mount() so it carries the shared interceptors and CORS")
+}
+
+// A known zero and an unknown share a double on the wire; only the has_*
+// flag tells them apart, so each flag must follow the pointer, not the value.
+func TestStrategyPickProto_PresenceFlagsFollowThePointerNotTheValue(t *testing.T) {
+	known := spReady("ZRO")
+	known.RS3mPct = f64(0)   // exactly in line with XJO
+	known.ShortPct = f64(0)  // an ASIC row reporting no short position
+	known.MarketCap = f64(0) // an explicit zero is still a reported value
+	got := strategyPickProto(strategies.Pick{Candidate: known})
+	assert.True(t, got.HasRs_3MPct)
+	assert.True(t, got.HasShortPct)
+	assert.True(t, got.HasMarketCap)
+	assert.True(t, got.HasClose)
+	assert.Equal(t, float64(0), got.Rs_3MPct)
+	assert.Equal(t, float64(0), got.ShortPct)
+
+	unknown := strategies.Candidate{StockCode: "UNK"} // no pointers set, no price
+	got = strategyPickProto(strategies.Pick{Candidate: unknown})
+	assert.False(t, got.HasRs_3MPct)
+	assert.False(t, got.HasShortPct)
+	assert.False(t, got.HasMarketCap)
+	assert.False(t, got.HasClose, "the store leaves Close 0 when the price is NULL or non-finite")
+	assert.False(t, got.HasRevenueYoy)
+	assert.False(t, got.HasEpsYoy)
 }

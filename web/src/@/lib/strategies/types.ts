@@ -92,7 +92,7 @@ export interface PickRow {
   epsYoyPct: number | null;
   /** Stock return minus the S&P/ASX 200 return over 3 months, in points. */
   rs3mPct: number | null;
-  /** Null when the stock has no reported ASIC short position. */
+  /** Null when the stock has no ASIC short row; 0 is a reported zero position. */
   shortPct: number | null;
   marketCap: number | null;
   logoUrl: string;
