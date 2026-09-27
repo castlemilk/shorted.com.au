@@ -47,9 +47,10 @@ const syncJobAttr = "market-data-sync"
 func Group() runner.Job {
 	return runner.NewGroup(
 		"market-data",
-		"ASX price sync: HTTP service (serve), one-shot sync, gap audit, historical backfill and benchmark index sync",
+		"ASX price sync: HTTP service (serve), one-shot sync, non-trading-day prune, gap audit, historical backfill and benchmark index sync",
 		serveJob(),
 		syncJob(),
+		pruneJob(),
 		auditGapsJob(),
 		backfillJob(),
 		indexSyncJob(),

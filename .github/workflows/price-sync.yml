@@ -18,6 +18,12 @@
 # is a contract with ReportObjectPrefix (services/jobs/internal/jobs/marketdata/
 # sync/report.go), pinned by TestPriceSyncWorkflowReadsTheReport.
 #
+# mode=prune runs `shorted market-data prune` instead: it deletes stored rows
+# dated on weekends and ASX holidays (the daylight-time dating defect filed
+# each Monday's session under the Sunday before it), which the sweep never
+# deletes. With dry_run it only counts them, per year and per holiday; `from`
+# bounds its holiday calendar. The report says which mode wrote it.
+#
 # The execution is started detached and its name recorded before any waiting,
 # so a run that outlasts the wait (a re-fetch, a long task_timeout) can still be
 # reported: dispatch again with report_only set to the execution's name, or to
@@ -29,6 +35,11 @@ name: Price Sync
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: "sync: the price sweep. prune: delete rows dated on weekends and ASX holidays (dry_run counts them)"
+        type: choice
+        options: [sync, prune]
+        default: sync
       from:
         description: "Re-fetch from (YYYY-MM-DD); blank = each stock from its latest stored session"
         required: false
@@ -79,12 +90,16 @@ jobs:
     steps:
       - name: Validate inputs
         env:
+          MODE: ${{ inputs.mode }}
           FROM: ${{ inputs.from }}
           CODES: ${{ inputs.codes }}
           TASK_TIMEOUT: ${{ inputs.task_timeout }}
           REPORT_ONLY: ${{ inputs.report_only }}
         run: |
           set -euo pipefail
+          if [[ "$MODE" == "prune" && -n "$CODES" ]]; then
+            echo "::error::prune takes no codes: it judges every stored row by the date it carries"; exit 1
+          fi
           if [[ -n "$FROM" && ! "$FROM" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
             echo "::error::from must be YYYY-MM-DD or blank, got '$FROM'"; exit 1
           fi
@@ -132,16 +147,23 @@ jobs:
         id: start
         if: inputs.report_only == ''
         env:
+          MODE: ${{ inputs.mode }}
           FROM: ${{ inputs.from }}
           CODES: ${{ inputs.codes }}
           DRY_RUN: ${{ inputs.dry_run }}
           TASK_TIMEOUT: ${{ inputs.task_timeout }}
         run: |
           set -euo pipefail
-          args="market-data@sync"
-          if [[ "$DRY_RUN" == "true" ]]; then args+="@-dry-run"; fi
-          if [[ -n "$FROM" ]]; then args+="@-from@$FROM"; fi
-          if [[ -n "$CODES" ]]; then args+="@-codes@$CODES"; fi
+          if [[ "$MODE" == "prune" ]]; then
+            args="market-data@prune"
+            if [[ "$DRY_RUN" == "true" ]]; then args+="@-dry-run"; fi
+            if [[ -n "$FROM" ]]; then args+="@-from@$FROM"; fi
+          else
+            args="market-data@sync"
+            if [[ "$DRY_RUN" == "true" ]]; then args+="@-dry-run"; fi
+            if [[ -n "$FROM" ]]; then args+="@-from@$FROM"; fi
+            if [[ -n "$CODES" ]]; then args+="@-codes@$CODES"; fi
+          fi
           overrides=()
           if [[ -n "$TASK_TIMEOUT" ]]; then overrides+=(--task-timeout "$TASK_TIMEOUT"); fi
           echo "Executing $JOB with args: ${args//@/ }${TASK_TIMEOUT:+ (task timeout $TASK_TIMEOUT)}"
@@ -223,6 +245,35 @@ jobs:
             esac
             exit 0
           fi
+          if [[ "$(jq -r '.mode // "sync"' "$report")" == "prune" ]]; then
+            # A prune: the counts on one line, then one line per holiday with
+            # the rows dated on it, so the dates can be checked against the
+            # ASX's own calendar before anything is deleted.
+            jq -c 'del(.holiday_rows_by_date)' "$report"
+            jq -c '.holiday_rows_by_date // {} | to_entries | sort_by(.key)[] | {holiday: .key, rows: .value}' "$report"
+            jq -r '
+              "## Price prune " + (if .dry_run then "PREVIEW (dry run, nothing deleted)" else "run" end),
+              "",
+              "Execution `\(.execution)`, attempt \(.attempt // 0): calendar \(.from // "?") to \(.to // "?"), " +
+                "\(.trading_days) sessions held by \(.references | join(", ")), in \(.duration)",
+              "",
+              (if .error then "**Stopped:** \(.error)\n" else empty end),
+              "| Weekend rows | Holiday rows | Deleted |",
+              "|---|---|---|",
+              "| \(.weekend_rows) | \(.holiday_rows) | \(.deleted) |",
+              "",
+              "Weekend rows by year: " + ([.weekend_rows_by_year // {} | to_entries | sort_by(.key)[] | "\(.key) \(.value)"] | join(", ")),
+              "",
+              "<details><summary>Holidays (\(.holidays // [] | length)) and the rows dated on each</summary>\n",
+              "| Date | Rows |",
+              "|---|---|",
+              ((.holidays // [])[] as $d | "| \($d) | \((.holiday_rows_by_date // {})[$d] // 0) |"),
+              "",
+              "</details>"
+            ' "$report" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           # Everything a caller reading only the log needs: the counts on one
           # line, then one line per change and per stored-only session (each
           # list is capped at 200 by the job; the counts are exact), then every

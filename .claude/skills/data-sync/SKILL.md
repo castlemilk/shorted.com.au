@@ -306,7 +306,10 @@ stored session Yahoo does not have, e.g. weekend-dated rows. Run it again with
 `dry_run` off to overwrite them; it never deletes. A run longer than the
 workflow's ~5.5h wait (raise the job's 6h with `task_timeout`) is read later
 with `report_only` (an execution name, or `latest`), which starts nothing.
-Runbook: `services/jobs/README.md` §Daily price sweep.
+Rows dated on weekends and ASX holidays are the one thing the sweep never
+fixes: run the workflow with `mode: prune` (dry run first, then check the
+holidays it lists) to delete them. Runbook: `services/jobs/README.md` §Daily
+price sweep.
 
 To look without DB access, compare `get_stock_prices` (public MCP at
 `https://api.shorted.com.au/mcp`, with `from`/`to`) against Yahoo's chart for
