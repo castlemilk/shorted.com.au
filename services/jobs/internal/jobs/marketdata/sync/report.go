@@ -288,27 +288,49 @@ func (r *RunReport) log() {
 // again under the attempt (reportObjects). It is best effort: the report
 // describes the run and must not fail it.
 func (r *RunReport) publish(ctx context.Context, gcs *storage.Client, bucket string) {
-	execution := os.Getenv("CLOUD_RUN_EXECUTION")
-	switch {
-	case gcs == nil || bucket == "":
+	execution, ok := reportExecution(gcs, bucket)
+	if !ok {
 		return
-	case !executionNamePattern.MatchString(execution):
-		return // not a Cloud Run execution: nothing addressable to write
 	}
 	r.Execution = execution
-	body, err := json.MarshalIndent(r, "", "  ")
+	storeReport(ctx, gcs, bucket, execution, r.Attempt, r, !r.InProgress)
+}
+
+// publish stores a prune's report where a sweep's goes; its "mode" tells the
+// workflow which it is.
+func (r *PruneReport) publish(ctx context.Context, gcs *storage.Client, bucket string) {
+	execution, ok := reportExecution(gcs, bucket)
+	if !ok {
+		return
+	}
+	r.Execution = execution
+	storeReport(ctx, gcs, bucket, execution, r.Attempt, r, true)
+}
+
+// reportExecution is the Cloud Run execution a report is stored under, and
+// whether there is anywhere to store it.
+func reportExecution(gcs *storage.Client, bucket string) (string, bool) {
+	execution := os.Getenv("CLOUD_RUN_EXECUTION")
+	if gcs == nil || bucket == "" || !executionNamePattern.MatchString(execution) {
+		return "", false // not a Cloud Run execution: nothing addressable to write
+	}
+	return execution, true
+}
+
+func storeReport(ctx context.Context, gcs *storage.Client, bucket, execution string, attempt int, report any, announce bool) {
+	body, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		log.Printf("⚠️ report: %v", err)
 		return
 	}
-	objects := reportObjects(execution, r.Attempt)
+	objects := reportObjects(execution, attempt)
 	for _, object := range objects {
 		if err := writeObject(ctx, gcs, bucket, object, body); err != nil {
 			log.Printf("⚠️ report: gs://%s/%s: %v", bucket, object, err)
 			return
 		}
 	}
-	if !r.InProgress {
+	if announce {
 		log.Printf("📄 Report: gs://%s/%s", bucket, objects[0])
 	}
 }

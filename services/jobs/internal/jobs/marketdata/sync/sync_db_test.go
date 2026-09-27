@@ -316,6 +316,72 @@ func TestScheduledSweepCarriesCodesBeyondTheListing(t *testing.T) {
 	assert.Zero(t, report.Written, "a dry run")
 }
 
+func TestPruneAgainstPostgres(t *testing.T) {
+	pool := newPriceDB(t)
+	ctx := context.Background()
+	exec := func(sql string, args ...any) {
+		t.Helper()
+		_, err := pool.Exec(ctx, sql, args...)
+		require.NoError(t, err)
+	}
+	count := func(sql string) int {
+		t.Helper()
+		var n int
+		require.NoError(t, pool.QueryRow(ctx, sql).Scan(&n))
+		return n
+	}
+
+	// BHP's stored December: the daylight-time defect's Sunday rows and a row
+	// on Christmas Day (Friday's session filed a day early), around real
+	// sessions. ASM holds a weekday session the provider no longer has: kept.
+	exec(`INSERT INTO stock_prices (stock_code, date, close) VALUES
+		('BHP', '2025-12-19', 40.1), ('BHP', '2025-12-21', 40.5), ('BHP', '2025-12-22', 40.5),
+		('BHP', '2025-12-24', 40.9), ('BHP', '2025-12-25', 41.2), ('BHP', '2025-12-28', 41.0),
+		('BHP', '2025-12-29', 41.0), ('BHP', '2026-01-02', 41.3), ('BHP', '2026-01-04', 41.4),
+		('CBA', '2025-12-27', 150.0), ('CBA', '2026-01-01', 151.0), ('CBA', '2026-01-05', 151.5),
+		('ASM', '2025-12-23', 1.02), ('BTC-USD', '2025-12-27', 9.0)`)
+
+	closed := []string{"2025-12-25", "2025-12-26", "2026-01-01"}
+	provider := &fakeProvider{name: "yahoo", fn: sessionsExcept(closed...)}
+	m := NewSyncManager(pool, nil, &config.Config{}, []providers.DataProvider{provider})
+	m.now = func() time.Time { return time.Date(2026, 1, 9, 10, 0, 0, 0, time.UTC) }
+
+	report, err := m.Prune(ctx, PruneOptions{DryRun: true})
+	require.NoError(t, err)
+	assert.Equal(t, "prune", report.Mode)
+	assert.Equal(t, closed, report.Holidays)
+	assert.Equal(t, 4, report.WeekendRows, "BHP's three Sundays and CBA's Saturday")
+	assert.Equal(t, map[string]int{"2025": 3, "2026": 1}, report.WeekendRowsByYear)
+	assert.Equal(t, 2, report.HolidayRows)
+	assert.Equal(t, map[string]int{"2025-12-25": 1, "2026-01-01": 1}, report.HolidayRowsByDate)
+	assert.Zero(t, report.Deleted)
+	assert.Equal(t, 14, count(`SELECT count(*) FROM stock_prices`), "a dry run deletes nothing")
+
+	report, err = m.Prune(ctx, PruneOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, 6, report.Deleted)
+	assert.Equal(t, 8, count(`SELECT count(*) FROM stock_prices`))
+	assert.Equal(t, 1, count(`SELECT count(*) FROM stock_prices WHERE EXTRACT(ISODOW FROM date) IN (6, 7)`),
+		"only the non-ASX symbol's Saturday is left: the ASX calendar is not its to judge")
+	assert.Zero(t, count(`SELECT count(*) FROM stock_prices WHERE date IN ('2025-12-25', '2026-01-01')`))
+	assert.Equal(t, 1, count(`SELECT count(*) FROM stock_prices WHERE stock_code = 'ASM'`),
+		"a weekday session the provider lacks is history, not a defect")
+
+	// A calendar missing a month of sessions in its middle deletes nothing. (A
+	// gap before its first session is never judged, so it cannot delete.)
+	exec(`INSERT INTO stock_prices (stock_code, date, close) VALUES ('BHP', '2025-11-09', 39.0)`)
+	var gap []string
+	for d := mustDate("2025-11-17"); d.Before(mustDate("2025-12-13")); d = d.AddDate(0, 0, 1) {
+		gap = append(gap, d.Format("2006-01-02"))
+	}
+	m.providers = []providers.DataProvider{&fakeProvider{name: "yahoo", fn: sessionsExcept(append(gap, closed...)...)}}
+	report, err = m.Prune(ctx, PruneOptions{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nothing deleted")
+	assert.NotEmpty(t, report.Error)
+	assert.Equal(t, 1, count(`SELECT count(*) FROM stock_prices WHERE date = '2025-11-09'`))
+}
+
 func TestSweepStopsWhenTheUpstreamRefuses(t *testing.T) {
 	pool := newPriceDB(t)
 	ctx := context.Background()

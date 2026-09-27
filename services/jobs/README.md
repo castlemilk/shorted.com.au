@@ -258,6 +258,21 @@ stocks), is published every 100 stocks while the run goes (`in_progress`), and
 each attempt keeps its own copy at `price-sync/<execution>/attempt-<n>.json`,
 because a retry overwrites the execution's report.
 
+`shorted market-data prune` (the workflow's `mode: prune`) deletes what the
+sweep never does: stored rows dated on a weekend, and rows on an ASX holiday.
+Most are the daylight-time dating defect, which filed each Monday's session
+under the Sunday before it and a session after a holiday under the holiday
+(62,026 weekend rows in 2024-10 to 2026-09 alone). Holidays are the weekdays on
+which none of ten reference stocks (BHP, CBA, CSL, NAB, WBC, ANZ, RIO, WES, TLS,
+WOW) holds a session at the primary provider; the fallback is never asked, and
+a failed reference, or a year with more than 15 such weekdays, deletes nothing.
+A weekday row on a trading day is kept even when the provider no longer has it:
+Yahoo's histories for some codes (ASM, AII, C1X) start on 2026-07-17, so the
+stored rows are the only record. Run it with `dry_run` first: the report lists
+the rows per year and per holiday, so the dates can be checked against the
+ASX's calendar. `from` bounds the holiday calendar; weekend rows are deleted
+wherever they are.
+
 ### Not ported
 
 - **`cmd/test-dmp-fetch`, `cmd/test-dmp-backfill`** — single-stock ("DMP")

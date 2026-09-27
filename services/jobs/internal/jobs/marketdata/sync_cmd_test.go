@@ -40,3 +40,30 @@ func TestParseSyncFlags(t *testing.T) {
 	_, err = parseSyncFlags(false, []string{"-h"})
 	assert.ErrorIs(t, err, runner.ErrUsage)
 }
+
+func TestParsePruneFlags(t *testing.T) {
+	t.Parallel()
+
+	opts, err := parsePruneFlags(false, nil)
+	require.NoError(t, err)
+	assert.False(t, opts.DryRun)
+
+	opts, err = parsePruneFlags(true, nil)
+	require.NoError(t, err)
+	assert.True(t, opts.DryRun, "the global -dry-run is the default")
+
+	opts, err = parsePruneFlags(false, []string{"-dry-run"})
+	require.NoError(t, err)
+	assert.True(t, opts.DryRun)
+
+	opts, err = parsePruneFlags(false, []string{"-from", "2016-01-01"})
+	require.NoError(t, err)
+	assert.Equal(t, time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC), opts.From)
+
+	_, err = parsePruneFlags(false, []string{"-from", "1/1/2016"})
+	assert.Error(t, err)
+	_, err = parsePruneFlags(false, []string{"stray"})
+	assert.Error(t, err)
+	_, err = parsePruneFlags(false, []string{"-h"})
+	assert.ErrorIs(t, err, runner.ErrUsage)
+}

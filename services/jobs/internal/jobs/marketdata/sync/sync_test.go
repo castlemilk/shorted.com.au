@@ -388,4 +388,17 @@ func TestPriceSyncWorkflowReadsTheReport(t *testing.T) {
 		"providers", "paced_seconds", "slowest", "attempt", "in_progress"} {
 		assert.Contains(t, keys, field)
 	}
+
+	// mode=prune runs the prune, and its summary reads the prune's report.
+	assert.Contains(t, wf, `args="market-data@prune"`)
+	assert.Contains(t, wf, `.mode // "sync"`)
+	prune, err := json.Marshal(PruneReport{Mode: "prune", From: "x", To: "y", Holidays: []string{"d"},
+		WeekendRowsByYear: map[string]int{"2025": 1}, HolidayRowsByDate: map[string]int{"d": 1}})
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(prune, &keys))
+	for _, field := range []string{"mode", "references", "from", "to", "trading_days", "holidays", "weekend_rows",
+		"weekend_rows_by_year", "holiday_rows", "holiday_rows_by_date", "deleted", "duration", "attempt", "dry_run"} {
+		assert.Contains(t, wf, "."+field, "the workflow reads .%s", field)
+		assert.Contains(t, keys, field)
+	}
 }
