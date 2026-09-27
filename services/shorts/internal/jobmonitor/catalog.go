@@ -82,8 +82,10 @@ var catalog = map[string]catalogEntry{
 		Category:    "Market data",
 		// Two schedulers on one job: refresh (weekdays 13:30 UTC, after the price
 		// sweep) + fundamentals (daily 15:00 UTC, args override). "Run now" sends
-		// no overrides, so it executes the deployed `-mode refresh`.
-		Note: "`shorted picks` — refresh_strategy_views() weekdays + daily fundamentals pull; Run now = refresh",
+		// no overrides, so it executes the deployed `-mode refresh`; the other
+		// modes run on demand through RunPicks (picks.go), driven by the admin
+		// MCP server's run_picks_job.
+		Note: "`shorted picks` — refresh_strategy_views() weekdays + daily fundamentals pull; Run now = refresh, other modes via the admin MCP run_picks_job",
 	},
 	"shorted-weekly-report": {
 		DisplayName: "Weekly & Monthly Reports",

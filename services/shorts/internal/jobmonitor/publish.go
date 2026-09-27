@@ -79,8 +79,10 @@ type PublishRun struct {
 	URL string `json:"url"`
 }
 
-// PublishStatus is the polled state of a publish run.
-type PublishStatus struct {
+// ExecutionStatus is the polled state of one execution of a job this package
+// started by override (a publish, a picks run). Jobs without a report artifact
+// have nothing else to say: the execution's state and log link are the answer.
+type ExecutionStatus struct {
 	ExecutionName string `json:"executionName"`
 	// Status is "running" | "succeeded" | "failed" | "unknown".
 	Status      string `json:"status"`
@@ -89,6 +91,10 @@ type PublishStatus struct {
 	LogUri      string `json:"logUri,omitempty"`
 	Message     string `json:"message,omitempty"`
 }
+
+// PublishStatus is the polled state of a publish run — an ExecutionStatus
+// under the name the publish handler and the admin tools were written against.
+type PublishStatus = ExecutionStatus
 
 // NormalizeSlug validates a caller-supplied slug. It trims surrounding
 // whitespace and nothing else: a slug is an identifier, so "US-Bond" is
@@ -172,11 +178,18 @@ func (c *Collector) RunPublish(ctx context.Context, req PublishRequest) (*Publis
 // non-zero and leaves the article a draft), so the execution state and its log
 // link are the whole answer.
 func (c *Collector) PublishResult(ctx context.Context, executionName string) (*PublishStatus, error) {
+	return c.executionStatus(ctx, PublishJobName, executionName)
+}
+
+// executionStatus polls one execution of a NAMED job. jobName is always a
+// constant of this package (PublishJobName, PicksJobName): the caller chooses
+// an execution id, never which job the lookup is aimed at.
+func (c *Collector) executionStatus(ctx context.Context, jobName, executionName string) (*ExecutionStatus, error) {
 	execName, err := normalizeExecutionName(executionName)
 	if err != nil {
 		return nil, err
 	}
-	target, err := c.resolveNamedTarget(ctx, PublishJobName)
+	target, err := c.resolveNamedTarget(ctx, jobName)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +202,7 @@ func (c *Collector) PublishResult(ctx context.Context, executionName string) (*P
 		return nil, err
 	}
 
-	st := &PublishStatus{ExecutionName: execName, Status: executionState(exec)}
+	st := &ExecutionStatus{ExecutionName: execName, Status: executionState(exec)}
 	if exec != nil {
 		st.StartedAt = exec.StartTime
 		st.CompletedAt = exec.CompletionTime

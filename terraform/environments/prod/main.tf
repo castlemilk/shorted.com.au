@@ -682,10 +682,13 @@ module "shorted_job_economy_freshness" {
 #
 # In local.admin_runnable_jobs, paired with its jobmonitor catalog entry
 # (services/shorts/internal/jobmonitor/catalog.go): "Run now" executes the
-# deployed args, i.e. `-mode refresh`; the fundamentals + filings pull runs
-# only on its own schedule (its args are a scheduler override Run now never
-# sends). The schedule keeps name_suffix "fundamentals" so the existing
-# scheduler job is updated in place rather than replaced.
+# deployed args, i.e. `-mode refresh`. The other modes (fundamentals, filings,
+# all) are argument overrides: the schedule below sends one, and so does the
+# admin MCP server's run_picks_job tool through the run.developer grant
+# `shorts_api_picks_overrides` further down (argv built server-side from a
+# closed enum, jobmonitor/picks.go). The schedule keeps name_suffix
+# "fundamentals" so the existing scheduler job is updated in place rather than
+# replaced.
 module "shorted_job_picks" {
   source = "../../modules/shorted-job"
 
@@ -1170,6 +1173,27 @@ resource "google_cloud_run_v2_job_iam_member" "shorts_api_news_publish" {
   project  = var.project_id
   location = var.region
   name     = module.shorted_job_news_publish.job_name
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${module.shorts_api.service_account_email}"
+}
+
+# Stock picker data job — the admin MCP server's run_picks_job tool
+# (services/shorts/internal/mcp/admin.go, scope jobs:run).
+#
+# Same pairing as the two grants above: run.developer (runWithOverrides) scoped
+# to this ONE job, and an argv the service constructs — `picks -mode <mode>`
+# with <mode> matched against the job's own four-value enum
+# (jobmonitor.NormalizePicksMode; anything else is refused before GCP is
+# asked). The deployed args are `-mode refresh`, so without this grant the only
+# on-demand path is the fleet "Run now", which can never pull fundamentals or
+# ingest filings; building first coverage in a new environment used to need an
+# operator with gcloud. The job STAYS in local.admin_runnable_jobs (Run now =
+# refresh); run.developer is a superset of run.invoker on this one job, so the
+# two bindings overlap by design rather than conflict.
+resource "google_cloud_run_v2_job_iam_member" "shorts_api_picks_overrides" {
+  project  = var.project_id
+  location = var.region
+  name     = module.shorted_job_picks.job_name
   role     = "roles/run.developer"
   member   = "serviceAccount:${module.shorts_api.service_account_email}"
 }

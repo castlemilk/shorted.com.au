@@ -267,9 +267,10 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mux.Handle("/mcp", mcpHandler)
 	mux.Handle("/mcp/", mcpHandler)
 
-	// ADMIN MCP server — publishing, for administrators only. A separate OAuth
-	// resource (/mcp/admin) with its own scope (news:publish); see
-	// internal/mcp/admin.go for why it is not tools on the public server.
+	// ADMIN MCP server — publishing and on-demand data jobs, for administrators
+	// only. A separate OAuth resource (/mcp/admin) with its own scopes
+	// (news:publish, jobs:run); see internal/mcp/admin.go for why it is not
+	// tools on the public server.
 	//
 	// Exact patterns, so they beat "/mcp/" above by ServeMux's longest-match
 	// rule — without them the PUBLIC server would answer /mcp/admin.
@@ -277,11 +278,13 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// Order, outermost first:
 	//   1. RequireBearerToken — no anonymous path; a missing token gets the 401
 	//      + RFC 9728 challenge that starts a client's OAuth flow, a wrong
-	//      audience or missing news:publish is refused.
-	//   2. RequireAdmin — re-checks admin status on EVERY request, so removing
-	//      someone from ADMIN_EMAILS stops them within the check's cache TTL,
-	//      not when their refresh family expires.
-	//   3. The admin MCP handler (publish_news_article, news_publish_status).
+	//      audience is refused.
+	//   2. RequireAdmin — requires at least one admin scope and re-checks admin
+	//      status on EVERY request, so removing someone from ADMIN_EMAILS stops
+	//      them within the check's cache TTL, not when their refresh family
+	//      expires. Each tool then checks its own scope.
+	//   3. The admin MCP handler (publish_news_article, news_publish_status,
+	//      run_picks_job, picks_job_status).
 	adminChecker := newAdminCheckerFromEnv()
 	var adminEntitlement oauth.Entitlement
 	var adminCheck mcp.AdminCheck

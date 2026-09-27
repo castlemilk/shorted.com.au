@@ -1,8 +1,8 @@
 package mcp
 
 // admin.go is a SECOND MCP server, mounted at /mcp/admin, for the handful of
-// write operations an administrator drives from an agent — today, publishing a
-// merged content/news article.
+// write operations an administrator drives from an agent — publishing a merged
+// content/news article, and running the stock picker's data job on demand.
 //
 // It is deliberately NOT a set of extra tools on the public server:
 //
@@ -14,10 +14,17 @@ package mcp
 //     resource, so a token issued for /mcp is refused here and a token issued
 //     for /mcp/admin is refused on /mcp (NewTokenVerifier's exact audience
 //     match). Granting the public server never grants this one.
-//   - Its one scope, news:publish, is not in Scopes. The public vocabulary is
-//     "every scope ends in :read", and an empty scope request on /mcp is
-//     granted the whole public vocabulary — keeping news:publish out of it is
-//     what stops an ordinary grant from carrying it by default.
+//   - Its scopes, news:publish and jobs:run, are not in Scopes. The public
+//     vocabulary is "every scope ends in :read", and an empty scope request on
+//     /mcp is granted the whole public vocabulary — keeping the admin scopes
+//     out of it is what stops an ordinary grant from carrying them by default.
+//
+// Scopes here name ACTIONS, one per tool family, and each tool checks its own
+// (requireScope). The HTTP layer requires a verified admin token carrying at
+// least one admin scope; it does not require all of them, so a connector
+// authorised before a scope existed keeps working for the tools it was granted
+// and is told, per tool, to reconnect for the new one — rather than being
+// logged out wholesale by a 403 on every call.
 //
 // Who may use it is decided THREE times, on purpose: the authorization server
 // refuses to grant this resource to a non-admin (ticket, grant, token AND
@@ -30,6 +37,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
@@ -43,12 +51,22 @@ import (
 // ServerName so a client holding both connections can tell them apart.
 const (
 	AdminServerName  = "shorted-admin"
-	AdminServerTitle = "Shorted — admin (publishing)"
+	AdminServerTitle = "Shorted — admin (publishing, data jobs)"
 )
 
-// AdminScopes is the admin resource's entire scope vocabulary. Kept apart from
-// Scopes — see the file header.
-var AdminScopes = []string{"news:publish"}
+// The admin scope vocabulary. Kept apart from Scopes — see the file header.
+const (
+	// ScopeNewsPublish covers publish_news_article and news_publish_status.
+	ScopeNewsPublish = "news:publish"
+	// ScopeJobsRun covers run_picks_job and picks_job_status: starting an
+	// on-demand execution of a data job the server chooses, with arguments the
+	// server builds.
+	ScopeJobsRun = "jobs:run"
+)
+
+// AdminScopes is the admin resource's entire scope vocabulary, in published
+// order. An empty scope request against /mcp/admin is granted all of it.
+var AdminScopes = []string{ScopeNewsPublish, ScopeJobsRun}
 
 // AdminProtectedResourceMetadataPath is RFC 9728 §3.1's location for a
 // resource whose identifier has the path /mcp/admin.
@@ -83,14 +101,17 @@ func AdminProtectedResourceMetadataHandler(apiBaseURL string) http.Handler {
 	return auth.ProtectedResourceMetadataHandler(AdminProtectedResourceMetadata(apiBaseURL))
 }
 
-// AdminBearerTokenOptions REQUIRE a token carrying news:publish. Unlike the
-// public server there is no anonymous path: an unauthenticated request gets the
-// 401 + RFC 9728 challenge that starts a client's OAuth flow, and a token
-// without the scope gets 403 insufficient_scope.
+// AdminBearerTokenOptions REQUIRE a token. Unlike the public server there is no
+// anonymous path: an unauthenticated request gets the 401 + RFC 9728 challenge
+// that starts a client's OAuth flow.
+//
+// Scopes is deliberately EMPTY here: the SDK treats that list as "all of these
+// must be present", which would refuse every token minted before a scope was
+// added to the vocabulary. The scope check is RequireAdmin's (at least one
+// admin scope) and each tool's (its own scope) instead.
 func AdminBearerTokenOptions(apiBaseURL string) *auth.RequireBearerTokenOptions {
 	return &auth.RequireBearerTokenOptions{
 		ResourceMetadataURL: AdminProtectedResourceMetadataURL(apiBaseURL),
-		Scopes:              append([]string(nil), AdminScopes...),
 		ClockSkew:           ClockSkew,
 	}
 }
@@ -101,6 +122,11 @@ type AdminCheck func(ctx context.Context, userID string) (bool, error)
 // RequireAdmin re-checks admin status on EVERY request, after the bearer token
 // has been verified. It must be composed INSIDE auth.RequireBearerToken, which
 // is what puts the TokenInfo it reads into the context.
+//
+// It also requires the token to carry at least one admin scope (403
+// insufficient scope otherwise). A token bound to this resource's audience but
+// granted none of its scopes should not exist — the AS grants a resource only
+// its own vocabulary — so this is a belt for that brace.
 //
 // Fails closed, but says WHICH kind of closed. A definite "not an admin" (or no
 // token info, or no check configured) is 403. A failed LOOKUP is 503 with
@@ -115,6 +141,10 @@ func RequireAdmin(check AdminCheck) func(http.Handler) http.Handler {
 			info := auth.TokenInfoFromContext(r.Context())
 			if check == nil || info == nil || strings.TrimSpace(info.UserID) == "" {
 				http.Error(w, "forbidden: administrator access required", http.StatusForbidden)
+				return
+			}
+			if !hasAnyScope(info.Scopes, AdminScopes) {
+				http.Error(w, "insufficient scope", http.StatusForbidden)
 				return
 			}
 			ok, err := check(r.Context(), info.UserID)
@@ -132,29 +162,45 @@ func RequireAdmin(check AdminCheck) func(http.Handler) http.Handler {
 	}
 }
 
-// AdminPublisher is the slice of the job monitor the admin tools drive. Narrow
-// on purpose: the admin server can start and poll a publish, nothing else.
-type AdminPublisher interface {
+// hasAnyScope reports whether granted carries at least one of wanted.
+func hasAnyScope(granted, wanted []string) bool {
+	for _, w := range wanted {
+		if slices.Contains(granted, w) {
+			return true
+		}
+	}
+	return false
+}
+
+// AdminOperator is the slice of the job monitor the admin tools drive. Narrow
+// on purpose: the admin server can start and poll a publish, and start and
+// poll a picks run — two named jobs with server-built arguments, nothing else.
+// In particular it is NOT the fleet-wide RunJob.
+type AdminOperator interface {
 	RunPublish(ctx context.Context, req jobmonitor.PublishRequest) (*jobmonitor.PublishRun, error)
 	PublishResult(ctx context.Context, executionName string) (*jobmonitor.PublishStatus, error)
+	RunPicks(ctx context.Context, req jobmonitor.PicksRequest) (*jobmonitor.PicksRun, error)
+	PicksResult(ctx context.Context, executionName string) (*jobmonitor.ExecutionStatus, error)
 }
 
 // AdminTool is one admin tool. A separate type from Tool so the public
 // registry's guards (public RPCs, read-only, catalog, payload budgets) never
 // see it.
 type AdminTool struct {
-	Name     string
-	register func(*sdk.Server, AdminPublisher)
+	Name string
+	// Scope is the admin scope the tool requires (checked per call).
+	Scope    string
+	register func(*sdk.Server, AdminOperator)
 }
 
 // AdminRegistry is every tool on the admin server.
 func AdminRegistry() []AdminTool {
-	return []AdminTool{publishNewsArticleTool(), newsPublishStatusTool()}
+	return []AdminTool{publishNewsArticleTool(), newsPublishStatusTool(), runPicksJobTool(), picksJobStatusTool()}
 }
 
 // NewAdminServer builds the admin MCP server. It has tools only: no resources
 // or prompts, which describe the public data surface.
-func NewAdminServer(pub AdminPublisher) *sdk.Server {
+func NewAdminServer(pub AdminOperator) *sdk.Server {
 	server := sdk.NewServer(&sdk.Implementation{
 		Name: AdminServerName, Title: AdminServerTitle, Version: ServerVersion,
 		WebsiteURL: WebsiteURL, Icons: Icons(),
@@ -169,7 +215,7 @@ func NewAdminServer(pub AdminPublisher) *sdk.Server {
 
 // AdminHandler serves the admin server over the same stateless streamable
 // transport as the public one, for the same reasons (see Handler).
-func AdminHandler(pub AdminPublisher) http.Handler {
+func AdminHandler(pub AdminOperator) http.Handler {
 	server := NewAdminServer(pub)
 	return boundStreamLifetime(StreamLifetime, sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server {
 		return server
@@ -185,6 +231,20 @@ func adminActor(req *sdk.CallToolRequest) string {
 }
 
 func boolPtr(b bool) *bool { return &b }
+
+// requireScope is the per-tool half of the scope check. A token without the
+// tool's scope gets a tool-level error that says which scope is missing and
+// how to get it, so an agent (and the person behind it) can act on it — a
+// protocol-level 403 would instead make the client drop its sign-in for a
+// connector that still works for everything else it was granted.
+func requireScope(req *sdk.CallToolRequest, scope string) *sdk.CallToolResult {
+	if req != nil && req.Extra != nil && req.Extra.TokenInfo != nil && slices.Contains(req.Extra.TokenInfo.Scopes, scope) {
+		return nil
+	}
+	res := &sdk.CallToolResult{}
+	res.SetError(fmt.Errorf("this connection was not granted the %s scope; disconnect and reconnect the Shorted admin connector to approve it", scope))
+	return res
+}
 
 // --- publish_news_article ----------------------------------------------------
 
@@ -206,8 +266,8 @@ type PublishNewsArticleOutput struct {
 }
 
 func publishNewsArticleTool() AdminTool {
-	t := AdminTool{Name: "publish_news_article"}
-	t.register = func(server *sdk.Server, pub AdminPublisher) {
+	t := AdminTool{Name: "publish_news_article", Scope: ScopeNewsPublish}
+	t.register = func(server *sdk.Server, pub AdminOperator) {
 		sdk.AddTool(server, &sdk.Tool{
 			Name:  t.Name,
 			Title: "Publish a news article",
@@ -222,6 +282,9 @@ func publishNewsArticleTool() AdminTool {
 				OpenWorldHint:   boolPtr(false),
 			},
 		}, func(ctx context.Context, req *sdk.CallToolRequest, in PublishNewsArticleInput) (*sdk.CallToolResult, PublishNewsArticleOutput, error) {
+			if denied := requireScope(req, t.Scope); denied != nil {
+				return denied, PublishNewsArticleOutput{}, nil
+			}
 			run, err := pub.RunPublish(ctx, jobmonitor.PublishRequest{
 				Slug:       in.Slug,
 				SkipImages: in.Images != nil && !*in.Images,
@@ -258,14 +321,17 @@ type NewsPublishStatusOutput struct {
 }
 
 func newsPublishStatusTool() AdminTool {
-	t := AdminTool{Name: "news_publish_status"}
-	t.register = func(server *sdk.Server, pub AdminPublisher) {
+	t := AdminTool{Name: "news_publish_status", Scope: ScopeNewsPublish}
+	t.register = func(server *sdk.Server, pub AdminOperator) {
 		sdk.AddTool(server, &sdk.Tool{
 			Name:        t.Name,
 			Title:       "Check a news publish run",
 			Description: "Report whether a publish_news_article run is still running, succeeded or failed, with its log link and failure reason.",
 			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: boolPtr(false)},
-		}, func(ctx context.Context, _ *sdk.CallToolRequest, in NewsPublishStatusInput) (*sdk.CallToolResult, NewsPublishStatusOutput, error) {
+		}, func(ctx context.Context, req *sdk.CallToolRequest, in NewsPublishStatusInput) (*sdk.CallToolResult, NewsPublishStatusOutput, error) {
+			if denied := requireScope(req, t.Scope); denied != nil {
+				return denied, NewsPublishStatusOutput{}, nil
+			}
 			st, err := pub.PublishResult(ctx, in.ExecutionName)
 			if err != nil {
 				return adminToolError(err), NewsPublishStatusOutput{}, nil
@@ -284,21 +350,139 @@ func newsPublishStatusTool() AdminTool {
 	return t
 }
 
+// --- run_picks_job -----------------------------------------------------------
+
+// RunPicksJobInput names a MODE and nothing else: no job, no region, no
+// arguments, no code list. The server builds `picks -mode <mode>` from the
+// closed enum (jobmonitor.NormalizePicksMode).
+type RunPicksJobInput struct {
+	Mode  string `json:"mode" jsonschema:"Which step to run: fundamentals (pull typed revenue/EPS/cash-flow periods for up to 400 stale codes, about 30 minutes), filings (rebuild half-year rows from Appendix 4D/4E extractions, seconds), refresh (refresh_strategy_views: market regime, growth and price features), or all (the three in order, what the nightly schedule runs)."`
+	Force bool   `json:"force,omitempty" jsonschema:"Start even if a picks run is already in flight. Two writers race on the same rows; leave false unless the running one is stuck."`
+}
+
+// RunPicksJobOutput describes the run that was started.
+type RunPicksJobOutput struct {
+	ExecutionName string   `json:"execution_name" jsonschema:"Pass to picks_job_status to follow the run."`
+	Mode          string   `json:"mode"`
+	Args          []string `json:"args" jsonschema:"The job invocation the server constructed."`
+	Next          string   `json:"next,omitempty" jsonschema:"What to run after this one succeeds, when building first coverage."`
+}
+
+// picksNextStep is the operator runbook (services/jobs/README.md "picks",
+// docs/plans/stock-picker.md §7) as one line per mode, so an agent building
+// first coverage is told the order rather than guessing it.
+func picksNextStep(mode jobmonitor.PicksMode) string {
+	switch mode {
+	case jobmonitor.PicksModeFundamentals:
+		return "Each fundamentals run covers up to 400 codes, stalest first; the universe is roughly 2,300, so repeat until get_strategy_picks on the public server reports fundamentals_coverage_count near the universe. Then run filings, then refresh."
+	case jobmonitor.PicksModeFilings:
+		return "Run refresh so the half-year rows reach mv_fundamentals_growth."
+	case jobmonitor.PicksModeRefresh:
+		return "Picks pages and get_strategy_picks read the refreshed views on their next request (the pages revalidate hourly)."
+	case jobmonitor.PicksModeAll:
+		return "Nothing: this is the nightly sequence. Check get_strategy_picks for fundamentals_coverage_count."
+	}
+	return ""
+}
+
+func runPicksJobTool() AdminTool {
+	t := AdminTool{Name: "run_picks_job", Scope: ScopeJobsRun}
+	t.register = func(server *sdk.Server, pub AdminOperator) {
+		sdk.AddTool(server, &sdk.Tool{
+			Name:  t.Name,
+			Title: "Run the stock picker data job",
+			Description: "Start one execution of the shorted-picks Cloud Run job (`shorted picks -mode <mode>`), the data layer behind " +
+				"https://shorted.com.au/picks and the public list_strategies / get_strategy_picks / get_stock_fundamentals tools. " +
+				"Use it to build or top up fundamentals coverage without waiting for the nightly 15:00 UTC schedule. " +
+				"Writes to stock_fundamentals and refreshes materialized views; refuses to start while another picks run is in flight. " +
+				"Poll picks_job_status with the returned execution_name.",
+			Annotations: &sdk.ToolAnnotations{
+				ReadOnlyHint:    false,
+				DestructiveHint: boolPtr(false),
+				IdempotentHint:  false,
+				OpenWorldHint:   boolPtr(true), // fundamentals and all reach Yahoo / Markit
+			},
+		}, func(ctx context.Context, req *sdk.CallToolRequest, in RunPicksJobInput) (*sdk.CallToolResult, RunPicksJobOutput, error) {
+			if denied := requireScope(req, t.Scope); denied != nil {
+				return denied, RunPicksJobOutput{}, nil
+			}
+			run, err := pub.RunPicks(ctx, jobmonitor.PicksRequest{Mode: in.Mode, Force: in.Force, Actor: adminActor(req)})
+			if err != nil {
+				return adminToolError(err), RunPicksJobOutput{}, nil
+			}
+			out := RunPicksJobOutput{ExecutionName: run.ExecutionName, Mode: string(run.Mode), Args: run.Args, Next: picksNextStep(run.Mode)}
+			text := fmt.Sprintf("Started shorted-picks in mode %s (execution %s, args %s). Check picks_job_status for the outcome. %s",
+				run.Mode, run.ExecutionName, strings.Join(run.Args, " "), out.Next)
+			return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: text}}}, out, nil
+		})
+	}
+	return t
+}
+
+// --- picks_job_status --------------------------------------------------------
+
+// PicksJobStatusInput names the run to poll.
+type PicksJobStatusInput struct {
+	ExecutionName string `json:"execution_name" jsonschema:"The execution_name run_picks_job returned."`
+}
+
+// PicksJobStatusOutput is the run's state. The job has no report artifact: its
+// exit code is the verdict (0 ok, 10 DEGRADED, 1 failed), so a failed status
+// with an exit-10 message means a partial pull, not a broken job.
+type PicksJobStatusOutput struct {
+	ExecutionName string `json:"execution_name"`
+	Status        string `json:"status" jsonschema:"running, succeeded, failed or unknown. Exit 10 in the message is DEGRADED: under half the attempted codes answered, or some filing rows failed to write; the rest of the run still landed."`
+	StartedAt     string `json:"started_at,omitempty"`
+	CompletedAt   string `json:"completed_at,omitempty"`
+	LogURI        string `json:"log_uri,omitempty" jsonschema:"Cloud Logging link for the run."`
+	Message       string `json:"message,omitempty" jsonschema:"Why it failed, when it failed."`
+}
+
+func picksJobStatusTool() AdminTool {
+	t := AdminTool{Name: "picks_job_status", Scope: ScopeJobsRun}
+	t.register = func(server *sdk.Server, pub AdminOperator) {
+		sdk.AddTool(server, &sdk.Tool{
+			Name:        t.Name,
+			Title:       "Check a stock picker data run",
+			Description: "Report whether a run_picks_job execution is still running, succeeded or failed, with its log link and failure reason.",
+			Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: boolPtr(false)},
+		}, func(ctx context.Context, req *sdk.CallToolRequest, in PicksJobStatusInput) (*sdk.CallToolResult, PicksJobStatusOutput, error) {
+			if denied := requireScope(req, t.Scope); denied != nil {
+				return denied, PicksJobStatusOutput{}, nil
+			}
+			st, err := pub.PicksResult(ctx, in.ExecutionName)
+			if err != nil {
+				return adminToolError(err), PicksJobStatusOutput{}, nil
+			}
+			out := PicksJobStatusOutput{
+				ExecutionName: st.ExecutionName, Status: st.Status, StartedAt: st.StartedAt,
+				CompletedAt: st.CompletedAt, LogURI: st.LogUri, Message: st.Message,
+			}
+			text := fmt.Sprintf("%s: %s", st.ExecutionName, st.Status)
+			if st.Message != "" {
+				text += " — " + st.Message
+			}
+			return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: text}}}, out, nil
+		})
+	}
+	return t
+}
+
 // adminToolError turns a refusal into a tool-level error the model can read
 // and act on (a bad slug, a run already in flight), rather than a protocol
 // error. Unexpected failures stay generic.
 func adminToolError(err error) *sdk.CallToolResult {
 	var running *jobmonitor.AlreadyRunningError
-	msg := "the publish could not be started; the job monitor rejected the request"
+	msg := "the run could not be started; the job monitor rejected the request"
 	switch {
-	case errors.Is(err, jobmonitor.ErrInvalidSlug):
+	case errors.Is(err, jobmonitor.ErrInvalidSlug), errors.Is(err, jobmonitor.ErrInvalidPicksMode):
 		msg = err.Error()
 	case errors.Is(err, jobmonitor.ErrInvalidExecution):
 		msg = "that is not a valid execution name"
 	case errors.As(err, &running):
 		msg = running.Error() + " — wait for it, or retry with force=true"
-	case errors.Is(err, jobmonitor.ErrUnknownJob):
-		msg = "the shorted-news-publish job is not deployed in this environment"
+	case errors.Is(err, jobmonitor.ErrUnknownJob), errors.Is(err, jobmonitor.ErrRetiredJob), errors.Is(err, jobmonitor.ErrNotExecutable):
+		msg = "that job is not deployed as a runnable Cloud Run Job in this environment"
 	case errors.Is(err, jobmonitor.ErrNoProject), errors.Is(err, jobmonitor.ErrOverridesUnsupported):
 		msg = "job execution is not configured in this deployment"
 	}
