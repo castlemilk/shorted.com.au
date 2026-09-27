@@ -71,8 +71,9 @@ const (
 const DefaultIndexCode = "XJO"
 
 // LiquidityFloorAUD is the minimum 20-session average daily turnover. It is
-// also what excludes sub-cent stocks, whose DECIMAL(10,2) prices are too
-// coarse to measure (plan §2.3: applied in the evaluator, not the view).
+// also what excludes sub-cent stocks, whose prices DECIMAL(10,2) stored too
+// coarsely to measure (four decimals since 000131; plan §2.3: applied in the
+// evaluator, not the view).
 const LiquidityFloorAUD = 250_000.0
 
 // Growth mirrors one row of mv_fundamentals_growth (plan §2.2). Every numeric

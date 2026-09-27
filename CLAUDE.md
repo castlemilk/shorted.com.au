@@ -135,7 +135,7 @@ Connection string: `postgresql://admin:password@localhost:5438/shorts`
 ```sql
 stock_code VARCHAR     -- ASX code
 date DATE              -- Trading date
-open, high, low, close, adjusted_close DECIMAL
+open, high, low, close, adjusted_close NUMERIC(12,4)  -- DECIMAL(10,2) before 000131 (hand-applied)
 volume BIGINT
 ```
 

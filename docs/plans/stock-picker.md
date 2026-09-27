@@ -179,7 +179,8 @@ rs_3m_pct, rs_6m_pct     -- stock return minus XJO return over the same window
 sessions_available (int)
 ```
 
-Prices are `DECIMAL(10,2)`; sub-cent stocks are noisy and are excluded by the
+Prices were `DECIMAL(10,2)` until migration 000131 widened them to four
+decimals; sub-cent stocks are noisy and are excluded by the
 liquidity floor (`dollar_volume_20d >= 250000` AUD) applied in the evaluator,
 not in the view.
 

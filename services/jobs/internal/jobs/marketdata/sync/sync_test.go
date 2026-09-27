@@ -280,7 +280,7 @@ func TestComparePrices(t *testing.T) {
 		mustDate("2025-11-02"): c(43.37), // Sunday: Monday's session a day early
 		mustDate("2025-11-04"): {},
 	}
-	d := comparePrices("BHP", fetched, stored)
+	d := comparePrices("BHP", fetched, stored, closeTolerance(2))
 	assert.Equal(t, 1, d.new)
 	require.Len(t, d.changes, 3)
 	byDate := map[string]PriceChange{}
@@ -314,6 +314,26 @@ func TestComparePrices(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestCloseToleranceFollowsTheStoredScale(t *testing.T) {
+	t.Parallel()
+	c := func(v float64) storedSession { return storedSession{close: &v} }
+	day := mustDate("2026-08-20")
+	// ENL traded at $0.0065 and was stored to the cent.
+	fetched := []providers.PriceRecord{{Date: day, Close: 0.0065}}
+	stored := map[time.Time]storedSession{day: c(0.01)}
+
+	assert.Empty(t, comparePrices("ENL", fetched, stored, closeTolerance(2)).changes,
+		"at two decimals the stored cent is the best the column can hold")
+	assert.Len(t, comparePrices("ENL", fetched, stored, closeTolerance(4)).changes, 1,
+		"at four decimals it is a wrong price, and a re-fetch corrects it")
+
+	// Float noise in the provider's value is not a change at either scale.
+	noisy := []providers.PriceRecord{{Date: day, Close: 43.45000076293945}}
+	assert.Empty(t, comparePrices("BHP", noisy, map[time.Time]storedSession{day: c(43.45)}, closeTolerance(4)).changes)
+	assert.InDelta(t, 0.0051, closeTolerance(2), 1e-12)
+	assert.InDelta(t, 0.000051, closeTolerance(4), 1e-12)
+}
+
 func TestReportListsAreCapped(t *testing.T) {
 	t.Parallel()
 	var r RunReport
@@ -324,7 +344,7 @@ func TestReportListsAreCapped(t *testing.T) {
 			map[time.Time]storedSession{
 				mustDate("2026-09-21"): {close: &v},
 				mustDate("2026-09-19"): {close: &v},
-			})
+			}, closeTolerance(2))
 		r.addDiff(d)
 		r.FailedCodes = appendCapped(r.FailedCodes, "X")
 	}
