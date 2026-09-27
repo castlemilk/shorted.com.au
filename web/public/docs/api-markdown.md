@@ -1561,6 +1561,28 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockFi
   -d '{}'
 ```
 
+#### `POST /shorts.v1alpha1.StockService/GetStockFundamentals`
+
+Per-period reported fundamentals (revenue, net income, EPS, cash flow,
+ shares) and year-on-year growth for a stock. Every value carries a has_*
+ flag: a missing figure is absent, never zero.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `limit` | integer (int32) | no | Max periods, newest first (default 12, max 40). (proto int32) |
+| `periodType` | string | no | Optional: "annual" \| "half" \| "quarter" \| "ttm". Empty returns every type. (proto string) |
+| `stockCode` | string | no | ASX code, e.g. "BHP". (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockFundamentals' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 #### `POST /shorts.v1alpha1.StockService/GetStockGraph`
 
 Get a stock's people (with their other companies) and narrative-similar companies
@@ -1634,6 +1656,45 @@ Request body fields:
 
 ```bash
 curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockVerdict' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+### shorts.v1alpha1.StrategyService
+
+#### `POST /shorts.v1alpha1.StrategyService/GetStrategyPicks`
+
+Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
+ score and a per-rule pass / fail / unknown breakdown for each stock.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `limit` | integer (int32) | no | Default 20, max 100. (proto int32) |
+| `offset` | integer (int32) | no | (proto int32) |
+| `status` | string | no | Optional filter: "triggered" \| "setup" \| "watch". (proto string) |
+| `strategyId` | string | no | Required, e.g. "zanger-breakout". (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/GetStrategyPicks' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.StrategyService/ListStrategies`
+
+List every strategy with its rules, metadata, caveats and sources, plus
+ the current market regime (S&P/ASX 200).
+
+Request body: an empty JSON object, `{}`.
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/ListStrategies' \
   -A 'my-app/1.0' \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \

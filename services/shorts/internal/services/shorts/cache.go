@@ -76,12 +76,21 @@ func (c *MemoryCache) Get(key string) (interface{}, bool) {
 
 // Set stores a value in the cache
 func (c *MemoryCache) Set(key string, value interface{}) {
+	c.setWithTTL(key, value, c.maxAge)
+}
+
+// setWithTTL stores a value that expires after ttl instead of the cache-wide
+// max age. A non-positive ttl falls back to the max age.
+func (c *MemoryCache) setWithTTL(key string, value interface{}, ttl time.Duration) {
+	if ttl <= 0 {
+		ttl = c.maxAge
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.store[key] = &CacheEntry{
 		Value:     value,
-		ExpiresAt: time.Now().Add(c.maxAge),
+		ExpiresAt: time.Now().Add(ttl),
 	}
 }
 
@@ -89,6 +98,12 @@ func (c *MemoryCache) Set(key string, value interface{}) {
 // Uses singleflight to deduplicate concurrent computations for the same key,
 // preventing thundering herd problems under burst traffic.
 func (c *MemoryCache) GetOrSet(key string, computeFn func() (interface{}, error)) (interface{}, error) {
+	return c.GetOrSetWithTTL(key, c.maxAge, computeFn)
+}
+
+// GetOrSetWithTTL is GetOrSet with a per-entry lifetime. Same singleflight
+// deduplication; errors are never cached.
+func (c *MemoryCache) GetOrSetWithTTL(key string, ttl time.Duration, computeFn func() (interface{}, error)) (interface{}, error) {
 	// Try to get from cache first
 	if value, found := c.Get(key); found {
 		return value, nil
@@ -109,7 +124,7 @@ func (c *MemoryCache) GetOrSet(key string, computeFn func() (interface{}, error)
 			return nil, err
 		}
 
-		c.Set(key, v)
+		c.setWithTTL(key, v, ttl)
 		return v, nil
 	})
 	if err != nil {
@@ -490,4 +505,27 @@ func (c *MemoryCache) GetIndustryIntelligenceKey(industry string, stockCode stri
 // GetShortCampaignScoreboardKey builds a cache key for GetShortCampaignScoreboard responses.
 func (c *MemoryCache) GetShortCampaignScoreboardKey(industry string, limit, offset int32) string {
 	return c.generateKey("short_campaign_scoreboard", industry, limit, offset)
+}
+
+// GetStockFundamentalsKey builds a cache key for GetStockFundamentals responses.
+func (c *MemoryCache) GetStockFundamentalsKey(stockCode, periodType string, limit int32) string {
+	return c.generateKey("stock_fundamentals", stockCode, periodType, limit)
+}
+
+// GetStrategyUniverseKey is the one key for the stock picker's evaluated
+// universe (every candidate + the regime), shared by all strategies so the
+// candidates query runs once per fill, not once per strategy.
+func (c *MemoryCache) GetStrategyUniverseKey() string {
+	return c.generateKey("strategy_universe")
+}
+
+// GetStrategyPicksKey builds a cache key for one strategy's FULL evaluated
+// pick list; paging and status filtering happen in memory on top of it.
+func (c *MemoryCache) GetStrategyPicksKey(strategyID string) string {
+	return c.generateKey("strategy_picks", strategyID)
+}
+
+// GetMarketRegimeKey builds a cache key for the market regime of an index.
+func (c *MemoryCache) GetMarketRegimeKey(indexCode string) string {
+	return c.generateKey("market_regime", indexCode)
 }

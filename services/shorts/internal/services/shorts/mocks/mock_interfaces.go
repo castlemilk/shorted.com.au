@@ -17,6 +17,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	shorts "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
+	strategies "github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -484,6 +485,21 @@ func (mr *MockShortsStoreMockRecorder) GetEventTimeline(stockCode, daysBack, lim
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEventTimeline", reflect.TypeOf((*MockShortsStore)(nil).GetEventTimeline), stockCode, daysBack, limit)
 }
 
+// GetFundamentalsGrowth mocks base method.
+func (m *MockShortsStore) GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFundamentalsGrowth", ctx, code)
+	ret0, _ := ret[0].(*strategies.Growth)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFundamentalsGrowth indicates an expected call of GetFundamentalsGrowth.
+func (mr *MockShortsStoreMockRecorder) GetFundamentalsGrowth(ctx, code any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFundamentalsGrowth", reflect.TypeOf((*MockShortsStore)(nil).GetFundamentalsGrowth), ctx, code)
+}
+
 // GetHousePriceSeries mocks base method.
 func (m *MockShortsStore) GetHousePriceSeries(regionCode, measure, dwellingType string) (*shorts.HousePriceSeriesResult, error) {
 	m.ctrl.T.Helper()
@@ -619,6 +635,21 @@ func (m *MockShortsStore) GetMarketNews(limit int32, source string, priceSensiti
 func (mr *MockShortsStoreMockRecorder) GetMarketNews(limit, source, priceSensitiveOnly any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketNews", reflect.TypeOf((*MockShortsStore)(nil).GetMarketNews), limit, source, priceSensitiveOnly)
+}
+
+// GetMarketRegime mocks base method.
+func (m *MockShortsStore) GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMarketRegime", ctx, indexCode)
+	ret0, _ := ret[0].(strategies.Regime)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMarketRegime indicates an expected call of GetMarketRegime.
+func (mr *MockShortsStoreMockRecorder) GetMarketRegime(ctx, indexCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketRegime", reflect.TypeOf((*MockShortsStore)(nil).GetMarketRegime), ctx, indexCode)
 }
 
 // GetNextAvailableDate mocks base method.
@@ -968,6 +999,21 @@ func (m *MockShortsStore) GetStockFinancialHighlights(stockCodes []string, maxPe
 func (mr *MockShortsStoreMockRecorder) GetStockFinancialHighlights(stockCodes, maxPerStock any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockFinancialHighlights", reflect.TypeOf((*MockShortsStore)(nil).GetStockFinancialHighlights), stockCodes, maxPerStock)
+}
+
+// GetStockFundamentals mocks base method.
+func (m *MockShortsStore) GetStockFundamentals(ctx context.Context, code, periodType string, limit int32) ([]shorts.FundamentalsPeriodRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStockFundamentals", ctx, code, periodType, limit)
+	ret0, _ := ret[0].([]shorts.FundamentalsPeriodRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStockFundamentals indicates an expected call of GetStockFundamentals.
+func (mr *MockShortsStoreMockRecorder) GetStockFundamentals(ctx, code, periodType, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockFundamentals", reflect.TypeOf((*MockShortsStore)(nil).GetStockFundamentals), ctx, code, periodType, limit)
 }
 
 // GetStockGraph mocks base method.
@@ -1575,6 +1621,21 @@ func (m *MockShortsStore) ListStockPoliticians(stockCode string, currentOnly boo
 func (mr *MockShortsStoreMockRecorder) ListStockPoliticians(stockCode, currentOnly any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStockPoliticians", reflect.TypeOf((*MockShortsStore)(nil).ListStockPoliticians), stockCode, currentOnly)
+}
+
+// ListStrategyCandidates mocks base method.
+func (m *MockShortsStore) ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListStrategyCandidates", ctx)
+	ret0, _ := ret[0].([]strategies.Candidate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListStrategyCandidates indicates an expected call of ListStrategyCandidates.
+func (mr *MockShortsStoreMockRecorder) ListStrategyCandidates(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStrategyCandidates", reflect.TypeOf((*MockShortsStore)(nil).ListStrategyCandidates), ctx)
 }
 
 // ListSuburbDropListings mocks base method.
@@ -2350,6 +2411,20 @@ func (mr *MockCacheMockRecorder) GetMarketNewsKey(limit, source, priceSensitiveO
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketNewsKey", reflect.TypeOf((*MockCache)(nil).GetMarketNewsKey), limit, source, priceSensitiveOnly)
 }
 
+// GetMarketRegimeKey mocks base method.
+func (m *MockCache) GetMarketRegimeKey(indexCode string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMarketRegimeKey", indexCode)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetMarketRegimeKey indicates an expected call of GetMarketRegimeKey.
+func (mr *MockCacheMockRecorder) GetMarketRegimeKey(indexCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketRegimeKey", reflect.TypeOf((*MockCache)(nil).GetMarketRegimeKey), indexCode)
+}
+
 // GetOrSet mocks base method.
 func (m *MockCache) GetOrSet(key string, computeFn func() (any, error)) (any, error) {
 	m.ctrl.T.Helper()
@@ -2363,6 +2438,21 @@ func (m *MockCache) GetOrSet(key string, computeFn func() (any, error)) (any, er
 func (mr *MockCacheMockRecorder) GetOrSet(key, computeFn any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrSet", reflect.TypeOf((*MockCache)(nil).GetOrSet), key, computeFn)
+}
+
+// GetOrSetWithTTL mocks base method.
+func (m *MockCache) GetOrSetWithTTL(key string, ttl time.Duration, computeFn func() (any, error)) (any, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOrSetWithTTL", key, ttl, computeFn)
+	ret0, _ := ret[0].(any)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOrSetWithTTL indicates an expected call of GetOrSetWithTTL.
+func (mr *MockCacheMockRecorder) GetOrSetWithTTL(key, ttl, computeFn any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrSetWithTTL", reflect.TypeOf((*MockCache)(nil).GetOrSetWithTTL), key, ttl, computeFn)
 }
 
 // GetPeerComparisonKey mocks base method.
@@ -2603,6 +2693,20 @@ func (mr *MockCacheMockRecorder) GetStockDetailsKey(productCode any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockDetailsKey", reflect.TypeOf((*MockCache)(nil).GetStockDetailsKey), productCode)
 }
 
+// GetStockFundamentalsKey mocks base method.
+func (m *MockCache) GetStockFundamentalsKey(stockCode, periodType string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStockFundamentalsKey", stockCode, periodType, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetStockFundamentalsKey indicates an expected call of GetStockFundamentalsKey.
+func (mr *MockCacheMockRecorder) GetStockFundamentalsKey(stockCode, periodType, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockFundamentalsKey", reflect.TypeOf((*MockCache)(nil).GetStockFundamentalsKey), stockCode, periodType, limit)
+}
+
 // GetStockGraphKey mocks base method.
 func (m *MockCache) GetStockGraphKey(stockCode string, limit int32) string {
 	m.ctrl.T.Helper()
@@ -2685,6 +2789,34 @@ func (m *MockCache) GetStockVerdictKey(productCode string) string {
 func (mr *MockCacheMockRecorder) GetStockVerdictKey(productCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockVerdictKey", reflect.TypeOf((*MockCache)(nil).GetStockVerdictKey), productCode)
+}
+
+// GetStrategyPicksKey mocks base method.
+func (m *MockCache) GetStrategyPicksKey(strategyID string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStrategyPicksKey", strategyID)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetStrategyPicksKey indicates an expected call of GetStrategyPicksKey.
+func (mr *MockCacheMockRecorder) GetStrategyPicksKey(strategyID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStrategyPicksKey", reflect.TypeOf((*MockCache)(nil).GetStrategyPicksKey), strategyID)
+}
+
+// GetStrategyUniverseKey mocks base method.
+func (m *MockCache) GetStrategyUniverseKey() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStrategyUniverseKey")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetStrategyUniverseKey indicates an expected call of GetStrategyUniverseKey.
+func (mr *MockCacheMockRecorder) GetStrategyUniverseKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStrategyUniverseKey", reflect.TypeOf((*MockCache)(nil).GetStrategyUniverseKey))
 }
 
 // GetSuburbDropListingsKey mocks base method.

@@ -23,6 +23,7 @@ import "shorts/v1alpha1/reports.proto";
 import "shorts/v1alpha1/screener.proto";
 import "shorts/v1alpha1/search.proto";
 import "shorts/v1alpha1/stock.proto";
+import "shorts/v1alpha1/strategies.proto";
 
 option (gnostic.openapi.v3.document) = {
   info: {
@@ -902,6 +903,37 @@ service ShortedStocksService {
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Industry Intelligence",
       description: "Imported, cited industry intelligence records for a Shorted industry. Only public-enabled sources and exact-reviewed records are returned."
+    };
+  }
+
+  // ==================== Fundamentals + Strategy Picks ====================
+  // Mirrored from StockService (GetStockFundamentals) and StrategyService for
+  // external API back-compat; the parity test enforces the visibility match.
+
+  // Per-period reported fundamentals and year-on-year growth for a stock.
+  rpc GetStockFundamentals (GetStockFundamentalsRequest) returns (GetStockFundamentalsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Stock Fundamentals",
+      description: "Per-period reported fundamentals (revenue, net income, EPS, operating and free cash flow, shares) and year-on-year growth for a stock. Growth compares a series with itself one year earlier. Every value carries a has_* flag: a missing figure is absent, never zero."
+    };
+  }
+
+  // List every stock-picking strategy with its rules and the market regime.
+  rpc ListStrategies (ListStrategiesRequest) returns (ListStrategiesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Strategies",
+      description: "Named stock-picking strategies (Zanger breakout, CAN SLIM, Minervini trend template, crowded-short breakout) with each rule in the author's terms, exactly how it is evaluated, caveats and sources, plus the current S&P/ASX 200 market regime."
+    };
+  }
+
+  // Ranked picks for one strategy with a per-rule breakdown.
+  rpc GetStrategyPicks (GetStrategyPicksRequest) returns (GetStrategyPicksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Strategy Picks",
+      description: "Ranked ASX stocks for one strategy: status (triggered, setup, watch), a 0-100 score, and a pass / fail / unknown result for every rule. Unknown means the data is missing and never counts as a pass. Not financial advice."
     };
   }
 

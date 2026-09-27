@@ -13,7 +13,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/stock.proto.
  */
 export const file_shorts_v1alpha1_stock: GenFile = /*@__PURE__*/
-  fileDesc("ChtzaG9ydHMvdjFhbHBoYTEvc3RvY2sucHJvdG8SD3Nob3J0cy52MWFscGhhMSInCg9HZXRTdG9ja1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIi4KFkdldFN0b2NrRGV0YWlsc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIpEBChNHZXRTdG9ja0RhdGFSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCRIOCgZwZXJpb2QYAiABKAkSFwoPZnVsbF9yZXNvbHV0aW9uGAMgASgIEhIKCm1heF9wb2ludHMYBiABKAUSDAoEZnJvbRgEIAEoCRIKCgJ0bxgFIAEoCRINCgVhc19vZhgHIAEoCSJrChVHZXRTdG9ja1ByaWNlc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJEg4KBnBlcmlvZBgCIAEoCRIMCgRmcm9tGAMgASgJEgoKAnRvGAQgASgJEhIKCm1heF9wb2ludHMYBSABKAUisQEKFkdldFN0b2NrUHJpY2VzUmVzcG9uc2USFAoMcHJvZHVjdF9jb2RlGAEgASgJEgwKBG5hbWUYAiABKAkSMAoGcG9pbnRzGAMgAygLMiAuc2hvcnRzLnYxYWxwaGExLlN0b2NrUHJpY2VQb2ludBIaChJ0b3RhbF9vYnNlcnZhdGlvbnMYBCABKAUSEwoLZG93bnNhbXBsZWQYBSABKAgSEAoIY3VycmVuY3kYBiABKAkifwoPU3RvY2tQcmljZVBvaW50EgwKBGRhdGUYASABKAkSDAoEb3BlbhgCIAEoARIMCgRoaWdoGAMgASgBEgsKA2xvdxgEIAEoARINCgVjbG9zZRgFIAEoARIWCg5hZGp1c3RlZF9jbG9zZRgGIAEoARIOCgZ2b2x1bWUYByABKAMiWAoiR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVxdWVzdBITCgtzdG9ja19jb2RlcxgBIAMoCRIdChVtYXhfcmVwb3J0c19wZXJfc3RvY2sYAiABKAUi3QEKI0dldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0c1Jlc3BvbnNlElgKCmhpZ2hsaWdodHMYASADKAsyRC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVzcG9uc2UuSGlnaGxpZ2h0c0VudHJ5GlwKD0hpZ2hsaWdodHNFbnRyeRILCgNrZXkYASABKAkSOAoFdmFsdWUYAiABKAsyKS5zaG9ydHMudjFhbHBoYTEuU3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzOgI4ASJWChhTdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHMSOgoHcmVwb3J0cxgBIAMoCzIpLnNob3J0cy52MWFscGhhMS5GaW5hbmNpYWxSZXBvcnRIaWdobGlnaHQisQEKGEZpbmFuY2lhbFJlcG9ydEhpZ2hsaWdodBIUCgxyZXBvcnRfdGl0bGUYASABKAkSEwoLcmVwb3J0X3R5cGUYAiABKAkSEwoLcmVwb3J0X2RhdGUYAyABKAkSMQoHbWV0cmljcxgEIAMoCzIgLnNob3J0cy52MWFscGhhMS5GaW5hbmNpYWxNZXRyaWMSDgoGZGlnZXN0GAUgASgJEhIKCmNvbmZpZGVuY2UYBiABKAEitAEKD0ZpbmFuY2lhbE1ldHJpYxITCgttZXRyaWNfdHlwZRgBIAEoCRITCgtzb3VyY2VfdGV4dBgCIAEoCRJECgphdHRyaWJ1dGVzGAMgAygLMjAuc2hvcnRzLnYxYWxwaGExLkZpbmFuY2lhbE1ldHJpYy5BdHRyaWJ1dGVzRW50cnkaMQoPQXR0cmlidXRlc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEizQEKDURpcmVjdG9yVHJhZGUSCgoCaWQYASABKAkSEgoKc3RvY2tfY29kZRgCIAEoCRIVCg1kaXJlY3Rvcl9uYW1lGAMgASgJEhIKCnRyYWRlX3R5cGUYBCABKAkSFQoNc2hhcmVzX3RyYWRlZBgFIAEoAxIXCg9wcmljZV9wZXJfc2hhcmUYBiABKAESEwoLdG90YWxfdmFsdWUYByABKAESEgoKdHJhZGVfZGF0ZRgIIAEoCRIYChBhbm5vdW5jZW1lbnRfdXJsGAkgASgJIj0KGEdldERpcmVjdG9yVHJhZGVzUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFImAKGUdldERpcmVjdG9yVHJhZGVzUmVzcG9uc2USLgoGdHJhZGVzGAEgAygLMh4uc2hvcnRzLnYxYWxwaGExLkRpcmVjdG9yVHJhZGUSEwoLdG90YWxfY291bnQYAiABKAUipQEKDkRpdmlkZW5kUmVjb3JkEgoKAmlkGAEgASgJEhIKCnN0b2NrX2NvZGUYAiABKAkSDwoHZXhfZGF0ZRgDIAEoCRIUCgxwYXltZW50X2RhdGUYBCABKAkSGAoQYW1vdW50X3Blcl9zaGFyZRgFIAEoARIbChNmcmFua2luZ19wZXJjZW50YWdlGAYgASgBEhUKDWRpdmlkZW5kX3R5cGUYByABKAkiPgoZR2V0RGl2aWRlbmRIaXN0b3J5UmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBXllYXJzGAIgASgFIn0KGkdldERpdmlkZW5kSGlzdG9yeVJlc3BvbnNlEjIKCWRpdmlkZW5kcxgBIAMoCzIfLnNob3J0cy52MWFscGhhMS5EaXZpZGVuZFJlY29yZBITCgt0b3RhbF9jb3VudBgCIAEoBRIWCg50cmFpbGluZ195aWVsZBgDIAEoASLQAQoJUGVlclN0b2NrEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEh4KFnNob3J0X3Bvc2l0aW9uX3BlcmNlbnQYBCABKAESEgoKbWFya2V0X2NhcBgFIAEoARIQCghwZV9yYXRpbxgGIAEoARIWCg5kaXZpZGVuZF95aWVsZBgHIAEoARIXCg9wcmljZV9jaGFuZ2VfMW0YCCABKAESEAoIbG9nb191cmwYCSABKAkiPQoYR2V0UGVlckNvbXBhcmlzb25SZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSDQoFbGltaXQYAiABKAUihQEKGUdldFBlZXJDb21wYXJpc29uUmVzcG9uc2USKwoHc3ViamVjdBgBIAEoCzIaLnNob3J0cy52MWFscGhhMS5QZWVyU3RvY2sSKQoFcGVlcnMYAiADKAsyGi5zaG9ydHMudjFhbHBoYTEuUGVlclN0b2NrEhAKCGluZHVzdHJ5GAMgASgJIi4KFkdldFN0b2NrVmVyZGljdFJlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIlUKEFZlcmRpY3RDb21wb25lbnQSDAoEbmFtZRgBIAEoCRINCgVzY29yZRgCIAEoARIOCgZ3ZWlnaHQYAyABKAESFAoMY29udHJpYnV0aW9uGAQgASgBIqcBChdHZXRTdG9ja1ZlcmRpY3RSZXNwb25zZRIUCgxwcm9kdWN0X2NvZGUYASABKAkSEQoJY29tcG9zaXRlGAIgASgBEiwKBWxhYmVsGAMgASgOMh0uc2hvcnRzLnYxYWxwaGExLlZlcmRpY3RMYWJlbBI1Cgpjb21wb25lbnRzGAQgAygLMiEuc2hvcnRzLnYxYWxwaGExLlZlcmRpY3RDb21wb25lbnQiMwobR2V0Q29tcGFueVRheFByb2ZpbGVSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCSKdAQoOQ29tcGFueVRheFllYXISEwoLaW5jb21lX3llYXIYASABKAUSFAoMdG90YWxfaW5jb21lGAIgASgBEhoKEmhhc190YXhhYmxlX2luY29tZRgDIAEoCBIWCg50YXhhYmxlX2luY29tZRgEIAEoARIXCg9oYXNfdGF4X3BheWFibGUYBSABKAgSEwoLdGF4X3BheWFibGUYBiABKAEijAEKHEdldENvbXBhbnlUYXhQcm9maWxlUmVzcG9uc2USEwoLZW50aXR5X25hbWUYASABKAkSCwoDYWJuGAIgASgJEi4KBXllYXJzGAMgAygLMh8uc2hvcnRzLnYxYWxwaGExLkNvbXBhbnlUYXhZZWFyEhoKEnNvdXJjZV9hdHRyaWJ1dGlvbhgEIAEoCSI5ChRHZXRTdG9ja0dyYXBoUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFInwKFUdldFN0b2NrR3JhcGhSZXNwb25zZRIsCgZwZW9wbGUYASADKAsyHC5zaG9ydHMudjFhbHBoYTEuR3JhcGhQZXJzb24SNQoRc2ltaWxhcl9jb21wYW5pZXMYAiADKAsyGi5zaG9ydHMudjFhbHBoYTEuR3JhcGhQZWVyImMKC0dyYXBoUGVyc29uEgwKBG5hbWUYASABKAkSDAoEcm9sZRgCIAEoCRIRCglpbWFnZV91cmwYAyABKAkSFAoMbGlua2VkaW5fdXJsGAQgASgJEg8KB2Fsc29fYXQYBSADKAkiWwoJR3JhcGhQZWVyEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhIKCnNpbWlsYXJpdHkYBCABKAEiTwoXR2V0RXZlbnRUaW1lbGluZVJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCRIRCglkYXlzX2JhY2sYAiABKAUSDQoFbGltaXQYAyABKAUiSgoYR2V0RXZlbnRUaW1lbGluZVJlc3BvbnNlEi4KBmV2ZW50cxgBIAMoCzIeLnNob3J0cy52MWFscGhhMS5UaW1lbGluZUV2ZW50IoYBCg1UaW1lbGluZUV2ZW50EgwKBGRhdGUYASABKAkSDAoEdHlwZRgCIAEoCRINCgV0aXRsZRgDIAEoCRIOCgZkZXRhaWwYBCABKAkSCwoDdXJsGAUgASgJEhEKCXNlbnRpbWVudBgGIAEoCRIaChJpc19wcmljZV9zZW5zaXRpdmUYByABKAgiOwoWR2V0U3RvY2tTaWduYWxzUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFIngKF0dldFN0b2NrU2lnbmFsc1Jlc3BvbnNlEi0KB2FkdmVyc2UYASADKAsyHC5zaG9ydHMudjFhbHBoYTEuU3RvY2tTaWduYWwSLgoIcG9zaXRpdmUYAiADKAsyHC5zaG9ydHMudjFhbHBoYTEuU3RvY2tTaWduYWwinAEKC1N0b2NrU2lnbmFsEhAKCHBvbGFyaXR5GAEgASgJEgwKBGtpbmQYAiABKAkSEAoIaGVhZGxpbmUYAyABKAkSDgoGZGV0YWlsGAQgASgJEhIKCmV2ZW50X2RhdGUYBSABKAkSEAoIc2V2ZXJpdHkYBiABKAkSEgoKY29uZmlkZW5jZRgHIAEoARIRCgljaXRhdGlvbnMYCCADKAkqwgEKDFZlcmRpY3RMYWJlbBIdChlWRVJESUNUX0xBQkVMX1VOU1BFQ0lGSUVEEAASIAocVkVSRElDVF9MQUJFTF9TVFJPTkdfQkVBUklTSBABEhkKFVZFUkRJQ1RfTEFCRUxfQkVBUklTSBACEhkKFVZFUkRJQ1RfTEFCRUxfTkVVVFJBTBADEhkKFVZFUkRJQ1RfTEFCRUxfQlVMTElTSBAEEiAKHFZFUkRJQ1RfTEFCRUxfU1RST05HX0JVTExJU0gQBTKTCwoMU3RvY2tTZXJ2aWNlEkoKCEdldFN0b2NrEiAuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrUmVxdWVzdBoWLnN0b2Nrcy52MWFscGhhMS5TdG9jayIEgLUYARJfCg9HZXRTdG9ja0RldGFpbHMSJy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tEZXRhaWxzUmVxdWVzdBodLnN0b2Nrcy52MWFscGhhMS5TdG9ja0RldGFpbHMiBIC1GAESWwoMR2V0U3RvY2tEYXRhEiQuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRGF0YVJlcXVlc3QaHy5zdG9ja3MudjFhbHBoYTEuVGltZVNlcmllc0RhdGEiBIC1GAESZwoOR2V0U3RvY2tQcmljZXMSJi5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tQcmljZXNSZXF1ZXN0Gicuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrUHJpY2VzUmVzcG9uc2UiBIC1GAESjgEKG0dldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0cxIzLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHNSZXF1ZXN0GjQuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0c1Jlc3BvbnNlIgSAtRgBEnAKEUdldERpcmVjdG9yVHJhZGVzEikuc2hvcnRzLnYxYWxwaGExLkdldERpcmVjdG9yVHJhZGVzUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXREaXJlY3RvclRyYWRlc1Jlc3BvbnNlIgSAtRgBEnMKEkdldERpdmlkZW5kSGlzdG9yeRIqLnNob3J0cy52MWFscGhhMS5HZXREaXZpZGVuZEhpc3RvcnlSZXF1ZXN0Gisuc2hvcnRzLnYxYWxwaGExLkdldERpdmlkZW5kSGlzdG9yeVJlc3BvbnNlIgSAtRgBEnAKEUdldFBlZXJDb21wYXJpc29uEikuc2hvcnRzLnYxYWxwaGExLkdldFBlZXJDb21wYXJpc29uUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXRQZWVyQ29tcGFyaXNvblJlc3BvbnNlIgSAtRgBEmoKD0dldFN0b2NrVmVyZGljdBInLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1ZlcmRpY3RSZXF1ZXN0Giguc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrVmVyZGljdFJlc3BvbnNlIgSAtRgBEmQKDUdldFN0b2NrR3JhcGgSJS5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tHcmFwaFJlcXVlc3QaJi5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tHcmFwaFJlc3BvbnNlIgSAtRgBEm0KEEdldEV2ZW50VGltZWxpbmUSKC5zaG9ydHMudjFhbHBoYTEuR2V0RXZlbnRUaW1lbGluZVJlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0RXZlbnRUaW1lbGluZVJlc3BvbnNlIgSAtRgBEmoKD0dldFN0b2NrU2lnbmFscxInLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1NpZ25hbHNSZXF1ZXN0Giguc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrU2lnbmFsc1Jlc3BvbnNlIgSAtRgBEnkKFEdldENvbXBhbnlUYXhQcm9maWxlEiwuc2hvcnRzLnYxYWxwaGExLkdldENvbXBhbnlUYXhQcm9maWxlUmVxdWVzdBotLnNob3J0cy52MWFscGhhMS5HZXRDb21wYW55VGF4UHJvZmlsZVJlc3BvbnNlIgSAtRgBQtkBChNjb20uc2hvcnRzLnYxYWxwaGExQgpTdG9ja1Byb3RvUAFaWWdpdGh1Yi5jb20vY2FzdGxlbWlsay9zaG9ydGVkLmNvbS5hdS9zZXJ2aWNlcy9nZW4vcHJvdG8vZ28vc2hvcnRzL3YxYWxwaGExO3Nob3J0c3YxYWxwaGExogIDU1hYqgIPU2hvcnRzLlYxYWxwaGExygIPU2hvcnRzXFYxYWxwaGEx4gIbU2hvcnRzXFYxYWxwaGExXEdQQk1ldGFkYXRh6gIQU2hvcnRzOjpWMWFscGhhMWIGcHJvdG8z", [file_stocks_v1alpha1_stocks, file_options_v1_options]);
+  fileDesc("ChtzaG9ydHMvdjFhbHBoYTEvc3RvY2sucHJvdG8SD3Nob3J0cy52MWFscGhhMSInCg9HZXRTdG9ja1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIi4KFkdldFN0b2NrRGV0YWlsc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIpEBChNHZXRTdG9ja0RhdGFSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCRIOCgZwZXJpb2QYAiABKAkSFwoPZnVsbF9yZXNvbHV0aW9uGAMgASgIEhIKCm1heF9wb2ludHMYBiABKAUSDAoEZnJvbRgEIAEoCRIKCgJ0bxgFIAEoCRINCgVhc19vZhgHIAEoCSJrChVHZXRTdG9ja1ByaWNlc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJEg4KBnBlcmlvZBgCIAEoCRIMCgRmcm9tGAMgASgJEgoKAnRvGAQgASgJEhIKCm1heF9wb2ludHMYBSABKAUisQEKFkdldFN0b2NrUHJpY2VzUmVzcG9uc2USFAoMcHJvZHVjdF9jb2RlGAEgASgJEgwKBG5hbWUYAiABKAkSMAoGcG9pbnRzGAMgAygLMiAuc2hvcnRzLnYxYWxwaGExLlN0b2NrUHJpY2VQb2ludBIaChJ0b3RhbF9vYnNlcnZhdGlvbnMYBCABKAUSEwoLZG93bnNhbXBsZWQYBSABKAgSEAoIY3VycmVuY3kYBiABKAkifwoPU3RvY2tQcmljZVBvaW50EgwKBGRhdGUYASABKAkSDAoEb3BlbhgCIAEoARIMCgRoaWdoGAMgASgBEgsKA2xvdxgEIAEoARINCgVjbG9zZRgFIAEoARIWCg5hZGp1c3RlZF9jbG9zZRgGIAEoARIOCgZ2b2x1bWUYByABKAMiWAoiR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVxdWVzdBITCgtzdG9ja19jb2RlcxgBIAMoCRIdChVtYXhfcmVwb3J0c19wZXJfc3RvY2sYAiABKAUi3QEKI0dldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0c1Jlc3BvbnNlElgKCmhpZ2hsaWdodHMYASADKAsyRC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVzcG9uc2UuSGlnaGxpZ2h0c0VudHJ5GlwKD0hpZ2hsaWdodHNFbnRyeRILCgNrZXkYASABKAkSOAoFdmFsdWUYAiABKAsyKS5zaG9ydHMudjFhbHBoYTEuU3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzOgI4ASJWChhTdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHMSOgoHcmVwb3J0cxgBIAMoCzIpLnNob3J0cy52MWFscGhhMS5GaW5hbmNpYWxSZXBvcnRIaWdobGlnaHQisQEKGEZpbmFuY2lhbFJlcG9ydEhpZ2hsaWdodBIUCgxyZXBvcnRfdGl0bGUYASABKAkSEwoLcmVwb3J0X3R5cGUYAiABKAkSEwoLcmVwb3J0X2RhdGUYAyABKAkSMQoHbWV0cmljcxgEIAMoCzIgLnNob3J0cy52MWFscGhhMS5GaW5hbmNpYWxNZXRyaWMSDgoGZGlnZXN0GAUgASgJEhIKCmNvbmZpZGVuY2UYBiABKAEitAEKD0ZpbmFuY2lhbE1ldHJpYxITCgttZXRyaWNfdHlwZRgBIAEoCRITCgtzb3VyY2VfdGV4dBgCIAEoCRJECgphdHRyaWJ1dGVzGAMgAygLMjAuc2hvcnRzLnYxYWxwaGExLkZpbmFuY2lhbE1ldHJpYy5BdHRyaWJ1dGVzRW50cnkaMQoPQXR0cmlidXRlc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEizQEKDURpcmVjdG9yVHJhZGUSCgoCaWQYASABKAkSEgoKc3RvY2tfY29kZRgCIAEoCRIVCg1kaXJlY3Rvcl9uYW1lGAMgASgJEhIKCnRyYWRlX3R5cGUYBCABKAkSFQoNc2hhcmVzX3RyYWRlZBgFIAEoAxIXCg9wcmljZV9wZXJfc2hhcmUYBiABKAESEwoLdG90YWxfdmFsdWUYByABKAESEgoKdHJhZGVfZGF0ZRgIIAEoCRIYChBhbm5vdW5jZW1lbnRfdXJsGAkgASgJIj0KGEdldERpcmVjdG9yVHJhZGVzUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFImAKGUdldERpcmVjdG9yVHJhZGVzUmVzcG9uc2USLgoGdHJhZGVzGAEgAygLMh4uc2hvcnRzLnYxYWxwaGExLkRpcmVjdG9yVHJhZGUSEwoLdG90YWxfY291bnQYAiABKAUipQEKDkRpdmlkZW5kUmVjb3JkEgoKAmlkGAEgASgJEhIKCnN0b2NrX2NvZGUYAiABKAkSDwoHZXhfZGF0ZRgDIAEoCRIUCgxwYXltZW50X2RhdGUYBCABKAkSGAoQYW1vdW50X3Blcl9zaGFyZRgFIAEoARIbChNmcmFua2luZ19wZXJjZW50YWdlGAYgASgBEhUKDWRpdmlkZW5kX3R5cGUYByABKAkiPgoZR2V0RGl2aWRlbmRIaXN0b3J5UmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBXllYXJzGAIgASgFIn0KGkdldERpdmlkZW5kSGlzdG9yeVJlc3BvbnNlEjIKCWRpdmlkZW5kcxgBIAMoCzIfLnNob3J0cy52MWFscGhhMS5EaXZpZGVuZFJlY29yZBITCgt0b3RhbF9jb3VudBgCIAEoBRIWCg50cmFpbGluZ195aWVsZBgDIAEoASLQAQoJUGVlclN0b2NrEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEh4KFnNob3J0X3Bvc2l0aW9uX3BlcmNlbnQYBCABKAESEgoKbWFya2V0X2NhcBgFIAEoARIQCghwZV9yYXRpbxgGIAEoARIWCg5kaXZpZGVuZF95aWVsZBgHIAEoARIXCg9wcmljZV9jaGFuZ2VfMW0YCCABKAESEAoIbG9nb191cmwYCSABKAkiPQoYR2V0UGVlckNvbXBhcmlzb25SZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSDQoFbGltaXQYAiABKAUihQEKGUdldFBlZXJDb21wYXJpc29uUmVzcG9uc2USKwoHc3ViamVjdBgBIAEoCzIaLnNob3J0cy52MWFscGhhMS5QZWVyU3RvY2sSKQoFcGVlcnMYAiADKAsyGi5zaG9ydHMudjFhbHBoYTEuUGVlclN0b2NrEhAKCGluZHVzdHJ5GAMgASgJIi4KFkdldFN0b2NrVmVyZGljdFJlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIlUKEFZlcmRpY3RDb21wb25lbnQSDAoEbmFtZRgBIAEoCRINCgVzY29yZRgCIAEoARIOCgZ3ZWlnaHQYAyABKAESFAoMY29udHJpYnV0aW9uGAQgASgBIqcBChdHZXRTdG9ja1ZlcmRpY3RSZXNwb25zZRIUCgxwcm9kdWN0X2NvZGUYASABKAkSEQoJY29tcG9zaXRlGAIgASgBEiwKBWxhYmVsGAMgASgOMh0uc2hvcnRzLnYxYWxwaGExLlZlcmRpY3RMYWJlbBI1Cgpjb21wb25lbnRzGAQgAygLMiEuc2hvcnRzLnYxYWxwaGExLlZlcmRpY3RDb21wb25lbnQiMwobR2V0Q29tcGFueVRheFByb2ZpbGVSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCSKdAQoOQ29tcGFueVRheFllYXISEwoLaW5jb21lX3llYXIYASABKAUSFAoMdG90YWxfaW5jb21lGAIgASgBEhoKEmhhc190YXhhYmxlX2luY29tZRgDIAEoCBIWCg50YXhhYmxlX2luY29tZRgEIAEoARIXCg9oYXNfdGF4X3BheWFibGUYBSABKAgSEwoLdGF4X3BheWFibGUYBiABKAEijAEKHEdldENvbXBhbnlUYXhQcm9maWxlUmVzcG9uc2USEwoLZW50aXR5X25hbWUYASABKAkSCwoDYWJuGAIgASgJEi4KBXllYXJzGAMgAygLMh8uc2hvcnRzLnYxYWxwaGExLkNvbXBhbnlUYXhZZWFyEhoKEnNvdXJjZV9hdHRyaWJ1dGlvbhgEIAEoCSI5ChRHZXRTdG9ja0dyYXBoUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFInwKFUdldFN0b2NrR3JhcGhSZXNwb25zZRIsCgZwZW9wbGUYASADKAsyHC5zaG9ydHMudjFhbHBoYTEuR3JhcGhQZXJzb24SNQoRc2ltaWxhcl9jb21wYW5pZXMYAiADKAsyGi5zaG9ydHMudjFhbHBoYTEuR3JhcGhQZWVyImMKC0dyYXBoUGVyc29uEgwKBG5hbWUYASABKAkSDAoEcm9sZRgCIAEoCRIRCglpbWFnZV91cmwYAyABKAkSFAoMbGlua2VkaW5fdXJsGAQgASgJEg8KB2Fsc29fYXQYBSADKAkiWwoJR3JhcGhQZWVyEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhIKCnNpbWlsYXJpdHkYBCABKAEiTwoXR2V0RXZlbnRUaW1lbGluZVJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCRIRCglkYXlzX2JhY2sYAiABKAUSDQoFbGltaXQYAyABKAUiSgoYR2V0RXZlbnRUaW1lbGluZVJlc3BvbnNlEi4KBmV2ZW50cxgBIAMoCzIeLnNob3J0cy52MWFscGhhMS5UaW1lbGluZUV2ZW50IoYBCg1UaW1lbGluZUV2ZW50EgwKBGRhdGUYASABKAkSDAoEdHlwZRgCIAEoCRINCgV0aXRsZRgDIAEoCRIOCgZkZXRhaWwYBCABKAkSCwoDdXJsGAUgASgJEhEKCXNlbnRpbWVudBgGIAEoCRIaChJpc19wcmljZV9zZW5zaXRpdmUYByABKAgiOwoWR2V0U3RvY2tTaWduYWxzUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFIngKF0dldFN0b2NrU2lnbmFsc1Jlc3BvbnNlEi0KB2FkdmVyc2UYASADKAsyHC5zaG9ydHMudjFhbHBoYTEuU3RvY2tTaWduYWwSLgoIcG9zaXRpdmUYAiADKAsyHC5zaG9ydHMudjFhbHBoYTEuU3RvY2tTaWduYWwinAEKC1N0b2NrU2lnbmFsEhAKCHBvbGFyaXR5GAEgASgJEgwKBGtpbmQYAiABKAkSEAoIaGVhZGxpbmUYAyABKAkSDgoGZGV0YWlsGAQgASgJEhIKCmV2ZW50X2RhdGUYBSABKAkSEAoIc2V2ZXJpdHkYBiABKAkSEgoKY29uZmlkZW5jZRgHIAEoARIRCgljaXRhdGlvbnMYCCADKAkiVQobR2V0U3RvY2tGdW5kYW1lbnRhbHNSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSEwoLcGVyaW9kX3R5cGUYAiABKAkSDQoFbGltaXQYAyABKAUi4AMKEkZ1bmRhbWVudGFsc1BlcmlvZBITCgtwZXJpb2RfdHlwZRgBIAEoCRISCgpwZXJpb2RfZW5kGAIgASgJEhMKC2Zpc2NhbF95ZWFyGAMgASgFEhAKCGN1cnJlbmN5GAQgASgJEg8KB3JldmVudWUYBSABKAESEwoLaGFzX3JldmVudWUYBiABKAgSEgoKbmV0X2luY29tZRgHIAEoARIWCg5oYXNfbmV0X2luY29tZRgIIAEoCBIRCgllcHNfYmFzaWMYCSABKAESFQoNaGFzX2Vwc19iYXNpYxgKIAEoCBITCgtlcHNfZGlsdXRlZBgLIAEoARIXCg9oYXNfZXBzX2RpbHV0ZWQYDCABKAgSGwoTb3BlcmF0aW5nX2Nhc2hfZmxvdxgNIAEoARIfChdoYXNfb3BlcmF0aW5nX2Nhc2hfZmxvdxgOIAEoCBIaChJzaGFyZXNfb3V0c3RhbmRpbmcYDyABKAESHgoWaGFzX3NoYXJlc19vdXRzdGFuZGluZxgQIAEoCBIOCgZzb3VyY2UYESABKAkSEgoKZmV0Y2hlZF9hdBgSIAEoCRIWCg5mcmVlX2Nhc2hfZmxvdxgTIAEoARIaChJoYXNfZnJlZV9jYXNoX2Zsb3cYFCABKAgi2gMKEkZ1bmRhbWVudGFsc0dyb3d0aBIZChFiYXNpc19wZXJpb2RfdHlwZRgBIAEoCRIZChFsYXRlc3RfcGVyaW9kX2VuZBgCIAEoCRIXCg9yZXZlbnVlX3lveV9wY3QYAyABKAESFwoPaGFzX3JldmVudWVfeW95GAQgASgIEh0KFXJldmVudWVfeW95X3ByaW9yX3BjdBgFIAEoARIdChVoYXNfcmV2ZW51ZV95b3lfcHJpb3IYBiABKAgSEwoLZXBzX3lveV9wY3QYByABKAESEwoLaGFzX2Vwc195b3kYCCABKAgSGQoRZXBzX3lveV9wcmlvcl9wY3QYCSABKAESGQoRaGFzX2Vwc195b3lfcHJpb3IYCiABKAgSGwoTbmV0X2luY29tZV9wb3NpdGl2ZRgLIAEoCBIZChFwZXJpb2RzX2F2YWlsYWJsZRgMIAEoBRITCgtyZXZlbnVlX3R0bRgNIAEoARIXCg9oYXNfcmV2ZW51ZV90dG0YDiABKAgSFgoObmV0X2luY29tZV90dG0YDyABKAESGgoSaGFzX25ldF9pbmNvbWVfdHRtGBAgASgIEg8KB2Vwc190dG0YESABKAESEwoLaGFzX2Vwc190dG0YEiABKAgisQEKHEdldFN0b2NrRnVuZGFtZW50YWxzUmVzcG9uc2USEgoKc3RvY2tfY29kZRgBIAEoCRI0CgdwZXJpb2RzGAIgAygLMiMuc2hvcnRzLnYxYWxwaGExLkZ1bmRhbWVudGFsc1BlcmlvZBIzCgZncm93dGgYAyABKAsyIy5zaG9ydHMudjFhbHBoYTEuRnVuZGFtZW50YWxzR3Jvd3RoEhIKCmhhc19ncm93dGgYBCABKAgqwgEKDFZlcmRpY3RMYWJlbBIdChlWRVJESUNUX0xBQkVMX1VOU1BFQ0lGSUVEEAASIAocVkVSRElDVF9MQUJFTF9TVFJPTkdfQkVBUklTSBABEhkKFVZFUkRJQ1RfTEFCRUxfQkVBUklTSBACEhkKFVZFUkRJQ1RfTEFCRUxfTkVVVFJBTBADEhkKFVZFUkRJQ1RfTEFCRUxfQlVMTElTSBAEEiAKHFZFUkRJQ1RfTEFCRUxfU1RST05HX0JVTExJU0gQBTKODAoMU3RvY2tTZXJ2aWNlEkoKCEdldFN0b2NrEiAuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrUmVxdWVzdBoWLnN0b2Nrcy52MWFscGhhMS5TdG9jayIEgLUYARJfCg9HZXRTdG9ja0RldGFpbHMSJy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tEZXRhaWxzUmVxdWVzdBodLnN0b2Nrcy52MWFscGhhMS5TdG9ja0RldGFpbHMiBIC1GAESWwoMR2V0U3RvY2tEYXRhEiQuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRGF0YVJlcXVlc3QaHy5zdG9ja3MudjFhbHBoYTEuVGltZVNlcmllc0RhdGEiBIC1GAESZwoOR2V0U3RvY2tQcmljZXMSJi5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tQcmljZXNSZXF1ZXN0Gicuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrUHJpY2VzUmVzcG9uc2UiBIC1GAESjgEKG0dldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0cxIzLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHNSZXF1ZXN0GjQuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0c1Jlc3BvbnNlIgSAtRgBEnAKEUdldERpcmVjdG9yVHJhZGVzEikuc2hvcnRzLnYxYWxwaGExLkdldERpcmVjdG9yVHJhZGVzUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXREaXJlY3RvclRyYWRlc1Jlc3BvbnNlIgSAtRgBEnMKEkdldERpdmlkZW5kSGlzdG9yeRIqLnNob3J0cy52MWFscGhhMS5HZXREaXZpZGVuZEhpc3RvcnlSZXF1ZXN0Gisuc2hvcnRzLnYxYWxwaGExLkdldERpdmlkZW5kSGlzdG9yeVJlc3BvbnNlIgSAtRgBEnAKEUdldFBlZXJDb21wYXJpc29uEikuc2hvcnRzLnYxYWxwaGExLkdldFBlZXJDb21wYXJpc29uUmVxdWVzdBoqLnNob3J0cy52MWFscGhhMS5HZXRQZWVyQ29tcGFyaXNvblJlc3BvbnNlIgSAtRgBEmoKD0dldFN0b2NrVmVyZGljdBInLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1ZlcmRpY3RSZXF1ZXN0Giguc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrVmVyZGljdFJlc3BvbnNlIgSAtRgBEmQKDUdldFN0b2NrR3JhcGgSJS5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tHcmFwaFJlcXVlc3QaJi5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tHcmFwaFJlc3BvbnNlIgSAtRgBEm0KEEdldEV2ZW50VGltZWxpbmUSKC5zaG9ydHMudjFhbHBoYTEuR2V0RXZlbnRUaW1lbGluZVJlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0RXZlbnRUaW1lbGluZVJlc3BvbnNlIgSAtRgBEmoKD0dldFN0b2NrU2lnbmFscxInLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1NpZ25hbHNSZXF1ZXN0Giguc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrU2lnbmFsc1Jlc3BvbnNlIgSAtRgBEnkKFEdldENvbXBhbnlUYXhQcm9maWxlEiwuc2hvcnRzLnYxYWxwaGExLkdldENvbXBhbnlUYXhQcm9maWxlUmVxdWVzdBotLnNob3J0cy52MWFscGhhMS5HZXRDb21wYW55VGF4UHJvZmlsZVJlc3BvbnNlIgSAtRgBEnkKFEdldFN0b2NrRnVuZGFtZW50YWxzEiwuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRnVuZGFtZW50YWxzUmVxdWVzdBotLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0Z1bmRhbWVudGFsc1Jlc3BvbnNlIgSAtRgBQtkBChNjb20uc2hvcnRzLnYxYWxwaGExQgpTdG9ja1Byb3RvUAFaWWdpdGh1Yi5jb20vY2FzdGxlbWlsay9zaG9ydGVkLmNvbS5hdS9zZXJ2aWNlcy9nZW4vcHJvdG8vZ28vc2hvcnRzL3YxYWxwaGExO3Nob3J0c3YxYWxwaGExogIDU1hYqgIPU2hvcnRzLlYxYWxwaGExygIPU2hvcnRzXFYxYWxwaGEx4gIbU2hvcnRzXFYxYWxwaGExXEdQQk1ldGFkYXRh6gIQU2hvcnRzOjpWMWFscGhhMWIGcHJvdG8z", [file_stocks_v1alpha1_stocks, file_options_v1_options]);
 
 /**
  * Request for GetStockSummary RPC, specifying the product code.
@@ -1357,6 +1357,323 @@ export const StockSignalSchema: GenMessage<StockSignal> = /*@__PURE__*/
   messageDesc(file_shorts_v1alpha1_stock, 35);
 
 /**
+ * Request for GetStockFundamentals.
+ *
+ * @generated from message shorts.v1alpha1.GetStockFundamentalsRequest
+ */
+export type GetStockFundamentalsRequest = Message<"shorts.v1alpha1.GetStockFundamentalsRequest"> & {
+  /**
+   * ASX code, e.g. "BHP".
+   *
+   * @generated from field: string stock_code = 1;
+   */
+  stockCode: string;
+
+  /**
+   * Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+   *
+   * @generated from field: string period_type = 2;
+   */
+  periodType: string;
+
+  /**
+   * Max periods, newest first (default 12, max 40).
+   *
+   * @generated from field: int32 limit = 3;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetStockFundamentalsRequest.
+ * Use `create(GetStockFundamentalsRequestSchema)` to create a new message.
+ */
+export const GetStockFundamentalsRequestSchema: GenMessage<GetStockFundamentalsRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_stock, 36);
+
+/**
+ * One reported period. Values are in `currency` exactly as the source reports
+ * them (BHP reports in USD). has_* is false when the source omitted a figure.
+ *
+ * @generated from message shorts.v1alpha1.FundamentalsPeriod
+ */
+export type FundamentalsPeriod = Message<"shorts.v1alpha1.FundamentalsPeriod"> & {
+  /**
+   * "annual" | "half" | "quarter" | "ttm" (trailing twelve months).
+   *
+   * @generated from field: string period_type = 1;
+   */
+  periodType: string;
+
+  /**
+   * YYYY-MM-DD.
+   *
+   * @generated from field: string period_end = 2;
+   */
+  periodEnd: string;
+
+  /**
+   * 0 when unknown.
+   *
+   * @generated from field: int32 fiscal_year = 3;
+   */
+  fiscalYear: number;
+
+  /**
+   * @generated from field: string currency = 4;
+   */
+  currency: string;
+
+  /**
+   * @generated from field: double revenue = 5;
+   */
+  revenue: number;
+
+  /**
+   * @generated from field: bool has_revenue = 6;
+   */
+  hasRevenue: boolean;
+
+  /**
+   * @generated from field: double net_income = 7;
+   */
+  netIncome: number;
+
+  /**
+   * @generated from field: bool has_net_income = 8;
+   */
+  hasNetIncome: boolean;
+
+  /**
+   * @generated from field: double eps_basic = 9;
+   */
+  epsBasic: number;
+
+  /**
+   * @generated from field: bool has_eps_basic = 10;
+   */
+  hasEpsBasic: boolean;
+
+  /**
+   * @generated from field: double eps_diluted = 11;
+   */
+  epsDiluted: number;
+
+  /**
+   * @generated from field: bool has_eps_diluted = 12;
+   */
+  hasEpsDiluted: boolean;
+
+  /**
+   * @generated from field: double operating_cash_flow = 13;
+   */
+  operatingCashFlow: number;
+
+  /**
+   * @generated from field: bool has_operating_cash_flow = 14;
+   */
+  hasOperatingCashFlow: boolean;
+
+  /**
+   * @generated from field: double shares_outstanding = 15;
+   */
+  sharesOutstanding: number;
+
+  /**
+   * @generated from field: bool has_shares_outstanding = 16;
+   */
+  hasSharesOutstanding: boolean;
+
+  /**
+   * e.g. "yahoo-timeseries".
+   *
+   * @generated from field: string source = 17;
+   */
+  source: string;
+
+  /**
+   * RFC 3339.
+   *
+   * @generated from field: string fetched_at = 18;
+   */
+  fetchedAt: string;
+
+  /**
+   * @generated from field: double free_cash_flow = 19;
+   */
+  freeCashFlow: number;
+
+  /**
+   * @generated from field: bool has_free_cash_flow = 20;
+   */
+  hasFreeCashFlow: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.FundamentalsPeriod.
+ * Use `create(FundamentalsPeriodSchema)` to create a new message.
+ */
+export const FundamentalsPeriodSchema: GenMessage<FundamentalsPeriod> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_stock, 37);
+
+/**
+ * Year-on-year growth, always against the same series one year earlier
+ * (annual vs prior annual, TTM vs the TTM point a year earlier), never across
+ * series. A *_pct is absent (has_* false) when either side is missing or the
+ * prior value is zero or negative.
+ *
+ * @generated from message shorts.v1alpha1.FundamentalsGrowth
+ */
+export type FundamentalsGrowth = Message<"shorts.v1alpha1.FundamentalsGrowth"> & {
+  /**
+   * Series the EPS growth was computed on: "ttm" or "annual".
+   *
+   * @generated from field: string basis_period_type = 1;
+   */
+  basisPeriodType: string;
+
+  /**
+   * YYYY-MM-DD of the latest period in that series.
+   *
+   * @generated from field: string latest_period_end = 2;
+   */
+  latestPeriodEnd: string;
+
+  /**
+   * Latest annual revenue vs the prior annual.
+   *
+   * @generated from field: double revenue_yoy_pct = 3;
+   */
+  revenueYoyPct: number;
+
+  /**
+   * @generated from field: bool has_revenue_yoy = 4;
+   */
+  hasRevenueYoy: boolean;
+
+  /**
+   * The same growth one period earlier, for acceleration.
+   *
+   * @generated from field: double revenue_yoy_prior_pct = 5;
+   */
+  revenueYoyPriorPct: number;
+
+  /**
+   * @generated from field: bool has_revenue_yoy_prior = 6;
+   */
+  hasRevenueYoyPrior: boolean;
+
+  /**
+   * @generated from field: double eps_yoy_pct = 7;
+   */
+  epsYoyPct: number;
+
+  /**
+   * @generated from field: bool has_eps_yoy = 8;
+   */
+  hasEpsYoy: boolean;
+
+  /**
+   * @generated from field: double eps_yoy_prior_pct = 9;
+   */
+  epsYoyPriorPct: number;
+
+  /**
+   * @generated from field: bool has_eps_yoy_prior = 10;
+   */
+  hasEpsYoyPrior: boolean;
+
+  /**
+   * Latest annual net income above zero.
+   *
+   * @generated from field: bool net_income_positive = 11;
+   */
+  netIncomePositive: boolean;
+
+  /**
+   * @generated from field: int32 periods_available = 12;
+   */
+  periodsAvailable: number;
+
+  /**
+   * Latest trailing-twelve-month points.
+   *
+   * @generated from field: double revenue_ttm = 13;
+   */
+  revenueTtm: number;
+
+  /**
+   * @generated from field: bool has_revenue_ttm = 14;
+   */
+  hasRevenueTtm: boolean;
+
+  /**
+   * @generated from field: double net_income_ttm = 15;
+   */
+  netIncomeTtm: number;
+
+  /**
+   * @generated from field: bool has_net_income_ttm = 16;
+   */
+  hasNetIncomeTtm: boolean;
+
+  /**
+   * @generated from field: double eps_ttm = 17;
+   */
+  epsTtm: number;
+
+  /**
+   * @generated from field: bool has_eps_ttm = 18;
+   */
+  hasEpsTtm: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.FundamentalsGrowth.
+ * Use `create(FundamentalsGrowthSchema)` to create a new message.
+ */
+export const FundamentalsGrowthSchema: GenMessage<FundamentalsGrowth> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_stock, 38);
+
+/**
+ * Response for GetStockFundamentals.
+ *
+ * @generated from message shorts.v1alpha1.GetStockFundamentalsResponse
+ */
+export type GetStockFundamentalsResponse = Message<"shorts.v1alpha1.GetStockFundamentalsResponse"> & {
+  /**
+   * @generated from field: string stock_code = 1;
+   */
+  stockCode: string;
+
+  /**
+   * Newest first.
+   *
+   * @generated from field: repeated shorts.v1alpha1.FundamentalsPeriod periods = 2;
+   */
+  periods: FundamentalsPeriod[];
+
+  /**
+   * @generated from field: shorts.v1alpha1.FundamentalsGrowth growth = 3;
+   */
+  growth?: FundamentalsGrowth;
+
+  /**
+   * False when no growth row exists yet.
+   *
+   * @generated from field: bool has_growth = 4;
+   */
+  hasGrowth: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetStockFundamentalsResponse.
+ * Use `create(GetStockFundamentalsResponseSchema)` to create a new message.
+ */
+export const GetStockFundamentalsResponseSchema: GenMessage<GetStockFundamentalsResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_stock, 39);
+
+/**
  * Verdict band derived from the composite score
  *
  * @generated from enum shorts.v1alpha1.VerdictLabel
@@ -1543,6 +1860,18 @@ export const StockService: GenService<{
     methodKind: "unary";
     input: typeof GetCompanyTaxProfileRequestSchema;
     output: typeof GetCompanyTaxProfileResponseSchema;
+  },
+  /**
+   * Per-period reported fundamentals (revenue, net income, EPS, cash flow,
+   * shares) and year-on-year growth for a stock. Every value carries a has_*
+   * flag: a missing figure is absent, never zero.
+   *
+   * @generated from rpc shorts.v1alpha1.StockService.GetStockFundamentals
+   */
+  getStockFundamentals: {
+    methodKind: "unary";
+    input: typeof GetStockFundamentalsRequestSchema;
+    output: typeof GetStockFundamentalsResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_shorts_v1alpha1_stock, 0);

@@ -1,0 +1,139 @@
+syntax = "proto3";
+
+package shorts.v1alpha1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
+
+import "options/v1/options.proto";
+
+// Named, rule-based stock-picking strategies evaluated daily against ASX
+// price structure, reported fundamentals and ASIC short interest. Every rule
+// resolves to pass, fail or unknown; unknown (missing data) never counts as a
+// pass. Nothing here is financial advice.
+service StrategyService {
+  // ==================== Strategy Picks ====================
+
+  // List every strategy with its rules, metadata, caveats and sources, plus
+  // the current market regime (S&P/ASX 200).
+  rpc ListStrategies (ListStrategiesRequest) returns (ListStrategiesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
+  // Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
+  // score and a per-rule pass / fail / unknown breakdown for each stock.
+  rpc GetStrategyPicks (GetStrategyPicksRequest) returns (GetStrategyPicksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+}
+
+// ==================== Strategy Messages ====================
+
+// A named stock-picking strategy and how we evaluate it.
+message Strategy {
+  string id = 1;                                // Stable slug, e.g. "zanger-breakout".
+  string name = 2;
+  string author = 3;                            // e.g. "Dan Zanger".
+  string tagline = 4;                           // One sentence.
+  repeated string description_paragraphs = 5;   // 2-4 paragraphs, plain text.
+  repeated StrategyRule rules = 6;
+  StrategyMetadata metadata = 7;
+  repeated string caveats = 8;                  // What our data cannot see.
+  repeated string sources = 9;                  // Attribution lines.
+}
+
+// One rule of a strategy: the author's version and exactly how we test it.
+message StrategyRule {
+  string id = 1;              // e.g. "growth", "base", "breakout", "regime", "rs", "liquidity", "short_interest".
+  string title = 2;
+  string rule_text = 3;       // The rule in the author's terms.
+  string evaluation = 4;      // Exactly how we test it, with thresholds.
+  bool core = 5;              // Must pass for status "triggered".
+  string data_source = 6;     // "stock_fundamentals", "stock_prices", "index_prices" or "asic_shorts".
+}
+
+// Descriptive metadata for a strategy.
+message StrategyMetadata {
+  string style = 1;             // e.g. "momentum-breakout", "trend-following".
+  string holding_period = 2;    // e.g. "weeks to months".
+  string risk_posture = 3;      // e.g. "cut on a failed breakout (back inside the base)".
+  string universe = 4;          // e.g. "ASX equities with at least A$250k daily turnover".
+  string refresh_cadence = 5;   // e.g. "daily after the price sweep".
+  int32 rule_count = 6;
+}
+
+// The broad market trend, read from an index (the S&P/ASX 200, "XJO").
+message MarketRegime {
+  string index_code = 1;
+  string as_of = 2;               // YYYY-MM-DD of the last index close.
+  string regime = 3;              // "uptrend" | "neutral" | "downtrend"; empty when unavailable.
+  double close = 4;
+  double sma50 = 5;
+  double sma200 = 6;
+  double pct_off_52w_high = 7;    // Negative or zero.
+  string verdict = 8;             // Strategy-specific sentence, e.g. "Stand aside: XJO below its 200-day average."
+}
+
+// The outcome of one rule for one stock.
+message RuleResult {
+  string rule_id = 1;
+  string status = 2;      // "pass" | "fail" | "unknown".
+  string detail = 3;      // Human-readable evidence, e.g. "Revenue +41% YoY (FY to 2026-06-30)".
+  double value = 4;       // The number the rule tested, when there is one.
+  bool has_value = 5;     // False when value is absent (unknown), never read value then.
+}
+
+// One ranked stock for a strategy.
+message StrategyPick {
+  int32 rank = 1;                // 1-based, across the full (unfiltered) list.
+  string stock_code = 2;
+  string company_name = 3;
+  string industry = 4;
+  string status = 5;             // "triggered" | "setup" | "watch".
+  double score = 6;              // 0-100, orders rows within a status.
+  repeated RuleResult rules = 7;
+
+  // Headline numbers for the table.
+  double close = 8;
+  string as_of = 9;              // YYYY-MM-DD of the last price.
+  double pct_off_52w_high = 10;
+  double volume_ratio_50d = 11;
+  double base_depth_pct = 12;
+  int32 base_length_days = 13;
+  double pivot = 14;             // The base high: the breakout and invalidation level.
+  double revenue_yoy_pct = 15;
+  bool has_revenue_yoy = 16;
+  double eps_yoy_pct = 17;
+  bool has_eps_yoy = 18;
+  double rs_3m_pct = 19;
+  double short_pct = 20;         // 0 when the stock has no reported short position.
+  double market_cap = 21;        // 0 when unknown.
+  string logo_url = 22;
+}
+
+// Request for GetStrategyPicks.
+message GetStrategyPicksRequest {
+  string strategy_id = 1;   // Required, e.g. "zanger-breakout".
+  int32 limit = 2;          // Default 20, max 100.
+  int32 offset = 3;
+  string status = 4;        // Optional filter: "triggered" | "setup" | "watch".
+}
+
+// Response for GetStrategyPicks.
+message GetStrategyPicksResponse {
+  Strategy strategy = 1;
+  MarketRegime regime = 2;
+  repeated StrategyPick picks = 3;
+  int32 total_count = 4;                   // Picks matching the status filter, before paging.
+  int32 universe_count = 5;                // Stocks evaluated.
+  int32 fundamentals_coverage_count = 6;   // Evaluated stocks with growth data.
+  string as_of = 7;                        // YYYY-MM-DD of the latest price in the universe.
+}
+
+// Request for ListStrategies.
+message ListStrategiesRequest {}
+
+// Response for ListStrategies.
+message ListStrategiesResponse {
+  repeated Strategy strategies = 1;
+  MarketRegime regime = 2;   // Verdict is strategy-neutral here; GetStrategyPicks phrases it per strategy.
+}
