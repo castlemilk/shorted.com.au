@@ -447,11 +447,11 @@ func describePicks(out GetStrategyPicksOutput, status string, st *shortsv1alpha1
 		case out.UniverseCount == 0:
 			b.WriteString(" The evaluation universe is empty: price features have not been computed yet, so no stock could be evaluated.")
 		case usesFundamentals(st) && out.FundamentalsCoverageCount == 0:
-			b.WriteString(fmt.Sprintf(" None of the %d stocks evaluated has reported fundamentals yet, so the growth rules read unknown and cannot pass.", out.UniverseCount))
+			fmt.Fprintf(&b, " None of the %d stocks evaluated has reported fundamentals yet, so the growth rules read unknown and cannot pass.", out.UniverseCount)
 		case status != "":
-			b.WriteString(fmt.Sprintf(" %d stocks were evaluated; omit the status filter to see the rest of the ladder.", out.UniverseCount))
+			fmt.Fprintf(&b, " %d stocks were evaluated; omit the status filter to see the rest of the ladder.", out.UniverseCount)
 		default:
-			b.WriteString(fmt.Sprintf(" %d stocks were evaluated and none passed any rule.", out.UniverseCount))
+			fmt.Fprintf(&b, " %d stocks were evaluated and none passed any rule.", out.UniverseCount)
 		}
 		b.WriteString(" " + describeRegime(out.Regime))
 		return b.String()
@@ -466,16 +466,16 @@ func describePicks(out GetStrategyPicksOutput, status string, st *shortsv1alpha1
 			setup++
 		}
 	}
-	b.WriteString(fmt.Sprintf("%d picks for %s: %d triggered, %d setup", out.Count, name, triggered, setup))
+	fmt.Fprintf(&b, "%d picks for %s: %d triggered, %d setup", out.Count, name, triggered, setup)
 	if out.TotalCount > out.Count {
-		b.WriteString(fmt.Sprintf(" (of %d matching)", out.TotalCount))
+		fmt.Fprintf(&b, " (of %d matching)", out.TotalCount)
 	}
 	b.WriteString(". " + describeRegime(out.Regime))
 
 	first := out.Picks[0]
-	b.WriteString(fmt.Sprintf(" First: %s (%s), %s, score %.1f", first.Code, nonEmpty(first.Name, "name unknown"), first.Status, first.Score))
+	fmt.Fprintf(&b, " First: %s (%s), %s, score %.1f", first.Code, nonEmpty(first.Name, "name unknown"), first.Status, first.Score)
 	if first.Pivot != nil {
-		b.WriteString(fmt.Sprintf(", pivot A$%.2f", *first.Pivot))
+		fmt.Fprintf(&b, ", pivot A$%.2f", *first.Pivot)
 	}
 	b.WriteString(".")
 	if usesFundamentals(st) && out.UniverseCount > 0 {
