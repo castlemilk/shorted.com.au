@@ -316,6 +316,25 @@ locals {
   short_selling_bucket_name = "shorted-short-selling-data-prod" # Prod-specific bucket
 }
 
+# ---------------------------------------------------------------------------
+# Scheduled jobs that run as Kubernetes CronJobs on the omega VKE cluster
+# (deploy/kubernetes/jobs: delivered by Paprika, monitored by Telesis) instead
+# of Cloud Scheduler -> Cloud Run.
+#
+# Listing a CronJob name here PAUSES the Cloud Scheduler trigger it replaces.
+# The Cloud Run job itself stays deployed, so admin "Run now", validation runs,
+# the GitHub-dispatched executions and rollback all keep working. Rollback =
+# remove the name here AND from the chart.
+#
+# MUST equal `enabled` in deploy/kubernetes/jobs/chart/values.yaml — one list
+# without the other runs a job twice or not at all (guarded by
+# scripts/tests/vke-jobs-cutover.test.mjs). Runbook:
+# deploy/kubernetes/jobs/README.md "Cutting a job over".
+# ---------------------------------------------------------------------------
+locals {
+  jobs_on_vke = []
+}
+
 # Short Data Sync Job
 module "short_data_sync" {
   source = "../../modules/short-data-sync"
@@ -325,6 +344,8 @@ module "short_data_sync" {
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   bucket_name      = local.short_selling_bucket_name
+
+  scheduler_paused = contains(local.jobs_on_vke, "shorts-data-sync")
 
   # The shorts API reads this bucket to serve
   # GET /api/admin/jobs/validate-sync. Granted from the OWNING module — bucket
@@ -358,6 +379,9 @@ module "house_price_collector" {
   environment           = "production"
   image_url             = var.house_price_collector_image
   official_max_failures = var.house_price_collector_official_max_failures
+
+  monthly_scheduler_paused    = contains(local.jobs_on_vke, "house-price-collector-monthly")
+  drop_index_scheduler_paused = contains(local.jobs_on_vke, "house-price-collector-drop-index")
   # REVALIDATION_SECRET exists in prod Secret Manager (shared with short-data-sync)
   # + the matching value is set in the Vercel frontend env, so enable event-driven
   # housing cache busting after a crawl-driven MV refresh.
@@ -385,6 +409,8 @@ module "shorted_job_announcements" {
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   image_url        = var.shorted_jobs_image
+
+  paused = contains(local.jobs_on_vke, "shorted-announcements")
 
   # Identical to the old module's container args, prefixed with the subcommand.
   args = [
@@ -440,6 +466,8 @@ module "shorted_job_index_sync" {
   scheduler_region = "australia-southeast1"
   environment      = "production"
   image_url        = var.shorted_jobs_image
+
+  paused = contains(local.jobs_on_vke, "shorted-index-sync")
 
   # A 2-year window on every run. The upsert is idempotent, so re-fetching
   # settled history costs nothing and repairs any gap a failed run left behind
@@ -500,6 +528,8 @@ module "shorted_job_price_sync" {
   scheduler_region = "australia-southeast1"
   environment      = "production"
   image_url        = var.shorted_jobs_image
+
+  paused = contains(local.jobs_on_vke, "shorted-price-sync")
 
   args = [
     "market-data",
@@ -570,6 +600,8 @@ module "shorted_job_economy" {
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   image_url        = var.shorted_jobs_image
+
+  paused = contains(local.jobs_on_vke, "shorted-economy")
 
   args     = ["economy", "-mode", "all"]
   schedule = "0 17 5 * *" # 5th of month, 17:00 UTC (an hour after the housing job)
@@ -730,6 +762,8 @@ module "shorted_job_picks" {
   environment      = "production"
   image_url        = var.shorted_jobs_image
 
+  paused = contains(local.jobs_on_vke, "shorted-picks")
+
   args     = ["picks", "-mode", "refresh"]
   schedule = "30 13 * * 1-5" # weekdays 13:30 UTC, after the 10:00 UTC price sweep
 
@@ -739,6 +773,7 @@ module "shorted_job_picks" {
       cron          = "0 15 * * *" # daily 15:00 UTC (01:00 AEST)
       description   = "Nightly fundamentals pull (Yahoo full statements, Markit per-field fallback; budget-driven, priority order), then filing half-years, then refresh_strategy_views()"
       args_override = ["picks", "-mode", "all"]
+      paused        = contains(local.jobs_on_vke, "shorted-picks-fundamentals")
     },
   ]
 
@@ -781,6 +816,8 @@ module "shorted_job_weekly_report" {
   environment      = "production"
   image_url        = var.shorted_jobs_image
 
+  paused = contains(local.jobs_on_vke, "shorted-weekly-report")
+
   args     = ["weekly-report"]
   schedule = "0 11 * * 5" # Friday 11 AM UTC = 9 PM AEST
 
@@ -791,6 +828,7 @@ module "shorted_job_weekly_report" {
       description      = "Monthly generation of short selling report — auto-detects previous month"
       attempt_deadline = "1800s"
       env_override     = { REPORT_TYPE = "monthly" }
+      paused           = contains(local.jobs_on_vke, "shorted-weekly-report-monthly")
     },
   ]
 
@@ -835,12 +873,15 @@ module "shorted_job_news" {
   environment      = "production"
   image_url        = var.shorted_jobs_image
 
+  paused = contains(local.jobs_on_vke, "shorted-news")
+
   args     = ["news"]
   schedule = "0 */4 * * *" # every 4 hours
 
   schedules = [
     {
       name_suffix      = "backfill-images"
+      paused           = contains(local.jobs_on_vke, "shorted-news-backfill-images")
       cron             = "0 3 * * *"
       description      = "Daily og:image backfill for news_articles rows missing image_url"
       attempt_deadline = "1800s"
@@ -852,6 +893,7 @@ module "shorted_job_news" {
     },
     {
       name_suffix      = "resolve-googlenews"
+      paused           = contains(local.jobs_on_vke, "shorted-news-resolve-googlenews")
       cron             = "0 4 * * 1"
       description      = "Weekly resolver: follow googlenews redirects to publisher articles and scrape og:image"
       attempt_deadline = "1800s"
@@ -864,6 +906,7 @@ module "shorted_job_news" {
     },
     {
       name_suffix      = "cluster"
+      paused           = contains(local.jobs_on_vke, "shorted-news-cluster")
       cron             = "30 */2 * * *"
       description      = "Cluster duplicate-event news coverage into shared cluster_id groups"
       attempt_deadline = "600s"
@@ -875,6 +918,7 @@ module "shorted_job_news" {
     },
     {
       name_suffix      = "digest"
+      paused           = contains(local.jobs_on_vke, "shorted-news-digest")
       cron             = "0 1 * * 5"
       description      = "Weekly news digest: assemble draft broadcast for the current ISO week"
       attempt_deadline = "600s"
@@ -986,6 +1030,8 @@ module "shorted_job_signals" {
   environment      = "production"
   image_url        = var.shorted_jobs_image
 
+  paused = contains(local.jobs_on_vke, "shorted-signals")
+
   args = [
     "signals",
     "--priority", "top-shorted",
@@ -1032,6 +1078,8 @@ module "influence_collector" {
   # standalone influence-collector image and CI no longer builds it. The module
   # passes the `influence` subcommand in its args.
   image_url = var.shorted_jobs_image
+
+  scheduler_paused = contains(local.jobs_on_vke, "influence-collector-monthly")
 
   # Prod is where the register crawl actually runs, so it owns the private PDF
   # bucket. report-extractor's SA is granted read HERE, not from that module:
@@ -1337,6 +1385,8 @@ module "market_discovery_sync" {
   market_data_sync_image = var.market_data_sync_image
   bucket_name            = module.short_data_sync.bucket_name
 
+  asx_discovery_scheduler_paused = contains(local.jobs_on_vke, "asx-discovery")
+
   # Jobs-monolith cutover (slice 3) — both surfaces now run the consolidated
   # `shorted` binary IN PLACE: the SAME Cloud Run service/job resources, the
   # same service accounts, the same schedulers, just a new image + args. The
@@ -1426,6 +1476,9 @@ module "report_extractor" {
   # daily run's "DONE in N min" log line.
   reports_limit    = 120
   reports_schedule = "0 14 * * *"
+  # CronJobs director-trade-extractor / financial-report-extractor on VKE.
+  director_scheduler_paused = contains(local.jobs_on_vke, "director-trade-extractor")
+  reports_scheduler_paused  = contains(local.jobs_on_vke, "financial-report-extractor")
 
   depends_on = [
     google_project_service.required_apis,

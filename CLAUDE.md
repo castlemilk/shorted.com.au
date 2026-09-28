@@ -959,6 +959,37 @@ naming it). Admin = verified email on the web app's `ADMIN_EMAILS`, resolved
 from the token's uid via the web app's `/api/internal/admin-check` and
 re-checked at ticket, grant, token, every refresh and every request.
 
+## Scheduled jobs on Kubernetes (Paprika on omega VKE, Telesis monitoring)
+
+Scheduled batch jobs are moving from Cloud Scheduler → Cloud Run Jobs to
+Kubernetes CronJobs on the omega VKE cluster: **`deploy/kubernetes/jobs/`**
+(chart + Paprika Application + scripts; runbook in its `README.md`). Paprika
+polls main and renders the chart into namespace `shorted-jobs`. The
+`shorted cronjob-reporter` Deployment (`services/jobs/internal/jobs/cronreporter/`)
+turns every Job's lifecycle into Telesis cron-monitor check-ins, and Telesis
+alerts on failed, missed and timed-out runs. That replaces the GCP
+`job-monitoring` policies for scheduled runs.
+
+- **Cutover is two lists that must match**: `enabled:` in
+  `deploy/kubernetes/jobs/chart/values.yaml` (unsuspends the CronJob) and
+  `local.jobs_on_vke` in `terraform/environments/prod/main.tf` (pauses the
+  Cloud Scheduler trigger). One without the other runs a job twice or not at
+  all. `scripts/tests/vke-jobs-cutover.test.mjs` enforces it. Ships with both
+  empty and `suspendAll: true`: nothing runs until a job is cut over.
+- **Cloud Run jobs are NOT deleted.** Admin Run now, validation runs, news
+  publish, the freshness/price-sync workflows and rollback all still use them.
+  Until a job's Cloud Run definition is retired, **change its
+  args/env/timeout in BOTH `values.yaml` and Terraform**. `chart/tests/render.sh`
+  only pins schedules.
+- **Cloud Run env is emulated.** `CLOUD_RUN_EXECUTION` = the Job name
+  (short-data-sync resume key, price-sync report key). `CLOUD_RUN_TASK_ATTEMPT` =
+  the Indexed Job's per-index failure count, so the Jobs must stay
+  `completionMode: Indexed` + `backoffLimitPerIndex`.
+- **An ERROR log with exit 0 no longer pages** (the GCP log-metric policy did).
+  Exit non-zero (`runner.ExitCodeError`) if a path should alert.
+- Telesis **project tokens cannot register cron monitors** (user-role check).
+  `register-monitors.py` needs `telesis login`.
+
 ## Blog MDX palette (mdxcn figures)
 
 `/blog` posts (`web/_blogs/*.mdx`) render through ONE component map,

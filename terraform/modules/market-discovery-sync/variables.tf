@@ -123,3 +123,9 @@ variable "market_data_sync_scheduler_paused" {
   type        = bool
   default     = false
 }
+
+variable "asx_discovery_scheduler_paused" {
+  description = "Pause the asx-discovery weekly trigger. Set true once the job runs as a Kubernetes CronJob on omega instead (deploy/kubernetes/jobs; driven by local.jobs_on_vke in environments/prod/main.tf). The Cloud Run job itself stays deployed for admin Run-now and manual executions."
+  type        = bool
+  default     = false
+}
