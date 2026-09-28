@@ -455,13 +455,18 @@ so the existing arg lists work unchanged apart from the subcommand prefix.)
 (filed within 45 days, newest first; then companies with no metric-bearing
 extraction, by market cap; then the rest), drops an extraction whose value's
 digits are not inside its aligned span, writes `document_meta`, stops starting
-reports once `--budget-min` elapses, and runs Gemini with thinking off. The Go
-port was brought to parity only on the synthetic few-shot example, dropping
-unaligned extractions and stripping provenance keys before the digest prompt
-(§6.3); it has none of the rest. The cut-over args above are therefore
-historical: a cut-over would first need the targeting, the span-digit check,
-`document_meta`, the budget and the thinking config ported, and the flag
-tables below describe the port as it was made.
+reports once `--budget-min` elapses, and runs Gemini with thinking off. It
+also treats a failed model call (an API error, a blocked or empty response, a
+missing key) as `model_error`: no row is written, 5 in a row stop new work, and
+the run exits 1 when the model errors look systemic; the port still logs the
+error and stores metrics `{}`
+(`no_metrics`). The Go port was brought to parity only on the synthetic
+few-shot example, dropping unaligned extractions and stripping provenance keys
+before the digest prompt (§6.3); it has none of the rest. The cut-over args
+above are therefore historical: a cut-over would first need the targeting, the
+span-digit check, `document_meta`, the budget, the thinking config and the
+model-error handling ported, and the flag tables below describe the port as it
+was made.
 
 ### Flag parity
 
@@ -476,6 +481,8 @@ tables below describe the port as it was made.
 | `--max-pages` | `-max-pages` | 10 | no since 2026-09-28: the Python default is 8 |
 | `--top-shorted-first` | `-top-shorted-first` | false | no since 2026-09-28: the Python dropped it |
 | `--budget-min` | none | 90 (Python only) | no: not ported |
+| `--max-model-errors` | none | 5 (Python only) | no: not ported |
+| `--repair-echo-digests` | none | false (Python only; the one-off echo-digest repair) | no: not ported |
 | `--backfill-digests` | `-backfill-digests` | false | ✅ |
 | `--dry-run` | `-dry-run` | false (defaults from the global `-dry-run`) | ✅ + also gates GCS |
 
@@ -567,7 +574,9 @@ call is wrapped in a `recover` so one corrupt filing can't kill the batch.
 - **Missing key**: Python reached `lx.extract` with no key and its blanket
   `except` turned the provider error into "no extractions + a warning". The Go
   port short-circuits with the same warning and the same empty result, so the
-  digest-from-raw-text path still runs.
+  digest-from-raw-text path still runs. Since 2026-09-28 the Python no longer
+  does this: a missing key is a model error (no row written), and the
+  scheduled runner refuses to start without one.
 - **Prompt-example validation** defaults to `PromptValidationWarning` in the Go
   port. The `revenue` few-shot example's `extraction_text` joins two source lines
   with a space where the example text has a newline, so it does not align
@@ -609,7 +618,9 @@ every worker exception into an `error` tally entry and always exited 0 — an
 interrupted run looked clean. Here a per-item failure is still just a tally
 entry, but a CANCELLED run (SIGTERM, Cloud Run task timeout) returns an error so
 the job reports `status=error`. Selection is idempotent (already-extracted URLs
-skip; the §6.9 cool-off skips), so the next run resumes.
+skip; the §6.9 cool-off skips), so the next run resumes. (The Python report
+extractor has since stopped always exiting 0: it exits 1 when its model errors
+look systemic.)
 
 **7. Missing Gemini key now fails `director-trades` up front.** Python called
 `sys.exit(1)` from inside the first worker thread; the Go port checks before
@@ -723,7 +734,7 @@ procedure: `internal/jobs/shortdatasync/README.md`.
 |---|---|
 | `-mode fundamentals` | The full statements into `stock_fundamentals` (migration 000129, widened by 000132), every attempt recorded in `stock_fundamentals_sync`. ONE Yahoo fundamentals-timeseries GET per code through `pkg/stealthhttp` (a plain client is 429'd; no cookie or crumb needed), 4s between requests like the price sweep: the annual and trailing income statement and cash flow, the annual and quarterly balance sheet, the share count. Sanity gates null bad values; Markit key statistics (plain HTTPS, 1/s) is the per-field fallback. Budget-driven, in priority order (below). |
 | `-mode filings` | Revenue / net profit / EPS from `financial_report_extractions.metrics` (the report-extractor's reading of statutory results documents) into typed `'half'` and `'annual'` rows, source `asx-filing-extraction`, through the `services/pkg/extractiontrust` funnel and nine gates. The only source of half-year totals (Yahoo has none for the ASX). A fail-closed deterministic rebuild in ONE transaction. DB-only: no network, no LLM. |
-| `-mode refresh` | `BEGIN; SET LOCAL statement_timeout = 0; SELECT refresh_strategy_views(); COMMIT` as one simple-protocol command (000132's body: `mv_market_regime`, `mv_fundamentals_growth`, `mv_fundamentals_quality`, `mv_price_features`). Fails if the function reports any `Skipping <view>` warning, because the function itself returns normally when a view is skipped. After a successful refresh it waits 16 minutes (the API's 15-minute strategy cache, plus one), then pings `/api/revalidate` best-effort with tag `strategy-picks`, plus `fundamentals` when this execution's fundamentals or filings step changed rows. |
+| `-mode refresh` | `BEGIN; SET LOCAL statement_timeout = 0; SET LOCAL client_min_messages = notice; SELECT refresh_strategy_views(); COMMIT` as one simple-protocol command (000132's body: `mv_market_regime`, `mv_fundamentals_growth`, `mv_fundamentals_quality`, `mv_price_features`; the `client_min_messages` pin stops a role default hiding the NOTICEs). Fails if the function reports any `Skipping <view>` warning, because the function itself returns normally when a view is skipped, and also when a picker view exists but got no `Refreshing <view>` NOTICE: the live function body is stale (000130's three-view one, left live when the deploy failed between the 000130 replay and 000132), and the error says to re-apply 000132. After a successful refresh it waits 16 minutes (the API's 15-minute strategy cache, plus one), then pings `/api/revalidate` best-effort with tag `strategy-picks`, plus `fundamentals` when this execution's fundamentals or filings step changed rows. |
 | `-mode all` (default) | fundamentals, then filings, then refresh. The refresh runs even after a degraded pull; the worst step decides the exit code. |
 
 **Schedule** (`module "shorted_job_picks"` in `terraform/environments/prod/main.tf`):
@@ -754,7 +765,10 @@ priority first:
    (Yahoo lags small caps). An "Annual Report" headline does not count: it
    lands weeks after the 4E that moved the numbers. Never-succeeded first;
 2. **never attempted**, by market cap descending, then 20-day dollar volume,
-   then code;
+   then code. A sync row written before 000132 (`last_outcome` NULL) queues
+   here too and is never skipped: the code's stored rows are 000129's seven
+   lines, so the first nights after the deploy re-fetch the universe, largest
+   first (without 000132 no row is treated this way);
 3. **last outcome `failed`**, oldest attempt first (failures are never skipped);
 4. **stale**: successes and single empties older than 14 days, and repeat
    empties (`consecutive_empty >= 2`) older than 45 days, oldest attempt first.
@@ -762,7 +776,8 @@ priority first:
 Headlines are classified by the regexes ported from
 `scripts/take-writer/src/results-watch.ts` (`filings.go`; keep the two in
 step), never by `announcement_type`. The log line `queued: due_filers=N
-never_attempted=N failed=N stale=N skipped=N` shows the split.
+never_attempted=N failed=N stale=N skipped=N pre_000132=N` shows the split
+(`pre_000132` counts the pre-000132 rows inside `never_attempted`).
 
 **Breakers.** A run stops taking codes after 25 consecutive failed codes (the
 price sweep's rule), or when more than 30 of the last 100 Yahoo requests failed
@@ -805,6 +820,15 @@ per field, same currency):
 
 A Markit row never takes over a Yahoo row.
 
+**52/53-week years** (one fiscal year under two dates: Markit dates LOV's FY26
+28 June, Yahoo 30 June). A stored Markit annual row is pruned only when this
+statement writes a Yahoo annual row within 7 days of it that carries revenue or
+net income; a Markit annual row is not written when a non-Markit annual row
+within 7 days that carries revenue or net income is stored or in the same
+statement (the Yahoo-failure case). Beside an EPS-only year the Markit row is
+kept or written, because it holds the year's only revenue and net income, so
+that year can sit under two dates until a night both vendors answer.
+
 **Markit** is asked when Yahoo failed or published nothing, has no annual row,
 is visibly behind (a TTM point a year past the latest annual, or the latest
 annual older than ~15 months), when the latest annual lacks revenue or net
@@ -819,8 +843,8 @@ and written as NULL:
 | Gate | Rejects |
 |---|---|
 | `currency_conflict` | one monetary field whose point is in another currency than its row (shares and EPS ignore `currencyCode`) |
-| `fx_converted` | every monetary field of a code with a fractional raw value on a normally integral line: Yahoo converted its statements, EPS included, so every monetary and per-share Yahoo field is rejected (shares kept) and filings supply the native EPS (XRO's FY25 EPS 1.3541 is AUD-converted; the NZD figure is ~1.49). Sets `stock_fundamentals_sync.fx_converted`, and `native_currency` from Markit's `curCode` |
-| `identity_outlier` | a period's monetary fields (EPS and shares kept) when k = net income / (basic EPS x shares) is more than 3x off the code's median k, with at least 3 periods. The median, not 1, is the reference: a CDI such as RMD has k near 10. It is stored as `median_k` for valuation |
+| `fx_converted` | every monetary and per-share field of a code with a fractional raw value on a normally integral line: Yahoo converted its statements, EPS included, so every monetary and per-share Yahoo field is rejected on every Yahoo row, whether or not Markit answers (shares kept; a stored converted value is nulled too), and filings supply the native EPS (XRO's FY25 EPS 1.3541 is AUD-converted; the NZD figure is ~1.49). Sets `stock_fundamentals_sync.fx_converted`, and `native_currency` from Markit's `curCode` |
+| `identity_outlier` | a period's monetary fields (EPS and shares kept) when k = net income / (basic EPS x shares) is more than 3x off the code's median k, with at least 3 periods. The median, not 1, is the reference: a CDI such as RMD has k near 10. It is stored as `median_k` for valuation and for `-mode filings` gate 8's EPS basis |
 | `scale_break` | every monetary field of a period where revenue, gross profit, total or current assets or liabilities is below 1/20 of BOTH neighbours in its series (IAG FY25 revenue 5.35m against ~14bn) |
 | `non_positive_assets` | a period's balance fields when total assets <= 0 |
 | `eps_sign_mismatch` | basic and diluted EPS of opposite signs (both) |
@@ -830,8 +854,10 @@ and written as NULL:
 `stock_fundamentals_sync` records `last_outcome` (`loaded` | `empty` |
 `failed`; `empty` only when every source asked answered without error and
 without rows), `consecutive_empty`, and, only on a loaded attempt that Yahoo
-answered without error, `median_k`, `fx_converted` and `native_currency` (any
-other attempt keeps the stored values).
+answered without error AND with at least one row (counted before the gates and
+the merge), `median_k`, `fx_converted` and `native_currency`. Any other attempt
+keeps the stored values, including a Yahoo 404 or an empty Yahoo answer
+followed by a Markit load, which measure nothing.
 
 **Filings (`-mode filings`)**. What is read, and what keeps an LLM mistake out
 of the table (`filings_ingest.go`, `filings_period.go`, `filings_values.go`,
@@ -848,7 +874,10 @@ Every value now passes nine gates in order, each counted in the run summary
    `document_meta.report_kind`: 4D/4E, half-year and annual reports,
    preliminary final, results announcements; never Pillar 3, Form 20-F,
    presentations, webcasts, transcripts); `document_meta.entity`, when present,
-   names the code's company; `report_kind` is not `other`.
+   names the code's company (`extractiontrust.EntityMatches`, the same rule
+   the stock page's latest filing summary applies); `report_kind` is not
+   `other` (the extractor sets `other` only when the document's own heading
+   names it a presentation, Pillar 3 disclosure, transcript or webcast).
 2. **Grounding** and 3. **few-shot denylist**: `extractiontrust.GroundedEntry`
    (the extractor aligned the quote to the document, and the quote is not
    either few-shot example's text; the denylist is by text, never by value:
@@ -860,7 +889,15 @@ Every value now passes nine gates in order, each counted in the run summary
 5. **Statutory**: the quote names no underlying, normalised, adjusted, pro
    forma, EBITDA / EBIT, segment, division, "profit from operations",
    operating profit, profit before tax, cash NPAT, total comprehensive income,
-   network / online / channel sales or TTV figure (`nonStatutoryRe`).
+   network / online / channel sales or TTV figure (`nonStatutoryRe`). A net
+   income or EPS takes its sign from its own number (a minus, or parentheses)
+   or else from the nearest loss / profit word governing it in its clause;
+   words inside a closed parenthetical, a comparison ("compared with", "up
+   from", "pcp", "prior year") or a statement name ("statement of profit or
+   loss") do not count. A sign word right after the number and the value
+   attribute's sign also vote; when they disagree, or the governing word
+   belongs to a tagged comparative, the value is withheld
+   (`5_statutory.sign_ambiguous`, counted after gate 7).
 6. **Vendor context**: the code has a vendor annual row and a trustworthy
    vendor currency; balance month and currency come from the vendor (there is
    no June or AUD default any more). An FX-converted or mixed-currency code
@@ -873,7 +910,12 @@ Every value now passes nine gates in order, each counted in the run summary
    FY, else [0.15, 1.5] of the prior FY; annual revenue in [0.7, 1.4] of the
    same FY, else [0.5, 2.5] of the prior FY; net income <= 1.5x revenue (not
    for property / investment entities); EPS within [0.5, 2] of net income /
-   vendor shares, written only when that check can run.
+   vendor shares, written only when that check can run and the vendor's EPS is
+   per ordinary share (`median_k` in [0.8, 1.25], or without one every
+   computable vendor k in that band). Otherwise, as for a CDI listing whose
+   vendor EPS is per CDI (RMD), every filing EPS of the code is withheld
+   (`8_magnitude.eps_listed_unit_not_one_share`) and revenue and net income
+   are kept.
 9. **TTM-EPS identity** for first halves, when all four inputs exist:
    `|(H1 - H1 prior) - (TTM at the half end - prior FY)| <= max(10% x |TTM -
    FY|, 2% x |FY EPS|, 0.01)`.
@@ -885,8 +927,8 @@ unit the quote makes unambiguous ("$45.2 million", "$1.2bn", "$45,213,000", a
 `document_meta.units` (the 4D/4E summary tables' "US$ Million" header) or
 skipped. EPS is stored in currency units per share: the unit is read next to
 the value's own number (`c` / `cents` / `cps` / `¢` is cents, divided by 100;
-`$0.94` is dollars); "loss per share" or a parenthesised number is negative;
-basic vs diluted from the nearest qualifier before the number. One document
+`$0.94` is dollars); the sign follows gate 5 (the number itself, else the
+words that govern it, never a comparative's); basic vs diluted from the nearest qualifier before the number. One document
 giving two values for one period is skipped. Several documents for one period:
 per column, the Appendix 4D/4E beats another results document, then the
 document filed closest after the period end, then the URL.
@@ -998,7 +1040,10 @@ along in the message.
    `gcloud run jobs execute shorted-picks --region australia-southeast2 --args="picks,-mode,filings"`
    (read the `gates={...}` and would-purge lines first with
    `--args="picks,-mode,filings,-dry-run"`; the dry run is gcloud-only), then
-   `--args="picks,-mode,refresh"`.
+   `--args="picks,-mode,refresh"`. Once, also run the report-extractor with
+   `--repair-echo-digests` (`--dry-run` first lists the rows): the rows whose
+   metrics carry a few-shot echo lose those entries and get a digest through
+   the trusted prompt; the API withholds their summaries until then.
 4. The daily 15:00 UTC `-mode all` covers the universe when it fits the
    170-minute budget; any remainder carries to the next night. A manual full
    run should start before 12:20 UTC or after the scheduled run has finished:
@@ -1015,7 +1060,13 @@ report-extractor (`module "report_extractor"`), which in prod is the PYTHON
 image, now statutory-first: 120 reports a day at 14:00 UTC, one results document
 per company (filed within 45 days newest first, then companies with no parsed
 filing by market cap, then the rest), grounded, with `document_meta`
-(`services/report-extractor`, fundamentals-coverage §6.1). The Go port in
+(`services/report-extractor`, fundamentals-coverage §6.1). It never stores a
+model failure (that document gets no row and is retried next run), stops
+starting reports after 5 consecutive model errors (`--max-model-errors`), and
+exits 1 when its model errors look systemic (the breaker's 5, or at least 3
+making up at least a fifth of the documents that called the model; one document the
+model refuses daily is logged and retried without failing the run), or up
+front when no Gemini key is set. The Go port in
 `reportextract` is not deployed and is parity-only on the few-shot example and
 grounding (see "Phase 3 port notes").
 

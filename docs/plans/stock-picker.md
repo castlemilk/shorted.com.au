@@ -263,8 +263,9 @@ in `services/jobs/README.md` "picks"):
   statistics is the per-field fallback. Pace via `pkg/stealthhttp` at the
   price sweep's 4s. **Budget-driven, no count cap** (the original 400-code cap
   is gone): codes are taken in priority order (due filers; never attempted by
-  market cap; last outcome failed; successes older than 14 days and repeat
-  empties older than 45) until `PICKS_FUNDAMENTALS_BUDGET_MIN` (170 minutes)
+  market cap, with sync rows written before 000132, which are never skipped;
+  last outcome failed; successes older than 14 days and repeat empties older
+  than 45) until `PICKS_FUNDAMENTALS_BUDGET_MIN` (170 minutes)
   elapses, and the rest carries to the next night. Breakers: 25 consecutive
   failures, more than 30% of the last 100 Yahoo requests failed, Markit off
   after 10 consecutive failures; a Cloud Run task retry gets 20 minutes.
@@ -295,7 +296,9 @@ in `services/jobs/README.md` "picks"):
   vendor later publishes a period a filing wrote first, it takes the row over
   only when it supplies revenue or net income, and every value it keeps from
   the filing row stays marked.
-- `-mode refresh`: `SET LOCAL statement_timeout = 0; SELECT refresh_strategy_views()`;
+- `-mode refresh`: `SET LOCAL statement_timeout = 0; SET LOCAL
+  client_min_messages = notice; SELECT refresh_strategy_views()`, failing on a
+  skipped view or on a picker view the live function body never names;
   after a successful refresh it waits 16 minutes (the API's strategy cache) and
   revalidates the web tags `strategy-picks` (and `fundamentals` when this
   execution changed rows).
@@ -526,8 +529,10 @@ api/schema, web/public/openapi.*).
 - Valuation (`strategies/valuation.go`, one function for the page, the picks
   and sorting): market cap = latest close x the newest vendor share count
   within 12 months, only for a one-ordinary-share listing (`median_k` in
-  [0.8, 1.25]); P/E and P/B only for AUD statements, and never for an
-  `fx_converted` code; `valuation_note` says why a value is absent.
+  [0.8, 1.25], or without one every computable k in that band; `listed-unit`
+  only on positive evidence, otherwise `no-shares` and the picker falls back
+  to the screener market cap); P/E and P/B only for AUD statements, and never
+  for an `fx_converted` code; `valuation_note` says why a value is absent.
 
 ## 4. Web (stream C)
 

@@ -192,16 +192,17 @@ already marked `asx-filing-extraction`; records the marker and the document.
 
 `last_outcome VARCHAR(16)` (`loaded` | `empty` | `failed`),
 `consecutive_empty SMALLINT NOT NULL DEFAULT 0` and `median_k DOUBLE
-PRECISION` (the identity-gate reference of 3.5, read by valuation in 5.3 and
-by `-mode filings` for gate 8's EPS basis in 4.2, through `VendorRows`' LEFT
-JOIN of `stock_fundamentals_sync`, NULL before 000132; NULL when fewer than 3
-periods allow it), `fx_converted BOOLEAN` (3.4's verdict; NULL until a fetch
-has measured it) and `native_currency VARCHAR(8)` (Markit's `curCode` for an
-fx_converted code; NULL when unknown). The three measured facts move together,
-and only when Yahoo answered without error AND returned at least one row,
-counted before the gates and the merge. A Yahoo 404 (mapped to no rows and no
-error) or an empty document followed by a Markit load measures nothing and
-keeps the stored values, as does any failed attempt. `empty` only when every source
+PRECISION` (the identity-gate reference of 3.5; NULL when fewer than 3
+periods allow it; read by valuation in 5.3, and by `-mode filings` for gate
+8's EPS basis in 4.2 through `VendorRows`' LEFT JOIN of
+`stock_fundamentals_sync`, which reads NULL before 000132), `fx_converted
+BOOLEAN` (3.4's verdict; NULL until a fetch has measured it) and
+`native_currency VARCHAR(8)` (Markit's `curCode` for an fx_converted code;
+NULL when unknown). The three measured facts move together, and only when
+Yahoo answered without error AND returned at least one row, counted before
+the gates and the merge. A Yahoo 404 (mapped to no rows and no error) or an
+empty document followed by a Markit load measures nothing and keeps the
+stored values, as does any failed attempt. `empty` only when every source
 asked returned without error and with no rows; a fallback error with no rows is
 `failed`. `recordAttempt` increments `consecutive_empty` on `empty` and resets
 it on `loaded`/`failed`.
@@ -460,10 +461,9 @@ Markit fill and the gates compare against) and Markit fills revenue and net
 income. The code's EPS stays NULL on every vendor row until a filing supplies
 a native-currency figure. For filings gates 6-8 its vendor currency is the
 persisted `native_currency`, else a Markit row's currency, else unknown (no
-filing rows). The verdict is persisted (2.3); the
-filings gates read it, and valuation (5.3) withholds P/E and P/B on the flag
-itself, not only on the missing k, because Yahoo's labels for such a code
-cannot be trusted. On the read side the API treats an unmeasured verdict as
+filing rows). The verdict is persisted (2.3); the filings gates read it, and
+valuation (5.3) withholds P/E and P/B on the flag itself, not only on the
+missing k, because Yahoo's labels for such a code cannot be trusted. On the read side the API treats an unmeasured verdict as
 converted when the stored vendor rows look converted (5.3).
 
 ### 3.5 Sanity gates (every rejection counted, logged, added to `Rejected`)
@@ -813,15 +813,34 @@ when the stock is in the pick list, else `strategies.EvaluateOne(st, cand, env)`
 - **Valuation** (one function, used by the page, the picks and sorting):
   shares = `shares_outstanding` from the newest vendor row (annual, ttm or
   quarter) that carries it and is dated <= 12 months before `price_as_of`, and
-  only when the code's `median_k` is within [0.8, 1.25] (or absent with a single
-  consistent period); market cap = latest close x shares (AUD). P/E = close / E,
+  only when the code's `median_k` is within [0.8, 1.25]; without a `median_k`
+  (fewer than 3 periods, or a code not fetched since 000132), when at least
+  one vendor annual/TTM period allows k = NI / (EPS x shares) and every such k
+  is within [0.8, 1.25]. `valuation_note` is `listed-unit` only on positive
+  evidence: a `median_k` outside [0.8, 1.25], or, without one, any period
+  whose k is positive and outside [1/3, 3] (the identity gate's 3x; a CDI
+  sits near 10 or 0.1). Anything else (no computable k; a k <= 0, where net
+  income and EPS have opposite signs and say nothing about the unit; or a k
+  between the bands, which is what a recent IPO, placement or rights issue
+  shows because EPS uses weighted-average shares against a period-end count)
+  is no evidence either way: nothing of our own is valued (P/E included), `valuation_note` is
+  `no-shares`, and the picker falls back to the screener market cap.
+  `listed-unit` never falls back. Market cap = latest close x shares (AUD).
+  P/E = close / E,
   E = the newest 12-month EPS across annual and TTM rows (diluted when present,
   else basic; `pe_eps_basis`), dated <= 12 months before `price_as_of`; NULL
   when E <= 0, the statements are not AUD, or the code is fx_converted. P/B =
   market cap / aligned total equity (AUD, equity > 0). `valuation_note` says
   why a value is absent. `StrategyPick.market_cap` and `sort_by=market_cap`
-  use this value, falling back to the screener value only when shares are
-  absent.
+  use this value, falling back to the screener value only when
+  `valuation_note` is not `listed-unit` and we value no market cap of our own.
+  **FX verdict on the read side:** the API reads `fx_converted` as
+  `COALESCE(sync.fx_converted, <guess>, false)`. The guess is true when any
+  vendor (non-filing, non-Markit) annual or TTM row carries a revenue or net
+  income with `|frac| > 0.001`, the same mark the job's gate reads. NULL (not
+  measured since 000132) therefore never reads as not converted for a code
+  whose legacy rows carry converted values. A measured false wins over the
+  guess.
 - `GetStockFundamentals` also fills `coverage` from the sync row and
   `latest_filing` (5.1).
 - `GetStockFinancialHighlights` applies `extractiontrust` (4.1).
@@ -834,7 +853,9 @@ when the stock is in the pick list, else `strategies.EvaluateOne(st, cand, env)`
 - **`quality-compounders`** ("Quality compounders", house strategy,
   `RegimeGates: false`). Core rules:
   - `roe`: pass `roe_pct >= 15`; fail below 15 or when total equity <= 0;
-    unknown when `roe_pct` is NULL for any other reason.
+    unknown when `roe_pct` is NULL for any other reason (an equity point
+    missing, or, for a non-financial, average equity under 10% of average
+    assets); a financial is judged on the Go-computed ROE (2.7).
   - `net_margin`: pass `>= 10`; fail below; unknown when revenue is NULL or
     <= 0.
   - `cash_conversion`: pass FCF > 0 and FCF / NI >= 0.8; fail when NI <= 0,
@@ -891,14 +912,43 @@ when the stock is in the pick list, else `strategies.EvaluateOne(st, cand, env)`
 - **Connections**: the selection connection runs with `autocommit = True`; no
   connection holds a transaction across a PDF download or a model call (a test
   asserts idle after selection).
+- **Model failures are never stored.** A Gemini call that fails raises
+  `extract.ModelError` instead of reading as "nothing grounded". That covers
+  an API error after langextract's retries (quota, auth, a retired model), a
+  blocked response, a response with no text, and a missing SDK or key. The
+  runner then writes NO row for the document (outcome `model_error`), so the
+  next run retries it. If metrics were grounded but the digest call failed,
+  the metrics are stored with digest NULL (outcome `digest_error`) and
+  `--backfill-digests` summarises them later. After 5 consecutive model
+  errors (`--max-model-errors`, 0 disables) no new report is started. Every
+  model error is logged with its counts; the run exits 1 when they look
+  systemic (`model_errors_fail_run`: at least the breaker's 5, or at least 3
+  making up at least a fifth of the documents that called the model), so a
+  dead key, a retired model or an exhausted quota fails the Cloud Run
+  execution visibly, while one or two documents the model refuses every day
+  are retried without failing every run. A non-dry run with no Gemini key
+  refuses to start (exit 1, nothing selected).
+- **Echo repair** (`--repair-echo-digests`, one-off, after the deploy;
+  `--dry-run` first lists the rows): rows whose stored metrics carry a
+  few-shot-echo entry lose only those entries and get a new digest through
+  the trusted prompt, or digest NULL when none can be written (a later
+  `--backfill-digests` then summarises them). Until then the API withholds
+  their summaries (5.1).
 - **Targeting**: statutory first via `IsResultsDocument`'s rules ported to
   Python (a shared fixture of titles asserted by both): drop presentations,
   Form 20-F, Pillar 3, webcasts, transcripts. Order: report_date within 45 days
   newest first, then companies with no metric-bearing extraction by market cap,
-  then the rest by market cap. One document per company per run; drop
-  `--top-shorted-first`.
+  then the rest by market cap. One document per company per run (one paid
+  extraction). The company's other unextracted documents within `--recent`
+  ride along as fallbacks and are tried in the same run when its document
+  cannot be downloaded. A PDF with no text layer (under 100 characters on the
+  pages read) gets a marker row: metrics `{}`, digest NULL, `raw_text_length`
+  < 100. Selection then moves to the company's next document and
+  `--backfill-digests` skips it. Any other download failure writes nothing and
+  is retried next run. Drop `--top-shorted-first`.
 - **Budget**: `--budget-min` (default 90): stop submitting new reports once it
-  elapses, log the remaining count, exit cleanly. Log per-report wall time.
+  elapses, log the remaining count, exit 0 (exit 1 when the run's model
+  errors look systemic, see Model failures). Log per-report wall time.
 - `--max-pages 8`.
 
 ### 6.2 Throughput (`module.report_extractor`)
@@ -915,7 +965,12 @@ comment records the first run's measured wall time.
 
 Not deployed (its PDF engine splits digits). Parity only: the same synthetic
 example, drop unaligned extractions, strip provenance keys before the digest
-prompt.
+prompt. Error-handling parity with 6.1 is out of scope while the port is not
+deployed: `extractFinancialData` still logs a model error (or a missing key)
+and returns nothing, which the job counts as `no_metrics`, so a scheduled Go
+run would mark such documents done with metrics `{}`. A cut-over must first
+port 6.1's model-failure rule (no row, the consecutive-error breaker, a
+non-zero exit).
 
 ## 7. Web
 
@@ -939,8 +994,13 @@ latestFiling) in ONE mapper; cache key `v3`; tags gain `fundamentals`.
 result (API failure) renders nothing extra.
 
 Financials tab (`web/src/@/components/stocks/financials-tab.tsx`, a
-composition of props-only server cards plus ONE client island; the tax card and
-the reports list arrive as ReactNode slots from `page.tsx`):
+composition of props-only server cards plus ONE client island; the tax card,
+the reports list and the empty state's filings sentence arrive as ReactNode
+slots from `page.tsx`; the reports list and the filings sentence are async
+server components under their own `<Suspense>`
+(`components/company/financial-reports-section.tsx`), so the page never awaits
+`getStockDetails` / `getEnrichedCompanyMetadata` on its critical path (that
+read retries with backoff and has no request timeout)):
 1. **Latest result**: the newest flow period's revenue, NPAT and EPS (basic when
    diluted is absent) vs the prior corresponding period, source and as-at per
    figure, a filing link only from `source_document_url`; the growth row from
@@ -951,8 +1011,18 @@ the reports list arrive as ReactNode slots from `page.tsx`):
    or net cash, net debt / EBITDA, current ratio, interest cover (">100x" above
    100), cash dividends paid / net profit, market cap, P/E, P/B; basis,
    balance lag and as-at; `n/m`/`n/a` rules from 7.0; the property caveat when
-   `is_property`. `CompanyFinancials` ("Key metrics") is REMOVED from the tab
-   and from `page.tsx`.
+   `is_property`. The footer names the flow row's source plus every
+   `field_sources` value the basis period carries for a ratio input (revenue,
+   net income, gross profit, operating income, FCF, EBITDA, normalised
+   EBITDA, interest expense, dividends paid): "Sources: Yahoo Finance and
+   Company filing (extracted)"; the card never credits a vendor for a filing
+   figure. P/E explains its absence only with a note that governs it
+   (`non-aud`, `listed-unit`, `no-price`); under `no-shares` or no note it
+   reads plain `n/a`, because P/E needs no share count. `no-shares` explains
+   market cap and P/B only, as "n/a (no share count we can vouch for)": it
+   also covers a held share count whose listing unit no reported period
+   confirms (5.3). `CompanyFinancials` ("Key metrics") is REMOVED
+   from the tab and from `page.tsx`.
 3. **Financial statements** (the client island, props-only, no `~/gen`, row
    definitions and formatters in the client module or `lib/fundamentals`; the
    server passes data only): Income | Balance sheet | Cash flow tabs; a leading
@@ -976,7 +1046,10 @@ the reports list arrive as ReactNode slots from `page.tsx`):
    "figures above come from this filing"), then the tax card LAST.
 5. **Empty state** only when `periods` is empty AND `coverage.status` is
    `empty` ("Our data providers hold no financial statements for <code> (last
-   checked <date>). The company's own filings are listed below."), `pending`
+   checked <date>)." followed by "The company's own filings are listed below."
+   ONLY when the streamed reports list shows at least one filing: the
+   `filingsNote` slot, `FILINGS_LISTED_BELOW`; the copy never points at
+   filings that are not listed), `pending`
    ("Fundamentals not yet collected for <code>.") or `failed` ("Fundamentals
    for <code> could not be collected on <date>; the next run retries.").
    Copy never states or implies that a listed company publishes no statements.
@@ -994,7 +1067,12 @@ Overview:
   function (never cached) and caught at the call site (card hidden); never in
   the page's critical `Promise.all`; a failure never fails the ISR render.
 - A crawlable one-paragraph fundamentals summary, server-rendered, omitted
-  (never guessed) without coverage.
+  (never guessed) without coverage. Its closing "source:" clause names every
+  distinct source of the figures it quotes, per field (`field_sources[col] ??`
+  the row source): the latest and prior revenue/NPAT, the ratio basis
+  period's NPAT (and revenue when net margin is quoted), and a growth clause
+  whose basis source is `filing`; e.g. "source: Company filing (extracted) and
+  Yahoo Finance". Never the row source alone.
 - `CompanyInsightsCard` receives only the fields it reads (the 32 KB
   `financial_statements` JSONB leaves the payload).
 
@@ -1036,11 +1114,15 @@ no fit card.
   by <metric>"; a sort by a metric that is not a column adds one right-aligned
   "Sorted by" column via a hook-free `sortKey` prop. Fetch and mapper load
   lazily on first interaction. The kit's client-file list and boundary tests
-  are updated.
+  are updated. The `market_cap` sort's tooltip and the "Sorted by" column hint
+  read "Latest close x shares on issue, in AUD; the screener's figure where we
+  hold no share count", because the API sorts by `ResolvedMarketCap`, which
+  falls back to the screener figure under `valuation_note` `no-shares`.
 - Coverage copy: "fundamentals for N of M stocks (growth figures for K)" with
   thousands separators, only when `fundamentals_rows_count > 0 &&
   fundamentals_rows_count >= fundamentals_coverage_count`; otherwise today's
-  copy ("growth figures for K of M stocks").
+  copy ("growth figures for K of M stocks"). BOTH `/picks` and
+  `/picks/[strategy]` pass `fundamentals_rows_count` to the provenance line.
 - `RuleLegend`: "Unknown (data missing, or not meaningful for this company)";
   the strategy panel and hub sentences match. Cache keys
   `strategy-picks-*-v2`. The `quality-compounders` registry entry and every
@@ -1058,14 +1140,22 @@ this section; every description edit must fit).
 - `get_strategy_picks`: `sort_by`; `quality-compounders` in the id list; per
   pick `roe_pct`, `net_margin_pct`, `fundamentals_source` ('filing' when either
   basis source is filing); output `fundamentals_rows_count`; the 1-25 range
-  stays with `maxPickEvidenceBytes = 1500`.
+  stays with `maxPickEvidenceBytes = 1500`. `sort_by=market_cap` orders by the
+  resolved market cap (5.3): the latest close x shares on issue, or the
+  screener's figure where we hold no share count. `get_stock_fundamentals`'
+  `market_cap` carries only the first, so the summary for a market-cap sort
+  says so rather than pointing at `get_stock_fundamentals`.
 - The budget fixture (`realisticStrategySource`) sets every new field (a
   two-key `field_sources` per period, a full quality, coverage, and
   `StrategyPick.fundamentals` with both basis sources 'filing').
 - No new tool. Admin `run_picks_job`'s next-step text points at
   `fundamentals_rows_count`, not "near the universe".
 - `content/coverage.md`, `web/public/llms*.txt`, `web/public/docs/mcp-markdown.md`
-  updated.
+  updated. In `coverage.md` the financials bullet ("Return on equity, return
+  on assets, net margin and payout remain") holds because financials carry the
+  Go-computed ROE (2.7), and a separate bullet says the 10% equity-to-assets
+  rule applies only to non-financials; its `sort_by` sentence carries the
+  screener-fallback wording above.
 
 ## 9. Rollout
 
@@ -1077,9 +1167,19 @@ this section; every description edit must fit).
    `{mode: "refresh"}` (seconds, no Yahoo): the echo, comparative, segment,
    LFT and DRO rows go the same hour. Early full runs must start before 12:20
    UTC or after the scheduled 15:00 run has finished (the lease also prevents
-   overlap).
+   overlap). Then the one-off echo-digest repair: run the extractor once
+   with `--repair-echo-digests` (6.1; `--dry-run` first lists the rows). The
+   `financial_report_extractions` rows whose metrics carry a few-shot echo
+   (the known BHP, CBA, DRO, EDV and MSB rows) lose only those entries and get
+   a new digest through the trusted prompt, or digest NULL for a later
+   `--backfill-digests`. The API withholds their summaries until then (5.1),
+   so this restores summaries rather than removing a live defect.
 3. The 15:00 UTC `-mode all` covers the universe when it fits in 170 min at
-   4 s; any remainder, lowest priority first, carries to the next night.
+   4 s; any remainder, lowest priority first, carries to the next night. The
+   first nights re-fetch every pre-000132 code, largest first (3.7;
+   `pre_000132=N` in the selection line shows the drain); until a code is
+   re-fetched its `statement_is_financial` reads NULL and the industry
+   decides (2.7).
 4. After the second nightly run: `fundamentals_rows_count` near the
    vendor-publishable universe (about 75% of codes), BHP/CSL/WES/FMG with full
    statements, no row with revenue 5,142,000,000 and NPAT 1,823,000,000, EDV
@@ -1124,3 +1224,117 @@ Phase 1, parallel worktrees (merge order as listed):
 Phase 2: **mcp** (after api's registry lands). Phase 3: **docs** (CLAUDE.md,
 `services/jobs/README.md` "picks", `docs/plans/stock-picker.md`, MCP docs).
 Only prod `main.tf` is shared (vendor and extractor, disjoint hunks).
+
+## Revision log
+
+### v2.1 (adversarial review)
+
+The built code was attacked after v2 landed; these are the contract changes
+its fixes made (commits b6180fa7..19233581, plus the follow-up b81a099b).
+
+- **2.0**: the "three-view body can never stay live" claim is limited to
+  failures inside 000132's transaction 2; a failure between the deploy's 000130
+  replay and 000132 transaction 1 can leave it, and the refresh step now
+  catches that.
+- **2.2**: two 52/53-week rules replace the implicit "a fiscal year is never
+  stored twice": the prune needs a replacing Yahoo row with revenue or net
+  income, and a Markit annual row is not written beside a held non-Markit year
+  within 7 days.
+- **2.3**: the measured facts move only when Yahoo answered without error with
+  at least one row (a 404 or an empty answer measures nothing), and `median_k`
+  is also read by `-mode filings` for gate 8.
+- **2.5**: `report_kind` gains an explicit rule; `other` comes only from a
+  heading in the document's head that names it a presentation, Pillar 3
+  disclosure, transcript or webcast, where the code used to match those words
+  anywhere and vetoed real results documents.
+- **2.7**: `statement_is_financial` is read from the newest full Yahoo income
+  statement, not the flow row, because legacy, Markit, filing and FX-refused
+  flow rows made BHP, CSL and FMG read as banks; NULL means the industry
+  decides.
+- **2.7**: the 10% equity-to-assets ROE guard applies only to non-financials,
+  and Go computes ROE for a financial the view withheld, so major banks show
+  an ROE.
+- **2.8, 2.9**: the stale-body failure is cross-referenced, and the migration
+  test expects NULL (not TRUE) for a flow row without pretax income.
+- **3.4**: Yahoo converts every value of an FX-converted code, EPS included,
+  so every monetary and per-share Yahoo column is rejected and only the share
+  count survives.
+- **3.7**: pre-000132 sync rows (`last_outcome` NULL) are queued with the
+  never-attempted group and never skipped, so the first nights re-fetch the
+  universe largest first (`pre_000132=N`).
+- **3.8**: the refresh pins `client_min_messages = notice` and fails on a
+  picker view that exists but got no `Refreshing <view>` NOTICE.
+- **4.1, 4.2 gate 1, 5.1**: one entity rule, `extractiontrust.EntityMatches`,
+  now serves both the filings ingest and the stock page's latest filing.
+- **4.2 gate 5**: a net income or EPS takes its sign from its own number or
+  the governing sign word, never a comparative's; disagreement is withheld as
+  `5_statutory.sign_ambiguous`.
+- **4.2 gate 8**: filing EPS is written only when the vendor EPS is per
+  ordinary share, so a CDI listing's per-share filing EPS is withheld
+  (`8_magnitude.eps_listed_unit_not_one_share`).
+- **4.4**: sign fixtures (C3, C6 and mirrors) and an RMD-shaped CDI fixture
+  join the regression set.
+- **5.1**: the latest filing summary also skips an extraction whose metrics
+  quote a few-shot text, because its digest may repeat the example's figures.
+- **5.3**: `listed-unit` needs positive evidence; with no `median_k` a k
+  between the bands (a recent IPO or placement) or a k <= 0 is no evidence,
+  which reads `no-shares` and falls back to the screener market cap.
+- **5.3**: an unmeasured `fx_converted` is read as a guess from the stored
+  vendor rows' fractional values, so legacy converted rows never read as not
+  converted.
+- **5.4**: the `roe` rule's unknown case names its causes, and a financial is
+  judged on the Go-computed ROE.
+- **6.1**: a model failure is never stored, a consecutive-error breaker stops
+  new work, and the run exits 1 when its model errors look systemic (the
+  breaker's 5, or at least 3 making up at least a fifth of the model calls).
+- **6.1**: a one-off `--repair-echo-digests` mode drops few-shot-echo metric
+  entries and rewrites those rows' digests through the trusted prompt.
+- **6.1**: one paid extraction per company, with the company's other
+  documents as download fallbacks and a marker row for a PDF with no text
+  layer.
+- **6.3**: error-handling parity with 6.1 is recorded as out of scope while
+  the Go port is not deployed.
+- **7.1**: the reports list and the filings sentence stream under their own
+  Suspense boundaries, and the empty state points at filings only when one is
+  listed.
+- **7.1**: the Overview summary and the Key ratios footer name every source of
+  the figures they quote, P/E explains its absence only with a note that
+  governs it, and `no-shares` reads "n/a (no share count we can vouch for)".
+- **7.2**: both picker pages pass `fundamentals_rows_count`, and the
+  market-cap sort's copy names the screener fallback.
+- **8**: the MCP market-cap sort text names the screener fallback, and
+  `coverage.md` states the non-financials-only ROE guard.
+- **9**: the rollout gains the echo-digest repair run and the pre-000132
+  re-fetch.
+
+Deliberate trade-offs, chosen and recorded:
+
+- **A duplicate over a loss (2.2).** Beside an EPS-only non-Markit year the
+  Markit row is kept or written, so one fiscal year can sit under two dates
+  (e.g. 06-28 Markit, 06-30 Yahoo EPS-only) until a run where both vendors
+  answer. A pre-existing Markit duplicate beside a Yahoo year with revenue is
+  removed by the next run in which Yahoo answers with revenue for that year.
+- **Fail-closed sign reading (4.2 gate 5).** "NPAT of $45.2 million loss",
+  "Basic EPS 3.4 cents loss per share" (a before-word and an after-word
+  disagree) and "Loss of $3.1m in the pcp widened to $12.3m" (a tagged
+  comparative) are withheld, not read.
+- **Filing EPS is stricter than valuation (4.2 gate 8 vs 5.3).** Without a
+  `median_k`, any computable vendor k outside [0.8, 1.25] withholds the code's
+  filing EPS (a k <= 0 included), while valuation needs a positive k outside
+  [1/3, 3] to say `listed-unit`. A small cap whose vendor EPS is rounded to two decimals can
+  lose its filing EPS; that is the fail-closed direction.
+- **Extractor exit codes (6.1).** The run fails only on systemic model
+  errors, so a document that fails the model deterministically is logged and
+  retried every run (one document's tokens a day) without failing every run
+  or tripping the breaker; a job that fails daily for one document is an
+  alarm nobody reads. There is no per-URL attempt counter (it needs a
+  migration). A permanently dead URL is downloaded once per run with no model
+  tokens and no longer blocks the company's other document.
+
+Post-deploy data repair: the `financial_report_extractions` rows whose
+metrics carry a few-shot echo must not keep a digest written from the echo.
+The review asked for their `digest` and `digest_confidence` to be NULLed so the
+digest backfill regenerates them; the follow-up built that as the extractor's
+`--repair-echo-digests` run (6.1, 9 step 2), which also drops the echo
+entries themselves and leaves digest NULL for `--backfill-digests` when no new
+digest can be written. The API already withholds those summaries (5.1).
