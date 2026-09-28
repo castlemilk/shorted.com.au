@@ -497,6 +497,60 @@ func TestSweepStopsWhenTheUpstreamRefuses(t *testing.T) {
 	assert.Equal(t, 1, n)
 }
 
+// A sweep with a run budget stops between stocks once the budget is spent,
+// reports what it did as a stopped run, and leaves the rest to the next
+// attempt, which takes the stocks it never reached first. It never waits for
+// the platform to kill it: on 2026-09-27 the catch-up's first attempt was
+// terminated at the six-hour task timeout, which is what raised the "Cloud
+// Run Job logged ERROR / timeout" alert.
+func TestSweepStopsOnItsBudget(t *testing.T) {
+	pool := newPriceDB(t)
+	ctx := context.Background()
+
+	var codes []string
+	for i := 0; i < 40; i++ {
+		codes = append(codes, fmt.Sprintf("B%03d", i))
+	}
+	const perStock = 20 * time.Millisecond
+	provider := &fakeProvider{name: "yahoo", fn: func(symbol string, from, to time.Time) ([]providers.PriceRecord, error) {
+		time.Sleep(perStock)
+		return weekdaySessions(symbol, from, to)
+	}}
+	m := NewSyncManager(pool, nil, &config.Config{}, []providers.DataProvider{provider})
+	m.now = func() time.Time { return time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC) }
+
+	budget := 8 * perStock
+	report, err := m.RunWith(ctx, RunOptions{Codes: codes, Budget: budget})
+	require.ErrorIs(t, err, ErrBudgetSpent)
+	assert.Contains(t, err.Error(), "the next attempt resumes from the stalest stock")
+	assert.NotEmpty(t, report.Error, "a stopped run says so in its report")
+	assert.Greater(t, report.Synced, 0, "the budget is spent on stocks, not before the first")
+	assert.Less(t, report.Synced, len(codes), "the budget stopped the run with stocks left")
+	assert.Len(t, provider.calls, report.Synced, "it stops between stocks, not mid-request")
+
+	var stored int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(DISTINCT stock_code) FROM stock_prices`).Scan(&stored))
+	assert.Equal(t, report.Synced, stored, "what the run did is stored before it stops")
+	var n int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM sync_status WHERE status = 'failed'`).Scan(&n))
+	assert.Equal(t, 1, n, "a budget stop is a stopped run in the checkpoint, like a refused upstream")
+
+	// The next attempt takes the stocks the first never reached, then the ones
+	// it synced, all of which are now current and cost no request.
+	provider.calls = nil
+	report, err = m.RunWith(ctx, RunOptions{Codes: codes})
+	require.NoError(t, err)
+	assert.Equal(t, len(codes)-stored, report.Synced)
+	assert.Equal(t, stored, report.UpToDate)
+	assert.Len(t, provider.calls, len(codes)-stored)
+
+	// No budget: the whole list, however long it takes.
+	provider.calls = nil
+	report, err = NewSyncManager(pool, nil, &config.Config{}, []providers.DataProvider{provider}).RunWith(ctx, RunOptions{Codes: codes, From: mustDate("2026-09-21")})
+	require.NoError(t, err)
+	assert.Equal(t, len(codes), report.Synced)
+}
+
 func TestFailureTrackerBlocksAfterThreeStrikes(t *testing.T) {
 	pool := newPriceDB(t)
 	ctx := context.Background()

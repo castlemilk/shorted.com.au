@@ -24,6 +24,11 @@ import (
 // newStockHistoryYears is how far back a stock with no stored prices starts.
 const newStockHistoryYears = 10
 
+// ErrBudgetSpent ends a sweep that has used its run budget (RunOptions.Budget).
+// The run reports what it did and the next attempt resumes from the stalest
+// stock; the command maps it to its own exit code.
+var ErrBudgetSpent = errors.New("run budget spent")
+
 // maxConsecutiveFailures ends a sweep that its providers are refusing. Only
 // transport failures count (a 429, a 5xx, a timeout); "no data" is an answer.
 // At the providers' pace, 25 in a row is minutes of a blocked upstream, and
@@ -88,6 +93,14 @@ type RunOptions struct {
 	// DryRun fetches and compares, and writes nothing to the database: no
 	// prices, company metadata, checkpoints, failure records or view refresh.
 	DryRun bool
+	// Budget is how long the sweep may keep taking stocks. Once it is spent the
+	// run stops between stocks with ErrBudgetSpent, publishes its report and
+	// leaves the rest to the next attempt, which resumes stalest first. It is
+	// set below the Cloud Run task timeout so a slow run ends on its own terms:
+	// a task the platform kills at its timeout is what the job alert reads as
+	// a hang, and its retry has no say in what the first attempt did. Zero
+	// means no budget.
+	Budget time.Duration
 }
 
 // Run executes the scheduled sweep.
@@ -163,6 +176,12 @@ func (m *SyncManager) RunWith(ctx context.Context, opts RunOptions) (*RunReport,
 		if err := ctx.Err(); err != nil {
 			log.Printf("⏹️ Sync interrupted at %d/%d", i, len(stocks))
 			runErr = err
+			break
+		}
+		if elapsed := time.Since(started); opts.Budget > 0 && elapsed >= opts.Budget {
+			log.Printf("⏹️ Run budget %s spent at %d/%d after %s", opts.Budget, i, len(stocks), elapsed.Round(time.Second))
+			runErr = fmt.Errorf("stopped at %d/%d stocks after %s: %w (%s; the next attempt resumes from the stalest stock)",
+				i, len(stocks), elapsed.Round(time.Second), ErrBudgetSpent, opts.Budget)
 			break
 		}
 		processed = i + 1

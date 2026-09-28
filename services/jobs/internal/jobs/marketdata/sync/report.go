@@ -390,6 +390,9 @@ func (o RunOptions) describe() string {
 	if len(o.Codes) > 0 {
 		s += fmt.Sprintf(", codes %v", o.Codes)
 	}
+	if o.Budget > 0 {
+		s += fmt.Sprintf(", run budget %s", o.Budget)
+	}
 	if o.DryRun {
 		s += ", DRY RUN (writes nothing)"
 	}

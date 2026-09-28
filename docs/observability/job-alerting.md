@@ -300,7 +300,12 @@ ran: `AUDIT jobs/validate-sync actor=… job=… region=… execution=… stocks
    `gcloud run jobs execute <job> --project rosy-clover-477102-t5 --region australia-southeast2 --wait`
 4. Timeout/`Terminating task` terminations are usually a wedged run, not slow
    work — check for a stale resume cursor or a held lock before raising the
-   timeout.
+   timeout. `shorted-price-sync` stops itself 30 minutes before its timeout
+   (`SYNC_RUN_BUDGET`, exit 10, retried from the stalest stock), so a
+   termination there means a single stock or the wrap-up held the run past
+   that; read the attempt's report (`price-sync/<execution>/attempt-<n>.json`)
+   for the slowest stocks. The 2026-09-27 page was the catch-up's first
+   attempt, before the budget existed, killed at 6h with ~125 stocks left.
 
 **A `shorts-data-freshness` issue**
 

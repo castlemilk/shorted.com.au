@@ -244,6 +244,18 @@ request:
   timeout after at most ~1,700 mostly one-request stocks; its retry did the
   remaining 127 ten-year fetches in 28 minutes. The cause is not in the report
   that survived, so the report now records where the time goes (below).
+- **Budget**: the run stops taking stocks after `SYNC_RUN_BUDGET` (terraform:
+  5h30m, 30 minutes under the job's 6h task timeout; `-budget` overrides it for
+  one run, `-budget 0` lifts it), publishes its report as a stopped run and
+  exits 10, the partial-run code economy and picks use. Cloud Run retries a
+  non-zero exit once, and the retry resumes from the stalest stock; the
+  execution fails only when the retry runs out too. Before this a slow run
+  ran until the platform killed it at the task timeout, which is the
+  `Terminating task` line the "Cloud Run Job logged ERROR / timeout" alert
+  pages on (it did, for that 2026-09-27 attempt), and the kill decided where
+  the run stopped. `TestRunBudgetClearsTheTaskTimeout` reads the budget and the
+  timeout from the terraform and keeps 16-60 minutes between them; change one,
+  change the other.
 
 Flags: `-from DATE` re-fetches every stock (or `-codes A,B`) from `DATE`,
 overwriting stored sessions and reporting where they differed and which stored
@@ -254,7 +266,8 @@ workflow (`.github/workflows/price-sync.yml`) runs and prints; CI cannot read
 Cloud Logging. The workflow starts the execution detached and waits at most
 340 minutes; a run that outlasts that (a long `task_timeout`, a whole-market
 `from`) is read later by dispatching it with `report_only` set to the
-execution's name or `latest`, which starts nothing. A task that times out
+execution's name or `latest`, which starts nothing; a `task_timeout` there
+also moves the run budget to 30 minutes under it. A task that times out
 still writes its report (SIGTERM ends the sweep, which then publishes), and the
 workflow prints how the execution ended beside it: a timeout or a retry shows
 there, not in the report. The report also says where the time went (each

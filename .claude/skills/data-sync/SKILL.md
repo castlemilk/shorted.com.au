@@ -304,8 +304,11 @@ and `dry_run` on: the report lists every session whose stored close differs
 (largest ratio first; 2x or more is a different security or a $0 bar) and every
 stored session Yahoo does not have, e.g. weekend-dated rows. Run it again with
 `dry_run` off to overwrite them; it never deletes. A run longer than the
-workflow's ~5.5h wait (raise the job's 6h with `task_timeout`) is read later
-with `report_only` (an execution name, or `latest`), which starts nothing.
+workflow's ~5.5h wait (raise the job's 6h with `task_timeout`, which moves the
+sweep's own stop, `SYNC_RUN_BUDGET`, with it) is read later with `report_only`
+(an execution name, or `latest`), which starts nothing. The sweep stops itself
+30 minutes before its task timeout and exits 10, and the retry resumes from
+the stalest stock: a `Terminating task` on this job means it did not get to.
 Rows dated on weekends and ASX holidays are the one thing the sweep never
 fixes: run the workflow with `mode: prune` (dry run first, then check the
 holidays it lists) to delete them. Runbook: `services/jobs/README.md` §Daily
