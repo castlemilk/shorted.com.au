@@ -138,9 +138,13 @@ function outputColumns(body) {
   });
 }
 
-/** The body of a `LEFT JOIN LATERAL (...) alias ON true` in a view body. */
+/**
+ * The body of a `LEFT JOIN LATERAL (...) alias ON true` in a view body: that
+ * lateral's own text only, never the laterals before it (the body may not
+ * span another `LEFT JOIN LATERAL`).
+ */
 function lateral(body, alias) {
-  const m = body.match(new RegExp(`LEFT JOIN LATERAL \\(([\\s\\S]*?)\\n\\) ${alias} ON true`));
+  const m = body.match(new RegExp(`LEFT JOIN LATERAL \\(((?:(?!LEFT JOIN LATERAL)[\\s\\S])*?)\\n\\) ${alias} ON true`));
   assert.ok(m, `lateral ${alias} not found`);
   return m[1];
 }
@@ -544,8 +548,36 @@ test("quality: every definition in plan §2.7", () => {
   assert.match(quality, /CASE WHEN bb\.current_liabilities > 0 THEN bb\.current_assets \/ bb\.current_liabilities END AS current_ratio/);
   assert.match(quality, /CASE WHEN fb\.interest_expense > 0 THEN fb\.operating_income \/ fb\.interest_expense END\s+AS interest_cover/);
   assert.match(quality, /CASE WHEN fb\.net_income > 0 AND fb\.dividends_paid <= 0\s+THEN abs\(fb\.dividends_paid\) \/ fb\.net_income \* 100 END\s+AS payout_ratio_pct/);
-  assert.match(quality, /CASE WHEN fb\.period_end IS NOT NULL\s+THEN \(fb\.operating_income IS NULL AND fb\.ebitda IS NULL\) END\s+AS statement_is_financial/);
   assert.match(quality, /COALESCE\(fb\.field_sources ->> 'operating_cash_flow', ''\) = 'derived:fcf-minus-capex'\) AS operating_cash_flow_derived/);
+});
+
+test("quality: statement_is_financial reads the newest FULL Yahoo statement, never the flow row", () => {
+  // Legacy (000129-shaped), Markit, filing and gate-refused rows never carry
+  // operating income or EBITDA, whatever the company is; reading them as a
+  // bank withheld BHP's, CSL's and FMG's ratios. NULL (unknown) instead.
+  assert.match(
+    quality,
+    /CASE WHEN shape\.period_end IS NOT NULL\s+THEN \(shape\.operating_income IS NULL AND shape\.ebitda IS NULL\) END\s+AS statement_is_financial/,
+  );
+  assert.doesNotMatch(quality, /fb\.operating_income IS NULL|fb\.ebitda IS NULL/, "the flow row never decides the shape");
+  const shape = lateral(quality, "shape");
+  assert.match(shape, /^\s*SELECT f\.period_end, f\.operating_income, f\.ebitda\s+FROM stock_fundamentals f\s+WHERE f\.stock_code = c\.stock_code/);
+  assert.match(shape, /f\.period_type IN \('annual', 'ttm'\)/);
+  assert.match(shape, /f\.source = 'yahoo-timeseries'/, "only the vendor's own statement (never Markit or a filing)");
+  assert.match(shape, /f\.pretax_income IS NOT NULL/, "a full statement: Yahoo publishes PretaxIncome for banks and insurers too");
+  assert.match(
+    shape,
+    /\(f\.field_sources -> 'revenue'\) IS NULL AND \(f\.field_sources -> 'net_income'\) IS NULL/,
+    "revenue and net income are the row's own, not filled from another source",
+  );
+  assert.match(shape, /ORDER BY f\.period_end DESC,\s+\(f\.period_type = 'annual'\) DESC\s+LIMIT 1\s*$/, "the newest; the annual on a tie");
+  assert.doesNotMatch(shape, /\bfb\./, "independent of the flow row");
+  assert.doesNotMatch(shape, /\?/, "no jsonb ? operator: a client that binds ? as a placeholder must still run the file");
+  // The view's COMMENT says the same.
+  const f = statements(upCode).find((s) => /^DO \$\$$/.test(s.masked) && s.text.includes("idx_mv_fundamentals_quality_stock_code")).text;
+  assert.match(f, /statement_is_financial reads the newest full Yahoo income statement/);
+  assert.match(f, /NULL when no such statement is held/);
+  assert.doesNotMatch(f, /flags a flow row/);
 });
 
 // ---------------------------------------------------------------------------

@@ -290,6 +290,22 @@ func TestMigration132AgainstPostgres(t *testing.T) {
 
 	// A row written before 000132 must survive it and pass the v2 CHECK.
 	db.seed("OLD", "annual", "2025-06-30", "AUD", "yahoo-timeseries", map[string]any{"revenue": 10e6, "net_income": 1e6})
+	// LEG: a miner exactly as the old image stored it (000129's seven lines,
+	// every prod row at deploy). Its flow row has no operating income or
+	// EBITDA only because those columns did not exist when it was written.
+	for _, r := range []struct {
+		typ, end string
+		rev, ni  float64
+	}{
+		{"annual", "2025-06-30", 55658e6, 9019e6},
+		{"annual", "2024-06-30", 55658e6, 7897e6},
+		{"ttm", "2025-12-31", 53000e6, 9500e6},
+	} {
+		db.seed("LEG", r.typ, r.end, "USD", "yahoo-timeseries", map[string]any{
+			"revenue": r.rev, "net_income": r.ni, "eps_basic": 1.78, "eps_diluted": 1.77,
+			"operating_cash_flow": 18665e6, "free_cash_flow": 9000e6, "shares_outstanding": 5070e6,
+		})
+	}
 
 	// Owner, storage options and grants of the dropped growth view are carried
 	// to the rebuilt one; a default-privilege grant the old view never had is
@@ -443,7 +459,8 @@ func TestMigration132AgainstPostgres(t *testing.T) {
 
 	// FMG FY24: TotalDebt 5,400, leases 815, cash 4,903, NetDebt absent.
 	db.seed("FMG", "annual", "2024-06-30", "USD", y, map[string]any{
-		"revenue": 18220e6, "net_income": 5683e6, "operating_income": 8000e6, "ebitda": 9520e6, "normalized_ebitda": 9500e6,
+		"revenue": 18220e6, "net_income": 5683e6, "pretax_income": 8100e6,
+		"operating_income": 8000e6, "ebitda": 9520e6, "normalized_ebitda": 9500e6,
 		"total_debt": 5400e6, "capital_lease_obligations": 815e6, "cash_and_equivalents": 4903e6,
 		"total_equity": 19460e6, "total_assets": 30546e6,
 	})
@@ -515,7 +532,7 @@ func TestMigration132AgainstPostgres(t *testing.T) {
 	// date loses the flow basis to the annual row.
 	db.seed("QUAL", "annual", "2025-06-30", "USD", y, map[string]any{
 		"revenue": 50000e6, "gross_profit": 20000e6, "operating_income": 15000e6, "ebitda": 25000e6,
-		"normalized_ebitda": 24000e6, "ebit": 16000e6, "net_income": 9000e6, "operating_cash_flow": 18000e6,
+		"normalized_ebitda": 24000e6, "ebit": 16000e6, "pretax_income": 13000e6, "net_income": 9000e6, "operating_cash_flow": 18000e6,
 		"free_cash_flow": 9000e6, "capital_expenditure": -9000e6, "dividends_paid": -4500e6,
 		"interest_expense": 1000e6, "shares_outstanding": 5000e6,
 		"total_assets": 100000e6, "total_liabilities": 50000e6, "total_equity": 50000e6,
@@ -533,9 +550,10 @@ func TestMigration132AgainstPostgres(t *testing.T) {
 	db.seed("LAG6", "annual", "2025-06-30", "AUD", y, map[string]any{"revenue": 280e6, "net_income": 25e6, "total_equity": 200e6, "total_assets": 400e6})
 	db.seed("LAG6", "annual", "2024-06-30", "AUD", y, map[string]any{"revenue": 260e6, "net_income": -5e6, "total_equity": 180e6, "total_assets": 380e6})
 
-	// BANK: no operating income or EBITDA, equity 6% of assets.
+	// BANK: a full Yahoo statement (pretax income) with no operating income or
+	// EBITDA, equity 6% of assets.
 	db.seed("BANK", "annual", "2025-06-30", "AUD", y, map[string]any{
-		"revenue": 27000e6, "net_income": 10000e6, "net_interest_income": 23000e6,
+		"revenue": 27000e6, "net_income": 10000e6, "pretax_income": 14300e6, "net_interest_income": 23000e6,
 		"total_assets": 1300000e6, "total_equity": 78000e6, "total_debt": 900000e6,
 	})
 	db.seed("BANK", "annual", "2024-06-30", "AUD", y, map[string]any{
@@ -544,6 +562,74 @@ func TestMigration132AgainstPostgres(t *testing.T) {
 
 	// BAL: only balance snapshots: no flow row, so no row in either view.
 	db.seed("BAL", "quarter", "2025-12-31", "AUD", y, map[string]any{"total_equity": 10e6, "total_assets": 20e6})
+
+	// Statement shape (plan §2.7): only a full Yahoo income statement decides
+	// statement_is_financial. A miner's full statement, reused below.
+	mk := "markit-key-statistics"
+	miner := func(rev, ni float64) map[string]any {
+		return map[string]any{
+			"revenue": rev, "net_income": ni, "pretax_income": ni * 1.4, "operating_income": ni * 1.5,
+			"ebitda": ni * 2, "ebit": ni * 1.5, "eps_diluted": ni / 3e9,
+		}
+	}
+	// MKT: a Markit-only code (revenue and net income, nothing else).
+	db.seed("MKT", "annual", "2025-06-30", "AUD", mk, map[string]any{"revenue": 400e6, "net_income": 40e6})
+	db.seed("MKT", "annual", "2024-06-30", "AUD", mk, map[string]any{"revenue": 380e6, "net_income": 35e6})
+	// FILM: results week. The filing's FY26 annual (revenue, net income, EPS)
+	// is newer than the vendor's rows; Yahoo's FY25 statement is complete.
+	db.seed("FILM", "annual", "2026-06-30", "AUD", m132Fil, map[string]any{
+		"revenue": 16000e6, "net_income": 5600e6, "eps_basic": 1.82, "source_document_url": "https://www.asx.com.au/a.pdf",
+	})
+	db.seed("FILM", "annual", "2025-06-30", "AUD", y, miner(15000e6, 5000e6))
+	db.seed("FILM", "ttm", "2025-06-30", "AUD", y, miner(15000e6, 5000e6))
+	// FILP: as FILM, but the filing also quotes profit before tax. A filing
+	// row is never a statement shape, whatever lines it carries.
+	db.seed("FILP", "annual", "2026-06-30", "AUD", m132Fil, map[string]any{
+		"revenue": 16000e6, "net_income": 5600e6, "pretax_income": 7800e6,
+	})
+	db.seed("FILP", "annual", "2025-06-30", "AUD", y, miner(15000e6, 5000e6))
+	// SPR1 / SPR2: Yahoo's newest year is sparse (pretax income and EPS only);
+	// Markit filled its revenue (SPR1), a filing its net income (SPR2). Such a
+	// row is not Yahoo's own statement; the older full year decides.
+	for _, s := range []struct{ code, marks string }{
+		{"SPR1", `{"revenue": "markit-key-statistics", "net_income": "markit-key-statistics"}`},
+		{"SPR2", `{"net_income": "asx-filing-extraction"}`},
+	} {
+		db.seed(s.code, "annual", "2026-06-30", "AUD", y, map[string]any{
+			"revenue": 900e6, "net_income": 90e6, "pretax_income": 126e6, "eps_diluted": 0.3, "field_sources": s.marks,
+		})
+		db.seed(s.code, "annual", "2025-06-30", "AUD", y, miner(800e6, 80e6))
+	}
+	// IAG (yahoo_full_IAG.json): an insurer's full statement carries
+	// PretaxIncome and EBIT but no OperatingIncome and no EBITDA, annual and
+	// trailing alike. FY25 is the scale-break year: its Yahoo revenue and net
+	// income were refused and Markit filled them.
+	for _, pt := range []string{"annual", "ttm"} {
+		db.seed("IAG", pt, "2026-06-30", "AUD", y, map[string]any{
+			"revenue": 16115e6, "net_income": 1022e6, "pretax_income": 1739e6, "ebit": 1929e6,
+			"net_interest_income": -190e6, "total_equity": 7232e6, "total_assets": 27599e6,
+		})
+	}
+	db.seed("IAG", "annual", "2025-06-30", "AUD", y, map[string]any{
+		"revenue": 15500e6, "net_income": 1400e6, "ebit": 2405e6,
+		"field_sources": `{"revenue": "markit-key-statistics", "net_income": "markit-key-statistics"}`,
+	})
+	db.seed("IAG", "annual", "2024-06-30", "AUD", y, map[string]any{
+		"revenue": 13673e6, "net_income": 898e6, "pretax_income": 1491e6, "ebit": 1676e6,
+		"total_equity": 6660e6, "total_assets": 25617e6,
+	})
+	// FXC (XRO-shaped, stock_fundamentals_sync.fx_converted): every Yahoo
+	// monetary field was refused as FX-converted; the rows keep the share
+	// count, relabelled NZD, with Markit's native revenue and net income.
+	for _, r := range []struct {
+		end     string
+		rev, ni float64
+	}{{"2026-03-31", 2400e6, 280e6}, {"2025-03-31", 2102.652e6, 227.817e6}} {
+		db.seed("FXC", "annual", r.end, "NZD", y, map[string]any{
+			"revenue": r.rev, "net_income": r.ni, "shares_outstanding": 153e6,
+			"field_sources": `{"revenue": "markit-key-statistics", "net_income": "markit-key-statistics"}`,
+		})
+	}
 
 	db.refresh()
 
@@ -694,7 +780,7 @@ func TestMigration132AgainstPostgres(t *testing.T) {
 		assert.Equal(t, "2025-06-30", q["balance_period_end"])
 		assert.EqualValues(t, 6, m132Num(t, q, "balance_lag_months"))
 		assert.InDelta(t, 30/((200+180)/2.0)*100, m132Num(t, q, "roe_pct"), 1e-9)
-		assert.Equal(t, true, q["statement_is_financial"], "no operating income and no EBITDA on the flow row")
+		assert.Nil(t, q["statement_is_financial"], "no pretax income: not a full statement, so the shape is unknown")
 	})
 
 	t.Run("a bank: statement_is_financial, and ROE not meaningful below 10% equity", func(t *testing.T) {
@@ -704,6 +790,55 @@ func TestMigration132AgainstPostgres(t *testing.T) {
 		assert.InDelta(t, 10000/((1300000+1250000)/2.0)*100, m132Num(t, q, "roa_pct"), 1e-9)
 		assert.Nil(t, q["interest_cover"])
 		assert.Nil(t, q["operating_margin_pct"])
+	})
+
+	t.Run("statement shape: only a full Yahoo income statement decides statement_is_financial", func(t *testing.T) {
+		for _, c := range []struct {
+			code string
+			want any // true / false; nil = unknown (the API's industry test decides)
+			why  string
+		}{
+			{"LEG", nil, "a 000129-shaped row (written before the new columns) is not a statement"},
+			{"OLD", nil, "revenue and net income alone are not a statement"},
+			{"LAG6", nil, "no pretax income on any row"},
+			{"MKT", nil, "a Markit-only code never carries a statement"},
+			{"FXC", nil, "every Yahoo monetary field refused (FX-converted): no statement held"},
+			{"FILM", false, "a newer filing row does not decide; Yahoo's full FY25 statement does"},
+			{"FILP", false, "a filing row is never the shape, even one quoting pretax income"},
+			{"SPR1", false, "a Yahoo row whose revenue Markit filled is not Yahoo's own statement"},
+			{"SPR2", false, "a Yahoo row whose net income a filing filled is not Yahoo's own statement"},
+			{"IAG", true, "an insurer: pretax income and EBIT, no operating income, no EBITDA"},
+			{"BANK", true, "a bank: pretax income, no operating income, no EBITDA"},
+			{"FMG", false, "a miner's full statement"},
+			{"QUAL", false, "a full statement"},
+		} {
+			q := db.row("mv_fundamentals_quality", c.code)
+			require.NotNil(t, q, c.code)
+			assert.Equal(t, c.want, q["statement_is_financial"], "%s: %s", c.code, c.why)
+		}
+
+		// The flow basis itself is untouched: it is still the freshest row with
+		// revenue and profit, whichever row decides the shape.
+		for code, want := range map[string][2]string{
+			"LEG":  {"ttm", "2025-12-31"},
+			"MKT":  {"annual", "2025-06-30"},
+			"FILM": {"annual", "2026-06-30"},
+			"SPR1": {"annual", "2026-06-30"},
+			"FXC":  {"annual", "2026-03-31"},
+			"IAG":  {"annual", "2026-06-30"},
+		} {
+			q := db.row("mv_fundamentals_quality", code)
+			assert.Equal(t, want[0], q["basis_period_type"], code)
+			assert.Equal(t, want[1], q["basis_period_end"], code)
+		}
+		assert.Equal(t, m132Fil, db.row("mv_fundamentals_quality", "FILM")["source"])
+		assert.Equal(t, mk, db.row("mv_fundamentals_quality", "MKT")["source"])
+
+		// Once the job re-fetches LEG with the full statements, its shape is
+		// known (and is a miner's): a refresh is all it takes.
+		db.seed("LEG", "annual", "2026-06-30", "USD", y, miner(52000e6, 9000e6))
+		db.refresh()
+		assert.Equal(t, false, db.row("mv_fundamentals_quality", "LEG")["statement_is_financial"])
 	})
 
 	t.Run("balance snapshots alone are not a fundamentals row", func(t *testing.T) {

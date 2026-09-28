@@ -836,9 +836,28 @@ $m132$;
 --        current_ratio = current assets / current liabilities.
 --      payout_ratio_pct = cash dividends paid / net profit: -dividends_paid /
 --        net income, NULL when dividends_paid > 0 or NI <= 0.
---      statement_is_financial: operating_income AND ebitda both NULL on the
---        flow row (NULL without a flow row). Which ratios are not meaningful
---        for financials is decided in Go, once (services/shorts).
+--
+--    STATEMENT SHAPE (shape): statement_is_financial is NOT read off the flow
+--      row, because most rows that can be the flow row never carry operating
+--      income or EBITDA whatever the company is: a row written before 000132
+--      (000129's seven lines), a Markit row (revenue and net income only), a
+--      filing row (revenue, net income, EPS) and a row whose Yahoo monetary
+--      fields an FX or sanity gate refused. Reading "neither line" on those
+--      as a bank withheld BHP's, CSL's and FMG's ratios as not meaningful.
+--      The shape row is the newest annual or ttm row that IS a full Yahoo
+--      income statement: source yahoo-timeseries, PretaxIncome present
+--      (Yahoo publishes it for banks and insurers too: IAG carries
+--      PretaxIncome and EBIT but no OperatingIncome or EBITDA), and revenue
+--      and net income not filled from anywhere else (no field_sources mark
+--      on either); at equal period_end the annual row. statement_is_financial
+--      = that row has neither operating_income nor ebitda; NULL (unknown)
+--      when no row qualifies, and the API then lets the industry decide.
+--      (The Rejected mask is not stored, so a Yahoo row whose operating
+--      income and EBITDA alone were refused, pretax income kept, would still
+--      read as a financial. Only the per-point currency gate can do that; the
+--      period-wide gates refuse pretax income with them.)
+--      Which ratios are not meaningful for financials is decided in Go, once
+--      (services/shorts).
 -- ---------------------------------------------------------------------------
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_fundamentals_quality AS
 WITH codes AS (
@@ -904,8 +923,8 @@ SELECT
     CASE WHEN fb.interest_expense > 0 THEN fb.operating_income / fb.interest_expense END    AS interest_cover,
     CASE WHEN fb.net_income > 0 AND fb.dividends_paid <= 0
          THEN abs(fb.dividends_paid) / fb.net_income * 100 END                    AS payout_ratio_pct,
-    CASE WHEN fb.period_end IS NOT NULL
-         THEN (fb.operating_income IS NULL AND fb.ebitda IS NULL) END             AS statement_is_financial
+    CASE WHEN shape.period_end IS NOT NULL
+         THEN (shape.operating_income IS NULL AND shape.ebitda IS NULL) END       AS statement_is_financial
 FROM codes c
 -- Flow basis: one row, the freshest ttm/annual row with revenue AND profit.
 LEFT JOIN LATERAL (
@@ -954,6 +973,19 @@ LEFT JOIN LATERAL (
              CASE f.period_type WHEN 'annual' THEN 0 WHEN 'half' THEN 1 ELSE 2 END
     LIMIT 1
 ) bp ON true
+-- Statement shape: the newest full Yahoo income statement, independent of the
+-- flow row (see STATEMENT SHAPE above). Legacy, Markit and filing rows, and
+-- Yahoo rows whose statement lines were refused as FX-converted, never qualify.
+LEFT JOIN LATERAL (
+    SELECT f.period_end, f.operating_income, f.ebitda
+    FROM stock_fundamentals f
+    WHERE f.stock_code = c.stock_code AND f.period_type IN ('annual', 'ttm')
+      AND f.source = 'yahoo-timeseries' AND f.pretax_income IS NOT NULL
+      AND (f.field_sources -> 'revenue') IS NULL AND (f.field_sources -> 'net_income') IS NULL
+    ORDER BY f.period_end DESC,
+             (f.period_type = 'annual') DESC
+    LIMIT 1
+) shape ON true
 -- Derived inputs, each NULL rather than guessed.
 CROSS JOIN LATERAL (
     SELECT
@@ -968,7 +1000,7 @@ WITH DATA;
 
 DO $m132$
 DECLARE
-    note constant text := 'One row per stock with any flow row: margins, ROE / ROA, FCF conversion, net debt (excl. leases), leverage, liquidity, interest cover and cash payout, all in the REPORTING currency. Flow figures come from ONE row (the latest ttm or annual row with revenue and net income); balance figures from ONE row of the same currency dated on it or up to 6 months before it (balance_lag_months), with priors 10-14 months before that. Every ratio is NULL rather than guessed: divisions need a positive denominator, ROE / ROA need both balance points > 0, ROE is NULL below 10% equity / assets. statement_is_financial flags a flow row with neither operating income nor EBITDA. Reads stock_fundamentals only. Refreshed by refresh_strategy_views().';
+    note constant text := 'One row per stock with any flow row: margins, ROE / ROA, FCF conversion, net debt (excl. leases), leverage, liquidity, interest cover and cash payout, all in the REPORTING currency. Flow figures come from ONE row (the latest ttm or annual row with revenue and net income); balance figures from ONE row of the same currency dated on it or up to 6 months before it (balance_lag_months), with priors 10-14 months before that. Every ratio is NULL rather than guessed: divisions need a positive denominator, ROE / ROA need both balance points > 0, ROE is NULL below 10% equity / assets. statement_is_financial reads the newest full Yahoo income statement (source yahoo-timeseries, pretax income present, revenue and net income its own), not the flow row: TRUE when it has neither operating income nor EBITDA, NULL when no such statement is held (legacy, Markit, filing and FX-refused rows never decide it). Reads stock_fundamentals only. Refreshed by refresh_strategy_views().';
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_indexes
                    WHERE schemaname = current_schema()
