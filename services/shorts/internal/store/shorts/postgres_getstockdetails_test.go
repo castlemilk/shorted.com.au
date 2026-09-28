@@ -462,8 +462,11 @@ func TestGetStockDetailsKeyMetricsMerge(t *testing.T) {
 	assert.Equal(t, float64(3500000), info.Volume, "Volume should come from key_metrics")
 }
 
-// TestGetStockDetailsKeyMetricsPreserveExisting tests that existing financial_statements.info
-// values are preserved when merging with key_metrics
+// TestGetStockDetailsKeyMetricsPreserveExisting tests the merge of key_metrics
+// into an existing financial_statements.info: the market-moving fields take
+// key_metrics (plan docs/plans/fundamentals-coverage.md §5.3: the snapshot is
+// stale and undated), everything else keeps the snapshot's value, and fields
+// the snapshot lacks are filled from key_metrics.
 func TestGetStockDetailsKeyMetricsPreserveExisting(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -533,9 +536,10 @@ func TestGetStockDetailsKeyMetricsPreserveExisting(t *testing.T) {
 
 	info := details.FinancialStatements.Info
 	
-	// Existing market_cap should be preserved (from financial_statements, not key_metrics)
-	assert.Equal(t, float64(999999999), info.MarketCap, 
-		"Existing market cap should be preserved, not overwritten by key_metrics")
+	// key_metrics wins for market_cap (plan §5.3): the stale snapshot's
+	// 999999999 must not survive a present key_metrics value.
+	assert.Equal(t, float64(5678912345), info.MarketCap,
+		"market cap comes from key_metrics, not the stale financial_statements snapshot")
 	
 	// Missing fields should be filled from key_metrics
 	assert.Equal(t, float64(22.3), info.PeRatio, 

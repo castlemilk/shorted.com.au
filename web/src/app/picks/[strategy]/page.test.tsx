@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 
 import StrategyPicksPage, { generateStaticParams } from "./page";
 import { STRATEGY_SLUGS, getStrategy } from "~/@/lib/strategies/registry";
+import { mapPick, type StrategyPickInput } from "~/@/lib/strategies/map";
 import { PICKS, UPTREND } from "~/@/components/picks/__tests__/fixtures";
 
 const getStrategyPicks = jest.fn();
@@ -57,7 +58,8 @@ describe("StrategyPicksPage", () => {
     expect(generateStaticParams()).toEqual(
       STRATEGY_SLUGS.map((strategy) => ({ strategy })),
     );
-    expect(STRATEGY_SLUGS).toHaveLength(4);
+    expect(STRATEGY_SLUGS).toHaveLength(5);
+    expect(generateStaticParams()).toContainEqual({ strategy: "quality-compounders" });
   });
 
   it("404s an unknown strategy without calling the API", async () => {
@@ -80,11 +82,12 @@ describe("StrategyPicksPage", () => {
     const kicker = screen.getByRole("link", { name: "Stock picker" }).closest("p");
     expect(kicker).toHaveTextContent("Stock picker · Dan Zanger");
 
-    // Provenance line: price date, fundamentals coverage, the ASIC lag, and
-    // the disclaimer link.
+    // Provenance line: price date, fundamentals coverage (stocks with any
+    // fundamentals row, growth figures beside it), the ASIC lag, and the
+    // disclaimer link.
     const provenance = screen.getByText(/ASIC shorts T\+4/).closest("p")!;
     expect(provenance).toHaveTextContent(
-      "Prices to 25 September 2026 · fundamentals for 812 of 1,904 stocks · ASIC shorts T+4 · Not financial advice",
+      "Prices to 25 September 2026 · fundamentals for 1,203 of 1,904 stocks (growth figures for 812) · ASIC shorts T+4 · Not financial advice",
     );
     expect(provenance.querySelector("time")).toHaveAttribute("datetime", "2026-09-25");
     expect(
@@ -149,14 +152,61 @@ describe("StrategyPicksPage", () => {
     render(await StrategyPicksPage({ params: params("zanger-breakout") }));
 
     const row = within(rowFor("PLS"));
-    // Revenue YoY, EPS YoY and short % are all missing for PLS.
+    // Revenue YoY, EPS YoY and short % are all missing for PLS. Its
+    // fundamentals disclosure says it holds none, in words, not as more n/a.
     expect(row.getAllByText("n/a")).toHaveLength(3);
+    expect(row.getByText("No fundamentals held for PLS yet.")).toBeInTheDocument();
+    // LTR reports in USD: its P/E reads why it is absent, not a bare n/a.
+    expect(within(rowFor("LTR")).queryAllByText("n/a")).toHaveLength(0);
+    expect(within(rowFor("LTR")).getByText("n/a (reports in USD)")).toBeInTheDocument();
     expect(row.queryByText("0.0%")).not.toBeInTheDocument();
     expect(row.queryByText("+0.0%")).not.toBeInTheDocument();
     // An unknown rule is drawn and announced as unknown, not as a fail.
     expect(
       row.getByText("4. Relative strength: unknown. Not enough history"),
     ).toBeInTheDocument();
+  });
+
+  it("shows each growth figure's basis and filing mark, and a fundamentals disclosure per row", async () => {
+    render(await StrategyPicksPage({ params: params("zanger-breakout") }));
+
+    const row = within(rowFor("BHP"));
+    expect(row.getByText("FY")).toBeInTheDocument();
+    expect(row.getByText("HY")).toBeInTheDocument();
+    expect(row.getByText(/\(source: Company filing \(extracted\)\)/)).toBeInTheDocument();
+    expect(row.getByRole("link", { name: "Full financials" })).toHaveAttribute(
+      "href",
+      "/shorts/BHP?tab=financials",
+    );
+    // A glyph is never shown without its legend.
+    expect(screen.getByRole("list", { name: "Source marks" })).toHaveTextContent(
+      "Company filing (extracted)",
+    );
+    // The legend and the footnote say what the tags and the n/m mean.
+    expect(
+      screen.getByText("Unknown (data missing, or not meaningful for this company)"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/TTM is the\s+trailing 12 months, FY a full year, HY a half year/)).toBeInTheDocument();
+    expect(screen.getByText(/means it is not meaningful/)).toBeInTheDocument();
+  });
+
+  // Absent is not a status: an API that predates fundamentals_rows_count
+  // (it reads 0) gets the page it always had, and the coverage line says
+  // what its one count counts.
+  it("renders an older API's picks as before: growth-figure coverage, no disclosure", async () => {
+    getStrategyPicks.mockResolvedValue({
+      ...PICKS,
+      fundamentalsRowsCount: 0,
+      picks: PICKS.picks.map(({ fundamentals: _omit, ...row }) => row),
+    });
+    render(await StrategyPicksPage({ params: params("zanger-breakout") }));
+
+    expect(screen.getByText(/ASIC shorts T\+4/).closest("p")).toHaveTextContent(
+      "Prices to 25 September 2026 · growth figures for 812 of 1,904 stocks · ASIC shorts T+4",
+    );
+    expect(document.querySelector("details")).toBeNull();
+    expect(screen.queryByText(/No fundamentals held/)).not.toBeInTheDocument();
+    expect(within(rowFor("BHP")).queryByText("FY")).not.toBeInTheDocument();
   });
 
   it("renders the strategy panel sections from the API prose", async () => {
@@ -232,5 +282,97 @@ describe("StrategyPicksPage", () => {
     ).toBeInTheDocument();
     expect(regime.className).toContain("border-accent");
     expect(regime.outerHTML).not.toMatch(/(?:bg|text|border)-(?:red|destructive)/);
+  });
+});
+
+// PickRow.fundamentals carries only what the row renders (plan §7.2): the
+// rows the page hands its client island may grow by at most 25 KB for a
+// 100-row table. The fixture is the WORST case: every row carries every
+// rendered fundamentals field, with raw API precision, some filing marks,
+// some USD reporters and some financials.
+describe("picks payload budget", () => {
+  const BUDGET_BYTES = 25 * 1024;
+  const NOT_MEANINGFUL = [
+    "gross_margin_pct",
+    "operating_margin_pct",
+    "fcf_margin_pct",
+    "fcf_conversion",
+    "net_debt",
+    "net_debt_to_ebitda",
+    "net_debt_to_equity",
+    "current_ratio",
+    "interest_cover",
+  ];
+
+  function wirePick(i: number, withFundamentals: boolean): StrategyPickInput {
+    const financial = i % 10 === 5;
+    return {
+      rank: i + 1,
+      stockCode: `C${String(i).padStart(3, "0")}`,
+      companyName: `Company Number ${i} Limited`,
+      industry: "Metals & Mining",
+      status: i < 10 ? "triggered" : i < 30 ? "setup" : "watch",
+      score: 88.123456789 - i * 0.37,
+      rules: ["growth", "base", "breakout", "rs"].map((ruleId, k) => ({
+        ruleId,
+        status: k % 2 ? "pass" : "fail",
+        detail: `Evidence for ${ruleId}: 12.3% over 38 sessions`,
+      })),
+      close: 12.3456,
+      asOf: "2026-09-25",
+      volumeRatio50d: 2.123456,
+      baseDepthPct: 14.23456,
+      baseLengthDays: 38,
+      pivot: 11.9876,
+      revenueYoyPct: 41.23456789,
+      hasRevenueYoy: true,
+      epsYoyPct: 22.5123456,
+      hasEpsYoy: true,
+      rs3mPct: 8.4123456,
+      hasRs3mPct: true,
+      shortPct: 3.2123,
+      hasShortPct: true,
+      marketCap: 1234567890.123,
+      hasMarketCap: true,
+      hasClose: true,
+      logoUrl: `https://storage.googleapis.com/shorted-company-logos/logos/C${i}.png`,
+      fundamentals: withFundamentals
+        ? {
+            revenueBasisPeriodType: ["annual", "half", "ttm"][i % 3],
+            revenuePeriodEnd: "2026-06-30",
+            epsBasisPeriodType: "annual",
+            epsPeriodEnd: "2025-12-31",
+            currency: i % 10 === 0 ? "USD" : "AUD",
+            fetchedAt: "2026-09-27T20:00:00Z",
+            revenueBasisSource: i % 4 === 0 ? "filing" : "vendor",
+            epsBasisSource: i % 5 === 0 ? "filing" : "vendor",
+            netMarginPct: 12.3456789,
+            hasNetMarginPct: true,
+            roePct: -18.23456,
+            hasRoePct: true,
+            fcfMarginPct: 9.1234,
+            hasFcfMarginPct: !financial,
+            netDebtToEbitda: -1.23456,
+            hasNetDebtToEbitda: !financial,
+            peRatio: 145.678,
+            hasPeRatio: i % 10 !== 0,
+            isFinancial: financial,
+            netIncomePositive: true,
+            notMeaningful: financial ? NOT_MEANINGFUL : [],
+          }
+        : undefined,
+    };
+  }
+
+  const bytes = (withFundamentals: boolean) =>
+    JSON.stringify(
+      Array.from({ length: 100 }, (_, i) => mapPick(wirePick(i, withFundamentals))),
+    ).length;
+
+  it("keeps a 100-row table within +25 KB of the rows without fundamentals", () => {
+    const today = bytes(false);
+    const withFundamentals = bytes(true);
+    expect(withFundamentals).toBeGreaterThan(today);
+    expect(withFundamentals - today).toBeLessThanOrEqual(BUDGET_BYTES);
   });
 });

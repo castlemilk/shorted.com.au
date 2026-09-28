@@ -276,8 +276,8 @@ func toolCallFixtures() []toolCall {
 		{"get_peer_comparison", map[string]any{"code": "PLS"}},
 		// At the ceilings, not the defaults: these two are the only tools whose
 		// worst case is reachable in one ordinary call and is far larger than
-		// the default (25 picks x 7 rules; 40 periods).
-		{"get_stock_fundamentals", map[string]any{"code": "BHP", "limit": 40}},
+		// the default (25 picks x 7 rules; 24 periods).
+		{"get_stock_fundamentals", map[string]any{"code": "BHP", "limit": maxFundamentalsLimit}},
 		{"search_stocks", map[string]any{"query": "minerals"}},
 		{"screen_stocks", map[string]any{"min_short_pct": 5.0}},
 		{"list_strategies", map[string]any{}},

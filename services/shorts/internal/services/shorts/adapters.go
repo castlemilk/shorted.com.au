@@ -280,6 +280,18 @@ func (s *StoreAdapter) GetFundamentalsGrowth(ctx context.Context, code string) (
 	return s.store.GetFundamentalsGrowth(ctx, code)
 }
 
+func (s *StoreAdapter) GetFundamentalsExtras(ctx context.Context, code string) (*shorts.FundamentalsExtras, error) {
+	return s.store.GetFundamentalsExtras(ctx, code)
+}
+
+func (s *StoreAdapter) GetFundamentalsCoverage(ctx context.Context, code string) (*shorts.FundamentalsCoverageRow, error) {
+	return s.store.GetFundamentalsCoverage(ctx, code)
+}
+
+func (s *StoreAdapter) GetLatestFilingInputs(ctx context.Context, code string) (*shorts.LatestFilingInputs, error) {
+	return s.store.GetLatestFilingInputs(ctx, code)
+}
+
 func (s *StoreAdapter) GetCompanyTaxProfile(productCode string) (*shorts.CompanyTaxProfile, error) {
 	return s.store.GetCompanyTaxProfile(productCode)
 }

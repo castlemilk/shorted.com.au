@@ -293,9 +293,10 @@ export default async function Page() {
               <ChevronRight className="ml-1 inline h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Dan Zanger&apos;s breakout rules, CAN SLIM and the Minervini trend
-              template run over every ASX stock: market regime, ranked
-              shortlist and every rule shown pass, fail or unknown.
+              Dan Zanger&apos;s breakout rules, CAN SLIM, the Minervini trend
+              template, crowded-short breakouts and quality compounders run
+              over every ASX stock: market regime, ranked shortlist and every
+              rule shown pass, fail or unknown.
             </p>
           </Link>
           <Link

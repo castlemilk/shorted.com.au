@@ -1168,30 +1168,28 @@ func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1
 		return ""
 	}
 
-	// Merge each field, preferring existing values over key_metrics
-	if existing.MarketCap == 0 {
-		existing.MarketCap = toFloat64(keyMetrics["market_cap"])
+	// key_metrics WINS for the market-moving fields (plan
+	// docs/plans/fundamentals-coverage.md §5.3). financial_statements.info is a
+	// stale manual snapshot with no date: it showed BHP at A$220bn while the
+	// peers card, reading key_metrics, showed A$331bn. A key_metrics value
+	// replaces the snapshot's whenever it is present, non-zero and finite; the
+	// snapshot survives only where key_metrics has nothing.
+	preferKeyMetric := func(dst *float64, key string) {
+		if v := toFloat64(keyMetrics[key]); v != 0 && !math.IsNaN(v) && !math.IsInf(v, 0) {
+			*dst = v
+		}
 	}
+	preferKeyMetric(&existing.MarketCap, "market_cap")
+	preferKeyMetric(&existing.PeRatio, "pe_ratio")
+	preferKeyMetric(&existing.Eps, "eps")
+	preferKeyMetric(&existing.DividendYield, "dividend_yield")
+	preferKeyMetric(&existing.Beta, "beta")
+	preferKeyMetric(&existing.Week_52High, "fifty_two_week_high")
+	preferKeyMetric(&existing.Week_52Low, "fifty_two_week_low")
+
+	// Everything else still prefers existing values over key_metrics.
 	if existing.CurrentPrice == 0 {
 		existing.CurrentPrice = toFloat64(keyMetrics["current_price"])
-	}
-	if existing.PeRatio == 0 {
-		existing.PeRatio = toFloat64(keyMetrics["pe_ratio"])
-	}
-	if existing.Eps == 0 {
-		existing.Eps = toFloat64(keyMetrics["eps"])
-	}
-	if existing.DividendYield == 0 {
-		existing.DividendYield = toFloat64(keyMetrics["dividend_yield"])
-	}
-	if existing.Beta == 0 {
-		existing.Beta = toFloat64(keyMetrics["beta"])
-	}
-	if existing.Week_52High == 0 {
-		existing.Week_52High = toFloat64(keyMetrics["fifty_two_week_high"])
-	}
-	if existing.Week_52Low == 0 {
-		existing.Week_52Low = toFloat64(keyMetrics["fifty_two_week_low"])
 	}
 	if existing.Volume == 0 {
 		existing.Volume = toFloat64(keyMetrics["avg_volume"])
@@ -2638,39 +2636,12 @@ func (s *postgresStore) GetStockFinancialHighlights(stockCodes []string, maxPerS
 			continue
 		}
 
-		// Parse metrics JSON — values can be objects or arrays of objects
-		var rawMetrics map[string]json.RawMessage
-		if err := json.Unmarshal([]byte(metricsJSON), &rawMetrics); err != nil {
+		// The trust funnel (plan fundamentals-coverage.md §4.1): ungrounded
+		// entries and echoed few-shot examples are dropped, provenance keys
+		// stripped. A report left with no metric does not take a slot.
+		metrics := parseHighlightMetrics([]byte(metricsJSON))
+		if len(metrics) == 0 {
 			continue
-		}
-
-		var metrics []FinancialMetricEntry
-		for metricType, raw := range rawMetrics {
-			// Try array first
-			var arr []map[string]string
-			if err := json.Unmarshal(raw, &arr); err == nil {
-				for _, attrs := range arr {
-					sourceText := attrs["source_text"]
-					delete(attrs, "source_text")
-					metrics = append(metrics, FinancialMetricEntry{
-						MetricType: metricType,
-						SourceText: sourceText,
-						Attributes: attrs,
-					})
-				}
-				continue
-			}
-			// Fall back to single object
-			var single map[string]string
-			if err := json.Unmarshal(raw, &single); err == nil {
-				sourceText := single["source_text"]
-				delete(single, "source_text")
-				metrics = append(metrics, FinancialMetricEntry{
-					MetricType: metricType,
-					SourceText: sourceText,
-					Attributes: single,
-				})
-			}
 		}
 
 		result[code] = append(result[code], FinancialReportHighlight{

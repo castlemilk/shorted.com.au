@@ -95,9 +95,10 @@ export function StrategyPanel({ strategy }: StrategyPanelProps) {
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
           Every rule resolves to pass, fail or unknown for every stock. Unknown
-          means the data is missing: it never counts as a pass, and a stock
-          cannot trigger while a core rule is unknown. Rules marked scoring only
-          order the list without gating it.
+          means the data is missing, or the figure is not meaningful for this
+          company: it never counts as a pass, and a stock cannot trigger while
+          a core rule is unknown. Rules marked scoring only order the list
+          without gating it.
         </p>
         <ol className="mt-5 divide-y divide-border/60 rounded-lg border border-border/60">
           {strategy.rules.map((rule, index) => (

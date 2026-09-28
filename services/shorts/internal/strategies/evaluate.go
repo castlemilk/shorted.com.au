@@ -47,6 +47,26 @@ func quantile(vals []float64, p float64) quartile {
 	}
 }
 
+// Env is the per-universe context every rule may read: the market regime and
+// cross-sectional statistics of the evaluated universe (the rs_6m quartile).
+// Build it once per universe with NewEnv and share it: GetStockStrategyFit
+// re-evaluates one stock against the cached Env, so a stock's rule results
+// there match the ones its row carries in the ranked list.
+type Env = evalEnv
+
+// NewEnv computes the evaluation environment of a universe.
+func NewEnv(cands []Candidate, regime Regime) *Env {
+	return &evalEnv{regime: regime, rs6m: computeRS6mQuartile(cands)}
+}
+
+// Regime returns the market regime the environment was built with.
+func (e *evalEnv) Regime() Regime {
+	if e == nil {
+		return Regime{}
+	}
+	return e.regime
+}
+
 // Evaluate runs every rule of strategy against every candidate and returns
 // the ranked picks: status first (triggered, setup, watch), then score
 // descending, then stock code ascending, so the order is total and stable.
@@ -55,42 +75,17 @@ func quantile(vals []float64, p float64) quartile {
 // does not count) is not a pick and is left out.
 // Rank is 1-based across the returned list.
 func Evaluate(strategy Strategy, cands []Candidate, regime Regime) []Pick {
-	env := &evalEnv{regime: regime, rs6m: computeRS6mQuartile(cands)}
-	weights := ruleWeights[strategy.ID]
+	return EvaluateWithEnv(strategy, cands, NewEnv(cands, regime))
+}
 
+// EvaluateWithEnv is Evaluate over an environment built beforehand (NewEnv
+// over the same candidates), so several strategies share one.
+func EvaluateWithEnv(strategy Strategy, cands []Candidate, env *Env) []Pick {
 	picks := make([]Pick, 0, len(cands))
 	for i := range cands {
-		c := cands[i]
-		results := make([]RuleResult, 0, len(strategy.Rules))
-		var score float64
-		anyPass := false
-		for _, rule := range strategy.Rules {
-			out := evaluateRule(rule.ID, &c, env)
-			if out.Status == RulePass {
-				// The regime rule says nothing about the stock, so passing it
-				// alone does not make a stock a pick.
-				if rule.ID != RuleRegime {
-					anyPass = true
-				}
-				score += weights[rule.ID] * (passFloor + passStrength*clamp01(out.Strength)) * 100
-			}
-			results = append(results, RuleResult{
-				RuleID:   rule.ID,
-				Status:   out.Status,
-				Detail:   out.Detail,
-				Value:    finiteOrZero(out.Value),
-				HasValue: out.HasValue && isFinite(out.Value),
-			})
+		if p, ok := EvaluateOne(strategy, cands[i], env); ok {
+			picks = append(picks, p)
 		}
-		if !anyPass {
-			continue
-		}
-		picks = append(picks, Pick{
-			Candidate: c,
-			Status:    Ladder(strategy, results),
-			Score:     math.Min(100, math.Max(0, math.Round(score*10)/10)),
-			Rules:     results,
-		})
 	}
 
 	sort.SliceStable(picks, func(a, b int) bool {
@@ -107,6 +102,57 @@ func Evaluate(strategy Strategy, cands []Candidate, regime Regime) []Pick {
 		picks[i].Rank = i + 1
 	}
 	return picks
+}
+
+// EvaluateOne runs every rule of strategy against one candidate: the body of
+// the Evaluate loop. The Pick has no rank (0). ok reports whether the stock is
+// a pick at all, that is whether a stock-specific rule passed; the market
+// regime rule passing alone does not make a stock a pick. A nil env reads as
+// an unknown regime over an empty universe.
+func EvaluateOne(strategy Strategy, c Candidate, env *Env) (Pick, bool) {
+	if env == nil {
+		env = &evalEnv{}
+	}
+	weights := ruleWeights[strategy.ID]
+	results := make([]RuleResult, 0, len(strategy.Rules))
+	var score float64
+	anyPass := false
+	for _, rule := range strategy.Rules {
+		out := evaluateRule(rule.ID, &c, env)
+		if out.Status == RulePass {
+			// The regime rule says nothing about the stock, so passing it
+			// alone does not make a stock a pick.
+			if rule.ID != RuleRegime {
+				anyPass = true
+			}
+			score += weights[rule.ID] * (passFloor + passStrength*clamp01(out.Strength)) * 100
+		}
+		results = append(results, RuleResult{
+			RuleID:   rule.ID,
+			Status:   out.Status,
+			Detail:   out.Detail,
+			Value:    finiteOrZero(out.Value),
+			HasValue: out.HasValue && isFinite(out.Value),
+		})
+	}
+	return Pick{
+		Candidate: c,
+		Status:    Ladder(strategy, results),
+		Score:     math.Min(100, math.Max(0, math.Round(score*10)/10)),
+		Rules:     results,
+	}, anyPass
+}
+
+// PrepareCandidates applies the Go-side decisions to a freshly read universe,
+// in place and once per fill, before any rule reads it: the financials
+// decision on every quality row (ApplyQualityRules, which withholds the
+// not-meaningful ratios) and the valuation from the latest close (Valuate).
+func PrepareCandidates(cands []Candidate) {
+	for i := range cands {
+		c := &cands[i]
+		ApplyQualityRules(c.Quality, c.Industry)
+		c.Valuation = Valuate(c.Close, c.AsOf, c.ValuationInputs, c.Quality)
+	}
 }
 
 func evaluateRule(id string, c *Candidate, env *evalEnv) outcome {
@@ -159,6 +205,29 @@ func FundamentalsCoverage(cands []Candidate) int {
 	n := 0
 	for i := range cands {
 		if cands[i].Growth.HasGrowthData() {
+			n++
+		}
+	}
+	return n
+}
+
+// QualityCoverage counts candidates with a quality row (mv_fundamentals_quality).
+func QualityCoverage(cands []Candidate) int {
+	n := 0
+	for i := range cands {
+		if cands[i].Quality != nil {
+			n++
+		}
+	}
+	return n
+}
+
+// FundamentalsRows counts candidates with any reported fundamentals row
+// (GetStrategyPicksResponse.fundamentals_rows_count).
+func FundamentalsRows(cands []Candidate) int {
+	n := 0
+	for i := range cands {
+		if cands[i].HasFundamentalsRow() {
 			n++
 		}
 	}

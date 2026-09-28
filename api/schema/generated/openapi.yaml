@@ -3404,6 +3404,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.GetStockVerdictResponse'
+  /shorts.v1alpha1.StrategyService/GetStockStrategyFit:
+    post:
+      tags:
+        - shorts.v1alpha1.StrategyService
+      summary: GetStockStrategyFit
+      description: |-
+        How one stock reads against every strategy: status, score, rank and the
+         per-rule pass / fail / unknown breakdown. A stock that is not a candidate
+         for a strategy still gets its rule results, with status "none".
+      operationId: StrategyService_GetStockStrategyFit
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStockStrategyFitRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetStockStrategyFitResponse'
   /shorts.v1alpha1.StrategyService/GetStrategyPicks:
     post:
       tags:
@@ -5769,6 +5808,33 @@ components:
       title: FinancialYearOption
       additionalProperties: false
       description: FinancialYearOption is one selectable year, with how much is in it.
+    shorts.v1alpha1.FundamentalsCoverage:
+      type: object
+      properties:
+        status:
+          type: string
+          title: status
+          description: |-
+            "covered" (rows held), "empty" (our providers returned nothing),
+             "pending" (not attempted yet) or "failed" (the last attempt errored).
+             Empty when unknown. (proto string)
+        lastAttemptAt:
+          type: string
+          title: last_attempt_at
+          description: RFC 3339. (proto string)
+        lastSuccessAt:
+          type: string
+          title: last_success_at
+          description: RFC 3339. (proto string)
+        sources:
+          type: array
+          items:
+            type: string
+          title: sources
+          description: Sources of the rows held. (proto string)
+      title: FundamentalsCoverage
+      additionalProperties: false
+      description: Whether fundamentals have been collected for the stock.
     shorts.v1alpha1.FundamentalsGrowth:
       type: object
       properties:
@@ -5858,7 +5924,9 @@ components:
           description: |-
             Series the revenue growth was computed on: "half" (latest half-year from a
              company filing vs the same half a year earlier, used when it is newer than
-             the latest annual) or "annual". Empty when unknown. (proto string)
+             the latest annual), "ttm" (the latest trailing twelve months vs twelve
+             months earlier, used when it is newer than the latest annual) or "annual".
+             Empty when unknown. (proto string)
         revenueHalfYoyPct:
           type: number
           title: revenue_half_yoy_pct
@@ -5883,6 +5951,29 @@ components:
           type: string
           title: half_latest_period_end
           description: YYYY-MM-DD of the latest half-year row; empty when none. (proto string)
+        revenueBasisSource:
+          type: string
+          title: revenue_basis_source
+          description: |-
+            "vendor" or "filing": where the rows behind each growth figure came from.
+             "filing" when either side of the pair is a figure extracted from a company
+             filing. Empty when unknown. (proto string)
+        epsBasisSource:
+          type: string
+          title: eps_basis_source
+          description: (proto string)
+        fetchedAt:
+          type: string
+          title: fetched_at
+          description: RFC 3339, newest fetch of the growth inputs. (proto string)
+        revenueLatestPeriodEnd:
+          type: string
+          title: revenue_latest_period_end
+          description: YYYY-MM-DD, the pair revenue_yoy_pct compares. (proto string)
+        revenuePriorPeriodEnd:
+          type: string
+          title: revenue_prior_period_end
+          description: (proto string)
       title: FundamentalsGrowth
       additionalProperties: false
       description: |-
@@ -5981,11 +6072,459 @@ components:
           type: boolean
           title: has_free_cash_flow
           description: (proto bool)
+        grossProfit:
+          type: number
+          title: gross_profit
+          format: double
+          description: |-
+            Full statement lines (period_type "quarter" rows are balance-sheet
+             snapshots and carry only balance lines and shares). (proto double)
+        hasGrossProfit:
+          type: boolean
+          title: has_gross_profit
+          description: (proto bool)
+        operatingIncome:
+          type: number
+          title: operating_income
+          format: double
+          description: Absent for banks and insurers. (proto double)
+        hasOperatingIncome:
+          type: boolean
+          title: has_operating_income
+          description: (proto bool)
+        ebitda:
+          type: number
+          title: ebitda
+          format: double
+          description: 'Statutory: includes impairments and revaluations. (proto double)'
+        hasEbitda:
+          type: boolean
+          title: has_ebitda
+          description: (proto bool)
+        normalizedEbitda:
+          type: number
+          title: normalized_ebitda
+          format: double
+          description: EBITDA before unusual items, when the source publishes it. (proto double)
+        hasNormalizedEbitda:
+          type: boolean
+          title: has_normalized_ebitda
+          description: (proto bool)
+        ebit:
+          type: number
+          title: ebit
+          format: double
+          description: (proto double)
+        hasEbit:
+          type: boolean
+          title: has_ebit
+          description: (proto bool)
+        interestExpense:
+          type: number
+          title: interest_expense
+          format: double
+          description: A positive expense. (proto double)
+        hasInterestExpense:
+          type: boolean
+          title: has_interest_expense
+          description: (proto bool)
+        pretaxIncome:
+          type: number
+          title: pretax_income
+          format: double
+          description: (proto double)
+        hasPretaxIncome:
+          type: boolean
+          title: has_pretax_income
+          description: (proto bool)
+        taxProvision:
+          type: number
+          title: tax_provision
+          format: double
+          description: (proto double)
+        hasTaxProvision:
+          type: boolean
+          title: has_tax_provision
+          description: (proto bool)
+        netInterestIncome:
+          type: number
+          title: net_interest_income
+          format: double
+          description: Banks; other companies report it as minus interest expense. (proto double)
+        hasNetInterestIncome:
+          type: boolean
+          title: has_net_interest_income
+          description: (proto bool)
+        capitalExpenditure:
+          type: number
+          title: capital_expenditure
+          format: double
+          description: 'An outflow: negative. (proto double)'
+        hasCapitalExpenditure:
+          type: boolean
+          title: has_capital_expenditure
+          description: (proto bool)
+        dividendsPaid:
+          type: number
+          title: dividends_paid
+          format: double
+          description: 'Cash dividends paid in the period: negative. (proto double)'
+        hasDividendsPaid:
+          type: boolean
+          title: has_dividends_paid
+          description: (proto bool)
+        shareBuybacks:
+          type: number
+          title: share_buybacks
+          format: double
+          description: 'An outflow: negative. (proto double)'
+        hasShareBuybacks:
+          type: boolean
+          title: has_share_buybacks
+          description: (proto bool)
+        totalAssets:
+          type: number
+          title: total_assets
+          format: double
+          description: Balance sheet at period_end. (proto double)
+        hasTotalAssets:
+          type: boolean
+          title: has_total_assets
+          description: (proto bool)
+        totalLiabilities:
+          type: number
+          title: total_liabilities
+          format: double
+          description: (proto double)
+        hasTotalLiabilities:
+          type: boolean
+          title: has_total_liabilities
+          description: (proto bool)
+        totalEquity:
+          type: number
+          title: total_equity
+          format: double
+          description: Shareholders' equity. (proto double)
+        hasTotalEquity:
+          type: boolean
+          title: has_total_equity
+          description: (proto bool)
+        cashAndEquivalents:
+          type: number
+          title: cash_and_equivalents
+          format: double
+          description: (proto double)
+        hasCashAndEquivalents:
+          type: boolean
+          title: has_cash_and_equivalents
+          description: (proto bool)
+        totalDebt:
+          type: number
+          title: total_debt
+          format: double
+          description: Includes lease liabilities. (proto double)
+        hasTotalDebt:
+          type: boolean
+          title: has_total_debt
+          description: (proto bool)
+        capitalLeaseObligations:
+          type: number
+          title: capital_lease_obligations
+          format: double
+          description: Lease liabilities. (proto double)
+        hasCapitalLeaseObligations:
+          type: boolean
+          title: has_capital_lease_obligations
+          description: (proto bool)
+        netDebt:
+          type: number
+          title: net_debt
+          format: double
+          description: 'Excludes leases: total debt minus leases minus cash. Negative is net cash. (proto double)'
+        hasNetDebt:
+          type: boolean
+          title: has_net_debt
+          description: (proto bool)
+        currentAssets:
+          type: number
+          title: current_assets
+          format: double
+          description: (proto double)
+        hasCurrentAssets:
+          type: boolean
+          title: has_current_assets
+          description: (proto bool)
+        currentLiabilities:
+          type: number
+          title: current_liabilities
+          format: double
+          description: (proto double)
+        hasCurrentLiabilities:
+          type: boolean
+          title: has_current_liabilities
+          description: (proto bool)
+        fieldSources:
+          type: object
+          title: field_sources
+          additionalProperties:
+            type: string
+            title: value
+            description: (proto string)
+          description: |-
+            Per-field provenance: the fields whose value did not come from `source`,
+             mapped to where it came from, e.g. {"operating_cash_flow":
+             "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}. (proto shorts.v1alpha1.FundamentalsPeriod.FieldSourcesEntry)
+        sourceDocumentUrl:
+          type: string
+          title: source_document_url
+          description: The company filing a filing-sourced row or field came from; empty otherwise. (proto string)
+        sourceDocumentDate:
+          type: string
+          title: source_document_date
+          description: YYYY-MM-DD. (proto string)
       title: FundamentalsPeriod
       additionalProperties: false
       description: |-
         One reported period. Values are in `currency` exactly as the source reports
          them (BHP reports in USD). has_* is false when the source omitted a figure.
+    shorts.v1alpha1.FundamentalsPeriod.FieldSourcesEntry:
+      type: object
+      properties:
+        key:
+          type: string
+          title: key
+          description: (proto string)
+        value:
+          type: string
+          title: value
+          description: (proto string)
+      title: FieldSourcesEntry
+      additionalProperties: false
+    shorts.v1alpha1.FundamentalsQuality:
+      type: object
+      properties:
+        basisPeriodType:
+          type: string
+          title: basis_period_type
+          description: '"annual" | "ttm". (proto string)'
+        basisPeriodEnd:
+          type: string
+          title: basis_period_end
+          description: YYYY-MM-DD. (proto string)
+        currency:
+          type: string
+          title: currency
+          description: Reporting currency of the flow period. (proto string)
+        balancePeriodEnd:
+          type: string
+          title: balance_period_end
+          description: YYYY-MM-DD; empty when no aligned balance sheet. (proto string)
+        grossMarginPct:
+          type: number
+          title: gross_margin_pct
+          format: double
+          description: (proto double)
+        hasGrossMarginPct:
+          type: boolean
+          title: has_gross_margin_pct
+          description: (proto bool)
+        operatingMarginPct:
+          type: number
+          title: operating_margin_pct
+          format: double
+          description: (proto double)
+        hasOperatingMarginPct:
+          type: boolean
+          title: has_operating_margin_pct
+          description: (proto bool)
+        netMarginPct:
+          type: number
+          title: net_margin_pct
+          format: double
+          description: (proto double)
+        hasNetMarginPct:
+          type: boolean
+          title: has_net_margin_pct
+          description: (proto bool)
+        fcfMarginPct:
+          type: number
+          title: fcf_margin_pct
+          format: double
+          description: (proto double)
+        hasFcfMarginPct:
+          type: boolean
+          title: has_fcf_margin_pct
+          description: (proto bool)
+        fcfConversion:
+          type: number
+          title: fcf_conversion
+          format: double
+          description: Free cash flow / net profit (a ratio, not a percentage). (proto double)
+        hasFcfConversion:
+          type: boolean
+          title: has_fcf_conversion
+          description: (proto bool)
+        roePct:
+          type: number
+          title: roe_pct
+          format: double
+          description: Net profit / average equity. (proto double)
+        hasRoePct:
+          type: boolean
+          title: has_roe_pct
+          description: (proto bool)
+        roaPct:
+          type: number
+          title: roa_pct
+          format: double
+          description: Net profit / average total assets. (proto double)
+        hasRoaPct:
+          type: boolean
+          title: has_roa_pct
+          description: (proto bool)
+        netDebt:
+          type: number
+          title: net_debt
+          format: double
+          description: Excludes leases; negative is net cash. In balance_currency. (proto double)
+        hasNetDebt:
+          type: boolean
+          title: has_net_debt
+          description: (proto bool)
+        netDebtToEbitda:
+          type: number
+          title: net_debt_to_ebitda
+          format: double
+          description: Normalized EBITDA when published, else statutory. (proto double)
+        hasNetDebtToEbitda:
+          type: boolean
+          title: has_net_debt_to_ebitda
+          description: (proto bool)
+        netDebtToEquity:
+          type: number
+          title: net_debt_to_equity
+          format: double
+          description: (proto double)
+        hasNetDebtToEquity:
+          type: boolean
+          title: has_net_debt_to_equity
+          description: (proto bool)
+        currentRatio:
+          type: number
+          title: current_ratio
+          format: double
+          description: (proto double)
+        hasCurrentRatio:
+          type: boolean
+          title: has_current_ratio
+          description: (proto bool)
+        interestCover:
+          type: number
+          title: interest_cover
+          format: double
+          description: Operating income / interest expense. (proto double)
+        hasInterestCover:
+          type: boolean
+          title: has_interest_cover
+          description: (proto bool)
+        payoutRatioPct:
+          type: number
+          title: payout_ratio_pct
+          format: double
+          description: Cash dividends paid / net profit. (proto double)
+        hasPayoutRatioPct:
+          type: boolean
+          title: has_payout_ratio_pct
+          description: (proto bool)
+        isFinancial:
+          type: boolean
+          title: is_financial
+          description: Bank, insurer or other financial. (proto bool)
+        source:
+          type: string
+          title: source
+          description: Source of the flow period, e.g. "yahoo-timeseries". (proto string)
+        operatingCashFlowDerived:
+          type: boolean
+          title: operating_cash_flow_derived
+          description: Operating cash flow = free cash flow minus capex. (proto bool)
+        marketCap:
+          type: number
+          title: market_cap
+          format: double
+          description: 'AUD: latest close x shares on issue. (proto double)'
+        hasMarketCap:
+          type: boolean
+          title: has_market_cap
+          description: (proto bool)
+        peRatio:
+          type: number
+          title: pe_ratio
+          format: double
+          description: Latest close / 12-month EPS; AUD reporters only. (proto double)
+        hasPeRatio:
+          type: boolean
+          title: has_pe_ratio
+          description: (proto bool)
+        priceToBook:
+          type: number
+          title: price_to_book
+          format: double
+          description: Market cap / equity; AUD reporters only. (proto double)
+        hasPriceToBook:
+          type: boolean
+          title: has_price_to_book
+          description: (proto bool)
+        priceAsOf:
+          type: string
+          title: price_as_of
+          description: YYYY-MM-DD of the close used. (proto string)
+        balanceCurrency:
+          type: string
+          title: balance_currency
+          description: (proto string)
+        notMeaningful:
+          type: array
+          items:
+            type: string
+          title: not_meaningful
+          description: Ratio names withheld because is_financial. (proto string)
+        isProperty:
+          type: boolean
+          title: is_property
+          description: 'Property trust: profit and EBITDA include revaluations. (proto bool)'
+        balanceLagMonths:
+          type: integer
+          title: balance_lag_months
+          format: int32
+          description: Months between the balance sheet and the flow period. (proto int32)
+        sharesAsOf:
+          type: string
+          title: shares_as_of
+          description: YYYY-MM-DD of the share count used for market cap. (proto string)
+        peEpsPeriodEnd:
+          type: string
+          title: pe_eps_period_end
+          description: YYYY-MM-DD of the EPS used for P/E. (proto string)
+        peEpsBasis:
+          type: string
+          title: pe_eps_basis
+          description: '"diluted" | "basic". (proto string)'
+        valuationNote:
+          type: string
+          title: valuation_note
+          description: |-
+            Why market cap, P/E or P/B are absent: "non-aud" (statements not in AUD),
+             "listed-unit" (the listed unit is not one ordinary share), "no-shares",
+             "no-price"; empty when present. (proto string)
+      title: FundamentalsQuality
+      additionalProperties: false
+      description: |-
+        Profitability, cash conversion, balance-sheet and valuation ratios. Flow
+         ratios use one period (basis_period_type/basis_period_end); balance ratios use
+         the balance sheet at or up to 6 months before it, in the same currency.
+         has_* is false when an input is missing, a denominator is zero or negative,
+         or the ratio is not meaningful for the company (listed in not_meaningful).
     shorts.v1alpha1.GetAvailableDatesRequest:
       type: object
       properties:
@@ -7780,7 +8319,7 @@ components:
         periodType:
           type: string
           title: period_type
-          description: 'Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type. (proto string)'
+          description: 'Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type. (proto string)'
         limit:
           type: integer
           title: limit
@@ -7810,6 +8349,26 @@ components:
           type: boolean
           title: has_growth
           description: False when no growth row exists yet. (proto bool)
+        quality:
+          title: quality
+          description: (proto shorts.v1alpha1.FundamentalsQuality)
+          $ref: '#/components/schemas/shorts.v1alpha1.FundamentalsQuality'
+        hasQuality:
+          type: boolean
+          title: has_quality
+          description: False when no ratio row exists yet. (proto bool)
+        coverage:
+          title: coverage
+          description: (proto shorts.v1alpha1.FundamentalsCoverage)
+          $ref: '#/components/schemas/shorts.v1alpha1.FundamentalsCoverage'
+        latestFiling:
+          title: latest_filing
+          description: (proto shorts.v1alpha1.LatestFilingSummary)
+          $ref: '#/components/schemas/shorts.v1alpha1.LatestFilingSummary'
+        hasLatestFiling:
+          type: boolean
+          title: has_latest_filing
+          description: (proto bool)
       title: GetStockFundamentalsResponse
       additionalProperties: false
       description: Response for GetStockFundamentals.
@@ -8005,6 +8564,44 @@ components:
           description: (proto shorts.v1alpha1.StockSignal)
       title: GetStockSignalsResponse
       additionalProperties: false
+    shorts.v1alpha1.GetStockStrategyFitRequest:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: ASX code, e.g. "BHP". (proto string)
+      title: GetStockStrategyFitRequest
+      additionalProperties: false
+      description: Request for GetStockStrategyFit.
+    shorts.v1alpha1.GetStockStrategyFitResponse:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        asOf:
+          type: string
+          title: as_of
+          description: YYYY-MM-DD of the latest price in the universe. (proto string)
+        regime:
+          title: regime
+          description: (proto shorts.v1alpha1.MarketRegime)
+          $ref: '#/components/schemas/shorts.v1alpha1.MarketRegime'
+        fits:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.StrategyFit'
+          title: fits
+          description: One per strategy; empty when the stock is outside the universe. (proto shorts.v1alpha1.StrategyFit)
+        inUniverse:
+          type: boolean
+          title: in_universe
+          description: (proto bool)
+      title: GetStockStrategyFitResponse
+      additionalProperties: false
+      description: Response for GetStockStrategyFit.
     shorts.v1alpha1.GetStockVerdictRequest:
       type: object
       properties:
@@ -8061,6 +8658,18 @@ components:
           type: string
           title: status
           description: 'Optional filter: "triggered" | "setup" | "watch". (proto string)'
+        sortBy:
+          type: string
+          title: sort_by
+          description: |-
+            Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+             "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+             sort last; growth above +500% or below -95% sorts after every measured value.
+             rank keeps the strategy's own ranking whatever the order. (proto string)
+        requireFundamentals:
+          type: boolean
+          title: require_fundamentals
+          description: Only stocks with a fundamentals row. (proto bool)
       title: GetStrategyPicksRequest
       additionalProperties: false
       description: Request for GetStrategyPicks.
@@ -8100,6 +8709,11 @@ components:
           type: string
           title: as_of
           description: YYYY-MM-DD of the latest price in the universe. (proto string)
+        fundamentalsRowsCount:
+          type: integer
+          title: fundamentals_rows_count
+          format: int32
+          description: Evaluated stocks with any reported fundamentals row. (proto int32)
       title: GetStrategyPicksResponse
       additionalProperties: false
       description: Response for GetStrategyPicks.
@@ -8991,6 +9605,41 @@ components:
       title: InlineImage
       additionalProperties: false
       description: Inline image embedded in a Take body.
+    shorts.v1alpha1.LatestFilingSummary:
+      type: object
+      properties:
+        reportUrl:
+          type: string
+          title: report_url
+          description: (proto string)
+        reportTitle:
+          type: string
+          title: report_title
+          description: (proto string)
+        reportDate:
+          type: string
+          title: report_date
+          description: YYYY-MM-DD. (proto string)
+        periodEnd:
+          type: string
+          title: period_end
+          description: YYYY-MM-DD, the period the filing reports. (proto string)
+        periodType:
+          type: string
+          title: period_type
+          description: '"annual" | "half". (proto string)'
+        digest:
+          type: string
+          title: digest
+          description: Short summary of the filing. (proto string)
+        digestConfidence:
+          type: number
+          title: digest_confidence
+          format: double
+          description: 0-1. (proto double)
+      title: LatestFilingSummary
+      additionalProperties: false
+      description: The company filing behind the latest reported period, with its summary.
     shorts.v1alpha1.LayoutImage:
       type: object
       properties:
@@ -10823,6 +11472,106 @@ components:
       title: PeerStock
       additionalProperties: false
       description: A peer stock for comparison
+    shorts.v1alpha1.PickFundamentals:
+      type: object
+      properties:
+        revenueBasisPeriodType:
+          type: string
+          title: revenue_basis_period_type
+          description: '"annual" | "half" | "ttm"; empty when no revenue growth. (proto string)'
+        revenuePeriodEnd:
+          type: string
+          title: revenue_period_end
+          description: YYYY-MM-DD, end of the latest period in the revenue pair. (proto string)
+        epsBasisPeriodType:
+          type: string
+          title: eps_basis_period_type
+          description: '"annual" | "half" | "ttm"; empty when no EPS growth. (proto string)'
+        epsPeriodEnd:
+          type: string
+          title: eps_period_end
+          description: YYYY-MM-DD, end of the latest period in the EPS pair. (proto string)
+        currency:
+          type: string
+          title: currency
+          description: Reporting currency (ISO 4217). (proto string)
+        fetchedAt:
+          type: string
+          title: fetched_at
+          description: RFC 3339, newest fetch of the inputs. (proto string)
+        revenueBasisSource:
+          type: string
+          title: revenue_basis_source
+          description: '"vendor" | "filing" (a company filing, extracted); empty when unknown. (proto string)'
+        epsBasisSource:
+          type: string
+          title: eps_basis_source
+          description: '"vendor" | "filing"; empty when unknown. (proto string)'
+        netMarginPct:
+          type: number
+          title: net_margin_pct
+          format: double
+          description: (proto double)
+        hasNetMarginPct:
+          type: boolean
+          title: has_net_margin_pct
+          description: (proto bool)
+        roePct:
+          type: number
+          title: roe_pct
+          format: double
+          description: (proto double)
+        hasRoePct:
+          type: boolean
+          title: has_roe_pct
+          description: (proto bool)
+        fcfMarginPct:
+          type: number
+          title: fcf_margin_pct
+          format: double
+          description: (proto double)
+        hasFcfMarginPct:
+          type: boolean
+          title: has_fcf_margin_pct
+          description: (proto bool)
+        netDebtToEbitda:
+          type: number
+          title: net_debt_to_ebitda
+          format: double
+          description: Net debt excluding leases over EBITDA (normalized when published). (proto double)
+        hasNetDebtToEbitda:
+          type: boolean
+          title: has_net_debt_to_ebitda
+          description: (proto bool)
+        peRatio:
+          type: number
+          title: pe_ratio
+          format: double
+          description: Latest close over 12-month EPS; AUD reporters only. (proto double)
+        hasPeRatio:
+          type: boolean
+          title: has_pe_ratio
+          description: (proto bool)
+        isFinancial:
+          type: boolean
+          title: is_financial
+          description: 'Bank, insurer or other financial: some ratios are not meaningful. (proto bool)'
+        netIncomePositive:
+          type: boolean
+          title: net_income_positive
+          description: Latest annual net income above zero. (proto bool)
+        notMeaningful:
+          type: array
+          items:
+            type: string
+          title: not_meaningful
+          description: Ratio names withheld because is_financial. (proto string)
+      title: PickFundamentals
+      additionalProperties: false
+      description: |-
+        Fundamentals for one pick. Every ratio is computed within one reporting
+         currency from one flow period and an aligned balance sheet; has_* is false
+         when an input is missing or the ratio is not meaningful for the company.
     shorts.v1alpha1.Politician:
       type: object
       properties:
@@ -12604,6 +13353,45 @@ components:
       title: Strategy
       additionalProperties: false
       description: A named stock-picking strategy and how we evaluate it.
+    shorts.v1alpha1.StrategyFit:
+      type: object
+      properties:
+        strategyId:
+          type: string
+          title: strategy_id
+          description: (proto string)
+        strategyName:
+          type: string
+          title: strategy_name
+          description: (proto string)
+        status:
+          type: string
+          title: status
+          description: '"triggered" | "setup" | "watch" | "none" (not a candidate). (proto string)'
+        score:
+          type: number
+          title: score
+          format: double
+          description: 0-100; 0 when status is "none". (proto double)
+        rank:
+          type: integer
+          title: rank
+          format: int32
+          description: 1-based rank among the strategy's picks; 0 when status is "none". (proto int32)
+        totalCount:
+          type: integer
+          title: total_count
+          format: int32
+          description: Picks the strategy has in total. (proto int32)
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.RuleResult'
+          title: rules
+          description: (proto shorts.v1alpha1.RuleResult)
+      title: StrategyFit
+      additionalProperties: false
+      description: One strategy's reading of one stock.
     shorts.v1alpha1.StrategyMetadata:
       type: object
       properties:
@@ -12757,6 +13545,13 @@ components:
           type: boolean
           title: has_close
           description: True when close is set (the stock has a valid last price). (proto bool)
+        fundamentals:
+          title: fundamentals
+          description: |-
+            Reported fundamentals behind the growth cells, with their basis and
+             provenance, plus headline ratios. Absent when the stock has no
+             fundamentals row at all. (proto shorts.v1alpha1.PickFundamentals)
+          $ref: '#/components/schemas/shorts.v1alpha1.PickFundamentals'
       title: StrategyPick
       additionalProperties: false
       description: One ranked stock for a strategy.

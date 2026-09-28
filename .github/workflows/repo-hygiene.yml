@@ -28,6 +28,8 @@ on:
       - "services/migrations/**"
       - ".github/workflows/terraform-deploy.yml"
       - "terraform/modules/**"
+      # cost-guardrails.test.mjs pins prod's report_extractor limits too.
+      - "terraform/environments/prod/main.tf"
       - ".github/workflows/repo-hygiene.yml"
   workflow_dispatch:
 
@@ -52,8 +54,11 @@ jobs:
         with:
           node-version: "24"
 
+      # cost-guardrails pins the paid-Gemini report extractor's run size,
+      # workers, pages, budget and retries (contract fundamentals-coverage
+      # 6.2); until it was listed here it ran in no CI job.
       - name: Test repository hygiene tooling
-        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs
+        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs terraform/modules/report-extractor/cost-guardrails.test.mjs
 
       # These assert properties of migrations that prod REPLAYS on every deploy
       # from a hardcoded allowlist — most importantly that 000095 stays last, so
@@ -67,6 +72,35 @@ jobs:
 
       - name: Reject captured portal payloads
         run: node scripts/check-portal-content-provenance.mjs
+
+  # The financial-report extractor's Python tests: the langextract pin and the
+  # BudgetedGemini hook guard (a bump that moves either hook would silently
+  # bill thinking tokens again), model failures never stored as "no metrics",
+  # and the Python half of the shared extractiontrust fixtures
+  # (results_titles.json, document_meta_cases.json), whose Go half runs in
+  # go-quality. Tests that need a database skip here (they are gated on
+  # REPORT_EXTRACTOR_TEST_DATABASE_URL). Runs on every PR this workflow
+  # triggers on: services/** covers both the extractor and the fixtures.
+  report-extractor-tests:
+    name: Report extractor tests
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      # The runner image is not a contract (scripts/tests/self-hosted-toolchain
+      # .test.mjs): ask for Python explicitly. 3.11 is what the job's image
+      # (python:3.11-slim) runs in production.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install extractor dependencies
+        run: python -m pip install -r services/report-extractor/requirements.txt pytest
+
+      - name: Run the extractor tests
+        working-directory: services/report-extractor
+        run: python -m pytest -q
 
   # web/public/openapi.{json,yaml} is a generated, PUBLISHED artifact. A stale
   # one is worse than none: it reads as authoritative while documenting an API

@@ -11,7 +11,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/strategies.proto.
  */
 export const file_shorts_v1alpha1_strategies: GenFile = /*@__PURE__*/
-  fileDesc("CiBzaG9ydHMvdjFhbHBoYTEvc3RyYXRlZ2llcy5wcm90bxIPc2hvcnRzLnYxYWxwaGExIuoBCghTdHJhdGVneRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmF1dGhvchgDIAEoCRIPCgd0YWdsaW5lGAQgASgJEh4KFmRlc2NyaXB0aW9uX3BhcmFncmFwaHMYBSADKAkSLAoFcnVsZXMYBiADKAsyHS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lSdWxlEjMKCG1ldGFkYXRhGAcgASgLMiEuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5TWV0YWRhdGESDwoHY2F2ZWF0cxgIIAMoCRIPCgdzb3VyY2VzGAkgAygJInMKDFN0cmF0ZWd5UnVsZRIKCgJpZBgBIAEoCRINCgV0aXRsZRgCIAEoCRIRCglydWxlX3RleHQYAyABKAkSEgoKZXZhbHVhdGlvbhgEIAEoCRIMCgRjb3JlGAUgASgIEhMKC2RhdGFfc291cmNlGAYgASgJIo4BChBTdHJhdGVneU1ldGFkYXRhEg0KBXN0eWxlGAEgASgJEhYKDmhvbGRpbmdfcGVyaW9kGAIgASgJEhQKDHJpc2tfcG9zdHVyZRgDIAEoCRIQCgh1bml2ZXJzZRgEIAEoCRIXCg9yZWZyZXNoX2NhZGVuY2UYBSABKAkSEgoKcnVsZV9jb3VudBgGIAEoBSKaAQoMTWFya2V0UmVnaW1lEhIKCmluZGV4X2NvZGUYASABKAkSDQoFYXNfb2YYAiABKAkSDgoGcmVnaW1lGAMgASgJEg0KBWNsb3NlGAQgASgBEg0KBXNtYTUwGAUgASgBEg4KBnNtYTIwMBgGIAEoARIYChBwY3Rfb2ZmXzUyd19oaWdoGAcgASgBEg8KB3ZlcmRpY3QYCCABKAkiXwoKUnVsZVJlc3VsdBIPCgdydWxlX2lkGAEgASgJEg4KBnN0YXR1cxgCIAEoCRIOCgZkZXRhaWwYAyABKAkSDQoFdmFsdWUYBCABKAESEQoJaGFzX3ZhbHVlGAUgASgIIrcECgxTdHJhdGVneVBpY2sSDAoEcmFuaxgBIAEoBRISCgpzdG9ja19jb2RlGAIgASgJEhQKDGNvbXBhbnlfbmFtZRgDIAEoCRIQCghpbmR1c3RyeRgEIAEoCRIOCgZzdGF0dXMYBSABKAkSDQoFc2NvcmUYBiABKAESKgoFcnVsZXMYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuUnVsZVJlc3VsdBINCgVjbG9zZRgIIAEoARINCgVhc19vZhgJIAEoCRIYChBwY3Rfb2ZmXzUyd19oaWdoGAogASgBEhgKEHZvbHVtZV9yYXRpb181MGQYCyABKAESFgoOYmFzZV9kZXB0aF9wY3QYDCABKAESGAoQYmFzZV9sZW5ndGhfZGF5cxgNIAEoBRINCgVwaXZvdBgOIAEoARIXCg9yZXZlbnVlX3lveV9wY3QYDyABKAESFwoPaGFzX3JldmVudWVfeW95GBAgASgIEhMKC2Vwc195b3lfcGN0GBEgASgBEhMKC2hhc19lcHNfeW95GBIgASgIEhEKCXJzXzNtX3BjdBgTIAEoARIRCglzaG9ydF9wY3QYFCABKAESEgoKbWFya2V0X2NhcBgVIAEoARIQCghsb2dvX3VybBgWIAEoCRIVCg1oYXNfcnNfM21fcGN0GBcgASgIEhUKDWhhc19zaG9ydF9wY3QYGCABKAgSFgoOaGFzX21hcmtldF9jYXAYGSABKAgSEQoJaGFzX2Nsb3NlGBogASgIIl0KF0dldFN0cmF0ZWd5UGlja3NSZXF1ZXN0EhMKC3N0cmF0ZWd5X2lkGAEgASgJEg0KBWxpbWl0GAIgASgFEg4KBm9mZnNldBgDIAEoBRIOCgZzdGF0dXMYBCABKAkihQIKGEdldFN0cmF0ZWd5UGlja3NSZXNwb25zZRIrCghzdHJhdGVneRgBIAEoCzIZLnNob3J0cy52MWFscGhhMS5TdHJhdGVneRItCgZyZWdpbWUYAiABKAsyHS5zaG9ydHMudjFhbHBoYTEuTWFya2V0UmVnaW1lEiwKBXBpY2tzGAMgAygLMh0uc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5UGljaxITCgt0b3RhbF9jb3VudBgEIAEoBRIWCg51bml2ZXJzZV9jb3VudBgFIAEoBRIjChtmdW5kYW1lbnRhbHNfY292ZXJhZ2VfY291bnQYBiABKAUSDQoFYXNfb2YYByABKAkiFwoVTGlzdFN0cmF0ZWdpZXNSZXF1ZXN0InYKFkxpc3RTdHJhdGVnaWVzUmVzcG9uc2USLQoKc3RyYXRlZ2llcxgBIAMoCzIZLnNob3J0cy52MWFscGhhMS5TdHJhdGVneRItCgZyZWdpbWUYAiABKAsyHS5zaG9ydHMudjFhbHBoYTEuTWFya2V0UmVnaW1lMukBCg9TdHJhdGVneVNlcnZpY2USZwoOTGlzdFN0cmF0ZWdpZXMSJi5zaG9ydHMudjFhbHBoYTEuTGlzdFN0cmF0ZWdpZXNSZXF1ZXN0Gicuc2hvcnRzLnYxYWxwaGExLkxpc3RTdHJhdGVnaWVzUmVzcG9uc2UiBIC1GAESbQoQR2V0U3RyYXRlZ3lQaWNrcxIoLnNob3J0cy52MWFscGhhMS5HZXRTdHJhdGVneVBpY2tzUmVxdWVzdBopLnNob3J0cy52MWFscGhhMS5HZXRTdHJhdGVneVBpY2tzUmVzcG9uc2UiBIC1GAFC3gEKE2NvbS5zaG9ydHMudjFhbHBoYTFCD1N0cmF0ZWdpZXNQcm90b1ABWllnaXRodWIuY29tL2Nhc3RsZW1pbGsvc2hvcnRlZC5jb20uYXUvc2VydmljZXMvZ2VuL3Byb3RvL2dvL3Nob3J0cy92MWFscGhhMTtzaG9ydHN2MWFscGhhMaICA1NYWKoCD1Nob3J0cy5WMWFscGhhMcoCD1Nob3J0c1xWMWFscGhhMeICG1Nob3J0c1xWMWFscGhhMVxHUEJNZXRhZGF0YeoCEFNob3J0czo6VjFhbHBoYTFiBnByb3RvMw", [file_options_v1_options]);
+  fileDesc("CiBzaG9ydHMvdjFhbHBoYTEvc3RyYXRlZ2llcy5wcm90bxIPc2hvcnRzLnYxYWxwaGExIuoBCghTdHJhdGVneRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmF1dGhvchgDIAEoCRIPCgd0YWdsaW5lGAQgASgJEh4KFmRlc2NyaXB0aW9uX3BhcmFncmFwaHMYBSADKAkSLAoFcnVsZXMYBiADKAsyHS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lSdWxlEjMKCG1ldGFkYXRhGAcgASgLMiEuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5TWV0YWRhdGESDwoHY2F2ZWF0cxgIIAMoCRIPCgdzb3VyY2VzGAkgAygJInMKDFN0cmF0ZWd5UnVsZRIKCgJpZBgBIAEoCRINCgV0aXRsZRgCIAEoCRIRCglydWxlX3RleHQYAyABKAkSEgoKZXZhbHVhdGlvbhgEIAEoCRIMCgRjb3JlGAUgASgIEhMKC2RhdGFfc291cmNlGAYgASgJIo4BChBTdHJhdGVneU1ldGFkYXRhEg0KBXN0eWxlGAEgASgJEhYKDmhvbGRpbmdfcGVyaW9kGAIgASgJEhQKDHJpc2tfcG9zdHVyZRgDIAEoCRIQCgh1bml2ZXJzZRgEIAEoCRIXCg9yZWZyZXNoX2NhZGVuY2UYBSABKAkSEgoKcnVsZV9jb3VudBgGIAEoBSKaAQoMTWFya2V0UmVnaW1lEhIKCmluZGV4X2NvZGUYASABKAkSDQoFYXNfb2YYAiABKAkSDgoGcmVnaW1lGAMgASgJEg0KBWNsb3NlGAQgASgBEg0KBXNtYTUwGAUgASgBEg4KBnNtYTIwMBgGIAEoARIYChBwY3Rfb2ZmXzUyd19oaWdoGAcgASgBEg8KB3ZlcmRpY3QYCCABKAkiXwoKUnVsZVJlc3VsdBIPCgdydWxlX2lkGAEgASgJEg4KBnN0YXR1cxgCIAEoCRIOCgZkZXRhaWwYAyABKAkSDQoFdmFsdWUYBCABKAESEQoJaGFzX3ZhbHVlGAUgASgIIvAECgxTdHJhdGVneVBpY2sSDAoEcmFuaxgBIAEoBRISCgpzdG9ja19jb2RlGAIgASgJEhQKDGNvbXBhbnlfbmFtZRgDIAEoCRIQCghpbmR1c3RyeRgEIAEoCRIOCgZzdGF0dXMYBSABKAkSDQoFc2NvcmUYBiABKAESKgoFcnVsZXMYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuUnVsZVJlc3VsdBINCgVjbG9zZRgIIAEoARINCgVhc19vZhgJIAEoCRIYChBwY3Rfb2ZmXzUyd19oaWdoGAogASgBEhgKEHZvbHVtZV9yYXRpb181MGQYCyABKAESFgoOYmFzZV9kZXB0aF9wY3QYDCABKAESGAoQYmFzZV9sZW5ndGhfZGF5cxgNIAEoBRINCgVwaXZvdBgOIAEoARIXCg9yZXZlbnVlX3lveV9wY3QYDyABKAESFwoPaGFzX3JldmVudWVfeW95GBAgASgIEhMKC2Vwc195b3lfcGN0GBEgASgBEhMKC2hhc19lcHNfeW95GBIgASgIEhEKCXJzXzNtX3BjdBgTIAEoARIRCglzaG9ydF9wY3QYFCABKAESEgoKbWFya2V0X2NhcBgVIAEoARIQCghsb2dvX3VybBgWIAEoCRIVCg1oYXNfcnNfM21fcGN0GBcgASgIEhUKDWhhc19zaG9ydF9wY3QYGCABKAgSFgoOaGFzX21hcmtldF9jYXAYGSABKAgSEQoJaGFzX2Nsb3NlGBogASgIEjcKDGZ1bmRhbWVudGFscxgbIAEoCzIhLnNob3J0cy52MWFscGhhMS5QaWNrRnVuZGFtZW50YWxzIqMEChBQaWNrRnVuZGFtZW50YWxzEiEKGXJldmVudWVfYmFzaXNfcGVyaW9kX3R5cGUYASABKAkSGgoScmV2ZW51ZV9wZXJpb2RfZW5kGAIgASgJEh0KFWVwc19iYXNpc19wZXJpb2RfdHlwZRgDIAEoCRIWCg5lcHNfcGVyaW9kX2VuZBgEIAEoCRIQCghjdXJyZW5jeRgFIAEoCRISCgpmZXRjaGVkX2F0GAYgASgJEhwKFHJldmVudWVfYmFzaXNfc291cmNlGAcgASgJEhgKEGVwc19iYXNpc19zb3VyY2UYCCABKAkSFgoObmV0X21hcmdpbl9wY3QYCSABKAESGgoSaGFzX25ldF9tYXJnaW5fcGN0GAogASgIEg8KB3JvZV9wY3QYCyABKAESEwoLaGFzX3JvZV9wY3QYDCABKAgSFgoOZmNmX21hcmdpbl9wY3QYDSABKAESGgoSaGFzX2ZjZl9tYXJnaW5fcGN0GA4gASgIEhoKEm5ldF9kZWJ0X3RvX2ViaXRkYRgPIAEoARIeChZoYXNfbmV0X2RlYnRfdG9fZWJpdGRhGBAgASgIEhAKCHBlX3JhdGlvGBEgASgBEhQKDGhhc19wZV9yYXRpbxgSIAEoCBIUCgxpc19maW5hbmNpYWwYEyABKAgSGwoTbmV0X2luY29tZV9wb3NpdGl2ZRgUIAEoCBIWCg5ub3RfbWVhbmluZ2Z1bBgVIAMoCSKMAQoXR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QSEwoLc3RyYXRlZ3lfaWQYASABKAkSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFEg4KBnN0YXR1cxgEIAEoCRIPCgdzb3J0X2J5GAUgASgJEhwKFHJlcXVpcmVfZnVuZGFtZW50YWxzGAYgASgIIqYCChhHZXRTdHJhdGVneVBpY2tzUmVzcG9uc2USKwoIc3RyYXRlZ3kYASABKAsyGS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3kSLQoGcmVnaW1lGAIgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZRIsCgVwaWNrcxgDIAMoCzIdLnNob3J0cy52MWFscGhhMS5TdHJhdGVneVBpY2sSEwoLdG90YWxfY291bnQYBCABKAUSFgoOdW5pdmVyc2VfY291bnQYBSABKAUSIwobZnVuZGFtZW50YWxzX2NvdmVyYWdlX2NvdW50GAYgASgFEg0KBWFzX29mGAcgASgJEh8KF2Z1bmRhbWVudGFsc19yb3dzX2NvdW50GAggASgFIjAKGkdldFN0b2NrU3RyYXRlZ3lGaXRSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkipwEKC1N0cmF0ZWd5Rml0EhMKC3N0cmF0ZWd5X2lkGAEgASgJEhUKDXN0cmF0ZWd5X25hbWUYAiABKAkSDgoGc3RhdHVzGAMgASgJEg0KBXNjb3JlGAQgASgBEgwKBHJhbmsYBSABKAUSEwoLdG90YWxfY291bnQYBiABKAUSKgoFcnVsZXMYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuUnVsZVJlc3VsdCKwAQobR2V0U3RvY2tTdHJhdGVneUZpdFJlc3BvbnNlEhIKCnN0b2NrX2NvZGUYASABKAkSDQoFYXNfb2YYAiABKAkSLQoGcmVnaW1lGAMgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZRIqCgRmaXRzGAQgAygLMhwuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5Rml0EhMKC2luX3VuaXZlcnNlGAUgASgIIhcKFUxpc3RTdHJhdGVnaWVzUmVxdWVzdCJ2ChZMaXN0U3RyYXRlZ2llc1Jlc3BvbnNlEi0KCnN0cmF0ZWdpZXMYASADKAsyGS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3kSLQoGcmVnaW1lGAIgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZTLhAgoPU3RyYXRlZ3lTZXJ2aWNlEmcKDkxpc3RTdHJhdGVnaWVzEiYuc2hvcnRzLnYxYWxwaGExLkxpc3RTdHJhdGVnaWVzUmVxdWVzdBonLnNob3J0cy52MWFscGhhMS5MaXN0U3RyYXRlZ2llc1Jlc3BvbnNlIgSAtRgBEm0KEEdldFN0cmF0ZWd5UGlja3MSKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1Jlc3BvbnNlIgSAtRgBEnYKE0dldFN0b2NrU3RyYXRlZ3lGaXQSKy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlcXVlc3QaLC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlc3BvbnNlIgSAtRgBQt4BChNjb20uc2hvcnRzLnYxYWxwaGExQg9TdHJhdGVnaWVzUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_options_v1_options]);
 
 /**
  * A named stock-picking strategy and how we evaluate it.
@@ -464,6 +464,15 @@ export type StrategyPick = Message<"shorts.v1alpha1.StrategyPick"> & {
    * @generated from field: bool has_close = 26;
    */
   hasClose: boolean;
+
+  /**
+   * Reported fundamentals behind the growth cells, with their basis and
+   * provenance, plus headline ratios. Absent when the stock has no
+   * fundamentals row at all.
+   *
+   * @generated from field: shorts.v1alpha1.PickFundamentals fundamentals = 27;
+   */
+  fundamentals?: PickFundamentals;
 };
 
 /**
@@ -472,6 +481,153 @@ export type StrategyPick = Message<"shorts.v1alpha1.StrategyPick"> & {
  */
 export const StrategyPickSchema: GenMessage<StrategyPick> = /*@__PURE__*/
   messageDesc(file_shorts_v1alpha1_strategies, 5);
+
+/**
+ * Fundamentals for one pick. Every ratio is computed within one reporting
+ * currency from one flow period and an aligned balance sheet; has_* is false
+ * when an input is missing or the ratio is not meaningful for the company.
+ *
+ * @generated from message shorts.v1alpha1.PickFundamentals
+ */
+export type PickFundamentals = Message<"shorts.v1alpha1.PickFundamentals"> & {
+  /**
+   * "annual" | "half" | "ttm"; empty when no revenue growth.
+   *
+   * @generated from field: string revenue_basis_period_type = 1;
+   */
+  revenueBasisPeriodType: string;
+
+  /**
+   * YYYY-MM-DD, end of the latest period in the revenue pair.
+   *
+   * @generated from field: string revenue_period_end = 2;
+   */
+  revenuePeriodEnd: string;
+
+  /**
+   * "annual" | "half" | "ttm"; empty when no EPS growth.
+   *
+   * @generated from field: string eps_basis_period_type = 3;
+   */
+  epsBasisPeriodType: string;
+
+  /**
+   * YYYY-MM-DD, end of the latest period in the EPS pair.
+   *
+   * @generated from field: string eps_period_end = 4;
+   */
+  epsPeriodEnd: string;
+
+  /**
+   * Reporting currency (ISO 4217).
+   *
+   * @generated from field: string currency = 5;
+   */
+  currency: string;
+
+  /**
+   * RFC 3339, newest fetch of the inputs.
+   *
+   * @generated from field: string fetched_at = 6;
+   */
+  fetchedAt: string;
+
+  /**
+   * "vendor" | "filing" (a company filing, extracted); empty when unknown.
+   *
+   * @generated from field: string revenue_basis_source = 7;
+   */
+  revenueBasisSource: string;
+
+  /**
+   * "vendor" | "filing"; empty when unknown.
+   *
+   * @generated from field: string eps_basis_source = 8;
+   */
+  epsBasisSource: string;
+
+  /**
+   * @generated from field: double net_margin_pct = 9;
+   */
+  netMarginPct: number;
+
+  /**
+   * @generated from field: bool has_net_margin_pct = 10;
+   */
+  hasNetMarginPct: boolean;
+
+  /**
+   * @generated from field: double roe_pct = 11;
+   */
+  roePct: number;
+
+  /**
+   * @generated from field: bool has_roe_pct = 12;
+   */
+  hasRoePct: boolean;
+
+  /**
+   * @generated from field: double fcf_margin_pct = 13;
+   */
+  fcfMarginPct: number;
+
+  /**
+   * @generated from field: bool has_fcf_margin_pct = 14;
+   */
+  hasFcfMarginPct: boolean;
+
+  /**
+   * Net debt excluding leases over EBITDA (normalized when published).
+   *
+   * @generated from field: double net_debt_to_ebitda = 15;
+   */
+  netDebtToEbitda: number;
+
+  /**
+   * @generated from field: bool has_net_debt_to_ebitda = 16;
+   */
+  hasNetDebtToEbitda: boolean;
+
+  /**
+   * Latest close over 12-month EPS; AUD reporters only.
+   *
+   * @generated from field: double pe_ratio = 17;
+   */
+  peRatio: number;
+
+  /**
+   * @generated from field: bool has_pe_ratio = 18;
+   */
+  hasPeRatio: boolean;
+
+  /**
+   * Bank, insurer or other financial: some ratios are not meaningful.
+   *
+   * @generated from field: bool is_financial = 19;
+   */
+  isFinancial: boolean;
+
+  /**
+   * Latest annual net income above zero.
+   *
+   * @generated from field: bool net_income_positive = 20;
+   */
+  netIncomePositive: boolean;
+
+  /**
+   * Ratio names withheld because is_financial.
+   *
+   * @generated from field: repeated string not_meaningful = 21;
+   */
+  notMeaningful: string[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.PickFundamentals.
+ * Use `create(PickFundamentalsSchema)` to create a new message.
+ */
+export const PickFundamentalsSchema: GenMessage<PickFundamentals> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 6);
 
 /**
  * Request for GetStrategyPicks.
@@ -504,6 +660,23 @@ export type GetStrategyPicksRequest = Message<"shorts.v1alpha1.GetStrategyPicksR
    * @generated from field: string status = 4;
    */
   status: string;
+
+  /**
+   * Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+   * "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+   * sort last; growth above +500% or below -95% sorts after every measured value.
+   * rank keeps the strategy's own ranking whatever the order.
+   *
+   * @generated from field: string sort_by = 5;
+   */
+  sortBy: string;
+
+  /**
+   * Only stocks with a fundamentals row.
+   *
+   * @generated from field: bool require_fundamentals = 6;
+   */
+  requireFundamentals: boolean;
 };
 
 /**
@@ -511,7 +684,7 @@ export type GetStrategyPicksRequest = Message<"shorts.v1alpha1.GetStrategyPicksR
  * Use `create(GetStrategyPicksRequestSchema)` to create a new message.
  */
 export const GetStrategyPicksRequestSchema: GenMessage<GetStrategyPicksRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 6);
+  messageDesc(file_shorts_v1alpha1_strategies, 7);
 
 /**
  * Response for GetStrategyPicks.
@@ -561,6 +734,13 @@ export type GetStrategyPicksResponse = Message<"shorts.v1alpha1.GetStrategyPicks
    * @generated from field: string as_of = 7;
    */
   asOf: string;
+
+  /**
+   * Evaluated stocks with any reported fundamentals row.
+   *
+   * @generated from field: int32 fundamentals_rows_count = 8;
+   */
+  fundamentalsRowsCount: number;
 };
 
 /**
@@ -568,7 +748,128 @@ export type GetStrategyPicksResponse = Message<"shorts.v1alpha1.GetStrategyPicks
  * Use `create(GetStrategyPicksResponseSchema)` to create a new message.
  */
 export const GetStrategyPicksResponseSchema: GenMessage<GetStrategyPicksResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 7);
+  messageDesc(file_shorts_v1alpha1_strategies, 8);
+
+/**
+ * Request for GetStockStrategyFit.
+ *
+ * @generated from message shorts.v1alpha1.GetStockStrategyFitRequest
+ */
+export type GetStockStrategyFitRequest = Message<"shorts.v1alpha1.GetStockStrategyFitRequest"> & {
+  /**
+   * ASX code, e.g. "BHP".
+   *
+   * @generated from field: string stock_code = 1;
+   */
+  stockCode: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetStockStrategyFitRequest.
+ * Use `create(GetStockStrategyFitRequestSchema)` to create a new message.
+ */
+export const GetStockStrategyFitRequestSchema: GenMessage<GetStockStrategyFitRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 9);
+
+/**
+ * One strategy's reading of one stock.
+ *
+ * @generated from message shorts.v1alpha1.StrategyFit
+ */
+export type StrategyFit = Message<"shorts.v1alpha1.StrategyFit"> & {
+  /**
+   * @generated from field: string strategy_id = 1;
+   */
+  strategyId: string;
+
+  /**
+   * @generated from field: string strategy_name = 2;
+   */
+  strategyName: string;
+
+  /**
+   * "triggered" | "setup" | "watch" | "none" (not a candidate).
+   *
+   * @generated from field: string status = 3;
+   */
+  status: string;
+
+  /**
+   * 0-100; 0 when status is "none".
+   *
+   * @generated from field: double score = 4;
+   */
+  score: number;
+
+  /**
+   * 1-based rank among the strategy's picks; 0 when status is "none".
+   *
+   * @generated from field: int32 rank = 5;
+   */
+  rank: number;
+
+  /**
+   * Picks the strategy has in total.
+   *
+   * @generated from field: int32 total_count = 6;
+   */
+  totalCount: number;
+
+  /**
+   * @generated from field: repeated shorts.v1alpha1.RuleResult rules = 7;
+   */
+  rules: RuleResult[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.StrategyFit.
+ * Use `create(StrategyFitSchema)` to create a new message.
+ */
+export const StrategyFitSchema: GenMessage<StrategyFit> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 10);
+
+/**
+ * Response for GetStockStrategyFit.
+ *
+ * @generated from message shorts.v1alpha1.GetStockStrategyFitResponse
+ */
+export type GetStockStrategyFitResponse = Message<"shorts.v1alpha1.GetStockStrategyFitResponse"> & {
+  /**
+   * @generated from field: string stock_code = 1;
+   */
+  stockCode: string;
+
+  /**
+   * YYYY-MM-DD of the latest price in the universe.
+   *
+   * @generated from field: string as_of = 2;
+   */
+  asOf: string;
+
+  /**
+   * @generated from field: shorts.v1alpha1.MarketRegime regime = 3;
+   */
+  regime?: MarketRegime;
+
+  /**
+   * One per strategy; empty when the stock is outside the universe.
+   *
+   * @generated from field: repeated shorts.v1alpha1.StrategyFit fits = 4;
+   */
+  fits: StrategyFit[];
+
+  /**
+   * @generated from field: bool in_universe = 5;
+   */
+  inUniverse: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetStockStrategyFitResponse.
+ * Use `create(GetStockStrategyFitResponseSchema)` to create a new message.
+ */
+export const GetStockStrategyFitResponseSchema: GenMessage<GetStockStrategyFitResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 11);
 
 /**
  * Request for ListStrategies.
@@ -583,7 +884,7 @@ export type ListStrategiesRequest = Message<"shorts.v1alpha1.ListStrategiesReque
  * Use `create(ListStrategiesRequestSchema)` to create a new message.
  */
 export const ListStrategiesRequestSchema: GenMessage<ListStrategiesRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 8);
+  messageDesc(file_shorts_v1alpha1_strategies, 12);
 
 /**
  * Response for ListStrategies.
@@ -609,7 +910,7 @@ export type ListStrategiesResponse = Message<"shorts.v1alpha1.ListStrategiesResp
  * Use `create(ListStrategiesResponseSchema)` to create a new message.
  */
 export const ListStrategiesResponseSchema: GenMessage<ListStrategiesResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 9);
+  messageDesc(file_shorts_v1alpha1_strategies, 13);
 
 /**
  * Named, rule-based stock-picking strategies evaluated daily against ASX
@@ -643,6 +944,18 @@ export const StrategyService: GenService<{
     methodKind: "unary";
     input: typeof GetStrategyPicksRequestSchema;
     output: typeof GetStrategyPicksResponseSchema;
+  },
+  /**
+   * How one stock reads against every strategy: status, score, rank and the
+   * per-rule pass / fail / unknown breakdown. A stock that is not a candidate
+   * for a strategy still gets its rule results, with status "none".
+   *
+   * @generated from rpc shorts.v1alpha1.StrategyService.GetStockStrategyFit
+   */
+  getStockStrategyFit: {
+    methodKind: "unary";
+    input: typeof GetStockStrategyFitRequestSchema;
+    output: typeof GetStockStrategyFitResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_shorts_v1alpha1_strategies, 0);

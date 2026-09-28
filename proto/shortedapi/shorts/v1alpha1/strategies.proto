@@ -24,6 +24,13 @@ service StrategyService {
   rpc GetStrategyPicks (GetStrategyPicksRequest) returns (GetStrategyPicksResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
   }
+
+  // How one stock reads against every strategy: status, score, rank and the
+  // per-rule pass / fail / unknown breakdown. A stock that is not a candidate
+  // for a strategy still gets its rule results, with status "none".
+  rpc GetStockStrategyFit (GetStockStrategyFitRequest) returns (GetStockStrategyFitResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
 }
 
 // ==================== Strategy Messages ====================
@@ -122,6 +129,38 @@ message StrategyPick {
   bool has_market_cap = 25;
   // True when close is set (the stock has a valid last price).
   bool has_close = 26;
+
+  // Reported fundamentals behind the growth cells, with their basis and
+  // provenance, plus headline ratios. Absent when the stock has no
+  // fundamentals row at all.
+  PickFundamentals fundamentals = 27;
+}
+
+// Fundamentals for one pick. Every ratio is computed within one reporting
+// currency from one flow period and an aligned balance sheet; has_* is false
+// when an input is missing or the ratio is not meaningful for the company.
+message PickFundamentals {
+  string revenue_basis_period_type = 1;  // "annual" | "half" | "ttm"; empty when no revenue growth.
+  string revenue_period_end = 2;         // YYYY-MM-DD, end of the latest period in the revenue pair.
+  string eps_basis_period_type = 3;      // "annual" | "half" | "ttm"; empty when no EPS growth.
+  string eps_period_end = 4;             // YYYY-MM-DD, end of the latest period in the EPS pair.
+  string currency = 5;                   // Reporting currency (ISO 4217).
+  string fetched_at = 6;                 // RFC 3339, newest fetch of the inputs.
+  string revenue_basis_source = 7;       // "vendor" | "filing" (a company filing, extracted); empty when unknown.
+  string eps_basis_source = 8;           // "vendor" | "filing"; empty when unknown.
+  double net_margin_pct = 9;
+  bool has_net_margin_pct = 10;
+  double roe_pct = 11;
+  bool has_roe_pct = 12;
+  double fcf_margin_pct = 13;
+  bool has_fcf_margin_pct = 14;
+  double net_debt_to_ebitda = 15;        // Net debt excluding leases over EBITDA (normalized when published).
+  bool has_net_debt_to_ebitda = 16;
+  double pe_ratio = 17;                  // Latest close over 12-month EPS; AUD reporters only.
+  bool has_pe_ratio = 18;
+  bool is_financial = 19;                // Bank, insurer or other financial: some ratios are not meaningful.
+  bool net_income_positive = 20;         // Latest annual net income above zero.
+  repeated string not_meaningful = 21;   // Ratio names withheld because is_financial.
 }
 
 // Request for GetStrategyPicks.
@@ -130,6 +169,12 @@ message GetStrategyPicksRequest {
   int32 limit = 2;          // Default 20, max 100.
   int32 offset = 3;
   string status = 4;        // Optional filter: "triggered" | "setup" | "watch".
+  // Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+  // "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+  // sort last; growth above +500% or below -95% sorts after every measured value.
+  // rank keeps the strategy's own ranking whatever the order.
+  string sort_by = 5;
+  bool require_fundamentals = 6;   // Only stocks with a fundamentals row.
 }
 
 // Response for GetStrategyPicks.
@@ -141,6 +186,32 @@ message GetStrategyPicksResponse {
   int32 universe_count = 5;                // Stocks evaluated.
   int32 fundamentals_coverage_count = 6;   // Evaluated stocks with growth data.
   string as_of = 7;                        // YYYY-MM-DD of the latest price in the universe.
+  int32 fundamentals_rows_count = 8;       // Evaluated stocks with any reported fundamentals row.
+}
+
+// Request for GetStockStrategyFit.
+message GetStockStrategyFitRequest {
+  string stock_code = 1;   // ASX code, e.g. "BHP".
+}
+
+// One strategy's reading of one stock.
+message StrategyFit {
+  string strategy_id = 1;
+  string strategy_name = 2;
+  string status = 3;        // "triggered" | "setup" | "watch" | "none" (not a candidate).
+  double score = 4;         // 0-100; 0 when status is "none".
+  int32 rank = 5;           // 1-based rank among the strategy's picks; 0 when status is "none".
+  int32 total_count = 6;    // Picks the strategy has in total.
+  repeated RuleResult rules = 7;
+}
+
+// Response for GetStockStrategyFit.
+message GetStockStrategyFitResponse {
+  string stock_code = 1;
+  string as_of = 2;                 // YYYY-MM-DD of the latest price in the universe.
+  MarketRegime regime = 3;
+  repeated StrategyFit fits = 4;    // One per strategy; empty when the stock is outside the universe.
+  bool in_universe = 5;
 }
 
 // Request for ListStrategies.

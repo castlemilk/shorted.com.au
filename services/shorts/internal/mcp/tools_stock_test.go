@@ -13,6 +13,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -674,7 +675,7 @@ func TestGetStockFundamentalsSaysSoWhenNothingIsHeld(t *testing.T) {
 		t.Errorf("empty result malformed: %+v", out)
 	}
 	text := textOf(t, res)
-	for _, want := range []string{"No reported fundamentals", "XYZ", "half-yearly"} {
+	for _, want := range []string{"No reported fundamentals", "XYZ", "balance-sheet snapshots"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("summary missing %q: %q", want, text)
 		}
@@ -701,12 +702,327 @@ func TestGetStockFundamentalsReportsAnUnknownTickerDistinctly(t *testing.T) {
 }
 
 // The description is the only warning a model gets before it quotes a USD
-// revenue as AUD or reads a missing quarter as a bad one.
+// revenue as AUD, reads a balance snapshot as a missing quarter, or treats a
+// withheld bank ratio as a zero.
 func TestGetStockFundamentalsDescriptionCarriesItsCaveats(t *testing.T) {
 	for _, want := range []string{"REPORTING currency", "USD", "same series", "absent, never zero",
-		"half-yearly", "quarterly", "market data provider", "not estimates or financial advice"} {
+		"quarter rows are balance snapshots", "not meaningful for banks and insurers", "non-AUD", "CDIs",
+		"market data provider", "parsed ASX filings", "not estimates or financial advice"} {
 		if !strings.Contains(getStockFundamentalsDescription, want) {
 			t.Errorf("description missing %q", want)
+		}
+	}
+	// Plan fundamentals-coverage.md §8, verbatim.
+	if !strings.Contains(strings.ToLower(getStockFundamentalsDescription), "valuation ratios use the latest close; no short data") {
+		t.Errorf("description must say valuation ratios use the latest close and that there is no short data")
+	}
+}
+
+// The four statement lines the quality ratios cannot be checked without are
+// published per period under the same rule as every other figure: the has_*
+// flag decides, so a reported zero survives and an unreported line is absent.
+// field_sources passes through, and an empty map is absent rather than {}.
+func TestGetStockFundamentalsPublishesTheNewLinesAndTheirProvenance(t *testing.T) {
+	fixture := fundamentalsFixture()
+	p := fixture.Periods[0]
+	p.OperatingIncome, p.HasOperatingIncome = 21_000_000_000, true
+	p.CapitalExpenditure, p.HasCapitalExpenditure = 0, true // a reported zero
+	p.TotalEquity, p.HasTotalEquity = 48_000_000_000, false
+	p.NetDebt, p.HasNetDebt = -3_000_000_000, true
+	p.FieldSources = map[string]string{
+		"operating_cash_flow": "derived:fcf-minus-capex",
+		"net_income":          "asx-filing-extraction",
+		"":                    "ignored",
+	}
+	fixture.Periods[1].FieldSources = map[string]string{}
+	src := &fakeDataSource{fundamentals: fixture}
+
+	_, out, err := getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	latest := out.Periods[0]
+	if latest.OperatingIncome == nil || *latest.OperatingIncome != 21_000_000_000 {
+		t.Errorf("operating_income: %v", latest.OperatingIncome)
+	}
+	if latest.CapitalExpenditure == nil || *latest.CapitalExpenditure != 0 {
+		t.Errorf("a reported zero capex must be emitted as 0, got %v", latest.CapitalExpenditure)
+	}
+	if latest.TotalEquity != nil {
+		t.Errorf("total_equity emitted without its has_* flag: %v", *latest.TotalEquity)
+	}
+	if latest.NetDebt == nil || *latest.NetDebt != -3_000_000_000 {
+		t.Errorf("net_debt (negative is net cash): %v", latest.NetDebt)
+	}
+	want := map[string]string{"operating_cash_flow": "derived:fcf-minus-capex", "net_income": "asx-filing-extraction"}
+	if len(latest.FieldSources) != len(want) {
+		t.Fatalf("field_sources = %v, want %v", latest.FieldSources, want)
+	}
+	for k, v := range want {
+		if latest.FieldSources[k] != v {
+			t.Errorf("field_sources[%s] = %q, want %q", k, latest.FieldSources[k], v)
+		}
+	}
+	raw, _ := json.Marshal(out.Periods[1])
+	for _, key := range []string{"field_sources", "operating_income", "capital_expenditure", "total_equity", "net_debt"} {
+		if strings.Contains(string(raw), `"`+key+`"`) {
+			t.Errorf("%s emitted on a period that does not carry it: %s", key, raw)
+		}
+	}
+}
+
+func qualityFixture() *shortsv1alpha1.FundamentalsQuality {
+	return &shortsv1alpha1.FundamentalsQuality{
+		BasisPeriodType: "ttm", BasisPeriodEnd: "2026-06-30", Currency: "USD",
+		BalancePeriodEnd: "2026-06-30", BalanceCurrency: "USD", BalanceLagMonths: 0,
+		GrossMarginPct: 48.1234, HasGrossMarginPct: true,
+		OperatingMarginPct: 31.2345, HasOperatingMarginPct: true,
+		NetMarginPct: 16.789, HasNetMarginPct: true,
+		FcfMarginPct: 0, HasFcfMarginPct: true, // a measured zero
+		FcfConversion: 0.8123, HasFcfConversion: true,
+		RoePct: 23.4567, HasRoePct: true,
+		RoaPct: 9.87, HasRoaPct: false, // a value without its flag
+		NetDebt: -4_903_000_000, HasNetDebt: true,
+		NetDebtToEbitda: 0.4123, HasNetDebtToEbitda: true,
+		NetDebtToEquity: 0.2123, HasNetDebtToEquity: true,
+		CurrentRatio: 1.7123, HasCurrentRatio: true,
+		InterestCover: 23.456, HasInterestCover: true,
+		PayoutRatioPct: 61.2345, HasPayoutRatioPct: true,
+		MarketCap: 331_234_567_890, HasMarketCap: true,
+		PeRatio: 14.2345, HasPeRatio: true,
+		PriceToBook: 3.1234, HasPriceToBook: true,
+		PriceAsOf: "2026-09-25", Source: "yahoo-timeseries",
+		SharesAsOf: "2026-06-30", PeEpsPeriodEnd: "2026-06-30", PeEpsBasis: "diluted",
+	}
+}
+
+// The quality block is the API's, not a recomputation: every ratio is gated by
+// its has_* flag (a measured zero survives, a value without its flag does
+// not), rounded like every other ratio in this package, and the provenance
+// fields the tool does not publish stay out.
+func TestGetStockFundamentalsProjectsQualityByItsFlags(t *testing.T) {
+	fixture := fundamentalsFixture()
+	fixture.Quality, fixture.HasQuality = qualityFixture(), true
+	src := &fakeDataSource{fundamentals: fixture}
+
+	res, out, err := getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	q := out.Quality
+	if q == nil {
+		t.Fatal("quality dropped")
+	}
+	if q.BasisPeriodType != "ttm" || q.BasisPeriodEnd != "2026-06-30" || q.BalancePeriodEnd != "2026-06-30" ||
+		q.BalanceCurrency != "USD" || q.PriceAsOf != "2026-09-25" {
+		t.Errorf("quality header: %+v", q)
+	}
+	for name, got := range map[string]*float64{
+		"gross_margin_pct": q.GrossMarginPct, "operating_margin_pct": q.OperatingMarginPct,
+		"net_margin_pct": q.NetMarginPct, "fcf_conversion": q.FCFConversion, "roe_pct": q.ROEPct,
+		"net_debt_to_ebitda": q.NetDebtToEBITDA, "net_debt_to_equity": q.NetDebtToEquity,
+		"current_ratio": q.CurrentRatio, "interest_cover": q.InterestCover, "payout_ratio_pct": q.PayoutRatioPct,
+		"pe_ratio": q.PERatio, "price_to_book": q.PriceToBook,
+	} {
+		if got == nil {
+			t.Errorf("%s dropped although flagged", name)
+		}
+	}
+	if *q.ROEPct != 23.46 || *q.NetMarginPct != 16.79 || *q.PERatio != 14.23 || *q.FCFConversion != 0.81 {
+		t.Errorf("ratios not rounded to 2dp: roe=%v margin=%v pe=%v conv=%v", *q.ROEPct, *q.NetMarginPct, *q.PERatio, *q.FCFConversion)
+	}
+	if q.FCFMarginPct == nil || *q.FCFMarginPct != 0 {
+		t.Errorf("a measured 0%% FCF margin must be emitted as 0, got %v", q.FCFMarginPct)
+	}
+	if q.ROAPct != nil {
+		t.Errorf("roa_pct emitted without its has_* flag: %v", *q.ROAPct)
+	}
+	if q.NetDebt == nil || *q.NetDebt != -4_903_000_000 || q.MarketCap == nil || *q.MarketCap != 331_234_567_890 {
+		t.Errorf("amounts: net_debt=%v market_cap=%v", q.NetDebt, q.MarketCap)
+	}
+	raw := mustJSON(t, q)
+	for _, key := range []string{"shares_as_of", "pe_eps", "balance_lag_months", "operating_cash_flow_derived", `"source"`,
+		"is_financial", "is_property", "not_meaningful", "valuation_note", `"currency"`} {
+		if strings.Contains(raw, key) {
+			t.Errorf("%s emitted: %s", key, raw)
+		}
+	}
+	text := textOf(t, res)
+	for _, want := range []string{"ROE 23.5%", "net margin 16.8%", "net debt/EBITDA 0.4x", "P/E 14.2", "(ttm to 2026-06-30)"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("summary missing %q: %q", want, text)
+		}
+	}
+
+	fixture.HasQuality = false
+	_, out, err = getStockFundamentalsHandler(&fakeDataSource{fundamentals: fixture})(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.Quality != nil {
+		t.Errorf("quality emitted although has_quality is false: %+v", out.Quality)
+	}
+}
+
+// A bank: the API decided is_financial, nulled the not-meaningful ratios and
+// listed them. The tool must neither resurrect a value the API withheld nor
+// drop the list that says why it is missing.
+func TestGetStockFundamentalsCarriesWhatTheAPIWithheldForAFinancial(t *testing.T) {
+	fixture := fundamentalsFixture()
+	q := &shortsv1alpha1.FundamentalsQuality{
+		BasisPeriodType: "annual", BasisPeriodEnd: "2026-06-30", Currency: "AUD",
+		NetMarginPct: 35.1, HasNetMarginPct: true, RoePct: 13.2, HasRoePct: true,
+		// Withheld by the API: zeroed with no flag.
+		CurrentRatio: 0, InterestCover: 0,
+		IsFinancial: true, NotMeaningful: strategies.NotMeaningfulForFinancials(),
+		MarketCap: 280e9, HasMarketCap: true, PeRatio: 27.1, HasPeRatio: true, PriceAsOf: "2026-09-25",
+	}
+	fixture.Quality, fixture.HasQuality = q, true
+	_, out, err := getStockFundamentalsHandler(&fakeDataSource{fundamentals: fixture})(context.Background(), nil, GetStockFundamentalsInput{Code: "CBA"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got := out.Quality
+	if got == nil || !got.IsFinancial {
+		t.Fatalf("is_financial dropped: %+v", got)
+	}
+	want := strategies.NotMeaningfulForFinancials()
+	if len(got.NotMeaningful) != len(want) {
+		t.Fatalf("not_meaningful = %v, want %v", got.NotMeaningful, want)
+	}
+	for i := range want {
+		if got.NotMeaningful[i] != want[i] {
+			t.Errorf("not_meaningful[%d] = %q, want %q", i, got.NotMeaningful[i], want[i])
+		}
+	}
+	if got.CurrentRatio != nil || got.InterestCover != nil || got.NetDebt != nil || got.FCFConversion != nil {
+		t.Errorf("a withheld ratio reappeared: %s", mustJSON(t, got))
+	}
+	if got.ROEPct == nil || got.NetMarginPct == nil {
+		t.Errorf("ROE and net margin stay meaningful for a financial: %s", mustJSON(t, got))
+	}
+}
+
+// An FX-converted vendor series, or statements in another currency, is
+// "non-aud": the API's Valuate withholds P/E and P/B. A value that arrives
+// without its flag must stay absent (the MCP layer never recomputes it), and
+// the note says why. A listed-unit mismatch (a CDI) withholds valuation too.
+func TestGetStockFundamentalsNeverEmitsAWithheldValuation(t *testing.T) {
+	for _, tc := range []struct {
+		note, want string
+		cap        bool
+	}{
+		{strategies.ValuationNoteNonAUD, "not in AUD", true},
+		{strategies.ValuationNoteListedUnit, "not one ordinary share", false},
+	} {
+		t.Run(tc.note, func(t *testing.T) {
+			fixture := fundamentalsFixture()
+			fixture.Quality = &shortsv1alpha1.FundamentalsQuality{
+				BasisPeriodType: "annual", BasisPeriodEnd: "2026-06-30",
+				RoePct: 18.1, HasRoePct: true,
+				// Stale numbers behind false flags, as a careless source might send.
+				PeRatio: 12.3, PriceToBook: 4.5, MarketCap: 9e9, HasMarketCap: tc.cap,
+				PriceAsOf: "2026-09-25", ValuationNote: tc.note,
+			}
+			fixture.HasQuality = true
+			res, out, err := getStockFundamentalsHandler(&fakeDataSource{fundamentals: fixture})(context.Background(), nil, GetStockFundamentalsInput{Code: "XRO"})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			q := out.Quality
+			if q == nil || q.PERatio != nil || q.PriceToBook != nil {
+				t.Fatalf("a withheld P/E or P/B was emitted: %s", mustJSON(t, q))
+			}
+			if (q.MarketCap != nil) != tc.cap {
+				t.Errorf("market_cap presence = %v, want %v", q.MarketCap != nil, tc.cap)
+			}
+			if q.ValuationNote != tc.note {
+				t.Errorf("valuation_note = %q, want %q", q.ValuationNote, tc.note)
+			}
+			if text := textOf(t, res); !strings.Contains(text, tc.want) || strings.Contains(text, "P/E 12") {
+				t.Errorf("summary should say why valuation is withheld and quote no P/E: %q", text)
+			}
+		})
+	}
+}
+
+// Coverage says what the collector knows. Absent is not a status: an API
+// without it, or one that could not decide, sends nothing and so does the
+// tool. An empty result is explained in the stock page's words, and never as
+// "the company publishes no statements".
+func TestGetStockFundamentalsExplainsCoverage(t *testing.T) {
+	fixture := fundamentalsFixture()
+	fixture.Coverage = &shortsv1alpha1.FundamentalsCoverage{
+		Status: "covered", LastAttemptAt: "2026-09-26T08:00:00Z", LastSuccessAt: "2026-09-26T08:00:00Z",
+		Sources: []string{"yahoo-timeseries", " ", "asx-filing-extraction"},
+	}
+	_, out, err := getStockFundamentalsHandler(&fakeDataSource{fundamentals: fixture})(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	c := out.Coverage
+	if c == nil || c.Status != "covered" || c.LastSuccessAt != "2026-09-26T08:00:00Z" ||
+		len(c.Sources) != 2 || c.Sources[1] != "asx-filing-extraction" {
+		t.Errorf("coverage: %+v", c)
+	}
+
+	for _, cov := range []*shortsv1alpha1.FundamentalsCoverage{nil, {}, {Status: "  "}} {
+		fixture.Coverage = cov
+		_, out, err := getStockFundamentalsHandler(&fakeDataSource{fundamentals: fixture})(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if out.Coverage != nil {
+			t.Errorf("coverage %v should be absent, got %+v", cov, out.Coverage)
+		}
+	}
+
+	for _, tc := range []struct {
+		status string
+		want   []string
+	}{
+		{"empty", []string{"Our data providers hold no financial statements for XYZ", "last checked 2026-09-20", "does not mean the company reported nothing"}},
+		{"pending", []string{"Fundamentals not yet collected for XYZ."}},
+		{"failed", []string{"could not be collected on 2026-09-20", "the next run retries"}},
+		{"", []string{"No reported fundamentals are held for XYZ yet", "does not mean the company reported nothing"}},
+	} {
+		t.Run("empty result, status "+tc.status, func(t *testing.T) {
+			src := &fakeDataSource{fundamentals: &shortsv1alpha1.GetStockFundamentalsResponse{
+				StockCode: "XYZ",
+				Coverage:  &shortsv1alpha1.FundamentalsCoverage{Status: tc.status, LastAttemptAt: "2026-09-20T15:04:05Z"},
+			}}
+			res, _, err := getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "XYZ"})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			text := textOf(t, res)
+			for _, want := range tc.want {
+				if !strings.Contains(text, want) {
+					t.Errorf("summary missing %q: %q", want, text)
+				}
+			}
+			for _, never := range []string{"publishes no", "does not publish", "has no financial statements"} {
+				if strings.Contains(text, never) {
+					t.Errorf("summary implies the company publishes no statements (%q): %q", never, text)
+				}
+			}
+		})
+	}
+}
+
+// A response from an API that predates the quality block and coverage (no
+// has_quality, no coverage) is published exactly as before: no empty objects,
+// no invented status.
+func TestGetStockFundamentalsReadsAnOlderAPIAsBefore(t *testing.T) {
+	src := &fakeDataSource{fundamentals: fundamentalsFixture()}
+	_, out, err := getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	raw := mustJSON(t, out)
+	for _, key := range []string{`"quality"`, `"coverage"`, `"field_sources"`, `"status"`} {
+		if strings.Contains(raw, key) {
+			t.Errorf("%s emitted for an older API: %s", key, raw)
 		}
 	}
 }
@@ -722,5 +1038,75 @@ func TestFundamentalsPeriodTypesMatchTheStore(t *testing.T) {
 		if !shortsstore.FundamentalsPeriodTypes[pt] {
 			t.Errorf("tool accepts period type %q, which the store rejects", pt)
 		}
+	}
+}
+
+// A quarter row is a balance-sheet snapshot, so the summary's "latest" names
+// the newest period with a statement behind it, and falls back to the
+// snapshot only when nothing else came back.
+func TestGetStockFundamentalsSummaryNamesTheLatestStatementPeriod(t *testing.T) {
+	fixture := fundamentalsFixture()
+	snapshot := &shortsv1alpha1.FundamentalsPeriod{
+		PeriodType: "quarter", PeriodEnd: "2026-09-30", Currency: "USD",
+		TotalEquity: 48e9, HasTotalEquity: true,
+	}
+	fixture.Periods = append([]*shortsv1alpha1.FundamentalsPeriod{snapshot}, fixture.Periods...)
+	res, _, err := getStockFundamentalsHandler(&fakeDataSource{fundamentals: fixture})(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if text := textOf(t, res); !strings.Contains(text, "latest annual to 2026-06-30") {
+		t.Errorf("summary should lead with the newest statement period: %q", text)
+	}
+
+	only := &shortsv1alpha1.GetStockFundamentalsResponse{StockCode: "BHP", Periods: []*shortsv1alpha1.FundamentalsPeriod{snapshot}}
+	res, _, err = getStockFundamentalsHandler(&fakeDataSource{fundamentals: only})(context.Background(), nil,
+		GetStockFundamentalsInput{Code: "BHP", PeriodType: "quarter"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if text := textOf(t, res); !strings.Contains(text, "latest balance snapshot at 2026-09-30") {
+		t.Errorf("a snapshot-only result should say so: %q", text)
+	}
+}
+
+// With no period type the quarter balance snapshots are left out, so they
+// never crowd the statement periods out of a small limit: the tool reads the
+// handler's full window and keeps the first `limit` statement periods.
+func TestGetStockFundamentalsDefaultLeavesOutBalanceSnapshots(t *testing.T) {
+	var periods []*shortsv1alpha1.FundamentalsPeriod
+	for i := 0; i < 6; i++ {
+		periods = append(periods,
+			&shortsv1alpha1.FundamentalsPeriod{PeriodType: "quarter", PeriodEnd: fmt.Sprintf("2026-%02d-30", 9-i), Currency: "AUD"},
+			&shortsv1alpha1.FundamentalsPeriod{PeriodType: "ttm", PeriodEnd: fmt.Sprintf("202%d-06-30", 6-i), Currency: "AUD", Revenue: 1e9, HasRevenue: true},
+		)
+	}
+	src := &fakeDataSource{fundamentals: &shortsv1alpha1.GetStockFundamentalsResponse{StockCode: "BHP", Periods: periods}}
+	_, out, err := getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP", Limit: 3})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if src.gotFundamentals.GetLimit() != fundamentalsHandlerCeiling {
+		t.Errorf("read limit = %d, want the handler ceiling %d", src.gotFundamentals.GetLimit(), fundamentalsHandlerCeiling)
+	}
+	if len(out.Periods) != 3 {
+		t.Fatalf("got %d periods, want 3", len(out.Periods))
+	}
+	for _, p := range out.Periods {
+		if p.PeriodType == "quarter" {
+			t.Errorf("a balance snapshot came back without being asked for: %+v", p)
+		}
+	}
+
+	// Asked for, they come back, and the read limit is the caller's.
+	_, out, err = getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP", PeriodType: "quarter", Limit: 2})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if src.gotFundamentals.GetLimit() != 2 || src.gotFundamentals.GetPeriodType() != "quarter" {
+		t.Errorf("request = %+v", src.gotFundamentals)
+	}
+	if len(out.Periods) == 0 || out.Periods[0].PeriodType != "quarter" {
+		t.Errorf("quarter rows asked for: %+v", out.Periods)
 	}
 }

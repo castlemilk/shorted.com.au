@@ -90,4 +90,65 @@ public interface GetStockFundamentalsResponseOrBuilder extends
    * @return The hasGrowth.
    */
   boolean getHasGrowth();
+
+  /**
+   * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+   * @return Whether the quality field is set.
+   */
+  boolean hasQuality();
+  /**
+   * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+   * @return The quality.
+   */
+  com.shorts.v1alpha1.FundamentalsQuality getQuality();
+  /**
+   * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+   */
+  com.shorts.v1alpha1.FundamentalsQualityOrBuilder getQualityOrBuilder();
+
+  /**
+   * <pre>
+   * False when no ratio row exists yet.
+   * </pre>
+   *
+   * <code>bool has_quality = 6 [json_name = "hasQuality"];</code>
+   * @return The hasQuality.
+   */
+  boolean getHasQuality();
+
+  /**
+   * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+   * @return Whether the coverage field is set.
+   */
+  boolean hasCoverage();
+  /**
+   * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+   * @return The coverage.
+   */
+  com.shorts.v1alpha1.FundamentalsCoverage getCoverage();
+  /**
+   * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+   */
+  com.shorts.v1alpha1.FundamentalsCoverageOrBuilder getCoverageOrBuilder();
+
+  /**
+   * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+   * @return Whether the latestFiling field is set.
+   */
+  boolean hasLatestFiling();
+  /**
+   * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+   * @return The latestFiling.
+   */
+  com.shorts.v1alpha1.LatestFilingSummary getLatestFiling();
+  /**
+   * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+   */
+  com.shorts.v1alpha1.LatestFilingSummaryOrBuilder getLatestFilingOrBuilder();
+
+  /**
+   * <code>bool has_latest_filing = 9 [json_name = "hasLatestFiling"];</code>
+   * @return The hasLatestFiling.
+   */
+  boolean getHasLatestFiling();
 }

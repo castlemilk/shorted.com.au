@@ -915,7 +915,7 @@ service ShortedStocksService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Stock Fundamentals",
-      description: "Per-period reported fundamentals (revenue, net income, EPS, operating and free cash flow, shares) and year-on-year growth for a stock. Growth compares a series with itself one year earlier. Every value carries a has_* flag: a missing figure is absent, never zero."
+      description: "Per-period reported fundamentals (income statement, balance sheet and cash flow in the company's reporting currency, with per-field provenance), year-on-year growth, profitability, leverage and valuation ratios, collection status and the latest results filing for a stock. Growth compares a series with itself one year earlier. Every value carries a has_* flag: a missing figure is absent, never zero."
     };
   }
 
@@ -924,7 +924,7 @@ service ShortedStocksService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
     option (gnostic.openapi.v3.operation) = {
       summary: "List Strategies",
-      description: "Named stock-picking strategies (Zanger breakout, CAN SLIM, Minervini trend template, crowded-short breakout) with each rule in the author's terms, exactly how it is evaluated, caveats and sources, plus the current S&P/ASX 200 market regime."
+      description: "Named stock-picking strategies (Zanger breakout, CAN SLIM, Minervini trend template, crowded-short breakout, quality compounders) with each rule in the author's terms, exactly how it is evaluated, caveats and sources, plus the current S&P/ASX 200 market regime."
     };
   }
 
@@ -933,7 +933,16 @@ service ShortedStocksService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Strategy Picks",
-      description: "Ranked ASX stocks for one strategy: status (triggered, setup, watch), a 0-100 score, and a pass / fail / unknown result for every rule. Unknown means the data is missing and never counts as a pass. Not financial advice."
+      description: "Ranked ASX stocks for one strategy: status (triggered, setup, watch), a 0-100 score, a pass / fail / unknown result for every rule, and the reported fundamentals behind each pick. Unknown means the data is missing or not meaningful for the company and never counts as a pass. Optional sort_by orders by a fundamentals metric. Not financial advice."
+    };
+  }
+
+  // How one stock reads against every strategy.
+  rpc GetStockStrategyFit (GetStockStrategyFitRequest) returns (GetStockStrategyFitResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Stock Strategy Fit",
+      description: "How one ASX stock reads against every stock-picking strategy: status (triggered, setup, watch, or none when it is not a candidate), score, rank and a pass / fail / unknown result for every rule. Not financial advice."
     };
   }
 

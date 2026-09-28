@@ -6,15 +6,18 @@ import {
 
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-// The strategy ids shipped at launch, in display order. They are BINDING
-// across the data, API, MCP and web streams (docs/plans/stock-picker.md §1):
-// the slug is the URL AND the StrategyService strategy_id, so a typo here is
-// a page whose every read 404s at the API.
+// The strategy ids, in display order: the four shipped at launch
+// (docs/plans/stock-picker.md §1) plus quality-compounders
+// (docs/plans/fundamentals-coverage.md §5.4), in the API's Registry() order.
+// They are BINDING across the data, API, MCP and web streams: the slug is the
+// URL AND the StrategyService strategy_id, so a typo here is a page whose
+// every read 404s at the API.
 const PLAN_IDS = [
   "zanger-breakout",
   "canslim",
   "minervini-trend-template",
   "crowded-short-breakout",
+  "quality-compounders",
 ];
 
 // Meta descriptions: long enough to say something query-specific, short
@@ -29,6 +32,22 @@ const strategies = Object.values(STRATEGIES);
 describe("strategy SEO registry", () => {
   it("carries exactly the plan's strategy ids, Zanger first", () => {
     expect(STRATEGY_SLUGS).toEqual(PLAN_IDS);
+  });
+
+  // The API's registry.go names it "Quality compounders" (sentence case: it is
+  // our strategy, not an author's), and the switcher, the hub card fallback
+  // and the H1 must say exactly what the API says.
+  it("names quality-compounders exactly as the API does", () => {
+    const quality = getStrategy("quality-compounders")!;
+    expect(quality.label).toBe("Quality compounders");
+    expect(quality.h1).toBe("Quality compounders");
+  });
+
+  it("cross-links every strategy from at least one other", () => {
+    for (const slug of STRATEGY_SLUGS) {
+      const linkedFrom = strategies.filter((s) => s.related.includes(slug));
+      expect(linkedFrom.length).toBeGreaterThan(0);
+    }
   });
 
   it("keys the record by each strategy's own slug", () => {

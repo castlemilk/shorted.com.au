@@ -240,6 +240,21 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int FUNDAMENTALS_ROWS_COUNT_FIELD_NUMBER = 8;
+  private int fundamentalsRowsCount_ = 0;
+  /**
+   * <pre>
+   * Evaluated stocks with any reported fundamentals row.
+   * </pre>
+   *
+   * <code>int32 fundamentals_rows_count = 8 [json_name = "fundamentalsRowsCount"];</code>
+   * @return The fundamentalsRowsCount.
+   */
+  @java.lang.Override
+  public int getFundamentalsRowsCount() {
+    return fundamentalsRowsCount_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -274,6 +289,9 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 7, asOf_);
+    }
+    if (fundamentalsRowsCount_ != 0) {
+      output.writeInt32(8, fundamentalsRowsCount_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -310,6 +328,10 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(asOf_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(7, asOf_);
+    }
+    if (fundamentalsRowsCount_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(8, fundamentalsRowsCount_);
     }
     return size;
   }
@@ -355,6 +377,8 @@ private static final long serialVersionUID = 0L;
         != other.getFundamentalsCoverageCount()) return false;
     if (!getAsOf()
         .equals(other.getAsOf())) return false;
+    if (getFundamentalsRowsCount()
+        != other.getFundamentalsRowsCount()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -386,6 +410,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getFundamentalsCoverageCount();
     hash = (37 * hash) + AS_OF_FIELD_NUMBER;
     hash = (53 * hash) + getAsOf().hashCode();
+    hash = (37 * hash) + FUNDAMENTALS_ROWS_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + getFundamentalsRowsCount();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -550,6 +576,7 @@ private static final long serialVersionUID = 0L;
       universeCount_ = 0;
       fundamentalsCoverageCount_ = 0;
       asOf_ = "";
+      fundamentalsRowsCount_ = 0;
       return this;
     }
 
@@ -621,6 +648,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.asOf_ = asOf_;
       }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.fundamentalsRowsCount_ = fundamentalsRowsCount_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -681,6 +711,9 @@ private static final long serialVersionUID = 0L;
         asOf_ = other.asOf_;
         bitField0_ |= 0x00000040;
         onChanged();
+      }
+      if (other.getFundamentalsRowsCount() != 0) {
+        setFundamentalsRowsCount(other.getFundamentalsRowsCount());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -755,6 +788,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 58
+            case 64: {
+              fundamentalsRowsCount_ = input.readInt32();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 64
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1474,6 +1512,50 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       asOf_ = value;
       bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private int fundamentalsRowsCount_ ;
+    /**
+     * <pre>
+     * Evaluated stocks with any reported fundamentals row.
+     * </pre>
+     *
+     * <code>int32 fundamentals_rows_count = 8 [json_name = "fundamentalsRowsCount"];</code>
+     * @return The fundamentalsRowsCount.
+     */
+    @java.lang.Override
+    public int getFundamentalsRowsCount() {
+      return fundamentalsRowsCount_;
+    }
+    /**
+     * <pre>
+     * Evaluated stocks with any reported fundamentals row.
+     * </pre>
+     *
+     * <code>int32 fundamentals_rows_count = 8 [json_name = "fundamentalsRowsCount"];</code>
+     * @param value The fundamentalsRowsCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFundamentalsRowsCount(int value) {
+
+      fundamentalsRowsCount_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Evaluated stocks with any reported fundamentals row.
+     * </pre>
+     *
+     * <code>int32 fundamentals_rows_count = 8 [json_name = "fundamentalsRowsCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFundamentalsRowsCount() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      fundamentalsRowsCount_ = 0;
       onChanged();
       return this;
     }

@@ -11,20 +11,31 @@ import {
   formatSigned,
 } from "~/@/lib/strategies/format";
 import { STATUS_LABELS } from "~/@/lib/strategies/shortlist";
+import { pickSortDef, type PickSortKey } from "~/@/lib/strategies/sort";
 import type {
   PickRow,
   PickStatus,
   RuleResultRow,
   RuleStatus,
 } from "~/@/lib/strategies/types";
+import {
+  GrowthCellValue,
+  PickFundamentalsDetails,
+  SortedByValue,
+  pickGrowthFigures,
+} from "./pick-fundamentals";
 
 /**
  * The ranked picks table: the server-rendered sibling of ShortInterestTable.
  *
  * Props-only and hook-free, so it renders in the ISR HTML (where crawlers read
- * it) AND inside the status-filter client island without dragging anything
- * server-only across the boundary. Every numeral is tabular and right-aligned;
- * a value the data does not have renders "n/a", never 0.
+ * it) AND inside the sort client island without dragging anything server-only
+ * across the boundary. Every numeral is tabular and right-aligned; a value the
+ * data does not have renders "n/a", never 0.
+ *
+ * StatusPill, RuleDots and RuleLegend are also the stock page's Strategy fit
+ * card's (components/stocks/strategy-fit-card.tsx): keep their props, keep
+ * them hook-free, and keep this file clear of ~/gen and @connectrpc.
  */
 
 /** The strategy's rules in order: the dots follow this order. */
@@ -143,6 +154,14 @@ const TH = "whitespace-nowrap px-3 py-2 font-medium";
 const TH_NUM = cn(TH, "text-right");
 const HINT = "cursor-help underline decoration-dotted underline-offset-4";
 
+/** Columns before any "Sorted by" column: the empty row spans them all. */
+export const BASE_COLUMN_COUNT = 13;
+
+const REVENUE_HINT =
+  "Revenue on the same span a year earlier. TTM: trailing 12 months; FY: full year; HY: half year. F marks a figure from a company filing. n/m: beyond +500% or below −95%.";
+const EPS_HINT =
+  "Earnings per share on the same span a year earlier. TTM: trailing 12 months; FY: full year; HY: half year. F marks a figure from a company filing. n/m: beyond +500% or below −95%.";
+
 export interface PicksTableProps {
   rows: PickRow[];
   rules: RuleColumn[];
@@ -150,11 +169,49 @@ export interface PicksTableProps {
   caption: string;
   /** Shown in a single row when `rows` is empty. */
   emptyMessage?: string;
+  /**
+   * The API reports which stocks hold fundamentals (fundamentalsHeld), so the
+   * Stock cell carries the fundamentals disclosure, including "No
+   * fundamentals held" for a row without any. False renders the table as an
+   * API without StrategyPick.fundamentals always did.
+   */
+  showFundamentals?: boolean;
+  /**
+   * The active sort. A metric the table has no column for adds one
+   * right-aligned "Sorted by" column; Rev YoY and EPS YoY are marked instead,
+   * and shown at every width.
+   */
+  sortKey?: PickSortKey | null;
+  /** A sort is loading: the rows are dimmed and the region is aria-busy. */
+  busy?: boolean;
 }
 
-export function PicksTable({ rows, rules, caption, emptyMessage }: PicksTableProps) {
+function ariaSort(key: PickSortKey | null | undefined, column: PickSortKey) {
+  if (key !== column) return undefined;
+  return pickSortDef(key).ascending ? "ascending" : "descending";
+}
+
+export function PicksTable({
+  rows,
+  rules,
+  caption,
+  emptyMessage,
+  showFundamentals = false,
+  sortKey = null,
+  busy = false,
+}: PicksTableProps) {
+  const sortDef = sortKey ? pickSortDef(sortKey) : null;
+  const sortColumn = sortDef && !sortDef.hasColumn ? sortDef : null;
+  const revenueCell = sortKey === "revenue_yoy" ? "" : "hidden lg:table-cell";
+  const epsCell = sortKey === "eps_yoy" ? "" : "hidden lg:table-cell";
   return (
-    <div className="overflow-x-auto rounded-lg border border-border/60">
+    <div
+      aria-busy={busy || undefined}
+      className={cn(
+        "overflow-x-auto rounded-lg border border-border/60 transition-opacity",
+        busy && "opacity-50",
+      )}
+    >
       <table className="w-full text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead>
@@ -201,11 +258,23 @@ export function PicksTable({ rows, rules, caption, emptyMessage }: PicksTablePro
                 Vol
               </span>
             </th>
-            <th scope="col" className={cn(TH_NUM, "hidden lg:table-cell")}>
-              Rev YoY
+            <th
+              scope="col"
+              aria-sort={ariaSort(sortKey, "revenue_yoy")}
+              className={cn(TH_NUM, revenueCell)}
+            >
+              <span className={HINT} title={REVENUE_HINT}>
+                Rev YoY
+              </span>
             </th>
-            <th scope="col" className={cn(TH_NUM, "hidden lg:table-cell")}>
-              EPS YoY
+            <th
+              scope="col"
+              aria-sort={ariaSort(sortKey, "eps_yoy")}
+              className={cn(TH_NUM, epsCell)}
+            >
+              <span className={HINT} title={EPS_HINT}>
+                EPS YoY
+              </span>
             </th>
             <th scope="col" className={cn(TH_NUM, "hidden lg:table-cell")}>
               <span
@@ -216,77 +285,106 @@ export function PicksTable({ rows, rules, caption, emptyMessage }: PicksTablePro
               </span>
             </th>
             <th scope="col" className={cn(TH_NUM, "hidden sm:table-cell")}>
-              Short
+              <span
+                className={HINT}
+                title="Reported short position as a share of the company's shares on issue (ASIC, T+4)"
+              >
+                Short
+              </span>
             </th>
+            {sortColumn ? (
+              <th
+                scope="col"
+                aria-sort={sortColumn.ascending ? "ascending" : "descending"}
+                className={cn(TH_NUM, "text-foreground")}
+              >
+                <span className="sr-only">Sorted by </span>
+                <span className={HINT} title={sortColumn.title}>
+                  {sortColumn.label}
+                </span>
+              </th>
+            ) : null}
           </tr>
         </thead>
         <tbody className="divide-y">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={13} className="px-3 py-6 text-center text-muted-foreground">
+              <td
+                colSpan={BASE_COLUMN_COUNT + (sortColumn ? 1 : 0)}
+                className="px-3 py-6 text-center text-muted-foreground"
+              >
                 {emptyMessage ?? "No stocks meet this strategy's rules today."}
               </td>
             </tr>
           ) : (
-            rows.map((row) => (
-              <tr key={row.code} data-status={row.status}>
-                <NumCell className="text-muted-foreground">{row.rank}</NumCell>
-                <td className="px-3 py-2">
-                  <Link
-                    href={`/shorts/${row.code}`}
-                    prefetch={false}
-                    className="font-semibold text-primary hover:underline"
+            rows.map((row) => {
+              const [revenue, eps] = pickGrowthFigures(row);
+              return (
+                <tr key={row.code} data-status={row.status}>
+                  <NumCell className="text-muted-foreground">{row.rank}</NumCell>
+                  <td className="px-3 py-2">
+                    <Link
+                      href={`/shorts/${row.code}`}
+                      prefetch={false}
+                      className="font-semibold text-primary hover:underline"
+                    >
+                      {row.code}
+                    </Link>
+                    {row.name ? (
+                      <span className="hidden max-w-[220px] truncate text-xs text-muted-foreground sm:block">
+                        {row.name}
+                      </span>
+                    ) : null}
+                    {showFundamentals ? <PickFundamentalsDetails row={row} /> : null}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <StatusPill status={row.status} />
+                  </td>
+                  <NumCell className="hidden sm:table-cell">
+                    {formatScore(row.score)}
+                  </NumCell>
+                  <td className="px-3 py-2">
+                    <RuleDots rules={rules} results={row.rules} />
+                  </td>
+                  <NumCell>
+                    <Value text={formatPrice(row.close)} />
+                  </NumCell>
+                  <NumCell>
+                    <Value text={formatPrice(row.pivot)} />
+                  </NumCell>
+                  <NumCell className="hidden md:table-cell">
+                    <Value text={formatBase(row)} />
+                  </NumCell>
+                  <NumCell className="hidden md:table-cell">
+                    <Value text={formatMultiple(row.volumeRatio)} />
+                  </NumCell>
+                  <NumCell className={revenueCell} title={revenue.title || undefined}>
+                    <GrowthCellValue figure={revenue} />
+                  </NumCell>
+                  <NumCell className={epsCell} title={eps.title || undefined}>
+                    <GrowthCellValue figure={eps} />
+                  </NumCell>
+                  <NumCell className="hidden lg:table-cell">
+                    <Value text={formatSigned(row.rs3mPct, "pp")} />
+                  </NumCell>
+                  <NumCell
+                    className="hidden sm:table-cell"
+                    title={
+                      row.shortPct === null
+                        ? "No reported ASIC short position"
+                        : undefined
+                    }
                   >
-                    {row.code}
-                  </Link>
-                  {row.name ? (
-                    <span className="hidden max-w-[220px] truncate text-xs text-muted-foreground sm:block">
-                      {row.name}
-                    </span>
+                    <Value text={formatPct(row.shortPct, 2)} />
+                  </NumCell>
+                  {sortColumn ? (
+                    <NumCell className="font-medium">
+                      <SortedByValue row={row} sortKey={sortColumn.key} />
+                    </NumCell>
                   ) : null}
-                </td>
-                <td className="whitespace-nowrap px-3 py-2">
-                  <StatusPill status={row.status} />
-                </td>
-                <NumCell className="hidden sm:table-cell">
-                  {formatScore(row.score)}
-                </NumCell>
-                <td className="px-3 py-2">
-                  <RuleDots rules={rules} results={row.rules} />
-                </td>
-                <NumCell>
-                  <Value text={formatPrice(row.close)} />
-                </NumCell>
-                <NumCell>
-                  <Value text={formatPrice(row.pivot)} />
-                </NumCell>
-                <NumCell className="hidden md:table-cell">
-                  <Value text={formatBase(row)} />
-                </NumCell>
-                <NumCell className="hidden md:table-cell">
-                  <Value text={formatMultiple(row.volumeRatio)} />
-                </NumCell>
-                <NumCell className="hidden lg:table-cell">
-                  <Value text={formatSigned(row.revenueYoyPct)} />
-                </NumCell>
-                <NumCell className="hidden lg:table-cell">
-                  <Value text={formatSigned(row.epsYoyPct)} />
-                </NumCell>
-                <NumCell className="hidden lg:table-cell">
-                  <Value text={formatSigned(row.rs3mPct, "pp")} />
-                </NumCell>
-                <NumCell
-                  className="hidden sm:table-cell"
-                  title={
-                    row.shortPct === null
-                      ? "No reported ASIC short position"
-                      : undefined
-                  }
-                >
-                  <Value text={formatPct(row.shortPct, 2)} />
-                </NumCell>
-              </tr>
-            ))
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>
@@ -305,7 +403,11 @@ export function RuleLegend({ rules }: { rules: RuleColumn[] }) {
         {(["pass", "fail", "unknown"] as const).map((status) => (
           <span key={status} className="inline-flex items-center gap-1.5">
             <RuleDot status={status} />
-            {status === "pass" ? "Pass" : status === "fail" ? "Fail" : "Unknown (data missing)"}
+            {status === "pass"
+              ? "Pass"
+              : status === "fail"
+                ? "Fail"
+                : "Unknown (data missing, or not meaningful for this company)"}
           </span>
         ))}
       </p>

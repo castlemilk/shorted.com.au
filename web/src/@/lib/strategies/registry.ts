@@ -1,7 +1,8 @@
 // Strategy SEO registry: the single source of truth for the /picks URL set.
 //
-// One entry per strategy id in docs/plans/stock-picker.md §1 (the ids are
-// binding across the data, API, MCP and web streams). This file holds ONLY
+// One entry per strategy id in docs/plans/stock-picker.md §1 plus
+// quality-compounders (docs/plans/fundamentals-coverage.md §5.4); the ids are
+// binding across the data, API, MCP and web streams. This file holds ONLY
 // what a search result and the page chrome need before any data arrives:
 // <title>, meta description, keywords, the H1, a short dek and cross-links.
 //
@@ -50,7 +51,12 @@ export const STRATEGIES: Record<string, StrategySeo> = {
       "breakout stocks on volume",
     ],
     dek: "Fast-growing companies clearing a tight base on heavy volume, checked against each of Zanger's rules, with the market trend read first.",
-    related: ["canslim", "minervini-trend-template", "crowded-short-breakout"],
+    related: [
+      "canslim",
+      "minervini-trend-template",
+      "crowded-short-breakout",
+      "quality-compounders",
+    ],
   },
 
   canslim: {
@@ -68,7 +74,12 @@ export const STRATEGIES: Record<string, StrategySeo> = {
       "can slim screener",
     ],
     dek: "Accelerating earnings, a price near its high, leadership against the index, and a market in a confirmed uptrend.",
-    related: ["zanger-breakout", "minervini-trend-template", "crowded-short-breakout"],
+    related: [
+      "zanger-breakout",
+      "minervini-trend-template",
+      "quality-compounders",
+      "crowded-short-breakout",
+    ],
   },
 
   "minervini-trend-template": {
@@ -86,7 +97,12 @@ export const STRATEGIES: Record<string, StrategySeo> = {
       "trend template screener",
     ],
     dek: "Stocks already in a Stage 2 uptrend: stacked moving averages, well off their lows, close to their highs and leading the market.",
-    related: ["zanger-breakout", "canslim", "crowded-short-breakout"],
+    related: [
+      "zanger-breakout",
+      "canslim",
+      "quality-compounders",
+      "crowded-short-breakout",
+    ],
   },
 
   "crowded-short-breakout": {
@@ -104,11 +120,46 @@ export const STRATEGIES: Record<string, StrategySeo> = {
       "short squeeze candidates",
     ],
     dek: "Heavily shorted stocks clearing resistance on heavy volume, where short sellers may be forced to buy back.",
-    related: ["zanger-breakout", "canslim", "minervini-trend-template"],
+    related: [
+      "zanger-breakout",
+      "canslim",
+      "minervini-trend-template",
+      "quality-compounders",
+    ],
+  },
+
+  // Our own strategy, not an author's: the display name is the API's
+  // (registry.go names it "Quality compounders", sentence case), and the label
+  // and H1 use it verbatim so the switcher, the hub card and the page agree.
+  "quality-compounders": {
+    slug: "quality-compounders",
+    label: "Quality compounders",
+    title: "Quality Compounders: High-ROE, Low-Debt ASX Stocks",
+    h1: "Quality compounders",
+    description:
+      "ASX companies with a 15%+ return on equity, healthy margins, profit backed by cash and little debt, in a long-term uptrend. Every rule shown, updated daily.",
+    keywords: [
+      "quality stocks asx",
+      "high roe stocks asx",
+      "asx compounders",
+      "low debt asx stocks",
+      "quality investing screener",
+    ],
+    dek: "Profitable businesses that earn a high return on equity, turn their profit into cash and carry little debt, while the share price holds a long-term uptrend.",
+    related: [
+      "canslim",
+      "minervini-trend-template",
+      "zanger-breakout",
+      "crowded-short-breakout",
+    ],
   },
 };
 
-/** Registry order is display order: Zanger first (plan §1). */
+/**
+ * Registry order is display order: Zanger first (plan §1), then the API's own
+ * Registry() order, which appends quality-compounders
+ * (docs/plans/fundamentals-coverage.md §5.4).
+ */
 export const STRATEGY_SLUGS = Object.keys(STRATEGIES);
 
 export function getStrategy(slug: string): StrategySeo | undefined {

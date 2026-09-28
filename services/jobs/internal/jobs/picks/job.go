@@ -1,35 +1,53 @@
 // Package picks is the `shorted picks` job: the data layer of the stock picker
-// (docs/plans/stock-picker.md §2.6).
+// (docs/plans/stock-picker.md §2.6, extended by
+// docs/plans/fundamentals-coverage.md §3).
 //
-//	-mode fundamentals  Pull typed per-period fundamentals (Yahoo
-//	                    fundamentals-timeseries, Markit key statistics as the
-//	                    fallback) for up to PICKS_FUNDAMENTALS_MAX_CODES codes,
-//	                    recent 4D/4E filers first, then stalest first, skipping
-//	                    codes attempted in the last six days. Upserts
-//	                    stock_fundamentals, records every attempt in
+//	-mode fundamentals  Pull the full statements (Yahoo fundamentals-timeseries,
+//	                    one GET per code: income statement, balance sheet and
+//	                    cash flow, annual + trailing, quarterly balance
+//	                    snapshots; Markit key statistics as the per-field
+//	                    fallback), run the sanity gates, and upsert
+//	                    stock_fundamentals under the vendor rules (store.go).
+//	                    Budget-driven: every code in priority order (due
+//	                    filers, never attempted by market cap, failures,
+//	                    stale successes) until PICKS_FUNDAMENTALS_BUDGET_MIN
+//	                    elapses. Every attempt is recorded in
 //	                    stock_fundamentals_sync.
 //	-mode filings       Parse revenue / net profit / EPS out of
 //	                    financial_report_extractions.metrics (the
-//	                    report-extractor's Gemini reading of Appendix 4D/4E
-//	                    and other results documents) into typed 'half' and
-//	                    'annual' stock_fundamentals rows, source
-//	                    'asx-filing-extraction'. Never overwrites a vendor
-//	                    value (filingUpsertSQL). No network, no LLM.
+//	                    report-extractor's reading of statutory results
+//	                    documents: Appendix 4D/4E, half-year and annual
+//	                    reports) into typed 'half' and 'annual'
+//	                    stock_fundamentals rows, source 'asx-filing-extraction'
+//	                    (filings_ingest.go). Every value passes the
+//	                    extractiontrust funnel and the §4.2 gates; the step is
+//	                    a deterministic rebuild that fills NULL vendor fields,
+//	                    replaces filing-marked ones and purges filing rows the
+//	                    extractions no longer support. No network, no LLM.
 //	-mode refresh       SET LOCAL statement_timeout = 0; SELECT
-//	                    refresh_strategy_views() — mv_market_regime,
-//	                    mv_fundamentals_growth, mv_price_features. Scheduled
-//	                    after the daily price sweep.
+//	                    refresh_strategy_views(). Scheduled after the daily
+//	                    price sweep. After a successful refresh it waits 16
+//	                    minutes (the API's strategy cache + 1) and pings the
+//	                    web tier's /api/revalidate (tag strategy-picks, plus
+//	                    fundamentals when this execution changed them).
 //	-mode all           fundamentals, then filings, then refresh.
+//
+// fundamentals, filings and all take the picks_run_lease row first, so two
+// executions never write at once; a run that finds it held logs the holder and
+// exits 0. refresh does not take it.
 //
 // Exit codes (runner.ExitCodeError, economy's convention):
 //
-//	0   ok (>= 50% of attempted codes loaded or answered empty)
-//	1   failure: DB unreachable, refresh failed or skipped a view, every
-//	    attempted code failed, every filing write failed, or the run was
-//	    cancelled
+//	0   ok (>= 50% of attempted codes loaded or answered empty), or the lease
+//	    is held by another execution
+//	1   failure: DB unreachable, refresh failed, skipped a view or never
+//	    refreshed one that exists (a stale function body), every
+//	    attempted code failed, the filings rebuild transaction failed (it
+//	    rolled back: nothing written), or the run was cancelled
 //	10  DEGRADED: fewer than 50% of attempted codes answered, Yahoo failed
 //	    for more than half of them (the fallback covered what it could), or
-//	    some codes' filing rows failed to write
+//	    the filings write was REFUSED (a read errored or zero extractions
+//	    were read: nothing deleted or upserted)
 //
 // In -mode all every step runs and the worst verdict wins (worstError).
 package picks
@@ -58,18 +76,26 @@ const (
 	modeAll          = "all"
 )
 
-// defaultBudget stops a fundamentals run from taking new codes after 45
-// minutes, leaving room inside the Cloud Run job's 3600s timeout for the last
-// fetch, the attempt write and (in -mode all) the refresh. The queue is
-// stalest-first, so a run that stops on budget is resumed by the next one.
-const defaultBudget = 45 * time.Minute
+const (
+	// defaultBudgetMin stops the fundamentals step from taking new codes
+	// after 170 minutes (PICKS_FUNDAMENTALS_BUDGET_MIN, §3.7): the universe at
+	// the 4s pace is ~155 minutes. The job's 12600s timeout leaves 40 minutes
+	// for the last fetch, the filings step, the refresh and the 16-minute
+	// revalidation wait.
+	defaultBudgetMin = 170
+	// retryBudget caps the step on a Cloud Run task retry
+	// (CLOUD_RUN_TASK_ATTEMPT > 0): the retry exists to finish filings and
+	// the refresh, not to run a second full pass (§3.7).
+	retryBudget = 20 * time.Minute
+)
 
 // Job returns the `shorted picks` subcommand. It honours a dry run: fetch,
-// parse and log, write nothing (no upsert, no attempt row, no refresh).
+// parse and log, write nothing (no upsert, no attempt row, no lease, no
+// refresh).
 func Job() runner.Job {
 	return runner.Func{
 		JobName: "picks",
-		Desc:    "stock picker data: per-period fundamentals, filing half-years + refresh_strategy_views()",
+		Desc:    "stock picker data: full statements per period, filing half-years + refresh_strategy_views()",
 		DryRun:  true,
 		Fn:      Run,
 	}
@@ -80,10 +106,10 @@ func Run(parent context.Context, args []string) error {
 	g := runner.FromContext(parent)
 	fs := flag.NewFlagSet("picks", flag.ContinueOnError)
 	mode := fs.String("mode", modeAll, "fundamentals | filings | refresh | all")
-	dryRun := fs.Bool("dry-run", g.DryRun, "fetch/read + parse + log; write nothing (no upsert, no attempt row, no refresh)")
+	dryRun := fs.Bool("dry-run", g.DryRun, "fetch/read + parse + log; write nothing (no upsert, no attempt row, no lease, no refresh)")
 	verbose := fs.Bool("verbose", g.Verbose, "log Postgres notices")
-	maxCodes := fs.Int("max-codes", envPositiveInt("PICKS_FUNDAMENTALS_MAX_CODES", defaultMaxCodes), "codes per fundamentals run (env PICKS_FUNDAMENTALS_MAX_CODES)")
-	codesFlag := fs.String("codes", "", "comma-separated codes to fetch instead of the selection (ignores the 6-day skip and the cap)")
+	maxCodes := fs.Int("max-codes", envPositiveInt("PICKS_FUNDAMENTALS_MAX_CODES", defaultMaxCodes), "optional count cap per fundamentals run, 0 = none: the budget decides (env PICKS_FUNDAMENTALS_MAX_CODES)")
+	codesFlag := fs.String("codes", "", "comma-separated codes to fetch instead of the selection (ignores the skips and the cap)")
 	noFallback := fs.Bool("no-fallback", false, "never ask the Markit fallback")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -103,7 +129,7 @@ func Run(parent context.Context, args []string) error {
 	if strings.TrimSpace(*codesFlag) != "" {
 		codes = strings.Split(*codesFlag, ",")
 	}
-	budget := time.Duration(envPositiveInt("PICKS_FUNDAMENTALS_BUDGET_MIN", int(defaultBudget/time.Minute))) * time.Minute
+	budget := fundamentalsBudget()
 
 	ctx := parent
 
@@ -124,10 +150,26 @@ func Run(parent context.Context, args []string) error {
 			return fmt.Errorf("db connect: %w", err)
 		}
 		defer pool.Close()
-		st = &pgStore{pool: pool, notices: notices}
+		st = &pgStore{pool: pool, notices: notices, logf: log.Printf}
+	}
+
+	// The run lease (§3.8): one writer at a time. A dry run writes nothing
+	// and takes no lease.
+	var lease *runLease
+	if *mode != modeRefresh && !*dryRun && st != nil {
+		l, proceed, err := acquireLease(ctx, st, leaseHolder(), log.Printf)
+		if err != nil {
+			return err
+		}
+		if !proceed {
+			return nil
+		}
+		lease = l
+		defer lease.release()
 	}
 
 	var stepErrs []error
+	fundamentalsChanged := false
 	if *mode == modeFundamentals || *mode == modeAll {
 		yahoo, closeYahoo, err := newYahooTimeseries()
 		if err != nil {
@@ -144,10 +186,14 @@ func Run(parent context.Context, args []string) error {
 			budget:   budget,
 			logf:     log.Printf,
 		}
+		if lease != nil {
+			cfg.extendLease = lease.extend
+		}
 		if !*noFallback {
 			cfg.fallback = newMarkitKeyStatistics()
 		}
-		_, err = runFundamentals(ctx, cfg)
+		stats, err := runFundamentals(ctx, cfg)
+		fundamentalsChanged = !*dryRun && stats.Loaded > 0
 		if *mode == modeFundamentals {
 			return err
 		}
@@ -158,7 +204,12 @@ func Run(parent context.Context, args []string) error {
 	}
 
 	if *mode == modeFilings || *mode == modeAll {
-		_, err := runFilings(ctx, st, *dryRun, log.Printf)
+		fstats, err := runFilings(ctx, st, *dryRun, log.Printf)
+		if !*dryRun && err == nil && fstats.Changed() {
+			// The rebuild purged, nulled or upserted something, so the
+			// 'fundamentals' tag needs revalidating (a no-op rebuild does not).
+			fundamentalsChanged = true
+		}
 		if *mode == modeFilings {
 			return err
 		}
@@ -167,14 +218,90 @@ func Run(parent context.Context, args []string) error {
 			return worstError(stepErrs...)
 		}
 	}
+	// The writers are done; the refresh does not need the lease, and the
+	// revalidation wait should not hold it for 16 minutes.
+	lease.release()
 
 	// The refresh runs even after a degraded or failed pull: whatever did
 	// land should reach the views, and the stale-view check is its own verdict.
 	err := runRefresh(ctx, st, *dryRun, log.Printf)
+	if err == nil && !*dryRun {
+		revalidateAfterRefresh(ctx, defaultRevalidator(), fundamentalsChanged, log.Printf)
+	}
 	if *mode == modeRefresh {
 		return err
 	}
 	return worstError(append(stepErrs, stepError("refresh", err))...)
+}
+
+// fundamentalsBudget is PICKS_FUNDAMENTALS_BUDGET_MIN (default 170), capped
+// at retryBudget on a Cloud Run task retry.
+func fundamentalsBudget() time.Duration {
+	b := time.Duration(envPositiveInt("PICKS_FUNDAMENTALS_BUDGET_MIN", defaultBudgetMin)) * time.Minute
+	if n, err := strconv.Atoi(strings.TrimSpace(os.Getenv("CLOUD_RUN_TASK_ATTEMPT"))); err == nil && n > 0 && b > retryBudget {
+		log.Printf("picks: task retry (CLOUD_RUN_TASK_ATTEMPT=%d): fundamentals budget %s", n, retryBudget)
+		b = retryBudget
+	}
+	return b
+}
+
+// leaseHolder names this execution: the Cloud Run execution (shared by a
+// task's retries, so a retry can take over the lease its dead attempt left),
+// else the host and process.
+func leaseHolder() string {
+	if e := strings.TrimSpace(os.Getenv("CLOUD_RUN_EXECUTION")); e != "" {
+		return e
+	}
+	host, _ := os.Hostname()
+	return fmt.Sprintf("local:%s:%d", host, os.Getpid())
+}
+
+// runLease is a held picks_run_lease row. A nil *runLease is valid and does
+// nothing (the table is absent: running without the lease).
+type runLease struct {
+	st       store
+	holder   string
+	logf     func(string, ...any)
+	released bool
+}
+
+// acquireLease claims the lease. proceed=false means another execution holds
+// it: the caller exits 0. A missing table (42P01) runs without it.
+func acquireLease(ctx context.Context, st store, holder string, logf func(string, ...any)) (*runLease, bool, error) {
+	claimed, current, err := st.ClaimLease(ctx, holder)
+	switch {
+	case errors.Is(err, errLeaseAbsent):
+		logf("picks: picks_run_lease does not exist (migration 000132 not applied); running without the lease")
+		return nil, true, nil
+	case err != nil:
+		return nil, false, err
+	case !claimed:
+		logf("picks: another execution holds the run lease (%s); exiting without work", current)
+		return nil, false, nil
+	}
+	logf("picks: run lease taken by %s", holder)
+	return &runLease{st: st, holder: holder, logf: logf}, true, nil
+}
+
+func (l *runLease) extend(ctx context.Context) error {
+	if l == nil || l.released {
+		return nil
+	}
+	return l.st.ExtendLease(ctx, l.holder)
+}
+
+// release deletes the lease row, on a detached context so SIGTERM (the job
+// ctx cancelled) still frees it. Idempotent.
+func (l *runLease) release() {
+	if l == nil || l.released {
+		return
+	}
+	l.released = true
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := l.st.ReleaseLease(ctx, l.holder); err != nil {
+		l.logf("picks: releasing the run lease failed (it expires on its own): %v", err)
+	}
 }
 
 // stepError labels one -mode all step's error, keeping its exit code.
@@ -218,30 +345,6 @@ func worstError(errs ...error) error {
 		return worst
 	}
 	return fmt.Errorf("%w (also: %s)", worst, strings.Join(others, "; "))
-}
-
-// runRefresh calls refresh_strategy_views() and fails when any view was
-// skipped: the function catches every error per view and returns normally, so
-// its WARNINGs are the only evidence a view went stale (task db:prod:refresh
-// applies the same rule).
-func runRefresh(ctx context.Context, st store, dryRun bool, logf func(string, ...any)) error {
-	if dryRun {
-		logf("picks: dry run: would call refresh_strategy_views()")
-		return nil
-	}
-	if st == nil {
-		return errors.New("refresh: no database")
-	}
-	start := time.Now()
-	skipped, err := st.RefreshStrategyViews(ctx)
-	if err != nil {
-		return err
-	}
-	if len(skipped) > 0 {
-		return fmt.Errorf("refresh_strategy_views skipped %d view(s): %s", len(skipped), strings.Join(skipped, ", "))
-	}
-	logf("picks: refresh_strategy_views ok in %s", time.Since(start).Round(time.Millisecond))
-	return nil
 }
 
 // envPositiveInt reads a positive integer env var (economy's envInt rule: zero,

@@ -69,6 +69,54 @@ export interface RuleResultRow {
   detail: string;
 }
 
+/** A growth series: "annual" (FY), "half" (HY) or "ttm" (trailing 12 months). */
+export type GrowthBasis = "annual" | "half" | "ttm";
+
+/**
+ * The fundamentals one picks row renders (docs/plans/fundamentals-coverage.md
+ * §7.2), mapped from StrategyPick.fundamentals.
+ *
+ * RENDERED FIELDS ONLY, NULLS OMITTED: a key is present only when the table
+ * shows something for it, so a 100-row table stays within its payload budget
+ * (the page test pins +25 KB). Ratios are rounded to the one decimal the
+ * table prints. There is deliberately no "vendor" marker: like the stock
+ * page's growth row, provenance is recorded as the exception (a company
+ * filing), never guessed for the default.
+ */
+export interface PickFundamentalsView {
+  /** Series the revenue growth figure compares; present only with that figure. */
+  revenueBasis?: GrowthBasis;
+  /** YYYY-MM-DD end of the latest period in the revenue pair. */
+  revenueEnd?: string;
+  /** The revenue pair includes a value extracted from a company filing. */
+  revenueFiling?: true;
+  /** Series the EPS growth figure compares; present only with that figure. */
+  epsBasis?: GrowthBasis;
+  /** YYYY-MM-DD end of the latest period in the EPS pair. */
+  epsEnd?: string;
+  /** The EPS pair includes a value extracted from a company filing. */
+  epsFiling?: true;
+  /**
+   * Reporting currency (ISO 4217) when it is NOT AUD. The only thing the row
+   * prints it for is P/E's "n/a (reports in USD)".
+   */
+  currency?: string;
+  /** YYYY-MM-DD (the date in Sydney) of the newest fetch of the inputs. */
+  fetchedOn?: string;
+  netMarginPct?: number;
+  roePct?: number;
+  fcfMarginPct?: number;
+  /** Net debt excluding leases over EBITDA (normalised when published). */
+  netDebtToEbitda?: number;
+  /** Latest close over 12-month EPS; AUD reporters only. */
+  peRatio?: number;
+  /**
+   * The ratios this row shows that the API withheld as not meaningful (a
+   * bank, insurer or other financial), as wire names ("fcf_margin_pct").
+   */
+  notMeaningful?: string[];
+}
+
 export interface PickRow {
   /** 1-based rank across the full, unfiltered list. */
   rank: number;
@@ -96,6 +144,12 @@ export interface PickRow {
   shortPct: number | null;
   marketCap: number | null;
   logoUrl: string;
+  /**
+   * Omitted when the stock has no fundamentals row, AND when the API predates
+   * StrategyPick.fundamentals: which of the two it is, is the response's
+   * business (StrategyPicksResult.fundamentalsRowsCount, fundamentalsHeld).
+   */
+  fundamentals?: PickFundamentalsView;
 }
 
 export interface StrategyPicksResult {
@@ -109,6 +163,12 @@ export interface StrategyPicksResult {
   universeCount: number;
   /** Evaluated stocks with at least one growth figure. */
   fundamentalsCoverageCount: number;
+  /**
+   * Evaluated stocks with any fundamentals row. 0 from an API that predates
+   * the field (proto3 cannot tell it from none), which is why every reader
+   * goes through fundamentalsHeld().
+   */
+  fundamentalsRowsCount: number;
   /** YYYY-MM-DD of the latest price in the universe. */
   asOf: string;
 }

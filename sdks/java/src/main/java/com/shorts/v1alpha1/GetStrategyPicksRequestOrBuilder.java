@@ -65,4 +65,40 @@ public interface GetStrategyPicksRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getStatusBytes();
+
+  /**
+   * <pre>
+   * Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+   * "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+   * sort last; growth above +500% or below -95% sorts after every measured value.
+   * rank keeps the strategy's own ranking whatever the order.
+   * </pre>
+   *
+   * <code>string sort_by = 5 [json_name = "sortBy"];</code>
+   * @return The sortBy.
+   */
+  java.lang.String getSortBy();
+  /**
+   * <pre>
+   * Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+   * "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+   * sort last; growth above +500% or below -95% sorts after every measured value.
+   * rank keeps the strategy's own ranking whatever the order.
+   * </pre>
+   *
+   * <code>string sort_by = 5 [json_name = "sortBy"];</code>
+   * @return The bytes for sortBy.
+   */
+  com.google.protobuf.ByteString
+      getSortByBytes();
+
+  /**
+   * <pre>
+   * Only stocks with a fundamentals row.
+   * </pre>
+   *
+   * <code>bool require_fundamentals = 6 [json_name = "requireFundamentals"];</code>
+   * @return The requireFundamentals.
+   */
+  boolean getRequireFundamentals();
 }

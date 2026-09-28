@@ -48,6 +48,47 @@ type FundamentalsPeriodRow struct {
 	SharesOutstanding *float64
 	Source            string
 	SourceFetchedAt   time.Time
+
+	// The full statements of migration 000132 (plan fundamentals-coverage.md
+	// §2.1), in FundamentalsPeriod proto order. All nil on a database without
+	// 000132 (GetStockFundamentals falls back to the 000129 column list).
+	GrossProfit             *float64
+	OperatingIncome         *float64
+	EBITDA                  *float64
+	NormalizedEBITDA        *float64
+	EBIT                    *float64
+	InterestExpense         *float64
+	PretaxIncome            *float64
+	TaxProvision            *float64
+	NetInterestIncome       *float64
+	CapitalExpenditure      *float64
+	DividendsPaid           *float64
+	ShareBuybacks           *float64
+	TotalAssets             *float64
+	TotalLiabilities        *float64
+	TotalEquity             *float64
+	CashAndEquivalents      *float64
+	TotalDebt               *float64
+	CapitalLeaseObligations *float64
+	NetDebt                 *float64
+	CurrentAssets           *float64
+	CurrentLiabilities      *float64
+
+	// FieldSources: the fields whose value did not come from Source, mapped
+	// to where it came from (plan §2.2). nil when there are none.
+	FieldSources map[string]string
+	// SourceDocumentURL / SourceDocumentDate: the company filing a
+	// filing-sourced row or field came from.
+	SourceDocumentURL  string
+	SourceDocumentDate *time.Time
+}
+
+// fundamentalsDB is the part of *pgxpool.Pool the stock picker and
+// fundamentals reads use, so a test can stand in a database that answers
+// 42P01 / 42703 (a schema without migration 000132).
+type fundamentalsDB interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 // missingRelationLog logs a missing strategy relation once per method, so a
@@ -251,11 +292,34 @@ func (r *candidateRow) targets() []any {
 // ListStrategyCandidates returns the evaluator's universe, one Candidate per
 // stock in mv_price_features, ordered by stock code. A missing relation
 // yields an empty universe, never an error.
+//
+// The quality row, the appended growth columns and the valuation inputs of
+// migration 000132 come from ONE separate query (fundamentalsExtras) merged
+// by stock code, so strategyCandidatesQuery keeps its 000129/000130 column
+// list and a database without 000132 still serves the whole universe, with
+// nil extras (plan fundamentals-coverage.md §5.3).
 func (s *postgresStore) ListStrategyCandidates(ctx context.Context) ([]strategies.Candidate, error) {
+	return listStrategyCandidates(ctx, s.db)
+}
+
+func listStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]strategies.Candidate, error) {
+	out, err := queryStrategyCandidates(ctx, db)
+	if err != nil || len(out) == 0 {
+		return out, err
+	}
+	extras, err := listFundamentalsExtras(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	mergeFundamentalsExtras(out, extras)
+	return out, nil
+}
+
+func queryStrategyCandidates(ctx context.Context, db fundamentalsDB) ([]strategies.Candidate, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()
 
-	rows, err := s.db.Query(ctx, strategyCandidatesQuery)
+	rows, err := db.Query(ctx, strategyCandidatesQuery)
 	if err != nil {
 		if isUndefinedTable(err) {
 			logMissingRelationOnce("ListStrategyCandidates", err)
@@ -353,20 +417,9 @@ func (s *postgresStore) GetMarketRegime(ctx context.Context, indexCode string) (
 	}
 }
 
-// buildFundamentalsQuery returns the stock_fundamentals query and its args.
-// Placeholders are contiguous: $1 code, then $2 period_type when filtered,
-// then the LIMIT. periodType must already be validated against
-// FundamentalsPeriodTypes (an unknown value is ignored, never interpolated).
-func buildFundamentalsQuery(code, periodType string, limit int32) (string, []any) {
-	args := []any{code}
-	where := "stock_code = $1"
-	if FundamentalsPeriodTypes[periodType] {
-		args = append(args, periodType)
-		where += fmt.Sprintf(" AND period_type = $%d", len(args))
-	}
-	args = append(args, limit)
-	query := fmt.Sprintf(`
-	SELECT
+// fundamentalsBaseColumns is the 000129 select list of stock_fundamentals, in
+// readFundamentalsPeriods' scan order.
+const fundamentalsBaseColumns = `
 		stock_code::text,
 		period_type::text,
 		period_end::date,
@@ -380,24 +433,122 @@ func buildFundamentalsQuery(code, periodType string, limit int32) (string, []any
 		free_cash_flow::float8,
 		shares_outstanding::float8,
 		COALESCE(source::text, ''),
-		source_fetched_at::timestamptz
+		source_fetched_at::timestamptz`
+
+// fundamentalsColumn is one value column of stock_fundamentals and its field.
+type fundamentalsColumn struct {
+	name  string
+	field func(r *FundamentalsPeriodRow) **float64
+}
+
+// fundamentalsBaseValueColumns are the value columns of 000129 (field_sources
+// keys may name them too).
+var fundamentalsBaseValueColumns = []fundamentalsColumn{
+	{"revenue", func(r *FundamentalsPeriodRow) **float64 { return &r.Revenue }},
+	{"net_income", func(r *FundamentalsPeriodRow) **float64 { return &r.NetIncome }},
+	{"eps_basic", func(r *FundamentalsPeriodRow) **float64 { return &r.EPSBasic }},
+	{"eps_diluted", func(r *FundamentalsPeriodRow) **float64 { return &r.EPSDiluted }},
+	{"operating_cash_flow", func(r *FundamentalsPeriodRow) **float64 { return &r.OperatingCashFlow }},
+	{"free_cash_flow", func(r *FundamentalsPeriodRow) **float64 { return &r.FreeCashFlow }},
+	{"shares_outstanding", func(r *FundamentalsPeriodRow) **float64 { return &r.SharesOutstanding }},
+}
+
+// fundamentalsExtendedColumns are the value columns migration 000132 adds
+// (plan fundamentals-coverage.md §2.1), in FundamentalsPeriod proto order. ONE
+// list: the extended select list, its scan targets and the finite pass all
+// iterate it.
+var fundamentalsExtendedColumns = []fundamentalsColumn{
+	{"gross_profit", func(r *FundamentalsPeriodRow) **float64 { return &r.GrossProfit }},
+	{"operating_income", func(r *FundamentalsPeriodRow) **float64 { return &r.OperatingIncome }},
+	{"ebitda", func(r *FundamentalsPeriodRow) **float64 { return &r.EBITDA }},
+	{"normalized_ebitda", func(r *FundamentalsPeriodRow) **float64 { return &r.NormalizedEBITDA }},
+	{"ebit", func(r *FundamentalsPeriodRow) **float64 { return &r.EBIT }},
+	{"interest_expense", func(r *FundamentalsPeriodRow) **float64 { return &r.InterestExpense }},
+	{"pretax_income", func(r *FundamentalsPeriodRow) **float64 { return &r.PretaxIncome }},
+	{"tax_provision", func(r *FundamentalsPeriodRow) **float64 { return &r.TaxProvision }},
+	{"net_interest_income", func(r *FundamentalsPeriodRow) **float64 { return &r.NetInterestIncome }},
+	{"capital_expenditure", func(r *FundamentalsPeriodRow) **float64 { return &r.CapitalExpenditure }},
+	{"dividends_paid", func(r *FundamentalsPeriodRow) **float64 { return &r.DividendsPaid }},
+	{"share_buybacks", func(r *FundamentalsPeriodRow) **float64 { return &r.ShareBuybacks }},
+	{"total_assets", func(r *FundamentalsPeriodRow) **float64 { return &r.TotalAssets }},
+	{"total_liabilities", func(r *FundamentalsPeriodRow) **float64 { return &r.TotalLiabilities }},
+	{"total_equity", func(r *FundamentalsPeriodRow) **float64 { return &r.TotalEquity }},
+	{"cash_and_equivalents", func(r *FundamentalsPeriodRow) **float64 { return &r.CashAndEquivalents }},
+	{"total_debt", func(r *FundamentalsPeriodRow) **float64 { return &r.TotalDebt }},
+	{"capital_lease_obligations", func(r *FundamentalsPeriodRow) **float64 { return &r.CapitalLeaseObligations }},
+	{"net_debt", func(r *FundamentalsPeriodRow) **float64 { return &r.NetDebt }},
+	{"current_assets", func(r *FundamentalsPeriodRow) **float64 { return &r.CurrentAssets }},
+	{"current_liabilities", func(r *FundamentalsPeriodRow) **float64 { return &r.CurrentLiabilities }},
+}
+
+// fundamentalsExtendedSelect is the 000132 select list: the base columns, the
+// full statements, then field_sources and the source document.
+var fundamentalsExtendedSelect = func() string {
+	var b strings.Builder
+	b.WriteString(fundamentalsBaseColumns)
+	for _, c := range fundamentalsExtendedColumns {
+		b.WriteString(",\n\t\t" + c.name + "::float8")
+	}
+	b.WriteString(",\n\t\tCOALESCE(field_sources::text, '{}')")
+	b.WriteString(",\n\t\tCOALESCE(source_document_url::text, '')")
+	b.WriteString(",\n\t\tsource_document_date::date")
+	return b.String()
+}()
+
+// buildFundamentalsQuery returns the 000129 stock_fundamentals query and its
+// args (the fallback on a database without 000132's columns). Placeholders are
+// contiguous: $1 code, then $2 period_type when filtered, then the LIMIT.
+// periodType must already be validated against FundamentalsPeriodTypes (an
+// unknown value is ignored, never interpolated).
+func buildFundamentalsQuery(code, periodType string, limit int32) (string, []any) {
+	return buildFundamentalsQueryWith(fundamentalsBaseColumns, code, periodType, limit)
+}
+
+// buildFundamentalsQueryExtended is buildFundamentalsQuery over every column
+// migration 000132 adds.
+func buildFundamentalsQueryExtended(code, periodType string, limit int32) (string, []any) {
+	return buildFundamentalsQueryWith(fundamentalsExtendedSelect, code, periodType, limit)
+}
+
+func buildFundamentalsQueryWith(columns, code, periodType string, limit int32) (string, []any) {
+	args := []any{code}
+	where := "stock_code = $1"
+	if FundamentalsPeriodTypes[periodType] {
+		args = append(args, periodType)
+		where += fmt.Sprintf(" AND period_type = $%d", len(args))
+	}
+	args = append(args, limit)
+	query := fmt.Sprintf(`
+	SELECT%s
 	FROM stock_fundamentals
 	WHERE %s
 	ORDER BY period_end DESC, period_type ASC
 	LIMIT $%d
-`, where, len(args))
+`, columns, where, len(args))
 	return query, args
 }
 
 // GetStockFundamentals returns up to limit reported periods for a stock,
-// newest first, optionally filtered to one period type. A missing relation
-// yields no rows, never an error.
+// newest first, optionally filtered to one period type, with every column of
+// migration 000132 (full statements, field_sources, the source document). On
+// a database without those columns (42703) it logs once and falls back to the
+// 000129 column list; a missing table yields no rows. Never an error for
+// either.
 func (s *postgresStore) GetStockFundamentals(ctx context.Context, code, periodType string, limit int32) ([]FundamentalsPeriodRow, error) {
+	return getStockFundamentals(ctx, s.db, code, periodType, limit)
+}
+
+func getStockFundamentals(ctx context.Context, db fundamentalsDB, code, periodType string, limit int32) ([]FundamentalsPeriodRow, error) {
 	ctx, cancel := context.WithTimeout(ctx, strategiesQueryTimeout)
 	defer cancel()
 
-	query, args := buildFundamentalsQuery(code, periodType, limit)
-	rows, err := s.db.Query(ctx, query, args...)
+	query, args := buildFundamentalsQueryExtended(code, periodType, limit)
+	out, err := readFundamentalsPeriods(ctx, db, query, args, true)
+	if err != nil && isUndefinedColumn(err) {
+		logMissingSchemaOnce("GetStockFundamentals", err)
+		query, args = buildFundamentalsQuery(code, periodType, limit)
+		out, err = readFundamentalsPeriods(ctx, db, query, args, false)
+	}
 	if err != nil {
 		if isUndefinedTable(err) {
 			logMissingRelationOnce("GetStockFundamentals", err)
@@ -405,32 +556,57 @@ func (s *postgresStore) GetStockFundamentals(ctx context.Context, code, periodTy
 		}
 		return nil, fmt.Errorf("failed to query stock fundamentals: %w", err)
 	}
+	return out, nil
+}
+
+// readFundamentalsPeriods runs one stock_fundamentals query and scans it; the
+// error (at Query, Scan or Rows.Err) is returned unwrapped so the caller can
+// classify it.
+func readFundamentalsPeriods(ctx context.Context, db fundamentalsDB, query string, args []any, extended bool) ([]FundamentalsPeriodRow, error) {
+	rows, err := db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 
 	out := []FundamentalsPeriodRow{}
 	for rows.Next() {
-		var r FundamentalsPeriodRow
-		var fetched *time.Time
-		if err := rows.Scan(
+		var (
+			r            FundamentalsPeriodRow
+			fetched      *time.Time
+			fieldSources string
+		)
+		targets := []any{
 			&r.StockCode, &r.PeriodType, &r.PeriodEnd, &r.FiscalYear, &r.Currency,
 			&r.Revenue, &r.NetIncome, &r.EPSBasic, &r.EPSDiluted,
 			&r.OperatingCashFlow, &r.FreeCashFlow, &r.SharesOutstanding,
 			&r.Source, &fetched,
-		); err != nil {
-			return nil, fmt.Errorf("failed to scan stock fundamentals: %w", err)
+		}
+		if extended {
+			for _, c := range fundamentalsExtendedColumns {
+				targets = append(targets, c.field(&r))
+			}
+			targets = append(targets, &fieldSources, &r.SourceDocumentURL, &r.SourceDocumentDate)
+		}
+		if err := rows.Scan(targets...); err != nil {
+			return nil, err
 		}
 		if fetched != nil {
 			r.SourceFetchedAt = *fetched
 		}
-		finiteAll(&r.Revenue, &r.NetIncome, &r.EPSBasic, &r.EPSDiluted, &r.OperatingCashFlow, &r.FreeCashFlow, &r.SharesOutstanding)
+		for _, c := range fundamentalsBaseValueColumns {
+			p := c.field(&r)
+			*p = finite(*p)
+		}
+		for _, c := range fundamentalsExtendedColumns {
+			p := c.field(&r)
+			*p = finite(*p)
+		}
+		r.FieldSources = parseFieldSources(fieldSources)
 		out = append(out, r)
 	}
 	if err := rows.Err(); err != nil {
-		if isUndefinedTable(err) {
-			logMissingRelationOnce("GetStockFundamentals", err)
-			return []FundamentalsPeriodRow{}, nil
-		}
-		return nil, fmt.Errorf("error iterating stock fundamentals: %w", err)
+		return nil, err
 	}
 	return out, nil
 }

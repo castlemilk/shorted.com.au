@@ -113,4 +113,14 @@ public interface GetStrategyPicksResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getAsOfBytes();
+
+  /**
+   * <pre>
+   * Evaluated stocks with any reported fundamentals row.
+   * </pre>
+   *
+   * <code>int32 fundamentals_rows_count = 8 [json_name = "fundamentalsRowsCount"];</code>
+   * @return The fundamentalsRowsCount.
+   */
+  int getFundamentalsRowsCount();
 }

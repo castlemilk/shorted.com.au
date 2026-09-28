@@ -57,6 +57,11 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_StrategyPick_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_PickFundamentals_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_PickFundamentals_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_shorts_v1alpha1_GetStrategyPicksRequest_descriptor;
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -66,6 +71,21 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_GetStrategyPicksResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetStockStrategyFitRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetStockStrategyFitRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_StrategyFit_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_StrategyFit_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_GetStockStrategyFitResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_GetStockStrategyFitResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_shorts_v1alpha1_ListStrategiesRequest_descriptor;
   static final 
@@ -113,7 +133,7 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       " \001(\tR\007verdict\"\210\001\n\nRuleResult\022\027\n\007rule_id\030" +
       "\001 \001(\tR\006ruleId\022\026\n\006status\030\002 \001(\tR\006status\022\026\n" +
       "\006detail\030\003 \001(\tR\006detail\022\024\n\005value\030\004 \001(\001R\005va" +
-      "lue\022\033\n\thas_value\030\005 \001(\010R\010hasValue\"\322\006\n\014Str" +
+      "lue\022\033\n\thas_value\030\005 \001(\010R\010hasValue\"\231\007\n\014Str" +
       "ategyPick\022\022\n\004rank\030\001 \001(\005R\004rank\022\035\n\nstock_c" +
       "ode\030\002 \001(\tR\tstockCode\022!\n\014company_name\030\003 \001" +
       "(\tR\013companyName\022\032\n\010industry\030\004 \001(\tR\010indus" +
@@ -135,34 +155,77 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
       "_pct\030\027 \001(\010R\nhasRs3mPct\022\"\n\rhas_short_pct\030" +
       "\030 \001(\010R\013hasShortPct\022$\n\016has_market_cap\030\031 \001" +
       "(\010R\014hasMarketCap\022\033\n\thas_close\030\032 \001(\010R\010has" +
-      "Close\"\200\001\n\027GetStrategyPicksRequest\022\037\n\013str" +
-      "ategy_id\030\001 \001(\tR\nstrategyId\022\024\n\005limit\030\002 \001(" +
-      "\005R\005limit\022\026\n\006offset\030\003 \001(\005R\006offset\022\026\n\006stat" +
-      "us\030\004 \001(\tR\006status\"\332\002\n\030GetStrategyPicksRes" +
-      "ponse\0225\n\010strategy\030\001 \001(\0132\031.shorts.v1alpha" +
-      "1.StrategyR\010strategy\0225\n\006regime\030\002 \001(\0132\035.s" +
-      "horts.v1alpha1.MarketRegimeR\006regime\0223\n\005p" +
-      "icks\030\003 \003(\0132\035.shorts.v1alpha1.StrategyPic" +
-      "kR\005picks\022\037\n\013total_count\030\004 \001(\005R\ntotalCoun" +
-      "t\022%\n\016universe_count\030\005 \001(\005R\runiverseCount" +
-      "\022>\n\033fundamentals_coverage_count\030\006 \001(\005R\031f" +
-      "undamentalsCoverageCount\022\023\n\005as_of\030\007 \001(\tR" +
-      "\004asOf\"\027\n\025ListStrategiesRequest\"\212\001\n\026ListS" +
-      "trategiesResponse\0229\n\nstrategies\030\001 \003(\0132\031." +
-      "shorts.v1alpha1.StrategyR\nstrategies\0225\n\006" +
+      "Close\022E\n\014fundamentals\030\033 \001(\0132!.shorts.v1a" +
+      "lpha1.PickFundamentalsR\014fundamentals\"\342\006\n" +
+      "\020PickFundamentals\0229\n\031revenue_basis_perio" +
+      "d_type\030\001 \001(\tR\026revenueBasisPeriodType\022,\n\022" +
+      "revenue_period_end\030\002 \001(\tR\020revenuePeriodE" +
+      "nd\0221\n\025eps_basis_period_type\030\003 \001(\tR\022epsBa" +
+      "sisPeriodType\022$\n\016eps_period_end\030\004 \001(\tR\014e" +
+      "psPeriodEnd\022\032\n\010currency\030\005 \001(\tR\010currency\022" +
+      "\035\n\nfetched_at\030\006 \001(\tR\tfetchedAt\0220\n\024revenu" +
+      "e_basis_source\030\007 \001(\tR\022revenueBasisSource" +
+      "\022(\n\020eps_basis_source\030\010 \001(\tR\016epsBasisSour" +
+      "ce\022$\n\016net_margin_pct\030\t \001(\001R\014netMarginPct" +
+      "\022+\n\022has_net_margin_pct\030\n \001(\010R\017hasNetMarg" +
+      "inPct\022\027\n\007roe_pct\030\013 \001(\001R\006roePct\022\036\n\013has_ro" +
+      "e_pct\030\014 \001(\010R\thasRoePct\022$\n\016fcf_margin_pct" +
+      "\030\r \001(\001R\014fcfMarginPct\022+\n\022has_fcf_margin_p" +
+      "ct\030\016 \001(\010R\017hasFcfMarginPct\022+\n\022net_debt_to" +
+      "_ebitda\030\017 \001(\001R\017netDebtToEbitda\0222\n\026has_ne" +
+      "t_debt_to_ebitda\030\020 \001(\010R\022hasNetDebtToEbit" +
+      "da\022\031\n\010pe_ratio\030\021 \001(\001R\007peRatio\022 \n\014has_pe_" +
+      "ratio\030\022 \001(\010R\nhasPeRatio\022!\n\014is_financial\030" +
+      "\023 \001(\010R\013isFinancial\022.\n\023net_income_positiv" +
+      "e\030\024 \001(\010R\021netIncomePositive\022%\n\016not_meanin" +
+      "gful\030\025 \003(\tR\rnotMeaningful\"\314\001\n\027GetStrateg" +
+      "yPicksRequest\022\037\n\013strategy_id\030\001 \001(\tR\nstra" +
+      "tegyId\022\024\n\005limit\030\002 \001(\005R\005limit\022\026\n\006offset\030\003" +
+      " \001(\005R\006offset\022\026\n\006status\030\004 \001(\tR\006status\022\027\n\007" +
+      "sort_by\030\005 \001(\tR\006sortBy\0221\n\024require_fundame" +
+      "ntals\030\006 \001(\010R\023requireFundamentals\"\222\003\n\030Get" +
+      "StrategyPicksResponse\0225\n\010strategy\030\001 \001(\0132" +
+      "\031.shorts.v1alpha1.StrategyR\010strategy\0225\n\006" +
       "regime\030\002 \001(\0132\035.shorts.v1alpha1.MarketReg" +
-      "imeR\006regime2\351\001\n\017StrategyService\022g\n\016ListS" +
-      "trategies\022&.shorts.v1alpha1.ListStrategi" +
-      "esRequest\032\'.shorts.v1alpha1.ListStrategi" +
-      "esResponse\"\004\200\265\030\001\022m\n\020GetStrategyPicks\022(.s" +
-      "horts.v1alpha1.GetStrategyPicksRequest\032)" +
-      ".shorts.v1alpha1.GetStrategyPicksRespons" +
-      "e\"\004\200\265\030\001B\336\001\n\023com.shorts.v1alpha1B\017Strateg" +
-      "iesProtoP\001ZYgithub.com/castlemilk/shorte" +
-      "d.com.au/services/gen/proto/go/shorts/v1" +
-      "alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1a" +
-      "lpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alpha" +
-      "1\\GPBMetadata\352\002\020Shorts::V1alpha1b\006proto3"
+      "imeR\006regime\0223\n\005picks\030\003 \003(\0132\035.shorts.v1al" +
+      "pha1.StrategyPickR\005picks\022\037\n\013total_count\030" +
+      "\004 \001(\005R\ntotalCount\022%\n\016universe_count\030\005 \001(" +
+      "\005R\runiverseCount\022>\n\033fundamentals_coverag" +
+      "e_count\030\006 \001(\005R\031fundamentalsCoverageCount" +
+      "\022\023\n\005as_of\030\007 \001(\tR\004asOf\0226\n\027fundamentals_ro" +
+      "ws_count\030\010 \001(\005R\025fundamentalsRowsCount\";\n" +
+      "\032GetStockStrategyFitRequest\022\035\n\nstock_cod" +
+      "e\030\001 \001(\tR\tstockCode\"\351\001\n\013StrategyFit\022\037\n\013st" +
+      "rategy_id\030\001 \001(\tR\nstrategyId\022#\n\rstrategy_" +
+      "name\030\002 \001(\tR\014strategyName\022\026\n\006status\030\003 \001(\t" +
+      "R\006status\022\024\n\005score\030\004 \001(\001R\005score\022\022\n\004rank\030\005" +
+      " \001(\005R\004rank\022\037\n\013total_count\030\006 \001(\005R\ntotalCo" +
+      "unt\0221\n\005rules\030\007 \003(\0132\033.shorts.v1alpha1.Rul" +
+      "eResultR\005rules\"\333\001\n\033GetStockStrategyFitRe" +
+      "sponse\022\035\n\nstock_code\030\001 \001(\tR\tstockCode\022\023\n" +
+      "\005as_of\030\002 \001(\tR\004asOf\0225\n\006regime\030\003 \001(\0132\035.sho" +
+      "rts.v1alpha1.MarketRegimeR\006regime\0220\n\004fit" +
+      "s\030\004 \003(\0132\034.shorts.v1alpha1.StrategyFitR\004f" +
+      "its\022\037\n\013in_universe\030\005 \001(\010R\ninUniverse\"\027\n\025" +
+      "ListStrategiesRequest\"\212\001\n\026ListStrategies" +
+      "Response\0229\n\nstrategies\030\001 \003(\0132\031.shorts.v1" +
+      "alpha1.StrategyR\nstrategies\0225\n\006regime\030\002 " +
+      "\001(\0132\035.shorts.v1alpha1.MarketRegimeR\006regi" +
+      "me2\341\002\n\017StrategyService\022g\n\016ListStrategies" +
+      "\022&.shorts.v1alpha1.ListStrategiesRequest" +
+      "\032\'.shorts.v1alpha1.ListStrategiesRespons" +
+      "e\"\004\200\265\030\001\022m\n\020GetStrategyPicks\022(.shorts.v1a" +
+      "lpha1.GetStrategyPicksRequest\032).shorts.v" +
+      "1alpha1.GetStrategyPicksResponse\"\004\200\265\030\001\022v" +
+      "\n\023GetStockStrategyFit\022+.shorts.v1alpha1." +
+      "GetStockStrategyFitRequest\032,.shorts.v1al" +
+      "pha1.GetStockStrategyFitResponse\"\004\200\265\030\001B\336" +
+      "\001\n\023com.shorts.v1alpha1B\017StrategiesProtoP" +
+      "\001ZYgithub.com/castlemilk/shorted.com.au/" +
+      "services/gen/proto/go/shorts/v1alpha1;sh" +
+      "ortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017S" +
+      "horts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMeta" +
+      "data\352\002\020Shorts::V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -204,27 +267,51 @@ public final class StrategiesProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_StrategyPick_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_StrategyPick_descriptor,
-        new java.lang.String[] { "Rank", "StockCode", "CompanyName", "Industry", "Status", "Score", "Rules", "Close", "AsOf", "PctOff52WHigh", "VolumeRatio50D", "BaseDepthPct", "BaseLengthDays", "Pivot", "RevenueYoyPct", "HasRevenueYoy", "EpsYoyPct", "HasEpsYoy", "Rs3MPct", "ShortPct", "MarketCap", "LogoUrl", "HasRs3MPct", "HasShortPct", "HasMarketCap", "HasClose", });
-    internal_static_shorts_v1alpha1_GetStrategyPicksRequest_descriptor =
+        new java.lang.String[] { "Rank", "StockCode", "CompanyName", "Industry", "Status", "Score", "Rules", "Close", "AsOf", "PctOff52WHigh", "VolumeRatio50D", "BaseDepthPct", "BaseLengthDays", "Pivot", "RevenueYoyPct", "HasRevenueYoy", "EpsYoyPct", "HasEpsYoy", "Rs3MPct", "ShortPct", "MarketCap", "LogoUrl", "HasRs3MPct", "HasShortPct", "HasMarketCap", "HasClose", "Fundamentals", });
+    internal_static_shorts_v1alpha1_PickFundamentals_descriptor =
       getDescriptor().getMessageType(6);
+    internal_static_shorts_v1alpha1_PickFundamentals_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_PickFundamentals_descriptor,
+        new java.lang.String[] { "RevenueBasisPeriodType", "RevenuePeriodEnd", "EpsBasisPeriodType", "EpsPeriodEnd", "Currency", "FetchedAt", "RevenueBasisSource", "EpsBasisSource", "NetMarginPct", "HasNetMarginPct", "RoePct", "HasRoePct", "FcfMarginPct", "HasFcfMarginPct", "NetDebtToEbitda", "HasNetDebtToEbitda", "PeRatio", "HasPeRatio", "IsFinancial", "NetIncomePositive", "NotMeaningful", });
+    internal_static_shorts_v1alpha1_GetStrategyPicksRequest_descriptor =
+      getDescriptor().getMessageType(7);
     internal_static_shorts_v1alpha1_GetStrategyPicksRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetStrategyPicksRequest_descriptor,
-        new java.lang.String[] { "StrategyId", "Limit", "Offset", "Status", });
+        new java.lang.String[] { "StrategyId", "Limit", "Offset", "Status", "SortBy", "RequireFundamentals", });
     internal_static_shorts_v1alpha1_GetStrategyPicksResponse_descriptor =
-      getDescriptor().getMessageType(7);
+      getDescriptor().getMessageType(8);
     internal_static_shorts_v1alpha1_GetStrategyPicksResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetStrategyPicksResponse_descriptor,
-        new java.lang.String[] { "Strategy", "Regime", "Picks", "TotalCount", "UniverseCount", "FundamentalsCoverageCount", "AsOf", });
+        new java.lang.String[] { "Strategy", "Regime", "Picks", "TotalCount", "UniverseCount", "FundamentalsCoverageCount", "AsOf", "FundamentalsRowsCount", });
+    internal_static_shorts_v1alpha1_GetStockStrategyFitRequest_descriptor =
+      getDescriptor().getMessageType(9);
+    internal_static_shorts_v1alpha1_GetStockStrategyFitRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetStockStrategyFitRequest_descriptor,
+        new java.lang.String[] { "StockCode", });
+    internal_static_shorts_v1alpha1_StrategyFit_descriptor =
+      getDescriptor().getMessageType(10);
+    internal_static_shorts_v1alpha1_StrategyFit_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_StrategyFit_descriptor,
+        new java.lang.String[] { "StrategyId", "StrategyName", "Status", "Score", "Rank", "TotalCount", "Rules", });
+    internal_static_shorts_v1alpha1_GetStockStrategyFitResponse_descriptor =
+      getDescriptor().getMessageType(11);
+    internal_static_shorts_v1alpha1_GetStockStrategyFitResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_GetStockStrategyFitResponse_descriptor,
+        new java.lang.String[] { "StockCode", "AsOf", "Regime", "Fits", "InUniverse", });
     internal_static_shorts_v1alpha1_ListStrategiesRequest_descriptor =
-      getDescriptor().getMessageType(8);
+      getDescriptor().getMessageType(12);
     internal_static_shorts_v1alpha1_ListStrategiesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStrategiesRequest_descriptor,
         new java.lang.String[] { });
     internal_static_shorts_v1alpha1_ListStrategiesResponse_descriptor =
-      getDescriptor().getMessageType(9);
+      getDescriptor().getMessageType(13);
     internal_static_shorts_v1alpha1_ListStrategiesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_ListStrategiesResponse_descriptor,

@@ -14,6 +14,10 @@ import type { StrategiesResult } from "~/@/lib/strategies/types";
 // the /picks hub. Same pattern as getStrategyPicks / getScanResults: connect
 // inside unstable_cache, an SSR-marked transport, skipped at build, null on
 // failure so the hub falls back to its registry copy.
+//
+// Cache key v2 alongside strategy-picks-*-v2: a v1 entry was filled by an API
+// with four strategies, and would leave the quality-compounders card on
+// registry copy until it expired.
 
 export type { StrategiesResult } from "~/@/lib/strategies/types";
 
@@ -43,7 +47,7 @@ export async function getStrategies(): Promise<StrategiesResult | null> {
         }
         return result;
       },
-      ["strategies-list-v1"],
+      ["strategies-list-v2"],
       { tags: ["strategy-picks", "strategies-list"], revalidate: 3600 },
     )();
   } catch (err) {

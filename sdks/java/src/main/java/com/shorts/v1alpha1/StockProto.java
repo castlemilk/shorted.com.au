@@ -227,10 +227,30 @@ public final class StockProto extends com.google.protobuf.GeneratedFile {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_FundamentalsPeriod_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_FundamentalsPeriod_FieldSourcesEntry_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_FundamentalsPeriod_FieldSourcesEntry_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_shorts_v1alpha1_FundamentalsGrowth_descriptor;
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_shorts_v1alpha1_FundamentalsGrowth_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_FundamentalsQuality_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_FundamentalsQuality_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_FundamentalsCoverage_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_FundamentalsCoverage_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_shorts_v1alpha1_LatestFilingSummary_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_shorts_v1alpha1_LatestFilingSummary_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
     internal_static_shorts_v1alpha1_GetStockFundamentalsResponse_descriptor;
   static final 
@@ -392,8 +412,8 @@ public final class StockProto extends com.google.protobuf.GeneratedFile {
       "\nconfidence\022\034\n\tcitations\030\010 \003(\tR\tcitation" +
       "s\"s\n\033GetStockFundamentalsRequest\022\035\n\nstoc" +
       "k_code\030\001 \001(\tR\tstockCode\022\037\n\013period_type\030\002" +
-      " \001(\tR\nperiodType\022\024\n\005limit\030\003 \001(\005R\005limit\"\361" +
-      "\005\n\022FundamentalsPeriod\022\037\n\013period_type\030\001 \001" +
+      " \001(\tR\nperiodType\022\024\n\005limit\030\003 \001(\005R\005limit\"\377" +
+      "\025\n\022FundamentalsPeriod\022\037\n\013period_type\030\001 \001" +
       "(\tR\nperiodType\022\035\n\nperiod_end\030\002 \001(\tR\tperi" +
       "odEnd\022\037\n\013fiscal_year\030\003 \001(\005R\nfiscalYear\022\032" +
       "\n\010currency\030\004 \001(\tR\010currency\022\030\n\007revenue\030\005 " +
@@ -411,88 +431,211 @@ public final class StockProto extends com.google.protobuf.GeneratedFile {
       "haresOutstanding\022\026\n\006source\030\021 \001(\tR\006source" +
       "\022\035\n\nfetched_at\030\022 \001(\tR\tfetchedAt\022$\n\016free_" +
       "cash_flow\030\023 \001(\001R\014freeCashFlow\022+\n\022has_fre" +
-      "e_cash_flow\030\024 \001(\010R\017hasFreeCashFlow\"\216\010\n\022F" +
-      "undamentalsGrowth\022*\n\021basis_period_type\030\001" +
-      " \001(\tR\017basisPeriodType\022*\n\021latest_period_e" +
-      "nd\030\002 \001(\tR\017latestPeriodEnd\022&\n\017revenue_yoy" +
-      "_pct\030\003 \001(\001R\rrevenueYoyPct\022&\n\017has_revenue" +
-      "_yoy\030\004 \001(\010R\rhasRevenueYoy\0221\n\025revenue_yoy" +
-      "_prior_pct\030\005 \001(\001R\022revenueYoyPriorPct\0221\n\025" +
-      "has_revenue_yoy_prior\030\006 \001(\010R\022hasRevenueY" +
-      "oyPrior\022\036\n\013eps_yoy_pct\030\007 \001(\001R\tepsYoyPct\022" +
-      "\036\n\013has_eps_yoy\030\010 \001(\010R\thasEpsYoy\022)\n\021eps_y" +
-      "oy_prior_pct\030\t \001(\001R\016epsYoyPriorPct\022)\n\021ha" +
-      "s_eps_yoy_prior\030\n \001(\010R\016hasEpsYoyPrior\022.\n" +
-      "\023net_income_positive\030\013 \001(\010R\021netIncomePos" +
-      "itive\022+\n\021periods_available\030\014 \001(\005R\020period" +
-      "sAvailable\022\037\n\013revenue_ttm\030\r \001(\001R\nrevenue" +
-      "Ttm\022&\n\017has_revenue_ttm\030\016 \001(\010R\rhasRevenue" +
-      "Ttm\022$\n\016net_income_ttm\030\017 \001(\001R\014netIncomeTt" +
-      "m\022+\n\022has_net_income_ttm\030\020 \001(\010R\017hasNetInc" +
-      "omeTtm\022\027\n\007eps_ttm\030\021 \001(\001R\006epsTtm\022\036\n\013has_e" +
-      "ps_ttm\030\022 \001(\010R\thasEpsTtm\0229\n\031revenue_basis" +
-      "_period_type\030\023 \001(\tR\026revenueBasisPeriodTy" +
-      "pe\022/\n\024revenue_half_yoy_pct\030\024 \001(\001R\021revenu" +
-      "eHalfYoyPct\022/\n\024has_revenue_half_yoy\030\025 \001(" +
-      "\010R\021hasRevenueHalfYoy\022\'\n\020eps_half_yoy_pct" +
-      "\030\026 \001(\001R\repsHalfYoyPct\022\'\n\020has_eps_half_yo" +
-      "y\030\027 \001(\010R\rhasEpsHalfYoy\0223\n\026half_latest_pe" +
-      "riod_end\030\030 \001(\tR\023halfLatestPeriodEnd\"\330\001\n\034" +
-      "GetStockFundamentalsResponse\022\035\n\nstock_co" +
-      "de\030\001 \001(\tR\tstockCode\022=\n\007periods\030\002 \003(\0132#.s" +
-      "horts.v1alpha1.FundamentalsPeriodR\007perio" +
-      "ds\022;\n\006growth\030\003 \001(\0132#.shorts.v1alpha1.Fun" +
-      "damentalsGrowthR\006growth\022\035\n\nhas_growth\030\004 " +
-      "\001(\010R\thasGrowth*\302\001\n\014VerdictLabel\022\035\n\031VERDI" +
-      "CT_LABEL_UNSPECIFIED\020\000\022 \n\034VERDICT_LABEL_" +
-      "STRONG_BEARISH\020\001\022\031\n\025VERDICT_LABEL_BEARIS" +
-      "H\020\002\022\031\n\025VERDICT_LABEL_NEUTRAL\020\003\022\031\n\025VERDIC" +
-      "T_LABEL_BULLISH\020\004\022 \n\034VERDICT_LABEL_STRON" +
-      "G_BULLISH\020\0052\216\014\n\014StockService\022J\n\010GetStock" +
-      "\022 .shorts.v1alpha1.GetStockRequest\032\026.sto" +
-      "cks.v1alpha1.Stock\"\004\200\265\030\001\022_\n\017GetStockDeta" +
-      "ils\022\'.shorts.v1alpha1.GetStockDetailsReq" +
-      "uest\032\035.stocks.v1alpha1.StockDetails\"\004\200\265\030" +
-      "\001\022[\n\014GetStockData\022$.shorts.v1alpha1.GetS" +
-      "tockDataRequest\032\037.stocks.v1alpha1.TimeSe" +
-      "riesData\"\004\200\265\030\001\022g\n\016GetStockPrices\022&.short" +
-      "s.v1alpha1.GetStockPricesRequest\032\'.short" +
-      "s.v1alpha1.GetStockPricesResponse\"\004\200\265\030\001\022" +
-      "\216\001\n\033GetStockFinancialHighlights\0223.shorts" +
-      ".v1alpha1.GetStockFinancialHighlightsReq" +
-      "uest\0324.shorts.v1alpha1.GetStockFinancial" +
-      "HighlightsResponse\"\004\200\265\030\001\022p\n\021GetDirectorT" +
-      "rades\022).shorts.v1alpha1.GetDirectorTrade" +
-      "sRequest\032*.shorts.v1alpha1.GetDirectorTr" +
-      "adesResponse\"\004\200\265\030\001\022s\n\022GetDividendHistory" +
-      "\022*.shorts.v1alpha1.GetDividendHistoryReq" +
-      "uest\032+.shorts.v1alpha1.GetDividendHistor" +
-      "yResponse\"\004\200\265\030\001\022p\n\021GetPeerComparison\022).s" +
-      "horts.v1alpha1.GetPeerComparisonRequest\032" +
-      "*.shorts.v1alpha1.GetPeerComparisonRespo" +
-      "nse\"\004\200\265\030\001\022j\n\017GetStockVerdict\022\'.shorts.v1" +
-      "alpha1.GetStockVerdictRequest\032(.shorts.v" +
-      "1alpha1.GetStockVerdictResponse\"\004\200\265\030\001\022d\n" +
-      "\rGetStockGraph\022%.shorts.v1alpha1.GetStoc" +
-      "kGraphRequest\032&.shorts.v1alpha1.GetStock" +
-      "GraphResponse\"\004\200\265\030\001\022m\n\020GetEventTimeline\022" +
-      "(.shorts.v1alpha1.GetEventTimelineReques" +
-      "t\032).shorts.v1alpha1.GetEventTimelineResp" +
-      "onse\"\004\200\265\030\001\022j\n\017GetStockSignals\022\'.shorts.v" +
-      "1alpha1.GetStockSignalsRequest\032(.shorts." +
-      "v1alpha1.GetStockSignalsResponse\"\004\200\265\030\001\022y" +
-      "\n\024GetCompanyTaxProfile\022,.shorts.v1alpha1" +
-      ".GetCompanyTaxProfileRequest\032-.shorts.v1" +
-      "alpha1.GetCompanyTaxProfileResponse\"\004\200\265\030" +
-      "\001\022y\n\024GetStockFundamentals\022,.shorts.v1alp" +
-      "ha1.GetStockFundamentalsRequest\032-.shorts" +
-      ".v1alpha1.GetStockFundamentalsResponse\"\004" +
-      "\200\265\030\001B\331\001\n\023com.shorts.v1alpha1B\nStockProto" +
-      "P\001ZYgithub.com/castlemilk/shorted.com.au" +
-      "/services/gen/proto/go/shorts/v1alpha1;s" +
-      "hortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1alpha1\312\002\017" +
-      "Shorts\\V1alpha1\342\002\033Shorts\\V1alpha1\\GPBMet" +
-      "adata\352\002\020Shorts::V1alpha1b\006proto3"
+      "e_cash_flow\030\024 \001(\010R\017hasFreeCashFlow\022!\n\014gr" +
+      "oss_profit\030\025 \001(\001R\013grossProfit\022(\n\020has_gro" +
+      "ss_profit\030\026 \001(\010R\016hasGrossProfit\022)\n\020opera" +
+      "ting_income\030\027 \001(\001R\017operatingIncome\0220\n\024ha" +
+      "s_operating_income\030\030 \001(\010R\022hasOperatingIn" +
+      "come\022\026\n\006ebitda\030\031 \001(\001R\006ebitda\022\035\n\nhas_ebit" +
+      "da\030\032 \001(\010R\thasEbitda\022+\n\021normalized_ebitda" +
+      "\030\033 \001(\001R\020normalizedEbitda\0222\n\025has_normaliz" +
+      "ed_ebitda\030\034 \001(\010R\023hasNormalizedEbitda\022\022\n\004" +
+      "ebit\030\035 \001(\001R\004ebit\022\031\n\010has_ebit\030\036 \001(\010R\007hasE" +
+      "bit\022)\n\020interest_expense\030\037 \001(\001R\017interestE" +
+      "xpense\0220\n\024has_interest_expense\030  \001(\010R\022ha" +
+      "sInterestExpense\022#\n\rpretax_income\030! \001(\001R" +
+      "\014pretaxIncome\022*\n\021has_pretax_income\030\" \001(\010" +
+      "R\017hasPretaxIncome\022#\n\rtax_provision\030# \001(\001" +
+      "R\014taxProvision\022*\n\021has_tax_provision\030$ \001(" +
+      "\010R\017hasTaxProvision\022.\n\023net_interest_incom" +
+      "e\030% \001(\001R\021netInterestIncome\0225\n\027has_net_in" +
+      "terest_income\030& \001(\010R\024hasNetInterestIncom" +
+      "e\022/\n\023capital_expenditure\030\' \001(\001R\022capitalE" +
+      "xpenditure\0226\n\027has_capital_expenditure\030( " +
+      "\001(\010R\025hasCapitalExpenditure\022%\n\016dividends_" +
+      "paid\030) \001(\001R\rdividendsPaid\022,\n\022has_dividen" +
+      "ds_paid\030* \001(\010R\020hasDividendsPaid\022%\n\016share" +
+      "_buybacks\030+ \001(\001R\rshareBuybacks\022,\n\022has_sh" +
+      "are_buybacks\030, \001(\010R\020hasShareBuybacks\022!\n\014" +
+      "total_assets\030- \001(\001R\013totalAssets\022(\n\020has_t" +
+      "otal_assets\030. \001(\010R\016hasTotalAssets\022+\n\021tot" +
+      "al_liabilities\030/ \001(\001R\020totalLiabilities\0222" +
+      "\n\025has_total_liabilities\0300 \001(\010R\023hasTotalL" +
+      "iabilities\022!\n\014total_equity\0301 \001(\001R\013totalE" +
+      "quity\022(\n\020has_total_equity\0302 \001(\010R\016hasTota" +
+      "lEquity\0220\n\024cash_and_equivalents\0303 \001(\001R\022c" +
+      "ashAndEquivalents\0227\n\030has_cash_and_equiva" +
+      "lents\0304 \001(\010R\025hasCashAndEquivalents\022\035\n\nto" +
+      "tal_debt\0305 \001(\001R\ttotalDebt\022$\n\016has_total_d" +
+      "ebt\0306 \001(\010R\014hasTotalDebt\022:\n\031capital_lease" +
+      "_obligations\0307 \001(\001R\027capitalLeaseObligati" +
+      "ons\022A\n\035has_capital_lease_obligations\0308 \001" +
+      "(\010R\032hasCapitalLeaseObligations\022\031\n\010net_de" +
+      "bt\0309 \001(\001R\007netDebt\022 \n\014has_net_debt\030: \001(\010R" +
+      "\nhasNetDebt\022%\n\016current_assets\030; \001(\001R\rcur" +
+      "rentAssets\022,\n\022has_current_assets\030< \001(\010R\020" +
+      "hasCurrentAssets\022/\n\023current_liabilities\030" +
+      "= \001(\001R\022currentLiabilities\0226\n\027has_current" +
+      "_liabilities\030> \001(\010R\025hasCurrentLiabilitie" +
+      "s\022Z\n\rfield_sources\030? \003(\01325.shorts.v1alph" +
+      "a1.FundamentalsPeriod.FieldSourcesEntryR" +
+      "\014fieldSources\022.\n\023source_document_url\030@ \001" +
+      "(\tR\021sourceDocumentUrl\0220\n\024source_document" +
+      "_date\030A \001(\tR\022sourceDocumentDate\032?\n\021Field" +
+      "SourcesEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030" +
+      "\002 \001(\tR\005value:\0028\001\"\375\t\n\022FundamentalsGrowth\022" +
+      "*\n\021basis_period_type\030\001 \001(\tR\017basisPeriodT" +
+      "ype\022*\n\021latest_period_end\030\002 \001(\tR\017latestPe" +
+      "riodEnd\022&\n\017revenue_yoy_pct\030\003 \001(\001R\rrevenu" +
+      "eYoyPct\022&\n\017has_revenue_yoy\030\004 \001(\010R\rhasRev" +
+      "enueYoy\0221\n\025revenue_yoy_prior_pct\030\005 \001(\001R\022" +
+      "revenueYoyPriorPct\0221\n\025has_revenue_yoy_pr" +
+      "ior\030\006 \001(\010R\022hasRevenueYoyPrior\022\036\n\013eps_yoy" +
+      "_pct\030\007 \001(\001R\tepsYoyPct\022\036\n\013has_eps_yoy\030\010 \001" +
+      "(\010R\thasEpsYoy\022)\n\021eps_yoy_prior_pct\030\t \001(\001" +
+      "R\016epsYoyPriorPct\022)\n\021has_eps_yoy_prior\030\n " +
+      "\001(\010R\016hasEpsYoyPrior\022.\n\023net_income_positi" +
+      "ve\030\013 \001(\010R\021netIncomePositive\022+\n\021periods_a" +
+      "vailable\030\014 \001(\005R\020periodsAvailable\022\037\n\013reve" +
+      "nue_ttm\030\r \001(\001R\nrevenueTtm\022&\n\017has_revenue" +
+      "_ttm\030\016 \001(\010R\rhasRevenueTtm\022$\n\016net_income_" +
+      "ttm\030\017 \001(\001R\014netIncomeTtm\022+\n\022has_net_incom" +
+      "e_ttm\030\020 \001(\010R\017hasNetIncomeTtm\022\027\n\007eps_ttm\030" +
+      "\021 \001(\001R\006epsTtm\022\036\n\013has_eps_ttm\030\022 \001(\010R\thasE" +
+      "psTtm\0229\n\031revenue_basis_period_type\030\023 \001(\t" +
+      "R\026revenueBasisPeriodType\022/\n\024revenue_half" +
+      "_yoy_pct\030\024 \001(\001R\021revenueHalfYoyPct\022/\n\024has" +
+      "_revenue_half_yoy\030\025 \001(\010R\021hasRevenueHalfY" +
+      "oy\022\'\n\020eps_half_yoy_pct\030\026 \001(\001R\repsHalfYoy" +
+      "Pct\022\'\n\020has_eps_half_yoy\030\027 \001(\010R\rhasEpsHal" +
+      "fYoy\0223\n\026half_latest_period_end\030\030 \001(\tR\023ha" +
+      "lfLatestPeriodEnd\0220\n\024revenue_basis_sourc" +
+      "e\030\031 \001(\tR\022revenueBasisSource\022(\n\020eps_basis" +
+      "_source\030\032 \001(\tR\016epsBasisSource\022\035\n\nfetched" +
+      "_at\030\033 \001(\tR\tfetchedAt\0229\n\031revenue_latest_p" +
+      "eriod_end\030\034 \001(\tR\026revenueLatestPeriodEnd\022" +
+      "7\n\030revenue_prior_period_end\030\035 \001(\tR\025reven" +
+      "uePriorPeriodEnd\"\212\017\n\023FundamentalsQuality" +
+      "\022*\n\021basis_period_type\030\001 \001(\tR\017basisPeriod" +
+      "Type\022(\n\020basis_period_end\030\002 \001(\tR\016basisPer" +
+      "iodEnd\022\032\n\010currency\030\003 \001(\tR\010currency\022,\n\022ba" +
+      "lance_period_end\030\004 \001(\tR\020balancePeriodEnd" +
+      "\022(\n\020gross_margin_pct\030\005 \001(\001R\016grossMarginP" +
+      "ct\022/\n\024has_gross_margin_pct\030\006 \001(\010R\021hasGro" +
+      "ssMarginPct\0220\n\024operating_margin_pct\030\007 \001(" +
+      "\001R\022operatingMarginPct\0227\n\030has_operating_m" +
+      "argin_pct\030\010 \001(\010R\025hasOperatingMarginPct\022$" +
+      "\n\016net_margin_pct\030\t \001(\001R\014netMarginPct\022+\n\022" +
+      "has_net_margin_pct\030\n \001(\010R\017hasNetMarginPc" +
+      "t\022$\n\016fcf_margin_pct\030\013 \001(\001R\014fcfMarginPct\022" +
+      "+\n\022has_fcf_margin_pct\030\014 \001(\010R\017hasFcfMargi" +
+      "nPct\022%\n\016fcf_conversion\030\r \001(\001R\rfcfConvers" +
+      "ion\022,\n\022has_fcf_conversion\030\016 \001(\010R\020hasFcfC" +
+      "onversion\022\027\n\007roe_pct\030\017 \001(\001R\006roePct\022\036\n\013ha" +
+      "s_roe_pct\030\020 \001(\010R\thasRoePct\022\027\n\007roa_pct\030\021 " +
+      "\001(\001R\006roaPct\022\036\n\013has_roa_pct\030\022 \001(\010R\thasRoa" +
+      "Pct\022\031\n\010net_debt\030\023 \001(\001R\007netDebt\022 \n\014has_ne" +
+      "t_debt\030\024 \001(\010R\nhasNetDebt\022+\n\022net_debt_to_" +
+      "ebitda\030\025 \001(\001R\017netDebtToEbitda\0222\n\026has_net" +
+      "_debt_to_ebitda\030\026 \001(\010R\022hasNetDebtToEbitd" +
+      "a\022+\n\022net_debt_to_equity\030\027 \001(\001R\017netDebtTo" +
+      "Equity\0222\n\026has_net_debt_to_equity\030\030 \001(\010R\022" +
+      "hasNetDebtToEquity\022#\n\rcurrent_ratio\030\031 \001(" +
+      "\001R\014currentRatio\022*\n\021has_current_ratio\030\032 \001" +
+      "(\010R\017hasCurrentRatio\022%\n\016interest_cover\030\033 " +
+      "\001(\001R\rinterestCover\022,\n\022has_interest_cover" +
+      "\030\034 \001(\010R\020hasInterestCover\022(\n\020payout_ratio" +
+      "_pct\030\035 \001(\001R\016payoutRatioPct\022/\n\024has_payout" +
+      "_ratio_pct\030\036 \001(\010R\021hasPayoutRatioPct\022!\n\014i" +
+      "s_financial\030\037 \001(\010R\013isFinancial\022\026\n\006source" +
+      "\030  \001(\tR\006source\022=\n\033operating_cash_flow_de" +
+      "rived\030! \001(\010R\030operatingCashFlowDerived\022\035\n" +
+      "\nmarket_cap\030\" \001(\001R\tmarketCap\022$\n\016has_mark" +
+      "et_cap\030# \001(\010R\014hasMarketCap\022\031\n\010pe_ratio\030$" +
+      " \001(\001R\007peRatio\022 \n\014has_pe_ratio\030% \001(\010R\nhas" +
+      "PeRatio\022\"\n\rprice_to_book\030& \001(\001R\013priceToB" +
+      "ook\022)\n\021has_price_to_book\030\' \001(\010R\016hasPrice" +
+      "ToBook\022\036\n\013price_as_of\030( \001(\tR\tpriceAsOf\022)" +
+      "\n\020balance_currency\030) \001(\tR\017balanceCurrenc" +
+      "y\022%\n\016not_meaningful\030* \003(\tR\rnotMeaningful" +
+      "\022\037\n\013is_property\030+ \001(\010R\nisProperty\022,\n\022bal" +
+      "ance_lag_months\030, \001(\005R\020balanceLagMonths\022" +
+      " \n\014shares_as_of\030- \001(\tR\nsharesAsOf\022)\n\021pe_" +
+      "eps_period_end\030. \001(\tR\016peEpsPeriodEnd\022 \n\014" +
+      "pe_eps_basis\030/ \001(\tR\npeEpsBasis\022%\n\016valuat" +
+      "ion_note\0300 \001(\tR\rvaluationNote\"\230\001\n\024Fundam" +
+      "entalsCoverage\022\026\n\006status\030\001 \001(\tR\006status\022&" +
+      "\n\017last_attempt_at\030\002 \001(\tR\rlastAttemptAt\022&" +
+      "\n\017last_success_at\030\003 \001(\tR\rlastSuccessAt\022\030" +
+      "\n\007sources\030\004 \003(\tR\007sources\"\375\001\n\023LatestFilin" +
+      "gSummary\022\035\n\nreport_url\030\001 \001(\tR\treportUrl\022" +
+      "!\n\014report_title\030\002 \001(\tR\013reportTitle\022\037\n\013re" +
+      "port_date\030\003 \001(\tR\nreportDate\022\035\n\nperiod_en" +
+      "d\030\004 \001(\tR\tperiodEnd\022\037\n\013period_type\030\005 \001(\tR" +
+      "\nperiodType\022\026\n\006digest\030\006 \001(\tR\006digest\022+\n\021d" +
+      "igest_confidence\030\007 \001(\001R\020digestConfidence" +
+      "\"\363\003\n\034GetStockFundamentalsResponse\022\035\n\nsto" +
+      "ck_code\030\001 \001(\tR\tstockCode\022=\n\007periods\030\002 \003(" +
+      "\0132#.shorts.v1alpha1.FundamentalsPeriodR\007" +
+      "periods\022;\n\006growth\030\003 \001(\0132#.shorts.v1alpha" +
+      "1.FundamentalsGrowthR\006growth\022\035\n\nhas_grow" +
+      "th\030\004 \001(\010R\thasGrowth\022>\n\007quality\030\005 \001(\0132$.s" +
+      "horts.v1alpha1.FundamentalsQualityR\007qual" +
+      "ity\022\037\n\013has_quality\030\006 \001(\010R\nhasQuality\022A\n\010" +
+      "coverage\030\007 \001(\0132%.shorts.v1alpha1.Fundame" +
+      "ntalsCoverageR\010coverage\022I\n\rlatest_filing" +
+      "\030\010 \001(\0132$.shorts.v1alpha1.LatestFilingSum" +
+      "maryR\014latestFiling\022*\n\021has_latest_filing\030" +
+      "\t \001(\010R\017hasLatestFiling*\302\001\n\014VerdictLabel\022" +
+      "\035\n\031VERDICT_LABEL_UNSPECIFIED\020\000\022 \n\034VERDIC" +
+      "T_LABEL_STRONG_BEARISH\020\001\022\031\n\025VERDICT_LABE" +
+      "L_BEARISH\020\002\022\031\n\025VERDICT_LABEL_NEUTRAL\020\003\022\031" +
+      "\n\025VERDICT_LABEL_BULLISH\020\004\022 \n\034VERDICT_LAB" +
+      "EL_STRONG_BULLISH\020\0052\216\014\n\014StockService\022J\n\010" +
+      "GetStock\022 .shorts.v1alpha1.GetStockReque" +
+      "st\032\026.stocks.v1alpha1.Stock\"\004\200\265\030\001\022_\n\017GetS" +
+      "tockDetails\022\'.shorts.v1alpha1.GetStockDe" +
+      "tailsRequest\032\035.stocks.v1alpha1.StockDeta" +
+      "ils\"\004\200\265\030\001\022[\n\014GetStockData\022$.shorts.v1alp" +
+      "ha1.GetStockDataRequest\032\037.stocks.v1alpha" +
+      "1.TimeSeriesData\"\004\200\265\030\001\022g\n\016GetStockPrices" +
+      "\022&.shorts.v1alpha1.GetStockPricesRequest" +
+      "\032\'.shorts.v1alpha1.GetStockPricesRespons" +
+      "e\"\004\200\265\030\001\022\216\001\n\033GetStockFinancialHighlights\022" +
+      "3.shorts.v1alpha1.GetStockFinancialHighl" +
+      "ightsRequest\0324.shorts.v1alpha1.GetStockF" +
+      "inancialHighlightsResponse\"\004\200\265\030\001\022p\n\021GetD" +
+      "irectorTrades\022).shorts.v1alpha1.GetDirec" +
+      "torTradesRequest\032*.shorts.v1alpha1.GetDi" +
+      "rectorTradesResponse\"\004\200\265\030\001\022s\n\022GetDividen" +
+      "dHistory\022*.shorts.v1alpha1.GetDividendHi" +
+      "storyRequest\032+.shorts.v1alpha1.GetDivide" +
+      "ndHistoryResponse\"\004\200\265\030\001\022p\n\021GetPeerCompar" +
+      "ison\022).shorts.v1alpha1.GetPeerComparison" +
+      "Request\032*.shorts.v1alpha1.GetPeerCompari" +
+      "sonResponse\"\004\200\265\030\001\022j\n\017GetStockVerdict\022\'.s" +
+      "horts.v1alpha1.GetStockVerdictRequest\032(." +
+      "shorts.v1alpha1.GetStockVerdictResponse\"" +
+      "\004\200\265\030\001\022d\n\rGetStockGraph\022%.shorts.v1alpha1" +
+      ".GetStockGraphRequest\032&.shorts.v1alpha1." +
+      "GetStockGraphResponse\"\004\200\265\030\001\022m\n\020GetEventT" +
+      "imeline\022(.shorts.v1alpha1.GetEventTimeli" +
+      "neRequest\032).shorts.v1alpha1.GetEventTime" +
+      "lineResponse\"\004\200\265\030\001\022j\n\017GetStockSignals\022\'." +
+      "shorts.v1alpha1.GetStockSignalsRequest\032(" +
+      ".shorts.v1alpha1.GetStockSignalsResponse" +
+      "\"\004\200\265\030\001\022y\n\024GetCompanyTaxProfile\022,.shorts." +
+      "v1alpha1.GetCompanyTaxProfileRequest\032-.s" +
+      "horts.v1alpha1.GetCompanyTaxProfileRespo" +
+      "nse\"\004\200\265\030\001\022y\n\024GetStockFundamentals\022,.shor" +
+      "ts.v1alpha1.GetStockFundamentalsRequest\032" +
+      "-.shorts.v1alpha1.GetStockFundamentalsRe" +
+      "sponse\"\004\200\265\030\001B\331\001\n\023com.shorts.v1alpha1B\nSt" +
+      "ockProtoP\001ZYgithub.com/castlemilk/shorte" +
+      "d.com.au/services/gen/proto/go/shorts/v1" +
+      "alpha1;shortsv1alpha1\242\002\003SXX\252\002\017Shorts.V1a" +
+      "lpha1\312\002\017Shorts\\V1alpha1\342\002\033Shorts\\V1alpha" +
+      "1\\GPBMetadata\352\002\020Shorts::V1alpha1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -739,19 +882,43 @@ public final class StockProto extends com.google.protobuf.GeneratedFile {
     internal_static_shorts_v1alpha1_FundamentalsPeriod_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_FundamentalsPeriod_descriptor,
-        new java.lang.String[] { "PeriodType", "PeriodEnd", "FiscalYear", "Currency", "Revenue", "HasRevenue", "NetIncome", "HasNetIncome", "EpsBasic", "HasEpsBasic", "EpsDiluted", "HasEpsDiluted", "OperatingCashFlow", "HasOperatingCashFlow", "SharesOutstanding", "HasSharesOutstanding", "Source", "FetchedAt", "FreeCashFlow", "HasFreeCashFlow", });
+        new java.lang.String[] { "PeriodType", "PeriodEnd", "FiscalYear", "Currency", "Revenue", "HasRevenue", "NetIncome", "HasNetIncome", "EpsBasic", "HasEpsBasic", "EpsDiluted", "HasEpsDiluted", "OperatingCashFlow", "HasOperatingCashFlow", "SharesOutstanding", "HasSharesOutstanding", "Source", "FetchedAt", "FreeCashFlow", "HasFreeCashFlow", "GrossProfit", "HasGrossProfit", "OperatingIncome", "HasOperatingIncome", "Ebitda", "HasEbitda", "NormalizedEbitda", "HasNormalizedEbitda", "Ebit", "HasEbit", "InterestExpense", "HasInterestExpense", "PretaxIncome", "HasPretaxIncome", "TaxProvision", "HasTaxProvision", "NetInterestIncome", "HasNetInterestIncome", "CapitalExpenditure", "HasCapitalExpenditure", "DividendsPaid", "HasDividendsPaid", "ShareBuybacks", "HasShareBuybacks", "TotalAssets", "HasTotalAssets", "TotalLiabilities", "HasTotalLiabilities", "TotalEquity", "HasTotalEquity", "CashAndEquivalents", "HasCashAndEquivalents", "TotalDebt", "HasTotalDebt", "CapitalLeaseObligations", "HasCapitalLeaseObligations", "NetDebt", "HasNetDebt", "CurrentAssets", "HasCurrentAssets", "CurrentLiabilities", "HasCurrentLiabilities", "FieldSources", "SourceDocumentUrl", "SourceDocumentDate", });
+    internal_static_shorts_v1alpha1_FundamentalsPeriod_FieldSourcesEntry_descriptor =
+      internal_static_shorts_v1alpha1_FundamentalsPeriod_descriptor.getNestedType(0);
+    internal_static_shorts_v1alpha1_FundamentalsPeriod_FieldSourcesEntry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_FundamentalsPeriod_FieldSourcesEntry_descriptor,
+        new java.lang.String[] { "Key", "Value", });
     internal_static_shorts_v1alpha1_FundamentalsGrowth_descriptor =
       getDescriptor().getMessageType(38);
     internal_static_shorts_v1alpha1_FundamentalsGrowth_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_FundamentalsGrowth_descriptor,
-        new java.lang.String[] { "BasisPeriodType", "LatestPeriodEnd", "RevenueYoyPct", "HasRevenueYoy", "RevenueYoyPriorPct", "HasRevenueYoyPrior", "EpsYoyPct", "HasEpsYoy", "EpsYoyPriorPct", "HasEpsYoyPrior", "NetIncomePositive", "PeriodsAvailable", "RevenueTtm", "HasRevenueTtm", "NetIncomeTtm", "HasNetIncomeTtm", "EpsTtm", "HasEpsTtm", "RevenueBasisPeriodType", "RevenueHalfYoyPct", "HasRevenueHalfYoy", "EpsHalfYoyPct", "HasEpsHalfYoy", "HalfLatestPeriodEnd", });
-    internal_static_shorts_v1alpha1_GetStockFundamentalsResponse_descriptor =
+        new java.lang.String[] { "BasisPeriodType", "LatestPeriodEnd", "RevenueYoyPct", "HasRevenueYoy", "RevenueYoyPriorPct", "HasRevenueYoyPrior", "EpsYoyPct", "HasEpsYoy", "EpsYoyPriorPct", "HasEpsYoyPrior", "NetIncomePositive", "PeriodsAvailable", "RevenueTtm", "HasRevenueTtm", "NetIncomeTtm", "HasNetIncomeTtm", "EpsTtm", "HasEpsTtm", "RevenueBasisPeriodType", "RevenueHalfYoyPct", "HasRevenueHalfYoy", "EpsHalfYoyPct", "HasEpsHalfYoy", "HalfLatestPeriodEnd", "RevenueBasisSource", "EpsBasisSource", "FetchedAt", "RevenueLatestPeriodEnd", "RevenuePriorPeriodEnd", });
+    internal_static_shorts_v1alpha1_FundamentalsQuality_descriptor =
       getDescriptor().getMessageType(39);
+    internal_static_shorts_v1alpha1_FundamentalsQuality_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_FundamentalsQuality_descriptor,
+        new java.lang.String[] { "BasisPeriodType", "BasisPeriodEnd", "Currency", "BalancePeriodEnd", "GrossMarginPct", "HasGrossMarginPct", "OperatingMarginPct", "HasOperatingMarginPct", "NetMarginPct", "HasNetMarginPct", "FcfMarginPct", "HasFcfMarginPct", "FcfConversion", "HasFcfConversion", "RoePct", "HasRoePct", "RoaPct", "HasRoaPct", "NetDebt", "HasNetDebt", "NetDebtToEbitda", "HasNetDebtToEbitda", "NetDebtToEquity", "HasNetDebtToEquity", "CurrentRatio", "HasCurrentRatio", "InterestCover", "HasInterestCover", "PayoutRatioPct", "HasPayoutRatioPct", "IsFinancial", "Source", "OperatingCashFlowDerived", "MarketCap", "HasMarketCap", "PeRatio", "HasPeRatio", "PriceToBook", "HasPriceToBook", "PriceAsOf", "BalanceCurrency", "NotMeaningful", "IsProperty", "BalanceLagMonths", "SharesAsOf", "PeEpsPeriodEnd", "PeEpsBasis", "ValuationNote", });
+    internal_static_shorts_v1alpha1_FundamentalsCoverage_descriptor =
+      getDescriptor().getMessageType(40);
+    internal_static_shorts_v1alpha1_FundamentalsCoverage_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_FundamentalsCoverage_descriptor,
+        new java.lang.String[] { "Status", "LastAttemptAt", "LastSuccessAt", "Sources", });
+    internal_static_shorts_v1alpha1_LatestFilingSummary_descriptor =
+      getDescriptor().getMessageType(41);
+    internal_static_shorts_v1alpha1_LatestFilingSummary_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_shorts_v1alpha1_LatestFilingSummary_descriptor,
+        new java.lang.String[] { "ReportUrl", "ReportTitle", "ReportDate", "PeriodEnd", "PeriodType", "Digest", "DigestConfidence", });
+    internal_static_shorts_v1alpha1_GetStockFundamentalsResponse_descriptor =
+      getDescriptor().getMessageType(42);
     internal_static_shorts_v1alpha1_GetStockFundamentalsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_shorts_v1alpha1_GetStockFundamentalsResponse_descriptor,
-        new java.lang.String[] { "StockCode", "Periods", "Growth", "HasGrowth", });
+        new java.lang.String[] { "StockCode", "Periods", "Growth", "HasGrowth", "Quality", "HasQuality", "Coverage", "LatestFiling", "HasLatestFiling", });
     descriptor.resolveAllFeaturesImmutable();
     com.stocks.v1alpha1.StocksProto.getDescriptor();
     com.shortedapi.options.v1.OptionsProto.getDescriptor();

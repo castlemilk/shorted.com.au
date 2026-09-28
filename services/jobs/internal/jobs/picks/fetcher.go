@@ -9,12 +9,16 @@ import (
 // Period types stored in stock_fundamentals.period_type. No vendor we use
 // carries half-year totals for ASX companies (Yahoo's quarterly P&L series are
 // empty for the ASX); 'half' rows come only from company filings
-// (-mode filings, filings_ingest.go). 'quarter' is allowed by the table's
-// CHECK and written by nothing.
+// (-mode filings, filings_ingest.go). 'quarter' is a BALANCE SNAPSHOT (plan
+// fundamentals-coverage.md §2.1, §3.3): the balance-sheet lines and the share
+// count at a Yahoo quarterly* point, never a flow line. ASX companies report
+// half-yearly, so most of those points sit on half-year ends; they are still
+// stored as 'quarter', never as 'half'.
 const (
-	periodAnnual = "annual"
-	periodHalf   = "half"
-	periodTTM    = "ttm"
+	periodAnnual  = "annual"
+	periodHalf    = "half"
+	periodTTM     = "ttm"
+	periodQuarter = "quarter"
 )
 
 // Source identifiers stored in stock_fundamentals.source (VARCHAR(32)).
@@ -26,9 +30,21 @@ const (
 	sourceFiling = "asx-filing-extraction"
 )
 
+// PeriodRow.FieldSources values that are not a row source (plan
+// fundamentals-coverage.md §2.2). The other two legal values are sourceMarkit
+// and sourceFiling.
+const (
+	fieldSourceDerivedFCFMinusCapex = "derived:fcf-minus-capex"
+	fieldSourceDerivedTTMAtFYE      = "derived:ttm-at-fye"
+)
+
 // PeriodRow is one stock_fundamentals row: one period of one stock's typed
 // statement lines, in the REPORTING currency, exactly as the source reports
 // them. A nil value is "the source did not report it", never zero.
+//
+// Every *float64 value field is listed once in fundamentalsColumns
+// (columns.go), with its column name, unit and flow/balance kind; iterate that
+// table rather than naming fields one by one.
 type PeriodRow struct {
 	PeriodType string    // periodAnnual | periodTTM | periodHalf (filings only)
 	PeriodEnd  time.Time // the period's balance date, midnight UTC
@@ -42,7 +58,50 @@ type PeriodRow struct {
 	OperatingCashFlow *float64
 	FreeCashFlow      *float64
 	SharesOutstanding *float64
-	Source            string
+
+	// The full statements (plan fundamentals-coverage.md §2.1, migration
+	// 000132). Yahoo's sign convention: outflows are NEGATIVE. Flow lines are
+	// always nil on a 'quarter' (balance snapshot) row.
+	GrossProfit        *float64
+	OperatingIncome    *float64 // absent for banks and insurers
+	EBITDA             *float64 // statutory: impairments and revaluations in
+	NormalizedEBITDA   *float64
+	EBIT               *float64
+	InterestExpense    *float64 // a positive expense
+	PretaxIncome       *float64
+	TaxProvision       *float64
+	NetInterestIncome  *float64 // banks; minus interest expense for others, so not a classifier
+	CapitalExpenditure *float64 // an outflow: <= 0
+	DividendsPaid      *float64 // cash dividends paid: <= 0
+	ShareBuybacks      *float64 // an outflow: <= 0
+	// Balance sheet at PeriodEnd.
+	TotalAssets             *float64
+	TotalLiabilities        *float64
+	TotalEquity             *float64
+	CashAndEquivalents      *float64
+	TotalDebt               *float64 // INCLUDES lease liabilities
+	CapitalLeaseObligations *float64 // lease liabilities
+	NetDebt                 *float64 // Yahoo's EXCLUDES leases and is omitted when <= 0
+	CurrentAssets           *float64
+	CurrentLiabilities      *float64
+
+	Source string
+
+	// FieldSources records ONLY the exceptions: column name -> where a value
+	// that did not come from Source came from (sourceMarkit, sourceFiling,
+	// fieldSourceDerivedFCFMinusCapex, fieldSourceDerivedTTMAtFYE). Keys are
+	// fundamentalsColumns names. nil and empty mean the same thing: every
+	// value is Source's (plan §2.2).
+	FieldSources map[string]string
+	// Rejected names the columns a sanity or currency gate refused for this
+	// period (plan §3.4, §3.5). Their value is nil here, and the vendor upsert
+	// writes NULL for them instead of keeping a stored value (plan §2.2 rule 2).
+	Rejected []string
+	// SourceDocumentURL and SourceDocumentDate name the filing a row (or its
+	// filing-filled fields) came from; set only by the filings ingest.
+	// SourceDocumentDate is midnight UTC, like PeriodEnd; nil when unknown.
+	SourceDocumentURL  string
+	SourceDocumentDate *time.Time
 }
 
 // hasValues reports whether any statement line is present.
@@ -55,13 +114,15 @@ func (r PeriodRow) hasValues() bool {
 	return false
 }
 
-// values exposes the value fields by address, so sanitising and merging treat
-// every column the same way and a new column cannot be forgotten in one place.
+// values exposes the value fields by address, in fundamentalsColumns order,
+// so sanitising and merging treat every column the same way and a new column
+// cannot be forgotten in one place.
 func (r *PeriodRow) values() []**float64 {
-	return []**float64{
-		&r.Revenue, &r.NetIncome, &r.EPSBasic, &r.EPSDiluted,
-		&r.OperatingCashFlow, &r.FreeCashFlow, &r.SharesOutstanding,
+	out := make([]**float64, len(fundamentalsColumns))
+	for i, c := range fundamentalsColumns {
+		out[i] = c.field(r)
 	}
+	return out
 }
 
 // Fetcher returns one code's per-period fundamentals.

@@ -508,52 +508,82 @@ export interface StockFinancialHighlight {
   confidence: number;   // 0.0–1.0 digest confidence score
 }
 
-// Inner fetch for financial highlights
+// Inner fetch for financial highlights. THROWS on failure: it runs inside
+// unstable_cache, and a swallowed error here used to cache an empty map for
+// 24h (every highlight tile blank for a day after one API blip).
 async function fetchStockFinancialHighlights(
   stockCodes: string[],
 ): Promise<Record<string, StockFinancialHighlight[]>> {
-  try {
-    const transport = getTransport();
-    const client = createClient(StockService, transport);
+  const transport = getTransport();
+  const client = createClient(StockService, transport);
 
-    const resp = await client.getStockFinancialHighlights({
-      stockCodes,
-      maxReportsPerStock: 2,
-    });
+  const resp = await client.getStockFinancialHighlights({
+    stockCodes,
+    maxReportsPerStock: 2,
+  });
 
-    const result: Record<string, StockFinancialHighlight[]> = {};
-    for (const [code, data] of Object.entries(resp.highlights)) {
-      result[code] = data.reports.map((r) => ({
-        reportTitle: r.reportTitle,
-        reportType: r.reportType,
-        reportDate: r.reportDate,
-        metrics: r.metrics.map((m) => ({
-          metricType: m.metricType,
-          sourceText: m.sourceText,
-          attributes: Object.fromEntries(
-            Object.entries(m.attributes),
-          ),
-        })),
-        digest: r.digest,
-        confidence: r.confidence,
-      }));
-    }
-    return result;
-  } catch {
-    return {};
+  const result: Record<string, StockFinancialHighlight[]> = {};
+  for (const [code, data] of Object.entries(resp.highlights ?? {})) {
+    result[code] = (data.reports ?? []).map((r) => ({
+      reportTitle: r.reportTitle,
+      reportType: r.reportType,
+      reportDate: r.reportDate,
+      metrics: (r.metrics ?? []).map((m) => ({
+        metricType: m.metricType,
+        sourceText: m.sourceText,
+        attributes: Object.fromEntries(Object.entries(m.attributes ?? {})),
+      })),
+      digest: r.digest,
+      confidence: r.confidence,
+    }));
   }
+  return result;
 }
 
-// Fetch financial highlights — persistently cached across requests (24h)
-// Cache key uses sorted codes to ensure stable keys regardless of input order
+/** Revalidation tag shared by every highlights entry. */
+export const FINANCIAL_HIGHLIGHTS_CACHE_TAG = "financial-highlights";
+
+/**
+ * Cache tags for one highlights entry: the shared tag, `fundamentals` (the
+ * picks job pings it when the filings ingest writes rows, which is when the
+ * trusted extractions change) and one tag per code.
+ */
+export function financialHighlightsCacheTags(stockCodes: string[]): string[] {
+  const codes = Array.from(
+    new Set(stockCodes.map((code) => code.trim().toUpperCase()).filter(Boolean)),
+  ).sort();
+  return [
+    FINANCIAL_HIGHLIGHTS_CACHE_TAG,
+    "fundamentals",
+    ...codes.map((code) => `financial-highlights:${code.toLowerCase()}`),
+  ];
+}
+
+// Fetch financial highlights: persistently cached across requests (24h).
+// The cache key uses sorted codes so it is stable regardless of input order.
+// Errors are thrown INSIDE the cache (never cached) and caught here, so a
+// caller still gets {} on failure, for this request only.
 export const getStockFinancialHighlights = cache(
-  (stockCodes: string[]) => {
+  async (
+    stockCodes: string[],
+  ): Promise<Record<string, StockFinancialHighlight[]>> => {
     const sortedKey = [...stockCodes].sort().join(",");
-    return unstable_cache(
-      () => fetchStockFinancialHighlights(stockCodes),
-      [`financial-highlights-${sortedKey}`],
-      { revalidate: 86400 },
-    )();
+    try {
+      return await unstable_cache(
+        () => fetchStockFinancialHighlights(stockCodes),
+        [`financial-highlights-${sortedKey}`, "v2"],
+        {
+          revalidate: 86400,
+          tags: financialHighlightsCacheTags(stockCodes),
+        },
+      )();
+    } catch (err) {
+      console.error(
+        `[getStockFinancialHighlights] failed for ${sortedKey}:`,
+        err,
+      );
+      return {};
+    }
   },
 );
 

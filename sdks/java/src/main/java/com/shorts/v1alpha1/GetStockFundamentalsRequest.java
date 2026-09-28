@@ -106,7 +106,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object periodType_ = "";
   /**
    * <pre>
-   * Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+   * Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type.
    * </pre>
    *
    * <code>string period_type = 2 [json_name = "periodType"];</code>
@@ -127,7 +127,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+   * Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type.
    * </pre>
    *
    * <code>string period_type = 2 [json_name = "periodType"];</code>
@@ -607,7 +607,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object periodType_ = "";
     /**
      * <pre>
-     * Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+     * Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type.
      * </pre>
      *
      * <code>string period_type = 2 [json_name = "periodType"];</code>
@@ -627,7 +627,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+     * Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type.
      * </pre>
      *
      * <code>string period_type = 2 [json_name = "periodType"];</code>
@@ -648,7 +648,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+     * Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type.
      * </pre>
      *
      * <code>string period_type = 2 [json_name = "periodType"];</code>
@@ -665,7 +665,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+     * Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type.
      * </pre>
      *
      * <code>string period_type = 2 [json_name = "periodType"];</code>
@@ -679,7 +679,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+     * Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type.
      * </pre>
      *
      * <code>string period_type = 2 [json_name = "periodType"];</code>

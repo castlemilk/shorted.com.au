@@ -59,6 +59,7 @@ private static final long serialVersionUID = 0L;
             com.shorts.v1alpha1.StrategyPick.class, com.shorts.v1alpha1.StrategyPick.Builder.class);
   }
 
+  private int bitField0_;
   public static final int RANK_FIELD_NUMBER = 1;
   private int rank_ = 0;
   /**
@@ -603,6 +604,50 @@ private static final long serialVersionUID = 0L;
     return hasClose_;
   }
 
+  public static final int FUNDAMENTALS_FIELD_NUMBER = 27;
+  private com.shorts.v1alpha1.PickFundamentals fundamentals_;
+  /**
+   * <pre>
+   * Reported fundamentals behind the growth cells, with their basis and
+   * provenance, plus headline ratios. Absent when the stock has no
+   * fundamentals row at all.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+   * @return Whether the fundamentals field is set.
+   */
+  @java.lang.Override
+  public boolean hasFundamentals() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * Reported fundamentals behind the growth cells, with their basis and
+   * provenance, plus headline ratios. Absent when the stock has no
+   * fundamentals row at all.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+   * @return The fundamentals.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.PickFundamentals getFundamentals() {
+    return fundamentals_ == null ? com.shorts.v1alpha1.PickFundamentals.getDefaultInstance() : fundamentals_;
+  }
+  /**
+   * <pre>
+   * Reported fundamentals behind the growth cells, with their basis and
+   * provenance, plus headline ratios. Absent when the stock has no
+   * fundamentals row at all.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.PickFundamentalsOrBuilder getFundamentalsOrBuilder() {
+    return fundamentals_ == null ? com.shorts.v1alpha1.PickFundamentals.getDefaultInstance() : fundamentals_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -694,6 +739,9 @@ private static final long serialVersionUID = 0L;
     }
     if (hasClose_ != false) {
       output.writeBool(26, hasClose_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeMessage(27, getFundamentals());
     }
     getUnknownFields().writeTo(output);
   }
@@ -802,6 +850,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(26, hasClose_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(27, getFundamentals());
+    }
     return size;
   }
   @java.lang.Override
@@ -889,6 +941,11 @@ private static final long serialVersionUID = 0L;
         != other.getHasMarketCap()) return false;
     if (getHasClose()
         != other.getHasClose()) return false;
+    if (hasFundamentals() != other.hasFundamentals()) return false;
+    if (hasFundamentals()) {
+      if (!getFundamentals()
+          .equals(other.getFundamentals())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -971,6 +1028,10 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_CLOSE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasClose());
+    if (hasFundamentals()) {
+      hash = (37 * hash) + FUNDAMENTALS_FIELD_NUMBER;
+      hash = (53 * hash) + getFundamentals().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1094,13 +1155,20 @@ private static final long serialVersionUID = 0L;
 
     // Construct using com.shorts.v1alpha1.StrategyPick.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessage
+              .alwaysUseFieldBuilders) {
+        internalGetRulesFieldBuilder();
+        internalGetFundamentalsFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -1138,6 +1206,11 @@ private static final long serialVersionUID = 0L;
       hasShortPct_ = false;
       hasMarketCap_ = false;
       hasClose_ = false;
+      fundamentals_ = null;
+      if (fundamentalsBuilder_ != null) {
+        fundamentalsBuilder_.dispose();
+        fundamentalsBuilder_ = null;
+      }
       return this;
     }
 
@@ -1259,6 +1332,14 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x02000000) != 0)) {
         result.hasClose_ = hasClose_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x04000000) != 0)) {
+        result.fundamentals_ = fundamentalsBuilder_ == null
+            ? fundamentals_
+            : fundamentalsBuilder_.build();
+        to_bitField0_ |= 0x00000001;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -1385,6 +1466,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getHasClose() != false) {
         setHasClose(other.getHasClose());
+      }
+      if (other.hasFundamentals()) {
+        mergeFundamentals(other.getFundamentals());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1550,6 +1634,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x02000000;
               break;
             } // case 208
+            case 218: {
+              input.readMessage(
+                  internalGetFundamentalsFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x04000000;
+              break;
+            } // case 218
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3017,6 +3108,181 @@ private static final long serialVersionUID = 0L;
       hasClose_ = false;
       onChanged();
       return this;
+    }
+
+    private com.shorts.v1alpha1.PickFundamentals fundamentals_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.PickFundamentals, com.shorts.v1alpha1.PickFundamentals.Builder, com.shorts.v1alpha1.PickFundamentalsOrBuilder> fundamentalsBuilder_;
+    /**
+     * <pre>
+     * Reported fundamentals behind the growth cells, with their basis and
+     * provenance, plus headline ratios. Absent when the stock has no
+     * fundamentals row at all.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+     * @return Whether the fundamentals field is set.
+     */
+    public boolean hasFundamentals() {
+      return ((bitField0_ & 0x04000000) != 0);
+    }
+    /**
+     * <pre>
+     * Reported fundamentals behind the growth cells, with their basis and
+     * provenance, plus headline ratios. Absent when the stock has no
+     * fundamentals row at all.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+     * @return The fundamentals.
+     */
+    public com.shorts.v1alpha1.PickFundamentals getFundamentals() {
+      if (fundamentalsBuilder_ == null) {
+        return fundamentals_ == null ? com.shorts.v1alpha1.PickFundamentals.getDefaultInstance() : fundamentals_;
+      } else {
+        return fundamentalsBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Reported fundamentals behind the growth cells, with their basis and
+     * provenance, plus headline ratios. Absent when the stock has no
+     * fundamentals row at all.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+     */
+    public Builder setFundamentals(com.shorts.v1alpha1.PickFundamentals value) {
+      if (fundamentalsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        fundamentals_ = value;
+      } else {
+        fundamentalsBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Reported fundamentals behind the growth cells, with their basis and
+     * provenance, plus headline ratios. Absent when the stock has no
+     * fundamentals row at all.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+     */
+    public Builder setFundamentals(
+        com.shorts.v1alpha1.PickFundamentals.Builder builderForValue) {
+      if (fundamentalsBuilder_ == null) {
+        fundamentals_ = builderForValue.build();
+      } else {
+        fundamentalsBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Reported fundamentals behind the growth cells, with their basis and
+     * provenance, plus headline ratios. Absent when the stock has no
+     * fundamentals row at all.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+     */
+    public Builder mergeFundamentals(com.shorts.v1alpha1.PickFundamentals value) {
+      if (fundamentalsBuilder_ == null) {
+        if (((bitField0_ & 0x04000000) != 0) &&
+          fundamentals_ != null &&
+          fundamentals_ != com.shorts.v1alpha1.PickFundamentals.getDefaultInstance()) {
+          getFundamentalsBuilder().mergeFrom(value);
+        } else {
+          fundamentals_ = value;
+        }
+      } else {
+        fundamentalsBuilder_.mergeFrom(value);
+      }
+      if (fundamentals_ != null) {
+        bitField0_ |= 0x04000000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Reported fundamentals behind the growth cells, with their basis and
+     * provenance, plus headline ratios. Absent when the stock has no
+     * fundamentals row at all.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+     */
+    public Builder clearFundamentals() {
+      bitField0_ = (bitField0_ & ~0x04000000);
+      fundamentals_ = null;
+      if (fundamentalsBuilder_ != null) {
+        fundamentalsBuilder_.dispose();
+        fundamentalsBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Reported fundamentals behind the growth cells, with their basis and
+     * provenance, plus headline ratios. Absent when the stock has no
+     * fundamentals row at all.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+     */
+    public com.shorts.v1alpha1.PickFundamentals.Builder getFundamentalsBuilder() {
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return internalGetFundamentalsFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Reported fundamentals behind the growth cells, with their basis and
+     * provenance, plus headline ratios. Absent when the stock has no
+     * fundamentals row at all.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+     */
+    public com.shorts.v1alpha1.PickFundamentalsOrBuilder getFundamentalsOrBuilder() {
+      if (fundamentalsBuilder_ != null) {
+        return fundamentalsBuilder_.getMessageOrBuilder();
+      } else {
+        return fundamentals_ == null ?
+            com.shorts.v1alpha1.PickFundamentals.getDefaultInstance() : fundamentals_;
+      }
+    }
+    /**
+     * <pre>
+     * Reported fundamentals behind the growth cells, with their basis and
+     * provenance, plus headline ratios. Absent when the stock has no
+     * fundamentals row at all.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.PickFundamentals, com.shorts.v1alpha1.PickFundamentals.Builder, com.shorts.v1alpha1.PickFundamentalsOrBuilder> 
+        internalGetFundamentalsFieldBuilder() {
+      if (fundamentalsBuilder_ == null) {
+        fundamentalsBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.PickFundamentals, com.shorts.v1alpha1.PickFundamentals.Builder, com.shorts.v1alpha1.PickFundamentalsOrBuilder>(
+                getFundamentals(),
+                getParentForChildren(),
+                isClean());
+        fundamentals_ = null;
+      }
+      return fundamentalsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.StrategyPick)

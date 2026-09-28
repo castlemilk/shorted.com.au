@@ -39,13 +39,17 @@ const (
 	// StrategyServiceGetStrategyPicksProcedure is the fully-qualified name of the StrategyService's
 	// GetStrategyPicks RPC.
 	StrategyServiceGetStrategyPicksProcedure = "/shorts.v1alpha1.StrategyService/GetStrategyPicks"
+	// StrategyServiceGetStockStrategyFitProcedure is the fully-qualified name of the StrategyService's
+	// GetStockStrategyFit RPC.
+	StrategyServiceGetStockStrategyFitProcedure = "/shorts.v1alpha1.StrategyService/GetStockStrategyFit"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	strategyServiceServiceDescriptor                = v1alpha1.File_shorts_v1alpha1_strategies_proto.Services().ByName("StrategyService")
-	strategyServiceListStrategiesMethodDescriptor   = strategyServiceServiceDescriptor.Methods().ByName("ListStrategies")
-	strategyServiceGetStrategyPicksMethodDescriptor = strategyServiceServiceDescriptor.Methods().ByName("GetStrategyPicks")
+	strategyServiceServiceDescriptor                   = v1alpha1.File_shorts_v1alpha1_strategies_proto.Services().ByName("StrategyService")
+	strategyServiceListStrategiesMethodDescriptor      = strategyServiceServiceDescriptor.Methods().ByName("ListStrategies")
+	strategyServiceGetStrategyPicksMethodDescriptor    = strategyServiceServiceDescriptor.Methods().ByName("GetStrategyPicks")
+	strategyServiceGetStockStrategyFitMethodDescriptor = strategyServiceServiceDescriptor.Methods().ByName("GetStockStrategyFit")
 )
 
 // StrategyServiceClient is a client for the shorts.v1alpha1.StrategyService service.
@@ -56,6 +60,10 @@ type StrategyServiceClient interface {
 	// Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
 	// score and a per-rule pass / fail / unknown breakdown for each stock.
 	GetStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error)
+	// How one stock reads against every strategy: status, score, rank and the
+	// per-rule pass / fail / unknown breakdown. A stock that is not a candidate
+	// for a strategy still gets its rule results, with status "none".
+	GetStockStrategyFit(context.Context, *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error)
 }
 
 // NewStrategyServiceClient constructs a client for the shorts.v1alpha1.StrategyService service. By
@@ -80,13 +88,20 @@ func NewStrategyServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(strategyServiceGetStrategyPicksMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getStockStrategyFit: connect.NewClient[v1alpha1.GetStockStrategyFitRequest, v1alpha1.GetStockStrategyFitResponse](
+			httpClient,
+			baseURL+StrategyServiceGetStockStrategyFitProcedure,
+			connect.WithSchema(strategyServiceGetStockStrategyFitMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // strategyServiceClient implements StrategyServiceClient.
 type strategyServiceClient struct {
-	listStrategies   *connect.Client[v1alpha1.ListStrategiesRequest, v1alpha1.ListStrategiesResponse]
-	getStrategyPicks *connect.Client[v1alpha1.GetStrategyPicksRequest, v1alpha1.GetStrategyPicksResponse]
+	listStrategies      *connect.Client[v1alpha1.ListStrategiesRequest, v1alpha1.ListStrategiesResponse]
+	getStrategyPicks    *connect.Client[v1alpha1.GetStrategyPicksRequest, v1alpha1.GetStrategyPicksResponse]
+	getStockStrategyFit *connect.Client[v1alpha1.GetStockStrategyFitRequest, v1alpha1.GetStockStrategyFitResponse]
 }
 
 // ListStrategies calls shorts.v1alpha1.StrategyService.ListStrategies.
@@ -99,6 +114,11 @@ func (c *strategyServiceClient) GetStrategyPicks(ctx context.Context, req *conne
 	return c.getStrategyPicks.CallUnary(ctx, req)
 }
 
+// GetStockStrategyFit calls shorts.v1alpha1.StrategyService.GetStockStrategyFit.
+func (c *strategyServiceClient) GetStockStrategyFit(ctx context.Context, req *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error) {
+	return c.getStockStrategyFit.CallUnary(ctx, req)
+}
+
 // StrategyServiceHandler is an implementation of the shorts.v1alpha1.StrategyService service.
 type StrategyServiceHandler interface {
 	// List every strategy with its rules, metadata, caveats and sources, plus
@@ -107,6 +127,10 @@ type StrategyServiceHandler interface {
 	// Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
 	// score and a per-rule pass / fail / unknown breakdown for each stock.
 	GetStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error)
+	// How one stock reads against every strategy: status, score, rank and the
+	// per-rule pass / fail / unknown breakdown. A stock that is not a candidate
+	// for a strategy still gets its rule results, with status "none".
+	GetStockStrategyFit(context.Context, *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error)
 }
 
 // NewStrategyServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -127,12 +151,20 @@ func NewStrategyServiceHandler(svc StrategyServiceHandler, opts ...connect.Handl
 		connect.WithSchema(strategyServiceGetStrategyPicksMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	strategyServiceGetStockStrategyFitHandler := connect.NewUnaryHandler(
+		StrategyServiceGetStockStrategyFitProcedure,
+		svc.GetStockStrategyFit,
+		connect.WithSchema(strategyServiceGetStockStrategyFitMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.StrategyService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case StrategyServiceListStrategiesProcedure:
 			strategyServiceListStrategiesHandler.ServeHTTP(w, r)
 		case StrategyServiceGetStrategyPicksProcedure:
 			strategyServiceGetStrategyPicksHandler.ServeHTTP(w, r)
+		case StrategyServiceGetStockStrategyFitProcedure:
+			strategyServiceGetStockStrategyFitHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -148,4 +180,8 @@ func (UnimplementedStrategyServiceHandler) ListStrategies(context.Context, *conn
 
 func (UnimplementedStrategyServiceHandler) GetStrategyPicks(context.Context, *connect.Request[v1alpha1.GetStrategyPicksRequest]) (*connect.Response[v1alpha1.GetStrategyPicksResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.GetStrategyPicks is not implemented"))
+}
+
+func (UnimplementedStrategyServiceHandler) GetStockStrategyFit(context.Context, *connect.Request[v1alpha1.GetStockStrategyFitRequest]) (*connect.Response[v1alpha1.GetStockStrategyFitResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.StrategyService.GetStockStrategyFit is not implemented"))
 }

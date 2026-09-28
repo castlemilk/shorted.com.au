@@ -5,6 +5,15 @@ Status: design fixed 2026-09-27, implemented on `claude/upbeat-feynman-d7i92k`
 four implementation streams; column names, proto names and strategy ids here
 are binding. Update it when something changes.
 
+**Extended 2026-09-28 by `docs/plans/fundamentals-coverage.md` (v2)**, which is
+binding for everything it covers and supersedes this document where they
+differ: the full income statement, balance sheet and cash flow (migration
+000132), per-field provenance, budget-driven collection, fail-closed parsed
+filings, `mv_fundamentals_quality`, valuation, the fifth strategy
+(`quality-compounders`), `sort_by`, `GetStockStrategyFit`, and the stock page's
+Financials tab. The sections below are kept as the original design and marked
+where that plan replaced them.
+
 ## 1. What we are building
 
 A `/picks` hub and one `/picks/[strategy]` page per named strategy. A user picks
@@ -38,9 +47,11 @@ Everything below is derived from data we already hold plus ONE new ingest
 | `canslim` | CAN SLIM | William O'Neil | EPS growth (current + annual), new highs (within 5% of 52w high), leader (RS top quartile), regime |
 | `minervini-trend-template` | Minervini Trend Template | Mark Minervini (US Investing Champion) | pure price: close > sma150 > sma200, sma200 rising over 1m, close >= 1.3 x 52w low, within 25% of 52w high, RS top quartile |
 | `crowded-short-breakout` | Crowded-Short Breakout | Shorted house strategy | short interest >= 5%, days-to-cover >= 5, breakout on volume, regime. Ties the picker to the site's own dataset |
+| `quality-compounders` | Quality compounders | Shorted house strategy (added 2026-09-28, fundamentals-coverage §5.4) | core: ROE >= 15%, net margin >= 10%, cash conversion (FCF > 0 and >= 0.8x NPAT), leverage (net cash, or net debt / EBITDA <= 2.5), liquidity; trigger: close above the 200-day average; non-core: revenue not shrinking. No regime gate. Banks, insurers and other financials read unknown on cash conversion and leverage (not meaningful), so they rank watch at most |
 
 Every rule returns one of `pass`, `fail`, `unknown`. Unknown means the data is
-missing (no fundamentals for the stock yet, not enough price history). Unknown
+missing (no fundamentals for the stock yet, not enough price history) or, for
+the quality ratios, not meaningful for the company (a bank's leverage). Unknown
 never counts as pass, and a stock cannot reach status `triggered` with an unknown
 core rule. Statuses:
 
@@ -96,6 +107,16 @@ in the write path. Filing rows (source `asx-filing-extraction`, §2.6
 but only values that can be found in the extraction's own quoted sentence, in
 an unambiguous unit, are accepted, and a filing never overwrites a vendor
 value.
+
+**Widened by migration 000132** (fundamentals-coverage §2): 21 more statement
+lines (gross profit, operating income, EBITDA, normalised EBITDA, EBIT,
+interest expense, pretax income, tax, net interest income, capex, dividends
+paid, buybacks, total assets / liabilities / equity, cash, total debt, lease
+obligations, net debt, current assets / liabilities; outflows negative),
+`field_sources` (the fields NOT from the row's `source`), `source_document_url`
+/ `_date`, `period_type = 'quarter'` redefined as a balance snapshot, and on
+`stock_fundamentals_sync`: `last_outcome`, `consecutive_empty`, `median_k`,
+`fx_converted`, `native_currency`.
 
 ### 2.2 `mv_fundamentals_growth` — same migration
 
@@ -158,6 +179,27 @@ on `stock_code`. A `CASE WHEN prior > 0` guard, never a division that can
 produce Inf; the `key_metrics` incident (`docs/superpowers/handover-2026-08-29-mcp-oauth.md`)
 is why.
 
+**Rebuilt once by migration 000132** (fundamentals-coverage §2.6; a
+catalog-guarded drop, then the new definition): every column above keeps its
+name, type, position and meaning, and four are appended: `revenue_basis_source`
+and `eps_basis_source` (`'vendor'` | `'filing'`: `'filing'` when either row of
+the pair is a filing row or the field used is filing-filled),
+`revenue_latest_period_end` and `revenue_prior_period_end`. Each lateral now
+filters on the field it reads, so a balance-only or EPS-only row can never
+blank a growth figure; `quarter` rows are never read. When the latest TTM
+revenue point is newer than the latest annual one, revenue growth uses it
+against the point 12 months earlier (`revenue_basis_period_type = 'ttm'`); the
+half basis still wins when the half is newest.
+
+**New `mv_fundamentals_quality`** (000132, fundamentals-coverage §2.7): one row
+per stock of margins, ROE / ROA, FCF conversion, net debt (excl. leases),
+leverage, current ratio, interest cover and cash payout, each on ONE flow row
+(the latest TTM with revenue and net income if newer than the latest such
+annual, else that annual) and ONE balance row of the same currency dated on it
+or up to 6 months before it. It reads `stock_fundamentals` only. The API
+decides which ratios are not meaningful for financials
+(`strategies/fundamentals_quality.go`).
+
 ### 2.3 `mv_price_features` — migration `000130_add_price_features`
 
 One row per `stock_code` in `stock_prices` with at least 60 sessions in the last
@@ -196,51 +238,75 @@ A NEW function, not an addition to `refresh_all_materialized_views()`, because
 that one runs at 10:00 UTC before the price sweep lands (measured: the sweep
 starts 10:00 UTC weekdays and runs ~2.5h). Same guard pattern as 000095
 (try CONCURRENTLY, fall back to plain, catch `query_canceled`, WARNING and
-continue). Called by the new job after the sweep.
+continue). Called by the new job after the sweep. Migration 000132 re-issues it
+with four views, in this order: `mv_market_regime`, `mv_fundamentals_growth`,
+`mv_fundamentals_quality`, `mv_price_features`.
 
 Both migrations are REPLAY-SAFE (`IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`,
 no row rewrites) and go into the deploy allowlist in
-`.github/workflows/terraform-deploy.yml` AFTER `000095`. Down migrations drop
+`.github/workflows/terraform-deploy.yml` AFTER `000095`. 000132 follows 000131
+in the same step, on the session pooler (`run_psql_session`), as two
+catalog-guarded transactions. Down migrations drop
 what they create. Each gets a `services/migrations/<name>.test.mjs` asserting
 replay safety and the guarded refresh, mirroring `mv_refresh_hardening.test.mjs`.
 
 ### 2.6 Job: `shorted picks` (services/jobs/internal/jobs/picks)
 
-Modes:
-- `-mode fundamentals`: pull per-period fundamentals for the universe (codes in
-  `stock_prices` with a price in the last 90 days, plus everything in
-  `mv_screener_data`), stalest-first by `stock_fundamentals_sync.last_attempt_at`,
-  skipping codes attempted in the last 6 days, capped by `PICKS_FUNDAMENTALS_MAX_CODES`
-  (default 400). Upsert into `stock_fundamentals`; record every attempt in
-  `stock_fundamentals_sync`. Pace via `pkg/stealthhttp` at the same cadence the
-  price sweep uses. Exit 0 if >= 50% of attempted codes succeeded, exit 10
-  (DEGRADED, economy's convention) otherwise.
+Modes (as extended by fundamentals-coverage §3-4; the operating detail lives
+in `services/jobs/README.md` "picks"):
+- `-mode fundamentals`: the universe is codes in `stock_prices` with a price in
+  the last 90 days plus everything in `mv_screener_data`. ONE Yahoo GET per code
+  asks for the full statements (annual and trailing income statement and cash
+  flow, annual and quarterly balance sheet, shares); sanity gates null bad
+  values (currency conflicts, FX-converted statements, identity outliers
+  against the code's median k, scale breaks, sign violations); Markit key
+  statistics is the per-field fallback. Pace via `pkg/stealthhttp` at the
+  price sweep's 4s. **Budget-driven, no count cap** (the original 400-code cap
+  is gone): codes are taken in priority order (due filers; never attempted by
+  market cap, with sync rows written before 000132, which are never skipped;
+  last outcome failed; successes older than 14 days and repeat empties older
+  than 45) until `PICKS_FUNDAMENTALS_BUDGET_MIN` (170 minutes)
+  elapses, and the rest carries to the next night. Breakers: 25 consecutive
+  failures, more than 30% of the last 100 Yahoo requests failed, Markit off
+  after 10 consecutive failures; a Cloud Run task retry gets 20 minutes.
+  Every attempt is recorded in `stock_fundamentals_sync`. Exit 0 if >= 50% of
+  attempted codes loaded or answered empty, exit 10 (DEGRADED, economy's
+  convention) otherwise.
 - `-mode filings`: parse `financial_report_extractions.metrics` (revenue, net
-  profit, EPS from the report-extractor's Gemini reading of 4D/4E and other
-  results documents) into typed `half` / `annual` rows, source
-  `asx-filing-extraction`. DB-only, a deterministic rebuild each run. The rules
-  (value must be found in its own quote; EPS unit read next to its number,
-  cents -> dollars, ambiguous = skipped; statutory NPAT only; magnitude and
-  NPAT/shares cross-checks; currency from an explicit marker, else the vendor's
-  reporting currency, else AUD) and the period parser (headline gate rejecting
-  notices, webinars, AGM results, dividend admin and quarterlies; quarter /
-  forecast / comparative periods rejected; half words beat annual words; an
-  explicit date beats an FY label placed on the company's balance date; H1 of a
-  June year ends 31 December of the prior calendar year; the period must end
-  within 7 days after and 15 months before the report date) are documented in
-  `services/jobs/README.md` "picks" and pinned by `filings_period_test.go` /
-  `filings_ingest_test.go`.
-  **Conflict policy**, in the SQL (`filingUpsertSQL`): a vendor row's non-null
-  value is never overwritten; a filing fills only its NULL columns, and only in
-  the same currency; a filing row is replaced whole; periods the vendor lacks
-  (every half) are inserted whole; a filing row the run no longer produces for
-  that code is pruned (never a vendor row). When Yahoo later publishes a period
-  a filing wrote first, `upsertSQL` makes the row the vendor's (its values win,
-  the filing's survive only where it has none).
-- `-mode refresh`: `SET LOCAL statement_timeout = 0; SELECT refresh_strategy_views()`.
+  profit, EPS from the report-extractor's reading of statutory results
+  documents) into typed `half` / `annual` rows, source `asx-filing-extraction`.
+  DB-only. Every value passes the `services/pkg/extractiontrust` funnel
+  (grounded, not a few-shot echo, a statutory results document) and nine gates
+  (document, grounding, few-shot, own period, statutory, vendor context,
+  currency, magnitude, TTM-EPS identity); the June and AUD defaults are gone
+  (no vendor context, no filing row). **Fail-closed deterministic rebuild** in
+  ONE transaction: filing rows and filing-filled vendor fields the run no
+  longer produces are removed, the rest upserted. Exit 10 = REFUSED (a read
+  errored or zero extractions were read: nothing written); exit 1 = the
+  transaction rolled back. The value-reading rules and the period parser are
+  pinned by `filings_period_test.go`, `filings_ingest_test.go` and
+  `filings_regression_test.go` (the five echo documents, CBA's comparatives,
+  EDV's channel sales, BHP's "Profit from operations", LFT's foreign document,
+  DRO's December year end).
+  **Conflict policy** (fundamentals-coverage §2.2): a filing FILLS a NULL
+  vendor field or REPLACES a field already marked `field_sources =
+  'asx-filing-extraction'`, in the same currency, recording the marker and the
+  document; a vendor's own value is never touched. A stored filing row is
+  replaced; periods the vendor lacks (every half) are inserted whole. When the
+  vendor later publishes a period a filing wrote first, it takes the row over
+  only when it supplies revenue or net income, and every value it keeps from
+  the filing row stays marked.
+- `-mode refresh`: `SET LOCAL statement_timeout = 0; SET LOCAL
+  client_min_messages = notice; SELECT refresh_strategy_views()`, failing on a
+  skipped view or on a picker view the live function body never names;
+  after a successful refresh it waits 16 minutes (the API's strategy cache) and
+  revalidates the web tags `strategy-picks` (and `fundamentals` when this
+  execution changed rows).
 - `-mode all`: fundamentals, then filings, then refresh (each step runs even
   after an earlier one degraded; the worst verdict decides the exit code).
-- `-dry-run` honoured (fetch/read + parse + log, write nothing).
+- `-dry-run` honoured (fetch/read + parse + log, write nothing, take no lease).
+- `fundamentals`, `filings` and `all` hold the `picks_run_lease` row, so two
+  executions never write at once; a run that finds it held exits 0.
 
 Source and endpoint: see §2.7. Terraform: `module "shorted_job_picks"` on the
 `shorted-job` module, `name = "shorted-picks"`, primary schedule
@@ -248,7 +314,9 @@ Source and endpoint: see §2.7. Terraform: `module "shorted_job_picks"` on the
 sweep), plus one extra schedule `0 15 * * *` UTC with `args_override =
 ["picks", "-mode", "all"]` (fundamentals, then filings, then the refresh, so
 each pull reaches the views the same night; was `-mode fundamentals` until
-2026-09-27). `secret_env = { DATABASE_URL }`.
+2026-09-27). `timeout_seconds = 12600`, `max_retries = 1`, env
+`PICKS_FUNDAMENTALS_BUDGET_MIN = "170"` and `REVALIDATION_URL`, `secret_env =
+{ DATABASE_URL, REVALIDATION_SECRET }`.
 Register in `cmd/shorted/main.go`, document in `services/jobs/README.md`.
 
 ### 2.7 Upstream fundamentals source (probe 2026-09-27, report in the session scratchpad `fundamentals-sources.md`)
@@ -273,7 +341,13 @@ as the latest one or two points. Quarterly series are EMPTY for ASX. Values are
 in the REPORTING currency (BHP is USD) and each point carries `currencyCode`:
 store it, compute growth only within a series. Annual rows lag 4-8+ weeks for
 small caps after a filing. Pace: 4s between requests like the sweep (a full
-2,300-code pass is ~2.6h, hence the per-run cap and stalest-first order).
+2,300-code pass is ~2.6h; the nightly run is budget-driven at 170 minutes,
+fundamentals-coverage §3.7). Since 000132 the same single GET also asks for the
+rest of the income statement and cash flow (annual and trailing), the balance
+sheet (annual and quarterly) and the direct-method operating cash flow
+(fundamentals-coverage §3.1). Quarterly balance-sheet points, when Yahoo has
+them, are stored as `quarter` balance snapshots; the quarterly income and
+cash-flow series are still not asked.
 
 Fallback: **ASX / Markit key statistics**
 (`https://asx.api.markitdigital.com/asx-research/1.0/companies/{CODE}/key-statistics`,
@@ -291,28 +365,36 @@ growth figures, not statements. The clean upgrade path later is EODHD with a
 commercial licence or the existing `report-extractor` reading Appendix 4D/4E
 PDFs, and the fetcher interface exists so either can slot in.
 
-**Filings (built 2026-09-27).** The report-extractor path is now wired, as a
-separate mode rather than a Fetcher (it reads stored extractions, it does not
-fetch per code): `financial-report-extractor` (Gemini over 4D/4E PDFs) ->
-`financial_report_extractions.metrics` -> `shorted picks -mode filings` ->
-`stock_fundamentals` (`half` rows, and `annual` rows Yahoo lags on). The
-extractor's run was raised from 10 reports on Sundays to 40 on Wednesdays and
-Sundays 14:00 UTC (`module.report_extractor` in prod `main.tf`), because it is
-the only path to half-year totals. Its selection now targets statutory
-filings in the Go port (`reportextract/select.go`: presentations, webinars,
-notices, AGM results, dividend admin and quarterlies excluded; Appendix 4D/4E
-and results releases sort first), BUT prod still runs the Python extractor
-image, whose `--top-shorted-first` order spends the 40 slots until the Go port
-is cut over (`services/jobs/README.md` "Phase 3 port notes": a
-`modules/shorted-job` pair running `report-extract concurrent -recent 2 -limit
-<reports_limit> -workers 2 -max-pages 6 -top-shorted-first` with the same
-Gemini env, `scheduler_paused = true` on the old module, after the PDF-text
-parity run). Not done here.
+**Filings (built 2026-09-27, made fail-closed 2026-09-28).** The
+report-extractor path is wired as a separate mode rather than a Fetcher (it
+reads stored extractions, it does not fetch per code):
+`financial-report-extractor` (Gemini over statutory results PDFs) ->
+`financial_report_extractions.metrics` + `document_meta` -> `shorted picks
+-mode filings` -> `stock_fundamentals` (`half` rows, and `annual` rows the
+vendor lags on). It is the only path to half-year totals. The extractor in prod
+is the Python image (`services/report-extractor`, `module "report_extractor"`),
+reworked by fundamentals-coverage §6.1-6.2: daily at 14:00 UTC, 120 reports
+(`--recent 2 --limit 120 --workers 4 --max-pages 8 --budget-min 90`, 7200 s, no
+retries; it was 40 on Wednesdays and Sundays, and 10 on Sundays before that);
+statutory results documents only (the `extractiontrust.IsResultsDocument`
+rules ported to Python: no presentations, Form 20-F, Pillar 3, webcasts or
+transcripts), ONE per company per run, filed within 45 days first (newest
+first), then companies with no metric-bearing extraction by market cap, then
+the rest; extractions langextract cannot align to the document, or whose
+value's digits are not in the aligned span, are dropped; the few-shot example
+is a synthetic "Quokka Minerals Limited" H1 FY2031 document that no real filing
+can echo; thinking is off and every run logs its Gemini token totals;
+`document_meta` (currency, units, entity, ABN, period end and type, report
+kind) comes from deterministic regexes over the text. The Go port
+(`reportextract`) is not deployed and is parity-only (the few-shot example,
+grounding, provenance stripping).
 
 Re-pull trigger: `asx_announcements` headlines classified by the regexes in
 `scripts/take-writer/src/results-watch.ts` (`classifyResultsFiling`; never
 `announcement_type`). A code with a 4D/4E in the last 14 days is pulled first
-regardless of its `last_attempt_at`.
+regardless of its `last_attempt_at` (fundamentals-coverage §3.7: an Appendix
+4D/4E or period-results headline, not an annual report, that the code has not
+had a successful pull since, plus one follow-up 7 days later).
 
 ## 3. API layer (stream B)
 
@@ -395,13 +477,31 @@ message GetStockFundamentalsResponse { string stock_code = 1; repeated Fundament
 `has_*` flags because proto3 doubles cannot distinguish 0 from missing, and the
 screener's "0 means unknown" defect is exactly what this feature must not repeat.
 
+**Added 2026-09-28** (fundamentals-coverage §5, binding; public on the domain
+service and the legacy one alike): `rpc GetStockStrategyFit` on
+`StrategyService` (per strategy: status `triggered` | `setup` | `watch` |
+`none`, score, rank of total, rule results; `in_universe`);
+`GetStrategyPicksRequest.sort_by` (`score` default, `revenue_yoy`, `eps_yoy`,
+`roe`, `net_margin`, `fcf_margin`, `pe` ascending, `market_cap`; unknowns last;
+`rank` stays the evaluator's) and `require_fundamentals`;
+`GetStrategyPicksResponse.fundamentals_rows_count`; `StrategyPick.fundamentals`
+(`PickFundamentals`: bases, period ends, basis sources, net margin, ROE, FCF
+margin, net debt / EBITDA, P/E, `not_meaningful`); on `FundamentalsPeriod` the
+21 statement lines with `has_*`, `field_sources`, `source_document_url` /
+`_date`; on `FundamentalsGrowth` the basis sources, `fetched_at` and the
+revenue pair's period ends; and on `GetStockFundamentalsResponse` the new
+`FundamentalsQuality` (ratios, `is_financial`, `not_meaningful`, market cap,
+P/E, P/B, `valuation_note`), `FundamentalsCoverage` (`covered` | `empty` |
+`pending` | `failed`) and `LatestFilingSummary`.
+
 `cd proto && buf generate` and commit ALL outputs (web/src/gen, sdks/java churn,
 api/schema, web/public/openapi.*).
 
 ### 3.2 Go
 
 - `services/shorts/internal/strategies/` (new package, no DB): `Registry()`
-  returning the four `Strategy` definitions (all prose lives HERE, once), the
+  returning the `Strategy` definitions (four at launch, five since
+  `quality-compounders`; all prose lives HERE, once), the
   evaluator `Evaluate(strategy, candidates []Candidate, regime Regime) []Pick`
   with one function per rule, table-driven tests covering pass/fail/unknown for
   every rule and the status ladder. Weights per strategy in one map, like
@@ -422,7 +522,17 @@ api/schema, web/public/openapi.*).
 - Mount `StrategyService` in `serve.go` with the shared interceptors + CORS;
   add the rewrite in `web/next.config.mjs`.
 - Missing MVs (dev without migrations) return an empty universe with
-  `universe_count = 0`, never a 500.
+  `universe_count = 0`, never a 500. Since 000132 the appended growth columns
+  and the quality view are read by one separate query (`fundamentalsExtras`),
+  and a schema without them (42P01 / 42703) degrades to nil quality, provenance
+  and coverage, never a 500.
+- Valuation (`strategies/valuation.go`, one function for the page, the picks
+  and sorting): market cap = latest close x the newest vendor share count
+  within 12 months, only for a one-ordinary-share listing (`median_k` in
+  [0.8, 1.25], or without one every computable k in that band; `listed-unit`
+  only on positive evidence, otherwise `no-shares` and the picker falls back
+  to the screener market cap); P/E and P/B only for AUD statements, and never
+  for an `fx_converted` code; `valuation_note` says why a value is absent.
 
 ## 4. Web (stream C)
 
@@ -452,6 +562,20 @@ api/schema, web/public/openapi.*).
 - Tests: registry test, page render test (themes pattern), client-boundary test
   for the panel component.
 
+**Added 2026-09-28** (fundamentals-coverage §7): the picker's growth cells show
+their basis (`TTM` / `FY` / `HY`) and a filing marker; a native `<details>` in
+the Stock cell lists the held ratios (`n/m` for a financial's not-meaningful
+ones, `n/a` when not held), basis, period end, source and a nofollow "Full
+financials" link (`/shorts/<code>?tab=financials`); `?sort=` is served by the
+`picks-sorted-view.tsx` client island (it POSTs `{strategyId, sortBy, status,
+limit: 100}` through the existing rewrite and keeps the server rows, with
+"Sorting is unavailable right now.", on a failure or a 10 s timeout); the
+coverage line reads "fundamentals for N of M stocks (growth figures for K)"
+when `fundamentals_rows_count` is reported. The stock page's Financials tab
+(Latest result, Key ratios, the statements island, the reports list, the tax
+card last) replaces `fundamentals-block.tsx`, and the Overview gains a Strategy
+fit card and a crawlable fundamentals summary.
+
 ## 5. MCP (stream D)
 
 Three new public tools, domain `discovery` for the two strategy tools and
@@ -461,7 +585,10 @@ Three new public tools, domain `discovery` for the two strategy tools and
 - `get_strategy_picks` (`strategy_id`, `limit` <= 25, `status`) -> picks with
   rule results, kept under the 16KB payload budget (trim `rules[].detail` to the
   failing/unknown ones plus pass ids if needed).
-- `get_stock_fundamentals` (`code`, `period_type`, `limit` <= 12).
+- `get_stock_fundamentals` (`code`, `period_type`, `limit` <= 12; 24 since
+  fundamentals-coverage §8, which also adds `quality`, `coverage` and four
+  statement lines per period, and `sort_by` plus `fundamentals_rows_count` on
+  `get_strategy_picks`; no new tool, still 28).
 
 Follow the checklist in the MCP report: `datasource.go`, `fake_test.go`,
 `toolCallFixtures`, `realisticSource`, `registry.go`, per-tool tests. The
@@ -491,12 +618,31 @@ Connector defects found while probing the live server (fix in this stream):
 
 ## 7. Prod rollout notes (for the operator, not CI)
 
-1. Apply `000129` and `000130` by hand BEFORE merging the API
-   (`task db:prod:apply FILE=… CONFIRM=prod`, session pooler 5432) — the deploy
-   allowlist also replays them, but the API must not ship reading columns prod
-   lacks.
-2. First fundamentals run is on demand, not scheduled: through the admin MCP connector (`run_picks_job {mode: "fundamentals"}` a few times, cap 400/run, then `filings`, then `refresh`; `docs/mcp-admin.md`) or `gcloud run jobs execute shorted-picks --args="picks,-mode,fundamentals"` a few times, then `--args="picks,-mode,filings,-dry-run"` (read the `skipped={...}` reasons), `--args="picks,-mode,filings"`, then `--args="picks,-mode,refresh"`. After that the daily 15:00 UTC `-mode all` keeps all three current.
-3. Revalidate `/picks` and `/picks/*` after the first refresh.
+The launch steps (000129 and 000130 hand-applied before the API merged, then
+repeated `-mode fundamentals` runs under a 400-code cap) are history. As of
+fundamentals-coverage §9:
+
+1. 000129, 000130 and 000132 are all in the terraform-deploy allowlist and
+   replay-safe, so the deploy applies them before the image swap (000132 on
+   the session pooler, two transactions under `lock_timeout = '15s'`). Do not
+   merge while `financial-report-extractor` or a picks run is executing. If
+   the step fails, hand-apply 000132 in a quiet window (`task db:prod:apply
+   FILE=services/migrations/000132_extend_fundamentals.up.sql CONFIRM=prod`)
+   and re-run the deploy, or revert; never remove its allowlist line (the
+   jobs image the same deploy ships writes the new columns). The API and the
+   job tolerate 000132 being absent.
+2. Straight after the deploy: `run_picks_job {mode: "filings"}`, then `{mode:
+   "refresh"}` (seconds, no Yahoo; `docs/mcp-admin.md`), or `gcloud run jobs
+   execute shorted-picks --args="picks,-mode,filings"` (read the `gates={...}`
+   and would-purge lines first with `-dry-run`), then `-mode,refresh`. The
+   echo, comparative, segment, LFT and DRO rows go the same hour.
+3. The nightly 15:00 UTC `-mode all` covers the universe within its 170-minute
+   budget; any remainder, lowest priority first, carries to the next night. A
+   manual full run starts before 12:20 UTC or after the scheduled run has
+   finished (the lease makes an overlapping run exit 0).
+4. Pages revalidate on their own 16 minutes after each successful refresh.
+   Coverage is built when `fundamentals_rows_count` is near the codes the
+   vendors publish statements for (about three quarters of `universe_count`).
 
 ## 8. Follow-ups found during implementation
 
@@ -517,7 +663,9 @@ Connector defects found while probing the live server (fix in this stream):
   four annual periods (revenue, NPAT, diluted EPS, operating cash flow) in the
   reporting currency, a growth line (revenue YoY, EPS YoY with its basis,
   "prior loss, now profit" on a turnaround) and a provenance line. It renders
-  nothing for a stock without coverage.
+  nothing for a stock without coverage. SUPERSEDED 2026-09-28: the block is
+  deleted; the Financials tab is now Latest result, Key ratios, the statements
+  island, the reports list and the tax card (fundamentals-coverage §7.1).
 - DONE: `shorted-picks` is in `local.admin_runnable_jobs` and has a jobmonitor
   catalog entry (`services/shorts/internal/jobmonitor/catalog.go`, "Market
   data"). "Run now" executes the deployed `-mode refresh`.
@@ -528,7 +676,8 @@ Connector defects found while probing the live server (fix in this stream):
   `run.developer` grant on that one job (`shorts_api_picks_overrides`). Admin
   scopes are now checked per tool, so the existing publish-only connector keeps
   working and is told to reconnect for the new scope.
-- OPEN (operational): no environment has run the fundamentals job yet, so
+- SUPERSEDED (operational; coverage is now built by the budget-driven nightly
+  run, §7): no environment had run the fundamentals job yet, so
   `fundamentals_coverage_count` starts at 0 and the Zanger / CAN SLIM growth
   rules read unknown until the first sweeps complete (plan §7).
 - DONE (data layer, 2026-09-27): filings -> half-year growth. `shorted picks
@@ -542,14 +691,20 @@ Connector defects found while probing the live server (fix in this stream):
   basic vs diluted, an 18-month gap), the conflict policy exercised by
   `TestFilingUpsertPolicyAgainstPostgres`, and the real binary run over
   synthetic extraction rows (it caught a balance-date bug: 31 December + 6
-  months via AddDate is 1 July).
-- OPEN (enablement, manual): the first `gcloud run jobs execute shorted-picks
+  months via AddDate is 1 July). Since 2026-09-28 the extractor runs 120
+  reports a day, statutory-first in the Python itself (§2.7), and the conflict
+  policy test is `TestFilingRebuildAgainstPostgres` and its siblings.
+- SUPERSEDED (enablement; `-mode filings` is now fail-closed and runs straight
+  after the deploy, §2.6 and §7): the first `gcloud run jobs execute shorted-picks
   --args="picks,-mode,filings,-dry-run"` against prod, reading the logged
   `skipped={...}` reasons before the first real run; until then the half
   columns are NULL and every basis is ttm/annual as before. Half rows only
   accumulate as the extractor processes 4D/4Es, and in prod that is still the
   Python selection (above) until the Go cut-over.
-- OPEN (API, not done here, `services/shorts` is another stream): the API's
+- DONE (2026-09-28): `strategies/rules.go` `revenueLabel` / `epsLabel` handle
+  `half` and `ttm`, the store reads the half and basis columns, the MCP basis
+  descriptions include `half`, the web's `basisLabel` returns `TTM` / `FY` /
+  `HY`, and `fundamentals-block.tsx` is gone. The original item: the API's
   labels assume revenue growth is annual and EPS growth is ttm/annual.
   `strategies/rules.go` `annualLabel` must read the new
   `revenue_basis_period_type` (say "H1 to 31 Dec 2025 vs a year earlier" when

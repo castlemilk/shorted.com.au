@@ -27,12 +27,17 @@ takes a **mode**, never arguments: the server builds `picks -mode <mode>` from
 a closed enum, and the only job it can aim at is `shorted-picks`.
 
 **Building first fundamentals coverage** (the reason `run_picks_job` exists):
-`fundamentals` covers up to 400 stale codes a run (~30 minutes) against a
-~2,300-code universe, so ask for it repeatedly until the public server's
-`get_strategy_picks` reports `fundamentals_coverage_count` near the universe,
-then `filings`, then `refresh`. The tool's `next` field says this after each
-run. The nightly 15:00 UTC schedule runs `all` from then on. A second run is
-refused while one is in flight (`force` overrides, for a stuck execution).
+`fundamentals` works through the whole universe in priority order (due filers,
+never-attempted codes by market cap, failures, then the stalest) within a budget
+of about 170 minutes, then `filings` (a deterministic, fail-closed rebuild of the
+rows parsed from ASX results filings; exit 10 means it refused to write), then
+`refresh`. Coverage is built when the public server's `get_strategy_picks`
+reports `fundamentals_rows_count` near the codes our data providers publish
+statements for (about three quarters of `universe_count`); run `fundamentals`
+again for any remainder. The tool's `next` field says this after each run. The
+nightly 15:00 UTC schedule runs `all` from then on. A second run is refused
+while one is in flight (`force` overrides, for a stuck execution; the job's own
+lease still keeps two executions from writing at once).
 
 **Connected before `jobs:run` existed?** Your token carries only
 `news:publish`. The publish tools keep working; the picks tools answer with a

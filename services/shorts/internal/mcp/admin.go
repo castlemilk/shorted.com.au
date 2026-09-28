@@ -356,8 +356,8 @@ func newsPublishStatusTool() AdminTool {
 // arguments, no code list. The server builds `picks -mode <mode>` from the
 // closed enum (jobmonitor.NormalizePicksMode).
 type RunPicksJobInput struct {
-	Mode  string `json:"mode" jsonschema:"Which step to run: fundamentals (pull typed revenue/EPS/cash-flow periods for up to 400 stale codes, about 30 minutes), filings (rebuild half-year rows from Appendix 4D/4E extractions, seconds), refresh (refresh_strategy_views: market regime, growth and price features), or all (the three in order, what the nightly schedule runs)."`
-	Force bool   `json:"force,omitempty" jsonschema:"Start even if a picks run is already in flight. Two writers race on the same rows; leave false unless the running one is stuck."`
+	Mode  string `json:"mode" jsonschema:"Which step to run: fundamentals (pull the full income statement, balance sheet and cash flow for every code in priority order, within a budget of about 170 minutes), filings (a deterministic, fail-closed rebuild of the rows parsed from ASX results filings: values that fail a check are withheld and filing rows the extractions no longer support are removed; seconds, no network), refresh (refresh_strategy_views: market regime, growth, quality ratios and price features, then revalidate the picks pages), or all (the three in order, what the nightly schedule runs)."`
+	Force bool   `json:"force,omitempty" jsonschema:"Start even if a picks run is already in flight. The job's own lease still stops a second writer: fundamentals, filings or all exits without writing while another execution holds it (up to 4 hours, renewed as that run progresses). Leave false unless the running one is stuck."`
 }
 
 // RunPicksJobOutput describes the run that was started.
@@ -369,18 +369,22 @@ type RunPicksJobOutput struct {
 }
 
 // picksNextStep is the operator runbook (services/jobs/README.md "picks",
-// docs/plans/stock-picker.md §7) as one line per mode, so an agent building
-// first coverage is told the order rather than guessing it.
+// docs/plans/stock-picker.md §7, docs/plans/fundamentals-coverage.md §3.7 and
+// §9) as one line per mode, so an agent building first coverage is told the
+// order rather than guessing it. Coverage is judged on
+// fundamentals_rows_count (stocks with any fundamentals row), not on the
+// growth count: a stock can hold full statements and still have no
+// year-on-year pair.
 func picksNextStep(mode jobmonitor.PicksMode) string {
 	switch mode {
 	case jobmonitor.PicksModeFundamentals:
-		return "Each fundamentals run covers up to 400 codes, stalest first; the universe is roughly 2,300, so repeat until get_strategy_picks on the public server reports fundamentals_coverage_count near the universe. Then run filings, then refresh."
+		return "A fundamentals run works through the universe in priority order (due filers, never-attempted codes by market cap, failures, then the stalest) until its budget of about 170 minutes is spent. Then run filings, then refresh. Coverage is built when get_strategy_picks on the public server reports fundamentals_rows_count near the codes our data providers publish statements for (about three quarters of universe_count); run fundamentals again for any remainder."
 	case jobmonitor.PicksModeFilings:
-		return "Run refresh so the half-year rows reach mv_fundamentals_growth."
+		return "Run refresh so the rebuilt filing rows reach mv_fundamentals_growth and mv_fundamentals_quality. Exit 10 means the rebuild was refused (a read failed or found no extractions) and nothing was written."
 	case jobmonitor.PicksModeRefresh:
-		return "Picks pages and get_strategy_picks read the refreshed views on their next request (the pages revalidate hourly)."
+		return "The run waits 16 minutes after the refresh (the API's strategy cache), then asks the picks pages to revalidate (best effort), so get_strategy_picks reads the refreshed views once it succeeds and /picks follows."
 	case jobmonitor.PicksModeAll:
-		return "Nothing: this is the nightly sequence. Check get_strategy_picks for fundamentals_coverage_count."
+		return "Nothing: this is the nightly sequence. Check get_strategy_picks for fundamentals_rows_count (stocks with any fundamentals) and fundamentals_coverage_count (those with growth figures)."
 	}
 	return ""
 }
@@ -431,7 +435,7 @@ type PicksJobStatusInput struct {
 // with an exit-10 message means a partial pull, not a broken job.
 type PicksJobStatusOutput struct {
 	ExecutionName string `json:"execution_name"`
-	Status        string `json:"status" jsonschema:"running, succeeded, failed or unknown. Exit 10 in the message is DEGRADED: under half the attempted codes answered, or some filing rows failed to write; the rest of the run still landed."`
+	Status        string `json:"status" jsonschema:"running, succeeded, failed or unknown. Exit 10 in the message is DEGRADED: under half the attempted codes answered, or the filings rebuild was refused (a read failed or found no extractions, so nothing was written); the rest of the run still landed."`
 	StartedAt     string `json:"started_at,omitempty"`
 	CompletedAt   string `json:"completed_at,omitempty"`
 	LogURI        string `json:"log_uri,omitempty" jsonschema:"Cloud Logging link for the run."`

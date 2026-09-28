@@ -658,38 +658,57 @@ module "shorted_job_economy_freshness" {
 }
 
 # `shorted picks` — the stock picker's data layer (docs/plans/stock-picker.md
-# §2.6). ONE job, two schedules:
+# §2.6, extended by docs/plans/fundamentals-coverage.md §3). ONE job, two
+# schedules:
 #
 #   - primary, weekdays 13:30 UTC, `-mode refresh`: SET LOCAL
-#     statement_timeout = 0; SELECT refresh_strategy_views() (migration 000130:
-#     mv_market_regime, mv_fundamentals_growth, mv_price_features). After the
-#     price sweep (module.shorted_job_price_sync starts 10:00 UTC, ~2.5h),
-#     which is why this is NOT part of refresh_all_materialized_views() at
-#     10:00. Fails (exit 1) if any view was skipped.
+#     statement_timeout = 0; SELECT refresh_strategy_views() (mv_market_regime,
+#     mv_fundamentals_growth, mv_fundamentals_quality once 000132 is applied,
+#     mv_price_features). After the price sweep (module.shorted_job_price_sync
+#     starts 10:00 UTC, ~2.5h), which is why this is NOT part of
+#     refresh_all_materialized_views() at 10:00. Fails (exit 1) if any view
+#     was skipped. After a successful refresh it waits 16 minutes (the API's
+#     15-minute strategy cache + 1) and pings REVALIDATION_URL with tag
+#     strategy-picks (best-effort: a failed ping never fails the run).
 #   - "fundamentals", daily 15:00 UTC, `-mode all`: fundamentals, then
-#     filings, then the view refresh.
-#       fundamentals: Yahoo fundamentals-timeseries through pkg/stealthhttp at
-#       the sweep's 4s pace, Markit key statistics as the fallback, up to
-#       PICKS_FUNDAMENTALS_MAX_CODES (400) codes a run, recent 4D/4E filers
-#       first, then stalest first. Stops taking new codes after
-#       PICKS_FUNDAMENTALS_BUDGET_MIN (45) so filings + refresh still fit the
-#       3600s timeout; stalest-first order means the next run resumes.
-#       filings: financial_report_extractions.metrics (module.report_extractor,
-#       Wed + Sun) -> typed 'half' / 'annual' rows, source
-#       asx-filing-extraction, never overwriting a vendor value. DB-only,
-#       seconds.
-#       refresh: refresh_strategy_views(), so the day's pull and filings reach
-#       mv_fundamentals_growth the same night (the 13:30 weekday refresh stays
-#       for the price views).
+#     filings, then the view refresh (and the same revalidation, plus tag
+#     fundamentals when this execution's fundamentals or filings step changed
+#     stock_fundamentals).
+#       fundamentals: ONE Yahoo fundamentals-timeseries GET per code through
+#       pkg/stealthhttp at the sweep's 4s pace, carrying the full income
+#       statement, balance sheet and cash flow (annual + trailing, quarterly
+#       balance snapshots); sanity gates (FX-converted statements, the
+#       NI/(EPS x shares) identity against the code's median k, scale breaks,
+#       sign rules, stray TTM points) null what they refuse; Markit key
+#       statistics fills revenue / net income per field. BUDGET-DRIVEN: no
+#       count cap (PICKS_FUNDAMENTALS_MAX_CODES is deliberately unset), every
+#       code in priority order (due 4D/4E filers, never attempted by market
+#       cap, failures, stale successes) until PICKS_FUNDAMENTALS_BUDGET_MIN
+#       (170) elapses; the ~2,300-code universe is ~155 minutes at 4s, and any
+#       remainder carries to the next night. Stops early when more than 30% of
+#       the last 100 Yahoo requests failed or 25 codes failed in a row. A task
+#       retry (max_retries = 1, CLOUD_RUN_TASK_ATTEMPT > 0) caps the step at
+#       20 minutes so it finishes filings and the refresh instead of a second
+#       full pass.
+#       filings: financial_report_extractions.metrics (module.report_extractor)
+#       -> typed 'half' / 'annual' rows, source asx-filing-extraction.
+#       DB-only, seconds.
+#       refresh: refresh_strategy_views(), so the night's pull and filings
+#       reach the views the same night.
+#     fundamentals, filings and all take the picks_run_lease row (000132): a
+#     second execution that finds it held logs the holder and exits 0, so a
+#     manual run_picks_job never overlaps the schedule. Without 000132 the job
+#     runs without the lease and writes the 000129 column set.
+#     timeout_seconds = 12600 (210 min) holds the 170-minute budget, the last
+#     fetch, filings, the refresh and the 16-minute revalidation wait.
 #     Exit 10 = DEGRADED (under half the attempted codes answered, Yahoo
-#     failed for most of them, or some codes' filing rows failed to write);
-#     exit 1 = nothing answered, a DB read failed, or the refresh failed or
-#     skipped a view. The worst step decides.
+#     failed for most of them, or the filings step degraded); exit 1 =
+#     nothing answered, a DB read failed, or the refresh failed or skipped a
+#     view. The worst step decides.
 #
-# ORDERING: migrations 000129 + 000130 must exist before the first run (the
-# deploy allowlist replays them; the operator hand-applies them before the API
-# merges, plan §7). First fundamentals coverage is manual — see
-# services/jobs/README.md "picks".
+# ORDERING: migrations 000129 + 000130 must exist before the first run, and
+# 000132 before the full statements are written (the deploy allowlist
+# replays them). See services/jobs/README.md "picks".
 #
 # In local.admin_runnable_jobs, paired with its jobmonitor catalog entry
 # (services/shorts/internal/jobmonitor/catalog.go): "Run now" executes the
@@ -704,7 +723,7 @@ module "shorted_job_picks" {
   source = "../../modules/shorted-job"
 
   name             = "shorted-picks"
-  description      = "Stock picker: refresh_strategy_views() after the price sweep (weekdays); daily fundamentals + filings pull"
+  description      = "Stock picker: refresh_strategy_views() after the price sweep (weekdays); nightly full-statement fundamentals + filings pull"
   project_id       = var.project_id
   region           = var.region
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
@@ -718,21 +737,25 @@ module "shorted_job_picks" {
     {
       name_suffix   = "fundamentals"
       cron          = "0 15 * * *" # daily 15:00 UTC (01:00 AEST)
-      description   = "Daily fundamentals pull (Yahoo timeseries, Markit fallback; capped, stalest-first), then filing half-years, then refresh_strategy_views()"
+      description   = "Nightly fundamentals pull (Yahoo full statements, Markit per-field fallback; budget-driven, priority order), then filing half-years, then refresh_strategy_views()"
       args_override = ["picks", "-mode", "all"]
     },
   ]
 
   env = {
-    ENVIRONMENT = "production"
-    GCP_PROJECT = var.project_id
+    ENVIRONMENT                   = "production"
+    GCP_PROJECT                   = var.project_id
+    PICKS_FUNDAMENTALS_BUDGET_MIN = "170"
+    REVALIDATION_URL              = "https://shorted.com.au/api/revalidate"
   }
 
   secret_env = {
-    DATABASE_URL = "DATABASE_URL"
+    DATABASE_URL        = "DATABASE_URL"
+    REVALIDATION_SECRET = "REVALIDATION_SECRET"
   }
 
-  timeout_seconds = 3600
+  timeout_seconds = 12600
+  max_retries     = 1
   cpu             = "1"
   memory          = "512Mi"
 
@@ -1381,26 +1404,28 @@ module "report_extractor" {
   gemini_secret_name   = "GEMINI_API_KEY_REPORT_EXTRACTOR"
   reports_bucket       = local.shared_asset_buckets.financial_reports
   director_limit       = 20
-  # 40, twice weekly (was 10, Sundays only). This run is the ONLY path to
-  # half-year totals for the stock picker: Yahoo carries no ASX half-years,
-  # and `shorted picks -mode filings` reads the half-year revenue / NPAT / EPS
-  # this job extracts from Appendix 4D/4E filings into stock_fundamentals
-  # (docs/plans/stock-picker.md §2.6). At 10 a week the backlog of ~2,300
-  # companies x 2 filings a year never clears. Cost stays small: one run is 40
-  # reports x <= 6 PDF pages through Gemini Flash (langextract chunks each
-  # report into ~2,000-char calls, plus one digest call), roughly 1M input
-  # tokens a run by estimate, i.e. well under US$1 at published Flash rates;
-  # check the billing export after the first runs. reports_limit also sets
-  # GEMINI_MAX_RUN_ITEMS, the container's own hard cap, so the two move
-  # together and the module default (10) is unchanged. Wednesday + Sunday
-  # 14:00 UTC catches mid-week filers within days in reporting season.
-  # NOTE: the deployed image is still the Python extractor, so the statutory-
-  # filing-first targeting in services/jobs/internal/jobs/reportextract/
-  # select.go only applies after the Go cut-over (services/jobs/README.md
-  # "Phase 3 port notes"); until then the Python --top-shorted-first order
-  # spends these 40 slots.
-  reports_limit    = 40
-  reports_schedule = "0 14 * * 0,3"
+  # Financial reports: 120 a day, daily 14:00 UTC (was 40, Wed + Sun), per
+  # docs/plans/fundamentals-coverage.md 6.2. This run is the ONLY path to
+  # half-year totals for the stock picker: Yahoo carries no ASX half-years, and
+  # `shorted picks -mode filings` reads the revenue / NPAT / EPS this job
+  # extracts from statutory filings into stock_fundamentals. The extractor
+  # itself now spends the slots well (6.1): statutory results documents only
+  # (no presentations, Form 20-F, Pillar 3, webcasts or transcripts), ONE per
+  # company per run, recent filers (45 days) first, then companies with no
+  # parsed filing yet by market cap, then the rest; thinking off; 8 pages.
+  # About 840 documents a week clears the ~2,146-company backlog in about three
+  # weeks, then keeps up with ~83 statutory filings a week. reports_limit also
+  # sets GEMINI_MAX_RUN_ITEMS, the container's own hard cap, so the two move
+  # together; the module default (10) is unchanged, and the module pins 4
+  # workers, a 90-minute submit budget and a 7200 s timeout with no retries.
+  # Cost: by the previous run's estimate (40 reports x 6 pages ~ 1M input
+  # tokens) this is roughly 4M input tokens a day with no thinking tokens; each
+  # run now logs its real totals ("Gemini tokens this run: ..."), so check that
+  # line and the billing export rather than this estimate.
+  # First run's measured wall time: not yet recorded. Fill it in from the first
+  # daily run's "DONE in N min" log line.
+  reports_limit    = 120
+  reports_schedule = "0 14 * * *"
 
   depends_on = [
     google_project_service.required_apis,

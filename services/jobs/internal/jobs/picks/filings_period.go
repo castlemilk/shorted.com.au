@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 )
 
 // Period resolution for filing extractions (-mode filings).
@@ -13,14 +15,16 @@ import (
 // ("H1 FY2025", "1H26", "FY2025", "full year ended 30 June 2025",
 // "half-year ended 31 December 2024"). stock_fundamentals needs a typed
 // (period_type, period_end). The rules, in order (docs/plans/stock-picker.md
-// §2.6 carries the same list):
+// §2.6 carries the same list; docs/plans/fundamentals-coverage.md §4.2
+// tightened rules 1 and 5 and added gate 4):
 //
-//  1. The HEADLINE gates the whole report. Scheduling notices, webinars,
-//     "to present", "Notice of ...", AGM "Results of Meeting", dividend admin
-//     (the notAFiling list, overridden by a strongFiling marker exactly as in
-//     classifyResultsFiling) and every quarterly / Appendix 4C / activities
-//     report are rejected before any metric is read. A quarter's figures are
-//     not a half, and a cash-flow quarterly carries no P&L.
+//  1. The DOCUMENT gates the whole report (gate 1,
+//     extractiontrust.IsResultsDocument over the headline and
+//     document_meta.report_kind): only statutory results documents are read.
+//     Scheduling notices, webinars, "Notice of ...", AGM results, dividend
+//     admin, presentations without an Appendix 4D/4E, Pillar 3, and every
+//     quarterly / Appendix 4C / activities report are rejected before any
+//     metric is read.
 //  2. A period string naming a quarter, nine months, year-to-date, guidance,
 //     a forecast or a comparative ("pcp", "prior year") is rejected.
 //  3. Type: half-year words (H1, 1H, HY, 2H, half-year, interim, six months)
@@ -38,9 +42,12 @@ import (
 //     no year at all ("H1", "full year") takes the latest such period end on
 //     or before the report date. No year and no report date: rejected.
 //  5. The balance-date month comes from, in order: an explicit date in the
-//     period string, a dated headline ("...for the year ended 31 December
-//     2025"; a dated half-year headline is its month + 6), the company's
-//     vendor annual rows (fiscalYearEndMonth), else June.
+//     period string, the company's vendor annual rows, else a dated headline
+//     ("...for the year ended 31 December 2025"; a dated half-year headline is
+//     its month + 6). There is NO default: the June balance date the ingest
+//     used to assume dated December filers (DRO) in June. With none of the
+//     three the metric is rejected. (The ingest requires vendor context
+//     before it resolves anything, so in practice the vendor's month decides.)
 //  6. When the report date is known the period must end no later than seven
 //     days after it (a later end is guidance or a forecast) and no more than
 //     15 months before it (older is a comparative or a restatement, which the
@@ -48,6 +55,12 @@ import (
 //  7. Every resolved end is canonicalised to a month end, shifted like a
 //     52/53-week year (a year to Sunday 2 July 2023 is June 2023), so the same
 //     half read from two documents lands on one key.
+//  8. Gate 4 (documentPeriod): the resolved period must BE the document's own
+//     period, document_meta.period_end when the extractor read one, else the
+//     latest half or annual end on or before the report date on the
+//     company's balance date, within five months. A comparative quoted in a
+//     results document (CBA's prior-half NPAT labelled as current) resolves
+//     to another period and is dropped.
 
 // resolvedPeriod is a typed period.
 type resolvedPeriod struct {
@@ -76,11 +89,6 @@ const (
 )
 
 var (
-	// A quarterly document, whatever else it says. Only a literal Appendix
-	// 4D/4E overrides it.
-	quarterlyHeadlineRe = regexp.MustCompile(`(?i)\bquarterly\b|\bquarter\b|\bappendix\s*4c\b|\b4c\b|\b[1-4]q\s?(?:fy)?\s?\d{2,4}\b|\bq[1-4]\b|\bactivit(?:y|ies)\s+(?:report|statement|update)\b`)
-	appendix4DERe       = regexp.MustCompile(`(?i)\bappendix\s*4[de]\b`)
-
 	// Period-string rejections (rule 2).
 	periodRejectRe = regexp.MustCompile(`(?i)\bq[1-4]\b|\b[1-4]q\b|\b[1-4]q\s?(?:fy)?\d{2}|\bquarter|\bnine[- ]months?\b|\b9[- ]?months?\b|\b9m\b|\bthree[- ]months?\b|\b3[- ]?months?\b|\bytd\b|year[- ]to[- ]date|\bguidance\b|\bforecast|\boutlook\b|\bexpected\b|\btarget\b|\bbudget\b|\bestimate|\bpcp\b|\bprior\b|\bprevious\b|\bcomparative\b|\blast year\b|\d{2,4}\s?[ef]\b`)
 
@@ -109,29 +117,6 @@ var (
 	monthYearRe    = regexp.MustCompile(`(?i)\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?,?\s+(20\d{2})\b`)
 	numericDateRe  = regexp.MustCompile(`\b(\d{1,2})[/.](\d{1,2})[/.](20\d{2})\b`)
 )
-
-// filingHeadlineRejection returns why a report's headline disqualifies every
-// metric in it, or "" when the report may be read (rule 1).
-func filingHeadlineRejection(headline string) string {
-	h := strings.TrimSpace(headline)
-	if h == "" {
-		return ""
-	}
-	if quarterlyHeadlineRe.MatchString(h) && !appendix4DERe.MatchString(h) {
-		return "quarterly or activities report"
-	}
-	for _, rx := range strongFiling {
-		if rx.MatchString(h) {
-			return ""
-		}
-	}
-	for _, rx := range notAFiling {
-		if rx.MatchString(h) {
-			return "not a results filing (" + rx.String() + ")"
-		}
-	}
-	return ""
-}
 
 // parsePeriod resolves one metric's period string (rules 2-7). ok=false
 // carries the reason, which the job logs in aggregate.
@@ -172,6 +157,9 @@ func parsePeriod(period string, pc periodContext) (resolvedPeriod, string, bool)
 		fye := balanceMonth(pc)
 		if m := calendarRe.FindStringSubmatch(p); m != nil {
 			fye = time.December
+		}
+		if fye == 0 {
+			return resolvedPeriod{}, "no balance date (no vendor annual row and no dated headline)", false
 		}
 		year, hasYear := labelYear(p)
 		second := periodSecondRe.MatchString(p)
@@ -297,8 +285,12 @@ func expandYear(s string) int {
 }
 
 // balanceMonth is rule 5 minus the period string's own date (handled by the
-// caller): a dated headline, then the vendor's rows, then June.
+// caller): the vendor's rows, then a dated headline, else 0 (unknown; no
+// default).
 func balanceMonth(pc periodContext) time.Month {
+	if pc.VendorFYE != 0 {
+		return pc.VendorFYE
+	}
 	h := normalizePeriodText(pc.Headline)
 	if d, ok := explicitDate(h); ok {
 		switch headlineType(pc.Headline) {
@@ -312,10 +304,133 @@ func balanceMonth(pc periodContext) time.Month {
 			return addMonths(canonicalMonthEnd(d).Month(), 6)
 		}
 	}
-	if pc.VendorFYE != 0 {
-		return pc.VendorFYE
+	return 0
+}
+
+var (
+	// quotePeriodPhraseRe: a period-end phrase inside a quote ("for the half
+	// year ended 31 December 2024", "year to June 2026").
+	quotePeriodPhraseRe = regexp.MustCompile(`(?i)\b(?:half[- ]?year|half|six[- ]months?|6[- ]months?|full[- ]year|financial[- ]year|year|twelve[- ]months?|12[- ]months?|period)\s+(?:ended|ending|to)\s+((?:\d{1,2}(?:st|nd|rd|th)?\s+)?(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?,?\s+20\d{2})\b`)
+	// quotePeriodLabelRe: a fiscal-period label inside a quote (FY25, 1H26,
+	// H1 FY2031, HY25, 2H25, CY2025).
+	quotePeriodLabelRe = regexp.MustCompile(`(?i)\b(fy|cy|hy|h[12]|[12]h)\s?(?:fy)?\s?'?(20\d{2}|\d{2})\b`)
+	// comparisonLeadRe: words that make a period mention a COMPARISON
+	// reference ("up 7% on the half year ended ...", "compared with 1H25"),
+	// which says nothing about the period the quoted figure is for.
+	comparisonLeadRe = regexp.MustCompile(`(?i)\b(?:` + comparisonLeadTerms + `)(?:\s+the)?(?:\s+(?:prior|previous|corresponding|same))*\s*$`)
+)
+
+// comparisonLeadTerms is the comparison vocabulary gate 4 (comparisonLeadRe,
+// a lead right before a period mention) and the sign reading
+// (signComparisonLeadRe, a lead anywhere before a sign word) share.
+const comparisonLeadTerms = `on|from|versus|vs\.?|against|compared\s+(?:to|with)|than|over|relative\s+to`
+
+// quoteNamesOnlyOtherPeriods is gate 4 applied to the quote itself: true when
+// the quote names at least one period (a period-end phrase, or a fiscal label
+// placed on the balance month fye) outside a comparison reference, and none of
+// them is own. "Statutory NPAT for the half year ended 31 December 2024 was
+// $4,748m" in a December 2025 half-year document is a comparative, whatever
+// period label the model attached to it (CBA). A mention inside parentheses
+// or after a comparison word ("up 7% on 1H25", "(1H25: $3.6bn)") is not a
+// claim about the figure and is ignored; a quote naming no period passes.
+func quoteNamesOnlyOtherPeriods(text string, own resolvedPeriod, fye time.Month) bool {
+	t := normalizePeriodText(text)
+	comparison := func(pos int) bool {
+		before := t[:pos]
+		if strings.Count(before, "(") > strings.Count(before, ")") {
+			return true
+		}
+		return comparisonLeadRe.MatchString(before)
 	}
-	return defaultFYEMonth
+	named, ownNamed := false, false
+	note := func(end time.Time) {
+		named = true
+		if canonicalMonthEnd(end).Equal(own.End) {
+			ownNamed = true
+		}
+	}
+	for _, m := range quotePeriodPhraseRe.FindAllStringSubmatchIndex(t, -1) {
+		if comparison(m[0]) {
+			continue
+		}
+		if d, ok := explicitDate(t[m[2]:m[3]]); ok {
+			note(d)
+		}
+	}
+	if fye != 0 {
+		for _, m := range quotePeriodLabelRe.FindAllStringSubmatchIndex(t, -1) {
+			if comparison(m[0]) {
+				continue
+			}
+			prefix, year := strings.ToLower(t[m[2]:m[3]]), expandYear(t[m[4]:m[5]])
+			switch prefix {
+			case "fy":
+				note(periodEndForFY(year, fye, periodAnnual, false))
+			case "cy":
+				note(lastDayOfMonth(year, time.December))
+			case "hy", "h1", "1h":
+				note(periodEndForFY(year, fye, periodHalf, false))
+			case "h2", "2h":
+				note(periodEndForFY(year, fye, periodHalf, true))
+			}
+		}
+	}
+	return named && !ownNamed
+}
+
+// ownPeriodMaxLagMonths: gate 4 without document_meta.period_end takes the
+// latest period end on or before the report date, but only within this lag
+// (4D and 4E are due within two months, the annual report within four).
+const ownPeriodMaxLagMonths = 5
+
+// documentPeriod is gate 4's reference (plan fundamentals-coverage.md §4.2):
+// the period the document itself reports.
+//
+//   - document_meta.period_end, when the extractor read one, is the end
+//     (canonicalised to its month end, so a 52/53-week "29 June" is June);
+//   - otherwise the latest half or annual end on or before the report date on
+//     the company's balance date fye, when it lies within five months of the
+//     report date; with no report date or no balance date there is no own
+//     period and every metric in the document is withheld.
+//
+// The type is document_meta.period_type when present, else the headline's
+// (Appendix 4D / half-year -> half, Appendix 4E / annual / full year ->
+// annual), else the end's month (the balance month is annual, the other half
+// end is a half).
+func documentPeriod(meta extractiontrust.DocumentMeta, headline string, reportDate time.Time, fye time.Month) (resolvedPeriod, string, bool) {
+	typeFor := func(end time.Time) string {
+		switch meta.PeriodType {
+		case extractiontrust.PeriodTypeAnnual:
+			return periodAnnual
+		case extractiontrust.PeriodTypeHalf:
+			return periodHalf
+		}
+		if t := headlineType(headline); t != "" {
+			return t
+		}
+		if end.Month() == fye {
+			return periodAnnual
+		}
+		return periodHalf
+	}
+	if d, ok := meta.PeriodEndDate(); ok {
+		end := canonicalMonthEnd(d)
+		return resolvedPeriod{Type: typeFor(end), End: end}, "", true
+	}
+	if reportDate.IsZero() {
+		return resolvedPeriod{}, "no document period and no report date", false
+	}
+	if fye == 0 {
+		return resolvedPeriod{}, "no balance date", false
+	}
+	end := latestPeriodEnd(reportDate, fye, periodAnnual, false)
+	if h := latestPeriodEnd(reportDate, fye, periodHalf, false); h.After(end) {
+		end = h
+	}
+	if end.IsZero() || monthsBetween(end, reportDate) > ownPeriodMaxLagMonths {
+		return resolvedPeriod{}, "no period end within five months before the report", false
+	}
+	return resolvedPeriod{Type: typeFor(end), End: end}, "", true
 }
 
 // periodEndForFY places a fiscal-year label on the balance date: FY Y ends on

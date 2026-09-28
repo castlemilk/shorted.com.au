@@ -279,4 +279,37 @@ public interface StrategyPickOrBuilder extends
    * @return The hasClose.
    */
   boolean getHasClose();
+
+  /**
+   * <pre>
+   * Reported fundamentals behind the growth cells, with their basis and
+   * provenance, plus headline ratios. Absent when the stock has no
+   * fundamentals row at all.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+   * @return Whether the fundamentals field is set.
+   */
+  boolean hasFundamentals();
+  /**
+   * <pre>
+   * Reported fundamentals behind the growth cells, with their basis and
+   * provenance, plus headline ratios. Absent when the stock has no
+   * fundamentals row at all.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+   * @return The fundamentals.
+   */
+  com.shorts.v1alpha1.PickFundamentals getFundamentals();
+  /**
+   * <pre>
+   * Reported fundamentals behind the growth cells, with their basis and
+   * provenance, plus headline ratios. Absent when the stock has no
+   * fundamentals row at all.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PickFundamentals fundamentals = 27 [json_name = "fundamentals"];</code>
+   */
+  com.shorts.v1alpha1.PickFundamentalsOrBuilder getFundamentalsOrBuilder();
 }

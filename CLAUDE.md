@@ -502,40 +502,103 @@ Stock screener with server-side filtering (`services/shorts/internal/services/sh
 
 `/picks` hub + `/picks/[strategy]` (ISR 3600, static params from
 `web/src/@/lib/strategies/registry.ts`) over `StrategyService`
-(`strategies.proto`: `ListStrategies`, `GetStrategyPicks`) and
-`StockService.GetStockFundamentals`. Four strategies ship: `zanger-breakout`,
-`canslim`, `minervini-trend-template`, `crowded-short-breakout`. Every rule
-evaluates to **pass / fail / unknown**; unknown (missing data) never counts as a
-pass and blocks status `triggered`. Design contract: `docs/plans/stock-picker.md`.
+(`strategies.proto`: `ListStrategies`, `GetStrategyPicks` with `sort_by` /
+`require_fundamentals`, `GetStockStrategyFit`) and
+`StockService.GetStockFundamentals` (periods, `growth`, `quality`, `coverage`,
+`latest_filing`). Five strategies ship: `zanger-breakout`, `canslim`,
+`minervini-trend-template`, `crowded-short-breakout`, `quality-compounders`.
+Every rule evaluates to **pass / fail / unknown**; unknown (missing data, or a
+ratio not meaningful for the company) never counts as a pass and blocks status
+`triggered`. Contracts: `docs/plans/stock-picker.md` (picker, strategies) and
+`docs/plans/fundamentals-coverage.md` (full statements, filings, quality,
+valuation, stock page).
 
 | Piece | Where |
 |---|---|
-| Strategy prose, rules, weights, evaluator (no DB) | `services/shorts/internal/strategies/` (prose lives HERE once; the web registry holds SEO metadata only) |
-| Store over the views | `services/shorts/internal/store/shorts/postgres_strategies.go` (a missing view = empty universe, never a 500) |
-| Data: `stock_fundamentals` (+ `_sync`), `mv_fundamentals_growth` | migration `000129`; `shorted picks -mode fundamentals` (Yahoo fundamentals-timeseries via stealthhttp, Markit key-statistics fallback, recent 4D/4E filers first, capped per run) |
-| Data: `mv_price_features`, `mv_market_regime`, `refresh_strategy_views()` | migration `000130`; `shorted picks -mode refresh` weekdays 13:30 UTC, AFTER the price sweep (not inside `refresh_all_materialized_views()` at 10:00, which runs before prices land) |
-| MCP | `list_strategies`, `get_strategy_picks`, `get_stock_fundamentals` |
+| Strategy prose, rules, weights, evaluator, sort, valuation, financials rule (no DB) | `services/shorts/internal/strategies/` (prose lives HERE once; the web registry holds SEO metadata only) |
+| `quality-compounders` (house, no regime gate) | core `roe` (>= 15%), `net_margin` (>= 10%), `cash_conversion` (FCF > 0 and >= 0.8x NPAT), `leverage` (net cash, or net debt / EBITDA <= 2.5), `liquidity`; trigger `above_sma200`; non-core `revenue_not_shrinking` |
+| `sort_by` | `score` (default, rank order), `revenue_yoy`, `eps_yoy`, `roe`, `net_margin`, `fcf_margin`, `pe` (ascending), `market_cap`; unknowns last, growth outside [-95%, +500%] after every measured figure; `rank` stays the evaluator's; any other value is `InvalidArgument` |
+| Store | `store/shorts/postgres_strategies.go`, `postgres_fundamentals.go`: a missing view = empty universe; a schema without 000132 (42P01 / 42703) = nil quality, provenance and coverage, never a 500 |
+| Data: `stock_fundamentals` (+ `_sync`), `mv_fundamentals_growth` | `000129`, widened by `000132` (below) |
+| Data: `mv_price_features`, `mv_market_regime`, `refresh_strategy_views()` | `000130`; refreshed by `shorted picks -mode refresh` weekdays 13:30 UTC, AFTER the price sweep (not inside `refresh_all_materialized_views()` at 10:00, which runs before prices land). Order: regime, growth, quality, price features. The step pins `client_min_messages = notice` and fails on a `Skipping <view>` warning or on a picker view with no `Refreshing <view>` NOTICE (a stale 000130 body: re-apply 000132) |
+| Data: `000132_extend_fundamentals` | 21 statement lines on `stock_fundamentals` (gross profit to current liabilities; outflows negative); `field_sources` JSONB (only fields NOT from the row's `source`: Markit, a filing, `derived:*`); `source_document_url` / `_date`; `period_type='quarter'` = a balance snapshot (no flow fields); sync `last_outcome`, `consecutive_empty`, `median_k`, `fx_converted`, `native_currency`; `picks_run_lease`; `financial_report_extractions.document_meta`; growth view rebuilt once with `revenue_basis_source` / `eps_basis_source` (`vendor` / `filing`) and `revenue_latest_period_end` / `revenue_prior_period_end` appended; new `mv_fundamentals_quality` (one flow row + one same-currency balance row at or up to 6 months before it) |
+| Job | `shorted picks` (`services/jobs/README.md` "picks"): `-mode all` daily 15:00 UTC (fundamentals, filings, refresh; 12600s timeout, 1 retry). Fundamentals is budget-driven, no count cap: `PICKS_FUNDAMENTALS_BUDGET_MIN` 170 at 4s/code, priority due filers, never attempted by market cap, failures, stale successes (14-day skip, 45 for repeat empties); pre-000132 sync rows (`last_outcome` NULL) queue with never attempted and are never skipped, so the first nights after the deploy re-fetch the universe largest first (`pre_000132=N` in the log); breakers at 25 consecutive failures, >30% of the last 100 Yahoo requests, Markit off after 10; 20-minute budget on a task retry. One writer via `picks_run_lease` (a held lease exits 0). After a refresh: waits 16 min, then revalidates tags `strategy-picks` (+ `fundamentals` when rows changed) |
+| Filings | `financial-report-extractor` (Python, `services/report-extractor`, `module "report_extractor"`): daily 14:00 UTC, `--recent 2 --limit 120 --workers 4 --max-pages 8 --budget-min 90`, 7200s, no retries; ONE statutory results document per company (filed within 45 days newest first, then companies with no parsed filing by market cap, then the rest); an extraction not aligned to the document, or whose value's digits are not in the aligned span, is dropped; thinking off; writes `document_meta` (`report_kind` `other` only from the document's own heading). A model failure is never stored (no row, retried next run), 5 in a row stop new work, and the run exits 1 when its model errors look systemic (5, or at least 3 making up at least a fifth of the model calls). `--repair-echo-digests` is the one-off post-deploy repair of digests written from a few-shot echo. The only source of ASX half-year totals. Read by `-mode filings` |
+| Stock page | Financials tab (`components/stocks/financials-tab.tsx`): Latest result, Key ratios, the statements island (`financial-statements.tsx`, the ONLY `use client` file there), the reports list (the source filing marked), the tax card LAST. Overview: `StrategyFitCard` (SSR, links to `/picks/<id>`, hidden when the fit call fails) and `FundamentalsSummary` (crawlable prose, omitted without coverage) |
+| Picker web | `components/picks/`, `lib/strategies/`: a native `<details>` row detail (ratios, basis, source, "Full financials" nofollow), `?sort=` via the `picks-sorted-view.tsx` island (POSTs to the rewrite, falls back to the server rows), coverage "fundamentals for N of M stocks (growth figures for K)" only when `fundamentals_rows_count` is reported |
+| MCP | `list_strategies`, `get_strategy_picks` (`sort_by`), `get_stock_fundamentals` (`quality`, `coverage`); no new tool |
 
 ### Landmines
 
 - **Fundamentals are in the company's REPORTING currency** (BHP is USD) and
-  growth is same-series only: annual on annual for revenue, TTM on TTM for EPS.
-  Yahoo has NO half-year totals for ASX companies; the half-year delta is the
-  TTM-minus-FY identity. `*_yoy_pct` is NULL when a side is missing or the prior
-  is <= 0; the API carries `has_*` flags for exactly this reason. Never COALESCE
-  an unknown to 0 here (that is the screener MV defect the MCP tools now paper over).
+  growth compares like spans only: a year on the year before, 12 months on the
+  12 months a year earlier, a half on the same half a year earlier. Yahoo has NO
+  half-year totals for ASX companies; halves come only from filings. `*_yoy_pct` is NULL when a side is missing or the prior
+  is <= 0, and every nullable number travels with `has_*`. Never COALESCE an
+  unknown to 0 (the screener MV defect the MCP tools paper over).
+- **FX-converted vendor statements.** Yahoo converts some codes' statements,
+  EPS included, and its currency labels for them cannot be trusted (XRO's
+  FY25 EPS 1.3541 is AUD-converted NPAT over shares; the NZD figure is ~1.49).
+  A fractional value on an integral line sets `stock_fundamentals_sync.fx_converted`,
+  every monetary and per-share Yahoo field is rejected (shares kept), Markit
+  supplies native revenue/NPAT, filings supply native EPS, and valuation
+  withholds P/E and P/B on the flag itself, not only on the currency label.
+- **Price-based ratios need AUD statements AND one ordinary share per listed
+  unit.** A stock is valued only when `median_k` sits in [0.8, 1.25], or,
+  without one, every computable k = NPAT / (EPS x shares) does. `listed-unit` only on
+  positive evidence (`median_k` out of band, or without one any positive k
+  outside [1/3, 3]): a CDI (RMD, k ~10) gets no market cap, P/E or P/B, never
+  a number 10x off. Anything else (no k, a k <= 0, or a recent issuer's k
+  between the bands) is
+  `no-shares`, and the picker falls back to the screener market cap. A CDI's
+  filing EPS is withheld too (`-mode filings` gate 8, stricter: without a
+  `median_k` any vendor k outside [0.8, 1.25] withholds it).
+- **Financials are decided once, in Go** (`strategies/fundamentals_quality.go`):
+  banks, insurers and lending financial-services companies get the
+  not-meaningful ratios nulled and listed in `not_meaningful`, so
+  `cash_conversion` / `leverage` read unknown (never pass) and they rank watch
+  at most. Every surface reads that list; do not re-derive it.
+  `statement_is_financial` (TRUE = neither operating income nor EBITDA) is
+  read from the newest FULL Yahoo income statement (pretax income present,
+  revenue and NPAT its own), never from a Markit, filing or legacy row (those
+  never carry either line, which once made BHP, CSL and FMG read as banks);
+  NULL means the industry decides. Banks and other financials get a
+  Go-computed ROE: the view's 10% equity-to-assets guard applies only to
+  non-financials.
+- **Parsed filings once published the prompt's own few-shot example** (revenue
+  $5,142m, NPAT $1,823m, EPS 94.2c) as BHP, CBA, DRO, EDV and MSB results.
+  `services/pkg/extractiontrust` is the ONE funnel (grounding, the few-shot
+  denylist by TEXT never by value, provenance strip, `IsResultsDocument`) and
+  every reader of `financial_report_extractions.metrics` goes through it:
+  picks filings, `GetStockFinancialHighlights`, `latest_filing`, the
+  weekly-report collector, the digest prompts. A new reader must too. The
+  entity check is one rule too (`extractiontrust.EntityMatches`).
+- **A filing never overwrites a vendor value.** It fills NULL vendor fields and
+  replaces only fields marked `field_sources = 'asx-filing-extraction'`. `-mode
+  filings` is a fail-closed rebuild in one transaction: exit 10 = REFUSED (a read
+  errored or zero extractions: nothing written), exit 1 = rolled back. A large
+  purge after a gate change is expected and logged, not refused. A filing's
+  net income or EPS takes its sign from its own number or the words that
+  govern it, never a comparative's ("compared with a loss", "(pcp: loss ...)");
+  an ambiguous sign is withheld (`5_statutory.sign_ambiguous`), never guessed.
+- **Prod does not run `migrate up`**, but 000129-000132 are all in the
+  terraform-deploy allowlist (replay-safe, catalog-guarded), so no hand-apply is
+  needed. 000132 runs on the session pooler before the image swap, as two
+  transactions under `lock_timeout = '15s'`: do not merge while
+  `financial-report-extractor` or a picks refresh is running. If it cannot
+  apply, `task db:prod:apply FILE=services/migrations/000132_extend_fundamentals.up.sql CONFIRM=prod`
+  in a quiet window and re-run the deploy; never drop its allowlist line (the
+  new jobs image writes those columns). After the deploy, `run_picks_job`
+  `filings` then `refresh` clears the echo rows within the hour, one
+  `--repair-echo-digests` extractor run restores the echo rows' summaries (the
+  API withholds them until then), and pre-000132 codes are re-fetched first,
+  largest first, over the next nights.
 - **The base is anchored.** After a breakout `mv_price_features` reports
   `base_high` / `base_low` / `base_length_days` as at the breakout session, so the
   pivot is the level cleared (the invalidation level), and `base_length_days`
   counts from the FIRST touch of the high (a flat base reads its full length).
   Both were defects found by applying the migration to a scratch Postgres; the
   window is 40 sessions, so a base is never longer than 40.
-- **Prod does not run `migrate up`**: hand-apply `000129` + `000130` BEFORE the API
-  merges, then build coverage with the admin MCP connector's `run_picks_job`
-  (`mode: fundamentals` a few times, cap 400/run, then `filings`, then `refresh`)
-  or `gcloud run jobs execute shorted-picks --region australia-southeast2
-  --args="picks,-mode,fundamentals"`. Until then the pages render an empty
-  universe and say so.
 
 ## Weekly/Monthly/Yearly Reports
 
@@ -863,7 +926,7 @@ Next.js contributes only the consent screen.
   **Postgres accepts `-NaN`/`+NaN` where Go's `ParseFloat` does not**, so that
   guard cannot lean on `ParseFloat` alone.
 - **The MCP SDK emits no `$defs`/`$ref`** — every nested struct is inlined at
-  every use site. `tools/list` is ~84KB for 28 tools, paid every session; the
+  every use site. `tools/list` is ~87KB for 28 tools (89,495 of the 90,112 B budget), paid every session; the
   lever is fewer fields and fewer redundant descriptions, never flattening.
 - **The SDK exports no setter for `TokenInfo` in a context.** A test wanting an
   authenticated request must drive `auth.RequireBearerToken` — which is

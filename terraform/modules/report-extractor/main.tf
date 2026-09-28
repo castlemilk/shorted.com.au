@@ -3,7 +3,9 @@
  *
  * Manages TWO Cloud Run Jobs from ONE image (services/report-extractor):
  *   - director-trade-extractor    (extract_director_trades.py): Appendix 3Y PDFs -> director_trades
- *   - financial-report-extractor  (extract_reports_concurrent.py): report PDFs -> financial_report_extractions + digests
+ *   - financial-report-extractor  (extract_reports_concurrent.py): statutory results PDFs ->
+ *     grounded metrics + document_meta + digests in financial_report_extractions
+ *     (docs/plans/fundamentals-coverage.md 6.1 / 6.2)
  * Plus a shared service account, secret IAM (DATABASE_URL, OTEL, optional GEMINI_API_KEY),
  * GCS write access for digest raw-text, and a Cloud Scheduler per job.
  *
@@ -150,6 +152,17 @@ resource "google_cloud_run_v2_job" "director_trade_extractor" {
 # ---------------------------------------------------------------------------
 # Job 2: financial-report-extractor  (extract_reports_concurrent.py)
 # ---------------------------------------------------------------------------
+# Paid Gemini work, so every knob here is a cost guardrail pinned by
+# cost-guardrails.test.mjs (contract 6.2):
+#   - --limit and GEMINI_MAX_RUN_ITEMS both come from var.reports_limit;
+#   - --workers and GEMINI_MAX_RUN_WORKERS are both 4 (the container's own cap
+#     would otherwise silently clamp the CLI value);
+#   - --max-pages 8 bounds the text (and so the tokens) per document;
+#   - --budget-min 90 stops STARTING reports after 90 minutes, and the 7200 s
+#     timeout leaves 30 minutes for the (at most 4) in-flight reports to
+#     finish, so a slow day ends with a clean exit and a logged remainder, not
+#     a killed task;
+#   - max_retries = 0: a retry would re-spend the run's tokens.
 resource "google_cloud_run_v2_job" "financial_report_extractor" {
   name     = "financial-report-extractor"
   location = var.region
@@ -161,12 +174,12 @@ resource "google_cloud_run_v2_job" "financial_report_extractor" {
     template {
       service_account = google_service_account.report_extractor.email
       max_retries     = 0
-      timeout         = "3600s"
+      timeout         = "7200s"
 
       containers {
         image   = var.image_url
         command = ["python", "extract_reports_concurrent.py"]
-        args    = ["--recent", "2", "--limit", tostring(var.reports_limit), "--workers", "2", "--max-pages", "6", "--top-shorted-first"]
+        args    = ["--recent", "2", "--limit", tostring(var.reports_limit), "--workers", "4", "--max-pages", "8", "--budget-min", "90"]
 
         env {
           name  = "ENVIRONMENT"
@@ -212,7 +225,7 @@ resource "google_cloud_run_v2_job" "financial_report_extractor" {
         }
         env {
           name  = "GEMINI_MAX_RUN_WORKERS"
-          value = "2"
+          value = "4"
         }
         env {
           name  = "GCS_REPORTS_BUCKET"
@@ -305,10 +318,13 @@ resource "google_cloud_scheduler_job" "director_trade_extractor" {
   depends_on = [google_cloud_run_v2_job_iam_member.director_invoker]
 }
 
-# Financial-report extractor — weekly (Sundays 14:00 UTC).
+# Financial-report extractor: var.reports_schedule (production: daily 14:00
+# UTC). The scheduler keeps its historical "-weekly" name on purpose: the name
+# is the resource's identity, and renaming it would replace the scheduler for
+# no behavioural gain.
 resource "google_cloud_scheduler_job" "financial_report_extractor" {
   name             = "financial-report-extractor-weekly"
-  description      = "Weekly financial-report digest extraction (top-shorted first)"
+  description      = "Financial-report extraction (statutory results, recent filers first)"
   schedule         = var.reports_schedule
   time_zone        = "UTC"
   attempt_deadline = "1800s"

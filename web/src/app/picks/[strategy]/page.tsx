@@ -16,7 +16,6 @@ import {
 import { RegimeBanner } from "~/@/components/picks/regime-banner";
 import { PicksProvenance } from "~/@/components/picks/picks-provenance";
 import { PicksFilterView } from "~/@/components/picks/picks-filter-view";
-import { PicksStatusFilter } from "~/@/components/picks/picks-status-filter";
 import { RuleLegend, type RuleColumn } from "~/@/components/picks/picks-table";
 import { StrategyPanel } from "~/@/components/picks/strategy-panel";
 import { StrategySwitcher } from "~/@/components/picks/strategy-switcher";
@@ -27,8 +26,10 @@ import {
 } from "~/@/lib/strategies/registry";
 import { STATUS_LABELS, shortlistRows } from "~/@/lib/strategies/shortlist";
 import { firstNonEmpty, formatPrice } from "~/@/lib/strategies/format";
+import { fundamentalsHeld } from "~/@/lib/strategies/coverage";
 import { getStrategyPicks } from "~/app/actions/getStrategyPicks";
 import { bailOnEmptyRender } from "~/app/actions/config";
+import { PicksSortedView } from "./picks-sorted-view";
 
 interface PageProps {
   params: Promise<{ strategy: string }>;
@@ -40,8 +41,8 @@ interface PageProps {
 // below, and the post-promote sweep (config/isr-pages.json) refills it.
 //
 // No searchParams are read here: reading them silently forces dynamic
-// rendering and throws the ISR away. ?status= is read client-side by
-// PicksStatusFilter under a real <Suspense> boundary.
+// rendering and throws the ISR away. ?status= and ?sort= are read client-side
+// by PicksSortedView under a real <Suspense> boundary.
 //
 // NOTE: no loading.tsx on this route, so notFound() yields a real HTTP 404.
 export const revalidate = 3600;
@@ -129,6 +130,9 @@ export default async function StrategyPicksPage({ params }: PageProps) {
     rules,
     basePath: `/picks/${seo.slug}`,
     caption: `${seo.h1}: ranked ASX picks`,
+    showFundamentals: data
+      ? fundamentalsHeld(data.fundamentalsRowsCount, data.fundamentalsCoverageCount)
+      : false,
   };
 
   return (
@@ -180,6 +184,7 @@ export default async function StrategyPicksPage({ params }: PageProps) {
             <PicksProvenance
               asOf={data?.asOf ?? ""}
               coverage={data?.fundamentalsCoverageCount ?? 0}
+              rowsCount={data?.fundamentalsRowsCount ?? 0}
               universe={data?.universeCount ?? 0}
             />
           </div>
@@ -203,14 +208,18 @@ export default async function StrategyPicksPage({ params }: PageProps) {
                   suspends on a static page, so what crawlers and first paint
                   get is this boundary's fallback, not the island. */}
               <Suspense fallback={<PicksFilterView {...filterProps} status={null} />}>
-                <PicksStatusFilter {...filterProps} />
+                <PicksSortedView {...filterProps} strategyId={seo.slug} />
               </Suspense>
               <p className="text-xs text-muted-foreground">
                 Pivot is the top of the base: the breakout level, and the exit
                 if the price closes back below it. Growth compares the latest
-                reported period with the same period a year earlier.
-                &quot;n/a&quot; means we do not hold the figure, never that it
-                is zero.
+                reported period with the same span a year earlier: TTM is the
+                trailing 12 months, FY a full year, HY a half year, and F marks
+                a figure computed from a company filing. &quot;n/a&quot; means
+                we do not hold the figure, never that it is zero;
+                &quot;n/m&quot; means it is not meaningful (growth beyond
+                +500% or below −95%, or a ratio for a bank, insurer or other
+                financial).
               </p>
             </section>
 
