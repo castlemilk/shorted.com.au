@@ -819,7 +819,7 @@ and written as NULL:
 | Gate | Rejects |
 |---|---|
 | `currency_conflict` | one monetary field whose point is in another currency than its row (shares and EPS ignore `currencyCode`) |
-| `fx_converted` | every monetary field of a code with a fractional raw value on a normally integral line: Yahoo converted its statements, and its EPS stays in the native currency under the target label (XRO: NZD labelled AUD). Sets `stock_fundamentals_sync.fx_converted`, and `native_currency` from Markit's `curCode` |
+| `fx_converted` | every monetary field of a code with a fractional raw value on a normally integral line: Yahoo converted its statements, EPS included, so every monetary and per-share Yahoo field is rejected (shares kept) and filings supply the native EPS (XRO's FY25 EPS 1.3541 is AUD-converted; the NZD figure is ~1.49). Sets `stock_fundamentals_sync.fx_converted`, and `native_currency` from Markit's `curCode` |
 | `identity_outlier` | a period's monetary fields (EPS and shares kept) when k = net income / (basic EPS x shares) is more than 3x off the code's median k, with at least 3 periods. The median, not 1, is the reference: a CDI such as RMD has k near 10. It is stored as `median_k` for valuation |
 | `scale_break` | every monetary field of a period where revenue, gross profit, total or current assets or liabilities is below 1/20 of BOTH neighbours in its series (IAG FY25 revenue 5.35m against ~14bn) |
 | `non_positive_assets` | a period's balance fields when total assets <= 0 |

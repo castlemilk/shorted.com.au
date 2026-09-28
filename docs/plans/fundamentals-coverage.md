@@ -360,13 +360,18 @@ date.
 Share counts and EPS ignore `currencyCode` for the row check. A conflicting
 monetary line nulls THAT field (added to `Rejected`, counted), never the row.
 FX-converted detection: a monetary raw value with `|frac| > 0.001` on a
-normally integral line marks the code `fx_converted`; its monetary fields are
-rejected, and its vendor currency is "unknown" for filings gates 6-7 and for
-valuation (native currency from Markit `curCode` when present, else no filing
-rows and no P/E or P/B). The verdict is persisted (2.3), and valuation (5.3)
-withholds P/E and P/B on the flag itself, not only on the missing k: Yahoo's
-EPS for such a code is in the native currency under the conversion target's
-label (XRO: NZD EPS labelled AUD).
+normally integral line marks the code `fx_converted`; its monetary AND
+per-share fields are rejected (Yahoo converts EPS too: XRO's FY25 EPS 1.3541
+is its AUD-converted NPAT over shares, whatever label Yahoo puts on the
+point, while the real NZD figure is about 1.49), and its vendor currency is
+"unknown" for filings gates 6-7 and for valuation (native currency from
+Markit `curCode` when present, else no filing rows and no P/E or P/B). Share
+counts are kept. The verdict is persisted (2.3); the filings gates read it,
+and valuation (5.3) withholds P/E and P/B on the flag itself, not only on the
+missing k, because Yahoo's labels for such a code cannot be trusted. Filings
+then supply the native-currency EPS the vendor could not.
+(Corrected after the adversarial review: v2 said Yahoo's EPS stayed in the
+native currency, which the XRO fixture disproves.)
 
 ### 3.5 Sanity gates (every rejection counted, logged, added to `Rejected`)
 

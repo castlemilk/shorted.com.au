@@ -536,11 +536,13 @@ valuation, stock page).
   half-year totals for ASX companies; halves come only from filings. `*_yoy_pct` is NULL when a side is missing or the prior
   is <= 0, and every nullable number travels with `has_*`. Never COALESCE an
   unknown to 0 (the screener MV defect the MCP tools paper over).
-- **FX-converted vendor statements.** Yahoo converts some codes and keeps the
-  native-currency EPS under the target label (XRO: NZD EPS labelled AUD). A
-  fractional value on an integral line sets `stock_fundamentals_sync.fx_converted`,
-  its monetary fields are rejected, and valuation withholds P/E and P/B on the
-  flag itself, not only on the currency label.
+- **FX-converted vendor statements.** Yahoo converts some codes' statements,
+  EPS included, and its currency labels for them cannot be trusted (XRO's
+  FY25 EPS 1.3541 is AUD-converted NPAT over shares; the NZD figure is ~1.49).
+  A fractional value on an integral line sets `stock_fundamentals_sync.fx_converted`,
+  every monetary and per-share Yahoo field is rejected (shares kept), Markit
+  supplies native revenue/NPAT, filings supply native EPS, and valuation
+  withholds P/E and P/B on the flag itself, not only on the currency label.
 - **Price-based ratios need AUD statements AND one ordinary share per listed
   unit.** `median_k` = NPAT / (EPS x shares) must sit in [0.8, 1.25]; a CDI
   (RMD, k ~10) gets no market cap, P/E or P/B (`valuation_note`), never a
