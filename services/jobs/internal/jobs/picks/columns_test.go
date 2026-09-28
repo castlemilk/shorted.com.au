@@ -259,16 +259,3 @@ func TestSanitizeRowsNewColumnsAndProvenance(t *testing.T) {
 	assert.True(t, math.IsInf(*rows[0].TotalDebt, 1), "the input slice is not mutated")
 }
 
-// Phase 0 (plan §11 b) adds the columns to PeriodRow only: neither upsert
-// may name a 000132 column before the migration that adds it ships in the same
-// change. The vendor and filings streams replace this test when they extend
-// upsertSQL / filingUpsertSQL alongside 000132.
-func TestUpsertStatementsDoNotYetWriteThe000132Columns(t *testing.T) {
-	for name, sql := range map[string]string{"upsertSQL": upsertSQL, "filingUpsertSQL": filingUpsertSQL} {
-		for _, col := range append(columns000132, "field_sources", "source_document_url", "source_document_date") {
-			assert.NotRegexp(t, `\b`+col+`\b`, sql, "%s names %s", name, col)
-		}
-	}
-	assert.Len(t, upsertArgs("BHP", nil, date("2026-09-28")), 14)
-	assert.Len(t, filingUpsertArgs("BHP", nil, date("2026-09-28")), 10)
-}
