@@ -28,6 +28,8 @@ on:
       - "services/migrations/**"
       - ".github/workflows/terraform-deploy.yml"
       - "terraform/modules/**"
+      # cost-guardrails.test.mjs pins prod's report_extractor limits too.
+      - "terraform/environments/prod/main.tf"
       - ".github/workflows/repo-hygiene.yml"
   workflow_dispatch:
 
@@ -52,8 +54,11 @@ jobs:
         with:
           node-version: "24"
 
+      # cost-guardrails pins the paid-Gemini report extractor's run size,
+      # workers, pages, budget and retries (contract fundamentals-coverage
+      # 6.2); until it was listed here it ran in no CI job.
       - name: Test repository hygiene tooling
-        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs
+        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs terraform/modules/report-extractor/cost-guardrails.test.mjs
 
       # These assert properties of migrations that prod REPLAYS on every deploy
       # from a hardcoded allowlist — most importantly that 000095 stays last, so

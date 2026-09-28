@@ -51,7 +51,7 @@ variable "director_limit" {
 }
 
 variable "reports_limit" {
-  description = "Max financial reports to process per weekly run"
+  description = "Max financial reports to process per run (also the container's GEMINI_MAX_RUN_ITEMS cap)"
   type        = number
   default     = 10
 }
@@ -63,7 +63,7 @@ variable "director_schedule" {
 }
 
 variable "reports_schedule" {
-  description = "Cloud Scheduler cron (UTC) for the financial-report extractor. Default: Sundays 14:00 UTC."
+  description = "Cloud Scheduler cron (UTC) for the financial-report extractor. Default: Sundays 14:00 UTC; production sets it explicitly (daily)."
   type        = string
   default     = "0 14 * * 0"
 }
