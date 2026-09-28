@@ -251,10 +251,10 @@ export function FinancialStatements({
   const mode = activeView.mode;
   const mixedCurrency = columns.some((column) => column.c !== undefined);
   const currencyNote = mixedCurrency
-    ? "reporting currency varies by period"
+    ? "Reporting currency varies by period"
     : currency
-      ? `figures in ${currency}, the reporting currency`
-      : "reporting currency not stated";
+      ? `Figures in ${currency}, the reporting currency`
+      : "Reporting currency not stated";
 
   return (
     <Card role="region" aria-labelledby="financial-statements-heading">

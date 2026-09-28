@@ -35,7 +35,7 @@ describe("FinancialStatements", () => {
     expect(headers().join(" ")).not.toContain("TTM");
     expect(screen.getByRole("rowheader", { name: "Revenue" })).toBeInTheDocument();
     expect(screen.getByText("$44.00B")).toBeInTheDocument();
-    expect(screen.getByText(/figures in AUD, the reporting currency/)).toBeInTheDocument();
+    expect(screen.getByText(/figures in AUD, the reporting currency/i)).toBeInTheDocument();
   });
 
   it("renders a non-AUD reporter bare, with the currency stated once", () => {
@@ -44,7 +44,7 @@ describe("FinancialStatements", () => {
     render(<FinancialStatements {...shaped(usd)} />);
     expect(screen.getByText("44.00B")).toBeInTheDocument();
     expect(screen.queryByText("$44.00B")).not.toBeInTheDocument();
-    expect(screen.getByText(/figures in USD, the reporting currency/)).toBeInTheDocument();
+    expect(screen.getByText(/figures in USD, the reporting currency/i)).toBeInTheDocument();
   });
 
   it("leads the income statement with TTM but never shows it on the balance sheet", () => {
