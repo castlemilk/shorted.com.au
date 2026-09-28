@@ -61,13 +61,14 @@ func (c fundamentalsColumn) isBalance() bool  { return c.timing == timingBalance
 // fundamentalsColumns is the ONE list of stock_fundamentals value columns:
 // the seven of migration 000129 first, then the full statements of 000132
 // (plan fundamentals-coverage.md §2.1) in the plan's order. Every per-column
-// pass iterates it instead of hand-listing fields: the write funnel
-// (sanitizeRows, via PeriodRow.values), and the upsert SQL builder, the sanity
-// gates, the Markit fill and the TTM-at-FYE copy that build on it.
+// pass iterates it instead of hand-listing fields: the Yahoo parser
+// (yahooSeriesList), the write funnel (sanitizeRows), the sanity gates, the
+// fills (mergeFallback, copyTTMAtFYE, fillAnnualFromSnapshots) and the vendor
+// upsert (buildUpsertSQL renders upsertSQL from this list).
 //
-// Listing a column here does NOT make a statement write it: upsertSQL and
-// filingUpsertSQL name their columns explicitly, so a column is only written
-// once the migration that adds it is applied everywhere those run.
+// The vendor upsert writes every column here only once migration 000132 is
+// detected (pgStore.schema); without it the job writes the 000129 set
+// (legacyUpsertSQL). filingUpsertSQL names its own columns.
 var fundamentalsColumns = []fundamentalsColumn{
 	// 000129.
 	{name: "revenue", unit: unitMonetary, timing: timingFlow, field: func(r *PeriodRow) **float64 { return &r.Revenue }},
