@@ -266,7 +266,9 @@ def test_the_run_refuses_to_start_without_a_gemini_key(monkeypatch):
 
 def test_process_touches_the_database_only_after_the_model(monkeypatch):
     events = []
-    monkeypatch.setattr(extract, "download_pdf_text", lambda *a, **k: events.append("download") or "text " * 200)
+    monkeypatch.setattr(
+        extract, "fetch_pdf_text", lambda *a, **k: events.append("download") or ("text " * 200, extract.FETCH_OK)
+    )
     monkeypatch.setattr(
         extract, "process_report_text",
         lambda report, text, model, usage=None: events.append("model") or ({}, None, {"report_kind": "other"}, "no_metrics"),
@@ -424,6 +426,46 @@ def test_pg_order_uses_market_cap_from_either_column(pg_schema):
         conn.close()
     # BHP (key_metrics) and ZZZ have no metric-bearing extraction; CBA has one.
     assert [r["url"] for r in got] == ["bhp-fy26", "zzz-fy", "cba-h1"]
+
+
+def test_pg_an_unreadable_marker_moves_selection_to_the_next_document(pg_schema):
+    # A scanned newest document gets a marker row: from then on the company's
+    # next document is selected, and the digest backfill never re-reads it.
+    _, admin, schema = pg_schema
+    _create_tables(admin, schema, with_meta=True)
+    cur = admin.cursor()
+    cur.execute(f'SET search_path TO "{schema}"')
+    cur.execute(
+        """UPDATE "company-metadata" SET financial_reports = %s WHERE stock_code = 'ZZZ'""",
+        (json.dumps([
+            {"source": "asx_announcements", "type": "annual_results", "title": "Appendix 4E",
+             "url": "zzz-fy", "date": "2026-02-27"},
+            {"source": "asx_announcements", "type": "half_year_results", "title": "Appendix 4D",
+             "url": "zzz-h1", "date": "2025-08-27"},
+        ]),),
+    )
+    cur.close()
+    conn = runner.open_selection_connection()
+    try:
+        today = dt.date(2027, 6, 1)
+        [zzz] = [r for r in extract.select_extraction_targets(conn, recent=2, limit=10, today=today) if r["stock_code"] == "ZZZ"]
+        assert zzz["url"] == "zzz-fy" and [f["url"] for f in zzz["fallbacks"]] == ["zzz-h1"]
+
+        extract.store_unreadable(conn, zzz, 7)
+        [zzz] = [r for r in extract.select_extraction_targets(conn, recent=2, limit=10, today=today) if r["stock_code"] == "ZZZ"]
+        assert zzz["url"] == "zzz-h1" and zzz["fallbacks"] == []
+
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT metrics, raw_text_length, digest, document_meta FROM financial_report_extractions"
+            " WHERE report_url = 'zzz-fy'"
+        )
+        assert cur.fetchone() == ({}, 7, None, None)
+        cur.close()
+        # DONE's legacy '{}' row (raw_text_length NULL) is still backfilled; the marker is not.
+        assert {r["url"] for r in runner.select_digestless_reports(conn, limit=10)} == {"cba-old", "done-fy"}
+    finally:
+        conn.close()
 
 
 def test_pg_store_writes_document_meta_when_present(pg_schema):

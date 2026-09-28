@@ -115,6 +115,78 @@ def test_report_kind_order():
     assert dm.extract_document_meta("Results announcement. A webcast follows.")["report_kind"] == "results_announcement"
 
 
+def _kind(text):
+    return dm.extract_document_meta(text).get("report_kind", "")
+
+
+def test_presentation_currency_and_basis_of_presentation_are_not_other():
+    # Standard AASB wording in real financial statements (review C7 / C10).
+    for text in (
+        "Condensed interim financial statements\nfor the half-year ended 31 December 2025\n"
+        "Functional and presentation currency\n",
+        "Financial report for the half-year ended 31 December 2025\nBasis of preparation and presentation currency\n",
+        "Contents\nBasis of presentation\nNotes to the financial statements\n",
+        "Directors' report\nThe presentation of the financial statements has changed.\n",
+    ):
+        assert _kind(text) == "", text
+
+
+def test_a_sentence_mentioning_a_presentation_or_webcast_is_not_other():
+    for text in (
+        "FY26 Results\nAn investor presentation and webcast will be held at 11am.\n",
+        "Numbat Energy Limited\nFY26 Results\nInvestor briefing: management will host a results presentation and webcast\n",
+        "1H26 Results\nThis release should be read in conjunction with the accompanying investor presentation.\n",
+        "FY26 Results\nA briefing will be webcast live at 10am.\n",
+        "FY26 Results\nWebcast details\nResults webcast: 10am AEST\n",
+        "FY26 Results\nPillar 3 disclosures are released today.\n",
+    ):
+        assert _kind(text) == "", text
+
+
+def test_other_only_in_the_head():
+    # Past the first 400 characters (or the first five lines) a heading is a
+    # slide or a section of the document, not its own name.
+    filler = "Revenue rose on higher volumes across every segment\n" * 9
+    assert _kind(filler + "Investor Presentation\n") == ""
+    assert _kind("FY26 Results\nline\nline\nline\nline\nInvestor Presentation\n") == ""
+    # A long sentence straddling the 400th character is taken whole, so it
+    # is never cut into something that reads as a heading.
+    lead = "x" * 380 + "\n"
+    assert _kind(lead + "A results presentation will be held at 10am\n") == ""
+
+
+def test_a_document_that_names_itself_other():
+    for text in (
+        "FY26 Results Presentation",
+        "Investor Presentation - August 2026\nBilby Health Limited\n",
+        "Investor Presentation \u2013 August 2026\n",  # typographic dash, folded
+        "Investor Presentation May 2026\n",
+        "Bilby Health Limited\nHalf Year Results Investor Presentation\n",
+        "Half Year Results Presentation\n",
+        "Transcript: FY26 results briefing\n",
+        "Bilby Health Limited\nEarnings Call Transcript\n19 August 2026\n",
+        "Bilby Health Limited\nFY26 Results Webcast\n",
+        "Half Year Basel III Pillar 3 Disclosure\nas at 31 December 2025\n",
+        # The heading outranks a results subtitle beneath it.
+        "FY26 Full Year Results Presentation\nFull year results for the year ended 30 June 2026\n",
+    ):
+        assert _kind(text) == "other", text
+
+
+def test_results_release_and_full_or_half_year_results_in_the_head():
+    assert _kind("Bilby Health Limited\nResults Release\n") == "results_announcement"
+    assert _kind("Bilby Health Limited\nFY26 Full Year Results\n") == "results_announcement"
+    assert _kind("Bilby Health Limited\n1H26 Half-Year Results\n") == "results_announcement"
+    assert _kind("Bilby Health Limited\nHALF YEAR RESULTS\nA webcast follows\n") == "results_announcement"
+    # Only in the head: a presentation's slides say "half year results"
+    # throughout, which does not make the deck a results announcement.
+    filler = "Operations update and outlook for the group\n" * 10
+    assert _kind(filler + "Our half year results were strong\n") == ""
+    # A results presentation / briefing / call is not a results announcement.
+    for text in ("Half Year Results Briefing\n", "Full Year Results Call\n", "Half year results teleconference\n"):
+        assert _kind(text) != "results_announcement", text
+
+
 def test_entity_rules():
     assert dm.extract_document_meta("Name of entity: Gecko Ltd ABN 11 000 000 000")["entity"] == "Gecko Ltd"
     # A bare label with the value on the next line (a form's table cell).

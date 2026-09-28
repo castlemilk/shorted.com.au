@@ -120,7 +120,9 @@ def test_default_path_builds_a_budgeted_model(monkeypatch):
     assert usage.responses == 1
 
 
-def test_a_rejected_response_is_still_counted():
+def test_a_rejected_response_is_still_counted_and_is_a_model_error():
+    # A blocked or empty response is a model failure, never "nothing grounded"
+    # (review C4): it raises ModelError so the document is not stored.
     usage = TokenUsage()
     model = _stubbed_model(usage, output="")
     model._client.models.generate_content = lambda model, contents, config: SimpleNamespace(
@@ -129,7 +131,8 @@ def test_a_rejected_response_is_still_counted():
         prompt_feedback=None,
         candidates=[],
     )
-    assert extract.extract_financial_data(DOC, "WBT", model=model) == []
+    with pytest.raises(extract.ModelError):
+        extract.extract_financial_data(DOC, "WBT", model=model)
     assert usage.prompt == 500 and usage.responses == 1
 
 

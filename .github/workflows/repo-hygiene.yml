@@ -73,6 +73,32 @@ jobs:
       - name: Reject captured portal payloads
         run: node scripts/check-portal-content-provenance.mjs
 
+  # The financial-report extractor's Python tests: the langextract pin and the
+  # BudgetedGemini hook guard (a bump that moves either hook would silently
+  # bill thinking tokens again), model failures never stored as "no metrics",
+  # and the Python half of the shared extractiontrust fixtures
+  # (results_titles.json, document_meta_cases.json), whose Go half runs in
+  # go-quality. Tests that need a database skip here (they are gated on
+  # REPORT_EXTRACTOR_TEST_DATABASE_URL). Runs on every PR this workflow
+  # triggers on: services/** covers both the extractor and the fixtures.
+  report-extractor-tests:
+    name: Report extractor tests
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install extractor dependencies
+        run: python -m pip install -r services/report-extractor/requirements.txt pytest
+
+      - name: Run the extractor tests
+        working-directory: services/report-extractor
+        run: python -m pytest -q
+
   # web/public/openapi.{json,yaml} is a generated, PUBLISHED artifact. A stale
   # one is worse than none: it reads as authoritative while documenting an API
   # we no longer serve. This job regenerates it from the protos and diffs.

@@ -22,6 +22,19 @@ in-flight reports finish, the remaining count is logged and the job exits 0.
 The next run picks the remainder up (selection is incremental). Every report's
 wall time and tokens are logged, and the run's Gemini token totals at exit.
 
+Model errors: a document whose model call failed (extract.ModelError: an API
+error, a blocked or empty response) counts as model_error and writes NO row,
+so the next run retries it. After MAX_CONSECUTIVE_MODEL_ERRORS model errors in
+a row (--max-model-errors) no new report is started: a dead key, a retired
+model or an exhausted quota fails every call. The run then prints its counts
+and exits 1 whenever any model_error occurred, so the Cloud Run execution
+fails visibly instead of reporting success.
+
+Unreadable documents: a PDF with no text layer gets a marker row
+(extract.store_unreadable) and the company's next document is tried in the
+same run; a download that fails otherwise writes nothing, and the company's
+next document is still tried (extract.read_first_available).
+
 Run (against prod):
   DATABASE_URL=... GEMINI_API_KEY=... LANGEXTRACT_API_KEY=$GEMINI_API_KEY \
     python extract_reports_concurrent.py --recent 2 --limit 120 --workers 4 --max-pages 8
@@ -59,6 +72,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger("reports-backfill")
 
 DEFAULT_BUDGET_MIN = 90
+
+# Outcomes that say nothing about the model (no call was made, or the worker
+# failed for another reason): they neither extend nor break a run of model
+# errors.
+_NO_MODEL_CALL = frozenset({extract.FETCH_FAILED, extract.FETCH_UNREADABLE, "no_text", "error"})
 
 _tl = threading.local()
 
@@ -100,7 +118,10 @@ def select_reports(conn, recent: int, limit: int) -> list[dict]:
 def select_digestless_reports(conn, limit: int) -> list[dict]:
     """§6.3(b) Rows already extracted but with NO digest yet (the historical
     no-metrics corpus), newest first. Carries the stored metrics + GCS text
-    pointer so the digest can be (re)generated without re-downloading the PDF."""
+    pointer so the digest can be (re)generated without re-downloading the PDF.
+    Unreadable markers (extract.store_unreadable: raw_text_length under
+    MIN_PDF_TEXT_CHARS) are skipped: there is no text to summarise, and
+    newest first they would hold the head of every backfill."""
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     try:
         cur.execute(
@@ -110,8 +131,10 @@ def select_digestless_reports(conn, limit: int) -> list[dict]:
                    raw_text_length, raw_text_gcs_url
             FROM financial_report_extractions
             WHERE digest IS NULL
+              AND (raw_text_length IS NULL OR raw_text_length >= %s)
             ORDER BY report_date DESC NULLS LAST, stock_code
-            """
+            """,
+            (extract.MIN_PDF_TEXT_CHARS,),
         )
         rows = [dict(r) for r in cur.fetchall()]
     finally:
@@ -141,19 +164,30 @@ def process(
     write_meta: bool = False,
     usage: Optional[TokenUsage] = None,
 ) -> str:
-    text = extract.download_pdf_text(_session(), report["url"], max_pages=max_pages)
-    if not text:
-        return "no_pdf"
-    metrics, digest, meta, outcome = extract.process_report_text(report, text, model, usage=usage)
+    """Extract one company's document (or, when it cannot be read, the next of
+    its fallbacks) and store the row. A model error stores nothing and returns
+    model_error, so the next run retries the document."""
+
+    def record_unreadable(doc: dict, text_length: int) -> None:
+        extract.store_unreadable(_conn(), doc, text_length, dry_run)
+
+    doc, text, fetched = extract.read_first_available(_session(), report, max_pages, record_unreadable)
+    if text is None:
+        return fetched
+    try:
+        metrics, digest, meta, outcome = extract.process_report_text(doc, text, model, usage=usage)
+    except extract.ModelError as e:
+        log.warning("  %s %s: model error, not stored (the next run retries it): %s", doc["stock_code"], doc["url"], e)
+        return extract.MODEL_ERROR
     # GCS upload is best-effort; never fail the report on it.
     try:
-        gcs_url = extract.upload_raw_text_to_gcs(report["stock_code"], report["url"], text)
+        gcs_url = extract.upload_raw_text_to_gcs(doc["stock_code"], doc["url"], text)
     except Exception:  # noqa: BLE001
         gcs_url = None
     # The first database touch for this report: after the download and every
     # model call, one autocommit statement.
     extract.store_extraction(
-        _conn(), report, metrics, len(text), dry_run,
+        _conn(), doc, metrics, len(text), dry_run,
         digest_result=digest, raw_text_gcs_url=gcs_url,
         document_meta=meta, write_document_meta=write_meta,
     )
@@ -192,7 +226,11 @@ def process_digestless(
 
     # summarize_report applies the trust funnel to the stored metrics before
     # they reach the prompt; the stored metrics themselves are rewritten as-is.
-    digest = extract.summarize_report(metrics, text, model_id=model, usage=usage)
+    try:
+        digest = extract.summarize_report(metrics, text, model_id=model, usage=usage)
+    except extract.ModelError as e:
+        log.warning("  %s %s: digest model error, not stored: %s", report.get("stock_code"), report.get("url"), e)
+        return extract.MODEL_ERROR
     if not (digest and digest.get("digest")):
         return "no_digest"
     extract.store_extraction(
@@ -232,9 +270,15 @@ def run_with_budget(
     workers: int,
     budget_seconds: float,
     clock: Callable[[], float] = time.monotonic,
+    max_consecutive_model_errors: int = extract.MAX_CONSECUTIVE_MODEL_ERRORS,
 ) -> tuple[Counter, int]:
     """Run worker over items with at most `workers` in flight, submitting a new
     item only while the budget has not elapsed. In-flight items always finish.
+
+    Circuit breaker: once max_consecutive_model_errors items in a row (in
+    completion order, among items that called the model) end in model_error,
+    no new item is submitted: the model or its key is failing, and every
+    further item would fail the same way. 0 disables it.
 
     Returns (outcome counts, number submitted). items[submitted:] were never
     started."""
@@ -246,11 +290,15 @@ def run_with_budget(
     submitted = 0
     budget_logged = False
     in_flight: set = set()
+    consecutive_model_errors = 0
+    breaker_open = False
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(workers, 1)) as ex:
 
         def submit_next() -> bool:
             nonlocal submitted, budget_logged
+            if breaker_open:
+                return False
             if clock() - start >= budget_seconds:
                 if not budget_logged and submitted < len(items):
                     budget_logged = True
@@ -282,6 +330,21 @@ def run_with_budget(
                     log.warning("  worker error: %s", e)
                 counts[outcome] += 1
                 done_count += 1
+                if outcome == extract.MODEL_ERROR:
+                    consecutive_model_errors += 1
+                elif outcome not in _NO_MODEL_CALL:
+                    consecutive_model_errors = 0
+                if (
+                    not breaker_open
+                    and max_consecutive_model_errors > 0
+                    and consecutive_model_errors >= max_consecutive_model_errors
+                ):
+                    breaker_open = True
+                    log.error(
+                        "%d consecutive model errors: the model or its key is failing. No new reports started; "
+                        "%d of %d remain for the next run",
+                        consecutive_model_errors, len(items) - submitted, len(items),
+                    )
                 if done_count % 25 == 0:
                     log.info("  progress %d/%d  %s", done_count, len(items), dict(counts))
                 submit_next()
@@ -299,6 +362,8 @@ def main():
                     help="stop starting new reports after this many minutes (in-flight reports finish)")
     ap.add_argument("--backfill-digests", action="store_true",
                     help="§6.3(b): re-summarise existing rows with digest IS NULL (uses stored GCS text)")
+    ap.add_argument("--max-model-errors", type=int, default=extract.MAX_CONSECUTIVE_MODEL_ERRORS,
+                    help="stop starting new reports after this many model errors in a row (0 = never)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -318,9 +383,9 @@ def main():
             args.workers,
         )
 
-    # Without a key every model call fails and each report would be stored
-    # with no metrics and no digest, which marks it done and hides it from
-    # every later run. Fail loudly instead (a dry run writes nothing).
+    # Without a key every model call fails (each would count as a model error
+    # and store nothing): fail before selecting anything. A dry run writes
+    # nothing, so it may run without one.
     if not args.dry_run and not gemini_key_present():
         log.error("No GEMINI_API_KEY / LANGEXTRACT_API_KEY set: refusing to run (nothing selected, nothing written)")
         sys.exit(1)
@@ -356,13 +421,24 @@ def main():
         run_usage,
     )
     started = time.monotonic()
-    counts, submitted = run_with_budget(reports, worker, args.workers, args.budget_min * 60)
+    counts, submitted = run_with_budget(
+        reports, worker, args.workers, args.budget_min * 60,
+        max_consecutive_model_errors=args.max_model_errors,
+    )
 
     log.info(
         "DONE in %.1f min: %s; started %d of %d, %d remain for the next run",
         (time.monotonic() - started) / 60, dict(counts), submitted, len(reports), len(reports) - submitted,
     )
     log.info("Gemini tokens this run: %s", run_usage.summary())
+    if counts[extract.MODEL_ERROR]:
+        # Fail the execution: a run whose model calls failed must not read as
+        # a success. Nothing was stored for these documents.
+        log.error(
+            "%d model errors: those documents were not stored and the next run retries them",
+            counts[extract.MODEL_ERROR],
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

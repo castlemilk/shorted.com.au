@@ -6,7 +6,7 @@
     "entity: the value of a 'Name of entity' line; else the name immediately before 'ABN' on the same line; else omitted.",
     "abn: 'ABN' then 11 digits grouped 2-3-3-3, emitted as 'NN NNN NNN NNN', only when the ABN checksum passes.",
     "period_end / period_type: the first '(half-year|half year|six months|year|financial year) ended <d Month yyyy>'; half-year and six months -> half, year -> annual. 'as at <date>' is not a period end.",
-    "report_kind: first match in this order: 'Appendix 4E' -> appendix_4e, 'Appendix 4D' -> appendix_4d, 'Annual Report' -> annual_report, 'half-year report' / 'half year report' / 'half-year financial report' / 'interim financial report' -> half_year_report, 'results announcement' / 'profit announcement' / 'results for announcement to the market' -> results_announcement; else, when the document names itself a presentation, Pillar 3 disclosure, transcript or webcast -> other; else omitted."
+    "report_kind: first match in this order anywhere in the pages read: 'Appendix 4E' -> appendix_4e, 'Appendix 4D' -> appendix_4d, 'Annual Report' -> annual_report, 'half-year report' / 'half year report' / 'half-year financial report' / 'interim financial report' -> half_year_report, 'results announcement' / 'profit announcement' / 'results for announcement to the market' -> results_announcement; then, in the document's head only (its first five non-empty lines, each starting within the first 400 characters): when a head line that reads as a heading (not a sentence) names the document a presentation ('Investor Presentation', 'FY26 Results Presentation'), a Pillar 3 disclosure, a transcript or a webcast -> other; else 'results release' / 'full year results' / 'half year results' (not followed by presentation, briefing, webcast, call or transcript) -> results_announcement; else omitted, and the title decides. 'presentation currency', 'basis of presentation' and a sentence announcing a presentation or webcast never make a document 'other'."
   ],
   "cases": [
     {
@@ -133,6 +133,44 @@
         "period_end": "2026-03-31",
         "period_type": "annual",
         "report_kind": "appendix_4e"
+      }
+    },
+    {
+      "name": "half_year_statements_presentation_currency_not_other",
+      "text": "Numbat Energy Limited ABN 12 004 044 937\nFinancial report for the half-year ended 31 December 2025\nBasis of preparation and presentation currency\nThe financial report is presented in Australian dollars.\n",
+      "expected": {
+        "currency": "AUD",
+        "currency_evidence": "presented in Australian dollars",
+        "entity": "Numbat Energy Limited",
+        "abn": "12 004 044 937",
+        "period_end": "2025-12-31",
+        "period_type": "half"
+      }
+    },
+    {
+      "name": "results_release_announcing_a_presentation_kind_absent",
+      "text": "Numbat Energy Limited\nFY26 Results\nRevenue of $412.6m for the year ended 30 June 2026, up 7%.\nAn investor presentation and webcast will be held at 11.00am today.\n",
+      "expected": {
+        "period_end": "2026-06-30",
+        "period_type": "annual"
+      }
+    },
+    {
+      "name": "full_year_results_release_mentioning_a_webcast",
+      "text": "Wombat Foods Limited\nFY26 Full Year Results\nStatutory net profit after tax of $48.2 million for the year ended 30 June 2026, up 12%.\nInvestor briefing: management will host a results presentation and webcast.\n",
+      "expected": {
+        "period_end": "2026-06-30",
+        "period_type": "annual",
+        "report_kind": "results_announcement"
+      }
+    },
+    {
+      "name": "results_presentation_heading_is_other",
+      "text": "FY26 Full Year Results Presentation\n19 August 2026\nBilby Health Limited\nFull year results for the year ended 30 June 2026\n",
+      "expected": {
+        "period_end": "2026-06-30",
+        "period_type": "annual",
+        "report_kind": "other"
       }
     },
     {

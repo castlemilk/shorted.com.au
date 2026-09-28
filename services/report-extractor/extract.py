@@ -30,6 +30,16 @@ module guarantees about a row it writes:
     units, entity, ABN, period end and type, report kind), written when the
     column exists.
   - No transaction is ever held across a PDF download or a model call.
+  - A model failure is never stored. A Gemini call that fails (an API error
+    after langextract's retries: quota, auth, a retired model; a blocked
+    response; a response with no text) raises ModelError instead of looking
+    like "nothing grounded", and the caller writes no row, so the next run
+    retries the document. Grounded metrics whose digest call failed are
+    stored with digest NULL for --backfill-digests.
+  - A PDF with no text layer (a scanned document: under MIN_PDF_TEXT_CHARS
+    characters on the pages read) gets a marker row (store_unreadable), so
+    selection moves on to the company's next document. A download that fails
+    for any other reason writes nothing and is retried next run.
 
 Usage:
     # Process top 50 most-shorted stocks
@@ -59,7 +69,7 @@ import sys
 import time
 from collections import Counter
 from datetime import datetime
-from typing import Any, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 import fitz  # pymupdf
 import langextract as lx
@@ -107,6 +117,21 @@ def resolve_gemini_run_budget(
     guarded_limit = max_items if limit <= 0 or limit > max_items else limit
     guarded_workers = min(max(workers, 1), max_workers)
     return guarded_limit, guarded_workers
+
+
+class ModelError(Exception):
+    """A Gemini call failed: an API error (quota, auth, a retired model, an
+    overload that outlasted langextract's retries), a blocked response or one
+    with no text, or no client to call. Not the same as "nothing grounded": a
+    document whose extraction raised this must not be stored, so the next run
+    retries it."""
+
+
+# The outcome of a document whose model call failed (nothing stored), and how
+# many in a row stop a run: a dead key, a retired model or an exhausted quota
+# fails every call, and each further document only spends a download.
+MODEL_ERROR = "model_error"
+MAX_CONSECUTIVE_MODEL_ERRORS = 5
 
 
 # Financial data extraction prompt
@@ -515,7 +540,11 @@ def order_extraction_targets(
     code. Per company only its `recent` newest results documents are
     considered (0 = all); already-extracted ones are dropped and the newest
     remaining one is the company's document (same day: the statutory filing
-    first, see _same_day_rank)."""
+    first, see _same_day_rank). The company's other remaining documents ride
+    along, newest first, as its "fallbacks": read_first_available tries them
+    in the same run when the document cannot be downloaded, so one bad URL
+    never blocks the company's other statutory document. Still at most one
+    paid extraction per company per run."""
     by_code: dict[str, list[dict]] = {}
     for r in candidates:
         by_code.setdefault(r["stock_code"], []).append(r)
@@ -529,7 +558,7 @@ def order_extraction_targets(
             docs = docs[:recent]
         remaining = [r for r in docs if r["url"] not in extracted_urls]
         if remaining:
-            chosen.append(remaining[0])
+            chosen.append({**remaining[0], "fallbacks": remaining[1:]})
 
     horizon = today - _dt.timedelta(days=recent_days)
 
@@ -615,8 +644,24 @@ def resolve_asx_pdf_url(session: requests.Session, display_url: str) -> Optional
         return None
 
 
-def download_pdf_text(session: requests.Session, url: str, max_pages: int = DEFAULT_MAX_PAGES) -> Optional[str]:
-    """Download a PDF from ASX and extract text.
+# Below this many characters (whitespace stripped) on the pages read, a PDF has
+# no text layer: a scanned document, which no rerun will read.
+MIN_PDF_TEXT_CHARS = 100
+
+# fetch_pdf_text statuses. FETCH_UNREADABLE is permanent (the same bytes give
+# the same text); FETCH_FAILED covers everything that may pass on a rerun
+# (resolution, HTTP status, a non-PDF response, a parse error).
+FETCH_OK = "ok"
+FETCH_UNREADABLE = "no_text"
+FETCH_FAILED = "no_pdf"
+
+
+def fetch_pdf_text(session: requests.Session, url: str, max_pages: int = DEFAULT_MAX_PAGES) -> tuple[Optional[str], str]:
+    """Download a PDF from ASX and extract its text: (text, status).
+
+    FETCH_OK: text is the pages read. FETCH_UNREADABLE: the PDF was fetched but
+    carries under MIN_PDF_TEXT_CHARS characters (a scanned document); text is
+    what little was read, stripped. FETCH_FAILED: text is None.
 
     If the URL is an ASX displayAnnouncement URL, first resolves to the real
     PDF URL at announcements.asx.com.au.
@@ -631,16 +676,16 @@ def download_pdf_text(session: requests.Session, url: str, max_pages: int = DEFA
                 log.debug("  Resolved to: %s", pdf_url)
             else:
                 log.warning("  Could not resolve PDF URL")
-                return None
+                return None, FETCH_FAILED
 
         resp = session.get(pdf_url, timeout=60)
         if resp.status_code != 200:
             log.warning("  HTTP %d for %s", resp.status_code, pdf_url)
-            return None
+            return None, FETCH_FAILED
 
         if resp.content[:5] != b"%PDF-":
             log.warning("  Not a PDF response")
-            return None
+            return None, FETCH_FAILED
 
         # Extract text with pymupdf
         doc = fitz.open(stream=resp.content, filetype="pdf")
@@ -652,15 +697,53 @@ def download_pdf_text(session: requests.Session, url: str, max_pages: int = DEFA
         doc.close()
 
         text = "\n\n".join(pages_text)
-        if len(text.strip()) < 100:
-            log.warning("  Very little text extracted (%d chars)", len(text))
-            return None
+        if len(text.strip()) < MIN_PDF_TEXT_CHARS:
+            log.warning("  Very little text extracted (%d chars): no text layer", len(text))
+            return text.strip(), FETCH_UNREADABLE
 
-        return text
+        return text, FETCH_OK
 
     except Exception as e:
         log.warning("  PDF download/extract failed: %s", e)
-        return None
+        return None, FETCH_FAILED
+
+
+def download_pdf_text(session: requests.Session, url: str, max_pages: int = DEFAULT_MAX_PAGES) -> Optional[str]:
+    """The PDF's text (fetch_pdf_text), or None when it could not be read for
+    any reason."""
+    text, status = fetch_pdf_text(session, url, max_pages=max_pages)
+    return text if status == FETCH_OK else None
+
+
+def read_first_available(
+    session: requests.Session,
+    report: dict,
+    max_pages: int,
+    record_unreadable: Callable[[dict, int], None],
+) -> tuple[Optional[dict], Optional[str], str]:
+    """The first of `report` and its report["fallbacks"] (the company's next
+    unextracted documents, order_extraction_targets) whose PDF yields text:
+    (document, text, FETCH_OK).
+
+    A document with no text layer is passed to record_unreadable(document,
+    text_length), which writes its marker row, so selection moves past it for
+    good. A download that fails otherwise writes nothing: the next run retries
+    it. Either way the next fallback is tried in the same run, so one document
+    that cannot be read never blocks the company's other statutory document.
+
+    (None, None, status) when none yields text: FETCH_UNREADABLE when a marker
+    was written, else FETCH_FAILED."""
+    status = FETCH_FAILED
+    for i, doc in enumerate([report, *(report.get("fallbacks") or ())]):
+        text, fetched = fetch_pdf_text(session, doc["url"], max_pages=max_pages)
+        if fetched == FETCH_OK:
+            if i:
+                log.info("  %s: fell back to %s (%s)", doc["stock_code"], doc["url"], (doc.get("title") or "")[:60])
+            return doc, text, FETCH_OK
+        if fetched == FETCH_UNREADABLE:
+            record_unreadable(doc, len(text or ""))
+            status = FETCH_UNREADABLE
+    return None, None, status
 
 
 # --- Grounding (contract 6.1) -------------------------------------------------
@@ -788,7 +871,14 @@ def extract_financial_data(
 
     The model is a BudgetedGemini (thinking off, tokens summed into `usage`)
     unless a pre-built `model` is passed (tests). Unaligned, echoed or
-    value-mismatched extractions are dropped before they are returned."""
+    value-mismatched extractions are dropped before they are returned, so []
+    means the model answered and nothing was grounded.
+
+    Raises ModelError when the model could not answer: any exception out of
+    lx.extract (langextract raises InferenceRuntimeError for an API error that
+    outlasted its retries, a blocked response or one with no text) or out of
+    building the model. One failed chunk fails the document: its other chunks'
+    extractions are not stored as if they were the whole document."""
     if len(text) > EXTRACTION_TEXT_CHARS:
         text = text[:EXTRACTION_TEXT_CHARS]
 
@@ -808,9 +898,8 @@ def extract_financial_data(
             max_char_buffer=2000,
             show_progress=False,
         )
-    except Exception as e:
-        log.warning("  langextract failed for %s: %s", stock_code, e)
-        return []
+    except Exception as e:  # noqa: BLE001 - every failure here is the model's, and none may pass as "nothing grounded"
+        raise ModelError(f"langextract failed for {stock_code}: {e}") from e
 
     raw = list(getattr(result, "extractions", None) or [])
     kept, reasons = ground_extractions(raw, text)
@@ -893,20 +982,24 @@ def summarize_report(
     response's usage_metadata is added to `usage`.
 
     Returns a dict with keys: digest (str), confidence (float), key_takeaways (list[str]).
-    On any failure returns digest="" confidence=0.0 key_takeaways=[].
+    When the model answered but not with the JSON asked for, returns
+    digest="" confidence=0.0 key_takeaways=[].
+
+    Raises ModelError when the model could not answer: the API call failed,
+    the response was blocked or carried no text, or there is no SDK or key to
+    call it with. An empty digest is never returned for a call that did not
+    happen.
     """
     try:
         from google import genai
         from google.genai import types as genai_types
-    except ImportError:
-        log.warning("  google-genai not available; skipping digest generation")
-        return {"digest": "", "confidence": 0.0, "key_takeaways": []}
+    except ImportError as e:
+        raise ModelError(f"google-genai is not available: {e}") from e
 
     if client is None:
         api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("LANGEXTRACT_API_KEY")
         if not api_key:
-            log.warning("  No GEMINI_API_KEY / LANGEXTRACT_API_KEY set; skipping digest")
-            return {"digest": "", "confidence": 0.0, "key_takeaways": []}
+            raise ModelError("no GEMINI_API_KEY / LANGEXTRACT_API_KEY set for the digest call")
     else:
         api_key = None
 
@@ -921,7 +1014,6 @@ def summarize_report(
         f"## Report text excerpt\n{truncated_text}"
     )
 
-    raw = ""
     try:
         if client is None:
             client = genai.Client(api_key=api_key)
@@ -930,26 +1022,32 @@ def summarize_report(
             contents=user_content,
             config=digest_config(genai_types),
         )
-        if usage is not None:
-            usage.add(getattr(response, "usage_metadata", None))
+    except Exception as e:  # noqa: BLE001 - any API failure is a model error
+        raise ModelError(f"digest call failed: {e}") from e
+    # A response that is then rejected (blocked, no text) was still billed.
+    if usage is not None:
+        usage.add(getattr(response, "usage_metadata", None))
+    try:
         raw = (response.text or "").strip()
+    except Exception as e:  # noqa: BLE001 - an SDK that cannot read its own response
+        raise ModelError(f"digest response unreadable: {e}") from e
+    if not raw:
+        raise ModelError("digest response carried no text (blocked or empty)")
 
-        # Strip markdown fences if present
-        raw = re.sub(r"^```(?:json)?\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw)
-        raw = raw.strip()
+    # Strip markdown fences if present
+    raw = re.sub(r"^```(?:json)?\s*", "", raw)
+    raw = re.sub(r"\s*```$", "", raw)
+    raw = raw.strip()
 
+    try:
         parsed = json.loads(raw)
         return {
             "digest": str(parsed.get("digest", "")),
             "confidence": float(parsed.get("confidence", 0.0)),
             "key_takeaways": list(parsed.get("key_takeaways", [])),
         }
-    except json.JSONDecodeError as e:
+    except (ValueError, TypeError, AttributeError) as e:
         log.warning("  Digest JSON parse failed: %s (raw: %.200s)", e, raw)
-        return {"digest": "", "confidence": 0.0, "key_takeaways": []}
-    except Exception as e:
-        log.warning("  Digest generation failed: %s", e)
         return {"digest": "", "confidence": 0.0, "key_takeaways": []}
 
 
@@ -1075,6 +1173,19 @@ def store_extraction(
         conn.commit()
 
 
+def store_unreadable(conn, report: dict, text_length: int, dry_run: bool = False):
+    """The marker row for a document whose PDF has no text layer (fetch_pdf_text
+    FETCH_UNREADABLE, a scanned document): metrics '{}', no digest, no
+    document_meta, raw_text_length the few characters read. That length is
+    always under MIN_PDF_TEXT_CHARS, which no extracted row can have, so it is
+    what marks the row. Selection skips any URL with a row, so the company's
+    next document is chosen from now on; the digest backfill skips markers.
+    Delete the row to try the document again (for example once the PDF is
+    re-lodged with text)."""
+    log.warning("  %s: %s has no text layer; recording it as unreadable", report["stock_code"], report["url"])
+    store_extraction(conn, report, {}, text_length, dry_run)
+
+
 def ensure_table(conn):
     """Create the extraction results table if it doesn't exist."""
     cur = conn.cursor()
@@ -1111,20 +1222,34 @@ def process_report_text(
     """Everything the model and the regexes produce for one downloaded report:
     (metrics, digest_result, document_meta, outcome). No database access, so
     no connection is involved while the model runs. outcome is ok /
-    digest_only / no_metrics."""
+    digest_only / no_metrics / digest_error.
+
+    Raises ModelError when the model failed and nothing trustworthy is left to
+    store: the extraction call failed, or it grounded nothing and the digest
+    call failed too. The caller must then write no row, so the next run
+    retries the document. When metrics were grounded but the digest call
+    failed, the outcome is digest_error: the metrics are returned with digest
+    None, stored with digest NULL, and --backfill-digests summarises them
+    later."""
     meta = extract_document_meta(text)
     extractions = extract_financial_data(text, report["stock_code"], model_id=model_id, usage=usage, model=model)
-    if not extractions:
-        # §6.3(b) Decouple the digest from metric extraction: still summarise from
-        # raw text (most results documents state numbers in prose, not tables).
-        digest = None
-        if len(text) >= MIN_DIGEST_CHARS:
-            digest = summarize_report({}, text, model_id=model_id, usage=usage, client=digest_client)
-        outcome = "digest_only" if (digest and digest.get("digest")) else "no_metrics"
-        return {}, digest, meta, outcome
-    metrics = extractions_to_metrics(extractions)
-    log.info("  %s: %d metric types: %s", report["stock_code"], len(metrics), ", ".join(metrics.keys()))
-    digest = summarize_report(metrics, text, model_id=model_id, usage=usage, client=digest_client)
+    metrics = extractions_to_metrics(extractions) if extractions else {}
+    if metrics:
+        log.info("  %s: %d metric types: %s", report["stock_code"], len(metrics), ", ".join(metrics.keys()))
+    elif len(text) < MIN_DIGEST_CHARS:
+        return {}, None, meta, "no_metrics"
+    # §6.3(b) Decouple the digest from metric extraction: with no metrics still
+    # summarise from raw text (most results documents state numbers in prose).
+    try:
+        digest = summarize_report(metrics, text, model_id=model_id, usage=usage, client=digest_client)
+    except ModelError as e:
+        if not metrics:
+            raise
+        log.warning("  %s: digest failed (%s); storing the metrics with no digest for --backfill-digests",
+                    report["stock_code"], e)
+        return metrics, None, meta, "digest_error"
+    if not metrics:
+        return {}, digest, meta, ("digest_only" if digest.get("digest") else "no_metrics")
     return metrics, digest, meta, "ok"
 
 
@@ -1181,6 +1306,10 @@ def main():
 
     run_usage = TokenUsage()
     counts: Counter = Counter()
+    consecutive_model_errors = 0
+
+    def record_unreadable(doc: dict, text_length: int) -> None:
+        store_unreadable(conn, doc, text_length, args.dry_run)
 
     for i, report in enumerate(reports):
         if i > 0:
@@ -1197,28 +1326,42 @@ def main():
         started = time.monotonic()
         report_usage = TokenUsage(parent=run_usage)
 
-        text = download_pdf_text(session, report["url"], max_pages=args.max_pages)
-        if not text:
-            counts["no_pdf"] += 1
+        doc, text, fetched = read_first_available(session, report, args.max_pages, record_unreadable)
+        if text is None:
+            counts[fetched] += 1
             continue
         log.info("  Extracted %d chars of text", len(text))
 
-        metrics, digest, meta, outcome = process_report_text(report, text, args.model, usage=report_usage)
-        raw_text_gcs_url = upload_raw_text_to_gcs(report["stock_code"], report["url"], text)
+        try:
+            metrics, digest, meta, outcome = process_report_text(doc, text, args.model, usage=report_usage)
+        except ModelError as e:
+            counts[MODEL_ERROR] += 1
+            consecutive_model_errors += 1
+            log.warning("  %s: model error, not stored (the next run retries it): %s", doc["stock_code"], e)
+            if consecutive_model_errors >= MAX_CONSECUTIVE_MODEL_ERRORS:
+                log.error("%d consecutive model errors: stopping; %d reports not started",
+                          consecutive_model_errors, len(reports) - i - 1)
+                break
+            continue
+        consecutive_model_errors = 0
+        raw_text_gcs_url = upload_raw_text_to_gcs(doc["stock_code"], doc["url"], text)
         store_extraction(
-            conn, report, metrics, len(text), args.dry_run,
+            conn, doc, metrics, len(text), args.dry_run,
             digest_result=digest, raw_text_gcs_url=raw_text_gcs_url,
             document_meta=meta, write_document_meta=write_meta,
         )
         counts[outcome] += 1
         log.info(
             "  %s done in %.1fs (%s) tokens: %s",
-            report["stock_code"], time.monotonic() - started, outcome, report_usage.summary(),
+            doc["stock_code"], time.monotonic() - started, outcome, report_usage.summary(),
         )
 
     log.info("Done! %s", dict(counts))
     log.info("Gemini tokens this run: %s", run_usage.summary())
     conn.close()
+    if counts[MODEL_ERROR]:
+        log.error("%d model errors: those documents were not stored and the next run retries them", counts[MODEL_ERROR])
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -34,10 +34,19 @@ so an out-of-vocabulary value never reaches the column.
             twelve months) ended <d Month yyyy>"; half-year and six months are
             half, the rest annual. "as at <date>" is not a period end.
   report_kind
-            the first match in this order: Appendix 4E, Appendix 4D, Annual
-            Report, half-year / interim financial report, results / profit
-            announcement; else "other" when the document names itself a
-            presentation, Pillar 3 disclosure, transcript or webcast.
+            the first match in this order anywhere in the pages read:
+            Appendix 4E, Appendix 4D, Annual Report, half-year / interim
+            financial report, results / profit announcement. Then the
+            document's head (its first five non-empty lines, each starting
+            within the first 400 characters): "other" when a head line that
+            reads as a heading, not a sentence, NAMES the document a
+            presentation, Pillar 3 disclosure, transcript or webcast; else
+            results_announcement for "results release" or "full year results"
+            / "half year results" (never "half year results presentation /
+            briefing / webcast / call"). A mention anywhere else
+            ("presentation currency", "basis of presentation", "a results
+            presentation and webcast will be held") is not a name:
+            report_kind is then absent and the title decides downstream.
 
 This module has no third-party dependencies.
 """
@@ -328,6 +337,7 @@ def _period(folded: str) -> tuple[str, str] | None:
 
 # --- report kind -------------------------------------------------------------
 
+# Statutory kinds, tried in this order over every page read.
 _REPORT_KIND_RULES = [
     (re.compile(r"\bappendix\s*4e\b", re.IGNORECASE), "appendix_4e"),
     (re.compile(r"\bappendix\s*4d\b", re.IGNORECASE), "appendix_4d"),
@@ -343,14 +353,104 @@ _REPORT_KIND_RULES = [
         ),
         "results_announcement",
     ),
-    (re.compile(r"\bpresentation\b|\bpillar\s*(?:3|iii)\b|\btranscript\b|\bwebcast\b", re.IGNORECASE), "other"),
 ]
+
+# The document's head: where it names itself. Lines that START within the
+# first _HEAD_CHARS characters, at most _HEAD_LINES non-empty ones.
+_HEAD_CHARS = 400
+_HEAD_LINES = 5
+
+# Results-announcement phrases that count only in the head: a results release
+# names itself "FY26 Full Year Results" or "Results Release" at the top, while
+# a presentation's slides say "our half year results" throughout. A results
+# presentation, briefing, webcast or call is not a results announcement.
+_HEAD_RESULTS_RE = re.compile(
+    r"\bresults?\s+release\b"
+    r"|\b(?:full|half)[\s-]?year\s+results\b"
+    r"(?!\s+(?:investor\s+|analyst\s+)?(?:presentation|briefing|webcast|call|teleconference|transcript)s?\b)",
+    re.IGNORECASE,
+)
+
+# "other": the head names the document a presentation, a Pillar 3 disclosure,
+# a transcript or a webcast. "presentation" needs a qualifier that makes it
+# the document ("Investor Presentation", "FY26 Results Presentation"), so
+# "presentation currency" and "basis of presentation" never match. A
+# transcript or webcast is the heading's last word ("Earnings Call Transcript",
+# "FY26 Results Webcast", optionally followed by a date), or a transcript
+# leads it ("Transcript: FY26 results briefing"), so "Webcast details" and
+# "Results webcast: 10am" do not name the document.
+_MONTH_WORDS = (
+    r"(?:january|february|march|april|may|june|july|august|september|october|november|december"
+    r"|jan|feb|mar|apr|jun|jul|aug|sept?|oct|nov|dec)"
+)
+_HEADING_DATE_TAIL = r"(?:\s*[-:|,]?\s*(?:\d{1,2}(?:st|nd|rd|th)?\s+)?(?:" + _MONTH_WORDS + r"\s+)?\d{4})?[\s.]*$"
+_OTHER_HEADING_RE = re.compile(
+    r"\b(?:investor|results?|earnings|briefing|analysts?|strategy|agm"
+    r"|full[\s-]?year|half[\s-]?year|interim|fy\s?\d{2,4}|hy\s?\d{2,4}"
+    r"|[12]h\s?(?:fy)?\s?\d{2,4}|h[12]\s?(?:fy)?\s?\d{2,4})\s+presentation\b"
+    r"|\bpresentation\s+to\s+(?:investors|analysts|shareholders)\b"
+    r"|\bpillar\s*(?:3|iii)\b"
+    r"|\b(?:transcript|webcast)s?" + _HEADING_DATE_TAIL
+    + r"|^(?:\w+\s+){0,2}transcripts?\s*[-:|]",
+    re.IGNORECASE,
+)
+# A line that reads as a sentence is prose about something, not the
+# document's own heading: a verb or connective no heading carries ("may" is
+# left out: it is also a month), or a sentence boundary inside the line.
+_PROSE_WORDS_RE = re.compile(
+    r"\b(?:will|would|shall|can|is|are|was|were|be|been|being|has|have|had|held|hosts?|hosted|hosting"
+    r"|see|refer|refers|referred|accompany|accompanies|accompanying|conjunction|available|attached|join"
+    r"|listen|register|access|via|please|following|follows|provided|included|released|lodged)\b",
+    re.IGNORECASE,
+)
+# Case-sensitive: a full stop then a capital starts a new sentence ("Results
+# announcement. A webcast follows."); "Aug. 2026" does not.
+_SENTENCE_BOUNDARY_RE = re.compile(r"[.!?;]\s+[A-Z]")
+_MAX_HEADING_CHARS = 100
+_MAX_HEADING_WORDS = 12
+
+
+def _head_lines(folded: str) -> list[str]:
+    """The document's first non-empty lines (whitespace collapsed): each starts
+    within the first _HEAD_CHARS characters, at most _HEAD_LINES of them. A line
+    is taken whole, so a sentence is never cut into something that reads as a
+    heading."""
+    lines: list[str] = []
+    offset = 0
+    for raw in folded.split("\n"):
+        if offset >= _HEAD_CHARS or len(lines) >= _HEAD_LINES:
+            break
+        offset += len(raw) + 1
+        line = " ".join(raw.split())
+        if line:
+            lines.append(line)
+    return lines
+
+
+def _is_heading(line: str) -> bool:
+    return (
+        len(line) <= _MAX_HEADING_CHARS
+        and len(line.split()) <= _MAX_HEADING_WORDS
+        and not _PROSE_WORDS_RE.search(line)
+        and not _SENTENCE_BOUNDARY_RE.search(line)
+    )
+
+
+def _names_itself_other(head: list[str]) -> bool:
+    return any(_OTHER_HEADING_RE.search(line) and _is_heading(line) for line in head)
 
 
 def _report_kind(folded: str) -> str:
     for pattern, kind in _REPORT_KIND_RULES:
         if pattern.search(folded):
             return kind
+    head = _head_lines(folded)
+    # The head's own name first: "FY26 Full Year Results Presentation" over a
+    # "Full year results for the year ended ..." subtitle beneath it.
+    if _names_itself_other(head):
+        return "other"
+    if any(_HEAD_RESULTS_RE.search(line) for line in head):
+        return "results_announcement"
     return ""
 
 
