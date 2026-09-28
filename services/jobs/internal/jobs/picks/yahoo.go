@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/url"
 	"sort"
 	"strconv"
@@ -14,7 +13,8 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 )
 
-// Yahoo fundamentals-timeseries (plan §2.7, probe 2026-09-27).
+// Yahoo fundamentals-timeseries (plan stock-picker.md §2.7, probe 2026-09-27;
+// widened by fundamentals-coverage.md §3.1).
 //
 // It must go through pkg/stealthhttp, exactly as the price sweep does
 // (marketdata/providers/yahoo_direct.go): a plain net/http client is answered
@@ -28,30 +28,95 @@ const yahooPeriod1 = 1262304000
 
 // yahooRequestInterval is the price sweep's pacing (yahooRequestInterval in
 // yahoo_direct.go): 900 requests an hour, the cadence Yahoo has tolerated from
-// that job daily. A 400-code run is ~27 minutes of pacing.
+// that job daily. The whole ~2,300-code universe is ~155 minutes of pacing,
+// which is why the fundamentals budget is 170 minutes (§3.7).
 const yahooRequestInterval = 4 * time.Second
 
-// yahooField maps each requested series to the row it fills. The type list is
-// the plan's (§2.7), in its order; nothing else is requested.
-var yahooFields = []struct {
-	typ        string
-	periodType string
-	periodKind string // Yahoo's periodType for the series: "12M" or "TTM"
-	set        func(r *PeriodRow, v *float64)
-}{
-	{"annualTotalRevenue", periodAnnual, "12M", func(r *PeriodRow, v *float64) { r.Revenue = v }},
-	{"annualNetIncomeCommonStockholders", periodAnnual, "12M", func(r *PeriodRow, v *float64) { r.NetIncome = v }},
-	{"annualDilutedEPS", periodAnnual, "12M", func(r *PeriodRow, v *float64) { r.EPSDiluted = v }},
-	{"annualBasicEPS", periodAnnual, "12M", func(r *PeriodRow, v *float64) { r.EPSBasic = v }},
-	{"annualOperatingCashFlow", periodAnnual, "12M", func(r *PeriodRow, v *float64) { r.OperatingCashFlow = v }},
-	{"annualFreeCashFlow", periodAnnual, "12M", func(r *PeriodRow, v *float64) { r.FreeCashFlow = v }},
-	{"annualOrdinarySharesNumber", periodAnnual, "12M", func(r *PeriodRow, v *float64) { r.SharesOutstanding = v }},
-	{"trailingTotalRevenue", periodTTM, "TTM", func(r *PeriodRow, v *float64) { r.Revenue = v }},
-	{"trailingNetIncomeCommonStockholders", periodTTM, "TTM", func(r *PeriodRow, v *float64) { r.NetIncome = v }},
-	{"trailingDilutedEPS", periodTTM, "TTM", func(r *PeriodRow, v *float64) { r.EPSDiluted = v }},
-	{"trailingOperatingCashFlow", periodTTM, "TTM", func(r *PeriodRow, v *float64) { r.OperatingCashFlow = v }},
-	{"trailingFreeCashFlow", periodTTM, "TTM", func(r *PeriodRow, v *float64) { r.FreeCashFlow = v }},
+// seriesOCFDirect is the direct-method operating cash flow series. It is not
+// a column: it fills operating_cash_flow only when the reported
+// OperatingCashFlow series has no point for the period (§3.2). Many ASX
+// companies present their cash-flow statement on the direct method, and Yahoo
+// files it under this name instead (CSL, FMG, IAG, XRO, LTR in the
+// 2026-09-28 capture).
+const seriesOCFDirect = "operating_cash_flow_direct"
+
+// yahooFlowSeries are the income-statement and cash-flow series (§2.1, §3.1),
+// each requested in its annual AND trailing flavour, mapped to the column it
+// fills. Order is the request order.
+var yahooFlowSeries = []struct{ name, column string }{
+	{"TotalRevenue", "revenue"},
+	{"NetIncomeCommonStockholders", "net_income"},
+	{"BasicEPS", "eps_basic"},
+	{"DilutedEPS", "eps_diluted"},
+	{"OperatingCashFlow", "operating_cash_flow"},
+	{"CashFlowsfromusedinOperatingActivitiesDirect", seriesOCFDirect},
+	{"FreeCashFlow", "free_cash_flow"},
+	{"GrossProfit", "gross_profit"},
+	{"OperatingIncome", "operating_income"},
+	{"EBITDA", "ebitda"},
+	{"NormalizedEBITDA", "normalized_ebitda"},
+	{"EBIT", "ebit"},
+	{"InterestExpense", "interest_expense"},
+	{"PretaxIncome", "pretax_income"},
+	{"TaxProvision", "tax_provision"},
+	{"NetInterestIncome", "net_interest_income"},
+	{"CapitalExpenditure", "capital_expenditure"},
+	{"CashDividendsPaid", "dividends_paid"},
+	{"RepurchaseOfCapitalStock", "share_buybacks"},
 }
+
+// yahooBalanceSeries are the balance-sheet series plus the share count, each
+// requested in its annual AND quarterly flavour (§3.1). The quarterly points
+// become 'quarter' balance snapshots (§3.3).
+var yahooBalanceSeries = []struct{ name, column string }{
+	{"TotalAssets", "total_assets"},
+	{"TotalLiabilitiesNetMinorityInterest", "total_liabilities"},
+	{"StockholdersEquity", "total_equity"},
+	{"CashAndCashEquivalents", "cash_and_equivalents"},
+	{"TotalDebt", "total_debt"},
+	{"CapitalLeaseObligations", "capital_lease_obligations"},
+	{"NetDebt", "net_debt"},
+	{"CurrentAssets", "current_assets"},
+	{"CurrentLiabilities", "current_liabilities"},
+	{"OrdinarySharesNumber", "shares_outstanding"},
+}
+
+// yahooSeries is one requested type and the row it fills.
+type yahooSeries struct {
+	typ        string // the Yahoo type, e.g. "annualTotalRevenue"
+	periodType string // periodAnnual | periodTTM | periodQuarter
+	periodKind string // Yahoo's periodType for the series: "12M", "TTM" or "3M"
+	column     string // a fundamentalsColumns name, or seriesOCFDirect
+}
+
+// yahooSeriesList is every requested type, in request order: the flow series
+// (annual, trailing), then the balance series (annual, quarterly). Nothing
+// else is requested: no valuation series, no quarterly income or cash-flow
+// series (§3.1; Yahoo's quarterly P&L is empty for the ASX anyway).
+var yahooSeriesList = func() []yahooSeries {
+	var out []yahooSeries
+	for _, s := range yahooFlowSeries {
+		out = append(out,
+			yahooSeries{"annual" + s.name, periodAnnual, "12M", s.column},
+			yahooSeries{"trailing" + s.name, periodTTM, "TTM", s.column},
+		)
+	}
+	for _, s := range yahooBalanceSeries {
+		out = append(out,
+			yahooSeries{"annual" + s.name, periodAnnual, "12M", s.column},
+			yahooSeries{"quarterly" + s.name, periodQuarter, "3M", s.column},
+		)
+	}
+	return out
+}()
+
+var yahooSeriesByType = func() map[string]yahooSeries {
+	m := make(map[string]yahooSeries, len(yahooSeriesList))
+	for _, s := range yahooSeriesList {
+		m[s.typ] = s
+	}
+	return m
+}()
 
 // bytesFetcher is the slice of *stealthhttp.Client the fetcher uses; tests
 // substitute a stub.
@@ -101,14 +166,14 @@ func (y *yahooTimeseries) Fundamentals(ctx context.Context, code string) ([]Peri
 	return rows, nil
 }
 
-// yahooTimeseriesURL builds the one GET per code. The type list is joined with
-// literal commas (sub-delimiters are legal in a query, and it is the exact
-// request the probe made); period2 is a year ahead so a just-published period
-// is never outside the window.
+// yahooTimeseriesURL builds the ONE GET per code (§3.1). The type list is
+// joined with literal commas (sub-delimiters are legal in a query, and it is
+// the exact request the probes made); period2 is a year ahead so a
+// just-published period is never outside the window.
 func yahooTimeseriesURL(code string, now time.Time) string {
-	types := make([]string, len(yahooFields))
-	for i, f := range yahooFields {
-		types[i] = f.typ
+	types := make([]string, len(yahooSeriesList))
+	for i, s := range yahooSeriesList {
+		types[i] = s.typ
 	}
 	return fmt.Sprintf("%s%s?type=%s&period1=%d&period2=%d",
 		yahooTimeseriesBase,
@@ -142,13 +207,33 @@ type yahooMeta struct {
 	Type []string `json:"type"`
 }
 
+// yahooValue is one parsed point waiting for its row's currency decision.
+type yahooValue struct {
+	v        float64
+	currency string
+}
+
 // parseYahooTimeseries turns one timeseries document into rows: annual series
-// into period_type 'annual', trailing series into 'ttm', one row per
-// (period_type, asOfDate), with period_end = asOfDate exactly as Yahoo reports
-// it. Each row's currency is its points' currencyCode (the REPORTING currency:
-// BHP is USD); a row whose points disagree on currency is dropped rather than
-// stored under one of them. Values that are not finite, or not a plausible
-// statement line, are left NULL here and counted by sanitizeRows.
+// into period_type 'annual', trailing series into 'ttm', quarterly balance
+// series into 'quarter' snapshots; one row per (period_type, asOfDate), with
+// period_end = asOfDate exactly as Yahoo reports it.
+//
+// Currency, per field (§3.4): each row's currency is the REPORTING currency
+// its MONETARY points agree on (the most common currencyCode among them; a tie
+// goes to the revenue line's currency, then net income's, then the
+// alphabetically first). A monetary point in another currency is NOT stored
+// under the row's: that field is nulled and named in Rejected (a
+// currency_conflict, counted by the gates), and the rest of the row stands.
+// EPS and share counts ignore currencyCode (Yahoo labels XRO's older EPS NZD
+// beside AUD revenue); a row with no monetary point takes its per-share
+// points' currency.
+//
+// Operating cash flow (§3.2): the reported OperatingCashFlow series; else the
+// direct-method series for the same period. The FCF-minus-capex derivation
+// runs later (deriveOperatingCashFlow), after the sanity gates.
+//
+// Values that are not finite, or not a plausible statement line, are left
+// NULL here and counted by sanitizeRows.
 func parseYahooTimeseries(body []byte) ([]PeriodRow, error) {
 	var doc yahooDoc
 	if err := json.Unmarshal(body, &doc); err != nil {
@@ -162,35 +247,27 @@ func parseYahooTimeseries(body []byte) ([]PeriodRow, error) {
 		periodType string
 		end        time.Time
 	}
-	rows := map[key]*PeriodRow{}
-	conflicted := map[key]bool{}
+	acc := map[key]map[string]yahooValue{}
 
 	for _, entry := range doc.Timeseries.Result {
 		var meta yahooMeta
 		if raw, ok := entry["meta"]; !ok || json.Unmarshal(raw, &meta) != nil || len(meta.Type) == 0 {
 			continue
 		}
-		field := -1
-		for i, f := range yahooFields {
-			if f.typ == meta.Type[0] {
-				field = i
-				break
-			}
-		}
+		series, known := yahooSeriesByType[meta.Type[0]]
 		raw, ok := entry[meta.Type[0]]
-		if field < 0 || !ok {
+		if !known || !ok {
 			continue // a series we did not ask for, or one with no points
 		}
 		var points []*yahooPoint
 		if err := json.Unmarshal(raw, &points); err != nil {
 			return nil, fmt.Errorf("parse %s: %w", meta.Type[0], err)
 		}
-		f := yahooFields[field]
 		for _, p := range points {
 			if p == nil || p.ReportedValue.Raw == "" {
 				continue
 			}
-			if p.PeriodType != "" && p.PeriodType != f.periodKind {
+			if p.PeriodType != "" && p.PeriodType != series.periodKind {
 				// An annual series carrying a 3M point (or the reverse) is not
 				// the series we think it is. Refuse it rather than file a
 				// half-year figure as a full year.
@@ -204,34 +281,95 @@ func parseYahooTimeseries(body []byte) ([]PeriodRow, error) {
 			if !ok {
 				continue
 			}
-			k := key{f.periodType, end}
-			row := rows[k]
-			if row == nil {
-				row = &PeriodRow{PeriodType: f.periodType, PeriodEnd: end, Source: sourceYahoo}
-				rows[k] = row
+			k := key{series.periodType, end}
+			if acc[k] == nil {
+				acc[k] = map[string]yahooValue{}
 			}
-			cur := strings.ToUpper(strings.TrimSpace(p.CurrencyCode))
-			switch {
-			case cur == "":
-			case row.Currency == "":
-				row.Currency = cur
-			case row.Currency != cur:
-				conflicted[k] = true
-			}
-			f.set(row, v)
+			acc[k][series.column] = yahooValue{v: *v, currency: strings.ToUpper(strings.TrimSpace(p.CurrencyCode))}
 		}
 	}
 
-	out := make([]PeriodRow, 0, len(rows))
-	for k, r := range rows {
-		if conflicted[k] {
-			log.Printf("picks: yahoo %s %s mixes currencies across series; row dropped", k.periodType, k.end.Format("2006-01-02"))
-			continue
+	out := make([]PeriodRow, 0, len(acc))
+	for k, vals := range acc {
+		row := PeriodRow{PeriodType: k.periodType, PeriodEnd: k.end, Source: sourceYahoo}
+		row.Currency = rowCurrency(vals)
+		for _, c := range fundamentalsColumns { // column order: Rejected is deterministic
+			pv, ok := vals[c.name]
+			if !ok {
+				continue
+			}
+			if k.periodType == periodQuarter && !c.isBalance() {
+				continue // a snapshot carries balance lines only
+			}
+			if c.isMonetary() && pv.currency != "" && pv.currency != row.Currency {
+				row.reject(c.name)
+				continue
+			}
+			v := pv.v
+			c.set(&row, &v)
 		}
-		out = append(out, *r)
+		if d, ok := vals[seriesOCFDirect]; ok && k.periodType != periodQuarter &&
+			row.OperatingCashFlow == nil && !row.isRejected("operating_cash_flow") &&
+			(d.currency == "" || d.currency == row.Currency) {
+			v := d.v
+			row.OperatingCashFlow = &v
+		}
+		out = append(out, row)
 	}
 	sortRows(out)
 	return out, nil
+}
+
+// rowCurrency is the §3.4 row-currency decision for one row's points.
+func rowCurrency(vals map[string]yahooValue) string {
+	pick := func(monetary bool) string {
+		votes := map[string]int{}
+		for name, pv := range vals {
+			if pv.currency == "" {
+				continue
+			}
+			isMonetary := name == seriesOCFDirect
+			if c, ok := columnNamed(name); ok {
+				isMonetary = c.isMonetary()
+			}
+			if isMonetary == monetary {
+				votes[pv.currency]++
+			}
+		}
+		if len(votes) == 0 {
+			return ""
+		}
+		best := 0
+		for _, n := range votes {
+			if n > best {
+				best = n
+			}
+		}
+		var tied []string
+		for cur, n := range votes {
+			if n == best {
+				tied = append(tied, cur)
+			}
+		}
+		if len(tied) == 1 {
+			return tied[0]
+		}
+		for _, anchor := range []string{"revenue", "net_income"} {
+			if pv, ok := vals[anchor]; ok {
+				for _, t := range tied {
+					if t == pv.currency {
+						return t
+					}
+				}
+			}
+		}
+		sort.Strings(tied)
+		return tied[0]
+	}
+	if cur := pick(true); cur != "" {
+		return cur
+	}
+	return pick(false)
 }
 
 // parseNumber reads a JSON number, refusing anything ParseFloat cannot

@@ -2,12 +2,15 @@ package picks
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,14 +20,18 @@ import (
 // rule are exercised without a database.
 type store interface {
 	// UniverseCodes: codes with a stock_prices row in the last 90 days, plus
-	// every mv_screener_data code (plan §2.6). Deduped, unordered.
+	// every mv_screener_data code. Deduped, unordered.
 	UniverseCodes(ctx context.Context) ([]string, error)
-	// LastAttempts: stock_fundamentals_sync.last_attempt_at by code.
-	LastAttempts(ctx context.Context) (map[string]time.Time, error)
-	// RecentFilingHeadlines: (code, headline) pairs from asx_announcements in
+	// SyncStates: every stock_fundamentals_sync row, by code.
+	SyncStates(ctx context.Context) (map[string]syncState, error)
+	// RankInputs: market cap and 20-day dollar volume by code, the order of
+	// never-attempted codes (§3.7). Best-effort: partial maps are fine.
+	RankInputs(ctx context.Context) (map[string]rankInput, error)
+	// RecentFilingHeadlines: (code, date, headline) from asx_announcements in
 	// the last `days` days that pass the cheap SQL prefilter.
 	RecentFilingHeadlines(ctx context.Context, days int) ([]filingHeadline, error)
-	// UpsertPeriods writes one code's rows as ONE statement.
+	// UpsertPeriods writes one code's vendor rows as ONE statement under the
+	// §2.2 vendor rules (upsertSQL).
 	UpsertPeriods(ctx context.Context, code string, rows []PeriodRow, fetchedAt time.Time) error
 	// RecordAttempt writes the code's stock_fundamentals_sync row.
 	RecordAttempt(ctx context.Context, a attempt) error
@@ -32,12 +39,20 @@ type store interface {
 	// it reported as skipped.
 	RefreshStrategyViews(ctx context.Context) (skipped []string, err error)
 
+	// The run lease (§3.8). ClaimLease returns claimed=false and the current
+	// holder when another execution holds an unexpired lease; errLeaseAbsent
+	// when the table does not exist (a database without 000132).
+	ClaimLease(ctx context.Context, holder string) (claimed bool, current string, err error)
+	ExtendLease(ctx context.Context, holder string) error
+	ReleaseLease(ctx context.Context, holder string) error
+
 	// filingStore: the -mode filings reads and writes (filings_store.go).
 	filingStore
 }
 
 type filingHeadline struct {
 	Code     string
+	Date     time.Time
 	Headline string
 }
 
@@ -46,22 +61,160 @@ type attempt struct {
 	Code          string
 	At            time.Time
 	Success       bool   // rows were written
+	Outcome       string // outcomeLoaded | outcomeEmpty | outcomeFailed
 	Err           string // "" on success; the reason otherwise
 	PeriodsLoaded int
+	// SetMedianK: write MedianK (nil = NULL) to stock_fundamentals_sync.median_k.
+	// False keeps the stored value (a run Yahoo did not answer says nothing
+	// about the identity reference).
+	SetMedianK bool
+	MedianK    *float64
 }
+
+// errLeaseAbsent: picks_run_lease does not exist (SQLSTATE 42P01): run
+// without the lease (§3.8).
+var errLeaseAbsent = errors.New("picks_run_lease absent")
 
 type pgStore struct {
 	pool    *pgxpool.Pool
 	notices *noticeLog
+	logf    func(format string, args ...any)
+
+	schemaMu     sync.Mutex
+	schemaKnown  bool
+	fundExtended bool // stock_fundamentals has the 000132 columns
+	syncExtended bool // stock_fundamentals_sync has the 000132 columns
+}
+
+func (s *pgStore) log(format string, args ...any) {
+	if s.logf != nil {
+		s.logf(format, args...)
+	}
 }
 
 // undefinedTable is SQLSTATE 42P01: a relation that does not exist yet
 // (mv_screener_data or asx_announcements in a dev database without those
-// migrations).
+// migrations, picks_run_lease before 000132).
 func undefinedTable(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "42P01"
 }
+
+// undefinedColumn is SQLSTATE 42703: a column that does not exist yet (a
+// database without 000132).
+func undefinedColumn(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "42703"
+}
+
+// ---------------------------------------------------------------------------
+// Migration 000132 detection. Prod does not run `migrate up`: the new jobs
+// image can meet a database that lacks 000132 (a deploy whose allowlist step
+// failed, a laptop, the env-gated tests). Detected once per process from the
+// catalog, and again from a 42703 on a write; either way the job falls back
+// to the 000129 column set and says so once.
+
+// fundamentals000132Columns are the stock_fundamentals columns 000132 adds.
+func fundamentals000132Columns() []string {
+	var out []string
+	for _, c := range fundamentalsColumns {
+		if !isColumn000129(c.name) {
+			out = append(out, c.name)
+		}
+	}
+	return append(out, "field_sources", "source_document_url", "source_document_date")
+}
+
+// sync000132Columns are the stock_fundamentals_sync columns 000132 adds.
+var sync000132Columns = []string{"last_outcome", "consecutive_empty", "median_k"}
+
+// legacyColumns are the value columns of 000129 (today's column set).
+func legacyColumns() []fundamentalsColumn {
+	var out []fundamentalsColumn
+	for _, c := range fundamentalsColumns {
+		if isColumn000129(c.name) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func isColumn000129(name string) bool {
+	switch name {
+	case "revenue", "net_income", "eps_basic", "eps_diluted", "operating_cash_flow", "free_cash_flow", "shares_outstanding":
+		return true
+	}
+	return false
+}
+
+const schemaSQL = `
+SELECT c.relname::text, a.attname::text
+FROM pg_attribute a
+JOIN pg_class c ON c.oid = a.attrelid
+WHERE a.attrelid IN (to_regclass('stock_fundamentals'), to_regclass('stock_fundamentals_sync'))
+  AND a.attnum > 0 AND NOT a.attisdropped`
+
+// schema reports which halves of 000132 are applied, reading the catalog on
+// first use.
+func (s *pgStore) schema(ctx context.Context) (fund, syncExt bool, err error) {
+	s.schemaMu.Lock()
+	defer s.schemaMu.Unlock()
+	if s.schemaKnown {
+		return s.fundExtended, s.syncExtended, nil
+	}
+	rows, err := s.pool.Query(ctx, schemaSQL)
+	if err != nil {
+		return false, false, fmt.Errorf("schema probe: %w", err)
+	}
+	defer rows.Close()
+	have := map[string]map[string]bool{}
+	for rows.Next() {
+		var rel, col string
+		if err := rows.Scan(&rel, &col); err != nil {
+			return false, false, fmt.Errorf("schema probe: %w", err)
+		}
+		if have[rel] == nil {
+			have[rel] = map[string]bool{}
+		}
+		have[rel][col] = true
+	}
+	if err := rows.Err(); err != nil {
+		return false, false, fmt.Errorf("schema probe: %w", err)
+	}
+	s.fundExtended = hasAll(have["stock_fundamentals"], fundamentals000132Columns())
+	s.syncExtended = hasAll(have["stock_fundamentals_sync"], sync000132Columns)
+	s.schemaKnown = true
+	if !s.fundExtended || !s.syncExtended {
+		s.log("picks: migration 000132 not (fully) applied: stock_fundamentals extended=%t, stock_fundamentals_sync extended=%t; writing the 000129 column set where it is missing", s.fundExtended, s.syncExtended)
+	}
+	return s.fundExtended, s.syncExtended, nil
+}
+
+// downgrade records that a write met a missing 000132 column (42703).
+func (s *pgStore) downgrade(fund bool) {
+	s.schemaMu.Lock()
+	defer s.schemaMu.Unlock()
+	if fund && s.fundExtended {
+		s.fundExtended = false
+		s.log("picks: stock_fundamentals rejected a 000132 column (42703); falling back to the 000129 column set for this run")
+	}
+	if !fund && s.syncExtended {
+		s.syncExtended = false
+		s.log("picks: stock_fundamentals_sync rejected a 000132 column (42703); falling back to the 000129 columns for this run")
+	}
+}
+
+func hasAll(have map[string]bool, want []string) bool {
+	for _, w := range want {
+		if !have[w] {
+			return false
+		}
+	}
+	return true
+}
+
+// ---------------------------------------------------------------------------
+// Reads.
 
 func (s *pgStore) UniverseCodes(ctx context.Context) ([]string, error) {
 	set := map[string]bool{}
@@ -97,27 +250,109 @@ func (s *pgStore) UniverseCodes(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
-func (s *pgStore) LastAttempts(ctx context.Context) (map[string]time.Time, error) {
-	rows, err := s.pool.Query(ctx, `SELECT stock_code, last_attempt_at FROM stock_fundamentals_sync`)
+const (
+	syncStatesSQL = `SELECT stock_code::text, last_attempt_at, last_success_at, COALESCE(last_error, ''),
+       last_outcome::text, consecutive_empty
+FROM stock_fundamentals_sync`
+	syncStatesLegacySQL = `SELECT stock_code::text, last_attempt_at, last_success_at, COALESCE(last_error, ''),
+       NULL::text, 0::smallint
+FROM stock_fundamentals_sync`
+)
+
+func (s *pgStore) SyncStates(ctx context.Context) (map[string]syncState, error) {
+	_, syncExt, err := s.schema(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("last attempts: %w", err)
+		return nil, err
+	}
+	q := syncStatesLegacySQL
+	if syncExt {
+		q = syncStatesSQL
+	}
+	rows, err := s.pool.Query(ctx, q)
+	if err != nil && syncExt && undefinedColumn(err) {
+		s.downgrade(false)
+		rows, err = s.pool.Query(ctx, syncStatesLegacySQL)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("sync states: %w", err)
 	}
 	defer rows.Close()
-	out := map[string]time.Time{}
+	out := map[string]syncState{}
 	for rows.Next() {
-		var code string
-		var at time.Time
-		if err := rows.Scan(&code, &at); err != nil {
-			return nil, fmt.Errorf("last attempts: %w", err)
+		var code, lastErr string
+		var st syncState
+		var outcome *string
+		var empties int16
+		if err := rows.Scan(&code, &st.LastAttempt, &st.LastSuccess, &lastErr, &outcome, &empties); err != nil {
+			return nil, fmt.Errorf("sync states: %w", err)
 		}
-		out[strings.ToUpper(strings.TrimSpace(code))] = at
+		if outcome != nil && *outcome != "" {
+			st.LastOutcome, st.ConsecutiveEmpty = *outcome, int(empties)
+		} else {
+			st.LastOutcome, st.ConsecutiveEmpty = deriveOutcome(st.LastAttempt, st.LastSuccess, lastErr)
+		}
+		out[strings.ToUpper(strings.TrimSpace(code))] = st
 	}
 	return out, rows.Err()
 }
 
+// rankDollarVolumeSQL: the mean close x volume of each code's last 20
+// sessions (window of 45 calendar days).
+const rankDollarVolumeSQL = `
+SELECT stock_code::text, avg(close::float8 * volume::float8)
+FROM (
+    SELECT stock_code, close, volume,
+           row_number() OVER (PARTITION BY stock_code ORDER BY date DESC) AS rn
+    FROM stock_prices
+    WHERE date >= CURRENT_DATE - 45 AND close IS NOT NULL AND volume IS NOT NULL
+) p
+WHERE rn <= 20
+GROUP BY stock_code`
+
+func (s *pgStore) RankInputs(ctx context.Context) (map[string]rankInput, error) {
+	out := map[string]rankInput{}
+	var firstErr error
+	scan := func(sql string, set func(r *rankInput, v float64)) {
+		rows, err := s.pool.Query(ctx, sql)
+		if err != nil {
+			if !undefinedTable(err) && firstErr == nil {
+				firstErr = err
+			}
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var code string
+			var v *float64
+			if err := rows.Scan(&code, &v); err != nil {
+				if firstErr == nil {
+					firstErr = err
+				}
+				return
+			}
+			if v == nil || !storable(*v) {
+				continue
+			}
+			code = strings.ToUpper(strings.TrimSpace(code))
+			r := out[code]
+			set(&r, *v)
+			out[code] = r
+		}
+		if err := rows.Err(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	scan(`SELECT stock_code::text, market_cap::float8 FROM mv_screener_data`, func(r *rankInput, v float64) { r.MarketCap = v })
+	scan(rankDollarVolumeSQL, func(r *rankInput, v float64) { r.DollarVolume20d = v })
+	if firstErr != nil {
+		return out, fmt.Errorf("rank inputs: %w", firstErr)
+	}
+	return out, nil
+}
+
 func (s *pgStore) RecentFilingHeadlines(ctx context.Context, days int) ([]filingHeadline, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT stock_code::text, headline
+		SELECT stock_code::text, announcement_date, headline
 		FROM asx_announcements
 		WHERE announcement_date >= CURRENT_DATE - $1::int
 		  AND `+filingPrefilterSQL, days)
@@ -131,95 +366,318 @@ func (s *pgStore) RecentFilingHeadlines(ctx context.Context, days int) ([]filing
 	var out []filingHeadline
 	for rows.Next() {
 		var h filingHeadline
-		if err := rows.Scan(&h.Code, &h.Headline); err != nil {
+		if err := rows.Scan(&h.Code, &h.Date, &h.Headline); err != nil {
 			return nil, fmt.Errorf("recent filings: %w", err)
 		}
+		h.Date = time.Date(h.Date.Year(), h.Date.Month(), h.Date.Day(), 0, 0, 0, 0, time.UTC)
 		out = append(out, h)
 	}
 	return out, rows.Err()
 }
 
-// upsertSQL writes one code's periods in one statement (the unnest idiom of
-// marketdata/sync's stock_prices upsert).
+// ---------------------------------------------------------------------------
+// The vendor upsert (plan fundamentals-coverage.md §2.2).
 //
-// On conflict a value the new fetch does NOT carry keeps the stored one, as
-// long as the currency is unchanged. That is what makes the TTM rows a history:
-// Yahoo keeps TTM revenue / profit / cash flow only for the latest point or
-// two, so next half-year the same TTM date comes back with an EPS and no
-// revenue, and a plain overwrite would erase the snapshot the half-year delta
-// is built from. A NULL from the source means "not in this response", not
-// "revised to nothing". When the currency changes, the row is replaced
-// wholesale: never keep a USD figure in an AUD row.
-const upsertSQL = `
-INSERT INTO stock_fundamentals AS f (
-    stock_code, period_type, period_end, fiscal_year, currency,
-    revenue, net_income, eps_basic, eps_diluted,
-    operating_cash_flow, free_cash_flow, shares_outstanding,
-    source, source_fetched_at, updated_at
-)
-SELECT $1, t.period_type, t.period_end, t.fiscal_year, t.currency,
-       t.revenue, t.net_income, t.eps_basic, t.eps_diluted,
-       t.operating_cash_flow, t.free_cash_flow, t.shares_outstanding,
-       t.source, $2::timestamptz, now()
-FROM unnest(
-    $3::text[], $4::date[], $5::int2[], $6::text[],
-    $7::float8[], $8::float8[], $9::float8[], $10::float8[],
-    $11::float8[], $12::float8[], $13::float8[], $14::text[]
-) AS t(period_type, period_end, fiscal_year, currency,
-       revenue, net_income, eps_basic, eps_diluted,
-       operating_cash_flow, free_cash_flow, shares_outstanding, source)
-ON CONFLICT (stock_code, period_type, period_end) DO UPDATE SET
-    fiscal_year         = COALESCE(EXCLUDED.fiscal_year, f.fiscal_year),
-    revenue             = CASE WHEN EXCLUDED.currency = f.currency THEN COALESCE(EXCLUDED.revenue, f.revenue) ELSE EXCLUDED.revenue END,
-    net_income          = CASE WHEN EXCLUDED.currency = f.currency THEN COALESCE(EXCLUDED.net_income, f.net_income) ELSE EXCLUDED.net_income END,
-    eps_basic           = CASE WHEN EXCLUDED.currency = f.currency THEN COALESCE(EXCLUDED.eps_basic, f.eps_basic) ELSE EXCLUDED.eps_basic END,
-    eps_diluted         = CASE WHEN EXCLUDED.currency = f.currency THEN COALESCE(EXCLUDED.eps_diluted, f.eps_diluted) ELSE EXCLUDED.eps_diluted END,
-    operating_cash_flow = CASE WHEN EXCLUDED.currency = f.currency THEN COALESCE(EXCLUDED.operating_cash_flow, f.operating_cash_flow) ELSE EXCLUDED.operating_cash_flow END,
-    free_cash_flow      = CASE WHEN EXCLUDED.currency = f.currency THEN COALESCE(EXCLUDED.free_cash_flow, f.free_cash_flow) ELSE EXCLUDED.free_cash_flow END,
-    shares_outstanding  = CASE WHEN EXCLUDED.currency = f.currency THEN COALESCE(EXCLUDED.shares_outstanding, f.shares_outstanding) ELSE EXCLUDED.shares_outstanding END,
-    currency            = EXCLUDED.currency,
-    source              = EXCLUDED.source,
-    source_fetched_at   = EXCLUDED.source_fetched_at,
-    updated_at          = now()`
+// One statement per code (the unnest idiom of marketdata/sync's stock_prices
+// upsert), built from the column table so a column cannot be forgotten. Per
+// field, same currency, the new row carrying a Rejected mask:
+//
+//  1. the vendor supplies x: take it; field_sources[x] becomes the new row's
+//     marker for x (a Markit fill or a derivation), or is deleted;
+//  2. x is Rejected: NULL, key deleted (a gate refused it: never keep an
+//     earlier run's copy of a value that now fails);
+//  3. otherwise keep the stored value on 'ttm' rows (Yahoo keeps TTM revenue
+//     only at the latest point or two, so the history is ours to keep) and
+//     'quarter' snapshots, or when its effective source (field_sources[x],
+//     else the stored row's source) is a filing or Markit and not the new
+//     row's own source;
+//  4. otherwise, on 'annual' rows, NULL: a vendor value it no longer
+//     publishes, or a pre-000132 filing fill stored without a marker;
+//  5. a stored FILING row is taken over only when the vendor supplies revenue
+//     or net income for the period; otherwise it is left untouched. On a
+//     takeover every value kept from the filing row is marked
+//     'asx-filing-extraction' (rule 3's effective source does exactly
+//     that), and source_document_url/date survive only while a kept value
+//     still points at the filing;
+//  6. a currency change replaces the row and field_sources wholesale.
+//
+// Two further guards: a Markit row never takes over a stored Yahoo row (the
+// fallback never overwrites the primary's history), and a row with no value
+// (only a Rejected mask) is written only when a stored row exists for it,
+// so a mask never inserts an empty row. The pruned CTE deletes this code's
+// Markit annual row for a balance date Yahoo now publishes under a slightly
+// different date (52/53-week years: Markit's 28 June, Yahoo's 30 June), so a
+// fiscal year is never stored twice.
 
-// upsertArgs builds the statement's arguments; split out so tests can check
-// the column arrays line up without a database.
-func upsertArgs(code string, rows []PeriodRow, fetchedAt time.Time) []any {
+// Argument positions of upsertSQL / legacyUpsertSQL.
+const (
+	argCode = iota + 1
+	argFetchedAt
+	argPeriodTypes
+	argEnds
+	argFiscalYears
+	argCurrencies
+	argSources
+	argFieldSources
+	argRejected
+	argFirstValue
+)
+
+var (
+	// upsertSQL is the vendor statement over every column (000132 applied).
+	upsertSQL = buildUpsertSQL(fundamentalsColumns, true)
+	// legacyUpsertSQL is the fallback for a database without 000132.
+	legacyUpsertSQL = buildUpsertSQL(legacyColumns(), false)
+)
+
+// buildUpsertSQL renders the vendor upsert over cols. extended=false is the
+// pre-000132 statement: the 000129 column set, today's conflict policy
+// (COALESCE within one currency, the vendor's source wins) plus rule 2, no
+// field_sources, no pruning.
+func buildUpsertSQL(cols []fundamentalsColumn, extended bool) string {
+	var b strings.Builder
+	names := make([]string, len(cols))
+	for i, c := range cols {
+		names[i] = c.name
+	}
+	p := func(n int) string { return "$" + strconv.Itoa(n) }
+
+	// The input rows.
+	b.WriteString("WITH t AS (\n    SELECT u.period_type, u.period_end, u.fiscal_year, u.currency, u.source,\n")
+	b.WriteString("           COALESCE(NULLIF(u.field_sources, '')::jsonb, '{}'::jsonb) AS field_sources,\n")
+	b.WriteString("           COALESCE(NULLIF(u.rejected, '')::jsonb, '[]'::jsonb) AS rejected")
+	for _, n := range names {
+		b.WriteString(",\n           u." + n)
+	}
+	b.WriteString("\n    FROM unnest(\n        ")
+	b.WriteString(p(argPeriodTypes) + "::text[], " + p(argEnds) + "::date[], " + p(argFiscalYears) + "::int2[], " +
+		p(argCurrencies) + "::text[], " + p(argSources) + "::text[], " + p(argFieldSources) + "::text[], " + p(argRejected) + "::text[]")
+	for i := range names {
+		b.WriteString(",\n        " + p(argFirstValue+i) + "::float8[]")
+	}
+	b.WriteString("\n    ) AS u(period_type, period_end, fiscal_year, currency, source, field_sources, rejected")
+	for _, n := range names {
+		b.WriteString(", " + n)
+	}
+	b.WriteString(")\n)")
+
+	if extended {
+		b.WriteString(`, pruned AS (
+    DELETE FROM stock_fundamentals d
+    WHERE d.stock_code = $1
+      AND d.period_type = '` + periodAnnual + `'
+      AND d.source = '` + sourceMarkit + `'
+      AND EXISTS (SELECT 1 FROM t
+                  WHERE t.period_type = '` + periodAnnual + `' AND t.source = '` + sourceYahoo + `'
+                    AND t.period_end <> d.period_end
+                    AND abs(t.period_end - d.period_end) <= 7)
+    RETURNING 1
+)`)
+	}
+
+	// The insert.
+	b.WriteString("\nINSERT INTO stock_fundamentals AS f (\n    stock_code, period_type, period_end, fiscal_year, currency")
+	for _, n := range names {
+		b.WriteString(", " + n)
+	}
+	if extended {
+		b.WriteString(", field_sources")
+	}
+	b.WriteString(",\n    source, source_fetched_at, updated_at\n)\nSELECT $1, t.period_type, t.period_end, t.fiscal_year, t.currency")
+	for _, n := range names {
+		b.WriteString(", t." + n)
+	}
+	if extended {
+		b.WriteString(", t.field_sources")
+	}
+	b.WriteString(",\n       t.source, " + p(argFetchedAt) + "::timestamptz, now()\nFROM t\nWHERE num_nonnulls(")
+	for i, n := range names {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString("t." + n)
+	}
+	b.WriteString(") > 0\n   OR EXISTS (SELECT 1 FROM stock_fundamentals s\n              WHERE s.stock_code = $1 AND s.period_type = t.period_type AND s.period_end = t.period_end)\n")
+	b.WriteString("ON CONFLICT (stock_code, period_type, period_end) DO UPDATE SET\n")
+
+	rej := "(SELECT t.rejected FROM t WHERE t.period_type = EXCLUDED.period_type AND t.period_end = EXCLUDED.period_end)"
+	sameCur := "EXCLUDED.currency = f.currency"
+
+	set := func(col, expr string) { fmt.Fprintf(&b, "    %-19s = %s", col, expr) }
+	tail := func(last string) {
+		set("fiscal_year", "COALESCE(EXCLUDED.fiscal_year, f.fiscal_year),\n")
+		set("currency", "EXCLUDED.currency,\n")
+		set("source", "EXCLUDED.source,\n")
+		set("source_fetched_at", "EXCLUDED.source_fetched_at,\n")
+		set("updated_at", "now()"+last)
+	}
+
+	if !extended {
+		for _, n := range names {
+			set(n, fmt.Sprintf("CASE WHEN %s ? '%s' THEN NULL WHEN %s THEN COALESCE(EXCLUDED.%s, f.%s) ELSE EXCLUDED.%s END,\n",
+				rej, n, sameCur, n, n, n))
+		}
+		tail("")
+		return b.String()
+	}
+
+	// eff(x): where the stored value of x came from.
+	eff := func(n string) string { return "COALESCE(f.field_sources->>'" + n + "', f.source)" }
+	// keep(x): rule 3 (and rule 5 through it).
+	keep := func(n string) string {
+		return "(f." + n + " IS NOT NULL AND (f.period_type IN ('" + periodTTM + "', '" + periodQuarter + "') OR (" +
+			eff(n) + " IN ('" + sourceFiling + "', '" + sourceMarkit + "') AND " + eff(n) + " <> EXCLUDED.source)))"
+	}
+	// marker(x): the field_sources entry a kept value carries.
+	marker := func(n string) string {
+		return "CASE WHEN " + eff(n) + " = EXCLUDED.source THEN NULL ELSE " + eff(n) + " END"
+	}
+	// Per value column: a currency change takes the new row whole (rule 6); a
+	// Rejected field is NULL (rule 2); where rule 3/5 keeps the stored value
+	// the new one still wins when present (rule 1); otherwise the new value,
+	// which on an annual row may be NULL (rule 4).
+	for _, n := range names {
+		set(n, fmt.Sprintf("CASE WHEN NOT (%s) THEN EXCLUDED.%s\n", sameCur, n))
+		fmt.Fprintf(&b, "                          WHEN %s ? '%s' THEN NULL\n", rej, n)
+		fmt.Fprintf(&b, "                          WHEN %s THEN COALESCE(EXCLUDED.%s, f.%s)\n", keep(n), n, n)
+		fmt.Fprintf(&b, "                          ELSE EXCLUDED.%s END,\n", n)
+	}
+	set("field_sources", fmt.Sprintf("CASE WHEN NOT (%s) THEN EXCLUDED.field_sources ELSE jsonb_strip_nulls(jsonb_build_object(\n", sameCur))
+	for i, n := range names {
+		sep := ","
+		if i == len(names)-1 {
+			sep = ""
+		}
+		fmt.Fprintf(&b, "        '%s', CASE WHEN %s ? '%s' THEN NULL WHEN EXCLUDED.%s IS NOT NULL THEN EXCLUDED.field_sources->>'%s' WHEN %s THEN %s ELSE NULL END%s\n",
+			n, rej, n, n, n, keep(n), marker(n), sep)
+	}
+	b.WriteString("    )) END,\n")
+	// The filing document survives only while a kept value still points at
+	// the filing.
+	var keptFiling []string
+	for _, n := range names {
+		keptFiling = append(keptFiling, fmt.Sprintf("(EXCLUDED.%s IS NULL AND NOT (%s ? '%s') AND %s AND %s = '%s')",
+			n, rej, n, keep(n), eff(n), sourceFiling))
+	}
+	anyKeptFiling := "(" + sameCur + " AND (" + strings.Join(keptFiling, "\n         OR ") + "))"
+	set("source_document_url", fmt.Sprintf("CASE WHEN %s THEN f.source_document_url ELSE NULL END,\n", anyKeptFiling))
+	set("source_document_date", fmt.Sprintf("CASE WHEN %s THEN f.source_document_date ELSE NULL END,\n", anyKeptFiling))
+	tail("\n")
+	b.WriteString("WHERE (f.source <> '" + sourceFiling + "' OR EXCLUDED.revenue IS NOT NULL OR EXCLUDED.net_income IS NOT NULL)\n")
+	b.WriteString("  AND NOT (f.source = '" + sourceYahoo + "' AND EXCLUDED.source = '" + sourceMarkit + "')")
+	return b.String()
+}
+
+// upsertArgs builds the statement's arguments for cols (fundamentalsColumns
+// for upsertSQL, legacyColumns() for legacyUpsertSQL); split out so
+// tests can check the arrays line up with the placeholders without a
+// database.
+func upsertArgs(code string, rows []PeriodRow, fetchedAt time.Time, cols []fundamentalsColumn) []any {
 	n := len(rows)
 	periodTypes, ends, currencies, sources := make([]string, n), make([]string, n), make([]string, n), make([]string, n)
+	fieldSources, rejected := make([]string, n), make([]string, n)
 	fiscalYears := make([]*int16, n)
-	revenue, netIncome, epsBasic, epsDiluted := make([]*float64, n), make([]*float64, n), make([]*float64, n), make([]*float64, n)
-	ocf, fcf, shares := make([]*float64, n), make([]*float64, n), make([]*float64, n)
+	values := make([][]*float64, len(cols))
+	for j := range cols {
+		values[j] = make([]*float64, n)
+	}
 	for i, r := range rows {
 		periodTypes[i] = r.PeriodType
 		ends[i] = r.PeriodEnd.Format("2006-01-02")
 		fiscalYears[i] = r.FiscalYear
 		currencies[i] = r.Currency
-		revenue[i], netIncome[i], epsBasic[i], epsDiluted[i] = r.Revenue, r.NetIncome, r.EPSBasic, r.EPSDiluted
-		ocf[i], fcf[i], shares[i] = r.OperatingCashFlow, r.FreeCashFlow, r.SharesOutstanding
 		sources[i] = r.Source
+		fieldSources[i] = jsonText(r.FieldSources)
+		rejected[i] = jsonText(r.Rejected)
+		for j, c := range cols {
+			values[j][i] = c.get(&rows[i])
+		}
 	}
-	return []any{
-		code, fetchedAt.UTC(),
-		periodTypes, ends, fiscalYears, currencies,
-		revenue, netIncome, epsBasic, epsDiluted,
-		ocf, fcf, shares, sources,
+	args := []any{code, fetchedAt.UTC(), periodTypes, ends, fiscalYears, currencies, sources, fieldSources, rejected}
+	for j := range cols {
+		args = append(args, values[j])
 	}
+	return args
+}
+
+// jsonText renders a FieldSources map or a Rejected list for the statement
+// ("" for empty, which the SQL reads as {} / []).
+func jsonText(v any) string {
+	switch x := v.(type) {
+	case map[string]string:
+		if len(x) == 0 {
+			return ""
+		}
+	case []string:
+		if len(x) == 0 {
+			return ""
+		}
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 func (s *pgStore) UpsertPeriods(ctx context.Context, code string, rows []PeriodRow, fetchedAt time.Time) error {
 	if len(rows) == 0 {
 		return nil
 	}
-	if _, err := s.pool.Exec(ctx, upsertSQL, upsertArgs(code, rows, fetchedAt)...); err != nil {
+	fund, _, err := s.schema(ctx)
+	if err != nil {
+		return err
+	}
+	if fund {
+		_, err := s.pool.Exec(ctx, upsertSQL, upsertArgs(code, rows, fetchedAt, fundamentalsColumns)...)
+		if err == nil {
+			return nil
+		}
+		if !undefinedColumn(err) {
+			return fmt.Errorf("upsert %s: %w", code, err)
+		}
+		s.downgrade(true)
+	}
+	legacy := make([]PeriodRow, 0, len(rows))
+	for _, r := range rows {
+		if r.PeriodType != periodQuarter { // snapshots carry only 000132 columns
+			legacy = append(legacy, r)
+		}
+	}
+	if len(legacy) == 0 {
+		return nil
+	}
+	if _, err := s.pool.Exec(ctx, legacyUpsertSQL, upsertArgs(code, legacy, fetchedAt, legacyColumns())...); err != nil {
 		return fmt.Errorf("upsert %s: %w", code, err)
 	}
 	return nil
 }
 
+// ---------------------------------------------------------------------------
+// The attempt log (§2.3).
+
 // recordAttemptSQL: last_success_at and periods_loaded move only on a
 // success, so a failed retry never hides when the code last loaded.
+// consecutive_empty counts empty answers in a row and resets on anything
+// else; median_k moves only when the attempt measured it ($7).
 const recordAttemptSQL = `
+INSERT INTO stock_fundamentals_sync AS s (
+    stock_code, last_attempt_at, last_success_at, last_error, periods_loaded,
+    last_outcome, consecutive_empty, median_k)
+VALUES ($1, $2::timestamptz, CASE WHEN $3::bool THEN $2::timestamptz END, NULLIF($4::text, ''), $5::int,
+        $6::text, CASE WHEN $6::text = '` + outcomeEmpty + `' THEN 1 ELSE 0 END, CASE WHEN $7::bool THEN $8::float8 END)
+ON CONFLICT (stock_code) DO UPDATE SET
+    last_attempt_at   = EXCLUDED.last_attempt_at,
+    last_success_at   = CASE WHEN $3::bool THEN EXCLUDED.last_attempt_at ELSE s.last_success_at END,
+    last_error        = EXCLUDED.last_error,
+    periods_loaded    = CASE WHEN $3::bool THEN EXCLUDED.periods_loaded ELSE s.periods_loaded END,
+    last_outcome      = EXCLUDED.last_outcome,
+    consecutive_empty = CASE WHEN $6::text = '` + outcomeEmpty + `' THEN LEAST(s.consecutive_empty + 1, 32767) ELSE 0 END,
+    median_k          = CASE WHEN $7::bool THEN $8::float8 ELSE s.median_k END`
+
+// recordAttemptLegacySQL is the 000129 statement (no last_outcome,
+// consecutive_empty or median_k).
+const recordAttemptLegacySQL = `
 INSERT INTO stock_fundamentals_sync AS s (stock_code, last_attempt_at, last_success_at, last_error, periods_loaded)
 VALUES ($1, $2::timestamptz, CASE WHEN $3::bool THEN $2::timestamptz END, NULLIF($4::text, ''), $5::int)
 ON CONFLICT (stock_code) DO UPDATE SET
@@ -228,16 +686,105 @@ ON CONFLICT (stock_code) DO UPDATE SET
     last_error      = EXCLUDED.last_error,
     periods_loaded  = CASE WHEN $3::bool THEN EXCLUDED.periods_loaded ELSE s.periods_loaded END`
 
-func (s *pgStore) RecordAttempt(ctx context.Context, a attempt) error {
+// recordAttemptArgs builds recordAttemptSQL's arguments. A median_k that
+// could not be stored (non-finite, implausible) is written as NULL.
+func recordAttemptArgs(a attempt) []any {
 	errText := a.Err
 	if len(errText) > 1000 {
 		errText = errText[:1000]
 	}
-	if _, err := s.pool.Exec(ctx, recordAttemptSQL, a.Code, a.At.UTC(), a.Success, errText, a.PeriodsLoaded); err != nil {
+	var k *float64
+	if a.SetMedianK && a.MedianK != nil && storable(*a.MedianK) {
+		k = a.MedianK
+	}
+	outcome := a.Outcome
+	if outcome == "" {
+		outcome = outcomeFailed
+		if a.Success {
+			outcome = outcomeLoaded
+		}
+	}
+	return []any{a.Code, a.At.UTC(), a.Success, errText, a.PeriodsLoaded, outcome, a.SetMedianK, k}
+}
+
+func (s *pgStore) RecordAttempt(ctx context.Context, a attempt) error {
+	_, syncExt, err := s.schema(ctx)
+	if err != nil {
+		return err
+	}
+	args := recordAttemptArgs(a)
+	if syncExt {
+		_, err := s.pool.Exec(ctx, recordAttemptSQL, args...)
+		if err == nil {
+			return nil
+		}
+		if !undefinedColumn(err) {
+			return fmt.Errorf("record attempt %s: %w", a.Code, err)
+		}
+		s.downgrade(false)
+	}
+	if _, err := s.pool.Exec(ctx, recordAttemptLegacySQL, args[:5]...); err != nil {
 		return fmt.Errorf("record attempt %s: %w", a.Code, err)
 	}
 	return nil
 }
+
+// ---------------------------------------------------------------------------
+// The run lease (§2.4, §3.8): one fundamentals/filings writer at a time.
+
+// leaseName is the one lease row the job uses.
+const leaseName = "picks"
+
+// claimLeaseSQL takes the lease when it is free, expired, or already held by
+// this holder (a Cloud Run task RETRY runs in the same execution as the
+// attempt that died holding it).
+const claimLeaseSQL = `
+INSERT INTO picks_run_lease AS l (name, holder, expires_at)
+VALUES ('` + leaseName + `', $1, now() + interval '4 hours')
+ON CONFLICT (name) DO UPDATE SET holder = EXCLUDED.holder, expires_at = EXCLUDED.expires_at
+WHERE l.expires_at < now() OR l.holder = EXCLUDED.holder
+RETURNING holder`
+
+const (
+	leaseHolderSQL  = `SELECT holder || ' (until ' || to_char(expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') || ' UTC)' FROM picks_run_lease WHERE name = '` + leaseName + `'`
+	extendLeaseSQL  = `UPDATE picks_run_lease SET expires_at = now() + interval '4 hours' WHERE name = '` + leaseName + `' AND holder = $1`
+	releaseLeaseSQL = `DELETE FROM picks_run_lease WHERE name = '` + leaseName + `' AND holder = $1`
+)
+
+func (s *pgStore) ClaimLease(ctx context.Context, holder string) (bool, string, error) {
+	var got string
+	err := s.pool.QueryRow(ctx, claimLeaseSQL, holder).Scan(&got)
+	switch {
+	case err == nil:
+		return true, got, nil
+	case undefinedTable(err):
+		return false, "", errLeaseAbsent
+	case !errors.Is(err, pgx.ErrNoRows):
+		return false, "", fmt.Errorf("claim lease: %w", err)
+	}
+	var current string
+	if err := s.pool.QueryRow(ctx, leaseHolderSQL).Scan(&current); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return false, "", fmt.Errorf("read lease holder: %w", err)
+	}
+	return false, current, nil
+}
+
+func (s *pgStore) ExtendLease(ctx context.Context, holder string) error {
+	if _, err := s.pool.Exec(ctx, extendLeaseSQL, holder); err != nil && !undefinedTable(err) {
+		return fmt.Errorf("extend lease: %w", err)
+	}
+	return nil
+}
+
+func (s *pgStore) ReleaseLease(ctx context.Context, holder string) error {
+	if _, err := s.pool.Exec(ctx, releaseLeaseSQL, holder); err != nil && !undefinedTable(err) {
+		return fmt.Errorf("release lease: %w", err)
+	}
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// The view refresh.
 
 // refreshSQL is ONE simple-protocol command on purpose (the reason
 // shortdatasync's refreshAllSQL is one string): the timeout must be disarmed

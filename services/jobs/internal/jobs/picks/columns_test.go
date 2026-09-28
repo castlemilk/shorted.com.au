@@ -230,32 +230,39 @@ func TestSanitizeRowsNewColumnsAndProvenance(t *testing.T) {
 	rows := []PeriodRow{
 		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "USD", Source: sourceYahoo,
 			TotalAssets: f64(108e9), TotalDebt: f64(math.Inf(1)), CapitalExpenditure: f64(-1e19), NetDebt: f64(1e-13),
-			GrossProfit:        f64(0),
-			FieldSources:       map[string]string{"revenue": sourceMarkit, "operating_cash_flow": fieldSourceDerivedFCFMinusCapex},
+			GrossProfit: f64(0), Revenue: f64(1), OperatingCashFlow: f64(2),
+			FieldSources:       map[string]string{"revenue": sourceMarkit, "operating_cash_flow": fieldSourceDerivedFCFMinusCapex, "net_income": sourceMarkit},
 			Rejected:           []string{"net_income"},
 			SourceDocumentURL:  "https://www.asx.com.au/asxpdf/20260819/pdf/example.pdf",
 			SourceDocumentDate: &doc},
-		// Only a new column, and it is not storable: nothing survives.
+		// Only a new column, and it is not storable: the row survives as a
+		// mask, so the stored value is nulled rather than kept.
 		{PeriodType: periodAnnual, PeriodEnd: date("2025-06-30"), Currency: "USD", Source: sourceYahoo,
 			TotalEquity: f64(math.NaN())},
 	}
 	out, rejected := sanitizeRows(rows)
 	assert.Equal(t, 4, rejected, "Inf total_debt, -1e19 capex, 1e-13 net_debt, NaN total_equity")
-	require.Len(t, out, 1, "a row whose only value is a non-storable new column is dropped")
+	require.Len(t, out, 2)
 	r := out[0]
 	assert.Nil(t, r.TotalDebt)
 	assert.Nil(t, r.CapitalExpenditure)
 	assert.Nil(t, r.NetDebt)
-	assert.Equal(t, 108e9, *r.TotalAssets, "a row carrying only new columns is a row")
+	assert.Equal(t, 108e9, *r.TotalAssets, "a row carrying new columns is a row")
 	assert.Equal(t, 0.0, *r.GrossProfit, "zero is a value in a new column too")
+	assert.Equal(t, []string{"net_income", "capital_expenditure", "total_debt", "net_debt"}, r.Rejected,
+		"a vendor value that fails the range check joins the mask")
 
-	// The write funnel passes provenance through untouched.
+	// Provenance survives for present values only; the document passes
+	// through untouched.
 	assert.Equal(t, map[string]string{"revenue": sourceMarkit, "operating_cash_flow": fieldSourceDerivedFCFMinusCapex}, r.FieldSources)
-	assert.Equal(t, []string{"net_income"}, r.Rejected)
 	assert.Equal(t, "https://www.asx.com.au/asxpdf/20260819/pdf/example.pdf", r.SourceDocumentURL)
 	require.NotNil(t, r.SourceDocumentDate)
 	assert.Equal(t, doc, *r.SourceDocumentDate)
 
-	assert.True(t, math.IsInf(*rows[0].TotalDebt, 1), "the input slice is not mutated")
-}
+	assert.False(t, out[1].hasValues())
+	assert.Equal(t, []string{"total_equity"}, out[1].Rejected)
 
+	assert.True(t, math.IsInf(*rows[0].TotalDebt, 1), "the input slice is not mutated")
+	assert.Equal(t, []string{"net_income"}, rows[0].Rejected)
+	assert.Len(t, rows[0].FieldSources, 3)
+}

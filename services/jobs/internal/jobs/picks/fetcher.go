@@ -9,12 +9,16 @@ import (
 // Period types stored in stock_fundamentals.period_type. No vendor we use
 // carries half-year totals for ASX companies (Yahoo's quarterly P&L series are
 // empty for the ASX); 'half' rows come only from company filings
-// (-mode filings, filings_ingest.go). 'quarter' is allowed by the table's
-// CHECK and written by nothing.
+// (-mode filings, filings_ingest.go). 'quarter' is a BALANCE SNAPSHOT (plan
+// fundamentals-coverage.md §2.1, §3.3): the balance-sheet lines and the share
+// count at a Yahoo quarterly* point, never a flow line. ASX companies report
+// half-yearly, so most of those points sit on half-year ends; they are still
+// stored as 'quarter', never as 'half'.
 const (
-	periodAnnual = "annual"
-	periodHalf   = "half"
-	periodTTM    = "ttm"
+	periodAnnual  = "annual"
+	periodHalf    = "half"
+	periodTTM     = "ttm"
+	periodQuarter = "quarter"
 )
 
 // Source identifiers stored in stock_fundamentals.source (VARCHAR(32)).
