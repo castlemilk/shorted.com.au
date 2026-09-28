@@ -14,7 +14,7 @@ import {
   AccordionTrigger,
 } from "~/@/components/ui/accordion";
 import { Badge } from "~/@/components/ui/badge";
-import type { EnrichedCompanyMetadata } from "~/@/types/company-metadata";
+import type { CompanyInsightsData } from "./company-insights-data";
 import { KeyPeopleList } from "./key-people";
 import {
   Building2,
@@ -27,7 +27,12 @@ import {
 } from "lucide-react";
 
 interface CompanyInsightsCardProps {
-  data: EnrichedCompanyMetadata;
+  /**
+   * Only the fields the card reads (pickCompanyInsights): the enriched
+   * record's financial_statements JSONB must not cross into this client
+   * component's props.
+   */
+  data: CompanyInsightsData;
 }
 
 interface SectionDef {
@@ -41,8 +46,8 @@ interface SectionDef {
 /**
  * Consolidated company research card: one card, one fact per section,
  * progressive disclosure via accordion instead of six stacked cards.
- * Renders on the Overview tab only — the Financials tab shows reports
- * via FinancialReportsSection instead of repeating this content.
+ * Renders on the Overview tab only; the Financials tab lists the company's
+ * filings instead of repeating this content.
  */
 export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
   const validPeople = data.key_people?.filter((p) => p.name?.trim()) ?? [];

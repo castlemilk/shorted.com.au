@@ -1,6 +1,7 @@
 import { describe, it, expect } from "@jest/globals";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CompanyInsightsCard } from "../company-insights-card";
+import { pickCompanyInsights } from "../company-insights-data";
 import type { EnrichedCompanyMetadata } from "~/@/types/company-metadata";
 
 const mockEnrichedData: EnrichedCompanyMetadata = {
@@ -127,5 +128,48 @@ describe("CompanyInsightsCard", () => {
 
     const { container } = render(<CompanyInsightsCard data={emptyData} />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("pickCompanyInsights", () => {
+  it("passes only the fields the card reads, never the statements JSONB", () => {
+    const heavy: EnrichedCompanyMetadata = {
+      ...mockEnrichedData,
+      financial_reports: [
+        { title: "Annual Report", date: "2025-08-20", type: "annual_report", url: "https://x/a.pdf" },
+      ],
+      financial_statements: {
+        stock_code: "WES",
+        success: true,
+        annual: {
+          income_statement: {
+            "2025-06-30": { "Total Revenue": 44_000_000_000 },
+          },
+        },
+        info: { market_cap: 90_000_000_000 },
+      },
+    };
+    const picked = pickCompanyInsights(heavy);
+    expect(Object.keys(picked).sort()).toEqual(
+      [
+        "company_history",
+        "company_name",
+        "competitive_advantages",
+        "enhanced_summary",
+        "key_people",
+        "recent_developments",
+        "risk_factors",
+        "tags",
+      ].sort(),
+    );
+    const serialised = JSON.stringify(picked);
+    expect(serialised).not.toContain("Total Revenue");
+    expect(serialised).not.toContain("financial_statements");
+    expect(serialised).not.toContain("financial_reports");
+
+    // The card renders the same from the picked fields alone.
+    render(<CompanyInsightsCard data={picked} />);
+    expect(screen.getByText("conglomerate")).toBeInTheDocument();
+    expect(screen.getByText("Key people")).toBeInTheDocument();
   });
 });

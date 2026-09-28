@@ -31,6 +31,9 @@ import { GitCompare, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { cn } from "~/@/lib/utils";
 
+// A figure we do not hold reads "n/a" (DESIGN.md: never 0, never a dash).
+const NOT_HELD = "n/a";
+
 interface PeerComparisonTableProps {
   stockCode: string;
   limit?: number;
@@ -229,7 +232,7 @@ export function PeerComparisonTable({
                       </span>
                     </>
                   ) : (
-                    "—"
+                    NOT_HELD
                   )}
                 </TableCell>
                 <TableCell
@@ -243,18 +246,18 @@ export function PeerComparisonTable({
                 >
                   {stock.priceChange1m !== 0
                     ? `${stock.priceChange1m > 0 ? "+" : ""}${stock.priceChange1m.toFixed(1)}%`
-                    : "—"}
+                    : NOT_HELD}
                 </TableCell>
                 <TableCell className="text-right text-sm tabular-nums hidden sm:table-cell">
-                  {stock.marketCap > 0 ? formatMarketCap(stock.marketCap) : "—"}
+                  {stock.marketCap > 0 ? formatMarketCap(stock.marketCap) : NOT_HELD}
                 </TableCell>
                 <TableCell className="text-right text-sm tabular-nums hidden md:table-cell">
-                  {stock.peRatio > 0 ? stock.peRatio.toFixed(1) : "—"}
+                  {stock.peRatio > 0 ? stock.peRatio.toFixed(1) : NOT_HELD}
                 </TableCell>
                 <TableCell className="text-right text-sm tabular-nums hidden md:table-cell">
                   {stock.dividendYield > 0
                     ? `${stock.dividendYield.toFixed(2)}%`
-                    : "—"}
+                    : NOT_HELD}
                 </TableCell>
               </TableRow>
             ))}

@@ -24,17 +24,16 @@ import CompanyStats, {
 import CompanyInfo, {
   CompanyInfoPlaceholder,
 } from "~/@/components/ui/companyInfo";
-import CompanyFinancials,{
-  CompanyFinancialsPlaceholder,
-} from "~/@/components/ui/companyFinancials";
-import {
-  EnrichedCompanySection,
-  FinancialReportsSection,
-  FinancialStatementsSection,
-} from "~/@/components/company/enriched-company-section";
+import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
 import { CompanyTaxCard } from "~/@/components/company/company-tax-card";
-import { FinancialDigest } from "~/@/components/company/financial-digest";
-import { FundamentalsBlock } from "~/@/components/stocks/fundamentals-block";
+import {
+  FinancialReports,
+  hasListedReports,
+} from "~/@/components/company/financial-reports";
+import { FinancialsTab } from "~/@/components/stocks/financials-tab";
+import { FundamentalsSummary } from "~/@/components/stocks/fundamentals-summary";
+import { StrategyFitCard } from "~/@/components/stocks/strategy-fit-card";
+import { latestResultSourceDocument } from "~/@/components/stocks/fundamentals-model";
 import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
 import { CommunityTab } from "~/@/components/company/community/community-tab";
 import { StockEvidencePanelClient } from "~/@/components/company/stock-evidence-panel-client";
@@ -73,11 +72,12 @@ import { StockStateExposure } from "~/@/components/economy/stock-state-exposure"
 import { getStateExposureIndex } from "~/app/actions/getEconomy";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
-import {
-  getStockFinancialHighlights,
-  type StockFinancialHighlight,
-} from "~/app/actions/reports/getReportData";
 import { getStockFundamentals } from "~/app/actions/getStockFundamentals";
+import {
+  getStockStrategyFit,
+  type StockStrategyFit,
+} from "~/app/actions/getStockStrategyFit";
+import { getEnrichedCompanyMetadata } from "~/app/actions/company-metadata";
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
@@ -250,17 +250,26 @@ const Page = async ({ params }: PageProps) => {
   // but returns undefined for transient backend errors.
   let stock: Awaited<ReturnType<typeof getStockOrNotFound>> = undefined;
   let relatedData: Awaited<ReturnType<typeof getRelatedStocks>>;
-  // Financial highlights (Financials tab) fetched in the same parallel batch —
-  // cached 24h, degrades gracefully to an empty list.
-  const financialHighlightsPromise = getStockFinancialHighlights([
-    stockCode,
-  ]).catch(
-    (): Record<string, StockFinancialHighlight[]> => ({}),
-  );
-  // Reported annual fundamentals (Financials tab) — cached 24h, degrades to
-  // null (the block then renders nothing), same batch as the highlights.
+  // Fundamentals (Financials tab + the Overview summary): every period type,
+  // the ratio row, coverage and the latest filing summary. Cached 24h and
+  // tag-busted by the picks job; degrades to null (the tab then renders its
+  // filings and tax card only).
   const fundamentalsPromise = getStockFundamentals(stockCode).catch(
     (): Awaited<ReturnType<typeof getStockFundamentals>> => null,
+  );
+  // Strategy fit (Overview). NOT in the critical Promise.all below: the action
+  // throws on any failure (4 s abort, never cached) and this catch hides the
+  // card, so a slow or older API can never fail the ISR render.
+  const strategyFitPromise = getStockStrategyFit(stockCode).catch(
+    (err: unknown): StockStrategyFit | null => {
+      console.warn(`[stock page] strategy fit unavailable for ${stockCode}:`, err);
+      return null;
+    },
+  );
+  // The company's filings for the Financials tab. The same React-cached
+  // getStockDetails read the Overview's company card makes, so no extra call.
+  const enrichedPromise = getEnrichedCompanyMetadata(stockCode).catch(
+    (): Awaited<ReturnType<typeof getEnrichedCompanyMetadata>> => null,
   );
   // Latest headlines for the crawlable research section below the tabs —
   // ISR-safe accessor, degrades to an empty list.
@@ -300,9 +309,11 @@ const Page = async ({ params }: PageProps) => {
     );
   }
 
-  const financialHighlightsMap = await financialHighlightsPromise;
-  const financialHighlights = financialHighlightsMap?.[stockCode] ?? [];
   const fundamentals = await fundamentalsPromise;
+  const strategyFit = await strategyFitPromise;
+  const enriched = await enrichedPromise;
+  const financialReports = enriched?.financial_reports ?? [];
+  const sourceDocument = latestResultSourceDocument(fundamentals);
   const newsArticles = await stockNewsPromise;
   const latestShortDate = await latestShortDatePromise;
   const stateExposureIndex = await stateExposureIndexPromise;
@@ -644,6 +655,21 @@ const Page = async ({ params }: PageProps) => {
               </details>
             )}
 
+            {/* Crawlable fundamentals paragraph: server-rendered prose from
+                the figures the API holds, omitted (never guessed) without a
+                held result. The Financials tab itself is not in the SSR HTML
+                (inactive tab panels do not render), so this is what crawlers
+                read about the company's results. */}
+            <FundamentalsSummary
+              stockCode={stockCode}
+              companyName={cleanCompanyName(stock.name || stockCode, stockCode)}
+              fundamentals={fundamentals}
+            />
+
+            {/* How each picker strategy reads this stock, with crawlable
+                links to /picks/<id>. Hidden when the fit fetch failed. */}
+            {strategyFit ? <StrategyFitCard fit={strategyFit} /> : null}
+
             {/* Consolidated company research card — the ONLY place the
                 enriched prose renders (the Financials tab shows reports
                 + metrics only, no duplicated company content). */}
@@ -758,17 +784,23 @@ const Page = async ({ params }: PageProps) => {
           </>
         }
         financialsContent={
-          <div className="flex flex-col gap-4 md:gap-6">
-            <FinancialDigest highlights={financialHighlights} />
-            {/* Renders nothing for a stock without fundamentals coverage. */}
-            <FundamentalsBlock fundamentals={fundamentals} />
-            <Suspense fallback={<CompanyFinancialsPlaceholder />}>
-              <CompanyFinancials stockCode={stockCode} />
-            </Suspense>
-            <FinancialStatementsSection stockCode={stockCode} />
-            <CompanyTaxCard stockCode={stockCode} />
-            <FinancialReportsSection stockCode={stockCode} />
-          </div>
+          // Latest result, Key ratios and the statements island from the
+          // fundamentals API, then the company's filings, then the tax card
+          // LAST. The stale "Key metrics" card and the raw extraction tiles
+          // are gone (docs/plans/fundamentals-coverage.md §7.1).
+          <FinancialsTab
+            stockCode={stockCode}
+            fundamentals={fundamentals}
+            hasFilings={hasListedReports(financialReports)}
+            reports={
+              <FinancialReports
+                reports={financialReports}
+                stockCode={stockCode}
+                sourceDocumentUrl={sourceDocument?.url ?? ""}
+              />
+            }
+            taxCard={<CompanyTaxCard stockCode={stockCode} />}
+          />
         }
         communityContent={
           <CommunityTab
