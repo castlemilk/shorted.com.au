@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 )
 
 // StockPriceContext holds price data for enriching LLM context
@@ -676,31 +678,23 @@ func (c *DataCollector) getFinancialHighlights(ctx context.Context, codes []stri
 	defer rows.Close()
 
 	result := make(map[string][]FinancialHighlight)
+	droppedTotal := 0
 	for rows.Next() {
 		var code, title, reportType, reportDate, metricsJSON string
 		if err := rows.Scan(&code, &title, &reportType, &reportDate, &metricsJSON); err != nil {
 			log.Printf("WARNING: failed to scan financial highlight row: %v", err)
 			continue
 		}
-		// Metrics can be map[string]object or map[string][]object — normalize to []object
-		var rawMetrics map[string]json.RawMessage
-		if err := json.Unmarshal([]byte(metricsJSON), &rawMetrics); err != nil {
+		metrics, dropped, err := trustedHighlightMetrics(metricsJSON)
+		if err != nil {
 			log.Printf("WARNING: failed to parse metrics for %s: %v", code, err)
 			continue
 		}
-		metrics := make(map[string][]map[string]string)
-		for key, raw := range rawMetrics {
-			// Try array first
-			var arr []map[string]string
-			if err := json.Unmarshal(raw, &arr); err == nil {
-				metrics[key] = arr
-				continue
-			}
-			// Fall back to single object
-			var single map[string]string
-			if err := json.Unmarshal(raw, &single); err == nil {
-				metrics[key] = []map[string]string{single}
-			}
+		droppedTotal += dropped
+		// A report whose every entry failed the trust funnel carries nothing
+		// for the prompt; it must not take one of the company's two slots.
+		if len(metrics) == 0 {
+			continue
 		}
 		// Keep only the most recent 2 reports per company to limit context size
 		if len(result[code]) >= 2 {
@@ -714,8 +708,52 @@ func (c *DataCollector) getFinancialHighlights(ctx context.Context, codes []stri
 		})
 	}
 
-	log.Printf("Fetched financial highlights for %d/%d stocks", len(result), len(codes))
+	log.Printf("Fetched financial highlights for %d/%d stocks (%d untrusted metric entries dropped)", len(result), len(codes), droppedTotal)
 	return result
+}
+
+// trustedHighlightMetrics is the weekly-report funnel over one stored
+// financial_report_extractions.metrics value (docs/plans/fundamentals-coverage.md
+// 4.1): every entry the extractor could not align to its document, or whose
+// quote is the extraction prompt's own few-shot example echoed back, is dropped
+// (extractiontrust.TrustedEntries), and the extractor's provenance keys
+// (alignment, char_start, char_end) are stripped, before anything reaches the
+// report prompt or the stored snapshot. Measured on prod 2026-09-28, the old
+// example's revenue $5,142m / NPAT $1,823m / EPS 94.2c was stored for BHP, CBA,
+// DRO, EDV and MSB and reached the /reports/weekly highlight tiles.
+//
+// A class may be stored as one object or as a list; both are read and every
+// class is normalised to a list. Values are kept as strings (the prompt's
+// shape): a JSON number is formatted, a bool is spelled, anything else (null,
+// an object, a list) is left out of the entry. A class with no surviving entry
+// is omitted. dropped counts the entries removed.
+func trustedHighlightMetrics(metricsJSON string) (metrics map[string][]map[string]string, dropped int, err error) {
+	var rawMetrics map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(metricsJSON), &rawMetrics); err != nil {
+		return nil, 0, err
+	}
+	metrics = make(map[string][]map[string]string)
+	for key, raw := range rawMetrics {
+		entries, d := extractiontrust.TrustedEntries(raw)
+		dropped += d
+		for _, entry := range entries {
+			out := make(map[string]string, len(entry))
+			for k, v := range entry {
+				switch x := v.(type) {
+				case string:
+					out[k] = x
+				case float64:
+					out[k] = strconv.FormatFloat(x, 'f', -1, 64)
+				case bool:
+					out[k] = strconv.FormatBool(x)
+				}
+			}
+			if len(out) > 0 {
+				metrics[key] = append(metrics[key], out)
+			}
+		}
+	}
+	return metrics, dropped, nil
 }
 
 // getStockPrices fetches price data from stock_prices and stock_price_changes for a list of stock codes
