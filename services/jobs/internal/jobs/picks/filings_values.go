@@ -38,29 +38,51 @@ var (
 		`\bcash (?:npat|earnings|eps)\b|\btotal comprehensive income\b|` +
 		`\b(?:network|online|channel) sales\b|\btotal transaction value\b|\bttv\b`)
 
-	lossRe   = regexp.MustCompile(`(?i)\bloss\b`)
-	profitRe = regexp.MustCompile(`(?i)\bprofit\b`)
+	// Accounting negatives around a money figure: the figure wrapped in
+	// parentheses with its currency and scale ("($3.2m)", "(US$3.2
+	// million)", "(2.1c)"), or a minus in front of its currency ("-$3.2m",
+	// "−3.2" with U+2212).
+	wrapOpenRe    = regexp.MustCompile(`\(\s*` + currencyPrefix + `\$\s*$`)
+	wrapCloseRe   = regexp.MustCompile(`(?i)^\s*(?:(?:billion|bn|b|million|mn|mill|m|thousand|k|cents?|c|cps)\b|¢)?\.?\s*\)`)
+	minusBeforeRe = regexp.MustCompile(`(?:^|[\s(:])(?:[-\x{2212}]` + currencyPrefix + `\$|\x{2212})\s*$`)
+	// thousandsSepRe: a thousands separator inside a number ("45,213").
+	thousandsSepRe = regexp.MustCompile(`\d,\d`)
 )
+
+// currencyPrefix: the letters a dollar sign may carry (A$, AU$, US$, NZ$,
+// C$, HK$, S$).
+const currencyPrefix = `(?:A|AU|US|NZ|C|HK|S)?\s?`
+
+// reasonSignAmbiguous: the quote's words, or its words and the value
+// attribute, give the figure both a loss and a profit sign. Counted at gate 5
+// (gateSignAmbiguous) and withheld.
+const reasonSignAmbiguous = "sign ambiguous"
 
 // statutory reports whether a quote passes gate 5.
 func statutory(text string) bool { return !nonStatutoryRe.MatchString(text) }
 
 // textNumber is one number found in a quote, with what surrounds it.
 type textNumber struct {
-	value    float64
-	negative bool   // parenthesised or signed
+	value float64
+	// negative: the number carries its own sign: a minus, parentheses around
+	// the digits ("(12.3)") or around the whole money figure ("($3.2m)").
+	negative bool
 	dollar   bool   // preceded by $ (A$, US$, ...)
 	scale    string // billion | million | thousand | ""
 	after    string // the text right after it (lower case, for unit words)
 	digits   int    // integer digits, separators excluded
 	pos      int    // byte offset in the quote
+	end      int    // byte offset just past the number
+	// amount: the number reads as an amount rather than a date, a year or a
+	// label digit: a currency sign, a scale word, a cents unit, a percent,
+	// decimals or a thousands separator. It ends a comparison's scope.
+	amount bool
 }
 
 func findNumbers(text string) []textNumber {
 	var out []textNumber
 	for _, loc := range numberRe.FindAllStringIndex(text, -1) {
 		raw := text[loc[0]:loc[1]]
-		neg := strings.HasPrefix(raw, "(") && strings.HasSuffix(raw, ")") || strings.HasPrefix(strings.TrimPrefix(raw, "("), "-")
 		clean := strings.NewReplacer("(", "", ")", "", ",", "", "-", "").Replace(raw)
 		v, err := strconv.ParseFloat(clean, 64)
 		if err != nil {
@@ -70,7 +92,7 @@ func findNumbers(text string) []textNumber {
 		if i := strings.IndexByte(clean, '.'); i >= 0 {
 			intPart = clean[:i]
 		}
-		n := textNumber{value: v, negative: neg, digits: len(strings.TrimLeft(intPart, "0")), pos: loc[0]}
+		n := textNumber{value: v, digits: len(strings.TrimLeft(intPart, "0")), pos: loc[0], end: loc[1]}
 		before := strings.TrimRight(text[:loc[0]], " ")
 		n.dollar = strings.HasSuffix(before, "$")
 		rest := text[loc[1]:]
@@ -84,10 +106,18 @@ func findNumbers(text string) []textNumber {
 				n.scale = "thousand"
 			}
 		}
-		if len(rest) > 40 {
-			rest = rest[:40]
+		opened := strings.HasPrefix(raw, "(") || wrapOpenRe.MatchString(text[:loc[0]])
+		closed := strings.HasSuffix(raw, ")") || wrapCloseRe.MatchString(rest)
+		n.negative = opened && closed ||
+			strings.HasPrefix(strings.TrimPrefix(raw, "("), "-") ||
+			minusBeforeRe.MatchString(text[:loc[0]])
+		short := rest
+		if len(short) > 40 {
+			short = short[:40]
 		}
-		n.after = strings.ToLower(rest)
+		n.after = strings.ToLower(short)
+		n.amount = n.dollar || n.scale != "" || strings.Contains(raw, ".") || thousandsSepRe.MatchString(raw) ||
+			centsAfterRe.MatchString(n.after) || strings.HasPrefix(strings.TrimSpace(n.after), "%")
 		out = append(out, n)
 	}
 	return out
@@ -138,8 +168,9 @@ func filingMoney(entry map[string]any, col, docUnits string) (float64, string, b
 	millionsTable := millionsMarkerRe.MatchString(text)
 	thousandsTable := thousandsMarkerRe.MatchString(text)
 	docScale, hasDocScale := extractiontrust.DocumentMeta{Units: docUnits}.UnitsMultiplier()
-	found, negative := false, false
-	for _, n := range findNumbers(text) {
+	numbers := findNumbers(text)
+	var match *textNumber
+	for i, n := range numbers {
 		var interp []float64
 		switch n.scale {
 		case "billion":
@@ -164,25 +195,27 @@ func filingMoney(entry map[string]any, col, docUnits string) (float64, string, b
 		}
 		for _, v := range interp {
 			if v != 0 && approxEqual(v, math.Abs(mill)) {
-				found = true
-				negative = n.negative
+				match = &numbers[i]
 			}
 		}
-		if found {
+		if match != nil {
 			break
 		}
 	}
-	if !found {
+	if match == nil {
 		return 0, "value not found in its quote with an unambiguous scale", false
 	}
 	v := math.Abs(mill) * 1e6
 	switch col {
 	case "revenue":
-		if mill < 0 || negative {
+		if mill < 0 || match.negative {
 			return 0, "negative revenue", false
 		}
 	case "net_income":
-		loss := mill < 0 || negative || (lossRe.MatchString(text) && !profitRe.MatchString(text))
+		loss, ok := figureIsLoss(text, *match, numbers, mill < 0)
+		if !ok {
+			return 0, reasonSignAmbiguous, false
+		}
 		if loss {
 			v = -v
 		}
@@ -202,7 +235,6 @@ var (
 	dilutedRe        = regexp.MustCompile(`(?i)\bdiluted\b`)
 	bothEPSRe        = regexp.MustCompile(`(?i)\bbasic\s*(?:and|&|/)\s*diluted\b|\bdiluted\s*(?:and|&|/)\s*basic\b`)
 	basicRe          = regexp.MustCompile(`(?i)\bbasic\b`)
-	lossPerShareRe   = regexp.MustCompile(`(?i)\bloss(?:es)?\s+per\s+share\b|\bnegative\b`)
 	maxPlausibleEPS  = 1000.0 // dollars per share
 	epsDollarKeys    = []string{"value_dollars", "value_aud", "value_per_share"}
 	epsCentsKeys     = []string{"value_cents", "value_cps"}
@@ -238,11 +270,11 @@ func filingEPS(entry map[string]any) (epsReading, string, bool) {
 		return epsReading{}, "unparseable EPS value", false
 	}
 
+	numbers := findNumbers(text)
 	var match *textNumber
-	for _, n := range findNumbers(text) {
+	for i, n := range numbers {
 		if sameNumber(n.value, math.Abs(v)) && n.scale == "" {
-			n := n
-			match = &n
+			match = &numbers[i]
 			break
 		}
 	}
@@ -270,7 +302,11 @@ func filingEPS(entry map[string]any) (epsReading, string, bool) {
 	if unit == "cents" {
 		dollars /= 100
 	}
-	if v < 0 || match.negative || lossPerShareRe.MatchString(text) {
+	loss, signOK := figureIsLoss(text, *match, numbers, v < 0)
+	if !signOK {
+		return epsReading{}, reasonSignAmbiguous, false
+	}
+	if loss {
 		dollars = -dollars
 	}
 	if math.Abs(dollars) > maxPlausibleEPS {
@@ -314,6 +350,260 @@ func containsKey(keys []string, k string) bool {
 		}
 	}
 	return false
+}
+
+// ------------------------------------------------------------------ sign
+
+// signClass is the sign a word gives a figure.
+type signClass int
+
+const (
+	signNone signClass = iota
+	signProfit
+	signLoss
+	// signAmbiguous: the nearest sign word before the figure belongs to an
+	// amount tagged as a comparative ("a loss of $3.1m in the pcp became
+	// $45.2m"): it may or may not carry over to the figure, so neither sign
+	// is read.
+	signAmbiguous
+)
+
+var (
+	// signWordRe: the words that sign a net income or EPS figure. Group 1 is
+	// a loss word (loss, net loss, loss after tax, loss per share, deficit,
+	// negative), group 2 a profit word (profit, net profit, profit after tax,
+	// NPAT, NPATA, earnings, earnings per share, EPS).
+	signWordRe = regexp.MustCompile(`(?i)\b(?:(loss(?:es)?|deficit|negative)|(profit|npata?|earnings|eps))\b`)
+	// neutralSignRe: phrases holding a sign word that say nothing about the
+	// figure's sign, blanked before the sign words are read: a statement or
+	// line naming both ("statement of profit or loss", "profit and loss",
+	// "earnings/loss") and a partial item ("impairment losses", "loss on
+	// disposal", "retained earnings").
+	neutralSignRe = regexp.MustCompile(`(?i)\b(?:profit|earnings|income)\s*(?:or|and|/)\s*loss(?:es)?\b|` +
+		`\bloss(?:es)?\s*(?:or|and|/)\s*(?:profit|earnings)\b|` +
+		`\b(?:impairment|credit|fair[- ]value|foreign[- ]exchange|fx|currency|exchange|translation|actuarial|hedging|revaluation|derivative)\s+loss(?:es)?\b|` +
+		`\bloss(?:es)?\s+on\s+(?:the\s+)?(?:sale|disposal|revaluation|remeasurement|derecognition|extinguishment)\b|` +
+		`\bretained\s+earnings\b|\bearnings\s+guidance\b`)
+	// signComparisonLeadRe: gate 4's comparison vocabulary
+	// (comparisonLeadTerms: compared with, versus, vs, from as in "up from"
+	// and "down from", ...) anywhere before a sign word, plus the comparative
+	// period tags a sign word can follow ("pcp loss", "prior year loss").
+	signComparisonLeadRe = regexp.MustCompile(`(?i)\b(?:` + comparisonLeadTerms + `)\b|` +
+		`\bp\.?c\.?p\b|\b(?:prior|previous)\s+corresponding\s+(?:period|half|year)\b|` +
+		`\b(?:last|prior|previous)\s+(?:financial\s+)?(?:year|half)\b`)
+	// signAfterRe: a sign word IMMEDIATELY after a figure, past its scale and
+	// unit ("$12.3 million loss", "12.3m net loss after tax", "3.4 cents loss
+	// per share"). Group 1 is a loss word, group 2 a profit word.
+	signAfterRe = regexp.MustCompile(`(?i)^(?:\s*(?:billion|bn|b|million|mn|mill|m|thousand|k)\b\.?)?` +
+		`(?:\s*(?:(?:us|nz|a)\s?)?(?:(?:cents?|c|cps)\b|¢))?` +
+		`\s*(?:(?:net|statutory|reported|after[- ]tax)\s+)*` +
+		`(?:(loss(?:es)?|deficit)|(profit|npata?|earnings))\b`)
+	// comparativeTagRe: a comparative-period tag right after an amount, past
+	// its scale and unit ("$3.1 million in the pcp", "0.8 cents last year").
+	comparativeTagRe = regexp.MustCompile(`(?i)^(?:\s*(?:billion|bn|b|million|mn|mill|m|thousand|k)\b\.?)?` +
+		`(?:\s*(?:(?:cents?|c|cps)\b|¢))?\s*(?:(?:in|for|during|over)\s+)?(?:the\s+)?` +
+		`(?:p\.?c\.?p\b|(?:prior|previous)\s+corresponding\s+(?:period|half|year)\b|(?:last|prior|previous)\s+(?:financial\s+)?(?:year|half|period)\b)`)
+	// sentenceAbbrevRe: a word whose full stop does not end a sentence.
+	sentenceAbbrevRe = regexp.MustCompile(`(?i)\b(?:vs|no|approx|incl|excl|cf|ltd|inc|co|corp|pty)$`)
+)
+
+// figureIsLoss decides whether the figure n of a net income or EPS quote is a
+// loss (review findings C3 and C6; gate 5's sign reading):
+//
+//  1. the figure's own sign decides: a minus or parentheses
+//     (textNumber.negative);
+//  2. otherwise the NEAREST sign word before the figure in its clause
+//     (signBefore), a sign word immediately after it (signAfter) and the
+//     value attribute's own sign (attrNegative) each speak, and every one
+//     that speaks must agree. A profit word governing a negative attribute,
+//     or a loss word before the figure and a profit word right after it, is
+//     ambiguous: ok=false, the value is withheld.
+//
+// Nothing speaking is a profit, as the statements print one.
+func figureIsLoss(text string, n textNumber, numbers []textNumber, attrNegative bool) (loss, ok bool) {
+	if n.negative {
+		return true, true
+	}
+	t := neutralSignRe.ReplaceAllStringFunc(text, func(s string) string { return strings.Repeat(" ", len(s)) })
+	before := signBefore(t, n.pos, numbers)
+	if before == signAmbiguous {
+		return false, false
+	}
+	votes := []signClass{before, signAfter(t[n.end:])}
+	if attrNegative {
+		votes = append(votes, signLoss)
+	}
+	got := signNone
+	for _, v := range votes {
+		if v == signNone {
+			continue
+		}
+		if got != signNone && v != got {
+			return false, false
+		}
+		got = v
+	}
+	return got == signLoss, true
+}
+
+// signAfter is the class of a sign word right after a figure (rest is the
+// text past it).
+func signAfter(rest string) signClass {
+	m := signAfterRe.FindStringSubmatchIndex(rest)
+	switch {
+	case m == nil:
+		return signNone
+	case m[2] >= 0:
+		return signLoss
+	default:
+		return signProfit
+	}
+}
+
+// signBefore is the class of the nearest sign word before the figure at pos
+// that governs it:
+//
+//   - in the figure's clause, back to a ';' or a sentence end;
+//   - at the figure's own parenthesis level or an enclosing one, so a closed
+//     parenthetical before it ("(pcp: loss of $3.1m)") is skipped, the
+//     parenthesis-depth rule of quoteNamesOnlyOtherPeriods;
+//   - outside a comparison that ends before the figure ("up from a loss of
+//     $3.1m to $45.2m": the loss is the comparative's).
+//
+// When that nearest word sits with an amount tagged as a comparative ("a loss
+// of $3.1m in the pcp became $45.2m") the answer is signAmbiguous: whether
+// the loss carries over to the figure is not in the words. t is the quote
+// with the neutral phrases blanked.
+func signBefore(t string, pos int, numbers []textNumber) signClass {
+	start, d := 0, 0
+	level := make([]bool, pos) // at the figure's level or an enclosing one
+	for i := pos - 1; i >= 0; i-- {
+		c := t[i]
+		level[i] = d == 0
+		if d == 0 && (c == ';' || sentenceEnd(t, i)) {
+			start = i + 1
+			break
+		}
+		switch c {
+		case ')':
+			d++
+		case '(':
+			if d > 0 {
+				d--
+			}
+		}
+	}
+	starts := make(map[int]textNumber, len(numbers))
+	for _, n := range numbers {
+		starts[n.pos] = n
+	}
+	type span struct{ lo, hi int }
+	var comparisons []span
+	for _, m := range signComparisonLeadRe.FindAllStringIndex(t[start:pos], -1) {
+		lo, hi := start+m[0], start+m[1]
+		if !level[lo] {
+			continue
+		}
+		if end, ok := comparisonScopeEnd(t, hi, pos, starts); ok {
+			comparisons = append(comparisons, span{lo, end})
+		}
+	}
+	// Tagged comparatives: an amount followed by "in the pcp" / "last year",
+	// with the words before it back to a ',' or ';', a comparison lead or the
+	// previous amount.
+	var tagged []span
+	prevEnd := start
+	for _, n := range numbers {
+		if n.pos < start || n.pos >= pos || !level[n.pos] || !n.amount {
+			continue
+		}
+		if m := comparativeTagRe.FindStringIndex(t[n.end:pos]); m != nil {
+			lo := prevEnd
+			for i := n.pos - 1; i >= prevEnd; i-- {
+				if level[i] && (t[i] == ',' || t[i] == ';') {
+					lo = i + 1
+					break
+				}
+			}
+			for _, c := range comparisons {
+				if c.lo >= lo && c.lo < n.pos {
+					lo = c.lo
+				}
+			}
+			tagged = append(tagged, span{lo, n.end + m[1]})
+		}
+		prevEnd = n.end
+	}
+	within := func(p int, spans []span) bool {
+		for _, s := range spans {
+			if p >= s.lo && p < s.hi {
+				return true
+			}
+		}
+		return false
+	}
+	best := signNone
+	for _, m := range signWordRe.FindAllStringSubmatchIndex(t[start:pos], -1) {
+		p := start + m[0]
+		if !level[p] || within(p, comparisons) {
+			continue
+		}
+		switch {
+		case within(p, tagged):
+			best = signAmbiguous
+		case m[2] >= 0:
+			best = signLoss
+		default:
+			best = signProfit
+		}
+	}
+	return best
+}
+
+// comparisonScopeEnd is where a comparison whose lead ends at from stops: at
+// the end of its first amount ("compared with a loss of $3.1m"), or at a ',',
+// a ';', a sentence end or the ')' closing its parenthetical, whichever comes
+// first. ok is false when it runs on to the figure at pos: the figure is then
+// the comparison's own amount, and a sign word inside it is the figure's.
+func comparisonScopeEnd(t string, from, pos int, starts map[int]textNumber) (int, bool) {
+	d := 0
+	for i := from; i < pos; i++ {
+		if n, ok := starts[i]; ok && d == 0 && n.amount {
+			return n.end, true
+		}
+		switch c := t[i]; {
+		case c == '(':
+			d++
+		case c == ')':
+			if d == 0 {
+				return i, true
+			}
+			d--
+		case d == 0 && (c == ',' || c == ';' || sentenceEnd(t, i)):
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+// sentenceEnd reports whether t[i] is a full stop ending a sentence: followed
+// by white space and a capital, and not an abbreviation's ("vs.", "Ltd.").
+// A decimal point is never one.
+func sentenceEnd(t string, i int) bool {
+	if t[i] != '.' {
+		return false
+	}
+	j := i + 1
+	if j >= len(t) || (t[j] != ' ' && t[j] != '\n' && t[j] != '\t') {
+		return false
+	}
+	for j < len(t) && (t[j] == ' ' || t[j] == '\n' || t[j] == '\t') {
+		j++
+	}
+	if j >= len(t) || t[j] < 'A' || t[j] > 'Z' {
+		return false
+	}
+	return !sentenceAbbrevRe.MatchString(t[:i])
 }
 
 var currencyMarkers = []struct {

@@ -1,6 +1,7 @@
 package picks
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"sort"
@@ -41,6 +42,11 @@ type vendorRow struct {
 	// row of a code; false / "" when unmeasured or before the columns exist.
 	FXConverted    bool
 	NativeCurrency string
+	// MedianK is the code's persisted stock_fundamentals_sync.median_k: the
+	// median of net income / (EPS x shares) over its vendor periods (plan
+	// §3.5), near 10 for a CDI listing whose vendor EPS is per CDI. The same
+	// on every row of a code; nil when unmeasured, NULL or before 000132.
+	MedianK *float64
 }
 
 // vendorAnnual is vendorRow's phase-0 name. It stays an alias so the shared
@@ -77,6 +83,9 @@ type vendorContext struct {
 	fxNote   string
 	// fye is the balance-date month, from the latest vendor annual row.
 	fye time.Month
+	// epsPerShare: the vendor's EPS is per ordinary share, the basis gate 8
+	// checks a filing EPS on (vendorEPSPerShare).
+	epsPerShare bool
 }
 
 func newVendorContext(rows []vendorRow) vendorContext {
@@ -100,8 +109,70 @@ func newVendorContext(rows []vendorRow) vendorContext {
 	if n := len(vc.annual); n > 0 {
 		vc.fye = vc.annual[n-1].PeriodEnd.AddDate(0, 0, effectiveMonthShift).Month()
 	}
-	vc.currency, vc.fxNote = resolveVendorCurrency(append(append([]vendorRow(nil), vc.annual...), vc.ttm...))
+	vendor := append(append([]vendorRow(nil), vc.annual...), vc.ttm...)
+	vc.currency, vc.fxNote = resolveVendorCurrency(vendor)
+	vc.epsPerShare, _ = vendorEPSPerShare(vendor)
 	return vc
+}
+
+// listedUnitMinK / listedUnitMaxK bound k = net income / (EPS x shares) for a
+// vendor whose EPS is per ordinary share: valuation's band (plan §5.3,
+// strategies.listedUnitMinK / listedUnitMaxK).
+const (
+	listedUnitMinK = 0.8
+	listedUnitMaxK = 1.25
+)
+
+func kInBand(k float64) bool { return k >= listedUnitMinK && k <= listedUnitMaxK }
+
+// vendorEPSPerShare reports whether a code's vendor EPS is per ordinary share,
+// the basis gate 8 checks a filing EPS on (net income / vendor shares). A CDI
+// listing whose vendor EPS is per CDI (RMD: k = NI / (EPS x shares) near 10)
+// is not: the company's filing states EPS per share, so it would enter a
+// per-CDI series 10x off while passing gate 8's ratio (review finding C9).
+//
+// The code's persisted median_k decides when present. Without one, every
+// vendor annual or TTM period whose k is computable (the vendor's own net
+// income and EPS, basic else diluted, and its share count, else the annual
+// row's at the same end) must be within [0.8, 1.25]; one outside is enough to
+// withhold. No computable k is no evidence either way. note names the
+// evidence when the answer is no.
+func vendorEPSPerShare(rows []vendorRow) (perShare bool, note string) {
+	for _, r := range rows {
+		if r.MedianK == nil {
+			continue
+		}
+		if kInBand(*r.MedianK) {
+			return true, ""
+		}
+		return false, fmt.Sprintf("median_k %.3g outside [%.2g, %.3g]", *r.MedianK, listedUnitMinK, listedUnitMaxK)
+	}
+	annualShares := map[time.Time]float64{}
+	for _, r := range rows {
+		if v, ok := positive(r.Shares); ok && r.periodType() == periodAnnual {
+			annualShares[canonicalMonthEnd(r.PeriodEnd)] = v
+		}
+	}
+	for _, r := range rows {
+		ni, eps := r.netIncome(), r.epsBasic()
+		if eps == nil {
+			eps = r.epsDiluted()
+		}
+		if ni == nil || eps == nil || *eps == 0 {
+			continue
+		}
+		shares, ok := positive(r.Shares)
+		if !ok {
+			if shares, ok = annualShares[canonicalMonthEnd(r.PeriodEnd)]; !ok {
+				continue
+			}
+		}
+		if k := *ni / (*eps * shares); !kInBand(k) {
+			return false, fmt.Sprintf("vendor %s %s k %.3g outside [%.2g, %.3g]",
+				r.periodType(), r.PeriodEnd.Format("2006-01-02"), k, listedUnitMinK, listedUnitMaxK)
+		}
+	}
+	return true, ""
 }
 
 func (vc vendorContext) hasAnnual() bool { return len(vc.annual) > 0 }

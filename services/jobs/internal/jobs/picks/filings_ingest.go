@@ -50,7 +50,10 @@ import (
 //     (documentPeriod), and its quote does not name only another period
 //     (quoteNamesOnlyOtherPeriods: a comparative labelled as current).
 //  5. Statutory: the quote names no non-statutory, partial or pre-tax figure
-//     (nonStatutoryRe).
+//     (nonStatutoryRe); and a net income or EPS takes its sign from its own
+//     number or the words that govern it (figureIsLoss), never from a
+//     comparative's, withheld when those disagree (sign_ambiguous, counted
+//     when the value is read, after gate 7).
 //  6. Vendor context: the code has a vendor annual row and a trustworthy
 //     vendor currency (vendorContext); the balance month and the currency come
 //     from the vendor. No context, no filing row (skipped_no_vendor).
@@ -58,7 +61,8 @@ import (
 //     must equal the vendor currency.
 //  8. Magnitude, against same-currency vendor references (revenueBand; net
 //     income <= 1.5 x revenue; EPS within [0.5, 2] of net income / vendor
-//     shares, written only when that check can run).
+//     shares, written only when that check can run and the vendor's EPS is
+//     per ordinary share: median_k, else every vendor k, in [0.8, 1.25]).
 //  9. TTM-EPS identity for first halves (ttmEPSIdentity).
 //
 // The mode is a pure, deterministic rebuild: every run reads every extraction
@@ -139,6 +143,7 @@ const (
 	gateNotOwnPeriod       = "4_own_period.not_the_document_period"
 	gateQuoteOtherPeriod   = "4_own_period.quote_names_another_period"
 	gateNonStatutory       = "5_statutory"
+	gateSignAmbiguous      = "5_statutory.sign_ambiguous" // counted when the value is read
 	gateNoVendor           = "6_vendor.skipped_no_vendor"
 	gateVendorCurrency     = "6_vendor.currency_unknown"
 	gateCurrencyMeta       = "7_currency.document_meta"
@@ -149,6 +154,7 @@ const (
 	gateNetIncome          = "8_magnitude.net_income_over_1.5x_revenue"
 	gateEPSUncheckable     = "8_magnitude.eps_uncheckable"
 	gateEPSRange           = "8_magnitude.eps_out_of_range"
+	gateEPSListedUnit      = "8_magnitude.eps_listed_unit_not_one_share"
 	gateTTMIdentity        = "9_ttm_eps_identity"
 )
 
@@ -236,6 +242,16 @@ func (s *filingStats) skip(reason string) {
 		s.Skipped = map[string]int{}
 	}
 	s.Skipped[reason]++
+}
+
+// valueFailed counts a value the quote could not give: a sign the quote does
+// not settle is a gate (5_statutory.sign_ambiguous), anything else a skip.
+func (s *filingStats) valueFailed(reason string) {
+	if reason == reasonSignAmbiguous {
+		s.gate(gateSignAmbiguous)
+		return
+	}
+	s.skip("value: " + reason)
 }
 
 // Changed reports whether the rebuild changed stock_fundamentals at all (the
@@ -414,7 +430,7 @@ func buildFilingRows(exts []filingExtraction, in filingInputs, st *filingStats) 
 				case "revenue", "net_income":
 					v, reason, ok := filingMoney(entry, col, meta.Units)
 					if !ok {
-						st.skip("value: " + reason)
+						st.valueFailed(reason)
 						continue
 					}
 					dk := docKey{key, col}
@@ -422,7 +438,7 @@ func buildFilingRows(exts []filingExtraction, in filingInputs, st *filingStats) 
 				case "eps":
 					e, reason, ok := filingEPS(entry)
 					if !ok {
-						st.skip("value: " + reason)
+						st.valueFailed(reason)
 						continue
 					}
 					for _, c := range e.cols {
@@ -591,7 +607,9 @@ func assembleFilingRow(k filingKey, in *filingCols, vc vendorContext, profile co
 		}
 	}
 	// Gate 8: EPS within [0.5, 2] of net income / vendor shares, written only
-	// when that check can run.
+	// when that check can run, and only when the vendor's EPS is per ordinary
+	// share (vendorEPSPerShare): a CDI listing's vendor EPS is per CDI, so the
+	// company's per-share EPS is not on the series' basis whatever the ratio.
 	if row.EPSBasic != nil || row.EPSDiluted != nil {
 		ni := row.NetIncome
 		if ni == nil && k.typ == periodAnnual {
@@ -604,6 +622,11 @@ func assembleFilingRow(k filingKey, in *filingCols, vc vendorContext, profile co
 			slot **filingValue
 		}{{&row.EPSBasic, &cols.epsBasic}, {&row.EPSDiluted, &cols.epsDiluted}} {
 			if *c.v == nil {
+				continue
+			}
+			if !vc.epsPerShare {
+				st.gate(gateEPSListedUnit)
+				*c.v, *c.slot = nil, nil
 				continue
 			}
 			if !checkable {

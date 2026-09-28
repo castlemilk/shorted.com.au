@@ -317,8 +317,13 @@ var (
 	// comparisonLeadRe: words that make a period mention a COMPARISON
 	// reference ("up 7% on the half year ended ...", "compared with 1H25"),
 	// which says nothing about the period the quoted figure is for.
-	comparisonLeadRe = regexp.MustCompile(`(?i)(?:\bon|\bfrom|\bversus|\bvs\.?|\bagainst|\bcompared\s+(?:to|with)|\bthan|\bover|\brelative\s+to)(?:\s+the)?(?:\s+(?:prior|previous|corresponding|same))*\s*$`)
+	comparisonLeadRe = regexp.MustCompile(`(?i)\b(?:` + comparisonLeadTerms + `)(?:\s+the)?(?:\s+(?:prior|previous|corresponding|same))*\s*$`)
 )
+
+// comparisonLeadTerms is the comparison vocabulary gate 4 (comparisonLeadRe,
+// a lead right before a period mention) and the sign reading
+// (signComparisonLeadRe, a lead anywhere before a sign word) share.
+const comparisonLeadTerms = `on|from|versus|vs\.?|against|compared\s+(?:to|with)|than|over|relative\s+to`
 
 // quoteNamesOnlyOtherPeriods is gate 4 applied to the quote itself: true when
 // the quote names at least one period (a period-end phrase, or a fiscal label

@@ -355,6 +355,7 @@ func TestFilingPre132FallbackAgainstPostgres(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, vendor["ZZA"], 1)
 	assert.Nil(t, vendor["ZZA"][0].FieldSources)
+	assert.Nil(t, vendor["ZZA"][0].MedianK, "no median_k column: unmeasured")
 
 	stored, err := st.StoredFilingState(ctx)
 	require.NoError(t, err)
@@ -430,4 +431,61 @@ func TestRunFilingsAgainstPostgres(t *testing.T) {
 	assert.Equal(t, 1, stats.Gates[gateCurrencyMeta], "the USD document no longer matches the persisted NZD native currency")
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM stock_fundamentals WHERE stock_code = 'ZZU' AND source = 'asx-filing-extraction'`).Scan(&n))
 	assert.Zero(t, n, "the rebuild purges the filing row the gate now withholds")
+}
+
+// Review finding C9 against a real database: VendorRows carries the sync
+// row's median_k, and a CDI listing's per-share filing EPS is withheld (gate
+// 8, the listed unit) while its revenue and net income are written. ZZR has a
+// persisted median_k near 10 and vendor rows with no EPS (so only median_k
+// can withhold it); ZZK has no median_k, and its vendor rows' own k is near
+// 10; ZZO is an ordinary listing whose filing EPS is written.
+func TestFilingEPSListedUnitAgainstPostgres(t *testing.T) {
+	st, pool := f132Schema(t, true)
+	ctx := context.Background()
+	f132Exec(t, pool, `INSERT INTO stock_fundamentals (stock_code, period_type, period_end, currency, revenue, net_income, shares_outstanding, source)
+		VALUES ('ZZR', 'annual', '2024-06-30', 'USD', 4685.3e6, 1020.6e6, 146.9e6, 'yahoo-timeseries'),
+		       ('ZZR', 'annual', '2025-06-30', 'USD', 5146.3e6, 1400.7e6, 146.4e6, 'yahoo-timeseries')`)
+	f132Exec(t, pool, `INSERT INTO stock_fundamentals (stock_code, period_type, period_end, currency, revenue, net_income, eps_basic, shares_outstanding, source)
+		VALUES ('ZZK', 'annual', '2024-06-30', 'USD', 4685.3e6, 1020.6e6, 0.694, 146.9e6, 'yahoo-timeseries'),
+		       ('ZZK', 'annual', '2025-06-30', 'USD', 5146.3e6, 1400.7e6, 0.955, 146.4e6, 'yahoo-timeseries')`)
+	f132Exec(t, pool, `INSERT INTO stock_fundamentals (stock_code, period_type, period_end, currency, revenue, net_income, eps_basic, shares_outstanding, source)
+		VALUES ('ZZO', 'annual', '2024-06-30', 'USD', 4685.3e6, 1020.6e6, 6.947, 146.9e6, 'yahoo-timeseries'),
+		       ('ZZO', 'annual', '2025-06-30', 'USD', 5146.3e6, 1400.7e6, 9.568, 146.4e6, 'yahoo-timeseries')`)
+	f132Exec(t, pool, `INSERT INTO stock_fundamentals_sync (stock_code, last_attempt_at, median_k) VALUES ('ZZR', now(), 10.02), ('ZZO', now(), 1.0)`)
+	for _, code := range []string{"ZZR", "ZZK", "ZZO"} {
+		f132Exec(t, pool, `INSERT INTO financial_report_extractions (stock_code, report_url, report_title, report_date, metrics, digest_confidence)
+			VALUES ($1, $2, 'Appendix 4D', '2026-02-20', $3, 0.9)`, code, "u-4d-"+code,
+			`{"revenue": {"source_text": "Revenue US$2,700 million", "value_millions": "2700", "period": "H1 FY2026", "alignment": "match_exact"},
+			  "net_profit": {"source_text": "Net profit after tax US$750 million", "value_millions": "750", "period": "H1 FY2026", "alignment": "match_exact"},
+			  "eps": {"source_text": "Basic earnings per share of US$5.12", "value": "5.12", "period": "H1 FY2026", "alignment": "match_exact"}}`)
+	}
+
+	vendor, err := st.VendorRows(ctx)
+	require.NoError(t, err)
+	require.Len(t, vendor["ZZR"], 2)
+	for _, r := range vendor["ZZR"] {
+		require.NotNil(t, r.MedianK, "the sync row's median_k reaches the filing gates")
+		assert.InDelta(t, 10.02, *r.MedianK, 1e-9)
+	}
+	for _, r := range vendor["ZZK"] {
+		assert.Nil(t, r.MedianK, "no sync row: unmeasured")
+	}
+
+	stats, err := runFilings(ctx, st, false, func(string, ...any) {})
+	require.NoError(t, err)
+	assert.Equal(t, 2, stats.Gates[gateEPSListedUnit], "ZZR on its median_k, ZZK on its rows' own k")
+	for _, code := range []string{"ZZR", "ZZK", "ZZO"} {
+		var rev, ni float64
+		var eps *float64
+		require.NoError(t, pool.QueryRow(ctx, `SELECT revenue, net_income, eps_basic FROM stock_fundamentals
+			WHERE stock_code = $1 AND period_type = 'half' AND period_end = '2025-12-31'`, code).Scan(&rev, &ni, &eps), code)
+		assert.Equal(t, 2700e6, rev, code)
+		assert.Equal(t, 750e6, ni, code)
+		if code == "ZZO" {
+			require.NotNil(t, eps, "an ordinary listing keeps its filing EPS")
+			assert.InDelta(t, 5.12, *eps, 1e-9)
+		} else {
+			assert.Nil(t, eps, "%s: a per-share EPS never enters a per-CDI series", code)
+		}
+	}
 }

@@ -154,7 +154,8 @@ func (s *pgStore) FilingExtractions(ctx context.Context) ([]filingExtraction, er
 // vendorRowsSQL: the vendor rows the filing gates consult. Annual and ttm only
 // (quarter rows are balance snapshots with no flow line); a filing row is never
 // its own reference. The first %s is the field_sources column, the second the
-// sync row's persisted FX verdict (plan §2.3, §3.4) and the third its join.
+// sync row's persisted FX verdict and median_k (plan §2.3, §3.4, §3.5; gate 8
+// reads median_k for the EPS basis) and the third its join.
 const vendorRowsSQL = `
 SELECT f.stock_code::text, f.period_type::text, f.period_end, f.currency::text, f.source::text,
        f.revenue, f.net_income, f.eps_basic, f.eps_diluted, f.shares_outstanding, %s, %s
@@ -162,9 +163,9 @@ FROM stock_fundamentals f%s
 WHERE f.period_type IN ('annual', 'ttm') AND f.source <> '` + sourceFiling + `'`
 
 const (
-	vendorRowsFXColumns = "COALESCE(sy.fx_converted, false), COALESCE(sy.native_currency::text, '')"
+	vendorRowsFXColumns = "COALESCE(sy.fx_converted, false), COALESCE(sy.native_currency::text, ''), sy.median_k::float8"
 	vendorRowsFXJoin    = "\nLEFT JOIN stock_fundamentals_sync sy ON sy.stock_code = f.stock_code"
-	vendorRowsNoFX      = "false, ''"
+	vendorRowsNoFX      = "false, '', NULL::float8"
 )
 
 var vendorRowsVariants = []string{
@@ -174,7 +175,7 @@ var vendorRowsVariants = []string{
 
 func (s *pgStore) VendorRows(ctx context.Context) (map[string][]vendorRow, error) {
 	var out map[string][]vendorRow
-	err := queryVariants(ctx, s.pool, "stock_fundamentals.field_sources or stock_fundamentals_sync.fx_converted is absent",
+	err := queryVariants(ctx, s.pool, "stock_fundamentals.field_sources or stock_fundamentals_sync.fx_converted / median_k is absent",
 		vendorRowsVariants, nil,
 		func() { out = map[string][]vendorRow{} },
 		func(rows pgx.Rows) error {
@@ -183,7 +184,7 @@ func (s *pgStore) VendorRows(ctx context.Context) (map[string][]vendorRow, error
 			var fs *string
 			if err := rows.Scan(&code, &v.PeriodType, &v.PeriodEnd, &v.Currency, &v.Source,
 				&v.Revenue, &v.NetIncome, &v.EPSBasic, &v.EPSDiluted, &v.Shares, &fs,
-				&v.FXConverted, &v.NativeCurrency); err != nil {
+				&v.FXConverted, &v.NativeCurrency, &v.MedianK); err != nil {
 				return err
 			}
 			v.PeriodEnd = dateOnly(v.PeriodEnd)
