@@ -506,6 +506,13 @@ func TestPrepareCandidatesDecidesFinancialsAndValuesOnce(t *testing.T) {
 	if got := cands[2].ResolvedMarketCap(); got == nil || *got != screener {
 		t.Error("without a share count the screener's market cap is the fallback")
 	}
+	cdi := Candidate{StockCode: "RMD", Close: 40, AsOf: *d("2026-09-25"), MarketCap: &screener,
+		ValuationInputs: &ValuationInputs{Shares: f(5.8e8), SharesPeriodEnd: d("2026-06-30"), MedianK: f(10.1)}}
+	cdiCands := []Candidate{cdi}
+	PrepareCandidates(cdiCands)
+	if cdiCands[0].Valuation.Note != ValuationNoteListedUnit || cdiCands[0].ResolvedMarketCap() != nil {
+		t.Errorf("a CDI listing withholds the market cap rather than borrowing the screener's: %+v", cdiCands[0].Valuation)
+	}
 	// Idempotent: preparing twice changes nothing.
 	again := append([]Candidate(nil), cands...)
 	PrepareCandidates(again)

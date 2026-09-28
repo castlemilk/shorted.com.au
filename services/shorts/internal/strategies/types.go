@@ -275,13 +275,18 @@ func (c *Candidate) HasFundamentalsRow() bool {
 // ResolvedMarketCap is the market cap every picker surface uses (plan
 // fundamentals-coverage.md §5.3): our own latest close x shares on issue
 // (Valuation), falling back to the screener's figure only when we hold no
-// usable share count.
+// usable share count. A listing whose unit is not one ordinary share (a CDI)
+// has a share count that contradicts the price, so it gets neither: a
+// market cap we cannot vouch for is withheld, not borrowed.
 func (c *Candidate) ResolvedMarketCap() *float64 {
 	if c == nil {
 		return nil
 	}
 	if c.Valuation.MarketCap != nil {
 		return c.Valuation.MarketCap
+	}
+	if c.Valuation.Note == ValuationNoteListedUnit {
+		return nil
 	}
 	return c.MarketCap
 }
