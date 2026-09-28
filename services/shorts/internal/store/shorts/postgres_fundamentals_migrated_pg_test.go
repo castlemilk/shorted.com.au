@@ -792,7 +792,7 @@ func (d *migratedDB) refresh() {
 	}
 	conn, err := pgx.ConnectConfig(d.ctx, cfg)
 	require.NoError(d.t, err)
-	defer conn.Close(d.ctx)
+	defer func() { _ = conn.Close(d.ctx) }()
 	_, err = conn.Exec(d.ctx, `BEGIN; SET LOCAL statement_timeout = 0; SELECT refresh_strategy_views(); COMMIT`)
 	require.NoError(d.t, err)
 	mu.Lock()

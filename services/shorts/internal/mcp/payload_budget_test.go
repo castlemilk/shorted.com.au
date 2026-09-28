@@ -277,12 +277,14 @@ func realisticStrategySource(src *fakeDataSource) {
 			RevenueYoyPct: 41.2345, HasRevenueYoy: true, EpsYoyPct: -12.3456, HasEpsYoy: true,
 			Rs_3MPct: -8.7654, ShortPct: 6.5432, MarketCap: 7_123_456_789,
 			HasClose: true, HasRs_3MPct: true, HasShortPct: true, HasMarketCap: true,
-			LogoUrl: "https://storage.googleapis.com/shorted/logos/pls.png",
+			LogoUrl:      "https://storage.googleapis.com/shorted/logos/pls.png",
+			Fundamentals: pickFundamentalsFixture(),
 		})
 	}
 	src.strategyPicks = &shortsv1alpha1.GetStrategyPicksResponse{
 		Strategy: strategyFixture(widest), Regime: regime, Picks: picks,
-		TotalCount: 212, UniverseCount: 1_234, FundamentalsCoverageCount: 987, AsOf: "2026-09-25",
+		TotalCount: 212, UniverseCount: 1_234, FundamentalsCoverageCount: 987, FundamentalsRowsCount: 1_101,
+		AsOf: "2026-09-25",
 	}
 
 	// More periods than the tool publishes: the fake ignores the limit, so the

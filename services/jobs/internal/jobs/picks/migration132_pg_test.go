@@ -143,7 +143,7 @@ func m132NewDB(t *testing.T, files ...string) *m132DB {
 			t.Logf("cleanup: %v", err)
 			return
 		}
-		defer c.Close(context.Background())
+		defer func() { _ = c.Close(context.Background()) }()
 		if _, err := c.Exec(context.Background(), `DROP SCHEMA `+schema+` CASCADE`); err != nil {
 			t.Logf("cleanup: drop schema %s: %v", schema, err)
 		}
@@ -309,7 +309,7 @@ func TestMigration132AgainstPostgres(t *testing.T) {
 			if err != nil {
 				return
 			}
-			defer c.Close(context.Background())
+			defer func() { _ = c.Close(context.Background()) }()
 			_, _ = c.Exec(context.Background(), `DROP OWNED BY `+role)
 			_, _ = c.Exec(context.Background(), `DROP ROLE IF EXISTS `+role)
 		})

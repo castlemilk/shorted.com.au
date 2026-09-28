@@ -3,7 +3,6 @@ package picks
 import (
 	"context"
 	"fmt"
-	"sort"
 )
 
 // The filings half of the shared test fake. fakeStore (fundamentals_test.go)
@@ -108,14 +107,5 @@ func (l *logRecorder) joined() string {
 	for _, s := range l.lines {
 		out += s + "\n"
 	}
-	return out
-}
-
-func sortedGateNames(m map[string]int) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
 	return out
 }
