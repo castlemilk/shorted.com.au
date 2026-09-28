@@ -119,6 +119,16 @@ func dedupe(in []string) []string {
 // have meant deleting ~10KB of exactly that kind of prose from tools that
 // already exist.
 //
+// The fundamentals-coverage extension (docs/plans/fundamentals-coverage.md §8)
+// took it from 86,371 bytes to 89,495 inside the same 88KB ceiling:
+// get_stock_fundamentals gained the quality block, coverage, four statement
+// lines and per-field provenance (3,429 to 5,794 bytes), get_strategy_picks
+// gained sort_by, two ratios, a fundamentals source and the rows count. The
+// quality block's own currency was dropped (the view only aligns a balance
+// sheet in the flow row's currency, so balance_currency already says it) and
+// field descriptions were cut to the unit or caveat before the ceiling was
+// reached. About 600 bytes remain.
+//
 // WHEN THIS FAILS, THE LEVER IS FEWER FIELDS AND FEWER FIELD DESCRIPTIONS.
 // It is NOT flattening or type reuse, and this is counter-intuitive enough to
 // be worth stating: **the SDK emits no $defs and no $ref** — every nested

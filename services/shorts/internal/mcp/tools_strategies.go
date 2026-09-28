@@ -12,9 +12,10 @@ import (
 )
 
 // Strategy picks: named stock-picking methods (Zanger, CAN SLIM, Minervini,
-// and a house crowded-short breakout) evaluated daily over price structure,
-// reported fundamentals and ASIC short interest. See
-// docs/plans/stock-picker.md §5.
+// and two house strategies: a crowded-short breakout and quality compounders)
+// evaluated daily over price structure, reported fundamentals, the quality
+// ratios behind them and ASIC short interest. See docs/plans/stock-picker.md
+// §5 and docs/plans/fundamentals-coverage.md §8.
 //
 // Two tools, discovery-shaped like screen_stocks: list_strategies says what
 // exists and what the market backdrop is, get_strategy_picks returns one
@@ -42,6 +43,12 @@ import (
 // the evidence sentences are spent in rank order from a fixed byte allowance,
 // with detail_trimmed saying when it ran out. The top of the list, which is
 // what a reader acts on, always carries its evidence.
+//
+// A pick also carries two quality ratios (return on equity, net margin) and
+// where its growth figures came from (fundamentals_source: "filing" when
+// either growth figure was read from a parsed ASX filing). Those ~70 bytes a
+// row were paid for out of the evidence allowance (2,500 to 1,500 bytes), not
+// by raising the budget.
 
 const (
 	defaultStrategyPicksLimit = 10
@@ -58,12 +65,13 @@ const (
 	maxRuleEvidenceChars = 120
 
 	// maxPickEvidenceBytes is the evidence allowance for one result, spent in
-	// rank order. Sized so the worst case at the 25-pick ceiling measures
-	// ~14.6KB against the 16KB per-call budget (payload_budget_test.go). It is
-	// ~20 sentences at their cap and far more at their usual length; triggered
-	// and setup rows fail one to three rules each, so a default call over
-	// those carries all of its evidence.
-	maxPickEvidenceBytes = 2500
+	// rank order. Sized so the worst case at the 25-pick ceiling, every row
+	// carrying its quality ratios and fundamentals source, stays inside the
+	// 16KB per-call budget (payload_budget_test.go). It is ~12 sentences at
+	// their cap and far more at their usual length; triggered and setup rows
+	// fail one to three rules each, so a default call over those carries all
+	// of its evidence.
+	maxPickEvidenceBytes = 1500
 )
 
 // strategyIDs lists the registry's strategy ids, for validation and for the
@@ -98,7 +106,7 @@ func projectRegime(r *shortsv1alpha1.MarketRegime) MarketRegimeSummary {
 // list_strategies
 // ---------------------------------------------------------------------------
 
-// ListStrategiesInput is empty: there are four strategies and one regime, and
+// ListStrategiesInput is empty: there are five strategies and one regime, and
 // a filter would be a round trip for nothing.
 type ListStrategiesInput struct{}
 
@@ -124,12 +132,13 @@ type ListStrategiesOutput struct {
 	Regime     MarketRegimeSummary `json:"regime"`
 }
 
-const listStrategiesDescription = "The named stock-picking strategies evaluated daily over ASX stocks — Zanger Breakout " +
-	"(Dan Zanger), CAN SLIM (William O'Neil), Minervini Trend Template (Mark Minervini) and Crowded-Short Breakout " +
-	"(Shorted's own, on ASIC short interest) — each with author, summary, style, holding period and rules, marked core " +
-	"or not: every core rule must pass for a stock to be triggered. Also the current S&P/ASX 200 market regime. " +
-	"Call get_strategy_picks next with an id for the ranked stocks. A rules-based screen over end-of-day data, not " +
-	"financial advice. Takes no arguments."
+const listStrategiesDescription = "The named stock-picking strategies evaluated daily over ASX stocks: Zanger Breakout " +
+	"(Dan Zanger), CAN SLIM (William O'Neil), Minervini Trend Template (Mark Minervini), and Shorted's own Crowded-Short " +
+	"Breakout (on ASIC short interest) and Quality compounders (return on equity, margins, cash conversion and debt from " +
+	"reported statements), each with author, summary, style, holding period and rules, marked core or not: every core " +
+	"rule must pass for a stock to be triggered. Also the current S&P/ASX 200 market regime. Call get_strategy_picks " +
+	"next with an id for the ranked stocks. A rules-based screen over end-of-day data, not financial advice. Takes no " +
+	"arguments."
 
 func listStrategiesTool() Tool {
 	tool := Tool{
@@ -222,8 +231,9 @@ func describeRegime(r MarketRegimeSummary) string {
 // ---------------------------------------------------------------------------
 
 type GetStrategyPicksInput struct {
-	StrategyID string `json:"strategy_id" jsonschema:"zanger-breakout, canslim, minervini-trend-template or crowded-short-breakout. Required."`
+	StrategyID string `json:"strategy_id" jsonschema:"zanger-breakout, canslim, minervini-trend-template, crowded-short-breakout or quality-compounders. Required."`
 	Status     string `json:"status,omitempty" jsonschema:"triggered, setup or watch. Omit for all."`
+	SortBy     string `json:"sort_by,omitempty" jsonschema:"score (default), revenue_yoy, eps_yoy, roe, net_margin, fcf_margin, pe (lowest first) or market_cap; unknowns last."`
 	Limit      int    `json:"limit,omitempty" jsonschema:"1-25, default 10."`
 }
 
@@ -237,25 +247,28 @@ type StrategyHeader struct {
 // StrategyPickRow is one ranked stock. Every numeric pointer is absent when
 // unknown — see the file comment.
 type StrategyPickRow struct {
-	Rank           int               `json:"rank" jsonschema:"Across all statuses."`
-	Code           string            `json:"code"`
-	Name           string            `json:"name,omitempty"`
-	Industry       string            `json:"industry,omitempty"`
-	Status         string            `json:"status"`
-	Score          float64           `json:"score" jsonschema:"0-100."`
-	Close          *float64          `json:"close,omitempty" jsonschema:"AUD."`
-	Pivot          *float64          `json:"pivot,omitempty" jsonschema:"AUD."`
-	BaseDepthPct   *float64          `json:"base_depth_pct,omitempty"`
-	BaseLengthDays int               `json:"base_length_days,omitempty" jsonschema:"Sessions."`
-	VolumeRatio50D *float64          `json:"volume_ratio_50d,omitempty"`
-	RevenueYoYPct  *float64          `json:"revenue_yoy_pct,omitempty"`
-	EPSYoYPct      *float64          `json:"eps_yoy_pct,omitempty"`
-	RS3MPct        *float64          `json:"rs_3m_pct,omitempty" jsonschema:"Percentage points."`
-	ShortPct       *float64          `json:"short_pct,omitempty"`
-	Passed         []string          `json:"passed,omitempty"`
-	Failed         []string          `json:"failed,omitempty"`
-	Unknown        []string          `json:"unknown,omitempty" jsonschema:"Data missing; never counts as a pass."`
-	Evidence       map[string]string `json:"evidence,omitempty" jsonschema:"By rule id, for failed and unknown rules."`
+	Rank               int               `json:"rank" jsonschema:"Across all statuses."`
+	Code               string            `json:"code"`
+	Name               string            `json:"name,omitempty"`
+	Industry           string            `json:"industry,omitempty"`
+	Status             string            `json:"status"`
+	Score              float64           `json:"score" jsonschema:"0-100."`
+	Close              *float64          `json:"close,omitempty" jsonschema:"AUD."`
+	Pivot              *float64          `json:"pivot,omitempty" jsonschema:"AUD."`
+	BaseDepthPct       *float64          `json:"base_depth_pct,omitempty"`
+	BaseLengthDays     int               `json:"base_length_days,omitempty" jsonschema:"Sessions."`
+	VolumeRatio50D     *float64          `json:"volume_ratio_50d,omitempty"`
+	RevenueYoYPct      *float64          `json:"revenue_yoy_pct,omitempty"`
+	EPSYoYPct          *float64          `json:"eps_yoy_pct,omitempty"`
+	RS3MPct            *float64          `json:"rs_3m_pct,omitempty" jsonschema:"Percentage points."`
+	ShortPct           *float64          `json:"short_pct,omitempty"`
+	ROEPct             *float64          `json:"roe_pct,omitempty"`
+	NetMarginPct       *float64          `json:"net_margin_pct,omitempty"`
+	FundamentalsSource string            `json:"fundamentals_source,omitempty" jsonschema:"filing when a growth figure came from a parsed ASX filing, else vendor."`
+	Passed             []string          `json:"passed,omitempty"`
+	Failed             []string          `json:"failed,omitempty"`
+	Unknown            []string          `json:"unknown,omitempty" jsonschema:"Data missing; never counts as a pass."`
+	Evidence           map[string]string `json:"evidence,omitempty" jsonschema:"By rule id, for failed and unknown rules."`
 }
 
 type GetStrategyPicksOutput struct {
@@ -263,7 +276,8 @@ type GetStrategyPicksOutput struct {
 	Regime                    MarketRegimeSummary `json:"regime"`
 	AsOf                      string              `json:"as_of,omitempty" jsonschema:"Latest price date."`
 	UniverseCount             int                 `json:"universe_count"`
-	FundamentalsCoverageCount int                 `json:"fundamentals_coverage_count"`
+	FundamentalsRowsCount     int                 `json:"fundamentals_rows_count" jsonschema:"Evaluated stocks with any reported fundamentals."`
+	FundamentalsCoverageCount int                 `json:"fundamentals_coverage_count" jsonschema:"Of those, with a growth figure."`
 	TotalCount                int                 `json:"total_count" jsonschema:"Before the limit."`
 	Count                     int                 `json:"count"`
 	DetailTrimmed             bool                `json:"detail_trimmed,omitempty" jsonschema:"Evidence ran out part-way down the list."`
@@ -272,14 +286,15 @@ type GetStrategyPicksOutput struct {
 
 const getStrategyPicksDescription = "Ranked ASX stocks for one named strategy, with every rule's outcome (passed, failed, " +
 	"unknown) and evidence for the failures. Status: triggered (every core rule passes), setup (all but the trigger, " +
-	"usually the breakout: the watchlist) or watch (some rules pass); ranked by status, then score. Each pick carries " +
-	"close, pivot (the base high: the breakout level, and where a failed breakout falls back through), base depth and " +
-	"length in sessions, volume over its 50-day average, revenue and EPS growth year on year, 3-month return relative " +
-	"to the S&P/ASX 200 and ASIC short percent; a figure is absent when unknown, never zero. Also the market regime " +
-	"with this strategy's verdict (a downtrend means stand aside, it does not hide picks) and how many evaluated stocks " +
-	"have reported fundamentals: without them growth rules read unknown and a stock cannot trigger. Default 10 picks, " +
-	"maximum 25. Ids and rules: list_strategies. A pick's reported periods: get_stock_fundamentals. End-of-day data; " +
-	"short data is T+4. A rules-based screen, not financial advice."
+	"usually the breakout: the watchlist) or watch (some rules pass); ranked by status, then score, or reordered by " +
+	"sort_by (rank stays the strategy's). Each pick carries close, pivot (the base high: the breakout level, and where " +
+	"a failed breakout falls back through), base depth and length in sessions, volume over its 50-day average, revenue " +
+	"and EPS growth year on year, return on equity and net margin, 3-month return relative to the S&P/ASX 200 and ASIC " +
+	"short percent; a figure is absent when unknown, never zero. Also the market regime with this strategy's verdict " +
+	"(a downtrend means stand aside, it does not hide picks) and how many evaluated stocks hold fundamentals: without " +
+	"them fundamentals rules read unknown and a stock cannot trigger. Default 10 picks, maximum 25. Ids and rules: " +
+	"list_strategies. A pick's statements and ratios: get_stock_fundamentals. End-of-day data; short data is T+4. A " +
+	"rules-based screen, not financial advice."
 
 func getStrategyPicksTool() Tool {
 	tool := Tool{
@@ -311,11 +326,19 @@ func getStrategyPicksHandler(src DataSource) sdk.ToolHandlerFor[GetStrategyPicks
 			return nil, GetStrategyPicksOutput{}, fmt.Errorf(
 				"%q is not a pick status: use triggered, setup or watch, or omit it for all", in.Status)
 		}
+		// Validated against the evaluator's own closed set, so a typo is a
+		// message naming the choices rather than an InvalidArgument to decode.
+		sortBy := strings.ToLower(strings.TrimSpace(in.SortBy))
+		if sortBy != "" && !strategies.ValidSortBy(sortBy) {
+			return nil, GetStrategyPicksOutput{}, fmt.Errorf(
+				"%q is not a sort_by value: use one of %s, or omit it for rank order", in.SortBy, strings.Join(strategies.SortKeys(), ", "))
+		}
 		limit := clampLimit(in.Limit, defaultStrategyPicksLimit, maxStrategyPicksLimit)
 
 		res, err := src.GetStrategyPicks(ctx, connect.NewRequest(&shortsv1alpha1.GetStrategyPicksRequest{
 			StrategyId: id,
 			Status:     status,
+			SortBy:     sortBy,
 			Limit:      limit,
 		}))
 		if err != nil {
@@ -337,6 +360,7 @@ func getStrategyPicksHandler(src DataSource) sdk.ToolHandlerFor[GetStrategyPicks
 			Regime:                    projectRegime(msg.GetRegime()),
 			AsOf:                      msg.GetAsOf(),
 			UniverseCount:             int(msg.GetUniverseCount()),
+			FundamentalsRowsCount:     int(msg.GetFundamentalsRowsCount()),
 			FundamentalsCoverageCount: int(msg.GetFundamentalsCoverageCount()),
 			TotalCount:                int(msg.GetTotalCount()),
 			Picks:                     []StrategyPickRow{},
@@ -377,14 +401,17 @@ func getStrategyPicksHandler(src DataSource) sdk.ToolHandlerFor[GetStrategyPicks
 		}
 		out.Count = len(out.Picks)
 
-		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: describePicks(out, status, st)}}}, out, nil
+		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: describePicks(out, status, sortBy, st)}}}, out, nil
 	}
 }
 
 // projectPick narrows a StrategyPick to the published fields. The proto also
-// carries a logo URL, market cap and per-rule numeric values that duplicate the
-// headline figures; none change what a reader concludes.
+// carries a logo URL, market cap, per-rule numeric values that duplicate the
+// headline figures and a fundamentals block whose other ratios and periods
+// get_stock_fundamentals publishes in full; none change what a reader of a
+// ranked list concludes.
 func projectPick(p *shortsv1alpha1.StrategyPick) StrategyPickRow {
+	f := p.GetFundamentals()
 	row := StrategyPickRow{
 		Rank:           int(p.GetRank()),
 		Code:           p.GetStockCode(),
@@ -401,6 +428,11 @@ func projectPick(p *shortsv1alpha1.StrategyPick) StrategyPickRow {
 		EPSYoYPct:      roundedOptional(p.GetEpsYoyPct(), p.GetHasEpsYoy()),
 		RS3MPct:        roundedOptional(p.GetRs_3MPct(), p.GetHasRs_3MPct()),
 		ShortPct:       roundedOptional(p.GetShortPct(), p.GetHasShortPct()),
+		// The API has already withheld what is not meaningful for a financial
+		// (ROE and net margin never are); a flag, not the value, decides.
+		ROEPct:             roundedOptional(f.GetRoePct(), f.GetHasRoePct()),
+		NetMarginPct:       roundedOptional(f.GetNetMarginPct(), f.GetHasNetMarginPct()),
+		FundamentalsSource: pickFundamentalsSource(f),
 	}
 	if row.BaseLengthDays < 0 {
 		row.BaseLengthDays = 0
@@ -423,6 +455,30 @@ func projectPick(p *shortsv1alpha1.StrategyPick) StrategyPickRow {
 	return row
 }
 
+// Basis sources, as mv_fundamentals_growth names them (plan
+// fundamentals-coverage.md §2.6).
+const (
+	basisSourceFiling = "filing"
+	basisSourceVendor = "vendor"
+)
+
+// pickFundamentalsSource says where a pick's growth figures came from:
+// "filing" when either the revenue or the EPS figure was computed from a row
+// parsed out of an ASX filing, "vendor" when the figures it has are all the
+// market data provider's, and absent when neither figure carries a source (no
+// growth figure, or an API from before the basis sources existed). Absent is
+// not a status.
+func pickFundamentalsSource(f *shortsv1alpha1.PickFundamentals) string {
+	rev, eps := f.GetRevenueBasisSource(), f.GetEpsBasisSource()
+	switch {
+	case rev == basisSourceFiling || eps == basisSourceFiling:
+		return basisSourceFiling
+	case rev == basisSourceVendor || eps == basisSourceVendor:
+		return basisSourceVendor
+	}
+	return ""
+}
+
 // usesFundamentals reads the strategy's own rule list from the response, so the
 // zero-picks explanation follows what the server evaluated.
 func usesFundamentals(st *shortsv1alpha1.Strategy) bool {
@@ -434,8 +490,52 @@ func usesFundamentals(st *shortsv1alpha1.Strategy) bool {
 	return false
 }
 
-func describePicks(out GetStrategyPicksOutput, status string, st *shortsv1alpha1.Strategy) string {
+// fundamentalsRuleKind names the rules a missing fundamentals row leaves
+// unknown: the quality ratios for a strategy built on them, the growth figures
+// otherwise. Read from the registry, which is what the server evaluated.
+func fundamentalsRuleKind(id string) string {
+	if st, ok := strategies.Lookup(id); ok && st.UsesQualityRules() {
+		return "quality"
+	}
+	return "growth"
+}
+
+// describeSort says how a sorted list is ordered, "" in rank order. Three
+// sort figures (free-cash-flow margin, P/E, market cap) are not columns of a
+// pick row, so the sentence says where to read them rather than leave a list
+// ordered by a number the reader cannot see.
+func describeSort(sortBy string) string {
+	var s string
+	switch sortBy {
+	case "", strategies.SortScore:
+		return ""
+	case strategies.SortPE:
+		s = " Sorted by pe, lowest first, unknowns last; rank is still the strategy's."
+	default:
+		s = " Sorted by " + sortBy + ", highest first, unknowns last; rank is still the strategy's."
+	}
+	switch sortBy {
+	case strategies.SortFCFMargin, strategies.SortPE, strategies.SortMarketCap:
+		s += " Each stock's " + sortBy + " figure is in get_stock_fundamentals."
+	}
+	return s
+}
+
+// describeCoverage is the coverage sentence. It quotes fundamentals_rows_count
+// only when the API supplies one that can contain the growth count (the web's
+// rule, plan §7.2); an older API's absent count is not "0 of N".
+func describeCoverage(out GetStrategyPicksOutput, kind string) string {
+	if out.FundamentalsRowsCount > 0 && out.FundamentalsRowsCount >= out.FundamentalsCoverageCount {
+		return fmt.Sprintf(" Fundamentals held for %d of %d stocks evaluated (growth figures for %d); without them the %s rules read unknown.",
+			out.FundamentalsRowsCount, out.UniverseCount, out.FundamentalsCoverageCount, kind)
+	}
+	return fmt.Sprintf(" Fundamentals cover %d of %d stocks evaluated; without them the %s rules read unknown.",
+		out.FundamentalsCoverageCount, out.UniverseCount, kind)
+}
+
+func describePicks(out GetStrategyPicksOutput, status, sortBy string, st *shortsv1alpha1.Strategy) string {
 	name := out.Strategy.Name
+	kind := fundamentalsRuleKind(out.Strategy.ID)
 	var b strings.Builder
 	if out.Count == 0 {
 		b.WriteString("No picks for " + name)
@@ -446,8 +546,11 @@ func describePicks(out GetStrategyPicksOutput, status string, st *shortsv1alpha1
 		switch {
 		case out.UniverseCount == 0:
 			b.WriteString(" The evaluation universe is empty: price features have not been computed yet, so no stock could be evaluated.")
-		case usesFundamentals(st) && out.FundamentalsCoverageCount == 0:
-			fmt.Fprintf(&b, " None of the %d stocks evaluated has reported fundamentals yet, so the growth rules read unknown and cannot pass.", out.UniverseCount)
+		case usesFundamentals(st) && kind == "growth" && out.FundamentalsCoverageCount == 0 && out.FundamentalsRowsCount > 0:
+			fmt.Fprintf(&b, " None of the %d stocks evaluated has a growth figure yet (%d hold reported fundamentals), so the growth rules read unknown and cannot pass.",
+				out.UniverseCount, out.FundamentalsRowsCount)
+		case usesFundamentals(st) && out.FundamentalsCoverageCount == 0 && out.FundamentalsRowsCount == 0:
+			fmt.Fprintf(&b, " None of the %d stocks evaluated has reported fundamentals yet, so the %s rules read unknown and cannot pass.", out.UniverseCount, kind)
 		case status != "":
 			fmt.Fprintf(&b, " %d stocks were evaluated; omit the status filter to see the rest of the ladder.", out.UniverseCount)
 		default:
@@ -470,7 +573,9 @@ func describePicks(out GetStrategyPicksOutput, status string, st *shortsv1alpha1
 	if out.TotalCount > out.Count {
 		fmt.Fprintf(&b, " (of %d matching)", out.TotalCount)
 	}
-	b.WriteString(". " + describeRegime(out.Regime))
+	b.WriteString(".")
+	b.WriteString(describeSort(sortBy))
+	b.WriteString(" " + describeRegime(out.Regime))
 
 	first := out.Picks[0]
 	fmt.Fprintf(&b, " First: %s (%s), %s, score %.1f", first.Code, nonEmpty(first.Name, "name unknown"), first.Status, first.Score)
@@ -479,8 +584,7 @@ func describePicks(out GetStrategyPicksOutput, status string, st *shortsv1alpha1
 	}
 	b.WriteString(".")
 	if usesFundamentals(st) && out.UniverseCount > 0 {
-		fmt.Fprintf(&b, " Fundamentals cover %d of %d stocks evaluated; without them the growth rules read unknown.",
-			out.FundamentalsCoverageCount, out.UniverseCount)
+		b.WriteString(describeCoverage(out, kind))
 	}
 	if out.DetailTrimmed {
 		b.WriteString(" Evidence was trimmed further down the list; ask for fewer picks or a single status to see all of it.")

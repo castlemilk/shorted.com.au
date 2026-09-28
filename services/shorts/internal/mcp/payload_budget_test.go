@@ -225,9 +225,14 @@ func realisticSource() *fakeDataSource {
 //   - get_strategy_picks at 25 picks of the widest strategy (7 rules), every
 //     pick a watch-status row that passes ONE rule and fails or cannot
 //     evaluate the rest, each with an evidence sentence over the truncation
-//     limit. That is the row the evidence allowance exists for; a triggered
-//     row fails at most one or two rules and costs far less.
-//   - get_stock_fundamentals at 40 periods with every figure reported.
+//     limit, and every pick carrying a full fundamentals block whose growth
+//     figures both came from a filing. That is the row the evidence allowance
+//     exists for; a triggered row fails at most one or two rules and costs
+//     far less.
+//   - get_stock_fundamentals at its 24-period ceiling with every figure
+//     reported, a two-key field_sources map on every period, a full quality
+//     block (every ratio AND the not-meaningful list, which the API never
+//     sends together, so this over-counts), coverage and a latest filing.
 func realisticStrategySource(src *fakeDataSource) {
 	regime := &shortsv1alpha1.MarketRegime{
 		IndexCode: "XJO", AsOf: "2026-09-25", Regime: "downtrend",
@@ -280,18 +285,12 @@ func realisticStrategySource(src *fakeDataSource) {
 		TotalCount: 212, UniverseCount: 1_234, FundamentalsCoverageCount: 987, AsOf: "2026-09-25",
 	}
 
-	periods := make([]*shortsv1alpha1.FundamentalsPeriod, 0, maxFundamentalsLimit)
+	// More periods than the tool publishes: the fake ignores the limit, so the
+	// handler's own cap is what is measured.
+	periods := make([]*shortsv1alpha1.FundamentalsPeriod, 0, maxFundamentalsLimit+16)
 	types := []string{"annual", "half", "ttm"}
-	for i := 0; i < maxFundamentalsLimit; i++ {
-		periods = append(periods, &shortsv1alpha1.FundamentalsPeriod{
-			PeriodType: types[i%3], PeriodEnd: fmt.Sprintf("20%02d-06-30", 26-i/3), FiscalYear: int32(2026 - i/3),
-			Currency: "USD", Source: "yahoo-timeseries", FetchedAt: "2026-09-26T08:12:34Z",
-			Revenue: 55_658_123_456.78, HasRevenue: true, NetIncome: -12_345_678_901.23, HasNetIncome: true,
-			EpsBasic: 1.234567, HasEpsBasic: true, EpsDiluted: 1.223456, HasEpsDiluted: true,
-			OperatingCashFlow: 18_765_432_109.87, HasOperatingCashFlow: true,
-			FreeCashFlow: 9_876_543_210.98, HasFreeCashFlow: true,
-			SharesOutstanding: 5_071_234_567, HasSharesOutstanding: true,
-		})
+	for i := 0; i < maxFundamentalsLimit+16; i++ {
+		periods = append(periods, fullFundamentalsPeriod(types[i%3], fmt.Sprintf("20%02d-06-30", 26-i/3), int32(2026-i/3)))
 	}
 	src.fundamentals = &shortsv1alpha1.GetStockFundamentalsResponse{
 		StockCode: "BHP", Periods: periods, HasGrowth: true,
@@ -304,7 +303,85 @@ func realisticStrategySource(src *fakeDataSource) {
 			EpsTtm: 2.345678, HasEpsTtm: true,
 			RevenueBasisPeriodType: "half", HalfLatestPeriodEnd: "2026-06-30",
 			RevenueHalfYoyPct: 38.7654, HasRevenueHalfYoy: true, EpsHalfYoyPct: 61.2345, HasEpsHalfYoy: true,
+			RevenueBasisSource: "filing", EpsBasisSource: "filing", FetchedAt: "2026-09-26T08:12:34Z",
+			RevenueLatestPeriodEnd: "2026-06-30", RevenuePriorPeriodEnd: "2025-06-30",
 		},
+		HasQuality: true,
+		Quality: &shortsv1alpha1.FundamentalsQuality{
+			BasisPeriodType: "ttm", BasisPeriodEnd: "2026-06-30", Currency: "AUD", BalancePeriodEnd: "2025-12-31",
+			GrossMarginPct: 48.1234, HasGrossMarginPct: true, OperatingMarginPct: 31.2345, HasOperatingMarginPct: true,
+			NetMarginPct: -22.1234, HasNetMarginPct: true, FcfMarginPct: 17.7654, HasFcfMarginPct: true,
+			FcfConversion: 0.812345, HasFcfConversion: true, RoePct: 23.4567, HasRoePct: true,
+			RoaPct: 11.2345, HasRoaPct: true, NetDebt: -12_345_678_901.23, HasNetDebt: true,
+			NetDebtToEbitda: 0.412345, HasNetDebtToEbitda: true, NetDebtToEquity: 0.212345, HasNetDebtToEquity: true,
+			CurrentRatio: 1.712345, HasCurrentRatio: true, InterestCover: 123.4567, HasInterestCover: true,
+			PayoutRatioPct: 61.2345, HasPayoutRatioPct: true,
+			IsFinancial: true, Source: "yahoo-timeseries", OperatingCashFlowDerived: true,
+			MarketCap: 331_234_567_890.12, HasMarketCap: true, PeRatio: 14.23456, HasPeRatio: true,
+			PriceToBook: 3.123456, HasPriceToBook: true, PriceAsOf: "2026-09-25", BalanceCurrency: "USD",
+			NotMeaningful: strategies.NotMeaningfulForFinancials(), IsProperty: true, BalanceLagMonths: 6,
+			SharesAsOf: "2026-06-30", PeEpsPeriodEnd: "2026-06-30", PeEpsBasis: "diluted",
+			ValuationNote: "listed-unit",
+		},
+		Coverage: &shortsv1alpha1.FundamentalsCoverage{
+			Status: "covered", LastAttemptAt: "2026-09-26T08:12:34Z", LastSuccessAt: "2026-09-26T08:12:34Z",
+			Sources: []string{"yahoo-timeseries", "markit-key-statistics", "asx-filing-extraction"},
+		},
+		HasLatestFiling: true,
+		LatestFiling: &shortsv1alpha1.LatestFilingSummary{
+			ReportUrl:   "https://www.asx.com.au/asxpdf/20260819/pdf/06abcdefghij.pdf",
+			ReportTitle: "Appendix 4E and Annual Report 2026", ReportDate: "2026-08-19",
+			PeriodEnd: "2026-06-30", PeriodType: "annual",
+			Digest:           strings.Repeat("Underlying EBITDA rose on higher copper volumes. ", 20),
+			DigestConfidence: 0.8765,
+		},
+	}
+}
+
+// fullFundamentalsPeriod is one period with every statement line reported and
+// a two-key field_sources map: the widest row the tool can publish.
+func fullFundamentalsPeriod(periodType, periodEnd string, fiscalYear int32) *shortsv1alpha1.FundamentalsPeriod {
+	return &shortsv1alpha1.FundamentalsPeriod{
+		PeriodType: periodType, PeriodEnd: periodEnd, FiscalYear: fiscalYear,
+		Currency: "USD", Source: "yahoo-timeseries", FetchedAt: "2026-09-26T08:12:34Z",
+		Revenue: 55_658_123_456.78, HasRevenue: true, NetIncome: -12_345_678_901.23, HasNetIncome: true,
+		EpsBasic: 1.234567, HasEpsBasic: true, EpsDiluted: 1.223456, HasEpsDiluted: true,
+		OperatingCashFlow: 18_765_432_109.87, HasOperatingCashFlow: true,
+		FreeCashFlow: 9_876_543_210.98, HasFreeCashFlow: true,
+		SharesOutstanding: 5_071_234_567, HasSharesOutstanding: true,
+		GrossProfit: 27_123_456_789.01, HasGrossProfit: true, OperatingIncome: -21_234_567_890.12, HasOperatingIncome: true,
+		Ebitda: 28_123_456_789.01, HasEbitda: true, NormalizedEbitda: 29_123_456_789.01, HasNormalizedEbitda: true,
+		Ebit: 20_123_456_789.01, HasEbit: true, InterestExpense: 1_234_567_890.12, HasInterestExpense: true,
+		PretaxIncome: 19_123_456_789.01, HasPretaxIncome: true, TaxProvision: 6_123_456_789.01, HasTaxProvision: true,
+		NetInterestIncome: -1_123_456_789.01, HasNetInterestIncome: true,
+		CapitalExpenditure: -10_123_456_789.01, HasCapitalExpenditure: true,
+		DividendsPaid: -8_123_456_789.01, HasDividendsPaid: true, ShareBuybacks: -1_123_456_789.01, HasShareBuybacks: true,
+		TotalAssets: 108_123_456_789.01, HasTotalAssets: true, TotalLiabilities: 58_123_456_789.01, HasTotalLiabilities: true,
+		TotalEquity: -48_123_456_789.01, HasTotalEquity: true, CashAndEquivalents: 12_123_456_789.01, HasCashAndEquivalents: true,
+		TotalDebt: 22_123_456_789.01, HasTotalDebt: true, CapitalLeaseObligations: 2_123_456_789.01, HasCapitalLeaseObligations: true,
+		NetDebt: -11_123_456_789.01, HasNetDebt: true, CurrentAssets: 25_123_456_789.01, HasCurrentAssets: true,
+		CurrentLiabilities: 17_123_456_789.01, HasCurrentLiabilities: true,
+		FieldSources: map[string]string{
+			"operating_cash_flow": "derived:fcf-minus-capex",
+			"net_income":          "asx-filing-extraction",
+		},
+		SourceDocumentUrl:  "https://www.asx.com.au/asxpdf/20260819/pdf/06abcdefghij.pdf",
+		SourceDocumentDate: "2026-08-19",
+	}
+}
+
+// pickFundamentalsFixture is a pick's full fundamentals block: every ratio
+// reported, both growth figures from a filing (the longer source string).
+func pickFundamentalsFixture() *shortsv1alpha1.PickFundamentals {
+	return &shortsv1alpha1.PickFundamentals{
+		RevenueBasisPeriodType: "ttm", RevenuePeriodEnd: "2026-06-30",
+		EpsBasisPeriodType: "half", EpsPeriodEnd: "2026-06-30",
+		Currency: "AUD", FetchedAt: "2026-09-26T08:12:34Z",
+		RevenueBasisSource: "filing", EpsBasisSource: "filing",
+		NetMarginPct: -22.1234, HasNetMarginPct: true, RoePct: -123.4567, HasRoePct: true,
+		FcfMarginPct: 17.7654, HasFcfMarginPct: true, NetDebtToEbitda: 0.412345, HasNetDebtToEbitda: true,
+		PeRatio: 14.23456, HasPeRatio: true, IsFinancial: true, NetIncomePositive: true,
+		NotMeaningful: strategies.NotMeaningfulForFinancials(),
 	}
 }
 

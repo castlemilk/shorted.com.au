@@ -814,6 +814,7 @@ func TestGetStrategyPicksValidatesBeforeCallingTheRPC(t *testing.T) {
 		{"missing id", GetStrategyPicksInput{StrategyID: "  "}, "zanger-breakout"},
 		{"unknown id", GetStrategyPicksInput{StrategyID: "buffett-value"}, "minervini-trend-template"},
 		{"bad status", GetStrategyPicksInput{StrategyID: "canslim", Status: "hot"}, "triggered"},
+		{"bad sort", GetStrategyPicksInput{StrategyID: "canslim", SortBy: "dividend_yield"}, "market_cap"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := &fakeDataSource{strategyPicks: &shortsv1alpha1.GetStrategyPicksResponse{}}
@@ -842,7 +843,7 @@ func TestGetStrategyPicksNormalisesAndClampsTheRequest(t *testing.T) {
 		{9999, maxStrategyPicksLimit},
 	} {
 		src := &fakeDataSource{strategyPicks: &shortsv1alpha1.GetStrategyPicksResponse{}}
-		in := GetStrategyPicksInput{StrategyID: " Zanger-Breakout ", Status: " SETUP ", Limit: tc.limit}
+		in := GetStrategyPicksInput{StrategyID: " Zanger-Breakout ", Status: " SETUP ", SortBy: " ROE ", Limit: tc.limit}
 		if _, _, err := getStrategyPicksHandler(src)(context.Background(), nil, in); err != nil {
 			t.Fatalf("limit %d: unexpected error: %v", tc.limit, err)
 		}
@@ -850,8 +851,55 @@ func TestGetStrategyPicksNormalisesAndClampsTheRequest(t *testing.T) {
 		if got.GetLimit() != tc.want {
 			t.Errorf("limit %d sent as %d, want %d", tc.limit, got.GetLimit(), tc.want)
 		}
-		if got.GetStrategyId() != "zanger-breakout" || got.GetStatus() != "setup" {
-			t.Errorf("request not normalised: id=%q status=%q", got.GetStrategyId(), got.GetStatus())
+		if got.GetStrategyId() != "zanger-breakout" || got.GetStatus() != "setup" || got.GetSortBy() != "roe" {
+			t.Errorf("request not normalised: id=%q status=%q sort_by=%q", got.GetStrategyId(), got.GetStatus(), got.GetSortBy())
+		}
+	}
+
+	// Omitted, sort_by stays empty: the server's rank order.
+	src := &fakeDataSource{strategyPicks: &shortsv1alpha1.GetStrategyPicksResponse{}}
+	if _, _, err := getStrategyPicksHandler(src)(context.Background(), nil, GetStrategyPicksInput{StrategyID: "canslim"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := src.gotStrategyPicks.GetSortBy(); got != "" {
+		t.Errorf("an omitted sort_by was sent as %q", got)
+	}
+}
+
+// sort_by's description is the only place a model learns the keys before it
+// guesses one, so it must name every key the evaluator accepts; and every key
+// it names must be accepted.
+func TestGetStrategyPicksSchemaNamesEverySortKey(t *testing.T) {
+	field, ok := reflect.TypeOf(GetStrategyPicksInput{}).FieldByName("SortBy")
+	if !ok {
+		t.Fatal("no SortBy field")
+	}
+	tag := field.Tag.Get("jsonschema")
+	keys := strategies.SortKeys()
+	if len(keys) == 0 {
+		t.Fatal("no sort keys: this test would pass vacuously")
+	}
+	for _, k := range keys {
+		if !strings.Contains(tag, k) {
+			t.Errorf("sort_by description does not name %q: %q", k, tag)
+		}
+		src := &fakeDataSource{strategyPicks: &shortsv1alpha1.GetStrategyPicksResponse{}}
+		if _, _, err := getStrategyPicksHandler(src)(context.Background(), nil, GetStrategyPicksInput{StrategyID: "canslim", SortBy: k}); err != nil {
+			t.Errorf("sort key %q refused: %v", k, err)
+		}
+	}
+}
+
+// Every strategy the registry holds is named in list_strategies' description,
+// by the name the registry gives it.
+func TestListStrategiesDescriptionNamesEveryStrategy(t *testing.T) {
+	reg := strategies.Registry()
+	if len(reg) == 0 {
+		t.Fatal("registry is empty: this test would pass vacuously")
+	}
+	for _, st := range reg {
+		if !strings.Contains(listStrategiesDescription, st.Name) {
+			t.Errorf("list_strategies description does not name %q", st.Name)
 		}
 	}
 }
@@ -1069,6 +1117,108 @@ func TestGetStrategyPicksSpendsEvidenceInRankOrderAndSaysWhenItRunsOut(t *testin
 	}
 }
 
+// A pick carries two quality ratios and where its growth figures came from.
+// The ratios obey their has_* flags like every other figure; the source is
+// "filing" when EITHER growth figure came from a parsed filing, "vendor" when
+// the ones present are all the provider's, and absent when there is nothing to
+// attribute (no fundamentals block, or an API from before basis sources).
+func TestGetStrategyPicksProjectsQualityAndFundamentalsSource(t *testing.T) {
+	pick := func(code string, f *shortsv1alpha1.PickFundamentals) *shortsv1alpha1.StrategyPick {
+		return &shortsv1alpha1.StrategyPick{Rank: 1, StockCode: code, Status: "watch", Fundamentals: f}
+	}
+	src := &fakeDataSource{strategyPicks: &shortsv1alpha1.GetStrategyPicksResponse{
+		Strategy: &shortsv1alpha1.Strategy{
+			Id: "quality-compounders", Name: "Quality compounders",
+			Rules: []*shortsv1alpha1.StrategyRule{{Id: "roe", DataSource: "stock_fundamentals"}},
+		},
+		UniverseCount: 1_200, FundamentalsRowsCount: 950, FundamentalsCoverageCount: 700, AsOf: "2026-09-25",
+		Picks: []*shortsv1alpha1.StrategyPick{
+			pick("REV", &shortsv1alpha1.PickFundamentals{
+				RoePct: 23.4567, HasRoePct: true, NetMarginPct: 0, HasNetMarginPct: true,
+				RevenueBasisSource: "filing", EpsBasisSource: "vendor",
+			}),
+			pick("EPS", &shortsv1alpha1.PickFundamentals{
+				RoePct: 12, HasRoePct: false, NetMarginPct: 8.1, HasNetMarginPct: false,
+				RevenueBasisSource: "vendor", EpsBasisSource: "filing",
+			}),
+			pick("VEN", &shortsv1alpha1.PickFundamentals{EpsBasisSource: "vendor"}),
+			pick("OLD", &shortsv1alpha1.PickFundamentals{RoePct: 15.2, HasRoePct: true}),
+			pick("NON", nil),
+		},
+	}}
+
+	res, out, err := getStrategyPicksHandler(src)(context.Background(), nil,
+		GetStrategyPicksInput{StrategyID: "quality-compounders", SortBy: "roe"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.FundamentalsRowsCount != 950 || out.FundamentalsCoverageCount != 700 {
+		t.Errorf("counts: rows=%d growth=%d", out.FundamentalsRowsCount, out.FundamentalsCoverageCount)
+	}
+	byCode := map[string]StrategyPickRow{}
+	for _, p := range out.Picks {
+		byCode[p.Code] = p
+	}
+	rev := byCode["REV"]
+	if rev.ROEPct == nil || *rev.ROEPct != 23.46 {
+		t.Errorf("roe_pct: %v", rev.ROEPct)
+	}
+	if rev.NetMarginPct == nil || *rev.NetMarginPct != 0 {
+		t.Errorf("a measured 0%% net margin must be emitted as 0, got %v", rev.NetMarginPct)
+	}
+	for code, want := range map[string]string{"REV": "filing", "EPS": "filing", "VEN": "vendor", "OLD": "", "NON": ""} {
+		if got := byCode[code].FundamentalsSource; got != want {
+			t.Errorf("%s fundamentals_source = %q, want %q", code, got, want)
+		}
+	}
+	if e := byCode["EPS"]; e.ROEPct != nil || e.NetMarginPct != nil {
+		t.Errorf("ratios emitted without their has_* flags: roe=%v margin=%v", e.ROEPct, e.NetMarginPct)
+	}
+	raw := mustJSON(t, byCode["NON"])
+	for _, key := range []string{"roe_pct", "net_margin_pct", "fundamentals_source"} {
+		if strings.Contains(raw, key) {
+			t.Errorf("%s emitted on a pick with no fundamentals: %s", key, raw)
+		}
+	}
+
+	text := textOf(t, res)
+	for _, want := range []string{"Sorted by roe, highest first", "rank is still the strategy's",
+		"Fundamentals held for 950 of 1200 stocks evaluated (growth figures for 700)", "quality rules read unknown"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("summary missing %q: %q", want, text)
+		}
+	}
+	if strings.Contains(text, "get_stock_fundamentals") {
+		t.Errorf("roe is a column of the row; the summary should not send the reader elsewhere for it: %q", text)
+	}
+}
+
+// The rows count is quoted only when the API sends one that can contain the
+// growth count; an older API's absent count is not "0 of N", and pe sorts
+// lowest first.
+func TestGetStrategyPicksCoverageCopyFallsBackForAnOlderAPI(t *testing.T) {
+	fixture := picksFixture()
+	fixture.FundamentalsRowsCount = 0
+	src := &fakeDataSource{strategyPicks: fixture}
+	res, _, err := getStrategyPicksHandler(src)(context.Background(), nil, GetStrategyPicksInput{StrategyID: "zanger-breakout", SortBy: "pe"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	text := textOf(t, res)
+	for _, want := range []string{"Fundamentals cover 900 of 1200", "growth rules read unknown", "Sorted by pe, lowest first",
+		"pe figure is in get_stock_fundamentals"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("summary missing %q: %q", want, text)
+		}
+	}
+	if strings.Contains(text, "held for 0") {
+		t.Errorf("an absent rows count was quoted: %q", text)
+	}
+	if res, _, _ := getStrategyPicksHandler(src)(context.Background(), nil, GetStrategyPicksInput{StrategyID: "zanger-breakout"}); strings.Contains(textOf(t, res), "Sorted by") {
+		t.Errorf("rank order must not claim a sort: %q", textOf(t, res))
+	}
+}
+
 func TestGetStrategyPicksExplainsAnEmptyResult(t *testing.T) {
 	fundamentals := []*shortsv1alpha1.StrategyRule{{Id: "growth", DataSource: "stock_fundamentals"}}
 	pricesOnly := []*shortsv1alpha1.StrategyRule{{Id: "trend_stack", DataSource: "stock_prices"}}
@@ -1089,6 +1239,14 @@ func TestGetStrategyPicksExplainsAnEmptyResult(t *testing.T) {
 		{"status filter", "triggered", &shortsv1alpha1.GetStrategyPicksResponse{
 			Strategy: &shortsv1alpha1.Strategy{Name: "Minervini Trend Template", Rules: pricesOnly}, UniverseCount: 800, Regime: downtrend},
 			[]string{"with status triggered", "omit the status filter", "downtrend"}},
+		{"rows but no growth figures", "", &shortsv1alpha1.GetStrategyPicksResponse{
+			Strategy: &shortsv1alpha1.Strategy{Id: "canslim", Name: "CAN SLIM", Rules: fundamentals}, UniverseCount: 800,
+			FundamentalsRowsCount: 600, Regime: downtrend},
+			[]string{"None of the 800", "has a growth figure yet (600 hold reported fundamentals)", "growth rules"}},
+		{"quality strategy without fundamentals", "", &shortsv1alpha1.GetStrategyPicksResponse{
+			Strategy:      &shortsv1alpha1.Strategy{Id: "quality-compounders", Name: "Quality compounders", Rules: fundamentals},
+			UniverseCount: 800, Regime: downtrend},
+			[]string{"None of the 800", "has reported fundamentals yet", "quality rules read unknown"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := &fakeDataSource{strategyPicks: tc.resp}

@@ -9,6 +9,7 @@ import (
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -779,10 +780,15 @@ func getStockPricesHandler(src DataSource) sdk.ToolHandlerFor[GetStockPricesInpu
 
 const (
 	defaultFundamentalsLimit = 8
-	// maxFundamentalsLimit is exactly the handler's own ceiling (validated in
-	// fundamentals.go), so a clamp is never an InvalidArgument round trip.
-	// Forty periods is ten years of annual, half and TTM rows together.
-	maxFundamentalsLimit = 40
+	// maxFundamentalsLimit is inside the handler's own ceiling of 40
+	// (validated in fundamentals.go), so a clamp is never an InvalidArgument
+	// round trip. It came down from 40 when a period gained its statement
+	// lines and per-field provenance and the result gained the quality block:
+	// 24 fully reported periods with every provenance key and a full quality
+	// block is the worst case payload_budget_test.go measures against the
+	// 16KB per-call budget. Twenty-four is six years of annual, half and TTM
+	// rows together, or a single period type over a longer run.
+	maxFundamentalsLimit = 24
 )
 
 // validFundamentalsPeriodTypes mirrors shortsstore.FundamentalsPeriodTypes.
@@ -793,31 +799,44 @@ var validFundamentalsPeriodTypes = []string{"annual", "ttm", "half", "quarter"}
 type GetStockFundamentalsInput struct {
 	Code       string `json:"code" jsonschema:"ASX ticker code, e.g. BHP."`
 	PeriodType string `json:"period_type,omitempty" jsonschema:"annual, ttm, half or quarter. Omit for all."`
-	Limit      int    `json:"limit,omitempty" jsonschema:"1-40, default 8."`
+	Limit      int    `json:"limit,omitempty" jsonschema:"1-24, default 8."`
 }
 
 // FundamentalsPeriodRow is one reported period. Every figure is a pointer that
 // is absent when the filing did not report it: proto3 cannot tell 0 from
 // missing, which is why the RPC carries has_* flags, and this is where they
 // are honoured.
+//
+// Four of the twenty-one statement lines migration 000132 added are published
+// per period, the ones the quality block's ratios cannot be checked without
+// (operating income, capex, equity and net debt); the ratios themselves
+// arrive computed in the quality block, and the full statements are on the
+// stock page. field_sources is the RPC's per-field provenance map,
+// passed through: it lists only the fields that did NOT come from the row's
+// source, so it is absent on most rows.
 type FundamentalsPeriodRow struct {
-	PeriodType        string   `json:"period_type"`
-	PeriodEnd         string   `json:"period_end"`
-	FiscalYear        int      `json:"fiscal_year,omitempty"`
-	Currency          string   `json:"currency,omitempty" jsonschema:"Only where it differs from the result's."`
-	Revenue           *float64 `json:"revenue,omitempty"`
-	NetIncome         *float64 `json:"net_income,omitempty"`
-	EPSDiluted        *float64 `json:"eps_diluted,omitempty"`
-	EPSBasic          *float64 `json:"eps_basic,omitempty"`
-	OperatingCashFlow *float64 `json:"operating_cash_flow,omitempty"`
-	FreeCashFlow      *float64 `json:"free_cash_flow,omitempty"`
-	SharesOutstanding *float64 `json:"shares_outstanding,omitempty"`
-	Source            string   `json:"source,omitempty"`
+	PeriodType         string            `json:"period_type"`
+	PeriodEnd          string            `json:"period_end"`
+	FiscalYear         int               `json:"fiscal_year,omitempty"`
+	Currency           string            `json:"currency,omitempty" jsonschema:"Only where it differs from the result's."`
+	Revenue            *float64          `json:"revenue,omitempty"`
+	OperatingIncome    *float64          `json:"operating_income,omitempty"`
+	NetIncome          *float64          `json:"net_income,omitempty"`
+	EPSDiluted         *float64          `json:"eps_diluted,omitempty"`
+	EPSBasic           *float64          `json:"eps_basic,omitempty"`
+	OperatingCashFlow  *float64          `json:"operating_cash_flow,omitempty"`
+	CapitalExpenditure *float64          `json:"capital_expenditure,omitempty"`
+	FreeCashFlow       *float64          `json:"free_cash_flow,omitempty"`
+	TotalEquity        *float64          `json:"total_equity,omitempty"`
+	NetDebt            *float64          `json:"net_debt,omitempty"`
+	SharesOutstanding  *float64          `json:"shares_outstanding,omitempty"`
+	Source             string            `json:"source,omitempty"`
+	FieldSources       map[string]string `json:"field_sources,omitempty" jsonschema:"Where fields not from source came from."`
 }
 
 type FundamentalsGrowthSummary struct {
 	BasisPeriodType        string   `json:"basis_period_type,omitempty" jsonschema:"Series EPS growth uses: ttm, annual or half."`
-	RevenueBasisPeriodType string   `json:"revenue_basis_period_type,omitempty" jsonschema:"Series revenue growth uses: annual or half."`
+	RevenueBasisPeriodType string   `json:"revenue_basis_period_type,omitempty" jsonschema:"Series revenue growth uses: annual, ttm or half."`
 	LatestPeriodEnd        string   `json:"latest_period_end,omitempty"`
 	RevenueYoYPct          *float64 `json:"revenue_yoy_pct,omitempty"`
 	EPSYoYPct              *float64 `json:"eps_yoy_pct,omitempty"`
@@ -833,22 +852,77 @@ type FundamentalsGrowthSummary struct {
 	EPSTTM                 *float64 `json:"eps_ttm,omitempty"`
 }
 
-type GetStockFundamentalsOutput struct {
-	Code     string                     `json:"code"`
-	Currency string                     `json:"currency,omitempty" jsonschema:"Reporting currency of every figure. Not always AUD."`
-	Count    int                        `json:"count"`
-	Periods  []FundamentalsPeriodRow    `json:"periods" jsonschema:"Newest first."`
-	Growth   *FundamentalsGrowthSummary `json:"growth,omitempty"`
+// FundamentalsQualitySummary is the ratios and valuation the API computed for
+// one stock (plan docs/plans/fundamentals-coverage.md §2.7 and §5.3). Nothing
+// here is recomputed: the API has already decided which ratios are not
+// meaningful for a financial (and nulled them), and which valuation figures a
+// non-AUD statement, an FX-converted vendor series or a listed unit that is
+// not one ordinary share (a CDI) forbids. The projection only honours the
+// has_* flags, so a withheld figure stays absent here too, and says why
+// (not_meaningful, valuation_note).
+//
+// Flow ratios use ONE period (basis_period_*); balance ratios use the balance
+// sheet aligned to it (balance_period_end, never after the flow period).
+type FundamentalsQualitySummary struct {
+	BasisPeriodType    string   `json:"basis_period_type,omitempty" jsonschema:"ttm or annual: every flow ratio uses this one period."`
+	BasisPeriodEnd     string   `json:"basis_period_end,omitempty"`
+	BalancePeriodEnd   string   `json:"balance_period_end,omitempty"`
+	BalanceCurrency    string   `json:"balance_currency,omitempty"`
+	GrossMarginPct     *float64 `json:"gross_margin_pct,omitempty"`
+	OperatingMarginPct *float64 `json:"operating_margin_pct,omitempty"`
+	NetMarginPct       *float64 `json:"net_margin_pct,omitempty"`
+	FCFMarginPct       *float64 `json:"fcf_margin_pct,omitempty"`
+	FCFConversion      *float64 `json:"fcf_conversion,omitempty" jsonschema:"FCF / net profit."`
+	ROEPct             *float64 `json:"roe_pct,omitempty"`
+	ROAPct             *float64 `json:"roa_pct,omitempty"`
+	NetDebt            *float64 `json:"net_debt,omitempty" jsonschema:"Excluding leases; negative is net cash."`
+	NetDebtToEBITDA    *float64 `json:"net_debt_to_ebitda,omitempty"`
+	NetDebtToEquity    *float64 `json:"net_debt_to_equity,omitempty"`
+	CurrentRatio       *float64 `json:"current_ratio,omitempty"`
+	InterestCover      *float64 `json:"interest_cover,omitempty"`
+	PayoutRatioPct     *float64 `json:"payout_ratio_pct,omitempty" jsonschema:"Cash dividends paid / net profit."`
+	MarketCap          *float64 `json:"market_cap,omitempty" jsonschema:"AUD."`
+	PERatio            *float64 `json:"pe_ratio,omitempty"`
+	PriceToBook        *float64 `json:"price_to_book,omitempty"`
+	PriceAsOf          string   `json:"price_as_of,omitempty"`
+	ValuationNote      string   `json:"valuation_note,omitempty" jsonschema:"Why valuation is absent: non-aud (or FX-converted), listed-unit (e.g. a CDI), no-shares or no-price."`
+	IsFinancial        bool     `json:"is_financial,omitempty"`
+	IsProperty         bool     `json:"is_property,omitempty" jsonschema:"Profit includes revaluations."`
+	NotMeaningful      []string `json:"not_meaningful,omitempty" jsonschema:"Withheld: not meaningful for a financial."`
 }
 
-const getStockFundamentalsDescription = "Reported financial statements for one ASX-listed company, per period, newest " +
-	"first: revenue, net income, diluted and basic EPS, operating and free cash flow and shares outstanding for annual, " +
-	"half-year, quarterly and trailing-twelve-month (ttm) periods, plus revenue and EPS growth year on year and the same " +
-	"growth a period earlier, to show acceleration. Figures are in the company's REPORTING currency (whole units, EPS " +
-	"per share), which is not always AUD: BHP reports in USD. Growth compares the same series a year apart (annual on " +
-	"annual, ttm on ttm, or a fresher filed half on the same half a year earlier). A figure not reported is absent, never zero. ASX companies report half-yearly, so quarterly is " +
-	"usually empty. Company-filed statement data via a market data provider, not estimates or financial advice; small " +
-	"caps can lag their filing by weeks. No price or short data: use get_stock_prices and get_stock."
+// FundamentalsCoverageSummary says whether the collector has tried this stock
+// and what it found, so an empty result reads as "not collected yet" or "our
+// providers hold nothing" rather than "the company reports nothing". Absent is
+// not a status: an API without the sync facts sends no status, and neither
+// does this.
+type FundamentalsCoverageSummary struct {
+	Status        string   `json:"status,omitempty" jsonschema:"covered, empty (providers hold none), pending (not yet collected) or failed."`
+	LastAttemptAt string   `json:"last_attempt_at,omitempty"`
+	LastSuccessAt string   `json:"last_success_at,omitempty"`
+	Sources       []string `json:"sources,omitempty"`
+}
+
+type GetStockFundamentalsOutput struct {
+	Code     string                       `json:"code"`
+	Currency string                       `json:"currency,omitempty" jsonschema:"Reporting currency of every figure. Not always AUD."`
+	Count    int                          `json:"count"`
+	Periods  []FundamentalsPeriodRow      `json:"periods" jsonschema:"Newest first."`
+	Growth   *FundamentalsGrowthSummary   `json:"growth,omitempty"`
+	Quality  *FundamentalsQualitySummary  `json:"quality,omitempty"`
+	Coverage *FundamentalsCoverageSummary `json:"coverage,omitempty"`
+}
+
+const getStockFundamentalsDescription = "Reported financial statements for one ASX-listed company, newest first: " +
+	"revenue, operating income, net income, EPS, cash flow, capex, equity, net debt and shares per annual, half-year " +
+	"and trailing-twelve-month (ttm) period (quarter rows are balance snapshots); revenue and EPS growth year on year " +
+	"and a period earlier (acceleration); quality ratios (margins, ROE, cash conversion, leverage, liquidity, payout) " +
+	"and market cap, P/E and P/B. Figures are in the company's REPORTING currency (whole units, EPS per share), not " +
+	"always AUD: BHP reports in USD. Growth compares the same series a year apart (annual on annual, ttm on ttm, or a " +
+	"fresher filed half on the same half a year earlier). A figure not reported is absent, never zero; ratios not " +
+	"meaningful for banks and insurers, and P/E and P/B for non-AUD statements or CDIs, are withheld with the reason. " +
+	"Company-filed data via a market data provider and parsed ASX filings, not estimates or financial advice; small " +
+	"caps can lag their filing by weeks. Valuation ratios use the latest close; no short data."
 
 func getStockFundamentalsTool() Tool {
 	tool := Tool{
@@ -914,17 +988,22 @@ func getStockFundamentalsHandler(src DataSource) sdk.ToolHandlerFor[GetStockFund
 				continue
 			}
 			row := FundamentalsPeriodRow{
-				PeriodType:        p.GetPeriodType(),
-				PeriodEnd:         p.GetPeriodEnd(),
-				FiscalYear:        int(p.GetFiscalYear()),
-				Revenue:           optionalFloat(p.GetRevenue(), p.GetHasRevenue()),
-				NetIncome:         optionalFloat(p.GetNetIncome(), p.GetHasNetIncome()),
-				EPSDiluted:        optionalFloat(p.GetEpsDiluted(), p.GetHasEpsDiluted()),
-				EPSBasic:          optionalFloat(p.GetEpsBasic(), p.GetHasEpsBasic()),
-				OperatingCashFlow: optionalFloat(p.GetOperatingCashFlow(), p.GetHasOperatingCashFlow()),
-				FreeCashFlow:      optionalFloat(p.GetFreeCashFlow(), p.GetHasFreeCashFlow()),
-				SharesOutstanding: optionalFloat(p.GetSharesOutstanding(), p.GetHasSharesOutstanding()),
-				Source:            p.GetSource(),
+				PeriodType:         p.GetPeriodType(),
+				PeriodEnd:          p.GetPeriodEnd(),
+				FiscalYear:         int(p.GetFiscalYear()),
+				Revenue:            optionalFloat(p.GetRevenue(), p.GetHasRevenue()),
+				OperatingIncome:    optionalFloat(p.GetOperatingIncome(), p.GetHasOperatingIncome()),
+				NetIncome:          optionalFloat(p.GetNetIncome(), p.GetHasNetIncome()),
+				EPSDiluted:         optionalFloat(p.GetEpsDiluted(), p.GetHasEpsDiluted()),
+				EPSBasic:           optionalFloat(p.GetEpsBasic(), p.GetHasEpsBasic()),
+				OperatingCashFlow:  optionalFloat(p.GetOperatingCashFlow(), p.GetHasOperatingCashFlow()),
+				CapitalExpenditure: optionalFloat(p.GetCapitalExpenditure(), p.GetHasCapitalExpenditure()),
+				FreeCashFlow:       optionalFloat(p.GetFreeCashFlow(), p.GetHasFreeCashFlow()),
+				TotalEquity:        optionalFloat(p.GetTotalEquity(), p.GetHasTotalEquity()),
+				NetDebt:            optionalFloat(p.GetNetDebt(), p.GetHasNetDebt()),
+				SharesOutstanding:  optionalFloat(p.GetSharesOutstanding(), p.GetHasSharesOutstanding()),
+				Source:             p.GetSource(),
+				FieldSources:       fieldSources(p.GetFieldSources()),
 			}
 			if c := strings.TrimSpace(p.GetCurrency()); c != "" && c != out.Currency {
 				row.Currency = c
@@ -955,18 +1034,107 @@ func getStockFundamentalsHandler(src DataSource) sdk.ToolHandlerFor[GetStockFund
 				EPSTTM:                 optionalFloat(g.GetEpsTtm(), g.GetHasEpsTtm()),
 			}
 		}
+		if q := msg.GetQuality(); msg.GetHasQuality() && q != nil {
+			out.Quality = projectQuality(q)
+		}
+		out.Coverage = projectCoverage(msg.GetCoverage())
 
 		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: describeFundamentals(out, periodType)}}}, out, nil
 	}
 }
 
+// fieldSources copies the per-field provenance map, dropping empty keys and
+// values; nil (and so absent) when nothing is left.
+func fieldSources(in map[string]string) map[string]string {
+	var out map[string]string
+	for k, v := range in {
+		k, v = strings.TrimSpace(k), strings.TrimSpace(v)
+		if k == "" || v == "" {
+			continue
+		}
+		if out == nil {
+			out = make(map[string]string, len(in))
+		}
+		out[k] = v
+	}
+	return out
+}
+
+// projectQuality narrows FundamentalsQuality to the published fields. The
+// proto also carries the dates and basis behind the share count and the P/E
+// (shares_as_of, pe_eps_*), the balance lag, the flow row's source and the
+// derived-cash-flow flag; the periods and their field_sources already carry
+// that provenance.
+func projectQuality(q *shortsv1alpha1.FundamentalsQuality) *FundamentalsQualitySummary {
+	out := &FundamentalsQualitySummary{
+		BasisPeriodType:    q.GetBasisPeriodType(),
+		BasisPeriodEnd:     q.GetBasisPeriodEnd(),
+		BalancePeriodEnd:   q.GetBalancePeriodEnd(),
+		BalanceCurrency:    strings.TrimSpace(q.GetBalanceCurrency()),
+		GrossMarginPct:     roundedOptional(q.GetGrossMarginPct(), q.GetHasGrossMarginPct()),
+		OperatingMarginPct: roundedOptional(q.GetOperatingMarginPct(), q.GetHasOperatingMarginPct()),
+		NetMarginPct:       roundedOptional(q.GetNetMarginPct(), q.GetHasNetMarginPct()),
+		FCFMarginPct:       roundedOptional(q.GetFcfMarginPct(), q.GetHasFcfMarginPct()),
+		FCFConversion:      roundedOptional(q.GetFcfConversion(), q.GetHasFcfConversion()),
+		ROEPct:             roundedOptional(q.GetRoePct(), q.GetHasRoePct()),
+		ROAPct:             roundedOptional(q.GetRoaPct(), q.GetHasRoaPct()),
+		NetDebt:            optionalFloat(q.GetNetDebt(), q.GetHasNetDebt()),
+		NetDebtToEBITDA:    roundedOptional(q.GetNetDebtToEbitda(), q.GetHasNetDebtToEbitda()),
+		NetDebtToEquity:    roundedOptional(q.GetNetDebtToEquity(), q.GetHasNetDebtToEquity()),
+		CurrentRatio:       roundedOptional(q.GetCurrentRatio(), q.GetHasCurrentRatio()),
+		InterestCover:      roundedOptional(q.GetInterestCover(), q.GetHasInterestCover()),
+		PayoutRatioPct:     roundedOptional(q.GetPayoutRatioPct(), q.GetHasPayoutRatioPct()),
+		MarketCap:          optionalFloat(q.GetMarketCap(), q.GetHasMarketCap()),
+		PERatio:            roundedOptional(q.GetPeRatio(), q.GetHasPeRatio()),
+		PriceToBook:        roundedOptional(q.GetPriceToBook(), q.GetHasPriceToBook()),
+		PriceAsOf:          q.GetPriceAsOf(),
+		ValuationNote:      q.GetValuationNote(),
+		IsFinancial:        q.GetIsFinancial(),
+		IsProperty:         q.GetIsProperty(),
+	}
+	for _, name := range q.GetNotMeaningful() {
+		if name = strings.TrimSpace(name); name != "" {
+			out.NotMeaningful = append(out.NotMeaningful, name)
+		}
+	}
+	return out
+}
+
+// projectCoverage passes the collector's coverage facts through, nil when
+// there are none: an older API sends no coverage, and a status it could not
+// determine is sent as "", which is not a status either.
+func projectCoverage(c *shortsv1alpha1.FundamentalsCoverage) *FundamentalsCoverageSummary {
+	if c == nil {
+		return nil
+	}
+	out := &FundamentalsCoverageSummary{
+		Status:        strings.TrimSpace(c.GetStatus()),
+		LastAttemptAt: c.GetLastAttemptAt(),
+		LastSuccessAt: c.GetLastSuccessAt(),
+	}
+	for _, src := range c.GetSources() {
+		if src = strings.TrimSpace(src); src != "" {
+			out.Sources = append(out.Sources, src)
+		}
+	}
+	if out.Status == "" && out.LastAttemptAt == "" && out.LastSuccessAt == "" && len(out.Sources) == 0 {
+		return nil
+	}
+	return out
+}
+
 func describeFundamentals(out GetStockFundamentalsOutput, periodType string) string {
 	if out.Count == 0 && out.Growth == nil {
+		if periodType == "" {
+			if s := describeCoverageGap(out.Code, out.Coverage); s != "" {
+				return s
+			}
+		}
 		s := "No reported fundamentals are held for " + out.Code
 		if periodType != "" {
 			s += " with period type " + periodType
 			if periodType == "quarter" {
-				s += " (ASX companies report half-yearly, so quarterly periods are usually empty; try half or ttm)"
+				s += " (quarter rows are balance-sheet snapshots only; try annual, half or ttm)"
 			}
 		}
 		return s + " yet. Coverage is still being filled in; this does not mean the company reported nothing."
@@ -975,8 +1143,7 @@ func describeFundamentals(out GetStockFundamentalsOutput, periodType string) str
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s: %d reported periods", out.Code, out.Count)
 	if out.Count > 0 {
-		latest := out.Periods[0]
-		fmt.Fprintf(&b, ", latest %s to %s", latest.PeriodType, latest.PeriodEnd)
+		fmt.Fprintf(&b, ", latest %s", latestPeriodLabel(out.Periods))
 	}
 	if out.Currency != "" {
 		b.WriteString(", in " + out.Currency)
@@ -993,6 +1160,96 @@ func describeFundamentals(out GetStockFundamentalsOutput, periodType string) str
 			b.WriteString(" Not enough comparable periods for year-on-year growth.")
 		}
 	}
+	b.WriteString(describeQuality(out.Quality))
 	b.WriteString(" Company-filed figures in the reporting currency; absent means not reported. Not financial advice.")
+	return b.String()
+}
+
+// latestPeriodLabel names the newest period with a statement behind it. A
+// quarter row is only a balance-sheet snapshot, so it heads the label only
+// when nothing else was returned.
+func latestPeriodLabel(periods []FundamentalsPeriodRow) string {
+	for _, p := range periods {
+		if p.PeriodType != "quarter" {
+			return p.PeriodType + " to " + p.PeriodEnd
+		}
+	}
+	return "balance snapshot at " + periods[0].PeriodEnd
+}
+
+// describeCoverageGap explains an empty result from the collector's own
+// record, in the stock page's words (plan §7.1). It never states or implies
+// that a listed company publishes no statements. "" when coverage says
+// nothing more specific than "not held yet".
+func describeCoverageGap(code string, c *FundamentalsCoverageSummary) string {
+	if c == nil {
+		return ""
+	}
+	switch c.Status {
+	case "empty":
+		s := "Our data providers hold no financial statements for " + code
+		if d := datePart(c.LastAttemptAt); d != "" {
+			s += " (last checked " + d + ")"
+		}
+		return s + ". This does not mean the company reported nothing: its own filings are on the ASX announcements platform."
+	case "pending":
+		return "Fundamentals not yet collected for " + code + "."
+	case "failed":
+		s := "Fundamentals for " + code + " could not be collected"
+		if d := datePart(c.LastAttemptAt); d != "" {
+			s += " on " + d
+		}
+		return s + "; the next run retries."
+	}
+	return ""
+}
+
+// datePart is the YYYY-MM-DD prefix of an RFC 3339 timestamp.
+func datePart(ts string) string {
+	if len(ts) >= 10 {
+		return ts[:10]
+	}
+	return ts
+}
+
+// describeQuality is one sentence of headline ratios and valuation, naming the
+// basis, and what was withheld.
+func describeQuality(q *FundamentalsQualitySummary) string {
+	if q == nil {
+		return ""
+	}
+	var parts []string
+	if q.ROEPct != nil {
+		parts = append(parts, fmt.Sprintf("ROE %.1f%%", *q.ROEPct))
+	}
+	if q.NetMarginPct != nil {
+		parts = append(parts, fmt.Sprintf("net margin %.1f%%", *q.NetMarginPct))
+	}
+	if q.NetDebtToEBITDA != nil {
+		parts = append(parts, fmt.Sprintf("net debt/EBITDA %.1fx", *q.NetDebtToEBITDA))
+	}
+	if q.PERatio != nil {
+		parts = append(parts, fmt.Sprintf("P/E %.1f", *q.PERatio))
+	}
+	var b strings.Builder
+	if len(parts) > 0 {
+		b.WriteString(" " + strings.ToUpper(parts[0][:1]) + parts[0][1:])
+		if len(parts) > 1 {
+			b.WriteString(", " + strings.Join(parts[1:], ", "))
+		}
+		if q.BasisPeriodType != "" && q.BasisPeriodEnd != "" {
+			fmt.Fprintf(&b, " (%s to %s)", q.BasisPeriodType, q.BasisPeriodEnd)
+		}
+		b.WriteString(".")
+	}
+	if q.IsFinancial && len(q.NotMeaningful) > 0 {
+		b.WriteString(" Treated as a financial: " + strings.Join(q.NotMeaningful, ", ") + " are not meaningful and withheld.")
+	}
+	switch q.ValuationNote {
+	case strategies.ValuationNoteNonAUD:
+		b.WriteString(" P/E and P/B withheld: the statements are not in AUD (or are currency-converted).")
+	case strategies.ValuationNoteListedUnit:
+		b.WriteString(" Valuation withheld: the listed unit is not one ordinary share (for example a CDI).")
+	}
 	return b.String()
 }

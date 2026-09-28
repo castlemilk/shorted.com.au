@@ -24,11 +24,17 @@ Twenty-eight read-only tools across four domains:
 - **Market and stocks** — ASIC short positions for ASX-listed securities,
   rankings, industry treemaps, squeeze candidates, price and short-interest
   history, director trades, peer comparison, search, a screener, per-stock news,
-  and published weekly/monthly/yearly reports. Also named stock-picking
+  and published weekly/monthly/yearly reports. Also five named stock-picking
   strategies (`list_strategies`, `get_strategy_picks`: Zanger Breakout, CAN
-  SLIM, Minervini Trend Template and a crowded-short breakout, each stock
-  scored pass/fail/unknown rule by rule) and company-filed fundamentals
-  (`get_stock_fundamentals`, in each company's reporting currency).
+  SLIM, Minervini Trend Template, a crowded-short breakout and quality
+  compounders, each stock scored pass/fail/unknown rule by rule; `sort_by`
+  reorders the picks by growth, return on equity, margins, P/E or market cap
+  without changing their rank) and company fundamentals
+  (`get_stock_fundamentals`: statement lines per period with per-field
+  provenance, quality ratios, and market cap, P/E and P/B at the latest close,
+  in each company's reporting currency). Ratios that are not meaningful for
+  banks and insurers, and P/E and P/B for non-AUD or currency-converted
+  statements and CDI listings, are withheld, and the result says why.
 - **Housing** — official ABS/RBA house-price series, per-suburb profiles with
   Census and electoral overlays, and derived price-drop aggregates.
 - **Economy** — the ABS/RBA economic-series layer (CPI, labour, trade, state
