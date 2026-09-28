@@ -812,6 +812,34 @@ jobs:
             # hour (`task db:prod:apply`).
             run_psql_session -f /migrations/000131_widen_stock_price_precision.up.sql
 
+            # 000132 (docs/plans/fundamentals-coverage.md §2) widens
+            # stock_fundamentals to the full statements, adds
+            # mv_fundamentals_quality and rebuilds mv_fundamentals_growth with
+            # four appended columns. Its first run also adds a column to
+            # financial_report_extractions, so do not merge while the
+            # financial-report-extractor job is executing (plan §9).
+            # Never remove this line to unblock a deploy: the new jobs image
+            # writes these columns, and this step runs before `terraform apply`
+            # swaps it. If it cannot apply, hand-apply it in a quiet window:
+            #   task db:prod:apply FILE=services/migrations/000132_extend_fundamentals.up.sql CONFIRM=prod
+            # and then re-run the deploy, or revert.
+            #
+            # It is two transactions. The first re-issues
+            # refresh_strategy_views() with the quality view (replacing the
+            # three-view body 000130's replay above has just written) and
+            # commits. The second touches the picker objects in the order that
+            # function locks them, under lock_timeout = '15s', so a deploy that
+            # overlaps `shorted picks -mode refresh` waits for it instead of
+            # deadlocking, and a lock held past 15s fails this step before any
+            # image is swapped. Every step is catalog-guarded: the first run
+            # adds the columns and rebuilds the growth view once (a guarded
+            # DROP, which the rule against DROP+CREATE here does not forbid, for
+            # the same reason as 000131), and every later replay is a few
+            # catalog reads plus, at most, writing back the growth view's
+            # COMMENT that 000129's replay rewrites (best effort: a lock it
+            # cannot get is a NOTICE, never a failed deploy).
+            run_psql_session -f /migrations/000132_extend_fundamentals.up.sql
+
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
 
             # Ingesting third-party data is NOT a deployment prerequisite.
