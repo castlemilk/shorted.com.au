@@ -434,27 +434,6 @@ func TestGateTTMEPSIdentity(t *testing.T) {
 	assert.NotNil(t, out["ABC"][0].EPSBasic)
 }
 
-func TestEntityMatches(t *testing.T) {
-	cases := []struct {
-		entity, company string
-		want            bool
-	}{
-		{"BHP Group Limited", "BHP GROUP LIMITED", true},
-		{"Commonwealth Bank of Australia", "COMMONWEALTH BANK OF AUSTRALIA.", true},
-		{"Fortescue Ltd", "FORTESCUE METALS GROUP LTD", true},
-		{"Domino’s Pizza Enterprises Limited", "DOMINO'S PIZZA ENTERPRISES LIMITED", true},
-		{"JB Hi-Fi Limited", "JB HI-FI LIMITED", true},
-		{"Winsome Resources Limited", "LFT LIMITED", false},
-		{"Quokka Minerals Limited", "NORTHERN MINERALS LIMITED", false},
-		{"Star Entertainment Group", "NORTHERN STAR RESOURCES LTD", false},
-		{"Limited", "BHP GROUP LIMITED", false},
-		{"BHP Group Limited", "", false},
-	}
-	for _, c := range cases {
-		assert.Equal(t, c.want, entityMatches(c.entity, c.company), "%q vs %q", c.entity, c.company)
-	}
-}
-
 func TestMonthEndOffset(t *testing.T) {
 	assert.Equal(t, "2026-06-30", monthEndOffset(date("2025-12-31"), 6).Format("2006-01-02"))
 	assert.Equal(t, "2024-12-31", monthEndOffset(date("2025-12-31"), -12).Format("2006-01-02"))

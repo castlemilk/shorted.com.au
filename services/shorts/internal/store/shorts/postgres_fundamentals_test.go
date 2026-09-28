@@ -381,8 +381,9 @@ func TestFundamentalsExtrasQueryShape(t *testing.T) {
 		for _, frag := range []string{
 			"LEFT JOIN mv_fundamentals_growth g", "LEFT JOIN mv_fundamentals_quality q", "LEFT JOIN stock_fundamentals_sync sy",
 			"sy.median_k", "sy.fx_converted", "f.source <> 'asx-filing-extraction'", "BETWEEN 0.8 AND 1.25",
+			"bool_or(v.kv > 0 AND (v.kv * 3 < 1 OR v.kv > 3)) AS any_far",
 			// Without a median, only a k outside [1/3, 3] contradicts the listing.
-			"COALESCE(kk.any_far, false)", "bool_or(v.kv * 3 < 1 OR v.kv > 3) AS any_far",
+			"COALESCE(kk.any_far, false)",
 			// fx_converted NULL is not "not converted": a fractional non-Markit
 			// vendor revenue or net income decides until the job has measured it.
 			"COALESCE(sy.fx_converted, kk.fractional, false)", "v.source <> 'markit-key-statistics'",

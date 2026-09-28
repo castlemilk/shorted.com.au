@@ -88,9 +88,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      # The runner image is not a contract (scripts/tests/self-hosted-toolchain
+      # .test.mjs): ask for Python explicitly. 3.11 is what the job's image
+      # (python:3.11-slim) runs in production.
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
       - name: Install extractor dependencies
         run: python -m pip install -r services/report-extractor/requirements.txt pytest

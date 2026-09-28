@@ -310,14 +310,37 @@ def _main_with(monkeypatch, outcomes, argv=()):
     runner.main()
 
 
-def test_main_exits_non_zero_after_printing_the_counts_when_any_model_error_occurred(monkeypatch, caplog):
+def test_main_exits_non_zero_after_printing_the_counts_when_model_errors_are_systemic(monkeypatch, caplog):
     with caplog.at_level(logging.INFO), pytest.raises(SystemExit) as exc:
-        _main_with(monkeypatch, ["ok", "model_error", "no_metrics"])
+        _main_with(monkeypatch, ["ok", "model_error", "model_error", "model_error", "no_metrics"])
     assert exc.value.code == 1
     messages = [r.getMessage() for r in caplog.records]
     done = next(i for i, m in enumerate(messages) if m.startswith("DONE"))
-    assert "'model_error': 1" in messages[done]
-    assert any("1 model errors" in m for m in messages[done:])
+    assert "'model_error': 3" in messages[done]
+    assert any("3 model errors" in m for m in messages[done:])
+
+
+def test_main_logs_but_does_not_fail_on_one_document_the_model_refuses(monkeypatch, caplog):
+    # One document blocked every day must not fail every run: it is logged
+    # and retried, and the run exits 0.
+    outcomes = ["model_error"] + ["ok"] * 9
+    with caplog.at_level(logging.INFO):
+        _main_with(monkeypatch, outcomes)
+    assert any("1 model errors" in r.getMessage() for r in caplog.records)
+
+
+def test_model_errors_fail_run_rule():
+    from collections import Counter
+
+    assert not runner.model_errors_fail_run(Counter({"ok": 5}))
+    assert not runner.model_errors_fail_run(Counter({"model_error": 1, "ok": 1}))
+    assert not runner.model_errors_fail_run(Counter({"model_error": 2, "ok": 2}))
+    assert runner.model_errors_fail_run(Counter({"model_error": 3, "ok": 12}))
+    assert not runner.model_errors_fail_run(Counter({"model_error": 3, "ok": 13}))
+    # The breaker's worth fails the run whatever the share.
+    assert runner.model_errors_fail_run(Counter({"model_error": 5, "ok": 500}), max_consecutive=5)
+    # Items that never called the model do not dilute the share.
+    assert runner.model_errors_fail_run(Counter({"model_error": 3, "no_pdf": 100, "ok": 2}))
 
 
 def test_main_exits_zero_without_model_errors(monkeypatch):
@@ -459,3 +482,86 @@ def test_the_marker_row_and_the_backfill_skipping_it():
     runner.select_digestless_reports(conn, limit=10)
     sql, params = conn.statements[0]
     assert "raw_text_length IS NULL OR raw_text_length >= %s" in sql and params == (extract.MIN_PDF_TEXT_CHARS,)
+
+
+# --- --repair-echo-digests (review C8): the echo entries and their digest go ------------
+
+ECHO_TEXT = "Revenue from continuing operations for the half year ended 31 December 2024 was $5,142 million"
+
+
+def _echo_metrics():
+    return {
+        "revenue": {"source_text": ECHO_TEXT, "value_millions": "5142", "alignment": "match_exact"},
+        "net_profit": [
+            {"source_text": "Net profit after tax was $55.1 million", "value_millions": "55.1", "alignment": "match_exact"},
+        ],
+    }
+
+
+def test_echo_helpers_find_and_drop_only_the_echo_entries():
+    import extraction_trust
+
+    metrics = _echo_metrics()
+    assert extraction_trust.has_few_shot_entry(metrics, extract.FEWSHOT_DENYLIST)
+    cleaned = extraction_trust.drop_few_shot_entries(metrics, extract.FEWSHOT_DENYLIST)
+    assert "revenue" not in cleaned, "the echo class is removed"
+    assert cleaned["net_profit"] == metrics["net_profit"], "everything else is kept verbatim, provenance included"
+    assert not extraction_trust.has_few_shot_entry(cleaned, extract.FEWSHOT_DENYLIST)
+    assert not extraction_trust.has_few_shot_entry({"x": "not an entry"}, extract.FEWSHOT_DENYLIST)
+
+
+def test_select_echo_digest_reports_keeps_only_rows_with_an_echo(monkeypatch):
+    rows = [
+        {"stock_code": "BHP", "report_url": "u1", "report_type": "t", "report_title": "Appendix 4D",
+         "report_date": "2026-02-18", "metrics": json.dumps(_echo_metrics()), "raw_text_length": 9000,
+         "raw_text_gcs_url": "gs://b/1.txt"},
+        {"stock_code": "WBT", "report_url": "u2", "report_type": "t", "report_title": "Appendix 4E",
+         "report_date": "2026-08-20", "metrics": json.dumps({"net_profit": _echo_metrics()["net_profit"]}),
+         "raw_text_length": 9000, "raw_text_gcs_url": "gs://b/2.txt"},
+    ]
+
+    class Cur:
+        def execute(self, sql, params):
+            assert "metrics <> '{}'::jsonb" in sql
+
+        def fetchall(self):
+            return rows
+
+        def close(self):
+            pass
+
+    conn = SimpleNamespace(cursor=lambda **k: Cur())
+    got = runner.select_echo_digest_reports(conn, 0)
+    assert [r["url"] for r in got] == ["u1"]
+    assert got[0]["repair_echo"] is True
+
+
+def test_repair_stores_clean_metrics_and_a_new_digest(monkeypatch):
+    stored = _wire(monkeypatch, _fetch_ok)
+    monkeypatch.setattr(extract, "download_text_from_gcs", lambda uri: DOC_TEXT)
+    monkeypatch.setattr(extract, "summarize_report", lambda metrics, text, **k: {"digest": "Wombat lifted profit.", "confidence": 0.9})
+    row = {**REPORT, "metrics": json.dumps(_echo_metrics()), "raw_text_gcs_url": "gs://b/x.txt", "repair_echo": True}
+    assert runner.process_digestless(row, "m", 8, False) == "ok_gcs"
+    [saved] = stored.rows
+    assert "revenue" not in saved["metrics"] and "net_profit" in saved["metrics"]
+    assert saved["digest_result"]["digest"] == "Wombat lifted profit."
+
+
+def test_repair_clears_the_echo_digest_even_when_no_new_digest_is_written(monkeypatch):
+    stored = _wire(monkeypatch, _fetch_ok)
+    monkeypatch.setattr(extract, "download_text_from_gcs", lambda uri: DOC_TEXT)
+    monkeypatch.setattr(extract, "summarize_report", lambda metrics, text, **k: {"digest": ""})
+    row = {**REPORT, "metrics": json.dumps(_echo_metrics()), "raw_text_gcs_url": "gs://b/x.txt", "repair_echo": True}
+    assert runner.process_digestless(row, "m", 8, False) == "echo_cleared"
+    [saved] = stored.rows
+    assert "revenue" not in saved["metrics"]
+    assert saved["digest_result"] is None, "stored with digest NULL, so the withheld echo digest is gone"
+
+
+def test_plain_backfill_does_not_rewrite_metrics(monkeypatch):
+    stored = _wire(monkeypatch, _fetch_ok)
+    monkeypatch.setattr(extract, "download_text_from_gcs", lambda uri: DOC_TEXT)
+    monkeypatch.setattr(extract, "summarize_report", lambda metrics, text, **k: {"digest": "d", "confidence": 0.9})
+    row = {**REPORT, "metrics": json.dumps(_echo_metrics()), "raw_text_gcs_url": "gs://b/x.txt"}
+    assert runner.process_digestless(row, "m", 8, False) == "ok_gcs"
+    assert "revenue" in stored.rows[0]["metrics"], "only --repair-echo-digests drops entries"

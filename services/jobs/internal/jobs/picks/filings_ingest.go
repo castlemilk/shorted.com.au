@@ -324,7 +324,7 @@ func buildFilingRows(exts []filingExtraction, in filingInputs, st *filingStats) 
 				st.gate(gateEntityUnverifiable)
 				continue
 			}
-			if !entityMatches(meta.Entity, name) {
+			if !extractiontrust.EntityMatches(meta.Entity, name) {
 				st.gate(gateForeignEntity)
 				continue
 			}

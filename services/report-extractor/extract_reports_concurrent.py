@@ -16,6 +16,13 @@ Two modes:
                        Prefers the raw text stored in GCS so it does not
                        re-download (older 2024 ASX URLs no longer resolve);
                        falls back to re-downloading the PDF.
+  --repair-echo-digests  the one-off repair after the trust funnel: rows whose
+                       stored metrics carry a few-shot-echo entry lose those
+                       entries (nothing else changes) and get a new digest
+                       through the trusted prompt, or digest NULL when none
+                       can be written. Until then the API withholds their
+                       summaries. Run it once after the deploy (--dry-run
+                       first lists the rows).
 
 Budget: --budget-min (default 90). Once it elapses no new report is started;
 in-flight reports finish, the remaining count is logged and the job exits 0.
@@ -27,8 +34,13 @@ error, a blocked or empty response) counts as model_error and writes NO row,
 so the next run retries it. After MAX_CONSECUTIVE_MODEL_ERRORS model errors in
 a row (--max-model-errors) no new report is started: a dead key, a retired
 model or an exhausted quota fails every call. The run then prints its counts
-and exits 1 whenever any model_error occurred, so the Cloud Run execution
-fails visibly instead of reporting success.
+and exits 1 when the model errors look systemic (model_errors_fail_run: the
+breaker's worth of them, or at least 3 that are at least a fifth of the
+documents that called the model), so the Cloud Run execution fails visibly
+instead of reporting success. One or two documents the model refuses every
+day (a chunk blocked by the safety filter) are logged as errors and retried,
+but do not fail every run: a job that fails daily for one document is an
+alarm nobody reads.
 
 Unreadable documents: a PDF with no text layer gets a marker row
 (extract.store_unreadable) and the company's next document is tried in the
@@ -40,6 +52,8 @@ Run (against prod):
     python extract_reports_concurrent.py --recent 2 --limit 120 --workers 4 --max-pages 8
   DATABASE_URL=... GEMINI_API_KEY=... \
     python extract_reports_concurrent.py --backfill-digests --limit 500 --workers 4
+  DATABASE_URL=... GEMINI_API_KEY=... \
+    python extract_reports_concurrent.py --repair-echo-digests --dry-run
 
 Connections: the selection connection is autocommit and is closed before any
 report starts. Each worker opens its own autocommit connection lazily, only to
@@ -65,6 +79,7 @@ import psycopg2.extras
 import requests
 
 import extract  # reuse helpers (import is side-effect-free)
+import extraction_trust
 from document_meta import extract_document_meta
 from token_usage import TokenUsage
 
@@ -77,6 +92,29 @@ DEFAULT_BUDGET_MIN = 90
 # failed for another reason): they neither extend nor break a run of model
 # errors.
 _NO_MODEL_CALL = frozenset({extract.FETCH_FAILED, extract.FETCH_UNREADABLE, "no_text", "error"})
+
+# model_errors_fail_run's share rule: at least this many model errors, making
+# up at least 1/MODEL_ERROR_SHARE_DENOMINATOR of the documents that called the
+# model.
+MODEL_ERROR_MIN_TO_FAIL = 3
+MODEL_ERROR_SHARE_DENOMINATOR = 5
+
+
+def model_errors_fail_run(counts: Counter, max_consecutive: int = extract.MAX_CONSECUTIVE_MODEL_ERRORS) -> bool:
+    """Whether this run's model errors look systemic enough to fail it.
+
+    True when there were at least max_consecutive of them (what trips the
+    breaker: a dead key, a retired model, an exhausted quota), or at least
+    MODEL_ERROR_MIN_TO_FAIL making up at least a fifth of the documents that
+    called the model. A document the model refuses every day stays a logged
+    error and is retried, but does not fail every run on its own."""
+    errors = counts.get(extract.MODEL_ERROR, 0)
+    if errors == 0:
+        return False
+    if max_consecutive > 0 and errors >= max_consecutive:
+        return True
+    calls = sum(n for outcome, n in counts.items() if outcome not in _NO_MODEL_CALL)
+    return errors >= MODEL_ERROR_MIN_TO_FAIL and errors * MODEL_ERROR_SHARE_DENOMINATOR >= calls
 
 _tl = threading.local()
 
@@ -113,6 +151,54 @@ def open_selection_connection():
 def select_reports(conn, recent: int, limit: int) -> list[dict]:
     """The run's work list (extract.select_extraction_targets)."""
     return extract.select_extraction_targets(conn, recent=recent, limit=limit)
+
+
+def select_echo_digest_reports(conn, limit: int) -> list[dict]:
+    """Rows whose stored metrics carry a few-shot-echo entry (the old prompt's
+    example leaking into the extraction). Their digest, if any, was written
+    from those metrics, so the API withholds it; --repair-echo-digests drops
+    the echo entries and writes a new digest through the trusted prompt.
+    Newest first. The echo is decided in Python with the same denylist the
+    funnel uses (extraction_trust.has_few_shot_entry), over every row with
+    metrics: the corpus is a few thousand rows."""
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            """
+            SELECT stock_code, report_url, report_type, report_title,
+                   report_date::text AS report_date, metrics::text AS metrics,
+                   raw_text_length, raw_text_gcs_url
+            FROM financial_report_extractions
+            WHERE metrics <> '{}'::jsonb
+              AND (raw_text_length IS NULL OR raw_text_length >= %s)
+            ORDER BY report_date DESC NULLS LAST, stock_code
+            """,
+            (extract.MIN_PDF_TEXT_CHARS,),
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+    finally:
+        cur.close()
+    reports = []
+    for r in rows:
+        try:
+            metrics = json.loads(r["metrics"] or "{}")
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(metrics, dict) or not extraction_trust.has_few_shot_entry(metrics, extract.FEWSHOT_DENYLIST):
+            continue
+        reports.append({
+            "stock_code": r["stock_code"],
+            "url": r["report_url"],
+            "type": r["report_type"],
+            "title": r["report_title"] or "",
+            "date": r["report_date"],
+            "metrics": r["metrics"],
+            "raw_text_gcs_url": r["raw_text_gcs_url"],
+            "repair_echo": True,
+        })
+    if limit > 0:
+        reports = reports[:limit]
+    return reports
 
 
 def select_digestless_reports(conn, limit: int) -> list[dict]:
@@ -223,6 +309,10 @@ def process_digestless(
         metrics = json.loads(report.get("metrics") or "{}")
     except (ValueError, TypeError):
         metrics = {}
+    if report.get("repair_echo") and isinstance(metrics, dict):
+        # --repair-echo-digests: the echo entries go, everything else stays as
+        # stored, so the API stops withholding the row's summary.
+        metrics = extraction_trust.drop_few_shot_entries(metrics, extract.FEWSHOT_DENYLIST)
 
     # summarize_report applies the trust funnel to the stored metrics before
     # they reach the prompt; the stored metrics themselves are rewritten as-is.
@@ -232,6 +322,16 @@ def process_digestless(
         log.warning("  %s %s: digest model error, not stored: %s", report.get("stock_code"), report.get("url"), e)
         return extract.MODEL_ERROR
     if not (digest and digest.get("digest")):
+        if report.get("repair_echo"):
+            # The echo entries and the digest written from them go even when
+            # no new digest could be written: the row is stored clean, with
+            # digest NULL, so a later --backfill-digests can summarise it.
+            extract.store_extraction(
+                _conn(), report, metrics, len(text), dry_run,
+                digest_result=None, raw_text_gcs_url=gcs_url,
+                document_meta=extract_document_meta(text), write_document_meta=write_meta,
+            )
+            return "echo_cleared"
         return "no_digest"
     extract.store_extraction(
         _conn(), report, metrics, len(text), dry_run,
@@ -362,6 +462,9 @@ def main():
                     help="stop starting new reports after this many minutes (in-flight reports finish)")
     ap.add_argument("--backfill-digests", action="store_true",
                     help="§6.3(b): re-summarise existing rows with digest IS NULL (uses stored GCS text)")
+    ap.add_argument("--repair-echo-digests", action="store_true",
+                    help="drop few-shot-echo entries from stored metrics and re-summarise those rows "
+                         "(the one-off repair after the trust funnel; uses stored GCS text)")
     ap.add_argument("--max-model-errors", type=int, default=extract.MAX_CONSECUTIVE_MODEL_ERRORS,
                     help="stop starting new reports after this many model errors in a row (0 = never)")
     ap.add_argument("--dry-run", action="store_true")
@@ -393,7 +496,11 @@ def main():
     conn = open_selection_connection()
     try:
         write_meta = extract.document_meta_column_exists(conn)
-        if args.backfill_digests:
+        if args.repair_echo_digests:
+            reports = select_echo_digest_reports(conn, args.limit)
+            base_worker = process_digestless
+            log.info("Echo repair: %d rows whose metrics carry a few-shot echo (workers=%d)", len(reports), args.workers)
+        elif args.backfill_digests:
             reports = select_digestless_reports(conn, args.limit)
             base_worker = process_digestless
             log.info("Digest backfill: %d rows with no digest (workers=%d)", len(reports), args.workers)
@@ -432,13 +539,15 @@ def main():
     )
     log.info("Gemini tokens this run: %s", run_usage.summary())
     if counts[extract.MODEL_ERROR]:
-        # Fail the execution: a run whose model calls failed must not read as
-        # a success. Nothing was stored for these documents.
+        # Nothing was stored for these documents; the next run retries them.
         log.error(
             "%d model errors: those documents were not stored and the next run retries them",
             counts[extract.MODEL_ERROR],
         )
-        sys.exit(1)
+        if model_errors_fail_run(counts, args.max_model_errors):
+            # Systemic: a run whose model calls failed must not read as a
+            # success.
+            sys.exit(1)
 
 
 if __name__ == "__main__":

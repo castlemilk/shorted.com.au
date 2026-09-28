@@ -473,7 +473,7 @@ export function ratioOrNotMeaningful<T = string>(
 /**
  * Why a valuation figure is absent, from `valuation_note`: "n/a (reports in
  * USD)" for a non-AUD reporter, "n/a (listed unit is not one ordinary
- * share)", "n/a (no share count held)", "n/a (no recent price)", else "n/a".
+ * share)", "n/a (no share count we can vouch for)", "n/a (no recent price)", else "n/a".
  * An empty note with a non-AUD currency still reads "reports in <code>".
  */
 export function valuationNotAvailable(
@@ -490,7 +490,7 @@ export function valuationNotAvailable(
     case "listed-unit":
       return `${NOT_AVAILABLE} (listed unit is not one ordinary share)`;
     case "no-shares":
-      return `${NOT_AVAILABLE} (no share count held)`;
+      return `${NOT_AVAILABLE} (no share count we can vouch for)`;
     case "no-price":
       return `${NOT_AVAILABLE} (no recent price)`;
     default:

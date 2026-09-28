@@ -53,7 +53,8 @@ type ValuationInputs struct {
 	MedianK *float64
 	// KPeriods / KConsistent / KFarFromOne stand in when MedianK is nil: how
 	// many vendor annual / TTM periods allow k, whether every one is within
-	// [0.8, 1.25], and whether any is outside [1/3, 3].
+	// [0.8, 1.25], and whether any positive k is outside [1/3, 3] (a k <= 0,
+	// net income and EPS of opposite signs, is no evidence about the unit).
 	KPeriods    int32
 	KConsistent bool
 	KFarFromOne bool

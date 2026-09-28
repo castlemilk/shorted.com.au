@@ -100,7 +100,7 @@ describe("KeyRatiosCard", () => {
       quality({ marketCap: null, valuationNote: "no-shares", roePct: null }),
     );
     expect(items.find((i) => i.name === "market_cap")!.value.text).toBe(
-      "n/a (no share count held)",
+      "n/a (no share count we can vouch for)",
     );
     expect(items.find((i) => i.name === "roe_pct")!.value.text).toBe("n/a");
   });
@@ -127,8 +127,8 @@ describe("KeyRatiosCard", () => {
       const text = (name: string) => items.find((i) => i.name === name)!.value.text;
       expect(text("pe_ratio")).toBe("n/a");
       // Market cap and P/B do need the share count: the note still governs them.
-      expect(text("market_cap")).toBe("n/a (no share count held)");
-      expect(text("price_to_book")).toBe("n/a (no share count held)");
+      expect(text("market_cap")).toBe("n/a (no share count we can vouch for)");
+      expect(text("price_to_book")).toBe("n/a (no share count we can vouch for)");
     });
 
     it("keeps the notes that do govern P/E", () => {

@@ -409,7 +409,7 @@ describe("valuationNotAvailable", () => {
       "n/a (listed unit is not one ordinary share)",
     );
     expect(valuationNotAvailable("AUD", "no-shares")).toBe(
-      "n/a (no share count held)",
+      "n/a (no share count we can vouch for)",
     );
     expect(valuationNotAvailable("AUD", "no-price")).toBe(
       "n/a (no recent price)",

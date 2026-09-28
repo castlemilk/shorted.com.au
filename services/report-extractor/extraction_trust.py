@@ -310,6 +310,34 @@ def strip_provenance(entry: Mapping[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in entry.items() if not is_provenance_key(k)}
 
 
+def has_few_shot_entry(metrics: Mapping[str, Any] | None, denylist: FewShotDenylist) -> bool:
+    """Whether any stored entry quotes a few-shot example text (the echo the
+    old prompt leaked into rows). The Go API withholds a filing summary whose
+    metrics carry one (services/shorts latest_filing.go), because the digest
+    was written from those metrics."""
+    for value in (metrics or {}).values():
+        entries = value if isinstance(value, list) else [value]
+        for e in entries:
+            if isinstance(e, Mapping) and e.get(KEY_SOURCE_TEXT) in denylist:
+                return True
+    return False
+
+
+def drop_few_shot_entries(metrics: Mapping[str, Any] | None, denylist: FewShotDenylist) -> dict[str, Any]:
+    """The stored metrics with every few-shot-echo entry removed and nothing
+    else changed (provenance kept, ungrounded legacy entries kept: every reader
+    applies the funnel itself). A class left with no entry is removed; the
+    stored shape (class -> entry, or class -> [entries]) is kept."""
+    out: dict[str, Any] = {}
+    for cls, value in (metrics or {}).items():
+        entries = value if isinstance(value, list) else [value]
+        kept = [e for e in entries if not (isinstance(e, Mapping) and e.get(KEY_SOURCE_TEXT) in denylist)]
+        if not kept:
+            continue
+        out[cls] = kept if isinstance(value, list) else kept[0]
+    return out
+
+
 def trusted_metrics(metrics: Mapping[str, Any] | None, denylist: FewShotDenylist) -> dict[str, Any]:
     """The metrics dict an LLM prompt may see: entries failing grounded_entry
     dropped, provenance keys stripped, a class left with no entry removed. The

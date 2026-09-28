@@ -323,16 +323,17 @@ const (
 	-- Over the vendor annual / TTM rows (filing rows excluded):
 	--   the listed-unit evidence when the sync row has no median_k, from
 	--   every k = net income / (EPS x shares) a row allows: how many (n),
-	--   whether all are within [0.8, 1.25] (all_ok) and whether any is
-	--   outside [1/3, 3] (any_far; strategies.Valuate reads a k between the
-	--   bands as no evidence either way);
+	--   whether all are within [0.8, 1.25] (all_ok) and whether any
+	--   positive k is outside [1/3, 3] (any_far; strategies.Valuate reads a
+	--   k between the bands as no evidence either way, and so is a k <= 0:
+	--   net income and EPS of opposite signs say nothing about the unit);
 	--   the FX-converted guess for a code the job has not measured
 	--   (fractional): a non-Markit revenue or net income with a fractional
 	--   part above 0.001, the mark the job's gate reads (plan §3.4).
 	LEFT JOIN LATERAL (
 		SELECT count(v.kv)::int AS n,
 		       bool_and(v.kv BETWEEN 0.8 AND 1.25) AS all_ok,
-		       bool_or(v.kv * 3 < 1 OR v.kv > 3) AS any_far,
+		       bool_or(v.kv > 0 AND (v.kv * 3 < 1 OR v.kv > 3)) AS any_far,
 		       bool_or(v.source <> 'markit-key-statistics'
 		               AND (abs(v.revenue - round(v.revenue)) > 0.001 OR abs(v.net_income - round(v.net_income)) > 0.001)) AS fractional
 		FROM (
