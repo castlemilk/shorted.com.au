@@ -29,6 +29,17 @@ replay is one catalog read. It runs through `run_psql_session`, on the session
 pooler, rather than in the `run_psql` list: the transaction pooler kills DDL
 that holds its locks for minutes.
 
+`000132_extend_fundamentals` is the same idea, step by step rather than for
+the whole body. Every column add, the CHECK and both unique indexes run only
+when the catalog lacks them, and `mv_fundamentals_growth` is dropped and
+rebuilt only while it lacks its last column (`revenue_prior_period_end`), so
+the rebuild happens on the first deploy and never again. It is two
+transactions (the refresh function first, then the tables and views in the
+order that function locks them) and runs through `run_psql_session` after
+000131. Its allowlist line is not a lever for unblocking a deploy: the jobs
+image the same deploy ships writes the new columns. If it cannot apply,
+hand-apply it (`task db:prod:apply`) and re-run the deploy, or revert.
+
 Most existing housing migrations are **not** replay-safe and must never be added
 here: `000086`, `000090`, `000092`, `000054` and others drop and recreate
 materialized views, which would rebuild them on every deploy; `000105` inserts
