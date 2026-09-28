@@ -51,11 +51,14 @@ type PicksMode string
 // The modes, spelled exactly as the job's flag parser wants them
 // (services/jobs/internal/jobs/picks/job.go). Change one, change the other.
 const (
-	// PicksModeFundamentals pulls typed per-period fundamentals (Yahoo, Markit
-	// fallback) for up to PICKS_FUNDAMENTALS_MAX_CODES codes, stalest first.
+	// PicksModeFundamentals pulls the full statements (Yahoo, Markit per-field
+	// fallback) for every code in priority order until
+	// PICKS_FUNDAMENTALS_BUDGET_MIN (170 minutes) elapses.
+	// PICKS_FUNDAMENTALS_MAX_CODES is an optional count cap prod leaves unset.
 	PicksModeFundamentals PicksMode = "fundamentals"
-	// PicksModeFilings rebuilds the half-year and annual rows from the
-	// report-extractor's Appendix 4D/4E extractions. DB-only, seconds.
+	// PicksModeFilings is the fail-closed, deterministic rebuild of the
+	// filing rows from the report-extractor's statutory results extractions
+	// (exit 10 when the write is refused, nothing written). DB-only, seconds.
 	PicksModeFilings PicksMode = "filings"
 	// PicksModeRefresh runs refresh_strategy_views().
 	PicksModeRefresh PicksMode = "refresh"

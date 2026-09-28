@@ -304,6 +304,22 @@ func TestGateVendorCurrencyFXAndMixed(t *testing.T) {
 	c, note := resolveVendorCurrency(old)
 	assert.Equal(t, "USD", c, "a currency change years ago is history, not ambiguity")
 	assert.Empty(t, note)
+
+	// The persisted verdict (stock_fundamentals_sync.fx_converted) decides
+	// before the rows do: an integral AUD label proves nothing for XRO.
+	persisted := vAnnual("2025-06-30", "AUD", f64(100e6), nil, nil, nil)
+	persisted.FXConverted, persisted.NativeCurrency = true, "nzd"
+	c, note = resolveVendorCurrency([]vendorRow{persisted})
+	assert.Equal(t, "NZD", c, "the persisted native currency")
+	assert.Contains(t, note, "persisted")
+	persisted.NativeCurrency = ""
+	markitNZD := markit
+	markitNZD.Currency = "NZD"
+	c, _ = resolveVendorCurrency([]vendorRow{persisted, markitNZD})
+	assert.Equal(t, "NZD", c, "no persisted native currency: a stored Markit row's currency")
+	st = filingStats{}
+	assert.Empty(t, buildFilingRows([]filingExtraction{doc}, filingInputs{vendor: map[string][]vendorRow{"ABC": {persisted}}}, &st))
+	assert.Equal(t, 1, st.Gates[gateVendorCurrency])
 }
 
 // Gate 8: the bands and the profit / EPS checks.

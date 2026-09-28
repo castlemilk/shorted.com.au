@@ -35,6 +35,12 @@ type vendorRow struct {
 	// marked asx-filing-extraction was filled FROM a filing, so it is never a
 	// vendor reference for one.
 	FieldSources map[string]string
+	// FXConverted / NativeCurrency are the code's persisted FX verdict
+	// (stock_fundamentals_sync.fx_converted / native_currency, plan §2.3):
+	// the same fact valuation withholds P/E and P/B on. The same on every
+	// row of a code; false / "" when unmeasured or before the columns exist.
+	FXConverted    bool
+	NativeCurrency string
 }
 
 // vendorAnnual is vendorRow's phase-0 name. It stays an alias so the shared
@@ -113,9 +119,11 @@ const currencyWindowYears = 2
 // the vendor rows' own state (plan §3.4, §4.2 gates 6-7).
 //
 // The vendor stream decides fx_converted when it fetches (a monetary raw value
-// with a fractional part rejects that code's monetary fields) but migration
-// 000132 stores no marker for it, so the state is re-derived here, erring
-// towards "unknown":
+// with a fractional part rejects that code's monetary fields) and persists it
+// on the sync row with Markit's native currency. A persisted verdict decides
+// first: the persisted native currency, else a Markit row's currency, else
+// unknown (no filing rows). Otherwise the state is re-derived from the rows, erring towards
+// "unknown", which also catches rows written before the vendor gate existed:
 //
 //   - any non-Markit vendor row carries a fractional revenue or net income
 //     (a value written before the vendor gate existed): fx_converted;
@@ -130,6 +138,16 @@ const currencyWindowYears = 2
 // unknown and the code gets no filing rows. With no non-Markit rows at all,
 // Markit's currency is the currency.
 func resolveVendorCurrency(rows []vendorRow) (currency, note string) {
+	persistedFX := false
+	for _, r := range rows {
+		if !r.FXConverted {
+			continue
+		}
+		if native := strings.ToUpper(strings.TrimSpace(r.NativeCurrency)); native != "" {
+			return native, "fx_converted (persisted); the native currency used"
+		}
+		persistedFX = true
+	}
 	var markitCur string
 	var markitEnd time.Time
 	var others []vendorRow
@@ -141,6 +159,12 @@ func resolveVendorCurrency(rows []vendorRow) (currency, note string) {
 			continue
 		}
 		others = append(others, r)
+	}
+	if persistedFX {
+		if markitCur != "" {
+			return markitCur, "fx_converted (persisted); Markit's native currency used"
+		}
+		return "", "fx_converted (persisted), native currency unknown"
 	}
 	if len(others) == 0 {
 		if markitCur == "" {

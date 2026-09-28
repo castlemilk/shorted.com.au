@@ -573,17 +573,17 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		v := strategies.Valuate(*e.Close, *e.PriceAsOf, &e.Valuation, e.Quality)
 		migratedNum(t, v.MarketCap, 3e9, "the page's market cap equals the picker's")
 
-		// OLD: outside mv_price_features, so the close falls back to
-		// stock_prices (NUMERIC(12,4) after 000131).
+		// OLD: outside mv_price_features, and its last stock_prices close is
+		// 500 days old, so there is no close to value it at: a stale close
+		// times a newer share count is not a market cap.
 		old, err := getFundamentalsExtras(ctx, pool, "OLD")
 		require.NoError(t, err)
 		require.NotNil(t, old)
-		migratedNum(t, old.Close, 1.2, "the last stock_prices close")
-		require.NotNil(t, old.PriceAsOf)
-		assert.True(t, old.PriceAsOf.Before(today.AddDate(0, 0, -400)))
+		assert.Nil(t, old.Close, "a close older than 45 sessions is not used")
+		assert.Nil(t, old.PriceAsOf)
 		require.NotNil(t, old.Quality)
 		migratedNum(t, old.Quality.NetMarginPct, 10, "OLD net margin")
-		assert.Equal(t, strategies.ValuationNoteNoShares, strategies.Valuate(*old.Close, *old.PriceAsOf, &old.Valuation, old.Quality).Note)
+		assert.Equal(t, strategies.ValuationNoteNoPrice, strategies.Valuate(0, time.Time{}, &old.Valuation, old.Quality).Note)
 
 		none, err := getFundamentalsExtras(ctx, pool, "PEN")
 		require.NoError(t, err)

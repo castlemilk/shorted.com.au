@@ -33,7 +33,7 @@ import { bailOnEmptyRender } from "~/app/actions/config";
 
 const TITLE = "ASX Stock Picker: Named Strategy Screens";
 const DESCRIPTION =
-  "Pick a strategy (Zanger breakouts, CAN SLIM, Minervini's Trend Template, crowded-short breakouts or quality compounders) and see which ASX stocks meet its rules.";
+  "Pick a strategy (Zanger breakouts, CAN SLIM, Minervini's Trend Template, crowded-short breakouts or quality compounders) and see which ASX stocks fit.";
 const PAGE_URL = `${siteConfig.url}/picks`;
 
 export const metadata: Metadata = {

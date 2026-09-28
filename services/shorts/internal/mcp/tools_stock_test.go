@@ -1069,3 +1069,44 @@ func TestGetStockFundamentalsSummaryNamesTheLatestStatementPeriod(t *testing.T) 
 		t.Errorf("a snapshot-only result should say so: %q", text)
 	}
 }
+
+// With no period type the quarter balance snapshots are left out, so they
+// never crowd the statement periods out of a small limit: the tool reads the
+// handler's full window and keeps the first `limit` statement periods.
+func TestGetStockFundamentalsDefaultLeavesOutBalanceSnapshots(t *testing.T) {
+	var periods []*shortsv1alpha1.FundamentalsPeriod
+	for i := 0; i < 6; i++ {
+		periods = append(periods,
+			&shortsv1alpha1.FundamentalsPeriod{PeriodType: "quarter", PeriodEnd: fmt.Sprintf("2026-%02d-30", 9-i), Currency: "AUD"},
+			&shortsv1alpha1.FundamentalsPeriod{PeriodType: "ttm", PeriodEnd: fmt.Sprintf("202%d-06-30", 6-i), Currency: "AUD", Revenue: 1e9, HasRevenue: true},
+		)
+	}
+	src := &fakeDataSource{fundamentals: &shortsv1alpha1.GetStockFundamentalsResponse{StockCode: "BHP", Periods: periods}}
+	_, out, err := getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP", Limit: 3})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if src.gotFundamentals.GetLimit() != fundamentalsHandlerCeiling {
+		t.Errorf("read limit = %d, want the handler ceiling %d", src.gotFundamentals.GetLimit(), fundamentalsHandlerCeiling)
+	}
+	if len(out.Periods) != 3 {
+		t.Fatalf("got %d periods, want 3", len(out.Periods))
+	}
+	for _, p := range out.Periods {
+		if p.PeriodType == "quarter" {
+			t.Errorf("a balance snapshot came back without being asked for: %+v", p)
+		}
+	}
+
+	// Asked for, they come back, and the read limit is the caller's.
+	_, out, err = getStockFundamentalsHandler(src)(context.Background(), nil, GetStockFundamentalsInput{Code: "BHP", PeriodType: "quarter", Limit: 2})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if src.gotFundamentals.GetLimit() != 2 || src.gotFundamentals.GetPeriodType() != "quarter" {
+		t.Errorf("request = %+v", src.gotFundamentals)
+	}
+	if len(out.Periods) == 0 || out.Periods[0].PeriodType != "quarter" {
+		t.Errorf("quarter rows asked for: %+v", out.Periods)
+	}
+}

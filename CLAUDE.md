@@ -905,7 +905,7 @@ Next.js contributes only the consent screen.
   **Postgres accepts `-NaN`/`+NaN` where Go's `ParseFloat` does not**, so that
   guard cannot lean on `ParseFloat` alone.
 - **The MCP SDK emits no `$defs`/`$ref`** — every nested struct is inlined at
-  every use site. `tools/list` is ~84KB for 28 tools, paid every session; the
+  every use site. `tools/list` is ~87KB for 28 tools (89,495 of the 90,112 B budget), paid every session; the
   lever is fewer fields and fewer redundant descriptions, never flattening.
 - **The SDK exports no setter for `TokenInfo` in a context.** A test wanting an
   authenticated request must drive `auth.RequireBearerToken` — which is

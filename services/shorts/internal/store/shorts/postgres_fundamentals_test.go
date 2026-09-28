@@ -391,6 +391,9 @@ func TestFundamentalsExtrasQueryShape(t *testing.T) {
 	if !strings.Contains(fundamentalsExtrasSingleQuery, "FROM mv_price_features p") || !strings.Contains(fundamentalsExtrasSingleQuery, "FROM stock_prices s2") {
 		t.Error("the single-stock read must take the close from mv_price_features, else stock_prices")
 	}
+	if !strings.Contains(fundamentalsExtrasSingleQuery, "s2.date >= COALESCE((SELECT max(p2.as_of) FROM mv_price_features p2), CURRENT_DATE) - 45") {
+		t.Error("the stock_prices fallback must be bounded to recent sessions: a stale close is not a valuation")
+	}
 	// Every contract column of mv_fundamentals_quality (plan §2.7) is read.
 	for _, col := range []string{
 		"basis_period_type", "basis_period_end", "currency", "source", "fetched_at", "revenue", "gross_profit",

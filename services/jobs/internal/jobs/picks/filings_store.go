@@ -153,21 +153,28 @@ func (s *pgStore) FilingExtractions(ctx context.Context) ([]filingExtraction, er
 
 // vendorRowsSQL: the vendor rows the filing gates consult. Annual and ttm only
 // (quarter rows are balance snapshots with no flow line); a filing row is never
-// its own reference. %s is the field_sources column.
+// its own reference. The first %s is the field_sources column, the second the
+// sync row's persisted FX verdict (plan §2.3, §3.4) and the third its join.
 const vendorRowsSQL = `
-SELECT stock_code::text, period_type::text, period_end, currency::text, source::text,
-       revenue, net_income, eps_basic, eps_diluted, shares_outstanding, %s
-FROM stock_fundamentals
-WHERE period_type IN ('annual', 'ttm') AND source <> '` + sourceFiling + `'`
+SELECT f.stock_code::text, f.period_type::text, f.period_end, f.currency::text, f.source::text,
+       f.revenue, f.net_income, f.eps_basic, f.eps_diluted, f.shares_outstanding, %s, %s
+FROM stock_fundamentals f%s
+WHERE f.period_type IN ('annual', 'ttm') AND f.source <> '` + sourceFiling + `'`
+
+const (
+	vendorRowsFXColumns = "COALESCE(sy.fx_converted, false), COALESCE(sy.native_currency::text, '')"
+	vendorRowsFXJoin    = "\nLEFT JOIN stock_fundamentals_sync sy ON sy.stock_code = f.stock_code"
+	vendorRowsNoFX      = "false, ''"
+)
 
 var vendorRowsVariants = []string{
-	fmt.Sprintf(vendorRowsSQL, "field_sources::text"),
-	fmt.Sprintf(vendorRowsSQL, "NULL::text"),
+	fmt.Sprintf(vendorRowsSQL, "f.field_sources::text", vendorRowsFXColumns, vendorRowsFXJoin),
+	fmt.Sprintf(vendorRowsSQL, "NULL::text", vendorRowsNoFX, ""),
 }
 
 func (s *pgStore) VendorRows(ctx context.Context) (map[string][]vendorRow, error) {
 	var out map[string][]vendorRow
-	err := queryVariants(ctx, s.pool, "stock_fundamentals.field_sources is absent",
+	err := queryVariants(ctx, s.pool, "stock_fundamentals.field_sources or stock_fundamentals_sync.fx_converted is absent",
 		vendorRowsVariants, nil,
 		func() { out = map[string][]vendorRow{} },
 		func(rows pgx.Rows) error {
@@ -175,7 +182,8 @@ func (s *pgStore) VendorRows(ctx context.Context) (map[string][]vendorRow, error
 			var v vendorRow
 			var fs *string
 			if err := rows.Scan(&code, &v.PeriodType, &v.PeriodEnd, &v.Currency, &v.Source,
-				&v.Revenue, &v.NetIncome, &v.EPSBasic, &v.EPSDiluted, &v.Shares, &fs); err != nil {
+				&v.Revenue, &v.NetIncome, &v.EPSBasic, &v.EPSDiluted, &v.Shares, &fs,
+				&v.FXConverted, &v.NativeCurrency); err != nil {
 				return err
 			}
 			v.PeriodEnd = dateOnly(v.PeriodEnd)

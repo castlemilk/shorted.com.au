@@ -410,4 +410,24 @@ func TestRunFilingsAgainstPostgres(t *testing.T) {
 	var n int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM stock_fundamentals WHERE stock_code = 'ZZF' AND source = 'asx-filing-extraction'`).Scan(&n))
 	assert.Zero(t, n)
+
+	// The vendor's persisted FX verdict reaches the filing gates: the same
+	// fact valuation withholds P/E and P/B on.
+	f132Exec(t, pool, `INSERT INTO stock_fundamentals_sync (stock_code, last_attempt_at, fx_converted, native_currency)
+		VALUES ('ZZU', now(), true, 'NZD')`)
+	vendor, err := st.VendorRows(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, vendor["ZZU"])
+	for _, r := range vendor["ZZU"] {
+		assert.True(t, r.FXConverted)
+		assert.Equal(t, "NZD", r.NativeCurrency)
+	}
+	for _, r := range vendor["ZZF"] {
+		assert.False(t, r.FXConverted, "no sync row: unmeasured")
+	}
+	stats, err = runFilings(ctx, st, false, func(string, ...any) {})
+	require.NoError(t, err)
+	assert.Equal(t, 1, stats.Gates[gateCurrencyMeta], "the USD document no longer matches the persisted NZD native currency")
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM stock_fundamentals WHERE stock_code = 'ZZU' AND source = 'asx-filing-extraction'`).Scan(&n))
+	assert.Zero(t, n, "the rebuild purges the filing row the gate now withholds")
 }

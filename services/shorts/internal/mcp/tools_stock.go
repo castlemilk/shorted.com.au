@@ -789,6 +789,11 @@ const (
 	// 16KB per-call budget. Twenty-four is six years of annual, half and TTM
 	// rows together, or a single period type over a longer run.
 	maxFundamentalsLimit = 24
+	// fundamentalsHandlerCeiling is the handler's own limit. With no period
+	// type the tool reads this many rows and drops the quarter balance
+	// snapshots, so they never crowd the statement periods out of the
+	// result; the quality block already carries the latest balance sheet.
+	fundamentalsHandlerCeiling = 40
 )
 
 // validFundamentalsPeriodTypes mirrors shortsstore.FundamentalsPeriodTypes.
@@ -798,7 +803,7 @@ var validFundamentalsPeriodTypes = []string{"annual", "ttm", "half", "quarter"}
 
 type GetStockFundamentalsInput struct {
 	Code       string `json:"code" jsonschema:"ASX ticker code, e.g. BHP."`
-	PeriodType string `json:"period_type,omitempty" jsonschema:"annual, ttm, half or quarter. Omit for all."`
+	PeriodType string `json:"period_type,omitempty" jsonschema:"annual, ttm, half or quarter. Omit for all but quarter."`
 	Limit      int    `json:"limit,omitempty" jsonschema:"1-24, default 8."`
 }
 
@@ -947,15 +952,19 @@ func getStockFundamentalsHandler(src DataSource) sdk.ToolHandlerFor[GetStockFund
 		periodType := strings.ToLower(strings.TrimSpace(in.PeriodType))
 		if periodType != "" && !contains(validFundamentalsPeriodTypes, periodType) {
 			return nil, GetStockFundamentalsOutput{}, fmt.Errorf(
-				"%q is not a period type: use one of %s, or omit it for every type",
+				"%q is not a period type: use one of %s, or omit it for every type but the quarter balance snapshots",
 				in.PeriodType, strings.Join(validFundamentalsPeriodTypes, ", "))
 		}
 		limit := clampLimit(in.Limit, defaultFundamentalsLimit, maxFundamentalsLimit)
+		readLimit := limit
+		if periodType == "" {
+			readLimit = fundamentalsHandlerCeiling
+		}
 
 		res, err := src.GetStockFundamentals(ctx, connect.NewRequest(&shortsv1alpha1.GetStockFundamentalsRequest{
 			StockCode:  code,
 			PeriodType: periodType,
-			Limit:      limit,
+			Limit:      readLimit,
 		}))
 		if err != nil {
 			if connect.CodeOf(err) == connect.CodeNotFound {
@@ -984,8 +993,11 @@ func getStockFundamentalsHandler(src DataSource) sdk.ToolHandlerFor[GetStockFund
 			}
 		}
 		for _, p := range msg.GetPeriods() {
-			if p == nil {
+			if p == nil || (periodType == "" && p.GetPeriodType() == "quarter") {
 				continue
+			}
+			if len(out.Periods) >= int(limit) {
+				break
 			}
 			row := FundamentalsPeriodRow{
 				PeriodType:         p.GetPeriodType(),

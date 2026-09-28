@@ -264,7 +264,10 @@ const (
 	extrasUniversePrice = `
 	CROSS JOIN (SELECT NULL::float8 AS close_px, NULL::date AS price_as_of, ''::text AS industry) px`
 	// The stock page reads the same close the picks use (mv_price_features),
-	// else the latest stock_prices close for a stock outside the universe.
+	// else the latest stock_prices close for a stock outside the universe,
+	// but only one within 45 days of the market's latest session: a suspended
+	// or delisted code's last close times a newer share count is not a
+	// market cap (valuation says "no-price" instead).
 	extrasSinglePrice = `
 	LEFT JOIN LATERAL (
 		SELECT
@@ -282,6 +285,7 @@ const (
 			SELECT s2.close, s2.date
 			FROM stock_prices s2
 			WHERE s2.stock_code = k.stock_code AND s2.close > 0
+			  AND s2.date >= COALESCE((SELECT max(p2.as_of) FROM mv_price_features p2), CURRENT_DATE) - 45
 			ORDER BY s2.date DESC
 			LIMIT 1
 		) sp ON true
