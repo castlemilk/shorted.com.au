@@ -318,6 +318,8 @@ ALTER TABLE stock_fundamentals ADD COLUMN source_document_date DATE;
 ALTER TABLE stock_fundamentals_sync ADD COLUMN last_outcome VARCHAR(16);
 ALTER TABLE stock_fundamentals_sync ADD COLUMN consecutive_empty SMALLINT NOT NULL DEFAULT 0;
 ALTER TABLE stock_fundamentals_sync ADD COLUMN median_k DOUBLE PRECISION;
+ALTER TABLE stock_fundamentals_sync ADD COLUMN fx_converted BOOLEAN;
+ALTER TABLE stock_fundamentals_sync ADD COLUMN native_currency VARCHAR(8);
 CREATE TABLE picks_run_lease (name TEXT PRIMARY KEY, holder TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL);
 COMMIT;`)
 		_, err = pool.Exec(ctx, ddl.String())
@@ -325,6 +327,13 @@ COMMIT;`)
 	}
 	var logged []string
 	st := &pgStore{pool: pool, notices: &noticeLog{}, logf: func(f string, a ...any) { logged = append(logged, fmt.Sprintf(f, a...)) }}
+	if extended {
+		// The stand-in must carry every column the store checks for, or the
+		// extended cases silently run the pre-000132 path.
+		fund, syncExt, err := st.schema(ctx)
+		require.NoError(t, err)
+		require.True(t, fund && syncExt, "the 000132 stand-in is missing columns the store requires (stock_fundamentals=%t, stock_fundamentals_sync=%t)", fund, syncExt)
+	}
 	return st, pool
 }
 

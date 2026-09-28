@@ -364,6 +364,8 @@ func TestMigration132AgainstPostgres(t *testing.T) {
 			{"stock_fundamentals_sync", "last_outcome", "character varying(16)"},
 			{"stock_fundamentals_sync", "consecutive_empty", "smallint"},
 			{"stock_fundamentals_sync", "median_k", "double precision"},
+			{"stock_fundamentals_sync", "fx_converted", "boolean"},
+			{"stock_fundamentals_sync", "native_currency", "character varying(8)"},
 			{"financial_report_extractions", "document_meta", "jsonb"},
 			{"stock_fundamentals", "source_document_url", "text"},
 			{"stock_fundamentals", "source_document_date", "date"},

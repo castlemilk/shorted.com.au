@@ -165,8 +165,15 @@ var fundamentalsExtrasColumns = []extrasColumn{
 	{`g.revenue_latest_period_end::date`, func(r *extrasRow) any { return &r.e.RevenueLatestPeriodEnd }},
 	{`g.revenue_prior_period_end::date`, func(r *extrasRow) any { return &r.e.RevenuePriorPeriodEnd }},
 
-	// mv_fundamentals_quality (000132 §2.7).
-	{`(q.stock_code IS NOT NULL)`, func(r *extrasRow) any { return &r.hasQuality }},
+	// mv_fundamentals_quality (000132 §2.7). The view has a row for every
+	// stock with any flow field, but its flow basis needs revenue AND net
+	// income: an EPS-only stock (an FX-converted code whose monetary fields
+	// were rejected, a vendor that publishes EPS alone) gets a row whose every
+	// column but stock_code is NULL, the balance basis included (it is keyed on
+	// the flow row's currency). That row holds nothing to compute a ratio
+	// from, so it is no quality row: counting it would overstate quality
+	// coverage and send an empty quality object to every surface.
+	{`(q.stock_code IS NOT NULL AND q.basis_period_end IS NOT NULL)`, func(r *extrasRow) any { return &r.hasQuality }},
 	{`COALESCE(q.basis_period_type::text, '')`, func(r *extrasRow) any { return &r.q.BasisPeriodType }},
 	{`q.basis_period_end::date`, func(r *extrasRow) any { return &r.q.BasisPeriodEnd }},
 	{`COALESCE(q.currency::text, '')`, func(r *extrasRow) any { return &r.q.Currency }},
