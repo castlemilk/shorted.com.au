@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -27,6 +28,7 @@ import (
 //	             the provider's, and report where they differed
 //	-codes A,B   only these codes (failure blocks ignored)
 //	-dry-run     fetch and compare, write nothing to the database
+//	-budget D    stop taking stocks after D (default $SYNC_RUN_BUDGET; 0 = none)
 func syncJob() runner.Job {
 	return runner.Func{
 		JobName: "sync",
@@ -36,8 +38,22 @@ func syncJob() runner.Job {
 	}
 }
 
+// runBudgetEnv is the run budget the deployment sets (terraform: the
+// shorted-price-sync module), below the job's task timeout. The -budget flag
+// overrides it for one run, which is how the Price Sync workflow follows a
+// task_timeout override.
+const runBudgetEnv = "SYNC_RUN_BUDGET"
+
+// exitCodeBudgetSpent is the exit code of a sweep that stopped on its run
+// budget with stocks left: some of the work was done and reported, and the
+// rest is for the next attempt. The same 10 = DEGRADED that economy and picks
+// use for a partial run; Cloud Run retries any non-zero exit, so the retry
+// resumes from the stalest stock, and an execution fails only when the retry
+// runs out too.
+const exitCodeBudgetSpent = 10
+
 func runSync(ctx context.Context, args []string) error {
-	opts, err := parseSyncFlags(runner.FromContext(ctx).DryRun, args)
+	opts, err := parseSyncFlags(runner.FromContext(ctx).DryRun, os.Getenv(runBudgetEnv), args)
 	if err != nil {
 		return err
 	}
@@ -89,7 +105,7 @@ func runSync(ctx context.Context, args []string) error {
 		if ctx.Err() != nil {
 			return fmt.Errorf("sync interrupted: %w", syncErr)
 		}
-		return fmt.Errorf("sync failed: %w", syncErr)
+		return syncOutcome(syncErr)
 	}
 
 	shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
@@ -102,13 +118,26 @@ func runSync(ctx context.Context, args []string) error {
 	return nil
 }
 
+// syncOutcome is the error a stopped sweep returns: a sweep that spent its
+// run budget asks for exitCodeBudgetSpent, anything else is a plain failure.
+func syncOutcome(syncErr error) error {
+	if errors.Is(syncErr, msync.ErrBudgetSpent) {
+		return &runner.ExitCodeError{Code: exitCodeBudgetSpent, Err: fmt.Errorf("sync %w", syncErr)}
+	}
+	return fmt.Errorf("sync failed: %w", syncErr)
+}
+
 // parseSyncFlags reads the sync subcommand's flags into run options. -dry-run
-// defaults to the global flag, so `shorted -dry-run market-data sync` previews.
-func parseSyncFlags(globalDryRun bool, args []string) (msync.RunOptions, error) {
+// defaults to the global flag, so `shorted -dry-run market-data sync` previews;
+// -budget defaults to defaultBudget (the SYNC_RUN_BUDGET environment variable),
+// and either must be a Go duration, so a misspelt budget fails the run at the
+// start rather than leaving it unbounded.
+func parseSyncFlags(globalDryRun bool, defaultBudget string, args []string) (msync.RunOptions, error) {
 	var opts msync.RunOptions
 	fs := flag.NewFlagSet("market-data sync", flag.ContinueOnError)
 	from := fs.String("from", "", "re-fetch every stock from this date (YYYY-MM-DD), overwriting stored sessions, and report differences")
 	codes := fs.String("codes", "", "comma-separated codes to sync instead of the whole list (failure blocks ignored)")
+	budget := fs.String("budget", defaultBudget, "stop taking stocks after this long (e.g. 5h30m) and leave the rest to the next attempt; 0 = no budget")
 	fs.BoolVar(&opts.DryRun, "dry-run", globalDryRun, "fetch and compare with what is stored; write nothing to the database")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -118,6 +147,16 @@ func parseSyncFlags(globalDryRun bool, args []string) (msync.RunOptions, error) 
 	}
 	if fs.NArg() > 0 {
 		return opts, fmt.Errorf("unexpected argument %q", fs.Arg(0))
+	}
+	if *budget != "" {
+		d, err := time.ParseDuration(*budget)
+		if err != nil {
+			return opts, fmt.Errorf("-budget %q (or $%s): want a duration such as 5h30m", *budget, runBudgetEnv)
+		}
+		if d < 0 {
+			return opts, fmt.Errorf("-budget %q: must not be negative", *budget)
+		}
+		opts.Budget = d
 	}
 	if *from != "" {
 		t, err := time.Parse("2006-01-02", *from)

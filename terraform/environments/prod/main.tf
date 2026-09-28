@@ -512,10 +512,20 @@ module "shorted_job_price_sync" {
     ENVIRONMENT = "production"
     # The listed-stock CSV (asx-stocks/latest.csv) and the run report
     # (price-sync/<execution>.json) both live in the short-selling bucket.
-    GCS_BUCKET_NAME             = local.short_selling_bucket_name
-    PRIORITY_STOCK_COUNT        = "100"
-    DB_MAX_CONNS                = "2"
-    DB_MIN_CONNS                = "0"
+    GCS_BUCKET_NAME      = local.short_selling_bucket_name
+    PRIORITY_STOCK_COUNT = "100"
+    DB_MAX_CONNS         = "2"
+    DB_MIN_CONNS         = "0"
+    # The sweep stops taking stocks after this long, publishes its report and
+    # exits 10 (partial), which Cloud Run retries once from the stalest stock.
+    # It sits 30 minutes under timeout_seconds so a slow run ends on its own
+    # terms: the stock in flight may take up to 6 minutes, and the wrap-up
+    # (checkpoint, coverage view, report) needs a few more. A task the
+    # platform kills at its timeout is what "Cloud Run Job logged ERROR /
+    # timeout" pages on (2026-09-27: the catch-up's first attempt, 6h, killed
+    # with ~125 stocks left). Change one of the pair, change the other:
+    # TestRunBudgetClearsTheTaskTimeout reads both from this file.
+    SYNC_RUN_BUDGET             = "5h30m"
     OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
     OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
   }
@@ -526,9 +536,10 @@ module "shorted_job_price_sync" {
     OTEL_EXPORTER_OTLP_HEADERS = "OTEL_EXPORTER_OTLP_HEADERS"
   }
 
-  timeout_seconds = 21600 # 6h: a daily run is ~2.5h
-  # One retry: a run that stops early (a refusing upstream trips its circuit
-  # breaker) resumes from the stalest stock rather than repeating work.
+  timeout_seconds = 21600 # 6h: a daily run is ~2.5h; SYNC_RUN_BUDGET above stops the sweep first
+  # One retry: a run that stops early (its run budget, or a refusing upstream
+  # tripping its circuit breaker) resumes from the stalest stock rather than
+  # repeating work.
   max_retries = 1
   cpu         = "1"
   memory      = "512Mi"
