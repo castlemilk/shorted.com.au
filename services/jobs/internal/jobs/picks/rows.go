@@ -8,19 +8,21 @@ import (
 )
 
 // Storable magnitude bounds, identical to the table's
-// stock_fundamentals_finite_check (000129). A value is stored when it is zero
-// or finite with 1e-12 <= |v| <= 1e18. NaN and ±Inf fail (the key_metrics
-// incident: encoding/json refuses ±Inf and took MCP down with it); so do
-// denormal-scale values, which no statement line has and which are the only way
-// a growth ratio in mv_fundamentals_growth could overflow.
+// stock_fundamentals_finite_check (000129, the original seven columns) and
+// stock_fundamentals_finite_check_v2 (000132, every column it adds). A value is
+// stored when it is zero or finite with 1e-12 <= |v| <= 1e18. NaN and ±Inf
+// fail (the key_metrics incident: encoding/json refuses ±Inf and took MCP down
+// with it); so do denormal-scale values, which no statement line has and which
+// are the only way a growth ratio in mv_fundamentals_growth could overflow.
 const (
 	minStorableAbs = 1e-12
 	maxStorableAbs = 1e18
 )
 
-// storable is the write funnel's value check. The DB CHECK is the backstop;
-// this keeps a real write from ever tripping it (which would fail the whole
-// multi-row upsert for the code).
+// storable is the write funnel's value check, one rule for EVERY column in
+// fundamentalsColumns (sanitizeRows applies it through PeriodRow.values). The
+// DB CHECKs are the backstop; this keeps a real write from ever tripping one
+// (which would fail the whole multi-row upsert for the code).
 func storable(v float64) bool {
 	if math.IsNaN(v) || math.IsInf(v, 0) {
 		return false
@@ -34,8 +36,9 @@ func storable(v float64) bool {
 
 var currencyRe = regexp.MustCompile(`^[A-Z]{3,8}$`)
 
-// sanitizeRows is the last step before a write: every non-storable value is
-// set to NULL (and counted), and a row is dropped when its period type is not
+// sanitizeRows is the last step before a write: every non-storable value, in
+// any column of fundamentalsColumns, is set to NULL (and counted), and a row
+// is dropped when its period type is not
 // one this job writes ('half' only from the filing source), its currency is
 // not a plausible code, it has no period end, or no value survives.
 func sanitizeRows(rows []PeriodRow) (out []PeriodRow, rejectedValues int) {

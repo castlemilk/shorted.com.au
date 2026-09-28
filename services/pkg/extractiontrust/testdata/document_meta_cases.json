@@ -1,0 +1,243 @@
+{
+  "comment": "Shared fixture for financial_report_extractions.document_meta (docs/plans/fundamentals-coverage.md 2.5). The Python extractor derives each case's expected object from its text with deterministic regexes; the Go test (services/pkg/extractiontrust) asserts every expected object is inside the closed vocabulary and that each invalid input loses exactly its bad keys. An absent key means absent: never guess.",
+  "rules": [
+    "currency: from a presentation statement '(presented|expressed|reported|stated) in <US|United States|Australian|New Zealand|Canadian> dollars' -> USD|AUD|NZD|CAD; the evidence is that phrase verbatim. With no such statement, a currency-prefixed unit header (US$, A$, NZ$, C$ before million/billion/'000/m/bn) sets it, with that header as the evidence. Two distinct currencies at the winning level -> currency omitted. A bare '$' never sets a currency.",
+    "units: unit statements are '<prefix>$ Million', '$m', '$M', '$ million', '(A$ million)', '$bn', '$ billion', '$'000', '$000', 'thousands of', 'nearest dollar' / 'whole dollars' (-> units). Exactly one distinct unit value across the pages read -> that value, the first statement verbatim as the evidence; several distinct values -> units and units_evidence omitted. A figure such as '$412.6m' is not a unit statement.",
+    "entity: the value of a 'Name of entity' line; else the name immediately before 'ABN' on the same line; else omitted.",
+    "abn: 'ABN' then 11 digits grouped 2-3-3-3, emitted as 'NN NNN NNN NNN', only when the ABN checksum passes.",
+    "period_end / period_type: the first '(half-year|half year|six months|year|financial year) ended <d Month yyyy>'; half-year and six months -> half, year -> annual. 'as at <date>' is not a period end.",
+    "report_kind: first match in this order: 'Appendix 4E' -> appendix_4e, 'Appendix 4D' -> appendix_4d, 'Annual Report' -> annual_report, 'half-year report' / 'half year report' / 'half-year financial report' / 'interim financial report' -> half_year_report, 'results announcement' / 'profit announcement' / 'results for announcement to the market' -> results_announcement; else, when the document names itself a presentation, Pillar 3 disclosure, transcript or webcast -> other; else omitted."
+  ],
+  "cases": [
+    {
+      "name": "bhp_appendix_4e_usd_millions",
+      "text": "BHP Group Limited ABN 49 004 028 077\nAppendix 4E\nPreliminary final report for the year ended 30 June 2026\nResults for announcement to the market\nThe financial information in this report is presented in US dollars unless otherwise stated.\nUS$ Million                FY2026        FY2025\n",
+      "expected": {
+        "currency": "USD",
+        "currency_evidence": "presented in US dollars",
+        "units": "millions",
+        "units_evidence": "US$ Million",
+        "entity": "BHP Group Limited",
+        "abn": "49 004 028 077",
+        "period_end": "2026-06-30",
+        "period_type": "annual",
+        "report_kind": "appendix_4e"
+      }
+    },
+    {
+      "name": "cba_profit_announcement_half_aud",
+      "text": "Commonwealth Bank of Australia ABN 48 123 123 124\nProfit Announcement for the half year ended 31 December 2025\nAll figures are expressed in Australian dollars unless otherwise stated.\nGroup performance summary ($M)\n",
+      "expected": {
+        "currency": "AUD",
+        "currency_evidence": "expressed in Australian dollars",
+        "units": "millions",
+        "units_evidence": "$M",
+        "entity": "Commonwealth Bank of Australia",
+        "abn": "48 123 123 124",
+        "period_end": "2025-12-31",
+        "period_type": "half",
+        "report_kind": "results_announcement"
+      }
+    },
+    {
+      "name": "several_unit_statements_units_omitted",
+      "text": "Annual Report for the year ended 30 June 2026\nName of entity: Numbat Energy Limited\nThe financial statements are presented in Australian dollars.\nConsolidated statement of profit or loss ($'000)\nSegment information (A$ million)\n",
+      "expected": {
+        "currency": "AUD",
+        "currency_evidence": "presented in Australian dollars",
+        "entity": "Numbat Energy Limited",
+        "period_end": "2026-06-30",
+        "period_type": "annual",
+        "report_kind": "annual_report"
+      }
+    },
+    {
+      "name": "appendix_4d_thousands_repeated_bare_dollar",
+      "text": "Appendix 4D\nHalf-year report\nName of entity: Bilby Health Limited\nReporting period: half-year ended 31 December 2025\nPrevious corresponding period: half-year ended 31 December 2024\nRevenue from ordinary activities ($'000)\nNet profit after tax attributable to members ($'000)\n",
+      "expected": {
+        "units": "thousands",
+        "units_evidence": "$'000",
+        "entity": "Bilby Health Limited",
+        "period_end": "2025-12-31",
+        "period_type": "half",
+        "report_kind": "appendix_4d"
+      }
+    },
+    {
+      "name": "annual_report_whole_dollars_no_entity_anchor",
+      "text": "Dugong Lithium Limited\nAnnual Report 30 June 2025\nFinancial report for the year ended 30 June 2025\nThe financial report is presented in Australian dollars and all amounts are rounded to the nearest dollar.\n",
+      "expected": {
+        "currency": "AUD",
+        "currency_evidence": "presented in Australian dollars",
+        "units": "units",
+        "units_evidence": "nearest dollar",
+        "period_end": "2025-06-30",
+        "period_type": "annual",
+        "report_kind": "annual_report"
+      }
+    },
+    {
+      "name": "half_year_report_usd_billions_header_only",
+      "text": "Name of entity: Echidna Mining Limited\nHalf Year Report for the six months ended 31 December 2025\nKey financial metrics (US$ billion)\n",
+      "expected": {
+        "currency": "USD",
+        "currency_evidence": "US$ billion",
+        "units": "billions",
+        "units_evidence": "US$ billion",
+        "entity": "Echidna Mining Limited",
+        "period_end": "2025-12-31",
+        "period_type": "half",
+        "report_kind": "half_year_report"
+      }
+    },
+    {
+      "name": "results_announcement_no_currency_marker",
+      "text": "Name of entity: Wombat Foods Limited\nFY26 Results Announcement\nResults for the year ended 30 June 2026\nRevenue of $412.6m, up 7% on the prior year.\n",
+      "expected": {
+        "entity": "Wombat Foods Limited",
+        "period_end": "2026-06-30",
+        "period_type": "annual",
+        "report_kind": "results_announcement"
+      }
+    },
+    {
+      "name": "two_presentation_currencies_currency_omitted",
+      "text": "Name of entity: Platypus Holdings Limited\nAnnual Report for the year ended 31 December 2025\nThe consolidated financial statements are presented in US dollars.\nThe parent entity financial statements are presented in Australian dollars.\n",
+      "expected": {
+        "entity": "Platypus Holdings Limited",
+        "period_end": "2025-12-31",
+        "period_type": "annual",
+        "report_kind": "annual_report"
+      }
+    },
+    {
+      "name": "pillar_3_is_other",
+      "text": "Half Year Basel III Pillar 3 Disclosure\nas at 31 December 2025\nCommonwealth Bank of Australia ABN 48 123 123 124\nRisk-weighted assets ($M)\n",
+      "expected": {
+        "units": "millions",
+        "units_evidence": "$M",
+        "entity": "Commonwealth Bank of Australia",
+        "abn": "48 123 123 124",
+        "report_kind": "other"
+      }
+    },
+    {
+      "name": "nzd_appendix_4e_march_year_end",
+      "text": "Appendix 4E\nPreliminary final report\nName of entity: Kea Infrastructure Limited\nReporting period: year ended 31 March 2026\nPrevious corresponding period: year ended 31 March 2025\nAll amounts are stated in New Zealand dollars ($000).\n",
+      "expected": {
+        "currency": "NZD",
+        "currency_evidence": "stated in New Zealand dollars",
+        "units": "thousands",
+        "units_evidence": "$000",
+        "entity": "Kea Infrastructure Limited",
+        "period_end": "2026-03-31",
+        "period_type": "annual",
+        "report_kind": "appendix_4e"
+      }
+    },
+    {
+      "name": "invalid_abn_checksum_withheld",
+      "text": "Quoll Technologies Limited ABN 12 345 678 901\nHalf-year financial report for the half-year ended 31 December 2025\nThe financial report is presented in Australian dollars.\n",
+      "expected": {
+        "currency": "AUD",
+        "currency_evidence": "presented in Australian dollars",
+        "entity": "Quoll Technologies Limited",
+        "period_end": "2025-12-31",
+        "period_type": "half",
+        "report_kind": "half_year_report"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "lower_case_currency",
+      "input": {"currency": "usd", "currency_evidence": "presented in US dollars", "units": "millions", "units_evidence": "US$ Million"},
+      "expected": {"units": "millions", "units_evidence": "US$ Million"}
+    },
+    {
+      "name": "symbol_as_currency",
+      "input": {"currency": "US$", "currency_evidence": "US$ Million"},
+      "expected": {}
+    },
+    {
+      "name": "not_an_iso_4217_code",
+      "input": {"currency": "XYZ", "period_type": "annual"},
+      "expected": {"period_type": "annual"}
+    },
+    {
+      "name": "units_out_of_vocabulary",
+      "input": {"units": "hundreds", "units_evidence": "$'00", "currency": "AUD", "currency_evidence": "presented in Australian dollars"},
+      "expected": {"currency": "AUD", "currency_evidence": "presented in Australian dollars"}
+    },
+    {
+      "name": "units_wrong_case",
+      "input": {"units": "Millions", "units_evidence": "$M", "entity": "BHP Group Limited"},
+      "expected": {"entity": "BHP Group Limited"}
+    },
+    {
+      "name": "quarter_period_type",
+      "input": {"period_type": "quarter", "period_end": "2026-03-31"},
+      "expected": {"period_end": "2026-03-31"}
+    },
+    {
+      "name": "period_type_and_kind_out_of_vocabulary",
+      "input": {"period_type": "full_year", "report_kind": "investor_presentation"},
+      "expected": {}
+    },
+    {
+      "name": "report_kind_wrong_case",
+      "input": {"report_kind": "Appendix_4E", "period_type": "half"},
+      "expected": {"period_type": "half"}
+    },
+    {
+      "name": "impossible_date",
+      "input": {"period_end": "2026-02-30", "report_kind": "annual_report"},
+      "expected": {"report_kind": "annual_report"}
+    },
+    {
+      "name": "prose_date",
+      "input": {"period_end": "30 June 2026"},
+      "expected": {}
+    },
+    {
+      "name": "unpadded_date",
+      "input": {"period_end": "2026-6-30"},
+      "expected": {}
+    },
+    {
+      "name": "abn_bad_checksum",
+      "input": {"abn": "49 004 028 078", "entity": "BHP Group Limited"},
+      "expected": {"entity": "BHP Group Limited"}
+    },
+    {
+      "name": "abn_not_canonical_spelling",
+      "input": {"abn": "49004028077"},
+      "expected": {}
+    },
+    {
+      "name": "abn_invalid",
+      "input": {"abn": "12 345 678 901"},
+      "expected": {}
+    },
+    {
+      "name": "blank_entity",
+      "input": {"entity": "   ", "currency": "NZD"},
+      "expected": {"currency": "NZD"}
+    },
+    {
+      "name": "non_string_values",
+      "input": {"units": 1000000, "currency": null, "period_end": 20260630, "report_kind": ["appendix_4e"], "period_type": "annual"},
+      "expected": {"period_type": "annual"}
+    },
+    {
+      "name": "evidence_without_a_value",
+      "input": {"currency_evidence": "presented in US dollars", "units_evidence": "US$ Million"},
+      "expected": {}
+    },
+    {
+      "name": "unknown_keys_ignored",
+      "input": {"foo": "bar", "report_kind": "other"},
+      "expected": {"report_kind": "other"}
+    }
+  ]
+}

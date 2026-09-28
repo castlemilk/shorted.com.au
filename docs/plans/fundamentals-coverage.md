@@ -438,8 +438,9 @@ A new non-internal package in the `services` module (importable by
 - `IsProvenanceKey(k)`: `alignment`, `char_start`, `char_end`.
 - `IsResultsDocument(title, reportKind)`: the statutory-results classifier
   (4D/4E, half-year/annual reports, preliminary final, results announcement;
-  never Pillar 3/Basel, "items impacting", 20-F, presentation, webcast,
-  transcript, investor day).
+  never Pillar 3/Basel, "items impacting", 20-F, webcast, transcript,
+  investor day; presentations and slides only when the title also names an
+  Appendix 4D/4E, which lodges the statutory filing).
 - The few-shot texts (old and new) live here; `extract.py` and `reportextract`
   copy the new example verbatim; a Go test parses `extract.py`'s
   `EXTRACTION_EXAMPLES` literals and asserts parity.
@@ -924,7 +925,8 @@ this section; every description edit must fit).
 
 Phase 0, sequential, landed before any fan-out:
 - (a) **contract**: protos + `make openapi` outputs (5.0).
-- (b) **picks-base** (no behaviour change): move the filing SQL functions from
+- (b) **picks-base** (no behaviour change; `columns.go` holds the column
+  table every stream iterates, owned by vendor afterwards): move the filing SQL functions from
   `store.go` to `filings_store.go`; add `PeriodRow` fields for every new
   column plus `FieldSources map[string]string`, `Rejected []string`,
   `SourceDocumentURL`, `SourceDocumentDate`; extend `storable()`.
