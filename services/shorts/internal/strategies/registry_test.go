@@ -7,8 +7,11 @@ import (
 	"unicode"
 )
 
-func TestRegistryHasTheFourLaunchStrategiesInOrder(t *testing.T) {
-	want := []string{IDZangerBreakout, IDCANSLIM, IDMinerviniTrendTemplate, IDCrowdedShortBreakout}
+func TestRegistryHasEveryStrategyInOrder(t *testing.T) {
+	// The four launch strategies, then quality compounders (plan
+	// fundamentals-coverage.md §5.4). The MCP id list, shorts.proto prose and
+	// the web registry pin the same five.
+	want := []string{IDZangerBreakout, IDCANSLIM, IDMinerviniTrendTemplate, IDCrowdedShortBreakout, IDQualityCompounders}
 	got := Registry()
 	if len(got) != len(want) {
 		t.Fatalf("Registry() has %d strategies, want %d", len(got), len(want))
@@ -20,8 +23,13 @@ func TestRegistryHasTheFourLaunchStrategiesInOrder(t *testing.T) {
 	}
 	// The ids are binding (URLs, API and MCP arguments): pin the literals.
 	if IDZangerBreakout != "zanger-breakout" || IDCANSLIM != "canslim" ||
-		IDMinerviniTrendTemplate != "minervini-trend-template" || IDCrowdedShortBreakout != "crowded-short-breakout" {
+		IDMinerviniTrendTemplate != "minervini-trend-template" || IDCrowdedShortBreakout != "crowded-short-breakout" ||
+		IDQualityCompounders != "quality-compounders" {
 		t.Fatal("a strategy id literal changed; ids are part of the public contract")
+	}
+	q, _ := Lookup(IDQualityCompounders)
+	if q.Name != "Quality compounders" || q.Author != "Shorted" || q.RegimeGates {
+		t.Errorf("quality compounders is a house strategy that the regime does not gate: %q by %q, gates %v", q.Name, q.Author, q.RegimeGates)
 	}
 }
 
@@ -139,6 +147,7 @@ func TestCoreRuleSets(t *testing.T) {
 		IDCANSLIM:                {RuleEPSGrowth, RuleNearHigh, RuleRSLeader, RuleRegime, RuleLiquidity},
 		IDMinerviniTrendTemplate: {RuleTrendStack, RuleSMA200Rising, RuleAboveLow, RuleOffHigh, RuleRSLeader, RuleLiquidity},
 		IDCrowdedShortBreakout:   {RuleShortInterest, RuleBreakout, RuleLiquidity},
+		IDQualityCompounders:     {RuleROE, RuleNetMargin, RuleCashConversion, RuleLeverage, RuleLiquidity, RuleAboveSMA200},
 	}
 	for _, s := range Registry() {
 		got := s.CoreRuleIDs()
@@ -246,6 +255,13 @@ func TestEvaluationProseStatesTheThresholds(t *testing.T) {
 		RuleAboveSMA50:    {"50-day"},
 		RuleShortInterest: {"5% of shares on issue", "ASIC"},
 		RuleDaysToCover:   {"20-day average daily volume", "5 days"},
+
+		RuleROE:                 {"at least 15%", "equity is zero or negative", "10% of average total assets", "latest twelve months", "reporting currency"},
+		RuleNetMargin:           {"at least 10% of revenue", "zero or negative"},
+		RuleCashConversion:      {"0.8 times net profit", "free cash flow", "banks, insurers and other financials", "not meaningful"},
+		RuleLeverage:            {"2.5 times EBITDA", "excludes lease liabilities", "normalised EBITDA", "6 months", "banks, insurers and other financials"},
+		RuleAboveSMA200:         {"200-day simple moving average", "200 sessions"},
+		RuleRevenueNotShrinking: {"0% or more", "latest twelve months or half-year"},
 	}
 	for _, s := range Registry() {
 		for _, r := range s.Rules {
@@ -264,6 +280,7 @@ func TestSourcesAndCaveatsCarryTheRequiredAttributions(t *testing.T) {
 		IDCANSLIM:                {"How to Make Money in Stocks", "O'Neil"},
 		IDMinerviniTrendTemplate: {"Trade Like a Stock Market Wizard"},
 		IDCrowdedShortBreakout:   {"ASIC"},
+		IDQualityCompounders:     {"Berkshire Hathaway", "little or no debt", "ASX filings"},
 	}
 	for _, s := range Registry() {
 		joined := strings.Join(s.Sources, "\n")
@@ -287,14 +304,24 @@ func TestSourcesAndCaveatsCarryTheRequiredAttributions(t *testing.T) {
 }
 
 func TestCaveatsWithCoverage(t *testing.T) {
+	const (
+		growthLine  = "Reported fundamentals cover 812 of the 1904 stocks evaluated. Where growth data is missing the growth rules read unknown, never pass, so those stocks cannot trigger."
+		qualityLine = "Reported financial statements cover 812 of the 1904 stocks evaluated. Where a ratio cannot be measured the quality rules read unknown, never pass, so those stocks cannot trigger."
+	)
 	for _, s := range Registry() {
 		got := s.CaveatsWithCoverage(812, 1904)
 		if s.UsesFundamentals() {
 			if len(got) != len(s.Caveats)+1 {
 				t.Fatalf("%s: want the coverage caveat prepended", s.ID)
 			}
-			if got[0] != "Reported fundamentals cover 812 of the 1904 stocks evaluated. Where growth data is missing the growth rules read unknown, never pass, so those stocks cannot trigger." {
-				t.Errorf("%s: coverage caveat = %q", s.ID, got[0])
+			// The caveat is per strategy: growth rules quote growth coverage,
+			// quality rules quote statement coverage (plan fundamentals-coverage.md §5.4).
+			want := growthLine
+			if s.UsesQualityRules() {
+				want = qualityLine
+			}
+			if got[0] != want {
+				t.Errorf("%s: coverage caveat = %q, want %q", s.ID, got[0], want)
 			}
 			generic := s.CaveatsWithCoverage(0, -1)[0]
 			if strings.ContainsAny(generic, "0123456789") {
@@ -305,11 +332,101 @@ func TestCaveatsWithCoverage(t *testing.T) {
 		}
 	}
 	uses := map[string]bool{}
+	quality := map[string]bool{}
 	for _, s := range Registry() {
 		uses[s.ID] = s.UsesFundamentals()
+		quality[s.ID] = s.UsesQualityRules()
 	}
-	if !uses[IDZangerBreakout] || !uses[IDCANSLIM] || uses[IDMinerviniTrendTemplate] || uses[IDCrowdedShortBreakout] {
+	if !uses[IDZangerBreakout] || !uses[IDCANSLIM] || uses[IDMinerviniTrendTemplate] || uses[IDCrowdedShortBreakout] || !uses[IDQualityCompounders] {
 		t.Errorf("UsesFundamentals = %v", uses)
+	}
+	if quality[IDZangerBreakout] || quality[IDCANSLIM] || quality[IDMinerviniTrendTemplate] || quality[IDCrowdedShortBreakout] || !quality[IDQualityCompounders] {
+		t.Errorf("UsesQualityRules = %v", quality)
+	}
+}
+
+func TestCoverageCountIsPerStrategy(t *testing.T) {
+	cands := []Candidate{
+		{Growth: &Growth{RevenueYoYPct: f(3)}},                  // growth figure, no quality row
+		{Growth: &Growth{}, Quality: &Quality{}},                // quality row, no growth figure
+		{Quality: &Quality{}, Growth: &Growth{EPSYoYPct: f(1)}}, // both
+		{},
+	}
+	z, _ := Lookup(IDZangerBreakout)
+	q, _ := Lookup(IDQualityCompounders)
+	if got := z.CoverageCount(cands); got != 2 {
+		t.Errorf("growth coverage = %d, want 2", got)
+	}
+	if got := q.CoverageCount(cands); got != 2 {
+		t.Errorf("quality coverage = %d, want 2", got)
+	}
+}
+
+// Plan fundamentals-coverage.md §5.4: the prose must say that ratios use the
+// reporting currency, that financials read unknown on cash conversion and
+// leverage and so rank as watch at most, and that property trusts' profit and
+// EBITDA include revaluations.
+func TestQualityCompoundersProseStatesItsPolicies(t *testing.T) {
+	q, _ := Lookup(IDQualityCompounders)
+	prose := strings.Join(append(append([]string{}, q.Description...), q.Caveats...), "\n")
+	for _, frag := range []string{
+		"reporting currency",
+		"Banks, insurers and other financials read unknown on cash conversion and leverage",
+		"watch at most",
+		"Property trusts' profit and EBITDA include revaluations",
+		"Net debt excludes lease liabilities",
+	} {
+		if !strings.Contains(prose, frag) {
+			t.Errorf("quality compounders prose does not say %q", frag)
+		}
+	}
+	if len(q.TriggerRules) != 1 || q.TriggerRules[0] != RuleAboveSMA200 {
+		t.Errorf("trigger rules = %v, want [above_sma200]", q.TriggerRules)
+	}
+	for _, r := range q.Rules {
+		if r.ID == RuleRevenueNotShrinking && r.Core {
+			t.Error("revenue_not_shrinking is not core")
+		}
+	}
+}
+
+// A bank, insurer or other financial reads unknown on cash conversion and
+// leverage (core, not trigger rules), so however strong its numbers it can
+// never be better than watch (plan §5.4).
+func TestQualityCompoundersFinancialRanksWatchAtMost(t *testing.T) {
+	q, _ := Lookup(IDQualityCompounders)
+	bank := qualityReady("CBA")
+	bank.Industry = "Banks"
+	cands := []Candidate{bank}
+	PrepareCandidates(cands)
+	picks := Evaluate(q, cands, uptrend)
+	if len(picks) != 1 {
+		t.Fatalf("a profitable, liquid bank in an uptrend is still a pick: %v", summary(picks))
+	}
+	if picks[0].Status != StatusWatch {
+		t.Errorf("a financial must rank watch at most, got %s", picks[0].Status)
+	}
+	byRule := map[string]RuleResult{}
+	for _, r := range picks[0].Rules {
+		byRule[r.RuleID] = r
+	}
+	for _, id := range []string{RuleCashConversion, RuleLeverage} {
+		if byRule[id].Status != RuleUnknown || !strings.Contains(byRule[id].Detail, "Not meaningful for banks") {
+			t.Errorf("%s = %+v, want unknown (not meaningful)", id, byRule[id])
+		}
+	}
+	for _, id := range []string{RuleROE, RuleNetMargin, RuleLiquidity, RuleAboveSMA200} {
+		if byRule[id].Status != RulePass {
+			t.Errorf("%s = %+v, want pass: a bank's ROE and margin are meaningful", id, byRule[id])
+		}
+	}
+
+	// The same numbers under a non-financial industry trigger.
+	miner := qualityReady("BHP")
+	cands = []Candidate{miner}
+	PrepareCandidates(cands)
+	if picks := Evaluate(q, cands, uptrend); len(picks) != 1 || picks[0].Status != StatusTriggered {
+		t.Errorf("the same numbers outside financials must trigger: %v", summary(picks))
 	}
 }
 

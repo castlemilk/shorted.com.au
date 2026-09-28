@@ -40,6 +40,7 @@ func TestGetStockFundamentals_MapsPeriodsGrowthAndHasFlags(t *testing.T) {
 		NetIncomePositive: spBool(true), PeriodsAvailable: 9,
 		RevenueTTM: f64(5.5e10), NetIncomeTTM: nil, EPSTTM: f64(1.9),
 	}, nil)
+	expectNo000132Reads(mockStore, "BHP")
 
 	srv := newTestServer(t, mockStore)
 	resp, err := srv.GetStockFundamentals(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStockFundamentalsRequest{
@@ -138,6 +139,7 @@ func TestGetStockFundamentals_AcceptsEveryPeriodTypeAndDefaults(t *testing.T) {
 			mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "CBA", pt, int32(12)).
 				Return([]shortsstore.FundamentalsPeriodRow{{StockCode: "CBA", PeriodType: "annual", PeriodEnd: spDate("2026-06-30")}}, nil)
 			mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "CBA").Return(nil, nil)
+			expectNo000132Reads(mockStore, "CBA")
 			resp, err := newTestServer(t, mockStore).GetStockFundamentals(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStockFundamentalsRequest{
 				StockCode: "CBA", PeriodType: pt,
 			}))
@@ -171,6 +173,10 @@ func TestGetStockFundamentals_KnownStockWithoutDataIsAnEmptySuccess(t *testing.T
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "WBT", "", int32(12)).Return([]shortsstore.FundamentalsPeriodRow{}, nil)
 	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "WBT").Return(nil, nil)
 	mockStore.EXPECT().StockExists("WBT").Return(true, nil)
+	// No rows: no ratios or filing to read, but the coverage says why.
+	mockStore.EXPECT().GetFundamentalsCoverage(gomock.Any(), "WBT").Return(&shortsstore.FundamentalsCoverageRow{
+		HasSyncRow: true, LastOutcome: "empty", OutcomeKnown: true, LastAttemptAt: dayPtr("2026-09-27"),
+	}, nil)
 
 	resp, err := newTestServer(t, mockStore).GetStockFundamentals(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStockFundamentalsRequest{StockCode: "WBT"}))
 	require.NoError(t, err)
@@ -178,6 +184,11 @@ func TestGetStockFundamentals_KnownStockWithoutDataIsAnEmptySuccess(t *testing.T
 	assert.Empty(t, resp.Msg.Periods)
 	assert.NotNil(t, resp.Msg.Periods)
 	assert.False(t, resp.Msg.HasGrowth)
+	assert.False(t, resp.Msg.HasQuality)
+	assert.False(t, resp.Msg.HasLatestFiling)
+	require.NotNil(t, resp.Msg.Coverage)
+	assert.Equal(t, "empty", resp.Msg.Coverage.Status)
+	assert.Equal(t, "2026-09-27T00:00:00Z", resp.Msg.Coverage.LastAttemptAt)
 }
 
 func TestGetStockFundamentals_GrowthWithoutPeriodsSkipsTheExistenceCheck(t *testing.T) {
@@ -186,6 +197,7 @@ func TestGetStockFundamentals_GrowthWithoutPeriodsSkipsTheExistenceCheck(t *test
 	mockStore.EXPECT().GetStockFundamentals(gomock.Any(), "PLS", "half", int32(12)).Return(nil, nil)
 	mockStore.EXPECT().GetFundamentalsGrowth(gomock.Any(), "PLS").Return(&strategies.Growth{BasisPeriodType: "annual"}, nil)
 	// No StockExists expectation: rows exist, so the code is known.
+	expectNo000132Reads(mockStore, "PLS")
 
 	resp, err := newTestServer(t, mockStore).GetStockFundamentals(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStockFundamentalsRequest{StockCode: "PLS", PeriodType: "half"}))
 	require.NoError(t, err)
@@ -206,6 +218,7 @@ func TestGetStockFundamentals_MapsTheHalfBasis(t *testing.T) {
 		RevenueYoYPct: f64(22), EPSYoYPct: f64(31),
 		RevenueHalfYoYPct: f64(22), NetIncomeHalfYoYPct: f64(18), EPSHalfYoYPct: f64(31),
 	}, nil)
+	expectNo000132Reads(mockStore, "WTC")
 
 	resp, err := newTestServer(t, mockStore).GetStockFundamentals(context.Background(), connect.NewRequest(&shortsv1alpha1.GetStockFundamentalsRequest{StockCode: "WTC"}))
 	require.NoError(t, err)
@@ -237,6 +250,23 @@ func TestGetStockFundamentals_StoreErrorsAreInternal(t *testing.T) {
 			m.EXPECT().GetStockFundamentals(gomock.Any(), "BHP", "", int32(12)).Return(nil, nil)
 			m.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(nil, nil)
 			m.EXPECT().StockExists("BHP").Return(false, boom)
+		}},
+		{"extras", func(m *mocks.MockShortsStore) {
+			m.EXPECT().GetStockFundamentals(gomock.Any(), "BHP", "", int32(12)).Return(nil, nil)
+			m.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&strategies.Growth{}, nil)
+			m.EXPECT().GetFundamentalsExtras(gomock.Any(), "BHP").Return(nil, boom)
+		}},
+		{"latest filing", func(m *mocks.MockShortsStore) {
+			m.EXPECT().GetStockFundamentals(gomock.Any(), "BHP", "", int32(12)).Return(nil, nil)
+			m.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(&strategies.Growth{}, nil)
+			m.EXPECT().GetFundamentalsExtras(gomock.Any(), "BHP").Return(nil, nil)
+			m.EXPECT().GetLatestFilingInputs(gomock.Any(), "BHP").Return(nil, boom)
+		}},
+		{"coverage", func(m *mocks.MockShortsStore) {
+			m.EXPECT().GetStockFundamentals(gomock.Any(), "BHP", "", int32(12)).Return(nil, nil)
+			m.EXPECT().GetFundamentalsGrowth(gomock.Any(), "BHP").Return(nil, nil)
+			m.EXPECT().StockExists("BHP").Return(true, nil)
+			m.EXPECT().GetFundamentalsCoverage(gomock.Any(), "BHP").Return(nil, boom)
 		}},
 	}
 	for _, tc := range cases {

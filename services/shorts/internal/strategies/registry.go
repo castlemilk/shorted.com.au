@@ -9,6 +9,7 @@ const (
 	IDCANSLIM                = "canslim"
 	IDMinerviniTrendTemplate = "minervini-trend-template"
 	IDCrowdedShortBreakout   = "crowded-short-breakout"
+	IDQualityCompounders     = "quality-compounders"
 )
 
 // Rule ids. Each id has exactly ONE meaning and one evaluation function
@@ -32,7 +33,26 @@ const (
 	RuleAboveSMA50    = "above_sma50"
 	RuleShortInterest = "short_interest"
 	RuleDaysToCover   = "days_to_cover"
+
+	// Quality rules: they read mv_fundamentals_quality (plan
+	// fundamentals-coverage.md §5.4).
+	RuleROE            = "roe"
+	RuleNetMargin      = "net_margin"
+	RuleCashConversion = "cash_conversion"
+	RuleLeverage       = "leverage"
+
+	RuleAboveSMA200         = "above_sma200"
+	RuleRevenueNotShrinking = "revenue_not_shrinking"
 )
+
+// qualityRules are the rules that read the quality ratios. A strategy using
+// any of them quotes quality coverage, not growth coverage, in its caveat.
+var qualityRules = map[string]bool{
+	RuleROE:            true,
+	RuleNetMargin:      true,
+	RuleCashConversion: true,
+	RuleLeverage:       true,
+}
 
 // Data sources a rule reads (StrategyRule.data_source).
 const (
@@ -106,25 +126,62 @@ func (s Strategy) CoreRuleIDs() []string {
 	return ids
 }
 
+// UsesQualityRules reports whether any rule reads the quality ratios
+// (mv_fundamentals_quality).
+func (s Strategy) UsesQualityRules() bool {
+	for _, r := range s.Rules {
+		if qualityRules[r.ID] {
+			return true
+		}
+	}
+	return false
+}
+
+// CoverageCount is the number the strategy's coverage caveat quotes: stocks
+// with a quality row for a strategy built on the quality ratios, stocks with a
+// growth figure otherwise (plan fundamentals-coverage.md §5.4: the caveat is
+// per strategy).
+func (s Strategy) CoverageCount(cands []Candidate) int {
+	if s.UsesQualityRules() {
+		return QualityCoverage(cands)
+	}
+	return FundamentalsCoverage(cands)
+}
+
 // CaveatsWithCoverage returns the strategy's caveats, and for a strategy that
-// reads fundamentals, a coverage line stating how many evaluated stocks have
-// growth data. universe < 0 means "not measured" (ListStrategies), which
-// yields the same warning without the numbers.
+// reads fundamentals, a coverage line first: how many evaluated stocks have
+// the data its rules need (CoverageCount). universe < 0 means "not measured"
+// (ListStrategies), which yields the same warning without the numbers.
 func (s Strategy) CaveatsWithCoverage(covered, universe int) []string {
 	out := make([]string, 0, len(s.Caveats)+1)
-	if s.UsesFundamentals() {
+	switch {
+	case s.UsesQualityRules():
+		out = append(out, QualityCoverageCaveat(covered, universe))
+	case s.UsesFundamentals():
 		out = append(out, CoverageCaveat(covered, universe))
 	}
 	return append(out, s.Caveats...)
 }
 
-// CoverageCaveat is the "fundamentals cover N stocks" line.
+// CoverageCaveat is the "fundamentals cover N stocks" line of a strategy
+// built on growth figures.
 func CoverageCaveat(covered, universe int) string {
 	const tail = "Where growth data is missing the growth rules read unknown, never pass, so those stocks cannot trigger."
 	if universe <= 0 {
 		return "Reported fundamentals do not yet cover every stock. " + tail
 	}
 	return fmt.Sprintf("Reported fundamentals cover %d of the %d stocks evaluated. %s", covered, universe, tail)
+}
+
+// QualityCoverageCaveat is the coverage line of a strategy built on the
+// quality ratios: how many evaluated stocks have financial statements to
+// compute them from.
+func QualityCoverageCaveat(covered, universe int) string {
+	const tail = "Where a ratio cannot be measured the quality rules read unknown, never pass, so those stocks cannot trigger."
+	if universe <= 0 {
+		return "Reported financial statements do not yet cover every stock. " + tail
+	}
+	return fmt.Sprintf("Reported financial statements cover %d of the %d stocks evaluated. %s", covered, universe, tail)
 }
 
 // Lookup returns the strategy with the given id.
@@ -137,8 +194,8 @@ func Lookup(id string) (Strategy, bool) {
 	return Strategy{}, false
 }
 
-// Shared prose. Written once so the four strategies cannot drift apart on
-// facts about our data.
+// Shared prose. Written once so the strategies cannot drift apart on facts
+// about our data.
 const (
 	evalRegime = "Read from the S&P/ASX 200 (XJO): uptrend when the index closes above its 50-day average and the 50-day is above the 200-day; " +
 		"neutral when it closes above the 200-day but that stack is not in place; downtrend when it closes below the 200-day. " +
@@ -157,20 +214,22 @@ const (
 	caveatSubCent  = "Prices are stored to 2 decimal places, so sub-cent stocks cannot be measured reliably; the A$250,000 turnover floor excludes them."
 	caveatEOD      = "Everything is measured on end-of-day prices after the evening sweep. We do not see intraday breakouts, the time of day a move happened, or news released after the close."
 	caveatNotAdvic = "This is a screen, not a recommendation. Nothing here is financial advice."
-	caveatHalfYear = "ASX companies report half-yearly and there are no quarterly totals, so growth is measured annual on annual for revenue and on trailing-twelve-month EPS where available, switching to the latest half-year against the same half a year earlier, taken from the company's own filing, when that half is fresher. Figures can be months old, and small caps often arrive weeks after they file."
+	caveatHalfYear = "ASX companies report half-yearly and there are no quarterly totals, so growth is measured annual on annual for revenue (or on the latest twelve months when those are newer) and on trailing-twelve-month EPS where available, switching to the latest half-year against the same half a year earlier, taken from the company's own filing, when that half is fresher. Figures can be months old, and small caps often arrive weeks after they file."
 
 	metaUniverse = "ASX equities with at least 60 sessions of price history; only those with at least A$250,000 average daily turnover can trigger"
 	metaCadence  = "Daily, after the evening price sweep"
 )
 
-// Registry returns the four launch strategies, freshly allocated on every
-// call so a caller may not mutate the shared definitions.
+// Registry returns every strategy (the four launch strategies, then quality
+// compounders), freshly allocated on every call so a caller may not mutate
+// the shared definitions.
 func Registry() []Strategy {
 	return []Strategy{
 		zangerBreakout(),
 		canslim(),
 		minerviniTrendTemplate(),
 		crowdedShortBreakout(),
+		qualityCompounders(),
 	}
 }
 
@@ -196,9 +255,11 @@ func zangerBreakout() Strategy {
 				Title:    "Explosive growth",
 				RuleText: "Buy companies with explosive earnings and sales growth. The biggest winners usually show both, and the growth is often accelerating.",
 				Evaluation: "Pass when the latest annual revenue is up at least 25% on the prior year, or EPS is up at least 25% on the same series a year earlier " +
-					"(trailing twelve months where available, otherwise annual), or the company has swung from a net loss to a net profit. " +
-					"When a half-year result from the company's own filing is fresher than those figures, revenue and EPS are measured on that half against the same half a year earlier instead. " +
-					"Unknown when neither growth figure is available. A latest half-year that improved on the same half a year earlier is shown as supporting evidence but does not change the result.",
+					"(trailing twelve months where available, otherwise annual), or the company has swung from a net loss to a net profit, judged on the same basis as the EPS figure. " +
+					"When a half-year result from the company's own filing is fresher than those figures, revenue and EPS are measured on that half against the same half a year earlier instead, " +
+					"and revenue is measured on the latest twelve months when those are newer than the latest annual. " +
+					"A company whose latest EPS on that basis is still a loss fails. " +
+					"Unknown when neither growth figure is available and the company is not loss-making. A latest half-year that improved on the same half a year earlier is shown as supporting evidence but does not change the result.",
 				Core:       true,
 				DataSource: SourceFundamentals,
 			},
@@ -292,9 +353,9 @@ func canslim() Strategy {
 				Title:    "Earnings growth (C and A)",
 				RuleText: "Current quarterly earnings per share up at least 25% on the same quarter a year earlier, backed by strong annual earnings growth.",
 				Evaluation: "Pass when EPS is up at least 25% on the same series a year earlier (trailing twelve months where available, otherwise annual), " +
-					"or the company has swung from a net loss to a net profit. ASX companies report half-yearly, not quarterly, so a trailing-twelve-month comparison is the closest honest proxy, " +
+					"or the company has swung from a net loss to a net profit on that same basis. ASX companies report half-yearly, not quarterly, so a trailing-twelve-month comparison is the closest honest proxy, " +
 					"and when a half-year result from the company's own filing is fresher, EPS is measured on that half against the same half a year earlier. " +
-					"Unknown when there is no EPS growth figure.",
+					"Fail when the latest EPS on that basis is still a loss. Unknown when there is no EPS growth figure.",
 				Core:       true,
 				DataSource: SourceFundamentals,
 			},
@@ -303,7 +364,8 @@ func canslim() Strategy {
 				Title:    "Sales growth",
 				RuleText: "Earnings growth should be backed by strong sales growth, not just cost cutting.",
 				Evaluation: "Pass when the latest annual revenue is up at least 20% on the prior year, or, when a half-year result from the company's own filing is fresher, " +
-					"when that half is up at least 20% on the same half a year earlier. Unknown when either period is missing.",
+					"when that half is up at least 20% on the same half a year earlier. When the latest twelve months are newer than the latest annual, they are compared with the twelve months a year before. " +
+					"Unknown when either period is missing.",
 				Core:       false,
 				DataSource: SourceFundamentals,
 			},
@@ -547,6 +609,113 @@ func crowdedShortBreakout() Strategy {
 			"Shorted.com.au: ASIC short position history and days-to-cover calculations.",
 		},
 		TriggerRules: []string{RuleBreakout},
+		RegimeGates:  false,
+	}
+}
+
+func qualityCompounders() Strategy {
+	return Strategy{
+		ID:      IDQualityCompounders,
+		Name:    "Quality compounders",
+		Author:  "Shorted",
+		Tagline: "Profitable businesses that turn their profit into cash, carry little debt, and are still in a long-term uptrend.",
+		Description: []string{
+			"This is our own strategy, and a different kind of screen from the others. They look for price momentum and fast growth; this one looks for businesses that are already good: " +
+				"they earn a high return on the money shareholders have left in them, keep a healthy share of every dollar of revenue as profit, turn that profit into cash, and do not lean on borrowing to do it.",
+			"A company like that can reinvest at high rates of return for years, which is what compounding means. Berkshire Hathaway's published acquisition criteria ask for the same thing in plain words: " +
+				"businesses earning good returns on equity while employing little or no debt. A trend filter keeps the list to stocks the market is not marking down, because a good business can still be a falling share price for a long time.",
+			"Every ratio is computed from one reporting period, the latest full year or the latest twelve months when those are newer, and a balance sheet at or up to six months before it, in the company's reporting currency. " +
+				"Banks, insurers and other financials read unknown on cash conversion and leverage, where those ratios are not meaningful, so they rank as watch at most. " +
+				"Property trusts' profit and EBITDA include revaluations of their properties, which can flatter or depress them in any one year.",
+		},
+		Rules: []Rule{
+			{
+				ID:       RuleROE,
+				Title:    "High return on equity",
+				RuleText: "Own businesses that earn a high return on the capital shareholders have in them.",
+				Evaluation: "Pass when return on equity, net profit over the average of opening and closing shareholders' equity, is at least 15%. " +
+					"Fail below 15%, or when equity is zero or negative. Unknown when either equity figure is missing, or when average equity is under 10% of average total assets, " +
+					"where the ratio says more about borrowing than quality. Net profit is the latest full year's, or the latest twelve months' when those are newer, in the reporting currency.",
+				Core:       true,
+				DataSource: SourceFundamentals,
+			},
+			{
+				ID:         RuleNetMargin,
+				Title:      "Healthy profit margin",
+				RuleText:   "Keep a meaningful share of every dollar of revenue as profit.",
+				Evaluation: "Pass when net profit is at least 10% of revenue for the same period. Fail below 10%. Unknown when revenue is missing, zero or negative, or net profit is missing.",
+				Core:       true,
+				DataSource: SourceFundamentals,
+			},
+			{
+				ID:       RuleCashConversion,
+				Title:    "Profit that turns into cash",
+				RuleText: "Reported profit should be backed by cash coming in, not only by accounting.",
+				Evaluation: "Pass when free cash flow (operating cash flow less capital expenditure) is positive and at least 0.8 times net profit for the same period. " +
+					"Fail when net profit is zero or negative, when free cash flow is zero or negative, or when it is under 0.8 times net profit. " +
+					"Unknown when either figure is missing, and for banks, insurers and other financials, where the ratio is not meaningful.",
+				Core:       true,
+				DataSource: SourceFundamentals,
+			},
+			{
+				ID:       RuleLeverage,
+				Title:    "Little debt",
+				RuleText: "Prefer businesses that employ little or no debt.",
+				Evaluation: "Pass when the company holds net cash, or when net debt is no more than 2.5 times EBITDA (normalised EBITDA when the source publishes it, otherwise statutory). " +
+					"Net debt excludes lease liabilities: total debt minus leases minus cash, from the balance sheet at or up to 6 months before the profit period. " +
+					"Fail above 2.5 times, or when there is net debt and EBITDA is zero or negative. " +
+					"Unknown when net debt cannot be measured, when there is net debt but no EBITDA, and for banks, insurers and other financials, where it is not meaningful.",
+				Core:       true,
+				DataSource: SourceFundamentals,
+			},
+			{
+				ID:         RuleLiquidity,
+				Title:      "Liquid enough to trade",
+				RuleText:   "Stick to stocks that trade enough to buy and sell without moving the price.",
+				Evaluation: evalLiquidity,
+				Core:       true,
+				DataSource: SourcePrices,
+			},
+			{
+				ID:         RuleAboveSMA200,
+				Title:      "Long-term uptrend",
+				RuleText:   "Own quality while the market agrees: the share price is above its long-term average.",
+				Evaluation: "Pass when the close is above the 200-day simple moving average. Unknown without 200 sessions of price history.",
+				Core:       true,
+				DataSource: SourcePrices,
+			},
+			{
+				ID:       RuleRevenueNotShrinking,
+				Title:    "Revenue not shrinking",
+				RuleText: "A compounder grows its sales, or at least holds them.",
+				Evaluation: "Pass when revenue is up or flat on a year earlier, a growth of 0% or more: the latest full year against the one before, " +
+					"or the latest twelve months or half-year against the same span a year earlier when those are fresher. Fail when revenue fell. Unknown when there is no revenue growth figure.",
+				Core:       false,
+				DataSource: SourceFundamentals,
+			},
+		},
+		Metadata: Metadata{
+			Style:          "quality",
+			HoldingPeriod:  "Years",
+			RiskPosture:    "Reassess when a quality test fails at the next result, or when the price closes below its 200-day average and stays there.",
+			Universe:       metaUniverse,
+			RefreshCadence: metaCadence,
+		},
+		Caveats: []string{
+			"Ratios use the company's reporting currency, from one period and a balance sheet at or up to six months before it. A company that reports in US dollars is measured in US dollars.",
+			"Banks, insurers and other financials read unknown on cash conversion and leverage, where those ratios are not meaningful, so they rank as watch at most.",
+			"Property trusts' profit and EBITDA include revaluations of their properties, which can flatter or depress the ratios in any one year.",
+			"Net debt excludes lease liabilities, so a company with large leases carries more fixed obligations than its net debt shows.",
+			"Statements arrive when companies report, twice a year for most ASX companies, so the ratios can be months old.",
+			caveatEOD,
+			caveatSubCent,
+			caveatNotAdvic,
+		},
+		Sources: []string{
+			"Berkshire Hathaway annual reports, Acquisition Criteria: businesses earning good returns on equity while employing little or no debt.",
+			"Company financial statements (income statement, balance sheet and cash flow) as reported, from our data providers and the company's own ASX filings.",
+		},
+		TriggerRules: []string{RuleAboveSMA200},
 		RegimeGates:  false,
 	}
 }

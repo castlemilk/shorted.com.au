@@ -112,6 +112,11 @@ type ShortsStore interface {
 	GetMarketRegime(ctx context.Context, indexCode string) (strategies.Regime, error)
 	GetStockFundamentals(ctx context.Context, code, periodType string, limit int32) ([]shortsstore.FundamentalsPeriodRow, error)
 	GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error)
+	// Fundamentals coverage (fundamentals.go; plan fundamentals-coverage.md
+	// §5.3). nil, never an error, on a database without migration 000132.
+	GetFundamentalsExtras(ctx context.Context, code string) (*shortsstore.FundamentalsExtras, error)
+	GetFundamentalsCoverage(ctx context.Context, code string) (*shortsstore.FundamentalsCoverageRow, error)
+	GetLatestFilingInputs(ctx context.Context, code string) (*shortsstore.LatestFilingInputs, error)
 
 	// Corporate tax (influence layer) methods
 	GetCompanyTaxProfile(productCode string) (*shortsstore.CompanyTaxProfile, error)

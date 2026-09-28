@@ -179,6 +179,13 @@ type Store interface {
 	GetStockFundamentals(ctx context.Context, code, periodType string, limit int32) ([]FundamentalsPeriodRow, error)
 	GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error)
 
+	// Fundamentals coverage (postgres_fundamentals.go; plan
+	// docs/plans/fundamentals-coverage.md §5.3). Every read tolerates a
+	// database without migration 000132 (42P01 / 42703): nil, never an error.
+	GetFundamentalsExtras(ctx context.Context, code string) (*FundamentalsExtras, error)
+	GetFundamentalsCoverage(ctx context.Context, code string) (*FundamentalsCoverageRow, error)
+	GetLatestFilingInputs(ctx context.Context, code string) (*LatestFilingInputs, error)
+
 	// Corporate tax (influence layer) methods
 	GetCompanyTaxProfile(productCode string) (*CompanyTaxProfile, error)
 	GetIndustryIntelligence(industry string, stockCode string, recordLimit int32) (*IndustryIntelligenceResult, error)

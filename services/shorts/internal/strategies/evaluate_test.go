@@ -29,6 +29,28 @@ func zangerReady(code string) Candidate {
 	}
 }
 
+// qualityReady is a stock that passes every quality compounders rule: an
+// AUD-reporting, profitable, cash-generative, modestly geared company above
+// its 200-day average.
+func qualityReady(code string) Candidate {
+	return Candidate{
+		StockCode:       code,
+		AsOf:            *d("2026-09-25"),
+		Close:           50,
+		SMA200:          f(45),
+		DollarVolume20d: f(20_000_000),
+		Industry:        "Materials",
+		Growth:          &Growth{RevenueYoYPct: f(6), LatestAnnualPeriodEnd: d("2026-06-30")},
+		Quality: &Quality{
+			BasisPeriodType: "annual", BasisPeriodEnd: d("2026-06-30"), Currency: "AUD", BalanceCurrency: "AUD",
+			Revenue: f(1e9), NetIncome: f(2e8), FreeCashFlow: f(1.9e8), EBITDA: f(3.5e8),
+			TotalEquity: f(1e9), TotalAssets: f(2e9), TotalDebt: f(4e8), NetDebt: f(3e8),
+			NetMarginPct: f(20), ROEPct: f(21), GrossMarginPct: f(45), FCFConversion: f(0.95),
+			NetDebtToEBITDA: f(0.857), CurrentRatio: f(1.6), InterestCover: f(12),
+		},
+	}
+}
+
 func TestQuantile(t *testing.T) {
 	cases := []struct {
 		name string
@@ -362,12 +384,13 @@ func TestEveryStrategyEvaluatesARealisticUniverse(t *testing.T) {
 		Low52w: f(12), High52w: f(21), PctOff52wHigh: f(-4.8), RS6mPct: f(40), DollarVolume20d: f(3e6),
 		Growth: &Growth{EPSYoYPct: f(30)},
 	}
-	cands := []Candidate{zangerReady("RDY"), squeeze, trend, {StockCode: "LAG", Close: 1, RS6mPct: f(-20), DollarVolume20d: f(1e6)}}
+	cands := []Candidate{zangerReady("RDY"), squeeze, trend, {StockCode: "LAG", Close: 1, RS6mPct: f(-20), DollarVolume20d: f(1e6)}, qualityReady("QLT")}
 	want := map[string]string{
 		IDZangerBreakout:         "RDY",
 		IDCANSLIM:                "TRD",
 		IDMinerviniTrendTemplate: "TRD",
 		IDCrowdedShortBreakout:   "SQZ",
+		IDQualityCompounders:     "QLT",
 	}
 	for _, s := range Registry() {
 		picks := Evaluate(s, cands, uptrend)
@@ -387,11 +410,132 @@ func TestFundamentalsCoverageAndLatestAsOf(t *testing.T) {
 	if got := FundamentalsCoverage(cands); got != 2 {
 		t.Errorf("coverage = %d, want 2", got)
 	}
+	// Any row counts for fundamentals_rows_count: the growth row without a
+	// figure too, and a quality row without a growth row.
+	withQuality := append(append([]Candidate(nil), cands...), Candidate{Quality: &Quality{}})
+	if got := FundamentalsRows(withQuality); got != 4 {
+		t.Errorf("fundamentals rows = %d, want 4", got)
+	}
+	if got := QualityCoverage(withQuality); got != 1 {
+		t.Errorf("quality coverage = %d, want 1", got)
+	}
 	if got := LatestAsOf(cands); !got.Equal(*d("2026-09-25")) {
 		t.Errorf("latest as_of = %v", got)
 	}
 	if !LatestAsOf(nil).Equal(time.Time{}) {
 		t.Error("an empty universe has a zero as_of")
+	}
+}
+
+// EvaluateOne is the Evaluate loop body: for a pick it must return exactly the
+// status, score and rules the ranked list carries (GetStockStrategyFit relies
+// on it for stocks that are not picks, against the same Env).
+func TestEvaluateOneMatchesTheRankedList(t *testing.T) {
+	cands := []Candidate{zangerReady("RDY"), qualityReady("QLT"), {StockCode: "NIL", Close: 1}}
+	for _, s := range Registry() {
+		env := NewEnv(cands, uptrend)
+		picks := EvaluateWithEnv(s, cands, env)
+		if !reflect.DeepEqual(picks, Evaluate(s, cands, uptrend)) {
+			t.Fatalf("%s: EvaluateWithEnv over NewEnv must equal Evaluate", s.ID)
+		}
+		byCode := map[string]Pick{}
+		for _, p := range picks {
+			byCode[p.Candidate.StockCode] = p
+		}
+		for _, c := range cands {
+			one, ok := EvaluateOne(s, c, env)
+			ranked, isPick := byCode[c.StockCode]
+			if ok != isPick {
+				t.Errorf("%s/%s: EvaluateOne ok=%v but in ranked list=%v", s.ID, c.StockCode, ok, isPick)
+			}
+			if one.Rank != 0 {
+				t.Errorf("EvaluateOne must not rank: %d", one.Rank)
+			}
+			if len(one.Rules) != len(s.Rules) {
+				t.Errorf("%s/%s: %d rule results for %d rules", s.ID, c.StockCode, len(one.Rules), len(s.Rules))
+			}
+			if isPick && (one.Status != ranked.Status || one.Score != ranked.Score || !reflect.DeepEqual(one.Rules, ranked.Rules)) {
+				t.Errorf("%s/%s: EvaluateOne %s/%v differs from the ranked %s/%v", s.ID, c.StockCode, one.Status, one.Score, ranked.Status, ranked.Score)
+			}
+		}
+	}
+	// A nil env is an unknown regime over an empty universe, never a panic.
+	z, _ := Lookup(IDZangerBreakout)
+	p, ok := EvaluateOne(z, zangerReady("RDY"), nil)
+	if !ok || p.Status != StatusWatch {
+		t.Errorf("nil env: %v %v, want a watch pick (regime unknown)", ok, p.Status)
+	}
+	if NewEnv(nil, uptrend).Regime().Label != RegimeUptrend || (*Env)(nil).Regime().Label != "" {
+		t.Error("Env.Regime")
+	}
+}
+
+func TestPrepareCandidatesDecidesFinancialsAndValuesOnce(t *testing.T) {
+	bank := qualityReady("CBA")
+	bank.Industry = "Banks"
+	bank.ValuationInputs = &ValuationInputs{
+		Shares: f(1.7e9), SharesPeriodEnd: d("2026-06-30"), MedianK: f(1.01),
+		EPSDiluted: f(6.1), EPSPeriodEnd: d("2026-06-30"), EPSCurrency: "AUD",
+	}
+	miner := qualityReady("BHP")
+	none := Candidate{StockCode: "NIL", Close: 1, AsOf: *d("2026-09-25")}
+	cands := []Candidate{bank, miner, none}
+	PrepareCandidates(cands)
+
+	b := cands[0]
+	if !b.Quality.IsFinancial || b.Quality.FCFConversion != nil || b.Quality.NetDebt != nil || b.Quality.ROEPct == nil {
+		t.Errorf("bank quality not decided: %+v", b.Quality)
+	}
+	if b.Valuation.MarketCap == nil || math.Abs(*b.Valuation.MarketCap-50*1.7e9) > 1 {
+		t.Errorf("bank market cap = %v", b.Valuation.MarketCap)
+	}
+	if got := b.ResolvedMarketCap(); got != b.Valuation.MarketCap {
+		t.Error("the valuation market cap must win over the screener's")
+	}
+	if cands[1].Quality.IsFinancial || cands[1].Quality.FCFConversion == nil {
+		t.Errorf("miner must keep its ratios: %+v", cands[1].Quality)
+	}
+	if cands[1].Valuation.HasAny() || cands[1].Valuation.Note != "" {
+		t.Errorf("no valuation inputs values nothing and explains nothing: %+v", cands[1].Valuation)
+	}
+	if cands[2].Quality != nil || cands[2].HasFundamentalsRow() {
+		t.Error("a stock without rows stays without")
+	}
+	screener := 9.9e9
+	cands[2].MarketCap = &screener
+	if got := cands[2].ResolvedMarketCap(); got == nil || *got != screener {
+		t.Error("without a share count the screener's market cap is the fallback")
+	}
+	// Idempotent: preparing twice changes nothing.
+	again := append([]Candidate(nil), cands...)
+	PrepareCandidates(again)
+	if !reflect.DeepEqual(again, cands) {
+		t.Error("PrepareCandidates is not idempotent")
+	}
+}
+
+func TestLadderQualityCompounders(t *testing.T) {
+	const P, F, U = "pass", "fail", "unknown"
+	q, _ := Lookup(IDQualityCompounders)
+	all := func(trigger, cash, lev, rev string) []RuleResult {
+		return results(RuleROE, P, RuleNetMargin, P, RuleCashConversion, cash, RuleLeverage, lev, RuleLiquidity, P, RuleAboveSMA200, trigger, RuleRevenueNotShrinking, rev)
+	}
+	cases := []struct {
+		name  string
+		rules []RuleResult
+		want  PickStatus
+	}{
+		{"every core rule passes", all(P, P, P, F), StatusTriggered},
+		{"below the 200-day is a setup", all(F, P, P, P), StatusSetup},
+		{"200-day unknown is a setup", all(U, P, P, P), StatusSetup},
+		{"cash conversion unknown (a financial) is watch", all(P, U, P, P), StatusWatch},
+		{"leverage unknown (a financial) is watch", all(P, P, U, P), StatusWatch},
+		{"a financial below its 200-day is still watch", all(F, U, U, P), StatusWatch},
+	}
+	for _, tc := range cases {
+		if got := Ladder(q, tc.rules); got != tc.want {
+			t.Errorf("%s: Ladder = %s, want %s", tc.name, got, tc.want)
+		}
 	}
 }
 
@@ -401,7 +545,7 @@ func TestValidPickStatus(t *testing.T) {
 			t.Errorf("%q should be valid", s)
 		}
 	}
-	for _, s := range []string{"", "TRIGGERED", "all", "pass"} {
+	for _, s := range []string{"", "TRIGGERED", "all", "pass", string(StatusNone)} {
 		if ValidPickStatus(s) {
 			t.Errorf("%q should be invalid", s)
 		}

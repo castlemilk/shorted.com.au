@@ -24,6 +24,8 @@ func (s Strategy) RegimeVerdict(r Regime) string {
 			return "Supportive: " + code + " is in an uptrend, so stocks passing the template have the market behind them."
 		case IDCrowdedShortBreakout:
 			return "Supportive: " + code + " is in an uptrend, which adds buyers to any squeeze."
+		case IDQualityCompounders:
+			return "Supportive: " + code + " is in an uptrend, a steady backdrop for owning quality businesses."
 		}
 		return "Uptrend: " + code + " is above its 50-day and 200-day averages."
 	case RegimeNeutral:
