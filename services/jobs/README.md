@@ -232,7 +232,12 @@ request:
   (three strikes block a code for 7 days); a 429, 5xx or timeout is not, and 25
   in a row stop the run. `RecordFailure` had never written a row in prod (its
   timestamp arithmetic failed under the simple protocol), so blocks start now.
-- **Writes**: one statement per stock (an `unnest` upsert).
+- **Writes**: one statement per stock (an `unnest` upsert). Prices are
+  `NUMERIC(12,4)` from migration 000131, which the prod deploy applies; before it,
+  `DECIMAL(10,2)` rounded every price to the cent (ENL's $0.045 as 0.05) and
+  stored a price under half a cent as $0.
+  A `-from` comparison allows half a unit of the column's last decimal, read
+  from the column, so it is right on either side of the migration.
 - **Deadline**: each stock gets 6 minutes, whatever it is waiting on (a
   provider, the database), and a stock that runs out is a failure, not a
   strike. The catch-up's first attempt on 2026-09-27 reached its 6-hour task

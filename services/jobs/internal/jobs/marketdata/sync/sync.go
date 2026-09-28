@@ -45,6 +45,9 @@ type SyncManager struct {
 	now func() time.Time
 	// stockTimeout overrides the package's stockTimeout (tests).
 	stockTimeout time.Duration
+	// closeTolerance is how far a stored close may differ from the provider's
+	// before a -from run counts it as changed; set per run from the column.
+	closeTolerance float64
 
 	paceMu   gosync.Mutex
 	nextCall map[string]time.Time // provider name -> earliest start of its next request
@@ -108,6 +111,10 @@ func (m *SyncManager) RunWith(ctx context.Context, opts RunOptions) (*RunReport,
 	report := &RunReport{DryRun: opts.DryRun, Codes: opts.Codes, LastSession: lastClosed.Format("2006-01-02"), Attempt: taskAttempt()}
 	stats := newRunStats()
 	ctx = withRunStats(ctx, stats)
+	m.closeTolerance = closeTolerance(2)
+	if !opts.From.IsZero() {
+		m.closeTolerance = m.storedCloseTolerance(ctx)
+	}
 	if !opts.From.IsZero() {
 		report.From = opts.From.Format("2006-01-02")
 	}
@@ -447,7 +454,7 @@ func (m *SyncManager) syncStock(ctx context.Context, symbol string, latest, last
 		if err != nil {
 			return res, err
 		}
-		res.diff = comparePrices(symbol, records, stored)
+		res.diff = comparePrices(symbol, records, stored, m.closeTolerance)
 	}
 	if opts.DryRun {
 		log.Printf("🔎 %s: %d sessions %s to %s (dry run: not written)", symbol, len(records),

@@ -137,12 +137,11 @@ type storedSession struct {
 }
 
 // comparePrices diffs the provider's sessions against what is stored for the
-// same window. stock_prices holds closes to two decimals, so a close counts as
-// changed when it differs by more than that rounding can explain: half a cent
-// (a provider's 0.235 is stored as 0.24 by the database, 0.23 by a float round).
-// No relative tolerance: a session filed a day early differs from the true one
-// by a day's move, often well under one percent.
-func comparePrices(code string, fetched []providers.PriceRecord, stored map[time.Time]storedSession) priceDiff {
+// same window. A close counts as changed when it differs by more than storing
+// it can explain: tolerance is half a unit of the column's last decimal
+// (closeTolerance). No relative tolerance: a session filed a day early differs
+// from the true one by a day's move, often well under one percent.
+func comparePrices(code string, fetched []providers.PriceRecord, stored map[time.Time]storedSession, tolerance float64) priceDiff {
 	var d priceDiff
 	seen := make(map[time.Time]bool, len(fetched))
 	for _, r := range fetched {
@@ -156,7 +155,7 @@ func comparePrices(code string, fetched []providers.PriceRecord, stored map[time
 		if s.close != nil {
 			have = *s.close
 		}
-		if !closesDiffer(have, r.Close) {
+		if math.Abs(have-r.Close) <= tolerance {
 			continue
 		}
 		d.changes = append(d.changes, PriceChange{
@@ -178,8 +177,29 @@ func comparePrices(code string, fetched []providers.PriceRecord, stored map[time
 	return d
 }
 
-func closesDiffer(stored, provider float64) bool {
-	return math.Abs(stored-provider) > 0.0051
+// closeTolerance is the most a stored close can differ from the provider's for
+// storing alone: half a unit of the column's last decimal, and a little over.
+// At two decimals (DECIMAL(10,2), until migration 000131) that is half a cent:
+// 0.235 is stored as 0.24 by the database and 0.23 by a float round. At four it
+// is half a hundredth of a cent, which is still wide of the float noise in the
+// provider's values (43.45000076).
+func closeTolerance(scale int) float64 {
+	return 0.51 * math.Pow(10, -float64(scale))
+}
+
+// storedCloseTolerance is closeTolerance for the scale stock_prices.close has,
+// so a comparison is right before and after migration 000131, whichever of it
+// and this code reaches prod first.
+func (m *SyncManager) storedCloseTolerance(ctx context.Context) float64 {
+	var scale *int
+	err := m.db.QueryRow(ctx, `
+		SELECT numeric_scale FROM information_schema.columns
+		WHERE table_schema = current_schema() AND table_name = 'stock_prices' AND column_name = 'close'`).Scan(&scale)
+	if err != nil || scale == nil {
+		log.Printf("⚠️ could not read stock_prices.close's scale (%v); comparing to the cent", err)
+		return closeTolerance(2)
+	}
+	return closeTolerance(*scale)
 }
 
 // ratioNoPrice is the ratio reported when a close is zero, negative or NULL

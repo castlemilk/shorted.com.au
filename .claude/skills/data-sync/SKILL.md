@@ -313,7 +313,11 @@ price sweep.
 
 To look without DB access, compare `get_stock_prices` (public MCP at
 `https://api.shorted.com.au/mcp`, with `from`/`to`) against Yahoo's chart for
-`<CODE>.AX`. Prices are stored to two decimals (`DECIMAL(10,2)`).
+`<CODE>.AX`. Prices are stored to four decimals (`NUMERIC(12,4)`, migration
+000131); before it they were `DECIMAL(10,2)`, which rounded every price to the
+cent and stored a price under half a cent as $0, and a price stored then keeps
+that rounding until it is re-fetched. Not every stored $0 is rounding: ENL's and
+BP8's August 2026 zeros were an older writer's, and a re-fetch repairs those.
 
 ### Missing Stock Prices
 

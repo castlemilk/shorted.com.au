@@ -42,11 +42,23 @@ var priceMigrations = []string{
 	"000030_stock_sync_failures.up.sql",
 	"000039_add_stocks_skipped.up.sql",
 	"000073_stock_price_coverage_and_news_image_index.up.sql",
+	"000131_widen_stock_price_precision.up.sql",
 }
 
 const newsIndexMarker = "-- Cover the news image backfill"
 
 func newPriceDB(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	return newPriceDBWith(t, priceMigrations)
+}
+
+// migrationsDir is services/migrations.
+func migrationsDir() string {
+	_, thisFile, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..", "..", "migrations")
+}
+
+func newPriceDBWith(t *testing.T, migrations []string) *pgxpool.Pool {
 	t.Helper()
 	url := os.Getenv("PRICE_TEST_DATABASE_URL")
 	if url == "" {
@@ -64,13 +76,12 @@ func newPriceDB(t *testing.T) *pgxpool.Pool {
 	_, err = admin.Exec(ctx, `CREATE SCHEMA `+schema)
 	require.NoError(t, err)
 
-	_, thisFile, _, _ := runtime.Caller(0)
-	dir := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..", "..", "migrations")
+	dir := migrationsDir()
 	conn, err := admin.Acquire(ctx)
 	require.NoError(t, err)
 	_, err = conn.Exec(ctx, `SET search_path = `+schema)
 	require.NoError(t, err)
-	for _, m := range priceMigrations {
+	for _, m := range migrations {
 		body, err := os.ReadFile(filepath.Join(dir, m))
 		require.NoError(t, err)
 		sql := string(body)
@@ -380,6 +391,84 @@ func TestPruneAgainstPostgres(t *testing.T) {
 	assert.Contains(t, err.Error(), "nothing deleted")
 	assert.NotEmpty(t, report.Error)
 	assert.Equal(t, 1, count(`SELECT count(*) FROM stock_prices WHERE date = '2025-11-09'`))
+}
+
+// TestPricePrecisionMigration applies 000131 to a table still at two decimals,
+// with the views that read it, as prod has them.
+func TestPricePrecisionMigration(t *testing.T) {
+	pool := newPriceDBWith(t, priceMigrations[:len(priceMigrations)-1])
+	ctx := context.Background()
+	exec := func(sql string, args ...any) {
+		t.Helper()
+		_, err := pool.Exec(ctx, sql, args...)
+		require.NoError(t, err)
+	}
+	closeOf := func(code string) float64 {
+		t.Helper()
+		var c float64
+		require.NoError(t, pool.QueryRow(ctx, `SELECT close::float8 FROM stock_prices WHERE stock_code = $1`, code).Scan(&c))
+		return c
+	}
+	scale := func() int {
+		t.Helper()
+		var s int
+		require.NoError(t, pool.QueryRow(ctx, `SELECT numeric_scale FROM information_schema.columns
+			WHERE table_schema = current_schema() AND table_name = 'stock_prices' AND column_name = 'close'`).Scan(&s))
+		return s
+	}
+	views := func() []string {
+		t.Helper()
+		rows, err := pool.Query(ctx, `SELECT c.relname || ':' || c.relkind::text || ':' || c.relispopulated::text
+			FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+			WHERE n.nspname = current_schema() AND c.relkind IN ('v', 'm') ORDER BY 1`)
+		require.NoError(t, err)
+		var out []string
+		for rows.Next() {
+			var v string
+			require.NoError(t, rows.Scan(&v))
+			out = append(out, v)
+		}
+		require.NoError(t, rows.Err())
+		return out
+	}
+	apply := func(file string) {
+		t.Helper()
+		body, err := os.ReadFile(filepath.Join(migrationsDir(), file))
+		require.NoError(t, err)
+		exec(string(body))
+	}
+
+	exec(`INSERT INTO stock_prices (stock_code, date, close) VALUES ('ENL', '2026-08-20', 0.0042), ('BHP', '2026-08-20', 43.45)`)
+	exec(`REFRESH MATERIALIZED VIEW mv_stock_price_coverage`)
+	assert.Zero(t, closeOf("ENL"), "two decimals store ENL's $0.0042 as $0")
+	m := NewSyncManager(pool, nil, &config.Config{}, nil)
+	assert.InDelta(t, closeTolerance(2), m.storedCloseTolerance(ctx), 1e-12)
+	before := views()
+	for _, v := range []string{"latest_stock_prices:v:true", "stock_price_changes:v:true", "mv_stock_price_coverage:m:true"} {
+		require.Contains(t, before, v, "the views that read the table, as prod has them")
+	}
+
+	apply("000131_widen_stock_price_precision.up.sql")
+	assert.Equal(t, 4, scale())
+	assert.Equal(t, before, views(), "every view that read the table is back, populated as it was")
+	assert.InDelta(t, closeTolerance(4), m.storedCloseTolerance(ctx), 1e-12)
+	var covered int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM mv_stock_price_coverage`).Scan(&covered))
+	assert.Equal(t, 2, covered, "the coverage view was rebuilt with its data")
+
+	require.NoError(t, m.upsertRecords(ctx, "ENL", []providers.PriceRecord{{Date: mustDate("2026-08-20"), Close: 0.0042, AdjustedClose: 0.0042}}))
+	assert.InDelta(t, 0.0042, closeOf("ENL"), 1e-9)
+	require.NoError(t, m.upsertRecords(ctx, "BHP", []providers.PriceRecord{{Date: mustDate("2026-08-20"), Close: 43.45000076293945}}))
+	assert.Equal(t, 43.45, closeOf("BHP"), "the provider's float noise is rounded away")
+
+	apply("000131_widen_stock_price_precision.up.sql") // a replay does nothing
+	assert.Equal(t, 4, scale())
+	assert.Equal(t, before, views())
+
+	apply("000131_widen_stock_price_precision.down.sql")
+	assert.Equal(t, 2, scale())
+	assert.Equal(t, before, views())
+	assert.Zero(t, closeOf("ENL"), "the down migration rounds to the cent again")
 }
 
 func TestSweepStopsWhenTheUpstreamRefuses(t *testing.T) {
