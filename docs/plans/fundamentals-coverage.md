@@ -1,8 +1,10 @@
 # Fundamentals coverage: every ticker, parsed filings you can trust, visible everywhere
 
-Status: design contract v2 (binding for the implementation). Date: 2026-09-28.
+Status: design contract v2.1 (binding for the implementation). Date: 2026-09-28.
 v1 was attacked by four critics (financial correctness, prod safety, product and
 design rules, feasibility and budgets); 77 findings, every one resolved below.
+v2.1 folds in the fixes from the adversarial review of the built code; the
+revision log at the end lists what moved and why.
 Predecessor: `docs/plans/stock-picker.md` (the picker, `stock_fundamentals`,
 migrations 000129/000130). This plan extends that data layer.
 
@@ -76,7 +78,11 @@ Exactly TWO transactions:
 1. `BEGIN; SET LOCAL statement_timeout = 0;` re-issue
    `refresh_strategy_views()` (2.8) and its `ALTER FUNCTION ... SET
    statement_timeout TO '0'`; `COMMIT;` This commits before any relation lock,
-   so a later failure can never leave 000130's three-view body in place.
+   so a failure inside transaction 2 can never leave 000130's three-view body
+   in place. A failure BEFORE transaction 1 can: the deploy replays 000130
+   (which re-issues the three-view body) and 000132 in separate `psql` calls,
+   so a failure between them (000131 failing, say) leaves the three-view body
+   live. The refresh step detects that and fails (3.8).
 2. `BEGIN; SET LOCAL statement_timeout = 0; SET LOCAL lock_timeout = '15s';`
    in this order, touching objects in `refresh_strategy_views()` order:
    a. guarded `financial_report_extractions.document_meta` add (2.5), which
@@ -159,6 +165,26 @@ mask from 3.4/3.5):
    `field_sources[col] = 'asx-filing-extraction'`.
 6. A currency change replaces the row and `field_sources` wholesale.
 
+One fiscal year under two dates (52/53-week years: Markit dates LOV's FY26
+28 June, Yahoo 30 June). Same-date conflicts stay with rules 1-6; these two
+rules govern only different dates within 7 days:
+- (a) **Prune.** The upsert's `pruned` CTE deletes a stored Markit annual row
+  only when a Yahoo annual row in the same statement, on a different date
+  within 7 days, carries revenue or net income after the merge. An EPS-only
+  Yahoo row prunes nothing.
+- (b) **No Markit duplicate.** A Markit annual row is not written when a
+  non-Markit annual row (Yahoo or filing) on a different date within 7 days,
+  carrying revenue or net income, is already stored or is in the same
+  statement. This covers the Yahoo-failure case, where every Markit year
+  arrives under its own date.
+
+Carve-out for both: beside an EPS-only year the Markit row is kept or written,
+because it holds the year's only revenue and net income. That fiscal year can
+then sit under two dates until a run where both vendors answer folds it in
+(the Markit fill completes the Yahoo row and the prune removes the Markit
+row). A duplicate is chosen over losing the figures. The pre-000132 statement
+has neither rule.
+
 Filing upsert (4.4): fills only NULL vendor-owned fields; REPLACES a field
 already marked `asx-filing-extraction`; records the marker and the document.
 
@@ -166,12 +192,16 @@ already marked `asx-filing-extraction`; records the marker and the document.
 
 `last_outcome VARCHAR(16)` (`loaded` | `empty` | `failed`),
 `consecutive_empty SMALLINT NOT NULL DEFAULT 0` and `median_k DOUBLE
-PRECISION` (the identity-gate reference of 3.5, read by valuation in 5.3;
-NULL when fewer than 3 periods allow it), `fx_converted BOOLEAN` (3.4's
-verdict; NULL until a fetch has measured it) and `native_currency VARCHAR(8)`
-(Markit's `curCode` for an fx_converted code; NULL when unknown). The three
-measured facts move together, only on an attempt Yahoo answered with rows; any
-other attempt keeps the stored values. `empty` only when every source
+PRECISION` (the identity-gate reference of 3.5, read by valuation in 5.3 and
+by `-mode filings` for gate 8's EPS basis in 4.2, through `VendorRows`' LEFT
+JOIN of `stock_fundamentals_sync`, NULL before 000132; NULL when fewer than 3
+periods allow it), `fx_converted BOOLEAN` (3.4's verdict; NULL until a fetch
+has measured it) and `native_currency VARCHAR(8)` (Markit's `curCode` for an
+fx_converted code; NULL when unknown). The three measured facts move together,
+and only when Yahoo answered without error AND returned at least one row,
+counted before the gates and the merge. A Yahoo 404 (mapped to no rows and no
+error) or an empty document followed by a Markit load measures nothing and
+keeps the stored values, as does any failed attempt. `empty` only when every source
 asked returned without error and with no rows; a fallback error with no rows is
 `failed`. `recordAttempt` increments `consecutive_empty` on `empty` and resets
 it on `loaded`/`failed`.
@@ -198,7 +228,22 @@ treated as absent:
 pages read. `period_type`: `annual` | `half`. `report_kind`: `appendix_4e` |
 `appendix_4d` | `annual_report` | `half_year_report` | `results_announcement`
 | `other`. A shared JSON fixture of cases is asserted by both the Python tests
-and a Go test.
+and a Go test; its rules text states the rules below.
+
+`report_kind` rule: the first match anywhere in the pages read, in the order
+`appendix_4e`, `appendix_4d`, `annual_report`, `half_year_report`,
+`results_announcement` (results / profit announcement, results for
+announcement to the market). Then the document's head (its first five
+non-empty lines, each starting within the first 400 characters): `other` when
+a head line that reads as a heading, not a sentence, NAMES the document an
+investor or results presentation, a Pillar 3 disclosure, a transcript or a
+webcast; else `results_announcement` for "results release" or "full / half
+year results" (never "... results presentation / briefing / webcast / call").
+Otherwise absent, and the title decides. "presentation currency", "basis of
+presentation" and a sentence announcing a presentation or webcast never make a
+document `other`. The head-only results phrases are checked after the `other`
+heading test, so a deck headed "FY26 Full Year Results Presentation" is
+`other` even with a "Full year results for the year ended ..." subtitle.
 
 ### 2.6 `mv_fundamentals_growth`: guarded rebuild, appended columns
 
@@ -276,14 +321,45 @@ Definitions (every division guarded `CASE WHEN denominator > 0`):
 - margins = line / revenue. `fcf_conversion` = FCF / net income (NI > 0).
 - `roe_pct` / `roa_pct`: NULL unless BOTH points exist and are > 0 (no
   single-point fallback); `roe_pct` NULL (not meaningful) when average equity
-  < 10% of average assets.
+  < 10% of average assets. This guard applies to companies that are not
+  financials. When `is_financial` and the view's `roe_pct` is NULL, Go computes
+  `roe_pct` exactly as the view does without the guard: the flow row's
+  net_income / ((total_equity + total_equity_prior) / 2) x 100, both equity
+  points > 0 (`financialROE` in `fundamentals_quality.go`), before anything
+  leaves the API or any rule reads it. A bank's balance sheet is leveraged by
+  design (CBA is about 6% equity to assets), so the guard would withhold ROE
+  from every major bank with no reason a surface could give. `roe_pct` stays
+  outside the NOT-MEANINGFUL set.
 - `net_debt_to_ebitda` = net_debt / COALESCE(normalized_ebitda, ebitda), NULL
   when that denominator <= 0. `net_debt_to_equity` NULL when equity <= 0.
 - `interest_cover` = operating_income / interest_expense (both present,
   interest > 0). `current_ratio` = current assets / current liabilities.
 - `payout_ratio_pct` = -dividends_paid / net income, NULL when dividends_paid
   > 0 or NI <= 0; labelled "cash dividends paid / net profit".
-- `statement_is_financial` = operating_income AND ebitda NULL on the flow row.
+- `statement_is_financial` is decided from a STATEMENT SHAPE row that is
+  independent of the flow basis: the newest `annual` or `ttm` row with
+  `source = 'yahoo-timeseries'`, `pretax_income IS NOT NULL`, and no
+  `field_sources` entry for revenue or net_income (at equal `period_end` the
+  annual row). `statement_is_financial` = (that row's operating_income IS NULL
+  AND ebitda IS NULL); NULL when no row qualifies. Rationale: legacy
+  000129-shaped rows, Markit rows (revenue and NI only), filing rows (revenue,
+  NI, EPS) and FX-rejected rows never carry operating income or EBITDA for any
+  company, so reading the flow row flagged BHP, CSL and FMG as banks. Yahoo
+  publishes PretaxIncome for banks and insurers too (IAG: PretaxIncome and
+  EBIT, no OperatingIncome or EBITDA), so real financials are still flagged.
+  NULL is COALESCEd to false by the store, so the industry test decides; every
+  row written before 000132 therefore reads NULL until the job re-fetches the
+  code with its full statements (3.7). Known limitation: the `Rejected` mask
+  is not persisted, so a Yahoo row whose operating_income and ebitda alone were
+  refused by the per-point currency gate, with pretax_income kept, would still
+  read as a financial. The period-wide gates (scale break, identity, FX) refuse
+  pretax_income together with them.
+
+The view's COMMENT states the same rule: "statement_is_financial reads the
+newest full Yahoo income statement (source yahoo-timeseries, pretax income
+present, revenue and net income its own), not the flow row: TRUE when it has
+neither operating income nor EBITDA, NULL when no such statement is held
+(legacy, Markit, filing and FX-refused rows never decide it)."
 
 **Financials are decided in Go, once** (`services/shorts`,
 `fundamentals_quality.go`): `is_financial` = `statement_is_financial` OR
@@ -293,6 +369,9 @@ Financials) AND (total_debt >= 0.5 x total_assets OR net_interest_income >
 {gross_margin_pct, operating_margin_pct, fcf_margin_pct, fcf_conversion,
 net_debt, net_debt_to_ebitda, net_debt_to_equity, current_ratio,
 interest_cover} before anything leaves the API, and marks them not meaningful.
+The view's 10% equity-to-assets guard on `roe_pct` applies only to companies
+that are not financials: for a financial whose view `roe_pct` is NULL, Go
+computes it without the guard (`financialROE`, above).
 `is_property` = industry in (Equity Real Estate Investment Trusts (REITs), Real
 Estate Management & Development). One exported list; page, picker, MCP and
 rules all read it.
@@ -303,7 +382,9 @@ In transaction 1 (2.0), same guard pattern, order `mv_market_regime`,
 `mv_fundamentals_growth`, `mv_fundamentals_quality`, `mv_price_features`, then
 `ALTER FUNCTION ... SET statement_timeout TO '0'`. Before the quality view
 exists the refresh warns `Skipping mv_fundamentals_quality` and the job fails
-loudly (existing behaviour for skipped views).
+loudly (existing behaviour for skipped views). A live body that does not name
+a picker view at all (000130's three-view body, 2.0) warns nothing; the job's
+NOTICE check fails on that too (3.8).
 
 ### 2.9 Tests
 
@@ -325,7 +406,12 @@ loudly (existing behaviour for skipped views).
   filing-current/vendor-prior pair and a filing-filled vendor field -> basis
   source 'filing'; negative equity; currency mismatch; and a case that holds a
   refresh open (pg_sleep between two refreshes) while 000132 applies from a
-  second connection, asserting no SQLSTATE 40P01.
+  second connection, asserting no SQLSTATE 40P01. Statement shape (2.7): a
+  flow row without pretax_income no longer yields TRUE, so LAG6 expects NULL;
+  legacy, Markit-only, FX-refused and revenue-and-NI-only codes read NULL; a
+  newer filing row, or a Yahoo row whose revenue or net income Markit or a
+  filing filled, never decides; bank fixtures must carry pretax_income to read
+  TRUE (BANK, and IAG's insurer statement).
 - `scripts/tests/migration-drift.test.mjs` stays green.
 
 ## 3. Vendor ingestion (`services/jobs/internal/jobs/picks`)
@@ -360,18 +446,25 @@ date.
 Share counts and EPS ignore `currencyCode` for the row check. A conflicting
 monetary line nulls THAT field (added to `Rejected`, counted), never the row.
 FX-converted detection: a monetary raw value with `|frac| > 0.001` on a
-normally integral line marks the code `fx_converted`; its monetary AND
-per-share fields are rejected (Yahoo converts EPS too: XRO's FY25 EPS 1.3541
-is its AUD-converted NPAT over shares, whatever label Yahoo puts on the
-point, while the real NZD figure is about 1.49), and its vendor currency is
-"unknown" for filings gates 6-7 and for valuation (native currency from
-Markit `curCode` when present, else no filing rows and no P/E or P/B). Share
-counts are kept. The verdict is persisted (2.3); the filings gates read it,
-and valuation (5.3) withholds P/E and P/B on the flag itself, not only on the
-missing k, because Yahoo's labels for such a code cannot be trusted. Filings
-then supply the native-currency EPS the vendor could not.
-(Corrected after the adversarial review: v2 said Yahoo's EPS stayed in the
-native currency, which the XRO fixture disproves.)
+normally integral line marks the code `fx_converted`. Yahoo converts EVERY
+value of an FX-converted code, per-share figures included, whatever
+`currencyCode` a point carries. The XRO fixture proves it: FY25 basic EPS
+1.3541 = Yahoo's AUD NI 207.03m / ~153m shares, while Xero's NZD EPS is
+~1.49; FY24's 1.0549 is labelled NZD yet equals 160.2m AUD / 152.3m. The
+`fx_converted` gate therefore rejects every monetary AND per-share column
+(`eps_basic`, `eps_diluted`) on every Yahoo row, named in `Rejected` so a
+stored converted value is nulled. Only `shares_outstanding` survives. When
+Markit answers, the rows are relabelled to Markit's native currency (the
+relabel moves only the share count, the `Rejected` masks and the currency the
+Markit fill and the gates compare against) and Markit fills revenue and net
+income. The code's EPS stays NULL on every vendor row until a filing supplies
+a native-currency figure. For filings gates 6-8 its vendor currency is the
+persisted `native_currency`, else a Markit row's currency, else unknown (no
+filing rows). The verdict is persisted (2.3); the
+filings gates read it, and valuation (5.3) withholds P/E and P/B on the flag
+itself, not only on the missing k, because Yahoo's labels for such a code
+cannot be trusted. On the read side the API treats an unmeasured verdict as
+converted when the stored vendor rows look converted (5.3).
 
 ### 3.5 Sanity gates (every rejection counted, logged, added to `Rejected`)
 
@@ -411,6 +504,16 @@ currencies match, recorded `"derived:ttm-at-fye"`.
   first.
 - **Skips:** successes 14 days; `last_outcome='empty' AND consecutive_empty >=
   2` for 45 days; failures never skipped.
+- **Pre-000132 rows:** a sync row with `last_outcome` NULL (written before
+  000132) is selected with the never-attempted group, by market cap then
+  dollar volume, and is never skipped. Its derived outcome no longer earns the
+  14/45-day skip, because the code's stored rows are the 000129 seven-column
+  shape (no full statements, no quality ratios). The first budget-driven
+  nights after the deploy therefore re-fetch the universe, largest first
+  (about 155 minutes for ~2,300 codes at 4 s, inside the budget). A due filer
+  still goes first. In a database without 000132 no row is treated this way,
+  since a re-fetch could not store more. The selection log line gains
+  `pre_000132=N`.
 - **Breakers:** the 25-consecutive-failure breaker stays; a rate breaker stops
   taking codes when > 30% of the last 100 Yahoo requests failed
   (`stopped_early=error_rate`); Markit is disabled for the rest of the run after
@@ -427,6 +530,15 @@ currencies match, recorded `"derived:ttm-at-fye"`.
   holder`), extend it every 100 codes, delete it on exit. No row returned: log
   the holder and exit 0. `-mode refresh` does not take it. Tolerate 42P01
   (lease table absent) by running without the lease.
+- **Refresh check:** the refresh command is `BEGIN; SET LOCAL
+  statement_timeout = 0; SET LOCAL client_min_messages = notice; SELECT
+  refresh_strategy_views(); COMMIT`, so a role default cannot hide the
+  function's NOTICEs. The step fails (exit 1) on any `Skipping <view>`
+  warning, and also when a picker view (`mv_market_regime`,
+  `mv_fundamentals_growth`, `mv_fundamentals_quality`, `mv_price_features`)
+  exists in the catalog (`to_regclass`) but the call emitted no `Refreshing
+  <view>` NOTICE for it: the live function body is stale (2.0), and the log
+  says to re-apply 000132.
 - **Revalidation:** after a successful refresh, sleep until 16 minutes have
   passed (the API's 15-minute strategy cache + 1), then best-effort
   `platform.PingRevalidate` with tag `strategy-picks`, and tag `fundamentals`
@@ -453,6 +565,12 @@ A new non-internal package in the `services` module (importable by
   never Pillar 3/Basel, "items impacting", 20-F, webcast, transcript,
   investor day; presentations and slides only when the title also names an
   Appendix 4D/4E, which lodges the statutory filing).
+- `EntityMatches(entity, companyName)`: ONE entity rule shared by the filings
+  ingest (4.2 gate 1) and the stock page's latest filing summary (5.1). It
+  matches when the names share a distinctive token (not merely an industry
+  word) and the shared tokens are a strict majority of the smaller name's
+  tokens; an empty token set or an empty company name withholds. It moved here
+  from `picks/filings_vendor.go`.
 - The few-shot texts (old and new) live here; `extract.py` and `reportextract`
   copy the new example verbatim; a Go test parses `extract.py`'s
   `EXTRACTION_EXAMPLES` literals and asserts parity.
@@ -468,7 +586,7 @@ provenance keys are stripped before any API response or LLM prompt (including
 
 1. **Document**: skip when `digest_confidence < 0.3` (NULL passes); when
    `!IsResultsDocument`; when `document_meta.entity` is present and does not
-   match the code's company name (normalised token overlap); when
+   match the code's company name (`extractiontrust.EntityMatches`, 4.1); when
    `report_kind = 'other'`.
 2. **Grounding** + 3. **few-shot denylist**: `extractiontrust.Grounded`.
 4. **Own period**: the resolved period must equal the document's own period:
@@ -478,6 +596,27 @@ provenance keys are stripped before any API response or LLM prompt (including
    profit`, `profit before tax`, `cash (npat|earnings)`, `total comprehensive
    income`, `underlying`, `pro forma`, `network sales`, `online sales`,
    `total transaction value|TTV`, `segment`, `division`.
+   A net income or EPS takes its sign from the matched number itself (a
+   minus, or parentheses around the digits or the whole money figure:
+   `(12.3)`, `($3.2m)`, `(US$12.3m)`, `-$3.2m`); otherwise from the NEAREST
+   sign word before the number in its clause (back to a `;` or a sentence
+   end). Loss words: loss, deficit, negative, net loss, loss after tax, loss
+   per share. Profit words: profit, NPAT, NPATA, earnings, net profit, profit
+   after tax, earnings per share, EPS. A sign word counts only at the number's
+   own parenthesis level or an enclosing one (a closed parenthetical such as
+   `(pcp: loss of $3.1m)` is ignored). It does not count inside a comparison:
+   the lead (compared with/to, versus, vs, from as in up/down from, on,
+   against, than, over, relative to, pcp, prior/previous corresponding period,
+   last/prior/previous year or half) up to its first amount, a comma or
+   semicolon, or its closing parenthesis. It does not count in a statement name
+   or partial item (statement of profit or loss, profit and loss,
+   impairment/credit/FX losses, loss on disposal, retained earnings). A sign
+   word immediately after the number (`$12.3 million loss`, `12.3m net loss
+   after tax`) and the value attribute's own sign also vote. When the voices
+   disagree, or the nearest sign word belongs to an amount tagged as a
+   comparative (`a loss of $3.1m in the pcp became $45.2m`), the value is
+   withheld: `5_statutory.sign_ambiguous`, counted when the value is read
+   (after gate 7). Nothing speaking is a profit.
 6. **Vendor context required**: no vendor annual row, no filing row
    (`skipped_no_vendor`). Balance month and currency come from vendor rows; the
    June/AUD defaults are gone. `fx_converted` codes follow 3.4.
@@ -489,7 +628,19 @@ provenance keys are stripped before any API response or LLM prompt (including
    [0.7, 1.4] of the same-FY vendor annual when it exists, else [0.5, 2.5] of
    the prior FY's; `|net income| <= 1.5 x revenue` only when NI > 0 and the
    company is not a REIT/property/investment entity; EPS in [0.5, 2] of net
-   income / vendor shares, written only when that check can run.
+   income / vendor shares, written only when that check can run AND the vendor
+   EPS is per ordinary share: the code's `stock_fundamentals_sync.median_k`
+   within [0.8, 1.25], or, with no `median_k`, every vendor annual/TTM period
+   whose k = NI / (EPS x shares) is computable within [0.8, 1.25]. No
+   computable k is no evidence either way, so the EPS is written. Otherwise
+   every filing EPS of the
+   code is withheld (`8_magnitude.eps_listed_unit_not_one_share`), keeping
+   revenue and net income: a CDI listing's vendor EPS is per CDI (RMD, k near
+   10), so a filing's per-share EPS would enter the series 10x off while
+   passing the ratio. This no-median rule (any computable k out of band
+   withholds) is deliberately stricter than valuation's (5.3); the band
+   constants are duplicated in `filings_vendor.go` because `services/jobs`
+   cannot import `services/shorts`.
 9. **TTM-EPS identity** (halves, all inputs present): basic EPS on all four
    terms (diluted on all four only when no basic exists); |(H1 - H1 prior) -
    (TTM at half end - prior FY)| <= max(10% x |TTM - FY|, 2% x |FY EPS|, 0.01).
@@ -518,7 +669,13 @@ Stop pinning the example text as valid input. Regression fixtures: the five
 echo documents; CBA's comparative mislabels; EDV channel sales; BHP "Profit
 from operations"; LFT's foreign document; DRO's December year end; a bare 4E
 table line with `document_meta.units`; the rebuild's purge and refusal paths; a
-vendor takeover of a filing row keeping markers (2.2 rule 5).
+vendor takeover of a filing row keeping markers (2.2 rule 5). Sign fixtures
+(C3: a loss quote naming a comparative profit, and "statement of profit or
+loss"; C6: a profit quote naming a prior loss, and an EPS with "(pcp: loss per
+share)"; their mirrors; a gate-8 case where the flipped NI+EPS pair can no
+longer pass together); an RMD-shaped CDI fixture (per-CDI vendor EPS,
+per-share counts) whose per-share filing EPS is withheld, unit and real
+Postgres.
 
 ## 5. API (`services/shorts`) and proto
 
@@ -583,7 +740,13 @@ string last_success_at = 3; repeated string sources = 4;`.
 New `LatestFilingSummary`: `string report_url = 1; string report_title = 2;
 string report_date = 3; string period_end = 4; string period_type = 5; string
 digest = 6; double digest_confidence = 7;`. Selected server-side: the newest
-extraction passing `IsResultsDocument`, `digest_confidence >= 0.6`, whose
+extraction passing `IsResultsDocument`, `digest_confidence >= 0.6`, no
+metrics entry whose `source_text` is a few-shot text
+(`extractiontrust.IsFewShotText`; the digest was written from those metrics
+and may repeat the example's figures), and, when `document_meta.entity` is
+present, `extractiontrust.EntityMatches(entity, company_name)` (4.2 gate 1's
+rule: a shared distinctive token and a strict majority of the smaller name's
+tokens; an empty token set or an empty company name withholds), whose
 resolved period (document_meta.period_end or the 4.2 gate-4 resolver) equals
 the newest flow period's end; absent otherwise.
 
