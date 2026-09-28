@@ -29,9 +29,10 @@ prices, reported fundamentals and ASIC short interest, each stock getting a
 pass, fail or unknown on every rule, plus the S&P/ASX 200 market regime. Picks
 can be reordered by a fundamentals figure (`sort_by`: revenue or EPS growth,
 return on equity, net or free-cash-flow margin, P/E lowest first, or market
-cap); the rank stays the strategy's, and a stock without that figure sorts
-last. Each pick names where its growth figures came from
-(`fundamentals_source`: a parsed ASX filing, or the vendor).
+cap, which is the latest close times shares on issue, or the screener's figure
+where we hold no share count); the rank stays the strategy's, and a stock
+without that figure sorts last. Each pick names where its growth figures came
+from (`fundamentals_source`: a parsed ASX filing, or the vendor).
 
 The fundamentals are company statement figures per period (income statement,
 balance sheet and cash flow: revenue, operating income, net income, EPS, cash
@@ -48,20 +49,26 @@ period; otherwise it is withheld.
 
 Quality ratios (margins, return on equity and assets, cash conversion, net debt
 excluding leases, leverage, liquidity, payout) use one flow period and a
-balance sheet aligned to it. Some are withheld on purpose, and the result says
-which and why:
+balance sheet aligned to it. Some are withheld on purpose:
 
 - For banks, insurers and other financials, margins below the top line, cash
   conversion, net debt, leverage, the current ratio and interest cover are not
   meaningful, and are listed in `not_meaningful` instead of reported. Return on
   equity, return on assets, net margin and payout remain.
+- Return on equity is net profit over average equity, and needs equity at both
+  ends of the year. For a company that is not a financial it is also absent
+  when equity is under a tenth of total assets, where it measures borrowing
+  more than returns. A bank's balance sheet is leveraged by design, so a
+  financial's return on equity is reported whatever its equity-to-assets
+  ratio.
 - Market cap, P/E and P/B use the latest close. P/E and P/B are withheld when
   the statements are not in AUD, or when the vendor's figures were converted
   from another currency (`valuation_note: non-aud`), because an AUD price over a
   foreign-currency figure is not a ratio. All three are withheld when the
-  listed unit is not one ordinary share, such as a CDI (`listed-unit`), and
-  market cap and P/B need a recent share count we can vouch for (`no-shares`
-  when there is none).
+  listed unit is not one ordinary share, such as a CDI (`listed-unit`), or
+  when no reported period shows that it is one (`no-shares`); market cap and
+  P/B also need a share count from the last 12 months (`no-shares` when there
+  is none).
 - For property trusts, profit and EBITDA include revaluations
   (`is_property`).
 

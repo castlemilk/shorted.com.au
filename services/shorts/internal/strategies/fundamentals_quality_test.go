@@ -1,7 +1,9 @@
 package strategies
 
 import (
+	"math"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -119,5 +121,118 @@ func TestApplyQualityRulesWithholdsOnlyTheListForFinancials(t *testing.T) {
 	}
 	if isFin, _, nm := FinancialFlags(nil, "Materials"); isFin || nm != nil {
 		t.Errorf("FinancialFlags(nil, Materials) = %v %v", isFin, nm)
+	}
+}
+
+// The view withholds roe_pct below 10% equity to assets, which is every major
+// bank (CBA: about 6%). For a financial, Go computes it exactly as the view
+// does without that guard: flow-row net income over the average of the two
+// aligned equity points, both > 0. Every other company keeps the guard.
+func TestApplyQualityRulesComputesROEForAFinancialTheViewWithheld(t *testing.T) {
+	cba := func() *Quality { // the view's row: roe_pct NULL, everything to compute it present
+		return &Quality{
+			Revenue: f(27e9), NetIncome: f(10e9), NetMarginPct: f(37),
+			TotalEquity: f(78e9), TotalEquityPrior: f(75e9), TotalAssets: f(1.3e12), TotalAssetsPrior: f(1.25e12),
+			ROAPct: f(10.0 / 1275 * 100),
+		}
+	}
+	want := 10e9 / ((78e9 + 75e9) / 2) * 100 // 13.07%
+
+	bank := cba()
+	ApplyQualityRules(bank, "Banks")
+	if bank.ROEPct == nil || math.Abs(*bank.ROEPct-want) > 1e-9 {
+		t.Fatalf("a bank's ROE = %v, want %v", bank.ROEPct, want)
+	}
+	if bank.IsNotMeaningful("roe_pct") {
+		t.Error("ROE is never listed as not meaningful")
+	}
+	before := *bank
+	ApplyQualityRules(bank, "Banks")
+	if !reflect.DeepEqual(before, *bank) {
+		t.Error("ApplyQualityRules is not idempotent once ROE is computed")
+	}
+
+	// A statement-shaped financial with no industry gets it too.
+	shaped := cba()
+	shaped.StatementIsFinancial = true
+	ApplyQualityRules(shaped, "")
+	if shaped.ROEPct == nil || math.Abs(*shaped.ROEPct-want) > 1e-9 {
+		t.Errorf("a statement-flagged financial's ROE = %v", shaped.ROEPct)
+	}
+
+	// The same numbers outside financials keep the view's guard.
+	miner := cba()
+	ApplyQualityRules(miner, "Materials")
+	if miner.ROEPct != nil {
+		t.Errorf("a non-financial keeps the 10%% guard: ROE %v", *miner.ROEPct)
+	}
+
+	// A ratio the view did compute is never replaced.
+	kept := cba()
+	kept.ROEPct = f(11)
+	ApplyQualityRules(kept, "Banks")
+	if *kept.ROEPct != 11 {
+		t.Errorf("the view's ROE was overwritten: %v", *kept.ROEPct)
+	}
+
+	// No single-point fallback, and no ROE on a non-positive equity point.
+	for name, mutate := range map[string]func(q *Quality){
+		"no prior equity":   func(q *Quality) { q.TotalEquityPrior = nil },
+		"no equity":         func(q *Quality) { q.TotalEquity = nil },
+		"no net income":     func(q *Quality) { q.NetIncome = nil },
+		"zero prior equity": func(q *Quality) { q.TotalEquityPrior = f(0) },
+		"negative equity":   func(q *Quality) { q.TotalEquity = f(-1e9) },
+		"non-finite income": func(q *Quality) { q.NetIncome = f(math.Inf(1)) },
+	} {
+		q := cba()
+		mutate(q)
+		ApplyQualityRules(q, "Banks")
+		if q.ROEPct != nil {
+			t.Errorf("%s: ROE %v, want none", name, *q.ROEPct)
+		}
+	}
+
+	// A loss is a negative return, not an unknown one.
+	loss := cba()
+	loss.NetIncome = f(-1.53e9)
+	ApplyQualityRules(loss, "Insurance")
+	if loss.ROEPct == nil || math.Abs(*loss.ROEPct-(-2)) > 1e-9 {
+		t.Errorf("an insurer's loss: ROE %v, want -2", loss.ROEPct)
+	}
+}
+
+// Every surface reads the decided row, so the ROE rule and the sort judge a
+// bank on the figure Go computed rather than reading it as unknown.
+func TestBankROEReachesTheRuleAndTheSort(t *testing.T) {
+	bankQuality := func(ni float64) *Quality {
+		return &Quality{
+			Revenue: f(27e9), NetIncome: f(ni), NetMarginPct: f(ni / 27e9 * 100),
+			TotalEquity: f(78e9), TotalEquityPrior: f(75e9), TotalAssets: f(1.3e12), TotalAssetsPrior: f(1.25e12),
+			BasisPeriodType: "annual", BasisPeriodEnd: d("2026-06-30"),
+		}
+	}
+	cands := []Candidate{
+		{StockCode: "BNK", Industry: "Banks", Close: 150, AsOf: *d("2026-09-25"), Quality: bankQuality(12e9)},
+		{StockCode: "LOW", Industry: "Banks", Close: 30, AsOf: *d("2026-09-25"), Quality: bankQuality(6e9)},
+		{StockCode: "MIN", Industry: "Materials", Close: 45, AsOf: *d("2026-09-25"), Quality: bankQuality(12e9)},
+	}
+	PrepareCandidates(cands)
+
+	if r := ruleROE(&cands[0], nil); r.Status != RulePass {
+		t.Errorf("a bank earning 15.7%% on equity passes the ROE rule: %+v", r)
+	}
+	if r := ruleROE(&cands[1], nil); r.Status != RuleFail || !strings.Contains(r.Detail, "below the 15% threshold") {
+		t.Errorf("a bank earning 7.8%% fails it: %+v", r)
+	}
+	if r := ruleROE(&cands[2], nil); r.Status != RuleUnknown || !strings.Contains(r.Detail, "outside banks, insurers and other financials") {
+		t.Errorf("a non-financial under 10%% equity to assets reads unknown, and says why: %+v", r)
+	}
+
+	picks := make([]Pick, len(cands))
+	for i := range cands {
+		picks[i] = Pick{Candidate: cands[i], Rank: i + 1}
+	}
+	if got := sortedCodes(SortPicks(picks, SortROE)); !reflect.DeepEqual(got, []string{"BNK", "LOW", "MIN"}) {
+		t.Errorf("roe order = %v: the banks sort on their computed ROE, the guarded miner last", got)
 	}
 }

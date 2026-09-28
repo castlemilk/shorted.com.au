@@ -12,8 +12,10 @@ import (
 //
 // Every figure is in the flow row's reporting currency (the view only aligns
 // a balance row of the same currency). Every numeric field is nullable: nil is
-// unknown, never zero. The ratios are the view's; Go never recomputes them, it
-// only withholds the ones that are not meaningful (ApplyQualityRules).
+// unknown, never zero. The ratios are the view's; Go withholds the ones that
+// are not meaningful (ApplyQualityRules) and computes one: return on equity
+// for a financial, which the view withholds below 10% equity to assets and
+// every major bank sits under (financialROE).
 type Quality struct {
 	BasisPeriodType string // "annual" | "ttm"
 	BasisPeriodEnd  *time.Time
@@ -70,8 +72,10 @@ type Quality struct {
 	InterestCover      *float64
 	PayoutRatioPct     *float64
 
-	// StatementIsFinancial: the flow row carries neither operating income nor
-	// EBITDA, the shape of a bank's or an insurer's income statement.
+	// StatementIsFinancial: the newest full Yahoo income statement (the
+	// view's statement-shape row, not the flow row) carries neither operating
+	// income nor EBITDA, the shape of a bank's or an insurer's. False when no
+	// such statement is held (NULL in the view): the industry then decides.
 	StatementIsFinancial bool
 
 	// Decided in Go by ApplyQualityRules; never read from the database.
@@ -98,7 +102,8 @@ const (
 // "debt" is the funding of its business and its cash flows are its customers'
 // money, so margins below the top line, cash conversion, net debt, leverage,
 // the current ratio and interest cover describe nothing. ROE, ROA, net margin
-// and payout stay.
+// and payout stay (ROE computed without the view's leverage guard; see
+// financialROE).
 var notMeaningfulForFinancials = []string{
 	RatioGrossMarginPct,
 	RatioOperatingMarginPct,
@@ -189,8 +194,9 @@ func normaliseIndustry(s string) string {
 // IsFinancial decides, once, whether a company is a bank, insurer or other
 // financial (plan §2.7):
 //
-//   - its income statement carries neither operating income nor EBITDA
-//     (statement_is_financial); or
+//   - its newest full Yahoo income statement carries neither operating
+//     income nor EBITDA (statement_is_financial; a legacy, Markit, filing or
+//     FX-refused row never decides it); or
 //   - its industry group is Banks or Insurance; or
 //   - its industry group is Financial Services (Diversified Financials before
 //     2023) AND it lends: total debt at least 0.5 x total assets, or net
@@ -239,7 +245,10 @@ func FinancialFlags(q *Quality, industry string) (isFinancial, isProperty bool, 
 // ApplyQualityRules records the financials decision on q and, for a
 // financial, nulls every not-meaningful ratio before anything leaves the API
 // or any rule reads it (plan §2.7). Statement lines (total debt, cash and so
-// on) are kept; only ratios are withheld. Idempotent; nil is a no-op.
+// on) are kept; only ratios are withheld. A financial whose roe_pct the view
+// withheld gets it from financialROE, so the stock page, the picker's sort,
+// the quality-compounders ROE rule and MCP all read the same figure.
+// Idempotent; nil is a no-op.
 func ApplyQualityRules(q *Quality, industry string) {
 	if q == nil {
 		return
@@ -251,4 +260,32 @@ func ApplyQualityRules(q *Quality, industry string) {
 	for _, name := range notMeaningfulForFinancials {
 		*q.ratioField(name) = nil
 	}
+	if q.ROEPct == nil {
+		q.ROEPct = financialROE(q)
+	}
+}
+
+// financialROE is return on equity exactly as mv_fundamentals_quality
+// computes roe_pct, less its leverage guard: the flow basis row's net income
+// over the average of the aligned balance row's equity and the equity 10 to
+// 14 months before it (the view's total_equity and total_equity_prior, same
+// currency as the flow row), both > 0, as a percentage. The view also
+// withholds ROE when average equity is under 10% of average assets (or the
+// assets are unknown), because for an ordinary company that much leverage
+// makes the ratio describe borrowing rather than quality. A bank's balance
+// sheet is leverage by design (CBA: about 6% equity to assets), so for a
+// financial that guard withholds the headline ratio from every major bank
+// for no reason a reader could be given. nil when an input is missing or the
+// result is not finite.
+func financialROE(q *Quality) *float64 {
+	if q.NetIncome == nil || q.TotalEquity == nil || q.TotalEquityPrior == nil ||
+		!(*q.TotalEquity > 0) || !(*q.TotalEquityPrior > 0) {
+		return nil
+	}
+	avgEquity := (*q.TotalEquity + *q.TotalEquityPrior) / 2
+	roe := *q.NetIncome / avgEquity * 100
+	if !isFinite(roe) {
+		return nil
+	}
+	return &roe
 }

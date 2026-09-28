@@ -527,8 +527,10 @@ func balanceCurrency(q *Quality) string {
 
 // ruleROE: roe_pct >= 15. Fail below 15, or when total equity is zero or
 // negative; unknown when roe_pct is NULL for any other reason (an equity
-// point missing, or average equity under 10% of average assets, where the
-// view withholds it as not meaningful).
+// point missing, or, for a company that is not a financial, average equity
+// under 10% of average assets, where the view withholds it as not
+// meaningful). A financial's ROE is computed without that guard
+// (ApplyQualityRules), so a bank is judged on its return like anyone else.
 func ruleROE(c *Candidate, _ *evalEnv) outcome {
 	q := c.Quality
 	if q == nil {
@@ -538,7 +540,7 @@ func ruleROE(c *Candidate, _ *evalEnv) outcome {
 		return fail("Shareholders' equity is zero or negative", 0, false)
 	}
 	if q.ROEPct == nil {
-		return unknown("Return on equity cannot be measured: it needs net profit, equity at both ends of the year, and equity of at least 10% of total assets")
+		return unknown("Return on equity cannot be measured: it needs net profit, equity at both ends of the year and, outside banks, insurers and other financials, equity of at least 10% of total assets")
 	}
 	roe := *q.ROEPct
 	detail := withQualityBasis("Return on equity "+pctAbs(roe), q)

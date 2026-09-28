@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -120,6 +121,7 @@ func TestFundamentalsReadsAgainstPostgres(t *testing.T) {
 		assert.Equal(t, "USD", vi.EPSCurrency)
 		assert.Equal(t, int32(2), vi.KPeriods)
 		assert.True(t, vi.KConsistent)
+		assert.False(t, vi.KFarFromOne)
 
 		require.NotNil(t, cba.Quality)
 		assert.True(t, cba.Quality.StatementIsFinancial)
@@ -127,6 +129,8 @@ func TestFundamentalsReadsAgainstPostgres(t *testing.T) {
 		assert.Nil(t, cba.ValuationInputs.MedianK, "no sync row")
 		assert.Equal(t, int32(1), cba.ValuationInputs.KPeriods)
 		assert.True(t, cba.ValuationInputs.KConsistent)
+		assert.False(t, cba.ValuationInputs.KFarFromOne)
+		assert.False(t, cba.ValuationInputs.FXConverted, "no sync row, whole-unit vendor figures")
 
 		strategies.PrepareCandidates(cands)
 		assert.True(t, cands[1].Quality.IsFinancial)
@@ -203,6 +207,33 @@ func TestFundamentalsReadsAgainstPostgres(t *testing.T) {
 		assert.Nil(t, cands[1].Valuation.PriceToBook)
 		require.NotNil(t, cands[1].Valuation.MarketCap)
 		assert.Equal(t, strategies.ValuationNoteNonAUD, cands[1].Valuation.Note)
+
+		// A code the job has not measured since 000132 (no sync row) whose
+		// vendor rows carry converted, fractional values is FX-converted, and
+		// a single year with k 0.775 (a recent issuer) is no evidence either
+		// way, never a CDI.
+		_, err = pool.Exec(ctx, `INSERT INTO stock_fundamentals (stock_code, period_type, period_end, currency, revenue, net_income, eps_basic, shares_outstanding, source)
+			VALUES ('NZL', 'annual', '2026-03-31', 'AUD', 139609739.8266, 10000000.5, 0.129, 1e8, 'yahoo-timeseries')`)
+		require.NoError(t, err)
+		nzl, err := getFundamentalsExtras(ctx, pool, "NZL")
+		require.NoError(t, err)
+		require.NotNil(t, nzl)
+		assert.True(t, nzl.Valuation.FXConverted)
+		assert.Equal(t, int32(1), nzl.Valuation.KPeriods)
+		assert.False(t, nzl.Valuation.KConsistent)
+		assert.False(t, nzl.Valuation.KFarFromOne)
+		assert.Equal(t, strategies.ValuationNoteNoShares, strategies.Valuate(10, *tp("2026-09-25"), &nzl.Valuation, nil).Note)
+
+		// A digest built from metrics that quote the few-shot example is flagged.
+		_, err = pool.Exec(ctx, `INSERT INTO financial_report_extractions (stock_code, report_url, report_title, report_date, metrics, digest, digest_confidence)
+			VALUES ('BHP', 'https://asx/bhp-echo.pdf', 'Appendix 4E', '2026-08-20', $1::jsonb, 'Revenue $5,142m.', 0.9)`,
+			migratedJSON(t, map[string]any{"revenue": map[string]any{"value_millions": "5142", "source_text": extractiontrust.OldFewShotTexts[0]}}))
+		require.NoError(t, err)
+		filing, err = getLatestFilingInputs(ctx, pool, "BHP")
+		require.NoError(t, err)
+		require.Len(t, filing.Candidates, 2)
+		assert.True(t, filing.Candidates[0].FewShotEcho)
+		assert.False(t, filing.Candidates[1].FewShotEcho)
 	})
 }
 

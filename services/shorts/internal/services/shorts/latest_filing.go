@@ -3,7 +3,6 @@ package shorts
 import (
 	"strings"
 	"time"
-	"unicode"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
@@ -15,9 +14,14 @@ import (
 //
 //   - is a statutory results document (extractiontrust.IsResultsDocument),
 //   - has digest_confidence >= 0.6 and a digest (the store's query),
+//   - has no metrics entry quoting the extractor's few-shot example
+//     (extractiontrust.IsFewShotText): its digest was written from those
+//     metrics, so it may repeat the example's invented figures,
 //   - was not lodged by another company: when document_meta names an entity,
-//     it shares a significant word with the company's name (the LFT
-//     document carrying Winsome's report must not summarise LFT), and
+//     extractiontrust.EntityMatches accepts it against the company's name,
+//     the same rule the filings ingest applies (the LFT document carrying
+//     Winsome's report must not summarise LFT; NST must not summarise Star
+//     Entertainment), and
 //   - reports the SAME period as the stock's newest flow period: its own
 //     period is document_meta.period_end when present, else the latest half
 //     or annual end on or before the report date on the company's balance
@@ -46,14 +50,14 @@ func selectLatestFiling(in *shortsstore.LatestFilingInputs) *shortsv1alpha1.Late
 	}
 	for _, c := range in.Candidates {
 		if c.ReportDate == nil || c.DigestConfidence == nil || *c.DigestConfidence < latestFilingMinConfidence ||
-			strings.TrimSpace(c.Digest) == "" {
+			strings.TrimSpace(c.Digest) == "" || c.FewShotEcho {
 			continue
 		}
 		meta := c.DocumentMeta
 		if !extractiontrust.IsResultsDocument(c.Title, meta.ReportKind) {
 			continue
 		}
-		if meta.Entity != "" && !entityMatchesCompany(meta.Entity, in.CompanyName) {
+		if meta.Entity != "" && !extractiontrust.EntityMatches(meta.Entity, in.CompanyName) {
 			continue
 		}
 		end, periodType, ok := resolveOwnPeriod(meta, *c.ReportDate, fye)
@@ -146,53 +150,4 @@ func monthsBetween(a, b time.Time) int {
 		n--
 	}
 	return n
-}
-
-// entityWordsIgnored are corporate-form, filler and industry words that say
-// nothing about WHICH company a name is: "Winsome Resources" and "Lindian
-// Resources" share only "resources".
-var entityWordsIgnored = func() map[string]bool {
-	m := map[string]bool{}
-	for _, w := range strings.Fields(`
-		limited ltd the of and group holdings holding corporation corp company co plc inc pty nl
-		australia australian australasia pacific asia international global nz new zealand
-		trust fund reit stapled securities
-		resources minerals mineral mining metals metal gold silver copper nickel lithium iron ore
-		uranium rare earths energy oil gas petroleum exploration
-		technologies technology tech systems solutions networks communications software digital
-		health healthcare medical pharmaceuticals therapeutics bio biotech
-		capital investments investment financial finance services industries industrial
-		properties property bank banking insurance retail brands infrastructure`) {
-		m[w] = true
-	}
-	return m
-}()
-
-// entityWords is the significant-word set of a company name.
-func entityWords(name string) map[string]bool {
-	words := map[string]bool{}
-	for _, w := range strings.FieldsFunc(strings.ToLower(name), func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-	}) {
-		if len(w) >= 2 && !entityWordsIgnored[w] {
-			words[w] = true
-		}
-	}
-	return words
-}
-
-// entityMatchesCompany reports whether a document's stated entity can be the
-// company: they share a significant word. With no significant word on either
-// side there is nothing to judge, so it does not veto.
-func entityMatchesCompany(entity, company string) bool {
-	e, c := entityWords(entity), entityWords(company)
-	if len(e) == 0 || len(c) == 0 {
-		return true
-	}
-	for w := range e {
-		if c[w] {
-			return true
-		}
-	}
-	return false
 }

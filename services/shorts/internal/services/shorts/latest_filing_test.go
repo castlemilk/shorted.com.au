@@ -80,6 +80,37 @@ func TestSelectLatestFiling(t *testing.T) {
 		lft.Candidates[0].DocumentMeta.Entity = "Lindian Resources Ltd"
 		assert.NotNil(t, selectLatestFiling(lft), "the company's own entity passes")
 	})
+	t.Run("a document naming a company that merely shares a word is withheld", func(t *testing.T) {
+		// An extraction mis-attached to NST carrying Star Entertainment's
+		// results: the filings ingest refuses its figures (one of two
+		// identifying words shared), so the page must not summarise it.
+		nst := &shortsstore.LatestFilingInputs{
+			NewestFlowPeriodEnd: dayPtr("2026-06-30"), LatestAnnualPeriodEnd: dayPtr("2026-06-30"), CompanyName: "NORTHERN STAR RESOURCES LTD",
+			Candidates: []shortsstore.FilingCandidateRow{filingCandidate("Appendix 4E and Annual Report", "2026-08-21", 0.9,
+				extractiontrust.DocumentMeta{Entity: "The Star Entertainment Group Limited"})},
+		}
+		assert.Nil(t, selectLatestFiling(nst))
+		nst.Candidates[0].DocumentMeta.Entity = "Northern Star Resources Limited"
+		assert.NotNil(t, selectLatestFiling(nst), "the company's own entity passes")
+
+		// A named entity with nothing to judge it against is withheld, as the
+		// ingest withholds it (gate 1: entity unverifiable).
+		nst.CompanyName = ""
+		assert.Nil(t, selectLatestFiling(nst))
+		// A document naming no entity is still judged on title and period.
+		nst.Candidates[0].DocumentMeta.Entity = ""
+		assert.NotNil(t, selectLatestFiling(nst))
+	})
+	t.Run("a digest written from few-shot-echo metrics is withheld", func(t *testing.T) {
+		echo := filingCandidate("Appendix 4E and Annual Report", "2026-08-19", 0.9, none)
+		echo.FewShotEcho = true
+		assert.Nil(t, selectLatestFiling(juneFiler("2026-06-30", echo)))
+		// An older clean results document for the same period still serves.
+		clean := filingCandidate("Annual Report", "2026-08-18", 0.8, none)
+		got := selectLatestFiling(juneFiler("2026-06-30", echo, clean))
+		require.NotNil(t, got)
+		assert.Equal(t, "Annual Report", got.ReportTitle)
+	})
 	t.Run("report_kind other vetoes", func(t *testing.T) {
 		assert.Nil(t, selectLatestFiling(juneFiler("2026-06-30", filingCandidate("Appendix 4E", "2026-08-19", 0.9,
 			extractiontrust.DocumentMeta{ReportKind: "other"}))))
@@ -122,24 +153,4 @@ func TestResolveOwnPeriodAndCanonicalMonthEnd(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, d("2026-06-30"), end)
 	assert.Equal(t, "half", typ, "a December filer's June end is its half")
-}
-
-func TestEntityMatchesCompany(t *testing.T) {
-	cases := []struct {
-		entity, company string
-		want            bool
-	}{
-		{"BHP Group Limited", "BHP GROUP LIMITED", true},
-		{"Commonwealth Bank of Australia", "COMMONWEALTH BANK OF AUSTRALIA.", true},
-		{"Winsome Resources Limited", "LINDIAN RESOURCES LIMITED", false}, // an industry word is not an identity
-		{"Winsome Lithium Limited", "LINDIAN RESOURCES LIMITED", false},
-		{"Limited", "BHP GROUP LIMITED", true},                                  // nothing to judge: no veto
-		{"Energy Resources of Australia Ltd", "ENERGY RESOURCES LIMITED", true}, // only generic words: no veto
-		{"National Australia Bank Limited", "NATIONAL AUSTRALIA BANK LIMITED", true},
-		{"The a2 Milk Company Limited", "A2 MILK COMPANY LIMITED", true},
-		{"Qantas Airways Limited", "", true},
-	}
-	for _, tc := range cases {
-		assert.Equal(t, tc.want, entityMatchesCompany(tc.entity, tc.company), "%q vs %q", tc.entity, tc.company)
-	}
 }

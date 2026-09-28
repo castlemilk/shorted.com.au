@@ -503,7 +503,10 @@ func fundamentalsRuleKind(id string) string {
 // describeSort says how a sorted list is ordered, "" in rank order. Three
 // sort figures (free-cash-flow margin, P/E, market cap) are not columns of a
 // pick row, so the sentence says where to read them rather than leave a list
-// ordered by a number the reader cannot see.
+// ordered by a number the reader cannot see. Market cap is the picker's
+// resolved figure: our close times shares on issue (get_stock_fundamentals'
+// market_cap), else the screener's where we hold no share count, which
+// get_stock_fundamentals does not carry, so the sentence says so.
 func describeSort(sortBy string) string {
 	var s string
 	switch sortBy {
@@ -515,8 +518,11 @@ func describeSort(sortBy string) string {
 		s = " Sorted by " + sortBy + ", highest first, unknowns last; rank is still the strategy's."
 	}
 	switch sortBy {
-	case strategies.SortFCFMargin, strategies.SortPE, strategies.SortMarketCap:
+	case strategies.SortFCFMargin, strategies.SortPE:
 		s += " Each stock's " + sortBy + " figure is in get_stock_fundamentals."
+	case strategies.SortMarketCap:
+		s += " Market cap is the latest close x shares on issue, in AUD (get_stock_fundamentals' market_cap), " +
+			"or the screener's figure where we hold no share count."
 	}
 	return s
 }

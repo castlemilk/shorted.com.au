@@ -52,7 +52,7 @@ func TestValuate(t *testing.T) {
 		}
 	})
 	t.Run("an FX-converted code gets no P/E or P/B whatever its label says", func(t *testing.T) {
-		in := audInputs() // XRO: NZD EPS under Yahoo's AUD label
+		in := audInputs() // XRO: Yahoo converts every value, EPS included, so no label can be trusted
 		in.FXConverted = true
 		v := Valuate(10, asOf, in, audEquity)
 		near(t, "market cap", v.MarketCap, 1e10)
@@ -90,13 +90,61 @@ func TestValuate(t *testing.T) {
 		if v := Valuate(10, asOf, in, nil); v.MarketCap == nil || v.PERatio == nil {
 			t.Errorf("one consistent period: %+v", v)
 		}
-		in.KConsistent = false
-		if v := Valuate(10, asOf, in, nil); v.HasAny() || v.Note != ValuationNoteListedUnit {
-			t.Errorf("an inconsistent period: %+v", v)
-		}
 		in.KPeriods, in.KConsistent = 0, false
 		if v := Valuate(10, asOf, in, nil); v.HasAny() || v.Note != ValuationNoteNoShares {
 			t.Errorf("no evidence at all (an FX-converted code: its monetary fields are rejected): %+v", v)
+		}
+	})
+	t.Run("without a median, only a k far from 1 says the unit is not one share", func(t *testing.T) {
+		// A recent IPO: 70m shares before listing, 100m after, NI 10m, so
+		// weighted-average EPS 0.129 against the period-end count gives
+		// k = 0.775. That is not a CDI: no valuation of our own, but the
+		// note is no-shares, which lets the picker use the screener's cap.
+		in := audInputs()
+		in.MedianK, in.KPeriods, in.KConsistent, in.KFarFromOne = nil, 1, false, false
+		v := Valuate(10, asOf, in, audEquity)
+		if v.HasAny() || v.Note != ValuationNoteNoShares {
+			t.Errorf("one year between the bands: %+v", v)
+		}
+		c := Candidate{Valuation: v, MarketCap: f(1.1e9)}
+		if got := c.ResolvedMarketCap(); got == nil || *got != 1.1e9 {
+			t.Errorf("the screener's market cap must stand in for a recent issuer: %v", got)
+		}
+
+		// Several years, one of them between the bands (DRO's capital raises
+		// gave 0.76 and 0.72 beside 1.00 and 1.01): still no evidence.
+		in.KPeriods = 4
+		if v := Valuate(10, asOf, in, nil); v.HasAny() || v.Note != ValuationNoteNoShares {
+			t.Errorf("several years, one between the bands: %+v", v)
+		}
+
+		// A k outside [1/3, 3] (a CDI: RMD's ~10) contradicts the listing:
+		// nothing is valued and nothing is borrowed.
+		in.KPeriods, in.KFarFromOne = 1, true
+		v = Valuate(40, asOf, in, audEquity)
+		if v.HasAny() || v.Note != ValuationNoteListedUnit {
+			t.Errorf("a k far from 1: %+v", v)
+		}
+		c = Candidate{Valuation: v, MarketCap: f(1.1e9)}
+		if got := c.ResolvedMarketCap(); got != nil {
+			t.Errorf("a listed-unit stock borrows no market cap: %v", *got)
+		}
+
+		// The far flag means nothing without a period that allows k.
+		in.KPeriods = 0
+		if v := Valuate(10, asOf, in, nil); v.Note != ValuationNoteNoShares {
+			t.Errorf("no period, no evidence: %+v", v)
+		}
+	})
+	t.Run("a median decides over the per-period flags", func(t *testing.T) {
+		in := audInputs()
+		in.MedianK, in.KPeriods, in.KConsistent, in.KFarFromOne = f(1.0), 3, false, true
+		if v := Valuate(10, asOf, in, nil); v.MarketCap == nil || v.Note != "" {
+			t.Errorf("median 1.0 with one outlier year: %+v", v)
+		}
+		in.MedianK = f(0.775)
+		if v := Valuate(10, asOf, in, nil); v.HasAny() || v.Note != ValuationNoteListedUnit {
+			t.Errorf("a median outside [0.8, 1.25]: %+v", v)
 		}
 	})
 	t.Run("a share count older than 12 months is not used", func(t *testing.T) {

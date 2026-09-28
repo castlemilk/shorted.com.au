@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/strategies"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -192,7 +194,7 @@ func without000132(missingView string) func(sql string) ([][]any, error) {
 		case strings.Contains(sql, sqlFilingCandidates) && strings.Contains(sql, sqlDocumentMeta):
 			return nil, pgErr("42703")
 		case strings.Contains(sql, sqlFilingCandidates):
-			return [][]any{{"https://asx/bhp-4e.pdf", "Appendix 4E and Annual Report", *tp("2026-08-19"), "BHP lifted copper output.", 0.9, ""}}, nil
+			return [][]any{{"https://asx/bhp-4e.pdf", "Appendix 4E and Annual Report", *tp("2026-08-19"), "BHP lifted copper output.", 0.9, "[]", ""}}, nil
 		}
 		return nil, fmt.Errorf("unexpected query: %s", sql)
 	}
@@ -379,6 +381,12 @@ func TestFundamentalsExtrasQueryShape(t *testing.T) {
 		for _, frag := range []string{
 			"LEFT JOIN mv_fundamentals_growth g", "LEFT JOIN mv_fundamentals_quality q", "LEFT JOIN stock_fundamentals_sync sy",
 			"sy.median_k", "sy.fx_converted", "f.source <> 'asx-filing-extraction'", "BETWEEN 0.8 AND 1.25",
+			// Without a median, only a k outside [1/3, 3] contradicts the listing.
+			"COALESCE(kk.any_far, false)", "bool_or(v.kv * 3 < 1 OR v.kv > 3) AS any_far",
+			// fx_converted NULL is not "not converted": a fractional non-Markit
+			// vendor revenue or net income decides until the job has measured it.
+			"COALESCE(sy.fx_converted, kk.fractional, false)", "v.source <> 'markit-key-statistics'",
+			"abs(v.revenue - round(v.revenue)) > 0.001", "abs(v.net_income - round(v.net_income)) > 0.001",
 		} {
 			if !strings.Contains(q, frag) {
 				t.Errorf("extras query is missing %q", frag)
@@ -480,4 +488,52 @@ func TestApplyToGrowth(t *testing.T) {
 	}
 	(*FundamentalsExtras)(nil).ApplyToGrowth(g)
 	(&FundamentalsExtras{HasGrowthRow: true}).ApplyToGrowth(nil)
+}
+
+// The latest-filing candidates carry whether the digest's metrics quoted the
+// extractor's few-shot example: that digest was written from an echo.
+func TestFilingCandidatesFlagAFewShotEcho(t *testing.T) {
+	for _, q := range []string{latestFilingCandidatesQuery, latestFilingCandidatesLegacyQuery} {
+		if !strings.Contains(q, `jsonb_path_query_array(e.metrics::jsonb, 'lax $.*[*].source_text')`) {
+			t.Errorf("the candidates must read every metrics entry's source_text: %s", q)
+		}
+	}
+	echo, _ := json.Marshal([]any{"Revenue up 12% to $1,204m", 42, nil, extractiontrust.OldFewShotTexts[0]})
+	newEcho, _ := json.Marshal([]string{extractiontrust.NewFewShotTexts[0] + "."})
+	clean, _ := json.Marshal([]any{"Statutory NPAT2 $5,142m", map[string]any{"source_text": extractiontrust.OldFewShotTexts[0]}})
+	for name, c := range map[string]struct {
+		sources string
+		want    bool
+	}{
+		"an old example quote":            {string(echo), true},
+		"a new example quote":             {string(newEcho), true},
+		"a real quote of the same figure": {string(clean), false},
+		"no quotes":                       {"[]", false},
+		"not an array":                    {"{}", false},
+		"malformed":                       {"[", false},
+	} {
+		if got := quotesFewShotExample(c.sources); got != c.want {
+			t.Errorf("%s: quotesFewShotExample = %v, want %v", name, got, c.want)
+		}
+	}
+
+	db := &fakeDB{respond: func(sql string) ([][]any, error) {
+		switch {
+		case strings.Contains(sql, sqlFilingContext):
+			return [][]any{{*tp("2026-06-30"), *tp("2026-06-30"), "BHP GROUP LIMITED"}}, nil
+		case strings.Contains(sql, sqlFilingCandidates):
+			return [][]any{
+				{"https://asx/echo.pdf", "Appendix 4E", *tp("2026-08-20"), "Revenue $5,142m.", 0.9, string(echo), ""},
+				{"https://asx/bhp-4e.pdf", "Appendix 4E", *tp("2026-08-19"), "BHP lifted copper output.", 0.9, "[]", ""},
+			}, nil
+		}
+		return nil, fmt.Errorf("unexpected query: %s", sql)
+	}}
+	in, err := getLatestFilingInputs(context.Background(), db, "BHP")
+	if err != nil || in == nil || len(in.Candidates) != 2 {
+		t.Fatalf("filing inputs = %+v, %v", in, err)
+	}
+	if !in.Candidates[0].FewShotEcho || in.Candidates[1].FewShotEcho {
+		t.Errorf("FewShotEcho = %v, %v; want true, false", in.Candidates[0].FewShotEcho, in.Candidates[1].FewShotEcho)
+	}
 }

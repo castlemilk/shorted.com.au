@@ -229,7 +229,12 @@ var fundamentalsExtrasColumns = []extrasColumn{
 	{`sy.median_k::float8`, func(r *extrasRow) any { return &r.e.Valuation.MedianK }},
 	{`COALESCE(kk.n, 0)::int4`, func(r *extrasRow) any { return &r.e.Valuation.KPeriods }},
 	{`COALESCE(kk.all_ok, false)`, func(r *extrasRow) any { return &r.e.Valuation.KConsistent }},
-	{`COALESCE(sy.fx_converted, false)`, func(r *extrasRow) any { return &r.e.Valuation.FXConverted }},
+	{`COALESCE(kk.any_far, false)`, func(r *extrasRow) any { return &r.e.Valuation.KFarFromOne }},
+	// The job's measured verdict when there is one; NULL (not yet measured
+	// since 000132) is NOT "not converted": rows written before the job
+	// measured it carry Yahoo's converted values, so a fractional vendor
+	// revenue or net income marks the code, as the job's own gate would.
+	{`COALESCE(sy.fx_converted, kk.fractional, false)`, func(r *extrasRow) any { return &r.e.Valuation.FXConverted }},
 	{`ep.eps_diluted::float8`, func(r *extrasRow) any { return &r.e.Valuation.EPSDiluted }},
 	{`ep.eps_basic::float8`, func(r *extrasRow) any { return &r.e.Valuation.EPSBasic }},
 	{`ep.period_end::date`, func(r *extrasRow) any { return &r.e.Valuation.EPSPeriodEnd }},
@@ -315,15 +320,29 @@ const (
 		ORDER BY f.period_end DESC
 		LIMIT 1
 	) sh ON true
-	-- The listed-unit evidence when the sync row has no median_k: every
-	-- vendor annual / TTM k = net income / (EPS x shares).
+	-- Over the vendor annual / TTM rows (filing rows excluded):
+	--   the listed-unit evidence when the sync row has no median_k, from
+	--   every k = net income / (EPS x shares) a row allows: how many (n),
+	--   whether all are within [0.8, 1.25] (all_ok) and whether any is
+	--   outside [1/3, 3] (any_far; strategies.Valuate reads a k between the
+	--   bands as no evidence either way);
+	--   the FX-converted guess for a code the job has not measured
+	--   (fractional): a non-Markit revenue or net income with a fractional
+	--   part above 0.001, the mark the job's gate reads (plan §3.4).
 	LEFT JOIN LATERAL (
-		SELECT count(*)::int AS n,
-		       bool_and(f.net_income / (COALESCE(f.eps_basic, f.eps_diluted) * f.shares_outstanding) BETWEEN 0.8 AND 1.25) AS all_ok
-		FROM stock_fundamentals f
-		WHERE f.stock_code = k.stock_code AND f.period_type IN ('annual', 'ttm')
-		  AND f.source <> 'asx-filing-extraction'
-		  AND f.net_income IS NOT NULL AND COALESCE(f.eps_basic, f.eps_diluted) <> 0 AND f.shares_outstanding > 0
+		SELECT count(v.kv)::int AS n,
+		       bool_and(v.kv BETWEEN 0.8 AND 1.25) AS all_ok,
+		       bool_or(v.kv * 3 < 1 OR v.kv > 3) AS any_far,
+		       bool_or(v.source <> 'markit-key-statistics'
+		               AND (abs(v.revenue - round(v.revenue)) > 0.001 OR abs(v.net_income - round(v.net_income)) > 0.001)) AS fractional
+		FROM (
+			SELECT f.source, f.revenue, f.net_income,
+			       CASE WHEN f.net_income IS NOT NULL AND COALESCE(f.eps_basic, f.eps_diluted) <> 0 AND f.shares_outstanding > 0
+			            THEN f.net_income / (COALESCE(f.eps_basic, f.eps_diluted) * f.shares_outstanding) END AS kv
+			FROM stock_fundamentals f
+			WHERE f.stock_code = k.stock_code AND f.period_type IN ('annual', 'ttm')
+			  AND f.source <> 'asx-filing-extraction'
+		) v
 	) kk ON true
 	-- The newest 12-month EPS across annual and TTM rows (annual first on a
 	-- tie: the statutory figure).
@@ -548,6 +567,12 @@ type FilingCandidateRow struct {
 	// DocumentMeta is the parsed document_meta (the zero value when absent,
 	// malformed or before 000132).
 	DocumentMeta extractiontrust.DocumentMeta
+	// FewShotEcho: some entry of the row's metrics quotes the extractor's
+	// few-shot example (extractiontrust.IsFewShotText on its source_text).
+	// The digest was written from those metrics (the old digest prompt told
+	// the model to prefer them), so it may repeat the example's invented
+	// figures; the funnel drops the entries, but not prose built from them.
+	FewShotEcho bool
 }
 
 // LatestFilingInputs is everything the latest-filing selection reads.
@@ -578,6 +603,12 @@ const latestFilingContextQuery = `
 // company files a handful of extracted documents per period.
 const latestFilingCandidatesLimit = 20
 
+// The candidates read every metrics entry's source_text, not the whole
+// metrics document: the page needs only the quotes, to test them against the
+// few-shot denylist. An entry is a class value or an element of a class's
+// list (the shapes extractiontrust.TrustedEntries reads); lax mode also
+// reaches a list nested in a list, which only errs towards withholding a
+// digest, and skips anything that is not an object carrying the key.
 const latestFilingCandidatesSelect = `
 	SELECT
 		e.report_url::text,
@@ -585,6 +616,7 @@ const latestFilingCandidatesSelect = `
 		e.report_date::date,
 		COALESCE(e.digest::text, ''),
 		e.digest_confidence::float8,
+		COALESCE(jsonb_path_query_array(e.metrics::jsonb, 'lax $.*[*].source_text')::text, '[]'),
 		%s
 	FROM financial_report_extractions e
 	WHERE e.stock_code = $1
@@ -649,17 +681,36 @@ func readFilingCandidates(ctx context.Context, db fundamentalsDB, query, code st
 	var out []FilingCandidateRow
 	for rows.Next() {
 		var (
-			r    FilingCandidateRow
-			meta string
+			r       FilingCandidateRow
+			sources string
+			meta    string
 		)
-		if err := rows.Scan(&r.ReportURL, &r.Title, &r.ReportDate, &r.Digest, &r.DigestConfidence, &meta); err != nil {
+		if err := rows.Scan(&r.ReportURL, &r.Title, &r.ReportDate, &r.Digest, &r.DigestConfidence, &sources, &meta); err != nil {
 			return nil, err
 		}
 		r.DigestConfidence = finite(r.DigestConfidence)
+		r.FewShotEcho = quotesFewShotExample(sources)
 		if parsed, err := extractiontrust.ParseDocumentMeta([]byte(meta)); err == nil {
 			r.DocumentMeta = parsed
 		}
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// quotesFewShotExample reports whether any quote in a JSON array of metrics
+// source_text values is a few-shot example text (extractiontrust.IsFewShotText,
+// the funnel's own denylist). A value that is not a string quotes nothing, as
+// in the funnel; an array that does not parse is no evidence either way.
+func quotesFewShotExample(sourcesJSON string) bool {
+	var quotes []any
+	if err := json.Unmarshal([]byte(sourcesJSON), &quotes); err != nil {
+		return false
+	}
+	for _, q := range quotes {
+		if text, ok := q.(string); ok && extractiontrust.IsFewShotText(text) {
+			return true
+		}
+	}
+	return false
 }

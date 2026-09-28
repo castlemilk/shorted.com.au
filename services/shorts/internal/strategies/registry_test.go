@@ -256,7 +256,7 @@ func TestEvaluationProseStatesTheThresholds(t *testing.T) {
 		RuleShortInterest: {"5% of shares on issue", "ASIC"},
 		RuleDaysToCover:   {"20-day average daily volume", "5 days"},
 
-		RuleROE:                 {"at least 15%", "equity is zero or negative", "10% of average total assets", "latest twelve months", "reporting currency"},
+		RuleROE:                 {"at least 15%", "equity is zero or negative", "10% of average total assets", "financials are exempt", "latest twelve months", "reporting currency"},
 		RuleNetMargin:           {"at least 10% of revenue", "zero or negative"},
 		RuleCashConversion:      {"0.8 times net profit", "free cash flow", "banks, insurers and other financials", "not meaningful"},
 		RuleLeverage:            {"2.5 times EBITDA", "excludes lease liabilities", "normalised EBITDA", "6 months", "banks, insurers and other financials"},

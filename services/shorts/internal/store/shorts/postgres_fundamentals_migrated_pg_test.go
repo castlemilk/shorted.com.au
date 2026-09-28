@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -190,9 +191,10 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 	})
 	db.seed("QCO", "half", me(-12), "AUD", fil, map[string]any{"revenue": 235e6, "net_income": 37e6, "eps_basic": 0.185})
 
-	// BNK: a bank (no operating income, no EBITDA; equity 6% of assets).
+	// BNK: a bank (a full Yahoo income statement, pretax income included, with
+	// no operating income and no EBITDA; equity 6% of assets).
 	db.seed("BNK", "annual", fy, "AUD", y, map[string]any{
-		"revenue": 27e9, "net_income": 10e9, "net_interest_income": 23e9, "eps_basic": 6.0, "eps_diluted": 5.95,
+		"revenue": 27e9, "pretax_income": 14e9, "net_income": 10e9, "net_interest_income": 23e9, "eps_basic": 6.0, "eps_diluted": 5.95,
 		"shares_outstanding": 1.67e9, "total_assets": 1.3e12, "total_equity": 78e9, "total_debt": 9e11, "cash_and_equivalents": 50e9,
 	})
 	db.seed("BNK", "annual", fyPrior, "AUD", y, map[string]any{
@@ -219,13 +221,42 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 	// OLD: no recent prices, no share count.
 	db.seed("OLD", "annual", fy, "AUD", y, map[string]any{"revenue": 20e6, "net_income": 2e6})
 
+	// Listed-unit evidence without a median k (none of these trade here; the
+	// single-stock read serves them). IPO listed during its only year: 70m
+	// shares before, 100m after, so weighted-average EPS against the
+	// period-end count gives k = 0.775. CDI carries ten units per share
+	// (RMD-shaped, k ~ 10). RAI has three years, one of them a capital raise
+	// (k 0.76 between 1.00 and 1.01), and a sync row whose median_k is NULL.
+	db.seed("IPO", "annual", fy, "AUD", y, map[string]any{"revenue": 80e6, "net_income": 10e6, "eps_basic": 0.129, "eps_diluted": 0.129, "shares_outstanding": 100e6})
+	db.seed("CDI", "annual", fy, "AUD", y, map[string]any{"revenue": 4.7e9, "net_income": 1.4e9, "eps_basic": 0.955, "eps_diluted": 0.95, "shares_outstanding": 146.4e6})
+	db.seed("RAI", "annual", fy, "AUD", y, map[string]any{"revenue": 60e6, "net_income": 12.048e6, "eps_basic": 0.1, "shares_outstanding": 120e6})
+	db.seed("RAI", "annual", fyPrior, "AUD", y, map[string]any{"revenue": 50e6, "net_income": 6.831e6, "eps_basic": 0.075, "shares_outstanding": 120e6})
+	db.seed("RAI", "annual", fyPrior2, "AUD", y, map[string]any{"revenue": 45e6, "net_income": 6.06e6, "eps_basic": 0.075, "shares_outstanding": 80e6})
+
+	// FX verdicts before and after the job measures a code. LFX: legacy Yahoo
+	// rows carrying converted (fractional) values under an AUD label, no sync
+	// row. NUL: the same, with a sync row written before 000132 (fx_converted
+	// NULL). LFS: the same rows, but the job measured the code as native
+	// (the measured false wins). MKF: the only fractional value is Markit's.
+	// FLF: the only fractional value is a filing's.
+	legacyFX := map[string]any{"revenue": 139609739.8266, "net_income": 20703000.5512, "eps_basic": 0.1353, "eps_diluted": 0.134, "shares_outstanding": 153e6}
+	for _, code := range []string{"LFX", "NUL", "LFS"} {
+		db.seed(code, "annual", fy, "AUD", y, legacyFX)
+	}
+	db.seed("MKF", "annual", fy, "AUD", mk, map[string]any{"revenue": 550000000.5, "net_income": 42000000.25})
+	db.seed("FLF", "annual", fy, "AUD", y, map[string]any{"revenue": 90e6, "net_income": 9e6, "eps_basic": 0.09, "shares_outstanding": 100e6})
+	db.seed("FLF", "annual", fyPrior, "AUD", fil, map[string]any{"revenue": 80e6, "net_income": 7654321.5, "eps_basic": 0.0765})
+
 	db.exec(`INSERT INTO stock_fundamentals_sync (stock_code, last_attempt_at, last_success_at, last_error, periods_loaded,
 			last_outcome, consecutive_empty, median_k, fx_converted, native_currency) VALUES
 		('QCO', now(), now(), NULL, 7, 'loaded', 0, 1.0, false, NULL),
 		('BNK', now(), now(), NULL, 2, 'loaded', 0, 0.998, false, NULL),
 		('USX', now(), now(), NULL, 2, 'loaded', 0, 1.0, false, NULL),
 		('FXC', now(), now(), NULL, 1, 'loaded', 0, 1.02, true, 'NZD'),
-		('EMP', now(), NULL, 'no fundamentals published: yahoo: none', 0, 'empty', 2, NULL, NULL, NULL)`)
+		('EMP', now(), NULL, 'no fundamentals published: yahoo: none', 0, 'empty', 2, NULL, NULL, NULL),
+		('RAI', now(), now(), NULL, 3, 'loaded', 0, NULL, false, NULL),
+		('NUL', now(), now(), NULL, 1, NULL, 0, NULL, NULL, NULL),
+		('LFS', now(), now(), NULL, 1, 'loaded', 0, NULL, false, NULL)`)
 
 	// Extractions: the half's Appendix 4D (the latest filing), a newer
 	// presentation (not a results document), the FY's 4E, and a
@@ -243,6 +274,32 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		 '{"currency": "AUD", "period_end": "%[6]s", "period_type": "annual", "report_kind": "appendix_4e", "units": "lots"}'),
 		('QCO', 'https://www.asx.com.au/asxpdf/qco-low.pdf', 'annual', 'Annual Report', '%[5]s', '{}', 'Unsure.', 0.4, NULL)`,
 		qcoDoc, ds(filed), ds(E), ds(filed.AddDate(0, 0, 1)), ds(fy.AddDate(0, 0, 50)), ds(fy)))
+
+	// BNK: three results documents for the same year, newest first. The two
+	// newer ones carry metrics that quote the old few-shot example (as a class
+	// object, and as the second entry of a class list); their digests were
+	// written from those metrics. The oldest quotes the same figure in the
+	// bank's own words, which is not an echo.
+	echoObject := migratedJSON(t, map[string]any{
+		"revenue": map[string]any{"value_millions": "5142", "source_text": extractiontrust.OldFewShotTexts[0]},
+	})
+	echoList := migratedJSON(t, map[string]any{
+		"revenue": []any{
+			map[string]any{"value_millions": "27000", "source_text": "Operating income of $27.0 billion", "alignment": "match_exact"},
+			map[string]any{"value_millions": "612", "source_text": extractiontrust.NewFewShotTexts[1]},
+		},
+		"eps": map[string]any{"value_cents": "600", "source_text": "Basic earnings per share 600 cents"},
+	})
+	clean := migratedJSON(t, map[string]any{
+		"net_profit": []any{map[string]any{"value_millions": "5142", "source_text": "Statutory NPAT2 $5,142m"}},
+		"note":       "a class that is not an object",
+	})
+	db.exec(`INSERT INTO financial_report_extractions
+			(stock_code, report_url, report_type, report_title, report_date, metrics, digest, digest_confidence) VALUES
+		('BNK', 'https://www.asx.com.au/asxpdf/bnk-echo-object.pdf', 'annual', 'Appendix 4E and Annual Report', $1::date, $2::jsonb, 'Revenue rose to $5,142m.', 0.9),
+		('BNK', 'https://www.asx.com.au/asxpdf/bnk-echo-list.pdf', 'annual', 'Preliminary Final Report', $3::date, $4::jsonb, 'Profit was $612m.', 0.9),
+		('BNK', 'https://www.asx.com.au/asxpdf/bnk-4e.pdf', 'annual', 'Annual Report', $5::date, $6::jsonb, 'Koala Banking lifted profit.', 0.8)`,
+		ds(fy.AddDate(0, 0, 52)), echoObject, ds(fy.AddDate(0, 0, 51)), echoList, ds(fy.AddDate(0, 0, 50)), clean)
 
 	db.refresh()
 
@@ -384,6 +441,7 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		migratedNum(t, vi.MedianK, 1.0, "median_k")
 		assert.Equal(t, int32(5), vi.KPeriods, "two TTM and three annual vendor rows allow k")
 		assert.True(t, vi.KConsistent)
+		assert.False(t, vi.KFarFromOne)
 		assert.False(t, vi.FXConverted)
 		migratedNum(t, vi.EPSDiluted, 0.395, "eps diluted")
 		migratedNum(t, vi.EPSBasic, 0.40, "eps basic")
@@ -405,7 +463,7 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		b := byCode["BNK"].Quality
 		require.NotNil(t, b)
 		assert.True(t, b.StatementIsFinancial)
-		assert.Nil(t, b.ROEPct, "equity under 10% of assets")
+		assert.Nil(t, b.ROEPct, "the view withholds ROE under 10% equity to assets; Go computes a financial's (below)")
 		migratedNum(t, b.ROAPct, 10.0/((1300+1250)/2.0)*100, "BNK roa_pct")
 		migratedNum(t, b.NetInterestIncome, 23e9, "BNK net_interest_income, read from the flow row")
 
@@ -448,6 +506,8 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		assert.True(t, byCode["BNK"].Quality.IsFinancial)
 		assert.Nil(t, byCode["BNK"].Quality.NetDebt, "not meaningful for a bank")
 		assert.Equal(t, strategies.NotMeaningfulForFinancials(), byCode["BNK"].Quality.NotMeaningful)
+		bankROE := 10.0 / ((78 + 75) / 2.0) * 100
+		migratedNum(t, byCode["BNK"].Quality.ROEPct, bankROE, "BNK ROE: the view's formula without its 10% equity-to-assets guard")
 
 		uv := byCode["USX"].Valuation
 		migratedNum(t, uv.MarketCap, 36*5.07e8, "USX market cap (AUD: a price times a count)")
@@ -495,9 +555,13 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		bp, ok := byPick["BNK"]
 		require.True(t, ok)
 		assert.Equal(t, strategies.StatusWatch, bp.Status, "a bank ranks as watch at most")
-		for _, id := range []string{strategies.RuleROE, strategies.RuleCashConversion, strategies.RuleLeverage} {
+		for _, id := range []string{strategies.RuleCashConversion, strategies.RuleLeverage} {
 			assert.Equal(t, strategies.RuleUnknown, migratedRule(t, bp, id).Status, "BNK %s", id)
 		}
+		roeRule := migratedRule(t, bp, strategies.RuleROE)
+		assert.Equal(t, strategies.RuleFail, roeRule.Status, "a bank is judged on its return like anyone else: %s", roeRule.Detail)
+		assert.True(t, roeRule.HasValue)
+		assert.InDelta(t, bankROE, roeRule.Value, 1e-9)
 		assert.Equal(t, strategies.RulePass, migratedRule(t, bp, strategies.RuleNetMargin).Status)
 
 		fp, ok := byPick["FXC"]
@@ -511,6 +575,67 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		assert.Equal(t, qp.Status, one.Status)
 		assert.Equal(t, qp.Score, one.Score)
 		assert.Equal(t, qp.Rules, one.Rules)
+	})
+
+	t.Run("listed-unit evidence and the FX verdict before the job has measured a code", func(t *testing.T) {
+		read := func(code string) *FundamentalsExtras {
+			t.Helper()
+			e, err := getFundamentalsExtras(ctx, pool, code)
+			require.NoError(t, err, code)
+			require.NotNil(t, e, code)
+			return e
+		}
+		value := func(e *FundamentalsExtras) strategies.Valuation {
+			return strategies.Valuate(10, asOf, &e.Valuation, e.Quality)
+		}
+		screener := 7.7e8
+
+		// IPO: one year, k 0.775. No valuation of our own, but not a CDI:
+		// the note is no-shares and the picker falls back to the screener.
+		ipo := read("IPO")
+		assert.Nil(t, ipo.Valuation.MedianK)
+		assert.Equal(t, int32(1), ipo.Valuation.KPeriods)
+		assert.False(t, ipo.Valuation.KConsistent)
+		assert.False(t, ipo.Valuation.KFarFromOne, "k 0.775 is inside [1/3, 3]")
+		v := value(ipo)
+		assert.False(t, v.HasAny())
+		assert.Equal(t, strategies.ValuationNoteNoShares, v.Note)
+		ipoCand := strategies.Candidate{Valuation: v, MarketCap: &screener}
+		migratedNum(t, ipoCand.ResolvedMarketCap(), screener, "a recent issuer keeps the screener's market cap")
+
+		// CDI: k about 10 contradicts the listing; nothing is borrowed.
+		cdi := read("CDI")
+		assert.Equal(t, int32(1), cdi.Valuation.KPeriods)
+		assert.True(t, cdi.Valuation.KFarFromOne)
+		v = value(cdi)
+		assert.False(t, v.HasAny())
+		assert.Equal(t, strategies.ValuationNoteListedUnit, v.Note)
+		cdiCand := strategies.Candidate{Valuation: v, MarketCap: &screener}
+		assert.Nil(t, cdiCand.ResolvedMarketCap())
+
+		// RAI: three years, one between the bands, median_k NULL on its sync
+		// row: no evidence either way.
+		rai := read("RAI")
+		assert.Nil(t, rai.Valuation.MedianK)
+		assert.Equal(t, int32(3), rai.Valuation.KPeriods)
+		assert.False(t, rai.Valuation.KConsistent)
+		assert.False(t, rai.Valuation.KFarFromOne)
+		assert.Equal(t, strategies.ValuationNoteNoShares, value(rai).Note)
+
+		// FX: an unmeasured code whose vendor rows carry converted values is
+		// FX-converted (P/E withheld; market cap, a price times a count,
+		// stands), with or without a pre-000132 sync row. A measured verdict
+		// wins, and Markit's or a filing's fractions do not count.
+		for code, want := range map[string]bool{"LFX": true, "NUL": true, "LFS": false, "MKF": false, "FLF": false} {
+			assert.Equal(t, want, read(code).Valuation.FXConverted, "%s fx_converted", code)
+		}
+		lfx := value(read("LFX"))
+		migratedNum(t, lfx.MarketCap, 10*153e6, "LFX market cap")
+		assert.Nil(t, lfx.PERatio, "an AUD close over converted EPS is not a P/E")
+		assert.Equal(t, strategies.ValuationNoteNonAUD, lfx.Note)
+		lfs := value(read("LFS"))
+		migratedNum(t, lfs.PERatio, 10/0.134, "measured native: P/E stands")
+		assert.Equal(t, "", lfs.Note)
 	})
 
 	t.Run("GetStockFundamentals scans every real column", func(t *testing.T) {
@@ -641,6 +766,19 @@ func TestFundamentalsReadsAgainstMigratedPostgres(t *testing.T) {
 		fy4e := in.Candidates[2]
 		assert.Equal(t, ds(fy), fy4e.DocumentMeta.PeriodEnd)
 		assert.Equal(t, "", fy4e.DocumentMeta.Units, "outside the closed vocabulary: absent")
+		for _, c := range in.Candidates {
+			assert.False(t, c.FewShotEcho, "%s quotes no few-shot text", c.ReportURL)
+		}
+
+		// A digest written from few-shot-echo metrics is flagged, whether the
+		// echo is a class object or one entry of a class list; a real quote
+		// of the same figure is not.
+		bnk, err := getLatestFilingInputs(ctx, pool, "BNK")
+		require.NoError(t, err)
+		require.Len(t, bnk.Candidates, 3)
+		assert.True(t, bnk.Candidates[0].FewShotEcho, "echo as a class object")
+		assert.True(t, bnk.Candidates[1].FewShotEcho, "echo as the second entry of a class list")
+		assert.False(t, bnk.Candidates[2].FewShotEcho, "a real quote of the same figure")
 	})
 
 	t.Run("replays: 000132 twice, then the deploy allowlist, are no-ops", func(t *testing.T) {
@@ -908,6 +1046,14 @@ func migratedGrowthColumnsRead() []string {
 		out = append(out, m[1])
 	}
 	return out
+}
+
+// migratedJSON is v as a JSON document, for a jsonb parameter.
+func migratedJSON(t *testing.T, v any) string {
+	t.Helper()
+	b, err := json.Marshal(v)
+	require.NoError(t, err)
+	return string(b)
 }
 
 func migratedMonthEnd(e time.Time, n int) time.Time {

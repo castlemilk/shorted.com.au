@@ -635,7 +635,8 @@ func qualityCompounders() Strategy {
 				RuleText: "Own businesses that earn a high return on the capital shareholders have in them.",
 				Evaluation: "Pass when return on equity, net profit over the average of opening and closing shareholders' equity, is at least 15%. " +
 					"Fail below 15%, or when equity is zero or negative. Unknown when either equity figure is missing, or when average equity is under 10% of average total assets, " +
-					"where the ratio says more about borrowing than quality. Net profit is the latest full year's, or the latest twelve months' when those are newer, in the reporting currency.",
+					"where the ratio says more about borrowing than quality; banks, insurers and other financials are exempt from that test, because their balance sheets are leveraged by design. " +
+					"Net profit is the latest full year's, or the latest twelve months' when those are newer, in the reporting currency.",
 				Core:       true,
 				DataSource: SourceFundamentals,
 			},

@@ -1219,6 +1219,25 @@ func TestGetStrategyPicksCoverageCopyFallsBackForAnOlderAPI(t *testing.T) {
 	}
 }
 
+// A market-cap sort orders some stocks by the screener's figure, which
+// get_stock_fundamentals does not carry; the summary must not send the reader
+// there for a number it will not find.
+func TestDescribeSortSaysWhereTheMarketCapComesFrom(t *testing.T) {
+	got := describeSort("market_cap")
+	for _, want := range []string{"Sorted by market_cap, highest first", "latest close x shares on issue",
+		"the screener's figure where we hold no share count"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("describeSort(market_cap) missing %q: %q", want, got)
+		}
+	}
+	if strings.Contains(got, "figure is in get_stock_fundamentals") {
+		t.Errorf("not every sorted market cap is in get_stock_fundamentals: %q", got)
+	}
+	if got := describeSort("fcf_margin"); !strings.Contains(got, "fcf_margin figure is in get_stock_fundamentals") {
+		t.Errorf("describeSort(fcf_margin) = %q", got)
+	}
+}
+
 func TestGetStrategyPicksExplainsAnEmptyResult(t *testing.T) {
 	fundamentals := []*shortsv1alpha1.StrategyRule{{Id: "growth", DataSource: "stock_fundamentals"}}
 	pricesOnly := []*shortsv1alpha1.StrategyRule{{Id: "trend_stack", DataSource: "stock_prices"}}
