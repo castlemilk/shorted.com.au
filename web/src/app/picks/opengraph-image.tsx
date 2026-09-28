@@ -17,7 +17,7 @@ export default async function Image() {
       <OgCard
         eyebrow="Stock picker"
         title="ASX Stock Picker"
-        subtitle="Zanger breakouts, CAN SLIM, the Minervini Trend Template and crowded-short breakouts, with every rule shown pass or fail."
+        subtitle="Zanger breakouts, CAN SLIM, the Minervini Trend Template, crowded-short breakouts and quality compounders, with every rule shown pass or fail."
         logoSrc={await getOgLogo()}
       />
     ),

@@ -33,7 +33,7 @@ import { bailOnEmptyRender } from "~/app/actions/config";
 
 const TITLE = "ASX Stock Picker: Named Strategy Screens";
 const DESCRIPTION =
-  "Choose a named strategy (Zanger breakouts, CAN SLIM, the Minervini Trend Template or crowded-short breakouts) and see which ASX stocks meet its rules today.";
+  "Pick a strategy (Zanger breakouts, CAN SLIM, Minervini's Trend Template, crowded-short breakouts or quality compounders) and see which ASX stocks meet its rules.";
 const PAGE_URL = `${siteConfig.url}/picks`;
 
 export const metadata: Metadata = {
@@ -46,6 +46,8 @@ export const metadata: Metadata = {
     "can slim asx",
     "minervini trend template asx",
     "dan zanger strategy",
+    "quality stocks asx",
+    "high roe stocks asx",
   ],
   openGraph: {
     title: `${TITLE} | ${siteConfig.name}`,
@@ -70,7 +72,7 @@ export const metadata: Metadata = {
   },
 };
 
-// Static ISR, like /themes/[slug]: the hub fans out to the API five ways
+// Static ISR, like /themes/[slug]: the hub fans out to the API six ways
 // (the list plus one picks read per strategy), which is worth paying per hour,
 // not per request. The picks reads share their cache entries with the
 // strategy pages. A cold or failed read is handled by bailOnEmptyRender()
@@ -193,8 +195,10 @@ export default async function PicksHubPage() {
             Each strategy is a fixed set of rules taken from its author and
             tested every trading day against daily prices, the S&amp;P/ASX 200,
             reported company fundamentals and ASIC short positions. A rule is
-            unknown when the data is missing, and unknown never counts as a
-            pass. Stocks are ranked by status first, then by a 0 to 100 score.
+            unknown when the data is missing, or when the figure is not
+            meaningful for the company (a bank&apos;s cash conversion, say),
+            and unknown never counts as a pass. Stocks are ranked by status
+            first, then by a 0 to 100 score.
           </p>
           <dl className="grid gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-3">
             {PICK_STATUSES.map((status) => (

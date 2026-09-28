@@ -7,7 +7,11 @@ import {
   serverFetchOutsideNextCache,
   skipForBuild,
 } from "./config";
-import { mapPick, mapRegime, mapStrategy } from "~/@/lib/strategies/map";
+import {
+  mapPicksResponse,
+  mapRegime,
+  mapStrategy,
+} from "~/@/lib/strategies/map";
 import type { StrategyPicksResult } from "~/@/lib/strategies/types";
 
 // One strategy's ranked picks for /picks/[strategy] and the /picks hub cards.
@@ -19,8 +23,15 @@ import type { StrategyPicksResult } from "~/@/lib/strategies/types";
 // to null so the page renders its static copy instead of 500ing.
 //
 // The hub and the strategy page ask for the SAME request (limit 100, no
-// status filter) under the same key, so they share one cache entry per
-// strategy. The status filter runs client-side over these rows.
+// status filter, the default rank order) under the same key, so they share
+// one cache entry per strategy. The status filter runs client-side over these
+// rows; a sort is the page's client island asking the API itself, through the
+// SAME mapper (lib/strategies/map.ts), which is why the mapper's input is
+// structural rather than the generated message type.
+//
+// Cache key v2: PickRow gained `fundamentals` and the result gained
+// fundamentalsRowsCount (docs/plans/fundamentals-coverage.md §7.2). A v1 entry
+// has neither, and would render every row as "No fundamentals held".
 
 export type { StrategyPicksResult } from "~/@/lib/strategies/types";
 
@@ -43,11 +54,7 @@ async function fetchStrategyPicks(id: string): Promise<StrategyPicksResult | nul
   return {
     strategy: mapStrategy(response.strategy),
     regime: mapRegime(response.regime),
-    picks: (response.picks ?? []).map(mapPick),
-    totalCount: response.totalCount ?? 0,
-    universeCount: response.universeCount ?? 0,
-    fundamentalsCoverageCount: response.fundamentalsCoverageCount ?? 0,
-    asOf: response.asOf ?? "",
+    ...mapPicksResponse(response),
   };
 }
 
@@ -68,7 +75,7 @@ export async function getStrategyPicks(
         }
         return result;
       },
-      [`strategy-picks-${id}-v1`],
+      [`strategy-picks-${id}-v2`],
       { tags: ["strategy-picks", `strategy-${id}`], revalidate: 3600 },
     )();
   } catch (err) {

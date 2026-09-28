@@ -98,8 +98,20 @@ describe("PicksHubPage", () => {
       SETUP.code,
     ]);
     expect(leaders.getAllByTestId("stock-logo")).toHaveLength(2);
-    // A watch-only strategy has nothing triggered or set up to preview.
-    expect(screen.getAllByText("No stock is triggered or set up today.")).toHaveLength(3);
+    // A watch-only strategy has nothing triggered or set up to preview: every
+    // strategy but Zanger here, four of the five.
+    expect(screen.getAllByText("No stock is triggered or set up today.")).toHaveLength(
+      STRATEGY_SLUGS.length - 1,
+    );
+  });
+
+  it("names all five strategies, quality compounders included", async () => {
+    render(await PicksHubPage());
+    expect(screen.getAllByRole("article")).toHaveLength(5);
+    expect(getStrategyPicks).toHaveBeenCalledWith("quality-compounders");
+    expect(
+      screen.getByText(/or when the figure is not\s+meaningful for the company/),
+    ).toBeInTheDocument();
   });
 
   it("falls back to registry copy and bails the render when the API is down", async () => {

@@ -1,4 +1,11 @@
-import { mapPick, mapRegime, mapStrategy } from "~/@/lib/strategies/map";
+import {
+  mapPick,
+  mapPickFundamentals,
+  mapPicksResponse,
+  mapRegime,
+  mapStrategy,
+  sydneyIsoDate,
+} from "~/@/lib/strategies/map";
 import type {
   MarketRegime,
   Strategy,
@@ -161,5 +168,177 @@ describe("mapStrategy", () => {
     } as unknown as Strategy);
     expect(def.metadata?.ruleCount).toBe(1);
     expect(JSON.parse(JSON.stringify(def))).toEqual(def);
+  });
+});
+
+// The same mapper reads Connect's protojson in the browser (the sort island):
+// every default-valued field is OMITTED, and a non-finite double arrives as a
+// string. Nothing here may turn an absence into a zero.
+describe("mapPick on protojson", () => {
+  it("maps a pick whose default-valued fields are all omitted", () => {
+    const row = mapPick({ stockCode: "XYZ", rank: 7, status: "setup" });
+    expect(row).toEqual({
+      rank: 7,
+      code: "XYZ",
+      name: "",
+      industry: "",
+      status: "setup",
+      score: 0,
+      rules: [],
+      close: null,
+      asOf: "",
+      pivot: null,
+      baseDepthPct: null,
+      baseLengthDays: null,
+      volumeRatio: null,
+      revenueYoyPct: null,
+      epsYoyPct: null,
+      rs3mPct: null,
+      shortPct: null,
+      marketCap: null,
+      logoUrl: "",
+    });
+    // No fundamentals message: no key at all (nulls omitted), not null.
+    expect("fundamentals" in row).toBe(false);
+  });
+
+  // protojson omits a zero, so a measured zero arrives as its flag alone.
+  it("reads a flagged but omitted double as the zero it stands for", () => {
+    const row = mapPick({
+      stockCode: "ZER",
+      hasShortPct: true,
+      hasRevenueYoy: true,
+      hasRs3mPct: true,
+      fundamentals: { hasRoePct: true, hasNetMarginPct: false },
+    });
+    expect(row.shortPct).toBe(0);
+    expect(row.revenueYoyPct).toBe(0);
+    expect(row.rs3mPct).toBe(0);
+    expect(row.epsYoyPct).toBeNull();
+    expect(row.fundamentals).toEqual({ roePct: 0 });
+  });
+
+  it("never reads a protojson NaN or Infinity string as a number", () => {
+    const row = mapPick({
+      stockCode: "NAN",
+      close: "NaN",
+      hasClose: true,
+      revenueYoyPct: "Infinity",
+      hasRevenueYoy: true,
+      pivot: "-Infinity",
+      fundamentals: { roePct: "NaN", hasRoePct: true },
+    });
+    expect(row.close).toBeNull();
+    expect(row.revenueYoyPct).toBeNull();
+    expect(row.pivot).toBeNull();
+    expect(row.fundamentals).toEqual({});
+  });
+});
+
+describe("mapPickFundamentals", () => {
+  it("keeps only rendered fields, omits nulls and rounds ratios to the printed decimal", () => {
+    const view = mapPickFundamentals({
+      revenueBasisPeriodType: "ttm",
+      revenuePeriodEnd: "2026-06-30",
+      revenueBasisSource: "filing",
+      epsBasisPeriodType: "half",
+      epsPeriodEnd: "2025-12-31",
+      epsBasisSource: "vendor",
+      currency: "AUD",
+      fetchedAt: "2026-09-27T20:00:00Z",
+      netMarginPct: 12.345678,
+      hasNetMarginPct: true,
+      roePct: 0,
+      hasRoePct: true,
+      fcfMarginPct: 5,
+      hasFcfMarginPct: false,
+      netDebtToEbitda: -0.26,
+      hasNetDebtToEbitda: true,
+      peRatio: 0,
+      hasPeRatio: false,
+      isFinancial: false,
+      netIncomePositive: true,
+    });
+    expect(view).toEqual({
+      revenueBasis: "ttm",
+      revenueEnd: "2026-06-30",
+      revenueFiling: true,
+      epsBasis: "half",
+      epsEnd: "2025-12-31",
+      // 20:00 UTC on the 27th is the 28th in Sydney.
+      fetchedOn: "2026-09-28",
+      netMarginPct: 12.3,
+      // A measured zero ROE survives: its has flag says it is real.
+      roePct: 0,
+      netDebtToEbitda: -0.3,
+    });
+    // No vendor marker, no AUD, no flags the row does not print.
+    expect(JSON.stringify(view)).not.toMatch(/vendor|AUD|isFinancial|netIncomePositive/);
+  });
+
+  it("keeps a non-AUD currency, which P/E's absence is explained by", () => {
+    expect(mapPickFundamentals({ currency: "usd" })).toEqual({ currency: "USD" });
+  });
+
+  it("drops a basis it does not know and the period and source that hang off it", () => {
+    expect(
+      mapPickFundamentals({
+        revenueBasisPeriodType: "quarter",
+        revenuePeriodEnd: "2026-06-30",
+        revenueBasisSource: "filing",
+      }),
+    ).toEqual({});
+  });
+
+  it("keeps only the not-meaningful ratios the row shows", () => {
+    const view = mapPickFundamentals({
+      isFinancial: true,
+      notMeaningful: [
+        "gross_margin_pct",
+        "fcf_margin_pct",
+        "net_debt",
+        "net_debt_to_ebitda",
+        "current_ratio",
+      ],
+    });
+    expect(view).toEqual({ notMeaningful: ["fcf_margin_pct", "net_debt_to_ebitda"] });
+  });
+
+  it("is undefined without a fundamentals message", () => {
+    expect(mapPickFundamentals(undefined)).toBeUndefined();
+    expect(mapPickFundamentals(null)).toBeUndefined();
+  });
+});
+
+describe("mapPicksResponse", () => {
+  it("reads counts that protojson omitted as zero, and truncates nothing else", () => {
+    expect(mapPicksResponse({})).toEqual({
+      picks: [],
+      totalCount: 0,
+      universeCount: 0,
+      fundamentalsCoverageCount: 0,
+      fundamentalsRowsCount: 0,
+      asOf: "",
+    });
+    expect(
+      mapPicksResponse({
+        totalCount: 57,
+        universeCount: 1904,
+        fundamentalsCoverageCount: 812,
+        fundamentalsRowsCount: 1203,
+        asOf: "2026-09-25",
+      }),
+    ).toMatchObject({ totalCount: 57, fundamentalsRowsCount: 1203, asOf: "2026-09-25" });
+  });
+});
+
+describe("sydneyIsoDate", () => {
+  it("dates an instant in Sydney, passes a bare date through and rejects junk", () => {
+    expect(sydneyIsoDate("2026-09-27T13:59:00Z")).toBe("2026-09-27");
+    expect(sydneyIsoDate("2026-09-27T14:01:00Z")).toBe("2026-09-28");
+    expect(sydneyIsoDate("2026-09-27")).toBe("2026-09-27");
+    expect(sydneyIsoDate("")).toBe("");
+    expect(sydneyIsoDate("not a date")).toBe("");
+    expect(sydneyIsoDate(undefined)).toBe("");
   });
 });
