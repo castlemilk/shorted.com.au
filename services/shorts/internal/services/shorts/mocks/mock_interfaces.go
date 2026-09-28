@@ -485,6 +485,36 @@ func (mr *MockShortsStoreMockRecorder) GetEventTimeline(stockCode, daysBack, lim
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEventTimeline", reflect.TypeOf((*MockShortsStore)(nil).GetEventTimeline), stockCode, daysBack, limit)
 }
 
+// GetFundamentalsCoverage mocks base method.
+func (m *MockShortsStore) GetFundamentalsCoverage(ctx context.Context, code string) (*shorts.FundamentalsCoverageRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFundamentalsCoverage", ctx, code)
+	ret0, _ := ret[0].(*shorts.FundamentalsCoverageRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFundamentalsCoverage indicates an expected call of GetFundamentalsCoverage.
+func (mr *MockShortsStoreMockRecorder) GetFundamentalsCoverage(ctx, code any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFundamentalsCoverage", reflect.TypeOf((*MockShortsStore)(nil).GetFundamentalsCoverage), ctx, code)
+}
+
+// GetFundamentalsExtras mocks base method.
+func (m *MockShortsStore) GetFundamentalsExtras(ctx context.Context, code string) (*shorts.FundamentalsExtras, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFundamentalsExtras", ctx, code)
+	ret0, _ := ret[0].(*shorts.FundamentalsExtras)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFundamentalsExtras indicates an expected call of GetFundamentalsExtras.
+func (mr *MockShortsStoreMockRecorder) GetFundamentalsExtras(ctx, code any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFundamentalsExtras", reflect.TypeOf((*MockShortsStore)(nil).GetFundamentalsExtras), ctx, code)
+}
+
 // GetFundamentalsGrowth mocks base method.
 func (m *MockShortsStore) GetFundamentalsGrowth(ctx context.Context, code string) (*strategies.Growth, error) {
 	m.ctrl.T.Helper()
@@ -603,6 +633,21 @@ func (m *MockShortsStore) GetIndustryTreeMap(limit int32, period, viewMode strin
 func (mr *MockShortsStoreMockRecorder) GetIndustryTreeMap(limit, period, viewMode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIndustryTreeMap", reflect.TypeOf((*MockShortsStore)(nil).GetIndustryTreeMap), limit, period, viewMode)
+}
+
+// GetLatestFilingInputs mocks base method.
+func (m *MockShortsStore) GetLatestFilingInputs(ctx context.Context, code string) (*shorts.LatestFilingInputs, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLatestFilingInputs", ctx, code)
+	ret0, _ := ret[0].(*shorts.LatestFilingInputs)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLatestFilingInputs indicates an expected call of GetLatestFilingInputs.
+func (mr *MockShortsStoreMockRecorder) GetLatestFilingInputs(ctx, code any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestFilingInputs", reflect.TypeOf((*MockShortsStore)(nil).GetLatestFilingInputs), ctx, code)
 }
 
 // GetMarketByDate mocks base method.

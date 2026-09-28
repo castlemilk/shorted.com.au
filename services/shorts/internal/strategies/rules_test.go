@@ -101,7 +101,47 @@ func TestRuleGrowth(t *testing.T) {
 			want: RulePass, wantValue: f(40), wantDetail: []string{"EPS +40.0% YoY (half-year to 2026-12-31 vs same half a year earlier)"}},
 		{name: "annual revenue basis keeps the FY label", cand: withGrowth(Growth{RevenueBasisPeriodType: "annual", RevenueYoYPct: f(26), LatestAnnualPeriodEnd: d("2026-06-30"), HalfLatestPeriodEnd: d("2025-12-31")}),
 			want: RulePass, wantValue: f(26), wantDetail: []string{"Revenue +26.0% YoY (FY ending 2026-06-30)"}},
+
+		// Plan fundamentals-coverage.md §5.4: the TTM revenue basis.
+		{name: "ttm revenue basis is labelled with its period end",
+			cand: withGrowth(Growth{RevenueBasisPeriodType: "ttm", RevenueYoYPct: f(30), RevenueLatestPeriodEnd: d("2026-12-31"), LatestAnnualPeriodEnd: d("2026-06-30")}),
+			want: RulePass, wantValue: f(30), wantDetail: []string{"Revenue +30.0% YoY (12 months to 2026-12-31)"}},
+		{name: "ttm revenue basis without an end date", cand: withGrowth(Growth{RevenueBasisPeriodType: "ttm", RevenueYoYPct: f(30)}),
+			want: RulePass, wantValue: f(30), wantDetail: []string{"(trailing 12 months)"}},
+
+		// Loss-making and turnarounds are judged on the EPS basis.
+		{name: "still loss-making on the eps basis fails, not unknown",
+			cand: withGrowth(Growth{BasisPeriodType: "ttm", LatestPeriodEnd: d("2026-06-30"), EPSLatest: f(-0.05), EPSPrior: f(-0.10)}),
+			want: RuleFail, wantDetail: []string{"Still loss-making on EPS (12 months to 2026-06-30)"}},
+		{name: "an older annual profit does not overrule a fresher ttm loss",
+			cand: withGrowth(Growth{BasisPeriodType: "ttm", LatestPeriodEnd: d("2026-12-31"), LatestAnnualPeriodEnd: d("2026-06-30"),
+				EPSLatest: f(-0.02), EPSPrior: f(0.01), EPSYoYPct: f(-300), NetIncomePrior: f(-1), NetIncomePositive: b(true)}),
+			want: RuleFail, wantValue: f(-300), wantDetail: []string{"still loss-making on EPS", "below the +25% threshold"}},
+		{name: "an annual turnaround counts when the annual is as new as the eps basis",
+			cand: withGrowth(Growth{BasisPeriodType: "ttm", LatestPeriodEnd: d("2026-06-30"), LatestAnnualPeriodEnd: d("2026-06-30"),
+				NetIncomePrior: f(-1), NetIncomePositive: b(true)}),
+			want: RulePass, wantDetail: []string{"Swung from a net loss to a net profit"}},
+		{name: "an eps turnaround on the ttm basis passes",
+			cand: withGrowth(Growth{BasisPeriodType: "ttm", LatestPeriodEnd: d("2026-06-30"), EPSLatest: f(0.12), EPSPrior: f(-0.04)}),
+			want: RulePass, wantDetail: []string{"EPS swung from a loss to a profit (12 months to 2026-06-30)"}},
 	})
+
+	// A ttm revenue basis already is the fresher figure the half delta would
+	// hint at, so the delta is not restated as evidence.
+	ttm := ruleGrowth(&Candidate{Growth: &Growth{RevenueBasisPeriodType: "ttm", RevenueYoYPct: f(30), RevenueHalfDelta: f(5), NetIncomeHalfDelta: f(2)}}, &evalEnv{})
+	if strings.Contains(ttm.Detail, "latest half-year revenue up") || !strings.Contains(ttm.Detail, "latest half-year profit up") {
+		t.Errorf("ttm revenue basis must skip only the revenue evidence line: %q", ttm.Detail)
+	}
+	// Acceleration needs a positive prior: -40% to +30% is a recovery, not
+	// acceleration.
+	rec := ruleGrowth(&Candidate{Growth: &Growth{RevenueYoYPct: f(30), RevenueYoYPriorPct: f(-40)}}, &evalEnv{})
+	if strings.Contains(rec.Detail, "accelerating") {
+		t.Errorf("growth from a negative prior must not read as accelerating: %q", rec.Detail)
+	}
+	zero := ruleGrowth(&Candidate{Growth: &Growth{RevenueYoYPct: f(30), RevenueYoYPriorPct: f(0)}}, &evalEnv{})
+	if strings.Contains(zero.Detail, "accelerating") {
+		t.Errorf("growth from a zero prior must not read as accelerating: %q", zero.Detail)
+	}
 
 	// On the half revenue basis the half delta is the headline, not evidence.
 	half := ruleGrowth(&Candidate{Growth: &Growth{RevenueBasisPeriodType: "half", RevenueYoYPct: f(30), RevenueHalfDelta: f(5)}}, &evalEnv{})
@@ -133,6 +173,135 @@ func TestRuleEPSGrowth(t *testing.T) {
 			want: RuleFail, wantValue: f(10), wantDetail: []string{"(half-year vs same half a year earlier)"}},
 		{name: "turnaround with a weak eps figure still passes", cand: withGrowth(Growth{EPSYoYPct: f(3), NetIncomePrior: f(-1), NetIncomePositive: b(true)}),
 			want: RulePass, wantValue: f(3)},
+
+		// Plan fundamentals-coverage.md §5.4: same-basis loss and turnaround.
+		{name: "still loss-making on the half basis fails, not unknown",
+			cand: withGrowth(Growth{BasisPeriodType: "half", HalfLatestPeriodEnd: d("2026-12-31"), EPSLatest: f(-0.03), EPSPrior: f(-0.05)}),
+			want: RuleFail, wantDetail: []string{"Still loss-making on EPS (half-year to 2026-12-31 vs same half a year earlier)"}},
+		{name: "a swing into loss fails with its growth figure",
+			cand: withGrowth(Growth{BasisPeriodType: "annual", LatestAnnualPeriodEnd: d("2026-06-30"), EPSLatest: f(-0.1), EPSPrior: f(0.2), EPSYoYPct: f(-150)}),
+			want: RuleFail, wantValue: f(-150), wantDetail: []string{"EPS -150.0% YoY", "still loss-making"}},
+		{name: "a half-basis eps turnaround passes",
+			cand: withGrowth(Growth{BasisPeriodType: "half", HalfLatestPeriodEnd: d("2026-12-31"), EPSLatest: f(0.04), EPSPrior: f(-0.01)}),
+			want: RulePass, wantDetail: []string{"EPS swung from a loss to a profit (half-year to 2026-12-31"}},
+		{name: "an older annual turnaround does not speak for a fresher half",
+			cand: withGrowth(Growth{BasisPeriodType: "half", LatestPeriodEnd: d("2026-12-31"), HalfLatestPeriodEnd: d("2026-12-31"), LatestAnnualPeriodEnd: d("2026-06-30"),
+				EPSLatest: f(0.02), EPSPrior: f(0.05), EPSYoYPct: f(-60), NetIncomePrior: f(-1), NetIncomePositive: b(true)}),
+			want: RuleFail, wantValue: f(-60), wantDetail: []string{"below the +25% threshold"}},
+		{name: "eps at exactly zero is still loss-making",
+			cand: withGrowth(Growth{BasisPeriodType: "ttm", EPSLatest: f(0), EPSPrior: f(-0.01)}),
+			want: RuleFail, wantDetail: []string{"Still loss-making on EPS (trailing 12 months)"}},
+	})
+}
+
+func TestEPSTurnaroundAndLossMaking(t *testing.T) {
+	cases := []struct {
+		name       string
+		g          *Growth
+		turn, loss bool
+	}{
+		{"nil", nil, false, false},
+		{"no eps, no annual swing", &Growth{}, false, false},
+		{"eps swing on the basis", &Growth{BasisPeriodType: "ttm", EPSLatest: f(1), EPSPrior: f(-1)}, true, false},
+		{"eps swing from exactly zero", &Growth{EPSLatest: f(1), EPSPrior: f(0)}, true, false},
+		{"annual swing, annual basis", &Growth{BasisPeriodType: "annual", NetIncomePrior: f(-1), NetIncomePositive: b(true)}, true, false},
+		{"annual swing, empty basis reads annual", &Growth{NetIncomePrior: f(-1), NetIncomePositive: b(true)}, true, false},
+		{"annual swing older than the ttm basis", &Growth{BasisPeriodType: "ttm", LatestPeriodEnd: d("2026-12-31"), LatestAnnualPeriodEnd: d("2026-06-30"), NetIncomePrior: f(-1), NetIncomePositive: b(true)}, false, false},
+		{"annual swing as new as the ttm basis", &Growth{BasisPeriodType: "ttm", LatestPeriodEnd: d("2026-06-30"), LatestAnnualPeriodEnd: d("2026-06-30"), NetIncomePrior: f(-1), NetIncomePositive: b(true)}, true, false},
+		{"annual swing, half basis, no dates", &Growth{BasisPeriodType: "half", NetIncomePrior: f(-1), NetIncomePositive: b(true)}, false, false},
+		{"loss on the basis", &Growth{BasisPeriodType: "ttm", EPSLatest: f(-1), EPSPrior: f(-2)}, false, true},
+		{"loss on the basis overrides an older annual swing", &Growth{BasisPeriodType: "ttm", LatestPeriodEnd: d("2026-12-31"), LatestAnnualPeriodEnd: d("2026-06-30"), EPSLatest: f(-1), NetIncomePrior: f(-1), NetIncomePositive: b(true)}, false, true},
+		{"profit on the basis is not a loss", &Growth{EPSLatest: f(0.5), EPSPrior: f(0.4)}, false, false},
+	}
+	for _, tc := range cases {
+		if got := tc.g.EPSTurnaround(); got != tc.turn {
+			t.Errorf("%s: EPSTurnaround = %v, want %v", tc.name, got, tc.turn)
+		}
+		if got := tc.g.EPSLossMaking(); got != tc.loss {
+			t.Errorf("%s: EPSLossMaking = %v, want %v", tc.name, got, tc.loss)
+		}
+	}
+}
+
+func withQuality(q Quality) Candidate { return Candidate{StockCode: "TST", Close: 10, Quality: &q} }
+
+func TestRuleROE(t *testing.T) {
+	runRuleCases(t, ruleROE, []ruleCase{
+		{name: "no quality row", cand: Candidate{}, want: RuleUnknown, wantDetail: []string{"No reported financial statements"}},
+		{name: "at 15 passes", cand: withQuality(Quality{ROEPct: f(15), TotalEquity: f(1), BasisPeriodType: "annual", BasisPeriodEnd: d("2026-06-30")}),
+			want: RulePass, wantValue: f(15), wantDetail: []string{"Return on equity 15.0% (FY ending 2026-06-30)"}},
+		{name: "ttm basis label", cand: withQuality(Quality{ROEPct: f(22), BasisPeriodType: "ttm", BasisPeriodEnd: d("2026-12-31")}),
+			want: RulePass, wantValue: f(22), wantDetail: []string{"(12 months to 2026-12-31)"}},
+		{name: "under 15 fails", cand: withQuality(Quality{ROEPct: f(14.9), TotalEquity: f(1)}), want: RuleFail, wantValue: f(14.9), wantDetail: []string{"below the 15% threshold"}},
+		{name: "negative roe fails", cand: withQuality(Quality{ROEPct: f(-8), TotalEquity: f(1)}), want: RuleFail, wantValue: f(-8)},
+		{name: "negative equity fails even without a ratio", cand: withQuality(Quality{TotalEquity: f(-5e6)}), want: RuleFail, wantDetail: []string{"zero or negative"}},
+		{name: "zero equity fails", cand: withQuality(Quality{TotalEquity: f(0), ROEPct: f(40)}), want: RuleFail},
+		{name: "null roe for another reason is unknown", cand: withQuality(Quality{TotalEquity: f(1e9)}), want: RuleUnknown, wantDetail: []string{"10% of total assets"}},
+	})
+}
+
+func TestRuleNetMargin(t *testing.T) {
+	runRuleCases(t, ruleNetMargin, []ruleCase{
+		{name: "no quality row", cand: Candidate{}, want: RuleUnknown},
+		{name: "no revenue", cand: withQuality(Quality{NetMarginPct: f(12)}), want: RuleUnknown, wantDetail: []string{"revenue"}},
+		{name: "zero revenue", cand: withQuality(Quality{Revenue: f(0), NetMarginPct: f(12)}), want: RuleUnknown},
+		{name: "negative revenue", cand: withQuality(Quality{Revenue: f(-1), NetMarginPct: f(12)}), want: RuleUnknown},
+		{name: "no net profit", cand: withQuality(Quality{Revenue: f(1e9)}), want: RuleUnknown, wantDetail: []string{"net profit"}},
+		{name: "at 10 passes", cand: withQuality(Quality{Revenue: f(1e9), NetMarginPct: f(10)}), want: RulePass, wantValue: f(10), wantDetail: []string{"Net margin 10.0%"}},
+		{name: "under 10 fails", cand: withQuality(Quality{Revenue: f(1e9), NetMarginPct: f(9.99)}), want: RuleFail, wantValue: f(9.99), wantDetail: []string{"below the 10% threshold"}},
+		{name: "a loss fails", cand: withQuality(Quality{Revenue: f(1e9), NetMarginPct: f(-4)}), want: RuleFail, wantValue: f(-4)},
+	})
+}
+
+func TestRuleCashConversion(t *testing.T) {
+	runRuleCases(t, ruleCashConversion, []ruleCase{
+		{name: "no quality row", cand: Candidate{}, want: RuleUnknown},
+		{name: "financial is not meaningful", cand: withQuality(Quality{IsFinancial: true, FreeCashFlow: f(9), NetIncome: f(10)}),
+			want: RuleUnknown, wantDetail: []string{"Not meaningful for banks, insurers and other financials"}},
+		{name: "not-meaningful list alone", cand: withQuality(Quality{NotMeaningful: []string{RatioFCFConversion}, FreeCashFlow: f(9), NetIncome: f(10)}), want: RuleUnknown},
+		{name: "no fcf", cand: withQuality(Quality{NetIncome: f(10)}), want: RuleUnknown},
+		{name: "no net income", cand: withQuality(Quality{FreeCashFlow: f(10)}), want: RuleUnknown},
+		{name: "loss fails", cand: withQuality(Quality{FreeCashFlow: f(10), NetIncome: f(-1)}), want: RuleFail, wantDetail: []string{"zero or negative"}},
+		{name: "zero profit fails", cand: withQuality(Quality{FreeCashFlow: f(10), NetIncome: f(0)}), want: RuleFail},
+		{name: "negative fcf fails", cand: withQuality(Quality{FreeCashFlow: f(-5), NetIncome: f(10)}), want: RuleFail, wantValue: f(-0.5), wantDetail: []string{"Free cash flow is zero or negative"}},
+		{name: "at 0.8x passes", cand: withQuality(Quality{FreeCashFlow: f(8), NetIncome: f(10)}), want: RulePass, wantValue: f(0.8), wantDetail: []string{"0.80x net profit"}},
+		{name: "under 0.8x fails", cand: withQuality(Quality{FreeCashFlow: f(7.9), NetIncome: f(10)}), want: RuleFail, wantValue: f(0.79), wantDetail: []string{"under 0.8x"}},
+	})
+}
+
+func TestRuleLeverage(t *testing.T) {
+	runRuleCases(t, ruleLeverage, []ruleCase{
+		{name: "no quality row", cand: Candidate{}, want: RuleUnknown},
+		{name: "financial is not meaningful", cand: withQuality(Quality{IsFinancial: true, NetDebt: f(1), EBITDA: f(10)}), want: RuleUnknown, wantDetail: []string{"Not meaningful"}},
+		{name: "no net debt", cand: withQuality(Quality{EBITDA: f(10)}), want: RuleUnknown, wantDetail: []string{"Net debt cannot be measured"}},
+		{name: "net cash passes", cand: withQuality(Quality{NetDebt: f(-318e6), EBITDA: f(636e6), Currency: "USD"}),
+			want: RulePass, wantValue: f(-0.5), wantDetail: []string{"Net cash of USD 318.0m, excluding leases"}},
+		{name: "net cash passes without ebitda", cand: withQuality(Quality{NetDebt: f(-5e6), Currency: "AUD"}), want: RulePass, wantDetail: []string{"Net cash of A$5.0m"}},
+		{name: "zero net debt passes", cand: withQuality(Quality{NetDebt: f(0), EBITDA: f(10)}), want: RulePass, wantValue: f(0), wantDetail: []string{"No net debt"}},
+		{name: "normalised ebitda is preferred", cand: withQuality(Quality{NetDebt: f(25), NormalizedEBITDA: f(10), EBITDA: f(5)}), want: RulePass, wantValue: f(2.5)},
+		{name: "statutory ebitda when no normalised", cand: withQuality(Quality{NetDebt: f(26), EBITDA: f(10)}), want: RuleFail, wantValue: f(2.6), wantDetail: []string{"above 2.5x"}},
+		{name: "net debt with no ebitda is unknown", cand: withQuality(Quality{NetDebt: f(5e6)}), want: RuleUnknown, wantDetail: []string{"no EBITDA"}},
+		{name: "net debt with negative ebitda fails", cand: withQuality(Quality{NetDebt: f(5e6), EBITDA: f(-1)}), want: RuleFail, wantDetail: []string{"zero or negative EBITDA"}},
+	})
+}
+
+func TestRuleAboveSMA200(t *testing.T) {
+	runRuleCases(t, ruleAboveSMA200, []ruleCase{
+		{name: "null", cand: Candidate{Close: 10}, want: RuleUnknown},
+		{name: "zero average", cand: Candidate{Close: 10, SMA200: f(0)}, want: RuleUnknown},
+		{name: "above", cand: Candidate{Close: 11, SMA200: f(10)}, want: RulePass, wantValue: f(10), wantDetail: []string{"200-day average A$10.00"}},
+		{name: "equal fails", cand: Candidate{Close: 10, SMA200: f(10)}, want: RuleFail, wantValue: f(0), wantDetail: []string{"not above"}},
+		{name: "below", cand: Candidate{Close: 9, SMA200: f(10)}, want: RuleFail, wantValue: f(-10)},
+	})
+}
+
+func TestRuleRevenueNotShrinking(t *testing.T) {
+	runRuleCases(t, ruleRevenueNotShrinking, []ruleCase{
+		{name: "no row", cand: Candidate{}, want: RuleUnknown},
+		{name: "no revenue growth", cand: withGrowth(Growth{EPSYoYPct: f(5)}), want: RuleUnknown},
+		{name: "flat passes", cand: withGrowth(Growth{RevenueYoYPct: f(0)}), want: RulePass, wantValue: f(0)},
+		{name: "growth passes", cand: withGrowth(Growth{RevenueYoYPct: f(7), LatestAnnualPeriodEnd: d("2026-06-30")}), want: RulePass, wantValue: f(7), wantDetail: []string{"FY ending 2026-06-30"}},
+		{name: "shrinking fails", cand: withGrowth(Growth{RevenueYoYPct: f(-0.1)}), want: RuleFail, wantValue: f(-0.1), wantDetail: []string{"revenue shrank"}},
 	})
 }
 
@@ -368,6 +537,8 @@ func TestFormatting(t *testing.T) {
 		money(250_000):                   "A$250k",
 		money(1_250_000):                 "A$1.2m",
 		money(3_400_000_000):             "A$3.4b",
+		moneyIn(4_290_000_000, "USD"):    "USD 4.3b",
+		moneyIn(12_000, ""):              "A$12k",
 		pct(12.34):                       "+12.3%",
 		pct(-0.05):                       "-0.1%",
 		price(0.5):                       "A$0.50",

@@ -42,6 +42,15 @@ var ruleWeights = map[string]map[string]float64{
 		RuleLiquidity:     0.10,
 		RuleRS:            0.15,
 	},
+	IDQualityCompounders: {
+		RuleROE:                 0.20,
+		RuleNetMargin:           0.15,
+		RuleCashConversion:      0.15,
+		RuleLeverage:            0.15,
+		RuleLiquidity:           0.10,
+		RuleAboveSMA200:         0.15,
+		RuleRevenueNotShrinking: 0.10,
+	},
 }
 
 const (

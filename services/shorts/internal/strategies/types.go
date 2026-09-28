@@ -5,9 +5,12 @@
 // strategy's prose (description, rules, evaluation text, caveats, sources),
 // and Evaluate() turns a slice of Candidates (one row per stock, read by the
 // store from mv_price_features LEFT JOIN mv_fundamentals_growth LEFT JOIN
-// mv_screener_data) plus the market Regime (mv_market_regime) into ranked
-// Picks. Column names mirror docs/plans/stock-picker.md §2.2-§2.4, which is
-// the contract with the data layer.
+// mv_screener_data, plus the mv_fundamentals_quality row and valuation inputs
+// read by a separate query) and the market Regime (mv_market_regime) into
+// ranked Picks. Column names mirror docs/plans/stock-picker.md §2.2-§2.4 and
+// docs/plans/fundamentals-coverage.md §2.6-§2.7, the contracts with the data
+// layer. The financials decision (fundamentals_quality.go) and valuation
+// (valuation.go) are made here, once, for every surface.
 //
 // Every rule resolves to pass, fail or unknown. Unknown means the data is
 // missing, never counts as a pass, and a stock cannot reach status
@@ -37,6 +40,9 @@ const (
 	StatusSetup PickStatus = "setup"
 	// StatusWatch: at least one rule passes, but the stock is not a setup.
 	StatusWatch PickStatus = "watch"
+	// StatusNone: the stock is in the evaluated universe but is not one of
+	// the strategy's picks (GetStockStrategyFit only). Never a filter value.
+	StatusNone PickStatus = "none"
 )
 
 // statusRank orders the ladder: lower is better.
@@ -126,6 +132,21 @@ type Growth struct {
 	Currency         string
 	PeriodsAvailable int32
 	FetchedAt        *time.Time
+
+	// Appended to mv_fundamentals_growth by migration 000132 (plan
+	// fundamentals-coverage.md §2.6) and read by the separate
+	// fundamentalsExtras query, never by the candidates query: empty / nil on
+	// a database without 000132.
+	//
+	// RevenueBasisSource / EPSBasisSource are "filing" when either row of the
+	// pair behind the growth figure (or the field it used) came from a company
+	// filing, else "vendor".
+	RevenueBasisSource string
+	EPSBasisSource     string
+	// RevenueLatestPeriodEnd / RevenuePriorPeriodEnd are the ends of the pair
+	// RevenueYoYPct compares (nil without a pair).
+	RevenueLatestPeriodEnd *time.Time
+	RevenuePriorPeriodEnd  *time.Time
 }
 
 // HasGrowthData reports whether at least one growth percentage is known.
@@ -133,11 +154,53 @@ func (g *Growth) HasGrowthData() bool {
 	return g != nil && (g.RevenueYoYPct != nil || g.EPSYoYPct != nil)
 }
 
-// Turnaround reports "prior loss, now profit": net_income_prior <= 0 AND
-// net_income_positive. Both must be known.
+// Turnaround reports "prior loss, now profit" on the ANNUAL net income:
+// net_income_prior <= 0 AND net_income_positive. Both must be known.
+//
+// The EPS rules do not read this directly: EPSTurnaround decides whether the
+// annual swing may speak for the EPS basis (plan fundamentals-coverage.md
+// §5.4).
 func (g *Growth) Turnaround() bool {
 	return g != nil && g.NetIncomePrior != nil && g.NetIncomePositive != nil &&
 		*g.NetIncomePrior <= 0 && *g.NetIncomePositive
+}
+
+// EPSTurnaround reports a loss-to-profit swing judged on the SAME basis as
+// the EPS growth figure (basis_period_type):
+//
+//   - on the chosen basis, eps_latest > 0 and eps_prior <= 0; or
+//   - the annual net-income swing (Turnaround), but only when the EPS basis is
+//     annual, or the latest annual is at least as new as the EPS basis's
+//     latest point. A fresher TTM or half-year loss is not overruled by an
+//     older annual profit.
+func (g *Growth) EPSTurnaround() bool {
+	if g == nil {
+		return false
+	}
+	if g.epsSwungToProfit() {
+		return true
+	}
+	if !g.Turnaround() {
+		return false
+	}
+	switch g.BasisPeriodType {
+	case "", "annual":
+		return true
+	}
+	return g.LatestAnnualPeriodEnd != nil && g.LatestPeriodEnd != nil &&
+		!g.LatestAnnualPeriodEnd.Before(*g.LatestPeriodEnd)
+}
+
+// epsSwungToProfit: on the chosen EPS basis, eps_latest > 0 and eps_prior <= 0.
+func (g *Growth) epsSwungToProfit() bool {
+	return g.EPSLatest != nil && g.EPSPrior != nil && *g.EPSLatest > 0 && *g.EPSPrior <= 0
+}
+
+// EPSLossMaking reports eps_latest <= 0 on the chosen EPS basis without an
+// EPSTurnaround: "still loss-making", which the EPS rules read as a fail,
+// not an unknown.
+func (g *Growth) EPSLossMaking() bool {
+	return g != nil && g.EPSLatest != nil && *g.EPSLatest <= 0 && !g.EPSTurnaround()
 }
 
 // Candidate is one stock as the evaluator sees it: a row of
@@ -182,13 +245,50 @@ type Candidate struct {
 	// mv_fundamentals_growth (plan §2.2); nil when the stock has no row.
 	Growth *Growth
 
+	// mv_fundamentals_quality (migration 000132, plan fundamentals-coverage.md
+	// §2.7), read by the separate fundamentalsExtras query. nil when the stock
+	// has no row or the database predates 000132. PrepareCandidates applies
+	// the financials decision (ApplyQualityRules) before any rule reads it.
+	Quality *Quality
+
+	// ValuationInputs are read beside the quality row (share count, 12-month
+	// EPS, the listed-unit evidence); nil before 000132. Valuation is derived
+	// from them and the close by PrepareCandidates (Valuate).
+	ValuationInputs *ValuationInputs
+	Valuation       Valuation
+
 	// mv_screener_data, falling back to "company-metadata" for names.
 	CompanyName string
 	Industry    string
 	LogoURL     string
 	ShortPct    *float64 // nil when the stock has no reported short position
 	DaysToCover *float64 // nil when there is no volume to divide by
-	MarketCap   *float64 // nil when unknown
+	MarketCap   *float64 // nil when unknown (the screener's figure; see ResolvedMarketCap)
+}
+
+// HasFundamentalsRow reports whether the stock has any reported
+// fundamentals row: a growth row or a quality row.
+func (c *Candidate) HasFundamentalsRow() bool {
+	return c != nil && (c.Growth != nil || c.Quality != nil)
+}
+
+// ResolvedMarketCap is the market cap every picker surface uses (plan
+// fundamentals-coverage.md §5.3): our own latest close x shares on issue
+// (Valuation), falling back to the screener's figure only when we hold no
+// usable share count. A listing whose unit is not one ordinary share (a CDI)
+// has a share count that contradicts the price, so it gets neither: a
+// market cap we cannot vouch for is withheld, not borrowed.
+func (c *Candidate) ResolvedMarketCap() *float64 {
+	if c == nil {
+		return nil
+	}
+	if c.Valuation.MarketCap != nil {
+		return c.Valuation.MarketCap
+	}
+	if c.Valuation.Note == ValuationNoteListedUnit {
+		return nil
+	}
+	return c.MarketCap
 }
 
 // Regime mirrors one row of mv_market_regime (plan §2.4). Label is empty

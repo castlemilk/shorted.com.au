@@ -46,6 +46,13 @@ var ruleFuncs = map[string]ruleFunc{
 	RuleAboveSMA50:    ruleAboveSMA50,
 	RuleShortInterest: ruleShortInterest,
 	RuleDaysToCover:   ruleDaysToCover,
+
+	RuleROE:                 ruleROE,
+	RuleNetMargin:           ruleNetMargin,
+	RuleCashConversion:      ruleCashConversion,
+	RuleLeverage:            ruleLeverage,
+	RuleAboveSMA200:         ruleAboveSMA200,
+	RuleRevenueNotShrinking: ruleRevenueNotShrinking,
 }
 
 // Thresholds. Named so the tests and the prose in registry.go can be checked
@@ -67,6 +74,13 @@ const (
 	daysToCoverMin         = 5.0
 	rsLeaderQuantile       = 0.75
 
+	// Quality compounders (plan fundamentals-coverage.md §5.4).
+	roeMinPct              = 15.0
+	netMarginMinPct        = 10.0
+	cashConversionMin      = 0.8
+	leverageMaxMultiple    = 2.5
+	revenueNotShrinkingMin = 0.0
+
 	// tolerance absorbs float noise on derived comparisons (1.3 x low).
 	tolerance = 1e-9
 )
@@ -86,15 +100,18 @@ func unknown(detail string) outcome {
 // ---------------------------------------------------------------- growth
 
 // ruleGrowth (Zanger): revenue YoY >= 25% OR EPS YoY >= 25% OR a swing from a
-// net loss to a net profit. Unknown only when BOTH growth figures are missing
-// and there is no turnaround to go on.
+// loss to a profit judged on the EPS basis (Growth.EPSTurnaround). A company
+// whose latest EPS on that basis is still a loss, with no growth figure that
+// passes, fails. Unknown only when BOTH growth figures are missing and the EPS
+// basis says neither turnaround nor loss.
 func ruleGrowth(c *Candidate, _ *evalEnv) outcome {
 	g := c.Growth
 	if g == nil {
 		return unknown("No reported fundamentals for this stock yet")
 	}
 	rev, eps := g.RevenueYoYPct, g.EPSYoYPct
-	turn := g.Turnaround()
+	turn := g.EPSTurnaround()
+	loss := g.EPSLossMaking()
 
 	var parts []string
 	if rev != nil {
@@ -104,7 +121,10 @@ func ruleGrowth(c *Candidate, _ *evalEnv) outcome {
 		parts = append(parts, growthPhrase("EPS", *eps, g.EPSYoYPriorPct, epsLabel(g)))
 	}
 	if turn {
-		parts = append(parts, "swung from a net loss to a net profit")
+		parts = append(parts, turnaroundPhrase(g))
+	}
+	if loss {
+		parts = append(parts, lossPhrase(g))
 	}
 	parts = append(parts, halfYearEvidence(g)...)
 
@@ -117,6 +137,8 @@ func ruleGrowth(c *Candidate, _ *evalEnv) outcome {
 			strength = (best - growthMinPct) / 75 // +100% scores full marks
 		}
 		return pass(sentence(parts), best, hasBest, strength)
+	case rev == nil && eps == nil && loss:
+		return fail(sentence(parts), 0, false)
 	case rev == nil && eps == nil:
 		return unknown("No revenue or EPS growth figure yet")
 	default:
@@ -124,20 +146,26 @@ func ruleGrowth(c *Candidate, _ *evalEnv) outcome {
 	}
 }
 
-// ruleEPSGrowth (CAN SLIM C and A): EPS YoY >= 25% or a loss-to-profit swing.
+// ruleEPSGrowth (CAN SLIM C and A): EPS YoY >= 25% or a loss-to-profit swing,
+// both judged on the EPS basis. Still loss-making on that basis is a fail,
+// not an unknown.
 func ruleEPSGrowth(c *Candidate, _ *evalEnv) outcome {
 	g := c.Growth
 	if g == nil {
 		return unknown("No reported fundamentals for this stock yet")
 	}
 	eps := g.EPSYoYPct
-	turn := g.Turnaround()
+	turn := g.EPSTurnaround()
+	loss := g.EPSLossMaking()
 	var parts []string
 	if eps != nil {
 		parts = append(parts, growthPhrase("EPS", *eps, g.EPSYoYPriorPct, epsLabel(g)))
 	}
 	if turn {
-		parts = append(parts, "swung from a net loss to a net profit")
+		parts = append(parts, turnaroundPhrase(g))
+	}
+	if loss {
+		parts = append(parts, lossPhrase(g))
 	}
 	switch {
 	case eps != nil && *eps >= growthMinPct:
@@ -147,11 +175,36 @@ func ruleEPSGrowth(c *Candidate, _ *evalEnv) outcome {
 			return pass(sentence(parts), *eps, true, 0.5)
 		}
 		return pass(sentence(parts), 0, false, 0.5)
+	case loss:
+		if eps != nil {
+			return fail(sentence(parts), *eps, true)
+		}
+		return fail(sentence(parts), 0, false)
 	case eps == nil:
 		return unknown("No EPS growth figure yet")
 	default:
 		return fail(sentence(append(parts, "below the +25% threshold")), *eps, true)
 	}
+}
+
+// turnaroundPhrase names the swing EPSTurnaround found: on the EPS basis
+// itself, or the annual net income.
+func turnaroundPhrase(g *Growth) string {
+	if g.epsSwungToProfit() {
+		if l := epsLabel(g); l != "" {
+			return "EPS swung from a loss to a profit (" + l + ")"
+		}
+		return "EPS swung from a loss to a profit"
+	}
+	return "swung from a net loss to a net profit"
+}
+
+// lossPhrase names a latest EPS at or below zero on the EPS basis.
+func lossPhrase(g *Growth) string {
+	if l := epsLabel(g); l != "" {
+		return "still loss-making on EPS (" + l + ")"
+	}
+	return "still loss-making on EPS"
 }
 
 // ruleRevenueGrowth (CAN SLIM): revenue YoY >= 20% on revenue_basis_period_type
@@ -435,6 +488,194 @@ func ruleDaysToCover(c *Candidate, _ *evalEnv) outcome {
 	return fail(detail+", under 5", d, true)
 }
 
+// ---------------------------------------------------------------- quality (quality compounders)
+
+const (
+	noStatementsYet  = "No reported financial statements for this stock yet"
+	notMeaningfulFin = "Not meaningful for banks, insurers and other financials"
+)
+
+// qualityBasis names the period the quality ratios are measured on.
+func qualityBasis(q *Quality) string {
+	if q.BasisPeriodEnd == nil {
+		return ""
+	}
+	switch q.BasisPeriodType {
+	case "ttm":
+		return "12 months to " + day(*q.BasisPeriodEnd)
+	case "annual":
+		return "FY ending " + day(*q.BasisPeriodEnd)
+	}
+	return "period ending " + day(*q.BasisPeriodEnd)
+}
+
+func withQualityBasis(detail string, q *Quality) string {
+	if b := qualityBasis(q); b != "" {
+		return detail + " (" + b + ")"
+	}
+	return detail
+}
+
+// balanceCurrency is the currency of the aligned balance row (the flow row's,
+// by the view's construction).
+func balanceCurrency(q *Quality) string {
+	if q.BalanceCurrency != "" {
+		return q.BalanceCurrency
+	}
+	return q.Currency
+}
+
+// ruleROE: roe_pct >= 15. Fail below 15, or when total equity is zero or
+// negative; unknown when roe_pct is NULL for any other reason (an equity
+// point missing, or average equity under 10% of average assets, where the
+// view withholds it as not meaningful).
+func ruleROE(c *Candidate, _ *evalEnv) outcome {
+	q := c.Quality
+	if q == nil {
+		return unknown(noStatementsYet)
+	}
+	if q.TotalEquity != nil && *q.TotalEquity <= 0 {
+		return fail("Shareholders' equity is zero or negative", 0, false)
+	}
+	if q.ROEPct == nil {
+		return unknown("Return on equity cannot be measured: it needs net profit, equity at both ends of the year, and equity of at least 10% of total assets")
+	}
+	roe := *q.ROEPct
+	detail := withQualityBasis("Return on equity "+pctAbs(roe), q)
+	if roe >= roeMinPct {
+		return pass(detail, roe, true, (roe-roeMinPct)/25) // 40% scores full marks
+	}
+	return fail(detail+", below the 15% threshold", roe, true)
+}
+
+// ruleNetMargin: net profit / revenue >= 10%, on the flow row.
+func ruleNetMargin(c *Candidate, _ *evalEnv) outcome {
+	q := c.Quality
+	if q == nil {
+		return unknown(noStatementsYet)
+	}
+	if q.Revenue == nil || *q.Revenue <= 0 {
+		return unknown("No positive revenue figure to measure a margin against")
+	}
+	if q.NetMarginPct == nil {
+		return unknown("No net profit figure for the same period")
+	}
+	m := *q.NetMarginPct
+	detail := withQualityBasis("Net margin "+pctAbs(m), q)
+	if m >= netMarginMinPct {
+		return pass(detail, m, true, (m-netMarginMinPct)/20) // 30% scores full marks
+	}
+	return fail(detail+", below the 10% threshold", m, true)
+}
+
+// ruleCashConversion: free cash flow > 0 and free cash flow / net profit >=
+// 0.8 on the flow row. Fail when net profit <= 0, free cash flow <= 0 or the
+// ratio is under 0.8; unknown when either figure is missing, and for
+// financials, where it is not meaningful. The value is the ratio.
+func ruleCashConversion(c *Candidate, _ *evalEnv) outcome {
+	q := c.Quality
+	if q == nil {
+		return unknown(noStatementsYet)
+	}
+	if q.IsFinancial || q.IsNotMeaningful(RatioFCFConversion) {
+		return unknown(notMeaningfulFin + ", whose cash flows mix customers' money with their own")
+	}
+	if q.FreeCashFlow == nil || q.NetIncome == nil {
+		return unknown("Free cash flow or net profit is missing for the period")
+	}
+	fcf, ni := *q.FreeCashFlow, *q.NetIncome
+	if ni <= 0 {
+		return fail(withQualityBasis("Net profit is zero or negative, so there is no profit to convert to cash", q), 0, false)
+	}
+	ratio := fcf / ni
+	if fcf <= 0 {
+		return fail(withQualityBasis("Free cash flow is zero or negative while net profit is positive", q), ratio, true)
+	}
+	detail := withQualityBasis(fmt.Sprintf("Free cash flow is %.2fx net profit", ratio), q)
+	if ratio >= cashConversionMin {
+		return pass(detail, ratio, true, (ratio-cashConversionMin)/0.7) // 1.5x scores full marks
+	}
+	return fail(detail+", under 0.8x", ratio, true)
+}
+
+// ruleLeverage: net cash, or net debt / COALESCE(normalized EBITDA, EBITDA)
+// <= 2.5. Net debt excludes leases (the view's definition). Fail above 2.5,
+// or with net debt against EBITDA <= 0; unknown when net debt is NULL, when
+// there is net debt but no EBITDA, and for financials. The value is the
+// multiple, when it can be computed.
+func ruleLeverage(c *Candidate, _ *evalEnv) outcome {
+	q := c.Quality
+	if q == nil {
+		return unknown(noStatementsYet)
+	}
+	if q.IsFinancial || q.IsNotMeaningful(RatioNetDebt) || q.IsNotMeaningful(RatioNetDebtToEBITDA) {
+		return unknown(notMeaningfulFin + ", whose debt is the funding of their business")
+	}
+	if q.NetDebt == nil {
+		return unknown("Net debt cannot be measured: no aligned balance sheet with debt and cash")
+	}
+	nd := *q.NetDebt
+	ebitda := q.NormalizedEBITDA
+	if ebitda == nil {
+		ebitda = q.EBITDA
+	}
+	cur := balanceCurrency(q)
+	if nd <= 0 {
+		detail := "Net cash of " + moneyIn(-nd, cur) + ", excluding leases"
+		if nd == 0 {
+			detail = "No net debt, excluding leases"
+		}
+		if ebitda != nil && *ebitda > 0 {
+			return pass(detail, nd / *ebitda, true, 1)
+		}
+		return pass(detail, 0, false, 1)
+	}
+	if ebitda == nil {
+		return unknown("Net debt of " + moneyIn(nd, cur) + " excluding leases, but no EBITDA to measure it against")
+	}
+	if *ebitda <= 0 {
+		return fail("Net debt of "+moneyIn(nd, cur)+" excluding leases, against zero or negative EBITDA", 0, false)
+	}
+	ratio := nd / *ebitda
+	detail := fmt.Sprintf("Net debt excluding leases is %.1fx EBITDA", ratio)
+	if ratio <= leverageMaxMultiple+tolerance {
+		return pass(detail, ratio, true, (leverageMaxMultiple-ratio)/leverageMaxMultiple)
+	}
+	return fail(detail+", above 2.5x", ratio, true)
+}
+
+// ruleAboveSMA200 (quality compounders' trigger): close > sma200.
+func ruleAboveSMA200(c *Candidate, _ *evalEnv) outcome {
+	if c.SMA200 == nil || *c.SMA200 <= 0 {
+		return unknown("Not enough history for the 200-day average")
+	}
+	s200 := *c.SMA200
+	value := (c.Close/s200 - 1) * 100
+	detail := fmt.Sprintf("Close %s vs 200-day average %s (%s)", price(c.Close), price(s200), pct(value))
+	if c.Close > s200 {
+		return pass(detail, value, true, value/20)
+	}
+	return fail(detail+": not above the 200-day average", value, true)
+}
+
+// ruleRevenueNotShrinking (quality compounders, non-core): revenue YoY >= 0
+// on revenue_basis_period_type.
+func ruleRevenueNotShrinking(c *Candidate, _ *evalEnv) outcome {
+	g := c.Growth
+	if g == nil {
+		return unknown("No reported fundamentals for this stock yet")
+	}
+	if g.RevenueYoYPct == nil {
+		return unknown("No revenue growth figure yet")
+	}
+	rev := *g.RevenueYoYPct
+	phrase := growthPhrase("Revenue", rev, g.RevenueYoYPriorPct, revenueLabel(g))
+	if rev >= revenueNotShrinkingMin {
+		return pass(sentence([]string{phrase}), rev, true, rev/20)
+	}
+	return fail(sentence([]string{phrase, "revenue shrank"}), rev, true)
+}
+
 // ---------------------------------------------------------------- formatting
 
 func clamp01(v float64) float64 {
@@ -464,16 +705,24 @@ func day(t time.Time) string  { return t.Format("2006-01-02") }
 
 func price(v float64) string { return fmt.Sprintf("A$%.2f", v) }
 
-func money(v float64) string {
+func money(v float64) string { return moneyIn(v, "AUD") }
+
+// moneyIn formats a non-negative amount in a reporting currency: "A$1.2b" for
+// AUD (and an unknown currency), "USD 1.2b" otherwise.
+func moneyIn(v float64, currency string) string {
+	prefix := "A$"
+	if currency != "" && currency != "AUD" {
+		prefix = currency + " "
+	}
 	switch {
 	case v >= 1e9:
-		return fmt.Sprintf("A$%.1fb", v/1e9)
+		return fmt.Sprintf("%s%.1fb", prefix, v/1e9)
 	case v >= 1e6:
-		return fmt.Sprintf("A$%.1fm", v/1e6)
+		return fmt.Sprintf("%s%.1fm", prefix, v/1e6)
 	case v >= 1e3:
-		return fmt.Sprintf("A$%.0fk", v/1e3)
+		return fmt.Sprintf("%s%.0fk", prefix, v/1e3)
 	default:
-		return fmt.Sprintf("A$%.0f", v)
+		return fmt.Sprintf("%s%.0f", prefix, v)
 	}
 }
 
@@ -486,12 +735,15 @@ func sentence(parts []string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 
+// growthPhrase describes one growth figure. "Accelerating" needs a POSITIVE
+// prior growth to accelerate from: -40% to -10% is a smaller fall, not
+// acceleration.
 func growthPhrase(label string, yoy float64, prior *float64, basis string) string {
 	s := fmt.Sprintf("%s %s YoY", label, pct(yoy))
 	if basis != "" {
 		s += " (" + basis + ")"
 	}
-	if prior != nil && yoy > *prior {
+	if prior != nil && *prior > 0 && yoy > *prior {
 		s += fmt.Sprintf(", accelerating from %s", pct(*prior))
 	}
 	return s
@@ -499,10 +751,17 @@ func growthPhrase(label string, yoy float64, prior *float64, basis string) strin
 
 // revenueLabel names the series revenue growth is computed on
 // (revenue_basis_period_type): the latest half-year from a company filing
-// against the same half a year earlier, or the latest annual.
+// against the same half a year earlier, the latest twelve months against the
+// twelve months a year earlier, or the latest annual.
 func revenueLabel(g *Growth) string {
-	if g.RevenueBasisPeriodType == "half" {
+	switch g.RevenueBasisPeriodType {
+	case "half":
 		return halfLabel(g)
+	case "ttm":
+		if g.RevenueLatestPeriodEnd != nil {
+			return "12 months to " + day(*g.RevenueLatestPeriodEnd)
+		}
+		return "trailing 12 months"
 	}
 	if g.LatestAnnualPeriodEnd != nil {
 		return "FY ending " + day(*g.LatestAnnualPeriodEnd)
@@ -546,11 +805,13 @@ func epsLabel(g *Growth) string {
 // halfYearEvidence reports a latest half that beat the same half a year
 // earlier. Sign only, never a percentage, and never a pass condition.
 //
-// When revenue is already measured on the half basis the revenue line would
-// restate the headline figure, so it is left out.
+// When revenue is already measured on the half or the TTM basis the revenue
+// line would restate the headline figure (the half delta is TTM minus FY), so
+// it is left out.
 func halfYearEvidence(g *Growth) []string {
 	var out []string
-	if g.RevenueBasisPeriodType != "half" && g.RevenueHalfDelta != nil && *g.RevenueHalfDelta > 0 {
+	revenueIsFresher := g.RevenueBasisPeriodType == "half" || g.RevenueBasisPeriodType == "ttm"
+	if !revenueIsFresher && g.RevenueHalfDelta != nil && *g.RevenueHalfDelta > 0 {
 		out = append(out, "latest half-year revenue up on the same half a year earlier")
 	}
 	if g.NetIncomeHalfDelta != nil && *g.NetIncomeHalfDelta > 0 {

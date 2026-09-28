@@ -87,7 +87,7 @@ func TestListStrategies_ReturnsTheRegistryAndANeutralRegime(t *testing.T) {
 		resp, err := srv.ListStrategies(context.Background(), connect.NewRequest(&shortsv1alpha1.ListStrategiesRequest{}))
 		require.NoError(t, err)
 
-		require.Len(t, resp.Msg.Strategies, 4)
+		require.Len(t, resp.Msg.Strategies, len(strategies.Registry()))
 		for j, st := range strategies.Registry() {
 			got := resp.Msg.Strategies[j]
 			assert.Equal(t, st.ID, got.Id)
@@ -104,7 +104,10 @@ func TestListStrategies_ReturnsTheRegistryAndANeutralRegime(t *testing.T) {
 				assert.Equal(t, r.DataSource, got.Rules[k].DataSource)
 			}
 			if st.UsesFundamentals() {
-				assert.Equal(t, strategies.CoverageCaveat(0, -1), got.Caveats[0], "unmeasured coverage caveat first")
+				assert.Equal(t, st.CaveatsWithCoverage(0, -1)[0], got.Caveats[0], "unmeasured coverage caveat first")
+			}
+			if st.UsesQualityRules() {
+				assert.Equal(t, strategies.QualityCoverageCaveat(0, -1), got.Caveats[0], "quality strategies quote statement coverage")
 			}
 		}
 
@@ -127,7 +130,7 @@ func TestListStrategies_RegimeFailureDegradesToUnknown(t *testing.T) {
 
 	resp, err := newTestServer(t, mockStore).ListStrategies(context.Background(), connect.NewRequest(&shortsv1alpha1.ListStrategiesRequest{}))
 	require.NoError(t, err, "the definitions are static; a regime failure must not fail the call")
-	assert.Len(t, resp.Msg.Strategies, 4)
+	assert.Len(t, resp.Msg.Strategies, len(strategies.Registry()))
 	assert.Equal(t, "XJO", resp.Msg.Regime.IndexCode)
 	assert.Equal(t, "", resp.Msg.Regime.Regime)
 	assert.True(t, strings.HasPrefix(resp.Msg.Regime.Verdict, "Market regime unavailable"), resp.Msg.Regime.Verdict)
@@ -456,7 +459,7 @@ func TestStrategyPickProto_PresenceFlagsFollowThePointerNotTheValue(t *testing.T
 	known.RS3mPct = f64(0)   // exactly in line with XJO
 	known.ShortPct = f64(0)  // an ASIC row reporting no short position
 	known.MarketCap = f64(0) // an explicit zero is still a reported value
-	got := strategyPickProto(strategies.Pick{Candidate: known})
+	got := strategyPickProto(&strategies.Pick{Candidate: known})
 	assert.True(t, got.HasRs_3MPct)
 	assert.True(t, got.HasShortPct)
 	assert.True(t, got.HasMarketCap)
@@ -465,7 +468,7 @@ func TestStrategyPickProto_PresenceFlagsFollowThePointerNotTheValue(t *testing.T
 	assert.Equal(t, float64(0), got.ShortPct)
 
 	unknown := strategies.Candidate{StockCode: "UNK"} // no pointers set, no price
-	got = strategyPickProto(strategies.Pick{Candidate: unknown})
+	got = strategyPickProto(&strategies.Pick{Candidate: unknown})
 	assert.False(t, got.HasRs_3MPct)
 	assert.False(t, got.HasShortPct)
 	assert.False(t, got.HasMarketCap)
