@@ -72,4 +72,17 @@ describe("CompanyTaxCard", () => {
     expect(screen.getAllByText("nil tax payable")).toHaveLength(1);
     expect(mockGetCompanyTaxProfileClient).toHaveBeenCalledWith("BHP");
   });
+
+  it("reads an unreported taxable income as n/a, never a dash", async () => {
+    mockGetCompanyTaxProfileClient.mockResolvedValueOnce(taxProfile());
+
+    const { container } = renderWithQueryClient(
+      <CompanyTaxCard stockCode="BHP" />,
+    );
+
+    expect(await screen.findByText("Tax paid")).toBeInTheDocument();
+    // FY2023-24 has no taxable income on the ATO row.
+    expect(screen.getByText("n/a")).toBeInTheDocument();
+    expect(container.textContent).not.toContain("—");
+  });
 });

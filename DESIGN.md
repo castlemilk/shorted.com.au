@@ -119,7 +119,7 @@ Data provenance is a visual obligation, not a footnote. ASIC sourcing, T+4 discl
 - Monospace-first: IBM Plex Mono is the application default, not an accent
 - Warm-tinted neutrals; no pure `#000` or `#fff` anywhere in the system
 - Two rooms, not two palettes: warm paper by day, CRT black after hours
-- Numbers are first-class: `tabular-nums`, right-aligned, compact AUD formatting
+- Numbers are first-class: `tabular-nums`, right-aligned, compact amounts in the reporting currency (`$` only for AUD)
 - Flat surfaces at rest; amber light is a response, never a texture
 - Provenance visible: source, lag and methodology travel with the data
 
@@ -171,7 +171,7 @@ A single warm hue family carries the entire system, with olive and rust as suppo
 
 **The Serif Boundary Rule.** Serif is permitted on page titles (`h1`), standalone section headlines (`h2`), and editorial display heroes (`/news`, `/features`, the housing tracker). Serif is forbidden on card titles, dashboard and widget labels, control bars, table headers, buttons, navigation, and every numeral. If it is chrome or a number, it is mono. The `/shorts/[stockCode]` stock header stays mono by design.
 
-**The Tabular Rule.** Every numeral is `tabular-nums` and right-aligned in tables. Currency uses compact AUD ($1.2B / $340M / 11.62%). Columns of numbers must align on the decimal without exception.
+**The Tabular Rule.** Every numeral is `tabular-nums` and right-aligned in tables. Amounts are compact and stay in the company's **reporting currency**: `$` is written only for AUD ($1.2B / $340M / 11.62%); a table or card that mixes currencies prefixes each non-AUD amount with its ISO code (USD 4.29B); a single-currency table states its currency once and leaves the cells bare; prose marks every amount (US$58.8B, A$3.1B) so a non-AUD figure can never be read as AUD. A figure we do not hold reads `n/a`; one withheld as not meaningful (a bank's margin, growth beyond +500% or -95%) reads `n/m` with the reason in its title; never 0, never a dash. Negatives use a true minus (U+2212). `web/src/@/lib/fundamentals/format.ts` implements all of it. Columns of numbers must align on the decimal without exception.
 
 ## 4. Elevation
 
@@ -234,7 +234,7 @@ A shared `@visx` core across the product. Series use the **warm** palette (rust 
 ### Do:
 - **Do** tint every neutral toward the amber hue. Warm Paper (`hsl(40 25% 97%)`) and CRT Black (`hsl(0 0% 5%)`), never `#fff` or `#000`.
 - **Do** import type tokens from `web/src/@/lib/typography.ts` (`pageTitle`, `sectionTitle`, `eyebrow`, `lede`) instead of hand-rolling class stacks.
-- **Do** keep every numeral mono and `tabular-nums`, right-aligned in tables, with compact AUD formatting.
+- **Do** keep every numeral mono and `tabular-nums`, right-aligned in tables, with compact amounts in the reporting currency (`$` only for AUD; see The Tabular Rule).
 - **Do** reserve true red and green for market direction only.
 - **Do** keep surfaces flat at rest and let amber glow respond to state.
 - **Do** ship data provenance with the data: ASIC source, T+4 lag, as-at dates, methodology and disclaimer links. "Not financial advice" is load-bearing.
