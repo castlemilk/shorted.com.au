@@ -28,6 +28,7 @@ import {
   latestResultPeriod,
   latestResultSourceDocument,
   priorCorrespondingPeriod,
+  valueSource,
 } from "./fundamentals-model";
 import { GrowthFigureView, growthFigures } from "./growth-figures";
 import { ProvenanceLegend, ProvenanceMark } from "./provenance";
@@ -51,11 +52,6 @@ interface Figure {
   prior: number | null;
   latestSource: string;
   priorSource: string;
-}
-
-/** Where one value came from: its field_sources entry, else its row's source. */
-function valueSource(period: StockFundamentalsPeriod, wire: string): string {
-  return period.fieldSources[wire] ?? period.source;
 }
 
 /** A mark only for values that did not come from the default vendor. */

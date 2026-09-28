@@ -27,20 +27,27 @@ import { shapeStatements } from "./statements-shape";
 // state shows ONLY when nothing is held AND the collector has a definite
 // answer; its copy never states or implies that a listed company publishes
 // no statements.
+//
+// The filings list and the "empty" state's closing sentence both depend on
+// the company details read, which the page keeps off its critical path: they
+// arrive as streamed slots (`reports`, `filingsNote`), so this tab never
+// waits on that read and never points at filings that are not listed.
 
-/** The empty-state sentence for a stock, or null when none applies. */
+/** The "empty" state's closing sentence, said only when filings are listed below. */
+export const FILINGS_LISTED_BELOW = "The company's own filings are listed below.";
+
+/** The empty-state sentence for a stock (without the filings sentence). */
 export function emptyStateCopy(
   kind: FundamentalsEmptyKind,
   code: string,
   lastAttemptAt: string,
-  hasFilings: boolean,
 ): string {
   const date = formatAsOf(lastAttemptAt);
   switch (kind) {
     case "empty":
       return `Our data providers hold no financial statements for ${code}${
         date ? ` (last checked ${date})` : ""
-      }.${hasFilings ? " The company's own filings are listed below." : ""}`;
+      }.`;
     case "pending":
       return `Fundamentals not yet collected for ${code}.`;
     case "failed":
@@ -50,7 +57,13 @@ export function emptyStateCopy(
   }
 }
 
-function FundamentalsEmptyState({ message }: { message: string }) {
+function FundamentalsEmptyState({
+  message,
+  note,
+}: {
+  message: string;
+  note?: ReactNode;
+}) {
   return (
     <Card role="region" aria-labelledby="fundamentals-empty-heading">
       <CardHeader className="pb-3">
@@ -63,7 +76,10 @@ function FundamentalsEmptyState({ message }: { message: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground">{message}</p>
+        <p className="text-sm text-muted-foreground">
+          {message}
+          {note ? <> {note}</> : null}
+        </p>
       </CardContent>
     </Card>
   );
@@ -77,8 +93,11 @@ export interface FinancialsTabProps {
   reports?: ReactNode;
   /** The ATO tax card, rendered last. */
   taxCard?: ReactNode;
-  /** The reports slot lists at least one filing. */
-  hasFilings?: boolean;
+  /**
+   * Appended to the "empty" state's sentence: the page streams
+   * FILINGS_LISTED_BELOW here only when the reports slot lists a filing.
+   */
+  filingsNote?: ReactNode;
 }
 
 export function FinancialsTab({
@@ -86,7 +105,7 @@ export function FinancialsTab({
   fundamentals,
   reports,
   taxCard,
-  hasFilings = false,
+  filingsNote,
 }: FinancialsTabProps) {
   const emptyKind = fundamentalsEmptyKind(fundamentals);
   const statements = fundamentals ? shapeStatements(fundamentals) : null;
@@ -107,8 +126,8 @@ export function FinancialsTab({
             emptyKind,
             stockCode,
             fundamentals.coverage.lastAttemptAt,
-            hasFilings,
           )}
+          note={emptyKind === "empty" ? filingsNote : undefined}
         />
       ) : null}
       {fundamentals ? <LatestResultCard fundamentals={fundamentals} /> : null}

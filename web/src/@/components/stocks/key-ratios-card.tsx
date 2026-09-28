@@ -21,8 +21,9 @@ import {
   formatPct,
   formatRatio,
   isNotMeaningful,
+  distinctSourceLabels,
   ratioOrNotMeaningful,
-  sourceLabel,
+  sourceListLabel,
   valuationNotAvailable,
   type FormattedValue,
 } from "~/@/lib/fundamentals/format";
@@ -30,6 +31,7 @@ import type {
   StockFundamentalsPeriod,
   StockFundamentalsQuality,
 } from "~/app/actions/getStockFundamentals";
+import { ratioSources } from "./fundamentals-model";
 
 // Key ratios (docs/plans/fundamentals-coverage.md §7.1, item 2). A props-only
 // server card over the API's FundamentalsQuality row: margins, returns, cash
@@ -38,6 +40,19 @@ import type {
 // bank, insurer or other financial (the API's not_meaningful list); P/E and
 // P/B read "n/a (reports in USD)" for a non-AUD reporter. This card replaces
 // the stale "Key metrics" card.
+
+/**
+ * The valuation notes that explain a missing P/E. "no-shares" does not: P/E
+ * is close / EPS and needs no share count, so a null P/E under that note has
+ * another cause (a loss, stale EPS) and reads plain "n/a". Market cap and P/B
+ * do need the share count and keep it.
+ */
+const PE_NOTES: readonly string[] = ["non-aud", "listed-unit", "no-price"];
+
+/** The note to explain a missing P/E with, "" when the note does not govern P/E. */
+function peNote(note: string): string {
+  return PE_NOTES.includes(note.trim().toLowerCase()) ? note : "";
+}
 
 interface RatioItem {
   /** Wire name, as `not_meaningful` lists it. */
@@ -173,7 +188,7 @@ export function ratioItems(quality: StockFundamentalsQuality): RatioItem[] {
       value: plain(
         quality.peRatio !== null
           ? formatMultiple(quality.peRatio)
-          : valuationNotAvailable(quality.currency, quality.valuationNote),
+          : valuationNotAvailable(quality.currency, peNote(quality.valuationNote)),
       ),
     },
     {
@@ -206,6 +221,11 @@ export function KeyRatiosCard({ quality, basisPeriod }: KeyRatiosCardProps) {
   const balanceDate = formatDate(quality.balancePeriodEnd);
   const priceDate = formatDate(quality.priceAsOf);
   const asAt = basisPeriod ? formatAsOf(basisPeriod.fetchedAt) : "";
+  // Every source behind the ratios, not only the flow row's: a filing- or
+  // Markit-filled revenue or NPAT feeds net margin and ROE.
+  const sourceIds = ratioSources(quality.source, basisPeriod);
+  const sources = sourceListLabel(sourceIds);
+  const plural = distinctSourceLabels(sourceIds).length > 1;
   const anyNotMeaningful = items.some((item) => item.value.text === NOT_MEANINGFUL);
 
   return (
@@ -271,7 +291,7 @@ export function KeyRatiosCard({ quality, basisPeriod }: KeyRatiosCardProps) {
           <p>
             Ratios use the reporting currency
             {quality.currency ? ` (${quality.currency})` : ""}; market cap is
-            in AUD. Source: {sourceLabel(quality.source) || "not stated"}
+            in AUD. {plural ? "Sources" : "Source"}: {sources || "not stated"}
             {asAt ? `, as at ${asAt}` : ""}.
           </p>
         </div>

@@ -114,6 +114,16 @@ describe("PicksHubPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("states fundamentals coverage from the row count, as the strategy pages do", async () => {
+    render(await PicksHubPage());
+    // PICKS carries fundamentalsRowsCount 1203 >= fundamentalsCoverageCount 812.
+    const line = screen.getByText(/fundamentals for/).closest("p")!;
+    expect(line.textContent).toContain(
+      "fundamentals for 1,203 of 1,904 stocks (growth figures for 812)",
+    );
+    expect(line.textContent).not.toContain("growth figures for 812 of 1,904");
+  });
+
   it("falls back to registry copy and bails the render when the API is down", async () => {
     getStrategies.mockResolvedValue(null);
     getStrategyPicks.mockResolvedValue(null);

@@ -130,6 +130,18 @@ describe("sortPickRows (mirrors sort.go)", () => {
     expect(pickSortDef("market_cap").hasColumn).toBe(false);
     expect(pickSortDef("revenue_yoy").hasColumn).toBe(true);
   });
+
+  it("describes the market cap it sorts by, the screener fallback included", () => {
+    // The API resolves a pick's market cap as close x shares, falling back to
+    // the screener's figure when no share count is held (ResolvedMarketCap):
+    // the tooltip must not promise one figure and sort by another.
+    const { title } = pickSortDef("market_cap");
+    expect(title).toBe(
+      "Latest close x shares on issue, in AUD; the screener's figure where we hold no share count",
+    );
+    const emDash = String.fromCharCode(0x2014);
+    for (const def of PICK_SORTS) expect(def.title).not.toContain(emDash);
+  });
 });
 
 describe("isRankOrder", () => {

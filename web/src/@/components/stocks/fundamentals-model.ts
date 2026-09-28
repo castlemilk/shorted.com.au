@@ -25,6 +25,52 @@ export function isFlowPeriodType(periodType: string): boolean {
   return Object.prototype.hasOwnProperty.call(FLOW_TYPE_RANK, periodType);
 }
 
+/**
+ * Where one value came from: its `field_sources` entry, else its row's
+ * source. A vendor row can carry a filing- or Markit-filled revenue or NPAT
+ * (contract §2.2, §3.6), so any attribution of a quoted figure reads this,
+ * never the row's source alone.
+ */
+export function valueSource(period: StockFundamentalsPeriod, wire: string): string {
+  return period.fieldSources[wire] ?? period.source;
+}
+
+/**
+ * The flow fields the Key ratios card's ratios read, as `field_sources` keys.
+ * Balance-sheet inputs are not listed: no filing or Markit fill reaches them.
+ */
+const RATIO_FLOW_FIELDS: readonly string[] = [
+  "revenue",
+  "net_income",
+  "gross_profit",
+  "operating_income",
+  "free_cash_flow",
+  "ebitda",
+  "normalized_ebitda",
+  "interest_expense",
+  "dividends_paid",
+];
+
+/**
+ * Every source behind the Key ratios: the flow row's source first, then any
+ * field of the basis period that came from elsewhere (a filing- or
+ * Markit-filled revenue or NPAT), so the card never credits a vendor for a
+ * filing figure.
+ */
+export function ratioSources(
+  rowSource: string,
+  basisPeriod: StockFundamentalsPeriod | null,
+): string[] {
+  const sources = [rowSource];
+  if (basisPeriod) {
+    for (const field of RATIO_FLOW_FIELDS) {
+      const source = basisPeriod.fieldSources[field];
+      if (source) sources.push(source);
+    }
+  }
+  return sources;
+}
+
 /** A headline figure (revenue, NPAT or EPS) is held for the period. */
 export function hasHeadlineFigure(period: StockFundamentalsPeriod): boolean {
   return (

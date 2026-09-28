@@ -327,7 +327,8 @@ export function sortedByValue(row: PickRow, key: PickSortKey): FormattedValue {
     case "pe":
       return (f && peValue(f)) ?? { text: NOT_AVAILABLE };
     case "market_cap":
-      // The resolved market cap is our own close x shares, in AUD.
+      // The resolved market cap, in AUD: our own close x shares, or the
+      // screener's figure where no share count is held (the header says so).
       return { text: formatAmount(row.marketCap, "AUD") };
     default:
       return { text: NOT_AVAILABLE, title: pickSortDef(key).title };

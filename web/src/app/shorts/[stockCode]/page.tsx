@@ -27,9 +27,9 @@ import CompanyInfo, {
 import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
 import { CompanyTaxCard } from "~/@/components/company/company-tax-card";
 import {
-  FinancialReports,
-  hasListedReports,
-} from "~/@/components/company/financial-reports";
+  FilingsListedNote,
+  FinancialReportsSection,
+} from "~/@/components/company/financial-reports-section";
 import { FinancialsTab } from "~/@/components/stocks/financials-tab";
 import { FundamentalsSummary } from "~/@/components/stocks/fundamentals-summary";
 import { StrategyFitCard } from "~/@/components/stocks/strategy-fit-card";
@@ -77,7 +77,6 @@ import {
   getStockStrategyFit,
   type StockStrategyFit,
 } from "~/app/actions/getStockStrategyFit";
-import { getEnrichedCompanyMetadata } from "~/app/actions/company-metadata";
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
@@ -266,11 +265,6 @@ const Page = async ({ params }: PageProps) => {
       return null;
     },
   );
-  // The company's filings for the Financials tab. The same React-cached
-  // getStockDetails read the Overview's company card makes, so no extra call.
-  const enrichedPromise = getEnrichedCompanyMetadata(stockCode).catch(
-    (): Awaited<ReturnType<typeof getEnrichedCompanyMetadata>> => null,
-  );
   // Latest headlines for the crawlable research section below the tabs —
   // ISR-safe accessor, degrades to an empty list.
   const stockNewsPromise = getStockHeadlines(stockCode, 5);
@@ -311,8 +305,6 @@ const Page = async ({ params }: PageProps) => {
 
   const fundamentals = await fundamentalsPromise;
   const strategyFit = await strategyFitPromise;
-  const enriched = await enrichedPromise;
-  const financialReports = enriched?.financial_reports ?? [];
   const sourceDocument = latestResultSourceDocument(fundamentals);
   const newsArticles = await stockNewsPromise;
   const latestShortDate = await latestShortDatePromise;
@@ -787,14 +779,17 @@ const Page = async ({ params }: PageProps) => {
           // Latest result, Key ratios and the statements island from the
           // fundamentals API, then the company's filings, then the tax card
           // LAST. The stale "Key metrics" card and the raw extraction tiles
-          // are gone (docs/plans/fundamentals-coverage.md §7.1).
+          // are gone (docs/plans/fundamentals-coverage.md §7.1). The filings
+          // (and the empty state's "listed below" sentence) come from the
+          // company details read, which retries with backoff: they stream
+          // under their own Suspense boundaries so that read never holds the
+          // page. Serializable props only.
           <FinancialsTab
             stockCode={stockCode}
             fundamentals={fundamentals}
-            hasFilings={hasListedReports(financialReports)}
+            filingsNote={<FilingsListedNote stockCode={stockCode} />}
             reports={
-              <FinancialReports
-                reports={financialReports}
+              <FinancialReportsSection
                 stockCode={stockCode}
                 sourceDocumentUrl={sourceDocument?.url ?? ""}
               />

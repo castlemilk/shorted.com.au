@@ -105,6 +105,100 @@ describe("KeyRatiosCard", () => {
     expect(items.find((i) => i.name === "roe_pct")!.value.text).toBe("n/a");
   });
 
+  describe("P/E reason", () => {
+    function peText(overrides: Parameters<typeof quality>[0]): string {
+      return ratioItems(quality({ peRatio: null, ...overrides })).find(
+        (i) => i.name === "pe_ratio",
+      )!.value.text;
+    }
+
+    it("never blames the share count for a P/E it does not need (a loss, stale EPS)", () => {
+      // Valuate sets 'no-shares' for a stale share count yet still computes
+      // P/E from close / EPS: a null P/E under that note has another cause.
+      const items = ratioItems(
+        quality({
+          netMarginPct: -12,
+          peRatio: null,
+          marketCap: null,
+          priceToBook: null,
+          valuationNote: "no-shares",
+        }),
+      );
+      const text = (name: string) => items.find((i) => i.name === name)!.value.text;
+      expect(text("pe_ratio")).toBe("n/a");
+      // Market cap and P/B do need the share count: the note still governs them.
+      expect(text("market_cap")).toBe("n/a (no share count held)");
+      expect(text("price_to_book")).toBe("n/a (no share count held)");
+    });
+
+    it("keeps the notes that do govern P/E", () => {
+      expect(peText({ currency: "USD", valuationNote: "non-aud" })).toBe(
+        "n/a (reports in USD)",
+      );
+      expect(peText({ valuationNote: "listed-unit" })).toBe(
+        "n/a (listed unit is not one ordinary share)",
+      );
+      expect(peText({ valuationNote: "no-price" })).toBe("n/a (no recent price)");
+      expect(peText({ valuationNote: "" })).toBe("n/a");
+    });
+  });
+
+  describe("source footer", () => {
+    function footer(): string {
+      return screen.getByText(/^Ratios use the reporting currency/).textContent!;
+    }
+
+    it("never credits the vendor for a filing-filled revenue or NPAT behind the ratios", () => {
+      render(
+        <KeyRatiosCard
+          quality={quality()}
+          basisPeriod={period({
+            periodType: "annual",
+            periodEnd: "2026-06-30",
+            fetchedAt: "2026-09-27T20:00:00Z",
+            fieldSources: {
+              revenue: "asx-filing-extraction",
+              net_income: "asx-filing-extraction",
+            },
+          })}
+        />,
+      );
+      expect(footer()).toContain(
+        "Sources: Yahoo Finance and Company filing (extracted), as at 28 Sep 2026.",
+      );
+    });
+
+    it("names Markit when it filled the basis year", () => {
+      render(
+        <KeyRatiosCard
+          quality={quality()}
+          basisPeriod={period({
+            periodType: "annual",
+            periodEnd: "2026-06-30",
+            fieldSources: { net_income: "markit-key-statistics" },
+          })}
+        />,
+      );
+      expect(footer()).toContain("Sources: Yahoo Finance and ASX (Markit)");
+    });
+
+    it("names one source once when every input shares it", () => {
+      render(
+        <KeyRatiosCard
+          quality={quality({ source: "asx-filing-extraction" })}
+          basisPeriod={period({
+            periodType: "annual",
+            periodEnd: "2026-06-30",
+            source: "asx-filing-extraction",
+            fieldSources: { revenue: "asx-filing-extraction" },
+          })}
+        />,
+      );
+      expect(footer()).toContain("Source: Company filing (extracted), as at");
+      expect(footer()).not.toContain("Yahoo");
+    });
+  });
+
   it("adds the property caveat for a property trust", () => {
     render(<KeyRatiosCard quality={quality({ isProperty: true })} basisPeriod={null} />);
     expect(screen.getByText(/profit and EBITDA include property revaluations/)).toBeInTheDocument();

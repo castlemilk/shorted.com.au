@@ -3,7 +3,11 @@ import type {
   FundamentalsCoverageStatus,
   StockFundamentals,
 } from "~/app/actions/getStockFundamentals";
-import { FinancialsTab, emptyStateCopy } from "../financials-tab";
+import {
+  FILINGS_LISTED_BELOW,
+  FinancialsTab,
+  emptyStateCopy,
+} from "../financials-tab";
 import { wesLike } from "./fixtures";
 
 function withNothingHeld(status: FundamentalsCoverageStatus): StockFundamentals {
@@ -53,8 +57,15 @@ describe("FinancialsTab", () => {
   });
 
   it("states each empty state exactly, only when nothing is held and the status is definite", () => {
+    // The page streams the filings sentence into `filingsNote` only when the
+    // reports slot lists a filing.
+    const note = <>{FILINGS_LISTED_BELOW}</>;
     const { rerender } = render(
-      <FinancialsTab stockCode="ABC" fundamentals={withNothingHeld("empty")} hasFilings />,
+      <FinancialsTab
+        stockCode="ABC"
+        fundamentals={withNothingHeld("empty")}
+        filingsNote={note}
+      />,
     );
     expect(
       screen.getByText(
@@ -62,24 +73,46 @@ describe("FinancialsTab", () => {
       ),
     ).toBeInTheDocument();
 
-    rerender(<FinancialsTab stockCode="ABC" fundamentals={withNothingHeld("pending")} />);
+    // The filings sentence belongs to the "empty" state only.
+    rerender(
+      <FinancialsTab
+        stockCode="ABC"
+        fundamentals={withNothingHeld("pending")}
+        filingsNote={note}
+      />,
+    );
     expect(screen.getByText("Fundamentals not yet collected for ABC.")).toBeInTheDocument();
+    expect(screen.queryByText(/listed below/)).not.toBeInTheDocument();
 
-    rerender(<FinancialsTab stockCode="ABC" fundamentals={withNothingHeld("failed")} />);
+    rerender(
+      <FinancialsTab
+        stockCode="ABC"
+        fundamentals={withNothingHeld("failed")}
+        filingsNote={note}
+      />,
+    );
     expect(
       screen.getByText(
         "Fundamentals for ABC could not be collected on 28 Sep 2026; the next run retries.",
       ),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/listed below/)).not.toBeInTheDocument();
   });
 
   it("never points at filings that are not listed", () => {
-    expect(emptyStateCopy("empty", "ABC", "", false)).toBe(
+    expect(emptyStateCopy("empty", "ABC", "")).toBe(
       "Our data providers hold no financial statements for ABC.",
     );
-    expect(emptyStateCopy("failed", "ABC", "", false)).toBe(
+    expect(emptyStateCopy("failed", "ABC", "")).toBe(
       "Fundamentals for ABC could not be collected; the next run retries.",
     );
+    // Without a note (no filings listed, or not yet streamed) the empty state
+    // says nothing about filings.
+    render(<FinancialsTab stockCode="ABC" fundamentals={withNothingHeld("empty")} />);
+    expect(
+      screen.getByText("Our data providers hold no financial statements for ABC (last checked 28 Sep 2026)."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/listed below/)).not.toBeInTheDocument();
   });
 
   it("renders no empty state for a covered or unknown status, or when anything is held", () => {

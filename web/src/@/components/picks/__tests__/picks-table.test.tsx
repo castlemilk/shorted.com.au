@@ -308,6 +308,15 @@ describe("PicksTable sorted-by column", () => {
     expect(within(rowFor("BHP")).getAllByRole("cell").at(-1)).toHaveTextContent(
       "$1.20B",
     );
+    // The header says which figure the column (and the sort) reads.
+    expect(
+      within(
+        screen.getByRole("columnheader", { name: "Sorted by Market cap" }),
+      ).getByText("Market cap"),
+    ).toHaveAttribute(
+      "title",
+      "Latest close x shares on issue, in AUD; the screener's figure where we hold no share count",
+    );
   });
 
   it("marks, rather than adds, a column the table already has, and shows it at every width", () => {

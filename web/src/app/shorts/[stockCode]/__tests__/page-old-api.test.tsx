@@ -145,6 +145,27 @@ jest.mock("~/@/components/company/enriched-company-section", () => ({
 jest.mock("~/@/components/company/company-tax-card", () => ({
   CompanyTaxCard: () => <div data-testid="tax-card" />,
 }));
+// The filings stream in async server components under Suspense, which a
+// client render cannot resolve; their own test (financial-reports-section)
+// covers them. The stubs expose the props the page passes.
+jest.mock("~/@/components/company/financial-reports-section", () => ({
+  FinancialReportsSection: ({
+    stockCode,
+    sourceDocumentUrl,
+  }: {
+    stockCode: string;
+    sourceDocumentUrl: string;
+  }) => (
+    <div
+      data-testid="reports-section"
+      data-code={stockCode}
+      data-source-document-url={sourceDocumentUrl}
+    />
+  ),
+  FilingsListedNote: ({ stockCode }: { stockCode: string }) => (
+    <span data-testid="filings-note" data-code={stockCode} />
+  ),
+}));
 jest.mock("~/@/components/company/politician-interests-card-loader", () => ({
   PoliticianInterestsCard: () => null,
 }));
@@ -254,6 +275,11 @@ describe("stock page against an older API", () => {
       within(financials).getByRole("region", { name: "Financial statements" }),
     ).toBeInTheDocument();
     expect(within(financials).getByTestId("tax-card")).toBeInTheDocument();
+    // The filings list is the streamed section, given the code and the
+    // Latest result's (here absent) source document as plain strings.
+    const reports = within(financials).getByTestId("reports-section");
+    expect(reports).toHaveAttribute("data-code", "BHP");
+    expect(reports).toHaveAttribute("data-source-document-url", "");
     // Absent is not a status: no empty state, no "0 of M", no ratios card.
     expect(screen.queryByText(EMPTY_STATE)).not.toBeInTheDocument();
     expect(within(financials).queryByRole("region", { name: "Key ratios" })).not.toBeInTheDocument();
@@ -312,10 +338,46 @@ describe("stock page against an older API", () => {
     expect(critical).toContain("getStockOrNotFound");
     expect(critical).not.toContain("getStockStrategyFit");
     expect(source).toMatch(/getStockStrategyFit\(stockCode\)\.catch\(/);
+    // The company details read (getStockDetails, with retries) is not awaited
+    // by the page: the filings stream under their own Suspense boundary.
+    expect(source).not.toContain("getEnrichedCompanyMetadata");
+    expect(source).not.toMatch(/getStockDetails\(/);
+    expect(source).toContain("<FinancialReportsSection");
     // The stale snapshot card and the extraction tiles left the page.
     expect(source).not.toContain("CompanyFinancials");
     expect(source).not.toContain("FinancialDigest");
     expect(source).not.toContain("getStockFinancialHighlights");
+  });
+
+  it("returns the page without waiting on the company details read", async () => {
+    // getStockDetails retries three times with backoff and has no request
+    // timeout: a slow read must cost the Financials tab's filings list, never
+    // the page's first byte.
+    mockGetStockFundamentals.mockResolvedValue(oldProtoResponse());
+    mockGetStockStrategyFit.mockRejectedValue(new Error("unavailable"));
+    mockListStrategies.mockRejectedValue(new Error("unavailable"));
+    const { getEnrichedCompanyMetadata } = jest.requireMock<{
+      getEnrichedCompanyMetadata: jest.Mock;
+    }>("~/app/actions/company-metadata");
+    getEnrichedCompanyMetadata.mockImplementation(() => new Promise(() => undefined));
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const stalled = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error("the page awaited the company details read")),
+        2000,
+      );
+    });
+    try {
+      const element = await Promise.race([
+        Page({ params: Promise.resolve({ stockCode: "BHP" }) }),
+        stalled,
+      ]);
+      expect(element).toBeTruthy();
+    } finally {
+      clearTimeout(timer);
+      getEnrichedCompanyMetadata.mockImplementation(async () => null);
+    }
   });
 
   it("renders without any fundamentals when that rpc fails too", async () => {

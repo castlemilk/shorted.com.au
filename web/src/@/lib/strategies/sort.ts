@@ -103,7 +103,11 @@ export const PICK_SORTS: readonly PickSortDef[] = [
     key: "market_cap",
     label: "Market cap",
     phrase: "market cap",
-    title: "Latest close times shares on issue, in AUD",
+    // The API sorts by ResolvedMarketCap: our own close x shares, or the
+    // screener's figure where no share count is held (valuation_note
+    // "no-shares"). The tooltip names both, so it describes what is sorted.
+    title:
+      "Latest close x shares on issue, in AUD; the screener's figure where we hold no share count",
     ascending: false,
     hasColumn: false,
   },

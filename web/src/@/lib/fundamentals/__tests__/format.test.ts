@@ -14,6 +14,7 @@ import {
   NOT_MEANINGFUL_TITLE,
   basisDescription,
   basisLabel,
+  distinctSourceLabels,
   formatAmount,
   formatAsOf,
   formatDate,
@@ -32,6 +33,7 @@ import {
   periodColumnLabel,
   ratioOrNotMeaningful,
   sourceLabel,
+  sourceListLabel,
   valuationNotAvailable,
 } from "../format";
 
@@ -547,6 +549,39 @@ describe("sourceLabel", () => {
   });
 });
 
+describe("sourceListLabel and distinctSourceLabels", () => {
+  it("names each distinct source once, in first appearance order", () => {
+    expect(
+      sourceListLabel([
+        "asx-filing-extraction",
+        "yahoo-timeseries",
+        "asx-filing-extraction",
+      ]),
+    ).toBe("Company filing (extracted) and Yahoo Finance");
+    expect(
+      sourceListLabel([
+        "yahoo-timeseries",
+        "markit-key-statistics",
+        "asx-filing-extraction",
+      ]),
+    ).toBe("Yahoo Finance, ASX (Markit) and Company filing (extracted)");
+    expect(sourceListLabel(["yahoo-timeseries", "yahoo-timeseries"])).toBe(
+      "Yahoo Finance",
+    );
+  });
+
+  it("skips empty ids and reads empty for none", () => {
+    expect(sourceListLabel(["", "yahoo-timeseries", " "])).toBe(
+      "Yahoo Finance",
+    );
+    expect(sourceListLabel([])).toBe("");
+    expect(distinctSourceLabels(["", " "])).toEqual([]);
+    expect(
+      distinctSourceLabels(["markit-key-statistics", "markit-key-statistics"]),
+    ).toEqual(["ASX (Markit)"]);
+  });
+});
+
 describe("isAud", () => {
   it("is case-insensitive and false for anything else", () => {
     expect(isAud("AUD")).toBe(true);
@@ -594,6 +629,11 @@ describe("module hygiene", () => {
       formatAsOf("2026-09-28T02:10:00Z"),
       sourceLabel("derived:fcf-minus-capex"),
       sourceLabel("derived:ttm-at-fye"),
+      sourceListLabel([
+        "yahoo-timeseries",
+        "markit-key-statistics",
+        "asx-filing-extraction",
+      ]),
     ];
     const growth = [
       formatGrowthPct(812.4),

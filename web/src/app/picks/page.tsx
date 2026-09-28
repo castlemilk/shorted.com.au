@@ -166,6 +166,7 @@ export default async function PicksHubPage() {
             <PicksProvenance
               asOf={provenanceSource?.asOf ?? ""}
               coverage={provenanceSource?.fundamentalsCoverageCount ?? 0}
+              rowsCount={provenanceSource?.fundamentalsRowsCount ?? 0}
               universe={provenanceSource?.universeCount ?? 0}
             />
           </div>

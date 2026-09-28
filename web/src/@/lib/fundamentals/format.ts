@@ -652,3 +652,24 @@ export function sourceLabel(source: string): string {
   const id = typeof source === "string" ? source.trim() : "";
   return SOURCE_LABELS[id] ?? id;
 }
+
+/** The distinct reader-facing labels of `sources`, in first appearance order, empties skipped. */
+export function distinctSourceLabels(sources: readonly string[]): string[] {
+  const labels: string[] = [];
+  for (const source of sources) {
+    const label = sourceLabel(source);
+    if (label && !labels.includes(label)) labels.push(label);
+  }
+  return labels;
+}
+
+/**
+ * The distinct sources behind a set of quoted figures, as one phrase:
+ * "Yahoo Finance", "Company filing (extracted) and Yahoo Finance", "Yahoo
+ * Finance, ASX (Markit) and Company filing (extracted)". "" when none.
+ */
+export function sourceListLabel(sources: readonly string[]): string {
+  const labels = distinctSourceLabels(sources);
+  if (labels.length <= 1) return labels[0] ?? "";
+  return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
+}
