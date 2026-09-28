@@ -233,7 +233,7 @@ request:
   in a row stop the run. `RecordFailure` had never written a row in prod (its
   timestamp arithmetic failed under the simple protocol), so blocks start now.
 - **Writes**: one statement per stock (an `unnest` upsert). Prices are
-  `NUMERIC(12,4)` from migration 000131, which is applied by hand; before it,
+  `NUMERIC(12,4)` from migration 000131, which the prod deploy applies; before it,
   `DECIMAL(10,2)` stored every sub-cent price as $0 (327 codes held a $0 close).
   A `-from` comparison allows half a unit of the column's last decimal, read
   from the column, so it is right on either side of the migration.

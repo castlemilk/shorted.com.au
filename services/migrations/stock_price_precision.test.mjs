@@ -2,12 +2,13 @@
 //
 // 000131 rewrites stock_prices and rebuilds every view that reads it, from the
 // views' own catalog definitions, because prod's are not guaranteed to match
-// this repository. These pin what makes that safe to hand-apply and to apply
-// twice. The behaviour itself (views back with their indexes, grants, comments
+// this repository. The prod deploy applies it and replays it on every run, so
+// these pin what makes the first run safe and every later one a no-op. The behaviour itself (views back with their indexes, grants, comments
 // and data; refusal on a trigger, rule or column grant) is exercised against
 // Postgres by TestPricePrecisionMigration in
 // services/jobs/internal/jobs/marketdata/sync/sync_db_test.go.
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
@@ -66,10 +67,32 @@ test("the two directions differ only in the target type", () => {
   assert.equal(body(up), body(down));
 });
 
-test("it is applied by hand, never replayed by a deploy", () => {
+test("the deploy applies it once per run, on the session pooler, after the rest of the allowlist", () => {
+  const apply = "run_psql_session -f /migrations/000131_widen_stock_price_precision.up.sql";
+  const self = workflow.indexOf(apply);
+  assert.ok(self > 0, "the prod deploy is what applies it");
+  assert.equal(workflow.indexOf(apply, self + 1), -1, "applied once per deploy");
   assert.ok(
-    !workflow.includes("000131_widen_stock_price_precision"),
-    "a table rewrite and a rebuild of the price views must not run inside a deploy",
+    self > workflow.indexOf("-f /migrations/000130_add_price_features.up.sql"),
+    "after the replayed allowlist, in migration order",
   );
+  assert.ok(!workflow.includes("000131_widen_stock_price_precision.down.sql"), "a deploy never narrows the prices");
+
+  // The transaction pooler (6543) kills DDL that holds its locks for minutes;
+  // the session pooler (5432) is what `task db:prod:apply` uses.
+  const derive = workflow.match(/DB_URL_SESSION=\$\(printf "%s" "\$DB_URL_CLEAN" \| sed -E '(s#[^']+)'\)/);
+  assert.ok(derive, "the session DSN is derived from the deploy's own DSN");
+  const session = (dsn) => execFileSync("sed", ["-E", derive[1]], { input: dsn, encoding: "utf8" });
+  assert.equal(
+    session("postgresql://u.ref:pw@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres"),
+    "postgresql://u.ref:pw@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres",
+  );
+  assert.equal(session("postgresql://u:pw@h:6543?sslmode=require"), "postgresql://u:pw@h:5432?sslmode=require");
+  assert.equal(session("postgresql://u:6543pw@h:5432/postgres"), "postgresql://u:6543pw@h:5432/postgres", "a password is not a port");
+  const runner = workflow.match(/run_psql_session\(\) \{\n([\s\S]*?)\n\s*\}\n/);
+  assert.ok(runner, "the session-pooler runner is defined");
+  assert.match(runner[1], /psql "\$DB_URL_SESSION"/);
+
+  // By hand remains the way to apply it ahead of a deploy, or to unblock one.
   assert.match(up, /task db:prod:apply FILE=services\/migrations\/000131_widen_stock_price_precision\.up\.sql CONFIRM=prod/);
 });

@@ -17,11 +17,12 @@
 -- trigger or rule on a view, a column-level grant) stops the migration, and
 -- the transaction leaves everything as it was.
 --
--- A replay on a widened table does nothing.
---
--- Prod does not run migrations: apply by hand, in a quiet hour. The table is
--- rewritten and its dependent views rebuilt under exclusive locks, which holds
--- reads of prices and of those views for the minutes that takes.
+-- A replay on a widened table does nothing, which is what lets the prod deploy
+-- carry it: terraform-deploy.yml applies it after the rest of its allowlist, on
+-- the session pooler, and every later deploy's replay is one catalog read. The
+-- first run rewrites the table and rebuilds its dependent views under exclusive
+-- locks, which holds reads of prices and of those views for the minutes that
+-- takes. To apply it by hand ahead of a deploy, in a quiet hour:
 --   task db:prod:apply FILE=services/migrations/000131_widen_stock_price_precision.up.sql CONFIRM=prod
 
 BEGIN;

@@ -684,6 +684,21 @@ jobs:
               "$@"
           }
 
+          # The same, on the SESSION pooler (5432), for DDL that holds its locks
+          # for minutes: the transaction pooler (6543) kills that mid-statement.
+          # It is the connection `task db:prod:apply` uses (the Taskfile's
+          # DB_PROD_SESSION), with the port matched only where a port can be, so
+          # a password that happens to start with 6543 is left alone.
+          DB_URL_SESSION=$(printf "%s" "$DB_URL_CLEAN" | sed -E 's#:6543([/?]|$)#:5432\1#')
+          run_psql_session() {
+            docker run --rm \
+              -v "${PWD}/services/migrations:/migrations:ro" \
+              postgres:15-alpine \
+              psql "$DB_URL_SESSION" \
+              -v ON_ERROR_STOP=1 \
+              "$@"
+          }
+
           # The prod DATABASE_URL uses a pooler that works with psql/simple protocol
           # and the app collectors, but golang-migrate's advisory-lock path can fail
           # with prepared-statement errors. Keep non-prod on migrate; repair prod via
@@ -776,6 +791,26 @@ jobs:
               -f /migrations/000123_register_document_succession.up.sql \
               -f /migrations/000129_add_stock_fundamentals.up.sql \
               -f /migrations/000130_add_price_features.up.sql
+
+            # 000131 widens stock_prices' price columns to NUMERIC(12,4). Unlike
+            # everything above, its first run does real work: it rewrites the
+            # table and rebuilds every view that reads the prices (each dropped
+            # and recreated from its own catalog definition, with its indexes,
+            # grants and data). That happens once. The file's first statement
+            # asks the catalog whether close is already numeric(12,4) and returns
+            # if it is, so every later deploy's replay is one catalog read. The
+            # rule against DROP+CREATE of a view here is about a rebuild on every
+            # deploy, which this cannot do.
+            #
+            # It runs on the session pooler because the rewrite and the rebuild
+            # hold exclusive locks for minutes; reads of prices and of those views
+            # wait for them. The file is one BEGIN ... COMMIT with SET LOCAL
+            # statement_timeout = 0 and lock_timeout = '60s', so an error, or a
+            # lock it cannot get within a minute, rolls back to the old columns
+            # and fails this step before any image is swapped. To unblock a
+            # deploy, take it out of this step and apply it by hand in a quiet
+            # hour (`task db:prod:apply`).
+            run_psql_session -f /migrations/000131_widen_stock_price_precision.up.sql
 
             run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
 

@@ -21,6 +21,14 @@ replay-safe: every statement `IF NOT EXISTS` / `CREATE OR REPLACE`, no bare
 materialized view. `000112_add_api_usage_monthly` is the worked example — every
 statement guarded, touches no rows.
 
+The other replay-safe shape is a whole body guarded on the catalog.
+`000131_widen_stock_price_precision` rewrites `stock_prices` and rebuilds the
+views that read it, but its first statement returns when the price columns are
+already `numeric(12,4)`, so only the first deploy does that work and every
+replay is one catalog read. It runs through `run_psql_session`, on the session
+pooler, rather than in the `run_psql` list: the transaction pooler kills DDL
+that holds its locks for minutes.
+
 Most existing housing migrations are **not** replay-safe and must never be added
 here: `000086`, `000090`, `000092`, `000054` and others drop and recreate
 materialized views, which would rebuild them on every deploy; `000105` inserts
