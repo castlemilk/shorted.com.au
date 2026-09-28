@@ -41,6 +41,13 @@ type syncState struct {
 	// timestamps (deriveOutcome).
 	LastOutcome      string
 	ConsecutiveEmpty int
+	// Legacy: the row predates 000132 in a database that has it
+	// (last_outcome IS NULL). The code's stored rows are then the 000129
+	// seven-column shape (no full statements, so no quality ratios), and
+	// the outcome above is only derived, so selectCodes queues the code like
+	// a never-attempted one instead of honouring a derived skip. Always
+	// false without 000132, where a re-fetch could not store more anyway.
+	Legacy bool
 }
 
 // deriveOutcome reads an attempt's outcome off the columns 000129 already
@@ -81,6 +88,9 @@ type selection struct {
 	codes   []string
 	byGroup [groupCount]int
 	skipped int
+	// legacy counts the pre-000132 rows queued with the never-attempted
+	// group (Legacy), so the rollout's re-fetch shows in the log.
+	legacy int
 }
 
 func (s selection) summary() string {
@@ -88,7 +98,7 @@ func (s selection) summary() string {
 	for g := 0; g < groupCount; g++ {
 		parts = append(parts, fmt.Sprintf("%s=%d", groupNames[g], s.byGroup[g]))
 	}
-	parts = append(parts, fmt.Sprintf("skipped=%d", s.skipped))
+	parts = append(parts, fmt.Sprintf("skipped=%d", s.skipped), fmt.Sprintf("pre_000132=%d", s.legacy))
 	return strings.Join(parts, " ")
 }
 
@@ -111,21 +121,24 @@ func dueFiler(filings []time.Time, last *time.Time, now time.Time) bool {
 // selectCodes orders one run's work (§3.7) and applies the optional cap:
 //
 //  1. due filers (dueFiler), never-succeeded first, then oldest attempt;
-//  2. never attempted, by market cap descending, then 20-day dollar volume,
-//     then code;
+//  2. never attempted, and codes whose sync row predates 000132 (Legacy: the
+//     stored rows lack the full statements, and the outcome is only
+//     derived), by market cap descending, then 20-day dollar volume, then
+//     code;
 //  3. last outcome failed, oldest attempt first (failures are never skipped);
 //  4. successes and single empties older than 14 days, and repeated empties
 //     older than 45 days, oldest attempt first.
 //
 // Skipped: a success or single empty within 14 days; an empty with
-// consecutive_empty >= 2 within 45 days.
+// consecutive_empty >= 2 within 45 days. A Legacy row is never skipped.
 func selectCodes(universe []string, states map[string]syncState, filings map[string][]time.Time,
 	ranks map[string]rankInput, now time.Time, maxCodes int) selection {
 	type item struct {
-		code  string
-		group int
-		st    syncState
-		rank  rankInput
+		code   string
+		group  int
+		st     syncState
+		rank   rankInput
+		legacy bool // queued as never attempted because its row predates 000132
 	}
 	seen := make(map[string]bool, len(universe))
 	var items []item
@@ -143,6 +156,8 @@ func selectCodes(universe []string, states map[string]syncState, filings map[str
 			it.group = groupDueFiler
 		case !attempted:
 			it.group = groupNeverAttempted
+		case st.Legacy:
+			it.group, it.legacy = groupNeverAttempted, true
 		case st.LastOutcome == outcomeFailed:
 			it.group = groupFailed
 		case st.LastOutcome == outcomeEmpty && st.ConsecutiveEmpty >= repeatedEmpty:
@@ -194,6 +209,9 @@ func selectCodes(universe []string, states map[string]syncState, filings map[str
 	for i, it := range items {
 		sel.codes[i] = it.code
 		sel.byGroup[it.group]++
+		if it.legacy {
+			sel.legacy++
+		}
 	}
 	return sel
 }

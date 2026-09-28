@@ -3,6 +3,7 @@ package picks
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -112,11 +113,18 @@ func TestUpsertSQLShape(t *testing.T) {
 	// a Markit row never takes over a Yahoo row.
 	assert.True(t, strings.HasSuffix(sql, "WHERE (f.source <> 'asx-filing-extraction' OR EXCLUDED.revenue IS NOT NULL OR EXCLUDED.net_income IS NOT NULL) AND NOT (f.source = 'yahoo-timeseries' AND EXCLUDED.source = 'markit-key-statistics')"))
 	// A mask never inserts an empty row.
-	assert.Contains(t, sql, "WHERE num_nonnulls(t.revenue, t.net_income")
-	assert.Contains(t, sql, "OR EXISTS (SELECT 1 FROM stock_fundamentals s WHERE s.stock_code = $1 AND s.period_type = t.period_type AND s.period_end = t.period_end)")
+	assert.Contains(t, sql, "WHERE (num_nonnulls(t.revenue, t.net_income")
+	assert.Contains(t, sql, "OR EXISTS (SELECT 1 FROM stock_fundamentals s WHERE s.stock_code = $1 AND s.period_type = t.period_type AND s.period_end = t.period_end))")
 	// The 52/53-week duplicate prune is scoped to this code and to Markit
-	// annual rows.
+	// annual rows, and fires only for a Yahoo row that holds the year's
+	// revenue or net income.
 	assert.Contains(t, sql, "DELETE FROM stock_fundamentals d WHERE d.stock_code = $1 AND d.period_type = 'annual' AND d.source = 'markit-key-statistics'")
+	assert.Contains(t, sql, "AND abs(t.period_end - d.period_end) <= 7 AND (t.revenue IS NOT NULL OR t.net_income IS NOT NULL))")
+	// A Markit year already held under another date within a week, stored or
+	// in this statement, is not written.
+	assert.Contains(t, sql, "AND NOT (t.source = 'markit-key-statistics' AND t.period_type = 'annual' AND ( EXISTS (SELECT 1 FROM stock_fundamentals s WHERE s.stock_code = $1 AND s.period_type = 'annual' AND s.source <> 'markit-key-statistics' AND s.period_end <> t.period_end AND abs(s.period_end - t.period_end) <= 7 AND (s.revenue IS NOT NULL OR s.net_income IS NOT NULL))")
+	assert.Contains(t, sql, "OR EXISTS (SELECT 1 FROM t o WHERE o.period_type = 'annual' AND o.source <> 'markit-key-statistics' AND o.period_end <> t.period_end AND abs(o.period_end - t.period_end) <= 7 AND (o.revenue IS NOT NULL OR o.net_income IS NOT NULL))))")
+	assert.NotContains(t, strings.Join(strings.Fields(legacyUpsertSQL), " "), "AND NOT (t.source =", "the pre-000132 statement keeps its policy")
 	// jsonb_build_object takes at most 100 arguments.
 	assert.LessOrEqual(t, 2*len(fundamentalsColumns), 100)
 	// The filing test in filings_ingest_test.go pins these two.
@@ -191,7 +199,39 @@ func TestLeaseSQL(t *testing.T) {
 }
 
 func TestRefreshSQLIsOneTransactionScopedCommand(t *testing.T) {
-	assert.Equal(t, "BEGIN; SET LOCAL statement_timeout = 0; SELECT refresh_strategy_views(); COMMIT", refreshSQL)
+	assert.Equal(t, "BEGIN; SET LOCAL statement_timeout = 0; SET LOCAL client_min_messages = notice; SELECT refresh_strategy_views(); COMMIT", refreshSQL,
+		"the NOTICEs that prove a view was refreshed cannot be hidden by a role default")
+}
+
+func TestRefreshedParsesOnlyTheRefreshingNotice(t *testing.T) {
+	n := &noticeLog{}
+	for _, m := range []*pgconn.Notice{
+		{Severity: "NOTICE", Message: "Refreshing mv_market_regime (concurrently)..."},
+		{Severity: "NOTICE", Message: "Refreshing mv_fundamentals_growth (concurrently)..."},
+		{Severity: "WARNING", Message: "Refreshing mv_price_features (concurrently)..."},
+		{Severity: "NOTICE", Message: "Strategy views refresh finished."},
+		{Severity: "WARNING", Message: "Skipping mv_fundamentals_growth: canceling statement due to statement timeout"},
+	} {
+		n.handle(nil, m)
+	}
+	assert.Equal(t, []string{"mv_market_regime", "mv_fundamentals_growth"}, n.refreshed())
+}
+
+// 000130's three-view body left live by a deploy that failed before 000132
+// restored the four-view one: mv_fundamentals_quality exists, nothing names
+// it, no WARNING says so. It must read as a skipped view.
+func TestUnrefreshedViews(t *testing.T) {
+	existing := []string{"mv_market_regime", "mv_fundamentals_growth", "mv_fundamentals_quality", "mv_price_features"}
+	threeViewBody := []string{"mv_market_regime", "mv_fundamentals_growth", "mv_price_features"}
+	got := unrefreshedViews(existing, threeViewBody, nil)
+	require.Len(t, got, 1)
+	assert.True(t, strings.HasPrefix(got[0], "mv_fundamentals_quality (never refreshed"), got[0])
+
+	assert.Empty(t, unrefreshedViews(existing, existing, nil), "the four-view body")
+	assert.Empty(t, unrefreshedViews(threeViewBody, threeViewBody, nil), "a database without 000132 has no quality view to miss")
+	assert.Empty(t, unrefreshedViews(existing, threeViewBody, []string{"mv_fundamentals_quality"}),
+		"already reported by its own WARNING: not named twice")
+	assert.Equal(t, []string{"mv_market_regime", "mv_fundamentals_growth", "mv_fundamentals_quality", "mv_price_features"}, pickerViews)
 }
 
 func TestSkippedViewParsesOnlyTheSkipWarning(t *testing.T) {
@@ -294,8 +334,10 @@ func vendorPG(t *testing.T, extended bool) (*pgStore, *pgxpool.Pool) {
 		_, _ = admin.Exec(context.Background(), "DROP SCHEMA "+schema+" CASCADE")
 		admin.Close()
 	})
+	notices := &noticeLog{}
 	pool, err := platform.Connect(ctx, dsn, platform.PoolOption(func(cfg *pgxpool.Config) {
 		cfg.ConnConfig.RuntimeParams["search_path"] = schema
+		cfg.ConnConfig.OnNotice = notices.handle // as job.go wires it
 	}))
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
@@ -326,7 +368,7 @@ COMMIT;`)
 		require.NoError(t, err, "000132 columns")
 	}
 	var logged []string
-	st := &pgStore{pool: pool, notices: &noticeLog{}, logf: func(f string, a ...any) { logged = append(logged, fmt.Sprintf(f, a...)) }}
+	st := &pgStore{pool: pool, notices: notices, logf: func(f string, a ...any) { logged = append(logged, fmt.Sprintf(f, a...)) }}
 	if extended {
 		// The stand-in must carry every column the store checks for, or the
 		// extended cases silently run the pre-000132 path.
@@ -589,6 +631,13 @@ func TestVendorSyncAndLeaseAgainstPostgres(t *testing.T) {
 	states, err = st.SyncStates(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, outcomeEmpty, states["OLDE"].LastOutcome)
+	assert.True(t, states["OLDE"].Legacy, "last_outcome NULL: the row predates 000132, so the code is re-fetched like a new one")
+	assert.False(t, states["RMD"].Legacy, "an attempt since 000132 wrote last_outcome")
+	assert.False(t, states["XRO"].Legacy)
+	require.NoError(t, st.RecordAttempt(ctx, attempt{Code: "OLDE", At: t0, Outcome: outcomeEmpty, Err: "no fundamentals published: yahoo: none"}))
+	states, err = st.SyncStates(ctx)
+	require.NoError(t, err)
+	assert.False(t, states["OLDE"].Legacy, "the first attempt under 000132 ends the legacy state")
 
 	// The lease.
 	claimed, _, err := st.ClaimLease(ctx, "exec-a")
@@ -645,6 +694,7 @@ func TestVendorWithout000132AgainstPostgres(t *testing.T) {
 	states, err := st.SyncStates(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, outcomeLoaded, states["ZZL1"].LastOutcome)
+	assert.False(t, states["ZZL1"].Legacy, "without 000132 no row is legacy: a re-fetch could not store more")
 
 	_, _, err = st.ClaimLease(ctx, "exec-a")
 	assert.ErrorIs(t, err, errLeaseAbsent)
@@ -662,4 +712,222 @@ func TestVendorWithout000132AgainstPostgres(t *testing.T) {
 	fund, syncExt, _ = st.schema(ctx)
 	assert.False(t, fund)
 	assert.False(t, syncExt)
+}
+
+// The two ways one fiscal year could be stored twice or lose its figures
+// across a 52/53-week date (Markit dates LOV's FY26 28 June, Yahoo 30 June).
+func TestVendorFiscalYearAcrossDatesAgainstPostgres(t *testing.T) {
+	st, pool := vendorPG(t, true)
+	ctx := context.Background()
+	now := time.Now()
+	count := func(code string) int {
+		t.Helper()
+		var n int
+		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM stock_fundamentals WHERE stock_code = $1 AND period_type = 'annual'`, code).Scan(&n))
+		return n
+	}
+
+	// 1. The prune. A stored Markit year is deleted for a Yahoo row within a
+	// week only when that Yahoo row carries revenue or net income after the
+	// merge. An EPS-only Yahoo row (Markit failed tonight, no TTM point at
+	// the year end) would otherwise delete the fiscal year's only revenue
+	// and net income: the row that replaces it has neither.
+	pgExec(t, pool, `INSERT INTO stock_fundamentals (stock_code, period_type, period_end, currency, source, revenue, net_income) VALUES
+		('ZZP1', 'annual', '2026-06-28', 'AUD', 'markit-key-statistics', 938763000, 95590000),
+		('ZZP2', 'annual', '2026-06-28', 'AUD', 'markit-key-statistics', 938763000, 95590000)`)
+	require.NoError(t, st.UpsertPeriods(ctx, "ZZP1", []PeriodRow{
+		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, EPSBasic: f64(0.8632)},
+	}, now))
+	r, ok := readSF(t, pool, "ZZP1", periodAnnual, "2026-06-28")
+	require.True(t, ok, "an EPS-only Yahoo row does not prune the year's only revenue and net income")
+	assert.Equal(t, 938763000.0, r.v(t, "revenue"))
+	assert.Equal(t, 95590000.0, r.v(t, "net_income"))
+	r, ok = readSF(t, pool, "ZZP1", periodAnnual, "2026-06-30")
+	require.True(t, ok)
+	assert.Equal(t, 0.8632, r.v(t, "eps_basic"))
+
+	// Once the Yahoo row carries the year's figures (the next run Markit
+	// answers, mergeFallback fills them), the Markit row goes.
+	require.NoError(t, st.UpsertPeriods(ctx, "ZZP1", []PeriodRow{
+		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, EPSBasic: f64(0.8632),
+			Revenue: f64(938763000), FieldSources: map[string]string{"revenue": sourceMarkit}},
+	}, now))
+	_, ok = readSF(t, pool, "ZZP1", periodAnnual, "2026-06-28")
+	assert.False(t, ok, "pruned: the fiscal year is stored once")
+	// Net income alone is enough, as the Yahoo row then carries a figure the
+	// Markit row held.
+	require.NoError(t, st.UpsertPeriods(ctx, "ZZP2", []PeriodRow{
+		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, NetIncome: f64(95590000)},
+	}, now))
+	_, ok = readSF(t, pool, "ZZP2", periodAnnual, "2026-06-28")
+	assert.False(t, ok)
+
+	// 2. A Yahoo failure. Yahoo returned 429, so the rows are Markit's alone
+	// and mergeFallback had no primary year to fold them into: every Markit
+	// year arrives under its own date. One within a week of a stored
+	// non-Markit year that carries revenue or net income is the same fiscal
+	// year and is not written; a year the store lacks still is.
+	pgExec(t, pool, `INSERT INTO stock_fundamentals (stock_code, period_type, period_end, currency, source, revenue, net_income, eps_basic, field_sources) VALUES
+		('ZZM1', 'annual', '2025-06-30', 'AUD', 'yahoo-timeseries', 798133000, 81000000, 0.73, '{"revenue":"markit-key-statistics","net_income":"markit-key-statistics"}'),
+		('ZZM1', 'annual', '2026-06-30', 'AUD', 'yahoo-timeseries', 938763000, 95590000, 0.86, '{"revenue":"markit-key-statistics","net_income":"markit-key-statistics"}'),
+		('ZZM1', 'annual', '2022-06-30', 'AUD', 'asx-filing-extraction', 600000000, 60000000, NULL, '{}'),
+		('ZZM1', 'annual', '2021-06-30', 'AUD', 'yahoo-timeseries', NULL, NULL, 0.41, '{}')`)
+	markit := func(end string, rev float64) PeriodRow {
+		return PeriodRow{PeriodType: periodAnnual, PeriodEnd: date(end), Currency: "AUD", Source: sourceMarkit, Revenue: f64(rev), NetIncome: f64(rev / 10)}
+	}
+	require.NoError(t, st.UpsertPeriods(ctx, "ZZM1", []PeriodRow{
+		markit("2021-07-04", 500000000), // beside an EPS-only Yahoo year: the only revenue for FY21
+		markit("2022-07-03", 600000001), // beside a filing year that carries revenue
+		markit("2023-07-02", 700000000), // no stored year near it
+		markit("2025-06-29", 798133000), // beside Yahoo's FY25
+		markit("2026-06-28", 938763000), // beside Yahoo's FY26
+	}, now))
+	_, ok = readSF(t, pool, "ZZM1", periodAnnual, "2025-06-29")
+	assert.False(t, ok, "FY25 is already stored under Yahoo's 30 June: not stored twice")
+	_, ok = readSF(t, pool, "ZZM1", periodAnnual, "2026-06-28")
+	assert.False(t, ok, "FY26 likewise")
+	_, ok = readSF(t, pool, "ZZM1", periodAnnual, "2022-07-03")
+	assert.False(t, ok, "a filing year with revenue is the same fiscal year")
+	_, ok = readSF(t, pool, "ZZM1", periodAnnual, "2023-07-02")
+	assert.True(t, ok, "a year the store lacks is added")
+	_, ok = readSF(t, pool, "ZZM1", periodAnnual, "2021-07-04")
+	assert.True(t, ok, "beside an EPS-only year the Markit row is the year's only revenue: kept, as the prune keeps it")
+	assert.Equal(t, 6, count("ZZM1"))
+	r, _ = readSF(t, pool, "ZZM1", periodAnnual, "2025-06-30")
+	assert.Equal(t, 798133000.0, r.v(t, "revenue"), "the stored Yahoo year is untouched")
+
+	// The same guard inside one batch (never produced by mergeFallback, which
+	// folds a Markit year into the Yahoo row within a week, but the statement
+	// must not rely on that).
+	require.NoError(t, st.UpsertPeriods(ctx, "ZZM2", []PeriodRow{
+		{PeriodType: periodAnnual, PeriodEnd: date("2026-06-30"), Currency: "AUD", Source: sourceYahoo, Revenue: f64(10)},
+		markit("2026-06-28", 11),
+	}, now))
+	assert.Equal(t, 1, count("ZZM2"))
+	_, ok = readSF(t, pool, "ZZM2", periodAnnual, "2026-06-30")
+	assert.True(t, ok)
+}
+
+// The refresh step against a real Postgres: a picker view that exists but the
+// live refresh_strategy_views() never names (000130's three-view body after a
+// half-finished deploy) fails the step, although the function returned
+// normally and raised no WARNING.
+func TestRefreshFailsOnAPickerViewTheFunctionNeverNamesAgainstPostgres(t *testing.T) {
+	_, pool := vendorPG(t, false) // 000129: mv_fundamentals_growth exists
+	ctx := context.Background()
+	logf := func(string, ...any) {}
+	pgExec(t, pool, `CREATE MATERIALIZED VIEW mv_market_regime AS SELECT 1 AS id`)
+	pgExec(t, pool, `CREATE MATERIALIZED VIEW mv_price_features AS SELECT 1 AS id`)
+	threeView := `CREATE OR REPLACE FUNCTION refresh_strategy_views() RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE NOTICE 'Refreshing mv_market_regime (concurrently)...';
+    REFRESH MATERIALIZED VIEW mv_market_regime;
+    RAISE NOTICE 'Refreshing mv_fundamentals_growth (concurrently)...';
+    REFRESH MATERIALIZED VIEW mv_fundamentals_growth;
+    RAISE NOTICE 'Refreshing mv_price_features (concurrently)...';
+    REFRESH MATERIALIZED VIEW mv_price_features;
+    RAISE NOTICE 'Strategy views refresh finished.';
+END $$`
+	pgExec(t, pool, threeView)
+
+	// Every connection of this store starts at client_min_messages=warning
+	// (a role or database default that would hide the NOTICEs): the step
+	// pins notice for its own transaction.
+	var schema string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT current_schema()`).Scan(&schema))
+	quiet := &noticeLog{}
+	qpool, err := platform.Connect(ctx, os.Getenv("PICKS_TEST_DATABASE_URL"), platform.PoolOption(func(cfg *pgxpool.Config) {
+		cfg.ConnConfig.RuntimeParams["search_path"] = schema
+		cfg.ConnConfig.RuntimeParams["client_min_messages"] = "warning"
+		cfg.ConnConfig.OnNotice = quiet.handle
+	}))
+	require.NoError(t, err)
+	t.Cleanup(qpool.Close)
+	var level string
+	require.NoError(t, qpool.QueryRow(ctx, `SHOW client_min_messages`).Scan(&level))
+	require.Equal(t, "warning", level)
+	st := &pgStore{pool: qpool, notices: quiet}
+
+	require.NoError(t, runRefresh(ctx, st, false, logf), "without mv_fundamentals_quality (no 000132) the three-view body is complete")
+
+	pgExec(t, pool, `CREATE MATERIALIZED VIEW mv_fundamentals_quality AS SELECT 1 AS id`)
+	err = runRefresh(ctx, st, false, logf)
+	require.Error(t, err, "the quality view exists and nothing refreshed it")
+	assert.Contains(t, err.Error(), "mv_fundamentals_quality")
+	assert.NotContains(t, err.Error(), "mv_price_features")
+
+	pgExec(t, pool, strings.Replace(threeView, "    RAISE NOTICE 'Refreshing mv_price_features",
+		"    RAISE NOTICE 'Refreshing mv_fundamentals_quality (concurrently)...';\n    REFRESH MATERIALIZED VIEW mv_fundamentals_quality;\n    RAISE NOTICE 'Refreshing mv_price_features", 1))
+	require.NoError(t, runRefresh(ctx, st, false, logf), "the four-view body")
+}
+
+// End to end over the live captures: fetchCode, then the upsert.
+func TestVendorPipelineEdgesAgainstPostgres(t *testing.T) {
+	st, pool := vendorPG(t, true)
+	ctx := context.Background()
+	now := time.Now()
+	annualEnds := func(code string) []string {
+		t.Helper()
+		rows, err := pool.Query(ctx, `SELECT period_end::text || ' ' || source FROM stock_fundamentals
+			WHERE stock_code = $1 AND period_type = 'annual' ORDER BY period_end`, code)
+		require.NoError(t, err)
+		defer rows.Close()
+		var out []string
+		for rows.Next() {
+			var s string
+			require.NoError(t, rows.Scan(&s))
+			out = append(out, s)
+		}
+		require.NoError(t, rows.Err())
+		return out
+	}
+
+	// LOV: Yahoo's FY25 and FY26 are stored (with Markit's revenue folded in
+	// by an earlier run). Tonight Yahoo returns 429, so every Markit year
+	// arrives under its own 52/53-week date. FY25 and FY26 are not stored a
+	// second time; the years the store lacks are added.
+	pgExec(t, pool, `INSERT INTO stock_fundamentals (stock_code, period_type, period_end, currency, source, revenue, net_income, eps_basic, field_sources) VALUES
+		('LOV', 'annual', '2025-06-30', 'AUD', 'yahoo-timeseries', 798133000, 81000000, 0.73, '{"revenue":"markit-key-statistics","net_income":"markit-key-statistics"}'),
+		('LOV', 'annual', '2026-06-30', 'AUD', 'yahoo-timeseries', 938763000, 95590000, 0.86, '{"revenue":"markit-key-statistics","net_income":"markit-key-statistics"}')`)
+	y := &fakeFetcher{name: sourceYahoo, errs: map[string]error{"LOV": errors.New("unexpected status: 429")}}
+	m := &fakeFetcher{name: sourceMarkit, rows: map[string][]PeriodRow{"LOV": fixtureRows(t, "markit_key_statistics_LOV.json")}}
+	res := fetchCode(ctx, testConfig(nil, y, m), &runState{}, "LOV")
+	require.Error(t, res.primaryErr)
+	require.NotEmpty(t, res.rows)
+	require.NoError(t, st.UpsertPeriods(ctx, "LOV", res.rows, now))
+	got := annualEnds("LOV")
+	assert.Contains(t, got, "2025-06-30 yahoo-timeseries")
+	assert.Contains(t, got, "2026-06-30 yahoo-timeseries")
+	assert.NotContains(t, got, "2025-06-29 markit-key-statistics", "FY25 once")
+	assert.NotContains(t, got, "2026-06-28 markit-key-statistics", "FY26 once")
+	assert.Contains(t, got, "2024-06-30 markit-key-statistics", "a year the store lacks is still added")
+
+	// XRO: a converted EPS stored by an earlier run (under Yahoo's AUD label)
+	// is nulled when Markit does not answer, and replaced with the row when it
+	// does (the relabel to NZD is a currency change).
+	for _, withMarkit := range []bool{false, true} {
+		pgExec(t, pool, `DELETE FROM stock_fundamentals WHERE stock_code = 'XRO'`)
+		pgExec(t, pool, `INSERT INTO stock_fundamentals (stock_code, period_type, period_end, currency, source, eps_basic, eps_diluted, shares_outstanding) VALUES
+			('XRO', 'annual', '2024-03-31', 'AUD', 'yahoo-timeseries', 1.0549, 1.0458, 152296000),
+			('XRO', 'annual', '2025-03-31', 'AUD', 'yahoo-timeseries', 1.3541, 1.3359, 153587000),
+			('XRO', 'ttm', '2025-09-30', 'AUD', 'yahoo-timeseries', 1.5208, 1.4938, NULL)`)
+		var markit []PeriodRow
+		if withMarkit {
+			markit = fixtureRows(t, "markit_key_statistics_XRO.json")
+		}
+		res := pipeline(t, "XRO", fixtureRows(t, "yahoo_full_XRO.json"), markit)
+		require.NoError(t, st.UpsertPeriods(ctx, "XRO", res.rows, now))
+		for _, k := range []struct{ typ, end string }{{periodAnnual, "2024-03-31"}, {periodAnnual, "2025-03-31"}, {periodTTM, "2025-09-30"}} {
+			r, ok := readSF(t, pool, "XRO", k.typ, k.end)
+			require.True(t, ok, "%s %s (markit=%t)", k.typ, k.end, withMarkit)
+			assert.Nil(t, r.vals["eps_basic"], "%s %s (markit=%t): the stored converted EPS is nulled", k.typ, k.end, withMarkit)
+			assert.Nil(t, r.vals["eps_diluted"], "%s %s (markit=%t)", k.typ, k.end, withMarkit)
+			if k.typ == periodAnnual {
+				assert.NotNil(t, r.vals["shares_outstanding"], "%s: the share count stays", k.end)
+			}
+			if withMarkit {
+				assert.Equal(t, "NZD", r.currency)
+			}
+		}
+	}
 }

@@ -21,10 +21,12 @@ import (
 // (yahooTimeseriesURL's 58 types) captured live on 2026-09-28 through
 // stealthhttp: BHP (USD, the full statements), CSL (direct-method OCF only,
 // a Dec-24 balance snapshot Yahoo labels a quarter), IAG (FY25 slipped to
-// thousands), XRO (FX-converted: fractional AUD values, NZD EPS), LTR (2022
-// trailing leftovers beside FY26), RMD (a CDI listing, k ~10, quarterly
-// balance points), AXQ (negative total assets), MAQ and LOV (EPS-only FY25
-// rows; LOV's 52-week year) and FMG (no FY24 NetDebt: net cash).
+// thousands), XRO (FX-converted: fractional AUD values, and EPS that is the
+// AUD-converted net income over the share count even where a point is
+// labelled NZD), LTR (2022 trailing leftovers beside FY26), RMD (a CDI
+// listing, k ~10, quarterly balance points), AXQ (negative total assets), MAQ
+// and LOV (EPS-only FY25 rows; LOV's 52-week year) and FMG (no FY24 NetDebt:
+// net cash).
 //
 // yahoo_timeseries_{BHP,DRO}.json and markit_key_statistics_{BHP,DRO}.json
 // are the 2026-09-27 probe (docs/plans/stock-picker.md §2.7): a 39-type

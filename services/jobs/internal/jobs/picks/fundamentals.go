@@ -221,10 +221,11 @@ func runFundamentals(ctx context.Context, cfg runConfig) (runStats, error) {
 				}
 			}
 			a.Success, a.PeriodsLoaded, a.Outcome = true, len(res.rows), outcomeLoaded
-			if res.primaryErr == nil {
+			if res.measured() {
 				// k and fx_converted are measured on Yahoo's rows; a run Yahoo
-				// did not answer says nothing about them, so the stored values
-				// stand.
+				// did not answer, or answered with no rows (the rows written
+				// are then Markit's alone), says nothing about them, so the
+				// stored values stand (§2.3).
 				a.Measured, a.MedianK = true, res.gates.medianK
 				a.FXConverted, a.NativeCurrency = res.gates.fxConverted, res.nativeCur
 			}
@@ -357,8 +358,12 @@ func workList(ctx context.Context, cfg runConfig) ([]string, error) {
 
 // codeResult is one code's fetch outcome before it is written.
 type codeResult struct {
-	rows          []PeriodRow
-	primaryErr    error
+	rows       []PeriodRow
+	primaryErr error
+	// primaryRows is how many rows Yahoo returned, before the gates and the
+	// merge: the vendor facts (median_k, fx_converted, native_currency) are
+	// measured only when it is > 0.
+	primaryRows   int
 	fallbackErr   error
 	fallbackAsked bool
 	fallbackUsed  bool
@@ -367,6 +372,10 @@ type codeResult struct {
 	rejected      int
 	err           error // set when the code failed
 }
+
+// measured: Yahoo answered without error AND with rows, so this attempt
+// measured the code's vendor facts (median_k, fx_converted, native_currency).
+func (r codeResult) measured() bool { return r.primaryErr == nil && r.primaryRows > 0 }
 
 // answeredEmpty: every source asked returned without error and with no rows
 // (§2.3). A fallback error with no rows is a failure, not an empty answer.
@@ -408,6 +417,7 @@ func fetchCode(ctx context.Context, cfg runConfig, rs *runState, code string) co
 	if err != nil {
 		rows = nil
 	}
+	res.primaryRows = len(rows)
 	if ctx.Err() == nil {
 		rs.recordYahoo(err != nil)
 	}
@@ -429,7 +439,10 @@ func fetchCode(ctx context.Context, cfg runConfig, rs *runState, code string) co
 			if res.gates.fxConverted {
 				// §3.4: the native currency is Markit's curCode. Yahoo's
 				// label is the conversion target, not the reporting
-				// currency, and every Yahoo monetary field is Rejected.
+				// currency, and every Yahoo monetary and per-share field is
+				// already Rejected (Yahoo converted all of them, EPS
+				// included), so relabelling moves only the share count and
+				// the masks; Markit's native revenue and net income fill in.
 				if cur := fallbackCurrency(fb); cur != "" {
 					res.nativeCur = cur
 					relabelCurrency(rows, cur)

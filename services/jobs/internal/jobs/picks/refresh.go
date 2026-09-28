@@ -37,10 +37,12 @@ func defaultRevalidator() revalidator {
 	return revalidator{wait: revalidateWait, sleep: sleepCtx, ping: platform.PingRevalidate}
 }
 
-// runRefresh calls refresh_strategy_views() and fails when any view was
-// skipped: the function catches every error per view and returns normally, so
-// its WARNINGs are the only evidence a view went stale (task db:prod:refresh
-// applies the same rule).
+// runRefresh calls refresh_strategy_views() and fails when any picker view was
+// not refreshed: the function catches every error per view and returns
+// normally, so its `Skipping` WARNINGs are one kind of evidence a view went
+// stale (task db:prod:refresh applies the same rule), and a view that exists
+// but the live function body never names (no `Refreshing` NOTICE for it) is
+// the other (pgStore.RefreshStrategyViews reports both).
 func runRefresh(ctx context.Context, st store, dryRun bool, logf func(string, ...any)) error {
 	if dryRun {
 		logf("picks: dry run: would call refresh_strategy_views()")

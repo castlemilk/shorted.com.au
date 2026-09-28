@@ -473,8 +473,32 @@ func TestRunFundamentalsMedianKOnlyWhenYahooAnswered(t *testing.T) {
 	assert.False(t, a["MKT"].Measured, "Yahoo did not answer: the stored median_k stands")
 }
 
+// Yahoo answering WITHOUT an error but with no rows (a 404, mapped to nil,
+// nil, or an empty timeseries document) measured nothing either: a code
+// measured FX-converted on an earlier night keeps fx_converted, native_currency
+// and median_k even when Markit loads rows tonight (§2.3: the three facts move
+// only on an attempt Yahoo answered with rows).
+func TestRunFundamentalsEmptyYahooAnswerMeasuresNothing(t *testing.T) {
+	st := &fakeStore{universe: []string{"XRO", "RMD"}, states: map[string]syncState{}}
+	yahoo := &fakeFetcher{name: sourceYahoo, rows: map[string][]PeriodRow{
+		"XRO": nil, // answered, published nothing
+		"RMD": fixtureRows(t, "yahoo_full_RMD.json"),
+	}}
+	markit := &fakeFetcher{name: sourceMarkit, rows: map[string][]PeriodRow{"XRO": fixtureRows(t, "markit_key_statistics_XRO.json")}}
+	_, err := runFundamentals(context.Background(), testConfig(st, yahoo, markit))
+	require.NoError(t, err)
+	a := byAttempt(st.attempts)
+	assert.Equal(t, outcomeLoaded, a["XRO"].Outcome, "Markit's rows load")
+	assert.True(t, a["XRO"].Success)
+	assert.False(t, a["XRO"].Measured, "no Yahoo rows: the stored fx_converted / native_currency / median_k stand")
+	assert.False(t, a["XRO"].FXConverted)
+	assert.Nil(t, a["XRO"].MedianK)
+	assert.True(t, a["RMD"].Measured, "Yahoo answered with rows: measured")
+}
+
 // The FX-converted verdict reaches the sync row, so valuation can withhold
-// on it directly (XRO's Yahoo EPS is NZD under an AUD label).
+// on it directly (every XRO value Yahoo publishes, EPS included, is
+// AUD-converted whatever its currencyCode says).
 func TestRunFundamentalsRecordsFXConverted(t *testing.T) {
 	st := &fakeStore{universe: []string{"XRO", "BHP"}, states: map[string]syncState{}}
 	yahoo := &fakeFetcher{name: sourceYahoo, rows: map[string][]PeriodRow{
@@ -592,6 +616,57 @@ func TestPipelineXROFXConverted(t *testing.T) {
 	assert.Nil(t, fy26.EPSBasic, "FY26 basic and diluted EPS disagree in sign: both rejected")
 	assert.Nil(t, fy26.EPSDiluted)
 	assert.Nil(t, res.gates.medianK, "no monetary net income survives to measure k")
+
+	// Yahoo converts XRO's per-share figures too, whatever currencyCode it
+	// puts on the point: FY25 basic EPS 1.3541 is Yahoo's AUD net income
+	// (207.03m) over ~153m shares, where Xero's NZD EPS is ~1.49 (Markit's
+	// 227.8m over the same shares); FY24's 1.0549, labelled NZD, is 160.2m AUD
+	// over 152.3m. So every Yahoo EPS is withheld, never relabelled to the
+	// native currency beside Markit's NZD revenue and net income. The share
+	// count is currency-free and stays.
+	yahooEPSWithheld := func(t *testing.T, res codeResult, withMarkit bool) {
+		t.Helper()
+		for _, end := range []string{"2023-03-31", "2024-03-31", "2025-03-31", "2026-03-31"} {
+			a := find(t, res.rows, periodAnnual, end)
+			assert.Equal(t, sourceYahoo, a.Source, end)
+			assert.Nil(t, a.EPSBasic, "annual %s basic EPS is AUD-converted: withheld", end)
+			assert.Nil(t, a.EPSDiluted, "annual %s diluted EPS is AUD-converted: withheld", end)
+			assert.Contains(t, a.Rejected, "eps_basic", "annual %s: a stored converted EPS is nulled too", end)
+			assert.Contains(t, a.Rejected, "eps_diluted", end)
+			assert.NotNil(t, a.SharesOutstanding, "annual %s: the share count stays", end)
+			if withMarkit {
+				assert.Equal(t, "NZD", a.Currency, end)
+				assert.Equal(t, sourceMarkit, a.FieldSources["net_income"], "annual %s: native net income from Markit", end)
+			}
+		}
+		ttms := 0
+		for _, r := range res.rows {
+			if r.PeriodType != periodTTM {
+				continue
+			}
+			ttms++
+			assert.Nil(t, r.EPSBasic, "ttm %s", r.PeriodEnd.Format("2006-01-02"))
+			assert.Nil(t, r.EPSDiluted, "ttm %s", r.PeriodEnd.Format("2006-01-02"))
+			assert.Contains(t, r.Rejected, "eps_basic")
+			assert.Contains(t, r.Rejected, "eps_diluted")
+		}
+		assert.Equal(t, 3, ttms, "Mar-25, Sep-25 and Mar-26 survive the stray-TTM gate (FY26 less 18 months is 1 Oct 2024)")
+		for _, r := range res.rows {
+			if r.Source == sourceYahoo {
+				continue
+			}
+			assert.Nil(t, r.EPSBasic, "%s %s: no EPS copied from a converted TTM point", r.Source, r.PeriodEnd.Format("2006-01-02"))
+			assert.Nil(t, r.EPSDiluted)
+		}
+	}
+	yahooEPSWithheld(t, res, true)
+	fy25 := find(t, res.rows, periodAnnual, "2025-03-31")
+	assert.Equal(t, 227817000.0, val(t, fy25.NetIncome), "Markit's NZD net income")
+
+	noMarkit := pipeline(t, "XRO", fixtureRows(t, "yahoo_full_XRO.json"), nil)
+	assert.True(t, noMarkit.gates.fxConverted)
+	assert.Empty(t, noMarkit.nativeCur)
+	yahooEPSWithheld(t, noMarkit, false)
 }
 
 func TestPipelineLTRStrayTTMAndFYECopy(t *testing.T) {

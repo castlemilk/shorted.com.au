@@ -10,7 +10,10 @@ const (
 	unitMonetary columnUnit = iota + 1
 	// unitPerShare: reporting currency per share (EPS). Ignores currencyCode
 	// for the row check (§3.4) and is kept when an identity outlier rejects
-	// the period's monetary fields (§3.5).
+	// the period's monetary fields (§3.5). It is NOT kept on an FX-converted
+	// code: Yahoo converts the per-share figures with everything else (XRO's
+	// EPS is its converted net income over the share count, whatever
+	// currencyCode the point carries), so the fx_converted gate rejects it.
 	unitPerShare
 	// unitCount: a number of shares. Currency-free.
 	unitCount
@@ -55,6 +58,7 @@ func (c fundamentalsColumn) get(r *PeriodRow) *float64 { return *c.field(r) }
 func (c fundamentalsColumn) set(r *PeriodRow, v *float64) { *c.field(r) = v }
 
 func (c fundamentalsColumn) isMonetary() bool { return c.unit == unitMonetary }
+func (c fundamentalsColumn) isPerShare() bool { return c.unit == unitPerShare }
 func (c fundamentalsColumn) isFlow() bool     { return c.timing == timingFlow }
 func (c fundamentalsColumn) isBalance() bool  { return c.timing == timingBalance }
 

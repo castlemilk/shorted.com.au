@@ -240,7 +240,7 @@ var scaleBreakColumns = []string{
 type gateReport struct {
 	counts map[string]int
 	// fxConverted: the code's Yahoo statements are FX-converted (§3.4); every
-	// monetary field was rejected.
+	// monetary AND per-share field was rejected (only the share count stays).
 	fxConverted bool
 	// medianK is the identity-gate reference, persisted to
 	// stock_fundamentals_sync.median_k (§2.3). nil when fewer than
@@ -287,9 +287,9 @@ func (g gateReport) String() string {
 // Rejected; nothing is guessed back later in the pipeline (every fill skips a
 // Rejected field).
 //
-// Order matters only for counting: fx first (it rejects every monetary field,
-// so the others find nothing monetary to act on), then the row-local rules,
-// then the cross-period ones.
+// Order matters only for counting: fx first (it rejects every monetary and
+// per-share field, so the others find nothing of either to act on), then the
+// row-local rules, then the cross-period ones.
 func applyVendorGates(in []PeriodRow) ([]PeriodRow, gateReport) {
 	var rep gateReport
 	rows := make([]PeriodRow, len(in))
@@ -299,7 +299,15 @@ func applyVendorGates(in []PeriodRow) ([]PeriodRow, gateReport) {
 		rep.add(gateCurrencyConflict, len(rows[i].Rejected))
 	}
 
-	// FX-converted (§3.4): one fractional monetary value marks the code.
+	// FX-converted (§3.4): one fractional monetary value marks the code. Yahoo
+	// converts EVERY value of such a code, the per-share figures included,
+	// whatever currencyCode it puts on a point: XRO's FY25 basic EPS 1.3541 is
+	// Yahoo's AUD net income (207.03m) over ~153m shares, where Xero's own NZD
+	// EPS is ~1.49, and FY24's 1.0549 is labelled NZD yet is 160.2m AUD over
+	// 152.3m. So the EPS columns are withheld with the monetary ones, never
+	// relabelled to the native currency (which would put AUD-converted EPS
+	// beside Markit's NZD net income). The share count is currency-free and
+	// stays.
 	for i := 0; i < len(rows) && !rep.fxConverted; i++ {
 		for _, c := range fundamentalsColumns {
 			if v := c.get(&rows[i]); c.isMonetary() && v != nil && math.Abs(*v-math.Round(*v)) > fxFractionTolerance {
@@ -312,9 +320,9 @@ func applyVendorGates(in []PeriodRow) ([]PeriodRow, gateReport) {
 		rep.add(gateFXConverted, 1)
 		for i := range rows {
 			for _, c := range fundamentalsColumns {
-				if c.isMonetary() {
-					// Every monetary column, present or not: a value kept
-					// from an earlier run was converted too.
+				if c.isMonetary() || c.isPerShare() {
+					// Every monetary and per-share column, present or not: a
+					// value kept from an earlier run was converted too.
 					rows[i].reject(c.name)
 				}
 			}
@@ -571,7 +579,8 @@ func annualNear(rows []PeriodRow, end time.Time, skipSource string) int {
 //     includes a field a gate REJECTED from Yahoo: Markit is an independent
 //     source, so its value is evidence, not a guess (IAG's FY25 revenue
 //     slipped to 5.35m in Yahoo; Markit has 15.5bn), and an FX-converted
-//     code's native figures come only from here. The field then leaves the
+//     code's native revenue and net income come only from here (its EPS
+//     stays withheld: Markit carries none). The field then leaves the
 //     Rejected mask, because the vendor now supplies it (§2.2 rule 1). The
 //     same-source fills (TTM-at-FYE, snapshots, the OCF derivation) never
 //     refill a Rejected field;
@@ -692,9 +701,11 @@ func deriveOperatingCashFlow(rows []PeriodRow) {
 }
 
 // relabelCurrency sets every row's currency to cur. Used for an FX-converted
-// code (§3.4) whose native currency Markit supplies: its Yahoo monetary fields
-// are all Rejected, so what the label moves is the EPS / share rows and the
-// currency the Markit fill and the downstream gates compare against.
+// code (§3.4) whose native currency Markit supplies: its Yahoo monetary and
+// per-share fields are all Rejected (every one of them was converted), so
+// what the label moves is the share count, the Rejected masks and the
+// currency the Markit fill and the downstream gates compare against. No
+// Yahoo value is ever relabelled into the native currency.
 func relabelCurrency(rows []PeriodRow, cur string) {
 	for i := range rows {
 		rows[i].Currency = cur

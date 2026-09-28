@@ -62,6 +62,53 @@ func TestSelectCodesOrderAndSkips(t *testing.T) {
 	assert.Contains(t, sel.summary(), "due_filers=2 never_attempted=3 failed=1 stale=3 skipped=4")
 }
 
+// A sync row written before 000132 (last_outcome NULL) belongs to a code whose
+// stored rows are the 000129 seven-column shape: no full statements, so no
+// quality ratios. Its derived outcome must not earn the 14-day (or 45-day)
+// skip, or most of the universe keeps the legacy shape for two weeks after
+// the deploy. It selects like a never-attempted code, largest first; a row
+// with a real last_outcome keeps its own semantics.
+func TestSelectCodesLegacyRowsSelectLikeNeverAttempted(t *testing.T) {
+	now := time.Date(2026, 9, 28, 15, 0, 0, 0, time.UTC)
+	day := 24 * time.Hour
+	ago := func(d time.Duration) time.Time { return now.Add(-d) }
+	ptr := func(t time.Time) *time.Time { return &t }
+
+	universe := []string{"BHP", "CSL", "TNY", "ETF", "LFL", "CUR", "CFL", "NEW", "DUE"}
+	states := map[string]syncState{
+		// Legacy success yesterday (derived 'loaded'): was skipped for 14 days.
+		"BHP": {LastAttempt: ago(day), LastSuccess: ptr(ago(day)), LastOutcome: outcomeLoaded, Legacy: true},
+		"CSL": {LastAttempt: ago(2 * day), LastSuccess: ptr(ago(2 * day)), LastOutcome: outcomeLoaded, Legacy: true},
+		"TNY": {LastAttempt: ago(3 * day), LastSuccess: ptr(ago(3 * day)), LastOutcome: outcomeLoaded, Legacy: true},
+		// Legacy empty (derived): was skipped for 14 days.
+		"ETF": {LastAttempt: ago(day), LastOutcome: outcomeEmpty, ConsecutiveEmpty: 1, Legacy: true},
+		// Legacy failure (derived): was ordered by attempt age among failures.
+		"LFL": {LastAttempt: ago(time.Hour), LastOutcome: outcomeFailed, Legacy: true},
+		// Rows written by the new image keep their semantics.
+		"CUR": {LastAttempt: ago(day), LastSuccess: ptr(ago(day)), LastOutcome: outcomeLoaded},
+		"CFL": {LastAttempt: ago(time.Hour), LastOutcome: outcomeFailed},
+		// A legacy row that is also a due filer stays a due filer.
+		"DUE": {LastAttempt: ago(9 * day), LastSuccess: ptr(ago(9 * day)), LastOutcome: outcomeLoaded, Legacy: true},
+	}
+	ranks := map[string]rankInput{
+		"BHP": {MarketCap: 200e9}, "CSL": {MarketCap: 150e9}, "TNY": {MarketCap: 1e7},
+		"ETF": {MarketCap: 0}, "LFL": {MarketCap: 5e8}, "NEW": {MarketCap: 3e9}, "CUR": {MarketCap: 900e9},
+	}
+	filings := map[string][]time.Time{"DUE": {ago(5 * day)}}
+
+	sel := selectCodes(universe, states, filings, ranks, now, 0)
+	assert.Equal(t, []string{
+		"DUE",
+		// never attempted and pre-000132 rows together, by market cap
+		"BHP", "CSL", "NEW", "LFL", "TNY", "ETF",
+		"CFL",
+	}, sel.codes)
+	assert.Equal(t, [groupCount]int{1, 6, 1, 0}, sel.byGroup)
+	assert.Equal(t, 1, sel.skipped, "only CUR, a success recorded with a real last_outcome")
+	assert.Equal(t, 5, sel.legacy, "BHP, CSL, TNY, ETF, LFL (DUE is counted as a due filer)")
+	assert.Contains(t, sel.summary(), "pre_000132=5")
+}
+
 func TestSelectCodesCap(t *testing.T) {
 	now := time.Date(2026, 9, 28, 15, 0, 0, 0, time.UTC)
 	universe := []string{"A1", "A2", "A3", "A4", "A5"}

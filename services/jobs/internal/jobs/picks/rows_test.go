@@ -139,14 +139,15 @@ func TestGateFXConverted(t *testing.T) {
 	assert.Equal(t, 1, rep.counts[gateFXConverted])
 	for _, r := range out {
 		for _, c := range fundamentalsColumns {
-			if c.isMonetary() {
+			if c.isMonetary() || c.isPerShare() {
 				assert.Nil(t, c.get(&r), c.name)
-				assert.Contains(t, r.Rejected, c.name, "every monetary column is masked, present or not")
+				assert.Contains(t, r.Rejected, c.name, "every monetary and per-share column is masked, present or not")
 			}
 		}
 	}
-	assert.Equal(t, 0.85, val(t, out[0].EPSBasic), "EPS and shares are kept (§3.4)")
-	assert.Equal(t, 170569000.0, val(t, out[0].SharesOutstanding))
+	assert.Nil(t, out[0].EPSBasic, "Yahoo converted the EPS too: withheld, never relabelled")
+	assert.Contains(t, out[1].Rejected, "eps_diluted", "a converted EPS stored by an earlier run is nulled too")
+	assert.Equal(t, 170569000.0, val(t, out[0].SharesOutstanding), "the share count is currency-free and stays")
 	assert.Equal(t, 2295764676.451, *rows[0].Revenue, "the input is not mutated")
 
 	noise := []PeriodRow{annual("2026-06-30", "USD")}

@@ -35,8 +35,10 @@ type store interface {
 	UpsertPeriods(ctx context.Context, code string, rows []PeriodRow, fetchedAt time.Time) error
 	// RecordAttempt writes the code's stock_fundamentals_sync row.
 	RecordAttempt(ctx context.Context, a attempt) error
-	// RefreshStrategyViews runs refresh_strategy_views() and returns the views
-	// it reported as skipped.
+	// RefreshStrategyViews runs refresh_strategy_views() and returns the
+	// picker views it did not refresh: the ones it reported as skipped, and
+	// any that exist but the call never named (a function body older than the
+	// view, see pickerViews).
 	RefreshStrategyViews(ctx context.Context) (skipped []string, err error)
 
 	// The run lease (§3.8). ClaimLease returns claimed=false and the current
@@ -254,12 +256,18 @@ func (s *pgStore) UniverseCodes(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
+// The last column is syncState.Legacy. With 000132 it is TRUE for a row no
+// attempt has written since the migration (last_outcome NULL): that code's
+// stored rows are the 000129 seven-column shape, so selection re-fetches it
+// like a never-attempted code. Without 000132 it is always FALSE: the job can
+// only write the 000129 columns there, so a re-fetch would gain nothing and
+// would re-queue the same largest codes every night, starving the rest.
 const (
 	syncStatesSQL = `SELECT stock_code::text, last_attempt_at, last_success_at, COALESCE(last_error, ''),
-       last_outcome::text, consecutive_empty
+       last_outcome::text, consecutive_empty, (last_outcome IS NULL)
 FROM stock_fundamentals_sync`
 	syncStatesLegacySQL = `SELECT stock_code::text, last_attempt_at, last_success_at, COALESCE(last_error, ''),
-       NULL::text, 0::smallint
+       NULL::text, 0::smallint, false
 FROM stock_fundamentals_sync`
 )
 
@@ -287,7 +295,7 @@ func (s *pgStore) SyncStates(ctx context.Context) (map[string]syncState, error) 
 		var st syncState
 		var outcome *string
 		var empties int16
-		if err := rows.Scan(&code, &st.LastAttempt, &st.LastSuccess, &lastErr, &outcome, &empties); err != nil {
+		if err := rows.Scan(&code, &st.LastAttempt, &st.LastSuccess, &lastErr, &outcome, &empties, &st.Legacy); err != nil {
 			return nil, fmt.Errorf("sync states: %w", err)
 		}
 		if outcome != nil && *outcome != "" {
@@ -405,13 +413,28 @@ func (s *pgStore) RecentFilingHeadlines(ctx context.Context, days int) ([]filing
 //     still points at the filing;
 //  6. a currency change replaces the row and field_sources wholesale.
 //
-// Two further guards: a Markit row never takes over a stored Yahoo row (the
+// Further guards: a Markit row never takes over a stored Yahoo row (the
 // fallback never overwrites the primary's history), and a row with no value
 // (only a Rejected mask) is written only when a stored row exists for it,
-// so a mask never inserts an empty row. The pruned CTE deletes this code's
-// Markit annual row for a balance date Yahoo now publishes under a slightly
-// different date (52/53-week years: Markit's 28 June, Yahoo's 30 June), so a
-// fiscal year is never stored twice.
+// so a mask never inserts an empty row.
+//
+// One fiscal year under two dates (52/53-week years: Markit dates LOV's FY26
+// 28 June, Yahoo 30 June; sameFYWindow is the week both sides use):
+//   - the pruned CTE deletes this code's stored Markit annual row when this
+//     statement writes a Yahoo annual row within a week of it that carries
+//     revenue or net income. An EPS-only Yahoo row (Markit failed tonight and
+//     no TTM point at the year end filled it) prunes nothing: deleting the
+//     Markit row would drop the year's only revenue and net income. The next
+//     run Markit answers, mergeFallback fills the Yahoo row and the prune
+//     then fires;
+//   - a Markit annual row is not written when a non-Markit annual row within
+//     a week of it that carries revenue or net income is already stored, or
+//     is in this statement: the year is held. That is the Yahoo-failure case,
+//     where mergeFallback had no primary year to fold Markit's into and every
+//     Markit year arrives under its own date. The same carve-out as the
+//     prune: beside an EPS-only year the Markit row is written, because it
+//     holds the only revenue and net income for the year.
+// The same date is the ON CONFLICT rules' business, never these guards'.
 
 // Argument positions of upsertSQL / legacyUpsertSQL.
 const (
@@ -474,7 +497,8 @@ func buildUpsertSQL(cols []fundamentalsColumn, extended bool) string {
       AND EXISTS (SELECT 1 FROM t
                   WHERE t.period_type = '` + periodAnnual + `' AND t.source = '` + sourceYahoo + `'
                     AND t.period_end <> d.period_end
-                    AND abs(t.period_end - d.period_end) <= 7)
+                    AND abs(t.period_end - d.period_end) <= 7
+                    AND (t.revenue IS NOT NULL OR t.net_income IS NOT NULL))
     RETURNING 1
 )`)
 	}
@@ -494,14 +518,25 @@ func buildUpsertSQL(cols []fundamentalsColumn, extended bool) string {
 	if extended {
 		b.WriteString(", t.field_sources")
 	}
-	b.WriteString(",\n       t.source, " + p(argFetchedAt) + "::timestamptz, now()\nFROM t\nWHERE num_nonnulls(")
+	b.WriteString(",\n       t.source, " + p(argFetchedAt) + "::timestamptz, now()\nFROM t\nWHERE (num_nonnulls(")
 	for i, n := range names {
 		if i > 0 {
 			b.WriteString(", ")
 		}
 		b.WriteString("t." + n)
 	}
-	b.WriteString(") > 0\n   OR EXISTS (SELECT 1 FROM stock_fundamentals s\n              WHERE s.stock_code = $1 AND s.period_type = t.period_type AND s.period_end = t.period_end)\n")
+	b.WriteString(") > 0\n   OR EXISTS (SELECT 1 FROM stock_fundamentals s\n              WHERE s.stock_code = $1 AND s.period_type = t.period_type AND s.period_end = t.period_end))\n")
+	if extended {
+		// A Markit year already held under another date within a week.
+		heldNear := func(rel string) string {
+			return rel + ".period_type = '" + periodAnnual + "' AND " + rel + ".source <> '" + sourceMarkit + "'\n" +
+				"                    AND " + rel + ".period_end <> t.period_end AND abs(" + rel + ".period_end - t.period_end) <= 7\n" +
+				"                    AND (" + rel + ".revenue IS NOT NULL OR " + rel + ".net_income IS NOT NULL)"
+		}
+		b.WriteString("  AND NOT (t.source = '" + sourceMarkit + "' AND t.period_type = '" + periodAnnual + "' AND (\n")
+		b.WriteString("       EXISTS (SELECT 1 FROM stock_fundamentals s\n                  WHERE s.stock_code = $1 AND " + heldNear("s") + ")\n")
+		b.WriteString("    OR EXISTS (SELECT 1 FROM t o\n                  WHERE " + heldNear("o") + ")))\n")
+	}
 	b.WriteString("ON CONFLICT (stock_code, period_type, period_end) DO UPDATE SET\n")
 
 	rej := "(SELECT t.rejected FROM t WHERE t.period_type = EXCLUDED.period_type AND t.period_end = EXCLUDED.period_end)"
@@ -810,7 +845,28 @@ func (s *pgStore) ReleaseLease(ctx context.Context, holder string) error {
 //
 // platform.Connect sets QueryExecModeSimpleProtocol, which is what makes a
 // multi-statement Exec legal; do not split this into several calls.
-const refreshSQL = `BEGIN; SET LOCAL statement_timeout = 0; SELECT refresh_strategy_views(); COMMIT`
+//
+// client_min_messages is pinned to notice for the same transaction: the
+// function's `Refreshing <view>` NOTICEs are how RefreshStrategyViews knows a
+// view was refreshed at all, so a role or database default of warning must
+// not be able to hide them (that would fail every refresh, loudly, but for
+// nothing).
+const refreshSQL = `BEGIN; SET LOCAL statement_timeout = 0; SET LOCAL client_min_messages = notice; SELECT refresh_strategy_views(); COMMIT`
+
+// pickerViews are the materialized views refresh_strategy_views() exists to
+// refresh (000130, plus mv_fundamentals_quality from 000132), in its order.
+// A view in this list that exists in the catalog but that the call never
+// announced with a `Refreshing <view>` NOTICE was not refreshed, with no
+// WARNING to say so: the deploy replays 000130 (whose body has three views)
+// before 000132 restores the four-view body in a separate psql call, so a
+// failure between the two leaves the three-view body live and
+// mv_fundamentals_quality silently stale. Such a view counts as skipped.
+var pickerViews = []string{"mv_market_regime", "mv_fundamentals_growth", "mv_fundamentals_quality", "mv_price_features"}
+
+// existingViewsSQL returns the names in $1 that resolve to a relation through
+// the search_path, exactly as the function's unqualified REFRESH resolves
+// them.
+const existingViewsSQL = `SELECT v FROM unnest($1::text[]) AS v WHERE to_regclass(v) IS NOT NULL`
 
 func (s *pgStore) RefreshStrategyViews(ctx context.Context) ([]string, error) {
 	s.notices.reset()
@@ -819,7 +875,47 @@ func (s *pgStore) RefreshStrategyViews(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return skipped, fmt.Errorf("refresh_strategy_views: %w", err)
 	}
-	return skipped, nil
+	existing, err := s.existingViews(ctx, pickerViews)
+	if err != nil {
+		return skipped, fmt.Errorf("refresh_strategy_views: which picker views exist: %w", err)
+	}
+	return append(skipped, unrefreshedViews(existing, s.notices.refreshed(), skipped)...), nil
+}
+
+func (s *pgStore) existingViews(ctx context.Context, names []string) ([]string, error) {
+	rows, err := s.pool.Query(ctx, existingViewsSQL, names)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// unrefreshedViews: every existing picker view the call neither announced
+// (refreshed) nor already reported as skipped, named with the reason.
+func unrefreshedViews(existing, refreshed, skipped []string) []string {
+	seen := map[string]bool{}
+	for _, v := range refreshed {
+		seen[v] = true
+	}
+	for _, v := range skipped {
+		seen[v] = true
+	}
+	var out []string
+	for _, v := range existing {
+		if !seen[v] {
+			out = append(out, v+" (never refreshed: refresh_strategy_views() does not name it; re-apply 000132)")
+		}
+	}
+	return out
 }
 
 // noticeLog captures server NOTICE/WARNING messages. refresh_strategy_views()
@@ -856,6 +952,23 @@ func (n *noticeLog) skipped() []string {
 	for _, m := range n.msgs {
 		if v, ok := skippedView(m); ok {
 			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// refreshed returns the views named by `Refreshing <view> ...` NOTICEs: the
+// ones the call reached (a skip is reported separately, by skipped).
+func (n *noticeLog) refreshed() []string {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	var out []string
+	for _, m := range n.msgs {
+		if m == nil || !strings.EqualFold(m.Severity, "NOTICE") || !strings.HasPrefix(m.Message, "Refreshing ") {
+			continue
+		}
+		if f := strings.Fields(strings.TrimPrefix(m.Message, "Refreshing ")); len(f) > 0 {
+			out = append(out, f[0])
 		}
 	}
 	return out

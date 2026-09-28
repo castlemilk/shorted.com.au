@@ -224,9 +224,10 @@ type yahooValue struct {
 // alphabetically first). A monetary point in another currency is NOT stored
 // under the row's: that field is nulled and named in Rejected (a
 // currency_conflict, counted by the gates), and the rest of the row stands.
-// EPS and share counts ignore currencyCode (Yahoo labels XRO's older EPS NZD
-// beside AUD revenue); a row with no monetary point takes its per-share
-// points' currency.
+// EPS and share counts ignore currencyCode (Yahoo labels XRO's older EPS
+// points NZD beside AUD revenue, although the values are AUD-converted like
+// every other XRO figure; the fx_converted gate withholds them all); a row
+// with no monetary point takes its per-share points' currency.
 //
 // Operating cash flow (§3.2): the reported OperatingCashFlow series; else the
 // direct-method series for the same period. The FCF-minus-capex derivation

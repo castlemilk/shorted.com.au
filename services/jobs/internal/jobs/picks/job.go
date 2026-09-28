@@ -40,7 +40,8 @@
 //
 //	0   ok (>= 50% of attempted codes loaded or answered empty), or the lease
 //	    is held by another execution
-//	1   failure: DB unreachable, refresh failed or skipped a view, every
+//	1   failure: DB unreachable, refresh failed, skipped a view or never
+//	    refreshed one that exists (a stale function body), every
 //	    attempted code failed, the filings rebuild transaction failed (it
 //	    rolled back: nothing written), or the run was cancelled
 //	10  DEGRADED: fewer than 50% of attempted codes answered, Yahoo failed
