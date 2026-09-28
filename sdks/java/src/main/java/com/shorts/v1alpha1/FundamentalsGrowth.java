@@ -39,6 +39,11 @@ private static final long serialVersionUID = 0L;
     latestPeriodEnd_ = "";
     revenueBasisPeriodType_ = "";
     halfLatestPeriodEnd_ = "";
+    revenueBasisSource_ = "";
+    epsBasisSource_ = "";
+    fetchedAt_ = "";
+    revenueLatestPeriodEnd_ = "";
+    revenuePriorPeriodEnd_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -352,7 +357,9 @@ private static final long serialVersionUID = 0L;
    * <pre>
    * Series the revenue growth was computed on: "half" (latest half-year from a
    * company filing vs the same half a year earlier, used when it is newer than
-   * the latest annual) or "annual". Empty when unknown.
+   * the latest annual), "ttm" (the latest trailing twelve months vs twelve
+   * months earlier, used when it is newer than the latest annual) or "annual".
+   * Empty when unknown.
    * </pre>
    *
    * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
@@ -375,7 +382,9 @@ private static final long serialVersionUID = 0L;
    * <pre>
    * Series the revenue growth was computed on: "half" (latest half-year from a
    * company filing vs the same half a year earlier, used when it is newer than
-   * the latest annual) or "annual". Empty when unknown.
+   * the latest annual), "ttm" (the latest trailing twelve months vs twelve
+   * months earlier, used when it is newer than the latest annual) or "annual".
+   * Empty when unknown.
    * </pre>
    *
    * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
@@ -492,6 +501,229 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int REVENUE_BASIS_SOURCE_FIELD_NUMBER = 25;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object revenueBasisSource_ = "";
+  /**
+   * <pre>
+   * "vendor" or "filing": where the rows behind each growth figure came from.
+   * "filing" when either side of the pair is a figure extracted from a company
+   * filing. Empty when unknown.
+   * </pre>
+   *
+   * <code>string revenue_basis_source = 25 [json_name = "revenueBasisSource"];</code>
+   * @return The revenueBasisSource.
+   */
+  @java.lang.Override
+  public java.lang.String getRevenueBasisSource() {
+    java.lang.Object ref = revenueBasisSource_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      revenueBasisSource_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * "vendor" or "filing": where the rows behind each growth figure came from.
+   * "filing" when either side of the pair is a figure extracted from a company
+   * filing. Empty when unknown.
+   * </pre>
+   *
+   * <code>string revenue_basis_source = 25 [json_name = "revenueBasisSource"];</code>
+   * @return The bytes for revenueBasisSource.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRevenueBasisSourceBytes() {
+    java.lang.Object ref = revenueBasisSource_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      revenueBasisSource_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int EPS_BASIS_SOURCE_FIELD_NUMBER = 26;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object epsBasisSource_ = "";
+  /**
+   * <code>string eps_basis_source = 26 [json_name = "epsBasisSource"];</code>
+   * @return The epsBasisSource.
+   */
+  @java.lang.Override
+  public java.lang.String getEpsBasisSource() {
+    java.lang.Object ref = epsBasisSource_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      epsBasisSource_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string eps_basis_source = 26 [json_name = "epsBasisSource"];</code>
+   * @return The bytes for epsBasisSource.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getEpsBasisSourceBytes() {
+    java.lang.Object ref = epsBasisSource_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      epsBasisSource_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int FETCHED_AT_FIELD_NUMBER = 27;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object fetchedAt_ = "";
+  /**
+   * <pre>
+   * RFC 3339, newest fetch of the growth inputs.
+   * </pre>
+   *
+   * <code>string fetched_at = 27 [json_name = "fetchedAt"];</code>
+   * @return The fetchedAt.
+   */
+  @java.lang.Override
+  public java.lang.String getFetchedAt() {
+    java.lang.Object ref = fetchedAt_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      fetchedAt_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * RFC 3339, newest fetch of the growth inputs.
+   * </pre>
+   *
+   * <code>string fetched_at = 27 [json_name = "fetchedAt"];</code>
+   * @return The bytes for fetchedAt.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getFetchedAtBytes() {
+    java.lang.Object ref = fetchedAt_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      fetchedAt_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int REVENUE_LATEST_PERIOD_END_FIELD_NUMBER = 28;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object revenueLatestPeriodEnd_ = "";
+  /**
+   * <pre>
+   * YYYY-MM-DD, the pair revenue_yoy_pct compares.
+   * </pre>
+   *
+   * <code>string revenue_latest_period_end = 28 [json_name = "revenueLatestPeriodEnd"];</code>
+   * @return The revenueLatestPeriodEnd.
+   */
+  @java.lang.Override
+  public java.lang.String getRevenueLatestPeriodEnd() {
+    java.lang.Object ref = revenueLatestPeriodEnd_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      revenueLatestPeriodEnd_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * YYYY-MM-DD, the pair revenue_yoy_pct compares.
+   * </pre>
+   *
+   * <code>string revenue_latest_period_end = 28 [json_name = "revenueLatestPeriodEnd"];</code>
+   * @return The bytes for revenueLatestPeriodEnd.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRevenueLatestPeriodEndBytes() {
+    java.lang.Object ref = revenueLatestPeriodEnd_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      revenueLatestPeriodEnd_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int REVENUE_PRIOR_PERIOD_END_FIELD_NUMBER = 29;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object revenuePriorPeriodEnd_ = "";
+  /**
+   * <code>string revenue_prior_period_end = 29 [json_name = "revenuePriorPeriodEnd"];</code>
+   * @return The revenuePriorPeriodEnd.
+   */
+  @java.lang.Override
+  public java.lang.String getRevenuePriorPeriodEnd() {
+    java.lang.Object ref = revenuePriorPeriodEnd_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      revenuePriorPeriodEnd_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string revenue_prior_period_end = 29 [json_name = "revenuePriorPeriodEnd"];</code>
+   * @return The bytes for revenuePriorPeriodEnd.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRevenuePriorPeriodEndBytes() {
+    java.lang.Object ref = revenuePriorPeriodEnd_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      revenuePriorPeriodEnd_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -577,6 +809,21 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(halfLatestPeriodEnd_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 24, halfLatestPeriodEnd_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(revenueBasisSource_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 25, revenueBasisSource_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(epsBasisSource_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 26, epsBasisSource_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fetchedAt_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 27, fetchedAt_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(revenueLatestPeriodEnd_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 28, revenueLatestPeriodEnd_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(revenuePriorPeriodEnd_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 29, revenuePriorPeriodEnd_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -674,6 +921,21 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(halfLatestPeriodEnd_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(24, halfLatestPeriodEnd_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(revenueBasisSource_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(25, revenueBasisSource_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(epsBasisSource_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(26, epsBasisSource_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(fetchedAt_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(27, fetchedAt_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(revenueLatestPeriodEnd_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(28, revenueLatestPeriodEnd_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(revenuePriorPeriodEnd_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(29, revenuePriorPeriodEnd_);
+    }
     return size;
   }
   @java.lang.Override
@@ -755,6 +1017,16 @@ private static final long serialVersionUID = 0L;
         != other.getHasEpsHalfYoy()) return false;
     if (!getHalfLatestPeriodEnd()
         .equals(other.getHalfLatestPeriodEnd())) return false;
+    if (!getRevenueBasisSource()
+        .equals(other.getRevenueBasisSource())) return false;
+    if (!getEpsBasisSource()
+        .equals(other.getEpsBasisSource())) return false;
+    if (!getFetchedAt()
+        .equals(other.getFetchedAt())) return false;
+    if (!getRevenueLatestPeriodEnd()
+        .equals(other.getRevenueLatestPeriodEnd())) return false;
+    if (!getRevenuePriorPeriodEnd()
+        .equals(other.getRevenuePriorPeriodEnd())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -833,6 +1105,16 @@ private static final long serialVersionUID = 0L;
         getHasEpsHalfYoy());
     hash = (37 * hash) + HALF_LATEST_PERIOD_END_FIELD_NUMBER;
     hash = (53 * hash) + getHalfLatestPeriodEnd().hashCode();
+    hash = (37 * hash) + REVENUE_BASIS_SOURCE_FIELD_NUMBER;
+    hash = (53 * hash) + getRevenueBasisSource().hashCode();
+    hash = (37 * hash) + EPS_BASIS_SOURCE_FIELD_NUMBER;
+    hash = (53 * hash) + getEpsBasisSource().hashCode();
+    hash = (37 * hash) + FETCHED_AT_FIELD_NUMBER;
+    hash = (53 * hash) + getFetchedAt().hashCode();
+    hash = (37 * hash) + REVENUE_LATEST_PERIOD_END_FIELD_NUMBER;
+    hash = (53 * hash) + getRevenueLatestPeriodEnd().hashCode();
+    hash = (37 * hash) + REVENUE_PRIOR_PERIOD_END_FIELD_NUMBER;
+    hash = (53 * hash) + getRevenuePriorPeriodEnd().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -995,6 +1277,11 @@ private static final long serialVersionUID = 0L;
       epsHalfYoyPct_ = 0D;
       hasEpsHalfYoy_ = false;
       halfLatestPeriodEnd_ = "";
+      revenueBasisSource_ = "";
+      epsBasisSource_ = "";
+      fetchedAt_ = "";
+      revenueLatestPeriodEnd_ = "";
+      revenuePriorPeriodEnd_ = "";
       return this;
     }
 
@@ -1100,6 +1387,21 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00800000) != 0)) {
         result.halfLatestPeriodEnd_ = halfLatestPeriodEnd_;
       }
+      if (((from_bitField0_ & 0x01000000) != 0)) {
+        result.revenueBasisSource_ = revenueBasisSource_;
+      }
+      if (((from_bitField0_ & 0x02000000) != 0)) {
+        result.epsBasisSource_ = epsBasisSource_;
+      }
+      if (((from_bitField0_ & 0x04000000) != 0)) {
+        result.fetchedAt_ = fetchedAt_;
+      }
+      if (((from_bitField0_ & 0x08000000) != 0)) {
+        result.revenueLatestPeriodEnd_ = revenueLatestPeriodEnd_;
+      }
+      if (((from_bitField0_ & 0x10000000) != 0)) {
+        result.revenuePriorPeriodEnd_ = revenuePriorPeriodEnd_;
+      }
     }
 
     @java.lang.Override
@@ -1192,6 +1494,31 @@ private static final long serialVersionUID = 0L;
       if (!other.getHalfLatestPeriodEnd().isEmpty()) {
         halfLatestPeriodEnd_ = other.halfLatestPeriodEnd_;
         bitField0_ |= 0x00800000;
+        onChanged();
+      }
+      if (!other.getRevenueBasisSource().isEmpty()) {
+        revenueBasisSource_ = other.revenueBasisSource_;
+        bitField0_ |= 0x01000000;
+        onChanged();
+      }
+      if (!other.getEpsBasisSource().isEmpty()) {
+        epsBasisSource_ = other.epsBasisSource_;
+        bitField0_ |= 0x02000000;
+        onChanged();
+      }
+      if (!other.getFetchedAt().isEmpty()) {
+        fetchedAt_ = other.fetchedAt_;
+        bitField0_ |= 0x04000000;
+        onChanged();
+      }
+      if (!other.getRevenueLatestPeriodEnd().isEmpty()) {
+        revenueLatestPeriodEnd_ = other.revenueLatestPeriodEnd_;
+        bitField0_ |= 0x08000000;
+        onChanged();
+      }
+      if (!other.getRevenuePriorPeriodEnd().isEmpty()) {
+        revenuePriorPeriodEnd_ = other.revenuePriorPeriodEnd_;
+        bitField0_ |= 0x10000000;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -1340,6 +1667,31 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00800000;
               break;
             } // case 194
+            case 202: {
+              revenueBasisSource_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x01000000;
+              break;
+            } // case 202
+            case 210: {
+              epsBasisSource_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x02000000;
+              break;
+            } // case 210
+            case 218: {
+              fetchedAt_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x04000000;
+              break;
+            } // case 218
+            case 226: {
+              revenueLatestPeriodEnd_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x08000000;
+              break;
+            } // case 226
+            case 234: {
+              revenuePriorPeriodEnd_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x10000000;
+              break;
+            } // case 234
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2106,7 +2458,9 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * Series the revenue growth was computed on: "half" (latest half-year from a
      * company filing vs the same half a year earlier, used when it is newer than
-     * the latest annual) or "annual". Empty when unknown.
+     * the latest annual), "ttm" (the latest trailing twelve months vs twelve
+     * months earlier, used when it is newer than the latest annual) or "annual".
+     * Empty when unknown.
      * </pre>
      *
      * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
@@ -2128,7 +2482,9 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * Series the revenue growth was computed on: "half" (latest half-year from a
      * company filing vs the same half a year earlier, used when it is newer than
-     * the latest annual) or "annual". Empty when unknown.
+     * the latest annual), "ttm" (the latest trailing twelve months vs twelve
+     * months earlier, used when it is newer than the latest annual) or "annual".
+     * Empty when unknown.
      * </pre>
      *
      * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
@@ -2151,7 +2507,9 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * Series the revenue growth was computed on: "half" (latest half-year from a
      * company filing vs the same half a year earlier, used when it is newer than
-     * the latest annual) or "annual". Empty when unknown.
+     * the latest annual), "ttm" (the latest trailing twelve months vs twelve
+     * months earlier, used when it is newer than the latest annual) or "annual".
+     * Empty when unknown.
      * </pre>
      *
      * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
@@ -2170,7 +2528,9 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * Series the revenue growth was computed on: "half" (latest half-year from a
      * company filing vs the same half a year earlier, used when it is newer than
-     * the latest annual) or "annual". Empty when unknown.
+     * the latest annual), "ttm" (the latest trailing twelve months vs twelve
+     * months earlier, used when it is newer than the latest annual) or "annual".
+     * Empty when unknown.
      * </pre>
      *
      * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
@@ -2186,7 +2546,9 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * Series the revenue growth was computed on: "half" (latest half-year from a
      * company filing vs the same half a year earlier, used when it is newer than
-     * the latest annual) or "annual". Empty when unknown.
+     * the latest annual), "ttm" (the latest trailing twelve months vs twelve
+     * months earlier, used when it is newer than the latest annual) or "annual".
+     * Empty when unknown.
      * </pre>
      *
      * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
@@ -2434,6 +2796,436 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       halfLatestPeriodEnd_ = value;
       bitField0_ |= 0x00800000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object revenueBasisSource_ = "";
+    /**
+     * <pre>
+     * "vendor" or "filing": where the rows behind each growth figure came from.
+     * "filing" when either side of the pair is a figure extracted from a company
+     * filing. Empty when unknown.
+     * </pre>
+     *
+     * <code>string revenue_basis_source = 25 [json_name = "revenueBasisSource"];</code>
+     * @return The revenueBasisSource.
+     */
+    public java.lang.String getRevenueBasisSource() {
+      java.lang.Object ref = revenueBasisSource_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        revenueBasisSource_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "vendor" or "filing": where the rows behind each growth figure came from.
+     * "filing" when either side of the pair is a figure extracted from a company
+     * filing. Empty when unknown.
+     * </pre>
+     *
+     * <code>string revenue_basis_source = 25 [json_name = "revenueBasisSource"];</code>
+     * @return The bytes for revenueBasisSource.
+     */
+    public com.google.protobuf.ByteString
+        getRevenueBasisSourceBytes() {
+      java.lang.Object ref = revenueBasisSource_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        revenueBasisSource_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * "vendor" or "filing": where the rows behind each growth figure came from.
+     * "filing" when either side of the pair is a figure extracted from a company
+     * filing. Empty when unknown.
+     * </pre>
+     *
+     * <code>string revenue_basis_source = 25 [json_name = "revenueBasisSource"];</code>
+     * @param value The revenueBasisSource to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRevenueBasisSource(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      revenueBasisSource_ = value;
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "vendor" or "filing": where the rows behind each growth figure came from.
+     * "filing" when either side of the pair is a figure extracted from a company
+     * filing. Empty when unknown.
+     * </pre>
+     *
+     * <code>string revenue_basis_source = 25 [json_name = "revenueBasisSource"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRevenueBasisSource() {
+      revenueBasisSource_ = getDefaultInstance().getRevenueBasisSource();
+      bitField0_ = (bitField0_ & ~0x01000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * "vendor" or "filing": where the rows behind each growth figure came from.
+     * "filing" when either side of the pair is a figure extracted from a company
+     * filing. Empty when unknown.
+     * </pre>
+     *
+     * <code>string revenue_basis_source = 25 [json_name = "revenueBasisSource"];</code>
+     * @param value The bytes for revenueBasisSource to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRevenueBasisSourceBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      revenueBasisSource_ = value;
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object epsBasisSource_ = "";
+    /**
+     * <code>string eps_basis_source = 26 [json_name = "epsBasisSource"];</code>
+     * @return The epsBasisSource.
+     */
+    public java.lang.String getEpsBasisSource() {
+      java.lang.Object ref = epsBasisSource_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        epsBasisSource_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string eps_basis_source = 26 [json_name = "epsBasisSource"];</code>
+     * @return The bytes for epsBasisSource.
+     */
+    public com.google.protobuf.ByteString
+        getEpsBasisSourceBytes() {
+      java.lang.Object ref = epsBasisSource_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        epsBasisSource_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string eps_basis_source = 26 [json_name = "epsBasisSource"];</code>
+     * @param value The epsBasisSource to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEpsBasisSource(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      epsBasisSource_ = value;
+      bitField0_ |= 0x02000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string eps_basis_source = 26 [json_name = "epsBasisSource"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEpsBasisSource() {
+      epsBasisSource_ = getDefaultInstance().getEpsBasisSource();
+      bitField0_ = (bitField0_ & ~0x02000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string eps_basis_source = 26 [json_name = "epsBasisSource"];</code>
+     * @param value The bytes for epsBasisSource to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEpsBasisSourceBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      epsBasisSource_ = value;
+      bitField0_ |= 0x02000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object fetchedAt_ = "";
+    /**
+     * <pre>
+     * RFC 3339, newest fetch of the growth inputs.
+     * </pre>
+     *
+     * <code>string fetched_at = 27 [json_name = "fetchedAt"];</code>
+     * @return The fetchedAt.
+     */
+    public java.lang.String getFetchedAt() {
+      java.lang.Object ref = fetchedAt_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        fetchedAt_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * RFC 3339, newest fetch of the growth inputs.
+     * </pre>
+     *
+     * <code>string fetched_at = 27 [json_name = "fetchedAt"];</code>
+     * @return The bytes for fetchedAt.
+     */
+    public com.google.protobuf.ByteString
+        getFetchedAtBytes() {
+      java.lang.Object ref = fetchedAt_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        fetchedAt_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * RFC 3339, newest fetch of the growth inputs.
+     * </pre>
+     *
+     * <code>string fetched_at = 27 [json_name = "fetchedAt"];</code>
+     * @param value The fetchedAt to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFetchedAt(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      fetchedAt_ = value;
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * RFC 3339, newest fetch of the growth inputs.
+     * </pre>
+     *
+     * <code>string fetched_at = 27 [json_name = "fetchedAt"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFetchedAt() {
+      fetchedAt_ = getDefaultInstance().getFetchedAt();
+      bitField0_ = (bitField0_ & ~0x04000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * RFC 3339, newest fetch of the growth inputs.
+     * </pre>
+     *
+     * <code>string fetched_at = 27 [json_name = "fetchedAt"];</code>
+     * @param value The bytes for fetchedAt to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFetchedAtBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      fetchedAt_ = value;
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object revenueLatestPeriodEnd_ = "";
+    /**
+     * <pre>
+     * YYYY-MM-DD, the pair revenue_yoy_pct compares.
+     * </pre>
+     *
+     * <code>string revenue_latest_period_end = 28 [json_name = "revenueLatestPeriodEnd"];</code>
+     * @return The revenueLatestPeriodEnd.
+     */
+    public java.lang.String getRevenueLatestPeriodEnd() {
+      java.lang.Object ref = revenueLatestPeriodEnd_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        revenueLatestPeriodEnd_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD, the pair revenue_yoy_pct compares.
+     * </pre>
+     *
+     * <code>string revenue_latest_period_end = 28 [json_name = "revenueLatestPeriodEnd"];</code>
+     * @return The bytes for revenueLatestPeriodEnd.
+     */
+    public com.google.protobuf.ByteString
+        getRevenueLatestPeriodEndBytes() {
+      java.lang.Object ref = revenueLatestPeriodEnd_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        revenueLatestPeriodEnd_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD, the pair revenue_yoy_pct compares.
+     * </pre>
+     *
+     * <code>string revenue_latest_period_end = 28 [json_name = "revenueLatestPeriodEnd"];</code>
+     * @param value The revenueLatestPeriodEnd to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRevenueLatestPeriodEnd(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      revenueLatestPeriodEnd_ = value;
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD, the pair revenue_yoy_pct compares.
+     * </pre>
+     *
+     * <code>string revenue_latest_period_end = 28 [json_name = "revenueLatestPeriodEnd"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRevenueLatestPeriodEnd() {
+      revenueLatestPeriodEnd_ = getDefaultInstance().getRevenueLatestPeriodEnd();
+      bitField0_ = (bitField0_ & ~0x08000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD, the pair revenue_yoy_pct compares.
+     * </pre>
+     *
+     * <code>string revenue_latest_period_end = 28 [json_name = "revenueLatestPeriodEnd"];</code>
+     * @param value The bytes for revenueLatestPeriodEnd to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRevenueLatestPeriodEndBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      revenueLatestPeriodEnd_ = value;
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object revenuePriorPeriodEnd_ = "";
+    /**
+     * <code>string revenue_prior_period_end = 29 [json_name = "revenuePriorPeriodEnd"];</code>
+     * @return The revenuePriorPeriodEnd.
+     */
+    public java.lang.String getRevenuePriorPeriodEnd() {
+      java.lang.Object ref = revenuePriorPeriodEnd_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        revenuePriorPeriodEnd_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string revenue_prior_period_end = 29 [json_name = "revenuePriorPeriodEnd"];</code>
+     * @return The bytes for revenuePriorPeriodEnd.
+     */
+    public com.google.protobuf.ByteString
+        getRevenuePriorPeriodEndBytes() {
+      java.lang.Object ref = revenuePriorPeriodEnd_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        revenuePriorPeriodEnd_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string revenue_prior_period_end = 29 [json_name = "revenuePriorPeriodEnd"];</code>
+     * @param value The revenuePriorPeriodEnd to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRevenuePriorPeriodEnd(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      revenuePriorPeriodEnd_ = value;
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string revenue_prior_period_end = 29 [json_name = "revenuePriorPeriodEnd"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRevenuePriorPeriodEnd() {
+      revenuePriorPeriodEnd_ = getDefaultInstance().getRevenuePriorPeriodEnd();
+      bitField0_ = (bitField0_ & ~0x10000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string revenue_prior_period_end = 29 [json_name = "revenuePriorPeriodEnd"];</code>
+     * @param value The bytes for revenuePriorPeriodEnd to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRevenuePriorPeriodEndBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      revenuePriorPeriodEnd_ = value;
+      bitField0_ |= 0x10000000;
       onChanged();
       return this;
     }

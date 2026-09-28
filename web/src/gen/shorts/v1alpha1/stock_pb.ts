@@ -13,7 +13,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/stock.proto.
  */
 export const file_shorts_v1alpha1_stock: GenFile = /*@__PURE__*/
-  fileDesc("ChtzaG9ydHMvdjFhbHBoYTEvc3RvY2sucHJvdG8SD3Nob3J0cy52MWFscGhhMSInCg9HZXRTdG9ja1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIi4KFkdldFN0b2NrRGV0YWlsc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIpEBChNHZXRTdG9ja0RhdGFSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCRIOCgZwZXJpb2QYAiABKAkSFwoPZnVsbF9yZXNvbHV0aW9uGAMgASgIEhIKCm1heF9wb2ludHMYBiABKAUSDAoEZnJvbRgEIAEoCRIKCgJ0bxgFIAEoCRINCgVhc19vZhgHIAEoCSJrChVHZXRTdG9ja1ByaWNlc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJEg4KBnBlcmlvZBgCIAEoCRIMCgRmcm9tGAMgASgJEgoKAnRvGAQgASgJEhIKCm1heF9wb2ludHMYBSABKAUisQEKFkdldFN0b2NrUHJpY2VzUmVzcG9uc2USFAoMcHJvZHVjdF9jb2RlGAEgASgJEgwKBG5hbWUYAiABKAkSMAoGcG9pbnRzGAMgAygLMiAuc2hvcnRzLnYxYWxwaGExLlN0b2NrUHJpY2VQb2ludBIaChJ0b3RhbF9vYnNlcnZhdGlvbnMYBCABKAUSEwoLZG93bnNhbXBsZWQYBSABKAgSEAoIY3VycmVuY3kYBiABKAkifwoPU3RvY2tQcmljZVBvaW50EgwKBGRhdGUYASABKAkSDAoEb3BlbhgCIAEoARIMCgRoaWdoGAMgASgBEgsKA2xvdxgEIAEoARINCgVjbG9zZRgFIAEoARIWCg5hZGp1c3RlZF9jbG9zZRgGIAEoARIOCgZ2b2x1bWUYByABKAMiWAoiR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVxdWVzdBITCgtzdG9ja19jb2RlcxgBIAMoCRIdChVtYXhfcmVwb3J0c19wZXJfc3RvY2sYAiABKAUi3QEKI0dldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0c1Jlc3BvbnNlElgKCmhpZ2hsaWdodHMYASADKAsyRC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVzcG9uc2UuSGlnaGxpZ2h0c0VudHJ5GlwKD0hpZ2hsaWdodHNFbnRyeRILCgNrZXkYASABKAkSOAoFdmFsdWUYAiABKAsyKS5zaG9ydHMudjFhbHBoYTEuU3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzOgI4ASJWChhTdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHMSOgoHcmVwb3J0cxgBIAMoCzIpLnNob3J0cy52MWFscGhhMS5GaW5hbmNpYWxSZXBvcnRIaWdobGlnaHQisQEKGEZpbmFuY2lhbFJlcG9ydEhpZ2hsaWdodBIUCgxyZXBvcnRfdGl0bGUYASABKAkSEwoLcmVwb3J0X3R5cGUYAiABKAkSEwoLcmVwb3J0X2RhdGUYAyABKAkSMQoHbWV0cmljcxgEIAMoCzIgLnNob3J0cy52MWFscGhhMS5GaW5hbmNpYWxNZXRyaWMSDgoGZGlnZXN0GAUgASgJEhIKCmNvbmZpZGVuY2UYBiABKAEitAEKD0ZpbmFuY2lhbE1ldHJpYxITCgttZXRyaWNfdHlwZRgBIAEoCRITCgtzb3VyY2VfdGV4dBgCIAEoCRJECgphdHRyaWJ1dGVzGAMgAygLMjAuc2hvcnRzLnYxYWxwaGExLkZpbmFuY2lhbE1ldHJpYy5BdHRyaWJ1dGVzRW50cnkaMQoPQXR0cmlidXRlc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEizQEKDURpcmVjdG9yVHJhZGUSCgoCaWQYASABKAkSEgoKc3RvY2tfY29kZRgCIAEoCRIVCg1kaXJlY3Rvcl9uYW1lGAMgASgJEhIKCnRyYWRlX3R5cGUYBCABKAkSFQoNc2hhcmVzX3RyYWRlZBgFIAEoAxIXCg9wcmljZV9wZXJfc2hhcmUYBiABKAESEwoLdG90YWxfdmFsdWUYByABKAESEgoKdHJhZGVfZGF0ZRgIIAEoCRIYChBhbm5vdW5jZW1lbnRfdXJsGAkgASgJIj0KGEdldERpcmVjdG9yVHJhZGVzUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFImAKGUdldERpcmVjdG9yVHJhZGVzUmVzcG9uc2USLgoGdHJhZGVzGAEgAygLMh4uc2hvcnRzLnYxYWxwaGExLkRpcmVjdG9yVHJhZGUSEwoLdG90YWxfY291bnQYAiABKAUipQEKDkRpdmlkZW5kUmVjb3JkEgoKAmlkGAEgASgJEhIKCnN0b2NrX2NvZGUYAiABKAkSDwoHZXhfZGF0ZRgDIAEoCRIUCgxwYXltZW50X2RhdGUYBCABKAkSGAoQYW1vdW50X3Blcl9zaGFyZRgFIAEoARIbChNmcmFua2luZ19wZXJjZW50YWdlGAYgASgBEhUKDWRpdmlkZW5kX3R5cGUYByABKAkiPgoZR2V0RGl2aWRlbmRIaXN0b3J5UmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBXllYXJzGAIgASgFIn0KGkdldERpdmlkZW5kSGlzdG9yeVJlc3BvbnNlEjIKCWRpdmlkZW5kcxgBIAMoCzIfLnNob3J0cy52MWFscGhhMS5EaXZpZGVuZFJlY29yZBITCgt0b3RhbF9jb3VudBgCIAEoBRIWCg50cmFpbGluZ195aWVsZBgDIAEoASLQAQoJUGVlclN0b2NrEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEh4KFnNob3J0X3Bvc2l0aW9uX3BlcmNlbnQYBCABKAESEgoKbWFya2V0X2NhcBgFIAEoARIQCghwZV9yYXRpbxgGIAEoARIWCg5kaXZpZGVuZF95aWVsZBgHIAEoARIXCg9wcmljZV9jaGFuZ2VfMW0YCCABKAESEAoIbG9nb191cmwYCSABKAkiPQoYR2V0UGVlckNvbXBhcmlzb25SZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSDQoFbGltaXQYAiABKAUihQEKGUdldFBlZXJDb21wYXJpc29uUmVzcG9uc2USKwoHc3ViamVjdBgBIAEoCzIaLnNob3J0cy52MWFscGhhMS5QZWVyU3RvY2sSKQoFcGVlcnMYAiADKAsyGi5zaG9ydHMudjFhbHBoYTEuUGVlclN0b2NrEhAKCGluZHVzdHJ5GAMgASgJIi4KFkdldFN0b2NrVmVyZGljdFJlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIlUKEFZlcmRpY3RDb21wb25lbnQSDAoEbmFtZRgBIAEoCRINCgVzY29yZRgCIAEoARIOCgZ3ZWlnaHQYAyABKAESFAoMY29udHJpYnV0aW9uGAQgASgBIqcBChdHZXRTdG9ja1ZlcmRpY3RSZXNwb25zZRIUCgxwcm9kdWN0X2NvZGUYASABKAkSEQoJY29tcG9zaXRlGAIgASgBEiwKBWxhYmVsGAMgASgOMh0uc2hvcnRzLnYxYWxwaGExLlZlcmRpY3RMYWJlbBI1Cgpjb21wb25lbnRzGAQgAygLMiEuc2hvcnRzLnYxYWxwaGExLlZlcmRpY3RDb21wb25lbnQiMwobR2V0Q29tcGFueVRheFByb2ZpbGVSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCSKdAQoOQ29tcGFueVRheFllYXISEwoLaW5jb21lX3llYXIYASABKAUSFAoMdG90YWxfaW5jb21lGAIgASgBEhoKEmhhc190YXhhYmxlX2luY29tZRgDIAEoCBIWCg50YXhhYmxlX2luY29tZRgEIAEoARIXCg9oYXNfdGF4X3BheWFibGUYBSABKAgSEwoLdGF4X3BheWFibGUYBiABKAEijAEKHEdldENvbXBhbnlUYXhQcm9maWxlUmVzcG9uc2USEwoLZW50aXR5X25hbWUYASABKAkSCwoDYWJuGAIgASgJEi4KBXllYXJzGAMgAygLMh8uc2hvcnRzLnYxYWxwaGExLkNvbXBhbnlUYXhZZWFyEhoKEnNvdXJjZV9hdHRyaWJ1dGlvbhgEIAEoCSI5ChRHZXRTdG9ja0dyYXBoUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFInwKFUdldFN0b2NrR3JhcGhSZXNwb25zZRIsCgZwZW9wbGUYASADKAsyHC5zaG9ydHMudjFhbHBoYTEuR3JhcGhQZXJzb24SNQoRc2ltaWxhcl9jb21wYW5pZXMYAiADKAsyGi5zaG9ydHMudjFhbHBoYTEuR3JhcGhQZWVyImMKC0dyYXBoUGVyc29uEgwKBG5hbWUYASABKAkSDAoEcm9sZRgCIAEoCRIRCglpbWFnZV91cmwYAyABKAkSFAoMbGlua2VkaW5fdXJsGAQgASgJEg8KB2Fsc29fYXQYBSADKAkiWwoJR3JhcGhQZWVyEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhIKCnNpbWlsYXJpdHkYBCABKAEiTwoXR2V0RXZlbnRUaW1lbGluZVJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCRIRCglkYXlzX2JhY2sYAiABKAUSDQoFbGltaXQYAyABKAUiSgoYR2V0RXZlbnRUaW1lbGluZVJlc3BvbnNlEi4KBmV2ZW50cxgBIAMoCzIeLnNob3J0cy52MWFscGhhMS5UaW1lbGluZUV2ZW50IoYBCg1UaW1lbGluZUV2ZW50EgwKBGRhdGUYASABKAkSDAoEdHlwZRgCIAEoCRINCgV0aXRsZRgDIAEoCRIOCgZkZXRhaWwYBCABKAkSCwoDdXJsGAUgASgJEhEKCXNlbnRpbWVudBgGIAEoCRIaChJpc19wcmljZV9zZW5zaXRpdmUYByABKAgiOwoWR2V0U3RvY2tTaWduYWxzUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFIngKF0dldFN0b2NrU2lnbmFsc1Jlc3BvbnNlEi0KB2FkdmVyc2UYASADKAsyHC5zaG9ydHMudjFhbHBoYTEuU3RvY2tTaWduYWwSLgoIcG9zaXRpdmUYAiADKAsyHC5zaG9ydHMudjFhbHBoYTEuU3RvY2tTaWduYWwinAEKC1N0b2NrU2lnbmFsEhAKCHBvbGFyaXR5GAEgASgJEgwKBGtpbmQYAiABKAkSEAoIaGVhZGxpbmUYAyABKAkSDgoGZGV0YWlsGAQgASgJEhIKCmV2ZW50X2RhdGUYBSABKAkSEAoIc2V2ZXJpdHkYBiABKAkSEgoKY29uZmlkZW5jZRgHIAEoARIRCgljaXRhdGlvbnMYCCADKAkiVQobR2V0U3RvY2tGdW5kYW1lbnRhbHNSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSEwoLcGVyaW9kX3R5cGUYAiABKAkSDQoFbGltaXQYAyABKAUi4AMKEkZ1bmRhbWVudGFsc1BlcmlvZBITCgtwZXJpb2RfdHlwZRgBIAEoCRISCgpwZXJpb2RfZW5kGAIgASgJEhMKC2Zpc2NhbF95ZWFyGAMgASgFEhAKCGN1cnJlbmN5GAQgASgJEg8KB3JldmVudWUYBSABKAESEwoLaGFzX3JldmVudWUYBiABKAgSEgoKbmV0X2luY29tZRgHIAEoARIWCg5oYXNfbmV0X2luY29tZRgIIAEoCBIRCgllcHNfYmFzaWMYCSABKAESFQoNaGFzX2Vwc19iYXNpYxgKIAEoCBITCgtlcHNfZGlsdXRlZBgLIAEoARIXCg9oYXNfZXBzX2RpbHV0ZWQYDCABKAgSGwoTb3BlcmF0aW5nX2Nhc2hfZmxvdxgNIAEoARIfChdoYXNfb3BlcmF0aW5nX2Nhc2hfZmxvdxgOIAEoCBIaChJzaGFyZXNfb3V0c3RhbmRpbmcYDyABKAESHgoWaGFzX3NoYXJlc19vdXRzdGFuZGluZxgQIAEoCBIOCgZzb3VyY2UYESABKAkSEgoKZmV0Y2hlZF9hdBgSIAEoCRIWCg5mcmVlX2Nhc2hfZmxvdxgTIAEoARIaChJoYXNfZnJlZV9jYXNoX2Zsb3cYFCABKAgijQUKEkZ1bmRhbWVudGFsc0dyb3d0aBIZChFiYXNpc19wZXJpb2RfdHlwZRgBIAEoCRIZChFsYXRlc3RfcGVyaW9kX2VuZBgCIAEoCRIXCg9yZXZlbnVlX3lveV9wY3QYAyABKAESFwoPaGFzX3JldmVudWVfeW95GAQgASgIEh0KFXJldmVudWVfeW95X3ByaW9yX3BjdBgFIAEoARIdChVoYXNfcmV2ZW51ZV95b3lfcHJpb3IYBiABKAgSEwoLZXBzX3lveV9wY3QYByABKAESEwoLaGFzX2Vwc195b3kYCCABKAgSGQoRZXBzX3lveV9wcmlvcl9wY3QYCSABKAESGQoRaGFzX2Vwc195b3lfcHJpb3IYCiABKAgSGwoTbmV0X2luY29tZV9wb3NpdGl2ZRgLIAEoCBIZChFwZXJpb2RzX2F2YWlsYWJsZRgMIAEoBRITCgtyZXZlbnVlX3R0bRgNIAEoARIXCg9oYXNfcmV2ZW51ZV90dG0YDiABKAgSFgoObmV0X2luY29tZV90dG0YDyABKAESGgoSaGFzX25ldF9pbmNvbWVfdHRtGBAgASgIEg8KB2Vwc190dG0YESABKAESEwoLaGFzX2Vwc190dG0YEiABKAgSIQoZcmV2ZW51ZV9iYXNpc19wZXJpb2RfdHlwZRgTIAEoCRIcChRyZXZlbnVlX2hhbGZfeW95X3BjdBgUIAEoARIcChRoYXNfcmV2ZW51ZV9oYWxmX3lveRgVIAEoCBIYChBlcHNfaGFsZl95b3lfcGN0GBYgASgBEhgKEGhhc19lcHNfaGFsZl95b3kYFyABKAgSHgoWaGFsZl9sYXRlc3RfcGVyaW9kX2VuZBgYIAEoCSKxAQocR2V0U3RvY2tGdW5kYW1lbnRhbHNSZXNwb25zZRISCgpzdG9ja19jb2RlGAEgASgJEjQKB3BlcmlvZHMYAiADKAsyIy5zaG9ydHMudjFhbHBoYTEuRnVuZGFtZW50YWxzUGVyaW9kEjMKBmdyb3d0aBgDIAEoCzIjLnNob3J0cy52MWFscGhhMS5GdW5kYW1lbnRhbHNHcm93dGgSEgoKaGFzX2dyb3d0aBgEIAEoCCrCAQoMVmVyZGljdExhYmVsEh0KGVZFUkRJQ1RfTEFCRUxfVU5TUEVDSUZJRUQQABIgChxWRVJESUNUX0xBQkVMX1NUUk9OR19CRUFSSVNIEAESGQoVVkVSRElDVF9MQUJFTF9CRUFSSVNIEAISGQoVVkVSRElDVF9MQUJFTF9ORVVUUkFMEAMSGQoVVkVSRElDVF9MQUJFTF9CVUxMSVNIEAQSIAocVkVSRElDVF9MQUJFTF9TVFJPTkdfQlVMTElTSBAFMo4MCgxTdG9ja1NlcnZpY2USSgoIR2V0U3RvY2sSIC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tSZXF1ZXN0GhYuc3RvY2tzLnYxYWxwaGExLlN0b2NrIgSAtRgBEl8KD0dldFN0b2NrRGV0YWlscxInLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0RldGFpbHNSZXF1ZXN0Gh0uc3RvY2tzLnYxYWxwaGExLlN0b2NrRGV0YWlscyIEgLUYARJbCgxHZXRTdG9ja0RhdGESJC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tEYXRhUmVxdWVzdBofLnN0b2Nrcy52MWFscGhhMS5UaW1lU2VyaWVzRGF0YSIEgLUYARJnCg5HZXRTdG9ja1ByaWNlcxImLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1ByaWNlc1JlcXVlc3QaJy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tQcmljZXNSZXNwb25zZSIEgLUYARKOAQobR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzEjMuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0c1JlcXVlc3QaNC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVzcG9uc2UiBIC1GAEScAoRR2V0RGlyZWN0b3JUcmFkZXMSKS5zaG9ydHMudjFhbHBoYTEuR2V0RGlyZWN0b3JUcmFkZXNSZXF1ZXN0Giouc2hvcnRzLnYxYWxwaGExLkdldERpcmVjdG9yVHJhZGVzUmVzcG9uc2UiBIC1GAEScwoSR2V0RGl2aWRlbmRIaXN0b3J5Eiouc2hvcnRzLnYxYWxwaGExLkdldERpdmlkZW5kSGlzdG9yeVJlcXVlc3QaKy5zaG9ydHMudjFhbHBoYTEuR2V0RGl2aWRlbmRIaXN0b3J5UmVzcG9uc2UiBIC1GAEScAoRR2V0UGVlckNvbXBhcmlzb24SKS5zaG9ydHMudjFhbHBoYTEuR2V0UGVlckNvbXBhcmlzb25SZXF1ZXN0Giouc2hvcnRzLnYxYWxwaGExLkdldFBlZXJDb21wYXJpc29uUmVzcG9uc2UiBIC1GAESagoPR2V0U3RvY2tWZXJkaWN0Eicuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrVmVyZGljdFJlcXVlc3QaKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tWZXJkaWN0UmVzcG9uc2UiBIC1GAESZAoNR2V0U3RvY2tHcmFwaBIlLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0dyYXBoUmVxdWVzdBomLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0dyYXBoUmVzcG9uc2UiBIC1GAESbQoQR2V0RXZlbnRUaW1lbGluZRIoLnNob3J0cy52MWFscGhhMS5HZXRFdmVudFRpbWVsaW5lUmVxdWVzdBopLnNob3J0cy52MWFscGhhMS5HZXRFdmVudFRpbWVsaW5lUmVzcG9uc2UiBIC1GAESagoPR2V0U3RvY2tTaWduYWxzEicuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrU2lnbmFsc1JlcXVlc3QaKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTaWduYWxzUmVzcG9uc2UiBIC1GAESeQoUR2V0Q29tcGFueVRheFByb2ZpbGUSLC5zaG9ydHMudjFhbHBoYTEuR2V0Q29tcGFueVRheFByb2ZpbGVSZXF1ZXN0Gi0uc2hvcnRzLnYxYWxwaGExLkdldENvbXBhbnlUYXhQcm9maWxlUmVzcG9uc2UiBIC1GAESeQoUR2V0U3RvY2tGdW5kYW1lbnRhbHMSLC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tGdW5kYW1lbnRhbHNSZXF1ZXN0Gi0uc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRnVuZGFtZW50YWxzUmVzcG9uc2UiBIC1GAFC2QEKE2NvbS5zaG9ydHMudjFhbHBoYTFCClN0b2NrUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_stocks_v1alpha1_stocks, file_options_v1_options]);
+  fileDesc("ChtzaG9ydHMvdjFhbHBoYTEvc3RvY2sucHJvdG8SD3Nob3J0cy52MWFscGhhMSInCg9HZXRTdG9ja1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIi4KFkdldFN0b2NrRGV0YWlsc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIpEBChNHZXRTdG9ja0RhdGFSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCRIOCgZwZXJpb2QYAiABKAkSFwoPZnVsbF9yZXNvbHV0aW9uGAMgASgIEhIKCm1heF9wb2ludHMYBiABKAUSDAoEZnJvbRgEIAEoCRIKCgJ0bxgFIAEoCRINCgVhc19vZhgHIAEoCSJrChVHZXRTdG9ja1ByaWNlc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJEg4KBnBlcmlvZBgCIAEoCRIMCgRmcm9tGAMgASgJEgoKAnRvGAQgASgJEhIKCm1heF9wb2ludHMYBSABKAUisQEKFkdldFN0b2NrUHJpY2VzUmVzcG9uc2USFAoMcHJvZHVjdF9jb2RlGAEgASgJEgwKBG5hbWUYAiABKAkSMAoGcG9pbnRzGAMgAygLMiAuc2hvcnRzLnYxYWxwaGExLlN0b2NrUHJpY2VQb2ludBIaChJ0b3RhbF9vYnNlcnZhdGlvbnMYBCABKAUSEwoLZG93bnNhbXBsZWQYBSABKAgSEAoIY3VycmVuY3kYBiABKAkifwoPU3RvY2tQcmljZVBvaW50EgwKBGRhdGUYASABKAkSDAoEb3BlbhgCIAEoARIMCgRoaWdoGAMgASgBEgsKA2xvdxgEIAEoARINCgVjbG9zZRgFIAEoARIWCg5hZGp1c3RlZF9jbG9zZRgGIAEoARIOCgZ2b2x1bWUYByABKAMiWAoiR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVxdWVzdBITCgtzdG9ja19jb2RlcxgBIAMoCRIdChVtYXhfcmVwb3J0c19wZXJfc3RvY2sYAiABKAUi3QEKI0dldFN0b2NrRmluYW5jaWFsSGlnaGxpZ2h0c1Jlc3BvbnNlElgKCmhpZ2hsaWdodHMYASADKAsyRC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVzcG9uc2UuSGlnaGxpZ2h0c0VudHJ5GlwKD0hpZ2hsaWdodHNFbnRyeRILCgNrZXkYASABKAkSOAoFdmFsdWUYAiABKAsyKS5zaG9ydHMudjFhbHBoYTEuU3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzOgI4ASJWChhTdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHMSOgoHcmVwb3J0cxgBIAMoCzIpLnNob3J0cy52MWFscGhhMS5GaW5hbmNpYWxSZXBvcnRIaWdobGlnaHQisQEKGEZpbmFuY2lhbFJlcG9ydEhpZ2hsaWdodBIUCgxyZXBvcnRfdGl0bGUYASABKAkSEwoLcmVwb3J0X3R5cGUYAiABKAkSEwoLcmVwb3J0X2RhdGUYAyABKAkSMQoHbWV0cmljcxgEIAMoCzIgLnNob3J0cy52MWFscGhhMS5GaW5hbmNpYWxNZXRyaWMSDgoGZGlnZXN0GAUgASgJEhIKCmNvbmZpZGVuY2UYBiABKAEitAEKD0ZpbmFuY2lhbE1ldHJpYxITCgttZXRyaWNfdHlwZRgBIAEoCRITCgtzb3VyY2VfdGV4dBgCIAEoCRJECgphdHRyaWJ1dGVzGAMgAygLMjAuc2hvcnRzLnYxYWxwaGExLkZpbmFuY2lhbE1ldHJpYy5BdHRyaWJ1dGVzRW50cnkaMQoPQXR0cmlidXRlc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoCToCOAEizQEKDURpcmVjdG9yVHJhZGUSCgoCaWQYASABKAkSEgoKc3RvY2tfY29kZRgCIAEoCRIVCg1kaXJlY3Rvcl9uYW1lGAMgASgJEhIKCnRyYWRlX3R5cGUYBCABKAkSFQoNc2hhcmVzX3RyYWRlZBgFIAEoAxIXCg9wcmljZV9wZXJfc2hhcmUYBiABKAESEwoLdG90YWxfdmFsdWUYByABKAESEgoKdHJhZGVfZGF0ZRgIIAEoCRIYChBhbm5vdW5jZW1lbnRfdXJsGAkgASgJIj0KGEdldERpcmVjdG9yVHJhZGVzUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFImAKGUdldERpcmVjdG9yVHJhZGVzUmVzcG9uc2USLgoGdHJhZGVzGAEgAygLMh4uc2hvcnRzLnYxYWxwaGExLkRpcmVjdG9yVHJhZGUSEwoLdG90YWxfY291bnQYAiABKAUipQEKDkRpdmlkZW5kUmVjb3JkEgoKAmlkGAEgASgJEhIKCnN0b2NrX2NvZGUYAiABKAkSDwoHZXhfZGF0ZRgDIAEoCRIUCgxwYXltZW50X2RhdGUYBCABKAkSGAoQYW1vdW50X3Blcl9zaGFyZRgFIAEoARIbChNmcmFua2luZ19wZXJjZW50YWdlGAYgASgBEhUKDWRpdmlkZW5kX3R5cGUYByABKAkiPgoZR2V0RGl2aWRlbmRIaXN0b3J5UmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBXllYXJzGAIgASgFIn0KGkdldERpdmlkZW5kSGlzdG9yeVJlc3BvbnNlEjIKCWRpdmlkZW5kcxgBIAMoCzIfLnNob3J0cy52MWFscGhhMS5EaXZpZGVuZFJlY29yZBITCgt0b3RhbF9jb3VudBgCIAEoBRIWCg50cmFpbGluZ195aWVsZBgDIAEoASLQAQoJUGVlclN0b2NrEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEh4KFnNob3J0X3Bvc2l0aW9uX3BlcmNlbnQYBCABKAESEgoKbWFya2V0X2NhcBgFIAEoARIQCghwZV9yYXRpbxgGIAEoARIWCg5kaXZpZGVuZF95aWVsZBgHIAEoARIXCg9wcmljZV9jaGFuZ2VfMW0YCCABKAESEAoIbG9nb191cmwYCSABKAkiPQoYR2V0UGVlckNvbXBhcmlzb25SZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSDQoFbGltaXQYAiABKAUihQEKGUdldFBlZXJDb21wYXJpc29uUmVzcG9uc2USKwoHc3ViamVjdBgBIAEoCzIaLnNob3J0cy52MWFscGhhMS5QZWVyU3RvY2sSKQoFcGVlcnMYAiADKAsyGi5zaG9ydHMudjFhbHBoYTEuUGVlclN0b2NrEhAKCGluZHVzdHJ5GAMgASgJIi4KFkdldFN0b2NrVmVyZGljdFJlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIlUKEFZlcmRpY3RDb21wb25lbnQSDAoEbmFtZRgBIAEoCRINCgVzY29yZRgCIAEoARIOCgZ3ZWlnaHQYAyABKAESFAoMY29udHJpYnV0aW9uGAQgASgBIqcBChdHZXRTdG9ja1ZlcmRpY3RSZXNwb25zZRIUCgxwcm9kdWN0X2NvZGUYASABKAkSEQoJY29tcG9zaXRlGAIgASgBEiwKBWxhYmVsGAMgASgOMh0uc2hvcnRzLnYxYWxwaGExLlZlcmRpY3RMYWJlbBI1Cgpjb21wb25lbnRzGAQgAygLMiEuc2hvcnRzLnYxYWxwaGExLlZlcmRpY3RDb21wb25lbnQiMwobR2V0Q29tcGFueVRheFByb2ZpbGVSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCSKdAQoOQ29tcGFueVRheFllYXISEwoLaW5jb21lX3llYXIYASABKAUSFAoMdG90YWxfaW5jb21lGAIgASgBEhoKEmhhc190YXhhYmxlX2luY29tZRgDIAEoCBIWCg50YXhhYmxlX2luY29tZRgEIAEoARIXCg9oYXNfdGF4X3BheWFibGUYBSABKAgSEwoLdGF4X3BheWFibGUYBiABKAEijAEKHEdldENvbXBhbnlUYXhQcm9maWxlUmVzcG9uc2USEwoLZW50aXR5X25hbWUYASABKAkSCwoDYWJuGAIgASgJEi4KBXllYXJzGAMgAygLMh8uc2hvcnRzLnYxYWxwaGExLkNvbXBhbnlUYXhZZWFyEhoKEnNvdXJjZV9hdHRyaWJ1dGlvbhgEIAEoCSI5ChRHZXRTdG9ja0dyYXBoUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFInwKFUdldFN0b2NrR3JhcGhSZXNwb25zZRIsCgZwZW9wbGUYASADKAsyHC5zaG9ydHMudjFhbHBoYTEuR3JhcGhQZXJzb24SNQoRc2ltaWxhcl9jb21wYW5pZXMYAiADKAsyGi5zaG9ydHMudjFhbHBoYTEuR3JhcGhQZWVyImMKC0dyYXBoUGVyc29uEgwKBG5hbWUYASABKAkSDAoEcm9sZRgCIAEoCRIRCglpbWFnZV91cmwYAyABKAkSFAoMbGlua2VkaW5fdXJsGAQgASgJEg8KB2Fsc29fYXQYBSADKAkiWwoJR3JhcGhQZWVyEhIKCnN0b2NrX2NvZGUYASABKAkSFAoMY29tcGFueV9uYW1lGAIgASgJEhAKCGluZHVzdHJ5GAMgASgJEhIKCnNpbWlsYXJpdHkYBCABKAEiTwoXR2V0RXZlbnRUaW1lbGluZVJlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCRIRCglkYXlzX2JhY2sYAiABKAUSDQoFbGltaXQYAyABKAUiSgoYR2V0RXZlbnRUaW1lbGluZVJlc3BvbnNlEi4KBmV2ZW50cxgBIAMoCzIeLnNob3J0cy52MWFscGhhMS5UaW1lbGluZUV2ZW50IoYBCg1UaW1lbGluZUV2ZW50EgwKBGRhdGUYASABKAkSDAoEdHlwZRgCIAEoCRINCgV0aXRsZRgDIAEoCRIOCgZkZXRhaWwYBCABKAkSCwoDdXJsGAUgASgJEhEKCXNlbnRpbWVudBgGIAEoCRIaChJpc19wcmljZV9zZW5zaXRpdmUYByABKAgiOwoWR2V0U3RvY2tTaWduYWxzUmVxdWVzdBISCgpzdG9ja19jb2RlGAEgASgJEg0KBWxpbWl0GAIgASgFIngKF0dldFN0b2NrU2lnbmFsc1Jlc3BvbnNlEi0KB2FkdmVyc2UYASADKAsyHC5zaG9ydHMudjFhbHBoYTEuU3RvY2tTaWduYWwSLgoIcG9zaXRpdmUYAiADKAsyHC5zaG9ydHMudjFhbHBoYTEuU3RvY2tTaWduYWwinAEKC1N0b2NrU2lnbmFsEhAKCHBvbGFyaXR5GAEgASgJEgwKBGtpbmQYAiABKAkSEAoIaGVhZGxpbmUYAyABKAkSDgoGZGV0YWlsGAQgASgJEhIKCmV2ZW50X2RhdGUYBSABKAkSEAoIc2V2ZXJpdHkYBiABKAkSEgoKY29uZmlkZW5jZRgHIAEoARIRCgljaXRhdGlvbnMYCCADKAkiVQobR2V0U3RvY2tGdW5kYW1lbnRhbHNSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSEwoLcGVyaW9kX3R5cGUYAiABKAkSDQoFbGltaXQYAyABKAUi7g0KEkZ1bmRhbWVudGFsc1BlcmlvZBITCgtwZXJpb2RfdHlwZRgBIAEoCRISCgpwZXJpb2RfZW5kGAIgASgJEhMKC2Zpc2NhbF95ZWFyGAMgASgFEhAKCGN1cnJlbmN5GAQgASgJEg8KB3JldmVudWUYBSABKAESEwoLaGFzX3JldmVudWUYBiABKAgSEgoKbmV0X2luY29tZRgHIAEoARIWCg5oYXNfbmV0X2luY29tZRgIIAEoCBIRCgllcHNfYmFzaWMYCSABKAESFQoNaGFzX2Vwc19iYXNpYxgKIAEoCBITCgtlcHNfZGlsdXRlZBgLIAEoARIXCg9oYXNfZXBzX2RpbHV0ZWQYDCABKAgSGwoTb3BlcmF0aW5nX2Nhc2hfZmxvdxgNIAEoARIfChdoYXNfb3BlcmF0aW5nX2Nhc2hfZmxvdxgOIAEoCBIaChJzaGFyZXNfb3V0c3RhbmRpbmcYDyABKAESHgoWaGFzX3NoYXJlc19vdXRzdGFuZGluZxgQIAEoCBIOCgZzb3VyY2UYESABKAkSEgoKZmV0Y2hlZF9hdBgSIAEoCRIWCg5mcmVlX2Nhc2hfZmxvdxgTIAEoARIaChJoYXNfZnJlZV9jYXNoX2Zsb3cYFCABKAgSFAoMZ3Jvc3NfcHJvZml0GBUgASgBEhgKEGhhc19ncm9zc19wcm9maXQYFiABKAgSGAoQb3BlcmF0aW5nX2luY29tZRgXIAEoARIcChRoYXNfb3BlcmF0aW5nX2luY29tZRgYIAEoCBIOCgZlYml0ZGEYGSABKAESEgoKaGFzX2ViaXRkYRgaIAEoCBIZChFub3JtYWxpemVkX2ViaXRkYRgbIAEoARIdChVoYXNfbm9ybWFsaXplZF9lYml0ZGEYHCABKAgSDAoEZWJpdBgdIAEoARIQCghoYXNfZWJpdBgeIAEoCBIYChBpbnRlcmVzdF9leHBlbnNlGB8gASgBEhwKFGhhc19pbnRlcmVzdF9leHBlbnNlGCAgASgIEhUKDXByZXRheF9pbmNvbWUYISABKAESGQoRaGFzX3ByZXRheF9pbmNvbWUYIiABKAgSFQoNdGF4X3Byb3Zpc2lvbhgjIAEoARIZChFoYXNfdGF4X3Byb3Zpc2lvbhgkIAEoCBIbChNuZXRfaW50ZXJlc3RfaW5jb21lGCUgASgBEh8KF2hhc19uZXRfaW50ZXJlc3RfaW5jb21lGCYgASgIEhsKE2NhcGl0YWxfZXhwZW5kaXR1cmUYJyABKAESHwoXaGFzX2NhcGl0YWxfZXhwZW5kaXR1cmUYKCABKAgSFgoOZGl2aWRlbmRzX3BhaWQYKSABKAESGgoSaGFzX2RpdmlkZW5kc19wYWlkGCogASgIEhYKDnNoYXJlX2J1eWJhY2tzGCsgASgBEhoKEmhhc19zaGFyZV9idXliYWNrcxgsIAEoCBIUCgx0b3RhbF9hc3NldHMYLSABKAESGAoQaGFzX3RvdGFsX2Fzc2V0cxguIAEoCBIZChF0b3RhbF9saWFiaWxpdGllcxgvIAEoARIdChVoYXNfdG90YWxfbGlhYmlsaXRpZXMYMCABKAgSFAoMdG90YWxfZXF1aXR5GDEgASgBEhgKEGhhc190b3RhbF9lcXVpdHkYMiABKAgSHAoUY2FzaF9hbmRfZXF1aXZhbGVudHMYMyABKAESIAoYaGFzX2Nhc2hfYW5kX2VxdWl2YWxlbnRzGDQgASgIEhIKCnRvdGFsX2RlYnQYNSABKAESFgoOaGFzX3RvdGFsX2RlYnQYNiABKAgSIQoZY2FwaXRhbF9sZWFzZV9vYmxpZ2F0aW9ucxg3IAEoARIlCh1oYXNfY2FwaXRhbF9sZWFzZV9vYmxpZ2F0aW9ucxg4IAEoCBIQCghuZXRfZGVidBg5IAEoARIUCgxoYXNfbmV0X2RlYnQYOiABKAgSFgoOY3VycmVudF9hc3NldHMYOyABKAESGgoSaGFzX2N1cnJlbnRfYXNzZXRzGDwgASgIEhsKE2N1cnJlbnRfbGlhYmlsaXRpZXMYPSABKAESHwoXaGFzX2N1cnJlbnRfbGlhYmlsaXRpZXMYPiABKAgSTAoNZmllbGRfc291cmNlcxg/IAMoCzI1LnNob3J0cy52MWFscGhhMS5GdW5kYW1lbnRhbHNQZXJpb2QuRmllbGRTb3VyY2VzRW50cnkSGwoTc291cmNlX2RvY3VtZW50X3VybBhAIAEoCRIcChRzb3VyY2VfZG9jdW1lbnRfZGF0ZRhBIAEoCRozChFGaWVsZFNvdXJjZXNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIp4GChJGdW5kYW1lbnRhbHNHcm93dGgSGQoRYmFzaXNfcGVyaW9kX3R5cGUYASABKAkSGQoRbGF0ZXN0X3BlcmlvZF9lbmQYAiABKAkSFwoPcmV2ZW51ZV95b3lfcGN0GAMgASgBEhcKD2hhc19yZXZlbnVlX3lveRgEIAEoCBIdChVyZXZlbnVlX3lveV9wcmlvcl9wY3QYBSABKAESHQoVaGFzX3JldmVudWVfeW95X3ByaW9yGAYgASgIEhMKC2Vwc195b3lfcGN0GAcgASgBEhMKC2hhc19lcHNfeW95GAggASgIEhkKEWVwc195b3lfcHJpb3JfcGN0GAkgASgBEhkKEWhhc19lcHNfeW95X3ByaW9yGAogASgIEhsKE25ldF9pbmNvbWVfcG9zaXRpdmUYCyABKAgSGQoRcGVyaW9kc19hdmFpbGFibGUYDCABKAUSEwoLcmV2ZW51ZV90dG0YDSABKAESFwoPaGFzX3JldmVudWVfdHRtGA4gASgIEhYKDm5ldF9pbmNvbWVfdHRtGA8gASgBEhoKEmhhc19uZXRfaW5jb21lX3R0bRgQIAEoCBIPCgdlcHNfdHRtGBEgASgBEhMKC2hhc19lcHNfdHRtGBIgASgIEiEKGXJldmVudWVfYmFzaXNfcGVyaW9kX3R5cGUYEyABKAkSHAoUcmV2ZW51ZV9oYWxmX3lveV9wY3QYFCABKAESHAoUaGFzX3JldmVudWVfaGFsZl95b3kYFSABKAgSGAoQZXBzX2hhbGZfeW95X3BjdBgWIAEoARIYChBoYXNfZXBzX2hhbGZfeW95GBcgASgIEh4KFmhhbGZfbGF0ZXN0X3BlcmlvZF9lbmQYGCABKAkSHAoUcmV2ZW51ZV9iYXNpc19zb3VyY2UYGSABKAkSGAoQZXBzX2Jhc2lzX3NvdXJjZRgaIAEoCRISCgpmZXRjaGVkX2F0GBsgASgJEiEKGXJldmVudWVfbGF0ZXN0X3BlcmlvZF9lbmQYHCABKAkSIAoYcmV2ZW51ZV9wcmlvcl9wZXJpb2RfZW5kGB0gASgJIr4JChNGdW5kYW1lbnRhbHNRdWFsaXR5EhkKEWJhc2lzX3BlcmlvZF90eXBlGAEgASgJEhgKEGJhc2lzX3BlcmlvZF9lbmQYAiABKAkSEAoIY3VycmVuY3kYAyABKAkSGgoSYmFsYW5jZV9wZXJpb2RfZW5kGAQgASgJEhgKEGdyb3NzX21hcmdpbl9wY3QYBSABKAESHAoUaGFzX2dyb3NzX21hcmdpbl9wY3QYBiABKAgSHAoUb3BlcmF0aW5nX21hcmdpbl9wY3QYByABKAESIAoYaGFzX29wZXJhdGluZ19tYXJnaW5fcGN0GAggASgIEhYKDm5ldF9tYXJnaW5fcGN0GAkgASgBEhoKEmhhc19uZXRfbWFyZ2luX3BjdBgKIAEoCBIWCg5mY2ZfbWFyZ2luX3BjdBgLIAEoARIaChJoYXNfZmNmX21hcmdpbl9wY3QYDCABKAgSFgoOZmNmX2NvbnZlcnNpb24YDSABKAESGgoSaGFzX2ZjZl9jb252ZXJzaW9uGA4gASgIEg8KB3JvZV9wY3QYDyABKAESEwoLaGFzX3JvZV9wY3QYECABKAgSDwoHcm9hX3BjdBgRIAEoARITCgtoYXNfcm9hX3BjdBgSIAEoCBIQCghuZXRfZGVidBgTIAEoARIUCgxoYXNfbmV0X2RlYnQYFCABKAgSGgoSbmV0X2RlYnRfdG9fZWJpdGRhGBUgASgBEh4KFmhhc19uZXRfZGVidF90b19lYml0ZGEYFiABKAgSGgoSbmV0X2RlYnRfdG9fZXF1aXR5GBcgASgBEh4KFmhhc19uZXRfZGVidF90b19lcXVpdHkYGCABKAgSFQoNY3VycmVudF9yYXRpbxgZIAEoARIZChFoYXNfY3VycmVudF9yYXRpbxgaIAEoCBIWCg5pbnRlcmVzdF9jb3ZlchgbIAEoARIaChJoYXNfaW50ZXJlc3RfY292ZXIYHCABKAgSGAoQcGF5b3V0X3JhdGlvX3BjdBgdIAEoARIcChRoYXNfcGF5b3V0X3JhdGlvX3BjdBgeIAEoCBIUCgxpc19maW5hbmNpYWwYHyABKAgSDgoGc291cmNlGCAgASgJEiMKG29wZXJhdGluZ19jYXNoX2Zsb3dfZGVyaXZlZBghIAEoCBISCgptYXJrZXRfY2FwGCIgASgBEhYKDmhhc19tYXJrZXRfY2FwGCMgASgIEhAKCHBlX3JhdGlvGCQgASgBEhQKDGhhc19wZV9yYXRpbxglIAEoCBIVCg1wcmljZV90b19ib29rGCYgASgBEhkKEWhhc19wcmljZV90b19ib29rGCcgASgIEhMKC3ByaWNlX2FzX29mGCggASgJEhgKEGJhbGFuY2VfY3VycmVuY3kYKSABKAkSFgoObm90X21lYW5pbmdmdWwYKiADKAkSEwoLaXNfcHJvcGVydHkYKyABKAgSGgoSYmFsYW5jZV9sYWdfbW9udGhzGCwgASgFEhQKDHNoYXJlc19hc19vZhgtIAEoCRIZChFwZV9lcHNfcGVyaW9kX2VuZBguIAEoCRIUCgxwZV9lcHNfYmFzaXMYLyABKAkSFgoOdmFsdWF0aW9uX25vdGUYMCABKAkiaQoURnVuZGFtZW50YWxzQ292ZXJhZ2USDgoGc3RhdHVzGAEgASgJEhcKD2xhc3RfYXR0ZW1wdF9hdBgCIAEoCRIXCg9sYXN0X3N1Y2Nlc3NfYXQYAyABKAkSDwoHc291cmNlcxgEIAMoCSKoAQoTTGF0ZXN0RmlsaW5nU3VtbWFyeRISCgpyZXBvcnRfdXJsGAEgASgJEhQKDHJlcG9ydF90aXRsZRgCIAEoCRITCgtyZXBvcnRfZGF0ZRgDIAEoCRISCgpwZXJpb2RfZW5kGAQgASgJEhMKC3BlcmlvZF90eXBlGAUgASgJEg4KBmRpZ2VzdBgGIAEoCRIZChFkaWdlc3RfY29uZmlkZW5jZRgHIAEoASKOAwocR2V0U3RvY2tGdW5kYW1lbnRhbHNSZXNwb25zZRISCgpzdG9ja19jb2RlGAEgASgJEjQKB3BlcmlvZHMYAiADKAsyIy5zaG9ydHMudjFhbHBoYTEuRnVuZGFtZW50YWxzUGVyaW9kEjMKBmdyb3d0aBgDIAEoCzIjLnNob3J0cy52MWFscGhhMS5GdW5kYW1lbnRhbHNHcm93dGgSEgoKaGFzX2dyb3d0aBgEIAEoCBI1CgdxdWFsaXR5GAUgASgLMiQuc2hvcnRzLnYxYWxwaGExLkZ1bmRhbWVudGFsc1F1YWxpdHkSEwoLaGFzX3F1YWxpdHkYBiABKAgSNwoIY292ZXJhZ2UYByABKAsyJS5zaG9ydHMudjFhbHBoYTEuRnVuZGFtZW50YWxzQ292ZXJhZ2USOwoNbGF0ZXN0X2ZpbGluZxgIIAEoCzIkLnNob3J0cy52MWFscGhhMS5MYXRlc3RGaWxpbmdTdW1tYXJ5EhkKEWhhc19sYXRlc3RfZmlsaW5nGAkgASgIKsIBCgxWZXJkaWN0TGFiZWwSHQoZVkVSRElDVF9MQUJFTF9VTlNQRUNJRklFRBAAEiAKHFZFUkRJQ1RfTEFCRUxfU1RST05HX0JFQVJJU0gQARIZChVWRVJESUNUX0xBQkVMX0JFQVJJU0gQAhIZChVWRVJESUNUX0xBQkVMX05FVVRSQUwQAxIZChVWRVJESUNUX0xBQkVMX0JVTExJU0gQBBIgChxWRVJESUNUX0xBQkVMX1NUUk9OR19CVUxMSVNIEAUyjgwKDFN0b2NrU2VydmljZRJKCghHZXRTdG9jaxIgLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1JlcXVlc3QaFi5zdG9ja3MudjFhbHBoYTEuU3RvY2siBIC1GAESXwoPR2V0U3RvY2tEZXRhaWxzEicuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRGV0YWlsc1JlcXVlc3QaHS5zdG9ja3MudjFhbHBoYTEuU3RvY2tEZXRhaWxzIgSAtRgBElsKDEdldFN0b2NrRGF0YRIkLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0RhdGFSZXF1ZXN0Gh8uc3RvY2tzLnYxYWxwaGExLlRpbWVTZXJpZXNEYXRhIgSAtRgBEmcKDkdldFN0b2NrUHJpY2VzEiYuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrUHJpY2VzUmVxdWVzdBonLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1ByaWNlc1Jlc3BvbnNlIgSAtRgBEo4BChtHZXRTdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHMSMy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tGaW5hbmNpYWxIaWdobGlnaHRzUmVxdWVzdBo0LnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0ZpbmFuY2lhbEhpZ2hsaWdodHNSZXNwb25zZSIEgLUYARJwChFHZXREaXJlY3RvclRyYWRlcxIpLnNob3J0cy52MWFscGhhMS5HZXREaXJlY3RvclRyYWRlc1JlcXVlc3QaKi5zaG9ydHMudjFhbHBoYTEuR2V0RGlyZWN0b3JUcmFkZXNSZXNwb25zZSIEgLUYARJzChJHZXREaXZpZGVuZEhpc3RvcnkSKi5zaG9ydHMudjFhbHBoYTEuR2V0RGl2aWRlbmRIaXN0b3J5UmVxdWVzdBorLnNob3J0cy52MWFscGhhMS5HZXREaXZpZGVuZEhpc3RvcnlSZXNwb25zZSIEgLUYARJwChFHZXRQZWVyQ29tcGFyaXNvbhIpLnNob3J0cy52MWFscGhhMS5HZXRQZWVyQ29tcGFyaXNvblJlcXVlc3QaKi5zaG9ydHMudjFhbHBoYTEuR2V0UGVlckNvbXBhcmlzb25SZXNwb25zZSIEgLUYARJqCg9HZXRTdG9ja1ZlcmRpY3QSJy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tWZXJkaWN0UmVxdWVzdBooLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1ZlcmRpY3RSZXNwb25zZSIEgLUYARJkCg1HZXRTdG9ja0dyYXBoEiUuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrR3JhcGhSZXF1ZXN0GiYuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrR3JhcGhSZXNwb25zZSIEgLUYARJtChBHZXRFdmVudFRpbWVsaW5lEiguc2hvcnRzLnYxYWxwaGExLkdldEV2ZW50VGltZWxpbmVSZXF1ZXN0Gikuc2hvcnRzLnYxYWxwaGExLkdldEV2ZW50VGltZWxpbmVSZXNwb25zZSIEgLUYARJqCg9HZXRTdG9ja1NpZ25hbHMSJy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTaWduYWxzUmVxdWVzdBooLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1NpZ25hbHNSZXNwb25zZSIEgLUYARJ5ChRHZXRDb21wYW55VGF4UHJvZmlsZRIsLnNob3J0cy52MWFscGhhMS5HZXRDb21wYW55VGF4UHJvZmlsZVJlcXVlc3QaLS5zaG9ydHMudjFhbHBoYTEuR2V0Q29tcGFueVRheFByb2ZpbGVSZXNwb25zZSIEgLUYARJ5ChRHZXRTdG9ja0Z1bmRhbWVudGFscxIsLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0Z1bmRhbWVudGFsc1JlcXVlc3QaLS5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tGdW5kYW1lbnRhbHNSZXNwb25zZSIEgLUYAULZAQoTY29tLnNob3J0cy52MWFscGhhMUIKU3RvY2tQcm90b1ABWllnaXRodWIuY29tL2Nhc3RsZW1pbGsvc2hvcnRlZC5jb20uYXUvc2VydmljZXMvZ2VuL3Byb3RvL2dvL3Nob3J0cy92MWFscGhhMTtzaG9ydHN2MWFscGhhMaICA1NYWKoCD1Nob3J0cy5WMWFscGhhMcoCD1Nob3J0c1xWMWFscGhhMeICG1Nob3J0c1xWMWFscGhhMVxHUEJNZXRhZGF0YeoCEFNob3J0czo6VjFhbHBoYTFiBnByb3RvMw", [file_stocks_v1alpha1_stocks, file_options_v1_options]);
 
 /**
  * Request for GetStockSummary RPC, specifying the product code.
@@ -1370,7 +1370,7 @@ export type GetStockFundamentalsRequest = Message<"shorts.v1alpha1.GetStockFunda
   stockCode: string;
 
   /**
-   * Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+   * Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type.
    *
    * @generated from field: string period_type = 2;
    */
@@ -1507,6 +1507,268 @@ export type FundamentalsPeriod = Message<"shorts.v1alpha1.FundamentalsPeriod"> &
    * @generated from field: bool has_free_cash_flow = 20;
    */
   hasFreeCashFlow: boolean;
+
+  /**
+   * Full statement lines (period_type "quarter" rows are balance-sheet
+   * snapshots and carry only balance lines and shares).
+   *
+   * @generated from field: double gross_profit = 21;
+   */
+  grossProfit: number;
+
+  /**
+   * @generated from field: bool has_gross_profit = 22;
+   */
+  hasGrossProfit: boolean;
+
+  /**
+   * Absent for banks and insurers.
+   *
+   * @generated from field: double operating_income = 23;
+   */
+  operatingIncome: number;
+
+  /**
+   * @generated from field: bool has_operating_income = 24;
+   */
+  hasOperatingIncome: boolean;
+
+  /**
+   * Statutory: includes impairments and revaluations.
+   *
+   * @generated from field: double ebitda = 25;
+   */
+  ebitda: number;
+
+  /**
+   * @generated from field: bool has_ebitda = 26;
+   */
+  hasEbitda: boolean;
+
+  /**
+   * EBITDA before unusual items, when the source publishes it.
+   *
+   * @generated from field: double normalized_ebitda = 27;
+   */
+  normalizedEbitda: number;
+
+  /**
+   * @generated from field: bool has_normalized_ebitda = 28;
+   */
+  hasNormalizedEbitda: boolean;
+
+  /**
+   * @generated from field: double ebit = 29;
+   */
+  ebit: number;
+
+  /**
+   * @generated from field: bool has_ebit = 30;
+   */
+  hasEbit: boolean;
+
+  /**
+   * A positive expense.
+   *
+   * @generated from field: double interest_expense = 31;
+   */
+  interestExpense: number;
+
+  /**
+   * @generated from field: bool has_interest_expense = 32;
+   */
+  hasInterestExpense: boolean;
+
+  /**
+   * @generated from field: double pretax_income = 33;
+   */
+  pretaxIncome: number;
+
+  /**
+   * @generated from field: bool has_pretax_income = 34;
+   */
+  hasPretaxIncome: boolean;
+
+  /**
+   * @generated from field: double tax_provision = 35;
+   */
+  taxProvision: number;
+
+  /**
+   * @generated from field: bool has_tax_provision = 36;
+   */
+  hasTaxProvision: boolean;
+
+  /**
+   * Banks; other companies report it as minus interest expense.
+   *
+   * @generated from field: double net_interest_income = 37;
+   */
+  netInterestIncome: number;
+
+  /**
+   * @generated from field: bool has_net_interest_income = 38;
+   */
+  hasNetInterestIncome: boolean;
+
+  /**
+   * An outflow: negative.
+   *
+   * @generated from field: double capital_expenditure = 39;
+   */
+  capitalExpenditure: number;
+
+  /**
+   * @generated from field: bool has_capital_expenditure = 40;
+   */
+  hasCapitalExpenditure: boolean;
+
+  /**
+   * Cash dividends paid in the period: negative.
+   *
+   * @generated from field: double dividends_paid = 41;
+   */
+  dividendsPaid: number;
+
+  /**
+   * @generated from field: bool has_dividends_paid = 42;
+   */
+  hasDividendsPaid: boolean;
+
+  /**
+   * An outflow: negative.
+   *
+   * @generated from field: double share_buybacks = 43;
+   */
+  shareBuybacks: number;
+
+  /**
+   * @generated from field: bool has_share_buybacks = 44;
+   */
+  hasShareBuybacks: boolean;
+
+  /**
+   * Balance sheet at period_end.
+   *
+   * @generated from field: double total_assets = 45;
+   */
+  totalAssets: number;
+
+  /**
+   * @generated from field: bool has_total_assets = 46;
+   */
+  hasTotalAssets: boolean;
+
+  /**
+   * @generated from field: double total_liabilities = 47;
+   */
+  totalLiabilities: number;
+
+  /**
+   * @generated from field: bool has_total_liabilities = 48;
+   */
+  hasTotalLiabilities: boolean;
+
+  /**
+   * Shareholders' equity.
+   *
+   * @generated from field: double total_equity = 49;
+   */
+  totalEquity: number;
+
+  /**
+   * @generated from field: bool has_total_equity = 50;
+   */
+  hasTotalEquity: boolean;
+
+  /**
+   * @generated from field: double cash_and_equivalents = 51;
+   */
+  cashAndEquivalents: number;
+
+  /**
+   * @generated from field: bool has_cash_and_equivalents = 52;
+   */
+  hasCashAndEquivalents: boolean;
+
+  /**
+   * Includes lease liabilities.
+   *
+   * @generated from field: double total_debt = 53;
+   */
+  totalDebt: number;
+
+  /**
+   * @generated from field: bool has_total_debt = 54;
+   */
+  hasTotalDebt: boolean;
+
+  /**
+   * Lease liabilities.
+   *
+   * @generated from field: double capital_lease_obligations = 55;
+   */
+  capitalLeaseObligations: number;
+
+  /**
+   * @generated from field: bool has_capital_lease_obligations = 56;
+   */
+  hasCapitalLeaseObligations: boolean;
+
+  /**
+   * Excludes leases: total debt minus leases minus cash. Negative is net cash.
+   *
+   * @generated from field: double net_debt = 57;
+   */
+  netDebt: number;
+
+  /**
+   * @generated from field: bool has_net_debt = 58;
+   */
+  hasNetDebt: boolean;
+
+  /**
+   * @generated from field: double current_assets = 59;
+   */
+  currentAssets: number;
+
+  /**
+   * @generated from field: bool has_current_assets = 60;
+   */
+  hasCurrentAssets: boolean;
+
+  /**
+   * @generated from field: double current_liabilities = 61;
+   */
+  currentLiabilities: number;
+
+  /**
+   * @generated from field: bool has_current_liabilities = 62;
+   */
+  hasCurrentLiabilities: boolean;
+
+  /**
+   * Per-field provenance: the fields whose value did not come from `source`,
+   * mapped to where it came from, e.g. {"operating_cash_flow":
+   * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+   *
+   * @generated from field: map<string, string> field_sources = 63;
+   */
+  fieldSources: { [key: string]: string };
+
+  /**
+   * The company filing a filing-sourced row or field came from; empty otherwise.
+   *
+   * @generated from field: string source_document_url = 64;
+   */
+  sourceDocumentUrl: string;
+
+  /**
+   * YYYY-MM-DD.
+   *
+   * @generated from field: string source_document_date = 65;
+   */
+  sourceDocumentDate: string;
 };
 
 /**
@@ -1630,7 +1892,9 @@ export type FundamentalsGrowth = Message<"shorts.v1alpha1.FundamentalsGrowth"> &
   /**
    * Series the revenue growth was computed on: "half" (latest half-year from a
    * company filing vs the same half a year earlier, used when it is newer than
-   * the latest annual) or "annual". Empty when unknown.
+   * the latest annual), "ttm" (the latest trailing twelve months vs twelve
+   * months earlier, used when it is newer than the latest annual) or "annual".
+   * Empty when unknown.
    *
    * @generated from field: string revenue_basis_period_type = 19;
    */
@@ -1665,6 +1929,39 @@ export type FundamentalsGrowth = Message<"shorts.v1alpha1.FundamentalsGrowth"> &
    * @generated from field: string half_latest_period_end = 24;
    */
   halfLatestPeriodEnd: string;
+
+  /**
+   * "vendor" or "filing": where the rows behind each growth figure came from.
+   * "filing" when either side of the pair is a figure extracted from a company
+   * filing. Empty when unknown.
+   *
+   * @generated from field: string revenue_basis_source = 25;
+   */
+  revenueBasisSource: string;
+
+  /**
+   * @generated from field: string eps_basis_source = 26;
+   */
+  epsBasisSource: string;
+
+  /**
+   * RFC 3339, newest fetch of the growth inputs.
+   *
+   * @generated from field: string fetched_at = 27;
+   */
+  fetchedAt: string;
+
+  /**
+   * YYYY-MM-DD, the pair revenue_yoy_pct compares.
+   *
+   * @generated from field: string revenue_latest_period_end = 28;
+   */
+  revenueLatestPeriodEnd: string;
+
+  /**
+   * @generated from field: string revenue_prior_period_end = 29;
+   */
+  revenuePriorPeriodEnd: string;
 };
 
 /**
@@ -1673,6 +1970,419 @@ export type FundamentalsGrowth = Message<"shorts.v1alpha1.FundamentalsGrowth"> &
  */
 export const FundamentalsGrowthSchema: GenMessage<FundamentalsGrowth> = /*@__PURE__*/
   messageDesc(file_shorts_v1alpha1_stock, 38);
+
+/**
+ * Profitability, cash conversion, balance-sheet and valuation ratios. Flow
+ * ratios use one period (basis_period_type/basis_period_end); balance ratios use
+ * the balance sheet at or up to 6 months before it, in the same currency.
+ * has_* is false when an input is missing, a denominator is zero or negative,
+ * or the ratio is not meaningful for the company (listed in not_meaningful).
+ *
+ * @generated from message shorts.v1alpha1.FundamentalsQuality
+ */
+export type FundamentalsQuality = Message<"shorts.v1alpha1.FundamentalsQuality"> & {
+  /**
+   * "annual" | "ttm".
+   *
+   * @generated from field: string basis_period_type = 1;
+   */
+  basisPeriodType: string;
+
+  /**
+   * YYYY-MM-DD.
+   *
+   * @generated from field: string basis_period_end = 2;
+   */
+  basisPeriodEnd: string;
+
+  /**
+   * Reporting currency of the flow period.
+   *
+   * @generated from field: string currency = 3;
+   */
+  currency: string;
+
+  /**
+   * YYYY-MM-DD; empty when no aligned balance sheet.
+   *
+   * @generated from field: string balance_period_end = 4;
+   */
+  balancePeriodEnd: string;
+
+  /**
+   * @generated from field: double gross_margin_pct = 5;
+   */
+  grossMarginPct: number;
+
+  /**
+   * @generated from field: bool has_gross_margin_pct = 6;
+   */
+  hasGrossMarginPct: boolean;
+
+  /**
+   * @generated from field: double operating_margin_pct = 7;
+   */
+  operatingMarginPct: number;
+
+  /**
+   * @generated from field: bool has_operating_margin_pct = 8;
+   */
+  hasOperatingMarginPct: boolean;
+
+  /**
+   * @generated from field: double net_margin_pct = 9;
+   */
+  netMarginPct: number;
+
+  /**
+   * @generated from field: bool has_net_margin_pct = 10;
+   */
+  hasNetMarginPct: boolean;
+
+  /**
+   * @generated from field: double fcf_margin_pct = 11;
+   */
+  fcfMarginPct: number;
+
+  /**
+   * @generated from field: bool has_fcf_margin_pct = 12;
+   */
+  hasFcfMarginPct: boolean;
+
+  /**
+   * Free cash flow / net profit (a ratio, not a percentage).
+   *
+   * @generated from field: double fcf_conversion = 13;
+   */
+  fcfConversion: number;
+
+  /**
+   * @generated from field: bool has_fcf_conversion = 14;
+   */
+  hasFcfConversion: boolean;
+
+  /**
+   * Net profit / average equity.
+   *
+   * @generated from field: double roe_pct = 15;
+   */
+  roePct: number;
+
+  /**
+   * @generated from field: bool has_roe_pct = 16;
+   */
+  hasRoePct: boolean;
+
+  /**
+   * Net profit / average total assets.
+   *
+   * @generated from field: double roa_pct = 17;
+   */
+  roaPct: number;
+
+  /**
+   * @generated from field: bool has_roa_pct = 18;
+   */
+  hasRoaPct: boolean;
+
+  /**
+   * Excludes leases; negative is net cash. In balance_currency.
+   *
+   * @generated from field: double net_debt = 19;
+   */
+  netDebt: number;
+
+  /**
+   * @generated from field: bool has_net_debt = 20;
+   */
+  hasNetDebt: boolean;
+
+  /**
+   * Normalized EBITDA when published, else statutory.
+   *
+   * @generated from field: double net_debt_to_ebitda = 21;
+   */
+  netDebtToEbitda: number;
+
+  /**
+   * @generated from field: bool has_net_debt_to_ebitda = 22;
+   */
+  hasNetDebtToEbitda: boolean;
+
+  /**
+   * @generated from field: double net_debt_to_equity = 23;
+   */
+  netDebtToEquity: number;
+
+  /**
+   * @generated from field: bool has_net_debt_to_equity = 24;
+   */
+  hasNetDebtToEquity: boolean;
+
+  /**
+   * @generated from field: double current_ratio = 25;
+   */
+  currentRatio: number;
+
+  /**
+   * @generated from field: bool has_current_ratio = 26;
+   */
+  hasCurrentRatio: boolean;
+
+  /**
+   * Operating income / interest expense.
+   *
+   * @generated from field: double interest_cover = 27;
+   */
+  interestCover: number;
+
+  /**
+   * @generated from field: bool has_interest_cover = 28;
+   */
+  hasInterestCover: boolean;
+
+  /**
+   * Cash dividends paid / net profit.
+   *
+   * @generated from field: double payout_ratio_pct = 29;
+   */
+  payoutRatioPct: number;
+
+  /**
+   * @generated from field: bool has_payout_ratio_pct = 30;
+   */
+  hasPayoutRatioPct: boolean;
+
+  /**
+   * Bank, insurer or other financial.
+   *
+   * @generated from field: bool is_financial = 31;
+   */
+  isFinancial: boolean;
+
+  /**
+   * Source of the flow period, e.g. "yahoo-timeseries".
+   *
+   * @generated from field: string source = 32;
+   */
+  source: string;
+
+  /**
+   * Operating cash flow = free cash flow minus capex.
+   *
+   * @generated from field: bool operating_cash_flow_derived = 33;
+   */
+  operatingCashFlowDerived: boolean;
+
+  /**
+   * AUD: latest close x shares on issue.
+   *
+   * @generated from field: double market_cap = 34;
+   */
+  marketCap: number;
+
+  /**
+   * @generated from field: bool has_market_cap = 35;
+   */
+  hasMarketCap: boolean;
+
+  /**
+   * Latest close / 12-month EPS; AUD reporters only.
+   *
+   * @generated from field: double pe_ratio = 36;
+   */
+  peRatio: number;
+
+  /**
+   * @generated from field: bool has_pe_ratio = 37;
+   */
+  hasPeRatio: boolean;
+
+  /**
+   * Market cap / equity; AUD reporters only.
+   *
+   * @generated from field: double price_to_book = 38;
+   */
+  priceToBook: number;
+
+  /**
+   * @generated from field: bool has_price_to_book = 39;
+   */
+  hasPriceToBook: boolean;
+
+  /**
+   * YYYY-MM-DD of the close used.
+   *
+   * @generated from field: string price_as_of = 40;
+   */
+  priceAsOf: string;
+
+  /**
+   * @generated from field: string balance_currency = 41;
+   */
+  balanceCurrency: string;
+
+  /**
+   * Ratio names withheld because is_financial.
+   *
+   * @generated from field: repeated string not_meaningful = 42;
+   */
+  notMeaningful: string[];
+
+  /**
+   * Property trust: profit and EBITDA include revaluations.
+   *
+   * @generated from field: bool is_property = 43;
+   */
+  isProperty: boolean;
+
+  /**
+   * Months between the balance sheet and the flow period.
+   *
+   * @generated from field: int32 balance_lag_months = 44;
+   */
+  balanceLagMonths: number;
+
+  /**
+   * YYYY-MM-DD of the share count used for market cap.
+   *
+   * @generated from field: string shares_as_of = 45;
+   */
+  sharesAsOf: string;
+
+  /**
+   * YYYY-MM-DD of the EPS used for P/E.
+   *
+   * @generated from field: string pe_eps_period_end = 46;
+   */
+  peEpsPeriodEnd: string;
+
+  /**
+   * "diluted" | "basic".
+   *
+   * @generated from field: string pe_eps_basis = 47;
+   */
+  peEpsBasis: string;
+
+  /**
+   * Why market cap, P/E or P/B are absent: "non-aud" (statements not in AUD),
+   * "listed-unit" (the listed unit is not one ordinary share), "no-shares",
+   * "no-price"; empty when present.
+   *
+   * @generated from field: string valuation_note = 48;
+   */
+  valuationNote: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.FundamentalsQuality.
+ * Use `create(FundamentalsQualitySchema)` to create a new message.
+ */
+export const FundamentalsQualitySchema: GenMessage<FundamentalsQuality> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_stock, 39);
+
+/**
+ * Whether fundamentals have been collected for the stock.
+ *
+ * @generated from message shorts.v1alpha1.FundamentalsCoverage
+ */
+export type FundamentalsCoverage = Message<"shorts.v1alpha1.FundamentalsCoverage"> & {
+  /**
+   * "covered" (rows held), "empty" (our providers returned nothing),
+   * "pending" (not attempted yet) or "failed" (the last attempt errored).
+   * Empty when unknown.
+   *
+   * @generated from field: string status = 1;
+   */
+  status: string;
+
+  /**
+   * RFC 3339.
+   *
+   * @generated from field: string last_attempt_at = 2;
+   */
+  lastAttemptAt: string;
+
+  /**
+   * RFC 3339.
+   *
+   * @generated from field: string last_success_at = 3;
+   */
+  lastSuccessAt: string;
+
+  /**
+   * Sources of the rows held.
+   *
+   * @generated from field: repeated string sources = 4;
+   */
+  sources: string[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.FundamentalsCoverage.
+ * Use `create(FundamentalsCoverageSchema)` to create a new message.
+ */
+export const FundamentalsCoverageSchema: GenMessage<FundamentalsCoverage> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_stock, 40);
+
+/**
+ * The company filing behind the latest reported period, with its summary.
+ *
+ * @generated from message shorts.v1alpha1.LatestFilingSummary
+ */
+export type LatestFilingSummary = Message<"shorts.v1alpha1.LatestFilingSummary"> & {
+  /**
+   * @generated from field: string report_url = 1;
+   */
+  reportUrl: string;
+
+  /**
+   * @generated from field: string report_title = 2;
+   */
+  reportTitle: string;
+
+  /**
+   * YYYY-MM-DD.
+   *
+   * @generated from field: string report_date = 3;
+   */
+  reportDate: string;
+
+  /**
+   * YYYY-MM-DD, the period the filing reports.
+   *
+   * @generated from field: string period_end = 4;
+   */
+  periodEnd: string;
+
+  /**
+   * "annual" | "half".
+   *
+   * @generated from field: string period_type = 5;
+   */
+  periodType: string;
+
+  /**
+   * Short summary of the filing.
+   *
+   * @generated from field: string digest = 6;
+   */
+  digest: string;
+
+  /**
+   * 0-1.
+   *
+   * @generated from field: double digest_confidence = 7;
+   */
+  digestConfidence: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.LatestFilingSummary.
+ * Use `create(LatestFilingSummarySchema)` to create a new message.
+ */
+export const LatestFilingSummarySchema: GenMessage<LatestFilingSummary> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_stock, 41);
 
 /**
  * Response for GetStockFundamentals.
@@ -1703,6 +2413,33 @@ export type GetStockFundamentalsResponse = Message<"shorts.v1alpha1.GetStockFund
    * @generated from field: bool has_growth = 4;
    */
   hasGrowth: boolean;
+
+  /**
+   * @generated from field: shorts.v1alpha1.FundamentalsQuality quality = 5;
+   */
+  quality?: FundamentalsQuality;
+
+  /**
+   * False when no ratio row exists yet.
+   *
+   * @generated from field: bool has_quality = 6;
+   */
+  hasQuality: boolean;
+
+  /**
+   * @generated from field: shorts.v1alpha1.FundamentalsCoverage coverage = 7;
+   */
+  coverage?: FundamentalsCoverage;
+
+  /**
+   * @generated from field: shorts.v1alpha1.LatestFilingSummary latest_filing = 8;
+   */
+  latestFiling?: LatestFilingSummary;
+
+  /**
+   * @generated from field: bool has_latest_filing = 9;
+   */
+  hasLatestFiling: boolean;
 };
 
 /**
@@ -1710,7 +2447,7 @@ export type GetStockFundamentalsResponse = Message<"shorts.v1alpha1.GetStockFund
  * Use `create(GetStockFundamentalsResponseSchema)` to create a new message.
  */
 export const GetStockFundamentalsResponseSchema: GenMessage<GetStockFundamentalsResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_stock, 39);
+  messageDesc(file_shorts_v1alpha1_stock, 42);
 
 /**
  * Verdict band derived from the composite score

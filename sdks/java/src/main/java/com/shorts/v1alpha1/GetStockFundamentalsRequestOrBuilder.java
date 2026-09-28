@@ -32,7 +32,7 @@ public interface GetStockFundamentalsRequestOrBuilder extends
 
   /**
    * <pre>
-   * Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+   * Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type.
    * </pre>
    *
    * <code>string period_type = 2 [json_name = "periodType"];</code>
@@ -41,7 +41,7 @@ public interface GetStockFundamentalsRequestOrBuilder extends
   java.lang.String getPeriodType();
   /**
    * <pre>
-   * Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+   * Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type.
    * </pre>
    *
    * <code>string period_type = 2 [json_name = "periodType"];</code>

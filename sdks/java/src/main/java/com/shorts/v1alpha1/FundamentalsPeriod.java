@@ -38,6 +38,8 @@ private static final long serialVersionUID = 0L;
     currency_ = "";
     source_ = "";
     fetchedAt_ = "";
+    sourceDocumentUrl_ = "";
+    sourceDocumentDate_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -50,6 +52,18 @@ private static final long serialVersionUID = 0L;
     return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_FundamentalsPeriod_descriptor;
   }
 
+  @SuppressWarnings({"rawtypes"})
+  @java.lang.Override
+  protected com.google.protobuf.MapFieldReflectionAccessor internalGetMapFieldReflection(
+      int number) {
+    switch (number) {
+      case 63:
+        return internalGetFieldSources();
+      default:
+        throw new RuntimeException(
+            "Invalid map field number: " + number);
+    }
+  }
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internalGetFieldAccessorTable() {
@@ -454,6 +468,722 @@ private static final long serialVersionUID = 0L;
     return hasFreeCashFlow_;
   }
 
+  public static final int GROSS_PROFIT_FIELD_NUMBER = 21;
+  private double grossProfit_ = 0D;
+  /**
+   * <pre>
+   * Full statement lines (period_type "quarter" rows are balance-sheet
+   * snapshots and carry only balance lines and shares).
+   * </pre>
+   *
+   * <code>double gross_profit = 21 [json_name = "grossProfit"];</code>
+   * @return The grossProfit.
+   */
+  @java.lang.Override
+  public double getGrossProfit() {
+    return grossProfit_;
+  }
+
+  public static final int HAS_GROSS_PROFIT_FIELD_NUMBER = 22;
+  private boolean hasGrossProfit_ = false;
+  /**
+   * <code>bool has_gross_profit = 22 [json_name = "hasGrossProfit"];</code>
+   * @return The hasGrossProfit.
+   */
+  @java.lang.Override
+  public boolean getHasGrossProfit() {
+    return hasGrossProfit_;
+  }
+
+  public static final int OPERATING_INCOME_FIELD_NUMBER = 23;
+  private double operatingIncome_ = 0D;
+  /**
+   * <pre>
+   * Absent for banks and insurers.
+   * </pre>
+   *
+   * <code>double operating_income = 23 [json_name = "operatingIncome"];</code>
+   * @return The operatingIncome.
+   */
+  @java.lang.Override
+  public double getOperatingIncome() {
+    return operatingIncome_;
+  }
+
+  public static final int HAS_OPERATING_INCOME_FIELD_NUMBER = 24;
+  private boolean hasOperatingIncome_ = false;
+  /**
+   * <code>bool has_operating_income = 24 [json_name = "hasOperatingIncome"];</code>
+   * @return The hasOperatingIncome.
+   */
+  @java.lang.Override
+  public boolean getHasOperatingIncome() {
+    return hasOperatingIncome_;
+  }
+
+  public static final int EBITDA_FIELD_NUMBER = 25;
+  private double ebitda_ = 0D;
+  /**
+   * <pre>
+   * Statutory: includes impairments and revaluations.
+   * </pre>
+   *
+   * <code>double ebitda = 25 [json_name = "ebitda"];</code>
+   * @return The ebitda.
+   */
+  @java.lang.Override
+  public double getEbitda() {
+    return ebitda_;
+  }
+
+  public static final int HAS_EBITDA_FIELD_NUMBER = 26;
+  private boolean hasEbitda_ = false;
+  /**
+   * <code>bool has_ebitda = 26 [json_name = "hasEbitda"];</code>
+   * @return The hasEbitda.
+   */
+  @java.lang.Override
+  public boolean getHasEbitda() {
+    return hasEbitda_;
+  }
+
+  public static final int NORMALIZED_EBITDA_FIELD_NUMBER = 27;
+  private double normalizedEbitda_ = 0D;
+  /**
+   * <pre>
+   * EBITDA before unusual items, when the source publishes it.
+   * </pre>
+   *
+   * <code>double normalized_ebitda = 27 [json_name = "normalizedEbitda"];</code>
+   * @return The normalizedEbitda.
+   */
+  @java.lang.Override
+  public double getNormalizedEbitda() {
+    return normalizedEbitda_;
+  }
+
+  public static final int HAS_NORMALIZED_EBITDA_FIELD_NUMBER = 28;
+  private boolean hasNormalizedEbitda_ = false;
+  /**
+   * <code>bool has_normalized_ebitda = 28 [json_name = "hasNormalizedEbitda"];</code>
+   * @return The hasNormalizedEbitda.
+   */
+  @java.lang.Override
+  public boolean getHasNormalizedEbitda() {
+    return hasNormalizedEbitda_;
+  }
+
+  public static final int EBIT_FIELD_NUMBER = 29;
+  private double ebit_ = 0D;
+  /**
+   * <code>double ebit = 29 [json_name = "ebit"];</code>
+   * @return The ebit.
+   */
+  @java.lang.Override
+  public double getEbit() {
+    return ebit_;
+  }
+
+  public static final int HAS_EBIT_FIELD_NUMBER = 30;
+  private boolean hasEbit_ = false;
+  /**
+   * <code>bool has_ebit = 30 [json_name = "hasEbit"];</code>
+   * @return The hasEbit.
+   */
+  @java.lang.Override
+  public boolean getHasEbit() {
+    return hasEbit_;
+  }
+
+  public static final int INTEREST_EXPENSE_FIELD_NUMBER = 31;
+  private double interestExpense_ = 0D;
+  /**
+   * <pre>
+   * A positive expense.
+   * </pre>
+   *
+   * <code>double interest_expense = 31 [json_name = "interestExpense"];</code>
+   * @return The interestExpense.
+   */
+  @java.lang.Override
+  public double getInterestExpense() {
+    return interestExpense_;
+  }
+
+  public static final int HAS_INTEREST_EXPENSE_FIELD_NUMBER = 32;
+  private boolean hasInterestExpense_ = false;
+  /**
+   * <code>bool has_interest_expense = 32 [json_name = "hasInterestExpense"];</code>
+   * @return The hasInterestExpense.
+   */
+  @java.lang.Override
+  public boolean getHasInterestExpense() {
+    return hasInterestExpense_;
+  }
+
+  public static final int PRETAX_INCOME_FIELD_NUMBER = 33;
+  private double pretaxIncome_ = 0D;
+  /**
+   * <code>double pretax_income = 33 [json_name = "pretaxIncome"];</code>
+   * @return The pretaxIncome.
+   */
+  @java.lang.Override
+  public double getPretaxIncome() {
+    return pretaxIncome_;
+  }
+
+  public static final int HAS_PRETAX_INCOME_FIELD_NUMBER = 34;
+  private boolean hasPretaxIncome_ = false;
+  /**
+   * <code>bool has_pretax_income = 34 [json_name = "hasPretaxIncome"];</code>
+   * @return The hasPretaxIncome.
+   */
+  @java.lang.Override
+  public boolean getHasPretaxIncome() {
+    return hasPretaxIncome_;
+  }
+
+  public static final int TAX_PROVISION_FIELD_NUMBER = 35;
+  private double taxProvision_ = 0D;
+  /**
+   * <code>double tax_provision = 35 [json_name = "taxProvision"];</code>
+   * @return The taxProvision.
+   */
+  @java.lang.Override
+  public double getTaxProvision() {
+    return taxProvision_;
+  }
+
+  public static final int HAS_TAX_PROVISION_FIELD_NUMBER = 36;
+  private boolean hasTaxProvision_ = false;
+  /**
+   * <code>bool has_tax_provision = 36 [json_name = "hasTaxProvision"];</code>
+   * @return The hasTaxProvision.
+   */
+  @java.lang.Override
+  public boolean getHasTaxProvision() {
+    return hasTaxProvision_;
+  }
+
+  public static final int NET_INTEREST_INCOME_FIELD_NUMBER = 37;
+  private double netInterestIncome_ = 0D;
+  /**
+   * <pre>
+   * Banks; other companies report it as minus interest expense.
+   * </pre>
+   *
+   * <code>double net_interest_income = 37 [json_name = "netInterestIncome"];</code>
+   * @return The netInterestIncome.
+   */
+  @java.lang.Override
+  public double getNetInterestIncome() {
+    return netInterestIncome_;
+  }
+
+  public static final int HAS_NET_INTEREST_INCOME_FIELD_NUMBER = 38;
+  private boolean hasNetInterestIncome_ = false;
+  /**
+   * <code>bool has_net_interest_income = 38 [json_name = "hasNetInterestIncome"];</code>
+   * @return The hasNetInterestIncome.
+   */
+  @java.lang.Override
+  public boolean getHasNetInterestIncome() {
+    return hasNetInterestIncome_;
+  }
+
+  public static final int CAPITAL_EXPENDITURE_FIELD_NUMBER = 39;
+  private double capitalExpenditure_ = 0D;
+  /**
+   * <pre>
+   * An outflow: negative.
+   * </pre>
+   *
+   * <code>double capital_expenditure = 39 [json_name = "capitalExpenditure"];</code>
+   * @return The capitalExpenditure.
+   */
+  @java.lang.Override
+  public double getCapitalExpenditure() {
+    return capitalExpenditure_;
+  }
+
+  public static final int HAS_CAPITAL_EXPENDITURE_FIELD_NUMBER = 40;
+  private boolean hasCapitalExpenditure_ = false;
+  /**
+   * <code>bool has_capital_expenditure = 40 [json_name = "hasCapitalExpenditure"];</code>
+   * @return The hasCapitalExpenditure.
+   */
+  @java.lang.Override
+  public boolean getHasCapitalExpenditure() {
+    return hasCapitalExpenditure_;
+  }
+
+  public static final int DIVIDENDS_PAID_FIELD_NUMBER = 41;
+  private double dividendsPaid_ = 0D;
+  /**
+   * <pre>
+   * Cash dividends paid in the period: negative.
+   * </pre>
+   *
+   * <code>double dividends_paid = 41 [json_name = "dividendsPaid"];</code>
+   * @return The dividendsPaid.
+   */
+  @java.lang.Override
+  public double getDividendsPaid() {
+    return dividendsPaid_;
+  }
+
+  public static final int HAS_DIVIDENDS_PAID_FIELD_NUMBER = 42;
+  private boolean hasDividendsPaid_ = false;
+  /**
+   * <code>bool has_dividends_paid = 42 [json_name = "hasDividendsPaid"];</code>
+   * @return The hasDividendsPaid.
+   */
+  @java.lang.Override
+  public boolean getHasDividendsPaid() {
+    return hasDividendsPaid_;
+  }
+
+  public static final int SHARE_BUYBACKS_FIELD_NUMBER = 43;
+  private double shareBuybacks_ = 0D;
+  /**
+   * <pre>
+   * An outflow: negative.
+   * </pre>
+   *
+   * <code>double share_buybacks = 43 [json_name = "shareBuybacks"];</code>
+   * @return The shareBuybacks.
+   */
+  @java.lang.Override
+  public double getShareBuybacks() {
+    return shareBuybacks_;
+  }
+
+  public static final int HAS_SHARE_BUYBACKS_FIELD_NUMBER = 44;
+  private boolean hasShareBuybacks_ = false;
+  /**
+   * <code>bool has_share_buybacks = 44 [json_name = "hasShareBuybacks"];</code>
+   * @return The hasShareBuybacks.
+   */
+  @java.lang.Override
+  public boolean getHasShareBuybacks() {
+    return hasShareBuybacks_;
+  }
+
+  public static final int TOTAL_ASSETS_FIELD_NUMBER = 45;
+  private double totalAssets_ = 0D;
+  /**
+   * <pre>
+   * Balance sheet at period_end.
+   * </pre>
+   *
+   * <code>double total_assets = 45 [json_name = "totalAssets"];</code>
+   * @return The totalAssets.
+   */
+  @java.lang.Override
+  public double getTotalAssets() {
+    return totalAssets_;
+  }
+
+  public static final int HAS_TOTAL_ASSETS_FIELD_NUMBER = 46;
+  private boolean hasTotalAssets_ = false;
+  /**
+   * <code>bool has_total_assets = 46 [json_name = "hasTotalAssets"];</code>
+   * @return The hasTotalAssets.
+   */
+  @java.lang.Override
+  public boolean getHasTotalAssets() {
+    return hasTotalAssets_;
+  }
+
+  public static final int TOTAL_LIABILITIES_FIELD_NUMBER = 47;
+  private double totalLiabilities_ = 0D;
+  /**
+   * <code>double total_liabilities = 47 [json_name = "totalLiabilities"];</code>
+   * @return The totalLiabilities.
+   */
+  @java.lang.Override
+  public double getTotalLiabilities() {
+    return totalLiabilities_;
+  }
+
+  public static final int HAS_TOTAL_LIABILITIES_FIELD_NUMBER = 48;
+  private boolean hasTotalLiabilities_ = false;
+  /**
+   * <code>bool has_total_liabilities = 48 [json_name = "hasTotalLiabilities"];</code>
+   * @return The hasTotalLiabilities.
+   */
+  @java.lang.Override
+  public boolean getHasTotalLiabilities() {
+    return hasTotalLiabilities_;
+  }
+
+  public static final int TOTAL_EQUITY_FIELD_NUMBER = 49;
+  private double totalEquity_ = 0D;
+  /**
+   * <pre>
+   * Shareholders' equity.
+   * </pre>
+   *
+   * <code>double total_equity = 49 [json_name = "totalEquity"];</code>
+   * @return The totalEquity.
+   */
+  @java.lang.Override
+  public double getTotalEquity() {
+    return totalEquity_;
+  }
+
+  public static final int HAS_TOTAL_EQUITY_FIELD_NUMBER = 50;
+  private boolean hasTotalEquity_ = false;
+  /**
+   * <code>bool has_total_equity = 50 [json_name = "hasTotalEquity"];</code>
+   * @return The hasTotalEquity.
+   */
+  @java.lang.Override
+  public boolean getHasTotalEquity() {
+    return hasTotalEquity_;
+  }
+
+  public static final int CASH_AND_EQUIVALENTS_FIELD_NUMBER = 51;
+  private double cashAndEquivalents_ = 0D;
+  /**
+   * <code>double cash_and_equivalents = 51 [json_name = "cashAndEquivalents"];</code>
+   * @return The cashAndEquivalents.
+   */
+  @java.lang.Override
+  public double getCashAndEquivalents() {
+    return cashAndEquivalents_;
+  }
+
+  public static final int HAS_CASH_AND_EQUIVALENTS_FIELD_NUMBER = 52;
+  private boolean hasCashAndEquivalents_ = false;
+  /**
+   * <code>bool has_cash_and_equivalents = 52 [json_name = "hasCashAndEquivalents"];</code>
+   * @return The hasCashAndEquivalents.
+   */
+  @java.lang.Override
+  public boolean getHasCashAndEquivalents() {
+    return hasCashAndEquivalents_;
+  }
+
+  public static final int TOTAL_DEBT_FIELD_NUMBER = 53;
+  private double totalDebt_ = 0D;
+  /**
+   * <pre>
+   * Includes lease liabilities.
+   * </pre>
+   *
+   * <code>double total_debt = 53 [json_name = "totalDebt"];</code>
+   * @return The totalDebt.
+   */
+  @java.lang.Override
+  public double getTotalDebt() {
+    return totalDebt_;
+  }
+
+  public static final int HAS_TOTAL_DEBT_FIELD_NUMBER = 54;
+  private boolean hasTotalDebt_ = false;
+  /**
+   * <code>bool has_total_debt = 54 [json_name = "hasTotalDebt"];</code>
+   * @return The hasTotalDebt.
+   */
+  @java.lang.Override
+  public boolean getHasTotalDebt() {
+    return hasTotalDebt_;
+  }
+
+  public static final int CAPITAL_LEASE_OBLIGATIONS_FIELD_NUMBER = 55;
+  private double capitalLeaseObligations_ = 0D;
+  /**
+   * <pre>
+   * Lease liabilities.
+   * </pre>
+   *
+   * <code>double capital_lease_obligations = 55 [json_name = "capitalLeaseObligations"];</code>
+   * @return The capitalLeaseObligations.
+   */
+  @java.lang.Override
+  public double getCapitalLeaseObligations() {
+    return capitalLeaseObligations_;
+  }
+
+  public static final int HAS_CAPITAL_LEASE_OBLIGATIONS_FIELD_NUMBER = 56;
+  private boolean hasCapitalLeaseObligations_ = false;
+  /**
+   * <code>bool has_capital_lease_obligations = 56 [json_name = "hasCapitalLeaseObligations"];</code>
+   * @return The hasCapitalLeaseObligations.
+   */
+  @java.lang.Override
+  public boolean getHasCapitalLeaseObligations() {
+    return hasCapitalLeaseObligations_;
+  }
+
+  public static final int NET_DEBT_FIELD_NUMBER = 57;
+  private double netDebt_ = 0D;
+  /**
+   * <pre>
+   * Excludes leases: total debt minus leases minus cash. Negative is net cash.
+   * </pre>
+   *
+   * <code>double net_debt = 57 [json_name = "netDebt"];</code>
+   * @return The netDebt.
+   */
+  @java.lang.Override
+  public double getNetDebt() {
+    return netDebt_;
+  }
+
+  public static final int HAS_NET_DEBT_FIELD_NUMBER = 58;
+  private boolean hasNetDebt_ = false;
+  /**
+   * <code>bool has_net_debt = 58 [json_name = "hasNetDebt"];</code>
+   * @return The hasNetDebt.
+   */
+  @java.lang.Override
+  public boolean getHasNetDebt() {
+    return hasNetDebt_;
+  }
+
+  public static final int CURRENT_ASSETS_FIELD_NUMBER = 59;
+  private double currentAssets_ = 0D;
+  /**
+   * <code>double current_assets = 59 [json_name = "currentAssets"];</code>
+   * @return The currentAssets.
+   */
+  @java.lang.Override
+  public double getCurrentAssets() {
+    return currentAssets_;
+  }
+
+  public static final int HAS_CURRENT_ASSETS_FIELD_NUMBER = 60;
+  private boolean hasCurrentAssets_ = false;
+  /**
+   * <code>bool has_current_assets = 60 [json_name = "hasCurrentAssets"];</code>
+   * @return The hasCurrentAssets.
+   */
+  @java.lang.Override
+  public boolean getHasCurrentAssets() {
+    return hasCurrentAssets_;
+  }
+
+  public static final int CURRENT_LIABILITIES_FIELD_NUMBER = 61;
+  private double currentLiabilities_ = 0D;
+  /**
+   * <code>double current_liabilities = 61 [json_name = "currentLiabilities"];</code>
+   * @return The currentLiabilities.
+   */
+  @java.lang.Override
+  public double getCurrentLiabilities() {
+    return currentLiabilities_;
+  }
+
+  public static final int HAS_CURRENT_LIABILITIES_FIELD_NUMBER = 62;
+  private boolean hasCurrentLiabilities_ = false;
+  /**
+   * <code>bool has_current_liabilities = 62 [json_name = "hasCurrentLiabilities"];</code>
+   * @return The hasCurrentLiabilities.
+   */
+  @java.lang.Override
+  public boolean getHasCurrentLiabilities() {
+    return hasCurrentLiabilities_;
+  }
+
+  public static final int FIELD_SOURCES_FIELD_NUMBER = 63;
+  private static final class FieldSourcesDefaultEntryHolder {
+    static final com.google.protobuf.MapEntry<
+        java.lang.String, java.lang.String> defaultEntry =
+            com.google.protobuf.MapEntry
+            .<java.lang.String, java.lang.String>newDefaultInstance(
+                com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_FundamentalsPeriod_FieldSourcesEntry_descriptor, 
+                com.google.protobuf.WireFormat.FieldType.STRING,
+                "",
+                com.google.protobuf.WireFormat.FieldType.STRING,
+                "");
+  }
+  @SuppressWarnings("serial")
+  private com.google.protobuf.MapField<
+      java.lang.String, java.lang.String> fieldSources_;
+  private com.google.protobuf.MapField<java.lang.String, java.lang.String>
+  internalGetFieldSources() {
+    if (fieldSources_ == null) {
+      return com.google.protobuf.MapField.emptyMapField(
+          FieldSourcesDefaultEntryHolder.defaultEntry);
+    }
+    return fieldSources_;
+  }
+  public int getFieldSourcesCount() {
+    return internalGetFieldSources().getMap().size();
+  }
+  /**
+   * <pre>
+   * Per-field provenance: the fields whose value did not come from `source`,
+   * mapped to where it came from, e.g. {"operating_cash_flow":
+   * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+   * </pre>
+   *
+   * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+   */
+  @java.lang.Override
+  public boolean containsFieldSources(
+      java.lang.String key) {
+    if (key == null) { throw new NullPointerException("map key"); }
+    return internalGetFieldSources().getMap().containsKey(key);
+  }
+  /**
+   * Use {@link #getFieldSourcesMap()} instead.
+   */
+  @java.lang.Override
+  @java.lang.Deprecated
+  public java.util.Map<java.lang.String, java.lang.String> getFieldSources() {
+    return getFieldSourcesMap();
+  }
+  /**
+   * <pre>
+   * Per-field provenance: the fields whose value did not come from `source`,
+   * mapped to where it came from, e.g. {"operating_cash_flow":
+   * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+   * </pre>
+   *
+   * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+   */
+  @java.lang.Override
+  public java.util.Map<java.lang.String, java.lang.String> getFieldSourcesMap() {
+    return internalGetFieldSources().getMap();
+  }
+  /**
+   * <pre>
+   * Per-field provenance: the fields whose value did not come from `source`,
+   * mapped to where it came from, e.g. {"operating_cash_flow":
+   * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+   * </pre>
+   *
+   * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+   */
+  @java.lang.Override
+  public /* nullable */
+java.lang.String getFieldSourcesOrDefault(
+      java.lang.String key,
+      /* nullable */
+java.lang.String defaultValue) {
+    if (key == null) { throw new NullPointerException("map key"); }
+    java.util.Map<java.lang.String, java.lang.String> map =
+        internalGetFieldSources().getMap();
+    return map.containsKey(key) ? map.get(key) : defaultValue;
+  }
+  /**
+   * <pre>
+   * Per-field provenance: the fields whose value did not come from `source`,
+   * mapped to where it came from, e.g. {"operating_cash_flow":
+   * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+   * </pre>
+   *
+   * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+   */
+  @java.lang.Override
+  public java.lang.String getFieldSourcesOrThrow(
+      java.lang.String key) {
+    if (key == null) { throw new NullPointerException("map key"); }
+    java.util.Map<java.lang.String, java.lang.String> map =
+        internalGetFieldSources().getMap();
+    if (!map.containsKey(key)) {
+      throw new java.lang.IllegalArgumentException();
+    }
+    return map.get(key);
+  }
+
+  public static final int SOURCE_DOCUMENT_URL_FIELD_NUMBER = 64;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object sourceDocumentUrl_ = "";
+  /**
+   * <pre>
+   * The company filing a filing-sourced row or field came from; empty otherwise.
+   * </pre>
+   *
+   * <code>string source_document_url = 64 [json_name = "sourceDocumentUrl"];</code>
+   * @return The sourceDocumentUrl.
+   */
+  @java.lang.Override
+  public java.lang.String getSourceDocumentUrl() {
+    java.lang.Object ref = sourceDocumentUrl_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      sourceDocumentUrl_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The company filing a filing-sourced row or field came from; empty otherwise.
+   * </pre>
+   *
+   * <code>string source_document_url = 64 [json_name = "sourceDocumentUrl"];</code>
+   * @return The bytes for sourceDocumentUrl.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getSourceDocumentUrlBytes() {
+    java.lang.Object ref = sourceDocumentUrl_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      sourceDocumentUrl_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int SOURCE_DOCUMENT_DATE_FIELD_NUMBER = 65;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object sourceDocumentDate_ = "";
+  /**
+   * <pre>
+   * YYYY-MM-DD.
+   * </pre>
+   *
+   * <code>string source_document_date = 65 [json_name = "sourceDocumentDate"];</code>
+   * @return The sourceDocumentDate.
+   */
+  @java.lang.Override
+  public java.lang.String getSourceDocumentDate() {
+    java.lang.Object ref = sourceDocumentDate_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      sourceDocumentDate_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * YYYY-MM-DD.
+   * </pre>
+   *
+   * <code>string source_document_date = 65 [json_name = "sourceDocumentDate"];</code>
+   * @return The bytes for sourceDocumentDate.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getSourceDocumentDateBytes() {
+    java.lang.Object ref = sourceDocumentDate_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      sourceDocumentDate_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -527,6 +1257,144 @@ private static final long serialVersionUID = 0L;
     }
     if (hasFreeCashFlow_ != false) {
       output.writeBool(20, hasFreeCashFlow_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(grossProfit_) != 0) {
+      output.writeDouble(21, grossProfit_);
+    }
+    if (hasGrossProfit_ != false) {
+      output.writeBool(22, hasGrossProfit_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(operatingIncome_) != 0) {
+      output.writeDouble(23, operatingIncome_);
+    }
+    if (hasOperatingIncome_ != false) {
+      output.writeBool(24, hasOperatingIncome_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(ebitda_) != 0) {
+      output.writeDouble(25, ebitda_);
+    }
+    if (hasEbitda_ != false) {
+      output.writeBool(26, hasEbitda_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(normalizedEbitda_) != 0) {
+      output.writeDouble(27, normalizedEbitda_);
+    }
+    if (hasNormalizedEbitda_ != false) {
+      output.writeBool(28, hasNormalizedEbitda_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(ebit_) != 0) {
+      output.writeDouble(29, ebit_);
+    }
+    if (hasEbit_ != false) {
+      output.writeBool(30, hasEbit_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(interestExpense_) != 0) {
+      output.writeDouble(31, interestExpense_);
+    }
+    if (hasInterestExpense_ != false) {
+      output.writeBool(32, hasInterestExpense_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(pretaxIncome_) != 0) {
+      output.writeDouble(33, pretaxIncome_);
+    }
+    if (hasPretaxIncome_ != false) {
+      output.writeBool(34, hasPretaxIncome_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(taxProvision_) != 0) {
+      output.writeDouble(35, taxProvision_);
+    }
+    if (hasTaxProvision_ != false) {
+      output.writeBool(36, hasTaxProvision_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(netInterestIncome_) != 0) {
+      output.writeDouble(37, netInterestIncome_);
+    }
+    if (hasNetInterestIncome_ != false) {
+      output.writeBool(38, hasNetInterestIncome_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capitalExpenditure_) != 0) {
+      output.writeDouble(39, capitalExpenditure_);
+    }
+    if (hasCapitalExpenditure_ != false) {
+      output.writeBool(40, hasCapitalExpenditure_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(dividendsPaid_) != 0) {
+      output.writeDouble(41, dividendsPaid_);
+    }
+    if (hasDividendsPaid_ != false) {
+      output.writeBool(42, hasDividendsPaid_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(shareBuybacks_) != 0) {
+      output.writeDouble(43, shareBuybacks_);
+    }
+    if (hasShareBuybacks_ != false) {
+      output.writeBool(44, hasShareBuybacks_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(totalAssets_) != 0) {
+      output.writeDouble(45, totalAssets_);
+    }
+    if (hasTotalAssets_ != false) {
+      output.writeBool(46, hasTotalAssets_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(totalLiabilities_) != 0) {
+      output.writeDouble(47, totalLiabilities_);
+    }
+    if (hasTotalLiabilities_ != false) {
+      output.writeBool(48, hasTotalLiabilities_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(totalEquity_) != 0) {
+      output.writeDouble(49, totalEquity_);
+    }
+    if (hasTotalEquity_ != false) {
+      output.writeBool(50, hasTotalEquity_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(cashAndEquivalents_) != 0) {
+      output.writeDouble(51, cashAndEquivalents_);
+    }
+    if (hasCashAndEquivalents_ != false) {
+      output.writeBool(52, hasCashAndEquivalents_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(totalDebt_) != 0) {
+      output.writeDouble(53, totalDebt_);
+    }
+    if (hasTotalDebt_ != false) {
+      output.writeBool(54, hasTotalDebt_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capitalLeaseObligations_) != 0) {
+      output.writeDouble(55, capitalLeaseObligations_);
+    }
+    if (hasCapitalLeaseObligations_ != false) {
+      output.writeBool(56, hasCapitalLeaseObligations_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(netDebt_) != 0) {
+      output.writeDouble(57, netDebt_);
+    }
+    if (hasNetDebt_ != false) {
+      output.writeBool(58, hasNetDebt_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(currentAssets_) != 0) {
+      output.writeDouble(59, currentAssets_);
+    }
+    if (hasCurrentAssets_ != false) {
+      output.writeBool(60, hasCurrentAssets_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(currentLiabilities_) != 0) {
+      output.writeDouble(61, currentLiabilities_);
+    }
+    if (hasCurrentLiabilities_ != false) {
+      output.writeBool(62, hasCurrentLiabilities_);
+    }
+    com.google.protobuf.GeneratedMessage
+      .serializeStringMapTo(
+        output,
+        internalGetFieldSources(),
+        FieldSourcesDefaultEntryHolder.defaultEntry,
+        63);
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sourceDocumentUrl_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 64, sourceDocumentUrl_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sourceDocumentDate_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 65, sourceDocumentDate_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -607,6 +1475,198 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(20, hasFreeCashFlow_);
     }
+    if (java.lang.Double.doubleToRawLongBits(grossProfit_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(21, grossProfit_);
+    }
+    if (hasGrossProfit_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(22, hasGrossProfit_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(operatingIncome_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(23, operatingIncome_);
+    }
+    if (hasOperatingIncome_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(24, hasOperatingIncome_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(ebitda_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(25, ebitda_);
+    }
+    if (hasEbitda_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(26, hasEbitda_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(normalizedEbitda_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(27, normalizedEbitda_);
+    }
+    if (hasNormalizedEbitda_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(28, hasNormalizedEbitda_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(ebit_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(29, ebit_);
+    }
+    if (hasEbit_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(30, hasEbit_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(interestExpense_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(31, interestExpense_);
+    }
+    if (hasInterestExpense_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(32, hasInterestExpense_);
+    }
+    return size;
+  }
+  private int computeSerializedSize_1() {
+    int size = 0;
+    if (java.lang.Double.doubleToRawLongBits(pretaxIncome_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(33, pretaxIncome_);
+    }
+    if (hasPretaxIncome_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(34, hasPretaxIncome_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(taxProvision_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(35, taxProvision_);
+    }
+    if (hasTaxProvision_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(36, hasTaxProvision_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(netInterestIncome_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(37, netInterestIncome_);
+    }
+    if (hasNetInterestIncome_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(38, hasNetInterestIncome_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capitalExpenditure_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(39, capitalExpenditure_);
+    }
+    if (hasCapitalExpenditure_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(40, hasCapitalExpenditure_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(dividendsPaid_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(41, dividendsPaid_);
+    }
+    if (hasDividendsPaid_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(42, hasDividendsPaid_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(shareBuybacks_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(43, shareBuybacks_);
+    }
+    if (hasShareBuybacks_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(44, hasShareBuybacks_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(totalAssets_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(45, totalAssets_);
+    }
+    if (hasTotalAssets_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(46, hasTotalAssets_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(totalLiabilities_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(47, totalLiabilities_);
+    }
+    if (hasTotalLiabilities_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(48, hasTotalLiabilities_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(totalEquity_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(49, totalEquity_);
+    }
+    if (hasTotalEquity_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(50, hasTotalEquity_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(cashAndEquivalents_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(51, cashAndEquivalents_);
+    }
+    if (hasCashAndEquivalents_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(52, hasCashAndEquivalents_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(totalDebt_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(53, totalDebt_);
+    }
+    if (hasTotalDebt_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(54, hasTotalDebt_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(capitalLeaseObligations_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(55, capitalLeaseObligations_);
+    }
+    if (hasCapitalLeaseObligations_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(56, hasCapitalLeaseObligations_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(netDebt_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(57, netDebt_);
+    }
+    if (hasNetDebt_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(58, hasNetDebt_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(currentAssets_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(59, currentAssets_);
+    }
+    if (hasCurrentAssets_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(60, hasCurrentAssets_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(currentLiabilities_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(61, currentLiabilities_);
+    }
+    if (hasCurrentLiabilities_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(62, hasCurrentLiabilities_);
+    }
+    for (java.util.Map.Entry<java.lang.String, java.lang.String> entry
+         : internalGetFieldSources().getMap().entrySet()) {
+      com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
+      fieldSources__ = FieldSourcesDefaultEntryHolder.defaultEntry.newBuilderForType()
+          .setKey(entry.getKey())
+          .setValue(entry.getValue())
+          .buildPartial();
+      size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(63, fieldSources__);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sourceDocumentUrl_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(64, sourceDocumentUrl_);
+    }
+    return size;
+  }
+  private int computeSerializedSize_2() {
+    int size = 0;
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sourceDocumentDate_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(65, sourceDocumentDate_);
+    }
     return size;
   }
   @java.lang.Override
@@ -616,6 +1676,8 @@ private static final long serialVersionUID = 0L;
 
     size = 0;
     size += computeSerializedSize_0();
+    size += computeSerializedSize_1();
+    size += computeSerializedSize_2();
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -678,6 +1740,117 @@ private static final long serialVersionUID = 0L;
             other.getFreeCashFlow())) return false;
     if (getHasFreeCashFlow()
         != other.getHasFreeCashFlow()) return false;
+    if (java.lang.Double.doubleToLongBits(getGrossProfit())
+        != java.lang.Double.doubleToLongBits(
+            other.getGrossProfit())) return false;
+    if (getHasGrossProfit()
+        != other.getHasGrossProfit()) return false;
+    if (java.lang.Double.doubleToLongBits(getOperatingIncome())
+        != java.lang.Double.doubleToLongBits(
+            other.getOperatingIncome())) return false;
+    if (getHasOperatingIncome()
+        != other.getHasOperatingIncome()) return false;
+    if (java.lang.Double.doubleToLongBits(getEbitda())
+        != java.lang.Double.doubleToLongBits(
+            other.getEbitda())) return false;
+    if (getHasEbitda()
+        != other.getHasEbitda()) return false;
+    if (java.lang.Double.doubleToLongBits(getNormalizedEbitda())
+        != java.lang.Double.doubleToLongBits(
+            other.getNormalizedEbitda())) return false;
+    if (getHasNormalizedEbitda()
+        != other.getHasNormalizedEbitda()) return false;
+    if (java.lang.Double.doubleToLongBits(getEbit())
+        != java.lang.Double.doubleToLongBits(
+            other.getEbit())) return false;
+    if (getHasEbit()
+        != other.getHasEbit()) return false;
+    if (java.lang.Double.doubleToLongBits(getInterestExpense())
+        != java.lang.Double.doubleToLongBits(
+            other.getInterestExpense())) return false;
+    if (getHasInterestExpense()
+        != other.getHasInterestExpense()) return false;
+    if (java.lang.Double.doubleToLongBits(getPretaxIncome())
+        != java.lang.Double.doubleToLongBits(
+            other.getPretaxIncome())) return false;
+    if (getHasPretaxIncome()
+        != other.getHasPretaxIncome()) return false;
+    if (java.lang.Double.doubleToLongBits(getTaxProvision())
+        != java.lang.Double.doubleToLongBits(
+            other.getTaxProvision())) return false;
+    if (getHasTaxProvision()
+        != other.getHasTaxProvision()) return false;
+    if (java.lang.Double.doubleToLongBits(getNetInterestIncome())
+        != java.lang.Double.doubleToLongBits(
+            other.getNetInterestIncome())) return false;
+    if (getHasNetInterestIncome()
+        != other.getHasNetInterestIncome()) return false;
+    if (java.lang.Double.doubleToLongBits(getCapitalExpenditure())
+        != java.lang.Double.doubleToLongBits(
+            other.getCapitalExpenditure())) return false;
+    if (getHasCapitalExpenditure()
+        != other.getHasCapitalExpenditure()) return false;
+    if (java.lang.Double.doubleToLongBits(getDividendsPaid())
+        != java.lang.Double.doubleToLongBits(
+            other.getDividendsPaid())) return false;
+    if (getHasDividendsPaid()
+        != other.getHasDividendsPaid()) return false;
+    if (java.lang.Double.doubleToLongBits(getShareBuybacks())
+        != java.lang.Double.doubleToLongBits(
+            other.getShareBuybacks())) return false;
+    if (getHasShareBuybacks()
+        != other.getHasShareBuybacks()) return false;
+    if (java.lang.Double.doubleToLongBits(getTotalAssets())
+        != java.lang.Double.doubleToLongBits(
+            other.getTotalAssets())) return false;
+    if (getHasTotalAssets()
+        != other.getHasTotalAssets()) return false;
+    if (java.lang.Double.doubleToLongBits(getTotalLiabilities())
+        != java.lang.Double.doubleToLongBits(
+            other.getTotalLiabilities())) return false;
+    if (getHasTotalLiabilities()
+        != other.getHasTotalLiabilities()) return false;
+    if (java.lang.Double.doubleToLongBits(getTotalEquity())
+        != java.lang.Double.doubleToLongBits(
+            other.getTotalEquity())) return false;
+    if (getHasTotalEquity()
+        != other.getHasTotalEquity()) return false;
+    if (java.lang.Double.doubleToLongBits(getCashAndEquivalents())
+        != java.lang.Double.doubleToLongBits(
+            other.getCashAndEquivalents())) return false;
+    if (getHasCashAndEquivalents()
+        != other.getHasCashAndEquivalents()) return false;
+    if (java.lang.Double.doubleToLongBits(getTotalDebt())
+        != java.lang.Double.doubleToLongBits(
+            other.getTotalDebt())) return false;
+    if (getHasTotalDebt()
+        != other.getHasTotalDebt()) return false;
+    if (java.lang.Double.doubleToLongBits(getCapitalLeaseObligations())
+        != java.lang.Double.doubleToLongBits(
+            other.getCapitalLeaseObligations())) return false;
+    if (getHasCapitalLeaseObligations()
+        != other.getHasCapitalLeaseObligations()) return false;
+    if (java.lang.Double.doubleToLongBits(getNetDebt())
+        != java.lang.Double.doubleToLongBits(
+            other.getNetDebt())) return false;
+    if (getHasNetDebt()
+        != other.getHasNetDebt()) return false;
+    if (java.lang.Double.doubleToLongBits(getCurrentAssets())
+        != java.lang.Double.doubleToLongBits(
+            other.getCurrentAssets())) return false;
+    if (getHasCurrentAssets()
+        != other.getHasCurrentAssets()) return false;
+    if (java.lang.Double.doubleToLongBits(getCurrentLiabilities())
+        != java.lang.Double.doubleToLongBits(
+            other.getCurrentLiabilities())) return false;
+    if (getHasCurrentLiabilities()
+        != other.getHasCurrentLiabilities()) return false;
+    if (!internalGetFieldSources().equals(
+        other.internalGetFieldSources())) return false;
+    if (!getSourceDocumentUrl()
+        .equals(other.getSourceDocumentUrl())) return false;
+    if (!getSourceDocumentDate()
+        .equals(other.getSourceDocumentDate())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -743,6 +1916,140 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_FREE_CASH_FLOW_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasFreeCashFlow());
+    hash = (37 * hash) + GROSS_PROFIT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getGrossProfit()));
+    hash = (37 * hash) + HAS_GROSS_PROFIT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasGrossProfit());
+    hash = (37 * hash) + OPERATING_INCOME_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getOperatingIncome()));
+    hash = (37 * hash) + HAS_OPERATING_INCOME_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasOperatingIncome());
+    hash = (37 * hash) + EBITDA_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getEbitda()));
+    hash = (37 * hash) + HAS_EBITDA_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasEbitda());
+    hash = (37 * hash) + NORMALIZED_EBITDA_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getNormalizedEbitda()));
+    hash = (37 * hash) + HAS_NORMALIZED_EBITDA_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasNormalizedEbitda());
+    hash = (37 * hash) + EBIT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getEbit()));
+    hash = (37 * hash) + HAS_EBIT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasEbit());
+    hash = (37 * hash) + INTEREST_EXPENSE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getInterestExpense()));
+    hash = (37 * hash) + HAS_INTEREST_EXPENSE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasInterestExpense());
+    hash = (37 * hash) + PRETAX_INCOME_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getPretaxIncome()));
+    hash = (37 * hash) + HAS_PRETAX_INCOME_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasPretaxIncome());
+    hash = (37 * hash) + TAX_PROVISION_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getTaxProvision()));
+    hash = (37 * hash) + HAS_TAX_PROVISION_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasTaxProvision());
+    hash = (37 * hash) + NET_INTEREST_INCOME_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getNetInterestIncome()));
+    hash = (37 * hash) + HAS_NET_INTEREST_INCOME_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasNetInterestIncome());
+    hash = (37 * hash) + CAPITAL_EXPENDITURE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getCapitalExpenditure()));
+    hash = (37 * hash) + HAS_CAPITAL_EXPENDITURE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasCapitalExpenditure());
+    hash = (37 * hash) + DIVIDENDS_PAID_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getDividendsPaid()));
+    hash = (37 * hash) + HAS_DIVIDENDS_PAID_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasDividendsPaid());
+    hash = (37 * hash) + SHARE_BUYBACKS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getShareBuybacks()));
+    hash = (37 * hash) + HAS_SHARE_BUYBACKS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasShareBuybacks());
+    hash = (37 * hash) + TOTAL_ASSETS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getTotalAssets()));
+    hash = (37 * hash) + HAS_TOTAL_ASSETS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasTotalAssets());
+    hash = (37 * hash) + TOTAL_LIABILITIES_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getTotalLiabilities()));
+    hash = (37 * hash) + HAS_TOTAL_LIABILITIES_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasTotalLiabilities());
+    hash = (37 * hash) + TOTAL_EQUITY_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getTotalEquity()));
+    hash = (37 * hash) + HAS_TOTAL_EQUITY_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasTotalEquity());
+    hash = (37 * hash) + CASH_AND_EQUIVALENTS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getCashAndEquivalents()));
+    hash = (37 * hash) + HAS_CASH_AND_EQUIVALENTS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasCashAndEquivalents());
+    hash = (37 * hash) + TOTAL_DEBT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getTotalDebt()));
+    hash = (37 * hash) + HAS_TOTAL_DEBT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasTotalDebt());
+    hash = (37 * hash) + CAPITAL_LEASE_OBLIGATIONS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getCapitalLeaseObligations()));
+    hash = (37 * hash) + HAS_CAPITAL_LEASE_OBLIGATIONS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasCapitalLeaseObligations());
+    hash = (37 * hash) + NET_DEBT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getNetDebt()));
+    hash = (37 * hash) + HAS_NET_DEBT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasNetDebt());
+    hash = (37 * hash) + CURRENT_ASSETS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getCurrentAssets()));
+    hash = (37 * hash) + HAS_CURRENT_ASSETS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasCurrentAssets());
+    hash = (37 * hash) + CURRENT_LIABILITIES_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getCurrentLiabilities()));
+    hash = (37 * hash) + HAS_CURRENT_LIABILITIES_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasCurrentLiabilities());
+    if (!internalGetFieldSources().getMap().isEmpty()) {
+      hash = (37 * hash) + FIELD_SOURCES_FIELD_NUMBER;
+      hash = (53 * hash) + internalGetFieldSources().hashCode();
+    }
+    hash = (37 * hash) + SOURCE_DOCUMENT_URL_FIELD_NUMBER;
+    hash = (53 * hash) + getSourceDocumentUrl().hashCode();
+    hash = (37 * hash) + SOURCE_DOCUMENT_DATE_FIELD_NUMBER;
+    hash = (53 * hash) + getSourceDocumentDate().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -857,6 +2164,28 @@ private static final long serialVersionUID = 0L;
       return com.shorts.v1alpha1.StockProto.internal_static_shorts_v1alpha1_FundamentalsPeriod_descriptor;
     }
 
+    @SuppressWarnings({"rawtypes"})
+    protected com.google.protobuf.MapFieldReflectionAccessor internalGetMapFieldReflection(
+        int number) {
+      switch (number) {
+        case 63:
+          return internalGetFieldSources();
+        default:
+          throw new RuntimeException(
+              "Invalid map field number: " + number);
+      }
+    }
+    @SuppressWarnings({"rawtypes"})
+    protected com.google.protobuf.MapFieldReflectionAccessor internalGetMutableMapFieldReflection(
+        int number) {
+      switch (number) {
+        case 63:
+          return internalGetMutableFieldSources();
+        default:
+          throw new RuntimeException(
+              "Invalid map field number: " + number);
+      }
+    }
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
@@ -879,6 +2208,8 @@ private static final long serialVersionUID = 0L;
     public Builder clear() {
       super.clear();
       bitField0_ = 0;
+      bitField1_ = 0;
+      bitField2_ = 0;
       periodType_ = "";
       periodEnd_ = "";
       fiscalYear_ = 0;
@@ -899,6 +2230,51 @@ private static final long serialVersionUID = 0L;
       fetchedAt_ = "";
       freeCashFlow_ = 0D;
       hasFreeCashFlow_ = false;
+      grossProfit_ = 0D;
+      hasGrossProfit_ = false;
+      operatingIncome_ = 0D;
+      hasOperatingIncome_ = false;
+      ebitda_ = 0D;
+      hasEbitda_ = false;
+      normalizedEbitda_ = 0D;
+      hasNormalizedEbitda_ = false;
+      ebit_ = 0D;
+      hasEbit_ = false;
+      interestExpense_ = 0D;
+      hasInterestExpense_ = false;
+      pretaxIncome_ = 0D;
+      hasPretaxIncome_ = false;
+      taxProvision_ = 0D;
+      hasTaxProvision_ = false;
+      netInterestIncome_ = 0D;
+      hasNetInterestIncome_ = false;
+      capitalExpenditure_ = 0D;
+      hasCapitalExpenditure_ = false;
+      dividendsPaid_ = 0D;
+      hasDividendsPaid_ = false;
+      shareBuybacks_ = 0D;
+      hasShareBuybacks_ = false;
+      totalAssets_ = 0D;
+      hasTotalAssets_ = false;
+      totalLiabilities_ = 0D;
+      hasTotalLiabilities_ = false;
+      totalEquity_ = 0D;
+      hasTotalEquity_ = false;
+      cashAndEquivalents_ = 0D;
+      hasCashAndEquivalents_ = false;
+      totalDebt_ = 0D;
+      hasTotalDebt_ = false;
+      capitalLeaseObligations_ = 0D;
+      hasCapitalLeaseObligations_ = false;
+      netDebt_ = 0D;
+      hasNetDebt_ = false;
+      currentAssets_ = 0D;
+      hasCurrentAssets_ = false;
+      currentLiabilities_ = 0D;
+      hasCurrentLiabilities_ = false;
+      internalGetMutableFieldSources().clear();
+      sourceDocumentUrl_ = "";
+      sourceDocumentDate_ = "";
       return this;
     }
 
@@ -926,6 +2302,8 @@ private static final long serialVersionUID = 0L;
     public com.shorts.v1alpha1.FundamentalsPeriod buildPartial() {
       com.shorts.v1alpha1.FundamentalsPeriod result = new com.shorts.v1alpha1.FundamentalsPeriod(this);
       if (bitField0_ != 0) { buildPartial0(result); }
+      if (bitField1_ != 0) { buildPartial1(result); }
+      if (bitField2_ != 0) { buildPartial2(result); }
       onBuilt();
       return result;
     }
@@ -991,6 +2369,150 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00080000) != 0)) {
         result.hasFreeCashFlow_ = hasFreeCashFlow_;
+      }
+      if (((from_bitField0_ & 0x00100000) != 0)) {
+        result.grossProfit_ = grossProfit_;
+      }
+      if (((from_bitField0_ & 0x00200000) != 0)) {
+        result.hasGrossProfit_ = hasGrossProfit_;
+      }
+      if (((from_bitField0_ & 0x00400000) != 0)) {
+        result.operatingIncome_ = operatingIncome_;
+      }
+      if (((from_bitField0_ & 0x00800000) != 0)) {
+        result.hasOperatingIncome_ = hasOperatingIncome_;
+      }
+      if (((from_bitField0_ & 0x01000000) != 0)) {
+        result.ebitda_ = ebitda_;
+      }
+      if (((from_bitField0_ & 0x02000000) != 0)) {
+        result.hasEbitda_ = hasEbitda_;
+      }
+      if (((from_bitField0_ & 0x04000000) != 0)) {
+        result.normalizedEbitda_ = normalizedEbitda_;
+      }
+      if (((from_bitField0_ & 0x08000000) != 0)) {
+        result.hasNormalizedEbitda_ = hasNormalizedEbitda_;
+      }
+      if (((from_bitField0_ & 0x10000000) != 0)) {
+        result.ebit_ = ebit_;
+      }
+      if (((from_bitField0_ & 0x20000000) != 0)) {
+        result.hasEbit_ = hasEbit_;
+      }
+      if (((from_bitField0_ & 0x40000000) != 0)) {
+        result.interestExpense_ = interestExpense_;
+      }
+      if (((from_bitField0_ & 0x80000000) != 0)) {
+        result.hasInterestExpense_ = hasInterestExpense_;
+      }
+    }
+
+    private void buildPartial1(com.shorts.v1alpha1.FundamentalsPeriod result) {
+      int from_bitField1_ = bitField1_;
+      if (((from_bitField1_ & 0x00000001) != 0)) {
+        result.pretaxIncome_ = pretaxIncome_;
+      }
+      if (((from_bitField1_ & 0x00000002) != 0)) {
+        result.hasPretaxIncome_ = hasPretaxIncome_;
+      }
+      if (((from_bitField1_ & 0x00000004) != 0)) {
+        result.taxProvision_ = taxProvision_;
+      }
+      if (((from_bitField1_ & 0x00000008) != 0)) {
+        result.hasTaxProvision_ = hasTaxProvision_;
+      }
+      if (((from_bitField1_ & 0x00000010) != 0)) {
+        result.netInterestIncome_ = netInterestIncome_;
+      }
+      if (((from_bitField1_ & 0x00000020) != 0)) {
+        result.hasNetInterestIncome_ = hasNetInterestIncome_;
+      }
+      if (((from_bitField1_ & 0x00000040) != 0)) {
+        result.capitalExpenditure_ = capitalExpenditure_;
+      }
+      if (((from_bitField1_ & 0x00000080) != 0)) {
+        result.hasCapitalExpenditure_ = hasCapitalExpenditure_;
+      }
+      if (((from_bitField1_ & 0x00000100) != 0)) {
+        result.dividendsPaid_ = dividendsPaid_;
+      }
+      if (((from_bitField1_ & 0x00000200) != 0)) {
+        result.hasDividendsPaid_ = hasDividendsPaid_;
+      }
+      if (((from_bitField1_ & 0x00000400) != 0)) {
+        result.shareBuybacks_ = shareBuybacks_;
+      }
+      if (((from_bitField1_ & 0x00000800) != 0)) {
+        result.hasShareBuybacks_ = hasShareBuybacks_;
+      }
+      if (((from_bitField1_ & 0x00001000) != 0)) {
+        result.totalAssets_ = totalAssets_;
+      }
+      if (((from_bitField1_ & 0x00002000) != 0)) {
+        result.hasTotalAssets_ = hasTotalAssets_;
+      }
+      if (((from_bitField1_ & 0x00004000) != 0)) {
+        result.totalLiabilities_ = totalLiabilities_;
+      }
+      if (((from_bitField1_ & 0x00008000) != 0)) {
+        result.hasTotalLiabilities_ = hasTotalLiabilities_;
+      }
+      if (((from_bitField1_ & 0x00010000) != 0)) {
+        result.totalEquity_ = totalEquity_;
+      }
+      if (((from_bitField1_ & 0x00020000) != 0)) {
+        result.hasTotalEquity_ = hasTotalEquity_;
+      }
+      if (((from_bitField1_ & 0x00040000) != 0)) {
+        result.cashAndEquivalents_ = cashAndEquivalents_;
+      }
+      if (((from_bitField1_ & 0x00080000) != 0)) {
+        result.hasCashAndEquivalents_ = hasCashAndEquivalents_;
+      }
+      if (((from_bitField1_ & 0x00100000) != 0)) {
+        result.totalDebt_ = totalDebt_;
+      }
+      if (((from_bitField1_ & 0x00200000) != 0)) {
+        result.hasTotalDebt_ = hasTotalDebt_;
+      }
+      if (((from_bitField1_ & 0x00400000) != 0)) {
+        result.capitalLeaseObligations_ = capitalLeaseObligations_;
+      }
+      if (((from_bitField1_ & 0x00800000) != 0)) {
+        result.hasCapitalLeaseObligations_ = hasCapitalLeaseObligations_;
+      }
+      if (((from_bitField1_ & 0x01000000) != 0)) {
+        result.netDebt_ = netDebt_;
+      }
+      if (((from_bitField1_ & 0x02000000) != 0)) {
+        result.hasNetDebt_ = hasNetDebt_;
+      }
+      if (((from_bitField1_ & 0x04000000) != 0)) {
+        result.currentAssets_ = currentAssets_;
+      }
+      if (((from_bitField1_ & 0x08000000) != 0)) {
+        result.hasCurrentAssets_ = hasCurrentAssets_;
+      }
+      if (((from_bitField1_ & 0x10000000) != 0)) {
+        result.currentLiabilities_ = currentLiabilities_;
+      }
+      if (((from_bitField1_ & 0x20000000) != 0)) {
+        result.hasCurrentLiabilities_ = hasCurrentLiabilities_;
+      }
+      if (((from_bitField1_ & 0x40000000) != 0)) {
+        result.fieldSources_ = internalGetFieldSources();
+        result.fieldSources_.makeImmutable();
+      }
+      if (((from_bitField1_ & 0x80000000) != 0)) {
+        result.sourceDocumentUrl_ = sourceDocumentUrl_;
+      }
+    }
+
+    private void buildPartial2(com.shorts.v1alpha1.FundamentalsPeriod result) {
+      int from_bitField2_ = bitField2_;
+      if (((from_bitField2_ & 0x00000001) != 0)) {
+        result.sourceDocumentDate_ = sourceDocumentDate_;
       }
     }
 
@@ -1075,6 +2597,145 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getHasFreeCashFlow() != false) {
         setHasFreeCashFlow(other.getHasFreeCashFlow());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getGrossProfit()) != 0) {
+        setGrossProfit(other.getGrossProfit());
+      }
+      if (other.getHasGrossProfit() != false) {
+        setHasGrossProfit(other.getHasGrossProfit());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getOperatingIncome()) != 0) {
+        setOperatingIncome(other.getOperatingIncome());
+      }
+      if (other.getHasOperatingIncome() != false) {
+        setHasOperatingIncome(other.getHasOperatingIncome());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getEbitda()) != 0) {
+        setEbitda(other.getEbitda());
+      }
+      if (other.getHasEbitda() != false) {
+        setHasEbitda(other.getHasEbitda());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getNormalizedEbitda()) != 0) {
+        setNormalizedEbitda(other.getNormalizedEbitda());
+      }
+      if (other.getHasNormalizedEbitda() != false) {
+        setHasNormalizedEbitda(other.getHasNormalizedEbitda());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getEbit()) != 0) {
+        setEbit(other.getEbit());
+      }
+      if (other.getHasEbit() != false) {
+        setHasEbit(other.getHasEbit());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getInterestExpense()) != 0) {
+        setInterestExpense(other.getInterestExpense());
+      }
+      if (other.getHasInterestExpense() != false) {
+        setHasInterestExpense(other.getHasInterestExpense());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getPretaxIncome()) != 0) {
+        setPretaxIncome(other.getPretaxIncome());
+      }
+      if (other.getHasPretaxIncome() != false) {
+        setHasPretaxIncome(other.getHasPretaxIncome());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getTaxProvision()) != 0) {
+        setTaxProvision(other.getTaxProvision());
+      }
+      if (other.getHasTaxProvision() != false) {
+        setHasTaxProvision(other.getHasTaxProvision());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getNetInterestIncome()) != 0) {
+        setNetInterestIncome(other.getNetInterestIncome());
+      }
+      if (other.getHasNetInterestIncome() != false) {
+        setHasNetInterestIncome(other.getHasNetInterestIncome());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getCapitalExpenditure()) != 0) {
+        setCapitalExpenditure(other.getCapitalExpenditure());
+      }
+      if (other.getHasCapitalExpenditure() != false) {
+        setHasCapitalExpenditure(other.getHasCapitalExpenditure());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getDividendsPaid()) != 0) {
+        setDividendsPaid(other.getDividendsPaid());
+      }
+      if (other.getHasDividendsPaid() != false) {
+        setHasDividendsPaid(other.getHasDividendsPaid());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getShareBuybacks()) != 0) {
+        setShareBuybacks(other.getShareBuybacks());
+      }
+      if (other.getHasShareBuybacks() != false) {
+        setHasShareBuybacks(other.getHasShareBuybacks());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getTotalAssets()) != 0) {
+        setTotalAssets(other.getTotalAssets());
+      }
+      if (other.getHasTotalAssets() != false) {
+        setHasTotalAssets(other.getHasTotalAssets());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getTotalLiabilities()) != 0) {
+        setTotalLiabilities(other.getTotalLiabilities());
+      }
+      if (other.getHasTotalLiabilities() != false) {
+        setHasTotalLiabilities(other.getHasTotalLiabilities());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getTotalEquity()) != 0) {
+        setTotalEquity(other.getTotalEquity());
+      }
+      if (other.getHasTotalEquity() != false) {
+        setHasTotalEquity(other.getHasTotalEquity());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getCashAndEquivalents()) != 0) {
+        setCashAndEquivalents(other.getCashAndEquivalents());
+      }
+      if (other.getHasCashAndEquivalents() != false) {
+        setHasCashAndEquivalents(other.getHasCashAndEquivalents());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getTotalDebt()) != 0) {
+        setTotalDebt(other.getTotalDebt());
+      }
+      if (other.getHasTotalDebt() != false) {
+        setHasTotalDebt(other.getHasTotalDebt());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getCapitalLeaseObligations()) != 0) {
+        setCapitalLeaseObligations(other.getCapitalLeaseObligations());
+      }
+      if (other.getHasCapitalLeaseObligations() != false) {
+        setHasCapitalLeaseObligations(other.getHasCapitalLeaseObligations());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getNetDebt()) != 0) {
+        setNetDebt(other.getNetDebt());
+      }
+      if (other.getHasNetDebt() != false) {
+        setHasNetDebt(other.getHasNetDebt());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getCurrentAssets()) != 0) {
+        setCurrentAssets(other.getCurrentAssets());
+      }
+      if (other.getHasCurrentAssets() != false) {
+        setHasCurrentAssets(other.getHasCurrentAssets());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getCurrentLiabilities()) != 0) {
+        setCurrentLiabilities(other.getCurrentLiabilities());
+      }
+      if (other.getHasCurrentLiabilities() != false) {
+        setHasCurrentLiabilities(other.getHasCurrentLiabilities());
+      }
+      internalGetMutableFieldSources().mergeFrom(
+          other.internalGetFieldSources());
+      bitField1_ |= 0x40000000;
+      if (!other.getSourceDocumentUrl().isEmpty()) {
+        sourceDocumentUrl_ = other.sourceDocumentUrl_;
+        bitField1_ |= 0x80000000;
+        onChanged();
+      }
+      if (!other.getSourceDocumentDate().isEmpty()) {
+        sourceDocumentDate_ = other.sourceDocumentDate_;
+        bitField2_ |= 0x00000001;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1202,6 +2863,235 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00080000;
               break;
             } // case 160
+            case 169: {
+              grossProfit_ = input.readDouble();
+              bitField0_ |= 0x00100000;
+              break;
+            } // case 169
+            case 176: {
+              hasGrossProfit_ = input.readBool();
+              bitField0_ |= 0x00200000;
+              break;
+            } // case 176
+            case 185: {
+              operatingIncome_ = input.readDouble();
+              bitField0_ |= 0x00400000;
+              break;
+            } // case 185
+            case 192: {
+              hasOperatingIncome_ = input.readBool();
+              bitField0_ |= 0x00800000;
+              break;
+            } // case 192
+            case 201: {
+              ebitda_ = input.readDouble();
+              bitField0_ |= 0x01000000;
+              break;
+            } // case 201
+            case 208: {
+              hasEbitda_ = input.readBool();
+              bitField0_ |= 0x02000000;
+              break;
+            } // case 208
+            case 217: {
+              normalizedEbitda_ = input.readDouble();
+              bitField0_ |= 0x04000000;
+              break;
+            } // case 217
+            case 224: {
+              hasNormalizedEbitda_ = input.readBool();
+              bitField0_ |= 0x08000000;
+              break;
+            } // case 224
+            case 233: {
+              ebit_ = input.readDouble();
+              bitField0_ |= 0x10000000;
+              break;
+            } // case 233
+            case 240: {
+              hasEbit_ = input.readBool();
+              bitField0_ |= 0x20000000;
+              break;
+            } // case 240
+            case 249: {
+              interestExpense_ = input.readDouble();
+              bitField0_ |= 0x40000000;
+              break;
+            } // case 249
+            case 256: {
+              hasInterestExpense_ = input.readBool();
+              bitField0_ |= 0x80000000;
+              break;
+            } // case 256
+            case 265: {
+              pretaxIncome_ = input.readDouble();
+              bitField1_ |= 0x00000001;
+              break;
+            } // case 265
+            case 272: {
+              hasPretaxIncome_ = input.readBool();
+              bitField1_ |= 0x00000002;
+              break;
+            } // case 272
+            case 281: {
+              taxProvision_ = input.readDouble();
+              bitField1_ |= 0x00000004;
+              break;
+            } // case 281
+            case 288: {
+              hasTaxProvision_ = input.readBool();
+              bitField1_ |= 0x00000008;
+              break;
+            } // case 288
+            case 297: {
+              netInterestIncome_ = input.readDouble();
+              bitField1_ |= 0x00000010;
+              break;
+            } // case 297
+            case 304: {
+              hasNetInterestIncome_ = input.readBool();
+              bitField1_ |= 0x00000020;
+              break;
+            } // case 304
+            case 313: {
+              capitalExpenditure_ = input.readDouble();
+              bitField1_ |= 0x00000040;
+              break;
+            } // case 313
+            case 320: {
+              hasCapitalExpenditure_ = input.readBool();
+              bitField1_ |= 0x00000080;
+              break;
+            } // case 320
+            case 329: {
+              dividendsPaid_ = input.readDouble();
+              bitField1_ |= 0x00000100;
+              break;
+            } // case 329
+            case 336: {
+              hasDividendsPaid_ = input.readBool();
+              bitField1_ |= 0x00000200;
+              break;
+            } // case 336
+            case 345: {
+              shareBuybacks_ = input.readDouble();
+              bitField1_ |= 0x00000400;
+              break;
+            } // case 345
+            case 352: {
+              hasShareBuybacks_ = input.readBool();
+              bitField1_ |= 0x00000800;
+              break;
+            } // case 352
+            case 361: {
+              totalAssets_ = input.readDouble();
+              bitField1_ |= 0x00001000;
+              break;
+            } // case 361
+            case 368: {
+              hasTotalAssets_ = input.readBool();
+              bitField1_ |= 0x00002000;
+              break;
+            } // case 368
+            case 377: {
+              totalLiabilities_ = input.readDouble();
+              bitField1_ |= 0x00004000;
+              break;
+            } // case 377
+            case 384: {
+              hasTotalLiabilities_ = input.readBool();
+              bitField1_ |= 0x00008000;
+              break;
+            } // case 384
+            case 393: {
+              totalEquity_ = input.readDouble();
+              bitField1_ |= 0x00010000;
+              break;
+            } // case 393
+            case 400: {
+              hasTotalEquity_ = input.readBool();
+              bitField1_ |= 0x00020000;
+              break;
+            } // case 400
+            case 409: {
+              cashAndEquivalents_ = input.readDouble();
+              bitField1_ |= 0x00040000;
+              break;
+            } // case 409
+            case 416: {
+              hasCashAndEquivalents_ = input.readBool();
+              bitField1_ |= 0x00080000;
+              break;
+            } // case 416
+            case 425: {
+              totalDebt_ = input.readDouble();
+              bitField1_ |= 0x00100000;
+              break;
+            } // case 425
+            case 432: {
+              hasTotalDebt_ = input.readBool();
+              bitField1_ |= 0x00200000;
+              break;
+            } // case 432
+            case 441: {
+              capitalLeaseObligations_ = input.readDouble();
+              bitField1_ |= 0x00400000;
+              break;
+            } // case 441
+            case 448: {
+              hasCapitalLeaseObligations_ = input.readBool();
+              bitField1_ |= 0x00800000;
+              break;
+            } // case 448
+            case 457: {
+              netDebt_ = input.readDouble();
+              bitField1_ |= 0x01000000;
+              break;
+            } // case 457
+            case 464: {
+              hasNetDebt_ = input.readBool();
+              bitField1_ |= 0x02000000;
+              break;
+            } // case 464
+            case 473: {
+              currentAssets_ = input.readDouble();
+              bitField1_ |= 0x04000000;
+              break;
+            } // case 473
+            case 480: {
+              hasCurrentAssets_ = input.readBool();
+              bitField1_ |= 0x08000000;
+              break;
+            } // case 480
+            case 489: {
+              currentLiabilities_ = input.readDouble();
+              bitField1_ |= 0x10000000;
+              break;
+            } // case 489
+            case 496: {
+              hasCurrentLiabilities_ = input.readBool();
+              bitField1_ |= 0x20000000;
+              break;
+            } // case 496
+            case 506: {
+              com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
+              fieldSources__ = input.readMessage(
+                  FieldSourcesDefaultEntryHolder.defaultEntry.getParserForType(), extensionRegistry);
+              internalGetMutableFieldSources().getMutableMap().put(
+                  fieldSources__.getKey(), fieldSources__.getValue());
+              bitField1_ |= 0x40000000;
+              break;
+            } // case 506
+            case 514: {
+              sourceDocumentUrl_ = input.readStringRequireUtf8();
+              bitField1_ |= 0x80000000;
+              break;
+            } // case 514
+            case 522: {
+              sourceDocumentDate_ = input.readStringRequireUtf8();
+              bitField2_ |= 0x00000001;
+              break;
+            } // case 522
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1218,6 +3108,8 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     private int bitField0_;
+    private int bitField1_;
+    private int bitField2_;
 
     private java.lang.Object periodType_ = "";
     /**
@@ -2147,6 +4039,1874 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasFreeCashFlow() {
       bitField0_ = (bitField0_ & ~0x00080000);
       hasFreeCashFlow_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double grossProfit_ ;
+    /**
+     * <pre>
+     * Full statement lines (period_type "quarter" rows are balance-sheet
+     * snapshots and carry only balance lines and shares).
+     * </pre>
+     *
+     * <code>double gross_profit = 21 [json_name = "grossProfit"];</code>
+     * @return The grossProfit.
+     */
+    @java.lang.Override
+    public double getGrossProfit() {
+      return grossProfit_;
+    }
+    /**
+     * <pre>
+     * Full statement lines (period_type "quarter" rows are balance-sheet
+     * snapshots and carry only balance lines and shares).
+     * </pre>
+     *
+     * <code>double gross_profit = 21 [json_name = "grossProfit"];</code>
+     * @param value The grossProfit to set.
+     * @return This builder for chaining.
+     */
+    public Builder setGrossProfit(double value) {
+
+      grossProfit_ = value;
+      bitField0_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Full statement lines (period_type "quarter" rows are balance-sheet
+     * snapshots and carry only balance lines and shares).
+     * </pre>
+     *
+     * <code>double gross_profit = 21 [json_name = "grossProfit"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearGrossProfit() {
+      bitField0_ = (bitField0_ & ~0x00100000);
+      grossProfit_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasGrossProfit_ ;
+    /**
+     * <code>bool has_gross_profit = 22 [json_name = "hasGrossProfit"];</code>
+     * @return The hasGrossProfit.
+     */
+    @java.lang.Override
+    public boolean getHasGrossProfit() {
+      return hasGrossProfit_;
+    }
+    /**
+     * <code>bool has_gross_profit = 22 [json_name = "hasGrossProfit"];</code>
+     * @param value The hasGrossProfit to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasGrossProfit(boolean value) {
+
+      hasGrossProfit_ = value;
+      bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_gross_profit = 22 [json_name = "hasGrossProfit"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasGrossProfit() {
+      bitField0_ = (bitField0_ & ~0x00200000);
+      hasGrossProfit_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double operatingIncome_ ;
+    /**
+     * <pre>
+     * Absent for banks and insurers.
+     * </pre>
+     *
+     * <code>double operating_income = 23 [json_name = "operatingIncome"];</code>
+     * @return The operatingIncome.
+     */
+    @java.lang.Override
+    public double getOperatingIncome() {
+      return operatingIncome_;
+    }
+    /**
+     * <pre>
+     * Absent for banks and insurers.
+     * </pre>
+     *
+     * <code>double operating_income = 23 [json_name = "operatingIncome"];</code>
+     * @param value The operatingIncome to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOperatingIncome(double value) {
+
+      operatingIncome_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Absent for banks and insurers.
+     * </pre>
+     *
+     * <code>double operating_income = 23 [json_name = "operatingIncome"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearOperatingIncome() {
+      bitField0_ = (bitField0_ & ~0x00400000);
+      operatingIncome_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasOperatingIncome_ ;
+    /**
+     * <code>bool has_operating_income = 24 [json_name = "hasOperatingIncome"];</code>
+     * @return The hasOperatingIncome.
+     */
+    @java.lang.Override
+    public boolean getHasOperatingIncome() {
+      return hasOperatingIncome_;
+    }
+    /**
+     * <code>bool has_operating_income = 24 [json_name = "hasOperatingIncome"];</code>
+     * @param value The hasOperatingIncome to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasOperatingIncome(boolean value) {
+
+      hasOperatingIncome_ = value;
+      bitField0_ |= 0x00800000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_operating_income = 24 [json_name = "hasOperatingIncome"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasOperatingIncome() {
+      bitField0_ = (bitField0_ & ~0x00800000);
+      hasOperatingIncome_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double ebitda_ ;
+    /**
+     * <pre>
+     * Statutory: includes impairments and revaluations.
+     * </pre>
+     *
+     * <code>double ebitda = 25 [json_name = "ebitda"];</code>
+     * @return The ebitda.
+     */
+    @java.lang.Override
+    public double getEbitda() {
+      return ebitda_;
+    }
+    /**
+     * <pre>
+     * Statutory: includes impairments and revaluations.
+     * </pre>
+     *
+     * <code>double ebitda = 25 [json_name = "ebitda"];</code>
+     * @param value The ebitda to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEbitda(double value) {
+
+      ebitda_ = value;
+      bitField0_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Statutory: includes impairments and revaluations.
+     * </pre>
+     *
+     * <code>double ebitda = 25 [json_name = "ebitda"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEbitda() {
+      bitField0_ = (bitField0_ & ~0x01000000);
+      ebitda_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasEbitda_ ;
+    /**
+     * <code>bool has_ebitda = 26 [json_name = "hasEbitda"];</code>
+     * @return The hasEbitda.
+     */
+    @java.lang.Override
+    public boolean getHasEbitda() {
+      return hasEbitda_;
+    }
+    /**
+     * <code>bool has_ebitda = 26 [json_name = "hasEbitda"];</code>
+     * @param value The hasEbitda to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasEbitda(boolean value) {
+
+      hasEbitda_ = value;
+      bitField0_ |= 0x02000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_ebitda = 26 [json_name = "hasEbitda"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasEbitda() {
+      bitField0_ = (bitField0_ & ~0x02000000);
+      hasEbitda_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double normalizedEbitda_ ;
+    /**
+     * <pre>
+     * EBITDA before unusual items, when the source publishes it.
+     * </pre>
+     *
+     * <code>double normalized_ebitda = 27 [json_name = "normalizedEbitda"];</code>
+     * @return The normalizedEbitda.
+     */
+    @java.lang.Override
+    public double getNormalizedEbitda() {
+      return normalizedEbitda_;
+    }
+    /**
+     * <pre>
+     * EBITDA before unusual items, when the source publishes it.
+     * </pre>
+     *
+     * <code>double normalized_ebitda = 27 [json_name = "normalizedEbitda"];</code>
+     * @param value The normalizedEbitda to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNormalizedEbitda(double value) {
+
+      normalizedEbitda_ = value;
+      bitField0_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * EBITDA before unusual items, when the source publishes it.
+     * </pre>
+     *
+     * <code>double normalized_ebitda = 27 [json_name = "normalizedEbitda"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNormalizedEbitda() {
+      bitField0_ = (bitField0_ & ~0x04000000);
+      normalizedEbitda_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasNormalizedEbitda_ ;
+    /**
+     * <code>bool has_normalized_ebitda = 28 [json_name = "hasNormalizedEbitda"];</code>
+     * @return The hasNormalizedEbitda.
+     */
+    @java.lang.Override
+    public boolean getHasNormalizedEbitda() {
+      return hasNormalizedEbitda_;
+    }
+    /**
+     * <code>bool has_normalized_ebitda = 28 [json_name = "hasNormalizedEbitda"];</code>
+     * @param value The hasNormalizedEbitda to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasNormalizedEbitda(boolean value) {
+
+      hasNormalizedEbitda_ = value;
+      bitField0_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_normalized_ebitda = 28 [json_name = "hasNormalizedEbitda"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasNormalizedEbitda() {
+      bitField0_ = (bitField0_ & ~0x08000000);
+      hasNormalizedEbitda_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double ebit_ ;
+    /**
+     * <code>double ebit = 29 [json_name = "ebit"];</code>
+     * @return The ebit.
+     */
+    @java.lang.Override
+    public double getEbit() {
+      return ebit_;
+    }
+    /**
+     * <code>double ebit = 29 [json_name = "ebit"];</code>
+     * @param value The ebit to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEbit(double value) {
+
+      ebit_ = value;
+      bitField0_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double ebit = 29 [json_name = "ebit"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEbit() {
+      bitField0_ = (bitField0_ & ~0x10000000);
+      ebit_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasEbit_ ;
+    /**
+     * <code>bool has_ebit = 30 [json_name = "hasEbit"];</code>
+     * @return The hasEbit.
+     */
+    @java.lang.Override
+    public boolean getHasEbit() {
+      return hasEbit_;
+    }
+    /**
+     * <code>bool has_ebit = 30 [json_name = "hasEbit"];</code>
+     * @param value The hasEbit to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasEbit(boolean value) {
+
+      hasEbit_ = value;
+      bitField0_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_ebit = 30 [json_name = "hasEbit"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasEbit() {
+      bitField0_ = (bitField0_ & ~0x20000000);
+      hasEbit_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double interestExpense_ ;
+    /**
+     * <pre>
+     * A positive expense.
+     * </pre>
+     *
+     * <code>double interest_expense = 31 [json_name = "interestExpense"];</code>
+     * @return The interestExpense.
+     */
+    @java.lang.Override
+    public double getInterestExpense() {
+      return interestExpense_;
+    }
+    /**
+     * <pre>
+     * A positive expense.
+     * </pre>
+     *
+     * <code>double interest_expense = 31 [json_name = "interestExpense"];</code>
+     * @param value The interestExpense to set.
+     * @return This builder for chaining.
+     */
+    public Builder setInterestExpense(double value) {
+
+      interestExpense_ = value;
+      bitField0_ |= 0x40000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * A positive expense.
+     * </pre>
+     *
+     * <code>double interest_expense = 31 [json_name = "interestExpense"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearInterestExpense() {
+      bitField0_ = (bitField0_ & ~0x40000000);
+      interestExpense_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasInterestExpense_ ;
+    /**
+     * <code>bool has_interest_expense = 32 [json_name = "hasInterestExpense"];</code>
+     * @return The hasInterestExpense.
+     */
+    @java.lang.Override
+    public boolean getHasInterestExpense() {
+      return hasInterestExpense_;
+    }
+    /**
+     * <code>bool has_interest_expense = 32 [json_name = "hasInterestExpense"];</code>
+     * @param value The hasInterestExpense to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasInterestExpense(boolean value) {
+
+      hasInterestExpense_ = value;
+      bitField0_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_interest_expense = 32 [json_name = "hasInterestExpense"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasInterestExpense() {
+      bitField0_ = (bitField0_ & ~0x80000000);
+      hasInterestExpense_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double pretaxIncome_ ;
+    /**
+     * <code>double pretax_income = 33 [json_name = "pretaxIncome"];</code>
+     * @return The pretaxIncome.
+     */
+    @java.lang.Override
+    public double getPretaxIncome() {
+      return pretaxIncome_;
+    }
+    /**
+     * <code>double pretax_income = 33 [json_name = "pretaxIncome"];</code>
+     * @param value The pretaxIncome to set.
+     * @return This builder for chaining.
+     */
+    public Builder setPretaxIncome(double value) {
+
+      pretaxIncome_ = value;
+      bitField1_ |= 0x00000001;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double pretax_income = 33 [json_name = "pretaxIncome"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearPretaxIncome() {
+      bitField1_ = (bitField1_ & ~0x00000001);
+      pretaxIncome_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasPretaxIncome_ ;
+    /**
+     * <code>bool has_pretax_income = 34 [json_name = "hasPretaxIncome"];</code>
+     * @return The hasPretaxIncome.
+     */
+    @java.lang.Override
+    public boolean getHasPretaxIncome() {
+      return hasPretaxIncome_;
+    }
+    /**
+     * <code>bool has_pretax_income = 34 [json_name = "hasPretaxIncome"];</code>
+     * @param value The hasPretaxIncome to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasPretaxIncome(boolean value) {
+
+      hasPretaxIncome_ = value;
+      bitField1_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_pretax_income = 34 [json_name = "hasPretaxIncome"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasPretaxIncome() {
+      bitField1_ = (bitField1_ & ~0x00000002);
+      hasPretaxIncome_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double taxProvision_ ;
+    /**
+     * <code>double tax_provision = 35 [json_name = "taxProvision"];</code>
+     * @return The taxProvision.
+     */
+    @java.lang.Override
+    public double getTaxProvision() {
+      return taxProvision_;
+    }
+    /**
+     * <code>double tax_provision = 35 [json_name = "taxProvision"];</code>
+     * @param value The taxProvision to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTaxProvision(double value) {
+
+      taxProvision_ = value;
+      bitField1_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double tax_provision = 35 [json_name = "taxProvision"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTaxProvision() {
+      bitField1_ = (bitField1_ & ~0x00000004);
+      taxProvision_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasTaxProvision_ ;
+    /**
+     * <code>bool has_tax_provision = 36 [json_name = "hasTaxProvision"];</code>
+     * @return The hasTaxProvision.
+     */
+    @java.lang.Override
+    public boolean getHasTaxProvision() {
+      return hasTaxProvision_;
+    }
+    /**
+     * <code>bool has_tax_provision = 36 [json_name = "hasTaxProvision"];</code>
+     * @param value The hasTaxProvision to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasTaxProvision(boolean value) {
+
+      hasTaxProvision_ = value;
+      bitField1_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_tax_provision = 36 [json_name = "hasTaxProvision"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasTaxProvision() {
+      bitField1_ = (bitField1_ & ~0x00000008);
+      hasTaxProvision_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double netInterestIncome_ ;
+    /**
+     * <pre>
+     * Banks; other companies report it as minus interest expense.
+     * </pre>
+     *
+     * <code>double net_interest_income = 37 [json_name = "netInterestIncome"];</code>
+     * @return The netInterestIncome.
+     */
+    @java.lang.Override
+    public double getNetInterestIncome() {
+      return netInterestIncome_;
+    }
+    /**
+     * <pre>
+     * Banks; other companies report it as minus interest expense.
+     * </pre>
+     *
+     * <code>double net_interest_income = 37 [json_name = "netInterestIncome"];</code>
+     * @param value The netInterestIncome to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNetInterestIncome(double value) {
+
+      netInterestIncome_ = value;
+      bitField1_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Banks; other companies report it as minus interest expense.
+     * </pre>
+     *
+     * <code>double net_interest_income = 37 [json_name = "netInterestIncome"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNetInterestIncome() {
+      bitField1_ = (bitField1_ & ~0x00000010);
+      netInterestIncome_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasNetInterestIncome_ ;
+    /**
+     * <code>bool has_net_interest_income = 38 [json_name = "hasNetInterestIncome"];</code>
+     * @return The hasNetInterestIncome.
+     */
+    @java.lang.Override
+    public boolean getHasNetInterestIncome() {
+      return hasNetInterestIncome_;
+    }
+    /**
+     * <code>bool has_net_interest_income = 38 [json_name = "hasNetInterestIncome"];</code>
+     * @param value The hasNetInterestIncome to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasNetInterestIncome(boolean value) {
+
+      hasNetInterestIncome_ = value;
+      bitField1_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_net_interest_income = 38 [json_name = "hasNetInterestIncome"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasNetInterestIncome() {
+      bitField1_ = (bitField1_ & ~0x00000020);
+      hasNetInterestIncome_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double capitalExpenditure_ ;
+    /**
+     * <pre>
+     * An outflow: negative.
+     * </pre>
+     *
+     * <code>double capital_expenditure = 39 [json_name = "capitalExpenditure"];</code>
+     * @return The capitalExpenditure.
+     */
+    @java.lang.Override
+    public double getCapitalExpenditure() {
+      return capitalExpenditure_;
+    }
+    /**
+     * <pre>
+     * An outflow: negative.
+     * </pre>
+     *
+     * <code>double capital_expenditure = 39 [json_name = "capitalExpenditure"];</code>
+     * @param value The capitalExpenditure to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapitalExpenditure(double value) {
+
+      capitalExpenditure_ = value;
+      bitField1_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * An outflow: negative.
+     * </pre>
+     *
+     * <code>double capital_expenditure = 39 [json_name = "capitalExpenditure"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCapitalExpenditure() {
+      bitField1_ = (bitField1_ & ~0x00000040);
+      capitalExpenditure_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasCapitalExpenditure_ ;
+    /**
+     * <code>bool has_capital_expenditure = 40 [json_name = "hasCapitalExpenditure"];</code>
+     * @return The hasCapitalExpenditure.
+     */
+    @java.lang.Override
+    public boolean getHasCapitalExpenditure() {
+      return hasCapitalExpenditure_;
+    }
+    /**
+     * <code>bool has_capital_expenditure = 40 [json_name = "hasCapitalExpenditure"];</code>
+     * @param value The hasCapitalExpenditure to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasCapitalExpenditure(boolean value) {
+
+      hasCapitalExpenditure_ = value;
+      bitField1_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_capital_expenditure = 40 [json_name = "hasCapitalExpenditure"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasCapitalExpenditure() {
+      bitField1_ = (bitField1_ & ~0x00000080);
+      hasCapitalExpenditure_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double dividendsPaid_ ;
+    /**
+     * <pre>
+     * Cash dividends paid in the period: negative.
+     * </pre>
+     *
+     * <code>double dividends_paid = 41 [json_name = "dividendsPaid"];</code>
+     * @return The dividendsPaid.
+     */
+    @java.lang.Override
+    public double getDividendsPaid() {
+      return dividendsPaid_;
+    }
+    /**
+     * <pre>
+     * Cash dividends paid in the period: negative.
+     * </pre>
+     *
+     * <code>double dividends_paid = 41 [json_name = "dividendsPaid"];</code>
+     * @param value The dividendsPaid to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDividendsPaid(double value) {
+
+      dividendsPaid_ = value;
+      bitField1_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Cash dividends paid in the period: negative.
+     * </pre>
+     *
+     * <code>double dividends_paid = 41 [json_name = "dividendsPaid"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDividendsPaid() {
+      bitField1_ = (bitField1_ & ~0x00000100);
+      dividendsPaid_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasDividendsPaid_ ;
+    /**
+     * <code>bool has_dividends_paid = 42 [json_name = "hasDividendsPaid"];</code>
+     * @return The hasDividendsPaid.
+     */
+    @java.lang.Override
+    public boolean getHasDividendsPaid() {
+      return hasDividendsPaid_;
+    }
+    /**
+     * <code>bool has_dividends_paid = 42 [json_name = "hasDividendsPaid"];</code>
+     * @param value The hasDividendsPaid to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasDividendsPaid(boolean value) {
+
+      hasDividendsPaid_ = value;
+      bitField1_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_dividends_paid = 42 [json_name = "hasDividendsPaid"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasDividendsPaid() {
+      bitField1_ = (bitField1_ & ~0x00000200);
+      hasDividendsPaid_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double shareBuybacks_ ;
+    /**
+     * <pre>
+     * An outflow: negative.
+     * </pre>
+     *
+     * <code>double share_buybacks = 43 [json_name = "shareBuybacks"];</code>
+     * @return The shareBuybacks.
+     */
+    @java.lang.Override
+    public double getShareBuybacks() {
+      return shareBuybacks_;
+    }
+    /**
+     * <pre>
+     * An outflow: negative.
+     * </pre>
+     *
+     * <code>double share_buybacks = 43 [json_name = "shareBuybacks"];</code>
+     * @param value The shareBuybacks to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShareBuybacks(double value) {
+
+      shareBuybacks_ = value;
+      bitField1_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * An outflow: negative.
+     * </pre>
+     *
+     * <code>double share_buybacks = 43 [json_name = "shareBuybacks"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearShareBuybacks() {
+      bitField1_ = (bitField1_ & ~0x00000400);
+      shareBuybacks_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasShareBuybacks_ ;
+    /**
+     * <code>bool has_share_buybacks = 44 [json_name = "hasShareBuybacks"];</code>
+     * @return The hasShareBuybacks.
+     */
+    @java.lang.Override
+    public boolean getHasShareBuybacks() {
+      return hasShareBuybacks_;
+    }
+    /**
+     * <code>bool has_share_buybacks = 44 [json_name = "hasShareBuybacks"];</code>
+     * @param value The hasShareBuybacks to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasShareBuybacks(boolean value) {
+
+      hasShareBuybacks_ = value;
+      bitField1_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_share_buybacks = 44 [json_name = "hasShareBuybacks"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasShareBuybacks() {
+      bitField1_ = (bitField1_ & ~0x00000800);
+      hasShareBuybacks_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double totalAssets_ ;
+    /**
+     * <pre>
+     * Balance sheet at period_end.
+     * </pre>
+     *
+     * <code>double total_assets = 45 [json_name = "totalAssets"];</code>
+     * @return The totalAssets.
+     */
+    @java.lang.Override
+    public double getTotalAssets() {
+      return totalAssets_;
+    }
+    /**
+     * <pre>
+     * Balance sheet at period_end.
+     * </pre>
+     *
+     * <code>double total_assets = 45 [json_name = "totalAssets"];</code>
+     * @param value The totalAssets to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTotalAssets(double value) {
+
+      totalAssets_ = value;
+      bitField1_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Balance sheet at period_end.
+     * </pre>
+     *
+     * <code>double total_assets = 45 [json_name = "totalAssets"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTotalAssets() {
+      bitField1_ = (bitField1_ & ~0x00001000);
+      totalAssets_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasTotalAssets_ ;
+    /**
+     * <code>bool has_total_assets = 46 [json_name = "hasTotalAssets"];</code>
+     * @return The hasTotalAssets.
+     */
+    @java.lang.Override
+    public boolean getHasTotalAssets() {
+      return hasTotalAssets_;
+    }
+    /**
+     * <code>bool has_total_assets = 46 [json_name = "hasTotalAssets"];</code>
+     * @param value The hasTotalAssets to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasTotalAssets(boolean value) {
+
+      hasTotalAssets_ = value;
+      bitField1_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_total_assets = 46 [json_name = "hasTotalAssets"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasTotalAssets() {
+      bitField1_ = (bitField1_ & ~0x00002000);
+      hasTotalAssets_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double totalLiabilities_ ;
+    /**
+     * <code>double total_liabilities = 47 [json_name = "totalLiabilities"];</code>
+     * @return The totalLiabilities.
+     */
+    @java.lang.Override
+    public double getTotalLiabilities() {
+      return totalLiabilities_;
+    }
+    /**
+     * <code>double total_liabilities = 47 [json_name = "totalLiabilities"];</code>
+     * @param value The totalLiabilities to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTotalLiabilities(double value) {
+
+      totalLiabilities_ = value;
+      bitField1_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double total_liabilities = 47 [json_name = "totalLiabilities"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTotalLiabilities() {
+      bitField1_ = (bitField1_ & ~0x00004000);
+      totalLiabilities_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasTotalLiabilities_ ;
+    /**
+     * <code>bool has_total_liabilities = 48 [json_name = "hasTotalLiabilities"];</code>
+     * @return The hasTotalLiabilities.
+     */
+    @java.lang.Override
+    public boolean getHasTotalLiabilities() {
+      return hasTotalLiabilities_;
+    }
+    /**
+     * <code>bool has_total_liabilities = 48 [json_name = "hasTotalLiabilities"];</code>
+     * @param value The hasTotalLiabilities to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasTotalLiabilities(boolean value) {
+
+      hasTotalLiabilities_ = value;
+      bitField1_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_total_liabilities = 48 [json_name = "hasTotalLiabilities"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasTotalLiabilities() {
+      bitField1_ = (bitField1_ & ~0x00008000);
+      hasTotalLiabilities_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double totalEquity_ ;
+    /**
+     * <pre>
+     * Shareholders' equity.
+     * </pre>
+     *
+     * <code>double total_equity = 49 [json_name = "totalEquity"];</code>
+     * @return The totalEquity.
+     */
+    @java.lang.Override
+    public double getTotalEquity() {
+      return totalEquity_;
+    }
+    /**
+     * <pre>
+     * Shareholders' equity.
+     * </pre>
+     *
+     * <code>double total_equity = 49 [json_name = "totalEquity"];</code>
+     * @param value The totalEquity to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTotalEquity(double value) {
+
+      totalEquity_ = value;
+      bitField1_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Shareholders' equity.
+     * </pre>
+     *
+     * <code>double total_equity = 49 [json_name = "totalEquity"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTotalEquity() {
+      bitField1_ = (bitField1_ & ~0x00010000);
+      totalEquity_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasTotalEquity_ ;
+    /**
+     * <code>bool has_total_equity = 50 [json_name = "hasTotalEquity"];</code>
+     * @return The hasTotalEquity.
+     */
+    @java.lang.Override
+    public boolean getHasTotalEquity() {
+      return hasTotalEquity_;
+    }
+    /**
+     * <code>bool has_total_equity = 50 [json_name = "hasTotalEquity"];</code>
+     * @param value The hasTotalEquity to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasTotalEquity(boolean value) {
+
+      hasTotalEquity_ = value;
+      bitField1_ |= 0x00020000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_total_equity = 50 [json_name = "hasTotalEquity"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasTotalEquity() {
+      bitField1_ = (bitField1_ & ~0x00020000);
+      hasTotalEquity_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double cashAndEquivalents_ ;
+    /**
+     * <code>double cash_and_equivalents = 51 [json_name = "cashAndEquivalents"];</code>
+     * @return The cashAndEquivalents.
+     */
+    @java.lang.Override
+    public double getCashAndEquivalents() {
+      return cashAndEquivalents_;
+    }
+    /**
+     * <code>double cash_and_equivalents = 51 [json_name = "cashAndEquivalents"];</code>
+     * @param value The cashAndEquivalents to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCashAndEquivalents(double value) {
+
+      cashAndEquivalents_ = value;
+      bitField1_ |= 0x00040000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double cash_and_equivalents = 51 [json_name = "cashAndEquivalents"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCashAndEquivalents() {
+      bitField1_ = (bitField1_ & ~0x00040000);
+      cashAndEquivalents_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasCashAndEquivalents_ ;
+    /**
+     * <code>bool has_cash_and_equivalents = 52 [json_name = "hasCashAndEquivalents"];</code>
+     * @return The hasCashAndEquivalents.
+     */
+    @java.lang.Override
+    public boolean getHasCashAndEquivalents() {
+      return hasCashAndEquivalents_;
+    }
+    /**
+     * <code>bool has_cash_and_equivalents = 52 [json_name = "hasCashAndEquivalents"];</code>
+     * @param value The hasCashAndEquivalents to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasCashAndEquivalents(boolean value) {
+
+      hasCashAndEquivalents_ = value;
+      bitField1_ |= 0x00080000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_cash_and_equivalents = 52 [json_name = "hasCashAndEquivalents"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasCashAndEquivalents() {
+      bitField1_ = (bitField1_ & ~0x00080000);
+      hasCashAndEquivalents_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double totalDebt_ ;
+    /**
+     * <pre>
+     * Includes lease liabilities.
+     * </pre>
+     *
+     * <code>double total_debt = 53 [json_name = "totalDebt"];</code>
+     * @return The totalDebt.
+     */
+    @java.lang.Override
+    public double getTotalDebt() {
+      return totalDebt_;
+    }
+    /**
+     * <pre>
+     * Includes lease liabilities.
+     * </pre>
+     *
+     * <code>double total_debt = 53 [json_name = "totalDebt"];</code>
+     * @param value The totalDebt to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTotalDebt(double value) {
+
+      totalDebt_ = value;
+      bitField1_ |= 0x00100000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Includes lease liabilities.
+     * </pre>
+     *
+     * <code>double total_debt = 53 [json_name = "totalDebt"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTotalDebt() {
+      bitField1_ = (bitField1_ & ~0x00100000);
+      totalDebt_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasTotalDebt_ ;
+    /**
+     * <code>bool has_total_debt = 54 [json_name = "hasTotalDebt"];</code>
+     * @return The hasTotalDebt.
+     */
+    @java.lang.Override
+    public boolean getHasTotalDebt() {
+      return hasTotalDebt_;
+    }
+    /**
+     * <code>bool has_total_debt = 54 [json_name = "hasTotalDebt"];</code>
+     * @param value The hasTotalDebt to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasTotalDebt(boolean value) {
+
+      hasTotalDebt_ = value;
+      bitField1_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_total_debt = 54 [json_name = "hasTotalDebt"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasTotalDebt() {
+      bitField1_ = (bitField1_ & ~0x00200000);
+      hasTotalDebt_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double capitalLeaseObligations_ ;
+    /**
+     * <pre>
+     * Lease liabilities.
+     * </pre>
+     *
+     * <code>double capital_lease_obligations = 55 [json_name = "capitalLeaseObligations"];</code>
+     * @return The capitalLeaseObligations.
+     */
+    @java.lang.Override
+    public double getCapitalLeaseObligations() {
+      return capitalLeaseObligations_;
+    }
+    /**
+     * <pre>
+     * Lease liabilities.
+     * </pre>
+     *
+     * <code>double capital_lease_obligations = 55 [json_name = "capitalLeaseObligations"];</code>
+     * @param value The capitalLeaseObligations to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCapitalLeaseObligations(double value) {
+
+      capitalLeaseObligations_ = value;
+      bitField1_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Lease liabilities.
+     * </pre>
+     *
+     * <code>double capital_lease_obligations = 55 [json_name = "capitalLeaseObligations"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCapitalLeaseObligations() {
+      bitField1_ = (bitField1_ & ~0x00400000);
+      capitalLeaseObligations_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasCapitalLeaseObligations_ ;
+    /**
+     * <code>bool has_capital_lease_obligations = 56 [json_name = "hasCapitalLeaseObligations"];</code>
+     * @return The hasCapitalLeaseObligations.
+     */
+    @java.lang.Override
+    public boolean getHasCapitalLeaseObligations() {
+      return hasCapitalLeaseObligations_;
+    }
+    /**
+     * <code>bool has_capital_lease_obligations = 56 [json_name = "hasCapitalLeaseObligations"];</code>
+     * @param value The hasCapitalLeaseObligations to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasCapitalLeaseObligations(boolean value) {
+
+      hasCapitalLeaseObligations_ = value;
+      bitField1_ |= 0x00800000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_capital_lease_obligations = 56 [json_name = "hasCapitalLeaseObligations"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasCapitalLeaseObligations() {
+      bitField1_ = (bitField1_ & ~0x00800000);
+      hasCapitalLeaseObligations_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double netDebt_ ;
+    /**
+     * <pre>
+     * Excludes leases: total debt minus leases minus cash. Negative is net cash.
+     * </pre>
+     *
+     * <code>double net_debt = 57 [json_name = "netDebt"];</code>
+     * @return The netDebt.
+     */
+    @java.lang.Override
+    public double getNetDebt() {
+      return netDebt_;
+    }
+    /**
+     * <pre>
+     * Excludes leases: total debt minus leases minus cash. Negative is net cash.
+     * </pre>
+     *
+     * <code>double net_debt = 57 [json_name = "netDebt"];</code>
+     * @param value The netDebt to set.
+     * @return This builder for chaining.
+     */
+    public Builder setNetDebt(double value) {
+
+      netDebt_ = value;
+      bitField1_ |= 0x01000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Excludes leases: total debt minus leases minus cash. Negative is net cash.
+     * </pre>
+     *
+     * <code>double net_debt = 57 [json_name = "netDebt"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearNetDebt() {
+      bitField1_ = (bitField1_ & ~0x01000000);
+      netDebt_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasNetDebt_ ;
+    /**
+     * <code>bool has_net_debt = 58 [json_name = "hasNetDebt"];</code>
+     * @return The hasNetDebt.
+     */
+    @java.lang.Override
+    public boolean getHasNetDebt() {
+      return hasNetDebt_;
+    }
+    /**
+     * <code>bool has_net_debt = 58 [json_name = "hasNetDebt"];</code>
+     * @param value The hasNetDebt to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasNetDebt(boolean value) {
+
+      hasNetDebt_ = value;
+      bitField1_ |= 0x02000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_net_debt = 58 [json_name = "hasNetDebt"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasNetDebt() {
+      bitField1_ = (bitField1_ & ~0x02000000);
+      hasNetDebt_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double currentAssets_ ;
+    /**
+     * <code>double current_assets = 59 [json_name = "currentAssets"];</code>
+     * @return The currentAssets.
+     */
+    @java.lang.Override
+    public double getCurrentAssets() {
+      return currentAssets_;
+    }
+    /**
+     * <code>double current_assets = 59 [json_name = "currentAssets"];</code>
+     * @param value The currentAssets to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCurrentAssets(double value) {
+
+      currentAssets_ = value;
+      bitField1_ |= 0x04000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double current_assets = 59 [json_name = "currentAssets"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCurrentAssets() {
+      bitField1_ = (bitField1_ & ~0x04000000);
+      currentAssets_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasCurrentAssets_ ;
+    /**
+     * <code>bool has_current_assets = 60 [json_name = "hasCurrentAssets"];</code>
+     * @return The hasCurrentAssets.
+     */
+    @java.lang.Override
+    public boolean getHasCurrentAssets() {
+      return hasCurrentAssets_;
+    }
+    /**
+     * <code>bool has_current_assets = 60 [json_name = "hasCurrentAssets"];</code>
+     * @param value The hasCurrentAssets to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasCurrentAssets(boolean value) {
+
+      hasCurrentAssets_ = value;
+      bitField1_ |= 0x08000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_current_assets = 60 [json_name = "hasCurrentAssets"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasCurrentAssets() {
+      bitField1_ = (bitField1_ & ~0x08000000);
+      hasCurrentAssets_ = false;
+      onChanged();
+      return this;
+    }
+
+    private double currentLiabilities_ ;
+    /**
+     * <code>double current_liabilities = 61 [json_name = "currentLiabilities"];</code>
+     * @return The currentLiabilities.
+     */
+    @java.lang.Override
+    public double getCurrentLiabilities() {
+      return currentLiabilities_;
+    }
+    /**
+     * <code>double current_liabilities = 61 [json_name = "currentLiabilities"];</code>
+     * @param value The currentLiabilities to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCurrentLiabilities(double value) {
+
+      currentLiabilities_ = value;
+      bitField1_ |= 0x10000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double current_liabilities = 61 [json_name = "currentLiabilities"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCurrentLiabilities() {
+      bitField1_ = (bitField1_ & ~0x10000000);
+      currentLiabilities_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private boolean hasCurrentLiabilities_ ;
+    /**
+     * <code>bool has_current_liabilities = 62 [json_name = "hasCurrentLiabilities"];</code>
+     * @return The hasCurrentLiabilities.
+     */
+    @java.lang.Override
+    public boolean getHasCurrentLiabilities() {
+      return hasCurrentLiabilities_;
+    }
+    /**
+     * <code>bool has_current_liabilities = 62 [json_name = "hasCurrentLiabilities"];</code>
+     * @param value The hasCurrentLiabilities to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasCurrentLiabilities(boolean value) {
+
+      hasCurrentLiabilities_ = value;
+      bitField1_ |= 0x20000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_current_liabilities = 62 [json_name = "hasCurrentLiabilities"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasCurrentLiabilities() {
+      bitField1_ = (bitField1_ & ~0x20000000);
+      hasCurrentLiabilities_ = false;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.MapField<
+        java.lang.String, java.lang.String> fieldSources_;
+    private com.google.protobuf.MapField<java.lang.String, java.lang.String>
+        internalGetFieldSources() {
+      if (fieldSources_ == null) {
+        return com.google.protobuf.MapField.emptyMapField(
+            FieldSourcesDefaultEntryHolder.defaultEntry);
+      }
+      return fieldSources_;
+    }
+    private com.google.protobuf.MapField<java.lang.String, java.lang.String>
+        internalGetMutableFieldSources() {
+      if (fieldSources_ == null) {
+        fieldSources_ = com.google.protobuf.MapField.newMapField(
+            FieldSourcesDefaultEntryHolder.defaultEntry);
+      }
+      if (!fieldSources_.isMutable()) {
+        fieldSources_ = fieldSources_.copy();
+      }
+      bitField1_ |= 0x40000000;
+      onChanged();
+      return fieldSources_;
+    }
+    public int getFieldSourcesCount() {
+      return internalGetFieldSources().getMap().size();
+    }
+    /**
+     * <pre>
+     * Per-field provenance: the fields whose value did not come from `source`,
+     * mapped to where it came from, e.g. {"operating_cash_flow":
+     * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+     */
+    @java.lang.Override
+    public boolean containsFieldSources(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      return internalGetFieldSources().getMap().containsKey(key);
+    }
+    /**
+     * Use {@link #getFieldSourcesMap()} instead.
+     */
+    @java.lang.Override
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, java.lang.String> getFieldSources() {
+      return getFieldSourcesMap();
+    }
+    /**
+     * <pre>
+     * Per-field provenance: the fields whose value did not come from `source`,
+     * mapped to where it came from, e.g. {"operating_cash_flow":
+     * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+     */
+    @java.lang.Override
+    public java.util.Map<java.lang.String, java.lang.String> getFieldSourcesMap() {
+      return internalGetFieldSources().getMap();
+    }
+    /**
+     * <pre>
+     * Per-field provenance: the fields whose value did not come from `source`,
+     * mapped to where it came from, e.g. {"operating_cash_flow":
+     * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+     */
+    @java.lang.Override
+    public /* nullable */
+java.lang.String getFieldSourcesOrDefault(
+        java.lang.String key,
+        /* nullable */
+java.lang.String defaultValue) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, java.lang.String> map =
+          internalGetFieldSources().getMap();
+      return map.containsKey(key) ? map.get(key) : defaultValue;
+    }
+    /**
+     * <pre>
+     * Per-field provenance: the fields whose value did not come from `source`,
+     * mapped to where it came from, e.g. {"operating_cash_flow":
+     * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+     */
+    @java.lang.Override
+    public java.lang.String getFieldSourcesOrThrow(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      java.util.Map<java.lang.String, java.lang.String> map =
+          internalGetFieldSources().getMap();
+      if (!map.containsKey(key)) {
+        throw new java.lang.IllegalArgumentException();
+      }
+      return map.get(key);
+    }
+    public Builder clearFieldSources() {
+      bitField1_ = (bitField1_ & ~0x40000000);
+      internalGetMutableFieldSources().getMutableMap()
+          .clear();
+      return this;
+    }
+    /**
+     * <pre>
+     * Per-field provenance: the fields whose value did not come from `source`,
+     * mapped to where it came from, e.g. {"operating_cash_flow":
+     * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+     */
+    public Builder removeFieldSources(
+        java.lang.String key) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      internalGetMutableFieldSources().getMutableMap()
+          .remove(key);
+      return this;
+    }
+    /**
+     * Use alternate mutation accessors instead.
+     */
+    @java.lang.Deprecated
+    public java.util.Map<java.lang.String, java.lang.String>
+        getMutableFieldSources() {
+      bitField1_ |= 0x40000000;
+      return internalGetMutableFieldSources().getMutableMap();
+    }
+    /**
+     * <pre>
+     * Per-field provenance: the fields whose value did not come from `source`,
+     * mapped to where it came from, e.g. {"operating_cash_flow":
+     * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+     */
+    public Builder putFieldSources(
+        java.lang.String key,
+        java.lang.String value) {
+      if (key == null) { throw new NullPointerException("map key"); }
+      if (value == null) { throw new NullPointerException("map value"); }
+      internalGetMutableFieldSources().getMutableMap()
+          .put(key, value);
+      bitField1_ |= 0x40000000;
+      return this;
+    }
+    /**
+     * <pre>
+     * Per-field provenance: the fields whose value did not come from `source`,
+     * mapped to where it came from, e.g. {"operating_cash_flow":
+     * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+     * </pre>
+     *
+     * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+     */
+    public Builder putAllFieldSources(
+        java.util.Map<java.lang.String, java.lang.String> values) {
+      internalGetMutableFieldSources().getMutableMap()
+          .putAll(values);
+      bitField1_ |= 0x40000000;
+      return this;
+    }
+
+    private java.lang.Object sourceDocumentUrl_ = "";
+    /**
+     * <pre>
+     * The company filing a filing-sourced row or field came from; empty otherwise.
+     * </pre>
+     *
+     * <code>string source_document_url = 64 [json_name = "sourceDocumentUrl"];</code>
+     * @return The sourceDocumentUrl.
+     */
+    public java.lang.String getSourceDocumentUrl() {
+      java.lang.Object ref = sourceDocumentUrl_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        sourceDocumentUrl_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The company filing a filing-sourced row or field came from; empty otherwise.
+     * </pre>
+     *
+     * <code>string source_document_url = 64 [json_name = "sourceDocumentUrl"];</code>
+     * @return The bytes for sourceDocumentUrl.
+     */
+    public com.google.protobuf.ByteString
+        getSourceDocumentUrlBytes() {
+      java.lang.Object ref = sourceDocumentUrl_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        sourceDocumentUrl_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The company filing a filing-sourced row or field came from; empty otherwise.
+     * </pre>
+     *
+     * <code>string source_document_url = 64 [json_name = "sourceDocumentUrl"];</code>
+     * @param value The sourceDocumentUrl to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSourceDocumentUrl(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      sourceDocumentUrl_ = value;
+      bitField1_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The company filing a filing-sourced row or field came from; empty otherwise.
+     * </pre>
+     *
+     * <code>string source_document_url = 64 [json_name = "sourceDocumentUrl"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSourceDocumentUrl() {
+      sourceDocumentUrl_ = getDefaultInstance().getSourceDocumentUrl();
+      bitField1_ = (bitField1_ & ~0x80000000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The company filing a filing-sourced row or field came from; empty otherwise.
+     * </pre>
+     *
+     * <code>string source_document_url = 64 [json_name = "sourceDocumentUrl"];</code>
+     * @param value The bytes for sourceDocumentUrl to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSourceDocumentUrlBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      sourceDocumentUrl_ = value;
+      bitField1_ |= 0x80000000;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object sourceDocumentDate_ = "";
+    /**
+     * <pre>
+     * YYYY-MM-DD.
+     * </pre>
+     *
+     * <code>string source_document_date = 65 [json_name = "sourceDocumentDate"];</code>
+     * @return The sourceDocumentDate.
+     */
+    public java.lang.String getSourceDocumentDate() {
+      java.lang.Object ref = sourceDocumentDate_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        sourceDocumentDate_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD.
+     * </pre>
+     *
+     * <code>string source_document_date = 65 [json_name = "sourceDocumentDate"];</code>
+     * @return The bytes for sourceDocumentDate.
+     */
+    public com.google.protobuf.ByteString
+        getSourceDocumentDateBytes() {
+      java.lang.Object ref = sourceDocumentDate_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        sourceDocumentDate_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD.
+     * </pre>
+     *
+     * <code>string source_document_date = 65 [json_name = "sourceDocumentDate"];</code>
+     * @param value The sourceDocumentDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSourceDocumentDate(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      sourceDocumentDate_ = value;
+      bitField2_ |= 0x00000001;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD.
+     * </pre>
+     *
+     * <code>string source_document_date = 65 [json_name = "sourceDocumentDate"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSourceDocumentDate() {
+      sourceDocumentDate_ = getDefaultInstance().getSourceDocumentDate();
+      bitField2_ = (bitField2_ & ~0x00000001);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * YYYY-MM-DD.
+     * </pre>
+     *
+     * <code>string source_document_date = 65 [json_name = "sourceDocumentDate"];</code>
+     * @param value The bytes for sourceDocumentDate to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSourceDocumentDateBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      sourceDocumentDate_ = value;
+      bitField2_ |= 0x00000001;
       onChanged();
       return this;
     }

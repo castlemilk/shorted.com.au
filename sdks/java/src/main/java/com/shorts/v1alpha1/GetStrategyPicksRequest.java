@@ -34,6 +34,7 @@ private static final long serialVersionUID = 0L;
   private GetStrategyPicksRequest() {
     strategyId_ = "";
     status_ = "";
+    sortBy_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -174,6 +175,74 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int SORT_BY_FIELD_NUMBER = 5;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object sortBy_ = "";
+  /**
+   * <pre>
+   * Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+   * "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+   * sort last; growth above +500% or below -95% sorts after every measured value.
+   * rank keeps the strategy's own ranking whatever the order.
+   * </pre>
+   *
+   * <code>string sort_by = 5 [json_name = "sortBy"];</code>
+   * @return The sortBy.
+   */
+  @java.lang.Override
+  public java.lang.String getSortBy() {
+    java.lang.Object ref = sortBy_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      sortBy_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+   * "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+   * sort last; growth above +500% or below -95% sorts after every measured value.
+   * rank keeps the strategy's own ranking whatever the order.
+   * </pre>
+   *
+   * <code>string sort_by = 5 [json_name = "sortBy"];</code>
+   * @return The bytes for sortBy.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getSortByBytes() {
+    java.lang.Object ref = sortBy_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      sortBy_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int REQUIRE_FUNDAMENTALS_FIELD_NUMBER = 6;
+  private boolean requireFundamentals_ = false;
+  /**
+   * <pre>
+   * Only stocks with a fundamentals row.
+   * </pre>
+   *
+   * <code>bool require_fundamentals = 6 [json_name = "requireFundamentals"];</code>
+   * @return The requireFundamentals.
+   */
+  @java.lang.Override
+  public boolean getRequireFundamentals() {
+    return requireFundamentals_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -200,6 +269,12 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(status_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 4, status_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sortBy_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 5, sortBy_);
+    }
+    if (requireFundamentals_ != false) {
+      output.writeBool(6, requireFundamentals_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -217,6 +292,13 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(status_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(4, status_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(sortBy_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(5, sortBy_);
+    }
+    if (requireFundamentals_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(6, requireFundamentals_);
     }
     return size;
   }
@@ -250,6 +332,10 @@ private static final long serialVersionUID = 0L;
         != other.getOffset()) return false;
     if (!getStatus()
         .equals(other.getStatus())) return false;
+    if (!getSortBy()
+        .equals(other.getSortBy())) return false;
+    if (getRequireFundamentals()
+        != other.getRequireFundamentals()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -269,6 +355,11 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getOffset();
     hash = (37 * hash) + STATUS_FIELD_NUMBER;
     hash = (53 * hash) + getStatus().hashCode();
+    hash = (37 * hash) + SORT_BY_FIELD_NUMBER;
+    hash = (53 * hash) + getSortBy().hashCode();
+    hash = (37 * hash) + REQUIRE_FUNDAMENTALS_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getRequireFundamentals());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -408,6 +499,8 @@ private static final long serialVersionUID = 0L;
       limit_ = 0;
       offset_ = 0;
       status_ = "";
+      sortBy_ = "";
+      requireFundamentals_ = false;
       return this;
     }
 
@@ -453,6 +546,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.status_ = status_;
       }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.sortBy_ = sortBy_;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.requireFundamentals_ = requireFundamentals_;
+      }
     }
 
     @java.lang.Override
@@ -482,6 +581,14 @@ private static final long serialVersionUID = 0L;
         status_ = other.status_;
         bitField0_ |= 0x00000008;
         onChanged();
+      }
+      if (!other.getSortBy().isEmpty()) {
+        sortBy_ = other.sortBy_;
+        bitField0_ |= 0x00000010;
+        onChanged();
+      }
+      if (other.getRequireFundamentals() != false) {
+        setRequireFundamentals(other.getRequireFundamentals());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -529,6 +636,16 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 34
+            case 42: {
+              sortBy_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 42
+            case 48: {
+              requireFundamentals_ = input.readBool();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 48
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -802,6 +919,157 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       status_ = value;
       bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object sortBy_ = "";
+    /**
+     * <pre>
+     * Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+     * "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+     * sort last; growth above +500% or below -95% sorts after every measured value.
+     * rank keeps the strategy's own ranking whatever the order.
+     * </pre>
+     *
+     * <code>string sort_by = 5 [json_name = "sortBy"];</code>
+     * @return The sortBy.
+     */
+    public java.lang.String getSortBy() {
+      java.lang.Object ref = sortBy_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        sortBy_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+     * "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+     * sort last; growth above +500% or below -95% sorts after every measured value.
+     * rank keeps the strategy's own ranking whatever the order.
+     * </pre>
+     *
+     * <code>string sort_by = 5 [json_name = "sortBy"];</code>
+     * @return The bytes for sortBy.
+     */
+    public com.google.protobuf.ByteString
+        getSortByBytes() {
+      java.lang.Object ref = sortBy_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        sortBy_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+     * "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+     * sort last; growth above +500% or below -95% sorts after every measured value.
+     * rank keeps the strategy's own ranking whatever the order.
+     * </pre>
+     *
+     * <code>string sort_by = 5 [json_name = "sortBy"];</code>
+     * @param value The sortBy to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSortBy(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      sortBy_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+     * "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+     * sort last; growth above +500% or below -95% sorts after every measured value.
+     * rank keeps the strategy's own ranking whatever the order.
+     * </pre>
+     *
+     * <code>string sort_by = 5 [json_name = "sortBy"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSortBy() {
+      sortBy_ = getDefaultInstance().getSortBy();
+      bitField0_ = (bitField0_ & ~0x00000010);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+     * "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+     * sort last; growth above +500% or below -95% sorts after every measured value.
+     * rank keeps the strategy's own ranking whatever the order.
+     * </pre>
+     *
+     * <code>string sort_by = 5 [json_name = "sortBy"];</code>
+     * @param value The bytes for sortBy to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSortByBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      sortBy_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+
+    private boolean requireFundamentals_ ;
+    /**
+     * <pre>
+     * Only stocks with a fundamentals row.
+     * </pre>
+     *
+     * <code>bool require_fundamentals = 6 [json_name = "requireFundamentals"];</code>
+     * @return The requireFundamentals.
+     */
+    @java.lang.Override
+    public boolean getRequireFundamentals() {
+      return requireFundamentals_;
+    }
+    /**
+     * <pre>
+     * Only stocks with a fundamentals row.
+     * </pre>
+     *
+     * <code>bool require_fundamentals = 6 [json_name = "requireFundamentals"];</code>
+     * @param value The requireFundamentals to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRequireFundamentals(boolean value) {
+
+      requireFundamentals_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Only stocks with a fundamentals row.
+     * </pre>
+     *
+     * <code>bool require_fundamentals = 6 [json_name = "requireFundamentals"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRequireFundamentals() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      requireFundamentals_ = false;
       onChanged();
       return this;
     }

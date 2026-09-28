@@ -1572,7 +1572,7 @@ Request body fields:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `limit` | integer (int32) | no | Max periods, newest first (default 12, max 40). (proto int32) |
-| `periodType` | string | no | Optional: "annual" \| "half" \| "quarter" \| "ttm". Empty returns every type. (proto string) |
+| `periodType` | string | no | Optional: "annual" \| "half" \| "quarter" (balance-sheet snapshots) \| "ttm". Empty returns every type. (proto string) |
 | `stockCode` | string | no | ASX code, e.g. "BHP". (proto string) |
 
 ```bash
@@ -1664,6 +1664,26 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StockService/GetStockVe
 
 ### shorts.v1alpha1.StrategyService
 
+#### `POST /shorts.v1alpha1.StrategyService/GetStockStrategyFit`
+
+How one stock reads against every strategy: status, score, rank and the
+ per-rule pass / fail / unknown breakdown. A stock that is not a candidate
+ for a strategy still gets its rule results, with status "none".
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `stockCode` | string | no | ASX code, e.g. "BHP". (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.StrategyService/GetStockStrategyFit' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 #### `POST /shorts.v1alpha1.StrategyService/GetStrategyPicks`
 
 Ranked picks for one strategy: status (triggered, setup, watch), a 0-100
@@ -1675,6 +1695,8 @@ Request body fields:
 | --- | --- | --- | --- |
 | `limit` | integer (int32) | no | Default 20, max 100. (proto int32) |
 | `offset` | integer (int32) | no | (proto int32) |
+| `requireFundamentals` | boolean | no | Only stocks with a fundamentals row. (proto bool) |
+| `sortBy` | string | no | Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe", "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values sort last; growth above +500% or below -95% sorts after every measured value. rank keeps the strategy's own ranking whatever the order. (proto string) |
 | `status` | string | no | Optional filter: "triggered" \| "setup" \| "watch". (proto string) |
 | `strategyId` | string | no | Required, e.g. "zanger-breakout". (proto string) |
 

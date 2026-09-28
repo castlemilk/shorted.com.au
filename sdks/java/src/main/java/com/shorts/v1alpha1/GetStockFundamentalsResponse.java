@@ -196,6 +196,110 @@ private static final long serialVersionUID = 0L;
     return hasGrowth_;
   }
 
+  public static final int QUALITY_FIELD_NUMBER = 5;
+  private com.shorts.v1alpha1.FundamentalsQuality quality_;
+  /**
+   * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+   * @return Whether the quality field is set.
+   */
+  @java.lang.Override
+  public boolean hasQuality() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+   * @return The quality.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.FundamentalsQuality getQuality() {
+    return quality_ == null ? com.shorts.v1alpha1.FundamentalsQuality.getDefaultInstance() : quality_;
+  }
+  /**
+   * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.FundamentalsQualityOrBuilder getQualityOrBuilder() {
+    return quality_ == null ? com.shorts.v1alpha1.FundamentalsQuality.getDefaultInstance() : quality_;
+  }
+
+  public static final int HAS_QUALITY_FIELD_NUMBER = 6;
+  private boolean hasQuality_ = false;
+  /**
+   * <pre>
+   * False when no ratio row exists yet.
+   * </pre>
+   *
+   * <code>bool has_quality = 6 [json_name = "hasQuality"];</code>
+   * @return The hasQuality.
+   */
+  @java.lang.Override
+  public boolean getHasQuality() {
+    return hasQuality_;
+  }
+
+  public static final int COVERAGE_FIELD_NUMBER = 7;
+  private com.shorts.v1alpha1.FundamentalsCoverage coverage_;
+  /**
+   * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+   * @return Whether the coverage field is set.
+   */
+  @java.lang.Override
+  public boolean hasCoverage() {
+    return ((bitField0_ & 0x00000004) != 0);
+  }
+  /**
+   * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+   * @return The coverage.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.FundamentalsCoverage getCoverage() {
+    return coverage_ == null ? com.shorts.v1alpha1.FundamentalsCoverage.getDefaultInstance() : coverage_;
+  }
+  /**
+   * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.FundamentalsCoverageOrBuilder getCoverageOrBuilder() {
+    return coverage_ == null ? com.shorts.v1alpha1.FundamentalsCoverage.getDefaultInstance() : coverage_;
+  }
+
+  public static final int LATEST_FILING_FIELD_NUMBER = 8;
+  private com.shorts.v1alpha1.LatestFilingSummary latestFiling_;
+  /**
+   * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+   * @return Whether the latestFiling field is set.
+   */
+  @java.lang.Override
+  public boolean hasLatestFiling() {
+    return ((bitField0_ & 0x00000008) != 0);
+  }
+  /**
+   * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+   * @return The latestFiling.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.LatestFilingSummary getLatestFiling() {
+    return latestFiling_ == null ? com.shorts.v1alpha1.LatestFilingSummary.getDefaultInstance() : latestFiling_;
+  }
+  /**
+   * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.LatestFilingSummaryOrBuilder getLatestFilingOrBuilder() {
+    return latestFiling_ == null ? com.shorts.v1alpha1.LatestFilingSummary.getDefaultInstance() : latestFiling_;
+  }
+
+  public static final int HAS_LATEST_FILING_FIELD_NUMBER = 9;
+  private boolean hasLatestFiling_ = false;
+  /**
+   * <code>bool has_latest_filing = 9 [json_name = "hasLatestFiling"];</code>
+   * @return The hasLatestFiling.
+   */
+  @java.lang.Override
+  public boolean getHasLatestFiling() {
+    return hasLatestFiling_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -222,6 +326,21 @@ private static final long serialVersionUID = 0L;
     if (hasGrowth_ != false) {
       output.writeBool(4, hasGrowth_);
     }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeMessage(5, getQuality());
+    }
+    if (hasQuality_ != false) {
+      output.writeBool(6, hasQuality_);
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      output.writeMessage(7, getCoverage());
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      output.writeMessage(8, getLatestFiling());
+    }
+    if (hasLatestFiling_ != false) {
+      output.writeBool(9, hasLatestFiling_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -245,6 +364,26 @@ private static final long serialVersionUID = 0L;
     if (hasGrowth_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(4, hasGrowth_);
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(5, getQuality());
+    }
+    if (hasQuality_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(6, hasQuality_);
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(7, getCoverage());
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(8, getLatestFiling());
+    }
+    if (hasLatestFiling_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(9, hasLatestFiling_);
     }
     return size;
   }
@@ -281,6 +420,25 @@ private static final long serialVersionUID = 0L;
     }
     if (getHasGrowth()
         != other.getHasGrowth()) return false;
+    if (hasQuality() != other.hasQuality()) return false;
+    if (hasQuality()) {
+      if (!getQuality()
+          .equals(other.getQuality())) return false;
+    }
+    if (getHasQuality()
+        != other.getHasQuality()) return false;
+    if (hasCoverage() != other.hasCoverage()) return false;
+    if (hasCoverage()) {
+      if (!getCoverage()
+          .equals(other.getCoverage())) return false;
+    }
+    if (hasLatestFiling() != other.hasLatestFiling()) return false;
+    if (hasLatestFiling()) {
+      if (!getLatestFiling()
+          .equals(other.getLatestFiling())) return false;
+    }
+    if (getHasLatestFiling()
+        != other.getHasLatestFiling()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -305,6 +463,24 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + HAS_GROWTH_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getHasGrowth());
+    if (hasQuality()) {
+      hash = (37 * hash) + QUALITY_FIELD_NUMBER;
+      hash = (53 * hash) + getQuality().hashCode();
+    }
+    hash = (37 * hash) + HAS_QUALITY_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasQuality());
+    if (hasCoverage()) {
+      hash = (37 * hash) + COVERAGE_FIELD_NUMBER;
+      hash = (53 * hash) + getCoverage().hashCode();
+    }
+    if (hasLatestFiling()) {
+      hash = (37 * hash) + LATEST_FILING_FIELD_NUMBER;
+      hash = (53 * hash) + getLatestFiling().hashCode();
+    }
+    hash = (37 * hash) + HAS_LATEST_FILING_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getHasLatestFiling());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -441,6 +617,9 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
         internalGetPeriodsFieldBuilder();
         internalGetGrowthFieldBuilder();
+        internalGetQualityFieldBuilder();
+        internalGetCoverageFieldBuilder();
+        internalGetLatestFilingFieldBuilder();
       }
     }
     @java.lang.Override
@@ -461,6 +640,23 @@ private static final long serialVersionUID = 0L;
         growthBuilder_ = null;
       }
       hasGrowth_ = false;
+      quality_ = null;
+      if (qualityBuilder_ != null) {
+        qualityBuilder_.dispose();
+        qualityBuilder_ = null;
+      }
+      hasQuality_ = false;
+      coverage_ = null;
+      if (coverageBuilder_ != null) {
+        coverageBuilder_.dispose();
+        coverageBuilder_ = null;
+      }
+      latestFiling_ = null;
+      if (latestFilingBuilder_ != null) {
+        latestFilingBuilder_.dispose();
+        latestFilingBuilder_ = null;
+      }
+      hasLatestFiling_ = false;
       return this;
     }
 
@@ -520,6 +716,30 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.hasGrowth_ = hasGrowth_;
       }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.quality_ = qualityBuilder_ == null
+            ? quality_
+            : qualityBuilder_.build();
+        to_bitField0_ |= 0x00000002;
+      }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.hasQuality_ = hasQuality_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.coverage_ = coverageBuilder_ == null
+            ? coverage_
+            : coverageBuilder_.build();
+        to_bitField0_ |= 0x00000004;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.latestFiling_ = latestFilingBuilder_ == null
+            ? latestFiling_
+            : latestFilingBuilder_.build();
+        to_bitField0_ |= 0x00000008;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.hasLatestFiling_ = hasLatestFiling_;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -571,6 +791,21 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getHasGrowth() != false) {
         setHasGrowth(other.getHasGrowth());
+      }
+      if (other.hasQuality()) {
+        mergeQuality(other.getQuality());
+      }
+      if (other.getHasQuality() != false) {
+        setHasQuality(other.getHasQuality());
+      }
+      if (other.hasCoverage()) {
+        mergeCoverage(other.getCoverage());
+      }
+      if (other.hasLatestFiling()) {
+        mergeLatestFiling(other.getLatestFiling());
+      }
+      if (other.getHasLatestFiling() != false) {
+        setHasLatestFiling(other.getHasLatestFiling());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -628,6 +863,37 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 32
+            case 42: {
+              input.readMessage(
+                  internalGetQualityFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 42
+            case 48: {
+              hasQuality_ = input.readBool();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 48
+            case 58: {
+              input.readMessage(
+                  internalGetCoverageFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
+            case 66: {
+              input.readMessage(
+                  internalGetLatestFilingFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 66
+            case 72: {
+              hasLatestFiling_ = input.readBool();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 72
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1190,6 +1456,445 @@ private static final long serialVersionUID = 0L;
     public Builder clearHasGrowth() {
       bitField0_ = (bitField0_ & ~0x00000008);
       hasGrowth_ = false;
+      onChanged();
+      return this;
+    }
+
+    private com.shorts.v1alpha1.FundamentalsQuality quality_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.FundamentalsQuality, com.shorts.v1alpha1.FundamentalsQuality.Builder, com.shorts.v1alpha1.FundamentalsQualityOrBuilder> qualityBuilder_;
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+     * @return Whether the quality field is set.
+     */
+    public boolean hasQuality() {
+      return ((bitField0_ & 0x00000010) != 0);
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+     * @return The quality.
+     */
+    public com.shorts.v1alpha1.FundamentalsQuality getQuality() {
+      if (qualityBuilder_ == null) {
+        return quality_ == null ? com.shorts.v1alpha1.FundamentalsQuality.getDefaultInstance() : quality_;
+      } else {
+        return qualityBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+     */
+    public Builder setQuality(com.shorts.v1alpha1.FundamentalsQuality value) {
+      if (qualityBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        quality_ = value;
+      } else {
+        qualityBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+     */
+    public Builder setQuality(
+        com.shorts.v1alpha1.FundamentalsQuality.Builder builderForValue) {
+      if (qualityBuilder_ == null) {
+        quality_ = builderForValue.build();
+      } else {
+        qualityBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+     */
+    public Builder mergeQuality(com.shorts.v1alpha1.FundamentalsQuality value) {
+      if (qualityBuilder_ == null) {
+        if (((bitField0_ & 0x00000010) != 0) &&
+          quality_ != null &&
+          quality_ != com.shorts.v1alpha1.FundamentalsQuality.getDefaultInstance()) {
+          getQualityBuilder().mergeFrom(value);
+        } else {
+          quality_ = value;
+        }
+      } else {
+        qualityBuilder_.mergeFrom(value);
+      }
+      if (quality_ != null) {
+        bitField0_ |= 0x00000010;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+     */
+    public Builder clearQuality() {
+      bitField0_ = (bitField0_ & ~0x00000010);
+      quality_ = null;
+      if (qualityBuilder_ != null) {
+        qualityBuilder_.dispose();
+        qualityBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+     */
+    public com.shorts.v1alpha1.FundamentalsQuality.Builder getQualityBuilder() {
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return internalGetQualityFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+     */
+    public com.shorts.v1alpha1.FundamentalsQualityOrBuilder getQualityOrBuilder() {
+      if (qualityBuilder_ != null) {
+        return qualityBuilder_.getMessageOrBuilder();
+      } else {
+        return quality_ == null ?
+            com.shorts.v1alpha1.FundamentalsQuality.getDefaultInstance() : quality_;
+      }
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsQuality quality = 5 [json_name = "quality"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.FundamentalsQuality, com.shorts.v1alpha1.FundamentalsQuality.Builder, com.shorts.v1alpha1.FundamentalsQualityOrBuilder> 
+        internalGetQualityFieldBuilder() {
+      if (qualityBuilder_ == null) {
+        qualityBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.FundamentalsQuality, com.shorts.v1alpha1.FundamentalsQuality.Builder, com.shorts.v1alpha1.FundamentalsQualityOrBuilder>(
+                getQuality(),
+                getParentForChildren(),
+                isClean());
+        quality_ = null;
+      }
+      return qualityBuilder_;
+    }
+
+    private boolean hasQuality_ ;
+    /**
+     * <pre>
+     * False when no ratio row exists yet.
+     * </pre>
+     *
+     * <code>bool has_quality = 6 [json_name = "hasQuality"];</code>
+     * @return The hasQuality.
+     */
+    @java.lang.Override
+    public boolean getHasQuality() {
+      return hasQuality_;
+    }
+    /**
+     * <pre>
+     * False when no ratio row exists yet.
+     * </pre>
+     *
+     * <code>bool has_quality = 6 [json_name = "hasQuality"];</code>
+     * @param value The hasQuality to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasQuality(boolean value) {
+
+      hasQuality_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * False when no ratio row exists yet.
+     * </pre>
+     *
+     * <code>bool has_quality = 6 [json_name = "hasQuality"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasQuality() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      hasQuality_ = false;
+      onChanged();
+      return this;
+    }
+
+    private com.shorts.v1alpha1.FundamentalsCoverage coverage_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.FundamentalsCoverage, com.shorts.v1alpha1.FundamentalsCoverage.Builder, com.shorts.v1alpha1.FundamentalsCoverageOrBuilder> coverageBuilder_;
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+     * @return Whether the coverage field is set.
+     */
+    public boolean hasCoverage() {
+      return ((bitField0_ & 0x00000040) != 0);
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+     * @return The coverage.
+     */
+    public com.shorts.v1alpha1.FundamentalsCoverage getCoverage() {
+      if (coverageBuilder_ == null) {
+        return coverage_ == null ? com.shorts.v1alpha1.FundamentalsCoverage.getDefaultInstance() : coverage_;
+      } else {
+        return coverageBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+     */
+    public Builder setCoverage(com.shorts.v1alpha1.FundamentalsCoverage value) {
+      if (coverageBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        coverage_ = value;
+      } else {
+        coverageBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+     */
+    public Builder setCoverage(
+        com.shorts.v1alpha1.FundamentalsCoverage.Builder builderForValue) {
+      if (coverageBuilder_ == null) {
+        coverage_ = builderForValue.build();
+      } else {
+        coverageBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+     */
+    public Builder mergeCoverage(com.shorts.v1alpha1.FundamentalsCoverage value) {
+      if (coverageBuilder_ == null) {
+        if (((bitField0_ & 0x00000040) != 0) &&
+          coverage_ != null &&
+          coverage_ != com.shorts.v1alpha1.FundamentalsCoverage.getDefaultInstance()) {
+          getCoverageBuilder().mergeFrom(value);
+        } else {
+          coverage_ = value;
+        }
+      } else {
+        coverageBuilder_.mergeFrom(value);
+      }
+      if (coverage_ != null) {
+        bitField0_ |= 0x00000040;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+     */
+    public Builder clearCoverage() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      coverage_ = null;
+      if (coverageBuilder_ != null) {
+        coverageBuilder_.dispose();
+        coverageBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+     */
+    public com.shorts.v1alpha1.FundamentalsCoverage.Builder getCoverageBuilder() {
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return internalGetCoverageFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+     */
+    public com.shorts.v1alpha1.FundamentalsCoverageOrBuilder getCoverageOrBuilder() {
+      if (coverageBuilder_ != null) {
+        return coverageBuilder_.getMessageOrBuilder();
+      } else {
+        return coverage_ == null ?
+            com.shorts.v1alpha1.FundamentalsCoverage.getDefaultInstance() : coverage_;
+      }
+    }
+    /**
+     * <code>.shorts.v1alpha1.FundamentalsCoverage coverage = 7 [json_name = "coverage"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.FundamentalsCoverage, com.shorts.v1alpha1.FundamentalsCoverage.Builder, com.shorts.v1alpha1.FundamentalsCoverageOrBuilder> 
+        internalGetCoverageFieldBuilder() {
+      if (coverageBuilder_ == null) {
+        coverageBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.FundamentalsCoverage, com.shorts.v1alpha1.FundamentalsCoverage.Builder, com.shorts.v1alpha1.FundamentalsCoverageOrBuilder>(
+                getCoverage(),
+                getParentForChildren(),
+                isClean());
+        coverage_ = null;
+      }
+      return coverageBuilder_;
+    }
+
+    private com.shorts.v1alpha1.LatestFilingSummary latestFiling_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.LatestFilingSummary, com.shorts.v1alpha1.LatestFilingSummary.Builder, com.shorts.v1alpha1.LatestFilingSummaryOrBuilder> latestFilingBuilder_;
+    /**
+     * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+     * @return Whether the latestFiling field is set.
+     */
+    public boolean hasLatestFiling() {
+      return ((bitField0_ & 0x00000080) != 0);
+    }
+    /**
+     * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+     * @return The latestFiling.
+     */
+    public com.shorts.v1alpha1.LatestFilingSummary getLatestFiling() {
+      if (latestFilingBuilder_ == null) {
+        return latestFiling_ == null ? com.shorts.v1alpha1.LatestFilingSummary.getDefaultInstance() : latestFiling_;
+      } else {
+        return latestFilingBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+     */
+    public Builder setLatestFiling(com.shorts.v1alpha1.LatestFilingSummary value) {
+      if (latestFilingBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        latestFiling_ = value;
+      } else {
+        latestFilingBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+     */
+    public Builder setLatestFiling(
+        com.shorts.v1alpha1.LatestFilingSummary.Builder builderForValue) {
+      if (latestFilingBuilder_ == null) {
+        latestFiling_ = builderForValue.build();
+      } else {
+        latestFilingBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+     */
+    public Builder mergeLatestFiling(com.shorts.v1alpha1.LatestFilingSummary value) {
+      if (latestFilingBuilder_ == null) {
+        if (((bitField0_ & 0x00000080) != 0) &&
+          latestFiling_ != null &&
+          latestFiling_ != com.shorts.v1alpha1.LatestFilingSummary.getDefaultInstance()) {
+          getLatestFilingBuilder().mergeFrom(value);
+        } else {
+          latestFiling_ = value;
+        }
+      } else {
+        latestFilingBuilder_.mergeFrom(value);
+      }
+      if (latestFiling_ != null) {
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+     */
+    public Builder clearLatestFiling() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      latestFiling_ = null;
+      if (latestFilingBuilder_ != null) {
+        latestFilingBuilder_.dispose();
+        latestFilingBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+     */
+    public com.shorts.v1alpha1.LatestFilingSummary.Builder getLatestFilingBuilder() {
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return internalGetLatestFilingFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+     */
+    public com.shorts.v1alpha1.LatestFilingSummaryOrBuilder getLatestFilingOrBuilder() {
+      if (latestFilingBuilder_ != null) {
+        return latestFilingBuilder_.getMessageOrBuilder();
+      } else {
+        return latestFiling_ == null ?
+            com.shorts.v1alpha1.LatestFilingSummary.getDefaultInstance() : latestFiling_;
+      }
+    }
+    /**
+     * <code>.shorts.v1alpha1.LatestFilingSummary latest_filing = 8 [json_name = "latestFiling"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.LatestFilingSummary, com.shorts.v1alpha1.LatestFilingSummary.Builder, com.shorts.v1alpha1.LatestFilingSummaryOrBuilder> 
+        internalGetLatestFilingFieldBuilder() {
+      if (latestFilingBuilder_ == null) {
+        latestFilingBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.LatestFilingSummary, com.shorts.v1alpha1.LatestFilingSummary.Builder, com.shorts.v1alpha1.LatestFilingSummaryOrBuilder>(
+                getLatestFiling(),
+                getParentForChildren(),
+                isClean());
+        latestFiling_ = null;
+      }
+      return latestFilingBuilder_;
+    }
+
+    private boolean hasLatestFiling_ ;
+    /**
+     * <code>bool has_latest_filing = 9 [json_name = "hasLatestFiling"];</code>
+     * @return The hasLatestFiling.
+     */
+    @java.lang.Override
+    public boolean getHasLatestFiling() {
+      return hasLatestFiling_;
+    }
+    /**
+     * <code>bool has_latest_filing = 9 [json_name = "hasLatestFiling"];</code>
+     * @param value The hasLatestFiling to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHasLatestFiling(boolean value) {
+
+      hasLatestFiling_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool has_latest_filing = 9 [json_name = "hasLatestFiling"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHasLatestFiling() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      hasLatestFiling_ = false;
       onChanged();
       return this;
     }

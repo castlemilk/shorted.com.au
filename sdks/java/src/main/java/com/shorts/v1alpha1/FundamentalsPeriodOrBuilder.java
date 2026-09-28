@@ -195,4 +195,417 @@ public interface FundamentalsPeriodOrBuilder extends
    * @return The hasFreeCashFlow.
    */
   boolean getHasFreeCashFlow();
+
+  /**
+   * <pre>
+   * Full statement lines (period_type "quarter" rows are balance-sheet
+   * snapshots and carry only balance lines and shares).
+   * </pre>
+   *
+   * <code>double gross_profit = 21 [json_name = "grossProfit"];</code>
+   * @return The grossProfit.
+   */
+  double getGrossProfit();
+
+  /**
+   * <code>bool has_gross_profit = 22 [json_name = "hasGrossProfit"];</code>
+   * @return The hasGrossProfit.
+   */
+  boolean getHasGrossProfit();
+
+  /**
+   * <pre>
+   * Absent for banks and insurers.
+   * </pre>
+   *
+   * <code>double operating_income = 23 [json_name = "operatingIncome"];</code>
+   * @return The operatingIncome.
+   */
+  double getOperatingIncome();
+
+  /**
+   * <code>bool has_operating_income = 24 [json_name = "hasOperatingIncome"];</code>
+   * @return The hasOperatingIncome.
+   */
+  boolean getHasOperatingIncome();
+
+  /**
+   * <pre>
+   * Statutory: includes impairments and revaluations.
+   * </pre>
+   *
+   * <code>double ebitda = 25 [json_name = "ebitda"];</code>
+   * @return The ebitda.
+   */
+  double getEbitda();
+
+  /**
+   * <code>bool has_ebitda = 26 [json_name = "hasEbitda"];</code>
+   * @return The hasEbitda.
+   */
+  boolean getHasEbitda();
+
+  /**
+   * <pre>
+   * EBITDA before unusual items, when the source publishes it.
+   * </pre>
+   *
+   * <code>double normalized_ebitda = 27 [json_name = "normalizedEbitda"];</code>
+   * @return The normalizedEbitda.
+   */
+  double getNormalizedEbitda();
+
+  /**
+   * <code>bool has_normalized_ebitda = 28 [json_name = "hasNormalizedEbitda"];</code>
+   * @return The hasNormalizedEbitda.
+   */
+  boolean getHasNormalizedEbitda();
+
+  /**
+   * <code>double ebit = 29 [json_name = "ebit"];</code>
+   * @return The ebit.
+   */
+  double getEbit();
+
+  /**
+   * <code>bool has_ebit = 30 [json_name = "hasEbit"];</code>
+   * @return The hasEbit.
+   */
+  boolean getHasEbit();
+
+  /**
+   * <pre>
+   * A positive expense.
+   * </pre>
+   *
+   * <code>double interest_expense = 31 [json_name = "interestExpense"];</code>
+   * @return The interestExpense.
+   */
+  double getInterestExpense();
+
+  /**
+   * <code>bool has_interest_expense = 32 [json_name = "hasInterestExpense"];</code>
+   * @return The hasInterestExpense.
+   */
+  boolean getHasInterestExpense();
+
+  /**
+   * <code>double pretax_income = 33 [json_name = "pretaxIncome"];</code>
+   * @return The pretaxIncome.
+   */
+  double getPretaxIncome();
+
+  /**
+   * <code>bool has_pretax_income = 34 [json_name = "hasPretaxIncome"];</code>
+   * @return The hasPretaxIncome.
+   */
+  boolean getHasPretaxIncome();
+
+  /**
+   * <code>double tax_provision = 35 [json_name = "taxProvision"];</code>
+   * @return The taxProvision.
+   */
+  double getTaxProvision();
+
+  /**
+   * <code>bool has_tax_provision = 36 [json_name = "hasTaxProvision"];</code>
+   * @return The hasTaxProvision.
+   */
+  boolean getHasTaxProvision();
+
+  /**
+   * <pre>
+   * Banks; other companies report it as minus interest expense.
+   * </pre>
+   *
+   * <code>double net_interest_income = 37 [json_name = "netInterestIncome"];</code>
+   * @return The netInterestIncome.
+   */
+  double getNetInterestIncome();
+
+  /**
+   * <code>bool has_net_interest_income = 38 [json_name = "hasNetInterestIncome"];</code>
+   * @return The hasNetInterestIncome.
+   */
+  boolean getHasNetInterestIncome();
+
+  /**
+   * <pre>
+   * An outflow: negative.
+   * </pre>
+   *
+   * <code>double capital_expenditure = 39 [json_name = "capitalExpenditure"];</code>
+   * @return The capitalExpenditure.
+   */
+  double getCapitalExpenditure();
+
+  /**
+   * <code>bool has_capital_expenditure = 40 [json_name = "hasCapitalExpenditure"];</code>
+   * @return The hasCapitalExpenditure.
+   */
+  boolean getHasCapitalExpenditure();
+
+  /**
+   * <pre>
+   * Cash dividends paid in the period: negative.
+   * </pre>
+   *
+   * <code>double dividends_paid = 41 [json_name = "dividendsPaid"];</code>
+   * @return The dividendsPaid.
+   */
+  double getDividendsPaid();
+
+  /**
+   * <code>bool has_dividends_paid = 42 [json_name = "hasDividendsPaid"];</code>
+   * @return The hasDividendsPaid.
+   */
+  boolean getHasDividendsPaid();
+
+  /**
+   * <pre>
+   * An outflow: negative.
+   * </pre>
+   *
+   * <code>double share_buybacks = 43 [json_name = "shareBuybacks"];</code>
+   * @return The shareBuybacks.
+   */
+  double getShareBuybacks();
+
+  /**
+   * <code>bool has_share_buybacks = 44 [json_name = "hasShareBuybacks"];</code>
+   * @return The hasShareBuybacks.
+   */
+  boolean getHasShareBuybacks();
+
+  /**
+   * <pre>
+   * Balance sheet at period_end.
+   * </pre>
+   *
+   * <code>double total_assets = 45 [json_name = "totalAssets"];</code>
+   * @return The totalAssets.
+   */
+  double getTotalAssets();
+
+  /**
+   * <code>bool has_total_assets = 46 [json_name = "hasTotalAssets"];</code>
+   * @return The hasTotalAssets.
+   */
+  boolean getHasTotalAssets();
+
+  /**
+   * <code>double total_liabilities = 47 [json_name = "totalLiabilities"];</code>
+   * @return The totalLiabilities.
+   */
+  double getTotalLiabilities();
+
+  /**
+   * <code>bool has_total_liabilities = 48 [json_name = "hasTotalLiabilities"];</code>
+   * @return The hasTotalLiabilities.
+   */
+  boolean getHasTotalLiabilities();
+
+  /**
+   * <pre>
+   * Shareholders' equity.
+   * </pre>
+   *
+   * <code>double total_equity = 49 [json_name = "totalEquity"];</code>
+   * @return The totalEquity.
+   */
+  double getTotalEquity();
+
+  /**
+   * <code>bool has_total_equity = 50 [json_name = "hasTotalEquity"];</code>
+   * @return The hasTotalEquity.
+   */
+  boolean getHasTotalEquity();
+
+  /**
+   * <code>double cash_and_equivalents = 51 [json_name = "cashAndEquivalents"];</code>
+   * @return The cashAndEquivalents.
+   */
+  double getCashAndEquivalents();
+
+  /**
+   * <code>bool has_cash_and_equivalents = 52 [json_name = "hasCashAndEquivalents"];</code>
+   * @return The hasCashAndEquivalents.
+   */
+  boolean getHasCashAndEquivalents();
+
+  /**
+   * <pre>
+   * Includes lease liabilities.
+   * </pre>
+   *
+   * <code>double total_debt = 53 [json_name = "totalDebt"];</code>
+   * @return The totalDebt.
+   */
+  double getTotalDebt();
+
+  /**
+   * <code>bool has_total_debt = 54 [json_name = "hasTotalDebt"];</code>
+   * @return The hasTotalDebt.
+   */
+  boolean getHasTotalDebt();
+
+  /**
+   * <pre>
+   * Lease liabilities.
+   * </pre>
+   *
+   * <code>double capital_lease_obligations = 55 [json_name = "capitalLeaseObligations"];</code>
+   * @return The capitalLeaseObligations.
+   */
+  double getCapitalLeaseObligations();
+
+  /**
+   * <code>bool has_capital_lease_obligations = 56 [json_name = "hasCapitalLeaseObligations"];</code>
+   * @return The hasCapitalLeaseObligations.
+   */
+  boolean getHasCapitalLeaseObligations();
+
+  /**
+   * <pre>
+   * Excludes leases: total debt minus leases minus cash. Negative is net cash.
+   * </pre>
+   *
+   * <code>double net_debt = 57 [json_name = "netDebt"];</code>
+   * @return The netDebt.
+   */
+  double getNetDebt();
+
+  /**
+   * <code>bool has_net_debt = 58 [json_name = "hasNetDebt"];</code>
+   * @return The hasNetDebt.
+   */
+  boolean getHasNetDebt();
+
+  /**
+   * <code>double current_assets = 59 [json_name = "currentAssets"];</code>
+   * @return The currentAssets.
+   */
+  double getCurrentAssets();
+
+  /**
+   * <code>bool has_current_assets = 60 [json_name = "hasCurrentAssets"];</code>
+   * @return The hasCurrentAssets.
+   */
+  boolean getHasCurrentAssets();
+
+  /**
+   * <code>double current_liabilities = 61 [json_name = "currentLiabilities"];</code>
+   * @return The currentLiabilities.
+   */
+  double getCurrentLiabilities();
+
+  /**
+   * <code>bool has_current_liabilities = 62 [json_name = "hasCurrentLiabilities"];</code>
+   * @return The hasCurrentLiabilities.
+   */
+  boolean getHasCurrentLiabilities();
+
+  /**
+   * <pre>
+   * Per-field provenance: the fields whose value did not come from `source`,
+   * mapped to where it came from, e.g. {"operating_cash_flow":
+   * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+   * </pre>
+   *
+   * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+   */
+  int getFieldSourcesCount();
+  /**
+   * <pre>
+   * Per-field provenance: the fields whose value did not come from `source`,
+   * mapped to where it came from, e.g. {"operating_cash_flow":
+   * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+   * </pre>
+   *
+   * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+   */
+  boolean containsFieldSources(
+      java.lang.String key);
+  /**
+   * Use {@link #getFieldSourcesMap()} instead.
+   */
+  @java.lang.Deprecated
+  java.util.Map<java.lang.String, java.lang.String>
+  getFieldSources();
+  /**
+   * <pre>
+   * Per-field provenance: the fields whose value did not come from `source`,
+   * mapped to where it came from, e.g. {"operating_cash_flow":
+   * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+   * </pre>
+   *
+   * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+   */
+  java.util.Map<java.lang.String, java.lang.String>
+  getFieldSourcesMap();
+  /**
+   * <pre>
+   * Per-field provenance: the fields whose value did not come from `source`,
+   * mapped to where it came from, e.g. {"operating_cash_flow":
+   * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+   * </pre>
+   *
+   * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+   */
+  /* nullable */
+java.lang.String getFieldSourcesOrDefault(
+      java.lang.String key,
+      /* nullable */
+java.lang.String defaultValue);
+  /**
+   * <pre>
+   * Per-field provenance: the fields whose value did not come from `source`,
+   * mapped to where it came from, e.g. {"operating_cash_flow":
+   * "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+   * </pre>
+   *
+   * <code>map&lt;string, string&gt; field_sources = 63 [json_name = "fieldSources"];</code>
+   */
+  java.lang.String getFieldSourcesOrThrow(
+      java.lang.String key);
+
+  /**
+   * <pre>
+   * The company filing a filing-sourced row or field came from; empty otherwise.
+   * </pre>
+   *
+   * <code>string source_document_url = 64 [json_name = "sourceDocumentUrl"];</code>
+   * @return The sourceDocumentUrl.
+   */
+  java.lang.String getSourceDocumentUrl();
+  /**
+   * <pre>
+   * The company filing a filing-sourced row or field came from; empty otherwise.
+   * </pre>
+   *
+   * <code>string source_document_url = 64 [json_name = "sourceDocumentUrl"];</code>
+   * @return The bytes for sourceDocumentUrl.
+   */
+  com.google.protobuf.ByteString
+      getSourceDocumentUrlBytes();
+
+  /**
+   * <pre>
+   * YYYY-MM-DD.
+   * </pre>
+   *
+   * <code>string source_document_date = 65 [json_name = "sourceDocumentDate"];</code>
+   * @return The sourceDocumentDate.
+   */
+  java.lang.String getSourceDocumentDate();
+  /**
+   * <pre>
+   * YYYY-MM-DD.
+   * </pre>
+   *
+   * <code>string source_document_date = 65 [json_name = "sourceDocumentDate"];</code>
+   * @return The bytes for sourceDocumentDate.
+   */
+  com.google.protobuf.ByteString
+      getSourceDocumentDateBytes();
 }

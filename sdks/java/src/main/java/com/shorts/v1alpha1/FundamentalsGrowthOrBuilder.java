@@ -166,7 +166,9 @@ public interface FundamentalsGrowthOrBuilder extends
    * <pre>
    * Series the revenue growth was computed on: "half" (latest half-year from a
    * company filing vs the same half a year earlier, used when it is newer than
-   * the latest annual) or "annual". Empty when unknown.
+   * the latest annual), "ttm" (the latest trailing twelve months vs twelve
+   * months earlier, used when it is newer than the latest annual) or "annual".
+   * Empty when unknown.
    * </pre>
    *
    * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
@@ -177,7 +179,9 @@ public interface FundamentalsGrowthOrBuilder extends
    * <pre>
    * Series the revenue growth was computed on: "half" (latest half-year from a
    * company filing vs the same half a year earlier, used when it is newer than
-   * the latest annual) or "annual". Empty when unknown.
+   * the latest annual), "ttm" (the latest trailing twelve months vs twelve
+   * months earlier, used when it is newer than the latest annual) or "annual".
+   * Empty when unknown.
    * </pre>
    *
    * <code>string revenue_basis_period_type = 19 [json_name = "revenueBasisPeriodType"];</code>
@@ -234,4 +238,92 @@ public interface FundamentalsGrowthOrBuilder extends
    */
   com.google.protobuf.ByteString
       getHalfLatestPeriodEndBytes();
+
+  /**
+   * <pre>
+   * "vendor" or "filing": where the rows behind each growth figure came from.
+   * "filing" when either side of the pair is a figure extracted from a company
+   * filing. Empty when unknown.
+   * </pre>
+   *
+   * <code>string revenue_basis_source = 25 [json_name = "revenueBasisSource"];</code>
+   * @return The revenueBasisSource.
+   */
+  java.lang.String getRevenueBasisSource();
+  /**
+   * <pre>
+   * "vendor" or "filing": where the rows behind each growth figure came from.
+   * "filing" when either side of the pair is a figure extracted from a company
+   * filing. Empty when unknown.
+   * </pre>
+   *
+   * <code>string revenue_basis_source = 25 [json_name = "revenueBasisSource"];</code>
+   * @return The bytes for revenueBasisSource.
+   */
+  com.google.protobuf.ByteString
+      getRevenueBasisSourceBytes();
+
+  /**
+   * <code>string eps_basis_source = 26 [json_name = "epsBasisSource"];</code>
+   * @return The epsBasisSource.
+   */
+  java.lang.String getEpsBasisSource();
+  /**
+   * <code>string eps_basis_source = 26 [json_name = "epsBasisSource"];</code>
+   * @return The bytes for epsBasisSource.
+   */
+  com.google.protobuf.ByteString
+      getEpsBasisSourceBytes();
+
+  /**
+   * <pre>
+   * RFC 3339, newest fetch of the growth inputs.
+   * </pre>
+   *
+   * <code>string fetched_at = 27 [json_name = "fetchedAt"];</code>
+   * @return The fetchedAt.
+   */
+  java.lang.String getFetchedAt();
+  /**
+   * <pre>
+   * RFC 3339, newest fetch of the growth inputs.
+   * </pre>
+   *
+   * <code>string fetched_at = 27 [json_name = "fetchedAt"];</code>
+   * @return The bytes for fetchedAt.
+   */
+  com.google.protobuf.ByteString
+      getFetchedAtBytes();
+
+  /**
+   * <pre>
+   * YYYY-MM-DD, the pair revenue_yoy_pct compares.
+   * </pre>
+   *
+   * <code>string revenue_latest_period_end = 28 [json_name = "revenueLatestPeriodEnd"];</code>
+   * @return The revenueLatestPeriodEnd.
+   */
+  java.lang.String getRevenueLatestPeriodEnd();
+  /**
+   * <pre>
+   * YYYY-MM-DD, the pair revenue_yoy_pct compares.
+   * </pre>
+   *
+   * <code>string revenue_latest_period_end = 28 [json_name = "revenueLatestPeriodEnd"];</code>
+   * @return The bytes for revenueLatestPeriodEnd.
+   */
+  com.google.protobuf.ByteString
+      getRevenueLatestPeriodEndBytes();
+
+  /**
+   * <code>string revenue_prior_period_end = 29 [json_name = "revenuePriorPeriodEnd"];</code>
+   * @return The revenuePriorPeriodEnd.
+   */
+  java.lang.String getRevenuePriorPeriodEnd();
+  /**
+   * <code>string revenue_prior_period_end = 29 [json_name = "revenuePriorPeriodEnd"];</code>
+   * @return The bytes for revenuePriorPeriodEnd.
+   */
+  com.google.protobuf.ByteString
+      getRevenuePriorPeriodEndBytes();
 }

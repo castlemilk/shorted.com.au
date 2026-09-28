@@ -512,7 +512,11 @@ type StrategyPick struct {
 	// True when market_cap is set.
 	HasMarketCap bool `protobuf:"varint,25,opt,name=has_market_cap,json=hasMarketCap,proto3" json:"has_market_cap,omitempty"`
 	// True when close is set (the stock has a valid last price).
-	HasClose      bool `protobuf:"varint,26,opt,name=has_close,json=hasClose,proto3" json:"has_close,omitempty"`
+	HasClose bool `protobuf:"varint,26,opt,name=has_close,json=hasClose,proto3" json:"has_close,omitempty"`
+	// Reported fundamentals behind the growth cells, with their basis and
+	// provenance, plus headline ratios. Absent when the stock has no
+	// fundamentals row at all.
+	Fundamentals  *PickFundamentals `protobuf:"bytes,27,opt,name=fundamentals,proto3" json:"fundamentals,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -729,20 +733,240 @@ func (x *StrategyPick) GetHasClose() bool {
 	return false
 }
 
+func (x *StrategyPick) GetFundamentals() *PickFundamentals {
+	if x != nil {
+		return x.Fundamentals
+	}
+	return nil
+}
+
+// Fundamentals for one pick. Every ratio is computed within one reporting
+// currency from one flow period and an aligned balance sheet; has_* is false
+// when an input is missing or the ratio is not meaningful for the company.
+type PickFundamentals struct {
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	RevenueBasisPeriodType string                 `protobuf:"bytes,1,opt,name=revenue_basis_period_type,json=revenueBasisPeriodType,proto3" json:"revenue_basis_period_type,omitempty"` // "annual" | "half" | "ttm"; empty when no revenue growth.
+	RevenuePeriodEnd       string                 `protobuf:"bytes,2,opt,name=revenue_period_end,json=revenuePeriodEnd,proto3" json:"revenue_period_end,omitempty"`                     // YYYY-MM-DD, end of the latest period in the revenue pair.
+	EpsBasisPeriodType     string                 `protobuf:"bytes,3,opt,name=eps_basis_period_type,json=epsBasisPeriodType,proto3" json:"eps_basis_period_type,omitempty"`             // "annual" | "half" | "ttm"; empty when no EPS growth.
+	EpsPeriodEnd           string                 `protobuf:"bytes,4,opt,name=eps_period_end,json=epsPeriodEnd,proto3" json:"eps_period_end,omitempty"`                                 // YYYY-MM-DD, end of the latest period in the EPS pair.
+	Currency               string                 `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`                                                               // Reporting currency (ISO 4217).
+	FetchedAt              string                 `protobuf:"bytes,6,opt,name=fetched_at,json=fetchedAt,proto3" json:"fetched_at,omitempty"`                                            // RFC 3339, newest fetch of the inputs.
+	RevenueBasisSource     string                 `protobuf:"bytes,7,opt,name=revenue_basis_source,json=revenueBasisSource,proto3" json:"revenue_basis_source,omitempty"`               // "vendor" | "filing" (a company filing, extracted); empty when unknown.
+	EpsBasisSource         string                 `protobuf:"bytes,8,opt,name=eps_basis_source,json=epsBasisSource,proto3" json:"eps_basis_source,omitempty"`                           // "vendor" | "filing"; empty when unknown.
+	NetMarginPct           float64                `protobuf:"fixed64,9,opt,name=net_margin_pct,json=netMarginPct,proto3" json:"net_margin_pct,omitempty"`
+	HasNetMarginPct        bool                   `protobuf:"varint,10,opt,name=has_net_margin_pct,json=hasNetMarginPct,proto3" json:"has_net_margin_pct,omitempty"`
+	RoePct                 float64                `protobuf:"fixed64,11,opt,name=roe_pct,json=roePct,proto3" json:"roe_pct,omitempty"`
+	HasRoePct              bool                   `protobuf:"varint,12,opt,name=has_roe_pct,json=hasRoePct,proto3" json:"has_roe_pct,omitempty"`
+	FcfMarginPct           float64                `protobuf:"fixed64,13,opt,name=fcf_margin_pct,json=fcfMarginPct,proto3" json:"fcf_margin_pct,omitempty"`
+	HasFcfMarginPct        bool                   `protobuf:"varint,14,opt,name=has_fcf_margin_pct,json=hasFcfMarginPct,proto3" json:"has_fcf_margin_pct,omitempty"`
+	NetDebtToEbitda        float64                `protobuf:"fixed64,15,opt,name=net_debt_to_ebitda,json=netDebtToEbitda,proto3" json:"net_debt_to_ebitda,omitempty"` // Net debt excluding leases over EBITDA (normalized when published).
+	HasNetDebtToEbitda     bool                   `protobuf:"varint,16,opt,name=has_net_debt_to_ebitda,json=hasNetDebtToEbitda,proto3" json:"has_net_debt_to_ebitda,omitempty"`
+	PeRatio                float64                `protobuf:"fixed64,17,opt,name=pe_ratio,json=peRatio,proto3" json:"pe_ratio,omitempty"` // Latest close over 12-month EPS; AUD reporters only.
+	HasPeRatio             bool                   `protobuf:"varint,18,opt,name=has_pe_ratio,json=hasPeRatio,proto3" json:"has_pe_ratio,omitempty"`
+	IsFinancial            bool                   `protobuf:"varint,19,opt,name=is_financial,json=isFinancial,proto3" json:"is_financial,omitempty"`                     // Bank, insurer or other financial: some ratios are not meaningful.
+	NetIncomePositive      bool                   `protobuf:"varint,20,opt,name=net_income_positive,json=netIncomePositive,proto3" json:"net_income_positive,omitempty"` // Latest annual net income above zero.
+	NotMeaningful          []string               `protobuf:"bytes,21,rep,name=not_meaningful,json=notMeaningful,proto3" json:"not_meaningful,omitempty"`                // Ratio names withheld because is_financial.
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *PickFundamentals) Reset() {
+	*x = PickFundamentals{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PickFundamentals) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PickFundamentals) ProtoMessage() {}
+
+func (x *PickFundamentals) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PickFundamentals.ProtoReflect.Descriptor instead.
+func (*PickFundamentals) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *PickFundamentals) GetRevenueBasisPeriodType() string {
+	if x != nil {
+		return x.RevenueBasisPeriodType
+	}
+	return ""
+}
+
+func (x *PickFundamentals) GetRevenuePeriodEnd() string {
+	if x != nil {
+		return x.RevenuePeriodEnd
+	}
+	return ""
+}
+
+func (x *PickFundamentals) GetEpsBasisPeriodType() string {
+	if x != nil {
+		return x.EpsBasisPeriodType
+	}
+	return ""
+}
+
+func (x *PickFundamentals) GetEpsPeriodEnd() string {
+	if x != nil {
+		return x.EpsPeriodEnd
+	}
+	return ""
+}
+
+func (x *PickFundamentals) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *PickFundamentals) GetFetchedAt() string {
+	if x != nil {
+		return x.FetchedAt
+	}
+	return ""
+}
+
+func (x *PickFundamentals) GetRevenueBasisSource() string {
+	if x != nil {
+		return x.RevenueBasisSource
+	}
+	return ""
+}
+
+func (x *PickFundamentals) GetEpsBasisSource() string {
+	if x != nil {
+		return x.EpsBasisSource
+	}
+	return ""
+}
+
+func (x *PickFundamentals) GetNetMarginPct() float64 {
+	if x != nil {
+		return x.NetMarginPct
+	}
+	return 0
+}
+
+func (x *PickFundamentals) GetHasNetMarginPct() bool {
+	if x != nil {
+		return x.HasNetMarginPct
+	}
+	return false
+}
+
+func (x *PickFundamentals) GetRoePct() float64 {
+	if x != nil {
+		return x.RoePct
+	}
+	return 0
+}
+
+func (x *PickFundamentals) GetHasRoePct() bool {
+	if x != nil {
+		return x.HasRoePct
+	}
+	return false
+}
+
+func (x *PickFundamentals) GetFcfMarginPct() float64 {
+	if x != nil {
+		return x.FcfMarginPct
+	}
+	return 0
+}
+
+func (x *PickFundamentals) GetHasFcfMarginPct() bool {
+	if x != nil {
+		return x.HasFcfMarginPct
+	}
+	return false
+}
+
+func (x *PickFundamentals) GetNetDebtToEbitda() float64 {
+	if x != nil {
+		return x.NetDebtToEbitda
+	}
+	return 0
+}
+
+func (x *PickFundamentals) GetHasNetDebtToEbitda() bool {
+	if x != nil {
+		return x.HasNetDebtToEbitda
+	}
+	return false
+}
+
+func (x *PickFundamentals) GetPeRatio() float64 {
+	if x != nil {
+		return x.PeRatio
+	}
+	return 0
+}
+
+func (x *PickFundamentals) GetHasPeRatio() bool {
+	if x != nil {
+		return x.HasPeRatio
+	}
+	return false
+}
+
+func (x *PickFundamentals) GetIsFinancial() bool {
+	if x != nil {
+		return x.IsFinancial
+	}
+	return false
+}
+
+func (x *PickFundamentals) GetNetIncomePositive() bool {
+	if x != nil {
+		return x.NetIncomePositive
+	}
+	return false
+}
+
+func (x *PickFundamentals) GetNotMeaningful() []string {
+	if x != nil {
+		return x.NotMeaningful
+	}
+	return nil
+}
+
 // Request for GetStrategyPicks.
 type GetStrategyPicksRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	StrategyId    string                 `protobuf:"bytes,1,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"` // Required, e.g. "zanger-breakout".
-	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`                            // Default 20, max 100.
-	Offset        int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
-	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // Optional filter: "triggered" | "setup" | "watch".
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	StrategyId string                 `protobuf:"bytes,1,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"` // Required, e.g. "zanger-breakout".
+	Limit      int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`                            // Default 20, max 100.
+	Offset     int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
+	Status     string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // Optional filter: "triggered" | "setup" | "watch".
+	// Optional ordering: "score" (default), "revenue_yoy", "eps_yoy", "roe",
+	// "net_margin", "fcf_margin", "pe" (ascending) or "market_cap". Unknown values
+	// sort last; growth above +500% or below -95% sorts after every measured value.
+	// rank keeps the strategy's own ranking whatever the order.
+	SortBy              string `protobuf:"bytes,5,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
+	RequireFundamentals bool   `protobuf:"varint,6,opt,name=require_fundamentals,json=requireFundamentals,proto3" json:"require_fundamentals,omitempty"` // Only stocks with a fundamentals row.
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *GetStrategyPicksRequest) Reset() {
 	*x = GetStrategyPicksRequest{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[6]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -754,7 +978,7 @@ func (x *GetStrategyPicksRequest) String() string {
 func (*GetStrategyPicksRequest) ProtoMessage() {}
 
 func (x *GetStrategyPicksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[6]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -767,7 +991,7 @@ func (x *GetStrategyPicksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStrategyPicksRequest.ProtoReflect.Descriptor instead.
 func (*GetStrategyPicksRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{6}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetStrategyPicksRequest) GetStrategyId() string {
@@ -798,6 +1022,20 @@ func (x *GetStrategyPicksRequest) GetStatus() string {
 	return ""
 }
 
+func (x *GetStrategyPicksRequest) GetSortBy() string {
+	if x != nil {
+		return x.SortBy
+	}
+	return ""
+}
+
+func (x *GetStrategyPicksRequest) GetRequireFundamentals() bool {
+	if x != nil {
+		return x.RequireFundamentals
+	}
+	return false
+}
+
 // Response for GetStrategyPicks.
 type GetStrategyPicksResponse struct {
 	state                     protoimpl.MessageState `protogen:"open.v1"`
@@ -808,13 +1046,14 @@ type GetStrategyPicksResponse struct {
 	UniverseCount             int32                  `protobuf:"varint,5,opt,name=universe_count,json=universeCount,proto3" json:"universe_count,omitempty"`                                       // Stocks evaluated.
 	FundamentalsCoverageCount int32                  `protobuf:"varint,6,opt,name=fundamentals_coverage_count,json=fundamentalsCoverageCount,proto3" json:"fundamentals_coverage_count,omitempty"` // Evaluated stocks with growth data.
 	AsOf                      string                 `protobuf:"bytes,7,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`                                                                   // YYYY-MM-DD of the latest price in the universe.
+	FundamentalsRowsCount     int32                  `protobuf:"varint,8,opt,name=fundamentals_rows_count,json=fundamentalsRowsCount,proto3" json:"fundamentals_rows_count,omitempty"`             // Evaluated stocks with any reported fundamentals row.
 	unknownFields             protoimpl.UnknownFields
 	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *GetStrategyPicksResponse) Reset() {
 	*x = GetStrategyPicksResponse{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[7]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -826,7 +1065,7 @@ func (x *GetStrategyPicksResponse) String() string {
 func (*GetStrategyPicksResponse) ProtoMessage() {}
 
 func (x *GetStrategyPicksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[7]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -839,7 +1078,7 @@ func (x *GetStrategyPicksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStrategyPicksResponse.ProtoReflect.Descriptor instead.
 func (*GetStrategyPicksResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{7}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetStrategyPicksResponse) GetStrategy() *Strategy {
@@ -891,6 +1130,228 @@ func (x *GetStrategyPicksResponse) GetAsOf() string {
 	return ""
 }
 
+func (x *GetStrategyPicksResponse) GetFundamentalsRowsCount() int32 {
+	if x != nil {
+		return x.FundamentalsRowsCount
+	}
+	return 0
+}
+
+// Request for GetStockStrategyFit.
+type GetStockStrategyFitRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StockCode     string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"` // ASX code, e.g. "BHP".
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetStockStrategyFitRequest) Reset() {
+	*x = GetStockStrategyFitRequest{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStockStrategyFitRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStockStrategyFitRequest) ProtoMessage() {}
+
+func (x *GetStockStrategyFitRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStockStrategyFitRequest.ProtoReflect.Descriptor instead.
+func (*GetStockStrategyFitRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetStockStrategyFitRequest) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+// One strategy's reading of one stock.
+type StrategyFit struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StrategyId    string                 `protobuf:"bytes,1,opt,name=strategy_id,json=strategyId,proto3" json:"strategy_id,omitempty"`
+	StrategyName  string                 `protobuf:"bytes,2,opt,name=strategy_name,json=strategyName,proto3" json:"strategy_name,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`                            // "triggered" | "setup" | "watch" | "none" (not a candidate).
+	Score         float64                `protobuf:"fixed64,4,opt,name=score,proto3" json:"score,omitempty"`                            // 0-100; 0 when status is "none".
+	Rank          int32                  `protobuf:"varint,5,opt,name=rank,proto3" json:"rank,omitempty"`                               // 1-based rank among the strategy's picks; 0 when status is "none".
+	TotalCount    int32                  `protobuf:"varint,6,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"` // Picks the strategy has in total.
+	Rules         []*RuleResult          `protobuf:"bytes,7,rep,name=rules,proto3" json:"rules,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StrategyFit) Reset() {
+	*x = StrategyFit{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StrategyFit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StrategyFit) ProtoMessage() {}
+
+func (x *StrategyFit) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StrategyFit.ProtoReflect.Descriptor instead.
+func (*StrategyFit) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *StrategyFit) GetStrategyId() string {
+	if x != nil {
+		return x.StrategyId
+	}
+	return ""
+}
+
+func (x *StrategyFit) GetStrategyName() string {
+	if x != nil {
+		return x.StrategyName
+	}
+	return ""
+}
+
+func (x *StrategyFit) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *StrategyFit) GetScore() float64 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+func (x *StrategyFit) GetRank() int32 {
+	if x != nil {
+		return x.Rank
+	}
+	return 0
+}
+
+func (x *StrategyFit) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+func (x *StrategyFit) GetRules() []*RuleResult {
+	if x != nil {
+		return x.Rules
+	}
+	return nil
+}
+
+// Response for GetStockStrategyFit.
+type GetStockStrategyFitResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StockCode     string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	AsOf          string                 `protobuf:"bytes,2,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"` // YYYY-MM-DD of the latest price in the universe.
+	Regime        *MarketRegime          `protobuf:"bytes,3,opt,name=regime,proto3" json:"regime,omitempty"`
+	Fits          []*StrategyFit         `protobuf:"bytes,4,rep,name=fits,proto3" json:"fits,omitempty"` // One per strategy; empty when the stock is outside the universe.
+	InUniverse    bool                   `protobuf:"varint,5,opt,name=in_universe,json=inUniverse,proto3" json:"in_universe,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetStockStrategyFitResponse) Reset() {
+	*x = GetStockStrategyFitResponse{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetStockStrategyFitResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetStockStrategyFitResponse) ProtoMessage() {}
+
+func (x *GetStockStrategyFitResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetStockStrategyFitResponse.ProtoReflect.Descriptor instead.
+func (*GetStockStrategyFitResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *GetStockStrategyFitResponse) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *GetStockStrategyFitResponse) GetAsOf() string {
+	if x != nil {
+		return x.AsOf
+	}
+	return ""
+}
+
+func (x *GetStockStrategyFitResponse) GetRegime() *MarketRegime {
+	if x != nil {
+		return x.Regime
+	}
+	return nil
+}
+
+func (x *GetStockStrategyFitResponse) GetFits() []*StrategyFit {
+	if x != nil {
+		return x.Fits
+	}
+	return nil
+}
+
+func (x *GetStockStrategyFitResponse) GetInUniverse() bool {
+	if x != nil {
+		return x.InUniverse
+	}
+	return false
+}
+
 // Request for ListStrategies.
 type ListStrategiesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -900,7 +1361,7 @@ type ListStrategiesRequest struct {
 
 func (x *ListStrategiesRequest) Reset() {
 	*x = ListStrategiesRequest{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[8]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -912,7 +1373,7 @@ func (x *ListStrategiesRequest) String() string {
 func (*ListStrategiesRequest) ProtoMessage() {}
 
 func (x *ListStrategiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[8]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -925,7 +1386,7 @@ func (x *ListStrategiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStrategiesRequest.ProtoReflect.Descriptor instead.
 func (*ListStrategiesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{8}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{12}
 }
 
 // Response for ListStrategies.
@@ -939,7 +1400,7 @@ type ListStrategiesResponse struct {
 
 func (x *ListStrategiesResponse) Reset() {
 	*x = ListStrategiesResponse{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -951,7 +1412,7 @@ func (x *ListStrategiesResponse) String() string {
 func (*ListStrategiesResponse) ProtoMessage() {}
 
 func (x *ListStrategiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -964,7 +1425,7 @@ func (x *ListStrategiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStrategiesResponse.ProtoReflect.Descriptor instead.
 func (*ListStrategiesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{9}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListStrategiesResponse) GetStrategies() []*Strategy {
@@ -1030,7 +1491,7 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x16\n" +
 	"\x06detail\x18\x03 \x01(\tR\x06detail\x12\x14\n" +
 	"\x05value\x18\x04 \x01(\x01R\x05value\x12\x1b\n" +
-	"\thas_value\x18\x05 \x01(\bR\bhasValue\"\xd2\x06\n" +
+	"\thas_value\x18\x05 \x01(\bR\bhasValue\"\x99\a\n" +
 	"\fStrategyPick\x12\x12\n" +
 	"\x04rank\x18\x01 \x01(\x05R\x04rank\x12\x1d\n" +
 	"\n" +
@@ -1061,13 +1522,41 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"hasRs3mPct\x12\"\n" +
 	"\rhas_short_pct\x18\x18 \x01(\bR\vhasShortPct\x12$\n" +
 	"\x0ehas_market_cap\x18\x19 \x01(\bR\fhasMarketCap\x12\x1b\n" +
-	"\thas_close\x18\x1a \x01(\bR\bhasClose\"\x80\x01\n" +
+	"\thas_close\x18\x1a \x01(\bR\bhasClose\x12E\n" +
+	"\ffundamentals\x18\x1b \x01(\v2!.shorts.v1alpha1.PickFundamentalsR\ffundamentals\"\xe2\x06\n" +
+	"\x10PickFundamentals\x129\n" +
+	"\x19revenue_basis_period_type\x18\x01 \x01(\tR\x16revenueBasisPeriodType\x12,\n" +
+	"\x12revenue_period_end\x18\x02 \x01(\tR\x10revenuePeriodEnd\x121\n" +
+	"\x15eps_basis_period_type\x18\x03 \x01(\tR\x12epsBasisPeriodType\x12$\n" +
+	"\x0eeps_period_end\x18\x04 \x01(\tR\fepsPeriodEnd\x12\x1a\n" +
+	"\bcurrency\x18\x05 \x01(\tR\bcurrency\x12\x1d\n" +
+	"\n" +
+	"fetched_at\x18\x06 \x01(\tR\tfetchedAt\x120\n" +
+	"\x14revenue_basis_source\x18\a \x01(\tR\x12revenueBasisSource\x12(\n" +
+	"\x10eps_basis_source\x18\b \x01(\tR\x0eepsBasisSource\x12$\n" +
+	"\x0enet_margin_pct\x18\t \x01(\x01R\fnetMarginPct\x12+\n" +
+	"\x12has_net_margin_pct\x18\n" +
+	" \x01(\bR\x0fhasNetMarginPct\x12\x17\n" +
+	"\aroe_pct\x18\v \x01(\x01R\x06roePct\x12\x1e\n" +
+	"\vhas_roe_pct\x18\f \x01(\bR\thasRoePct\x12$\n" +
+	"\x0efcf_margin_pct\x18\r \x01(\x01R\ffcfMarginPct\x12+\n" +
+	"\x12has_fcf_margin_pct\x18\x0e \x01(\bR\x0fhasFcfMarginPct\x12+\n" +
+	"\x12net_debt_to_ebitda\x18\x0f \x01(\x01R\x0fnetDebtToEbitda\x122\n" +
+	"\x16has_net_debt_to_ebitda\x18\x10 \x01(\bR\x12hasNetDebtToEbitda\x12\x19\n" +
+	"\bpe_ratio\x18\x11 \x01(\x01R\apeRatio\x12 \n" +
+	"\fhas_pe_ratio\x18\x12 \x01(\bR\n" +
+	"hasPeRatio\x12!\n" +
+	"\fis_financial\x18\x13 \x01(\bR\visFinancial\x12.\n" +
+	"\x13net_income_positive\x18\x14 \x01(\bR\x11netIncomePositive\x12%\n" +
+	"\x0enot_meaningful\x18\x15 \x03(\tR\rnotMeaningful\"\xcc\x01\n" +
 	"\x17GetStrategyPicksRequest\x12\x1f\n" +
 	"\vstrategy_id\x18\x01 \x01(\tR\n" +
 	"strategyId\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
 	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12\x16\n" +
-	"\x06status\x18\x04 \x01(\tR\x06status\"\xda\x02\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x17\n" +
+	"\asort_by\x18\x05 \x01(\tR\x06sortBy\x121\n" +
+	"\x14require_fundamentals\x18\x06 \x01(\bR\x13requireFundamentals\"\x92\x03\n" +
 	"\x18GetStrategyPicksResponse\x125\n" +
 	"\bstrategy\x18\x01 \x01(\v2\x19.shorts.v1alpha1.StrategyR\bstrategy\x125\n" +
 	"\x06regime\x18\x02 \x01(\v2\x1d.shorts.v1alpha1.MarketRegimeR\x06regime\x123\n" +
@@ -1076,16 +1565,39 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"totalCount\x12%\n" +
 	"\x0euniverse_count\x18\x05 \x01(\x05R\runiverseCount\x12>\n" +
 	"\x1bfundamentals_coverage_count\x18\x06 \x01(\x05R\x19fundamentalsCoverageCount\x12\x13\n" +
-	"\x05as_of\x18\a \x01(\tR\x04asOf\"\x17\n" +
+	"\x05as_of\x18\a \x01(\tR\x04asOf\x126\n" +
+	"\x17fundamentals_rows_count\x18\b \x01(\x05R\x15fundamentalsRowsCount\";\n" +
+	"\x1aGetStockStrategyFitRequest\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\"\xe9\x01\n" +
+	"\vStrategyFit\x12\x1f\n" +
+	"\vstrategy_id\x18\x01 \x01(\tR\n" +
+	"strategyId\x12#\n" +
+	"\rstrategy_name\x18\x02 \x01(\tR\fstrategyName\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\x12\x14\n" +
+	"\x05score\x18\x04 \x01(\x01R\x05score\x12\x12\n" +
+	"\x04rank\x18\x05 \x01(\x05R\x04rank\x12\x1f\n" +
+	"\vtotal_count\x18\x06 \x01(\x05R\n" +
+	"totalCount\x121\n" +
+	"\x05rules\x18\a \x03(\v2\x1b.shorts.v1alpha1.RuleResultR\x05rules\"\xdb\x01\n" +
+	"\x1bGetStockStrategyFitResponse\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\x12\x13\n" +
+	"\x05as_of\x18\x02 \x01(\tR\x04asOf\x125\n" +
+	"\x06regime\x18\x03 \x01(\v2\x1d.shorts.v1alpha1.MarketRegimeR\x06regime\x120\n" +
+	"\x04fits\x18\x04 \x03(\v2\x1c.shorts.v1alpha1.StrategyFitR\x04fits\x12\x1f\n" +
+	"\vin_universe\x18\x05 \x01(\bR\n" +
+	"inUniverse\"\x17\n" +
 	"\x15ListStrategiesRequest\"\x8a\x01\n" +
 	"\x16ListStrategiesResponse\x129\n" +
 	"\n" +
 	"strategies\x18\x01 \x03(\v2\x19.shorts.v1alpha1.StrategyR\n" +
 	"strategies\x125\n" +
-	"\x06regime\x18\x02 \x01(\v2\x1d.shorts.v1alpha1.MarketRegimeR\x06regime2\xe9\x01\n" +
+	"\x06regime\x18\x02 \x01(\v2\x1d.shorts.v1alpha1.MarketRegimeR\x06regime2\xe1\x02\n" +
 	"\x0fStrategyService\x12g\n" +
 	"\x0eListStrategies\x12&.shorts.v1alpha1.ListStrategiesRequest\x1a'.shorts.v1alpha1.ListStrategiesResponse\"\x04\x80\xb5\x18\x01\x12m\n" +
-	"\x10GetStrategyPicks\x12(.shorts.v1alpha1.GetStrategyPicksRequest\x1a).shorts.v1alpha1.GetStrategyPicksResponse\"\x04\x80\xb5\x18\x01B\xde\x01\n" +
+	"\x10GetStrategyPicks\x12(.shorts.v1alpha1.GetStrategyPicksRequest\x1a).shorts.v1alpha1.GetStrategyPicksResponse\"\x04\x80\xb5\x18\x01\x12v\n" +
+	"\x13GetStockStrategyFit\x12+.shorts.v1alpha1.GetStockStrategyFitRequest\x1a,.shorts.v1alpha1.GetStockStrategyFitResponse\"\x04\x80\xb5\x18\x01B\xde\x01\n" +
 	"\x13com.shorts.v1alpha1B\x0fStrategiesProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
 
 var (
@@ -1100,37 +1612,47 @@ func file_shorts_v1alpha1_strategies_proto_rawDescGZIP() []byte {
 	return file_shorts_v1alpha1_strategies_proto_rawDescData
 }
 
-var file_shorts_v1alpha1_strategies_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_shorts_v1alpha1_strategies_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_shorts_v1alpha1_strategies_proto_goTypes = []any{
-	(*Strategy)(nil),                 // 0: shorts.v1alpha1.Strategy
-	(*StrategyRule)(nil),             // 1: shorts.v1alpha1.StrategyRule
-	(*StrategyMetadata)(nil),         // 2: shorts.v1alpha1.StrategyMetadata
-	(*MarketRegime)(nil),             // 3: shorts.v1alpha1.MarketRegime
-	(*RuleResult)(nil),               // 4: shorts.v1alpha1.RuleResult
-	(*StrategyPick)(nil),             // 5: shorts.v1alpha1.StrategyPick
-	(*GetStrategyPicksRequest)(nil),  // 6: shorts.v1alpha1.GetStrategyPicksRequest
-	(*GetStrategyPicksResponse)(nil), // 7: shorts.v1alpha1.GetStrategyPicksResponse
-	(*ListStrategiesRequest)(nil),    // 8: shorts.v1alpha1.ListStrategiesRequest
-	(*ListStrategiesResponse)(nil),   // 9: shorts.v1alpha1.ListStrategiesResponse
+	(*Strategy)(nil),                    // 0: shorts.v1alpha1.Strategy
+	(*StrategyRule)(nil),                // 1: shorts.v1alpha1.StrategyRule
+	(*StrategyMetadata)(nil),            // 2: shorts.v1alpha1.StrategyMetadata
+	(*MarketRegime)(nil),                // 3: shorts.v1alpha1.MarketRegime
+	(*RuleResult)(nil),                  // 4: shorts.v1alpha1.RuleResult
+	(*StrategyPick)(nil),                // 5: shorts.v1alpha1.StrategyPick
+	(*PickFundamentals)(nil),            // 6: shorts.v1alpha1.PickFundamentals
+	(*GetStrategyPicksRequest)(nil),     // 7: shorts.v1alpha1.GetStrategyPicksRequest
+	(*GetStrategyPicksResponse)(nil),    // 8: shorts.v1alpha1.GetStrategyPicksResponse
+	(*GetStockStrategyFitRequest)(nil),  // 9: shorts.v1alpha1.GetStockStrategyFitRequest
+	(*StrategyFit)(nil),                 // 10: shorts.v1alpha1.StrategyFit
+	(*GetStockStrategyFitResponse)(nil), // 11: shorts.v1alpha1.GetStockStrategyFitResponse
+	(*ListStrategiesRequest)(nil),       // 12: shorts.v1alpha1.ListStrategiesRequest
+	(*ListStrategiesResponse)(nil),      // 13: shorts.v1alpha1.ListStrategiesResponse
 }
 var file_shorts_v1alpha1_strategies_proto_depIdxs = []int32{
 	1,  // 0: shorts.v1alpha1.Strategy.rules:type_name -> shorts.v1alpha1.StrategyRule
 	2,  // 1: shorts.v1alpha1.Strategy.metadata:type_name -> shorts.v1alpha1.StrategyMetadata
 	4,  // 2: shorts.v1alpha1.StrategyPick.rules:type_name -> shorts.v1alpha1.RuleResult
-	0,  // 3: shorts.v1alpha1.GetStrategyPicksResponse.strategy:type_name -> shorts.v1alpha1.Strategy
-	3,  // 4: shorts.v1alpha1.GetStrategyPicksResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
-	5,  // 5: shorts.v1alpha1.GetStrategyPicksResponse.picks:type_name -> shorts.v1alpha1.StrategyPick
-	0,  // 6: shorts.v1alpha1.ListStrategiesResponse.strategies:type_name -> shorts.v1alpha1.Strategy
-	3,  // 7: shorts.v1alpha1.ListStrategiesResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
-	8,  // 8: shorts.v1alpha1.StrategyService.ListStrategies:input_type -> shorts.v1alpha1.ListStrategiesRequest
-	6,  // 9: shorts.v1alpha1.StrategyService.GetStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
-	9,  // 10: shorts.v1alpha1.StrategyService.ListStrategies:output_type -> shorts.v1alpha1.ListStrategiesResponse
-	7,  // 11: shorts.v1alpha1.StrategyService.GetStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
-	10, // [10:12] is the sub-list for method output_type
-	8,  // [8:10] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	6,  // 3: shorts.v1alpha1.StrategyPick.fundamentals:type_name -> shorts.v1alpha1.PickFundamentals
+	0,  // 4: shorts.v1alpha1.GetStrategyPicksResponse.strategy:type_name -> shorts.v1alpha1.Strategy
+	3,  // 5: shorts.v1alpha1.GetStrategyPicksResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
+	5,  // 6: shorts.v1alpha1.GetStrategyPicksResponse.picks:type_name -> shorts.v1alpha1.StrategyPick
+	4,  // 7: shorts.v1alpha1.StrategyFit.rules:type_name -> shorts.v1alpha1.RuleResult
+	3,  // 8: shorts.v1alpha1.GetStockStrategyFitResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
+	10, // 9: shorts.v1alpha1.GetStockStrategyFitResponse.fits:type_name -> shorts.v1alpha1.StrategyFit
+	0,  // 10: shorts.v1alpha1.ListStrategiesResponse.strategies:type_name -> shorts.v1alpha1.Strategy
+	3,  // 11: shorts.v1alpha1.ListStrategiesResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
+	12, // 12: shorts.v1alpha1.StrategyService.ListStrategies:input_type -> shorts.v1alpha1.ListStrategiesRequest
+	7,  // 13: shorts.v1alpha1.StrategyService.GetStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
+	9,  // 14: shorts.v1alpha1.StrategyService.GetStockStrategyFit:input_type -> shorts.v1alpha1.GetStockStrategyFitRequest
+	13, // 15: shorts.v1alpha1.StrategyService.ListStrategies:output_type -> shorts.v1alpha1.ListStrategiesResponse
+	8,  // 16: shorts.v1alpha1.StrategyService.GetStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
+	11, // 17: shorts.v1alpha1.StrategyService.GetStockStrategyFit:output_type -> shorts.v1alpha1.GetStockStrategyFitResponse
+	15, // [15:18] is the sub-list for method output_type
+	12, // [12:15] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_strategies_proto_init() }
@@ -1144,7 +1666,7 @@ func file_shorts_v1alpha1_strategies_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_strategies_proto_rawDesc), len(file_shorts_v1alpha1_strategies_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

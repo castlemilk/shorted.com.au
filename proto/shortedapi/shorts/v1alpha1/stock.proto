@@ -434,7 +434,7 @@ message StockSignal {
 // Request for GetStockFundamentals.
 message GetStockFundamentalsRequest {
   string stock_code = 1;    // ASX code, e.g. "BHP".
-  string period_type = 2;   // Optional: "annual" | "half" | "quarter" | "ttm". Empty returns every type.
+  string period_type = 2;   // Optional: "annual" | "half" | "quarter" (balance-sheet snapshots) | "ttm". Empty returns every type.
   int32 limit = 3;          // Max periods, newest first (default 12, max 40).
 }
 
@@ -461,6 +461,72 @@ message FundamentalsPeriod {
   string fetched_at = 18;          // RFC 3339.
   double free_cash_flow = 19;
   bool has_free_cash_flow = 20;
+
+  // Full statement lines (period_type "quarter" rows are balance-sheet
+  // snapshots and carry only balance lines and shares).
+  double gross_profit = 21;
+  bool has_gross_profit = 22;
+  // Absent for banks and insurers.
+  double operating_income = 23;
+  bool has_operating_income = 24;
+  // Statutory: includes impairments and revaluations.
+  double ebitda = 25;
+  bool has_ebitda = 26;
+  // EBITDA before unusual items, when the source publishes it.
+  double normalized_ebitda = 27;
+  bool has_normalized_ebitda = 28;
+  double ebit = 29;
+  bool has_ebit = 30;
+  // A positive expense.
+  double interest_expense = 31;
+  bool has_interest_expense = 32;
+  double pretax_income = 33;
+  bool has_pretax_income = 34;
+  double tax_provision = 35;
+  bool has_tax_provision = 36;
+  // Banks; other companies report it as minus interest expense.
+  double net_interest_income = 37;
+  bool has_net_interest_income = 38;
+  // An outflow: negative.
+  double capital_expenditure = 39;
+  bool has_capital_expenditure = 40;
+  // Cash dividends paid in the period: negative.
+  double dividends_paid = 41;
+  bool has_dividends_paid = 42;
+  // An outflow: negative.
+  double share_buybacks = 43;
+  bool has_share_buybacks = 44;
+  // Balance sheet at period_end.
+  double total_assets = 45;
+  bool has_total_assets = 46;
+  double total_liabilities = 47;
+  bool has_total_liabilities = 48;
+  // Shareholders' equity.
+  double total_equity = 49;
+  bool has_total_equity = 50;
+  double cash_and_equivalents = 51;
+  bool has_cash_and_equivalents = 52;
+  // Includes lease liabilities.
+  double total_debt = 53;
+  bool has_total_debt = 54;
+  // Lease liabilities.
+  double capital_lease_obligations = 55;
+  bool has_capital_lease_obligations = 56;
+  // Excludes leases: total debt minus leases minus cash. Negative is net cash.
+  double net_debt = 57;
+  bool has_net_debt = 58;
+  double current_assets = 59;
+  bool has_current_assets = 60;
+  double current_liabilities = 61;
+  bool has_current_liabilities = 62;
+
+  // Per-field provenance: the fields whose value did not come from `source`,
+  // mapped to where it came from, e.g. {"operating_cash_flow":
+  // "derived:fcf-minus-capex", "revenue": "markit-key-statistics"}.
+  map<string, string> field_sources = 63;
+  // The company filing a filing-sourced row or field came from; empty otherwise.
+  string source_document_url = 64;
+  string source_document_date = 65;   // YYYY-MM-DD.
 }
 
 // Year-on-year growth, always against the same series one year earlier
@@ -488,7 +554,9 @@ message FundamentalsGrowth {
   bool has_eps_ttm = 18;
   // Series the revenue growth was computed on: "half" (latest half-year from a
   // company filing vs the same half a year earlier, used when it is newer than
-  // the latest annual) or "annual". Empty when unknown.
+  // the latest annual), "ttm" (the latest trailing twelve months vs twelve
+  // months earlier, used when it is newer than the latest annual) or "annual".
+  // Empty when unknown.
   string revenue_basis_period_type = 19;
   // Latest half-year vs the same half a year earlier, from company filings,
   // whether or not the half is the chosen basis.
@@ -497,6 +565,95 @@ message FundamentalsGrowth {
   double eps_half_yoy_pct = 22;
   bool has_eps_half_yoy = 23;
   string half_latest_period_end = 24;  // YYYY-MM-DD of the latest half-year row; empty when none.
+  // "vendor" or "filing": where the rows behind each growth figure came from.
+  // "filing" when either side of the pair is a figure extracted from a company
+  // filing. Empty when unknown.
+  string revenue_basis_source = 25;
+  string eps_basis_source = 26;
+  string fetched_at = 27;                  // RFC 3339, newest fetch of the growth inputs.
+  string revenue_latest_period_end = 28;   // YYYY-MM-DD, the pair revenue_yoy_pct compares.
+  string revenue_prior_period_end = 29;
+}
+
+// Profitability, cash conversion, balance-sheet and valuation ratios. Flow
+// ratios use one period (basis_period_type/basis_period_end); balance ratios use
+// the balance sheet at or up to 6 months before it, in the same currency.
+// has_* is false when an input is missing, a denominator is zero or negative,
+// or the ratio is not meaningful for the company (listed in not_meaningful).
+message FundamentalsQuality {
+  string basis_period_type = 1;    // "annual" | "ttm".
+  string basis_period_end = 2;     // YYYY-MM-DD.
+  string currency = 3;             // Reporting currency of the flow period.
+  string balance_period_end = 4;   // YYYY-MM-DD; empty when no aligned balance sheet.
+  double gross_margin_pct = 5;
+  bool has_gross_margin_pct = 6;
+  double operating_margin_pct = 7;
+  bool has_operating_margin_pct = 8;
+  double net_margin_pct = 9;
+  bool has_net_margin_pct = 10;
+  double fcf_margin_pct = 11;
+  bool has_fcf_margin_pct = 12;
+  double fcf_conversion = 13;      // Free cash flow / net profit (a ratio, not a percentage).
+  bool has_fcf_conversion = 14;
+  double roe_pct = 15;             // Net profit / average equity.
+  bool has_roe_pct = 16;
+  double roa_pct = 17;             // Net profit / average total assets.
+  bool has_roa_pct = 18;
+  double net_debt = 19;            // Excludes leases; negative is net cash. In balance_currency.
+  bool has_net_debt = 20;
+  double net_debt_to_ebitda = 21;  // Normalized EBITDA when published, else statutory.
+  bool has_net_debt_to_ebitda = 22;
+  double net_debt_to_equity = 23;
+  bool has_net_debt_to_equity = 24;
+  double current_ratio = 25;
+  bool has_current_ratio = 26;
+  double interest_cover = 27;      // Operating income / interest expense.
+  bool has_interest_cover = 28;
+  double payout_ratio_pct = 29;    // Cash dividends paid / net profit.
+  bool has_payout_ratio_pct = 30;
+  bool is_financial = 31;          // Bank, insurer or other financial.
+  string source = 32;              // Source of the flow period, e.g. "yahoo-timeseries".
+  bool operating_cash_flow_derived = 33;  // Operating cash flow = free cash flow minus capex.
+  double market_cap = 34;          // AUD: latest close x shares on issue.
+  bool has_market_cap = 35;
+  double pe_ratio = 36;            // Latest close / 12-month EPS; AUD reporters only.
+  bool has_pe_ratio = 37;
+  double price_to_book = 38;       // Market cap / equity; AUD reporters only.
+  bool has_price_to_book = 39;
+  string price_as_of = 40;         // YYYY-MM-DD of the close used.
+  string balance_currency = 41;
+  repeated string not_meaningful = 42;   // Ratio names withheld because is_financial.
+  bool is_property = 43;           // Property trust: profit and EBITDA include revaluations.
+  int32 balance_lag_months = 44;   // Months between the balance sheet and the flow period.
+  string shares_as_of = 45;        // YYYY-MM-DD of the share count used for market cap.
+  string pe_eps_period_end = 46;   // YYYY-MM-DD of the EPS used for P/E.
+  string pe_eps_basis = 47;        // "diluted" | "basic".
+  // Why market cap, P/E or P/B are absent: "non-aud" (statements not in AUD),
+  // "listed-unit" (the listed unit is not one ordinary share), "no-shares",
+  // "no-price"; empty when present.
+  string valuation_note = 48;
+}
+
+// Whether fundamentals have been collected for the stock.
+message FundamentalsCoverage {
+  // "covered" (rows held), "empty" (our providers returned nothing),
+  // "pending" (not attempted yet) or "failed" (the last attempt errored).
+  // Empty when unknown.
+  string status = 1;
+  string last_attempt_at = 2;      // RFC 3339.
+  string last_success_at = 3;      // RFC 3339.
+  repeated string sources = 4;     // Sources of the rows held.
+}
+
+// The company filing behind the latest reported period, with its summary.
+message LatestFilingSummary {
+  string report_url = 1;
+  string report_title = 2;
+  string report_date = 3;          // YYYY-MM-DD.
+  string period_end = 4;           // YYYY-MM-DD, the period the filing reports.
+  string period_type = 5;          // "annual" | "half".
+  string digest = 6;               // Short summary of the filing.
+  double digest_confidence = 7;    // 0-1.
 }
 
 // Response for GetStockFundamentals.
@@ -505,4 +662,9 @@ message GetStockFundamentalsResponse {
   repeated FundamentalsPeriod periods = 2;   // Newest first.
   FundamentalsGrowth growth = 3;
   bool has_growth = 4;                       // False when no growth row exists yet.
+  FundamentalsQuality quality = 5;
+  bool has_quality = 6;                      // False when no ratio row exists yet.
+  FundamentalsCoverage coverage = 7;
+  LatestFilingSummary latest_filing = 8;
+  bool has_latest_filing = 9;
 }
