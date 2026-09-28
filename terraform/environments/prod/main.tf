@@ -1393,26 +1393,28 @@ module "report_extractor" {
   gemini_secret_name   = "GEMINI_API_KEY_REPORT_EXTRACTOR"
   reports_bucket       = local.shared_asset_buckets.financial_reports
   director_limit       = 20
-  # 40, twice weekly (was 10, Sundays only). This run is the ONLY path to
-  # half-year totals for the stock picker: Yahoo carries no ASX half-years,
-  # and `shorted picks -mode filings` reads the half-year revenue / NPAT / EPS
-  # this job extracts from Appendix 4D/4E filings into stock_fundamentals
-  # (docs/plans/stock-picker.md §2.6). At 10 a week the backlog of ~2,300
-  # companies x 2 filings a year never clears. Cost stays small: one run is 40
-  # reports x <= 6 PDF pages through Gemini Flash (langextract chunks each
-  # report into ~2,000-char calls, plus one digest call), roughly 1M input
-  # tokens a run by estimate, i.e. well under US$1 at published Flash rates;
-  # check the billing export after the first runs. reports_limit also sets
-  # GEMINI_MAX_RUN_ITEMS, the container's own hard cap, so the two move
-  # together and the module default (10) is unchanged. Wednesday + Sunday
-  # 14:00 UTC catches mid-week filers within days in reporting season.
-  # NOTE: the deployed image is still the Python extractor, so the statutory-
-  # filing-first targeting in services/jobs/internal/jobs/reportextract/
-  # select.go only applies after the Go cut-over (services/jobs/README.md
-  # "Phase 3 port notes"); until then the Python --top-shorted-first order
-  # spends these 40 slots.
-  reports_limit    = 40
-  reports_schedule = "0 14 * * 0,3"
+  # Financial reports: 120 a day, daily 14:00 UTC (was 40, Wed + Sun), per
+  # docs/plans/fundamentals-coverage.md 6.2. This run is the ONLY path to
+  # half-year totals for the stock picker: Yahoo carries no ASX half-years, and
+  # `shorted picks -mode filings` reads the revenue / NPAT / EPS this job
+  # extracts from statutory filings into stock_fundamentals. The extractor
+  # itself now spends the slots well (6.1): statutory results documents only
+  # (no presentations, Form 20-F, Pillar 3, webcasts or transcripts), ONE per
+  # company per run, recent filers (45 days) first, then companies with no
+  # parsed filing yet by market cap, then the rest; thinking off; 8 pages.
+  # About 840 documents a week clears the ~2,146-company backlog in about three
+  # weeks, then keeps up with ~83 statutory filings a week. reports_limit also
+  # sets GEMINI_MAX_RUN_ITEMS, the container's own hard cap, so the two move
+  # together; the module default (10) is unchanged, and the module pins 4
+  # workers, a 90-minute submit budget and a 7200 s timeout with no retries.
+  # Cost: by the previous run's estimate (40 reports x 6 pages ~ 1M input
+  # tokens) this is roughly 4M input tokens a day with no thinking tokens; each
+  # run now logs its real totals ("Gemini tokens this run: ..."), so check that
+  # line and the billing export rather than this estimate.
+  # First run's measured wall time: not yet recorded. Fill it in from the first
+  # daily run's "DONE in N min" log line.
+  reports_limit    = 120
+  reports_schedule = "0 14 * * *"
 
   depends_on = [
     google_project_service.required_apis,

@@ -4,7 +4,32 @@ ASX Financial Report Extractor using langextract.
 
 Downloads financial report PDFs from ASX, extracts text, and uses langextract
 with Gemini Flash to extract structured financial data. Results are stored in
-PostgreSQL for use by the weekly report generator.
+PostgreSQL (financial_report_extractions) for the picks filings ingest, the
+stock page highlights and the weekly report.
+
+Design contract: docs/plans/fundamentals-coverage.md section 6.1. What this
+module guarantees about a row it writes:
+
+  - Grounded metrics only. An extraction langextract could not align to the
+    document (char_interval None, or an alignment status outside match_exact /
+    match_greater / match_lesser / match_fuzzy) is dropped before storage, and
+    so is one whose quote is a few-shot example text. A numeric class (revenue,
+    net_profit, eps, dividend, cash_flow, ebitda) must carry its value, and the
+    value's digits must be a number written inside the ALIGNED span of the
+    document. Each stored entry records the string attributes alignment,
+    char_start and char_end (the provenance the Go trust funnel reads).
+  - A synthetic few-shot example ("Quokka Minerals Limited", H1 FY2031), copied
+    verbatim from services/pkg/extractiontrust (FewShotExample, mirrored in its
+    testdata/fewshot_example.json). No real filing's own period can be H1
+    FY2031, so an echo of the example can never pass as a real result.
+  - Thinking off and tokens counted: every Gemini call (langextract's per-prompt
+    calls through BudgetedGemini, and the digest call) sets
+    thinking_config=ThinkingConfig(thinking_budget=0) and adds its
+    usage_metadata to a TokenUsage.
+  - document_meta from deterministic regexes over the raw text (currency,
+    units, entity, ABN, period end and type, report kind), written when the
+    column exists.
+  - No transaction is ever held across a PDF download or a model call.
 
 Usage:
     # Process top 50 most-shorted stocks
@@ -16,26 +41,35 @@ Usage:
     # Dry run (no DB writes)
     python extract.py --codes=CBA --dry-run
 
-    # Process all unextracted reports
+    # Statutory results documents, in the production run's order
     python extract.py --mode=all --limit=100
+
+The scheduled job runs extract_reports_concurrent.py, which reuses these helpers.
 """
 
 import argparse
+import datetime as _dt
 import hashlib
 import json
 import logging
+import math
 import os
 import re
 import sys
 import time
+from collections import Counter
 from datetime import datetime
-from typing import Optional
+from typing import Any, Iterable, Optional
 
 import fitz  # pymupdf
 import langextract as lx
 import psycopg2
 import psycopg2.extras
 import requests
+
+import extraction_trust
+from document_meta import extract_document_meta
+from token_usage import TokenUsage
 
 logging.basicConfig(
     level=logging.INFO,
@@ -82,91 +116,111 @@ Focus on the MOST RECENT reporting period (not comparative/prior period).
 All monetary values should be in millions AUD unless stated otherwise.
 Only extract metrics that are explicitly stated - do not calculate or infer."""
 
-# Few-shot examples for langextract
+# Few-shot example for langextract: the SYNTHETIC example defined once in
+# services/pkg/extractiontrust (FewShotExample; JSON mirror
+# testdata/fewshot_example.json), copied here VERBATIM. Its extraction classes,
+# their order and each class's attribute keys are the stored metric vocabulary.
+# Do not edit it here: change the Go value, regenerate the mirror, then copy.
+# extractiontrust's TestExtractPyExampleIsOnTheDenylist parses this literal and
+# fails on anything but the old or the new example; test_extract.py asserts it
+# equals the JSON mirror.
 EXTRACTION_EXAMPLES = [
     lx.data.ExampleData(
-        text="""Revenue from continuing operations for the half year ended 31 December 2024
-was $5,142 million, an increase of 8% on the prior corresponding period.
-Statutory net profit after tax (NPAT) was $1,823 million, up 12% on pcp.
-Basic earnings per share was 94.2 cents.
-The Board declared an interim dividend of 45 cents per share, fully franked.
-Operating cash flow was $2,156 million.
-EBITDA was $2,891 million, representing a margin of 56.2%.
-FY2025 guidance: Revenue growth of 6-8% expected.""",
+        text="""Quokka Minerals Limited (ASX: QKA) Appendix 4D and half year report for H1 FY2031.
+Revenue from continuing operations for the half year ended 31 December 2030 was $3,847 million, an increase of 7% on the prior corresponding period.
+Statutory net profit after tax (NPAT) attributable to Quokka shareholders was $612 million, up 15% on pcp.
+Basic earnings per share was 48.3 cents for H1 FY2031.
+The Quokka Board declared an interim dividend of 21 cents per share, fully franked.
+Operating cash flow for H1 FY2031 was $1,094 million.
+H1 FY2031 EBITDA was $1,529 million, representing a margin of 39.7%.
+FY2031 guidance: Quokka expects revenue growth of 4-6%.""",
         extractions=[
             lx.data.Extraction(
                 extraction_class="revenue",
-                extraction_text="Revenue from continuing operations for the half year ended 31 December 2024 was $5,142 million",
+                extraction_text="Revenue from continuing operations for the half year ended 31 December 2030 was $3,847 million",
                 attributes={
-                    "value_millions": "5142",
-                    "period": "H1 FY2025",
-                    "change_pct": "+8",
+                    "value_millions": "3847",
+                    "period": "H1 FY2031",
+                    "change_pct": "+7",
                 },
             ),
             lx.data.Extraction(
                 extraction_class="net_profit",
-                extraction_text="Statutory net profit after tax (NPAT) was $1,823 million, up 12% on pcp",
+                extraction_text="Statutory net profit after tax (NPAT) attributable to Quokka shareholders was $612 million, up 15% on pcp",
                 attributes={
-                    "value_millions": "1823",
-                    "period": "H1 FY2025",
-                    "change_pct": "+12",
+                    "value_millions": "612",
+                    "period": "H1 FY2031",
+                    "change_pct": "+15",
                 },
             ),
             lx.data.Extraction(
                 extraction_class="eps",
-                extraction_text="Basic earnings per share was 94.2 cents",
+                extraction_text="Basic earnings per share was 48.3 cents for H1 FY2031",
                 attributes={
-                    "value_cents": "94.2",
-                    "period": "H1 FY2025",
+                    "value_cents": "48.3",
+                    "period": "H1 FY2031",
                 },
             ),
             lx.data.Extraction(
                 extraction_class="dividend",
-                extraction_text="interim dividend of 45 cents per share, fully franked",
+                extraction_text="The Quokka Board declared an interim dividend of 21 cents per share, fully franked",
                 attributes={
-                    "value_cents": "45",
+                    "value_cents": "21",
                     "franking": "fully franked",
-                    "period": "H1 FY2025",
+                    "period": "H1 FY2031",
                 },
             ),
             lx.data.Extraction(
                 extraction_class="cash_flow",
-                extraction_text="Operating cash flow was $2,156 million",
+                extraction_text="Operating cash flow for H1 FY2031 was $1,094 million",
                 attributes={
-                    "value_millions": "2156",
-                    "period": "H1 FY2025",
+                    "value_millions": "1094",
+                    "period": "H1 FY2031",
                 },
             ),
             lx.data.Extraction(
                 extraction_class="ebitda",
-                extraction_text="EBITDA was $2,891 million, representing a margin of 56.2%",
+                extraction_text="H1 FY2031 EBITDA was $1,529 million, representing a margin of 39.7%",
                 attributes={
-                    "value_millions": "2891",
-                    "margin_pct": "56.2",
-                    "period": "H1 FY2025",
+                    "value_millions": "1529",
+                    "margin_pct": "39.7",
+                    "period": "H1 FY2031",
                 },
             ),
             lx.data.Extraction(
                 extraction_class="guidance",
-                extraction_text="FY2025 guidance: Revenue growth of 6-8% expected",
+                extraction_text="FY2031 guidance: Quokka expects revenue growth of 4-6%",
                 attributes={
                     "metric": "revenue_growth",
-                    "range": "6-8%",
-                    "period": "FY2025",
+                    "range": "4-6%",
+                    "period": "FY2031",
                 },
             ),
         ],
     ),
 ]
 
-# --- §6.3 Report selection: title-based noise filter ---------------------------
-# The ASX-announcement crawler types an announcement as a "results"/"report" via
-# substring matching on the headline (asx-announcement-crawler/main.go:
-# financialKeywords + classifyReportType). That over-classifies: a "Half Year
-# Results Media Release" or "Full Year Results — Chairman's Letter" is typed
-# half_year_results / full_year_results even though it carries no financial
-# statements. We keep presentations (they summarise well via the digest) but
-# drop hard non-statement noise here, on the *title*, regardless of `type`.
+
+def _example_texts(example: Any) -> tuple[str, list[str]]:
+    return example.text, [e.extraction_text for e in example.extractions]
+
+
+# Every few-shot example the extractor has ever prompted with: the retired one
+# (still stored for BHP, CBA, DRO, EDV and MSB) and the synthetic one above. A
+# quote equal to one of their texts is the model echoing its prompt.
+FEWSHOT_DENYLIST = extraction_trust.FewShotDenylist(
+    [
+        (extraction_trust.RETIRED_FEWSHOT_TEXT, extraction_trust.RETIRED_FEWSHOT_EXTRACTION_TEXTS),
+        _example_texts(EXTRACTION_EXAMPLES[0]),
+    ]
+)
+
+# --- Report selection: title filters ------------------------------------------
+
+# The legacy §6.3 noise filter (kept for its callers and tests). Targeting now
+# uses is_results_document, the stricter statutory-results classifier ported
+# from services/pkg/extractiontrust, so a document the trust funnel would
+# refuse to read is never paid for.
 NOISE_TITLE_PATTERNS = [
     r"media release",
     r"media announcement",
@@ -195,13 +249,6 @@ NOISE_TITLE_PATTERNS = [
 ]
 _NOISE_TITLE_RE = re.compile("|".join(NOISE_TITLE_PATTERNS), re.IGNORECASE)
 
-# Strong statement signals that ALWAYS win over the noise patterns. ASX filers
-# sometimes pack the statutory form name and an accompanying-press-release mention
-# into one headline ("Appendix 4E Full Year Results — Media Release"); the substring
-# noise match would wrongly drop it, so a keep-override is checked first.
-# Only HARD statutory document identifiers belong here — names a media release/letter
-# never carries. Deliberately NOT bare "results" (a "Full Year Results Media Release"
-# legitimately contains "results" yet is noise), so the override can't readmit noise.
 KEEP_OVERRIDE_PATTERNS = [
     r"appendix 4[de]",
     r"preliminary final report",
@@ -214,17 +261,12 @@ _KEEP_OVERRIDE_RE = re.compile("|".join(KEEP_OVERRIDE_PATTERNS), re.IGNORECASE)
 
 
 def is_financial_report_title(title: str) -> bool:
-    """Return False for headlines that are clearly NOT a financial statement/results
-    document (media releases, letters/addresses, notices of meeting, director/holder
-    notices, trading halts, buy-backs). Presentations are intentionally KEPT — they
-    summarise well and the digest is generated from raw text even without a metric table.
+    """Legacy noise filter: False for headlines that are clearly NOT a financial
+    statement/results document (media releases, letters/addresses, notices of
+    meeting, director/holder notices, trading halts, buy-backs). A strong
+    statement signal overrides the noise patterns. Empty titles pass.
 
-    A strong statement signal (Appendix 4D/4E, "Financial Report", "Results
-    Announcement", "Half Year Results", …) overrides the noise patterns so a genuine
-    filing whose headline also mentions an accompanying media release is not dropped.
-
-    An empty/whitespace title is treated as acceptable (we can't judge it; the digest
-    step will still produce something useful).
+    Selection no longer uses this; see is_results_document.
     """
     if not title or not title.strip():
         return True
@@ -233,6 +275,20 @@ def is_financial_report_title(title: str) -> bool:
     return _NOISE_TITLE_RE.search(title) is None
 
 
+# The statutory-results classifier (extractiontrust.IsResultsDocument, ported
+# rule for rule; the shared fixture results_titles.json pins both).
+is_results_document = extraction_trust.is_results_document
+
+# Report types (the ASX-announcement crawler's classifyReportType) worth a
+# look; quarterlies are deliberately excluded.
+KEY_REPORT_TYPES = (
+    "annual_results",
+    "half_year_results",
+    "full_year_results",
+    "annual_report",
+    "financial_report",
+)
+
 # ASX PDF download headers
 ASX_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -240,22 +296,100 @@ ASX_HEADERS = {
     "Referer": "https://www.asx.com.au/",
 }
 
+DEFAULT_MAX_PAGES = 8
 
-def get_db_connection():
-    """Connect to PostgreSQL."""
+
+def get_db_connection(autocommit: bool = False):
+    """Connect to PostgreSQL.
+
+    autocommit=True for any connection that must not sit idle in a transaction
+    (the selection connection, the report workers): psycopg2 otherwise opens a
+    transaction on the first statement and holds it until commit, which on the
+    selection connection meant a transaction open for the whole run.
+    """
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
         log.error("DATABASE_URL environment variable required")
         sys.exit(1)
-    return psycopg2.connect(db_url)
+    conn = psycopg2.connect(db_url)
+    if autocommit:
+        conn.autocommit = True
+    return conn
+
+
+def document_meta_column_exists(conn) -> bool:
+    """Whether financial_report_extractions.document_meta exists (migration
+    000132). Checked ONCE at start; without it the column is simply not
+    written, so the extractor keeps working before the migration lands."""
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = ANY (current_schemas(false))
+              AND table_name = 'financial_report_extractions'
+              AND column_name = 'document_meta'
+            LIMIT 1
+            """
+        )
+        return cur.fetchone() is not None
+    finally:
+        cur.close()
+
+
+def _parse_financial_reports(stock_code: str, raw: Optional[str]) -> list[dict]:
+    """The asx_announcements key-type statutory results documents in one
+    company's financial_reports JSON. Unparseable JSON skips the company."""
+    try:
+        fin_reports = json.loads(raw) if raw else []
+    except (json.JSONDecodeError, TypeError):
+        return []
+    if not isinstance(fin_reports, list):
+        return []
+    out = []
+    for r in fin_reports:
+        if not isinstance(r, dict) or r.get("source") != "asx_announcements":
+            continue
+        rtype = r.get("type", "")
+        if rtype not in KEY_REPORT_TYPES:
+            continue
+        title = r.get("title") or ""
+        if not is_results_document(title):
+            log.debug("  skip non-results title: %s (%s) %s", stock_code, rtype, title[:80])
+            continue
+        url = r.get("url") or ""
+        if not url:
+            continue
+        out.append({
+            "stock_code": stock_code,
+            "url": url,
+            "title": title,
+            "date": r.get("date") or "",
+            "type": rtype,
+        })
+    return out
+
+
+def _existing_report_urls(conn, urls: list[str]) -> set[str]:
+    if not urls:
+        return set()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT report_url FROM financial_report_extractions WHERE report_url = ANY(%s)",
+            (urls,),
+        )
+        return {row[0] for row in cur.fetchall()}
+    finally:
+        cur.close()
 
 
 def get_reports_to_process(conn, mode: str, codes: list[str], limit: int, recent: int = 0) -> list[dict]:
-    """Fetch financial report URLs that haven't been extracted yet."""
+    """Unextracted statutory results documents for --mode codes / top50 (manual
+    runs). Newest first per company, at most `recent` per company."""
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
     if mode == "codes" and codes:
-        # Specific stock codes
         placeholders = ",".join(["%s"] * len(codes))
         cur.execute(
             f"""
@@ -268,8 +402,7 @@ def get_reports_to_process(conn, mode: str, codes: list[str], limit: int, recent
             """,
             codes,
         )
-    elif mode == "top50":
-        # Top 50 most shorted stocks (using materialized view)
+    else:
         cur.execute(
             """
             SELECT cm.stock_code, cm.financial_reports::text
@@ -285,63 +418,15 @@ def get_reports_to_process(conn, mode: str, codes: list[str], limit: int, recent
               AND cm.financial_reports::text != 'null'
             """
         )
-    else:
-        # All stocks with ASX announcement reports
-        cur.execute(
-            """
-            SELECT stock_code, financial_reports::text
-            FROM "company-metadata"
-            WHERE financial_reports IS NOT NULL
-              AND financial_reports::text LIKE '%asx_announcements%'
-            ORDER BY stock_code
-            """
-        )
-
     rows = cur.fetchall()
     cur.close()
 
-    # Parse and filter reports
     reports = []
     for row in rows:
-        stock_code = row["stock_code"]
-        try:
-            fin_reports = json.loads(row["financial_reports"])
-        except (json.JSONDecodeError, TypeError):
-            continue
+        reports.extend(_parse_financial_reports(row["stock_code"], row["financial_reports"]))
 
-        for r in fin_reports:
-            if r.get("source") != "asx_announcements":
-                continue
-            # Only process key report types (skip quarterly — less financial data)
-            rtype = r.get("type", "")
-            if rtype not in (
-                "annual_results",
-                "half_year_results",
-                "full_year_results",
-                "annual_report",
-                "financial_report",
-            ):
-                continue
-            # §6.3(a) Drop non-statement noise (media releases, letters, notices,
-            # director/holder notices, halts) that the crawler mistyped as a report.
-            title = r.get("title", "")
-            if not is_financial_report_title(title):
-                log.debug("  skip noise title: %s (%s) %s", stock_code, rtype, title[:80])
-                continue
-            reports.append(
-                {
-                    "stock_code": stock_code,
-                    "url": r.get("url", ""),
-                    "title": r.get("title", ""),
-                    "date": r.get("date", ""),
-                    "type": rtype,
-                }
-            )
-
-    # Sort by date descending per company, then limit per company
     reports.sort(key=lambda r: (r["stock_code"], r["date"]), reverse=True)
     if recent > 0:
-        from collections import Counter
         company_count: Counter = Counter()
         filtered = []
         for r in reports:
@@ -350,21 +435,158 @@ def get_reports_to_process(conn, mode: str, codes: list[str], limit: int, recent
                 company_count[r["stock_code"]] += 1
         reports = filtered
 
-    # Check which reports are already extracted
-    if reports:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT report_url FROM financial_report_extractions WHERE report_url = ANY(%s)",
-            ([r["url"] for r in reports],),
-        )
-        existing = {row[0] for row in cur.fetchall()}
-        cur.close()
-        reports = [r for r in reports if r["url"] not in existing]
-
+    existing = _existing_report_urls(conn, [r["url"] for r in reports])
+    reports = [r for r in reports if r["url"] not in existing]
     if limit > 0:
         reports = reports[:limit]
-
     return reports
+
+
+# --- Targeting for the scheduled run (contract 6.1) ---------------------------
+
+RECENT_FILING_DAYS = 45
+
+_TIE_PRIMARY_RE = re.compile(
+    r"\bappendix\s*4[de]\b|\bpreliminary\s+final\b|\bresults?\s+for\s+announcement\s+to\s+the\s+market\b",
+    re.IGNORECASE,
+)
+_TIE_SECONDARY_RE = re.compile(
+    r"\bresults?\s+(?:release|announcement|summary)\b|\bprofit\s+announcement\b|\bfinancial\s+(?:report|statements?)\b"
+    r"|\b(?:half[\s-]?year(?:ly)?|interim)\s+(?:financial\s+)?report\b",
+    re.IGNORECASE,
+)
+
+
+def _same_day_rank(title: str) -> int:
+    """Which of one company's same-day results documents to prefer: the
+    Appendix 4D/4E (its results table is on the first pages) before a results
+    release or financial report, before an annual report (whose first pages are
+    usually letters)."""
+    t = extraction_trust.normalise(title)
+    if _TIE_PRIMARY_RE.search(t):
+        return 0
+    if _TIE_SECONDARY_RE.search(t):
+        return 1
+    if "annual report" in t:
+        return 2
+    return 3
+
+
+def _report_day(value: str) -> Optional[_dt.date]:
+    try:
+        return _dt.date.fromisoformat((value or "")[:10])
+    except ValueError:
+        return None
+
+
+def parse_market_cap(*values: Any) -> Optional[float]:
+    """The first finite, positive market cap among values (text or numbers:
+    key_metrics->>'market_cap', then the market_cap column, whose type differs
+    between environments)."""
+    for v in values:
+        if v is None or isinstance(v, bool):
+            continue
+        try:
+            f = float(str(v).strip().replace(",", ""))
+        except ValueError:
+            continue
+        if math.isfinite(f) and f > 0:
+            return f
+    return None
+
+
+def order_extraction_targets(
+    candidates: Iterable[dict],
+    extracted_urls: set,
+    metric_codes: set,
+    market_caps: dict,
+    today: _dt.date,
+    recent: int = 2,
+    recent_days: int = RECENT_FILING_DAYS,
+) -> list[dict]:
+    """The scheduled run's work list: ONE document per company, in this order:
+
+      1. companies whose document's report_date is within `recent_days` of
+         `today`, newest first;
+      2. then companies with no metric-bearing extraction yet, by market cap;
+      3. then the rest, by market cap.
+
+    Market cap ties (and missing market caps, which sort last) break on stock
+    code. Per company only its `recent` newest results documents are
+    considered (0 = all); already-extracted ones are dropped and the newest
+    remaining one is the company's document (same day: the statutory filing
+    first, see _same_day_rank)."""
+    by_code: dict[str, list[dict]] = {}
+    for r in candidates:
+        by_code.setdefault(r["stock_code"], []).append(r)
+
+    chosen = []
+    for code, docs in by_code.items():
+        # Newest first; same day, the statutory filing first.
+        docs = sorted(docs, key=lambda r: _same_day_rank(r["title"]))
+        docs.sort(key=lambda r: r["date"] or "", reverse=True)
+        if recent > 0:
+            docs = docs[:recent]
+        remaining = [r for r in docs if r["url"] not in extracted_urls]
+        if remaining:
+            chosen.append(remaining[0])
+
+    horizon = today - _dt.timedelta(days=recent_days)
+
+    def key(r: dict):
+        mcap = market_caps.get(r["stock_code"])
+        mcap_key = -mcap if mcap is not None else math.inf
+        day = _report_day(r["date"])
+        if day is not None and horizon <= day <= today + _dt.timedelta(days=1):
+            return (0, -day.toordinal(), mcap_key, r["stock_code"])
+        tier = 1 if r["stock_code"] not in metric_codes else 2
+        return (tier, 0, mcap_key, r["stock_code"])
+
+    chosen.sort(key=key)
+    return chosen
+
+
+def select_extraction_targets(conn, recent: int, limit: int, today: Optional[_dt.date] = None) -> list[dict]:
+    """The scheduled run's selection (order_extraction_targets over the DB).
+    Run it on an autocommit connection: it must leave no transaction open."""
+    today = today or _dt.datetime.now(_dt.timezone.utc).date()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            """
+            SELECT stock_code,
+                   financial_reports::text AS financial_reports,
+                   key_metrics->>'market_cap' AS km_market_cap,
+                   market_cap::text AS market_cap_text
+            FROM "company-metadata"
+            WHERE financial_reports IS NOT NULL
+              AND financial_reports::text LIKE '%asx_announcements%'
+            """
+        )
+        rows = cur.fetchall()
+        cur.execute(
+            """
+            SELECT DISTINCT stock_code
+            FROM financial_report_extractions
+            WHERE metrics IS NOT NULL AND metrics <> '{}'::jsonb
+            """
+        )
+        metric_codes = {row[0] for row in cur.fetchall()}
+    finally:
+        cur.close()
+
+    candidates: list[dict] = []
+    market_caps: dict[str, Optional[float]] = {}
+    for row in rows:
+        code = row["stock_code"]
+        candidates.extend(_parse_financial_reports(code, row["financial_reports"]))
+        market_caps[code] = parse_market_cap(row["km_market_cap"], row["market_cap_text"])
+
+    extracted = _existing_report_urls(conn, [r["url"] for r in candidates])
+    ordered = order_extraction_targets(candidates, extracted, metric_codes, market_caps, today, recent=recent)
+    if limit > 0:
+        ordered = ordered[:limit]
+    return ordered
 
 
 def resolve_asx_pdf_url(session: requests.Session, display_url: str) -> Optional[str]:
@@ -383,8 +605,6 @@ def resolve_asx_pdf_url(session: requests.Session, display_url: str) -> Optional
             return display_url
 
         # Extract the real PDF URL from the hidden form field
-        import re
-
         match = re.search(r'name="pdfURL"\s+value="([^"]+)"', resp.text)
         if match:
             return match.group(1)
@@ -395,7 +615,7 @@ def resolve_asx_pdf_url(session: requests.Session, display_url: str) -> Optional
         return None
 
 
-def download_pdf_text(session: requests.Session, url: str, max_pages: int = 10) -> Optional[str]:
+def download_pdf_text(session: requests.Session, url: str, max_pages: int = DEFAULT_MAX_PAGES) -> Optional[str]:
     """Download a PDF from ASX and extract text.
 
     If the URL is an ASX displayAnnouncement URL, first resolves to the real
@@ -443,50 +663,181 @@ def download_pdf_text(session: requests.Session, url: str, max_pages: int = 10) 
         return None
 
 
-def extract_financial_data(text: str, stock_code: str, model_id: str = "gemini-2.5-flash") -> list[dict]:
-    """Use langextract to extract structured financial data from report text."""
-    # Truncate very long texts to stay within token limits
-    if len(text) > 50000:
-        text = text[:50000]
+# --- Grounding (contract 6.1) -------------------------------------------------
+
+# Classes whose whole point is a number. Each must carry a value attribute, and
+# every value attribute present must be a number written inside the aligned
+# span of the document.
+NUMERIC_CLASSES = frozenset({"revenue", "net_profit", "eps", "dividend", "cash_flow", "ebitda"})
+VALUE_KEYS = ("value_millions", "value_cents")
+
+EXTRACTION_TEXT_CHARS = 50000
+
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+# A thousands separator: a comma (or thin / narrow no-break space) between a
+# digit and exactly three digits.
+_THOUSANDS_SEP_RE = re.compile(r"(?<=\d)[,\u2009\u202F](?=\d{3}(?!\d))")
+_PLAIN_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?|\.\d+")
+
+
+def canonical_number(value: str) -> Optional[str]:
+    """A plain decimal spelling of a value attribute, or None when it is not a
+    plain number: wrapping brackets, a leading sign, a leading "$" and
+    thousands separators removed, insignificant zeros dropped ("3,847" ->
+    "3847", "-12.50" -> "12.5", "($612)" -> "612", "0.40" -> "0.4").
+    "3.8 billion", "4-6" or "n/a" are not plain numbers."""
+    if not isinstance(value, str):
+        return None
+    t = value.strip()
+    if t.startswith("(") and t.endswith(")"):
+        t = t[1:-1].strip()
+    t = t.lstrip("+-\u2212").strip()
+    t = t.lstrip("$").strip()
+    t = _THOUSANDS_SEP_RE.sub("", t)
+    if not _PLAIN_NUMBER_RE.fullmatch(t):
+        return None
+    whole, _, frac = t.partition(".")
+    whole = whole.lstrip("0") or "0"
+    frac = frac.rstrip("0")
+    return whole + ("." + frac if frac else "")
+
+
+def numbers_in(span: str) -> set:
+    """Every number written in span, canonical (thousands separators joined)."""
+    joined = _THOUSANDS_SEP_RE.sub("", span or "")
+    return {canonical_number(m.group(0)) for m in _NUMBER_RE.finditer(joined)}
+
+
+def value_in_span(value: Any, span: str) -> bool:
+    """The value's digits are a number written inside the aligned span. A
+    rounded or rescaled value ("5" for "$5.142 billion", "3800" for "$3.8
+    billion") is not: withheld rather than guessed."""
+    c = canonical_number(value) if isinstance(value, str) else None
+    return c is not None and c in numbers_in(span)
+
+
+def _alignment_value(status: Any) -> Optional[str]:
+    v = getattr(status, "value", status)
+    return v if isinstance(v, str) else None
+
+
+def ground_extraction(ext: Any, text: str, denylist: extraction_trust.FewShotDenylist = FEWSHOT_DENYLIST) -> tuple[Optional[dict], str]:
+    """(record, reason) for one langextract Extraction against the text it was
+    extracted from. record is None unless reason == "kept".
+
+    Reasons: unaligned (no char_interval, an alignment status outside the four
+    aligned values, or offsets outside the text), fewshot_echo, no_value (a
+    numeric class without a value attribute), value_not_in_span."""
+    ci = getattr(ext, "char_interval", None)
+    start = getattr(ci, "start_pos", None) if ci is not None else None
+    end = getattr(ci, "end_pos", None) if ci is not None else None
+    status = _alignment_value(getattr(ext, "alignment_status", None))
+    if (
+        start is None
+        or end is None
+        or status not in extraction_trust.ALIGNED_STATUSES
+        or not (0 <= int(start) < int(end) <= len(text))
+    ):
+        return None, "unaligned"
+    start, end = int(start), int(end)
+
+    ext_text = getattr(ext, "extraction_text", "") or ""
+    if ext_text in denylist:
+        return None, "fewshot_echo"
+
+    cls = getattr(ext, "extraction_class", "") or ""
+    attrs = dict(getattr(ext, "attributes", None) or {})
+    span = text[start:end]
+    present = [k for k in VALUE_KEYS if k in attrs]
+    if cls in NUMERIC_CLASSES and not present:
+        return None, "no_value"
+    for k in present:
+        if not value_in_span(attrs[k], span):
+            return None, "value_not_in_span"
+
+    return {
+        "class": cls,
+        "text": ext_text,
+        "attributes": attrs,
+        extraction_trust.KEY_ALIGNMENT: status,
+        extraction_trust.KEY_CHAR_START: str(start),
+        extraction_trust.KEY_CHAR_END: str(end),
+    }, "kept"
+
+
+def ground_extractions(extractions: Iterable[Any], text: str) -> tuple[list[dict], Counter]:
+    """Grounded records for storage, plus a Counter of reasons."""
+    kept: list[dict] = []
+    reasons: Counter = Counter()
+    for ext in extractions or []:
+        record, reason = ground_extraction(ext, text)
+        reasons[reason] += 1
+        if record is not None:
+            kept.append(record)
+    return kept, reasons
+
+
+def extract_financial_data(
+    text: str,
+    stock_code: str,
+    model_id: str = "gemini-2.5-flash",
+    usage: Optional[TokenUsage] = None,
+    model: Any = None,
+) -> list[dict]:
+    """Grounded financial extractions from report text via langextract.
+
+    The model is a BudgetedGemini (thinking off, tokens summed into `usage`)
+    unless a pre-built `model` is passed (tests). Unaligned, echoed or
+    value-mismatched extractions are dropped before they are returned."""
+    if len(text) > EXTRACTION_TEXT_CHARS:
+        text = text[:EXTRACTION_TEXT_CHARS]
 
     try:
+        if model is None:
+            from budgeted_gemini import build_budgeted_model
+
+            model = build_budgeted_model(model_id, EXTRACTION_EXAMPLES, usage=usage)
         result = lx.extract(
             text_or_documents=text,
             prompt_description=EXTRACTION_PROMPT,
             examples=EXTRACTION_EXAMPLES,
-            model_id=model_id,
+            model=model,
+            use_schema_constraints=False,  # the model already carries the example schema
             extraction_passes=1,
             max_workers=1,
             max_char_buffer=2000,
+            show_progress=False,
         )
-
-        extractions = []
-        if result and hasattr(result, "extractions"):
-            for ext in result.extractions:
-                extractions.append(
-                    {
-                        "class": ext.extraction_class,
-                        "text": ext.extraction_text,
-                        "attributes": ext.attributes if hasattr(ext, "attributes") else {},
-                    }
-                )
-        return extractions
-
     except Exception as e:
         log.warning("  langextract failed for %s: %s", stock_code, e)
         return []
 
+    raw = list(getattr(result, "extractions", None) or [])
+    kept, reasons = ground_extractions(raw, text)
+    dropped = {k: v for k, v in reasons.items() if k != "kept"}
+    if dropped:
+        log.info("  Grounding for %s: kept %d of %d, dropped %s", stock_code, len(kept), len(raw), dropped)
+    return kept
+
 
 def extractions_to_metrics(extractions: list[dict]) -> dict:
-    """Convert langextract extractions to a structured metrics dict."""
-    metrics = {}
+    """Convert extraction records to the stored metrics dict: class -> entry, or
+    class -> [entries] when a class occurs more than once. An entry is the
+    attributes, then source_text, then (for grounded records) the provenance
+    string attributes alignment / char_start / char_end."""
+    metrics: dict = {}
     for ext in extractions:
         cls = ext["class"]
         attrs = ext.get("attributes") or {}
         entry = {
-            "source_text": ext["text"],
-            **attrs,
+            k: v
+            for k, v in attrs.items()
+            if k != extraction_trust.KEY_SOURCE_TEXT and not extraction_trust.is_provenance_key(k)
         }
+        entry[extraction_trust.KEY_SOURCE_TEXT] = ext["text"]
+        for k in (extraction_trust.KEY_ALIGNMENT, extraction_trust.KEY_CHAR_START, extraction_trust.KEY_CHAR_END):
+            if k in ext:
+                entry[k] = str(ext[k])
         if cls in metrics:
             # Keep both if there are multiple (e.g., multiple revenue figures)
             if isinstance(metrics[cls], list):
@@ -517,8 +868,29 @@ note or administrative document), set confidence below 0.3 and concisely summari
 Output STRICT JSON: {"digest": "...", "confidence": 0.0-1.0, "key_takeaways": ["...", "..."]}"""
 
 
-def summarize_report(metrics: dict, page_text: str, model_id: str = DIGEST_MODEL) -> dict:
+def digest_config(genai_types: Any) -> Any:
+    """The digest call's GenerateContentConfig: thinking off, like the
+    extraction calls."""
+    return genai_types.GenerateContentConfig(
+        system_instruction=DIGEST_PROMPT,
+        temperature=0.2,
+        thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
+    )
+
+
+def summarize_report(
+    metrics: dict,
+    page_text: str,
+    model_id: str = DIGEST_MODEL,
+    usage: Optional[TokenUsage] = None,
+    client: Any = None,
+) -> dict:
     """Generate a plain-English digest of the financial report using a single Gemini call.
+
+    The metrics the prompt sees pass the trust funnel first: entries that are
+    not grounded (unaligned, or a few-shot echo stored by an older run) are
+    dropped and the provenance keys are stripped. Thinking is off and the
+    response's usage_metadata is added to `usage`.
 
     Returns a dict with keys: digest (str), confidence (float), key_takeaways (list[str]).
     On any failure returns digest="" confidence=0.0 key_takeaways=[].
@@ -530,13 +902,16 @@ def summarize_report(metrics: dict, page_text: str, model_id: str = DIGEST_MODEL
         log.warning("  google-genai not available; skipping digest generation")
         return {"digest": "", "confidence": 0.0, "key_takeaways": []}
 
-    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("LANGEXTRACT_API_KEY")
-    if not api_key:
-        log.warning("  No GEMINI_API_KEY / LANGEXTRACT_API_KEY set; skipping digest")
-        return {"digest": "", "confidence": 0.0, "key_takeaways": []}
+    if client is None:
+        api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("LANGEXTRACT_API_KEY")
+        if not api_key:
+            log.warning("  No GEMINI_API_KEY / LANGEXTRACT_API_KEY set; skipping digest")
+            return {"digest": "", "confidence": 0.0, "key_takeaways": []}
+    else:
+        api_key = None
 
-    # Build context: structured metrics + truncated raw text
-    metrics_json = json.dumps(metrics, indent=2)
+    prompt_metrics = extraction_trust.trusted_metrics(metrics, FEWSHOT_DENYLIST)
+    metrics_json = json.dumps(prompt_metrics, indent=2)
     # Limit page text to stay within token budget (wider window when there are no
     # structured metrics, since the model must find the figures in prose itself).
     truncated_text = page_text[:DIGEST_TEXT_CHARS] if page_text else ""
@@ -546,17 +921,18 @@ def summarize_report(metrics: dict, page_text: str, model_id: str = DIGEST_MODEL
         f"## Report text excerpt\n{truncated_text}"
     )
 
+    raw = ""
     try:
-        client = genai.Client(api_key=api_key)
+        if client is None:
+            client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
             model=model_id,
             contents=user_content,
-            config=genai_types.GenerateContentConfig(
-                system_instruction=DIGEST_PROMPT,
-                temperature=0.2,
-            ),
+            config=digest_config(genai_types),
         )
-        raw = response.text.strip()
+        if usage is not None:
+            usage.add(getattr(response, "usage_metadata", None))
+        raw = (response.text or "").strip()
 
         # Strip markdown fences if present
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
@@ -570,7 +946,7 @@ def summarize_report(metrics: dict, page_text: str, model_id: str = DIGEST_MODEL
             "key_takeaways": list(parsed.get("key_takeaways", [])),
         }
     except json.JSONDecodeError as e:
-        log.warning("  Digest JSON parse failed: %s — raw: %.200s", e, raw if "raw" in dir() else "")
+        log.warning("  Digest JSON parse failed: %s (raw: %.200s)", e, raw)
         return {"digest": "", "confidence": 0.0, "key_takeaways": []}
     except Exception as e:
         log.warning("  Digest generation failed: %s", e)
@@ -583,7 +959,7 @@ def upload_raw_text_to_gcs(stock_code: str, report_url: str, text: str) -> Optio
     Bucket: shorted-financial-reports-prod (from env GCS_REPORTS_BUCKET or default).
     Object path: digests/<stock_code>/<sha1-of-report_url>.txt
 
-    Returns the gs:// URI on success, None on failure (best-effort — never raises).
+    Returns the gs:// URI on success, None on failure (best-effort; never raises).
     """
     bucket_name = os.environ.get("GCS_REPORTS_BUCKET", "shorted-financial-reports-prod")
     url_sha1 = hashlib.sha1(report_url.encode()).hexdigest()
@@ -606,8 +982,8 @@ def upload_raw_text_to_gcs(stock_code: str, report_url: str, text: str) -> Optio
 def download_text_from_gcs(gcs_uri: str) -> Optional[str]:
     """Fetch previously-stored raw page text from a gs:// URI (written by
     upload_raw_text_to_gcs). Used by the digest backfill so it can re-summarise
-    existing rows without re-downloading the PDF — important because older (2024)
-    ASX announcement URLs no longer resolve. Returns None on any failure.
+    existing rows without re-downloading the PDF (older 2024 ASX announcement
+    URLs no longer resolve). Returns None on any failure.
     """
     if not gcs_uri or not gcs_uri.startswith("gs://"):
         return None
@@ -626,51 +1002,77 @@ def download_text_from_gcs(gcs_uri: str) -> Optional[str]:
         return None
 
 
-def store_extraction(conn, report: dict, metrics: dict, raw_text_length: int, dry_run: bool = False, digest_result: Optional[dict] = None, raw_text_gcs_url: Optional[str] = None):
-    """Store extraction results in the database."""
+def store_extraction(
+    conn,
+    report: dict,
+    metrics: dict,
+    raw_text_length: int,
+    dry_run: bool = False,
+    digest_result: Optional[dict] = None,
+    raw_text_gcs_url: Optional[str] = None,
+    document_meta: Optional[dict] = None,
+    write_document_meta: bool = False,
+):
+    """Store extraction results in the database (one statement, committed).
+
+    document_meta is written only when write_document_meta is True (the
+    column exists; see document_meta_column_exists) and a meta dict was
+    computed. On conflict the fresh computation replaces the stored one.
+    """
     if dry_run:
         log.info("  [DRY RUN] Would store %d metrics for %s", len(metrics), report["stock_code"])
         if digest_result:
             log.info("  [DRY RUN] Digest: %.120s", digest_result.get("digest", ""))
+        if document_meta is not None:
+            log.info("  [DRY RUN] document_meta: %s", json.dumps(document_meta))
         return
 
     dr = digest_result or {}
-    cur = conn.cursor()
-    cur.execute(
-        """
-        INSERT INTO financial_report_extractions
-            (stock_code, report_url, report_type, report_title, report_date,
-             metrics, raw_text_length, extracted_at,
-             digest, digest_confidence, digest_model, raw_text_gcs_url)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (report_url) DO UPDATE SET
-            metrics = EXCLUDED.metrics,
-            raw_text_length = EXCLUDED.raw_text_length,
-            extracted_at = EXCLUDED.extracted_at,
-            digest = EXCLUDED.digest,
-            digest_confidence = EXCLUDED.digest_confidence,
-            digest_model = EXCLUDED.digest_model,
-            raw_text_gcs_url = EXCLUDED.raw_text_gcs_url
-        """,
-        (
-            report["stock_code"],
-            report["url"],
-            report["type"],
-            report["title"],
-            report["date"],
-            json.dumps(metrics),
-            raw_text_length,
-            datetime.utcnow(),
-            dr.get("digest") or None,
-            # Only persist confidence alongside an actual digest; a 0.0 from a failed
-            # digest call must stay NULL so it isn't confused with a genuine low-confidence one.
-            dr.get("confidence") if (dr.get("digest") and dr.get("confidence") is not None) else None,
-            DIGEST_MODEL if dr.get("digest") else None,
-            raw_text_gcs_url,
-        ),
+    columns = [
+        "stock_code", "report_url", "report_type", "report_title", "report_date",
+        "metrics", "raw_text_length", "extracted_at",
+        "digest", "digest_confidence", "digest_model", "raw_text_gcs_url",
+    ]
+    values = [
+        report["stock_code"],
+        report["url"],
+        report["type"],
+        report["title"],
+        report["date"] or None,
+        json.dumps(metrics),
+        raw_text_length,
+        datetime.utcnow(),
+        dr.get("digest") or None,
+        # Only persist confidence alongside an actual digest; a 0.0 from a failed
+        # digest call must stay NULL so it isn't confused with a genuine low-confidence one.
+        dr.get("confidence") if (dr.get("digest") and dr.get("confidence") is not None) else None,
+        DIGEST_MODEL if dr.get("digest") else None,
+        raw_text_gcs_url,
+    ]
+    updates = [
+        "metrics", "raw_text_length", "extracted_at",
+        "digest", "digest_confidence", "digest_model", "raw_text_gcs_url",
+    ]
+    if write_document_meta and document_meta is not None:
+        columns.append("document_meta")
+        values.append(json.dumps(document_meta))
+        updates.append("document_meta")
+
+    sql = (
+        "INSERT INTO financial_report_extractions ("
+        + ", ".join(columns)
+        + ") VALUES ("
+        + ", ".join(["%s"] * len(columns))
+        + ") ON CONFLICT (report_url) DO UPDATE SET "
+        + ", ".join(f"{c} = EXCLUDED.{c}" for c in updates)
     )
-    conn.commit()
-    cur.close()
+    cur = conn.cursor()
+    try:
+        cur.execute(sql, values)
+    finally:
+        cur.close()
+    if not conn.autocommit:
+        conn.commit()
 
 
 def ensure_table(conn):
@@ -698,15 +1100,43 @@ def ensure_table(conn):
     cur.close()
 
 
+def process_report_text(
+    report: dict,
+    text: str,
+    model_id: str,
+    usage: Optional[TokenUsage] = None,
+    model: Any = None,
+    digest_client: Any = None,
+) -> tuple[dict, Optional[dict], dict, str]:
+    """Everything the model and the regexes produce for one downloaded report:
+    (metrics, digest_result, document_meta, outcome). No database access, so
+    no connection is involved while the model runs. outcome is ok /
+    digest_only / no_metrics."""
+    meta = extract_document_meta(text)
+    extractions = extract_financial_data(text, report["stock_code"], model_id=model_id, usage=usage, model=model)
+    if not extractions:
+        # §6.3(b) Decouple the digest from metric extraction: still summarise from
+        # raw text (most results documents state numbers in prose, not tables).
+        digest = None
+        if len(text) >= MIN_DIGEST_CHARS:
+            digest = summarize_report({}, text, model_id=model_id, usage=usage, client=digest_client)
+        outcome = "digest_only" if (digest and digest.get("digest")) else "no_metrics"
+        return {}, digest, meta, outcome
+    metrics = extractions_to_metrics(extractions)
+    log.info("  %s: %d metric types: %s", report["stock_code"], len(metrics), ", ".join(metrics.keys()))
+    digest = summarize_report(metrics, text, model_id=model_id, usage=usage, client=digest_client)
+    return metrics, digest, meta, "ok"
+
+
 def main():
     parser = argparse.ArgumentParser(description="Extract financial data from ASX reports using langextract")
     parser.add_argument("--mode", choices=["top50", "codes", "all"], default="top50")
     parser.add_argument("--codes", type=str, default="", help="Comma-separated stock codes")
     parser.add_argument("--limit", type=int, default=0, help="Max total reports to process (0=unlimited)")
-    parser.add_argument("--recent", type=int, default=0, help="Max reports per company (0=unlimited, e.g. 2=latest annual+half-year)")
+    parser.add_argument("--recent", type=int, default=0, help="Max reports per company considered (0=unlimited, e.g. 2=latest annual+half-year)")
     parser.add_argument("--model", type=str, default="gemini-2.5-flash", help="LLM model ID")
     parser.add_argument("--delay", type=float, default=2.0, help="Delay between PDF downloads (seconds)")
-    parser.add_argument("--max-pages", type=int, default=10, help="Max PDF pages to extract text from")
+    parser.add_argument("--max-pages", type=int, default=DEFAULT_MAX_PAGES, help="Max PDF pages to extract text from")
     parser.add_argument("--dry-run", action="store_true", help="Don't write to database")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
@@ -727,37 +1157,34 @@ def main():
     codes = [c.strip().upper() for c in args.codes.split(",") if c.strip()] if args.codes else []
     mode = "codes" if codes else args.mode
 
-    conn = get_db_connection()
-    # Schema is now managed by migration 000045; ensure_table() is a no-op here.
-    # ensure_table(conn)
+    # Autocommit: selection and every write are single statements, and no
+    # transaction may stay open across a PDF download or a model call.
+    conn = get_db_connection(autocommit=True)
+    write_meta = document_meta_column_exists(conn)
+    if not write_meta:
+        log.warning("financial_report_extractions.document_meta is absent (migration 000132); not writing it this run")
 
-    reports = get_reports_to_process(conn, mode, codes, args.limit, recent=args.recent)
+    if mode == "all":
+        reports = select_extraction_targets(conn, recent=args.recent or 2, limit=args.limit)
+    else:
+        reports = get_reports_to_process(conn, mode, codes, args.limit, recent=args.recent)
     log.info("Found %d reports to process (mode=%s)", len(reports), mode)
 
     if not reports:
         log.info("Nothing to process")
+        conn.close()
         return
 
     # Create a shared HTTP session for PDF downloads
     session = requests.Session()
     session.headers.update(ASX_HEADERS)
 
-    total_processed = 0
-    total_extracted = 0
-    total_errors = 0
+    run_usage = TokenUsage()
+    counts: Counter = Counter()
 
     for i, report in enumerate(reports):
         if i > 0:
             time.sleep(args.delay)
-
-        if i > 0 and i % 10 == 0:
-            log.info(
-                "Progress: %d/%d processed, %d extracted, %d errors",
-                i,
-                len(reports),
-                total_extracted,
-                total_errors,
-            )
 
         log.info(
             "[%d/%d] %s: %s (%s)",
@@ -767,66 +1194,30 @@ def main():
             report["title"][:60],
             report["type"],
         )
+        started = time.monotonic()
+        report_usage = TokenUsage(parent=run_usage)
 
-        # Step 1: Download and extract text
         text = download_pdf_text(session, report["url"], max_pages=args.max_pages)
         if not text:
-            total_errors += 1
+            counts["no_pdf"] += 1
             continue
-
         log.info("  Extracted %d chars of text", len(text))
 
-        # Step 2: Extract financial data with langextract
-        extractions = extract_financial_data(text, report["stock_code"], model_id=args.model)
-        if not extractions:
-            log.info("  No structured metrics found")
-            total_processed += 1
-            # §6.3(b) Decouple the digest from metric extraction: still summarise from
-            # raw text (most results presentations state numbers in prose, not tables).
-            digest_result = None
-            if len(text) >= MIN_DIGEST_CHARS:
-                log.info("  Generating digest from raw text (no metrics)...")
-                digest_result = summarize_report({}, text, model_id=args.model)
-                if digest_result.get("digest"):
-                    log.info("  Digest (confidence=%.2f): %.120s", digest_result["confidence"], digest_result["digest"])
-                    total_extracted += 1
-            raw_text_gcs_url = upload_raw_text_to_gcs(report["stock_code"], report["url"], text)
-            store_extraction(conn, report, {}, len(text), args.dry_run, digest_result=digest_result, raw_text_gcs_url=raw_text_gcs_url)
-            continue
-
-        # Step 3: Convert to structured metrics
-        metrics = extractions_to_metrics(extractions)
-        log.info("  Found %d metric types: %s", len(metrics), ", ".join(metrics.keys()))
-
-        if args.verbose:
-            for cls, mdata in metrics.items():
-                if isinstance(mdata, list):
-                    for d in mdata:
-                        log.debug("    %s: %s", cls, d.get("source_text", "")[:80])
-                else:
-                    log.debug("    %s: %s", cls, mdata.get("source_text", "")[:80])
-
-        # Step 4: Generate digest summary
-        log.info("  Generating digest...")
-        digest_result = summarize_report(metrics, text, model_id=args.model)
-        if digest_result.get("digest"):
-            log.info("  Digest (confidence=%.2f): %.120s", digest_result["confidence"], digest_result["digest"])
-
-        # Step 5: Upload raw text to GCS (best-effort)
+        metrics, digest, meta, outcome = process_report_text(report, text, args.model, usage=report_usage)
         raw_text_gcs_url = upload_raw_text_to_gcs(report["stock_code"], report["url"], text)
+        store_extraction(
+            conn, report, metrics, len(text), args.dry_run,
+            digest_result=digest, raw_text_gcs_url=raw_text_gcs_url,
+            document_meta=meta, write_document_meta=write_meta,
+        )
+        counts[outcome] += 1
+        log.info(
+            "  %s done in %.1fs (%s) tokens: %s",
+            report["stock_code"], time.monotonic() - started, outcome, report_usage.summary(),
+        )
 
-        # Step 6: Store results
-        store_extraction(conn, report, metrics, len(text), args.dry_run, digest_result=digest_result, raw_text_gcs_url=raw_text_gcs_url)
-        total_processed += 1
-        total_extracted += 1
-
-    log.info(
-        "Done! Processed: %d, Extracted: %d, Errors: %d",
-        total_processed,
-        total_extracted,
-        total_errors,
-    )
-
+    log.info("Done! %s", dict(counts))
+    log.info("Gemini tokens this run: %s", run_usage.summary())
     conn.close()
 
 
