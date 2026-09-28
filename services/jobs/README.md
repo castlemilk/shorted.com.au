@@ -234,7 +234,8 @@ request:
   timestamp arithmetic failed under the simple protocol), so blocks start now.
 - **Writes**: one statement per stock (an `unnest` upsert). Prices are
   `NUMERIC(12,4)` from migration 000131, which the prod deploy applies; before it,
-  `DECIMAL(10,2)` stored every sub-cent price as $0 (327 codes held a $0 close).
+  `DECIMAL(10,2)` rounded every price to the cent (ENL's $0.045 as 0.05) and
+  stored a price under half a cent as $0.
   A `-from` comparison allows half a unit of the column's last decimal, read
   from the column, so it is right on either side of the migration.
 - **Deadline**: each stock gets 6 minutes, whatever it is waiting on (a

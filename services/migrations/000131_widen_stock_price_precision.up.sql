@@ -1,11 +1,16 @@
 -- Widen stock_prices' price columns from DECIMAL(10,2) to NUMERIC(12,4).
 --
--- Two decimals stored every sub-cent price as $0.00 and rounded every price
--- under ten cents to the cent: ENL's $0.042 close was stored as 0, BP8's was 0
--- for two years, and 327 codes held at least one $0 close (the historical dry
--- run of 2026-09-27, execution shorted-price-sync-gl7tc). ASX prices tick in
--- $0.001 at the finest; four decimals hold every tick with room for adjusted
+-- Two decimals round every price to the cent, which is most of a penny
+-- stock's move: ENL closed at $0.045 on 2026-08-20 and is stored as 0.05, 11%
+-- high (a live re-sync on 2026-09-28 wrote Yahoo's 0.045 and prod returned
+-- 0.05). A price under half a cent is stored as $0. ASX prices tick in $0.001
+-- below ten cents; four decimals hold every tick with room for adjusted
 -- closes, and round away the float noise Yahoo's values carry (43.45000076).
+--
+-- Not every stored $0 is this. The historical dry run of 2026-09-27
+-- (shorted-price-sync-gl7tc) found 327 codes holding a $0 close; ENL's and
+-- BP8's August zeros were an older writer's, where Yahoo has 0.04-0.05 and
+-- 0.01-0.02, and a re-fetch repairs those at either precision.
 --
 -- A column's type cannot change under a view that reads it, and several views
 -- and materialized views read these columns, some through each other. Prod's
