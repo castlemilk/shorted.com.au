@@ -149,23 +149,35 @@ func TestRecordAttemptSQL(t *testing.T) {
 	assert.Contains(t, sql, "periods_loaded = CASE WHEN $3::bool THEN EXCLUDED.periods_loaded ELSE s.periods_loaded END")
 	assert.Contains(t, sql, "consecutive_empty = CASE WHEN $6::text = 'empty' THEN LEAST(s.consecutive_empty + 1, 32767) ELSE 0 END")
 	assert.Contains(t, sql, "median_k = CASE WHEN $7::bool THEN $8::float8 ELSE s.median_k END")
-	assert.Len(t, placeholders(recordAttemptSQL), 8)
+	assert.Contains(t, sql, "fx_converted = CASE WHEN $7::bool THEN $9::bool ELSE s.fx_converted END")
+	assert.Contains(t, sql, "native_currency = CASE WHEN $7::bool THEN NULLIF($10::text, '') ELSE s.native_currency END")
+	assert.Len(t, placeholders(recordAttemptSQL), 10)
 	assert.Len(t, placeholders(recordAttemptLegacySQL), 5)
 	assert.NotContains(t, recordAttemptLegacySQL, "last_outcome")
 
 	k := 10.02
-	args := recordAttemptArgs(attempt{Code: "RMD", At: time.Unix(0, 0), Success: true, SetMedianK: true, MedianK: &k, Err: strings.Repeat("x", 2000)})
-	assert.Len(t, args, 8)
+	args := recordAttemptArgs(attempt{Code: "RMD", At: time.Unix(0, 0), Success: true, Measured: true, MedianK: &k, Err: strings.Repeat("x", 2000)})
+	assert.Len(t, args, 10)
 	assert.Equal(t, outcomeLoaded, args[5], "the outcome defaults from Success")
+	assert.Equal(t, false, args[8])
+	assert.Equal(t, "", args[9])
 	assert.Equal(t, &k, args[7])
 	assert.Len(t, args[3], 1000, "the error is truncated")
 	inf := 1e300
-	args = recordAttemptArgs(attempt{Code: "X", SetMedianK: true, MedianK: &inf, Outcome: outcomeEmpty})
+	args = recordAttemptArgs(attempt{Code: "X", Measured: true, MedianK: &inf, Outcome: outcomeEmpty})
 	assert.Nil(t, args[7], "a non-storable median_k is written NULL")
 	assert.Equal(t, outcomeEmpty, args[5])
 	args = recordAttemptArgs(attempt{Code: "X"})
 	assert.Equal(t, outcomeFailed, args[5])
 	assert.Equal(t, false, args[6])
+
+	args = recordAttemptArgs(attempt{Code: "XRO", Measured: true, FXConverted: true, NativeCurrency: " nzd "})
+	assert.Equal(t, true, args[8])
+	assert.Equal(t, "NZD", args[9], "the native currency is normalised")
+	args = recordAttemptArgs(attempt{Code: "X", Measured: true, NativeCurrency: "NZD"})
+	assert.Equal(t, "", args[9], "a native currency means nothing unless the code is FX-converted")
+	args = recordAttemptArgs(attempt{Code: "X", Measured: true, FXConverted: true, NativeCurrency: "NOTACURRENCY"})
+	assert.Equal(t, "", args[9], "too long for VARCHAR(8): unknown rather than a failed write")
 }
 
 func TestLeaseSQL(t *testing.T) {
@@ -527,7 +539,7 @@ func TestVendorSyncAndLeaseAgainstPostgres(t *testing.T) {
 	assert.Equal(t, outcomeEmpty, states["RMD"].LastOutcome)
 	assert.Equal(t, 2, states["RMD"].ConsecutiveEmpty)
 
-	require.NoError(t, st.RecordAttempt(ctx, attempt{Code: "RMD", At: t0.Add(2 * time.Hour), Success: true, Outcome: outcomeLoaded, PeriodsLoaded: 12, SetMedianK: true, MedianK: &k}))
+	require.NoError(t, st.RecordAttempt(ctx, attempt{Code: "RMD", At: t0.Add(2 * time.Hour), Success: true, Outcome: outcomeLoaded, PeriodsLoaded: 12, Measured: true, MedianK: &k}))
 	require.NoError(t, st.RecordAttempt(ctx, attempt{Code: "RMD", At: t0.Add(3 * time.Hour), Outcome: outcomeFailed, Err: "yahoo: 429"}))
 	var outcome string
 	var empties int16
@@ -540,6 +552,25 @@ func TestVendorSyncAndLeaseAgainstPostgres(t *testing.T) {
 	assert.Zero(t, empties, "reset by anything but an empty answer")
 	require.NotNil(t, median)
 	assert.Equal(t, k, *median, "a failed attempt keeps the stored median_k")
+
+	// fx_converted and native_currency: NULL until measured, written by a
+	// measured attempt, kept by one that measured nothing.
+	var fx *bool
+	var native *string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT fx_converted, native_currency FROM stock_fundamentals_sync WHERE stock_code = 'RMD'`).Scan(&fx, &native))
+	require.NotNil(t, fx)
+	assert.False(t, *fx)
+	assert.Nil(t, native)
+	require.NoError(t, st.RecordAttempt(ctx, attempt{Code: "XRO", At: t0, Outcome: outcomeEmpty}))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT fx_converted, native_currency FROM stock_fundamentals_sync WHERE stock_code = 'XRO'`).Scan(&fx, &native))
+	assert.Nil(t, fx, "never measured: unknown, not false")
+	require.NoError(t, st.RecordAttempt(ctx, attempt{Code: "XRO", At: t0.Add(time.Hour), Success: true, Outcome: outcomeLoaded, PeriodsLoaded: 4, Measured: true, FXConverted: true, NativeCurrency: "NZD"}))
+	require.NoError(t, st.RecordAttempt(ctx, attempt{Code: "XRO", At: t0.Add(2 * time.Hour), Outcome: outcomeFailed, Err: "yahoo: 429"}))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT fx_converted, native_currency FROM stock_fundamentals_sync WHERE stock_code = 'XRO'`).Scan(&fx, &native))
+	require.NotNil(t, fx)
+	assert.True(t, *fx, "a failed attempt keeps the stored flag")
+	require.NotNil(t, native)
+	assert.Equal(t, "NZD", *native)
 	assert.True(t, lastSuccess.Equal(t0.Add(2*time.Hour)), "a failure never hides the last success")
 	assert.Equal(t, 12, periods)
 
@@ -601,7 +632,7 @@ func TestVendorWithout000132AgainstPostgres(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM stock_fundamentals WHERE period_type = 'quarter'`).Scan(&quarters))
 	assert.Zero(t, quarters, "a snapshot carries only 000132 columns: not written without them")
 
-	require.NoError(t, st.RecordAttempt(ctx, attempt{Code: "ZZL1", At: time.Now(), Success: true, Outcome: outcomeLoaded, PeriodsLoaded: 1, SetMedianK: true, MedianK: f64(1)}))
+	require.NoError(t, st.RecordAttempt(ctx, attempt{Code: "ZZL1", At: time.Now(), Success: true, Outcome: outcomeLoaded, PeriodsLoaded: 1, Measured: true, MedianK: f64(1)}))
 	states, err := st.SyncStates(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, outcomeLoaded, states["ZZL1"].LastOutcome)

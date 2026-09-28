@@ -191,6 +191,8 @@ const ADDED_COLUMNS = [
   ["stock_fundamentals_sync", "last_outcome", "VARCHAR(16)"],
   ["stock_fundamentals_sync", "consecutive_empty", "SMALLINT NOT NULL DEFAULT 0"],
   ["stock_fundamentals_sync", "median_k", "DOUBLE PRECISION"],
+  ["stock_fundamentals_sync", "fx_converted", "BOOLEAN"],
+  ["stock_fundamentals_sync", "native_currency", "VARCHAR(8)"],
 ];
 
 const GROWTH_APPENDED = [

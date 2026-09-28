@@ -378,7 +378,7 @@ func TestFundamentalsExtrasQueryShape(t *testing.T) {
 		}
 		for _, frag := range []string{
 			"LEFT JOIN mv_fundamentals_growth g", "LEFT JOIN mv_fundamentals_quality q", "LEFT JOIN stock_fundamentals_sync sy",
-			"sy.median_k", "f.source <> 'asx-filing-extraction'", "BETWEEN 0.8 AND 1.25",
+			"sy.median_k", "sy.fx_converted", "f.source <> 'asx-filing-extraction'", "BETWEEN 0.8 AND 1.25",
 		} {
 			if !strings.Contains(q, frag) {
 				t.Errorf("extras query is missing %q", frag)

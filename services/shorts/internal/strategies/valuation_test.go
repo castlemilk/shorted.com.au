@@ -51,6 +51,15 @@ func TestValuate(t *testing.T) {
 			t.Errorf("%+v", v)
 		}
 	})
+	t.Run("an FX-converted code gets no P/E or P/B whatever its label says", func(t *testing.T) {
+		in := audInputs() // XRO: NZD EPS under Yahoo's AUD label
+		in.FXConverted = true
+		v := Valuate(10, asOf, in, audEquity)
+		near(t, "market cap", v.MarketCap, 1e10)
+		if v.PERatio != nil || v.PriceToBook != nil || v.Note != ValuationNoteNonAUD {
+			t.Errorf("%+v", v)
+		}
+	})
 	t.Run("a CDI listing is not valued", func(t *testing.T) {
 		in := audInputs()
 		in.MedianK = f(10.1) // RMD: ten CDIs per share

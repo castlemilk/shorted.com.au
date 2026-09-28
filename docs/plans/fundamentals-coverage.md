@@ -167,7 +167,11 @@ already marked `asx-filing-extraction`; records the marker and the document.
 `last_outcome VARCHAR(16)` (`loaded` | `empty` | `failed`),
 `consecutive_empty SMALLINT NOT NULL DEFAULT 0` and `median_k DOUBLE
 PRECISION` (the identity-gate reference of 3.5, read by valuation in 5.3;
-NULL when fewer than 3 periods allow it). `empty` only when every source
+NULL when fewer than 3 periods allow it), `fx_converted BOOLEAN` (3.4's
+verdict; NULL until a fetch has measured it) and `native_currency VARCHAR(8)`
+(Markit's `curCode` for an fx_converted code; NULL when unknown). The three
+measured facts move together, only on an attempt Yahoo answered with rows; any
+other attempt keeps the stored values. `empty` only when every source
 asked returned without error and with no rows; a fallback error with no rows is
 `failed`. `recordAttempt` increments `consecutive_empty` on `empty` and resets
 it on `loaded`/`failed`.
@@ -359,7 +363,10 @@ FX-converted detection: a monetary raw value with `|frac| > 0.001` on a
 normally integral line marks the code `fx_converted`; its monetary fields are
 rejected, and its vendor currency is "unknown" for filings gates 6-7 and for
 valuation (native currency from Markit `curCode` when present, else no filing
-rows and no P/E or P/B).
+rows and no P/E or P/B). The verdict is persisted (2.3), and valuation (5.3)
+withholds P/E and P/B on the flag itself, not only on the missing k: Yahoo's
+EPS for such a code is in the native currency under the conversion target's
+label (XRO: NZD EPS labelled AUD).
 
 ### 3.5 Sanity gates (every rejection counted, logged, added to `Rejected`)
 

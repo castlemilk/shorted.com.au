@@ -186,6 +186,23 @@ func TestFundamentalsReadsAgainstPostgres(t *testing.T) {
 		assert.Equal(t, "2026-06-30", meta.PeriodEnd)
 		assert.Equal(t, "appendix_4e", meta.ReportKind)
 		assert.Equal(t, "BHP Group Limited", meta.Entity)
+
+		// An FX-converted code: the rows' AUD label is not trusted, so no
+		// P/E or P/B, while market cap (a price times a count) stands.
+		assert.False(t, bhp.ValuationInputs.FXConverted, "fx_converted false on BHP's sync row")
+		_, err = pool.Exec(ctx, `INSERT INTO stock_fundamentals_sync (stock_code, last_attempt_at, last_success_at, periods_loaded, last_outcome, fx_converted, native_currency)
+			VALUES ('CBA', now(), now(), 1, 'loaded', true, NULL)`)
+		require.NoError(t, err)
+		cands, err = listStrategyCandidates(ctx, pool)
+		require.NoError(t, err)
+		cba = cands[1]
+		require.NotNil(t, cba.ValuationInputs)
+		assert.True(t, cba.ValuationInputs.FXConverted)
+		strategies.PrepareCandidates(cands)
+		assert.Nil(t, cands[1].Valuation.PERatio, "an FX-converted code gets no P/E")
+		assert.Nil(t, cands[1].Valuation.PriceToBook)
+		require.NotNil(t, cands[1].Valuation.MarketCap)
+		assert.Equal(t, strategies.ValuationNoteNonAUD, cands[1].Valuation.Note)
 	})
 }
 
@@ -283,7 +300,8 @@ ALTER TABLE stock_fundamentals
 	ADD COLUMN source_document_url text, ADD COLUMN source_document_date date;
 ALTER TABLE stock_fundamentals_sync
 	ADD COLUMN last_outcome varchar(16), ADD COLUMN consecutive_empty smallint NOT NULL DEFAULT 0,
-	ADD COLUMN median_k double precision;
+	ADD COLUMN median_k double precision, ADD COLUMN fx_converted boolean,
+	ADD COLUMN native_currency varchar(8);
 ALTER TABLE financial_report_extractions ADD COLUMN document_meta jsonb;
 
 CREATE TABLE mv_fundamentals_growth_132 AS

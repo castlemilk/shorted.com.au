@@ -168,7 +168,9 @@ ALTER TABLE stock_fundamentals
 ALTER TABLE stock_fundamentals_sync
     DROP COLUMN IF EXISTS last_outcome,
     DROP COLUMN IF EXISTS consecutive_empty,
-    DROP COLUMN IF EXISTS median_k;
+    DROP COLUMN IF EXISTS median_k,
+    DROP COLUMN IF EXISTS fx_converted,
+    DROP COLUMN IF EXISTS native_currency;
 
 -- 000129's definition, verbatim (a no-op when it was never replaced).
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_fundamentals_growth AS

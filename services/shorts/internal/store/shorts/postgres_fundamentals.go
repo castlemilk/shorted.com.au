@@ -222,6 +222,7 @@ var fundamentalsExtrasColumns = []extrasColumn{
 	{`sy.median_k::float8`, func(r *extrasRow) any { return &r.e.Valuation.MedianK }},
 	{`COALESCE(kk.n, 0)::int4`, func(r *extrasRow) any { return &r.e.Valuation.KPeriods }},
 	{`COALESCE(kk.all_ok, false)`, func(r *extrasRow) any { return &r.e.Valuation.KConsistent }},
+	{`COALESCE(sy.fx_converted, false)`, func(r *extrasRow) any { return &r.e.Valuation.FXConverted }},
 	{`ep.eps_diluted::float8`, func(r *extrasRow) any { return &r.e.Valuation.EPSDiluted }},
 	{`ep.eps_basic::float8`, func(r *extrasRow) any { return &r.e.Valuation.EPSBasic }},
 	{`ep.period_end::date`, func(r *extrasRow) any { return &r.e.Valuation.EPSPeriodEnd }},

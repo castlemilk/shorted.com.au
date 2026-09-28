@@ -253,8 +253,13 @@ $m132$;
 --    (no table rewrite).
 --
 --    stock_fundamentals_sync: last_outcome ('loaded' | 'empty' | 'failed'),
---    consecutive_empty (selection skips repeat empties) and median_k (the
---    identity-gate reference, read by valuation; NULL below 3 periods).
+--    consecutive_empty (selection skips repeat empties), median_k (the
+--    identity-gate reference, read by valuation; NULL below 3 periods),
+--    fx_converted (the vendor's statements for this code are FX-converted,
+--    plan §3.4; NULL until a fetch has measured it) and native_currency (the
+--    reporting currency Markit names for an FX-converted code; NULL when
+--    unknown). Valuation withholds every statement-based ratio when
+--    fx_converted is true.
 -- ---------------------------------------------------------------------------
 DO $m132$
 DECLARE
@@ -289,7 +294,9 @@ BEGIN
             ('stock_fundamentals', 'source_document_date',      'DATE'),
             ('stock_fundamentals_sync', 'last_outcome',         'VARCHAR(16)'),
             ('stock_fundamentals_sync', 'consecutive_empty',    'SMALLINT NOT NULL DEFAULT 0'),
-            ('stock_fundamentals_sync', 'median_k',             'DOUBLE PRECISION')
+            ('stock_fundamentals_sync', 'median_k',             'DOUBLE PRECISION'),
+            ('stock_fundamentals_sync', 'fx_converted',         'BOOLEAN'),
+            ('stock_fundamentals_sync', 'native_currency',      'VARCHAR(8)')
           ) AS v(tbl, name, typ)
     LOOP
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns

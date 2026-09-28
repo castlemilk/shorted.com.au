@@ -222,9 +222,11 @@ func runFundamentals(ctx context.Context, cfg runConfig) (runStats, error) {
 			}
 			a.Success, a.PeriodsLoaded, a.Outcome = true, len(res.rows), outcomeLoaded
 			if res.primaryErr == nil {
-				// k is measured on Yahoo's rows; a run Yahoo did not answer
-				// says nothing about it, so the stored value stands.
-				a.SetMedianK, a.MedianK = true, res.gates.medianK
+				// k and fx_converted are measured on Yahoo's rows; a run Yahoo
+				// did not answer says nothing about them, so the stored values
+				// stand.
+				a.Measured, a.MedianK = true, res.gates.medianK
+				a.FXConverted, a.NativeCurrency = res.gates.fxConverted, res.nativeCur
 			}
 		case res.answeredEmpty():
 			a.Outcome = outcomeEmpty
@@ -238,7 +240,7 @@ func runFundamentals(ctx context.Context, cfg runConfig) (runStats, error) {
 			st.Failed++
 			consecutiveFailures++
 			a.Success, a.PeriodsLoaded, a.Outcome = false, 0, outcomeFailed
-			a.SetMedianK, a.MedianK = false, nil
+			a.Measured, a.MedianK, a.FXConverted, a.NativeCurrency = false, nil, false, ""
 			a.Err = res.err.Error()
 			cfg.logf("picks: %s FAILED: %v", code, res.err)
 		case a.Success:

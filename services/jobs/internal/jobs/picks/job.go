@@ -15,10 +15,15 @@
 //	                    stock_fundamentals_sync.
 //	-mode filings       Parse revenue / net profit / EPS out of
 //	                    financial_report_extractions.metrics (the
-//	                    report-extractor's reading of Appendix 4D/4E and other
-//	                    results documents) into typed 'half' and 'annual'
+//	                    report-extractor's reading of statutory results
+//	                    documents: Appendix 4D/4E, half-year and annual
+//	                    reports) into typed 'half' and 'annual'
 //	                    stock_fundamentals rows, source 'asx-filing-extraction'
-//	                    (filings_ingest.go). No network, no LLM.
+//	                    (filings_ingest.go). Every value passes the
+//	                    extractiontrust funnel and the §4.2 gates; the step is
+//	                    a deterministic rebuild that fills NULL vendor fields,
+//	                    replaces filing-marked ones and purges filing rows the
+//	                    extractions no longer support. No network, no LLM.
 //	-mode refresh       SET LOCAL statement_timeout = 0; SELECT
 //	                    refresh_strategy_views(). Scheduled after the daily
 //	                    price sweep. After a successful refresh it waits 16
@@ -36,11 +41,12 @@
 //	0   ok (>= 50% of attempted codes loaded or answered empty), or the lease
 //	    is held by another execution
 //	1   failure: DB unreachable, refresh failed or skipped a view, every
-//	    attempted code failed, every filing write failed, or the run was
-//	    cancelled
+//	    attempted code failed, the filings rebuild transaction failed (it
+//	    rolled back: nothing written), or the run was cancelled
 //	10  DEGRADED: fewer than 50% of attempted codes answered, Yahoo failed
 //	    for more than half of them (the fallback covered what it could), or
-//	    the filings step degraded
+//	    the filings write was REFUSED (a read errored or zero extractions
+//	    were read: nothing deleted or upserted)
 //
 // In -mode all every step runs and the worst verdict wins (worstError).
 package picks
@@ -197,10 +203,10 @@ func Run(parent context.Context, args []string) error {
 	}
 
 	if *mode == modeFilings || *mode == modeAll {
-		_, err := runFilings(ctx, st, *dryRun, log.Printf)
-		if !*dryRun && err == nil {
-			// The filings step is a deterministic rebuild: when it completes,
-			// stock_fundamentals reflects this run's extractions.
+		fstats, err := runFilings(ctx, st, *dryRun, log.Printf)
+		if !*dryRun && err == nil && fstats.Changed() {
+			// The rebuild purged, nulled or upserted something, so the
+			// 'fundamentals' tag needs revalidating (a no-op rebuild does not).
 			fundamentalsChanged = true
 		}
 		if *mode == modeFilings {

@@ -64,11 +64,15 @@ type attempt struct {
 	Outcome       string // outcomeLoaded | outcomeEmpty | outcomeFailed
 	Err           string // "" on success; the reason otherwise
 	PeriodsLoaded int
-	// SetMedianK: write MedianK (nil = NULL) to stock_fundamentals_sync.median_k.
-	// False keeps the stored value (a run Yahoo did not answer says nothing
-	// about the identity reference).
-	SetMedianK bool
-	MedianK    *float64
+	// Measured: this attempt measured the code's vendor facts, so write
+	// MedianK (nil = NULL) to stock_fundamentals_sync.median_k, FXConverted to
+	// fx_converted and NativeCurrency ("" = NULL) to native_currency. False
+	// keeps the stored values (a run Yahoo did not answer says nothing about
+	// the identity reference or the currency).
+	Measured       bool
+	MedianK        *float64
+	FXConverted    bool
+	NativeCurrency string
 }
 
 // errLeaseAbsent: picks_run_lease does not exist (SQLSTATE 42P01): run
@@ -126,7 +130,7 @@ func fundamentals000132Columns() []string {
 }
 
 // sync000132Columns are the stock_fundamentals_sync columns 000132 adds.
-var sync000132Columns = []string{"last_outcome", "consecutive_empty", "median_k"}
+var sync000132Columns = []string{"last_outcome", "consecutive_empty", "median_k", "fx_converted", "native_currency"}
 
 // legacyColumns are the value columns of 000129 (today's column set).
 func legacyColumns() []fundamentalsColumn {
@@ -659,13 +663,15 @@ func (s *pgStore) UpsertPeriods(ctx context.Context, code string, rows []PeriodR
 // recordAttemptSQL: last_success_at and periods_loaded move only on a
 // success, so a failed retry never hides when the code last loaded.
 // consecutive_empty counts empty answers in a row and resets on anything
-// else; median_k moves only when the attempt measured it ($7).
+// else; median_k, fx_converted and native_currency move only when the
+// attempt measured them ($7).
 const recordAttemptSQL = `
 INSERT INTO stock_fundamentals_sync AS s (
     stock_code, last_attempt_at, last_success_at, last_error, periods_loaded,
-    last_outcome, consecutive_empty, median_k)
+    last_outcome, consecutive_empty, median_k, fx_converted, native_currency)
 VALUES ($1, $2::timestamptz, CASE WHEN $3::bool THEN $2::timestamptz END, NULLIF($4::text, ''), $5::int,
-        $6::text, CASE WHEN $6::text = '` + outcomeEmpty + `' THEN 1 ELSE 0 END, CASE WHEN $7::bool THEN $8::float8 END)
+        $6::text, CASE WHEN $6::text = '` + outcomeEmpty + `' THEN 1 ELSE 0 END, CASE WHEN $7::bool THEN $8::float8 END,
+        CASE WHEN $7::bool THEN $9::bool END, CASE WHEN $7::bool THEN NULLIF($10::text, '') END)
 ON CONFLICT (stock_code) DO UPDATE SET
     last_attempt_at   = EXCLUDED.last_attempt_at,
     last_success_at   = CASE WHEN $3::bool THEN EXCLUDED.last_attempt_at ELSE s.last_success_at END,
@@ -673,7 +679,9 @@ ON CONFLICT (stock_code) DO UPDATE SET
     periods_loaded    = CASE WHEN $3::bool THEN EXCLUDED.periods_loaded ELSE s.periods_loaded END,
     last_outcome      = EXCLUDED.last_outcome,
     consecutive_empty = CASE WHEN $6::text = '` + outcomeEmpty + `' THEN LEAST(s.consecutive_empty + 1, 32767) ELSE 0 END,
-    median_k          = CASE WHEN $7::bool THEN $8::float8 ELSE s.median_k END`
+    median_k          = CASE WHEN $7::bool THEN $8::float8 ELSE s.median_k END,
+    fx_converted      = CASE WHEN $7::bool THEN $9::bool ELSE s.fx_converted END,
+    native_currency   = CASE WHEN $7::bool THEN NULLIF($10::text, '') ELSE s.native_currency END`
 
 // recordAttemptLegacySQL is the 000129 statement (no last_outcome,
 // consecutive_empty or median_k).
@@ -694,7 +702,7 @@ func recordAttemptArgs(a attempt) []any {
 		errText = errText[:1000]
 	}
 	var k *float64
-	if a.SetMedianK && a.MedianK != nil && storable(*a.MedianK) {
+	if a.Measured && a.MedianK != nil && storable(*a.MedianK) {
 		k = a.MedianK
 	}
 	outcome := a.Outcome
@@ -704,7 +712,11 @@ func recordAttemptArgs(a attempt) []any {
 			outcome = outcomeLoaded
 		}
 	}
-	return []any{a.Code, a.At.UTC(), a.Success, errText, a.PeriodsLoaded, outcome, a.SetMedianK, k}
+	native := strings.ToUpper(strings.TrimSpace(a.NativeCurrency))
+	if len(native) > 8 || !a.FXConverted {
+		native = ""
+	}
+	return []any{a.Code, a.At.UTC(), a.Success, errText, a.PeriodsLoaded, outcome, a.Measured, k, a.FXConverted, native}
 }
 
 func (s *pgStore) RecordAttempt(ctx context.Context, a attempt) error {

@@ -11,8 +11,9 @@ const (
 	// (a CDI such as RMD carries ~10 per share), so neither close x shares nor
 	// close / EPS is a valuation.
 	ValuationNoteListedUnit = "listed-unit"
-	// ValuationNoteNonAUD: the statements are not in AUD, so a price-based
-	// ratio would divide an AUD price by a foreign-currency figure.
+	// ValuationNoteNonAUD: the statements are not in AUD (or the vendor's are
+	// FX-converted from another currency), so a price-based ratio would
+	// divide an AUD price by a foreign-currency figure.
 	ValuationNoteNonAUD = "non-aud"
 	// ValuationNoteNoShares: no share count we can vouch for (none within 12
 	// months, or no evidence that the listed unit is one share).
@@ -55,6 +56,12 @@ type ValuationInputs struct {
 	// [0.8, 1.25].
 	KPeriods    int32
 	KConsistent bool
+
+	// FXConverted is stock_fundamentals_sync.fx_converted: the vendor's
+	// statements for this code are converted from another currency (plan
+	// §3.4). Their currency label cannot be trusted (XRO's Yahoo EPS is NZD
+	// under an AUD label), so no statement-based ratio is computed from them.
+	FXConverted bool
 
 	// The newest 12-month EPS across annual and TTM rows (diluted and basic
 	// from the same row), its period end and the row's currency.
@@ -101,6 +108,9 @@ func (v Valuation) HasAny() bool {
 //     the close; nil when E <= 0 or the statements are not AUD.
 //   - P/B = market cap / the aligned total equity of q; AUD statements and
 //     equity > 0 only.
+//   - An FX-converted code (in.FXConverted) gets no P/E or P/B whatever its
+//     rows' currency label says; market cap, a price times a count, is
+//     still governed by the listing evidence alone.
 //
 // in == nil (nothing read, a database before 000132) values nothing and
 // explains nothing.
@@ -142,7 +152,7 @@ func Valuate(close float64, priceAsOf time.Time, in *ValuationInputs, q *Quality
 	}
 	if eps != nil && in.EPSPeriodEnd != nil && !in.EPSPeriodEnd.Before(oldest) {
 		switch {
-		case in.EPSCurrency != audCurrency:
+		case in.FXConverted || in.EPSCurrency != audCurrency:
 			nonAUD = true
 		case *eps > 0:
 			if pe := close / *eps; isFinite(pe) {
@@ -158,7 +168,7 @@ func Valuate(close float64, priceAsOf time.Time, in *ValuationInputs, q *Quality
 			currency = q.Currency
 		}
 		switch {
-		case currency != audCurrency:
+		case in.FXConverted || currency != audCurrency:
 			nonAUD = true
 		case *q.TotalEquity > 0:
 			if pb := *v.MarketCap / *q.TotalEquity; isFinite(pb) {

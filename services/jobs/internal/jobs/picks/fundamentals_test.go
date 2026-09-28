@@ -99,19 +99,6 @@ func (f *fakeStore) ReleaseLease(_ context.Context, holder string) error {
 func (f *fakeStore) FilingExtractions(context.Context) ([]filingExtraction, error) {
 	return f.extractions, nil
 }
-func (f *fakeStore) VendorAnnuals(context.Context) (map[string][]vendorAnnual, error) {
-	return f.vendor, nil
-}
-func (f *fakeStore) UpsertFilingPeriods(_ context.Context, code string, rows []PeriodRow, _ time.Time) error {
-	if err := f.filingUpsertErr[code]; err != nil {
-		return err
-	}
-	if f.filingUpserts == nil {
-		f.filingUpserts = map[string][]PeriodRow{}
-	}
-	f.filingUpserts[code] = rows
-	return nil
-}
 
 func (f *fakeStore) writes() int {
 	return len(f.upserts) + len(f.attempts) + f.refreshed + len(f.filingUpserts)
@@ -235,13 +222,13 @@ func TestRunFundamentalsWritesAndRecordsEveryAttempt(t *testing.T) {
 	assert.True(t, byCode["BHP"].Success)
 	assert.Equal(t, outcomeLoaded, byCode["BHP"].Outcome)
 	assert.Equal(t, len(st.upserts["BHP"]), byCode["BHP"].PeriodsLoaded)
-	assert.True(t, byCode["BHP"].SetMedianK)
+	assert.True(t, byCode["BHP"].Measured)
 	require.NotNil(t, byCode["BHP"].MedianK)
 	assert.InDelta(t, 1.0, *byCode["BHP"].MedianK, 0.05, "BHP's NI / (EPS x shares) is 1")
 
 	assert.Equal(t, outcomeEmpty, byCode["ETF"].Outcome, "Yahoo and Markit both answered with nothing")
 	assert.Contains(t, byCode["ETF"].Err, "no fundamentals published")
-	assert.False(t, byCode["ETF"].SetMedianK)
+	assert.False(t, byCode["ETF"].Measured)
 
 	assert.Equal(t, outcomeFailed, byCode["BAD"].Outcome)
 	assert.Contains(t, byCode["BAD"].Err, "429")
@@ -479,11 +466,40 @@ func TestRunFundamentalsMedianKOnlyWhenYahooAnswered(t *testing.T) {
 	_, err := runFundamentals(context.Background(), testConfig(st, yahoo, markit))
 	require.NoError(t, err, "Yahoo failed for exactly half the codes: not more than half")
 	a := byAttempt(st.attempts)
-	require.True(t, a["RMD"].SetMedianK)
+	require.True(t, a["RMD"].Measured)
 	require.NotNil(t, a["RMD"].MedianK)
 	assert.InDelta(t, 10.1, *a["RMD"].MedianK, 0.2, "a CDI listing: ten CDIs per share, so k is ~10")
 	assert.Equal(t, outcomeLoaded, a["MKT"].Outcome, "loaded from the fallback alone")
-	assert.False(t, a["MKT"].SetMedianK, "Yahoo did not answer: the stored median_k stands")
+	assert.False(t, a["MKT"].Measured, "Yahoo did not answer: the stored median_k stands")
+}
+
+// The FX-converted verdict reaches the sync row, so valuation can withhold
+// on it directly (XRO's Yahoo EPS is NZD under an AUD label).
+func TestRunFundamentalsRecordsFXConverted(t *testing.T) {
+	st := &fakeStore{universe: []string{"XRO", "BHP"}, states: map[string]syncState{}}
+	yahoo := &fakeFetcher{name: sourceYahoo, rows: map[string][]PeriodRow{
+		"XRO": fixtureRows(t, "yahoo_full_XRO.json"),
+		"BHP": fixtureRows(t, "yahoo_full_BHP.json"),
+	}}
+	markit := &fakeFetcher{name: sourceMarkit, rows: map[string][]PeriodRow{"XRO": fixtureRows(t, "markit_key_statistics_XRO.json")}}
+	_, err := runFundamentals(context.Background(), testConfig(st, yahoo, markit))
+	require.NoError(t, err)
+	a := byAttempt(st.attempts)
+	require.True(t, a["XRO"].Measured)
+	assert.True(t, a["XRO"].FXConverted)
+	assert.Equal(t, "NZD", a["XRO"].NativeCurrency, "Markit names the native currency")
+	assert.Nil(t, a["XRO"].MedianK, "every monetary field is rejected, so no k")
+	require.True(t, a["BHP"].Measured)
+	assert.False(t, a["BHP"].FXConverted)
+	assert.Empty(t, a["BHP"].NativeCurrency)
+
+	// Without Markit the flag still lands; the native currency is unknown.
+	st = &fakeStore{universe: []string{"XRO"}, states: map[string]syncState{}}
+	_, err = runFundamentals(context.Background(), testConfig(st, yahoo, nil))
+	require.NoError(t, err)
+	a = byAttempt(st.attempts)
+	assert.True(t, a["XRO"].FXConverted)
+	assert.Empty(t, a["XRO"].NativeCurrency)
 }
 
 func TestRunRefreshFailsOnSkippedViews(t *testing.T) {
