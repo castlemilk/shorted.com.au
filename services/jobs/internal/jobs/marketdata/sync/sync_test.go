@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -382,6 +385,9 @@ func TestPriceSyncWorkflowReadsTheReport(t *testing.T) {
 		// Started detached, so a run that outlasts the wait keeps its name and
 		// can be reported later without starting another.
 		"--async", "report_only", "--task-timeout", "executions describe",
+		// A task_timeout override moves the run budget with it, or the run
+		// would stop at the deployment's budget with hours of its timeout left.
+		"@-budget@",
 	} {
 		assert.Contains(t, wf, want)
 	}
@@ -421,4 +427,46 @@ func TestPriceSyncWorkflowReadsTheReport(t *testing.T) {
 		assert.Contains(t, wf, "."+field, "the workflow reads .%s", field)
 		assert.Contains(t, keys, field)
 	}
+}
+
+// The run budget only means something below the task timeout it sits under,
+// and the two live in different places: the budget is SYNC_RUN_BUDGET in the
+// job's environment and the timeout is timeout_seconds on the same module, both
+// in terraform/environments/prod/main.tf. Read them rather than restate them:
+// raising the timeout without moving the budget only wastes the difference, but
+// raising the budget past the timeout brings back the platform kill this budget
+// exists to prevent. The room between them has to hold the stock in flight when
+// the budget runs out (stockTimeout at worst) and the wrap-up after the loop
+// (checkpoint, coverage view refresh, report), then Cloud Run's SIGTERM grace.
+func TestRunBudgetClearsTheTaskTimeout(t *testing.T) {
+	t.Parallel()
+	const tf = "../../../../../../terraform/environments/prod/main.tf"
+	src, err := os.ReadFile(tf)
+	require.NoError(t, err)
+	start := strings.Index(string(src), `module "shorted_job_price_sync"`)
+	require.GreaterOrEqual(t, start, 0, "no shorted_job_price_sync module in %s — has the price job moved?", tf)
+	block := string(src)[start:]
+	if end := strings.Index(block, "\nmodule \""); end > 0 {
+		block = block[:end]
+	}
+
+	m := regexp.MustCompile(`(?m)^\s*timeout_seconds\s*=\s*(\d+)`).FindStringSubmatch(block)
+	require.NotNil(t, m, "no timeout_seconds on the price job")
+	secs, err := strconv.Atoi(m[1])
+	require.NoError(t, err)
+	timeout := time.Duration(secs) * time.Second
+
+	m = regexp.MustCompile(`(?m)^\s*SYNC_RUN_BUDGET\s*=\s*"([^"]+)"`).FindStringSubmatch(block)
+	require.NotNil(t, m, "the price job sets no SYNC_RUN_BUDGET: a slow run would run to the task timeout and be killed there")
+	budget, err := time.ParseDuration(m[1])
+	require.NoError(t, err, "SYNC_RUN_BUDGET %q is not a duration the job can parse", m[1])
+	assert.Greater(t, budget, time.Duration(0))
+
+	const wrapUp = 10 * time.Minute
+	headroom := timeout - budget
+	assert.GreaterOrEqual(t, headroom, stockTimeout+wrapUp,
+		"SYNC_RUN_BUDGET %s leaves %s under the %s task timeout, but the stock in flight can take %s and the wrap-up needs %s",
+		budget, headroom, timeout, stockTimeout, wrapUp)
+	assert.LessOrEqual(t, headroom, time.Hour,
+		"SYNC_RUN_BUDGET %s leaves %s of the %s task timeout unused; the budget is the ceiling of a catch-up", budget, headroom, timeout)
 }

@@ -30,6 +30,14 @@
 # `latest`, and nothing is started. A task that times out still writes its
 # report (SIGTERM stops the sweep, which then publishes what it did); how the
 # execution itself ended, including a timeout or a retry, is printed beside it.
+#
+# The sweep stops itself before the task timeout: SYNC_RUN_BUDGET on the job
+# (terraform, 30 minutes under its timeout) is how long it keeps taking stocks,
+# after which it publishes its report and exits 10, and the retry resumes from
+# the stalest stock. A task_timeout here therefore also passes -budget, 30
+# minutes under the new timeout, or the run would stop at the deployment's
+# budget with hours of the override unused. A task_timeout under 40 minutes
+# passes no budget: the task's own timeout is the ceiling then, as before.
 name: Price Sync
 
 on:
@@ -163,6 +171,22 @@ jobs:
             if [[ "$DRY_RUN" == "true" ]]; then args+="@-dry-run"; fi
             if [[ -n "$FROM" ]]; then args+="@-from@$FROM"; fi
             if [[ -n "$CODES" ]]; then args+="@-codes@$CODES"; fi
+            if [[ -n "$TASK_TIMEOUT" ]]; then
+              # The run budget follows the task timeout: 30 minutes under it,
+              # as the deployed pair is (terraform: SYNC_RUN_BUDGET, 5h30m
+              # under a 6h timeout). Validated above as <digits><s|m|h>.
+              case "${TASK_TIMEOUT: -1}" in
+                h) timeout_seconds=$(( ${TASK_TIMEOUT%h} * 3600 )) ;;
+                m) timeout_seconds=$(( ${TASK_TIMEOUT%m} * 60 )) ;;
+                *) timeout_seconds=$(( ${TASK_TIMEOUT%s} )) ;;
+              esac
+              budget_seconds=$(( timeout_seconds - 30 * 60 ))
+              if (( budget_seconds >= 10 * 60 )); then
+                args+="@-budget@${budget_seconds}s"
+              else
+                echo "::notice::task_timeout $TASK_TIMEOUT leaves no room for a run budget; the task timeout is the ceiling"
+              fi
+            fi
           fi
           overrides=()
           if [[ -n "$TASK_TIMEOUT" ]]; then overrides+=(--task-timeout "$TASK_TIMEOUT"); fi
