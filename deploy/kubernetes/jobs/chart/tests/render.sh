@@ -105,7 +105,10 @@ done
 for job in shorted-weekly-report shorted-weekly-report-monthly; do
   [[ "$(secret_key "${tmp}/default.yaml" "${job}" GEMINI_API_KEY)" == "GEMINI_API_KEY" ]] || fail "${job}: GEMINI_API_KEY key"
 done
-pass "Gemini keys stay isolated per workload"
+[[ "$(secret_key "${tmp}/default.yaml" financial-report-extractor OPENROUTER_API_KEY)" == "OPENROUTER_API_KEY" ]] \
+  && [[ "$(field "${tmp}/default.yaml" financial-report-extractor '.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "EXTRACTOR_BACKEND") | .value')" == "openrouter" ]] \
+  || fail "financial-report-extractor must run the openrouter backend with its key"
+pass "Gemini keys stay isolated per workload; the financial extractor runs on OpenRouter"
 
 # --- 4. Keyless GCP auth only where a job writes to GCS. ----------------------
 wif_jobs="$(yq -N 'select(.kind == "CronJob") | select(.spec.jobTemplate.spec.template.spec.containers[0].env[] | select(.name == "GOOGLE_APPLICATION_CREDENTIALS")) | .metadata.name' "${tmp}/default.yaml" | sort | tr '\n' ' ')"

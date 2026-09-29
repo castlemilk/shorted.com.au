@@ -414,8 +414,15 @@ jobs:
       GEMINI_MAX_RUN_ITEMS: "120"
       GEMINI_MAX_RUN_WORKERS: "4"
       GCS_REPORTS_BUCKET: shorted-financial-reports-prod
+      # OpenRouter direct extraction with consensus (direct_extract.py,
+      # PR #658); mirrors module.report_extractor's extractor_models.
+      EXTRACTOR_BACKEND: openrouter
+      EXTRACTOR_PRIMARY_MODEL: deepseek/deepseek-v4-flash
+      EXTRACTOR_CHECKER_MODEL: google/gemini-2.5-flash-lite
+      EXTRACTOR_ARBITER_MODEL: google/gemini-2.5-flash
     secretEnv:
       LANGEXTRACT_API_KEY: GEMINI_API_KEY_REPORT_EXTRACTOR
+      OPENROUTER_API_KEY: OPENROUTER_API_KEY
     # Writes report PDFs to gs://shorted-financial-reports-prod.
     gcpServiceAccount: report-extractor@rosy-clover-477102-t5.iam.gserviceaccount.com
 
