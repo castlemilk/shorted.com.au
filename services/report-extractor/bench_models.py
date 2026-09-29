@@ -21,6 +21,8 @@ Providers:
   deepseek:<model>  OpenAI-compatible https://api.deepseek.com, key DEEPSEEK_API_KEY,
                     thinking disabled (it bills output tokens and the job does not use it)
   openai:<model>    OpenAI, key OPENAI_API_KEY
+  openrouter:<vendor/model>  OpenRouter, key OPENROUTER_API_KEY, reasoning disabled;
+                    cost is OpenRouter's billed usage.cost, not a list-price estimate
   compat:<model>@<base_url>  any other OpenAI-compatible endpoint, key COMPAT_API_KEY
 
 Nothing is written to the database or GCS.
@@ -35,6 +37,7 @@ import sys
 import threading
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
 
 import requests
@@ -72,6 +75,7 @@ DEFAULT_DOCS = [
 ]
 
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 
 class Usage:
@@ -80,6 +84,8 @@ class Usage:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self.prompt = self.cached = self.output = self.reasoning = self.responses = 0
+        self.billed = 0.0  # OpenRouter usage.cost (USD); 0 when the provider reports none
+        self.has_billed = False
 
     def add(self, u: Any) -> None:
         def g(obj: Any, name: str) -> int:
@@ -97,6 +103,12 @@ class Usage:
             self.output += g(u, "completion_tokens")
             self.reasoning += g(details_out, "reasoning_tokens")
             self.responses += 1
+            billed = getattr(u, "cost", None) if u is not None else None
+            if billed is None and u is not None:
+                billed = (getattr(u, "model_extra", None) or {}).get("cost")
+            if isinstance(billed, (int, float)):
+                self.billed += float(billed)
+                self.has_billed = True
 
 
 def build_openai_compatible(model_id: str, base_url: Optional[str], api_key: str, usage: Usage,
@@ -106,11 +118,13 @@ def build_openai_compatible(model_id: str, base_url: Optional[str], api_key: str
     extra_body, which DeepSeek needs to switch thinking off)."""
     from langextract.providers.openai import OpenAILanguageModel
 
+    body = dict(extra_body or {})
+
     class Captured(OpenAILanguageModel):
         def _build_chat_completions_params(self, prompt: str, config: dict) -> dict:
             params = super()._build_chat_completions_params(prompt, config)
-            if extra_body:
-                params["extra_body"] = extra_body
+            if body:
+                params["extra_body"] = dict(body)
             return params
 
     model = Captured(model_id=model_id, api_key=api_key, base_url=base_url, max_workers=max_workers,
@@ -118,7 +132,20 @@ def build_openai_compatible(model_id: str, base_url: Optional[str], api_key: str
     create = model._client.chat.completions.create
 
     def create_and_count(*args: Any, **kwargs: Any) -> Any:
-        resp = create(*args, **kwargs)
+        try:
+            resp = create(*args, **kwargs)
+        except Exception as e:  # noqa: BLE001 - re-raised unless it is the one case handled
+            # Some models (OpenAI GPT-5, GLM) refuse reasoning OFF ("Reasoning
+            # mandatory endpoint cannot disabled"). Fall back, once and for the
+            # rest of the run, to the smallest reasoning they accept: its tokens
+            # are billed and reported, so the cost comparison stays honest.
+            msg = str(e).lower()
+            if "reasoning" not in msg or "mandatory" not in msg or body.get("reasoning") == {"effort": "minimal"}:
+                raise
+            body["reasoning"] = {"effort": "minimal"}
+            kwargs["extra_body"] = dict(body)
+            print(f"  {model_id}: reasoning cannot be disabled; using effort=minimal", file=sys.stderr)
+            resp = create(*args, **kwargs)
         usage.add(getattr(resp, "usage", None))
         return resp
 
@@ -142,6 +169,12 @@ def build(spec: str) -> tuple[str, Any, Any]:
         key = os.environ.get("DEEPSEEK_API_KEY") or sys.exit("deepseek: set DEEPSEEK_API_KEY")
         return rest, build_openai_compatible(rest, DEEPSEEK_BASE_URL, key, usage,
                                              extra_body={"thinking": {"type": "disabled"}}), usage
+    if provider == "openrouter":
+        key = os.environ.get("OPENROUTER_API_KEY") or sys.exit("openrouter: set OPENROUTER_API_KEY")
+        return rest, build_openai_compatible(rest, OPENROUTER_BASE_URL, key, usage, extra_body={
+            "reasoning": {"enabled": False},
+            "usage": {"include": True},
+        }), usage
     if provider == "openai":
         key = os.environ.get("OPENAI_API_KEY") or sys.exit("openai: set OPENAI_API_KEY")
         return rest, build_openai_compatible(rest, None, key, usage), usage
@@ -157,10 +190,13 @@ def tokens(usage: Any) -> dict:
         return {"prompt": usage.prompt, "cached": 0, "output": usage.candidates + usage.thoughts,
                 "reasoning": usage.thoughts, "responses": usage.responses}
     return {"prompt": usage.prompt, "cached": usage.cached, "output": usage.output,
-            "reasoning": usage.reasoning, "responses": usage.responses}
+            "reasoning": usage.reasoning, "responses": usage.responses,
+            "billed": usage.billed if usage.has_billed else None}
 
 
 def cost(model_id: str, t: dict) -> Optional[float]:
+    if t.get("billed") is not None:
+        return t["billed"]
     p = PRICES.get(model_id)
     if not p:
         return None
@@ -210,7 +246,11 @@ def main() -> None:
             print(f"fetched {code}: FAILED, skipping", file=sys.stderr)
 
     results: dict = defaultdict(dict)
-    for spec in specs:
+
+    def run_model(spec: str) -> None:
+        # One thread per model: models are independent, so a slow provider
+        # does not serialise the rest. Documents within a model stay in order,
+        # which keeps its per-document token deltas exact.
         model_id, model, usage = models[spec]
         for code, text in texts.items():
             before = tokens(usage)
@@ -221,21 +261,24 @@ def main() -> None:
             except Exception as e:  # noqa: BLE001 - recorded per document
                 kept, err = [], str(e)[:300]
             after = tokens(usage)
-            t = {k: after[k] - before[k] for k in after}
+            t = {k: None if after[k] is None else after[k] - (before[k] or 0) for k in after}
             results[spec][code] = {
                 "kept": len(kept), "values": sorted(values(kept)), "error": err,
                 "seconds": round(time.time() - start, 1), "tokens": t, "cost": cost(model_id, t),
                 "metrics": extract.extractions_to_metrics(kept) if kept else {},
             }
-            print(f"{spec:32} {code:5} kept={len(kept):3} {t['prompt']:>7,}in {t['output']:>6,}out "
+            print(f"{spec:40} {code:5} kept={len(kept):3} {t['prompt']:>7,}in {t['output']:>6,}out "
                   f"{time.time() - start:5.1f}s {'ERR ' + err[:80] if err else ''}", file=sys.stderr)
+
+    with ThreadPoolExecutor(max_workers=len(specs)) as pool:
+        list(pool.map(run_model, specs))
 
     ref = results[reference]
     print(f"\n{len(texts)} documents, reference = {reference}\n")
-    print(f"{'model':32} {'kept':>5} {'agree%':>7} {'errors':>6} {'in tok':>9} {'cached':>8} "
+    print(f"{'model':40} {'kept':>5} {'agree%':>7} {'errors':>6} {'in tok':>9} {'cached':>8} "
           f"{'out tok':>8} {'s/doc':>6} {'$/doc':>8} {'$/night':>8}")
     for spec in specs:
-        rows = results[spec]
+        rows = {c: results[spec][c] for c in texts if c in results[spec]}
         n = len(rows) or 1
         kept = sum(r["kept"] for r in rows.values())
         errors = sum(1 for r in rows.values() if r["error"])
@@ -252,7 +295,7 @@ def main() -> None:
         secs = sum(r["seconds"] for r in rows.values()) / n
         pct = f"{100 * agree / both:6.1f}%" if both else "     -"
         money = f"{per_doc:8.4f} {per_doc * args.daily_docs:8.2f}" if per_doc is not None else f"{'?':>8} {'?':>8}"
-        print(f"{spec:32} {kept:5} {pct:>7} {errors:6} {tin:9,} {tc:8,} {tout:8,} {secs:6.1f} {money}")
+        print(f"{spec:40} {kept:5} {pct:>7} {errors:6} {tin:9,} {tc:8,} {tout:8,} {secs:6.1f} {money}")
 
     print("\nDisagreements with the reference (check these against the PDF):")
     for spec in specs:

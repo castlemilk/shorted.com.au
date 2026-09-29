@@ -31,3 +31,11 @@ def test_usage_reads_deepseek_and_openai_cache_fields():
                           completion_tokens_details=SimpleNamespace(reasoning_tokens=3)))
     u.add(None)
     assert (u.prompt, u.cached, u.output, u.reasoning, u.responses) == (150, 80, 15, 3, 3)
+
+
+def test_billed_cost_wins_over_list_price():
+    u = bm.Usage()
+    u.add(SimpleNamespace(prompt_tokens=1000, completion_tokens=10, cost=0.00042))
+    t = bm.tokens(u)
+    assert t["billed"] == 0.00042
+    assert bm.cost("deepseek-flash", t) == 0.00042
