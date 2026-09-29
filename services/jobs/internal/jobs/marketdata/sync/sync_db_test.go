@@ -393,6 +393,50 @@ func TestPruneAgainstPostgres(t *testing.T) {
 	assert.Equal(t, 1, count(`SELECT count(*) FROM stock_prices WHERE date = '2025-11-09'`))
 }
 
+// TestPruneOutlastsTheRoleTimeout: every statement the prune runs against the
+// table scans all of it, and on prod a scan outlasts the role's default
+// timeout. The first live prune (2026-09-29) timed out counting weekend rows
+// before it deleted anything. Here a 1ms default stands in for prod's two
+// minutes, against a table big enough that a scan takes longer.
+func TestPruneOutlastsTheRoleTimeout(t *testing.T) {
+	pool := newPriceDB(t)
+	ctx := context.Background()
+	count := func(sql string) int {
+		t.Helper()
+		var n int
+		require.NoError(t, pool.QueryRow(ctx, sql).Scan(&n))
+		return n
+	}
+	_, err := pool.Exec(ctx, `INSERT INTO stock_prices (stock_code, date, close)
+		SELECT 'S' || lpad(c::text, 4, '0'), d::date, 1.0
+		FROM generate_series(1, 300) c, generate_series('2023-01-02'::date, '2025-12-31'::date, '1 day') d`)
+	require.NoError(t, err)
+	weekend := count(`SELECT count(*) FROM stock_prices WHERE EXTRACT(ISODOW FROM date) IN (6, 7)`)
+	holiday := count(`SELECT count(*) FROM stock_prices WHERE date IN ('2025-12-25', '2025-12-26')`)
+
+	cfg := pool.Config().Copy()
+	cfg.ConnConfig.RuntimeParams["statement_timeout"] = "1"
+	tight, err := pgxpool.NewWithConfig(ctx, cfg)
+	require.NoError(t, err)
+	t.Cleanup(tight.Close)
+	_, err = tight.Exec(ctx, `SELECT count(*) FROM stock_prices WHERE EXTRACT(ISODOW FROM date) IN (6, 7)`)
+	require.ErrorContains(t, err, "statement timeout", "the table must be big enough for one scan to outlast the default")
+
+	provider := &fakeProvider{name: "yahoo", fn: sessionsExcept("2025-12-25", "2025-12-26")}
+	m := NewSyncManager(tight, nil, &config.Config{}, []providers.DataProvider{provider})
+	m.now = func() time.Time { return time.Date(2026, 1, 9, 10, 0, 0, 0, time.UTC) }
+
+	report, err := m.Prune(ctx, PruneOptions{DryRun: true})
+	require.NoError(t, err)
+	assert.Equal(t, weekend, report.WeekendRows)
+	assert.Equal(t, holiday, report.HolidayRows)
+
+	report, err = m.Prune(ctx, PruneOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, weekend+holiday, report.Deleted)
+	assert.Zero(t, count(`SELECT count(*) FROM stock_prices WHERE EXTRACT(ISODOW FROM date) IN (6, 7)`))
+}
+
 // TestPricePrecisionMigration applies 000131 to a table still at two decimals,
 // with the views that read it, as prod has them.
 func TestPricePrecisionMigration(t *testing.T) {
