@@ -87,7 +87,7 @@ variable "reports_scheduler_paused" {
 }
 
 variable "openrouter_secret_name" {
-  description = "Secret Manager id holding an OpenRouter API key. When set, financial-report-extractor runs --backend openrouter: one validated call per document (DeepSeek primary, cheapest-Gemini checker, Gemini arbiter; services/report-extractor/direct_extract.py). Empty keeps the langextract + Gemini path. The secret must EXIST before apply, or the job revision is rejected."
+  description = "Secret Manager id holding an OpenRouter API key. When set, financial-report-extractor and director-trade-extractor run --backend openrouter: one validated call per document with consensus (DeepSeek primary, cheapest-Gemini checker, Gemini arbiter; services/report-extractor/direct_extract.py, director_direct.py). Empty keeps the langextract + Gemini path. The secret must EXIST before apply, or the job revision is rejected."
   type        = string
   default     = ""
 }

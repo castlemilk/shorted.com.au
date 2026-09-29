@@ -477,6 +477,14 @@ def parse_answer(content: str) -> dict:
     s = (content or "").strip()
     s = re.sub(r"^```(?:json)?\s*", "", s)
     s = re.sub(r"\s*```$", "", s)
+    # Some models wrap the object in a one-element array ([{...}]): unwrap it.
+    if s.startswith("["):
+        try:
+            arr = json.loads(s)
+        except ValueError:
+            arr = None
+        if isinstance(arr, list) and len(arr) == 1 and isinstance(arr[0], dict):
+            return arr[0]
     i, j = s.find("{"), s.rfind("}")
     if i < 0 or j <= i:
         return {}
