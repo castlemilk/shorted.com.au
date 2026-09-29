@@ -6,6 +6,8 @@ import (
 	"log"
 	"sort"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // pruneReferences are the stocks whose sessions define the ASX's trading
@@ -88,8 +90,8 @@ func (m *SyncManager) Prune(ctx context.Context, opts PruneOptions) (*PruneRepor
 func (m *SyncManager) prune(ctx context.Context, opts PruneOptions, r *PruneReport) error {
 	from := opts.From
 	if from.IsZero() {
-		var first *time.Time
-		if err := m.db.QueryRow(ctx, `SELECT MIN(date) FROM stock_prices`).Scan(&first); err != nil {
+		first, err := m.firstStoredSession(ctx)
+		if err != nil {
 			return fmt.Errorf("read the first stored session: %w", err)
 		}
 		if first == nil {
@@ -112,10 +114,18 @@ func (m *SyncManager) prune(ctx context.Context, opts PruneOptions, r *PruneRepo
 		return err
 	}
 
-	if r.WeekendRowsByYear, err = m.countBy(ctx, weekendRowsByYearQuery); err != nil {
+	// The counts and the deletes share one transaction, so a dry run counts
+	// exactly what a live run deletes, and each of them runs under the
+	// transaction's timeout rather than the role's.
+	tx, err := m.beginFullScan(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if r.WeekendRowsByYear, err = countBy(ctx, tx, weekendRowsByYearQuery); err != nil {
 		return fmt.Errorf("count weekend rows: %w", err)
 	}
-	if r.HolidayRowsByDate, err = m.countBy(ctx, holidayRowsByDateQuery, r.Holidays); err != nil {
+	if r.HolidayRowsByDate, err = countBy(ctx, tx, holidayRowsByDateQuery, r.Holidays); err != nil {
 		return fmt.Errorf("count holiday rows: %w", err)
 	}
 	r.WeekendRows, r.HolidayRows = sum(r.WeekendRowsByYear), sum(r.HolidayRowsByDate)
@@ -123,15 +133,6 @@ func (m *SyncManager) prune(ctx context.Context, opts PruneOptions, r *PruneRepo
 		return nil
 	}
 
-	tx, err := m.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	// Each delete scans the table; the role's default timeout is minutes.
-	if _, err := tx.Exec(ctx, `SET LOCAL statement_timeout = '15min'`); err != nil {
-		return err
-	}
 	weekend, err := tx.Exec(ctx, `DELETE FROM stock_prices WHERE EXTRACT(ISODOW FROM date) IN (6, 7) AND `+asxCode)
 	if err != nil {
 		return fmt.Errorf("delete weekend rows: %w", err)
@@ -167,8 +168,42 @@ const holidayRowsByDateQuery = `
 	WHERE date = ANY($1::date[]) AND ` + asxCode + `
 	GROUP BY 1`
 
-func (m *SyncManager) countBy(ctx context.Context, query string, args ...any) (map[string]int, error) {
-	rows, err := m.db.Query(ctx, query, args...)
+// fullScanTimeout bounds each statement the prune runs against the table, all
+// of which scan it. The role's default (two minutes on prod) fits none of them
+// reliably: the first live prune, on 2026-09-29, timed out counting weekend
+// rows, where the dry run's same count had fitted. SET LOCAL, because a
+// session setting does not survive the transaction pooler.
+const fullScanTimeout = "15min"
+
+// beginFullScan opens a transaction whose statements may each run for
+// fullScanTimeout.
+func (m *SyncManager) beginFullScan(ctx context.Context) (pgx.Tx, error) {
+	tx, err := m.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx, `SET LOCAL statement_timeout = '`+fullScanTimeout+`'`); err != nil {
+		_ = tx.Rollback(context.WithoutCancel(ctx))
+		return nil, err
+	}
+	return tx, nil
+}
+
+// firstStoredSession is the earliest date stock_prices holds, nil when it
+// holds none.
+func (m *SyncManager) firstStoredSession(ctx context.Context) (*time.Time, error) {
+	tx, err := m.beginFullScan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	var first *time.Time
+	err = tx.QueryRow(ctx, `SELECT MIN(date) FROM stock_prices`).Scan(&first)
+	return first, err
+}
+
+func countBy(ctx context.Context, tx pgx.Tx, query string, args ...any) (map[string]int, error) {
+	rows, err := tx.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
