@@ -306,8 +306,35 @@ def _main_with(monkeypatch, outcomes, argv=()):
     monkeypatch.setattr(runner, "select_reports", lambda conn, recent, limit: reports)
     by_url = {r["url"]: o for r, o in zip(reports, outcomes)}
     monkeypatch.setattr(runner, "process", lambda report, **kw: by_url[report["url"]])
-    monkeypatch.setattr("sys.argv", ["extract_reports_concurrent.py", "--workers", "1", *argv])
+    monkeypatch.setattr("sys.argv", ["extract_reports_concurrent.py", "--workers", "1", "--backend", "gemini", *argv])
     runner.main()
+
+
+def test_openrouter_backend_refuses_to_run_without_its_key(monkeypatch):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "k")  # a Gemini key does not stand in for it
+    monkeypatch.setattr(runner, "open_selection_connection", lambda: pytest.fail("selected with no key"))
+    monkeypatch.setattr("sys.argv", ["extract_reports_concurrent.py", "--backend", "openrouter"])
+    with pytest.raises(SystemExit) as exc:
+        runner.main()
+    assert exc.value.code == 1
+
+
+def test_openrouter_backend_hands_every_worker_the_direct_extractor(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "k")
+    monkeypatch.setenv("GEMINI_MAX_RUN_ITEMS", "50")
+    monkeypatch.setenv("EXTRACTOR_CHECKER_MODEL", "google/gemini-2.5-flash-lite")
+    monkeypatch.setattr(runner, "open_selection_connection", lambda: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(extract, "document_meta_column_exists", lambda conn: True)
+    monkeypatch.setattr(runner, "select_reports", lambda conn, recent, limit: [REPORT])
+    seen = []
+    monkeypatch.setattr(runner, "process", lambda report, **kw: seen.append(kw.get("direct")) or "ok")
+    monkeypatch.setattr("sys.argv", ["extract_reports_concurrent.py", "--workers", "1"])
+    runner.main()
+    assert len(seen) == 1 and seen[0] is not None
+    assert seen[0].primary == "deepseek/deepseek-v4-flash"
+    assert seen[0].checker == "google/gemini-2.5-flash-lite"
+    assert seen[0].denylist is extract.FEWSHOT_DENYLIST
 
 
 def test_main_exits_non_zero_after_printing_the_counts_when_model_errors_are_systemic(monkeypatch, caplog):

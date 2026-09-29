@@ -142,6 +142,13 @@ def gemini_key_present() -> bool:
     return bool((os.environ.get("GEMINI_API_KEY") or os.environ.get("LANGEXTRACT_API_KEY") or "").strip())
 
 
+def openrouter_key_present() -> bool:
+    return bool((os.environ.get("OPENROUTER_API_KEY") or "").strip())
+
+
+BACKENDS = ("openrouter", "gemini")
+
+
 def open_selection_connection():
     """The selection connection: autocommit, so the selection queries leave no
     transaction open behind them."""
@@ -249,6 +256,7 @@ def process(
     dry_run: bool,
     write_meta: bool = False,
     usage: Optional[TokenUsage] = None,
+    direct: Any = None,
 ) -> str:
     """Extract one company's document (or, when it cannot be read, the next of
     its fallbacks) and store the row. A model error stores nothing and returns
@@ -261,15 +269,19 @@ def process(
     if text is None:
         return fetched
     try:
-        metrics, digest, meta, outcome = extract.process_report_text(doc, text, model, usage=usage)
+        extra = {"direct": direct} if direct is not None else {}
+        metrics, digest, meta, outcome = extract.process_report_text(doc, text, model, usage=usage, **extra)
     except extract.ModelError as e:
         log.warning("  %s %s: model error, not stored (the next run retries it): %s", doc["stock_code"], doc["url"], e)
         return extract.MODEL_ERROR
-    # GCS upload is best-effort; never fail the report on it.
-    try:
-        gcs_url = extract.upload_raw_text_to_gcs(doc["stock_code"], doc["url"], text)
-    except Exception:  # noqa: BLE001
-        gcs_url = None
+    # GCS upload is best-effort; never fail the report on it. A dry run writes
+    # nothing anywhere, the report bucket included.
+    gcs_url = None
+    if not dry_run:
+        try:
+            gcs_url = extract.upload_raw_text_to_gcs(doc["stock_code"], doc["url"], text)
+        except Exception:  # noqa: BLE001
+            gcs_url = None
     # The first database touch for this report: after the download and every
     # model call, one autocommit statement.
     extract.store_extraction(
@@ -287,6 +299,7 @@ def process_digestless(
     dry_run: bool,
     write_meta: bool = False,
     usage: Optional[TokenUsage] = None,
+    direct: Any = None,
 ) -> str:
     """Re-summarise one already-extracted row that has no digest. Prefers stored GCS
     text; only re-downloads the PDF if the text isn't in GCS."""
@@ -317,7 +330,10 @@ def process_digestless(
     # summarize_report applies the trust funnel to the stored metrics before
     # they reach the prompt; the stored metrics themselves are rewritten as-is.
     try:
-        digest = extract.summarize_report(metrics, text, model_id=model, usage=usage)
+        if direct is not None:
+            digest = extract.summarize_report_openrouter(metrics, text, direct.client, direct.primary, usage=usage)
+        else:
+            digest = extract.summarize_report(metrics, text, model_id=model, usage=usage)
     except extract.ModelError as e:
         log.warning("  %s %s: digest model error, not stored: %s", report.get("stock_code"), report.get("url"), e)
         return extract.MODEL_ERROR
@@ -456,7 +472,10 @@ def main():
     ap.add_argument("--recent", type=int, default=2, help="newest N results documents per company considered")
     ap.add_argument("--limit", type=int, default=0, help="cap total reports (0=all, still capped by GEMINI_MAX_RUN_ITEMS)")
     ap.add_argument("--workers", type=int, default=4)
-    ap.add_argument("--model", type=str, default="gemini-2.5-flash")
+    ap.add_argument("--backend", choices=BACKENDS, default=os.environ.get("EXTRACTOR_BACKEND") or "openrouter",
+                    help="openrouter (default): one validated call per document, DeepSeek primary + cheapest-Gemini "
+                         "consensus (direct_extract.py; models via EXTRACTOR_*_MODEL). gemini: the langextract path.")
+    ap.add_argument("--model", type=str, default="gemini-2.5-flash", help="langextract model (--backend gemini only)")
     ap.add_argument("--max-pages", type=int, default=extract.DEFAULT_MAX_PAGES)
     ap.add_argument("--budget-min", type=float, default=DEFAULT_BUDGET_MIN,
                     help="stop starting new reports after this many minutes (in-flight reports finish)")
@@ -489,9 +508,21 @@ def main():
     # Without a key every model call fails (each would count as a model error
     # and store nothing): fail before selecting anything. A dry run writes
     # nothing, so it may run without one.
-    if not args.dry_run and not gemini_key_present():
+    if args.backend == "openrouter":
+        if not args.dry_run and not openrouter_key_present():
+            log.error("--backend openrouter needs OPENROUTER_API_KEY: refusing to run (nothing selected, nothing written)")
+            sys.exit(1)
+    elif not args.dry_run and not gemini_key_present():
         log.error("No GEMINI_API_KEY / LANGEXTRACT_API_KEY set: refusing to run (nothing selected, nothing written)")
         sys.exit(1)
+    direct = None
+    if args.backend == "openrouter" and openrouter_key_present():
+        import direct_extract
+
+        direct = direct_extract.from_env()
+        direct.denylist = extract.FEWSHOT_DENYLIST
+        log.info("Backend openrouter: primary=%s checker=%s arbiter=%s strict=%s",
+                 direct.primary, direct.checker, direct.arbiter, direct.strict)
 
     conn = open_selection_connection()
     try:
@@ -523,7 +554,7 @@ def main():
     worker = timed(
         functools.partial(
             base_worker, model=args.model, max_pages=args.max_pages,
-            dry_run=args.dry_run, write_meta=write_meta,
+            dry_run=args.dry_run, write_meta=write_meta, direct=direct,
         ),
         run_usage,
     )
@@ -538,6 +569,8 @@ def main():
         (time.monotonic() - started) / 60, dict(counts), submitted, len(reports), len(reports) - submitted,
     )
     log.info("Gemini tokens this run: %s", run_usage.summary())
+    if direct is not None:
+        log.info("Direct extraction: %s", dict(direct.stats))
     if counts[extract.MODEL_ERROR]:
         # Nothing was stored for these documents; the next run retries them.
         log.error(

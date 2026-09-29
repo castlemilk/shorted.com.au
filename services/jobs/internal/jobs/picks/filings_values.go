@@ -20,10 +20,12 @@ var (
 	// separators, optional decimals.
 	numberRe = regexp.MustCompile(`\(?-?\d[\d,]*(?:\.\d+)?\)?`)
 	// Scale words directly after a number.
-	scaleRe = regexp.MustCompile(`(?i)^\s*(billion|bn|b|million|mn|mill|m|thousand|k|'000|000s)\b`)
+	scaleRe = regexp.MustCompile(`(?i)^\s*(billion|bn|b|million|mn|mill|m|thousand|k|['’]000|000s)\b`)
 	// Table-heading markers that say bare numbers are millions / thousands.
-	millionsMarkerRe  = regexp.MustCompile(`(?i)\$\s?m\b|\$\s?million\b|\(\s?\$?m\s?\)|\$'?m\b|\bm\$|\bin millions\b`)
-	thousandsMarkerRe = regexp.MustCompile(`(?i)\$\s?'?000\b|\$000s?\b|\bin thousands\b|\(\s?\$?'000\s?\)`)
+	// ['’]: PDF text layers carry the typographic apostrophe ("$’000") as
+	// often as the ASCII one; missing it withheld every figure in such tables.
+	millionsMarkerRe  = regexp.MustCompile(`(?i)\$\s?m\b|\$\s?million\b|\(\s?\$?m\s?\)|\$['’]?m\b|\bm\$|\bin millions\b`)
+	thousandsMarkerRe = regexp.MustCompile(`(?i)\$\s?['’]?000\b|\$000s?\b|\bin thousands\b|\(\s?\$?['’]000\s?\)`)
 
 	// nonStatutoryRe is gate 5 (plan fundamentals-coverage.md §4.2): a quote
 	// naming a non-statutory, partial or pre-tax figure is not the company's

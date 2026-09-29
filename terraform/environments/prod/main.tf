@@ -1453,7 +1453,13 @@ module "report_extractor" {
   gemini_secret_exists = true
   gemini_secret_name   = "GEMINI_API_KEY_REPORT_EXTRACTOR"
   reports_bucket       = local.shared_asset_buckets.financial_reports
-  director_limit       = 20
+  # Director trades: 200 Appendix 3Y notices a day (was 20). The consensus
+  # extractor (director_direct.py) measured ~$0.0006 and ~11 s per notice per
+  # worker (2026-09-29 prod dry run), so a run is ~18 min of the 60-min
+  # timeout at 2 workers and ~$0.12 a day. 20 a day could never clear the
+  # ~1,260 notices the July-September outage misrecorded, let alone the
+  # ~24,000 rows still "Unknown Director" or valueless.
+  director_limit = 200
   # Financial reports: 120 a day, daily 14:00 UTC (was 40, Wed + Sun), per
   # docs/plans/fundamentals-coverage.md 6.2. This run is the ONLY path to
   # half-year totals for the stock picker: Yahoo carries no ASX half-years, and
@@ -1479,6 +1485,14 @@ module "report_extractor" {
   # CronJobs director-trade-extractor / financial-report-extractor on VKE.
   director_scheduler_paused = contains(local.jobs_on_vke, "director-trade-extractor")
   reports_scheduler_paused  = contains(local.jobs_on_vke, "financial-report-extractor")
+
+  # Financial reports extract through OpenRouter: one validated call per
+  # document, DeepSeek primary + cheapest-Gemini consensus
+  # (services/report-extractor/direct_extract.py; module extractor_models).
+  # The per-workload Gemini key above has been rejected as API_KEY_INVALID
+  # since 2026-08-30, so this is also the fix for a month of empty runs.
+  # ORDERING: the secret must exist before apply.
+  openrouter_secret_name = "OPENROUTER_API_KEY"
 
   depends_on = [
     google_project_service.required_apis,
