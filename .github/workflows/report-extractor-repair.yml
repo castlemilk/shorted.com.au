@@ -1,0 +1,80 @@
+# Report extractor echo repair: run the financial-report-extractor job once
+# with `--repair-echo-digests`, on demand.
+#
+# Before the trust funnel (docs/plans/fundamentals-coverage.md §6.1), the
+# extractor's prompt example leaked into stored metrics (revenue $5,142m, NPAT
+# $1,823m, EPS 94.2c as BHP, CBA, DRO, EDV and MSB results), and the digests
+# written from those metrics repeat the figures. The API withholds any filing
+# summary whose metrics still carry such an entry. This run drops ONLY the echo
+# entries from those rows (everything else is kept verbatim) and writes a new
+# digest through the trusted prompt, or digest NULL when none can be written,
+# so the summaries come back. It is a one-off after the deploy, and safe to
+# re-run: a clean row is not selected again.
+#
+# It executes the SAME job the daily schedule runs. `--args` replaces the
+# deployed args and keeps the image's command (python
+# extract_reports_concurrent.py), so the flags below are the whole run.
+# Default is a dry run: it selects and logs the rows and writes nothing.
+#
+# CI cannot read Cloud Logging (project-level log access is deliberately not
+# granted), so this workflow reports the execution's outcome and name; the row
+# list and per-row outcomes are in the job's logs.
+name: Report Extractor Repair
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview only: list the rows it would repair, write nothing"
+        type: boolean
+        required: true
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: report-extractor-repair
+  cancel-in-progress: false
+
+env:
+  PROJECT: rosy-clover-477102-t5
+  REGION: australia-southeast2
+  JOB: financial-report-extractor
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    # A handful of rows, each one digest call; the job's own timeout is 2h.
+    timeout-minutes: 130
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Execute the repair
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -uo pipefail
+          args="--repair-echo-digests,--workers,2"
+          if [[ "$DRY_RUN" == "true" ]]; then args+=",--dry-run"; fi
+          echo "Executing $JOB with args: $args"
+
+          gcloud run jobs execute "$JOB" --project "$PROJECT" --region "$REGION" \
+            --args="$args" --wait 2>&1 | tee "$RUNNER_TEMP/execute.log"
+          rc=${PIPESTATUS[0]}
+
+          execution="$(grep -oE 'Execution \[[a-z0-9-]+\]' "$RUNNER_TEMP/execute.log" | head -n1 | tr -d '[]' | awk '{print $2}' || true)"
+          {
+            echo "## Report extractor echo repair $([[ "$DRY_RUN" == "true" ]] && echo "PREVIEW (dry run, nothing written)")"
+            echo
+            echo "Execution \`${execution:-unknown}\` exited $rc. The rows it selected and their outcomes are in the job's logs."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
