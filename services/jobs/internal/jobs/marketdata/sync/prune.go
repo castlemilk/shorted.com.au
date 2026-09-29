@@ -2,16 +2,40 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sort"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // pruneReferences are the stocks whose sessions define the ASX's trading
 // calendar. A weekday on which none of them traded was a market holiday: ten
 // of the largest names do not all halt on the same day for any other reason.
 var pruneReferences = []string{"BHP", "CBA", "CSL", "NAB", "WBC", "ANZ", "RIO", "WES", "TLS", "WOW"}
+
+// pruneStatementTimeout bounds each of the prune's statements. Every one of
+// them reads the whole table (a weekday cannot be indexed), and the role's
+// default statement timeout is 2 minutes: the dry run of 2026-09-28 counted
+// 362,943 weekend rows inside it, and the live run of 2026-09-29 did not
+// ("count weekend rows: canceling statement due to statement timeout"). Set
+// on the prune's own transaction only, never on the connection, so no other
+// statement on the pool inherits it.
+const pruneStatementTimeout = "15min"
+
+// pruneLockKey is the transaction-scoped advisory lock one prune holds while
+// it counts and deletes. Behind the transaction pooler a statement can keep
+// running on the server after the task that sent it has exited, so a Cloud Run
+// retry can start while the previous attempt's scan is still going; two
+// whole-table scans then slow each other, and the rest of the database, past
+// their timeouts. The retry refuses instead. The value is arbitrary but fixed.
+const pruneLockKey int64 = 0x7072756e65 // "prune"
+
+// ErrPruneRunning is a prune that found another prune's transaction still
+// open on the server.
+var ErrPruneRunning = errors.New("another prune is still running on the database")
 
 // maxHolidaysPerYear bounds a plausible year of ASX holidays. There are eight
 // fixed ones, plus substitute days and the odd one-off closure; more than this
@@ -112,40 +136,57 @@ func (m *SyncManager) prune(ctx context.Context, opts PruneOptions, r *PruneRepo
 		return err
 	}
 
-	if r.WeekendRowsByYear, err = m.countBy(ctx, weekendRowsByYearQuery); err != nil {
-		return fmt.Errorf("count weekend rows: %w", err)
-	}
-	if r.HolidayRowsByDate, err = m.countBy(ctx, holidayRowsByDateQuery, r.Holidays); err != nil {
-		return fmt.Errorf("count holiday rows: %w", err)
-	}
-	r.WeekendRows, r.HolidayRows = sum(r.WeekendRowsByYear), sum(r.HolidayRowsByDate)
-	if opts.DryRun || r.WeekendRows+r.HolidayRows == 0 {
-		return nil
-	}
+	return m.pruneRows(ctx, opts.DryRun, r)
+}
 
-	tx, err := m.db.Begin(ctx)
+// pruneRows counts, and unless it is a dry run deletes, the weekend and holiday
+// rows, in ONE transaction under the prune's own statement timeout and lock.
+// A live run deletes with RETURNING and counts what came back, so each kind of
+// row costs one scan of the table rather than a count and then a delete.
+func (m *SyncManager) pruneRows(ctx context.Context, dryRun bool, r *PruneReport) error {
+	mode := pgx.ReadWrite
+	if dryRun {
+		mode = pgx.ReadOnly
+	}
+	tx, err := m.db.BeginTx(ctx, pgx.TxOptions{AccessMode: mode})
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	// Each delete scans the table; the role's default timeout is minutes.
-	if _, err := tx.Exec(ctx, `SET LOCAL statement_timeout = '15min'`); err != nil {
+	if _, err := tx.Exec(ctx, `SET LOCAL statement_timeout = '`+pruneStatementTimeout+`'`); err != nil {
 		return err
 	}
-	weekend, err := tx.Exec(ctx, `DELETE FROM stock_prices WHERE EXTRACT(ISODOW FROM date) IN (6, 7) AND `+asxCode)
-	if err != nil {
-		return fmt.Errorf("delete weekend rows: %w", err)
+	var locked bool
+	if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock($1)`, pruneLockKey).Scan(&locked); err != nil {
+		return fmt.Errorf("take the prune lock: %w", err)
 	}
-	holiday, err := tx.Exec(ctx, `DELETE FROM stock_prices WHERE date = ANY($1::date[]) AND `+asxCode, r.Holidays)
-	if err != nil {
-		return fmt.Errorf("delete holiday rows: %w", err)
+	if !locked {
+		return fmt.Errorf("%w (a previous attempt's statement, which the server finishes or times out within %s; nothing deleted)",
+			ErrPruneRunning, pruneStatementTimeout)
+	}
+
+	weekendQuery, holidayQuery, verb := weekendRowsByYearQuery, holidayRowsByDateQuery, "count"
+	if !dryRun {
+		weekendQuery, holidayQuery, verb = deleteWeekendRowsQuery, deleteHolidayRowsQuery, "delete"
+	}
+	if r.WeekendRowsByYear, err = countBy(ctx, tx, weekendQuery); err != nil {
+		return fmt.Errorf("%s weekend rows: %w", verb, err)
+	}
+	if r.HolidayRowsByDate, err = countBy(ctx, tx, holidayQuery, r.Holidays); err != nil {
+		return fmt.Errorf("%s holiday rows: %w", verb, err)
+	}
+	r.WeekendRows, r.HolidayRows = sum(r.WeekendRowsByYear), sum(r.HolidayRowsByDate)
+	if dryRun {
+		return nil
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit the prune: %w", err)
 	}
-	r.Deleted = int(weekend.RowsAffected() + holiday.RowsAffected())
-	if err := m.refreshStockPriceCoverage(ctx); err != nil {
-		log.Printf("⚠️ Failed to refresh stock price coverage view: %v", err)
+	r.Deleted = r.WeekendRows + r.HolidayRows
+	if r.Deleted > 0 {
+		if err := m.refreshStockPriceCoverage(ctx); err != nil {
+			log.Printf("⚠️ Failed to refresh stock price coverage view: %v", err)
+		}
 	}
 	return nil
 }
@@ -167,8 +208,27 @@ const holidayRowsByDateQuery = `
 	WHERE date = ANY($1::date[]) AND ` + asxCode + `
 	GROUP BY 1`
 
-func (m *SyncManager) countBy(ctx context.Context, query string, args ...any) (map[string]int, error) {
-	rows, err := m.db.Query(ctx, query, args...)
+// The live run's statements: the same rows as the counts above, deleted, and
+// counted from what the delete returns.
+const deleteWeekendRowsQuery = `
+	WITH deleted AS (
+		DELETE FROM stock_prices
+		WHERE EXTRACT(ISODOW FROM date) IN (6, 7) AND ` + asxCode + `
+		RETURNING date
+	)
+	SELECT to_char(date, 'YYYY'), count(*) FROM deleted GROUP BY 1`
+
+const deleteHolidayRowsQuery = `
+	WITH deleted AS (
+		DELETE FROM stock_prices
+		WHERE date = ANY($1::date[]) AND ` + asxCode + `
+		RETURNING date
+	)
+	SELECT to_char(date, 'YYYY-MM-DD'), count(*) FROM deleted GROUP BY 1`
+
+// countBy runs a two-column (key, count) query.
+func countBy(ctx context.Context, tx pgx.Tx, query string, args ...any) (map[string]int, error) {
+	rows, err := tx.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

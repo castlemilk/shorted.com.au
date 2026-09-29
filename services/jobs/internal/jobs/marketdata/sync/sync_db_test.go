@@ -393,6 +393,44 @@ func TestPruneAgainstPostgres(t *testing.T) {
 	assert.Equal(t, 1, count(`SELECT count(*) FROM stock_prices WHERE date = '2025-11-09'`))
 }
 
+// A Cloud Run retry can start while the previous attempt's whole-table
+// statement is still running on the server (behind the transaction pooler the
+// server does not notice the client has gone). On 2026-09-29 the live prune's
+// retry timed out counting weekend rows. A prune that finds another prune's
+// transaction open refuses and deletes nothing; once that transaction ends,
+// the next prune runs.
+func TestPruneRefusesWhileAnotherIsRunning(t *testing.T) {
+	pool := newPriceDB(t)
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `INSERT INTO stock_prices (stock_code, date, close) VALUES
+		('BHP', '2025-12-19', 40.1), ('BHP', '2025-12-21', 40.5), ('BHP', '2025-12-22', 40.5)`)
+	require.NoError(t, err)
+
+	provider := &fakeProvider{name: "yahoo", fn: sessionsExcept()}
+	m := NewSyncManager(pool, nil, &config.Config{}, []providers.DataProvider{provider})
+	m.now = func() time.Time { return time.Date(2026, 1, 9, 10, 0, 0, 0, time.UTC) }
+
+	// The previous attempt: a transaction holding the prune's lock.
+	held, err := pool.Begin(ctx)
+	require.NoError(t, err)
+	_, err = held.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, pruneLockKey)
+	require.NoError(t, err)
+
+	report, err := m.Prune(ctx, PruneOptions{})
+	require.ErrorIs(t, err, ErrPruneRunning)
+	assert.Contains(t, report.Error, "nothing deleted")
+	assert.Zero(t, report.Deleted)
+	var n int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM stock_prices`).Scan(&n))
+	assert.Equal(t, 3, n, "a refused prune deletes nothing")
+
+	require.NoError(t, held.Rollback(ctx))
+	report, err = m.Prune(ctx, PruneOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, 1, report.Deleted, "the Sunday row, once the other prune has ended")
+	assert.Equal(t, map[string]int{"2025": 1}, report.WeekendRowsByYear, "a live run counts what it deleted")
+}
+
 // TestPricePrecisionMigration applies 000131 to a table still at two decimals,
 // with the views that read it, as prod has them.
 func TestPricePrecisionMigration(t *testing.T) {

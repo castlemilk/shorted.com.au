@@ -295,6 +295,25 @@ jobs:
               "",
               "</details>"
             ' "$report" >> "$GITHUB_STEP_SUMMARY"
+            # Every attempt, as for a sweep: the execution's report is the last
+            # attempt's, and a retry that failed early hides what the first
+            # attempt did (on 2026-09-29, whether it had deleted anything).
+            attempts="$(gcloud storage ls "gs://$BUCKET/price-sync/$EXECUTION/attempt-*.json" 2>/dev/null || true)"
+            if (( $(grep -c . <<< "$attempts") > 1 )); then
+              {
+                echo "### Every attempt"
+                echo ""
+                echo "| Attempt | Duration | Weekend rows | Holiday rows | Deleted | Stopped |"
+                echo "|---|---|---|---|---|---|"
+              } >> "$GITHUB_STEP_SUMMARY"
+              while read -r object; do
+                if body="$(gcloud storage cat "$object")"; then
+                  jq -c '{attempt, duration, error, dry_run, weekend_rows, holiday_rows, deleted}' <<< "$body"
+                  jq -r '"| \(.attempt) | \(.duration) | \(.weekend_rows) | \(.holiday_rows) | \(.deleted) | \(.error // "") |"' \
+                    <<< "$body" >> "$GITHUB_STEP_SUMMARY"
+                fi
+              done <<< "$attempts"
+            fi
             exit 0
           fi
 

@@ -291,6 +291,20 @@ the rows per year and per holiday, so the dates can be checked against the
 ASX's calendar. `from` bounds the holiday calendar; weekend rows are deleted
 wherever they are.
 
+The counts and the deletes run in one transaction with `SET LOCAL
+statement_timeout = '15min'` and a transaction-scoped advisory lock. Each one
+reads the whole table (a weekday cannot be indexed), and the role's default
+timeout is 2 minutes: the 2026-09-28 dry run counted inside it, and the
+2026-09-29 live run's retry did not ("count weekend rows: canceling statement
+due to statement timeout", which paged "Cloud Run Job logged ERROR /
+timeout"). A live run deletes with `RETURNING` and counts what came back, so
+it scans the table once per kind of row instead of counting and then
+deleting. The lock covers the Cloud Run retry: behind the transaction pooler
+a statement can outlive the task that sent it, and a retry that finds the
+previous attempt's transaction still open refuses, deleting nothing, rather
+than scanning beside it. The workflow prints every attempt's report, so a
+retry that fails early no longer hides what the first attempt did.
+
 ### Not ported
 
 - **`cmd/test-dmp-fetch`, `cmd/test-dmp-backfill`** — single-stock ("DMP")
