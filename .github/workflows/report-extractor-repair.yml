@@ -16,9 +16,10 @@
 # extract_reports_concurrent.py), so the flags below are the whole run.
 # Default is a dry run: it selects and logs the rows and writes nothing.
 #
-# CI cannot read Cloud Logging (project-level log access is deliberately not
-# granted), so this workflow reports the execution's outcome and name; the row
-# list and per-row outcomes are in the job's logs.
+# After the execution ends (either way) the workflow reads that execution's own
+# log lines back from Cloud Logging, the way Register Freshness does, and
+# prints them with the task's exit code: the rows it selected, their outcomes,
+# or why it stopped, all in the run log.
 name: Report Extractor Repair
 
 on:
@@ -59,6 +60,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v3
 
       - name: Execute the repair
+        id: run
         env:
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
@@ -71,10 +73,41 @@ jobs:
             --args="$args" --wait 2>&1 | tee "$RUNNER_TEMP/execute.log"
           rc=${PIPESTATUS[0]}
 
-          execution="$(grep -oE 'Execution \[[a-z0-9-]+\]' "$RUNNER_TEMP/execute.log" | head -n1 | tr -d '[]' | awk '{print $2}' || true)"
+          # gcloud names the execution as "Execution [name]" on success and
+          # as "executions describe name" on failure.
+          execution="$(grep -oE 'Execution \[[a-z0-9-]+\]|executions describe [a-z0-9-]+' "$RUNNER_TEMP/execute.log" \
+            | head -n1 | grep -oE '[a-z0-9-]+$|\[[a-z0-9-]+\]' | tr -d '[]' || true)"
+          echo "execution=$execution" >> "$GITHUB_OUTPUT"
           {
             echo "## Report extractor echo repair $([[ "$DRY_RUN" == "true" ]] && echo "PREVIEW (dry run, nothing written)")"
             echo
-            echo "Execution \`${execution:-unknown}\` exited $rc. The rows it selected and their outcomes are in the job's logs."
+            echo "Execution \`${execution:-unknown}\` exited $rc. Its log is in the next step."
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$rc"
+
+      # The execution's own output: the rows selected, each row's outcome and
+      # the closing counts, or the reason it stopped. Logs can land a little
+      # after the execution ends, so one short wait before reading.
+      - name: Execution log
+        if: always() && steps.run.outputs.execution != ''
+        env:
+          EXECUTION: ${{ steps.run.outputs.execution }}
+        run: |
+          set -uo pipefail
+          gcloud run jobs executions describe "$EXECUTION" --project "$PROJECT" --region "$REGION" \
+            --format='yaml(status.conditions,status.failedCount,status.succeededCount)' || true
+          sleep 20
+          log="$RUNNER_TEMP/execution.log"
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="'"$JOB"'" AND labels."run.googleapis.com/execution_name"="'"$EXECUTION"'"' \
+            --project "$PROJECT" --freshness 3h --limit 500 --order asc \
+            --format='value(textPayload)' > "$log" || true
+          if [[ ! -s "$log" ]]; then
+            echo "(no log lines recovered for $EXECUTION)" > "$log"
+          fi
+          cat "$log"
+          {
+            echo '```text'
+            tail -n 80 "$log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
