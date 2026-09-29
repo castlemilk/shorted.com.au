@@ -18,16 +18,16 @@
 images:
   jobs:
     repository: australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/shorted-jobs
-    tag: main-ab9b116c
+    tag: main-74a1bf6e
   jobsBrowser:
     repository: australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/shorted-jobs-browser
-    tag: main-ab9b116c
+    tag: main-74a1bf6e
   reportExtractor:
     repository: australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/report-extractor
-    tag: main-ab9b116c
+    tag: main-74a1bf6e
   housePriceCollector:
     repository: australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/house-price-collector
-    tag: main-ab9b116c
+    tag: main-74a1bf6e
 
 imagePullPolicy: IfNotPresent
 
