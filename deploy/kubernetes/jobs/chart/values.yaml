@@ -47,10 +47,10 @@ secretEnv:
 
 # Global kill switch. Individual jobs run only when this is false AND the job
 # is in `enabled` (below). Default: nothing runs.
-suspendAll: true
+suspendAll: false
 # CronJob names that are live on the cluster. Cutover is one line here plus the
 # matching Terraform flag — never one without the other.
-enabled: []
+enabled: [shorted-news-cluster]
 
 # Google Workload Identity Federation for the jobs that write to GCS. Keyless:
 # a projected Kubernetes token is exchanged for a short-lived token of the SAME
