@@ -85,3 +85,23 @@ variable "reports_scheduler_paused" {
   type        = bool
   default     = false
 }
+
+variable "openrouter_secret_name" {
+  description = "Secret Manager id holding an OpenRouter API key. When set, financial-report-extractor runs --backend openrouter: one validated call per document (DeepSeek primary, cheapest-Gemini checker, Gemini arbiter; services/report-extractor/direct_extract.py). Empty keeps the langextract + Gemini path. The secret must EXIST before apply, or the job revision is rejected."
+  type        = string
+  default     = ""
+}
+
+variable "extractor_models" {
+  description = "OpenRouter model ids for the direct extractor: primary answers, checker confirms, arbiter breaks disagreements (\"\" for checker disables consensus; \"\" for arbiter withholds every disagreement). Measured 2026-09-29 on 32 filings: 95.7% of verified revenue/NPAT/EPS figures, about $0.16 per 120-document night including digests."
+  type = object({
+    primary = string
+    checker = string
+    arbiter = string
+  })
+  default = {
+    primary = "deepseek/deepseek-v4-flash"
+    checker = "google/gemini-2.5-flash-lite"
+    arbiter = "google/gemini-2.5-flash"
+  }
+}

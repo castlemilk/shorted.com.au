@@ -1480,6 +1480,14 @@ module "report_extractor" {
   director_scheduler_paused = contains(local.jobs_on_vke, "director-trade-extractor")
   reports_scheduler_paused  = contains(local.jobs_on_vke, "financial-report-extractor")
 
+  # Financial reports extract through OpenRouter: one validated call per
+  # document, DeepSeek primary + cheapest-Gemini consensus
+  # (services/report-extractor/direct_extract.py; module extractor_models).
+  # The per-workload Gemini key above has been rejected as API_KEY_INVALID
+  # since 2026-08-30, so this is also the fix for a month of empty runs.
+  # ORDERING: the secret must exist before apply.
+  openrouter_secret_name = "OPENROUTER_API_KEY"
+
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted

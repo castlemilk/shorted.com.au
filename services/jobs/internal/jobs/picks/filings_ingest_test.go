@@ -111,6 +111,9 @@ func TestFilingMoneyScale(t *testing.T) {
 		{entry("source_text", "Revenue from ordinary activities 45,213 up 4%", "value_millions", "45.213"), "revenue", "thousands", 45.213e6, "a bare $'000 table line"},
 		{entry("source_text", "Total revenue $45,213,000", "value_millions", "45.213"), "revenue", "thousands", 45.213e6, "a $-prefixed figure is not a bare table figure: whole units"},
 		{entry("source_text", "Revenue ($'000) 45,213", "value_millions", "45.213"), "revenue", "millions", 45.213e6, "the quote's own heading beats the document's"},
+		// PDF text layers carry the typographic apostrophe as often as ASCII.
+		{entry("source_text", "30 June 2026 $’000 Revenue from ordinary activities 115,116", "value_millions", "115.116"), "revenue", "", 115.116e6, "a $’000 heading (curly apostrophe)"},
+		{entry("source_text", "Revenue (’000) 45,213", "value_millions", "45.213"), "revenue", "", 45.213e6, "a (’000) heading"},
 	}
 	for _, c := range cases {
 		got, reason, ok := filingMoney(c.e, c.col, c.units)

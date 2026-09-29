@@ -41,7 +41,9 @@ from extract import ASX_HEADERS, DEFAULT_MAX_PAGES, canonical_number, download_p
 ALIASES = {
     "revenue": {"revenue", "total_revenue"},
     "net_profit": {"net_profit", "npat", "net_income", "statutory_npat"},
-    "eps": {"eps", "basic_eps", "diluted_eps", "earnings_per_share"},
+    # diluted_eps is read by picks but lands in its eps_diluted column; the
+    # reference is basic EPS, so a diluted figure is not scored against it.
+    "eps": {"eps", "basic_eps", "earnings_per_share"},
 }
 VALUE_KEY = {"revenue": "value_millions", "net_profit": "value_millions", "eps": "value_cents"}
 
@@ -125,7 +127,7 @@ def gold(args: argparse.Namespace) -> None:
             # Verifiable only if the number is in the document text — as
             # written, or in the thousands / dollars it was converted from.
             present = numbers_in(text)
-            scaled = {canonical_number(f"{abs(v) * k:.6f}") for k in (1000, 100, 1_000_000)}
+            scaled = {canonical_number(f"{abs(v) * k:.6f}") for k in (1000, 100, 1_000_000, 0.001)}
             if c and (c in present or scaled & present):
                 entry[target] = {"value": canonical_number(str(v)), "quote": quote}
             else:
