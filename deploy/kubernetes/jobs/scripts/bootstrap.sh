@@ -53,7 +53,8 @@ run() {
   if $apply; then
     "$@"
   else
-    printf '[plan] %q ' "$@"
+    printf '[plan]'
+    printf ' %q' "$@"
     echo
   fi
 }
@@ -102,7 +103,14 @@ if [[ "${ONLY}" == all || "${ONLY}" == pull ]]; then
       keyfile="$(mktemp)"
       cfgfile="$(mktemp)"
       trap 'rm -f "${keyfile}" "${cfgfile}"' EXIT
-      gcloud iam service-accounts keys create "${keyfile}" --iam-account "${puller}" --project "${PROJECT_ID}"
+      # IAM is eventually consistent: a just-created SA can 404 for a while.
+      for attempt in 1 2 3 4 5 6; do
+        if gcloud iam service-accounts keys create "${keyfile}" --iam-account "${puller}" --project "${PROJECT_ID}"; then
+          break
+        fi
+        [[ "${attempt}" == 6 ]] && { echo "could not mint a key for ${puller}" >&2; exit 1; }
+        sleep $((attempt * 5))
+      done
       jq -n --rawfile key "${keyfile}" --arg server "${AR_LOCATION}-docker.pkg.dev" \
         '{auths: {($server): {username: "_json_key", password: $key, auth: ("_json_key:" + $key | @base64)}}}' >"${cfgfile}"
       kubectl -n "${NAMESPACE}" create secret generic shorted-gar \
