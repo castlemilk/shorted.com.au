@@ -77,17 +77,20 @@ done
 pass "schedules match the Cloud Scheduler triggers (UTC)"
 
 # --- 2. Nothing runs by default; enabling is per job and needs suspendAll=false.
-if [[ -z "$(yq -N 'select(.kind == "CronJob" and .spec.suspend != true) | .metadata.name' "${tmp}/default.yaml")" ]]; then
-  pass "every CronJob is suspended by default"
+# Exactly the jobs in `enabled` run (none while suspendAll is true).
+want_live="$(yq -N 'select(.suspendAll != true) | .enabled[]' "${chart}/values.yaml" | sort | tr '\n' ' ')"
+got_live="$(yq -N 'select(.kind == "CronJob" and .spec.suspend != true) | .metadata.name' "${tmp}/default.yaml" | sort | tr '\n' ' ')"
+if [[ "${got_live}" == "${want_live}" ]]; then
+  pass "exactly the enabled CronJobs run (${got_live:-none})"
 else
-  fail "a CronJob renders unsuspended with default values"
+  fail "live CronJobs '${got_live}' != enabled '${want_live}'"
 fi
 
 render --set suspendAll=false --set 'enabled[0]=shorts-data-sync' >"${tmp}/one.yaml"
 live="$(yq -N 'select(.kind == "CronJob" and .spec.suspend == false) | .metadata.name' "${tmp}/one.yaml")"
 [[ "${live}" == "shorts-data-sync" ]] && pass "enabled[] unsuspends only the listed job" || fail "enabled[] live set = '${live}'"
 
-render --set 'enabled[0]=shorts-data-sync' >"${tmp}/guarded.yaml"
+render --set suspendAll=true --set 'enabled[0]=shorts-data-sync' >"${tmp}/guarded.yaml"
 [[ -z "$(yq -N 'select(.kind == "CronJob" and .spec.suspend == false) | .metadata.name' "${tmp}/guarded.yaml")" ]] \
   && pass "suspendAll=true overrides enabled[]" || fail "suspendAll=true did not hold"
 
