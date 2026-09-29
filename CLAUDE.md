@@ -590,8 +590,9 @@ valuation, stock page).
   in a quiet window and re-run the deploy; never drop its allowlist line (the
   new jobs image writes those columns). After the deploy, `run_picks_job`
   `filings` then `refresh` clears the echo rows within the hour, one
-  `--repair-echo-digests` extractor run restores the echo rows' summaries (the
-  API withholds them until then), and pre-000132 codes are re-fetched first,
+  `--repair-echo-digests` extractor run (the Report Extractor Repair workflow,
+  dry run by default) restores the echo rows' summaries (the API withholds them
+  until then), and pre-000132 codes are re-fetched first,
   largest first, over the next nights.
 - **The base is anchored.** After a breakout `mv_price_features` reports
   `base_high` / `base_low` / `base_length_days` as at the breakout session, so the
