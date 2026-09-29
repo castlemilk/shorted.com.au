@@ -50,9 +50,13 @@ spec:
         method: GET
         timeout: 5
       expression: http.statusCode == 200 && http.bodyJson.healthy == true
-  onFailure:
-    action: rollback
+  # No automatic rollback. The only health signal is the reporter, and a
+  # rollback restores the previous snapshot: when that snapshot is the broken
+  # one (the first rollout pinned an image without `cronjob-reporter`), every
+  # new release was applied and reverted in the same second, forever. A bad
+  # chart here is fixed forward by a commit; the CronJobs themselves are
+  # watched by Telesis, not by this health check.
   selfHeal:
     autoSyncOnDrift: true
-    autoRevertOnHealthFailure: true
+    autoRevertOnHealthFailure: false
     cooldown: 5m
