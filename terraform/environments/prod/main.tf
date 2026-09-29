@@ -1453,7 +1453,13 @@ module "report_extractor" {
   gemini_secret_exists = true
   gemini_secret_name   = "GEMINI_API_KEY_REPORT_EXTRACTOR"
   reports_bucket       = local.shared_asset_buckets.financial_reports
-  director_limit       = 20
+  # Director trades: 200 Appendix 3Y notices a day (was 20). The consensus
+  # extractor (director_direct.py) measured ~$0.0006 and ~11 s per notice per
+  # worker (2026-09-29 prod dry run), so a run is ~18 min of the 60-min
+  # timeout at 2 workers and ~$0.12 a day. 20 a day could never clear the
+  # ~1,260 notices the July-September outage misrecorded, let alone the
+  # ~24,000 rows still "Unknown Director" or valueless.
+  director_limit = 200
   # Financial reports: 120 a day, daily 14:00 UTC (was 40, Wed + Sun), per
   # docs/plans/fundamentals-coverage.md 6.2. This run is the ONLY path to
   # half-year totals for the stock picker: Yahoo carries no ASX half-years, and

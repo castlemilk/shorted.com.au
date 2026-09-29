@@ -113,7 +113,11 @@ test("the submit budget ends before the job timeout, with room for in-flight rep
 test("production keeps report extractor limits explicit", () => {
   const block = prodReportExtractorBlock();
 
-  assert.match(block, /director_limit\s+=\s+20/);
+  // Raised 20 -> 200 on purpose (2026-09-29): consensus extraction costs
+  // ~$0.0006 a notice and fits ~18 min of the 60-min timeout at 2 workers.
+  // A further raise should be as deliberate as this one.
+  assert.match(block, /director_limit\s+=\s+200\b/);
+  assert.match(prodReportExtractorComment() + block, /\$0\.0006 and ~11 s per notice/);
   // Raised 40 twice weekly -> 120 daily on purpose (contract 6.2): about 840
   // documents a week clears the ~2,146-company backlog in about three weeks,
   // then keeps up with ~83 statutory filings a week. It is affordable because
