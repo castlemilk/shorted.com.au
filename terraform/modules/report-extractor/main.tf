@@ -300,6 +300,7 @@ resource "google_cloud_scheduler_job" "director_trade_extractor" {
   attempt_deadline = "1800s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.director_scheduler_paused
 
   retry_config {
     retry_count          = 0
@@ -330,6 +331,7 @@ resource "google_cloud_scheduler_job" "financial_report_extractor" {
   attempt_deadline = "1800s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.reports_scheduler_paused
 
   retry_config {
     retry_count          = 0

@@ -73,3 +73,15 @@ variable "otel_endpoint" {
   type        = string
   default     = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
 }
+
+variable "director_scheduler_paused" {
+  description = "Pause the director-trade-extractor daily trigger. Set true once the job runs as a Kubernetes CronJob on omega instead (deploy/kubernetes/jobs; driven by local.jobs_on_vke in environments/prod/main.tf). The Cloud Run job itself stays deployed for admin Run-now and manual executions."
+  type        = bool
+  default     = false
+}
+
+variable "reports_scheduler_paused" {
+  description = "Pause the financial-report-extractor weekly trigger. Set true once the job runs as a Kubernetes CronJob on omega instead (deploy/kubernetes/jobs; driven by local.jobs_on_vke in environments/prod/main.tf). The Cloud Run job itself stays deployed for admin Run-now and manual executions."
+  type        = bool
+  default     = false
+}

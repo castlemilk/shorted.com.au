@@ -1122,6 +1122,76 @@ jobs:
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           fi
 
+  # Roll the Kubernetes CronJobs (deploy/kubernetes/jobs, Paprika on omega)
+  # onto the images this run built — the same tag the Cloud Run jobs just
+  # moved to. Commits the tag bump to main with [skip ci]; Paprika polls main
+  # and re-renders the chart within a minute.
+  #
+  # AFTER terraform-apply, never beside it: the apply is what replays the
+  # migration allowlist, and a CronJob firing new code against the old schema
+  # is exactly the 500 the housing/politicians landmines describe.
+  #
+  # Dormant until the repo variable VKE_JOBS_IMAGE_BUMP is 'true' — set it
+  # when the first job cuts over (deploy/kubernetes/jobs/README.md). Until then
+  # the chart's pinned tag is stale by design and every CronJob is suspended.
+  bump-vke-jobs-image:
+    needs: [determine-environment, terraform-apply]
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.terraform-apply.result == 'success' &&
+      vars.VKE_JOBS_IMAGE_BUMP == 'true'
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: vke-jobs-image-bump
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bump chart image tags
+        env:
+          IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
+        run: deploy/kubernetes/jobs/scripts/bump-image-tag.sh "${IMAGE_TAG}"
+
+      - name: Commit to main
+        env:
+          IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
+        run: |
+          set -euo pipefail
+          values=deploy/kubernetes/jobs/chart/values.yaml
+          if git diff --quiet -- "${values}"; then
+            echo "chart already on ${IMAGE_TAG}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${values}"
+          git commit -m "chore(vke-jobs): images -> ${IMAGE_TAG} [skip ci]"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            # Something else landed on main meanwhile: replay the bump on top.
+            git fetch origin main
+            git reset --hard origin/main
+            deploy/kubernetes/jobs/scripts/bump-image-tag.sh "${IMAGE_TAG}"
+            if git diff --quiet -- "${values}"; then
+              echo "main already carries ${IMAGE_TAG}"
+              exit 0
+            fi
+            git add "${values}"
+            git commit -m "chore(vke-jobs): images -> ${IMAGE_TAG} [skip ci]"
+            sleep $((attempt * 5))
+          done
+          echo "could not push the chart image bump after three attempts" >&2
+          exit 1
+
   deploy-vercel-prod:
     needs: [determine-environment, validate-secrets, terraform-apply]
     runs-on: [self-hosted, cuttlefish, linux]

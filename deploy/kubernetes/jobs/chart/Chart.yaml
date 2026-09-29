@@ -1,0 +1,6 @@
+apiVersion: v2
+name: shorted-jobs
+description: Shorted scheduled batch jobs as Kubernetes CronJobs, plus the Telesis cron-monitor reporter. Delivered by Paprika to the omega VKE cluster.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

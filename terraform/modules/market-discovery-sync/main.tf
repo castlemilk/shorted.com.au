@@ -337,6 +337,7 @@ resource "google_cloud_scheduler_job" "asx_discovery_weekly" {
   attempt_deadline = "320s"
   project          = var.project_id
   region           = var.scheduler_region
+  paused           = var.asx_discovery_scheduler_paused
 
   http_target {
     http_method = "POST"

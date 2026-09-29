@@ -66,3 +66,15 @@ variable "manage_revalidation_secret" {
   type        = bool
   default     = false
 }
+
+variable "monthly_scheduler_paused" {
+  description = "Pause the monthly official-ingest trigger. Set true once the job runs as a Kubernetes CronJob on omega instead (deploy/kubernetes/jobs; driven by local.jobs_on_vke in environments/prod/main.tf). The Cloud Run job itself stays deployed for admin Run-now and manual executions."
+  type        = bool
+  default     = false
+}
+
+variable "drop_index_scheduler_paused" {
+  description = "Pause the daily drop-index trigger. Set true once the job runs as a Kubernetes CronJob on omega instead (deploy/kubernetes/jobs; driven by local.jobs_on_vke in environments/prod/main.tf). The Cloud Run job itself stays deployed for admin Run-now and manual executions."
+  type        = bool
+  default     = false
+}

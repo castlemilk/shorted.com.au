@@ -1,0 +1,58 @@
+# Paprika Application for Shorted's scheduled batch jobs on the omega VKE cluster.
+#
+# Apply by hand once (tenant apps have no auto-apply), after
+# scripts/bootstrap.sh + scripts/sync-secrets.sh:
+#
+#   kubectl apply -f deploy/kubernetes/jobs/paprika/application.yaml
+#
+# From then on Paprika polls main and re-renders deploy/kubernetes/jobs/chart:
+# CI's image-tag bump and every cutover edit to values.yaml roll out on their
+# own. Runbook: deploy/kubernetes/jobs/README.md.
+apiVersion: pipelines.paprika.io/v1alpha1
+kind: Application
+metadata:
+  name: shorted-jobs
+  namespace: shorted-jobs
+  labels:
+    app.kubernetes.io/name: shorted-jobs
+    app.kubernetes.io/part-of: shorted
+spec:
+  project: default
+  source:
+    type: git
+    # Public repo: no git credential needed.
+    repoUrl: https://github.com/castlemilk/shorted.com.au.git
+    revision: main
+    path: deploy/kubernetes/jobs/chart
+    targetNamespace: shorted-jobs
+    pollInterval: 60s
+  # Live-only overrides go here, never secrets. EMERGENCY STOP for every job:
+  #   kubectl -n shorted-jobs patch application shorted-jobs --type merge \
+  #     -p '{"spec":{"parameters":{"suspendAll":"true"}}}'
+  # (A kubectl patch on a CronJob itself is reverted by selfHeal below.)
+  parameters: {}
+  stages:
+    - name: omega
+      ring: 1
+      autoPromote: true
+  # CronJobs have no traffic to shift; a canary would only delay a schedule edit.
+  strategy: Rolling
+  syncPolicy: Auto
+  syncOptions:
+    # A job removed from values.yaml must stop running, not linger as an
+    # orphaned CronJob that nothing monitors.
+    prune: true
+  healthChecks:
+    - name: cronjob-reporter
+      interval: 60s
+      httpProbe:
+        url: http://cronjob-reporter.shorted-jobs.svc.cluster.local:8080/healthz
+        method: GET
+        timeout: 5
+      expression: http.statusCode == 200 && http.bodyJson.healthy == true
+  onFailure:
+    action: rollback
+  selfHeal:
+    autoSyncOnDrift: true
+    autoRevertOnHealthFailure: true
+    cooldown: 5m

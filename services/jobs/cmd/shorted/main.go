@@ -24,6 +24,7 @@ import (
 	"os"
 
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/announcements"
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/cronreporter"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/discovery"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/economy"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/influence"
@@ -42,6 +43,7 @@ import (
 func jobs() *runner.Registry {
 	return runner.NewRegistry(
 		announcements.Job(),
+		cronreporter.Job(),
 		discovery.Job(),
 		economy.Job(),
 		reportextract.DirectorTradesJob(),

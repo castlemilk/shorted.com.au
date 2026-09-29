@@ -322,6 +322,7 @@ resource "google_cloud_scheduler_job" "daily_sync" {
   attempt_deadline = "1800s" # 30 minutes (max allowed by Cloud Scheduler)
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.scheduler_paused
 
   retry_config {
     retry_count          = 2
