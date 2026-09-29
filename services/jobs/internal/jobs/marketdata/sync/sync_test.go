@@ -418,6 +418,9 @@ func TestPriceSyncWorkflowReadsTheReport(t *testing.T) {
 	// mode=prune runs the prune, and its summary reads the prune's report.
 	assert.Contains(t, wf, `args="market-data@prune"`)
 	assert.Contains(t, wf, `.mode // "sync"`)
+	// Both summaries print every attempt, the prune's too: its branch exits
+	// before the sweep's, and a retry that failed early hid the first attempt.
+	assert.Equal(t, 2, strings.Count(wf, `/attempt-*.json`), "the sweep and the prune each list every attempt")
 	prune, err := json.Marshal(PruneReport{Mode: "prune", From: "x", To: "y", Holidays: []string{"d"},
 		WeekendRowsByYear: map[string]int{"2025": 1}, HolidayRowsByDate: map[string]int{"d": 1}})
 	require.NoError(t, err)

@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sort"
@@ -14,6 +15,18 @@ import (
 // calendar. A weekday on which none of them traded was a market holiday: ten
 // of the largest names do not all halt on the same day for any other reason.
 var pruneReferences = []string{"BHP", "CBA", "CSL", "NAB", "WBC", "ANZ", "RIO", "WES", "TLS", "WOW"}
+
+// pruneLockKey is the transaction-scoped advisory lock one prune holds while
+// it counts and deletes. Behind the transaction pooler a statement can keep
+// running on the server after the task that sent it has exited, so a Cloud Run
+// retry can start while the previous attempt's scan is still going; two
+// whole-table scans then slow each other, and the rest of the database, past
+// their timeouts. The retry refuses instead. The value is arbitrary but fixed.
+const pruneLockKey int64 = 0x7072756e65 // "prune"
+
+// ErrPruneRunning is a prune that found another prune's transaction still
+// open on the server.
+var ErrPruneRunning = errors.New("another prune is still running on the database")
 
 // maxHolidaysPerYear bounds a plausible year of ASX holidays. There are eight
 // fixed ones, plus substitute days and the odd one-off closure; more than this
@@ -114,39 +127,50 @@ func (m *SyncManager) prune(ctx context.Context, opts PruneOptions, r *PruneRepo
 		return err
 	}
 
-	// The counts and the deletes share one transaction, so a dry run counts
-	// exactly what a live run deletes, and each of them runs under the
-	// transaction's timeout rather than the role's.
+	return m.pruneRows(ctx, opts.DryRun, r)
+}
+
+// pruneRows counts, and unless it is a dry run deletes, the weekend and holiday
+// rows, in ONE transaction (beginFullScan's timeout) holding the prune's lock.
+// A live run deletes with RETURNING and counts what came back, so each kind of
+// row costs one scan of the table rather than a count and then a delete.
+func (m *SyncManager) pruneRows(ctx context.Context, dryRun bool, r *PruneReport) error {
 	tx, err := m.beginFullScan(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	if r.WeekendRowsByYear, err = countBy(ctx, tx, weekendRowsByYearQuery); err != nil {
-		return fmt.Errorf("count weekend rows: %w", err)
+	var locked bool
+	if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock($1)`, pruneLockKey).Scan(&locked); err != nil {
+		return fmt.Errorf("take the prune lock: %w", err)
 	}
-	if r.HolidayRowsByDate, err = countBy(ctx, tx, holidayRowsByDateQuery, r.Holidays); err != nil {
-		return fmt.Errorf("count holiday rows: %w", err)
-	}
-	r.WeekendRows, r.HolidayRows = sum(r.WeekendRowsByYear), sum(r.HolidayRowsByDate)
-	if opts.DryRun || r.WeekendRows+r.HolidayRows == 0 {
-		return nil
+	if !locked {
+		return fmt.Errorf("%w (a previous attempt's statement, which the server finishes or times out within %s; nothing deleted)",
+			ErrPruneRunning, fullScanTimeout)
 	}
 
-	weekend, err := tx.Exec(ctx, `DELETE FROM stock_prices WHERE EXTRACT(ISODOW FROM date) IN (6, 7) AND `+asxCode)
-	if err != nil {
-		return fmt.Errorf("delete weekend rows: %w", err)
+	weekendQuery, holidayQuery, verb := weekendRowsByYearQuery, holidayRowsByDateQuery, "count"
+	if !dryRun {
+		weekendQuery, holidayQuery, verb = deleteWeekendRowsQuery, deleteHolidayRowsQuery, "delete"
 	}
-	holiday, err := tx.Exec(ctx, `DELETE FROM stock_prices WHERE date = ANY($1::date[]) AND `+asxCode, r.Holidays)
-	if err != nil {
-		return fmt.Errorf("delete holiday rows: %w", err)
+	if r.WeekendRowsByYear, err = countBy(ctx, tx, weekendQuery); err != nil {
+		return fmt.Errorf("%s weekend rows: %w", verb, err)
+	}
+	if r.HolidayRowsByDate, err = countBy(ctx, tx, holidayQuery, r.Holidays); err != nil {
+		return fmt.Errorf("%s holiday rows: %w", verb, err)
+	}
+	r.WeekendRows, r.HolidayRows = sum(r.WeekendRowsByYear), sum(r.HolidayRowsByDate)
+	if dryRun {
+		return nil
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit the prune: %w", err)
 	}
-	r.Deleted = int(weekend.RowsAffected() + holiday.RowsAffected())
-	if err := m.refreshStockPriceCoverage(ctx); err != nil {
-		log.Printf("⚠️ Failed to refresh stock price coverage view: %v", err)
+	r.Deleted = r.WeekendRows + r.HolidayRows
+	if r.Deleted > 0 {
+		if err := m.refreshStockPriceCoverage(ctx); err != nil {
+			log.Printf("⚠️ Failed to refresh stock price coverage view: %v", err)
+		}
 	}
 	return nil
 }
@@ -167,6 +191,24 @@ const holidayRowsByDateQuery = `
 	FROM stock_prices
 	WHERE date = ANY($1::date[]) AND ` + asxCode + `
 	GROUP BY 1`
+
+// The live run's statements: the same rows as the counts above, deleted, and
+// counted from what the delete returns.
+const deleteWeekendRowsQuery = `
+	WITH deleted AS (
+		DELETE FROM stock_prices
+		WHERE EXTRACT(ISODOW FROM date) IN (6, 7) AND ` + asxCode + `
+		RETURNING date
+	)
+	SELECT to_char(date, 'YYYY'), count(*) FROM deleted GROUP BY 1`
+
+const deleteHolidayRowsQuery = `
+	WITH deleted AS (
+		DELETE FROM stock_prices
+		WHERE date = ANY($1::date[]) AND ` + asxCode + `
+		RETURNING date
+	)
+	SELECT to_char(date, 'YYYY-MM-DD'), count(*) FROM deleted GROUP BY 1`
 
 // fullScanTimeout bounds each statement the prune runs against the table, all
 // of which scan it. The role's default (two minutes on prod) fits none of them
@@ -202,6 +244,7 @@ func (m *SyncManager) firstStoredSession(ctx context.Context) (*time.Time, error
 	return first, err
 }
 
+// countBy runs a two-column (key, count) query.
 func countBy(ctx context.Context, tx pgx.Tx, query string, args ...any) (map[string]int, error) {
 	rows, err := tx.Query(ctx, query, args...)
 	if err != nil {
