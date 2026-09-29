@@ -193,6 +193,13 @@ kubectl -n shorted-jobs logs deploy/cronjob-reporter           # what was report
 - **`prune: true`.** Deleting a job from `values.yaml` deletes its CronJob.
   That is intended. Remove it from `enabled`/`jobs_on_vke` in the same PR, and
   resume or delete its Cloud Scheduler trigger deliberately.
+- **No automatic rollback.** The Application self-heals drift but does not
+  roll back on a failed health check. The first rollout proved why: its
+  pinned image predated `cronjob-reporter`, and every newer release was
+  applied and reverted to that broken snapshot in the same second until the
+  retry budget ran out. Fix a bad chart forward with a commit. If Paprika has
+  parked the app (`ReleaseRetriesExhausted`), run
+  `kubectl -n shorted-jobs annotate applications.pipelines.paprika.io shorted-jobs paprika.io/manual-sync=$(date +%s) --overwrite`.
 - **Image tags are immutable `main-<sha8>`.** Until `VKE_JOBS_IMAGE_BUMP=true`,
   the pinned tag is whatever the chart was committed with. Enable the bump
   before the first cutover.
