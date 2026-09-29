@@ -16,15 +16,6 @@ import (
 // of the largest names do not all halt on the same day for any other reason.
 var pruneReferences = []string{"BHP", "CBA", "CSL", "NAB", "WBC", "ANZ", "RIO", "WES", "TLS", "WOW"}
 
-// pruneStatementTimeout bounds each of the prune's statements. Every one of
-// them reads the whole table (a weekday cannot be indexed), and the role's
-// default statement timeout is 2 minutes: the dry run of 2026-09-28 counted
-// 362,943 weekend rows inside it, and the live run of 2026-09-29 did not
-// ("count weekend rows: canceling statement due to statement timeout"). Set
-// on the prune's own transaction only, never on the connection, so no other
-// statement on the pool inherits it.
-const pruneStatementTimeout = "15min"
-
 // pruneLockKey is the transaction-scoped advisory lock one prune holds while
 // it counts and deletes. Behind the transaction pooler a statement can keep
 // running on the server after the task that sent it has exited, so a Cloud Run
@@ -112,8 +103,8 @@ func (m *SyncManager) Prune(ctx context.Context, opts PruneOptions) (*PruneRepor
 func (m *SyncManager) prune(ctx context.Context, opts PruneOptions, r *PruneReport) error {
 	from := opts.From
 	if from.IsZero() {
-		var first *time.Time
-		if err := m.db.QueryRow(ctx, `SELECT MIN(date) FROM stock_prices`).Scan(&first); err != nil {
+		first, err := m.firstStoredSession(ctx)
+		if err != nil {
 			return fmt.Errorf("read the first stored session: %w", err)
 		}
 		if first == nil {
@@ -140,29 +131,22 @@ func (m *SyncManager) prune(ctx context.Context, opts PruneOptions, r *PruneRepo
 }
 
 // pruneRows counts, and unless it is a dry run deletes, the weekend and holiday
-// rows, in ONE transaction under the prune's own statement timeout and lock.
+// rows, in ONE transaction (beginFullScan's timeout) holding the prune's lock.
 // A live run deletes with RETURNING and counts what came back, so each kind of
 // row costs one scan of the table rather than a count and then a delete.
 func (m *SyncManager) pruneRows(ctx context.Context, dryRun bool, r *PruneReport) error {
-	mode := pgx.ReadWrite
-	if dryRun {
-		mode = pgx.ReadOnly
-	}
-	tx, err := m.db.BeginTx(ctx, pgx.TxOptions{AccessMode: mode})
+	tx, err := m.beginFullScan(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-	if _, err := tx.Exec(ctx, `SET LOCAL statement_timeout = '`+pruneStatementTimeout+`'`); err != nil {
-		return err
-	}
 	var locked bool
 	if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock($1)`, pruneLockKey).Scan(&locked); err != nil {
 		return fmt.Errorf("take the prune lock: %w", err)
 	}
 	if !locked {
 		return fmt.Errorf("%w (a previous attempt's statement, which the server finishes or times out within %s; nothing deleted)",
-			ErrPruneRunning, pruneStatementTimeout)
+			ErrPruneRunning, fullScanTimeout)
 	}
 
 	weekendQuery, holidayQuery, verb := weekendRowsByYearQuery, holidayRowsByDateQuery, "count"
@@ -225,6 +209,40 @@ const deleteHolidayRowsQuery = `
 		RETURNING date
 	)
 	SELECT to_char(date, 'YYYY-MM-DD'), count(*) FROM deleted GROUP BY 1`
+
+// fullScanTimeout bounds each statement the prune runs against the table, all
+// of which scan it. The role's default (two minutes on prod) fits none of them
+// reliably: the first live prune, on 2026-09-29, timed out counting weekend
+// rows, where the dry run's same count had fitted. SET LOCAL, because a
+// session setting does not survive the transaction pooler.
+const fullScanTimeout = "15min"
+
+// beginFullScan opens a transaction whose statements may each run for
+// fullScanTimeout.
+func (m *SyncManager) beginFullScan(ctx context.Context) (pgx.Tx, error) {
+	tx, err := m.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(ctx, `SET LOCAL statement_timeout = '`+fullScanTimeout+`'`); err != nil {
+		_ = tx.Rollback(context.WithoutCancel(ctx))
+		return nil, err
+	}
+	return tx, nil
+}
+
+// firstStoredSession is the earliest date stock_prices holds, nil when it
+// holds none.
+func (m *SyncManager) firstStoredSession(ctx context.Context) (*time.Time, error) {
+	tx, err := m.beginFullScan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	var first *time.Time
+	err = tx.QueryRow(ctx, `SELECT MIN(date) FROM stock_prices`).Scan(&first)
+	return first, err
+}
 
 // countBy runs a two-column (key, count) query.
 func countBy(ctx context.Context, tx pgx.Tx, query string, args ...any) (map[string]int, error) {
