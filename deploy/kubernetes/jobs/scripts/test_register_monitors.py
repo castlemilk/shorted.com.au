@@ -17,8 +17,13 @@ class DesiredMonitors(unittest.TestCase):
     def setUp(self):
         self.want = rm.desired_monitors(VALUES)
 
-    def test_one_monitor_per_cronjob_plus_heartbeat(self):
-        self.assertEqual(set(self.want), set(VALUES["jobs"]) | {rm.HEARTBEAT_KEY})
+    def test_one_monitor_per_cronjob_scheduler_and_heartbeat(self):
+        self.assertEqual(set(self.want), set(VALUES["jobs"]) | set(VALUES["schedulerMonitors"]) | {rm.HEARTBEAT_KEY})
+
+    def test_scheduler_monitors_have_no_hung_run_window(self):
+        m = self.want["stock-price-daily-sync"]
+        self.assertEqual(m["maxRuntimeSeconds"], 0)
+        self.assertEqual(m["schedule"]["cronExpression"], "0 8 * * 1-5")
 
     def test_max_runtime_outlasts_the_job_deadline(self):
         # drop-index: 14400s x 3 attempts + 300 = the Job's activeDeadlineSeconds.

@@ -156,3 +156,14 @@ test("every Cloud Run job the reporter watches has its run.viewer grant", () => 
     assert.ok(granted.has(job), `Cloud Run job "${job}" is watched by the reporter but has no run.viewer grant in main.tf`);
   }
 });
+
+
+test("every scheduler monitor names a Cloud Scheduler trigger Terraform defines", () => {
+  const tf = [mainTf, ...["stock-price-ingestion"].map((m) =>
+    readFileSync(join(repoRoot, `terraform/modules/${m}/main.tf`), "utf8"))].join("\n");
+  const block = values.match(/^schedulerMonitors:\s*\n((?:\s{2,}.*\n?)*)/m);
+  assert.ok(block, "schedulerMonitors missing from values.yaml");
+  const names = [...block[1].matchAll(/^\s{4}scheduler:\s*([a-z0-9-]+)/gm)].map((m) => m[1]);
+  assert.ok(names.length >= 2);
+  for (const n of names) assert.match(tf, new RegExp(`name\\s+=\\s+"${n}"`), `scheduler "${n}" not found in Terraform`);
+});

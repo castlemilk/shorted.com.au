@@ -20,7 +20,11 @@ metadata:
     {{- include "shorted-jobs.labels" . | nindent 4 }}
 data:
   cloudrun.json: |
-    {{- dict "project" $r.cloudRun.project "monitors" $monitors | toPrettyJson | nindent 4 }}
+    {{- $schedulers := list -}}
+    {{- range $key, $m := .Values.schedulerMonitors }}
+    {{- $schedulers = append $schedulers (dict "key" $key "scheduler" $m.scheduler "region" $m.region) -}}
+    {{- end }}
+    {{- dict "project" $r.cloudRun.project "monitors" $monitors "schedulers" $schedulers | toPrettyJson | nindent 4 }}
 ---
 {{- $wi := .Values.workloadIdentity }}
 apiVersion: v1

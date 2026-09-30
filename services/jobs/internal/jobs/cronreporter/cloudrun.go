@@ -52,9 +52,21 @@ type CloudRunMonitor struct {
 	Env map[string]string `json:"env,omitempty"`
 }
 
+// SchedulerMonitor maps a Telesis monitor to a Cloud Scheduler job that
+// calls an HTTP endpoint directly (no Cloud Run Job execution to watch). Its
+// last attempt's outcome is the run: status code 0 is complete, anything
+// else is fail. That is trigger-level evidence (the endpoint answered), the
+// most a scheduler-driven HTTP call exposes.
+type SchedulerMonitor struct {
+	Key       string `json:"key"`
+	Scheduler string `json:"scheduler"`
+	Region    string `json:"region"`
+}
+
 type cloudRunConfig struct {
-	Project  string            `json:"project"`
-	Monitors []CloudRunMonitor `json:"monitors"`
+	Project    string             `json:"project"`
+	Monitors   []CloudRunMonitor  `json:"monitors"`
+	Schedulers []SchedulerMonitor `json:"schedulers,omitempty"`
 }
 
 func loadCloudRunConfig(path string) (*cloudRunConfig, error) {
@@ -72,6 +84,11 @@ func loadCloudRunConfig(path string) (*cloudRunConfig, error) {
 	for i, m := range c.Monitors {
 		if m.Key == "" || m.Job == "" || m.Region == "" {
 			return nil, fmt.Errorf("%s: monitor %d needs key, job and region", path, i)
+		}
+	}
+	for i, m := range c.Schedulers {
+		if m.Key == "" || m.Scheduler == "" || m.Region == "" {
+			return nil, fmt.Errorf("%s: scheduler %d needs key, scheduler and region", path, i)
 		}
 	}
 	return &c, nil
@@ -184,14 +201,28 @@ func (e execution) failureReason() string {
 	return "Cloud Run execution " + e.shortName() + ": " + strings.Join(parts, "; ")
 }
 
-// executionLister lists a job's recent executions (newest first).
+// schedulerJob is the subset of cloudscheduler.googleapis.com/v1 Job read here.
+type schedulerJob struct {
+	Name            string     `json:"name"`
+	State           string     `json:"state"`
+	LastAttemptTime *time.Time `json:"lastAttemptTime"`
+	Status          *struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	} `json:"status"`
+}
+
+// executionLister lists a job's recent executions (newest first) and reads
+// Cloud Scheduler jobs.
 type executionLister interface {
 	ListExecutions(ctx context.Context, project, region, job string) ([]execution, error)
+	GetScheduler(ctx context.Context, project, region, name string) (*schedulerJob, error)
 }
 
 type cloudRunAPI struct {
-	client *http.Client
-	base   string
+	client        *http.Client
+	base          string
+	schedulerBase string
 }
 
 func newCloudRunAPI(ctx context.Context) (*cloudRunAPI, error) {
@@ -202,7 +233,7 @@ func newCloudRunAPI(ctx context.Context) (*cloudRunAPI, error) {
 		return nil, fmt.Errorf("google credentials: %w", err)
 	}
 	c.Timeout = 30 * time.Second
-	return &cloudRunAPI{client: c, base: "https://run.googleapis.com/v2"}, nil
+	return &cloudRunAPI{client: c, base: "https://run.googleapis.com/v2", schedulerBase: "https://cloudscheduler.googleapis.com/v1"}, nil
 }
 
 func (a *cloudRunAPI) ListExecutions(ctx context.Context, project, region, job string) ([]execution, error) {
@@ -231,6 +262,32 @@ func (a *cloudRunAPI) ListExecutions(ctx context.Context, project, region, job s
 		return nil, fmt.Errorf("decode executions %s/%s: %w", region, job, err)
 	}
 	return out.Executions, nil
+}
+
+func (a *cloudRunAPI) GetScheduler(ctx context.Context, project, region, name string) (*schedulerJob, error) {
+	u := fmt.Sprintf("%s/projects/%s/locations/%s/jobs/%s",
+		a.schedulerBase, url.PathEscape(project), url.PathEscape(region), url.PathEscape(name))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("get scheduler %s/%s: %s: %s", region, name, resp.Status, truncate(string(body), 300))
+	}
+	var j schedulerJob
+	if err := json.Unmarshal(body, &j); err != nil {
+		return nil, fmt.Errorf("decode scheduler %s/%s: %w", region, name, err)
+	}
+	return &j, nil
 }
 
 type cloudRunWatcher struct {
@@ -287,6 +344,16 @@ func (w *cloudRunWatcher) reconcile(ctx context.Context) error {
 			}
 		}
 	}
+	for _, m := range w.cfg.Schedulers {
+		j, err := w.api.GetScheduler(ctx, w.cfg.Project, m.Region, m.Scheduler)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		w.reportScheduler(ctx, m, j)
+	}
 	w.mu.Lock()
 	w.lastErr = ""
 	if firstErr != nil {
@@ -325,6 +392,27 @@ func (w *cloudRunWatcher) report(ctx context.Context, m CloudRunMonitor, e execu
 		}
 	}
 	w.deliver(ctx, m.Key, u, c)
+}
+
+// reportScheduler sends the outcome of a scheduler's last attempt, once.
+func (w *cloudRunWatcher) reportScheduler(ctx context.Context, m SchedulerMonitor, j *schedulerJob) {
+	if j.LastAttemptTime == nil || w.now().Sub(*j.LastAttemptTime) > w.maxAge {
+		return
+	}
+	u, ok := w.urls(m.Key)
+	if !ok {
+		return
+	}
+	run := m.Scheduler + "-" + j.LastAttemptTime.UTC().Format("20060102T150405Z")
+	if j.Status != nil && j.Status.Code != 0 {
+		w.deliver(ctx, m.Key, u, checkin{
+			State: stateFail, RunID: run, IdempotencyKey: "scheduler:" + run + ":fail",
+			TerminalReason: fmt.Sprintf("Cloud Scheduler %s: last attempt failed (code %d): %s", m.Scheduler, j.Status.Code, j.Status.Message),
+		})
+		return
+	}
+	zero := 0
+	w.deliver(ctx, m.Key, u, checkin{State: stateComplete, RunID: run, ExitCode: &zero, IdempotencyKey: "scheduler:" + run + ":complete"})
 }
 
 func (w *cloudRunWatcher) deliver(ctx context.Context, key, u string, c checkin) {
@@ -369,5 +457,5 @@ func (w *cloudRunWatcher) status() map[string]any {
 	for k, v := range w.stats {
 		st[k] = v
 	}
-	return map[string]any{"monitors": len(w.cfg.Monitors), "last_error": w.lastErr, "checkins_since_boot": st}
+	return map[string]any{"monitors": len(w.cfg.Monitors), "schedulers": len(w.cfg.Schedulers), "last_error": w.lastErr, "checkins_since_boot": st}
 }

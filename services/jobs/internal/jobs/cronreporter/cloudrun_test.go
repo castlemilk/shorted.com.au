@@ -14,9 +14,17 @@ import (
 )
 
 type fakeLister struct {
-	execs map[string][]execution // "region/job" -> executions
-	err   map[string]error
-	calls map[string]int
+	execs  map[string][]execution // "region/job" -> executions
+	scheds map[string]*schedulerJob
+	err    map[string]error
+	calls  map[string]int
+}
+
+func (f *fakeLister) GetScheduler(_ context.Context, _ string, region, name string) (*schedulerJob, error) {
+	if err := f.err[region+"/"+name]; err != nil {
+		return nil, err
+	}
+	return f.scheds[region+"/"+name], nil
 }
 
 func (f *fakeLister) ListExecutions(_ context.Context, _ string, region, job string) ([]execution, error) {
@@ -105,7 +113,7 @@ func TestAFailedExecutionCarriesItsReasonAndLogLink(t *testing.T) {
 	if !strings.Contains(c.TerminalReason, "container exited with an error") || !strings.Contains(c.Diagnostic, "console.cloud.google.com") {
 		t.Fatalf("fail check-in lacks reason/log link: %+v", c)
 	}
-	if c.DurationMs != (20 * time.Minute).Milliseconds() || c.IdempotencyKey != "cloudrun:s-1:fail" {
+	if c.DurationMs != (20*time.Minute).Milliseconds() || c.IdempotencyKey != "cloudrun:s-1:fail" {
 		t.Fatalf("duration/idempotency wrong: %+v", c)
 	}
 }
@@ -171,5 +179,30 @@ func TestLoadCloudRunConfigValidates(t *testing.T) {
 	_ = os.WriteFile(p, []byte(`{"project":"p","monitors":[{"key":"k","job":"j","region":"r","args":["x"]}]}`), 0o600)
 	if c, err := loadCloudRunConfig(p); err != nil || len(c.Monitors) != 1 {
 		t.Fatalf("valid config rejected: %v", err)
+	}
+}
+
+func TestASchedulerAttemptIsReportedOnceAsCompleteOrFail(t *testing.T) {
+	at := time.Date(2026, 9, 30, 8, 0, 3, 0, time.UTC)
+	ok := &schedulerJob{Name: "stock-price-daily-sync", LastAttemptTime: &at}
+	s := &fakeSender{}
+	cfg := &cloudRunConfig{Project: "p", Schedulers: []SchedulerMonitor{{Key: "stock-price-daily-sync", Scheduler: "stock-price-daily-sync", Region: "australia-southeast1"}}}
+	l := &fakeLister{scheds: map[string]*schedulerJob{"australia-southeast1/stock-price-daily-sync": ok}}
+	w := newCloudRunWatcher(cfg, l, s, staticURLs(map[string]string{"stock-price-daily-sync": "https://t/v1/cron/x"}), 3*time.Hour, false)
+	w.now = func() time.Time { return at.Add(time.Hour) }
+	_ = w.reconcile(context.Background())
+	_ = w.reconcile(context.Background())
+	if len(s.sent) != 1 || s.sent[0].c.State != stateComplete || s.sent[0].c.RunID != "stock-price-daily-sync-20260930T080003Z" {
+		t.Fatalf("want one complete, got %+v", s.sent)
+	}
+	later := at.Add(24 * time.Hour)
+	l.scheds["australia-southeast1/stock-price-daily-sync"] = &schedulerJob{LastAttemptTime: &later, Status: &struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}{Code: 4, Message: "DEADLINE_EXCEEDED"}}
+	w.now = func() time.Time { return later.Add(time.Minute) }
+	_ = w.reconcile(context.Background())
+	if len(s.sent) != 2 || s.sent[1].c.State != stateFail || !strings.Contains(s.sent[1].c.TerminalReason, "DEADLINE_EXCEEDED") {
+		t.Fatalf("want a fail carrying the status, got %+v", s.sent)
 	}
 }

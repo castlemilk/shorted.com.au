@@ -168,6 +168,22 @@ reporter:
     cpuRequest: 10m
     memory: 64Mi
 
+# Scheduled work that is an HTTP call from Cloud Scheduler straight to a Cloud
+# Run SERVICE (no Job execution to watch). The reporter reads each trigger's
+# last attempt (project-level roles/cloudscheduler.viewer, granted by
+# scripts/bootstrap.sh: Cloud Scheduler has no per-job IAM) and reports it to
+# a Telesis monitor of the same name. Trigger-level evidence: the endpoint
+# answered 2xx within its deadline.
+schedulerMonitors:
+  stock-price-daily-sync:
+    scheduler: stock-price-daily-sync
+    region: australia-southeast1
+    schedule: "0 8 * * 1-5"
+  stock-price-weekly-sync:
+    scheduler: stock-price-weekly-sync
+    region: australia-southeast1
+    schedule: "0 10 * * 0"
+
 # ---------------------------------------------------------------------------
 # The jobs. Key = CronJob name = Telesis monitor name = check-in secret key.
 #   image          key into `images`
