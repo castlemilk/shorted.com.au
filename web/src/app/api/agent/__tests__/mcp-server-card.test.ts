@@ -20,6 +20,13 @@ const catalogFixture = {
     documentation: "https://shorted.com.au/docs/mcp.md",
     website: "https://shorted.com.au",
     contact: "support@shorted.com.au",
+    icons: [
+      {
+        src: "https://api.shorted.com.au/icon-192.png",
+        mimeType: "image/png",
+        sizes: ["192x192"],
+      },
+    ],
   },
   authentication: { required: false, note: "Anonymous access." },
   toolCount: 2,
@@ -104,6 +111,16 @@ describe("MCP server card", () => {
 
     expect(card.transport.endpoint).toBe("https://api.shorted.com.au/mcp");
     expect(card.transport.type).toBe("streamable-http");
+  });
+
+  it("preserves the catalog's icon metadata for connector discovery", async () => {
+    mockCatalog(catalogFixture);
+    const card = await (await GET()).json();
+
+    expect(card.serverInfo.icons).toEqual(catalogFixture.server.icons);
+    expect(new URL(card.serverInfo.icons[0].src).origin).toBe(
+      new URL(card.transport.endpoint).origin,
+    );
   });
 
   it("preserves the SEP-1649 shape", async () => {

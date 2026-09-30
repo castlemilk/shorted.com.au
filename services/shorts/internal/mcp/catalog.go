@@ -41,16 +41,17 @@ const DocumentationURL = "https://shorted.com.au/docs/mcp.md"
 const protocolVersion = "2026-07-28"
 
 type CatalogServer struct {
-	Name            string `json:"name"`
-	Title           string `json:"title"`
-	Version         string `json:"version"`
-	Description     string `json:"description"`
-	ProtocolVersion string `json:"protocolVersion"`
-	Endpoint        string `json:"endpoint"`
-	Transport       string `json:"transport"`
-	Documentation   string `json:"documentation"`
-	Website         string `json:"website"`
-	Contact         string `json:"contact"`
+	Name            string     `json:"name"`
+	Title           string     `json:"title"`
+	Version         string     `json:"version"`
+	Description     string     `json:"description"`
+	ProtocolVersion string     `json:"protocolVersion"`
+	Endpoint        string     `json:"endpoint"`
+	Transport       string     `json:"transport"`
+	Documentation   string     `json:"documentation"`
+	Website         string     `json:"website"`
+	Contact         string     `json:"contact"`
+	Icons           []sdk.Icon `json:"icons"`
 }
 
 // CatalogAuthentication describes how a client authenticates, and — just as
@@ -300,6 +301,7 @@ func BuildCatalogFor(ctx context.Context, src DataSource, opts CatalogOptions) C
 			Documentation:   DocumentationURL,
 			Website:         "https://shorted.com.au",
 			Contact:         "support@shorted.com.au",
+			Icons:           Icons(),
 		},
 		Authentication: buildCatalogAuthentication(apiBaseURL, opts.RateLimitEnabled),
 		ToolCount:      len(tools),
