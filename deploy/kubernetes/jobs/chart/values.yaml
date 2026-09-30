@@ -50,7 +50,14 @@ secretEnv:
 suspendAll: false
 # CronJob names that are live on the cluster. Cutover is one line here plus the
 # matching Terraform flag — never one without the other.
-enabled: [shorted-news-cluster]
+enabled:
+  - shorted-news-cluster
+  - shorted-index-sync
+  - shorted-news
+  - shorted-news-backfill-images
+  - shorted-news-resolve-googlenews
+  - shorted-news-digest
+  - shorted-economy
 
 # Google Workload Identity Federation for the jobs that write to GCS. Keyless:
 # a projected Kubernetes token is exchanged for a short-lived token of the SAME
