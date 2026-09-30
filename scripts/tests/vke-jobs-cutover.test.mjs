@@ -122,3 +122,22 @@ test("the parsers read the forms the runbook documents", () => {
   assert.ok(/^\s*jobs_on_vke\s*=/m.test(mainTf));
   assert.ok(/^enabled:/m.test(values));
 });
+
+
+test("Paprika tracks the branch CI promotes after terraform-apply, never main", () => {
+  // The 2026-09-30 incident: with the Application on main, merging a cutover
+  // unsuspended its CronJobs at once, while a failed image push skipped the
+  // Terraform apply that pauses the Cloud Scheduler triggers.
+  const app = readFileSync(join(repoRoot, "deploy/kubernetes/jobs/paprika/application.yaml"), "utf8");
+  assert.match(app, /^\s+revision:\s+deploy\/vke-jobs\s*$/m);
+  const wf = readFileSync(join(repoRoot, ".github/workflows/terraform-deploy.yml"), "utf8");
+  const start = wf.indexOf("\n  bump-vke-jobs-image:\n");
+  assert.ok(start >= 0, "bump-vke-jobs-image job missing");
+  const job = wf.slice(start, wf.indexOf("\n  deploy-vercel-prod:\n", start));
+  assert.match(job, /needs:\s*\[[^\]]*terraform-apply[^\]]*\]/);
+  assert.match(job, /needs\.terraform-apply\.result == 'success'/);
+  assert.match(job, /ref:\s*\$\{\{ github\.sha \}\}/, "must promote the applied commit, not main's tip");
+  assert.match(job, /refs\/heads\/\$\{branch\}/);
+  assert.match(job, /merge-base --is-ancestor/, "must refuse to move the branch backwards");
+  assert.doesNotMatch(job, /push origin HEAD:main/, "promotion must not write to main");
+});

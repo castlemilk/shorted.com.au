@@ -120,8 +120,9 @@ Cut over one PR per job or small batch. The change is two lists that
    `suspendAll: false` if it is the first.
 2. Add the same name to `local.jobs_on_vke` in
    `terraform/environments/prod/main.tf`.
-3. Merge. `terraform-deploy` pauses the Cloud Scheduler trigger, and Paprika
-   unsuspends the CronJob within a minute.
+3. Merge. `terraform-deploy` pauses the Cloud Scheduler trigger, then moves
+   the `deploy/vke-jobs` branch, and only then does Paprika unsuspend the
+   CronJob. If the deploy fails, nothing changes on the cluster; re-run it.
 4. After the first scheduled run, check the monitor is **Healthy** in Telesis.
    Then compare the run's effect with a recent Cloud Run run (row counts, the
    job's own report).
@@ -200,6 +201,12 @@ kubectl -n shorted-jobs logs deploy/cronjob-reporter           # what was report
   retry budget ran out. Fix a bad chart forward with a commit. If Paprika has
   parked the app (`ReleaseRetriesExhausted`), run
   `kubectl -n shorted-jobs annotate applications.pipelines.paprika.io shorted-jobs paprika.io/manual-sync=$(date +%s) --overwrite`.
+- **Paprika tracks `deploy/vke-jobs`, not `main`.** CI force-pushes it
+  after each successful Terraform apply: the applied commit plus one commit
+  setting that deploy's image tags. Image tags in `values.yaml` on main are
+  therefore stale by design. Never push to that branch by hand except to
+  recover; a hand push that runs ahead of Terraform re-creates the double-run
+  window this design closes.
 - **Image tags are immutable `main-<sha8>`.** Until `VKE_JOBS_IMAGE_BUMP=true`,
   the pinned tag is whatever the chart was committed with. Enable the bump
   before the first cutover.

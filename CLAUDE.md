@@ -985,6 +985,7 @@ alerts on failed, missed and timed-out runs. That replaces the GCP
   (short-data-sync resume key, price-sync report key). `CLOUD_RUN_TASK_ATTEMPT` =
   the Indexed Job's per-index failure count, so the Jobs must stay
   `completionMode: Indexed` + `backoffLimitPerIndex`.
+- **Paprika tracks the `deploy/vke-jobs` branch, not main.** The deploy's `bump-vke-jobs-image` job moves it only after Terraform applies, so a cutover's CronJob can never go live before its Cloud Scheduler trigger is paused. When the Application tracked main, a failed image push on 2026-09-30 left six jobs live on both schedulers for about an hour.
 - **An ERROR log with exit 0 no longer pages** (the GCP log-metric policy did).
   Exit non-zero (`runner.ExitCodeError`) if a path should alert.
 - Telesis **project tokens cannot register cron monitors** (user-role check).
