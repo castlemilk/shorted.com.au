@@ -5,9 +5,9 @@
 #
 #   kubectl apply -f deploy/kubernetes/jobs/paprika/application.yaml
 #
-# From then on Paprika polls main and re-renders deploy/kubernetes/jobs/chart:
-# CI's image-tag bump and every cutover edit to values.yaml roll out on their
-# own. Runbook: deploy/kubernetes/jobs/README.md.
+# From then on Paprika polls the deploy/vke-jobs branch, which CI moves to
+# each applied main commit (plus that deploy's image tags) after Terraform
+# has applied it. Chart edits reach the cluster only through that branch. Runbook: deploy/kubernetes/jobs/README.md.
 apiVersion: pipelines.paprika.io/v1alpha1
 kind: Application
 metadata:
@@ -22,7 +22,11 @@ spec:
     type: git
     # Public repo: no git credential needed.
     repoUrl: https://github.com/castlemilk/shorted.com.au.git
-    revision: main
+    # NOT main: CI's bump-vke-jobs-image job moves this branch only after the
+    # Terraform apply that carries a cutover's other half (pausing the Cloud
+    # Scheduler trigger) has succeeded. Tracking main made every merged
+    # cutover live immediately, before its trigger was paused.
+    revision: deploy/vke-jobs
     path: deploy/kubernetes/jobs/chart
     targetNamespace: shorted-jobs
     pollInterval: 60s

@@ -1122,18 +1122,25 @@ jobs:
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           fi
 
-  # Roll the Kubernetes CronJobs (deploy/kubernetes/jobs, Paprika on omega)
-  # onto the images this run built — the same tag the Cloud Run jobs just
-  # moved to. Commits the tag bump to main with [skip ci]; Paprika polls main
-  # and re-renders the chart within a minute.
+  # Promote the Kubernetes CronJob chart (deploy/kubernetes/jobs, Paprika on
+  # omega) ONLY after Terraform has applied, by moving the deploy/vke-jobs
+  # branch that the Paprika Application tracks.
   #
-  # AFTER terraform-apply, never beside it: the apply is what replays the
-  # migration allowlist, and a CronJob firing new code against the old schema
-  # is exactly the 500 the housing/politicians landmines describe.
+  # Why a branch and not main: a cutover is two halves that must land
+  # together — the chart unsuspends a CronJob, Terraform pauses the Cloud
+  # Scheduler trigger it replaces. When Paprika tracked main, the chart half
+  # went live the moment a PR merged while the Terraform half waited for (or,
+  # 2026-09-30, was skipped by a failed image push in) this workflow: both
+  # schedulers live, every job running twice. Now nothing reaches the cluster
+  # until the apply that carries the other half has succeeded.
   #
-  # Dormant until the repo variable VKE_JOBS_IMAGE_BUMP is 'true' — set it
-  # when the first job cuts over (deploy/kubernetes/jobs/README.md). Until then
-  # the chart's pinned tag is stale by design and every CronJob is suspended.
+  # The promoted commit is EXACTLY the commit this run applied (github.sha),
+  # plus one commit on top that sets the chart's image tags to the images this
+  # run built. It is never main's tip, which may already hold changes whose
+  # Terraform has not applied. A run that finishes after a newer one never
+  # moves the branch backwards.
+  #
+  # Dormant until the repo variable VKE_JOBS_IMAGE_BUMP is 'true'.
   bump-vke-jobs-image:
     needs: [determine-environment, terraform-apply]
     if: >-
@@ -1151,46 +1158,37 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Bump chart image tags
+      - name: Promote the applied commit to deploy/vke-jobs
         env:
           IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
-        run: deploy/kubernetes/jobs/scripts/bump-image-tag.sh "${IMAGE_TAG}"
-
-      - name: Commit to main
-        env:
-          IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
+          APPLIED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          values=deploy/kubernetes/jobs/chart/values.yaml
-          if git diff --quiet -- "${values}"; then
-            echo "chart already on ${IMAGE_TAG}"
-            exit 0
+          branch=deploy/vke-jobs
+          # Never move backwards: the branch's current base must be an
+          # ancestor of (or equal to) the commit this run applied.
+          if git fetch -q origin "refs/heads/${branch}:refs/remotes/origin/${branch}" 2>/dev/null; then
+            current_base="$(git log -1 --format=%B "origin/${branch}" | sed -n 's/^Applied-Commit: //p')"
+            current_base="${current_base:-$(git rev-parse "origin/${branch}")}"
+            if ! git merge-base --is-ancestor "${current_base}" "${APPLIED_SHA}"; then
+              echo "deploy/vke-jobs is at ${current_base}, which is not an ancestor of ${APPLIED_SHA}: a newer deploy already promoted; not moving it back"
+              exit 0
+            fi
           fi
+          deploy/kubernetes/jobs/scripts/bump-image-tag.sh "${IMAGE_TAG}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "${values}"
-          git commit -m "chore(vke-jobs): images -> ${IMAGE_TAG} [skip ci]"
-          for attempt in 1 2 3; do
-            if git push origin HEAD:main; then
-              exit 0
-            fi
-            # Something else landed on main meanwhile: replay the bump on top.
-            git fetch origin main
-            git reset --hard origin/main
-            deploy/kubernetes/jobs/scripts/bump-image-tag.sh "${IMAGE_TAG}"
-            if git diff --quiet -- "${values}"; then
-              echo "main already carries ${IMAGE_TAG}"
-              exit 0
-            fi
-            git add "${values}"
-            git commit -m "chore(vke-jobs): images -> ${IMAGE_TAG} [skip ci]"
-            sleep $((attempt * 5))
-          done
-          echo "could not push the chart image bump after three attempts" >&2
-          exit 1
+          git add deploy/kubernetes/jobs/chart/values.yaml
+          git commit --allow-empty -q -F - <<MSG
+          chore(vke-jobs): promote ${APPLIED_SHA::8} with images ${IMAGE_TAG} [skip ci]
+
+          Applied-Commit: ${APPLIED_SHA}
+          MSG
+          git push --force origin "HEAD:refs/heads/${branch}"
+          echo "deploy/vke-jobs -> ${APPLIED_SHA::8} + images ${IMAGE_TAG}"
 
   deploy-vercel-prod:
     needs: [determine-environment, validate-secrets, terraform-apply]
