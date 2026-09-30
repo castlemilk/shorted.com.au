@@ -24,7 +24,10 @@ func NewSentimentAnalyzer(ctx context.Context, apiKey string) (*SentimentAnalyze
 	}
 	return &SentimentAnalyzer{
 		client: client,
-		model:  "gemini-2.0-flash",
+		// gemini-2.0-flash was retired from the Gemini API (404, gone from
+		// ListModels by 2026-09-30); every sentiment batch failed and fell back
+		// to the keyword heuristic. 2.5-flash-lite is closed to new API users too.
+		model: "gemini-3.5-flash-lite",
 	}, nil
 }
 
