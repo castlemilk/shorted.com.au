@@ -167,6 +167,18 @@ if [[ "${ONLY}" == all || "${ONLY}" == wif ]]; then
       --role roles/iam.workloadIdentityUser --member "${principal}" --condition=None
   done <<<"${pairs}"
   rm -f "${jwks}"
+
+  # cronjob-reporter reads Cloud Scheduler attempts for the HTTP-triggered
+  # syncs (chart schedulerMonitors). Cloud Scheduler has no per-job IAM, so
+  # this one read-only role is project-level; CI cannot write project IAM.
+  reporter_gsa="vke-cronjob-reporter@${PROJECT_ID}.iam.gserviceaccount.com"
+  if gcloud iam service-accounts describe "${reporter_gsa}" --project "${PROJECT_ID}" >/dev/null 2>&1; then
+    echo "==> ${reporter_gsa}: roles/cloudscheduler.viewer (project)"
+    run gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+      --member "serviceAccount:${reporter_gsa}" --role roles/cloudscheduler.viewer --condition=None
+  else
+    echo "==> ${reporter_gsa} not created yet (Terraform creates it); re-run after the deploy"
+  fi
 fi
 
 echo "==> bootstrap $($apply && echo applied || echo planned). Next: scripts/sync-secrets.sh, then scripts/register-monitors.py."

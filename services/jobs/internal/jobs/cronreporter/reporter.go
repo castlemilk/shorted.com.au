@@ -103,6 +103,7 @@ type config struct {
 	heartbeatInterval time.Duration
 	dryRun            bool
 	allowHTTP         bool
+	cloudRunConfig    string
 }
 
 // Run parses flags and runs the reconcile loop until ctx is cancelled.
@@ -118,6 +119,7 @@ func Run(ctx context.Context, args []string) error {
 	fs.IntVar(&cfg.logTailLines, "log-tail-lines", 60, "Log lines attached to a failure check-in")
 	fs.DurationVar(&cfg.heartbeatInterval, "heartbeat-interval", 5*time.Minute, "How often to ping the reporter's own monitor (secret key "+heartbeatKey+"), if present")
 	fs.BoolVar(&cfg.dryRun, "dry-run", g.DryRun, "Log check-ins instead of sending them; never annotate Jobs")
+	fs.StringVar(&cfg.cloudRunConfig, "cloudrun-config", "", "JSON file mapping Telesis monitor keys to Cloud Run jobs whose executions are reported too (empty = Kubernetes only)")
 	fs.BoolVar(&cfg.allowHTTP, "allow-http-checkins", false, "Accept http:// check-in URLs (local end-to-end tests against a fake Telesis only; the URL is a credential)")
 	if err := fs.Parse(args); err != nil {
 		return runner.ErrUsage
@@ -131,6 +133,18 @@ func Run(ctx context.Context, args []string) error {
 		return err
 	}
 	r := newReporter(kube, newHTTPSender(), dirURLs(cfg.checkinDir, cfg.allowHTTP), cfg)
+	if cfg.cloudRunConfig != "" {
+		crc, err := loadCloudRunConfig(cfg.cloudRunConfig)
+		if err != nil {
+			return err
+		}
+		api, err := newCloudRunAPI(ctx)
+		if err != nil {
+			return err
+		}
+		r.cloudRun = newCloudRunWatcher(crc, api, r.send, r.urls, cfg.maxReportAge, cfg.dryRun)
+		log.Printf("cronjob-reporter: watching %d Cloud Run monitors in %s", len(crc.Monitors), crc.Project)
+	}
 	log.Printf("cronjob-reporter: namespace=%s interval=%s checkin-dir=%s dry-run=%v", kube.namespace, cfg.interval, cfg.checkinDir, cfg.dryRun)
 
 	srv := &http.Server{Addr: cfg.healthAddr, Handler: r.healthHandler(), ReadHeaderTimeout: 5 * time.Second}
@@ -185,6 +199,7 @@ type reporter struct {
 
 	lastOK        atomic.Int64 // unix nanos of the last successful reconcile
 	lastHeartbeat time.Time
+	cloudRun      *cloudRunWatcher // nil: Kubernetes only
 
 	mu        sync.Mutex
 	warnedFor map[string]bool // CronJobs already warned about a missing URL
@@ -205,6 +220,14 @@ func (r *reporter) tick(ctx context.Context) {
 		return
 	}
 	r.lastOK.Store(r.now().UnixNano())
+	if r.cloudRun != nil {
+		// A Cloud Run listing failure is logged loudly but does not stop the
+		// heartbeat: the Kubernetes half still works, and every Cloud Run
+		// monitor it leaves unreported will go MISSED in Telesis on its own.
+		if err := r.cloudRun.reconcile(ctx); err != nil {
+			log.Printf("ERROR cronjob-reporter: cloud run: %v", err)
+		}
+	}
 	r.heartbeat(ctx)
 }
 
@@ -495,11 +518,15 @@ func (r *reporter) healthHandler() http.Handler {
 		if !healthy {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		body := map[string]any{
 			"healthy":             healthy,
 			"last_reconcile_ago":  age.Round(time.Second).String(),
 			"checkins_since_boot": stats,
-		})
+		}
+		if r.cloudRun != nil {
+			body["cloud_run"] = r.cloudRun.status()
+		}
+		_ = json.NewEncoder(w).Encode(body)
 	})
 	return mux
 }

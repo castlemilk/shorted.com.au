@@ -151,6 +151,15 @@ def desired_monitors(values: dict) -> dict[str, dict]:
             "maxRuntimeSeconds": job_deadline + int(mon["maxRuntimeSlackSeconds"]),
             "affectsServiceStatus": True,
         }
+    for name, m in sorted((values.get("schedulerMonitors") or {}).items()):
+        # A scheduler-driven HTTP call reports only its outcome (no start), so
+        # there is no hung-run window to watch.
+        out[name] = {
+            "schedule": {"cronExpression": m["schedule"], "timezone": "UTC"},
+            "gracePeriodSeconds": int(mon["graceSeconds"]),
+            "maxRuntimeSeconds": 0,
+            "affectsServiceStatus": True,
+        }
     reporter = values.get("reporter", {})
     if reporter.get("enabled", True):
         hb = parse_duration(reporter.get("heartbeatInterval", "5m"))

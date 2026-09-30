@@ -1,0 +1,49 @@
+{{- $r := .Values.reporter -}}
+{{- if and $r.enabled $r.cloudRun.enabled }}
+{{- /* Every chart job NOT live here is watched on Cloud Run, where it still
+runs. A cutover (adding a job to `enabled`) moves its reporting to the
+Kubernetes path automatically; nothing else to edit. */ -}}
+{{- $monitors := list -}}
+{{- range $name, $job := .Values.jobs }}
+{{- $live := and (not $.Values.suspendAll) (has $name $.Values.enabled) -}}
+{{- if and (not $live) $job.cloudRun }}
+{{- $m := dict "key" $name "job" $job.cloudRun.job "region" ($job.cloudRun.region | default $r.cloudRun.defaultRegion) "args" ($job.args | default list) -}}
+{{- if $job.cloudRun.env }}{{- $_ := set $m "env" $job.cloudRun.env -}}{{- end }}
+{{- $monitors = append $monitors $m -}}
+{{- end }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cronjob-reporter-cloudrun
+  labels:
+    {{- include "shorted-jobs.labels" . | nindent 4 }}
+data:
+  cloudrun.json: |
+    {{- $schedulers := list -}}
+    {{- range $key, $m := .Values.schedulerMonitors }}
+    {{- $schedulers = append $schedulers (dict "key" $key "scheduler" $m.scheduler "region" $m.region) -}}
+    {{- end }}
+    {{- dict "project" $r.cloudRun.project "monitors" $monitors "schedulers" $schedulers | toPrettyJson | nindent 4 }}
+---
+{{- $wi := .Values.workloadIdentity }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cronjob-reporter-workload-identity
+  labels:
+    {{- include "shorted-jobs.labels" . | nindent 4 }}
+data:
+  {{ $wi.credentialConfigFile }}: |
+    {
+      "type": "external_account",
+      "audience": {{ include "shorted-jobs.wifAudience" $wi | quote }},
+      "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+      "token_url": "https://sts.googleapis.com/v1/token",
+      "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/{{ $r.cloudRun.gcpServiceAccount }}:generateAccessToken",
+      "credential_source": {
+        "file": "{{ $wi.tokenMountPath }}/{{ $wi.tokenFile }}",
+        "format": { "type": "text" }
+      }
+    }
+{{- end }}

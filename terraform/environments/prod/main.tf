@@ -343,6 +343,79 @@ locals {
   ]
 }
 
+# ---------------------------------------------------------------------------
+# cronjob-reporter's read-only Cloud Run identity.
+#
+# The reporter on omega (deploy/kubernetes/jobs) reports every scheduled job to
+# Telesis. Jobs still on Cloud Run are reported by listing their executions,
+# which needs roles/run.viewer on each job. It gets that as a keyless
+# identity: its Kubernetes ServiceAccount (shorted-jobs/cronjob-reporter)
+# exchanges a projected token through the vke-omega Workload Identity pool
+# (created by deploy/kubernetes/jobs/scripts/bootstrap.sh) for this Google SA.
+# Grants are per JOB, never project-wide: it can read executions, nothing else.
+#
+# Every Cloud Run job named in the chart's `cloudRun.job` must be listed here
+# (scripts/tests/vke-jobs-cutover.test.mjs enforces it), or its runs would go
+# unreported and its Telesis monitor would page as MISSED.
+# ---------------------------------------------------------------------------
+locals {
+  vke_reporter_watched_jobs = {
+    "shorts-data-sync"           = var.region
+    "house-price-collector"      = var.region
+    "influence-collector"        = var.region
+    "shorted-announcements"      = var.region
+    "shorted-index-sync"         = var.region
+    "shorted-price-sync"         = var.region
+    "shorted-picks"              = var.region
+    "shorted-economy"            = var.region
+    "shorted-weekly-report"      = var.region
+    "shorted-news"               = var.region
+    "shorted-signals"            = var.region
+    "director-trade-extractor"   = var.region
+    "financial-report-extractor" = var.region
+    "asx-discovery"              = "us-central1"
+  }
+}
+
+resource "google_service_account" "vke_cronjob_reporter" {
+  project      = var.project_id
+  account_id   = "vke-cronjob-reporter"
+  display_name = "omega cronjob-reporter (reads Cloud Run executions)"
+  description  = "Keyless (WIF) identity of shorted-jobs/cronjob-reporter on omega VKE; job-level run.viewer only."
+}
+
+resource "google_service_account_iam_member" "vke_cronjob_reporter_wif" {
+  service_account_id = google_service_account.vke_cronjob_reporter.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principal://iam.googleapis.com/projects/334313144667/locations/global/workloadIdentityPools/vke-omega/subject/system:serviceaccount:shorted-jobs:cronjob-reporter"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "vke_cronjob_reporter_viewer" {
+  for_each = local.vke_reporter_watched_jobs
+
+  project  = var.project_id
+  location = each.value
+  name     = each.key
+  role     = "roles/run.viewer"
+  member   = "serviceAccount:${google_service_account.vke_cronjob_reporter.email}"
+
+  depends_on = [
+    module.short_data_sync,
+    module.house_price_collector,
+    module.influence_collector,
+    module.shorted_job_announcements,
+    module.shorted_job_index_sync,
+    module.shorted_job_price_sync,
+    module.shorted_job_picks,
+    module.shorted_job_economy,
+    module.shorted_job_weekly_report,
+    module.shorted_job_news,
+    module.shorted_job_signals,
+    module.report_extractor,
+    module.market_discovery_sync,
+  ]
+}
+
 # Short Data Sync Job
 module "short_data_sync" {
   source = "../../modules/short-data-sync"
