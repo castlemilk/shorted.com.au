@@ -149,6 +149,14 @@ monitoring:
 
 reporter:
   enabled: true
+  # Read-only Cloud Run identity (Workload Identity Federation) used to watch
+  # the executions of jobs that are not yet live here. roles/run.viewer on
+  # each of those jobs is granted in terraform/environments/prod/main.tf.
+  cloudRun:
+    enabled: true
+    project: rosy-clover-477102-t5
+    defaultRegion: australia-southeast2
+    gcpServiceAccount: vke-cronjob-reporter@rosy-clover-477102-t5.iam.gserviceaccount.com
   image: jobs # key into `images`
   replicas: 1
   interval: 30s
@@ -173,6 +181,10 @@ reporter:
 jobs:
   # modules/short-data-sync — daily ASIC ingest + MV refresh.
   shorts-data-sync:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorts-data-sync
     image: jobs
     command: ["/shorted"]
     args: ["short-data-sync"]
@@ -187,6 +199,10 @@ jobs:
   # modules/house-price-collector — monthly ABS/RBA/VG official ingest.
   # No args: the image ENTRYPOINT defaults to -mode all.
   house-price-collector-monthly:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: house-price-collector
     image: housePriceCollector
     schedule: "0 16 5 * *"
     timeoutSeconds: 1800
@@ -198,6 +214,10 @@ jobs:
   # modules/house-price-collector — daily drop-index (scheduler override:
   # args ["-mode","drop-index"], timeoutSeconds 14400).
   house-price-collector-drop-index:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: house-price-collector
     image: housePriceCollector
     args: ["-mode", "drop-index"]
     schedule: "0 18 * * *"
@@ -211,6 +231,10 @@ jobs:
   # REGISTER_* are carried for parity; `-mode all` excludes the APH register
   # crawl, which stays operator-run on Cloud Run.
   influence-collector-monthly:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: influence-collector
     image: jobs
     args: ["influence", "-mode", "all"]
     schedule: "0 18 5 * *"
@@ -226,6 +250,10 @@ jobs:
       REGISTER_FETCH_DELAY_MS: "1500"
 
   shorted-announcements:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-announcements
     image: jobs
     args: ["announcements", "-director-trades", "-dividends", "-news-table", "-all-announcements", "-years", "2024,2025,2026", "-workers", "6"]
     schedule: "0 11 * * *"
@@ -237,6 +265,10 @@ jobs:
     profiles: [db, otel]
 
   shorted-index-sync:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-index-sync
     image: jobs
     args: ["market-data", "index-sync", "-years", "2"]
     schedule: "30 11 * * *"
@@ -248,6 +280,10 @@ jobs:
   # 6h timeout so the sweep stops on its own terms (exit 10 = partial, retried
   # once from the stalest stock). Change one, change the other.
   shorted-price-sync:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-price-sync
     image: jobs
     args: ["market-data", "sync"]
     schedule: "0 10 * * 1-5"
@@ -269,6 +305,10 @@ jobs:
   # Stock picker. Two Cloud Scheduler triggers on one Cloud Run job => two
   # CronJobs. The picks_run_lease row (000132) keeps them from overlapping.
   shorted-picks:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-picks
     image: jobs
     args: ["picks", "-mode", "refresh"]
     schedule: "30 13 * * 1-5"
@@ -279,6 +319,10 @@ jobs:
       PICKS_FUNDAMENTALS_BUDGET_MIN: "170"
 
   shorted-picks-fundamentals:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-picks
     image: jobs
     args: ["picks", "-mode", "all"]
     schedule: "0 15 * * *"
@@ -289,6 +333,10 @@ jobs:
       PICKS_FUNDAMENTALS_BUDGET_MIN: "170"
 
   shorted-economy:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-economy
     image: jobs
     args: ["economy", "-mode", "all"]
     schedule: "0 17 5 * *"
@@ -299,6 +347,12 @@ jobs:
       FRED_API_KEY: FRED_API_KEY
 
   shorted-weekly-report:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-weekly-report
+      env:
+        REPORT_TYPE: ""
     image: jobs
     args: ["weekly-report"]
     schedule: "0 11 * * 5"
@@ -310,6 +364,12 @@ jobs:
       GEMINI_API_KEY: GEMINI_API_KEY
 
   shorted-weekly-report-monthly:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-weekly-report
+      env:
+        REPORT_TYPE: "monthly"
     image: jobs
     args: ["weekly-report"]
     schedule: "0 1 1 * *"
@@ -324,6 +384,12 @@ jobs:
 
   # shorted-news: one Cloud Run job, five schedulers => five CronJobs.
   shorted-news:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-news
+      env:
+        RUN_MODE: ""
     image: jobs
     args: ["news"]
     schedule: "0 */4 * * *"
@@ -332,6 +398,12 @@ jobs:
     profiles: [db, otel, news]
 
   shorted-news-backfill-images:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-news
+      env:
+        RUN_MODE: "backfill-images"
     image: jobs
     args: ["news"]
     schedule: "0 3 * * *"
@@ -344,6 +416,12 @@ jobs:
       BACKFILL_CONCURRENCY: "6"
 
   shorted-news-resolve-googlenews:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-news
+      env:
+        RUN_MODE: "resolve-googlenews"
     image: jobs
     args: ["news"]
     schedule: "0 4 * * 1"
@@ -357,6 +435,12 @@ jobs:
       BACKFILL_UPDATE_URL: "true"
 
   shorted-news-cluster:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-news
+      env:
+        RUN_MODE: "cluster-news"
     image: jobs
     args: ["news"]
     schedule: "30 */2 * * *"
@@ -369,6 +453,12 @@ jobs:
       CLUSTER_MIN_OVERLAP: "3"
 
   shorted-news-digest:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-news
+      env:
+        RUN_MODE: "digest"
     image: jobs
     args: ["news"]
     schedule: "0 1 * * 5"
@@ -380,6 +470,10 @@ jobs:
 
   # workers=2: brandbrain single-instance 502s above ~2 concurrent grounded calls.
   shorted-signals:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-signals
     image: jobs
     args: ["signals", "--priority", "top-shorted", "--limit", "200", "--max-age-days", "30", "--workers", "2"]
     schedule: "0 13 * * 1"
@@ -391,9 +485,13 @@ jobs:
 
   # modules/report-extractor. max_retries 0 on Cloud Run: a retry re-pays Gemini.
   director-trade-extractor:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: director-trade-extractor
     image: reportExtractor
     command: ["python", "extract_director_trades.py"]
-    args: ["--priority", "recent", "--limit", "20", "--workers", "2"]
+    args: ["--priority", "recent", "--limit", "200", "--workers", "2"]
     schedule: "30 12 * * *"
     timeoutSeconds: 3600
     maxRetries: 0
@@ -401,13 +499,26 @@ jobs:
       memory: 1Gi
     profiles: [db, otel, reportExtractor]
     env:
-      GEMINI_MAX_RUN_ITEMS: "20"
+      GEMINI_MAX_RUN_ITEMS: "200"
       GEMINI_MAX_RUN_WORKERS: "2"
+      # Mirrors module.report_extractor (PR #658): consensus backend, and
+      # re-admission of the notices the July-September outage misrecorded.
+      EXTRACTOR_BACKEND: openrouter
+      EXTRACTOR_PRIMARY_MODEL: deepseek/deepseek-v4-flash
+      EXTRACTOR_CHECKER_MODEL: google/gemini-2.5-flash-lite
+      EXTRACTOR_ARBITER_MODEL: google/gemini-2.5-flash
+      DIRECTOR_RETRY_NO_EXTRACT_BETWEEN: "2026-07-30:2026-10-15"
+    secretEnv:
+      OPENROUTER_API_KEY: OPENROUTER_API_KEY
 
   # Daily since fundamentals-coverage 6.2: 120 statutory filings a run, 4
   # workers, a 90-minute submit budget inside a 2h timeout. reports_limit also
   # sets GEMINI_MAX_RUN_ITEMS — keep the two equal.
   financial-report-extractor:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: financial-report-extractor
     image: reportExtractor
     command: ["python", "extract_reports_concurrent.py"]
     args: ["--recent", "2", "--limit", "120", "--workers", "4", "--max-pages", "8", "--budget-min", "90"]
@@ -436,6 +547,11 @@ jobs:
   # modules/market-discovery-sync — weekly ASX listing discovery (Chromium).
   # Cloud Run set no timeout (provider default); 1800s is generous headroom.
   asx-discovery:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: asx-discovery
+      region: us-central1
     image: jobsBrowser
     command: ["/shorted"]
     args: ["discovery"]

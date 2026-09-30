@@ -141,3 +141,18 @@ test("Paprika tracks the branch CI promotes after terraform-apply, never main", 
   assert.match(job, /merge-base --is-ancestor/, "must refuse to move the branch backwards");
   assert.doesNotMatch(job, /push origin HEAD:main/, "promotion must not write to main");
 });
+
+
+test("every Cloud Run job the reporter watches has its run.viewer grant", () => {
+  // A chart job's `cloudRun.job` is listed by cronjob-reporter until it is cut
+  // over. Without the job-level grant the listing 403s, its runs go
+  // unreported, and its Telesis monitor pages as MISSED.
+  const chartJobs = [...values.matchAll(/^\s{4}cloudRun:\s*\n\s{6}job:\s*([a-z0-9-]+)/gm)].map((m) => m[1]);
+  assert.ok(chartJobs.length >= 14, `expected cloudRun mappings in values.yaml, found ${chartJobs.length}`);
+  const block = mainTf.match(/vke_reporter_watched_jobs\s*=\s*\{([\s\S]*?)\n\s*\}/);
+  assert.ok(block, "local.vke_reporter_watched_jobs not found");
+  const granted = new Set([...block[1].matchAll(/"([a-z0-9-]+)"\s*=/g)].map((m) => m[1]));
+  for (const job of new Set(chartJobs)) {
+    assert.ok(granted.has(job), `Cloud Run job "${job}" is watched by the reporter but has no run.viewer grant in main.tf`);
+  }
+});

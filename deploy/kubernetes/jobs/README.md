@@ -56,6 +56,23 @@ is a one-line revert.
 
 ## Monitoring: who catches what
 
+Every chart job has a Telesis cron monitor, wherever it runs:
+
+- **Live on omega** (in `enabled`): the reporter watches the Kubernetes Job.
+- **Still on Cloud Run**: the reporter lists the Cloud Run job's executions
+  (`-cloudrun-config`, rendered from each job's `cloudRun` mapping) through a
+  keyless read-only identity, `vke-cronjob-reporter`, which has job-level
+  `roles/run.viewer` from Terraform. An execution counts only when its
+  effective args (and the env a schedule overrides, such as `REPORT_TYPE`)
+  match the monitor exactly. Ad hoc runs are ignored rather than paged on:
+  operator re-fetches, validation runs, freshness checks.
+
+A cutover moves a job's reporting from Cloud Run to Kubernetes
+automatically. **Keep `args` in `values.yaml` identical to the Cloud Run
+job's.** A drifted job's runs no longer match, so its monitor pages as MISSED.
+That is loud, but it is a false alarm.
+
+
 | Failure | Caught by |
 |---|---|
 | Non-zero exit, crash | reporter → `fail` (exit code + reason + log tail) |

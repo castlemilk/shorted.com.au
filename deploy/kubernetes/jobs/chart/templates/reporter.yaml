@@ -110,6 +110,9 @@ spec:
             - -heartbeat-interval={{ $r.heartbeatInterval }}
             - -checkin-dir=/etc/shorted/cron-monitors
             - -health-addr=:8080
+            {{- if $r.cloudRun.enabled }}
+            - -cloudrun-config=/etc/shorted/cloudrun/cloudrun.json
+            {{- end }}
             {{- range $r.extraArgs }}
             - {{ . | quote }}
             {{- end }}
@@ -118,6 +121,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            {{- if $r.cloudRun.enabled }}
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: {{ printf "%s/%s" .Values.workloadIdentity.credentialConfigMountPath .Values.workloadIdentity.credentialConfigFile }}
+            {{- end }}
           ports:
             - name: health
               containerPort: 8080
@@ -149,6 +156,17 @@ spec:
             - name: checkin-urls
               mountPath: /etc/shorted/cron-monitors
               readOnly: true
+            {{- if $r.cloudRun.enabled }}
+            - name: cloudrun-config
+              mountPath: /etc/shorted/cloudrun
+              readOnly: true
+            - name: gcp-token
+              mountPath: {{ .Values.workloadIdentity.tokenMountPath }}
+              readOnly: true
+            - name: gcp-credential-config
+              mountPath: {{ .Values.workloadIdentity.credentialConfigMountPath }}
+              readOnly: true
+            {{- end }}
       volumes:
         # Created by scripts/register-monitors.py. Optional so the reporter
         # (and its health check) comes up before monitors are registered; it
@@ -157,4 +175,19 @@ spec:
           secret:
             secretName: {{ .Values.monitoring.checkinSecret }}
             optional: true
+        {{- if $r.cloudRun.enabled }}
+        - name: cloudrun-config
+          configMap:
+            name: cronjob-reporter-cloudrun
+        - name: gcp-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: {{ include "shorted-jobs.wifAudience" .Values.workloadIdentity }}
+                  expirationSeconds: {{ .Values.workloadIdentity.tokenExpirationSeconds }}
+                  path: {{ .Values.workloadIdentity.tokenFile }}
+        - name: gcp-credential-config
+          configMap:
+            name: cronjob-reporter-workload-identity
+        {{- end }}
 {{- end }}
