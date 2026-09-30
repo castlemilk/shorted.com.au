@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -104,6 +105,9 @@ func TestCatalogPublishesTheServerIdentityAndEndpoint(t *testing.T) {
 	}
 	if got.Server.Endpoint != PublicEndpoint {
 		t.Errorf("endpoint = %q, want %q", got.Server.Endpoint, PublicEndpoint)
+	}
+	if !reflect.DeepEqual(got.Server.Icons, Icons()) {
+		t.Errorf("catalog icons = %+v, want the server's icons %+v", got.Server.Icons, Icons())
 	}
 	if got.Server.ProtocolVersion != latestProtocolVersion {
 		t.Errorf("protocolVersion = %q, want %q", got.Server.ProtocolVersion, latestProtocolVersion)

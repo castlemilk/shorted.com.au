@@ -296,8 +296,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		mcp.NewTokenVerifier(s.tokenService, mcp.AdminResourceURI(apiBaseURL)),
 		mcp.AdminBearerTokenOptions(apiBaseURL),
 	)(mcp.RequireAdmin(adminCheck)(mcp.AdminHandler(s.jobsCollector)))
-	mux.Handle(mcp.FaviconPath, mcp.FaviconHandler())
-	mux.Handle(mcp.RootPath, mcp.RootHandler())
+	mcp.RegisterIconHandlers(mux)
 	mux.Handle("/mcp/admin", adminMCPHandler)
 	mux.Handle("/mcp/admin/", adminMCPHandler)
 	mux.Handle(mcp.AdminProtectedResourceMetadataPath, mcp.AdminProtectedResourceMetadataHandler(apiBaseURL))
