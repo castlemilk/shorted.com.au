@@ -332,7 +332,15 @@ locals {
 # deploy/kubernetes/jobs/README.md "Cutting a job over".
 # ---------------------------------------------------------------------------
 locals {
-  jobs_on_vke = ["shorted-news-cluster"]
+  jobs_on_vke = [
+    "shorted-news-cluster",
+    "shorted-index-sync",
+    "shorted-news",
+    "shorted-news-backfill-images",
+    "shorted-news-resolve-googlenews",
+    "shorted-news-digest",
+    "shorted-economy",
+  ]
 }
 
 # Short Data Sync Job
