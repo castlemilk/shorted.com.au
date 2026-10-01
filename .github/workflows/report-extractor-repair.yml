@@ -64,7 +64,10 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          set -uo pipefail
+          # Actions runs this under `bash -e`: without +e a failed execution
+          # ends the script at the pipeline below, before the execution name
+          # and summary are recorded (the next step then has nothing to read).
+          set +e -uo pipefail
           args="--repair-echo-digests,--workers,2"
           if [[ "$DRY_RUN" == "true" ]]; then args+=",--dry-run"; fi
           echo "Executing $JOB with args: $args"
@@ -89,11 +92,22 @@ jobs:
       # the closing counts, or the reason it stopped. Logs can land a little
       # after the execution ends, so one short wait before reading.
       - name: Execution log
-        if: always() && steps.run.outputs.execution != ''
+        if: always()
         env:
           EXECUTION: ${{ steps.run.outputs.execution }}
         run: |
           set -uo pipefail
+          if [[ -z "$EXECUTION" ]]; then
+            # Not parsed from gcloud's output: the job's newest execution is
+            # this run's (the workflow's concurrency group allows one at a time).
+            EXECUTION="$(gcloud run jobs executions list --job "$JOB" --project "$PROJECT" --region "$REGION" \
+              --sort-by='~metadata.creationTimestamp' --limit 1 --format='value(metadata.name)' || true)"
+          fi
+          if [[ -z "$EXECUTION" ]]; then
+            echo "::warning::could not resolve the execution name"
+            exit 0
+          fi
+          echo "execution: $EXECUTION"
           gcloud run jobs executions describe "$EXECUTION" --project "$PROJECT" --region "$REGION" \
             --format='yaml(status.conditions,status.failedCount,status.succeededCount)' || true
           sleep 20
