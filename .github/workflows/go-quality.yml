@@ -57,6 +57,12 @@ jobs:
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
 
+      # The checkout doesn't always create origin/<base>; without it
+      # --new-from-merge-base silently falls back to reporting every issue.
+      - name: Fetch PR base
+        if: github.base_ref != ''
+        run: git fetch --no-tags origin "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+
       - name: Lint services
         uses: golangci/golangci-lint-action@v8
         env:
