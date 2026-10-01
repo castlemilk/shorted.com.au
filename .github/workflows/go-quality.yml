@@ -41,6 +41,9 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
+        with:
+          # PRs lint against their merge base (below), which needs history.
+          fetch-depth: 0
 
       - uses: actions/setup-go@v6
         with:
@@ -79,7 +82,10 @@ jobs:
           verify: false
           # --concurrency 1 mirrors `make lint-backend`: the linter OOMs on this
           # module at higher concurrency on constrained runners.
-          args: --concurrency 1 --timeout 300s ./...
+          # On PRs, only issues new against the merge base; pushes to main
+          # lint the whole module. (The action's only-new-issues fetches the
+          # PR patch from the GitHub API; the merge base needs no API.)
+          args: --concurrency 1 --timeout 300s ${{ github.base_ref && format('--new-from-merge-base=origin/{0}', github.base_ref) || '' }} ./...
 
   unit-tests:
     name: Go unit tests

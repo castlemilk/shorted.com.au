@@ -2,7 +2,8 @@
 # Fast, reproducible local verification for git hooks and manual checks.
 #
 # Modes:
-#   fast | pre-commit  deterministic unit/build checks, no service boot
+#   staged | pre-commit  gofmt, golangci-lint (new issues) and eslint on staged files
+#   fast               deterministic unit/build checks, no service boot
 #   full | pre-push    fast checks + lint + testcontainers integration when Docker is available
 #   integration        testcontainers integration only
 
@@ -224,6 +225,40 @@ run_fast() {
   fi
 }
 
+# Seconds, not minutes: only what the commit stages. The unit tests and
+# build moved to `fast` (and pre-push), where they already ran.
+run_staged() {
+  local staged go_files web_files
+  staged="$(git -C "$REPO_ROOT" diff --cached --name-only --diff-filter=ACMR)"
+  go_files="$(grep -E '^services/.*\.go$' <<<"$staged" || true)"
+  web_files="$(grep -E '^web/.*\.(ts|tsx|js|jsx|mjs)$' <<<"$staged" | sed 's|^web/||' || true)"
+
+  if [ -n "$go_files" ]; then
+    # Fail only on files this commit un-formats: some were never gofmt'd, and
+    # touching one shouldn't force reformatting it.
+    local f unformatted=""
+    while read -r f; do
+      if [ -n "$(git -C "$REPO_ROOT" show ":$f" | gofmt -l)" ] &&
+        { ! git -C "$REPO_ROOT" cat-file -e "HEAD:$f" 2>/dev/null ||
+          [ -z "$(git -C "$REPO_ROOT" show "HEAD:$f" | gofmt -l)" ]; }; then
+        unformatted="$unformatted$f"$'\n'
+      fi
+    done <<<"$go_files"
+    if [ -n "$unformatted" ]; then
+      printf 'gofmt needed (run gofmt -w):\n%s' "$unformatted"; exit 1
+    fi
+    if command -v golangci-lint >/dev/null 2>&1; then
+      run_shell "Backend lint (uncommitted changes)" \
+        "cd services && golangci-lint run --concurrency 1 --timeout 300s --new-from-rev=HEAD ./..."
+    fi
+  fi
+
+  if [ -n "$web_files" ] && [ -d "$REPO_ROOT/web/node_modules" ]; then
+    run_shell "Frontend lint (staged files)" \
+      "cd web && xargs npx eslint --cache --cache-location node_modules/.cache/eslint/ <<<'$web_files'"
+  fi
+}
+
 run_full() {
   run_lint
   run_fast
@@ -234,7 +269,10 @@ run_full() {
 }
 
 case "$MODE" in
-  fast | pre-commit)
+  staged | pre-commit)
+    run_staged
+    ;;
+  fast)
     run_fast
     ;;
   full | pre-push)
@@ -244,7 +282,7 @@ case "$MODE" in
     run_testcontainers_integration
     ;;
   *)
-    echo "Usage: $0 [fast|pre-commit|full|pre-push|integration]"
+    echo "Usage: $0 [staged|pre-commit|fast|full|pre-push|integration]"
     exit 64
     ;;
 esac
