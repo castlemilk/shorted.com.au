@@ -80,6 +80,19 @@ case "$PGURL" in
 esac
 [[ "${PGPORT:-}" != 6543 ]] || die "refusing the transaction pooler (PGPORT=6543). Use the session pooler (5432)."
 
+# psql's argv is readable by every process on the machine (`ps`), and a ps
+# listing once printed the prod password into an incident transcript. The
+# password travels in PGPASSWORD; the DSN psql is handed carries none.
+if [[ "$PGURL" =~ ^(postgres(ql)?://[^:@/]+):([^@]*)@(.*)$ ]]; then
+	password="${BASH_REMATCH[3]}"
+	if [[ "$password" == *%* ]]; then
+		password="$(printf '%b' "${password//%/\\x}")"
+	fi
+	export PGPASSWORD="$password"
+	PGURL="${BASH_REMATCH[1]}@${BASH_REMATCH[4]}"
+	unset password
+fi
+
 # `--single-transaction` wraps EVERY -c and -f only from psql 15; before that
 # the -c guards and the -f file ran outside the one transaction.
 psql_major="$(psql --version | sed -E 's/^[^0-9]*([0-9]+).*/\1/')"
