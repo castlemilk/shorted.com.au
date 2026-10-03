@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { getServerShortsApiUrl } from "~/app/actions/config";
 import { resolveWeeklySlugParam } from "~/@/lib/reports/weekly-slug";
 
+export const maxDuration = 15;
+
 export const alt = "Weekly Short Selling Report - Shorted.com.au";
 export const size = {
   width: 1200,

@@ -47,6 +47,7 @@ export function buildEdgeReadUrl(
 export async function fetchEdgeReadJson<T>(
   path: string,
   params: QueryParams = {},
+  additionalTags: string[] = [],
 ): Promise<T | undefined> {
   const baseUrl = getEdgeReadApiUrl();
   if (!baseUrl) return undefined;
@@ -65,7 +66,13 @@ export async function fetchEdgeReadJson<T>(
     // (found 2026-08-21: page cache busted, KV flushed, edge fresh, and the
     // regen still read this entry). Every edge-read consumer is shorts-derived,
     // so the daily sync's revalidation (tag=shorts-data) now busts them all.
-    next: { revalidate: EDGE_READ_REVALIDATE_SECONDS, tags: ["shorts-data"] },
+    next: {
+      revalidate: EDGE_READ_REVALIDATE_SECONDS,
+      // Per-snapshot tags must reach this inner fetch cache as well as any
+      // outer unstable_cache; otherwise a targeted correction rereads stale
+      // data here until the shared shorts-data tag is invalidated.
+      tags: Array.from(new Set(["shorts-data", ...additionalTags])),
+    },
   };
 
   try {

@@ -73,6 +73,25 @@ describe("edgeRead", () => {
     expect(init.method).toBe("GET");
   });
 
+  it("tags the inner GET cache for targeted market-date corrections", async () => {
+    process.env.SHORTED_EDGE_API_URL = "https://api.shorted.com.au";
+    (global.fetch as jest.Mock).mockResolvedValueOnce(
+      Response.json({ stocks: [] }),
+    );
+
+    await fetchEdgeReadJson(
+      "/edge/v1/market-by-date",
+      { date: "2026-05-15" },
+      ["market-date:2026-05-15", "shorts-data"],
+    );
+
+    const [, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(init.next).toEqual({
+      revalidate: 86400,
+      tags: ["shorts-data", "market-date:2026-05-15"],
+    });
+  });
+
   it("returns undefined so callers can fall back when edge reads fail", async () => {
     process.env.SHORTED_EDGE_API_URL = "https://api.shorted.com.au";
     (global.fetch as jest.Mock).mockResolvedValueOnce(

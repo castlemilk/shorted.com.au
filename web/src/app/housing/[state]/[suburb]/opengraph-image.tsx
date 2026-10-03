@@ -10,6 +10,8 @@ import { getSuburbGeometry } from "@/lib/housing/suburb-geometry.server";
 import { suburbCardStats, suburbCardSubtitle } from "@/lib/housing/suburb-card-copy";
 import { OG_CONTENT_TYPE, OG_SIZE, OgSceneCard, getOgLogo } from "@/lib/og/card";
 
+export const maxDuration = 15;
+
 export const alt = "Suburb house prices & demographics — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

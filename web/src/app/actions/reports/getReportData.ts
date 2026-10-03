@@ -6,7 +6,7 @@ import { StockService } from "~/gen/shorts/v1alpha1/stock_pb";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { SHORTS_API_URL, serverFetchOutsideNextCache } from "../config";
-import { withRetryAndNotFound, type RetryOptions } from "../withRetry";
+import { withRetry, withRetryAndNotFound, type RetryOptions } from "../withRetry";
 import { withSpan } from "~/@/lib/tracing";
 
 // Shared transport instance — reused across all functions to avoid redundant HTTP/2 connection setup
@@ -100,7 +100,12 @@ async function fetchWeeklyReport(weekSlug: string): Promise<WeeklyReportData> {
       // WITHIN the week. Fresh reports publish Friday but the Friday's ASIC
       // data lags ~4-6 days (T+4) — querying endStr returned zero stocks,
       // which soft-404'd every report right when it was newest (July 2026).
-      const availableDates = await client.getAvailableDates({ limit: 5, before: "" });
+      const nextMonday = new Date(end);
+      nextMonday.setUTCDate(nextMonday.getUTCDate() + 3);
+      const availableDates = await client.getAvailableDates({
+        limit: 5,
+        before: nextMonday.toISOString().slice(0, 10),
+      });
       const weekDates = availableDates.dates.filter((d) => d >= startStr && d <= endStr);
       const queryDate = weekDates[0] ?? endStr;
       const marketData = await client.getMarketByDate({
@@ -126,22 +131,28 @@ async function fetchWeeklyReport(weekSlug: string): Promise<WeeklyReportData> {
   );
 }
 
-// Get weekly report data — persistently cached across requests (24h)
-// unstable_cache wraps the raw fetch (throws on failure → cache miss, no stale data cached)
-// withRetryAndNotFound wraps the outer call (returns undefined on error for graceful SSR)
+function getCachedWeeklyReport(weekSlug: string): Promise<WeeklyReportData> {
+  return unstable_cache(
+    () => fetchWeeklyReport(weekSlug),
+    [`weekly-report-${weekSlug}`, "v2"],
+    { tags: [`report-${weekSlug}`, "shorts-data"], revalidate: 86400 },
+  )();
+}
+
+// ISR callers must propagate failures so Next retains the last good page;
+// a successful empty market snapshot remains distinct from an unavailable API.
+export const getWeeklyReportDataStrict = cache(
+  withRetry(getCachedWeeklyReport, LIGHT_RETRY),
+);
+
+// Keep the lenient accessor for callers with a request-only fallback.
 export const getWeeklyReportData = cache(
-  withRetryAndNotFound(async (weekSlug: string) => {
-    return await unstable_cache(
-      () => fetchWeeklyReport(weekSlug),
-      [`weekly-report-${weekSlug}`],
-      { tags: [`report-${weekSlug}`], revalidate: 86400 },
-    )();
-  }, LIGHT_RETRY),
+  withRetryAndNotFound(getCachedWeeklyReport, LIGHT_RETRY),
 );
 
 // Inner fetch for monthly report data
 async function fetchMonthlyReport(monthSlug: string): Promise<MonthlyReportData> {
-  const match = monthSlug.match(/^(\d{4})-(\d{2})$/);
+  const match = monthSlug.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
   if (!match?.[1] || !match[2]) throw new Error(`Invalid month slug: ${monthSlug}`);
 
   const year = match[1];
@@ -156,12 +167,15 @@ async function fetchMonthlyReport(monthSlug: string): Promise<MonthlyReportData>
   const yearNum = parseInt(year);
   const nextMonthDate = `${monthNum === 12 ? yearNum + 1 : yearNum}-${String(monthNum === 12 ? 1 : monthNum + 1).padStart(2, "0")}-01`;
 
-  const [availableDates, marketData] = await Promise.all([
-    client.getAvailableDates({ limit: 31, before: nextMonthDate }),
-    client.getMarketByDate({ date: endDate, limit: 50, offset: 0 }),
-  ]);
-
+  const availableDates = await client.getAvailableDates({ limit: 31, before: nextMonthDate });
   const monthDates = availableDates.dates.filter((d) => d.startsWith(`${year}-${month}`));
+  // The last calendar day may be a weekend or holiday. Query the latest
+  // available snapshot in this month rather than caching an empty month.
+  const marketData = await client.getMarketByDate({
+    date: monthDates[0] ?? endDate,
+    limit: 50,
+    offset: 0,
+  });
   const monthName = new Date(`${year}-${month}-01T00:00:00`).toLocaleDateString("en-AU", { month: "long" });
 
   return {
@@ -179,15 +193,20 @@ async function fetchMonthlyReport(monthSlug: string): Promise<MonthlyReportData>
   };
 }
 
-// Get monthly report data — persistently cached across requests (24h)
+function getCachedMonthlyReport(monthSlug: string): Promise<MonthlyReportData> {
+  return unstable_cache(
+    () => fetchMonthlyReport(monthSlug),
+    [`monthly-report-${monthSlug}`, "v2"],
+    { tags: [`report-${monthSlug}`, "shorts-data"], revalidate: 86400 },
+  )();
+}
+
+export const getMonthlyReportDataStrict = cache(
+  withRetry(getCachedMonthlyReport, LIGHT_RETRY),
+);
+
 export const getMonthlyReportData = cache(
-  withRetryAndNotFound(async (monthSlug: string) => {
-    return await unstable_cache(
-      () => fetchMonthlyReport(monthSlug),
-      [`monthly-report-${monthSlug}`],
-      { tags: [`report-${monthSlug}`], revalidate: 86400 },
-    )();
-  }, LIGHT_RETRY),
+  withRetryAndNotFound(getCachedMonthlyReport, LIGHT_RETRY),
 );
 
 // Generate available week slugs (last 52 weeks, excluding the current in-progress week)
@@ -465,9 +484,9 @@ export async function getEnhancedWeeklyReportData(weekSlug: string): Promise<Enh
  * Like getEnhancedWeeklyReportData but transient failures THROW instead of
  * collapsing into null. Callers that hard-404 on absence (the report pages'
  * generateMetadata guards) MUST use this: null means "definitively
- * unpublished" (safe to 404), a throw means "backend blip" (must render a
- * degraded 200, never 404 a published URL). Shares the cache entry with the
- * lenient variant.
+ * unpublished" (safe to 404), a throw means "backend blip" (fail generation
+ * so Next retains the last good page, never cache a degraded page or 404).
+ * Shares the cache entry with the lenient variant.
  */
 export function getEnhancedWeeklyReportDataStrict(
   weekSlug: string,
@@ -559,24 +578,32 @@ export function financialHighlightsCacheTags(stockCodes: string[]): string[] {
   ];
 }
 
-// Fetch financial highlights: persistently cached across requests (24h).
-// The cache key uses sorted codes so it is stable regardless of input order.
-// Errors are thrown INSIDE the cache (never cached) and caught here, so a
-// caller still gets {} on failure, for this request only.
+// Strict variant for ISR pages: failed enrichment must not bake an empty
+// financials section into the rendered page cache.
+export const getStockFinancialHighlightsStrict = cache(
+  async (
+    stockCodes: string[],
+  ): Promise<Record<string, StockFinancialHighlight[]>> => {
+    const sortedKey = [...stockCodes].sort().join(",");
+    return unstable_cache(
+      () => fetchStockFinancialHighlights(stockCodes),
+      [`financial-highlights-${sortedKey}`, "v2"],
+      {
+        revalidate: 86400,
+        tags: financialHighlightsCacheTags(stockCodes),
+      },
+    )();
+  },
+);
+
+// Keep request-only graceful degradation for existing non-strict callers.
 export const getStockFinancialHighlights = cache(
   async (
     stockCodes: string[],
   ): Promise<Record<string, StockFinancialHighlight[]>> => {
     const sortedKey = [...stockCodes].sort().join(",");
     try {
-      return await unstable_cache(
-        () => fetchStockFinancialHighlights(stockCodes),
-        [`financial-highlights-${sortedKey}`, "v2"],
-        {
-          revalidate: 86400,
-          tags: financialHighlightsCacheTags(stockCodes),
-        },
-      )();
+      return await getStockFinancialHighlightsStrict(stockCodes);
     } catch (err) {
       console.error(
         `[getStockFinancialHighlights] failed for ${sortedKey}:`,
@@ -636,6 +663,16 @@ async function fetchReportsList(
   });
 }
 
+export const getReportsListStrict = cache(
+  async (reportType = "", limit = 24): Promise<ReportListEntry[]> => {
+    return unstable_cache(
+      () => fetchReportsList(reportType, limit),
+      [`reports-list-${reportType || "all"}-${limit}`],
+      { tags: ["reports-index"], revalidate: 3600 },
+    )();
+  },
+);
+
 // Fetch the published-reports archive — persistently cached across requests (1h).
 // Gracefully degrades to an empty array on any error so the /reports index can
 // fall back to its slug-generated card grid rather than 500ing.
@@ -644,11 +681,7 @@ export async function getReportsList(
   limit = 24,
 ): Promise<ReportListEntry[]> {
   try {
-    return await unstable_cache(
-      () => fetchReportsList(reportType, limit),
-      [`reports-list-${reportType || "all"}-${limit}`],
-      { tags: ["reports-index"], revalidate: 3600 },
-    )();
+    return await getReportsListStrict(reportType, limit);
   } catch (err) {
     console.error(`[getReportsList] Failed for type=${reportType}:`, err);
     return [];

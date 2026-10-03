@@ -6,6 +6,8 @@ import { getStateSilhouette } from "~/@/lib/og/state-silhouette";
 import { STATE_NAMES, slugToState } from "~/@/lib/housing/states";
 import { getCouncilProfile } from "~/app/actions/getHousing";
 
+export const maxDuration = 15;
+
 export const alt = "Council profile — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

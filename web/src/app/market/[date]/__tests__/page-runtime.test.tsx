@@ -4,10 +4,13 @@ import { describe, expect, it } from "@jest/globals";
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { notFound } from "next/navigation";
-import { getMarketByDate } from "~/app/actions/market/getMarketByDate";
+import { getMarketByDateStrict } from "~/app/actions/market/getMarketByDate";
 import MarketDatePage, { generateMetadata } from "../page";
 
-jest.mock("~/app/actions/market/getMarketByDate", () => ({ getMarketByDate: jest.fn() }));
+jest.mock("~/app/actions/market/getMarketByDate", () => ({
+  ...jest.requireActual("~/app/actions/market/getMarketByDate"),
+  getMarketByDateStrict: jest.fn(),
+}));
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({ DashboardLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
 const params = { params: Promise.resolve({ date: "2026-09-28" }) };
@@ -21,18 +24,54 @@ const snapshot = {
 };
 
 beforeEach(() => {
-  jest.mocked(getMarketByDate).mockReset();
-  jest.mocked(getMarketByDate).mockResolvedValue(snapshot as never);
+  jest.mocked(getMarketByDateStrict).mockReset();
+  jest.mocked(getMarketByDateStrict).mockResolvedValue(snapshot as never);
   jest.mocked(notFound).mockReset();
   jest.mocked(notFound).mockImplementation(() => { throw new Error("NEXT_NOT_FOUND"); });
 });
 
-describe("Market Date Page Runtime", () => {
-  it("renders market date pages dynamically because server RPC fetches are no-store POSTs", async () => {
-    const PageModule = await import("../page");
+import * as route from "../page";
 
-    expect(PageModule.dynamic).toBe("force-dynamic");
-    expect(PageModule.generateStaticParams).toBeUndefined();
+const mockSnapshot = jest.mocked(getMarketByDateStrict);
+
+const props = (date: string) => ({ params: Promise.resolve({ date }) });
+
+describe("market date ISR generation", () => {
+  beforeEach(() => {
+    mockSnapshot.mockReset();
+  });
+
+  it("generates historical dates on demand with a 24h safety interval", () => {
+    expect(route.generateStaticParams()).toEqual([]);
+    expect(route.dynamicParams).toBe(true);
+    expect(route.revalidate).toBe(86400);
+  });
+
+  it.each([null, {}, { stocks: [], totalCount: 0 }])("404s a successfully empty snapshot (%j)", async (data) => {
+    mockSnapshot.mockResolvedValue(data);
+    await expect(route.generateMetadata(props("2026-05-16"))).rejects.toThrow("NEXT_NOT_FOUND");
+    await expect(route.default(props("2026-05-16"))).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
+  it("does not cache an API outage as a missing date", async () => {
+    mockSnapshot.mockRejectedValue(new Error("snapshot unavailable"));
+    await expect(route.generateMetadata(props("2026-05-15"))).rejects.toThrow("snapshot unavailable");
+    await expect(route.default(props("2026-05-15"))).rejects.toThrow("snapshot unavailable");
+  });
+
+  it.each(["2026-02-30", "2026-13-01", "not-a-date"])("rejects invalid date %s before fetching", async (date) => {
+    await expect(route.generateMetadata(props(date))).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(mockSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("renders a real snapshot with canonical metadata", async () => {
+    mockSnapshot.mockResolvedValue({
+      stocks: [{ productCode: "BHP", name: "BHP", percentageShorted: 2, reportedShortPositions: 1234, industry: "Materials" }],
+      totalCount: 1,
+    });
+    const metadata = await route.generateMetadata(props("2026-05-15"));
+    expect(metadata.alternates?.canonical).toBe("https://shorted.com.au/market/2026-05-15");
+    await expect(route.default(props("2026-05-15"))).resolves.toBeTruthy();
   });
 });
 
@@ -48,7 +87,7 @@ it("retains mixed instruments, labels count and displayed rows accurately, and e
   expect(screen.queryByText("Total Short Positions")).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "filtered top-shorts list" })).toHaveAttribute("href", "/top");
   expect(screen.getByRole("link", { name: "data methodology" })).toHaveAttribute("href", "/methodology");
-  expect(getMarketByDate).toHaveBeenCalledWith("2026-09-28", 50, 0);
+  expect(getMarketByDateStrict).toHaveBeenCalledWith("2026-09-28", 50, 0);
 });
 
 it("declares the dated canonical and securities/lag metadata", async () => {
@@ -59,16 +98,16 @@ it("declares the dated canonical and securities/lag metadata", async () => {
 
 it.each(["invalid", "2026-02-30", "2026-13-01"])("rejects invalid calendar date %s in metadata before a data read", async (date) => {
   await expect(generateMetadata({ params: Promise.resolve({ date }) })).rejects.toThrow("NEXT_NOT_FOUND");
-  expect(getMarketByDate).not.toHaveBeenCalled();
+  expect(getMarketByDateStrict).not.toHaveBeenCalled();
 });
 
 it("returns notFound from metadata for dates with omitted proto repeated fields", async () => {
-  jest.mocked(getMarketByDate).mockResolvedValue({ totalCount: 0 } as never);
+  jest.mocked(getMarketByDateStrict).mockResolvedValue({ totalCount: 0 } as never);
   await expect(generateMetadata(params)).rejects.toThrow("NEXT_NOT_FOUND");
 });
 
 it("keeps an ambiguous failed read retryable instead of declaring a missing date", async () => {
-  jest.mocked(getMarketByDate).mockResolvedValue(undefined);
+  jest.mocked(getMarketByDateStrict).mockResolvedValue(undefined);
   await expect(generateMetadata(params)).rejects.toThrow("temporarily unavailable");
   await expect(MarketDatePage(params)).rejects.toThrow("temporarily unavailable");
   expect(notFound).not.toHaveBeenCalled();

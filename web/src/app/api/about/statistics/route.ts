@@ -1,33 +1,8 @@
 import { NextResponse } from "next/server";
-import { fetchAndCacheStatistics, getStatisticsWithCache } from "~/lib/statistics";
+import { getStatisticsWithCache } from "~/lib/statistics";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60; // Revalidate every minute (cache handles longer TTL)
-
-/**
- * Background cache refresh function
- * Fetches fresh data and updates cache without blocking the response
- */
-async function refreshCacheInBackground(): Promise<void> {
-  try {
-    // Add timeout to prevent hanging
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error("Background refresh timeout")), 10000);
-    });
-    
-    await Promise.race([
-      fetchAndCacheStatistics(),
-      timeoutPromise,
-    ]);
-  } catch (error) {
-    // Silently fail - this is background refresh, don't log errors that might spam logs
-    // Only log if it's not a timeout or connection error
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    if (!errorMsg.includes("timeout") && !errorMsg.includes("ECONNREFUSED") && !errorMsg.includes("fetch failed")) {
-      console.error("Background cache refresh error:", errorMsg);
-    }
-  }
-}
 
 export async function GET() {
   try {
@@ -35,11 +10,8 @@ export async function GET() {
     const { data, isCacheHit } = await getStatisticsWithCache();
     
     if (isCacheHit) {
-      // Trigger background refresh (don't await)
-      refreshCacheInBackground().catch((error) => {
-        console.error("Background cache refresh failed:", error);
-      });
-      
+      // getStatisticsWithCache owns the TTL: a valid hit needs no refresh.
+      // Concurrent visitors must not each launch another backend request.
       return NextResponse.json(data, {
         headers: {
           "X-Cache": "HIT",

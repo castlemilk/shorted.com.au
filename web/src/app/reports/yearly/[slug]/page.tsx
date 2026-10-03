@@ -21,7 +21,6 @@ import { StatTile } from "~/@/components/reports/stat-tile";
 import { TopStocksTable } from "~/@/components/reports/top-stocks-table";
 import { IndustryBreakdown } from "~/@/components/reports/industry-breakdown";
 import {
-  getEnhancedWeeklyReportData,
   getEnhancedWeeklyReportDataStrict,
 } from "~/app/actions/reports/getReportData";
 
@@ -29,7 +28,11 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export const dynamic = "force-dynamic";
+export const revalidate = 86400;
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ slug: string }> {
+  return [];
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -39,16 +42,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // Hard-404 guard (in generateMetadata so notFound() commits a real HTTP
   // 404 — the body's guard fires mid-stream and can only soft-404). Only
   // DEFINITIVE absence 404s: the strict fetch returned null (report
-  // genuinely unpublished). A transient backend failure (throw) renders
-  // the degraded 200 instead — never 404 a published URL on a blip.
-  let enhanced = null;
-  let enhancedUnavailable = false;
-  try {
-    enhanced = await getEnhancedWeeklyReportDataStrict(slug);
-  } catch {
-    enhancedUnavailable = true;
-  }
-  if (!enhanced && !enhancedUnavailable) {
+  // genuinely unpublished). A transient failure aborts ISR generation so
+  // an existing good page is retained, rather than caching a false 404.
+  const enhanced = await getEnhancedWeeklyReportDataStrict(slug);
+  if (!enhanced) {
     notFound();
   }
   const headline = enhanced?.headline;
@@ -113,7 +110,7 @@ export default async function YearlyReportPage({ params }: PageProps) {
     notFound();
   }
 
-  const enhanced = await getEnhancedWeeklyReportData(slug);
+  const enhanced = await getEnhancedWeeklyReportDataStrict(slug);
 
   if (!enhanced) {
     notFound();

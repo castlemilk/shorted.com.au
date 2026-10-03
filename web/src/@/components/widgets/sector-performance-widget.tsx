@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { type WidgetProps } from "~/@/types/dashboard";
 import { ParentSize } from "@visx/responsive";
 import { Pie } from "@visx/shape";
@@ -28,28 +29,31 @@ export function SectorPerformanceWidget({ config }: WidgetProps) {
   const period = (config.settings?.period as string) || "1w";
   const displayType = (config.settings?.displayType as string) || "pie";
   
-  const [loading, setLoading] = useState(true);
-  const [sectorData, setSectorData] = useState<SectorPerformance[]>([]);
-
-  useEffect(() => {
-    const fetchSectorData = async () => {
-      setLoading(true);
+  const lastSuccessfulData = useRef<SectorPerformance[]>([]);
+  const { data, isFetching: loading } = useQuery({
+    queryKey: ["sector-performance-widget", period],
+    queryFn: async () => {
       try {
-        const data = await getSectorPerformance(period);
-        setSectorData(data);
+        return await getSectorPerformance(period);
       } catch (error) {
         console.error("Error fetching sector performance:", error);
-      } finally {
-        setLoading(false);
+        throw error;
       }
-    };
-
-    void fetchSectorData();
-    
-    // Refresh every 5 minutes
-    const interval = setInterval(() => void fetchSectorData(), 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [period]);
+    },
+    // Share requests across widgets while retaining the five-minute cadence.
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    // The quote service already retries transient failures.
+    retry: false,
+  });
+  useEffect(() => {
+    if (data) lastSuccessfulData.current = data;
+  }, [data]);
+  // Keep the last successful display if a refresh or period change fails,
+  // matching the widget's existing error behavior.
+  const sectorData = data ?? lastSuccessfulData.current;
 
   if (loading) {
     return (

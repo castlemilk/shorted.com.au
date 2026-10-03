@@ -21,7 +21,8 @@ import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { cn } from "~/@/lib/utils";
 import { formatCompanyName } from "~/@/lib/company-name";
 import {
-  getMarketByDate,
+  getMarketByDateStrict,
+  isValidMarketDate,
 } from "~/app/actions/market/getMarketByDate";
 
 interface PageProps {
@@ -29,11 +30,11 @@ interface PageProps {
 }
 
 async function getMarketSnapshot(date: string) {
-  const data = await getMarketByDate(date, 50, 0);
-  // The action collapses exhausted retries and NotFound into undefined.
-  // That ambiguous response must not tell search engines a date is absent.
-  if (!data) throw new Error("Market snapshot temporarily unavailable");
-  if (!data.stocks?.length) notFound();
+  const data = await getMarketByDateStrict(date, 50, 0);
+  // Strict reads throw on exhausted retries and return null only for NotFound.
+  // Keep an unexpected undefined response retryable rather than caching a 404.
+  if (data === undefined) throw new Error("Market snapshot temporarily unavailable");
+  if (!data?.stocks?.length) notFound();
   return data;
 }
 
@@ -80,14 +81,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-// Market date pages depend on Connect-RPC POST fetches from server components.
-// Keep them dynamic so Next never tries to prerender no-store backend calls.
-export const dynamic = "force-dynamic";
+// Cache historical snapshots on first request; daily ingestion/corrections
+// invalidate shorts-data and the 24h ceiling bounds a missed notification.
+export const revalidate = 86400;
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ date: string }> {
+  return [];
+}
 
 function validateDate(dateStr: string): void {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) notFound();
-  const date = new Date(`${dateStr}T00:00:00Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== dateStr) notFound();
+  if (!isValidMarketDate(dateStr)) notFound();
 }
 
 function formatDate(dateStr: string): string {

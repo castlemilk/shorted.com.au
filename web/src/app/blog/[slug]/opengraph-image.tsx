@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getPostBySlug } from "~/@/lib/api";
 
+export const maxDuration = 15;
+
 export const alt = "Shorted Blog Post";
 export const size = {
   width: 1200,

@@ -73,6 +73,7 @@ export default async function ThemesIndexPage() {
 
   return (
     <DashboardLayout>
+      {(Object.keys(stats).length === 0) && <span hidden data-isr-shell="empty" />}
       <BreadcrumbListSchema items={breadcrumbs} />
       <ItemListStructuredData
         name="ASX Stock Themes"

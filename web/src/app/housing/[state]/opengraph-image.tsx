@@ -14,6 +14,8 @@ import { fmtPriceShort } from "~/@/lib/housing/price-scale";
 import { buildStateSuburbDirectory } from "~/@/lib/housing/state-suburb-directory";
 import { getStateSuburbIndex } from "~/app/actions/getHousingStateIndex";
 
+export const maxDuration = 15;
+
 export const alt = "Australian house prices by suburb — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

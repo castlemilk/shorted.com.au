@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { TrendingUp, TrendingDown, Activity, ChevronRight } from "lucide-react";
-import { type SerializedTimeSeriesData } from "~/app/actions/top/getTopPageData";
+import { type SerializedMoverSummary } from "~/app/actions/top/getTopPageData";
 import { formatChange, formatPercentage } from "~/@/lib/shorts-calculations";
 import { cn } from "~/@/lib/utils";
 import { Skeleton } from "~/@/components/ui/skeleton";
 
 type MoverType = "gainers" | "losers" | "volatile";
 
-type MoverItem = SerializedTimeSeriesData & { change?: number; volatility?: number };
+type MoverItem = SerializedMoverSummary & { change?: number; volatility?: number };
 
 interface MoversCardProps {
   title: string;
