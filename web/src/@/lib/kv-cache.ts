@@ -45,7 +45,7 @@ class InMemoryCache {
     const item = this.cache.get(key);
     if (!item) return null;
 
-    if (Date.now() > item.expiry) {
+    if (Date.now() >= item.expiry) {
       this.cache.delete(key);
       return null;
     }
@@ -62,6 +62,19 @@ class InMemoryCache {
 
   del(key: string): void {
     this.cache.delete(key);
+  }
+
+  acquireLease(key: string, token: string, ttlSeconds: number): boolean {
+    const item = this.cache.get(key);
+    if (item && Date.now() < item.expiry) return false;
+    this.set(key, token, ttlSeconds);
+    return true;
+  }
+
+  releaseLease(key: string, token: string): boolean {
+    if (this.get<string>(key) !== token) return false;
+    this.del(key);
+    return true;
   }
 }
 
@@ -347,6 +360,130 @@ export async function setCached<T>(
   }
 
   return false; // No cache available
+}
+
+/** One MGET for the entire batch; a corrupt record does not discard its neighbours. */
+export async function getCachedMany<T>(keys: readonly string[]): Promise<Array<T | null>> {
+  if (keys.length === 0) return [];
+  try {
+    if (ioRedis) {
+      const values = await ioRedis.mget(...keys);
+      return keys.map((_key, index) => {
+        const value = values[index];
+        if (value == null) return null;
+        try {
+          return deserializeCacheValue<T>(value);
+        } catch {
+          return null;
+        }
+      });
+    }
+    if (upstashRedis) {
+      const values = await upstashRedis.mget<unknown[]>(...keys);
+      return keys.map((_key, index) => {
+        const value = values[index];
+        if (value == null) return null;
+        // The SDK already decodes ordinary JSON. Compressed values may have
+        // been written by an ioredis caller sharing the same cache.
+        if (typeof value === "string" && value.startsWith(COMPRESSED_PREFIX)) {
+          try {
+            return deserializeCacheValue<T>(value);
+          } catch {
+            return null;
+          }
+        }
+        return value as T;
+      });
+    }
+    const fallback = localCache;
+    if (fallback) return keys.map((key) => fallback.get<T>(key) ?? null);
+  } catch (error) {
+    console.error("Cache batch get error:", error);
+  }
+  return keys.map(() => null);
+}
+
+/** Pipeline SETEX writes into one round trip, checking every command's result. */
+export async function setCachedMany<T>(
+  entries: ReadonlyArray<{ key: string; data: T }>,
+  ttl: number = DEFAULT_TTL,
+): Promise<boolean> {
+  if (entries.length === 0) return true;
+  if (!Number.isInteger(ttl) || ttl <= 0) return false;
+  try {
+    // Serialize before sending any commands, so a bad value cannot start a
+    // partially populated batch. Upstash keeps its existing plain-JSON format.
+    const values = entries.map(({ key, data }) => ({
+      key,
+      value: ioRedis ? serializeCacheValue(data) : JSON.stringify(data, bigintReplacer),
+    }));
+    if (values.some(({ value }) => value === undefined)) return false;
+    if (ioRedis) {
+      const pipeline = ioRedis.pipeline();
+      for (const { key, value } of values) pipeline.setex(key, ttl, value);
+      const results = await pipeline.exec();
+      return results !== null && results.length === entries.length &&
+        results.every(([error, result]) => error === null && result === "OK");
+    }
+    if (upstashRedis) {
+      const pipeline = upstashRedis.pipeline();
+      for (const { key, value } of values) pipeline.setex(key, ttl, value);
+      const results = await pipeline.exec();
+      return results.length === entries.length && results.every((result) => result === "OK");
+    }
+    if (localCache) {
+      for (const { key, data } of entries) localCache.set(key, data, ttl);
+      return true;
+    }
+  } catch (error) {
+    console.error("Cache batch set error:", error);
+  }
+  return false;
+}
+
+export type CacheLeaseResult = "acquired" | "busy" | "unavailable";
+
+/** A lease is one atomic SET NX EX, with no preliminary GET. */
+export async function acquireCacheLease(
+  key: string,
+  token: string,
+  ttlSeconds: number,
+): Promise<CacheLeaseResult> {
+  if (!token || !Number.isInteger(ttlSeconds) || ttlSeconds <= 0) return "unavailable";
+  try {
+    const result = ioRedis
+      ? await ioRedis.set(key, token, "EX", ttlSeconds, "NX")
+      : upstashRedis
+        ? await upstashRedis.set(key, token, { nx: true, ex: ttlSeconds })
+        : null;
+    if (ioRedis !== null || upstashRedis !== null) {
+      return result === "OK" ? "acquired" : result === null ? "busy" : "unavailable";
+    }
+    if (localCache) return localCache.acquireLease(key, token, ttlSeconds) ? "acquired" : "busy";
+  } catch (error) {
+    console.error("Cache lease acquire error:", error);
+  }
+  return "unavailable";
+}
+
+const RELEASE_CACHE_LEASE_SCRIPT = `
+if redis.call("get", KEYS[1]) == ARGV[1] then
+  return redis.call("del", KEYS[1])
+end
+return 0
+`;
+
+/** Delete only our own lease; an expired owner cannot delete a replacement. */
+export async function releaseCacheLease(key: string, token: string): Promise<boolean> {
+  if (!token) return false;
+  try {
+    if (ioRedis) return (await ioRedis.eval(RELEASE_CACHE_LEASE_SCRIPT, 1, key, token)) === 1;
+    if (upstashRedis) return (await upstashRedis.eval(RELEASE_CACHE_LEASE_SCRIPT, [key], [token])) === 1;
+    if (localCache) return localCache.releaseLease(key, token);
+  } catch (error) {
+    console.error("Cache lease release error:", error);
+  }
+  return false;
 }
 
 /**

@@ -10,7 +10,7 @@ import { scaleBand, scaleLinear } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { GridRows } from "@visx/grid";
 import { Skeleton } from "~/@/components/ui/skeleton";
-import { getSectorPerformance, type SectorPerformance } from "@/lib/stock-data-service";
+import { getSectorPerformance, QUOTE_REFRESH_INTERVAL_MS, type SectorPerformance } from "@/lib/stock-data-service";
 import { Badge } from "~/@/components/ui/badge";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
@@ -32,17 +32,18 @@ export function SectorPerformanceWidget({ config }: WidgetProps) {
   const lastSuccessfulData = useRef<SectorPerformance[]>([]);
   const { data, isFetching: loading } = useQuery({
     queryKey: ["sector-performance-widget", period],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       try {
-        return await getSectorPerformance(period);
+        return await getSectorPerformance(period, signal);
       } catch (error) {
-        console.error("Error fetching sector performance:", error);
+        if (!signal.aborted) console.error("Error fetching sector performance:", error);
         throw error;
       }
     },
-    // Share requests across widgets while retaining the five-minute cadence.
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
+    // Quotes are daily snapshots; share a half-hour refresh while visible.
+    staleTime: QUOTE_REFRESH_INTERVAL_MS,
+    gcTime: QUOTE_REFRESH_INTERVAL_MS,
+    refetchInterval: QUOTE_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     // The quote service already retries transient failures.

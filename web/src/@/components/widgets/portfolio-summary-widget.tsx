@@ -8,7 +8,8 @@ import { Skeleton } from "~/@/components/ui/skeleton";
 import { Button } from "~/@/components/ui/button";
 import { Input } from "~/@/components/ui/input";
 import { ScrollArea } from "~/@/components/ui/scroll-area";
-import { getMultipleStockQuotes } from "@/lib/stock-data-service";
+import { getMultipleStockQuotes, QUOTE_REFRESH_INTERVAL_MS } from "@/lib/stock-data-service";
+import { queryKeys } from "@/lib/query-keys";
 import { TrendingUp, TrendingDown, DollarSign, Activity, Plus, X, Check } from "lucide-react";
 import Link from "next/link";
 
@@ -115,10 +116,12 @@ export function PortfolioSummaryWidget({ config, onSettingsChange }: WidgetProps
     [portfolio],
   );
   const { data: stockQuotes, isFetching: loading } = useQuery({
-    queryKey: ["portfolio-stock-quotes", symbols],
-    queryFn: () => getMultipleStockQuotes(symbols),
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
+    queryKey: queryKeys.stock.quotes(symbols),
+    queryFn: ({ signal }) => getMultipleStockQuotes(symbols, signal),
+    enabled: symbols.length > 0,
+    staleTime: QUOTE_REFRESH_INTERVAL_MS,
+    gcTime: QUOTE_REFRESH_INTERVAL_MS,
+    refetchInterval: QUOTE_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     retry: false,

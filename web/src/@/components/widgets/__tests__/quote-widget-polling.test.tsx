@@ -3,13 +3,16 @@ import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-
 import { SectorPerformanceWidget } from "../sector-performance-widget";
 import { PortfolioSummaryWidget } from "../portfolio-summary-widget";
 import { getMultipleStockQuotes, getSectorPerformance } from "@/lib/stock-data-service";
+import { useStockQuotes } from "~/@/hooks/use-stock-queries";
 import { WidgetType, type WidgetConfig } from "~/@/types/dashboard";
 
 jest.mock("@/lib/stock-data-service", () => ({
+  QUOTE_REFRESH_INTERVAL_MS: 30 * 60 * 1000,
   getSectorPerformance: jest.fn(),
   getMultipleStockQuotes: jest.fn(),
 }));
 jest.mock("@visx/responsive", () => ({ ParentSize: () => null }));
+jest.mock("@/lib/client-api", () => ({}));
 jest.mock("@visx/shape", () => ({ Pie: () => null }));
 jest.mock("@visx/group", () => ({ Group: () => null }));
 jest.mock("@visx/scale", () => ({ scaleBand: jest.fn(), scaleLinear: jest.fn() }));
@@ -19,7 +22,7 @@ jest.mock("~/@/components/ui/scroll-area", () => ({
   ScrollArea: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-const REFRESH_INTERVAL = 5 * 60 * 1000;
+const REFRESH_INTERVAL = 30 * 60 * 1000;
 const sectors = [{
   sector: "Financials", performance: 1, volume: 100,
   topGainers: ["CBA"], topLosers: ["WBC"],
@@ -89,7 +92,7 @@ describe("quote widget polling", () => {
     })} />;
   }
 
-  it("deduplicates matching sector widgets on mount and each visible five-minute refresh", async () => {
+  it("deduplicates matching sector widgets on mount and each visible half-hour refresh", async () => {
     const widgets = (count: number) => <QueryClientProvider client={client}>
       {Array.from({ length: count }, (_, i) => <div key={i}>{sector()}</div>)}
     </QueryClientProvider>;
@@ -127,8 +130,8 @@ describe("quote widget polling", () => {
     render(<QueryClientProvider client={client}>{sector("1w")}{sector("1m")}</QueryClientProvider>);
     await settle();
     expect(getSectorPerformance).toHaveBeenCalledTimes(2);
-    expect(getSectorPerformance).toHaveBeenCalledWith("1w");
-    expect(getSectorPerformance).toHaveBeenCalledWith("1m");
+    expect(getSectorPerformance).toHaveBeenCalledWith("1w", expect.any(AbortSignal));
+    expect(getSectorPerformance).toHaveBeenCalledWith("1m", expect.any(AbortSignal));
     await setVisibility("hidden");
     await advance(60_000);
     await setVisibility("visible");
@@ -170,7 +173,7 @@ describe("quote widget polling", () => {
     const view = render(widgets(first));
     await settle();
     expect(getMultipleStockQuotes).toHaveBeenCalledTimes(1);
-    expect(getMultipleStockQuotes).toHaveBeenCalledWith(["BHP", "CBA"]);
+    expect(getMultipleStockQuotes).toHaveBeenCalledWith(["BHP", "CBA"], expect.any(AbortSignal));
     expect(screen.getByText("$200")).toBeInTheDocument();
     expect(screen.getByText("$250")).toBeInTheDocument();
 
@@ -190,5 +193,64 @@ describe("quote widget polling", () => {
     expect(getMultipleStockQuotes).toHaveBeenCalledTimes(3);
     expect(screen.getByText("$400")).toBeInTheDocument();
     expect(screen.getByText("$250")).toBeInTheDocument();
+  });
+
+  it("keeps fresh portfolio quotes on a short tab switch", async () => {
+    const holding = config(WidgetType.PORTFOLIO_SUMMARY, { portfolio: [{ symbol: "CBA", shares: 1 }] });
+    render(<QueryClientProvider client={client}><PortfolioSummaryWidget config={holding} /></QueryClientProvider>);
+    await settle();
+    await setVisibility("hidden");
+    await advance(10 * 60 * 1000);
+    await setVisibility("visible");
+    expect(getMultipleStockQuotes).toHaveBeenCalledTimes(1);
+  });
+
+  it("shares normalized quote sets between portfolio widgets and quote hooks", async () => {
+    const symbols = ["cba", "CBA"];
+    function Quotes() {
+      const { data } = useStockQuotes(symbols);
+      return <span>Hook price {data?.get("CBA")?.price}</span>;
+    }
+    render(<QueryClientProvider client={client}>
+      <PortfolioSummaryWidget config={config(WidgetType.PORTFOLIO_SUMMARY, { portfolio: [{ symbol: "CBA", shares: 1 }] })} />
+      <Quotes />
+    </QueryClientProvider>);
+    await settle();
+    expect(getMultipleStockQuotes).toHaveBeenCalledTimes(1);
+    expect(getMultipleStockQuotes).toHaveBeenCalledWith(["CBA"], expect.any(AbortSignal));
+    expect(screen.getByText("Hook price 100")).toBeInTheDocument();
+    expect(symbols).toEqual(["cba", "CBA"]);
+  });
+
+  it("reuses a fresh sector snapshot when reopening within the half-hour window", async () => {
+    const view = render(<QueryClientProvider client={client}>{sector()}</QueryClientProvider>);
+    await settle();
+    view.unmount();
+    await advance(10 * 60 * 1000);
+    render(<QueryClientProvider client={client}>{sector()}</QueryClientProvider>);
+    await settle();
+    expect(getSectorPerformance).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Financials")).toBeInTheDocument();
+  });
+
+  it("aborts a shared sector fetch only after its final widget unmounts", async () => {
+    let signal: AbortSignal | undefined;
+    (getSectorPerformance as jest.Mock).mockImplementation((_period: string, requestSignal: AbortSignal) => {
+      signal = requestSignal;
+      return new Promise((_resolve, reject) => requestSignal.addEventListener("abort", () => reject(requestSignal.reason), { once: true }));
+    });
+    const widgets = (count: number) => <QueryClientProvider client={client}>
+      {Array.from({ length: count }, (_, i) => <div key={i}>{sector()}</div>)}
+    </QueryClientProvider>;
+    const view = render(widgets(2));
+    await settle();
+    expect(getSectorPerformance).toHaveBeenCalledTimes(1);
+    expect(signal?.aborted).toBe(false);
+    view.rerender(widgets(1));
+    await settle();
+    expect(signal?.aborted).toBe(false);
+    view.unmount();
+    await settle();
+    expect(signal?.aborted).toBe(true);
   });
 });

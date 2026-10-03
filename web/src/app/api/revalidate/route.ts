@@ -3,6 +3,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { type NextRequest, NextResponse } from "next/server";
 import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
+import { invalidateSharedStockQuotes } from "~/@/lib/shared-stock-quotes";
 import {
   deleteCachedByPrefix,
   HOUSING_DATA_CACHE_PREFIXES,
@@ -135,7 +136,13 @@ export async function POST(request: NextRequest) {
   // without needing Upstash console access.
   let flushScanCommands = 0;
   const flushErrors: string[] = [];
+  let quoteCacheInvalidated = false;
   for (const target of flushTargets) {
+    if (target === "quotes") {
+      quoteCacheInvalidated = await invalidateSharedStockQuotes();
+      if (!quoteCacheInvalidated) flushErrors.push("quotes: cache generation update failed");
+      continue;
+    }
     const prefixes = FLUSH_PREFIXES[target];
     if (!prefixes) continue; // unknown flush name — ignore, keep other work
     // `housing` covers the whole cache:housing: prefix — the drops keys AND the
@@ -169,6 +176,7 @@ export async function POST(request: NextRequest) {
     flushedKeys,
     flushScanCommands,
     flushErrors,
+    quoteCacheInvalidated,
     timestamp: Date.now(),
   });
 }

@@ -637,6 +637,7 @@ module "shorted_job_price_sync" {
     # with ~125 stocks left). Change one of the pair, change the other:
     # TestRunBudgetClearsTheTaskTimeout reads both from this file.
     SYNC_RUN_BUDGET             = "5h30m"
+    REVALIDATION_URL            = "https://shorted.com.au/api/revalidate"
     OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
     OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf"
   }
@@ -645,6 +646,7 @@ module "shorted_job_price_sync" {
     DATABASE_URL               = "DATABASE_URL"
     ALPHA_VANTAGE_API_KEY      = "ALPHA_VANTAGE_API_KEY"
     OTEL_EXPORTER_OTLP_HEADERS = "OTEL_EXPORTER_OTLP_HEADERS"
+    REVALIDATION_SECRET        = "REVALIDATION_SECRET"
   }
 
   timeout_seconds = 21600 # 6h: a daily run is ~2.5h; SYNC_RUN_BUDGET above stops the sweep first
