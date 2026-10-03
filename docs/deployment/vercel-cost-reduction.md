@@ -11,7 +11,7 @@ The September 2026 Shorted invoice attributed $104.60 to this project. Function 
 | Dashboard polling | Continued in hidden tabs | Five-minute cadence while visible; stale quotes refresh on return |
 | `/top` movers | Duplicate histories and up to 50 records per card | Five summary records per card; the table retains its sparklines |
 | Statistics cache hits | Started another backend refresh per visitor | Return the valid cached snapshot; the existing TTL controls refresh |
-| Functions | Legacy duration billing configuration | Deployment-local Fluid Compute, preserving Sydney and explicit route durations |
+| Functions | Legacy duration billing configuration | Deployment-local Fluid Compute, preserving Sydney, a 15s limit for ordinary source routes, and explicit route durations |
 
 The 100-stock/90-point unit fixture shrank from 788,830 to 688,743 JSON bytes (12.69%). Its mover section shrank from 101,627 to 1,540 bytes. These are deterministic test results, not measured production responses or billed transfer savings.
 

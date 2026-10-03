@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       headers,
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return (await response.text()).includes(SHELL_MARKER);

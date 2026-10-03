@@ -201,6 +201,8 @@ jobs:
             --scope "$VERCEL_SCOPE" \
             --token "$VERCEL_TOKEN"
 
+          node scripts/verify-vercel-function-limits.mjs .vercel/output
+
           npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" | tee /tmp/vercel-preview.log
           preview_url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-preview.log | tail -n 1)"
           if [ -z "$preview_url" ]; then

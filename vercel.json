@@ -28,5 +28,10 @@
       "schedule": "10 * * * *"
     }
   ],
-  "fluid": true
+  "fluid": true,
+  "functions": {
+    "**/*": {
+      "maxDuration": 15
+    }
+  }
 }

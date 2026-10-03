@@ -2,9 +2,11 @@
 import { writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { performance } from "node:perf_hooks";
+import { randomUUID } from "node:crypto";
 
-export const ROUTES = ["/api/version", "/top", "/shorts/BHP", "/shorts/CBA"];
+export const ROUTES = ["/api/about/statistics", "/top", "/shorts/BHP", "/shorts/CBA"];
 const CONCURRENCY_LEVELS = [1, 4];
+const STATISTICS_ROUTE = ROUTES[0];
 
 export function validateDeploymentUrl(value, { allowLocalhost = false } = {}) {
   const url = new URL(value);
@@ -30,10 +32,14 @@ export function percentile(values, fraction) {
   return Number(sorted[Math.ceil(sorted.length * fraction) - 1].toFixed(2));
 }
 
-async function request(origin, route, { timeoutMs, deadlineSignal, bypassSecret, fetchImpl }) {
+async function request(origin, route, { timeoutMs, deadlineSignal, bypassSecret, fetchImpl, nextProbe }) {
   const start = performance.now();
   try {
-    const response = await fetchImpl(`${origin}${route}`, {
+    const url = new URL(route, origin);
+    // This dynamic handler ignores the query. A unique CDN key exercises the
+    // function while its shared statistics cache still owns backend freshness.
+    if (route === STATISTICS_ROUTE) url.searchParams.set("fluid_probe", nextProbe());
+    const response = await fetchImpl(url.href, {
       method: "GET",
       redirect: "manual",
       signal: AbortSignal.any([AbortSignal.timeout(timeoutMs), deadlineSignal]),
@@ -45,16 +51,21 @@ async function request(origin, route, { timeoutMs, deadlineSignal, bypassSecret,
     const ttfbMs = performance.now() - start;
     const body = await response.text();
     const contentType = response.headers.get("content-type") ?? "";
+    const cache = response.headers.get("x-vercel-cache") ?? "UNKNOWN";
     let contentValid = response.status === 200;
-    let version;
-    if (route === "/api/version") {
+    let invocationVerified;
+    if (route === STATISTICS_ROUTE) {
       try {
         const data = JSON.parse(body);
-        contentValid &&= typeof data.nodeVersion === "string" && typeof data.gitCommit === "string";
-        version = { gitCommit: data.gitCommit, environment: data.environment, nodeVersion: data.nodeVersion };
+        contentValid &&= contentType.includes("application/json") &&
+          Number.isInteger(data.companyCount) && data.companyCount > 0 &&
+          Number.isInteger(data.industryCount) && data.industryCount > 0 &&
+          (data.latestUpdateDate === null ||
+            (typeof data.latestUpdateDate === "string" && Number.isFinite(Date.parse(data.latestUpdateDate))));
       } catch {
         contentValid = false;
       }
+      invocationVerified = ["MISS", "BYPASS"].includes(cache);
     } else {
       contentValid &&= contentType.includes("text/html") && body.length > 128;
       contentValid &&= !body.includes("Application error: a server-side exception");
@@ -65,9 +76,10 @@ async function request(origin, route, { timeoutMs, deadlineSignal, bypassSecret,
       ttfbMs: Number(ttfbMs.toFixed(2)),
       totalMs: Number((performance.now() - start).toFixed(2)),
       bytes: Buffer.byteLength(body), contentType,
-      cache: response.headers.get("x-vercel-cache") ?? "UNKNOWN",
+      cache,
+      applicationCache: response.headers.get("x-cache"),
       vercelId: response.headers.get("x-vercel-id"),
-      ...(version ? { version } : {}),
+      ...(invocationVerified !== undefined ? { invocationVerified } : {}),
     };
   } catch (error) {
     return { route, status: 0, contentValid: false, totalMs: Number((performance.now() - start).toFixed(2)), error: error.name };
@@ -110,8 +122,10 @@ export async function runBenchmark(deployments, {
   boundedInteger(timeoutMs, "timeout-ms", 100, 30_000);
   if (!deployments.length || deployments.length > 2) throw new Error("Benchmark one or two deployments.");
   const targets = deployments.map(({ label, url }) => ({ label, origin: validateDeploymentUrl(url, { allowLocalhost }) }));
-  const report = { startedAt: new Date().toISOString(), requestsPerRoute: requests, concurrencyLevels: CONCURRENCY_LEVELS, routes: ROUTES, deployments: [] };
-  const options = { timeoutMs, deadlineSignal: AbortSignal.timeout(180_000), bypassSecret, fetchImpl };
+  const report = { comparison: "deployment compatibility comparison; source versions may differ", startedAt: new Date().toISOString(), requestsPerRoute: requests, concurrencyLevels: CONCURRENCY_LEVELS, routes: ROUTES, deployments: [] };
+  const probeId = randomUUID();
+  let probeSequence = 0;
+  const options = { timeoutMs, deadlineSignal: AbortSignal.timeout(180_000), bypassSecret, fetchImpl, nextProbe: () => `${probeId}-${++probeSequence}` };
   for (const target of targets) {
     const warmups = [];
     for (const route of ROUTES) warmups.push(await request(target.origin, route, options));
@@ -129,7 +143,8 @@ export async function runBenchmark(deployments, {
   report.finishedAt = new Date().toISOString();
   report.passed = report.deployments.every((deployment) =>
     deployment.warmups.every((sample) => sample.contentValid) &&
-    deployment.results.every((result) => result.successes === result.requests));
+    deployment.results.every((result) => result.successes === result.requests &&
+      result.samples.every((sample) => sample.invocationVerified !== false)));
   return report;
 }
 
@@ -166,6 +181,7 @@ async function main() {
     }
     console.table(deployment.results.map(({ route, concurrency, successes, requests, ttfbP50Ms, ttfbP95Ms, cacheCounts }) => ({ route, concurrency, successes: `${successes}/${requests}`, ttfbP50Ms, ttfbP95Ms, cache: JSON.stringify(cacheCounts) })));
   }
+  console.log("Deployment compatibility comparison; different source versions do not isolate Fluid. Statistics requires CDN MISS/BYPASS; its application cache may still HIT.");
   console.log("HTTP timing does not measure Active CPU, memory billing, or prove same-instance concurrency. Compare deployment-scoped Observability for the recorded window.");
   if (!report.passed) process.exitCode = 1;
 }
