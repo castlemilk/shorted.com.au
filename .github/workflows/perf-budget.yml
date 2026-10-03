@@ -66,13 +66,25 @@ jobs:
 
       # --- 2. Lighthouse (advisory) ---
       - name: Start production server
+        timeout-minutes: 3
         run: |
-          npm run start &
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:3020 >/dev/null && break
+          # A background server must close the step's inherited streams,
+          # otherwise the runner waits for EOF even after readiness succeeds.
+          perf_port="${PERF_SERVER_PORT:-3020}"
+          perf_server_log="$RUNNER_TEMP/shorted-perf-server.log"
+          node node_modules/next/dist/bin/next start --port "$perf_port" \
+            >"$perf_server_log" 2>&1 </dev/null &
+          perf_server_pid=$!
+          echo "$perf_server_pid" > "$RUNNER_TEMP/shorted-perf-server.pid"
+          perf_ready_deadline=$((SECONDS + 120))
+          until curl -sf --connect-timeout 2 --max-time 10 "http://localhost:$perf_port" >/dev/null; do
+            if ! kill -0 "$perf_server_pid" 2>/dev/null || [ "$SECONDS" -ge "$perf_ready_deadline" ]; then
+              echo "server did not come up"
+              tail -n 40 "$perf_server_log"
+              exit 1
+            fi
             sleep 2
           done
-          curl -sf http://localhost:3020 >/dev/null || (echo "server did not come up" && exit 1)
 
       - name: Lighthouse (mobile) vs baseline
         continue-on-error: true
@@ -84,6 +96,14 @@ jobs:
             --url http://localhost:3020 \
             --runs 3 \
             --compare ../docs/perf/lh-baseline.mobile.json
+
+      - name: Stop production server
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/shorted-perf-server.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/shorted-perf-server.pid")" 2>/dev/null || true
+            rm -f "$RUNNER_TEMP/shorted-perf-server.pid"
+          fi
 
       - name: Upload perf reports
         if: always()

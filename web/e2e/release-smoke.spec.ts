@@ -60,7 +60,8 @@ const pageScenarios = [
     path: "/market/2024-08-21",
     requiredText: [
       /ASX Short Positions|Market/i,
-      /Top 50 Most Shorted Stocks|Stocks with Short Positions/i,
+      /Top 50 Shorted Securities/i,
+      /Securities with Short Positions/i,
     ],
   },
   {
