@@ -17,6 +17,8 @@ import {
   type CompanyLogo,
 } from "~/@/lib/og/card";
 
+export const maxDuration = 15;
+
 export const alt = "Most shorted ASX stocks by industry — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

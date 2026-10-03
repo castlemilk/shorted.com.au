@@ -4,6 +4,8 @@ import { ImageResponse } from "next/og";
 import { OG_SIZE, OG_CONTENT_TYPE, OgCard, getOgLogo } from "~/@/lib/og/card";
 import { articlesData } from "./articles-data";
 
+export const maxDuration = 15;
+
 export const alt = "Short selling on the ASX, explained — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
