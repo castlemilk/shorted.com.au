@@ -152,6 +152,7 @@ export default async function PriceDropsPage() {
 
   return (
     <DashboardLayout>
+      {(emptyState === "loading") && <span hidden data-isr-shell="empty" />}
       {/* LLMMeta now derives provenance from `dataSource` (realestate.com.au +
           Domain, not ASIC), so it's safe to emit here. The Dataset JSON-LD
           below complements it with the dataset-level provenance. */}

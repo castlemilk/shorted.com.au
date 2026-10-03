@@ -96,6 +96,7 @@ export default async function MarketIndexPage() {
 
   return (
     <DashboardLayout>
+      {(dates.length === 0) && <span hidden data-isr-shell="empty" />}
       <BreadcrumbListSchema items={breadcrumbs} />
 
       <div className="space-y-8">

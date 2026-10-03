@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { type NextRequest, NextResponse } from "next/server";
+import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 import {
   deleteCachedByPrefix,
   HOUSING_DATA_CACHE_PREFIXES,
@@ -66,9 +67,45 @@ export async function POST(request: NextRequest) {
       .map((s) => s.trim())
       .filter(Boolean);
 
-  const tags = split(sp.get("tag"));
-  const paths = split(sp.get("path"));
+  const tagSet = new Set(split(sp.get("tag")));
+  const pathSet = new Set(split(sp.get("path")));
   const flushTargets = split(sp.get("flush"));
+
+  // A newly published report must replace a previously cached 404 and update
+  // the archive/navigation. Keep existing generator jobs (report-<slug>) valid.
+  for (const tag of tagSet) {
+    const slug = tag.replace(/^report-/, "");
+    let reportPath: string | undefined;
+    if (/^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/.test(slug)) {
+      reportPath = weeklyReportPath(slug);
+    } else if (/^\d{4}-(0[1-9]|1[0-2])$/.test(slug)) {
+      reportPath = `/reports/monthly/${slug}`;
+    } else if (/^\d{4}$/.test(slug)) {
+      reportPath = `/reports/yearly/${slug}`;
+    }
+    if (tag.startsWith("report-") && reportPath) {
+      tagSet.add("reports-index");
+      pathSet.add(reportPath);
+    }
+    if (/^market-date:\d{4}-\d{2}-\d{2}$/.test(tag)) {
+      pathSet.add(`/market/${tag.slice("market-date:".length)}`);
+    }
+  }
+
+  // An ASIC ingest can correct any historical snapshot, including a date that
+  // previously had no data. Negative route entries have no data-tag dependency,
+  // so invalidate the patterns as well as the shared data cache.
+  if (tagSet.has("shorts-data") || flushTargets.includes("shorts")) {
+    tagSet.add("shorts-data");
+    for (const path of [
+      "/market/[date]",
+      "/reports/weekly/[slug]",
+      "/reports/monthly/[slug]",
+      "/reports/yearly/[slug]",
+    ]) pathSet.add(path);
+  }
+  const tags = Array.from(tagSet);
+  const paths = Array.from(pathSet);
 
   if (tags.length === 0 && paths.length === 0 && flushTargets.length === 0) {
     return NextResponse.json(

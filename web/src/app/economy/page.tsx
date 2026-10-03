@@ -213,6 +213,7 @@ export default async function EconomyPage() {
 
   return (
     <DashboardLayout>
+      {(!hasTiles) && <span hidden data-isr-shell="empty" />}
       <LLMMeta
         title={TITLE}
         description={DESCRIPTION}

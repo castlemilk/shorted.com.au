@@ -13,19 +13,20 @@
   "crons": [
     {
       "path": "/api/about/warm-cache",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/homepage/warm-cache",
-      "schedule": "*/10 * * * *"
+      "schedule": "5 * * * *"
     },
     {
       "path": "/api/pages/warm-cache",
       "schedule": "0 17 * * *"
     },
     {
-      "path": "/api/auth/session",
-      "schedule": "*/5 * * * *"
+      "path": "/api/static-pages/warm-cache",
+      "schedule": "10 * * * *"
     }
-  ]
+  ],
+  "fluid": true
 }

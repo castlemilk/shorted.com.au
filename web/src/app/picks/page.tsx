@@ -136,6 +136,7 @@ export default async function PicksHubPage() {
 
   return (
     <DashboardLayout>
+      {(!list || picks.some((result) => result === null)) && <span hidden data-isr-shell="empty" />}
       <BreadcrumbListSchema items={breadcrumbs} />
       <ItemListStructuredData
         name="ASX Stock Picker strategies"

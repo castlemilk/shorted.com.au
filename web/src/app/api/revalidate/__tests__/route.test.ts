@@ -139,4 +139,30 @@ describe("POST /api/revalidate", () => {
       expect(revalidatePathMock).not.toHaveBeenCalled();
     },
   );
+  it.each([
+    ["report-2026-W20", "/reports/weekly/10-most-shorted-asx-stocks-week-20-2026"],
+    ["report-2026-W01", "/reports/weekly/10-most-shorted-asx-stocks-week-1-2026"],
+    ["report-2026-05", "/reports/monthly/2026-05"],
+    ["report-2025", "/reports/yearly/2025"],
+  ])("refreshes the archive and negative route entry on publication: %s", async (tag, path) => {
+    const response = await POST(request(`http://localhost/api/revalidate?tag=${tag}`, "test-revalidation-secret"));
+    expect(response.status).toBe(200);
+    expect(revalidateTagMock).toHaveBeenCalledWith("reports-index");
+    expect(revalidatePathMock).toHaveBeenCalledWith(path);
+  });
+
+  it.each(["tag=shorts-data", "flush=shorts"])("invalidates corrected and previously missing historical snapshots: %s", async (query) => {
+    await POST(request(`http://localhost/api/revalidate?${query}`, "test-revalidation-secret"));
+    expect(revalidateTagMock).toHaveBeenCalledWith("shorts-data");
+    for (const path of ["/market/[date]", "/reports/weekly/[slug]", "/reports/monthly/[slug]", "/reports/yearly/[slug]"]) {
+      expect(revalidatePathMock).toHaveBeenCalledWith(path, "page");
+    }
+  });
+
+  it("clears a negative market date entry on targeted correction", async () => {
+    await POST(request("http://localhost/api/revalidate?tag=market-date:2026-09-30", "test-revalidation-secret"));
+    expect(revalidatePathMock).toHaveBeenCalledWith("/market/2026-09-30");
+    expect(revalidatePathMock).not.toHaveBeenCalledWith("/market/[date]", "page");
+  });
+
 });

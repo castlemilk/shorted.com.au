@@ -262,55 +262,35 @@ export async function getSectorPerformance(
     { name: "Technology", stocks: ["XRO", "WTC", "CPU", "APT"] },
   ];
 
-  const sectorPerformance: SectorPerformance[] = [];
+  // The proxy already accepts multiple symbols. Fetch all six sectors together
+  // instead of making six separate requests on every widget refresh.
+  const quotes = await getMultipleStockQuotes(
+    sectors.flatMap((sector) => sector.stocks),
+  );
 
-  try {
-    await Promise.all(
-      sectors.map(async (sector) => {
-        try {
-          const quotes = await getMultipleStockQuotes(sector.stocks);
+  return sectors.map((sector) => {
+    let totalPerformance = 0;
+    let totalVolume = 0;
+    const performances: { symbol: string; change: number }[] = [];
 
-          let totalPerformance = 0;
-          let totalVolume = 0;
-          const performances: { symbol: string; change: number }[] = [];
+    for (const symbol of sector.stocks) {
+      const quote = quotes.get(symbol);
+      if (!quote) continue;
+      totalPerformance += quote.changePercent;
+      totalVolume += quote.volume ?? 0;
+      performances.push({ symbol, change: quote.changePercent });
+    }
 
-          quotes.forEach((quote, symbol) => {
-            totalPerformance += quote.changePercent;
-            totalVolume += quote.volume ?? 0;
-            performances.push({ symbol, change: quote.changePercent });
-          });
+    performances.sort((a, b) => b.change - a.change);
 
-          performances.sort((a, b) => b.change - a.change);
-
-          sectorPerformance.push({
-            sector: sector.name,
-            performance: totalPerformance / sector.stocks.length,
-            volume: totalVolume,
-            topGainers: performances.slice(0, 2).map((p) => p.symbol),
-            topLosers: performances.slice(-2).map((p) => p.symbol),
-          });
-        } catch (error) {
-          console.error(
-            `Error fetching data for ${sector.name} sector:`,
-            error,
-          );
-          // Add empty sector data to maintain consistency
-          sectorPerformance.push({
-            sector: sector.name,
-            performance: 0,
-            volume: 0,
-            topGainers: [],
-            topLosers: [],
-          });
-        }
-      }),
-    );
-  } catch (error) {
-    console.error("Error fetching sector performance:", error);
-    throw new Error("Unable to fetch sector performance");
-  }
-
-  return sectorPerformance;
+    return {
+      sector: sector.name,
+      performance: totalPerformance / sector.stocks.length,
+      volume: totalVolume,
+      topGainers: performances.slice(0, 2).map((p) => p.symbol),
+      topLosers: performances.slice(-2).map((p) => p.symbol),
+    };
+  });
 }
 
 /**
