@@ -67,12 +67,18 @@ jobs:
       # --- 2. Lighthouse (advisory) ---
       - name: Start production server
         run: |
-          npm run start &
+          # Background processes must not keep the runner's step pipes open.
+          mkdir -p perf-results
+          npm run start </dev/null >perf-results/server.log 2>&1 &
           for i in $(seq 1 30); do
             curl -sf http://localhost:3020 >/dev/null && break
             sleep 2
           done
-          curl -sf http://localhost:3020 >/dev/null || (echo "server did not come up" && exit 1)
+          curl -sf http://localhost:3020 >/dev/null || {
+            cat perf-results/server.log
+            echo "server did not come up"
+            exit 1
+          }
 
       - name: Lighthouse (mobile) vs baseline
         continue-on-error: true
