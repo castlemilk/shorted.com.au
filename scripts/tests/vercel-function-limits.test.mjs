@@ -20,8 +20,9 @@ test('verifies built ordinary and long-running warmers without emitting private 
   const root = await fixture(t);
   const results = await verifyFunctionLimits(root);
   assert.equal(results.length, Object.keys(EXPECTED_LIMITS).length);
-  assert.equal(results.find(r => r.route === '/api/static-pages/warm-cache').maxDuration, 120);
+  assert.equal(results.find(r => r.route === '/api/static-pages/warm-cache').maxDuration, 150);
   assert.equal(results.find(r => r.route === '/api/pages/warm-cache').maxDuration, 300);
+  assert.equal(results.find(r => r.route === '/api/market-data/multiple-quotes').maxDuration, 60);
   assert.equal(JSON.stringify(results).includes('never-print-me'), false);
 });
 
@@ -32,7 +33,12 @@ test('rejects a Fluid default accidentally replacing the prior ordinary route li
 
 test('rejects a wildcard override accidentally lowering explicit warm durations', async (t) => {
   const root = await fixture(t, { 'api/static-pages/warm-cache': { maxDuration: 15 } });
-  await assert.rejects(verifyFunctionLimits(root), /expected Node.js maxDuration 120s/);
+  await assert.rejects(verifyFunctionLimits(root), /expected Node.js maxDuration 150s/);
+});
+
+test('rejects the ordinary limit truncating valid batch quote responses', async (t) => {
+  const root = await fixture(t, { 'api/market-data/multiple-quotes': { maxDuration: 15 } });
+  await assert.rejects(verifyFunctionLimits(root), /api\/market-data\/multiple-quotes: expected Node.js maxDuration 60s/);
 });
 
 test('rejects a generated metadata handler inheriting the longer Fluid default', async (t) => {

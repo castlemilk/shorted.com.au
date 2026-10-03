@@ -83,6 +83,40 @@ describe("static page warming", () => {
     expect(invalidate).not.toHaveBeenCalled();
   });
 
+  it("waits for a slow cold price-drop body without invalidating healthy data", async () => {
+    jest.useFakeTimers();
+    const timeout = jest.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(new Error("Page read timed out")), ms);
+      return controller.signal;
+    });
+    fetchMock.mockImplementation(async (url: string, options: RequestInit) => ({
+      ok: true,
+      status: 200,
+      text: () => url.endsWith("/price-drops")
+        ? new Promise<string>((resolve, reject) => {
+          const completed = setTimeout(() => resolve("<main>Price drops ready</main>"), 35_000);
+          options.signal?.addEventListener("abort", () => {
+            clearTimeout(completed);
+            reject(options.signal?.reason);
+          }, { once: true });
+        })
+        : Promise.resolve("<main>Market ready</main>"),
+    }));
+    try {
+      const pending = GET(request());
+      await jest.advanceTimersByTimeAsync(35_000);
+      const response = await pending;
+      expect(response.status).toBe(200);
+      expect((await response.json()).results["/price-drops"].success).toBe(true);
+      expect(invalidate).not.toHaveBeenCalled();
+    } finally {
+      timeout.mockRestore();
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
   it("supports the warm header and authenticated Vercel cron, rejecting bad credentials", async () => {
     process.env.CACHE_WARM_SECRET = "warm-test";
     process.env.CRON_SECRET = "cron-test";

@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import isrShellPages from "~/config/isr-shell-pages.json";
 
-export const maxDuration = 120;
+export const maxDuration = 150;
 export const dynamic = "force-dynamic";
 
 const BROWSER_UA =
@@ -64,7 +64,9 @@ export async function GET(request: NextRequest) {
       headers,
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.timeout(30_000),
+      // Price drops has a 60s cold-render allowance. Across three batches the
+      // maximum read budget is 60 + 30 + 30 seconds, below this handler's cap.
+      signal: AbortSignal.timeout(path === "/price-drops" ? 60_000 : 30_000),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return (await response.text()).includes(SHELL_MARKER);

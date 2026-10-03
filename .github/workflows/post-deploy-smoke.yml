@@ -56,7 +56,7 @@ jobs:
             WARM_ARGS+=(-H "X-Cache-Warm-Secret: ${CACHE_WARM_SECRET}")
           fi
           echo "1) Static page warm mode: ${WARM_MODE}"
-          curl -s --max-time 115 "${WARM_ARGS[@]}" "${BASE_URL}/api/static-pages/warm-cache?mode=${WARM_MODE}" | head -c 400 || true
+          curl -s --max-time 145 "${WARM_ARGS[@]}" "${BASE_URL}/api/static-pages/warm-cache?mode=${WARM_MODE}" | head -c 400 || true
           echo ""
           echo "2) Re-priming each page through the Cloudflare bypass…"
           # Driven from config/isr-shell-pages.json, NOT a hardcoded list. The

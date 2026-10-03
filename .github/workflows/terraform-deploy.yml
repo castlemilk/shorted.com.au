@@ -1477,11 +1477,11 @@ jobs:
           if [ -n "${CACHE_WARM_SECRET:-}" ]; then
             CURL_ARGS+=(-H "X-Cache-Warm-Secret: ${CACHE_WARM_SECRET}")
           fi
-          curl --fail --silent --show-error --max-time 115 "${CURL_ARGS[@]}" \
+          curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
             "https://shorted.com.au/api/static-pages/warm-cache?mode=deploy"
           # Await the invalidation response before fetching: Next commits it
           # after the handler returns. This second request primes real data.
-          curl --fail --silent --show-error --max-time 115 "${CURL_ARGS[@]}" \
+          curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
             "https://shorted.com.au/api/static-pages/warm-cache?mode=repair"
 
       - name: Production Deployment Summary
