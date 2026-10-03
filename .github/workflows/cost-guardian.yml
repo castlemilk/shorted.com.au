@@ -70,7 +70,7 @@ jobs:
       matrix:
         include:
           - project: rosy-clover-477102-t5
-            wip_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+            wip_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/cuttlefish
             sa_email: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
     steps:
       - name: Authenticate to Google Cloud
@@ -145,7 +145,7 @@ jobs:
       matrix:
         include:
           - project: rosy-clover-477102-t5
-            wip_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+            wip_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/cuttlefish
             sa_email: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
     steps:
       - name: Authenticate to Google Cloud
@@ -266,7 +266,7 @@ jobs:
       matrix:
         include:
           - project: rosy-clover-477102-t5
-            wip_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+            wip_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/cuttlefish
             sa_email: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
     steps:
       - name: Checkout code
