@@ -122,18 +122,18 @@ export const Default: Story = {
     const input = await canvas.findByPlaceholderText("Stock code (e.g., CBA)");
     await userEvent.type(input, "MIN{Enter}");
 
-    // KNOWN BUG (pinned): queryKeys.stock.quotes does `codes.sort()`, which
-    // sorts IN PLACE. useStockQuotes receives the settings array by
-    // reference (getTypedSettings spread copies the reference), so the
-    // configured order ["PLS","SYR","FLT"] is alphabetized to
-    // ["FLT","PLS","SYR"] before MIN is appended. When query-keys.ts is
-    // fixed to copy before sorting, this expectation should become
-    // ["PLS","SYR","FLT","MIN"].
+    // Quote-cache normalization sorts a separate array. Adding a symbol must
+    // preserve the user's configured order and leave the input settings intact.
     await waitFor(() => {
       expect(args.onSettingsChange).toHaveBeenCalledWith({
-        watchlist: ["FLT", "PLS", "SYR", "MIN"],
+        watchlist: ["PLS", "SYR", "FLT", "MIN"],
         timeInterval: "1m",
       });
+    });
+    expect(args.onSettingsChange).toHaveBeenCalledTimes(1);
+    expect(args.config.settings).toEqual({
+      watchlist: ["PLS", "SYR", "FLT"],
+      timeInterval: "1m",
     });
   },
 };
