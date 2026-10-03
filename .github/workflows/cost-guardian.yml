@@ -178,6 +178,9 @@ jobs:
           REGISTRY="australia-southeast2-docker.pkg.dev/${PROJECT}/shorted"
 
           TOTAL_DELETED=0
+          TOTAL_FAILED=0
+          CONSECUTIVE_FAILURES=0
+          MAX_CONSECUTIVE_FAILURES=5
 
           # Collect image references currently in use by live Cloud Run services
           # and jobs across all regions. Any image (by repo path or digest) in
@@ -245,11 +248,23 @@ jobs:
                 done
                 [ "$TAG_PROTECTED" = "true" ] && continue
 
-                if gcloud artifacts docker images delete "${pkg}@${digest}" \
-                    --quiet --delete-tags 2>/dev/null; then
+                if DELETE_ERR=$(gcloud artifacts docker images delete "${pkg}@${digest}" \
+                    --quiet --delete-tags 2>&1 >/dev/null); then
                   TOTAL_DELETED=$((TOTAL_DELETED + 1))
+                  CONSECUTIVE_FAILURES=0
                 else
-                  echo "  Failed to delete ${digest}"
+                  TOTAL_FAILED=$((TOTAL_FAILED + 1))
+                  CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
+                  echo "  Failed to delete ${digest}: $(echo "$DELETE_ERR" | tail -n 3 | tr '\n' ' ')"
+                  # Every delete failing the same way (missing IAM, an API
+                  # change) used to grind through every image until the job
+                  # timed out at 30 minutes, with the reason discarded. Stop
+                  # and say why instead.
+                  if [ "$CONSECUTIVE_FAILURES" -ge "$MAX_CONSECUTIVE_FAILURES" ]; then
+                    echo "::error::$CONSECUTIVE_FAILURES deletes in a row failed; stopping. Last error: $(echo "$DELETE_ERR" | tail -n 1)"
+                    rm -f "$IN_USE_FILE"
+                    exit 1
+                  fi
                 fi
               done < <(echo "$DIGESTS")
             fi
@@ -257,7 +272,10 @@ jobs:
           rm -f "$IN_USE_FILE"
 
           echo ""
-          echo "=== Cleanup complete: deleted $TOTAL_DELETED image versions ==="
+          echo "=== Cleanup complete: deleted $TOTAL_DELETED image versions, $TOTAL_FAILED failed ==="
+          if [ "$TOTAL_FAILED" -gt 0 ]; then
+            echo "::warning::$TOTAL_FAILED image versions could not be deleted"
+          fi
 
   cleanup-secret-versions:
     runs-on: [self-hosted, cuttlefish, linux]
