@@ -7,6 +7,10 @@ const revalidateTagMock = jest.fn();
 const deleteCachedByPrefixMock = jest
   .fn()
   .mockResolvedValue({ deleted: 0, errors: [], scanIterations: 0 });
+const invalidateQuotesMock = jest.fn().mockResolvedValue(true);
+jest.mock("~/@/lib/shared-stock-quotes", () => ({
+  invalidateSharedStockQuotes: (...args: unknown[]) => invalidateQuotesMock(...args),
+}));
 
 jest.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => revalidatePathMock(...args),
@@ -27,6 +31,7 @@ describe("POST /api/revalidate", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     deleteCachedByPrefixMock.mockResolvedValue({ deleted: 0, errors: [], scanIterations: 0 });
+    invalidateQuotesMock.mockResolvedValue(true);
     process.env.REVALIDATION_SECRET = "test-revalidation-secret";
   });
 
@@ -46,6 +51,22 @@ describe("POST /api/revalidate", () => {
       ),
     } as NextRequest;
   }
+
+  it("invalidates shared quotes without scanning the Redis keyspace", async () => {
+    const response = await POST(request("http://localhost/api/revalidate?flush=quotes", "test-revalidation-secret"));
+    expect((await response.json()).quoteCacheInvalidated).toBe(true);
+    expect(invalidateQuotesMock).toHaveBeenCalledTimes(1);
+    expect(deleteCachedByPrefixMock).not.toHaveBeenCalled();
+  });
+
+  it("reports failed quote invalidation and rejects unauthorized invalidation", async () => {
+    invalidateQuotesMock.mockResolvedValue(false);
+    const response = await POST(request("http://localhost/api/revalidate?flush=quotes", "test-revalidation-secret"));
+    expect(await response.json()).toMatchObject({ revalidated: false, flushErrors: ["quotes: cache generation update failed"] });
+    invalidateQuotesMock.mockClear();
+    expect((await POST(request("http://localhost/api/revalidate?flush=quotes", "wrong"))).status).toBe(401);
+    expect(invalidateQuotesMock).not.toHaveBeenCalled();
+  });
 
   it("accepts the secret from X-Revalidate-Secret", async () => {
     const req = request(

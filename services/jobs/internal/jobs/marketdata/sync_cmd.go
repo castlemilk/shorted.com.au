@@ -12,6 +12,7 @@ import (
 	"time"
 
 	msync "github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/marketdata/sync"
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/platform"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/runner"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"go.opentelemetry.io/otel"
@@ -86,7 +87,8 @@ func runSync(ctx context.Context, args []string) error {
 	)
 
 	start := time.Now()
-	_, syncErr := syncManager.RunWith(syncCtx, opts)
+	report, syncErr := syncManager.RunWith(syncCtx, opts)
+	invalidateQuotesAfterSync(opts, report)
 	duration := time.Since(start).Seconds()
 	span.End()
 
@@ -116,6 +118,19 @@ func runSync(ctx context.Context, args []string) error {
 
 	log.Printf("🎉 Market Data Sync completed successfully")
 	return nil
+}
+
+// A later error or spent run budget cannot undo already-committed sessions.
+// Bust once for those writes too; the platform ping has its own short context
+// and never fails the run. Dry runs and untouched runs must leave caches alone.
+func invalidateQuotesAfterSync(opts msync.RunOptions, report *msync.RunReport) {
+	if opts.DryRun || report == nil || report.Written == 0 {
+		return
+	}
+	platform.PingRevalidate(platform.RevalidateRequest{
+		Reason: "price-sync",
+		Flush:  "quotes",
+	})
 }
 
 // syncOutcome is the error a stopped sweep returns: a sweep that spent its

@@ -3,6 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { POST } from "../route";
 import { serverFetchWithUserAgent } from "~/app/actions/config";
 import { rateLimit } from "~/@/lib/rate-limit";
+import { getCached, getCachedMany } from "~/@/lib/kv-cache";
+jest.mock("~/@/lib/kv-cache", () => ({
+  getCached: jest.fn(async () => null),
+  getCachedMany: jest.fn(async (keys: string[]) => keys.map(() => null)),
+  setCachedMany: jest.fn(async () => true),
+  acquireCacheLease: jest.fn(async () => "unavailable"),
+  releaseCacheLease: jest.fn(), setCached: jest.fn(),
+}));
 
 jest.mock("~/app/actions/config", () => ({
   buildApiUrl: (origin: string, path: string) => `${origin}${path}`,
@@ -24,16 +32,21 @@ const fetchMock = jest.mocked(serverFetchWithUserAgent);
 const rateLimitMock = jest.mocked(rateLimit);
 
 function request() {
-  return new NextRequest("http://localhost/api/market-data/multiple-quotes", {
+  const req = new NextRequest("http://localhost/api/market-data/multiple-quotes", {
     method: "POST",
     body: JSON.stringify({ stockCodes: symbols }),
   });
+  // The shared test Request polyfill predates cancellation support.
+  Object.defineProperty(req, "signal", { value: new AbortController().signal });
+  return req;
 }
 
 describe("batch quote proxy deadline", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    jest.mocked(getCached).mockResolvedValue(null);
+    jest.mocked(getCachedMany).mockImplementation(async keys => keys.map(() => null));
     fetchMock.mockReset();
     rateLimitMock.mockResolvedValue({ success: true } as Awaited<ReturnType<typeof rateLimit>>);
     // Native AbortSignal.timeout uses internal Node timers. Substitute a
@@ -51,7 +64,7 @@ describe("batch quote proxy deadline", () => {
   });
 
   it("allows a valid 35-second response and forwards all 24 symbols in one request", async () => {
-    const data = { prices: { CBA: { stockCode: "CBA", close: 120 } } };
+    const data = { prices: { CBA: { stockCode: "CBA", date: "2026-10-02T00:00:00Z", close: 120 } } };
     fetchMock.mockImplementation(() => new Promise((resolve) => {
       setTimeout(() => resolve(NextResponse.json(data)), 35_000);
     }));
@@ -69,7 +82,7 @@ describe("batch quote proxy deadline", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "https://market-data.example.test/marketdata.v1.MarketDataService/GetMultipleStockPrices",
       expect.objectContaining({
-        method: "POST", body: JSON.stringify({ stockCodes: symbols }), cache: "no-store",
+        method: "POST", body: JSON.stringify({ stockCodes: [...symbols].sort() }), cache: "no-store",
         headers: { "Content-Type": "application/json", "Connect-Protocol-Version": "1" },
         signal: expect.any(AbortSignal),
       }),
@@ -102,6 +115,30 @@ describe("batch quote proxy deadline", () => {
     rateLimitMock.mockResolvedValue({ success: false, response: rejected, tier: "free" } as Awaited<ReturnType<typeof rateLimit>>);
 
     expect(await POST(request())).toBe(rejected);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(AbortSignal.timeout).not.toHaveBeenCalled();
+    expect(getCached).not.toHaveBeenCalled();
+    expect(getCachedMany).not.toHaveBeenCalled();
+  });
+
+  it("does not read or disclose already cached public quotes to a rate-limited request", async () => {
+    jest.mocked(getCached).mockResolvedValue("current-generation");
+    jest.mocked(getCachedMany).mockImplementation(async keys => keys.map(key => ({
+      generation: "current-generation", fetchedAt: Date.now(),
+      quote: { stockCode: key.split(":").at(-1), date: "2026-10-02T00:00:00Z", close: 120 },
+    })) as never);
+    const rejected = NextResponse.json({ error: "Too many requests" }, {
+      status: 429, headers: { "Retry-After": "60", "X-RateLimit-Scope": "edge-minute" },
+    });
+    rateLimitMock.mockResolvedValue({ success: false, response: rejected, tier: "free" } as Awaited<ReturnType<typeof rateLimit>>);
+
+    const response = await POST(request());
+    expect(response).toBe(rejected);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    expect(response.headers.get("X-RateLimit-Scope")).toBe("edge-minute");
+    expect(await response.json()).toEqual({ error: "Too many requests" });
+    expect(getCached).not.toHaveBeenCalled();
+    expect(getCachedMany).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(AbortSignal.timeout).not.toHaveBeenCalled();
   });

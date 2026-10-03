@@ -379,6 +379,21 @@ export interface RetryOptions {
   backoffMultiplier?: number;
   /** Whether to retry on specific error types (default: uses shouldRetryConnectError) */
   shouldRetry?: (error: unknown) => boolean;
+  /** Cancel both an active operation (passed by its caller) and retry delays. */
+  signal?: AbortSignal;
+}
+
+export function isAbortError(error: unknown): boolean {
+  return (
+    (error !== null && typeof error === "object" && "name" in error && error.name === "AbortError") ||
+    (isConnectErrorSync(error) && error.code === 1)
+  );
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw signal.reason ?? new DOMException("The operation was aborted", "AbortError");
+  }
 }
 
 /**
@@ -393,6 +408,7 @@ export interface RetryOptions {
  * @returns true if the error is transient and should be retried
  */
 export function shouldRetryConnectError(error: unknown): boolean {
+  if (isAbortError(error)) return false;
   // gRPC/Connect error codes (used as numeric values to avoid SSR import issues)
   const NON_RETRYABLE_CODES = [
     5,  // NotFound
@@ -454,7 +470,7 @@ export function shouldRetryConnectError(error: unknown): boolean {
   return true;
 }
 
-const DEFAULT_OPTIONS: Required<Omit<RetryOptions, "shouldRetry">> = {
+const DEFAULT_OPTIONS: Required<Omit<RetryOptions, "shouldRetry" | "signal">> = {
   maxRetries: 3,
   initialDelayMs: 1000,
   maxDelayMs: 10000,
@@ -464,8 +480,23 @@ const DEFAULT_OPTIONS: Required<Omit<RetryOptions, "shouldRetry">> = {
 /**
  * Sleep for the specified number of milliseconds
  */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      reject(signal?.reason ?? new DOMException("The operation was aborted", "AbortError"));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 /**
@@ -520,6 +551,7 @@ export async function retryWithBackoff<T>(
     maxDelayMs,
     backoffMultiplier,
     shouldRetry,
+    signal,
   } = {
     ...DEFAULT_OPTIONS,
     ...options,
@@ -529,13 +561,17 @@ export async function retryWithBackoff<T>(
   const shouldRetryError = shouldRetry ?? shouldRetryConnectError;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    throwIfAborted(signal);
     try {
-      return await fn();
+      const result = await fn();
+      throwIfAborted(signal);
+      return result;
     } catch (error) {
+      throwIfAborted(signal);
       lastError = error;
 
       // Check if we should retry this error
-      if (!shouldRetryError(error)) {
+      if (isAbortError(error) || !shouldRetryError(error)) {
         throw error;
       }
 
@@ -553,7 +589,7 @@ export async function retryWithBackoff<T>(
         console.log(
           `Retry attempt ${attempt + 1}/${maxRetries + 1} after ${delay}ms${isRateLimit ? " (rate limited)" : ""}`,
         );
-        await sleep(delay);
+        await sleep(delay, signal);
       }
     }
   }
