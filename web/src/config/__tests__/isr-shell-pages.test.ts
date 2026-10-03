@@ -131,9 +131,8 @@ describe("capital housing pages in the ISR sweep inventory", () => {
 // (listCouncils skips at build), so an invalidate alone would hand the first
 // post-deploy visitor "Council data is loading" (stale-while-revalidate serves
 // the shell once). They are in BOTH sets: the post-promote sweep inventory and
-// the shell re-prime. The 15-minute re-prime costs 8 regenerations that read
-// the 24h KV entry, not the API. bailOnEmptyRender still keeps a runtime empty
-// render out of the cache.
+// the shell re-prime. The hourly repair invalidates only confirmed empty shells; healthy pages
+// retain their ISR TTL. bailOnEmptyRender caps a runtime empty render at 60s.
 describe("council index pages in the ISR sweep and shell re-prime", () => {
   it("covers /housing/<state>/council for all eight states", () => {
     const all = new Set(isrPages as string[]);

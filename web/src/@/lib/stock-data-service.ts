@@ -1,7 +1,18 @@
 "use client";
 
 // Stock data service using market data API
-import { retryWithBackoff } from "~/@/lib/retry";
+import { isAbortError, retryWithBackoff, shouldRetryConnectError } from "~/@/lib/retry";
+
+export const QUOTE_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
+
+class QuoteRequestError extends Error {
+  // Reuse the existing monthly/per-minute retry policy for HTTP 429s.
+  readonly code: number | undefined;
+  constructor(readonly status: number, readonly metadata: Headers) {
+    super(`Market data API returned ${status} for quotes`);
+    this.code = status === 429 ? 8 : undefined;
+  }
+}
 
 export interface StockQuote {
   symbol: string;
@@ -65,6 +76,7 @@ export interface StockSearchResponse {
  */
 export async function getMultipleStockQuotes(
   stockCodes: string[],
+  signal?: AbortSignal,
 ): Promise<Map<string, StockQuote>> {
   if (stockCodes.length === 0) return new Map();
 
@@ -77,12 +89,11 @@ export async function getMultipleStockQuotes(
           body: JSON.stringify({
             stockCodes: stockCodes.map((code) => code.toUpperCase()),
           }),
+          signal,
         });
 
         if (!response.ok) {
-          throw new Error(
-            `Market data API returned ${response.status} for quotes`,
-          );
+          throw new QuoteRequestError(response.status, response.headers ?? new Headers());
         }
 
         const apiResponse = (await response.json()) as {
@@ -91,14 +102,14 @@ export async function getMultipleStockQuotes(
             {
               stockCode: string;
               date: string;
-              open: number;
-              high: number;
-              low: number;
+              open?: number;
+              high?: number;
+              low?: number;
               close: number;
-              volume: string;
-              adjustedClose: number;
-              change: number;
-              changePercent: number;
+              volume?: string | number;
+              adjustedClose?: number;
+              change?: number;
+              changePercent?: number;
             }
           >;
         };
@@ -106,24 +117,35 @@ export async function getMultipleStockQuotes(
         const quotes = new Map<string, StockQuote>();
         if (apiResponse.prices) {
           Object.entries(apiResponse.prices).forEach(([symbol, price]) => {
+            // Connect's protobuf JSON omits zero-valued scalars. A flat day's
+            // missing change must stay zero in portfolio and sector arithmetic.
+            const change = price.change ?? 0;
             quotes.set(symbol, {
               symbol: price.stockCode,
               price: price.close,
-              change: price.change,
-              changePercent: price.changePercent,
-              previousClose: price.close - price.change,
-              volume: parseInt(price.volume, 10),
-              high: price.high,
-              low: price.low,
-              open: price.open,
+              change,
+              changePercent: price.changePercent ?? 0,
+              previousClose: price.close - change,
+              volume: Number(price.volume ?? 0),
+              high: price.high ?? 0,
+              low: price.low ?? 0,
+              open: price.open ?? 0,
             });
           });
         }
         return quotes;
       },
-      { maxRetries: 3, initialDelayMs: 500 },
+      {
+        maxRetries: 3, initialDelayMs: 500, signal,
+        shouldRetry: (error) => {
+          if (error instanceof QuoteRequestError && error.status >= 400 && error.status < 500 &&
+            error.status !== 408 && error.status !== 429) return false;
+          return shouldRetryConnectError(error);
+        },
+      },
     );
   } catch (error) {
+    if ((signal?.aborted ?? false) || isAbortError(error)) throw error;
     console.warn(
       "Failed to fetch stock quotes after retries:",
       error instanceof Error ? error.message : String(error),
@@ -251,6 +273,7 @@ export async function getCorrelationMatrix(
  */
 export async function getSectorPerformance(
   _period = "1d",
+  signal?: AbortSignal,
 ): Promise<SectorPerformance[]> {
   // Major ASX sectors with representative stocks
   const sectors = [
@@ -262,55 +285,36 @@ export async function getSectorPerformance(
     { name: "Technology", stocks: ["XRO", "WTC", "CPU", "APT"] },
   ];
 
-  const sectorPerformance: SectorPerformance[] = [];
+  // The proxy already accepts multiple symbols. Fetch all six sectors together
+  // instead of making six separate requests on every widget refresh.
+  const quotes = await getMultipleStockQuotes(
+    sectors.flatMap((sector) => sector.stocks),
+    signal,
+  );
 
-  try {
-    await Promise.all(
-      sectors.map(async (sector) => {
-        try {
-          const quotes = await getMultipleStockQuotes(sector.stocks);
+  return sectors.map((sector) => {
+    let totalPerformance = 0;
+    let totalVolume = 0;
+    const performances: { symbol: string; change: number }[] = [];
 
-          let totalPerformance = 0;
-          let totalVolume = 0;
-          const performances: { symbol: string; change: number }[] = [];
+    for (const symbol of sector.stocks) {
+      const quote = quotes.get(symbol);
+      if (!quote) continue;
+      totalPerformance += quote.changePercent;
+      totalVolume += quote.volume ?? 0;
+      performances.push({ symbol, change: quote.changePercent });
+    }
 
-          quotes.forEach((quote, symbol) => {
-            totalPerformance += quote.changePercent;
-            totalVolume += quote.volume ?? 0;
-            performances.push({ symbol, change: quote.changePercent });
-          });
+    performances.sort((a, b) => b.change - a.change);
 
-          performances.sort((a, b) => b.change - a.change);
-
-          sectorPerformance.push({
-            sector: sector.name,
-            performance: totalPerformance / sector.stocks.length,
-            volume: totalVolume,
-            topGainers: performances.slice(0, 2).map((p) => p.symbol),
-            topLosers: performances.slice(-2).map((p) => p.symbol),
-          });
-        } catch (error) {
-          console.error(
-            `Error fetching data for ${sector.name} sector:`,
-            error,
-          );
-          // Add empty sector data to maintain consistency
-          sectorPerformance.push({
-            sector: sector.name,
-            performance: 0,
-            volume: 0,
-            topGainers: [],
-            topLosers: [],
-          });
-        }
-      }),
-    );
-  } catch (error) {
-    console.error("Error fetching sector performance:", error);
-    throw new Error("Unable to fetch sector performance");
-  }
-
-  return sectorPerformance;
+    return {
+      sector: sector.name,
+      performance: totalPerformance / sector.stocks.length,
+      volume: totalVolume,
+      topGainers: performances.slice(0, 2).map((p) => p.symbol),
+      topLosers: performances.slice(-2).map((p) => p.symbol),
+    };
+  });
 }
 
 /**
@@ -318,11 +322,13 @@ export async function getSectorPerformance(
  */
 export async function getStockPrice(
   stockCode: string,
+  signal?: AbortSignal,
 ): Promise<StockQuote | null> {
   try {
-    const quotes = await getMultipleStockQuotes([stockCode]);
+    const quotes = await getMultipleStockQuotes([stockCode], signal);
     return quotes.get(stockCode.toUpperCase()) ?? null;
   } catch (error) {
+    if ((signal?.aborted ?? false) || isAbortError(error)) throw error;
     console.error(`Error fetching stock price for ${stockCode}:`, error);
     return null;
   }
@@ -455,15 +461,27 @@ export async function searchStocksEnriched(
       .map((s) => s.product_code);
 
     // Batch fetch all prices in ONE request (instead of N individual requests)
-    const pricesMap =
-      validCodes.length > 0
-        ? await Promise.race([
-            getMultipleStockQuotes(validCodes),
-            new Promise<Map<string, StockQuote>>((resolve) =>
-              setTimeout(() => resolve(new Map()), 1500),
-            ),
-          ])
-        : new Map<string, StockQuote>();
+    let pricesMap = new Map<string, StockQuote>();
+    if (validCodes.length > 0) {
+      const controller = new AbortController();
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        pricesMap = await Promise.race([
+          getMultipleStockQuotes(validCodes, controller.signal).catch((error: unknown) => {
+            if (controller.signal.aborted || isAbortError(error)) return new Map<string, StockQuote>();
+            throw error;
+          }),
+          new Promise<Map<string, StockQuote>>((resolve) => {
+            timeout = setTimeout(() => {
+              controller.abort();
+              resolve(new Map());
+            }, 1500);
+          }),
+        ]);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
 
     // Fetch stock details with staggered requests to avoid overwhelming the API
     type FinancialData = {

@@ -7,6 +7,10 @@ const revalidateTagMock = jest.fn();
 const deleteCachedByPrefixMock = jest
   .fn()
   .mockResolvedValue({ deleted: 0, errors: [], scanIterations: 0 });
+const invalidateQuotesMock = jest.fn().mockResolvedValue(true);
+jest.mock("~/@/lib/shared-stock-quotes", () => ({
+  invalidateSharedStockQuotes: (...args: unknown[]) => invalidateQuotesMock(...args),
+}));
 
 jest.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => revalidatePathMock(...args),
@@ -27,6 +31,7 @@ describe("POST /api/revalidate", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     deleteCachedByPrefixMock.mockResolvedValue({ deleted: 0, errors: [], scanIterations: 0 });
+    invalidateQuotesMock.mockResolvedValue(true);
     process.env.REVALIDATION_SECRET = "test-revalidation-secret";
   });
 
@@ -46,6 +51,22 @@ describe("POST /api/revalidate", () => {
       ),
     } as NextRequest;
   }
+
+  it("invalidates shared quotes without scanning the Redis keyspace", async () => {
+    const response = await POST(request("http://localhost/api/revalidate?flush=quotes", "test-revalidation-secret"));
+    expect((await response.json()).quoteCacheInvalidated).toBe(true);
+    expect(invalidateQuotesMock).toHaveBeenCalledTimes(1);
+    expect(deleteCachedByPrefixMock).not.toHaveBeenCalled();
+  });
+
+  it("reports failed quote invalidation and rejects unauthorized invalidation", async () => {
+    invalidateQuotesMock.mockResolvedValue(false);
+    const response = await POST(request("http://localhost/api/revalidate?flush=quotes", "test-revalidation-secret"));
+    expect(await response.json()).toMatchObject({ revalidated: false, flushErrors: ["quotes: cache generation update failed"] });
+    invalidateQuotesMock.mockClear();
+    expect((await POST(request("http://localhost/api/revalidate?flush=quotes", "wrong"))).status).toBe(401);
+    expect(invalidateQuotesMock).not.toHaveBeenCalled();
+  });
 
   it("accepts the secret from X-Revalidate-Secret", async () => {
     const req = request(
@@ -139,4 +160,34 @@ describe("POST /api/revalidate", () => {
       expect(revalidatePathMock).not.toHaveBeenCalled();
     },
   );
+  it.each([
+    ["report-2026-W20", "/reports/weekly/10-most-shorted-asx-stocks-week-20-2026"],
+    ["report-2026-W01", "/reports/weekly/10-most-shorted-asx-stocks-week-1-2026"],
+    ["report-2026-05", "/reports/monthly/2026-05"],
+    ["report-2025", "/reports/yearly/2025"],
+  ])("refreshes the archive and negative route entry on publication: %s", async (tag, path) => {
+    const response = await POST(request(`http://localhost/api/revalidate?tag=${tag}`, "test-revalidation-secret"));
+    expect(response.status).toBe(200);
+    expect(revalidateTagMock).toHaveBeenCalledWith("reports-index");
+    expect(revalidatePathMock).toHaveBeenCalledWith(path);
+  });
+
+  it.each(["tag=shorts-data", "flush=shorts"])("invalidates corrected and previously missing historical snapshots: %s", async (query) => {
+    await POST(request(`http://localhost/api/revalidate?${query}`, "test-revalidation-secret"));
+    expect(revalidateTagMock).toHaveBeenCalledWith("shorts-data");
+    expect(revalidateTagMock).toHaveBeenCalledWith("market-index");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/market");
+    for (const path of ["/market/[date]", "/reports/weekly/[slug]", "/reports/monthly/[slug]", "/reports/yearly/[slug]"]) {
+      expect(revalidatePathMock).toHaveBeenCalledWith(path, "page");
+    }
+  });
+
+  it("clears a negative market date entry on targeted correction", async () => {
+    await POST(request("http://localhost/api/revalidate?tag=market-date:2026-09-30", "test-revalidation-secret"));
+    expect(revalidatePathMock).toHaveBeenCalledWith("/market/2026-09-30");
+    expect(revalidateTagMock).toHaveBeenCalledWith("market-index");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/market");
+    expect(revalidatePathMock).not.toHaveBeenCalledWith("/market/[date]", "page");
+  });
+
 });

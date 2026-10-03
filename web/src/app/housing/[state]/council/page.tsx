@@ -87,6 +87,7 @@ export default async function StateCouncilsPage({ params }: PageProps) {
 
   return (
     <DashboardLayout>
+      {(councils.length === 0) && <span hidden data-isr-shell="empty" />}
       <BreadcrumbListSchema
         items={[
           { name: "Home", url: SITE },

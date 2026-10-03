@@ -108,6 +108,7 @@ export default async function CompareIndexPage() {
 
   return (
     <main className="min-h-screen">
+      {(pairs.length === 0) && <span hidden data-isr-shell="empty" />}
       <BreadcrumbStructuredData items={breadcrumbItems} />
       <script
         type="application/ld+json"

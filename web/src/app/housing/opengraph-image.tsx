@@ -7,6 +7,8 @@ import { getHousingOverview } from "~/app/actions/getHousing";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
 import { OG_CONTENT_TYPE, OG_SIZE, OgSceneCard, getOgLogo } from "@/lib/og/card";
 
+export const maxDuration = 15;
+
 export const alt = "Australian House Prices Tracker — Shorted.com.au";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

@@ -201,6 +201,8 @@ jobs:
             --scope "$VERCEL_SCOPE" \
             --token "$VERCEL_TOKEN"
 
+          node scripts/verify-vercel-function-limits.mjs .vercel/output
+
           npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" | tee /tmp/vercel-preview.log
           preview_url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-preview.log | tail -n 1)"
           if [ -z "$preview_url" ]; then
@@ -278,6 +280,26 @@ jobs:
             --scope "$VERCEL_SCOPE" \
             --yes \
             --token "$VERCEL_TOKEN"
+
+      - name: Prime static pages after promotion
+        continue-on-error: true
+        env:
+          CACHE_WARM_SECRET: ${{ secrets.CACHE_WARM_SECRET }}
+          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+        run: |
+          CURL_ARGS=(-A "Mozilla/5.0 Shorted-E2E/1.0")
+          if [ -n "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" ]; then
+            CURL_ARGS+=(-H "X-Shorted-Testing-Bypass: ${CLOUDFLARE_TESTING_BYPASS_SECRET}")
+          fi
+          if [ -n "${CACHE_WARM_SECRET:-}" ]; then
+            CURL_ARGS+=(-H "X-Cache-Warm-Secret: ${CACHE_WARM_SECRET}")
+          fi
+          curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
+            "https://shorted.com.au/api/static-pages/warm-cache?mode=deploy"
+          # Await the invalidation response before fetching: Next commits it
+          # after the handler returns. This second request primes real data.
+          curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
+            "https://shorted.com.au/api/static-pages/warm-cache?mode=repair"
 
       - name: Production release summary
         run: |

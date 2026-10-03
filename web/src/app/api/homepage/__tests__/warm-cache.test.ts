@@ -28,6 +28,7 @@ jest.mock("~/gen/shorts/v1alpha1/market_pb", () => ({
 // Mock NextRequest
 jest.mock("next/server", () => ({
   NextRequest: jest.fn().mockImplementation((url: string) => ({
+    headers: new Headers(),
     nextUrl: {
       searchParams: {
         get: jest.fn((key: string) => {
@@ -55,7 +56,7 @@ const mockGetIndustryTreeMap = getIndustryTreeMap as jest.MockedFunction<
 describe("Homepage Cache Warming Endpoint", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
-    process.env.CACHE_WARM_SECRET = undefined; // Clear secret for most tests
+    delete process.env.CACHE_WARM_SECRET; // Clear secret for most tests
     
     // Dynamically import GET after mocks
     const route = await import("../warm-cache/route");
@@ -77,6 +78,7 @@ describe("Homepage Cache Warming Endpoint", () => {
     } as any);
 
     const request = {
+      headers: new Headers(),
       nextUrl: {
         searchParams: {
           get: jest.fn().mockReturnValue(null),
@@ -103,6 +105,7 @@ describe("Homepage Cache Warming Endpoint", () => {
     } as any);
 
     const request = {
+      headers: new Headers(),
       nextUrl: {
         searchParams: {
           get: jest.fn().mockReturnValue(null),
@@ -125,6 +128,7 @@ describe("Homepage Cache Warming Endpoint", () => {
     } as any);
 
     const request = {
+      headers: new Headers(),
       nextUrl: {
         searchParams: {
           get: jest.fn().mockReturnValue(null),
@@ -144,6 +148,7 @@ describe("Homepage Cache Warming Endpoint", () => {
     process.env.CACHE_WARM_SECRET = "test-secret";
 
     const request = {
+      headers: new Headers(),
       nextUrl: {
         searchParams: {
           get: jest.fn().mockReturnValue(null),
@@ -169,6 +174,7 @@ describe("Homepage Cache Warming Endpoint", () => {
     } as any);
 
     const request = {
+      headers: new Headers(),
       nextUrl: {
         searchParams: {
           get: jest.fn().mockReturnValue("test-secret"),
@@ -184,6 +190,7 @@ describe("Homepage Cache Warming Endpoint", () => {
     process.env.CACHE_WARM_SECRET = "test-secret";
 
     const request = {
+      headers: new Headers(),
       nextUrl: {
         searchParams: {
           get: jest.fn().mockReturnValue("wrong-secret"),
@@ -206,6 +213,7 @@ describe("Homepage Cache Warming Endpoint", () => {
     } as any);
 
     const request = {
+      headers: new Headers(),
       nextUrl: {
         searchParams: {
           get: jest.fn().mockReturnValue(null),
@@ -231,6 +239,7 @@ describe("Homepage Cache Warming Endpoint", () => {
     } as any);
 
     const request = {
+      headers: new Headers(),
       nextUrl: {
         searchParams: {
           get: jest.fn().mockReturnValue(null),
@@ -256,6 +265,7 @@ describe("Homepage Cache Warming Endpoint", () => {
     } as any);
 
     const request = {
+      headers: new Headers(),
       nextUrl: {
         searchParams: {
           get: jest.fn().mockReturnValue(null),

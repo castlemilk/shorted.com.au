@@ -34,11 +34,10 @@ import { StatTile } from "~/@/components/reports/stat-tile";
 import { TopStocksTable } from "~/@/components/reports/top-stocks-table";
 import { IndustryBreakdown } from "~/@/components/reports/industry-breakdown";
 import {
-  getWeeklyReportData,
-  getEnhancedWeeklyReportData,
+  getWeeklyReportDataStrict,
   getEnhancedWeeklyReportDataStrict,
-  getStockFinancialHighlights,
-  getReportsList,
+  getStockFinancialHighlightsStrict,
+  getReportsListStrict,
   type StockFinancialHighlight,
 } from "~/app/actions/reports/getReportData";
 
@@ -46,7 +45,14 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export const dynamic = "force-dynamic";
+// Generate archives on demand, then serve the cached page. Report publication
+// busts report-<slug>; ASIC corrections bust shorts-data. The 24h interval is
+// a safety net when an ingest notification is missed.
+export const revalidate = 86400;
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ slug: string }> {
+  return [];
+}
 
 function formatWeekTitle(slug: string): string {
   const match = slug.match(/^(\d{4})-W(\d{2})$/);
@@ -61,26 +67,6 @@ function formatDate(dateStr: string): string {
     month: "short",
     year: "numeric",
   });
-}
-
-// Monday/Friday (YYYY-MM-DD) for an ISO week slug — used to synthesize the
-// week envelope when the narrative exists but market data is unavailable.
-function weekDateRange(slug: string): { startDate: string; endDate: string } {
-  const match = slug.match(/^(\d{4})-W(\d{2})$/);
-  if (!match?.[1] || !match[2]) return { startDate: "", endDate: "" };
-  const year = parseInt(match[1]);
-  const week = parseInt(match[2]);
-  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
-  const dow = simple.getUTCDay();
-  const monday = new Date(simple);
-  if (dow <= 4) monday.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
-  else monday.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
-  const friday = new Date(monday);
-  friday.setUTCDate(monday.getUTCDate() + 4);
-  return {
-    startDate: monday.toISOString().slice(0, 10),
-    endDate: friday.toISOString().slice(0, 10),
-  };
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -114,16 +100,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   //    means the fetch itself failed). Guarding on market data alone also
   //    404'd every FRESH report: the week's Friday data lags ~4-6 days
   //    behind publication (ASIC T+4).
-  // Transient failures render a degraded 200 instead.
-  let enhanced = null;
-  let enhancedUnavailable = false;
-  try {
-    enhanced = await getEnhancedWeeklyReportDataStrict(slug);
-  } catch {
-    enhancedUnavailable = true;
-  }
-  const data = await getWeeklyReportData(slug);
-  if (!enhanced && !enhancedUnavailable && data && data.topStocks.length === 0) {
+  // Transient failures abort ISR generation; Next keeps an existing good
+  // page instead of caching a degraded render or a false 404.
+  const [enhanced, data] = await Promise.all([
+    getEnhancedWeeklyReportDataStrict(slug),
+    getWeeklyReportDataStrict(slug),
+  ]);
+  if (!enhanced && data.topStocks.length === 0) {
     notFound();
   }
   const headline = enhanced?.headline;
@@ -222,36 +205,25 @@ export default async function WeeklyReportPage({ params }: PageProps) {
   }
   const slug = resolved.dbSlug;
 
-  // Both fetches are deduped with generateMetadata, which already ran the
-  // hard-404 existence guard. The body guard mirrors it with the lenient
-  // fetch: a transient narrative failure here (null) with definitively
-  // empty market data falls through to the degraded 200 render below —
-  // only definitive double-absence soft-404s.
+  // Strict data accessors distinguish definitive absence from an unavailable
+  // API in both metadata and the body; failures must abort cache generation.
   // publishedWeekly drives the prev/next pagination below. It's the same
   // 1h-cached ListReports call the /reports index makes (and it already
   // filters headline-less partial rows), so the neighbours we link are weeks
   // that definitely rendered — not blind week arithmetic into gaps. It
-  // swallows its own errors and returns [], in which case WeekNavigation
-  // falls back to arithmetic.
+  // A failed archive fetch must not bake navigation into unpublished gaps.
   const [rawData, enhanced, publishedWeekly] = await Promise.all([
-    getWeeklyReportData(slug),
-    getEnhancedWeeklyReportData(slug),
-    getReportsList("weekly", WEEKLY_ARCHIVE_LIMIT),
+    getWeeklyReportDataStrict(slug),
+    getEnhancedWeeklyReportDataStrict(slug),
+    getReportsListStrict("weekly", WEEKLY_ARCHIVE_LIMIT),
   ]);
-  if (!enhanced && rawData && rawData.topStocks.length === 0) {
+  if (!enhanced && rawData.topStocks.length === 0) {
     notFound();
   }
 
-  // A published narrative can outrun market data (transient RPC failure or
-  // the ASIC T+4 lag window) — synthesize the week envelope from the slug so
-  // the render below never dereferences undefined.
-  const data = rawData ?? {
-    weekSlug: slug,
-    ...weekDateRange(slug),
-    dates: [],
-    topStocks: [],
-    totalStocksShorted: 0,
-  };
+  // A published narrative can outrun the successfully fetched snapshot in
+  // the ASIC T+4 lag window; its own top-stock snapshot remains renderable.
+  const data = rawData;
 
   // financialHighlights depends on topStocks (falls back to the narrative's
   // own top-shorted list when market data is lagging).
@@ -261,7 +233,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
       : (enhanced?.topShorted ?? []).slice(0, 20).map((s) => s.code)
   );
   const financialHighlights = topCodes.length > 0
-    ? await getStockFinancialHighlights(topCodes)
+    ? await getStockFinancialHighlightsStrict(topCodes)
     : ({} as Record<string, StockFinancialHighlight[]>);
 
   const weekTitle = formatWeekTitle(slug);

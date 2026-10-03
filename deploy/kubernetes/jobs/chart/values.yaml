@@ -305,7 +305,7 @@ jobs:
     schedule: "0 10 * * 1-5"
     timeoutSeconds: 21600
     maxRetries: 1
-    profiles: [db, otel]
+    profiles: [db, otel, revalidate]
     env:
       GCS_BUCKET_NAME: shorted-short-selling-data-prod
       PRIORITY_STOCK_COUNT: "100"
