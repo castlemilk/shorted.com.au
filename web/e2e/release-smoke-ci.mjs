@@ -3,6 +3,7 @@ import { chromium, devices, request as playwrightRequest } from "@playwright/tes
 import { checkFirebaseGoogleAuthBootstrap } from "./helpers/firebase-google-auth-bootstrap.mjs";
 import { isolateBrowserAnalytics } from "./helpers/browser-analytics-isolation.mjs";
 import { releasePageText } from "./helpers/release-page-readiness.mjs";
+import { scopeReleaseBrowserHeaders, scopedReleaseHeaders } from "./helpers/scoped-release-headers.mjs";
 
 const baseUrl = process.env.BASE_URL || "https://shorted.com.au";
 const apiBaseUrl = process.env.RELEASE_API_BASE_URL || "https://api.shorted.com.au";
@@ -218,7 +219,9 @@ async function assertNoCloudflareChallenge(response, label) {
 
 async function checkApiEdge() {
   console.log("check Cloudflare API edge");
-  const api = await playwrightRequest.newContext({ extraHTTPHeaders: headers });
+  const api = await playwrightRequest.newContext({
+    extraHTTPHeaders: scopedReleaseHeaders(apiBaseUrl, baseUrl, apiBaseUrl, headers),
+  });
 
   try {
     const health = await api.get(`${apiBaseUrl}/health`);
@@ -279,7 +282,9 @@ const MIN_SITEMAP_STOCK_URLS = 400;
 
 async function checkSitemap() {
   console.log("check sitemap coverage");
-  const api = await playwrightRequest.newContext({ extraHTTPHeaders: headers });
+  const api = await playwrightRequest.newContext({
+    extraHTTPHeaders: scopedReleaseHeaders(baseUrl, baseUrl, apiBaseUrl, headers),
+  });
   try {
     const resp = await api.get(`${baseUrl}/sitemap.xml`, { timeout: 60_000 });
     assert.equal(resp.status(), 200, "sitemap.xml status");
@@ -336,11 +341,12 @@ const context = await browser.newContext({
   ...devices["Desktop Chrome"],
   baseURL: baseUrl,
   userAgent,
-  extraHTTPHeaders: headers,
+  extraHTTPHeaders: scopedReleaseHeaders(baseUrl, baseUrl, apiBaseUrl, headers),
   serviceWorkers: "block",
 });
 
 try {
+  await scopeReleaseBrowserHeaders(context, baseUrl, apiBaseUrl);
   await isolateBrowserAnalytics(context, baseUrl);
   for (const scenario of pageScenarios) {
     await checkPage(context, scenario);

@@ -7,6 +7,7 @@ import {
 import { checkFirebaseGoogleAuthBootstrap } from "./helpers/firebase-google-auth-bootstrap.mjs";
 import { isolateBrowserAnalytics } from "./helpers/browser-analytics-isolation.mjs";
 import { releasePageText } from "./helpers/release-page-readiness.mjs";
+import { scopeReleaseBrowserHeaders, scopedReleaseHeaders } from "./helpers/scoped-release-headers.mjs";
 
 test.setTimeout(90_000);
 
@@ -23,6 +24,7 @@ test.use({
 });
 
 test.beforeEach(async ({ context }) => {
+  await scopeReleaseBrowserHeaders(context, appBaseUrl, apiBaseUrl);
   await isolateBrowserAnalytics(context, appBaseUrl);
 });
 
@@ -113,8 +115,9 @@ const pageScenarios = [
   },
 ] as const;
 
-function releaseHeaders(): Record<string, string> {
-  return cloudflareTestingBypassHeaders({ includeUserAgent: true });
+function releaseHeaders(targetUrl = appBaseUrl): Record<string, string> {
+  return scopedReleaseHeaders(targetUrl, appBaseUrl, apiBaseUrl,
+    cloudflareTestingBypassHeaders({ includeUserAgent: true }));
 }
 
 function isIgnorableFailedRequest(url: string, errorText: string): boolean {
@@ -350,7 +353,7 @@ test("Cloudflare API edge returns data without bot challenges", async ({
   request,
 }) => {
   const health = await request.get(`${apiBaseUrl}/health`, {
-    headers: releaseHeaders(),
+    headers: releaseHeaders(apiBaseUrl),
   });
   expect(health.status()).toBe(200);
   await assertNoCloudflareChallenge(health);
@@ -359,7 +362,7 @@ test("Cloudflare API edge returns data without bot challenges", async ({
     `${apiBaseUrl}/shorts.v1alpha1.ShortedStocksService/GetStockData`,
     {
       headers: {
-        ...releaseHeaders(),
+        ...releaseHeaders(apiBaseUrl),
         "Content-Type": "application/json",
       },
       data: { productCode: "BHP" },
@@ -379,7 +382,7 @@ test("Cloudflare API edge returns data without bot challenges", async ({
     `${apiBaseUrl}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,
     {
       headers: {
-        ...releaseHeaders(),
+        ...releaseHeaders(apiBaseUrl),
         "Content-Type": "application/json",
       },
       data: { limit: 7 },
