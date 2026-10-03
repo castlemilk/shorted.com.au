@@ -296,10 +296,13 @@ tasks:
       Frontmatter contract: slug, headline (required); standfirst, byline,
       stockCode, tier (take|deep_dive), bodyFormat (markdown|mdx), ogImageUrl.
       stockCode is optional — a market-wide piece legitimately has none.
+      Strings use JSON double quotes; citations is a JSON array on one line
+      with refId, url, source, headline, date and type for each source.
 
-      The body may only use standard markdown/HTML plus CitationPill and
-      CitationSources. Anything else renders as NOTHING, silently, so the
-      importer refuses the file rather than publishing one with a hole in it.
+      The body may use standard markdown/HTML and the newsroom component
+      palette (charts, stats, figures and timelines). Props, stock codes and
+      source references pass the shared MDX gate before a database write.
+      Legacy CitationPill/CitationSources files keep their existing contract.
 
       Dry run first:  task news:publish:check
     requires: {vars: [CONFIRM]}
