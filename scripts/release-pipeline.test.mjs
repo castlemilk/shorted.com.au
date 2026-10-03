@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
 
 function read(path) {
@@ -48,31 +48,25 @@ test("local web release script enforces build, preview deploy, smoke, and explic
   assert.ok(smokeIndex < promoteIndex, "smoke must run before promotion");
 });
 
-test("GitHub release workflow gates production promotion on preview smoke", () => {
-  const workflow = read(".github/workflows/release-preview-smoke.yml");
+test("CI has no PR preview workflow or dangling preview-job dependency", () => {
+  assert.equal(existsSync(new URL("../.github/workflows/release-preview-smoke.yml", import.meta.url)), false);
+  for (const file of readdirSync(new URL("../.github/workflows", import.meta.url))) {
+    if (!/\.ya?ml$/.test(file)) continue;
+    const workflow = read(`.github/workflows/${file}`);
+    assert.doesNotMatch(workflow, /^ {2}(deploy-preview|smoke-preview|promote-production):/m, file);
+    assert.doesNotMatch(workflow, /needs\.(deploy-preview|smoke-preview)\./, file);
+    assert.doesNotMatch(workflow, /needs:[^\n]*(deploy-preview|smoke-preview)/, file);
+  }
+});
 
-  assert.match(workflow, /name:\s*Release Preview Smoke/);
-  assert.match(workflow, /deploy-preview:/);
-  assert.match(workflow, /smoke-preview:/);
-  assert.match(workflow, /promote-production:/);
-  assert.match(workflow, /needs:\s*\[deploy-preview, smoke-preview\]/);
-  assert.match(workflow, /vercel deploy/);
-  assert.match(workflow, /vercel build/);
-  assert.match(workflow, /STRIPE_PRO_PRICE_ID:\s*\$\{\{\s*secrets\.STRIPE_PRO_PRICE_ID\s*\}\}/);
-  assert.match(workflow, /NEXT_PUBLIC_FIREBASE_API_KEY:\s*\$\{\{\s*secrets\.NEXT_PUBLIC_FIREBASE_API_KEY_PROD\s*\}\}/);
-  assert.match(workflow, /npm --prefix web run firebase:preflight/);
-  assert.match(workflow, /npm --prefix web run stripe:preflight/);
-  assert.match(workflow, /add_env_pair "NEXT_PUBLIC_FIREBASE_API_KEY" "\$\{NEXT_PUBLIC_FIREBASE_API_KEY:-\}"/);
-  assert.match(workflow, /--prebuilt/);
-  assert.match(workflow, /--target\s+production/);
-  assert.match(workflow, /--force/);
-  assert.match(workflow, /--skip-domain/);
-  assert.match(workflow, /NPM_CONFIG_FETCH_RETRIES:\s*"5"/);
-  assert.match(workflow, /vercel promote/);
-  assert.match(workflow, /smoke-preview:[\s\S]*timeout-minutes:\s*25/);
-  assert.match(workflow, /Run release smoke[\s\S]*timeout-minutes:\s*12/);
-  assert.match(workflow, boundedReleaseSmokePattern);
-  assert.match(workflow, /CLOUDFLARE_TESTING_BYPASS_SECRET/);
+test("bundle CI remains blocking without a browser or Lighthouse server", () => {
+  const workflow = read(".github/workflows/perf-budget.yml");
+  assert.match(workflow, /name: Bundle budget/);
+  assert.match(workflow, /run: npx next build/);
+  assert.match(workflow, /node scripts\/bundle-budget\.mjs --compare \.\.\/docs\/perf\/bundle-baseline\.json/);
+  assert.doesNotMatch(workflow, /continue-on-error|lighthouse-bench|playwright install|next start|Start production server/);
+  assert.match(workflow, /path: web\/perf-results\/bundle-\*\.json/);
+  assert.ok(workflow.indexOf("Production build") < workflow.indexOf("Bundle budget vs baseline"));
 });
 
 test("post-deploy smoke uses trusted-test headers and full production release smoke", () => {
@@ -97,7 +91,7 @@ test("post-deploy smoke uses trusted-test headers and full production release sm
   assert.match(workflow, /post-deploy-smoke-playwright-report/);
 });
 
-test("legacy terraform production web deploy also smokes a preview before promotion", () => {
+test("production web deploy preserves preflights, artifact promotion and test gates without preview smoke", () => {
   const workflow = read(".github/workflows/terraform-deploy.yml");
   const prodJobStart = workflow.indexOf("deploy-vercel-prod:");
   assert.notEqual(prodJobStart, -1, "deploy-vercel-prod job should exist");
@@ -106,7 +100,7 @@ test("legacy terraform production web deploy also smokes a preview before promot
     /TF_VAR_rate_limit_testing_bypass_secret:\s*\$\{\{\s*secrets\.CLOUDFLARE_TESTING_BYPASS_SECRET\s*\}\}/g,
   ) ?? [];
 
-  assert.match(prodJob, /Deploy to Vercel \(Release Candidate Preview\)/);
+  assert.match(prodJob, /Build and upload production deployment/);
   assert.doesNotMatch(prodJob, /Deploy to Vercel \(Production\)[\s\S]*--prod/);
   assert.match(prodJob, /vercel build/);
   assert.match(prodJob, /npm --prefix web run firebase:preflight/);
@@ -116,10 +110,8 @@ test("legacy terraform production web deploy also smokes a preview before promot
   assert.match(prodJob, /--force/);
   assert.match(prodJob, /--skip-domain/);
   assert.match(prodJob, /NPM_CONFIG_FETCH_RETRIES:\s*"5"/);
-  assert.match(prodJob, /Smoke release candidate preview/);
-  assert.match(prodJob, /Smoke release candidate preview[\s\S]*timeout-minutes:\s*12/);
-  assert.match(prodJob, boundedReleaseSmokePattern);
-  assert.match(prodJob, /Promote smoked Vercel deployment to production/);
+  assert.doesNotMatch(prodJob, /Smoke release candidate preview|release-smoke-ci\.mjs|playwright install/);
+  assert.match(prodJob, /Promote Vercel deployment to production/);
   assert.match(prodJob, /vercel promote/);
   assert.match(workflow, /check_secret "GEMINI_API_KEY"/);
   assert.match(workflow, /check_optional_secret "STRIPE_API_ACCESS_PRICE_ID"/);
@@ -140,11 +132,43 @@ test("legacy terraform production web deploy also smokes a preview before promot
     "terraform plan/apply must preserve the Cloudflare trusted-test bypass secret",
   );
 
-  const previewIndex = prodJob.indexOf("Deploy to Vercel (Release Candidate Preview)");
-  const smokeIndex = prodJob.indexOf("Smoke release candidate preview");
-  const promoteIndex = prodJob.indexOf("Promote smoked Vercel deployment to production");
-  assert.ok(previewIndex < smokeIndex, "production workflow must deploy preview before smoke");
-  assert.ok(smokeIndex < promoteIndex, "production workflow must smoke before promote");
+  const uploadIndex = prodJob.indexOf("Build and upload production deployment");
+  const promoteIndex = prodJob.indexOf("Promote Vercel deployment to production");
+  assert.ok(uploadIndex < promoteIndex, "promote must use the uploaded artifact");
+  assert.ok(prodJob.indexOf("Set up Node for production deployment") < uploadIndex, "Node must exist before build/upload");
+  assert.match(prodJob, /DEPLOYMENT_URL: \$\{\{ steps\.vercel-deploy\.outputs\.deployment-url \}\}/);
+  assert.match(prodJob, /vercel promote "\$DEPLOYMENT_URL"/);
+  assert.match(prodJob, /environment: prod/);
+  const gate = prodJob.slice(0, prodJob.indexOf("    steps:"));
+  assert.match(gate, /needs:[^\n]*run-tests/);
+  assert.match(gate, /needs\.run-tests\.result == 'success'/);
+  assert.match(gate, /needs\.validate-secrets\.result == 'success'/);
+  assert.match(gate, /github\.event_name != 'pull_request'/);
+  assert.match(gate, /github\.event\.inputs\.plan_only != 'true'/);
+});
+
+test("production promotion condition rejects PRs, failed checks and plan-only runs", () => {
+  const workflow = read(".github/workflows/terraform-deploy.yml");
+  const job = workflow.slice(workflow.indexOf("  deploy-vercel-prod:"));
+  const expression = job.match(/    if: \|\n([\s\S]*?)    environment: prod/)[1]
+    .trim().replace(/\bneeds\.([\w-]+)/g, 'needs["$1"]');
+  // Evaluate the actual simple GitHub condition with completed job results.
+  const eligible = new Function("github", "needs", "always", `return (${expression});`);
+  const cases = [
+    ["main with passing tests", "push", "success", "success", false, true],
+    ["pull request", "pull_request", "success", "success", false, false],
+    ["failed tests", "push", "failure", "success", false, false],
+    ["cancelled tests", "push", "cancelled", "success", false, false],
+    ["failed secrets", "push", "success", "failure", false, false],
+    ["plan-only dispatch", "workflow_dispatch", "success", "success", true, false],
+  ];
+  for (const [name, event, tests, secrets, planOnly, expected] of cases) {
+    assert.equal(eligible({ event_name: event, event: { inputs: { plan_only: String(planOnly) } } }, {
+      "determine-environment": { outputs: { environment: "prod" } },
+      "run-tests": { result: tests }, "validate-secrets": { result: secrets },
+      "terraform-apply": { result: "failure" },
+    }, () => true), expected, name);
+  }
 });
 
 test("release smoke covers prior regression surfaces and Cloudflare API checks", () => {

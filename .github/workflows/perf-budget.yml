@@ -1,22 +1,11 @@
 name: Perf Budget
 
-# Guards front-end performance on every PR that touches web/:
-#   1. Bundle budget (BLOCKING) — gzipped first-load JS per route vs committed
-#      baseline. Deterministic from `next build` output, so it fails the PR on a
-#      real regression (an accidental eager import, a heavy new dep).
-#   2. Lighthouse (ADVISORY) — mobile-throttled scores + Core Web Vitals on a
-#      freshly-built prod server. Kept non-blocking because Lighthouse numbers
-#      vary run-to-run on shared CI runners; it reports + uploads a JSON report
-#      so regressions are visible without flaking the merge queue.
-#
-# Both are self-contained: the build uses SKIP_ENV_VALIDATION and only the
-# public API URL, so no secrets are needed (same posture as storybook-tests).
-#
-# Refresh the committed baselines after an intentional change:
+# Checks gzipped first-load JS per route against the committed baseline.
+# The build and bundle budget remain blocking; Lighthouse is run locally when
+# needed rather than starting browsers and a production server in every PR.
+# This job uses public API configuration and requires no deployment secrets.
+# Refresh an intentional baseline change with:
 #   cd web && npm run build && npm run bundle:baseline
-#   cd web && npm run build && npm run start &  # then:
-#   npm run perf:lh:baseline
-# and commit web/../docs/perf/{bundle-baseline,lh-baseline.mobile}.json.
 
 on:
   pull_request:
@@ -38,7 +27,7 @@ env:
 
 jobs:
   perf-budget:
-    name: Bundle budget + Lighthouse
+    name: Bundle budget
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 30
     defaults:
@@ -54,61 +43,17 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Install Playwright Chromium (Lighthouse driver)
-        run: npx playwright install --with-deps chromium
-
       - name: Production build
         run: npx next build
 
-      # --- 1. Bundle budget (blocking) ---
+      # Bundle budget (blocking)
       - name: Bundle budget vs baseline
         run: node scripts/bundle-budget.mjs --compare ../docs/perf/bundle-baseline.json
 
-      # --- 2. Lighthouse (advisory) ---
-      - name: Start production server
-        timeout-minutes: 3
-        run: |
-          # A background server must close the step's inherited streams,
-          # otherwise the runner waits for EOF even after readiness succeeds.
-          perf_port="${PERF_SERVER_PORT:-3020}"
-          perf_server_log="$RUNNER_TEMP/shorted-perf-server.log"
-          node node_modules/next/dist/bin/next start --port "$perf_port" \
-            >"$perf_server_log" 2>&1 </dev/null &
-          perf_server_pid=$!
-          echo "$perf_server_pid" > "$RUNNER_TEMP/shorted-perf-server.pid"
-          perf_ready_deadline=$((SECONDS + 120))
-          until curl -sf --connect-timeout 2 --max-time 10 "http://localhost:$perf_port" >/dev/null; do
-            if ! kill -0 "$perf_server_pid" 2>/dev/null || [ "$SECONDS" -ge "$perf_ready_deadline" ]; then
-              echo "server did not come up"
-              tail -n 40 "$perf_server_log"
-              exit 1
-            fi
-            sleep 2
-          done
-
-      - name: Lighthouse (mobile) vs baseline
-        continue-on-error: true
-        env:
-          GIT_REF: ${{ github.sha }}
-        run: |
-          export CHROME_PATH="$(node -e 'console.log(require("playwright").chromium.executablePath())')"
-          node scripts/lighthouse-bench.mjs \
-            --url http://localhost:3020 \
-            --runs 3 \
-            --compare ../docs/perf/lh-baseline.mobile.json
-
-      - name: Stop production server
-        if: always()
-        run: |
-          if [ -f "$RUNNER_TEMP/shorted-perf-server.pid" ]; then
-            kill "$(cat "$RUNNER_TEMP/shorted-perf-server.pid")" 2>/dev/null || true
-            rm -f "$RUNNER_TEMP/shorted-perf-server.pid"
-          fi
-
-      - name: Upload perf reports
+      - name: Upload bundle report
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: perf-reports
-          path: web/perf-results/
+          name: bundle-reports
+          path: web/perf-results/bundle-*.json
           retention-days: 14
