@@ -13,10 +13,11 @@ function fixture(onClick) {
   context.closed = false;
   context.close = async () => { context.closed = true; };
   context.newPage = async () => page;
-  context.route = async (pattern, handler) => { context.routePattern = pattern; context.routeHandler = handler; };
+  context.routes = [];
+  context.route = async (pattern, handler) => { context.routes.push({ pattern, handler }); };
   page.goto = async () => page.emit("console", { text: () => "Firebase initialized successfully" });
   page.getByRole = () => ({ click: async () => onClick(context, page) });
-  return { browser: { newContext: async () => context }, context };
+  return { browser: { newContext: async (options) => { context.options = options; return context; } }, context };
 }
 function request(context, url) { context.emit("request", { url: () => url }); }
 function response(context, url, status = 200, body = {}, headers = {}) {
@@ -121,6 +122,14 @@ test("testing bypass remains scoped only to the app origin", async () => {
     request(context, "https://accounts.google.com/o/oauth2/auth");
   });
   await checkFirebaseGoogleAuthBootstrap({ browser, baseUrl: origin, bypassSecret: "fixture-bypass-secret", timeoutMs: 650, fetchImpl: noNetwork });
-  assert.ok(context.routePattern.test(`${origin}/signin`));
-  for (const url of ["https://accounts.google.com/o/oauth2/auth", "https://shorted.com.au/__/auth/iframe", `${origin}.attacker.test/signin`]) assert.equal(context.routePattern.test(url), false);
+  const bypass = context.routes.find(({ pattern }) => pattern instanceof RegExp);
+  assert.ok(bypass.pattern.test(`${origin}/signin`));
+  for (const url of ["https://accounts.google.com/o/oauth2/auth", "https://shorted.com.au/__/auth/iframe", `${origin}.attacker.test/signin`]) assert.equal(bypass.pattern.test(url), false);
+  let forwarded;
+  await bypass.handler({ request: () => ({ headers: () => ({ "content-type": "application/json" }) }), continue: async (options) => { forwarded = options.headers; } });
+  assert.deepEqual(forwarded, { "content-type": "application/json", "x-shorted-testing-bypass": "fixture-bypass-secret" });
+  const analytics = context.routes.find(({ pattern }) => typeof pattern === "function");
+  assert.equal(analytics.pattern(new URL("https://www.google-analytics.com/g/collect")), true);
+  assert.equal(analytics.pattern(new URL("https://accounts.google.com/o/oauth2/auth")), false);
+  assert.equal(context.options.serviceWorkers, "block");
 });

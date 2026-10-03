@@ -5,6 +5,7 @@ import {
   getCloudflareTestingBypassSecret,
 } from "./helpers/cloudflare-testing-bypass";
 import { checkFirebaseGoogleAuthBootstrap } from "./helpers/firebase-google-auth-bootstrap.mjs";
+import { isolateBrowserAnalytics } from "./helpers/browser-analytics-isolation.mjs";
 
 test.setTimeout(90_000);
 
@@ -17,6 +18,11 @@ const appBaseUrl = process.env.BASE_URL || "https://shorted.com.au";
 test.use({
   userAgent: cloudflareTestingDefaultUserAgent,
   extraHTTPHeaders: cloudflareTestingBypassHeaders(),
+  serviceWorkers: "block",
+});
+
+test.beforeEach(async ({ context }) => {
+  await isolateBrowserAnalytics(context, appBaseUrl);
 });
 
 const appApiPattern =

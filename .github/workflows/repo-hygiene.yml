@@ -26,6 +26,7 @@ on:
       - "scripts/tests/self-hosted-toolchain.test.mjs"
       - ".github/workflows/perf-budget.yml"
       - "scripts/release-pipeline.test.mjs"
+      - "scripts/tests/browser-analytics-isolation.test.mjs"
       - "services/migrations/**"
       - ".github/workflows/terraform-deploy.yml"
       - "terraform/modules/**"
@@ -63,7 +64,7 @@ jobs:
       # workers, pages, budget and retries (contract fundamentals-coverage
       # 6.2); until it was listed here it ran in no CI job.
       - name: Test repository hygiene tooling
-        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs scripts/tests/vke-jobs-cutover.test.mjs terraform/modules/report-extractor/cost-guardrails.test.mjs scripts/release-pipeline.test.mjs
+        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs scripts/tests/vke-jobs-cutover.test.mjs terraform/modules/report-extractor/cost-guardrails.test.mjs scripts/release-pipeline.test.mjs scripts/tests/browser-analytics-isolation.test.mjs
 
       # These assert properties of migrations that prod REPLAYS on every deploy
       # from a hardcoded allowlist — most importantly that 000095 stays last, so

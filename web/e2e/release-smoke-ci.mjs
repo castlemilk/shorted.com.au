@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { chromium, devices, request as playwrightRequest } from "@playwright/test";
 import { checkFirebaseGoogleAuthBootstrap } from "./helpers/firebase-google-auth-bootstrap.mjs";
+import { isolateBrowserAnalytics } from "./helpers/browser-analytics-isolation.mjs";
 
 const baseUrl = process.env.BASE_URL || "https://shorted.com.au";
 const apiBaseUrl = process.env.RELEASE_API_BASE_URL || "https://api.shorted.com.au";
@@ -340,9 +341,11 @@ const context = await browser.newContext({
   baseURL: baseUrl,
   userAgent,
   extraHTTPHeaders: headers,
+  serviceWorkers: "block",
 });
 
 try {
+  await isolateBrowserAnalytics(context, baseUrl);
   for (const scenario of pageScenarios) {
     await checkPage(context, scenario);
   }

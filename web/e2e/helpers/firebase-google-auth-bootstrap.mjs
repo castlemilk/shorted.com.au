@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { classifyAuthEndpoint, inspectAuthConsole, recordAuthNetwork } from "./auth-bootstrap-diagnostics.mjs";
+import { isolateBrowserAnalytics } from "./browser-analytics-isolation.mjs";
 
 export async function checkFirebaseGoogleAuthBootstrap({
   browser,
@@ -33,6 +34,7 @@ export async function checkFirebaseGoogleAuthBootstrap({
 
   const context = await browser.newContext({
     ...(userAgent ? { userAgent } : {}),
+    serviceWorkers: "block",
   });
 
   if (bypassSecret) {
@@ -46,6 +48,7 @@ export async function checkFirebaseGoogleAuthBootstrap({
     });
   }
 
+  await isolateBrowserAnalytics(context, normalizedBaseUrl);
   const page = await context.newPage();
   page.on("popup", () => { summary.popupOpened = true; });
   page.on("console", (message) => {
