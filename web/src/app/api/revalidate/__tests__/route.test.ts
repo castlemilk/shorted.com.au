@@ -154,6 +154,8 @@ describe("POST /api/revalidate", () => {
   it.each(["tag=shorts-data", "flush=shorts"])("invalidates corrected and previously missing historical snapshots: %s", async (query) => {
     await POST(request(`http://localhost/api/revalidate?${query}`, "test-revalidation-secret"));
     expect(revalidateTagMock).toHaveBeenCalledWith("shorts-data");
+    expect(revalidateTagMock).toHaveBeenCalledWith("market-index");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/market");
     for (const path of ["/market/[date]", "/reports/weekly/[slug]", "/reports/monthly/[slug]", "/reports/yearly/[slug]"]) {
       expect(revalidatePathMock).toHaveBeenCalledWith(path, "page");
     }
@@ -162,6 +164,8 @@ describe("POST /api/revalidate", () => {
   it("clears a negative market date entry on targeted correction", async () => {
     await POST(request("http://localhost/api/revalidate?tag=market-date:2026-09-30", "test-revalidation-secret"));
     expect(revalidatePathMock).toHaveBeenCalledWith("/market/2026-09-30");
+    expect(revalidateTagMock).toHaveBeenCalledWith("market-index");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/market");
     expect(revalidatePathMock).not.toHaveBeenCalledWith("/market/[date]", "page");
   });
 

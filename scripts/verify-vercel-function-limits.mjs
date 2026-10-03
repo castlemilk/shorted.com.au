@@ -10,6 +10,8 @@ export const EXPECTED_LIMITS = {
   'api/pages/warm-cache': 300,
   'opengraph-image': 15,
   'industry/[slug]/twitter-image': 15,
+  'price-drops': 60,
+  'price-drops.rsc': 60,
 };
 
 async function* builtFunctions(directory, prefix = '') {

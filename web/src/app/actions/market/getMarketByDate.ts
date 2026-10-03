@@ -4,7 +4,7 @@ import { type GetAvailableDatesResponse, type GetMarketByDateResponse } from "~/
 import { MarketService } from "~/gen/shorts/v1alpha1/market_pb";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { SHORTS_API_URL, serverFetchWithUserAgent, serverFetchOutsideNextCache } from "../config";
+import { SHORTS_API_URL, serverFetchOutsideNextCache } from "../config";
 import { fetchEdgeReadJson } from "../edgeRead";
 import { toNextDataCacheValue } from "../stockPageCache";
 import { withRetry, withRetryAndNotFound } from "../withRetry";
@@ -80,22 +80,36 @@ export const getMarketByDate = cache(
   ),
 );
 
-export const getAvailableDates = cache(
-  withRetry(async (limit?: number, before?: string) => {
-    const edgeResponse = await fetchEdgeReadJson<GetAvailableDatesResponse>(
-      "/edge/v1/available-dates",
-      {
-        limit: limit ?? 90,
-        before: before !== "" ? before : undefined,
-      },
-    );
-    if (edgeResponse) return edgeResponse;
+function getCachedAvailableDates(
+  limit = 90,
+  before = "",
+): Promise<GetAvailableDatesResponse> {
+  return unstable_cache(
+    async () => {
+      const edgeResponse = await fetchEdgeReadJson<GetAvailableDatesResponse>(
+        "/edge/v1/available-dates",
+        {
+          limit,
+          before: before || undefined,
+        },
+        ["market-index"],
+      );
+      if (edgeResponse) return edgeResponse;
 
-    const transport = createConnectTransport({
-      fetch: serverFetchWithUserAgent,
-      baseUrl: SHORTS_API_URL,
-    });
-    const client = createClient(MarketService, transport);
-    return client.getAvailableDates({ limit: limit ?? 90, before: before ?? "" });
-  }),
-);
+      const transport = createConnectTransport({
+        // ISR owns the response cache; a patched no-store Connect POST would
+        // otherwise make the market index's regeneration render an empty shell.
+        fetch: serverFetchOutsideNextCache,
+        baseUrl: SHORTS_API_URL,
+      });
+      const client = createClient(MarketService, transport);
+      const response = await client.getAvailableDates({ limit, before });
+      return toNextDataCacheValue(response) as GetAvailableDatesResponse;
+    },
+    ["market-available-dates", String(limit), before],
+    { revalidate: 3600, tags: ["shorts-data", "market-index"] },
+  )();
+}
+
+// Keep errors visible to the ISR caller and cache successful empty indexes.
+export const getAvailableDates = cache(withRetry(getCachedAvailableDates));

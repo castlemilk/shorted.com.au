@@ -88,8 +88,11 @@ export async function POST(request: NextRequest) {
       pathSet.add(reportPath);
     }
     if (/^market-date:\d{4}-\d{2}-\d{2}$/.test(tag)) {
+      tagSet.add("market-index");
+      pathSet.add("/market");
       pathSet.add(`/market/${tag.slice("market-date:".length)}`);
     }
+    if (tag === "market-index") pathSet.add("/market");
   }
 
   // An ASIC ingest can correct any historical snapshot, including a date that
@@ -97,6 +100,8 @@ export async function POST(request: NextRequest) {
   // so invalidate the patterns as well as the shared data cache.
   if (tagSet.has("shorts-data") || flushTargets.includes("shorts")) {
     tagSet.add("shorts-data");
+    tagSet.add("market-index");
+    pathSet.add("/market");
     for (const path of [
       "/market/[date]",
       "/reports/weekly/[slug]",

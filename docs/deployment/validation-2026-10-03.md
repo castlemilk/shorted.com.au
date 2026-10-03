@@ -31,3 +31,9 @@ These are small-sample compatibility observations. The deployments use different
 - The final build used the exact release Node.js 24.8.0 runtime. All 62 social-image sources export a literal 15-second limit; the artifact guard verified all 124 generated image functions and aliases retain that limit. Firebase and Stripe price preflights passed with the project's production configuration. The local release script now runs the same artifact guard before upload.
 
 Production promotion still depends on the final candidate's generated duration verification and existing release smoke. Actual dollar savings require a comparable traffic-normalized billing window after rollout.
+
+## Additional cold-cache release checks
+
+The pinned local prebuilt candidate `dpl_6HUb5Pk6RuFErwCeuubRaEiRZ1Rb` ([candidate URL](https://shorted-com-4cyr0x1mq-document-analyser.vercel.app)) records PR commit `07cbb3a0` and confirms Fluid, Sydney and all four reduced schedules. Its complete existing release smoke passed: all page scenarios, navigation, API edge responses, sitemap coverage and Firebase Google sign-in bootstrap.
+
+The additional 15-page cold-cache check found two pre-existing failures hidden by ordinary smoke. `/market` caught a `no-store` static-generation bailout from its available-dates fallback; that fallback now uses an hourly tagged outer cache and the unpatched transport. `/price-drops` streamed HTTP 200 while its function aborted after 15 seconds; it now explicitly allows 60 seconds for a cold query/retry while retaining hourly ISR. The release artifact guard checks both its HTML and RSC functions. A subsequent candidate must pass the cold check and the full smoke before promotion.
