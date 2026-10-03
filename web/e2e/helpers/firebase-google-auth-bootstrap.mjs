@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import { classifyAuthEndpoint, inspectAuthConsole, recordAuthNetwork } from "./auth-bootstrap-diagnostics.mjs";
 
 export async function checkFirebaseGoogleAuthBootstrap({
   browser,
@@ -7,6 +8,7 @@ export async function checkFirebaseGoogleAuthBootstrap({
   bypassSecret = "",
   userAgent,
   timeoutMs = 15_000,
+  fetchImpl = fetch,
 }) {
   const normalizedBaseUrl = baseUrl || "https://shorted.com.au";
   const appOrigin = new URL(normalizedBaseUrl).origin;
@@ -21,6 +23,12 @@ export async function checkFirebaseGoogleAuthBootstrap({
     authUriCreated: false,
     authUriProbeOk: false,
     googleOAuthSeen: false,
+    popupOpened: false,
+    cspPolicyError: false,
+    sdkErrorCodes: [],
+    authNetwork: [],
+    authUriProbeAttempts: 0,
+    authUriProbeSkipped: null,
   };
 
   const context = await browser.newContext({
@@ -39,30 +47,36 @@ export async function checkFirebaseGoogleAuthBootstrap({
   }
 
   const page = await context.newPage();
+  page.on("popup", () => { summary.popupOpened = true; });
   page.on("console", (message) => {
     const text = message.text();
     summary.firebaseInitialized ||= text.includes("Firebase initialized successfully");
     summary.apiKeyInvalid ||= text.includes("API_KEY_INVALID");
     summary.corsPolicyError ||= text.includes("CORS policy");
+    inspectAuthConsole(text, summary);
   });
 
   context.on("request", (request) => {
-    inspectUrlForFirebaseKey(request.url(), summary, observedApiKeys);
-    summary.googleOAuthSeen ||=
-      request.url().includes("accounts.google.com/o/oauth2/auth") ||
-      request.url().includes("accounts.google.com/v3/signin/identifier");
+    inspectUrlForFirebaseKey(request.url(), appOrigin, summary, observedApiKeys);
+    try {
+      const url = new URL(request.url());
+      summary.googleOAuthSeen ||= url.origin === "https://accounts.google.com" &&
+        ["/o/oauth2/auth", "/v3/signin/identifier"].includes(url.pathname);
+    } catch { /* Browser-internal URLs do not represent OAuth navigation. */ }
+  });
+  context.on("requestfailed", (request) => {
+    recordAuthNetwork(summary, classifyAuthEndpoint(request.url(), appOrigin), {
+      errorText: request.failure()?.errorText,
+    });
   });
 
   context.on("response", async (response) => {
     const url = response.url();
-    inspectUrlForFirebaseKey(url, summary, observedApiKeys);
-
-    if (isIdentityToolkitUrl(url) && response.status() === 200) {
-      summary.identityToolkitOk += 1;
-    }
-    if (url.includes("createAuthUri") && response.status() === 200) {
-      summary.authUriCreated = true;
-    }
+    inspectUrlForFirebaseKey(url, appOrigin, summary, observedApiKeys);
+    recordAuthNetwork(summary, classifyAuthEndpoint(url, appOrigin), {
+      status: response.status(),
+      challenge: response.headers()["cf-mitigated"] === "challenge",
+    });
 
     if (isIdentityToolkitUrl(url)) {
       try {
@@ -72,6 +86,10 @@ export async function checkFirebaseGoogleAuthBootstrap({
         );
       } catch {
         // Some Firebase endpoints return JSONP or empty responses; status checks still cover them.
+      }
+      if (response.status() === 200) {
+        summary.identityToolkitOk += 1;
+        summary.authUriCreated ||= classifyAuthEndpoint(url, appOrigin)?.endpoint === "create_auth_uri";
       }
     }
   });
@@ -90,6 +108,7 @@ export async function checkFirebaseGoogleAuthBootstrap({
         apiKeys: observedApiKeys,
         continueUri: new URL("/signin", appOrigin).toString(),
         summary,
+        fetchImpl,
       });
     }
   } finally {
@@ -118,8 +137,8 @@ export async function checkFirebaseGoogleAuthBootstrap({
   return result;
 }
 
-function inspectUrlForFirebaseKey(rawUrl, summary, observedApiKeys) {
-  if (!/identitytoolkit|firebaseapp|googleapis/.test(rawUrl)) {
+function inspectUrlForFirebaseKey(rawUrl, appOrigin, summary, observedApiKeys) {
+  if (!classifyAuthEndpoint(rawUrl, appOrigin)) {
     return;
   }
 
@@ -133,21 +152,29 @@ function inspectUrlForFirebaseKey(rawUrl, summary, observedApiKeys) {
 
       summary.escapedNewlineKey ||= /(?:\\n|\n|\\r|\r)$/.test(key);
       const normalizedKey = key.replace(/\\[nr]/g, "").trim();
-      summary.apiKeyHashes.add(hashFirebaseKey(normalizedKey));
-      observedApiKeys.add(normalizedKey);
+      if (observedApiKeys.size < 3) {
+        summary.apiKeyHashes.add(hashFirebaseKey(normalizedKey));
+        observedApiKeys.add(normalizedKey);
+      }
     }
   } catch {
     // Ignore non-URL inputs from browser internals.
   }
 }
 
-async function probeGoogleAuthUri({ apiKeys, continueUri, summary }) {
+async function probeGoogleAuthUri({ apiKeys, continueUri, summary, fetchImpl }) {
+  if (!apiKeys.size) {
+    summary.authUriProbeSkipped = "no_observed_key";
+    return;
+  }
   for (const apiKey of apiKeys) {
+    summary.authUriProbeAttempts += 1;
     try {
-      const response = await fetch(
+      const response = await fetchImpl(
         `https://identitytoolkit.googleapis.com/v1/accounts:createAuthUri?key=${encodeURIComponent(apiKey)}`,
         {
           method: "POST",
+          signal: AbortSignal.timeout(5_000),
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             providerId: "google.com",
@@ -155,6 +182,7 @@ async function probeGoogleAuthUri({ apiKeys, continueUri, summary }) {
           }),
         },
       );
+      recordAuthNetwork(summary, { surface: "identity_toolkit", endpoint: "create_auth_uri" }, { status: response.status });
       const body = await response.json().catch(() => ({}));
       summary.apiKeyInvalid ||= Boolean(
         body?.error?.details?.some?.((item) => item?.reason === "API_KEY_INVALID"),
@@ -164,14 +192,14 @@ async function probeGoogleAuthUri({ apiKeys, continueUri, summary }) {
         return;
       }
     } catch {
+      recordAuthNetwork(summary, { surface: "identity_toolkit", endpoint: "create_auth_uri" }, { errorText: "NETWORK_ERROR" });
       // The browser-observed Identity Toolkit checks still cover API-key validity.
     }
   }
 }
 
 function isIdentityToolkitUrl(url) {
-  return url.includes("identitytoolkit.googleapis.com") ||
-    url.includes("www.googleapis.com/identitytoolkit");
+  return classifyAuthEndpoint(url, "")?.surface === "identity_toolkit";
 }
 
 function hashFirebaseKey(value) {
@@ -181,7 +209,9 @@ function hashFirebaseKey(value) {
 async function waitForAuthBootstrap(summary, timeoutMs) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
-    if (summary.authUriCreated || summary.googleOAuthSeen || summary.apiKeyInvalid) {
+    if (summary.apiKeyInvalid || summary.corsPolicyError || summary.escapedNewlineKey ||
+      (summary.firebaseInitialized && summary.identityToolkitOk >= 2 &&
+        (summary.authUriCreated || summary.googleOAuthSeen))) {
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
