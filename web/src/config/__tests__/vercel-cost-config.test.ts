@@ -12,7 +12,7 @@ describe("Vercel cost configuration", () => {
     expect(root.regions).toEqual(["syd1"]);
     expect(web.regions).toEqual(root.regions);
     expect(web.crons).toEqual(root.crons);
-    expect(web.functions).toEqual({ "**/*": { maxDuration: 15 } });
+    expect(web.functions).toEqual({ "src/app/**/*": { maxDuration: 15 } });
     expect(root.functions).toEqual(web.functions);
     expect(web.crons.some((cron: { path: string }) => cron.path === "/api/auth/session")).toBe(false);
     expect(web.crons).toContainEqual({ path: "/api/static-pages/warm-cache", schedule: "10 * * * *" });

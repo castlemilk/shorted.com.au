@@ -23,7 +23,7 @@
   ],
   "fluid": true,
   "functions": {
-    "**/*": {
+    "src/app/**/*": {
       "maxDuration": 15
     }
   }

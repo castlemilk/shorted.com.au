@@ -27,5 +27,6 @@ These are small-sample compatibility observations. The deployments use different
 - Actual widgets in a browser shared one 24-symbol request across three sector views and one quote request across two portfolios. A holding edit recalculated without a request; hidden polling paused and resumed once per shared query.
 - Three mover cards rendered five summaries each, correct signed badges and 15 stock links. Table sparklines remained present. The actual local `/top` empty states had no browser JavaScript errors.
 - Two earlier CI failures occurred during checkout, before any tests ran. The performance CI server startup also exposed an inherited background-pipe hang; the server now redirects its streams to the existing uploaded log directory.
+- A production build with the release's pinned Vercel 54.10.2 builder passed the generated-function guard: statistics/about/homepage warm APIs retain 15 seconds, static-page warming retains 120 seconds, and page warming retains 300 seconds on Node.js 24. Both configs use the supported Next.js `src/app/**/*` glob.
 
 Production promotion still depends on the final candidate's generated duration verification and existing release smoke. Actual dollar savings require a comparable traffic-normalized billing window after rollout.
