@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { chromium, devices, request as playwrightRequest } from "@playwright/test";
 import { checkFirebaseGoogleAuthBootstrap } from "./helpers/firebase-google-auth-bootstrap.mjs";
 import { isolateBrowserAnalytics } from "./helpers/browser-analytics-isolation.mjs";
+import { releasePageText } from "./helpers/release-page-readiness.mjs";
 
 const baseUrl = process.env.BASE_URL || "https://shorted.com.au";
 const apiBaseUrl = process.env.RELEASE_API_BASE_URL || "https://api.shorted.com.au";
@@ -120,11 +121,6 @@ function isIgnorableConsoleError(text, url = "") {
   );
 }
 
-async function bodyText(page) {
-  await page.waitForTimeout(1_500);
-  return page.locator("body").innerText({ timeout: 20_000 });
-}
-
 function attachPageGuards(page) {
   const apiFailures = [];
   const failedRequests = [];
@@ -171,7 +167,7 @@ async function checkPage(context, scenario) {
     assert(response, `${scenario.path} did not return a response`);
     assert(response.status() < 400, `${scenario.path} returned HTTP ${response.status()}`);
 
-    const text = await bodyText(page);
+    const text = await releasePageText(page, scenario.requiredText);
     for (const required of scenario.requiredText) {
       assert.match(text, required, `${scenario.path} missing required text ${required}`);
     }
@@ -203,7 +199,7 @@ async function checkNavigation(context) {
     await page.getByRole("link", { name: /top shorted/i }).first().click();
     await page.waitForURL("**/top", { timeout: 30_000 });
 
-    const text = await bodyText(page);
+    const text = await releasePageText(page, [/Top Shorted|Short Interest|Stocks/i]);
     assert.match(text, /Top Shorted|Short Interest|Stocks/i, "/top missing top-shorted content");
     assert.deepEqual(guards.apiFailures, [], "client navigation had failing app API/RPC/static responses");
     assert.deepEqual(guards.failedRequests, [], "client navigation had non-ignorable failed requests");

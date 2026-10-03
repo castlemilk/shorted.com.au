@@ -6,6 +6,7 @@ import {
 } from "./helpers/cloudflare-testing-bypass";
 import { checkFirebaseGoogleAuthBootstrap } from "./helpers/firebase-google-auth-bootstrap.mjs";
 import { isolateBrowserAnalytics } from "./helpers/browser-analytics-isolation.mjs";
+import { releasePageText } from "./helpers/release-page-readiness.mjs";
 
 test.setTimeout(90_000);
 
@@ -162,11 +163,6 @@ async function assertNoCloudflareChallenge(
   return text;
 }
 
-async function pageText(page: Page): Promise<string> {
-  await page.waitForTimeout(1_500);
-  return page.locator("body").innerText({ timeout: 20_000 });
-}
-
 async function assertManualCloudflareRumBeacon(
   page: Page,
   path: string,
@@ -252,7 +248,7 @@ for (const scenario of pageScenarios) {
       400,
     );
 
-    const text = await pageText(page);
+    const text = await releasePageText(page, scenario.requiredText);
     for (const required of scenario.requiredText) {
       expect(
         text,
@@ -333,7 +329,7 @@ test("housing suburb navigation to top shorted does not load stale app chunks", 
     .click();
   await page.waitForURL("**/top", { timeout: 30_000 });
 
-  const text = await pageText(page);
+  const text = await releasePageText(page, [/Top Shorted|Short Interest|Stocks/i]);
   expect(
     text,
     "/top missing top-shorted content after client navigation",
