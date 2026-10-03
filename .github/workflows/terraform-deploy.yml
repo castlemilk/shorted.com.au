@@ -1382,6 +1382,8 @@ jobs:
             --scope document-analyser \
             --token "$VERCEL_TOKEN"
 
+          node scripts/verify-vercel-function-limits.mjs .vercel/output
+
           npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" | tee /tmp/vercel-preview.log
           preview_url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-preview.log | tail -n 1)"
           if [ -z "$preview_url" ]; then
@@ -1434,7 +1436,14 @@ jobs:
             if (!Array.isArray(pages) || pages.length === 0 || pages.some((path) => typeof path !== "string" || !path.startsWith("/"))) {
               throw new Error("web/src/config/isr-pages.json must be a non-empty array of /-prefixed paths");
             }
-            process.stdout.write(pages.join(","));
+            // Static build shells have a separate invalidate-then-prime step.
+            // Keep one owner so a page rendered between steps is not invalidated twice.
+            const shellPages = JSON.parse(fs.readFileSync("web/src/config/isr-shell-pages.json", "utf8"));
+            if (!Array.isArray(shellPages) || shellPages.some((path) => typeof path !== "string" || !path.startsWith("/"))) {
+              throw new Error("web/src/config/isr-shell-pages.json must be an array of /-prefixed paths");
+            }
+            const shellPaths = new Set(shellPages);
+            process.stdout.write(pages.filter((path) => !shellPaths.has(path)).join(","));
           ')
           status=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" \
             --connect-timeout 10 \
@@ -1454,6 +1463,26 @@ jobs:
           if [ "$status" != "200" ]; then
             exit 1
           fi
+
+      - name: Prime static pages after promotion
+        continue-on-error: true
+        env:
+          CACHE_WARM_SECRET: ${{ secrets.CACHE_WARM_SECRET }}
+          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+        run: |
+          CURL_ARGS=(-A "Mozilla/5.0 Shorted-E2E/1.0")
+          if [ -n "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" ]; then
+            CURL_ARGS+=(-H "X-Shorted-Testing-Bypass: ${CLOUDFLARE_TESTING_BYPASS_SECRET}")
+          fi
+          if [ -n "${CACHE_WARM_SECRET:-}" ]; then
+            CURL_ARGS+=(-H "X-Cache-Warm-Secret: ${CACHE_WARM_SECRET}")
+          fi
+          curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
+            "https://shorted.com.au/api/static-pages/warm-cache?mode=deploy"
+          # Await the invalidation response before fetching: Next commits it
+          # after the handler returns. This second request primes real data.
+          curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
+            "https://shorted.com.au/api/static-pages/warm-cache?mode=repair"
 
       - name: Production Deployment Summary
         run: |

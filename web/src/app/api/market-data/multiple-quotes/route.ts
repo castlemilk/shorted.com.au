@@ -10,6 +10,9 @@ import { recordProductEvent } from "~/@/lib/product-events";
 
 const MARKET_DATA_API_URL = getServerMarketDataApiUrl();
 
+// Valid batch quote responses can take over 30 seconds at the origin.
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const rateLimitResult = await rateLimit(request, BROWSER_READ_RATE_LIMIT);
 
@@ -43,6 +46,7 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify(body),
         cache: "no-store",
+        signal: AbortSignal.timeout(55_000),
       },
     );
 

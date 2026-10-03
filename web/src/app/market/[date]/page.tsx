@@ -20,7 +20,8 @@ import {
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { cn } from "~/@/lib/utils";
 import {
-  getMarketByDate,
+  getMarketByDateStrict,
+  isValidMarketDate,
 } from "~/app/actions/market/getMarketByDate";
 
 interface PageProps {
@@ -29,6 +30,11 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { date } = await params;
+  if (!isValidMarketDate(date)) notFound();
+  const data = await getMarketByDateStrict(date, 50, 0);
+  // Metadata resolves before a streamed body, so genuine empty dates return
+  // an HTTP 404. An unavailable API throws instead of caching a false 404.
+  if (!data?.stocks?.length) notFound();
   const formattedDate = formatDate(date);
 
   // Root layout applies a `%s | Shorted` title template — no brand suffix here.
@@ -66,9 +72,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-// Market date pages depend on Connect-RPC POST fetches from server components.
-// Keep them dynamic so Next never tries to prerender no-store backend calls.
-export const dynamic = "force-dynamic";
+// Cache historical snapshots on first request; daily ingestion/corrections
+// invalidate shorts-data and the 24h ceiling bounds a missed notification.
+export const revalidate = 86400;
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ date: string }> {
+  return [];
+}
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");
@@ -113,11 +123,11 @@ export default async function MarketDatePage({ params }: PageProps) {
   const { date } = await params;
 
   // Validate date format
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+  if (!isValidMarketDate(date)) {
     notFound();
   }
 
-  const data = await getMarketByDate(date, 50, 0);
+  const data = await getMarketByDateStrict(date, 50, 0);
 
   // The edge read returns 200 with the `stocks` key omitted entirely for dates
   // with no data (proto3 JSON drops empty repeated fields) — guard with

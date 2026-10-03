@@ -24,6 +24,21 @@ jest.mock("../../getTopShorts", () => ({
 }));
 
 import { getTopPageData } from "../getTopPageData";
+import { calculateMovers } from "~/@/lib/shorts-calculations";
+import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
+
+function populatedSeries() {
+  const today = Math.floor(Date.now() / 1000);
+  return Array.from({ length: 100 }, (_, index) => ({
+    productCode: `T${String(index).padStart(2, "0")}`,
+    name: `Company ${index}`,
+    latestShortPosition: 5 + index / 10,
+    points: Array.from({ length: 90 }, (_, point) => ({
+      timestamp: { seconds: BigInt(today - (89 - point) * 86400), nanos: 0 },
+      shortPosition: 5 + index / 10 + Math.sin(point / 5) * (index + 1) / 100,
+    })),
+  }));
+}
 
 describe("getTopPageData", () => {
   beforeEach(() => {
@@ -169,5 +184,62 @@ describe("getTopPageData", () => {
     expect(result.movers.biggestGainers.map((stock) => stock.productCode)).toEqual(["LOT"]);
     expect(result.movers.biggestLosers.map((stock) => stock.productCode)).toEqual(["LOT"]);
     expect(result.movers.mostVolatile.map((stock) => stock.productCode)).toEqual(["LOT"]);
+  });
+
+  it("sends the five visible mover summaries per card while retaining table sparkline histories", async () => {
+    const raw = populatedSeries();
+    mockGetTopShortsData.mockResolvedValueOnce({ timeSeries: raw, offset: 0 });
+
+    const result = await getTopPageData("3m", 100);
+    const fullMovers = calculateMovers(raw as unknown as TimeSeriesData[], "3m");
+    for (const key of ["biggestGainers", "biggestLosers", "mostVolatile"] as const) {
+      expect(result.movers[key]).toEqual(fullMovers[key].slice(0, 5).map(({ points: _points, ...summary }) => summary));
+      for (const summary of result.movers[key]) {
+        expect(summary).not.toHaveProperty("points");
+        expect(summary).not.toHaveProperty("max");
+        expect(summary).not.toHaveProperty("min");
+      }
+    }
+    expect(result.timeSeries).toHaveLength(100);
+    expect(result.timeSeries[0]?.points).toHaveLength(90);
+    expect(result.timeSeries[0]?.points[89]).toMatchObject({
+      timestamp: new Date(Number(raw[0]!.points[89]!.timestamp.seconds) * 1000).toISOString(),
+      shortPosition: raw[0]!.points[89]!.shortPosition,
+    });
+    expect(result.stockListItems).toHaveLength(20);
+    expect(result.period).toBe("3m");
+    expect(result.lastUpdated).toBe(result.timeSeries[0]?.points[89]?.timestamp);
+
+    const legacyBytes = Buffer.byteLength(JSON.stringify({ ...result, movers: fullMovers }));
+    const summaryBytes = Buffer.byteLength(JSON.stringify(result));
+    // Meaningful payload budget for 100 table rows / 90 points each. Histories
+    // used by the table stay intact; only unused mover copies are removed.
+    expect(summaryBytes).toBeLessThan(legacyBytes * 0.9);
+  });
+
+  it("normalizes existing cached mover histories without fetching or changing freshness", async () => {
+    const raw = populatedSeries();
+    mockGetTopShortsData.mockResolvedValueOnce({ timeSeries: raw, offset: 0 });
+    const built = await getTopPageData("3m", 100);
+    const legacy = {
+      ...built,
+      movers: calculateMovers(raw as unknown as TimeSeriesData[], "3m"),
+    };
+    mockGetCached.mockResolvedValueOnce(legacy);
+    mockGetTopShortsData.mockClear();
+    mockSetCached.mockClear();
+
+    const result = await getTopPageData("3m", 100);
+
+    expect(result.movers).toEqual(built.movers);
+    expect(result.timeSeries).toBe(legacy.timeSeries);
+    expect(result.lastUpdated).toBe(legacy.lastUpdated);
+    expect(result.stockListItems).toBe(legacy.stockListItems);
+    expect(mockGetTopShortsData).not.toHaveBeenCalled();
+    expect(mockSetCached).not.toHaveBeenCalled();
+    expect(mockDeleteCached).not.toHaveBeenCalled();
+    // Normalization must not mutate the shared cached object.
+    expect(legacy.movers.biggestGainers).toHaveLength(10);
+    expect(legacy.movers.biggestGainers[0]?.points).toHaveLength(90);
   });
 });

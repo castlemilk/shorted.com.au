@@ -4,6 +4,8 @@ import { ImageResponse } from "next/og";
 import { getIndustryData } from "~/app/actions/industry/getIndustryData";
 import { OG_CONTENT_TYPE, OG_SIZE, OgCard, getOgLogo } from "~/@/lib/og/card";
 
+export const maxDuration = 15;
+
 export const alt = "ASX Industry Intelligence — which sectors are being shorted";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;

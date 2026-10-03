@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { type WidgetProps } from "~/@/types/dashboard";
 import { Card } from "~/@/components/ui/card";
 import { Skeleton } from "~/@/components/ui/skeleton";
@@ -9,7 +10,6 @@ import { Input } from "~/@/components/ui/input";
 import { ScrollArea } from "~/@/components/ui/scroll-area";
 import { getMultipleStockQuotes } from "@/lib/stock-data-service";
 import { TrendingUp, TrendingDown, DollarSign, Activity, Plus, X, Check } from "lucide-react";
-import { useAsyncErrorHandler } from "@/hooks/use-async-error";
 import Link from "next/link";
 
 interface PortfolioHolding {
@@ -43,15 +43,12 @@ const DEFAULT_PORTFOLIO: PortfolioHolding[] = [
 ];
 
 export function PortfolioSummaryWidget({ config, onSettingsChange }: WidgetProps) {
-  const [loading, setLoading] = useState(true);
-  const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
   const [showAddStock, setShowAddStock] = useState(false);
   const [newSymbol, setNewSymbol] = useState("");
   const [newShares, setNewShares] = useState("");
   const [editingHolding, setEditingHolding] = useState<string | null>(null);
   const [editShares, setEditShares] = useState("");
   const [showHoldings, setShowHoldings] = useState(false);
-  const handleAsyncError = useAsyncErrorHandler();
 
   // Get portfolio from config or use default
   const portfolio = useMemo(() => {
@@ -111,88 +108,80 @@ export function PortfolioSummaryWidget({ config, onSettingsChange }: WidgetProps
     setEditingHolding(null);
   }, [portfolio, updatePortfolio, removeHolding]);
 
-  useEffect(() => {
-    const fetchPortfolioData = async () => {
-      if (portfolio.length === 0) {
-        setLoading(false);
-        setPortfolioData(null);
-        return;
-      }
+  // Cache only public quotes; holdings and share counts remain local to this
+  // widget. Matching symbol sets share one request even in a different order.
+  const symbols = useMemo(
+    () => [...new Set(portfolio.map((holding) => holding.symbol.toUpperCase()))].sort(),
+    [portfolio],
+  );
+  const { data: stockQuotes, isFetching: loading } = useQuery({
+    queryKey: ["portfolio-stock-quotes", symbols],
+    queryFn: () => getMultipleStockQuotes(symbols),
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    retry: false,
+    throwOnError: true,
+  });
 
-      setLoading(true);
-      
-      const result = await handleAsyncError(async () => {
-        const symbols = portfolio.map(p => p.symbol);
-        const stockQuotes = await getMultipleStockQuotes(symbols);
+  const portfolioData = useMemo<PortfolioData | null>(() => {
+    if (!stockQuotes || portfolio.length === 0) return null;
 
-        let totalValue = 0;
-        let totalCost = 0;
-        let topGainer = { symbol: "", changePercent: -Infinity };
-        let topLoser = { symbol: "", changePercent: Infinity };
-        const holdings: PortfolioData["holdings"] = [];
+    let totalValue = 0;
+    let totalCost = 0;
+    let topGainer = { symbol: "", changePercent: -Infinity };
+    let topLoser = { symbol: "", changePercent: Infinity };
+    const holdings: PortfolioData["holdings"] = [];
 
-        portfolio.forEach(({ symbol, shares }) => {
-          const quote = stockQuotes.get(symbol);
-          if (quote) {
-            const value = quote.price * shares;
-            const cost = (quote.previousClose || quote.price) * shares;
-            totalValue += value;
-            totalCost += cost;
+    portfolio.forEach(({ symbol, shares }) => {
+      const quote = stockQuotes.get(symbol.toUpperCase());
+      if (quote) {
+        const value = quote.price * shares;
+        const cost = (quote.previousClose || quote.price) * shares;
+        totalValue += value;
+        totalCost += cost;
 
-            holdings.push({
-              symbol,
-              shares,
-              price: quote.price,
-              value,
-              change: quote.change,
-              changePercent: quote.changePercent,
-            });
-
-            if (quote.changePercent > topGainer.changePercent) {
-              topGainer = { symbol, changePercent: quote.changePercent };
-            }
-            if (quote.changePercent < topLoser.changePercent) {
-              topLoser = { symbol, changePercent: quote.changePercent };
-            }
-          } else {
-            // Include holdings without quotes
-            holdings.push({
-              symbol,
-              shares,
-              price: 0,
-              value: 0,
-              change: 0,
-              changePercent: 0,
-            });
-          }
+        holdings.push({
+          symbol,
+          shares,
+          price: quote.price,
+          value,
+          change: quote.change,
+          changePercent: quote.changePercent,
         });
 
-        const totalChange = totalValue - totalCost;
-        const totalChangePercent = totalCost > 0 ? (totalChange / totalCost) * 100 : 0;
-
-        return {
-          totalValue,
-          totalChange,
-          totalChangePercent,
-          topGainer: topGainer.symbol ? topGainer : { symbol: "-", changePercent: 0 },
-          topLoser: topLoser.symbol ? topLoser : { symbol: "-", changePercent: 0 },
-          holdings,
-        };
-      });
-      
-      if (result) {
-        setPortfolioData(result);
+        if (quote.changePercent > topGainer.changePercent) {
+          topGainer = { symbol, changePercent: quote.changePercent };
+        }
+        if (quote.changePercent < topLoser.changePercent) {
+          topLoser = { symbol, changePercent: quote.changePercent };
+        }
+      } else {
+        // Include holdings without quotes
+        holdings.push({
+          symbol,
+          shares,
+          price: 0,
+          value: 0,
+          change: 0,
+          changePercent: 0,
+        });
       }
-      
-      setLoading(false);
-    };
+    });
 
-    void fetchPortfolioData();
-    
-    // Refresh every 5 minutes
-    const interval = setInterval(() => void fetchPortfolioData(), 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [portfolio, handleAsyncError]);
+    const totalChange = totalValue - totalCost;
+    const totalChangePercent = totalCost > 0 ? (totalChange / totalCost) * 100 : 0;
+
+    return {
+      totalValue,
+      totalChange,
+      totalChangePercent,
+      topGainer: topGainer.symbol ? topGainer : { symbol: "-", changePercent: 0 },
+      topLoser: topLoser.symbol ? topLoser : { symbol: "-", changePercent: 0 },
+      holdings,
+    };
+  }, [portfolio, stockQuotes]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-AU", {
