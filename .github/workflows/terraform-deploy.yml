@@ -1382,7 +1382,7 @@ jobs:
             --scope document-analyser \
             --token "$VERCEL_TOKEN"
 
-          npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" | tee /tmp/vercel-preview.log
+          npx -p vercel@54.10.2 vercel deploy --prebuilt --archive=tgz "${deploy_args[@]}" | tee /tmp/vercel-preview.log
           preview_url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-preview.log | tail -n 1)"
           if [ -z "$preview_url" ]; then
             echo "::error::Could not extract Vercel preview URL"
