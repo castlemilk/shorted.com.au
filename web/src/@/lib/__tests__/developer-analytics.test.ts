@@ -1,3 +1,4 @@
+/** @jest-environment-options {"url":"https://shorted.com.au/"} */
 /**
  * The developer-surface GA helper.
  *

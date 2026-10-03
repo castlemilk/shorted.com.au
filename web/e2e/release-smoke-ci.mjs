@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { chromium, devices, request as playwrightRequest } from "@playwright/test";
 import { checkFirebaseGoogleAuthBootstrap } from "./helpers/firebase-google-auth-bootstrap.mjs";
+import { isolateBrowserAnalytics } from "./helpers/browser-analytics-isolation.mjs";
+import { releasePageText } from "./helpers/release-page-readiness.mjs";
+import { scopeReleaseBrowserHeaders, scopedReleaseHeaders } from "./helpers/scoped-release-headers.mjs";
 
 const baseUrl = process.env.BASE_URL || "https://shorted.com.au";
 const apiBaseUrl = process.env.RELEASE_API_BASE_URL || "https://api.shorted.com.au";
@@ -53,7 +56,11 @@ const pageScenarios = [
   },
   {
     path: "/market/2024-08-21",
-    requiredText: [/ASX Short Positions|Market/i, /Top 50 Most Shorted Stocks|Stocks with Short Positions/i],
+    requiredText: [
+      /ASX Short Positions|Market/i,
+      /Top 50 Shorted Securities/i,
+      /Securities with Short Positions/i,
+    ],
   },
   {
     path: "/reports",
@@ -115,11 +122,6 @@ function isIgnorableConsoleError(text, url = "") {
   );
 }
 
-async function bodyText(page) {
-  await page.waitForTimeout(1_500);
-  return page.locator("body").innerText({ timeout: 20_000 });
-}
-
 function attachPageGuards(page) {
   const apiFailures = [];
   const failedRequests = [];
@@ -166,7 +168,7 @@ async function checkPage(context, scenario) {
     assert(response, `${scenario.path} did not return a response`);
     assert(response.status() < 400, `${scenario.path} returned HTTP ${response.status()}`);
 
-    const text = await bodyText(page);
+    const text = await releasePageText(page, scenario.requiredText);
     for (const required of scenario.requiredText) {
       assert.match(text, required, `${scenario.path} missing required text ${required}`);
     }
@@ -198,7 +200,7 @@ async function checkNavigation(context) {
     await page.getByRole("link", { name: /top shorted/i }).first().click();
     await page.waitForURL("**/top", { timeout: 30_000 });
 
-    const text = await bodyText(page);
+    const text = await releasePageText(page, [/Top Shorted|Short Interest|Stocks/i]);
     assert.match(text, /Top Shorted|Short Interest|Stocks/i, "/top missing top-shorted content");
     assert.deepEqual(guards.apiFailures, [], "client navigation had failing app API/RPC/static responses");
     assert.deepEqual(guards.failedRequests, [], "client navigation had non-ignorable failed requests");
@@ -217,7 +219,9 @@ async function assertNoCloudflareChallenge(response, label) {
 
 async function checkApiEdge() {
   console.log("check Cloudflare API edge");
-  const api = await playwrightRequest.newContext({ extraHTTPHeaders: headers });
+  const api = await playwrightRequest.newContext({
+    extraHTTPHeaders: scopedReleaseHeaders(apiBaseUrl, baseUrl, apiBaseUrl, headers),
+  });
 
   try {
     const health = await api.get(`${apiBaseUrl}/health`);
@@ -278,7 +282,9 @@ const MIN_SITEMAP_STOCK_URLS = 400;
 
 async function checkSitemap() {
   console.log("check sitemap coverage");
-  const api = await playwrightRequest.newContext({ extraHTTPHeaders: headers });
+  const api = await playwrightRequest.newContext({
+    extraHTTPHeaders: scopedReleaseHeaders(baseUrl, baseUrl, apiBaseUrl, headers),
+  });
   try {
     const resp = await api.get(`${baseUrl}/sitemap.xml`, { timeout: 60_000 });
     assert.equal(resp.status(), 200, "sitemap.xml status");
@@ -335,10 +341,13 @@ const context = await browser.newContext({
   ...devices["Desktop Chrome"],
   baseURL: baseUrl,
   userAgent,
-  extraHTTPHeaders: headers,
+  extraHTTPHeaders: scopedReleaseHeaders(baseUrl, baseUrl, apiBaseUrl, headers),
+  serviceWorkers: "block",
 });
 
 try {
+  await scopeReleaseBrowserHeaders(context, baseUrl, apiBaseUrl);
+  await isolateBrowserAnalytics(context, baseUrl);
   for (const scenario of pageScenarios) {
     await checkPage(context, scenario);
   }

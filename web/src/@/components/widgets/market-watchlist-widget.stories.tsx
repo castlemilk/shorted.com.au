@@ -131,18 +131,20 @@ export const Default: Story = {
     );
     await userEvent.click(option);
 
-    // KNOWN BUG (pinned): queryKeys.stock.quotes does `codes.sort()`, which
-    // sorts IN PLACE. useStockQuotes receives the settings array by
-    // reference, so the configured order ["PLS","IEL","FLT"] is alphabetized
-    // to ["FLT","IEL","PLS"] before SYR is appended. When query-keys.ts is
-    // fixed to copy before sorting, this expectation should become
-    // ["PLS","IEL","FLT","SYR"].
+    // Quote-cache normalization sorts a separate array. Adding a symbol must
+    // preserve the user's configured order and leave the input settings intact.
     await waitFor(() => {
       expect(args.onSettingsChange).toHaveBeenCalledWith({
-        stocks: ["FLT", "IEL", "PLS", "SYR"],
+        stocks: ["PLS", "IEL", "FLT", "SYR"],
         timeInterval: "1m",
         refreshInterval: 0,
       });
+    });
+    expect(args.onSettingsChange).toHaveBeenCalledTimes(1);
+    expect(args.config.settings).toEqual({
+      stocks: ["PLS", "IEL", "FLT"],
+      timeInterval: "1m",
+      refreshInterval: 0,
     });
   },
 };

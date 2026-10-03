@@ -41,7 +41,7 @@ export default async function Image({
             ? `ASX short positions, ${pretty}`
             : "ASX short positions by day"
         }
-        subtitle="Every reported short position for a single trading day, from official ASIC data."
+        subtitle="Top 50 securities with positive reported short positions. Official ASIC position data, published with a T+4 delay."
         logoSrc={logoSrc}
       />
     ),

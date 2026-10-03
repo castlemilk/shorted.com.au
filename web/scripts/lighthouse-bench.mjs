@@ -28,6 +28,7 @@ import lighthouse from "lighthouse";
 import * as chromeLauncher from "chrome-launcher";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { CATEGORIES, METRICS, aggregateRuns, checkBudgets, measurementFailures, summarizeLhr } from "./lighthouse-report.mjs";
 
 // ---------------------------------------------------------------------------
 // config
@@ -57,16 +58,6 @@ const BUDGETS = {
     metrics: { "largest-contentful-paint": 6000, "total-blocking-time": 400, "cumulative-layout-shift": 0.15, "first-contentful-paint": 3000 },
   },
 };
-
-const CATEGORIES = ["performance", "accessibility", "best-practices", "seo"];
-const METRICS = [
-  "first-contentful-paint",
-  "largest-contentful-paint",
-  "total-blocking-time",
-  "cumulative-layout-shift",
-  "speed-index",
-  "interactive",
-];
 
 // Standard Lighthouse throttling presets (mirror the PageSpeed form factors).
 const PRESETS = {
@@ -110,13 +101,6 @@ function parseArgs(argv) {
 // ---------------------------------------------------------------------------
 // stats + formatting
 // ---------------------------------------------------------------------------
-function median(values) {
-  const nums = values.filter((v) => typeof v === "number" && !Number.isNaN(v)).sort((a, b) => a - b);
-  if (!nums.length) return null;
-  const mid = Math.floor(nums.length / 2);
-  return nums.length % 2 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
-}
-const round = (n, d = 0) => (typeof n === "number" && !Number.isNaN(n) ? Math.round(n * 10 ** d) / 10 ** d : n);
 const pad = (s, n) => { s = String(s); return s.length >= n ? s : s + " ".repeat(n - s.length); };
 
 // ---------------------------------------------------------------------------
@@ -131,46 +115,7 @@ async function runLighthouse(url, port, preset) {
   const result = await lighthouse(url, flags, config);
   const lhr = result?.lhr;
   if (!lhr) throw new Error(`no lhr for ${url}`);
-  const scores = {};
-  for (const c of CATEGORIES) scores[c] = lhr.categories?.[c]?.score ?? null;
-  const metrics = {};
-  for (const m of METRICS) metrics[m] = lhr.audits?.[m]?.numericValue ?? null;
-  return { scores, metrics };
-}
-
-// ---------------------------------------------------------------------------
-// per-page aggregate (median across runs)
-// ---------------------------------------------------------------------------
-function aggregate(runs) {
-  const scores = {};
-  for (const c of CATEGORIES) scores[c] = round(median(runs.map((r) => r.scores[c])), 3);
-  const metrics = {};
-  for (const m of METRICS) {
-    const isCls = m === "cumulative-layout-shift";
-    metrics[m] = round(median(runs.map((r) => r.metrics[m])), isCls ? 3 : 0);
-  }
-  return { scores, metrics };
-}
-
-// ---------------------------------------------------------------------------
-// budget enforcement
-// ---------------------------------------------------------------------------
-function checkBudgets(report) {
-  const budget = BUDGETS[report.preset];
-  const failures = [];
-  for (const [path, page] of Object.entries(report.pages)) {
-    for (const [cat, min] of Object.entries(budget.scores)) {
-      const got = page.scores[cat];
-      if (typeof got === "number" && got < min)
-        failures.push(`${path}  ${cat} ${got} < ${min}`);
-    }
-    for (const [metric, max] of Object.entries(budget.metrics)) {
-      const got = page.metrics[metric];
-      if (typeof got === "number" && got > max)
-        failures.push(`${path}  ${metric} ${got} > ${max}`);
-    }
-  }
-  return failures;
+  return summarizeLhr(lhr);
 }
 
 // ---------------------------------------------------------------------------
@@ -198,7 +143,10 @@ function compareBaseline(baseline, current) {
       }
     }
   }
-  console.log(regressions === 0 ? "  ✅ no regressions" : `  ⚠️  ${regressions} regression(s)`);
+  const incomplete = measurementFailures(current).length;
+  console.log(incomplete
+    ? `  ⚠️ comparison incomplete for ${incomplete} route(s); ${regressions} measured regression(s)`
+    : regressions === 0 ? "  ✅ no regressions" : `  ⚠️  ${regressions} regression(s)`);
   return regressions;
 }
 
@@ -240,12 +188,13 @@ async function main() {
           runs.push(await runLighthouse(url, chrome.port, args.preset));
           process.stdout.write("•");
         } catch (e) {
+          runs.push({ scores: {}, metrics: {}, runtimeError: { code: "RUN_FAILED" } });
           process.stdout.write("x");
           console.warn(`\n[lh] run failed for ${path}: ${e.message}`);
         }
       }
       process.stdout.write("\n");
-      if (runs.length) pages[path] = { runs: runs.length, ...aggregate(runs) };
+      pages[path] = aggregateRuns(runs, args.runs);
     }
   } finally {
     await chrome.kill();
@@ -257,12 +206,18 @@ async function main() {
     runs: args.runs,
     capturedAt: new Date().toISOString(),
     gitRef: process.env.GIT_REF ?? null,
+    requestedPages: args.pages,
     pages,
   };
 
   printTable(report);
 
-  const outPath = args.updateBaseline
+  const measurementErrors = measurementFailures(report);
+  if (measurementErrors.length) {
+    console.log(`\n=== ❌ ${measurementErrors.length} route(s) have incomplete Lighthouse measurements ===`);
+    measurementErrors.forEach((error) => console.log(`  ${error}`));
+  }
+  const outPath = args.updateBaseline && !measurementErrors.length
     ? resolve(args.updateBaseline)
     : args.out
       ? resolve(args.out)
@@ -271,14 +226,17 @@ async function main() {
   await writeFile(outPath, JSON.stringify(report, null, 2) + "\n");
   console.log(`\n[lh] report: ${outPath}`);
 
-  if (args.updateBaseline) {
+  if (args.updateBaseline && !measurementErrors.length) {
     console.log(`[lh] baseline updated — budgets/compare skipped.`);
     return;
   }
 
-  let failed = false;
+  if (args.updateBaseline && measurementErrors.length) {
+    console.log("[lh] baseline preserved because measurements are incomplete.");
+  }
+  let failed = measurementErrors.length > 0;
   if (args.budgets) {
-    const failures = checkBudgets(report);
+    const failures = checkBudgets(report, BUDGETS[report.preset]);
     if (failures.length) {
       console.log(`\n=== ❌ ${failures.length} budget breach(es) (${args.preset}) ===`);
       failures.forEach((f) => console.log(`  ${f}`));

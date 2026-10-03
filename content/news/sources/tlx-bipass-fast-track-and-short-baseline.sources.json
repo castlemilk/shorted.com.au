@@ -1,0 +1,82 @@
+{
+  "draft": "tlx-bipass-fast-track-and-short-baseline.mdx",
+  "knownCodes": [
+    "TLX"
+  ],
+  "sources": [
+    {
+      "refId": "ref-1",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260928-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "28 September daily aggregate short-position report",
+      "date": "2026-09-28",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "retrievedDate": "2026-10-03",
+      "verification": "Downloaded official CSV and independently checked the stock row on 3 October 2026"
+    },
+    {
+      "refId": "ref-2",
+      "type": "news",
+      "url": "https://telixpharma.com/news-views/telix-granted-fda-fast-track-designation-for-bipass-pre-biopsy-prostate-cancer-imaging/",
+      "source": "Telix",
+      "headline": "BiPASS FDA Fast Track announcement",
+      "date": "2026-09-30",
+      "dateBasis": "announcement date",
+      "retrievedDate": "2026-10-03",
+      "verification": "Personally opened through web tool"
+    },
+    {
+      "refId": "ref-3",
+      "type": "report",
+      "url": "https://www.fda.gov/patients/fast-track-breakthrough-therapy-accelerated-approval-priority-review/fast-track",
+      "source": "FDA",
+      "headline": "Fast Track process and conditional eligibility",
+      "date": "",
+      "dateBasis": "Undated guidance; retrieved 3 October 2026",
+      "retrievedDate": "2026-10-03",
+      "verification": "Personally opened through web tool"
+    },
+    {
+      "refId": "ref-4",
+      "type": "report",
+      "url": "https://www.sec.gov/Archives/edgar/data/2007191/000162828026059952/telix-6kphase3bipassenroll.htm",
+      "source": "SEC / Telix Form 6-K",
+      "headline": "2 September ASX BiPASS enrolment announcement",
+      "date": "2026-09-02",
+      "dateBasis": "announcement date",
+      "retrievedDate": "2026-10-03",
+      "verification": "Personally opened through web tool"
+    },
+    {
+      "refId": "ref-5",
+      "type": "report",
+      "url": "https://www.asic.gov.au/regulatory-resources/markets/short-selling/short-selling-reporting-short-position-reporting",
+      "source": "ASIC",
+      "headline": "Short position reporting: publication occurs T+4",
+      "date": "",
+      "dateBasis": "Undated guidance; retrieved 3 October 2026",
+      "retrievedDate": "2026-10-03",
+      "verification": "Personally opened through web tool"
+    }
+  ],
+  "limits": [
+    "28 September baseline predates the 30 September / 1 October catalysts",
+    "No latest price, guaranteed return, squeeze, post-news short response or invented trader motive claimed",
+    "Guidance pages have no assumed publication date"
+  ],
+  "verification": {
+    "positionDate": "2026-09-28",
+    "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260928-001-SSDailyAggShortPos.csv",
+    "stockCode": "TLX",
+    "percentage": 10.7477843,
+    "roundedPercentage": 10.75,
+    "retrievedDate": "2026-10-03"
+  },
+  "identifierBasis": "Publication MDX reference IDs, matched to retrieval evidence by URL",
+  "publicationState": "Content file; not inserted into the publication database by this preparation script",
+  "image": {
+    "path": "/assets/news/tlx-bipass-fast-track-and-short-baseline/cover.png",
+    "basis": "New chart of 20 official ASIC position-date observations; source URLs and hashes in position-series.json; axis begins at zero"
+  }
+}
