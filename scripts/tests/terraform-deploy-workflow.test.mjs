@@ -172,7 +172,7 @@ test("terraform-apply is gated on run-tests", () => {
 
 // The frontend promote inherits the gate through terraform-apply. If that edge is
 // ever cut, the promote must not become reachable over red tests.
-test("the vercel promote inherits the test gate", () => {
+test("the vercel promote requires passing tests even with the infrastructure fallback", () => {
   const vercel = workflow.jobs?.["deploy-vercel-prod"];
   assert.ok(vercel, "missing deploy-vercel-prod job");
   const needs = vercel.needs ?? [];
@@ -180,10 +180,13 @@ test("the vercel promote inherits the test gate", () => {
     needs.includes("terraform-apply") || needs.includes("run-tests"),
     "deploy-vercel-prod must depend on terraform-apply (which is gated) or on run-tests directly",
   );
+  assert.ok(needs.includes("run-tests"), "always() requires an explicit direct test dependency");
+  assert.match(String(vercel.if ?? ""), /needs\.run-tests\.result == 'success'/);
+  assert.match(String(vercel.if ?? ""), /github\.event\.inputs\.plan_only != 'true'/);
   assert.match(
     String(vercel.if ?? "").replace(/\s+/g, " "),
     /github\.event_name != 'pull_request'/,
-    "pull requests may build previews but must never reach the production promotion job",
+    "pull requests must never reach the production promotion job",
   );
 });
 

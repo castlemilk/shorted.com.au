@@ -1,3 +1,4 @@
+/** @jest-environment-options {"url":"https://shorted.com.au/"} */
 /**
  * `/rate-limit` → `rate_limit_page_view`.
  *

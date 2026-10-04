@@ -20,6 +20,9 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Client as PgClient } from "pg";
+import { z } from "zod";
+import { COMPONENT_SCHEMAS, validateMdx } from "./mdxgate.js";
+import type { Citation } from "./narrative.js";
 
 /** The frontmatter contract. Mirrors the editorial_takes columns it feeds. */
 export interface TakeFrontmatter {
@@ -34,6 +37,8 @@ export interface TakeFrontmatter {
   /** 'markdown' | 'mdx' */
   bodyFormat?: string;
   ogImageUrl?: string;
+  /** JSON array on one frontmatter line; persisted with its original IDs. */
+  citations?: Citation[];
 }
 
 export interface ParsedTake {
@@ -46,7 +51,7 @@ export interface ParsedTake {
  * Minimal frontmatter parser — deliberately not gray-matter.
  *
  * This package does not already depend on it, and the contract here is a flat
- * map of quoted strings. Anything richer belongs in the body.
+ * map of quoted strings, with citations encoded as a JSON array on one line.
  */
 export function parseTakeMdx(raw: string): ParsedTake {
   const match = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(raw);
@@ -54,9 +59,12 @@ export function parseTakeMdx(raw: string): ParsedTake {
 
   const frontmatter: Record<string, string> = {};
   for (const line of match[1].split("\n")) {
-    const kv = /^([A-Za-z][A-Za-z0-9_]*):\s*(.*)$/.exec(line.trim());
+    const kv = /^([A-Za-z][A-Za-z0-9_]*):\s*(.*)$/.exec(line);
     if (!kv?.[1]) continue;
-    frontmatter[kv[1]] = (kv[2] ?? "").replace(/^"(.*)"$/, "$1").trim();
+    const value = (kv[2] ?? "").trim();
+    // JSON-quoted strings support escaped punctuation without adding a YAML
+    // dependency to the job. Citation arrays use JSON in the same flat contract.
+    frontmatter[kv[1]] = value.startsWith('"') ? JSON.parse(value) : value;
   }
 
   const body = match[2].trim();
@@ -66,10 +74,10 @@ export function parseTakeMdx(raw: string): ParsedTake {
   }
   if (!body) throw new Error("body is empty");
 
-  // The /news MDX renderer maps standard HTML plus the citation components.
+  // The /news MDX renderer maps standard HTML, citations and the newsroom palette.
   // A component it does not know renders as nothing, silently — so fail here
   // rather than publish an article with a hole in it.
-  const allowed = new Set(["CitationPill", "CitationSources"]);
+  const allowed = new Set(["CitationPill", "CitationSources", ...Object.keys(COMPONENT_SCHEMAS)]);
   const used = [...body.matchAll(/<([A-Z][A-Za-z0-9]*)/g)]
     .map((m) => m[1])
     .filter((c): c is string => Boolean(c));
@@ -81,20 +89,69 @@ export function parseTakeMdx(raw: string): ParsedTake {
     );
   }
 
+  const citations = frontmatter.citations === undefined
+    ? undefined
+    : parseCitations(frontmatter.citations);
   return {
-    frontmatter: frontmatter as unknown as TakeFrontmatter,
+    frontmatter: { ...frontmatter, citations } as unknown as TakeFrontmatter,
     body,
     wordCount: body.split(/\s+/).filter(Boolean).length,
   };
 }
 
+const CITATION_SCHEMA = z.object({
+  refId: z.string().regex(/^(?:ref|report)-[1-9]\d*$/),
+  url: z.string().url().refine((url) => ["http:", "https:"].includes(new URL(url).protocol)),
+  source: z.string().trim().min(1),
+  headline: z.string().min(1),
+  date: z.string().regex(/^(?:\d{4}-\d{2}-\d{2})?$/),
+  type: z.enum(["news", "trade", "data", "report"]),
+});
+
+function parseCitations(raw: string): Citation[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("frontmatter.citations must be a JSON array on one line");
+  }
+  const citations = z.array(CITATION_SCHEMA).parse(parsed);
+  if (new Set(citations.map((c) => c.refId)).size !== citations.length) {
+    throw new Error("frontmatter.citations contains duplicate refIds");
+  }
+  return citations;
+}
+
+/** Validate actual newsroom props/refs before any database write. */
+export async function validateImportedTake(parsed: ParsedTake): Promise<void> {
+  if (parsed.frontmatter.bodyFormat !== "mdx") return;
+  // Legacy handwritten files used the two direct citation components. Keep
+  // their existing contract; new newsroom components use the shared MDX gate.
+  if (/<(?:CitationPill|CitationSources)\b/.test(parsed.body)) {
+    if (Object.keys(COMPONENT_SCHEMAS).some((name) => new RegExp(`<${name}\\b`).test(parsed.body))) {
+      throw new Error("legacy citation components cannot be mixed with newsroom MDX components");
+    }
+    return;
+  }
+  const result = await validateMdx(parsed.body, {
+    ledgerRefs: new Set((parsed.frontmatter.citations ?? []).map((c) => c.refId)),
+    knownCodes: new Set(parsed.frontmatter.stockCode ? [parsed.frontmatter.stockCode] : []),
+  });
+  if (!result.ok) throw new Error(`invalid article MDX: ${result.errors.join("; ")}`);
+  for (const marker of parsed.body.matchAll(/\[((?:ref|report)-\d+)\]/g)) {
+    if (!(parsed.frontmatter.citations ?? []).some((c) => c.refId === marker[1])) {
+      throw new Error(`article citation ${marker[1]} is missing from frontmatter.citations`);
+    }
+  }
+}
+
 const UPSERT = `
 INSERT INTO editorial_takes
   (slug, headline, standfirst, byline, stock_code, tier, body_format,
-   body_md, og_image_url, hero_image_url, word_count, model, updated_at)
+   body_md, og_image_url, hero_image_url, word_count, model, citations, updated_at)
 -- hero defaults to the cover: /news renders no header image when it is null,
 -- which leaves a deep-dive looking unfinished. regen-images replaces it later.
-VALUES ($1,$2,$3,$4,NULLIF($5,''),$6,$7,$8,NULLIF($9,''),NULLIF($9,''),$10,$11,NOW())
+VALUES ($1,$2,$3,$4,NULLIF($5,''),$6,$7,$8,NULLIF($9,''),NULLIF($9,''),$10,$11,COALESCE($12::jsonb,'[]'::jsonb),NOW())
 ON CONFLICT (slug) DO UPDATE SET
   headline     = EXCLUDED.headline,
   standfirst   = EXCLUDED.standfirst,
@@ -106,6 +163,7 @@ ON CONFLICT (slug) DO UPDATE SET
   og_image_url = EXCLUDED.og_image_url,
   hero_image_url = COALESCE(editorial_takes.hero_image_url, EXCLUDED.hero_image_url),
   word_count   = EXCLUDED.word_count,
+  citations    = CASE WHEN $12::jsonb IS NULL THEN editorial_takes.citations ELSE EXCLUDED.citations END,
   updated_at   = NOW()
 RETURNING slug, published_at
 `;
@@ -129,6 +187,7 @@ async function upsertParsed(dbUrl: string, parsed: ParsedTake[]): Promise<void> 
         fm.ogImageUrl ?? "",
         p.wordCount,
         "hand-written",
+        fm.citations === undefined ? null : JSON.stringify(fm.citations),
       ]);
       const row = res.rows[0];
       const state = row.published_at
@@ -173,6 +232,7 @@ export async function importMdx(opts: {
       throw new Error(`${f}: ${err instanceof Error ? err.message : err}`);
     }
   });
+  for (const article of parsed) await validateImportedTake(article);
 
   if (opts.dryRun) {
     console.log("DRY RUN — nothing will be written.\n");
@@ -280,6 +340,7 @@ export async function publishContent(opts: {
   if (!opts.slug) throw new Error("--slug=SLUG required for publish-content");
   const dir = resolve(opts.dir ?? defaultContentDir());
   const { file, parsed } = findContentBySlug(dir, opts.slug);
+  await validateImportedTake(parsed);
   console.log(`[publish-content] ${opts.slug} <- ${file} (${parsed.wordCount} words)`);
 
   const dbUrl = process.env.DATABASE_URL;

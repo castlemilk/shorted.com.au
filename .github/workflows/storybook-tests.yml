@@ -37,6 +37,16 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Partial clone uses the checkout action; avoids the native mirror path.
+          filter: blob:none
+          sparse-checkout: |
+            web
+            docs
+            content
+            api
+            proto
+            scripts
 
       - uses: actions/setup-node@v5
         with:

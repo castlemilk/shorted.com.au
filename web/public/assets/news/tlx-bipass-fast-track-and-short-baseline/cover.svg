@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<rect width="1200" height="630" fill="#f3f4ef"/>
+<g font-family="Arial, Helvetica, sans-serif">
+<text x="95" y="65" font-size="22" font-weight="700" fill="#1e694e">SHORTED · ASX: TLX</text>
+<text x="95" y="127" font-size="44" font-weight="700" fill="#172e24">Telix before BiPASS Fast Track</text>
+<text x="95" y="176" font-size="25" fill="#56635b">Reported short positions · 1–28 September 2026</text>
+<line x1="95" x2="1105" y1="495.0" y2="495.0" stroke="#d3d9d4"/><text x="75" y="501.0" text-anchor="end" font-size="20" fill="#56635b">0%</text><line x1="95" x2="1105" y1="411.6666666666667" y2="411.6666666666667" stroke="#d3d9d4"/><text x="75" y="417.6666666666667" text-anchor="end" font-size="20" fill="#56635b">5%</text><line x1="95" x2="1105" y1="328.33333333333337" y2="328.33333333333337" stroke="#d3d9d4"/><text x="75" y="334.33333333333337" text-anchor="end" font-size="20" fill="#56635b">10%</text><line x1="95" x2="1105" y1="245.0" y2="245.0" stroke="#d3d9d4"/><text x="75" y="251.0" text-anchor="end" font-size="20" fill="#56635b">15%</text><path d="M 95.00 321.39 L 132.41 322.92 L 169.81 321.38 L 207.22 321.53 L 319.44 324.94 L 356.85 319.36 L 394.26 318.74 L 431.67 315.99 L 469.07 314.64 L 581.30 311.45 L 618.70 320.30 L 656.11 317.13 L 693.52 319.10 L 730.93 320.50 L 843.15 318.18 L 880.56 319.90 L 917.96 316.30 L 955.37 316.45 L 992.78 318.11 L 1105.00 315.87" fill="none" stroke="#1e694e" stroke-width="5" stroke-linejoin="round"/>
+<circle cx="1105.0" cy="315.8702616666667" r="7" fill="#1e694e"/>
+<text x="1093.0" y="293.8702616666667" text-anchor="end" font-size="27" font-weight="700" fill="#172e24">10.75%</text>
+<text x="95" y="535" font-size="20" fill="#56635b">1 Sep</text><text x="1105" y="535" text-anchor="end" font-size="20" fill="#56635b">28 Sep</text>
+<text x="95" y="581" font-size="19" fill="#56635b">Source: ASIC · % of total product in issue · T+4 reporting lag</text>
+<text x="95" y="609" font-size="17" fill="#56635b">Position dates precede the 30 September designation. No post-news response shown.</text>
+</g></svg>

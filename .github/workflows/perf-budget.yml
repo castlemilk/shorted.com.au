@@ -1,22 +1,11 @@
 name: Perf Budget
 
-# Guards front-end performance on every PR that touches web/:
-#   1. Bundle budget (BLOCKING) — gzipped first-load JS per route vs committed
-#      baseline. Deterministic from `next build` output, so it fails the PR on a
-#      real regression (an accidental eager import, a heavy new dep).
-#   2. Lighthouse (ADVISORY) — mobile-throttled scores + Core Web Vitals on a
-#      freshly-built prod server. Kept non-blocking because Lighthouse numbers
-#      vary run-to-run on shared CI runners; it reports + uploads a JSON report
-#      so regressions are visible without flaking the merge queue.
-#
-# Both are self-contained: the build uses SKIP_ENV_VALIDATION and only the
-# public API URL, so no secrets are needed (same posture as storybook-tests).
-#
-# Refresh the committed baselines after an intentional change:
+# Checks gzipped first-load JS per route against the committed baseline.
+# The build and bundle budget remain blocking; Lighthouse is run locally when
+# needed rather than starting browsers and a production server in every PR.
+# This job uses public API configuration and requires no deployment secrets.
+# Refresh an intentional baseline change with:
 #   cd web && npm run build && npm run bundle:baseline
-#   cd web && npm run build && npm run start &  # then:
-#   npm run perf:lh:baseline
-# and commit web/../docs/perf/{bundle-baseline,lh-baseline.mobile}.json.
 
 on:
   pull_request:
@@ -38,7 +27,7 @@ env:
 
 jobs:
   perf-budget:
-    name: Bundle budget + Lighthouse
+    name: Bundle budget
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 30
     defaults:
@@ -46,6 +35,16 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Partial clone uses the checkout action; avoids the native mirror path.
+          filter: blob:none
+          sparse-checkout: |
+            web
+            docs
+            content
+            api
+            proto
+            scripts
 
       - uses: actions/setup-node@v5
         with:
@@ -54,47 +53,20 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Install Playwright Chromium (Lighthouse driver)
-        run: npx playwright install --with-deps chromium
-
       - name: Production build
-        run: npx next build
-
-      # --- 1. Bundle budget (blocking) ---
-      - name: Bundle budget vs baseline
-        run: node scripts/bundle-budget.mjs --compare ../docs/perf/bundle-baseline.json
-
-      # --- 2. Lighthouse (advisory) ---
-      - name: Start production server
         run: |
-          # Background processes must not keep the runner's step pipes open.
+          set -o pipefail
           mkdir -p perf-results
-          npm run start </dev/null >perf-results/server.log 2>&1 &
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:3020 >/dev/null && break
-            sleep 2
-          done
-          curl -sf http://localhost:3020 >/dev/null || {
-            cat perf-results/server.log
-            echo "server did not come up"
-            exit 1
-          }
+          npx next build 2>&1 | tee perf-results/build.log
 
-      - name: Lighthouse (mobile) vs baseline
-        continue-on-error: true
-        env:
-          GIT_REF: ${{ github.sha }}
-        run: |
-          export CHROME_PATH="$(node -e 'console.log(require("playwright").chromium.executablePath())')"
-          node scripts/lighthouse-bench.mjs \
-            --url http://localhost:3020 \
-            --runs 3 \
-            --compare ../docs/perf/lh-baseline.mobile.json
+      # Bundle budget (blocking)
+      - name: Bundle budget vs baseline
+        run: node scripts/bundle-budget.mjs --build-log perf-results/build.log --compare ../docs/perf/bundle-baseline.json
 
-      - name: Upload perf reports
+      - name: Upload bundle report
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: perf-reports
-          path: web/perf-results/
+          name: bundle-reports
+          path: web/perf-results/bundle-*.json
           retention-days: 14

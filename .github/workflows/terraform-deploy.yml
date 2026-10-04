@@ -383,7 +383,7 @@ jobs:
 
   terraform-plan:
     needs: [determine-environment, validate-secrets, build-docker-images, build-ko-images]
-    # Run even when image builds are skipped (PR without deploy-preview label)
+    # Run even when production image builds are skipped for a pull request
     if: |
       always() &&
       needs.determine-environment.result == 'success' &&
@@ -1191,16 +1191,18 @@ jobs:
           echo "deploy/vke-jobs -> ${APPLIED_SHA::8} + images ${IMAGE_TAG}"
 
   deploy-vercel-prod:
-    needs: [determine-environment, validate-secrets, terraform-apply]
+    needs: [determine-environment, validate-secrets, terraform-apply, run-tests]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
-    # like market-data-sync fails startup probe). We query the shorts URL from
-    # gcloud as a fallback so Vercel isn't blocked by Terraform failures.
+    # Preserve the existing service-URL fallback after an infrastructure failure,
+    # while requiring the test suite and secrets to pass before web promotion.
     if: |
       always() &&
       github.event_name != 'pull_request' &&
       needs.determine-environment.outputs.environment == 'prod' &&
-      needs.validate-secrets.result == 'success'
+      needs.validate-secrets.result == 'success' &&
+      needs.run-tests.result == 'success' &&
+      github.event.inputs.plan_only != 'true'
     environment: prod
     steps:
       - name: Checkout code
@@ -1260,7 +1262,13 @@ jobs:
       # NOTE: AUTH_FIREBASE_PRIVATE_KEY must be set in the prod environment
       # or Vercel Dashboard because it contains special characters that break CLI parsing.
       # Environment secrets (prod) override repository secrets with same name.
-      - name: Deploy to Vercel (Release Candidate Preview)
+      - name: Set up Node for production deployment
+        uses: actions/setup-node@v5
+        with:
+          # Retain the verified Vercel upload pin from the retired preview workflow.
+          node-version: "24.8.0"
+
+      - name: Build and upload production deployment
         id: vercel-deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -1384,42 +1392,20 @@ jobs:
 
           node scripts/verify-vercel-function-limits.mjs .vercel/output
 
-          npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" | tee /tmp/vercel-preview.log
-          preview_url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-preview.log | tail -n 1)"
-          if [ -z "$preview_url" ]; then
-            echo "::error::Could not extract Vercel preview URL"
+          npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" | tee /tmp/vercel-production.log
+          deployment_url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-production.log | tail -n 1)"
+          if [ -z "$deployment_url" ]; then
+            echo "::error::Could not extract Vercel deployment URL"
             exit 1
           fi
-          echo "preview-url=$preview_url" >> "$GITHUB_OUTPUT"
+          echo "deployment-url=$deployment_url" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Node for release smoke
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install frontend dependencies for release smoke
-        working-directory: web
-        run: npm ci
-
-      - name: Install Playwright for release smoke
-        working-directory: web
-        run: npx playwright install --with-deps chromium
-
-      - name: Smoke release candidate preview
-        working-directory: web
-        timeout-minutes: 12
-        env:
-          BASE_URL: ${{ steps.vercel-deploy.outputs.preview-url }}
-          RELEASE_API_BASE_URL: https://api.shorted.com.au
-          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
-        run: node e2e/release-smoke-ci.mjs
-
-      - name: Promote smoked Vercel deployment to production
+      - name: Promote Vercel deployment to production
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          PREVIEW_URL: ${{ steps.vercel-deploy.outputs.preview-url }}
+          DEPLOYMENT_URL: ${{ steps.vercel-deploy.outputs.deployment-url }}
         run: |
-          npx -p vercel@54.1.0 vercel promote "$PREVIEW_URL" \
+          npx -p vercel@54.10.2 vercel promote "$DEPLOYMENT_URL" \
             --scope document-analyser \
             --yes \
             --token "$VERCEL_TOKEN"
@@ -1490,7 +1476,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Frontend" >> $GITHUB_STEP_SUMMARY
           echo "- **Vercel Production URL**: https://shorted.com.au" >> $GITHUB_STEP_SUMMARY
-          echo "- **Smoked Vercel Deployment**: ${{ steps.vercel-deploy.outputs.preview-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Promoted Vercel Deployment**: ${{ steps.vercel-deploy.outputs.deployment-url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Backend Services" >> $GITHUB_STEP_SUMMARY
           echo "- **Shorts API**: ${{ steps.resolve-urls.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
