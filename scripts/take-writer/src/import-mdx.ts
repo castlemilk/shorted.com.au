@@ -169,13 +169,16 @@ RETURNING slug, published_at
 `;
 
 /** Upsert parsed articles into editorial_takes, one row per slug. */
-async function upsertParsed(dbUrl: string, parsed: ParsedTake[]): Promise<void> {
+async function upsertParsed(dbUrl: string, parsed: ParsedTake[], draftOnly = false): Promise<void> {
   const pg = new PgClient({ connectionString: dbUrl });
   await pg.connect();
   try {
     for (const p of parsed) {
       const fm = p.frontmatter;
-      const res = await pg.query(UPSERT, [
+      // A repeated publish-content invocation must not edit a live article
+      // before its review. Keep the ordinary draft import/update flow separate.
+      const sql = draftOnly ? UPSERT.replace("\nRETURNING slug", "\nWHERE editorial_takes.published_at IS NULL\nRETURNING slug") : UPSERT;
+      const res = await pg.query(sql, [
         fm.slug,
         fm.headline,
         fm.standfirst ?? null,
@@ -190,6 +193,7 @@ async function upsertParsed(dbUrl: string, parsed: ParsedTake[]): Promise<void> 
         fm.citations === undefined ? null : JSON.stringify(fm.citations),
       ]);
       const row = res.rows[0];
+      if (!row) throw new Error("publish-content cannot overwrite a published article; use a reviewed update flow");
       const state = row.published_at
         ? `ALREADY PUBLISHED ${new Date(row.published_at).toISOString().slice(0, 10)} (content updated in place)`
         : "draft";
@@ -205,16 +209,12 @@ export async function importMdx(opts: {
   dir?: string;
   dryRun?: boolean;
   /**
-   * Publish everything imported, in the same run.
-   *
-   * Off by default on purpose — the draft state is the review gate. This is an
-   * explicit opt-in so publishing is always a decision, never a side effect of
-   * importing. It skips image generation and the vision cohesion check, which
-   * need API keys the import path does not require; run `regen-images` and
-   * `validate-article` separately when you have them.
+   * Legacy bulk-publication flag. Rejected before writing: use publish-content
+   * for each article so its required vision review cannot be skipped.
    */
   publish?: boolean;
 }): Promise<void> {
+  if (opts.publish) throw new Error("import-mdx creates drafts; use publish-content for required vision review");
   const files: string[] = [];
   if (opts.file) files.push(resolve(opts.file));
   if (opts.dir) {
@@ -251,22 +251,8 @@ export async function importMdx(opts: {
 
   await upsertParsed(dbUrl, parsed);
 
-  if (!opts.publish) {
-    console.log("\nreview:  npx tsx src/index.ts list-drafts");
-    console.log("publish: npx tsx src/index.ts publish --slug=<slug>");
-    console.log("     or: re-run this command with --publish");
-    return;
-  }
-
-  console.log("\n--publish: publishing all imported articles\n");
-  const { publishTake } = await import("./publish.js");
-  for (const p of parsed) {
-    await publishTake({
-      slug: p.frontmatter.slug,
-      noImages: true,
-      noValidate: true,
-    });
-  }
+  console.log("\nreview:  npx tsx src/index.ts list-drafts");
+  console.log("publish: npx tsx src/index.ts publish --slug=<slug>");
 }
 
 // --- publish-content: the Cloud Run entrypoint ------------------------------
@@ -329,7 +315,7 @@ export function findContentBySlug(dir: string, slug: string): { file: string; pa
 /**
  * Import ONE article by slug and publish it through the full chain
  * (images -> validate -> published_at -> revalidate). Idempotent: an article
- * that is already published has its content updated in place and nothing else.
+ * that is already published cannot be overwritten by this draft publication path.
  */
 export async function publishContent(opts: {
   slug?: string;
@@ -338,6 +324,7 @@ export async function publishContent(opts: {
   noValidate?: boolean;
 }): Promise<void> {
   if (!opts.slug) throw new Error("--slug=SLUG required for publish-content");
+  if (opts.noValidate) throw new Error("publish-content requires vision validation; --no-validate is not supported");
   const dir = resolve(opts.dir ?? defaultContentDir());
   const { file, parsed } = findContentBySlug(dir, opts.slug);
   await validateImportedTake(parsed);
@@ -345,7 +332,7 @@ export async function publishContent(opts: {
 
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL not set");
-  await upsertParsed(dbUrl, [parsed]);
+  await upsertParsed(dbUrl, [parsed], true);
 
   const { publishTake } = await import("./publish.js");
   await publishTake({

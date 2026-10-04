@@ -147,10 +147,10 @@ Commands:
   regen-images    Generate a hero + inline images for an existing take (--slug=SLUG [--inline=2])
   validate-article Screenshot + Gemini-vision cohesion check with auto-fix loop (--slug=SLUG [--rounds=2])
   results-watch   List companies that just filed results, ranked by short interest (--since-days=N [--limit=N])
-  import-mdx      Upsert a hand-written MDX article as a DRAFT (--file=... | --dir=... [--dry-run] [--publish])
-  publish-content Import ONE content/news article by slug and publish it with images (--slug=SLUG [--dir=...] [--no-images] [--no-validate]) — the Cloud Run entrypoint
+  import-mdx      Upsert a hand-written MDX article as a DRAFT (--file=... | --dir=... [--dry-run])
+  publish-content Import ONE content/news article by slug and publish it after required vision review (--slug=SLUG [--dir=...] [--no-images]) — the Cloud Run entrypoint
   list-drafts     List unpublished drafts; --slug=SLUG prints one draft's full body + citations
-  publish         Publish a draft: images → validate → set published_at → tweet (--slug=SLUG [--no-images] [--no-validate] [--tweet])
+  publish         Publish a draft: images → required vision review → set published_at → tweet (--slug=SLUG [--no-images] [--tweet])
   narrative Multi-section journalism-engine Take for one --stock=CODE
 
 run flags:

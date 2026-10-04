@@ -129,6 +129,33 @@ How it is kept narrow:
 - Gemini uses `GEMINI_API_KEY_NEWS` (per-workload isolation); images go to
   `shorted-company-logos-prod`.
 
+### Required publication review and limits
+
+`publish-content --no-images` keeps the existing cover and skips initial image
+generation. Publication requires a successfully fetched HTTPS PNG hero and a
+complete acceptable vision verdict for every supplied image. Fetch, token-count,
+model, truncation, malformed-verdict or image-quality failures leave the article
+as a draft; they do not write `published_at`, revalidate or tweet. This entrypoint
+cannot overwrite an already-published article before review. `--no-validate` and
+the legacy `import-mdx --publish` shortcut are rejected before any write.
+The verdict must score cohesion at least 7/10, mark each image as fitting its
+caption with acceptable quality, and leave no issue or regeneration request.
+
+The publication judge is pinned to Google's Gemini Developer API
+`gemini-3.5-flash`, one candidate, one round, at most 12,000 input tokens and
+`maxOutputTokens=8192`. A full-request `countTokens` preflight runs once before
+the single inference attempt; both have a 120-second SDK request timeout and no
+application retry. Image fetches have a 30-second timeout and 8 MiB per-image
+limit. The publisher never regenerates a rejected image in this one-round mode.
+`VALIDATOR_MODEL` applies to interactive validation, not the bounded publication
+judge. Input/output usage counters are logged without API keys or image data.
+
+These are request/token limits, not an account-wide dollar cap. Confirm current
+model pricing, billing access and the deployed image's exact source before
+approving paid publication. Two articles require at most two token-count requests
+and two inference requests. Do not run the standalone auto-fix validator as a
+substitute: its interactive default permits additional rounds and generation.
+
 The locally run `publish-content --slug=...` does the same thing against
 whatever `DATABASE_URL` you export (it reads `../../content/news` by default).
 

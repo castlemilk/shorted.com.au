@@ -13,6 +13,7 @@ on:
       - "Makefile"
       - "docs/housing-architecture.md"
       - "scripts/check-portal-content-provenance.mjs"
+      - "scripts/take-writer/**"
       - "scripts/generate-synthetic-housing-pagemeta-fixtures.mjs"
       - "scripts/tests/housing-deploy-hygiene.test.mjs"
       - "scripts/tests/openapi-drift.test.mjs"
@@ -55,6 +56,30 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  newsroom-tests:
+    name: Newsroom publication tests
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            scripts/take-writer
+            content/news
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Install newsroom dependencies
+        working-directory: scripts/take-writer
+        run: npm ci --no-audit --no-fund
+      - name: Test publication and newsroom contracts without external services
+        working-directory: scripts/take-writer
+        run: npm test
+      - name: Check newsroom types
+        working-directory: scripts/take-writer
+        run: npx --no-install tsc --noEmit
+
   portal-content-provenance:
     name: Portal content provenance
     runs-on: [self-hosted, cuttlefish, linux]
