@@ -58,7 +58,8 @@ jobs:
   portal-content-provenance:
     name: Portal content provenance
     runs-on: [self-hosted, cuttlefish, linux]
-    timeout-minutes: 5
+    # Cold partial checkout took 4m15s; leave time for Node setup and assertions.
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v5
         with:
