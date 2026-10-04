@@ -9,11 +9,25 @@ test("release collectors are intercepted across regional GA and same-origin RUM 
     "https://www.googletagmanager.com/gtag/js?id=fixture",
     "https://region1.google-analytics.com/g/collect?fixture=1",
     "https://stats.g.doubleclick.net/g/collect",
-    "https://static.cloudflareinsights.com/beacon.min.js",
+    "https://static.cloudflareinsights.com/cdn-cgi/rum",
     "https://cloudflareinsights.com/cdn-cgi/rum",
     `${origin}/cdn-cgi/rum`,
     `${origin}/_vercel/insights/view`,
     `${origin}/_vercel/speed-insights/vitals`,
+  ]) assert.equal(isBrowserAnalyticsRequest(new URL(url), origin), true, url);
+});
+
+test("the signed Cloudflare library keeps its bytes while telemetry stays isolated", () => {
+  for (const url of [
+    "https://static.cloudflareinsights.com/beacon.min.js",
+    "https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495",
+    "https://static.cloudflareinsights.com/beacon.min.js/v123abc?cache=1",
+  ]) assert.equal(isBrowserAnalyticsRequest(new URL(url), origin), false, url);
+  for (const url of [
+    "https://static.cloudflareinsights.com/beacon.min.js/collect",
+    "http://static.cloudflareinsights.com/beacon.min.js",
+    "https://static.cloudflareinsights.com:8443/beacon.min.js",
+    "https://cloudflareinsights.com/beacon.min.js",
   ]) assert.equal(isBrowserAnalyticsRequest(new URL(url), origin), true, url);
 });
 
