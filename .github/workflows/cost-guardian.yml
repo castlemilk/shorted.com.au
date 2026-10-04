@@ -148,6 +148,9 @@ jobs:
             wip_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/cuttlefish
             sa_email: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
     steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
@@ -177,11 +180,6 @@ jobs:
           echo "=== Artifact Registry cleanup: $PROJECT ==="
           REGISTRY="australia-southeast2-docker.pkg.dev/${PROJECT}/shorted"
 
-          TOTAL_DELETED=0
-          TOTAL_FAILED=0
-          CONSECUTIVE_FAILURES=0
-          MAX_CONSECUTIVE_FAILURES=5
-
           # Collect image references currently in use by live Cloud Run services
           # and jobs across all regions. Any image (by repo path or digest) in
           # this set is protected from deletion regardless of age — this prevents
@@ -208,74 +206,11 @@ jobs:
             exit 1
           fi
 
-          for pkg in $(gcloud artifacts docker images list "$REGISTRY" --format="value(package)" 2>/dev/null | sort -u); do
-            IMAGE_NAME=$(basename "$pkg")
-            echo ""
-            echo "--- $IMAGE_NAME ---"
-
-            # List all digests sorted by upload time (oldest first), skip the newest KEEP_COUNT
-            DIGESTS=$(gcloud artifacts docker images list "$pkg" \
-              --sort-by="~UPDATE_TIME" \
-              --format="value(version)" 2>/dev/null | tail -n +$((KEEP_COUNT + 1)))
-
-            COUNT=$(echo "$DIGESTS" | grep -c "sha256" || true)
-            echo "  Found $COUNT versions to delete (keeping newest $KEEP_COUNT)"
-
-            if [ "$COUNT" -gt 0 ] && [ "$DRY_RUN" = "false" ]; then
-              # Use process substitution (not `... | while`) so TOTAL_DELETED
-              # increments persist to the parent shell.
-              while read -r digest; do
-                [ -z "$digest" ] && continue
-                # Skip if this digest OR any of its tags is referenced by a
-                # live Cloud Run service/job. Match by both `pkg@digest` and
-                # `pkg:tag` since job specs typically use tags.
-                if grep -qF "${pkg}@${digest}" "$IN_USE_FILE"; then
-                  echo "  PROTECTED ${digest} — referenced by live Cloud Run resource (by digest)"
-                  continue
-                fi
-                # Check if any tag pointing at this digest is in use
-                TAGS_FOR_DIGEST=$(gcloud artifacts docker tags list "$pkg" \
-                  --filter="version=${digest}" \
-                  --format='value(name)' 2>/dev/null)
-                TAG_PROTECTED=false
-                for tag_name in $TAGS_FOR_DIGEST; do
-                  short_tag=$(basename "$tag_name")
-                  if grep -qF "${pkg}:${short_tag}" "$IN_USE_FILE"; then
-                    echo "  PROTECTED ${digest} — tag ${short_tag} referenced by live Cloud Run resource"
-                    TAG_PROTECTED=true
-                    break
-                  fi
-                done
-                [ "$TAG_PROTECTED" = "true" ] && continue
-
-                if DELETE_ERR=$(gcloud artifacts docker images delete "${pkg}@${digest}" \
-                    --quiet --delete-tags 2>&1 >/dev/null); then
-                  TOTAL_DELETED=$((TOTAL_DELETED + 1))
-                  CONSECUTIVE_FAILURES=0
-                else
-                  TOTAL_FAILED=$((TOTAL_FAILED + 1))
-                  CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
-                  echo "  Failed to delete ${digest}: $(echo "$DELETE_ERR" | tail -n 3 | tr '\n' ' ')"
-                  # Every delete failing the same way (missing IAM, an API
-                  # change) used to grind through every image until the job
-                  # timed out at 30 minutes, with the reason discarded. Stop
-                  # and say why instead.
-                  if [ "$CONSECUTIVE_FAILURES" -ge "$MAX_CONSECUTIVE_FAILURES" ]; then
-                    echo "::error::$CONSECUTIVE_FAILURES deletes in a row failed; stopping. Last error: $(echo "$DELETE_ERR" | tail -n 1)"
-                    rm -f "$IN_USE_FILE"
-                    exit 1
-                  fi
-                fi
-              done < <(echo "$DIGESTS")
-            fi
-          done
+          # Rank images at the top level (an index with its platform and
+          # attestation manifests is one image) and delete an old index
+          # together with its children: scripts/prune-artifact-registry.py.
+          python3 scripts/prune-artifact-registry.py "$REGISTRY" "$IN_USE_FILE"
           rm -f "$IN_USE_FILE"
-
-          echo ""
-          echo "=== Cleanup complete: deleted $TOTAL_DELETED image versions, $TOTAL_FAILED failed ==="
-          if [ "$TOTAL_FAILED" -gt 0 ]; then
-            echo "::warning::$TOTAL_FAILED image versions could not be deleted"
-          fi
 
   cleanup-secret-versions:
     runs-on: [self-hosted, cuttlefish, linux]
