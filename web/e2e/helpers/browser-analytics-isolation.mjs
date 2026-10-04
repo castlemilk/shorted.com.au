@@ -9,6 +9,11 @@ const collectorDomains = [
 ];
 
 export function isBrowserAnalyticsRequest(url, appOrigin) {
+  // Cloudflare injects this library with Subresource Integrity. Replacing its
+  // bytes with an empty response produces an integrity error. Let the signed
+  // library load normally; its RUM requests below remain intercepted.
+  if (url.origin === "https://static.cloudflareinsights.com" &&
+    /^\/beacon\.min\.js(?:\/v[a-f0-9]+)?$/.test(url.pathname)) return false;
   if (collectorDomains.some((domain) =>
     url.hostname === domain || url.hostname.endsWith(`.${domain}`))) return true;
   return url.origin === appOrigin && (
