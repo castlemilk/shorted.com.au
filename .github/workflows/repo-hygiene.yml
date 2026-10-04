@@ -64,6 +64,17 @@ jobs:
         with:
           # Partial clone uses the checkout action; avoids the native mirror path.
           filter: blob:none
+          sparse-checkout: |
+            services
+            web
+            scripts
+            terraform
+            deploy
+            docs
+            proto
+            api
+            content
+            .github
 
       - uses: actions/setup-node@v5
         with:
@@ -105,6 +116,9 @@ jobs:
         with:
           # Partial clone uses the checkout action; avoids the native mirror path.
           filter: blob:none
+          sparse-checkout: |
+            services/report-extractor
+            services/pkg/extractiontrust
 
       # The runner image is not a contract (scripts/tests/self-hosted-toolchain
       # .test.mjs): ask for Python explicitly. 3.11 is what the job's image
@@ -135,6 +149,9 @@ jobs:
         with:
           # Partial clone uses the checkout action; avoids the native mirror path.
           filter: blob:none
+          sparse-checkout: |
+            deploy/kubernetes/jobs
+            terraform
 
       - uses: azure/setup-helm@v4
         with:
@@ -177,6 +194,16 @@ jobs:
         with:
           # Partial clone uses the checkout action; avoids the native mirror path.
           filter: blob:none
+          sparse-checkout: |
+            proto
+            api
+            services/cmd/openapi-postprocess
+            services/gen/proto
+            services/pkg
+            sdks/java
+            web
+            scripts
+            docs
 
       - uses: actions/setup-node@v5
         with:
