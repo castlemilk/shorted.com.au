@@ -35,6 +35,21 @@ function lines(script) {
     .filter(Boolean);
 }
 
+test("Terraform jobs install the Cloud SDK before their first gcloud consumer", () => {
+  for (const jobName of ["terraform-plan", "terraform-apply"]) {
+    const steps = workflow.jobs[jobName].steps;
+    const authIndex = steps.findIndex((candidate) => candidate.uses === "google-github-actions/auth@v3");
+    const sdkIndex = steps.findIndex((candidate) => candidate.uses === "google-github-actions/setup-gcloud@v3");
+    const consumerIndex = steps.findIndex((candidate) =>
+      /\bgcloud\b|scripts\/ensure-secret\.sh/.test(candidate.run ?? ""),
+    );
+    assert.ok(authIndex >= 0, `${jobName} must authenticate with the existing action`);
+    assert.ok(sdkIndex > authIndex, `${jobName} must install the SDK after authentication`);
+    assert.ok(consumerIndex > sdkIndex, `${jobName} must install gcloud before using it`);
+    assert.equal(steps[sdkIndex].if, undefined, `${jobName} must install the SDK on every execution`);
+  }
+});
+
 test("infrastructure CI cannot recreate or authenticate to the retired dev environment", () => {
   assert.doesNotMatch(workflowSource, /shorted-dev-aba5688f/);
   assert.doesNotMatch(workflowSource, /github-actions-sa@shorted-dev/);
