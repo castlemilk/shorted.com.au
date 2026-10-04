@@ -62,8 +62,9 @@ test("CI has no PR preview workflow or dangling preview-job dependency", () => {
 test("bundle CI remains blocking without a browser or Lighthouse server", () => {
   const workflow = read(".github/workflows/perf-budget.yml");
   assert.match(workflow, /name: Bundle budget/);
-  assert.match(workflow, /run: npx next build/);
-  assert.match(workflow, /node scripts\/bundle-budget\.mjs --compare \.\.\/docs\/perf\/bundle-baseline\.json/);
+  assert.match(workflow, /set -o pipefail/);
+  assert.match(workflow, /npx next build 2>&1 \| tee perf-results\/build\.log/);
+  assert.match(workflow, /node scripts\/bundle-budget\.mjs --build-log perf-results\/build\.log --compare \.\.\/docs\/perf\/bundle-baseline\.json/);
   assert.doesNotMatch(workflow, /continue-on-error|lighthouse-bench|playwright install|next start|Start production server/);
   assert.match(workflow, /path: web\/perf-results\/bundle-\*\.json/);
   assert.ok(workflow.indexOf("Production build") < workflow.indexOf("Bundle budget vs baseline"));

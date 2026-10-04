@@ -35,6 +35,9 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Partial clone uses the checkout action; avoids the native mirror path.
+          filter: blob:none
 
       - uses: actions/setup-node@v5
         with:
@@ -44,11 +47,14 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Production build
-        run: npx next build
+        run: |
+          set -o pipefail
+          mkdir -p perf-results
+          npx next build 2>&1 | tee perf-results/build.log
 
       # Bundle budget (blocking)
       - name: Bundle budget vs baseline
-        run: node scripts/bundle-budget.mjs --compare ../docs/perf/bundle-baseline.json
+        run: node scripts/bundle-budget.mjs --build-log perf-results/build.log --compare ../docs/perf/bundle-baseline.json
 
       - name: Upload bundle report
         if: always()
