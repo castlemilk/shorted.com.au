@@ -12,21 +12,16 @@ const ACCOUNT_CACHE_PREFIXES = [
 
 /** Firebase owns its persisted credentials; never read or delete its storage keys. */
 export async function clearFirebaseSession(): Promise<void> {
-  const [{ auth }, { signOut: firebaseSignOut }] = await Promise.all([
-    import("./firebase-client"),
-    import("firebase/auth"),
-  ]);
-
-  if (auth) {
-    // Wait for a saved browser session to restore before clearing it, including
-    // when sign-out runs on a page that has not loaded Firebase yet.
-    await auth.authStateReady();
-    await firebaseSignOut(auth);
-  }
+  // A project module with named SDK imports keeps unused Firebase APIs out
+  // of the shared auth chunk while public routes still load Firebase lazily.
+  const { clearPersistedFirebaseSession } = await import("./firebase-session");
+  await clearPersistedFirebaseSession();
 }
 
 /** Keep public market data warm while removing data associated with an account. */
-export async function clearUserSessionCaches(previousAccount?: string): Promise<void> {
+export async function clearUserSessionCaches(
+  previousAccount?: string,
+): Promise<void> {
   if (typeof window === "undefined") return;
 
   // Storage may be disabled by browser privacy settings; query cleanup should
@@ -47,12 +42,18 @@ export async function clearUserSessionCaches(previousAccount?: string): Promise<
   const filters = {
     predicate: (query: { queryKey: readonly unknown[] }) => {
       const [prefix, scope, userId] = query.queryKey;
-      if (!ACCOUNT_CACHE_PREFIXES.some((value) => prefix === value)) return false;
+      if (!ACCOUNT_CACHE_PREFIXES.some((value) => prefix === value))
+        return false;
       // During an account switch, leave the new account's queries running.
       if (previousAccount && prefix === "subscription" && scope) {
         return scope === previousAccount;
       }
-      if (previousAccount && prefix === "dashboard" && scope === "list" && userId) {
+      if (
+        previousAccount &&
+        prefix === "dashboard" &&
+        scope === "list" &&
+        userId
+      ) {
         return userId === previousAccount;
       }
       return true;
@@ -73,7 +74,10 @@ export function signOutFromBrowser(): Promise<void> {
 
   pendingSignOut = (async () => {
     // A storage/SDK cleanup failure must not stop the server session signing out.
-    await Promise.allSettled([clearFirebaseSession(), clearUserSessionCaches()]);
+    await Promise.allSettled([
+      clearFirebaseSession(),
+      clearUserSessionCaches(),
+    ]);
     await signOut({ callbackUrl: "/" });
   })().finally(() => {
     pendingSignOut = undefined;

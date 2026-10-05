@@ -13,7 +13,9 @@ let mockAuth: { authStateReady: typeof mockAuthStateReady } | undefined;
 const mockQueryClient = new QueryClient();
 
 jest.mock("../firebase-client", () => ({
-  get auth() { return mockAuth; },
+  get auth() {
+    return mockAuth;
+  },
 }));
 jest.mock("firebase/auth", () => ({ signOut: jest.fn() }));
 jest.mock("../query-client", () => ({ getQueryClient: () => mockQueryClient }));
@@ -34,9 +36,11 @@ describe("browser authentication cleanup", () => {
 
   it("waits for restored Firebase authentication before clearing SDK persistence", async () => {
     let finishRestoring!: () => void;
-    mockAuthStateReady.mockReturnValue(new Promise<void>((resolve) => {
-      finishRestoring = resolve;
-    }));
+    mockAuthStateReady.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishRestoring = resolve;
+      }),
+    );
 
     const cleanup = clearFirebaseSession();
     await Promise.resolve();
@@ -55,7 +59,9 @@ describe("browser authentication cleanup", () => {
   });
 
   it("clears account data and developer tokens while retaining public caches and preferences", async () => {
-    mockQueryClient.setQueryData(["subscription", "user-a"], { isPremium: true });
+    mockQueryClient.setQueryData(["subscription", "user-a"], {
+      isPremium: true,
+    });
     mockQueryClient.setQueryData(["dashboard", "list", "user-a"], ["private"]);
     mockQueryClient.setQueryData(["stock", "quote", "BHP"], { price: 42 });
     setSessionCached("portfolio:user-a", { holdings: ["BHP"] });
@@ -65,45 +71,75 @@ describe("browser authentication cleanup", () => {
 
     await clearUserSessionCaches();
 
-    expect(mockQueryClient.getQueryData(["subscription", "user-a"])).toBeUndefined();
-    expect(mockQueryClient.getQueryData(["dashboard", "list", "user-a"])).toBeUndefined();
-    expect(mockQueryClient.getQueryData(["stock", "quote", "BHP"])).toEqual({ price: 42 });
+    expect(
+      mockQueryClient.getQueryData(["subscription", "user-a"]),
+    ).toBeUndefined();
+    expect(
+      mockQueryClient.getQueryData(["dashboard", "list", "user-a"]),
+    ).toBeUndefined();
+    expect(mockQueryClient.getQueryData(["stock", "quote", "BHP"])).toEqual({
+      price: 42,
+    });
     expect(getSessionCached("portfolio:user-a")).toBeNull();
     expect(getSessionCached("top-shorts:3m")).toEqual({ stocks: ["BHP"] });
     expect(localStorage.getItem("shorted_api_token")).toBeNull();
-    expect(localStorage.getItem("shorted:remembered-login")).toBe("account-metadata");
+    expect(localStorage.getItem("shorted:remembered-login")).toBe(
+      "account-metadata",
+    );
   });
 
   it("leaves the new account's requests and data intact when switching accounts", async () => {
-    mockQueryClient.setQueryData(["subscription", "user-a"], { isPremium: false });
-    mockQueryClient.setQueryData(["subscription", "user-b"], { isPremium: true });
-    mockQueryClient.setQueryData(["dashboard", "list", "user-b"], ["new dashboard"]);
+    mockQueryClient.setQueryData(["subscription", "user-a"], {
+      isPremium: false,
+    });
+    mockQueryClient.setQueryData(["subscription", "user-b"], {
+      isPremium: true,
+    });
+    mockQueryClient.setQueryData(
+      ["dashboard", "list", "user-b"],
+      ["new dashboard"],
+    );
 
     await clearUserSessionCaches("user-a");
 
-    expect(mockQueryClient.getQueryData(["subscription", "user-a"])).toBeUndefined();
-    expect(mockQueryClient.getQueryData(["subscription", "user-b"])).toEqual({ isPremium: true });
-    expect(mockQueryClient.getQueryData(["dashboard", "list", "user-b"])).toEqual(["new dashboard"]);
+    expect(
+      mockQueryClient.getQueryData(["subscription", "user-a"]),
+    ).toBeUndefined();
+    expect(mockQueryClient.getQueryData(["subscription", "user-b"])).toEqual({
+      isPremium: true,
+    });
+    expect(
+      mockQueryClient.getQueryData(["dashboard", "list", "user-b"]),
+    ).toEqual(["new dashboard"]);
   });
 
   it("cancels an old account's request so a late response cannot repopulate its cache", async () => {
     let finishRequest!: (value: string) => void;
-    const request = mockQueryClient.fetchQuery({
-      queryKey: ["subscription", "user-a"],
-      queryFn: () => new Promise<string>((resolve) => { finishRequest = resolve; }),
-    }).catch(() => undefined);
+    const request = mockQueryClient
+      .fetchQuery({
+        queryKey: ["subscription", "user-a"],
+        queryFn: () =>
+          new Promise<string>((resolve) => {
+            finishRequest = resolve;
+          }),
+      })
+      .catch(() => undefined);
 
     await clearUserSessionCaches();
     finishRequest("old account response");
     await request;
-    expect(mockQueryClient.getQueryData(["subscription", "user-a"])).toBeUndefined();
+    expect(
+      mockQueryClient.getQueryData(["subscription", "user-a"]),
+    ).toBeUndefined();
   });
 
   it("deduplicates sign-out and waits for local cleanup before redirecting", async () => {
     let finishFirebaseSignOut!: () => void;
-    jest.mocked(firebaseSignOut).mockReturnValue(new Promise<void>((resolve) => {
-      finishFirebaseSignOut = resolve;
-    }));
+    jest.mocked(firebaseSignOut).mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishFirebaseSignOut = resolve;
+      }),
+    );
 
     const first = signOutFromBrowser();
     const second = signOutFromBrowser();
@@ -120,13 +156,34 @@ describe("browser authentication cleanup", () => {
   });
 
   it("still signs out the server session if browser persistence cleanup fails", async () => {
-    jest.mocked(firebaseSignOut).mockRejectedValueOnce(new Error("Storage unavailable"));
+    jest
+      .mocked(firebaseSignOut)
+      .mockRejectedValueOnce(new Error("Storage unavailable"));
     await signOutFromBrowser();
     expect(signOut).toHaveBeenCalledWith({ callbackUrl: "/" });
   });
 
+  it("still signs out the server session if Firebase restoration fails", async () => {
+    mockAuthStateReady.mockRejectedValueOnce(
+      new Error("SDK restoration failed"),
+    );
+    await signOutFromBrowser();
+    expect(firebaseSignOut).not.toHaveBeenCalled();
+    expect(signOut).toHaveBeenCalledWith({ callbackUrl: "/" });
+  });
+
+  it("propagates SDK cleanup failures when clearing Firebase directly", async () => {
+    jest
+      .mocked(firebaseSignOut)
+      .mockRejectedValueOnce(new Error("Storage unavailable"));
+    await expect(clearFirebaseSession()).rejects.toThrow("Storage unavailable");
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
   it("allows a retry when server sign-out fails", async () => {
-    jest.mocked(signOut).mockRejectedValueOnce(new Error("Network unavailable"));
+    jest
+      .mocked(signOut)
+      .mockRejectedValueOnce(new Error("Network unavailable"));
     await expect(signOutFromBrowser()).rejects.toThrow("Network unavailable");
     await signOutFromBrowser();
     expect(signOut).toHaveBeenCalledTimes(2);
