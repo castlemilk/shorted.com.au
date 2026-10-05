@@ -37,6 +37,10 @@ export interface TakeFrontmatter {
   /** 'markdown' | 'mdx' */
   bodyFormat?: string;
   ogImageUrl?: string;
+  /** Explicit reviewed hero replacement; omitted fields preserve legacy behavior. */
+  heroImageUrl?: string;
+  heroCaption?: string;
+  heroCredit?: string;
   /** JSON array on one frontmatter line; persisted with its original IDs. */
   citations?: Citation[];
 }
@@ -73,6 +77,17 @@ export function parseTakeMdx(raw: string): ParsedTake {
     if (!frontmatter[required]) throw new Error(`frontmatter.${required} is required`);
   }
   if (!body) throw new Error("body is empty");
+  const heroFields = ["heroImageUrl", "heroCaption", "heroCredit"] as const;
+  if (heroFields.some((field) => frontmatter[field] !== undefined)) {
+    if (heroFields.some((field) => typeof frontmatter[field] !== "string" || !frontmatter[field]?.trim())) {
+      throw new Error("explicit hero metadata requires a nonempty heroImageUrl, heroCaption and heroCredit together");
+    }
+    let heroUrl: URL;
+    try { heroUrl = new URL(frontmatter.heroImageUrl!); } catch {
+      throw new Error("explicit heroImageUrl requires an absolute HTTPS URL");
+    }
+    if (heroUrl.protocol !== "https:") throw new Error("explicit heroImageUrl requires an absolute HTTPS URL");
+  }
 
   // The /news MDX renderer maps standard HTML, citations and the newsroom palette.
   // A component it does not know renders as nothing, silently — so fail here
@@ -148,10 +163,10 @@ export async function validateImportedTake(parsed: ParsedTake): Promise<void> {
 const UPSERT = `
 INSERT INTO editorial_takes
   (slug, headline, standfirst, byline, stock_code, tier, body_format,
-   body_md, og_image_url, hero_image_url, word_count, model, citations, updated_at)
+   body_md, og_image_url, hero_image_url, word_count, model, citations, hero_caption, hero_credit, updated_at)
 -- hero defaults to the cover: /news renders no header image when it is null,
 -- which leaves a deep-dive looking unfinished. regen-images replaces it later.
-VALUES ($1,$2,$3,$4,NULLIF($5,''),$6,$7,$8,NULLIF($9,''),NULLIF($9,''),$10,$11,COALESCE($12::jsonb,'[]'::jsonb),NOW())
+VALUES ($1,$2,$3,$4,NULLIF($5,''),$6,$7,$8,NULLIF($9,''),COALESCE(NULLIF($13,''),NULLIF($9,'')),$10,$11,COALESCE($12::jsonb,'[]'::jsonb),$14,$15,NOW())
 ON CONFLICT (slug) DO UPDATE SET
   headline     = EXCLUDED.headline,
   standfirst   = EXCLUDED.standfirst,
@@ -161,7 +176,9 @@ ON CONFLICT (slug) DO UPDATE SET
   body_format  = EXCLUDED.body_format,
   body_md      = EXCLUDED.body_md,
   og_image_url = EXCLUDED.og_image_url,
-  hero_image_url = COALESCE(editorial_takes.hero_image_url, EXCLUDED.hero_image_url),
+  hero_image_url = CASE WHEN NULLIF($13,'') IS NOT NULL THEN EXCLUDED.hero_image_url ELSE COALESCE(editorial_takes.hero_image_url, EXCLUDED.hero_image_url) END,
+  hero_caption = COALESCE(EXCLUDED.hero_caption, editorial_takes.hero_caption),
+  hero_credit = COALESCE(EXCLUDED.hero_credit, editorial_takes.hero_credit),
   word_count   = EXCLUDED.word_count,
   citations    = CASE WHEN $12::jsonb IS NULL THEN editorial_takes.citations ELSE EXCLUDED.citations END,
   updated_at   = NOW()
@@ -191,6 +208,9 @@ async function upsertParsed(dbUrl: string, parsed: ParsedTake[], draftOnly = fal
         p.wordCount,
         "hand-written",
         fm.citations === undefined ? null : JSON.stringify(fm.citations),
+        fm.heroImageUrl ?? null,
+        fm.heroCaption ?? null,
+        fm.heroCredit ?? null,
       ]);
       const row = res.rows[0];
       if (!row) throw new Error("publish-content cannot overwrite a published article; use a reviewed update flow");
