@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { assertValidSlug, findContentBySlug, importMdx, parseTakeMdx, validateImportedTake } from "./import-mdx";
+const reviewedHero = { url: "https://shorted.com.au/assets/reviewed-hero.png", caption: "Illustration of reviewed equipment in a field setting.", credit: "Original Shorted illustration" };
 
 const pg = vi.hoisted(() => ({ connect: vi.fn(), query: vi.fn(), end: vi.fn() }));
 vi.mock("pg", () => ({ Client: vi.fn(() => pg) }));
@@ -88,6 +89,15 @@ describe("parseTakeMdx", () => {
     const src = VALID.replace('headline: "A headline"', 'headline: "Telix says \\"Fast Track\\""\n  headline: "Nested text"');
     expect(parseTakeMdx(src).frontmatter.headline).toBe('Telix says "Fast Track"');
   });
+
+  it.each([
+    ['heroImageUrl: "https://shorted.com.au/cover.png"', /together/],
+    ['heroCaption: "A caption"', /together/],
+    ['heroImageUrl: "/cover.png"\nheroCaption: "A caption"\nheroCredit: "Shorted"', /absolute HTTPS/],
+    ['heroImageUrl: "http://shorted.com.au/cover.png"\nheroCaption: "A caption"\nheroCredit: "Shorted"', /absolute HTTPS/],
+  ])("rejects incomplete or unsafe explicit hero metadata", (fields, error) => {
+    expect(() => parseTakeMdx(VALID.replace("---\n\nBody", `${fields}\n---\n\nBody`))).toThrow(error);
+  });
 });
 
 const CITATION = { refId: "ref-1", url: "https://www.asic.gov.au/report", source: "ASIC", headline: "Dated position report", date: "2026-09-28", type: "report" };
@@ -147,6 +157,25 @@ describe("grounded newsroom imports", () => {
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+
+  it("imports an explicit reviewed hero, caption and credit without changing body or sources", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "reviewed-cover-import-"));
+    const file = join(dir, "article.mdx");
+    const source = newsroomArticle();
+    const fields = `ogImageUrl: ${JSON.stringify(reviewedHero.url)}\nheroImageUrl: ${JSON.stringify(reviewedHero.url)}\nheroCaption: ${JSON.stringify(reviewedHero.caption)}\nheroCredit: ${JSON.stringify(reviewedHero.credit)}\n`;
+    writeFileSync(file, source.replace("---\n\n", fields + "---\n\n"));
+    vi.stubEnv("DATABASE_URL", "postgresql://offline:offline@127.0.0.1:65535/offline");
+    try {
+      await importMdx({ file });
+      const [sql, params] = pg.query.mock.calls[0]!;
+      expect(params[7]).toBe(parseTakeMdx(source).body);
+      expect(params[8]).toBe(reviewedHero.url);
+      expect(JSON.parse(params[11])).toEqual([CITATION]);
+      expect(params.slice(12)).toEqual([reviewedHero.url, reviewedHero.caption, reviewedHero.credit]);
+      expect(sql).toContain("CASE WHEN NULLIF($13,'') IS NOT NULL THEN EXCLUDED.hero_image_url ELSE COALESCE(editorial_takes.hero_image_url, EXCLUDED.hero_image_url) END");
+      expect(sql).not.toMatch(/SET\s+published_at/i);
+    } finally { vi.unstubAllEnvs(); }
   });
 
   it("validates dry runs and rejects unresolved sources before connecting", async () => {
