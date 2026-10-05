@@ -117,8 +117,8 @@ kubectl -n shorted-jobs get application shorted-jobs -w      # wait for Healthy
 telesis login
 CONFIRM=prod deploy/kubernetes/jobs/scripts/register-monitors.py
 
-# 5. Keep chart image tags in step with each main deploy
-gh variable set VKE_JOBS_IMAGE_BUMP --body true --repo castlemilk/shorted.com.au
+# 5. Chart image tags follow each main deploy: terraform-deploy's
+#    bump-vke-jobs-image job promotes deploy/vke-jobs after every apply.
 ```
 
 Check WIF before cutting over a GCS-writing job (`financial-report-extractor`,
@@ -224,6 +224,6 @@ kubectl -n shorted-jobs logs deploy/cronjob-reporter           # what was report
   therefore stale by design. Never push to that branch by hand except to
   recover; a hand push that runs ahead of Terraform re-creates the double-run
   window this design closes.
-- **Image tags are immutable `main-<sha8>`.** Until `VKE_JOBS_IMAGE_BUMP=true`,
-  the pinned tag is whatever the chart was committed with. Enable the bump
-  before the first cutover.
+- **Image tags are immutable `main-<sha8>`.** `bump-vke-jobs-image` moves them
+  after every successful apply on main. If `deploy/vke-jobs` falls behind the
+  last deployed commit, that job did not run: check it before anything else.
