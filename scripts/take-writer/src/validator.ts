@@ -14,6 +14,7 @@
 //     is ISR-cached up to 10 min, so only the image content changed).
 //  4. Report the cohesion score, layout notes, and what was regenerated.
 
+import { createHash } from "node:crypto";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import OpenAI from "openai";
 import { Storage } from "@google-cloud/storage";
@@ -140,22 +141,34 @@ const PUBLICATION_VERDICT = z.object({
 });
 
 function requirePublicationVerdict(value: unknown, imageCount: number): CohesionVerdict {
-  const verdict = PUBLICATION_VERDICT.parse(value);
+  const parsed = PUBLICATION_VERDICT.safeParse(value);
+  if (!parsed.success) {
+    // Schema paths contain only our known field names and array indices.
+    // Never log model text, captions, briefs, image bytes or SDK error payloads.
+    const fields = [...new Set(parsed.error.issues.map((issue) => issue.path.join(".")))].slice(0, 20);
+    const codes = [...new Set(parsed.error.issues.map((issue) => issue.code))];
+    console.error(`[validate] publication rejection=${JSON.stringify({ reason: "invalid_schema", fields, codes })}`);
+    throw new Error("publication vision verdict does not match the required schema");
+  }
+  const verdict = parsed.data;
   const indices = new Set(verdict.images.map((v) => v.index));
   if (verdict.images.length !== imageCount || indices.size !== imageCount || verdict.images.some((v) => v.index >= imageCount)) {
+    console.error(`[validate] publication rejection=${JSON.stringify({ reason: "incomplete_image_coverage", expected: imageCount, actual: verdict.images.length, unique: indices.size })}`);
     throw new Error("publication verdict does not cover every layout image exactly once");
   }
-  // Name every failed check: the job log is the only record of why an article
-  // stayed a draft, and a bare "found issues" sends the operator to re-run it.
-  const failures: string[] = [];
-  if (verdict.cohesionScore < PUBLICATION_VISION_LIMITS.minCohesionScore) {
-    failures.push(`cohesion ${verdict.cohesionScore}/10 below ${PUBLICATION_VISION_LIMITS.minCohesionScore}`);
-  }
-  for (const [label, v] of [["hero", verdict.hero], ...verdict.images.map((v) => [`img ${v.index}`, v] as const)] as const) {
-    const failed = [!v.fits && "fit", !v.captionAccurate && "caption", !v.qualityOk && "quality", v.regenerate && "regenerate"].filter(Boolean);
-    if (failed.length || v.issue.trim()) failures.push(`${label}: ${failed.join(",") || "issue"}${v.issue.trim() ? ` (${v.issue.trim()})` : ""}`);
-  }
-  if (failures.length) {
+  if (verdict.cohesionScore < PUBLICATION_VISION_LIMITS.minCohesionScore || [verdict.hero, ...verdict.images].some((v) => !v.fits || !v.captionAccurate || !v.qualityOk || v.regenerate || v.issue.trim())) {
+    const flags = (v: HeroVerdict) => ({ fits: v.fits, captionAccurate: v.captionAccurate, qualityOk: v.qualityOk, regenerate: v.regenerate, issuePresent: Boolean(v.issue.trim()) });
+    console.error(`[validate] publication rejection=${JSON.stringify({ reason: "image_review_failed", cohesionScore: verdict.cohesionScore, minimum: PUBLICATION_VISION_LIMITS.minCohesionScore, hero: flags(verdict.hero), images: verdict.images.map((v) => ({ index: v.index, ...flags(v) })) })}`);
+    // Keep #685's readable failure names for its cause-chain logger, while
+    // retaining only controlled checks rather than model-authored issue text.
+    const failures: string[] = [];
+    if (verdict.cohesionScore < PUBLICATION_VISION_LIMITS.minCohesionScore) {
+      failures.push(`cohesion ${verdict.cohesionScore}/10 below ${PUBLICATION_VISION_LIMITS.minCohesionScore}`);
+    }
+    for (const [label, v] of [["hero", verdict.hero], ...verdict.images.map((v) => [`img ${v.index}`, v] as const)] as const) {
+      const failed = [!v.fits && "fit", !v.captionAccurate && "caption", !v.qualityOk && "quality", v.regenerate && "regenerate"].filter(Boolean);
+      if (failed.length || v.issue.trim()) failures.push(`${label}: ${failed.join(",") || "issue"}`);
+    }
     throw new Error(`vision review found image issues; article stays draft for review: ${failures.join("; ")}`);
   }
   return verdict;
@@ -216,7 +229,7 @@ async function judge(
     model: requirePass ? PUBLICATION_VISION_LIMITS.model : JUDGE_MODEL(),
     generationConfig: {
       responseMimeType: "application/json",
-      responseSchema: VERDICT_SCHEMA,
+      responseSchema: requirePass ? { ...VERDICT_SCHEMA, required: [...VERDICT_SCHEMA.required, "hero"] } : VERDICT_SCHEMA,
       temperature: 0.3,
       ...(requirePass ? { candidateCount: PUBLICATION_VISION_LIMITS.candidateCount, maxOutputTokens: PUBLICATION_VISION_LIMITS.maxOutputTokens } : {}),
       ...({ thinkingConfig: { thinkingBudget: 0 } } as unknown as Record<string, unknown>),
@@ -272,7 +285,27 @@ async function judge(
     if (usage.promptTokenCount > PUBLICATION_VISION_LIMITS.maxInputTokens || outputAndThinking < usage.candidatesTokenCount || outputAndThinking > PUBLICATION_VISION_LIMITS.maxOutputTokens) {
       throw new Error("publication vision reported usage outside its token limits");
     }
-    return requirePublicationVerdict(JSON.parse(resp.response.text()), layoutImages.length);
+    let responseText: string;
+    try {
+      responseText = resp.response.text();
+    } catch {
+      console.error('[validate] publication rejection={"reason":"response_text_unavailable"}');
+      throw new Error("publication vision response text is unavailable");
+    }
+    // Retain correlation metadata, never the response payload or SDK error.
+    console.error(`[validate] publication response=${JSON.stringify({
+      candidateCount: candidates.length, finishReason: candidates[0]!.finishReason,
+      textBytes: Buffer.byteLength(responseText),
+      textSha256: createHash("sha256").update(responseText).digest("hex"),
+    })}`);
+    let verdict: unknown;
+    try {
+      verdict = JSON.parse(responseText);
+    } catch {
+      console.error('[validate] publication rejection={"reason":"invalid_json"}');
+      throw new Error("publication vision returned invalid JSON");
+    }
+    return requirePublicationVerdict(verdict, layoutImages.length);
   }
   return JSON.parse(resp.response.text()) as CohesionVerdict;
 }
@@ -319,13 +352,19 @@ export async function validateArticle(slug: string, opts: { rounds?: number; req
     for (let round = 1; round <= maxRounds; round++) {
       console.error(`[validate] round ${round}: judging (model ${requirePass ? PUBLICATION_VISION_LIMITS.model : JUDGE_MODEL()})…`);
       const v = await judge(ai, headline, bodyMd, layout, shot, imageBufs, heroBuf ? { buf: heroBuf, caption: heroCaption } : null, requirePass);
-      console.log(`\n=== cohesion ${v.cohesionScore}/10 — ${v.verdict} ===`);
-      console.log(`layout: ${v.layoutNotes}`);
-      if (heroBuf && v.hero) {
-        console.log(`  [hero ] fit=${v.hero.fits} caption=${v.hero.captionAccurate} quality=${v.hero.qualityOk} regen=${v.hero.regenerate} — ${v.hero.issue || "ok"}`);
-      }
-      for (const iv of v.images) {
-        console.log(`  [img ${iv.index}] fit=${iv.fits} caption=${iv.captionAccurate} quality=${iv.qualityOk} regen=${iv.regenerate} — ${iv.issue || "ok"}`);
+      if (requirePass) {
+        console.log(`[validate] publication verdict accepted=${JSON.stringify({
+          cohesionScore: v.cohesionScore, heroApproved: true, layoutImageCount: v.images.length,
+        })}`);
+      } else {
+        console.log(`\n=== cohesion ${v.cohesionScore}/10 — ${v.verdict} ===`);
+        console.log(`layout: ${v.layoutNotes}`);
+        if (heroBuf && v.hero) {
+          console.log(`  [hero ] fit=${v.hero.fits} caption=${v.hero.captionAccurate} quality=${v.hero.qualityOk} regen=${v.hero.regenerate} — ${v.hero.issue || "ok"}`);
+        }
+        for (const iv of v.images) {
+          console.log(`  [img ${iv.index}] fit=${iv.fits} caption=${iv.captionAccurate} quality=${iv.qualityOk} regen=${iv.regenerate} — ${iv.issue || "ok"}`);
+        }
       }
       const toFix = v.images.filter((iv) => iv.regenerate && iv.index >= 0 && iv.index < layout.length);
       const fixHero = Boolean(heroBuf && v.hero?.regenerate);

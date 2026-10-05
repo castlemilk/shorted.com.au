@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { importMdx, publishContent } from "./import-mdx.js";
+const reviewedHero = { url: "https://shorted.com.au/assets/reviewed-hero.png", caption: "Illustration of reviewed equipment in a field setting.", credit: "Original Shorted illustration" };
 
 const mocks = vi.hoisted(() => ({ pg: { connect: vi.fn(), query: vi.fn(), end: vi.fn() }, publish: vi.fn() }));
 vi.mock("pg", () => ({ Client: vi.fn(() => mocks.pg) }));
@@ -38,5 +39,14 @@ describe("content publication entrypoint", () => {
     await expect(publishContent({ slug: "reviewed-slug", dir, noImages: true })).rejects.toThrow(/cannot overwrite a published article/);
     expect(mocks.publish).not.toHaveBeenCalled();
     expect(mocks.pg.end).toHaveBeenCalledOnce();
+  });
+  it("keeps explicit cover replacement draft-only and stops when the row is already published", async () => {
+    writeFileSync(join(dir, "article.mdx"), `---\nslug: "reviewed-slug"\nheadline: "Reviewed headline"\nogImageUrl: ${JSON.stringify(reviewedHero.url)}\nheroImageUrl: ${JSON.stringify(reviewedHero.url)}\nheroCaption: ${JSON.stringify(reviewedHero.caption)}\nheroCredit: ${JSON.stringify(reviewedHero.credit)}\n---\n\nReviewed body.\n`);
+    mocks.pg.query.mockResolvedValue({ rows: [] });
+    await expect(publishContent({ slug: "reviewed-slug", dir, noImages: true })).rejects.toThrow(/cannot overwrite a published article/);
+    const [sql, params] = mocks.pg.query.mock.calls[0]!;
+    expect(sql).toMatch(/WHERE editorial_takes\.published_at IS NULL\s+RETURNING slug/);
+    expect(params.slice(12)).toEqual([reviewedHero.url, reviewedHero.caption, reviewedHero.credit]);
+    expect(mocks.publish).not.toHaveBeenCalled();
   });
 });

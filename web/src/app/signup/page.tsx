@@ -3,18 +3,20 @@
 import { useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { getSession, signIn } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useAuthPreconnect } from "@/hooks/use-auth-preconnect";
+import { useAuthCallback } from "@/hooks/use-auth-callback";
 import {
   createUserWithEmailAndPassword,
   updateProfile,
-  signInWithPopup,
-  GoogleAuthProvider,
   getAdditionalUserInfo,
 } from "firebase/auth";
 import { trackSignupComplete, type SignupMethod } from "@/lib/signup-analytics";
 import { auth as firebaseAuth } from "@/lib/firebase-client";
+import { signInWithGoogle } from "@/lib/firebase-sign-in";
+import { authPageHref } from "@/lib/auth-redirect";
+import { rememberLogin } from "@/lib/remembered-login";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -52,7 +54,7 @@ function getFirebaseErrorMessage(code: string): string {
 function SignUpForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  const { callbackUrl } = useAuthCallback(searchParams.get("callbackUrl"));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -62,11 +64,11 @@ function SignUpForm() {
   const [error, setError] = useState<string | null>(null);
   useAuthPreconnect();
 
-  // Client navigation instead of a full-document reload — see signin/page.tsx.
-  const completeSignIn = async (method: SignupMethod, isNewUser: boolean) => {
-    const session = await getSession();
-    if (session && isNewUser) trackSignupComplete(method);
-    router.push(callbackUrl);
+  // signIn({ redirect: false }) already confirms the session and refreshes
+  // SessionProvider. Count only new accounts after that sign-in succeeds.
+  const completeSignIn = (method: SignupMethod, isNewUser: boolean) => {
+    if (isNewUser) trackSignupComplete(method);
+    router.replace(callbackUrl);
     router.refresh();
   };
 
@@ -79,8 +81,7 @@ function SignUpForm() {
     setError(null);
 
     try {
-      const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(firebaseAuth, provider);
+      const userCredential = await signInWithGoogle();
       const idToken = await userCredential.user.getIdToken();
 
       const result = await signIn("credentials", {
@@ -90,11 +91,21 @@ function SignUpForm() {
         redirect: false,
       });
 
-      if (result?.error) {
+      if (result?.ok && !result.error) {
+        if (userCredential.user.email) {
+          rememberLogin({
+            email: userCredential.user.email,
+            name: userCredential.user.displayName,
+            image: userCredential.user.photoURL,
+            method: "google",
+          });
+        }
+        completeSignIn(
+          "google",
+          getAdditionalUserInfo(userCredential)?.isNewUser === true,
+        );
+      } else {
         setError("Authentication failed. Please try again.");
-        setIsGoogleLoading(false);
-      } else if (result?.ok) {
-        await completeSignIn("google", getAdditionalUserInfo(userCredential)?.isNewUser === true);
       }
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
@@ -107,35 +118,48 @@ function SignUpForm() {
       } else {
         setError("Failed to sign up with Google. Please try again.");
       }
+    } finally {
       setIsGoogleLoading(false);
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Chrome and password managers can fill inputs without firing onChange.
+    const fields = new FormData(e.currentTarget);
+    const submittedName = String(fields.get("name") ?? "").trim();
+    const submittedEmail = String(fields.get("email") ?? "").trim();
+    const submittedPassword = String(fields.get("password") ?? "");
+    const submittedConfirmation = String(fields.get("confirmPassword") ?? "");
+    setName(submittedName);
+    setEmail(submittedEmail);
+    setPassword(submittedPassword);
+    setConfirmPassword(submittedConfirmation);
     setIsLoading(true);
     setError(null);
 
-    if (!email || !password) {
+    if (!submittedEmail || !submittedPassword) {
       setError("Please fill in all required fields");
       setIsLoading(false);
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (submittedPassword !== submittedConfirmation) {
       setError("Passwords do not match");
       setIsLoading(false);
       return;
     }
 
-    if (password.length < 6) {
+    if (submittedPassword.length < 6) {
       setError("Password must be at least 6 characters");
       setIsLoading(false);
       return;
     }
 
     if (!firebaseAuth) {
-      setError("Authentication service is not available. Please try again later.");
+      setError(
+        "Authentication service is not available. Please try again later.",
+      );
       setIsLoading(false);
       return;
     }
@@ -143,28 +167,35 @@ function SignUpForm() {
     try {
       const userCredential = await createUserWithEmailAndPassword(
         firebaseAuth,
-        email,
-        password,
+        submittedEmail,
+        submittedPassword,
       );
 
-      if (name) {
-        await updateProfile(userCredential.user, { displayName: name });
+      if (submittedName) {
+        await updateProfile(userCredential.user, {
+          displayName: submittedName,
+        });
       }
 
       const idToken = await userCredential.user.getIdToken();
 
       const result = await signIn("credentials", {
         idToken,
-        email,
+        email: userCredential.user.email ?? submittedEmail,
         callbackUrl,
         redirect: false,
       });
 
-      if (result?.error) {
+      if (result?.ok && !result.error) {
+        rememberLogin({
+          email: userCredential.user.email ?? submittedEmail,
+          name: userCredential.user.displayName,
+          image: userCredential.user.photoURL,
+          method: "password",
+        });
+        completeSignIn("email", true);
+      } else {
         setError("Account created but sign-in failed. Please try signing in.");
-        setIsLoading(false);
-      } else if (result?.ok) {
-        await completeSignIn("email", true);
       }
     } catch (err: unknown) {
       const firebaseError = err as { code?: string };
@@ -173,6 +204,7 @@ function SignUpForm() {
       } else {
         setError("Failed to create account. Please try again.");
       }
+    } finally {
       setIsLoading(false);
     }
   };
@@ -243,7 +275,9 @@ function SignUpForm() {
               </label>
               <Input
                 id="name"
+                name="name"
                 type="text"
+                autoComplete="name"
                 placeholder="Your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -261,7 +295,12 @@ function SignUpForm() {
               </label>
               <Input
                 id="email"
+                name="email"
                 type="email"
+                autoComplete="username"
+                inputMode="email"
+                autoCapitalize="none"
+                spellCheck={false}
                 placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -280,7 +319,10 @@ function SignUpForm() {
               </label>
               <Input
                 id="password"
+                name="password"
                 type="password"
+                autoComplete="new-password"
+                minLength={6}
                 placeholder="At least 6 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -299,7 +341,10 @@ function SignUpForm() {
               </label>
               <Input
                 id="confirmPassword"
+                name="confirmPassword"
                 type="password"
+                autoComplete="new-password"
+                minLength={6}
                 placeholder="Repeat your password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -310,7 +355,10 @@ function SignUpForm() {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
+              <div
+                role="alert"
+                className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md"
+              >
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 <span>{error}</span>
               </div>
@@ -319,7 +367,7 @@ function SignUpForm() {
             <Button
               type="submit"
               className="w-full h-11 text-base font-medium"
-              disabled={isLoading}
+              disabled={isLoading || isGoogleLoading}
             >
               {isLoading ? (
                 <>
@@ -336,7 +384,7 @@ function SignUpForm() {
           <div className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link
-              href="/signin"
+              href={authPageHref("/signin", callbackUrl)}
               className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
             >
               Sign in

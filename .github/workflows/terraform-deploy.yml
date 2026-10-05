@@ -1146,14 +1146,18 @@ jobs:
   # Terraform has not applied. A run that finishes after a newer one never
   # moves the branch backwards.
   #
-  # Dormant until the repo variable VKE_JOBS_IMAGE_BUMP is 'true'.
+  # No repo-variable gate. This job used to also require the repo variable
+  # VKE_JOBS_IMAGE_BUMP to be 'true'. Since CI moved to Cuttlefish (#673) it
+  # was never scheduled, though the variable was 'true', so the cluster stayed
+  # on the 2026-09-30 images while main deployed on. The cutover made the
+  # promotion permanent, so the gate went rather than the workflow depending on
+  # which expression contexts the runner resolves.
   bump-vke-jobs-image:
     needs: [determine-environment, terraform-apply]
     if: >-
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
-      needs.terraform-apply.result == 'success' &&
-      vars.VKE_JOBS_IMAGE_BUMP == 'true'
+      needs.terraform-apply.result == 'success'
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 10
     permissions:

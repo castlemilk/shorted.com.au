@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PUBLICATION_VISION_LIMITS, validateArticle } from "./validator.js";
 
@@ -68,6 +69,7 @@ describe("required publication vision review", () => {
     expect(counted.generationConfig).toEqual(generated.generationConfig);
     expect(counted.contents).toEqual(generated.contents);
     expect(generated.generationConfig).toMatchObject({ candidateCount: 1, maxOutputTokens: 8192, responseSchema: expect.any(Object) });
+    expect(generated.generationConfig.responseSchema.required).toContain("hero");
   });
 
   it("pins the model and limits, counts the complete request, and judges the preserved hero once", async () => {
@@ -127,6 +129,69 @@ describe("required publication vision review", () => {
     expect(mocks.generateContent).toHaveBeenCalledOnce();
   });
 
+  it("reports failed image flags without logging model-authored text", async () => {
+    const privateText = "DO-NOT-LOG-MODEL-CONTENT";
+    mocks.generateContent.mockResolvedValue(reply({ ...goodVerdict(), verdict: privateText, layoutNotes: privateText, hero: { ...goodImage, fits: false, issue: privateText, newBrief: privateText, newCaption: privateText } }));
+    await expect(validate()).rejects.toThrow(/article stays draft/);
+    const logged = vi.mocked(console.error).mock.calls.flat().join("\n");
+    expect(logged).toContain('"reason":"image_review_failed"');
+    expect(logged).toContain('"fits":false');
+    expect(logged).not.toContain(privateText);
+    expect(mocks.generateContent).toHaveBeenCalledOnce();
+    expect(mocks.generateHero).not.toHaveBeenCalled();
+  });
+
+  it("reports missing schema fields while keeping invalid model values out of logs", async () => {
+    const privateText = "DO-NOT-LOG-INVALID-MODEL-VALUE";
+    mocks.generateContent.mockResolvedValue(reply({ ...goodVerdict(), hero: { ...goodImage, fits: privateText } }));
+    await expect(validate()).rejects.toThrow(/required schema/);
+    const logged = vi.mocked(console.error).mock.calls.flat().join("\n");
+    expect(logged).toContain('"reason":"invalid_schema"');
+    expect(logged).toContain('"hero.fits"');
+    expect(logged).not.toContain(privateText);
+    expect(mocks.generateContent).toHaveBeenCalledOnce();
+  });
+
+  it("reports malformed JSON without echoing the response", async () => {
+    const privateText = "DO-NOT-LOG-MALFORMED-RESPONSE{";
+    const r = reply(); r.response.text = () => privateText;
+    mocks.generateContent.mockResolvedValue(r);
+    await expect(validate()).rejects.toThrow(/invalid JSON/);
+    const logged = vi.mocked(console.error).mock.calls.flat().join("\n");
+    expect(logged).toContain('"reason":"invalid_json"');
+    expect(logged).not.toContain("DO-NOT-LOG-MALFORMED-RESPONSE");
+    const metadata = vi.mocked(console.error).mock.calls.flat().find((line) => String(line).startsWith("[validate] publication response="));
+    expect(JSON.parse(String(metadata).split("response=")[1]!)).toEqual({
+      candidateCount: 1, finishReason: "STOP", textBytes: Buffer.byteLength(privateText),
+      textSha256: createHash("sha256").update(privateText).digest("hex"),
+    });
+    expect(mocks.generateContent).toHaveBeenCalledOnce();
+  });
+
+  it("distinguishes an unavailable SDK text response without logging its error payload", async () => {
+    const privateText = "DO-NOT-LOG-SDK-ERROR-PAYLOAD";
+    const r = reply(); r.response.text = () => { throw new Error(privateText); };
+    mocks.generateContent.mockResolvedValue(r);
+    await expect(validate()).rejects.toThrow(/response text is unavailable/);
+    const logged = vi.mocked(console.error).mock.calls.flat().join("\n");
+    expect(logged).toContain('"reason":"response_text_unavailable"');
+    expect(logged).not.toContain('"reason":"invalid_json"');
+    expect(logged).not.toContain(privateText);
+    expect(mocks.generateContent).toHaveBeenCalledOnce();
+    expect(mocks.generateHero).not.toHaveBeenCalled();
+  });
+
+  it("keeps accepted publication verdict text out of diagnostic logs", async () => {
+    const privateText = "DO-NOT-LOG-ACCEPTED-MODEL-CONTENT";
+    mocks.generateContent.mockResolvedValue(reply({ ...goodVerdict(), verdict: privateText, layoutNotes: privateText, hero: { ...goodImage, newBrief: privateText, newCaption: privateText } }));
+    await validate();
+    const logged = [...vi.mocked(console.error).mock.calls, ...vi.mocked(console.log).mock.calls].flat().join("\n");
+    expect(logged).toContain('publication verdict accepted={"cohesionScore":8,"heroApproved":true,"layoutImageCount":0}');
+    expect(logged).not.toContain(privateText);
+    expect(mocks.generateContent).toHaveBeenCalledOnce();
+    expect(mocks.generateHero).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["missing usage", undefined],
     ["thinking beyond cap", { promptTokenCount: 3000, candidatesTokenCount: 500, totalTokenCount: 12000 }],
@@ -155,14 +220,19 @@ describe("required publication vision review", () => {
     expect(mocks.generateLayout).not.toHaveBeenCalled();
   });
 
-  it("names every failed check in the rejection, so the job log says why", async () => {
+  it("retains #685's readable failed checks without model-authored issue text", async () => {
+    const issue = "MODEL_ISSUE_CANARY_FOR_CAUSE_LOG";
     mocks.generateContent.mockResolvedValue(reply({
-      ...goodVerdict(),
-      cohesionScore: 5,
-      hero: { ...goodImage, captionAccurate: false, issue: "No caption to judge" },
+      ...goodVerdict(), cohesionScore: 5,
+      hero: { ...goodImage, captionAccurate: false, issue },
     }));
-    await expect(validate()).rejects.toThrow("cohesion 5/10 below 7");
-    await expect(validate()).rejects.toThrow("hero: caption (No caption to judge)");
+    let rejection: unknown;
+    try { await validate(); } catch (error) { rejection = error; }
+    expect(rejection).toBeInstanceOf(Error);
+    expect((rejection as Error).message).toContain("cohesion 5/10 below 7");
+    expect((rejection as Error).message).toContain("hero: caption");
+    expect((rejection as Error).message).not.toContain(issue);
+    expect(mocks.generateContent).toHaveBeenCalledOnce();
   });
 
   it.each([

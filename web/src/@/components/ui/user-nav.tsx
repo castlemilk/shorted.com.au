@@ -3,7 +3,8 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "~/@/registry/new-york/ui/avatar";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { signOutFromBrowser } from "~/@/lib/auth-session";
 import { Button } from "~/@/registry/new-york/ui/button";
 import {
   DropdownMenu,
@@ -56,7 +57,7 @@ export function UserNav() {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {status === "authenticated" ? (
-          <DropdownMenuItem onClick={() => signOut()}>
+          <DropdownMenuItem onClick={() => void signOutFromBrowser()}>
             Logout
             <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
           </DropdownMenuItem>

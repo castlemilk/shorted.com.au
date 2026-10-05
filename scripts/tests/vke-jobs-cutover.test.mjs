@@ -140,6 +140,10 @@ test("Paprika tracks the branch CI promotes after terraform-apply, never main", 
   assert.match(job, /refs\/heads\/\$\{branch\}/);
   assert.match(job, /merge-base --is-ancestor/, "must refuse to move the branch backwards");
   assert.doesNotMatch(job, /push origin HEAD:main/, "promotion must not write to main");
+  // On Cuttlefish a vars.* condition left this job unscheduled from #673 on,
+  // silently: the cluster ran 2026-09-30 images while main deployed for days.
+  const condition = job.slice(job.indexOf("if:"), job.indexOf("runs-on:"));
+  assert.doesNotMatch(condition, /\bvars\./, "a repo-variable gate kept this job from ever running on Cuttlefish");
 });
 
 
