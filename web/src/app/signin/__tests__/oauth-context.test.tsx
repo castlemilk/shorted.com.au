@@ -21,6 +21,12 @@ jest.mock("next/navigation", () => ({
 jest.mock("next-auth/react", () => ({
   signIn: jest.fn(),
   getSession: jest.fn(),
+  useSession: () => ({ data: null, status: "unauthenticated" }),
+}));
+
+jest.mock("@/lib/firebase-sign-in", () => ({
+  restoreFirebaseUser: () => Promise.resolve(null),
+  signInWithGoogle: jest.fn(),
 }));
 
 jest.mock("@/lib/firebase-client", () => ({ auth: {} }));
@@ -113,6 +119,6 @@ describe("the sign-in page in an OAuth flow", () => {
       screen.getByRole("button", { name: /continue with google/i }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
   });
 });
