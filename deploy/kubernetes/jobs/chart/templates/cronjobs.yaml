@@ -1,0 +1,176 @@
+{{- $root := . -}}
+{{- $d := .Values.defaults -}}
+{{- range $name, $job := .Values.jobs }}
+{{- if gt (len $name) 52 }}{{ fail (printf "CronJob name %q exceeds 52 characters" $name) }}{{ end }}
+{{- $merged := include "shorted-jobs.mergedEnv" (dict "root" $root "job" $job "name" $name) | fromYaml -}}
+{{- $timeout := int ($job.timeoutSeconds | default $d.timeoutSeconds) -}}
+{{- $retries := int (ternary $job.maxRetries $d.maxRetries (hasKey $job "maxRetries")) -}}
+{{- $res := mergeOverwrite (deepCopy $d.resources) ($job.resources | default dict) -}}
+{{- $live := and (not $root.Values.suspendAll) (has $name $root.Values.enabled) -}}
+{{- $wif := $job.gcpServiceAccount | default "" }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "shorted-jobs.labels" $root | nindent 4 }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/component: cronjob
+  annotations:
+    shorted.com.au/suspend-reason: {{ ternary "live" (ternary "suspendAll=true" "not in values.enabled" $root.Values.suspendAll) $live | quote }}
+spec:
+  schedule: {{ $job.schedule | required (printf "jobs.%s.schedule is required" $name) | quote }}
+  timeZone: {{ $d.timeZone }}
+  suspend: {{ not $live }}
+  concurrencyPolicy: {{ $d.concurrencyPolicy }}
+  startingDeadlineSeconds: {{ $d.startingDeadlineSeconds }}
+  successfulJobsHistoryLimit: {{ $d.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ $d.failedJobsHistoryLimit }}
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $name }}
+        app.kubernetes.io/part-of: shorted
+        shorted.com.au/cronjob: {{ $name }}
+        shorted.com.au/cron-monitor: {{ ternary "true" "false" $root.Values.monitoring.enabled | quote }}
+    spec:
+      # One Indexed task with a per-index retry budget — the shape of a Cloud
+      # Run job with task_count = 1. Indexed + backoffLimitPerIndex is what
+      # makes the Job controller stamp each pod with its failure count, which
+      # is surfaced below as CLOUD_RUN_TASK_ATTEMPT (picks and price-sync cut a
+      # retry's budget on it). Cloud Run max_retries == backoffLimitPerIndex.
+      completionMode: Indexed
+      completions: 1
+      parallelism: 1
+      backoffLimitPerIndex: {{ $retries }}
+      # Whole-run ceiling across every attempt (the per-attempt limit is the pod
+      # activeDeadlineSeconds below), so a crash-looping run cannot outlive
+      # timeout × attempts.
+      activeDeadlineSeconds: {{ add (mul $timeout (add $retries 1)) 300 }}
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ $name }}
+            app.kubernetes.io/part-of: shorted
+            shorted.com.au/cronjob: {{ $name }}
+        spec:
+          restartPolicy: Never
+          # Per-attempt limit == Cloud Run task timeout. A pod killed here is
+          # reported as DeadlineExceeded and counts toward backoffLimit.
+          activeDeadlineSeconds: {{ $timeout }}
+          {{- if $wif }}
+          serviceAccountName: {{ include "shorted-jobs.wifName" $wif }}
+          {{- else }}
+          serviceAccountName: shorted-jobs
+          {{- end }}
+          automountServiceAccountToken: false
+          enableServiceLinks: false
+          {{- with $root.Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: job
+              image: {{ include "shorted-jobs.image" (dict "root" $root "key" $job.image) }}
+              imagePullPolicy: {{ $root.Values.imagePullPolicy }}
+              {{- with $job.command }}
+              command:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with $job.args }}
+              args:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              env:
+                # Cloud Run parity. The Job name is unique per scheduled run and
+                # shared by that run's retries — exactly the property
+                # short-data-sync's resume key (CLOUD_RUN_EXECUTION) relies on.
+                - name: CLOUD_RUN_EXECUTION
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.labels['batch.kubernetes.io/job-name']
+                - name: CLOUD_RUN_JOB
+                  value: {{ $name | quote }}
+                # 0 on the first attempt, n on the nth retry.
+                - name: CLOUD_RUN_TASK_ATTEMPT
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['batch.kubernetes.io/job-index-failure-count']
+                - name: CLOUD_RUN_TASK_INDEX
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                - name: CLOUD_RUN_TASK_COUNT
+                  value: "1"
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                {{- range $k, $v := $merged.env }}
+                - name: {{ $k }}
+                  value: {{ $v | toString | quote }}
+                {{- end }}
+                {{- range $k, $key := $merged.secretEnv }}
+                - name: {{ $k }}
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $root.Values.secretEnv.secretName }}
+                      key: {{ $key }}
+                {{- end }}
+                {{- if $wif }}
+                - name: GOOGLE_APPLICATION_CREDENTIALS
+                  value: {{ printf "%s/%s" $root.Values.workloadIdentity.credentialConfigMountPath $root.Values.workloadIdentity.credentialConfigFile }}
+                - name: GOOGLE_CLOUD_PROJECT
+                  value: rosy-clover-477102-t5
+                {{- end }}
+              resources:
+                requests:
+                  cpu: {{ $res.cpuRequest | quote }}
+                  memory: {{ ($res.memoryRequest | default $res.memory) | quote }}
+                limits:
+                  memory: {{ $res.memory | quote }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              {{- if or $wif $job.shmSize }}
+              volumeMounts:
+                {{- if $wif }}
+                - name: gcp-token
+                  mountPath: {{ $root.Values.workloadIdentity.tokenMountPath }}
+                  readOnly: true
+                - name: gcp-credential-config
+                  mountPath: {{ $root.Values.workloadIdentity.credentialConfigMountPath }}
+                  readOnly: true
+                {{- end }}
+                {{- if $job.shmSize }}
+                - name: dshm
+                  mountPath: /dev/shm
+                {{- end }}
+              {{- end }}
+          {{- if or $wif $job.shmSize }}
+          volumes:
+            {{- if $wif }}
+            - name: gcp-token
+              projected:
+                sources:
+                  - serviceAccountToken:
+                      audience: {{ include "shorted-jobs.wifAudience" $root.Values.workloadIdentity }}
+                      expirationSeconds: {{ $root.Values.workloadIdentity.tokenExpirationSeconds }}
+                      path: {{ $root.Values.workloadIdentity.tokenFile }}
+            - name: gcp-credential-config
+              configMap:
+                name: {{ include "shorted-jobs.wifName" $wif }}
+            {{- end }}
+            {{- if $job.shmSize }}
+            - name: dshm
+              emptyDir:
+                medium: Memory
+                sizeLimit: {{ $job.shmSize }}
+            {{- end }}
+          {{- end }}
+{{- end }}

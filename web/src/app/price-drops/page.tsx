@@ -41,6 +41,8 @@ const DESCRIPTION =
 // crawl event via /api/revalidate?path=/price-drops&flush=housing and warmed
 // post-deploy by /api/static-pages/warm-cache.
 export const revalidate = 3600;
+// A cold overview query can take 10s and retry before the hourly page is cached.
+export const maxDuration = 60;
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -152,6 +154,7 @@ export default async function PriceDropsPage() {
 
   return (
     <DashboardLayout>
+      {(emptyState === "loading") && <span hidden data-isr-shell="empty" />}
       {/* LLMMeta now derives provenance from `dataSource` (realestate.com.au +
           Domain, not ASIC), so it's safe to emit here. The Dataset JSON-LD
           below complements it with the dataset-level provenance. */}

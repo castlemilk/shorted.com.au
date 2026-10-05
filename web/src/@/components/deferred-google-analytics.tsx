@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { canCollectAnalytics } from "~/@/lib/analytics-host";
 
 declare global {
   interface Window {
@@ -28,6 +29,7 @@ export function DeferredGoogleAnalytics({ gaId }: { gaId: string }) {
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    if (!canCollectAnalytics()) return;
     if (loaded.current) return;
     loaded.current = true;
 
@@ -72,13 +74,15 @@ export function DeferredGoogleAnalytics({ gaId }: { gaId: string }) {
   // per client-side navigation (skip the very first render — boot covers it).
   const firstRender = useRef(true);
   useEffect(() => {
+    if (!canCollectAnalytics()) return;
     if (firstRender.current) {
       firstRender.current = false;
       return;
     }
-    const query = searchParams?.toString();
     window.gtag?.("event", "page_view", {
-      page_path: query ? `${pathname}?${query}` : pathname,
+      // Auth callback URLs and search strings must not become event params.
+      page_path: pathname,
+      page_location: `${window.location.origin}${pathname ?? "/"}`,
     });
   }, [pathname, searchParams]);
 

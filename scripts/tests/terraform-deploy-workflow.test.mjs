@@ -35,6 +35,21 @@ function lines(script) {
     .filter(Boolean);
 }
 
+test("Terraform jobs install the Cloud SDK before their first gcloud consumer", () => {
+  for (const jobName of ["terraform-plan", "terraform-apply"]) {
+    const steps = workflow.jobs[jobName].steps;
+    const authIndex = steps.findIndex((candidate) => candidate.uses === "google-github-actions/auth@v3");
+    const sdkIndex = steps.findIndex((candidate) => candidate.uses === "google-github-actions/setup-gcloud@v3");
+    const consumerIndex = steps.findIndex((candidate) =>
+      /\bgcloud\b|scripts\/ensure-secret\.sh/.test(candidate.run ?? ""),
+    );
+    assert.ok(authIndex >= 0, `${jobName} must authenticate with the existing action`);
+    assert.ok(sdkIndex > authIndex, `${jobName} must install the SDK after authentication`);
+    assert.ok(consumerIndex > sdkIndex, `${jobName} must install gcloud before using it`);
+    assert.equal(steps[sdkIndex].if, undefined, `${jobName} must install the SDK on every execution`);
+  }
+});
+
 test("infrastructure CI cannot recreate or authenticate to the retired dev environment", () => {
   assert.doesNotMatch(workflowSource, /shorted-dev-aba5688f/);
   assert.doesNotMatch(workflowSource, /github-actions-sa@shorted-dev/);
@@ -172,7 +187,7 @@ test("terraform-apply is gated on run-tests", () => {
 
 // The frontend promote inherits the gate through terraform-apply. If that edge is
 // ever cut, the promote must not become reachable over red tests.
-test("the vercel promote inherits the test gate", () => {
+test("the vercel promote requires passing tests even with the infrastructure fallback", () => {
   const vercel = workflow.jobs?.["deploy-vercel-prod"];
   assert.ok(vercel, "missing deploy-vercel-prod job");
   const needs = vercel.needs ?? [];
@@ -180,10 +195,13 @@ test("the vercel promote inherits the test gate", () => {
     needs.includes("terraform-apply") || needs.includes("run-tests"),
     "deploy-vercel-prod must depend on terraform-apply (which is gated) or on run-tests directly",
   );
+  assert.ok(needs.includes("run-tests"), "always() requires an explicit direct test dependency");
+  assert.match(String(vercel.if ?? ""), /needs\.run-tests\.result == 'success'/);
+  assert.match(String(vercel.if ?? ""), /github\.event\.inputs\.plan_only != 'true'/);
   assert.match(
     String(vercel.if ?? "").replace(/\s+/g, " "),
     /github\.event_name != 'pull_request'/,
-    "pull requests may build previews but must never reach the production promotion job",
+    "pull requests must never reach the production promotion job",
   );
 });
 

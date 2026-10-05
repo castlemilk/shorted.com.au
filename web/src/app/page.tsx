@@ -455,7 +455,7 @@ export default async function Page() {
           </Link>{" "}
           handy, then read the{" "}
           <Link
-            href="/reports"
+            href="/reports/weekly"
             className="underline underline-offset-4 hover:text-foreground"
           >
             weekly ASX short selling reports

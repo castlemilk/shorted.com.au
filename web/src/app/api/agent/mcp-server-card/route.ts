@@ -63,6 +63,13 @@ interface CatalogPrompt {
   arguments?: Array<{ name: string; description?: string; required?: boolean }>;
 }
 
+interface CatalogIcon {
+  src: string;
+  mimeType?: string;
+  sizes?: string[];
+  theme?: "light" | "dark";
+}
+
 interface Catalog {
   server: {
     name: string;
@@ -75,6 +82,7 @@ interface Catalog {
     documentation?: string;
     website?: string;
     contact?: string;
+    icons?: CatalogIcon[];
   };
   authentication?: {
     required: boolean;
@@ -208,6 +216,7 @@ function renderCard(catalog: Catalog) {
       description: catalog.server.description,
       websiteUrl: catalog.server.website ?? WEBSITE,
       documentationUrl: catalog.server.documentation ?? `${WEBSITE}/docs/mcp.md`,
+      icons: catalog.server.icons ?? [],
     },
     transport: {
       type: catalog.server.transport ?? "streamable-http",

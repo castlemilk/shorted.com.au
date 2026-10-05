@@ -1,8 +1,11 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import { assertValidSlug, findContentBySlug, parseTakeMdx } from "./import-mdx";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { assertValidSlug, findContentBySlug, importMdx, parseTakeMdx, validateImportedTake } from "./import-mdx";
+
+const pg = vi.hoisted(() => ({ connect: vi.fn(), query: vi.fn(), end: vi.fn() }));
+vi.mock("pg", () => ({ Client: vi.fn(() => pg) }));
 
 const VALID = `---
 slug: "a-slug"
@@ -79,6 +82,79 @@ describe("parseTakeMdx", () => {
   it("does not mistake lowercase HTML tags for components", () => {
     const withHtml = VALID.replace("Body paragraph", "<sup>1</sup>\n\nBody paragraph");
     expect(() => parseTakeMdx(withHtml)).not.toThrow();
+  });
+
+  it("decodes escaped headline punctuation and only reads top-level fields", () => {
+    const src = VALID.replace('headline: "A headline"', 'headline: "Telix says \\"Fast Track\\""\n  headline: "Nested text"');
+    expect(parseTakeMdx(src).frontmatter.headline).toBe('Telix says "Fast Track"');
+  });
+});
+
+const CITATION = { refId: "ref-1", url: "https://www.asic.gov.au/report", source: "ASIC", headline: "Dated position report", date: "2026-09-28", type: "report" };
+function newsroomArticle(citations: unknown = [CITATION], body = '<StatGroup>\n<Stat label="Short interest" value="15.17%" cite="ref-1" />\n</StatGroup>\n\nPosition baseline [ref-1].\n\n<ShortInterestChart code="DRO" window="3m" />') {
+  return `---\nslug: "a-slug"\nheadline: "A headline"\nstockCode: "DRO"\nbodyFormat: "mdx"\ncitations: ${JSON.stringify(citations)}\n---\n\n${body}\n`;
+}
+
+describe("grounded newsroom imports", () => {
+  it("accepts the actual newsroom components and preserves source IDs/URLs", async () => {
+    const parsed = parseTakeMdx(newsroomArticle());
+    expect(parsed.frontmatter.citations).toEqual([CITATION]);
+    await expect(validateImportedTake(parsed)).resolves.toBeUndefined();
+  });
+
+  it.each([
+    ["duplicate references", [CITATION, CITATION]],
+    ["malformed reference", [{ ...CITATION, refId: "bad-id" }]],
+    ["executable URL", [{ ...CITATION, url: "javascript:alert(1)" }]],
+    ["missing source fields", [{ refId: "ref-1" }]],
+  ])("rejects %s before import", (_case, citations) => {
+    expect(() => parseTakeMdx(newsroomArticle(citations))).toThrow();
+  });
+
+  it("fails loudly on unsupported multiline citation frontmatter", () => {
+    const src = newsroomArticle().replace(`citations: ${JSON.stringify([CITATION])}`, 'citations:\n  - refId: ref-1');
+    expect(() => parseTakeMdx(src)).toThrow(/JSON array on one line/);
+  });
+
+  it.each([
+    ["uncited stat", '<Stat label="Short" value="15%" cite="ref-2" />'],
+    ["uncited prose", 'Position [ref-2].'],
+    ["wrong stock", '<ShortInterestChart code="TLX" window="3m" />'],
+    ["invalid chart window", '<ShortInterestChart code="DRO" window="5y" />'],
+    ["script", '<script>alert(1)</script>'],
+    ["mixed legacy components", '<CitationPill id="1" />\n<Stat label="Short" value="15%" />'],
+  ])("rejects %s through the shared gate", async (_case, body) => {
+    await expect(validateImportedTake(parseTakeMdx(newsroomArticle([CITATION], body)))).rejects.toThrow();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    pg.query.mockResolvedValue({ rows: [{ slug: "a-slug", published_at: null }] });
+  });
+
+  it("persists the citation JSON alongside the draft without publishing", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "grounded-import-"));
+    const file = join(dir, "article.mdx");
+    writeFileSync(file, newsroomArticle());
+    vi.stubEnv("DATABASE_URL", "postgresql://test:test@127.0.0.1:65535/test");
+    try {
+      await importMdx({ file });
+      expect(pg.query).toHaveBeenCalledTimes(1);
+      const [sql, params] = pg.query.mock.calls[0]!;
+      expect(sql).toContain("citations");
+      expect(sql).not.toMatch(/SET\s+published_at/i);
+      expect(JSON.parse(params[11])).toEqual([CITATION]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("validates dry runs and rejects unresolved sources before connecting", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "invalid-import-"));
+    const file = join(dir, "article.mdx");
+    writeFileSync(file, newsroomArticle([CITATION], "Position [ref-2]."));
+    await expect(importMdx({ file, dryRun: true })).rejects.toThrow(/missing/);
+    expect(pg.connect).not.toHaveBeenCalled();
   });
 });
 

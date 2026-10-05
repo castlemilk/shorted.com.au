@@ -153,6 +153,7 @@ export default async function HousingPage() {
 
   return (
     <DashboardLayout>
+      {(metrics.length === 0) && <span hidden data-isr-shell="empty" />}
       <LLMMeta
         title={TITLE}
         description={DESCRIPTION}

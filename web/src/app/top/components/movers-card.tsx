@@ -1,15 +1,15 @@
 "use client";
 
-import Link from "next/link";
+import { IntentPrefetchLink } from "~/@/components/ui/intent-prefetch-link";
 import { TrendingUp, TrendingDown, Activity, ChevronRight } from "lucide-react";
-import { type SerializedTimeSeriesData } from "~/app/actions/top/getTopPageData";
+import { type SerializedMoverSummary } from "~/app/actions/top/getTopPageData";
 import { formatChange, formatPercentage } from "~/@/lib/shorts-calculations";
 import { cn } from "~/@/lib/utils";
 import { Skeleton } from "~/@/components/ui/skeleton";
 
 type MoverType = "gainers" | "losers" | "volatile";
 
-type MoverItem = SerializedTimeSeriesData & { change?: number; volatility?: number };
+type MoverItem = SerializedMoverSummary & { change?: number; volatility?: number };
 
 interface MoversCardProps {
   title: string;
@@ -104,7 +104,7 @@ export function MoversCard({
           const value = config.getValue(item);
 
           return (
-            <Link
+            <IntentPrefetchLink
               key={item.productCode}
               href={`/shorts/${item.productCode}`}
               className="flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors group"
@@ -139,7 +139,7 @@ export function MoversCard({
                 </span>
                 <ChevronRight className="h-3 w-3 text-muted-foreground group-hover:text-foreground/70 transition-colors" aria-hidden="true" />
               </div>
-            </Link>
+            </IntentPrefetchLink>
           );
         })}
       </nav>

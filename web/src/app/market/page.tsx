@@ -18,7 +18,7 @@ import { skipForBuild } from "~/app/actions/config";
 export const metadata: Metadata = {
   title: "Daily ASX Short Position Snapshots",
   description:
-    "Browse daily snapshots of ASX short positions from official ASIC data. See which stocks were most shorted on any trading day. Historical short selling data since 2010.",
+    "Browse daily snapshots of ASX short positions from official ASIC data. View reported securities, including shares, ETFs and debt, by position date with a T+4 publication delay. Historical short selling data since 2010.",
   keywords: [
     "daily short positions ASX",
     "ASIC short position history",
@@ -96,6 +96,7 @@ export default async function MarketIndexPage() {
 
   return (
     <DashboardLayout>
+      {(dates.length === 0) && <span hidden data-isr-shell="empty" />}
       <BreadcrumbListSchema items={breadcrumbs} />
 
       <div className="space-y-8">

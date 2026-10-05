@@ -1,0 +1,193 @@
+{{- if .Values.reporter.enabled }}
+{{- $r := .Values.reporter -}}
+# cronjob-reporter: `shorted cronjob-reporter` (services/jobs/internal/jobs/
+# cronreporter). Watches this namespace's monitored Jobs and sends Telesis
+# start/complete/fail check-ins. Telesis alerts on failed, missed and timed-out
+# runs; a dead reporter shows up as missed runs (and its own heartbeat monitor).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cronjob-reporter
+  labels:
+    {{- include "shorted-jobs.labels" . | nindent 4 }}
+    app.kubernetes.io/name: cronjob-reporter
+---
+# Namespace-scoped and read-mostly: the only write is annotating Jobs with what
+# was reported.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cronjob-reporter
+  labels:
+    {{- include "shorted-jobs.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cronjob-reporter
+  labels:
+    {{- include "shorted-jobs.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cronjob-reporter
+subjects:
+  - kind: ServiceAccount
+    name: cronjob-reporter
+    namespace: {{ .Release.Namespace }}
+---
+# In-cluster only: the target of the Paprika Application's health check.
+apiVersion: v1
+kind: Service
+metadata:
+  name: cronjob-reporter
+  labels:
+    {{- include "shorted-jobs.labels" . | nindent 4 }}
+    app.kubernetes.io/name: cronjob-reporter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cronjob-reporter
+  ports:
+    - name: health
+      port: 8080
+      targetPort: health
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cronjob-reporter
+  labels:
+    {{- include "shorted-jobs.labels" . | nindent 4 }}
+    app.kubernetes.io/name: cronjob-reporter
+spec:
+  replicas: {{ $r.replicas }}
+  # One reporter at a time: two would race the annotation write and double-send
+  # (harmless thanks to the Idempotency-Key, but pointless).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cronjob-reporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cronjob-reporter
+        app.kubernetes.io/part-of: shorted
+    spec:
+      serviceAccountName: cronjob-reporter
+      enableServiceLinks: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: reporter
+          image: {{ include "shorted-jobs.image" (dict "root" . "key" $r.image) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command: ["/shorted"]
+          args:
+            - cronjob-reporter
+            - -interval={{ $r.interval }}
+            - -max-report-age={{ $r.maxReportAge }}
+            - -log-tail-lines={{ $r.logTailLines }}
+            - -heartbeat-interval={{ $r.heartbeatInterval }}
+            - -checkin-dir=/etc/shorted/cron-monitors
+            - -health-addr=:8080
+            {{- if $r.cloudRun.enabled }}
+            - -cloudrun-config=/etc/shorted/cloudrun/cloudrun.json
+            {{- end }}
+            {{- range $r.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            {{- if $r.cloudRun.enabled }}
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: {{ printf "%s/%s" .Values.workloadIdentity.credentialConfigMountPath .Values.workloadIdentity.credentialConfigFile }}
+            {{- end }}
+          ports:
+            - name: health
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            # 4 poll intervals of grace are built into /healthz itself.
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: {{ $r.resources.cpuRequest | quote }}
+              memory: {{ $r.resources.memory | quote }}
+            limits:
+              memory: {{ $r.resources.memory | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: checkin-urls
+              mountPath: /etc/shorted/cron-monitors
+              readOnly: true
+            {{- if $r.cloudRun.enabled }}
+            - name: cloudrun-config
+              mountPath: /etc/shorted/cloudrun
+              readOnly: true
+            - name: gcp-token
+              mountPath: {{ .Values.workloadIdentity.tokenMountPath }}
+              readOnly: true
+            - name: gcp-credential-config
+              mountPath: {{ .Values.workloadIdentity.credentialConfigMountPath }}
+              readOnly: true
+            {{- end }}
+      volumes:
+        # Created by scripts/register-monitors.py. Optional so the reporter
+        # (and its health check) comes up before monitors are registered; it
+        # logs a WARN per CronJob that has no URL yet.
+        - name: checkin-urls
+          secret:
+            secretName: {{ .Values.monitoring.checkinSecret }}
+            optional: true
+        {{- if $r.cloudRun.enabled }}
+        - name: cloudrun-config
+          configMap:
+            name: cronjob-reporter-cloudrun
+        - name: gcp-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: {{ include "shorted-jobs.wifAudience" .Values.workloadIdentity }}
+                  expirationSeconds: {{ .Values.workloadIdentity.tokenExpirationSeconds }}
+                  path: {{ .Values.workloadIdentity.tokenFile }}
+        - name: gcp-credential-config
+          configMap:
+            name: cronjob-reporter-workload-identity
+        {{- end }}
+{{- end }}

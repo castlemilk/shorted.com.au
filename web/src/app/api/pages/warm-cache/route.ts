@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { isCacheWarmAuthorized } from "~/@/lib/cache-warm-auth";
 
 // Warming fetches happen serially in small batches; allow enough wall time.
 export const maxDuration = 300;
@@ -25,11 +26,7 @@ const BROWSER_UA =
  * Can be called manually or via Vercel Cron Job.
  */
 export async function GET(request: NextRequest) {
-  // Optional: Protect endpoint with secret (same pattern as other warm-cache routes)
-  const secret = request.nextUrl.searchParams.get("secret");
-  const expectedSecret = process.env.CACHE_WARM_SECRET;
-
-  if (expectedSecret && secret !== expectedSecret) {
+  if (!isCacheWarmAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

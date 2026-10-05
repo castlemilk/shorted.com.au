@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { getStock } from "~/app/actions/getStock";
 import { getCompanyLogo, OgLogoChip } from "~/@/lib/og/card";
 
+export const maxDuration = 15;
+
 export const alt = "Stock Short Position Data - Shorted.com.au";
 export const size = {
   width: 1200,

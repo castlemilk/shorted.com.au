@@ -54,7 +54,7 @@ jobs:
         run: |
           echo "environment=prod" >> $GITHUB_OUTPUT
           echo "project-id=rosy-clover-477102-t5" >> $GITHUB_OUTPUT
-          echo "wip-provider=projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+          echo "wip-provider=projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/cuttlefish" >> $GITHUB_OUTPUT
           echo "sa-email=github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
 
           if [ "${{ github.event_name }}" == "pull_request" ]; then
@@ -383,7 +383,7 @@ jobs:
 
   terraform-plan:
     needs: [determine-environment, validate-secrets, build-docker-images, build-ko-images]
-    # Run even when image builds are skipped (PR without deploy-preview label)
+    # Run even when production image builds are skipped for a pull request
     if: |
       always() &&
       needs.determine-environment.result == 'success' &&
@@ -417,6 +417,9 @@ jobs:
         with:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Terraform Init
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
@@ -595,6 +598,9 @@ jobs:
         with:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Terraform Init
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
@@ -1122,17 +1128,87 @@ jobs:
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           fi
 
+  # Promote the Kubernetes CronJob chart (deploy/kubernetes/jobs, Paprika on
+  # omega) ONLY after Terraform has applied, by moving the deploy/vke-jobs
+  # branch that the Paprika Application tracks.
+  #
+  # Why a branch and not main: a cutover is two halves that must land
+  # together — the chart unsuspends a CronJob, Terraform pauses the Cloud
+  # Scheduler trigger it replaces. When Paprika tracked main, the chart half
+  # went live the moment a PR merged while the Terraform half waited for (or,
+  # 2026-09-30, was skipped by a failed image push in) this workflow: both
+  # schedulers live, every job running twice. Now nothing reaches the cluster
+  # until the apply that carries the other half has succeeded.
+  #
+  # The promoted commit is EXACTLY the commit this run applied (github.sha),
+  # plus one commit on top that sets the chart's image tags to the images this
+  # run built. It is never main's tip, which may already hold changes whose
+  # Terraform has not applied. A run that finishes after a newer one never
+  # moves the branch backwards.
+  #
+  # Dormant until the repo variable VKE_JOBS_IMAGE_BUMP is 'true'.
+  bump-vke-jobs-image:
+    needs: [determine-environment, terraform-apply]
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.terraform-apply.result == 'success' &&
+      vars.VKE_JOBS_IMAGE_BUMP == 'true'
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: vke-jobs-image-bump
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Promote the applied commit to deploy/vke-jobs
+        env:
+          IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
+          APPLIED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          branch=deploy/vke-jobs
+          # Never move backwards: the branch's current base must be an
+          # ancestor of (or equal to) the commit this run applied.
+          if git fetch -q origin "refs/heads/${branch}:refs/remotes/origin/${branch}" 2>/dev/null; then
+            current_base="$(git log -1 --format=%B "origin/${branch}" | sed -n 's/^Applied-Commit: //p')"
+            current_base="${current_base:-$(git rev-parse "origin/${branch}")}"
+            if ! git merge-base --is-ancestor "${current_base}" "${APPLIED_SHA}"; then
+              echo "deploy/vke-jobs is at ${current_base}, which is not an ancestor of ${APPLIED_SHA}: a newer deploy already promoted; not moving it back"
+              exit 0
+            fi
+          fi
+          deploy/kubernetes/jobs/scripts/bump-image-tag.sh "${IMAGE_TAG}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/kubernetes/jobs/chart/values.yaml
+          git commit --allow-empty -q -F - <<MSG
+          chore(vke-jobs): promote ${APPLIED_SHA::8} with images ${IMAGE_TAG} [skip ci]
+
+          Applied-Commit: ${APPLIED_SHA}
+          MSG
+          git push --force origin "HEAD:refs/heads/${branch}"
+          echo "deploy/vke-jobs -> ${APPLIED_SHA::8} + images ${IMAGE_TAG}"
+
   deploy-vercel-prod:
-    needs: [determine-environment, validate-secrets, terraform-apply]
+    needs: [determine-environment, validate-secrets, terraform-apply, run-tests]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
-    # like market-data-sync fails startup probe). We query the shorts URL from
-    # gcloud as a fallback so Vercel isn't blocked by Terraform failures.
+    # Preserve the existing service-URL fallback after an infrastructure failure,
+    # while requiring the test suite and secrets to pass before web promotion.
     if: |
       always() &&
       github.event_name != 'pull_request' &&
       needs.determine-environment.outputs.environment == 'prod' &&
-      needs.validate-secrets.result == 'success'
+      needs.validate-secrets.result == 'success' &&
+      needs.run-tests.result == 'success' &&
+      github.event.inputs.plan_only != 'true'
     environment: prod
     steps:
       - name: Checkout code
@@ -1192,7 +1268,13 @@ jobs:
       # NOTE: AUTH_FIREBASE_PRIVATE_KEY must be set in the prod environment
       # or Vercel Dashboard because it contains special characters that break CLI parsing.
       # Environment secrets (prod) override repository secrets with same name.
-      - name: Deploy to Vercel (Release Candidate Preview)
+      - name: Set up Node for production deployment
+        uses: actions/setup-node@v5
+        with:
+          # Retain the verified Vercel upload pin from the retired preview workflow.
+          node-version: "24.8.0"
+
+      - name: Build and upload production deployment
         id: vercel-deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -1314,42 +1396,22 @@ jobs:
             --scope document-analyser \
             --token "$VERCEL_TOKEN"
 
-          npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" | tee /tmp/vercel-preview.log
-          preview_url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-preview.log | tail -n 1)"
-          if [ -z "$preview_url" ]; then
-            echo "::error::Could not extract Vercel preview URL"
+          node scripts/verify-vercel-function-limits.mjs .vercel/output
+
+          npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" | tee /tmp/vercel-production.log
+          deployment_url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-production.log | tail -n 1)"
+          if [ -z "$deployment_url" ]; then
+            echo "::error::Could not extract Vercel deployment URL"
             exit 1
           fi
-          echo "preview-url=$preview_url" >> "$GITHUB_OUTPUT"
+          echo "deployment-url=$deployment_url" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Node for release smoke
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install frontend dependencies for release smoke
-        working-directory: web
-        run: npm ci
-
-      - name: Install Playwright for release smoke
-        working-directory: web
-        run: npx playwright install --with-deps chromium
-
-      - name: Smoke release candidate preview
-        working-directory: web
-        timeout-minutes: 12
-        env:
-          BASE_URL: ${{ steps.vercel-deploy.outputs.preview-url }}
-          RELEASE_API_BASE_URL: https://api.shorted.com.au
-          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
-        run: node e2e/release-smoke-ci.mjs
-
-      - name: Promote smoked Vercel deployment to production
+      - name: Promote Vercel deployment to production
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          PREVIEW_URL: ${{ steps.vercel-deploy.outputs.preview-url }}
+          DEPLOYMENT_URL: ${{ steps.vercel-deploy.outputs.deployment-url }}
         run: |
-          npx -p vercel@54.1.0 vercel promote "$PREVIEW_URL" \
+          npx -p vercel@54.10.2 vercel promote "$DEPLOYMENT_URL" \
             --scope document-analyser \
             --yes \
             --token "$VERCEL_TOKEN"
@@ -1366,7 +1428,14 @@ jobs:
             if (!Array.isArray(pages) || pages.length === 0 || pages.some((path) => typeof path !== "string" || !path.startsWith("/"))) {
               throw new Error("web/src/config/isr-pages.json must be a non-empty array of /-prefixed paths");
             }
-            process.stdout.write(pages.join(","));
+            // Static build shells have a separate invalidate-then-prime step.
+            // Keep one owner so a page rendered between steps is not invalidated twice.
+            const shellPages = JSON.parse(fs.readFileSync("web/src/config/isr-shell-pages.json", "utf8"));
+            if (!Array.isArray(shellPages) || shellPages.some((path) => typeof path !== "string" || !path.startsWith("/"))) {
+              throw new Error("web/src/config/isr-shell-pages.json must be an array of /-prefixed paths");
+            }
+            const shellPaths = new Set(shellPages);
+            process.stdout.write(pages.filter((path) => !shellPaths.has(path)).join(","));
           ')
           status=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" \
             --connect-timeout 10 \
@@ -1387,13 +1456,33 @@ jobs:
             exit 1
           fi
 
+      - name: Prime static pages after promotion
+        continue-on-error: true
+        env:
+          CACHE_WARM_SECRET: ${{ secrets.CACHE_WARM_SECRET }}
+          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+        run: |
+          CURL_ARGS=(-A "Mozilla/5.0 Shorted-E2E/1.0")
+          if [ -n "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" ]; then
+            CURL_ARGS+=(-H "X-Shorted-Testing-Bypass: ${CLOUDFLARE_TESTING_BYPASS_SECRET}")
+          fi
+          if [ -n "${CACHE_WARM_SECRET:-}" ]; then
+            CURL_ARGS+=(-H "X-Cache-Warm-Secret: ${CACHE_WARM_SECRET}")
+          fi
+          curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
+            "https://shorted.com.au/api/static-pages/warm-cache?mode=deploy"
+          # Await the invalidation response before fetching: Next commits it
+          # after the handler returns. This second request primes real data.
+          curl --fail --silent --show-error --max-time 145 "${CURL_ARGS[@]}" \
+            "https://shorted.com.au/api/static-pages/warm-cache?mode=repair"
+
       - name: Production Deployment Summary
         run: |
           echo "## 🚀 Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Frontend" >> $GITHUB_STEP_SUMMARY
           echo "- **Vercel Production URL**: https://shorted.com.au" >> $GITHUB_STEP_SUMMARY
-          echo "- **Smoked Vercel Deployment**: ${{ steps.vercel-deploy.outputs.preview-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Promoted Vercel Deployment**: ${{ steps.vercel-deploy.outputs.deployment-url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Backend Services" >> $GITHUB_STEP_SUMMARY
           echo "- **Shorts API**: ${{ steps.resolve-urls.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY

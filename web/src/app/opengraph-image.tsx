@@ -3,6 +3,8 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+export const maxDuration = 15;
+
 export const alt = "Shorted.com.au - Decode Market Sentiment";
 export const size = {
   width: 1200,

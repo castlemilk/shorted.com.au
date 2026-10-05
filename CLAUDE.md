@@ -523,7 +523,7 @@ valuation, stock page).
 | Data: `mv_price_features`, `mv_market_regime`, `refresh_strategy_views()` | `000130`; refreshed by `shorted picks -mode refresh` weekdays 13:30 UTC, AFTER the price sweep (not inside `refresh_all_materialized_views()` at 10:00, which runs before prices land). Order: regime, growth, quality, price features. The step pins `client_min_messages = notice` and fails on a `Skipping <view>` warning or on a picker view with no `Refreshing <view>` NOTICE (a stale 000130 body: re-apply 000132) |
 | Data: `000132_extend_fundamentals` | 21 statement lines on `stock_fundamentals` (gross profit to current liabilities; outflows negative); `field_sources` JSONB (only fields NOT from the row's `source`: Markit, a filing, `derived:*`); `source_document_url` / `_date`; `period_type='quarter'` = a balance snapshot (no flow fields); sync `last_outcome`, `consecutive_empty`, `median_k`, `fx_converted`, `native_currency`; `picks_run_lease`; `financial_report_extractions.document_meta`; growth view rebuilt once with `revenue_basis_source` / `eps_basis_source` (`vendor` / `filing`) and `revenue_latest_period_end` / `revenue_prior_period_end` appended; new `mv_fundamentals_quality` (one flow row + one same-currency balance row at or up to 6 months before it) |
 | Job | `shorted picks` (`services/jobs/README.md` "picks"): `-mode all` daily 15:00 UTC (fundamentals, filings, refresh; 12600s timeout, 1 retry). Fundamentals is budget-driven, no count cap: `PICKS_FUNDAMENTALS_BUDGET_MIN` 170 at 4s/code, priority due filers, never attempted by market cap, failures, stale successes (14-day skip, 45 for repeat empties); pre-000132 sync rows (`last_outcome` NULL) queue with never attempted and are never skipped, so the first nights after the deploy re-fetch the universe largest first (`pre_000132=N` in the log); breakers at 25 consecutive failures, >30% of the last 100 Yahoo requests, Markit off after 10; 20-minute budget on a task retry. One writer via `picks_run_lease` (a held lease exits 0). After a refresh: waits 16 min, then revalidates tags `strategy-picks` (+ `fundamentals` when rows changed) |
-| Filings | `financial-report-extractor` (Python, `services/report-extractor`, `module "report_extractor"`): daily 14:00 UTC, `--recent 2 --limit 120 --workers 4 --max-pages 8 --budget-min 90`, 7200s, no retries; ONE statutory results document per company (filed within 45 days newest first, then companies with no parsed filing by market cap, then the rest); an extraction not aligned to the document, or whose value's digits are not in the aligned span, is dropped; thinking off; writes `document_meta` (`report_kind` `other` only from the document's own heading). A model failure is never stored (no row, retried next run), 5 in a row stop new work, and the run exits 1 when its model errors look systemic (5, or at least 3 making up at least a fifth of the model calls). `--repair-echo-digests` is the one-off post-deploy repair of digests written from a few-shot echo. The only source of ASX half-year totals. Read by `-mode filings` |
+| Filings | `financial-report-extractor` (Python, `services/report-extractor`, `module "report_extractor"`): daily 14:00 UTC, `--recent 2 --limit 120 --workers 4 --max-pages 8 --budget-min 90`, 7200s, no retries. **Backend `openrouter`** (`direct_extract.py`, since 2026-09-29): one call per document, DeepSeek v4 Flash primary + Gemini 2.5 Flash-Lite checker, Gemini 2.5 Flash arbitrates disagreements (no majority = withheld); every figure deterministically validated (quote located in the document, value in the quote, label keywords per metric, unit scaled to true millions); underlying/diluted figures stored as `underlying_*`/`diluted_eps`; `consensus` + `models` attributes on every entry; benchmark with `bench_direct.py` / `bench_gold.py` before changing the prompt. `--backend gemini` keeps the old langextract path. `director-trade-extractor` runs the same consensus over Appendix 3Y notices (`director_direct.py`: name and every number must be in the notice; a per-share price is multiplied in code; one consideration box over several lots, or over shares plus options, gives no value; a direction contradicting the stated nature is invalid); a failed model call is `model_error`, never recorded as an attempt (the old path recorded it as `no_extract` and skipped the notice for 30 days, which hid a total outage from 2026-07-30); score rule changes with `bench_director.py`. ONE statutory results document per company (filed within 45 days newest first, then companies with no parsed filing by market cap, then the rest); an extraction not aligned to the document, or whose value's digits are not in the aligned span, is dropped; thinking off; writes `document_meta` (`report_kind` `other` only from the document's own heading). A model failure is never stored (no row, retried next run), 5 in a row stop new work, and the run exits 1 when its model errors look systemic (5, or at least 3 making up at least a fifth of the model calls). `--repair-echo-digests` is the one-off post-deploy repair of digests written from a few-shot echo. The only source of ASX half-year totals. Read by `-mode filings` |
 | Stock page | Financials tab (`components/stocks/financials-tab.tsx`): Latest result, Key ratios, the statements island (`financial-statements.tsx`, the ONLY `use client` file there), the reports list (the source filing marked), the tax card LAST. Overview: `StrategyFitCard` (SSR, links to `/picks/<id>`, hidden when the fit call fails) and `FundamentalsSummary` (crawlable prose, omitted without coverage) |
 | Picker web | `components/picks/`, `lib/strategies/`: a native `<details>` row detail (ratios, basis, source, "Full financials" nofollow), `?sort=` via the `picks-sorted-view.tsx` island (POSTs to the rewrite, falls back to the server rows), coverage "fundamentals for N of M stocks (growth figures for K)" only when `fundamentals_rows_count` is reported |
 | MCP | `list_strategies`, `get_strategy_picks` (`sort_by`), `get_stock_fundamentals` (`quality`, `coverage`); no new tool |
@@ -958,6 +958,39 @@ existing connector out (a token minted before the scope gets a tool error
 naming it). Admin = verified email on the web app's `ADMIN_EMAILS`, resolved
 from the token's uid via the web app's `/api/internal/admin-check` and
 re-checked at ticket, grant, token, every refresh and every request.
+
+## Scheduled jobs on Kubernetes (Paprika on omega VKE, Telesis monitoring)
+
+Scheduled batch jobs are moving from Cloud Scheduler → Cloud Run Jobs to
+Kubernetes CronJobs on the omega VKE cluster: **`deploy/kubernetes/jobs/`**
+(chart + Paprika Application + scripts; runbook in its `README.md`). Paprika
+polls main and renders the chart into namespace `shorted-jobs`. The
+`shorted cronjob-reporter` Deployment (`services/jobs/internal/jobs/cronreporter/`)
+turns every Job's lifecycle into Telesis cron-monitor check-ins, and Telesis
+alerts on failed, missed and timed-out runs. That replaces the GCP
+`job-monitoring` policies for scheduled runs.
+
+- **Cutover is two lists that must match**: `enabled:` in
+  `deploy/kubernetes/jobs/chart/values.yaml` (unsuspends the CronJob) and
+  `local.jobs_on_vke` in `terraform/environments/prod/main.tf` (pauses the
+  Cloud Scheduler trigger). One without the other runs a job twice or not at
+  all. `scripts/tests/vke-jobs-cutover.test.mjs` enforces it. Ships with both
+  empty and `suspendAll: true`: nothing runs until a job is cut over.
+- **Cloud Run jobs are NOT deleted.** Admin Run now, validation runs, news
+  publish, the freshness/price-sync workflows and rollback all still use them.
+  Until a job's Cloud Run definition is retired, **change its
+  args/env/timeout in BOTH `values.yaml` and Terraform**. `chart/tests/render.sh`
+  only pins schedules.
+- **Cloud Run env is emulated.** `CLOUD_RUN_EXECUTION` = the Job name
+  (short-data-sync resume key, price-sync report key). `CLOUD_RUN_TASK_ATTEMPT` =
+  the Indexed Job's per-index failure count, so the Jobs must stay
+  `completionMode: Indexed` + `backoffLimitPerIndex`.
+- **Paprika tracks the `deploy/vke-jobs` branch, not main.** The deploy's `bump-vke-jobs-image` job moves it only after Terraform applies, so a cutover's CronJob can never go live before its Cloud Scheduler trigger is paused. When the Application tracked main, a failed image push on 2026-09-30 left six jobs live on both schedulers for about an hour.
+- **Jobs still on Cloud Run are tracked too.** `cronjob-reporter` lists their executions through a keyless `vke-cronjob-reporter` identity (job-level `run.viewer`, `local.vke_reporter_watched_jobs`) and reports each run to the same Telesis monitor. An execution matches its monitor only by exact args and env, so keep chart `args` equal to the Cloud Run job's.
+- **An ERROR log with exit 0 no longer pages** (the GCP log-metric policy did).
+  Exit non-zero (`runner.ExitCodeError`) if a path should alert.
+- Telesis **project tokens cannot register cron monitors** (user-role check).
+  `register-monitors.py` needs `telesis login`.
 
 ## Blog MDX palette (mdxcn figures)
 

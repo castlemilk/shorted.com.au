@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
+import { isCacheWarmAuthorized } from "~/@/lib/cache-warm-auth";
 
 // ViewMode enum value - using constant to avoid protobuf-es SSR issues
 const VIEW_MODE_CURRENT_CHANGE = 0;
@@ -13,11 +14,7 @@ const VIEW_MODE_CURRENT_CHANGE = 0;
  * Can be called manually or via Vercel Cron Job
  */
 export async function GET(request: NextRequest) {
-  // Optional: Protect endpoint with secret
-  const secret = request.nextUrl.searchParams.get("secret");
-  const expectedSecret = process.env.CACHE_WARM_SECRET;
-
-  if (expectedSecret && secret !== expectedSecret) {
+  if (!isCacheWarmAuthorized(request)) {
     return NextResponse.json(
       { error: "Unauthorized" },
       { status: 401 },
@@ -74,4 +71,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

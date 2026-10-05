@@ -5,6 +5,9 @@ import {
   getCloudflareTestingBypassSecret,
 } from "./helpers/cloudflare-testing-bypass";
 import { checkFirebaseGoogleAuthBootstrap } from "./helpers/firebase-google-auth-bootstrap.mjs";
+import { isolateBrowserAnalytics } from "./helpers/browser-analytics-isolation.mjs";
+import { releasePageText } from "./helpers/release-page-readiness.mjs";
+import { scopeReleaseBrowserHeaders, scopedReleaseHeaders } from "./helpers/scoped-release-headers.mjs";
 
 test.setTimeout(90_000);
 
@@ -17,6 +20,12 @@ const appBaseUrl = process.env.BASE_URL || "https://shorted.com.au";
 test.use({
   userAgent: cloudflareTestingDefaultUserAgent,
   extraHTTPHeaders: cloudflareTestingBypassHeaders(),
+  serviceWorkers: "block",
+});
+
+test.beforeEach(async ({ context }) => {
+  await scopeReleaseBrowserHeaders(context, appBaseUrl, apiBaseUrl);
+  await isolateBrowserAnalytics(context, appBaseUrl);
 });
 
 const appApiPattern =
@@ -60,7 +69,8 @@ const pageScenarios = [
     path: "/market/2024-08-21",
     requiredText: [
       /ASX Short Positions|Market/i,
-      /Top 50 Most Shorted Stocks|Stocks with Short Positions/i,
+      /Top 50 Shorted Securities/i,
+      /Securities with Short Positions/i,
     ],
   },
   {
@@ -105,8 +115,9 @@ const pageScenarios = [
   },
 ] as const;
 
-function releaseHeaders(): Record<string, string> {
-  return cloudflareTestingBypassHeaders({ includeUserAgent: true });
+function releaseHeaders(targetUrl = appBaseUrl): Record<string, string> {
+  return scopedReleaseHeaders(targetUrl, appBaseUrl, apiBaseUrl,
+    cloudflareTestingBypassHeaders({ includeUserAgent: true }));
 }
 
 function isIgnorableFailedRequest(url: string, errorText: string): boolean {
@@ -153,11 +164,6 @@ async function assertNoCloudflareChallenge(
   const text = await response.text();
   expect(text).not.toContain("Just a moment");
   return text;
-}
-
-async function pageText(page: Page): Promise<string> {
-  await page.waitForTimeout(1_500);
-  return page.locator("body").innerText({ timeout: 20_000 });
 }
 
 async function assertManualCloudflareRumBeacon(
@@ -245,7 +251,7 @@ for (const scenario of pageScenarios) {
       400,
     );
 
-    const text = await pageText(page);
+    const text = await releasePageText(page, scenario.requiredText);
     for (const required of scenario.requiredText) {
       expect(
         text,
@@ -326,7 +332,7 @@ test("housing suburb navigation to top shorted does not load stale app chunks", 
     .click();
   await page.waitForURL("**/top", { timeout: 30_000 });
 
-  const text = await pageText(page);
+  const text = await releasePageText(page, [/Top Shorted|Short Interest|Stocks/i]);
   expect(
     text,
     "/top missing top-shorted content after client navigation",
@@ -347,7 +353,7 @@ test("Cloudflare API edge returns data without bot challenges", async ({
   request,
 }) => {
   const health = await request.get(`${apiBaseUrl}/health`, {
-    headers: releaseHeaders(),
+    headers: releaseHeaders(apiBaseUrl),
   });
   expect(health.status()).toBe(200);
   await assertNoCloudflareChallenge(health);
@@ -356,7 +362,7 @@ test("Cloudflare API edge returns data without bot challenges", async ({
     `${apiBaseUrl}/shorts.v1alpha1.ShortedStocksService/GetStockData`,
     {
       headers: {
-        ...releaseHeaders(),
+        ...releaseHeaders(apiBaseUrl),
         "Content-Type": "application/json",
       },
       data: { productCode: "BHP" },
@@ -376,7 +382,7 @@ test("Cloudflare API edge returns data without bot challenges", async ({
     `${apiBaseUrl}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,
     {
       headers: {
-        ...releaseHeaders(),
+        ...releaseHeaders(apiBaseUrl),
         "Content-Type": "application/json",
       },
       data: { limit: 7 },

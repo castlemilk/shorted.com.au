@@ -107,6 +107,7 @@ fi
 (
   cd "$ROOT_DIR"
   vercel build "${VERCEL_BUILD_ARGS[@]}"
+  node scripts/verify-vercel-function-limits.mjs .vercel/output
 )
 
 stage "deploy-preview"

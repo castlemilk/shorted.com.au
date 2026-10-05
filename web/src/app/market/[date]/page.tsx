@@ -19,21 +19,36 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { cn } from "~/@/lib/utils";
+import { formatCompanyName } from "~/@/lib/company-name";
 import {
-  getMarketByDate,
+  getMarketByDateStrict,
+  isValidMarketDate,
 } from "~/app/actions/market/getMarketByDate";
 
 interface PageProps {
   params: Promise<{ date: string }>;
 }
 
+async function getMarketSnapshot(date: string) {
+  const data = await getMarketByDateStrict(date, 50, 0);
+  // Strict reads throw on exhausted retries and return null only for NotFound.
+  // Keep an unexpected undefined response retryable rather than caching a 404.
+  if (data === undefined) throw new Error("Market snapshot temporarily unavailable");
+  if (!data?.stocks?.length) notFound();
+  return data;
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { date } = await params;
+  validateDate(date);
+  // Resolve missing dates before streaming the page so they return a real 404.
+  // The action is React-cached; the page reuses the same date/limit/offset read.
+  await getMarketSnapshot(date);
   const formattedDate = formatDate(date);
 
   // Root layout applies a `%s | Shorted` title template — no brand suffix here.
   const title = `ASX Short Positions on ${formattedDate} | Daily ASIC Report`;
-  const description = `Complete snapshot of ASX short positions for ${formattedDate}. Top shorted stocks, industry breakdown, and market-wide short interest from official ASIC data.`;
+  const description = `Reported ASX securities with positive short positions for ${formattedDate}. View the top 50 securities, including shares, ETFs and debt, from ASIC data published with a T+4 delay.`;
 
   return {
     title,
@@ -56,7 +71,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     twitter: {
       site: "@shorted___",
       creator: "@shorted___",
-      card: "summary",
+      card: "summary_large_image",
       title,
       description,
     },
@@ -66,17 +81,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-// Market date pages depend on Connect-RPC POST fetches from server components.
-// Keep them dynamic so Next never tries to prerender no-store backend calls.
-export const dynamic = "force-dynamic";
+// Cache historical snapshots on first request; daily ingestion/corrections
+// invalidate shorts-data and the 24h ceiling bounds a missed notification.
+export const revalidate = 86400;
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ date: string }> {
+  return [];
+}
+
+function validateDate(dateStr: string): void {
+  if (!isValidMarketDate(dateStr)) notFound();
+}
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00");
+  const date = new Date(dateStr + "T00:00:00Z");
   return date.toLocaleDateString("en-AU", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "UTC",
   });
 }
 
@@ -85,7 +109,7 @@ function DateDatasetStructuredData({ date }: { date: string }) {
     "@context": "https://schema.org",
     "@type": "Dataset",
     name: `ASX Short Positions - ${formatDate(date)}`,
-    description: `Daily snapshot of all ASX short positions reported to ASIC for ${formatDate(date)}`,
+    description: `Top 50 reported ASX securities with positive short positions for ${formatDate(date)}, including shares, ETFs and debt. ASIC publishes position data with a T+4 delay.`,
     url: `${siteConfig.url}/market/${date}`,
     temporalCoverage: date,
     creator: {
@@ -112,30 +136,16 @@ function DateDatasetStructuredData({ date }: { date: string }) {
 export default async function MarketDatePage({ params }: PageProps) {
   const { date } = await params;
 
-  // Validate date format
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    notFound();
-  }
+  validateDate(date);
 
-  const data = await getMarketByDate(date, 50, 0);
-
-  // The edge read returns 200 with the `stocks` key omitted entirely for dates
-  // with no data (proto3 JSON drops empty repeated fields) — guard with
-  // optional chaining so those dates 404 instead of throwing a 500.
-  if (!data?.stocks?.length) {
-    notFound();
-  }
+  const data = await getMarketSnapshot(date);
 
   const formattedDate = formatDate(date);
 
   // Compute summary stats
-  const totalStocks = data.totalCount;
+  const totalSecurities = data.totalCount;
   const topStock = data.stocks[0];
   const highestShort = topStock?.percentageShorted ?? 0;
-  const totalReportedPositions = data.stocks.reduce(
-    (sum, s) => sum + Number(s.reportedShortPositions),
-    0,
-  );
 
   const breadcrumbItems = [
     { label: "Market", href: "/market" },
@@ -183,13 +193,24 @@ export default async function MarketDatePage({ params }: PageProps) {
               </p>
             </div>
           </div>
+          <p className="text-sm text-muted-foreground max-w-3xl">
+            Position date: {formattedDate}. ASIC publishes aggregated short
+            positions with a T+4 delay. This snapshot includes shares, ETFs,
+            debt and other securities with reported positive short positions.
+            Their issued-product denominators differ, so percentages across
+            instrument types are not directly comparable. The{" "}
+            <Link href="/top" className="underline underline-offset-4">filtered top-shorts list</Link>{" "}
+            excludes ETFs, debt and other non-equity instruments; ranks and
+            counts can differ. Read the{" "}
+            <Link href="/methodology" className="underline underline-offset-4">data methodology</Link>.
+          </p>
         </section>
 
         {/* Stats Grid */}
         <section className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <StatCard
-            label="Stocks with Short Positions"
-            value={totalStocks.toString()}
+            label="Securities with Short Positions"
+            value={totalSecurities.toString()}
             icon={<Building2 className="h-4 w-4" />}
             color="amber"
           />
@@ -201,25 +222,25 @@ export default async function MarketDatePage({ params }: PageProps) {
             subtext={topStock?.productCode}
           />
           <StatCard
-            label="Total Short Positions"
-            value={totalReportedPositions.toLocaleString()}
+            label="Securities Displayed"
+            value={data.stocks.length.toString()}
             icon={<BarChart3 className="h-4 w-4" />}
             color="rust"
-            subtext="Shares reported"
+            subtext={`Of ${totalSecurities.toLocaleString()} reported securities`}
           />
         </section>
 
         {/* Stock Table */}
         <section>
           <h2 className="text-xl font-semibold mb-4">
-            Top 50 Most Shorted Stocks
+            Top {data.stocks.length} Shorted Securities
           </h2>
 
           <div className="rounded-lg border border-border/60 overflow-hidden bg-card/50 backdrop-blur-sm">
             {/* Header */}
             <div className="grid grid-cols-[60px_1fr_100px_48px] md:grid-cols-[60px_1fr_120px_120px_48px] gap-4 px-4 py-3 bg-muted/50 border-b border-border/60 text-xs font-medium text-muted-foreground uppercase tracking-wider">
               <div className="text-center">Rank</div>
-              <div>Stock</div>
+              <div>Security</div>
               <div className="text-right">Short %</div>
               <div className="text-right hidden md:block">Industry</div>
               <div></div>
@@ -253,8 +274,13 @@ export default async function MarketDatePage({ params }: PageProps) {
                       {stock.productCode}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
-                      {stock.name}
+                      {formatCompanyName(stock.name, stock.productCode)}
                     </div>
+                    {stock.securityType && stock.securityType !== "ordinary" && (
+                      <div className="text-xs text-muted-foreground">
+                        Instrument type: {stock.securityType === "etf" ? "ETF" : stock.securityType}
+                      </div>
+                    )}
                   </div>
 
                   {/* Short % */}

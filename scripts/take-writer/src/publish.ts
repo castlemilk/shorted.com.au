@@ -189,6 +189,7 @@ async function tweetTake(slug: string): Promise<void> {
 export async function publishTake(opts: PublishOptions): Promise<void> {
   const { slug } = opts;
   if (!slug) throw new Error("--slug=SLUG required for publish");
+  if (opts.noValidate) throw new Error("publication requires vision validation; --no-validate is not supported");
 
   // 1. Load the take.
   const pg = new PgClient({ connectionString: requireDb() });
@@ -231,8 +232,7 @@ export async function publishTake(opts: PublishOptions): Promise<void> {
     try {
       await regenerateImages({ slug });
     } catch (err) {
-      // Image failure is deliberately FATAL (unlike validation): an article must
-      // not go live without its hero. Validation failures only warn.
+      // Keep the article as a draft when its required images cannot be produced.
       throw new Error(
         `image generation failed — publish aborted (article stays draft). ` +
         `Check OPENAI_API_KEY + GOOGLE_APPLICATION_CREDENTIALS (legacy ADC for GCS). ` +
@@ -243,15 +243,13 @@ export async function publishTake(opts: PublishOptions): Promise<void> {
     console.log("[publish] images present — skipping (use regen-images to redo)");
   }
 
-  // 3. Validate (default ON; non-fatal — a judge hiccup shouldn't block publishing).
-  if (opts.noValidate) {
-    console.log("[publish] --no-validate — skipping cohesion check");
-  } else {
+  // 3. Required review must finish successfully before published_at is written.
+  {
     process.env.VALIDATOR_SCREENSHOT = "0"; // draft page isn't live yet — judge per-image
     try {
-      await validateArticle(slug, { rounds: 1 });
+      await validateArticle(slug, { rounds: 1, requirePass: true });
     } catch (err) {
-      console.warn(`[publish] validator failed (continuing): ${String((err as Error).message ?? err).slice(0, 200)}`);
+      throw new Error("vision validation failed — publish aborted (article stays draft)", { cause: err });
     }
   }
 

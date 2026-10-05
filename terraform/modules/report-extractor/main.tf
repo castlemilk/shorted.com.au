@@ -53,6 +53,15 @@ resource "google_secret_manager_secret_iam_member" "gemini_api_key" {
   project   = var.project_id
 }
 
+# The direct extractor's OpenRouter key (financial-report-extractor only).
+resource "google_secret_manager_secret_iam_member" "openrouter_api_key" {
+  count     = var.openrouter_secret_name != "" ? 1 : 0
+  secret_id = var.openrouter_secret_name
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.report_extractor.email}"
+  project   = var.project_id
+}
+
 # Preserve the prior state-only removal so Terraform never tries to destroy the
 # historical cross-project binding while completing the production cutover.
 removed {
@@ -108,6 +117,43 @@ resource "google_cloud_run_v2_job" "director_trade_extractor" {
             }
           }
         }
+        # Backend: openrouter (director_direct.py consensus) when an
+        # OpenRouter key is configured, else the single Gemini call.
+        env {
+          name  = "EXTRACTOR_BACKEND"
+          value = var.openrouter_secret_name != "" ? "openrouter" : "gemini"
+        }
+        dynamic "env" {
+          for_each = var.openrouter_secret_name != "" ? [1] : []
+          content {
+            name = "OPENROUTER_API_KEY"
+            value_source {
+              secret_key_ref {
+                secret  = var.openrouter_secret_name
+                version = "latest"
+              }
+            }
+          }
+        }
+        env {
+          name  = "EXTRACTOR_PRIMARY_MODEL"
+          value = var.extractor_models.primary
+        }
+        env {
+          name  = "EXTRACTOR_CHECKER_MODEL"
+          value = var.extractor_models.checker
+        }
+        env {
+          name  = "EXTRACTOR_ARBITER_MODEL"
+          value = var.extractor_models.arbiter
+        }
+        # Re-admits the notices misrecorded as no_extract while every model
+        # call was failing (2026-07-30 until this fix); a marker recorded
+        # after the window's end skips normally. Remove once the backlog clears.
+        env {
+          name  = "DIRECTOR_RETRY_NO_EXTRACT_BETWEEN"
+          value = var.openrouter_secret_name != "" ? "2026-07-30:2026-10-15" : ""
+        }
         env {
           name  = "GEMINI_MAX_RUN_ITEMS"
           value = tostring(var.director_limit)
@@ -146,6 +192,7 @@ resource "google_cloud_run_v2_job" "director_trade_extractor" {
   depends_on = [
     google_secret_manager_secret_iam_member.database_url,
     google_secret_manager_secret_iam_member.otel_headers,
+    google_secret_manager_secret_iam_member.openrouter_api_key,
   ]
 }
 
@@ -219,6 +266,36 @@ resource "google_cloud_run_v2_job" "financial_report_extractor" {
             }
           }
         }
+        # Backend: openrouter (direct_extract.py) when an OpenRouter key is
+        # configured, else the langextract + Gemini path.
+        env {
+          name  = "EXTRACTOR_BACKEND"
+          value = var.openrouter_secret_name != "" ? "openrouter" : "gemini"
+        }
+        dynamic "env" {
+          for_each = var.openrouter_secret_name != "" ? [1] : []
+          content {
+            name = "OPENROUTER_API_KEY"
+            value_source {
+              secret_key_ref {
+                secret  = var.openrouter_secret_name
+                version = "latest"
+              }
+            }
+          }
+        }
+        env {
+          name  = "EXTRACTOR_PRIMARY_MODEL"
+          value = var.extractor_models.primary
+        }
+        env {
+          name  = "EXTRACTOR_CHECKER_MODEL"
+          value = var.extractor_models.checker
+        }
+        env {
+          name  = "EXTRACTOR_ARBITER_MODEL"
+          value = var.extractor_models.arbiter
+        }
         env {
           name  = "GEMINI_MAX_RUN_ITEMS"
           value = tostring(var.reports_limit)
@@ -261,6 +338,7 @@ resource "google_cloud_run_v2_job" "financial_report_extractor" {
   depends_on = [
     google_secret_manager_secret_iam_member.database_url,
     google_secret_manager_secret_iam_member.otel_headers,
+    google_secret_manager_secret_iam_member.openrouter_api_key,
   ]
 }
 
@@ -300,6 +378,7 @@ resource "google_cloud_scheduler_job" "director_trade_extractor" {
   attempt_deadline = "1800s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.director_scheduler_paused
 
   retry_config {
     retry_count          = 0
@@ -330,6 +409,7 @@ resource "google_cloud_scheduler_job" "financial_report_extractor" {
   attempt_deadline = "1800s"
   region           = var.scheduler_region
   project          = var.project_id
+  paused           = var.reports_scheduler_paused
 
   retry_config {
     retry_count          = 0

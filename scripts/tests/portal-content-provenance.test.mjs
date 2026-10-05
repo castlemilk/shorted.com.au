@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,6 +35,23 @@ function run(script, root) {
 function output(result) {
   return `${result.stdout}\n${result.stderr}`;
 }
+
+test("the checkout retains every tracked service and web provenance input", () => {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith("GIT_")) delete env[key];
+  }
+  const result = spawnSync("git", ["-C", repoRoot, "ls-files", "-z", "--", "services", "web"], {
+    env,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  assert.equal(result.status, 0, output(result));
+  const inputs = result.stdout.split("\0").filter(Boolean);
+  assert.ok(inputs.length > 0, "the provenance scope must contain tracked inputs");
+  assert.deepEqual(inputs.filter((path) => !existsSync(join(repoRoot, path))), [],
+    "a sparse checkout must not omit files that the provenance scanner guards");
+});
 
 test("rejects captured REA bootstrap markup with its relative path and signature", () => {
   const root = temporaryRoot();

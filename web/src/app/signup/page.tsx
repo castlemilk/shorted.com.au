@@ -11,7 +11,9 @@ import {
   updateProfile,
   signInWithPopup,
   GoogleAuthProvider,
+  getAdditionalUserInfo,
 } from "firebase/auth";
+import { trackSignupComplete, type SignupMethod } from "@/lib/signup-analytics";
 import { auth as firebaseAuth } from "@/lib/firebase-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,8 +63,9 @@ function SignUpForm() {
   useAuthPreconnect();
 
   // Client navigation instead of a full-document reload — see signin/page.tsx.
-  const completeSignIn = async () => {
-    await getSession();
+  const completeSignIn = async (method: SignupMethod, isNewUser: boolean) => {
+    const session = await getSession();
+    if (session && isNewUser) trackSignupComplete(method);
     router.push(callbackUrl);
     router.refresh();
   };
@@ -91,7 +94,7 @@ function SignUpForm() {
         setError("Authentication failed. Please try again.");
         setIsGoogleLoading(false);
       } else if (result?.ok) {
-        await completeSignIn();
+        await completeSignIn("google", getAdditionalUserInfo(userCredential)?.isNewUser === true);
       }
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
@@ -161,7 +164,7 @@ function SignUpForm() {
         setError("Account created but sign-in failed. Please try signing in.");
         setIsLoading(false);
       } else if (result?.ok) {
-        await completeSignIn();
+        await completeSignIn("email", true);
       }
     } catch (err: unknown) {
       const firebaseError = err as { code?: string };

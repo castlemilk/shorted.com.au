@@ -93,3 +93,9 @@ variable "register_fetch_delay_ms" {
   type        = number
   default     = 1500
 }
+
+variable "scheduler_paused" {
+  description = "Pause the job's Cloud Scheduler trigger. Set true once the job runs as a Kubernetes CronJob on omega instead (deploy/kubernetes/jobs; driven by local.jobs_on_vke in environments/prod/main.tf). The Cloud Run job itself stays deployed for admin Run-now and manual executions."
+  type        = bool
+  default     = false
+}

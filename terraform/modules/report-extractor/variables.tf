@@ -73,3 +73,35 @@ variable "otel_endpoint" {
   type        = string
   default     = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
 }
+
+variable "director_scheduler_paused" {
+  description = "Pause the director-trade-extractor daily trigger. Set true once the job runs as a Kubernetes CronJob on omega instead (deploy/kubernetes/jobs; driven by local.jobs_on_vke in environments/prod/main.tf). The Cloud Run job itself stays deployed for admin Run-now and manual executions."
+  type        = bool
+  default     = false
+}
+
+variable "reports_scheduler_paused" {
+  description = "Pause the financial-report-extractor weekly trigger. Set true once the job runs as a Kubernetes CronJob on omega instead (deploy/kubernetes/jobs; driven by local.jobs_on_vke in environments/prod/main.tf). The Cloud Run job itself stays deployed for admin Run-now and manual executions."
+  type        = bool
+  default     = false
+}
+
+variable "openrouter_secret_name" {
+  description = "Secret Manager id holding an OpenRouter API key. When set, financial-report-extractor and director-trade-extractor run --backend openrouter: one validated call per document with consensus (DeepSeek primary, cheapest-Gemini checker, Gemini arbiter; services/report-extractor/direct_extract.py, director_direct.py). Empty keeps the langextract + Gemini path. The secret must EXIST before apply, or the job revision is rejected."
+  type        = string
+  default     = ""
+}
+
+variable "extractor_models" {
+  description = "OpenRouter model ids for the direct extractor: primary answers, checker confirms, arbiter breaks disagreements (\"\" for checker disables consensus; \"\" for arbiter withholds every disagreement). Measured 2026-09-29 on 32 filings: 95.7% of verified revenue/NPAT/EPS figures, about $0.16 per 120-document night including digests."
+  type = object({
+    primary = string
+    checker = string
+    arbiter = string
+  })
+  default = {
+    primary = "deepseek/deepseek-v4-flash"
+    checker = "google/gemini-2.5-flash-lite"
+    arbiter = "google/gemini-2.5-flash"
+  }
+}

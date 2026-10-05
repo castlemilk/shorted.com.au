@@ -1034,8 +1034,14 @@ def summarize_report(
     if not raw:
         raise ModelError("digest response carried no text (blocked or empty)")
 
+    return parse_digest(raw)
+
+
+def parse_digest(raw: str) -> dict:
+    """The digest dict from a model's answer text; an empty digest (confidence
+    0) when the answer is not the JSON asked for."""
     # Strip markdown fences if present
-    raw = re.sub(r"^```(?:json)?\s*", "", raw)
+    raw = re.sub(r"^```(?:json)?\s*", "", raw or "")
     raw = re.sub(r"\s*```$", "", raw)
     raw = raw.strip()
 
@@ -1049,6 +1055,29 @@ def summarize_report(
     except (ValueError, TypeError, AttributeError) as e:
         log.warning("  Digest JSON parse failed: %s (raw: %.200s)", e, raw)
         return {"digest": "", "confidence": 0.0, "key_takeaways": []}
+
+
+def summarize_report_openrouter(
+    metrics: dict,
+    page_text: str,
+    client: Any,
+    model_id: str,
+    usage: Optional[TokenUsage] = None,
+) -> dict:
+    """summarize_report through OpenRouter (direct_extract.OpenRouter): the
+    same prompt, trust funnel, text window and output contract. Raises
+    ModelError when the model could not answer."""
+    import direct_extract
+
+    prompt_metrics = extraction_trust.trusted_metrics(metrics, FEWSHOT_DENYLIST)
+    truncated_text = page_text[:DIGEST_TEXT_CHARS] if page_text else ""
+    try:
+        raw = direct_extract.summarize(
+            client, model_id, DIGEST_PROMPT, json.dumps(prompt_metrics, indent=2), truncated_text, usage=usage
+        )
+    except direct_extract.ModelCallError as e:
+        raise ModelError(f"digest call failed: {e}") from e
+    return parse_digest(raw)
 
 
 def upload_raw_text_to_gcs(stock_code: str, report_url: str, text: str) -> Optional[str]:
@@ -1218,6 +1247,7 @@ def process_report_text(
     usage: Optional[TokenUsage] = None,
     model: Any = None,
     digest_client: Any = None,
+    direct: Any = None,
 ) -> tuple[dict, Optional[dict], dict, str]:
     """Everything the model and the regexes produce for one downloaded report:
     (metrics, digest_result, document_meta, outcome). No database access, so
@@ -1230,9 +1260,22 @@ def process_report_text(
     retries the document. When metrics were grounded but the digest call
     failed, the outcome is digest_error: the metrics are returned with digest
     None, stored with digest NULL, and --backfill-digests summarises them
-    later."""
+    later.
+
+    direct: a direct_extract.DirectExtractor. When given, the metrics come from
+    one validated call per document with consensus (direct_extract) instead of
+    langextract, and the digest goes through the same OpenRouter client and
+    primary model."""
     meta = extract_document_meta(text)
-    extractions = extract_financial_data(text, report["stock_code"], model_id=model_id, usage=usage, model=model)
+    if direct is not None:
+        import direct_extract
+
+        try:
+            extractions = direct.extract(text[:EXTRACTION_TEXT_CHARS], report["stock_code"], usage=usage)
+        except direct_extract.ModelCallError as e:
+            raise ModelError(f"direct extraction failed for {report['stock_code']}: {e}") from e
+    else:
+        extractions = extract_financial_data(text, report["stock_code"], model_id=model_id, usage=usage, model=model)
     metrics = extractions_to_metrics(extractions) if extractions else {}
     if metrics:
         log.info("  %s: %d metric types: %s", report["stock_code"], len(metrics), ", ".join(metrics.keys()))
@@ -1241,7 +1284,10 @@ def process_report_text(
     # §6.3(b) Decouple the digest from metric extraction: with no metrics still
     # summarise from raw text (most results documents state numbers in prose).
     try:
-        digest = summarize_report(metrics, text, model_id=model_id, usage=usage, client=digest_client)
+        if direct is not None:
+            digest = summarize_report_openrouter(metrics, text, direct.client, direct.primary, usage=usage)
+        else:
+            digest = summarize_report(metrics, text, model_id=model_id, usage=usage, client=digest_client)
     except ModelError as e:
         if not metrics:
             raise

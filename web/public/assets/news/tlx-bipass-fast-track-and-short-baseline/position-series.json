@@ -1,0 +1,128 @@
+{
+  "stockCode": "TLX",
+  "source": "ASIC daily aggregate short-position reports",
+  "retrievedDate": "2026-10-03",
+  "basis": "Reported short positions as percentage of total product in issue; T+4 publication lag",
+  "points": [
+    {
+      "positionDate": "2026-09-01",
+      "percentage": 10.41657888,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260901-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "f7db32fb88a50f592810eb093025da442da39a4f66ada11d8c28df6fdf58e3c8"
+    },
+    {
+      "positionDate": "2026-09-02",
+      "percentage": 10.32456079,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260902-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "6e33d41d8a38b1834823eaa6eabc945915933fe30bc5c4e1b620be9f222e3769"
+    },
+    {
+      "positionDate": "2026-09-03",
+      "percentage": 10.41739734,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260903-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "28519ba31fdc98a1f966967f610ece1f29eef622fb1128d781d10fac92eaf217"
+    },
+    {
+      "positionDate": "2026-09-04",
+      "percentage": 10.40798578,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260904-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "54469b1f2c61ddf2f8041e2880ac2dd2996a695ba87a3963afcc1663c8f4b9a0"
+    },
+    {
+      "positionDate": "2026-09-07",
+      "percentage": 10.20372148,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260907-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "cb59522b953e1192ddabca63aa730751cef6cdd614fc33844fe053b418a63c12"
+    },
+    {
+      "positionDate": "2026-09-08",
+      "percentage": 10.53813188,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260908-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "34c3e34f8fcc097f1f71d66742313ced2900a2e044c6dad1edee8fd6e8ab946b"
+    },
+    {
+      "positionDate": "2026-09-09",
+      "percentage": 10.57555856,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260909-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "37de09152c61cfa7e013f156f1cf30bdcec0115f656f8c86d69740023703be9e"
+    },
+    {
+      "positionDate": "2026-09-10",
+      "percentage": 10.74056825,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260910-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "f5b439ef68409ddd5e2e3ba3a38cd81be39ab1a573a5411bad79f8c67c91f23c"
+    },
+    {
+      "positionDate": "2026-09-11",
+      "percentage": 10.82174446,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260911-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "e629ea4f07b6bafae8b5c84fe50032d1455b5cae9fb28f22e671b613b0d48565"
+    },
+    {
+      "positionDate": "2026-09-14",
+      "percentage": 11.01289985,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260914-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "b2f23df0e09313284db19e4f9ce3239e9923b6dccd34f38cb863565951d4c3ce"
+    },
+    {
+      "positionDate": "2026-09-15",
+      "percentage": 10.48225018,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260915-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "9a6cc8d66c99433a0822842f1c4b760d78f4e1ece604db6ec97967d016909f11"
+    },
+    {
+      "positionDate": "2026-09-16",
+      "percentage": 10.67234477,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260916-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "27bf5189d061ccfde41316ee18028e52643cbe2655096131dbb9e91b39fedbfc"
+    },
+    {
+      "positionDate": "2026-09-17",
+      "percentage": 10.5541297,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260917-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "e4d1c6229f0cb3b561a36892b5ac96cd058c926257fae1e92561da495b906f44"
+    },
+    {
+      "positionDate": "2026-09-18",
+      "percentage": 10.46979654,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260918-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "fc61a7865a6f9a3b763db29f0abc47c0bb50fdc13a56931aa39dfd576eae08ef"
+    },
+    {
+      "positionDate": "2026-09-21",
+      "percentage": 10.60893411,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260921-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "d9ee850f396eb163d3bf8ceedd0e357be6ba09c97f64c1614f8461a84d53b7f2"
+    },
+    {
+      "positionDate": "2026-09-22",
+      "percentage": 10.5062772,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260922-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "f026030c569d9a90c4ec85d1f82bb9d8784788907508f53ff98c4dd88b47ab1e"
+    },
+    {
+      "positionDate": "2026-09-23",
+      "percentage": 10.72207463,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260923-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "c3720ef14c415fa3e38444e34e3860ee0ce300183346e5dddba887d2d1ebe087"
+    },
+    {
+      "positionDate": "2026-09-24",
+      "percentage": 10.71315504,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260924-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "d502576767832539ebf3af89aeff3f9c22d4469d9987e45b9acb22805cae8bb3"
+    },
+    {
+      "positionDate": "2026-09-25",
+      "percentage": 10.61345113,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260925-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "8877a3b03ca610c78966c9b173c78c0c6f5ec8be2822042fdbbf145311595417"
+    },
+    {
+      "positionDate": "2026-09-28",
+      "percentage": 10.7477843,
+      "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260928-001-SSDailyAggShortPos.csv",
+      "sourceSha256": "25cba6aea53ab283725930473655eaf0bf7c7f1b58bd99393a35185ef3219d8a"
+    }
+  ]
+}

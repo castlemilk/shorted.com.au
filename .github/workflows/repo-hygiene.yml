@@ -13,6 +13,7 @@ on:
       - "Makefile"
       - "docs/housing-architecture.md"
       - "scripts/check-portal-content-provenance.mjs"
+      - "scripts/take-writer/**"
       - "scripts/generate-synthetic-housing-pagemeta-fixtures.mjs"
       - "scripts/tests/housing-deploy-hygiene.test.mjs"
       - "scripts/tests/openapi-drift.test.mjs"
@@ -24,13 +25,25 @@ on:
       # Guard: a self-hosted job must not depend on tooling that happens to be
       # baked into a hand-built runner image (see the test's own preamble).
       - "scripts/tests/self-hosted-toolchain.test.mjs"
-      - ".github/workflows/release-preview-smoke.yml"
+      - ".github/workflows/perf-budget.yml"
+      - "scripts/release-pipeline.test.mjs"
+      - "scripts/bundle-budget-ci.test.mjs"
+      - "scripts/tests/browser-analytics-isolation.test.mjs"
+      - "scripts/tests/scoped-release-headers.test.mjs"
+      - "web/e2e/helpers/release-page-readiness.mjs"
+      - "web/e2e/helpers/scoped-release-headers.mjs"
+      - "web/e2e/release-smoke-ci.mjs"
+      - "web/e2e/release-smoke.spec.ts"
       - "services/migrations/**"
       - ".github/workflows/terraform-deploy.yml"
       - "terraform/modules/**"
       # cost-guardrails.test.mjs pins prod's report_extractor limits too.
       - "terraform/environments/prod/main.tf"
       - ".github/workflows/repo-hygiene.yml"
+      # Scheduled jobs on Kubernetes: the chart, its scripts, and the guard
+      # that keeps local.jobs_on_vke and the chart's `enabled` list in step.
+      - "deploy/kubernetes/jobs/**"
+      - "scripts/tests/vke-jobs-cutover.test.mjs"
   workflow_dispatch:
 
 # Supersede a PR's own earlier runs. Every job here competes for the shared
@@ -43,12 +56,51 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  newsroom-tests:
+    name: Newsroom publication tests
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            scripts/take-writer
+            content/news
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - name: Install newsroom dependencies
+        working-directory: scripts/take-writer
+        run: npm ci --no-audit --no-fund
+      - name: Test publication and newsroom contracts without external services
+        working-directory: scripts/take-writer
+        run: npm test
+      - name: Check newsroom types
+        working-directory: scripts/take-writer
+        run: npx --no-install tsc --noEmit
+
   portal-content-provenance:
     name: Portal content provenance
     runs-on: [self-hosted, cuttlefish, linux]
-    timeout-minutes: 5
+    # Cold partial checkout took 4m15s; leave time for Node setup and assertions.
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Partial clone uses the checkout action; avoids the native mirror path.
+          filter: blob:none
+          sparse-checkout: |
+            services
+            web
+            scripts
+            terraform
+            deploy
+            docs
+            proto
+            api
+            content
+            .github
 
       - uses: actions/setup-node@v5
         with:
@@ -58,7 +110,7 @@ jobs:
       # workers, pages, budget and retries (contract fundamentals-coverage
       # 6.2); until it was listed here it ran in no CI job.
       - name: Test repository hygiene tooling
-        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs terraform/modules/report-extractor/cost-guardrails.test.mjs
+        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs scripts/tests/vke-jobs-cutover.test.mjs terraform/modules/report-extractor/cost-guardrails.test.mjs scripts/release-pipeline.test.mjs scripts/bundle-budget-ci.test.mjs scripts/tests/browser-analytics-isolation.test.mjs scripts/tests/scoped-release-headers.test.mjs
 
       # These assert properties of migrations that prod REPLAYS on every deploy
       # from a hardcoded allowlist — most importantly that 000095 stays last, so
@@ -87,6 +139,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Partial clone uses the checkout action; avoids the native mirror path.
+          filter: blob:none
+          sparse-checkout: |
+            services/report-extractor
+            services/pkg/extractiontrust
 
       # The runner image is not a contract (scripts/tests/self-hosted-toolchain
       # .test.mjs): ask for Python explicitly. 3.11 is what the job's image
@@ -102,6 +160,50 @@ jobs:
         working-directory: services/report-extractor
         run: python -m pytest -q
 
+  # deploy/kubernetes/jobs: the CronJob chart Paprika delivers to omega. The
+  # render contract pins every schedule to the Cloud Scheduler trigger it
+  # replaces, per-workload Gemini key isolation, keyless GCP auth scope and
+  # nothing-runs-by-default; the Python tests cover the Telesis monitor
+  # registration maths. Tools are installed explicitly: the runner image is not
+  # a contract (scripts/tests/self-hosted-toolchain.test.mjs).
+  vke-jobs-chart:
+    name: VKE jobs chart
+    runs-on: [self-hosted, cuttlefish, linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Partial clone uses the checkout action; avoids the native mirror path.
+          filter: blob:none
+          sparse-checkout: |
+            deploy/kubernetes/jobs
+            terraform
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+
+      - name: Install yq
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/bin"
+          arch="$(uname -m)"; case "${arch}" in x86_64) arch=amd64 ;; aarch64|arm64) arch=arm64 ;; esac
+          curl -fsSL -o "${RUNNER_TEMP}/bin/yq" "https://github.com/mikefarah/yq/releases/download/v4.47.2/yq_linux_${arch}"
+          chmod +x "${RUNNER_TEMP}/bin/yq"
+          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Chart render contract
+        run: deploy/kubernetes/jobs/chart/tests/render.sh
+
+      - name: Monitor registration tests
+        run: |
+          python -m pip install --quiet pyyaml
+          python -m unittest discover -s deploy/kubernetes/jobs/scripts -p 'test_*.py' -v
+
   # web/public/openapi.{json,yaml} is a generated, PUBLISHED artifact. A stale
   # one is worse than none: it reads as authoritative while documenting an API
   # we no longer serve. This job regenerates it from the protos and diffs.
@@ -115,6 +217,19 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Partial clone uses the checkout action; avoids the native mirror path.
+          filter: blob:none
+          sparse-checkout: |
+            proto
+            api
+            services/cmd/openapi-postprocess
+            services/gen/proto
+            services/pkg
+            sdks/java
+            web
+            scripts
+            docs
 
       - uses: actions/setup-node@v5
         with:

@@ -18,6 +18,7 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import OpenAI from "openai";
 import { Storage } from "@google-cloud/storage";
 import { Client as PgClient } from "pg";
+import { z } from "zod";
 import { type LayoutImage, type PlanItem, generateOneLayoutImage, generatePlanHero } from "./art-director.js";
 
 // gemini-3-pro-preview 404s on the generativelanguage v1beta API as of
@@ -25,6 +26,19 @@ import { type LayoutImage, type PlanItem, generateOneLayoutImage, generatePlanHe
 // working default. Override via VALIDATOR_MODEL when the preview model lands.
 const JUDGE_MODEL = (): string => process.env.VALIDATOR_MODEL ?? "gemini-3.5-flash";
 const SITE = (): string => process.env.SHORTED_SITE_URL ?? "https://shorted.com.au";
+
+/** Publication is one bounded review; interactive validate-article may still auto-fix. */
+export const PUBLICATION_VISION_LIMITS = Object.freeze({
+  model: "gemini-3.5-flash",
+  rounds: 1,
+  candidateCount: 1,
+  maxInputTokens: 12_000,
+  maxOutputTokens: 8_192,
+  minCohesionScore: 7,
+  requestTimeoutMs: 120_000,
+  imageTimeoutMs: 30_000,
+  maxImageBytes: 8 * 1024 * 1024,
+});
 
 async function screenshotArticle(slug: string): Promise<Buffer | null> {
   if (process.env.VALIDATOR_SCREENSHOT === "0") return null;
@@ -64,9 +78,26 @@ async function screenshotArticle(slug: string): Promise<Buffer | null> {
   }
 }
 
-async function fetchPng(url: string): Promise<Buffer> {
-  const r = await fetch(url);
-  return Buffer.from(await r.arrayBuffer());
+async function fetchPng(url: string, required = false): Promise<Buffer> {
+  if (required && new URL(url).protocol !== "https:") throw new Error("publication images require an absolute HTTPS URL");
+  const r = await fetch(url, required ? { signal: AbortSignal.timeout(PUBLICATION_VISION_LIMITS.imageTimeoutMs) } : undefined);
+  if (!required) return Buffer.from(await r.arrayBuffer());
+  if (!r.ok || !/^image\/png(?:;|$)/i.test(r.headers.get("content-type") ?? "")) {
+    throw new Error("publication image fetch did not return a successful PNG response");
+  }
+  const chunks: Uint8Array[] = [];
+  let bytes = 0;
+  if (!r.body) throw new Error("publication image response is empty");
+  for await (const chunk of r.body) {
+    bytes += chunk.length;
+    if (bytes > PUBLICATION_VISION_LIMITS.maxImageBytes) throw new Error("publication image exceeds the byte limit");
+    chunks.push(chunk);
+  }
+  const png = Buffer.concat(chunks);
+  if (png.length < 24 || png.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" || png.readUInt32BE(16) === 0 || png.readUInt32BE(20) === 0) {
+    throw new Error("publication image is not a valid PNG header");
+  }
+  return png;
 }
 
 interface ImageVerdict {
@@ -96,6 +127,38 @@ interface CohesionVerdict {
   verdict: string;
   hero?: HeroVerdict;
   images: ImageVerdict[];
+}
+
+const IMAGE_RESULT = z.object({
+  fits: z.boolean(), captionAccurate: z.boolean(), qualityOk: z.boolean(),
+  issue: z.string(), regenerate: z.boolean(), newBrief: z.string(), newCaption: z.string(),
+});
+const PUBLICATION_VERDICT = z.object({
+  cohesionScore: z.number().min(0).max(10), layoutNotes: z.string(), verdict: z.string().trim().min(1),
+  hero: IMAGE_RESULT,
+  images: z.array(IMAGE_RESULT.extend({ index: z.number().int().nonnegative() })),
+});
+
+function requirePublicationVerdict(value: unknown, imageCount: number): CohesionVerdict {
+  const verdict = PUBLICATION_VERDICT.parse(value);
+  const indices = new Set(verdict.images.map((v) => v.index));
+  if (verdict.images.length !== imageCount || indices.size !== imageCount || verdict.images.some((v) => v.index >= imageCount)) {
+    throw new Error("publication verdict does not cover every layout image exactly once");
+  }
+  // Name every failed check: the job log is the only record of why an article
+  // stayed a draft, and a bare "found issues" sends the operator to re-run it.
+  const failures: string[] = [];
+  if (verdict.cohesionScore < PUBLICATION_VISION_LIMITS.minCohesionScore) {
+    failures.push(`cohesion ${verdict.cohesionScore}/10 below ${PUBLICATION_VISION_LIMITS.minCohesionScore}`);
+  }
+  for (const [label, v] of [["hero", verdict.hero], ...verdict.images.map((v) => [`img ${v.index}`, v] as const)] as const) {
+    const failed = [!v.fits && "fit", !v.captionAccurate && "caption", !v.qualityOk && "quality", v.regenerate && "regenerate"].filter(Boolean);
+    if (failed.length || v.issue.trim()) failures.push(`${label}: ${failed.join(",") || "issue"}${v.issue.trim() ? ` (${v.issue.trim()})` : ""}`);
+  }
+  if (failures.length) {
+    throw new Error(`vision review found image issues; article stays draft for review: ${failures.join("; ")}`);
+  }
+  return verdict;
 }
 
 const VERDICT_SCHEMA = {
@@ -147,16 +210,18 @@ async function judge(
   screenshot: Buffer | null,
   imageBufs: Buffer[],
   hero: { buf: Buffer; caption: string | null } | null,
+  requirePass = false,
 ): Promise<CohesionVerdict> {
   const model = ai.getGenerativeModel({
-    model: JUDGE_MODEL(),
+    model: requirePass ? PUBLICATION_VISION_LIMITS.model : JUDGE_MODEL(),
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: VERDICT_SCHEMA,
       temperature: 0.3,
+      ...(requirePass ? { candidateCount: PUBLICATION_VISION_LIMITS.candidateCount, maxOutputTokens: PUBLICATION_VISION_LIMITS.maxOutputTokens } : {}),
       ...({ thinkingConfig: { thinkingBudget: 0 } } as unknown as Record<string, unknown>),
     } as unknown as Parameters<GoogleGenerativeAI["getGenerativeModel"]>[0]["generationConfig"],
-  });
+  }, requirePass ? { timeout: PUBLICATION_VISION_LIMITS.requestTimeoutMs } : undefined);
   const common =
     `You are the editor reviewing whether this published article LOOKS GOOD and is cohesive. Headline: "${headline}".\n\n` +
     `Body (markdown):\n${bodyMd.slice(0, 4000)}\n\n` +
@@ -183,12 +248,41 @@ async function judge(
   if (screenshot) parts.push({ inlineData: { mimeType: "image/png", data: screenshot.toString("base64") } });
   if (hero) parts.push({ inlineData: { mimeType: "image/png", data: hero.buf.toString("base64") } });
   for (const b of imageBufs) parts.push({ inlineData: { mimeType: "image/png", data: b.toString("base64") } });
-  const resp = await model.generateContent(parts as unknown as Parameters<ReturnType<GoogleGenerativeAI["getGenerativeModel"]>["generateContent"]>[0]);
+  const input = parts as unknown as Parameters<ReturnType<GoogleGenerativeAI["getGenerativeModel"]>["generateContent"]>[0];
+  if (requirePass) {
+    const { totalTokens } = await model.countTokens(input);
+    if (!Number.isSafeInteger(totalTokens) || totalTokens <= 0 || totalTokens > PUBLICATION_VISION_LIMITS.maxInputTokens) {
+      throw new Error("publication vision input exceeds its token limit or token count is unavailable");
+    }
+    console.log(`[validate] input tokens=${totalTokens}; output limit=${PUBLICATION_VISION_LIMITS.maxOutputTokens}; inference attempts=1`);
+  }
+  const resp = await model.generateContent(input);
+  if (requirePass) {
+    const candidates = resp.response.candidates;
+    if (candidates?.length !== 1 || candidates[0]?.finishReason !== "STOP") {
+      throw new Error("publication vision response is blocked, truncated or incomplete");
+    }
+    const usage = resp.response.usageMetadata;
+    const counts = [usage?.promptTokenCount, usage?.candidatesTokenCount, usage?.totalTokenCount];
+    if (!counts.every((v) => Number.isSafeInteger(v) && v! >= 0) || !usage) {
+      throw new Error("publication vision usage counters are unavailable");
+    }
+    const outputAndThinking = usage.totalTokenCount - usage.promptTokenCount;
+    console.log(`[validate] usage input=${usage.promptTokenCount} visible output=${usage.candidatesTokenCount} output+thinking=${outputAndThinking} total=${usage.totalTokenCount}`);
+    if (usage.promptTokenCount > PUBLICATION_VISION_LIMITS.maxInputTokens || outputAndThinking < usage.candidatesTokenCount || outputAndThinking > PUBLICATION_VISION_LIMITS.maxOutputTokens) {
+      throw new Error("publication vision reported usage outside its token limits");
+    }
+    return requirePublicationVerdict(JSON.parse(resp.response.text()), layoutImages.length);
+  }
   return JSON.parse(resp.response.text()) as CohesionVerdict;
 }
 
-export async function validateArticle(slug: string, opts: { rounds?: number } = {}): Promise<void> {
-  const maxRounds = opts.rounds ?? 2;
+export async function validateArticle(slug: string, opts: { rounds?: number; requirePass?: boolean } = {}): Promise<void> {
+  const requirePass = opts.requirePass === true;
+  if (requirePass && opts.rounds !== undefined && opts.rounds !== PUBLICATION_VISION_LIMITS.rounds) {
+    throw new Error("publication vision requires exactly one round");
+  }
+  const maxRounds = requirePass ? PUBLICATION_VISION_LIMITS.rounds : opts.rounds ?? 2;
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL not set");
   if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
@@ -208,6 +302,7 @@ export async function validateArticle(slug: string, opts: { rounds?: number } = 
     const layout: LayoutImage[] = row.layout_images ?? [];
     let heroUrl = row.hero_image_url;
     let heroCaption = row.hero_caption;
+    if (requirePass && !heroUrl) throw new Error("publication requires an existing hero image");
     if (!layout.length && !heroUrl) {
       console.log("[validate] no hero_image_url or layout_images on this take");
       return;
@@ -216,14 +311,14 @@ export async function validateArticle(slug: string, opts: { rounds?: number } = 
     const bodyMd = row.body_md;
 
     console.error(`[validate] screenshotting ${slug}…`);
-    const shot = await screenshotArticle(slug);
+    const shot = requirePass ? null : await screenshotArticle(slug);
     console.error("[validate] mode: " + (shot ? "screenshot+per-image" : "per-image only"));
-    const imageBufs = await Promise.all(layout.map((li) => fetchPng(li.url)));
-    let heroBuf: Buffer | null = heroUrl ? await fetchPng(heroUrl).catch(() => null) : null;
+    const imageBufs = await Promise.all(layout.map((li) => fetchPng(li.url, requirePass)));
+    let heroBuf: Buffer | null = heroUrl ? (requirePass ? await fetchPng(heroUrl, true) : await fetchPng(heroUrl).catch(() => null)) : null;
 
     for (let round = 1; round <= maxRounds; round++) {
-      console.error(`[validate] round ${round}: judging (model ${JUDGE_MODEL()})…`);
-      const v = await judge(ai, headline, bodyMd, layout, shot, imageBufs, heroBuf ? { buf: heroBuf, caption: heroCaption } : null);
+      console.error(`[validate] round ${round}: judging (model ${requirePass ? PUBLICATION_VISION_LIMITS.model : JUDGE_MODEL()})…`);
+      const v = await judge(ai, headline, bodyMd, layout, shot, imageBufs, heroBuf ? { buf: heroBuf, caption: heroCaption } : null, requirePass);
       console.log(`\n=== cohesion ${v.cohesionScore}/10 — ${v.verdict} ===`);
       console.log(`layout: ${v.layoutNotes}`);
       if (heroBuf && v.hero) {

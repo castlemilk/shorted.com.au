@@ -1,0 +1,587 @@
+# shorted-jobs — every SCHEDULED Shorted batch job as a Kubernetes CronJob.
+#
+# Source of truth for what moved off Cloud Run and why each value is what it is:
+# deploy/kubernetes/jobs/README.md. Each job below mirrors its Cloud Run job in
+# terraform/environments/prod/main.tf (or the module named in its comment):
+# same image, args, env, secrets, timeout and retries.
+#
+# SAFETY: `suspendAll: true` ships every CronJob suspended. A job only starts
+# running here once it is listed in `enabled` below AND its Cloud Scheduler
+# trigger is paused in Terraform (`local.jobs_on_vke` in
+# terraform/environments/prod/main.tf). Both halves, or the job runs twice (or
+# not at all). See README.md "Cutting a job over".
+
+# Image tags are bumped by CI (.github/workflows/terraform-deploy.yml,
+# `bump-vke-jobs-image`) after every main build. Immutable tags only — never
+# `latest`: a mutable tag resolves to whatever was pushed last, not what was
+# reviewed.
+images:
+  jobs:
+    repository: australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/shorted-jobs
+    tag: main-2beade7c
+  jobsBrowser:
+    repository: australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/shorted-jobs-browser
+    tag: main-2beade7c
+  reportExtractor:
+    repository: australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/report-extractor
+    tag: main-2beade7c
+  housePriceCollector:
+    repository: australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/house-price-collector
+    tag: main-2beade7c
+
+imagePullPolicy: IfNotPresent
+
+# Artifact Registry pull credential. Runtime Workload Identity does NOT
+# authenticate kubelet image pulls — this secret is created by
+# scripts/bootstrap.sh (a read-only AR key), exactly like telesis-gar etc.
+imagePullSecrets:
+  - name: shorted-gar
+
+# Every secret env var is a secretKeyRef into ONE Secret whose keys are the
+# GCP Secret Manager secret ids verbatim (scripts/sync-secrets.sh copies them).
+# Jobs still name their key explicitly, so per-workload isolation survives the
+# move: shorted-news reads GEMINI_API_KEY from the GEMINI_API_KEY_NEWS key, the
+# extractors from GEMINI_API_KEY_REPORT_EXTRACTOR, never each other's.
+secretEnv:
+  secretName: shorted-jobs-env
+
+# Global kill switch. Individual jobs run only when this is false AND the job
+# is in `enabled` (below). Default: nothing runs.
+suspendAll: false
+# CronJob names that are live on the cluster. Cutover is one line here plus the
+# matching Terraform flag — never one without the other.
+enabled:
+  - shorted-news-cluster
+  - shorted-index-sync
+  - shorted-news
+  - shorted-news-backfill-images
+  - shorted-news-resolve-googlenews
+  - shorted-news-digest
+  - shorted-economy
+
+# Google Workload Identity Federation for the jobs that write to GCS. Keyless:
+# a projected Kubernetes token is exchanged for a short-lived token of the SAME
+# Google service account the Cloud Run job used, so bucket IAM is unchanged.
+# Trust is bootstrapped by scripts/bootstrap.sh.
+workloadIdentity:
+  projectNumber: "334313144667" # rosy-clover-477102-t5
+  pool: vke-omega
+  provider: omega
+  credentialConfigMountPath: /var/run/secrets/google/workload-identity
+  credentialConfigFile: credential-configuration.json
+  tokenMountPath: /var/run/secrets/google/tokens
+  tokenFile: token
+  tokenExpirationSeconds: 3600
+
+# CronJob defaults.
+defaults:
+  timeZone: Etc/UTC # every Cloud Scheduler trigger was time_zone = "UTC"
+  concurrencyPolicy: Forbid # Cloud Run never overlapped a job with itself either
+  # A run the controller could not start within this window is skipped — and
+  # then surfaces as a MISSED run in Telesis, because the monitor's grace is
+  # deliberately longer than this.
+  startingDeadlineSeconds: 900
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  timeoutSeconds: 1800 # Cloud Run's per-attempt task timeout
+  maxRetries: 2
+  resources:
+    cpuRequest: 250m
+    memory: 512Mi
+
+# Env every job gets. CLOUD_RUN_EXECUTION / CLOUD_RUN_JOB are also injected
+# (templates/cronjobs.yaml) — short-data-sync keys its resume row on
+# CLOUD_RUN_EXECUTION, and the Kubernetes Job name has the same shape and the
+# same "one per run, shared by its retries" semantics.
+commonEnv:
+  ENVIRONMENT: production
+
+# Named env/secret bundles a job pulls in with `profiles: [...]`. Merge order:
+# commonEnv, then each profile in order, then the job's own env/secretEnv.
+profiles:
+  db:
+    secretEnv:
+      DATABASE_URL: DATABASE_URL
+  otel:
+    env:
+      OTEL_EXPORTER_OTLP_ENDPOINT: https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    secretEnv:
+      OTEL_EXPORTER_OTLP_HEADERS: OTEL_EXPORTER_OTLP_HEADERS
+  gcpProject:
+    env:
+      GCP_PROJECT: rosy-clover-477102-t5
+  revalidate:
+    env:
+      REVALIDATION_URL: https://shorted.com.au/api/revalidate
+    secretEnv:
+      REVALIDATION_SECRET: REVALIDATION_SECRET
+  news:
+    env:
+      PUBLIC_SITE_URL: https://shorted.com.au
+    secretEnv:
+      GEMINI_API_KEY: GEMINI_API_KEY_NEWS
+      EMAIL_IMG_SECRET: EMAIL_IMG_SECRET
+  reportExtractor:
+    secretEnv:
+      GEMINI_API_KEY: GEMINI_API_KEY_REPORT_EXTRACTOR
+
+# Telesis cron monitoring. Every CronJob gets a monitor (one per schedule —
+# Telesis monitors take a single cadence). scripts/register-monitors.py creates
+# them from THIS file and writes their private check-in URLs into the
+# checkinSecret, keyed by CronJob name; the reporter reads them from there.
+monitoring:
+  enabled: true
+  checkinSecret: shorted-jobs-cron-monitors
+  # Grace after the scheduled time before a run with no start check-in is
+  # MISSED. Must exceed defaults.startingDeadlineSeconds + one reporter poll.
+  graceSeconds: 1800
+  # Added to a job's own deadline (timeout × attempts) to get the monitor's max
+  # runtime, so the Job's activeDeadlineSeconds fires first and reports a
+  # specific failure; Telesis' TIMED OUT is the backstop for a lost reporter.
+  maxRuntimeSlackSeconds: 900
+  telesis:
+    serviceName: shorted.com.au scheduled jobs
+    serviceUrl: https://shorted.com.au
+    # Alert channel for every monitor (consecutive-failures >= 1: failed,
+    # missed or timed-out). Overridable at registration time.
+    alertEmail: ben@shorted.com.au
+
+reporter:
+  enabled: true
+  # Read-only Cloud Run identity (Workload Identity Federation) used to watch
+  # the executions of jobs that are not yet live here. roles/run.viewer on
+  # each of those jobs is granted in terraform/environments/prod/main.tf.
+  cloudRun:
+    enabled: true
+    project: rosy-clover-477102-t5
+    defaultRegion: australia-southeast2
+    gcpServiceAccount: vke-cronjob-reporter@rosy-clover-477102-t5.iam.gserviceaccount.com
+  image: jobs # key into `images`
+  replicas: 1
+  interval: 30s
+  maxReportAge: 3h
+  logTailLines: 60
+  heartbeatInterval: 5m
+  extraArgs: []
+  resources:
+    cpuRequest: 10m
+    memory: 64Mi
+
+# Scheduled work that is an HTTP call from Cloud Scheduler straight to a Cloud
+# Run SERVICE (no Job execution to watch). The reporter reads each trigger's
+# last attempt (project-level roles/cloudscheduler.viewer, granted by
+# scripts/bootstrap.sh: Cloud Scheduler has no per-job IAM) and reports it to
+# a Telesis monitor of the same name. Trigger-level evidence: the endpoint
+# answered 2xx within its deadline.
+schedulerMonitors:
+  stock-price-daily-sync:
+    scheduler: stock-price-daily-sync
+    region: australia-southeast1
+    schedule: "0 8 * * 1-5"
+  stock-price-weekly-sync:
+    scheduler: stock-price-weekly-sync
+    region: australia-southeast1
+    schedule: "0 10 * * 0"
+
+# ---------------------------------------------------------------------------
+# The jobs. Key = CronJob name = Telesis monitor name = check-in secret key.
+#   image          key into `images`
+#   command/args   container command/args (command omitted => image ENTRYPOINT)
+#   schedule       five-field cron, UTC
+#   timeoutSeconds per-ATTEMPT limit (pod activeDeadlineSeconds), = Cloud Run
+#                  task timeout; the Job-level deadline is timeout × attempts
+#   maxRetries     backoffLimit, = Cloud Run max_retries
+#   gcpServiceAccount  set => Workload Identity as that Google SA
+# ---------------------------------------------------------------------------
+jobs:
+  # modules/short-data-sync — daily ASIC ingest + MV refresh.
+  shorts-data-sync:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorts-data-sync
+    image: jobs
+    command: ["/shorted"]
+    args: ["short-data-sync"]
+    schedule: "0 10 * * *"
+    timeoutSeconds: 3600
+    maxRetries: 1
+    profiles: [db, gcpProject, revalidate]
+    env:
+      SHORTS_DATA_BUCKET: shorted-short-selling-data-prod
+      SYNC_DAYS_SHORTS: "7"
+
+  # modules/house-price-collector — monthly ABS/RBA/VG official ingest.
+  # No args: the image ENTRYPOINT defaults to -mode all.
+  house-price-collector-monthly:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: house-price-collector
+    image: housePriceCollector
+    schedule: "0 16 5 * *"
+    timeoutSeconds: 1800
+    maxRetries: 2
+    profiles: [db, gcpProject, revalidate]
+    env:
+      HOUSING_OFFICIAL_MAX_FAILURES: "15"
+
+  # modules/house-price-collector — daily drop-index (scheduler override:
+  # args ["-mode","drop-index"], timeoutSeconds 14400).
+  house-price-collector-drop-index:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: house-price-collector
+    image: housePriceCollector
+    args: ["-mode", "drop-index"]
+    schedule: "0 18 * * *"
+    timeoutSeconds: 14400
+    maxRetries: 2
+    profiles: [db, gcpProject, revalidate]
+    env:
+      HOUSING_OFFICIAL_MAX_FAILURES: "15"
+
+  # modules/influence-collector — monthly ATO/CER/AusTender/AEC/lobbyists/trade.
+  # REGISTER_* are carried for parity; `-mode all` excludes the APH register
+  # crawl, which stays operator-run on Cloud Run.
+  influence-collector-monthly:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: influence-collector
+    image: jobs
+    args: ["influence", "-mode", "all"]
+    schedule: "0 18 5 * *"
+    timeoutSeconds: 21600
+    maxRetries: 2
+    resources:
+      memory: 1Gi
+    profiles: [db, gcpProject]
+    env:
+      REGISTER_BUCKET: rosy-clover-477102-t5-register-interests
+      REGISTER_BUCKET_PREFIX: aph
+      REGISTER_DRY_RUN: "true"
+      REGISTER_FETCH_DELAY_MS: "1500"
+
+  shorted-announcements:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-announcements
+    image: jobs
+    args: ["announcements", "-director-trades", "-dividends", "-news-table", "-all-announcements", "-years", "2024,2025,2026", "-workers", "6"]
+    schedule: "0 11 * * *"
+    timeoutSeconds: 5400
+    maxRetries: 2
+    resources:
+      cpuRequest: 500m
+      memory: 1Gi
+    profiles: [db, otel]
+
+  shorted-index-sync:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-index-sync
+    image: jobs
+    args: ["market-data", "index-sync", "-years", "2"]
+    schedule: "30 11 * * *"
+    timeoutSeconds: 900
+    maxRetries: 2
+    profiles: [db, otel]
+
+  # Daily ASX price sweep, stalest first. SYNC_RUN_BUDGET sits 30 min under the
+  # 6h timeout so the sweep stops on its own terms (exit 10 = partial, retried
+  # once from the stalest stock). Change one, change the other.
+  shorted-price-sync:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-price-sync
+    image: jobs
+    args: ["market-data", "sync"]
+    schedule: "0 10 * * 1-5"
+    timeoutSeconds: 21600
+    maxRetries: 1
+    profiles: [db, otel, revalidate]
+    env:
+      GCS_BUCKET_NAME: shorted-short-selling-data-prod
+      PRIORITY_STOCK_COUNT: "100"
+      DB_MAX_CONNS: "2"
+      DB_MIN_CONNS: "0"
+      SYNC_RUN_BUDGET: 5h30m
+    secretEnv:
+      ALPHA_VANTAGE_API_KEY: ALPHA_VANTAGE_API_KEY
+    # Reads asx-stocks/latest.csv and writes price-sync/<execution>.json in the
+    # short-selling bucket.
+    gcpServiceAccount: shorted-price-sync@rosy-clover-477102-t5.iam.gserviceaccount.com
+
+  # Stock picker. Two Cloud Scheduler triggers on one Cloud Run job => two
+  # CronJobs. The picks_run_lease row (000132) keeps them from overlapping.
+  shorted-picks:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-picks
+    image: jobs
+    args: ["picks", "-mode", "refresh"]
+    schedule: "30 13 * * 1-5"
+    timeoutSeconds: 12600
+    maxRetries: 1
+    profiles: [db, gcpProject, revalidate]
+    env:
+      PICKS_FUNDAMENTALS_BUDGET_MIN: "170"
+
+  shorted-picks-fundamentals:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-picks
+    image: jobs
+    args: ["picks", "-mode", "all"]
+    schedule: "0 15 * * *"
+    timeoutSeconds: 12600
+    maxRetries: 1
+    profiles: [db, gcpProject, revalidate]
+    env:
+      PICKS_FUNDAMENTALS_BUDGET_MIN: "170"
+
+  shorted-economy:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-economy
+    image: jobs
+    args: ["economy", "-mode", "all"]
+    schedule: "0 17 5 * *"
+    timeoutSeconds: 1800
+    maxRetries: 2
+    profiles: [db, gcpProject]
+    secretEnv:
+      FRED_API_KEY: FRED_API_KEY
+
+  shorted-weekly-report:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-weekly-report
+      env:
+        REPORT_TYPE: ""
+    image: jobs
+    args: ["weekly-report"]
+    schedule: "0 11 * * 5"
+    timeoutSeconds: 900
+    maxRetries: 2
+    profiles: [db, otel]
+    secretEnv:
+      OPENAI_API_KEY: OPENAI_API_KEY
+      GEMINI_API_KEY: GEMINI_API_KEY
+
+  shorted-weekly-report-monthly:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-weekly-report
+      env:
+        REPORT_TYPE: "monthly"
+    image: jobs
+    args: ["weekly-report"]
+    schedule: "0 1 1 * *"
+    timeoutSeconds: 900
+    maxRetries: 2
+    profiles: [db, otel]
+    env:
+      REPORT_TYPE: monthly
+    secretEnv:
+      OPENAI_API_KEY: OPENAI_API_KEY
+      GEMINI_API_KEY: GEMINI_API_KEY
+
+  # shorted-news: one Cloud Run job, five schedulers => five CronJobs.
+  shorted-news:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-news
+      env:
+        RUN_MODE: ""
+    image: jobs
+    args: ["news"]
+    schedule: "0 */4 * * *"
+    timeoutSeconds: 900
+    maxRetries: 2
+    profiles: [db, otel, news]
+
+  shorted-news-backfill-images:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-news
+      env:
+        RUN_MODE: "backfill-images"
+    image: jobs
+    args: ["news"]
+    schedule: "0 3 * * *"
+    timeoutSeconds: 900
+    maxRetries: 2
+    profiles: [db, otel, news]
+    env:
+      RUN_MODE: backfill-images
+      BACKFILL_LIMIT: "2000"
+      BACKFILL_CONCURRENCY: "6"
+
+  shorted-news-resolve-googlenews:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-news
+      env:
+        RUN_MODE: "resolve-googlenews"
+    image: jobs
+    args: ["news"]
+    schedule: "0 4 * * 1"
+    timeoutSeconds: 900
+    maxRetries: 2
+    profiles: [db, otel, news]
+    env:
+      RUN_MODE: resolve-googlenews
+      BACKFILL_LIMIT: "1000"
+      BACKFILL_CONCURRENCY: "4"
+      BACKFILL_UPDATE_URL: "true"
+
+  shorted-news-cluster:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-news
+      env:
+        RUN_MODE: "cluster-news"
+    image: jobs
+    args: ["news"]
+    schedule: "30 */2 * * *"
+    timeoutSeconds: 900
+    maxRetries: 2
+    profiles: [db, otel, news]
+    env:
+      RUN_MODE: cluster-news
+      CLUSTER_LOOKBACK_HOURS: "48"
+      CLUSTER_MIN_OVERLAP: "3"
+
+  shorted-news-digest:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-news
+      env:
+        RUN_MODE: "digest"
+    image: jobs
+    args: ["news"]
+    schedule: "0 1 * * 5"
+    timeoutSeconds: 900
+    maxRetries: 2
+    profiles: [db, otel, news]
+    env:
+      RUN_MODE: digest
+
+  # workers=2: brandbrain single-instance 502s above ~2 concurrent grounded calls.
+  shorted-signals:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: shorted-signals
+    image: jobs
+    args: ["signals", "--priority", "top-shorted", "--limit", "200", "--max-age-days", "30", "--workers", "2"]
+    schedule: "0 13 * * 1"
+    timeoutSeconds: 3600
+    maxRetries: 2
+    profiles: [db, otel]
+    env:
+      BRANDBRAIN_URL: https://api.brandbrain.dev
+
+  # modules/report-extractor. max_retries 0 on Cloud Run: a retry re-pays Gemini.
+  director-trade-extractor:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: director-trade-extractor
+    image: reportExtractor
+    command: ["python", "extract_director_trades.py"]
+    args: ["--priority", "recent", "--limit", "200", "--workers", "2"]
+    schedule: "30 12 * * *"
+    timeoutSeconds: 3600
+    maxRetries: 0
+    resources:
+      memory: 1Gi
+    profiles: [db, otel, reportExtractor]
+    env:
+      GEMINI_MAX_RUN_ITEMS: "200"
+      GEMINI_MAX_RUN_WORKERS: "2"
+      # Mirrors module.report_extractor (PR #658): consensus backend, and
+      # re-admission of the notices the July-September outage misrecorded.
+      EXTRACTOR_BACKEND: openrouter
+      EXTRACTOR_PRIMARY_MODEL: deepseek/deepseek-v4-flash
+      EXTRACTOR_CHECKER_MODEL: google/gemini-2.5-flash-lite
+      EXTRACTOR_ARBITER_MODEL: google/gemini-2.5-flash
+      DIRECTOR_RETRY_NO_EXTRACT_BETWEEN: "2026-07-30:2026-10-15"
+    secretEnv:
+      OPENROUTER_API_KEY: OPENROUTER_API_KEY
+
+  # Daily since fundamentals-coverage 6.2: 120 statutory filings a run, 4
+  # workers, a 90-minute submit budget inside a 2h timeout. reports_limit also
+  # sets GEMINI_MAX_RUN_ITEMS — keep the two equal.
+  financial-report-extractor:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: financial-report-extractor
+    image: reportExtractor
+    command: ["python", "extract_reports_concurrent.py"]
+    args: ["--recent", "2", "--limit", "120", "--workers", "4", "--max-pages", "8", "--budget-min", "90"]
+    schedule: "0 14 * * *"
+    timeoutSeconds: 7200
+    maxRetries: 0
+    resources:
+      memory: 1Gi
+    profiles: [db, otel, reportExtractor]
+    env:
+      GEMINI_MAX_RUN_ITEMS: "120"
+      GEMINI_MAX_RUN_WORKERS: "4"
+      GCS_REPORTS_BUCKET: shorted-financial-reports-prod
+      # OpenRouter direct extraction with consensus (direct_extract.py,
+      # PR #658); mirrors module.report_extractor's extractor_models.
+      EXTRACTOR_BACKEND: openrouter
+      EXTRACTOR_PRIMARY_MODEL: deepseek/deepseek-v4-flash
+      EXTRACTOR_CHECKER_MODEL: google/gemini-2.5-flash-lite
+      EXTRACTOR_ARBITER_MODEL: google/gemini-2.5-flash
+    secretEnv:
+      LANGEXTRACT_API_KEY: GEMINI_API_KEY_REPORT_EXTRACTOR
+      OPENROUTER_API_KEY: OPENROUTER_API_KEY
+    # Writes report PDFs to gs://shorted-financial-reports-prod.
+    gcpServiceAccount: report-extractor@rosy-clover-477102-t5.iam.gserviceaccount.com
+
+  # modules/market-discovery-sync — weekly ASX listing discovery (Chromium).
+  # Cloud Run set no timeout (provider default); 1800s is generous headroom.
+  asx-discovery:
+    # The Cloud Run job whose executions report to this monitor while
+    # the CronJob is not live (reporter -cloudrun-config).
+    cloudRun:
+      job: asx-discovery
+      region: us-central1
+    image: jobsBrowser
+    command: ["/shorted"]
+    args: ["discovery"]
+    schedule: "0 12 * * 0"
+    timeoutSeconds: 1800
+    maxRetries: 2
+    resources:
+      cpuRequest: "1"
+      memory: 4Gi
+      memoryRequest: 2Gi
+    # Chromium crashes on the container runtime's default 64Mi /dev/shm.
+    shmSize: 1Gi
+    profiles: [otel]
+    env:
+      GCS_BUCKET_NAME: shorted-short-selling-data-prod
+    # Writes asx-stocks/latest.csv to gs://shorted-short-selling-data-prod.
+    gcpServiceAccount: asx-discovery@rosy-clover-477102-t5.iam.gserviceaccount.com
