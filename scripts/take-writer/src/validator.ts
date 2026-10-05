@@ -145,8 +145,18 @@ function requirePublicationVerdict(value: unknown, imageCount: number): Cohesion
   if (verdict.images.length !== imageCount || indices.size !== imageCount || verdict.images.some((v) => v.index >= imageCount)) {
     throw new Error("publication verdict does not cover every layout image exactly once");
   }
-  if (verdict.cohesionScore < PUBLICATION_VISION_LIMITS.minCohesionScore || [verdict.hero, ...verdict.images].some((v) => !v.fits || !v.captionAccurate || !v.qualityOk || v.regenerate || v.issue.trim())) {
-    throw new Error("vision review found image issues; article stays draft for review");
+  // Name every failed check: the job log is the only record of why an article
+  // stayed a draft, and a bare "found issues" sends the operator to re-run it.
+  const failures: string[] = [];
+  if (verdict.cohesionScore < PUBLICATION_VISION_LIMITS.minCohesionScore) {
+    failures.push(`cohesion ${verdict.cohesionScore}/10 below ${PUBLICATION_VISION_LIMITS.minCohesionScore}`);
+  }
+  for (const [label, v] of [["hero", verdict.hero], ...verdict.images.map((v) => [`img ${v.index}`, v] as const)] as const) {
+    const failed = [!v.fits && "fit", !v.captionAccurate && "caption", !v.qualityOk && "quality", v.regenerate && "regenerate"].filter(Boolean);
+    if (failed.length || v.issue.trim()) failures.push(`${label}: ${failed.join(",") || "issue"}${v.issue.trim() ? ` (${v.issue.trim()})` : ""}`);
+  }
+  if (failures.length) {
+    throw new Error(`vision review found image issues; article stays draft for review: ${failures.join("; ")}`);
   }
   return verdict;
 }

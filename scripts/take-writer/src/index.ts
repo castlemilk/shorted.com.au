@@ -546,5 +546,10 @@ async function main(): Promise<void> {
 
 main().catch((err) => {
   console.error("[take-writer] failed:", err.message ?? err);
+  // Wrapped errors (publish's "vision validation failed") carry the reason in
+  // their cause chain; without it the job log says only that it failed.
+  for (let cause = err?.cause, depth = 0; cause && depth < 5; cause = cause.cause, depth++) {
+    console.error("[take-writer]   caused by:", cause.message ?? cause);
+  }
   process.exit(1);
 });

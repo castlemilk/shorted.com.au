@@ -155,6 +155,16 @@ describe("required publication vision review", () => {
     expect(mocks.generateLayout).not.toHaveBeenCalled();
   });
 
+  it("names every failed check in the rejection, so the job log says why", async () => {
+    mocks.generateContent.mockResolvedValue(reply({
+      ...goodVerdict(),
+      cohesionScore: 5,
+      hero: { ...goodImage, captionAccurate: false, issue: "No caption to judge" },
+    }));
+    await expect(validate()).rejects.toThrow("cohesion 5/10 below 7");
+    await expect(validate()).rejects.toThrow("hero: caption (No caption to judge)");
+  });
+
   it.each([
     ["missing verdict", []],
     ["duplicate indices", [{ ...goodImage, index: 0 }, { ...goodImage, index: 0 }]],
