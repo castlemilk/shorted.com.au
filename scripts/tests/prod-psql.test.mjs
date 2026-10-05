@@ -32,7 +32,7 @@ const migrationsDir = new URL("../../services/migrations/", import.meta.url).pat
 const SESSION_DSN = "postgresql://u:p@pooler.example:5432/postgres";
 
 // A psql stand-in. It answers --version, appends one JSON record per real call
-// ({ argv, psqlrc }), writes SHIM_STDERR to stderr and exits SHIM_EXIT.
+// ({ argv, psqlrc, pgpassword }), writes SHIM_STDERR to stderr and exits SHIM_EXIT.
 function makeShim(dir, log) {
   writeFileSync(
     join(dir, "psql"),
@@ -43,7 +43,7 @@ if (argv[0] === "--version") {
   console.log("psql (PostgreSQL) " + (process.env.SHIM_VERSION || "17.6"));
   process.exit(0);
 }
-fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({ argv, psqlrc: process.env.PSQLRC || null }) + "\\n");
+fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({ argv, psqlrc: process.env.PSQLRC || null, pgpassword: process.env.PGPASSWORD ?? null }) + "\\n");
 if (process.env.SHIM_STDERR) process.stderr.write(process.env.SHIM_STDERR);
 process.exit(Number(process.env.SHIM_EXIT || 0));
 `,
@@ -134,6 +134,28 @@ test("a missing DSN is refused rather than falling back to libpq defaults", () =
   assert.equal(status, 2);
   assert.match(stderr, /PGURL is not set/);
   assert.deepEqual(calls, []);
+});
+
+test("the password never reaches psql's argv, where ps would show it", () => {
+  const dsn = "postgresql://postgres.ref:s3cr%40t%2Fpw@pooler.example:5432/postgres?sslmode=require";
+  for (const args of [
+    ["read-only", "-c", "SELECT 1"],
+    ["refresh", "refresh_housing_materialized_views"],
+  ]) {
+    const { status, stderr, calls } = run(args, { pgurl: dsn });
+    assert.equal(status, 0, stderr);
+    const [{ argv, pgpassword }] = calls;
+    assert.ok(!argv.some((a) => a.includes("s3cr")), JSON.stringify(argv));
+    assert.equal(argv[0], "postgresql://postgres.ref@pooler.example:5432/postgres?sslmode=require");
+    assert.equal(pgpassword, "s3cr@t/pw", "percent-encoding is decoded for PGPASSWORD");
+  }
+
+  const tty = run(["read-only"], { pgurl: dsn, tty: true });
+  assert.ok(!tty.calls[0].argv.some((a) => a.includes("s3cr")), JSON.stringify(tty.calls[0].argv));
+  assert.equal(tty.calls[0].pgpassword, "s3cr@t/pw");
+
+  const bare = run(["read-only", "-c", "SELECT 1"], { pgurl: "postgresql://u@pooler.example:5432/postgres" });
+  assert.equal(bare.calls[0].argv[0], "postgresql://u@pooler.example:5432/postgres", "a DSN without a password is untouched");
 });
 
 test("psql older than 15 is refused: --single-transaction would not wrap the -c guards", () => {
