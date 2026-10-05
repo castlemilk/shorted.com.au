@@ -118,27 +118,31 @@ esac
 # Prints the settings the work will actually run with, as a NOTICE (stderr, so
 # a probe's stdout stays clean), then refuses to continue if the guard is not
 # in effect. Under ON_ERROR_STOP the RAISE EXCEPTION ends psql before the work.
+#
+# printf, not a heredoc: every caller takes this through $(...), and Homebrew
+# bash 5.3.15 on macOS was seen to hang on a heredoc over ~512 bytes inside a
+# command substitution (a 400-byte body returned, a 600-byte one never did),
+# which hung every db:prod:* task before psql started.
 guard() {
 	local want_read_only="$1" want_timeout="$2"
-	cat <<EOF
-DO \$guard\$
-BEGIN
-  RAISE NOTICE 'prod-psql: role=% transaction_read_only=% default_transaction_read_only=% statement_timeout=%',
-    current_user,
-    current_setting('transaction_read_only'),
-    current_setting('default_transaction_read_only'),
-    current_setting('statement_timeout');
-  IF current_setting('transaction_read_only') <> '$want_read_only' THEN
-    RAISE EXCEPTION 'prod-psql: guard not in effect: transaction_read_only is %, want $want_read_only',
-      current_setting('transaction_read_only');
-  END IF;
-  IF current_setting('statement_timeout')::interval <> '$want_timeout'::interval THEN
-    RAISE EXCEPTION 'prod-psql: guard not in effect: statement_timeout is %, want $want_timeout',
-      current_setting('statement_timeout');
-  END IF;
-END
-\$guard\$
-EOF
+	printf '%s\n' \
+		'DO $guard$' \
+		'BEGIN' \
+		"  RAISE NOTICE 'prod-psql: role=% transaction_read_only=% default_transaction_read_only=% statement_timeout=%'," \
+		'    current_user,' \
+		"    current_setting('transaction_read_only')," \
+		"    current_setting('default_transaction_read_only')," \
+		"    current_setting('statement_timeout');" \
+		"  IF current_setting('transaction_read_only') <> '$want_read_only' THEN" \
+		"    RAISE EXCEPTION 'prod-psql: guard not in effect: transaction_read_only is %, want $want_read_only'," \
+		"      current_setting('transaction_read_only');" \
+		'  END IF;' \
+		"  IF current_setting('statement_timeout')::interval <> '$want_timeout'::interval THEN" \
+		"    RAISE EXCEPTION 'prod-psql: guard not in effect: statement_timeout is %, want $want_timeout'," \
+		"      current_setting('statement_timeout');" \
+		'  END IF;' \
+		'END' \
+		'$guard$'
 }
 
 # -X: never read the operator's ~/.psqlrc. An AUTOCOMMIT off or a \set in it
