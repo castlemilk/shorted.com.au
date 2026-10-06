@@ -69,8 +69,21 @@ function requireDb(): string {
   return dbUrl;
 }
 
+/**
+ * A socket that dies after pg.end() still emits "error"; unhandled, it took
+ * the publish chain down between the vision review and published_at
+ * (measured 2026-10-07: minutes of image generation on a pooled connection).
+ * The test doubles are plain objects without an emitter, hence the guard.
+ */
+export function warnOnConnectionError(client: PgClient): void {
+  if (typeof client.on === "function") {
+    client.on("error", (err) => console.warn(`[pg] connection error: ${err.message}`));
+  }
+}
+
 export async function listDrafts(opts: { slug?: string } = {}): Promise<void> {
-  const pg = new PgClient({ connectionString: requireDb() });
+  const pg = new PgClient({ connectionString: requireDb(), keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
+  warnOnConnectionError(pg);
   await pg.connect();
   try {
     if (opts.slug) {
@@ -192,7 +205,8 @@ export async function publishTake(opts: PublishOptions): Promise<void> {
   if (opts.noValidate) throw new Error("publication requires vision validation; --no-validate is not supported");
 
   // 1. Load the take.
-  const pg = new PgClient({ connectionString: requireDb() });
+  const pg = new PgClient({ connectionString: requireDb(), keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
+  warnOnConnectionError(pg);
   await pg.connect();
   let row: {
     slug: string;
@@ -254,7 +268,8 @@ export async function publishTake(opts: PublishOptions): Promise<void> {
   }
 
   // 4. Publish.
-  const pg2 = new PgClient({ connectionString: requireDb() });
+  const pg2 = new PgClient({ connectionString: requireDb(), keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
+  warnOnConnectionError(pg2);
   await pg2.connect();
   try {
     const { rows } = await pg2.query<{ published_at: string }>(

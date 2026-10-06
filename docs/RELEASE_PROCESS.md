@@ -33,6 +33,47 @@ PROMOTE_TO_PROD=1 RELEASE_CONFIRM_PROMOTE=1 npm run release:web
 
 The local script removes `web/.next`, `.vercel/output`, and `web/.vercel/output` before building, runs `vercel build --target production`, then deploys the release candidate with `vercel deploy --prebuilt --target production --force --skip-domain`. Production aliases only move through `vercel promote` after the smoke suite passes.
 
+## Local release: what broke on 2026-10-07, and the fixes
+
+The **Deploy Infrastructure** workflow has been disabled since early October
+2026 (as have the scheduled workflows); Cuttlefish's `shorted-ci` runs tests
+only. A merge to `main` deploys nothing, so every production release is the
+local path above, run from a checkout at the merge commit. Three things the
+script leaves to the operator's shell, found the hard way:
+
+1. **Sensitive variables pull as placeholders.** `vercel env pull` writes
+   every variable marked sensitive (`REDIS_URL`, `MARKET_DATA_API_URL`,
+   `SHORTED_SSR_BYPASS_SECRET`, `REVALIDATION_SECRET`, the Resend keys) as the
+   literal string `[SENSITIVE]`, and `vercel build` prerenders with them, so
+   the KV client throws `Invalid URL: redis://[SENSITIVE]` and the build fails
+   collecting page data. Strip those lines from `.vercel/.env.production.local`
+   before `vercel build` (the KV layer falls back to in-memory, as it always
+   has in CI). Never `source` the pulled file into the shell: it poisons the
+   release unit subset the same way.
+2. **The function bundles reference `web/.env.example` and
+   `web/.env.local.example`.** The `@vercel/next` builder lists every `.env*`
+   file in the project root in each function's `filePathMap`; the tgz archive
+   does not carry them, and the deploy fails with
+   `ENOENT: readlink '/vercel/path0/web/.env.example'`. The non-archive upload
+   (450 MB of individual files) aborted on `fetch failed`. Remove those two keys
+   from every `.vercel/output/functions/*/.vc-config.json` `filePathMap` (they
+   are metadata only; nothing reads them at runtime) and archive-upload. A stray
+   `web/.env.local` at build time is mapped the same way: delete it first.
+3. **Linking.** Link explicitly, `vercel link --yes --scope document-analyser
+   --project shorted-com-au`, before anything else: `--yes` on an unlinked
+   directory would create a project named after the directory.
+
+Then run the post-promote sweep the workflow used to run (the ISR paths from
+`web/src/config/isr-pages.json` minus `isr-shell-pages.json` through
+`/api/revalidate` with `REVALIDATION_SECRET`, then
+`/api/static-pages/warm-cache?mode=deploy` and `mode=repair`), because
+promotion resets every ISR page to its build-time shell.
+
+Newsroom takes do not ride the web release at all: `shorted-news-publish`'s
+image is built only by the disabled workflow, so a merged `content/news`
+article is published from the checkout with
+`npx tsx src/index.ts publish-content --slug=…` (see the newsroom skill).
+
 ## Release Validation Gates
 
 The release path must fail before deploy if client auth or payments are misconfigured:

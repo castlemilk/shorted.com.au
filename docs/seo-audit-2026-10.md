@@ -52,9 +52,13 @@ ceiling, and each of those rows carried a rendered fundamentals disclosure
   `[strategy]/page.test.tsx` ("renders at most 40 rows of a long list").
 - The ItemList JSON-LD (15 names) and the crawlable prose are unchanged.
 
-Re-measure on the preview deployment before merging; the arithmetic says
-Minervini lands near 0.7 MB raw and the Zanger page near 0.4 MB, with the
-flight payload no longer carrying any raw row.
+Measured on production after the 2026-10-07 release (deployment
+`kx3p9246o`): `/picks/minervini-trend-template` **890 KB raw / 68 KB gz**
+(from 1,852 / 115), `/picks/crowded-short-breakout` 864 / 65 (from 1,347 /
+88), `/picks/zanger-breakout` 529 / 53 (from 617 / 66), `/picks` 166 / 25.
+The 40-row shortlist and the island's slim props account for the drop; the
+remaining weight is the shortlist rendered twice (HTML plus the fallback's
+RSC tree), each row still carrying its fundamentals disclosure.
 
 ### Other heavy pages (open)
 
