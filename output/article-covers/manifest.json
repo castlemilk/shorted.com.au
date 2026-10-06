@@ -53,6 +53,14 @@
       "thumbnail": "web/public/assets/blog/asx-stock-picker-zanger-breakout-strategy/thumbnail-editorial-v2.webp"
     },
     {
+      "slug": "asx-stocks-under-fire-october-2026",
+      "asset": "web/public/assets/blog/asx-stocks-under-fire-october-2026/cover-editorial-v1.webp",
+      "alt": "A sealed brass pressure gauge on warm cream paper, its black needle pushed deep into the amber band, with ten small paper ticker tags clipped around the rim.",
+      "prompt": "output/article-covers/asx-stocks-under-fire-october-2026.md",
+      "original": "output/article-covers/asx-stocks-under-fire-october-2026.png",
+      "thumbnail": "web/public/assets/blog/asx-stocks-under-fire-october-2026/thumbnail-editorial-v1.webp"
+    },
+    {
       "slug": "australian-house-prices-2026-state-by-state",
       "asset": "web/public/assets/blog/australian-house-prices-2026-state-by-state/cover-editorial-v2.webp",
       "alt": "An ivory weatherboard house rises on an amber scissor lift beside a brick bungalow on a lowered platform against mineral blue.",
