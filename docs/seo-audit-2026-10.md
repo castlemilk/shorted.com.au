@@ -127,11 +127,18 @@ by row; the T+4 lag means it was the latest print on 7 October):
   coverers, the sector shape (uranium, lithium, defence, the lottery
   rotation) and the days-to-cover table. Targets "most shorted ASX stocks
   October 2026" and its variants.
-- Three newsroom takes, staged in `content/news/` for the publish job:
-  The Lottery Corporation (short position 4.79% → 8.63% in a quarter, 192M
-  shares, 18 days to cover), Boss Energy (8.46% → 13.58% in five weeks, a new
-  chair, the Honeymoon plan) and Electro Optic Systems (4.73% → 10.15% while
-  the price rose 25%).
+- Three newsroom takes, staged in `content/news/` for the publish job
+  (`publish-content` imports them as drafts; nothing auto-publishes):
+  `tlc-shorts-double-from-august-low-keno-ban-jackpot-drought` (192.0M
+  shares short, twice the 5 August count, 18.4 days to cover, against the
+  FY26 jackpot drought, the online-Keno ban in Act No. 72 of 2026 and the
+  Victorian licence), `boe-shorts-rebuild-to-13-6pc-new-chair-honeymoon-plan`
+  (8.46% on 26 August to 13.58%, the Honeymoon study, Macquarie's 5.12%, the
+  chair succession) and `eos-shorts-double-into-25pc-rally` (4.73% to 10.15%
+  in a quarter while the price rose 25%, the JIATF 401 marketplace listing,
+  the Vanguard and Citigroup notices). Each was written, then adversarially
+  checked against the ASIC files and every opened source, then fixed; the
+  sources files record how each URL was verified.
 
 ## 5. What remains
 

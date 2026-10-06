@@ -1,0 +1,219 @@
+{
+  "draft": "eos-shorts-double-into-25pc-rally.mdx",
+  "knownCodes": [
+    "EOS",
+    "DRO"
+  ],
+  "sources": [
+    {
+      "refId": "ref-1",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260930-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "30 September daily aggregate short-position report",
+      "date": "2026-09-30",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "retrievedDate": "2026-10-07",
+      "verification": "Official CSV on disk; grepped the EOS row (22,506,069 of 221,702,162 = 10.15148828) and the DRO row (139,403,693 of 925,339,724 = 15.06513655) on 7 October 2026"
+    },
+    {
+      "refId": "ref-2",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260701-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "1 July daily aggregate short-position report",
+      "date": "2026-07-01",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded official CSV with curl and grepped the EOS row (10,247,977 of 216,702,162 = 4.7290608) on 7 October 2026"
+    },
+    {
+      "refId": "ref-3",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260917-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "17 September daily aggregate short-position report",
+      "date": "2026-09-17",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded official CSV with curl and grepped the EOS row (19,514,696 of 221,702,162 = 8.80221276) and the DRO row (15.30822358) on 7 October 2026"
+    },
+    {
+      "refId": "ref-4",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260918-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "18 September daily aggregate short-position report",
+      "date": "2026-09-18",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded official CSV with curl and grepped the EOS row (23,110,243 of 221,702,162 = 10.42400435) on 7 October 2026; the 1.62pp step and the 3,595,547-share difference are computed from this row and the 17 September row"
+    },
+    {
+      "refId": "ref-5",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260924-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "24 September daily aggregate short-position report",
+      "date": "2026-09-24",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded official CSV with curl and grepped the EOS row (23,470,443 of 221,702,162 = 10.58647457) on 7 October 2026"
+    },
+    {
+      "refId": "ref-6",
+      "type": "report",
+      "url": "https://announcements.asx.com.au/asxpdf/20260825/pdf/073565fks2qmc0.pdf",
+      "source": "ASX / EOS Appendix 4D",
+      "headline": "Appendix 4D, Half-year Financial Report and Revenue Update",
+      "date": "2026-08-25",
+      "dateBasis": "ASX lodgement date (25/08/2026 8:25 am in the ASX announcements listing)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded the PDF with curl (the direct URL from the ASX announcement gate) and extracted the text with a PDFKit script; read the Review of Operations: revenue from continuing operating activities $168.8m (+283%), Underlying EBITDA $21.6m vs $14.9m loss, loss after tax from continuing operations $33.7m, $34.0m non-cash fair value remeasurement of the MARSS contingent consideration, contracted order book approximately $846m at 30 June 2026 (30 June 2025: $170m), MARSS acquisition completed 20 May 2026, and the Outlook section's 2026 full-year revenue range of $360m to $400m"
+    },
+    {
+      "refId": "ref-7",
+      "type": "news",
+      "url": "https://eos-aus.com/news/new-us-procurement-pathway-for-eos-r400-rws/",
+      "source": "EOS",
+      "headline": "New US procurement pathway for EOS R400 RWS",
+      "date": "2026-09-24",
+      "dateBasis": "publication date shown on the company news page",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through web tool; confirmed the JIATF 401 Counter-UAS Marketplace listing, the quoted 'through an established US Army contracting mechanism', the 23 cleared countries, and that no order or dollar figure is announced"
+    },
+    {
+      "refId": "ref-8",
+      "type": "news",
+      "url": "https://eos-aus.com/news/eos-signs-letter-of-intent-with-netherlands-ministry-of-defence-for-high-energy-laser-weapon-technology/",
+      "source": "EOS",
+      "headline": "EOS signs letter of intent with Netherlands Ministry of Defence for High Energy Laser Weapon technology",
+      "date": "2026-09-25",
+      "dateBasis": "publication date shown on the company news page",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through web tool; confirmed the Apollo High Energy Laser Weapon scope, the quoted 'Subject to further work, the Netherlands Ministry of Defence intends to purchase a number of laser weapon systems', and the absence of any value, unit count or date"
+    },
+    {
+      "refId": "ref-9",
+      "type": "news",
+      "url": "https://www.fool.com.au/2026/09/25/eos-shares-jump-7-as-asx-200-falls-could-15-be-next/",
+      "source": "Motley Fool Australia",
+      "headline": "EOS shares jump 7% as ASX 200 falls. Could $15 be next?",
+      "date": "2026-09-25",
+      "dateBasis": "article timestamp (25 September, 12:52 pm AEST)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through web tool; confirmed 'jumped 7.21% to $11.45', the ASX 200 'down 0.54% to 8,655 points', and 'the listing doesn't represent a new contract'. Broker targets and the author's view were not used"
+    },
+    {
+      "refId": "ref-10",
+      "type": "data",
+      "url": "https://www.asx.com.au/asx/v2/statistics/announcements.do?by=asxCode&asxCode=EOS&timeframe=D&period=M6",
+      "source": "ASX",
+      "headline": "EOS company announcements, six-month listing",
+      "date": "",
+      "dateBasis": "Live listing with no publication date; retrieved 7 October 2026",
+      "retrievedDate": "2026-10-07",
+      "verification": "Fetched with curl and parsed the table rows: 22/09 Notification regarding unquoted securities, 24/09 Becoming a substantial holder, 28/09 Becoming a substantial holder, 28/09 Ceasing to be a substantial holder; no lodgement on 25 September and no R400 or Netherlands item in the listing"
+    },
+    {
+      "refId": "ref-11",
+      "type": "report",
+      "url": "https://announcements.asx.com.au/asxpdf/20260924/pdf/074fznm103kbx8.pdf",
+      "source": "ASX / Vanguard Form 603",
+      "headline": "Notice of initial substantial holder: Vanguard Group",
+      "date": "2026-09-24",
+      "dateBasis": "ASX lodgement date (24/09/2026 8:20 am); the notice states the holder became substantial on 18 September 2026",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded the PDF with curl and extracted the text with a PDFKit script: 'The holder became a substantial holder on 18 September 2026', 12,576,003 ordinary shares, voting power 5.672%, 'Vanguard Group is the manager of various Mutual funds and accounts'"
+    },
+    {
+      "refId": "ref-12",
+      "type": "report",
+      "url": "https://announcements.asx.com.au/asxpdf/20260928/pdf/074lvj9f84fcgg.pdf",
+      "source": "ASX / Citigroup Form 603",
+      "headline": "Notice of initial substantial shareholder: Citigroup",
+      "date": "2026-09-28",
+      "dateBasis": "ASX lodgement date (28/09/2026 11:21 am); the notice states the holder became substantial on 23 September 2026",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded the PDF with curl and extracted the text with a PDFKit script: became a substantial holder on 23 September 2026, 11,422,872 shares, voting power 5.1524%; all four relevant-interest lines (Citibank N.A. Sydney Branch, Citigroup Global Markets Australia, Citigroup Global Markets Inc, Citigroup Global Markets Limited) cite a securities lending agreement, two of them also ordinary on-market contracts"
+    },
+    {
+      "refId": "ref-13",
+      "type": "report",
+      "url": "https://announcements.asx.com.au/asxpdf/20260928/pdf/074m8z62qytq8x.pdf",
+      "source": "ASX / Citigroup Form 605",
+      "headline": "Notice of ceasing to be a substantial holder: Citigroup",
+      "date": "2026-09-28",
+      "dateBasis": "ASX lodgement date (28/09/2026 4:58 pm); the notice states the holder ceased on 24 September 2026",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded the PDF with curl and extracted the text with a PDFKit script: 'The holder ceased being a substantial holder on 24 September 2026'"
+    },
+    {
+      "refId": "ref-14",
+      "type": "news",
+      "url": "https://www.droneshield.com/media/press-releases/droneshield-awarded-jiatf-401-domestic-shield-idiq-contract",
+      "source": "DroneShield",
+      "headline": "Domestic Shield IDIQ award",
+      "date": "2026-09-30",
+      "dateBasis": "press release dateline (Warrenton, VA, 30 September 2026)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through web tool; confirmed JIATF-401, Domestic Shield, 'a maximum contract value of up to $500 million over three years', and 'DroneShield will announce material orders awarded under the IDIQ in accordance with applicable disclosure requirements'. Re-fetched with curl at fact check on 7 October 2026: the visible text states no currency for the figure (the only 'USD' strings on the page sit in an embedded e-commerce settings list of supported currencies), so the body attributes the US-dollar figure to the ASX announcement (ref-17), not to this release"
+    },
+    {
+      "refId": "ref-15",
+      "type": "report",
+      "url": "https://www.asic.gov.au/regulatory-resources/markets/short-selling/short-selling-reporting-short-position-reporting",
+      "source": "ASIC",
+      "headline": "Short position reporting: publication occurs T+4",
+      "date": "",
+      "dateBasis": "Undated guidance; retrieved 7 October 2026",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through web tool; confirmed 'published on the ASIC website four days after the reporting day (T+4). These reports will not contain short seller details.'"
+    },
+    {
+      "refId": "ref-16",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260831-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "31 August daily aggregate short-position report",
+      "date": "2026-08-31",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded the official CSV with curl on 7 October 2026 (byte-identical to the copy already on disk) and grepped the EOS row (16,547,369 of 221,702,162 = 7.46378333). Added at fact check: the 1 July to 30 September rise of 5.42 points splits 2.73 points to 31 August and 2.69 points in September, so the body says 'about half', not 'most'"
+    },
+    {
+      "refId": "ref-17",
+      "type": "report",
+      "url": "https://announcements.asx.com.au/asxpdf/20260930/pdf/074q0mk6kqjwz1.pdf",
+      "source": "ASX / DroneShield",
+      "headline": "DroneShield Awarded US$500M US IDIQ Procurement Vehicle",
+      "date": "2026-09-30",
+      "dateBasis": "Date printed on the announcement ('30 September 2026 ASX Announcement') and the lodgement date in the ASX PDF path",
+      "retrievedDate": "2026-10-07",
+      "verification": "Fetched the ASX gate page for idsId 03145838 with curl, read the hidden pdfURL field, downloaded the two-page PDF with curl and extracted the text with the PDFKit script: title 'DroneShield Awarded US$500M US IDIQ Procurement Vehicle'; 'a three-year procurement vehicle with a ceiling value of US$500 million'; 'This IDIQ contract does not guarantee any orders and any amounts cannot be quantified at this time. DroneShield will continue to announce material orders in accordance with its disclosure policies.' The currency in the body comes from this document, not from the press release (ref-14), which states none"
+    }
+  ],
+  "limits": [
+    "Price figures (closes of $9.52 on 4 September, $10.34 on 18 September, $11.32 on 25 September, $11.94 on 5 October, $11.60 on 6 October, the 6.77 million-share session) and days to cover are Shorted's own end-of-day data and are stated without a citation",
+    "The squeeze score (84.4, rank first) and the 43-security divergence count (the list includes two ETF units) are Shorted-derived metrics, stated as such, not official figures",
+    "The headline pairs two windows and names both: the doubling is 1 July to 30 September (ASIC), the 25% is Shorted's one-month price change from the 4 September close to 5 October; over the doubling window itself the price rose about 15%",
+    "No motive is attributed to any short seller, lender or holder; Vanguard's and Citigroup's notices are reported as filed and their timing is placed beside the position data without a causal claim. Citigroup's Form 603 is read as filed: all four relevant-interest lines carry an obligation to return under a securities lending agreement (Annexure A names the holder of voting rights as 'Borrower') and Citibank's Sydney branch also acts as agent lender; no use of the borrowed shares is inferred",
+    "ref-10 is a live six-month ASX listing with no publication date; the sentence it supports is dated in the prose to the 7 October retrieval",
+    "The Kalkine articles (1 and 6 October) were opened but not cited; Motley Fool's broker targets and the author's opinion were not used",
+    "No prediction, no price target, no post-30 September position inferred; later ASIC reports will show any change"
+  ],
+  "verification": {
+    "positionDate": "2026-09-30",
+    "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260930-001-SSDailyAggShortPos.csv",
+    "stockCode": "EOS",
+    "percentage": 10.15148828,
+    "roundedPercentage": 10.15,
+    "retrievedDate": "2026-10-07"
+  },
+  "identifierBasis": "Publication MDX reference IDs, matched to retrieval evidence by URL",
+  "publicationState": "Content file; not inserted into the publication database by this preparation script",
+  "image": {
+    "path": "/assets/news/eos-shorts-double-into-25pc-rally/cover.png",
+    "basis": "Generated by the publish job (brand OG plus art-directed hero); no hand-made asset accompanies this draft"
+  }
+}

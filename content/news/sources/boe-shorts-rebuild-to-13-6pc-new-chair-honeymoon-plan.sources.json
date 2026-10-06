@@ -1,0 +1,178 @@
+{
+  "draft": "boe-shorts-rebuild-to-13-6pc-new-chair-honeymoon-plan.mdx",
+  "knownCodes": [
+    "BOE",
+    "DRO",
+    "LOT",
+    "PDN",
+    "DYL"
+  ],
+  "sources": [
+    {
+      "refId": "ref-1",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260930-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "30 September daily aggregate short-position report",
+      "date": "2026-09-30",
+      "dateBasis": "Position date encoded in official report filename; publication date not inferred",
+      "retrievedDate": "2026-10-07",
+      "verification": "Official CSV on disk; grepped the BOE row (56,391,194 / 415,198,998 / 13.5817269) and the LOT, PDN, DYL and DRO rows on 7 October 2026; ranked the whole file with a CSV parser to confirm only DRO (15.07%) sits above BOE among ordinary shares (two iShares ETF lines, ULTB and IUSG, are higher and are not ordinary shares) and that 16 ordinary-share lines are above 10%"
+    },
+    {
+      "refId": "ref-2",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260701-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "1 July daily aggregate short-position report",
+      "date": "2026-07-01",
+      "dateBasis": "Position date encoded in official report filename",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded official CSV with curl on 7 October 2026 and grepped the BOE row: 49,664,790 / 415,175,320 / 11.96236568"
+    },
+    {
+      "refId": "ref-3",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260826-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "26 August daily aggregate short-position report",
+      "date": "2026-08-26",
+      "dateBasis": "Position date encoded in official report filename",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded official CSV with curl on 7 October 2026 and grepped the BOE row: 35,116,580 / 415,175,320 / 8.45825325"
+    },
+    {
+      "refId": "ref-4",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260917-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "17 September daily aggregate short-position report",
+      "date": "2026-09-17",
+      "dateBasis": "Position date encoded in official report filename",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded official CSV with curl on 7 October 2026 and grepped the BOE row: 41,895,507 / 415,175,320 / 10.09103985"
+    },
+    {
+      "refId": "ref-5",
+      "type": "report",
+      "url": "https://download.asic.gov.au/short-selling/RR20260918-001-SSDailyAggShortPos.csv",
+      "source": "ASIC",
+      "headline": "18 September daily aggregate short-position report",
+      "date": "2026-09-18",
+      "dateBasis": "Position date encoded in official report filename",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded official CSV with curl on 7 October 2026 and grepped the BOE row: 52,922,724 / 415,175,320 / 12.74707851; the one-day share increase (11,027,217) and the 23,678-share denominator change to 30 September were computed from the grepped rows"
+    },
+    {
+      "refId": "ref-6",
+      "type": "news",
+      "url": "https://bossenergy.com/",
+      "source": "Boss Energy",
+      "headline": "Boss Energy Market Day Webcast (home page listing, 15 Sep 2026)",
+      "date": "2026-09-15",
+      "dateBasis": "Date shown against the 'Boss Energy Market Day Webcast' item on the company home page at retrieval",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through web tool on 7 October 2026; the page listed 'Boss Energy Market Day Webcast – 15 Sep 2026' and 'FY2026 Results and New Feasibility Study Presentation – 27 Aug 2026'. The company's announcements and webcast pages render their lists client-side and returned no items to the fetch tool, so the home page listing is the citable record of the date"
+    },
+    {
+      "refId": "ref-7",
+      "type": "report",
+      "url": "https://bossenergy.com/images/media/BOE_FY2026_Results_and_New_Feasibility_Study_Presentation.pdf",
+      "source": "Boss Energy",
+      "headline": "FY26 Results and New Feasibility Study Presentation",
+      "date": "2026-08-27",
+      "dateBasis": "Date printed on the presentation cover (27 August 2026)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Downloaded the 44-page PDF with curl on 7 October 2026 and extracted its text with pypdf. Figures used and the slides they come from: ~13.8 Mlbs drummed U3O8 life-of-mine under the NFS base case, output peaking at 1.9 Mlbs a year, nine-year mine life running through to FY2035 with 8 full years to FY2034 (slide 23); steady state FY2030-33 at ~1.9 Mlbs (slide 28); life-of-mine average C1 $50/lb to FY2034 (slide 29); FY26 production 1,407 klbs and C1 $39/lb (slide 6); $207.3M cash and liquid assets, debt free (slides 5 and 7), of which uranium inventory at book value is $116.3M and cash $49.7M (slide 7: 'Balance sheet remains strong at $207.3 million of cash and liquid assets with no debt, including uranium inventory of $116.3 million, at book value'); Honeymoon 20.8 Mlbs, Goulds Dam 33.1 Mlbs, Jasons 12.0 Mlbs (slide 34); Gould's Dam and Jasons Deposit 'not included in NFS and are subject to separate studies' (slide 28)"
+    },
+    {
+      "refId": "ref-8",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/energy/which-path-is-boss-energy-asxboe-taking-beyond-honeymoon",
+      "source": "Kalkine Media",
+      "headline": "Which Path Is Boss Energy (ASX:BOE) Taking Beyond Honeymoon?",
+      "date": "2026-10-01",
+      "dateBasis": "Publication timestamp on the article (October 01, 2026 12:05 PM AEST)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through web tool on 7 October 2026. Used only for: the Market Day presentation in Sydney aimed at institutional participants and research teams; the plan to build a larger, lower-cost and longer-life uranium business; Gould's Dam and Jason's Deposit framed as options to evaluate rather than committed projects. The article contains no figures and does not mention Peter Botten or Macquarie"
+    },
+    {
+      "refId": "ref-9",
+      "type": "news",
+      "url": "https://discoveryalert.com/asx-stock-news/energy/boe-boss-energy-peter-botten-chair-appointment-september-2026/",
+      "source": "Discovery Alert",
+      "headline": "Boss Energy Names 45-Year Energy Veteran Peter Botten as Chair",
+      "date": "2026-09-30",
+      "dateBasis": "Publication date on the article (30 September 2026)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through web tool on 7 October 2026 (re-opened the same day after fact-check: H1 'Boss Energy Names 45-Year Energy Veteran Peter Botten as Chair', byline 'By William Hadrian - 30 September 2026'; the earlier headline string was the title of the unopened ASX announcement and has been replaced). The article states Boss Energy confirmed Peter Botten formally commenced as Independent Non-Executive Director and Chair effective 30 September 2026, succeeding Wyatt Buck who remains on the Board as an Independent Non-Executive Director, that Botten was Managing Director of Oil Search Limited from 1994 to 2020, and that the transition was first disclosed in the company's announcement dated 3 July 2026. The ASX announcement PDF itself (idsId 03146085) returns the ASX terms interstitial to the fetch tool and was not opened; the company's board page (opened) lists Peter Botten as Chair"
+    },
+    {
+      "refId": "ref-10",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/news/announcements/macquarie-group-declares-512-stake-as-substantial-holder-in-boss-energy",
+      "source": "Kalkine Media",
+      "headline": "Macquarie Group declares 5.12% stake as substantial holder in Boss Energy",
+      "date": "2026-09-25",
+      "dateBasis": "Publication timestamp on the article (September 25, 2026 03:58 PM AEST)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through web tool on 7 October 2026. The article states the substantial holding commenced on 22 September 2026, a combined relevant interest of 21,276,954 fully paid ordinary shares representing 5.12% voting power, that Macquarie Bank Limited controls 12,614,905 shares through stock borrowing and lending arrangements, and that the notice was signed and dated 25 September 2026. The ASX notice PDF (idsId 03144110) returns the ASX terms interstitial to the fetch tool and was not opened"
+    },
+    {
+      "refId": "ref-11",
+      "type": "news",
+      "url": "https://www.fool.com.au/2026/09/16/down-17-in-a-week-what-has-happened-to-paladin-energy-shares/",
+      "source": "Motley Fool Australia",
+      "headline": "Down 17% in a week: what has happened to Paladin Energy shares?",
+      "date": "2026-09-16",
+      "dateBasis": "Publication date on the article (September 16, 3:09 pm AEST; year from URL path)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through web tool on 7 October 2026. Used only for the sentence that Paladin shares 'have now tumbled around 17% over the past week alone'. The article does not mention Langer Heinrich"
+    },
+    {
+      "refId": "ref-12",
+      "type": "news",
+      "url": "https://kalkinemedia.com/au/stocks/energy/why-did-paladin-energy-asxpdn-shares-slide-this-month",
+      "source": "Kalkine Media",
+      "headline": "Why did Paladin Energy (ASX:PDN) shares slide this month?",
+      "date": "2026-09-28",
+      "dateBasis": "Publication timestamp on the article (September 28, 2026 01:46 PM AEST)",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through web tool on 7 October 2026. Used only for: 'a local research house said it did not expect Langer Heinrich to run at its full nameplate rate for an entire year' and 'trimmed its longer-term production forecasts accordingly'. The article names no broker and gives no percentage for the fall; the 17% figure comes from ref-11, not this article"
+    },
+    {
+      "refId": "ref-13",
+      "type": "report",
+      "url": "https://www.asic.gov.au/regulatory-resources/markets/short-selling/short-selling-reporting-short-position-reporting",
+      "source": "ASIC",
+      "headline": "Short position reporting: publication occurs T+4",
+      "date": "",
+      "dateBasis": "Undated guidance; retrieved 7 October 2026",
+      "retrievedDate": "2026-10-07",
+      "verification": "Personally opened through web tool on 7 October 2026; the page states aggregate positions are published four days after the reporting day (T+4) and that the reports will not contain short seller details"
+    }
+  ],
+  "limits": [
+    "Position dates run to 30 September 2026 (published T+4); nothing after that date is claimed",
+    "No price level, price target, guaranteed return, squeeze, post-news short response or trader motive is claimed; the 22 September Macquarie broker note and the 25 September Barrenjoey downgrade reported by third parties were not opened and are not used",
+    "The 22-25 September cleansing notice and application for quotation could not be established from an opened source beyond 'a securities issuance'; only the ASIC share-count change (23,678 shares) is stated. The 25 September lapse of 454,164 performance rights (Kalkine) was opened but not used",
+    "The four-week change (+3.67pp), days to cover (7.8) and the 28 September W40 figures are Shorted's own ASIC-derived metrics, stated without citation as the newsroom does for overview numbers",
+    "'16 stocks shorted above 10%' counts ordinary-share lines in the 30 September file; ETF lines are excluded",
+    "The ASX announcement PDFs for the Chair commencement (idsId 03146085) and the Macquarie notice (idsId 03144110) return the ASX terms interstitial to the fetch tool, so secondary reports that quote them are cited instead",
+    "Market Day date (15 September) rests on the company home page listing at retrieval; the announcements and webcast pages render client-side and listed nothing to the fetch tool"
+  ],
+  "verification": {
+    "positionDate": "2026-09-30",
+    "sourceUrl": "https://download.asic.gov.au/short-selling/RR20260930-001-SSDailyAggShortPos.csv",
+    "stockCode": "BOE",
+    "percentage": 13.5817269,
+    "roundedPercentage": 13.58,
+    "retrievedDate": "2026-10-07"
+  },
+  "identifierBasis": "Publication MDX reference IDs, matched to retrieval evidence by URL",
+  "publicationState": "Content file; not inserted into the publication database by this preparation script",
+  "image": {
+    "path": "/assets/news/boe-shorts-rebuild-to-13-6pc-new-chair-honeymoon-plan/cover.png",
+    "basis": "Generated by the publish job; not produced here"
+  }
+}

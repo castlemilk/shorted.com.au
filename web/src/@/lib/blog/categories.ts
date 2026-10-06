@@ -99,7 +99,7 @@ const HEURISTICS: ReadonlyArray<{ test: RegExp; slug: BlogCategorySlug }> = [
     slug: "guides",
   },
   {
-    test: /(^|-)(most-shorted|candidates|hormuz|oil|iran|rotation|deep-dive)(-|$)/i,
+    test: /(^|-)(most-shorted|under-fire|candidates|hormuz|oil|iran|rotation|deep-dive)(-|$)/i,
     slug: "analysis",
   },
 ];
