@@ -17,6 +17,7 @@ import { RegimeBanner } from "~/@/components/picks/regime-banner";
 import { PicksProvenance } from "~/@/components/picks/picks-provenance";
 import { PicksFilterView } from "~/@/components/picks/picks-filter-view";
 import { RuleLegend, type RuleColumn } from "~/@/components/picks/picks-table";
+import { StrategyBezel } from "~/@/components/picks/strategy-glyph";
 import { StrategyPanel } from "~/@/components/picks/strategy-panel";
 import { StrategySwitcher } from "~/@/components/picks/strategy-switcher";
 import {
@@ -24,7 +25,11 @@ import {
   STRATEGY_SLUGS,
   getStrategy,
 } from "~/@/lib/strategies/registry";
-import { STATUS_LABELS, shortlistRows } from "~/@/lib/strategies/shortlist";
+import {
+  STATUS_LABELS,
+  countByStatus,
+  shortlistRows,
+} from "~/@/lib/strategies/shortlist";
 import { firstNonEmpty, formatPrice } from "~/@/lib/strategies/format";
 import { fundamentalsHeld } from "~/@/lib/strategies/coverage";
 import { getStrategyPicks } from "~/app/actions/getStrategyPicks";
@@ -110,10 +115,17 @@ export default async function StrategyPicksPage({ params }: PageProps) {
   const rules: RuleColumn[] = (strategy?.rules ?? []).map((rule) => ({
     id: rule.id,
     title: rule.title,
+    core: rule.core,
   }));
   const pageUrl = `${siteConfig.url}/picks/${seo.slug}`;
   const strategyName = firstNonEmpty(strategy?.name, seo.label);
-  const listRows = shortlistRows(rows).slice(0, ITEM_LIST_LIMIT);
+  // The shortlist is what the HTML, the Suspense fallback's RSC tree and the
+  // island's props all carry, so it is bounded (SHORTLIST_MAX_ROWS) and the
+  // island gets the status counts over every ranked row instead of the rows
+  // themselves: a status chip fetches its full list, as a sort chip does.
+  const shortlist = shortlistRows(rows);
+  const counts = countByStatus(rows, data?.totalCount ?? 0);
+  const listRows = shortlist.slice(0, ITEM_LIST_LIMIT);
 
   const breadcrumbItems = [
     { label: "Stock picker", href: "/picks" },
@@ -125,7 +137,8 @@ export default async function StrategyPicksPage({ params }: PageProps) {
     { name: seo.h1, url: pageUrl },
   ];
   const filterProps = {
-    rows,
+    rows: shortlist,
+    counts,
     totalCount: data?.totalCount ?? 0,
     rules,
     basePath: `/picks/${seo.slug}`,
@@ -171,15 +184,23 @@ export default async function StrategyPicksPage({ params }: PageProps) {
 
         <StrategySwitcher current={seo.slug} />
 
-        <section className="border-b border-border/40 pb-6">
-          <p className={cn(eyebrow, "mb-2 font-medium")}>
-            <Link href="/picks" className="hover:text-foreground">
-              Stock picker
-            </Link>
-            {strategy?.author ? <> · {strategy.author}</> : null}
-          </p>
-          <h1 className={cn(pageTitle, "leading-[1.1]")}>{seo.h1}</h1>
-          <p className="mt-2 max-w-3xl text-muted-foreground">{seo.dek}</p>
+        {/* The instrument's faceplate: its glyph lit in the bezel beside the
+            serif H1, the provenance nameplate under it. A 320ms phosphor
+            warm-up on load; the H1 is painted from the first frame. */}
+        <section className="border-b border-border/40 pb-6 motion-safe:animate-phosphor-warm">
+          <div className="flex items-start gap-4 sm:gap-5">
+            <StrategyBezel slug={seo.slug} className="mt-1 text-primary" />
+            <div className="min-w-0">
+              <p className={cn(eyebrow, "mb-2 font-medium")}>
+                <Link href="/picks" className="hover:text-foreground">
+                  Stock picker
+                </Link>
+                {strategy?.author ? <> · {strategy.author}</> : null}
+              </p>
+              <h1 className={cn(pageTitle, "leading-[1.1]")}>{seo.h1}</h1>
+            </div>
+          </div>
+          <p className="mt-3 max-w-3xl text-muted-foreground">{seo.dek}</p>
           <div className="mt-3">
             <PicksProvenance
               asOf={data?.asOf ?? ""}

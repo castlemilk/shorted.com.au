@@ -58,6 +58,8 @@ import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { getStockHeadlines } from "~/app/actions/getStockNews";
 import { getStockOrNotFound } from "~/app/actions/getStock";
 import { getLatestShortDate } from "~/app/actions/getLatestShortDate";
+import { getDailyShortSeries } from "~/app/actions/getDailyShortSeries";
+import { thirtyDayChangeClause } from "~/@/lib/seo/short-change-clause";
 import { formatCompanyName } from "~/@/lib/company-name";
 import Link from "next/link";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
@@ -133,11 +135,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       // `new Date()`. ASIC publishes T+4, so "as of <today>" describes a
       // report that does not exist yet. Null when unknown: the sentence
       // drops the clause rather than inventing a date.
-      const asOf = await getLatestShortDate(code);
+      //
+      // The 30-day move comes next (docs/seo-audit-2026-09.md §6.2): the
+      // level is already in the title, the change is what no competitor's
+      // snippet carries. The daily series is the same cached read the
+      // page's history summary makes, so this costs the metadata nothing
+      // extra; an unavailable series drops the clause. (Two reads in
+      // flight, not a Promise.all: page-old-api.test.tsx reads the page's
+      // first Promise.all as the render's critical path.)
+      const asOfRead = getLatestShortDate(code);
+      const series = await getDailyShortSeries(code);
+      const asOf = await asOfRead;
       const dateStr = asOf ? formatAsOfDate(asOf) : null;
       const descName = companyName || code;
       const shortInfo = stock.percentageShorted > 0
-        ? `${descName} short interest is ${stock.percentageShorted.toFixed(2)}%${dateStr ? ` as of ${dateStr}` : ""}.`
+        ? `${descName} short interest is ${stock.percentageShorted.toFixed(2)}%${dateStr ? ` as of ${dateStr}` : ""}${thirtyDayChangeClause(series)}.`
         : `${descName} short selling data from official ASIC reports.`;
       const industryInfo = stock.industry ? ` Industry: ${stock.industry}.` : "";
       description = `${shortInfo}${industryInfo} Track ${code}'s short position history, price charts, peer comparison, and ASIC data. Updated daily with T+4 delay.`;

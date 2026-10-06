@@ -1,6 +1,8 @@
 // The sort island's network half (docs/plans/fundamentals-coverage.md §7.2),
 // loaded with import() on first use so neither it nor the mapper is in the
-// page's first-load JavaScript.
+// page's first-load JavaScript. It answers a status filter as well as a sort:
+// the island carries only the shortlist, so the rest of a status is the
+// API's to send.
 //
 // A PLAIN JSON POST, deliberately: the Connect protocol's unary JSON form is
 // just that, so the browser needs neither ~/gen (the protobuf descriptors) nor
@@ -31,7 +33,8 @@ export const SORTED_PICKS_LIMIT = 100;
 
 export interface SortedPicksRequest {
   strategyId: string;
-  sortBy: PickSortKey;
+  /** Null asks for the default rank order (a status filter alone). */
+  sortBy: PickSortKey | null;
   status: PickStatus | null;
   signal?: AbortSignal;
 }
@@ -40,15 +43,16 @@ export interface SortedPicksRequest {
 export function sortedPicksBody(request: SortedPicksRequest): string {
   return JSON.stringify({
     strategyId: request.strategyId,
-    sortBy: request.sortBy,
+    sortBy: request.sortBy ?? "",
     status: request.status ?? "",
     limit: SORTED_PICKS_LIMIT,
   });
 }
 
 /**
- * One strategy's picks within a status, sorted by the API. Throws on any
- * non-200 (and on an abort), and the island keeps the server rows.
+ * One strategy's picks within a status, sorted by the API (or in its rank
+ * order when `sortBy` is null). Throws on any non-200 (and on an abort), and
+ * the island keeps the server rows.
  *
  * An API that predates sort_by ignores it (Connect discards unknown JSON
  * fields) and answers in rank order; such an API also predates
@@ -77,10 +81,13 @@ export async function fetchSortedPicks(
     mapped.fundamentalsRowsCount === 0 &&
     !mapped.picks.some((row) => row.fundamentals !== undefined);
   const clientSorted =
-    olderApi && mapped.picks.length > 1 && isRankOrder(mapped.picks);
+    request.sortBy !== null &&
+    olderApi &&
+    mapped.picks.length > 1 &&
+    isRankOrder(mapped.picks);
   return {
     rows: clientSorted
-      ? sortPickRows(mapped.picks, request.sortBy)
+      ? sortPickRows(mapped.picks, request.sortBy!)
       : mapped.picks,
     totalCount: Math.max(mapped.totalCount, mapped.picks.length),
     clientSorted,

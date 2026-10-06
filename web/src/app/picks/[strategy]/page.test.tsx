@@ -3,7 +3,8 @@ import { render, screen, within } from "@testing-library/react";
 import StrategyPicksPage, { generateStaticParams } from "./page";
 import { STRATEGY_SLUGS, getStrategy } from "~/@/lib/strategies/registry";
 import { mapPick, type StrategyPickInput } from "~/@/lib/strategies/map";
-import { PICKS, UPTREND } from "~/@/components/picks/__tests__/fixtures";
+import { SHORTLIST_MAX_ROWS } from "~/@/lib/strategies/shortlist";
+import { PICKS, UPTREND, pick } from "~/@/components/picks/__tests__/fixtures";
 
 const getStrategyPicks = jest.fn();
 const bailOnEmptyRender = jest.fn();
@@ -244,6 +245,36 @@ describe("StrategyPicksPage", () => {
       expect(links).toContain(`/picks/${related}`);
     }
     expect(links).toEqual(expect.arrayContaining(["/scans", "/screener", "/battlegrounds"]));
+  });
+
+  // Measured 2026-10-07: 100 rows, each with a fundamentals disclosure, in
+  // the HTML, the fallback's RSC tree and the island's props made
+  // /picks/minervini-trend-template 1.85 MB. The page renders the shortlist
+  // (SHORTLIST_MAX_ROWS at most) and the chips still count every row.
+  it("renders at most 40 rows of a long list, with chips that count every ranked row", async () => {
+    const triggered = Array.from({ length: 60 }, (_, i) =>
+      pick({ code: `T${String(i).padStart(2, "0")}`, rank: i + 1, status: "triggered" }),
+    );
+    const watch = Array.from({ length: 40 }, (_, i) =>
+      pick({ code: `W${String(i).padStart(2, "0")}`, rank: 61 + i, status: "watch" }),
+    );
+    getStrategyPicks.mockResolvedValue({
+      ...PICKS,
+      picks: [...triggered, ...watch],
+      totalCount: 212,
+    });
+    render(await StrategyPicksPage({ params: params("zanger-breakout") }));
+
+    const table = screen.getByRole("table");
+    expect(within(table).getAllByRole("row")).toHaveLength(1 + SHORTLIST_MAX_ROWS);
+    expect(within(table).getByRole("link", { name: "T39" })).toBeInTheDocument();
+    expect(within(table).queryByRole("link", { name: "T40" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Showing 40 of 212 ranked stocks/)).toBeInTheDocument();
+
+    const nav = screen.getByRole("navigation", { name: "Filter picks by status" });
+    expect(within(nav).getByRole("link", { name: /^Triggered/ })).toHaveTextContent("Triggered60");
+    expect(within(nav).getByRole("link", { name: /^Watch/ })).toHaveTextContent("Watch40+");
+    expect(screen.getByTestId("itemlist")).toHaveTextContent("15");
   });
 
   it("renders the copy-only shell and bails the render when the read fails", async () => {

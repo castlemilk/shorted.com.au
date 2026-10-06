@@ -11,10 +11,23 @@ import { PICK_STATUSES, type PickRow, type PickStatus } from "./types";
  */
 export const SHORTLIST_MIN_ROWS = 20;
 
+/**
+ * The most rows the shortlist renders. Every row is rendered THREE times on
+ * its way to a reader (the HTML, the RSC tree of the Suspense fallback, and
+ * the sort island's props), each with a fundamentals disclosure, so a busy
+ * strategy is bounded here rather than by the API's 100: measured
+ * 2026-10-07, /picks/minervini-trend-template served 100 rows as 1.85 MB of
+ * HTML (115 KB gzipped) and /picks/crowded-short-breakout 1.35 MB. The rest
+ * of a status stays one chip away (the island fetches it) and in the API.
+ */
+export const SHORTLIST_MAX_ROWS = 40;
+
 /** The rows shown with no ?status= filter. */
 export function shortlistRows(rows: PickRow[]): PickRow[] {
   const primary = rows.filter((row) => row.status !== "watch");
-  if (primary.length >= SHORTLIST_MIN_ROWS) return primary;
+  if (primary.length >= SHORTLIST_MIN_ROWS) {
+    return primary.slice(0, SHORTLIST_MAX_ROWS);
+  }
   const fill = rows
     .filter((row) => row.status === "watch")
     .slice(0, SHORTLIST_MIN_ROWS - primary.length);

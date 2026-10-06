@@ -25,16 +25,19 @@ import type { PickStatus } from "~/@/lib/strategies/types";
  * the ISR HTML. Reading searchParams in the server page instead would
  * silently force the route dynamic and throw the ISR away.
  *
- * With no sort (or ?sort=score) it filters the server's rows as the page
- * always did, with no request. With a sort it asks the API for the top 100
- * within the status, sorted: a plain JSON POST through the same-origin
- * rewrite, from a module loaded on first use (no ~/gen, no @connectrpc in the
- * browser). While it loads, the server rows stay on screen, dimmed and
- * aria-busy; on a non-200 or after SORT_TIMEOUT_MS they stay, with "Sorting is
- * unavailable right now".
+ * With no status and no sort (or ?sort=score) it renders the server's
+ * shortlist as the page always did, with no request. With either it asks the
+ * API for the top 100 within the status, in the sort's order: a plain JSON
+ * POST through the same-origin rewrite, from a module loaded on first use
+ * (no ~/gen, no @connectrpc in the browser). The island is handed ONLY the
+ * shortlist rows (at most SHORTLIST_MAX_ROWS) and the server's status counts,
+ * never every ranked row: those rows are serialised into the page's RSC
+ * payload, which is how a 100-row strategy once weighed 1.85 MB. While it
+ * loads, the shortlist's rows of that status stay on screen, dimmed and
+ * aria-busy; on a non-200 or after SORT_TIMEOUT_MS they stay, with a note.
  */
 
-/** Give up on a sort after this long and keep the rank order. */
+/** Give up on a fetch after this long and keep the rows on screen. */
 export const SORT_TIMEOUT_MS = 10_000;
 
 export interface PicksSortedViewProps
@@ -53,10 +56,10 @@ type SortState =
 
 function requestKey(
   strategyId: string,
-  sort: PickSortKey,
+  sort: PickSortKey | null,
   status: PickStatus | null,
 ) {
-  return `${strategyId}|${sort}|${status ?? ""}`;
+  return `${strategyId}|${sort ?? ""}|${status ?? ""}`;
 }
 
 /** The fetch code, loaded once, on first use. */
@@ -71,11 +74,12 @@ export function PicksSortedView({
   const searchParams = useSearchParams();
   const status = parsePickStatus(searchParams?.get("status"));
   const sort = parsePickSort(searchParams?.get("sort"));
-  const key = sort ? requestKey(strategyId, sort, status) : "";
+  const asked = sort !== null || status !== null;
+  const key = asked ? requestKey(strategyId, sort, status) : "";
   const [state, setState] = useState<SortState | null>(null);
 
   useEffect(() => {
-    if (!sort) return;
+    if (!asked) return;
     let cancelled = false;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), SORT_TIMEOUT_MS);
@@ -105,13 +109,13 @@ export function PicksSortedView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  // Reaching for a sort chip starts loading the fetch code before the click.
+  // Reaching for a chip starts loading the fetch code before the click.
   const warm = useCallback(() => {
     void loadSortFetch().catch(() => undefined);
   }, []);
 
   // A state left over from another sort or status is not this one's answer.
-  const current = sort && state?.key === key ? state : null;
+  const current = asked && state?.key === key ? state : null;
   return (
     <PicksFilterView
       {...props}
@@ -119,7 +123,7 @@ export function PicksSortedView({
       sort={sort}
       sorted={current?.phase === "ready" ? current.sorted : null}
       sortPhase={
-        sort
+        asked
           ? current?.phase === "error"
             ? "error"
             : current?.phase === "ready"

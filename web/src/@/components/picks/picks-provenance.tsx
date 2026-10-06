@@ -7,7 +7,9 @@ import { formatCount, formatIsoDate } from "~/@/lib/strategies/format";
  * Where the numbers come from, as one line: price date, fundamentals
  * coverage, the ASIC lag and the disclaimer. Props-only and server-safe.
  * Provenance is part of the composition on this site, not a footnote, so the
- * line sits directly under the H1.
+ * line is the instrument's nameplate, a hairline plate directly under the
+ * H1: one <p>, the facts separated by " · ", so it reads as a sentence to a
+ * screen reader and to a crawler.
  *
  * Coverage (docs/plans/fundamentals-coverage.md §7.2) counts stocks with any
  * fundamentals row, with the growth-figure count beside it, but only when the
@@ -32,7 +34,7 @@ export function PicksProvenance({
   const priceDate = formatIsoDate(asOf);
   const held = fundamentalsHeld(rowsCount, coverage);
   return (
-    <p className="text-sm text-muted-foreground">
+    <p className="inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded-md border border-border/60 bg-card px-3 py-1.5 text-xs text-muted-foreground">
       {priceDate ? (
         <>
           Prices to{" "}
