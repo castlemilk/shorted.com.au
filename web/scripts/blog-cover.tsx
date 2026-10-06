@@ -1,6 +1,7 @@
 /**
- * Render a branded cover for a blog post — the same scene canvas the housing
- * Open Graph cards use — to web/public/assets/blog/<slug>/cover.png.
+ * Render an optional typeset SOCIAL card, separate from the editorial artwork.
+ * Article covers follow docs/blog-thumbnail-directions.md. This legacy helper
+ * never updates frontmatter or overwrites an illustration.
  *
  *   npx tsx scripts/blog-cover.tsx <slug> [scene]
  *
@@ -12,7 +13,7 @@
  */
 import React from "react";
 import { ImageResponse } from "next/og";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const OG = { bg: "#0a0a0a", bgAlt: "#141414", text: "#fafafa", textDim: "#a1a1aa", orange: "#FFA94D", orangeDim: "#d4a017", border: "#27272a" };
@@ -27,6 +28,11 @@ function frontmatter(slug: string): { title: string; excerpt: string } {
 async function main() {
   const [slug, scene = "leafy-suburban"] = process.argv.slice(2);
   if (!slug) throw new Error("usage: blog-cover.tsx <slug> [scene|none]");
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("Invalid blog slug");
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(scene)) throw new Error("Invalid scene");
+  const dir = join(process.cwd(), "public", "assets", "blog", slug);
+  const out = join(dir, "social-card-v1.png");
+  if (existsSync(out)) throw new Error(`Refusing to overwrite ${out}; create a new version`);
   const { title } = frontmatter(slug);
   let sceneSrc = "";
   if (scene !== "none") {
@@ -58,10 +64,9 @@ async function main() {
     { width: 1200, height: 630 },
   );
   const buf = Buffer.from(await res.arrayBuffer());
-  const dir = join(process.cwd(), "public", "assets", "blog", slug);
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "cover.png"), buf);
-  console.log(`wrote ${join(dir, "cover.png")} (${buf.length} bytes)`);
+  writeFileSync(out, buf, { flag: "wx" });
+  console.log(`wrote ${out} (${buf.length} bytes)`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

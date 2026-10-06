@@ -22,6 +22,8 @@ import { CitationLedger } from "./ledger.js";
 import { getOverview } from "./drilldowns.js";
 import { designImagePlan, generatePlanImages, generatePlanHero, type ArtContext, type LayoutImage, type PlanItem } from "./art-director.js";
 import { deskByline } from "./byline.js";
+import { illustrationCaption, ILLUSTRATION_CREDIT } from "./illustration-caption.js";
+import { EDITORIAL_CRAFT_RULES } from "./editorial-art-policy.js";
 
 export { deskByline } from "./byline.js";
 
@@ -61,41 +63,50 @@ interface NewsroomResult {
   ms: number;
 }
 
-const BRAND_PROMPT = `Editorial illustration in the style of a modern financial publication.
-Visual style: dark background (near-black #0a0a0a) with selective orange
-accents (#FFA94D). Minimal, clean, composition-driven. Subtle grain or noise
-acceptable. High contrast.
+const BRAND_PROMPT = `Conceptual editorial illustration for Shorted, a warm Australian market publication.
+Show one recognisable subject performing one specific visual action tied to
+the article's finding, mechanism or tension. Use tactile cut-paper collage,
+printmaking or a sculptural material still life. Strong silhouette and quiet
+negative space; readable at thumbnail size, subject/action in the central 80%.
 
-NEVER include text, words, numbers, letters, charts, graphs, bars, lines,
-percentages, cityscapes, skylines, businessmen, faces, hands, arrows,
-rockets, bulls, bears, dollar signs, handshakes, money stacks.
+Share warm ink/paper and selective amber (#FFA94D). Let the subject introduce
+restrained sage, rust, limestone, oil black or brick. Choose light paper or
+dark ink grounds according to the story; no mandatory black background or
+single orange light. Texture should come from material, rather than glow.
 
-Preferred: photorealistic close-up of a physical industrial subject;
-isometric/geometric data abstraction; raw materials; document close-ups
-(blank, no readable text); architectural interiors; mining or processing
-equipment from unconventional angles.
+Relevant building forms and objects can identify a property or industry story.
+Never substitute a generic skyline, Australia map, asset pack or industrial
+object when it has no relationship to the article's actual argument.
 
-Lighting: low-key, deep shadow, single warm amber light source.
+NEVER include baked-in text, words, numbers, letters, percentages, logos,
+tickers, fake interfaces, invented measured data, decorative chart fragments,
+people, money piles, rockets, bulls/bears or dollar-sign finance clichés.
+Clearly an illustration, never fabricated photojournalism of an actual
+named location, facility, historical record or event.
+
+${EDITORIAL_CRAFT_RULES}
 
 Topic to illustrate:`;
 
 const FINAL_RULES = `
 
-CRITICAL FINAL RULES — apply these to the image you generate:
-1. Do NOT add any charts, graphs, bars, lines, percentages, numbers,
-   ticker symbols, currency symbols, or other data visualisation
-   elements — even if the topic mentions a document.
+CRITICAL FINAL RULES: apply these to the image you generate:
+1. Do NOT add charts, graphs, percentages, ticker or currency symbols,
+   invented measured data or fabricated product interfaces. A conceptual
+   physical mechanism must never look like an actual price forecast.
 2. Do NOT add any text, words, letters, or numbers in the image.
 3. Do NOT add any people, faces, silhouettes, hands, or figures.
-4. Do NOT add any city skylines or recognisable architecture.
-5. Keep the composition minimal — single subject, deep negative space,
-   low-key lighting, one warm orange/amber light source.`;
+4. Relevant architecture is allowed as a visibly conceptual model or
+   illustration; never imply a generated scene documents an actual place.
+5. Keep one dominant subject and one meaningful visual action. Warm paper
+   or dark ink grounds, tactile materials, restrained subject colours and
+   selective amber. No permanent glow or generic finance wallpaper.`;
 
 // Sector-appropriate subject vocabulary for the hero prompt. The
 // previous prompt biased toward industrial materials regardless of
 // company sector (Endeavour Group — a liquor retailer — got an ore
 // chunk). Subject hints are passed through to gpt-image-2 as
-// suggestions, with the brand aesthetic (dark + amber, no text/people)
+// suggestions, with the brand aesthetic (tactile, selective amber, no text/people)
 // holding constant.
 function subjectHintForIndustry(industry: string | null): string {
   const i = (industry ?? "").toLowerCase();
@@ -109,10 +120,10 @@ function subjectHintForIndustry(industry: string | null): string {
     return "a tactical electronics enclosure, machined metal component, or industrial sensor housing";
   }
   if (i.includes("consumer staples") || i.includes("food") || i.includes("beverage")) {
-    return "a single dark-glass bottle, a stacked retail crate, or a polished bar surface — products lit moodily, no readable labels";
+    return "an unbranded glass bottle, a retail crate, or a food-package model; choose the product and visual action that fit the article, no readable labels";
   }
   if (i.includes("consumer discretionary") || i.includes("retail") || i.includes("hospitality") || i.includes("travel")) {
-    return "a luxury product still-life: a leather travel case, a hotel key, a folded garment, or shop fixtures in low light";
+    return "an unbranded travel case, hotel key, folded garment, or retail fixture; show the specific article mechanism through a material still life";
   }
   if (i.includes("financial") || i.includes("bank") || i.includes("insurance")) {
     return "a leather ledger, a sealed envelope, a vault door fragment, a single wax-sealed document — no readable text";
@@ -126,13 +137,13 @@ function subjectHintForIndustry(industry: string | null): string {
   if (i.includes("real estate") || i.includes("property")) {
     return "an architectural model fragment, concrete sample block, or scaled construction detail";
   }
-  // Fallback — abstract geometric data art (works for any sector, never wrong)
-  return "an abstract geometric form: a single matte sphere, stacked panels, folded paper sculpture, or layered gradients — no objects from any specific industry";
+  // With no sector hint, the article's own mechanism should choose the object.
+  return "a recognisable paper or physical object drawn from the headline's specific finding or mechanism, performing one clear visual action";
 }
 
 const INLINE_BRIEF_MODEL = () => process.env.INLINE_BRIEF_MODEL ?? "gemini-3.5-flash";
 
-/** Turn an article section into a concrete, photographic image concept
+/** Turn an article section into a concrete, illustrative image concept
  *  tied to its specific subject/mood. Falls back to the industry hint on
  *  any error so image generation never hard-fails on the brief step. */
 /** Reject preamble / markdown / mid-fragment junk and keep only a clean
@@ -175,9 +186,9 @@ async function visualBriefForSection(
     });
     const prompt = `You are an art director for a financial publication. Read this excerpt from an article about ${stockCode} (sector: ${industry ?? "general market"}).
 
-In ONE vivid sentence, describe a single concrete, photographic image that captures THIS excerpt's specific subject or mood — a real scene, object, material, or environment directly tied to what's described (e.g. a halted mine head-frame under ash-grey sky, scattered legal documents on a dark desk, an empty boardroom chair, a sealed laboratory vial, a darkened retail floor). Make it specific to the events, not generic.
+In ONE vivid sentence, describe a conceptual illustration showing one recognisable physical subject and one action that captures THIS excerpt's finding, mechanism or tension (e.g. a blank evidence sheet uncovering a model's fault, a compressed spring held by a latch, a sample vessel passing through a narrow gate, scissors trimming a house's blank sale tag). Make it specific to the argument, preserving its uncertainty.
 
-It will be shot dark and cinematic with a single warm amber light source. Do NOT mention text, words, numbers, charts, graphs, logos, brand names, readable labels, or human faces. Output ONLY the sentence, no preamble.
+Use tactile paper, print texture or physical materials, warm ink/paper and selective amber. Light or dark grounds should suit the subject. Do NOT fabricate a photograph of a real location, facility or event. Do NOT request text, words, numbers, charts, graphs, logos, brand names, readable labels or people. Output ONLY the sentence, no preamble.
 
 Excerpt:
 ${sectionText.slice(0, 900)}`;
@@ -216,7 +227,7 @@ function pickSections(bodyMd: string, count: number): string[] {
   return out;
 }
 
-// Visual treatment variants — same brand DNA (dark + warm amber, no
+// Visual treatment variants — same brand DNA (tactile + selective amber, no
 // text/people/logos) but very different compositions. We rotate by
 // deterministic hash on slug so each take gets a distinct look from
 // its neighbours on /news, but the same take always renders the same
@@ -230,33 +241,33 @@ type Treatment = {
 const TREATMENTS: Treatment[] = [
   {
     name: "close-up-object",
-    composition: "Macro photograph of the subject filling about 40% of the frame, off-centre, dramatic single-side amber rim light, deep shadow on the other side, dark textured surface beneath",
+    composition: "Close material still life, one dominant subject and its meaningful action filling the central crop-safe area, tactile surfaces and soft natural or raking light, paper or ink ground chosen for the story",
     mood: "tactile, weighty, considered",
   },
   {
     name: "wide-architectural",
-    composition: "Wide-angle architectural still life of the subject in a much larger empty interior space, single amber light source raking across textured walls, strong negative space",
-    mood: "cinematic, austere, late-day",
+    composition: "Visibly sculptural architectural model or material assembly, one story-specific relationship between forms, generous quiet space, limestone/paper textures and selective amber; never a fabricated photograph of a named place",
+    mood: "spatial, tangible, considered",
   },
   {
     name: "abstract-geometric",
-    composition: "Abstract geometric still life — folded paper, stacked dark panels, layered gradient surfaces, isometric blocks — single warm amber light, no recognisable real objects",
-    mood: "design-magazine, restrained, art-school",
+    composition: "Hand-cut paper collage of a recognisable subject performing one clear action, warm ink outlines, substantial overlapping shapes, selective amber and restrained subject colours, light or dark ground as appropriate",
+    mood: "editorial, tactile, direct",
   },
   {
     name: "atmospheric-environment",
-    composition: "Atmospheric environment shot with the subject partly obscured by haze, smoke, or low fog — single distant amber light source, painterly, deep shadow",
-    mood: "moody, suggestive, ambient",
+    composition: "Printmaking illustration of the specific subject and its mechanism, substantial ink shapes, paper grain and selective amber; keep the subject/action readable rather than obscuring it with haze or cinematic effects",
+    mood: "textured, legible, deliberate",
   },
   {
     name: "topdown-still-life",
-    composition: "Top-down flat-lay composition on dark stone or weathered metal — subject + two or three related supporting elements arranged with intentional negative space, hard side-light",
+    composition: "Top-down sculptural still life on warm paper, raw stone or weathered metal, one dominant subject with only the supporting objects needed to explain its action or comparison, soft raking light and deliberate negative space",
     mood: "editorial magazine spread, deliberate, museum-like",
   },
   {
     name: "isometric-data-art",
-    composition: "Isometric 3D render — stacked translucent slabs, ribbed columns, gradient walls — referencing data visualisation aesthetics without any actual data, charts, numbers or text",
-    mood: "modern, slightly cold, architectural",
+    composition: "Oblique view of a tactile paper or material mechanism illustrating the article's particular tension, recognisable objects, restrained subject colours and selective amber; no simulated data chart or glowing toy-like asset pack",
+    mood: "precise, physical, warm",
   },
 ];
 
@@ -286,9 +297,9 @@ function pickTreatments(slug: string, n: number): Treatment[] {
   return out;
 }
 
-/** Abstract dark-amber BRAND image. Historically this was the hero; it is
+/** Topic-specific BRAND illustration. Historically this was the hero; it is
  *  now the OG / social-card backdrop only (og_image_url) — the page-top hero
- *  is the art-director's topical photojournalistic image. Uploaded to
+ *  is the art-director's topical conceptual illustration. Uploaded to
  *  takes/{slug}-og.png so it never collides with the topical hero PNG. */
 async function generateBrandOg(
   openai: OpenAI,
@@ -306,7 +317,7 @@ Subject vocabulary: ${subjectHint}.
 Composition treatment: ${treatment.composition}.
 Mood: ${treatment.mood}.
 
-The image must read at a glance as related to the company's industry and the headline's angle. No text, no charts, no people, no logos, no recognisable architecture or skylines.`;
+The image must read at a glance as the article's particular idea, using a concrete subject and one meaningful action. Preserve uncertainty; never turn a contested thesis into a verdict or a possible outcome into a promise. No text, charts, people, logos, fake product interfaces or fabricated news photography.`;
   const prompt = `${BRAND_PROMPT}\n\n${topic}\n\nFormat: 16:9 horizontal hero banner composition.${FINAL_RULES}`;
 
   const resp = await openai.images.generate({
@@ -332,7 +343,7 @@ The image must read at a glance as related to the company's industry and the hea
   };
 }
 
-const HERO_CREDIT = "AI-generated illustration";
+const HERO_CREDIT = ILLUSTRATION_CREDIT;
 
 /** Generate the topical hero from an art-director plan: the role='hero'
  *  item renders at high quality to takes/{slug}-hero.png; the remaining
@@ -352,7 +363,7 @@ async function generateHeroAndLayout(
     try {
       const hero = await generatePlanHero(openai, storage, slug, heroSpec);
       heroUrl = hero.image.url;
-      heroCaption = heroSpec.caption;
+      heroCaption = illustrationCaption(heroSpec.caption);
       cost += hero.costUsd;
     } catch (err) {
       console.warn(`[newsroom]   hero (${heroSpec.style}) failed: ${String((err as Error).message ?? err).slice(0, 120)}`);
@@ -377,11 +388,11 @@ async function generateInlineImages(
   bodyMd: string,
   count = 2,
 ): Promise<{ images: InlineImageRow[]; costUsd: number }> {
-  // Unlike the hero (an abstract brand thumbnail), inline images are
+  // Unlike the social-card brand backdrop, inline images are
   // CONTEXTUAL: each illustrates a specific article section. We derive a
-  // concrete photographic "visual brief" from the section's text via
-  // Gemini, then render that real scene — still dark + cinematic + single
-  // warm amber light, but story-specific rather than generic brand-abstract.
+  // concrete illustrative "visual brief" from the section's text via
+  // Gemini, then render a story-specific conceptual subject/action with
+  // tactile materials, rather than a fabricated photograph of a real event.
   //
   // Treatments still vary composition; we skip the first (the hero's) so
   // inline pictures don't visually echo the hero.
@@ -393,14 +404,16 @@ async function generateInlineImages(
     const sectionText = sections[i] ?? sections[sections.length - 1] ?? take.headline;
     const treatment = treatments[i] ?? treatments[0]!;
     const brief = await visualBriefForSection(ai, candidate.stockCode, candidate.industry, sectionText);
-    const prompt = `Editorial photograph for a financial publication, dark and cinematic.
+    const prompt = `Conceptual editorial illustration for Shorted's warm Australian market publication.
 
-Subject (depict this specifically): ${brief}
+${EDITORIAL_CRAFT_RULES}
+
+Subject and visual action (depict this specifically): ${brief}
 
 Composition: ${treatment.composition}.
-Mood: ${treatment.mood}. Near-black background (#0a0a0a) with a single warm amber (#FFA94D) light source, deep shadow, high contrast, subtle grain.
+Mood: ${treatment.mood}. Tactile paper, print or physical materials, warm ink/paper and selective amber (#FFA94D), restrained subject colours. Light or dark grounds according to the story, clear silhouette and central crop-safe composition.
 
-STRICT: no text, words, numbers, letters, charts, graphs, percentages, logos, brand names, readable labels, ticker symbols, or recognisable human faces. A real, evocative scene tied to the subject above.
+STRICT: no text, words, numbers, letters, charts, graphs, percentages, logos, brand names, readable labels, ticker symbols, people, invented measured data or fake interfaces. Clearly illustrative, never a simulated photograph of a real location, facility, historical record or event.
 
 Format: 16:9 horizontal banner.`;
     try {
@@ -445,18 +458,22 @@ async function insertTake(
   publish: boolean,
 ): Promise<void> {
   const publishedClause = publish ? "NOW()" : "NULL";
+  const heroCaption = heroUrl ? illustrationCaption() : null;
+  const heroCredit = heroUrl ? HERO_CREDIT : null;
   // Legacy NarrativeTake path: body is plain markdown (body_format defaults
-  // to 'markdown' in the DB, no standfirst) — only the desk byline applies.
+  // to 'markdown' in the DB, no standfirst), with desk byline and illustration metadata.
   await pg.query(
     `INSERT INTO editorial_takes (
        slug, headline, stock_code, body_md, sentiment, word_count, model,
-       citations, hero_image_url, inline_images, byline, published_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,'gemini-2.5-flash',$7::jsonb,$8,$9::jsonb,$10,${publishedClause})
+       citations, hero_image_url, inline_images, byline, hero_caption, hero_credit, published_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,'gemini-2.5-flash',$7::jsonb,$8,$9::jsonb,$10,$11,$12,${publishedClause})
      ON CONFLICT (slug) DO UPDATE SET
        headline=EXCLUDED.headline, body_md=EXCLUDED.body_md,
        sentiment=EXCLUDED.sentiment, word_count=EXCLUDED.word_count,
        citations=EXCLUDED.citations,
        hero_image_url=COALESCE(EXCLUDED.hero_image_url, editorial_takes.hero_image_url),
+       hero_caption=COALESCE(EXCLUDED.hero_caption, editorial_takes.hero_caption),
+       hero_credit=COALESCE(EXCLUDED.hero_credit, editorial_takes.hero_credit),
        inline_images=CASE WHEN jsonb_array_length(EXCLUDED.inline_images) > 0
                           THEN EXCLUDED.inline_images
                           ELSE editorial_takes.inline_images END,
@@ -466,7 +483,7 @@ async function insertTake(
       take.slug, take.headline, candidate.stockCode,
       bodyMd, take.sentiment, bodyMd.split(/\s+/).filter(Boolean).length,
       JSON.stringify(take.citations), heroUrl,
-      JSON.stringify(inlineImages), deskByline(candidate.industry),
+      JSON.stringify(inlineImages), deskByline(candidate.industry), heroCaption, heroCredit,
     ],
   );
 }
@@ -612,7 +629,7 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
           const og = await generateBrandOg(openai, storage, candidate, narrativeShim);
           ogUrl = og.url; totalCost += og.costUsd;
 
-          // Art-director stage — topical photojournalistic hero (image #1 of
+          // Art-director stage — topical conceptual hero (image #1 of
           // the plan, high quality) + content-grounded varied layout images.
           // Run FIRST so we can skip the cheaper legacy inline gen when it succeeds.
           try {
@@ -636,7 +653,10 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
           }
           // No topical hero (plan failed / hero render failed) — fall back to
           // the brand image so the article never ships hero-less.
-          if (!heroUrl) heroUrl = ogUrl;
+          if (!heroUrl) {
+            heroUrl = ogUrl;
+            heroCaption = illustrationCaption();
+          }
 
           // Legacy inline images: only generated when the art-director path
           // produced no layout images (frontend prefers layout_images and ignores
@@ -789,7 +809,7 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
     // Abstract brand art → OG / social card only.
     const og = await generateBrandOg(openai, storage, candidate, take);
 
-    // Art-director stage: a topical photojournalistic hero (image #1 of the
+    // Art-director stage: a topical conceptual hero (image #1 of the
     // plan, high quality → hero_image_url) plus a varied, content-grounded
     // layout plan stored as layout_images (the frontend prefers this over
     // the legacy inline_images). Run FIRST so inline gen can be skipped on success.
@@ -814,7 +834,10 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
       console.warn(`[regen-images] art-director stage failed: ${String((err as Error).message ?? err).slice(0, 160)}`);
     }
     // No topical hero — fall back to the brand image so the page keeps a hero.
-    if (!heroUrl) heroUrl = og.url;
+    if (!heroUrl) {
+      heroUrl = og.url;
+      heroCaption = illustrationCaption();
+    }
 
     // Legacy inline images: only generated when the art-director path produced
     // no layout images (frontend prefers layout_images and ignores inline_images

@@ -24,22 +24,8 @@ export function BlogFeaturedPost({ card }: { card: BlogCard }) {
   return (
     <section aria-labelledby="blog-featured-heading">
       <article className="group relative overflow-hidden rounded-lg border border-primary/30 bg-card transition-[border-color,box-shadow] duration-200 ease-out hover:border-primary/60 hover:shadow-amber-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background motion-reduce:transition-none">
-        <div className="grid md:grid-cols-[minmax(0,1.15fr),minmax(0,1fr)]">
-          {/* The cover is CONTAINED, not cropped, on a dark panel (the same
-              device as the newsroom's FeaturedStory): this slot's shape is set
-              by the copy beside it, and the newest covers are OG-style cards
-              with the title baked in, which object-cover was slicing at the
-              edges. Every cover is dark-toned, so the letterbox reads as part
-              of the panel rather than as bars. */}
-          <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-orange-950/60 via-stone-950 to-stone-950 md:aspect-auto md:min-h-[320px]">
-            <div
-              aria-hidden="true"
-              className="absolute inset-0"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle at 30% 30%, rgba(255,169,77,0.18), transparent 60%)",
-              }}
-            />
+        <div className="grid items-center md:grid-cols-[minmax(0,1.15fr),minmax(0,1fr)]">
+          <div className="relative aspect-video w-full overflow-hidden border-b border-border bg-muted md:border-b-0 md:border-r">
             {card.coverImage ? (
               <Image
                 src={card.coverImage}
@@ -49,7 +35,7 @@ export function BlogFeaturedPost({ card }: { card: BlogCard }) {
                 // next/image serving the full-width source to a half-width slot.
                 priority
                 sizes="(max-width: 768px) 100vw, 60vw"
-                className="object-contain transition-transform duration-700 ease-out group-hover:scale-[1.02] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                className="object-cover"
               />
             ) : null}
           </div>
@@ -61,10 +47,6 @@ export function BlogFeaturedPost({ card }: { card: BlogCard }) {
                 "flex flex-wrap items-center gap-2 font-medium text-primary",
               )}
             >
-              <span
-                aria-hidden="true"
-                className="inline-block h-1.5 w-1.5 rounded-full bg-primary"
-              />
               <span>Latest</span>
               <span aria-hidden="true" className="text-muted-foreground">
                 /
@@ -97,25 +79,13 @@ export function BlogFeaturedPost({ card }: { card: BlogCard }) {
               </p>
             ) : null}
 
-            <p className="font-mono text-xs text-muted-foreground">
+            <p className="flex flex-wrap gap-x-4 gap-y-2 font-mono text-xs text-muted-foreground">
               <span className="text-foreground/80">{card.author.name}</span>
-              <span aria-hidden="true"> · </span>
               <time dateTime={card.date}>{formatBlogDate(card.date)}</time>
-              <span aria-hidden="true"> · </span>
               <span className="tabular-nums">
                 {formatReadingMinutes(card.readingMinutes)}
               </span>
             </p>
-
-            <span className="inline-flex items-center gap-1 text-sm font-medium text-primary">
-              Read the article
-              <span
-                aria-hidden="true"
-                className="transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
-              >
-                →
-              </span>
-            </span>
           </div>
         </div>
       </article>

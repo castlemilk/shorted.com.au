@@ -7,8 +7,14 @@ export type Post = {
   /** Optional ISO date of the last substantive revision (schema dateModified). */
   updated?: string;
   coverImage: string;
+  /** Smaller 16:9 export for cards; mastheads and social previews use coverImage. */
+  thumbnailImage?: string;
+  /** Describe the editorial illustration, separately from the headline. */
+  coverAlt?: string;
   author: Author;
   excerpt: string;
+  /** Concise masthead introduction; the fuller excerpt remains for listings/SEO. */
+  standfirst?: string;
   /**
    * Blog category slug (see `~/@/lib/blog/categories`). Optional in the
    * frontmatter so an uncategorised post still renders; the registry

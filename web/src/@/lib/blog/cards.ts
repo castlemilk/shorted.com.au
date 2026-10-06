@@ -17,7 +17,10 @@ export interface BlogCard {
   slug: string;
   title: string;
   excerpt: string;
+  standfirst?: string;
   coverImage: string;
+  thumbnailImage?: string;
+  coverAlt?: string;
   /** ISO date string as written in frontmatter. */
   date: string;
   author: { name: string; picture: string };
@@ -30,7 +33,10 @@ export function toBlogCard(post: Post): BlogCard {
     slug: post.slug,
     title: post.title,
     excerpt: post.excerpt ?? "",
+    standfirst: post.standfirst,
     coverImage: post.coverImage,
+    thumbnailImage: post.thumbnailImage,
+    coverAlt: post.coverAlt,
     date: post.date,
     author: {
       name: post.author?.name ?? "Shorted",

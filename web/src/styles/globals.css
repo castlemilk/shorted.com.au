@@ -66,19 +66,6 @@
     --semantic-green-text: #15803d;    /* 4.93:1 on --card */
     --semantic-red-text: #b91c1c;      /* 6.42:1 on --card */
 
-    /* mdxcn figure tokens (src/@/registry/default, Tailwind-3 port of the
-       registry's @theme vars). Accent follows the site's amber, not mdxcn's
-       blue; the frame is the dashed border every figure draws. */
-    --graph-accent: hsl(28 82% 34%);
-    --graph-accent-2: hsl(16 59% 55%);
-    --graph-accent-3: #15803d;
-    --graph-frame: hsl(19 18% 24% / 0.28);
-    --graph-muted: hsl(19 12% 40%);
-    --graph-faint: hsl(32 15% 88%);
-    --contrast-14: hsl(19 18% 24% / 0.14);
-    --contrast-23: hsl(19 18% 24% / 0.23);
-    --contrast-45: hsl(19 18% 24% / 0.45);
-    --contrast-70: hsl(19 18% 24% / 0.70);
     --secondary-text: 93 40% 26%;      /* Deep olive - 6.6:1 on --card (--secondary is a fill, 2.6:1) */
 
     /* Terminal effect variables */
@@ -140,17 +127,6 @@
     --semantic-green-text: #4ade80;
     --semantic-red-text: #f87171;
 
-    /* mdxcn figure tokens, dark: phosphor amber accent on the terminal black. */
-    --graph-accent: hsl(32 100% 65%);
-    --graph-accent-2: hsl(19 71% 60%);
-    --graph-accent-3: #4ade80;
-    --graph-frame: hsl(48 20% 55% / 0.45);
-    --graph-muted: hsl(48 20% 55%);
-    --graph-faint: hsl(32 15% 18%);
-    --contrast-14: hsl(48 52% 81% / 0.14);
-    --contrast-23: hsl(48 52% 81% / 0.23);
-    --contrast-45: hsl(48 52% 81% / 0.45);
-    --contrast-70: hsl(48 52% 81% / 0.70);
     --secondary-text: 96 33% 63%;      /* 8.0:1 on --card */
 
     /* Terminal effects - enhanced in dark mode */
@@ -238,44 +214,88 @@
   }
 }
 
-.custom-mdx-content img {
-  margin: 2rem auto;
-  border-radius: 0.5rem;
-  max-width: 80%;
-  height: auto;
+/* Long-form articles share one reading rhythm. Custom figure descendants
+   keep their own compact spacing rather than inheriting prose margins. */
+.article-prose {
+  @apply min-w-0 font-mono text-base text-foreground sm:text-lg;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.article-prose :where(p, ul, ol, blockquote, pre):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  margin-block: 1.5rem;
+}
+
+.article-prose > :first-child {
+  margin-top: 0;
+}
+
+.article-prose :where(h2):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  margin-block: 3rem 1rem;
+  line-height: 1.2;
+  scroll-margin-top: 6rem;
+}
+
+.article-prose :where(h3, h4, h5, h6):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  margin-block: 2rem 0.75rem;
+  scroll-margin-top: 6rem;
+}
+
+.article-prose :where(li):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  margin-block: 0.5rem;
+  padding-left: 0.25rem;
+}
+
+.article-prose :where(li > p):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  margin-block: 0.5rem;
+}
+
+.article-prose :where(pre) {
+  @apply max-w-full overflow-x-auto rounded-lg border border-border bg-muted p-4 text-sm;
+  overflow-wrap: normal;
+}
+
+.article-prose :where(code) {
+  @apply font-mono text-sm;
+}
+
+.article-prose :where(img):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  @apply mx-auto my-8 h-auto max-w-full rounded-lg;
 }
 
 .custom-mdx-content .image-wrapper {
-  width: 80%;
+  width: 100%;
   margin: 2rem auto;
 }
 
-.custom-mdx-content {
-  @apply text-lg leading-relaxed;
+.article-prose :where(a):not(:where([data-article-figure], [data-article-figure] *, [data-article-callout], [data-article-callout] *)) {
+  text-underline-offset: 0.2em;
 }
 
-.custom-mdx-content p,
-.custom-mdx-content ul,
-.custom-mdx-content ol,
-.custom-mdx-content blockquote {
-  @apply my-6;
+.article-prose :where(a:focus-visible) {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
-.custom-mdx-content h2 {
-  @apply text-3xl mt-12 mb-4 leading-snug;
-}
-
-.custom-mdx-content h3 {
-  @apply text-2xl mt-8 mb-4 leading-snug;
-}
-
-/* Add this for code blocks */
-.custom-mdx-content pre {
-  @apply my-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-x-auto;
-}
-
-.custom-mdx-content code {
+.article-prose :where(table):not(:where([data-article-figure], [data-article-figure] *)) {
   @apply font-mono text-sm;
+  border-collapse: collapse;
+  line-height: 1.6;
+}
+
+.article-prose :where(th, td):not(:where([data-article-figure], [data-article-figure] *)) {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+  text-align: left;
+}
+
+.article-prose :where(figure img) {
+  margin-block: 0;
+}
+
+.article-prose :where(figcaption):not(:where([data-article-figure], [data-article-figure] *)) {
+  @apply font-mono text-xs leading-relaxed;
 }
 
 /* Enhanced animations for stock search */
@@ -722,28 +742,4 @@ code[class*="language-"] {
 .dark .token.important,
 .dark .token.variable {
   color: hsl(16 59% 55%) !important;
-}
-
-
-/* mdxcn figure frame utilities — the registry ships these as Tailwind v4
-   `@utility` blocks; this is the same CSS as plain classes for Tailwind 3. */
-@layer utilities {
-  .graph-frame {
-    background-image:
-      repeating-linear-gradient(to right, var(--graph-frame) 0 2px, transparent 2px 7px),
-      repeating-linear-gradient(to bottom, var(--graph-frame) 0 2px, transparent 2px 7px),
-      repeating-linear-gradient(to right, var(--graph-frame) 0 2px, transparent 2px 7px),
-      repeating-linear-gradient(to bottom, var(--graph-frame) 0 2px, transparent 2px 7px);
-    background-repeat: repeat-x, repeat-y, repeat-x, repeat-y;
-    background-position: 0 0, 100% 0, 0 100%, 0 0;
-    background-size: 100% 1px, 1px 100%, 100% 1px, 1px 100%;
-  }
-  .graph-rule {
-    height: 1px;
-    background-image: repeating-linear-gradient(to right, var(--graph-frame) 0 2px, transparent 2px 7px);
-  }
-  .graph-rule-y {
-    width: 1px;
-    background-image: repeating-linear-gradient(to bottom, var(--graph-frame) 0 2px, transparent 2px 7px);
-  }
 }

@@ -1,4 +1,6 @@
 import Image from "next/image";
+import { cn } from "~/@/lib/utils";
+import { eyebrow, lede, pageTitle } from "~/@/lib/typography";
 import { beatFromByline, fmtTakeDate } from "./masthead/shared";
 
 /**
@@ -54,61 +56,52 @@ export function ArticleHeader({ take }: { take: ArticleHeaderTake }) {
     );
   }
   if (minutes > 0) {
-    meta.push(<span key="read">{minutes} min read</span>);
+    meta.push(<span key="read" className="tabular-nums">{minutes} min read</span>);
   }
 
   return (
-    <header className="mb-8">
+    <header className="mx-auto mb-10 max-w-[54rem]">
       {beat ? (
-        <p className="mb-3 text-[11px] uppercase tracking-[0.2em] text-primary">
+        <p className={cn(eyebrow, "mb-3 font-medium text-primary")}>
           {beat}
         </p>
       ) : null}
 
-      <h1 className="font-serif text-3xl font-semibold leading-[1.05] tracking-tight md:text-5xl">
+      <h1 className={cn(pageTitle, "leading-[1.08] md:text-5xl")}>
         {take.headline}
       </h1>
 
       {take.standfirst ? (
-        <p className="mt-4 max-w-3xl font-serif text-lg leading-snug text-muted-foreground md:text-xl">
+        <p className={cn(lede, "article-summary mt-5 font-serif text-xl leading-relaxed md:text-2xl")}>
           {take.standfirst}
         </p>
       ) : null}
 
-      <div className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-        {meta.flatMap((node, i) =>
-          i === 0
-            ? [node]
-            : [
-                <span key={`sep-${i}`} aria-hidden>
-                  ·
-                </span>,
-                node,
-              ],
-        )}
+      <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3 border-y border-border py-4 font-mono text-xs text-muted-foreground">
+        {meta}
       </div>
 
       {take.heroImageUrl ? (
         <figure className="mt-8">
-          <div className="relative aspect-[16/9] overflow-hidden rounded bg-muted/20">
+          <div className="relative aspect-video overflow-hidden rounded-lg border border-border bg-muted">
             <Image
               src={take.heroImageUrl}
               alt={take.heroCaption ? take.heroCaption : take.headline}
               fill
               priority
-              sizes="(max-width: 768px) 100vw, 896px"
+              sizes="(max-width: 864px) 100vw, 864px"
               className="object-cover"
             />
           </div>
           {Boolean(take.heroCaption) || Boolean(take.heroCredit) ? (
-            <figcaption className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <figcaption className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono leading-relaxed">
               {take.heroCaption ? (
                 <span className="text-xs text-muted-foreground">
                   {take.heroCaption}
                 </span>
               ) : null}
               {take.heroCredit ? (
-                <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
+                <span className="ml-auto text-xs text-muted-foreground">
                   {take.heroCredit}
                 </span>
               ) : null}

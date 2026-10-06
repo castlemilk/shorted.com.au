@@ -91,7 +91,7 @@ export default async function Post({ params }: Params) {
       />
 
       <div className="mx-auto max-w-4xl">
-        <Breadcrumbs items={breadcrumbItems} className="mb-6" />
+        <Breadcrumbs items={breadcrumbItems} className="mb-6 [&_[aria-current=page]]:hidden sm:[&_[aria-current=page]]:block [&>svg:last-of-type]:hidden sm:[&>svg:last-of-type]:block" />
 
         <article className="mb-16">
           <BlogPostHeader
@@ -100,7 +100,7 @@ export default async function Post({ params }: Params) {
             authorHref={authorSlug ? `/authors/${authorSlug}` : undefined}
           />
 
-          <div className="custom-mdx-content mx-auto mt-10 max-w-2xl">
+          <div className="article-prose custom-mdx-content mx-auto mt-10 max-w-2xl">
             <MDXRemote
               // The masthead already renders the title; the body's own
               // `# Title` line would repeat it as an oversized h2.
@@ -169,9 +169,9 @@ export function generateMetadata({ params }: Params): Metadata {
       images: [
         {
           url: post.ogImage?.url || siteConfig.ogImage,
-          width: 1200,
-          height: 630,
-          alt: title,
+          width: /\/cover-editorial-v\d+\.webp$/.test(post.ogImage?.url ?? "") ? 1600 : 1200,
+          height: /\/cover-editorial-v\d+\.webp$/.test(post.ogImage?.url ?? "") ? 900 : 630,
+          alt: post.coverAlt?.trim() ? post.coverAlt : title,
         },
       ],
     },

@@ -3,6 +3,22 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DROP_CAP_CONTAINER, firstProseBlockIndex } from "./drop-cap";
+import { sectionTitle } from "~/@/lib/typography";
+import { ArticleTable } from "~/@/components/mdx/article-table";
+
+const ARTICLE_ELEMENTS = {
+  h1: ({ children }: { children?: React.ReactNode }) => <h2 className={sectionTitle}>{children}</h2>,
+  h2: ({ children }: { children?: React.ReactNode }) => <h2 className={sectionTitle}>{children}</h2>,
+  h3: ({ children }: { children?: React.ReactNode }) => <h3 className="font-mono text-xl font-semibold leading-snug">{children}</h3>,
+  h4: ({ children }: { children?: React.ReactNode }) => <h4 className="font-mono text-lg font-semibold leading-snug">{children}</h4>,
+  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => <a href={href} className="text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary">{children}</a>,
+  ul: ({ children }: { children?: React.ReactNode }) => <ul className="list-disc pl-6">{children}</ul>,
+  ol: ({ children }: { children?: React.ReactNode }) => <ol className="list-decimal pl-6">{children}</ol>,
+  blockquote: ({ children }: { children?: React.ReactNode }) => <blockquote className="border-l border-primary/50 pl-5 text-muted-foreground">{children}</blockquote>,
+  table: ({ node: _node, ...props }: React.ComponentPropsWithoutRef<"table"> & { node?: unknown }) => <ArticleTable {...props} />,
+  th: ({ children, style }: React.ComponentPropsWithoutRef<"th">) => <th style={style} className="border-b border-border px-4 py-3 text-left font-mono text-sm font-semibold">{children}</th>,
+  td: ({ children, style }: React.ComponentPropsWithoutRef<"td">) => <td style={style} className="border-b border-border px-4 py-3 font-mono text-sm tabular-nums">{children}</td>,
+};
 
 export interface InlineImage {
   url: string;
@@ -25,13 +41,12 @@ interface EditorialMarkdownProps {
  * If no inline images are passed, behaves as a plain markdown render.
  */
 export function EditorialMarkdown({ content, inlineImages = [] }: EditorialMarkdownProps) {
-  const proseClasses =
-    "prose prose-base dark:prose-invert max-w-none text-base leading-relaxed [&_p]:my-5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_a]:text-primary [&_a:hover]:text-primary/80 [&_strong]:text-foreground [&_em]:italic";
+  const proseClasses = "article-prose";
 
   if (inlineImages.length === 0) {
     return (
       <div className={`${proseClasses} ${DROP_CAP_CONTAINER}`}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={ARTICLE_ELEMENTS}>{content}</ReactMarkdown>
       </div>
     );
   }
@@ -52,7 +67,7 @@ export function EditorialMarkdown({ content, inlineImages = [] }: EditorialMarkd
         key={`p-${i}`}
         className={i === firstProseIdx ? `${proseClasses} ${DROP_CAP_CONTAINER}` : proseClasses}
       >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{blocks[i]!}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={ARTICLE_ELEMENTS}>{blocks[i]!}</ReactMarkdown>
       </div>,
     );
     const nextBoundary = (i + 1) * (1 / (segmentsPerImage + 1));

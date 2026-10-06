@@ -1,0 +1,202 @@
+{
+  "generatedAt": "2026-10-06",
+  "mode": "built-in image_gen",
+  "width": 1600,
+  "height": 900,
+  "assets": [
+    {
+      "slug": "activist-short-sellers-asx",
+      "asset": "web/public/assets/blog/activist-short-sellers-asx/cover-editorial-v2.webp",
+      "alt": "An oversized amber evidence sheet lifts across an ivory dossier, showing a company model and a contrasting shadow on ink-green ground.",
+      "prompt": "output/article-covers/activist-short-sellers-asx-v2.md",
+      "original": "output/article-covers/activist-short-sellers-asx-v2.png",
+      "thumbnail": "web/public/assets/blog/activist-short-sellers-asx/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "asx-oil-shorts-iran-war",
+      "asset": "web/public/assets/blog/asx-oil-shorts-iran-war/cover-editorial-v2.webp",
+      "alt": "Three petroleum vessels stand before a coal-black oil curl on mineral-blue ground, with rust position discs concentrated around the middle vessel.",
+      "prompt": "output/article-covers/asx-oil-shorts-iran-war-v2.md",
+      "original": "output/article-covers/asx-oil-shorts-iran-war-v2.png",
+      "thumbnail": "web/public/assets/blog/asx-oil-shorts-iran-war/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "asx-reporting-season-short-sellers",
+      "asset": "web/public/assets/blog/asx-reporting-season-short-sellers/cover-editorial-v2.webp",
+      "alt": "An ivory results envelope opens into two paper routes: rust discs held in a charcoal rack and a separate curling return loop on oxblood ground.",
+      "prompt": "output/article-covers/asx-reporting-season-short-sellers-v2.md",
+      "original": "output/article-covers/asx-reporting-season-short-sellers-v2.png",
+      "thumbnail": "web/public/assets/blog/asx-reporting-season-short-sellers/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "asx-sectors-most-shorted",
+      "asset": "web/public/assets/blog/asx-sectors-most-shorted/cover-editorial-v2.webp",
+      "alt": "A diagonal four-compartment tray holds ore, an oil vial, a medicine blister and a parcel, with rust position discs crossing the divider toward the oil.",
+      "prompt": "output/article-covers/asx-sectors-most-shorted-v2.md",
+      "original": "output/article-covers/asx-sectors-most-shorted-v2.png",
+      "thumbnail": "web/public/assets/blog/asx-sectors-most-shorted/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "asx-short-squeeze-candidates",
+      "asset": "web/public/assets/blog/asx-short-squeeze-candidates/cover-editorial-v2.webp",
+      "alt": "An amber band passes four screening gates toward a dark spring restrained by a closed latch.",
+      "prompt": "output/article-covers/asx-short-squeeze-candidates-v2.md",
+      "original": "output/article-covers/asx-short-squeeze-candidates-v2.png",
+      "thumbnail": "web/public/assets/blog/asx-short-squeeze-candidates/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "asx-stock-picker-zanger-breakout-strategy",
+      "asset": "web/public/assets/blog/asx-stock-picker-zanger-breakout-strategy/cover-editorial-v2.webp",
+      "alt": "An oversized charcoal magnifier frames an amber candlestick crossing a black resistance strip on ivory paper.",
+      "prompt": "output/article-covers/asx-stock-picker-zanger-breakout-strategy-v2.md",
+      "original": "output/article-covers/asx-stock-picker-zanger-breakout-strategy-v2.png",
+      "thumbnail": "web/public/assets/blog/asx-stock-picker-zanger-breakout-strategy/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "australian-house-prices-2026-state-by-state",
+      "asset": "web/public/assets/blog/australian-house-prices-2026-state-by-state/cover-editorial-v2.webp",
+      "alt": "An ivory weatherboard house rises on an amber scissor lift beside a brick bungalow on a lowered platform against mineral blue.",
+      "prompt": "output/article-covers/australian-house-prices-2026-state-by-state-v2.md",
+      "original": "output/article-covers/australian-house-prices-2026-state-by-state-v2.png",
+      "thumbnail": "web/public/assets/blog/australian-house-prices-2026-state-by-state/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "beginner-guide-short-selling-data",
+      "asset": "web/public/assets/blog/beginner-guide-short-selling-data/cover-editorial-v4.webp",
+      "alt": "An amber ribbon lifts one report strip from a diagonally folded ivory research guide against charcoal.",
+      "prompt": "output/article-covers/beginner-guide-short-selling-data-v4.md",
+      "original": "output/article-covers/beginner-guide-short-selling-data-v4.png",
+      "thumbnail": "web/public/assets/blog/beginner-guide-short-selling-data/thumbnail-editorial-v4.webp"
+    },
+    {
+      "slug": "cost-to-short-asx-stock",
+      "asset": "web/public/assets/blog/cost-to-short-asx-stock/cover-editorial-v2.webp",
+      "alt": "Ivory bill strips bind an amber borrowed share tile as a folded bill accumulates beside its collateral tether.",
+      "prompt": "output/article-covers/cost-to-short-asx-stock-v2.md",
+      "original": "output/article-covers/cost-to-short-asx-stock-v2.png",
+      "thumbnail": "web/public/assets/blog/cost-to-short-asx-stock/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "days-to-cover-asx",
+      "asset": "web/public/assets/blog/days-to-cover-asx/cover-editorial-v2.webp",
+      "alt": "Dark share cards queue behind an amber card at the narrow exit of an ivory chute on a blue ground.",
+      "prompt": "output/article-covers/days-to-cover-asx-v2.md",
+      "original": "output/article-covers/days-to-cover-asx-v2.png",
+      "thumbnail": "web/public/assets/blog/days-to-cover-asx/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "do-short-sellers-know-something",
+      "asset": "web/public/assets/blog/do-short-sellers-know-something/cover-editorial-v2.webp",
+      "alt": "Two optical discs examine one diagonal ivory stone slab: an amber-rimmed lens sharpens a fault while an ivory-rimmed lens leaves its continuation blurred against navy ground.",
+      "prompt": "output/article-covers/do-short-sellers-know-something-v2.md",
+      "original": "output/article-covers/do-short-sellers-know-something-v2.png",
+      "thumbnail": "web/public/assets/blog/do-short-sellers-know-something/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "hello-world",
+      "asset": "web/public/assets/blog/hello-world/cover-editorial-v2.webp",
+      "alt": "An ivory paper veil curls back across oxblood to reveal charcoal position tiles and one amber tile.",
+      "prompt": "output/article-covers/hello-world-v2.md",
+      "original": "output/article-covers/hello-world-v2.png",
+      "thumbnail": "web/public/assets/blog/hello-world/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "hormuz-asx-energy-deep-dive",
+      "asset": "web/public/assets/blog/hormuz-asx-energy-deep-dive/cover-editorial-v2.webp",
+      "alt": "An ivory tanker passes between charcoal paper banks above three connected energy-storage platforms carrying rust position discs on mineral-blue water.",
+      "prompt": "output/article-covers/hormuz-asx-energy-deep-dive-v2.md",
+      "original": "output/article-covers/hormuz-asx-energy-deep-dive-v2.png",
+      "thumbnail": "web/public/assets/blog/hormuz-asx-energy-deep-dive/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "how-to-read-a-suburb-profile",
+      "asset": "web/public/assets/blog/how-to-read-a-suburb-profile/cover-editorial-v3.webp",
+      "alt": "A large amber contour sheet lifts across a cream weatherboard street print on an ink-green surface, revealing a second amenity layer.",
+      "prompt": "output/article-covers/how-to-read-a-suburb-profile-v3.md",
+      "original": "output/article-covers/how-to-read-a-suburb-profile-v3.png",
+      "thumbnail": "web/public/assets/blog/how-to-read-a-suburb-profile/thumbnail-editorial-v3.webp"
+    },
+    {
+      "slug": "how-to-read-short-interest-data",
+      "asset": "web/public/assets/blog/how-to-read-short-interest-data/cover-editorial-v2.webp",
+      "alt": "An unmarked steel caliper compares layered ivory report strips, with an amber patch and a lifted corner revealing another layer.",
+      "prompt": "output/article-covers/how-to-read-short-interest-data-v2.md",
+      "original": "output/article-covers/how-to-read-short-interest-data-v2.png",
+      "thumbnail": "web/public/assets/blog/how-to-read-short-interest-data/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "how-to-short-a-stock-australia",
+      "asset": "web/public/assets/blog/how-to-short-a-stock-australia/cover-editorial-v2.webp",
+      "alt": "Four opened contract sleeves reveal a loan loop, paired plates, hinged flap and accordion fold around a shared charcoal share tile.",
+      "prompt": "output/article-covers/how-to-short-a-stock-australia-v2.md",
+      "original": "output/article-covers/how-to-short-a-stock-australia-v2.png",
+      "thumbnail": "web/public/assets/blog/how-to-short-a-stock-australia/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "institutional-vs-retail-short-selling",
+      "asset": "web/public/assets/blog/institutional-vs-retail-short-selling/cover-editorial-v3.webp",
+      "alt": "A large charcoal cable reel and a small amber spool feed continuous strands diagonally into one foreground borrowing clamp.",
+      "prompt": "output/article-covers/institutional-vs-retail-short-selling-v3.md",
+      "original": "output/article-covers/institutional-vs-retail-short-selling-v3.png",
+      "thumbnail": "web/public/assets/blog/institutional-vs-retail-short-selling/thumbnail-editorial-v3.webp"
+    },
+    {
+      "slug": "most-shorted-asx-stocks",
+      "asset": "web/public/assets/blog/most-shorted-asx-stocks/cover-editorial-v2.webp",
+      "alt": "A pale ten-slot rack holds uneven position-disc stacks and three ore specimens, with one oversized rust stack leaning above its compartment on ink-green ground.",
+      "prompt": "output/article-covers/most-shorted-asx-stocks-v2.md",
+      "original": "output/article-covers/most-shorted-asx-stocks-v2.png",
+      "thumbnail": "web/public/assets/blog/most-shorted-asx-stocks/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "short-selling-vs-long-investing",
+      "asset": "web/public/assets/blog/short-selling-vs-long-investing/cover-editorial-v2.webp",
+      "alt": "A straight ivory path reaches a share tile in an ownership pocket while a longer amber ribbon loops back to a lending clip.",
+      "prompt": "output/article-covers/short-selling-vs-long-investing-v2.md",
+      "original": "output/article-covers/short-selling-vs-long-investing-v2.png",
+      "thumbnail": "web/public/assets/blog/short-selling-vs-long-investing/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "short-squeeze-explained",
+      "asset": "web/public/assets/blog/short-squeeze-explained/cover-editorial-v3.webp",
+      "alt": "An open amber latch releases a mounted pale spring beside an attached ivory ribbon looping share cards back to its base.",
+      "prompt": "output/article-covers/short-squeeze-explained-v3.md",
+      "original": "output/article-covers/short-squeeze-explained-v3.png",
+      "thumbnail": "web/public/assets/blog/short-squeeze-explained/thumbnail-editorial-v3.webp"
+    },
+    {
+      "slug": "shorted-2026-platform-update",
+      "asset": "web/public/assets/blog/shorted-2026-platform-update/cover-editorial-v2.webp",
+      "alt": "An amber roller draws ivory paper through a charcoal printing press beside source trays and a plain report booklet.",
+      "prompt": "output/article-covers/shorted-2026-platform-update-v2.md",
+      "original": "output/article-covers/shorted-2026-platform-update-v2.png",
+      "thumbnail": "web/public/assets/blog/shorted-2026-platform-update/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "shorted-mcp-server",
+      "asset": "web/public/assets/blog/shorted-mcp-server/cover-editorial-v2.webp",
+      "alt": "An ivory conversation frame connects by an amber cable to organised research records, with one plain card pulled forward.",
+      "prompt": "output/article-covers/shorted-mcp-server-v2.md",
+      "original": "output/article-covers/shorted-mcp-server-v2.png",
+      "thumbnail": "web/public/assets/blog/shorted-mcp-server/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "what-are-short-positions",
+      "asset": "web/public/assets/blog/what-are-short-positions/cover-editorial-v2.webp",
+      "alt": "An amber loan-and-return loop carries a charcoal share tile from an ivory holder beside a plain ruled record ledger.",
+      "prompt": "output/article-covers/what-are-short-positions-v2.md",
+      "original": "output/article-covers/what-are-short-positions-v2.png",
+      "thumbnail": "web/public/assets/blog/what-are-short-positions/thumbnail-editorial-v2.webp"
+    },
+    {
+      "slug": "where-asking-prices-are-being-cut-australia-2026",
+      "asset": "web/public/assets/blog/where-asking-prices-are-being-cut-australia-2026/cover-editorial-v2.webp",
+      "alt": "Black scissors trim an oversized amber price tag tied to an intact Australian weatherboard house against ink green.",
+      "prompt": "output/article-covers/where-asking-prices-are-being-cut-australia-2026-v2.md",
+      "original": "output/article-covers/where-asking-prices-are-being-cut-australia-2026-v2.png",
+      "thumbnail": "web/public/assets/blog/where-asking-prices-are-being-cut-australia-2026/thumbnail-editorial-v2.webp"
+    }
+  ],
+  "thumbnailWidth": 800,
+  "thumbnailHeight": 450
+}

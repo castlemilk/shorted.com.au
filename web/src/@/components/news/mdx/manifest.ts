@@ -18,6 +18,9 @@ const FLOW_DATASETS = [
   "hormuz-oil-flows",
 ] as const;
 
+// Curated palette for the automated writer's validation contract. The render
+// registry also exposes the site's shared article figures for authored MDX;
+// adding a renderer here does not automatically expand the writer palette.
 export const MDX_COMPONENT_SCHEMAS = {
   ShortInterestChart: z.object({ code: z.string().regex(/^[A-Z0-9]{2,5}$/), window: z.enum(WINDOWS).default("6m") }),
   PriceChart: z.object({ code: z.string().regex(/^[A-Z0-9]{2,5}$/), window: z.enum(WINDOWS).default("6m") }),

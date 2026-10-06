@@ -11,6 +11,7 @@ import {
 import { DROP_CAP_CONTAINER } from "./drop-cap";
 import { injectLayoutFigures, type LayoutImageLike } from "./mdx-figures";
 import { TakeBody } from "./take-body";
+import { articleHtmlComponents } from "~/@/components/mdx/article-html";
 
 interface MdxTakeBodyProps {
   body: string;
@@ -26,35 +27,13 @@ interface MdxTakeBodyProps {
  * articles use explicit links and <Cite /> markers instead.
  */
 const ELEMENT_COMPONENTS = {
-  h1: ({ children }: { children?: React.ReactNode }) => (
-    <h2 className="mb-2 mt-8 text-2xl font-bold tracking-tight text-foreground">{children}</h2>
-  ),
-  h2: ({ children }: { children?: React.ReactNode }) => (
-    <h2 className="mb-2 mt-8 text-xl font-bold tracking-tight text-foreground">{children}</h2>
-  ),
-  h3: ({ children }: { children?: React.ReactNode }) => (
-    <h3 className="mb-1.5 mt-6 text-lg font-semibold tracking-tight text-foreground">{children}</h3>
-  ),
-  h4: ({ children }: { children?: React.ReactNode }) => (
-    <h4 className="mb-1 mt-4 text-base font-semibold text-foreground">{children}</h4>
-  ),
-  p: ({ children }: { children?: React.ReactNode }) => <p className="text-foreground/90">{children}</p>,
-  ul: ({ children }: { children?: React.ReactNode }) => (
-    <ul className="ml-5 list-disc space-y-1 text-foreground/90">{children}</ul>
-  ),
-  ol: ({ children }: { children?: React.ReactNode }) => (
-    <ol className="ml-5 list-decimal space-y-1 text-foreground/90">{children}</ol>
-  ),
-  li: ({ children }: { children?: React.ReactNode }) => <li>{children}</li>,
+  ...articleHtmlComponents,
   strong: ({ children }: { children?: React.ReactNode }) => (
     <strong className="font-semibold text-foreground">{children}</strong>
   ),
   em: ({ children }: { children?: React.ReactNode }) => <em>{children}</em>,
-  blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <blockquote className="border-l-2 border-primary/40 pl-4 italic text-foreground/80">{children}</blockquote>
-  ),
   a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline-offset-2 hover:underline">
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary">
       {children}
     </a>
   ),
@@ -114,7 +93,7 @@ export async function MdxTakeBody({ body, citations, layoutImages }: MdxTakeBody
       {/* Compiled MDX paragraphs are direct children, so the container
           drop-cap variant (`> p:first-of-type`) hits exactly the first
           paragraph even when the body opens with a heading. */}
-      <div className={`space-y-5 text-base leading-relaxed ${DROP_CAP_CONTAINER}`}>
+      <div className={`article-prose ${DROP_CAP_CONTAINER}`}>
         {content}
       </div>
       <CitationSources citations={citations} />

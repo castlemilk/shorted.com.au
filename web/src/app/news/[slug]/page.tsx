@@ -196,7 +196,7 @@ export default async function ShortedTakePage({ params }: Params) {
 
         {/* Drop cap is applied inside the body renderers (see drop-cap.ts) —
             the three render paths nest their first paragraph differently. */}
-        <article className="mb-12">
+        <article className="mx-auto mb-12 max-w-2xl">
           {take.bodyFormat === "mdx" ? (
             <MdxTakeBody
               body={take.bodyMd}
@@ -255,7 +255,7 @@ export default async function ShortedTakePage({ params }: Params) {
         </article>
 
         {take.sourceUrl ? (
-          <footer className="rounded-lg border border-border bg-muted/30 p-5 text-sm">
+          <footer className="mx-auto max-w-2xl rounded-lg border border-border bg-muted/30 p-5 text-sm">
             <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
               Source
             </div>
@@ -275,7 +275,7 @@ export default async function ShortedTakePage({ params }: Params) {
           </footer>
         ) : null}
 
-        <div className="mt-8 text-xs italic text-muted-foreground">
+        <div className="mx-auto mt-8 max-w-2xl text-xs italic leading-relaxed text-muted-foreground">
           Not financial advice. Sourced from official ASIC short-position data
           and public news reports.
         </div>

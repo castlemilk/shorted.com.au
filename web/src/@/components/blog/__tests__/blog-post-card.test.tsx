@@ -57,7 +57,8 @@ describe("BlogPostCard", () => {
     expect(screen.getByText("6 min read")).toBeInTheDocument();
     const heading = screen.getByRole("heading", { level: 3, name: card.title });
     expect(heading).toBeInTheDocument();
-    expect(heading.className).toContain("font-serif");
+    expect(heading.className).toContain("font-mono");
+    expect(heading.className).not.toContain("font-serif");
     expect(screen.getByText(card.excerpt)).toBeInTheDocument();
     expect(screen.getByText("Ben Ebsworth")).toBeInTheDocument();
     expect(screen.getByText("20 Aug 2026").closest("time")).toHaveAttribute(
@@ -84,6 +85,14 @@ describe("BlogPostCard", () => {
       "data-priority",
       "true",
     );
+  });
+
+  it("uses the card thumbnail when supplied and falls back to the cover for older posts", () => {
+    const thumbnailImage = "/assets/blog/days-to-cover-asx/thumbnail-editorial-v2.webp";
+    const { container, rerender } = render(<BlogPostCard card={{ ...card, thumbnailImage }} />);
+    expect(container.querySelector("img[sizes]")).toHaveAttribute("src", thumbnailImage);
+    rerender(<BlogPostCard card={{ ...card, thumbnailImage: " " }} />);
+    expect(container.querySelector("img[sizes]")).toHaveAttribute("src", card.coverImage);
   });
 
   it("honours the heading level and the compact variant (mono, not serif)", () => {

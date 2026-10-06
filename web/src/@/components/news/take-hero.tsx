@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { type EditorialTake } from "~/gen/shorts/v1alpha1/news_pb";
 import { stockChipPalette } from "~/@/lib/stock-color";
+import { cn } from "~/@/lib/utils";
+import { eyebrow, sectionTitle } from "~/@/lib/typography";
 
 function fmtDate(ts: { seconds?: bigint | number } | undefined): string {
   if (!ts?.seconds) return "";
@@ -34,48 +36,33 @@ export function TakeHero({ take }: { take: EditorialTake }) {
   return (
     <Link
       href={`/news/${take.slug}`}
-      className="group mt-4 block overflow-hidden rounded-xl border border-border bg-card transition-[border-color,box-shadow] duration-200 ease-out hover:border-primary/40 hover:shadow-amber md:grid md:grid-cols-5 md:gap-0"
+      className="group mt-4 block overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transition-none md:grid md:grid-cols-5 md:items-center md:gap-0"
     >
       {take.heroImageUrl ? (
-        <div className="relative overflow-hidden bg-muted/20 md:col-span-2 md:aspect-auto">
-          <div className="aspect-[16/9] md:aspect-auto md:h-full">
+        <div className="relative aspect-video overflow-hidden border-b border-border bg-muted md:col-span-2 md:border-b-0 md:border-r">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={take.heroImageUrl}
-              alt={take.headline}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              alt=""
+              className="h-full w-full object-cover"
               loading="eager"
               decoding="async"
             />
-          </div>
-          {/* Take stamp */}
-          <span className="absolute right-3 top-3 rounded-md border border-orange-500/40 bg-stone-950/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-300 backdrop-blur">
-            Shorted Take
-          </span>
-          {take.stockCode ? (
-            <span className={`absolute bottom-3 left-3 rounded-md border px-2.5 py-1 font-mono text-sm font-bold backdrop-blur ${chip.onImage}`}>
-              ${take.stockCode}
-            </span>
-          ) : null}
         </div>
       ) : (
-        <div className="relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-orange-950/40 via-stone-950 to-stone-950 md:col-span-2">
-          <div className="aspect-[16/9] w-full md:aspect-auto md:h-full" />
+        <div className="flex aspect-video items-center justify-center overflow-hidden border-b border-border bg-muted md:col-span-2 md:border-b-0 md:border-r">
           {take.stockCode ? (
-            <span className={`absolute font-mono text-5xl font-bold md:text-6xl ${chip.onImage.split(" ").find((c) => c.startsWith("text-")) ?? "text-orange-300/80"}`}>
+            <span className="font-mono text-5xl font-semibold text-muted-foreground md:text-6xl">
               ${take.stockCode}
             </span>
-          ) : null}
-          <span className="absolute right-3 top-3 rounded-md border border-orange-500/40 bg-stone-950/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-300 backdrop-blur">
-            Shorted Take
-          </span>
+          ) : <span className="font-mono text-sm text-muted-foreground">Shorted Take</span>}
         </div>
       )}
 
       <div className="flex flex-col justify-center gap-3 p-5 md:col-span-3 md:p-7">
-        <div className="flex flex-wrap items-center gap-2 text-[11px]">
-          <span className="rounded border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 font-medium uppercase tracking-wider text-orange-700 dark:text-orange-300">
-            Editorial
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-xs">
+          <span className={cn(eyebrow, "font-medium text-primary")}>
+            Shorted Take
           </span>
           {take.stockCode ? (
             <span className={`rounded px-1.5 py-0.5 font-mono text-xs font-semibold ${chip.onCard}`}>
@@ -87,12 +74,12 @@ export function TakeHero({ take }: { take: EditorialTake }) {
           >
             {sent.text}
           </span>
-          <span className="ml-auto text-muted-foreground">
+          <span className="ml-auto tabular-nums text-muted-foreground">
             {fmtDate(take.publishedAt)}
           </span>
         </div>
 
-        <h2 className="text-2xl font-bold leading-tight tracking-tight transition-colors group-hover:text-primary md:text-3xl">
+        <h2 className={cn(sectionTitle, "leading-snug transition-colors group-hover:text-primary md:text-3xl")}>
           {take.headline}
         </h2>
 
@@ -100,10 +87,6 @@ export function TakeHero({ take }: { take: EditorialTake }) {
           {firstParagraph(take.bodyMd)}
         </p>
 
-        <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary/90 transition-colors group-hover:text-primary">
-          Read the Take
-          <span aria-hidden>→</span>
-        </span>
       </div>
     </Link>
   );

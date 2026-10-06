@@ -992,35 +992,37 @@ alerts on failed, missed and timed-out runs. That replaces the GCP
 - Telesis **project tokens cannot register cron monitors** (user-role check).
   `register-monitors.py` needs `telesis login`.
 
-## Blog MDX palette (mdxcn figures)
+## Blog MDX palette (project-owned figures)
 
-`/blog` posts (`web/_blogs/*.mdx`) render through ONE component map,
-`web/src/@/components/blog/mdx-components.tsx`, shared by the index (hero post)
-and `/blog/[slug]`. Besides the site's own islands (`Info`, `RegisterEmail`,
-`HousingChart`, `ScrollReveal`, `CountUp`) it exposes the **vendored mdxcn
-figures** — `Callout`, `Quote`, `Steps`, `GraphStat`, `GraphRank`,
-`GraphSlope`, `GraphTimeline`, `GraphTable`, `GraphSpark`, `GraphMeter`,
-`GraphWaterfall`, `GraphCompare`, `GraphFlow` and their child items — copied
-from the mdxcn shadcn registry (MIT) into `web/src/@/registry/default/`.
+`/blog` posts (`web/_blogs/*.mdx`) use one component map,
+`web/src/@/components/blog/mdx-components.tsx`. Editorial figures live in
+`web/src/@/components/mdx/article-figures.tsx`: `Callout`, `Quote`, `Steps`,
+`GraphStat`, `GraphRank` and `GraphTable`. They render semantic HTML on the
+server, with ordinary CSS for layouts and bars. Extend these local components
+when an article needs a new diagram; do not import or vendor mdxcn figures.
 
-- **Tailwind 3, not 4.** mdxcn ships `@utility`/`@theme`; the port lives in
-  `src/styles/globals.css` (`.graph-frame`, `.graph-rule*`, `--graph-*` tokens
-  mapped to the site's amber) and `tailwind.config.ts` (`graph-*` colours). Do
-  not run the shadcn CLI against this repo for mdxcn — it would write v4 CSS.
-  How to vendor another figure: `web/src/@/registry/default/README.md`.
-- `motion` is the only new dependency; figures are `"use client"` and respect
-  `useReducedMotion`.
-- The **newsroom palette is separate** (`components/news/mdx/`, three-place
-  sync rule in `$newsroom`) and mdxcn's `Stat` child clashes with its `Stat`.
-- **Write figure data in mdxcn's markdown-list form inside the figure**
-  (`- 29.7% Fawkner`; bold the accent row; ` — ` before a hint), never as
-  `items={[...]}` / `max={30}` expression props and never as `<Stat>` /
-  `<Rank>` marker children. Measured 2026-09-25: expression props are dropped
-  by the flight serialiser (the payload carried `{"title": …}` and nothing
-  else) and markers reach the client parent as unnamed `React.lazy` client
-  references (or, if server-defined, as nothing) — the frame renders, the rows
-  do not. The list form arrives as plain host `<ul>/<li>` in every pass.
-  `BLOG_MDX_FIGURES` in the map lists every name a post may use.
+- **Use declarative attributes.** `next-mdx-remote` v6 blocks JavaScript
+  expressions by default (`blockJS: true`). This is why `items={[...]}` and
+  `max={30}` disappeared from the previous figure data; it is not a React
+  Flight limitation. Keep that default and use JSON string attributes for
+  `GraphStat`/`GraphRank` data, for example
+  `items='[{"label":"Fawkner","value":29.7,"display":"29.7%"}]'`.
+  Numeric options can use strings such as `max="30"`.
+- `Steps` wraps a native Markdown ordered list, and `GraphTable` wraps a
+  native Markdown table. `Callout` and `Quote` retain rich Markdown children.
+  Figures do not inspect React children or use invisible marker components.
+- The site's live islands (`Info`, `RegisterEmail`, `HousingChart`,
+  `ScrollReveal`, `CountUp`) remain in the blog map. `BLOG_MDX_FIGURES` lists
+  every name a post may use. Authoring examples and validation guidance:
+  `docs/article-mdx.md`. Article layout and cover direction are defined in
+  `docs/article-design.md` and `docs/blog-thumbnail-directions.md`; use versioned
+  1600 × 900 art with descriptive `coverAlt` and matching `ogImage.url`.
+  Use `.claude/skills/shorted-editorial-art/SKILL.md` for cover/thumbnail work,
+  including material plausibility and collection review. Generate the smaller
+  `thumbnailImage` card asset with `web/scripts/editorial-thumbnails.mts`.
+- The newsroom palette is separate and already project-owned
+  (`components/news/mdx/`). Its registry, manifest and take-writer prompt
+  must stay in sync as described in `$newsroom`.
 
 ## Twitter / X Automation
 

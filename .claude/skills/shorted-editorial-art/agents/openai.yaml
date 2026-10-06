@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shorted Editorial Art"
+  short_description: "Create topic-specific Shorted covers and thumbnails"
+  default_prompt: "Use $shorted-editorial-art to update this article’s cover and thumbnails in Shorted’s approved editorial style."
