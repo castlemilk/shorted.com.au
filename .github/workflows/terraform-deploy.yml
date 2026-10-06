@@ -985,11 +985,11 @@ jobs:
         env:
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           GCP_REGION: ${{ env.GCP_REGION }}
-          EXPECTED_TAG: ${{ github.ref_name }}-${{ github.sha }}
+          EXPECTED_TAG: ${{ needs.determine-environment.outputs.image-tag }}
         run: |
           set -uo pipefail
-          # Image tags are <branch>-<short sha>; normalise to the same 8 chars.
-          want="${GITHUB_REF_NAME}-$(echo "$GITHUB_SHA" | cut -c1-8)"
+          # Use the same tag as the image builds and Terraform for every event.
+          want="$EXPECTED_TAG"
           echo "expecting image tag: $want"
 
           registry="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/"
