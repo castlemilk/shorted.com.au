@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
@@ -48,6 +48,48 @@ test("Terraform jobs install the Cloud SDK before their first gcloud consumer", 
     assert.ok(consumerIndex > sdkIndex, `${jobName} must install gcloud before using it`);
     assert.equal(steps[sdkIndex].if, undefined, `${jobName} must install the SDK on every execution`);
   }
+});
+
+function runRevisionAssertion(tag, rows) {
+  const assertion = step("terraform-apply", "Assert running revisions match this commit");
+  return spawnSync("bash", ["-c", `gcloud() { printf '%s\\n' "$MOCK_SERVICE_ROWS"; }
+${assertion.run}`], {
+    encoding: "utf8",
+    env: {
+      PATH: process.env.PATH,
+      GCP_PROJECT_ID: "fixture-project",
+      GCP_REGION: "australia-southeast2",
+      EXPECTED_TAG: tag,
+      GITHUB_REF_NAME: "main",
+      GITHUB_SHA: "f55838bdd09738d8f441baed178ba814feaa89a9",
+      MOCK_SERVICE_ROWS: rows,
+    },
+  });
+}
+
+test("running revision assertion uses the canonical build and Terraform image tag", () => {
+  const assertion = step("terraform-apply", "Assert running revisions match this commit");
+  assert.equal(assertion.env.EXPECTED_TAG, "${{ needs.determine-environment.outputs.image-tag }}");
+  assert.doesNotMatch(assertion.run, /GITHUB_REF_NAME|GITHUB_SHA/);
+});
+
+test("running revisions accept push, manual and release image tags", () => {
+  for (const tag of ["main-f55838bd", "manual-f55838bdd09738d8f441baed178ba814feaa89a9", "v1.2.3"]) {
+    const result = runRevisionAssertion(tag, `shorts australia-southeast2-docker.pkg.dev/fixture-project/shorted/shorts:${tag}`);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  }
+});
+
+test("running revision assertion still rejects deployment drift", () => {
+  const result = runRevisionAssertion("manual-f55838bdd09738d8f441baed178ba814feaa89a9", "shorts australia-southeast2-docker.pkg.dev/fixture-project/shorted/shorts:main-f55838bd");
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /rollout did not take effect/);
+});
+
+test("running revision assertion still fails when gcloud reports no services", () => {
+  const result = runRevisionAssertion("main-f55838bd", "");
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /inspected 0 services/);
 });
 
 test("infrastructure CI cannot recreate or authenticate to the retired dev environment", () => {
