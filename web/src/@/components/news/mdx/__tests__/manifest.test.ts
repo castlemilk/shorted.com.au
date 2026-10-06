@@ -1,8 +1,16 @@
 import { MDX_COMPONENT_SCHEMAS, MDX_COMPONENT_NAMES } from "../manifest";
 import { MDX_COMPONENTS } from "../registry";
+import { articleFigureComponents } from "~/@/components/mdx/article-figures";
+import { Stat } from "../stat-group";
 
-test("registry and manifest agree on the palette", () => {
-  expect(Object.keys(MDX_COMPONENTS).sort()).toEqual([...MDX_COMPONENT_NAMES].sort());
+test("registry exposes the writer palette and shared article figures", () => {
+  expect(Object.keys(MDX_COMPONENTS).sort()).toEqual(
+    [...MDX_COMPONENT_NAMES, ...Object.keys(articleFigureComponents)].sort(),
+  );
+  for (const [name, component] of Object.entries(articleFigureComponents)) {
+    expect(MDX_COMPONENTS[name as keyof typeof articleFigureComponents]).toBe(component);
+  }
+  expect(MDX_COMPONENTS.Stat).toBe(Stat);
 });
 
 test("schemas reject bad props", () => {

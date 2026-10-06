@@ -5,10 +5,10 @@
 //  2. Judge with Gemini vision: full-page screenshot + the hero PNG + each
 //     layout image PNG + the article text → structured cohesion verdict +
 //     a hero verdict + per-image verdicts. The hero is judged as a masthead
-//     lead image (concrete, editorial, photojournalistic).
+//     lead image (concrete, editorial, clearly illustrative).
 //  3. Auto-fix loop: re-generate any image flagged `regenerate` with the
 //     judge's corrected brief/caption (a flagged hero is re-shot as a
-//     corrected-brief documentary landscape at high quality straight to
+//     corrected-brief paper-collage landscape at high quality straight to
 //     takes/{slug}-hero.png + hero_image_url), update the DB, and
 //     re-judge the NEW image buffers (NOT a fresh screenshot — the live page
 //     is ISR-cached up to 10 min, so only the image content changed).
@@ -21,6 +21,8 @@ import { Storage } from "@google-cloud/storage";
 import { Client as PgClient } from "pg";
 import { z } from "zod";
 import { type LayoutImage, type PlanItem, generateOneLayoutImage, generatePlanHero } from "./art-director.js";
+import { illustrationCaption } from "./illustration-caption.js";
+import { EDITORIAL_REVIEW_RULES } from "./editorial-art-policy.js";
 
 // gemini-3-pro-preview 404s on the generativelanguage v1beta API as of
 // 2026-05-30; gemini-3.5-flash supports vision + responseSchema and is the
@@ -186,11 +188,11 @@ const VERDICT_SCHEMA = {
       properties: {
         fits: { type: SchemaType.BOOLEAN, description: "does the hero read as a credible masthead lead image for this story" },
         captionAccurate: { type: SchemaType.BOOLEAN },
-        qualityOk: { type: SchemaType.BOOLEAN, description: "no garbled/text/charts/faces/logos; concrete, editorial, photojournalistic" },
+        qualityOk: { type: SchemaType.BOOLEAN, description: "coherent construction, perspective, joins and shadows; no fused/duplicated parts, generic template polish, garbled/text/charts/faces/logos; concrete action legible at thumbnail size" },
         issue: { type: SchemaType.STRING, description: "what's wrong, empty if fine" },
         regenerate: { type: SchemaType.BOOLEAN, description: "true if the hero should be regenerated" },
-        newBrief: { type: SchemaType.STRING, description: "if regenerate: a corrected concrete documentary-landscape brief (no text/charts/faces)" },
-        newCaption: { type: SchemaType.STRING, description: "if regenerate: a corrected news caption (what/where), else echo the existing caption" },
+        newBrief: { type: SchemaType.STRING, description: "if regenerate: a corrected conceptual paper-collage landscape brief with one concrete subject/action; no text/charts/faces or fake photojournalism of real places/events" },
+        newCaption: { type: SchemaType.STRING, description: "if regenerate: <=12 words beginning 'Illustration:' describing the conceptual subject/action without a claim of actual photographed place/event, else echo the existing caption" },
       },
       required: ["fits", "captionAccurate", "qualityOk", "issue", "regenerate", "newBrief", "newCaption"],
     },
@@ -202,11 +204,11 @@ const VERDICT_SCHEMA = {
           index: { type: SchemaType.NUMBER },
           fits: { type: SchemaType.BOOLEAN, description: "does the image illustrate the section/caption it accompanies" },
           captionAccurate: { type: SchemaType.BOOLEAN },
-          qualityOk: { type: SchemaType.BOOLEAN, description: "no garbled/text/charts/faces/logos; on-tone; not abstract-when-it-should-be-concrete" },
+          qualityOk: { type: SchemaType.BOOLEAN, description: "coherent construction and readable action; no fused/duplicated parts, generic template polish, garbled/text/charts/faces/logos; on-tone and specific to the section" },
           issue: { type: SchemaType.STRING, description: "what's wrong, empty if fine" },
           regenerate: { type: SchemaType.BOOLEAN, description: "true if this image should be regenerated" },
           newBrief: { type: SchemaType.STRING, description: "if regenerate: a corrected concrete image brief (no text/charts/faces)" },
-          newCaption: { type: SchemaType.STRING, description: "if regenerate: a corrected caption, else echo the existing caption" },
+          newCaption: { type: SchemaType.STRING, description: "if regenerate: a corrected conceptual caption beginning 'Illustration:', never a claim of real photographed place/event, else echo the existing caption" },
         },
         required: ["index", "fits", "captionAccurate", "qualityOk", "issue", "regenerate", "newBrief", "newCaption"],
       },
@@ -240,14 +242,15 @@ async function judge(
     `Body (markdown):\n${bodyMd.slice(0, 4000)}\n\n` +
     (hero ? `Hero caption: "${hero.caption ?? "(none)"}"\n\n` : "") +
     `Layout images (index: caption | placement | ratio):\n` +
-    `${layoutImages.map((li, i) => `${i}: "${li.caption}" | ${li.placement} | ${li.ratio}`).join("\n")}\n\n`;
+    `${layoutImages.map((li, i) => `${i}: "${li.caption}" | ${li.placement} | ${li.ratio}`).join("\n")}\n\n` +
+    `${EDITORIAL_REVIEW_RULES}\n\n`;
   const heroRule = hero
-    ? `HERO: the first individual image${screenshot ? " after the screenshot" : ""} is the HERO — the page-top masthead lead image. Does it read as a credible masthead lead image for this story (concrete, editorial, photojournalistic)? Score it like any other image and return the "hero" verdict object; if it is abstract, generic, garbled, or off-story, set hero.regenerate=true with a corrected documentary-landscape newBrief + a proper news newCaption (what/where). `
+    ? `HERO: the first individual image${screenshot ? " after the screenshot" : ""} is the HERO, the page-top masthead illustration. Does its recognisable concrete subject and visual action communicate THIS article's finding or mechanism at thumbnail size? Paper collage, printmaking and sculptural still life are preferred; light and dark grounds both belong to Shorted. Conceptual metaphor is valid when specific to the story and preserving uncertainty. Return the "hero" verdict object; regenerate ONLY for a concrete craft defect from the review criteria, generic/garbled/off-story/misleading imagery, or pretending to document a real place/event. Supply a corrected conceptual paper-collage landscape newBrief and a <=12-word newCaption beginning 'Illustration:'. Do not replace a valid illustration merely because it is not photographic. `
     : `No hero image is provided — omit the "hero" verdict object. `;
   const tail =
     heroRule +
-    `Flag regenerate=true ONLY for a body layout image that is off-topic, garbled, generic-when-it-should-be-specific, contains text/charts/faces/logos, ` +
-    `or whose caption doesn't match. Give a corrected newBrief + newCaption for any flagged image.`;
+    `Flag regenerate=true ONLY for a body layout image with a concrete craft defect from the review criteria, that is off-topic, garbled, generic-when-it-should-be-specific, contains text/charts/faces/logos, ` +
+    `or whose caption doesn't match or claims a fabricated photograph of a real place/event. Light or dark tactile illustration is valid; metaphors must preserve uncertainty and exact measured data stays outside the artwork. Give a corrected conceptual newBrief + newCaption beginning 'Illustration:' for any flagged image.`;
   const promptText = screenshot
     ? common +
       `First image below = the FULL-PAGE SCREENSHOT of the rendered article (judge layout/flow/balance). ` +
@@ -377,15 +380,15 @@ export async function validateArticle(slug: string, opts: { rounds?: number; req
         break;
       }
       if (fixHero && v.hero) {
-        // Re-shoot the hero as a corrected-brief documentary landscape at the
+        // Re-render the hero as a corrected-brief paper-collage landscape at the
         // canonical takes/{slug}-hero.png path (high quality) — same route the
         // art-director's hero takes, so the brand-fallback case upgrades too.
         const spec: PlanItem = {
           role: "hero",
-          style: "documentary",
+          style: "paper_collage",
           ratio: "landscape",
-          brief: v.hero.newBrief || `${headline} — the story's central real-world subject`,
-          caption: v.hero.newCaption || heroCaption || headline,
+          brief: v.hero.newBrief || `Conceptual illustration for ${headline}, one concrete subject performing the story's central mechanism`,
+          caption: illustrationCaption(v.hero.newCaption || heroCaption),
           placement: "full",
           anchorAfterBlock: 0,
         };
@@ -394,7 +397,7 @@ export async function validateArticle(slug: string, opts: { rounds?: number; req
         heroUrl = regen.image.url;
         heroCaption = spec.caption;
         await pg.query(
-          `UPDATE editorial_takes SET hero_image_url=$1, hero_caption=$2, hero_credit=COALESCE(hero_credit, 'AI-generated illustration'), updated_at=NOW() WHERE slug=$3`,
+          `UPDATE editorial_takes SET hero_image_url=$1, hero_caption=$2, hero_credit='AI-generated illustration', updated_at=NOW() WHERE slug=$3`,
           [heroUrl, heroCaption, slug],
         );
         // Cache-bust so the re-judge sees the NEW hero.
@@ -402,7 +405,7 @@ export async function validateArticle(slug: string, opts: { rounds?: number; req
       }
       for (const iv of toFix) {
         const old = layout[iv.index]!;
-        const spec: PlanItem = { ...old, brief: iv.newBrief || old.brief, caption: iv.newCaption || old.caption };
+        const spec: PlanItem = { ...old, brief: iv.newBrief || old.brief, caption: illustrationCaption(iv.newCaption || old.caption) };
         console.error(`[validate] regenerating img ${iv.index} (${old.style}/${old.ratio}): ${iv.issue}`);
         const regenerated = await generateOneLayoutImage(openai, storage, slug, iv.index, spec);
         layout[iv.index] = regenerated;

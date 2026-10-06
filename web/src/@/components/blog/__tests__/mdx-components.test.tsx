@@ -1,23 +1,10 @@
 import { render, screen } from "@testing-library/react";
 
-// motion's useReducedMotion reads matchMedia, which jsdom does not implement.
-beforeAll(() => {
-  Object.defineProperty(window, "matchMedia", {
-    writable: true,
-    value: (query: string) => ({
-      matches: false, media: query, onchange: null,
-      addListener: jest.fn(), removeListener: jest.fn(),
-      addEventListener: jest.fn(), removeEventListener: jest.fn(), dispatchEvent: jest.fn(),
-    }),
-  });
-});
-
 jest.mock("~/@/components/housing/housing-charts", () => ({ HousingSeriesChart: () => null }));
 jest.mock("~/@/components/ui/register-email-client", () => () => null);
 
 import { BLOG_MDX_FIGURES, blogMdxComponents } from "../mdx-components";
-import { GraphRank } from "@/registry/default/graph-rank/graph-rank";
-import { GraphStat } from "@/registry/default/graph-stat/graph-stat";
+import { articleFigureComponents } from "~/@/components/mdx/article-figures";
 
 describe("blog MDX component map", () => {
   it("exposes every figure name a post may use", () => {
@@ -30,15 +17,42 @@ describe("blog MDX component map", () => {
     expect(container.querySelector("h1")).toBeNull();
   });
 
-  it("renders a vendored figure from data-form items", () => {
+  it("uses the site's shared server figures", () => {
+    for (const [name, component] of Object.entries(articleFigureComponents)) {
+      expect(blogMdxComponents[name as keyof typeof articleFigureComponents]).toBe(component);
+    }
+  });
+
+  it("keeps Markdown tables semantic inside a focusable scroll region", () => {
+    const Table = blogMdxComponents.table;
+    render(
+      <Table className="comparison" aria-label="Comparison data" data-source="article">
+        <caption>Market comparison</caption>
+        <thead><tr><th scope="col">Market</th></tr></thead>
+        <tbody><tr><td>ASX</td></tr></tbody>
+      </Table>,
+    );
+    const region = screen.getByRole("region", { name: "Article table" });
+    expect(region).toHaveAttribute("tabindex", "0");
+    expect(region).toHaveClass("overflow-x-auto", "max-w-full", "min-w-0");
+    const table = screen.getByRole("table", { name: "Comparison data" });
+    expect(region).toContainElement(table);
+    expect(table).toHaveClass("w-full", "comparison");
+    expect(table).toHaveAttribute("data-source", "article");
+    expect(screen.getByRole("columnheader", { name: "Market" })).toHaveAttribute("scope", "col");
+    expect(screen.getByRole("cell", { name: "ASX" })).toBeInTheDocument();
+  });
+
+  it("renders literal JSON data through the blog map", () => {
+    const { GraphRank } = blogMdxComponents;
     render(
       <GraphRank
         title="Median house price, year to March 2026"
-        max={30}
-        items={[
+        max="30"
+        items={JSON.stringify([
           { label: "Darwin", value: 25, display: "+25.0%" },
           { label: "Melbourne", value: 1.8, display: "+1.8%" },
-        ]}
+        ])}
       />,
     );
     expect(screen.getByText(/Median house price, year to March 2026/)).toBeInTheDocument();
@@ -48,11 +62,8 @@ describe("blog MDX component map", () => {
   });
 
   it("reads the markdown-list form a post writes inside a figure", () => {
-    // What MDX hands the parent after the server pass: plain host <ul>/<li>
-    // (the map's ul/li overrides render to hosts). First token is the value,
-    // bold marks the accent row, " — " separates a hint. This is the only
-    // authoring form that survives the server/client boundary — see
-    // mdxcn-figures.tsx.
+    const { GraphStat, GraphRank } = blogMdxComponents;
+    // Legacy Markdown stays readable without relying on child-name parsing.
     render(
       <GraphStat title="30 days to 24 September 2026, 500-suburb panel">
         <ul>
@@ -64,9 +75,9 @@ describe("blog MDX component map", () => {
     );
     expect(screen.getByText("10.5%")).toBeInTheDocument();
     expect(screen.getByText("of listings cut their price")).toBeInTheDocument();
-    expect(screen.getByText("4.3%")).toBeInTheDocument();
-    expect(screen.getByText("average 5.3%")).toBeInTheDocument();
-    expect(screen.getByText("$110M")).toBeInTheDocument();
+    expect(screen.getByText(/4.3% median cut/)).toBeInTheDocument();
+    expect(screen.getByText(/average 5.3%/)).toBeInTheDocument();
+    expect(screen.getByText(/\$110M asking price removed/)).toBeInTheDocument();
 
     render(
       <GraphRank title="Share of listings discounted, past 30 days">
@@ -76,8 +87,7 @@ describe("blog MDX component map", () => {
         </ul>
       </GraphRank>,
     );
-    expect(screen.getByText("Fawkner")).toBeInTheDocument();
-    expect(screen.getByText("29.7%")).toBeInTheDocument();
-    expect(screen.getByText("Altona Meadows")).toBeInTheDocument();
+    expect(screen.getByText("29.7% Fawkner")).toBeInTheDocument();
+    expect(screen.getByText("20.5% Altona Meadows")).toBeInTheDocument();
   });
 });

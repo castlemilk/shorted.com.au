@@ -26,7 +26,7 @@ interface BlogPostCardProps {
 const COVER_SIZES = "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw";
 
 /**
- * One blog post as a distinct card: cover on top, mono meta row, serif
+ * One blog post as a distinct card: cover on top, mono meta row, mono
  * headline, clamped excerpt, byline. Flat at rest (a hairline border on the
  * card surface), amber on hover, per DESIGN.md §4.
  *
@@ -46,6 +46,9 @@ export function BlogPostCard({
   const compact = variant === "compact";
   const Heading = headingLevel;
   const href = blogPostPath(card.slug);
+  const thumbnail = card.thumbnailImage?.trim()
+    ? card.thumbnailImage.trim()
+    : card.coverImage;
 
   return (
     <article
@@ -57,20 +60,17 @@ export function BlogPostCard({
         className,
       )}
     >
-      {/* 16:9 for every variant. Covers come in two shapes: 3:2 illustrations
-          and 1.9:1 OG-style cards with the title baked in. 16:9 trims the
-          illustrations top and bottom, which they tolerate, and clips the OG
-          cards by a few percent per side instead of cutting into their text
-          the way a 3:2 slot did. */}
+      {/* One 16:9 crop from article masthead to the smallest related card.
+          Topic illustrations keep their subject in the central safe area. */}
       <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
-        {card.coverImage ? (
+        {thumbnail ? (
           <Image
-            src={card.coverImage}
+            src={thumbnail}
             alt=""
             fill
             priority={priority}
             sizes={COVER_SIZES}
-            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+            className="object-cover"
           />
         ) : null}
       </div>
@@ -90,16 +90,14 @@ export function BlogPostCard({
           </span>
         </div>
 
-        {/* The default (editorial) card keeps a serif headline, like the
-            newsroom's story stack. The compact variant lands on dashboard
-            surfaces (homepage strip, article rail) under mono section
-            headings, so it stays mono per the Serif Boundary Rule. */}
+        {/* Cards are navigation, so both variants stay mono. Newsreader
+            arrives at the featured story and the article's own masthead. */}
         <Heading
           className={cn(
-            "leading-snug text-foreground transition-colors group-hover:text-primary",
+            "font-mono font-semibold leading-snug text-foreground transition-colors group-hover:text-primary",
             compact
-              ? "line-clamp-2 font-mono text-sm font-semibold"
-              : "line-clamp-3 font-serif text-xl font-medium tracking-tight",
+              ? "line-clamp-2 text-sm"
+              : "line-clamp-3 text-lg tracking-tight",
           )}
         >
           <Link

@@ -17,6 +17,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import { Storage } from "@google-cloud/storage";
 import { TAKE_SYSTEM_PROMPT, SLUG_PROMPT } from "./persona.js";
+import { EDITORIAL_CRAFT_RULES } from "./editorial-art-policy.js";
 
 const API_URL = process.env.SHORTED_API_URL ?? "https://api.shorted.com.au";
 const SITE_URL = process.env.SHORTED_SITE_URL ?? "https://shorted.com.au";
@@ -143,50 +144,47 @@ async function generateBody(
   return { bodyMd, slug, wordCount };
 }
 
-const BRAND_PROMPT = `Editorial illustration in the style of a modern financial publication.
-Visual style: dark background (near-black #0a0a0a) with selective orange
-accents (#FFA94D). Minimal, clean, composition-driven. Subtle grain or noise
-acceptable. High contrast.
+/** Pure prompt builder; the on-demand route shares the newsroom's craft rules. */
+export function buildRunHeroPrompt(headline: string, stockCode: string, bodyMd: string): string {
+  return `Commissioned conceptual editorial illustration for Shorted, an Australian research publication.
+Show one concrete subject and one visual action tied to this article's finding,
+mechanism or tension. Preserve uncertainty and contested claims. Use tactile
+hand-cut paper, printmaking or a sculptural material still life, purposeful
+material texture and restrained colour. Warm ink/paper and selective amber
+connect the publication; relevant sage, rust, limestone, oil black or brick
+can follow the subject. Choose light or dark grounds according to the story.
+Relevant Australian building forms are welcome as clearly constructed models.
+Never claim to photograph a real named location, facility or event.
 
-NEVER include text, words, numbers, letters, charts, graphs, bars, lines,
-percentages, cityscapes, skylines, businessmen, faces, hands, arrows,
-rockets, bulls, bears, dollar signs, handshakes, money stacks.
+${EDITORIAL_CRAFT_RULES}
 
-Preferred: photorealistic close-up of a physical industrial subject;
-isometric/geometric data abstraction; raw materials; document close-ups
-(blank, no readable text); architectural interiors; mining or processing
-equipment from unconventional angles.
+Article headline: ${headline}
+Stock context: ASX ${stockCode} (never print this identifier in the artwork).
+Article body, for choosing the specific subject/action:
+${bodyMd.slice(0, 4_000)}
 
-Lighting: low-key, deep shadow, single warm amber light source.
-
-Topic to illustrate:`;
-
-const FINAL_RULES = `
-
-CRITICAL FINAL RULES — apply these to the image you generate:
-1. Do NOT add any charts, graphs, bars, lines, percentages, numbers,
-   ticker symbols, currency symbols, or other data visualisation
-   elements — even if the topic mentions a document.
-2. Do NOT add any text, words, letters, or numbers in the image.
-3. Do NOT add any people, faces, silhouettes, hands, or figures.
-4. Do NOT add any city skylines or recognisable architecture.
-5. Keep the composition minimal — single subject, deep negative space,
-   low-key lighting, one warm orange/amber light source.`;
+Format: wide 16:9 masthead, strong silhouette readable at 160 x 90; essential
+subject/action inside the central 80% for crops.
+STRICT: no text, letters, numbers, tickers, logos, people, fake interfaces,
+invented charts or measured data, generic finance icons, bulls/bears, rockets,
+money piles, glowing fintech wallpaper or glossy isometric asset packs.
+The image is an illustration, never a forecast, verdict or news photograph.`;
+}
 
 async function generateHero(
   headline: string,
   stockCode: string,
   slug: string,
+  bodyMd: string,
 ): Promise<{ url: string }> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("OPENAI_API_KEY not set");
   const openai = new OpenAI({ apiKey: key });
 
-  // Inline-built topic. Skip the planner call for the orchestrator path;
+  // Inline-built brief. Skip the planner call for the orchestrator path;
   // image-gen pipeline's planner can be invoked separately if richer
   // multi-asset output is needed.
-  const topic = `Editorial close-up photograph evoking the article subject (ASX: ${stockCode}): ${headline}. A single concrete physical object on a dark surface with deep shadow, lit by a single warm amber light source from one side. No text, no charts, no people.`;
-  const prompt = `${BRAND_PROMPT}\n\n${topic}\n\nFormat: 16:9 horizontal hero banner composition.${FINAL_RULES}`;
+  const prompt = buildRunHeroPrompt(headline, stockCode, bodyMd);
 
   console.log("[run] generating hero image (~30s, ~$0.075)…");
   const resp = await openai.images.generate({
@@ -316,7 +314,7 @@ export async function runOrchestrator(opts: RunOptions): Promise<void> {
   console.log(`[run] body: ${wordCount} words, slug: ${slug}`);
 
   // 4. Hero
-  const { url: heroImageUrl } = await generateHero(headline, opts.stockCode, slug);
+  const { url: heroImageUrl } = await generateHero(headline, opts.stockCode, slug, bodyMd);
   console.log(`[run] hero: ${heroImageUrl}`);
 
   // 5. Insert (with optional publish)

@@ -1,42 +1,62 @@
-// The brand prompt prefix baked into every gpt-image-1 request.
-//
-// Shorted's editorial visual identity:
-// - Dark backgrounds (#0a0a0a base) with orange accents (#FFA94D)
-// - Data-driven, minimal, modern financial publication aesthetic
-// - Australian market context where the topic warrants it
-// - NEVER: stock-photo handshakes, generic cityscapes, finance clichés
-//   (bull/bear icons, rocket ships, money piles, "businessman pointing
-//   at chart"), AI-generated faces, text overlays.
-// - Photorealistic OR isometric / geometric financial visualisation.
-//
-// Editorial illustration register — think The Economist + a modern data
-// publication. Not a marketing banner. Not corporate stock art.
+// Shorted editorial art direction. See docs/article-design.md and
+// docs/blog-thumbnail-directions.md. The subject supplies the idea;
+// paper, ink and selective amber connect the publication's covers.
 
-const BRAND_RULES = `
-Editorial illustration in the style of a modern financial publication.
-Visual style: dark background (near-black #0a0a0a) with selective orange
-accents (#FFA94D) used sparingly for emphasis. Minimal, clean,
-composition-driven. Subtle grain or noise acceptable. High contrast.
+export const EDITORIAL_ART_DIRECTION = `
+Create a commissioned editorial illustration for Shorted, an Australian
+research publication. Build the image around the article's specific finding
+or mechanism: one concrete subject and one legible visual action. Preserve
+uncertainty; never imply a guaranteed outcome or a verdict.
 
-NEVER include:
-- Text, words, numbers, or letters of any kind in the image
-- Stock-photo clichés: handshakes, generic city skylines, businessmen
-  pointing at charts, money stacks, gold bars, suited figures
-- Finance icon clichés: bulls, bears, rocket ships, dollar signs,
-  thumbs up/down, arrows in/out of cartoonish bags
-- Photorealistic human faces (faces blur, abstract, or omit entirely)
-- Cartoon or 3D-render-asset-pack style; nothing that reads as clip art
+Use tactile hand-cut paper collage, printmaking, a sculptural material still
+life, or a close photograph of a relevant physical material. Warm ivory paper,
+charcoal ink and selective burnt amber connect the collection. Let the subject
+introduce restrained sage, rust, oil blue, brick or mineral tones. Choose a
+light or dark composition to suit the story; do not force every cover into
+black with an orange rim light. Use controlled shadows and visible texture.
 
-Preferred treatments:
-- Photorealistic close-up of a relevant industrial/material subject
-- Isometric or geometric data-visualisation aesthetic (abstract bars,
-  flows, gradients)
-- Architectural/material textures referencing the topic (ore, metal,
-  glass, paper, document close-ups)
-- Single subject, off-centre composition with negative space
-- Australian setting cues only when the topic is geographically specific
+Compose a strong silhouette and readable action at 160 x 90. Keep essential
+objects in the central 80% so card and social crops remain useful. Relevant
+Australian architecture, industrial subjects and landscape are welcome;
+do not add a map, flag or gum tree to every ASX story.
 
-Topic to illustrate:`;
+Avoid generic finance icons, bulls, bears, rockets, money piles, handshakes,
+suited figures, glossy isometric asset packs, glowing fintech wallpaper,
+repeated fire effects and decorative dashboard fragments. No baked-in text,
+letters, digits, tickers, percentages, logos, readable documents or watermarks.
+
+This is conceptual editorial art, not measured data or a verified product
+interface. Exact data belongs in the article's accessible custom MDX figures.
+Do not invent a chart, provider UI, news photograph, real event or location.
+An illustrative mechanism may use unlabelled tiles or qualitative shapes,
+without axes, exact quantities, predictions or claimed measured comparisons.`;
+
+export const EDITORIAL_CRAFT_RULES = `
+Make the construction feel deliberately authored, not a reusable template.
+Keep perspective, occlusion, joins, attachments and contact shadows internally
+consistent; a mechanism's connection and action must be intelligible. No
+fused or duplicated parts, impossible knots, detached handles or melted detail.
+Conceptual scale and hand-cut imperfection are valid when construction is clear.
+Use purposeful cut edges, ink variation and material scuffs, not uniform fake
+grain, smooth plastic or glossy miniature-render polish. Avoid decorative icon
+grids, miniature asset-pack districts, app-style map pins, blank title-card
+placeholders and unrelated mountains, sunsets or foliage. A lens or share tile
+must earn its role, never be a default finance prop. At 160 x 90 the subject
+and action must read without tiny details or a title explaining the image.
+Remove competing props; vary the idea and composition, not just accent colour.
+Shorted covers follow one construct: one idea, one decisive visual moment,
+one dominant silhouette and deliberate colour contrast. In the brief specify
+subject, action, compositional hook, large light/dark shapes, colour field,
+material treatment and the article-specific caveat. As a starting point let
+the subject/action occupy about two thirds of the frame, keeping the mechanism
+and important attachments in the central crop-safe area. For a cover choose
+one story-specific visual hook: scale surprise, a taut
+diagonal, a reveal, a bottleneck or the decisive instant of a break. Enlarge
+the action and build broad light/dark shapes with a quiet pocket at the focal
+moment. A close crop, asymmetry, purposeful cast shadow or stronger ink-green,
+mineral-blue or oxblood field can create impact. Avoid a whole set of soft
+beige tabletops. Correct weak silhouettes, similar midtones and tiny peripheral
+actions through framing, contrast and scale; add no spectacle or stronger claim.`;
 
 export interface PromptInput {
   topic: string;
@@ -44,56 +64,24 @@ export interface PromptInput {
   additionalContext?: string;
 }
 
-/**
- * Build the full gpt-image-1 prompt for an asset.
- * Topic is the editorial subject; the brand rules are the constant prefix.
- */
+/** Build the existing automated generator's prompt; no API call here. */
 export function buildImagePrompt(input: PromptInput): string {
-  const sizeHint =
-    input.type === "hero"
-      ? "16:9 horizontal hero banner composition"
-      : input.type === "thumbnail"
-        ? "square thumbnail composition, single strong subject"
-        : "horizontal editorial illustration, supports inline article placement";
-
-  const lines = [
-    BRAND_RULES,
-    "",
-    input.topic.trim(),
-    "",
-    `Format: ${sizeHint}.`,
-    "",
-    // Trailing reinforcement — the model anchors on the last instructions.
-    // Image models love adding charts/graphs/icons to "financial" subjects
-    // even when told not to. This explicit final pass catches that.
-    "CRITICAL FINAL RULES — apply these to the image you generate:",
-    "1. Do NOT add any charts, graphs, bars, lines, percentages, numbers,",
-    "   ticker symbols, currency symbols, or other data visualisation",
-    "   elements — even if the topic mentions a document, report, or",
-    "   screen. If the subject is a document, it is blank or shows only",
-    "   plain unreadable text.",
-    "2. Do NOT add any text, words, letters, or numbers in the image.",
-    "3. Do NOT add any people, faces, silhouettes, hands, or figures.",
-    "4. Do NOT add any city skylines or recognisable architecture.",
-    "5. Keep the composition minimal — single subject, deep negative",
-    "   space, low-key lighting, one warm orange/amber light source.",
-  ];
-  if (input.additionalContext) {
-    lines.push("", `Additional context: ${input.additionalContext.trim()}`);
-  }
-  return lines.join("\n");
+  const format = input.type === "inline"
+    ? "Horizontal editorial illustration supporting this section's argument."
+    : "Wide 16:9 editorial cover, image-led with one strong subject; legible at thumbnail size.";
+  return [
+    EDITORIAL_ART_DIRECTION.trim(),
+    EDITORIAL_CRAFT_RULES.trim(),
+    `Article-specific brief: ${input.topic.trim()}`,
+    input.additionalContext ? `Additional context: ${input.additionalContext.trim()}` : "",
+    `Format: ${format}`,
+    "Final check: recognisable subject/action, a clearly separated focal moment, credible construction and an honest article-specific claim. No text, numbers, logos, fabricated data or product UI.",
+  ].filter(Boolean).join("\n\n");
 }
 
-/**
- * Recommended gpt-image-1 size for each asset type. Standard quality.
- * gpt-image-1 supports: 1024x1024, 1024x1536 (portrait), 1536x1024 (landscape).
- */
-export function imageSizeFor(type: PromptInput["type"]): "1024x1024" | "1536x1024" {
-  switch (type) {
-    case "hero":
-    case "inline":
-      return "1536x1024";
-    case "thumbnail":
-      return "1024x1024";
-  }
+/** The existing API wrapper accepts landscape/square/portrait dimensions.
+ * Hero and thumbnail both use landscape; briefs keep a 16:9-safe composition.
+ * Export chosen blog artwork at 1600 x 900 after reviewing the crop. */
+export function imageSizeFor(_type: PromptInput["type"]): "1536x1024" {
+  return "1536x1024";
 }

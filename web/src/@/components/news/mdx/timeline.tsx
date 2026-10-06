@@ -1,5 +1,5 @@
 export function Timeline({ children }: { children: React.ReactNode }) {
-  return <ol className="my-8 ml-2 space-y-4 border-l border-border pl-6">{children}</ol>;
+  return <ol data-article-figure className="my-8 ml-2 space-y-4 border-l border-border pl-6">{children}</ol>;
 }
 
 export function TimelineEvent({

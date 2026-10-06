@@ -43,6 +43,13 @@ describe("toBlogCard", () => {
       toBlogCard(post({ slug: "how-to-read-a-suburb-profile" })).category.slug,
     ).toBe("housing");
   });
+
+  it("keeps the smaller card image separate from the full masthead cover", () => {
+    const thumbnailImage = "/assets/blog/a/thumbnail-editorial-v2.webp";
+    const card = toBlogCard(post({ slug: "a", thumbnailImage }));
+    expect(card.thumbnailImage).toBe(thumbnailImage);
+    expect(card.coverImage).toBe("/assets/blog/a/cover.png");
+  });
 });
 
 describe("date + reading-time formatting", () => {

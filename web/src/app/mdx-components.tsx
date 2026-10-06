@@ -1,6 +1,8 @@
 import type { MDXComponents } from "mdx/types";
 import Info from "~/@/components/ui/info";
 import RegisterEmail from "~/@/components/ui/register-email";
+import { articleFigureComponents } from "~/@/components/mdx/article-figures";
+import { ArticleTable } from "~/@/components/mdx/article-table";
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
@@ -23,12 +25,13 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       <ol className="list-decimal list-inside mt-2 mb-2" {...props} />
     ),
     li: (props) => <li className="mt-1 mb-1" {...props} />,
-    table: (props) => <table className="w-full mt-4 mb-4" {...props} />,
+    table: ArticleTable,
     tr: (props) => <tr className="border-b border-border" {...props} />,
     th: (props) => <th className="px-4 py-2 text-left" {...props} />,
     td: (props) => <td className="px-4 py-2 text-left" {...props} />,
     RegisterEmail: (props) => <RegisterEmail {...props} />,
     Info: (props) => <Info {...props} />,
+    ...articleFigureComponents,
     ...components,
   };
 }

@@ -48,6 +48,11 @@ const card: BlogCard = {
 };
 
 describe("BlogPostHeader", () => {
+  it("uses a concise masthead introduction without changing the listing excerpt", () => {
+    render(<BlogPostHeader card={{ ...card, standfirst: "Read the short-position queue in context." }} />);
+    expect(screen.getByText("Read the short-position queue in context.")).toHaveClass("article-summary");
+    expect(screen.queryByText(card.excerpt)).toBeNull();
+  });
   it("renders the masthead: category as text, serif h1, standfirst, byline, dated cover", () => {
     const { container } = render(
       <BlogPostHeader card={card} authorHref="/authors/ben-ebsworth" />,
@@ -87,5 +92,11 @@ describe("BlogPostHeader", () => {
     expect(
       screen.getByText("1 September 2026").closest("time"),
     ).toHaveAttribute("dateTime", "2026-09-01");
+  });
+
+  it("uses the article's visual description as cover alt text when provided", () => {
+    const coverAlt = "A magnifying lens isolates an amber candle crossing a resistance line";
+    render(<BlogPostHeader card={{ ...card, coverAlt }} />);
+    expect(screen.getByRole("img", { name: coverAlt })).toHaveAttribute("src", card.coverImage);
   });
 });
