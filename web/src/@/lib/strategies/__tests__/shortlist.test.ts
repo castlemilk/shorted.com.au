@@ -1,4 +1,5 @@
 import {
+  SHORTLIST_MAX_ROWS,
   countByStatus,
   formatStatusCount,
   parsePickStatus,
@@ -26,6 +27,17 @@ describe("shortlistRows", () => {
   it("never pads a full list with watch names", () => {
     const list = shortlistRows(rows([["triggered", 5], ["setup", 25], ["watch", 40]]));
     expect(list).toHaveLength(30);
+    expect(list.some((r) => r.status === "watch")).toBe(false);
+  });
+
+  // A busy strategy (Minervini on a trending tape) can have 100 triggered or
+  // setup names: the shortlist is bounded, in rank order, and the status
+  // chips fetch the rest.
+  it("caps a long list at 40 rows, keeping the top of the rank order", () => {
+    const list = shortlistRows(rows([["triggered", 60], ["setup", 30], ["watch", 10]]));
+    expect(list).toHaveLength(SHORTLIST_MAX_ROWS);
+    expect(list).toHaveLength(40);
+    expect(list.map((r) => r.rank)).toEqual(Array.from({ length: 40 }, (_, i) => i + 1));
     expect(list.some((r) => r.status === "watch")).toBe(false);
   });
 });

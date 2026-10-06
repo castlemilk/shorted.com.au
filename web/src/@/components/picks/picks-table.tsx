@@ -42,6 +42,11 @@ import {
 export interface RuleColumn {
   id: string;
   title: string;
+  /**
+   * Must pass for status "triggered"; a scoring-only rule reads muted in the
+   * legend's key. Absent (an older caller) draws every rule as core.
+   */
+  core?: boolean;
 }
 
 const STATUS_WORD: Record<RuleStatus, string> = {
@@ -50,16 +55,38 @@ const STATUS_WORD: Record<RuleStatus, string> = {
   unknown: "unknown",
 };
 
+/**
+ * A status as an indicator lamp: lit (triggered, every core rule passes),
+ * armed (setup, hollow amber: only the trigger is missing) or standby
+ * (watch, hollow muted). Square, so it is never mistaken for the round rule
+ * dots; decorative, so the word beside it stays the carrier of meaning.
+ */
+export function StatusLamp({ status }: { status: PickStatus }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-status-lamp={status}
+      className={cn(
+        "h-1.5 w-1.5 shrink-0 rounded-[1px]",
+        status === "triggered" && "bg-primary",
+        status === "setup" && "border border-primary/70",
+        status === "watch" && "border border-muted-foreground/60",
+      )}
+    />
+  );
+}
+
 export function StatusPill({ status }: { status: PickStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[11px] font-medium uppercase leading-none tracking-[0.12em]",
+        "inline-flex items-center gap-1.5 rounded-sm border px-1.5 py-0.5 text-[11px] font-medium uppercase leading-none tracking-[0.12em]",
         status === "triggered" && "border-primary/50 bg-primary/10 text-primary",
         status === "setup" && "border-input text-foreground",
         status === "watch" && "border-border text-muted-foreground",
       )}
     >
+      <StatusLamp status={status} />
       {STATUS_LABELS[status]}
     </span>
   );
@@ -320,7 +347,11 @@ export function PicksTable({
             rows.map((row) => {
               const [revenue, eps] = pickGrowthFigures(row);
               return (
-                <tr key={row.code} data-status={row.status}>
+                <tr
+                  key={row.code}
+                  data-status={row.status}
+                  className="transition-colors duration-150 hover:bg-muted/30 motion-reduce:transition-none"
+                >
                   <NumCell className="text-muted-foreground">{row.rank}</NumCell>
                   <td className="px-3 py-2">
                     <Link
@@ -412,17 +443,44 @@ export function RuleLegend({ rules }: { rules: RuleColumn[] }) {
         ))}
       </p>
       {rules.length > 0 ? (
-        <p>
-          Dots follow the rule order:{" "}
+        <p className="flex flex-wrap items-center gap-x-1 gap-y-1.5">
+          <span className="mr-1">Dots follow the rule order:</span>
           {rules.map((rule, index) => (
             <Fragment key={rule.id}>
-              <span className="whitespace-nowrap">
-                <span className="tabular-nums">{index + 1}</span> {rule.title}
+              {/* The key: each rule as a numbered node, joined by a hairline
+                  segment, the same order the dots sit in. */}
+              {index > 0 ? (
+                <span aria-hidden="true" className="h-px w-3 shrink-0 bg-border" />
+              ) : null}
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 whitespace-nowrap",
+                  rule.core === false && "text-muted-foreground",
+                )}
+              >
+                {/* One index everywhere: this numeral is the nth dot in the
+                    row and the nth entry in the strategy's rule list. A
+                    scoring-only rule reads muted with a dashed ring. */}
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px] leading-none tabular-nums",
+                    rule.core === false
+                      ? "border-dashed border-muted-foreground"
+                      : "border-border text-foreground",
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <span className="sr-only">{index + 1}. </span>
+                {rule.title}
+                {rule.core === false ? (
+                  <span className="sr-only"> (scoring only)</span>
+                ) : null}
               </span>
-              {index < rules.length - 1 ? " · " : ""}
             </Fragment>
           ))}
-          . Hover a dot for the evidence.
+          <span className="ml-1">Hover a dot for the evidence.</span>
         </p>
       ) : null}
     </div>

@@ -105,6 +105,35 @@ describe("PicksHubPage", () => {
     );
   });
 
+  // The rack: one list of five rows, each an article with its own glyph, so
+  // the hub never reads as an identical icon-card grid; the key below teaches
+  // the statuses as rule outcomes and the dot marks themselves.
+  it("racks the five strategies as one hairline-divided list, with the printed key", async () => {
+    render(await PicksHubPage());
+    const section = screen.getByRole("region", { name: "Strategies" });
+    const rack = section.querySelector("ol")!;
+    expect(rack.className).toContain("divide-y");
+    const items = within(rack)
+      .getAllByRole("listitem")
+      .filter((item) => item.querySelector("article") !== null);
+    expect(items).toHaveLength(STRATEGY_SLUGS.length);
+    for (const slug of STRATEGY_SLUGS) {
+      expect(section.querySelector(`[data-strategy-glyph="${slug}"]`)).not.toBeNull();
+    }
+    // Every strategy but Zanger has nothing triggered: a dark readout window.
+    const zero = within(section)
+      .getAllByText("0")
+      .filter((el) => el.tagName === "DD");
+    expect(zero.length).toBeGreaterThan(0);
+    for (const dd of zero) expect(dd.className).toContain("text-muted-foreground");
+
+    for (const status of ["triggered", "setup", "watch"]) {
+      expect(document.querySelector(`[data-status-chain="${status}"]`)).not.toBeNull();
+    }
+    expect(screen.getByText("Rule marks")).toBeInTheDocument();
+    expect(screen.getByText("Pass")).toBeInTheDocument();
+  });
+
   it("names all five strategies, quality compounders included", async () => {
     render(await PicksHubPage());
     expect(screen.getAllByRole("article")).toHaveLength(5);

@@ -90,11 +90,16 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe("PicksSortedView: status filter (no sort, no request)", () => {
-  it("shows only the filtered status", () => {
+// The island carries only the shortlist (SHORTLIST_MAX_ROWS rows at most), so
+// a status filter is the API's answer: the shortlist's rows of that status
+// stand in, dimmed, until it arrives.
+describe("PicksSortedView: status filter (a request in rank order)", () => {
+  it("asks the API for the status, showing the shortlist's rows of it meanwhile", async () => {
     searchParams = new URLSearchParams("status=setup");
+    let resolve: (value: unknown) => void = () => undefined;
+    fetchMock.mockReturnValue(new Promise((r) => (resolve = r)));
     renderView();
-    expect(tableCodes()).toEqual([SETUP.code]);
+
     expect(screen.getByRole("link", { name: /^Setup/ })).toHaveAttribute(
       "aria-current",
       "true",
@@ -102,18 +107,88 @@ describe("PicksSortedView: status filter (no sort, no request)", () => {
     expect(screen.getByRole("link", { name: "Shortlist" })).not.toHaveAttribute(
       "aria-current",
     );
-    expect(fetchMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      strategyId: "zanger-breakout",
+      sortBy: "",
+      status: "setup",
+      limit: 100,
+    });
+    // Loading: the shortlist's setup rows, dimmed and aria-busy.
+    expect(region()).toHaveAttribute("aria-busy", "true");
+    expect(tableCodes()).toEqual([SETUP.code]);
+    expect(summary()).toHaveTextContent(/^Loading every setup stock\./);
+
+    // The API's answer is the whole status: names the shortlist never held.
+    await act(async () =>
+      resolve(
+        jsonResponse({
+          ...PROTOJSON_PICKS,
+          picks: [
+            { ...PROTOJSON_PICKS.picks[1], rank: 2 },
+            { ...PROTOJSON_PICKS.picks[1], stockCode: "ZZZ", rank: 7 },
+          ],
+          totalCount: 2,
+        }),
+      ),
+    );
+    expect(region()).not.toHaveAttribute("aria-busy");
+    expect(tableCodes()).toEqual(["PLS", "ZZZ"]);
+    expect(summary()).toHaveTextContent(
+      "2 setup: Every core rule passes except the trigger, which has not happened yet.",
+    );
+    // Rank order, not a sort: no "Sorted by" column.
+    expect(
+      screen.queryByRole("columnheader", { name: /Sorted by/ }),
+    ).not.toBeInTheDocument();
   });
 
-  it("filters to triggered and to watch", () => {
-    searchParams = new URLSearchParams("status=triggered");
-    const { unmount } = renderView();
-    expect(tableCodes()).toEqual([TRIGGERED.code]);
-    unmount();
-
+  it("says the list was cut off when the API sent fewer rows than it counted", async () => {
     searchParams = new URLSearchParams("status=watch");
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        ...PROTOJSON_PICKS,
+        picks: [{ ...PROTOJSON_PICKS.picks[1], stockCode: "WWW", status: "watch" }],
+        totalCount: 140,
+      }),
+    );
     renderView();
-    expect(tableCodes()).toEqual([WATCH.code]);
+    await screen.findByText(/^140 watch: Some rules pass; ranked below the setups\. Showing the top 1\./);
+    expect(tableCodes()).toEqual(["WWW"]);
+  });
+
+  it("keeps the shortlist's rows and says so when the API answers with an error", async () => {
+    searchParams = new URLSearchParams("status=triggered");
+    fetchMock.mockResolvedValue(jsonResponse({ code: "unavailable" }, 503));
+    renderView();
+    await screen.findByText("The full triggered list is unavailable right now.");
+    expect(tableCodes()).toEqual([TRIGGERED.code]);
+    expect(region()).not.toHaveAttribute("aria-busy");
+  });
+
+  it("labels the chips from the server's counts over every ranked row", () => {
+    fetchMock.mockReturnValue(new Promise(() => undefined));
+    render(
+      <PicksSortedView
+        strategyId="zanger-breakout"
+        rows={[TRIGGERED, SETUP]}
+        totalCount={250}
+        counts={{
+          triggered: { count: 12, atLeast: false },
+          setup: { count: 30, atLeast: false },
+          watch: { count: 58, atLeast: true },
+        }}
+        rules={RULES}
+        basePath="/picks/zanger-breakout"
+        caption="Zanger Breakout Strategy: ranked ASX picks"
+      />,
+    );
+    const nav = screen.getByRole("navigation", { name: "Filter picks by status" });
+    expect(within(nav).getByRole("link", { name: /^Triggered/ })).toHaveTextContent("Triggered12");
+    expect(within(nav).getByRole("link", { name: /^Setup/ })).toHaveTextContent("Setup30");
+    expect(within(nav).getByRole("link", { name: /^Watch/ })).toHaveTextContent("Watch58+");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("treats a missing or unrecognised status, and ?sort=score, as the shortlist in rank order", () => {
@@ -145,9 +220,17 @@ describe("PicksSortedView: status filter (no sort, no request)", () => {
     expect(codes).not.toContain(WATCH.code);
   });
 
-  it("says so, rather than rendering an empty table, when a status has no rows", () => {
+  it("says so, rather than rendering an empty table, when a status has no rows", async () => {
     searchParams = new URLSearchParams("status=triggered");
+    let resolve: (value: unknown) => void = () => undefined;
+    fetchMock.mockReturnValue(new Promise((r) => (resolve = r)));
     renderView([SETUP, WATCH]);
+    // Nothing of that status in the shortlist: the empty row says it is
+    // loading, never that there are none.
+    expect(screen.getByText("Loading triggered stocks.")).toBeInTheDocument();
+    await act(async () =>
+      resolve(jsonResponse({ ...PROTOJSON_PICKS, picks: [], totalCount: 0 })),
+    );
     expect(
       screen.getByText("No stocks are at triggered status today."),
     ).toBeInTheDocument();

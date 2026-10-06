@@ -12,6 +12,8 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { RegimeBanner } from "~/@/components/picks/regime-banner";
 import { PicksProvenance } from "~/@/components/picks/picks-provenance";
+import { RuleLegend, StatusLamp } from "~/@/components/picks/picks-table";
+import { StatusChain } from "~/@/components/picks/status-chain";
 import {
   StrategyCard,
   type StrategyCardProps,
@@ -84,7 +86,7 @@ const breadcrumbs = [
   { name: "Stock picker", url: PAGE_URL },
 ];
 
-/** How many names each card previews. */
+/** How many names each row previews. */
 const LEADERS_PER_CARD = 3;
 
 function cardFor(
@@ -136,7 +138,6 @@ export default async function PicksHubPage() {
 
   return (
     <DashboardLayout>
-      {(!list || picks.some((result) => result === null)) && <span hidden data-isr-shell="empty" />}
       <BreadcrumbListSchema items={breadcrumbs} />
       <ItemListStructuredData
         name="ASX Stock Picker strategies"
@@ -154,7 +155,9 @@ export default async function PicksHubPage() {
           <Breadcrumbs items={[{ label: "Stock picker", href: "/picks" }]} />
         </div>
 
-        <section className="border-b border-border/40 pb-6">
+        {/* The desk switches on: a 320ms phosphor warm-up from 0.45 opacity,
+            so the H1 is painted (and is the LCP) from the first frame. */}
+        <section className="border-b border-border/40 pb-6 motion-safe:animate-phosphor-warm">
           <p className={cn(eyebrow, "mb-2 font-medium")}>Stock picker</p>
           <h1 className={cn(pageTitle, "leading-[1.1]")}>ASX Stock Picker</h1>
           <p className={cn(lede, "max-w-3xl")}>
@@ -175,12 +178,17 @@ export default async function PicksHubPage() {
 
         <RegimeBanner regime={list?.regime ?? null} />
 
+        {/* The rack: one hairline-divided chassis holding the five
+            instruments as rows, which differ by glyph, counts and names
+            rather than by chrome. One warm-up for the whole rack. */}
         <section aria-label="Strategies">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <ol className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60 bg-card motion-safe:animate-phosphor-warm motion-safe:[animation-delay:80ms]">
             {cards.map((card) => (
-              <StrategyCard key={card.slug} {...card} />
+              <li key={card.slug}>
+                <StrategyCard {...card} />
+              </li>
             ))}
-          </div>
+          </ol>
           {!list && picks.every((result) => result === null) ? (
             <p className="mt-3 text-sm text-muted-foreground">
               Live picks are temporarily unavailable; they refresh
@@ -189,11 +197,11 @@ export default async function PicksHubPage() {
           ) : null}
         </section>
 
-        <section aria-labelledby="how-heading" className="max-w-3xl space-y-3">
+        <section aria-labelledby="how-heading" className="max-w-4xl space-y-3">
           <h2 id="how-heading" className={sectionTitle}>
             How the picks work
           </h2>
-          <p className="text-sm leading-relaxed text-muted-foreground">
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
             Each strategy is a fixed set of rules taken from its author and
             tested every trading day against daily prices, the S&amp;P/ASX 200,
             reported company fundamentals and ASIC short positions. A rule is
@@ -202,15 +210,28 @@ export default async function PicksHubPage() {
             and unknown never counts as a pass. Stocks are ranked by status
             first, then by a 0 to 100 score.
           </p>
-          <dl className="grid gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-3">
+          {/* The printed key: each status beside what it looks like as rule
+              outcomes, and the dot marks themselves, so both are taught
+              before a reader reaches a table. */}
+          <dl className="grid gap-px overflow-hidden rounded-lg border border-border/60 bg-border/60 sm:grid-cols-2 lg:grid-cols-4">
             {PICK_STATUSES.map((status) => (
               <div key={status} className="bg-card p-4">
-                <dt className="text-sm font-semibold">{STATUS_LABELS[status]}</dt>
+                <dt className="flex items-center gap-2 text-sm font-semibold">
+                  <StatusLamp status={status} />
+                  {STATUS_LABELS[status]}
+                  <StatusChain status={status} />
+                </dt>
                 <dd className="mt-1 text-xs leading-relaxed text-muted-foreground">
                   {STATUS_DESCRIPTIONS[status]}
                 </dd>
               </div>
             ))}
+            <div className="bg-card p-4">
+              <dt className="text-sm font-semibold">Rule marks</dt>
+              <dd className="mt-1">
+                <RuleLegend rules={[]} />
+              </dd>
+            </div>
           </dl>
         </section>
 
