@@ -90,7 +90,7 @@ type CatalogAuthentication struct {
 
 // CatalogRateLimits is the honest version of "what do I get".
 //
-// Per-TOOL-CALL, not per request: session preamble (initialize, tools/list,
+// Per tool call or resource read, not per request: session preamble (initialize, tools/list,
 // resources/list, prompts/list) is free, and a JSON-RPC batch is charged for
 // each call it carries.
 type CatalogRateLimits struct {
@@ -387,7 +387,7 @@ func buildCatalogAuthentication(apiBaseURL string, rateLimitEnforced bool) Catal
 
 	note := "Anonymous access. No token is required and every tool works without one — " +
 		"OAuth 2.1 identifies you and raises the per-caller quota, it is not a gate on " +
-		"first contact. Quota is counted per TOOL CALL: the session handshake, tools/list, " +
+		"first contact. Quota is counted per tool call or resource read: the session handshake, tools/list, " +
 		"resources/list and prompts/list are free."
 	description := "Enforced by the API after authentication (services/pkg/ratelimit). " +
 		"A separate, tier-blind per-IP ceiling at the Cloudflare edge protects the origin " +
@@ -416,7 +416,7 @@ func buildCatalogAuthentication(apiBaseURL string, rateLimitEnforced bool) Catal
 		AuthorizationServerMetadata: strings.TrimSuffix(apiBaseURL, "/") + "/.well-known/oauth-authorization-server",
 		Scopes:                      Scopes,
 		RateLimits: &CatalogRateLimits{
-			Unit:        "tool call",
+			Unit:        "tool call or resource read",
 			Enforced:    rateLimitEnforced,
 			Anonymous:   perCall("anonymous"),
 			Free:        perCall("free"),

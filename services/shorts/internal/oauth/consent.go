@@ -105,6 +105,7 @@ var scopeDescriptions = map[string]string{
 	"politics:read": "Read federal politicians' declared registers of interests",
 	// Admin resource (/mcp/admin) only — grantable to administrators alone.
 	"news:publish": "Publish merged articles to shorted.com.au/news, including generating their images",
+	"jobs:read":    "View asynchronous jobs, execution history, queue status and operational errors",
 	"jobs:run":     "Start on-demand runs of the stock picker data job (fundamentals, filings, view refresh)",
 }
 

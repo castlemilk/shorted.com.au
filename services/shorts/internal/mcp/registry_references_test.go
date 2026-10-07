@@ -144,7 +144,8 @@ func dedupe(in []string) []string {
 // LLM-provenance label, is not on the table — those are what make tool
 // selection and honest citation work.
 func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
-	const budget = 88 * 1024
+	// One bounded mention tool and the market entrypoint metadata add 2 KiB.
+	const budget = 90 * 1024
 
 	ctx := context.Background()
 	server := NewServer(&fakeDataSource{})

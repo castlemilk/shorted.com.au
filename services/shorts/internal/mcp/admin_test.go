@@ -384,9 +384,10 @@ func TestAdminScopeIsNotInThePublicVocabulary(t *testing.T) {
 	if strings.Contains(string(raw), "shorts:read") || !strings.Contains(string(raw), "news:publish") || !strings.Contains(string(raw), "jobs:run") {
 		t.Fatalf("admin PRM = %s", raw)
 	}
-	for _, a := range AdminScopes {
-		if strings.HasSuffix(a, ":read") {
-			t.Errorf("admin scope %s reads as a public read scope", a)
-		}
+	// Read-only operational access is still admin-only: the audience and
+	// explicit vocabularies, not the suffix, form the security boundary.
+	if slices.Contains(Scopes, ScopeJobsRead) {
+		t.Fatal("admin jobs:read leaked into public scopes")
 	}
+
 }

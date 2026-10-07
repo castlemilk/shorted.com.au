@@ -1,0 +1,949 @@
+<!doctype html>
+<html lang="en" data-mode="__SHORTED_MODE__">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shorted overview</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fafaf8;
+        --fg: #202723;
+        --muted: #646e68;
+        --line: #dce1db;
+        --accent: #266443;
+        --warn: #925014;
+        --panel: #fff;
+        font-family: var(--font-sans, system-ui, sans-serif);
+      }
+      :root[data-theme="dark"] {
+        --bg: #171c19;
+        --fg: #ebf0ec;
+        --muted: #a4afa8;
+        --line: #3a463f;
+        --accent: #8bd6a4;
+        --warn: #f3bc70;
+        --panel: #202822;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--color-background-primary, var(--bg));
+        color: var(--color-text-primary, var(--fg));
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      main {
+        max-width: 1180px;
+        margin: auto;
+        padding: 28px;
+      }
+      header {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 20px;
+      }
+      h1 {
+        font-size: 28px;
+        font-weight: 650;
+        letter-spacing: -0.04em;
+        line-height: 1.15;
+        margin: 4px 0 12px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 0 0 14px;
+      }
+      p {
+        margin: 8px 0;
+      }
+      .eyebrow {
+        color: var(--accent);
+        letter-spacing: 0.16em;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px 12px;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: var(--accent);
+      }
+      button:disabled {
+        cursor: default;
+        opacity: 0.5;
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 24px 0 18px;
+      }
+      input {
+        min-width: 160px;
+        flex: 1;
+      }
+      .summary {
+        display: flex;
+        gap: 28px;
+        border-block: 1px solid var(--line);
+        padding: 18px 0;
+        margin-top: 24px;
+      }
+      .metric strong {
+        display: block;
+        font-size: 26px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .metric span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .warning {
+        padding: 12px;
+        border-left: 3px solid var(--warn);
+        background: var(--panel);
+        color: var(--warn);
+        margin: 15px 0;
+        white-space: pre-wrap;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .table-wrap {
+        overflow: auto;
+        border-block: 1px solid var(--line);
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        text-align: left;
+      }
+      th {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 600;
+      }
+      th,
+      td {
+        padding: 13px 10px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      td small {
+        display: block;
+        color: var(--muted);
+        max-width: 430px;
+      }
+      .number {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .status {
+        color: var(--accent);
+      }
+      .status.warning,
+      .status.critical,
+      .status.failed,
+      .status.overdue {
+        color: var(--warn);
+        padding: 0;
+        border: 0;
+        background: none;
+      }
+      .detail {
+        margin: 22px 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 20px;
+        overflow-wrap: anywhere;
+      }
+      .detail dl {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+        gap: 8px;
+      }
+      .detail dt {
+        color: var(--muted);
+      }
+      .detail dd {
+        margin: 0;
+      }
+      footer {
+        margin-top: 20px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .name {
+        padding: 0;
+        border: 0;
+        background: none;
+        text-align: left;
+        font-weight: 600;
+        color: var(--accent);
+      }
+      .detail pre {
+        white-space: pre-wrap;
+        font-size: 12px;
+      }
+      #empty {
+        padding: 24px 0;
+        color: var(--muted);
+      }
+      @media (max-width: 600px) {
+        main {
+          padding: 18px;
+        }
+        h1 {
+          font-size: 24px;
+        }
+        header {
+          display: block;
+        }
+        header .actions {
+          margin-top: 12px;
+        }
+        .summary {
+          gap: 20px;
+        }
+        .metric strong {
+          font-size: 22px;
+        }
+        th,
+        td {
+          padding: 11px 7px;
+        }
+        .optional {
+          display: none;
+        }
+        .detail dl {
+          grid-template-columns: 1fr;
+        }
+        .detail dd {
+          margin-bottom: 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <span class="eyebrow"
+            >Shorted / <span id="section">Market</span></span
+          >
+          <h1 id="heading">Reported short positions</h1>
+          <p class="muted" id="subtitle">
+            ASX short interest · ASIC reports with a T+4 trading-day delay
+          </p>
+        </div>
+        <div class="actions">
+          <button id="refresh" disabled>Refresh</button
+          ><button id="expand" disabled>Expand</button>
+        </div>
+      </header>
+      <div id="warning" class="warning hidden" role="alert"></div>
+      <p id="connection" class="muted" role="status">Connecting to Shorted…</p>
+      <div id="summary" class="summary hidden"></div>
+      <div class="controls">
+        <input
+          id="query"
+          type="search"
+          aria-label="Filter results"
+          placeholder="Filter by company or ticker"
+        /><select id="status" aria-label="Job health" class="hidden">
+          <option value="">All states</option>
+          <option value="running">running</option>
+          <option>critical</option>
+          <option>warning</option>
+          <option>overdue</option>
+          <option>ok</option>
+          <option>unknown</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="head"></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p id="empty" class="hidden">No matching results.</p>
+      <section id="detail" class="detail hidden" aria-live="polite"></section>
+      <footer id="coverage"></footer>
+    </main>
+    <script>
+      (() => {
+        "use strict";
+        const admin = document.documentElement.dataset.mode === "admin";
+        const el = (id) => document.getElementById(id),
+          tool = admin ? "list_async_jobs" : "list_top_shorts";
+        let data = null,
+          connected = false,
+          loading = false,
+          disposed = false,
+          seq = 0,
+          generation = 0,
+          selectionGeneration = 0,
+          selected = null,
+          host = {},
+          fallback,
+          received = false;
+        let pendingDeepLink = null;
+        const pending = new Map();
+        function node(tag, text, cls) {
+          const e = document.createElement(tag);
+          if (text !== undefined) e.textContent = String(text);
+          if (cls) e.className = cls;
+          return e;
+        }
+        function send(msg) {
+          if (!disposed && parent !== window)
+            parent.postMessage({ jsonrpc: "2.0", ...msg }, "*");
+        }
+        function request(method, params, timeout = 35000) {
+          return new Promise((resolve, reject) => {
+            const id = ++seq;
+            const timer = setTimeout(() => {
+              pending.delete(id);
+              reject(Error("The request timed out. Try Refresh."));
+            }, timeout);
+            pending.set(id, { resolve, reject, timer });
+            send({ id, method, params });
+          });
+        }
+        function notify(method, params) {
+          send({ method, params });
+        }
+        function errorText(result) {
+          return (
+            (result.content || [])
+              .filter((c) => c.type === "text")
+              .map((c) => c.text)
+              .join("\n") || "The request could not be completed."
+          );
+        }
+        function unpack(result) {
+          if (result?.isError) throw Error(errorText(result));
+          if (!result?.structuredContent)
+            throw Error("Shorted returned no structured data.");
+          return result.structuredContent;
+        }
+        function warn(message) {
+          el("warning").textContent = message || "";
+          el("warning").classList.toggle("hidden", !message);
+        }
+        function time(value) {
+          if (!value) return "Unknown";
+          const d = new Date(value);
+          return Number.isNaN(d.valueOf()) ? "Unknown" : d.toLocaleString();
+        }
+        function rows() {
+          return (admin ? data?.jobs : data?.stocks) || [];
+        }
+        function applyContext(ctx) {
+          host = { ...host, ...ctx };
+          if (["light", "dark"].includes(host.theme))
+            document.documentElement.dataset.theme = host.theme;
+          for (const [k, v] of Object.entries(ctx?.styles?.variables || {})) {
+            if (
+              /^--(?:color-|font-|border-)/.test(k) &&
+              typeof v === "string" &&
+              v.length < 500
+            )
+              document.documentElement.style.setProperty(k, v);
+          }
+          const raw = ctx?.["openai/deepLink"]?.url;
+          if (
+            typeof raw === "string" &&
+            raw.startsWith("/") &&
+            !raw.startsWith("//")
+          ) {
+            try {
+              const u = new URL(raw, "https://shorted.invalid");
+              const match =
+                !u.hash &&
+                u.pathname.match(
+                  admin
+                    ? /^\/jobs\/([^/]+)\/([^/]+)$/
+                    : /^\/stocks\/([A-Z0-9]{3,4})$/,
+                );
+              if (match)
+                pendingDeepLink = admin
+                  ? {
+                      region: decodeURIComponent(match[1]),
+                      name: decodeURIComponent(match[2]),
+                    }
+                  : { code: match[1] };
+            } catch {}
+          }
+          el("expand").disabled = !connected || !hostSupportsDisplay();
+          render();
+          navigateDeepLink();
+        }
+        function navigateDeepLink() {
+          if (!connected || !pendingDeepLink || (admin && !data)) return;
+          const target = pendingDeepLink;
+          pendingDeepLink = null;
+          const row = rows().find((j) =>
+            admin
+              ? j.name === target.name &&
+                (j.region || "local") === target.region
+              : j.code === target.code,
+          );
+          el("query").value = admin ? target.name : target.code;
+          render();
+          if (row) void inspect(row);
+          else if (!admin) void inspect({ code: target.code, name: "" });
+          else
+            warn(
+              "This job is not in the current snapshot. Refresh and check source coverage.",
+            );
+        }
+        function hostSupportsDisplay() {
+          return (
+            Array.isArray(host.availableDisplayModes) &&
+            host.availableDisplayModes.includes("fullscreen")
+          );
+        }
+        function render() {
+          el("refresh").disabled = !connected || loading;
+          el("connection").textContent = loading
+            ? "Loading…"
+            : data
+              ? admin
+                ? "GCP snapshot: " + time(data.observedAt)
+                : "Latest reported ranking · " + (data.period || "1M")
+              : "Waiting for the initial result…";
+          el("summary").replaceChildren();
+          if (data) {
+            const all = rows();
+            const stats = admin
+              ? [
+                  [all.length, "Jobs and queues"],
+                  [
+                    all.filter(
+                      (j) => j.runningExecution || j.health === "running",
+                    ).length,
+                    "With active work",
+                  ],
+                  [
+                    all.filter((j) =>
+                      ["critical", "warning", "overdue"].includes(j.health),
+                    ).length,
+                    "Need attention",
+                  ],
+                ]
+              : [
+                  [all.length, "Ranked stocks"],
+                  [data.period || "1M", "Ranking window"],
+                ];
+            for (const [v, label] of stats) {
+              const d = node("div", undefined, "metric");
+              d.append(node("strong", v), node("span", label));
+              el("summary").append(d);
+            }
+          }
+          el("summary").classList.toggle("hidden", !data);
+          const q = el("query").value.toLowerCase(),
+            health = el("status").value;
+          const filtered = rows().filter(
+            (j) =>
+              (admin
+                ? j.name + " " + j.displayName + " " + j.category
+                : j.code + " " + j.name
+              )
+                .toLowerCase()
+                .includes(q) &&
+              (!admin ||
+                !health ||
+                (health === "running"
+                  ? j.runningExecution ||
+                    j.runningExecutions?.length ||
+                    j.lastRunStatus === "running" ||
+                    j.health === "running"
+                  : j.health === health)),
+          );
+          const headings = admin
+            ? ["Job", "State", "Activity", "Last run"]
+            : ["Stock", "Short interest", "Industry"];
+          const tr = node("tr");
+          headings.forEach((h) => tr.append(node("th", h)));
+          el("head").replaceChildren(tr);
+          el("rows").replaceChildren();
+          for (const row of filtered) {
+            const tr = node("tr"),
+              name = node("td"),
+              button = node(
+                "button",
+                admin ? row.displayName || row.name : row.code,
+                "name",
+              );
+            button.onclick = () => inspect(row);
+            name.append(
+              button,
+              node(
+                "small",
+                admin
+                  ? row.name + (row.region ? " · " + row.region : "")
+                  : row.name,
+              ),
+            );
+            tr.append(name);
+            if (admin) {
+              const state = node("td");
+              state.append(node("span", row.health, "status " + row.health));
+              state.append(node("small", row.lastRunStatus));
+              const active =
+                row.runningExecutions?.length || (row.runningExecution ? 1 : 0);
+              tr.append(
+                state,
+                node(
+                  "td",
+                  row.type === "queue"
+                    ? row.runningCount + " processing"
+                    : active
+                      ? active + " active"
+                      : row.scheduleHuman || "On demand",
+                  "number",
+                ),
+                node("td", time(row.lastRunAt)),
+              );
+            } else {
+              tr.append(
+                node(
+                  "td",
+                  Number.isFinite(row.percent_shorted)
+                    ? row.percent_shorted.toFixed(2) + "%"
+                    : "Unknown",
+                  "number",
+                ),
+                node("td", row.industry || "—"),
+              );
+            }
+            el("rows").append(tr);
+          }
+          el("empty").classList.toggle("hidden", !data || filtered.length > 0);
+          el("coverage").replaceChildren();
+          if (admin && data) {
+            el("coverage").append(
+              node(
+                "p",
+                data.incomplete || data.stale
+                  ? "Partial or stale observation. Missing data is not a healthy result."
+                  : "Read-only observation. Refresh uses a cache of up to 60 seconds.",
+              ),
+            );
+            for (const source of data.sources || [])
+              el("coverage").append(
+                node(
+                  "p",
+                  source.name + " · " + source.status + " — " + source.detail,
+                ),
+              );
+          } else {
+            el("coverage").textContent =
+              "Short interest is the reported share of issued stock held short. It is not live short-sale volume.";
+          }
+        }
+        function accept(result) {
+          const next = unpack(result);
+          if (admin ? !Array.isArray(next.jobs) : !Array.isArray(next.stocks))
+            throw Error("Unexpected overview response.");
+          received = true;
+          clearTimeout(fallback);
+          data = next;
+          warn((next.warnings || []).join("\n"));
+          render();
+          navigateDeepLink();
+        }
+        async function load() {
+          if (!connected || loading) return;
+          loading = true;
+          const gen = ++generation;
+          render();
+          try {
+            const result = await request("tools/call", {
+              name: tool,
+              arguments: {},
+            });
+            if (gen === generation) accept(result);
+          } catch (e) {
+            if (gen === generation) warn(e.message);
+          } finally {
+            if (gen === generation) {
+              loading = false;
+              render();
+            }
+          }
+        }
+        function details(title) {
+          const box = el("detail");
+          box.replaceChildren(node("h2", title));
+          box.classList.remove("hidden");
+          return box;
+        }
+        function facts(box, values) {
+          const dl = node("dl");
+          for (const [label, v] of values) {
+            dl.append(node("dt", label), node("dd", v));
+          }
+          box.append(dl);
+        }
+        async function call(name, args) {
+          return unpack(await request("tools/call", { name, arguments: args }));
+        }
+        async function inspect(row) {
+          selected = row;
+          const box = details(admin ? row.displayName || row.name : row.code);
+          const selection = ++selectionGeneration;
+          if (admin) {
+            facts(box, [
+              ["Health", row.health],
+              ["Last status", row.lastRunStatus],
+              ["Region", row.region || "Local / database"],
+              ["Started", time(row.runningStartedAt || row.lastRunAt)],
+              ["Schedule", row.scheduleHuman || "On demand"],
+              ["Message", row.message || "No message reported"],
+            ]);
+            for (const t of row.triggers || [])
+              box.append(
+                node("p", t.name + " · " + t.scheduleHuman + " · " + t.state),
+              );
+            for (const r of row.records || [])
+              box.append(node("p", r.label + ": " + r.count));
+            for (const e of row.runningExecutions || [])
+              box.append(
+                node(
+                  "p",
+                  e.executionName +
+                    " · " +
+                    e.runningCount +
+                    "/" +
+                    e.taskCount +
+                    " tasks running · started " +
+                    time(e.startedAt),
+                ),
+              );
+            if (row.type === "job") {
+              const b = node("button", "Load execution history");
+              b.onclick = () => history(row, box);
+              box.append(b);
+            }
+            if (row.type === "queue") {
+              for (const status of ["processing", "queued", "failed"]) {
+                const b = node("button", "Inspect " + status + " jobs");
+                b.onclick = () => enrichment(box, status);
+                box.append(b);
+              }
+            }
+          } else {
+            box.append(node("p", "Loading stock details…"));
+            try {
+              const result = await call("get_stock", { code: row.code });
+              if (selected !== row || selection !== selectionGeneration) return;
+              box.replaceChildren(
+                node("h2", row.code + " · " + (result.name || row.name)),
+              );
+              facts(box, [
+                ["Short interest", result.percent_shorted + "%"],
+                ["Industry", result.industry || "Unknown"],
+              ]);
+            } catch (e) {
+              if (selected === row) box.append(node("p", e.message));
+            }
+          }
+          const ask = node(
+            "button",
+            admin ? "Discuss this job" : "Research this stock",
+          );
+          ask.onclick = async () => {
+            try {
+              await request("ui/update-model-context", {
+                content: [
+                  {
+                    type: "text",
+                    text: admin
+                      ? "Selected Shorted job: " +
+                        row.name +
+                        " in " +
+                        (row.region || "local") +
+                        ". Read current status before drawing conclusions."
+                      : "Selected ASX stock: " + row.code,
+                  },
+                ],
+              });
+              await request("ui/message", {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: admin
+                      ? "Review the status of " +
+                        row.name +
+                        " and explain any failures or delays."
+                      : "Help me research ASX:" +
+                        row.code +
+                        " using the latest reported data.",
+                  },
+                ],
+              });
+            } catch (e) {
+              warn(e.message);
+            }
+          };
+          box.append(ask);
+        }
+        async function history(row, box, token = "") {
+          const button = node("button", "Loading…");
+          button.disabled = true;
+          box.append(button);
+          try {
+            const page = await call("list_job_executions", {
+              job: row.name,
+              region: row.region,
+              limit: 20,
+              ...(token ? { page_token: token } : {}),
+            });
+            if (selected !== row) return;
+            for (const e of page.executions) {
+              const p = node(
+                "p",
+                e.executionName + " · " + e.status + " · " + time(e.startedAt),
+              );
+              if (e.message) p.append(node("small", " — " + e.message));
+              if (e.logUri) {
+                const link = node("button", "Logs");
+                link.onclick = () => openLog(e.logUri);
+                p.append(" ", link);
+              }
+              const poll = node("button", "Current status");
+              poll.onclick = async () => {
+                try {
+                  const current = await call("get_job_execution", {
+                    job: row.name,
+                    region: row.region,
+                    execution_name: e.executionName,
+                  });
+                  p.querySelector(".current-state")?.remove();
+                  p.prepend(
+                    node(
+                      "span",
+                      current.status +
+                        " · " +
+                        current.runningCount +
+                        " tasks running — ",
+                      "current-state",
+                    ),
+                  );
+                } catch (e) {
+                  warn(e.message);
+                }
+              };
+              p.append(" ", poll);
+              box.append(p);
+            }
+            if (!page.executions.length)
+              box.append(node("p", "No recorded executions."));
+            if (page.nextPageToken) {
+              button.textContent = "More executions";
+              button.disabled = false;
+              button.onclick = () => {
+                button.remove();
+                history(row, box, page.nextPageToken);
+              };
+            } else button.remove();
+          } catch (e) {
+            button.remove();
+            box.append(node("p", e.message));
+          }
+        }
+        async function enrichment(box, status = "processing", offset = 0) {
+          try {
+            const page = await call("list_enrichment_jobs", {
+              status,
+              limit: 25,
+              offset,
+            });
+            box.append(node("p", page.total + " " + status + " jobs"));
+            for (const j of page.jobs)
+              box.append(
+                node(
+                  "p",
+                  j.stockCode +
+                    " · " +
+                    j.id +
+                    " · started " +
+                    time(j.startedAt) +
+                    (j.error ? " · " + j.error : ""),
+                ),
+              );
+            if (page.nextOffset !== undefined) {
+              const more = node("button", "More enrichment jobs");
+              more.onclick = () => {
+                more.remove();
+                enrichment(box, status, page.nextOffset);
+              };
+              box.append(more);
+            }
+          } catch (e) {
+            box.append(node("p", e.message));
+          }
+        }
+        async function openLog(uri) {
+          try {
+            const u = new URL(uri);
+            if (
+              u.protocol !== "https:" ||
+              u.hostname !== "console.cloud.google.com"
+            )
+              throw Error("Unrecognized log URL.");
+            await request("ui/open-link", { url: u.href });
+          } catch (e) {
+            warn(e.message);
+          }
+        }
+        function dispose() {
+          disposed = true;
+          clearTimeout(fallback);
+          for (const p of pending.values()) {
+            clearTimeout(p.timer);
+            p.reject(Error("View closed."));
+          }
+          pending.clear();
+        }
+        window.addEventListener("message", (event) => {
+          if (
+            event.source !== parent ||
+            disposed ||
+            event.data?.jsonrpc !== "2.0"
+          )
+            return;
+          const msg = event.data;
+          if (msg.id !== undefined && !msg.method) {
+            const p = pending.get(msg.id);
+            if (p) {
+              clearTimeout(p.timer);
+              pending.delete(msg.id);
+              msg.error
+                ? p.reject(Error(msg.error.message || "Host request failed."))
+                : p.resolve(msg.result);
+            }
+            return;
+          }
+          if (msg.method === "ui/notifications/tool-result") {
+            if (!loading)
+              try {
+                accept(msg.params);
+              } catch (e) {
+                received = true;
+                clearTimeout(fallback);
+                warn(e.message);
+              }
+          } else if (msg.method === "ui/notifications/host-context-changed")
+            applyContext(msg.params || {});
+          else if (msg.method === "ui/notifications/tool-cancelled") {
+            clearTimeout(fallback);
+            generation++;
+            loading = false;
+            warn("Loading cancelled. Refresh when ready.");
+            render();
+          } else if (msg.method === "ui/resource-teardown") {
+            send({ id: msg.id, result: {} });
+            dispose();
+          } else if (msg.method === "ping") send({ id: msg.id, result: {} });
+          else if (msg.id !== undefined)
+            send({
+              id: msg.id,
+              error: { code: -32601, message: "Method not supported" },
+            });
+        });
+        el("refresh").onclick = load;
+        el("query").oninput = render;
+        el("status").onchange = render;
+        el("expand").onclick = async () => {
+          try {
+            const r = await request("ui/request-display-mode", {
+              mode: host.displayMode === "fullscreen" ? "inline" : "fullscreen",
+            });
+            host.displayMode = r.mode;
+            el("expand").textContent =
+              r.mode === "fullscreen" ? "Collapse" : "Expand";
+          } catch (e) {
+            warn(e.message);
+          }
+        };
+        if (admin) {
+          el("section").textContent = "Operations";
+          el("heading").textContent = "Asynchronous jobs";
+          el("subtitle").textContent =
+            "Executions, schedules and queues across Shorted";
+          el("query").placeholder = "Filter by job name or category";
+          el("status").classList.remove("hidden");
+        }
+        if (window.matchMedia?.("(prefers-color-scheme: dark)").matches)
+          document.documentElement.dataset.theme = "dark";
+        window.addEventListener("pagehide", dispose, { once: true });
+        render();
+        if (parent !== window)
+          request(
+            "ui/initialize",
+            {
+              appInfo: {
+                name: admin ? "Shorted async jobs" : "Shorted market overview",
+                version: "1.0.0",
+              },
+              appCapabilities: {
+                availableDisplayModes: ["inline", "fullscreen"],
+              },
+              protocolVersion: "2026-01-26",
+            },
+            10000,
+          )
+            .then((result) => {
+              connected = true;
+              notify("ui/notifications/initialized", {});
+              applyContext(result?.hostContext || {});
+              if (!received)
+                fallback = setTimeout(() => {
+                  if (!received) load();
+                }, 1500);
+            })
+            .catch((e) => warn(e.message));
+        else
+          warn("Open this view from the Shorted MCP connector to load data.");
+      })();
+    </script>
+  </body>
+</html>

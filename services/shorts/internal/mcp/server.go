@@ -45,6 +45,7 @@ func NewServer(src DataSource) *sdk.Server {
 
 	if src != nil {
 		registerAll(server, src)
+		registerStockResources(server, src)
 	}
 
 	return server

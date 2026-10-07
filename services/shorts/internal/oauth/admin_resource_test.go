@@ -58,6 +58,12 @@ func TestScopesDoNotCrossResources(t *testing.T) {
 	public, _ := resolveResource(resources, testResource)
 	admin, _ := resolveResource(resources, testAdminResource)
 
+	if _, ok := normaliseScope(public, "jobs:read", ""); ok {
+		t.Error("jobs:read was grantable on the public resource")
+	}
+	if got, ok := normaliseScope(admin, "jobs:read", ""); !ok || got != "jobs:read" {
+		t.Error("read-only admin grant failed")
+	}
 	if _, ok := normaliseScope(public, "news:publish", ""); ok {
 		t.Error("news:publish was grantable against the public /mcp resource")
 	}
@@ -69,8 +75,8 @@ func TestScopesDoNotCrossResources(t *testing.T) {
 	if got, _ := normaliseScope(public, "", ""); strings.Contains(got, "news:publish") {
 		t.Errorf("default public grant %q includes news:publish", got)
 	}
-	if got, ok := normaliseScope(admin, "", ""); !ok || got != "news:publish jobs:run" {
-		t.Errorf("default admin grant = %q, %v; want news:publish jobs:run", got, ok)
+	if got, ok := normaliseScope(admin, "", ""); !ok || got != "news:publish jobs:run jobs:read" {
+		t.Errorf("default admin grant = %q, %v; want news:publish jobs:run jobs:read", got, ok)
 	}
 	// A client that declares only ONE admin action is held to it.
 	if got, ok := normaliseScope(admin, "jobs:run", ""); !ok || got != "jobs:run" {

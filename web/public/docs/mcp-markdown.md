@@ -19,7 +19,7 @@ it will discover the flow, open a browser once, and come back authorised.
 
 ## What it covers
 
-Twenty-eight read-only tools across four domains:
+Twenty-nine read-only tools across four domains:
 
 - **Market and stocks** — ASIC short positions for ASX-listed securities,
   rankings, industry treemaps, squeeze candidates, price and short-interest
@@ -105,7 +105,7 @@ JSON parser.
 
 OAuth 2.1 **identifies you**, and raises your limits wherever per-caller quotas
 are applied (see below — they are not, today). It does not unlock tools: all
-twenty-four work anonymously, and none is reserved for a paid plan. There is
+twenty-nine work anonymously, and none is reserved for a paid plan. There is
 nothing to configure — point a client at the URL and it does the rest:
 
 1. It calls a tool, gets `401` with
@@ -180,3 +180,23 @@ concluding a gap is a bug.
 - [Glossary](https://shorted.com.au/glossary)
 
 Questions: support@shorted.com.au
+
+
+## Native views and mentions
+
+In hosts supporting [OpenAI MCP extensions](https://github.com/openai/mcp-extensions/blob/main/docs/spec.md),
+`list_top_shorts` also opens the Market overview from the sidebar or as a chat tab.
+It accepts an empty argument object and returns the same structured ranking as
+ordinary MCP clients. The embedded view supports host themes, stock inspection,
+and `/stocks/{code}` deep links.
+
+`search_stock_mentions` searches companies/tickers for composer references. Each
+`shorted://stocks/{code}` reference resolves to current reported stock data through
+`resources/read`. An empty query is valid and returns no suggestions. Tool calls
+and resource reads count towards the app-layer quota when it is enabled;
+`initialize`, `tools/list`, `resources/list` and `prompts/list` remain free.
+
+Administrators connect **separately** to `https://api.shorted.com.au/mcp/admin` for
+job visibility and publishing. Request `jobs:read` for monitoring-only access.
+The public server never advertises admin jobs or accepts admin tokens. Existing
+admin connections must reconnect after deployment to approve the new read scope.

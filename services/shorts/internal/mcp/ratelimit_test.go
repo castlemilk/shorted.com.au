@@ -23,12 +23,14 @@ func jsonRPCRequest(body string) *http.Request {
 
 // ------------------------------------------------------------------ counting
 
-func TestOnlyToolCallsCost(t *testing.T) {
+func TestToolCallsAndResourceReadsCost(t *testing.T) {
 	cases := []struct {
 		name string
 		body string
 		want int
 	}{
+		{"stock resource", `{"method":"resources/read","params":{"uri":"shorted://stocks/BHP"}}`, 1},
+		{"resource batch", `[{"method":"resources/read"},{"method":"tools/call"},{"method":"resources/list"}]`, 2},
 		{"a tool call", `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{}}`, 1},
 		// Session preamble is free. A client that has not yet made a request
 		// anyone asked for must not be able to exhaust a quota by connecting.

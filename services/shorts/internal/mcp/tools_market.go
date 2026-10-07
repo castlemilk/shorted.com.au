@@ -63,7 +63,10 @@ func listTopShortsTool() Tool {
 		Domain:      "market",
 	}
 	tool.register = func(server *sdk.Server, src DataSource) {
-		sdk.AddTool(server, tool.spec(), listTopShortsHandler(src))
+		spec := tool.spec()
+		spec.Meta = entrypointMeta(publicAppURI)
+		spec.Icons = entrypointIcons()
+		sdk.AddTool(server, spec, listTopShortsHandler(src))
 	}
 	return tool
 }
