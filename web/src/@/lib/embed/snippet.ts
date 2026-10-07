@@ -1,4 +1,8 @@
 import { siteConfig } from "~/@/config/site";
+import type {
+  ChartPeriod,
+  ChartViewId,
+} from "~/@/components/charts/chart-views";
 
 /**
  * Copyable embed snippets for the public /embed/* widgets.
@@ -22,7 +26,14 @@ import { siteConfig } from "~/@/config/site";
  */
 
 export type EmbedTarget =
-  | { kind: "chart"; code: string }
+  | {
+      kind: "chart";
+      code: string;
+      /** Which StockChartPanel view to render. Default "short". */
+      view?: ChartViewId;
+      /** Initial period. Default "1y". */
+      period?: ChartPeriod;
+    }
   | { kind: "top-shorts"; limit?: number }
   | { kind: "treemap"; period?: string }
   | { kind: "basket"; basket?: string };
@@ -38,6 +49,8 @@ export interface EmbedSnippet {
   deepLink: string;
   /** Anchor text for the deep link. Keyword-rich by design. */
   deepLinkAnchor: string;
+  /** Where the widget's data comes from, e.g. "ASIC short position reports". */
+  source: string;
   /** The full copyable HTML. */
   html: string;
 }
@@ -48,7 +61,11 @@ interface TargetSpec {
   title: string;
   deepLinkPath: string;
   deepLinkAnchor: string;
+  /** Data provenance for the credit line. */
+  source: string;
 }
+
+const ASIC_SOURCE = "ASIC short position reports";
 
 function qs(params: Record<string, string | number | undefined>): string {
   const pairs = Object.entries(params)
@@ -57,16 +74,45 @@ function qs(params: Record<string, string | number | undefined>): string {
   return pairs.length ? `?${pairs.join("&")}` : "";
 }
 
+/** The /embed/chart defaults — the URL omits a param that equals its default. */
+export const DEFAULT_CHART_VIEW: ChartViewId = "short";
+export const DEFAULT_CHART_PERIOD: ChartPeriod = "1y";
+
+/** Keyword-rich subject per chart view, used in the iframe title and anchor. */
+/** What each chart view's data actually comes from. */
+const CHART_SOURCE: Record<ChartViewId, string> = {
+  short: ASIC_SOURCE,
+  price: "end-of-day ASX prices",
+  combined: "ASIC short position reports and end-of-day ASX prices",
+};
+
+const CHART_SUBJECT: Record<ChartViewId, string> = {
+  short: "short interest",
+  price: "share price",
+  combined: "share price and short interest",
+};
+
 function specFor(target: EmbedTarget): TargetSpec {
   switch (target.kind) {
     case "chart": {
       const code = target.code.trim().toUpperCase();
+      const view = target.view ?? DEFAULT_CHART_VIEW;
+      const period = target.period ?? DEFAULT_CHART_PERIOD;
+      const subject = CHART_SUBJECT[view];
       return {
-        path: `/embed/chart${qs({ code })}`,
-        height: 480,
-        title: `${code} short interest — Shorted.com.au`,
+        // Defaults are OMITTED so every snippet copied before views existed
+        // (`/embed/chart?code=BHP`, short interest, 1y) is byte-identical to
+        // what the short view builds today.
+        path: `/embed/chart${qs({
+          code,
+          view: view === DEFAULT_CHART_VIEW ? undefined : view,
+          period: period === DEFAULT_CHART_PERIOD ? undefined : period,
+        })}`,
+        height: view === "combined" ? 520 : 480,
+        title: `${code} ${subject} — Shorted.com.au`,
         deepLinkPath: `/shorts/${encodeURIComponent(code)}`,
-        deepLinkAnchor: `${code} short interest`,
+        deepLinkAnchor: `${code} ${subject}`,
+        source: CHART_SOURCE[view],
       };
     }
     case "top-shorts":
@@ -76,6 +122,7 @@ function specFor(target: EmbedTarget): TargetSpec {
         title: "Most shorted ASX stocks — Shorted.com.au",
         deepLinkPath: "/top",
         deepLinkAnchor: "most shorted ASX stocks",
+        source: ASIC_SOURCE,
       };
     case "treemap":
       return {
@@ -84,6 +131,7 @@ function specFor(target: EmbedTarget): TargetSpec {
         title: "ASX short positions by industry — Shorted.com.au",
         deepLinkPath: "/industry-intelligence",
         deepLinkAnchor: "ASX short positions by industry",
+        source: ASIC_SOURCE,
       };
     case "basket":
       return {
@@ -92,6 +140,7 @@ function specFor(target: EmbedTarget): TargetSpec {
         title: "ASX short basket — Shorted.com.au",
         deepLinkPath: "/statistics",
         deepLinkAnchor: "ASX short selling statistics",
+        source: ASIC_SOURCE,
       };
   }
 }
@@ -111,7 +160,7 @@ export function buildEmbedSnippet(target: EmbedTarget): EmbedSnippet {
     `<figure style="margin:0">`,
     `  <iframe src="${iframeSrc}" width="100%" height="${spec.height}" loading="lazy" frameborder="0" title="${spec.title}"></iframe>`,
     `  <figcaption style="font:14px/1.4 system-ui,sans-serif;margin-top:8px">`,
-    `    <a href="${deepLink}">${spec.deepLinkAnchor}</a> — data from <a href="${siteConfig.url}">Shorted.com.au</a>, sourced from ASIC short position reports`,
+    `    <a href="${deepLink}">${spec.deepLinkAnchor}</a> — data from <a href="${siteConfig.url}">Shorted.com.au</a>, sourced from ${spec.source}`,
     `  </figcaption>`,
     `</figure>`,
   ].join("\n");
@@ -122,6 +171,7 @@ export function buildEmbedSnippet(target: EmbedTarget): EmbedSnippet {
     title: spec.title,
     deepLink,
     deepLinkAnchor: spec.deepLinkAnchor,
+    source: spec.source,
     html,
   };
 }

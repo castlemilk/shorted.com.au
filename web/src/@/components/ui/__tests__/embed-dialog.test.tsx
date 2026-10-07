@@ -61,4 +61,30 @@ describe("EmbedDialog", () => {
       "https://shorted.com.au/embed/top-shorts?limit=20",
     );
   });
+
+  it("embeds the view and period the reader was looking at", async () => {
+    const user = userEvent.setup();
+    render(
+      <EmbedDialog
+        target={{ kind: "chart", code: "BHP", view: "combined", period: "6m" }}
+      />,
+    );
+
+    await user.click(screen.getByTitle("Embed this chart on your site"));
+
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => {
+      expect(dialog.textContent).toContain(
+        "https://shorted.com.au/embed/chart?code=BHP&view=combined&period=6m",
+      );
+    });
+    expect(dialog.textContent).toContain('height="520"');
+    expect(dialog.textContent).toContain(
+      'href="https://shorted.com.au/shorts/BHP">BHP share price and short interest',
+    );
+    expect(dialog.textContent).toContain(
+      "updates daily from ASIC short position reports and end-of-day ASX prices",
+    );
+  });
 });
+

@@ -3,45 +3,49 @@
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
+import { parseEmbedChartParams } from "./params";
 
-const ShortChartEmbed = dynamic(
+const fallback = (
+  <div className="h-[100vh] w-full p-2">
+    <div className="h-full w-full animate-pulse rounded bg-muted" />
+  </div>
+);
+
+const StockChartEmbed = dynamic(
   () =>
-    import("~/@/components/charts/ShortChartEmbed").then(
-      (m) => m.ShortChartEmbed,
+    import("~/@/components/charts/StockChartEmbed").then(
+      (m) => m.StockChartEmbed,
     ),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-[400px] w-full bg-muted animate-pulse rounded" />
-    ),
-  },
+  { ssr: false, loading: () => fallback },
 );
 
 function EmbedChartInner() {
-  const searchParams = useSearchParams();
-  const code = searchParams.get("code")?.toUpperCase() ?? "BHP";
-
+  const { code, view, period } = parseEmbedChartParams(useSearchParams());
   return (
-    <div className="p-2">
-      <h2 className="text-sm font-semibold mb-2">
-        {code} Short Position History
-      </h2>
-      <ShortChartEmbed stockCode={code} height={400} />
+    // The iframe IS the viewport: fill it, and let the chart take what is left.
+    <div className="h-[100vh] w-full overflow-auto">
+      <StockChartEmbed
+        // Remount on a param change so the period state resets with the URL.
+        key={`${code}:${view}:${period}`}
+        stockCode={code}
+        defaultView={view}
+        defaultPeriod={period}
+      />
     </div>
   );
 }
 
 /**
- * Embeddable short position chart widget.
- * Usage: <iframe src="https://shorted.com.au/embed/chart?code=BHP" />
+ * Embeddable per-stock chart: short interest (default), share price, or both.
+ *
+ *   <iframe src="https://shorted.com.au/embed/chart?code=BHP" />
+ *   <iframe src="https://shorted.com.au/embed/chart?code=BHP&view=combined&period=6m" />
+ *
+ * Snippets are built by ~/@/lib/embed/snippet; params are parsed by ./params.
  */
 export default function EmbedChart() {
   return (
-    <Suspense
-      fallback={
-        <div className="h-[400px] w-full bg-muted animate-pulse rounded" />
-      }
-    >
+    <Suspense fallback={fallback}>
       <EmbedChartInner />
     </Suspense>
   );
