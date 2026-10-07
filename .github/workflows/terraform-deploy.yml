@@ -209,59 +209,12 @@ jobs:
             exit 1
           fi
 
-  build-docker-images:
+  build-images:
     needs: [determine-environment, validate-secrets]
     # PRs plan the production configuration without publishing images.
     if: github.event_name != 'pull_request'
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - name: shorts
-            dockerfile: services/shorts/Dockerfile
-            context: services
-          - name: chat-service
-            dockerfile: services/chat-service/Dockerfile
-            context: services
-          - name: stock-price-ingestion
-            dockerfile: services/stock-price-ingestion/Dockerfile
-            context: services/stock-price-ingestion
-          - name: asx-discovery
-            dockerfile: services/asx-discovery/Dockerfile
-            context: services
-          - name: market-data-sync
-            dockerfile: services/market-data-sync/Dockerfile
-            context: services
-          - name: enrichment-processor
-            dockerfile: services/enrichment-processor/Dockerfile
-            context: services
-          - name: house-price-collector
-            dockerfile: services/house-price-collector/Dockerfile
-            context: services
-          - name: shorted-jobs
-            dockerfile: services/jobs/Dockerfile
-            context: services
-          # Same binary + build stage as shorted-jobs, Debian + Chromium
-          # runtime. Only `shorted discovery` needs it; the distroless image
-          # above stays lean for every other job.
-          - name: shorted-jobs-browser
-            dockerfile: services/jobs/Dockerfile.browser
-            context: services
-          - name: signals-collector
-            dockerfile: services/signals-collector/Dockerfile
-            context: services/signals-collector
-          - name: report-extractor
-            dockerfile: services/report-extractor/Dockerfile
-            context: services/report-extractor
-          # The newsroom CLI (shorted-news-publish job). content/news is fed in
-          # as a NAMED context so each merged article is baked into the image
-          # without widening the build context to the whole repo.
-          - name: take-writer
-            dockerfile: scripts/take-writer/Dockerfile
-            context: scripts/take-writer
-            build_contexts: content=content/news
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -279,117 +232,36 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
 
-      # A persistent builder on the self-hosted rig: its layer cache and the
-      # Dockerfiles' Go module/build cache mounts survive across jobs and are
-      # shared by every runner replica on the host. The default (a fresh
-      # builder per job, torn down afterwards) rebuilt every Go dependency
-      # from a cold cache for each of the eight images and then shipped a
-      # mode=max layer cache to GitHub — ~30 minutes per image.
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
         with:
           name: shorted-builder
           cleanup: false
 
-      - name: Build and push ${{ matrix.service.name }}
-        uses: docker/build-push-action@v7
-        with:
-          context: ${{ matrix.service.context }}
-          file: ${{ matrix.service.dockerfile }}
-          build-contexts: ${{ matrix.service.build_contexts }}
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:${{ needs.determine-environment.outputs.image-tag }}
-            ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:latest
-          secrets: |
-            github_token=${{ secrets.STEALTH_PAT }}
-
-  build-ko-images:
-    needs: [determine-environment, validate-secrets]
-    if: github.event_name != 'pull_request'
-    runs-on: [self-hosted, cuttlefish, linux]
-    timeout-minutes: 150
-    strategy:
-      matrix:
-        service:
-          - name: market-data
-            importpath: ./market-data
-          - name: weekly-report-generator
-            importpath: ./weekly-report-generator
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: services/go.mod
-          cache: false
-
-      # setup-ko extracts to a RELATIVE `ko` path, and this job runs on a
-      # self-hosted runner that reuses its workspace between runs. A binary left
-      # by an earlier run — owned by another uid if that run used a container
-      # step — makes the extract fail with:
-      #
-      #   tar: ko: Cannot open: Permission denied
-      #
-      # which took down a production deploy on 2026-09-08 while a hotfix was
-      # queued behind it. GitHub-hosted runners start clean every time and never
-      # showed this; the move to the Cuttlefish runner is what exposed it.
-      #
-      # Best-effort by design: a failure to clean is a warning, not a build
-      # failure, because the extract may well succeed anyway and this step must
-      # not become a new way for the deploy to die.
-      - name: Clear stale ko binary (self-hosted workspace is reused)
-        run: |
-          for p in ko "${RUNNER_TEMP:-/tmp}/ko" "$HOME/.ko/ko"; do
-            [ -e "$p" ] || continue
-            rm -f "$p" 2>/dev/null && { echo "removed stale $p"; continue; }
-            sudo -n rm -f "$p" 2>/dev/null && { echo "removed stale $p (sudo)"; continue; }
-            echo "::warning::could not remove stale ko at $p — extract may fail"
-          done
-
-      - name: Setup ko
-        uses: ko-build/setup-ko@v0.9
-        with:
-          version: v0.19.1
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v3
-        with:
-          workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
-          service_account: ${{ needs.determine-environment.outputs.sa-email }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v3
-
-      - name: Configure Docker for Artifact Registry
-        run: |
-          gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
-
-      - name: Configure private Go module access
-        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
-
-      - name: Build and push ${{ matrix.service.name }}
-        working-directory: services
+      # ONE bake publishes every image (docker-bake.hcl). The ten Go images
+      # share a single builder stage in services/images.Dockerfile, so the
+      # shared module compiles once instead of once per image; the Python and
+      # Node images build alongside in the same BuildKit session. This replaced
+      # a 12-way docker matrix plus two ko jobs that serialized for over an
+      # hour on one runner and failed the whole release when any one slot
+      # stalled (2026-10-07). Image names and tags are unchanged.
+      - name: Build and push all images
         env:
-          KO_DOCKER_REPO: ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}
+          REGISTRY: ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted
+          IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
+          PLATFORM: linux/amd64
+          STEALTH_PAT: ${{ secrets.STEALTH_PAT }}
         run: |
-          ko build ${{ matrix.service.importpath }} \
-            --bare \
-            --platform=linux/amd64 \
-            --tags="${{ needs.determine-environment.outputs.image-tag }},latest"
+          docker buildx bake --file docker-bake.hcl --builder shorted-builder --push --progress plain
 
   terraform-plan:
-    needs: [determine-environment, validate-secrets, build-docker-images, build-ko-images]
+    needs: [determine-environment, validate-secrets, build-images]
     # Run even when production image builds are skipped for a pull request
     if: |
       always() &&
       needs.determine-environment.result == 'success' &&
       needs.validate-secrets.result == 'success' &&
-      (needs.build-docker-images.result == 'success' || needs.build-docker-images.result == 'skipped') &&
-      (needs.build-ko-images.result == 'success' || needs.build-ko-images.result == 'skipped')
+      (needs.build-images.result == 'success' || needs.build-images.result == 'skipped')
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
     # dedupes runs of the same ref, so two PRs (or a PR + a push to main)
@@ -1532,7 +1404,7 @@ jobs:
         run: bash services/house-price-collector/deploy/stage-rig.test.sh
 
   run-tests:
-    needs: [determine-environment, build-docker-images, build-ko-images]
+    needs: [determine-environment, build-images]
     runs-on: [self-hosted, cuttlefish, linux]
     timeout-minutes: 150
     if: github.event_name != 'pull_request'
