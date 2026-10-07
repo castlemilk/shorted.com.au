@@ -378,10 +378,21 @@ export const MobileTouchPinned: Story = {
     await waitFor(() => expect(capture(canvasElement)).toBeTruthy());
     const rect = capture(canvasElement);
     const box = rect.getBoundingClientRect();
-    const touch = (fx: number) => ({
-      clientX: box.left + box.width * fx,
-      clientY: box.top + box.height * 0.6,
-    });
+    // A real browser's TouchEvent constructor insists on real Touch objects
+    // (a plain {clientX, clientY} throws "Failed to convert value to 'Touch'"
+    // under the Vitest browser runner); jsdom has no Touch and accepts the
+    // plain shape, so build whichever the runtime supports.
+    const touch = (fx: number) => {
+      const init = {
+        identifier: 1,
+        target: rect,
+        clientX: box.left + box.width * fx,
+        clientY: box.top + box.height * 0.6,
+      };
+      return typeof Touch === "function"
+        ? new Touch(init)
+        : (init as unknown as Touch);
+    };
     fireEvent.touchStart(rect, { touches: [touch(0.25)], changedTouches: [touch(0.25)] });
     fireEvent.touchMove(rect, { touches: [touch(0.3)], changedTouches: [touch(0.3)] });
     fireEvent.touchEnd(rect, { touches: [], changedTouches: [touch(0.3)] });
