@@ -354,6 +354,47 @@ export const Mobile: Story = {
   ],
 };
 
+// Phone: press the chart, scrub, lift — the reading stays pinned, docked in the
+// top corner away from the finger (never under the thumb). Tap the same point
+// again (or the ×, or anywhere off the chart) to release it.
+export const MobileTouchPinned: Story = {
+  name: "Mobile (touch, pinned)",
+  tags: ["no-visual"], // interaction-only; the static frame matches Mobile
+  parameters: { viewport: { defaultViewport: "mobile1" } },
+  args: {
+    series: [priceSeries("PLS", "3m"), shortSeries("PLS", "3m")],
+    leftAxis: { side: "left", format: priceFmt },
+    rightAxis: { side: "right", format: shortFmt },
+    height: 300,
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 360, height: 320 }} className="rounded-lg border bg-background p-2">
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(capture(canvasElement)).toBeTruthy());
+    const rect = capture(canvasElement);
+    const box = rect.getBoundingClientRect();
+    const touch = (fx: number) => ({
+      clientX: box.left + box.width * fx,
+      clientY: box.top + box.height * 0.6,
+    });
+    fireEvent.touchStart(rect, { touches: [touch(0.25)], changedTouches: [touch(0.25)] });
+    fireEvent.touchMove(rect, { touches: [touch(0.3)], changedTouches: [touch(0.3)] });
+    fireEvent.touchEnd(rect, { touches: [], changedTouches: [touch(0.3)] });
+    // Still visible after the lift, pinned, and docked away from the finger.
+    await waitFor(() => {
+      const tip = canvasElement.querySelector("[data-chart-tooltip]");
+      expect(tip).toBeTruthy();
+      expect(tip!.hasAttribute("data-pinned")).toBe(true);
+      expect(tip!.hasAttribute("data-docked")).toBe(true);
+    });
+  },
+};
+
 export const Empty: Story = {
   args: { series: [], height: 300 },
   play: async ({ canvasElement }) => {

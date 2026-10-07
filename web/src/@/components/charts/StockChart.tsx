@@ -32,7 +32,13 @@ import {
   SeriesPath,
   VolumePath,
 } from "./chart-primitives";
-import { TooltipContent, nearest, useChartPointer } from "./chart-tooltip";
+import {
+  PIN_TOLERANCE_PX,
+  TooltipContent,
+  nearest,
+  useChartPointer,
+} from "./chart-tooltip";
+import { useCoarsePointer } from "~/@/hooks/use-coarse-pointer";
 import type {
   ChartPoint,
   ChartSeriesSpec,
@@ -49,6 +55,16 @@ const MOBILE_MAX = 500;
 // Min horizontal drag (px) before a press is treated as a measure/zoom gesture
 // rather than a click — below this we leave the view untouched.
 const MEASURE_MIN_PX = 6;
+// A touch that moves less than this between press and lift is a TAP (used to
+// tell a re-tap on the pinned crosshair, which releases it, from a scrub).
+const TAP_MAX_MOVE_PX = 6;
+// Mobile browsers replay a tap as mousemove/mousedown/mouseup/click ~0-300ms
+// after touchend. Mouse events this soon after a touch are those replays, not a
+// real mouse: ignore them, or the replayed mousedown would start a measure
+// gesture (and drop the pin) on every tap.
+const TOUCH_MOUSE_GUARD_MS = 800;
+// Width of the hover/pinned tooltip.
+const TIP_W = 168;
 
 const measureDateFmt = (t: number) =>
   new Date(t).toLocaleDateString(undefined, {
@@ -63,7 +79,8 @@ function normalizePoints(points: ChartPoint[]): ChartPoint[] {
   return points.map((p, i) => ({ t: p.t, v: norm[i] ?? 0 }));
 }
 
-function StockChartInner({
+/** Exported for tests only — use `StockChart` (sized by ParentSize) in app code. */
+export function StockChartInner({
   width,
   height,
   series,
@@ -184,11 +201,21 @@ function StockChartInner({
     });
   }, [decVolume, mainH]);
 
-  const { hover, onMove, onLeave } = useChartPointer({
+  const {
+    pinned,
+    active,
+    isPinnedView,
+    onMove,
+    onLeave,
+    pin,
+    unpin,
+  } = useChartPointer({
     xScale: dateScale,
     series: renderSeries,
     marginLeft: margin.left,
   });
+  const coarsePointer = useCoarsePointer();
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // ── Drag-to-measure + zoom ────────────────────────────────────────────────
   // Press-drag horizontally across the plot: a shaded region tracks the cursor
@@ -262,10 +289,95 @@ function StockChartInner({
   }, [setMeasureBoth, setFiltered]);
 
   const resetView = useCallback(() => {
+    unpin();
     setMeasureBoth(null);
     brushRef.current?.reset();
     setFiltered(null);
-  }, [setMeasureBoth]);
+  }, [setMeasureBoth, unpin]);
+
+  // ── Touch: scrub to read, lift to pin, re-tap the pin to release ─────────
+  // A hover cleared on touchend vanished the moment the finger lifted, so a
+  // phone user could never read it. Lifting now PINS the reading.
+  const lastTouchAt = useRef(0);
+  const touchGesture = useRef<{
+    startX: number;
+    lastX: number;
+    onPin: boolean;
+  } | null>(null);
+  const isTouchReplay = useCallback(
+    () => Date.now() - lastTouchAt.current < TOUCH_MOUSE_GUARD_MS,
+    [],
+  );
+
+  const onPlotTouchStart = useCallback(
+    (e: React.TouchEvent<SVGRectElement>) => {
+      lastTouchAt.current = Date.now();
+      if (e.touches.length > 1) {
+        // Pinch: not ours to read. Drop the live reading, keep any pin.
+        touchGesture.current = null;
+        onLeave();
+        return;
+      }
+      const pt = localPoint(e);
+      if (!pt) return;
+      const x = pt.x - margin.left;
+      touchGesture.current = {
+        startX: x,
+        lastX: x,
+        onPin: !!pinned && Math.abs(pinned.cx - x) <= PIN_TOLERANCE_PX,
+      };
+      onMove(e); // a tap shows the crosshair without needing any movement
+    },
+    [margin.left, onLeave, onMove, pinned],
+  );
+
+  const onPlotTouchMove = useCallback(
+    (e: React.TouchEvent<SVGRectElement>) => {
+      lastTouchAt.current = Date.now();
+      const g = touchGesture.current;
+      if (!g) return;
+      const pt = localPoint(e);
+      if (pt) g.lastX = pt.x - margin.left;
+      onMove(e);
+    },
+    [margin.left, onMove],
+  );
+
+  const onPlotTouchEnd = useCallback(() => {
+    lastTouchAt.current = Date.now();
+    const g = touchGesture.current;
+    touchGesture.current = null;
+    if (g?.onPin && Math.abs(g.lastX - g.startX) < TAP_MAX_MOVE_PX) {
+      unpin(); // re-tap on the pinned crosshair releases it
+    } else if (g) {
+      pin(); // lock the current reading so it survives the lift
+    }
+    onLeave();
+  }, [onLeave, pin, unpin]);
+
+  const onPlotTouchCancel = useCallback(() => {
+    lastTouchAt.current = Date.now();
+    touchGesture.current = null;
+    onLeave(); // scroll took over: drop the live reading, keep the pin
+  }, [onLeave]);
+
+  // Release the pin on a press anywhere outside the chart. Registered only
+  // while pinned so idle charts add no document listeners.
+  const hasPin = pinned !== null;
+  useEffect(() => {
+    if (!hasPin) return;
+    const onDocPress = (ev: Event) => {
+      const el = containerRef.current;
+      if (el && ev.target instanceof Node && el.contains(ev.target)) return;
+      unpin();
+    };
+    document.addEventListener("mousedown", onDocPress);
+    document.addEventListener("touchstart", onDocPress, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", onDocPress);
+      document.removeEventListener("touchstart", onDocPress);
+    };
+  }, [hasPin, unpin]);
 
   const onPlotMouseDown = useCallback(
     (e: React.MouseEvent<SVGRectElement>) => {
@@ -273,16 +385,19 @@ function StockChartInner({
       // The 2nd click of a double-click would otherwise start (and the 2nd
       // mouseup commit) a stray zoom right before onDoubleClick resets it.
       if (e.detail > 1) return;
+      if (isTouchReplay()) return; // a tap's synthetic mousedown, not a drag
       const x = innerXFromEvent(e);
       if (x == null) return;
       onLeave(); // drop the hover crosshair while measuring
+      unpin();
       setMeasureBoth({ x0: x, x1: x });
     },
-    [innerXFromEvent, onLeave, setMeasureBoth],
+    [innerXFromEvent, isTouchReplay, onLeave, setMeasureBoth, unpin],
   );
 
   const onPlotMouseMove = useCallback(
-    (e: React.MouseEvent<SVGRectElement> | React.TouchEvent<SVGRectElement>) => {
+    (e: React.MouseEvent<SVGRectElement>) => {
+      if (isTouchReplay()) return; // a tap's synthetic mousemove
       if (measureRef.current) {
         const x = innerXFromEvent(e);
         if (x != null) setMeasureBoth({ x0: measureRef.current.x0, x1: x });
@@ -290,7 +405,7 @@ function StockChartInner({
       }
       onMove(e);
     },
-    [innerXFromEvent, onMove, setMeasureBoth],
+    [innerXFromEvent, isTouchReplay, onMove, setMeasureBoth],
   );
 
   const onPlotMouseLeave = useCallback(() => {
@@ -417,11 +532,12 @@ function StockChartInner({
         setFiltered(null);
       },
       reset: () => {
+        unpin();
         brushRef.current?.reset();
         setFiltered(null);
       },
     }),
-    [],
+    [unpin],
   );
 
   if (width < 10) return null;
@@ -430,7 +546,7 @@ function StockChartInner({
   const brushTop = height - brushH + 4;
 
   return (
-    <div data-chart-container style={{ position: "relative" }}>
+    <div ref={containerRef} data-chart-container style={{ position: "relative" }}>
       <svg width={width} height={height} data-points={renderSeries[0]?.points.length ?? 0}>
         <Group left={margin.left} top={margin.top}>
           <Grid yScale={leftScale} width={innerW} />
@@ -539,30 +655,36 @@ function StockChartInner({
               ))}
             </g>
           ) : (
-            hover && (
+            active && (
               <Crosshair
-                x={hover.cx}
+                x={active.cx}
                 innerH={mainH}
-                dots={hover.entries.map((e) => ({
+                dots={active.entries.map((e) => ({
                   y: scaleForAxis(e.series.axis)(e.point.v) ?? 0,
                   color: e.series.color,
                 }))}
               />
             )
           )}
-          {/* pointer capture — drag to measure + zoom, double-click to reset */}
+          {/* pointer capture — drag to measure + zoom, double-click to reset;
+              touch: scrub to read, lift to pin, re-tap to release. pan-y keeps
+              vertical page scroll; a horizontal finger move scrubs. (React
+              touch listeners are passive, so CSS is the only lever here.) */}
           <rect
             x={0}
             y={0}
             width={innerW}
             height={mainH}
             fill="transparent"
-            style={{ cursor: "crosshair" }}
+            data-chart-capture
+            style={{ cursor: "crosshair", touchAction: "pan-y" }}
             onMouseDown={onPlotMouseDown}
             onMouseMove={onPlotMouseMove}
-            onTouchMove={onPlotMouseMove}
             onMouseLeave={onPlotMouseLeave}
-            onTouchEnd={onLeave}
+            onTouchStart={onPlotTouchStart}
+            onTouchMove={onPlotTouchMove}
+            onTouchEnd={onPlotTouchEnd}
+            onTouchCancel={onPlotTouchCancel}
             onDoubleClick={resetView}
           />
         </Group>
@@ -615,42 +737,100 @@ function StockChartInner({
         )}
       </svg>
 
-      {hover &&
+      {active &&
         !measure &&
         (() => {
-          // Position the tooltip next to the cursor, INSIDE the chart container.
-          // No portal / viewport math (which mis-measured on scrolled, sticky-
-          // header pages) — coordinates are relative to this relative wrapper.
-          const TIP_W = 168;
-          const TIP_H = 120;
-          const anchorX = hover.cx + margin.left;
-          const anchorY = hover.cy;
-          const left =
-            anchorX + 14 + TIP_W <= width
-              ? anchorX + 14
-              : Math.max(4, anchorX - 14 - TIP_W);
-          const top = Math.min(
-            Math.max(4, anchorY + 14),
-            Math.max(4, height - TIP_H),
-          );
+          // Coordinates are relative to this relative wrapper — no portal /
+          // viewport math (which mis-measured on scrolled, sticky-header pages).
+          //
+          // Fine pointer: follow the cursor. Finger (coarse pointer, or any
+          // touch-driven reading): DOCK in the top corner on the side away from
+          // the crosshair — next to the finger it sits under the thumb.
+          const docked = coarsePointer || active.source === "touch";
+          let left: number;
+          let top: number;
+          if (docked) {
+            top = margin.top + 4;
+            left =
+              active.cx < innerW / 2
+                ? Math.max(4, width - TIP_W - 4)
+                : margin.left + 4;
+          } else {
+            const TIP_H = 120;
+            const anchorX = active.cx + margin.left;
+            const anchorY = active.cy;
+            left =
+              anchorX + 14 + TIP_W <= width
+                ? anchorX + 14
+                : Math.max(4, anchorX - 14 - TIP_W);
+            top = Math.min(
+              Math.max(4, anchorY + 14),
+              Math.max(4, height - TIP_H),
+            );
+          }
           return (
             <div
               data-chart-tooltip
+              data-pinned={isPinnedView ? "" : undefined}
+              data-docked={docked ? "" : undefined}
+              role={isPinnedView ? "status" : undefined}
               style={{
                 position: "absolute",
                 left,
                 top,
+                ...(docked ? { width: TIP_W } : {}),
                 maxWidth: TIP_W,
                 background: chartTheme.tooltipBg,
                 border: "1px solid hsl(var(--border))",
                 borderRadius: 8,
-                padding: "8px 10px",
+                padding: isPinnedView ? "8px 30px 8px 10px" : "8px 10px",
                 boxShadow: "0 4px 12px hsl(var(--foreground) / 0.1)",
-                pointerEvents: "none",
+                // A pinned card is interactive (its release button); a live
+                // hover must never steal the pointer from the plot.
+                pointerEvents: isPinnedView ? "auto" : "none",
                 zIndex: 20,
               }}
             >
-              <TooltipContent hover={hover} leftAxis={leftAxis} rightAxis={rightAxis} />
+              <TooltipContent hover={active} leftAxis={leftAxis} rightAxis={rightAxis} />
+              {isPinnedView && (
+                <>
+                  <div
+                    style={{
+                      color: chartTheme.tooltipFg,
+                      opacity: 0.55,
+                      fontSize: 10,
+                      marginTop: 4,
+                    }}
+                  >
+                    Pinned · tap chart to move, tap again to release
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Release pinned reading"
+                    onClick={unpin}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      width: 32,
+                      height: 32,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "transparent",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      color: chartTheme.tooltipFg,
+                      opacity: 0.6,
+                      fontSize: 14,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ×
+                  </button>
+                </>
+              )}
             </div>
           );
         })()}
