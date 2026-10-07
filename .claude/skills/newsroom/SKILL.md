@@ -88,6 +88,39 @@ Entrypoint is `npx tsx src/index.ts <command>` (NOT `run.ts`).
 | `newsroom [--auto-publish] [--with-images] [--top=N]` | Legacy agenda→narrative loop (no investigator/ledger; brand image doubles as hero). | Prefer `newsroom-daily`. |
 | `agenda`, `narrative --stock=CODE`, `discover`, `draft`, `run` | Older single-purpose paths; still wired but not the investigative pipeline. | |
 
+### Publishing a `content/news` article from this machine (2026-10)
+
+The prod `shorted-news-publish` job publishes from `content/news` baked into
+its image, and nothing rebuilds that image while the deploy workflow is
+disabled, so a merged article is published locally with the job's own
+entrypoint:
+
+```bash
+cd scripts/take-writer
+export DATABASE_URL="$(grep -m1 '^DATABASE_URL=' ../../services/.env | cut -d= -f2- | tr -d '"' | sed 's/:6543/:5432/')"   # SESSION pooler
+export OPENAI_API_KEY="$(grep -m1 '^OPENAI_API_KEY=' ../../services/.env | cut -d= -f2-)"
+export GEMINI_API_KEY="$(grep -m1 '^GEMINI_API_KEY=' ../../.env | cut -d= -f2-)"
+export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/legacy_credentials/ben@shorted.com.au/adc.json   # GCS write
+export REVALIDATION_SECRET=$(gcloud secrets versions access latest --secret=REVALIDATION_SECRET --project=rosy-clover-477102-t5)
+export REVALIDATION_URL=https://shorted.com.au/api/revalidate
+npx tsx src/index.ts publish-content --slug=SLUG
+```
+
+- The machine's default ADC identity may not have `storage.objects.create`
+  on the logo bucket; the legacy `ben@shorted.com.au` file does. If it
+  answers `invalid_grant (reauth)`, run `gcloud auth login
+  --account=ben@shorted.com.au --update-adc` first.
+- Image generation holds the Postgres connection open for minutes. Use the
+  session pooler and keep the `keepAlive` + `error` listeners on every
+  `PgClient` (`publish.ts`, `validator.ts`): without them a dropped socket
+  killed the run between the vision review and `published_at` on
+  2026-10-07, after the images had been paid for. If that still happens, the
+  images are kept (`[publish] images present — skipping`) and the review
+  has already been logged as accepted, so finishing by hand is setting
+  `published_at` and revalidating `/news`, `/news/<slug>` and `/`.
+- `publish-content` refuses to overwrite a published article; edits to a
+  live take go through a reviewed update, not a re-publish.
+
 ### Daily operating flow (draft → review → publish → tweet)
 
 1. **Cron drafts** the takes each weekday morning (text only — no images, cheap, reviewable):

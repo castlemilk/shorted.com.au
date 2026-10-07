@@ -323,7 +323,10 @@ export async function validateArticle(slug: string, opts: { rounds?: number; req
   if (!dbUrl) throw new Error("DATABASE_URL not set");
   if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
   if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not set");
-  const pg = new PgClient({ connectionString: dbUrl });
+  const pg = new PgClient({ connectionString: dbUrl, keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
+  if (typeof pg.on === "function") {
+    pg.on("error", (err) => console.warn(`[pg] connection error: ${err.message}`));
+  }
   await pg.connect();
   const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

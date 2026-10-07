@@ -187,7 +187,7 @@ RETURNING slug, published_at
 
 /** Upsert parsed articles into editorial_takes, one row per slug. */
 async function upsertParsed(dbUrl: string, parsed: ParsedTake[], draftOnly = false): Promise<void> {
-  const pg = new PgClient({ connectionString: dbUrl });
+  const pg = new PgClient({ connectionString: dbUrl, keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
   await pg.connect();
   try {
     for (const p of parsed) {

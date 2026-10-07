@@ -568,7 +568,7 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
   const maxTurnsTake = Number(process.env.MAX_TURNS_TAKE ?? 6);
   const maxTurnsDeep = Number(process.env.MAX_TURNS_DEEPDIVE ?? 14);
 
-  const pg = new PgClient({ connectionString: dbUrl });
+  const pg = new PgClient({ connectionString: dbUrl, keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
   await pg.connect();
   const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -709,7 +709,7 @@ export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
   const maxTurnsTake = Number(process.env.MAX_TURNS_TAKE ?? 6);
   const maxTurnsDeep = Number(process.env.MAX_TURNS_DEEPDIVE ?? 14);
 
-  const pg = new PgClient({ connectionString: dbUrl });
+  const pg = new PgClient({ connectionString: dbUrl, keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
   await pg.connect();
   const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -781,7 +781,7 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
   if (!key) throw new Error("OPENAI_API_KEY not set");
   if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
-  const pg = new PgClient({ connectionString: dbUrl });
+  const pg = new PgClient({ connectionString: dbUrl, keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
   await pg.connect();
   const openai = new OpenAI({ apiKey: key });
   const storage = new Storage();
@@ -892,7 +892,7 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
 export async function runNewsroom(opts: NewsroomOptions): Promise<NewsroomResult[]> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL not set");
-  const pg = new PgClient({ connectionString: dbUrl });
+  const pg = new PgClient({ connectionString: dbUrl, keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
   await pg.connect();
 
   let openai: OpenAI | null = null;

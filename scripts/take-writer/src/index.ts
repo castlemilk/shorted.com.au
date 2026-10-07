@@ -436,7 +436,7 @@ async function main(): Promise<void> {
     case "agenda": {
       const dbUrl = process.env.DATABASE_URL;
       if (!dbUrl) throw new Error("DATABASE_URL not set");
-      const pg = new PgClient({ connectionString: dbUrl });
+      const pg = new PgClient({ connectionString: dbUrl, keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
       await pg.connect();
       try {
         const cands = await buildAgenda(pg, {
@@ -463,7 +463,7 @@ async function main(): Promise<void> {
       if (!args.stockCode) throw new Error("--stock=CODE required for narrative");
       const dbUrl = process.env.DATABASE_URL;
       if (!dbUrl) throw new Error("DATABASE_URL not set");
-      const pg = new PgClient({ connectionString: dbUrl });
+      const pg = new PgClient({ connectionString: dbUrl, keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
       await pg.connect();
       try {
         const code = args.stockCode.toUpperCase();

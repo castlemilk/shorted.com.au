@@ -223,7 +223,7 @@ async function insertTake(args: {
 }): Promise<void> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL not set");
-  const pg = new PgClient({ connectionString: dbUrl });
+  const pg = new PgClient({ connectionString: dbUrl, keepAlive: true, keepAliveInitialDelayMillis: 5_000 });
   await pg.connect();
   try {
     const publishedClause = args.autoPublish ? "NOW()" : "NULL";
