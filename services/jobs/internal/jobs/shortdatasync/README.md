@@ -17,6 +17,8 @@ shorted short-data-sync                 # live run
 shorted short-data-sync -dry-run        # download + parse, write nothing
 shorted short-data-sync -shadow         # dry run + JSON parity summary on stdout
 shorted short-data-sync -days 30        # wider window on an empty table
+shorted short-data-sync -poll           # intraday probe: ingest only new files, no reconcile
+shorted short-data-sync -poll -dry-run  # probe + parse, write nothing
 ```
 
 ## Environment contract
@@ -32,6 +34,7 @@ working; a flag wins when both are present.
 | — | `-reconcile-from` / `-reconcile-to` | unset | Go-only. Reconcile an explicit date range instead of both windows: the one-off repair of history. |
 | `SYNC_BATCH_SIZE` | `-batch-size` | 500 | Only written to `sync_status.checkpoint_batch_size` for dashboard continuity — there is no stock batching left to size. |
 | `SYNC_ALGOLIA` | `-sync-algolia` | false | Triggers the index sync after a successful run. |
+| — (flag only, deliberately) | `-poll` | false | Go-only. The intraday probe — see [Poll mode](#poll-mode--closing-the-gap-to-asics-1130-publication). No env var on purpose: the job's env is shared by every execution, so a `SYNC_POLL` left set would turn the daily backstop into a poll and switch reconcile off. Refused with `-shadow`, `-stocks`, `-validate-days` or any `-reconcile-*` flag; `-dry-run` is allowed. |
 | `DATABASE_URL` | — (env only) | — | Required. |
 | `ENVIRONMENT` | — (env only) | `development` | → `sync_status.environment`. |
 | `CLOUD_RUN_EXECUTION` → `K_SERVICE` → `CLOUD_RUN_JOB` → hostname | — (env only) | — | → `sync_status.hostname`, and the resume key. Order is load-bearing (PR #231). |
@@ -39,6 +42,43 @@ working; a flag wins when both are present.
 | `ALGOLIA_APP_ID`, `ALGOLIA_ADMIN_KEY`, `ALGOLIA_INDEX`, `ALGOLIA_SYNC_URL`, `ALGOLIA_SYNC_TOKEN` | — (env only) | — | Same two mechanisms as the Python (in-image script, else HTTP POST). |
 | `GCP_PROJECT` | — | — | Set by Terraform, read by neither implementation. |
 | `SYNC_DAYS_STOCK_PRICES`, `SYNC_KEY_METRICS`, `ALPHA_VANTAGE_API_KEY`, `MAX_STOCK_FAILURE_RETRIES` | **unsupported** | — | Price/metric tier — see below. Setting one logs a loud warning rather than being silently ignored. |
+
+## Poll mode — closing the gap to ASIC's 11:30 publication
+
+ASIC publishes each day's file at **11:30 Australia/Sydney**, consistently
+(measured 2026-10-01..06 from the `Last-Modified` header on
+`RR<yyyymmdd>-001-SSDailyAggShortPos.csv`: 00:30 UTC during AEDT, 01:30 UTC
+during AEST). The daily run fires at 10:00 UTC, about 9.5 hours after every
+file appears. That lag is ours; ASIC's own T+4 business-day delay is not.
+
+So the module also schedules `shorted short-data-sync -poll`
+(`google_cloud_scheduler_job.poll_sync` in `terraform/modules/short-data-sync`,
+`*/15 11-15 * * 1-5` in `Australia/Sydney`: every 15 minutes, 11:00–15:45,
+weekdays). The daily 10:00 UTC run stays the backstop and the only run that
+reconciles.
+
+| | A poll that finds nothing | A poll that finds files |
+|---|---|---|
+| `LastShortsDate` SELECT + ASIC index fetch | yes | yes |
+| Stuck-run cleanup, `sync_status` row | **no** | yes (start + complete) |
+| Download / parse / upsert | no | only the files after `MAX("DATE")` |
+| Reconcile pass | no | **no** — the daily run owns it |
+| Health report, MV refresh | no | yes |
+| Revalidation ping | no | yes, when rows changed |
+| Algolia | no | per `SYNC_ALGOLIA` |
+
+An empty table is an error (a poll's window is "after `MAX("DATE")`"; run a
+plain sync for the initial load). A failed index fetch is logged and exits 0,
+the sync's own tolerance: the next poll is 15 minutes away. The decision itself
+is the pure `pollPlan`, built on the sync's `syncFileWindow` + `selectFiles`, so
+a poll and the daily run cannot disagree about what is new. When nothing is new
+the log carries one line: `📭 Poll: ASIC has published nothing after <date>;
+nothing to do`.
+
+The scheduler passes `-poll` as a per-execution container-args override, which
+needs `run.jobs.runWithOverrides` (in `roles/run.developer`, not
+`roles/run.invoker`); the module grants it to the scheduler's service account on
+this one job only.
 
 ## What this job does not do
 

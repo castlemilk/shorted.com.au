@@ -5,6 +5,7 @@
  * - Cloud Run Job for syncing ASIC short selling data
  * - Service account and IAM permissions
  * - Cloud Scheduler job (daily trigger)
+ * - Cloud Scheduler job (intraday `-poll` trigger, weekdays) — poll.tf
  * - GCS bucket for storing CSV files
  *
  * # Jobs-monolith: this job is MONOLITH-ONLY
@@ -36,6 +37,20 @@
  * locals below for the same reason they were coupled before: an image-only
  * change that left `/shorted` in place would crash-loop with
  * `exec: "/shorted": not found` — the rollback would BE the outage.
+ *
+ * ## Two schedules
+ *
+ * ASIC publishes each day's file at 11:30 Australia/Sydney (measured
+ * 2026-10-01..06 from the CSVs' Last-Modified: 00:30 UTC in AEDT, 01:30 UTC in
+ * AEST). `daily_sync` (10:00 UTC) runs ~9.5h after that and stays the backstop
+ * and the ONLY run that reconciles. `poll_sync` runs `short-data-sync -poll`
+ * every 15 minutes 11:00-15:45 Sydney time on weekdays: a poll that finds
+ * nothing new writes nothing (no sync_status row), and one that finds files
+ * ingests only those, without the reconcile pass. Lives in poll.tf (its own
+ * file because the v2 overrides body spells the deadline `timeout`, and
+ * scripts/tests/scheduler-override-body.test.mjs classifies v1/v2 per file).
+ * Gated by var.enable_poll_schedule; paused with the daily trigger by
+ * var.scheduler_paused.
  */
 
 locals {
@@ -345,4 +360,3 @@ resource "google_cloud_scheduler_job" "daily_sync" {
     google_cloud_run_v2_job_iam_member.scheduler_invoker
   ]
 }
-
