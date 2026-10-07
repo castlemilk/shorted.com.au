@@ -68,3 +68,14 @@ test("dependency upgrades require reviewing the prefetched image pins", () => {
     assert.match(source, /"postgres:15-alpine"/, `review default PostgreSQL image for ${path}`);
   }
 });
+
+test("hygiene checkout supplies the integration contract inputs", () => {
+  const workflow = readFileSync(join(repoRoot, ".github/workflows/repo-hygiene.yml"), "utf8");
+  const job = workflow.split("\n  portal-content-provenance:\n")[1]?.split(/\n  [a-z][a-z-]*:\n/)[0];
+  assert.ok(job, "repository hygiene job is missing");
+  const paths = [...job.matchAll(/^ {12}(\S+)$/gm)].map((match) => match[1]);
+  for (const file of ["services/Makefile", "services/go.mod", "services/market-data/setup_test.go", "test/integration/go.mod", "test/integration/setup_test.go"]) {
+    assert.ok(paths.some((path) => file === path || file.startsWith(`${path}/`)),
+      `hygiene sparse checkout omits ${file}`);
+  }
+});

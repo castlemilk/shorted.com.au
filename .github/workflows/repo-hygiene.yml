@@ -96,6 +96,7 @@ jobs:
             services
             web
             scripts
+            test/integration
             terraform
             deploy
             docs
