@@ -221,7 +221,7 @@ test("terraform deploy workflow gates housing contracts on open pull requests", 
     /^    if: github\.event_name == 'pull_request' && github\.event\.action != 'closed'$/m,
   );
   assert.doesNotMatch(job, /^    needs:/m, "housing contract tests must be independent");
-  assert.doesNotMatch(job, /\b(?:run-tests|build-docker-images|build-ko-images)\b/);
+  assert.doesNotMatch(job, /\b(?:run-tests|build-images|build-docker-images|build-ko-images)\b/);
 
   assert.match(job, /uses: actions\/checkout@v5/);
   assert.match(job, /uses: actions\/setup-go@v6/);

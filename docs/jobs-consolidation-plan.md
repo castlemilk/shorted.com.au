@@ -121,8 +121,8 @@ before cutover):**
 
 Terraform/CI now run both jobs from the ONE consolidated image:
 
-- CI builds `shorted-jobs` (`services/jobs/Dockerfile`, context `services`) in
-  the `build-docker-images` matrix, and threads `-var="shorted_jobs_image=…"`
+- CI builds `shorted-jobs` (the `shorted-jobs` target of `services/images.Dockerfile`,
+  context `services`) in the single `build-images` bake (`docker-bake.hcl`), and threads `-var="shorted_jobs_image=…"`
   into both `terraform plan` and `terraform apply` (mirrors the
   `house_price_collector_image` wiring from PR #211).
 - `terraform/modules/shorted-job/` is the generic Cloud Run Job + Scheduler +
@@ -247,8 +247,9 @@ no Terraform/schedule changed, nothing deleted. `services/market-data-sync` and
   cutover is a scheduler retarget, not a contract change.
 - `shorted discovery` (was `services/asx-discovery`), env-only contract
   unchanged (`GCS_BUCKET_NAME`, `DOWNLOAD_DIR`).
-- New `services/jobs/Dockerfile.browser`: SAME binary + build stage as
-  `Dockerfile`, Debian + Chromium runtime. `discovery` is the only job that
+- New `shorted-jobs-browser` image target (was `services/jobs/Dockerfile.browser`,
+  now a stage of `services/images.Dockerfile`): SAME binary + build stage as
+  `shorted-jobs`, Debian + Chromium runtime. `discovery` is the only job that
   needs it; the standard distroless image stays lean for the other eight.
 - **Landmine found:** `asx-discovery`'s scraper imports
   `github.com/mxschmitt/playwright-go` (resolved via `go.work` from the parent
@@ -396,9 +397,9 @@ schedulers, nothing destroyed.
 
 ### CI
 
-`shorted-jobs-browser` (`services/jobs/Dockerfile.browser`, context `services`,
-same `github_token=STEALTH_PAT` secret invocation as every other matrix entry)
-joins the `build-docker-images` matrix, and
+`shorted-jobs-browser` (the `shorted-jobs-browser` target of `services/images.Dockerfile`,
+context `services`, the one `github_token=STEALTH_PAT` bake secret shared by every Go
+target) is published by the `build-images` bake, and
 `-var="shorted_jobs_browser_image=…"` is threaded into both `terraform plan` and
 `terraform apply`, exactly like `shorted_jobs_image` in slice 1. Both envs gain
 a `shorted_jobs_browser_image` variable (defaulted to `…/shorted-jobs-browser:latest`).

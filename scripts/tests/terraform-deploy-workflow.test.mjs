@@ -196,11 +196,41 @@ test("non-production environments still run the normal ordered migration chain",
   assert.match(run, /\s+up\s*$/);
 });
 
-test("ko setup is pinned so deploy does not depend on GitHub latest-release lookup", () => {
-  const setupKo = step("build-ko-images", "Setup ko");
+// Images are published by ONE bake (docker-bake.hcl) so the shared Go module
+// compiles once. The old shape — a 12-way docker matrix plus two ko jobs —
+// serialized for over an hour on a single runner and failed the whole release
+// whenever one slot stalled (2026-10-07). Guard the shape, not the count.
+test("every image is published by the single bake job, and the deploy gates on it", () => {
+  assert.ok(workflow.jobs["build-images"], "build-images job missing");
+  assert.equal(workflow.jobs["build-docker-images"], undefined, "the per-image docker matrix must stay gone");
+  assert.equal(workflow.jobs["build-ko-images"], undefined, "the ko jobs must stay gone");
+  const bake = step("build-images", "Build and push all images");
+  assert.match(bake.run, /docker buildx bake --file docker-bake\.hcl .*--push/);
+  assert.equal(bake.env.REGISTRY, "${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted");
+  assert.equal(bake.env.IMAGE_TAG, "${{ needs.determine-environment.outputs.image-tag }}");
+  assert.equal(bake.env.PLATFORM, "linux/amd64");
+  assert.equal(bake.env.STEALTH_PAT, "${{ secrets.STEALTH_PAT }}", "the private Go module needs the token as a bake secret");
+  for (const job of ["terraform-plan", "run-tests"]) {
+    assert.ok(workflow.jobs[job].needs.includes("build-images"), `${job} must wait for build-images`);
+  }
+  assert.match(String(workflow.jobs["terraform-plan"].if).replace(/\s+/g, " "), /needs\.build-images\.result == 'success' \|\| needs\.build-images\.result == 'skipped'/);
+});
 
-  assert.equal(setupKo.uses, "ko-build/setup-ko@v0.9");
-  assert.equal(setupKo.with?.version, "v0.19.1");
+test("the bake publishes every image Terraform consumes, under the names it expects", () => {
+  const bake = readFileSync(new URL("../../docker-bake.hcl", import.meta.url), "utf8");
+  const vars = readFileSync(new URL("../../terraform/environments/prod/variables.tf", import.meta.url), "utf8");
+  const images = [...vars.matchAll(/^variable "([a-z_]+)_image"/gm)].map((m) => m[1].replace(/_/g, "-"))
+    .map((n) => (n === "shorts-api" ? "shorts" : n));
+  for (const name of images) {
+    assert.match(bake, new RegExp(`^target "${name}" \\{`, "m"), `docker-bake.hcl must define target "${name}" (terraform var *_image)`);
+    assert.match(bake, new RegExp(`tags\\s+=\\s+tags\\("${name}"\\)`), `target "${name}" must publish under its own repository name`);
+  }
+  // Every Go target shares the one Dockerfile and its builder stage.
+  const goDockerfile = readFileSync(new URL("../../services/images.Dockerfile", import.meta.url), "utf8");
+  for (const target of bake.match(/inherits = \["_go"\]\s+target\s+=\s+"([a-z-]+)"/g).map((m) => m.match(/"([a-z-]+)"$/)[1])) {
+    assert.match(goDockerfile, new RegExp(`^FROM .* AS ${target}$`, "m"), `images.Dockerfile must have a stage named ${target}`);
+  }
+  assert.equal((goDockerfile.match(/^FROM .* AS builder$/gm) ?? []).length, 1, "exactly one Go builder stage");
 });
 
 // The deploy must not ship over a red test suite.
