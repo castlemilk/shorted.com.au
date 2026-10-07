@@ -105,13 +105,24 @@ variable "enable_poll_schedule" {
   default     = true
 }
 
-variable "poll_schedule" {
+variable "poll_schedules" {
   description = <<-EOT
-    Cron (in Australia/Sydney) for the `-poll` trigger. Default: every 15
-    minutes 11:00-15:45, weekdays — bracketing ASIC's 11:30 local publication
-    with room for a late file. Pairs with the daily 10:00 UTC run, which
-    remains the backstop. A poll that finds nothing writes nothing.
+    Cron expressions (in Australia/Sydney) for the `-poll` trigger, one Cloud
+    Scheduler job per entry. ASIC posts each day's CSV at 11:30:11 local, to
+    the second (Last-Modified on every file 2026-09-24..10-01, across the
+    AEST->AEDT change), so the `publish` entry polls just after that moment:
+    11:32 catches the normal day, 11:37 and 11:47 a CDN or scheduler lag. The
+    `late` entry is the fallback for a genuinely late file, hourly to 15:15.
+    Seven polls a weekday instead of twenty, and a poll that finds nothing
+    writes nothing. The daily 10:00 UTC run remains the backstop. The key
+    `publish` keeps the original `<job>-poll` scheduler name; any other key
+    is suffixed (`<job>-poll-<key>`). Cron minute lists apply to every hour
+    in the expression, which is why a near-publication burst plus an hourly
+    tail needs two entries rather than one.
   EOT
-  type        = string
-  default     = "*/15 11-15 * * 1-5"
+  type        = map(string)
+  default = {
+    publish = "32,37,47 11 * * 1-5"
+    late    = "15 12-15 * * 1-5"
+  }
 }

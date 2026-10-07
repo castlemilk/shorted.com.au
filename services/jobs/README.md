@@ -721,8 +721,8 @@ CI image build. Full detail, env table, divergences and the shadow-run
 procedure: `internal/jobs/shortdatasync/README.md`.
 
 - **Two schedules.** The daily 10:00 UTC run (forward window + reconcile) and
-  `-poll` every 15 minutes 11:00–15:45 Australia/Sydney on weekdays, because
-  ASIC publishes at 11:30 Sydney time; a poll that finds nothing writes nothing
+  `-poll` at 11:32, 11:37 and 11:47 Australia/Sydney on weekdays, then hourly
+  to 15:15, because ASIC posts at 11:30:11 Sydney time; a poll that finds nothing writes nothing
   (no `sync_status` row). See "Poll mode" in the package README.
 
 - **Scope split.** The Python bundled THREE pipelines. Only the ASIC shorts tier
