@@ -45,7 +45,7 @@ export function EmbedDialogContent({
           <DialogTitle>Embed this {noun}</DialogTitle>
           <DialogDescription>
             Paste this snippet into any blog, forum post, or CMS. The {noun}{" "}
-            updates daily from ASIC short position reports.
+            updates daily from {snippet.source}.
           </DialogDescription>
         </DialogHeader>
         <div className="group relative">

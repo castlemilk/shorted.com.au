@@ -91,3 +91,27 @@ variable "scheduler_paused" {
   type        = bool
   default     = false
 }
+
+variable "enable_poll_schedule" {
+  description = <<-EOT
+    Create the intraday `short-data-sync -poll` Cloud Scheduler job and the
+    job-scoped roles/run.developer grant its args override needs. ASIC
+    publishes each day's file at 11:30 Australia/Sydney (measured 2026-10-01..06
+    from the CSVs' Last-Modified); the daily 10:00 UTC run lands ~9.5h later.
+    The poll closes that gap; the daily run stays the backstop and the only
+    run that reconciles. false removes both resources.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "poll_schedule" {
+  description = <<-EOT
+    Cron (in Australia/Sydney) for the `-poll` trigger. Default: every 15
+    minutes 11:00-15:45, weekdays — bracketing ASIC's 11:30 local publication
+    with room for a late file. Pairs with the daily 10:00 UTC run, which
+    remains the backstop. A poll that finds nothing writes nothing.
+  EOT
+  type        = string
+  default     = "*/15 11-15 * * 1-5"
+}

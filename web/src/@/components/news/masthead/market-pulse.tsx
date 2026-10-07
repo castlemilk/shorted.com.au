@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { getTopShortsSummary } from "~/app/actions/getTopShorts";
 
 /**
  * MarketPulse — a single horizontal "ticker" strip of the most shorted
@@ -13,7 +13,13 @@ export async function MarketPulse() {
   try {
     // withRetryAndNotFound already swallows errors (returns undefined),
     // but belt-and-braces: never let this strip take the page down.
-    const resp = await getTopShortsData("3m", 6, 0);
+    //
+    // summary_only through the ISR-cacheable client: this strip needs six
+    // codes and their latest figure, not time series, and /news is ISR — a
+    // fetch Next cannot data-cache marks the regeneration dynamic and Vercel
+    // then keeps the stale copy (2026-10-07: /news sat on a pre-publication
+    // render while revalidation reported success).
+    const resp = await getTopShortsSummary("3m", 6);
     stocks = (resp?.timeSeries ?? [])
       .filter((t) => Boolean(t.productCode))
       .slice(0, 6)
