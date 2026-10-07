@@ -14,7 +14,9 @@ package jobmonitor
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -85,10 +87,11 @@ type JobStatus struct {
 	// LATER execution has already completed (the Python sync ran 26-29h, so a
 	// quick on-demand run finishing first left the long run invisible to the
 	// newest-execution fields; the Run-now guard missed it in prod 2026-08-21).
-	RunningExecution string `json:"runningExecution,omitempty"`
-	RunningStartedAt string `json:"runningStartedAt,omitempty"`
-	ExecutionName   string    `json:"executionName"`
-	Message         string    `json:"message"`
+	RunningExecutions []ExecutionSummary `json:"runningExecutions,omitempty"`
+	RunningExecution  string             `json:"runningExecution,omitempty"`
+	RunningStartedAt  string             `json:"runningStartedAt,omitempty"`
+	ExecutionName     string             `json:"executionName"`
+	Message           string             `json:"message"`
 	// Note is static operator context from the catalog (why a job is retired,
 	// how it is triggered). Distinct from Message, which is run-derived.
 	Note    string `json:"note,omitempty"`
@@ -199,12 +202,14 @@ type Collector struct {
 	runner Runner
 	// execReader / artifactReader retrieve a validation run's outcome (see
 	// validate.go). nil means the default GCP backends; tests inject stubs.
+	execLister     ExecutionLister
 	execReader     ExecutionReader
 	artifactReader ArtifactReader
 
-	mu       sync.Mutex
-	cached   []JobStatus
-	cachedAt time.Time
+	mu        sync.Mutex
+	cached    []JobStatus
+	cachedAt  time.Time
+	cachedErr error
 }
 
 // NewCollector builds a Collector with a 60s cache TTL.
@@ -218,14 +223,14 @@ func NewCollector(cfg Config) *Collector {
 func (c *Collector) Collect(ctx context.Context) ([]JobStatus, error) {
 	c.mu.Lock()
 	if c.cached != nil && time.Since(c.cachedAt) < c.ttl {
-		out := c.cached
+		out, err := c.cached, c.cachedErr
 		c.mu.Unlock()
-		return out, nil
+		return out, err
 	}
 	c.mu.Unlock()
 
 	fresh, err := collect(ctx, c.cfg)
-	if err != nil {
+	if fresh == nil && err != nil {
 		c.mu.Lock()
 		stale := c.cached
 		c.mu.Unlock()
@@ -237,9 +242,10 @@ func (c *Collector) Collect(ctx context.Context) ([]JobStatus, error) {
 
 	c.mu.Lock()
 	c.cached = fresh
+	c.cachedErr = err
 	c.cachedAt = time.Now()
 	c.mu.Unlock()
-	return fresh, nil
+	return fresh, err
 }
 
 // collect does the actual GCP queries and merge. Exported indirectly via Collect.
@@ -254,28 +260,38 @@ func collect(ctx context.Context, cfg Config, authOpts ...option.ClientOption) (
 	order := []string{}
 
 	var lastRegionErr error
+	var warnings []error
 	regionsSeen := 0
 	for _, region := range cfg.RunRegions {
 		runOpts := append([]option.ClientOption{regionalRunEndpoint(region)}, authOpts...)
 		runSvc, err := run.NewService(ctx, runOpts...)
 		if err != nil {
 			lastRegionErr = fmt.Errorf("jobmonitor: create run client (%s): %w", region, err)
+			warnings = append(warnings, lastRegionErr)
 			continue
 		}
 
 		jobsParent := fmt.Sprintf("projects/%s/locations/%s", cfg.ProjectID, region)
-		jobsResp, err := runSvc.Projects.Locations.Jobs.List(jobsParent).PageSize(200).Context(ctx).Do()
+		jobsResp := &run.GoogleCloudRunV2ListJobsResponse{}
+		err = runSvc.Projects.Locations.Jobs.List(jobsParent).PageSize(200).Pages(ctx, func(page *run.GoogleCloudRunV2ListJobsResponse) error {
+			jobsResp.Jobs = append(jobsResp.Jobs, page.Jobs...)
+			return nil
+		})
 		if err != nil {
 			// One unreachable region degrades that region, not the whole fleet.
 			lastRegionErr = fmt.Errorf("jobmonitor: list jobs (%s): %w", region, err)
-			continue
+			warnings = append(warnings, lastRegionErr)
+			if len(jobsResp.Jobs) == 0 {
+				continue
+			}
 		}
 		regionsSeen++
 
 		for _, job := range jobsResp.Jobs {
 			name := basename(job.Name)
-			if _, dup := byName[name]; dup {
-				continue // same name in two regions: first region wins
+			key := name
+			if _, dup := byName[key]; dup {
+				key = region + "/" + name
 			}
 			st := &JobStatus{
 				Name:          name,
@@ -286,20 +302,27 @@ func collect(ctx context.Context, cfg Config, authOpts ...option.ClientOption) (
 			}
 			decorate(st)
 
-			// Latest executions for this job (best-effort).
-			execResp, execErr := runSvc.Projects.Locations.Jobs.Executions.
-				List(job.Name).PageSize(20).Context(ctx).Do()
-			if execErr == nil && execResp != nil && len(execResp.Executions) > 0 {
-				applyExecutions(st, execResp.Executions)
+			// Scan every page so an older in-flight execution cannot disappear
+			// behind 20 newer completed runs. The caller's deadline bounds I/O.
+			var executions []*run.GoogleCloudRunV2Execution
+			execErr := runSvc.Projects.Locations.Jobs.Executions.List(job.Name).PageSize(200).Pages(ctx, func(page *run.GoogleCloudRunV2ListExecutionsResponse) error {
+				executions = append(executions, page.Executions...)
+				return nil
+			})
+			if len(executions) > 0 {
+				applyExecutions(st, executions)
 			} else if job.LatestCreatedExecution != nil {
-				// Fall back to the reference embedded on the job itself.
 				st.ExecutionName = basename(job.LatestCreatedExecution.Name)
 				st.LastRunAt = firstNonEmpty(job.LatestCreatedExecution.CompletionTime, job.LatestCreatedExecution.CreateTime)
 				st.LastRunStatus = "unknown"
 			}
+			if execErr != nil {
+				warnings = append(warnings, fmt.Errorf("executions unavailable for %s/%s", region, name))
+				st.Message = "Execution history is incomplete; status may omit running executions."
+			}
 
-			byName[name] = st
-			order = append(order, name)
+			byName[key] = st
+			order = append(order, key)
 		}
 	}
 	// Every configured region failed — that's a hard error (serve stale instead).
@@ -314,10 +337,15 @@ func collect(ctx context.Context, cfg Config, authOpts ...option.ClientOption) (
 	schedSvc, schedErr := cloudscheduler.NewService(ctx, authOpts...)
 	if schedErr == nil {
 		schedParent := fmt.Sprintf("projects/%s/locations/%s", cfg.ProjectID, cfg.SchedulerRegion)
-		schedResp, listErr := schedSvc.Projects.Locations.Jobs.List(schedParent).PageSize(200).Context(ctx).Do()
-		if listErr == nil {
-			mergeSchedulers(byName, &order, schedResp.Jobs)
-		}
+		var triggers []*cloudscheduler.Job
+		schedErr = schedSvc.Projects.Locations.Jobs.List(schedParent).PageSize(200).Pages(ctx, func(page *cloudscheduler.ListJobsResponse) error {
+			triggers = append(triggers, page.Jobs...)
+			return nil
+		})
+		mergeSchedulers(byName, &order, triggers)
+	}
+	if schedErr != nil {
+		warnings = append(warnings, fmt.Errorf("scheduler status unavailable: %w", schedErr))
 	}
 
 	// Finalise health + assemble in stable order.
@@ -335,7 +363,7 @@ func collect(ctx context.Context, cfg Config, authOpts ...option.ClientOption) (
 		}
 		return healthRank(out[i].Health) < healthRank(out[j].Health)
 	})
-	return out, nil
+	return out, errors.Join(warnings...)
 }
 
 // applyExecutions picks the newest execution for last-run status and scans for
@@ -369,14 +397,18 @@ func applyExecutions(st *JobStatus, execs []*run.GoogleCloudRunV2Execution) {
 		}
 	}
 
-	// Any in-flight execution counts — not just the newest one.
+	// Every in-flight execution, including ones older than the latest run.
 	for _, e := range execs {
-		if execStatus(e) == "running" {
-			st.RunningExecution = basename(e.Name)
-			st.RunningStartedAt = firstNonEmpty(e.StartTime, e.CreateTime)
-			break
+		summary := summarizeExecution(e, time.Now())
+		if summary.Status == "running" {
+			st.RunningExecutions = append(st.RunningExecutions, summary)
+			if st.RunningExecution == "" {
+				st.RunningExecution = summary.ExecutionName
+				st.RunningStartedAt = summary.StartedAt
+			}
 		}
 	}
+
 }
 
 // mergeSchedulers attaches schedule/state to matching Cloud Run jobs and adds a
@@ -398,10 +430,26 @@ func mergeSchedulers(byName map[string]*JobStatus, order *[]string, schedulers [
 	for _, sj := range schedulers {
 		sName := basename(sj.Name)
 		matched := ""
-		for _, rn := range runNames {
-			if sName == rn || strings.HasPrefix(sName, rn+"-") {
-				matched = rn
-				break
+		// The target URL is authoritative, including when a scheduler's name
+		// does not resemble the job or the name exists in two regions.
+		targetName, targetRegion := schedulerJobTarget(sj)
+		if targetName != "" {
+			for key, job := range byName {
+				if job.Type == "job" && job.Name == targetName && job.Region == targetRegion {
+					matched = key
+					break
+				}
+			}
+		} else {
+			for _, rn := range runNames {
+				name := byName[rn].Name
+				if name == "" {
+					name = rn
+				} // older fixtures with map keys only
+				if sName == name || strings.HasPrefix(sName, name+"-") {
+					matched = rn
+					break
+				}
 			}
 		}
 
@@ -451,6 +499,35 @@ func mergeSchedulers(byName map[string]*JobStatus, order *[]string, schedulers [
 	for _, st := range byName {
 		applyPrimaryTrigger(st)
 	}
+}
+
+// schedulerJobTarget recognizes Cloud Run v1 and v2 job trigger URLs.
+func schedulerJobTarget(sj *cloudscheduler.Job) (string, string) {
+	if sj.HttpTarget == nil {
+		return "", ""
+	}
+	u, err := url.Parse(sj.HttpTarget.Uri)
+	if err != nil {
+		return "", ""
+	}
+	path := strings.TrimSuffix(u.Path, ":run")
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	name, region := "", ""
+	for i := 0; i+1 < len(parts); i++ {
+		switch parts[i] {
+		case "jobs":
+			name = parts[i+1]
+		case "locations":
+			region = parts[i+1]
+		}
+	}
+	if region == "" && strings.HasSuffix(u.Hostname(), "-run.googleapis.com") {
+		region = strings.TrimSuffix(u.Hostname(), "-run.googleapis.com")
+	}
+	if !strings.HasSuffix(u.Path, ":run") || region == "" {
+		return "", ""
+	}
+	return name, region
 }
 
 // applyPrimaryTrigger picks the schedule the console shows and that "overdue" is

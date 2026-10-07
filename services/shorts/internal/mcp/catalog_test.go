@@ -251,7 +251,7 @@ func TestThePublishedQuotasMatchWhatTheLimiterEnforces(t *testing.T) {
 	}
 	// Per TOOL CALL, which is what the middleware actually counts. Saying
 	// "per request" would understate the cost of a batch by its size.
-	if limits.Unit != "tool call" {
+	if limits.Unit != "tool call or resource read" {
 		t.Errorf("unit = %q", limits.Unit)
 	}
 }

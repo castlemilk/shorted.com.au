@@ -1,21 +1,37 @@
 # Admin MCP server — `/mcp/admin`
 
-A second MCP server for **administrators**, served by the shorts API at
-`https://api.shorted.com.au/mcp/admin`. It does two things: publish a merged
-`content/news` article to `/news` (the `shorted-news-publish` Cloud Run job), and
-run the stock picker's data job on demand (the `shorted-picks` Cloud Run job, in
-any of its four modes).
+A separate MCP server for **administrators**, served at
+`https://api.shorted.com.au/mcp/admin`. It observes asynchronous jobs and queues,
+publishes merged news articles, and starts the stock-picks data job.
+
+The public, anonymous-first research server is a separate connection:
+`https://api.shorted.com.au/mcp`. Public and admin tokens have different audiences;
+connecting either server does not grant access to the other.
 
 ## Connect it (once)
+
+For Codex, install the private **Shorted Admin** plugin packaged in
+`plugins/shorted-admin`, connect its OAuth server with your verified Shorted
+administrator account, and open **Shorted Admin** from the Apps navigation.
+The plugin's global and thread entrypoint calls `list_async_jobs` with `{}`.
+Its package contains only the endpoint, branding and operational instructions;
+credentials remain in the host connection.
+
 
 claude.ai → Settings → Connectors → **Add custom connector** →
 `https://api.shorted.com.au/mcp/admin`. Claude discovers the OAuth server,
 sends you to the Shorted consent screen, you sign in with your normal account
-and approve **news:publish** and **jobs:run**. The connector then appears in
-every Claude session (including Claude Code on the web) with four tools:
+and approve **jobs:read**, **news:publish** and **jobs:run**.
+For a monitoring-only client, request only `jobs:read`. The connector then appears in
+every Claude session (including Claude Code on the web) with nine tools:
 
 | Tool | Scope | What it does |
 |---|---|---|
+| `list_async_jobs` `{query?, status?}` | `jobs:read` | Fleet overview, concurrent running executions, schedule triggers, health, task counts, errors, log links and source coverage. Also opens the sidebar/chat view. `status: "running"` includes older or unhealthy active executions. |
+| `list_job_executions` `{job, region?, limit?, page_token?}` | `jobs:read` | Paginated history; follow `nextPageToken` until absent. Default 20, maximum 100. |
+| `get_job_execution` `{job, region?, execution_name}` | `jobs:read` | Fresh status of one execution, including task/retry/cancellation counts, timings and log link. |
+| `list_enrichment_jobs` `{status?, limit?, offset?}` | `jobs:read` | Database queue with queued/processing/completed/failed/cancelled filters, stock, timestamps and error; follow `nextOffset`. |
+| `search_job_mentions` `{query}` | `jobs:read` | Composer job search; returns up to 20 scope-protected resource references. |
 | `publish_news_article` `{slug, images?, force?}` | `news:publish` | Starts the publish job for a merged article; returns `execution_name` |
 | `news_publish_status` `{execution_name}` | `news:publish` | `running` / `succeeded` / `failed`, log link, failure reason |
 | `run_picks_job` `{mode, force?}` | `jobs:run` | Starts `shorted picks -mode <mode>` (`fundamentals` \| `filings` \| `refresh` \| `all`); returns `execution_name`, the argv and the next step of the coverage runbook |
@@ -44,11 +60,57 @@ lease still keeps two executions from writing at once).
 tool error naming the missing scope. Disconnect and reconnect the connector to
 approve it (an empty scope request is granted the whole admin vocabulary).
 
-**This connector exposes ONLY those four admin tools; it is not a superset of
+**This connector exposes only admin tools; it is not a superset of
 the public server.** A research client — one that needs short positions,
 strategy picks, fundamentals, housing, economy or the register of interests —
 must also connect the public URL, `https://api.shorted.com.au/mcp`, as its own
 connector.
+
+## Job visibility and freshness
+
+- Cloud Run Jobs are discovered across `JOBS_RUN_REGIONS` (defaults include
+  `australia-southeast2` and `us-central1`). Job, execution and scheduler lists
+  are paginated. Every execution page is scanned for active runs, so an older
+  run remains visible after newer executions finish. Same-name jobs in different
+  regions remain distinct; specify `region` when inspecting them.
+- Cloud Scheduler triggers come from `JOBS_SCHEDULER_REGION`. A successful HTTP
+  trigger means the target accepted the request, **not** that downstream work
+  finished. The response identifies this coverage limitation.
+- Housing rigs report `crawl_run_status` in Shorted. The overview includes
+  freshness, failures and last-run health. **Individual housing crawl tasks live
+  in Brandbrain and are not exposed by this connector.** A rig record is not a
+  live process inventory. External CI jobs are also outside this server's scope.
+- Enrichment queue counts cover every queued/processing row; use
+  `list_enrichment_jobs` for per-task state, timestamps and failures. A task stuck
+  in `processing` is not proof its worker is alive.
+- The latest attributable `sync_status` row adds short-sync record counts and
+  detects successful containers that did no work.
+
+The GCP snapshot has a 60-second cache. Check `observedAt`, `stale`, `incomplete`,
+`warnings` and `sources`; unavailable sources are never silently treated as
+healthy or empty. `get_job_execution` reads execution state directly. Poll with
+backoff instead of rapidly reloading the fleet. The overview's Refresh respects
+the cache, and execution history uses explicit pagination.
+
+## Native MCP extensions
+
+The implementation follows the [OpenAI MCP extensions wire specification](https://github.com/openai/mcp-extensions/blob/main/docs/spec.md):
+
+- `list_async_jobs` accepts `{}` and declares global/sidebar and thread entrypoints.
+- `ui://shorted/admin-jobs-v1.html` is an embedded MCP App with a restrictive CSP;
+  data flows through authenticated host tool calls, with no browser API token.
+- `search_job_mentions` advertises `mentions/search` and app visibility.
+  `shorted-admin://jobs/{region}/{name}` is resolved through `resources/read`,
+  requiring `jobs:read`, and marked private and immediately stale for caching.
+- The app consumes its initial tool result, follows host light/dark theme and
+  `/jobs/{region}/{name}` deep links, and supports explicit context/chat actions.
+  Clients without these extensions can use the ordinary tools.
+
+**Reconnect existing admin connections after deployment** to grant `jobs:read`.
+Older `news:publish` and `jobs:run` grants continue working for their existing tools;
+they do not silently acquire monitoring privileges. A plugin-aware host is needed
+for sidebar/chat entrypoints; publishing/installing a plugin is separate from
+serving the metadata.
 
 ## Who can use it
 
@@ -74,7 +136,7 @@ the Vercel origin, because Cloudflare challenges non-browser POSTs to the apex).
 
 - **Separate OAuth resource.** Tokens are audience-bound to exactly one
   resource: a `/mcp` token is refused on `/mcp/admin` and vice versa.
-- **Separate scope vocabulary.** `news:publish` and `jobs:run` are not in
+- **Separate scope vocabulary.** `news:publish`, `jobs:run` and `jobs:read` are not in
   `mcp.Scopes`; an empty scope request on `/mcp` still gets only the `:read`
   scopes, and an absent `resource` still defaults to `/mcp` — nothing ever
   defaults to the admin resource (`oauth/resources.go`). Admin scopes name

@@ -19,7 +19,7 @@ package mcp
 //     /mcp is granted the whole public vocabulary — keeping the admin scopes
 //     out of it is what stops an ordinary grant from carrying them by default.
 //
-// Scopes here name ACTIONS, one per tool family, and each tool checks its own
+// Scopes here name admin actions (including operational reads), and each tool checks its own
 // (requireScope). The HTTP layer requires a verified admin token carrying at
 // least one admin scope; it does not require all of them, so a connector
 // authorised before a scope existed keeps working for the tools it was granted
@@ -62,11 +62,13 @@ const (
 	// on-demand execution of a data job the server chooses, with arguments the
 	// server builds.
 	ScopeJobsRun = "jobs:run"
+	// ScopeJobsRead observes the fleet without permission to start jobs.
+	ScopeJobsRead = "jobs:read"
 )
 
 // AdminScopes is the admin resource's entire scope vocabulary, in published
 // order. An empty scope request against /mcp/admin is granted all of it.
-var AdminScopes = []string{ScopeNewsPublish, ScopeJobsRun}
+var AdminScopes = []string{ScopeNewsPublish, ScopeJobsRun, ScopeJobsRead}
 
 // AdminProtectedResourceMetadataPath is RFC 9728 §3.1's location for a
 // resource whose identifier has the path /mcp/admin.
@@ -157,6 +159,7 @@ func RequireAdmin(check AdminCheck) func(http.Handler) http.Handler {
 				http.Error(w, "forbidden: administrator access required", http.StatusForbidden)
 				return
 			}
+			w.Header().Set("Cache-Control", "private, no-store")
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -173,10 +176,11 @@ func hasAnyScope(granted, wanted []string) bool {
 }
 
 // AdminOperator is the slice of the job monitor the admin tools drive. Narrow
-// on purpose: the admin server can start and poll a publish, and start and
-// poll a picks run — two named jobs with server-built arguments, nothing else.
+// on purpose: writes are limited to publishing and picks; AdminReader exposes
+// operational observations without granting any additional write capability.
 // In particular it is NOT the fleet-wide RunJob.
 type AdminOperator interface {
+	AdminReader
 	RunPublish(ctx context.Context, req jobmonitor.PublishRequest) (*jobmonitor.PublishRun, error)
 	PublishResult(ctx context.Context, executionName string) (*jobmonitor.PublishStatus, error)
 	RunPicks(ctx context.Context, req jobmonitor.PicksRequest) (*jobmonitor.PicksRun, error)
@@ -195,16 +199,31 @@ type AdminTool struct {
 
 // AdminRegistry is every tool on the admin server.
 func AdminRegistry() []AdminTool {
-	return []AdminTool{publishNewsArticleTool(), newsPublishStatusTool(), runPicksJobTool(), picksJobStatusTool()}
+	return []AdminTool{publishNewsArticleTool(), newsPublishStatusTool(), runPicksJobTool(), picksJobStatusTool(),
+		listAsyncJobsTool(), listJobExecutionsTool(), getJobExecutionTool(), listEnrichmentJobsTool(), searchJobMentionsTool()}
 }
 
-// NewAdminServer builds the admin MCP server. It has tools only: no resources
-// or prompts, which describe the public data surface.
+// NewAdminServer builds the admin MCP server with operational tools, its app,
+// and scope-protected job mention resources.
 func NewAdminServer(pub AdminOperator) *sdk.Server {
 	server := sdk.NewServer(&sdk.Implementation{
 		Name: AdminServerName, Title: AdminServerTitle, Version: ServerVersion,
 		WebsiteURL: WebsiteURL, Icons: Icons(),
 	}, nil)
+	// go-sdk v1.7.0 unconditionally resets resource CacheScope to "public"
+	// after calling a resource handler. Apply the admin policy AFTER that
+	// normalization; setting it only in the handler is silently overwritten.
+	server.AddReceivingMiddleware(func(next sdk.MethodHandler) sdk.MethodHandler {
+		return func(ctx context.Context, method string, req sdk.Request) (sdk.Result, error) {
+			result, err := next(ctx, method, req)
+			if resource, ok := result.(*sdk.ReadResourceResult); ok && resource != nil {
+				resource.CacheScope = "private"
+				resource.TTLMs = 0
+			}
+			return result, err
+		}
+	})
+	registerAdminResources(server, pub)
 	if pub != nil {
 		for _, t := range AdminRegistry() {
 			t.register(server, pub)

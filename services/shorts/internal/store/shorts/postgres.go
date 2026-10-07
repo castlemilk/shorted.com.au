@@ -1686,6 +1686,8 @@ func (s *postgresStore) GetNextAvailableDate(after string) (string, error) {
 }
 
 func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	// Build dynamic query with filters
 	baseQuery := `
 		SELECT 
@@ -1738,7 +1740,7 @@ func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha
 	baseQuery += fmt.Sprintf(" LIMIT $%d", argIndex)
 	args = append(args, limit)
 
-	rows, err := s.db.Query(context.Background(), baseQuery, args...)
+	rows, err := s.db.Query(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query sync_status: %w", err)
 	}

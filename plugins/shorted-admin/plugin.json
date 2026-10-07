@@ -1,0 +1,26 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "shorted-admin",
+  "version": "0.1.0",
+  "description": "Monitor Shorted asynchronous jobs, execution history, enrichment queues and source health through the administrator MCP server.",
+  "author": {
+    "name": "Shorted"
+  },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Shorted Admin",
+        "shortDescription": "Jobs and queue monitoring",
+        "longDescription": "Inspect Shorted Cloud Run jobs and execution history, scheduler triggers, enrichment queue states, and housing rig reports in an interactive admin view. Administrator OAuth is required. Publishing and job execution tools are available only with their separate scopes.",
+        "developerName": "Shorted",
+        "category": "Developer Tools",
+        "capabilities": [
+          "Interactive"
+        ],
+        "logo": "./assets/icon.png",
+        "composerIcon": "./assets/icon.png",
+        "defaultPrompt": "Open Shorted Admin and show running jobs, failures and source health."
+      }
+    }
+  }
+}

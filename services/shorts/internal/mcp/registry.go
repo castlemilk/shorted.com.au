@@ -59,6 +59,7 @@ func Registry() []Tool {
 		// Discovery — finding stocks by name, by criteria, or by a named
 		// strategy's rules. See tools_strategies.go.
 		searchStocksTool(),
+		searchStockMentionsTool(),
 		screenStocksTool(),
 		listStrategiesTool(),
 		getStrategyPicksTool(),
