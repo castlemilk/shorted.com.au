@@ -228,12 +228,14 @@ run.docker.shorts.local:
 	docker run \
 		-e APP_STORE_POSTGRES_ADDRESS=postgres:5432 \
 	 --link postgres --net sql_default -p 9091:9091 --name sync-service shorts:latest 
+.PHONY: run.docker.shorts.superbase
 run.docker.shorts.superbase:
-	docker run \
+	@test -n "$$APP_STORE_POSTGRES_PASSWORD" || { echo "APP_STORE_POSTGRES_PASSWORD is required" >&2; exit 1; }
+	@docker run \
 		-e APP_STORE_POSTGRES_ADDRESS=aws-0-ap-southeast-2.pooler.supabase.com:6543 \
 		-e APP_STORE_POSTGRES_DATABASE=postgres \
 		-e APP_STORE_POSTGRES_USERNAME=postgres.xivfykscsdagwsreyqgf \
-		-e APP_STORE_POSTGRES_PASSWORD=6tOCck692RrQJzXL \
+		-e APP_STORE_POSTGRES_PASSWORD \
 	 --link postgres --net sql_default -p 9091:9091 --name shorts-service ${SHORTS_IMAGE}:${SHORTS_VERSION}
 deploy.gcr.shorts:
 	VERSION=${SHORTS_VERSION} IMAGE_NAME=${SHORTS_IMAGE} envsubst < shorts/cmd/server/service.template.yaml > shorts/cmd/server/service.yaml && \
