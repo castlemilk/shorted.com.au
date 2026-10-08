@@ -41,6 +41,7 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 		return connect.NewResponse(resp), nil
 	}
 	resp.InUniverse = true
+	resp.PriceFeatures = priceFeaturesProto(&u.candidates[u.index[code]])
 
 	for _, st := range strategies.Registry() {
 		eval, err := s.loadStrategyEvaluation(ctx, st)
@@ -74,4 +75,49 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 		resp.Fits = append(resp.Fits, fit)
 	}
 	return connect.NewResponse(resp), nil
+}
+
+const isoDay = "2006-01-02"
+
+// priceFeaturesProto is the candidate's mv_price_features row as the fit
+// response's PriceFeatures: every nullable number with its has_ flag, dates
+// as ISO days, nothing coalesced to zero. nil for a nil candidate.
+func priceFeaturesProto(c *strategies.Candidate) *shortsv1alpha1.PriceFeatures {
+	if c == nil {
+		return nil
+	}
+	pf := &shortsv1alpha1.PriceFeatures{
+		Close:             c.Close,
+		SessionsAvailable: c.SessionsAvailable,
+	}
+	if !c.AsOf.IsZero() {
+		pf.AsOf = c.AsOf.Format(isoDay)
+	}
+	set := func(dst *float64, has *bool, v *float64) {
+		if v != nil {
+			*dst, *has = *v, true
+		}
+	}
+	set(&pf.Sma50, &pf.HasSma50, c.SMA50)
+	set(&pf.Sma150, &pf.HasSma150, c.SMA150)
+	set(&pf.Sma200, &pf.HasSma200, c.SMA200)
+	set(&pf.Sma200PriorMonth, &pf.HasSma200PriorMonth, c.SMA200_1mAgo)
+	set(&pf.High52W, &pf.HasHigh52W, c.High52w)
+	set(&pf.Low52W, &pf.HasLow52W, c.Low52w)
+	set(&pf.BaseHigh, &pf.HasBaseHigh, c.BaseHigh)
+	set(&pf.BaseLow, &pf.HasBaseLow, c.BaseLow)
+	set(&pf.BaseDepthPct, &pf.HasBaseDepthPct, c.BaseDepthPct)
+	set(&pf.Rs3MPct, &pf.HasRs3MPct, c.RS3mPct)
+	set(&pf.Rs6MPct, &pf.HasRs6MPct, c.RS6mPct)
+	set(&pf.VolumeRatio50D, &pf.HasVolumeRatio50D, c.VolumeRatio50d)
+	if c.BaseLengthDays != nil {
+		pf.BaseLengthDays, pf.HasBaseLengthDays = *c.BaseLengthDays, true
+	}
+	if c.BreakoutRecent != nil {
+		pf.BreakoutRecent = *c.BreakoutRecent
+	}
+	if c.BreakoutDate != nil && !c.BreakoutDate.IsZero() {
+		pf.BreakoutDate = c.BreakoutDate.Format(isoDay)
+	}
+	return pf
 }
