@@ -1275,6 +1275,293 @@ func (x *StrategyFit) GetRules() []*RuleResult {
 	return nil
 }
 
+// The price features the evaluator read for one stock (mv_price_features),
+// so a chart can draw the levels the rules tested. Every nullable number
+// travels with a has_ flag; read the value only when its flag is true.
+type PriceFeatures struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	AsOf                string                 `protobuf:"bytes,1,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"` // YYYY-MM-DD of the last close.
+	Close               float64                `protobuf:"fixed64,2,opt,name=close,proto3" json:"close,omitempty"`
+	Sma50               float64                `protobuf:"fixed64,3,opt,name=sma50,proto3" json:"sma50,omitempty"`
+	HasSma50            bool                   `protobuf:"varint,4,opt,name=has_sma50,json=hasSma50,proto3" json:"has_sma50,omitempty"`
+	Sma150              float64                `protobuf:"fixed64,5,opt,name=sma150,proto3" json:"sma150,omitempty"`
+	HasSma150           bool                   `protobuf:"varint,6,opt,name=has_sma150,json=hasSma150,proto3" json:"has_sma150,omitempty"`
+	Sma200              float64                `protobuf:"fixed64,7,opt,name=sma200,proto3" json:"sma200,omitempty"`
+	HasSma200           bool                   `protobuf:"varint,8,opt,name=has_sma200,json=hasSma200,proto3" json:"has_sma200,omitempty"`
+	Sma200PriorMonth    float64                `protobuf:"fixed64,9,opt,name=sma200_prior_month,json=sma200PriorMonth,proto3" json:"sma200_prior_month,omitempty"`
+	HasSma200PriorMonth bool                   `protobuf:"varint,10,opt,name=has_sma200_prior_month,json=hasSma200PriorMonth,proto3" json:"has_sma200_prior_month,omitempty"`
+	High52W             float64                `protobuf:"fixed64,11,opt,name=high52w,proto3" json:"high52w,omitempty"`
+	HasHigh52W          bool                   `protobuf:"varint,12,opt,name=has_high52w,json=hasHigh52w,proto3" json:"has_high52w,omitempty"`
+	Low52W              float64                `protobuf:"fixed64,13,opt,name=low52w,proto3" json:"low52w,omitempty"`
+	HasLow52W           bool                   `protobuf:"varint,14,opt,name=has_low52w,json=hasLow52w,proto3" json:"has_low52w,omitempty"`
+	BaseHigh            float64                `protobuf:"fixed64,15,opt,name=base_high,json=baseHigh,proto3" json:"base_high,omitempty"`
+	HasBaseHigh         bool                   `protobuf:"varint,16,opt,name=has_base_high,json=hasBaseHigh,proto3" json:"has_base_high,omitempty"` // The pivot: the breakout and invalidation level.
+	BaseLow             float64                `protobuf:"fixed64,17,opt,name=base_low,json=baseLow,proto3" json:"base_low,omitempty"`
+	HasBaseLow          bool                   `protobuf:"varint,18,opt,name=has_base_low,json=hasBaseLow,proto3" json:"has_base_low,omitempty"`
+	BaseDepthPct        float64                `protobuf:"fixed64,19,opt,name=base_depth_pct,json=baseDepthPct,proto3" json:"base_depth_pct,omitempty"`
+	HasBaseDepthPct     bool                   `protobuf:"varint,20,opt,name=has_base_depth_pct,json=hasBaseDepthPct,proto3" json:"has_base_depth_pct,omitempty"`
+	BaseLengthDays      int32                  `protobuf:"varint,21,opt,name=base_length_days,json=baseLengthDays,proto3" json:"base_length_days,omitempty"`
+	HasBaseLengthDays   bool                   `protobuf:"varint,22,opt,name=has_base_length_days,json=hasBaseLengthDays,proto3" json:"has_base_length_days,omitempty"`
+	BreakoutRecent      bool                   `protobuf:"varint,23,opt,name=breakout_recent,json=breakoutRecent,proto3" json:"breakout_recent,omitempty"`
+	BreakoutDate        string                 `protobuf:"bytes,24,opt,name=breakout_date,json=breakoutDate,proto3" json:"breakout_date,omitempty"` // YYYY-MM-DD; empty when there was no breakout.
+	Rs3MPct             float64                `protobuf:"fixed64,25,opt,name=rs3m_pct,json=rs3mPct,proto3" json:"rs3m_pct,omitempty"`
+	HasRs3MPct          bool                   `protobuf:"varint,26,opt,name=has_rs3m_pct,json=hasRs3mPct,proto3" json:"has_rs3m_pct,omitempty"`
+	Rs6MPct             float64                `protobuf:"fixed64,27,opt,name=rs6m_pct,json=rs6mPct,proto3" json:"rs6m_pct,omitempty"`
+	HasRs6MPct          bool                   `protobuf:"varint,28,opt,name=has_rs6m_pct,json=hasRs6mPct,proto3" json:"has_rs6m_pct,omitempty"`
+	VolumeRatio50D      float64                `protobuf:"fixed64,29,opt,name=volume_ratio50d,json=volumeRatio50d,proto3" json:"volume_ratio50d,omitempty"`
+	HasVolumeRatio50D   bool                   `protobuf:"varint,30,opt,name=has_volume_ratio50d,json=hasVolumeRatio50d,proto3" json:"has_volume_ratio50d,omitempty"`
+	SessionsAvailable   int32                  `protobuf:"varint,31,opt,name=sessions_available,json=sessionsAvailable,proto3" json:"sessions_available,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *PriceFeatures) Reset() {
+	*x = PriceFeatures{}
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PriceFeatures) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PriceFeatures) ProtoMessage() {}
+
+func (x *PriceFeatures) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PriceFeatures.ProtoReflect.Descriptor instead.
+func (*PriceFeatures) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *PriceFeatures) GetAsOf() string {
+	if x != nil {
+		return x.AsOf
+	}
+	return ""
+}
+
+func (x *PriceFeatures) GetClose() float64 {
+	if x != nil {
+		return x.Close
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetSma50() float64 {
+	if x != nil {
+		return x.Sma50
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasSma50() bool {
+	if x != nil {
+		return x.HasSma50
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetSma150() float64 {
+	if x != nil {
+		return x.Sma150
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasSma150() bool {
+	if x != nil {
+		return x.HasSma150
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetSma200() float64 {
+	if x != nil {
+		return x.Sma200
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasSma200() bool {
+	if x != nil {
+		return x.HasSma200
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetSma200PriorMonth() float64 {
+	if x != nil {
+		return x.Sma200PriorMonth
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasSma200PriorMonth() bool {
+	if x != nil {
+		return x.HasSma200PriorMonth
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetHigh52W() float64 {
+	if x != nil {
+		return x.High52W
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasHigh52W() bool {
+	if x != nil {
+		return x.HasHigh52W
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetLow52W() float64 {
+	if x != nil {
+		return x.Low52W
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasLow52W() bool {
+	if x != nil {
+		return x.HasLow52W
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetBaseHigh() float64 {
+	if x != nil {
+		return x.BaseHigh
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasBaseHigh() bool {
+	if x != nil {
+		return x.HasBaseHigh
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetBaseLow() float64 {
+	if x != nil {
+		return x.BaseLow
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasBaseLow() bool {
+	if x != nil {
+		return x.HasBaseLow
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetBaseDepthPct() float64 {
+	if x != nil {
+		return x.BaseDepthPct
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasBaseDepthPct() bool {
+	if x != nil {
+		return x.HasBaseDepthPct
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetBaseLengthDays() int32 {
+	if x != nil {
+		return x.BaseLengthDays
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasBaseLengthDays() bool {
+	if x != nil {
+		return x.HasBaseLengthDays
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetBreakoutRecent() bool {
+	if x != nil {
+		return x.BreakoutRecent
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetBreakoutDate() string {
+	if x != nil {
+		return x.BreakoutDate
+	}
+	return ""
+}
+
+func (x *PriceFeatures) GetRs3MPct() float64 {
+	if x != nil {
+		return x.Rs3MPct
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasRs3MPct() bool {
+	if x != nil {
+		return x.HasRs3MPct
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetRs6MPct() float64 {
+	if x != nil {
+		return x.Rs6MPct
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasRs6MPct() bool {
+	if x != nil {
+		return x.HasRs6MPct
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetVolumeRatio50D() float64 {
+	if x != nil {
+		return x.VolumeRatio50D
+	}
+	return 0
+}
+
+func (x *PriceFeatures) GetHasVolumeRatio50D() bool {
+	if x != nil {
+		return x.HasVolumeRatio50D
+	}
+	return false
+}
+
+func (x *PriceFeatures) GetSessionsAvailable() int32 {
+	if x != nil {
+		return x.SessionsAvailable
+	}
+	return 0
+}
+
 // Response for GetStockStrategyFit.
 type GetStockStrategyFitResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1283,13 +1570,14 @@ type GetStockStrategyFitResponse struct {
 	Regime        *MarketRegime          `protobuf:"bytes,3,opt,name=regime,proto3" json:"regime,omitempty"`
 	Fits          []*StrategyFit         `protobuf:"bytes,4,rep,name=fits,proto3" json:"fits,omitempty"` // One per strategy; empty when the stock is outside the universe.
 	InUniverse    bool                   `protobuf:"varint,5,opt,name=in_universe,json=inUniverse,proto3" json:"in_universe,omitempty"`
+	PriceFeatures *PriceFeatures         `protobuf:"bytes,6,opt,name=price_features,json=priceFeatures,proto3" json:"price_features,omitempty"` // Set only when in_universe is true.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetStockStrategyFitResponse) Reset() {
 	*x = GetStockStrategyFitResponse{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1301,7 +1589,7 @@ func (x *GetStockStrategyFitResponse) String() string {
 func (*GetStockStrategyFitResponse) ProtoMessage() {}
 
 func (x *GetStockStrategyFitResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[11]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1314,7 +1602,7 @@ func (x *GetStockStrategyFitResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockStrategyFitResponse.ProtoReflect.Descriptor instead.
 func (*GetStockStrategyFitResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{11}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetStockStrategyFitResponse) GetStockCode() string {
@@ -1352,6 +1640,13 @@ func (x *GetStockStrategyFitResponse) GetInUniverse() bool {
 	return false
 }
 
+func (x *GetStockStrategyFitResponse) GetPriceFeatures() *PriceFeatures {
+	if x != nil {
+		return x.PriceFeatures
+	}
+	return nil
+}
+
 // Request for ListStrategies.
 type ListStrategiesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1361,7 +1656,7 @@ type ListStrategiesRequest struct {
 
 func (x *ListStrategiesRequest) Reset() {
 	*x = ListStrategiesRequest{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1373,7 +1668,7 @@ func (x *ListStrategiesRequest) String() string {
 func (*ListStrategiesRequest) ProtoMessage() {}
 
 func (x *ListStrategiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[12]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1386,7 +1681,7 @@ func (x *ListStrategiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStrategiesRequest.ProtoReflect.Descriptor instead.
 func (*ListStrategiesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{12}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{13}
 }
 
 // Response for ListStrategies.
@@ -1400,7 +1695,7 @@ type ListStrategiesResponse struct {
 
 func (x *ListStrategiesResponse) Reset() {
 	*x = ListStrategiesResponse{}
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1412,7 +1707,7 @@ func (x *ListStrategiesResponse) String() string {
 func (*ListStrategiesResponse) ProtoMessage() {}
 
 func (x *ListStrategiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[13]
+	mi := &file_shorts_v1alpha1_strategies_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1425,7 +1720,7 @@ func (x *ListStrategiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStrategiesResponse.ProtoReflect.Descriptor instead.
 func (*ListStrategiesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{13}
+	return file_shorts_v1alpha1_strategies_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListStrategiesResponse) GetStrategies() []*Strategy {
@@ -1579,7 +1874,47 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x04rank\x18\x05 \x01(\x05R\x04rank\x12\x1f\n" +
 	"\vtotal_count\x18\x06 \x01(\x05R\n" +
 	"totalCount\x121\n" +
-	"\x05rules\x18\a \x03(\v2\x1b.shorts.v1alpha1.RuleResultR\x05rules\"\xdb\x01\n" +
+	"\x05rules\x18\a \x03(\v2\x1b.shorts.v1alpha1.RuleResultR\x05rules\"\xac\b\n" +
+	"\rPriceFeatures\x12\x13\n" +
+	"\x05as_of\x18\x01 \x01(\tR\x04asOf\x12\x14\n" +
+	"\x05close\x18\x02 \x01(\x01R\x05close\x12\x14\n" +
+	"\x05sma50\x18\x03 \x01(\x01R\x05sma50\x12\x1b\n" +
+	"\thas_sma50\x18\x04 \x01(\bR\bhasSma50\x12\x16\n" +
+	"\x06sma150\x18\x05 \x01(\x01R\x06sma150\x12\x1d\n" +
+	"\n" +
+	"has_sma150\x18\x06 \x01(\bR\thasSma150\x12\x16\n" +
+	"\x06sma200\x18\a \x01(\x01R\x06sma200\x12\x1d\n" +
+	"\n" +
+	"has_sma200\x18\b \x01(\bR\thasSma200\x12,\n" +
+	"\x12sma200_prior_month\x18\t \x01(\x01R\x10sma200PriorMonth\x123\n" +
+	"\x16has_sma200_prior_month\x18\n" +
+	" \x01(\bR\x13hasSma200PriorMonth\x12\x18\n" +
+	"\ahigh52w\x18\v \x01(\x01R\ahigh52w\x12\x1f\n" +
+	"\vhas_high52w\x18\f \x01(\bR\n" +
+	"hasHigh52w\x12\x16\n" +
+	"\x06low52w\x18\r \x01(\x01R\x06low52w\x12\x1d\n" +
+	"\n" +
+	"has_low52w\x18\x0e \x01(\bR\thasLow52w\x12\x1b\n" +
+	"\tbase_high\x18\x0f \x01(\x01R\bbaseHigh\x12\"\n" +
+	"\rhas_base_high\x18\x10 \x01(\bR\vhasBaseHigh\x12\x19\n" +
+	"\bbase_low\x18\x11 \x01(\x01R\abaseLow\x12 \n" +
+	"\fhas_base_low\x18\x12 \x01(\bR\n" +
+	"hasBaseLow\x12$\n" +
+	"\x0ebase_depth_pct\x18\x13 \x01(\x01R\fbaseDepthPct\x12+\n" +
+	"\x12has_base_depth_pct\x18\x14 \x01(\bR\x0fhasBaseDepthPct\x12(\n" +
+	"\x10base_length_days\x18\x15 \x01(\x05R\x0ebaseLengthDays\x12/\n" +
+	"\x14has_base_length_days\x18\x16 \x01(\bR\x11hasBaseLengthDays\x12'\n" +
+	"\x0fbreakout_recent\x18\x17 \x01(\bR\x0ebreakoutRecent\x12#\n" +
+	"\rbreakout_date\x18\x18 \x01(\tR\fbreakoutDate\x12\x19\n" +
+	"\brs3m_pct\x18\x19 \x01(\x01R\ars3mPct\x12 \n" +
+	"\fhas_rs3m_pct\x18\x1a \x01(\bR\n" +
+	"hasRs3mPct\x12\x19\n" +
+	"\brs6m_pct\x18\x1b \x01(\x01R\ars6mPct\x12 \n" +
+	"\fhas_rs6m_pct\x18\x1c \x01(\bR\n" +
+	"hasRs6mPct\x12'\n" +
+	"\x0fvolume_ratio50d\x18\x1d \x01(\x01R\x0evolumeRatio50d\x12.\n" +
+	"\x13has_volume_ratio50d\x18\x1e \x01(\bR\x11hasVolumeRatio50d\x12-\n" +
+	"\x12sessions_available\x18\x1f \x01(\x05R\x11sessionsAvailable\"\xa2\x02\n" +
 	"\x1bGetStockStrategyFitResponse\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12\x13\n" +
@@ -1587,7 +1922,8 @@ const file_shorts_v1alpha1_strategies_proto_rawDesc = "" +
 	"\x06regime\x18\x03 \x01(\v2\x1d.shorts.v1alpha1.MarketRegimeR\x06regime\x120\n" +
 	"\x04fits\x18\x04 \x03(\v2\x1c.shorts.v1alpha1.StrategyFitR\x04fits\x12\x1f\n" +
 	"\vin_universe\x18\x05 \x01(\bR\n" +
-	"inUniverse\"\x17\n" +
+	"inUniverse\x12E\n" +
+	"\x0eprice_features\x18\x06 \x01(\v2\x1e.shorts.v1alpha1.PriceFeaturesR\rpriceFeatures\"\x17\n" +
 	"\x15ListStrategiesRequest\"\x8a\x01\n" +
 	"\x16ListStrategiesResponse\x129\n" +
 	"\n" +
@@ -1612,7 +1948,7 @@ func file_shorts_v1alpha1_strategies_proto_rawDescGZIP() []byte {
 	return file_shorts_v1alpha1_strategies_proto_rawDescData
 }
 
-var file_shorts_v1alpha1_strategies_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_shorts_v1alpha1_strategies_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_shorts_v1alpha1_strategies_proto_goTypes = []any{
 	(*Strategy)(nil),                    // 0: shorts.v1alpha1.Strategy
 	(*StrategyRule)(nil),                // 1: shorts.v1alpha1.StrategyRule
@@ -1625,9 +1961,10 @@ var file_shorts_v1alpha1_strategies_proto_goTypes = []any{
 	(*GetStrategyPicksResponse)(nil),    // 8: shorts.v1alpha1.GetStrategyPicksResponse
 	(*GetStockStrategyFitRequest)(nil),  // 9: shorts.v1alpha1.GetStockStrategyFitRequest
 	(*StrategyFit)(nil),                 // 10: shorts.v1alpha1.StrategyFit
-	(*GetStockStrategyFitResponse)(nil), // 11: shorts.v1alpha1.GetStockStrategyFitResponse
-	(*ListStrategiesRequest)(nil),       // 12: shorts.v1alpha1.ListStrategiesRequest
-	(*ListStrategiesResponse)(nil),      // 13: shorts.v1alpha1.ListStrategiesResponse
+	(*PriceFeatures)(nil),               // 11: shorts.v1alpha1.PriceFeatures
+	(*GetStockStrategyFitResponse)(nil), // 12: shorts.v1alpha1.GetStockStrategyFitResponse
+	(*ListStrategiesRequest)(nil),       // 13: shorts.v1alpha1.ListStrategiesRequest
+	(*ListStrategiesResponse)(nil),      // 14: shorts.v1alpha1.ListStrategiesResponse
 }
 var file_shorts_v1alpha1_strategies_proto_depIdxs = []int32{
 	1,  // 0: shorts.v1alpha1.Strategy.rules:type_name -> shorts.v1alpha1.StrategyRule
@@ -1640,19 +1977,20 @@ var file_shorts_v1alpha1_strategies_proto_depIdxs = []int32{
 	4,  // 7: shorts.v1alpha1.StrategyFit.rules:type_name -> shorts.v1alpha1.RuleResult
 	3,  // 8: shorts.v1alpha1.GetStockStrategyFitResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
 	10, // 9: shorts.v1alpha1.GetStockStrategyFitResponse.fits:type_name -> shorts.v1alpha1.StrategyFit
-	0,  // 10: shorts.v1alpha1.ListStrategiesResponse.strategies:type_name -> shorts.v1alpha1.Strategy
-	3,  // 11: shorts.v1alpha1.ListStrategiesResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
-	12, // 12: shorts.v1alpha1.StrategyService.ListStrategies:input_type -> shorts.v1alpha1.ListStrategiesRequest
-	7,  // 13: shorts.v1alpha1.StrategyService.GetStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
-	9,  // 14: shorts.v1alpha1.StrategyService.GetStockStrategyFit:input_type -> shorts.v1alpha1.GetStockStrategyFitRequest
-	13, // 15: shorts.v1alpha1.StrategyService.ListStrategies:output_type -> shorts.v1alpha1.ListStrategiesResponse
-	8,  // 16: shorts.v1alpha1.StrategyService.GetStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
-	11, // 17: shorts.v1alpha1.StrategyService.GetStockStrategyFit:output_type -> shorts.v1alpha1.GetStockStrategyFitResponse
-	15, // [15:18] is the sub-list for method output_type
-	12, // [12:15] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	11, // 10: shorts.v1alpha1.GetStockStrategyFitResponse.price_features:type_name -> shorts.v1alpha1.PriceFeatures
+	0,  // 11: shorts.v1alpha1.ListStrategiesResponse.strategies:type_name -> shorts.v1alpha1.Strategy
+	3,  // 12: shorts.v1alpha1.ListStrategiesResponse.regime:type_name -> shorts.v1alpha1.MarketRegime
+	13, // 13: shorts.v1alpha1.StrategyService.ListStrategies:input_type -> shorts.v1alpha1.ListStrategiesRequest
+	7,  // 14: shorts.v1alpha1.StrategyService.GetStrategyPicks:input_type -> shorts.v1alpha1.GetStrategyPicksRequest
+	9,  // 15: shorts.v1alpha1.StrategyService.GetStockStrategyFit:input_type -> shorts.v1alpha1.GetStockStrategyFitRequest
+	14, // 16: shorts.v1alpha1.StrategyService.ListStrategies:output_type -> shorts.v1alpha1.ListStrategiesResponse
+	8,  // 17: shorts.v1alpha1.StrategyService.GetStrategyPicks:output_type -> shorts.v1alpha1.GetStrategyPicksResponse
+	12, // 18: shorts.v1alpha1.StrategyService.GetStockStrategyFit:output_type -> shorts.v1alpha1.GetStockStrategyFitResponse
+	16, // [16:19] is the sub-list for method output_type
+	13, // [13:16] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_strategies_proto_init() }
@@ -1666,7 +2004,7 @@ func file_shorts_v1alpha1_strategies_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_strategies_proto_rawDesc), len(file_shorts_v1alpha1_strategies_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -11,7 +11,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/strategies.proto.
  */
 export const file_shorts_v1alpha1_strategies: GenFile = /*@__PURE__*/
-  fileDesc("CiBzaG9ydHMvdjFhbHBoYTEvc3RyYXRlZ2llcy5wcm90bxIPc2hvcnRzLnYxYWxwaGExIuoBCghTdHJhdGVneRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmF1dGhvchgDIAEoCRIPCgd0YWdsaW5lGAQgASgJEh4KFmRlc2NyaXB0aW9uX3BhcmFncmFwaHMYBSADKAkSLAoFcnVsZXMYBiADKAsyHS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lSdWxlEjMKCG1ldGFkYXRhGAcgASgLMiEuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5TWV0YWRhdGESDwoHY2F2ZWF0cxgIIAMoCRIPCgdzb3VyY2VzGAkgAygJInMKDFN0cmF0ZWd5UnVsZRIKCgJpZBgBIAEoCRINCgV0aXRsZRgCIAEoCRIRCglydWxlX3RleHQYAyABKAkSEgoKZXZhbHVhdGlvbhgEIAEoCRIMCgRjb3JlGAUgASgIEhMKC2RhdGFfc291cmNlGAYgASgJIo4BChBTdHJhdGVneU1ldGFkYXRhEg0KBXN0eWxlGAEgASgJEhYKDmhvbGRpbmdfcGVyaW9kGAIgASgJEhQKDHJpc2tfcG9zdHVyZRgDIAEoCRIQCgh1bml2ZXJzZRgEIAEoCRIXCg9yZWZyZXNoX2NhZGVuY2UYBSABKAkSEgoKcnVsZV9jb3VudBgGIAEoBSKaAQoMTWFya2V0UmVnaW1lEhIKCmluZGV4X2NvZGUYASABKAkSDQoFYXNfb2YYAiABKAkSDgoGcmVnaW1lGAMgASgJEg0KBWNsb3NlGAQgASgBEg0KBXNtYTUwGAUgASgBEg4KBnNtYTIwMBgGIAEoARIYChBwY3Rfb2ZmXzUyd19oaWdoGAcgASgBEg8KB3ZlcmRpY3QYCCABKAkiXwoKUnVsZVJlc3VsdBIPCgdydWxlX2lkGAEgASgJEg4KBnN0YXR1cxgCIAEoCRIOCgZkZXRhaWwYAyABKAkSDQoFdmFsdWUYBCABKAESEQoJaGFzX3ZhbHVlGAUgASgIIvAECgxTdHJhdGVneVBpY2sSDAoEcmFuaxgBIAEoBRISCgpzdG9ja19jb2RlGAIgASgJEhQKDGNvbXBhbnlfbmFtZRgDIAEoCRIQCghpbmR1c3RyeRgEIAEoCRIOCgZzdGF0dXMYBSABKAkSDQoFc2NvcmUYBiABKAESKgoFcnVsZXMYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuUnVsZVJlc3VsdBINCgVjbG9zZRgIIAEoARINCgVhc19vZhgJIAEoCRIYChBwY3Rfb2ZmXzUyd19oaWdoGAogASgBEhgKEHZvbHVtZV9yYXRpb181MGQYCyABKAESFgoOYmFzZV9kZXB0aF9wY3QYDCABKAESGAoQYmFzZV9sZW5ndGhfZGF5cxgNIAEoBRINCgVwaXZvdBgOIAEoARIXCg9yZXZlbnVlX3lveV9wY3QYDyABKAESFwoPaGFzX3JldmVudWVfeW95GBAgASgIEhMKC2Vwc195b3lfcGN0GBEgASgBEhMKC2hhc19lcHNfeW95GBIgASgIEhEKCXJzXzNtX3BjdBgTIAEoARIRCglzaG9ydF9wY3QYFCABKAESEgoKbWFya2V0X2NhcBgVIAEoARIQCghsb2dvX3VybBgWIAEoCRIVCg1oYXNfcnNfM21fcGN0GBcgASgIEhUKDWhhc19zaG9ydF9wY3QYGCABKAgSFgoOaGFzX21hcmtldF9jYXAYGSABKAgSEQoJaGFzX2Nsb3NlGBogASgIEjcKDGZ1bmRhbWVudGFscxgbIAEoCzIhLnNob3J0cy52MWFscGhhMS5QaWNrRnVuZGFtZW50YWxzIqMEChBQaWNrRnVuZGFtZW50YWxzEiEKGXJldmVudWVfYmFzaXNfcGVyaW9kX3R5cGUYASABKAkSGgoScmV2ZW51ZV9wZXJpb2RfZW5kGAIgASgJEh0KFWVwc19iYXNpc19wZXJpb2RfdHlwZRgDIAEoCRIWCg5lcHNfcGVyaW9kX2VuZBgEIAEoCRIQCghjdXJyZW5jeRgFIAEoCRISCgpmZXRjaGVkX2F0GAYgASgJEhwKFHJldmVudWVfYmFzaXNfc291cmNlGAcgASgJEhgKEGVwc19iYXNpc19zb3VyY2UYCCABKAkSFgoObmV0X21hcmdpbl9wY3QYCSABKAESGgoSaGFzX25ldF9tYXJnaW5fcGN0GAogASgIEg8KB3JvZV9wY3QYCyABKAESEwoLaGFzX3JvZV9wY3QYDCABKAgSFgoOZmNmX21hcmdpbl9wY3QYDSABKAESGgoSaGFzX2ZjZl9tYXJnaW5fcGN0GA4gASgIEhoKEm5ldF9kZWJ0X3RvX2ViaXRkYRgPIAEoARIeChZoYXNfbmV0X2RlYnRfdG9fZWJpdGRhGBAgASgIEhAKCHBlX3JhdGlvGBEgASgBEhQKDGhhc19wZV9yYXRpbxgSIAEoCBIUCgxpc19maW5hbmNpYWwYEyABKAgSGwoTbmV0X2luY29tZV9wb3NpdGl2ZRgUIAEoCBIWCg5ub3RfbWVhbmluZ2Z1bBgVIAMoCSKMAQoXR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QSEwoLc3RyYXRlZ3lfaWQYASABKAkSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFEg4KBnN0YXR1cxgEIAEoCRIPCgdzb3J0X2J5GAUgASgJEhwKFHJlcXVpcmVfZnVuZGFtZW50YWxzGAYgASgIIqYCChhHZXRTdHJhdGVneVBpY2tzUmVzcG9uc2USKwoIc3RyYXRlZ3kYASABKAsyGS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3kSLQoGcmVnaW1lGAIgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZRIsCgVwaWNrcxgDIAMoCzIdLnNob3J0cy52MWFscGhhMS5TdHJhdGVneVBpY2sSEwoLdG90YWxfY291bnQYBCABKAUSFgoOdW5pdmVyc2VfY291bnQYBSABKAUSIwobZnVuZGFtZW50YWxzX2NvdmVyYWdlX2NvdW50GAYgASgFEg0KBWFzX29mGAcgASgJEh8KF2Z1bmRhbWVudGFsc19yb3dzX2NvdW50GAggASgFIjAKGkdldFN0b2NrU3RyYXRlZ3lGaXRSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkipwEKC1N0cmF0ZWd5Rml0EhMKC3N0cmF0ZWd5X2lkGAEgASgJEhUKDXN0cmF0ZWd5X25hbWUYAiABKAkSDgoGc3RhdHVzGAMgASgJEg0KBXNjb3JlGAQgASgBEgwKBHJhbmsYBSABKAUSEwoLdG90YWxfY291bnQYBiABKAUSKgoFcnVsZXMYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuUnVsZVJlc3VsdCKwAQobR2V0U3RvY2tTdHJhdGVneUZpdFJlc3BvbnNlEhIKCnN0b2NrX2NvZGUYASABKAkSDQoFYXNfb2YYAiABKAkSLQoGcmVnaW1lGAMgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZRIqCgRmaXRzGAQgAygLMhwuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5Rml0EhMKC2luX3VuaXZlcnNlGAUgASgIIhcKFUxpc3RTdHJhdGVnaWVzUmVxdWVzdCJ2ChZMaXN0U3RyYXRlZ2llc1Jlc3BvbnNlEi0KCnN0cmF0ZWdpZXMYASADKAsyGS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3kSLQoGcmVnaW1lGAIgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZTLhAgoPU3RyYXRlZ3lTZXJ2aWNlEmcKDkxpc3RTdHJhdGVnaWVzEiYuc2hvcnRzLnYxYWxwaGExLkxpc3RTdHJhdGVnaWVzUmVxdWVzdBonLnNob3J0cy52MWFscGhhMS5MaXN0U3RyYXRlZ2llc1Jlc3BvbnNlIgSAtRgBEm0KEEdldFN0cmF0ZWd5UGlja3MSKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1Jlc3BvbnNlIgSAtRgBEnYKE0dldFN0b2NrU3RyYXRlZ3lGaXQSKy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlcXVlc3QaLC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlc3BvbnNlIgSAtRgBQt4BChNjb20uc2hvcnRzLnYxYWxwaGExQg9TdHJhdGVnaWVzUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_options_v1_options]);
+  fileDesc("CiBzaG9ydHMvdjFhbHBoYTEvc3RyYXRlZ2llcy5wcm90bxIPc2hvcnRzLnYxYWxwaGExIuoBCghTdHJhdGVneRIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmF1dGhvchgDIAEoCRIPCgd0YWdsaW5lGAQgASgJEh4KFmRlc2NyaXB0aW9uX3BhcmFncmFwaHMYBSADKAkSLAoFcnVsZXMYBiADKAsyHS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3lSdWxlEjMKCG1ldGFkYXRhGAcgASgLMiEuc2hvcnRzLnYxYWxwaGExLlN0cmF0ZWd5TWV0YWRhdGESDwoHY2F2ZWF0cxgIIAMoCRIPCgdzb3VyY2VzGAkgAygJInMKDFN0cmF0ZWd5UnVsZRIKCgJpZBgBIAEoCRINCgV0aXRsZRgCIAEoCRIRCglydWxlX3RleHQYAyABKAkSEgoKZXZhbHVhdGlvbhgEIAEoCRIMCgRjb3JlGAUgASgIEhMKC2RhdGFfc291cmNlGAYgASgJIo4BChBTdHJhdGVneU1ldGFkYXRhEg0KBXN0eWxlGAEgASgJEhYKDmhvbGRpbmdfcGVyaW9kGAIgASgJEhQKDHJpc2tfcG9zdHVyZRgDIAEoCRIQCgh1bml2ZXJzZRgEIAEoCRIXCg9yZWZyZXNoX2NhZGVuY2UYBSABKAkSEgoKcnVsZV9jb3VudBgGIAEoBSKaAQoMTWFya2V0UmVnaW1lEhIKCmluZGV4X2NvZGUYASABKAkSDQoFYXNfb2YYAiABKAkSDgoGcmVnaW1lGAMgASgJEg0KBWNsb3NlGAQgASgBEg0KBXNtYTUwGAUgASgBEg4KBnNtYTIwMBgGIAEoARIYChBwY3Rfb2ZmXzUyd19oaWdoGAcgASgBEg8KB3ZlcmRpY3QYCCABKAkiXwoKUnVsZVJlc3VsdBIPCgdydWxlX2lkGAEgASgJEg4KBnN0YXR1cxgCIAEoCRIOCgZkZXRhaWwYAyABKAkSDQoFdmFsdWUYBCABKAESEQoJaGFzX3ZhbHVlGAUgASgIIvAECgxTdHJhdGVneVBpY2sSDAoEcmFuaxgBIAEoBRISCgpzdG9ja19jb2RlGAIgASgJEhQKDGNvbXBhbnlfbmFtZRgDIAEoCRIQCghpbmR1c3RyeRgEIAEoCRIOCgZzdGF0dXMYBSABKAkSDQoFc2NvcmUYBiABKAESKgoFcnVsZXMYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuUnVsZVJlc3VsdBINCgVjbG9zZRgIIAEoARINCgVhc19vZhgJIAEoCRIYChBwY3Rfb2ZmXzUyd19oaWdoGAogASgBEhgKEHZvbHVtZV9yYXRpb181MGQYCyABKAESFgoOYmFzZV9kZXB0aF9wY3QYDCABKAESGAoQYmFzZV9sZW5ndGhfZGF5cxgNIAEoBRINCgVwaXZvdBgOIAEoARIXCg9yZXZlbnVlX3lveV9wY3QYDyABKAESFwoPaGFzX3JldmVudWVfeW95GBAgASgIEhMKC2Vwc195b3lfcGN0GBEgASgBEhMKC2hhc19lcHNfeW95GBIgASgIEhEKCXJzXzNtX3BjdBgTIAEoARIRCglzaG9ydF9wY3QYFCABKAESEgoKbWFya2V0X2NhcBgVIAEoARIQCghsb2dvX3VybBgWIAEoCRIVCg1oYXNfcnNfM21fcGN0GBcgASgIEhUKDWhhc19zaG9ydF9wY3QYGCABKAgSFgoOaGFzX21hcmtldF9jYXAYGSABKAgSEQoJaGFzX2Nsb3NlGBogASgIEjcKDGZ1bmRhbWVudGFscxgbIAEoCzIhLnNob3J0cy52MWFscGhhMS5QaWNrRnVuZGFtZW50YWxzIqMEChBQaWNrRnVuZGFtZW50YWxzEiEKGXJldmVudWVfYmFzaXNfcGVyaW9kX3R5cGUYASABKAkSGgoScmV2ZW51ZV9wZXJpb2RfZW5kGAIgASgJEh0KFWVwc19iYXNpc19wZXJpb2RfdHlwZRgDIAEoCRIWCg5lcHNfcGVyaW9kX2VuZBgEIAEoCRIQCghjdXJyZW5jeRgFIAEoCRISCgpmZXRjaGVkX2F0GAYgASgJEhwKFHJldmVudWVfYmFzaXNfc291cmNlGAcgASgJEhgKEGVwc19iYXNpc19zb3VyY2UYCCABKAkSFgoObmV0X21hcmdpbl9wY3QYCSABKAESGgoSaGFzX25ldF9tYXJnaW5fcGN0GAogASgIEg8KB3JvZV9wY3QYCyABKAESEwoLaGFzX3JvZV9wY3QYDCABKAgSFgoOZmNmX21hcmdpbl9wY3QYDSABKAESGgoSaGFzX2ZjZl9tYXJnaW5fcGN0GA4gASgIEhoKEm5ldF9kZWJ0X3RvX2ViaXRkYRgPIAEoARIeChZoYXNfbmV0X2RlYnRfdG9fZWJpdGRhGBAgASgIEhAKCHBlX3JhdGlvGBEgASgBEhQKDGhhc19wZV9yYXRpbxgSIAEoCBIUCgxpc19maW5hbmNpYWwYEyABKAgSGwoTbmV0X2luY29tZV9wb3NpdGl2ZRgUIAEoCBIWCg5ub3RfbWVhbmluZ2Z1bBgVIAMoCSKMAQoXR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QSEwoLc3RyYXRlZ3lfaWQYASABKAkSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFEg4KBnN0YXR1cxgEIAEoCRIPCgdzb3J0X2J5GAUgASgJEhwKFHJlcXVpcmVfZnVuZGFtZW50YWxzGAYgASgIIqYCChhHZXRTdHJhdGVneVBpY2tzUmVzcG9uc2USKwoIc3RyYXRlZ3kYASABKAsyGS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3kSLQoGcmVnaW1lGAIgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZRIsCgVwaWNrcxgDIAMoCzIdLnNob3J0cy52MWFscGhhMS5TdHJhdGVneVBpY2sSEwoLdG90YWxfY291bnQYBCABKAUSFgoOdW5pdmVyc2VfY291bnQYBSABKAUSIwobZnVuZGFtZW50YWxzX2NvdmVyYWdlX2NvdW50GAYgASgFEg0KBWFzX29mGAcgASgJEh8KF2Z1bmRhbWVudGFsc19yb3dzX2NvdW50GAggASgFIjAKGkdldFN0b2NrU3RyYXRlZ3lGaXRSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkipwEKC1N0cmF0ZWd5Rml0EhMKC3N0cmF0ZWd5X2lkGAEgASgJEhUKDXN0cmF0ZWd5X25hbWUYAiABKAkSDgoGc3RhdHVzGAMgASgJEg0KBXNjb3JlGAQgASgBEgwKBHJhbmsYBSABKAUSEwoLdG90YWxfY291bnQYBiABKAUSKgoFcnVsZXMYByADKAsyGy5zaG9ydHMudjFhbHBoYTEuUnVsZVJlc3VsdCKtBQoNUHJpY2VGZWF0dXJlcxINCgVhc19vZhgBIAEoCRINCgVjbG9zZRgCIAEoARINCgVzbWE1MBgDIAEoARIRCgloYXNfc21hNTAYBCABKAgSDgoGc21hMTUwGAUgASgBEhIKCmhhc19zbWExNTAYBiABKAgSDgoGc21hMjAwGAcgASgBEhIKCmhhc19zbWEyMDAYCCABKAgSGgoSc21hMjAwX3ByaW9yX21vbnRoGAkgASgBEh4KFmhhc19zbWEyMDBfcHJpb3JfbW9udGgYCiABKAgSDwoHaGlnaDUydxgLIAEoARITCgtoYXNfaGlnaDUydxgMIAEoCBIOCgZsb3c1MncYDSABKAESEgoKaGFzX2xvdzUydxgOIAEoCBIRCgliYXNlX2hpZ2gYDyABKAESFQoNaGFzX2Jhc2VfaGlnaBgQIAEoCBIQCghiYXNlX2xvdxgRIAEoARIUCgxoYXNfYmFzZV9sb3cYEiABKAgSFgoOYmFzZV9kZXB0aF9wY3QYEyABKAESGgoSaGFzX2Jhc2VfZGVwdGhfcGN0GBQgASgIEhgKEGJhc2VfbGVuZ3RoX2RheXMYFSABKAUSHAoUaGFzX2Jhc2VfbGVuZ3RoX2RheXMYFiABKAgSFwoPYnJlYWtvdXRfcmVjZW50GBcgASgIEhUKDWJyZWFrb3V0X2RhdGUYGCABKAkSEAoIcnMzbV9wY3QYGSABKAESFAoMaGFzX3JzM21fcGN0GBogASgIEhAKCHJzNm1fcGN0GBsgASgBEhQKDGhhc19yczZtX3BjdBgcIAEoCBIXCg92b2x1bWVfcmF0aW81MGQYHSABKAESGwoTaGFzX3ZvbHVtZV9yYXRpbzUwZBgeIAEoCBIaChJzZXNzaW9uc19hdmFpbGFibGUYHyABKAUi6AEKG0dldFN0b2NrU3RyYXRlZ3lGaXRSZXNwb25zZRISCgpzdG9ja19jb2RlGAEgASgJEg0KBWFzX29mGAIgASgJEi0KBnJlZ2ltZRgDIAEoCzIdLnNob3J0cy52MWFscGhhMS5NYXJrZXRSZWdpbWUSKgoEZml0cxgEIAMoCzIcLnNob3J0cy52MWFscGhhMS5TdHJhdGVneUZpdBITCgtpbl91bml2ZXJzZRgFIAEoCBI2Cg5wcmljZV9mZWF0dXJlcxgGIAEoCzIeLnNob3J0cy52MWFscGhhMS5QcmljZUZlYXR1cmVzIhcKFUxpc3RTdHJhdGVnaWVzUmVxdWVzdCJ2ChZMaXN0U3RyYXRlZ2llc1Jlc3BvbnNlEi0KCnN0cmF0ZWdpZXMYASADKAsyGS5zaG9ydHMudjFhbHBoYTEuU3RyYXRlZ3kSLQoGcmVnaW1lGAIgASgLMh0uc2hvcnRzLnYxYWxwaGExLk1hcmtldFJlZ2ltZTLhAgoPU3RyYXRlZ3lTZXJ2aWNlEmcKDkxpc3RTdHJhdGVnaWVzEiYuc2hvcnRzLnYxYWxwaGExLkxpc3RTdHJhdGVnaWVzUmVxdWVzdBonLnNob3J0cy52MWFscGhhMS5MaXN0U3RyYXRlZ2llc1Jlc3BvbnNlIgSAtRgBEm0KEEdldFN0cmF0ZWd5UGlja3MSKC5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1JlcXVlc3QaKS5zaG9ydHMudjFhbHBoYTEuR2V0U3RyYXRlZ3lQaWNrc1Jlc3BvbnNlIgSAtRgBEnYKE0dldFN0b2NrU3RyYXRlZ3lGaXQSKy5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlcXVlc3QaLC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tTdHJhdGVneUZpdFJlc3BvbnNlIgSAtRgBQt4BChNjb20uc2hvcnRzLnYxYWxwaGExQg9TdHJhdGVnaWVzUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExYgZwcm90bzM", [file_options_v1_options]);
 
 /**
  * A named stock-picking strategy and how we evaluate it.
@@ -829,6 +829,183 @@ export const StrategyFitSchema: GenMessage<StrategyFit> = /*@__PURE__*/
   messageDesc(file_shorts_v1alpha1_strategies, 10);
 
 /**
+ * The price features the evaluator read for one stock (mv_price_features),
+ * so a chart can draw the levels the rules tested. Every nullable number
+ * travels with a has_ flag; read the value only when its flag is true.
+ *
+ * @generated from message shorts.v1alpha1.PriceFeatures
+ */
+export type PriceFeatures = Message<"shorts.v1alpha1.PriceFeatures"> & {
+  /**
+   * YYYY-MM-DD of the last close.
+   *
+   * @generated from field: string as_of = 1;
+   */
+  asOf: string;
+
+  /**
+   * @generated from field: double close = 2;
+   */
+  close: number;
+
+  /**
+   * @generated from field: double sma50 = 3;
+   */
+  sma50: number;
+
+  /**
+   * @generated from field: bool has_sma50 = 4;
+   */
+  hasSma50: boolean;
+
+  /**
+   * @generated from field: double sma150 = 5;
+   */
+  sma150: number;
+
+  /**
+   * @generated from field: bool has_sma150 = 6;
+   */
+  hasSma150: boolean;
+
+  /**
+   * @generated from field: double sma200 = 7;
+   */
+  sma200: number;
+
+  /**
+   * @generated from field: bool has_sma200 = 8;
+   */
+  hasSma200: boolean;
+
+  /**
+   * @generated from field: double sma200_prior_month = 9;
+   */
+  sma200PriorMonth: number;
+
+  /**
+   * @generated from field: bool has_sma200_prior_month = 10;
+   */
+  hasSma200PriorMonth: boolean;
+
+  /**
+   * @generated from field: double high52w = 11;
+   */
+  high52w: number;
+
+  /**
+   * @generated from field: bool has_high52w = 12;
+   */
+  hasHigh52w: boolean;
+
+  /**
+   * @generated from field: double low52w = 13;
+   */
+  low52w: number;
+
+  /**
+   * @generated from field: bool has_low52w = 14;
+   */
+  hasLow52w: boolean;
+
+  /**
+   * @generated from field: double base_high = 15;
+   */
+  baseHigh: number;
+
+  /**
+   * The pivot: the breakout and invalidation level.
+   *
+   * @generated from field: bool has_base_high = 16;
+   */
+  hasBaseHigh: boolean;
+
+  /**
+   * @generated from field: double base_low = 17;
+   */
+  baseLow: number;
+
+  /**
+   * @generated from field: bool has_base_low = 18;
+   */
+  hasBaseLow: boolean;
+
+  /**
+   * @generated from field: double base_depth_pct = 19;
+   */
+  baseDepthPct: number;
+
+  /**
+   * @generated from field: bool has_base_depth_pct = 20;
+   */
+  hasBaseDepthPct: boolean;
+
+  /**
+   * @generated from field: int32 base_length_days = 21;
+   */
+  baseLengthDays: number;
+
+  /**
+   * @generated from field: bool has_base_length_days = 22;
+   */
+  hasBaseLengthDays: boolean;
+
+  /**
+   * @generated from field: bool breakout_recent = 23;
+   */
+  breakoutRecent: boolean;
+
+  /**
+   * YYYY-MM-DD; empty when there was no breakout.
+   *
+   * @generated from field: string breakout_date = 24;
+   */
+  breakoutDate: string;
+
+  /**
+   * @generated from field: double rs3m_pct = 25;
+   */
+  rs3mPct: number;
+
+  /**
+   * @generated from field: bool has_rs3m_pct = 26;
+   */
+  hasRs3mPct: boolean;
+
+  /**
+   * @generated from field: double rs6m_pct = 27;
+   */
+  rs6mPct: number;
+
+  /**
+   * @generated from field: bool has_rs6m_pct = 28;
+   */
+  hasRs6mPct: boolean;
+
+  /**
+   * @generated from field: double volume_ratio50d = 29;
+   */
+  volumeRatio50d: number;
+
+  /**
+   * @generated from field: bool has_volume_ratio50d = 30;
+   */
+  hasVolumeRatio50d: boolean;
+
+  /**
+   * @generated from field: int32 sessions_available = 31;
+   */
+  sessionsAvailable: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.PriceFeatures.
+ * Use `create(PriceFeaturesSchema)` to create a new message.
+ */
+export const PriceFeaturesSchema: GenMessage<PriceFeatures> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_strategies, 11);
+
+/**
  * Response for GetStockStrategyFit.
  *
  * @generated from message shorts.v1alpha1.GetStockStrategyFitResponse
@@ -862,6 +1039,13 @@ export type GetStockStrategyFitResponse = Message<"shorts.v1alpha1.GetStockStrat
    * @generated from field: bool in_universe = 5;
    */
   inUniverse: boolean;
+
+  /**
+   * Set only when in_universe is true.
+   *
+   * @generated from field: shorts.v1alpha1.PriceFeatures price_features = 6;
+   */
+  priceFeatures?: PriceFeatures;
 };
 
 /**
@@ -869,7 +1053,7 @@ export type GetStockStrategyFitResponse = Message<"shorts.v1alpha1.GetStockStrat
  * Use `create(GetStockStrategyFitResponseSchema)` to create a new message.
  */
 export const GetStockStrategyFitResponseSchema: GenMessage<GetStockStrategyFitResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 11);
+  messageDesc(file_shorts_v1alpha1_strategies, 12);
 
 /**
  * Request for ListStrategies.
@@ -884,7 +1068,7 @@ export type ListStrategiesRequest = Message<"shorts.v1alpha1.ListStrategiesReque
  * Use `create(ListStrategiesRequestSchema)` to create a new message.
  */
 export const ListStrategiesRequestSchema: GenMessage<ListStrategiesRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 12);
+  messageDesc(file_shorts_v1alpha1_strategies, 13);
 
 /**
  * Response for ListStrategies.
@@ -910,7 +1094,7 @@ export type ListStrategiesResponse = Message<"shorts.v1alpha1.ListStrategiesResp
  * Use `create(ListStrategiesResponseSchema)` to create a new message.
  */
 export const ListStrategiesResponseSchema: GenMessage<ListStrategiesResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_strategies, 13);
+  messageDesc(file_shorts_v1alpha1_strategies, 14);
 
 /**
  * Named, rule-based stock-picking strategies evaluated daily against ASX

@@ -205,6 +205,30 @@ message StrategyFit {
   repeated RuleResult rules = 7;
 }
 
+// The price features the evaluator read for one stock (mv_price_features),
+// so a chart can draw the levels the rules tested. Every nullable number
+// travels with a has_ flag; read the value only when its flag is true.
+message PriceFeatures {
+  string as_of = 1;                      // YYYY-MM-DD of the last close.
+  double close = 2;
+  double sma50 = 3;                      bool has_sma50 = 4;
+  double sma150 = 5;                     bool has_sma150 = 6;
+  double sma200 = 7;                     bool has_sma200 = 8;
+  double sma200_prior_month = 9;         bool has_sma200_prior_month = 10;
+  double high52w = 11;                   bool has_high52w = 12;
+  double low52w = 13;                    bool has_low52w = 14;
+  double base_high = 15;                 bool has_base_high = 16;   // The pivot: the breakout and invalidation level.
+  double base_low = 17;                  bool has_base_low = 18;
+  double base_depth_pct = 19;            bool has_base_depth_pct = 20;
+  int32 base_length_days = 21;           bool has_base_length_days = 22;
+  bool breakout_recent = 23;
+  string breakout_date = 24;             // YYYY-MM-DD; empty when there was no breakout.
+  double rs3m_pct = 25;                  bool has_rs3m_pct = 26;
+  double rs6m_pct = 27;                  bool has_rs6m_pct = 28;
+  double volume_ratio50d = 29;           bool has_volume_ratio50d = 30;
+  int32 sessions_available = 31;
+}
+
 // Response for GetStockStrategyFit.
 message GetStockStrategyFitResponse {
   string stock_code = 1;
@@ -212,6 +236,7 @@ message GetStockStrategyFitResponse {
   MarketRegime regime = 3;
   repeated StrategyFit fits = 4;    // One per strategy; empty when the stock is outside the universe.
   bool in_universe = 5;
+  PriceFeatures price_features = 6;  // Set only when in_universe is true.
 }
 
 // Request for ListStrategies.

@@ -4927,6 +4927,10 @@ components:
           description: (proto bool)
           title: in_universe
           type: boolean
+        priceFeatures:
+          $ref: '#/components/schemas/shorts.v1alpha1.PriceFeatures'
+          description: Set only when in_universe is true. (proto shorts.v1alpha1.PriceFeatures)
+          title: price_features
         regime:
           $ref: '#/components/schemas/shorts.v1alpha1.MarketRegime'
           description: (proto shorts.v1alpha1.MarketRegime)
@@ -7967,6 +7971,154 @@ components:
           title: state_code
           type: string
       title: PoliticianTerm
+      type: object
+    shorts.v1alpha1.PriceFeatures:
+      additionalProperties: false
+      description: |-
+        The price features the evaluator read for one stock (mv_price_features),
+         so a chart can draw the levels the rules tested. Every nullable number
+         travels with a has_ flag; read the value only when its flag is true.
+      properties:
+        asOf:
+          description: YYYY-MM-DD of the last close. (proto string)
+          title: as_of
+          type: string
+        baseDepthPct:
+          description: (proto double)
+          format: double
+          title: base_depth_pct
+          type: number
+        baseHigh:
+          description: (proto double)
+          format: double
+          title: base_high
+          type: number
+        baseLengthDays:
+          description: (proto int32)
+          format: int32
+          title: base_length_days
+          type: integer
+        baseLow:
+          description: (proto double)
+          format: double
+          title: base_low
+          type: number
+        breakoutDate:
+          description: YYYY-MM-DD; empty when there was no breakout. (proto string)
+          title: breakout_date
+          type: string
+        breakoutRecent:
+          description: (proto bool)
+          title: breakout_recent
+          type: boolean
+        close:
+          description: (proto double)
+          format: double
+          title: close
+          type: number
+        hasBaseDepthPct:
+          description: (proto bool)
+          title: has_base_depth_pct
+          type: boolean
+        hasBaseHigh:
+          description: 'The pivot: the breakout and invalidation level. (proto bool)'
+          title: has_base_high
+          type: boolean
+        hasBaseLengthDays:
+          description: (proto bool)
+          title: has_base_length_days
+          type: boolean
+        hasBaseLow:
+          description: (proto bool)
+          title: has_base_low
+          type: boolean
+        hasHigh52w:
+          description: (proto bool)
+          title: has_high52w
+          type: boolean
+        hasLow52w:
+          description: (proto bool)
+          title: has_low52w
+          type: boolean
+        hasRs3mPct:
+          description: (proto bool)
+          title: has_rs3m_pct
+          type: boolean
+        hasRs6mPct:
+          description: (proto bool)
+          title: has_rs6m_pct
+          type: boolean
+        hasSma50:
+          description: (proto bool)
+          title: has_sma50
+          type: boolean
+        hasSma150:
+          description: (proto bool)
+          title: has_sma150
+          type: boolean
+        hasSma200:
+          description: (proto bool)
+          title: has_sma200
+          type: boolean
+        hasSma200PriorMonth:
+          description: (proto bool)
+          title: has_sma200_prior_month
+          type: boolean
+        hasVolumeRatio50d:
+          description: (proto bool)
+          title: has_volume_ratio50d
+          type: boolean
+        high52w:
+          description: (proto double)
+          format: double
+          title: high52w
+          type: number
+        low52w:
+          description: (proto double)
+          format: double
+          title: low52w
+          type: number
+        rs3mPct:
+          description: (proto double)
+          format: double
+          title: rs3m_pct
+          type: number
+        rs6mPct:
+          description: (proto double)
+          format: double
+          title: rs6m_pct
+          type: number
+        sessionsAvailable:
+          description: (proto int32)
+          format: int32
+          title: sessions_available
+          type: integer
+        sma50:
+          description: (proto double)
+          format: double
+          title: sma50
+          type: number
+        sma150:
+          description: (proto double)
+          format: double
+          title: sma150
+          type: number
+        sma200:
+          description: (proto double)
+          format: double
+          title: sma200
+          type: number
+        sma200PriorMonth:
+          description: (proto double)
+          format: double
+          title: sma200_prior_month
+          type: number
+        volumeRatio50d:
+          description: (proto double)
+          format: double
+          title: volume_ratio50d
+          type: number
+      title: PriceFeatures
       type: object
     shorts.v1alpha1.PropertyListingSnapshot:
       additionalProperties: false
