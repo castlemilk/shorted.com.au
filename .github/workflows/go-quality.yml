@@ -115,6 +115,9 @@ jobs:
       # -short is what scripts/local-verify.sh runs, and it is what keeps this
       # job free of Docker and live network: the testcontainer and RUN_LIVE
       # suites stay in the integration job.
+      - name: Integration image prefetch tests
+        run: GOWORK=off go test -p=1 -timeout=30s ./scripts/prefetch-integration-images/*.go
+
       - name: services module
         working-directory: services
         env:

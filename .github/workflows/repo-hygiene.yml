@@ -25,6 +25,8 @@ on:
       # Guard: a self-hosted job must not depend on tooling that happens to be
       # baked into a hand-built runner image (see the test's own preamble).
       - "scripts/tests/self-hosted-toolchain.test.mjs"
+      - "scripts/prefetch-integration-images/**"
+      - "scripts/tests/integration-image-prefetch.test.mjs"
       - ".github/workflows/perf-budget.yml"
       - "scripts/release-pipeline.test.mjs"
       - "scripts/bundle-budget-ci.test.mjs"
@@ -94,6 +96,7 @@ jobs:
             services
             web
             scripts
+            test/integration
             terraform
             deploy
             docs
@@ -110,7 +113,7 @@ jobs:
       # workers, pages, budget and retries (contract fundamentals-coverage
       # 6.2); until it was listed here it ran in no CI job.
       - name: Test repository hygiene tooling
-        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs scripts/tests/vke-jobs-cutover.test.mjs terraform/modules/report-extractor/cost-guardrails.test.mjs scripts/release-pipeline.test.mjs scripts/bundle-budget-ci.test.mjs scripts/tests/browser-analytics-isolation.test.mjs scripts/tests/scoped-release-headers.test.mjs
+        run: node --test scripts/tests/portal-content-provenance.test.mjs scripts/tests/housing-deploy-hygiene.test.mjs scripts/tests/scheduler-override-body.test.mjs scripts/tests/migration-drift.test.mjs scripts/tests/self-hosted-toolchain.test.mjs scripts/tests/integration-image-prefetch.test.mjs scripts/tests/vke-jobs-cutover.test.mjs terraform/modules/report-extractor/cost-guardrails.test.mjs scripts/release-pipeline.test.mjs scripts/bundle-budget-ci.test.mjs scripts/tests/browser-analytics-isolation.test.mjs scripts/tests/scoped-release-headers.test.mjs
 
       # These assert properties of migrations that prod REPLAYS on every deploy
       # from a hardcoded allowlist — most importantly that 000095 stays last, so

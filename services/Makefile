@@ -822,8 +822,18 @@ test-integration-local:
 	@cd market-data && go test -v -count=1 -tags=integration -timeout=10m ./...
 	@echo ""
 
-# Integration tests - CI (self-contained via testcontainers)
-test-integration-ci:
+# Prefetch before either suite: test/integration uses testcontainers-go v0.39.0
+# (Ryuk 0.13.0), services/market-data uses v0.33.0 (Ryuk 0.8.1).
+# Keep these in step with the two go.mod files and setup_test.go images.
+.PHONY: test-integration-images
+test-integration-images:
+	@GOWORK=off go run ../scripts/prefetch-integration-images/main.go \
+		postgres:15-alpine "$${MARKET_DATA_TEST_POSTGRES_IMAGE:-postgres:15-alpine}" \
+		testcontainers/ryuk:0.13.0 testcontainers/ryuk:0.8.1
+
+# Integration tests - CI (self-contained via testcontainers). Only acquisition
+# is retried; assertion failures stop make immediately, without rerunning suites.
+test-integration-ci: test-integration-images
 	@echo "🧪 Running integration tests (testcontainers)..."
 	@echo "Running test/integration tests..."
 	@cd ../test/integration && go test -v -count=1 -timeout=10m ./...
