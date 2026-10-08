@@ -11895,11 +11895,11 @@ components:
           type: number
           title: base_high
           format: double
-          description: (proto double)
+          description: 'The pivot: the breakout and invalidation level. (proto double)'
         hasBaseHigh:
           type: boolean
           title: has_base_high
-          description: 'The pivot: the breakout and invalidation level. (proto bool)'
+          description: (proto bool)
         baseLow:
           type: number
           title: base_low

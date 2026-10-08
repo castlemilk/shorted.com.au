@@ -909,13 +909,13 @@ export type PriceFeatures = Message<"shorts.v1alpha1.PriceFeatures"> & {
   hasLow52w: boolean;
 
   /**
+   * The pivot: the breakout and invalidation level.
+   *
    * @generated from field: double base_high = 15;
    */
   baseHigh: number;
 
   /**
-   * The pivot: the breakout and invalidation level.
-   *
    * @generated from field: bool has_base_high = 16;
    */
   hasBaseHigh: boolean;

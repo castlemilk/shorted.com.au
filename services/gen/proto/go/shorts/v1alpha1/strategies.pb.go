@@ -1294,25 +1294,26 @@ type PriceFeatures struct {
 	HasHigh52W          bool                   `protobuf:"varint,12,opt,name=has_high52w,json=hasHigh52w,proto3" json:"has_high52w,omitempty"`
 	Low52W              float64                `protobuf:"fixed64,13,opt,name=low52w,proto3" json:"low52w,omitempty"`
 	HasLow52W           bool                   `protobuf:"varint,14,opt,name=has_low52w,json=hasLow52w,proto3" json:"has_low52w,omitempty"`
-	BaseHigh            float64                `protobuf:"fixed64,15,opt,name=base_high,json=baseHigh,proto3" json:"base_high,omitempty"`
-	HasBaseHigh         bool                   `protobuf:"varint,16,opt,name=has_base_high,json=hasBaseHigh,proto3" json:"has_base_high,omitempty"` // The pivot: the breakout and invalidation level.
-	BaseLow             float64                `protobuf:"fixed64,17,opt,name=base_low,json=baseLow,proto3" json:"base_low,omitempty"`
-	HasBaseLow          bool                   `protobuf:"varint,18,opt,name=has_base_low,json=hasBaseLow,proto3" json:"has_base_low,omitempty"`
-	BaseDepthPct        float64                `protobuf:"fixed64,19,opt,name=base_depth_pct,json=baseDepthPct,proto3" json:"base_depth_pct,omitempty"`
-	HasBaseDepthPct     bool                   `protobuf:"varint,20,opt,name=has_base_depth_pct,json=hasBaseDepthPct,proto3" json:"has_base_depth_pct,omitempty"`
-	BaseLengthDays      int32                  `protobuf:"varint,21,opt,name=base_length_days,json=baseLengthDays,proto3" json:"base_length_days,omitempty"`
-	HasBaseLengthDays   bool                   `protobuf:"varint,22,opt,name=has_base_length_days,json=hasBaseLengthDays,proto3" json:"has_base_length_days,omitempty"`
-	BreakoutRecent      bool                   `protobuf:"varint,23,opt,name=breakout_recent,json=breakoutRecent,proto3" json:"breakout_recent,omitempty"`
-	BreakoutDate        string                 `protobuf:"bytes,24,opt,name=breakout_date,json=breakoutDate,proto3" json:"breakout_date,omitempty"` // YYYY-MM-DD; empty when there was no breakout.
-	Rs3MPct             float64                `protobuf:"fixed64,25,opt,name=rs3m_pct,json=rs3mPct,proto3" json:"rs3m_pct,omitempty"`
-	HasRs3MPct          bool                   `protobuf:"varint,26,opt,name=has_rs3m_pct,json=hasRs3mPct,proto3" json:"has_rs3m_pct,omitempty"`
-	Rs6MPct             float64                `protobuf:"fixed64,27,opt,name=rs6m_pct,json=rs6mPct,proto3" json:"rs6m_pct,omitempty"`
-	HasRs6MPct          bool                   `protobuf:"varint,28,opt,name=has_rs6m_pct,json=hasRs6mPct,proto3" json:"has_rs6m_pct,omitempty"`
-	VolumeRatio50D      float64                `protobuf:"fixed64,29,opt,name=volume_ratio50d,json=volumeRatio50d,proto3" json:"volume_ratio50d,omitempty"`
-	HasVolumeRatio50D   bool                   `protobuf:"varint,30,opt,name=has_volume_ratio50d,json=hasVolumeRatio50d,proto3" json:"has_volume_ratio50d,omitempty"`
-	SessionsAvailable   int32                  `protobuf:"varint,31,opt,name=sessions_available,json=sessionsAvailable,proto3" json:"sessions_available,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// The pivot: the breakout and invalidation level.
+	BaseHigh          float64 `protobuf:"fixed64,15,opt,name=base_high,json=baseHigh,proto3" json:"base_high,omitempty"`
+	HasBaseHigh       bool    `protobuf:"varint,16,opt,name=has_base_high,json=hasBaseHigh,proto3" json:"has_base_high,omitempty"`
+	BaseLow           float64 `protobuf:"fixed64,17,opt,name=base_low,json=baseLow,proto3" json:"base_low,omitempty"`
+	HasBaseLow        bool    `protobuf:"varint,18,opt,name=has_base_low,json=hasBaseLow,proto3" json:"has_base_low,omitempty"`
+	BaseDepthPct      float64 `protobuf:"fixed64,19,opt,name=base_depth_pct,json=baseDepthPct,proto3" json:"base_depth_pct,omitempty"`
+	HasBaseDepthPct   bool    `protobuf:"varint,20,opt,name=has_base_depth_pct,json=hasBaseDepthPct,proto3" json:"has_base_depth_pct,omitempty"`
+	BaseLengthDays    int32   `protobuf:"varint,21,opt,name=base_length_days,json=baseLengthDays,proto3" json:"base_length_days,omitempty"`
+	HasBaseLengthDays bool    `protobuf:"varint,22,opt,name=has_base_length_days,json=hasBaseLengthDays,proto3" json:"has_base_length_days,omitempty"`
+	BreakoutRecent    bool    `protobuf:"varint,23,opt,name=breakout_recent,json=breakoutRecent,proto3" json:"breakout_recent,omitempty"`
+	BreakoutDate      string  `protobuf:"bytes,24,opt,name=breakout_date,json=breakoutDate,proto3" json:"breakout_date,omitempty"` // YYYY-MM-DD; empty when there was no breakout.
+	Rs3MPct           float64 `protobuf:"fixed64,25,opt,name=rs3m_pct,json=rs3mPct,proto3" json:"rs3m_pct,omitempty"`
+	HasRs3MPct        bool    `protobuf:"varint,26,opt,name=has_rs3m_pct,json=hasRs3mPct,proto3" json:"has_rs3m_pct,omitempty"`
+	Rs6MPct           float64 `protobuf:"fixed64,27,opt,name=rs6m_pct,json=rs6mPct,proto3" json:"rs6m_pct,omitempty"`
+	HasRs6MPct        bool    `protobuf:"varint,28,opt,name=has_rs6m_pct,json=hasRs6mPct,proto3" json:"has_rs6m_pct,omitempty"`
+	VolumeRatio50D    float64 `protobuf:"fixed64,29,opt,name=volume_ratio50d,json=volumeRatio50d,proto3" json:"volume_ratio50d,omitempty"`
+	HasVolumeRatio50D bool    `protobuf:"varint,30,opt,name=has_volume_ratio50d,json=hasVolumeRatio50d,proto3" json:"has_volume_ratio50d,omitempty"`
+	SessionsAvailable int32   `protobuf:"varint,31,opt,name=sessions_available,json=sessionsAvailable,proto3" json:"sessions_available,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *PriceFeatures) Reset() {

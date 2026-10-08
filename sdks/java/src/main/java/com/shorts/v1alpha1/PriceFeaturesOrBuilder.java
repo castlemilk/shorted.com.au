@@ -109,16 +109,16 @@ public interface PriceFeaturesOrBuilder extends
   boolean getHasLow52W();
 
   /**
+   * <pre>
+   * The pivot: the breakout and invalidation level.
+   * </pre>
+   *
    * <code>double base_high = 15 [json_name = "baseHigh"];</code>
    * @return The baseHigh.
    */
   double getBaseHigh();
 
   /**
-   * <pre>
-   * The pivot: the breakout and invalidation level.
-   * </pre>
-   *
    * <code>bool has_base_high = 16 [json_name = "hasBaseHigh"];</code>
    * @return The hasBaseHigh.
    */

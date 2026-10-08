@@ -249,6 +249,10 @@ private static final long serialVersionUID = 0L;
   public static final int BASE_HIGH_FIELD_NUMBER = 15;
   private double baseHigh_ = 0D;
   /**
+   * <pre>
+   * The pivot: the breakout and invalidation level.
+   * </pre>
+   *
    * <code>double base_high = 15 [json_name = "baseHigh"];</code>
    * @return The baseHigh.
    */
@@ -260,10 +264,6 @@ private static final long serialVersionUID = 0L;
   public static final int HAS_BASE_HIGH_FIELD_NUMBER = 16;
   private boolean hasBaseHigh_ = false;
   /**
-   * <pre>
-   * The pivot: the breakout and invalidation level.
-   * </pre>
-   *
    * <code>bool has_base_high = 16 [json_name = "hasBaseHigh"];</code>
    * @return The hasBaseHigh.
    */
@@ -2018,6 +2018,10 @@ private static final long serialVersionUID = 0L;
 
     private double baseHigh_ ;
     /**
+     * <pre>
+     * The pivot: the breakout and invalidation level.
+     * </pre>
+     *
      * <code>double base_high = 15 [json_name = "baseHigh"];</code>
      * @return The baseHigh.
      */
@@ -2026,6 +2030,10 @@ private static final long serialVersionUID = 0L;
       return baseHigh_;
     }
     /**
+     * <pre>
+     * The pivot: the breakout and invalidation level.
+     * </pre>
+     *
      * <code>double base_high = 15 [json_name = "baseHigh"];</code>
      * @param value The baseHigh to set.
      * @return This builder for chaining.
@@ -2038,6 +2046,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
+     * <pre>
+     * The pivot: the breakout and invalidation level.
+     * </pre>
+     *
      * <code>double base_high = 15 [json_name = "baseHigh"];</code>
      * @return This builder for chaining.
      */
@@ -2050,10 +2062,6 @@ private static final long serialVersionUID = 0L;
 
     private boolean hasBaseHigh_ ;
     /**
-     * <pre>
-     * The pivot: the breakout and invalidation level.
-     * </pre>
-     *
      * <code>bool has_base_high = 16 [json_name = "hasBaseHigh"];</code>
      * @return The hasBaseHigh.
      */
@@ -2062,10 +2070,6 @@ private static final long serialVersionUID = 0L;
       return hasBaseHigh_;
     }
     /**
-     * <pre>
-     * The pivot: the breakout and invalidation level.
-     * </pre>
-     *
      * <code>bool has_base_high = 16 [json_name = "hasBaseHigh"];</code>
      * @param value The hasBaseHigh to set.
      * @return This builder for chaining.
@@ -2078,10 +2082,6 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <pre>
-     * The pivot: the breakout and invalidation level.
-     * </pre>
-     *
      * <code>bool has_base_high = 16 [json_name = "hasBaseHigh"];</code>
      * @return This builder for chaining.
      */

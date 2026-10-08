@@ -7989,7 +7989,7 @@ components:
           title: base_depth_pct
           type: number
         baseHigh:
-          description: (proto double)
+          description: 'The pivot: the breakout and invalidation level. (proto double)'
           format: double
           title: base_high
           type: number
@@ -8021,7 +8021,7 @@ components:
           title: has_base_depth_pct
           type: boolean
         hasBaseHigh:
-          description: 'The pivot: the breakout and invalidation level. (proto bool)'
+          description: (proto bool)
           title: has_base_high
           type: boolean
         hasBaseLengthDays:

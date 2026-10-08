@@ -217,7 +217,8 @@ message PriceFeatures {
   double sma200_prior_month = 9;         bool has_sma200_prior_month = 10;
   double high52w = 11;                   bool has_high52w = 12;
   double low52w = 13;                    bool has_low52w = 14;
-  double base_high = 15;                 bool has_base_high = 16;   // The pivot: the breakout and invalidation level.
+  // The pivot: the breakout and invalidation level.
+  double base_high = 15;                 bool has_base_high = 16;
   double base_low = 17;                  bool has_base_low = 18;
   double base_depth_pct = 19;            bool has_base_depth_pct = 20;
   int32 base_length_days = 21;           bool has_base_length_days = 22;
