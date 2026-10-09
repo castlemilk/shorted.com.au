@@ -30,6 +30,7 @@ on:
       - "scripts/bundle-budget-ci.test.mjs"
       - "scripts/tests/browser-analytics-isolation.test.mjs"
       - "scripts/tests/scoped-release-headers.test.mjs"
+      - "scripts/tests/stock-tab-redirects.test.mjs"
       - "web/e2e/helpers/release-page-readiness.mjs"
       - "web/e2e/helpers/scoped-release-headers.mjs"
       - "web/e2e/release-smoke-ci.mjs"

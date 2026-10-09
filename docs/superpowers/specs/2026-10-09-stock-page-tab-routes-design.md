@@ -122,18 +122,22 @@ instant with no request.
 
 ### Redirects for old links
 
-`next.config.mjs` `redirects()` gains one entry per legacy value, matched
-with `has: [{ type: "query", key: "tab", value }]` on `source:
-"/shorts/:code"`, `permanent: true`:
+`next.config.mjs` `redirects()` gains one entry per legacy value that names
+another tab, matched with `has: [{ type: "query", key: "tab", value }]` on
+`source: "/shorts/:code"`, `permanent: true`:
 
 | `?tab=` | Destination |
 |---|---|
-| `overview` | `/shorts/:code` |
 | `news`, `timeline` | `/shorts/:code/news` |
 | `financials`, `dividends` | `/shorts/:code/financials` |
 | `directors` | `/shorts/:code/company` |
 | `peers` | `/shorts/:code/short-interest` |
 | `community` | `/shorts/:code/community` |
+
+`?tab=overview` has no entry: its destination would be its own source, and
+Next forwards the request's query string on a redirect, so the redirect would
+send `/shorts/:code?tab=overview` back to itself; the value renders the
+Overview like any other unmapped value, as the old reader treated it.
 
 Vercel serves these from its routing layer; no function runs. The post-mount
 `?tab=` reader in the current `StockTabs` is deleted with it.
