@@ -92,7 +92,12 @@ export async function stockTabMetadata(
     title,
     description,
     keywords: input.keywords,
-    robots: noindex ? NOINDEX : undefined,
+    // The key is OMITTED when the tab is indexable, never set to undefined:
+    // Next 14.2 merges metadata with `for (key in source)`, so an own `robots`
+    // key holding undefined resolves to null and replaces the root layout's
+    // robots (index/follow plus the googleBot max-image-preview, max-snippet
+    // and max-video-preview directives). Absent, the tab inherits them.
+    ...(noindex ? { robots: NOINDEX } : {}),
     alternates: {
       canonical: url,
       languages: { "en-AU": url, en: url, "x-default": url },

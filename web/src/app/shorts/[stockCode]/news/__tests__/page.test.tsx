@@ -192,7 +192,9 @@ describe("/shorts/[stockCode]/news", () => {
       expect(md.title).toBe("BHP News & Sentiment | Latest ASX Articles");
       expect(md.description).toContain("Latest news and sentiment analysis for BHP");
       expect(md.alternates?.canonical).toBe(`${siteConfig.url}/shorts/BHP/news`);
-      expect(md.robots).toBeUndefined();
+      // No key at all, not `robots: undefined`: Next 14.2 resolves an own key
+      // holding undefined to null and drops the root layout's robots.
+      expect(Object.keys(md)).not.toContain("robots");
     });
 
     it("noindexes a thin stock without losing its card", async () => {
@@ -206,7 +208,7 @@ describe("/shorts/[stockCode]/news", () => {
     it("fails open on a transient read: default robots and the default card version", async () => {
       mockGetStock.mockRejectedValue(new Error("down"));
       const md = await generateMetadata(params("bhp"));
-      expect(md.robots).toBeUndefined();
+      expect(Object.keys(md)).not.toContain("robots");
       const cards = socialCards(md);
       expect(cards.openGraph?.[0]?.url).toBe(`${siteConfig.url}/shorts/BHP/opengraph-image?p=default`);
       expect(cards.twitter?.[0]?.url).toBe(`${siteConfig.url}/shorts/BHP/opengraph-image?p=default`);

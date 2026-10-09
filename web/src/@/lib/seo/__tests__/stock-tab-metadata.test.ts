@@ -16,7 +16,19 @@ describe("stockTabMetadata", () => {
     expect(md.title).toBe("BHP Financials: Results, Ratios & Statements | BHP Group");
     expect(md.alternates?.canonical).toBe("https://shorted.com.au/shorts/BHP/financials");
     expect(md.openGraph?.url).toBe("https://shorted.com.au/shorts/BHP/financials");
-    expect(md.robots).toBeUndefined();
+    expect(Object.keys(md)).not.toContain("robots");
+  });
+
+  // Next 14.2's mergeMetadata iterates `for (key in source)`, so an own `robots`
+  // key holding undefined runs resolveRobots(undefined) and REPLACES the root
+  // layout's robots (index/follow plus the googleBot max-image-preview,
+  // max-snippet and max-video-preview directives) with nothing. An indexable
+  // tab must therefore carry no robots key at all, to inherit them.
+  it("sets no robots key at all on an indexable tab, so the root layout's directives are inherited", async () => {
+    getStock.mockResolvedValue({ name: "BHP GROUP LIMITED ORDINARY", industry: "Materials", percentageShorted: 1.58 });
+    const md = await stockTabMetadata({ code: "BHP", tab: "company", title: (c) => c, description: (c) => c });
+    expect(Object.keys(md)).not.toContain("robots");
+    expect("robots" in md).toBe(false);
   });
 
   it("inherits the stock's noindex gate and fails open on a transient read", async () => {
@@ -26,7 +38,7 @@ describe("stockTabMetadata", () => {
 
     getStock.mockRejectedValue(new Error("boom"));
     const open = await stockTabMetadata({ code: "BHP", tab: "company", title: (c) => c, description: (c) => c });
-    expect(open.robots).toBeUndefined();
+    expect(Object.keys(open)).not.toContain("robots");
     expect(open.title).toBe("BHP");
   });
 
@@ -56,7 +68,7 @@ describe("stockTabMetadata", () => {
     it("leaves a resolved stock the predicate accepts indexable", async () => {
       getStock.mockResolvedValue({ name: "BHP GROUP LIMITED", industry: "Materials", percentageShorted: 1.58 });
       const md = await stockTabMetadata({ ...base, noindexWhen: thin });
-      expect(md.robots).toBeUndefined();
+      expect(Object.keys(md)).not.toContain("robots");
     });
 
     it("hands the predicate the stock record the metadata is built from", async () => {
@@ -73,7 +85,7 @@ describe("stockTabMetadata", () => {
       const noindexWhen = jest.fn().mockReturnValue(true);
       const md = await stockTabMetadata({ ...base, noindexWhen });
       expect(noindexWhen).not.toHaveBeenCalled();
-      expect(md.robots).toBeUndefined();
+      expect(Object.keys(md)).not.toContain("robots");
     });
 
     it("is never asked, and fails open, when the read throws", async () => {
@@ -81,7 +93,7 @@ describe("stockTabMetadata", () => {
       const noindexWhen = jest.fn().mockReturnValue(true);
       const md = await stockTabMetadata({ ...base, noindexWhen });
       expect(noindexWhen).not.toHaveBeenCalled();
-      expect(md.robots).toBeUndefined();
+      expect(Object.keys(md)).not.toContain("robots");
     });
 
     it("does not override forceNoindex or the stock's own gate", async () => {
@@ -100,7 +112,7 @@ describe("stockTabMetadata", () => {
   it("fails open when the read resolves undefined (not found or retries exhausted)", async () => {
     getStock.mockResolvedValue(undefined);
     const md = await stockTabMetadata({ code: "BHP", tab: "news", title: (c) => c, description: (c) => c });
-    expect(md.robots).toBeUndefined();
+    expect(Object.keys(md)).not.toContain("robots");
     expect(md.title).toBe("BHP");
   });
 

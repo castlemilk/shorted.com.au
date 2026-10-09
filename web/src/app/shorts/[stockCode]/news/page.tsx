@@ -64,9 +64,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title,
     description,
-    robots: shouldNoindex
-      ? { index: false, follow: true, googleBot: { index: false, follow: true } }
-      : undefined,
+    // Omitted, not set to undefined, when indexable: Next 14.2 merges metadata
+    // with `for (key in source)`, so an own `robots: undefined` replaces the root
+    // layout's robots (and its googleBot max-image-preview / max-snippet
+    // directives) with nothing. Absent, the tab inherits them.
+    ...(shouldNoindex
+      ? {
+          robots: {
+            index: false,
+            follow: true,
+            googleBot: { index: false, follow: true },
+          },
+        }
+      : {}),
     keywords: [
       `${code} news`,
       `${code} ASX news`,

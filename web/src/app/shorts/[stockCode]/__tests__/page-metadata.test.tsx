@@ -71,6 +71,27 @@ describe("stock Overview metadata", () => {
     },
   );
 
+  // Next 14.2 merges metadata with `for (key in source)`: an own `robots` key
+  // holding undefined replaces the root layout's robots (and its googleBot
+  // max-image-preview / max-snippet directives) with nothing. Indexable means
+  // no key at all.
+  it("sets no robots key on an indexable stock, and a noindex on a thin stub", async () => {
+    mockGetStock.mockResolvedValue(stock(1.2));
+    const indexable = await generateMetadata({ params: Promise.resolve({ stockCode: "bhp" }) });
+    expect(Object.keys(indexable)).not.toContain("robots");
+
+    // No name, no industry and a short position under the indexing floor.
+    mockGetStock.mockResolvedValue({ name: "", industry: "", percentageShorted: 0.01, reportedShortPositions: 0 });
+    const thin = await generateMetadata({ params: Promise.resolve({ stockCode: "tny" }) });
+    expect(thin.robots).toEqual({ index: false, follow: true, googleBot: { index: false, follow: true } });
+  });
+
+  it("sets no robots key while the stock read fails (fail open)", async () => {
+    mockGetStock.mockRejectedValue(new Error("unavailable"));
+    const meta = await generateMetadata({ params: Promise.resolve({ stockCode: "bhp" }) });
+    expect(Object.keys(meta)).not.toContain("robots");
+  });
+
   it("still names the default card when the stock read fails", async () => {
     mockGetStock.mockRejectedValue(new Error("unavailable"));
 
