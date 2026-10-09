@@ -101,7 +101,14 @@ export function StrategyFitStrip({ fit }: { fit: StockStrategyFit }) {
         <p className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span>
             {pricesTo ? `Prices to ${pricesTo} · ` : ""}Mechanical readings of
-            published rules, not recommendations
+            published rules, not recommendations ·{" "}
+            <Link
+              href="/disclaimer"
+              prefetch={false}
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              Not financial advice
+            </Link>
           </span>
           <Link
             href={stockTabHref(fit.stockCode, "strategy")}

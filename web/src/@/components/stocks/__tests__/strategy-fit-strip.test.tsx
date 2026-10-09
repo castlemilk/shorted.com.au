@@ -86,18 +86,44 @@ describe("StrategyFitStrip", () => {
   it("turns off Link's own prefetch on every link", () => {
     render(<StrategyFitStrip fit={fit} />);
     const links = screen.getAllByRole("link");
-    expect(links).toHaveLength(3);
+    // Two strategy names, the not-advice link and the link into the Strategy tab.
+    expect(links).toHaveLength(4);
     for (const link of links) {
       expect(link).toHaveAttribute("data-prefetch", "false");
     }
+  });
+
+  // The strategy card this strip replaced carried the disclaimer link; a
+  // mechanical reading of published rules is not advice, and the page that
+  // prints one must say so.
+  it("closes with the not-advice footer linking /disclaimer, beside the link into the Strategy tab", () => {
+    render(<StrategyFitStrip fit={fit} />);
+    const region = screen.getByRole("region", { name: "Strategy fit" });
+    expect(
+      within(region).getByText(
+        /Prices to 7 Oct 2026 · Mechanical readings of published rules, not recommendations ·/,
+      ),
+    ).toBeInTheDocument();
+    expect(within(region).getByRole("link", { name: "Not financial advice" })).toHaveAttribute(
+      "href",
+      "/disclaimer",
+    );
+    expect(within(region).getByRole("link", { name: /Full strategy readings/ })).toHaveAttribute(
+      "href",
+      "/shorts/BHP/strategy",
+    );
   });
 
   it("leaves the 'Prices to' clause out when the fit has no as-of date", () => {
     render(<StrategyFitStrip fit={{ ...fit, asOf: "" }} />);
     expect(screen.queryByText(/Prices to/)).not.toBeInTheDocument();
     expect(
-      screen.getByText("Mechanical readings of published rules, not recommendations"),
+      screen.getByText(/^Mechanical readings of published rules, not recommendations/),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Not financial advice" })).toHaveAttribute(
+      "href",
+      "/disclaimer",
+    );
   });
 });
 
