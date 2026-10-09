@@ -388,37 +388,6 @@ describe("stock page against an older API", () => {
     }
   });
 
-  it("returns the page without waiting on the company details read", async () => {
-    // getStockDetails retries three times with backoff and has no request
-    // timeout: a slow read must cost the Financials tab's filings list, never
-    // the page's first byte.
-    mockGetStockFundamentals.mockResolvedValue(oldProtoResponse());
-    mockGetStockStrategyFit.mockRejectedValue(new Error("unavailable"));
-    mockListStrategies.mockRejectedValue(new Error("unavailable"));
-    const { getEnrichedCompanyMetadata } = jest.requireMock<{
-      getEnrichedCompanyMetadata: jest.Mock;
-    }>("~/app/actions/company-metadata");
-    getEnrichedCompanyMetadata.mockImplementation(() => new Promise(() => undefined));
-
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const stalled = new Promise<never>((_, reject) => {
-      timer = setTimeout(
-        () => reject(new Error("the page awaited the company details read")),
-        2000,
-      );
-    });
-    try {
-      const element = await Promise.race([
-        Page({ params: Promise.resolve({ stockCode: "BHP" }) }),
-        stalled,
-      ]);
-      expect(element).toBeTruthy();
-    } finally {
-      clearTimeout(timer);
-      getEnrichedCompanyMetadata.mockImplementation(async () => null);
-    }
-  });
-
   it("renders without any fundamentals when that rpc fails too", async () => {
     mockGetStockFundamentals.mockRejectedValue(new Error("unavailable"));
     mockGetStockStrategyFit.mockRejectedValue(new Error("unavailable"));

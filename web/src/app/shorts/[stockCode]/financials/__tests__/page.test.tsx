@@ -4,6 +4,11 @@ import { render, screen } from "@testing-library/react";
 
 const mockGetStockOrNotFound = jest.fn();
 const mockGetStockFundamentals = jest.fn();
+// The company-details reads the filings list depends on. Nothing on this page
+// calls them (the real FinancialReportsSection, mocked below, does, once React
+// renders it); they are mocked so a test can make them never settle.
+const mockGetEnrichedCompanyMetadata = jest.fn();
+const mockGetStockDetails = jest.fn();
 const mockMetadata = jest.fn().mockResolvedValue({ title: "t" });
 const mockBreadcrumbs = jest.fn();
 jest.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_FOUND"); } }));
@@ -16,6 +21,8 @@ jest.mock("next/dynamic", () => (loader: () => unknown) => {
 });
 jest.mock("~/app/actions/getStock", () => ({ getStockOrNotFound: (...a: unknown[]) => mockGetStockOrNotFound(...a) }));
 jest.mock("~/app/actions/getStockFundamentals", () => ({ getStockFundamentals: (...a: unknown[]) => mockGetStockFundamentals(...a) }));
+jest.mock("~/app/actions/company-metadata", () => ({ getEnrichedCompanyMetadata: (...a: unknown[]) => mockGetEnrichedCompanyMetadata(...a) }));
+jest.mock("~/app/actions/getStockDetails", () => ({ getStockDetails: (...a: unknown[]) => mockGetStockDetails(...a) }));
 jest.mock("~/@/lib/seo/stock-tab-metadata", () => ({ stockTabMetadata: (...a: unknown[]) => mockMetadata(...a) }));
 jest.mock("~/@/components/seo/breadcrumbs", () => ({
   BreadcrumbStructuredData: (props: unknown) => {
@@ -56,6 +63,10 @@ describe("/shorts/[stockCode]/financials", () => {
     mockGetStockOrNotFound.mockResolvedValue(stock);
     mockGetStockFundamentals.mockReset();
     mockGetStockFundamentals.mockResolvedValue(null);
+    mockGetEnrichedCompanyMetadata.mockReset();
+    mockGetEnrichedCompanyMetadata.mockResolvedValue(null);
+    mockGetStockDetails.mockReset();
+    mockGetStockDetails.mockResolvedValue(undefined);
     mockMetadata.mockClear();
     mockBreadcrumbs.mockClear();
     (stockTabLabel as jest.Mock).mockClear();
@@ -151,6 +162,30 @@ describe("/shorts/[stockCode]/financials", () => {
     });
     render(await Page({ params: Promise.resolve({ stockCode: "BHP" }) }));
     expect(screen.getByTestId("reports-section")).toHaveAttribute("data-source-document-url", "");
+  });
+
+  // Moved from the Overview's old-api test, where it had become vacuous: the
+  // Overview no longer reads the company details at all (the filings are this
+  // tab's). getStockDetails retries three times with backoff and has no request
+  // timeout, so a slow read must cost this tab's filings list, never its first
+  // byte. FinancialReportsSection and FilingsListedNote are async server
+  // components that React renders under their own Suspense, so the page only
+  // creates their elements; a page that awaited either read itself would stall
+  // here and lose to the timer.
+  it("returns the page without waiting on the company details read", async () => {
+    mockGetEnrichedCompanyMetadata.mockImplementation(() => new Promise(() => undefined));
+    mockGetStockDetails.mockImplementation(() => new Promise(() => undefined));
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const stalled = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("the page awaited the company details read")), 2000);
+    });
+    try {
+      const element = await Promise.race([Page({ params: Promise.resolve({ stockCode: "BHP" }) }), stalled]);
+      expect(element).toBeTruthy();
+    } finally {
+      clearTimeout(timer);
+    }
   });
 
   it("emits breadcrumb structured data with the tab as the last item, labelled by the tab registry", async () => {
