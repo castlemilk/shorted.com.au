@@ -83,13 +83,23 @@ test.describe("stock page tabs", () => {
     expect(await horizontalOverflow(page)).toBe(0);
     await expect(nav.getByRole("link", { name: "Strategy" })).toBeInViewport();
     // Playwright scrolls a link into view to click it, so the click above says
-    // nothing about the bar's own scrolling: load the last tab cold and the bar
-    // must bring the active link into view by itself. The bar sits below the
-    // first screen on a phone, so scroll the page down to it first; that moves
-    // the page, not the bar's own list.
-    await page.goto(`/shorts/${CODE}/community`);
-    await nav.scrollIntoViewIfNeeded();
-    await expect(nav.getByRole("link", { name: "Community" })).toBeInViewport({ ratio: 1 });
+    // nothing about the bar's own scrolling: load a tab cold and the bar must
+    // bring the active link into view by itself, the whole link (ratio 1), not
+    // a sliver. Two tabs, because they fail differently. The last one
+    // (Community) clamps at the end of the track, so it passes for any large
+    // scroll target. One in the middle (Financials) is where the target has to
+    // be exact: an offset measured from the wrong ancestor overshoots and
+    // leaves the link's left edge outside the bar. The bar sits below the first
+    // screen on a phone, so scroll the page down to it first; that moves the
+    // page, not the bar's own list.
+    for (const [label, segment] of [
+      ["Financials", "financials"],
+      ["Community", "community"],
+    ] as const) {
+      await page.goto(`/shorts/${CODE}/${segment}`);
+      await nav.scrollIntoViewIfNeeded();
+      await expect(nav.getByRole("link", { name: label }), `${label}, loaded cold`).toBeInViewport({ ratio: 1 });
+    }
   });
 
   test("a legacy ?tab= link answers with a permanent redirect to the tab route", async ({ request }) => {
@@ -147,9 +157,26 @@ test.describe("stock page tabs", () => {
     await expect(page.getByText("Loading community activity...")).toBeHidden(COLD);
     const thread = page.locator(`a[href^="/shorts/${CODE}/community/"]`).first();
     if ((await thread.count()) === 0) test.skip(true, "no thread to open");
+    const title = (await thread.innerText()).trim();
     await thread.click();
-    await expect(page.getByRole("navigation", { name: "Stock sections" })).toHaveCount(1);
+    // A <Link> navigates on the client once its RSC payload arrives, so click()
+    // returns first, and the counts below already hold on the list page (same
+    // layout): wait for the thread route, and for what only it prints, before
+    // counting anything. Only the thread view has the "Back to ... community"
+    // link and a Comments heading; the list page has neither.
+    await expect(page).toHaveURL(new RegExp(`/shorts/${CODE}/community/[^/]+$`), COLD);
+    await expect(page.getByRole("link", { name: `Back to ${CODE} community` })).toBeVisible(COLD);
+    await expect(page.getByRole("heading", { name: "Comments", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
+    // The chrome appears once. Only DashboardLayout renders <main>, so a wrapper
+    // the thread page still carries shows up as a second one here and nowhere
+    // else: a leftover wrapper leaves a single tab bar and a single chart.
+    await expect(page.locator("main")).toHaveCount(1);
+    const nav = page.getByRole("navigation", { name: "Stock sections" });
+    await expect(nav).toHaveCount(1);
     await expect(page.locator("[data-chart-container]")).toHaveCount(1);
+    // Community stays the active tab beneath it.
+    await expect(nav.getByRole("link", { name: "Community" })).toHaveAttribute("aria-current", "page");
   });
 
   test("each of the seven tab URLs is served from the ISR cache on the second request", async ({ request }) => {
