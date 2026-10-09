@@ -55,6 +55,8 @@ function fit(): StockStrategyFit {
         ruleColumns: [{ id: "market", title: "Market direction" }],
       },
     ],
+    priceFeatures: null,
+    regime: null,
   };
 }
 

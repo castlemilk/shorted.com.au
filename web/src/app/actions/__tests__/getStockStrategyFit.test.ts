@@ -72,7 +72,7 @@ describe("getStockStrategyFit", () => {
     mockListStrategies.mockReset();
   });
 
-  it("caches under ['stock-strategy-fit', code, 'v1'] for an hour with the strategy-picks tag", async () => {
+  it("caches under ['stock-strategy-fit', code, 'v2'] for an hour with the strategy-picks tag", async () => {
     mockGetStockStrategyFit.mockResolvedValue(fitResponse());
     mockListStrategies.mockResolvedValue({
       strategies: [
@@ -82,7 +82,7 @@ describe("getStockStrategyFit", () => {
     const fit = await getStockStrategyFit("bhp");
 
     const [, key, opts] = cacheCalls.find(([, k]) => k[0] === "stock-strategy-fit")!;
-    expect(key).toEqual(["stock-strategy-fit", "BHP", "v1"]);
+    expect(key).toEqual(["stock-strategy-fit", "BHP", "v2"]);
     expect(opts.revalidate).toBe(3600);
     expect(opts.tags).toEqual(["strategy-picks", "shorts-data", "stock-page:strategy-fit:bhp"]);
 
@@ -152,7 +152,14 @@ describe("mapStockStrategyFit", () => {
   it("drops fits without an id and reads an empty universe as no fits", () => {
     expect(
       mapStockStrategyFit("X", { asOf: "", inUniverse: false, fits: [] }),
-    ).toEqual({ stockCode: "X", asOf: "", inUniverse: false, fits: [] });
+    ).toEqual({
+      stockCode: "X",
+      asOf: "",
+      inUniverse: false,
+      fits: [],
+      priceFeatures: null,
+      regime: null,
+    });
     expect(
       mapStockStrategyFit("X", { fits: [{ strategyId: "", status: "setup" }] }).fits,
     ).toEqual([]);
@@ -161,5 +168,46 @@ describe("mapStockStrategyFit", () => {
   it("humanises a rule id", () => {
     expect(humaniseRuleId("revenue_growth")).toBe("Revenue growth");
     expect(humaniseRuleId("")).toBe("Rule");
+  });
+});
+
+describe("price features and regime", () => {
+  it("maps present features, nulls flagged-absent ones, and keeps the regime", () => {
+    const fit = mapStockStrategyFit("BHP", {
+      ...fitResponse(),
+      regime: { indexCode: "XJO", asOf: "2026-09-25", regime: "uptrend", close: 8800, sma50: 8600, sma200: 8200, pctOff52wHigh: -1.5, verdict: "Uptrend: XJO above its averages." },
+      priceFeatures: {
+        asOf: "2026-09-25", close: 42.1,
+        sma50: 40, hasSma50: true, sma150: 0, hasSma150: false, sma200: 38.5, hasSma200: true,
+        sma200PriorMonth: 38.1, hasSma200PriorMonth: true,
+        high52w: 45, hasHigh52w: true, low52w: 0, hasLow52w: false,
+        baseHigh: 43, hasBaseHigh: true, baseLow: 39, hasBaseLow: true,
+        baseDepthPct: 9.3, hasBaseDepthPct: true, baseLengthDays: 22, hasBaseLengthDays: true,
+        breakoutRecent: true, breakoutDate: "2026-09-19",
+        rs3mPct: 4.2, hasRs3mPct: true, rs6mPct: 0, hasRs6mPct: false,
+        volumeRatio50d: 1.8, hasVolumeRatio50d: true, sessionsAvailable: 260,
+      },
+    });
+    expect(fit.priceFeatures).toEqual({
+      asOf: "2026-09-25", close: 42.1,
+      sma50: 40, sma150: null, sma200: 38.5, sma200PriorMonth: 38.1,
+      high52w: 45, low52w: null,
+      baseHigh: 43, baseLow: 39, baseDepthPct: 9.3, baseLengthDays: 22,
+      breakoutRecent: true, breakoutDate: "2026-09-19",
+      rs3mPct: 4.2, rs6mPct: null, volumeRatio50d: 1.8, sessionsAvailable: 260,
+    });
+    expect(fit.regime?.regime).toBe("uptrend");
+    expect(fit.regime?.sma200).toBe(8200);
+  });
+
+  it("is null for an API that predates the field, and for an empty breakout date", () => {
+    expect(mapStockStrategyFit("BHP", fitResponse()).priceFeatures).toBeNull();
+    const fit = mapStockStrategyFit("BHP", {
+      ...fitResponse(),
+      priceFeatures: { asOf: "2026-09-25", close: 1, breakoutRecent: false, breakoutDate: "", sessionsAvailable: 30 },
+    });
+    expect(fit.priceFeatures?.breakoutDate).toBeNull();
+    expect(fit.priceFeatures?.sma50).toBeNull();
+    expect(fit.regime).toBeNull();
   });
 });

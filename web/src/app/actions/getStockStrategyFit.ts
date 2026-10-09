@@ -11,13 +11,15 @@ import {
   normalizeStockPageCacheCode,
   stockPageCacheTags,
 } from "./stockPageCache";
+import { mapRegime, type MarketRegimeInput } from "~/@/lib/strategies/map";
+import type { MarketRegimeView } from "~/@/lib/strategies/types";
 
 // How every picker strategy reads one stock, for the Strategy fit card in the
 // stock page's Overview (docs/plans/fundamentals-coverage.md §7.1), from
 // StrategyService.GetStockStrategyFit.
 //
 // Contract, all of it load-bearing:
-//   - unstable_cache key ['stock-strategy-fit', code, 'v1'], revalidate 3600,
+//   - unstable_cache key ['stock-strategy-fit', code, 'v2'], revalidate 3600,
 //     tags ['strategy-picks', ...stockPageCacheTags('strategy-fit', code)];
 //   - a serverFetchOutsideNextCache transport with a 4 s abort, so a slow API
 //     costs the card, never the render;
@@ -34,8 +36,12 @@ import {
 /** Abort the RPC after this long: the card is optional, the render is not. */
 export const STRATEGY_FIT_TIMEOUT_MS = 4000;
 
-/** The cache version of one stock's fit entry. */
-export const STRATEGY_FIT_CACHE_VERSION = "v1";
+/**
+ * The cache version of one stock's fit entry. v2 added priceFeatures and
+ * regime: a v1 entry has neither key, so it must not be read back as the
+ * current shape.
+ */
+export const STRATEGY_FIT_CACHE_VERSION = "v2";
 
 export type StrategyFitStatus = "triggered" | "setup" | "watch" | "none";
 export type StrategyFitRuleStatus = "pass" | "fail" | "unknown";
@@ -68,12 +74,43 @@ export interface StockStrategyFitRow {
   ruleColumns: StrategyFitRuleColumn[];
 }
 
+/**
+ * One stock's price features, mapped from GetStockStrategyFit. Every number is
+ * null when the API holds none: a has_* flag that is false, or a value that is
+ * not finite, never reads as a level (proto3 sends 0 for "missing").
+ */
+export interface StockPriceFeatures {
+  /** YYYY-MM-DD the features are as at; "" when unknown. */
+  asOf: string;
+  close: number | null;
+  sma50: number | null;
+  sma150: number | null;
+  sma200: number | null;
+  sma200PriorMonth: number | null;
+  high52w: number | null;
+  low52w: number | null;
+  baseHigh: number | null;
+  baseLow: number | null;
+  baseDepthPct: number | null;
+  baseLengthDays: number | null;
+  breakoutRecent: boolean;
+  /** YYYY-MM-DD; null when the API gives none. */
+  breakoutDate: string | null;
+  rs3mPct: number | null;
+  rs6mPct: number | null;
+  volumeRatio50d: number | null;
+  sessionsAvailable: number;
+}
+
 export interface StockStrategyFit {
   stockCode: string;
   /** YYYY-MM-DD of the latest price in the universe; "" when unknown. */
   asOf: string;
   inUniverse: boolean;
   fits: StockStrategyFitRow[];
+  /** Null when absent: an API without the field, or a stock outside the universe. */
+  priceFeatures: StockPriceFeatures | null;
+  regime: MarketRegimeView | null;
 }
 
 /** strategy id -> rule id -> title. */
@@ -92,6 +129,43 @@ export interface StockStrategyFitResponseLike {
     totalCount?: number;
     rules?: ReadonlyArray<{ ruleId?: string; status?: string; detail?: string }>;
   }>;
+  regime?: MarketRegimeInput | null;
+  priceFeatures?: PriceFeaturesLike | null;
+}
+
+/** The PriceFeatures fields the mapper reads (the message satisfies it). */
+export interface PriceFeaturesLike {
+  asOf?: string;
+  close?: number;
+  sma50?: number;
+  hasSma50?: boolean;
+  sma150?: number;
+  hasSma150?: boolean;
+  sma200?: number;
+  hasSma200?: boolean;
+  sma200PriorMonth?: number;
+  hasSma200PriorMonth?: boolean;
+  high52w?: number;
+  hasHigh52w?: boolean;
+  low52w?: number;
+  hasLow52w?: boolean;
+  baseHigh?: number;
+  hasBaseHigh?: boolean;
+  baseLow?: number;
+  hasBaseLow?: boolean;
+  baseDepthPct?: number;
+  hasBaseDepthPct?: boolean;
+  baseLengthDays?: number;
+  hasBaseLengthDays?: boolean;
+  breakoutRecent?: boolean;
+  breakoutDate?: string;
+  rs3mPct?: number;
+  hasRs3mPct?: boolean;
+  rs6mPct?: number;
+  hasRs6mPct?: boolean;
+  volumeRatio50d?: number;
+  hasVolumeRatio50d?: boolean;
+  sessionsAvailable?: number;
 }
 
 /** The ListStrategies fields the title map reads (the message satisfies it). */
@@ -124,10 +198,60 @@ function positiveInt(value: number | undefined): number | null {
     : null;
 }
 
+/** A value only when its has_* flag says it is real, and it is finite. */
+function flagged(
+  value: number | undefined,
+  has: boolean | undefined,
+): number | null {
+  return has === true && typeof value === "number" && Number.isFinite(value)
+    ? value
+    : null;
+}
+
 /** "revenue_growth" -> "Revenue growth": a readable stand-in for a missing title. */
 export function humaniseRuleId(id: string): string {
   const words = text(id).replace(/[_-]+/g, " ").trim();
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : "Rule";
+}
+
+/**
+ * The response's price features to plain data, or null when it carries none
+ * (an API that predates the field). Each number honours its has_* flag, so a
+ * measured zero survives and an unmeasured one reads null.
+ */
+export function mapPriceFeatures(
+  pf: PriceFeaturesLike | null | undefined,
+): StockPriceFeatures | null {
+  if (!pf) return null;
+  return {
+    asOf: text(pf.asOf),
+    close:
+      typeof pf.close === "number" && Number.isFinite(pf.close)
+        ? pf.close
+        : null,
+    sma50: flagged(pf.sma50, pf.hasSma50),
+    sma150: flagged(pf.sma150, pf.hasSma150),
+    sma200: flagged(pf.sma200, pf.hasSma200),
+    sma200PriorMonth: flagged(pf.sma200PriorMonth, pf.hasSma200PriorMonth),
+    high52w: flagged(pf.high52w, pf.hasHigh52w),
+    low52w: flagged(pf.low52w, pf.hasLow52w),
+    baseHigh: flagged(pf.baseHigh, pf.hasBaseHigh),
+    baseLow: flagged(pf.baseLow, pf.hasBaseLow),
+    baseDepthPct: flagged(pf.baseDepthPct, pf.hasBaseDepthPct),
+    baseLengthDays:
+      pf.hasBaseLengthDays === true && typeof pf.baseLengthDays === "number"
+        ? Math.round(pf.baseLengthDays)
+        : null,
+    breakoutRecent: pf.breakoutRecent === true,
+    breakoutDate: text(pf.breakoutDate) || null,
+    rs3mPct: flagged(pf.rs3mPct, pf.hasRs3mPct),
+    rs6mPct: flagged(pf.rs6mPct, pf.hasRs6mPct),
+    volumeRatio50d: flagged(pf.volumeRatio50d, pf.hasVolumeRatio50d),
+    sessionsAvailable:
+      typeof pf.sessionsAvailable === "number"
+        ? Math.round(pf.sessionsAvailable)
+        : 0,
+  };
 }
 
 /**
@@ -177,6 +301,8 @@ export function mapStockStrategyFit(
     asOf: text(response.asOf),
     inUniverse: response.inUniverse === true,
     fits,
+    priceFeatures: mapPriceFeatures(response.priceFeatures),
+    regime: mapRegime(response.regime),
   };
 }
 
