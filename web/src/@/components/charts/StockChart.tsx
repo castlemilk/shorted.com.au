@@ -24,6 +24,7 @@ import { decimate } from "./decimate";
 import { useChartScales } from "./use-chart-scales";
 import { normalizeToPercentChange } from "./indicators";
 import { layoutLevels } from "./chart-levels";
+import { seriesDelta } from "./chart-readout";
 import { chartTheme } from "./chart-theme";
 import {
   Axes,
@@ -471,19 +472,15 @@ export function StockChartInner({
         const pa = nearest(s.points, ta);
         const pb = nearest(s.points, tb);
         if (!pa || !pb) return null;
-        const absolute = s.measureMode === "absolute";
-        const rawDelta = absolute
-          ? pb.v - pa.v
-          : pa.v !== 0
-            ? ((pb.v - pa.v) / pa.v) * 100
-            : 0;
-        // Round first so sign, color and digits always agree (and "-0.0" can
-        // never appear — Number("-0.0") is falsy, so `|| 0` normalizes it).
-        const delta = Number(rawDelta.toFixed(1)) || 0;
-        const unit = absolute ? (s.measureUnit ?? "") : "%";
-        const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
-        const text = `${sign}${Math.abs(delta).toFixed(1)}${unit}`;
-        return { id: s.id, label: s.label, color: s.color, delta, text };
+        // Rounding, sign and unit live in seriesDelta, shared with the readout.
+        const d = seriesDelta(s, pa, pb);
+        return {
+          id: s.id,
+          label: s.label,
+          color: s.color,
+          delta: d.value,
+          text: d.text,
+        };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
     return { xa, xb, ta, tb, rows };

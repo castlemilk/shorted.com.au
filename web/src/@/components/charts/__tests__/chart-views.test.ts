@@ -5,6 +5,7 @@ import {
   isChartPeriod,
   isChartViewId,
 } from "../chart-views";
+import { seriesDelta } from "../chart-readout";
 import type { ChartPoint } from "../types";
 
 const series = (n: number, base = 10): ChartPoint[] =>
@@ -65,6 +66,31 @@ describe("buildChartView", () => {
     expect(c.leftAxis.format?.(1)).toBe("$1.00");
     expect(c.rightAxis).toMatchObject({ side: "right" });
     expect(c.rightAxis?.format?.(1)).toBe("1.0%");
+  });
+
+  it("measures the short series in percentage points and leaves price relative", () => {
+    for (const view of ["short", "combined"] as const) {
+      const c = buildChartView(view, input());
+      expect(c.series.find((s) => s.id === "BHP:short")).toMatchObject({
+        measureMode: "absolute",
+        measureUnit: "pp",
+      });
+    }
+    const priceSeries = buildChartView("price", input()).series[0]!;
+    expect(priceSeries.measureMode).toBeUndefined();
+    expect(priceSeries.measureUnit).toBeUndefined();
+  });
+
+  it("reads a change in the built series as points for short and percent for price", () => {
+    const { series: built } = buildChartView("combined", input());
+    const [price, short] = built;
+    // short runs 2 -> 3, price 40 -> 41.
+    expect(seriesDelta(short!, short!.points[0]!, short!.points[1]!).text).toBe(
+      "+1.00 pp",
+    );
+    expect(seriesDelta(price!, price!.points[0]!, price!.points[1]!).text).toBe(
+      "+2.5%",
+    );
   });
 
   it("adds SMA 20 only when enabled AND there are at least 20 price points", () => {

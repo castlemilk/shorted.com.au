@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render, within } from "@testing-library/react";
 import { StockChartInner } from "../StockChart";
 import * as chartLevels from "../chart-levels";
 import type { ChartSeriesSpec } from "../types";
@@ -454,5 +454,48 @@ describe("StockChart reference levels, bands and markers", () => {
     } finally {
       layout.mockRestore();
     }
+  });
+});
+
+describe("StockChart drag-measure card", () => {
+  // Short interest is already a percentage, so it measures in points; price in percent.
+  const SHORT_PP: ChartSeriesSpec = {
+    ...SERIES[1]!,
+    measureMode: "absolute",
+    measureUnit: "pp",
+  };
+  const FALLING: ChartSeriesSpec = {
+    ...SERIES[0]!,
+    points: Array.from({ length: 10 }, (_, i) => ({ t: T0 + i * DAY, v: 50 - i })),
+  };
+
+  /**
+   * Press at point `from`, drag to point `to`, and return the floating card.
+   * Keep the right-axis series in: xOf() is laid out for a chart that has one.
+   */
+  function measure(series: ChartSeriesSpec[], from: number, to: number) {
+    const { plot, container } = renderChart(series);
+    fireEvent.mouseDown(plot, { ...pt(xOf(from)), button: 0 });
+    fireEvent.mouseMove(plot, pt(xOf(to)));
+    const card = container.querySelector<HTMLElement>('[data-chart="measure-readout"]');
+    expect(card).not.toBeNull();
+    return card!;
+  }
+
+  it("reports price as a percent and short interest as points to two decimals", () => {
+    // Price 42 -> 46; short 4 -> 8.
+    const card = measure([SERIES[0]!, SHORT_PP], 2, 6);
+    expect(card.textContent).toBe(`${dateLabel(2)} → ${dateLabel(6)}Price+9.5%Short %+4.00 pp`);
+  });
+
+  it("colours a rise green", () => {
+    const card = measure([SERIES[0]!, SHORT_PP], 2, 6);
+    expect(within(card).getByText("+9.5%").style.color).toBe("rgb(22, 163, 74)");
+  });
+
+  it("colours a fall red", () => {
+    // Price 48 -> 44.
+    const card = measure([FALLING, SHORT_PP], 2, 6);
+    expect(within(card).getByText("-8.3%").style.color).toBe("rgb(220, 38, 38)");
   });
 });

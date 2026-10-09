@@ -95,6 +95,10 @@ export function buildChartView(
     axis: view === "short" ? "left" : "right",
     kind: view === "short" ? "area" : "line",
     points: short,
+    // Short interest is already a percentage, so a change in it is a number of
+    // percentage points ("+0.21 pp"), not a percent of a percent.
+    measureMode: "absolute",
+    measureUnit: "pp",
   };
 
   const maIndicator: SeriesIndicator[] =
