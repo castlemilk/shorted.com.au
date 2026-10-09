@@ -514,7 +514,7 @@ tasks:
     cmds: [npm run test:e2e]
 
   test:bundle:
-    desc: Check route bundle budgets against a production build
+    desc: Check route bundle budgets and the stock-route ISR gate against a production build
     dir: web
     cmds: [npm run bundle:budget, npm run routes:kinds]
 

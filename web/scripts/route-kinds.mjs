@@ -17,7 +17,12 @@
 // a read of cookies(), headers(), searchParams or a no-store fetch under a page
 // that keeps its (empty) generateStaticParams. Next renders nothing at build
 // time for an empty list, so such a route stays listed and fails at request
-// time instead (a 500 under `next start`). Those need a request-level check.
+// time instead (a 500 under `next start`). Those reads are caught from source by
+//   web/src/app/shorts/__tests__/isr-source-safety.test.ts
+// (Jest, in the web test run), which also requires every tab page to keep its
+// revalidate, dynamicParams and generateStaticParams exports. A read inside a
+// component imported from outside the segment is beyond both and needs a
+// request-level check.
 
 import { readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
@@ -56,6 +61,10 @@ function main(argv) {
       "A page or layout under /shorts/[stockCode] has lost its generateStaticParams export, or sets " +
         'revalidate = 0 or dynamic = "force-dynamic". (With a non-empty generateStaticParams, a ' +
         "searchParams/cookies/headers read drops a route out too.)",
+    );
+    console.error(
+      "With the empty generateStaticParams every tab exports, such a read does not show up here: " +
+        "web/src/app/shorts/__tests__/isr-source-safety.test.ts is the check for it.",
     );
     return 1;
   }
