@@ -198,7 +198,9 @@ describe("PicksTable fundamentals disclosure", () => {
 
     const full = within(details).getByRole("link", { name: "Full financials" });
     expect(full).toHaveAttribute("href", "/shorts/BHP/financials");
-    expect(full).toHaveAttribute("rel", "nofollow");
+    // The target is the indexable, sitemap-listed /financials route (it used to
+    // be a ?tab= duplicate), so the link is followed like any other internal link.
+    expect(full).not.toHaveAttribute("rel");
     // The code link stays the canonical stock URL.
     expect(row.getByRole("link", { name: "BHP" })).toHaveAttribute(
       "href",

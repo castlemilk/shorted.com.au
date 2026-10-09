@@ -220,8 +220,9 @@ const DD = "text-right tabular-nums text-foreground";
  * The native disclosure in the Stock cell. It needs no state and no script,
  * so it opens in the ISR HTML before (and without) hydration. The code and
  * name link above it stays the canonical /shorts/<code>; "Full financials"
- * links the stock page's Financials tab and stays nofollow: the stock page's
- * own tab bar and the sitemap already lead a crawler there.
+ * links the stock page's Financials tab, an indexable, sitemap-listed route
+ * (it was a ?tab= duplicate of the Overview when this link was nofollow), so
+ * it is a plain followed link with prefetch off.
  */
 export function PickFundamentalsDetails({ row }: { row: PickRow }) {
   const f = row.fundamentals;
@@ -235,7 +236,6 @@ export function PickFundamentalsDetails({ row }: { row: PickRow }) {
           <PickFundamentalsList row={row} f={f} />
           <Link
             href={stockTabHref(row.code, "financials")}
-            rel="nofollow"
             prefetch={false}
             className="inline-block font-medium text-primary hover:underline"
           >
