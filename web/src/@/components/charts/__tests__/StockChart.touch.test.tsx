@@ -267,3 +267,89 @@ describe("StockChart tooltip placement", () => {
     expect(tip()!.style.top).toBe(`${M.top + 4}px`);
   });
 });
+
+describe("StockChart reference levels, bands and markers", () => {
+  it("draws reference bands under the series and levels/markers over it, clipped to the plot", () => {
+    const { container } = render(
+      <StockChartInner
+        width={WIDTH}
+        height={HEIGHT}
+        series={SERIES}
+        bands={[{ axis: "left", low: 41, high: 44, from: T0 - 5 * DAY, to: T0 + 3 * DAY, color: "#00f", label: "base" }]}
+        levels={[
+          { axis: "left", value: 45, label: "Pivot $45", color: "#f90" },
+          { axis: "left", value: 999, label: "off the plot", color: "#f90" },
+        ]}
+        markers={[{ t: T0 + 2 * DAY, label: "breakout", color: "#0f0" }, { t: T0 + 40 * DAY, label: "outside", color: "#0f0" }]}
+      />,
+    );
+    expect(container.querySelectorAll("[data-chart-band]")).toHaveLength(1);
+    expect(container.querySelector("[data-chart-band]")).toHaveAttribute("x", "0");
+    expect(container.querySelectorAll("[data-chart-level]")).toHaveLength(1);
+    expect(container.querySelector("[data-chart-level] text")).toHaveTextContent("Pivot $45");
+    expect(container.querySelectorAll("[data-chart-marker]")).toHaveLength(1);
+
+    // SVG paints in document order: the band sits under every series, the level
+    // and marker over them, and the pointer-capture rect stays on top of all.
+    const follows = (a: Element, b: Element) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const band = container.querySelector("[data-chart-band]")!;
+    const level = container.querySelector("[data-chart-level]")!;
+    const marker = container.querySelector("[data-chart-marker]")!;
+    const capture = container.querySelector("[data-chart-capture]")!;
+    const drawn = Array.from(container.querySelectorAll("[data-series]"));
+    expect(drawn).toHaveLength(SERIES.length);
+    for (const s of drawn) {
+      expect(follows(band, s)).toBe(true);
+      expect(follows(s, level)).toBe(true);
+      expect(follows(s, marker)).toBe(true);
+    }
+    expect(follows(level, capture)).toBe(true);
+    expect(follows(marker, capture)).toBe(true);
+  });
+
+  it("the tooltip ignores levels, bands and markers", () => {
+    const { container } = render(
+      <StockChartInner
+        width={WIDTH}
+        height={HEIGHT}
+        series={SERIES}
+        bands={[{ axis: "left", low: 41, high: 44, from: T0, to: T0 + 5 * DAY, color: "#00f", label: "Base 41-44" }]}
+        levels={[{ axis: "left", value: 45, label: "Pivot $45", color: "#f90" }]}
+        markers={[{ t: T0 + 3 * DAY, label: "Breakout", color: "#0f0" }]}
+      />,
+    );
+    fireEvent.mouseMove(container.querySelector("[data-chart-capture]")!, pt(xOf(3), 50));
+    const tip = container.querySelector<HTMLElement>("[data-chart-tooltip]");
+    expect(tip).not.toBeNull();
+    expect(tip!.textContent).toContain("Price");
+    expect(tip!.textContent).toContain("Short %");
+    for (const label of ["Pivot", "Base 41-44", "Breakout"]) {
+      expect(tip!.textContent).not.toContain(label);
+    }
+  });
+
+  it("places a level on the axis it names, never below the plot floor, and a marker at its session", () => {
+    const { container } = render(
+      <StockChartInner
+        width={WIDTH}
+        height={HEIGHT}
+        series={SERIES}
+        leftAxis={{ side: "left", domain: [40, 50] }}
+        rightAxis={{ side: "right", domain: [0, 10] }}
+        levels={[
+          { axis: "left", value: 45, label: "left 45", color: "#f90" },
+          { axis: "right", value: 45, label: "right 45", color: "#f90" }, // far above the right scale
+          { axis: "right", value: 5, label: "right 5", color: "#f90" },
+          { axis: "left", value: 5, label: "left 5", color: "#f90" }, // far below the left scale
+          { axis: "left", value: 39, label: "under the floor", color: "#f90" }, // in the x-axis margin
+        ]}
+        markers={[{ t: T0 + 2 * DAY, label: "breakout", color: "#0f0" }]}
+      />,
+    );
+    const labels = Array.from(container.querySelectorAll("[data-chart-level] text")).map((t) => t.textContent);
+    expect(labels).toEqual(["left 45", "right 5"]);
+    const markerX = Number(container.querySelector("[data-chart-marker] line")!.getAttribute("x1"));
+    expect(markerX).toBeCloseTo((INNER_W * 2) / 9, 5);
+  });
+});

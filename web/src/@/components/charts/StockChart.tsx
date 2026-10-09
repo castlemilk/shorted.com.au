@@ -23,6 +23,7 @@ import { localPoint } from "@visx/event";
 import { decimate } from "./decimate";
 import { useChartScales } from "./use-chart-scales";
 import { normalizeToPercentChange } from "./indicators";
+import { layoutLevels } from "./chart-levels";
 import { chartTheme } from "./chart-theme";
 import {
   Axes,
@@ -88,6 +89,9 @@ export function StockChartInner({
   indicators = [],
   oscillators = [],
   regions = [],
+  levels = [],
+  bands = [],
+  markers = [],
   leftAxis,
   rightAxis,
   viewMode = "absolute",
@@ -200,6 +204,22 @@ export function StockChartInner({
       range: [mainH, mainH * 0.72],
     });
   }, [decVolume, mainH]);
+
+  // Reference geometry (strategy levels): pure, clipped to the plot, recomputed
+  // only when the scales or the inputs change. Nothing here is hoverable.
+  const reference = useMemo(
+    () =>
+      layoutLevels({
+        levels,
+        bands,
+        markers,
+        x: (t) => dateScale(t) ?? 0,
+        yFor: (axis) => (v) => scaleForAxis(axis)(v) ?? 0,
+        innerW,
+        innerH: mainH,
+      }),
+    [levels, bands, markers, dateScale, scaleForAxis, innerW, mainH],
+  );
 
   const {
     pinned,
@@ -572,6 +592,21 @@ export function StockChartInner({
               </rect>
             );
           })}
+          {reference.bands.map((b, i) => (
+            <rect
+              key={`band-${i}`}
+              data-chart-band
+              x={b.x}
+              y={b.y}
+              width={b.width}
+              height={b.height}
+              fill={b.color}
+              fillOpacity={0.12}
+              pointerEvents="none"
+            >
+              {b.label ? <title>{b.label}</title> : null}
+            </rect>
+          ))}
           {showVolume && (
             <VolumePath data={decVolume} xScale={dateScale} yScale={volumeScale} />
           )}
@@ -620,6 +655,41 @@ export function StockChartInner({
               </Group>
             );
           })}
+          {reference.levels.map((l, i) => (
+            <Group key={`level-${i}`} data-chart-level pointerEvents="none">
+              <Line
+                from={{ x: l.x1, y: l.y }}
+                to={{ x: l.x2, y: l.y }}
+                stroke={l.color}
+                strokeWidth={1}
+                strokeDasharray={l.dash}
+              />
+              <text
+                x={l.x2 - 4}
+                y={l.y - 4}
+                textAnchor="end"
+                fontSize={10}
+                fill={l.color}
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {l.label}
+              </text>
+            </Group>
+          ))}
+          {reference.markers.map((m, i) => (
+            <Group key={`marker-${i}`} data-chart-marker pointerEvents="none">
+              <Line
+                from={{ x: m.x, y: 0 }}
+                to={{ x: m.x, y: mainH }}
+                stroke={m.color}
+                strokeWidth={1}
+                strokeDasharray="2,3"
+              />
+              <text x={m.x + 4} y={10} fontSize={10} fill={m.color}>
+                {m.label}
+              </text>
+            </Group>
+          ))}
           <Axes
             xScale={dateScale}
             leftScale={leftScale}
