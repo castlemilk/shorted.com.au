@@ -621,8 +621,12 @@ under the same layout but stay per-request. The tab list lives ONCE in
 `web/src/@/lib/stocks/stock-tabs.ts`; tab metadata goes through
 `lib/seo/stock-tab-metadata.ts` (`stockTabMetadata` for the five newer tabs,
 which inherit `isStockIndexable`; Strategy adds noindex when `in_universe` is
-false and Community is always noindex; Overview and News keep their own
-titles and share `stockOgImage`).
+false, Short interest adds it (`noindexWhen`) when the stock read resolved and
+reports no short position, and Community is always noindex; Overview and News
+keep their own titles and share `stockOgImage`). An indexable page sets NO
+`robots` key: Next 14.2 merges metadata with `for (key in source)`, so
+`robots: undefined` would replace the root layout's googleBot snippet and
+image-preview directives with nothing.
 Spec: `docs/superpowers/specs/2026-10-09-stock-page-tab-routes-design.md`.
 
 ### Landmines
@@ -663,17 +667,36 @@ Spec: `docs/superpowers/specs/2026-10-09-stock-page-tab-routes-design.md`.
   layout, the Overview and the Short interest, Strategy, Financials and Company
   pages read the stock through `loadStockOrFail(code)`
   (`web/src/app/shorts/[stockCode]/stock-page-data.ts`): an unknown code is a
-  404, a transient `undefined` throws, so ISR keeps serving the last good page
-  instead of baking a degraded shell for an hour. `[stockCode]/error.tsx`
+  404, a transient `undefined` throws, so a degraded shell is never baked into
+  the cache for an hour. The News page applies the same rule to its own read: a
+  failed `getStockNews` (undefined) throws, while an empty feed (a response
+  with no articles) keeps its "No news found" copy. `[stockCode]/error.tsx`
   covers the tab pages, not the layout (a boundary sits inside its own
   layout): a throw from the layout renders the root error page with HTTP 500
-  and caches nothing, so only a never-cached stock ever shows it. A
+  and caches nothing. A page that is merely stale keeps being served while it
+  regenerates, so a failed regeneration leaves the last good one in place; but
+  the sync's layout revalidation EXPIRES every entry, so the next regeneration
+  is blocking and a transient read can show that error page for a stock that
+  was cached too, until a retry succeeds. A
   `notFound()` from the layout is caught one level up, so
   `web/src/app/shorts/not-found.tsx` re-exports the stock 404 card. Do not add
   `app/shorts/error.tsx`: it would wrap the `/shorts` index too.
 - **Tab links prefetch on intent only** (`StockTabNav`: pointer enter, touch
   start, focus; once per href). Never switch them to viewport prefetch: seven
-  ISR regenerations per page view.
+  ISR regenerations per page view. Every other link into a tab follows suit:
+  build it with `stockTabHref(code, tab)` and `prefetch={false}` (the stock
+  breadcrumbs pass `prefetch={false}` to the shared `Breadcrumbs`, whose
+  default is unchanged for the other pages; the News links in `take-related.tsx`
+  and `stock-news-tab.tsx` do the same).
+- **A missing community thread answers 200, not 404.**
+  `community/[threadId]/page.tsx` calls `notFound()` for an unknown or deleted
+  thread, but the segment's `loading.tsx` streams the layout before the page
+  runs, so the status line is already sent: the response is a 200 carrying the
+  not-found card and Next's `noindex` meta. A crawler reads a soft 404, and the
+  `noindex` is what takes a deleted, once-indexed thread out of the index. The
+  ISR tab pages are unaffected (static generation renders to completion before
+  anything is cached). A `generateMetadata` that noindexes a missing thread is
+  the alternative to accepting this.
 - **Old `?tab=` links are edge redirects.** The map and the redirect builder
   live in `web/src/config/stock-tab-redirects.mjs` (dependency-free, so the
   repo-hygiene job can import it; there is no JSON file) and are spread into
@@ -703,6 +726,12 @@ Spec: `docs/superpowers/specs/2026-10-09-stock-page-tab-routes-design.md`.
   gets an explanation and `noindex`, never a chart with empty levels.
 - `stock-news-tab.tsx` stays (`stock-news-feed.tsx` and `related-news-rail.tsx`
   import its hooks); the old `stock-tabs.tsx` shell is gone.
+- Every tab segment has a `loading.tsx` whose root is `role="status"` with
+  `aria-busy` and `aria-label` (a bare `aria-label` on a div is not announced);
+  `app/shorts/__tests__/loading-boundaries.test.tsx` finds them on disk. Where
+  a tab's first card follows the sr-only h1 (`CardTitle` is an h3), the page
+  carries one sr-only h2 naming the group so the outline never jumps a level;
+  a title an island already prints is never repeated by a wrapper heading.
 
 ## Weekly/Monthly/Yearly Reports
 

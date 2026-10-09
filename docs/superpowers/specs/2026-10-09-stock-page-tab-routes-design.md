@@ -97,8 +97,12 @@ calls in §1).
 segment. So `error.tsx` covers the tab pages only: a failure thrown by the
 layout itself (a transient stock read, which `loadStockOrFail` in
 `stock-page-data.ts` throws on purpose rather than bake a degraded shell into
-the cache) renders the root error page with HTTP 500 and caches nothing, while
-ISR keeps serving the last good page for any stock already cached. A
+the cache) renders the root error page with HTTP 500 and caches nothing. A page
+that is merely older than its `revalidate` keeps being served while it
+regenerates, so a failed regeneration leaves the last good page in place; but
+the sync's layout revalidation (below) EXPIRES every entry, so the next visit's
+regeneration is blocking, and a transient read then shows that error page for a
+stock that was cached too, until a retry succeeds. A
 `notFound()` from the layout is caught one level up, so
 `app/shorts/not-found.tsx` re-exports the stock card and an unknown code still
 gets it. There is no `app/shorts/error.tsx`: it would wrap the `/shorts` index
@@ -119,8 +123,11 @@ Data reads are the existing `unstable_cache` actions (`getStockOrNotFound`,
 `getStockHeadlines`, `getStateExposureIndex`, enrichment and news), each
 with its current TTL and `stock-page:*` tags. A layout render reads the stock
 and the daily series; each page reads only what it shows. Today's page awaits
-six reads before it can render; after the split the Overview awaits three
-and no tab awaits more than two.
+six reads before it can render. After the split the Overview still awaits six
+cached reads (the stock, the related stocks, fundamentals, the strategy fit,
+three headlines and the latest report date), started together so it waits for
+the slowest rather than their sum; Strategy and Company await three; Short
+interest, Financials and News await one or two; Community awaits none.
 
 ### Build gate: route kinds
 
@@ -186,7 +193,7 @@ layout and every page beneath it for every code in one call. A unit test in
 | Line | Effect |
 |---|---|
 | Function invocations | At most one per hour per visited `(stock, tab)`; unvisited tabs never generate. Overview traffic dominates and its regeneration gets cheaper. |
-| Backend calls per regeneration | Down: a tab reads one or two cached actions instead of six. |
+| Backend calls per regeneration | Down for every tab but the Overview: Short interest, Financials and News read one or two cached actions, Strategy and Company three, Community none, instead of six. The Overview still reads six cached actions, started together. |
 | ISR cache entries | Up to seven per stock, on demand. |
 | Edge requests | Tab switches add one RSC request per cold tab per session, nothing on return visits inside the router cache window. |
 | First-load JS | Overview sheds the tab bundles; each tab is its own route under the per-route budget (`bundle-budget.mjs`, default 300 kB, Overview 330 kB; set per-tab guards from the measured values). |
@@ -210,14 +217,25 @@ and Twitter cards in the shape the news page already uses. Titles:
 Robots: every tab inherits the stock's `isStockIndexable` gate the way the
 news page does (fail open on a transient read). Strategy is additionally
 `noindex, follow` when the fit response reports `in_universe = false`.
+Short interest is additionally `noindex, follow` when the stock read RESOLVED
+and `percentageShorted` is not greater than zero (the tab is then one sentence);
+an unreadable stock still fails open, so an outage cannot noindex a tab.
 Community is `noindex, follow` (its list is client-rendered; the thread pages
-beneath it keep their own indexability).
+beneath it keep their own indexability). An indexable page sets no `robots` key
+at all: Next 14.2 merges metadata with `for (key in source)`, so
+`robots: undefined` would replace the root layout's directives (index/follow and
+the googleBot snippet and image-preview limits) with nothing.
 
 Sitemap: `buildShortsSitemap` already emits `/shorts/<code>/news` for the
 qualified code list; it adds `/short-interest`, `/financials` and `/company`
 for the same list. Strategy stays out of the sitemap so the many "not a
 candidate" pages never read as thin content; it is discovered through the
-Overview strip, the tab bar and `/picks`.
+Overview strip, the tab bar and `/picks`. The tab segments come from the
+`STOCK_TABS` registry (one sitemap decision per tab id), and every listed code
+has a reported short position (the list is `GetTopShorts` in summary mode, i.e.
+`mv_top_shorts`, whose rows all have `current_percent > 0`), so the Short
+interest tab's noindex does not apply to a listed code (one edge on the safe
+side, a stock whose newest row is a zero, is noted in `sitemap-sections.ts`).
 
 Breadcrumb structured data is emitted per page with the tab as the last
 item. The `opengraph-image.tsx` at the stock segment is expected to apply to
@@ -401,8 +419,11 @@ Playwright (`web/e2e`):
    `path=/shorts/[stockCode]` once (it now expires the layout tree), confirm
    a second request to a tab returns `x-vercel-cache: HIT`, check the
    redirect and the 390 px tab bar on prod, and read the levels chart for a
-   stock the picker has triggered. Compare Vercel function invocations and
-   ISR writes against the prior week after seven days.
+   stock the picker has triggered: open its Strategy tab and see at least one
+   level. This one is manual on purpose: the e2e levels test skips while the
+   page shows the price-only note, and a skip is invisible in CI. Compare
+   Vercel function invocations and ISR writes against the prior week after
+   seven days.
 
 Deploys currently run through Cuttlefish and the local release recipe, not
 the disabled GitHub `terraform-deploy` workflow; the PR descriptions say so.
