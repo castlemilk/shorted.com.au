@@ -2,10 +2,12 @@ import { render as rtlRender, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CommunityOverviewTeaser } from "../community-overview-teaser";
 
+// next/link with the prefetch prop surfaced as data-prefetch so a test can read
+// it (it never reaches the DOM otherwise), as the stock tab bar's tests do.
 jest.mock("next/link", () => ({
   __esModule: true,
-  default: ({ children, href, ...props }: any) => (
-    <a href={href} {...props}>
+  default: ({ children, href, prefetch, ...props }: any) => (
+    <a href={href} data-prefetch={String(prefetch)} {...props}>
       {children}
     </a>
   ),
@@ -64,6 +66,17 @@ describe("CommunityOverviewTeaser", () => {
       "href",
       "/shorts/BHP/community",
     );
+  });
+
+  it("turns off Link's own prefetch on the Community link", () => {
+    // The teaser sits in the Overview rail. With Link's default prefetch the
+    // link entering the viewport would fetch (and, once an hour, generate) the
+    // Community tab for a reader who never opened it.
+    render(<CommunityOverviewTeaser stockCode="BHP" />);
+
+    expect(
+      screen.getByRole("link", { name: /open community/i }),
+    ).toHaveAttribute("data-prefetch", "false");
   });
 
   it("renders the compact empty teaser state", () => {

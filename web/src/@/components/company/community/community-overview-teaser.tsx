@@ -157,7 +157,7 @@ export function CommunityOverviewTeaser({
             </div>
           )}
           <Button asChild size="sm" variant="outline">
-            <Link href={stockTabHref(stockCode, "community")}>
+            <Link href={stockTabHref(stockCode, "community")} prefetch={false}>
               {summary.ctaLabel}
             </Link>
           </Button>
