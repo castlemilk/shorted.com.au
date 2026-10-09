@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "~/@/lib/utils";
+import { formatDate } from "~/@/lib/fundamentals/format";
 import { StockChart } from "~/@/components/charts/StockChart";
 import { seriesColor } from "~/@/components/charts/chart-theme";
 import { priceFmt, shortFmt } from "~/@/components/charts/chart-views";
@@ -63,6 +64,16 @@ export function StrategyLevelsChart({
     () => strategyLevelSet(selected ?? "", priceFeatures, { shortRuleDetail }),
     [selected, priceFeatures, shortRuleDetail],
   );
+
+  // The levels are as at the picker's last refresh, while the prices are
+  // fetched when the page is viewed, so the newest bar can post-date a level
+  // and a level it has crossed would read as current. The date is added here,
+  // not to strategyLevelSet().caption, which is the same whatever the date;
+  // formatDate gives "" for a date that is not a real day, and then no line.
+  const levelsAsAt = formatDate(priceFeatures?.asOf);
+  const captionLines = levelsAsAt
+    ? [...levelSet.caption, `Levels as at ${levelsAsAt}`]
+    : levelSet.caption;
 
   const series = useMemo<ChartSeriesSpec[]>(() => {
     // Every level and band is a price on the left axis, so nothing is drawn
@@ -168,9 +179,9 @@ export function StrategyLevelsChart({
         </div>
       )}
 
-      {levelSet.caption.length > 0 && (
+      {captionLines.length > 0 && (
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {levelSet.caption.map((line) => (
+          {captionLines.map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>

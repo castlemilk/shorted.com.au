@@ -111,6 +111,18 @@ const fits: StockStrategyFitRow[] = [
     ruleColumns: [{ id: "short_interest", title: "Short interest" }],
   },
 ];
+// A strategy whose level set has no caption lines of its own: it draws the
+// 200-day average and says nothing under the chart.
+const qualityCompounders: StockStrategyFitRow = {
+  strategyId: "quality-compounders",
+  strategyName: "Quality Compounders",
+  status: "setup",
+  score: 55,
+  rank: 4,
+  totalCount: 60,
+  rules: [],
+  ruleColumns: [],
+};
 const pf: StockPriceFeatures = {
   asOf: "2026-10-07",
   close: 42.1,
@@ -354,6 +366,66 @@ describe("StrategyLevelsChart", () => {
       );
       expect(screen.getByText("Short interest 6.5% ≥ 5%")).toBeInTheDocument();
     });
+  });
+
+  describe("the date the levels are as at", () => {
+    // The levels are as at the picker's last refresh, while the prices are
+    // fetched when the page is viewed: the newest bar can post-date a level, and
+    // a level it has crossed would read as current without a date.
+    it("is stated under the chart, whichever strategy is shown", () => {
+      renderChart();
+      for (const name of [
+        "Zanger Breakout",
+        "Minervini Trend Template",
+        "Crowded-Short Breakout",
+      ]) {
+        fireEvent.click(screen.getByRole("button", { name }));
+        expect(screen.getByText("Levels as at 7 Oct 2026")).toBeInTheDocument();
+      }
+    });
+
+    it("follows the strategy's own caption lines, in the same list", () => {
+      renderChart({ initialStrategyId: "zanger-breakout" });
+      expect(
+        screen.getAllByRole("listitem").map((item) => item.textContent),
+      ).toEqual([
+        "Base 9.3% deep over 22 sessions",
+        "Volume 1.8× the 50-day average",
+        "Levels as at 7 Oct 2026",
+      ]);
+    });
+
+    it("dates a strategy that has no caption lines of its own", () => {
+      renderChart({ fits: [qualityCompounders] });
+      expect(screen.getByTestId("chart")).toHaveAttribute("data-levels", "1");
+      expect(
+        screen.getAllByRole("listitem").map((item) => item.textContent),
+      ).toEqual(["Levels as at 7 Oct 2026"]);
+    });
+
+    it.each([
+      ["2026-09-30", "30 Sep 2026"], // "Sep", where Node 24's en-AU says "Sept"
+      ["2026-01-05", "5 Jan 2026"], // the day is not zero-padded
+    ])("writes %s as %s", (asOf, written) => {
+      renderChart({ priceFeatures: { ...pf, asOf } });
+      expect(screen.getByText(`Levels as at ${written}`)).toBeInTheDocument();
+    });
+
+    it("is left out when there are no levels to date", () => {
+      renderChart({ priceFeatures: null });
+      expect(screen.queryByText(/Levels as at/)).not.toBeInTheDocument();
+      expect(screen.getByText(/showing price only/)).toBeInTheDocument();
+    });
+
+    it.each(["", "2026-02-31", "yesterday"])(
+      "is left out, not guessed, when the as-of date %p is not a real day",
+      (asOf) => {
+        renderChart({ priceFeatures: { ...pf, asOf } });
+        expect(screen.queryByText(/Levels as at/)).not.toBeInTheDocument();
+        // The levels themselves are still drawn.
+        expect(screen.getByTestId("chart")).toHaveAttribute("data-levels", "5");
+      },
+    );
   });
 
   describe("without a chart to draw", () => {
