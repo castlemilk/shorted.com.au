@@ -24,6 +24,26 @@ const NOINDEX = {
 } as const;
 
 /**
+ * The stock's social card, the same object on every tab. A page that sets
+ * `openGraph` replaces the segment's file-based opengraph-image, so each tab
+ * names the card itself, exactly as the Overview does. `p` is a
+ * content-addressed version: it moves with the short percentage, so the card
+ * refreshes when the data does and is served from cache otherwise.
+ */
+export function stockOgImage(code: string, percentShorted?: number | null) {
+  const version =
+    percentShorted != null && percentShorted > 0
+      ? percentShorted.toFixed(2)
+      : "default";
+  return {
+    url: `${siteConfig.url}/shorts/${code}/opengraph-image?p=${version}`,
+    width: 1200,
+    height: 630,
+    alt: `${code} short position — ${siteConfig.name}`,
+  };
+}
+
+/**
  * Metadata for one stock tab. The robots gate is the stock page's own
  * (isStockIndexable) so a thin, noindexed stock never leaks an indexable tab;
  * a transient read fails OPEN, exactly as /news does. The cleaned company
@@ -34,11 +54,13 @@ export async function stockTabMetadata(
 ): Promise<Metadata> {
   const code = input.code.toUpperCase();
   let company = code;
+  let percentShorted: number | undefined;
   let noindex = input.forceNoindex === true;
   try {
     const stock = await getStock(code);
     if (stock) {
       company = formatCompanyName(stock.name ?? "", code) || code;
+      percentShorted = stock.percentageShorted;
       if (
         !isStockIndexable({
           code,
@@ -56,6 +78,7 @@ export async function stockTabMetadata(
   const url = `${siteConfig.url}${stockTabHref(code, input.tab)}`;
   const title = input.title(company);
   const description = input.description(company);
+  const ogImage = stockOgImage(code, percentShorted);
   return {
     title,
     description,
@@ -72,6 +95,7 @@ export async function stockTabMetadata(
       siteName: siteConfig.name,
       type: "website",
       locale: "en_AU",
+      images: [ogImage],
     },
     twitter: {
       site: "@shorted___",
@@ -79,6 +103,7 @@ export async function stockTabMetadata(
       card: "summary_large_image",
       title: `${title} | ${siteConfig.name}`,
       description,
+      images: [ogImage],
     },
   };
 }
