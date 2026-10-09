@@ -32,7 +32,12 @@ export function StockTabNav({ stockCode }: { stockCode: string }) {
     [router],
   );
 
-  // Seven triggers overflow on a phone: keep the active one in view.
+  // Seven triggers overflow on a phone: keep the active one in view. offsetLeft
+  // is measured from the nearest POSITIONED ancestor, while scrollLeft and
+  // clientWidth belong to the list itself, so the list below is `relative`.
+  // Unpositioned, the target also carries the list's own offset inside some
+  // farther ancestor and the scroll overshoots (at 390px a mid-list tab landed
+  // 16px outside the bar).
   useEffect(() => {
     const list = listRef.current;
     const el = list?.querySelector<HTMLElement>('[aria-current="page"]');
@@ -49,7 +54,7 @@ export function StockTabNav({ stockCode }: { stockCode: string }) {
     <nav aria-label="Stock sections" className="mb-4">
       <div
         ref={listRef}
-        className="flex w-full items-center gap-1 overflow-x-auto rounded-md bg-muted p-1 text-muted-foreground"
+        className="relative flex w-full items-center gap-1 overflow-x-auto rounded-md bg-muted p-1 text-muted-foreground"
       >
         {STOCK_TABS.map((tab) => {
           const href = stockTabHref(stockCode, tab.id);
