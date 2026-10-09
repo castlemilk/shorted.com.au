@@ -333,7 +333,10 @@ const CONNECT_ISLANDS: Record<string, string[]> = {
     "~/@/components/company/stock-verdict",
   ],
   "strategy/page.tsx": ["~/@/components/strategy/strategy-levels-chart"],
-  "financials/page.tsx": ["~/@/components/company/dividend-history"],
+  "financials/page.tsx": [
+    "~/@/components/company/company-tax-card",
+    "~/@/components/company/dividend-history",
+  ],
   "company/page.tsx": [
     "~/@/components/company/director-trades-table",
     "~/@/components/company/stock-connections",
@@ -343,25 +346,29 @@ const CONNECT_ISLANDS: Record<string, string[]> = {
 
 /**
  * The client modules that reach @connectrpc by static imports from a stock
- * server file, and did before the tab routes existed: until then one Overview
- * page imported all four. A new one fails the walk below, and so does an entry
- * that stops being true, so this list can only shrink.
+ * server file, and did before the tab routes existed. A new one fails the walk
+ * below, and so does an entry that stops being true, so this list can only
+ * shrink.
  *
  * Each fetches in the browser through a client-side action module that imports
  * @connectrpc/connect-web and @connectrpc/connect:
- * - financials/page.tsx: CompanyTaxCard, through
- *   app/actions/client/getCompanyTaxProfileClient.ts.
  * - layout.tsx and page.tsx: the "-with-retry" components that the server
  *   components companyProfile, companyStats and companyInfo render when their
  *   own server read fails (the Jan 2026 retry fallbacks), through
  *   app/actions/client/getStockDetails.ts.
  *
- * Moving any of them behind nextDynamic(..., { ssr: false }) is a rendering
- * change to a live tab, so it is a decision for the owner of that tab, not for
- * this guard.
+ * CompanyTaxCard was listed here as one of the old page's, and it was not safe
+ * to carry over. On the old page it sat in the Financials panel of a client tab
+ * shell that opens on Overview, so the server never rendered it; the Financials
+ * route renders it inline, and a production build answered 500 for every stock
+ * ("Element type is invalid ... got: undefined", the SSR failure CLAUDE.md
+ * describes for @connectrpc). It is an island now (CONNECT_ISLANDS above).
+ *
+ * Moving any of the others behind nextDynamic(..., { ssr: false }) is a
+ * rendering change to a live tab, so it is a decision for the owner of that
+ * tab, not for this guard.
  */
 const KNOWN_CLIENT_CONNECT: Record<string, string[]> = {
-  "financials/page.tsx": ["~/@/components/company/company-tax-card"],
   "layout.tsx": [
     "~/@/components/ui/company-profile-with-retry",
     "~/@/components/ui/company-stats-with-retry",

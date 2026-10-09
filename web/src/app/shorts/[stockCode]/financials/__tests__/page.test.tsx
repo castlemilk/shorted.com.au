@@ -7,7 +7,13 @@ const mockGetStockFundamentals = jest.fn();
 const mockMetadata = jest.fn().mockResolvedValue({ title: "t" });
 const mockBreadcrumbs = jest.fn();
 jest.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_FOUND"); } }));
-jest.mock("next/dynamic", () => () => () => <div data-testid="dividends" />);
+// next/dynamic hands back an island. One stand-in per module the loader names,
+// so the order test below can tell the dividends from the tax card.
+jest.mock("next/dynamic", () => (loader: () => unknown) => {
+  const id = String(loader).includes("company-tax-card") ? "tax-card" : "dividends";
+  const Island = () => <div data-testid={id} />;
+  return Island;
+});
 jest.mock("~/app/actions/getStock", () => ({ getStockOrNotFound: (...a: unknown[]) => mockGetStockOrNotFound(...a) }));
 jest.mock("~/app/actions/getStockFundamentals", () => ({ getStockFundamentals: (...a: unknown[]) => mockGetStockFundamentals(...a) }));
 jest.mock("~/@/lib/seo/stock-tab-metadata", () => ({ stockTabMetadata: (...a: unknown[]) => mockMetadata(...a) }));
@@ -36,7 +42,6 @@ jest.mock("~/@/components/company/financial-reports-section", () => ({
   ),
   FilingsListedNote: ({ stockCode }: { stockCode: string }) => <span data-testid="filings-note" data-code={stockCode} />,
 }));
-jest.mock("~/@/components/company/company-tax-card", () => ({ CompanyTaxCard: () => <div data-testid="tax-card" /> }));
 
 import Page, { generateMetadata, generateStaticParams, revalidate, dynamicParams } from "../page";
 import { NotFoundError } from "~/app/actions/withRetry";

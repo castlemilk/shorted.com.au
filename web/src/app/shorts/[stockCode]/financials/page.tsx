@@ -2,7 +2,6 @@ import nextDynamic from "next/dynamic";
 import { type Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
-import { CompanyTaxCard } from "~/@/components/company/company-tax-card";
 import {
   FilingsListedNote,
   FinancialReportsSection,
@@ -15,8 +14,16 @@ import { getStockFundamentals } from "~/app/actions/getStockFundamentals";
 import { loadStockOrFail } from "../stock-page-data";
 import { STOCK_CODE_PATTERN, cleanCompanyName } from "../stock-page-shared";
 
+// Client islands: both fetch through Connect-RPC client modules, so neither is
+// rendered on the server. A static import of the tax card made this route
+// answer 500 for every stock in a production build ("Element type is invalid
+// ... got: undefined", the SSR failure CLAUDE.md describes for @connectrpc).
 const DividendHistory = nextDynamic(
   () => import("~/@/components/company/dividend-history").then((m) => m.DividendHistory),
+  { ssr: false },
+);
+const CompanyTaxCard = nextDynamic(
+  () => import("~/@/components/company/company-tax-card").then((m) => m.CompanyTaxCard),
   { ssr: false },
 );
 
