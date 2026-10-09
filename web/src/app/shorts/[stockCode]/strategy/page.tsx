@@ -17,11 +17,17 @@ import {
   type StockStrategyFit,
 } from "~/app/actions/getStockStrategyFit";
 import { getStrategies } from "~/app/actions/getStrategies";
-import { STOCK_CODE_PATTERN } from "../stock-page-shared";
+import { loadStockOrFail } from "../stock-page-data";
+import { STOCK_CODE_PATTERN, cleanCompanyName } from "../stock-page-shared";
 
 // Client island: the chart reads prices through Connect-RPC, so it is
 // client-only (as the chart in the layout is) and shares that chart's cached
-// price queries.
+// price queries. Its placeholder is the island's own height, so the panels
+// below do not shift when it hydrates: the control row 30 (a 24px button, 4px
+// of padding and 2px of border) + gap 12 + the chart 360 + gap 12 + one caption
+// row 16 = 430, measured in Chromium with this project's Tailwind build at
+// desktop widths. Each further caption row adds 20 and each row the controls
+// wrap onto adds 28, so a narrow screen, where both wrap, still shifts.
 const StrategyLevelsChart = nextDynamic(
   () =>
     import("~/@/components/strategy/strategy-levels-chart").then(
@@ -30,7 +36,7 @@ const StrategyLevelsChart = nextDynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[360px] animate-pulse rounded-lg bg-muted/40" />
+      <div className="h-[430px] animate-pulse rounded-lg bg-muted/40" />
     ),
   },
 );
@@ -86,7 +92,14 @@ export async function generateMetadata({
 export default async function StrategyPage({ params }: PageProps) {
   const code = (await params).stockCode.toUpperCase();
   if (!STOCK_CODE_PATTERN.test(code)) notFound();
-  const [fit, strategies] = await Promise.all([loadFit(code), getStrategies()]);
+  // The stock read 404s an unknown code and FAILS the render on a transient
+  // read, so a degraded page is never baked into the ISR cache (see
+  // stock-page-data.ts). The layout made the same read, which is cached.
+  const [stock, fit, strategies] = await Promise.all([
+    loadStockOrFail(code),
+    loadFit(code),
+    getStrategies(),
+  ]);
   if (!fit) {
     throw new Error(
       `strategy fit unavailable for ${code}; failing ISR render instead of caching an empty tab`,
@@ -95,6 +108,7 @@ export default async function StrategyPage({ params }: PageProps) {
   const definitions = new Map(
     (strategies?.strategies ?? []).map((s) => [s.id, s]),
   );
+  const companyName = cleanCompanyName(stock.name || code, code);
   const ordered = sortFitsByStrength(fit.fits);
   const pricesTo = formatDate(fit.asOf);
 
@@ -110,7 +124,9 @@ export default async function StrategyPage({ params }: PageProps) {
           },
         ]}
       />
-      <h1 className="sr-only">{code} strategy fit</h1>
+      <h1 className="sr-only">
+        {companyName} ({code}) strategy fit
+      </h1>
       <div className="flex min-w-0 flex-col gap-4 md:gap-6">
         <RegimeBanner regime={fit.regime} />
 
@@ -122,10 +138,14 @@ export default async function StrategyPage({ params }: PageProps) {
             <h2 id="not-evaluated-heading" className="font-medium">
               Not evaluated yet
             </h2>
+            {/* The universe is mv_price_features, which admits a stock only with
+                at least 60 sessions in the last 400 days (000130, `WHERE
+                r.n_sessions >= 60`). The 40 in that file is the base window,
+                not the threshold. */}
             <p className="mt-1 text-muted-foreground">
-              The picker needs more price history for {code} than it holds today
-              (about 40 sessions) before it can read any strategy. See what it
-              does read on the{" "}
+              The picker reads a stock only with at least 60 sessions of price
+              history in the last 400 days, and it holds fewer than that for{" "}
+              {code} today. See what it does read on the{" "}
               <Link
                 href="/picks"
                 prefetch={false}

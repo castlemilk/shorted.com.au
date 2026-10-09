@@ -1,11 +1,19 @@
 /// <reference types="jest" />
 import "@testing-library/jest-dom";
 import { render, screen, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 
 const mockFit = jest.fn();
 const mockStrategies = jest.fn();
+const mockGetStockOrNotFound = jest.fn();
 const mockMetadata = jest.fn().mockResolvedValue({});
 const mockBreadcrumbs = jest.fn();
+// What the page handed next/dynamic, kept so the loading placeholder can be
+// rendered (the stand-in below replaces the island itself).
+const mockDynamicOptions: Array<{
+  ssr?: boolean;
+  loading?: () => ReactNode;
+}> = [];
 jest.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
@@ -14,20 +22,22 @@ jest.mock("next/navigation", () => ({
 jest.mock(
   "next/dynamic",
   () =>
-    () =>
-    (p: {
-      stockCode: string;
-      fits: Array<{ strategyId: string }>;
-      priceFeatures: unknown;
-    }) => (
-      <div
-        data-testid="levels-chart"
-        data-code={p.stockCode}
-        data-fits={p.fits?.length ?? 0}
-        data-order={p.fits?.map((f) => f.strategyId).join(",")}
-        data-features={p.priceFeatures ? "yes" : "no"}
-      />
-    ),
+    (_load: unknown, options: { ssr?: boolean; loading?: () => ReactNode }) => {
+      mockDynamicOptions.push(options);
+      return (p: {
+        stockCode: string;
+        fits: Array<{ strategyId: string }>;
+        priceFeatures: unknown;
+      }) => (
+        <div
+          data-testid="levels-chart"
+          data-code={p.stockCode}
+          data-fits={p.fits?.length ?? 0}
+          data-order={p.fits?.map((f) => f.strategyId).join(",")}
+          data-features={p.priceFeatures ? "yes" : "no"}
+        />
+      );
+    },
 );
 jest.mock("react", () => ({
   ...jest.requireActual("react"),
@@ -38,6 +48,10 @@ jest.mock("~/app/actions/getStockStrategyFit", () => ({
 }));
 jest.mock("~/app/actions/getStrategies", () => ({
   getStrategies: (...a: unknown[]) => mockStrategies(...a),
+}));
+// The page reads the stock through the shared loader, as the other tabs do.
+jest.mock("~/app/actions/getStock", () => ({
+  getStockOrNotFound: (...a: unknown[]) => mockGetStockOrNotFound(...a),
 }));
 jest.mock("~/@/lib/seo/stock-tab-metadata", () => ({
   stockTabMetadata: (...a: unknown[]) => mockMetadata(...a),
@@ -69,6 +83,9 @@ import Page, {
   dynamicParams,
 } from "../page";
 import { stockTabLabel } from "~/@/lib/stocks/stock-tabs";
+import { NotFoundError } from "~/app/actions/withRetry";
+
+const stock = { name: "BHP GROUP LIMITED ORDINARY" };
 
 const fit = {
   stockCode: "BHP",
@@ -157,6 +174,8 @@ describe("/shorts/[stockCode]/strategy", () => {
   beforeEach(() => {
     mockFit.mockReset();
     mockStrategies.mockReset();
+    mockGetStockOrNotFound.mockReset();
+    mockGetStockOrNotFound.mockResolvedValue(stock);
     mockMetadata.mockClear();
     mockBreadcrumbs.mockClear();
     (stockTabLabel as jest.Mock).mockClear();
@@ -194,6 +213,10 @@ describe("/shorts/[stockCode]/strategy", () => {
     ).map(
       (n) => n.getAttribute("data-testid") ?? n.getAttribute("aria-labelledby"),
     );
+    // The banner first (the regime is the context every panel is read in),
+    // then the chart, then the panels strongest first.
+    expect(order.indexOf("regime")).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf("regime")).toBeLessThan(order.indexOf("levels-chart"));
     expect(order.indexOf("levels-chart")).toBeLessThan(
       order.indexOf("fit-minervini-trend-template"),
     );
@@ -210,7 +233,16 @@ describe("/shorts/[stockCode]/strategy", () => {
     render(await Page({ params: Promise.resolve({ stockCode: "NEW" }) }));
     expect(screen.getByTestId("regime")).toBeInTheDocument();
     expect(screen.queryByTestId("levels-chart")).not.toBeInTheDocument();
-    expect(screen.getByText(/needs more price history/)).toBeInTheDocument();
+    // The universe admits a stock only with at least 60 sessions in the last
+    // 400 days (mv_price_features, migration 000130). The 40 in that file is the
+    // base window, so a "40 sessions" claim would publish a threshold nothing
+    // enforces.
+    expect(
+      screen.getByText(
+        /reads a stock only with at least 60 sessions of price history in the last 400 days, and it holds fewer than that for NEW today/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/40 sessions/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /stock picker/ })).toHaveAttribute(
       "href",
       "/picks",
@@ -300,6 +332,25 @@ describe("/shorts/[stockCode]/strategy", () => {
     ).rejects.toThrow("NEXT_NOT_FOUND");
     expect(mockFit).not.toHaveBeenCalled();
     expect(mockStrategies).not.toHaveBeenCalled();
+    expect(mockGetStockOrNotFound).not.toHaveBeenCalled();
+  });
+
+  it("404s a code the API does not know, as the other tabs do", async () => {
+    mockGetStockOrNotFound.mockRejectedValue(new NotFoundError("ZZZZ"));
+    mockFit.mockResolvedValue(fit);
+    mockStrategies.mockResolvedValue(strategies);
+    await expect(
+      Page({ params: Promise.resolve({ stockCode: "ZZZZ" }) }),
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
+  it("fails the ISR render on a transient stock read instead of caching a degraded page", async () => {
+    mockGetStockOrNotFound.mockResolvedValue(undefined);
+    mockFit.mockResolvedValue(fit);
+    mockStrategies.mockResolvedValue(strategies);
+    await expect(
+      Page({ params: Promise.resolve({ stockCode: "BHP" }) }),
+    ).rejects.toThrow(/transiently unavailable/);
   });
 
   it("emits breadcrumb structured data with the tab as the last item, labelled by the tab registry", async () => {
@@ -316,16 +367,16 @@ describe("/shorts/[stockCode]/strategy", () => {
     });
   });
 
-  it("has one h1, one heading for the chart (the island prints none of its own) and one per panel", async () => {
+  it("has one h1 naming the company, then a heading over the chart and one per panel, in that order", async () => {
     mockFit.mockResolvedValue(fit);
     mockStrategies.mockResolvedValue(strategies);
     render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      "BHP strategy fit",
+      "BHP Group (BHP) strategy fit",
     );
     // The h1, the section heading that names the chart, then one h2 per panel.
     expect(screen.getAllByRole("heading").map((h) => h.textContent)).toEqual([
-      "BHP strategy fit",
+      "BHP Group (BHP) strategy fit",
       "Levels on the chart",
       "Minervini Trend Template",
       "CAN SLIM",
@@ -360,16 +411,66 @@ describe("/shorts/[stockCode]/strategy", () => {
     ).toHaveLength(2);
   });
 
-  it("renders every panel without the author's words when the definitions are unavailable", async () => {
+  it("leaves the author's columns out of every panel when the definitions are unavailable, rather than print blank cells that ISR then caches", async () => {
     mockFit.mockResolvedValue(fit);
     mockStrategies.mockResolvedValue(null);
     render(await Page({ params: Promise.resolve({ stockCode: "BHP" }) }));
+    const panels = screen.getAllByRole("region", {
+      name: /Trend Template|CAN SLIM/,
+    });
+    expect(panels).toHaveLength(2);
+    for (const panel of panels) {
+      expect(
+        within(panel)
+          .getAllByRole("columnheader")
+          .map((h) => h.textContent),
+      ).toEqual(["Rule", "Result", "Evidence"]);
+    }
     const canslim = screen.getByRole("region", { name: /CAN SLIM/ });
     expect(within(canslim).getByText("Market direction")).toBeInTheDocument();
     expect(within(canslim).getByText("XJO uptrend")).toBeInTheDocument();
     expect(
       screen.queryByText("Only buy in a confirmed uptrend."),
     ).not.toBeInTheDocument();
+  });
+
+  it("decides the author's columns panel by panel: a strategy the catalogue does not list loses only its own", async () => {
+    mockFit.mockResolvedValue(fit);
+    // The catalogue lists CAN SLIM and not the Minervini Trend Template.
+    mockStrategies.mockResolvedValue(strategies);
+    render(await Page({ params: Promise.resolve({ stockCode: "BHP" }) }));
+    const headers = (name: RegExp) =>
+      within(screen.getByRole("region", { name }))
+        .getAllByRole("columnheader")
+        .map((h) => h.textContent);
+    expect(headers(/CAN SLIM/)).toEqual([
+      "Rule",
+      "The rule",
+      "How we test it",
+      "Result",
+      "Evidence",
+    ]);
+    expect(headers(/Minervini Trend Template/)).toEqual([
+      "Rule",
+      "Result",
+      "Evidence",
+    ]);
+  });
+
+  it("sizes the chart's loading placeholder to the loaded island, so the panels below do not shift when it hydrates", () => {
+    // From strategy-levels-chart.tsx: the control row is one 24px button (a
+    // text-xs line plus py-1) inside 2px of padding and 1px of border; the
+    // chart is 360; the captions are one 16px line; the three sit in a gap-3
+    // (12px) column.
+    const islandHeight = 30 + 12 + 360 + 12 + 16;
+    expect(mockDynamicOptions).toHaveLength(1);
+    const { ssr, loading } = mockDynamicOptions[0]!;
+    expect(ssr).toBe(false);
+    const { container } = render(<>{loading?.()}</>);
+    const height = /\bh-\[(\d+)px\]/.exec(
+      container.firstElementChild?.className ?? "",
+    )?.[1];
+    expect(Number(height)).toBe(islandHeight);
   });
 
   it("dates the readings from the fit and links the disclaimer", async () => {

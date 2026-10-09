@@ -282,13 +282,21 @@ describe("StrategyFitPanel", () => {
     ]);
   });
 
-  it("still reads the rules, without the author's words, when there is no definition", () => {
+  it("leaves the author's two columns out, header and cells together, when there is no definition", () => {
     render(<StrategyFitPanel fit={canslim} definition={null} />);
     const panel = screen.getByRole("region", { name: "CAN SLIM" });
+    // No blank "The rule" or "How we test it" cells under their headers: the
+    // table is the rule's name, the result and the evidence, every row three
+    // cells wide to match the three headers.
+    expect(
+      within(panel)
+        .getAllByRole("columnheader")
+        .map((h) => h.textContent),
+    ).toEqual(["Rule", "Result", "Evidence"]);
     expect(bodyRows(panel)).toEqual([
-      ["Market direction", "", "", "Pass", "XJO uptrend"],
-      ["Volume surge", "", "", "Fail", "Volume 0.8x the 50-day average"],
-      ["Earnings growth", "", "", "Unknown", "No fundamentals held"],
+      ["Market direction", "Pass", "XJO uptrend"],
+      ["Volume surge", "Fail", "Volume 0.8x the 50-day average"],
+      ["Earnings growth", "Unknown", "No fundamentals held"],
     ]);
     expect(within(panel).queryByText("core")).not.toBeInTheDocument();
   });

@@ -11,7 +11,10 @@ import { FIT_STATUS_STRENGTH } from "./strategy-levels";
 // and it stays crawlable. The strategy's description paragraphs are NOT
 // repeated here; the name links to the /picks page that owns them. A core
 // rule is flagged beside its title, set off by a real space (not just a
-// margin) so a screen reader reads "core" as a word of its own.
+// margin) so a screen reader reads "core" as a word of its own. Without a
+// definition (the catalogue read failed, or does not list this strategy) the
+// two columns of the author's words are left out, header and cells together:
+// they would be blank under their headers, and ISR serves the page for an hour.
 
 const RESULT_WORD = { pass: "Pass", fail: "Fail", unknown: "Unknown" } as const;
 
@@ -65,12 +68,16 @@ export function StrategyFitPanel({
               <th scope="col" className="px-4 py-2 font-medium">
                 Rule
               </th>
-              <th scope="col" className="px-4 py-2 font-medium">
-                The rule
-              </th>
-              <th scope="col" className="px-4 py-2 font-medium">
-                How we test it
-              </th>
+              {definition ? (
+                <>
+                  <th scope="col" className="px-4 py-2 font-medium">
+                    The rule
+                  </th>
+                  <th scope="col" className="px-4 py-2 font-medium">
+                    How we test it
+                  </th>
+                </>
+              ) : null}
               <th scope="col" className="px-4 py-2 font-medium">
                 Result
               </th>
@@ -99,12 +106,16 @@ export function StrategyFitPanel({
                       </>
                     ) : null}
                   </th>
-                  <td className="px-4 py-2 text-muted-foreground">
-                    {def?.ruleText ?? ""}
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">
-                    {def?.evaluation ?? ""}
-                  </td>
+                  {definition ? (
+                    <>
+                      <td className="px-4 py-2 text-muted-foreground">
+                        {def?.ruleText ?? ""}
+                      </td>
+                      <td className="px-4 py-2 text-muted-foreground">
+                        {def?.evaluation ?? ""}
+                      </td>
+                    </>
+                  ) : null}
                   <td className="whitespace-nowrap px-4 py-2">
                     <span className="inline-flex items-center gap-1.5">
                       <RuleDot status={rule.status} />

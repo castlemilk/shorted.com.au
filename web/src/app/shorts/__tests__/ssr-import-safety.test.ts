@@ -15,19 +15,27 @@
  *
  * The last block guards the stock page's own boundary (spec section 5): its
  * layout, data loader and every tab page are server files, and Connect-RPC
- * must never be evaluated while one of them renders.
+ * must never be evaluated while one of them renders. It follows static imports
+ * from each of those files through every module they reach, and fails when a
+ * client module on the way reaches @connectrpc. Imports are read with
+ * TypeScript's own scanner and resolved with the project's tsconfig paths, so a
+ * comment, a string, or the `~/`, `@/` or relative spelling of a path cannot
+ * hide one.
  */
 
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect, afterAll } from "@jest/globals";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
+import * as ts from "typescript";
 
 const WEB_SRC = path.resolve(__dirname, "../../../..");
 
 // ---------------------------------------------------------------------------
-// Helpers for the stock page's import boundary. They read IMPORT STATEMENTS
-// (`from "…"`, `import("…")`), never the bare substring: three tab pages name
-// @connectrpc/connect in a comment, and a comment must neither pass nor fail.
+// Helpers for the stock page's import boundary. Imports are read with
+// TypeScript's own import scanner, never with a regex over the text: three tab
+// pages name @connectrpc/connect in a comment, and a comment, a string or a
+// template must neither pass nor fail a check.
 // ---------------------------------------------------------------------------
 
 const SRC_DIR = path.join(WEB_SRC, "src");
@@ -37,7 +45,11 @@ function readSource(file: string): string {
   return fs.readFileSync(file, "utf-8");
 }
 
-/** The source without comments, so prose that names a module is not an import of it. */
+/**
+ * The source without comments. ONLY for finding what a next/dynamic call is
+ * handed (nextDynamicLoads): a `//` inside a string or JSX text makes it drop
+ * the rest of that line, so it must never be used to look for an import.
+ */
 function withoutComments(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, "")
@@ -46,27 +58,64 @@ function withoutComments(source: string): string {
 
 interface ImportRef {
   specifier: string;
-  /** `import("…")`, as opposed to `from "…"` or a bare `import "…"`. */
+  /** `import("…")`, as opposed to `from "…"`, a bare `import "…"` or `require("…")`. */
   dynamic: boolean;
 }
 
-const IMPORT_STATEMENT =
-  /\bfrom\s*["']([^"']+)["']|\bimport\s*\(\s*["']([^"']+)["']|\bimport\s+["']([^"']+)["']/g;
+/** `import(` and any block comments, just before a specifier: a dynamic import. */
+const DYNAMIC_IMPORT_LEAD = /\bimport\s*\(\s*(?:\/\*[\s\S]*?\*\/\s*)*$/;
 
-/** Every module a file names in an import statement, static or dynamic. */
+/**
+ * Every module a file names in an import, an export-from, an import() or a
+ * require(). TypeScript's scanner finds them, so one named in a comment, a
+ * string or a template is not an import, and a `//` inside a string cannot
+ * swallow the code after it. Type-only imports count too (conservative: none of
+ * the chains found today is one). The scanner does not say which are dynamic;
+ * the text just before the specifier does.
+ */
 function importRefs(source: string): ImportRef[] {
-  return Array.from(withoutComments(source).matchAll(IMPORT_STATEMENT)).map(
-    (m) =>
-      m[2] !== undefined
-        ? { specifier: m[2], dynamic: true }
-        : { specifier: (m[1] ?? m[3])!, dynamic: false },
-  );
+  return ts
+    .preProcessFile(source, true, true)
+    .importedFiles.map(({ fileName, pos }) => ({
+      specifier: fileName,
+      dynamic: DYNAMIC_IMPORT_LEAD.test(
+        source.slice(Math.max(0, pos - 400), pos),
+      ),
+    }));
 }
 
-function importsConnect(source: string): boolean {
-  return importRefs(source).some((ref) =>
-    ref.specifier.startsWith("@connectrpc/"),
+// Resolved the way the build resolves them, from tsconfig's own `paths`. `~/*`
+// is src/*, but `@/` is not one alias for src/@/: `@/auth` is src/server/auth.ts
+// and `@/app/*` is src/app/*, so a guess at `@/` would lose those edges.
+const COMPILER_OPTIONS = ts.convertCompilerOptionsFromJson(
+  ts.readConfigFile(path.join(WEB_SRC, "tsconfig.json"), readSource).config
+    .compilerOptions,
+  WEB_SRC,
+).options;
+const RESOLUTION_HOST: ts.ModuleResolutionHost = {
+  fileExists: (file) => fs.existsSync(file) && fs.statSync(file).isFile(),
+  readFile: (file) => (fs.existsSync(file) ? readSource(file) : undefined),
+  directoryExists: (dir) =>
+    fs.existsSync(dir) && fs.statSync(dir).isDirectory(),
+};
+const RESOLUTION_CACHE = ts.createModuleResolutionCache(
+  WEB_SRC,
+  (name) => name,
+  COMPILER_OPTIONS,
+);
+
+/** A repo module's file (aliases and relative paths included), or null for a package or a file that is not there. */
+function resolveLocal(specifier: string, fromFile: string): string | null {
+  const { resolvedModule } = ts.resolveModuleName(
+    specifier,
+    fromFile,
+    COMPILER_OPTIONS,
+    RESOLUTION_HOST,
+    RESOLUTION_CACHE,
   );
+  return resolvedModule && !resolvedModule.isExternalLibraryImport
+    ? resolvedModule.resolvedFileName
+    : null;
 }
 
 /** Every layout and page beneath [stockCode], and the data loader they share. */
@@ -87,33 +136,138 @@ function stockServerFiles(dir: string = STOCK_DIR): string[] {
   return found.sort();
 }
 
-/** A repo module's file (the tsconfig aliases `~/` and `@/` included), or null. */
-function resolveLocal(specifier: string, fromFile: string): string | null {
-  let base: string;
-  if (specifier.startsWith("~/")) base = path.join(SRC_DIR, specifier.slice(2));
-  else if (specifier.startsWith("@/"))
-    base = path.join(SRC_DIR, "@", specifier.slice(2));
-  else if (specifier.startsWith("."))
-    base = path.resolve(path.dirname(fromFile), specifier);
-  else return null;
-  for (const candidate of [
-    base,
-    `${base}.ts`,
-    `${base}.tsx`,
-    path.join(base, "index.ts"),
-    path.join(base, "index.tsx"),
-  ]) {
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
-      return candidate;
-    }
+/** The file's directive prologue: the string statements before any code ("use client", "use server"). */
+function directivesOf(source: string): string[] {
+  const scanner = ts.createScanner(
+    ts.ScriptTarget.Latest,
+    true,
+    ts.LanguageVariant.Standard,
+    source,
+  );
+  const found: string[] = [];
+  let token = scanner.scan();
+  while (token === ts.SyntaxKind.StringLiteral) {
+    found.push(scanner.getTokenValue());
+    token = scanner.scan();
+    if (token === ts.SyntaxKind.SemicolonToken) token = scanner.scan();
   }
-  return null;
+  return found;
 }
 
-function isClientModule(file: string): boolean {
-  return /^["']use client["']/.test(
-    withoutComments(readSource(file)).trimStart(),
-  );
+interface ModuleInfo {
+  /** "use client": evaluated in the browser AND during SSR. */
+  client: boolean;
+  /** "use server": a client module that imports it gets a reference, and none of its code. */
+  serverActions: boolean;
+  /** The @connectrpc/* packages it imports statically. */
+  connect: string[];
+  /** The repo files it imports statically; packages and files that are not there are left out. */
+  local: string[];
+}
+
+const moduleInfos = new Map<string, ModuleInfo>();
+
+function moduleInfo(file: string): ModuleInfo {
+  let info = moduleInfos.get(file);
+  if (!info) {
+    const source = readSource(file);
+    const directives = directivesOf(source);
+    const statics = importRefs(source).filter((ref) => !ref.dynamic);
+    info = {
+      client: directives.includes("use client"),
+      serverActions: directives.includes("use server"),
+      connect: statics
+        .map((ref) => ref.specifier)
+        .filter((specifier) => specifier.startsWith("@connectrpc/")),
+      local: statics.flatMap((ref) => resolveLocal(ref.specifier, file) ?? []),
+    };
+    moduleInfos.set(file, info);
+  }
+  return info;
+}
+
+/** The first chain of static imports from `start` to an @connectrpc package: the files, then the package. */
+function connectChain(start: string): string[] | null {
+  const seen = new Set<string>();
+  const walk = (file: string): string[] | null => {
+    if (seen.has(file)) return null;
+    seen.add(file);
+    const info = moduleInfo(file);
+    const [pkg] = info.connect;
+    if (pkg) return [file, pkg];
+    for (const dep of info.local) {
+      if (moduleInfo(dep).serverActions) continue;
+      const rest = walk(dep);
+      if (rest) return [file, ...rest];
+    }
+    return null;
+  };
+  return walk(start);
+}
+
+interface ClientConnect {
+  /** A "use client" module the server file reaches by static imports. */
+  client: string;
+  /** Its chain of static imports to @connectrpc: the files, then the package. */
+  chain: string[];
+}
+
+/**
+ * Every "use client" module a server file reaches by static imports, through
+ * any server modules in between, that itself reaches @connectrpc at any depth.
+ * A client module ends the search on its branch: what it imports is in its own
+ * bundle, which connectChain has already walked. A dynamic import is a lazy
+ * boundary and is not followed (the ssr: false rule and the island registry
+ * cover those), and neither is a "use server" module, which a client module
+ * receives as a reference. A server module that imports Connect on the server
+ * is not blamed: only a client module evaluates it during SSR.
+ */
+function clientModulesReachingConnect(entry: string): ClientConnect[] {
+  const found: ClientConnect[] = [];
+  const seen = new Set<string>();
+  const visit = (file: string): void => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const info = moduleInfo(file);
+    if (info.serverActions) return;
+    if (info.client) {
+      const chain = connectChain(file);
+      if (chain) found.push({ client: file, chain });
+      return;
+    }
+    info.local.forEach(visit);
+  };
+  visit(entry);
+  return found;
+}
+
+const fromSrc = (file: string): string => path.relative(SRC_DIR, file);
+
+/** What a specifier names, as a path from src/, so `~/@/x`, `@/x` and a relative spelling compare equal. One that names no repo file stays as written and marked, so a typo shows in a diff. */
+function targetOf(specifier: string, fromFile: string): string {
+  const file = resolveLocal(specifier, fromFile);
+  return file ? fromSrc(file) : `unresolved: ${specifier}`;
+}
+
+const describeChain = ({ chain }: ClientConnect): string =>
+  chain
+    .map((step, i) => (i < chain.length - 1 ? fromSrc(step) : step))
+    .join(" -> ");
+
+/**
+ * What the walk found against the client modules known to reach Connect (as
+ * paths from src/): the chains of any that are new, and the known ones that no
+ * longer apply, which are taken off the list so that it can only shrink.
+ */
+function diffKnownClients(found: ClientConnect[], known: string[]) {
+  return {
+    unexpected: found
+      .filter((f) => !known.includes(fromSrc(f.client)))
+      .map(describeChain),
+    stale: known.filter(
+      (target) => !found.some((f) => fromSrc(f.client) === target),
+    ),
+  };
 }
 
 /** The argument text of every call to `name(`: parentheses balanced, strings skipped. */
@@ -162,10 +316,14 @@ function nextDynamicLoads(source: string): DynamicLoad[] {
 }
 
 /**
- * The client widgets that reach Connect-RPC, by the server file that owns each.
- * A server file loads one with nextDynamic(() => import(…), { ssr: false }),
- * never with a static import. A page that gains an island lists it here, and
- * the test below fails until it does.
+ * Every client island a stock server file loads through next/dynamic, by the
+ * file that owns it. Each is client-only (ssr: false) because it reaches
+ * Connect-RPC, directly or through hooks and helpers. The test below compares
+ * what each file loads with this table, both ways; it does not check that
+ * reason, which the walk further down checks for everything imported
+ * statically. A server file loads an island with
+ * nextDynamic(() => import(…), { ssr: false }), never with a static import. A
+ * page that gains an island lists it here, and the test fails until it does.
  */
 const CONNECT_ISLANDS: Record<string, string[]> = {
   "layout.tsx": ["~/@/components/charts/StockChartPanel"],
@@ -181,6 +339,34 @@ const CONNECT_ISLANDS: Record<string, string[]> = {
     "~/@/components/company/stock-connections",
   ],
   "news/page.tsx": ["~/@/components/company/event-timeline"],
+};
+
+/**
+ * The client modules that reach @connectrpc by static imports from a stock
+ * server file, and did before the tab routes existed: until then one Overview
+ * page imported all four. A new one fails the walk below, and so does an entry
+ * that stops being true, so this list can only shrink.
+ *
+ * Each fetches in the browser through a client-side action module that imports
+ * @connectrpc/connect-web and @connectrpc/connect:
+ * - financials/page.tsx: CompanyTaxCard, through
+ *   app/actions/client/getCompanyTaxProfileClient.ts.
+ * - layout.tsx and page.tsx: the "-with-retry" components that the server
+ *   components companyProfile, companyStats and companyInfo render when their
+ *   own server read fails (the Jan 2026 retry fallbacks), through
+ *   app/actions/client/getStockDetails.ts.
+ *
+ * Moving any of them behind nextDynamic(..., { ssr: false }) is a rendering
+ * change to a live tab, so it is a decision for the owner of that tab, not for
+ * this guard.
+ */
+const KNOWN_CLIENT_CONNECT: Record<string, string[]> = {
+  "financials/page.tsx": ["~/@/components/company/company-tax-card"],
+  "layout.tsx": [
+    "~/@/components/ui/company-profile-with-retry",
+    "~/@/components/ui/company-stats-with-retry",
+  ],
+  "page.tsx": ["~/@/components/ui/company-info-with-retry"],
 };
 
 describe("/shorts SSR Import Safety", () => {
@@ -303,39 +489,317 @@ describe("/shorts SSR Import Safety", () => {
     );
 
     it.each(files)(
-      "%s loads exactly its Connect-RPC islands through next/dynamic, and imports none statically",
+      "%s loads exactly its islands through next/dynamic, and imports none statically",
       (name, file) => {
-        const expected = CONNECT_ISLANDS[name] ?? [];
+        // Files, not the strings that name them: `~/@/x`, `@/x` and a relative
+        // path are one island.
+        const islands = (CONNECT_ISLANDS[name] ?? []).map((specifier) =>
+          targetOf(specifier, file),
+        );
         const source = readSource(file);
         expect(
           nextDynamicLoads(source)
-            .map((load) => load.specifier)
+            .map((load) => targetOf(load.specifier, file))
             .sort(),
-        ).toEqual([...expected].sort());
-        const staticImports = importRefs(source)
+        ).toEqual([...islands].sort());
+        const statics = importRefs(source)
           .filter((ref) => !ref.dynamic)
-          .map((ref) => ref.specifier);
-        for (const island of expected) {
-          expect(staticImports).not.toContain(island);
+          .map((ref) => targetOf(ref.specifier, file));
+        for (const island of islands) {
+          expect(statics).not.toContain(island);
         }
       },
     );
 
     it.each(files)(
-      "%s statically imports no client module that imports @connectrpc itself",
-      (_name, file) => {
-        const offenders = importRefs(readSource(file))
-          .filter((ref) => !ref.dynamic)
-          .map((ref) => resolveLocal(ref.specifier, file))
-          .filter(
-            (target): target is string =>
-              target !== null &&
-              isClientModule(target) &&
-              importsConnect(readSource(target)),
-          )
-          .map((target) => path.relative(SRC_DIR, target));
-        expect(offenders).toEqual([]);
+      "%s reaches @connectrpc through no statically imported client module, the known ones aside",
+      (name, file) => {
+        const known = (KNOWN_CLIENT_CONNECT[name] ?? []).map((specifier) =>
+          targetOf(specifier, file),
+        );
+        expect(
+          diffKnownClients(clientModulesReachingConnect(file), known),
+        ).toEqual({ unexpected: [], stale: [] });
       },
     );
+  });
+
+  describe("the boundary's own readers", () => {
+    describe("importRefs", () => {
+      it("sees every way a file imports a module, and which of them are dynamic", () => {
+        const refs = importRefs(`
+          import a from "./a";
+          import type { T } from "./type-only";
+          import "./side-effect";
+          export * from "./re-export";
+          export { x } from "./named-re-export";
+          const lazy = () => import("./lazy");
+          const named = () => import(/* webpackChunkName: "c" */ "./commented");
+          const wrapped = () => import(
+            "./wrapped"
+          );
+          const required = require("./required");
+        `);
+        expect(refs).toEqual([
+          { specifier: "./a", dynamic: false },
+          { specifier: "./type-only", dynamic: false },
+          { specifier: "./side-effect", dynamic: false },
+          { specifier: "./re-export", dynamic: false },
+          { specifier: "./named-re-export", dynamic: false },
+          { specifier: "./lazy", dynamic: true },
+          { specifier: "./commented", dynamic: true },
+          { specifier: "./wrapped", dynamic: true },
+          { specifier: "./required", dynamic: false },
+        ]);
+      });
+
+      it("does not see an import named in a comment, a string or a template", () => {
+        const refs = importRefs(`
+          // import a from "@connectrpc/connect";
+          /* import b from "@connectrpc/connect"; */
+          const s = 'import c from "@connectrpc/connect"';
+          const t = \`import d from "@connectrpc/connect"\`;
+          const o = loader.import("@connectrpc/connect");
+          import real from "./real";
+        `);
+        expect(refs.map((ref) => ref.specifier)).toEqual(["./real"]);
+      });
+
+      it("still sees an import that follows a // inside a string on the same line", () => {
+        // Stripping comments with a regex ate everything after the `//` in a
+        // string like this one, imports included.
+        const refs = importRefs(
+          `const glob = "src//x"; import hidden from "@connectrpc/connect";`,
+        );
+        expect(refs.map((ref) => ref.specifier)).toEqual([
+          "@connectrpc/connect",
+        ]);
+      });
+    });
+
+    describe("directivesOf", () => {
+      it("reads the directive prologue, whatever the quotes, semicolons and comments before it", () => {
+        expect(
+          directivesOf(
+            `// header\n/* more */\n"use client";\nimport a from "./a";`,
+          ),
+        ).toEqual(["use client"]);
+        expect(directivesOf(`'use client'\nimport a from "./a"`)).toEqual([
+          "use client",
+        ]);
+        expect(directivesOf(`"use strict";\n"use server";`)).toEqual([
+          "use strict",
+          "use server",
+        ]);
+      });
+
+      it("does not read a string after code, in a comment, or in an expression as a directive", () => {
+        expect(directivesOf(`import a from "./a";\n"use client";`)).toEqual([]);
+        expect(directivesOf(`// "use client"\nexport const a = 1;`)).toEqual(
+          [],
+        );
+        expect(directivesOf(`const note = "use client";`)).toEqual([]);
+      });
+    });
+
+    describe("resolveLocal", () => {
+      const from = path.join(STOCK_DIR, "strategy/page.tsx");
+
+      it("resolves the ~/, @/ and relative spellings of one file to that file", () => {
+        const utils = path.join(SRC_DIR, "@/lib/utils.ts");
+        expect(resolveLocal("~/@/lib/utils", from)).toBe(utils);
+        expect(resolveLocal("@/lib/utils", from)).toBe(utils);
+        expect(resolveLocal("../../../../@/lib/utils", from)).toBe(utils);
+      });
+
+      it("follows the tsconfig aliases that are not under src/@", () => {
+        expect(resolveLocal("@/auth", from)).toBe(
+          path.join(SRC_DIR, "server/auth.ts"),
+        );
+        expect(resolveLocal("@/app/actions/getStock", from)).toBe(
+          path.join(SRC_DIR, "app/actions/getStock.ts"),
+        );
+      });
+
+      it("leaves a package, and a file that is not there, unresolved", () => {
+        expect(resolveLocal("react", from)).toBeNull();
+        expect(resolveLocal("@connectrpc/connect", from)).toBeNull();
+        expect(resolveLocal("~/does/not/exist", from)).toBeNull();
+      });
+
+      it("names an island by its file, whatever the spelling, so the registry compares files and not strings", () => {
+        const island = "@/components/strategy/strategy-levels-chart.tsx";
+        expect(
+          targetOf("~/@/components/strategy/strategy-levels-chart", from),
+        ).toBe(island);
+        expect(
+          targetOf("@/components/strategy/strategy-levels-chart", from),
+        ).toBe(island);
+        expect(
+          targetOf(
+            "../../../../@/components/strategy/strategy-levels-chart",
+            from,
+          ),
+        ).toBe(island);
+        // A specifier that names no file stays as written, marked, so a typo in
+        // the registry shows in a diff instead of matching another typo.
+        expect(targetOf("~/@/components/strategy/nope", from)).toBe(
+          "unresolved: ~/@/components/strategy/nope",
+        );
+      });
+    });
+
+    describe("diffKnownClients", () => {
+      const widget = path.join(SRC_DIR, "@/components/widget.tsx");
+      const found: ClientConnect[] = [
+        { client: widget, chain: [widget, "@connectrpc/connect"] },
+      ];
+
+      it("is quiet when the walk finds exactly the known client modules", () => {
+        expect(diffKnownClients(found, ["@/components/widget.tsx"])).toEqual({
+          unexpected: [],
+          stale: [],
+        });
+      });
+
+      it("reports a client module that is not known, with its chain", () => {
+        expect(diffKnownClients(found, [])).toEqual({
+          unexpected: ["@/components/widget.tsx -> @connectrpc/connect"],
+          stale: [],
+        });
+      });
+
+      it("reports a known client module that no longer reaches Connect, so the list can only shrink", () => {
+        expect(diffKnownClients([], ["@/components/widget.tsx"])).toEqual({
+          unexpected: [],
+          stale: ["@/components/widget.tsx"],
+        });
+      });
+    });
+
+    describe("clientModulesReachingConnect", () => {
+      const roots: string[] = [];
+      afterAll(() => {
+        for (const root of roots) {
+          fs.rmSync(root, { recursive: true, force: true });
+        }
+      });
+
+      /** Writes a small module graph to a temp directory; returns the path to a file in it. */
+      function graph(files: Record<string, string>): (name: string) => string {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "stock-boundary-"));
+        roots.push(root);
+        for (const [name, content] of Object.entries(files)) {
+          fs.writeFileSync(path.join(root, name), content);
+        }
+        return (name) => path.join(root, name);
+      }
+
+      /** The result by file name, so a fixture's temp path stays out of the assertion. */
+      const shape = (found: ClientConnect[]) =>
+        found.map(({ client, chain }) => ({
+          client: path.basename(client),
+          chain: chain.map((step, i) =>
+            i < chain.length - 1 ? path.basename(step) : step,
+          ),
+        }));
+
+      it("finds a client module that reaches Connect through helpers, however deep", () => {
+        const at = graph({
+          "page.tsx": `import { Island } from "./island";`,
+          "island.tsx": `"use client";\nimport { useThing } from "./use-thing";`,
+          "use-thing.ts": `import { api } from "./api";`,
+          "api.ts": `import { createClient } from "@connectrpc/connect";`,
+        });
+        expect(shape(clientModulesReachingConnect(at("page.tsx")))).toEqual([
+          {
+            client: "island.tsx",
+            chain: [
+              "island.tsx",
+              "use-thing.ts",
+              "api.ts",
+              "@connectrpc/connect",
+            ],
+          },
+        ]);
+      });
+
+      it("finds it through a server module in between, as a wrapper renders a client fallback", () => {
+        const at = graph({
+          "page.tsx": `import Wrapper from "./wrapper";`,
+          "wrapper.tsx": `import { Retry } from "./retry";`,
+          "retry.tsx": `"use client";\nimport { fetchIt } from "./fetch-it";`,
+          "fetch-it.ts": `import { transport } from "@connectrpc/connect-web";`,
+        });
+        expect(shape(clientModulesReachingConnect(at("page.tsx")))).toEqual([
+          {
+            client: "retry.tsx",
+            chain: ["retry.tsx", "fetch-it.ts", "@connectrpc/connect-web"],
+          },
+        ]);
+      });
+
+      it("finds it when the page is itself the client module", () => {
+        const at = graph({
+          "page.tsx": `"use client";\nimport { api } from "./api";`,
+          "api.ts": `import { createClient } from "@connectrpc/connect";`,
+        });
+        expect(shape(clientModulesReachingConnect(at("page.tsx")))).toEqual([
+          {
+            client: "page.tsx",
+            chain: ["page.tsx", "api.ts", "@connectrpc/connect"],
+          },
+        ]);
+      });
+
+      it("passes a client module that does not reach Connect", () => {
+        const at = graph({
+          "page.tsx": `import { Widget } from "./widget";`,
+          "widget.tsx": `"use client";\nimport { format } from "./format";\nimport { useState } from "react";`,
+          "format.ts": `export const format = (n: number) => n.toFixed(1);`,
+        });
+        expect(clientModulesReachingConnect(at("page.tsx"))).toEqual([]);
+      });
+
+      it("does not follow a dynamic import: an island is a lazy boundary the ssr: false rule covers", () => {
+        const at = graph({
+          "page.tsx": `import nextDynamic from "next/dynamic";\nconst Island = nextDynamic(() => import("./island"), { ssr: false });`,
+          "island.tsx": `"use client";\nimport { api } from "./api";`,
+          "api.ts": `import { createClient } from "@connectrpc/connect";`,
+        });
+        expect(clientModulesReachingConnect(at("page.tsx"))).toEqual([]);
+      });
+
+      it('stops at a "use server" module: a client module imports a reference to it, not its code', () => {
+        const at = graph({
+          "page.tsx": `import { Widget } from "./widget";`,
+          "widget.tsx": `"use client";\nimport { save } from "./action";`,
+          "action.ts": `"use server";\nimport { createClient } from "@connectrpc/connect";`,
+        });
+        expect(clientModulesReachingConnect(at("page.tsx"))).toEqual([]);
+      });
+
+      it("does not blame a server module that imports Connect on the server", () => {
+        const at = graph({
+          "page.tsx": `import { load } from "./loader";`,
+          "loader.ts": `import { createClient } from "@connectrpc/connect";`,
+        });
+        expect(clientModulesReachingConnect(at("page.tsx"))).toEqual([]);
+      });
+
+      it("terminates on an import cycle, and still finds the client module in it", () => {
+        const at = graph({
+          "page.tsx": `import { A } from "./a";`,
+          "a.tsx": `"use client";\nimport { b } from "./b";`,
+          "b.ts": `import { A } from "./a";\nimport { createClient } from "@connectrpc/connect";`,
+        });
+        expect(shape(clientModulesReachingConnect(at("page.tsx")))).toEqual([
+          {
+            client: "a.tsx",
+            chain: ["a.tsx", "b.ts", "@connectrpc/connect"],
+          },
+        ]);
+      });
+    });
   });
 });
