@@ -151,8 +151,18 @@ export default async function StockNewsPage({ params }: PageProps) {
     getStockNews(code, 60),
     getStockOrNotFound(code).catch(() => undefined),
   ]);
+  // getStockNews resolves undefined once its retries are spent: a FAILED read,
+  // not an empty feed (the API answers a stock with no news with an empty
+  // articles list, never NotFound). This page is ISR, so rendering "No news
+  // found" for a failed read would cache that sentence for ten minutes over the
+  // last good page; throwing keeps ISR serving it and caches nothing.
+  if (!response) {
+    throw new Error(
+      `news unavailable for ${code}; failing ISR render instead of caching an empty tab`,
+    );
+  }
   const articles: NewsCardArticle[] = (
-    (response?.articles ?? []) as unknown as ApiArticle[]
+    (response.articles ?? []) as unknown as ApiArticle[]
   ).map(toCardArticle);
 
   const companyName = stock?.name ?? code;

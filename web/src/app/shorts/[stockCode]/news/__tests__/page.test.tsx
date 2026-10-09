@@ -110,6 +110,32 @@ describe("/shorts/[stockCode]/news", () => {
     expect(screen.getByTestId("event-timeline")).toBeInTheDocument();
   });
 
+  // The page is ISR (600 s). getStockNews goes through withRetryAndNotFound, so
+  // `undefined` is a FAILED read (its retries are spent). It is not an empty
+  // feed: the Go handler answers a stock with no news with an empty Articles
+  // list and a store error with CodeInternal, and never with NotFound
+  // (services/shorts/internal/services/shorts/news.go). Rendering "No news
+  // found" for a failed read would bake that sentence into the cache for ten
+  // minutes and replace the last good page; throwing keeps ISR serving it.
+  describe("a failed news read", () => {
+    it("fails the render instead of caching 'No news found'", async () => {
+      mockGetStockNews.mockResolvedValue(undefined);
+      await expect(Page(params("bhp"))).rejects.toThrow(/news unavailable for BHP/);
+    });
+
+    it("is told apart from an empty feed, which keeps the copy", async () => {
+      mockGetStockNews.mockResolvedValue({ articles: [] });
+      render(await Page(params("bhp")));
+      expect(screen.getByText(/No news found for BHP yet/)).toBeInTheDocument();
+    });
+
+    it("reads a response with no articles key as an empty feed too (proto3 JSON omits an empty list)", async () => {
+      mockGetStockNews.mockResolvedValue({});
+      render(await Page(params("bhp")));
+      expect(screen.getByText(/No news found for BHP yet/)).toBeInTheDocument();
+    });
+  });
+
   it("adds no heading over the timeline, which prints its own title; the section is named with an aria-label", async () => {
     render(await Page(params("bhp")));
     // The h1 is the only heading the page writes: the timeline's own
