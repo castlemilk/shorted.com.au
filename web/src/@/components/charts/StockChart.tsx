@@ -41,6 +41,9 @@ import {
 } from "./chart-tooltip";
 import { useCoarsePointer } from "~/@/hooks/use-coarse-pointer";
 import type {
+  ChartBand,
+  ChartLevel,
+  ChartMarker,
   ChartPoint,
   ChartSeriesSpec,
   OscillatorSpec,
@@ -66,6 +69,12 @@ const TAP_MAX_MOVE_PX = 6;
 const TOUCH_MOUSE_GUARD_MS = 800;
 // Width of the hover/pinned tooltip.
 const TIP_W = 168;
+// What an omitted `levels`, `bands` or `markers` defaults to: one shared, frozen
+// array each. A fresh `[]` per render is a new identity every time, which would
+// recompute the `reference` memo on every render of every chart, levels or not.
+const NO_LEVELS: readonly ChartLevel[] = Object.freeze([]);
+const NO_BANDS: readonly ChartBand[] = Object.freeze([]);
+const NO_MARKERS: readonly ChartMarker[] = Object.freeze([]);
 
 const measureDateFmt = (t: number) =>
   new Date(t).toLocaleDateString(undefined, {
@@ -89,9 +98,9 @@ export function StockChartInner({
   indicators = [],
   oscillators = [],
   regions = [],
-  levels = [],
-  bands = [],
-  markers = [],
+  levels = NO_LEVELS,
+  bands = NO_BANDS,
+  markers = NO_MARKERS,
   leftAxis,
   rightAxis,
   viewMode = "absolute",
@@ -206,15 +215,19 @@ export function StockChartInner({
   }, [decVolume, mainH]);
 
   // Reference geometry (strategy levels): pure, clipped to the plot, recomputed
-  // only when the scales or the inputs change. Nothing here is hoverable.
+  // only when the scales change or a caller passes new arrays (an omitted prop is
+  // a shared constant, so a chart without levels never recomputes it). A scale
+  // answers undefined for a value it cannot place (NaN): that stays NaN, so the
+  // layout drops it, where `?? 0` would draw it on the plot's top or left edge.
+  // Nothing here is hoverable.
   const reference = useMemo(
     () =>
       layoutLevels({
         levels,
         bands,
         markers,
-        x: (t) => dateScale(t) ?? 0,
-        yFor: (axis) => (v) => scaleForAxis(axis)(v) ?? 0,
+        x: (t) => dateScale(t) ?? NaN,
+        yFor: (axis) => (v) => scaleForAxis(axis)(v) ?? NaN,
         innerW,
         innerH: mainH,
       }),
@@ -665,8 +678,8 @@ export function StockChartInner({
                 strokeDasharray={l.dash}
               />
               <text
-                x={l.x2 - 4}
-                y={l.y - 4}
+                x={l.labelX}
+                y={l.labelY}
                 textAnchor="end"
                 fontSize={10}
                 fill={l.color}
@@ -685,7 +698,13 @@ export function StockChartInner({
                 strokeWidth={1}
                 strokeDasharray="2,3"
               />
-              <text x={m.x + 4} y={10} fontSize={10} fill={m.color}>
+              <text
+                x={m.labelX}
+                y={10}
+                textAnchor={m.labelAnchor}
+                fontSize={10}
+                fill={m.color}
+              >
                 {m.label}
               </text>
             </Group>

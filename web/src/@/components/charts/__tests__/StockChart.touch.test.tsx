@@ -1,5 +1,6 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { StockChartInner } from "../StockChart";
+import * as chartLevels from "../chart-levels";
 import type { ChartSeriesSpec } from "../types";
 
 // localPoint needs real SVG geometry (getScreenCTM); jsdom has none. Resolve a
@@ -351,5 +352,107 @@ describe("StockChart reference levels, bands and markers", () => {
     expect(labels).toEqual(["left 45", "right 5"]);
     const markerX = Number(container.querySelector("[data-chart-marker] line")!.getAttribute("x1"));
     expect(markerX).toBeCloseTo((INNER_W * 2) / 9, 5);
+  });
+
+  it("draws nothing for a level, band or marker the scale cannot place, never at a plot edge", () => {
+    // The scale answers undefined for a NaN; coalescing that to 0 would draw a labelled line
+    // along the top or left edge, so each unplaceable one sits beside a placeable one.
+    const { container } = render(
+      <StockChartInner
+        width={WIDTH}
+        height={HEIGHT}
+        series={SERIES}
+        bands={[
+          { axis: "left", low: NaN, high: 44, from: T0, to: T0 + 5 * DAY, color: "#00f", label: "no low" },
+          { axis: "left", low: 41, high: NaN, from: T0, to: T0 + 5 * DAY, color: "#00f", label: "no high" },
+          { axis: "left", low: 41, high: 44, from: NaN, to: T0 + 5 * DAY, color: "#00f", label: "no start" },
+          { axis: "left", low: 41, high: 44, from: T0, to: T0 + 5 * DAY, color: "#00f", label: "base" },
+        ]}
+        levels={[
+          { axis: "left", value: NaN, label: "no value", color: "#f90" },
+          { axis: "left", value: 45, label: "no start", color: "#f90", from: NaN, to: T0 + 5 * DAY },
+          { axis: "left", value: 45, label: "Pivot $45", color: "#f90" },
+        ]}
+        markers={[
+          { t: NaN, label: "no session", color: "#0f0" },
+          { t: T0 + 2 * DAY, label: "breakout", color: "#0f0" },
+        ]}
+      />,
+    );
+    const drawn = (selector: string) => Array.from(container.querySelectorAll(selector), (el) => el.textContent);
+    expect({
+      bands: drawn("[data-chart-band] title"),
+      levels: drawn("[data-chart-level] text"),
+      markers: drawn("[data-chart-marker] text"),
+    }).toEqual({ bands: ["base"], levels: ["Pivot $45"], markers: ["breakout"] });
+  });
+
+  it("draws crowded level labels apart with every line at its own value, and a marker label inside the plot", () => {
+    const { container } = render(
+      <StockChartInner
+        width={WIDTH}
+        height={HEIGHT}
+        series={SERIES}
+        levels={[
+          { axis: "left", value: 45, label: "SMA 50 $45", color: "#f90" },
+          { axis: "left", value: 45.1, label: "SMA 150 $45.1", color: "#09f" },
+          { axis: "left", value: 45.2, label: "SMA 200 $45.2", color: "#0f9" },
+        ]}
+        markers={[
+          { t: T0 + 2 * DAY, label: "Breakout", color: "#0f0" },
+          { t: T0 + 8.5 * DAY, label: "Late breakout", color: "#0f0" },
+        ]}
+      />,
+    );
+    const rows = Array.from(container.querySelectorAll("[data-chart-level]"), (g) => ({
+      line: Number(g.querySelector("line")!.getAttribute("y1")),
+      line2: Number(g.querySelector("line")!.getAttribute("y2")),
+      label: Number(g.querySelector("text")!.getAttribute("y")),
+    })).sort((a, b) => a.line - b.line);
+    expect(rows).toHaveLength(3);
+    // The lines are a few px apart (they would overlap their labels) and flat, each at its own value.
+    expect(rows[1]!.line - rows[0]!.line).toBeGreaterThan(0);
+    expect(rows[2]!.line - rows[0]!.line).toBeLessThan(11);
+    for (const r of rows) expect(r.line2).toBe(r.line);
+    // The top label keeps its place 4 px above its line; the rest are at least 11 px below the one above.
+    expect(rows[0]!.label).toBeCloseTo(rows[0]!.line - 4, 5);
+    expect(rows[1]!.label - rows[0]!.label).toBeGreaterThanOrEqual(11);
+    expect(rows[2]!.label - rows[1]!.label).toBeGreaterThanOrEqual(11);
+
+    // "Late breakout" has no room on the right of a line near the plot's right edge.
+    const markers = Array.from(container.querySelectorAll("[data-chart-marker] text"));
+    expect(markers.map((t) => t.getAttribute("text-anchor"))).toEqual(["start", "end"]);
+    const lateX = Number(markers[1]!.getAttribute("x"));
+    expect(lateX).toBeCloseTo((INNER_W * 8.5) / 9 - 4, 5);
+    expect(lateX).toBeLessThanOrEqual(INNER_W);
+  });
+
+  it("draws the label of a short level inside the plot instead of in the axis margin", () => {
+    // The line ends 6.9 px into the plot; "Pivot $45" is about 54 px wide, so its right edge
+    // moves to 54 rather than sitting 4 px inside the line's end.
+    const { container } = render(
+      <StockChartInner
+        width={WIDTH}
+        height={HEIGHT}
+        series={SERIES}
+        levels={[{ axis: "left", value: 45, label: "Pivot $45", color: "#f90", from: T0 - 5 * DAY, to: T0 + 0.2 * DAY }]}
+      />,
+    );
+    const label = container.querySelector("[data-chart-level] text")!;
+    expect(label).toHaveTextContent("Pivot $45");
+    expect(label.getAttribute("text-anchor")).toBe("end");
+    expect(Number(label.getAttribute("x"))).toBe(54);
+  });
+
+  it("does not lay the reference geometry out again when a re-render changes nothing", () => {
+    // Omitted levels, bands and markers must default to the same arrays every render.
+    const layout = jest.spyOn(chartLevels, "layoutLevels");
+    try {
+      const { rerender } = render(<StockChartInner width={WIDTH} height={HEIGHT} series={SERIES} />);
+      rerender(<StockChartInner width={WIDTH} height={HEIGHT} series={SERIES} />);
+      expect(layout).toHaveBeenCalledTimes(1);
+    } finally {
+      layout.mockRestore();
+    }
   });
 });

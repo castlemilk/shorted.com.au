@@ -90,11 +90,11 @@ export interface StockChartProps {
   /** Shaded time-spans drawn under the series (e.g. short-vs-price divergence). */
   regions?: ChartRegion[];
   /** Reference levels drawn over the series (the strategy's pivot, averages, 52-week range). */
-  levels?: ChartLevel[];
+  levels?: readonly ChartLevel[];
   /** Shaded value bands drawn under the series (a base). */
-  bands?: ChartBand[];
+  bands?: readonly ChartBand[];
   /** Vertical session markers (a breakout). */
-  markers?: ChartMarker[];
+  markers?: readonly ChartMarker[];
   leftAxis?: AxisSpec;
   rightAxis?: AxisSpec;
   viewMode?: "absolute" | "normalized"; // default "absolute"
