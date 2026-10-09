@@ -1,26 +1,38 @@
 {
-  "capturedAt": "2026-07-22T03:22:15.588Z",
+  "capturedAt": "2026-10-09T14:43:39.852Z",
   "gitRef": null,
   "unit": "kB (Next First Load JS, raw)",
-  "sharedByAllKB": 95.4,
+  "sharedByAllKB": 95.9,
   "routes": {
     "/": {
-      "firstLoadKB": 167
+      "firstLoadKB": 171
     },
     "/_not-found": {
-      "firstLoadKB": 95.6
+      "firstLoadKB": 96.1
     },
     "/about": {
       "firstLoadKB": 122
     },
+    "/about/opengraph-image": {
+      "firstLoadKB": 0
+    },
     "/admin": {
-      "firstLoadKB": 147
+      "firstLoadKB": 150
     },
     "/admin/broadcasts": {
-      "firstLoadKB": 107
+      "firstLoadKB": 108
     },
     "/admin/enrichments": {
-      "firstLoadKB": 143
+      "firstLoadKB": 144
+    },
+    "/admin/register/politicians": {
+      "firstLoadKB": 108
+    },
+    "/admin/register/politicians/[slug]": {
+      "firstLoadKB": 137
+    },
+    "/admin/register/securities": {
+      "firstLoadKB": 124
     },
     "/admin/takes": {
       "firstLoadKB": 103
@@ -29,7 +41,7 @@
       "firstLoadKB": 590
     },
     "/alerts": {
-      "firstLoadKB": 128
+      "firstLoadKB": 129
     },
     "/api/about/statistics": {
       "firstLoadKB": 0
@@ -80,7 +92,7 @@
       "firstLoadKB": 0
     },
     "/api/docs": {
-      "firstLoadKB": 95.6
+      "firstLoadKB": 96.1
     },
     "/api/email/img": {
       "firstLoadKB": 0
@@ -89,6 +101,9 @@
       "firstLoadKB": 0
     },
     "/api/homepage/warm-cache": {
+      "firstLoadKB": 0
+    },
+    "/api/internal/admin-check": {
       "firstLoadKB": 0
     },
     "/api/market-data/correlations": {
@@ -140,19 +155,25 @@
       "firstLoadKB": 0
     },
     "/authors": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
     },
     "/authors/[slug]": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
+    },
+    "/authors/[slug]/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/battlegrounds": {
-      "firstLoadKB": 198
+      "firstLoadKB": 201
+    },
+    "/battlegrounds/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/blog": {
-      "firstLoadKB": 116
+      "firstLoadKB": 109
     },
     "/blog/[slug]": {
-      "firstLoadKB": 119
+      "firstLoadKB": 120
     },
     "/blog/[slug]/llm": {
       "firstLoadKB": 0
@@ -160,8 +181,14 @@
     "/blog/[slug]/opengraph-image": {
       "firstLoadKB": 0
     },
+    "/blog/category/[category]": {
+      "firstLoadKB": 109
+    },
+    "/blog/opengraph-image": {
+      "firstLoadKB": 0
+    },
     "/chat": {
-      "firstLoadKB": 720
+      "firstLoadKB": 722
     },
     "/chat.v1.ChatService/[method]": {
       "firstLoadKB": 0
@@ -172,20 +199,35 @@
     "/compare/[pair]": {
       "firstLoadKB": 104
     },
+    "/compare/[pair]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/compare/opengraph-image": {
+      "firstLoadKB": 0
+    },
     "/dashboards": {
-      "firstLoadKB": 265
+      "firstLoadKB": 272
     },
     "/data": {
+      "firstLoadKB": 133
+    },
+    "/data/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/design-system": {
       "firstLoadKB": 132
     },
     "/developer": {
-      "firstLoadKB": 120
+      "firstLoadKB": 121
     },
     "/directory": {
-      "firstLoadKB": 137
+      "firstLoadKB": 138
     },
     "/directory/[letter]": {
-      "firstLoadKB": 137
+      "firstLoadKB": 138
+    },
+    "/directory/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/disclaimer": {
       "firstLoadKB": 104
@@ -196,8 +238,11 @@
     "/docs/api-reference": {
       "firstLoadKB": 0
     },
+    "/docs/api.md": {
+      "firstLoadKB": 0
+    },
     "/docs/api/[endpoint]": {
-      "firstLoadKB": 115
+      "firstLoadKB": 116
     },
     "/docs/api/clients/[language]": {
       "firstLoadKB": 103
@@ -208,32 +253,50 @@
     "/docs/llm-context-raw": {
       "firstLoadKB": 0
     },
+    "/docs/mcp.md": {
+      "firstLoadKB": 0
+    },
     "/e2e-chat-render": {
-      "firstLoadKB": 590
+      "firstLoadKB": 591
     },
     "/economy": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
     },
     "/economy/[state]": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
+    },
+    "/economy/[state]/[topic]": {
+      "firstLoadKB": 133
+    },
+    "/economy/[state]/[topic]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/economy/[state]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/economy/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/embed/bank-basket": {
-      "firstLoadKB": 97.1
+      "firstLoadKB": 97.6
     },
     "/embed/chart": {
       "firstLoadKB": 106
     },
     "/embed/top-shorts": {
-      "firstLoadKB": 174
+      "firstLoadKB": 176
     },
     "/embed/treemap": {
-      "firstLoadKB": 97
+      "firstLoadKB": 97.6
     },
     "/faq": {
-      "firstLoadKB": 138
+      "firstLoadKB": 139
+    },
+    "/faq/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/features/the-widow-maker": {
-      "firstLoadKB": 104
+      "firstLoadKB": 105
     },
     "/features/the-widow-maker/opengraph-image": {
       "firstLoadKB": 0
@@ -242,40 +305,91 @@
       "firstLoadKB": 0
     },
     "/glossary": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/glossary/[term]": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
+    },
+    "/glossary/[term]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/glossary/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/housing": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
     },
     "/housing/[state]": {
-      "firstLoadKB": 160
+      "firstLoadKB": 161
     },
     "/housing/[state]/[suburb]": {
-      "firstLoadKB": 172
+      "firstLoadKB": 161
     },
     "/housing/[state]/[suburb]/opengraph-image": {
       "firstLoadKB": 0
     },
+    "/housing/[state]/council": {
+      "firstLoadKB": 145
+    },
+    "/housing/[state]/council/[slug]": {
+      "firstLoadKB": 133
+    },
+    "/housing/[state]/council/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/housing/[state]/opengraph-image": {
+      "firstLoadKB": 0
+    },
     "/housing/calculators": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
+    },
+    "/housing/calculators/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/housing/capitals": {
+      "firstLoadKB": 133
+    },
+    "/housing/capitals/[slug]": {
+      "firstLoadKB": 133
+    },
+    "/housing/capitals/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/housing/capitals/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/housing/drops": {
-      "firstLoadKB": 95.6
+      "firstLoadKB": 96.1
+    },
+    "/housing/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/housing/property/[addressKey]": {
-      "firstLoadKB": 160
+      "firstLoadKB": 161
+    },
+    "/housing/rankings": {
+      "firstLoadKB": 133
+    },
+    "/housing/rankings/[slug]": {
+      "firstLoadKB": 133
+    },
+    "/housing/rankings/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/housing/rankings/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/industry": {
-      "firstLoadKB": 136
+      "firstLoadKB": 137
     },
     "/industry-intelligence": {
-      "firstLoadKB": 153
+      "firstLoadKB": 155
+    },
+    "/industry-intelligence/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/industry/[slug]": {
-      "firstLoadKB": 136
+      "firstLoadKB": 137
     },
     "/industry/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -284,25 +398,46 @@
       "firstLoadKB": 0
     },
     "/insider-trading": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
     },
     "/insider-trading/[stockCode]": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
+    },
+    "/insider-trading/[stockCode]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/insider-trading/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/learn": {
-      "firstLoadKB": 131
+      "firstLoadKB": 132
     },
     "/learn/[slug]": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
+    },
+    "/learn/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/learn/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/market": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
     },
     "/market/[date]": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
+    },
+    "/market/[date]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/market/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/methodology": {
       "firstLoadKB": 104
+    },
+    "/methodology/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/metrics": {
       "firstLoadKB": 118
@@ -311,13 +446,16 @@
       "firstLoadKB": 138
     },
     "/news/[slug]": {
-      "firstLoadKB": 299
+      "firstLoadKB": 307
     },
     "/news/[slug]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/news/opengraph-image": {
       "firstLoadKB": 0
+    },
+    "/oauth/authorize": {
+      "firstLoadKB": 118
     },
     "/opengraph-image": {
       "firstLoadKB": 0
@@ -326,28 +464,82 @@
       "firstLoadKB": 138
     },
     "/picks/[strategy]": {
-      "firstLoadKB": 141
+      "firstLoadKB": 143
     },
-    "/portfolio": {
+    "/picks/[strategy]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/picks/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/politicians": {
+      "firstLoadKB": 149
+    },
+    "/politicians/[slug]": {
+      "firstLoadKB": 158
+    },
+    "/politicians/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/politicians/changes": {
       "firstLoadKB": 142
     },
+    "/politicians/changes/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/politicians/compare": {
+      "firstLoadKB": 132
+    },
+    "/politicians/compare/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/politicians/donations": {
+      "firstLoadKB": 139
+    },
+    "/politicians/donations/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/politicians/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/politicians/short-interest": {
+      "firstLoadKB": 132
+    },
+    "/politicians/short-interest/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/portfolio": {
+      "firstLoadKB": 144
+    },
+    "/press": {
+      "firstLoadKB": 118
+    },
+    "/press/opengraph-image": {
+      "firstLoadKB": 0
+    },
     "/price-drops": {
-      "firstLoadKB": 131
+      "firstLoadKB": 135
+    },
+    "/price-drops/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/pricing": {
-      "firstLoadKB": 160
+      "firstLoadKB": 127
     },
     "/privacy": {
       "firstLoadKB": 111
     },
     "/pulse": {
-      "firstLoadKB": 125
+      "firstLoadKB": 127
+    },
+    "/rate-limit": {
+      "firstLoadKB": 123
     },
     "/reports": {
-      "firstLoadKB": 137
+      "firstLoadKB": 138
     },
     "/reports/monthly/[slug]": {
-      "firstLoadKB": 137
+      "firstLoadKB": 138
     },
     "/reports/monthly/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -355,68 +547,119 @@
     "/reports/opengraph-image": {
       "firstLoadKB": 0
     },
-    "/reports/weekly/[slug]": {
+    "/reports/weekly": {
       "firstLoadKB": 138
+    },
+    "/reports/weekly/[slug]": {
+      "firstLoadKB": 139
     },
     "/reports/weekly/[slug]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/reports/yearly/[slug]": {
-      "firstLoadKB": 137
+      "firstLoadKB": 138
     },
     "/reports/yearly/[slug]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/roadmap": {
-      "firstLoadKB": 110
+      "firstLoadKB": 111
     },
     "/robots.txt": {
       "firstLoadKB": 0
     },
     "/scans": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
     },
     "/scans/[slug]": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
+    },
+    "/scans/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/scans/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/screener": {
-      "firstLoadKB": 236
+      "firstLoadKB": 237
+    },
+    "/screener/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/search": {
-      "firstLoadKB": 132
+      "firstLoadKB": 133
     },
     "/seasonality": {
       "firstLoadKB": 104
     },
+    "/seasonality/opengraph-image": {
+      "firstLoadKB": 0
+    },
     "/shorts": {
-      "firstLoadKB": 187
+      "firstLoadKB": 190
     },
     "/shorts/[stockCode]": {
-      "firstLoadKB": 312
+      "firstLoadKB": 201
+    },
+    "/shorts/[stockCode]/community": {
+      "firstLoadKB": 121
     },
     "/shorts/[stockCode]/community/[threadId]": {
-      "firstLoadKB": 134
+      "firstLoadKB": 118
+    },
+    "/shorts/[stockCode]/company": {
+      "firstLoadKB": 180
+    },
+    "/shorts/[stockCode]/financials": {
+      "firstLoadKB": 206
     },
     "/shorts/[stockCode]/news": {
-      "firstLoadKB": 138
+      "firstLoadKB": 169
     },
     "/shorts/[stockCode]/opengraph-image": {
       "firstLoadKB": 0
     },
+    "/shorts/[stockCode]/short-interest": {
+      "firstLoadKB": 199
+    },
+    "/shorts/[stockCode]/strategy": {
+      "firstLoadKB": 234
+    },
+    "/shorts/opengraph-image": {
+      "firstLoadKB": 0
+    },
     "/signin": {
-      "firstLoadKB": 161
+      "firstLoadKB": 166
     },
     "/signup": {
-      "firstLoadKB": 162
+      "firstLoadKB": 164
+    },
+    "/sitemap-core.xml": {
+      "firstLoadKB": 0
+    },
+    "/sitemap-housing.xml": {
+      "firstLoadKB": 0
+    },
+    "/sitemap-politicians.xml": {
+      "firstLoadKB": 0
+    },
+    "/sitemap-reports.xml": {
+      "firstLoadKB": 0
+    },
+    "/sitemap-shorts.xml": {
+      "firstLoadKB": 0
     },
     "/sitemap.xml": {
       "firstLoadKB": 0
     },
     "/statistics": {
-      "firstLoadKB": 132
+      "firstLoadKB": 135
+    },
+    "/statistics/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/stocks": {
-      "firstLoadKB": 206
+      "firstLoadKB": 209
     },
     "/subscribe/success": {
       "firstLoadKB": 108
@@ -427,11 +670,26 @@
     "/terms": {
       "firstLoadKB": 104
     },
+    "/themes": {
+      "firstLoadKB": 133
+    },
+    "/themes/[slug]": {
+      "firstLoadKB": 133
+    },
+    "/themes/[slug]/opengraph-image": {
+      "firstLoadKB": 0
+    },
+    "/themes/opengraph-image": {
+      "firstLoadKB": 0
+    },
     "/top": {
-      "firstLoadKB": 156
+      "firstLoadKB": 158
+    },
+    "/top/opengraph-image": {
+      "firstLoadKB": 0
     },
     "/unsubscribe": {
-      "firstLoadKB": 96.3
+      "firstLoadKB": 96.9
     }
   }
 }

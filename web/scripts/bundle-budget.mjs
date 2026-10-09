@@ -43,7 +43,19 @@ const BUDGETS = {
     // shorts-RPC routes dropped 25-31kB each; budgets tightened back to the
     // new floor + headroom. Keep new messages in the right domain file — a
     // message added to a domain lands only in that domain's importers.
-    "/shorts/[stockCode]": 330,
+    //
+    // 2026-10-10: the stock page is one ISR route per tab, so each tab carries
+    // its own guard: measured first-load + 10%, rounded up to 5 kB. The
+    // Overview shed the tab bundles (312 -> 201 kB). Re-measure with a
+    // production build before raising any of these. The matching ISR gate is
+    // scripts/route-kinds.mjs.
+    "/shorts/[stockCode]": 225,
+    "/shorts/[stockCode]/short-interest": 220,
+    "/shorts/[stockCode]/strategy": 260,
+    "/shorts/[stockCode]/financials": 230,
+    "/shorts/[stockCode]/company": 200,
+    "/shorts/[stockCode]/news": 190,
+    "/shorts/[stockCode]/community": 135,
     "/news/[slug]": 315,
     "/screener": 250,
     "/dashboards": 280,

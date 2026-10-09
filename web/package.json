@@ -23,6 +23,7 @@
     "bundle:budget": "node scripts/bundle-budget.mjs",
     "bundle:compare": "node scripts/bundle-budget.mjs --compare ../docs/perf/bundle-baseline.json",
     "bundle:baseline": "node scripts/bundle-budget.mjs --update-baseline ../docs/perf/bundle-baseline.json",
+    "routes:kinds": "node scripts/route-kinds.mjs",
     "dev": "APP_VERSION=`git describe --tags --always --dirty` next dev -p 3020",
     "bump-version": "sh ./scripts/bump-version.sh",
     "lint": "next lint --max-warnings=1000",

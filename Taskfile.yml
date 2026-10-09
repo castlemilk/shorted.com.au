@@ -516,7 +516,7 @@ tasks:
   test:bundle:
     desc: Check route bundle budgets against a production build
     dir: web
-    cmds: [npm run bundle:budget]
+    cmds: [npm run bundle:budget, npm run routes:kinds]
 
   test:visual:
     desc: Run Storybook visual regression
