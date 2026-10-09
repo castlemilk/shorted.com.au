@@ -8,9 +8,38 @@ import { test, expect, type Page } from "@playwright/test";
  * and the cache test reads `x-nextjs-cache`, which only `next start` sets
  * (Vercel reports the same fact as `x-vercel-cache`).
  *
- *   cd web && SKIP_ENV_VALIDATION=1 npx next build
- *   npm run start                      # serves :3020, the config's baseURL
- *   npx playwright test e2e/stock-tabs.spec.ts --project=chromium
+ * The suite reads LIVE public data: the server fetches BHP, the picks page and
+ * the chart's prices from the public API as every local build does, so it needs
+ * network access and a stock the API knows. There is no webServer block in the
+ * Playwright config; the server must already be running.
+ *
+ *   cd web
+ *   SKIP_ENV_VALIDATION=1 NEXT_PUBLIC_API_URL=https://api.shorted.com.au \
+ *     npx next build
+ *   SKIP_ENV_VALIDATION=1 SHORTS_SERVICE_ENDPOINT=https://api.shorted.com.au \
+ *     NEXT_PUBLIC_API_URL=https://api.shorted.com.au \
+ *     MARKET_DATA_API_URL=https://api.shorted.com.au npm run start   # :3020, the config's baseURL
+ *   # In another shell, with the Playwright runner on Node 22 (see below):
+ *   npx playwright test e2e/stock-tabs.spec.ts --project=chromium --workers=1
+ *
+ * What each of those is for, and what happens without it:
+ * - SKIP_ENV_VALIDATION=1 on `next start` as well as `next build`:
+ *   next.config.mjs loads src/env.js, and a server started without it exits
+ *   with "Invalid environment variables" (NEXTAUTH_SECRET, NEXTAUTH_URL, ...).
+ * - NEXT_PUBLIC_API_URL at BUILD (it is inlined into the client bundle) and at
+ *   start.
+ * - SHORTS_SERVICE_ENDPOINT, NEXT_PUBLIC_API_URL and MARKET_DATA_API_URL at
+ *   START. Without them the server's reads go to localhost:9091 and :8090,
+ *   loadStockOrFail fails the render, and the tabs degrade or answer 500.
+ * - Run the Playwright runner on Node 22. Playwright 1.52 hangs on Node 24.19
+ *   (the runner idles at 0% CPU with no worker, even for `--list`); the
+ *   server itself ran fine on Node 24.19.
+ * - Leave BASE_URL (and E2E_TEST) unset, or the suite is aimed somewhere other
+ *   than localhost:3020. Never point it at production.
+ * - The thread test needs a community store holding one BHP thread, or it
+ *   SKIPS ("no thread to open"): start the server with
+ *   COMMUNITY_STORE_DRIVER=postgres and DATABASE_URL set to a scratch Postgres
+ *   with migration 000072 applied and one active BHP thread row.
  */
 
 const CODE = "BHP";
