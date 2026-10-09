@@ -93,6 +93,43 @@ describe("/shorts/[stockCode]/news", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("BHP Group (BHP) News");
   });
 
+  // stock.name is the raw ASIC PRODUCT string, SHOUTED and with a security-type
+  // descriptor. Every other tab, and the profile card above this one, print the
+  // cleaned name; this h1 sat directly under them reading "BHP GROUP LIMITED
+  // ORDINARY (BHP) News".
+  describe("the company name", () => {
+    const shouted = { name: "BHP GROUP LIMITED ORDINARY", industry: "Materials", percentageShorted: 1.58 };
+
+    it("is the cleaned name in the h1", async () => {
+      mockGetStockOrNotFound.mockResolvedValue(shouted);
+      render(await Page(params("bhp")));
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("BHP Group (BHP) News");
+      expect(screen.queryByText(/ORDINARY/)).toBeNull();
+    });
+
+    it("is the cleaned name in the structured data too", async () => {
+      mockGetStockOrNotFound.mockResolvedValue(shouted);
+      const { container } = render(await Page(params("bhp")));
+      const schemas = Array.from(container.querySelectorAll('script[type="application/ld+json"]')).map(
+        (script) => JSON.parse(script.textContent ?? "{}") as { "@type": string; about?: { name?: string } },
+      );
+      const itemList = schemas.find((s) => s["@type"] === "ItemList");
+      const newsArticle = schemas.find((s) => s["@type"] === "NewsArticle");
+      expect(itemList?.about?.name).toBe("BHP Group");
+      expect(newsArticle?.about?.name).toBe("BHP Group");
+      expect(JSON.stringify(schemas)).not.toContain("ORDINARY");
+    });
+
+    it("falls back to the code when the stock cannot be read or has no name", async () => {
+      for (const unread of [() => mockGetStockOrNotFound.mockRejectedValue(new Error("down")), () => mockGetStockOrNotFound.mockResolvedValue({ ...shouted, name: "" })]) {
+        unread();
+        const { unmount } = render(await Page(params("bhp")));
+        expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^BHP \(BHP\) News$/);
+        unmount();
+      }
+    });
+  });
+
   it("renders the hero, then the rest of the articles, then the event timeline for the upper-cased code", async () => {
     render(await Page(params("bhp")));
     const cards = screen.getAllByTestId("news-card");

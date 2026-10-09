@@ -11,6 +11,7 @@ import { getStock, getStockOrNotFound } from "~/app/actions/getStock";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { stockOgImage } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
+import { cleanCompanyName } from "../stock-page-shared";
 
 // The timeline imports @connectrpc/connect, so it is client-only (as the chart
 // is in the layout) and fetches after hydration.
@@ -175,7 +176,11 @@ export default async function StockNewsPage({ params }: PageProps) {
     (response.articles ?? []) as unknown as ApiArticle[]
   ).map(toCardArticle);
 
-  const companyName = stock?.name ?? code;
+  // stock.name is the raw ASIC PRODUCT string (SHOUTED, with a security-type
+  // descriptor); the h1, the schema and the description all go through the
+  // shared formatter, as every other tab does. `||`, not `??`: an empty name
+  // falls back to the code.
+  const companyName = cleanCompanyName(stock?.name || code, code);
   const [hero, ...rest] = articles;
 
   // Structured data only: the stock layout renders the visible trail.
