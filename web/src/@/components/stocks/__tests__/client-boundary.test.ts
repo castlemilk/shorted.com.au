@@ -84,7 +84,7 @@ describe("stock fundamentals component boundary", () => {
         "financial-statements.tsx",
         "latest-result-card.tsx",
         "key-ratios-card.tsx",
-        "strategy-fit-card.tsx",
+        "strategy-fit-strip.tsx",
         "fundamentals-summary.tsx",
         "statements-shape.ts",
         "statement-lines.ts",
@@ -136,10 +136,10 @@ describe("stock fundamentals component boundary", () => {
         join("@", "components", "stocks", "statement-lines.ts"),
       ]),
     );
-    const fromFitCard = walk(join(COMPONENT_DIR, "strategy-fit-card.tsx"))
+    const fromFitStrip = walk(join(COMPONENT_DIR, "strategy-fit-strip.tsx"))
       .map(([, , target]) => (target ? relative(SRC_DIR, target) : ""))
       .filter(Boolean);
-    expect(fromFitCard).toEqual(
+    expect(fromFitStrip).toEqual(
       expect.arrayContaining([join("@", "components", "picks", "picks-table.tsx")]),
     );
   });

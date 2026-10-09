@@ -33,9 +33,9 @@ import {
  * across the boundary. Every numeral is tabular and right-aligned; a value the
  * data does not have renders "n/a", never 0.
  *
- * StatusPill, RuleDots and RuleLegend are also the stock page's Strategy fit
- * card's (components/stocks/strategy-fit-card.tsx): keep their props, keep
- * them hook-free, and keep this file clear of ~/gen and @connectrpc.
+ * StatusPill is also the stock page's Strategy fit strip's
+ * (components/stocks/strategy-fit-strip.tsx): keep its props, keep it
+ * hook-free, and keep this file clear of ~/gen and @connectrpc.
  */
 
 /** The strategy's rules in order: the dots follow this order. */
