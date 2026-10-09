@@ -131,12 +131,23 @@ describe("/shorts/[stockCode]/company", () => {
     expect(screen.getByTestId("dossier")).toHaveAttribute("data-slug", "");
   });
 
-  it("adds no heading of its own over islands that print their own titles", async () => {
+  it("keeps the outline from jumping h1 to h3, and repeats no title the islands print", async () => {
     render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
-    // The h1 is the only heading the page writes: the company card, director
-    // trades, declared interests and similar companies each print a title.
-    expect(screen.getAllByRole("heading")).toHaveLength(1);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("BHP Group (BHP) company profile");
+    // The company card, director trades, declared interests and similar
+    // companies each print their own title through CardTitle, an h3, and the
+    // first of them follows the h1 directly. The one h2 is sr-only and names the
+    // group, so nothing is said twice and no wrapper heading sits over an island.
+    const headings = screen.getAllByRole("heading");
+    expect(headings.map((h) => [h.tagName, h.textContent])).toEqual([
+      ["H1", "BHP Group (BHP) company profile"],
+      ["H2", "Profile, insiders and operations"],
+    ]);
+    expect(headings[1]).toHaveClass("sr-only");
+    // It leads the cards rather than following them.
+    expect(
+      headings[1]!.compareDocumentPosition(screen.getByTestId("enriched")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("names the directors section with an aria-label around the directors island", async () => {

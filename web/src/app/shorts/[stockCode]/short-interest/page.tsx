@@ -85,9 +85,16 @@ export default async function ShortInterestPage({ params }: PageProps) {
             </Suspense>
           </section>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            ASIC reports no short position in {code} in the latest data.
-          </p>
+          <>
+            <p className="text-sm text-muted-foreground">
+              ASIC reports no short position in {code} in the latest data.
+            </p>
+            {/* With a history, its own h2 is the first heading after the h1.
+                Without one the islands below (CardTitle, an h3) would follow
+                the h1 directly, so this sr-only h2 keeps the outline from
+                jumping a level. It names the group, not an island's title. */}
+            <h2 className="sr-only">Signals and peer comparison</h2>
+          </>
         )}
         <StockVerdict stockCode={code} />
         <StockSignals stockCode={code} />

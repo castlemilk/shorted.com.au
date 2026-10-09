@@ -74,6 +74,11 @@ export default async function FinancialsPage({ params }: PageProps) {
         ]}
       />
       <h1 className="sr-only">{companyName} ({code}) financials</h1>
+      {/* Every card here prints its title through CardTitle, an h3, and the
+          first follows the h1 directly: this h2 keeps the outline from jumping
+          a level. sr-only, and it names the group rather than a card, so no
+          title is said twice. */}
+      <h2 className="sr-only">Results, ratios and statements</h2>
       {/* Latest result, Key ratios, the statements island, the filings, then
           dividends and the tax card LAST (docs/plans/fundamentals-coverage.md §7.1). */}
       <FinancialsTab

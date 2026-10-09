@@ -82,6 +82,29 @@ describe("/shorts/[stockCode]/short-interest", () => {
     expect(within(peers).getAllByTestId("island")).toHaveLength(1);
   });
 
+  // With a history, its own h2 is the first heading after the h1. Without one
+  // the tab goes from the sentence straight to CardTitles (h3), so a single
+  // sr-only h2 keeps the outline from skipping a level.
+  it("puts an sr-only h2 over the islands, after the sentence, when there is no history to supply one", async () => {
+    mockGetStockOrNotFound.mockResolvedValue({ ...stock, percentageShorted: 0 });
+    render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+    const headings = screen.getAllByRole("heading");
+    expect(headings.map((h) => [h.tagName, h.textContent])).toEqual([
+      ["H1", "BHP Group (BHP) short interest history"],
+      ["H2", "Signals and peer comparison"],
+    ]);
+    expect(headings[1]).toHaveClass("sr-only");
+    const sentence = screen.getByText("ASIC reports no short position in BHP in the latest data.");
+    const [firstIsland] = screen.getAllByTestId("island");
+    expect(sentence.compareDocumentPosition(headings[1]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(headings[1]!.compareDocumentPosition(firstIsland!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("adds no h2 of its own when the history, which prints one, is there", async () => {
+    render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+  });
+
   it("emits breadcrumb structured data with the tab as the last item, labelled by the tab registry", async () => {
     render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
     expect(stockTabLabel).toHaveBeenCalledWith("short-interest");

@@ -75,6 +75,11 @@ export default async function CompanyPage({ params }: PageProps) {
         ]}
       />
       <h1 className="sr-only">{companyName} ({code}) company profile</h1>
+      {/* The islands below print their own titles through CardTitle, an h3, and
+          the first follows the h1 directly: this h2 keeps the outline from
+          jumping a level. sr-only, and it names the group rather than an
+          island, so no title is said twice. */}
+      <h2 className="sr-only">Profile, insiders and operations</h2>
       <div className="flex min-w-0 flex-col gap-4 md:gap-6">
         {/* Every island here prints its own title (Company, Director trades,
             Declared political interests, Similar companies), so the directors

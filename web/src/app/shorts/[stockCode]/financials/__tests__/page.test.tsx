@@ -91,10 +91,23 @@ describe("/shorts/[stockCode]/financials", () => {
     expect(screen.getByRole("region", { name: "Dividends" })).toContainElement(screen.getByTestId("dividends"));
   });
 
-  it("adds no heading of its own over the dividends island, which renders its own title", async () => {
+  it("keeps the outline from jumping h1 to h3, and puts no wrapper heading over the dividends island", async () => {
     render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
-    // The h1 is the only heading the page writes; DividendHistory prints "Dividends" itself.
-    expect(screen.getAllByRole("heading")).toHaveLength(1);
+    // Every card prints its title through CardTitle, an h3, and the first card
+    // follows the h1 directly. The one h2 is sr-only and names the group of
+    // cards, so no card's title is said twice; DividendHistory prints
+    // "Dividends" itself, so there is no h2 "Dividends" over it either.
+    const headings = screen.getAllByRole("heading");
+    expect(headings.map((h) => [h.tagName, h.textContent])).toEqual([
+      ["H1", "BHP Group (BHP) financials"],
+      ["H2", "Results, ratios and statements"],
+    ]);
+    expect(headings[1]).toHaveClass("sr-only");
+    // It leads the tab's cards rather than following them.
+    expect(
+      headings[1]!.compareDocumentPosition(screen.getByTestId("financials-tab")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("passes the latest result's source filing url through when fundamentals hold one", async () => {
