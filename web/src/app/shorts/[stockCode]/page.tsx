@@ -250,10 +250,9 @@ const Page = async ({ params }: PageProps) => {
         currentShortPosition={stock.reportedShortPositions || undefined}
       />
 
-      {stock && (() => {
+      {(() => {
         const shortPct = stock.percentageShorted ?? 0;
         const shortPositions = stock.reportedShortPositions ?? 0;
-        const companyName = cleanCompanyName(stock.name || stockCode, stockCode);
         const industry = stock.industry || "";
         // asOfIso / asOfClause are hoisted to the page body above — the
         // layout's visible summary states the same "as of" (asOfClauseFor),

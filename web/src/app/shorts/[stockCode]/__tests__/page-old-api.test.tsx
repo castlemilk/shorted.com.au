@@ -18,7 +18,7 @@ if (!globalThis.TextDecoder) {
  * API swap while Vercel still ships. So the page must render an old-proto
  * GetStockFundamentals response (no coverage, no quality, no latest filing)
  * exactly as today: no empty state (an absent coverage is "unknown", never
- * "not collected") and no Strategy fit card when the fit rpc rejects (it does
+ * "not collected") and no Strategy fit strip when the fit rpc rejects (it does
  * not exist on that API). The fit failure must not fail the render. The
  * Financials tab's own old-API case (no ratios card) is in
  * components/stocks/__tests__/financials-tab.test.tsx.
@@ -239,7 +239,7 @@ describe("stock page against an older API", () => {
     jest.restoreAllMocks();
   });
 
-  it("renders an old-proto response as today: no empty state, no fit card, no failed render", async () => {
+  it("renders an old-proto response as today: no empty state, no fit strip, no failed render", async () => {
     mockGetStockFundamentals.mockResolvedValue(oldProtoResponse());
     // The older API has no GetStockStrategyFit: the rpc rejects.
     const unimplemented = Object.assign(new Error("unimplemented"), { code: 12 });
@@ -251,7 +251,7 @@ describe("stock page against an older API", () => {
 
     // Absent is not a status: no empty state, no "0 of M".
     expect(screen.queryByText(EMPTY_STATE)).not.toBeInTheDocument();
-    // The fit rpc failed: no card, and the render did not fail.
+    // The fit rpc failed: no strip, and the render did not fail.
     expect(screen.queryByRole("region", { name: "Strategy fit" })).not.toBeInTheDocument();
     // The crawlable summary is built from what is held.
     expect(screen.getByText(/recorded revenue of US\$51\.3B/)).toBeInTheDocument();
@@ -260,7 +260,28 @@ describe("stock page against an older API", () => {
     expect(screen.queryByText("Results summary")).not.toBeInTheDocument();
   });
 
-  it("renders the Strategy fit card in the Overview when the fit rpc answers", async () => {
+  // The Dataset and Corporation schema read the page's cleaned company name (the
+  // raw ASIC string shouts): pinned so tidying the block that builds them cannot
+  // change what crawlers read.
+  it("emits the Dataset and Corporation JSON-LD under the cleaned company name", async () => {
+    mockGetStockFundamentals.mockResolvedValue(oldProtoResponse());
+    mockGetStockStrategyFit.mockRejectedValue(new Error("unavailable"));
+    mockListStrategies.mockRejectedValue(new Error("unavailable"));
+
+    const { container } = render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+
+    const schemas = Array.from(container.querySelectorAll('script[type="application/ld+json"]')).map(
+      (script) => JSON.parse(script.textContent ?? "{}") as Record<string, unknown>,
+    );
+    expect(schemas.map((s) => s["@type"])).toEqual(["Dataset", "Corporation"]);
+    expect(schemas[0]).toMatchObject({
+      name: "BHP Group (BHP) Short Position History",
+      about: { name: "BHP Group", tickerSymbol: "BHP" },
+    });
+    expect(schemas[1]).toMatchObject({ name: "BHP Group", legalName: "BHP Group", tickerSymbol: "BHP" });
+  });
+
+  it("renders the Strategy fit strip in the Overview when the fit rpc answers", async () => {
     mockGetStockFundamentals.mockResolvedValue(oldProtoResponse());
     mockGetStockStrategyFit.mockResolvedValue({
       stockCode: "BHP",
