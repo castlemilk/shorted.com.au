@@ -17,6 +17,7 @@ import {
 } from "~/@/lib/fundamentals/format";
 import { pickSortDef, type PickSortKey } from "~/@/lib/strategies/sort";
 import type { PickFundamentalsView, PickRow } from "~/@/lib/strategies/types";
+import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import {
   growthFigures,
   type GrowthFigure,
@@ -219,8 +220,8 @@ const DD = "text-right tabular-nums text-foreground";
  * The native disclosure in the Stock cell. It needs no state and no script,
  * so it opens in the ISR HTML before (and without) hydration. The code and
  * name link above it stays the canonical /shorts/<code>; "Full financials"
- * deep-links the stock page's Financials tab and is nofollow, because a
- * crawler already reaches that page through the canonical link.
+ * links the stock page's Financials tab and stays nofollow: the stock page's
+ * own tab bar and the sitemap already lead a crawler there.
  */
 export function PickFundamentalsDetails({ row }: { row: PickRow }) {
   const f = row.fundamentals;
@@ -233,7 +234,7 @@ export function PickFundamentalsDetails({ row }: { row: PickRow }) {
         <div className="mt-2 min-w-[14rem] space-y-2 rounded-md border border-border/60 bg-muted/30 p-2">
           <PickFundamentalsList row={row} f={f} />
           <Link
-            href={`/shorts/${row.code}?tab=financials`}
+            href={stockTabHref(row.code, "financials")}
             rel="nofollow"
             prefetch={false}
             className="inline-block font-medium text-primary hover:underline"

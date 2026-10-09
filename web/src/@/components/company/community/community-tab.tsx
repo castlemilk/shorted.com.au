@@ -7,6 +7,7 @@ import {
   type CommunityPulseItem,
   type CommunityThread,
 } from "~/@/types/community";
+import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { CommunityPulseForm } from "./community-pulse-form";
 import { CommunityPulseRail } from "./community-pulse-rail";
 import { CommunityThreadForm } from "./community-thread-form";
@@ -156,7 +157,7 @@ export function CommunityTab({
       ) : (
         <Link
           href={`/signin?callbackUrl=${encodeURIComponent(
-            `/shorts/${stockCode}?tab=community`,
+            stockTabHref(stockCode, "community"),
           )}`}
           className="inline-flex items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
         >

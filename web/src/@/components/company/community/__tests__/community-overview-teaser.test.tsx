@@ -59,6 +59,11 @@ describe("CommunityOverviewTeaser", () => {
     expect(
       screen.getByRole("link", { name: /open community/i }),
     ).toBeInTheDocument();
+    // Community is its own route, not a ?tab= on the Overview.
+    expect(screen.getByRole("link", { name: /open community/i })).toHaveAttribute(
+      "href",
+      "/shorts/BHP/community",
+    );
   });
 
   it("renders the compact empty teaser state", () => {

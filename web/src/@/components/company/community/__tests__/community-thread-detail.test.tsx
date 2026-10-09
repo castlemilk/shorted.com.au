@@ -69,6 +69,10 @@ describe("CommunityThreadDetail", () => {
     expect(
       screen.getByRole("link", { name: /back to bhp community/i }),
     ).toBeInTheDocument();
+    // Back goes to the Community route itself, not through a ?tab= hop.
+    expect(
+      screen.getByRole("link", { name: /back to bhp community/i }),
+    ).toHaveAttribute("href", "/shorts/BHP/community");
     expect(
       screen.getByText("Friday delivery numbers matter"),
     ).toBeInTheDocument();

@@ -197,7 +197,7 @@ describe("PicksTable fundamentals disclosure", () => {
     ]);
 
     const full = within(details).getByRole("link", { name: "Full financials" });
-    expect(full).toHaveAttribute("href", "/shorts/BHP?tab=financials");
+    expect(full).toHaveAttribute("href", "/shorts/BHP/financials");
     expect(full).toHaveAttribute("rel", "nofollow");
     // The code link stays the canonical stock URL.
     expect(row.getByRole("link", { name: "BHP" })).toHaveAttribute(

@@ -11,16 +11,17 @@ if (!globalThis.TextDecoder) {
 }
 
 /**
- * The stock page against an OLDER API (docs/plans/fundamentals-coverage.md
+ * The stock Overview against an OLDER API (docs/plans/fundamentals-coverage.md
  * §1 "Absent is not a status", §7.1 "old-API jest case").
  *
  * The web deploys independently of the API, and migration 000132 can block the
  * API swap while Vercel still ships. So the page must render an old-proto
  * GetStockFundamentals response (no coverage, no quality, no latest filing)
  * exactly as today: no empty state (an absent coverage is "unknown", never
- * "not collected"), no ratios card, and no Strategy fit card when the fit rpc
- * rejects (it does not exist on that API). The fit failure must not fail the
- * render.
+ * "not collected") and no Strategy fit card when the fit rpc rejects (it does
+ * not exist on that API). The fit failure must not fail the render. The
+ * Financials tab's own old-API case (no ratios card) is in
+ * components/stocks/__tests__/financials-tab.test.tsx.
  *
  * The real getStockFundamentals and getStockStrategyFit actions run here, over
  * a mocked connect client; everything else on the page is stubbed.
@@ -102,23 +103,6 @@ jest.mock("../short-interest-summary", () => ({
   ShortInterestSummary: () => null,
 }));
 jest.mock("../short-interest-history", () => ({ ShortInterestHistory: () => null }));
-
-// The tabs shell renders EVERY slot here, so the Financials tab is visible to
-// the assertions (the real shell only renders the active panel).
-jest.mock("~/@/components/company/stock-tabs", () => ({
-  StockTabs: ({
-    overviewMain,
-    financialsContent,
-  }: {
-    overviewMain?: React.ReactNode;
-    financialsContent?: React.ReactNode;
-  }) => (
-    <div>
-      <section data-testid="overview">{overviewMain}</section>
-      <section data-testid="financials">{financialsContent}</section>
-    </div>
-  ),
-}));
 
 // Everything else on the page is out of scope.
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
@@ -265,28 +249,12 @@ describe("stock page against an older API", () => {
     const element = await Page({ params: Promise.resolve({ stockCode: "bhp" }) });
     render(element);
 
-    const financials = screen.getByTestId("financials");
-    const overview = screen.getByTestId("overview");
-
-    // The held figures still render.
-    const latest = within(financials).getByRole("region", { name: "Latest result" });
-    expect(within(latest).getByText("51.26B")).toBeInTheDocument();
-    expect(
-      within(financials).getByRole("region", { name: "Financial statements" }),
-    ).toBeInTheDocument();
-    expect(within(financials).getByTestId("tax-card")).toBeInTheDocument();
-    // The filings list is the streamed section, given the code and the
-    // Latest result's (here absent) source document as plain strings.
-    const reports = within(financials).getByTestId("reports-section");
-    expect(reports).toHaveAttribute("data-code", "BHP");
-    expect(reports).toHaveAttribute("data-source-document-url", "");
-    // Absent is not a status: no empty state, no "0 of M", no ratios card.
+    // Absent is not a status: no empty state, no "0 of M".
     expect(screen.queryByText(EMPTY_STATE)).not.toBeInTheDocument();
-    expect(within(financials).queryByRole("region", { name: "Key ratios" })).not.toBeInTheDocument();
     // The fit rpc failed: no card, and the render did not fail.
     expect(screen.queryByRole("region", { name: "Strategy fit" })).not.toBeInTheDocument();
     // The crawlable summary is built from what is held.
-    expect(within(overview).getByText(/recorded revenue of US\$51\.3B/)).toBeInTheDocument();
+    expect(screen.getByText(/recorded revenue of US\$51\.3B/)).toBeInTheDocument();
     // The stale Key metrics card and the raw extraction tiles are gone.
     expect(screen.queryByText("Key metrics")).not.toBeInTheDocument();
     expect(screen.queryByText("Results summary")).not.toBeInTheDocument();
@@ -317,15 +285,54 @@ describe("stock page against an older API", () => {
     const element = await Page({ params: Promise.resolve({ stockCode: "BHP" }) });
     render(element);
 
-    const card = within(screen.getByTestId("overview")).getByRole("region", {
-      name: "Strategy fit",
-    });
+    const card = screen.getByRole("region", { name: "Strategy fit" });
     expect(within(card).getByRole("link", { name: "CAN SLIM" })).toHaveAttribute(
       "href",
       "/picks/canslim",
     );
     expect(within(card).getByText("rank 18 of 40")).toBeInTheDocument();
-    expect(within(card).getByText("1. Market direction: pass. XJO uptrend")).toBeInTheDocument();
+    expect(
+      within(card).getByRole("link", { name: /Full strategy readings/ }),
+    ).toHaveAttribute("href", "/shorts/BHP/strategy");
+  });
+
+  it("links each digest into its tab and asks for three headlines", async () => {
+    mockGetStockFundamentals.mockResolvedValue(oldProtoResponse());
+    mockGetStockStrategyFit.mockRejectedValue(new Error("unavailable"));
+    mockListStrategies.mockRejectedValue(new Error("unavailable"));
+    const { getStockHeadlines } = jest.requireMock<{ getStockHeadlines: jest.Mock }>(
+      "~/app/actions/getStockNews",
+    );
+    getStockHeadlines.mockClear();
+    getStockHeadlines.mockResolvedValueOnce([
+      {
+        id: "n1",
+        headline: "BHP lifts iron ore guidance",
+        url: "https://example.test/n1",
+        source: "Example Wire",
+        publishedAtIso: "2026-10-07T01:00:00Z",
+      },
+    ]);
+
+    render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+
+    // Three headlines are the digest; the full feed is the News tab.
+    expect(getStockHeadlines).toHaveBeenCalledWith("BHP", 3);
+    expect(screen.getByRole("link", { name: /History & FAQ/ })).toHaveAttribute(
+      "href",
+      "/shorts/BHP/short-interest",
+    );
+    expect(screen.getByRole("link", { name: /Full financials/ })).toHaveAttribute(
+      "href",
+      "/shorts/BHP/financials",
+    );
+    expect(screen.getByRole("link", { name: "All news" })).toHaveAttribute(
+      "href",
+      "/shorts/BHP/news",
+    );
+    expect(
+      screen.getByRole("link", { name: "BHP lifts iron ore guidance" }),
+    ).toHaveAttribute("href", "https://example.test/n1");
   });
 
   it("keeps the fit fetch out of the page's critical Promise.all", () => {
@@ -334,19 +341,30 @@ describe("stock page against an older API", () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const path = require("node:path") as typeof import("node:path");
     const source = fs.readFileSync(path.resolve(__dirname, "../page.tsx"), "utf8");
+    const financialsSource = fs.readFileSync(
+      path.resolve(__dirname, "../financials/page.tsx"),
+      "utf8",
+    );
+    // The Overview reads the stock through the shared loader (404 on unknown,
+    // a failed render on a transient read) alongside the related stocks.
     const critical = /await Promise\.all\(\[([\s\S]*?)\]\)/.exec(source)?.[1] ?? "";
-    expect(critical).toContain("getStockOrNotFound");
+    expect(critical).toContain("loadStockOrFail");
     expect(critical).not.toContain("getStockStrategyFit");
     expect(source).toMatch(/getStockStrategyFit\(stockCode\)\.catch\(/);
     // The company details read (getStockDetails, with retries) is not awaited
-    // by the page: the filings stream under their own Suspense boundary.
+    // by the page: the filings stream under their own Suspense boundary, in
+    // the Financials page.
     expect(source).not.toContain("getEnrichedCompanyMetadata");
     expect(source).not.toMatch(/getStockDetails\(/);
-    expect(source).toContain("<FinancialReportsSection");
-    // The stale snapshot card and the extraction tiles left the page.
-    expect(source).not.toContain("CompanyFinancials");
-    expect(source).not.toContain("FinancialDigest");
-    expect(source).not.toContain("getStockFinancialHighlights");
+    expect(financialsSource).toContain("<FinancialReportsSection");
+    expect(financialsSource).not.toContain("getEnrichedCompanyMetadata");
+    expect(financialsSource).not.toMatch(/getStockDetails\(/);
+    // The stale snapshot card and the extraction tiles left both pages.
+    for (const text of [source, financialsSource]) {
+      expect(text).not.toContain("CompanyFinancials");
+      expect(text).not.toContain("FinancialDigest");
+      expect(text).not.toContain("getStockFinancialHighlights");
+    }
   });
 
   it("returns the page without waiting on the company details read", async () => {
@@ -388,10 +406,7 @@ describe("stock page against an older API", () => {
     const element = await Page({ params: Promise.resolve({ stockCode: "BHP" }) });
     render(element);
 
-    const financials = screen.getByTestId("financials");
     expect(screen.queryByText(EMPTY_STATE)).not.toBeInTheDocument();
-    expect(within(financials).queryByRole("region", { name: "Latest result" })).not.toBeInTheDocument();
-    expect(within(financials).getByTestId("tax-card")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Strategy fit" })).not.toBeInTheDocument();
   });
 });

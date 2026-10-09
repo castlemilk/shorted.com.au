@@ -3,8 +3,8 @@
  * (docs/plans/fundamentals-coverage.md §7.1).
  *
  * financial-statements.tsx is the kit's ONE "use client" island, and the
- * server cards are composed into StockTabs (a client component) as slots. If a
- * kit file imported the generated protobuf modules, the protobuf runtime,
+ * server cards are composed into the stock pages beside it. If a kit file
+ * imported the generated protobuf modules, the protobuf runtime,
  * @connectrpc or a server action (directly or at any depth), that runtime
  * would follow it into the route's client bundle and the static build would
  * die with the undiagnosable "Element type is invalid" digest (see

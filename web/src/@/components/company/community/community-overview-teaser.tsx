@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MessagesSquare, Sparkles, Zap } from "lucide-react";
 import { type CommunityOverviewSummary } from "~/@/types/community";
+import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
 import { Card, CardContent } from "~/@/components/ui/card";
@@ -156,7 +157,7 @@ export function CommunityOverviewTeaser({
             </div>
           )}
           <Button asChild size="sm" variant="outline">
-            <Link href={`/shorts/${stockCode}?tab=community`}>
+            <Link href={stockTabHref(stockCode, "community")}>
               {summary.ctaLabel}
             </Link>
           </Button>
