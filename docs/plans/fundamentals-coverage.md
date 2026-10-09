@@ -794,6 +794,7 @@ message StrategyFit {
 message GetStockStrategyFitResponse {
   string stock_code = 1; string as_of = 2; MarketRegime regime = 3;
   repeated StrategyFit fits = 4; bool in_universe = 5;
+  PriceFeatures price_features = 6;  // set only when in_universe; see the stock-page tab-routes spec §4
 }
 ```
 The strategy cache stores the evaluation env (regime + rs6m quartile) and a
@@ -1061,7 +1062,7 @@ Overview:
   `/picks/<id>`; footer "Prices to <date> · Mechanical readings of published
   rules, not recommendations · Not financial advice" linking `/disclaimer`.
   Fetched by `getStockStrategyFit(code)` (unstable_cache key
-  `['stock-strategy-fit', code, 'v1']`, revalidate 3600, tags
+  `['stock-strategy-fit', code, 'v2']`, revalidate 3600, tags
   `['strategy-picks', ...stockPageCacheTags('strategy-fit', code)]`,
   `serverFetchOutsideNextCache`, 4 s abort), errors thrown inside the cached
   function (never cached) and caught at the call site (card hidden); never in

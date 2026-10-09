@@ -1,7 +1,6 @@
 # Stock page: one route per tab, a shared layout, and a Strategy tab with levels
 
-Date: 2026-10-09. Status: design, approved in conversation; implementation on
-`feat/stock-page-tab-routes` (web) and a backend-first PR for the API field.
+Date: 2026-10-09. Status: implemented by PR 1 (#701) and PR 2.
 
 ## What this is
 
@@ -33,12 +32,12 @@ Seven routes under `web/src/app/shorts/[stockCode]/`:
 
 | Route | Page content | Comes from today |
 |---|---|---|
-| `/shorts/BHP` (Overview) | Digest cards in the main column: **Short interest** (the weekly-report context link and a link into the tab), **Strategy strip** (one row per strategy: name, status pill, score; links into `/strategy`), **Fundamentals** (the existing crawlable `FundamentalsSummary` paragraph, link into `/financials`), **Latest news** (three headlines, link into `/news`). Rail: `CompanyInfo` (About), `RelatedStocks`, the Explore link list, `CommunityOverviewTeaser`, and a signed-out "Unlock the dossier" CTA that links to `/company`. | Trimmed Overview |
-| `/shorts/BHP/short-interest` | `ShortInterestHistory` + FAQ (SSR, open by default now that it has its own page), `PeerComparisonTable`, `StockSignals`, `StockVerdict` (flag-gated; renders nothing while the flag is off). | Overview details block, Peers tab, signals, verdict |
+| `/shorts/BHP` (Overview) | Digest cards in the main column: **Short interest** (the weekly-report context link and a link into the tab), **Strategy strip** (one row per strategy: name linking to `/picks/<id>`, status pill, score; a footer link into `/strategy`), **Fundamentals** (the existing crawlable `FundamentalsSummary` paragraph, link into `/financials`), **Latest news** (three headlines, link into `/news`). Rail: `CompanyInfo` (About), `RelatedStocks`, the Explore link list, `CommunityOverviewTeaser`, and a signed-out "Unlock the dossier" CTA that links to `/company`. | Trimmed Overview |
+| `/shorts/BHP/short-interest` | `ShortInterestHistory` + FAQ (SSR, open by default now that it has its own page; a stock ASIC reports no short position in gets one sentence saying so instead), `PeerComparisonTable` (in a section named "Peer comparison" by an `aria-label`: the table prints its own title), `StockSignals`, `StockVerdict` (flag-gated; renders nothing while the flag is off). | Overview details block, Peers tab, signals, verdict |
 | `/shorts/BHP/strategy` | `RegimeBanner`, one `StrategyFitPanel` per strategy (status, score, rank, rules table with the author's rule, our evaluation, the mark and the evidence line), the `StrategyLevelsChart` island. See §4. | Strategy fit card, new charting |
-| `/shorts/BHP/financials` | `FinancialsTab` content as today (Latest result, Key ratios, statements island, filings, tax card last) with `DividendHistory` inserted before the tax card. | Financials tab, Dividends tab |
-| `/shorts/BHP/company` | `EnrichedCompanySection`, `DirectorTradesTable` under a "Directors and insiders" heading, `PoliticianInterestsCard`, `StockStateExposure`, `StockConnections`, `StockEvidencePanelClient` (the dossier). | Company card, Directors tab, rail cards, exposure chips, dossier |
-| `/shorts/BHP/news` | The existing news page body (hero + cards + NewsArticle schema) re-homed under the layout, then `EventTimeline` under an "Events" heading. | News tab, Timeline tab, existing `/news` route |
+| `/shorts/BHP/financials` | `FinancialsTab` content as today (Latest result, Key ratios, statements island, filings, tax card last) with `DividendHistory` inserted before the tax card (in a section named "Dividends" by an `aria-label`: the component prints its own title). | Financials tab, Dividends tab |
+| `/shorts/BHP/company` | `EnrichedCompanySection`, `DirectorTradesTable` (in a section named "Directors and insiders" by an `aria-label`: the table prints its own title), `PoliticianInterestsCard`, `StockStateExposure`, `StockConnections`, `StockEvidencePanelClient` (the dossier). | Company card, Directors tab, rail cards, exposure chips, dossier |
+| `/shorts/BHP/news` | The existing news page body (hero + cards + NewsArticle schema) re-homed under the layout, then `EventTimeline` (in a section named "Events" by an `aria-label`: the timeline prints its own title and renders nothing without events). | News tab, Timeline tab, existing `/news` route |
 | `/shorts/BHP/community` | `CommunityTab`. The thread pages at `community/[threadId]` stay where they are and render under the same layout with Community active. | Community tab, existing thread route |
 
 The shared layout (`layout.tsx`, a server component) renders, in order:
@@ -59,6 +58,15 @@ Judgement calls, recorded so they are not re-litigated:
   go with the short-interest history.
 - Theme chips stay in the layout: they are static registry data with no
   fetch, and they are the only cross-link to `/themes` a crawler sees.
+- Implementation deviations: the Strategy tab's chart sits under the regime
+  banner and its segmented control is the only switch (panels link to
+  `/picks/<id>` instead of switching the chart); `stock-news-tab.tsx` is
+  kept because `stock-news-feed.tsx` and `related-news-rail.tsx` import it.
+- Wire names as PR 1 shipped them: six `PriceFeatures` fields differ from
+  §4's block (same field numbers and `has_` flags): `sma200_prior_month` for
+  `sma200_1m_ago`, and `high52w`, `low52w`, `rs3m_pct`, `rs6m_pct`,
+  `volume_ratio50d` for `high_52w`, `low_52w`, `rs_3m_pct`, `rs_6m_pct`,
+  `volume_ratio_50d`. The web mapper uses the shipped names.
 
 ## 2. Rendering, caching and cost
 
@@ -69,7 +77,7 @@ web/src/app/shorts/[stockCode]/
   layout.tsx            server: validates the code, fetches stock + deltas, renders the chrome
   loading.tsx           overview skeleton
   page.tsx              Overview digest (ISR 3600)
-  error.tsx, not-found.tsx, opengraph-image.tsx   unchanged, now layout-level
+  error.tsx, not-found.tsx, opengraph-image.tsx   unchanged; see the note below the tree
   short-interest/{page,loading}.tsx
   strategy/{page,loading}.tsx
   financials/{page,loading}.tsx
@@ -79,8 +87,22 @@ web/src/app/shorts/[stockCode]/
   community/[threadId]/page.tsx    existing, minus its own DashboardLayout/header
 ```
 
-`DashboardLayout` wraps once, in the layout. `StockTabs` and `stock-news-tab.tsx`
-are deleted; their lazy children are imported by the pages that need them.
+`DashboardLayout` wraps once, in the layout. `StockTabs` (`stock-tabs.tsx`) is
+deleted and its lazy children are imported by the pages that need them;
+`stock-news-tab.tsx` stays (see the implementation deviations under Judgement
+calls in §1).
+
+`error.tsx`, `not-found.tsx` and `opengraph-image.tsx` stay in the
+`[stockCode]` segment, and a boundary does not wrap the layout of its own
+segment. So `error.tsx` covers the tab pages only: a failure thrown by the
+layout itself (a transient stock read, which `loadStockOrFail` in
+`stock-page-data.ts` throws on purpose rather than bake a degraded shell into
+the cache) renders the root error page with HTTP 500 and caches nothing, while
+ISR keeps serving the last good page for any stock already cached. A
+`notFound()` from the layout is caught one level up, so
+`app/shorts/not-found.tsx` re-exports the stock card and an unknown code still
+gets it. There is no `app/shorts/error.tsx`: it would wrap the `/shorts` index
+as well.
 
 ### What makes every route ISR
 
@@ -275,12 +297,14 @@ Server-rendered from `getStockStrategyFit` (1 h cache) and `getStrategies`
    current card says.
 
 A stock outside the universe renders the banner, a sentence explaining that
-the picker needs more sessions of price history, links to `/picks`, and no
-chart; the page is `noindex, follow`.
+the picker reads a stock only with at least 60 sessions of price history in
+the last 400 days (the admission rule of `mv_price_features`, migration
+000130), links to `/picks`, and no chart; the page is `noindex, follow`.
 
 The Overview strip is a new `StrategyFitStrip`: one row per strategy with
-the status pill and score, each row linking to `/shorts/<code>/strategy`,
-rendered only when the fit resolved (the same guard as today's card).
+the status pill and score, each strategy name linking to `/picks/<id>` and
+the strip's footer linking into `/shorts/<code>/strategy`, rendered only when
+the fit resolved (the same guard as today's card).
 
 ### Levels chart
 
@@ -368,7 +392,11 @@ Playwright (`web/e2e`):
    current web ignores the field.
 2. **PR 2, web**: everything in §1–§5. Merge after PR 1 is live so the
    levels appear on day one; the degradation path makes the order a
-   preference, not a dependency.
+   preference, not a dependency. "Live" is not enough on its own: the web
+   decodes the response with the generated client in `web/src/gen`, which
+   gains `PriceFeatures` only from PR 1's `buf generate` output. Take `main`
+   into PR 2 after PR 1 merges, or the levels stay on the price-only note even
+   with the API serving the field.
 3. After the web deploy: call `/api/revalidate` with
    `path=/shorts/[stockCode]` once (it now expires the layout tree), confirm
    a second request to a tab returns `x-vercel-cache: HIT`, check the
@@ -384,7 +412,7 @@ the disabled GitHub `terraform-deploy` workflow; the PR descriptions say so.
 | Risk | Closure |
 |---|---|
 | A tab route ends up dynamic (SSR per request) | `route-kinds.mjs` fails the build. |
-| Reading `searchParams` anywhere in the tree bails the route to dynamic | No page reads it; redirects replace the `?tab=` reader; the import-boundary tests and the route-kinds gate catch a regression. |
+| Reading `searchParams` anywhere in the tree bails the route to dynamic | No page reads it; redirects replace the `?tab=` reader. `web/src/app/shorts/__tests__/isr-source-safety.test.ts` fails on a `searchParams`, `cookies()` or `headers()` read in the segment and on a lost ISR export; the e2e check that a second request to each tab answers `x-nextjs-cache: HIT` catches a read the scan cannot see. The route-kinds gate catches a lost `generateStaticParams` export, `revalidate = 0` and `force-dynamic`, not a dynamic-API read under an empty `generateStaticParams`. |
 | `generateStaticParams` on child pages does not inherit from the layout | Each page exports its own empty function; the gate verifies. |
 | A `@connectrpc/connect` import reaches a server file and breaks SSR | The pages import client widgets through `next/dynamic` with `ssr: false` exactly as the current page does; `page-all-imports` style tests extend to each page. |
 | Hover prefetch fires seven regenerations on a page view | Prefetch is intent-driven and once per href; the Playwright run asserts no tab request before interaction. |

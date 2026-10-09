@@ -524,7 +524,7 @@ valuation, stock page).
 | Data: `000132_extend_fundamentals` | 21 statement lines on `stock_fundamentals` (gross profit to current liabilities; outflows negative); `field_sources` JSONB (only fields NOT from the row's `source`: Markit, a filing, `derived:*`); `source_document_url` / `_date`; `period_type='quarter'` = a balance snapshot (no flow fields); sync `last_outcome`, `consecutive_empty`, `median_k`, `fx_converted`, `native_currency`; `picks_run_lease`; `financial_report_extractions.document_meta`; growth view rebuilt once with `revenue_basis_source` / `eps_basis_source` (`vendor` / `filing`) and `revenue_latest_period_end` / `revenue_prior_period_end` appended; new `mv_fundamentals_quality` (one flow row + one same-currency balance row at or up to 6 months before it) |
 | Job | `shorted picks` (`services/jobs/README.md` "picks"): `-mode all` daily 15:00 UTC (fundamentals, filings, refresh; 12600s timeout, 1 retry). Fundamentals is budget-driven, no count cap: `PICKS_FUNDAMENTALS_BUDGET_MIN` 170 at 4s/code, priority due filers, never attempted by market cap, failures, stale successes (14-day skip, 45 for repeat empties); pre-000132 sync rows (`last_outcome` NULL) queue with never attempted and are never skipped, so the first nights after the deploy re-fetch the universe largest first (`pre_000132=N` in the log); breakers at 25 consecutive failures, >30% of the last 100 Yahoo requests, Markit off after 10; 20-minute budget on a task retry. One writer via `picks_run_lease` (a held lease exits 0). After a refresh: waits 16 min, then revalidates tags `strategy-picks` (+ `fundamentals` when rows changed) |
 | Filings | `financial-report-extractor` (Python, `services/report-extractor`, `module "report_extractor"`): daily 14:00 UTC, `--recent 2 --limit 120 --workers 4 --max-pages 8 --budget-min 90`, 7200s, no retries. **Backend `openrouter`** (`direct_extract.py`, since 2026-09-29): one call per document, DeepSeek v4 Flash primary + Gemini 2.5 Flash-Lite checker, Gemini 2.5 Flash arbitrates disagreements (no majority = withheld); every figure deterministically validated (quote located in the document, value in the quote, label keywords per metric, unit scaled to true millions); underlying/diluted figures stored as `underlying_*`/`diluted_eps`; `consensus` + `models` attributes on every entry; benchmark with `bench_direct.py` / `bench_gold.py` before changing the prompt. `--backend gemini` keeps the old langextract path. `director-trade-extractor` runs the same consensus over Appendix 3Y notices (`director_direct.py`: name and every number must be in the notice; a per-share price is multiplied in code; one consideration box over several lots, or over shares plus options, gives no value; a direction contradicting the stated nature is invalid); a failed model call is `model_error`, never recorded as an attempt (the old path recorded it as `no_extract` and skipped the notice for 30 days, which hid a total outage from 2026-07-30); score rule changes with `bench_director.py`. ONE statutory results document per company (filed within 45 days newest first, then companies with no parsed filing by market cap, then the rest); an extraction not aligned to the document, or whose value's digits are not in the aligned span, is dropped; thinking off; writes `document_meta` (`report_kind` `other` only from the document's own heading). A model failure is never stored (no row, retried next run), 5 in a row stop new work, and the run exits 1 when its model errors look systemic (5, or at least 3 making up at least a fifth of the model calls). `--repair-echo-digests` is the one-off post-deploy repair of digests written from a few-shot echo. The only source of ASX half-year totals. Read by `-mode filings` |
-| Stock page | Financials tab (`components/stocks/financials-tab.tsx`): Latest result, Key ratios, the statements island (`financial-statements.tsx`, the ONLY `use client` file there), the reports list (the source filing marked), the tax card LAST. Overview: `StrategyFitCard` (SSR, links to `/picks/<id>`, hidden when the fit call fails) and `FundamentalsSummary` (crawlable prose, omitted without coverage) |
+| Stock page | Financials tab (`components/stocks/financials-tab.tsx`): Latest result, Key ratios, the statements island (`financial-statements.tsx`, the ONLY `use client` file there), the reports list (the source filing marked), the tax card LAST. Overview: `StrategyFitStrip` (one row per strategy, SSR, names link to `/picks/<id>`, hidden when the fit call fails; the full readings are the Strategy tab, see "Stock page (one route per tab)" below) and `FundamentalsSummary` (crawlable prose, omitted without coverage) |
 | Picker web | `components/picks/`, `lib/strategies/`: a native `<details>` row detail (ratios, basis, source, "Full financials" nofollow), `?status=` and `?sort=` via the `picks-sorted-view.tsx` island (both POST to the rewrite; the shortlist's rows stand in while it loads), coverage "fundamentals for N of M stocks (growth figures for K)" only when `fundamentals_rows_count` is reported. The desk (2026-10): five bespoke strategy glyphs as path data in `lib/strategies/glyphs.ts` drawn by `strategy-glyph.tsx` (non-scaling 1.5px stroke, 1.75px at 40px; the only 56px bezel on a view is the strategy page header, which engraves itself on load); the hub is ONE hairline-divided rack (`<ol>`), never a grid of identical cards; the regime banner carries an aria-hidden, text-free ladder (`ladderMarks`) whose legend is the four readouts; statuses are square lamps, rule outcomes round dots. Motion is `phosphor-warm`, `needle-settle` and `trace-draw` only, all `motion-safe:`, no loops |
 | MCP | `list_strategies`, `get_strategy_picks` (`sort_by`), `get_stock_fundamentals` (`quality`, `coverage`); no new tool |
 
@@ -609,6 +609,97 @@ valuation, stock page).
   counts from the FIRST touch of the high (a flat base reads its full length).
   Both were defects found by applying the migration to a scratch Postgres; the
   window is 40 sessions, so a base is never longer than 40.
+
+## Stock page (one route per tab)
+
+`/shorts/[stockCode]` is a shared server `layout.tsx` (breadcrumbs, login
+slot, profile + stats, short-interest summary, theme chips, the chart, the
+tab bar) with seven ISR pages beneath it (3600 s; `/news` 600 s): `/`
+(Overview digest), `/short-interest`, `/strategy`, `/financials`, `/company`,
+`/news` and `/community`. The thread pages at `community/[threadId]` render
+under the same layout but stay per-request. The tab list lives ONCE in
+`web/src/@/lib/stocks/stock-tabs.ts`; tab metadata goes through
+`lib/seo/stock-tab-metadata.ts` (`stockTabMetadata` for the five newer tabs,
+which inherit `isStockIndexable`; Strategy adds noindex when `in_universe` is
+false and Community is always noindex; Overview and News keep their own
+titles and share `stockOgImage`).
+Spec: `docs/superpowers/specs/2026-10-09-stock-page-tab-routes-design.md`.
+
+### Landmines
+
+- **Every tab page exports `revalidate`, `dynamicParams = true` and an EMPTY
+  `generateStaticParams`**, and nothing under the segment reads
+  `searchParams`, `cookies()`, `headers()`, `auth()` or a no-store fetch. Lose
+  any of that and the route renders on every request. Three guards, each
+  blind to something the others see:
+  - `web/scripts/route-kinds.mjs` (`npm run routes:kinds` after `next build`;
+    `task test:bundle` and `perf-budget.yml` run it) fails when a stock route
+    is missing from `dynamicRoutes` in `.next/prerender-manifest.json`. It
+    catches a lost `generateStaticParams`, `revalidate = 0` and
+    `dynamic = "force-dynamic"`. It does NOT catch a `cookies()`, `headers()`
+    or `searchParams` read under an empty `generateStaticParams`: nothing
+    renders at build time, so the route stays listed and fails at request
+    time.
+  - `web/src/app/shorts/__tests__/isr-source-safety.test.ts` (Jest) covers
+    that half: it scans every non-test file in the segment for those reads and
+    requires the trio in each tab page (the thread page is exempt; it is
+    per-request by design). It reads the segment's own files only. A read
+    inside a component imported from elsewhere is caught only by the e2e
+    check that a second request to each tab answers `x-nextjs-cache: HIT`
+    (`web/e2e/stock-tabs.spec.ts`; no workflow runs it) and the post-deploy
+    HIT check.
+  - `web/src/app/shorts/__tests__/ssr-import-safety.test.ts` (Jest) walks
+    static imports from the layout, the data loader and every tab page, and
+    fails when a `"use client"` module on the way reaches `@connectrpc` (the
+    SSR failure under Known Issues). Client widgets load through
+    `nextDynamic(() => import(...), { ssr: false })` and are listed in the
+    test's `CONNECT_ISLANDS`. Its allowlist, `KNOWN_CLIENT_CONNECT`, holds only
+    the pre-existing `company-profile-with-retry`, `company-stats-with-retry`
+    and `company-info-with-retry` fallbacks and can only shrink. An allowlist
+    entry is a risk, not a fix: `CompanyTaxCard` was on it, and the Financials
+    route then answered 500 for every stock in a production build with every
+    Jest test green. It is an island now.
+- **A transient stock read fails the render; it never degrades it.** The
+  layout, the Overview and the Short interest, Strategy, Financials and Company
+  pages read the stock through `loadStockOrFail(code)`
+  (`web/src/app/shorts/[stockCode]/stock-page-data.ts`): an unknown code is a
+  404, a transient `undefined` throws, so ISR keeps serving the last good page
+  instead of baking a degraded shell for an hour. `[stockCode]/error.tsx`
+  covers the tab pages, not the layout (a boundary sits inside its own
+  layout): a throw from the layout renders the root error page with HTTP 500
+  and caches nothing, so only a never-cached stock ever shows it. A
+  `notFound()` from the layout is caught one level up, so
+  `web/src/app/shorts/not-found.tsx` re-exports the stock 404 card. Do not add
+  `app/shorts/error.tsx`: it would wrap the `/shorts` index too.
+- **Tab links prefetch on intent only** (`StockTabNav`: pointer enter, touch
+  start, focus; once per href). Never switch them to viewport prefetch: seven
+  ISR regenerations per page view.
+- **Old `?tab=` links are edge redirects.** The map and the redirect builder
+  live in `web/src/config/stock-tab-redirects.mjs` (dependency-free, so the
+  repo-hygiene job can import it; there is no JSON file) and are spread into
+  `redirects()` in `next.config.mjs`;
+  `scripts/tests/stock-tab-redirects.test.mjs` pins both. `?tab=overview` is
+  deliberately NOT redirected: Next forwards the query string, so a same-path
+  redirect would loop on itself. It renders the Overview, like any other
+  unmapped value. No client-side reader exists any more. Under `next start` the
+  redirect's `Location` keeps the stale `?tab=`, so the e2e test compares its
+  pathname.
+- **The sync's `/shorts/[stockCode]` path is revalidated with type `layout`**
+  (`/api/revalidate`), which expires every tab for every code in one call. An
+  expired page regenerates only when it is next visited.
+- **The chart lives in the layout** so it never remounts between tabs; the
+  Strategy tab's levels chart calls `useStockChartData(code, "1y")`, the layout
+  chart's default period and query key, so it is served from the TanStack
+  cache and costs no extra request.
+- **`PriceFeatures` on `GetStockStrategyFit`** carries `has_` flags; the web
+  maps absent to `null` (`StockPriceFeatures`), never zero, and the fit's
+  `unstable_cache` key is `v2` so no entry without the field is read back.
+  Level sets are pure (`components/strategy/strategy-levels.ts`); a
+  moving-average line is drawn only with a full lookback. A stock outside the
+  picker universe (under 60 sessions in the last 400 days, migration 000130)
+  gets an explanation and `noindex`, never a chart with empty levels.
+- `stock-news-tab.tsx` stays (`stock-news-feed.tsx` and `related-news-rail.tsx`
+  import its hooks); the old `stock-tabs.tsx` shell is gone.
 
 ## Weekly/Monthly/Yearly Reports
 
