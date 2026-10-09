@@ -37,7 +37,7 @@ Plan: `docs/superpowers/plans/2026-10-07-stock-report-video-phase1.md`.
 | 21 | Report highlights store the text "null" and put guidance in another same-day report | Yes (forward guidance from the filing's own report) | Never store "null"; per-metric confidence and period |
 | 22 | Routine ASX notices (3Y, quotation, substantial holder) are a third of the timeline | Yes (filtered) | Flag routine notices at ingest from the ASX document type |
 | 23 | Dates mix UTC and Sydney across endpoints (news, timeline, MCP) | Yes for news timestamps; not for date-only fields | Serve Sydney dates, or timestamps with a zone, everywhere |
-| 24 | Shorted holds a bank's net interest income, assets, equity, ROE and ROA, but none of the measures that explain a bank (NIM, CET1, cost-to-income, impairments, loans, deposits) | Partly: the dossier now carries the bank lines Shorted has (CBA's balance-sheet chapter returns); the bank measures need the extractor (bank-data spec) | Extract bank measures from results filings; serve APRA's per-bank statistics (`docs/superpowers/specs/2026-10-08-bank-data-design.md`) |
+| 24 | Shorted holds a bank's net interest income, assets, equity, ROE and ROA, but none of the measures that explain a bank (NIM, CET1, cost-to-income, impairments, loans, deposits) | Partly: the dossier now carries the bank lines Shorted has (CBA's balance-sheet chapter returns); the bank measures need the extractor (bank-data spec) | Extract bank measures from results filings; serve APRA's per-bank statistics (`docs/superpowers/specs/2026-10-08-bank-data-design.md` on branch `feat/bank-data`, awaiting review) |
 | 25 | `GetDirectorTrades` returns one page (`limit`) with no way to tell it was truncated, and keeps each 3Y headline's seed row ("Unknown Director", "buy", no amounts) beside the parsed dealing | Yes: a 90-day net is withheld when the page is all inside the window; echoes are matched on their shared announcement id | Return a `has_more` flag or a date-ranged query; stop the crawler re-inserting seed rows (bank-data spec, phase E) |
 | 26 | The pipeline's own headless captures of shorted.com.au hit Cloudflare's managed challenge unless they present a normal browser user agent | Yes (a Chrome user agent) | A Terraform-managed WAF skip for first-party automation, keyed on a secret header like the testing bypass |
 | — | The API and MCP agree on every short-series point for DRO, BHP, CBA and TLX (253 shared dates each) | Parity now compares by date | — |
@@ -370,3 +370,49 @@ For DRO, BHP, CBA and TLX the short series agree point for point on all 253 shar
 - Shares on issue and days to cover are dated with the latest short report; a similar peer whose last report is more than a week older than the subject's is left out.
 - A section that cannot be built from a malformed response becomes an empty section and a recorded failure; it no longer stops the dossier.
 - Banks and insurers have free cash flow, cash and total debt withheld, alongside the ratios Shorted already marks not meaningful.
+
+## The backlog's signal (9 Oct)
+
+`reflect` ranks the data Shorted lacked across runs in `shorted-gaps/backlog.md`.
+
+**What it leaves out:**
+- Absences by design: a non-bank's net interest income, a bank's cash-flow measures, and "no buys or sells in 90 days".
+- Per-value rows for a section whose endpoint failed. The failed call itself is still filed.
+
+**What it files:**
+- A missing bank measure on a bank. This is the evidence for the bank-data work (`feat/bank-data`).
+- A director dealing with no disclosed value. The Appendix 3Y states the consideration, so a missing value is a collection gap.
+- A withheld filing digest, filed as `low_trust_extraction`.
+
+**Improvement to make:** the dossier should mark a structural absence itself. Today `reflect` classifies the dossier's notes against a closed table, with a test that fails on any unclassified note.
+
+## Follow-ups after Phase 1 (deferred by the 9 Oct close-out)
+
+**Tests not yet written:**
+- Exact-edge tests for the QA thresholds.
+- The voice stage's E05 edge test and docstrings.
+- The chapters' inclusive bounds.
+- A badge-clearance test for long names with a logo.
+
+**Mix:**
+- The loudness trim is one-shot.
+- The limiter reports its deepest pass, not the cumulative one.
+- A stem's peak-limited flag misses shortfalls under 0.5 LU.
+- The long cut's mix peaks at 3.2 GB of memory.
+
+**Rendering:** real 4K needs a DPR-aware canvas.
+
+**QA:** deliverables are checked for presence only. Captions can be offset in time by 0.2–0.3 s.
+
+**Voice:** a company-name pronunciation list. The WER check catches a bad pronunciation today.
+
+**First real run, to watch:**
+- The AAC bit-rate band (256 kb/s ±15%) is calibrated on stand-in renders only. A cut with long near-silent stretches may fall under it and fail `format`.
+- "October 7th" is not folded to "7 October". The ordinal words are.
+
+**Security:** `assets` passes the whole environment, keys included, to the Node capture script. Pass an allowlist instead (`PATH`, `HOME`, `TMPDIR`, `SHORTED_PLAYWRIGHT_MODULE`, `PLAYWRIGHT_BROWSERS_PATH`), and check it with the first live capture.
+
+**Owner decisions before anything is published:**
+- An AI-voice disclosure, per each platform's synthetic-media rules.
+- Remotion licence eligibility.
+- A human look at every rendered video. Nothing publishes automatically.

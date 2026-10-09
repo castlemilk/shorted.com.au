@@ -25,6 +25,14 @@ Every number reaches the screen or the voice only through a `{{path|format}}` bi
 
 If a step's expected output differs, trust the test and fix the code, not the expectation.
 
+**Shipped code (9 Oct 2026):** the build ran task by task with a review after each, then fix rounds, a final whole-branch review and one final fix wave. The code blocks for Tasks 6, 19–23 and 25 were synced from the studio's commits. The blocks for Tasks 2, 8, 12–17 and 24 lag the shipped code. Wherever a block here differs from the studio (`~/projects/shorted-studio`, branch `shorted`), the studio is the source of truth.
+
+**Licence boundary:** OpenMontage is AGPL, and none of its code is quoted here. Every code block in this plan is Shorted's own pack code, written for the studio: the tools, the Remotion scenes, the tests, the manifest and the skills. A measured comparison against upstream found that the playbook shares one line with it, the manifest ten generic key lines, and the five stage skills none. The one upstream file the plan touches gets a single added line of our own.
+
+Two of the spec's §10 checks are Phase 1 approximations, recorded as deviations:
+- QA's number audit re-derives every spoken figure from the storyboard and dossier, not from a render manifest.
+- There is no pixel-level safe-area check; the contact sheets are looked over by eye.
+
 ## Global Constraints
 
 - **Studio and git:** studio at `/Users/benebsworth/projects/shorted-studio`, a clone of `https://github.com/calesthio/OpenMontage`. Remote `upstream`, work on branch `shorted`. No OpenMontage code is copied into shorted.com.au, because of the AGPL boundary.
@@ -17156,7 +17164,10 @@ git commit -m "feat(shorted): chapter-aligned score and the ducked, limited -14 
   - `mux(video, audio, out, ffmeta=None)`: H.264 stream copy with the BT.709 VUI and container tags, AAC 256 kb/s at 48 kHz, chapters, and faststart.
   - `render_cut(project_dir, cut, remotion)` writes `renders/<T>_<cut>_<W>x<H>_{captioned,clean}.mp4`.
   - `render_stills(project_dir, remotion)` writes `renders/<T>_thumb_1920x1080.png`, `<T>_cover_1080x1920.png` and `<T>_thumb_1280x720.jpg`.
-  - `render_all(project_dir, remotion) -> report` renders the stills before the videos and writes `artifacts/render.json` (`{videos, stills, subtitles, chapters}`, with paths relative to the project).
+  - `render_all(project_dir, remotion) -> report` renders the stills before the videos and writes `artifacts/render.json` (`{videos, stills, subtitles, chapters, inputs}`, with paths relative to the project; `inputs` holds each cut's timeline, meta and mix SHA-256, taken as that cut starts, which QA's `render_current` checks).
+    - It first removes any earlier `render.json`, so a run that does not finish leaves none for QA to trust; a run with no timeline raises `RenderError`.
+    - Before any Remotion call it checks every cut's timeline parses and that `thumb.json` and each cut's mix exist (`RenderError` naming the file and the stage that writes it); `render_cut` makes the same checks for its own cut and removes `renders/_raw` in its own `finally`.
+    - Folders are resolved to absolute paths; a Remotion timeout becomes `RenderError`; `mux` raises `RenderError` carrying ffmpeg's own error text; `chapters` is `renders/<T>_long_chapters.txt` only when the long cut was rendered and that exact file exists, else null.
   - Tool `shorted_render`. It never raises for an incomplete run. Without a `project_dir` folder, or without `artifacts/timeline.long.json` or `artifacts/timeline.short.json`, it returns `success=False` (a missing timeline: "run the timeline stage first"). It catches `RenderError`, `subprocess.CalledProcessError`, `OSError`, `KeyError` and `ValueError` into `success=False`.
   - `sample.py` gains `fake_stems`, `fake_sfx`, `fake_remotion` and `mix_run`.
 
@@ -17224,16 +17235,22 @@ def mix_run(pd: Path, stems: dict[str, Path], sfx: dict[str, list[Path]]) -> Non
 `tests/shorted/test_render.py`:
 
 ```python
+import hashlib
 import json
+import re
 import shutil
+import struct
 import subprocess
+from pathlib import Path
 
 import numpy as np
 import pytest
 import soundfile as sf
+from PIL import Image
 
 from tests.shorted import sample
-from tools.shorted.render import REMOTION, RenderError, ShortedRender, mux, render_all
+from tools.shorted.render import (ENTRY, REMOTION, RenderError, ShortedRender, mux, remotion_cli, render_all, render_cut,
+                                  render_stills)
 
 
 def probe(path) -> dict:
@@ -17275,9 +17292,664 @@ def test_the_tool_refuses_a_missing_or_empty_project(tmp_path, monkeypatch):
         return fake_render_all
 
     for err in (RenderError("remotion render failed"), subprocess.CalledProcessError(1, ["ffmpeg"]), OSError("disk full"),
-                KeyError("ticker")):
+                KeyError("ticker"), TypeError("list indices must be integers or slices, not str")):  # the last line of defence
         monkeypatch.setattr("tools.shorted.render.render_all", raising(err))
         assert not ShortedRender().execute({"project_dir": str(tmp_path)}).success, err
+
+
+@pytest.mark.parametrize("project_dir", [5, 1.5, True, ["a"], {"a": 1}], ids=["int", "float", "bool", "list", "object"])
+def test_the_tool_refuses_a_project_dir_that_is_not_a_path(project_dir):
+    res = ShortedRender().execute({"project_dir": project_dir})
+    assert not res.success and res.error == f"project_dir must be a folder path, not {type(project_dir).__name__}"
+
+
+@pytest.mark.parametrize("inputs", [None, [], "x", {}, {"project_dir": ""}, {"project_dir": None}],
+                         ids=["none", "list", "string", "empty", "blank", "null"])
+def test_the_tool_needs_a_project_dir(inputs):
+    res = ShortedRender().execute(inputs)
+    assert not res.success and res.error == "project_dir is required"
+
+
+def test_the_tool_takes_a_path_as_well_as_a_string(tmp_path):
+    res = ShortedRender().execute({"project_dir": tmp_path})  # an empty folder: refused for the timeline it lacks, not for its type
+    assert not res.success and "run the timeline stage first" in res.error
+
+
+def tiny_run(pd: Path, cuts=("short",), *, thumb=True, mix=True, meta=True) -> Path:
+    """The folder render_all reads, without running a stage: a one-second timeline, its meta and a mix per cut, and
+    thumb.json."""
+    for sub in ("artifacts", "assets/audio", "renders"):
+        (pd / sub).mkdir(parents=True, exist_ok=True)
+    for cut in cuts:
+        (pd / f"artifacts/timeline.{cut}.json").write_text(
+            json.dumps({"ticker": "EXM", "width": 64, "height": 112, "fps": 30, "durationInFrames": 30}))
+        if meta:
+            (pd / f"artifacts/timeline.{cut}.meta.json").write_text(json.dumps({"cut": cut, "duration": 1.0}))
+        if mix:
+            sf.write(pd / f"assets/audio/mix.{cut}.wav", np.zeros((48000, 2), dtype=np.float32), 48000)
+    if thumb:
+        (pd / "artifacts/thumb.json").write_text(json.dumps({"ticker": "EXM"}))
+    return pd
+
+
+def recording(calls: list, fail_on: int | None = None):
+    """A stand-in for remotion that notes each call's arguments, then does what sample.fake_remotion does,
+    or raises a RenderError on call number fail_on (counting from 1)."""
+    def remotion(args):
+        calls.append(args)
+        if len(calls) == fail_on:
+            raise RenderError(f"remotion {args[0]} failed")
+        sample.fake_remotion(args)
+    return remotion
+
+
+def seed_stale_report(pd: Path) -> None:
+    """The last run's report, which QA would trust if a run that does not finish left it standing."""
+    (pd / "artifacts/render.json").write_text(json.dumps({"videos": ["renders/EXM_short_64x112_captioned.mp4"]}))
+
+
+def assert_nothing_rendered(pd: Path, calls: list) -> None:
+    """Remotion was never called, and nothing it or the mux makes is on disk."""
+    assert calls == []
+    assert not (pd / "renders/_raw").exists()
+    assert not [p for p in (pd / "renders").iterdir() if p.suffix in (".png", ".jpg", ".mp4")]
+
+
+def assert_refused(pd: Path, calls: list) -> None:
+    """What render_all leaves when it refuses a run: nothing drawn, and the last run's report taken away."""
+    assert_nothing_rendered(pd, calls)
+    assert not (pd / "artifacts/render.json").exists()
+
+
+def tool_with(monkeypatch, remotion) -> ShortedRender:
+    """The tool always renders with the real Remotion CLI. This gives it a stand-in, so that a check which fails to stop a run
+    shows up as a recorded call and not as a real render."""
+    monkeypatch.setattr("tools.shorted.render.render_all", lambda pd: render_all(pd, remotion=remotion))
+    return ShortedRender()
+
+
+def call(entry: str, pd: Path, remotion):
+    """One of the three entry points, for the cut the tests break (the short one)."""
+    return {"render_all": lambda: render_all(pd, remotion=remotion),
+            "render_cut": lambda: render_cut(pd, "short", remotion=remotion),
+            "render_stills": lambda: render_stills(pd, remotion=remotion)}[entry]()
+
+
+@pytest.mark.parametrize("entry", ["render_all", "render_cut", "render_stills"])
+def test_a_relative_project_folder_reaches_remotion_as_absolute_paths(entry, tmp_path, monkeypatch):
+    """remotion runs in remotion-composer/, so a path left relative to the caller's folder would point somewhere else."""
+    tiny_run(tmp_path, cuts=("long", "short"))
+    calls: list = []
+    folder = Path(tmp_path.name)
+    monkeypatch.chdir(tmp_path.parent)
+    stand_in = recording(calls)
+    result = {"render_all": lambda: render_all(folder, remotion=stand_in),
+              "render_cut": lambda: render_cut(folder, "short", remotion=stand_in),
+              "render_stills": lambda: render_stills(folder, remotion=stand_in)}[entry]()
+    assert len(calls) == {"render_all": 6, "render_cut": 2, "render_stills": 2}[entry]  # two stills, two renders per cut
+    for args in calls:
+        props = Path(next(a for a in args if a.startswith("--props="))[len("--props="):])
+        for path in (Path(args[3]), props):
+            assert path.is_absolute() and path.is_relative_to(tmp_path), args
+    if entry == "render_all":  # the report still names files relative to the project folder
+        assert not any(Path(p).is_absolute() for p in result["videos"] + result["stills"])
+        assert json.loads((tmp_path / "artifacts/render.json").read_text()) == result
+
+
+def test_a_remotion_timeout_is_a_render_error(tmp_path, monkeypatch):
+    def hang(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+
+    monkeypatch.setattr(subprocess, "run", hang)
+    with pytest.raises(RenderError, match=r"remotion still ShortedThumb timed out after 7200 s"):
+        remotion_cli(["still", ENTRY, "ShortedThumb", str(tmp_path / "thumb.png"), "--props=thumb.json"])
+    res = ShortedRender().execute({"project_dir": str(tiny_run(tmp_path))})
+    assert not res.success and res.error.startswith("RenderError:") and "timed out after 7200 s" in res.error
+
+
+@pytest.mark.parametrize("missing, expected", [
+    ("mix", r"assets/audio/mix\.short\.wav is missing; run the score stage"),
+    ("thumb", r"artifacts/thumb\.json is missing; run the timeline stage"),
+    ("meta", r"artifacts/timeline\.short\.meta\.json is missing; run the timeline stage"),
+    ("meta and mix", r"artifacts/timeline\.short\.meta\.json is missing; run the timeline stage"),  # the earlier stage first
+    ("thumb and mix", r"artifacts/thumb\.json is missing; run the timeline stage")])  # the earlier stage is named first
+def test_a_missing_input_fails_before_remotion_is_called(missing, expected, tmp_path):
+    pd = tiny_run(tmp_path, cuts=("long", "short"))
+    seed_stale_report(pd)
+    if "mix" in missing:
+        (pd / "assets/audio/mix.short.wav").unlink()  # the second cut's: the long cut must not be rendered first
+    if "thumb" in missing:
+        (pd / "artifacts/thumb.json").unlink()
+    if "meta" in missing:
+        (pd / "artifacts/timeline.short.meta.json").unlink()
+    calls: list = []
+    with pytest.raises(RenderError, match=expected):
+        render_all(pd, remotion=recording(calls))
+    assert_refused(pd, calls)
+
+
+def sha256(path) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def test_render_all_records_the_hashes_of_what_each_cut_is_rendered_from(tmp_path):
+    pd = tiny_run(tmp_path, cuts=("long", "short"))
+    report = render_all(pd, remotion=recording([]))
+    assert sorted(report["inputs"]) == ["long", "short"]
+    for cut in ("long", "short"):
+        assert report["inputs"][cut] == {
+            "timeline_sha256": sha256(pd / f"artifacts/timeline.{cut}.json"),
+            "meta_sha256": sha256(pd / f"artifacts/timeline.{cut}.meta.json"),
+            "mix_sha256": sha256(pd / f"assets/audio/mix.{cut}.wav")}
+    assert report["inputs"]["long"]["meta_sha256"] != report["inputs"]["short"]["meta_sha256"]  # each cut's own files are hashed
+    assert json.loads((pd / "artifacts/render.json").read_text())["inputs"] == report["inputs"]
+    assert sorted(k for k in report if k != "inputs") == ["chapters", "stills", "subtitles", "videos"]  # the rest is unchanged
+
+
+def test_the_hashes_are_taken_as_each_cut_starts_rendering(tmp_path):
+    """What a cut's videos are made from is what its files were when its render began: a change during the render, or between
+    one cut's render and the next, is not hidden by hashing later (or earlier)."""
+    pd = tiny_run(tmp_path, cuts=("long", "short"))
+    before = {"long_mix": sha256(pd / "assets/audio/mix.long.wav"),
+              "short_timeline": sha256(pd / "artifacts/timeline.short.json")}
+    calls: list = []
+
+    def meddling(args):
+        calls.append(args)
+        sample.fake_remotion(args)
+        if len(calls) == 3:  # the long cut's captioned render: its mix changes meanwhile, and the short's timeline too
+            sf.write(pd / "assets/audio/mix.long.wav", np.full((48000, 2), 0.01, dtype=np.float32), 48000)
+            props = json.loads((pd / "artifacts/timeline.short.json").read_text())
+            (pd / "artifacts/timeline.short.json").write_text(json.dumps({**props, "durationInFrames": 31}))
+
+    report = render_all(pd, remotion=meddling)
+    assert report["inputs"]["long"]["mix_sha256"] == before["long_mix"] != sha256(pd / "assets/audio/mix.long.wav")
+    assert report["inputs"]["short"]["timeline_sha256"] != before["short_timeline"]  # taken when the short began
+    assert report["inputs"]["short"]["timeline_sha256"] == sha256(pd / "artifacts/timeline.short.json")
+
+
+# call 2 fails in the stills, before renders/_raw exists; calls 3 and 4 fail with raw files on disk
+@pytest.mark.parametrize("fail_on", [2, 3, 4], ids=["cover-still", "captioned-render", "clean-render"])
+def test_a_failed_render_leaves_no_raw_folder(fail_on, tmp_path):
+    pd = tiny_run(tmp_path)
+    calls: list = []
+    with pytest.raises(RenderError):
+        render_all(pd, remotion=recording(calls, fail_on=fail_on))
+    assert len(calls) == fail_on
+    assert not (pd / "renders/_raw").exists()
+
+
+def test_a_failed_mux_leaves_no_raw_folder_and_says_why(tmp_path):
+    pd = tiny_run(tmp_path)
+
+    def broken(args):
+        if args[0] == "render":
+            Path(args[3]).write_bytes(b"not a video")  # remotion wrote something ffmpeg cannot read
+        else:
+            sample.fake_remotion(args)
+
+    with pytest.raises(RenderError, match="Invalid data found when processing input") as err:  # ffmpeg's own reason
+        render_all(pd, remotion=broken)
+    assert str(err.value).startswith("ffmpeg could not mux short.captioned.mp4 with mix.short.wav:\n")
+    assert not (pd / "renders/_raw").exists()
+
+
+# ---------------------------------------------------------------- a run that does not finish leaves no report
+
+def test_a_failed_rerender_leaves_no_report_from_the_last_run(tmp_path):
+    """render.json is what QA reads. After a run that did not finish it must not describe the previous run's files (some of which
+    the failed run has already replaced)."""
+    pd = tiny_run(tmp_path, cuts=("short",))
+    render_all(pd, remotion=sample.fake_remotion)
+    assert (pd / "artifacts/render.json").exists()
+    with pytest.raises(RenderError):
+        render_all(pd, remotion=recording([], fail_on=2))  # the cover refuses on the second run
+    assert not (pd / "artifacts/render.json").exists()
+
+
+def test_a_missing_input_also_leaves_no_report(tmp_path):
+    pd = tiny_run(tmp_path, cuts=("short",))
+    render_all(pd, remotion=sample.fake_remotion)
+    (pd / "assets/audio/mix.short.wav").unlink()
+    with pytest.raises(RenderError, match="run the score stage"):
+        render_all(pd, remotion=sample.fake_remotion)
+    assert not (pd / "artifacts/render.json").exists()
+
+
+def test_render_all_without_a_timeline_draws_nothing(tmp_path):
+    """Task 24's CLI calls render_all directly and checkpoints the stage as completed when it returns."""
+    pd = tiny_run(tmp_path, cuts=())
+    seed_stale_report(pd)
+    calls: list = []
+    message = "no timeline.long.json or timeline.short.json in artifacts/; run the timeline stage first"
+    with pytest.raises(RenderError, match=re.escape(message)):
+        render_all(pd, remotion=recording(calls))
+    assert_refused(pd, calls)
+
+
+def test_the_tool_refuses_a_run_without_a_timeline_through_render_all(tmp_path, monkeypatch):
+    pd = tiny_run(tmp_path, cuts=())
+    seed_stale_report(pd)
+    calls: list = []
+    res = tool_with(monkeypatch, recording(calls)).execute({"project_dir": str(pd)})
+    assert not res.success and res.error == ("RenderError: no timeline.long.json or timeline.short.json in artifacts/; "
+                                             "run the timeline stage first")
+    assert_refused(pd, calls)
+
+
+# ---------------------------------------------------------------- files of the wrong kind stop the run before it renders
+
+ENTRY_FILES = [("render_all", "artifacts/timeline.short.json"), ("render_all", "artifacts/thumb.json"),
+               ("render_cut", "artifacts/timeline.short.json"), ("render_stills", "artifacts/thumb.json")]
+ENTRY_IDS = [f"{entry}-{name.rsplit('/', 1)[1]}" for entry, name in ENTRY_FILES]
+MISSING = object()
+
+
+def assert_stopped(entry: str, pd: Path, calls: list) -> None:
+    """Nothing was rendered; and when the whole run was asked for, the last run's report is gone too."""
+    if entry == "render_all":
+        assert_refused(pd, calls)
+    else:
+        assert_nothing_rendered(pd, calls)
+
+
+@pytest.mark.parametrize("entry, name", ENTRY_FILES, ids=ENTRY_IDS)
+def test_a_half_written_file_names_itself_and_stops_the_run(entry, name, tmp_path):
+    pd = tiny_run(tmp_path, cuts=("long", "short"))
+    seed_stale_report(pd)
+    (pd / name).write_text("{")
+    calls: list = []
+    with pytest.raises(json.JSONDecodeError, match=rf"{re.escape(name)} is not valid JSON \("):
+        call(entry, pd, recording(calls))
+    assert_stopped(entry, pd, calls)
+
+
+@pytest.mark.parametrize("body, kind", [("[]", "a list"), ("null", "null"), ('"text"', "a string"), ("7", "a number"),
+                                        ("true", "a boolean")], ids=["list", "null", "string", "number", "boolean"])
+@pytest.mark.parametrize("entry, name", ENTRY_FILES, ids=ENTRY_IDS)
+def test_a_file_that_is_not_a_json_object_stops_the_run_before_any_render(entry, name, body, kind, tmp_path):
+    pd = tiny_run(tmp_path, cuts=("long", "short"))
+    seed_stale_report(pd)
+    (pd / name).write_text(body)
+    calls: list = []
+    with pytest.raises(RenderError, match=rf"{re.escape(name)} must hold a JSON object, not {kind}; re-run the timeline stage"):
+        call(entry, pd, recording(calls))
+    assert_stopped(entry, pd, calls)
+
+
+def broken_field(pd: Path, name: str, key: str, value) -> None:
+    path = pd / name
+    data = json.loads(path.read_text())
+    if value is MISSING:
+        del data[key]
+    else:
+        data[key] = value
+    path.write_text(json.dumps(data))
+
+
+def field_problem(name: str, key: str, value, expected: str) -> str:
+    """The message for a field that is missing, or is not what the file must hold."""
+    if value is MISSING:
+        return rf'{re.escape(name)} has no "{key}"; re-run the timeline stage'
+    return rf'{re.escape(name)}: "{key}" must be {expected}, not {re.escape(json.dumps(value))}; re-run the timeline stage'
+
+
+@pytest.mark.parametrize("value", [MISSING, "", "  ", 5, None, ["EXM"]], ids=["missing", "empty", "blank", "number", "null", "list"])
+@pytest.mark.parametrize("entry, name", ENTRY_FILES, ids=ENTRY_IDS)
+def test_a_ticker_that_is_missing_or_not_text_stops_the_run_before_any_render(entry, name, value, tmp_path):
+    pd = tiny_run(tmp_path, cuts=("long", "short"))
+    seed_stale_report(pd)
+    broken_field(pd, name, "ticker", value)
+    calls: list = []
+    with pytest.raises(RenderError, match=field_problem(name, "ticker", value, "the company's ticker")):
+        call(entry, pd, recording(calls))
+    assert_stopped(entry, pd, calls)
+
+
+@pytest.mark.parametrize("value", [MISSING, "64", 64.5, True, 0, -64, None],
+                         ids=["missing", "string", "float", "bool", "zero", "negative", "null"])
+@pytest.mark.parametrize("key", ["width", "height"])
+@pytest.mark.parametrize("entry", ["render_all", "render_cut"])
+def test_a_size_that_is_missing_or_not_pixels_stops_the_run_before_any_render(entry, key, value, tmp_path):
+    pd = tiny_run(tmp_path, cuts=("long", "short"))  # the long cut is fine: the short one is what stops the whole run
+    seed_stale_report(pd)
+    name = "artifacts/timeline.short.json"
+    broken_field(pd, name, key, value)
+    calls: list = []
+    with pytest.raises(RenderError, match=field_problem(name, key, value, "a whole number of pixels")):
+        call(entry, pd, recording(calls))
+    assert_stopped(entry, pd, calls)
+
+
+@pytest.mark.parametrize("name, body, expected", [
+    ("artifacts/timeline.short.json", "[]", "RenderError: artifacts/timeline.short.json must hold a JSON object, not a list"),
+    ("artifacts/thumb.json", "null", "RenderError: artifacts/thumb.json must hold a JSON object, not null"),
+    ("artifacts/timeline.short.json", '{"ticker": "EXM", "width": "wide", "height": 112}',
+     'RenderError: artifacts/timeline.short.json: "width" must be a whole number of pixels, not "wide"'),
+    ("artifacts/thumb.json", "{", "JSONDecodeError: artifacts/thumb.json is not valid JSON")],
+    ids=["timeline-list", "thumb-null", "timeline-width", "thumb-torn"])
+def test_the_tool_reports_a_file_of_the_wrong_kind_and_renders_nothing(name, body, expected, tmp_path, monkeypatch):
+    pd = tiny_run(tmp_path)
+    seed_stale_report(pd)
+    (pd / name).write_text(body)
+    calls: list = []
+    res = tool_with(monkeypatch, recording(calls)).execute({"project_dir": str(pd)})
+    assert not res.success and res.error.startswith(expected), res.error
+    assert_refused(pd, calls)
+
+
+# ---------------------------------------------------------------- render_cut on its own does what render_all does for a cut
+
+@pytest.mark.parametrize("missing, expected", [
+    ("timeline", r"artifacts/timeline\.short\.json is missing; run the timeline stage"),
+    ("mix", r"assets/audio/mix\.short\.wav is missing; run the score stage"),
+    ("timeline and mix", r"artifacts/timeline\.short\.json is missing; run the timeline stage")])  # the earlier stage first
+def test_render_cut_checks_its_own_cuts_inputs_before_it_renders(missing, expected, tmp_path):
+    pd = tiny_run(tmp_path, cuts=("long", "short"))  # the long cut's files are all there: only the short cut's are looked at
+    if "timeline" in missing:
+        (pd / "artifacts/timeline.short.json").unlink()
+    if "mix" in missing:
+        (pd / "assets/audio/mix.short.wav").unlink()
+    calls: list = []
+    with pytest.raises(RenderError, match=expected):
+        render_cut(pd, "short", remotion=recording(calls))
+    assert_nothing_rendered(pd, calls)
+
+
+def test_render_cut_leaves_no_raw_folder_whether_it_finishes_or_fails(tmp_path):
+    pd = tiny_run(tmp_path)
+    outs = render_cut(pd, "short", remotion=sample.fake_remotion)
+    assert [p.name for p in outs] == ["EXM_short_64x112_captioned.mp4", "EXM_short_64x112_clean.mp4"]
+    assert all(p.is_file() for p in outs) and not (pd / "renders/_raw").exists()
+    for fail_on in (1, 2):  # before any raw file is written, and after the first has been rendered and muxed
+        calls: list = []
+        with pytest.raises(RenderError):
+            render_cut(pd, "short", remotion=recording(calls, fail_on=fail_on))
+        assert len(calls) == fail_on and not (pd / "renders/_raw").exists()
+
+    def disk_full(args):
+        raise OSError("disk full")
+
+    with pytest.raises(OSError):  # an error that is not a RenderError cleans up as well
+        render_cut(pd, "short", remotion=disk_full)
+    assert not (pd / "renders/_raw").exists()
+
+
+def test_a_raw_folder_left_by_a_killed_render_is_no_obstacle(tmp_path):
+    pd = tiny_run(tmp_path)
+    (pd / "renders/_raw").mkdir()
+    (pd / "renders/_raw/short.captioned.mp4").write_bytes(b"what a killed render left")
+    outs = render_cut(pd, "short", remotion=sample.fake_remotion)
+    assert len(outs) == 2 and not (pd / "renders/_raw").exists()  # and the leftover goes with the rest
+
+
+def test_a_finished_render_leaves_no_raw_folder(tmp_path):
+    pd = tiny_run(tmp_path, cuts=("long", "short"))
+    report = render_all(pd, remotion=sample.fake_remotion)
+    assert len(report["videos"]) == 4 and not (pd / "renders/_raw").exists()
+
+
+# ---------------------------------------------------------------- mux
+
+def source_video(path: Path) -> None:
+    """An x264 clip with NO colour description and a recognisable setting (crf=30.0) in its SEI, so a re-encode shows."""
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=s=320x240:r=30:d=4", "-c:v", "libx264",
+                    "-crf", "30", "-preset", "ultrafast", "-pix_fmt", "yuv420p", str(path)], check=True)
+
+
+def noise(path: Path, rate: int = 48000) -> None:
+    sf.write(path, (0.1 * np.random.default_rng(0).standard_normal((4 * rate, 2))).astype(np.float32), rate)
+
+
+def top_level_atoms(path: Path) -> list[str]:
+    data, off, out = Path(path).read_bytes(), 0, []
+    while off + 8 <= len(data):
+        size, kind = struct.unpack(">I4s", data[off:off + 8])
+        size = struct.unpack(">Q", data[off + 8:off + 16])[0] if size == 1 else (len(data) - off if size == 0 else size)
+        out.append(kind.decode("latin1"))
+        off += size
+    return out
+
+
+@pytest.fixture(scope="module")
+def muxed(tmp_path_factory):
+    folder = tmp_path_factory.mktemp("mux")
+    source_video(folder / "v.mp4")
+    noise(folder / "a.wav")
+    mux(folder / "v.mp4", folder / "a.wav", folder / "out.mp4")
+    return folder
+
+
+def test_the_bt709_description_is_in_the_h264_bitstream(muxed):
+    """ffprobe on the MP4 reports the container's tags when there are any, so it cannot say whether the SPS carries them. Strip
+    the container: the bare Annex B stream is described by its SPS alone."""
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(muxed / "out.mp4"), "-map", "0:v", "-c", "copy", "-bsf:v",
+                    "h264_mp4toannexb", "-f", "h264", str(muxed / "raw.h264")], check=True)
+    v = probe(muxed / "raw.h264")["streams"][0]
+    assert (v["color_primaries"], v["color_transfer"], v["color_space"]) == ("bt709", "bt709", "bt709")
+
+
+def test_the_bt709_description_is_in_the_container_too(muxed):
+    """The colr box (nclx): primaries 1, transfer 1, matrix 1, limited range."""
+    data = (muxed / "out.mp4").read_bytes()
+    i = data.find(b"colr")
+    assert i > 0 and data[i + 4:i + 8] == b"nclx"
+    assert struct.unpack(">HHH", data[i + 8:i + 14]) == (1, 1, 1) and data[i + 14] >> 7 == 0
+
+
+def test_the_video_is_copied_not_re_encoded(muxed):
+    out = subprocess.run(["ffmpeg", "-v", "error", "-i", str(muxed / "out.mp4"), "-map", "0:v", "-c", "copy", "-f", "h264", "-"],
+                         capture_output=True, check=True).stdout
+    assert b"crf=30.0" in out  # the source encoder's own setting survives: a stream copy
+    v = next(s for s in probe(muxed / "out.mp4")["streams"] if s["codec_type"] == "video")
+    assert v["codec_name"] == "h264" and v["pix_fmt"] == "yuv420p" and v["color_range"] == "tv"
+
+
+def test_the_audio_is_stereo_aac_lc_at_256_kbps_and_48_khz(muxed):
+    a = next(s for s in probe(muxed / "out.mp4")["streams"] if s["codec_type"] == "audio")
+    assert (a["codec_name"], a["profile"], a["channels"], a["sample_rate"]) == ("aac", "LC", 2, "48000")
+    assert 240_000 <= int(a["bit_rate"]) <= 270_000  # noise at 0.1 saturates the encoder, so the target shows
+
+
+def test_a_mix_at_another_rate_comes_out_at_48_khz(tmp_path):
+    source_video(tmp_path / "v.mp4")
+    noise(tmp_path / "a.wav", rate=44100)
+    mux(tmp_path / "v.mp4", tmp_path / "a.wav", tmp_path / "out.mp4")
+    assert next(s for s in probe(tmp_path / "out.mp4")["streams"] if s["codec_type"] == "audio")["sample_rate"] == "48000"
+
+
+def test_the_index_comes_first_for_streaming(muxed):
+    atoms = top_level_atoms(muxed / "out.mp4")
+    assert atoms.index("moov") < atoms.index("mdat")
+
+
+def test_a_mix_ffmpeg_cannot_read_comes_back_with_ffmpegs_reason(tmp_path):
+    """ffmpeg says why on its stderr; without capturing it the tool's error was only 'returned non-zero exit status 183'."""
+    source_video(tmp_path / "v.mp4")
+    (tmp_path / "bad.wav").write_bytes(b"RIFF....not a wav")
+    with pytest.raises(RenderError) as err:
+        mux(tmp_path / "v.mp4", tmp_path / "bad.wav", tmp_path / "out.mp4")
+    message = str(err.value)
+    assert message.startswith("ffmpeg could not mux v.mp4 with bad.wav:\n")
+    assert "Invalid data found when processing input" in message
+    assert any(line.startswith("Error opening input file") for line in message.splitlines())  # lines of text, not a bytes repr
+
+
+def test_a_failed_mux_keeps_the_tail_of_ffmpegs_stderr_and_a_good_one_returns_nothing(tmp_path, monkeypatch):
+    seen = {}
+
+    def run(cmd, **kwargs):
+        seen["cmd"] = cmd
+        return subprocess.CompletedProcess(cmd, 183, stdout="", stderr="x" * 5000 + "THE REAL REASON")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    with pytest.raises(RenderError) as err:
+        mux(tmp_path / "raw.mp4", tmp_path / "mix.wav", tmp_path / "out.mp4")
+    message = str(err.value)
+    assert message.startswith("ffmpeg could not mux raw.mp4 with mix.wav:\n") and message.endswith("THE REAL REASON")
+    assert len(message) < 3100 and seen["cmd"][0] == "ffmpeg"  # the tail, not the head
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kwargs: subprocess.CompletedProcess(cmd, 0, stdout="", stderr="a warning"))
+    assert mux(tmp_path / "raw.mp4", tmp_path / "mix.wav", tmp_path / "out.mp4") is None
+
+
+# ---------------------------------------------------------------- remotion_cli
+
+def test_remotion_cli_runs_npx_in_the_composer_and_keeps_the_tail_of_a_failure(monkeypatch):
+    seen = {}
+
+    def run(cmd, **kwargs):
+        seen["cmd"], seen["kwargs"] = cmd, kwargs
+        return subprocess.CompletedProcess(cmd, 1, stdout="STDOUT", stderr="x" * 5000 + "THE REAL ERROR")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    with pytest.raises(RenderError) as err:
+        remotion_cli(["still", ENTRY, "ShortedCover", "out.png"])
+    assert seen["cmd"][:3] == ["npx", "remotion", "still"] and seen["kwargs"]["cwd"] == REMOTION
+    message = str(err.value)
+    assert message.startswith("remotion still failed:") and message.endswith("THE REAL ERROR") and len(message) < 3100
+    assert "STDOUT" not in message  # stderr is the report when it has one
+
+
+def test_remotion_cli_reports_stdout_when_stderr_is_empty_and_returns_none_on_success(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1, stdout="from stdout", stderr=""))
+    with pytest.raises(RenderError, match="from stdout"):
+        remotion_cli(["render", ENTRY, "ShortedShort", "out.mp4"])
+    monkeypatch.setattr(subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, stdout="", stderr="a warning"))
+    assert remotion_cli(["render", ENTRY, "ShortedShort", "out.mp4"]) is None
+
+
+# ---------------------------------------------------------------- what render_all asks remotion for
+
+def test_remotion_is_called_stills_first_with_the_promised_flags(tmp_path):
+    pd = tiny_run(tmp_path, cuts=("long", "short"))
+    calls: list = []
+    render_all(pd, remotion=recording(calls))
+    assert [(c[0], c[2]) for c in calls] == [("still", "ShortedThumb"), ("still", "ShortedCover"), ("render", "ShortedLong"),
+                                              ("render", "ShortedLong"), ("render", "ShortedShort"), ("render", "ShortedShort")]
+    assert all(c[1] == ENTRY for c in calls)
+    thumb = f"--props={pd.resolve() / 'artifacts' / 'thumb.json'}"
+    assert [c[4] for c in calls[:2]] == [thumb, thumb]
+    for c in calls[2:]:  # --color-space=bt709 is what makes the pixels BT.709: mux only labels them
+        assert c[4].startswith("--props=") and c[5:] == ["--codec=h264", "--crf=16", "--color-space=bt709", "--pixel-format=yuv420p", "--muted"]
+
+
+def test_the_captioned_file_has_captions_burned_in_and_the_clean_one_does_not(tmp_path):
+    pd = tiny_run(tmp_path, cuts=("short",))
+    seen: dict = {}
+
+    def stand_in(args):
+        if args[0] == "render":
+            props = json.loads(Path(next(a for a in args if a.startswith("--props="))[len("--props="):]).read_text())
+            seen[Path(args[3]).name] = props["showCaptions"]
+        sample.fake_remotion(args)
+
+    render_all(pd, remotion=stand_in)
+    assert seen == {"short.captioned.mp4": True, "short.clean.mp4": False}
+
+
+def test_only_the_long_cut_carries_the_chapters(tmp_path):
+    pd = tiny_run(tmp_path, cuts=("long", "short"))
+    (pd / "artifacts/chapters.long.ffmeta").write_text(";FFMETADATA1\n[CHAPTER]\nTIMEBASE=1/1000\nSTART=0\nEND=500\ntitle=A\n"
+                                                       "[CHAPTER]\nTIMEBASE=1/1000\nSTART=500\nEND=1000\ntitle=B\n")
+    render_all(pd, remotion=sample.fake_remotion)
+    for kind in ("captioned", "clean"):
+        assert [c["tags"]["title"] for c in probe(pd / f"renders/EXM_long_64x112_{kind}.mp4")["chapters"]] == ["A", "B"]
+        assert probe(pd / f"renders/EXM_short_64x112_{kind}.mp4")["chapters"] == []
+
+
+# ---------------------------------------------------------------- stills and the report
+
+def stills_stand_in(args):
+    """Distinct colours for the thumbnail and the cover, so the JPG's source can be told."""
+    out, thumb = Path(args[3]), args[2] == "ShortedThumb"
+    Image.new("RGB", (1920, 1080) if thumb else (1080, 1920), (31, 59, 51) if thumb else (200, 40, 40)).save(out)
+
+
+def test_the_stills_have_their_names_and_sizes_and_the_jpg_is_the_thumbnail(tmp_path):
+    pd = tiny_run(tmp_path)
+    outs = render_stills(pd, remotion=stills_stand_in)
+    assert [p.name for p in outs] == ["EXM_thumb_1920x1080.png", "EXM_cover_1080x1920.png", "EXM_thumb_1280x720.jpg"]
+    assert Image.open(outs[0]).size == (1920, 1080) and Image.open(outs[1]).size == (1080, 1920)
+    jpg = Image.open(outs[2])
+    assert jpg.format == "JPEG" and jpg.size == (1280, 720)
+    r, g, b = jpg.convert("RGB").getpixel((640, 360))
+    assert max(abs(r - 31), abs(g - 59), abs(b - 51)) < 6  # the thumbnail's green, not the cover's red
+    assert jpg.quantization[0][0] <= 5  # quality 85 or better (90 gives 3, 10 gives 80)
+
+
+def test_the_report_names_the_subtitles(tmp_path):
+    pd = tiny_run(tmp_path, cuts=("short",))
+    for name in ("EXM_short.srt", "EXM_short.vtt", "EXM_long.srt", "EXM_long.vtt", "notes.txt"):
+        (pd / "renders" / name).write_text("x")
+    report = render_all(pd, remotion=sample.fake_remotion)
+    assert report["subtitles"] == ["renders/EXM_long.srt", "renders/EXM_long.vtt", "renders/EXM_short.srt", "renders/EXM_short.vtt"]
+
+
+def test_the_report_names_the_long_cuts_chapter_list_when_there_is_one(tmp_path):
+    pd = tiny_run(tmp_path, cuts=("long", "short"))
+    assert render_all(pd, remotion=sample.fake_remotion)["chapters"] is None  # YouTube's rules can leave the long cut with none
+    (pd / "renders/EXM_long_chapters.txt").write_text("0:00 A\n")
+    report = render_all(pd, remotion=sample.fake_remotion)
+    assert report["chapters"] == "renders/EXM_long_chapters.txt"
+    assert json.loads((pd / "artifacts/render.json").read_text())["chapters"] == "renders/EXM_long_chapters.txt"
+
+
+def test_the_chapter_list_is_named_by_the_long_cuts_own_ticker(tmp_path):
+    """timeline.py names it by the long cut's ticker, as the long cut's videos are named."""
+    pd = tiny_run(tmp_path, cuts=("long", "short"))
+    broken_field(pd, "artifacts/timeline.long.json", "ticker", "AAA")  # the long cut alone says AAA
+    (pd / "renders/AAA_long_chapters.txt").write_text("0:00 A\n")
+    (pd / "renders/EXM_long_chapters.txt").write_text("0:00 B\n")
+    report = render_all(pd, remotion=sample.fake_remotion)
+    assert report["chapters"] == "renders/AAA_long_chapters.txt" and "renders/AAA_long_64x112_captioned.mp4" in report["videos"]
+
+
+def test_a_chapter_list_of_another_run_or_of_a_cut_that_was_not_rendered_is_not_reported(tmp_path):
+    pd = tiny_run(tmp_path, cuts=("long", "short"))
+    (pd / "renders/AAA_long_chapters.txt").write_text("0:00 Another run's\n")  # a leftover, by another ticker
+    assert render_all(pd, remotion=sample.fake_remotion)["chapters"] is None  # not the first match of a glob
+    (pd / "renders/EXM_long_chapters.txt").write_text("0:00 A\n")
+    assert render_all(pd, remotion=sample.fake_remotion)["chapters"] == "renders/EXM_long_chapters.txt"
+    (pd / "artifacts/timeline.long.json").unlink()  # now only the short cut is rendered: there is no list to hand over
+    assert render_all(pd, remotion=sample.fake_remotion)["chapters"] is None
+
+
+# ---------------------------------------------------------------- the tool
+
+def test_the_tool_returns_the_report_and_lists_the_files(tmp_path, monkeypatch):
+    pd = tiny_run(tmp_path, cuts=("short",))
+    report = {"videos": ["renders/a.mp4"], "stills": ["renders/b.png"], "subtitles": [], "chapters": None}
+    monkeypatch.setattr("tools.shorted.render.render_all", lambda p: report)
+    res = ShortedRender().execute({"project_dir": str(pd)})
+    assert res.success and res.data == report and res.artifacts == ["renders/a.mp4", "renders/b.png"]
+
+
+def test_the_tool_renders_a_run_and_lists_what_it_made(tmp_path, monkeypatch):
+    pd = tiny_run(tmp_path, cuts=("short",))
+    res = tool_with(monkeypatch, sample.fake_remotion).execute({"project_dir": str(pd)})
+    report = json.loads((pd / "artifacts/render.json").read_text())
+    assert res.success and res.data == report and len(report["videos"]) == 2 and len(report["stills"]) == 3
+    assert res.artifacts == report["videos"] + report["stills"]
+
+
+def test_the_tool_keeps_the_tail_of_a_long_error(tmp_path, monkeypatch):
+    pd = tiny_run(tmp_path, cuts=("short",))
+
+    def boom(p):
+        raise RenderError("x" * 5000 + "THE CAUSE")
+
+    monkeypatch.setattr("tools.shorted.render.render_all", boom)
+    res = ShortedRender().execute({"project_dir": str(pd)})
+    assert not res.success and res.error.startswith("RenderError: ") and res.error.endswith("THE CAUSE") and len(res.error) < 3100
+
+
+def test_the_tool_returns_ffmpegs_reason_for_a_mix_it_cannot_read(tmp_path, monkeypatch):
+    pd = tiny_run(tmp_path, cuts=("short",))
+    (pd / "assets/audio/mix.short.wav").write_bytes(b"RIFF....not a wav")
+    res = tool_with(monkeypatch, sample.fake_remotion).execute({"project_dir": str(pd)})
+    assert not res.success and res.error.startswith("RenderError: ffmpeg could not mux short.captioned.mp4 with mix.short.wav:")
+    assert "Invalid data found when processing input" in res.error
+    assert not (pd / "renders/_raw").exists() and not (pd / "artifacts/render.json").exists()
 
 
 @pytest.fixture(scope="module")
@@ -17306,7 +17978,8 @@ def test_real_render_of_the_short(tmp_path):
     try:
         sample.mix_run(pd, sample.fake_stems(tmp_path / "stems"), sample.fake_sfx(tmp_path / "sfx"))
         (pd / "artifacts/timeline.long.json").unlink()  # the short is enough to prove the contract
-        render_all(pd)
+        report = render_all(pd)
+        assert report["chapters"] is None and not (pd / "renders/_raw").exists()  # the long cut was not rendered: no list to hand over
         video = pd / "renders/EXM_short_1080x1920_captioned.mp4"
         res = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_frames", "-show_entries",
                               "stream=nb_read_frames", "-of", "csv=p=0", str(video)], capture_output=True, text=True, check=True)
@@ -17325,15 +17998,19 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'tools.shorted.render'
 
 ```python
 """Render both cuts (captioned and clean), the thumbnail and the cover with Remotion, then mux the
-mix with BT.709 colour tags, AAC 256 kb/s and, for the long cut, chapter metadata."""
+mix with BT.709 colour tags, AAC 256 kb/s and, for the long cut, chapter metadata.
+
+render_all reads and checks every input before its first render, and writes artifacts/render.json last, having removed the
+last run's first: QA trusts the report it finds, so a run that does not finish must leave none."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from tools.base_tool import BaseTool, ResourceProfile, ToolResult, ToolTier
 
@@ -17343,6 +18020,7 @@ ENTRY = "src/shorted/index.tsx"
 COMPOSITION = {"long": "ShortedLong", "short": "ShortedShort"}
 COLOR = ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-color_range", "tv"]
 VUI = "h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1"
+REMOTION_TIMEOUT_S = 7200
 Remotion = Callable[[list[str]], None]
 
 
@@ -17351,7 +18029,12 @@ class RenderError(RuntimeError):
 
 
 def remotion_cli(args: list[str]) -> None:
-    res = subprocess.run(["npx", "remotion", *args], cwd=REMOTION, capture_output=True, text=True, timeout=7200)
+    try:
+        res = subprocess.run(["npx", "remotion", *args], cwd=REMOTION, capture_output=True, text=True,
+                             timeout=REMOTION_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        what = " ".join(args[:1] + args[2:3])  # the command and the composition, e.g. "render ShortedLong"
+        raise RenderError(f"remotion {what} timed out after {REMOTION_TIMEOUT_S} s") from None
     if res.returncode != 0:
         raise RenderError(f"remotion {args[0]} failed:\n{(res.stderr or res.stdout)[-3000:]}")
 
@@ -17362,34 +18045,99 @@ def mux(video: Path, audio: Path, out: Path, ffmeta: Path | None = None) -> None
         cmd += ["-i", str(ffmeta), "-map_chapters", "2"]
     cmd += ["-map", "0:v", "-map", "1:a", "-c:v", "copy", "-bsf:v", VUI, *COLOR,
             "-c:a", "aac", "-b:a", "256k", "-ar", "48000", "-movflags", "+faststart", str(out)]
-    subprocess.run(cmd, check=True)
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    if res.returncode != 0:  # ffmpeg says why on stderr, which would otherwise reach only the console
+        raise RenderError(f"ffmpeg could not mux {Path(video).name} with {Path(audio).name}:\n{res.stderr[-3000:]}")
+
+
+def _require(pd: Path, name: str, stage: str) -> None:
+    """A RenderError unless the file an earlier stage writes is there."""
+    if not (pd / name).is_file():
+        raise RenderError(f"{name} is missing; run the {stage} stage")
+
+
+def _json_type(value) -> str:
+    return ("null" if value is None else "a boolean" if isinstance(value, bool) else "a number" if isinstance(value, (int, float))
+            else "a string" if isinstance(value, str) else "a list")
+
+
+def _read_object(pd: Path, name: str) -> dict:
+    """A project file's JSON object. A half-written file is a JSONDecodeError that names it, and a file holding anything but an
+    object (a list, null, a number) a RenderError: never a TypeError from the middle of a render."""
+    try:
+        data = json.loads((pd / name).read_text())
+    except json.JSONDecodeError as err:
+        raise json.JSONDecodeError(f"{name} is not valid JSON ({err.msg})", err.doc, err.pos) from None
+    if not isinstance(data, dict):
+        raise RenderError(f"{name} must hold a JSON object, not {_json_type(data)}; re-run the timeline stage")
+    return data
+
+
+def _field(data: dict, name: str, key: str, valid: Callable[[object], bool], expected: str) -> Any:
+    """data[key], or a RenderError naming the file when the timeline stage left it out or wrote the wrong kind of value."""
+    if key not in data:
+        raise RenderError(f'{name} has no "{key}"; re-run the timeline stage')
+    if not valid(data[key]):
+        raise RenderError(f'{name}: "{key}" must be {expected}, not {json.dumps(data[key])[:40]}; re-run the timeline stage')
+    return data[key]
+
+
+def _is_ticker(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _is_pixels(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def _timeline_props(pd: Path, cut: str) -> dict:
+    """artifacts/timeline.<cut>.json, read and checked: the Remotion props, whose ticker and size name the videos."""
+    name = f"artifacts/timeline.{cut}.json"
+    _require(pd, name, "timeline")
+    props = _read_object(pd, name)
+    for key, valid, expected in (("ticker", _is_ticker, "the company's ticker"),
+                                 ("width", _is_pixels, "a whole number of pixels"),
+                                 ("height", _is_pixels, "a whole number of pixels")):
+        _field(props, name, key, valid, expected)
+    return props
+
+
+def _thumb_ticker(pd: Path) -> str:
+    """The ticker in artifacts/thumb.json, which names the stills."""
+    name = "artifacts/thumb.json"
+    _require(pd, name, "timeline")
+    return _field(_read_object(pd, name), name, "ticker", _is_ticker, "the company's ticker")
 
 
 def render_cut(project_dir: Path, cut: str, remotion: Remotion = remotion_cli) -> list[Path]:
-    pd = Path(project_dir)
-    props = json.loads((pd / "artifacts" / f"timeline.{cut}.json").read_text())
+    pd = Path(project_dir).resolve()  # remotion runs in remotion-composer/: every path it is given must be absolute
+    props = _timeline_props(pd, cut)  # a direct call checks its cut's inputs as render_all does, before it renders anything
+    _require(pd, f"assets/audio/mix.{cut}.wav", "score")
     raw_dir = pd / "renders" / "_raw"
-    raw_dir.mkdir(parents=True, exist_ok=True)
     ffmeta = pd / "artifacts" / "chapters.long.ffmeta"
     outs = []
-    for kind, show in (("captioned", True), ("clean", False)):
-        props_file = raw_dir / f"{cut}.{kind}.props.json"
-        props_file.write_text(json.dumps({**props, "showCaptions": show}))
-        raw = raw_dir / f"{cut}.{kind}.mp4"
-        remotion(["render", ENTRY, COMPOSITION[cut], str(raw), f"--props={props_file}", "--codec=h264", "--crf=16",
-                  "--color-space=bt709", "--pixel-format=yuv420p", "--muted"])
-        out = pd / "renders" / f"{props['ticker']}_{cut}_{props['width']}x{props['height']}_{kind}.mp4"
-        mux(raw, pd / "assets" / "audio" / f"mix.{cut}.wav", out, ffmeta if cut == "long" and ffmeta.exists() else None)
-        outs.append(out)
+    try:
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        for kind, show in (("captioned", True), ("clean", False)):
+            props_file = raw_dir / f"{cut}.{kind}.props.json"
+            props_file.write_text(json.dumps({**props, "showCaptions": show}))
+            raw = raw_dir / f"{cut}.{kind}.mp4"
+            remotion(["render", ENTRY, COMPOSITION[cut], str(raw), f"--props={props_file}", "--codec=h264", "--crf=16",
+                      "--color-space=bt709", "--pixel-format=yuv420p", "--muted"])
+            out = pd / "renders" / f"{props['ticker']}_{cut}_{props['width']}x{props['height']}_{kind}.mp4"
+            mux(raw, pd / "assets" / "audio" / f"mix.{cut}.wav", out, ffmeta if cut == "long" and ffmeta.exists() else None)
+            outs.append(out)
+    finally:  # a failed render or mux leaves no raw renders behind
+        shutil.rmtree(raw_dir, ignore_errors=True)
     return outs
 
 
 def render_stills(project_dir: Path, remotion: Remotion = remotion_cli) -> list[Path]:
     from PIL import Image
 
-    pd = Path(project_dir)
+    pd = Path(project_dir).resolve()
+    ticker = _thumb_ticker(pd)
     thumb = pd / "artifacts" / "thumb.json"
-    ticker = json.loads(thumb.read_text())["ticker"]
     outs = []
     for comp, name in (("ShortedThumb", "thumb_1920x1080"), ("ShortedCover", "cover_1080x1920")):
         out = pd / "renders" / f"{ticker}_{name}.png"
@@ -17400,17 +18148,55 @@ def render_stills(project_dir: Path, remotion: Remotion = remotion_cli) -> list[
     return outs + [jpg]
 
 
-def render_all(project_dir: Path, remotion: Remotion = remotion_cli) -> dict:
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def input_hashes(project_dir: Path, cut: str) -> dict[str, str]:
+    """sha256 of the files a cut's videos are made from: the timeline (the props Remotion draws), its meta (the lines, cues
+    and chapters) and the mix. render_all records them as it starts the cut; QA hashes the files again, so a video that is
+    older than any of them is found out."""
     pd = Path(project_dir)
+    files = {"timeline_sha256": pd / "artifacts" / f"timeline.{cut}.json",
+             "meta_sha256": pd / "artifacts" / f"timeline.{cut}.meta.json",
+             "mix_sha256": pd / "assets" / "audio" / f"mix.{cut}.wav"}
+    return {key: _sha256(path) for key, path in files.items()}
+
+
+def render_all(project_dir: Path, remotion: Remotion = remotion_cli) -> dict:
+    pd = Path(project_dir).resolve()
+    # QA trusts the report it finds, so a run that does not finish must not leave the last run's behind: this goes first.
+    (pd / "artifacts" / "render.json").unlink(missing_ok=True)
     cuts = [c for c in ("long", "short") if (pd / "artifacts" / f"timeline.{c}.json").exists()]
+    if not cuts:
+        raise RenderError("no timeline.long.json or timeline.short.json in artifacts/; run the timeline stage first")
+    # Every input is read and checked before the first render starts: a missing mix would otherwise surface only when the
+    # first cut's mux runs, after minutes of rendering. The stage that writes a missing file is named in the error.
+    props = {cut: _timeline_props(pd, cut) for cut in cuts}  # a half-written timeline fails here, before the stills are drawn
+    _thumb_ticker(pd)
+    for cut in cuts:  # the meta is what the videos' lengths and the recorded hashes are checked against
+        _require(pd, f"artifacts/timeline.{cut}.meta.json", "timeline")
+    for cut in cuts:
+        _require(pd, f"assets/audio/mix.{cut}.wav", "score")
     rel = lambda p: str(Path(p).relative_to(pd))
     # Stills first: a headline row the cover refuses fails in seconds, not after four video renders.
     stills = [rel(p) for p in render_stills(pd, remotion)]
-    videos = [rel(p) for cut in cuts for p in render_cut(pd, cut, remotion)]
-    shutil.rmtree(pd / "renders" / "_raw", ignore_errors=True)
-    chapters = next((rel(p) for p in (pd / "renders").glob("*_long_chapters.txt")), None)
+    videos = []
+    inputs: dict[str, dict[str, str]] = {}
+    for cut in cuts:
+        inputs[cut] = input_hashes(pd, cut)  # as this cut starts rendering: what its videos are made from
+        videos += [rel(p) for p in render_cut(pd, cut, remotion)]
+    chapters = None
+    if "long" in cuts:  # the list belongs to the long cut: with no long cut rendered there is none to hand over
+        listing = pd / "renders" / f"{props['long']['ticker']}_long_chapters.txt"  # named as timeline.py names it
+        chapters = rel(listing) if listing.is_file() else None  # YouTube's rules can leave the cut with none
     report = {"videos": videos, "stills": stills, "chapters": chapters,
-              "subtitles": sorted(rel(p) for p in (pd / "renders").iterdir() if p.suffix in (".srt", ".vtt"))}
+              "subtitles": sorted(rel(p) for p in (pd / "renders").iterdir() if p.suffix in (".srt", ".vtt")),
+              "inputs": inputs}
     (pd / "artifacts" / "render.json").write_text(json.dumps(report, indent=1))
     return report
 
@@ -17425,18 +18211,19 @@ class ShortedRender(BaseTool):
     input_schema = {"type": "object", "required": ["project_dir"], "properties": {"project_dir": {"type": "string"}}}
 
     def execute(self, inputs: dict) -> ToolResult:
-        if not inputs.get("project_dir"):
+        project_dir = inputs.get("project_dir") if isinstance(inputs, dict) else None
+        if not project_dir:
             return ToolResult(success=False, error="project_dir is required")
-        pd = Path(inputs["project_dir"])
+        if not isinstance(project_dir, (str, Path)):
+            return ToolResult(success=False, error=f"project_dir must be a folder path, not {type(project_dir).__name__}")
+        pd = Path(project_dir)
         if not pd.is_dir():
             return ToolResult(success=False, error=f"no project folder at {pd}")
-        if not any((pd / "artifacts" / f"timeline.{cut}.json").exists() for cut in COMPOSITION):
-            return ToolResult(success=False, error="no timeline.long.json or timeline.short.json in artifacts/; "
-                                                   "run the timeline stage first")
         try:
-            report = render_all(pd)
-        # a failed render or mux, or an earlier stage's output missing, half-written or out of step
-        except (RenderError, subprocess.CalledProcessError, OSError, KeyError, ValueError) as err:
+            report = render_all(pd)  # which refuses a run with no timeline as well
+        # a failed render or mux, or an earlier stage's output missing, half-written or out of step; TypeError is the last line,
+        # for a wrong type that the checks of the files render_all reads do not cover
+        except (RenderError, subprocess.CalledProcessError, OSError, KeyError, ValueError, TypeError) as err:
             return ToolResult(success=False, error=f"{type(err).__name__}: {str(err)[-3000:]}")
         return ToolResult(success=True, data=report, artifacts=report["videos"] + report["stills"])
 ```
@@ -17444,7 +18231,7 @@ class ShortedRender(BaseTool):
 - [ ] **Step 5: Run the tests (fast, then the real render)**
 
 Run: `.venv/bin/python -m pytest tests/shorted/test_render.py -q && .venv/bin/python -m pytest tests/shorted/test_render.py -q -m slow`
-Expected: 3 tests pass, then the slow one (a real Remotion render of the sample's short cut, about 2 minutes). Play `renders/EXM_short_1080x1920_captioned.mp4` from the test's temporary folder (pytest prints its path on failure; add `-s` and `print(pd)` to keep it). Watch for page turns on each scene change, the caption underline moving with the voice track, and the caveat label on the chart scene.
+Expected: 142 tests pass (one slow test skipped), then the slow one (a real Remotion render of the sample's short cut, about 2 minutes). Play `renders/EXM_short_1080x1920_captioned.mp4` from the test's temporary folder (pytest prints its path on failure; add `-s` and `print(pd)` to keep it). Watch for page turns on each scene change, the caption underline moving with the voice track, and the caveat label on the chart scene.
 
 - [ ] **Step 6: Commit**
 
@@ -17478,22 +18265,39 @@ git commit -m "feat(shorted): Remotion renders, stills and BT.709 mux with chapt
   - Thresholds: each line's figures exactly; every line heard (WER ≤ 0.5 in its window) and heard to its end; the cut's WER ≤ the takes' WER + 0.03; ≤ 20 characters/s, ≤ 42 characters per line, ≤ 4 words per short-cut page, −14 ± 1 LUFS, ≤ −1.0 dBTP, durations within `BOUNDS`, A/V within 0.1 s.
   - Tool `shorted_qa` (its `success` is the overall pass). It never raises for an incomplete run: with no `project_dir` folder, or with an artefact missing, half-written or unreadable, it returns `success=False` and an error that names the artefact. It catches `OSError`, `KeyError`, `ValueError`, `RuntimeError` (soundfile's `LibsndfileError`) and `subprocess.CalledProcessError` (ffprobe on a corrupt file).
 
+- After review (fix round 1), QA also fails what a header-only probe passes, and every check names the stage that can fix it:
+  - `run_qa` first removes any earlier `qa.json` and contact sheets; a cut with a timeline must have both videos listed and present, and its meta must have lines;
+  - per video: `decode` (ffmpeg decodes the whole file without a word on stderr), `video_vs_timeline` and `audio_vs_mix` (durations within `MAX_SYNC`), `av_sync` (durations and stream start times), `format` (H.264 High — `H264_PROFILES` also admits the stand-in renderer's Constrained Baseline —, the cut's size, 30 fps, yuv420p TV range, AAC 48 kHz stereo), `clean_loudness` (the clean video within 0.5 LU of the captioned one); the contact sheet fails if any scene's frame cannot be extracted;
+  - `render_current:<cut>`: `render.json` records the SHA-256 of each cut's timeline, meta and mix when it starts rendering that cut, and QA recomputes them; `number_audit` compares the whole fresh timeline and meta, naming the differing keys and scenes; `deliverables`: the three stills, each cut's SRT and VTT, and the chapters file when one is named;
+  - the per-line speech windows run on the captioned video's decoded audio; the caption speed rule covers the long cut's burned-in captions too, short word pages show for at least 0.2 s, a sidecar cue never wraps past two lines;
+  - `fix_in`: per-line speech findings `voice`, the cut-level WER gain `score`, duration `render` (`storyboard` when the timeline itself is out of bounds), loudness `score` or `render` by where it breaks, caption speed `storyboard` and structure `timeline`, `number_audit` `voice` when narration is stale;
+  - `execute` returns `success=False` for every expected failure, with timeouts on every ffprobe and ffmpeg call.
+
 - [ ] **Step 1: Write the failing tests**
 
 `tests/shorted/test_qa.py`:
 
 ```python
+import contextlib
 import json
+import re
+import shutil
 import subprocess
+from pathlib import Path
 
 import numpy as np
 import pytest
 import soundfile as sf
+from PIL import Image
 
 from tests.shorted import sample
+from tools.shorted import qa
 from tools.shorted.asr import normalize
 from tools.shorted.narration import MAX_LINE_WER
-from tools.shorted.qa import ShortedQA, caption_check, number_audit, run_qa, speech_checks, video_checks
+from tools.shorted.qa import (ShortedQA, caption_check, clean_checks, contact_sheet, deliverables, number_audit, render_current,
+                              run_qa, speech_checks, video_checks, videos_check)
+from tools.shorted.qa import PAD_BEFORE
+from tools.shorted.timeline import NO_CHAPTERS
 
 
 @pytest.fixture(scope="module")
@@ -17523,7 +18327,7 @@ def test_number_audit_passes_then_catches_an_edit(run):
 
 def test_spoken_figures_catch_a_dropped_figure(run):
     figs, _ = speech_checks(run, "short", heard_as(lambda s: s.replace("216.5", "", 1)))
-    assert not figs["ok"] and figs["fix_in"] == "score"
+    assert not figs["ok"] and figs["fix_in"] == "voice"  # the line to rephrase or take again
     assert "216.5 million" in [f for ln in figs["detail"]["lines"] for f in ln["missing"]]
     figs, score = speech_checks(run, "short", sample.fake_asr)
     assert figs["ok"] and score["ok"]
@@ -17540,7 +18344,7 @@ def test_spoken_figures_catch_a_changed_scale_or_sign(run):
 def test_a_line_lost_in_the_mix_fails_wer(run):
     lost = json.loads((run / "artifacts/narration.json").read_text())["long"]["L001"]["spoken"]  # said once in the long cut
     _, score = speech_checks(run, "long", lambda path, spoken: [] if spoken == lost else sample.fake_asr(path, spoken))
-    assert not score["ok"] and score["detail"]["unheard"] == ["L001"]
+    assert not score["ok"] and score["detail"]["unheard"] == ["L001"] and score["fix_in"] == "voice"  # the line to take again
     assert score["detail"]["wer"] <= score["detail"]["takes_wer"] + 0.03  # the cut's own average would have passed
     assert score["detail"]["worst"] == [{"id": "L001", "wer": 1.0, "heard": ""}]
     assert score["detail"]["ending_missing"] == []  # a line not heard at all is listed once, as unheard
@@ -17550,13 +18354,15 @@ def test_a_line_cut_short_in_the_mix_fails_wer(run):
     cut_short = heard_as(lambda s: " ".join(s.split()[:-2]) if s.startswith("Short interest stands") else s)
     _, score = speech_checks(run, "short", cut_short)
     assert not score["ok"] and score["detail"]["ending_missing"] == ["L001"] and score["detail"]["unheard"] == []
+    assert score["fix_in"] == "voice"
     assert score["detail"]["wer"] <= score["detail"]["takes_wer"] + 0.03  # two words of the cut's 184: within tolerance
 
 
 def test_wer_allows_a_word_but_not_a_word_a_line(run):
     every = heard_as(lambda s: s + " indeed")
     _, score = speech_checks(run, "short", every)
-    assert not score["ok"] and score["detail"]["unheard"] == []
+    assert not score["ok"] and score["detail"]["unheard"] == [] and score["detail"]["ending_missing"] == []
+    assert score["fix_in"] == "score"  # no line to take again: the cut as a whole has drifted from its takes
     lines = json.loads((run / "artifacts/timeline.short.meta.json").read_text())["lines"]
     takes = json.loads((run / "artifacts/narration.json").read_text())["short"]
     words = sum(len(normalize(takes[ln["id"]]["spoken"])) for ln in lines)
@@ -17694,6 +18500,1140 @@ def test_full_qa_passes_on_a_stand_in_render(run):
     report = run_qa(run, asr=sample.fake_asr)
     assert report["overall"] == "pass", json.dumps(report, indent=1)[:3000]
     assert (run / "renders/contact.long.jpg").exists()
+
+
+# The contact sheet is best effort, and every artefact the checks index into has its shape checked.
+
+
+def tiny_video(path, seconds, dead=False):
+    """A solid-colour H.264 clip. With dead=True its media data is zeroed: ffprobe still reads the header and no frame
+    decodes."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", f"color=c=0x1F3B33:s=96x160:r=30:d={seconds}",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(path)],
+                   check=True)
+    if dead:
+        data = path.read_bytes()
+        start = data.index(b"mdat") + 4
+        path.write_bytes(data[:start] + bytes(len(data) - start))
+    return path
+
+
+def tiny_cut(pd, spans):
+    """artifacts/timeline.short.json with a scene for each (start, end) span: all the contact sheet reads."""
+    (pd / "artifacts").mkdir(parents=True, exist_ok=True)
+    scenes = [{"id": f"s{i}", "start": a, "end": b, "props": {}} for i, (a, b) in enumerate(spans)]
+    (pd / "artifacts/timeline.short.json").write_text(json.dumps({"scenes": scenes, "captions": []}))
+
+
+@contextlib.contextmanager
+def replaced(path, text):
+    """path holds `text` inside the block, and afterwards what it held before (or nothing)."""
+    original = path.read_text() if path.exists() else None
+    path.write_text(text)
+    try:
+        yield
+    finally:
+        if original is None:
+            path.unlink(missing_ok=True)
+        else:
+            path.write_text(original)
+
+
+def test_a_video_shorter_than_its_timeline_still_gets_a_contact_sheet(tmp_path):
+    tiny_cut(tmp_path, [(i * 10.0, i * 10.0 + 10.0) for i in range(6)])  # scene midpoints at 5 s, 15 s ... 55 s
+    video = tiny_video(tmp_path / "renders/EXM_short_1080x1920_captioned.mp4", 3)  # the video ends at 3 s
+    sheet = contact_sheet(tmp_path, "short", video)
+    assert sheet == tmp_path / "renders/contact.short.jpg" and not (tmp_path / "renders/_contact").exists()
+    with Image.open(sheet) as im:
+        assert im.size == (5 * 480, 2 * 800)  # six tiles, five to a row
+        centre = lambda n: im.getpixel(((n % 5) * 480 + 240, (n // 5) * 800 + 400))
+        assert all(sum(centre(n)) < 300 for n in range(6))  # a frame in each scene's tile: the last one, for those past the end
+        assert min(centre(6)) > 250  # and the tile after them is the sheet's white
+
+
+@pytest.mark.parametrize("seconds", [1.5, 2.0])
+def test_the_seek_limit_is_floored_to_the_millisecond(tmp_path, seconds):
+    """The last frame of a 1.5 s clip is at 1.4667 s, and a limit rounded to 1.467 s finds no frame there."""
+    tiny_cut(tmp_path, [(0.0, 60.0)])
+    video = tiny_video(tmp_path / "renders/EXM_short_1080x1920_captioned.mp4", seconds)
+    skipped = []
+    assert contact_sheet(tmp_path, "short", video, skipped).exists() and skipped == []
+
+
+def test_a_frame_ffmpeg_cannot_extract_is_skipped(tmp_path, monkeypatch):
+    tiny_cut(tmp_path, [(0.0, 1.0), (1.0, 2.0), (2.0, 3.0), (10.0, 20.0)])  # midpoints 0.5 s, 1.5 s, 2.5 s and 15 s
+    video = tiny_video(tmp_path / "renders/EXM_short_1080x1920_captioned.mp4", 3)
+    real = subprocess.run
+
+    def nothing_after_a_second(cmd, *args, **kwargs):  # ffmpeg writes no frame for a seek past 1 s
+        if cmd[0] == "ffmpeg" and float(cmd[cmd.index("-ss") + 1]) > 1.0:
+            return subprocess.CompletedProcess(cmd, 69, b"", b"Nothing was written into output file")
+        return real(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", nothing_after_a_second)
+    skipped = []
+    sheet = contact_sheet(tmp_path, "short", video, skipped)
+    assert skipped == ["s1", "s2", "s3"] and sheet.exists() and not (tmp_path / "renders/_contact").exists()
+    with Image.open(sheet) as im:
+        assert sum(im.getpixel((240, 400))) < 300  # the one frame that came is in the first tile
+    assert qa._contact_check(tmp_path, "short", video) == {  # a scene with no frame is a video that does not decode there: it fails
+        "ok": False, "detail": "renders/contact.short.jpg (no frame for s1, s2, s3)", "fix_in": "render"}
+
+
+def test_a_video_with_no_extractable_frame_fails_and_leaves_nothing_behind(tmp_path):
+    tiny_cut(tmp_path, [(0.0, 10.0), (10.0, 20.0)])
+    video = tiny_video(tmp_path / "renders/EXM_short_1080x1920_captioned.mp4", 3, dead=True)
+    earlier = tmp_path / "renders/contact.short.jpg"
+    earlier.write_bytes(b"the sheet of an earlier run")
+    skipped = []
+    with pytest.raises(ValueError, match="no frame could be extracted"):
+        contact_sheet(tmp_path, "short", video, skipped)
+    assert skipped == ["s0", "s1"]
+    assert not (tmp_path / "renders/_contact").exists() and not earlier.exists()  # no scratch folder, no stale sheet
+
+
+def test_a_failed_contact_sheet_is_a_failed_check_and_the_report_is_still_written(run):
+    qa_json = run / "artifacts/qa.json"
+    video = tiny_video(run / "renders/EXM_short_dead_captioned.mp4", 70, dead=True)  # in bounds, but no frame decodes
+    try:
+        with replaced(run / "artifacts/render.json", json.dumps({"videos": [str(video.relative_to(run))]})):
+            report = run_qa(run, asr=sample.fake_asr)
+        sheet = report["cuts"]["short"]["contact_sheet"]
+        assert not sheet["ok"] and sheet["fix_in"] == "render" and str(video.relative_to(run)) in sheet["detail"]
+        assert report["overall"] == "fail" and json.loads(qa_json.read_text()) == report  # every check that ran is in the file
+        assert {"number_audit", "spoken_figures", "wer", "captions"} <= set(report["cuts"]["long"])
+        assert f"loudness:{video.stem}" in report["cuts"]["short"] and not (run / "renders/_contact").exists()
+    finally:
+        video.unlink(missing_ok=True)
+        qa_json.unlink(missing_ok=True)
+
+
+@pytest.mark.slow
+def test_a_render_cut_short_fails_duration_and_sync_but_still_gets_a_contact_sheet(run, tmp_path):
+    from tools.shorted.render import render_all
+
+    pd = tmp_path / run.name  # a copy without the long cut, the music and the takes: the short renders in seconds
+    shutil.copytree(run, pd, ignore=shutil.ignore_patterns("music", "takes", "lines", "mix.long.wav", "*.mp4"))
+    for name in ("timeline.long.json", "timeline.long.meta.json"):
+        (pd / "artifacts" / name).unlink()
+    render_all(pd, remotion=sample.fake_remotion)
+    video, stopped = pd / "renders/EXM_short_1080x1920_captioned.mp4", pd / "renders/stopped.mp4"
+    # A render that stopped early: its video ends at 20 s and its audio at 30 s.
+    # (A plain -c copy cut would leave the two within 0.1 s, and av_sync would pass.)
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-t", "20", "-i", str(video), "-t", "30", "-i", str(video),
+                    "-map", "0:v", "-map", "1:a", "-c", "copy", str(stopped)], check=True)
+    stopped.replace(video)
+    report = run_qa(pd, asr=sample.fake_asr)
+    checks = report["cuts"]["short"]
+    assert report["overall"] == "fail" and json.loads((pd / "artifacts/qa.json").read_text()) == report
+    assert not checks[f"duration:{video.stem}"]["ok"] and not checks[f"av_sync:{video.stem}"]["ok"]
+    assert checks["contact_sheet"]["ok"] and (pd / "renders/contact.short.jpg").exists()
+    assert not (pd / "renders/_contact").exists()
+
+
+@pytest.mark.parametrize("body", [
+    pytest.param("[]", id="list"), pytest.param("null", id="null"), pytest.param('"x"', id="string"),
+    pytest.param('{"videos": null}', id="videos-null"), pytest.param('{"videos": [7]}', id="videos-not-strings"),
+    pytest.param('{"videos": [], "stills": "x"}', id="stills-not-a-list"),
+    pytest.param('{"videos": [], "stills": [1]}', id="stills-not-strings"),
+    pytest.param('{"videos": [], "inputs": []}', id="inputs-a-list"),
+    pytest.param('{"videos": [], "inputs": {"short": {"timeline_sha256": 5, "meta_sha256": "a", "mix_sha256": "b"}}}',
+                 id="hash-not-a-string"),
+    pytest.param('{"videos": [], "inputs": {"short": {"timeline_sha256": "a"}}}', id="hash-missing")])
+def test_a_render_report_of_the_wrong_shape_is_reported_not_raised(run, body, monkeypatch):
+    # a regression then fails fast, instead of running Whisper over every line
+    monkeypatch.setattr("tools.shorted.qa.run_qa", lambda pd: run_qa(pd, asr=sample.fake_asr))
+    with replaced(run / "artifacts/render.json", body):
+        res = ShortedQA().execute({"project_dir": str(run)})
+    assert not res.success and res.error.startswith("QA could not run: ValueError: artifacts/render.json: ")
+
+
+def test_the_tool_catches_a_type_error_as_its_last_line(run, monkeypatch):
+    def broken(pd):
+        raise TypeError("'NoneType' object is not subscriptable")
+
+    monkeypatch.setattr("tools.shorted.qa.run_qa", broken)
+    res = ShortedQA().execute({"project_dir": str(run)})
+    assert not res.success and "TypeError" in res.error
+
+
+def top(**changes):
+    """An edit of an object artefact's text: these top-level keys replaced."""
+    return lambda text: json.dumps({**json.loads(text), **changes})
+
+
+def edited(change):
+    """An edit of an artefact's text: `change` alters the parsed JSON in place."""
+    def edit(text):
+        data = json.loads(text)
+        change(data)
+        return json.dumps(data)
+    return edit
+
+
+CHECKS = {"caption_check": lambda run: caption_check(run, "short"), "number_audit": lambda run: number_audit(run, "short"),
+          "speech_checks": lambda run: speech_checks(run, "short", sample.fake_asr)}
+SHAPES = [  # (artefact, how it is broken, the check that reads it, what the error says)
+    pytest.param("timeline.short.json", lambda t: "[]", "caption_check", "must be a JSON object, not a list", id="timeline-list"),
+    pytest.param("timeline.short.json", top(scenes=None), "number_audit", "scenes must be a list, not null", id="scenes-null"),
+    pytest.param("timeline.short.json", edited(lambda d: d["scenes"][0].update(props=None)), "number_audit",
+                 "scenes[0].props must be a JSON object, not null", id="scene-props-null"),
+    pytest.param("timeline.short.json", top(captions=[{"text": None}]), "caption_check",
+                 "captions[0].text must be a string, not null", id="caption-text-null"),
+    pytest.param("timeline.short.meta.json", top(lines=None), "speech_checks", "lines must be a list, not null", id="lines-null"),
+    pytest.param("timeline.short.meta.json", edited(lambda d: d["lines"][0].update(start=None)), "speech_checks",
+                 "lines[0].start must be a number, not null", id="line-start-null"),
+    pytest.param("timeline.short.meta.json", top(cues=[{"start": 0, "end": 1}]), "caption_check",
+                 "cues[0].text is missing", id="cue-without-text"),
+    pytest.param("narration.json", lambda t: "[]", "speech_checks", "must be a JSON object, not a list", id="narration-list"),
+    pytest.param("narration.json", top(short={"L000": {"spoken": 1, "wer": 0}}), "speech_checks",
+                 "short.L000.spoken must be a string, not a number", id="take-spoken-number"),
+    pytest.param("dossier.json", lambda t: "[]", "number_audit", "must be a JSON object, not a list", id="dossier-list"),
+    pytest.param("storyboard.short.json", top(chapters=None), "number_audit", "chapters must be a list, not null",
+                 id="chapters-null"),
+    pytest.param("timeline.short.meta.json", edited(lambda d: d.pop("duration")), "caption_check", "duration is missing",
+                 id="meta-duration-missing"),
+    pytest.param("timeline.short.meta.json", edited(lambda d: d["lines"][0].update(start=True)), "speech_checks",
+                 "lines[0].start must be a number, not a boolean", id="line-start-boolean"),
+    pytest.param("dossier.json", edited(lambda d: d.pop("ticker")), "number_audit", "ticker is missing", id="dossier-ticker-missing")]
+
+
+@pytest.mark.parametrize("name, break_it, check, says", SHAPES)
+def test_an_artefact_of_the_wrong_shape_is_a_value_error_naming_it(run, name, break_it, check, says):
+    path = run / "artifacts" / name
+    with replaced(path, break_it(path.read_text())):
+        with pytest.raises(ValueError, match=re.escape(f"artifacts/{name}: ") + ".*" + re.escape(says)):
+            CHECKS[check](run)
+
+
+# ---- every rule fails on its own: real clips for the video checks, then the rest -----------------------------------------
+
+
+def ffmpeg(*args):
+    subprocess.run(["ffmpeg", "-y", "-nostdin", "-v", "error", *args], check=True)
+
+
+GOOD_VIDEO = ("-c:v", "libx264", "-preset", "veryfast", "-profile:v", "high", "-pix_fmt", "yuv420p")
+FAST_VIDEO = ("-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p")
+GOOD_AUDIO = ("-c:a", "aac", "-b:a", "256k")
+CAPTIONED = "EXM_short_1080x1920_captioned"
+
+
+class Lab:
+    """Small real clips for the video checks: a short-cut clip that meets the encoding contract, and one thing wrong at a time.
+    The picture is encoded once per (length, size, rate, encoder) and re-muxed with the tags and audio each clip asks for."""
+
+    def __init__(self, root):
+        self.root = root
+        (root / "renders").mkdir(parents=True, exist_ok=True)
+        self._raw = {}
+
+    def raw(self, seconds, size, fps, vargs):
+        key = (seconds, size, fps, vargs)
+        if key not in self._raw:
+            self._raw[key] = self.root / f"raw{len(self._raw)}.mp4"
+            ffmpeg("-f", "lavfi", "-i", f"color=c=0x1F3B33:s={size}:r={fps}:d={seconds}", *vargs, str(self._raw[key]))
+        return self._raw[key]
+
+    def tone(self, path, lufs, seconds, rate=48000, channels=2, click=None):
+        """A 997 Hz sine at an integrated loudness; click is the dBFS of a three-sample burst, which sets the true peak."""
+        import pyloudnorm as pyln
+
+        t = np.arange(int(seconds * rate)) / rate
+        y = np.tile(np.sin(2 * np.pi * 997 * t)[:, None], (1, channels))
+        y = y * 10 ** ((lufs - pyln.Meter(rate).integrated_loudness(y)) / 20)
+        if click is not None:
+            y[rate // 2: rate // 2 + 3] = 10 ** (click / 20)
+        sf.write(path, y.astype(np.float32), rate, subtype="FLOAT")
+        return path
+
+    def clip(self, name=CAPTIONED, *, seconds=2.0, size="1080x1920", fps=30, vargs=GOOD_VIDEO, tags=("bt709",) * 3, rng="tv",
+             audio=True, lufs=-14.0, click=None, a_rate=48000, a_channels=2, a_args=GOOD_AUDIO, a_seconds=None,
+             v_start=0.0, a_start=0.0):
+        out = self.root / "renders" / f"{name}.mp4"
+        cmd = ["-itsoffset", str(v_start), "-i", str(self.raw(seconds, size, fps, vargs))]
+        if audio:
+            wav = self.tone(self.root / f"{name}.wav", lufs, a_seconds or seconds, a_rate, a_channels, click)
+            cmd += ["-itsoffset", str(a_start), "-i", str(wav)]
+        cmd += ["-map", "0:v", *(["-map", "1:a"] if audio else []), "-c:v", "copy", "-color_primaries", tags[0], "-color_trc", tags[1],
+                "-colorspace", tags[2], "-color_range", rng]
+        if audio:
+            cmd += [*a_args, "-ar", str(a_rate), "-ac", str(a_channels)]
+        ffmpeg(*cmd, "-movflags", "+faststart", str(out))
+        return out
+
+    def checks(self, clip, cut="short", **kw):
+        return video_checks(self.root, cut, {"videos": [str(clip.relative_to(self.root))]}, **kw)
+
+
+@pytest.fixture(scope="module")
+def lab(tmp_path_factory):
+    return Lab(tmp_path_factory.mktemp("lab"))
+
+
+def failing(checks):
+    return sorted(name.split(":")[0] for name, c in checks.items() if not c["ok"])
+
+
+def test_a_clip_that_meets_the_contract_passes_every_video_check_but_the_length_of_a_two_second_clip(lab):
+    checks = lab.checks(lab.clip())
+    assert sorted(c.split(":")[0] for c in checks) == ["av_sync", "colour", "decode", "duration", "format", "loudness"]
+    assert failing(checks) == ["duration"]  # two seconds is not a short cut
+    assert checks[f"duration:{CAPTIONED}"] == {"ok": False, "detail": {"seconds": 2.0, "bounds": [60.0, 90.0]}, "fix_in": "render"}
+
+
+@pytest.mark.parametrize("lufs, ok", [(-14.0, True), (-14.8, True), (-13.2, True), (-15.3, False), (-12.7, False), (-20.0, False)])
+def test_loudness_is_minus_14_within_one_lu_on_both_sides(lab, lufs, ok):
+    check = lab.checks(lab.clip(lufs=lufs))[f"loudness:{CAPTIONED}"]
+    assert check["ok"] is ok and abs(check["detail"]["lufs"] - lufs) < 0.3, check
+
+
+@pytest.mark.parametrize("click, ok", [(-3.0, True), (-0.3, False)])
+def test_true_peak_must_stay_under_minus_one_dbtp_whatever_the_loudness(lab, click, ok):
+    check = lab.checks(lab.clip(click=click))[f"loudness:{CAPTIONED}"]
+    assert abs(check["detail"]["lufs"] + 14.0) < 0.3  # the loudness is in range either way: only the peak decides
+    assert check["ok"] is ok and (check["detail"]["true_peak_dbtp"] <= -1.0) is ok, check
+
+
+@pytest.mark.parametrize("tags, off", [
+    (("bt709",) * 3, []), (("bt470bg", "bt709", "bt709"), ["color_primaries"]),
+    (("bt709", "smpte170m", "bt709"), ["color_transfer"]), (("bt709", "bt709", "bt470bg"), ["color_space"])])
+def test_each_of_the_three_colour_tags_is_checked_on_its_own(lab, tags, off):
+    check = lab.checks(lab.clip(tags=tags))[f"colour:{CAPTIONED}"]
+    assert check["ok"] is (not off) and check["fix_in"] == "render"
+    assert [k for k, v in check["detail"].items() if v != "bt709"] == off
+
+
+@pytest.mark.parametrize("seconds, ok", [(59.0, False), (60.0, True), (90.0, True), (91.0, False)])
+def test_duration_is_in_bounds_at_both_edges(lab, seconds, ok):
+    clip = lab.clip(seconds=seconds, size="96x160", vargs=FAST_VIDEO, audio=False)  # video only: the container is exactly this long
+    assert lab.checks(clip)[f"duration:{CAPTIONED}"]["ok"] is ok
+
+
+def test_a_long_cut_has_its_own_bounds(lab):
+    clip = lab.clip("EXM_long_1920x1080_captioned", seconds=75.0, size="96x160", vargs=FAST_VIDEO, audio=False)
+    assert lab.checks(clip, "long")["duration:EXM_long_1920x1080_captioned"]["ok"] is False  # 270 to 330 s
+
+
+def test_a_duration_out_of_bounds_is_the_storyboards_only_when_the_timeline_is_out_of_bounds_too(lab):
+    clip = lab.clip(seconds=50.0, size="96x160", vargs=FAST_VIDEO, audio=False)
+    assert lab.checks(clip)[f"duration:{CAPTIONED}"]["fix_in"] == "render"  # no timeline length given
+    assert lab.checks(clip, meta_seconds=75.0)[f"duration:{CAPTIONED}"]["fix_in"] == "render"  # the timeline is fine: the render is short
+    assert lab.checks(clip, meta_seconds=50.0)[f"duration:{CAPTIONED}"]["fix_in"] == "storyboard"  # the cut itself is too short
+    assert lab.checks(clip, meta_seconds=95.0)[f"duration:{CAPTIONED}"]["fix_in"] == "storyboard"  # and too long
+
+
+def test_the_video_and_audio_are_as_long_as_the_timeline_and_the_mix(lab):
+    clip = lab.clip(seconds=3.0)
+    ok = lab.checks(clip, meta_seconds=3.05, mix_seconds=2.95)
+    assert ok[f"video_vs_timeline:{CAPTIONED}"] == {"ok": True, "detail": {"video": 3.0, "timeline": 3.05}, "fix_in": "render"}
+    assert ok[f"audio_vs_mix:{CAPTIONED}"] == {"ok": True, "detail": {"audio": 3.0, "mix": 2.95}, "fix_in": "render"}
+    off = lab.checks(clip, meta_seconds=3.2, mix_seconds=3.2)
+    assert not off[f"video_vs_timeline:{CAPTIONED}"]["ok"] and not off[f"audio_vs_mix:{CAPTIONED}"]["ok"]
+    only_video = lab.checks(clip, meta_seconds=3.2, mix_seconds=3.0)  # each stream against its own reference
+    assert not only_video[f"video_vs_timeline:{CAPTIONED}"]["ok"] and only_video[f"audio_vs_mix:{CAPTIONED}"]["ok"]
+    only_audio = lab.checks(clip, meta_seconds=3.0, mix_seconds=3.2)
+    assert only_audio[f"video_vs_timeline:{CAPTIONED}"]["ok"] and not only_audio[f"audio_vs_mix:{CAPTIONED}"]["ok"]
+    assert not any(k.startswith(("video_vs_timeline", "audio_vs_mix")) for k in lab.checks(clip))  # the references are optional
+
+
+FORMATS = [  # (what is different, the clip's options, what the format check names)
+    pytest.param({}, [], id="meets-the-contract"),
+    pytest.param(dict(size="1920x1080"), ["size"], id="size"),
+    pytest.param(dict(fps=24), ["fps"], id="fps"),
+    pytest.param(dict(vargs=("-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv444p")), ["profile", "pix_fmt"], id="yuv444p"),
+    pytest.param(dict(vargs=("-c:v", "mpeg4", "-q:v", "5", "-pix_fmt", "yuv420p")), ["codec", "profile"], id="mpeg4"),
+    pytest.param(dict(vargs=("-c:v", "libx264", "-preset", "veryfast", "-profile:v", "main", "-pix_fmt", "yuv420p")), ["profile"],
+                 id="main"),
+    pytest.param(dict(rng="pc"), ["pix_fmt", "range"], id="full-range"),  # ffprobe reports a full-range stream as yuvj420p
+    pytest.param(dict(a_rate=44100), ["audio_rate"], id="audio-44.1k"),
+    pytest.param(dict(a_channels=1), ["channels"], id="audio-mono"),
+    pytest.param(dict(a_args=("-c:a", "mp2", "-b:a", "192k")), ["audio_codec"], id="audio-not-aac"),
+]
+
+
+@pytest.mark.parametrize("options, wrong", FORMATS)
+def test_the_encoding_contract_is_checked_field_by_field(lab, options, wrong):
+    check = lab.checks(lab.clip(**options))[f"format:{CAPTIONED}"]
+    assert check["ok"] is (not wrong) and check["detail"]["wrong"] == wrong and check["fix_in"] == "render"
+
+
+def test_the_stand_in_renderers_constrained_baseline_passes_until_the_profile_is_tightened(lab, monkeypatch):
+    clip = lab.clip(vargs=FAST_VIDEO)  # preset ultrafast: what sample.fake_remotion encodes
+    check = lab.checks(clip)[f"format:{CAPTIONED}"]
+    assert check["ok"] and check["detail"]["found"]["profile"] == "Constrained Baseline"
+    monkeypatch.setattr(qa, "H264_PROFILES", ("High",))  # the plan's H.264 High, strictly
+    assert lab.checks(clip)[f"format:{CAPTIONED}"]["detail"]["wrong"] == ["profile"]
+
+
+def test_a_stream_that_starts_late_is_out_of_sync_even_when_the_lengths_agree(lab):
+    for name, options in (("audio", dict(a_start=0.5)), ("video", dict(v_start=0.5))):
+        sync = lab.checks(lab.clip(**options))[f"av_sync:{CAPTIONED}"]
+        assert not sync["ok"] and sync["fix_in"] == "render", name
+        assert abs(float(sync["detail"][f"{name}_start"]) - 0.5) < 0.05
+
+
+@pytest.mark.parametrize("v, a, ok", [
+    ({"duration": "10.000", "start_time": "0.000"}, {"duration": "10.050", "start_time": "0.020"}, True),
+    ({"duration": "10.000", "start_time": "0.000"}, {"duration": "10.150", "start_time": "0.000"}, False),  # lengths 0.15 apart
+    ({"duration": "10.000", "start_time": "0.150"}, {"duration": "10.000", "start_time": "0.000"}, False),  # video starts late
+    ({"duration": "10.000", "start_time": "0.000"}, {"duration": "10.000", "start_time": "0.150"}, False),  # audio starts late
+    ({"duration": "10.000", "start_time": "0.080"}, {"duration": "10.000", "start_time": "-0.080"}, False),  # each within 0.1 of 0
+    ({"duration": "10.000", "start_time": "0.180"}, {"duration": "10.000", "start_time": "0.090"}, False),  # only the video is over 0.1
+    ({"duration": "10.000", "start_time": "0.090"}, {"duration": "10.000", "start_time": "0.180"}, False),  # only the audio is
+    ({"duration": "10.000", "start_time": "0.150"}, {"duration": "10.000", "start_time": "0.150"}, False),  # together, but late
+    ({"duration": "10.000"}, {"duration": "10.000"}, True)])  # a container with no start_time starts at 0
+def test_every_part_of_av_sync_fails_on_its_own(v, a, ok):
+    assert qa._sync_check(v, a, "x.mp4")["ok"] is ok
+
+
+def test_av_sync_needs_both_streams():
+    stream = {"duration": "10.000", "start_time": "0.000"}
+    for check in (qa._sync_check(None, stream, "x.mp4"), qa._sync_check(stream, None, "x.mp4")):
+        assert not check["ok"] and check["fix_in"] == "render"
+    assert qa._sync_check(stream, None, "x.mp4")["detail"] == {
+        "video": "10.000", "audio": None, "video_start": "0.000", "audio_start": None}
+
+
+def test_a_good_file_decodes_and_a_damaged_one_does_not(lab):
+    good = lab.clip(seconds=3.0)
+    assert lab.checks(good)[f"decode:{CAPTIONED}"]["ok"]
+    data = good.read_bytes()
+    damaged = {"truncated": data[: int(len(data) * 0.6)], "half-zeroed": data[: len(data) // 2] + bytes(len(data) - len(data) // 2),
+               "zeroed-media": data[: data.index(b"mdat") + 4] + bytes(len(data) - data.index(b"mdat") - 4)}
+    for what, blob in damaged.items():
+        good.write_bytes(blob)
+        decode = lab.checks(good)[f"decode:{CAPTIONED}"]
+        assert not decode["ok"] and decode["fix_in"] == "render" and decode["detail"]["errors"], what
+
+
+def test_a_container_without_a_video_stream_fails_checks_instead_of_raising(lab):
+    clip = lab.clip(seconds=3.0)
+    ffmpeg("-i", str(clip), "-vn", "-c:a", "copy", "-f", "ipod", str(clip.with_name("EXM_short_1080x1920_clean.mp4")))
+    audio_only = clip.with_name("EXM_short_1080x1920_clean.mp4")
+    checks = lab.checks(audio_only, meta_seconds=3.0, mix_seconds=3.0)
+    name = audio_only.stem
+    assert not checks[f"av_sync:{name}"]["ok"] and not checks[f"colour:{name}"]["ok"] and not checks[f"format:{name}"]["ok"]
+    assert checks[f"video_vs_timeline:{name}"] == {"ok": False, "detail": "no video stream", "fix_in": "render"}
+    assert checks[f"audio_vs_mix:{name}"]["ok"] and checks[f"decode:{name}"]["ok"]
+
+
+def test_a_video_with_no_audio_stream_has_no_length_to_match(lab):
+    clip = lab.clip(seconds=3.0, audio=False)
+    checks = lab.checks(clip, meta_seconds=3.0, mix_seconds=3.0)
+    assert checks[f"audio_vs_mix:{CAPTIONED}"] == {"ok": False, "detail": "no audio stream", "fix_in": "render"}
+    assert checks[f"loudness:{CAPTIONED}"] == {"ok": False, "detail": "no audio stream", "fix_in": "render"}
+
+
+def test_a_loudness_failure_is_the_scores_when_the_mix_is_out_of_spec_and_the_renders_when_it_is_not(lab):
+    quiet = lab.clip(lufs=-20.0, seconds=3.0)
+    wav = lab.root / "assets/audio/mix.short.wav"
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    lab.tone(wav, -20.0, 3.0)  # the mix is as quiet as the video: the score stage made it so
+    assert lab.checks(quiet)[f"loudness:{CAPTIONED}"]["fix_in"] == "score"
+    lab.tone(wav, -14.0, 3.0)  # the mix is right and the video is not: the mux or the render
+    assert lab.checks(quiet)[f"loudness:{CAPTIONED}"]["fix_in"] == "render"
+    lab.tone(wav, -14.0, 3.0, click=-0.3)  # a hot peak in the mix is the score stage's too
+    assert lab.checks(quiet)[f"loudness:{CAPTIONED}"]["fix_in"] == "score"
+    wav.unlink()  # no mix at all: the score stage has not made one
+    assert lab.checks(quiet)[f"loudness:{CAPTIONED}"]["fix_in"] == "score"
+
+
+def test_a_passing_loudness_check_never_measures_the_mix(lab, monkeypatch):
+    clip, calls, real = lab.clip(seconds=3.0), [], qa.ebur128
+    wav = lab.root / "assets/audio/mix.short.wav"
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    lab.tone(wav, -20.0, 3.0)  # a mix is there to be measured, and out of spec: measuring it would send a pass to the score stage
+    monkeypatch.setattr(qa, "ebur128", lambda path: calls.append(Path(path).name) or real(path))
+    checks = lab.checks(clip)
+    wav.unlink()
+    assert calls == [f"{CAPTIONED}.mp4"] and checks[f"loudness:{CAPTIONED}"]["fix_in"] == "render"
+
+
+def test_every_ffmpeg_and_ffprobe_call_has_a_timeout(lab, monkeypatch):
+    clip, seen, real = lab.clip(seconds=3.0, lufs=-20.0), [], subprocess.run
+    wav = lab.root / "assets/audio/mix.short.wav"
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    lab.tone(wav, -20.0, 3.0)
+    monkeypatch.setattr(subprocess, "run", lambda cmd, *a, **kw: seen.append((cmd[0], kw.get("timeout"))) or real(cmd, *a, **kw))
+    lab.checks(clip, meta_seconds=3.0, mix_seconds=3.0)  # the loudness failure also measures the mix
+    wav.unlink()
+    assert [tool for tool, _ in seen] == ["ffprobe", "ffmpeg", "ffmpeg", "ffmpeg"]  # probe, decode, loudness, the mix's loudness
+    assert all(isinstance(t, (int, float)) and 0 < t <= 3600 for _, t in seen), seen
+
+
+def test_a_decode_that_hangs_fails_its_check_and_a_probe_that_hangs_names_the_file(lab, monkeypatch):
+    clip = lab.clip(seconds=3.0)
+    real = subprocess.run
+
+    def hang(is_the_call):
+        def run(cmd, *a, **kw):
+            if is_the_call(cmd):
+                raise subprocess.TimeoutExpired(cmd, kw["timeout"])
+            return real(cmd, *a, **kw)
+        return run
+
+    monkeypatch.setattr(subprocess, "run", hang(lambda cmd: cmd[0] == "ffmpeg" and "-af" not in cmd))  # the decode, not ebur128
+    decode = lab.checks(clip)[f"decode:{CAPTIONED}"]
+    assert not decode["ok"] and "took over" in decode["detail"] and decode["fix_in"] == "render"
+    monkeypatch.setattr(subprocess, "run", hang(lambda cmd: cmd[0] == "ffprobe"))
+    with pytest.raises(RuntimeError, match=rf"ffprobe took over \d+ s on .*{CAPTIONED}\.mp4"):
+        lab.checks(clip)
+
+
+def test_a_listed_video_that_is_not_there_is_left_to_the_videos_check(lab):
+    video_checks_of_nothing = video_checks(lab.root, "short", {"videos": ["renders/EXM_short_1080x1920_gone.mp4"]})
+    assert video_checks_of_nothing == {}
+
+
+def test_a_duration_ffprobe_leaves_out_names_the_file():
+    with pytest.raises(ValueError, match=r"renders/x\.mp4: ffprobe reports no container duration"):
+        qa._seconds({"codec_type": "video"}, "container duration", "renders/x.mp4")
+    with pytest.raises(ValueError, match=r"renders/x\.mp4: ffprobe reports no start time"):
+        qa._start({"start_time": "soon"}, "renders/x.mp4")
+
+
+def hears_sound(path, spoken):
+    """A recogniser stand-in that hears the line unless its clip is silent, which is all a real one would do with silence."""
+    clip, _ = sf.read(path)
+    return sample.fake_asr(path, spoken) if clip.size and np.abs(clip).max() > 1e-3 else []
+
+
+@contextlib.contextmanager
+def captions_of(run, cut, cues=None, pages=None):
+    """The cut's sidecar cues (in its meta) and burned-in captions (in its timeline) replaced inside the block."""
+    meta, timeline = run / "artifacts" / f"timeline.{cut}.meta.json", run / "artifacts" / f"timeline.{cut}.json"
+    m, t = json.loads(meta.read_text()), json.loads(timeline.read_text())
+    if cues is not None:
+        m["cues"] = cues
+    if pages is not None:
+        t["captions"] = pages
+    with replaced(meta, json.dumps(m)), replaced(timeline, json.dumps(t)):
+        yield
+
+
+def cue(text, seconds, start=10.0):
+    return {"start": start, "end": start + seconds, "text": text}
+
+
+def page(text, start, end):
+    return {"start": start, "end": end, "text": text, "words": []}
+
+
+CUES = [  # (the cue, the key it fills in the detail, or None when it is fine, where the failure is fixed)
+    pytest.param(cue("x" * 40, 2.0), None, None, id="exactly-20-cps"),
+    pytest.param(cue("x" * 41, 2.0), "too_fast_cps", "storyboard", id="20.5-cps"),
+    pytest.param(cue("x" * 42, 4.0), None, None, id="a-42-character-line"),
+    pytest.param(cue("x" * 43, 4.0), "too_long", "timeline", id="a-43-character-line"),
+    pytest.param(cue(" ".join(["alpha"] * 12), 6.0), None, None, id="two-lines"),
+    pytest.param(cue(" ".join(["alpha"] * 15), 8.0), "too_many_lines", "timeline", id="three-lines-each-within-42")]
+
+
+@pytest.mark.parametrize("sidecar, key, fix_in", CUES)
+def test_each_rule_for_a_sidecar_cue_fails_on_its_own(run, sidecar, key, fix_in):
+    for cut in ("short", "long"):
+        with captions_of(run, cut, cues=[sidecar]):
+            check = caption_check(run, cut)
+        assert check["ok"] is (key is None), (cut, check)
+        if key:
+            assert check["fix_in"] == fix_in and check["detail"][key] and all(not v for k, v in check["detail"].items() if k != key)
+
+
+PAGES = [  # (cut, the burned-in page, the key it fills in the detail, or None, where the failure is fixed)
+    pytest.param("short", page("one two three four", 10.0, 11.0), None, None, id="short-four-words"),
+    pytest.param("short", page("one two three four five", 10.0, 11.0), "too_many_words", "timeline", id="short-five-words"),
+    pytest.param("short", page("one two", 10.0, 10.15), "too_brief", "timeline", id="short-shown-0.15-s"),
+    pytest.param("short", page("one two", 0.0, 0.2), None, None, id="short-shown-exactly-0.2-s"),
+    pytest.param("short", page("approximately thirteen million shares", 10.0, 10.3), None, None, id="short-word-pages-keep-no-speed"),
+    pytest.param("long", page("x" * 41, 5.0, 7.0), "too_fast_burned_cps", "storyboard", id="long-burned-in-20.5-cps"),
+    pytest.param("long", page("x" * 40, 5.0, 7.0), None, None, id="long-burned-in-exactly-20-cps"),
+    pytest.param("long", page("one two three four five", 5.0, 8.0), None, None, id="long-five-words"),
+    pytest.param("long", page("h", 5.0, 5.1), None, None, id="long-shown-0.1-s")]
+
+
+@pytest.mark.parametrize("cut, burned_in, key, fix_in", PAGES)
+def test_each_rule_for_a_burned_in_caption_fails_on_its_own(run, cut, burned_in, key, fix_in):
+    with captions_of(run, cut, pages=[burned_in]):
+        check = caption_check(run, cut)
+    assert check["ok"] is (key is None), check
+    if key:
+        assert check["fix_in"] == fix_in and check["detail"][key] and all(not v for k, v in check["detail"].items() if k != key)
+
+
+def test_a_caption_that_is_too_fast_and_too_wide_is_sent_to_the_storyboard_first(run):
+    with captions_of(run, "short", cues=[cue("x" * 41, 2.0), cue("x" * 43, 4.0)]):
+        check = caption_check(run, "short")
+    assert not check["ok"] and check["fix_in"] == "storyboard" and check["detail"]["too_long"] and check["detail"]["too_fast_cps"]
+
+
+TIMELINE_EDITS = [  # (what was changed in the shipped timeline, the change, the top-level key that then differs)
+    pytest.param(lambda t: [s.update(super=None) for s in t["scenes"]], "scenes", id="caveat-removed"),
+    pytest.param(lambda t: [s.update(start=s["start"] + 5, end=s["end"] + 5) for s in t["scenes"]], "scenes", id="times-shifted"),
+    pytest.param(lambda t: t["scenes"][1].update(type="list_card"), "scenes", id="scene-type"),
+    pytest.param(lambda t: t["scenes"][1].update(transition="cut"), "scenes", id="transition"),
+    pytest.param(lambda t: t["captions"][3].update(text="up 99.9 per cent"), "captions", id="caption-text"),
+    pytest.param(lambda t: t.update(durationInFrames=t["durationInFrames"] // 2), "durationInFrames", id="frames"),
+    pytest.param(lambda t: t.update(showCaptions=False), "showCaptions", id="captions-off"),
+    pytest.param(lambda t: t.update(ticker="ZZZ"), "ticker", id="ticker"),
+    pytest.param(lambda t: t.update(images={}), "images", id="images"),
+    pytest.param(lambda t: t.update(width=1920), "width", id="size")]
+
+
+@pytest.mark.parametrize("change, key", TIMELINE_EDITS)
+def test_the_whole_shipped_timeline_is_audited_not_only_the_props(run, change, key):
+    path = run / "artifacts/timeline.short.json"
+    with replaced(path, edited(change)(path.read_text())):
+        check = number_audit(run, "short")
+    assert not check["ok"] and check["fix_in"] == "timeline" and key in check["detail"]["keys_differ"], check
+    assert check["detail"]["props_differ"] == [] and check["detail"]["meta_differ"] == [] and check["detail"]["narration_stale"] == []
+    assert bool(check["detail"]["scenes_differ"]) is (key == "scenes")  # the scenes that differ are named
+
+
+def test_a_changed_figure_names_the_scene_and_the_key(run):
+    path = run / "artifacts/timeline.short.json"
+    original = json.loads(path.read_text())
+    card = next(s["id"] for s in original["scenes"] if s["type"] == "number_card")
+    with replaced(path, path.read_text().replace("A$216.5M", "A$216.4M", 1)):
+        check = number_audit(run, "short")
+    assert check["detail"]["props_differ"] == [card] and check["detail"]["scenes_differ"] == [card]
+    assert check["detail"]["keys_differ"] == ["scenes"]
+
+
+def test_a_scene_missing_from_the_shipped_timeline_is_a_scene_count(run):
+    path = run / "artifacts/timeline.short.json"
+    with replaced(path, edited(lambda t: t["scenes"].pop(2))(path.read_text())):
+        check = number_audit(run, "short")
+    assert not check["ok"] and "scene count" in check["detail"]["scenes_differ"] and check["detail"]["keys_differ"] == ["scenes"]
+
+
+META_EDITS = [
+    pytest.param(lambda m: m["cues"][0].update(text=m["cues"][0]["text"] + "!"), "cues", id="cue-text"),
+    pytest.param(lambda m: m["chapters"][0].update(title="Another"), "chapters", id="chapter-title"),
+    pytest.param(lambda m: m.update(duration=m["duration"] + 1), "duration", id="duration"),
+    pytest.param(lambda m: m["warnings"].append("something odd"), "warnings", id="warnings"),
+    pytest.param(lambda m: m["lines"][0]["words"][0].update(w="zzz"), "lines", id="aligned-words")]
+
+
+@pytest.mark.parametrize("change, key", META_EDITS)
+def test_the_whole_shipped_meta_is_audited_too(run, change, key):
+    path = run / "artifacts/timeline.short.meta.json"
+    with replaced(path, edited(change)(path.read_text())):
+        check = number_audit(run, "short")
+    assert not check["ok"] and check["fix_in"] == "timeline" and check["detail"]["meta_differ"] == [key], check
+    assert check["detail"]["keys_differ"] == []
+
+
+def test_a_long_cut_without_youtube_chapters_carries_the_warning_write_cut_gives_it(run, monkeypatch):
+    path = run / "artifacts/timeline.long.meta.json"
+    with replaced(path, edited(lambda m: m["warnings"].append(NO_CHAPTERS))(path.read_text())):
+        assert number_audit(run, "long")["detail"]["meta_differ"] == ["warnings"]  # the chapters are fine: the warning is out of place
+        monkeypatch.setattr(qa, "youtube_chapters", lambda chapters, duration: "")  # as for a run with fewer than three
+        assert number_audit(run, "long")["ok"]
+        assert number_audit(run, "short")["ok"]  # the short cut has no YouTube chapters either, and carries no such warning
+        monkeypatch.undo()
+    assert number_audit(run, "long")["ok"]  # restored, and a long cut that has its chapters carries no warning
+
+
+def test_stale_narration_is_the_voice_stages_even_when_the_timeline_differs_too(run):
+    narration, timeline = run / "artifacts/narration.json", run / "artifacts/timeline.short.json"
+    lid = next(k for k, v in json.loads(narration.read_text())["short"].items() if "216.5" in v["spoken"])
+    stale = edited(lambda n: n["short"][lid].update(spoken=n["short"][lid]["spoken"].replace("216.5", "216.4")))
+    with replaced(narration, stale(narration.read_text())):
+        only_narration = number_audit(run, "short")
+        with replaced(timeline, timeline.read_text().replace("A$216.5M", "A$216.4M", 1)):
+            both = number_audit(run, "short")
+    assert not only_narration["ok"] and only_narration["detail"]["narration_stale"] == [lid] and only_narration["fix_in"] == "voice"
+    assert both["detail"]["props_differ"] and both["detail"]["narration_stale"] == [lid] and both["fix_in"] == "voice"
+    assert number_audit(run, "short")["ok"]
+
+
+def test_a_cut_whose_files_are_current_passes_the_whole_audit(run):
+    for cut in ("short", "long"):
+        assert number_audit(run, cut) == {"ok": True, "fix_in": "timeline", "detail": {
+            "keys_differ": [], "scenes_differ": [], "props_differ": [], "meta_differ": [], "narration_stale": []}}
+
+
+def test_a_figure_added_to_a_line_is_extra_on_its_own(run):
+    figs, _ = speech_checks(run, "short", heard_as(lambda s: s + " 42"))
+    lines = figs["detail"]["lines"]
+    assert not figs["ok"] and lines and all(ln["missing"] == [] and ln["extra"] == ["42"] for ln in lines)
+
+
+def test_a_line_is_unheard_only_when_more_than_half_its_words_are_wrong(run):
+    takes = json.loads((run / "artifacts/narration.json").read_text())["short"]
+    lid, spoken = next((k, t["spoken"]) for k, t in takes.items()
+                       if len(normalize(t["spoken"])) % 2 == 0 and len(normalize(t["spoken"])) >= 8
+                       and normalize(" ".join(normalize(t["spoken"]))) == normalize(t["spoken"]))
+    tokens = normalize(spoken)
+
+    def wrong(k):  # the first k words are not what the voice said
+        return heard_as(lambda s: " ".join(["zzz"] * k + tokens[k:]) if s == spoken else s)
+
+    half = speech_checks(run, "short", wrong(len(tokens) // 2))[1]["detail"]
+    assert half["unheard"] == [] and half["ending_missing"] == [] and half["worst"][0]["wer"] == 0.5  # exactly half is still heard
+    over = speech_checks(run, "short", wrong(len(tokens) // 2 + 1))[1]
+    assert over["detail"]["unheard"] == [lid] and over["fix_in"] == "voice" and not over["ok"]
+
+
+def test_a_cut_with_no_lines_has_nothing_heard_and_fails(run):
+    path = run / "artifacts/timeline.short.meta.json"
+    with replaced(path, edited(lambda m: m.update(lines=[]))(path.read_text())):
+        figs, score = speech_checks(run, "short", sample.fake_asr)
+    for check in (figs, score):
+        assert not check["ok"] and check["fix_in"] == "timeline" and "no narration lines" in check["detail"]["error"]
+
+
+def test_the_audio_given_is_what_is_heard_and_the_mix_is_only_the_default(run, tmp_path):
+    lines = json.loads((run / "artifacts/timeline.short.meta.json").read_text())["lines"]
+    silence = tmp_path / "silence.wav"
+    sf.write(silence, np.zeros((48000 * 80, 2), dtype=np.float32), 48000)
+    figs, score = speech_checks(run, "short", hears_sound, audio=silence)
+    assert not figs["ok"] and not score["ok"] and len(score["detail"]["unheard"]) == len(lines)
+    figs, score = speech_checks(run, "short", hears_sound)  # the mix has sound in every window
+    assert figs["ok"] and score["ok"]
+
+
+def test_lines_after_the_end_of_the_audio_are_unheard_without_asking_the_recogniser(run, tmp_path):
+    lines = json.loads((run / "artifacts/timeline.short.meta.json").read_text())["lines"]
+    audio = tmp_path / "twenty_seconds.wav"
+    sf.write(audio, np.zeros((48000 * 20, 2), dtype=np.float32), 48000)
+    asked = []
+    _, score = speech_checks(run, "short", lambda p, spoken: asked.append(sf.info(p).frames) or sample.fake_asr(p, spoken), audio=audio)
+    late = [ln["id"] for ln in lines if ln["start"] - PAD_BEFORE >= 20.0]  # their windows start where the audio has ended
+    assert late and set(late) <= set(score["detail"]["unheard"]) and not score["ok"]
+    assert asked and all(frames > 0 for frames in asked) and len(asked) == len(lines) - len(late)
+
+
+# ---- a short-cut render made with the stand-in, and the run-level rules on copies of it -------------------------------------
+
+
+SHORT = "EXM_short_1080x1920"
+
+
+@pytest.fixture(scope="module")
+def golden(run, tmp_path_factory):
+    """The sample run's short cut, rendered by the stand-in: videos, stills, sidecars and a render.json that hashes its inputs.
+    Without the long cut, the music and the takes, which QA never reads, so a copy is cheap."""
+    from tools.shorted.render import render_all
+
+    pd = tmp_path_factory.mktemp("golden") / run.name
+    shutil.copytree(run, pd, ignore=shutil.ignore_patterns("music", "takes", "lines", "*.long.*", "*_long*", "*.mp4", "qa.json",
+                                                           "render.json", "contact.*.jpg"))
+    render_all(pd, remotion=sample.fake_remotion)
+    return pd
+
+
+@pytest.fixture
+def clone(golden, tmp_path):
+    pd = tmp_path / golden.name
+    shutil.copytree(golden, pd)
+    return pd
+
+
+def render_of(pd):
+    return json.loads((pd / "artifacts/render.json").read_text())
+
+
+def reaudio(video, wav):
+    """The video with its audio replaced by `wav`, picture and tags copied: how a wrong or stale mix gets into a video."""
+    out = video.with_name("_reaudio.mp4")
+    ffmpeg("-i", str(video), "-i", str(wav), "-map", "0:v", "-map", "1:a", "-c:v", "copy", *GOOD_AUDIO, "-ar", "48000",
+           "-movflags", "+faststart", str(out))
+    out.replace(video)
+
+
+def test_a_good_render_passes_with_every_check_present(clone):
+    report = run_qa(clone, asr=hears_sound)
+    assert report["overall"] == "pass", json.dumps(report, indent=1)[:3000]
+    video = lambda kind: [f"{c}:{SHORT}_{kind}" for c in ("decode", "duration", "video_vs_timeline", "audio_vs_mix", "av_sync",
+                                                         "colour", "format", "loudness")]
+    assert list(report["cuts"]) == ["short", "run"]
+    assert list(report["cuts"]["short"]) == [
+        "videos", "render_current:short", "number_audit", "spoken_figures", "wer", "captions", *video("captioned"), *video("clean"),
+        f"clean_loudness:{SHORT}_clean", f"clean_duration:{SHORT}_clean", "contact_sheet"]
+    assert list(report["cuts"]["run"]) == ["deliverables"]
+    assert json.loads((clone / "artifacts/qa.json").read_text()) == report
+    assert (clone / "renders/contact.short.jpg").exists() and not (clone / "renders/_contact").exists()
+
+
+def test_the_last_verdict_is_cleared_before_anything_can_abort(tmp_path):
+    (tmp_path / "artifacts").mkdir()
+    (tmp_path / "renders").mkdir()
+    (tmp_path / "artifacts/qa.json").write_text('{"overall": "pass", "cuts": {}}')
+    for cut in ("long", "short"):
+        (tmp_path / f"renders/contact.{cut}.jpg").write_bytes(b"the sheet of an earlier run")
+    res = ShortedQA().execute({"project_dir": str(tmp_path)})  # there is no render.json: the run cannot start
+    assert not res.success and "render.json" in res.error
+    assert not (tmp_path / "artifacts/qa.json").exists() and list((tmp_path / "renders").iterdir()) == []
+
+
+def test_a_run_that_aborts_later_leaves_no_verdict_either(clone):
+    (clone / "assets/audio/mix.short.wav").unlink()  # the score stage has not run: raised after render.json was read
+    (clone / "artifacts/qa.json").write_text('{"overall": "pass", "cuts": {}}')
+    with pytest.raises(FileNotFoundError, match="mix.short.wav"):
+        run_qa(clone, asr=sample.fake_asr)
+    assert not (clone / "artifacts/qa.json").exists()
+
+
+def test_a_render_json_without_the_captioned_video_fails_and_leaves_no_old_sheet(clone):
+    render = render_of(clone)
+    (clone / "renders/contact.short.jpg").write_bytes(b"the sheet of an earlier run")
+    clean_only = [v for v in render["videos"] if v.endswith("_clean.mp4")]
+    (clone / "artifacts/render.json").write_text(json.dumps({**render, "videos": clean_only}))
+    (clone / "renders/EXM_short.srt").unlink()  # and a sidecar is gone: run_qa hands the cuts it checked to the deliverables check
+    report = run_qa(clone, asr=sample.fake_asr)
+    checks = report["cuts"]["short"]
+    assert report["overall"] == "fail"
+    assert report["cuts"]["run"]["deliverables"] == {"ok": False, "detail": {"missing": ["renders/EXM_short.srt"]}, "fix_in": "render"}
+    assert checks["videos"] == {"ok": False, "detail": {"listed": [f"renders/{SHORT}_clean.mp4"], "missing": ["captioned"]},
+                                "fix_in": "render"}
+    assert not checks["spoken_figures"]["ok"] and not checks["wer"]["ok"]  # nothing was heard, and the render is what lacks the video
+    assert checks["spoken_figures"]["fix_in"] == checks["wer"]["fix_in"] == "render"
+    assert "captioned video" in checks["wer"]["detail"]["error"]
+    assert "contact_sheet" not in checks and not (clone / "renders/contact.short.jpg").exists()
+
+
+def test_the_speech_is_heard_in_the_shipped_video_not_in_the_mix_it_was_made_from(clone):
+    silence = clone / "silence.wav"
+    sf.write(silence, np.zeros((48000 * 78, 2), dtype=np.float32), 48000)
+    reaudio(clone / f"renders/{SHORT}_captioned.mp4", silence)  # the mix on disk still has the narration; the video does not
+    checks = run_qa(clone, asr=hears_sound)["cuts"]["short"]
+    lines = json.loads((clone / "artifacts/timeline.short.meta.json").read_text())["lines"]
+    assert not checks["spoken_figures"]["ok"] and not checks["wer"]["ok"] and checks["wer"]["fix_in"] == "voice"
+    assert len(checks["wer"]["detail"]["unheard"]) == len(lines)
+
+
+@pytest.mark.parametrize("kind, keep", [("captioned", 0.6), ("clean", 0.6), ("captioned", 0.97), ("clean", 0.1)])
+def test_a_truncated_video_fails_its_decode_check_whichever_video_it_is(clone, kind, keep):
+    path = clone / f"renders/{SHORT}_{kind}.mp4"
+    data = path.read_bytes()
+    path.write_bytes(data[: int(len(data) * keep)])
+    decode = video_checks(clone, "short", {"videos": [str(path.relative_to(clone))]})[f"decode:{path.stem}"]
+    assert not decode["ok"] and decode["fix_in"] == "render" and decode["detail"]["errors"]
+
+
+def test_a_truncated_captioned_video_fails_the_run_without_stopping_it(clone):
+    path = clone / f"renders/{SHORT}_captioned.mp4"
+    data = path.read_bytes()
+    path.write_bytes(data[: int(len(data) * 0.6)])
+    report = run_qa(clone, asr=sample.fake_asr)
+    checks = report["cuts"]["short"]
+    assert report["overall"] == "fail" and json.loads((clone / "artifacts/qa.json").read_text()) == report
+    assert not checks[f"decode:{SHORT}_captioned"]["ok"] and checks[f"decode:{SHORT}_clean"]["ok"]
+    assert not checks["contact_sheet"]["ok"] and "no frame for" in checks["contact_sheet"]["detail"]
+
+
+def test_a_video_cut_short_of_the_timeline_fails_both_length_checks_though_its_streams_agree(clone):
+    path, cut = clone / f"renders/{SHORT}_captioned.mp4", clone / "renders/_cut.mp4"
+    ffmpeg("-i", str(path), "-t", "70.0", "-c", "copy", "-movflags", "+faststart", str(cut))
+    cut.replace(path)
+    meta = json.loads((clone / "artifacts/timeline.short.meta.json").read_text())
+    checks = video_checks(clone, "short", render_of(clone), meta["duration"], qa._mix_seconds(clone, "short"))
+    name = path.stem
+    assert checks[f"duration:{name}"]["ok"] and checks[f"av_sync:{name}"]["ok"]  # 70 s is a fine length, and both streams stop together
+    for check in ("video_vs_timeline", "audio_vs_mix"):
+        assert not checks[f"{check}:{name}"]["ok"] and checks[f"{check}:{name}"]["fix_in"] == "render"
+    assert checks[f"video_vs_timeline:{SHORT}_clean"]["ok"] and checks[f"audio_vs_mix:{SHORT}_clean"]["ok"]
+
+
+@pytest.mark.parametrize("path, stale", [("artifacts/timeline.short.json", "timeline_sha256"),
+                                         ("artifacts/timeline.short.meta.json", "meta_sha256"),
+                                         ("assets/audio/mix.short.wav", "mix_sha256")])
+def test_a_video_older_than_any_one_of_its_inputs_fails_render_current(clone, path, stale):
+    render = render_of(clone)
+    assert render_current(clone, "short", render) == {"ok": True, "detail": {"stale": []}, "fix_in": "render"}
+    with open(clone / path, "ab") as f:
+        f.write(b" ")  # any change at all
+    assert render_current(clone, "short", render) == {"ok": False, "detail": {"stale": [stale]}, "fix_in": "render"}
+
+
+def test_a_render_json_that_hashes_no_inputs_proves_nothing(clone):
+    render = render_of(clone)
+    for without in ({k: v for k, v in render.items() if k != "inputs"}, {**render, "inputs": {}},
+                    {**render, "inputs": {"long": render["inputs"]["short"]}}):
+        check = render_current(clone, "short", without)
+        assert not check["ok"] and check["fix_in"] == "render" and "no input hashes" in check["detail"]
+
+
+def test_both_videos_of_a_cut_must_be_listed_and_there(clone):
+    render = render_of(clone)
+    captioned, clean = (next(v for v in render["videos"] if v.endswith(f"_{kind}.mp4")) for kind in ("captioned", "clean"))
+    assert videos_check(clone, render, "short") == {"ok": True, "detail": {"listed": [captioned, clean], "missing": []}, "fix_in": "render"}
+    assert videos_check(clone, {**render, "videos": [captioned]}, "short")["detail"]["missing"] == ["clean"]
+    assert videos_check(clone, {**render, "videos": [clean]}, "short")["detail"]["missing"] == ["captioned"]
+    assert videos_check(clone, {**render, "videos": []}, "short")["detail"]["missing"] == ["captioned", "clean"]
+    assert videos_check(clone, render, "long")["detail"]["missing"] == ["captioned", "clean"]  # nothing is listed for the long cut
+    (clone / clean).unlink()  # listed, but not there
+    check = videos_check(clone, render, "short")
+    assert not check["ok"] and check["detail"]["missing"] == ["clean"] and check["fix_in"] == "render"
+
+
+STILLS_AND_SIDECARS = ["renders/EXM_thumb_1920x1080.png", "renders/EXM_cover_1080x1920.png", "renders/EXM_thumb_1280x720.jpg",
+                       "renders/EXM_short.srt", "renders/EXM_short.vtt"]
+
+
+def test_the_deliverables_of_a_good_render_are_all_there(clone):
+    assert deliverables(clone, render_of(clone), ["short"]) == {"ok": True, "detail": {"missing": []}, "fix_in": "render"}
+
+
+@pytest.mark.parametrize("rel", STILLS_AND_SIDECARS)
+def test_a_deliverable_that_is_missing_empty_or_unlisted_is_named(clone, rel):
+    render = render_of(clone)
+    unlisted = {**render, "stills": [s for s in render["stills"] if s != rel], "subtitles": [s for s in render["subtitles"] if s != rel]}
+    assert deliverables(clone, unlisted, ["short"]) == {"ok": False, "detail": {"missing": [rel]}, "fix_in": "render"}
+    (clone / rel).write_bytes(b"")
+    assert deliverables(clone, render, ["short"])["detail"]["missing"] == [rel]
+    (clone / rel).unlink()
+    assert deliverables(clone, render, ["short"]) == {"ok": False, "detail": {"missing": [rel]}, "fix_in": "render"}
+
+
+def test_the_chapters_file_is_a_deliverable_only_when_render_json_names_one(clone):
+    render = render_of(clone)
+    assert render["chapters"] is None and deliverables(clone, render, ["short"])["ok"]  # YouTube's rules can leave a cut with none
+    named = {**render, "chapters": "renders/EXM_long_chapters.txt"}
+    assert deliverables(clone, named, ["short"])["detail"]["missing"] == ["renders/EXM_long_chapters.txt"]
+    (clone / "renders/EXM_long_chapters.txt").write_text("0:00 Intro\n")
+    assert deliverables(clone, named, ["short"])["ok"]
+    with pytest.raises(ValueError, match="chapters must be a string or null, not a number"):
+        deliverables(clone, {**render, "chapters": 5}, ["short"])
+
+
+def test_every_cut_needs_its_own_sidecars(clone):
+    check = deliverables(clone, render_of(clone), ["long", "short"])
+    assert check["detail"]["missing"] == ["renders/EXM_long.srt", "renders/EXM_long.vtt"]
+
+
+def loud_and_long(captioned, clean, seconds=(77.5, 77.5)):
+    """What video_checks says about a captioned and a clean video, as far as clean_checks reads it."""
+    out = {}
+    for kind, lufs, secs in (("captioned", captioned, seconds[0]), ("clean", clean, seconds[1])):
+        detail = {"lufs": lufs, "true_peak_dbtp": -5.0} if lufs is not None else "no audio stream"
+        out[f"loudness:X_{kind}"] = {"ok": lufs is not None, "detail": detail, "fix_in": "render"}
+        out[f"duration:X_{kind}"] = {"ok": True, "detail": {"seconds": secs, "bounds": [60.0, 90.0]}, "fix_in": "render"}
+    return out
+
+
+@pytest.mark.parametrize("captioned, clean, seconds, loudness_ok, duration_ok", [
+    (-14.0, -14.4, (77.5, 77.55), True, True),
+    (-14.0, -13.6, (77.5, 77.45), True, True),
+    (-14.0, -14.6, (77.5, 77.5), False, True),
+    (-14.0, -13.4, (77.5, 77.5), False, True),
+    (-14.0, -14.0, (77.5, 77.65), True, False),
+    (-14.0, -14.0, (77.65, 77.5), True, False)])
+def test_the_clean_video_agrees_with_the_captioned_one_to_half_a_lu_and_a_tenth_of_a_second(
+        captioned, clean, seconds, loudness_ok, duration_ok):
+    out = clean_checks(loud_and_long(captioned, clean, seconds))
+    assert list(out) == ["clean_loudness:X_clean", "clean_duration:X_clean"]
+    assert out["clean_loudness:X_clean"]["ok"] is loudness_ok and out["clean_duration:X_clean"]["ok"] is duration_ok
+    assert out["clean_loudness:X_clean"]["fix_in"] == out["clean_duration:X_clean"]["fix_in"] == "render"
+
+
+def test_a_clean_video_with_no_audio_cannot_be_compared_and_a_missing_one_is_left_to_the_videos_check():
+    out = clean_checks(loud_and_long(-14.0, None))
+    assert out["clean_loudness:X_clean"] == {"ok": False, "detail": "one of the two has no audio stream", "fix_in": "render"}
+    assert clean_checks({k: v for k, v in loud_and_long(-14.0, -14.0).items() if "clean" not in k}) == {}
+    assert clean_checks({k: v for k, v in loud_and_long(-14.0, -14.0).items() if "captioned" not in k}) == {}
+
+
+def test_a_clean_video_louder_than_the_captioned_one_fails_through_the_real_checks(clone):
+    clean = clone / f"renders/{SHORT}_clean.mp4"
+    loud = Lab(clone.parent / "tones").tone(clone.parent / "loud.wav", -9.0, 77.5)
+    reaudio(clean, loud)
+    checks = video_checks(clone, "short", render_of(clone))
+    out = clean_checks(checks)
+    assert not out[f"clean_loudness:{SHORT}_clean"]["ok"] and not checks[f"loudness:{SHORT}_clean"]["ok"]
+    assert checks[f"loudness:{SHORT}_captioned"]["ok"]
+
+
+@pytest.mark.parametrize("bad", [5, ["a"], 3.5, None, ""])
+def test_a_project_dir_that_is_not_a_path_is_a_failed_result_not_a_crash(bad):
+    res = ShortedQA().execute({"project_dir": bad})
+    assert not res.success and "project_dir is required" in res.error
+
+
+@pytest.mark.parametrize("bad", [None, "a folder", 5, ["x"]])
+def test_inputs_that_are_not_a_dict_are_a_failed_result_too(bad):
+    assert not ShortedQA().execute(bad).success
+
+
+def test_a_recogniser_that_cannot_be_loaded_is_a_failed_result(clone, monkeypatch):
+    def no_whisper(path, prompt):
+        raise ModuleNotFoundError("No module named 'faster_whisper'")
+
+    monkeypatch.setattr("tools.shorted.qa.run_qa", lambda pd: run_qa(pd, asr=no_whisper))
+    res = ShortedQA().execute({"project_dir": str(clone)})
+    assert not res.success and "ModuleNotFoundError" in res.error and "faster_whisper" in res.error
+
+
+def test_a_clean_video_with_no_video_stream_is_a_failed_check_through_the_tool(clone, monkeypatch):
+    clean = clone / f"renders/{SHORT}_clean.mp4"
+    audio_only = clean.with_name("_audio_only.mp4")
+    ffmpeg("-i", str(clean), "-vn", "-c:a", "copy", "-f", "ipod", str(audio_only))
+    audio_only.replace(clean)
+    monkeypatch.setattr("tools.shorted.qa.run_qa", lambda pd: run_qa(pd, asr=sample.fake_asr))
+    res = ShortedQA().execute({"project_dir": str(clone)})
+    assert not res.success and f"short/format:{SHORT}_clean (fix in render)" in res.error
+    assert f"short/av_sync:{SHORT}_clean" in res.error and res.data["cuts"]["short"][f"decode:{SHORT}_clean"]["ok"]
+
+
+def test_an_ffprobe_that_hangs_is_a_failed_result_naming_the_file(clone, monkeypatch):
+    real = subprocess.run
+
+    def hang(cmd, *a, **kw):
+        if cmd[0] == "ffprobe":
+            raise subprocess.TimeoutExpired(cmd, kw["timeout"])
+        return real(cmd, *a, **kw)
+
+    monkeypatch.setattr(subprocess, "run", hang)
+    monkeypatch.setattr("tools.shorted.qa.run_qa", lambda pd: run_qa(pd, asr=sample.fake_asr))
+    res = ShortedQA().execute({"project_dir": str(clone)})
+    assert not res.success and "RuntimeError: ffprobe took over" in res.error and f"{SHORT}_captioned.mp4" in res.error
+
+
+# ---- rules the mutation run found no test for ---------------------------------------------------------------------------------
+
+
+def test_a_cut_exactly_at_the_gain_limit_still_passes(tmp_path):
+    """Three wrong words in the cut's hundred are a WER of exactly 0.03, which the takes' own 0.0 allows: the limit is inclusive."""
+    (tmp_path / "artifacts").mkdir()
+    (tmp_path / "assets/audio").mkdir(parents=True)
+    sf.write(tmp_path / "assets/audio/mix.short.wav", np.zeros((48000 * 20, 2), dtype=np.float32), 48000)
+    spoken = " ".join(f"word{i}" for i in range(100))
+    (tmp_path / "artifacts/narration.json").write_text(json.dumps({"short": {"L000": {"spoken": spoken, "wer": 0.0}}}))
+    (tmp_path / "artifacts/timeline.short.meta.json").write_text(json.dumps(
+        {"duration": 20.0, "lines": [{"id": "L000", "start": 1.0, "end": 15.0}], "cues": []}))
+
+    def wrong(k):
+        heard = " ".join(["zzz"] * k + spoken.split()[k:])
+        return lambda path, prompt: sample.fake_asr(path, heard)
+
+    _, score = speech_checks(tmp_path, "short", wrong(3))
+    assert score["detail"]["wer"] == 0.03 and score["detail"]["takes_wer"] == 0.0 and score["ok"]
+    _, score = speech_checks(tmp_path, "short", wrong(4))
+    assert score["detail"]["wer"] == 0.04 and not score["ok"] and score["fix_in"] == "score" and score["detail"]["unheard"] == []
+
+
+GOOD_V = {"codec_name": "h264", "profile": "High", "width": 1080, "height": 1920, "pix_fmt": "yuv420p", "r_frame_rate": "30/1",
+          "avg_frame_rate": "30/1", "color_range": "tv"}
+GOOD_A = {"codec_name": "aac", "sample_rate": "48000", "channels": 2}
+
+
+@pytest.mark.parametrize("video, audio, wrong", [
+    ({}, {}, []),
+    ({"codec_name": "mpeg4"}, {}, ["codec"]),
+    ({"profile": "Main"}, {}, ["profile"]),
+    ({"profile": "High 4:4:4 Predictive"}, {}, ["profile"]),
+    ({"profile": "Constrained Baseline"}, {}, []),  # what the stand-in renderer writes
+    ({"width": 1920, "height": 1080}, {}, ["size"]),
+    ({"width": 1080, "height": 1080}, {}, ["size"]),
+    ({"width": 1920, "height": 1920}, {}, ["size"]),
+    ({"r_frame_rate": "24/1"}, {}, ["fps"]),
+    ({"avg_frame_rate": "29/1"}, {}, ["fps"]),  # a variable frame rate: one of the two is not 30
+    ({"avg_frame_rate": "0/0"}, {}, ["fps"]),
+    ({"r_frame_rate": None}, {}, ["fps"]),
+    ({"pix_fmt": "yuvj420p"}, {}, ["pix_fmt"]),
+    ({"pix_fmt": "yuv444p"}, {}, ["pix_fmt"]),
+    ({"color_range": "pc"}, {}, ["range"]),
+    ({"color_range": None}, {}, ["range"]),
+    ({}, {"codec_name": "mp3"}, ["audio_codec"]),
+    ({}, {"sample_rate": "44100"}, ["audio_rate"]),
+    ({}, {"sample_rate": None}, ["audio_rate"]),
+    ({}, {"channels": 1}, ["channels"]),
+    ({}, {"channels": 6}, ["channels"])])
+def test_the_format_check_judges_each_field_on_its_own(video, audio, wrong):
+    check = qa._format_check("short", {**GOOD_V, **video}, {**GOOD_A, **audio})
+    assert check["ok"] is (not wrong) and check["detail"]["wrong"] == wrong and check["fix_in"] == "render"
+
+
+def test_the_long_cut_wants_the_long_size_and_a_video_without_audio_fails_the_audio_fields():
+    assert qa._format_check("long", GOOD_V, GOOD_A)["detail"]["wrong"] == ["size"]
+    assert qa._format_check("long", {**GOOD_V, "width": 1920, "height": 1080}, GOOD_A)["ok"]
+    assert qa._format_check("short", GOOD_V, None)["detail"]["wrong"] == ["audio_codec", "audio_rate", "channels"]
+    assert qa._format_check("short", None, GOOD_A) == {"ok": False, "detail": {"wrong": ["video"], "found": "no video stream"},
+                                                      "fix_in": "render"}
+
+
+@pytest.mark.parametrize("v, ok", [
+    ({"color_primaries": "bt709", "color_transfer": "bt709", "color_space": "bt709"}, True),
+    ({"color_primaries": "bt470bg", "color_transfer": "bt709", "color_space": "bt709"}, False),
+    ({"color_primaries": "bt709", "color_transfer": "smpte170m", "color_space": "bt709"}, False),
+    ({"color_primaries": "bt709", "color_transfer": "bt709", "color_space": "bt470bg"}, False),
+    ({"color_primaries": "bt709", "color_transfer": "bt709"}, False),
+    (None, False)])
+def test_the_colour_check_wants_all_three_tags_and_a_video(v, ok):
+    assert qa._colour_check(v)["ok"] is ok
+
+
+def test_a_timeout_that_escapes_everything_else_is_still_a_failed_result(run, monkeypatch):
+    def hangs(pd):
+        raise subprocess.TimeoutExpired("ffmpeg", 5)
+
+    monkeypatch.setattr("tools.shorted.qa.run_qa", hangs)
+    res = ShortedQA().execute({"project_dir": str(run)})
+    assert not res.success and "TimeoutExpired" in res.error
+
+
+def test_a_file_ffmpeg_cannot_measure_names_itself(lab):
+    clip = lab.clip(seconds=2.0, audio=False)
+    with pytest.raises(ValueError, match=rf"{CAPTIONED}\.mp4: ffmpeg's ebur128 gave no loudness summary"):
+        qa.ebur128(clip)
+
+
+def test_a_timeout_in_the_frame_grab_leaves_the_scene_out_of_the_sheet(tmp_path, monkeypatch):
+    tiny_cut(tmp_path, [(0.0, 1.0), (1.0, 2.0)])
+    video = tiny_video(tmp_path / "renders/EXM_short_1080x1920_captioned.mp4", 3)
+    real = subprocess.run
+
+    def slow_second_frame(cmd, *args, **kwargs):
+        if cmd[0] == "ffmpeg" and float(cmd[cmd.index("-ss") + 1]) > 1.0:
+            raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+        return real(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", slow_second_frame)
+    skipped = []
+    assert contact_sheet(tmp_path, "short", video, skipped).exists() and skipped == ["s1"]
+
+
+def test_audio_that_cannot_be_decoded_is_reported_not_raised(tmp_path, monkeypatch):
+    video = tiny_video(tmp_path / "v.mp4", 2)  # no audio stream
+    why = qa._decode_audio(video, tmp_path / "out.wav")
+    assert "v.mp4 has no audio ffmpeg can decode" in why and not (tmp_path / "out.wav").exists()
+    real = subprocess.run
+
+    def hangs(cmd, *args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+
+    monkeypatch.setattr(subprocess, "run", hangs)
+    assert "took over" in qa._decode_audio(video, tmp_path / "out.wav")
+    monkeypatch.setattr(subprocess, "run", real)
+
+
+def test_each_cut_is_checked_only_against_its_own_videos(lab):
+    short, long = lab.clip(seconds=3.0), lab.clip("EXM_long_1920x1080_captioned", seconds=3.0)
+    render = {"videos": [str(p.relative_to(lab.root)) for p in (short, long)]}
+    assert {k.split(":")[1] for k in video_checks(lab.root, "short", render)} == {CAPTIONED}
+    assert {k.split(":")[1] for k in video_checks(lab.root, "long", render)} == {"EXM_long_1920x1080_captioned"}
+
+
+def test_a_decode_that_exits_non_zero_without_a_word_still_fails(lab, monkeypatch):
+    clip, real = lab.clip(seconds=3.0), subprocess.run
+
+    def silent_failure(cmd, *args, **kwargs):
+        if cmd[0] == "ffmpeg" and "-af" not in cmd:  # the decode, not the loudness measurement
+            return subprocess.CompletedProcess(cmd, 1, "", "")
+        return real(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", silent_failure)
+    assert lab.checks(clip)[f"decode:{CAPTIONED}"] == {"ok": False, "detail": {"exit": 1, "errors": ""}, "fix_in": "render"}
+
+
+def test_the_shipped_audio_is_decoded_to_a_48_khz_stereo_wav_whatever_the_video_carries(lab, tmp_path):
+    clip = lab.clip(seconds=2.0, a_rate=44100, a_channels=1)  # mono, 44.1 kHz
+    out = tmp_path / "shipped.wav"
+    assert qa._decode_audio(clip, out) is None
+    info = sf.info(out)
+    assert (info.samplerate, info.channels) == (48000, 2) and info.format == "WAV" and abs(info.duration - 2.0) < 0.05
 ```
 
 - [ ] **Step 2: Run them to see them fail**
@@ -17704,46 +19644,143 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'tools.shorted.qa'`.
 - [ ] **Step 3: Implement `qa.py`**
 
 ```python
-"""QA for a rendered run. Each check returns {ok, detail, fix_in}: the stage to re-run when it fails.
+"""QA for a rendered run. Each check returns {ok, detail, fix_in}: the earliest stage that can fix it when it fails.
 
-number_audit    every rendered string equals a fresh resolution of its binding; narration is current
-spoken_figures  each line, heard in its own window of the final mix, carries its take's figures (sign, digits, scale)
-wer             every line heard (WER <= 0.5 in its window) and heard to its end; the cut's WER within 0.03 of the takes' own
-captions        at most 20 characters a second, 42 per line, 4 words per short-cut page
-video           duration in bounds, A/V within 0.1 s, BT.709 tags, -14 LUFS +/-1, true peak <= -1 dBTP
+QA is the last gate, so a check that has nothing to look at fails: it never passes by finding nothing.
+
+run     deliverables    the three stills, the .srt and .vtt of every cut, and the chapters file when render.json names one
+cut     videos          render.json lists the cut's captioned and clean videos, and both are there
+        render_current  render.json's recorded hashes of the timeline, its meta and the mix equal those files' hashes now
+        number_audit    the shipped timeline and meta equal a fresh build from the storyboard, dossier and narration, key by key
+                        and scene by scene; the narration is current
+        spoken_figures  each line, heard in its own window of the captioned video's own audio, carries its take's figures
+        wer             every line heard (WER <= 0.5 in its window) and heard to its end; the cut's WER within 0.03 of the takes'
+        captions        at most 20 characters a second on the cues and the long cut's burned-in captions, 42 characters a line, two
+                        lines a cue; the short cut's pages four words at most and shown for 0.2 s at least
+        contact_sheet   a frame for every scene of the captioned video, for a person to look at
+video   decode          ffmpeg decodes the whole file: exit 0 and nothing on stderr
+        duration        the container's duration within the cut's bounds
+        video_vs_timeline, audio_vs_mix   the video stream as long as the timeline, the audio stream as the mix, within 0.1 s
+        av_sync         stream durations within 0.1 s, and each stream starts within 0.1 s of 0 and of the other
+        colour          BT.709 primaries, transfer and matrix
+        format          H.264, the cut's size, 30 fps, yuv420p TV range, AAC 48 kHz stereo
+        loudness        -14 LUFS +/-1, true peak <= -1 dBTP
+        clean_loudness, clean_duration   the clean video within 0.5 LU and 0.1 s of the captioned one
+
+run_qa clears the last verdict first, so a run that cannot finish leaves none behind. Every artefact the checks index into has its
+shape checked on load (SHAPES): a file of the wrong type is a ValueError naming it, never a TypeError from the middle of a check.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import re
+import shutil
 import subprocess
 import tempfile
 from collections import Counter
+from fractions import Fraction
 from pathlib import Path
 
 from tools.base_tool import BaseTool, ToolResult, ToolTier
 from tools.shorted.asr import ending_heard, figures, normalize, wer
 from tools.shorted.bindings import resolve_text
-from tools.shorted.timeline import BOUNDS, build_cut, split_lines
+from tools.shorted.render import input_hashes
+from tools.shorted.timeline import BOUNDS, FPS, NO_CHAPTERS, SIZE, build_cut, split_lines, youtube_chapters
 
+CUTS = ("long", "short")
 UNHEARD_WER, MAX_WER_GAIN, MAX_CPS, MAX_LINE, MAX_PAGE_WORDS = 0.5, 0.03, 20.0, 42, 4
-LUFS, LUFS_TOL, MAX_TP, MAX_SYNC = -14.0, 1.0, -1.0, 0.1
+MAX_CUE_LINES, MIN_PAGE_SECONDS = 2, 0.2
+LUFS, LUFS_TOL, MAX_TP, MAX_SYNC, CLEAN_LUFS_TOL = -14.0, 1.0, -1.0, 0.1, 0.5
 PAD_BEFORE, PAD_AFTER, CLEARANCE = 0.1, 0.25, 0.05  # a line's window, in seconds; the timeline's 0.3 s gaps hold both
+AUDIO_RATE, AUDIO_CHANNELS = 48000, 2
+# The plan says H.264 High, which is what Remotion's libx264 writes. The stand-in renderer (tests/shorted/sample.py fake_remotion,
+# preset ultrafast) writes Constrained Baseline, and the end-to-end run on it must pass QA, so that profile is let through as well.
+# Tighten to ("High",) once the stand-in encodes High.
+H264_PROFILES = ("High", "Constrained Baseline")
+PROBE_TIMEOUT, MEASURE_TIMEOUT, DECODE_TIMEOUT, FRAME_TIMEOUT = 60, 300, 900, 120  # seconds an ffprobe or ffmpeg call may take
+
+NUMBER = "number"  # in a shape: an int or a float, never a bool
+# What the checks index into, by kind of artefact (see _kind). A dict is a JSON object whose keys must all be there but those
+# ending in "?", and the key "*" stands for every key; a one-item list is a list of that item; str, list and dict are the types.
+SHAPES = {
+    "render": {"videos": [str], "stills?": [str], "subtitles?": [str],
+               "inputs?": {"*": {"timeline_sha256": str, "meta_sha256": str, "mix_sha256": str}}},
+    "timeline": {"scenes": [{"id": str, "start": NUMBER, "end": NUMBER, "props": dict}],
+                 "captions": [{"text": str, "start": NUMBER, "end": NUMBER}]},
+    "meta": {"duration": NUMBER, "lines": [{"id": str, "start": NUMBER, "end": NUMBER}],
+             "cues": [{"text": str, "start": NUMBER, "end": NUMBER}]},
+    "storyboard": {"chapters": [{"scenes": [{"lines?": [{"id": str, "text": str}]}]}]},
+    "narration": {"*": {"*": {"spoken": str, "wer": NUMBER}}},
+    "dossier": {"ticker": str},
+}
 
 
 def _check(ok: bool, detail, fix_in: str) -> dict:
     return {"ok": bool(ok), "detail": detail, "fix_in": fix_in}
 
 
+def _kind(name: str) -> str:
+    """The SHAPES key of an artefact: timeline.long.json is a timeline, timeline.long.meta.json its meta, render.json a render."""
+    return "meta" if name.endswith(".meta.json") else name.split(".")[0]
+
+
+def _json_type(value) -> str:
+    return ("null" if value is None else "a boolean" if isinstance(value, bool) else "a number" if isinstance(value, (int, float))
+            else "a string" if isinstance(value, str) else "a list" if isinstance(value, list) else "a JSON object")
+
+
+def _problem(value, shape, where: str = "") -> str | None:
+    """How value departs from shape ("videos must be a list, not null"), or None when it fits. `where` is the path to value."""
+    subject = f"{where} " if where else ""
+    if isinstance(shape, dict):
+        if not isinstance(value, dict):
+            return f"{subject}must be a JSON object, not {_json_type(value)}"
+        for key, sub in shape.items():
+            name = key.rstrip("?")
+            if key == "*":
+                items = list(value.items())
+            elif name in value:
+                items = [(name, value[name])]
+            elif key.endswith("?"):
+                continue
+            else:
+                return f"{where + '.' if where else ''}{name} is missing"
+            for item_name, item in items:
+                bad = _problem(item, sub, f"{where}.{item_name}" if where else item_name)
+                if bad:
+                    return bad
+        return None
+    if isinstance(shape, list):
+        if not isinstance(value, list):
+            return f"{subject}must be a list, not {_json_type(value)}"
+        for i, item in enumerate(value):
+            bad = _problem(item, shape[0], f"{where}[{i}]")
+            if bad:
+                return bad
+        return None
+    if shape == NUMBER:
+        fits, wanted = isinstance(value, (int, float)) and not isinstance(value, bool), "a number"
+    else:
+        fits, wanted = isinstance(value, shape), {str: "a string", list: "a list", dict: "a JSON object"}[shape]
+    return None if fits else f"{subject}must be {wanted}, not {_json_type(value)}"
+
+
 def _load(pd: Path, name: str):
-    """artifacts/<name>, parsed. A missing or half-written file raises an error that names it."""
+    """artifacts/<name>, parsed and checked against its shape. A missing, half-written or wrongly shaped file raises an
+    error that names it."""
     try:
-        return json.loads((pd / "artifacts" / name).read_text(encoding="utf-8"))
+        data = json.loads((pd / "artifacts" / name).read_text(encoding="utf-8"))
     except FileNotFoundError:
         raise FileNotFoundError(f"no artifacts/{name}; run the stage that writes it") from None
     except ValueError as err:
         raise ValueError(f"artifacts/{name} is not valid JSON: {err}") from None
+    shape = SHAPES.get(_kind(name))
+    problem = None if shape is None else _problem(data, shape)
+    if problem:
+        raise ValueError(f"artifacts/{name}: {problem}")
+    return data
 
 
 def _figure(f: tuple[str, str, str]) -> str:
@@ -17759,32 +19796,52 @@ def whisper_asr(path: Path, prompt: str) -> list[dict]:
 
 
 def number_audit(pd: Path, cut: str) -> dict:
-    shipped = _load(pd, f"timeline.{cut}.json")
+    """The shipped timeline and meta against a fresh build from the storyboard, dossier and narration: every top-level key and
+    every scene, not only the props. It names the keys and scene ids that differ. The narration is current when each line's
+    take says what its text resolves to now."""
+    shipped, shipped_meta = _load(pd, f"timeline.{cut}.json"), _load(pd, f"timeline.{cut}.meta.json")
     dossier, sb = _load(pd, "dossier.json"), _load(pd, f"storyboard.{cut}.json")
     narration = _load(pd, "narration.json")[cut]
-    fresh, _ = build_cut(cut, pd)
-    differ = [a["id"] for a, b in zip(fresh["scenes"], shipped["scenes"]) if a["props"] != b["props"]]
+    props, meta = build_cut(cut, pd)
+    fresh, fresh_meta = json.loads(json.dumps(props)), json.loads(json.dumps(meta))
+    if cut == "long" and not youtube_chapters(meta["chapters"], meta["duration"]):
+        fresh_meta["warnings"].append(NO_CHAPTERS)  # write_cut adds it before it writes the meta
+    scenes = list(zip(fresh["scenes"], shipped["scenes"]))
+    props_differ = [a["id"] for a, b in scenes if a["props"] != b["props"]]
+    scenes_differ = [a["id"] for a, b in scenes if a != b]
     if len(fresh["scenes"]) != len(shipped["scenes"]):
-        differ.append("scene count")
+        scenes_differ.append("scene count")
+    keys_differ = sorted(k for k in fresh.keys() | shipped.keys() if fresh.get(k) != shipped.get(k))
+    meta_differ = sorted(k for k in fresh_meta.keys() | shipped_meta.keys() if fresh_meta.get(k) != shipped_meta.get(k))
     stale = [ln["id"] for ch in sb["chapters"] for sc in ch["scenes"] for ln in sc.get("lines", [])
              if resolve_text(ln["text"], dossier, "spoken")[0] != narration[ln["id"]]["spoken"]]
-    return _check(not differ and not stale, {"props_differ": differ, "narration_stale": stale},
-                  "timeline" if differ else "voice")
+    detail = {"keys_differ": keys_differ, "scenes_differ": scenes_differ, "props_differ": props_differ,
+              "meta_differ": meta_differ, "narration_stale": stale}
+    # a stale narration is fixed from the voice stage, which comes before the timeline
+    return _check(not keys_differ and not meta_differ and not stale, detail, "voice" if stale else "timeline")
 
 
-def speech_checks(pd: Path, cut: str, asr) -> tuple[dict, dict]:
-    """Each line, cut from the final mix at its own window, heard against what its take said. The window pads the line
-    by PAD_BEFORE and PAD_AFTER, so the take's tail is in it, but stops CLEARANCE short of the lines either side and stays
-    inside the mix. The take passed the voice stage on its own, so a figure lost here, a line gone unheard or one cut
-    short is the mix's doing. Whether the takes still say what the script says is number_audit's question."""
+def speech_checks(pd: Path, cut: str, asr, audio: Path | None = None) -> tuple[dict, dict]:
+    """Each line, cut from the audio at its own window, heard against what its take said. run_qa passes the captioned video's
+    own audio, decoded; without `audio` it is the mix WAV the video was made from. The window pads the line by PAD_BEFORE and
+    PAD_AFTER, so the take's tail is in it, but stops CLEARANCE short of the lines either side and stays inside the audio. The
+    take passed the voice stage on its own, so a figure lost here, a line gone unheard or one cut short is what the audio
+    did to it. Whether the takes still say what the script says is number_audit's question. A cut with no lines has nothing
+    heard, which fails both checks."""
     import soundfile as sf
 
     lines = _load(pd, f"timeline.{cut}.meta.json")["lines"]
     takes = _load(pd, "narration.json").get(cut, {})
-    mix = pd / "assets" / "audio" / f"mix.{cut}.wav"
-    if not mix.is_file():
-        raise FileNotFoundError(f"no assets/audio/mix.{cut}.wav; run the score stage")
-    info = sf.info(str(mix))
+    if audio is None:
+        audio = pd / "assets" / "audio" / f"mix.{cut}.wav"
+        if not audio.is_file():
+            raise FileNotFoundError(f"no assets/audio/mix.{cut}.wav; run the score stage")
+    if not lines:
+        why = f"artifacts/timeline.{cut}.meta.json has no narration lines, so nothing was heard"
+        return (_check(False, {"lines": [], "error": why}, "timeline"),
+                _check(False, {"wer": 0.0, "takes_wer": 0.0, "unheard": [], "ending_missing": [], "worst": [], "error": why},
+                       "timeline"))
+    info = sf.info(str(audio))
     sr, length = info.samplerate, info.frames / info.samplerate
     wrong, rows = [], []
     with tempfile.TemporaryDirectory() as tmp:
@@ -17794,9 +19851,13 @@ def speech_checks(pd: Path, cut: str, asr) -> tuple[dict, dict]:
             spoken = takes[ln["id"]]["spoken"]
             lo = max(0.0, ln["start"] - PAD_BEFORE, lines[i - 1]["end"] + CLEARANCE if i else 0.0)
             hi = min(length, ln["end"] + PAD_AFTER, lines[i + 1]["start"] - CLEARANCE if i + 1 < len(lines) else length)
-            clip = Path(tmp) / f"line{i:03d}.wav"
-            sf.write(clip, sf.read(str(mix), start=round(lo * sr), stop=round(hi * sr))[0], sr)
-            heard = " ".join(w["w"] for w in asr(clip, spoken))
+            window = sf.read(str(audio), start=round(lo * sr), stop=round(hi * sr))[0]
+            if len(window):
+                clip = Path(tmp) / f"line{i:03d}.wav"
+                sf.write(clip, window, sr)
+                heard = " ".join(w["w"] for w in asr(clip, spoken))
+            else:  # the audio ends before this line does: nothing is there to be heard, and the recogniser is not asked
+                heard = ""
             want, got = Counter(figures(spoken)), Counter(figures(heard))
             if want != got:
                 wrong.append({"id": ln["id"], "missing": [_figure(f) for f in (want - got).elements()],
@@ -17811,99 +19872,388 @@ def speech_checks(pd: Path, cut: str, asr) -> tuple[dict, dict]:
     worst = sorted((r for r in rows if r["e"] > 0), key=lambda r: r["e"], reverse=True)[:5]
     detail = {"wer": round(cut_wer, 4), "takes_wer": round(takes_wer, 4), "unheard": unheard, "ending_missing": cut_short,
               "worst": [{"id": r["id"], "wer": round(r["e"], 4), "heard": r["heard"]} for r in worst]}
-    return (_check(not wrong, {"lines": wrong}, "score"),
-            _check(not unheard and not cut_short and cut_wer <= takes_wer + MAX_WER_GAIN, detail, "score"))
+    # a line to rephrase or take again is the voice stage's; the cut as a whole drifting from its takes is the mix's
+    return (_check(not wrong, {"lines": wrong}, "voice"),
+            _check(not unheard and not cut_short and cut_wer <= takes_wer + MAX_WER_GAIN, detail,
+                   "voice" if unheard or cut_short else "score"))
 
 
 def caption_check(pd: Path, cut: str) -> dict:
+    """Speed (MAX_CPS) holds for the sidecar cues and the long cut's burned-in captions. The short cut's pages follow the voice
+    word by word, so they are exempt from it and must instead show for MIN_PAGE_SECONDS. A cue may wrap to MAX_CUE_LINES lines
+    of MAX_LINE characters. Speed is fixed by shortening the line, which is the storyboard's; the rest is the timeline's."""
     meta = _load(pd, f"timeline.{cut}.meta.json")
     pages = _load(pd, f"timeline.{cut}.json")["captions"]
-    fast = [round(len(c["text"]) / max(0.01, c["end"] - c["start"]), 1) for c in meta["cues"]
-            if len(c["text"]) / max(0.01, c["end"] - c["start"]) > MAX_CPS]
+
+    def cps(c: dict) -> float:
+        return len(c["text"]) / max(0.01, c["end"] - c["start"])
+
+    fast = [round(cps(c), 1) for c in meta["cues"] if cps(c) > MAX_CPS]
+    burned_fast = [round(cps(p), 1) for p in pages if cut == "long" and cps(p) > MAX_CPS]
     wide = [ln for c in meta["cues"] for ln in split_lines(c["text"]) if len(ln) > MAX_LINE]
+    tall = [c["text"] for c in meta["cues"] if len(split_lines(c["text"])) > MAX_CUE_LINES]
     crowded = [p["text"] for p in pages if cut == "short" and len(p["text"].split()) > MAX_PAGE_WORDS]
-    return _check(not fast and not wide and not crowded,
-                  {"too_fast_cps": fast[:10], "too_long": wide[:5], "too_many_words": crowded[:5]}, "timeline")
+    brief = [p["text"] for p in pages if cut == "short" and p["end"] - p["start"] < MIN_PAGE_SECONDS]
+    detail = {"too_fast_cps": fast[:10], "too_fast_burned_cps": burned_fast[:10], "too_long": wide[:5], "too_many_lines": tall[:5],
+              "too_many_words": crowded[:5], "too_brief": brief[:5]}
+    speed = bool(fast or burned_fast)
+    return _check(not (speed or wide or tall or crowded or brief), detail, "storyboard" if speed else "timeline")
+
+
+def _run(cmd: list[str], timeout: float, **kw) -> subprocess.CompletedProcess:
+    """subprocess.run with a timeout. A timeout is a RuntimeError naming the file, which the tool and the CLI both report."""
+    try:
+        return subprocess.run(cmd, timeout=timeout, **kw)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"{cmd[0]} took over {timeout:g} s on {cmd[cmd.index('-i') + 1] if '-i' in cmd else cmd[-1]}") from None
 
 
 def ffprobe(path: Path) -> dict:
-    res = subprocess.run(["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(path)],
-                         capture_output=True, text=True, check=True)
+    res = _run(["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(path)], PROBE_TIMEOUT,
+               capture_output=True, text=True, check=True)
     return json.loads(res.stdout)
 
 
 def ebur128(path: Path) -> tuple[float, float]:
-    res = subprocess.run(["ffmpeg", "-nostats", "-i", str(path), "-map", "0:a", "-af", "ebur128=peak=true", "-f", "null", "-"],
-                         capture_output=True, text=True)
+    res = _run(["ffmpeg", "-nostdin", "-nostats", "-i", str(path), "-map", "0:a", "-af", "ebur128=peak=true", "-f", "null", "-"],
+               MEASURE_TIMEOUT, capture_output=True, text=True)
     summary = res.stderr[res.stderr.rfind("Summary:"):]
-    lufs = float(re.search(r"I:\s+(-?[\d.]+|-inf) LUFS", summary).group(1))
-    peak = float(re.search(r"Peak:\s+(-?[\d.]+|-inf) dBFS", summary).group(1))
-    return lufs, peak
+    lufs = re.search(r"I:\s+(-?[\d.]+|-inf) LUFS", summary)
+    peak = re.search(r"Peak:\s+(-?[\d.]+|-inf) dBFS", summary)
+    if not (lufs and peak):
+        raise ValueError(f"{Path(path).name}: ffmpeg's ebur128 gave no loudness summary ({res.stderr.strip()[-160:]!r})")
+    return float(lufs.group(1)), float(peak.group(1))
 
 
-def video_checks(pd: Path, cut: str, render: dict) -> dict:
+def _streams(info: dict) -> tuple[dict | None, dict | None]:
+    """The first video and the first audio stream of an ffprobe report; None for one the container does not have."""
+    streams = info.get("streams") or []
+    return (next((s for s in streams if s.get("codec_type") == "video"), None),
+            next((s for s in streams if s.get("codec_type") == "audio"), None))
+
+
+def _seconds(source: dict | None, what: str, rel: str, key: str = "duration") -> float:
+    """source[key] as seconds, or a ValueError that names the file: ffprobe leaves a duration out of some containers."""
+    try:
+        return float((source or {})[key])
+    except (KeyError, TypeError, ValueError):
+        raise ValueError(f"{rel}: ffprobe reports no {what}") from None
+
+
+def _start(stream: dict, rel: str) -> float:
+    return 0.0 if stream.get("start_time") in (None, "N/A") else _seconds(stream, "start time", rel, "start_time")
+
+
+def _decode_check(path: Path) -> dict:
+    """The whole file decodes: ffmpeg exits 0 and says nothing. Damage that leaves the header whole (a truncated or half-zeroed
+    file) is found only by decoding it; ffmpeg reports it on stderr and often still exits 0."""
+    try:
+        res = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-i", str(path), "-f", "null", "-"],
+                             capture_output=True, text=True, timeout=DECODE_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return _check(False, f"ffmpeg took over {DECODE_TIMEOUT} s to decode it", "render")
+    errors = res.stderr.strip()
+    return _check(res.returncode == 0 and not errors, {"exit": res.returncode, "errors": errors[:300]}, "render")
+
+
+def _length_check(stream: dict | None, kind: str, wanted: float, reference: str, rel: str) -> dict:
+    """The stream is as long as the reference (the timeline, or the mix) to within MAX_SYNC."""
+    if stream is None:
+        return _check(False, f"no {kind} stream", "render")
+    got = _seconds(stream, f"{kind} duration", rel)
+    return _check(abs(got - wanted) <= MAX_SYNC, {kind: round(got, 3), reference: round(wanted, 3)}, "render")
+
+
+def _sync_check(v: dict | None, a: dict | None, rel: str) -> dict:
+    detail = {"video": v and v.get("duration"), "audio": a and a.get("duration"),
+              "video_start": v and v.get("start_time"), "audio_start": a and a.get("start_time")}
+    if v is None or a is None:  # nothing to line up: a stream is missing
+        return _check(False, detail, "render")
+    vs, as_ = _start(v, rel), _start(a, rel)
+    ok = (abs(_seconds(v, "video duration", rel) - _seconds(a, "audio duration", rel)) <= MAX_SYNC
+          and abs(vs) <= MAX_SYNC and abs(as_) <= MAX_SYNC and abs(vs - as_) <= MAX_SYNC)
+    return _check(ok, detail, "render")
+
+
+def _colour_check(v: dict | None) -> dict:
+    tags = ("color_primaries", "color_transfer", "color_space")
+    found = {k: v and v.get(k) for k in tags}
+    return _check(v is not None and all(found[k] == "bt709" for k in tags), found, "render")
+
+
+def _is_fps(text) -> bool:
+    try:
+        return Fraction(text) == FPS
+    except (TypeError, ValueError, ZeroDivisionError):
+        return False
+
+
+def _format_check(cut: str, v: dict | None, a: dict | None) -> dict:
+    """The encoding contract: H.264, the cut's size, 30 fps, yuv420p TV range, AAC 48 kHz stereo."""
+    if v is None:
+        return _check(False, {"wrong": ["video"], "found": "no video stream"}, "render")
+    width, height = SIZE[cut]
+    a = a or {}
+    found = {"codec": v.get("codec_name"), "profile": v.get("profile"), "size": [v.get("width"), v.get("height")],
+             "fps": [v.get("r_frame_rate"), v.get("avg_frame_rate")], "pix_fmt": v.get("pix_fmt"), "range": v.get("color_range"),
+             "audio_codec": a.get("codec_name"), "audio_rate": a.get("sample_rate"), "channels": a.get("channels")}
+    wrong = [name for name, ok in (
+        ("codec", found["codec"] == "h264"), ("profile", found["profile"] in H264_PROFILES),
+        ("size", found["size"] == [width, height]), ("fps", all(_is_fps(f) for f in found["fps"])),
+        ("pix_fmt", found["pix_fmt"] == "yuv420p"), ("range", found["range"] == "tv"),
+        ("audio_codec", found["audio_codec"] == "aac"), ("audio_rate", str(found["audio_rate"]) == str(AUDIO_RATE)),
+        ("channels", found["channels"] == AUDIO_CHANNELS)) if not ok]
+    return _check(not wrong, {"wrong": wrong, "found": found}, "render")
+
+
+def _mix_in_spec(pd: Path, cut: str) -> bool:
+    """Whether the mix WAV the video was made from is itself within the loudness and true-peak limits."""
+    mix = pd / "assets" / "audio" / f"mix.{cut}.wav"
+    if not mix.is_file():
+        return False
+    lufs, peak = ebur128(mix)
+    return abs(lufs - LUFS) <= LUFS_TOL and peak <= MAX_TP
+
+
+def video_checks(pd: Path, cut: str, render: dict, meta_seconds: float | None = None, mix_seconds: float | None = None) -> dict:
+    """The checks on each video render.json lists for the cut that is there to be read. With the timeline's length and the
+    mix's (run_qa passes both) each video is also measured against them. A video that ffprobe cannot read raises, naming it."""
     lo, hi = BOUNDS[cut]
+    # the render is at fault for a video of the wrong length unless the timeline itself runs out of the bounds
+    timeline_out = meta_seconds is not None and not lo <= meta_seconds <= hi
+    mix_ok = None  # measured when the first loudness check fails
     out = {}
-    for rel in [v for v in render["videos"] if f"_{cut}_" in v]:
-        info = ffprobe(pd / rel)
-        v = next(s for s in info["streams"] if s["codec_type"] == "video")
-        a = next((s for s in info["streams"] if s["codec_type"] == "audio"), None)
-        duration = float(info["format"]["duration"])
-        name = Path(rel).stem
-        out[f"duration:{name}"] = _check(lo <= duration <= hi, {"seconds": round(duration, 2), "bounds": [lo, hi]}, "storyboard")
-        out[f"av_sync:{name}"] = _check(a is not None and abs(float(v["duration"]) - float(a["duration"])) <= MAX_SYNC,
-                                        {"video": v.get("duration"), "audio": a and a.get("duration")}, "render")
-        out[f"colour:{name}"] = _check((v.get("color_primaries"), v.get("color_transfer"), v.get("color_space")) == ("bt709",) * 3,
-                                       {k: v.get(k) for k in ("color_primaries", "color_transfer", "color_space")}, "render")
+    for rel in [v for v in render["videos"] if f"_{cut}_" in v and (pd / v).is_file()]:
+        path, name = pd / rel, Path(rel).stem
+        info = ffprobe(path)
+        v, a = _streams(info)
+        container = _seconds(info.get("format"), "duration", rel)
+        out[f"decode:{name}"] = _decode_check(path)
+        out[f"duration:{name}"] = _check(lo <= container <= hi, {"seconds": round(container, 3), "bounds": [lo, hi]},
+                                         "storyboard" if timeline_out else "render")
+        if meta_seconds is not None:
+            out[f"video_vs_timeline:{name}"] = _length_check(v, "video", meta_seconds, "timeline", rel)
+        if mix_seconds is not None:
+            out[f"audio_vs_mix:{name}"] = _length_check(a, "audio", mix_seconds, "mix", rel)
+        out[f"av_sync:{name}"] = _sync_check(v, a, rel)
+        out[f"colour:{name}"] = _colour_check(v)
+        out[f"format:{name}"] = _format_check(cut, v, a)
         if a is None:  # nothing for ebur128 to measure: the mux lost the mix
             out[f"loudness:{name}"] = _check(False, "no audio stream", "render")
             continue
-        lufs, peak = ebur128(pd / rel)
-        out[f"loudness:{name}"] = _check(abs(lufs - LUFS) <= LUFS_TOL and peak <= MAX_TP,
-                                         {"lufs": lufs, "true_peak_dbtp": peak}, "score")
+        lufs, peak = ebur128(path)
+        ok = abs(lufs - LUFS) <= LUFS_TOL and peak <= MAX_TP
+        if not ok and mix_ok is None:
+            mix_ok = _mix_in_spec(pd, cut)
+        # a mix that is itself out of spec is the score stage's; one that is in spec and a video that is not is the render's
+        out[f"loudness:{name}"] = _check(ok, {"lufs": lufs, "true_peak_dbtp": peak}, "score" if mix_ok is False else "render")
     return out
 
 
-def contact_sheet(pd: Path, cut: str, video: Path) -> Path:
+def clean_checks(checks: dict) -> dict:
+    """The clean video against the captioned one, from video_checks' output. They carry the same mix, so their integrated
+    loudness agrees to CLEAN_LUFS_TOL and their lengths to MAX_SYNC."""
+    named = {kind: next((k.split(":", 1)[1] for k in checks if k.startswith("duration:") and k.endswith(f"_{kind}")), None)
+             for kind in ("captioned", "clean")}
+    if None in named.values():
+        return {}
+    cap, clean = named["captioned"], named["clean"]
+    loud_cap, loud_clean = checks[f"loudness:{cap}"]["detail"], checks[f"loudness:{clean}"]["detail"]
+    if isinstance(loud_cap, dict) and isinstance(loud_clean, dict):
+        loud = _check(abs(loud_cap["lufs"] - loud_clean["lufs"]) <= CLEAN_LUFS_TOL,
+                      {"clean": loud_clean["lufs"], "captioned": loud_cap["lufs"]}, "render")
+    else:
+        loud = _check(False, "one of the two has no audio stream", "render")
+    secs_cap, secs_clean = checks[f"duration:{cap}"]["detail"]["seconds"], checks[f"duration:{clean}"]["detail"]["seconds"]
+    return {f"clean_loudness:{clean}": loud,
+            f"clean_duration:{clean}": _check(abs(secs_cap - secs_clean) <= MAX_SYNC, {"clean": secs_clean, "captioned": secs_cap},
+                                              "render")}
+
+
+def _pick(pd: Path, render: dict, cut: str, kind: str) -> str | None:
+    """The cut's captioned or clean video that render.json lists and that is there."""
+    return next((v for v in render["videos"] if f"_{cut}_" in v and v.endswith(f"_{kind}.mp4") and (pd / v).is_file()), None)
+
+
+def videos_check(pd: Path, render: dict, cut: str) -> dict:
+    """Both videos of the cut are listed and there: a render.json that lists none would otherwise leave nothing to check."""
+    missing = [kind for kind in ("captioned", "clean") if _pick(pd, render, cut, kind) is None]
+    return _check(not missing, {"listed": [v for v in render["videos"] if f"_{cut}_" in v], "missing": missing}, "render")
+
+
+def render_current(pd: Path, cut: str, render: dict) -> dict:
+    """The hashes render_all recorded as it began the cut equal those of the files now: the videos were made from this
+    timeline, this meta and this mix. render.json without them proves nothing, which fails."""
+    recorded = (render.get("inputs") or {}).get(cut)
+    if not recorded:
+        return _check(False, "render.json records no input hashes for this cut; re-run render", "render")
+    now = input_hashes(pd, cut)
+    stale = sorted(key for key, digest in now.items() if recorded.get(key) != digest)
+    return _check(not stale, {"stale": stale}, "render")
+
+
+def _present(path: Path) -> bool:
+    return path.is_file() and path.stat().st_size > 0
+
+
+def deliverables(pd: Path, render: dict, cuts: list[str]) -> dict:
+    """What the run has to hand over: the three stills (named as render.py makes them), the .srt and .vtt of every cut (as
+    timeline.py does), each listed in render.json and there; and the chapters file, but only when render.json names one, since
+    YouTube's rules can leave a cut with none."""
+    ticker = _load(pd, "dossier.json")["ticker"]
+    wanted = [f"renders/{ticker}_thumb_1920x1080.png", f"renders/{ticker}_cover_1080x1920.png",
+              f"renders/{ticker}_thumb_1280x720.jpg"]
+    wanted += [f"renders/{ticker}_{cut}.{ext}" for cut in cuts for ext in ("srt", "vtt")]
+    listed = set(render.get("stills") or []) | set(render.get("subtitles") or [])
+    missing = [rel for rel in wanted if rel not in listed or not _present(pd / rel)]
+    chapters = render.get("chapters")
+    if chapters is not None and not isinstance(chapters, str):
+        raise ValueError(f"artifacts/render.json: chapters must be a string or null, not {_json_type(chapters)}")
+    if chapters and not _present(pd / chapters):
+        missing.append(chapters)
+    return _check(not missing, {"missing": missing}, "render")
+
+
+def _last_frame_time(video: Path) -> float | None:
+    """The latest time ffmpeg can seek to and still find a frame: the video's duration less one frame, floored to a
+    millisecond (rounded, it overshot the last frame of a 1.5 s clip). None when the file does not say how long it is."""
+    info = ffprobe(video)
+    video_stream, _ = _streams(info)
+    for source in (video_stream or {}, info.get("format") or {}):
+        try:
+            return max(0.0, math.floor((float(source["duration"]) - 1 / FPS) * 1000) / 1000)
+        except (KeyError, TypeError, ValueError):
+            continue
+    return None
+
+
+def _frame(video: Path, at: float, scratch: Path):
+    """The video's frame at `at` seconds as an RGB image 480 wide, or None when ffmpeg or Pillow cannot get one."""
     from PIL import Image
 
+    try:
+        res = subprocess.run(["ffmpeg", "-nostdin", "-y", "-v", "error", "-ss", f"{at:.3f}", "-i", str(video), "-frames:v", "1",
+                              "-vf", "scale=480:-2", str(scratch)], capture_output=True, timeout=FRAME_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return None
+    if res.returncode != 0 or not scratch.is_file():
+        return None
+    try:
+        with Image.open(scratch) as im:
+            return im.convert("RGB")
+    except OSError:  # Pillow's UnidentifiedImageError is one
+        return None
+
+
+def contact_sheet(pd: Path, cut: str, video: Path, skipped: list[str] | None = None) -> Path:
+    """A frame from the middle of each scene of the video, five to a row, in renders/contact.<cut>.jpg: the sheet a person
+    looks at before calling a run done. Best effort. A scene's time past the end of a short video is clamped to its last
+    frame; a frame ffmpeg still cannot get is left out and its scene id added to `skipped`; a ValueError says there was no
+    frame at all. The scratch folder is removed either way, and so is a sheet from an earlier run, which must not be taken
+    for this run's."""
+    from PIL import Image
+
+    out = pd / "renders" / f"contact.{cut}.jpg"
+    out.unlink(missing_ok=True)
     scenes = _load(pd, f"timeline.{cut}.json")["scenes"]
-    frames = []
+    limit = _last_frame_time(video)
     tmp = pd / "renders" / "_contact"
     tmp.mkdir(parents=True, exist_ok=True)
-    for i, sc in enumerate(scenes):
-        f = tmp / f"{i:03d}.jpg"
-        subprocess.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{(sc['start'] + sc['end']) / 2:.3f}", "-i", str(video),
-                        "-frames:v", "1", "-vf", "scale=480:-2", str(f)], check=True)
-        frames.append(Image.open(f).convert("RGB"))
-    cols = 5
-    w, h = frames[0].size
-    sheet = Image.new("RGB", (cols * w, ((len(frames) + cols - 1) // cols) * h), "white")
-    for i, im in enumerate(frames):
-        sheet.paste(im, ((i % cols) * w, (i // cols) * h))
-    out = pd / "renders" / f"contact.{cut}.jpg"
-    sheet.save(out, quality=85)
-    for f in tmp.iterdir():
-        f.unlink()
-    tmp.rmdir()
-    return out
+    try:
+        frames = []
+        for i, sc in enumerate(scenes):
+            at = (sc["start"] + sc["end"]) / 2
+            frame = _frame(video, at if limit is None else min(at, limit), tmp / f"{i:03d}.jpg")
+            if frame is not None:
+                frames.append(frame)
+            elif skipped is not None:
+                skipped.append(sc["id"])
+        if not frames:
+            raise ValueError("no frame could be extracted")
+        cols = 5
+        w, h = frames[0].size
+        sheet = Image.new("RGB", (cols * w, ((len(frames) + cols - 1) // cols) * h), "white")
+        for i, im in enumerate(frames):
+            sheet.paste(im, ((i % cols) * w, (i // cols) * h))
+        sheet.save(out, quality=85)
+        return out
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _contact_check(pd: Path, cut: str, video: Path) -> dict:
+    """The sheet is for a person to look at, so making it never stops the other checks: a failure is a failed check naming the
+    video. A sheet with a scene missing fails too: a frame ffmpeg cannot get is a video that does not decode there."""
+    rel, skipped = str(video.relative_to(pd)), []
+    try:
+        sheet = contact_sheet(pd, cut, video, skipped)
+    except (OSError, KeyError, ValueError, RuntimeError, TypeError, subprocess.SubprocessError) as err:
+        return _check(False, f"{rel}: contact sheet not made ({type(err).__name__}: {err})"[:300], "render")
+    return _check(not skipped, str(sheet.relative_to(pd)) + (f" (no frame for {', '.join(skipped)})" if skipped else ""), "render")
+
+
+def _decode_audio(video: Path, out: Path) -> str | None:
+    """The video's own audio as a 48 kHz WAV at `out`: what a viewer hears, which the speech checks listen to. None when it
+    worked, else why not."""
+    try:
+        res = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(video), "-vn", "-map", "0:a:0", "-ac", "2",
+                              "-ar", "48000", "-c:a", "pcm_s16le", str(out)], capture_output=True, text=True,
+                             timeout=MEASURE_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return f"ffmpeg took over {MEASURE_TIMEOUT} s to decode the audio of {video.name}"
+    if res.returncode != 0 or not _present(out):
+        return f"{video.name} has no audio ffmpeg can decode ({res.stderr.strip()[-120:] or 'no audio stream'})"
+    return None
+
+
+def _mix_seconds(pd: Path, cut: str) -> float:
+    """The mix WAV's length. It raises, naming the file, when the score stage has not made it or it cannot be read."""
+    import soundfile as sf
+
+    mix = pd / "assets" / "audio" / f"mix.{cut}.wav"
+    if not mix.is_file():
+        raise FileNotFoundError(f"no assets/audio/mix.{cut}.wav; run the score stage")
+    info = sf.info(str(mix))
+    return info.frames / info.samplerate
+
+
+def _cut_checks(pd: Path, cut: str, render: dict, asr, meta: dict, mix_seconds: float) -> dict:
+    captioned = _pick(pd, render, cut, "captioned")
+    with tempfile.TemporaryDirectory() as tmp:
+        shipped = Path(tmp) / "shipped.wav"
+        why = f"render.json lists no {cut} captioned video" if captioned is None else _decode_audio(pd / captioned, shipped)
+        if why is None:
+            spoken, score = speech_checks(pd, cut, asr, audio=shipped)
+        else:  # nothing was heard, which is not a pass
+            spoken, score = _check(False, {"lines": [], "error": why}, "render"), _check(False, {"error": why}, "render")
+    video = video_checks(pd, cut, render, meta["duration"], mix_seconds)
+    checks = {"videos": videos_check(pd, render, cut), f"render_current:{cut}": render_current(pd, cut, render),
+              "number_audit": number_audit(pd, cut), "spoken_figures": spoken, "wer": score, "captions": caption_check(pd, cut),
+              **video, **clean_checks(video)}
+    if captioned:
+        checks["contact_sheet"] = _contact_check(pd, cut, pd / captioned)
+    return checks
+
+
+def _clear_verdict(pd: Path) -> None:
+    """The last verdict goes first: a run that cannot finish must not leave a qa.json, or a contact sheet, to be taken for its."""
+    (pd / "artifacts" / "qa.json").unlink(missing_ok=True)
+    for cut in CUTS:
+        (pd / "renders" / f"contact.{cut}.jpg").unlink(missing_ok=True)
 
 
 def run_qa(project_dir: Path, asr=whisper_asr) -> dict:
     pd = Path(project_dir)
+    _clear_verdict(pd)  # before anything that can abort, reading render.json included
     render = _load(pd, "render.json")
-    cuts = {}
-    for cut in ("long", "short"):
-        if not (pd / "artifacts" / f"timeline.{cut}.json").exists():
-            continue
-        spoken, score = speech_checks(pd, cut, asr)
-        checks = {"number_audit": number_audit(pd, cut), "spoken_figures": spoken, "wer": score,
-                  "captions": caption_check(pd, cut), **video_checks(pd, cut, render)}
-        captioned = next((pd / v for v in render["videos"] if f"_{cut}_" in v and v.endswith("_captioned.mp4")), None)
-        if captioned:
-            checks["contact_sheet"] = _check(True, str(contact_sheet(pd, cut, captioned).relative_to(pd)), "render")
-        cuts[cut] = checks
-    if not cuts:  # nothing checked is a failure, never a pass
+    todo = [cut for cut in CUTS if (pd / "artifacts" / f"timeline.{cut}.json").exists()]
+    # Every cut's meta and mix are read before any check starts: a stage not yet run is an error at once, not after a cut of
+    # listening.
+    refs = {cut: (_load(pd, f"timeline.{cut}.meta.json"), _mix_seconds(pd, cut)) for cut in todo}
+    cuts = {cut: _cut_checks(pd, cut, render, asr, *refs[cut]) for cut in todo}
+    if cuts:
+        cuts["run"] = {"deliverables": deliverables(pd, render, todo)}
+    else:  # nothing checked is a failure, never a pass
         cuts["run"] = {"cuts": _check(False, "no timeline.<cut>.json in artifacts/", "timeline")}
     ok = all(c["ok"] for checks in cuts.values() for c in checks.values())
     report = {"overall": "pass" if ok else "fail", "cuts": cuts}
@@ -17920,15 +20270,18 @@ class ShortedQA(BaseTool):
     input_schema = {"type": "object", "required": ["project_dir"], "properties": {"project_dir": {"type": "string"}}}
 
     def execute(self, inputs: dict) -> ToolResult:
-        if not inputs.get("project_dir"):
-            return ToolResult(success=False, error="project_dir is required")
-        pd = Path(inputs["project_dir"])
+        project_dir = inputs.get("project_dir") if isinstance(inputs, dict) else None
+        if not project_dir or not isinstance(project_dir, (str, Path)):
+            return ToolResult(success=False, error="project_dir is required (a folder path)")
+        pd = Path(project_dir)
         if not pd.is_dir():
             return ToolResult(success=False, error=f"no project folder at {pd}")
         try:
             report = run_qa(pd)
-        # a stage not yet run, a half-written file, artefacts out of step, or media soundfile or ffprobe cannot read
-        except (OSError, KeyError, ValueError, RuntimeError, subprocess.CalledProcessError) as err:
+        # a stage not yet run, a half-written or wrongly shaped file, artefacts out of step, media soundfile or ffprobe cannot
+        # read, a recogniser that will not load (ImportError), an ffmpeg that hangs (SubprocessError); TypeError is the last
+        # line, for a wrong type that _load's shapes do not cover
+        except (OSError, KeyError, ValueError, RuntimeError, TypeError, ImportError, subprocess.SubprocessError) as err:
             return ToolResult(success=False, error=f"QA could not run: {type(err).__name__}: {err}")
         failed = [f"{cut}/{name} (fix in {c['fix_in']})" for cut, checks in report["cuts"].items()
                   for name, c in checks.items() if not c["ok"]]
@@ -17939,7 +20292,7 @@ class ShortedQA(BaseTool):
 - [ ] **Step 4: Run the tests**
 
 Run: `.venv/bin/python -m pytest tests/shorted/test_qa.py -q && .venv/bin/python -m pytest tests/shorted/test_qa.py -q -m slow`
-Expected: 12 tests pass (the slow one is skipped), then the slow full QA on a stand-in render passes.
+Expected: 215 tests pass (2 slow ones skipped), then the slow tests pass: the full QA on a stand-in render, and the short-video case.
 
 - [ ] **Step 5: Update the review director's QA table**
 
@@ -18801,7 +21154,7 @@ cp docs/superpowers/notes/2026-10-08-stock-video-data-collection.md ../shorted-s
 ````markdown
 ---
 name: stock-report-video
-description: Turn an ASX ticker into a results walkthrough video (about 5 minutes, 16:9) and a 60-90 second 9:16 short, built from Shorted's data in the paper-collage "Field Guide to the Bears" style. Use for "/stock-report-video DRO", "make a results video for BHP", or a short clip about a company's report and its short interest.
+description: Turn an ASX ticker into a results walkthrough video (about 5 minutes, 16:9) and a 60-90 second 9:16 short, built from Shorted's data in the paper-collage "Field Guide to the Bears" style. Use for "/stock-report-video DRO", "make a results video for BHP", earnings, half-year or full-year results, a YouTube video, a Reel or TikTok short, or a short clip about a company's report and its short interest.
 ---
 
 # Stock report video
@@ -18816,7 +21169,11 @@ The studio is `/Users/benebsworth/projects/shorted-studio`, an OpenMontage fork 
 
 ## Run it
 
+Prerequisite: the studio's `.env` holds `GEMINI_API_KEY`, which the voice stage needs. Never print it.
+
 All commands run from the studio root. `X` is the ticker.
+
+Run each block as one shell call; the working directory does not persist between calls.
 
 ```bash
 cd /Users/benebsworth/projects/shorted-studio
@@ -18827,25 +21184,42 @@ cd /Users/benebsworth/projects/shorted-studio
 Then write `projects/<X>-<date>/artifacts/storyboard.long.json` and `storyboard.short.json`. Follow the studio skill `skills/pipelines/shorted-results/storyboard-director.md`: scene types, bindings, formats and voice. Every figure must be a `{{path|format}}` binding; never type a number.
 
 ```bash
+cd /Users/benebsworth/projects/shorted-studio
 .venv/bin/python -m tools.shorted.cli storyboard --ticker X  # gates; writes artifacts/review.md
 ```
 
 Show the user `artifacts/review.md` and **end your turn**. Only after they approve:
 
 ```bash
+cd /Users/benebsworth/projects/shorted-studio
 .venv/bin/python -m tools.shorted.cli approve --ticker X
-for s in assets voice timeline score render qa reflect; do .venv/bin/python -m tools.shorted.cli $s --ticker X || break; done
+for s in assets voice timeline; do .venv/bin/python -m tools.shorted.cli $s --ticker X || break; done
 ```
 
-`status` prints the stage rail. Any stage can be re-run alone; it reads files, not memory.
+`timeline` prints each cut's duration against its target (long 270-330 s, short 60-90 s) and exits 0 even when a cut is outside it, so read those lines. If a cut is outside its target, fix the storyboard before going on (see the table below). Then:
+
+```bash
+cd /Users/benebsworth/projects/shorted-studio
+for s in score render qa reflect; do .venv/bin/python -m tools.shorted.cli $s --ticker X || break; done
+```
+
+`status` prints the stage rail:
+
+```bash
+cd /Users/benebsworth/projects/shorted-studio
+.venv/bin/python -m tools.shorted.cli status --ticker X
+```
+
+Re-run a stage and every stage after it; later stages read the earlier ones' files.
 
 ## The rules that make it honest
 
-- **Bindings only.** The gates refuse a typed numeral in narration, props or the thumbnail. A `missing`, `withheld` or `untrusted` value shows as `n/a`, `n/m` or nothing, and can never be spoken.
-- **No advice, no prediction, no causation.** The lint refuses buy/sell/hold calls, targets, "cheap" or "undervalued", "will rally", and any "because" or "driven by" in a sentence about the price or short interest. Say what happened and when, never why.
+- **Bindings only.** The gates refuse a typed numeral in narration, props or the thumbnail. A `missing` or `withheld` value shows as `n/a` or `n/m` and can never be spoken. An untrusted value cannot be bound: the gates refuse it.
+- **No advice, no prediction, no causation.** The lint screens common patterns: buy, sell and hold calls, targets, "cheap" or "undervalued", "will rally", and "because" or "driven by" beside a price or short-interest move. It does not catch everything ("The share price is driven by sentiment." passes it). You are the guard: say what happened and when, never why.
+- **Never say who is short or why they are.** ASIC data does not show it. The lint refuses "hedge funds are shorting it" and "the bears are worried", but the rule is yours to keep.
 - **ASIC caveat.** Every scene showing short data carries "ASIC data shows the size of short positions, not who holds them or why." The timeline adds it.
 - **Reporting currency.** BHP is US$; AUD shows as `A$`.
-- **Dropped chapters.** A chapter without data is dropped and logged as a gap, never padded.
+- **Dropped chapters.** Read `artifacts/coverage.json` before you write the storyboards and leave out any chapter it marks `"ok": false`. A chapter without data is dropped and logged as a gap, never padded.
 - **The end card is fixed** (`gates.END_CARD`): free to explore, the Premium offer at A$4/month, the data source, and "General information only. Not financial advice."
 
 ## Shorted's MCP server and the data-collection notes
@@ -18857,8 +21231,8 @@ mismatch is a Shorted defect to report; it never blocks the video.
 
 If the Shorted connector is connected in this session, use its tools and its
 `short_interest_briefing` prompt to find the story while you write the storyboard. Figures still
-come only from dossier bindings. When MCP has something the dossier lacks, name the tool in a
-`data_wishes` entry.
+come only from dossier bindings. When MCP has something the dossier lacks, add a `data_wishes`
+entry whose `wanted` reads `MCP: <tool> …`, so that `reflect` files it as a pipeline gap.
 
 When `reflect` finds something new about how Shorted collects or serves data, add it to
 `docs/superpowers/notes/2026-10-08-stock-video-data-collection.md` in this repository.
@@ -18869,11 +21243,11 @@ When `reflect` finds something new about how Shorted collects or serves data, ad
 | --- | --- | --- |
 | dossier | exit 2 | The company or bears chapter has no data. Tell the user; do not make the video. |
 | storyboard | gate errors | Fix the storyboard JSON and re-run `storyboard`. Edits after approval need a new approval. |
-| voice | a line fails its check (`NarrationError` names the line and why: a figure heard wrong, the ending not heard, or WER over 0.10) | Rephrase it (awkward numbers are the usual cause), re-run `storyboard`, `approve`, `voice`. Lines that passed are kept and not re-voiced. |
+| voice | a line fails its check (`NarrationError` names the line and why: a figure heard wrong, the ending not heard, WER over 0.10, or silent audio) | Rephrase it (awkward numbers are the usual cause), re-run `storyboard`, `approve`, `voice`. Lines that passed are kept and not re-voiced. If every line fails, with "silent audio" or a `Gemini TTS failed` key error, the problem is the key or the voice call, not the wording: tell the user to check `GEMINI_API_KEY` in the studio's `.env`. |
 | timeline | duration warning | Long too short: add a scene from an unused chapter. Too long: trim lines. |
 | assets | plate not captured | Fine: the timeline drops that plate and its lines move to a neighbouring scene in the same chapter. If the plate was its chapter's only scene, `timeline` fails: re-run `assets`, or give that chapter another scene. |
 | qa | a failed check | `qa.json` names the stage to re-run (`fix_in`). |
-| any | exit 1 | The stage failed and printed `<stage> failed: <why>`; fix what it names and re-run that stage. |
+| any | exit 1 | The stage failed and printed why; fix what it names, then re-run it and the stages after it. |
 | any | exit 3 | A stage ran out of order; run the earlier one. |
 
 Before calling a run done, look at `renders/contact.long.jpg` and `renders/contact.short.jpg` yourself: legibility, nothing under the captions, no blank frames.
@@ -18883,12 +21257,14 @@ Before calling a run done, look at `renders/contact.long.jpg` and `renders/conta
 - `renders/<X>_long_1920x1080_{captioned,clean}.mp4` and `renders/<X>_short_1080x1920_{captioned,clean}.mp4`
 - `renders/<X>_{long,short}.{srt,vtt}` and `renders/<X>_long_chapters.txt` (paste into YouTube)
 - `renders/<X>_thumb_1920x1080.png`, `<X>_thumb_1280x720.jpg`, `<X>_cover_1080x1920.png`
+- `renders/contact.{long,short}.jpg`: contact sheets, one frame per scene, for you to look over
 - `artifacts/dossier.json`, the storyboards, `qa.json`, `reflect.md`
-- `shorted-gaps/backlog.md`: the ranked list of data Shorted lacked across runs. Mention its top three to the user.
+
+Across runs, at the studio root: `shorted-gaps/backlog.md`, the ranked list of data Shorted lacked. Mention its top three to the user.
 
 ## Cost and time
 
-About 30 minutes of wall time plus review. The only paid call is Gemini TTS, a few cents a run.
+About 30 to 60 minutes of wall time plus review. The only paid call is Gemini TTS: one to three takes per line, about a cent a take.
 
 Phase 2 adds ComfyUI and brandbrain art (with a $2 budget cap), the `bb` brand crawl and GitHub gap issues. Phase 3 adds batch runs.
 ````
