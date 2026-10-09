@@ -3,6 +3,7 @@ import { getStock } from "~/app/actions/getStock";
 import { getStockNews } from "~/app/actions/getStockNews";
 import { listEditorialTakes } from "~/app/actions/getEditorialTake";
 import { normalizedLogoUrl } from "~/@/lib/logo";
+import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 
 interface TakeRelatedProps {
   stockCode: string;
@@ -124,7 +125,13 @@ export async function TakeRelated({ stockCode, excludeSlug }: TakeRelatedProps) 
           </p>
         )}
         <div className="mt-3 text-right text-xs">
-          <Link href={`/shorts/${stockCode}/news`} className="text-primary hover:text-primary/80">
+          {/* The News tab is an ISR route that generates on a cold cache: no
+              viewport prefetch from every take page that carries this rail. */}
+          <Link
+            href={stockTabHref(stockCode, "news")}
+            prefetch={false}
+            className="text-primary hover:text-primary/80"
+          >
             All ${stockCode} news →
           </Link>
         </div>
