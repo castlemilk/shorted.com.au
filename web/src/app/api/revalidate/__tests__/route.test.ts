@@ -190,4 +190,16 @@ describe("POST /api/revalidate", () => {
     expect(revalidatePathMock).not.toHaveBeenCalledWith("/market/[date]", "page");
   });
 
+  it("expires every tab under a stock with one layout-typed call", async () => {
+    const res = await POST(
+      request(
+        "http://localhost/api/revalidate?path=/shorts/[stockCode],/market/[date]",
+        "test-revalidation-secret",
+      ),
+    );
+    expect(res.status).toBe(200);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/shorts/[stockCode]", "layout");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/market/[date]", "page");
+  });
+
 });

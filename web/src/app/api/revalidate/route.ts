@@ -122,9 +122,11 @@ export async function POST(request: NextRequest) {
 
   for (const tag of tags) revalidateTag(tag);
   for (const path of paths) {
-    // A path containing "[" is a dynamic route pattern (e.g. /shorts/[stockCode])
-    // → revalidate every page under it.
-    if (path.includes("[")) revalidatePath(path, "page");
+    // A path containing "[" is a dynamic route pattern (e.g. /shorts/[stockCode]).
+    // The stock segment is a LAYOUT with seven tab pages beneath it, so it is
+    // expired as a layout: one call covers every tab for every code.
+    if (path === "/shorts/[stockCode]") revalidatePath(path, "layout");
+    else if (path.includes("[")) revalidatePath(path, "page");
     else revalidatePath(path);
   }
 
