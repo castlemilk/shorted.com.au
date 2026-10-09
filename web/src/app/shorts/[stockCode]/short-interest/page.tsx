@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
-import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
+import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import { ShortInterestHistory } from "../short-interest-history";
 import { loadStockOrFail } from "../stock-page-data";
 import { STOCK_CODE_PATTERN, cleanCompanyName } from "../stock-page-shared";
@@ -55,6 +55,10 @@ export default async function ShortInterestPage({ params }: PageProps) {
   // degraded page is never baked into the ISR cache (see stock-page-data.ts).
   const stock = await loadStockOrFail(code);
   const companyName = cleanCompanyName(stock.name || code, code);
+  // ShortInterestHistory renders nothing for a stock ASIC reports no short
+  // position in, which would leave an empty card here: say so in a sentence
+  // instead (the Overview block this tab replaces was gated the same way).
+  const hasShortInterest = stock.percentageShorted > 0;
 
   return (
     <>
@@ -62,25 +66,27 @@ export default async function ShortInterestPage({ params }: PageProps) {
         items={[
           { label: "Stocks", href: "/stocks" },
           { label: code, href: stockTabHref(code, "overview") },
-          { label: "Short interest", href: stockTabHref(code, "short-interest") },
+          { label: stockTabLabel("short-interest"), href: stockTabHref(code, "short-interest") },
         ]}
       />
-      <h1 className="sr-only">{code} short interest history</h1>
+      <h1 className="sr-only">{companyName} ({code}) short interest history</h1>
       <div className="flex min-w-0 flex-col gap-4 md:gap-6">
-        <section aria-labelledby="si-history-heading" className="rounded-lg border bg-card">
-          <h2 id="si-history-heading" className="px-4 py-3 text-sm font-medium">
-            Short interest history &amp; FAQ
-          </h2>
-          <div className="border-t px-4 py-3">
+        {/* The history and the peer table render their own titles, so their
+            sections are named with an aria-label, not a second visible heading. */}
+        {hasShortInterest ? (
+          <section aria-label="Short interest history and FAQ" className="rounded-lg border bg-card px-4 py-3">
             <Suspense fallback={null}>
               <ShortInterestHistory stockCode={code} companyName={companyName} />
             </Suspense>
-          </div>
-        </section>
+          </section>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            ASIC reports no short position in {code} in the latest data.
+          </p>
+        )}
         <StockVerdict stockCode={code} />
         <StockSignals stockCode={code} />
-        <section aria-labelledby="peers-heading" className="flex flex-col gap-2">
-          <h2 id="peers-heading" className="text-sm font-medium">Peer comparison</h2>
+        <section aria-label="Peer comparison">
           <PeerComparisonTable stockCode={code} />
         </section>
       </div>

@@ -156,7 +156,7 @@ export async function ShortInterestHistory({
         : `Not especially: ${latest.pct.toFixed(2)}% short interest is modest by ASX standards`;
 
   return (
-    // No card chrome of its own — the page wraps this in a <details> that
+    // No card chrome of its own — the page wraps this in a bordered card that
     // already provides the border/background (double-boxing otherwise).
     <section aria-label={`${stockCode} short interest history`}>
       <h2 className="text-lg md:text-xl font-semibold tracking-tight">

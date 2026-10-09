@@ -17,6 +17,12 @@ jest.mock("~/@/components/seo/breadcrumbs", () => ({
     return null;
   },
 }));
+// The registry is the one source of a tab's label (the visible breadcrumb reads
+// it too): spy on it and keep the real implementation.
+jest.mock("~/@/lib/stocks/stock-tabs", () => {
+  const actual = jest.requireActual<typeof import("~/@/lib/stocks/stock-tabs")>("~/@/lib/stocks/stock-tabs");
+  return { ...actual, stockTabLabel: jest.fn(actual.stockTabLabel) };
+});
 jest.mock("~/@/components/stocks/financials-tab", () => ({
   FinancialsTab: ({ stockCode, fundamentals, reports, taxCard, filingsNote }: { stockCode: string; fundamentals: unknown; reports: React.ReactNode; taxCard: React.ReactNode; filingsNote: React.ReactNode }) => (
     <div data-testid="financials-tab" data-code={stockCode} data-has-fundamentals={fundamentals ? "yes" : "no"}>
@@ -35,6 +41,7 @@ jest.mock("~/@/components/company/company-tax-card", () => ({ CompanyTaxCard: ()
 import Page, { generateMetadata, generateStaticParams, revalidate, dynamicParams } from "../page";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { period, wesLike } from "~/@/components/stocks/__tests__/fixtures";
+import { stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 
 const stock = { name: "BHP GROUP LIMITED", industry: "Materials", percentageShorted: 1.58 };
 
@@ -46,6 +53,7 @@ describe("/shorts/[stockCode]/financials", () => {
     mockGetStockFundamentals.mockResolvedValue(null);
     mockMetadata.mockClear();
     mockBreadcrumbs.mockClear();
+    (stockTabLabel as jest.Mock).mockClear();
   });
 
   it("is on-demand ISR", () => {
@@ -71,7 +79,17 @@ describe("/shorts/[stockCode]/financials", () => {
     expect(screen.getByTestId("reports-section")).toHaveAttribute("data-source-document-url", "");
     expect(screen.getByTestId("filings-note")).toHaveAttribute("data-code", "BHP");
     const order = Array.from(container.querySelectorAll("[data-testid]")).map((n) => n.getAttribute("data-testid"));
+    // Both must be present: indexOf is -1 for a missing one, and -1 sorts before anything.
+    expect(order).toContain("dividends");
+    expect(order).toContain("tax-card");
     expect(order.indexOf("dividends")).toBeLessThan(order.indexOf("tax-card"));
+    expect(screen.getByRole("region", { name: "Dividends" })).toContainElement(screen.getByTestId("dividends"));
+  });
+
+  it("adds no heading of its own over the dividends island, which renders its own title", async () => {
+    render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+    // The h1 is the only heading the page writes; DividendHistory prints "Dividends" itself.
+    expect(screen.getAllByRole("heading")).toHaveLength(1);
   });
 
   it("passes the latest result's source filing url through when fundamentals hold one", async () => {
@@ -117,8 +135,9 @@ describe("/shorts/[stockCode]/financials", () => {
     expect(screen.getByTestId("reports-section")).toHaveAttribute("data-source-document-url", "");
   });
 
-  it("emits breadcrumb structured data with the tab as the last item", async () => {
+  it("emits breadcrumb structured data with the tab as the last item, labelled by the tab registry", async () => {
     render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+    expect(stockTabLabel).toHaveBeenCalledWith("financials");
     expect(mockBreadcrumbs).toHaveBeenCalledWith({
       items: [
         { label: "Stocks", href: "/stocks" },

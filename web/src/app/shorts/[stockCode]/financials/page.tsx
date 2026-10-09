@@ -10,7 +10,7 @@ import {
 import { FinancialsTab } from "~/@/components/stocks/financials-tab";
 import { latestResultSourceDocument } from "~/@/components/stocks/fundamentals-model";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
-import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
+import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import { getStockFundamentals } from "~/app/actions/getStockFundamentals";
 import { loadStockOrFail } from "../stock-page-data";
 import { STOCK_CODE_PATTERN, cleanCompanyName } from "../stock-page-shared";
@@ -63,7 +63,7 @@ export default async function FinancialsPage({ params }: PageProps) {
         items={[
           { label: "Stocks", href: "/stocks" },
           { label: code, href: stockTabHref(code, "overview") },
-          { label: "Financials", href: stockTabHref(code, "financials") },
+          { label: stockTabLabel("financials"), href: stockTabHref(code, "financials") },
         ]}
       />
       <h1 className="sr-only">{companyName} ({code}) financials</h1>
@@ -81,8 +81,9 @@ export default async function FinancialsPage({ params }: PageProps) {
         }
         taxCard={
           <>
-            <section aria-labelledby="dividends-heading" className="flex flex-col gap-2">
-              <h2 id="dividends-heading" className="text-sm font-medium">Dividends</h2>
+            {/* DividendHistory renders its own "Dividends" title, so the section
+                is named with an aria-label, not a second visible heading. */}
+            <section aria-label="Dividends">
               <DividendHistory stockCode={code} />
             </section>
             <CompanyTaxCard stockCode={code} />
