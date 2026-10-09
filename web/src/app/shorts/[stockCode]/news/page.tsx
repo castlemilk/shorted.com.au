@@ -166,7 +166,8 @@ export default async function StockNewsPage({ params }: PageProps) {
   // not an empty feed (the API answers a stock with no news with an empty
   // articles list, never NotFound). This page is ISR, so rendering "No news
   // found" for a failed read would cache that sentence for ten minutes over the
-  // last good page; throwing keeps ISR serving it and caches nothing.
+  // last good page; throwing caches nothing, and a page that is merely stale
+  // keeps being served while it regenerates.
   if (!response) {
     throw new Error(
       `news unavailable for ${code}; failing ISR render instead of caching an empty tab`,

@@ -153,7 +153,8 @@ describe("/shorts/[stockCode]/news", () => {
   // list and a store error with CodeInternal, and never with NotFound
   // (services/shorts/internal/services/shorts/news.go). Rendering "No news
   // found" for a failed read would bake that sentence into the cache for ten
-  // minutes and replace the last good page; throwing keeps ISR serving it.
+  // minutes and replace the last good page; throwing caches nothing, and a page
+  // that is merely stale keeps being served while it regenerates.
   describe("a failed news read", () => {
     it("fails the render instead of caching 'No news found'", async () => {
       mockGetStockNews.mockResolvedValue(undefined);
