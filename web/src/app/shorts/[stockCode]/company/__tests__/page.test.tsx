@@ -37,8 +37,8 @@ jest.mock("~/@/components/economy/stock-state-exposure", () => ({
   ),
 }));
 jest.mock("~/@/components/company/stock-evidence-panel-client", () => ({
-  StockEvidencePanelClient: ({ stockCode, industry, industrySlug }: { stockCode: string; industry: string | null; industrySlug: string | null }) => (
-    <div data-testid="dossier" data-code={stockCode} data-industry={industry ?? ""} data-slug={industrySlug ?? ""} />
+  StockEvidencePanelClient: ({ stockCode, industry, industrySlug, callbackUrl }: { stockCode: string; industry: string | null; industrySlug: string | null; callbackUrl?: string }) => (
+    <div data-testid="dossier" data-code={stockCode} data-industry={industry ?? ""} data-slug={industrySlug ?? ""} data-callback-url={callbackUrl ?? ""} />
   ),
 }));
 
@@ -115,6 +115,13 @@ describe("/shorts/[stockCode]/company", () => {
     expect(dossier).toHaveAttribute("data-code", "BHP");
     expect(dossier).toHaveAttribute("data-industry", "Materials");
     expect(dossier).toHaveAttribute("data-slug", "materials");
+  });
+
+  it("sends the dossier's sign-in back to this tab, not the Overview", async () => {
+    // The dossier belongs to this tab, so the lock card a signed-out visitor
+    // follows must return them here after they sign in.
+    render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+    expect(screen.getByTestId("dossier")).toHaveAttribute("data-callback-url", "/shorts/BHP/company");
   });
 
   it("still renders the dossier, with no industry, when the related-stocks read comes back empty", async () => {

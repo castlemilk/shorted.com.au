@@ -95,6 +95,7 @@ export default async function CompanyPage({ params }: PageProps) {
           stockCode={code}
           industry={relatedData.industry}
           industrySlug={relatedData.industrySlug}
+          callbackUrl={stockTabHref(code, "company")}
         />
       </div>
     </>
