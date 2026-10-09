@@ -519,13 +519,17 @@ export async function buildShortsSitemap(): Promise<SitemapEntry[]> {
     })),
   ];
 
-  // Per-stock news pages share the qualified stockCodes list, so the news tree
-  // mirrors the pruned stock list (no thin pages get indexed). The stock's news
-  // tab is rebuilt with the same daily sync the stock page is.
-  const stockNewsRoutes: SitemapEntry[] = stockCodes.map((code) => ({
-    url: `${baseUrl}/shorts/${code}/news`,
-    lastModified: latestDataDate,
-  }));
+  // Per-stock tab pages share the qualified stockCodes list, so the tab trees
+  // mirror the pruned stock list (no thin pages get indexed). Strategy stays
+  // out (most stocks read "not a candidate" on every strategy) and Community
+  // is noindex; both are reached through the tab bar.
+  const STOCK_TAB_SEGMENTS = ["short-interest", "financials", "company", "news"] as const;
+  const stockTabRoutes: SitemapEntry[] = stockCodes.flatMap((code) =>
+    STOCK_TAB_SEGMENTS.map((segment) => ({
+      url: `${baseUrl}/shorts/${code}/${segment}`,
+      lastModified: latestDataDate,
+    })),
+  );
 
   const insiderRoutes: SitemapEntry[] = [
     { url: `${baseUrl}/insider-trading`, lastModified: latestDataDate },
@@ -553,7 +557,7 @@ export async function buildShortsSitemap(): Promise<SitemapEntry[]> {
     }
   }
 
-  return [...stockRoutes, ...stockNewsRoutes, ...insiderRoutes, ...comparePairs];
+  return [...stockRoutes, ...stockTabRoutes, ...insiderRoutes, ...comparePairs];
 }
 
 /* --------------------------------------------------------------- reports -- */

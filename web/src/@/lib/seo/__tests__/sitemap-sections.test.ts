@@ -324,6 +324,21 @@ describe("sitemap children", () => {
     }
   });
 
+  // The short-interest, financials and company tabs are indexable pages in
+  // their own right, beside news. Strategy stays out (most stocks read "not a
+  // candidate") and community is noindex, so neither is advertised.
+  it("lists the indexable stock tabs for every qualified code, and never strategy or community", async () => {
+    const shorts = (await buildAll()).find((s) => s.name === "sitemap-shorts.xml")!;
+    const urls = shorts.entries.map((e) => e.url);
+    for (const { productCode } of stockFixture) {
+      for (const tab of ["short-interest", "financials", "company", "news"]) {
+        expect(urls).toContain(`https://shorted.com.au/shorts/${productCode}/${tab}`);
+      }
+    }
+    expect(urls.some((u) => /\/shorts\/[A-Z0-9]+\/strategy$/.test(u))).toBe(false);
+    expect(urls.some((u) => /\/shorts\/[A-Z0-9]+\/community$/.test(u))).toBe(false);
+  });
+
   it("does not stamp one shared constant on every lastmod", async () => {
     const sections = await buildAll();
     const lastmods = sections
