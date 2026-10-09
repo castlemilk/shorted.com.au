@@ -178,9 +178,9 @@ export default async function StockNewsPage({ params }: PageProps) {
 
   // stock.name is the raw ASIC PRODUCT string (SHOUTED, with a security-type
   // descriptor); the h1, the schema and the description all go through the
-  // shared formatter, as every other tab does. `||`, not `??`: an empty name
-  // falls back to the code.
-  const companyName = cleanCompanyName(stock?.name || code, code);
+  // shared formatter, as every other tab does. An unreadable stock or an empty
+  // name reaches it as "", and it falls back to the code.
+  const companyName = cleanCompanyName(stock?.name ?? "", code);
   const [hero, ...rest] = articles;
 
   // Structured data only: the stock layout renders the visible trail.
