@@ -410,6 +410,12 @@ For DRO, BHP, CBA and TLX the short series agree point for point on all 253 shar
 - The AAC bit-rate band (256 kb/s ±15%) is calibrated on stand-in renders only. A cut with long near-silent stretches may fall under it and fail `format`.
 - "October 7th" is not folded to "7 October". The ordinal words are.
 
+**Honesty and messages (from the final review, deferred):**
+- **An unknown currency is shown as AUD.** `dossier.py:381` (`latest.get("currency") or "AUD"`) and `formatters.py:92` (`v.currency or "AUD"`) do this. It is latent, because every recorded fixture carries a currency. A US$ reporter with the field missing would be shown in A$. Withhold the figure instead of guessing. Fix this before running a company whose reporting currency is not AUD.
+- **An API outage reads as "no data".** `cli.py:413` tells the agent the video "cannot be made honestly". On a 5xx, a 429 or a network error, it should say the Shorted API did not answer and to try again. `ShortedDossier.execute` already tells the two apart.
+- **QA does not report scenes dropped after approval.** Add one QA line: "scenes approved N, shown M, dropped: ids".
+- **`render_all` does not check the staged plates exist** before Remotion starts. The error names the missing path but not the `assets` stage.
+
 **Security:** `assets` passes the whole environment, keys included, to the Node capture script. Pass an allowlist instead (`PATH`, `HOME`, `TMPDIR`, `SHORTED_PLAYWRIGHT_MODULE`, `PLAYWRIGHT_BROWSERS_PATH`), and check it with the first live capture.
 
 **Owner decisions before anything is published:**
