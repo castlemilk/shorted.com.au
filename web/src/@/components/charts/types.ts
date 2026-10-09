@@ -89,6 +89,12 @@ export interface StockChartProps {
   oscillators?: OscillatorSpec[];
   /** Shaded time-spans drawn under the series (e.g. short-vs-price divergence). */
   regions?: ChartRegion[];
+  /** Reference levels drawn over the series (the strategy's pivot, averages, 52-week range). */
+  levels?: readonly ChartLevel[];
+  /** Shaded value bands drawn under the series (a base). */
+  bands?: readonly ChartBand[];
+  /** Vertical session markers (a breakout). */
+  markers?: readonly ChartMarker[];
   leftAxis?: AxisSpec;
   rightAxis?: AxisSpec;
   viewMode?: "absolute" | "normalized"; // default "absolute"
@@ -96,4 +102,33 @@ export interface StockChartProps {
   height?: number; // default 360
   variant?: "full" | "compact"; // compact: no axis labels, no volume, no brush
   decimationTargetPerPx?: number; // default 2
+}
+
+/** A horizontal reference line on one axis, optionally bounded to a time span. */
+export interface ChartLevel {
+  axis: "left" | "right";
+  value: number;
+  label: string;
+  color: string;
+  dash?: string;
+  from?: number; // epoch ms
+  to?: number; // epoch ms
+}
+
+/** A shaded value band between `low` and `high` over a time span. */
+export interface ChartBand {
+  axis: "left" | "right";
+  low: number;
+  high: number;
+  from: number;
+  to: number;
+  color: string;
+  label?: string;
+}
+
+/** A vertical session marker. */
+export interface ChartMarker {
+  t: number;
+  label: string;
+  color: string;
 }

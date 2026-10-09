@@ -1,108 +1,43 @@
-import nextDynamic from "next/dynamic";
-import { PoliticianInterestsCard } from "@/components/company/politician-interests-card-loader";
 import { type Metadata } from "next";
-// Consolidated per-stock chart (price + short interest, dual-axis, volume, brush).
-// Client-only: uses Connect-RPC + market-data hooks.
-const StockChartPanel = nextDynamic(
-  () =>
-    import("~/@/components/charts/StockChartPanel").then(
-      (m) => m.StockChartPanel,
-    ),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-[420px] animate-pulse rounded-lg bg-muted/40" />
-    ),
-  },
-);
-import CompanyProfile, {
-  CompanyProfilePlaceholder,
-} from "~/@/components/ui/companyProfile";
-import CompanyStats, {
-  CompanyStatsPlaceholder,
-} from "~/@/components/ui/companyStats";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import CompanyInfo, {
   CompanyInfoPlaceholder,
 } from "~/@/components/ui/companyInfo";
-import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
-import { CompanyTaxCard } from "~/@/components/company/company-tax-card";
-import {
-  FilingsListedNote,
-  FinancialReportsSection,
-} from "~/@/components/company/financial-reports-section";
-import { FinancialsTab } from "~/@/components/stocks/financials-tab";
 import { FundamentalsSummary } from "~/@/components/stocks/fundamentals-summary";
-import { StrategyFitCard } from "~/@/components/stocks/strategy-fit-card";
-import { latestResultSourceDocument } from "~/@/components/stocks/fundamentals-model";
+import { StrategyFitStrip } from "~/@/components/stocks/strategy-fit-strip";
 import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
-import { CommunityTab } from "~/@/components/company/community/community-tab";
-import { StockEvidencePanelClient } from "~/@/components/company/stock-evidence-panel-client";
-import { LoginPromptBanner } from "~/@/components/ui/login-prompt-banner";
 import { SignedOutOnly } from "~/@/components/ui/session-gates";
-
-// The tabs shell SSRs (static import): the server-rendered overview slots
-// must reach the served HTML for crawlers. The connect-importing tab
-// CHILDREN are lazy ssr:false imports INSIDE the shell — see stock-tabs.tsx.
-import { StockTabs } from "~/@/components/company/stock-tabs";
-import { Suspense } from "react";
-import {
-  Breadcrumbs,
-  BreadcrumbStructuredData,
-} from "~/@/components/seo/breadcrumbs";
+import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta, StockLLMMeta } from "~/@/components/seo/llm-meta";
-import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
-import { ChevronDown } from "lucide-react";
-import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
+import { LatestWeeklyReportLink } from "~/@/components/reports/latest-weekly-report-link";
+import { siteConfig } from "~/@/config/site";
+import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
+import { thirtyDayChangeClause } from "~/@/lib/seo/short-change-clause";
+import { stockOgImage } from "~/@/lib/seo/stock-tab-metadata";
+import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { getStockHeadlines } from "~/app/actions/getStockNews";
 import { getStockOrNotFound } from "~/app/actions/getStock";
 import { getLatestShortDate } from "~/app/actions/getLatestShortDate";
 import { getDailyShortSeries } from "~/app/actions/getDailyShortSeries";
-import { thirtyDayChangeClause } from "~/@/lib/seo/short-change-clause";
-import { formatCompanyName } from "~/@/lib/company-name";
-import Link from "next/link";
-import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
-import { ShortInterestHistory } from "./short-interest-history";
-import {
-  ShortInterestSummary,
-  getShortInterestDeltas,
-} from "./short-interest-summary";
-import { LatestWeeklyReportLink } from "~/@/components/reports/latest-weekly-report-link";
-import { StockThemeChips } from "~/@/components/themes/theme-chips";
-import { StockStateExposure } from "~/@/components/economy/stock-state-exposure";
-import { getStateExposureIndex } from "~/app/actions/getEconomy";
-import { NotFoundError } from "~/app/actions/withRetry";
-import { notFound } from "next/navigation";
 import { getStockFundamentals } from "~/app/actions/getStockFundamentals";
 import {
   getStockStrategyFit,
   type StockStrategyFit,
 } from "~/app/actions/getStockStrategyFit";
+import { loadStockOrFail } from "./stock-page-data";
+import {
+  STOCK_CODE_PATTERN,
+  asOfClauseFor,
+  cleanCompanyName,
+  formatAsOfDate,
+} from "./stock-page-shared";
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
-}
-
-// Display name for every SEO-critical surface on this page (title, og:title,
-// h1, crawler summary, schema). `stock.name` is the raw ASIC PRODUCT string —
-// SHOUTED, with a security-type descriptor ("BHP GROUP LIMITED ORDINARY") —
-// so it must go through the shared formatter, the same one the visible
-// CompanyProfile uses. The page previously stripped only the security-type
-// word, which left SERP titles shouting "BHP GROUP LIMITED".
-function cleanCompanyName(name: string, code: string): string {
-  return formatCompanyName(name, code) || name;
-}
-
-// ASIC report dates are Sydney calendar days — format them in that zone so a
-// UTC-hosted render can't show the previous day.
-function formatAsOfDate(date: Date): string {
-  return date.toLocaleDateString("en-AU", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "Australia/Sydney",
-  });
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -116,10 +51,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   let title = `${code} Short Interest | Official ASIC Data (T+4)`;
   let description = `${code} short interest from official ASIC reports. Current short %, historical trends, charts & analysis. Updated daily with T+4 delay. Free ASX short position tracking.`;
   let shouldNoindex = false;
-  // Content-addressed OG image version: changes when the short % changes, so
-  // the social card refreshes exactly when data does (and is served from
-  // immutable cache otherwise). Also moves off any stale/frozen cached URL.
-  let ogVersion = "default";
+  // The social card's content-addressed version moves with the short % (see
+  // stockOgImage), so the card refreshes exactly when the data does.
+  let percentShorted: number | undefined;
 
   try {
     const stock = await getStockOrNotFound(code);
@@ -129,7 +63,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title = companyName
         ? `${code} Short Interest — ${companyName} (ASX:${code})${shortPct}`
         : `${code} Short Interest${shortPct} | ASIC Data`;
-      if (stock.percentageShorted > 0) ogVersion = stock.percentageShorted.toFixed(2);
+      percentShorted = stock.percentageShorted;
 
       // The date of the latest ASIC report this stock appears in — NOT
       // `new Date()`. ASIC publishes T+4, so "as of <today>" describes a
@@ -168,19 +102,24 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     // Fall back to default title/description if fetch fails
   }
 
-  const ogImage = {
-    url: `${siteConfig.url}/shorts/${code}/opengraph-image?p=${ogVersion}`,
-    width: 1200,
-    height: 630,
-    alt: `${code} short position — ${siteConfig.name}`,
-  };
+  const ogImage = stockOgImage(code, percentShorted);
 
   return {
     title,
     description,
-    robots: shouldNoindex
-      ? { index: false, follow: true, googleBot: { index: false, follow: true } }
-      : undefined,
+    // Omitted, not set to undefined, when indexable: Next 14.2 merges metadata
+    // with `for (key in source)`, so an own `robots: undefined` replaces the root
+    // layout's robots (and its googleBot max-image-preview / max-snippet
+    // directives) with nothing. Absent, the page inherits them.
+    ...(shouldNoindex
+      ? {
+          robots: {
+            index: false,
+            follow: true,
+            googleBot: { index: false, follow: true },
+          },
+        }
+      : {}),
     keywords: [
       `${code} short position`,
       `${code} short interest`,
@@ -248,98 +187,46 @@ export function generateStaticParams(): Array<{ stockCode: string }> {
 
 const Page = async ({ params }: PageProps) => {
   const { stockCode: rawStockCode } = await params;
-  // This page is public for SEO and discovery - no authentication required
   const stockCode = rawStockCode.toUpperCase();
+  if (!STOCK_CODE_PATTERN.test(stockCode)) notFound();
 
-  // Validate stock code format (ASX codes are 1-4 alphanumeric characters)
-  if (!/^[A-Z0-9]{1,4}$/.test(stockCode)) {
-    notFound();
-  }
-
-  // Fetch stock data for StockLLMMeta and related stocks in parallel
-  // getStockOrNotFound throws NotFoundError when the stock doesn't exist,
-  // but returns undefined for transient backend errors.
-  let stock: Awaited<ReturnType<typeof getStockOrNotFound>> = undefined;
-  let relatedData: Awaited<ReturnType<typeof getRelatedStocks>>;
-  // Fundamentals (Financials tab + the Overview summary): every period type,
-  // the ratio row, coverage and the latest filing summary. Cached 24h and
-  // tag-busted by the picks job; degrades to null (the tab then renders its
-  // filings and tax card only).
+  // Fundamentals (the crawlable summary paragraph). Cached 24h, tag-busted by
+  // the picks job; degrades to null (the paragraph is then omitted).
   const fundamentalsPromise = getStockFundamentals(stockCode).catch(
     (): Awaited<ReturnType<typeof getStockFundamentals>> => null,
   );
-  // Strategy fit (Overview). NOT in the critical Promise.all below: the action
-  // throws on any failure (4 s abort, never cached) and this catch hides the
-  // card, so a slow or older API can never fail the ISR render.
+  // Strategy fit (the strip). NOT in the critical Promise.all below: the
+  // action throws on any failure (4 s abort, never cached) and this catch
+  // hides the strip, so a slow or older API can never fail the ISR render.
   const strategyFitPromise = getStockStrategyFit(stockCode).catch(
     (err: unknown): StockStrategyFit | null => {
       console.warn(`[stock page] strategy fit unavailable for ${stockCode}:`, err);
       return null;
     },
   );
-  // Latest headlines for the crawlable research section below the tabs —
-  // ISR-safe accessor, degrades to an empty list.
-  const stockNewsPromise = getStockHeadlines(stockCode, 5);
-  // Date of the latest ASIC report containing this stock — the page's "as of"
-  // everywhere. Never `new Date()`: ASIC publishes T+4.
+  // Three headlines for the digest; the full feed is the News tab.
+  const stockNewsPromise = getStockHeadlines(stockCode, 3);
+  // Date of the latest ASIC report containing this stock — the schema's
+  // "as of". Never `new Date()`: ASIC publishes T+4.
   const latestShortDatePromise = getLatestShortDate(stockCode).catch(
     (): Date | null => null,
   );
-  // Cross-domain context must never take the stock page down. The action also
-  // degrades internally, but this call-site fallback keeps that contract local.
-  const stateExposureIndexPromise = getStateExposureIndex().catch(
-    (): Awaited<ReturnType<typeof getStateExposureIndex>> => ({}),
-  );
-  try {
-    [stock, relatedData] = await Promise.all([
-      getStockOrNotFound(stockCode),
-      getRelatedStocks(stockCode),
-    ]);
-  } catch (err) {
-    // Stock genuinely doesn't exist in the database → show 404
-    if (err instanceof NotFoundError) {
-      notFound();
-    }
-    // Transient backend error → render page with fallback UI (retry components)
-    relatedData = { stocks: [], industry: null, industrySlug: null };
-  }
 
-  // Under ISR a degraded render would be BAKED into the shared page cache
-  // for up to an hour (schema-less shell served to every visitor and
-  // crawler). Fail the generation instead: the request 500s, nothing is
-  // cached, and the next request regenerates. (getStockOrNotFound returns
-  // undefined only on transient errors — genuine not-found threw above.)
-  if (!stock) {
-    throw new Error(
-      `stock data transiently unavailable for ${stockCode}; failing ISR render instead of caching a degraded page`,
-    );
-  }
+  // 404s an unknown code and FAILS the render on a transient read, so a
+  // degraded page is never baked into the ISR cache (see stock-page-data.ts).
+  // getRelatedStocks degrades to an empty result on its own and never rejects.
+  const [stock, relatedData] = await Promise.all([
+    loadStockOrFail(stockCode),
+    getRelatedStocks(stockCode),
+  ]);
 
   const fundamentals = await fundamentalsPromise;
   const strategyFit = await strategyFitPromise;
-  const sourceDocument = latestResultSourceDocument(fundamentals);
   const newsArticles = await stockNewsPromise;
   const latestShortDate = await latestShortDatePromise;
-  const stateExposureIndex = await stateExposureIndexPromise;
-  const stateExposures = stateExposureIndex[stockCode] ?? [];
-
-  // Hoisted out of the schema IIFE below because the visible summary paragraph
-  // and the sr-only crawler summary must state the SAME "as of". The real ASIC
-  // report date, never the render date — `null` degrades to "in the latest
-  // ASIC report" rather than printing a date we can't stand behind (ASIC
-  // publishes T+4, so "as of today" describes a report that cannot exist).
-  const asOfIso = latestShortDate
-    ? latestShortDate.toISOString().slice(0, 10)
-    : null;
-  const asOfDisplay = latestShortDate ? formatAsOfDate(latestShortDate) : null;
-  const asOfClause = asOfDisplay
-    ? `as of ${asOfDisplay}`
-    : "in the latest ASIC report";
-
-  // Trailing-window deltas for the summary paragraph. Reads the SAME
-  // React-cached daily series getLatestShortDate already pulled, so it costs
-  // no extra backend call; returns all-nulls (clauses omitted) on failure.
-  const shortDeltas = await getShortInterestDeltas(stockCode);
+  const asOfIso = latestShortDate ? latestShortDate.toISOString().slice(0, 10) : null;
+  const asOfClause = asOfClauseFor(latestShortDate);
+  const companyName = cleanCompanyName(stock.name || stockCode, stockCode);
 
   const breadcrumbItems = [
     { label: "Stocks", href: "/stocks" },
@@ -347,7 +234,7 @@ const Page = async ({ params }: PageProps) => {
   ];
 
   return (
-    <DashboardLayout>
+    <>
       <BreadcrumbStructuredData items={breadcrumbItems} />
       <LLMMeta
         title={`${stockCode} Stock Analysis - Short Position Data`}
@@ -364,31 +251,22 @@ const Page = async ({ params }: PageProps) => {
         dataFrequency="daily"
         requiresAuth={false}
       />
-      {stock && (
-        <StockLLMMeta
-          stockCode={stockCode}
-          companyName={cleanCompanyName(stock.name || stockCode, stockCode)}
-          industry={stock.industry || ""}
-          sector={stock.industry || ""}
-          shortPercentage={stock.percentageShorted || undefined}
-          currentShortPosition={stock.reportedShortPositions || undefined}
-        />
-      )}
+      <StockLLMMeta
+        stockCode={stockCode}
+        companyName={companyName}
+        industry={stock.industry || ""}
+        sector={stock.industry || ""}
+        shortPercentage={stock.percentageShorted || undefined}
+        currentShortPosition={stock.reportedShortPositions || undefined}
+      />
 
-      {/* Guaranteed page h1: the rich crawler summary below only renders when
-          stock data resolved — on transient backend errors the page would
-          otherwise ship with no h1 at all. */}
-      {!stock && (
-        <h1 className="sr-only">{stockCode} Short Interest</h1>
-      )}
-
-      {stock && (() => {
+      {(() => {
         const shortPct = stock.percentageShorted ?? 0;
         const shortPositions = stock.reportedShortPositions ?? 0;
-        const companyName = cleanCompanyName(stock.name || stockCode, stockCode);
         const industry = stock.industry || "";
         // asOfIso / asOfClause are hoisted to the page body above — the
-        // visible summary and this crawler summary must not disagree.
+        // layout's visible summary states the same "as of" (asOfClauseFor),
+        // and the two must not disagree.
         const positionsDisplay = shortPositions > 0
           ? new Intl.NumberFormat("en-AU").format(Math.round(shortPositions))
           : "—";
@@ -482,8 +360,8 @@ const Page = async ({ params }: PageProps) => {
             />
             {/* Crawler/LLM summary — kept in the SSR DOM for SEO + AI bots but
                 visually hidden (sr-only, not display:none, so it stays indexed
-                and in the a11y tree). The same facts are shown visibly below in
-                CompanyProfile / CompanyStats / the chart. */}
+                and in the a11y tree). The same facts are shown visibly in the
+                layout's CompanyProfile / CompanyStats / the chart. */}
             <section
               aria-label={`${stockCode} short interest summary`}
               className="sr-only"
@@ -527,295 +405,146 @@ const Page = async ({ params }: PageProps) => {
         );
       })()}
 
-      <div className="mb-4">
-        <Breadcrumbs items={breadcrumbItems} />
-      </div>
-
-      {/* Signed-out breadcrumb to login — dismissible, above the fold.
-          Client-gated: the ISR HTML is shared across sessions, so the
-          banner appears once the session resolves as signed-out.
-          CLS guard: the slot div is ALWAYS in the server HTML; a pre-paint
-          inline script in layout.tsx marks <html class="anon"> when no
-          next-auth session cookie exists, and critical CSS reserves the
-          banner's height under html.anon — so for the signed-out majority
-          the banner hydrates into pre-reserved space instead of shifting
-          the whole page down (~0.13 CLS on mobile). Signed-in visitors get
-          a zero-height slot. */}
-      <div className="login-slot">
-        <SignedOutOnly>
-          <div className="overflow-hidden rounded-lg border border-primary/20">
-            <LoginPromptBanner />
-          </div>
-        </SignedOutOnly>
-      </div>
-
-      {/* Header: Profile & Stats (always visible above tabs) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start mb-6">
-        <div className="md:col-span-2">
-          <Suspense fallback={<CompanyProfilePlaceholder />}>
-            <CompanyProfile stockCode={stockCode} />
-          </Suspense>
-        </div>
-        <div className="md:col-span-1 h-full">
-          <Suspense fallback={<CompanyStatsPlaceholder />}>
-            <CompanyStats stockCode={stockCode} initialStock={stock} />
-          </Suspense>
-        </div>
-      </div>
-
-      {/* Templated short-interest summary — prose above the fold, built only
-          from data this render already has. This is what wins "[ticker] short
-          interest" against competitors whose pages are prose-first and
-          data-thin; the sr-only block above is a schema/LLM companion, not a
-          substitute for text a human can read. */}
-      <ShortInterestSummary
-        stockCode={stockCode}
-        companyName={cleanCompanyName(stock.name || stockCode, stockCode)}
-        industry={stock.industry || ""}
-        shortPct={stock.percentageShorted ?? 0}
-        shortPositions={stock.reportedShortPositions ?? 0}
-        asOfClause={asOfClause}
-        deltas={shortDeltas}
-      />
-
-      {/* Curated thematic baskets this code belongs to. Static registry data,
-          so no fetch and no Suspense — it ships in the ISR HTML where crawlers
-          read it, and renders nothing for codes in no basket. */}
-      <StockThemeChips stockCode={stockCode} className="-mt-2 mb-6" />
-      <StockStateExposure exposures={stateExposures} />
-
-      {/* Weekly context — one internal link into the weekly report series
-          (the ~200 dated posts that had almost no inbound links). Streamed
-          under Suspense so its cached fetch can't delay this page's ISR
-          render, and renders nothing if the archive is unavailable.
-          Deliberately NOT "this stock appears in week N" — that would couple
-          the stock page to a per-report membership lookup. */}
-      <Suspense fallback={null}>
-        <LatestWeeklyReportLink
-          variant="inline"
-          label="Weekly context:"
-          className="mb-6"
-        />
-      </Suspense>
-
-      {/* Price & short interest — the page centrepiece, full width, flat. */}
-      <section aria-labelledby="stock-chart-heading" className="mb-6 min-w-0">
-        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-          <h2
-            id="stock-chart-heading"
-            className="text-lg font-semibold tracking-tight"
+      <div className="grid min-w-0 grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-[minmax(0,1fr)_310px]">
+        <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+          {/* Short interest digest: the weekly-report context link (an
+              internal link into the ~200 dated reports) and the way in. */}
+          <section
+            aria-labelledby="overview-short-interest-heading"
+            className="rounded-lg border bg-card px-4 py-3"
           >
-            Price &amp; short interest
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            Toggle series, zoom, and compare · ASIC daily, T+4
-          </span>
-        </div>
-        <StockChartPanel stockCode={stockCode} />
-      </section>
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="overview-short-interest-heading" className="text-sm font-medium">
+                Short interest
+              </h2>
+              <Link
+                href={stockTabHref(stockCode, "short-interest")}
+                prefetch={false}
+                className="text-xs text-primary hover:underline"
+              >
+                History &amp; FAQ →
+              </Link>
+            </div>
+            <Suspense fallback={null}>
+              <LatestWeeklyReportLink
+                variant="inline"
+                label="Weekly context:"
+                className="mt-2"
+              />
+            </Suspense>
+          </section>
 
-      {/* Tabbed content area. The shell SSRs (its connect-importing tab
-          children are lazy client-only inside it), so everything in the
-          overview slots below reaches the served HTML — peers, history,
-          headlines and hub links live in their proper rail/main positions
-          AND stay crawlable. */}
-      <StockTabs
-        stockCode={stockCode}
-        overviewMain={
-          <>
-            {/* Per-stock public-source evidence with industry drill-up
-                links. Signed-out visitors see the lock with a yellow
-                sign-in CTA instead of the dossier. The ISR page HTML is
-                session-agnostic, so the dossier is fetched CLIENT-SIDE and
-                only after the session resolves as authenticated — gated
-                data never ships in the shared cached payload. */}
-            <StockEvidencePanelClient
-              stockCode={stockCode}
-              industry={relatedData.industry}
-              industrySlug={relatedData.industrySlug}
-            />
+          {strategyFit ? <StrategyFitStrip fit={strategyFit} /> : null}
 
-            {/* SSR short-interest history + FAQ — crawlable trend facts.
-                Native <details> keeps the content in the DOM (crawlable)
-                whether expanded or collapsed; defaults CLOSED so ~550px of
-                FAQ prose doesn't sit mid-overview. */}
-            {stock && (stock.percentageShorted ?? 0) > 0 && (
-              <details className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium">
-                  Short interest history &amp; FAQ
-                  <ChevronDown
-                    aria-hidden
-                    className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
-                  />
-                </summary>
-                <div className="border-t px-4 py-3">
-                  <Suspense fallback={null}>
-                    <ShortInterestHistory
-                      stockCode={stockCode}
-                      companyName={cleanCompanyName(stock.name || stockCode, stockCode)}
-                    />
-                  </Suspense>
-                </div>
-              </details>
-            )}
-
-            {/* Crawlable fundamentals paragraph: server-rendered prose from
-                the figures the API holds, omitted (never guessed) without a
-                held result. The Financials tab itself is not in the SSR HTML
-                (inactive tab panels do not render), so this is what crawlers
-                read about the company's results. */}
+          {/* Crawlable fundamentals paragraph; omitted (never guessed) without
+              a held result. The full statements live on the Financials tab. */}
+          <div className="flex flex-col gap-2">
             <FundamentalsSummary
               stockCode={stockCode}
-              companyName={cleanCompanyName(stock.name || stockCode, stockCode)}
+              companyName={companyName}
               fundamentals={fundamentals}
             />
-
-            {/* How each picker strategy reads this stock, with crawlable
-                links to /picks/<id>. Hidden when the fit fetch failed. */}
-            {strategyFit ? <StrategyFitCard fit={strategyFit} /> : null}
-
-            {/* Consolidated company research card — the ONLY place the
-                enriched prose renders (the Financials tab shows reports
-                + metrics only, no duplicated company content). */}
-            <EnrichedCompanySection stockCode={stockCode} />
-
-            {/* Latest headlines — server-fetched so stock pages carry
-                fresh, crawlable text; the full feed lives on the News tab. */}
-            {newsArticles.length > 0 && (
-              <div className="rounded-lg border bg-card">
-                <div className="flex items-center justify-between px-4 py-3">
-                  <h2 className="text-sm font-medium">
-                    Latest {stockCode} news
-                  </h2>
-                  <Link
-                    href={`/shorts/${stockCode}/news`}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    All news
-                  </Link>
-                </div>
-                <ul className="divide-y border-t">
-                  {newsArticles.map((article) => (
-                    <li key={article.id || article.url} className="px-4 py-2.5">
-                      <a
-                        href={article.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm leading-snug hover:text-primary hover:underline"
-                      >
-                        {article.headline}
-                      </a>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {article.source}
-                        {article.publishedAtIso
-                          ? ` · ${new Date(
-                              article.publishedAtIso,
-                            ).toLocaleDateString("en-AU", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}`
-                          : null}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
-        }
-        overviewRail={
-          <>
-            <Suspense fallback={<CompanyInfoPlaceholder />}>
-              <CompanyInfo stockCode={stockCode} />
-            </Suspense>
-
-            {/* Registers of Members'/Senators' Interests. A rail card rather
-                than a 9th tab: the tab list already overflows on mobile, its
-                `available` array is hardcoded (so a missed edit silently breaks
-                ?tab= deep links), and the card is empty for most stocks.
-                ssr:false keeps politicians_pb out of this route's 330kB budget. */}
-            <PoliticianInterestsCard stockCode={stockCode} />
-
-            {/* Related stocks — the peer internal-link mesh, in the SSR
-                DOM via the SSR'd tabs shell. */}
-            {relatedData.stocks.length > 0 && (
-              <RelatedStocks
-                stocks={relatedData.stocks}
-                currentStock={stockCode}
-                industrySlug={relatedData.industrySlug}
-                title={`More ${relatedData.industry} Stocks`}
-                description="Other shorted stocks in this sector"
-              />
-            )}
-
-            {/* Hub links — part of the sitewide internal-link mesh. */}
-            <nav
-              aria-label="Short selling resources"
-              className="rounded-lg border bg-card px-4 py-3 text-sm"
+            <Link
+              href={stockTabHref(stockCode, "financials")}
+              prefetch={false}
+              className="self-end text-xs text-primary hover:underline"
             >
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Explore
-              </p>
-              <ul className="mt-2 space-y-1.5">
-                <li>
-                  <Link href="/top" className="text-primary hover:underline">
-                    Most shorted ASX stocks
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/battlegrounds" className="text-primary hover:underline">
-                    Short squeeze candidates
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/statistics" className="text-primary hover:underline">
-                    ASX short selling statistics
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/learn/how-to-short-the-asx"
-                    className="text-primary hover:underline"
-                  >
-                    How to short the ASX
-                  </Link>
-                </li>
-              </ul>
-            </nav>
+              Full financials →
+            </Link>
+          </div>
 
-            <CommunityOverviewTeaser stockCode={stockCode} />
-          </>
-        }
-        financialsContent={
-          // Latest result, Key ratios and the statements island from the
-          // fundamentals API, then the company's filings, then the tax card
-          // LAST. The stale "Key metrics" card and the raw extraction tiles
-          // are gone (docs/plans/fundamentals-coverage.md §7.1). The filings
-          // (and the empty state's "listed below" sentence) come from the
-          // company details read, which retries with backoff: they stream
-          // under their own Suspense boundaries so that read never holds the
-          // page. Serializable props only.
-          <FinancialsTab
-            stockCode={stockCode}
-            fundamentals={fundamentals}
-            filingsNote={<FilingsListedNote stockCode={stockCode} />}
-            reports={
-              <FinancialReportsSection
-                stockCode={stockCode}
-                sourceDocumentUrl={sourceDocument?.url ?? ""}
-              />
-            }
-            taxCard={<CompanyTaxCard stockCode={stockCode} />}
-          />
-        }
-        communityContent={
-          <CommunityTab
-            stockCode={stockCode}
-          />
-        }
-      />
-    </DashboardLayout>
+          {newsArticles.length > 0 && (
+            <div className="rounded-lg border bg-card">
+              <div className="flex items-center justify-between px-4 py-3">
+                <h2 className="text-sm font-medium">Latest {stockCode} news</h2>
+                <Link
+                  href={stockTabHref(stockCode, "news")}
+                  prefetch={false}
+                  className="text-xs text-primary hover:underline"
+                >
+                  All news
+                </Link>
+              </div>
+              <ul className="divide-y border-t">
+                {newsArticles.map((article) => (
+                  <li key={article.id || article.url} className="px-4 py-2.5">
+                    <a
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm leading-snug hover:text-primary hover:underline"
+                    >
+                      {article.headline}
+                    </a>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {article.source}
+                      {article.publishedAtIso
+                        ? ` · ${new Date(article.publishedAtIso).toLocaleDateString("en-AU", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}`
+                        : null}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+          <Suspense fallback={<CompanyInfoPlaceholder />}>
+            <CompanyInfo stockCode={stockCode} />
+          </Suspense>
+
+          {relatedData.stocks.length > 0 && (
+            <RelatedStocks
+              stocks={relatedData.stocks}
+              currentStock={stockCode}
+              industrySlug={relatedData.industrySlug}
+              title={`More ${relatedData.industry} Stocks`}
+              description="Other shorted stocks in this sector"
+            />
+          )}
+
+          <nav
+            aria-label="Short selling resources"
+            className="rounded-lg border bg-card px-4 py-3 text-sm"
+          >
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Explore
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              <li><Link href="/top" className="text-primary hover:underline">Most shorted ASX stocks</Link></li>
+              <li><Link href="/battlegrounds" className="text-primary hover:underline">Short squeeze candidates</Link></li>
+              <li><Link href="/statistics" className="text-primary hover:underline">ASX short selling statistics</Link></li>
+              <li><Link href="/learn/how-to-short-the-asx" className="text-primary hover:underline">How to short the ASX</Link></li>
+            </ul>
+          </nav>
+
+          <CommunityOverviewTeaser stockCode={stockCode} />
+
+          {/* The dossier itself is on the Company tab (a signed-in surface);
+              the Overview keeps only the way in, and only for the signed out. */}
+          <SignedOutOnly>
+            <div className="rounded-lg border border-primary/20 bg-card px-4 py-3 text-sm">
+              <p className="font-medium">{stockCode} intelligence dossier</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Public-source evidence for this company, with industry drill-up links.
+              </p>
+              <Link
+                href={stockTabHref(stockCode, "company")}
+                prefetch={false}
+                className="mt-2 inline-block text-xs text-primary hover:underline"
+              >
+                Sign in to unlock on the Company tab →
+              </Link>
+            </div>
+          </SignedOutOnly>
+        </div>
+      </div>
+    </>
   );
 };
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { type CommunityComment, type CommunityThread } from "~/@/types/community";
+import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { Button } from "~/@/components/ui/button";
 import { Badge } from "~/@/components/ui/badge";
 import {
@@ -32,7 +33,10 @@ export function CommunityThreadDetail({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="outline" asChild>
-          <Link href={`/shorts/${thread.stockCode}?tab=community`}>
+          <Link
+            href={stockTabHref(thread.stockCode, "community")}
+            prefetch={false}
+          >
             Back to {thread.stockCode} community
           </Link>
         </Button>

@@ -71,6 +71,7 @@ import { CAPITALS } from "~/@/lib/housing/capitals";
 import { STATE_SLUGS } from "~/@/lib/economy/map-metrics";
 import { PUBLISHED_ECONOMY_TOPIC_PAIRS } from "~/@/lib/economy/topics";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
+import { STOCK_TABS, type StockTabId } from "~/@/lib/stocks/stock-tabs";
 import { createSlug } from "~/@/lib/industry-slug";
 import { ALL_STATES, stateSlug, suburbSlug } from "~/@/lib/housing/states";
 import { isSuburbSitemapEligible } from "~/@/lib/seo/suburb-indexability";
@@ -133,6 +134,27 @@ const API_CLIENT_LANGUAGES = [
   "go",
   "java",
 ];
+
+// Which stock tabs get a sitemap URL for every qualified code. ONE decision per
+// tab id, so a tab added to STOCK_TABS does not compile until someone makes it,
+// and the segment strings come from the registry (stock-tabs.ts), never from a
+// copy kept here.
+const STOCK_TAB_IN_SITEMAP: Record<StockTabId, boolean> = {
+  // The stock's own URL, listed above as /shorts/<code>.
+  overview: false,
+  "short-interest": true,
+  // Most stocks read "not a candidate" on every strategy, which would read as
+  // thin content; reached through the tab bar, the Overview strip and /picks.
+  strategy: false,
+  financials: true,
+  company: true,
+  news: true,
+  // noindex: its list is client-rendered.
+  community: false,
+};
+const STOCK_TAB_SEGMENTS = STOCK_TABS.filter(
+  (tab) => tab.segment !== "" && STOCK_TAB_IN_SITEMAP[tab.id],
+).map((tab) => tab.segment);
 
 // Cap on stock URLs. The indexability gate (see stock-indexability) keeps the
 // set to enriched / genuinely-shorted stocks (~1k) which is well under this
@@ -519,13 +541,27 @@ export async function buildShortsSitemap(): Promise<SitemapEntry[]> {
     })),
   ];
 
-  // Per-stock news pages share the qualified stockCodes list, so the news tree
-  // mirrors the pruned stock list (no thin pages get indexed). The stock's news
-  // tab is rebuilt with the same daily sync the stock page is.
-  const stockNewsRoutes: SitemapEntry[] = stockCodes.map((code) => ({
-    url: `${baseUrl}/shorts/${code}/news`,
-    lastModified: latestDataDate,
-  }));
+  // Per-stock tab pages share the qualified stockCodes list, so the tab trees
+  // mirror the pruned stock list (no thin pages get indexed). The tabs listed
+  // are STOCK_TAB_IN_SITEMAP's; Strategy and Community stay out and are reached
+  // through the tab bar.
+  //
+  // The Short interest tab is noindex for a stock with no reported short
+  // position (stockTabMetadata's noindexWhen), so its URL must not be listed
+  // for one. None is: stockCodes comes from getAllStockCodes, which reads
+  // GetTopShorts in summary mode, i.e. mv_top_shorts (or its fallback query),
+  // and every row there has current_percent > 0. So the list is not narrowed
+  // per tab. One edge stays on the safe side (the page noindexes): the view
+  // takes the newest NON-zero reading of the last month, while the page reads
+  // the stock's newest row of all, so a code whose newest row is a zero (if the
+  // table holds one) can be listed while its tab is noindex, until it leaves
+  // the view. Closing that needs a per-code read; it is not worth one.
+  const stockTabRoutes: SitemapEntry[] = stockCodes.flatMap((code) =>
+    STOCK_TAB_SEGMENTS.map((segment) => ({
+      url: `${baseUrl}/shorts/${code}/${segment}`,
+      lastModified: latestDataDate,
+    })),
+  );
 
   const insiderRoutes: SitemapEntry[] = [
     { url: `${baseUrl}/insider-trading`, lastModified: latestDataDate },
@@ -553,7 +589,7 @@ export async function buildShortsSitemap(): Promise<SitemapEntry[]> {
     }
   }
 
-  return [...stockRoutes, ...stockNewsRoutes, ...insiderRoutes, ...comparePairs];
+  return [...stockRoutes, ...stockTabRoutes, ...insiderRoutes, ...comparePairs];
 }
 
 /* --------------------------------------------------------------- reports -- */

@@ -21,41 +21,52 @@ import { test, expect } from "@playwright/test";
 // Allow generous timeout for cold starts + dynamic imports + API calls
 test.setTimeout(60_000);
 
+// A tab route that prints fewer visible characters than this below the tab bar
+// is treated as blank (its loading skeleton or an empty shell).
+const MIN_TAB_TEXT = 40;
+
 // ---------------------------------------------------------------------------
-// Stock Detail Page — Overview Tab Content Paint
+// Stock Detail Page — Overview and Tab Content Paint
 // ---------------------------------------------------------------------------
 test.describe("Stock Detail — Content Paint", () => {
   const testStocks = ["BHP", "CBA"];
 
   for (const code of testStocks) {
-    test(`${code} overview tab renders chart cards`, async ({ page }) => {
+    test(`${code} overview renders the chart section and digest cards`, async ({
+      page,
+    }) => {
       await page.goto(`/shorts/${code}`, {
         waitUntil: "domcontentloaded",
         timeout: 30_000,
       });
 
       // Wait for client-side hydration and dynamic imports to settle
-      // StockTabs is loaded via dynamic({ ssr: false }), charts are also dynamic
+      // (the stock layout loads its chart via dynamic({ ssr: false }))
       await page.waitForTimeout(5_000);
 
-      // The overview tab is the default — verify its key content sections rendered.
-      // These card titles come from the server-rendered page content passed as
-      // overviewContent prop to StockTabs.
+      // The Overview is the default route — verify its key content sections
+      // rendered. Both headings are server-rendered: the first by the shared
+      // stock layout, the second by the Overview page's digest card.
 
-      // 1. "Short Position Trends" card must be visible
-      const shortTrendsCard = page.getByText("Short Position Trends");
-      await expect(shortTrendsCard).toBeVisible({
+      // 1. The "Price & short interest" chart section must be visible
+      const chartHeading = page.getByRole("heading", {
+        name: "Price & short interest",
+      });
+      await expect(chartHeading).toBeVisible({
         timeout: 15_000,
       });
 
-      // 2. "Historical Price Data" card must be visible
-      const priceDataCard = page.getByText("Historical Price Data");
-      await expect(priceDataCard).toBeVisible({
+      // 2. The "Short interest" digest card must be visible
+      const digestHeading = page.getByRole("heading", {
+        name: "Short interest",
+        exact: true,
+      });
+      await expect(digestHeading).toBeVisible({
         timeout: 15_000,
       });
     });
 
-    test(`${code} overview tab has chart SVGs or loading skeletons`, async ({
+    test(`${code} overview has chart SVGs or loading skeletons`, async ({
       page,
     }) => {
       await page.goto(`/shorts/${code}`, {
@@ -66,21 +77,22 @@ test.describe("Stock Detail — Content Paint", () => {
       // Wait for charts to load (dynamic imports + API data)
       await page.waitForTimeout(8_000);
 
-      // The overview tab should contain charts (SVG elements) or at minimum
-      // loading skeletons. We look for SVGs inside the tab panel area, or
-      // any canvas/chart-related elements.
-      const activePanel = page.locator('[role="tabpanel"]:not([hidden])');
-      await expect(activePanel).toBeVisible({ timeout: 10_000 });
+      // The chart sits in the stock layout, above the tab bar. We look for the
+      // rendered chart SVG, or at minimum its loading skeleton.
+      const chartSection = page.locator(
+        'section[aria-labelledby="stock-chart-heading"]'
+      );
+      await expect(chartSection).toBeVisible({ timeout: 10_000 });
 
       // Charts render as SVGs, or show skeleton/pulse divs while loading
-      const chartElements = activePanel.locator(
-        "svg, canvas, [class*='animate-pulse'], [class*='skeleton']"
+      const chartElements = chartSection.locator(
+        "[data-chart-container] svg, [aria-label='Loading chart'], [class*='animate-pulse'], [class*='skeleton']"
       );
       const count = await chartElements.count();
 
       expect(
         count,
-        "Overview tab has no chart SVGs or loading skeletons — charts failed to render"
+        "Chart section has no chart SVGs or loading skeletons — charts failed to render"
       ).toBeGreaterThanOrEqual(1);
     });
 
@@ -92,47 +104,53 @@ test.describe("Stock Detail — Content Paint", () => {
 
       await page.waitForTimeout(5_000);
 
-      // Click through each tab and verify it has non-trivial content
+      // Each tab is a route behind a link in the "Stock sections" bar. Click
+      // through them and verify each renders non-trivial content below the bar.
+      const nav = page.getByRole("navigation", { name: "Stock sections" });
       const tabs = [
-        {
-          name: "Overview",
-          mustContain: ["Short Position Trends", "Historical Price Data"],
-        },
-        { name: "News", mustContain: [] }, // News may have no articles — just check it doesn't crash
-        { name: "Financials", mustContain: [] },
-        { name: "Peers", mustContain: [] },
+        { name: "Short interest", path: "/short-interest", mustContain: [] },
+        { name: "Strategy", path: "/strategy", mustContain: [] },
+        { name: "Financials", path: "/financials", mustContain: [] },
+        { name: "Company", path: "/company", mustContain: [] },
+        { name: "News", path: "/news", mustContain: [] }, // News may have no articles — just check it doesn't crash
+        { name: "Community", path: "/community", mustContain: [] },
+        { name: "Overview", path: "", mustContain: ["Short interest"] },
       ];
 
       for (const tab of tabs) {
-        // Click the tab trigger
-        const trigger = page.getByRole("tab", { name: tab.name });
-        if ((await trigger.count()) === 0) continue;
+        await nav.getByRole("link", { name: tab.name, exact: true }).click();
+        await expect(page).toHaveURL(
+          new RegExp(`/shorts/${code}${tab.path}$`),
+          { timeout: 30_000 }
+        );
 
-        await trigger.click();
-        await page.waitForTimeout(2_000);
+        // The route's content follows the tab bar in the stock layout. Loading
+        // skeletons carry no text, so wait for the route to print some.
+        const content = nav.locator("xpath=following-sibling::*");
+        const contentText = async () =>
+          (
+            await content.evaluateAll((els) =>
+              els.map((el) => (el as HTMLElement).innerText).join("\n")
+            )
+          ).trim();
 
-        // Get the active tab panel content
-        const activePanel = page.locator('[role="tabpanel"]:not([hidden])');
-        await expect(activePanel).toBeVisible({ timeout: 10_000 });
-
-        // Panel should not be empty (should have at least some child elements)
-        const panelText = await activePanel.textContent({ timeout: 5_000 });
+        // For all tabs: the route should have SOME content (not completely blank)
+        // Allow for "no data" messages, loading states, etc. — just not empty
+        await expect
+          .poll(async () => (await contentText()).length, {
+            message: `Tab "${tab.name}" renders no content below the tab bar`,
+            timeout: 15_000,
+          })
+          .toBeGreaterThan(MIN_TAB_TEXT);
 
         // For tabs with required content, verify it's there
-        for (const text of tab.mustContain) {
+        const text = await contentText();
+        for (const required of tab.mustContain) {
           expect(
-            panelText,
-            `Tab "${tab.name}" is missing expected content: "${text}"`
-          ).toContain(text);
+            text,
+            `Tab "${tab.name}" is missing expected content: "${required}"`
+          ).toContain(required);
         }
-
-        // For all tabs: the panel should have SOME content (not completely blank)
-        // Allow for "no data" messages, loading states, etc. — just not empty
-        const childElements = await activePanel.locator("> *").count();
-        expect(
-          childElements,
-          `Tab "${tab.name}" panel is completely empty — no children rendered`
-        ).toBeGreaterThan(0);
       }
     });
   }

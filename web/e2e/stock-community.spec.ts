@@ -94,11 +94,11 @@ test.describe("Stock community public surfaces", () => {
     await expect(
       page.getByRole("link", { name: /open community/i }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("tab", { name: "Community" }),
-    ).toBeVisible();
+    const nav = page.getByRole("navigation", { name: "Stock sections" });
+    await expect(nav.getByRole("link", { name: "Community" })).toBeVisible();
 
-    await page.getByRole("tab", { name: "Community" }).click();
+    await nav.getByRole("link", { name: "Community" }).click();
+    await expect(page).toHaveURL(new RegExp(`/shorts/${stockCode}/community$`));
 
     await expect(page.getByText("Research Threads")).toBeVisible();
     await expect(page.getByText("Live Pulse")).toBeVisible();

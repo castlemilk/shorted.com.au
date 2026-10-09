@@ -17,7 +17,7 @@ test.describe("Stock community authenticated flows", () => {
     const commentBody = "The downgrade looks fully priced by now.";
     const pulseBody = `Pulse update ${suffix}`;
 
-    await page.goto(`/shorts/${stockCode}?tab=community`);
+    await page.goto(`/shorts/${stockCode}/community`);
 
     await expect(page).not.toHaveURL(/signin/);
     await expect(
@@ -41,7 +41,7 @@ test.describe("Stock community authenticated flows", () => {
     await page.getByRole("button", { name: /post comment/i }).click();
     await expect(page.getByText(commentBody)).toBeVisible({ timeout: 15000 });
 
-    await page.goto(`/shorts/${stockCode}?tab=community`);
+    await page.goto(`/shorts/${stockCode}/community`);
     await page.getByRole("button", { name: /drop a pulse/i }).click();
     await page.getByLabel(/pulse update/i).fill(pulseBody);
     await page.getByRole("button", { name: /post pulse/i }).click();
@@ -52,7 +52,7 @@ test.describe("Stock community authenticated flows", () => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    await page.goto(`${baseURL}/shorts/${stockCode}?tab=community`);
+    await page.goto(`${baseURL}/shorts/${stockCode}/community`);
     await expect(
       page.getByRole("link", { name: /sign in to post/i }),
     ).toBeVisible({ timeout: 15000 });

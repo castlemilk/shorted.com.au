@@ -2,7 +2,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
-import { StockTabs } from "../../stock-tabs";
 import { CommunityTab } from "../community-tab";
 import { useSession } from "next-auth/react";
 
@@ -13,50 +12,6 @@ jest.mock("next/link", () => ({
       {children}
     </a>
   ),
-}));
-
-jest.mock("../../stock-verdict", () => ({
-  StockVerdict: () => <div data-testid="stock-verdict" />,
-}));
-
-jest.mock("../../company-tax-card", () => ({
-  CompanyTaxCard: () => <div data-testid="company-tax-card" />,
-}));
-
-jest.mock("../../stock-signals", () => ({
-  StockSignals: () => <div data-testid="stock-signals" />,
-}));
-
-jest.mock("../../stock-connections", () => ({
-  StockConnections: () => <div data-testid="stock-connections" />,
-}));
-
-jest.mock("../../stock-news-feed", () => ({
-  StockNewsFeed: () => <div data-testid="stock-news-feed" />,
-}));
-
-jest.mock("../../stock-news-tab", () => ({
-  StockNewsTab: () => <div data-testid="stock-news-tab" />,
-}));
-
-jest.mock("../../related-news-rail", () => ({
-  RelatedNewsRail: () => <div data-testid="related-news-rail" />,
-}));
-
-jest.mock("../../event-timeline", () => ({
-  EventTimeline: () => <div data-testid="event-timeline" />,
-}));
-
-jest.mock("../../director-trades-table", () => ({
-  DirectorTradesTable: () => <div data-testid="director-trades-table" />,
-}));
-
-jest.mock("../../dividend-history", () => ({
-  DividendHistory: () => <div data-testid="dividend-history" />,
-}));
-
-jest.mock("../../peer-comparison-table", () => ({
-  PeerComparisonTable: () => <div data-testid="peer-comparison-table" />,
 }));
 
 function renderWithQueryClient(ui: ReactElement) {
@@ -73,13 +28,9 @@ function renderWithQueryClient(ui: ReactElement) {
   );
 }
 
-describe("StockTabs community integration", () => {
+describe("CommunityTab", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // StockTabs writes ?tab= via history.replaceState and reads it back on
-    // mount (deep-linking) — jsdom's URL persists across tests in this
-    // file, so reset it or a prior test's tab selection leaks forward.
-    window.history.replaceState(null, "", "/");
     (useSession as jest.Mock).mockReturnValue({
       data: {
         user: {
@@ -93,52 +44,39 @@ describe("StockTabs community integration", () => {
     global.fetch = jest.fn();
   });
 
-  it("renders the Community trigger and displays community content when selected", async () => {
-    const user = userEvent.setup();
-
+  it("displays the research threads and live pulse it is given", () => {
     renderWithQueryClient(
-      <StockTabs
+      <CommunityTab
         stockCode="BHP"
-        overviewContent={<div>Overview content</div>}
-        financialsContent={<div>Financials content</div>}
-        communityContent={
-          <CommunityTab
-            stockCode="BHP"
-            threads={[
-              {
-                id: "thread-1",
-                stockCode: "BHP",
-                type: "bull",
-                title: "Iron ore resilience still matters",
-                body: "Three broker notes are pointing at the same setup.",
-                score: 8,
-                commentCount: 5,
-                sourceCount: 3,
-                highSignal: true,
-                createdAt: new Date("2026-04-10T08:00:00Z"),
-                updatedAt: new Date("2026-04-10T08:00:00Z"),
-                lastActivityAt: new Date("2026-04-10T08:00:00Z"),
-              },
-            ]}
-            pulse={[
-              {
-                id: "pulse-1",
-                stockCode: "BHP",
-                body: "Desk chatter shifted after the broker downgrade.",
-                score: 2,
-                replyCount: 1,
-                createdAt: new Date("2026-04-11T08:00:00Z"),
-                updatedAt: new Date("2026-04-11T08:00:00Z"),
-              },
-            ]}
-          />
-        }
+        threads={[
+          {
+            id: "thread-1",
+            stockCode: "BHP",
+            type: "bull",
+            title: "Iron ore resilience still matters",
+            body: "Three broker notes are pointing at the same setup.",
+            score: 8,
+            commentCount: 5,
+            sourceCount: 3,
+            highSignal: true,
+            createdAt: new Date("2026-04-10T08:00:00Z"),
+            updatedAt: new Date("2026-04-10T08:00:00Z"),
+            lastActivityAt: new Date("2026-04-10T08:00:00Z"),
+          },
+        ]}
+        pulse={[
+          {
+            id: "pulse-1",
+            stockCode: "BHP",
+            body: "Desk chatter shifted after the broker downgrade.",
+            score: 2,
+            replyCount: 1,
+            createdAt: new Date("2026-04-11T08:00:00Z"),
+            updatedAt: new Date("2026-04-11T08:00:00Z"),
+          },
+        ]}
       />,
     );
-
-    expect(screen.getByRole("tab", { name: "Community" })).toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: "Community" }));
 
     expect(screen.getByText("Research Threads")).toBeInTheDocument();
     expect(
@@ -150,33 +88,29 @@ describe("StockTabs community integration", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows a sign-in CTA instead of posting controls when signed out", async () => {
-    const user = userEvent.setup();
+  it("shows a sign-in CTA instead of posting controls when signed out", () => {
     (useSession as jest.Mock).mockReturnValue({
       data: null,
       status: "unauthenticated",
     });
 
     renderWithQueryClient(
-      <StockTabs
-        stockCode="BHP"
-        overviewContent={<div>Overview content</div>}
-        communityContent={<CommunityTab stockCode="BHP" threads={[]} pulse={[]} />}
-      />,
+      <CommunityTab stockCode="BHP" threads={[]} pulse={[]} />,
     );
 
-    await user.click(screen.getByRole("tab", { name: "Community" }));
-
-    expect(
-      screen.getByRole("link", { name: /sign in to post/i }),
-    ).toBeInTheDocument();
+    const signIn = screen.getByRole("link", { name: /sign in to post/i });
+    expect(signIn).toBeInTheDocument();
+    // Signing in returns to the Community route itself, not through a ?tab= hop.
+    expect(signIn).toHaveAttribute(
+      "href",
+      "/signin?callbackUrl=%2Fshorts%2FBHP%2Fcommunity",
+    );
     expect(
       screen.queryByRole("button", { name: /start a thread/i }),
     ).not.toBeInTheDocument();
   });
 
   it("loads threads and pulse from the community APIs when initial lists are omitted", async () => {
-    const user = userEvent.setup();
     (global.fetch as jest.Mock)
       .mockResolvedValueOnce({
         ok: true,
@@ -218,17 +152,7 @@ describe("StockTabs community integration", () => {
         }),
       });
 
-    render(
-      <StockTabs
-        stockCode="BHP"
-        overviewContent={<div>Overview content</div>}
-        communityContent={<CommunityTab stockCode="BHP" />}
-      />,
-    );
-
-    expect(global.fetch).not.toHaveBeenCalled();
-
-    await user.click(screen.getByRole("tab", { name: "Community" }));
+    render(<CommunityTab stockCode="BHP" />);
 
     expect(global.fetch).toHaveBeenCalledWith("/api/community/BHP/threads", {
       signal: expect.any(AbortSignal),
@@ -266,14 +190,9 @@ describe("StockTabs community integration", () => {
     });
 
     renderWithQueryClient(
-      <StockTabs
-        stockCode="BHP"
-        overviewContent={<div>Overview content</div>}
-        communityContent={<CommunityTab stockCode="BHP" threads={[]} pulse={[]} />}
-      />,
+      <CommunityTab stockCode="BHP" threads={[]} pulse={[]} />,
     );
 
-    await user.click(screen.getByRole("tab", { name: "Community" }));
     expect(screen.getByRole("button", { name: /start a thread/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /drop a pulse/i })).toBeInTheDocument();
 

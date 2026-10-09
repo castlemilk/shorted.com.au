@@ -151,6 +151,7 @@ import {
 } from "~/@/lib/housing-rankings/registry";
 import { CAPITALS, CAPITAL_SLUGS } from "~/@/lib/housing/capitals";
 import { PUBLISHED_ECONOMY_TOPIC_PAIRS } from "~/@/lib/economy/topics";
+import { STOCK_TABS } from "~/@/lib/stocks/stock-tabs";
 
 type Section = { name: string; entries: Awaited<ReturnType<typeof buildCoreSitemap>> };
 
@@ -321,6 +322,70 @@ describe("sitemap children", () => {
       expect(a! < b!).toBe(true); // canonical ordering, never the redirecting form
       expect(stockFixture.some((s) => s.productCode === a)).toBe(true);
       expect(stockFixture.some((s) => s.productCode === b)).toBe(true);
+    }
+  });
+
+  // The short-interest, financials and company tabs are indexable pages in
+  // their own right, beside news. Strategy stays out (most stocks read "not a
+  // candidate") and community is noindex, so neither is advertised.
+  it("lists the indexable stock tabs for every qualified code, and never strategy or community", async () => {
+    const shorts = (await buildAll()).find((s) => s.name === "sitemap-shorts.xml")!;
+    const urls = shorts.entries.map((e) => e.url);
+    for (const { productCode } of stockFixture) {
+      for (const tab of ["short-interest", "financials", "company", "news"]) {
+        expect(urls).toContain(`https://shorted.com.au/shorts/${productCode}/${tab}`);
+      }
+    }
+    expect(urls.some((u) => /\/shorts\/[A-Z0-9]+\/strategy$/.test(u))).toBe(false);
+    expect(urls.some((u) => /\/shorts\/[A-Z0-9]+\/community$/.test(u))).toBe(false);
+  });
+
+  // The segment strings are the registry's, not a copy kept here: rename one in
+  // STOCK_TABS and the sitemap follows. (The route directory is the other half
+  // of that change and has its own guards.) The registry is swapped for one
+  // whose Financials tab lives at /results, in an isolated module registry so
+  // the rest of this file keeps the real one.
+  it("takes each listed tab's segment from the STOCK_TABS registry", async () => {
+    const code = stockFixture[0]!.productCode;
+    try {
+      await jest.isolateModulesAsync(async () => {
+        jest.doMock("~/@/lib/stocks/stock-tabs", () => {
+          const actual = jest.requireActual<typeof import("~/@/lib/stocks/stock-tabs")>(
+            "~/@/lib/stocks/stock-tabs",
+          );
+          return {
+            ...actual,
+            STOCK_TABS: actual.STOCK_TABS.map((tab) =>
+              tab.id === "financials" ? { ...tab, segment: "results" } : tab,
+            ),
+          };
+        });
+        const { buildShortsSitemap: buildWithRenamedTab } = await import("../sitemap-sections");
+        const urls = (await buildWithRenamedTab()).map((e) => e.url);
+        expect(urls).toContain(`https://shorted.com.au/shorts/${code}/results`);
+        expect(urls).not.toContain(`https://shorted.com.au/shorts/${code}/financials`);
+        // The tabs that were not renamed are untouched, and the policy is
+        // still per tab, not per segment string.
+        expect(urls).toContain(`https://shorted.com.au/shorts/${code}/short-interest`);
+        expect(urls).not.toContain(`https://shorted.com.au/shorts/${code}/strategy`);
+      });
+    } finally {
+      jest.dontMock("~/@/lib/stocks/stock-tabs");
+    }
+  });
+
+  // Every URL the sitemap emits under a stock is the stock itself, a registry
+  // tab, or one of the stock's other families (insider-trading, compare): a
+  // segment that is none of them is a hand-typed route that nothing guards.
+  it("lists, for each qualified code, only the stock and registry tabs under /shorts/<code>", async () => {
+    const shorts = await buildShortsSitemap();
+    const registrySegments = new Set(STOCK_TABS.map((tab) => tab.segment).filter(Boolean));
+    const underStock = shorts
+      .map((e) => /^https:\/\/shorted\.com\.au\/shorts\/([A-Z0-9]+)(?:\/(.+))?$/.exec(e.url))
+      .filter((m): m is RegExpExecArray => m !== null);
+    expect(underStock.length).toBeGreaterThan(stockFixture.length);
+    for (const [, , segment] of underStock) {
+      if (segment !== undefined) expect(registrySegments.has(segment)).toBe(true);
     }
   });
 

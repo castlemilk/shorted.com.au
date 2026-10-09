@@ -41,6 +41,11 @@ jest.mock("next-auth/react", () => ({
   })),
 }));
 
+// The Overview and Company pages reach kv-cache through their actions, and the
+// real module logs "No Redis configured" when it loads. The same stand-in
+// page.test.tsx uses.
+jest.mock("~/@/lib/kv-cache", () => require("~/@/lib/__mocks__/kv-cache"));
+
 // Mock actions
 jest.mock("~/app/actions/getStockDetails", () => ({
   getStockDetails: jest.fn().mockResolvedValue({
@@ -208,5 +213,32 @@ describe("Page Component Imports - All Components", () => {
   });
 });
 
+describe("Stock page route modules", () => {
+  // The layout and every tab page, imported the way Next imports them. A module
+  // that throws while loading, or a route file without a component as its
+  // default export, otherwise only shows up at render time as "Element type is
+  // invalid" (for the layout, on every route beneath it).
+  it("should import the layout and every tab page with a component as its default export", async () => {
+    const routes = await Promise.all([
+      import("../layout"),
+      import("../page"),
+      import("../short-interest/page"),
+      import("../strategy/page"),
+      import("../financials/page"),
+      import("../company/page"),
+      import("../news/page"),
+      import("../community/page"),
+    ]);
 
+    expect(routes).toHaveLength(8);
+    for (const route of routes) {
+      expect(typeof route.default).toBe("function");
+    }
+  });
 
+  it("should import the stock loader the layout and the tab pages share", async () => {
+    const { loadStockOrFail } = await import("../stock-page-data");
+
+    expect(typeof loadStockOrFail).toBe("function");
+  });
+});

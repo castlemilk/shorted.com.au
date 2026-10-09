@@ -177,7 +177,7 @@ describe("StrategyPicksPage", () => {
     expect(row.getByText(/\(source: Company filing \(extracted\)\)/)).toBeInTheDocument();
     expect(row.getByRole("link", { name: "Full financials" })).toHaveAttribute(
       "href",
-      "/shorts/BHP?tab=financials",
+      "/shorts/BHP/financials",
     );
     // A glyph is never shown without its legend.
     expect(screen.getByRole("list", { name: "Source marks" })).toHaveTextContent(

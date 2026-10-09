@@ -41,6 +41,7 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 		return connect.NewResponse(resp), nil
 	}
 	resp.InUniverse = true
+	resp.PriceFeatures = priceFeaturesProto(&u.candidates[u.index[code]])
 
 	for _, st := range strategies.Registry() {
 		eval, err := s.loadStrategyEvaluation(ctx, st)
@@ -74,4 +75,38 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 		resp.Fits = append(resp.Fits, fit)
 	}
 	return connect.NewResponse(resp), nil
+}
+
+// priceFeaturesProto is the candidate's mv_price_features row as the fit
+// response's PriceFeatures: every nullable number with its has_ flag, dates
+// as ISO days, nothing coalesced to zero. nil for a nil candidate.
+func priceFeaturesProto(c *strategies.Candidate) *shortsv1alpha1.PriceFeatures {
+	if c == nil {
+		return nil
+	}
+	pf := &shortsv1alpha1.PriceFeatures{
+		AsOf:              dateString(&c.AsOf),
+		Close:             c.Close,
+		BreakoutDate:      dateString(c.BreakoutDate),
+		SessionsAvailable: c.SessionsAvailable,
+	}
+	pf.Sma50, pf.HasSma50 = optional(c.SMA50)
+	pf.Sma150, pf.HasSma150 = optional(c.SMA150)
+	pf.Sma200, pf.HasSma200 = optional(c.SMA200)
+	pf.Sma200PriorMonth, pf.HasSma200PriorMonth = optional(c.SMA200_1mAgo)
+	pf.High52W, pf.HasHigh52W = optional(c.High52w)
+	pf.Low52W, pf.HasLow52W = optional(c.Low52w)
+	pf.BaseHigh, pf.HasBaseHigh = optional(c.BaseHigh)
+	pf.BaseLow, pf.HasBaseLow = optional(c.BaseLow)
+	pf.BaseDepthPct, pf.HasBaseDepthPct = optional(c.BaseDepthPct)
+	pf.Rs3MPct, pf.HasRs3MPct = optional(c.RS3mPct)
+	pf.Rs6MPct, pf.HasRs6MPct = optional(c.RS6mPct)
+	pf.VolumeRatio50D, pf.HasVolumeRatio50D = optional(c.VolumeRatio50d)
+	if c.BaseLengthDays != nil {
+		pf.BaseLengthDays, pf.HasBaseLengthDays = *c.BaseLengthDays, true
+	}
+	if c.BreakoutRecent != nil {
+		pf.BreakoutRecent = *c.BreakoutRecent
+	}
+	return pf
 }

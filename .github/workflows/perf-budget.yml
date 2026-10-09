@@ -63,6 +63,10 @@ jobs:
       - name: Bundle budget vs baseline
         run: node scripts/bundle-budget.mjs --build-log perf-results/build.log --compare ../docs/perf/bundle-baseline.json
 
+      # ISR gate (blocking): every stock route must be on-demand ISR.
+      - name: Stock routes are ISR
+        run: node scripts/route-kinds.mjs
+
       - name: Upload bundle report
         if: always()
         uses: actions/upload-artifact@v6

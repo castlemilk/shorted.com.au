@@ -106,4 +106,31 @@ public interface GetStockStrategyFitResponseOrBuilder extends
    * @return The inUniverse.
    */
   boolean getInUniverse();
+
+  /**
+   * <pre>
+   * Set only when in_universe is true.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+   * @return Whether the priceFeatures field is set.
+   */
+  boolean hasPriceFeatures();
+  /**
+   * <pre>
+   * Set only when in_universe is true.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+   * @return The priceFeatures.
+   */
+  com.shorts.v1alpha1.PriceFeatures getPriceFeatures();
+  /**
+   * <pre>
+   * Set only when in_universe is true.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+   */
+  com.shorts.v1alpha1.PriceFeaturesOrBuilder getPriceFeaturesOrBuilder();
 }

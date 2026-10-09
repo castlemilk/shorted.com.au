@@ -23,6 +23,7 @@ import { localPoint } from "@visx/event";
 import { decimate } from "./decimate";
 import { useChartScales } from "./use-chart-scales";
 import { normalizeToPercentChange } from "./indicators";
+import { layoutLevels } from "./chart-levels";
 import { chartTheme } from "./chart-theme";
 import {
   Axes,
@@ -40,6 +41,9 @@ import {
 } from "./chart-tooltip";
 import { useCoarsePointer } from "~/@/hooks/use-coarse-pointer";
 import type {
+  ChartBand,
+  ChartLevel,
+  ChartMarker,
   ChartPoint,
   ChartSeriesSpec,
   OscillatorSpec,
@@ -65,6 +69,12 @@ const TAP_MAX_MOVE_PX = 6;
 const TOUCH_MOUSE_GUARD_MS = 800;
 // Width of the hover/pinned tooltip.
 const TIP_W = 168;
+// What an omitted `levels`, `bands` or `markers` defaults to: one shared, frozen
+// array each. A fresh `[]` per render is a new identity every time, which would
+// recompute the `reference` memo on every render of every chart, levels or not.
+const NO_LEVELS: readonly ChartLevel[] = Object.freeze([]);
+const NO_BANDS: readonly ChartBand[] = Object.freeze([]);
+const NO_MARKERS: readonly ChartMarker[] = Object.freeze([]);
 
 const measureDateFmt = (t: number) =>
   new Date(t).toLocaleDateString(undefined, {
@@ -88,6 +98,9 @@ export function StockChartInner({
   indicators = [],
   oscillators = [],
   regions = [],
+  levels = NO_LEVELS,
+  bands = NO_BANDS,
+  markers = NO_MARKERS,
   leftAxis,
   rightAxis,
   viewMode = "absolute",
@@ -200,6 +213,26 @@ export function StockChartInner({
       range: [mainH, mainH * 0.72],
     });
   }, [decVolume, mainH]);
+
+  // Reference geometry (strategy levels): pure, clipped to the plot, recomputed
+  // only when the scales change or a caller passes new arrays (an omitted prop is
+  // a shared constant, so a chart without levels never recomputes it). A scale
+  // answers undefined for a value it cannot place (NaN): that stays NaN, so the
+  // layout drops it, where `?? 0` would draw it on the plot's top or left edge.
+  // Nothing here is hoverable.
+  const reference = useMemo(
+    () =>
+      layoutLevels({
+        levels,
+        bands,
+        markers,
+        x: (t) => dateScale(t) ?? NaN,
+        yFor: (axis) => (v) => scaleForAxis(axis)(v) ?? NaN,
+        innerW,
+        innerH: mainH,
+      }),
+    [levels, bands, markers, dateScale, scaleForAxis, innerW, mainH],
+  );
 
   const {
     pinned,
@@ -572,6 +605,21 @@ export function StockChartInner({
               </rect>
             );
           })}
+          {reference.bands.map((b, i) => (
+            <rect
+              key={`band-${i}`}
+              data-chart-band
+              x={b.x}
+              y={b.y}
+              width={b.width}
+              height={b.height}
+              fill={b.color}
+              fillOpacity={0.12}
+              pointerEvents="none"
+            >
+              {b.label ? <title>{b.label}</title> : null}
+            </rect>
+          ))}
           {showVolume && (
             <VolumePath data={decVolume} xScale={dateScale} yScale={volumeScale} />
           )}
@@ -620,6 +668,47 @@ export function StockChartInner({
               </Group>
             );
           })}
+          {reference.levels.map((l, i) => (
+            <Group key={`level-${i}`} data-chart-level pointerEvents="none">
+              <Line
+                from={{ x: l.x1, y: l.y }}
+                to={{ x: l.x2, y: l.y }}
+                stroke={l.color}
+                strokeWidth={1}
+                strokeDasharray={l.dash}
+              />
+              <text
+                x={l.labelX}
+                y={l.labelY}
+                textAnchor="end"
+                fontSize={10}
+                fill={l.color}
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {l.label}
+              </text>
+            </Group>
+          ))}
+          {reference.markers.map((m, i) => (
+            <Group key={`marker-${i}`} data-chart-marker pointerEvents="none">
+              <Line
+                from={{ x: m.x, y: 0 }}
+                to={{ x: m.x, y: mainH }}
+                stroke={m.color}
+                strokeWidth={1}
+                strokeDasharray="2,3"
+              />
+              <text
+                x={m.labelX}
+                y={10}
+                textAnchor={m.labelAnchor}
+                fontSize={10}
+                fill={m.color}
+              >
+                {m.label}
+              </text>
+            </Group>
+          ))}
           <Axes
             xScale={dateScale}
             leftScale={leftScale}

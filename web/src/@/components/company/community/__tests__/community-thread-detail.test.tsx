@@ -3,10 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { useSession } from "next-auth/react";
 import { CommunityThreadDetail } from "../community-thread-detail";
 
+// next/link with the prefetch prop surfaced as data-prefetch so a test can read
+// it (it never reaches the DOM otherwise), as the stock tab bar's tests do.
 jest.mock("next/link", () => ({
   __esModule: true,
-  default: ({ children, href, ...props }: any) => (
-    <a href={href} {...props}>
+  default: ({ children, href, prefetch, ...props }: any) => (
+    <a href={href} data-prefetch={String(prefetch)} {...props}>
       {children}
     </a>
   ),
@@ -69,6 +71,10 @@ describe("CommunityThreadDetail", () => {
     expect(
       screen.getByRole("link", { name: /back to bhp community/i }),
     ).toBeInTheDocument();
+    // Back goes to the Community route itself, not through a ?tab= hop.
+    expect(
+      screen.getByRole("link", { name: /back to bhp community/i }),
+    ).toHaveAttribute("href", "/shorts/BHP/community");
     expect(
       screen.getByText("Friday delivery numbers matter"),
     ).toBeInTheDocument();
@@ -77,6 +83,34 @@ describe("CommunityThreadDetail", () => {
     expect(
       screen.getByText(/The catalyst timing is tighter than the market thinks/i),
     ).toBeInTheDocument();
+  });
+
+  it("turns off Link's own prefetch on the back link to the Community tab", () => {
+    // A viewport prefetch would fetch (and, once an hour, generate) the
+    // Community tab for a reader who only meant to read this one thread.
+    render(
+      <CommunityThreadDetail
+        thread={{
+          id: "thread-3",
+          stockCode: "BHP",
+          type: "question",
+          title: "Does the dividend survive a weaker iron ore price?",
+          body: "Looking for a read on the payout ratio from the last two halves.",
+          score: 0,
+          commentCount: 0,
+          sourceCount: 0,
+          highSignal: false,
+          createdAt: new Date("2026-04-12T08:00:00Z"),
+          updatedAt: new Date("2026-04-12T08:00:00Z"),
+          lastActivityAt: new Date("2026-04-12T08:00:00Z"),
+        }}
+        comments={[]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /back to bhp community/i }),
+    ).toHaveAttribute("data-prefetch", "false");
   });
 
   it("shows the empty comment shell when there are no comments", () => {
