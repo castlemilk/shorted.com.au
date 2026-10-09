@@ -694,8 +694,11 @@ Spec: `docs/superpowers/specs/2026-10-09-stock-page-tab-routes-design.md`.
 - **`PriceFeatures` on `GetStockStrategyFit`** carries `has_` flags; the web
   maps absent to `null` (`StockPriceFeatures`), never zero, and the fit's
   `unstable_cache` key is `v2` so no entry without the field is read back.
-  Level sets are pure (`components/strategy/strategy-levels.ts`); a
-  moving-average line is drawn only with a full lookback. A stock outside the
+  Level sets are pure (`components/strategy/strategy-levels.ts`); after a
+  breakout the base band and its ranged pivot end at the BREAKOUT session, not
+  the last close, because the features are as at that session ("The base is
+  anchored" above); a moving-average line is drawn only with a full lookback. A
+  stock outside the
   picker universe (under 60 sessions in the last 400 days, migration 000130)
   gets an explanation and `noindex`, never a chart with empty levels.
 - `stock-news-tab.tsx` stays (`stock-news-feed.tsx` and `related-news-rail.tsx`

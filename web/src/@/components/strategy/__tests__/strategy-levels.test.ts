@@ -157,8 +157,12 @@ describe("strategyLevelSet", () => {
   });
 
   describe("the base", () => {
-    it("spans the base back from the as-of date by its length in sessions, and bounds the pivot to the same span", () => {
-      const set = strategyLevelSet("zanger-breakout", pf, {});
+    it("without a breakout, spans the base back from the as-of date by its length in sessions, and bounds the pivot to the same span", () => {
+      const set = strategyLevelSet(
+        "zanger-breakout",
+        { ...pf, breakoutRecent: false, breakoutDate: null },
+        {},
+      );
       const band = set.bands[0]!;
       expect(band.to).toBe(Date.UTC(2026, 9, 7));
       // 22 sessions are 22 * 7/5 calendar days: a session is not a day.
@@ -174,6 +178,55 @@ describe("strategyLevelSet", () => {
         from: band.from,
         to: band.to,
       });
+    });
+
+    // After a recent breakout mv_price_features reports base_high / base_low /
+    // base_length_days AS AT THE BREAKOUT SESSION (CLAUDE.md, "The base is
+    // anchored"), so the base ends there. Ending it at the last close drew the
+    // band to the right of the base it describes: base_length_days sessions
+    // back from a later date than the one the length was counted at.
+    describe("after a breakout", () => {
+      const breakoutMs = Date.UTC(2026, 8, 19); // pf: breakout 19 Sep, as-of 7 Oct
+
+      it("ends the base at the breakout session, not the last close, and counts its length back from there", () => {
+        const set = strategyLevelSet("zanger-breakout", pf, {});
+        const band = set.bands[0]!;
+        expect(band.to).toBe(breakoutMs);
+        // `from` is recomputed from the new end (22 sessions are 22 * 7/5 days),
+        // not carried over from an as-of anchored span.
+        expect(band.from).toBe(breakoutMs - 22 * 1.4 * DAY);
+        expect(band.from).not.toBe(Date.UTC(2026, 9, 7) - 22 * 1.4 * DAY);
+      });
+
+      it("ends the ranged pivot line with the band, never beyond the breakout", () => {
+        const set = strategyLevelSet("zanger-breakout", pf, {});
+        const band = set.bands[0]!;
+        const pivot = set.levels[0]!;
+        expect(pivot).toMatchObject({ value: 43, from: band.from, to: band.to });
+        expect(pivot.to).toBeLessThanOrEqual(breakoutMs);
+        // The breakout marker still sits on the session the base ends at.
+        expect(set.markers[0]!.t).toBe(band.to);
+      });
+
+      it.each(["canslim", "crowded-short-breakout"])(
+        "does the same for %s, which draws the same base",
+        (strategyId) => {
+          const set = strategyLevelSet(strategyId, pf, {});
+          const pivot = set.levels.find((l) => l.label.startsWith("Pivot"))!;
+          expect(set.bands[0]!.to).toBe(breakoutMs);
+          expect(pivot.to).toBe(breakoutMs);
+          expect(pivot.from).toBe(set.bands[0]!.from);
+        },
+      );
+
+      it.each(["not a date", "2026-02-31", ""])(
+        "falls back to the as-of date when the breakout date %p is not a real day",
+        (breakoutDate) => {
+          const set = strategyLevelSet("zanger-breakout", { ...pf, breakoutDate }, {});
+          expect(set.bands[0]!.to).toBe(Date.UTC(2026, 9, 7));
+          expect(set.levels[0]).toMatchObject({ to: Date.UTC(2026, 9, 7) });
+        },
+      );
     });
 
     it.each<[string, Partial<StockPriceFeatures>]>([

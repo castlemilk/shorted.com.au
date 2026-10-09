@@ -316,7 +316,7 @@ price series, and for the selected strategy adds:
 
 | Strategy | Levels drawn |
 |---|---|
-| `zanger-breakout` | base band (`base_low`..`base_high`) over the last `base_length_days` sessions, pivot line labelled with its price, breakout session marker, 50-day volume ratio in the caption |
+| `zanger-breakout` | base band (`base_low`..`base_high`) over the `base_length_days` sessions ending at the breakout session (the last close when there is no breakout: after a breakout the features are as at that session), pivot line labelled with its price and ending with the band, breakout session marker, 50-day volume ratio in the caption |
 | `canslim` | 52-week high line, pivot and base band, RS 3 m / 6 m in the caption |
 | `minervini-trend-template` | SMA 50 / 150 / 200 levels at their current values, the 52-week low line, SMA 200 one month ago as a dashed level |
 | `crowded-short-breakout` | pivot and base band, the short-interest series on the right axis; the rule's threshold is quoted from its evidence line in the caption, not drawn, because the API reports the value tested and not the threshold |

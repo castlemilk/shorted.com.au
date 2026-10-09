@@ -123,35 +123,51 @@ function baseGeometry(pf: StockPriceFeatures): {
 } {
   const { baseHigh, baseLow, baseLengthDays } = pf;
   const asOf = isoMs(pf.asOf);
+  // A real day only. Date.parse rolls "2026-02-31" over into March, while
+  // formatDate (behind shortDay) rejects it; the marker and the base's end both
+  // go by the stricter reading, so neither is drawn at a date that does not exist.
+  const breakoutDay = pf.breakoutDate ? shortDay(pf.breakoutDate) : "";
+  const breakoutParsed = isoMs(pf.breakoutDate);
+  const breakout = breakoutParsed !== null && breakoutDay ? breakoutParsed : null;
 
-  // The base's span needs the whole base and the date it is as at. Without
-  // them there is no band, and the pivot, still a level, runs the whole chart.
+  // The base is anchored: after a recent breakout mv_price_features reports
+  // base_high / base_low / base_length_days AS AT THE BREAKOUT SESSION (CLAUDE.md,
+  // "The base is anchored"), so the base ends there. Ending it at the last close
+  // would draw the band to the right of the base it describes, its length
+  // counted back from a later date than the one it was measured at. Without a
+  // breakout the features are as at the last close. The pivot's `to` is the
+  // band's, so it never runs past the breakout either.
+  const end = breakout ?? asOf;
+
+  // The base's span needs the whole base, the date the response is as at (an
+  // undated response is not drawn from) and the session the base ends on.
+  // Without them there is no band, and the pivot, still a level, runs the whole
+  // chart.
   let band: ChartBand | null = null;
   let span: Pick<ChartLevel, "from" | "to"> = {};
   if (
     baseHigh !== null &&
     baseLow !== null &&
     baseLengthDays !== null &&
-    asOf !== null
+    asOf !== null &&
+    end !== null
   ) {
-    const from = asOf - baseLengthDays * SESSION_DAYS * DAY;
+    const from = end - baseLengthDays * SESSION_DAYS * DAY;
     band = {
       axis: "left",
       low: baseLow,
       high: baseHigh,
       from,
-      to: asOf,
+      to: end,
       color: LEVEL_COLORS.base,
       label: "Base",
     };
-    span = { from, to: asOf };
+    span = { from, to: end };
   }
   const pivot = level(baseHigh, "Pivot", LEVEL_COLORS.pivot, span);
 
-  const breakout = isoMs(pf.breakoutDate);
-  const breakoutDay = pf.breakoutDate ? shortDay(pf.breakoutDate) : "";
   const marker: ChartMarker | null =
-    breakout !== null && breakoutDay
+    breakout !== null
       ? {
           t: breakout,
           label: `Breakout ${breakoutDay}`,
