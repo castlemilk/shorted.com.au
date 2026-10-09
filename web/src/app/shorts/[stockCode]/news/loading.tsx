@@ -1,6 +1,11 @@
 export default function NewsLoading() {
   return (
-    <div aria-busy="true" aria-label="Loading" className="flex flex-col gap-4">
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading"
+      className="flex flex-col gap-4"
+    >
       <div className="h-10 animate-pulse rounded-lg bg-muted/40" />
       <div className="h-64 animate-pulse rounded-lg bg-muted/40" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

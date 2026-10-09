@@ -2,6 +2,7 @@
 export default function StockOverviewLoading() {
   return (
     <div
+      role="status"
       aria-busy="true"
       aria-label="Loading"
       className="grid min-w-0 grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-[minmax(0,1fr)_310px]"
