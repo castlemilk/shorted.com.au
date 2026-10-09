@@ -15,12 +15,26 @@
  *
  * The last block guards the stock page's own boundary (spec section 5): its
  * layout, data loader and every tab page are server files, and Connect-RPC
- * must never be evaluated while one of them renders. It follows static imports
+ * should not be evaluated while one of them renders. It follows static imports
  * from each of those files through every module they reach, and fails when a
  * client module on the way reaches @connectrpc. Imports are read with
  * TypeScript's own scanner and resolved with the project's tsconfig paths, so a
  * comment, a string, or the `~/`, `@/` or relative spelling of a path cannot
  * hide one.
+ *
+ * It does not hold for three pre-existing "use client" modules, which still
+ * reach @connectrpc by static imports and are allowlisted in
+ * KNOWN_CLIENT_CONNECT below: company-profile-with-retry and
+ * company-stats-with-retry (under the layout) and company-info-with-retry (on
+ * the Overview). The server components companyProfile, companyStats and
+ * companyInfo render them when their own getStockDetails read resolves
+ * undefined, so Connect-RPC IS evaluated during server rendering in exactly
+ * that case, which is the failure that answered 500 on the Financials route
+ * when the tax card was rendered inline. The old page header had the same
+ * exposure. The allowlist is pinned, so it can only shrink; each entry is a
+ * risk, not a fix. Loading the three through nextDynamic(..., { ssr: false })
+ * is a separate change to shared UI, to be reproduced under `next start`
+ * first.
  */
 
 import { describe, it, expect, afterAll } from "@jest/globals";
