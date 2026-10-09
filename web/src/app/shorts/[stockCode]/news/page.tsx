@@ -1,20 +1,32 @@
 import { type Metadata } from "next";
-import Link from "next/link";
+import nextDynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 import { Newspaper } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
-import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { NewsCard, type NewsCardArticle } from "~/@/components/news/news-card";
-import {
-  Breadcrumbs,
-  BreadcrumbStructuredData,
-} from "~/@/components/seo/breadcrumbs";
+import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getStockNews } from "~/app/actions/getStockNews";
 import { getStock, getStockOrNotFound } from "~/app/actions/getStock";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
+import { stockOgImage } from "~/@/lib/seo/stock-tab-metadata";
+import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 
+// The timeline imports @connectrpc/connect, so it is client-only (as the chart
+// is in the layout) and fetches after hydration.
+const EventTimeline = nextDynamic(
+  () => import("~/@/components/company/event-timeline").then((m) => m.EventTimeline),
+  { ssr: false },
+);
+
+// On-demand ISR: the empty generateStaticParams is what makes the segment
+// statically optimisable; without it revalidate is inert and the page renders
+// on every request.
 export const revalidate = 600;
+export const dynamicParams = true;
+export function generateStaticParams(): Array<{ stockCode: string }> {
+  return [];
+}
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
@@ -29,9 +41,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // Inherit the stock page's indexability gate: a noindexed thin stock must
   // not leak an indexable /news subpage (fail open on transient fetch errors).
   let shouldNoindex = false;
+  let percentShorted: number | undefined;
   try {
     const stock = await getStock(code);
     if (stock) {
+      percentShorted = stock.percentageShorted;
       shouldNoindex = !isStockIndexable({
         code,
         name: stock.name,
@@ -42,6 +56,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   } catch {
     // fail open — keep default robots
   }
+
+  // A page that sets openGraph replaces the segment's file-based
+  // opengraph-image, so the tab names the stock's card itself.
+  const ogImage = stockOgImage(code, percentShorted);
 
   return {
     title,
@@ -64,6 +82,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "website",
       locale: "en_AU",
+      images: [ogImage],
     },
     twitter: {
       site: "@shorted___",
@@ -71,6 +90,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       card: "summary_large_image",
       title: `${title} | ${siteConfig.name}`,
       description,
+      images: [ogImage],
     },
     alternates: {
       canonical: `${siteConfig.url}/shorts/${code}/news`,
@@ -138,10 +158,11 @@ export default async function StockNewsPage({ params }: PageProps) {
   const companyName = stock?.name ?? code;
   const [hero, ...rest] = articles;
 
+  // Structured data only: the stock layout renders the visible trail.
   const breadcrumbItems = [
-    { label: "Stocks", href: "/shorts" },
-    { label: code, href: `/shorts/${code}` },
-    { label: "News", href: `/shorts/${code}/news` },
+    { label: "Stocks", href: "/stocks" },
+    { label: code, href: stockTabHref(code, "overview") },
+    { label: stockTabLabel("news"), href: stockTabHref(code, "news") },
   ];
 
   // Per-stock NewsArticle schema (top 10) — eligible for Google News
@@ -171,7 +192,7 @@ export default async function StockNewsPage({ params }: PageProps) {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <BreadcrumbStructuredData items={breadcrumbItems} />
       <script
         type="application/ld+json"
@@ -208,15 +229,7 @@ export default async function StockNewsPage({ params }: PageProps) {
             </p>
           </div>
         </div>
-        <Link
-          href={`/shorts/${code}`}
-          className="hidden rounded-md border bg-card px-3 py-1.5 text-sm hover:bg-muted md:inline-flex"
-        >
-          ← Back to {code}
-        </Link>
       </section>
-
-      <Breadcrumbs items={breadcrumbItems} />
 
       {articles.length === 0 ? (
         <p className="mt-4 rounded-lg border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
@@ -241,6 +254,13 @@ export default async function StockNewsPage({ params }: PageProps) {
           </div>
         </>
       )}
-    </DashboardLayout>
+
+      {/* The timeline prints its own "Event timeline" title (an h3) and renders
+          nothing when there are no events, so the section is named with an
+          aria-label rather than a second visible heading. */}
+      <section aria-label="Events" className="mt-8">
+        <EventTimeline stockCode={code} />
+      </section>
+    </>
   );
 }

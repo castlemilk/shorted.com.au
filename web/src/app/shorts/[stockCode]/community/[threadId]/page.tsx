@@ -1,6 +1,4 @@
 import { notFound } from "next/navigation";
-import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
-import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { CommunityThreadDetail } from "~/@/components/company/community/community-thread-detail";
 import { getCachedCommunityThread } from "~/@/lib/community/community-activity-cache";
 import {
@@ -42,20 +40,7 @@ export default async function CommunityThreadPage({ params }: PageProps) {
     notFound();
   }
 
-  return (
-    <DashboardLayout>
-      <div className="mb-4">
-        <Breadcrumbs
-          items={[
-            { label: "Stocks", href: "/stocks" },
-            { label: stockCode, href: `/shorts/${stockCode}` },
-            { label: "Community", href: `/shorts/${stockCode}?tab=community` },
-            { label: thread.title, href: `/shorts/${stockCode}/community/${thread.id}` },
-          ]}
-        />
-      </div>
-
-      <CommunityThreadDetail thread={thread} comments={[]} />
-    </DashboardLayout>
-  );
+  // The stock layout renders the dashboard shell and the breadcrumbs
+  // (Stocks > CODE > Community on this path).
+  return <CommunityThreadDetail thread={thread} comments={[]} />;
 }
