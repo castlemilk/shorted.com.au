@@ -77,8 +77,6 @@ func (s *ShortsServer) GetStockStrategyFit(ctx context.Context, req *connect.Req
 	return connect.NewResponse(resp), nil
 }
 
-const isoDay = "2006-01-02"
-
 // priceFeaturesProto is the candidate's mv_price_features row as the fit
 // response's PriceFeatures: every nullable number with its has_ flag, dates
 // as ISO days, nothing coalesced to zero. nil for a nil candidate.
@@ -87,37 +85,28 @@ func priceFeaturesProto(c *strategies.Candidate) *shortsv1alpha1.PriceFeatures {
 		return nil
 	}
 	pf := &shortsv1alpha1.PriceFeatures{
+		AsOf:              dateString(&c.AsOf),
 		Close:             c.Close,
+		BreakoutDate:      dateString(c.BreakoutDate),
 		SessionsAvailable: c.SessionsAvailable,
 	}
-	if !c.AsOf.IsZero() {
-		pf.AsOf = c.AsOf.Format(isoDay)
-	}
-	set := func(dst *float64, has *bool, v *float64) {
-		if v != nil {
-			*dst, *has = *v, true
-		}
-	}
-	set(&pf.Sma50, &pf.HasSma50, c.SMA50)
-	set(&pf.Sma150, &pf.HasSma150, c.SMA150)
-	set(&pf.Sma200, &pf.HasSma200, c.SMA200)
-	set(&pf.Sma200PriorMonth, &pf.HasSma200PriorMonth, c.SMA200_1mAgo)
-	set(&pf.High52W, &pf.HasHigh52W, c.High52w)
-	set(&pf.Low52W, &pf.HasLow52W, c.Low52w)
-	set(&pf.BaseHigh, &pf.HasBaseHigh, c.BaseHigh)
-	set(&pf.BaseLow, &pf.HasBaseLow, c.BaseLow)
-	set(&pf.BaseDepthPct, &pf.HasBaseDepthPct, c.BaseDepthPct)
-	set(&pf.Rs3MPct, &pf.HasRs3MPct, c.RS3mPct)
-	set(&pf.Rs6MPct, &pf.HasRs6MPct, c.RS6mPct)
-	set(&pf.VolumeRatio50D, &pf.HasVolumeRatio50D, c.VolumeRatio50d)
+	pf.Sma50, pf.HasSma50 = optional(c.SMA50)
+	pf.Sma150, pf.HasSma150 = optional(c.SMA150)
+	pf.Sma200, pf.HasSma200 = optional(c.SMA200)
+	pf.Sma200PriorMonth, pf.HasSma200PriorMonth = optional(c.SMA200_1mAgo)
+	pf.High52W, pf.HasHigh52W = optional(c.High52w)
+	pf.Low52W, pf.HasLow52W = optional(c.Low52w)
+	pf.BaseHigh, pf.HasBaseHigh = optional(c.BaseHigh)
+	pf.BaseLow, pf.HasBaseLow = optional(c.BaseLow)
+	pf.BaseDepthPct, pf.HasBaseDepthPct = optional(c.BaseDepthPct)
+	pf.Rs3MPct, pf.HasRs3MPct = optional(c.RS3mPct)
+	pf.Rs6MPct, pf.HasRs6MPct = optional(c.RS6mPct)
+	pf.VolumeRatio50D, pf.HasVolumeRatio50D = optional(c.VolumeRatio50d)
 	if c.BaseLengthDays != nil {
 		pf.BaseLengthDays, pf.HasBaseLengthDays = *c.BaseLengthDays, true
 	}
 	if c.BreakoutRecent != nil {
 		pf.BreakoutRecent = *c.BreakoutRecent
-	}
-	if c.BreakoutDate != nil && !c.BreakoutDate.IsZero() {
-		pf.BreakoutDate = c.BreakoutDate.Format(isoDay)
 	}
 	return pf
 }
