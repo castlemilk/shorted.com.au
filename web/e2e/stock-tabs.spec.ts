@@ -40,6 +40,12 @@ import { test, expect, type Page } from "@playwright/test";
  *   SKIPS ("no thread to open"): start the server with
  *   COMMUNITY_STORE_DRIVER=postgres and DATABASE_URL set to a scratch Postgres
  *   with migration 000072 applied and one active BHP thread row.
+ * - The levels test SKIPS, with its reason, while the Strategy page shows the
+ *   price-only note: the API (or this build, without PR 1's generated client)
+ *   has no price_features yet. A skip is invisible in CI, so after PR 1 is
+ *   live and main is merged into this branch, run it with
+ *   `-g "strategy tab"` and open a triggered stock's Strategy tab by hand to
+ *   see at least one level. It fails on any other cause of a missing level.
  */
 
 const CODE = "BHP";
@@ -56,6 +62,12 @@ const TABS = [
 // the click, and the chart waits on two more fetches, so the first assertion
 // on each of those gets longer than the 5 s default.
 const COLD = { timeout: 30_000 };
+
+// The caption the Strategy chart prints when the fit carries no price features
+// (PRICE_ONLY_NOTE in src/@/components/strategy/strategy-levels.ts). A spec
+// imports nothing from the app, so this is a copy; a Jest test
+// (strategy-levels.test.ts) fails when the two differ.
+const PRICE_ONLY_NOTE = "Levels unavailable for this stock right now; showing price only.";
 
 async function horizontalOverflow(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -170,13 +182,28 @@ test.describe("stock page tabs", () => {
     await page.goto(`/shorts/${code}/strategy`);
     await expect(page.locator("[data-strategy-chart]")).toBeVisible(COLD);
     await expect(page.getByRole("region", { name: /Minervini/ })).toBeVisible();
-    // No level with "Levels unavailable" under the chart means the page never
-    // got price_features: the API this build reads predates PR 1, or this tree
-    // lacks PR 1's generated client (which is what decodes the field).
+    // The chart prints either its levels or, when the fit carried no price
+    // features, the price-only note. Wait for one of the two, so a page that
+    // shows neither fails here rather than being read as one of them.
+    const level = page.locator("[data-chart-level]").first();
+    const priceOnly = page.getByText(PRICE_ONLY_NOTE, { exact: true });
     await expect(
-      page.locator("[data-chart-level]").first(),
-      `${code}: the strategy tab drew no level (is PR 1 deployed to the API, and its generated client in this build?)`,
+      level.or(priceOnly),
+      `${code}: the strategy tab drew neither a level nor the price-only note`,
     ).toBeVisible({ timeout: 15000 });
+    // The note means the page never got price_features: the API this build
+    // reads predates PR 1, or this tree lacks PR 1's generated client (which is
+    // what decodes the field). That is the only cause that skips; anything else
+    // that leaves no level still fails below. A skip does not show in CI, so the
+    // post-deploy checklist (spec section 6) has the same check by hand.
+    test.skip(
+      await priceOnly.isVisible(),
+      `${code}: the Strategy page shows the price-only note, so PR 1's price features are not reaching it yet (is PR 1 live on the API, and is its generated client in this build? merge main after PR 1 lands, then re-run)`,
+    );
+    await expect(
+      level,
+      `${code}: the strategy tab drew no level and no price-only note either`,
+    ).toBeVisible();
   });
 
   test("a community thread renders under the stock chrome once", async ({ page }) => {

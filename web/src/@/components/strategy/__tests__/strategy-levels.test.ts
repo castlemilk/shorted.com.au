@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import {
   FIT_STATUS_STRENGTH,
   LEVEL_COLORS,
@@ -50,6 +52,22 @@ const pf: StockPriceFeatures = {
 };
 
 const labels = (items: Array<{ label: string }>) => items.map((i) => i.label);
+
+describe("PRICE_ONLY_NOTE", () => {
+  // The stock tabs e2e (web/e2e/stock-tabs.spec.ts) skips its levels test, with
+  // a stated reason, only while the Strategy page shows exactly this note (the
+  // API or this build predates PR 1's price features), so any other cause of a
+  // missing level still fails. An e2e spec imports nothing from the app, so it
+  // keeps its own copy; this pins the copy to the source. Change the note and
+  // this fails until the spec follows.
+  it("is the text the stock tabs e2e skips on", () => {
+    const spec = readFileSync(
+      path.resolve(__dirname, "../../../../../e2e/stock-tabs.spec.ts"),
+      "utf8",
+    );
+    expect(spec).toContain(JSON.stringify(PRICE_ONLY_NOTE));
+  });
+});
 
 describe("FIT_STATUS_STRENGTH", () => {
   it("ranks triggered above setup above watch above none", () => {
