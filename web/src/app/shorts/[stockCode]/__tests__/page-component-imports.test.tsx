@@ -100,6 +100,24 @@ describe("Page Component Imports (matching page.tsx)", () => {
   });
 });
 
+describe("Strategy tab component imports (matching strategy/page.tsx)", () => {
+  it("should import the panel, the chart island and the status line exactly as the page does", async () => {
+    const [PanelModule, ChartModule, StripModule] = await Promise.all([
+      import("~/@/components/strategy/strategy-fit-panel"),
+      import("~/@/components/strategy/strategy-levels-chart"),
+      import("~/@/components/stocks/strategy-fit-strip"),
+    ]);
 
+    // Used as: import { StrategyFitPanel, sortFitsByStrength } from ...
+    expect(typeof PanelModule.StrategyFitPanel).toBe("function");
+    expect(typeof PanelModule.sortFitsByStrength).toBe("function");
 
+    // The page loads the island with next/dynamic and picks the NAMED export:
+    // import(...).then((m) => m.StrategyLevelsChart). A typo there is an
+    // undefined component, not an import error.
+    expect(typeof ChartModule.StrategyLevelsChart).toBe("function");
 
+    // The panel header renders the strip's status line.
+    expect(typeof StripModule.FitStatusLine).toBe("function");
+  });
+});
