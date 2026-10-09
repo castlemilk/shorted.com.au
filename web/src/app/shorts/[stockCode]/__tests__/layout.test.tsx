@@ -41,6 +41,7 @@ jest.mock("~/@/components/ui/session-gates", () => ({ SignedOutOnly: () => null 
 
 import StockLayout from "../layout";
 import { getLatestShortDate } from "~/app/actions/getLatestShortDate";
+import { getShortInterestDeltas } from "../short-interest-summary";
 import { NotFoundError } from "~/app/actions/withRetry";
 
 const stock = { name: "BHP GROUP LIMITED ORDINARY", industry: "Materials", percentageShorted: 1.58, reportedShortPositions: 80_000_000 };
@@ -95,5 +96,54 @@ describe("stock layout", () => {
     });
     render(el);
     expect(screen.getByTestId("summary")).toHaveTextContent("in the latest ASIC report");
+  });
+
+  // The report-date and delta reads need only the code, so the layout starts
+  // them before it waits for the stock: a regeneration then pays for the slower
+  // of the two round-trips, not for one after the other.
+  describe("the series reads", () => {
+    it("start before the stock read settles", async () => {
+      let settleStock!: (value: unknown) => void;
+      mockGetStockOrNotFound.mockReturnValue(
+        new Promise((resolve) => {
+          settleStock = resolve;
+        }),
+      );
+      jest.mocked(getLatestShortDate).mockClear();
+      jest.mocked(getShortInterestDeltas).mockClear();
+
+      const rendering = StockLayout({
+        params: Promise.resolve({ stockCode: "bhp" }),
+        children: null,
+      });
+      // Let the layout run as far as the stock read, which is still pending.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(mockGetStockOrNotFound).toHaveBeenCalledWith("BHP");
+      expect(getLatestShortDate).toHaveBeenCalledWith("BHP");
+      expect(getShortInterestDeltas).toHaveBeenCalledWith("BHP");
+
+      settleStock(stock);
+      render(await rendering);
+      expect(screen.getByTestId("summary")).toHaveTextContent("as of 2 Oct 2026");
+    });
+
+    it("are not waited on by a 404", async () => {
+      jest.mocked(getLatestShortDate).mockReturnValueOnce(new Promise(() => undefined));
+      jest.mocked(getShortInterestDeltas).mockReturnValueOnce(new Promise(() => undefined));
+      mockGetStockOrNotFound.mockRejectedValue(new NotFoundError("ZZZZ"));
+      await expect(
+        StockLayout({ params: Promise.resolve({ stockCode: "ZZZZ" }), children: null }),
+      ).rejects.toThrow("NEXT_NOT_FOUND");
+    });
+
+    it("are not waited on by a transient stock read, which still fails the render", async () => {
+      jest.mocked(getLatestShortDate).mockReturnValueOnce(new Promise(() => undefined));
+      jest.mocked(getShortInterestDeltas).mockReturnValueOnce(new Promise(() => undefined));
+      mockGetStockOrNotFound.mockResolvedValue(undefined);
+      await expect(
+        StockLayout({ params: Promise.resolve({ stockCode: "BHP" }), children: null }),
+      ).rejects.toThrow(/transiently unavailable/);
+    });
   });
 });
