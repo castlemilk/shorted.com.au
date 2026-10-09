@@ -36,6 +36,64 @@ describe("stockTabMetadata", () => {
     expect(md.robots).toEqual({ index: false, follow: true, googleBot: { index: false, follow: true } });
   });
 
+  // A reason to noindex that needs the stock record (the Short interest tab: no
+  // reported short position). It is a predicate rather than a flag because the
+  // builder is the one place that knows whether the stock was READ: a flag
+  // computed from "no short position" before the read would noindex every stock
+  // while getStock is failing, which contradicts the fail-open rule.
+  describe("noindexWhen", () => {
+    const thin = (stock: { percentageShorted: number }) => !(stock.percentageShorted > 0);
+    const NOINDEX = { index: false, follow: true, googleBot: { index: false, follow: true } };
+    const base = { code: "BHP", tab: "short-interest", title: (c: string) => c, description: (c: string) => c } as const;
+
+    it("noindexes a resolved stock the predicate rejects, though the stock itself is indexable", async () => {
+      // Named and enriched, so isStockIndexable alone would index it.
+      getStock.mockResolvedValue({ name: "BHP GROUP LIMITED", industry: "Materials", percentageShorted: 0 });
+      const md = await stockTabMetadata({ ...base, noindexWhen: thin });
+      expect(md.robots).toEqual(NOINDEX);
+    });
+
+    it("leaves a resolved stock the predicate accepts indexable", async () => {
+      getStock.mockResolvedValue({ name: "BHP GROUP LIMITED", industry: "Materials", percentageShorted: 1.58 });
+      const md = await stockTabMetadata({ ...base, noindexWhen: thin });
+      expect(md.robots).toBeUndefined();
+    });
+
+    it("hands the predicate the stock record the metadata is built from", async () => {
+      const record = { name: "BHP GROUP LIMITED", industry: "Materials", percentageShorted: 1.58 };
+      getStock.mockResolvedValue(record);
+      const noindexWhen = jest.fn().mockReturnValue(false);
+      await stockTabMetadata({ ...base, noindexWhen });
+      expect(noindexWhen).toHaveBeenCalledTimes(1);
+      expect(noindexWhen).toHaveBeenCalledWith(record);
+    });
+
+    it("is never asked, and fails open, when the read resolves undefined", async () => {
+      getStock.mockResolvedValue(undefined);
+      const noindexWhen = jest.fn().mockReturnValue(true);
+      const md = await stockTabMetadata({ ...base, noindexWhen });
+      expect(noindexWhen).not.toHaveBeenCalled();
+      expect(md.robots).toBeUndefined();
+    });
+
+    it("is never asked, and fails open, when the read throws", async () => {
+      getStock.mockRejectedValue(new Error("boom"));
+      const noindexWhen = jest.fn().mockReturnValue(true);
+      const md = await stockTabMetadata({ ...base, noindexWhen });
+      expect(noindexWhen).not.toHaveBeenCalled();
+      expect(md.robots).toBeUndefined();
+    });
+
+    it("does not override forceNoindex or the stock's own gate", async () => {
+      getStock.mockResolvedValue({ name: "BHP GROUP LIMITED", industry: "Materials", percentageShorted: 1.58 });
+      const forced = await stockTabMetadata({ ...base, forceNoindex: true, noindexWhen: () => false });
+      expect(forced.robots).toEqual(NOINDEX);
+      getStock.mockResolvedValue({ name: "", industry: "", percentageShorted: 0 });
+      const thinStock = await stockTabMetadata({ ...base, noindexWhen: () => false });
+      expect(thinStock.robots).toEqual(NOINDEX);
+    });
+  });
+
   // getStock is wrapped in withRetryAndNotFound, which never rejects: a missing
   // code and a transient failure both resolve undefined. This is the path the
   // fail-open rule actually takes in production.

@@ -45,6 +45,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description: (company) =>
       `${company} (ASX:${code}) short interest over time: trend, peak, peer comparison and the questions investors ask. Official ASIC data, T+4.`,
     keywords: [`${code} short interest history`, `${code} short position trend`, `${code} most shorted`, "ASIC short positions"],
+    // The tab is one sentence for a stock ASIC reports no short position in,
+    // and isStockIndexable would still index a named, enriched one. A predicate,
+    // not a flag: the builder calls it only for a stock it could read, so a
+    // getStock outage fails open instead of noindexing every stock.
+    noindexWhen: (stock) => !(stock.percentageShorted > 0),
   });
 }
 

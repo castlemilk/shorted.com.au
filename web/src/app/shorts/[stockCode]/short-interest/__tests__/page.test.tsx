@@ -3,11 +3,16 @@ import "@testing-library/jest-dom";
 import { render, screen, within } from "@testing-library/react";
 
 const mockGetStockOrNotFound = jest.fn();
+const mockGetStock = jest.fn();
 const mockMetadata = jest.fn().mockResolvedValue({ title: "t" });
 const mockBreadcrumbs = jest.fn();
 jest.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_FOUND"); } }));
 jest.mock("next/dynamic", () => () => () => <div data-testid="island" />);
-jest.mock("~/app/actions/getStock", () => ({ getStockOrNotFound: (...a: unknown[]) => mockGetStockOrNotFound(...a) }));
+jest.mock("~/app/actions/getStock", () => ({
+  getStockOrNotFound: (...a: unknown[]) => mockGetStockOrNotFound(...a),
+  // The real metadata builder reads the stock through getStock.
+  getStock: (...a: unknown[]) => mockGetStock(...a),
+}));
 jest.mock("~/@/lib/seo/stock-tab-metadata", () => ({ stockTabMetadata: (...a: unknown[]) => mockMetadata(...a) }));
 jest.mock("../../short-interest-history", () => ({
   ShortInterestHistory: ({ stockCode, companyName }: { stockCode: string; companyName: string }) => (
@@ -37,6 +42,7 @@ describe("/shorts/[stockCode]/short-interest", () => {
   beforeEach(() => {
     mockGetStockOrNotFound.mockReset();
     mockGetStockOrNotFound.mockResolvedValue(stock);
+    mockGetStock.mockReset();
     mockMetadata.mockClear();
     mockBreadcrumbs.mockClear();
     (stockTabLabel as jest.Mock).mockClear();
@@ -94,6 +100,51 @@ describe("/shorts/[stockCode]/short-interest", () => {
     expect(input.code).toBe("BHP");
     expect(input.tab).toBe("short-interest");
     expect(input.title("BHP Group")).toBe("BHP Short Interest History & FAQ | BHP Group");
+  });
+
+  // A stock ASIC reports no short position in gets a one-sentence tab, and a
+  // named, enriched one would otherwise be indexed (isStockIndexable admits any
+  // stock with an industry). The reason is a predicate over the stock record,
+  // not a flag: a flag worked out before the read would noindex every stock for
+  // as long as getStock is failing.
+  describe("noindex for a stock with no reported short position", () => {
+    it("hands the builder a predicate, never a flag", async () => {
+      await generateMetadata({ params: Promise.resolve({ stockCode: "bhp" }) });
+      const input = mockMetadata.mock.calls[0]![0] as {
+        forceNoindex?: boolean;
+        noindexWhen?: (stock: { percentageShorted?: number }) => boolean;
+      };
+      expect(input.forceNoindex).toBeUndefined();
+      expect(input.noindexWhen).toEqual(expect.any(Function));
+      // Not greater than zero: none reported, a missing figure, or one that is not a number.
+      expect(input.noindexWhen!({ percentageShorted: 0 })).toBe(true);
+      expect(input.noindexWhen!({})).toBe(true);
+      expect(input.noindexWhen!({ percentageShorted: Number.NaN })).toBe(true);
+      expect(input.noindexWhen!({ percentageShorted: 0.01 })).toBe(false);
+      expect(input.noindexWhen!({ percentageShorted: 1.58 })).toBe(false);
+    });
+
+    it("composes with the real builder: noindex once the stock is read, fail open while it cannot be", async () => {
+      await generateMetadata({ params: Promise.resolve({ stockCode: "bhp" }) });
+      const input = mockMetadata.mock.calls[0]![0];
+      const { stockTabMetadata: realBuilder } = jest.requireActual<
+        typeof import("~/@/lib/seo/stock-tab-metadata")
+      >("~/@/lib/seo/stock-tab-metadata");
+      const indexableOtherwise = { name: "BHP GROUP LIMITED", industry: "Materials" };
+
+      mockGetStock.mockResolvedValue({ ...indexableOtherwise, percentageShorted: 0 });
+      expect((await realBuilder(input)).robots).toMatchObject({ index: false, follow: true });
+
+      mockGetStock.mockResolvedValue({ ...indexableOtherwise, percentageShorted: 1.58 });
+      expect((await realBuilder(input)).robots).toBeUndefined();
+
+      // getStock resolves undefined for a code it cannot read: every tab stays
+      // indexable rather than every stock going noindex during an outage.
+      mockGetStock.mockResolvedValue(undefined);
+      expect((await realBuilder(input)).robots).toBeUndefined();
+      mockGetStock.mockRejectedValue(new Error("down"));
+      expect((await realBuilder(input)).robots).toBeUndefined();
+    });
   });
 
   it("404s a malformed code before any fetch", async () => {

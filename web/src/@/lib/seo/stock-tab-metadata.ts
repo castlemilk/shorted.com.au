@@ -15,6 +15,14 @@ export interface StockTabMetadataInput {
   keywords?: string[];
   /** Extra reason to noindex (Strategy: not in universe; Community: always). */
   forceNoindex?: boolean;
+  /**
+   * Extra reason to noindex that needs the stock record (Short interest: ASIC
+   * reports no short position, so the tab is one sentence). Called ONLY when
+   * the stock read resolved. A stock that could not be read fails open, as the
+   * isStockIndexable gate does, so a getStock outage can never noindex a tab: a
+   * `forceNoindex` computed from "no short position" before the read would.
+   */
+  noindexWhen?: (stock: { percentageShorted: number }) => boolean;
 }
 
 const NOINDEX = {
@@ -71,6 +79,7 @@ export async function stockTabMetadata(
       ) {
         noindex = true;
       }
+      if (input.noindexWhen?.(stock)) noindex = true;
     }
   } catch {
     // fail open — keep default robots
