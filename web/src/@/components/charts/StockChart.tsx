@@ -615,9 +615,13 @@ export function StockChartInner({
       const point = i === null ? undefined : stepPoints[i];
       if (!point) return;
       e.preventDefault();
+      // A live mouse hover outranks a pin on screen, and a step is announced as
+      // a pin: drop the hover, so what is said is what is shown. The pointer's
+      // next move takes the screen back, as it does from any pin.
+      onLeave();
       pinAtTime(point.t);
     },
-    [pinned, pinAtTime, releasePin, stepPoints],
+    [pinned, onLeave, pinAtTime, releasePin, stepPoints],
   );
 
   // Brush overview: aggregate ALL series' points so the band + selectable range

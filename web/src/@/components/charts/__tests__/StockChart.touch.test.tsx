@@ -1209,6 +1209,21 @@ describe.each(MODES)("StockChart keyboard (%s)", (mode) => {
     expect(pinnedOn()).toContain(dateLabel(mode, 5));
   });
 
+  it("takes the screen from a live mouse hover, so what is said is what is shown", () => {
+    const { press, pinnedOn, plot, container } = setup();
+    fireEvent.mouseMove(plot, pt(xOf(2), 50));
+    expect(pinnedOn()).toBeNull(); // a hover, not a pin
+    press("ArrowRight"); // nothing pinned: the last point
+    // The pin is on screen, where it is announced; the hover no longer hides it.
+    expect(pinnedOn()).toContain(dateLabel(mode, 9));
+    expect(container.querySelector("[data-chart-announcer]")!.textContent).toContain(
+      `Pinned ${stripDate(9)}`,
+    );
+    // The pointer leaving changes nothing: the pin is what was on screen.
+    fireEvent.mouseLeave(plot);
+    expect(pinnedOn()).toContain(dateLabel(mode, 9));
+  });
+
   it("steps through the series with the most points, whichever comes first", () => {
     const sparse: ChartSeriesSpec = { ...SERIES[1]!, points: SERIES[1]!.points.slice(0, 4) };
     const { press, container } = setup([sparse, SERIES[0]!]);
