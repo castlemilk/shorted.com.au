@@ -7,7 +7,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { type Stock, type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
 
 const mockGetStockDetails = jest.fn();
@@ -147,6 +147,27 @@ describe("StockHeader identity", () => {
     const code = screen.getByText("BHP", { selector: "span" });
     // The code is all the line holds: no empty badge sits beside it.
     expect(code.parentElement?.children).toHaveLength(1);
+  });
+
+  // The ASX's placeholder for a security with no industry (an ETF, a trust).
+  it.each(["Not Applic", "Not Applicable", "NOT APPLIC", "not applicable", "  Not Applic  ", "Not Applicable\n"])(
+    "leaves the badge out for the placeholder industry %p, as for an empty one",
+    async (industry) => {
+      const { container } = await renderHeader(props({ stock: { ...BHP, industry } as Stock }));
+      const code = screen.getByText("BHP", { selector: "span" });
+      expect(code.parentElement?.children).toHaveLength(1);
+      // Neither as text nor as a title attribute.
+      expect(container.innerHTML).not.toMatch(/not applic/i);
+    },
+  );
+
+  it("badges a real industry whose name only starts like the placeholder, trimmed", async () => {
+    await renderHeader(props({ stock: { ...BHP, industry: "  Applications Software " } as Stock }));
+    expect(screen.getByText("Applications Software")).toBeInTheDocument();
+    expect(screen.getByText("Applications Software").closest("[title]")).toHaveAttribute("title", "Applications Software");
+    cleanup();
+    await renderHeader(props({ stock: { ...BHP, industry: "Not Applic Holdings" } as Stock }));
+    expect(screen.getByText("Not Applic Holdings")).toBeInTheDocument();
   });
 
   it("truncates a long industry rather than letting it push the row wider", async () => {

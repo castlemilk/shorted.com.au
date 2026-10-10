@@ -25,6 +25,12 @@ const NO_DETAILS: Pick<
   "companyName" | "gcsUrl" | "logoIconGcsUrl" | "enrichmentStatus"
 > = { companyName: "", gcsUrl: "", logoIconGcsUrl: "", enrichmentStatus: "" };
 
+// What the ASX puts in the industry field of a security with none (an ETF, a
+// trust). It is a placeholder, not an industry: it gets no badge, as an empty
+// one does not. (The industry pages, the sitemap and related-stocks all treat
+// it so.)
+const PLACEHOLDER_INDUSTRY = /^not applic(able)?$/i;
+
 const LABEL =
   "font-mono text-[10px] uppercase leading-3 text-muted-foreground";
 
@@ -66,7 +72,7 @@ export function StockHeader({
   // The backend title-caser mangles ticker acronyms ("BHP GROUP LIMITED" would
   // read "Bhp Group"); repair at display time. See lib/company-name.ts.
   const name = cleanCompanyName(stock.name || stockCode, stockCode);
-  const industry = stock.industry;
+  const industry = industryLabel(stock.industry);
   const sharesOnIssue = stock.totalProductInIssue ?? 0;
   const reportedShorts = stock.reportedShortPositions ?? 0;
   const showSharesOnIssue = sharesOnIssue > 0;
@@ -214,6 +220,12 @@ export async function StockHeaderLogo({ stockCode }: { stockCode: string }) {
       ) : null}
     </>
   );
+}
+
+/** The industry to badge: trimmed, and empty for none or for the ASX's placeholder. */
+function industryLabel(industry: string | undefined): string {
+  const label = industry?.trim() ?? "";
+  return PLACEHOLDER_INDUSTRY.test(label) ? "" : label;
 }
 
 /**
