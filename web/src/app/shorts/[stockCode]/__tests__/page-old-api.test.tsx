@@ -24,7 +24,10 @@ if (!globalThis.TextDecoder) {
  * components/stocks/__tests__/financials-tab.test.tsx.
  *
  * The real getStockFundamentals and getStockStrategyFit actions run here, over
- * a mocked connect client; everything else on the page is stubbed.
+ * a mocked connect client; everything else on the page is stubbed, except the
+ * Overview's own blocks (the chart section's heading, the About card and the
+ * short-interest prose in it), which are real. The chart panel and the sources
+ * the About card reads (company details, the short-interest series) are mocked.
  */
 
 import { describe, it, expect } from "@jest/globals";
