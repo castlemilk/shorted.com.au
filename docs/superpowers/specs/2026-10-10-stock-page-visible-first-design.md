@@ -344,7 +344,8 @@ layout-shift sum (`hadRecentInput` false) on first load and on a tab switch.
 ## 6. Review rulings (2026-10-10)
 
 1. **Description:** given a real home on the Overview About card (the header
-   was its only renderer). The Company tab's accordion item opens by default.
+   was its only renderer). On the Company tab the summary is a plain paragraph
+   above the collapsed sections (D4).
 2. **Phone controls:** collapsed to one row above the plot, with the period and
    toggles under it. Without that the chart straddled the fold.
 3. **Banner:** moved out of the chrome to the Overview, instead of being shrunk
