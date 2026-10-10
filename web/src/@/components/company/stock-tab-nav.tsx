@@ -58,6 +58,12 @@ export function StockTabNav({ stockCode }: { stockCode: string }) {
   // Unpositioned, the target also carries the list's own offset inside some
   // farther ancestor and the scroll overshoots (at 390px a mid-list tab landed
   // 16px outside the bar).
+  //
+  // The tab lands 16px in, so the end of the tab before it shows and says the
+  // row scrolls. The first tab has no tab before it: it goes back to the start
+  // of the list, where it rests at the gutter, in line with the page. Landing
+  // it 16px in would leave it 16px off that line after a back or forward from a
+  // far tab.
   useEffect(() => {
     const list = listRef.current;
     const el = list?.querySelector<HTMLElement>('[aria-current="page"]');
@@ -66,7 +72,9 @@ export function StockTabNav({ stockCode }: { stockCode: string }) {
       el.offsetLeft + el.offsetWidth > list.scrollLeft + list.clientWidth ||
       el.offsetLeft < list.scrollLeft
     ) {
-      list.scrollTo({ left: el.offsetLeft - 16 });
+      list.scrollTo({
+        left: el === list.firstElementChild ? 0 : el.offsetLeft - 16,
+      });
     }
   }, [active]);
 

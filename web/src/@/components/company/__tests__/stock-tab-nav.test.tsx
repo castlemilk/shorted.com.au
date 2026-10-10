@@ -238,7 +238,10 @@ describe("StockTabNav keeps the active tab in view", () => {
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
-  it("scrolls the list back to a tab that has been scrolled out on its left", () => {
+  // Back or forward from a far tab. The first tab has no tab before it to show,
+  // so it goes to the start of the list, where it rests at the gutter. 16px in
+  // (offsetLeft - 16) would leave it 16px off the page's line.
+  it("scrolls the list back to its start for the first tab, which has no tab before it to show", () => {
     pathname = "/shorts/BHP";
     const scrollTo = jest.fn();
     define(HTMLElement.prototype, "scrollTo", scrollTo);
@@ -247,7 +250,21 @@ describe("StockTabNav keeps the active tab in view", () => {
     define(HTMLElement.prototype, "offsetWidth", 90);
     define(HTMLElement.prototype, "offsetLeft", 32);
     render(<StockTabNav stockCode="BHP" />);
-    expect(scrollTo).toHaveBeenCalledWith({ left: 16 });
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenCalledWith({ left: 0 });
+  });
+
+  it("scrolls the list back to a later tab that has been scrolled out on its left, 16px of context to its left", () => {
+    pathname = "/shorts/BHP/short-interest";
+    const scrollTo = jest.fn();
+    define(HTMLElement.prototype, "scrollTo", scrollTo);
+    define(HTMLElement.prototype, "clientWidth", 300);
+    define(HTMLElement.prototype, "scrollLeft", 400);
+    define(HTMLElement.prototype, "offsetWidth", 90);
+    define(HTMLElement.prototype, "offsetLeft", 124);
+    render(<StockTabNav stockCode="BHP" />);
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenCalledWith({ left: 108 });
   });
 });
 
