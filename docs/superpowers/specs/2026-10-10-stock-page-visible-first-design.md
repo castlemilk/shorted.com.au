@@ -163,15 +163,20 @@ deltas).
 
   It survives soft navigation and resets on reload. Overview, then Financials,
   then Overview restores what the visitor chose.
-- **Phone chart controls** (below `sm`):
+- **Stacked chart controls** (below `xl`):
   - above the plot, one 40px row: the view control, and the embed button at the
     right;
   - below the plot: the period control (full width, 40px targets), then one row
     of SMA 20, Divergence and the correlation chip (no wrap; it scrolls
-    sideways if it must).
+    sideways if it must, with its scrollbar hidden).
 
-  From `sm` up, one row above the plot as today. One instance of each control,
-  placed with CSS grid areas. Row heights are fixed per breakpoint.
+  From `xl` (1280px) up, one row above the plot as today. One instance of each
+  control, placed with CSS grid areas. Row heights are fixed per breakpoint.
+  (Ruled 2026-10-10, after Task 3 measured it: the one row needs about 960px of
+  panel, and grid areas do not wrap. The panel reaches 960px only at a 1280px
+  window with the signed-in sidebar. At `sm` the toggles got 37px of 291 and the
+  row grew to 62px, breaking the skeleton match. A container query would be
+  exact, but the repo has none, and Tailwind 3.4 needs a plugin for it.)
 - **Height from CSS:** the chart box is `h-[360px] sm:h-[420px]`.
   `StockChart` takes its height from its parent when no `height` prop is given.
   One exported `StockChartPanelSkeleton` with the same heights serves as the
@@ -184,7 +189,9 @@ deltas).
   - The Strategy levels chart no longer finds its 1y prices pre-fetched when the
     visitor lands on Strategy directly: one extra request.
   - A page error on a chart tab now removes that tab's chart with its content.
-  - On the stacked phone layout a keyboard visits the controls in the one-row
+  - Windows from 640px to 1279px get the stacked controls under a 420px box:
+    about 100px taller than one row.
+  - On the stacked layout a keyboard visits the controls in the one-row
     layout's order (view, toggles, period, embed, then the chart), not the order
     they are drawn in (view, embed, chart, period, toggles). One instance of
     each control, placed with grid areas, has one DOM order, and the one row is
