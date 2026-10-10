@@ -31,24 +31,31 @@ function directionColor(change: ReadoutDelta): string | undefined {
   return change.tone === "up" ? UP : change.tone === "down" ? DOWN : undefined;
 }
 
+// The glyphs of a percentage-point change, which takes no colour: the same three
+// the stock header prints beside its 30-day change (stock-header.tsx,
+// describeChange), so one figure reads one way wherever it is on the page. U+2013
+// for no change is written as an escape, because it looks like a hyphen.
+const POINTS_GLYPH: Record<ReadoutDelta["tone"], string> = {
+  up: "▲",
+  down: "▼",
+  flat: "\u2013",
+};
+
 function Change({ change }: { change: ReadoutDelta }) {
   const color = directionColor(change);
   // A change that is not market direction (percentage points) takes no colour,
-  // so an arrow says which way it went. The sign in the text says it too, which
-  // is why the arrow is hidden from assistive technology.
-  const arrow = change.colored
-    ? ""
-    : change.tone === "up"
-      ? "▲"
-      : change.tone === "down"
-        ? "▼"
-        : "";
+  // so a glyph says which way it went, then a space and the signed value, as the
+  // header does: "▲ +0.62 pp", "▼ −0.31 pp", "– 0.00 pp". The sign says it too,
+  // which is why the glyph is hidden from assistive technology. A price change
+  // is coloured instead and has no glyph: "+3.1%".
+  const glyph = change.colored ? "" : POINTS_GLYPH[change.tone];
   return (
-    <span
-      data-readout-change
-      className="inline-flex shrink-0 items-center gap-x-0.5"
-    >
-      {arrow && <span aria-hidden="true">{arrow}</span>}
+    <span data-readout-change>
+      {glyph && (
+        <>
+          <span aria-hidden="true">{glyph}</span>{" "}
+        </>
+      )}
       <span style={color ? { color } : undefined}>{change.text}</span>
     </span>
   );
@@ -63,8 +70,8 @@ function Change({ change }: { change: ReadoutDelta }) {
 // series has a row to itself, so no entry sits beside another to be moved, and
 // no room is held: the whole row is the label's.
 const VALUE_MIN_CH = 6;
-/** "▲+2.84 pp", the widest change a series usually names. */
-const CHANGE_SLOT_CH = 9;
+/** "▲ +2.84 pp", the widest change a series usually names. */
+const CHANGE_SLOT_CH = 10;
 
 function EntryView({
   entry,

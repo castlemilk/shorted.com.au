@@ -139,12 +139,16 @@ export function StockChartInner({
   const compact = variant === "compact";
   const hasRight = series.some((s) => s.axis === "right");
 
+  // The room an axis' labels have beside the plot: a tick (8px) and a gap (2px),
+  // then the label, which the mono face sets at 6px a character at 10px. Short
+  // interest to two decimals ("12.00%") and a price under $100 ("$40.00") are six
+  // characters, 36px, so 46px: the 44px these were cut the last 2px off a label.
   const margin = useMemo(
     () => ({
       top: 8,
-      right: hasRight && !compact ? 44 : 12,
+      right: hasRight && !compact ? 48 : 12,
       bottom: 24,
-      left: compact ? 32 : 44,
+      left: compact ? 32 : 48,
     }),
     [hasRight, compact],
   );

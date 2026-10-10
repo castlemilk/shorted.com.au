@@ -4,6 +4,7 @@ import {
   buildChartView,
   isChartPeriod,
   isChartViewId,
+  shortFmt,
 } from "../chart-views";
 import { seriesDelta } from "../chart-readout";
 import type { ChartPoint } from "../types";
@@ -35,6 +36,29 @@ describe("chart view registry", () => {
   });
 });
 
+describe("shortFmt", () => {
+  // ASIC publishes short interest to two decimals and the stock header prints
+  // it to two, so the chart's readout, axes and hover card do too: a stock under
+  // 1% short would otherwise read "0.1%" under a header saying "0.08%", and its
+  // axis would repeat the same label at every tick.
+  it("prints short interest to two decimals", () => {
+    expect(shortFmt(1.57)).toBe("1.57%");
+    expect(shortFmt(0.08)).toBe("0.08%");
+    expect(shortFmt(0)).toBe("0.00%");
+    expect(shortFmt(12.3)).toBe("12.30%");
+  });
+
+  it("keeps ticks 0.05 apart distinct, where one decimal repeated them", () => {
+    const ticks = [0.05, 0.1, 0.15, 0.2].map(shortFmt);
+    expect(new Set(ticks).size).toBe(4);
+  });
+
+  it("is the format of the short axis in every view that has one", () => {
+    expect(buildChartView("short", input()).leftAxis.format).toBe(shortFmt);
+    expect(buildChartView("combined", input()).rightAxis?.format).toBe(shortFmt);
+  });
+});
+
 describe("buildChartView", () => {
   it("short: one short-% area on the LEFT axis, no volume, no right axis", () => {
     const c = buildChartView("short", input(30, { showMA: true }));
@@ -43,7 +67,7 @@ describe("buildChartView", () => {
     expect(c.volume).toBeUndefined();
     expect(c.indicators).toEqual([]); // MA never applies to short
     expect(c.leftAxis.side).toBe("left");
-    expect(c.leftAxis.format?.(12.345)).toBe("12.3%");
+    expect(c.leftAxis.format?.(12.345)).toBe("12.35%");
     expect(c.rightAxis).toBeUndefined();
   });
 
@@ -65,7 +89,7 @@ describe("buildChartView", () => {
     expect(c.volume).toHaveLength(30);
     expect(c.leftAxis.format?.(1)).toBe("$1.00");
     expect(c.rightAxis).toMatchObject({ side: "right" });
-    expect(c.rightAxis?.format?.(1)).toBe("1.0%");
+    expect(c.rightAxis?.format?.(1)).toBe("1.00%");
   });
 
   it("measures the short series in percentage points and leaves price relative", () => {

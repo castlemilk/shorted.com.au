@@ -11,6 +11,8 @@ const GREEN = "rgb(22, 163, 74)";
 const RED = "rgb(220, 38, 38)";
 /** U+2212, DESIGN.md's minus. Written as an escape: it looks like a hyphen. */
 const MINUS = "\u2212";
+/** U+2013, the glyph of no change, as the stock header prints it. */
+const FLAT = "\u2013";
 
 const delta = (over: Partial<ReadoutDelta> = {}): ReadoutDelta => ({
   value: 3.1,
@@ -208,7 +210,7 @@ describe("ChartReadoutStrip", () => {
       expect(changeOf(container, "0.0%").style.color).toBe("");
     });
 
-    it("keeps a percentage-point change in the foreground, with an arrow that is hidden from assistive technology", () => {
+    it("keeps a percentage-point change in the foreground, with a glyph that is hidden from assistive technology", () => {
       const up = delta({ value: 0.21, text: "+0.21 pp", colored: false });
       const down = delta({ value: -1.1, text: `${MINUS}1.10 pp`, tone: "down", colored: false });
       const flat = delta({ value: 0, text: "0.00 pp", tone: "flat", colored: false });
@@ -221,23 +223,71 @@ describe("ChartReadoutStrip", () => {
           ],
         }),
       );
-      for (const [text, arrow] of [
+      for (const [text, glyph] of [
         ["+0.21 pp", "▲"],
         [`${MINUS}1.10 pp`, "▼"],
+        ["0.00 pp", FLAT],
       ] as const) {
         const el = changeOf(container, text);
         expect(el.style.color).toBe("");
-        expect(el.previousElementSibling!.textContent).toBe(arrow);
+        expect(el.previousElementSibling!.textContent).toBe(glyph);
         expect(el.previousElementSibling!.getAttribute("aria-hidden")).toBe("true");
       }
-      const flatEl = changeOf(container, "0.00 pp");
-      expect(flatEl.style.color).toBe("");
-      expect(flatEl.previousElementSibling).toBeNull();
+    });
+
+    it("prints a percentage-point change as the stock header does: glyph, a space, the signed value, pp", () => {
+      // The header's 30-day change reads "▲ +0.50 pp", "▼ −0.31 pp" and
+      // "– 0.00 pp" (stock-header.test.tsx pins the same three strings), so one
+      // figure reads one way wherever it is on the page.
+      const textOf = (change: ReadoutDelta) => {
+        const r = renderStrip(model({ entries: [entry({ change })] }), { width: 800 });
+        const text = r.container.querySelector("[data-readout-change]")!.textContent;
+        r.unmount();
+        return text;
+      };
+      expect(textOf(delta({ value: 0.62, text: "+0.62 pp", colored: false }))).toBe("▲ +0.62 pp");
+      expect(
+        textOf(delta({ value: -0.31, text: `${MINUS}0.31 pp`, tone: "down", colored: false })),
+      ).toBe(`▼ ${MINUS}0.31 pp`);
+      expect(
+        textOf(delta({ value: 0, text: "0.00 pp", tone: "flat", colored: false })),
+      ).toBe(`${FLAT} 0.00 pp`);
+    });
+
+    it("prints a price change as coloured relative text with no glyph", () => {
+      const textOf = (change: ReadoutDelta) => {
+        const r = renderStrip(model({ entries: [entry({ change })] }), { width: 800 });
+        const el = r.container.querySelector("[data-readout-change]")!;
+        const out = { text: el.textContent, glyphs: el.querySelectorAll("[aria-hidden]").length };
+        r.unmount();
+        return out;
+      };
+      expect(textOf(delta())).toEqual({ text: "+3.1%", glyphs: 0 });
+      expect(textOf(delta({ value: -2.5, text: `${MINUS}2.5%`, tone: "down" }))).toEqual({
+        text: `${MINUS}2.5%`,
+        glyphs: 0,
+      });
+      expect(textOf(delta({ value: 0, text: "0.0%", tone: "flat" }))).toEqual({
+        text: "0.0%",
+        glyphs: 0,
+      });
     });
 
     it("is absent, with room kept for it, when the entry names no change", () => {
-      const { container } = renderStrip(model({ state: "hover" }));
+      // On one row: the entries after this one must not move when a change comes
+      // and goes, so the slot is held, empty and hidden from assistive technology.
+      const { container } = renderStrip(model({ state: "hover" }), { width: 800 });
       expect(container.querySelector("[data-readout-change]")).toBeNull();
+      const slots = container.querySelectorAll('[data-readout-entry] > [style*="min-width: 10ch"]');
+      expect(slots).toHaveLength(1);
+      expect(slots[0]!.getAttribute("aria-hidden")).toBe("true");
+      expect(slots[0]!.textContent).toBe("");
+    });
+
+    it("is absent, and takes no room, when the entry names no change on a phone", () => {
+      const { container } = renderStrip(model({ state: "hover" }), { width: 400 });
+      expect(container.querySelector("[data-readout-change]")).toBeNull();
+      expect(container.querySelector('[data-readout-entry] > [style*="min-width"]')).toBeNull();
     });
   });
 
@@ -300,7 +350,7 @@ describe("ChartReadoutStrip", () => {
   describe("the room each entry keeps", () => {
     const widthOf = (el: Element) => (el as HTMLElement).style.minWidth;
     const slots = (c: HTMLElement) =>
-      Array.from(c.querySelectorAll<HTMLElement>('[data-readout-entry] > [style*="min-width: 9ch"]'));
+      Array.from(c.querySelectorAll<HTMLElement>('[data-readout-entry] > [style*="min-width: 10ch"]'));
 
     it("on one row, holds the room of a change in every state, so a hover does not shift the entries after it", () => {
       const withChange = renderStrip(model({ entries: [entry({ change: delta() })] }), { width: 800 });

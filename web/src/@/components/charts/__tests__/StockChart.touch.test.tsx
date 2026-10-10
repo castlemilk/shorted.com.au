@@ -27,8 +27,8 @@ const T0 = Date.UTC(2026, 0, 1);
 const WIDTH = 400;
 const HEIGHT = 300;
 // StockChart margins with a right axis, full variant.
-const M = { top: 8, left: 44, right: 44 };
-const INNER_W = WIDTH - M.left - M.right; // 312 -> 10 points, ~34.7px apart
+const M = { top: 8, left: 48, right: 48 };
+const INNER_W = WIDTH - M.left - M.right; // 304 -> 10 points, ~33.8px apart
 
 const mk = (id: string, label: string, axis: "left" | "right", base: number): ChartSeriesSpec => ({
   id,
@@ -385,6 +385,32 @@ describe("StockChart tooltip placement", () => {
   });
 });
 
+// The room beside the plot is what the axis labels have to be drawn in, and the
+// svg clips whatever falls outside it. A label is 6px a character at 10px, and the
+// tick and gap before it take 10px.
+describe("StockChart margins", () => {
+  const innerW = (series: ChartSeriesSpec[], props: Partial<StockChartProps> = {}) => {
+    const r = renderChart(series, "strip", props);
+    const w = Number(r.plot.getAttribute("width"));
+    r.unmount();
+    return w;
+  };
+
+  it("leaves 48px for a right axis: room for 'xx.xx%', six characters, which 44px cut", () => {
+    expect(innerW(SERIES)).toBe(WIDTH - 48 - 48);
+  });
+
+  it("leaves 48px for the left axis, with or without a right one", () => {
+    // "$40.00" and "12.00%" are six characters: 36px and the 10px before them.
+    expect(innerW([SERIES[0]!])).toBe(WIDTH - 48 - 12);
+    expect(innerW(SERIES)).toBe(WIDTH - 48 - 48);
+  });
+
+  it("leaves a compact chart, which draws no right axis and little on the left, its narrow margins", () => {
+    expect(innerW(SERIES, { variant: "compact" })).toBe(WIDTH - 32 - 12);
+  });
+});
+
 describe("StockChart reference levels, bands and markers", () => {
   it("draws reference bands under the series and levels/markers over it, clipped to the plot", () => {
     const { container } = render(
@@ -611,9 +637,10 @@ describe.each(MODES)("StockChart drag-measure readout (%s)", (mode) => {
   }
 
   it("reports price as a percent and short interest as points to two decimals", () => {
-    // Price 42 -> 46; short 4 -> 8. The strip adds an arrow before a points change.
+    // Price 42 -> 46; short 4 -> 8. The strip puts a glyph and a space before a
+    // points change, as the stock header does.
     const readout = measure([SERIES[0]!, SHORT_PP], 2, 6);
-    const arrow = mode === "strip" ? "▲" : "";
+    const arrow = mode === "strip" ? "▲ " : "";
     expect(readout.textContent).toBe(
       `${stripDate(2)} → ${stripDate(6)}Price+9.5%Short %${arrow}+4.00 pp`,
     );

@@ -42,7 +42,14 @@ export function isChartPeriod(p: unknown): p is ChartPeriod {
 }
 
 export const priceFmt = (v: number) => `$${v.toFixed(2)}`;
-export const shortFmt = (v: number) => `${v.toFixed(1)}%`;
+/**
+ * Short interest to two decimals, as ASIC publishes it and the stock header
+ * prints it. The chart's readout, its axes and its hover card all go through
+ * this one function, so a figure reads the same in each; at one decimal a stock
+ * under 1% short read "0.1%" under a header saying "0.08%", and its axis
+ * repeated one label at every tick.
+ */
+export const shortFmt = (v: number) => `${v.toFixed(2)}%`;
 
 /** Minimum price points before the SMA 20 overlay is drawn. */
 export const SMA_PERIOD = 20;

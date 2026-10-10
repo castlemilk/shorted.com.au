@@ -41,7 +41,7 @@ function shortSeries(code: string, period: string): ChartSeriesSpec {
 }
 
 const priceFmt = (v: number) => `$${v.toFixed(2)}`;
-const shortFmt = (v: number) => `${v.toFixed(1)}%`;
+const shortFmt = (v: number) => `${v.toFixed(2)}%`; // as chart-views.ts
 
 const meta = {
   title: "Charts/StockChart",

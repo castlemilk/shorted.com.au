@@ -315,7 +315,7 @@ describe("StrategyLevelsChart", () => {
         screen.getByRole("button", { name: "Crowded-Short Breakout" }),
       );
       expect(chart).toHaveAttribute("data-left-sample", "$12.50");
-      expect(chart).toHaveAttribute("data-right-sample", "12.5%");
+      expect(chart).toHaveAttribute("data-right-sample", "12.50%");
     });
 
     it("gives the chart the height of its placeholders, and no brush", () => {
