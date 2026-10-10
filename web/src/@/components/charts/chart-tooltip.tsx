@@ -14,21 +14,21 @@ import type { ChartScales } from "./use-chart-scales";
 
 /**
  * The index a keyboard step lands on, or null for a key that does not step.
- * ArrowLeft and ArrowRight move one point from the one nearest `pinnedAt` (from
- * the last point while nothing is pinned) and stop at the ends; Home and End
- * jump to them.
+ * ArrowLeft and ArrowRight move one point from the one nearest `fromT` (the time
+ * of the reading on screen: a pin, or else the point under the pointer; the last
+ * point while there is neither) and stop at the ends; Home and End jump to them.
  */
 export function stepIndex(
   points: ChartPoint[],
   key: string,
-  pinnedAt: number | null,
+  fromT: number | null,
 ): number | null {
   const last = points.length - 1;
   if (last < 0) return null;
   if (key === "Home") return 0;
   if (key === "End") return last;
   if (key !== "ArrowLeft" && key !== "ArrowRight") return null;
-  const near = pinnedAt === null ? null : nearest(points, pinnedAt);
+  const near = fromT === null ? null : nearest(points, fromT);
   const here = near ? points.indexOf(near) : last;
   return Math.min(last, Math.max(0, here + (key === "ArrowRight" ? 1 : -1)));
 }

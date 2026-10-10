@@ -1772,15 +1772,57 @@ describe.each(MODES)("StockChart keyboard (%s)", (mode) => {
     const { press, pinnedOn, plot, container } = setup();
     fireEvent.mouseMove(plot, pt(xOf(2), 50));
     expect(pinnedOn()).toBeNull(); // a hover, not a pin
-    press("ArrowRight"); // nothing pinned: the last point
+    press("ArrowRight"); // from the hovered point: the next one
     // The pin is on screen, where it is announced; the hover no longer hides it.
-    expect(pinnedOn()).toContain(stripDate(9));
+    expect(pinnedOn()).toContain(stripDate(3));
     expect(container.querySelector("[data-chart-announcer]")!.textContent).toContain(
-      `Pinned ${stripDate(9)}`,
+      `Pinned ${stripDate(3)}`,
     );
     // The pointer leaving changes nothing: the pin is what was on screen.
     fireEvent.mouseLeave(plot);
+    expect(pinnedOn()).toContain(stripDate(3));
+  });
+
+  it("steps from the point under the pointer, in either direction, not from the end", () => {
+    const left = setup();
+    fireEvent.mouseMove(left.plot, pt(xOf(4), 50));
+    left.press("ArrowLeft");
+    expect(left.pinnedOn()).toContain(stripDate(3));
+    left.unmount();
+
+    const right = setup();
+    fireEvent.mouseMove(right.plot, pt(xOf(4), 50));
+    right.press("ArrowRight");
+    expect(right.pinnedOn()).toContain(stripDate(5));
+  });
+
+  it("steps from the nearest point when the pointer is between two", () => {
+    const { press, pinnedOn, plot } = setup();
+    // 0.3 of the way from point 5 to point 6: the nearest is 5, so a step right is 6.
+    fireEvent.mouseMove(plot, pt(xOf(5.3), 50));
+    press("ArrowRight");
+    expect(pinnedOn()).toContain(stripDate(6));
+  });
+
+  it("steps on from its own pin, wherever the pointer wanders after, and from the end only with neither", () => {
+    const { press, pinnedOn, plot } = setup();
+    press("ArrowLeft"); // nothing pinned, no pointer: the point before the last
+    expect(pinnedOn()).toContain(stripDate(8));
+    // The pointer comes over the chart at point 2; the pin is the keyboard's
+    // cursor, and a step continues from it, not from where the mouse happens to be.
+    fireEvent.mouseMove(plot, pt(xOf(2), 50));
+    press("ArrowLeft");
+    expect(pinnedOn()).toContain(stripDate(7));
+  });
+
+  it("Home and End jump to the ends from a hover, as from anywhere", () => {
+    const { press, pinnedOn, plot } = setup();
+    fireEvent.mouseMove(plot, pt(xOf(4), 50));
+    press("End");
     expect(pinnedOn()).toContain(stripDate(9));
+    fireEvent.mouseMove(plot, pt(xOf(4), 50));
+    press("Home");
+    expect(pinnedOn()).toContain(stripDate(0));
   });
 
   it("steps through the series with the most points, whichever comes first", () => {

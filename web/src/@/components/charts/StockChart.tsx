@@ -679,7 +679,11 @@ export function StockChartInner({
         releasePin();
         return;
       }
-      const i = stepIndex(stepPoints, e.key, pinned ? pinned.t : null);
+      // A step starts from the reading on screen: the pin the keys (or a tap)
+      // made, else the point under the pointer, else the end of the series. The
+      // pin comes first because it is the keyboard's cursor once it has one, so a
+      // pointer that wanders over the chart between two presses does not take it.
+      const i = stepIndex(stepPoints, e.key, (pinned ?? active)?.t ?? null);
       const point = i === null ? undefined : stepPoints[i];
       if (!point) return;
       e.preventDefault();
@@ -689,7 +693,7 @@ export function StockChartInner({
       onLeave();
       pinAtTime(point.t);
     },
-    [pinned, onLeave, pinAtTime, releasePin, stepPoints],
+    [pinned, active, onLeave, pinAtTime, releasePin, stepPoints],
   );
 
   // Brush overview: aggregate ALL series' points so the band + selectable range
