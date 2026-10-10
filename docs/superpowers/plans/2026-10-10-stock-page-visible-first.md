@@ -1,5 +1,7 @@
 # Stock page: useful information first — implementation plan
 
+> The spec was amended during execution: its section 6 (review rulings) and its inline "ruled" notes changed what this plan says in places. Where the two differ, the spec governs.
+
 Spec (binding): `docs/superpowers/specs/2026-10-10-stock-page-visible-first-design.md`.
 Read it before your task; the section ids (D1-D7, G1-G7) below refer to it.
 
