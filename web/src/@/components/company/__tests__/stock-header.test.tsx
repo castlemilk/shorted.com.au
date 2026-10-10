@@ -205,6 +205,69 @@ describe("StockHeader readout", () => {
   });
 });
 
+// The API sends a figure it does not hold as 0 (a proto3 number has no unset),
+// and a 0 in this readout is a claim: no short positions, no shares. So a figure
+// it does not hold is left out, never printed as 0.
+describe("StockHeader a figure the API does not hold", () => {
+  const withFigures = (figures: Partial<Record<"percentageShorted" | "reportedShortPositions" | "totalProductInIssue", number | undefined>>) =>
+    props({ stock: { ...BHP, ...figures } as Stock });
+  const labels = () => Array.from(document.querySelectorAll("dt")).map((dt) => dt.textContent);
+
+  it.each([[0], [undefined], [Number.NaN], [-5]])(
+    "leaves 'Shares on issue' out when it is %p, rather than printing 0",
+    async (totalProductInIssue) => {
+      const { container } = await renderHeader(withFigures({ totalProductInIssue }));
+      expect(labels()).toEqual(["Short interest", "Reported shorts"]);
+      expect(screen.queryByText("Shares on issue")).toBeNull();
+      // The short interest percentage is the readout's one headline: it stays.
+      expect(figuresOf("Short interest")[0]).toHaveTextContent("1.58%");
+      expect(container.querySelectorAll("dl > div")).toHaveLength(2);
+    },
+  );
+
+  it.each([[0], [undefined], [Number.NaN]])(
+    "leaves 'Reported shorts' out when it is %p and the short percentage is not 0",
+    async (reportedShortPositions) => {
+      await renderHeader(withFigures({ reportedShortPositions }));
+      expect(labels()).toEqual(["Short interest", "Shares on issue"]);
+      expect(screen.queryByText("Reported shorts")).toBeNull();
+    },
+  );
+
+  it.each([[0], [undefined]])(
+    "prints 0 reported shorts when the short percentage is itself 0, a true zero (%p)",
+    async (reportedShortPositions) => {
+      await renderHeader(withFigures({ percentageShorted: 0, reportedShortPositions }));
+      expect(figuresOf("Short interest")[0]).toHaveTextContent("0.00%");
+      expect(figuresOf("Reported shorts")[0]).toHaveTextContent(/^0$/);
+    },
+  );
+
+  it("does not take an unset percentage for a true zero", async () => {
+    await renderHeader(withFigures({ percentageShorted: undefined, reportedShortPositions: 0 }));
+    expect(screen.queryByText("Reported shorts")).toBeNull();
+  });
+
+  it("prints a count that is there, whatever the percentage", async () => {
+    await renderHeader(withFigures({ percentageShorted: 0.004, reportedShortPositions: 12_000 }));
+    expect(figuresOf("Reported shorts")[0]).toHaveTextContent("12K");
+  });
+
+  it("is left with the short interest group alone when the API holds neither figure", async () => {
+    const { container } = await renderHeader(
+      withFigures({ reportedShortPositions: 0, totalProductInIssue: 0 }),
+    );
+    expect(labels()).toEqual(["Short interest"]);
+    expect(container.querySelectorAll("dl > div")).toHaveLength(1);
+    expect(container.textContent).not.toMatch(/Reported shorts|Shares on issue|undefined|NaN/);
+  });
+
+  it("still prints both when the API holds both", async () => {
+    await renderHeader();
+    expect(labels()).toEqual(["Short interest", "Reported shorts", "Shares on issue"]);
+  });
+});
+
 describe("StockHeader 30-day change", () => {
   it("says a rise with an up arrow, a plus and the magnitude in pp", async () => {
     await renderHeader(props({ change30d: 0.5 }));

@@ -51,8 +51,11 @@ export interface StockHeaderProps {
  * CompanyLogo, so nothing here puts Connect-RPC in a client bundle. Keep it
  * free of "use client" and of any @connectrpc/connect import of its own.
  *
- * A missing value is left out, never stood in for by "undefined" or a
- * placeholder dash.
+ * A missing value is left out, never stood in for by "undefined", a
+ * placeholder dash or a zero. The API sends a figure it does not hold as 0 (a
+ * proto3 number has no unset), so "Shares on issue" is drawn only when it is
+ * above 0, and "Reported shorts" only when it is above 0 or the short
+ * percentage is itself 0, a true zero.
  */
 export function StockHeader({
   stockCode,
@@ -64,6 +67,10 @@ export function StockHeader({
   // read "Bhp Group"); repair at display time. See lib/company-name.ts.
   const name = cleanCompanyName(stock.name || stockCode, stockCode);
   const industry = stock.industry;
+  const sharesOnIssue = stock.totalProductInIssue ?? 0;
+  const reportedShorts = stock.reportedShortPositions ?? 0;
+  const showSharesOnIssue = sharesOnIssue > 0;
+  const showReportedShorts = reportedShorts > 0 || stock.percentageShorted === 0;
   const change =
     change30d !== null && Number.isFinite(change30d)
       ? describeChange(change30d)
@@ -119,7 +126,8 @@ export function StockHeader({
 
       <dl className="grid grid-cols-[auto_auto] justify-between gap-x-4 gap-y-1.5 sm:flex sm:shrink-0 sm:items-start sm:justify-start sm:gap-x-6">
         {/* Below `sm` this block spans both rows of the left column and the
-            other two stack in the right one. From `sm` all three are columns. */}
+            other two (when the API holds them) stack in the right one. From
+            `sm` they are columns. */}
         <div className="row-span-2">
           <dt className={LABEL}>Short interest</dt>
           <dd className="font-mono text-2xl font-bold leading-none tabular-nums">
@@ -144,19 +152,19 @@ export function StockHeader({
           ) : null}
         </div>
 
-        <div>
-          <dt className={LABEL}>Reported shorts</dt>
-          <dd className={FIGURE}>
-            {formatNumber(stock.reportedShortPositions ?? 0)}
-          </dd>
-        </div>
+        {showReportedShorts ? (
+          <div>
+            <dt className={LABEL}>Reported shorts</dt>
+            <dd className={FIGURE}>{formatNumber(reportedShorts)}</dd>
+          </div>
+        ) : null}
 
-        <div>
-          <dt className={LABEL}>Shares on issue</dt>
-          <dd className={FIGURE}>
-            {formatNumber(stock.totalProductInIssue ?? 0, 3)}
-          </dd>
-        </div>
+        {showSharesOnIssue ? (
+          <div>
+            <dt className={LABEL}>Shares on issue</dt>
+            <dd className={FIGURE}>{formatNumber(sharesOnIssue, 3)}</dd>
+          </div>
+        ) : null}
       </dl>
     </section>
   );
