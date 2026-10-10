@@ -158,9 +158,14 @@ export function StockChartPanel({
     >
       {/* The controls sit in the order of the one row they make from `xl`, which
           is the order a keyboard visits them in; below `xl` the grid areas put
-          them where a thumb wants them. Nothing wraps: the view labels compact
-          below `sm`, and the period control spans the width, so every button
-          stays reachable without the card clipping any of them. */}
+          them where a thumb wants them (view, embed, chart, period, toggles),
+          so a keyboard crosses the stack in another order than it is drawn in.
+          WCAG 2.4.3 would have the two agree, and one instance of each control
+          cannot agree with both layouts; the one row is the one most keyboard
+          users meet, so it gets the matching order (accepted, spec D4). Nothing
+          wraps: the view labels compact below `sm`, and the period control
+          spans the width, so every button stays reachable without the card
+          clipping any of them. */}
       <div
         className={cn(SEG_GROUP, "[grid-area:view] justify-self-start")}
         role="group"

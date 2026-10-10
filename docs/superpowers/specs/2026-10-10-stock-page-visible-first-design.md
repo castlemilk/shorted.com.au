@@ -184,6 +184,12 @@ deltas).
   - The Strategy levels chart no longer finds its 1y prices pre-fetched when the
     visitor lands on Strategy directly: one extra request.
   - A page error on a chart tab now removes that tab's chart with its content.
+  - On the stacked phone layout a keyboard visits the controls in the one-row
+    layout's order (view, toggles, period, embed, then the chart), not the order
+    they are drawn in (view, embed, chart, period, toggles). One instance of
+    each control, placed with grid areas, has one DOM order, and the one row is
+    the layout most keyboard users meet. WCAG 2.4.3 would prefer the two to
+    agree.
   - The theme chips and summary prose leave six of the seven tab URLs. This
     reverses the earlier spec's call to keep the chips in the layout: the space
     above the fold on every tab is worth more than six duplicate links to
