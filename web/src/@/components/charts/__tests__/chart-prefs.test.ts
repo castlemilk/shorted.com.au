@@ -146,3 +146,99 @@ describe("useChartPrefs", () => {
     expect(mount("BHP", "BHP:short-interest").result.current[0]).toEqual(DEFAULTS);
   });
 });
+
+// The stock page remounts its panel between stocks, but the hook must not lean
+// on that: a panel that stays mounted while it is handed another stock or key
+// reads the store for it, instead of carrying the old choices over.
+describe("useChartPrefs: a panel pointed at another stock", () => {
+  interface Scope {
+    stockCode: string;
+    prefsKey?: string;
+  }
+
+  /** One panel that stays mounted while its props change. */
+  function mountPointed(first: Scope) {
+    // What every render returned, the ones React threw away included.
+    const returned: ChartPrefs[] = [];
+    const panel = renderHook(
+      ({ stockCode, prefsKey }: Scope) => {
+        const out = useChartPrefs({ stockCode, prefsKey, defaults: DEFAULTS });
+        returned.push(out[0]);
+        return out;
+      },
+      { initialProps: first },
+    );
+    return { ...panel, returned };
+  }
+
+  it("reads the new stock's own period and view", () => {
+    const cba = mount("CBA", "CBA:overview");
+    act(() => cba.result.current[1]({ period: "3m", view: "short" }));
+    cba.unmount();
+
+    const panel = mountPointed({ stockCode: "BHP", prefsKey: "BHP:overview" });
+    act(() => panel.result.current[1]({ period: "6m", view: "price", showMA: true }));
+
+    panel.rerender({ stockCode: "CBA", prefsKey: "CBA:overview" });
+    expect(panel.result.current[0]).toEqual({ ...DEFAULTS, period: "3m", view: "short" });
+  });
+
+  it("starts a stock nobody has chosen for from the defaults", () => {
+    const panel = mountPointed({ stockCode: "BHP", prefsKey: "BHP:overview" });
+    act(() => panel.result.current[1]({ period: "6m", view: "price" }));
+
+    panel.rerender({ stockCode: "CBA", prefsKey: "CBA:overview" });
+    expect(panel.result.current[0]).toEqual(DEFAULTS);
+  });
+
+  it("never returns the old stock's choices for the new one, not even for one render", () => {
+    const panel = mountPointed({ stockCode: "BHP", prefsKey: "BHP:overview" });
+    act(() => panel.result.current[1]({ period: "6m" }));
+    const before = panel.returned.length;
+
+    panel.rerender({ stockCode: "CBA", prefsKey: "CBA:overview" });
+    // The panel asks for its data in the period it is given: a render that
+    // paired CBA with BHP's 6M would fetch the wrong series.
+    const after = panel.returned.slice(before);
+    expect(after.length).toBeGreaterThan(0);
+    for (const prefs of after) expect(prefs.period).toBe("1y");
+  });
+
+  it("writes to the new key, not the old one, once it has moved", () => {
+    const panel = mountPointed({ stockCode: "BHP", prefsKey: "BHP:overview" });
+    panel.rerender({ stockCode: "CBA", prefsKey: "CBA:overview" });
+    act(() => panel.result.current[1]({ period: "3m", view: "price" }));
+
+    expect(mount("CBA", "CBA:overview").result.current[0]).toMatchObject({
+      period: "3m",
+      view: "price",
+    });
+    expect(mount("BHP", "BHP:overview").result.current[0]).toEqual(DEFAULTS);
+  });
+
+  it("moves between the keys of one stock: its period, the other key's view", () => {
+    const panel = mountPointed({ stockCode: "BHP", prefsKey: "BHP:overview" });
+    act(() => panel.result.current[1]({ period: "6m", view: "price" }));
+
+    panel.rerender({ stockCode: "BHP", prefsKey: "BHP:short-interest" });
+    expect(panel.result.current[0]).toEqual({ ...DEFAULTS, period: "6m" });
+  });
+
+  it("reads the store again only when the stock or key changes", () => {
+    const panel = mountPointed({ stockCode: "BHP", prefsKey: "BHP:overview" });
+    act(() => panel.result.current[1]({ period: "6m" }));
+
+    resetChartPrefsForTests();
+    panel.rerender({ stockCode: "BHP", prefsKey: "BHP:overview" });
+    // The same stock and key: what is on screen stands, forgotten or not.
+    expect(panel.result.current[0].period).toBe("6m");
+  });
+
+  it("keeps an unkeyed panel's own choices when its stock changes", () => {
+    const panel = mountPointed({ stockCode: "BHP" });
+    act(() => panel.result.current[1]({ period: "6m", view: "price" }));
+
+    panel.rerender({ stockCode: "CBA" });
+    expect(panel.result.current[0]).toMatchObject({ period: "6m", view: "price" });
+  });
+});

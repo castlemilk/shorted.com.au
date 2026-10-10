@@ -73,32 +73,58 @@ function writePrefs(
   }
 }
 
+/** What the hook holds, and the stock and key it was read for. */
+interface Held {
+  stockCode: string;
+  prefsKey: string | undefined;
+  prefs: ChartPrefs;
+}
+
 /**
  * The panel's choices and a setter that merges a patch into them. They start
  * from the store on the first render (the panel is client-only, so there is no
  * server render to disagree with) and every change is written through, so a
  * panel that mounts later, on another tab, starts where this one left off.
  *
- * The store is read once, on mount. A panel handed another stock or key is a
- * different panel: the stock page remounts it on a navigation between stocks
- * (a dynamic segment is keyed by its param), and anything else should `key` it.
+ * A panel handed another stock or key reads the store again for it, in that
+ * same render: the stock page remounts its panel between stocks anyway (a
+ * dynamic segment is keyed by its param), but a panel that is not remounted
+ * must not carry one stock's period over to the next, nor ask for the next
+ * stock's data in it. With no key there is nothing to read, and the panel
+ * keeps the choices it has.
  */
 export function useChartPrefs({
   stockCode,
   prefsKey,
   defaults,
 }: UseChartPrefsOptions): [ChartPrefs, (patch: Partial<ChartPrefs>) => void] {
-  const [prefs, setState] = useState(() =>
-    readPrefs(stockCode, prefsKey, defaults),
-  );
+  const [held, setHeld] = useState<Held>(() => ({
+    stockCode,
+    prefsKey,
+    prefs: readPrefs(stockCode, prefsKey, defaults),
+  }));
+
+  // React's "adjust state while rendering": it throws this pass away and
+  // renders again with the new state before anything is committed, so no pass
+  // ever pairs the new stock with the old one's period.
+  let current = held;
+  if (held.stockCode !== stockCode || held.prefsKey !== prefsKey) {
+    current = {
+      stockCode,
+      prefsKey,
+      prefs: prefsKey ? readPrefs(stockCode, prefsKey, defaults) : held.prefs,
+    };
+    setHeld(current);
+  }
+
   const setPrefs = useCallback(
     (patch: Partial<ChartPrefs>) => {
       writePrefs(stockCode, prefsKey, patch);
-      setState((prev) => ({ ...prev, ...patch }));
+      setHeld((prev) => ({ ...prev, prefs: { ...prev.prefs, ...patch } }));
     },
     [stockCode, prefsKey],
   );
-  return [prefs, setPrefs];
+  return [current.prefs, setPrefs];
 }
 
 /** Forgets every choice. For tests and stories: the store outlives a mount. */

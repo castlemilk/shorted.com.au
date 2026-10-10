@@ -158,6 +158,18 @@ describe("StockChartPanel: settings", () => {
     expect(mockChartData).toHaveBeenLastCalledWith("BHP", "3m");
   });
 
+  it("reads the new stock's choices when it is pointed at another, and asks for nothing in the old period", () => {
+    const { rerender } = render(<StockChartPanel stockCode="BHP" prefsKey="BHP:overview" />);
+    fireEvent.click(periodButton("6m"));
+
+    rerender(<StockChartPanel stockCode="CBA" prefsKey="CBA:overview" />);
+    expect(periodButton("1y")).toHaveAttribute("aria-pressed", "true");
+    expect(periodButton("6m")).toHaveAttribute("aria-pressed", "false");
+    expect(mockChartData).toHaveBeenLastCalledWith("CBA", "1y");
+    // Not even for a render React went on to throw away.
+    expect(mockChartData).not.toHaveBeenCalledWith("CBA", "6m");
+  });
+
   it("hands the embed button the view and period on screen", () => {
     render(<StockChartPanel stockCode="BHP" prefsKey="BHP:overview" />);
     fireEvent.click(viewButton("Price & Volume"));
