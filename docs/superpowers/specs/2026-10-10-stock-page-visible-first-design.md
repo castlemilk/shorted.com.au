@@ -73,8 +73,9 @@ replaces the company card and the short-position card. Its only client child is
 - **Readout:** the page's single lit surface (DESIGN.md One Bloom Rule,
   `shadow-terminal-inset`; nothing else on the page glows).
   - Short % large, in mono with `tabular-nums`.
-  - The 30-day change in percentage points: an arrow, the number and "30d", in
-    the foreground colour, never red or green. Short-interest change is not
+  - The 30-day change in percentage points: an arrow, the signed number (a true
+    minus, U+2212, for a fall) and "30d", in the foreground colour, never red or
+    green. Short-interest change is not
     market direction. It is omitted when unknown.
   - Reported shorts and shares on issue.
   - "as of <date>" (ASIC, T+4), omitted when unknown.
@@ -93,7 +94,11 @@ deltas).
 
 - **Markup:** `StockTabNav` renders a zero-height in-flow sentinel, then
   `<nav aria-label="Stock sections">` with
-  `sticky top-16 z-30 -mx-8 px-8 mb-4 border-b bg-background/90 backdrop-blur`.
+  `sticky top-16 z-30 -mx-8 mb-4 border-b bg-background/90 backdrop-blur`, and
+  the scrolling list inside it carries the `px-8` (with `scroll-px-8` and a
+  hidden scrollbar). On a phone the overflowing tabs then scroll to the screen
+  edge, and the next tab peeks out to show the bar scrolls (ruled after Task 4
+  review; with the padding on the nav the tabs clipped 32px short of the edge).
   The site header is `sticky top-0 z-50` with an `h-16` row. The container pads
   2rem at every breakpoint, so `-mx-8 px-8` bleeds to the edges of `<main>`
   (beside the sidebar on desktop, not the viewport). The header's 1px border
