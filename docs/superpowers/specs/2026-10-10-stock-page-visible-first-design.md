@@ -47,7 +47,8 @@ Measured signed out (banner shown), BHP, after hydration, Chromium:
   docked, and the new tab starts directly under it.
 - **G6 chart reading:** nothing covers the plot in strip mode. A readout strip
   above the plot shows the latest values by default and the hovered, pinned or
-  measured values otherwise. Its height depends only on the chart's width.
+  measured values otherwise. Its height depends only on the chart's width and
+  how many series it shows, never on the state or the values.
 - **G7 no regressions:** all seven tabs stay ISR (second request a cache hit);
   URLs, `?tab=` redirects, canonicals and robots unchanged; prefetch still on
   intent only; cumulative layout shift under 0.02 on first load and on a tab
@@ -200,12 +201,15 @@ deltas).
     because the strip carries the dots and labels.
 - **Fallback:** strip mode falls back to tooltip when the plot left after the
   strip would be under 160px (`READOUT_MIN_PLOT`).
-- **Height and layout from the chart's width only:**
+- **Height and layout from the chart's width and series count only:**
   - >= 640px: one 28px row. Headline, then one entry per series, then OHLC when
     the width is >= 900px and the shown price point has all four values, then
     the Pinned chip.
-  - Below 640px: two rows, 44px. The headline and the Pinned chip, then the
-    entries. No OHLC.
+  - Below 640px: a headline row with the Pinned chip at its right, then one
+    18px row per series, plus 8px padding: 44px for one series, 62px for two.
+    No OHLC. Each entry has its own row, so labels stay whole and one entry's
+    width never moves another. (Ruled 2026-10-10: a single entries row
+    truncated the labels to "P…" at a 326px chart and dropped them at 296px.)
   - No wrapping (`nowrap`, overflow hidden). The height is never read from the
     DOM.
   - The svg gets `height - stripH` and `display:block`, so the component's total
@@ -221,7 +225,9 @@ deltas).
     - A normalised view shows no change.
     - An entry whose last point falls on another Sydney day carries its own
       date, so the short series (T+4) is never misdated.
-    - A series with no visible points keeps its row with a dash.
+    - A series with no visible points keeps its row and reads `n/a`
+      (DESIGN.md: never a dash).
+    - Negative changes use a true minus (U+2212), per DESIGN.md's Tabular Rule.
   - `hover`: values at the nearest points. The headline is the first entry's
     point date, and entries on another day carry their own date.
   - `pinned`: like hover, plus the Pinned chip. Its x button is labelled
@@ -319,3 +325,7 @@ layout-shift sum (`hadRecentInput` false) on first load and on a tab switch.
 9. **Phone plot:** 360px total, not 320, for a readable plot under a 44px
    strip.
 10. **Keyboard access:** implemented with the strip (it was zero before).
+11. **Phone strip (after Task 2):** one row per series below 640px, `n/a` for a
+    missing value, U+2212 for negatives. A click re-reads the point under the
+    cursor instead of resetting the strip to Latest. The tooltip card's hover
+    date uses the same en-AU / Sydney formatter as the strip.
