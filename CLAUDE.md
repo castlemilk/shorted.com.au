@@ -667,6 +667,18 @@ scrolled past it. A bar that was not docked does not move, and back and
 forward keep the scroll the browser restores. Intent prefetch is unchanged. A
 hash target in a tab page takes `scroll-mt-[124px]` (64 header + 44 bar + 16).
 
+Two more things live in `StockTabNav`. The list fades the edge that can scroll
+(a 40px `mask-image`, driven by `data-scroll-start` / `data-scroll-end`, which
+its scroll event and a ResizeObserver keep): the scrollbar is hidden and at 360
+and 375px nothing of the fourth tab peeks out, so the fade is the only cue the
+row scrolls, and a bar that fits (a desktop) draws none. And a document
+`focusin` listener keeps keyboard focus out from under the docked bar (WCAG 2.2
+SC 2.4.11): a `:focus-visible` control outside the bar, the site header, any
+dialog and any `position: fixed` ancestor, with its top above the bar's bottom
++ 8px and its bottom on screen, is scrolled to sit 8px under the bar. It is not
+CSS `scroll-padding-top`, which makes Tab across the docked tab links scroll the
+page to the top; `stock-tabs.spec.ts` holds both.
+
 **A price chart lives only on the tab it is about.** `StockChartPanel` is the
 first block of the Overview (combined view, `prefsKey` `"<CODE>:overview"`) and
 of Short interest (the short view, or combined for a stock with no short
@@ -677,7 +689,13 @@ survive a tab switch in `chart-prefs.ts`, a client-only module store: the
 period is kept per stock and shared by both chart tabs, the view, SMA 20 and
 divergence per `prefsKey`. It lives until a reload and writes nothing to
 storage; a panel with no `prefsKey` (the dashboard, the stories) is plain local
-state.
+state. Rendering is not loading: measured on the build, Company and News load
+no chart code, but Financials and Community still load the Overview page's
+chart chunks (their client reference manifests carry the Overview page's client
+modules and chunk list, so the shared `next/link` module maps to the Overview's
+26 chunks). Before the chart left the layout every tab loaded it, so none loads
+more than it did. Moving the Overview page into a route group,
+`(overview)/page.tsx`, would stop the inheritance (a follow-up).
 
 The chart box is sized by CSS, `h-[360px] sm:h-[420px]`
 (`CHART_BOX_HEIGHT_CLASS`), and `StockChart` takes its height from its parent
