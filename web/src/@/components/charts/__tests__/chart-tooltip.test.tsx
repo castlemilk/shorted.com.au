@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { scaleTime } from "@visx/scale";
-import { useChartPointer } from "../chart-tooltip";
+import { stepIndex, useChartPointer } from "../chart-tooltip";
 import type { ChartSeriesSpec } from "../types";
 
 // localPoint needs real SVG geometry; jsdom has none. Read client coords as-is.
@@ -132,5 +132,85 @@ describe("useChartPointer", () => {
     // Different series id (e.g. a view switch): the pin goes.
     rerender({ ser: [mkSeries("other", "left", 1)] });
     expect(result.current.pinned).toBeNull();
+  });
+
+  describe("pinAtTime", () => {
+    it("pins the nearest point of every series to a time, with no pointer", () => {
+      const { result } = setup();
+      act(() => result.current.pinAtTime(T0 + 3 * DAY + 1000));
+      const p = result.current.pinned!;
+      expect(p.source).toBe("keyboard");
+      expect(p.t).toBe(T0 + 3 * DAY + 1000);
+      expect(p.cx).toBeCloseTo(300);
+      expect(p.entries.map((e) => [e.series.id, e.point.v])).toEqual([
+        ["price", 13],
+        ["short", 5],
+      ]);
+      expect(result.current.isPinnedView).toBe(true);
+      expect(result.current.hover).toBeNull();
+    });
+
+    it("moves an existing pin, and a live hover still takes precedence", () => {
+      const { result } = setup();
+      act(() => result.current.pinAtTime(T0 + 3 * DAY));
+      act(() => result.current.pinAtTime(T0 + 6 * DAY));
+      expect(result.current.pinned!.entries[0]!.point.v).toBe(16);
+      act(() => {
+        result.current.onMove(moveAt(100));
+      });
+      expect(result.current.isPinnedView).toBe(false);
+      act(() => result.current.onLeave());
+      expect(result.current.pinned!.entries[0]!.point.v).toBe(16);
+    });
+
+    it("is dropped, like any pin, when the series changes", () => {
+      const { result, rerender } = setup();
+      act(() => result.current.pinAtTime(T0 + 3 * DAY));
+      rerender({ ser: [mkSeries("other", "left", 1)] });
+      expect(result.current.pinned).toBeNull();
+    });
+
+    it("does nothing when no series has a point", () => {
+      const { result } = setup([{ ...mkSeries("empty", "left", 1), points: [] }]);
+      act(() => result.current.pinAtTime(T0));
+      expect(result.current.pinned).toBeNull();
+    });
+  });
+});
+
+describe("stepIndex", () => {
+  const pts = Array.from({ length: 5 }, (_, i) => ({ t: T0 + i * DAY, v: i }));
+
+  it("jumps to the ends on Home and End", () => {
+    expect(stepIndex(pts, "Home", null)).toBe(0);
+    expect(stepIndex(pts, "Home", T0 + 3 * DAY)).toBe(0);
+    expect(stepIndex(pts, "End", null)).toBe(4);
+    expect(stepIndex(pts, "End", T0 + DAY)).toBe(4);
+  });
+
+  it("starts from the last point while nothing is pinned", () => {
+    expect(stepIndex(pts, "ArrowLeft", null)).toBe(3);
+    expect(stepIndex(pts, "ArrowRight", null)).toBe(4); // there is no next
+  });
+
+  it("moves one point from the one nearest the pinned time", () => {
+    expect(stepIndex(pts, "ArrowLeft", T0 + 2 * DAY)).toBe(1);
+    expect(stepIndex(pts, "ArrowRight", T0 + 2 * DAY)).toBe(3);
+    // A pointer-made pin sits between points: it counts as the nearer one.
+    expect(stepIndex(pts, "ArrowRight", T0 + 2.4 * DAY)).toBe(3);
+    expect(stepIndex(pts, "ArrowLeft", T0 + 2.6 * DAY)).toBe(2);
+  });
+
+  it("stops at the ends", () => {
+    expect(stepIndex(pts, "ArrowLeft", T0)).toBe(0);
+    expect(stepIndex(pts, "ArrowRight", T0 + 4 * DAY)).toBe(4);
+    expect(stepIndex([pts[0]!], "ArrowLeft", null)).toBe(0);
+  });
+
+  it("answers null for a key that does not step, and for no points", () => {
+    expect(stepIndex(pts, "Enter", null)).toBeNull();
+    expect(stepIndex(pts, "ArrowUp", null)).toBeNull();
+    expect(stepIndex([], "Home", null)).toBeNull();
+    expect(stepIndex([], "ArrowLeft", T0)).toBeNull();
   });
 });

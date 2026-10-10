@@ -24,6 +24,27 @@ export function nearest(points: ChartPoint[], t: number): ChartPoint | null {
   return t - a.t < b.t - t ? a : b;
 }
 
+/**
+ * The index a keyboard step lands on, or null for a key that does not step.
+ * ArrowLeft and ArrowRight move one point from the one nearest `pinnedAt` (from
+ * the last point while nothing is pinned) and stop at the ends; Home and End
+ * jump to them.
+ */
+export function stepIndex(
+  points: ChartPoint[],
+  key: string,
+  pinnedAt: number | null,
+): number | null {
+  const last = points.length - 1;
+  if (last < 0) return null;
+  if (key === "Home") return 0;
+  if (key === "End") return last;
+  if (key !== "ArrowLeft" && key !== "ArrowRight") return null;
+  const near = pinnedAt === null ? null : nearest(points, pinnedAt);
+  const here = near ? points.indexOf(near) : last;
+  return Math.min(last, Math.max(0, here + (key === "ArrowRight" ? 1 : -1)));
+}
+
 export interface HoverEntry {
   series: ChartSeriesSpec;
   point: ChartPoint;
@@ -33,8 +54,8 @@ export interface HoverState {
   cy: number; // cursor y (px, relative to the svg/container) — tooltip follows it
   t: number; // hovered time
   entries: HoverEntry[];
-  /** Input that produced this hover. Touch hovers dock the tooltip in a corner. */
-  source?: "mouse" | "touch";
+  /** Input that produced this hover. Touch and keyboard readings dock the tooltip in a corner. */
+  source?: "mouse" | "touch" | "keyboard";
 }
 
 /** A re-tap within this many px of the pinned crosshair releases the pin. */
@@ -96,21 +117,30 @@ export function useChartPointer(opts: {
     setPinState((p) => (p && p.key !== key ? null : p));
   }, [key]);
 
-  /** Hover reading at an inner-plot x (px). Null when no series has a point. */
-  const hoverAt = useCallback(
-    (innerX: number, cy: number, source: "mouse" | "touch" = "mouse") => {
-      const t = xScale.invert(innerX).getTime();
+  /** The nearest point of every series that has one, in series order. */
+  const entriesAt = useCallback(
+    (t: number): HoverEntry[] => {
       const entries: HoverEntry[] = [];
       for (const s of series) {
         const p = nearest(s.points, t);
         if (p) entries.push({ series: s, point: p });
       }
+      return entries;
+    },
+    [series],
+  );
+
+  /** Hover reading at an inner-plot x (px). Null when no series has a point. */
+  const hoverAt = useCallback(
+    (innerX: number, cy: number, source: "mouse" | "touch" = "mouse") => {
+      const t = xScale.invert(innerX).getTime();
+      const entries = entriesAt(t);
       if (!entries.length) return null;
       const cx = xScale(new Date(entries[0]!.point.t)) ?? innerX;
       const h: HoverState = { cx, cy, t, entries, source };
       return h;
     },
-    [xScale, series],
+    [xScale, entriesAt],
   );
 
   const onMove = useCallback(
@@ -154,6 +184,22 @@ export function useChartPointer(opts: {
   const unpin = useCallback(() => setPinState(null), []);
 
   /**
+   * Pin the reading nearest time `t`, for stepping through points from the
+   * keyboard. There is no pointer, so the reading has no y of its own. No-op
+   * when no series has a point.
+   */
+  const pinAtTime = useCallback(
+    (t: number) => {
+      const entries = entriesAt(t);
+      const first = entries[0];
+      if (!first) return;
+      const cx = xScale(new Date(first.point.t)) ?? 0;
+      setPinState({ h: { cx, cy: 0, t, entries, source: "keyboard" }, key });
+    },
+    [entriesAt, xScale, key],
+  );
+
+  /**
    * Toggle a pin at an inner-plot x (or a ready hover reading): within
    * PIN_TOLERANCE_PX of the current pin releases it, anywhere else moves it.
    */
@@ -182,6 +228,7 @@ export function useChartPointer(opts: {
     onLeave,
     pin,
     unpin,
+    pinAtTime,
     togglePinAt,
   };
 }
