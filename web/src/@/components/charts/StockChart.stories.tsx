@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, fireEvent, waitFor } from "storybook/test";
+import { expect, fireEvent, waitFor, within } from "storybook/test";
 import { StockChart } from "./StockChart";
 import { seriesColor } from "./chart-theme";
 import { shortSeriesToPoints, historicalToPoints } from "./adapters";
@@ -90,10 +90,12 @@ export const DualAxis: Story = {
     await waitFor(() =>
       expect(canvasElement.querySelectorAll("circle").length).toBeGreaterThanOrEqual(2),
     );
-    // Tooltip shows both series labels.
+    // The readout shows both series, and has left the resting reading for the hover.
     await waitFor(() => {
-      expect(document.body.textContent).toMatch(/Price/);
-      expect(document.body.textContent).toMatch(/Short %/);
+      const readout = canvasElement.querySelector("[data-chart-readout]");
+      expect(readout?.getAttribute("data-readout-state")).toBe("hover");
+      expect(readout?.textContent).toMatch(/Price/);
+      expect(readout?.textContent).toMatch(/Short %/);
     });
   },
 };
@@ -137,6 +139,7 @@ export const TooltipTracksCursor: Story = {
     leftAxis: { side: "left", format: priceFmt },
     rightAxis: { side: "right", format: shortFmt },
     height: 400,
+    readout: "tooltip", // the floating card is what this story is about
   },
   play: async ({ canvasElement }) => {
     await waitFor(() => expect(capture(canvasElement)).toBeTruthy());
@@ -366,6 +369,7 @@ export const MobileTouchPinned: Story = {
     leftAxis: { side: "left", format: priceFmt },
     rightAxis: { side: "right", format: shortFmt },
     height: 300,
+    readout: "tooltip", // the docked card is what this story is about
   },
   decorators: [
     (Story) => (
@@ -404,6 +408,123 @@ export const MobileTouchPinned: Story = {
       expect(tip!.hasAttribute("data-docked")).toBe(true);
     });
   },
+};
+
+// The readout strip's contract, in a real browser with the real CSS: it takes the
+// same height whatever it shows (the resting reading, a hover, a pin), the plot
+// never moves while it changes, nothing is drawn over the plot, and the svg sits
+// below the strip rather than under it. On one row (`oneRow`) each entry also
+// keeps its place from the resting reading to a hover to a pin; the two-row
+// phone layout trades that for room, so its labels fit.
+async function playReadoutStrip(
+  canvasElement: HTMLElement,
+  stripHeight: number,
+  total: number,
+  oneRow: boolean,
+) {
+  await waitFor(() => expect(capture(canvasElement)).toBeTruthy());
+  const rect = capture(canvasElement);
+  const strip = () => canvasElement.querySelector<HTMLElement>("[data-chart-readout]")!;
+  const svg = () => canvasElement.querySelector("svg")!;
+  const box = (el: Element) => el.getBoundingClientRect();
+  const state = () => strip().getAttribute("data-readout-state");
+  // Where the second series' entry starts: whatever precedes it shifts it.
+  const secondEntryLeft = () =>
+    strip().querySelectorAll("[data-readout-entry]")[1]!.getBoundingClientRect().left;
+
+  const stripBefore = box(strip());
+  const secondBefore = secondEntryLeft();
+  const plotBefore = box(rect);
+  expect(state()).toBe("latest");
+  expect(stripBefore.height).toBe(stripHeight);
+  // The strip and the svg add up to the chart's height, the svg below the strip.
+  expect(box(svg()).top).toBeGreaterThanOrEqual(stripBefore.bottom - 0.5);
+  expect(stripBefore.height + box(svg()).height).toBeCloseTo(total, 0);
+
+  // Hover.
+  const at = (fx: number, fy: number) => ({
+    clientX: plotBefore.left + plotBefore.width * fx,
+    clientY: plotBefore.top + plotBefore.height * fy,
+  });
+  fireEvent.mouseMove(rect, at(0.5, 0.5));
+  await waitFor(() => expect(state()).toBe("hover"));
+  expect(box(strip()).height).toBe(stripBefore.height);
+  expect(box(rect).top).toBe(plotBefore.top);
+  expect(canvasElement.querySelector("[data-chart-tooltip]")).toBeNull();
+  if (oneRow) expect(secondEntryLeft()).toBeCloseTo(secondBefore, 1);
+  // React derives onMouseLeave from mouseout; the DOM's own mouseleave is not it.
+  fireEvent.mouseOut(rect, { relatedTarget: document.body });
+  await waitFor(() => expect(state()).toBe("latest"));
+
+  // Pin by touch: scrub, lift. (A real browser's TouchEvent constructor insists
+  // on real Touch objects; jsdom has none and accepts the plain shape.)
+  const touch = (fx: number) => {
+    const init = {
+      identifier: 1,
+      target: rect,
+      ...at(fx, 0.6),
+    };
+    return typeof Touch === "function" ? new Touch(init) : (init as unknown as Touch);
+  };
+  fireEvent.touchStart(rect, { touches: [touch(0.4)], changedTouches: [touch(0.4)] });
+  fireEvent.touchMove(rect, { touches: [touch(0.45)], changedTouches: [touch(0.45)] });
+  fireEvent.touchEnd(rect, { touches: [], changedTouches: [touch(0.45)] });
+  await waitFor(() => expect(state()).toBe("pinned"));
+  expect(strip().hasAttribute("data-pinned")).toBe(true);
+  expect(box(strip()).height).toBe(stripBefore.height);
+  if (oneRow) expect(secondEntryLeft()).toBeCloseTo(secondBefore, 1);
+  // The plot has not moved a pixel, and nothing floats over it.
+  expect(box(rect).top).toBe(plotBefore.top);
+  expect(box(rect).height).toBe(plotBefore.height);
+  expect(box(svg()).top).toBeGreaterThanOrEqual(box(strip()).bottom - 0.5);
+  expect(canvasElement.querySelector("[data-chart-tooltip]")).toBeNull();
+  // The Pinned chip and its release button are inside the strip.
+  const release = within(canvasElement).getByRole("button", { name: "Release pinned reading" });
+  expect(box(release).bottom).toBeLessThanOrEqual(box(strip()).bottom + 0.5);
+  expect(box(release).top).toBeGreaterThanOrEqual(box(strip()).top - 0.5);
+  expect(box(release).height).toBeGreaterThanOrEqual(24);
+  expect(box(release).width).toBeGreaterThanOrEqual(24);
+
+  // Release: back to the resting reading at the same height, focus on the chart.
+  fireEvent.click(release);
+  await waitFor(() => expect(state()).toBe("latest"));
+  expect(box(strip()).height).toBe(stripBefore.height);
+  expect(box(rect).top).toBe(plotBefore.top);
+  expect(document.activeElement).toBe(canvasElement.querySelector("[data-chart-container]"));
+}
+
+export const ReadoutStrip: Story = {
+  name: "Readout strip",
+  tags: ["no-visual"], // interaction-only; the static frame is covered by DualAxis
+  args: {
+    series: [priceSeries("PLS", "6m"), shortSeries("PLS", "6m")],
+    leftAxis: { side: "left", format: priceFmt },
+    rightAxis: { side: "right", format: shortFmt },
+    height: 400,
+  },
+  // The default decorator makes the chart 854px wide: one 28px row.
+  play: ({ canvasElement }) => playReadoutStrip(canvasElement, 28, 400, true),
+};
+
+export const ReadoutStripPhone: Story = {
+  name: "Readout strip (phone)",
+  tags: ["no-visual"], // interaction-only
+  parameters: { viewport: { defaultViewport: "mobile1" } },
+  args: {
+    series: [priceSeries("PLS", "3m"), shortSeries("PLS", "3m")],
+    leftAxis: { side: "left", format: priceFmt },
+    rightAxis: { side: "right", format: shortFmt },
+    height: 360,
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 360, height: 380 }} className="rounded-lg border bg-background p-2">
+        <Story />
+      </div>
+    ),
+  ],
+  // 342px wide: two rows, 44px.
+  play: ({ canvasElement }) => playReadoutStrip(canvasElement, 44, 360, false),
 };
 
 export const Empty: Story = {

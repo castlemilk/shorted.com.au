@@ -24,7 +24,17 @@ import { decimate } from "./decimate";
 import { useChartScales } from "./use-chart-scales";
 import { normalizeToPercentChange } from "./indicators";
 import { layoutLevels } from "./chart-levels";
-import { seriesDelta } from "./chart-readout";
+import {
+  buildLatestReadout,
+  buildMeasureReadout,
+  buildPointReadout,
+  readoutStripHeight,
+  resolveReadoutMode,
+  type ReadoutDelta,
+  type ReadoutEntry,
+  type ReadoutFormat,
+} from "./chart-readout";
+import { ChartReadoutStrip, pinnedAnnouncement } from "./chart-readout-strip";
 import { chartTheme } from "./chart-theme";
 import {
   Axes,
@@ -37,7 +47,7 @@ import {
 import {
   PIN_TOLERANCE_PX,
   TooltipContent,
-  nearest,
+  stepIndex,
   useChartPointer,
 } from "./chart-tooltip";
 import { useCoarsePointer } from "~/@/hooks/use-coarse-pointer";
@@ -77,12 +87,9 @@ const NO_LEVELS: readonly ChartLevel[] = Object.freeze([]);
 const NO_BANDS: readonly ChartBand[] = Object.freeze([]);
 const NO_MARKERS: readonly ChartMarker[] = Object.freeze([]);
 
-const measureDateFmt = (t: number) =>
-  new Date(t).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+// What a screen reader is told about the chart, and how to drive it.
+const CHART_LABEL =
+  "Chart. Use the left and right arrow keys to step through readings, Escape to release.";
 
 function normalizePoints(points: ChartPoint[]): ChartPoint[] {
   if (!points.length) return points;
@@ -108,6 +115,7 @@ export function StockChartInner({
   showBrush = true,
   variant = "full",
   decimationTargetPerPx = 2,
+  readout = "strip",
   handleRef,
 }: StockChartProps & {
   width: number;
@@ -141,10 +149,20 @@ export function StockChartInner({
   const brushH = showBrushBand ? 56 : 0;
   const oscH = showOsc ? 84 : 0;
   const innerW = Math.max(0, width - margin.left - margin.right);
-  const mainH = Math.max(
-    0,
-    height - margin.top - margin.bottom - brushH - oscH,
-  );
+  // Where the reading goes. The strip sits above the svg with a height that
+  // depends on `width` alone, so the plot never moves when a reading changes. It
+  // gives way to the floating tooltip when the plot left under it would be too
+  // short to read. `height` stays the component's total either way: the svg gets
+  // what the strip leaves.
+  const readoutMode = resolveReadoutMode({
+    requested: readout,
+    width,
+    height,
+    reservedH: margin.top + margin.bottom + brushH + oscH,
+  });
+  const stripH = readoutMode === "strip" ? readoutStripHeight(width) : 0;
+  const svgH = height - stripH;
+  const mainH = Math.max(0, svgH - margin.top - margin.bottom - brushH - oscH);
 
   // Apply the brush domain filter, then decimate each series ONCE; remember the
   // kept indices so indicator arrays subsample identically.
@@ -243,6 +261,7 @@ export function StockChartInner({
     onLeave,
     pin,
     unpin,
+    pinAtTime,
   } = useChartPointer({
     xScale: dateScale,
     series: renderSeries,
@@ -250,6 +269,13 @@ export function StockChartInner({
   });
   const coarsePointer = useCoarsePointer();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // Release from the strip's button, then hand focus back to the chart: the
+  // button is about to unmount, and focus on a removed node falls to <body>.
+  // No scroll: the chart is already where the user is looking.
+  const releasePin = useCallback(() => {
+    unpin();
+    containerRef.current?.focus({ preventScroll: true });
+  }, [unpin]);
 
   // ── Drag-to-measure + zoom ────────────────────────────────────────────────
   // Press-drag horizontally across the plot: a shaded region tracks the cursor
@@ -460,31 +486,139 @@ export function StockChartInner({
   }, [dragging, commitMeasure]);
 
   // Live readout: each visible series' change between the two endpoints. Skip
-  // sub-pixel selections so a plain click never flashes a "+0.0%" panel.
+  // sub-pixel selections so a plain click never flashes a "+0.0%" panel. One
+  // model feeds both homes of the reading, the strip and the floating card, so
+  // they cannot disagree about a date, a number, a sign or a colour.
   const measureInfo = useMemo(() => {
     if (!measure || Math.abs(measure.x1 - measure.x0) < 1) return null;
     const xa = Math.min(measure.x0, measure.x1);
     const xb = Math.max(measure.x0, measure.x1);
     const ta = dateScale.invert(xa).getTime();
     const tb = dateScale.invert(xb).getTime();
-    const rows = renderSeries
-      .map((s) => {
-        const pa = nearest(s.points, ta);
-        const pb = nearest(s.points, tb);
-        if (!pa || !pb) return null;
-        // Rounding, sign and unit live in seriesDelta, shared with the readout.
-        const d = seriesDelta(s, pa, pb);
-        return {
-          id: s.id,
-          label: s.label,
-          color: s.color,
-          delta: d.value,
-          text: d.text,
-        };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
-    return { xa, xb, ta, tb, rows };
+    const model = buildMeasureReadout({ series: renderSeries, ta, tb });
+    return { xa, xb, ta, tb, model };
   }, [measure, renderSeries, dateScale]);
+
+  // The floating card lists the series that have a change to show.
+  const measureRows = useMemo(
+    () =>
+      measureInfo
+        ? measureInfo.model.entries.filter(
+            (e): e is ReadoutEntry & { change: ReadoutDelta } => e.change !== null,
+          )
+        : [],
+    [measureInfo],
+  );
+
+  // ── The readout (spec D5) ──────────────────────────────────────────────────
+  // One format function for every number in the strip: the per-axis formatters
+  // TooltipContent uses, so both homes of a reading agree to the digit.
+  const leftFormat = leftAxis?.format;
+  const rightFormat = rightAxis?.format;
+  const readoutFormat = useCallback<ReadoutFormat>(
+    (s, v) => {
+      const f = s.axis === "right" ? rightFormat : leftFormat;
+      return f ? f(v) : v.toFixed(2);
+    },
+    [leftFormat, rightFormat],
+  );
+
+  // The resting reading. It depends on the rendered series, the formats, the
+  // view and the zoom only, so a hover on a quiet chart does not rebuild it.
+  // Not built at all when the tooltip shows the reading.
+  const latestModel = useMemo(
+    () =>
+      readoutMode === "strip"
+        ? buildLatestReadout({
+            series: renderSeries,
+            zoomed: filtered !== null,
+            viewMode,
+            format: readoutFormat,
+          })
+        : null,
+    [readoutMode, renderSeries, filtered, viewMode, readoutFormat],
+  );
+
+  // What the strip shows now. A measure takes it over, as it took over the
+  // tooltip; a sub-pixel measure shows the resting reading, not a stale hover.
+  const readoutModel = useMemo(() => {
+    if (readoutMode !== "strip") return null;
+    if (measure) return measureInfo?.model ?? latestModel;
+    if (active) {
+      return buildPointReadout({
+        series: renderSeries,
+        entries: active.entries,
+        pinned: isPinnedView,
+        format: readoutFormat,
+      });
+    }
+    return latestModel;
+  }, [
+    readoutMode,
+    measure,
+    measureInfo,
+    active,
+    isPinnedView,
+    renderSeries,
+    readoutFormat,
+    latestModel,
+  ]);
+
+  // The announcer speaks when a reading is pinned and when it is released, in
+  // both modes, and never while one is scrubbed (a scrub is not a pin). Keyed on
+  // the sentence, so a resize, which re-derives the pin's x, says nothing.
+  const pinnedEntries = pinned?.entries ?? null;
+  const pinSentence = useMemo(
+    () =>
+      pinnedEntries
+        ? pinnedAnnouncement(
+            buildPointReadout({
+              series: renderSeries,
+              entries: pinnedEntries,
+              pinned: true,
+              format: readoutFormat,
+            }),
+          )
+        : null,
+    [pinnedEntries, renderSeries, readoutFormat],
+  );
+  const [announcement, setAnnouncement] = useState("");
+  useEffect(() => {
+    setAnnouncement((prev) => pinSentence ?? (prev ? "Reading released" : ""));
+  }, [pinSentence]);
+
+  // Keyboard: the arrow keys step a pinned reading through the points of the
+  // series with the most rendered points (the first of equals), Home and End
+  // jump to the ends, and Escape releases.
+  const stepPoints = useMemo(() => {
+    let best: ChartPoint[] = [];
+    for (const s of renderSeries) {
+      if (s.points.length > best.length) best = s.points;
+    }
+    return best;
+  }, [renderSeries]);
+
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      // Alt+Left is the browser's Back; leave every chord alone.
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (e.key === "Escape") {
+        // Nothing pinned: Escape is somebody else's, a dialog around the chart.
+        if (!pinned) return;
+        e.preventDefault();
+        // Not a bare unpin: with focus on the release button, which this removes,
+        // focus would fall to <body>.
+        releasePin();
+        return;
+      }
+      const i = stepIndex(stepPoints, e.key, pinned ? pinned.t : null);
+      const point = i === null ? undefined : stepPoints[i];
+      if (!point) return;
+      e.preventDefault();
+      pinAtTime(point.t);
+    },
+    [pinned, pinAtTime, releasePin, stepPoints],
+  );
 
   // Brush overview: aggregate ALL series' points so the band + selectable range
   // span the full dataset (not just series[0]). Hard-decimated for the overview.
@@ -573,11 +707,42 @@ export function StockChartInner({
   if (width < 10) return null;
 
   const oscTop = margin.top + mainH + (showOsc ? 12 : 0);
-  const brushTop = height - brushH + 4;
+  const brushTop = svgH - brushH + 4;
 
   return (
-    <div ref={containerRef} data-chart-container style={{ position: "relative" }}>
-      <svg width={width} height={height} data-points={renderSeries[0]?.points.length ?? 0}>
+    // A keyboard-driven custom widget: the arrow keys step a reading through the
+    // data, so the container takes a tab stop and key handlers (the roadmap tree
+    // makes the same exception). A labelled group rather than an application, so
+    // a screen reader can still read the strip inside it.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    <div
+      ref={containerRef}
+      data-chart-container
+      role="group"
+      aria-label={CHART_LABEL}
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      style={{ position: "relative" }}
+    >
+      {/* Only in strip mode: readoutModel is null in tooltip mode. */}
+      {readoutModel && (
+        <ChartReadoutStrip
+          model={readoutModel}
+          width={width}
+          pinned={isPinnedView}
+          onRelease={releasePin}
+        />
+      )}
+      <svg
+        width={width}
+        height={svgH}
+        data-points={renderSeries[0]?.points.length ?? 0}
+        // An inline svg sits on the text baseline and leaves a few px under it;
+        // with a strip above, the two must add up to exactly `height`.
+        style={readoutMode === "strip" ? { display: "block" } : undefined}
+      >
         <Group left={margin.left} top={margin.top}>
           <Grid yScale={leftScale} width={innerW} />
           {/* Divergence bands sit UNDER the data: short-vs-price regimes. */}
@@ -823,7 +988,8 @@ export function StockChartInner({
         )}
       </svg>
 
-      {active &&
+      {readoutMode === "tooltip" &&
+        active &&
         !measure &&
         (() => {
           // Coordinates are relative to this relative wrapper — no portal /
@@ -832,7 +998,10 @@ export function StockChartInner({
           // Fine pointer: follow the cursor. Finger (coarse pointer, or any
           // touch-driven reading): DOCK in the top corner on the side away from
           // the crosshair — next to the finger it sits under the thumb.
-          const docked = coarsePointer || active.source === "touch";
+          const docked =
+            coarsePointer ||
+            active.source === "touch" ||
+            active.source === "keyboard";
           let left: number;
           let top: number;
           if (docked) {
@@ -921,8 +1090,9 @@ export function StockChartInner({
           );
         })()}
 
-      {measureInfo &&
-        measureInfo.rows.length > 0 &&
+      {readoutMode === "tooltip" &&
+        measureInfo &&
+        measureRows.length > 0 &&
         (() => {
           // Inline (no portal) — same scrolled-page-safe positioning as the
           // hover tooltip, anchored to the right edge of the measured range.
@@ -953,9 +1123,9 @@ export function StockChartInner({
               }}
             >
               <div style={{ opacity: 0.7, marginBottom: 4 }}>
-                {measureDateFmt(measureInfo.ta)} → {measureDateFmt(measureInfo.tb)}
+                {measureInfo.model.headline}
               </div>
-              {measureInfo.rows.map((r) => (
+              {measureRows.map((r) => (
                 <div
                   key={r.id}
                   style={{
@@ -980,21 +1150,28 @@ export function StockChartInner({
                       marginLeft: "auto",
                       fontVariantNumeric: "tabular-nums",
                       fontWeight: 600,
+                      // Red and green are market direction: a percentage-point
+                      // change keeps the card's text colour.
                       color:
-                        r.delta > 0
+                        r.change.colored && r.change.tone === "up"
                           ? "#16a34a"
-                          : r.delta < 0
+                          : r.change.colored && r.change.tone === "down"
                             ? "#dc2626"
                             : chartTheme.tooltipFg,
                     }}
                   >
-                    {r.text}
+                    {r.change.text}
                   </span>
                 </div>
               ))}
             </div>
           );
         })()}
+
+      {/* Persistent, so a change of its text is a change a screen reader hears. */}
+      <div role="status" className="sr-only" data-chart-announcer>
+        {announcement}
+      </div>
     </div>
   );
 }

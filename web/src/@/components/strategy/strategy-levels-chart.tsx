@@ -98,6 +98,10 @@ export function StrategyLevelsChart({
         axis: "right",
         kind: "line",
         points: short,
+        // Short interest is already a percentage: a change in it is points
+        // ("+0.21 pp"), not a percent of a percent, and not market direction.
+        measureMode: "absolute",
+        measureUnit: "pp",
       });
     }
     return out;

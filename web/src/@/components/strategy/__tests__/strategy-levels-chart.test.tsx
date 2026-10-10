@@ -27,7 +27,7 @@ jest.mock("~/@/components/charts/use-stock-chart-data", () => ({
 }));
 
 type ChartStandInProps = {
-  series: Array<{ id: string }>;
+  series: Array<{ id: string; measureMode?: string; measureUnit?: string }>;
   levels?: Array<{ axis: string }>;
   bands?: unknown[];
   markers?: unknown[];
@@ -37,6 +37,7 @@ type ChartStandInProps = {
   viewMode?: string;
   height?: number;
   showBrush?: boolean;
+  readout?: string;
 };
 jest.mock("~/@/components/charts/StockChart", () => ({
   StockChart: (p: ChartStandInProps) => (
@@ -62,6 +63,11 @@ jest.mock("~/@/components/charts/StockChart", () => ({
       data-right-sample={p.rightAxis?.format?.(12.5)}
       data-height={p.height}
       data-show-brush={String(p.showBrush)}
+      data-readout={p.readout}
+      data-short-measure={(() => {
+        const s = p.series.find((x) => x.id.endsWith(":short"));
+        return s ? `${s.measureMode ?? ""} ${s.measureUnit ?? ""}`.trim() : undefined;
+      })()}
     />
   ),
 }));
@@ -317,6 +323,19 @@ describe("StrategyLevelsChart", () => {
       const chart = screen.getByTestId("chart");
       expect(chart).toHaveAttribute("data-height", "360");
       expect(chart).toHaveAttribute("data-show-brush", "false");
+    });
+
+    it("leaves the reading to the chart's default, the strip above the plot", () => {
+      renderChart({ initialStrategyId: "crowded-short-breakout" });
+      expect(screen.getByTestId("chart")).not.toHaveAttribute("data-readout");
+    });
+
+    it("measures the short series in percentage points, for the strip and the drag", () => {
+      renderChart({ initialStrategyId: "crowded-short-breakout" });
+      expect(screen.getByTestId("chart")).toHaveAttribute(
+        "data-short-measure",
+        "absolute pp",
+      );
     });
   });
 

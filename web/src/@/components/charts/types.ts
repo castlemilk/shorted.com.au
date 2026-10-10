@@ -23,13 +23,16 @@ export interface ChartSeriesSpec {
   /** Optional per-point overlay values, length === points.length (subsampled with the series). */
   indicatorValues?: (number | null)[];
   /**
-   * How the drag-to-measure tool reports change between two points on this series.
-   * "relative" (default): percentage change (vB−vA)/vA, rendered as e.g. "+4.2%".
-   * "absolute": raw delta vB−vA, rendered with `measureUnit` — use for a series
-   * already expressed in percent (short interest) so the readout is "−1.1pp".
+   * How a change between two points on this series is reported, by the
+   * drag-to-measure tool and by the readout strip's latest reading (both go
+   * through `seriesDelta` in chart-readout.ts).
+   * "relative" (default): percentage change (vB−vA)/vA, one decimal, e.g. "+4.2%".
+   * "absolute": raw delta vB−vA to two decimals, then `measureUnit`, e.g. "-1.10 pp".
+   * Use it for a series already expressed in percent (short interest). Only a
+   * relative change is market direction, so only it is coloured red or green.
    */
   measureMode?: "relative" | "absolute";
-  /** Suffix for the measure readout in "absolute" mode (e.g. "pp"). Default "". */
+  /** Suffix for the change in "absolute" mode (e.g. "pp"), after a space. Default "". */
   measureUnit?: string;
 }
 
@@ -102,6 +105,14 @@ export interface StockChartProps {
   height?: number; // default 360
   variant?: "full" | "compact"; // compact: no axis labels, no volume, no brush
   decimationTargetPerPx?: number; // default 2
+  /**
+   * Where the reading goes. "strip" (default): a fixed-height row above the plot
+   * that shows the latest values, then the hovered, pinned or measured ones, so
+   * nothing ever covers the plot. "tooltip": the floating card that follows the
+   * cursor (dashboard widgets, small embeds). A strip that would leave the plot
+   * under READOUT_MIN_PLOT px falls back to the tooltip.
+   */
+  readout?: "strip" | "tooltip";
 }
 
 /** A horizontal reference line on one axis, optionally bounded to a time span. */

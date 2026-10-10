@@ -458,6 +458,9 @@ export function TimeSeriesWidget({ config, onSettingsChange }: WidgetProps) {
                   : `${v.toFixed(2)}%`,
             }}
             showBrush
+            // A dashboard widget is small and dense: the reading floats by the
+            // cursor rather than taking a row of the 250px it has.
+            readout="tooltip"
             height={250}
           />
         )}
