@@ -206,8 +206,9 @@ deltas).
   sm:h-[360px]`).
 - **Accepted trade-offs:**
   - The chart is no longer one DOM node across all tabs. The TanStack queries
-    stay fresh for a day with a 30-minute gcTime, so a return to a chart tab
-    within that window re-renders from cache with no request.
+    stay fresh for 30 minutes (staleTime and gcTime both 30 minutes), so a
+    return to a chart tab within that window re-renders from cache with no
+    request.
   - The Strategy levels chart no longer finds its 1y prices pre-fetched when the
     visitor lands on Strategy directly: one extra request.
   - A page error on a chart tab now removes that tab's chart with its content.
