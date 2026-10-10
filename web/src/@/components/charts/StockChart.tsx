@@ -735,6 +735,7 @@ export function StockChartInner({
         <ChartReadoutStrip
           model={readoutModel}
           width={width}
+          height={stripH}
           pinned={isPinnedView}
           onRelease={releasePin}
         />

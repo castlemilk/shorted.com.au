@@ -1,6 +1,11 @@
 import { fireEvent, render, within } from "@testing-library/react";
 import { ChartReadoutStrip, pinnedAnnouncement } from "../chart-readout-strip";
-import type { ReadoutDelta, ReadoutEntry, ReadoutModel } from "../chart-readout";
+import {
+  readoutStripHeight,
+  type ReadoutDelta,
+  type ReadoutEntry,
+  type ReadoutModel,
+} from "../chart-readout";
 
 const GREEN = "rgb(22, 163, 74)";
 const RED = "rgb(220, 38, 38)";
@@ -31,12 +36,16 @@ const model = (over: Partial<ReadoutModel> = {}): ReadoutModel => ({
 
 function renderStrip(
   m: ReadoutModel,
-  props: { width?: number; pinned?: boolean; onRelease?: () => void } = {},
+  props: { width?: number; height?: number; pinned?: boolean; onRelease?: () => void } = {},
 ) {
+  const width = props.width ?? 400;
   return render(
     <ChartReadoutStrip
       model={m}
-      width={props.width ?? 400}
+      width={width}
+      // StockChart hands over the height it took off the svg; absent one, the
+      // width alone says which, as it does there.
+      height={props.height ?? readoutStripHeight(width)}
       pinned={props.pinned ?? false}
       onRelease={props.onRelease ?? jest.fn()}
     />,
@@ -67,18 +76,34 @@ describe("ChartReadoutStrip", () => {
     expect(container.querySelector("svg")).toBeNull();
   });
 
-  it("takes its height from the width alone: 44px below 640, 28px from it", () => {
-    const small = renderStrip(model(), { width: 639 });
-    expect(small.container.querySelector<HTMLElement>("[data-chart-readout]")!.style.height).toBe("44px");
-    small.unmount();
-    const wide = renderStrip(model(), { width: 640 });
-    expect(wide.container.querySelector<HTMLElement>("[data-chart-readout]")!.style.height).toBe("28px");
+  it("is as tall as it is told: the svg beneath it gave up exactly that", () => {
+    const heightOf = (width: number, height: number) => {
+      const r = renderStrip(model(), { width, height });
+      const h = r.container.querySelector<HTMLElement>("[data-chart-readout]")!.style.height;
+      r.unmount();
+      return h;
+    };
+    expect(heightOf(639, 44)).toBe("44px");
+    expect(heightOf(640, 28)).toBe("28px");
+    // Not a number it works out for itself from the width.
+    expect(heightOf(800, 36)).toBe("36px");
+    expect(heightOf(360, 50)).toBe("50px");
+  });
+
+  it("gives the one row of the wide strip all of the height it is told", () => {
+    const { container } = renderStrip(model(), { width: 800, height: 36 });
+    const rows = Array.from(container.querySelectorAll<HTMLElement>("[data-readout-row]"));
+    expect(rows.map((r) => r.style.height)).toEqual(["36px"]);
   });
 
   it("gives the two rows of the narrow strip the strip's height between them", () => {
     const { container } = renderStrip(model(), { width: 360, pinned: true });
     const rows = Array.from(container.querySelectorAll<HTMLElement>("[data-readout-row]"));
     expect(rows.map((r) => r.style.height)).toEqual(["24px", "20px"]);
+    // The entries' row takes whatever the first leaves of the height it was told.
+    const taller = renderStrip(model(), { width: 360, height: 50 });
+    const tallerRows = Array.from(taller.container.querySelectorAll<HTMLElement>("[data-readout-row]"));
+    expect(tallerRows.map((r) => r.style.height)).toEqual(["24px", "26px"]);
   });
 
   it("leaves the headline out when there is none, and keeps the entries", () => {

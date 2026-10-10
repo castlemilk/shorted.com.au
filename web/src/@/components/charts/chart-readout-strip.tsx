@@ -2,7 +2,6 @@ import React from "react";
 import {
   READOUT_OHLC_MIN_WIDTH,
   READOUT_ONE_ROW_MIN_WIDTH,
-  readoutStripHeight,
   type ReadoutDelta,
   type ReadoutEntry,
   type ReadoutModel,
@@ -147,8 +146,13 @@ function Row({ height, children }: { height: number; children: React.ReactNode }
 
 export interface ChartReadoutStripProps {
   model: ReadoutModel;
-  /** The chart's width: it alone picks the height, one row or two, and OHLC. */
+  /** The chart's width: it picks one row or two, and whether OHLC shows. */
   width: number;
+  /**
+   * The strip's height. The chart decides it once, from its width, and takes it
+   * off the svg beneath, so the two cannot add up to anything but its own height.
+   */
+  height: number;
   pinned: boolean;
   /** Releases the pin. Must be stable, or the memo below buys nothing. */
   onRelease: () => void;
@@ -156,9 +160,9 @@ export interface ChartReadoutStripProps {
 
 /**
  * The readout above the plot (spec D5): the latest values, or the hovered,
- * pinned or measured ones. Its height comes from `width` alone and is never read
- * back from the DOM, and it holds nothing that could move the plot: no floating
- * layer, no wrapping, and a clipped overflow.
+ * pinned or measured ones. Its height is given, from the chart's width alone, and
+ * is never read back from the DOM, and it holds nothing that could move the
+ * plot: no floating layer, no wrapping, and a clipped overflow.
  *
  * It holds no SVG on purpose: the chart's own svg is the first `svg` in the
  * canvas, which stories and tests look it up by.
@@ -166,10 +170,10 @@ export interface ChartReadoutStripProps {
 export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
   model,
   width,
+  height,
   pinned,
   onRelease,
 }: ChartReadoutStripProps) {
-  const height = readoutStripHeight(width);
   const oneRow = width >= READOUT_ONE_ROW_MIN_WIDTH;
   const measuring = model.state === "measure";
   // Open, high, low and close of the price point shown, wide charts only.
