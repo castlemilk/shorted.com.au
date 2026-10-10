@@ -48,7 +48,7 @@ export function CompanyInfoView({
           socialLinks.youtube),
     );
   // Industry intentionally excluded: it already shows as a badge in the
-  // page header (CompanyProfile).
+  // page header (StockHeader).
   const hasAnyData = Boolean(
     stockDetails.website || stockDetails.address || hasSocialLinks,
   );
