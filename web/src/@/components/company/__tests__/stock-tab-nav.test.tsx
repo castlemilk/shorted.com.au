@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const prefetch = jest.fn();
 let pathname = "/shorts/BHP/strategy";
@@ -418,5 +419,211 @@ describe("StockTabNav scroll on a tab switch", () => {
     fireEvent.click(screen.getByRole("link", { name: "Financials" }));
     goTo("/shorts/BHP/financials");
     expect(scrollTo).toHaveBeenCalledWith({ top: DOCK_Y, left: 0 });
+  });
+});
+
+// The bar scrolls sideways on a phone and hides its scrollbar. A peeking tab is
+// no cue at 360px (the fourth tab starts at x=368, so nothing of it shows), so
+// the list fades the edge that has more tabs behind it, and says so in
+// data-scroll-start / data-scroll-end. jsdom has no layout: the list's scroll
+// metrics are given, and read live, so a test can scroll the list.
+describe("StockTabNav scroll cue", () => {
+  // The classes the cue draws, word for word: Tailwind has to find them whole.
+  const FADE_END = "[mask-image:linear-gradient(to_right,black_calc(100%-40px),transparent)]";
+  const FADE_START = "[mask-image:linear-gradient(to_left,black_calc(100%-40px),transparent)]";
+  const FADE_BOTH =
+    "[mask-image:linear-gradient(to_right,transparent,black_40px,black_calc(100%-40px),transparent)]";
+  const FADES = [FADE_END, FADE_START, FADE_BOTH];
+
+  // A 360px phone: seven tabs make a 760px list (the figures the review measured).
+  const metrics = { scrollLeft: 0, clientWidth: 360, scrollWidth: 760 };
+  const list = () => navigation().firstElementChild as HTMLElement;
+  const fades = () => FADES.filter((fade) => list().classList.contains(fade));
+
+  const defined: [object, string, PropertyDescriptor | undefined][] = [];
+  const stub = (target: object, key: string, descriptor: PropertyDescriptor) => {
+    defined.push([target, key, Object.getOwnPropertyDescriptor(target, key)]);
+    Object.defineProperty(target, key, { configurable: true, ...descriptor });
+  };
+
+  // What a ResizeObserver does, as far as the bar can tell: it is told what to
+  // watch, it calls back, and it can be disconnected.
+  class FakeResizeObserver {
+    static instances: FakeResizeObserver[] = [];
+    observed: Element[] = [];
+    disconnected = false;
+    constructor(private readonly callback: ResizeObserverCallback) {
+      FakeResizeObserver.instances.push(this);
+    }
+    observe(element: Element) {
+      this.observed.push(element);
+    }
+    unobserve() {}
+    disconnect() {
+      this.disconnected = true;
+    }
+    fire() {
+      this.callback([], this as unknown as ResizeObserver);
+    }
+  }
+  const originalResizeObserver = global.ResizeObserver;
+
+  // Scrolls the list the way a finger does: its scrollLeft moves, then the event.
+  const scrollTo = (left: number) => {
+    metrics.scrollLeft = left;
+    fireEvent.scroll(list());
+  };
+
+  beforeEach(() => {
+    pathname = "/shorts/BHP/strategy";
+    Object.assign(metrics, { scrollLeft: 0, clientWidth: 360, scrollWidth: 760 });
+    FakeResizeObserver.instances = [];
+    global.ResizeObserver = FakeResizeObserver as unknown as typeof ResizeObserver;
+    stub(HTMLElement.prototype, "scrollLeft", {
+      get: () => metrics.scrollLeft,
+      set: (value: number) => {
+        metrics.scrollLeft = value;
+      },
+    });
+    stub(HTMLElement.prototype, "clientWidth", { get: () => metrics.clientWidth });
+    stub(HTMLElement.prototype, "scrollWidth", { get: () => metrics.scrollWidth });
+    // jsdom has no Element.scrollTo; the active-tab effect may call it.
+    stub(HTMLElement.prototype, "scrollTo", { value: jest.fn() });
+  });
+  afterEach(() => {
+    for (const [target, key, original] of defined.splice(0).reverse()) {
+      if (original) Object.defineProperty(target, key, original);
+      else delete (target as Record<string, unknown>)[key];
+    }
+    global.ResizeObserver = originalResizeObserver;
+  });
+
+  it("fades the end of the list at rest, where the other tabs are", () => {
+    render(<StockTabNav stockCode="BHP" />);
+    expect(list()).toHaveAttribute("data-scroll-end", "true");
+    expect(list()).not.toHaveAttribute("data-scroll-start");
+    expect(fades()).toEqual([FADE_END]);
+  });
+
+  it("draws no cue on a bar that fits (a desktop), where there is nothing to scroll to", () => {
+    metrics.clientWidth = 760;
+    render(<StockTabNav stockCode="BHP" />);
+    expect(list()).not.toHaveAttribute("data-scroll-end");
+    expect(list()).not.toHaveAttribute("data-scroll-start");
+    expect(fades()).toEqual([]);
+    expect(list().className).not.toContain("mask-image");
+  });
+
+  it("fades both edges part of the way along, with tabs on either side", () => {
+    render(<StockTabNav stockCode="BHP" />);
+    scrollTo(120);
+    expect(list()).toHaveAttribute("data-scroll-start", "true");
+    expect(list()).toHaveAttribute("data-scroll-end", "true");
+    expect(fades()).toEqual([FADE_BOTH]);
+  });
+
+  it("moves the fade to the start once the list has scrolled to its end", () => {
+    render(<StockTabNav stockCode="BHP" />);
+    scrollTo(400); // 400 + 360 = 760: the last tab is in
+    expect(list()).toHaveAttribute("data-scroll-start", "true");
+    expect(list()).not.toHaveAttribute("data-scroll-end");
+    expect(fades()).toEqual([FADE_START]);
+  });
+
+  it("brings the end fade back when the list scrolls back from its end", () => {
+    render(<StockTabNav stockCode="BHP" />);
+    scrollTo(400);
+    scrollTo(0);
+    expect(list()).toHaveAttribute("data-scroll-end", "true");
+    expect(list()).not.toHaveAttribute("data-scroll-start");
+    expect(fades()).toEqual([FADE_END]);
+  });
+
+  // scrollLeft is fractional on a zoomed or high-density screen, so the end is
+  // reached to within a pixel.
+  it("counts the end as reached within a pixel, and not at two", () => {
+    render(<StockTabNav stockCode="BHP" />);
+    scrollTo(399); // 399 + 360 = 759 = scrollWidth - 1
+    expect(list()).not.toHaveAttribute("data-scroll-end");
+    scrollTo(398); // 758 = scrollWidth - 2
+    expect(list()).toHaveAttribute("data-scroll-end", "true");
+  });
+
+  it("counts any scroll at all as having left the start", () => {
+    render(<StockTabNav stockCode="BHP" />);
+    scrollTo(0.5);
+    expect(list()).toHaveAttribute("data-scroll-start", "true");
+  });
+
+  it("measures the list when it is shown, before anyone scrolls it", () => {
+    metrics.scrollLeft = 400; // a list that mounts already at its end
+    render(<StockTabNav stockCode="BHP" />);
+    expect(list()).toHaveAttribute("data-scroll-start", "true");
+    expect(list()).not.toHaveAttribute("data-scroll-end");
+  });
+
+  it("watches the list and every tab, so a resize or a late font re-measures it", () => {
+    render(<StockTabNav stockCode="BHP" />);
+    expect(FakeResizeObserver.instances).toHaveLength(1);
+    const [observer] = FakeResizeObserver.instances;
+    expect(observer!.observed).toContain(list());
+    for (const link of screen.getAllByRole("link")) expect(observer!.observed).toContain(link);
+    expect(observer!.observed).toHaveLength(8);
+
+    // The window grows past the tabs: nothing is left to scroll to.
+    metrics.clientWidth = 800;
+    act(() => observer!.fire());
+    expect(list()).not.toHaveAttribute("data-scroll-end");
+    expect(fades()).toEqual([]);
+
+    // And shrinks again (a rotation).
+    metrics.clientWidth = 360;
+    act(() => observer!.fire());
+    expect(list()).toHaveAttribute("data-scroll-end", "true");
+    expect(fades()).toEqual([FADE_END]);
+  });
+
+  it("stops watching when it unmounts", () => {
+    const view = render(<StockTabNav stockCode="BHP" />);
+    const [observer] = FakeResizeObserver.instances;
+    expect(observer!.disconnected).toBe(false);
+    view.unmount();
+    expect(observer!.disconnected).toBe(true);
+  });
+
+  it("falls back to the window's resize where there is no ResizeObserver", () => {
+    global.ResizeObserver = undefined as unknown as typeof ResizeObserver;
+    const view = render(<StockTabNav stockCode="BHP" />);
+    expect(list()).toHaveAttribute("data-scroll-end", "true");
+
+    metrics.clientWidth = 800;
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+    expect(list()).not.toHaveAttribute("data-scroll-end");
+
+    view.unmount();
+    metrics.clientWidth = 360;
+    // Nothing is listening any more: this must not throw or warn about an
+    // update on an unmounted component.
+    window.dispatchEvent(new Event("resize"));
+  });
+
+  it("keeps the layout classes the list already had", () => {
+    render(<StockTabNav stockCode="BHP" />);
+    expect(list()).toHaveClass(
+      "relative", "flex", "h-11", "scroll-px-8", "items-stretch", "gap-1", "overflow-x-auto", "px-8",
+      "[scrollbar-width:none]", "[&::-webkit-scrollbar]:hidden",
+    );
+  });
+
+  it("draws no cue in the server's markup, which cannot know whether the tabs overflow", () => {
+    const error = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const html = renderToStaticMarkup(<StockTabNav stockCode="BHP" />);
+    error.mockRestore();
+    // (The Link stand-in prints its own data-scroll; the cue's are -start and -end.)
+    expect(html).not.toContain("data-scroll-start");
+    expect(html).not.toContain("data-scroll-end");
+    expect(html).not.toContain("mask-image");
   });
 });

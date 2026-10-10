@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { cn, isPlainLeftClick } from "~/@/lib/utils";
 import {
   STOCK_TABS,
@@ -16,6 +22,15 @@ const useIsomorphicLayoutEffect =
 
 // The bar's `top-16`, for when its computed top cannot be read as a number.
 const DEFAULT_STICKY_TOP = 64;
+
+// The scroll cue (below): a mask that fades the 40px at each edge of the list
+// that has more tabs behind it. Written out whole, so Tailwind finds them.
+const FADE_END =
+  "[mask-image:linear-gradient(to_right,black_calc(100%-40px),transparent)]";
+const FADE_START =
+  "[mask-image:linear-gradient(to_left,black_calc(100%-40px),transparent)]";
+const FADE_BOTH =
+  "[mask-image:linear-gradient(to_right,transparent,black_40px,black_calc(100%-40px),transparent)]";
 
 /**
  * The stock page's tab bar: seven plain links (crawlable, SSR'd by the server
@@ -42,6 +57,10 @@ export function StockTabNav({ stockCode }: { stockCode: string }) {
   // forward change the tab without it, and keep the scroll the browser restores.
   const pendingClick = useRef(false);
   const mounted = useRef(false);
+  // Which edges of the list have more tabs behind them. False until the list
+  // has been measured: the server cannot know, and a fade drawn on a bar that
+  // does not overflow (a desktop) would be a lie.
+  const [edges, setEdges] = useState({ start: false, end: false });
 
   const warm = useCallback(
     (href: string, isActive: boolean) => {
@@ -51,6 +70,39 @@ export function StockTabNav({ stockCode }: { stockCode: string }) {
     },
     [router],
   );
+
+  // The scroll cue. The scrollbar is hidden and the next tab peeking out is no
+  // cue at 360px (the fourth tab starts at x=368, so nothing of it shows), so
+  // the list fades the edge that can scroll: the end at rest, both mid-scroll,
+  // the start once it has reached the last tab. `end` allows a pixel for the
+  // rounding of a fractional scrollLeft.
+  const measureEdges = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const start = list.scrollLeft > 0;
+    const end = list.scrollLeft + list.clientWidth < list.scrollWidth - 1;
+    setEdges((prev) =>
+      prev.start === start && prev.end === end ? prev : { start, end },
+    );
+  }, []);
+
+  // Measured before the first paint, and again whenever the list or a tab
+  // changes size: a rotation or a resize changes the list's width, a web font
+  // arriving changes the tabs' (and so the list's scrollWidth, which the list's
+  // own box does not report). Scrolling is the list's onScroll.
+  useIsomorphicLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    measureEdges();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measureEdges);
+      return () => window.removeEventListener("resize", measureEdges);
+    }
+    const observer = new ResizeObserver(measureEdges);
+    observer.observe(list);
+    for (const tab of Array.from(list.children)) observer.observe(tab);
+    return () => observer.disconnect();
+  }, [measureEdges]);
 
   // Seven triggers overflow on a phone: keep the active one in view. offsetLeft
   // is measured from the nearest POSITIONED ancestor, while scrollLeft and
@@ -114,13 +166,27 @@ export function StockTabNav({ stockCode }: { stockCode: string }) {
       >
         {/* The bar bleeds to main's edges with -mx-8, and the 2rem it gives back
             is padding on the LIST, not on the bar. On a phone the overflowing
-            tabs then scroll to the screen's edge and the next one peeks out,
-            which is what shows the bar scrolls. `scroll-px-8` keeps that
+            tabs then scroll to the screen's edge. `scroll-px-8` keeps that
             margin when the browser scrolls a focused tab into view. The
-            scrollbar is hidden because the row has no height to spare for it. */}
+            scrollbar is hidden because the row has no height to spare for it,
+            so the cue that the row scrolls is the fade on each edge that has
+            more tabs behind it (`data-scroll-start` / `data-scroll-end` say
+            which, for the tests). */}
         <div
           ref={listRef}
-          className="relative flex h-11 scroll-px-8 items-stretch gap-1 overflow-x-auto px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          onScroll={measureEdges}
+          data-scroll-start={edges.start ? "true" : undefined}
+          data-scroll-end={edges.end ? "true" : undefined}
+          className={cn(
+            "relative flex h-11 scroll-px-8 items-stretch gap-1 overflow-x-auto px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            edges.start && edges.end
+              ? FADE_BOTH
+              : edges.end
+                ? FADE_END
+                : edges.start
+                  ? FADE_START
+                  : undefined,
+          )}
         >
           {STOCK_TABS.map((tab) => {
             const href = stockTabHref(stockCode, tab.id);
