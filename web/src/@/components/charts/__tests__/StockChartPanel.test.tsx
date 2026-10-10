@@ -225,6 +225,16 @@ describe("StockChartPanel: controls", () => {
     for (const b of within(period).getAllByRole("button")) expect(b).toHaveClass("flex-1");
   });
 
+  it("hides the toggles row's scrollbar: a classic one would cut buttons as tall as the row", () => {
+    const { container } = render(<StockChartPanel stockCode="BHP" />);
+    // Still a row that scrolls sideways when it must, at every width.
+    expect(area(container, "toggles")).toHaveClass(
+      "overflow-x-auto",
+      "[scrollbar-width:none]",
+      "[&::-webkit-scrollbar]:hidden",
+    );
+  });
+
   it("shows the toggles each view has, and keeps the toggles row for the one with none", () => {
     const { container } = render(<StockChartPanel stockCode="BHP" defaultView="combined" />);
     expect(screen.getByText(/corr \+0\.55/)).toBeInTheDocument();

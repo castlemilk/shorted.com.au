@@ -225,6 +225,13 @@ function expectNoPageOverflow() {
 /** The buttons of a control, in order. */
 const buttonsOf = (el: HTMLElement) => within(el).getAllByRole("button");
 
+// The toggles row is only as tall as its buttons, so a classic scrollbar (the
+// runner's own are hidden, which is why this reads the computed style and not a
+// height) would cut them. Reading it here also proves the arbitrary class
+// became CSS at all.
+const expectScrollbarHidden = (toggles: HTMLElement) =>
+  expect(getComputedStyle(toggles).getPropertyValue("scrollbar-width")).toBe("none");
+
 // Below xl, a panel is a stack: the view control and the embed button on a 40px
 // row, the chart box, then the period control across the full width, then the
 // toggles on a 36px row, 12px apart. Targets are 40px.
@@ -260,6 +267,7 @@ async function expectStack(canvasElement: HTMLElement, boxHeight: number) {
 
   // Nothing is cut off or sent sideways.
   expect(toggles.scrollWidth).toBeLessThanOrEqual(toggles.clientWidth);
+  expectScrollbarHidden(toggles);
   expectNoPageOverflow();
   expectSameFootprint(canvasElement);
 }
@@ -385,6 +393,7 @@ export const Desktop: Story = {
     expect(rect(period).right).toBeLessThanOrEqual(rect(embed).left);
     expect(rect(embed).right).toBeCloseTo(rect(panel).right, 0);
     expect(toggles.scrollWidth).toBeLessThanOrEqual(toggles.clientWidth);
+    expectScrollbarHidden(toggles);
 
     // Today's sizes: a 24px button in a 30px pill.
     expect(rect(canvas.getByRole("button", { name: /^1y$/i })).height).toBeCloseTo(24, 0);
