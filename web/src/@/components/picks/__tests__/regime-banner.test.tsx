@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   LADDER_DOMAIN_PCT,
@@ -76,5 +77,88 @@ describe("RegimeBanner ladder", () => {
     const needle = container.querySelector('[data-ladder-mark="close"]')!;
     expect(needle.className).toContain("bg-accent");
     expect(container.innerHTML).not.toMatch(/red|destructive/);
+  });
+});
+
+// The stock Strategy tab's phone form (spec D4). Below sm the readouts and the
+// ladder are hidden so the levels chart is not pushed below the fold; from sm,
+// and on /picks, the gauge is whole. The hiding is CSS, so every figure stays in
+// the server HTML.
+describe("RegimeBanner compact", () => {
+  const readouts = (container: HTMLElement) =>
+    container.querySelector("dl") as HTMLElement;
+  const ladder = (container: HTMLElement) =>
+    container.querySelector("[data-ladder-mark]")!.parentElement as HTMLElement;
+
+  it("hides the readouts and the ladder below sm, and shows them from sm", () => {
+    const { container } = render(<RegimeBanner regime={UPTREND} compact />);
+    expect(readouts(container)).toHaveClass("hidden", "sm:grid");
+    expect(readouts(container)).not.toHaveClass("grid");
+    // The four columns from sm are still the readouts' own.
+    expect(readouts(container)).toHaveClass("grid-cols-2", "gap-2", "sm:grid-cols-4");
+    expect(ladder(container)).toHaveClass("hidden", "sm:block");
+    // The ladder keeps its own box for the widths that show it.
+    expect(ladder(container)).toHaveClass("relative", "mt-4", "h-8", "select-none");
+  });
+
+  it("keeps the eyebrow, the pill, the as-of date and the verdict in view at every width", () => {
+    const { container } = render(<RegimeBanner regime={UPTREND} compact />);
+    const banner = screen.getByRole("region", { name: "Market regime" });
+    const asOf = container.querySelector('time[datetime="2026-09-25"]') as HTMLElement;
+    expect(asOf).toHaveTextContent("25 September 2026");
+    for (const shown of [
+      within(banner).getByText(/Market regime · /),
+      within(banner).getByText("Uptrend"),
+      asOf,
+      within(banner).getByText(UPTREND.verdict),
+    ]) {
+      // None of them is inside anything hidden.
+      expect(shown.closest(".hidden")).toBeNull();
+    }
+    // Only the two blocks are hidden: nothing else in the banner carries `hidden`.
+    expect(Array.from(container.querySelectorAll(".hidden"))).toEqual([
+      readouts(container),
+      ladder(container),
+    ]);
+  });
+
+  it("leaves every figure in the markup: the hiding is CSS, not a different render", () => {
+    render(<RegimeBanner regime={UPTREND} compact />);
+    expect(screen.getAllByText("8,812.3")).toHaveLength(1);
+    expect(screen.getAllByText("+2.5%")).toHaveLength(1);
+    for (const label of ["Close", "vs 50-day", "vs 200-day", "Off 52w high"]) {
+      expect(screen.getByText(label, { selector: "dt" })).toBeInTheDocument();
+    }
+  });
+
+  it("is the whole gauge by default, with the classes it had before the prop", () => {
+    const { container } = render(<RegimeBanner regime={UPTREND} />);
+    expect(readouts(container).className).toBe("grid grid-cols-2 gap-2 sm:grid-cols-4");
+    expect(ladder(container).className).toBe("relative mt-4 h-8 select-none");
+    expect(container.querySelector(".hidden")).toBeNull();
+  });
+
+  it("renders identically with compact false and with no prop", () => {
+    expect(renderToStaticMarkup(<RegimeBanner regime={UPTREND} compact={false} />)).toBe(
+      renderToStaticMarkup(<RegimeBanner regime={UPTREND} />),
+    );
+  });
+
+  it("changes nothing else about the banner", () => {
+    // Strip the two responsive-hiding additions and the compact markup is the
+    // default markup, so the prop cannot have moved a class anywhere else.
+    const compact = renderToStaticMarkup(<RegimeBanner regime={UPTREND} compact />)
+      .replace('class="hidden sm:grid grid-cols-2', 'class="grid grid-cols-2')
+      .replace('class="relative mt-4 h-8 select-none hidden sm:block"', 'class="relative mt-4 h-8 select-none"');
+    expect(compact).toBe(renderToStaticMarkup(<RegimeBanner regime={UPTREND} />));
+  });
+
+  it("has nothing to hide, and hides nothing, when the regime is unavailable", () => {
+    const { container } = render(<RegimeBanner regime={null} compact />);
+    expect(container.querySelector("dl")).toBeNull();
+    expect(container.querySelector("[data-ladder-mark]")).toBeNull();
+    expect(container.querySelector(".hidden")).toBeNull();
+    expect(screen.getByText("Unavailable")).toBeInTheDocument();
+    expect(screen.getByText(/Market regime unavailable/)).toBeInTheDocument();
   });
 });

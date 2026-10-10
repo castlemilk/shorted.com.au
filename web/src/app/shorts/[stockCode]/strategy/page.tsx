@@ -131,7 +131,12 @@ export default async function StrategyPage({ params }: PageProps) {
         {companyName} ({code}) strategy fit
       </h1>
       <div className="flex min-w-0 flex-col gap-4 md:gap-6">
-        <RegimeBanner regime={fit.regime} />
+        {/* The phone form: below `sm` the banner keeps the pill, the date and
+            the verdict and drops the four readouts and the ladder (spec D4).
+            The whole gauge was 347px on a 390px phone, which put the levels
+            chart's plot at 854px, under the 844px fold. /picks shows all of
+            it. */}
+        <RegimeBanner regime={fit.regime} compact />
 
         {!fit.inUniverse ? (
           <section

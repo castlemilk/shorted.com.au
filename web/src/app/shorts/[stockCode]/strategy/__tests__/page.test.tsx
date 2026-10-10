@@ -70,9 +70,22 @@ jest.mock("~/@/lib/stocks/stock-tabs", () => {
   );
   return { ...actual, stockTabLabel: jest.fn(actual.stockTabLabel) };
 });
+// The stand-in shows what the page handed the banner: the regime, and whether it
+// asked for the compact (phone) form.
 jest.mock("~/@/components/picks/regime-banner", () => ({
-  RegimeBanner: ({ regime }: { regime: { regime: string } | null }) => (
-    <div data-testid="regime">{regime?.regime ?? "none"}</div>
+  RegimeBanner: ({
+    regime,
+    compact,
+  }: {
+    regime: { regime: string } | null;
+    compact?: boolean;
+  }) => (
+    <div
+      data-testid="regime"
+      data-compact={compact === undefined ? "unset" : String(compact)}
+    >
+      {regime?.regime ?? "none"}
+    </div>
   ),
 }));
 
@@ -220,6 +233,19 @@ describe("/shorts/[stockCode]/strategy", () => {
     expect(order.indexOf("levels-chart")).toBeLessThan(
       order.indexOf("fit-minervini-trend-template"),
     );
+  });
+
+  // The whole gauge is 347px on a 390px phone, which put the levels chart's plot
+  // at 854px, below the fold. The tab asks for the phone form (the pill, the date
+  // and the verdict, without the readouts and the ladder); /picks does not.
+  it.each([
+    ["a stock the picker reads", fit],
+    ["a stock it does not read yet", { ...fit, inUniverse: false, fits: [], priceFeatures: null }],
+  ])("asks the regime banner for its compact phone form for %s", async (_name, response) => {
+    mockFit.mockResolvedValue(response);
+    mockStrategies.mockResolvedValue(strategies);
+    render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+    expect(screen.getByTestId("regime")).toHaveAttribute("data-compact", "true");
   });
 
   it("renders the out-of-universe explanation with no chart and asks for noindex", async () => {

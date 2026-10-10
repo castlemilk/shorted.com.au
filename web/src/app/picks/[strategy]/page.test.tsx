@@ -104,6 +104,21 @@ describe("StrategyPicksPage", () => {
     expect(within(regime).getByText("+2.5%")).toBeInTheDocument();
   });
 
+  // The stock Strategy tab asks the regime banner for a compact phone form
+  // (readouts and ladder hidden below sm). The picks pages are where the whole
+  // gauge belongs, so they must not.
+  it("shows the whole regime gauge at every width: the strategy page does not ask for the compact form", async () => {
+    render(await StrategyPicksPage({ params: params("zanger-breakout") }));
+
+    const banner = screen.getByRole("region", {
+      name: "Market regime for Zanger Breakout",
+    });
+    expect(banner.querySelector("dl")).toHaveClass("grid");
+    expect(banner.querySelector("dl")).not.toHaveClass("hidden");
+    expect(banner.querySelector("[data-ladder-mark]")!.parentElement).not.toHaveClass("hidden");
+    expect(banner.querySelector(".hidden")).toBeNull();
+  });
+
   it("marks the current strategy in the switcher and links the others", async () => {
     render(await StrategyPicksPage({ params: params("zanger-breakout") }));
     const nav = screen.getByRole("navigation", { name: "Strategies" });
