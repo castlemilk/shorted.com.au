@@ -80,12 +80,21 @@ export interface ChartViewConfig {
  * - combined: price area (left, $) + short % line (right, %) + volume (+ SMA 20).
  *
  * A series whose data is empty is left out, so a partial load renders what
- * arrived rather than nothing.
+ * arrived rather than nothing. And the axes follow the data: a Combined view
+ * with only one of its two series is that series' own view, with its axis on the
+ * left in its own unit. Built for both, it drew a short line under a dollar axis
+ * with nothing on it ($0.00 to $1.00), or a price beside an empty percentage
+ * axis. The view the caller asked for does not change; only what is drawn.
  */
 export function buildChartView(
   view: ChartViewId,
-  { stockCode, short, price, volume, showMA = false }: ChartViewInput,
+  input: ChartViewInput,
 ): ChartViewConfig {
+  const { stockCode, short, price, volume, showMA = false } = input;
+  if (view === "combined") {
+    if (!price.length && short.length) return buildChartView("short", input);
+    if (!short.length && price.length) return buildChartView("price", input);
+  }
   const priceSeries: ChartSeriesSpec = {
     id: `${stockCode}:price`,
     label: "Price",

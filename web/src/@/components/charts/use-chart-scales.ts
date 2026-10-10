@@ -56,7 +56,12 @@ export function useChartScales(opts: {
         }
       }
       if (!Number.isFinite(lo)) return [0, 1];
-      const pad = (hi - lo) * 0.08 || 1;
+      // 8% of the range either side. A series with no range (one point, or a
+      // flat line) would have no padding and be drawn on its midpoint, so it gets
+      // 5% of its value instead: a flat 1 is a ±2.5% window on a $40 price, an
+      // axis from -$0.95 to $1.05 on a 5c one, and $-1.00 to $1.00 on one of
+      // nothing. Only a value of nothing has no 5% to take, and falls back to 1.
+      const pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.05 || 1;
       return [lo - pad, hi + pad];
     };
 

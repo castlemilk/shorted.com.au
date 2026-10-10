@@ -4,6 +4,7 @@ import {
   buildChartView,
   isChartPeriod,
   isChartViewId,
+  priceFmt,
   shortFmt,
 } from "../chart-views";
 import { seriesDelta } from "../chart-readout";
@@ -139,5 +140,62 @@ describe("buildChartView", () => {
       "BHP:price",
     ]);
     expect(buildChartView("short", noShort).series).toEqual([]);
+  });
+
+  describe("combined, with one of its two series missing", () => {
+    // The Combined view of a stock with no price history, or no short history,
+    // drew the series it had on axes built for both: a short line on the right
+    // under a dollar axis on the left with nothing on it ($0.00 to $1.00), or a
+    // price beside a percentage axis on the right with nothing on it. The axes
+    // follow the data; the view the caller asked for is still Combined.
+    const noPrice = { ...input(30, { showMA: true }), price: [] };
+    const noShort = { ...input(30, { showMA: true }), short: [] };
+
+    it("with no price, is the short view: the series on the left axis, in percent, and no dollar axis", () => {
+      const c = buildChartView("combined", noPrice);
+      expect(c).toEqual(buildChartView("short", noPrice));
+      expect(c.series).toHaveLength(1);
+      expect(c.series[0]).toMatchObject({ id: "BHP:short", axis: "left", kind: "area" });
+      expect(c.leftAxis.format).toBe(shortFmt);
+      expect(c.rightAxis).toBeUndefined();
+      // Volume and an average are of a price that is not there.
+      expect(c.volume).toBeUndefined();
+      expect(c.indicators).toEqual([]);
+    });
+
+    it("with no short interest, is the price view: the series on the left axis in dollars, with its volume and average", () => {
+      const c = buildChartView("combined", noShort);
+      expect(c).toEqual(buildChartView("price", noShort));
+      expect(c.series).toHaveLength(1);
+      expect(c.series[0]).toMatchObject({ id: "BHP:price", axis: "left", kind: "area" });
+      expect(c.leftAxis.format?.(45.5)).toBe("$45.50");
+      expect(c.rightAxis).toBeUndefined();
+      expect(c.volume).toHaveLength(30);
+      expect(c.indicators.map((i) => i.id)).toEqual(["sma20"]);
+    });
+
+    it("with neither, draws nothing and keeps the axes the Combined view has", () => {
+      const c = buildChartView("combined", { ...input(), price: [], short: [] });
+      expect(c.series).toEqual([]);
+      expect(c.leftAxis.format).toBe(priceFmt);
+      expect(c.rightAxis?.format).toBe(shortFmt);
+    });
+
+    it("leaves the Combined view of both series as it was: price left, short right", () => {
+      const c = buildChartView("combined", input());
+      expect(c.series.map((s) => [s.id, s.axis, s.kind])).toEqual([
+        ["BHP:price", "left", "area"],
+        ["BHP:short", "right", "line"],
+      ]);
+      expect(c.leftAxis.format).toBe(priceFmt);
+      expect(c.rightAxis?.format).toBe(shortFmt);
+    });
+
+    it("changes nothing for the views that name one series", () => {
+      expect(buildChartView("short", noPrice).series.map((s) => s.id)).toEqual(["BHP:short"]);
+      expect(buildChartView("price", noShort).series.map((s) => s.id)).toEqual(["BHP:price"]);
+      expect(buildChartView("price", noPrice).series).toEqual([]);
+      expect(buildChartView("short", noShort).series).toEqual([]);
+    });
   });
 });
