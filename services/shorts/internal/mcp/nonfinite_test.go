@@ -278,6 +278,7 @@ func toolCallFixtures() []toolCall {
 		// worst case is reachable in one ordinary call and is far larger than
 		// the default (25 picks x 7 rules; 24 periods).
 		{"get_stock_fundamentals", map[string]any{"code": "BHP", "limit": maxFundamentalsLimit}},
+		{"get_stock_briefing", map[string]any{"code": "BHP"}},
 		{"search_stocks", map[string]any{"query": "minerals"}},
 		{"search_stock_mentions", map[string]any{"query": "minerals"}},
 		{"screen_stocks", map[string]any{"min_short_pct": 5.0}},

@@ -35,6 +35,12 @@ func TestToolsOnlyCallPublicMethods(t *testing.T) {
 		if !public[tool.RPC] {
 			t.Errorf("tool %q calls %s, which is NOT VISIBILITY_PUBLIC — calling it from a tool bypasses auth entirely", tool.Name, tool.RPC)
 		}
+		// Every RPC in AlsoCalls must also be public
+		for _, rpc := range tool.AlsoCalls {
+			if !public[rpc] {
+				t.Errorf("tool %q calls %s (in AlsoCalls), which is NOT VISIBILITY_PUBLIC — calling it from a tool bypasses auth entirely", tool.Name, rpc)
+			}
+		}
 	}
 }
 
