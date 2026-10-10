@@ -491,7 +491,10 @@ export function StockChartInner({
   // Live readout: each visible series' change between the two endpoints. Skip
   // sub-pixel selections so a plain click never flashes a "+0.0%" panel. One
   // model feeds both homes of the reading, the strip and the floating card, so
-  // they cannot disagree about a date, a number, a sign or a colour.
+  // they cannot disagree about a date, a number, a sign or a colour. That
+  // includes the card's dates: en-AU on the Sydney calendar (spec D5, Dates),
+  // where the card once printed them in the browser's locale. TooltipContent's
+  // hover date is its own formatter and is not part of this.
   const measureInfo = useMemo(() => {
     if (!measure || Math.abs(measure.x1 - measure.x0) < 1) return null;
     const xa = Math.min(measure.x0, measure.x1);
