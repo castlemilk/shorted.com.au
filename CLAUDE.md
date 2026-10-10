@@ -693,15 +693,27 @@ form.
 strip is a fixed-height band above the plot, so nothing covers the plot: 28px
 from 640px wide, and below that `8 + 18 x (1 + series)` (44px for one series,
 62px for two). Its height depends on the chart's width and its series count
-only, never on the state or the values. It reads `latest` by default, then
-`hover`, `pinned` or `measure` (`data-readout-state`). A persistent `sr-only`
-`role="status"` announces a pin and its release, never a scrub, and the arrow
-keys step a pinned reading (Home and End jump, Escape releases). `"tooltip"` is
-the floating card: the two dashboard widgets pass it, so does the embed when
-its chart is under 260px tall, and the strip falls back to it when the plot
-would be under 160px (`READOUT_MIN_PLOT`). Red and green mark the price
-series' direction only; the short series reads in the foreground, in
-percentage points.
+only, never on the state or the values. The count is the series it has, or the
+`readoutReserveSeries` it is told to expect if that is more: the Combined panel
+passes 2, so on a phone the short series landing after the price finds its row
+held and moves nothing (the rows of series still to come are drawn empty). It
+reads `latest` by default, then `hover`, `pinned` or `measure`
+(`data-readout-state`). A persistent `sr-only` `role="status"` announces a pin
+and its release, never a scrub, and the arrow keys step a reading from the pin,
+or else the point under the pointer (Home and End jump, Escape releases).
+`"tooltip"` is the floating card: the two dashboard widgets pass it, so does
+the embed when its chart is under 260px tall, and the strip falls back to it
+when the plot would be under 160px (`READOUT_MIN_PLOT`). Red and green mark the
+price series' direction only; the short series reads in the foreground, in
+percentage points, as the header's 30-day change does ("▲ +0.62 pp",
+"▼ −0.31 pp", "– 0.00 pp"). Short interest prints to two decimals everywhere
+the chart prints it (`shortFmt`). A reading is dated by the data point it
+shows, never by the pointer's instant: the strip, the card, the measure's
+headline and the pin's announcement all name the session, not a weekend the
+cursor happens to be over. The svg clips whatever is drawn outside it, so the
+margins are sized for the labels: 48px beside an axis (six characters at 10px
+mono, a tick and a gap), and 28px on the right when there is no right axis (the
+time axis' last label hangs half its width past the plot).
 
 The sign-in banner renders on the Overview only, after the About card, as one
 44px line. Under `html.anon`, `critical-css.ts` reserves its `.login-slot` at
