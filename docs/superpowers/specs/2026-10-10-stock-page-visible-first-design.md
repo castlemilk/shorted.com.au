@@ -127,8 +127,10 @@ deltas).
 - **Placement:** the banner leaves the chrome. It renders on the Overview only,
   after the About card (D4), inside the same `.login-slot` and `SignedOutOnly`
   wrapper. The site header's Sign in button remains on every page.
-- **Shape:** one line at every width, 44px (`h-11`). Short copy on a phone,
-  longer from `sm`. The SignIn button is size `sm` and the dismiss target is
+- **Shape:** one line at every width, 44px (`h-11`). The copy is "Get alerts"
+  below `sm` and "Dashboards, portfolios and alerts" from `sm`, sized so it is
+  not truncated from 360px up (ruled after Task 5 measured the first copy
+  clipped to "Sign in for al..." at 390px). The SignIn button is size `sm` and the dismiss target is
   32px. Dismissing still removes `html.anon`.
 - **Reservation:** `critical-css.ts` reserves one value: the rendered banner
   plus the wrapper's 2px border (46px), with `margin-bottom: 1rem`. It is
@@ -159,7 +161,14 @@ deltas).
   when the stock has no short history). Then the existing history, FAQ and
   peers.
 - **Strategy, Financials, Company, News, Community:** no price chart. Strategy
-  keeps its levels chart at 360px total. The Company tab opens the insights
+  keeps its levels chart at 360px total. Its market-regime banner takes a
+  `compact` prop there: below `sm` it shows the pill, the as-of date and the
+  verdict, without the four readouts and the ladder (347px measured on a
+  phone, which pushed the levels plot below the fold). From `sm`, and on the
+  /picks pages, it is unchanged.
+- **Names:** the Overview's right-rail company card (website, address and
+  links) is titled "Company details", so the page does not show two "About"
+  headings. The Company tab opens the insights
   accordion item that holds the description by default.
 - **Settings survive a tab switch.** A client-only module store keeps:
   - the **period per stock**, shared by both chart tabs;
@@ -186,7 +195,9 @@ deltas).
   `StockChart` takes its height from its parent when no `height` prop is given.
   One exported `StockChartPanelSkeleton` with the same heights serves as the
   dynamic import's `loading` and as the first block of the Overview and Short
-  interest `loading.tsx`.
+  interest `loading.tsx`. The Overview `loading.tsx` also reserves the sign-in
+  slot and an About block close to its measured height (`h-[500px]
+  sm:h-[360px]`).
 - **Accepted trade-offs:**
   - The chart is no longer one DOM node across all tabs. The TanStack queries
     stay fresh for a day with a 30-minute gcTime, so a return to a chart tab
@@ -349,3 +360,10 @@ layout-shift sum (`hadRecentInput` false) on first load and on a tab switch.
     missing value, U+2212 for negatives. A click re-reads the point under the
     cursor instead of resetting the strip to Latest. The tooltip card's hover
     date uses the same en-AU / Sydney formatter as the strip.
+12. **After Task 5:** the banner copy, the regime banner's compact phone form,
+    "Company details", the Overview loading placeholder, and per-route bundle
+    budgets. Next's printed First Load JS counts the page entry, not the
+    layout's. Moving the chart from the layout into the two chart pages raised
+    their printed numbers and lowered every other tab's. Their budgets are
+    raised to the measured value plus 10%, and a layout-aware metric is a
+    follow-up.
