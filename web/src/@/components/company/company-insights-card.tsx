@@ -43,11 +43,17 @@ interface SectionDef {
   content: React.ReactNode;
 }
 
+// The item that holds the enhanced summary. The Overview's About card shows the
+// company's description clamped to three lines and links here for the rest, so
+// this is the item that opens with the card.
+const SUMMARY_SECTION = "overview";
+
 /**
  * Consolidated company research card: one card, one fact per section,
  * progressive disclosure via accordion instead of six stacked cards.
- * Renders on the Overview tab only; the Financials tab lists the company's
- * filings instead of repeating this content.
+ * Renders on the Company tab; the Financials tab lists the company's filings
+ * instead of repeating this content. The section holding the enhanced summary
+ * is open when the card loads, and the rest are collapsed.
  */
 export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
   const validPeople = data.key_people?.filter((p) => p.name?.trim()) ?? [];
@@ -56,7 +62,7 @@ export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
 
   if (data.enhanced_summary) {
     sections.push({
-      value: "overview",
+      value: SUMMARY_SECTION,
       label: "Overview",
       icon: <BookOpen className="h-4 w-4 text-muted-foreground" />,
       content: (
@@ -174,7 +180,14 @@ export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
       </CardHeader>
       {sections.length > 0 && (
         <CardContent className="pt-0">
-          <Accordion type="multiple">
+          <Accordion
+            type="multiple"
+            defaultValue={
+              sections.some((section) => section.value === SUMMARY_SECTION)
+                ? [SUMMARY_SECTION]
+                : []
+            }
+          >
             {sections.map((section, index) => (
               <AccordionItem
                 key={section.value}

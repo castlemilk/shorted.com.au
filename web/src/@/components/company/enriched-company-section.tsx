@@ -64,7 +64,7 @@ function EnrichedCompanyFallback() {
 }
 
 /**
- * Overview tab: consolidated Company insights card (tags + accordion
+ * Company tab: consolidated Company insights card (tags + accordion
  * sections + key people). Reports are NOT rendered here: the Financials tab
  * lists them (FinancialReports, passed in by the page), so the two tabs do
  * not duplicate content.

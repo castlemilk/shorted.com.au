@@ -76,6 +76,51 @@ describe("CompanyInsightsCard", () => {
     expect(screen.getByText(/Founded in 1914/i)).toBeInTheDocument();
   });
 
+  // The Overview's About card clamps the description to three lines and links
+  // to this tab for the rest, so the item holding the enhanced summary is the
+  // one that opens with the card.
+  it("opens the section that holds the enhanced summary when the card loads, and no other", () => {
+    render(<CompanyInsightsCard data={mockEnrichedData} />);
+
+    expect(
+      screen.getByText(/major Australian conglomerate/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Founded in 1914/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Strong brand portfolio/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Exposure to retail sector volatility/i),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Rob Scott")).not.toBeInTheDocument();
+  });
+
+  it("keeps the summary open while another section is opened beside it", () => {
+    render(<CompanyInsightsCard data={mockEnrichedData} />);
+
+    fireEvent.click(screen.getByText("History"));
+
+    expect(screen.getByText(/Founded in 1914/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/major Australian conglomerate/i),
+    ).toBeInTheDocument();
+  });
+
+  it("opens nothing when there is no enhanced summary to open", () => {
+    render(
+      <CompanyInsightsCard
+        data={{ ...mockEnrichedData, enhanced_summary: null }}
+      />,
+    );
+
+    expect(screen.queryByText("Overview")).not.toBeInTheDocument();
+    expect(screen.getByText("History")).toBeInTheDocument();
+    expect(screen.queryByText(/Founded in 1914/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Exposure to retail sector volatility/i),
+    ).not.toBeInTheDocument();
+  });
+
   it("expands risk factors with all items", () => {
     render(<CompanyInsightsCard data={mockEnrichedData} />);
 
