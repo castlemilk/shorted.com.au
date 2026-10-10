@@ -21,9 +21,12 @@ jest.mock("~/@/components/ui/sign-in", () => ({
 
 import { LoginPromptBanner } from "../login-prompt-banner";
 
-const SHORT_COPY = "Sign in for alerts and portfolios";
-const LONG_COPY =
-  "Sign in to unlock custom dashboards, portfolio tracking and real-time alerts";
+// The two lines, word for word. They are sized to the room the page gives them
+// (login-prompt-banner.tsx says how): "Get alerts" is 84px of the 99px a 360px
+// phone leaves, the long line 277px of the 363px at 640px. A longer line clips,
+// so a change to either string is a change to be measured in a browser.
+const SHORT_COPY = "Get alerts";
+const LONG_COPY = "Dashboards, portfolios and alerts";
 
 // The banner's own box: the wrapper the page draws round it adds the border.
 const banner = (container: HTMLElement) => container.firstElementChild as HTMLElement;
@@ -55,6 +58,20 @@ describe("LoginPromptBanner", () => {
     expect(short).toHaveClass("sm:hidden");
     expect(short).not.toHaveClass("hidden");
     expect(long).toHaveClass("hidden", "sm:inline");
+  });
+
+  // getByText matches a whole string, so the lookups above already fail on a
+  // longer or shorter line; this pins the same thing from the line's side: the
+  // two spans are all it holds, with nothing else in it (no icon label, no
+  // separator) to eat into the room the copy was sized for.
+  it("holds exactly the two lines, and nothing else, in its text", () => {
+    render(<LoginPromptBanner />);
+    const line = screen.getByText(SHORT_COPY).parentElement as HTMLElement;
+    expect(Array.from(line.children).map((el) => el.textContent)).toEqual([
+      SHORT_COPY,
+      LONG_COPY,
+    ]);
+    expect(line.textContent).toBe(`${SHORT_COPY}${LONG_COPY}`);
   });
 
   it("truncates the copy rather than wrapping it, in a box that may shrink", () => {

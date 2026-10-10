@@ -12,8 +12,18 @@ import { Button } from "./button";
  * reserves one height for it (`.login-slot` in styles/critical-css.ts: this 44px
  * plus the 2px border of the wrapper the page draws round it) so that mounting
  * it after hydration fills space rather than pushing content down. The line
- * never wraps. Below `sm` it carries the short copy, from `sm` the long one, and
- * either truncates before it would wrap.
+ * never wraps. Below `sm` it carries "Get alerts", from `sm` "Dashboards,
+ * portfolios and alerts", and `truncate` stays as the fallback should a width
+ * ever fall short.
+ *
+ * The copy is sized to its room. The copy area is what the row leaves after the
+ * page's 2rem gutters, the wrapper's border, the banner's padding, the 16px icon
+ * and the buttons (SignIn 99px, dismiss 32px): 99px at 360px wide, 129px at
+ * 390px and 363px at 640px, measured in a browser. In the page's mono face
+ * (14px, 8.4px a character) "Get alerts" needs 84px and the long copy 277px, so
+ * neither is clipped from 360px up (320px may be). The first phone copy, "Sign
+ * in for alerts and portfolios" (277px), was clipped at every width from 320px
+ * to 412px. Change the copy only with the same check.
  */
 export function LoginPromptBanner() {
   const [isVisible, setIsVisible] = useState(true);
@@ -35,10 +45,9 @@ export function LoginPromptBanner() {
         aria-hidden="true"
       />
       <p className="min-w-0 flex-1 truncate text-sm text-foreground">
-        <span className="sm:hidden">Sign in for alerts and portfolios</span>
+        <span className="sm:hidden">Get alerts</span>
         <span className="hidden sm:inline">
-          Sign in to unlock custom dashboards, portfolio tracking and real-time
-          alerts
+          Dashboards, portfolios and alerts
         </span>
       </p>
       <div className="flex shrink-0 items-center gap-2">
