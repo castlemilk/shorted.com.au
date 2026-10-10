@@ -1,3 +1,0 @@
----
-category: Market Data
----
