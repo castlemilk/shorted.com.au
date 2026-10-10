@@ -33,6 +33,14 @@ interface CompanyInsightsCardProps {
    * component's props.
    */
   data: CompanyInsightsData;
+  /**
+   * The company's display name, as the page's header spells it ("BHP Group").
+   * The record's own `company_name` is the backend's title-casing of the ASIC
+   * name, which lower-cases a ticker acronym ("Bhp Group"), so a caller that
+   * has the cleaned name passes it. Without one the card falls back to the
+   * record's.
+   */
+  companyName?: string;
 }
 
 interface SectionDef {
@@ -61,7 +69,11 @@ interface SectionDef {
  * layout shift of 0.136 on desktop). So no `defaultValue` here, and nothing
  * else that renders open.
  */
-export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
+export function CompanyInsightsCard({
+  data,
+  companyName,
+}: CompanyInsightsCardProps) {
+  const subject = companyName ?? data.company_name;
   const validPeople = data.key_people?.filter((p) => p.name?.trim()) ?? [];
 
   const sections: SectionDef[] = [];
@@ -160,7 +172,7 @@ export function CompanyInsightsCard({ data }: CompanyInsightsCardProps) {
         </CardTitle>
         <CardDescription>
           AI-generated research profile
-          {data.company_name ? ` of ${data.company_name}` : ""}
+          {subject ? ` of ${subject}` : ""}
         </CardDescription>
         {hasTags && (
           <div className="flex flex-wrap gap-1.5 pt-2">

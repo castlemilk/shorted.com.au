@@ -89,7 +89,7 @@ export default async function CompanyPage({ params }: PageProps) {
             Declared political interests, Similar companies), so the directors
             section is named with an aria-label, not a second visible
             heading. */}
-        <EnrichedCompanySection stockCode={code} />
+        <EnrichedCompanySection stockCode={code} companyName={companyName} />
         <section aria-label="Directors and insiders">
           <DirectorTradesTable stockCode={code} />
         </section>

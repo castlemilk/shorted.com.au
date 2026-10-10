@@ -38,7 +38,11 @@ jest.mock("~/@/lib/stocks/stock-tabs", () => {
   const actual = jest.requireActual<typeof import("~/@/lib/stocks/stock-tabs")>("~/@/lib/stocks/stock-tabs");
   return { ...actual, stockTabLabel: jest.fn(actual.stockTabLabel) };
 });
-jest.mock("~/@/components/company/enriched-company-section", () => ({ EnrichedCompanySection: () => <div data-testid="enriched" /> }));
+jest.mock("~/@/components/company/enriched-company-section", () => ({
+  EnrichedCompanySection: ({ stockCode, companyName }: { stockCode: string; companyName?: string }) => (
+    <div data-testid="enriched" data-code={stockCode} data-company-name={companyName ?? ""} />
+  ),
+}));
 jest.mock("~/@/components/company/politician-interests-card-loader", () => ({ PoliticianInterestsCard: () => <div data-testid="politicians" /> }));
 jest.mock("~/@/components/economy/stock-state-exposure", () => ({
   StockStateExposure: ({ exposures, className }: { exposures: unknown[]; className?: string }) => (
@@ -100,6 +104,16 @@ describe("/shorts/[stockCode]/company", () => {
     expect(order).toEqual(["enriched", "island-1", "politicians", "exposure", "island-2", "dossier"]);
     expect(container.querySelector("[data-testid=exposure]")).toHaveAttribute("data-count", "0");
     expect(container.querySelector("[data-testid=dossier]")).toHaveAttribute("data-slug", "materials");
+  });
+
+  // The card's subtitle read "research profile of Bhp Group" under a header that
+  // reads "BHP Group": the page's cleaned name goes in, never the raw record's.
+  it("gives the Company card the page's cleaned name, the one its own heading uses", async () => {
+    render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+    const card = screen.getByTestId("enriched");
+    expect(card).toHaveAttribute("data-code", "BHP");
+    expect(card).toHaveAttribute("data-company-name", "BHP Group");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("BHP Group (BHP) company profile");
   });
 
   it("hands the exposure block the stock's own entries, found by the upper-cased code", async () => {

@@ -84,6 +84,34 @@ describe("CompanyInsightsCard", () => {
     expect(screen.getByText("home improvement")).toBeInTheDocument();
   });
 
+  // The record's company_name is the backend's title-casing of the ASIC name,
+  // which lower-cases a ticker acronym; the page has the cleaned name.
+  describe("the company the card names", () => {
+    const subtitle = (text: string) => screen.getByText(text);
+
+    it("names the company by the display name it is given, not the record's title-cased one", () => {
+      render(
+        <CompanyInsightsCard
+          data={{ ...mockEnrichedData, company_name: "Bhp Group" }}
+          companyName="BHP Group"
+        />,
+      );
+      expect(subtitle("AI-generated research profile of BHP Group")).toBeInTheDocument();
+      expect(screen.queryByText(/Bhp Group/)).toBeNull();
+    });
+
+    it("falls back to the record's own name when it is given none", () => {
+      render(<CompanyInsightsCard data={mockEnrichedData} />);
+      expect(subtitle("AI-generated research profile of WESFARMERS LIMITED")).toBeInTheDocument();
+    });
+
+    it("names no company when it has neither, rather than printing 'of undefined'", () => {
+      render(<CompanyInsightsCard data={{ ...mockEnrichedData, company_name: "" }} />);
+      expect(subtitle("AI-generated research profile")).toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(/undefined|\bof\s*$/);
+    });
+  });
+
   it("renders one accordion trigger per populated section, and none for the summary", () => {
     render(<CompanyInsightsCard data={mockEnrichedData} />);
 
