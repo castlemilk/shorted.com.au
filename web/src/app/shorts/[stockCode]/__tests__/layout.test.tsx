@@ -7,7 +7,12 @@ const mockNotFound = jest.fn(() => {
   throw new Error("NEXT_NOT_FOUND");
 });
 jest.mock("next/navigation", () => ({ notFound: () => mockNotFound() }));
-jest.mock("next/dynamic", () => () => () => <div data-testid="chart-panel" />);
+// Any client island the layout loaded through next/dynamic would draw this
+// stand-in. The layout loads none: its charts moved onto their own tabs.
+jest.mock("next/dynamic", () => ({
+  __esModule: true,
+  default: jest.fn(() => () => <div data-testid="chart-panel" />),
+}));
 jest.mock("~/app/actions/getStock", () => ({
   getStockOrNotFound: (...a: unknown[]) => mockGetStockOrNotFound(...a),
 }));
@@ -15,10 +20,31 @@ jest.mock("~/app/actions/getLatestShortDate", () => ({
   getLatestShortDate: jest.fn().mockResolvedValue(new Date("2026-10-02T00:00:00Z")),
 }));
 jest.mock("../short-interest-summary", () => ({
-  ShortInterestSummary: ({ asOfClause }: { asOfClause: string }) => (
-    <p data-testid="summary">{asOfClause}</p>
+  ShortInterestSummary: () => <p data-testid="summary" />,
+  getShortInterestDeltas: jest.fn().mockResolvedValue({ change30d: 0.42 }),
+}));
+// The header stand-in shows what the layout handed it: the props are what is
+// under test, the header's own markup has its own suite.
+jest.mock("~/@/components/company/stock-header", () => ({
+  StockHeader: ({
+    stockCode,
+    stock,
+    change30d,
+    asOf,
+  }: {
+    stockCode: string;
+    stock: { name: string };
+    change30d: number | null;
+    asOf: Date | null;
+  }) => (
+    <header
+      data-testid="header"
+      data-code={stockCode}
+      data-name={stock.name}
+      data-change30d={String(change30d)}
+      data-as-of={asOf ? asOf.toISOString() : "none"}
+    />
   ),
-  getShortInterestDeltas: jest.fn().mockResolvedValue({}),
 }));
 jest.mock("~/@/components/company/stock-tab-nav", () => ({
   StockTabNav: ({ stockCode }: { stockCode: string }) => <nav data-testid="tab-nav">{stockCode}</nav>,
@@ -26,19 +52,11 @@ jest.mock("~/@/components/company/stock-tab-nav", () => ({
 jest.mock("~/@/components/company/stock-breadcrumbs", () => ({
   StockBreadcrumbs: () => <div data-testid="breadcrumbs" />,
 }));
-jest.mock("~/@/components/themes/theme-chips", () => ({ StockThemeChips: () => <div data-testid="chips" /> }));
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
   DashboardLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-jest.mock("~/@/components/ui/companyProfile", () => ({
-  __esModule: true, default: () => <div data-testid="profile" />, CompanyProfilePlaceholder: () => null,
-}));
-jest.mock("~/@/components/ui/companyStats", () => ({
-  __esModule: true, default: () => <div data-testid="stats" />, CompanyStatsPlaceholder: () => null,
-}));
-jest.mock("~/@/components/ui/login-prompt-banner", () => ({ LoginPromptBanner: () => null }));
-jest.mock("~/@/components/ui/session-gates", () => ({ SignedOutOnly: () => null }));
 
+import nextDynamic from "next/dynamic";
 import StockLayout from "../layout";
 import { getLatestShortDate } from "~/app/actions/getLatestShortDate";
 import { getShortInterestDeltas } from "../short-interest-summary";
@@ -52,7 +70,7 @@ describe("stock layout", () => {
     mockNotFound.mockClear();
   });
 
-  it("renders the chrome in order and the page beneath the tab bar", async () => {
+  it("renders the chrome in order, then the page beneath the tab bar", async () => {
     mockGetStockOrNotFound.mockResolvedValue(stock);
     const el = await StockLayout({
       params: Promise.resolve({ stockCode: "bhp" }),
@@ -60,10 +78,59 @@ describe("stock layout", () => {
     });
     const { container } = render(el);
     const order = Array.from(container.querySelectorAll("[data-testid]")).map((n) => n.getAttribute("data-testid"));
-    expect(order).toEqual(["breadcrumbs", "profile", "stats", "summary", "chips", "chart-panel", "tab-nav", "child"]);
-    expect(screen.getByTestId("summary")).toHaveTextContent("as of 2 Oct 2026");
+    expect(order).toEqual(["breadcrumbs", "header", "tab-nav", "child"]);
     expect(screen.getByTestId("tab-nav")).toHaveTextContent("BHP");
     expect(mockGetStockOrNotFound).toHaveBeenCalledWith("BHP");
+  });
+
+  it("hands the header the upper-cased code, the stock it read and the figures behind its readout", async () => {
+    mockGetStockOrNotFound.mockResolvedValue(stock);
+    render(
+      await StockLayout({
+        params: Promise.resolve({ stockCode: "bhp" }),
+        children: null,
+      }),
+    );
+    const header = screen.getByTestId("header");
+    expect(header).toHaveAttribute("data-code", "BHP");
+    expect(header).toHaveAttribute("data-name", "BHP GROUP LIMITED ORDINARY");
+    expect(header).toHaveAttribute("data-as-of", "2026-10-02T00:00:00.000Z");
+    expect(header).toHaveAttribute("data-change30d", "0.42");
+  });
+
+  it("hands the header no 30-day change when the series could not give one", async () => {
+    jest.mocked(getShortInterestDeltas).mockResolvedValueOnce({
+      change7d: null,
+      change30d: null,
+      change90d: null,
+      peakPct: null,
+      peakDate: null,
+    });
+    mockGetStockOrNotFound.mockResolvedValue(stock);
+    render(
+      await StockLayout({
+        params: Promise.resolve({ stockCode: "BHP" }),
+        children: null,
+      }),
+    );
+    expect(screen.getByTestId("header")).toHaveAttribute("data-change30d", "null");
+  });
+
+  // The charts, the summary prose and the theme chips each moved onto the tab
+  // that is about them (the Overview, Short interest). The layout is on every
+  // tab, so one left here would be paid for on all seven.
+  it("loads no chart panel and renders none of the Overview's prose, chips or sign-in slot", async () => {
+    mockGetStockOrNotFound.mockResolvedValue(stock);
+    const { container } = render(
+      await StockLayout({
+        params: Promise.resolve({ stockCode: "BHP" }),
+        children: <div data-testid="child" />,
+      }),
+    );
+    expect(nextDynamic).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("chart-panel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("summary")).not.toBeInTheDocument();
+    expect(container.querySelector(".login-slot")).toBeNull();
   });
 
   it("404s a malformed code before any fetch", async () => {
@@ -87,7 +154,7 @@ describe("stock layout", () => {
     ).rejects.toThrow(/transiently unavailable/);
   });
 
-  it("degrades the as-of clause when the report date cannot be read, rather than failing the render", async () => {
+  it("hands the header no as-of date when the report date cannot be read, rather than failing the render", async () => {
     jest.mocked(getLatestShortDate).mockRejectedValueOnce(new Error("series unavailable"));
     mockGetStockOrNotFound.mockResolvedValue(stock);
     const el = await StockLayout({
@@ -95,7 +162,9 @@ describe("stock layout", () => {
       children: null,
     });
     render(el);
-    expect(screen.getByTestId("summary")).toHaveTextContent("in the latest ASIC report");
+    // No date: the header leaves its "as of" out rather than inventing one.
+    expect(screen.getByTestId("header")).toHaveAttribute("data-as-of", "none");
+    expect(screen.getByTestId("header")).toHaveAttribute("data-change30d", "0.42");
   });
 
   // The report-date and delta reads need only the code, so the layout starts
@@ -125,7 +194,7 @@ describe("stock layout", () => {
 
       settleStock(stock);
       render(await rendering);
-      expect(screen.getByTestId("summary")).toHaveTextContent("as of 2 Oct 2026");
+      expect(screen.getByTestId("header")).toHaveAttribute("data-as-of", "2026-10-02T00:00:00.000Z");
     });
 
     it("are not waited on by a 404", async () => {

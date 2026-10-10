@@ -7,7 +7,11 @@ const mockGetStock = jest.fn();
 const mockMetadata = jest.fn().mockResolvedValue({ title: "t" });
 const mockBreadcrumbs = jest.fn();
 jest.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_FOUND"); } }));
-jest.mock("next/dynamic", () => () => () => <div data-testid="island" />);
+// Every client island the page loads stands in as one div. The chart panel is
+// the only one handed a settings key and a view, so those tell it apart.
+jest.mock("next/dynamic", () => () => (props: { prefsKey?: string; defaultView?: string }) => (
+  <div data-testid="island" data-prefs-key={props.prefsKey} data-default-view={props.defaultView} />
+));
 jest.mock("~/app/actions/getStock", () => ({
   getStockOrNotFound: (...a: unknown[]) => mockGetStockOrNotFound(...a),
   // The real metadata builder reads the stock through getStock.
@@ -54,13 +58,35 @@ describe("/shorts/[stockCode]/short-interest", () => {
     expect(generateStaticParams()).toEqual([]);
   });
 
-  it("renders the history with the cleaned company name, then the three islands", async () => {
+  it("renders the chart first, then the history with the cleaned company name, then the three islands", async () => {
     render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("BHP Group (BHP) short interest history");
     expect(screen.getByTestId("history")).toHaveTextContent("BHP:BHP Group");
     expect(screen.getByRole("region", { name: "Short interest history and FAQ" })).toContainElement(screen.getByTestId("history"));
-    expect(screen.getAllByTestId("island")).toHaveLength(3);
+    // The chart panel and the three that were here before: the verdict, the signals, the peers.
+    const islands = screen.getAllByTestId("island");
+    expect(islands).toHaveLength(4);
+    const chart = screen.getByRole("region", { name: "Short interest chart" });
+    expect(chart).toContainElement(islands[0]!);
+    expect(islands[0]!.compareDocumentPosition(screen.getByTestId("history")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText(/ASIC reports no short position/)).not.toBeInTheDocument();
+  });
+
+  it("opens the chart on the short series, under its own settings key, for a stock with a short history", async () => {
+    render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+    const [chart] = screen.getAllByTestId("island");
+    expect(chart).toHaveAttribute("data-prefs-key", "BHP:short-interest");
+    expect(chart).toHaveAttribute("data-default-view", "short");
+    // The only island with settings: the other three have none to keep.
+    expect(screen.getAllByTestId("island").filter((i) => i.hasAttribute("data-prefs-key"))).toHaveLength(1);
+  });
+
+  it("opens the chart on the combined view when ASIC reports no short position, which leaves the short series nothing to show", async () => {
+    mockGetStockOrNotFound.mockResolvedValue({ ...stock, percentageShorted: 0 });
+    render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+    const [chart] = screen.getAllByTestId("island");
+    expect(chart).toHaveAttribute("data-prefs-key", "BHP:short-interest");
+    expect(chart).toHaveAttribute("data-default-view", "combined");
   });
 
   it("says so in one sentence, with no history card, when ASIC reports no short position", async () => {
@@ -69,17 +95,29 @@ describe("/shorts/[stockCode]/short-interest", () => {
     expect(screen.getByText("ASIC reports no short position in BHP in the latest data.")).toBeInTheDocument();
     expect(screen.queryByTestId("history")).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Short interest history and FAQ" })).not.toBeInTheDocument();
-    // Only the history is gated: the verdict, the signals and the peers still render.
-    expect(screen.getAllByTestId("island")).toHaveLength(3);
+    // Only the history is gated: the chart, the verdict, the signals and the peers still render.
+    expect(screen.getAllByTestId("island")).toHaveLength(4);
   });
 
-  it("adds no heading of its own over the islands, which render their own titles", async () => {
+  it("adds no heading of its own over the islands but the chart's, which prints no title", async () => {
     render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
-    // The h1 is the only heading the page writes: the history and the peer table
-    // each print their own title, so a wrapper heading would say it twice.
-    expect(screen.getAllByRole("heading")).toHaveLength(1);
+    // The h1 and the chart section's h2 are the only headings the page writes:
+    // the chart panel prints no title of its own, while the history and the peer
+    // table each print theirs, so a wrapper heading over them would say it twice.
+    expect(screen.getAllByRole("heading").map((h) => [h.tagName, h.textContent])).toEqual([
+      ["H1", "BHP Group (BHP) short interest history"],
+      ["H2", "Short interest chart"],
+    ]);
     const peers = screen.getByRole("region", { name: "Peer comparison" });
     expect(within(peers).getAllByTestId("island")).toHaveLength(1);
+  });
+
+  it("names the chart section by its own heading, which the section can shrink around", async () => {
+    render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
+    const chart = screen.getByRole("region", { name: "Short interest chart" });
+    expect(chart).toHaveClass("min-w-0");
+    expect(within(chart).getByRole("heading", { level: 2 })).toHaveAttribute("id", "stock-chart-heading");
+    expect(chart).toHaveAttribute("aria-labelledby", "stock-chart-heading");
   });
 
   // With a history, its own h2 is the first heading after the h1. Without one
@@ -91,18 +129,21 @@ describe("/shorts/[stockCode]/short-interest", () => {
     const headings = screen.getAllByRole("heading");
     expect(headings.map((h) => [h.tagName, h.textContent])).toEqual([
       ["H1", "BHP Group (BHP) short interest history"],
+      ["H2", "Short interest chart"],
       ["H2", "Signals and peer comparison"],
     ]);
-    expect(headings[1]).toHaveClass("sr-only");
+    expect(headings[2]).toHaveClass("sr-only");
     const sentence = screen.getByText("ASIC reports no short position in BHP in the latest data.");
-    const [firstIsland] = screen.getAllByTestId("island");
-    expect(sentence.compareDocumentPosition(headings[1]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(headings[1]!.compareDocumentPosition(firstIsland!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The chart is the first island and sits above the sentence; the sr-only h2
+    // names the group that follows it, so the first island it precedes is the next.
+    const [, firstGroupedIsland] = screen.getAllByTestId("island");
+    expect(sentence.compareDocumentPosition(headings[2]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(headings[2]!.compareDocumentPosition(firstGroupedIsland!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("adds no h2 of its own when the history, which prints one, is there", async () => {
+  it("adds no h2 beyond the chart's when the history, which prints one, is there", async () => {
     render(await Page({ params: Promise.resolve({ stockCode: "bhp" }) }));
-    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Short interest chart"]);
   });
 
   it("emits breadcrumb structured data with the tab as the last item, labelled by the tab registry", async () => {

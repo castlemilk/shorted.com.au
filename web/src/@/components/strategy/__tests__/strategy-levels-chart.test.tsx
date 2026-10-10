@@ -273,7 +273,7 @@ describe("StrategyLevelsChart", () => {
   });
 
   describe("the chart's wiring", () => {
-    it("reads the prices for the stock over the layout chart's period, so the query is shared", () => {
+    it("reads the prices for the stock over the chart panels' default period, so the query is shared", () => {
       renderChart({ stockCode: "CBA" });
       expect(mockUseStockChartData).toHaveBeenCalledWith("CBA", "1y");
     });

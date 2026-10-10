@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import nextDynamic from "next/dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -9,6 +10,12 @@ import { FundamentalsSummary } from "~/@/components/stocks/fundamentals-summary"
 import { StrategyFitStrip } from "~/@/components/stocks/strategy-fit-strip";
 import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
 import { SignedOutOnly } from "~/@/components/ui/session-gates";
+import { LoginPromptBanner } from "~/@/components/ui/login-prompt-banner";
+import { StockThemeChips } from "~/@/components/themes/theme-chips";
+import {
+  StockChartHeading,
+  StockChartPanelSkeleton,
+} from "~/@/components/charts/stock-chart-section";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta, StockLLMMeta } from "~/@/components/seo/llm-meta";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
@@ -18,9 +25,11 @@ import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { thirtyDayChangeClause } from "~/@/lib/seo/short-change-clause";
 import { stockOgImage } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
+import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { getStockHeadlines } from "~/app/actions/getStockNews";
 import { getStockOrNotFound } from "~/app/actions/getStock";
+import { getStockDetails } from "~/app/actions/getStockDetails";
 import { getLatestShortDate } from "~/app/actions/getLatestShortDate";
 import { getDailyShortSeries } from "~/app/actions/getDailyShortSeries";
 import { getStockFundamentals } from "~/app/actions/getStockFundamentals";
@@ -28,6 +37,10 @@ import {
   getStockStrategyFit,
   type StockStrategyFit,
 } from "~/app/actions/getStockStrategyFit";
+import {
+  ShortInterestSummary,
+  getShortInterestDeltas,
+} from "./short-interest-summary";
 import { loadStockOrFail } from "./stock-page-data";
 import {
   STOCK_CODE_PATTERN,
@@ -35,6 +48,22 @@ import {
   cleanCompanyName,
   formatAsOfDate,
 } from "./stock-page-shared";
+
+// The price and short-interest chart (spec D4). It reads prices through
+// Connect-RPC and the market-data hooks, so it is client-only: loaded through
+// next/dynamic with ssr: false, never a static import. Its placeholder is the
+// panel's own skeleton, the one loading.tsx shows too, so the box is the size
+// the panel lands on and nothing below it moves.
+const StockChartPanel = nextDynamic(
+  () =>
+    import("~/@/components/charts/StockChartPanel").then(
+      (m) => m.StockChartPanel,
+    ),
+  {
+    ssr: false,
+    loading: () => <StockChartPanelSkeleton />,
+  },
+);
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
@@ -211,6 +240,14 @@ const Page = async ({ params }: PageProps) => {
   const latestShortDatePromise = getLatestShortDate(stockCode).catch(
     (): Date | null => null,
   );
+  // The About card's two reads, neither in the critical Promise.all below. The
+  // company details are cached (the header's logo reads the same entry) and
+  // degrade to no description; the deltas are the daily series, React-cached
+  // and shared with the layout's header, and come back all-nulls on a failure.
+  const stockDetailsPromise = getStockDetails(stockCode).catch(
+    (): StockDetails | null => null,
+  );
+  const deltasPromise = getShortInterestDeltas(stockCode);
 
   // 404s an unknown code and FAILS the render on a transient read, so a
   // degraded page is never baked into the ISR cache (see stock-page-data.ts).
@@ -224,9 +261,18 @@ const Page = async ({ params }: PageProps) => {
   const strategyFit = await strategyFitPromise;
   const newsArticles = await stockNewsPromise;
   const latestShortDate = await latestShortDatePromise;
+  const stockDetails = await stockDetailsPromise;
+  const deltas = await deltasPromise;
   const asOfIso = latestShortDate ? latestShortDate.toISOString().slice(0, 10) : null;
   const asOfClause = asOfClauseFor(latestShortDate);
   const companyName = cleanCompanyName(stock.name || stockCode, stockCode);
+  // The About card's description. The enriched summary when there is one, else
+  // the plain one; whitespace alone is nothing, and the paragraph is left out.
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: proto string fields default to "" which must fall through to the next summary
+  const description = (stockDetails?.enhancedSummary || stockDetails?.summary || "").trim();
+  const shortPct = stock.percentageShorted ?? 0;
+  const shortPositions = stock.reportedShortPositions ?? 0;
+  const industry = stock.industry || "";
 
   const breadcrumbItems = [
     { label: "Stocks", href: "/stocks" },
@@ -261,12 +307,10 @@ const Page = async ({ params }: PageProps) => {
       />
 
       {(() => {
-        const shortPct = stock.percentageShorted ?? 0;
-        const shortPositions = stock.reportedShortPositions ?? 0;
-        const industry = stock.industry || "";
         // asOfIso / asOfClause are hoisted to the page body above — the
-        // layout's visible summary states the same "as of" (asOfClauseFor),
-        // and the two must not disagree.
+        // About card's visible summary and the layout's header state the same
+        // "as of" (asOfClauseFor, formatAsOfDate), and the three must not
+        // disagree.
         const positionsDisplay = shortPositions > 0
           ? new Intl.NumberFormat("en-AU").format(Math.round(shortPositions))
           : "—";
@@ -361,7 +405,7 @@ const Page = async ({ params }: PageProps) => {
             {/* Crawler/LLM summary — kept in the SSR DOM for SEO + AI bots but
                 visually hidden (sr-only, not display:none, so it stays indexed
                 and in the a11y tree). The same facts are shown visibly in the
-                layout's CompanyProfile / CompanyStats / the chart. */}
+                layout's StockHeader, the chart and the About card below. */}
             <section
               aria-label={`${stockCode} short interest summary`}
               className="sr-only"
@@ -404,6 +448,67 @@ const Page = async ({ params }: PageProps) => {
           </>
         );
       })()}
+
+      {/* The chart is this tab's first block: the price and the short interest
+          are what the visitor came for. Its settings (period, view, SMA 20) are
+          kept per stock and per tab across a tab switch (chart-prefs.ts). */}
+      <section aria-labelledby="stock-chart-heading" className="mb-4 min-w-0">
+        <StockChartHeading />
+        <StockChartPanel
+          stockCode={stockCode}
+          prefsKey={`${stockCode}:overview`}
+          defaultView="combined"
+        />
+      </section>
+
+      {/* About: who the company is, the short-interest prose, and the themes it
+          belongs to, in one card. The header above the tabs carries the numbers;
+          this carries the words, so they leave the chrome of every other tab. */}
+      <section
+        aria-labelledby="overview-about-heading"
+        className="mb-4 rounded-lg border bg-card px-4 py-3"
+      >
+        <h2 id="overview-about-heading" className="text-sm font-medium">
+          About {companyName}
+        </h2>
+        {description ? (
+          <p className="mt-1 line-clamp-3 text-sm text-foreground">
+            {description}
+          </p>
+        ) : null}
+        <Link
+          href={stockTabHref(stockCode, "company")}
+          prefetch={false}
+          className="inline-flex min-h-6 items-center text-xs text-primary hover:underline"
+        >
+          Company profile →
+        </Link>
+        <div className="mt-3">
+          <ShortInterestSummary
+            variant="bare"
+            stockCode={stockCode}
+            companyName={companyName}
+            industry={industry}
+            shortPct={shortPct}
+            shortPositions={shortPositions}
+            asOfClause={asOfClause}
+            deltas={deltas}
+          />
+        </div>
+        <StockThemeChips stockCode={stockCode} className="mt-3" />
+      </section>
+
+      {/* Signed-out breadcrumb to login — client-gated; the slot is always in
+          the server HTML and critical CSS reserves its height under html.anon
+          (see layout.tsx at the root) so it never shifts the page. One line,
+          on the Overview only. */}
+      <div className="login-slot">
+        <SignedOutOnly>
+          <div className="overflow-hidden rounded-lg border border-primary/20">
+            <LoginPromptBanner />
+          </div>
+        </SignedOutOnly>
+      </div>
 
       <div className="grid min-w-0 grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-[minmax(0,1fr)_310px]">
         <div className="flex min-w-0 flex-col gap-4 md:gap-6">

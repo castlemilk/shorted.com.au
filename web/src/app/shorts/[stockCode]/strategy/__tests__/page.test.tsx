@@ -383,6 +383,21 @@ describe("/shorts/[stockCode]/strategy", () => {
     ]);
   });
 
+  // #strategy-chart is a hash target. The site header (64px) and the docked tab
+  // bar (44px) sit over the top of the viewport, so a link needs 124px of room
+  // above the heading, with 16px of air, or it lands under them.
+  it("keeps the chart section's hash target clear of the site header and the docked tab bar", async () => {
+    mockFit.mockResolvedValue(fit);
+    mockStrategies.mockResolvedValue(strategies);
+    const { container } = render(
+      await Page({ params: Promise.resolve({ stockCode: "bhp" }) }),
+    );
+    const target = container.querySelector("#strategy-chart");
+    expect(target).toHaveClass("scroll-mt-[124px]");
+    expect(target).toContainElement(screen.getByTestId("levels-chart"));
+    expect(target).toHaveAttribute("aria-labelledby", "strategy-chart-heading");
+  });
+
   it("hands the chart the upper-cased code, the fits strongest first and the price features", async () => {
     mockFit.mockResolvedValue(fit);
     mockStrategies.mockResolvedValue(strategies);

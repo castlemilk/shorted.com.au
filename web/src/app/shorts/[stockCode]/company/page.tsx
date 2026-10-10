@@ -13,8 +13,8 @@ import { getStateExposureIndex } from "~/app/actions/getEconomy";
 import { loadStockOrFail } from "../stock-page-data";
 import { STOCK_CODE_PATTERN, cleanCompanyName } from "../stock-page-shared";
 
-// Client islands that import @connectrpc/connect: client-only, as the
-// chart is in the layout.
+// Client islands that import @connectrpc/connect: client-only, as the chart
+// panels on the Overview and Short interest tabs are.
 const DirectorTradesTable = nextDynamic(
   () => import("~/@/components/company/director-trades-table").then((m) => m.DirectorTradesTable),
   { ssr: false },
