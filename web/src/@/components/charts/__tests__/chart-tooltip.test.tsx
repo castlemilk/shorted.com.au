@@ -231,11 +231,17 @@ describe("useChartPointer", () => {
 });
 
 describe("TooltipContent", () => {
-  const hoverOn = (t: number) => ({
+  /**
+   * A hover with one entry whose point is at `pointT` and the cursor at
+   * `cursorT` (by default the same instant). The card dates the reading by the
+   * point it shows: a cursor between two sessions has no date of its own, so the
+   * time a test expects to read goes on the point.
+   */
+  const hoverOn = (pointT: number, cursorT: number = pointT) => ({
     cx: 0,
     cy: 0,
-    t,
-    entries: [{ series: series[0]!, point: series[0]!.points[0]! }],
+    t: cursorT,
+    entries: [{ series: series[0]!, point: { t: pointT, v: 10 } }],
   });
 
   it("dates the reading en-AU on the Sydney calendar", () => {
@@ -259,6 +265,37 @@ describe("TooltipContent", () => {
     } finally {
       browserLocale.mockRestore();
     }
+  });
+
+  it("dates the reading by its data point, not by where the cursor is", () => {
+    // The point is Friday 2 January (11:00 Sydney). The cursor is 12 hours past
+    // Saturday's UTC midnight, which is 23:00 on Saturday 3 January in Sydney:
+    // a day the ASX did not trade, and not the one the card shows a price for.
+    const friday = T0 + DAY;
+    const saturday = T0 + 2.5 * DAY;
+    const { container } = render(<TooltipContent hover={hoverOn(friday, saturday)} />);
+    expect(container.textContent).toContain("2 Jan 2026");
+    expect(container.textContent).not.toContain("3 Jan 2026");
+  });
+
+  it("dates the reading by its first entry's point when the entries are on different days", () => {
+    // The short series lags the price by days; the card is headed by the first.
+    // The cursor is on the 5th in Sydney (03:48), the first point on the 4th.
+    const lagging = { series: series[1]!, point: { t: T0 - 4 * DAY, v: 2 } };
+    const hover = hoverOn(T0 + 3 * DAY, T0 + 3.7 * DAY);
+    const { container } = render(
+      <TooltipContent hover={{ ...hover, entries: [...hover.entries, lagging] }} />,
+    );
+    expect(container.textContent).toContain("4 Jan 2026");
+    expect(container.textContent).not.toContain("5 Jan 2026");
+    expect(container.textContent).not.toContain("28 Dec 2025");
+  });
+
+  it("falls back to the cursor's time when there is no entry to date it by", () => {
+    const { container } = render(
+      <TooltipContent hover={{ cx: 0, cy: 0, t: T0 + 5 * DAY, entries: [] }} />,
+    );
+    expect(container.textContent).toContain("6 Jan 2026");
   });
 });
 

@@ -59,6 +59,18 @@ const sydneyDate = new Intl.DateTimeFormat("en-AU", {
 });
 const stripDate = (i: number) => sydneyDate.format(T0 + i * DAY);
 
+// The same series with every point on Sydney midnight (13:00 UTC in January,
+// UTC+11). A pointer anywhere short of such a point, up to half a session, is on
+// the day BEFORE it, which is what tells a reading dated by its point from one
+// dated by the instant under the pointer. SERIES' points sit at 11:00 Sydney, so
+// there the two dates part company only in the last hour before midnight.
+const SYDNEY_MIDNIGHT = 13 * 3_600_000;
+const NIGHT_SERIES: ChartSeriesSpec[] = SERIES.map((s) => ({
+  ...s,
+  points: s.points.map((p) => ({ ...p, t: p.t + SYDNEY_MIDNIGHT })),
+}));
+const nightDate = (i: number) => sydneyDate.format(T0 + SYDNEY_MIDNIGHT + i * DAY);
+
 function renderChart(
   series = SERIES,
   readout: Mode = "strip",
@@ -283,6 +295,46 @@ describe.each(MODES)("StockChart mouse (%s): unchanged desktop hover", (mode) =>
     now += 2000;
     fireEvent.doubleClick(plot, pt(xOf(4)));
     expect(reading()).toBeNull();
+  });
+});
+
+// A reading is dated by the data point it shows, in every home of it. The
+// pointer's instant is a weekend between a Friday and a Monday, or the day before
+// the session it is nearest to; the strip's headline, the floating card, the
+// measure's headline and the pin's announcement must all name the session.
+describe.each(MODES)("StockChart (%s): a reading is dated by its data point", (mode) => {
+  // 55% of the way from point 2 to point 3: nearest point 3, on the pointer's
+  // day plus one in Sydney (it is 02:12 UTC, 13:12 Sydney, on the day of point 2).
+  const BETWEEN = 2.55;
+
+  it("dates a hover between two sessions by the nearest one", () => {
+    const { plot, reading } = renderChart(NIGHT_SERIES, mode);
+    fireEvent.mouseMove(plot, pt(xOf(BETWEEN), 50));
+    const text = reading()!.textContent;
+    expect(text).toContain(nightDate(3));
+    expect(text).not.toContain(nightDate(2));
+  });
+
+  it("dates a touch pin between two sessions by the nearest one, on the card and in the announcement alike", () => {
+    const { plot, container, reading } = renderChart(NIGHT_SERIES, mode);
+    tap(plot, xOf(BETWEEN));
+    expect(reading()!.textContent).toContain(nightDate(3));
+    expect(reading()!.textContent).not.toContain(nightDate(2));
+    const said = container.querySelector("[data-chart-announcer]")!.textContent;
+    expect(said).toContain(`Pinned ${nightDate(3)}:`);
+    expect(said).not.toContain(nightDate(2));
+  });
+
+  it("names the sessions a drag-measure compared, not the instants it began and ended at", () => {
+    const { plot, container } = renderChart(NIGHT_SERIES, mode);
+    fireEvent.mouseDown(plot, { ...pt(xOf(BETWEEN)), button: 0 });
+    fireEvent.mouseMove(plot, pt(xOf(BETWEEN + 4)));
+    const readout = container.querySelector<HTMLElement>('[data-chart="measure-readout"]')!;
+    // Points 3 and 7, a rise from 43 to 47: the change is between those two.
+    expect(readout.textContent).toContain(`${nightDate(3)} \u2192 ${nightDate(7)}`);
+    expect(readout.textContent).toContain("Price+9.3%");
+    expect(readout.textContent).not.toContain(nightDate(2));
+    expect(readout.textContent).not.toContain(nightDate(6));
   });
 });
 

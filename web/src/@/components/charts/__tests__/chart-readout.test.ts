@@ -503,6 +503,52 @@ describe("buildMeasureReadout", () => {
     expect(m.headline).toBe("6 Oct 2026 → 9 Oct 2026");
   });
 
+  describe("the dates in the headline", () => {
+    it("name the sessions compared, not the instants the pointer was at", () => {
+      // 0.49 of a day short of the 6th and of the 9th: 12:14 UTC, which is 23:14
+      // on the 5th and on the 8th in Sydney, and 0.49 from the points on the 6th
+      // and the 9th. They are what the pointer is nearest, and what the changes
+      // below are between.
+      const m = buildMeasureReadout({
+        series: [price, short],
+        ta: oct(6) - 0.49 * DAY,
+        tb: oct(9) - 0.49 * DAY,
+      });
+      expect(m.headline).toBe("6 Oct 2026 \u2192 9 Oct 2026");
+      expect(m.entries.map((e) => e.change?.text)).toEqual(["+5.0%", "+0.21 pp"]);
+    });
+
+    it("are those of the first series, whatever the others are nearest", () => {
+      // The short series is published on some days only: its nearest point to
+      // the 6th is the 5th, but the headline names the price's sessions.
+      const sparse = shortSeries(pts([5, 3.0], [8, 3.15]));
+      const m = buildMeasureReadout({
+        series: [price, sparse],
+        ta: oct(6),
+        tb: oct(9),
+      });
+      expect(m.headline).toBe("6 Oct 2026 \u2192 9 Oct 2026");
+      // Led by the sparse series instead, it is the sparse series' sessions.
+      const led = buildMeasureReadout({
+        series: [sparse, price],
+        ta: oct(6),
+        tb: oct(9),
+      });
+      expect(led.headline).toBe("5 Oct 2026 \u2192 8 Oct 2026");
+    });
+
+    it("fall back to the pointer's times when the first series has no point", () => {
+      const m = buildMeasureReadout({
+        series: [priceSeries([]), short],
+        ta: oct(6),
+        tb: oct(9),
+      });
+      expect(m.headline).toBe("6 Oct 2026 \u2192 9 Oct 2026");
+      const none = buildMeasureReadout({ series: [], ta: oct(6), tb: oct(9) });
+      expect(none.headline).toBe("6 Oct 2026 \u2192 9 Oct 2026");
+    });
+  });
+
   it("reports each series' change between its points nearest each end", () => {
     const m = buildMeasureReadout({
       series: [price, short],

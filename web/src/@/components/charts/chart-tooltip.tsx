@@ -40,7 +40,9 @@ export interface HoverEntry {
 export interface HoverState {
   cx: number; // crosshair x (px, inner-plot coordinates)
   cy: number; // cursor y (px, relative to the svg/container) — tooltip follows it
-  t: number; // hovered time
+  // The time under the pointer, not the time of a point: a reading is dated by
+  // `entries[0].point.t`, and this is only where the keyboard steps from.
+  t: number;
   entries: HoverEntry[];
   /** Input that produced this hover. Touch and keyboard readings dock the tooltip in a corner. */
   source?: "mouse" | "touch" | "keyboard";
@@ -243,8 +245,14 @@ export function TooltipContent({
   rightAxis?: AxisSpec;
 }) {
   // The same formatter as the strip and the measure card (spec D5, Dates), so
-  // one chart prints one date one way, whoever's browser it is in.
-  const dateLabel = useMemo(() => formatReadoutDate(hover.t), [hover.t]);
+  // one chart prints one date one way, whoever's browser it is in. And the same
+  // date: the reading is dated by the point it shows, as the strip's headline
+  // and the pin's announcement are (buildPointReadout), never by where the
+  // cursor happens to be. `hover.t` is the cursor's time, and between two
+  // sessions that is a weekend the ASX did not trade, or the day before the
+  // price on the card. It is only the date of a reading with no point at all.
+  const dateT = hover.entries[0]?.point.t ?? hover.t;
+  const dateLabel = useMemo(() => formatReadoutDate(dateT), [dateT]);
   const fmt = (e: HoverEntry) => {
     const f =
       e.series.axis === "right" ? rightAxis?.format : leftAxis?.format;

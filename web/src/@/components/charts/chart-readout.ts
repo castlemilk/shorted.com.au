@@ -281,6 +281,12 @@ export function buildPointReadout(a: {
  * The drag-to-measure reading: each series' change between the points nearest
  * `ta` and `tb`. It names no value, only the change; a series with no point at
  * either end keeps its row without one.
+ *
+ * The headline names the sessions compared, as a hover does: the dates of the
+ * first series' points nearest `ta` and `tb`. `ta` and `tb` are instants under
+ * the pointer, and between two sessions an instant is a weekend, or the day
+ * before the session it is nearest to. Only a first series with no point leaves
+ * the pointer's own times to name.
  */
 export function buildMeasureReadout(a: {
   series: ChartSeriesSpec[];
@@ -288,9 +294,10 @@ export function buildMeasureReadout(a: {
   tb: number;
 }): ReadoutModel {
   const { series, ta, tb } = a;
+  const lead = series[0]?.points ?? [];
   return {
     state: "measure",
-    headline: `${formatReadoutDate(ta)} → ${formatReadoutDate(tb)}`,
+    headline: `${formatReadoutDate(nearest(lead, ta)?.t ?? ta)} → ${formatReadoutDate(nearest(lead, tb)?.t ?? tb)}`,
     entries: series.map((s): ReadoutEntry => {
       const pa = nearest(s.points, ta);
       const pb = nearest(s.points, tb);
