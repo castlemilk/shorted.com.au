@@ -158,7 +158,7 @@ test.describe("Stock Detail — Content Paint", () => {
     });
   }
 
-  test("stock page company profile section renders", async ({ page }) => {
+  test("stock page header and summary render", async ({ page }) => {
     await page.goto("/shorts/BHP", {
       waitUntil: "domcontentloaded",
       timeout: 30_000,

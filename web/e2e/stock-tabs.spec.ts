@@ -108,6 +108,18 @@ const SHORT_SERIES_PATH = "/shorts.v1alpha1.StockService/GetStockData";
 
 const stockNav = (page: Page) => page.getByRole("navigation", { name: "Stock sections" });
 
+// The bar's list of tabs, the one thing in the bar that scrolls sideways. It
+// says which edges have more tabs behind them (data-scroll-start / -end) and
+// draws a fade on those.
+const tabList = (page: Page) => stockNav(page).locator(":scope > div");
+
+// The fade, as the browser computes it ("none" when there is none).
+const fadeOf = (list: Locator) =>
+  list.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return style.maskImage || style.getPropertyValue("-webkit-mask-image") || "none";
+  });
+
 // The price charts: the Overview's and Short interest's. The Strategy tab's
 // levels chart is a StockChart too, so it has a [data-chart-container] of its
 // own. It sits inside [data-strategy-chart] and is not one of these.
@@ -134,11 +146,13 @@ const scrollY = (page: Page) => page.evaluate(() => window.scrollY);
  * page does once it has its data (the strip's height, a query cache that has to
  * hold the series, a layout that must not move as the data arrives) must see
  * that data, so answer the page from the API only once the API has answered:
- * wait out the Retry-After, and ask again.
+ * wait out the Retry-After, and ask again. The price series is the same API
+ * behind a Next rewrite (PRICE_SERIES_PATH) and is refused the same way, so it is
+ * answered the same way.
  */
 async function waitOutRateLimit(page: Page): Promise<void> {
   await page.route(
-    (url) => url.pathname.startsWith("/shorts.v1alpha1."),
+    (url) => url.pathname.startsWith("/shorts.v1alpha1.") || url.pathname === PRICE_SERIES_PATH,
     async (route) => {
       try {
         let response = await route.fetch();
@@ -351,6 +365,65 @@ test.describe("stock page tabs", () => {
     }
   });
 
+  // At 360px and 375px the first three tabs fill the row and the fourth starts
+  // past the edge (x=368 at both), so nothing peeks out of a bar whose scrollbar
+  // is hidden: the fade on the edge that can scroll is the only cue that
+  // Financials, Company, News and Community exist. The state is read from the
+  // bar's own attributes, and the fade from its computed style.
+  test("360px: the tab bar fades the edge it can scroll to, and the fade follows the scroll", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.goto(`/shorts/${CODE}`);
+    const list = tabList(page);
+
+    // At rest: more tabs behind the end, none behind the start. The attribute
+    // is set once the bar has hydrated and been measured, so waiting for it is
+    // waiting for the page.
+    await expect(list).toHaveAttribute("data-scroll-end", "true", COLD);
+    await expect(list).not.toHaveAttribute("data-scroll-start");
+    expect(await fadeOf(list), "the end fade is drawn, not just announced").toContain("linear-gradient");
+    const overflow = await list.evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+    expect(overflow.scrollWidth, "the tabs overflow the bar").toBeGreaterThan(overflow.clientWidth);
+
+    // Scrolled to the end: the last tab is in, and the fade moves to the start.
+    const before = await fadeOf(list);
+    await list.evaluate((el) => {
+      el.scrollLeft = el.scrollWidth;
+    });
+    await expect(list).toHaveAttribute("data-scroll-start", "true");
+    await expect(list).not.toHaveAttribute("data-scroll-end");
+    await expect(stockNav(page).getByRole("link", { name: "Community" })).toBeInViewport({ ratio: 1 });
+    const atEnd = await fadeOf(list);
+    expect(atEnd, "the fade is on the other edge now").toContain("linear-gradient");
+    expect(atEnd, "the fade is on the other edge now").not.toBe(before);
+
+    // Part of the way back: tabs behind both edges.
+    await list.evaluate((el) => {
+      el.scrollLeft = 150;
+    });
+    await expect(list).toHaveAttribute("data-scroll-start", "true");
+    await expect(list).toHaveAttribute("data-scroll-end", "true");
+
+    // And back at the start, as at rest.
+    await list.evaluate((el) => {
+      el.scrollLeft = 0;
+    });
+    await expect(list).toHaveAttribute("data-scroll-end", "true");
+    await expect(list).not.toHaveAttribute("data-scroll-start");
+    expect(await fadeOf(list)).toBe(before);
+  });
+
+  test("1280px: a tab bar that fits draws no fade", async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await page.goto(`/shorts/${CODE}`);
+    // The chart's arrival says the page has hydrated, so the bar has been
+    // measured: an absent attribute is not just an unhydrated one.
+    await expect(priceCharts(page)).toBeVisible(COLD);
+    const list = tabList(page);
+    await expect(list).not.toHaveAttribute("data-scroll-end");
+    await expect(list).not.toHaveAttribute("data-scroll-start");
+    expect(await fadeOf(list)).toBe("none");
+  });
+
   test("the chrome leaves the content in the first screen", async ({ page }) => {
     // Signed out, so the sign-in banner is in play, and after hydration. Soft
     // assertions: one run names every number that is out.
@@ -361,14 +434,25 @@ test.describe("stock page tabs", () => {
       ["News", `/shorts/${CODE}/news`],
     ] as const;
 
-    // Hydration has no signal to wait for on a tab without a chart, and the
-    // network never goes quiet for long: the community teaser's own fetch can
-    // hold it busy for half a minute. A second after the load is time enough
-    // (the layout-shift test shows nothing moves after that), and on the
-    // Overview the chart's arrival says the page is up.
+    // The network never goes quiet for long (the community teaser's own fetch
+    // can hold it busy for half a minute), so "settled" is a sign on the page.
+    // On the Overview it is the chart's arrival. On the other tabs it is what
+    // the tab prints that its loading state does not: Financials' first heading
+    // after the bar, News' h1 (both are in the server HTML, so a measurement
+    // taken before them could be of the route's loading skeleton). Only a tab
+    // with no such sign falls back to a second's wait (the layout-shift test
+    // shows nothing moves after that).
+    const tabHeading: Record<string, Locator | undefined> = {
+      Financials: page.locator(
+        'xpath=//nav[@aria-label="Stock sections"]/following::*[self::h1 or self::h2 or self::h3][1]',
+      ),
+      News: page.getByRole("heading", { level: 1 }).first(),
+    };
     async function settled(label: string, path: string) {
       await page.goto(path);
-      await page.waitForTimeout(1_000);
+      const heading = tabHeading[label];
+      if (heading) await expect(heading, `${label}: its own heading`).toBeVisible(COLD);
+      else await page.waitForTimeout(1_000);
       if (label === "Overview") await expect(priceCharts(page)).toBeVisible(COLD);
     }
 
@@ -454,10 +538,72 @@ test.describe("stock page tabs", () => {
     });
   }
 
+  // WCAG 2.2 SC 2.4.11, Focus Not Obscured. The docked bar is translucent and
+  // blurred, so a control the keyboard reaches in the band under it (64 to 109px)
+  // would be an unreadable smear. The bar scrolls such a control clear when the
+  // page has hydrated. CSS scroll-padding-top is not the cure: it makes Tab across
+  // the docked tab links scroll the page to the top, which the second test holds.
+  test.describe("focus under the docked bar", () => {
+    test.use({ viewport: DESKTOP });
+
+    test("a link the keyboard reaches under the docked bar is scrolled clear of it", async ({ page }) => {
+      await page.goto(`/shorts/${CODE}`);
+      // The chart's arrival says the page has hydrated, so the bar is listening.
+      await expect(priceCharts(page)).toBeVisible(COLD);
+      const nav = stockNav(page);
+      const link = page.getByRole("link", { name: /History & FAQ/ });
+
+      // A key press, so the focus that follows is a keyboard's (:focus-visible).
+      // Tab moves focus to the first control and the page to the top, so the
+      // page is placed after it.
+      await page.keyboard.press("Tab");
+      // Dock the bar, with the link at 80px: under the bar, clear of the header.
+      await link.evaluate((el) => window.scrollBy(0, el.getBoundingClientRect().top - 80));
+      const bar = await boxOf(nav);
+      expect(bar.top, "the tab bar is docked").toBeGreaterThanOrEqual(60);
+      expect(bar.top, "the tab bar is docked").toBeLessThanOrEqual(66);
+      const placed = await boxOf(link);
+      expect(placed.top, "the link starts under the bar").toBeLessThan(bar.bottom);
+      expect(placed.bottom, "the link is on screen").toBeGreaterThan(bar.top);
+
+      await link.focus();
+      await expect(link).toBeFocused();
+      await expect
+        .poll(async () => (await boxOf(link)).top, {
+          message: "the focused link is scrolled out from under the tab bar",
+        })
+        .toBeGreaterThanOrEqual(bar.bottom);
+      expect((await boxOf(nav)).top, "the bar stays docked").toBeLessThanOrEqual(66);
+    });
+
+    test("Tab across the docked tab links does not move the page", async ({ page }) => {
+      await page.goto(`/shorts/${CODE}`);
+      await expect(priceCharts(page)).toBeVisible(COLD);
+      const nav = stockNav(page);
+      const links = nav.getByRole("link");
+      await expect(links).toHaveCount(7);
+
+      await page.evaluate(() => window.scrollTo(0, 1200));
+      expect((await boxOf(nav)).top, "the tab bar is docked").toBeLessThanOrEqual(66);
+      await links.first().focus();
+      const docked = await scrollY(page);
+      expect(docked, "the page is scrolled").toBeGreaterThan(0);
+
+      for (let i = 1; i < 7; i++) {
+        await page.keyboard.press("Tab");
+        await expect(links.nth(i)).toBeFocused();
+        expect(await scrollY(page), `Tab onto tab link ${i + 1} moved the page`).toBe(docked);
+      }
+    });
+  });
+
   test.describe("touch input", () => {
     test.use({ viewport: PHONE, hasTouch: true });
 
     test("a phone tap pins the readout without moving the plot", async ({ page }) => {
+      // Throttled: a refused call is waited out (up to a minute, up to three
+      // times) before the chart has both its series.
+      test.setTimeout(180_000);
       await waitOutRateLimit(page);
       await recordLayoutShifts(page);
       await page.goto(`/shorts/${CODE}`);
@@ -491,6 +637,8 @@ test.describe("stock page tabs", () => {
 
   for (const viewport of VIEWPORTS) {
     test(`${viewport.width}px: first load and a tab switch shift nothing`, async ({ page }) => {
+      // Throttled, and it sits out two 3 s settles on top of the waits.
+      test.setTimeout(180_000);
       await page.setViewportSize(viewport);
       await waitOutRateLimit(page);
       await recordLayoutShifts(page);
@@ -546,6 +694,22 @@ test.describe("stock page tabs", () => {
       expect.soft(shiftTotal(switchShifts), `layout shift on the switch to Short interest: ${describeShifts(switchShifts)}`).toBeLessThan(0.02);
     });
   }
+
+  // Dismissing the banner renders it null. Its frame (the bordered wrapper the
+  // Overview draws round it) is `empty:hidden`, so a 2px sliver of border is not
+  // left above the grid; html.anon comes off, so the slot's reservation goes too.
+  test("dismissing the sign-in banner leaves nothing of its slot behind", async ({ page }) => {
+    await page.goto(`/shorts/${CODE}`);
+    const slot = page.locator(".login-slot");
+    const close = slot.getByRole("button", { name: "Close" });
+    await expect(close).toBeVisible(COLD);
+    const slotHeight = () => slot.evaluate((el) => el.getBoundingClientRect().height);
+    expect(await slotHeight(), "the slot holds the banner while it is shown").toBeGreaterThan(40);
+
+    await close.click();
+    await expect(slot.getByRole("button", { name: "Close" })).toHaveCount(0);
+    await expect.poll(slotHeight, { message: "the sign-in slot's height after Close" }).toBe(0);
+  });
 
   test("a legacy ?tab= link answers with a permanent redirect to the tab route", async ({ request }) => {
     const res = await request.get(`/shorts/${CODE}?tab=financials`, { maxRedirects: 0 });
