@@ -103,7 +103,13 @@ export interface StockChartProps {
   rightAxis?: AxisSpec;
   viewMode?: "absolute" | "normalized"; // default "absolute"
   showBrush?: boolean; // default true in "full"
-  height?: number; // default 360
+  /**
+   * The chart's total height in px, readout strip included. Omitted, the chart
+   * fills its parent instead: it takes the height ParentSize measures there and
+   * draws nothing while that is under 10px. The parent needs a definite height
+   * (a box sized by CSS, say); an auto-height one measures as nothing.
+   */
+  height?: number;
   variant?: "full" | "compact"; // compact: no axis labels, no volume, no brush
   decimationTargetPerPx?: number; // default 2
   /**

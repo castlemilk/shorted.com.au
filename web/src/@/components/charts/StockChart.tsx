@@ -68,6 +68,10 @@ export interface HandleBrushClearAndReset {
 }
 
 const MOBILE_MAX = 500;
+// Under this many px a side is not a space a chart can be drawn in: StockChartInner
+// draws nothing for a narrower width, and StockChart nothing for a lower
+// measured height (the first measurement, before layout, is 0).
+const MIN_DRAWABLE_PX = 10;
 // Min horizontal drag (px) before a press is treated as a measure/zoom gesture
 // rather than a click — below this we leave the view untouched.
 const MEASURE_MIN_PX = 6;
@@ -527,8 +531,8 @@ export function StockChartInner({
   // model feeds both homes of the reading, the strip and the floating card, so
   // they cannot disagree about a date, a number, a sign or a colour. That
   // includes the card's dates: en-AU on the Sydney calendar (spec D5, Dates),
-  // where the card once printed them in the browser's locale. TooltipContent's
-  // hover date is its own formatter and is not part of this.
+  // where the card once printed them in the browser's locale. The hover card
+  // dates its reading the same way: TooltipContent takes formatReadoutDate too.
   const measureInfo = useMemo(() => {
     if (!measure || Math.abs(measure.x1 - measure.x0) < 1) return null;
     const xa = Math.min(measure.x0, measure.x1);
@@ -759,7 +763,7 @@ export function StockChartInner({
     [unpin],
   );
 
-  if (width < 10) return null;
+  if (width < MIN_DRAWABLE_PX) return null;
 
   const oscTop = margin.top + mainH + (showOsc ? 12 : 0);
   const brushTop = svgH - brushH + 4;
@@ -1294,13 +1298,27 @@ function OscillatorPanel({
 
 export const StockChart = forwardRef<HandleBrushClearAndReset, StockChartProps>(
   function StockChart(props, ref) {
-    const height = props.height ?? 360;
+    // A caller that passes a height owns it (the embed, the strategy chart, the
+    // dashboard widgets). One that does not gets its parent's: the wrapper
+    // fills the parent and the chart takes the height ParentSize measures, so a
+    // box sized by CSS alone sizes the chart, across a breakpoint too. Either
+    // way that height is the chart's total, and the readout strip and the mode
+    // choice work from it. The parent needs a definite height; over an auto one
+    // `100%` is auto, and the wrapper measures its own content, which is
+    // nothing until the chart has drawn.
+    const fixed = props.height;
     return (
-      <div style={{ width: "100%", height }}>
+      <div style={{ width: "100%", height: fixed ?? "100%" }}>
         <ParentSize>
-          {({ width }) => (
-            <StockChartInner {...props} width={width} height={height} handleRef={ref} />
-          )}
+          {({ width, height: measured }) => {
+            const height = fixed ?? measured;
+            // Nothing to draw into yet: the bar StockChartInner holds the width
+            // to. A height the caller gave is theirs to get right.
+            if (fixed === undefined && height < MIN_DRAWABLE_PX) return null;
+            return (
+              <StockChartInner {...props} width={width} height={height} handleRef={ref} />
+            );
+          }}
         </ParentSize>
       </div>
     );
