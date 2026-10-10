@@ -102,11 +102,17 @@ export function StockTabNav({ stockCode }: { stockCode: string }) {
       <nav
         ref={navRef}
         aria-label="Stock sections"
-        className="sticky top-16 z-30 -mx-8 mb-4 border-b border-border bg-background/90 px-8 backdrop-blur supports-[backdrop-filter]:bg-background/75"
+        className="sticky top-16 z-30 -mx-8 mb-4 border-b border-border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75"
       >
+        {/* The bar bleeds to main's edges with -mx-8, and the 2rem it gives back
+            is padding on the LIST, not on the bar. On a phone the overflowing
+            tabs then scroll to the screen's edge and the next one peeks out,
+            which is what shows the bar scrolls. `scroll-px-8` keeps that
+            margin when the browser scrolls a focused tab into view. The
+            scrollbar is hidden because the row has no height to spare for it. */}
         <div
           ref={listRef}
-          className="relative flex h-11 items-stretch gap-1 overflow-x-auto"
+          className="relative flex h-11 scroll-px-8 items-stretch gap-1 overflow-x-auto px-8 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {STOCK_TABS.map((tab) => {
             const href = stockTabHref(stockCode, tab.id);

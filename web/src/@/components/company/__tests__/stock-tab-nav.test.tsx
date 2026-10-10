@@ -120,9 +120,18 @@ describe("StockTabNav markup", () => {
   it("is sticky under the site header, translucent, and bleeds to the edges of main", () => {
     render(<StockTabNav stockCode="BHP" />);
     expect(navigation()).toHaveClass(
-      "sticky", "top-16", "z-30", "-mx-8", "px-8", "mb-4", "border-b", "border-border",
+      "sticky", "top-16", "z-30", "-mx-8", "mb-4", "border-b", "border-border",
       "bg-background/90", "backdrop-blur", "supports-[backdrop-filter]:bg-background/75",
     );
+  });
+
+  // The page's 2rem gutter is given back by the bar's -mx-8. If the bar kept
+  // its own px-8, the scrolling list would sit inside it and the tabs would clip
+  // 32px short of the screen's edge. The padding belongs to the list.
+  it("leaves the gutter's padding to the scrolling list, so the tabs scroll to the edge", () => {
+    render(<StockTabNav stockCode="BHP" />);
+    expect(navigation()).not.toHaveClass("px-8");
+    expect(navigation().firstElementChild).toHaveClass("px-8", "scroll-px-8");
   });
 
   it("puts a zero-height sentinel in the flow just before the bar, hidden from assistive technology", () => {
@@ -137,6 +146,13 @@ describe("StockTabNav markup", () => {
     render(<StockTabNav stockCode="BHP" />);
     const list = navigation().firstElementChild;
     expect(list).toHaveClass("relative", "flex", "h-11", "items-stretch", "gap-1", "overflow-x-auto");
+  });
+
+  // The row has no height to spare for a classic scrollbar (15px of its 44).
+  it("hides the list's scrollbar in both engines, and still scrolls", () => {
+    render(<StockTabNav stockCode="BHP" />);
+    const list = navigation().firstElementChild;
+    expect(list).toHaveClass("[scrollbar-width:none]", "[&::-webkit-scrollbar]:hidden", "overflow-x-auto");
   });
 
   it("draws the active tab in foreground weight with a 2px Burnt Amber underline", () => {
@@ -208,6 +224,8 @@ describe("StockTabNav keeps the active tab in view", () => {
     expect(scrollTo).toHaveBeenCalledWith({ left: 484 });
   });
 
+  // The list carries the 32px gutter as padding, and offsetLeft counts it: the
+  // first tab sits 32px in, which is inside the list, not 32px of overflow.
   it("leaves the list alone when the active tab is already visible", () => {
     pathname = "/shorts/BHP";
     const scrollTo = jest.fn();
@@ -215,9 +233,21 @@ describe("StockTabNav keeps the active tab in view", () => {
     define(HTMLElement.prototype, "clientWidth", 300);
     define(HTMLElement.prototype, "scrollLeft", 0);
     define(HTMLElement.prototype, "offsetWidth", 90);
-    define(HTMLElement.prototype, "offsetLeft", 0);
+    define(HTMLElement.prototype, "offsetLeft", 32);
     render(<StockTabNav stockCode="BHP" />);
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("scrolls the list back to a tab that has been scrolled out on its left", () => {
+    pathname = "/shorts/BHP";
+    const scrollTo = jest.fn();
+    define(HTMLElement.prototype, "scrollTo", scrollTo);
+    define(HTMLElement.prototype, "clientWidth", 300);
+    define(HTMLElement.prototype, "scrollLeft", 400);
+    define(HTMLElement.prototype, "offsetWidth", 90);
+    define(HTMLElement.prototype, "offsetLeft", 32);
+    render(<StockTabNav stockCode="BHP" />);
+    expect(scrollTo).toHaveBeenCalledWith({ left: 16 });
   });
 });
 
