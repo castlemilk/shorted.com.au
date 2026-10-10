@@ -463,8 +463,9 @@ test.describe("stock page tabs", () => {
       await page.goto(`/shorts/${CODE}`);
       const plot = page.locator("svg:has([data-chart-capture])");
       await expect(plot).toBeVisible(COLD);
-      // Both series are in the strip, so its height is its final one: the combined
-      // view's strip is taller by a row once the second series has arrived.
+      // Both series are in the strip, so there is a second reading to pin. The
+      // strip's height does not wait for it: the combined view holds the second
+      // series' row from the first render (readoutReserveSeries).
       await expect(page.locator("[data-chart-readout] [data-readout-entry]")).toHaveCount(2, THROTTLED);
 
       const topBefore = (await boxOf(plot)).top;
@@ -517,8 +518,9 @@ test.describe("stock page tabs", () => {
       expect(atParse?.bannerMounted, "the banner had not mounted when the document was parsed").toBe(false);
 
       // The load has settled when the chart is drawn with both its series (the
-      // strip grows a row when the second arrives, and that is the load's) and
-      // the banner is in; the late arrivals get three more seconds.
+      // strip held the second one's row from the first render, so its arrival
+      // moves nothing; it is the data that is waited for) and the banner is in;
+      // the late arrivals get three more seconds.
       await expect(priceCharts(page)).toBeVisible(COLD);
       await expect(page.locator("[data-chart-readout] [data-readout-entry]")).toHaveCount(2, THROTTLED);
       const slot = page.locator(".login-slot");

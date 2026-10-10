@@ -46,6 +46,7 @@ function renderStrip(
     pinned?: boolean;
     valueChars?: Record<string, number>;
     onRelease?: () => void;
+    seriesRows?: number;
   } = {},
 ) {
   const width = props.width ?? 400;
@@ -55,10 +56,14 @@ function renderStrip(
       width={width}
       // StockChart hands over the height it took off the svg; absent one, the
       // width and the number of series say which, as they do there.
-      height={props.height ?? readoutStripHeight(width, m.entries.length)}
+      height={
+        props.height ??
+        readoutStripHeight(width, Math.max(m.entries.length, props.seriesRows ?? 0))
+      }
       pinned={props.pinned ?? false}
       valueChars={props.valueChars}
       onRelease={props.onRelease ?? jest.fn()}
+      seriesRows={props.seriesRows}
     />,
   );
 }
@@ -172,6 +177,69 @@ describe("ChartReadoutStrip", () => {
         "+3.1%",
         "· 5 Oct",
       ]);
+    });
+  });
+
+  describe("a phone strip that holds rows for series that have not arrived", () => {
+    const one = model({ entries: [entry()] });
+    const both = model({
+      entries: [entry(), entry({ id: "short", label: "Short %", value: "3.20%" })],
+    });
+    const rowHeights = (c: HTMLElement) =>
+      Array.from(c.querySelectorAll<HTMLElement>("[data-readout-row]")).map((r) => r.style.height);
+    const stripOf = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-chart-readout]")!;
+    const reserved = (c: HTMLElement) =>
+      Array.from(c.querySelectorAll<HTMLElement>("[data-readout-reserved]"));
+
+    it("lays the row of a series still to come out empty, under the entries it has", () => {
+      const { container } = renderStrip(one, { width: 360, seriesRows: 2 });
+      // 8 + 18 x (1 + 2): the height of the strip with both series in.
+      expect(stripOf(container).style.height).toBe("62px");
+      // The headline row is what the series rows leave, as with both in...
+      expect(rowHeights(container)).toEqual(["26px", "18px"]);
+      expect(container.querySelectorAll("[data-readout-entry]")).toHaveLength(1);
+      // ...and the second series' row is there, 18px, with nothing in it.
+      expect(reserved(container)).toHaveLength(1);
+      expect(reserved(container)[0]!.style.height).toBe("18px");
+      expect(reserved(container)[0]!.textContent).toBe("");
+      expect(reserved(container)[0]!.getAttribute("aria-hidden")).toBe("true");
+    });
+
+    it("is the same strip, to the pixel, when the series arrives", () => {
+      const waiting = renderStrip(one, { width: 360, seriesRows: 2 });
+      const before = { strip: stripOf(waiting.container).style.height, rows: rowHeights(waiting.container) };
+      waiting.unmount();
+      const arrived = renderStrip(both, { width: 360, seriesRows: 2 });
+      expect(stripOf(arrived.container).style.height).toBe(before.strip);
+      // The headline row and the first series' row stay put; the second takes
+      // the row that was held for it.
+      expect(rowHeights(arrived.container)).toEqual([...before.rows, "18px"]);
+      expect(reserved(arrived.container)).toHaveLength(0);
+    });
+
+    it("holds a row for each series to come: three rows over one entry", () => {
+      const { container } = renderStrip(one, { width: 360, seriesRows: 3 });
+      expect(stripOf(container).style.height).toBe("80px");
+      expect(rowHeights(container)).toEqual(["26px", "18px"]);
+      expect(reserved(container)).toHaveLength(2);
+    });
+
+    it("never holds fewer rows than there are entries", () => {
+      const { container } = renderStrip(both, { width: 360, seriesRows: 1, height: 62 });
+      expect(rowHeights(container)).toEqual(["26px", "18px", "18px"]);
+      expect(reserved(container)).toHaveLength(0);
+    });
+
+    it("holds nothing on one row, where every series shares the 28px", () => {
+      const { container } = renderStrip(one, { width: 800, seriesRows: 2 });
+      expect(stripOf(container).style.height).toBe("28px");
+      expect(reserved(container)).toHaveLength(0);
+    });
+
+    it("holds nothing when it is not asked to", () => {
+      const { container } = renderStrip(one, { width: 360 });
+      expect(stripOf(container).style.height).toBe("44px");
+      expect(reserved(container)).toHaveLength(0);
     });
   });
 

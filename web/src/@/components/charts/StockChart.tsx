@@ -123,6 +123,7 @@ export function StockChartInner({
   variant = "full",
   decimationTargetPerPx = 2,
   readout = "strip",
+  readoutReserveSeries,
   handleRef,
 }: StockChartProps & {
   width: number;
@@ -166,7 +167,15 @@ export function StockChartInner({
   // reading changes. It gives way to the floating tooltip when the plot left
   // under it would be too short to read. `height` stays the component's total
   // either way: the svg gets what the strip leaves.
-  const seriesCount = series.length;
+  //
+  // The rows it is sized for are the series it has, or the series it is told to
+  // expect if that is more (`readoutReserveSeries`): a series that lands later
+  // finds its row held, so the strip does not grow and the plot does not move.
+  const heldSeries =
+    Number.isInteger(readoutReserveSeries) && readoutReserveSeries! > 0
+      ? readoutReserveSeries!
+      : 0;
+  const seriesCount = Math.max(series.length, heldSeries);
   const readoutMode = resolveReadoutMode({
     requested: readout,
     width,
@@ -797,6 +806,7 @@ export function StockChartInner({
           height={stripH}
           pinned={isPinnedView}
           valueChars={valueChars}
+          seriesRows={seriesCount}
           onRelease={releasePin}
         />
       )}

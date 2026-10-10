@@ -341,6 +341,53 @@ export const PhoneShortView: Story = {
   },
 };
 
+// The Combined view's price and its short interest are two requests, so one lands
+// first. On a phone each series is a row of the strip, so a short series that came
+// after the price used to grow the strip from 44px to 62px and move the plot under
+// it by 18px: a layout shift on every first load. The panel holds the second row
+// from the first render, so nothing under the strip moves when the series lands.
+export const PhoneShortArrivesLate: Story = {
+  name: "Phone (390px), short series arrives after the price",
+  tags: ["no-visual"],
+  parameters: { bare: true, viewport: { options: VIEWPORTS } },
+  globals: { viewport: { value: "phone", isRotated: false } },
+  decorators: [page],
+  beforeEach: () => {
+    mocked(getHistoricalData).mockResolvedValue(historicalDataFixture("PLS", "1y"));
+    mocked(fetchStockDataClient).mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(() => resolve(timeSeriesDataFixture("PLS", "1y")), 700),
+        ),
+    );
+  },
+  render: (args) => <SkeletonAndPanel {...args} />,
+  play: async ({ canvasElement }) => {
+    expect(window.matchMedia("(min-width: 640px)").matches).toBe(false);
+    await drawn(canvasElement);
+    const container = canvasElement.querySelector<HTMLElement>("[data-chart-container]")!;
+    const strip = () => container.querySelector<HTMLElement>("[data-chart-readout]")!;
+    const plot = () => container.querySelector("svg")!;
+    const entries = () => container.querySelectorAll("[data-readout-entry]");
+
+    // The price is in and the short series is not: one entry, and the strip is
+    // already 62px, the two series' worth, with an empty row where it will go.
+    expect(entries()).toHaveLength(1);
+    expect(container.querySelectorAll("[data-readout-reserved]")).toHaveLength(1);
+    const before = { strip: rect(strip()), plot: rect(plot()) };
+    expect(before.strip.height).toBeCloseTo(readoutStripHeight(rect(container).width, 2), 0);
+    expect(before.strip.height).toBeCloseTo(62, 0);
+
+    // The short series lands. Its row was held: the strip is the height it was,
+    // and the plot is where it was, to the pixel.
+    await waitFor(() => expect(entries()).toHaveLength(2), { timeout: 5000 });
+    expect(container.querySelectorAll("[data-readout-reserved]")).toHaveLength(0);
+    expect(rect(strip()).height).toBeCloseTo(before.strip.height, 1);
+    expect(rect(plot()).top).toBeCloseTo(before.plot.top, 1);
+    expect(rect(plot()).height).toBeCloseTo(before.plot.height, 1);
+  },
+};
+
 // A tablet is past sm (a 420px box) and short of xl, and 704px wide: the stack
 // holds, with every toggle in reach. In the one row the toggles had 37px of 291.
 export const Tablet: Story = {

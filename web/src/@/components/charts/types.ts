@@ -122,6 +122,16 @@ export interface StockChartProps {
    * under READOUT_MIN_PLOT px falls back to the tooltip.
    */
   readout?: "strip" | "tooltip";
+  /**
+   * Series the strip holds a row for that have not arrived. A phone strip has a
+   * row for each series, so one that lands after the first (the Combined view
+   * loads its price and its short interest separately) would grow the strip by
+   * 18px and move the plot under it. The strip is sized for the greater of this
+   * and the number of series, and the rows of the series still to come are
+   * empty. It changes nothing from 640px wide, where the strip is one row
+   * whatever it shows, and nothing in the tooltip mode.
+   */
+  readoutReserveSeries?: number;
 }
 
 /** A horizontal reference line on one axis, optionally bounded to a time span. */

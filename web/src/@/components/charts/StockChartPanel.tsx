@@ -317,6 +317,10 @@ export function StockChartPanel({
             leftAxis={leftAxis}
             rightAxis={rightAxis}
             height={height}
+            // The price and the short series load separately, and on a phone each
+            // is a row of the strip: hold the second's row from the first render
+            // so the plot does not move 18px when it lands.
+            readoutReserveSeries={view === "combined" ? 2 : undefined}
           />
         ) : anyLoading ? (
           <div

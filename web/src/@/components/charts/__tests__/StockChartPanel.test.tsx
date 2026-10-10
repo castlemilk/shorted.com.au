@@ -17,12 +17,18 @@ jest.mock("../use-stock-chart-data", () => ({
 }));
 
 jest.mock("../StockChart", () => ({
-  StockChart: (props: { height?: number; series: unknown[] }) => (
+  StockChart: (props: {
+    height?: number;
+    series: unknown[];
+    readoutReserveSeries?: number;
+  }) => (
     <div
       data-testid="stock-chart"
       data-series={props.series.length}
       // Absent when the panel gave it no height: the chart then takes its box's.
       data-height={props.height === undefined ? "" : String(props.height)}
+      // Absent when the panel holds no readout rows for series still to come.
+      data-reserve={props.readoutReserveSeries === undefined ? "" : String(props.readoutReserveSeries)}
     />
   ),
 }));
@@ -283,6 +289,38 @@ describe("StockChartPanel: divergence legend", () => {
     expect(screen.getByRole("button", { name: /Divergence/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByText(/Shorts building into price strength/)).toBeNull();
     expect((container.firstElementChild as HTMLElement).className).not.toContain("'legend_legend'");
+  });
+});
+
+describe("StockChartPanel: the readout's rows", () => {
+  const reserve = () => screen.getByTestId("stock-chart").getAttribute("data-reserve");
+
+  it("holds both series' rows in the Combined view, so the strip is as tall before the second series lands", () => {
+    render(<StockChartPanel stockCode="BHP" />);
+    expect(reserve()).toBe("2");
+  });
+
+  it("holds them while only one of the two has arrived, which is when it matters", () => {
+    mockChartData.mockImplementation(() => data({ short: [], anyLoading: true }));
+    const { rerender } = render(<StockChartPanel stockCode="BHP" />);
+    // The price alone: one series, two rows held.
+    expect(screen.getByTestId("stock-chart")).toHaveAttribute("data-series", "1");
+    expect(reserve()).toBe("2");
+
+    mockChartData.mockImplementation(() => data());
+    rerender(<StockChartPanel stockCode="BHP" />);
+    expect(screen.getByTestId("stock-chart")).toHaveAttribute("data-series", "2");
+    expect(reserve()).toBe("2");
+  });
+
+  it("holds none in the views of one series: they have the one row", () => {
+    render(<StockChartPanel stockCode="BHP" />);
+    fireEvent.click(viewButton("Short Interest"));
+    expect(reserve()).toBe("");
+    fireEvent.click(viewButton("Price & Volume"));
+    expect(reserve()).toBe("");
+    fireEvent.click(viewButton("Combined"));
+    expect(reserve()).toBe("2");
   });
 });
 

@@ -1454,6 +1454,120 @@ describe("StockChart readout strip", () => {
     });
   });
 
+  describe("holding rows for series that have not arrived (readoutReserveSeries)", () => {
+    // The Combined view of a stock page loads its price and its short interest
+    // separately, so one of them lands first. On a phone each series is a row of
+    // the strip, and a strip that grows a row when the second lands moves the plot
+    // under it by 18px. Held from the first render, it does not.
+    const PRICE_ONLY = [SERIES[0]!];
+    const total = (c: HTMLElement) =>
+      Number(svgOf(c).getAttribute("height")) + parseFloat(strip(c).style.height);
+    const stripHeight = (c: HTMLElement) => strip(c).style.height;
+    const reserved = (c: HTMLElement) => c.querySelectorAll("[data-readout-reserved]").length;
+
+    it("sizes a phone strip for the series it will have: 62px with only the price in", () => {
+      const { container } = render(
+        <StockChartInner width={360} height={400} series={PRICE_ONLY} readoutReserveSeries={2} />,
+      );
+      expect(stripHeight(container)).toBe("62px");
+      expect(svgOf(container).getAttribute("height")).toBe(String(400 - 62));
+      // The row of the series to come is held, empty; the one that is in is read.
+      expect(container.querySelectorAll("[data-readout-entry]")).toHaveLength(1);
+      expect(reserved(container)).toBe(1);
+    });
+
+    it("does not move the plot when the second series arrives", () => {
+      const { container, rerender } = render(
+        <StockChartInner width={360} height={400} series={PRICE_ONLY} readoutReserveSeries={2} />,
+      );
+      const before = { strip: stripHeight(container), svg: svgOf(container).getAttribute("height") };
+      rerender(<StockChartInner width={360} height={400} series={SERIES} readoutReserveSeries={2} />);
+      expect(container.querySelectorAll("[data-readout-entry]")).toHaveLength(2);
+      expect(reserved(container)).toBe(0);
+      expect(stripHeight(container)).toBe(before.strip);
+      expect(svgOf(container).getAttribute("height")).toBe(before.svg);
+      expect(svgOf(container).getAttribute("height")).toBe("338");
+    });
+
+    it("holds for either series landing first", () => {
+      const SHORT_ONLY = [SERIES[1]!];
+      const { container, rerender } = render(
+        <StockChartInner width={360} height={400} series={SHORT_ONLY} readoutReserveSeries={2} />,
+      );
+      expect(stripHeight(container)).toBe("62px");
+      rerender(<StockChartInner width={360} height={400} series={SERIES} readoutReserveSeries={2} />);
+      expect(stripHeight(container)).toBe("62px");
+      expect(svgOf(container).getAttribute("height")).toBe("338");
+    });
+
+    it("keeps the strip and the svg adding up to the chart's height, before and after", () => {
+      const { container, rerender } = render(
+        <StockChartInner width={360} height={400} series={PRICE_ONLY} readoutReserveSeries={2} />,
+      );
+      expect(total(container)).toBe(400);
+      rerender(<StockChartInner width={360} height={400} series={SERIES} readoutReserveSeries={2} />);
+      expect(total(container)).toBe(400);
+    });
+
+    it("grows the strip when it is not asked to hold the row, which is what it is for", () => {
+      const { container, rerender } = render(
+        <StockChartInner width={360} height={400} series={PRICE_ONLY} />,
+      );
+      expect(stripHeight(container)).toBe("44px");
+      rerender(<StockChartInner width={360} height={400} series={SERIES} />);
+      expect(stripHeight(container)).toBe("62px");
+    });
+
+    it("changes nothing from 640px, where the strip is one row whatever it shows", () => {
+      const { container } = render(
+        <StockChartInner width={800} height={400} series={PRICE_ONLY} readoutReserveSeries={2} />,
+      );
+      expect(stripHeight(container)).toBe("28px");
+      expect(svgOf(container).getAttribute("height")).toBe(String(400 - 28));
+      expect(reserved(container)).toBe(0);
+    });
+
+    it("counts the held rows in the choice between the strip and the tooltip, as it does the series", () => {
+      // 236 - 44 - 32 = 160 for one series keeps the strip; holding a second row,
+      // 236 - 62 - 32 = 142, cannot. The choice is made on the strip it would show.
+      const asked = render(
+        <StockChartInner width={WIDTH} height={236} series={PRICE_ONLY} readoutReserveSeries={2} />,
+      );
+      expect(asked.container.querySelector("[data-chart-readout]")).toBeNull();
+      expect(svgOf(asked.container).getAttribute("height")).toBe("236");
+      asked.unmount();
+      const plain = render(<StockChartInner width={WIDTH} height={236} series={PRICE_ONLY} />);
+      expect(plain.container.querySelector("[data-chart-readout]")).not.toBeNull();
+    });
+
+    it.each([undefined, 0, 1, -3, NaN])("holds nothing for %s, whatever the chart has", (n) => {
+      const { container } = render(
+        <StockChartInner
+          width={360}
+          height={400}
+          series={PRICE_ONLY}
+          readoutReserveSeries={n as number | undefined}
+        />,
+      );
+      expect(stripHeight(container)).toBe("44px");
+      expect(reserved(container)).toBe(0);
+    });
+
+    it("holds nothing in tooltip mode: there is no strip", () => {
+      const { container } = render(
+        <StockChartInner
+          width={360}
+          height={400}
+          series={PRICE_ONLY}
+          readout="tooltip"
+          readoutReserveSeries={2}
+        />,
+      );
+      expect(container.querySelector("[data-chart-readout]")).toBeNull();
+      expect(svgOf(container).getAttribute("height")).toBe("400");
+    });
+  });
+
   describe("falling back to the tooltip", () => {
     it("shows the tooltip when the plot left under the strip would be under 160px", () => {
       // 200 - 62 (strip, two series on a phone) - 32 (margins) = 106 < 160.

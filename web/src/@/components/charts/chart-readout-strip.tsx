@@ -177,6 +177,14 @@ export interface ChartReadoutStripProps {
    * `widestValueChars`). On one row a value keeps that much room.
    */
   valueChars?: Readonly<Record<string, number>>;
+  /**
+   * The series rows a phone strip lays out: one for each entry, and when this is
+   * more, the rest are held empty for series that have not arrived (`StockChart`'s
+   * `readoutReserveSeries`). `height` already counts them, so the strip is as
+   * tall before they land as after, and the headline row is what they leave.
+   * Nothing on one row, where every series shares it.
+   */
+  seriesRows?: number;
   /** Releases the pin. Must be stable, or the memo below buys nothing. */
   onRelease: () => void;
 }
@@ -200,9 +208,17 @@ export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
   height,
   pinned,
   valueChars,
+  seriesRows,
   onRelease,
 }: ChartReadoutStripProps) {
   const oneRow = width >= READOUT_ONE_ROW_MIN_WIDTH;
+  // A phone strip's rows: an entry each, or more when rows are held for series
+  // to come. Anything that is not a count holds none.
+  const rows = Math.max(
+    model.entries.length,
+    typeof seriesRows === "number" && Number.isFinite(seriesRows) ? Math.floor(seriesRows) : 0,
+  );
+  const heldRows = rows - model.entries.length;
   const measuring = model.state === "measure";
   // Open, high, low and close of the price point shown, wide charts only.
   const ohlc =
@@ -263,7 +279,7 @@ export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
         <>
           {/* The series rows are a line each; the headline row has what is left,
               which is room for the release button's 24px target. */}
-          <Row height={Math.max(0, height - READOUT_LINE_H * model.entries.length)}>
+          <Row height={Math.max(0, height - READOUT_LINE_H * rows)}>
             {headline}
             {chip}
           </Row>
@@ -272,6 +288,17 @@ export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
               <Row key={e.id} height={READOUT_LINE_H}>
                 <EntryView entry={e} measuring={measuring} roomy={false} />
               </Row>
+            ))}
+            {/* The row of a series still to come: nothing in it, and nothing
+                for a screen reader, but its 18px, so that the series arriving
+                moves nothing. It is not a `data-readout-row`: it holds no entry. */}
+            {Array.from({ length: heldRows }, (_, i) => (
+              <div
+                key={`held-${i}`}
+                data-readout-reserved
+                aria-hidden="true"
+                style={{ height: READOUT_LINE_H }}
+              />
             ))}
           </div>
         </>
