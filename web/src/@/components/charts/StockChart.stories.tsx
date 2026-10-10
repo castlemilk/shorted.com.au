@@ -527,6 +527,70 @@ export const ReadoutStripPhone: Story = {
   play: ({ canvasElement }) => playReadoutStrip(canvasElement, 44, 360, false),
 };
 
+// A value that changes length as the pointer moves: a price crossing $100 goes
+// from "$99.99" to "$100.00". On one row the entry after the price keeps its
+// place, because the price holds the room of the widest value it can show.
+const crossing = (f: (i: number) => number) =>
+  Array.from({ length: 60 }, (_, i) => ({ t: Date.UTC(2026, 5, 1) + i * 86_400_000, v: f(i) }));
+
+export const ReadoutStripDigitBoundary: Story = {
+  name: "Readout strip (digit boundary)",
+  tags: ["no-visual"], // interaction-only
+  args: {
+    series: [
+      {
+        id: "XYZ:price",
+        label: "Price",
+        color: seriesColor("price"),
+        axis: "left",
+        kind: "area",
+        points: crossing((i) => 90 + (i * 20) / 59), // $90.00 to $110.00
+      },
+      {
+        id: "XYZ:short",
+        label: "Short %",
+        color: seriesColor("short"),
+        axis: "right",
+        kind: "line",
+        points: crossing((i) => 2 + (i % 7) * 0.3),
+        measureMode: "absolute",
+        measureUnit: "pp",
+      },
+    ],
+    leftAxis: { side: "left", format: priceFmt },
+    rightAxis: { side: "right", format: shortFmt },
+    height: 400,
+  },
+  // The default decorator makes the chart 854px wide: one row.
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(capture(canvasElement)).toBeTruthy());
+    const rect = capture(canvasElement);
+    const strip = () => canvasElement.querySelector<HTMLElement>("[data-chart-readout]")!;
+    const priceText = () =>
+      strip().querySelector("[data-readout-entry] [data-readout-value]")!.textContent;
+    const secondEntryLeft = () =>
+      strip().querySelectorAll("[data-readout-entry]")[1]!.getBoundingClientRect().left;
+    const box = rect.getBoundingClientRect();
+    const at = (fx: number) => ({
+      clientX: box.left + box.width * fx,
+      clientY: box.top + box.height * 0.5,
+    });
+
+    // Resting: the newest price, "$110.00", seven characters.
+    expect(priceText()).toBe("$110.00");
+    const resting = secondEntryLeft();
+
+    // Under $100 (six characters), then over it (seven): nothing after it moves.
+    fireEvent.mouseMove(rect, at(0.2));
+    await waitFor(() => expect(strip().getAttribute("data-readout-state")).toBe("hover"));
+    expect(priceText()).toMatch(/^\$9\d\.\d\d$/);
+    expect(secondEntryLeft()).toBeCloseTo(resting, 1);
+    fireEvent.mouseMove(rect, at(0.8));
+    await waitFor(() => expect(priceText()).toMatch(/^\$10\d\.\d\d$/));
+    expect(secondEntryLeft()).toBeCloseTo(resting, 1);
+  },
+};
+
 export const Empty: Story = {
   args: { series: [], height: 300 },
   play: async ({ canvasElement }) => {
