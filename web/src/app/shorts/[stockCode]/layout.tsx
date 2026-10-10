@@ -24,7 +24,15 @@ interface LayoutProps {
  * The chrome above every tab of /shorts/[stockCode]: the breadcrumbs, the
  * compact header, the sticky tab bar, then the tab itself. Each is a block with
  * a 16px gap beneath it. What a tab shows beyond that is the tab's own, its
- * chart included: the layout loads none, so a tab without one pays for none.
+ * chart included: the layout renders and loads none.
+ *
+ * What a tab LOADS is another matter, as measured on this build. Company and
+ * News load no chart code. Financials and Community still load the Overview
+ * page's chart chunks, because their client reference manifests carry the
+ * Overview page's client modules and chunk list (scripts/bundle-budget.mjs
+ * has the figures). Before this branch every tab loaded the chart from the
+ * layout. Follow-up: moving the Overview page into a route group, e.g.
+ * (overview)/page.tsx, would stop that inheritance.
  */
 export default async function StockLayout({ children, params }: LayoutProps) {
   const { stockCode: raw } = await params;

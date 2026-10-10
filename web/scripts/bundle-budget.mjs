@@ -60,6 +60,17 @@ const BUDGETS = {
     // numbers now include the chart's chunks, which the layout used to carry
     // where no budget counted them; what a visit loads did not grow. A
     // layout-aware metric is a follow-up.
+    //
+    // What each tab loads, as measured on this build, is not "only the tabs
+    // with a chart pay for it". Company and News load no chart code. Financials
+    // and Community still load the Overview page's chart chunks, because their
+    // client reference manifests carry the Overview page's client modules and
+    // chunk list (.next/server/app/shorts/[stockCode]/financials/
+    // page_client-reference-manifest.js: the shared next/link module maps to
+    // the Overview's 26 chunks, the chart's code among them). Before this
+    // branch every tab loaded the chart from the layout, so none loads more
+    // than it did and two load less. Follow-up: moving the Overview page into
+    // a route group, e.g. (overview)/page.tsx, would stop the inheritance.
     "/shorts/[stockCode]": 310,
     "/shorts/[stockCode]/short-interest": 305,
     "/shorts/[stockCode]/strategy": 260,
