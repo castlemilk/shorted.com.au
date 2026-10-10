@@ -144,10 +144,16 @@ export function StockChartInner({
   // then the label, which the mono face sets at 6px a character at 10px. Short
   // interest to two decimals ("12.00%") and a price under $100 ("$40.00") are six
   // characters, 36px, so 46px: the 44px these were cut the last 2px off a label.
+  //
+  // With no right axis there is nothing beside the plot on the right but the time
+  // axis' last label, which is centred on its tick: when that tick is the newest
+  // day, half of it hangs past the plot, 21px for "October" and 27px for
+  // "September", the longest. The svg clips what is outside it, and 12px cut
+  // "October" to "Octobe" on the Short interest tab, which opens on this view.
   const margin = useMemo(
     () => ({
       top: 8,
-      right: hasRight && !compact ? 48 : 12,
+      right: compact ? 12 : hasRight ? 48 : 28,
       bottom: 24,
       left: compact ? 32 : 48,
     }),

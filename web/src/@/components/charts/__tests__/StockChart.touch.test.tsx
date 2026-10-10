@@ -402,7 +402,16 @@ describe("StockChart margins", () => {
 
   it("leaves 48px for the left axis, with or without a right one", () => {
     // "$40.00" and "12.00%" are six characters: 36px and the 10px before them.
-    expect(innerW([SERIES[0]!])).toBe(WIDTH - 48 - 12);
+    expect(innerW([SERIES[0]!])).toBe(WIDTH - 48 - 28);
+    expect(innerW(SERIES)).toBe(WIDTH - 48 - 48);
+  });
+
+  it("leaves 28px on the right when there is no right axis, for the time axis' last label", () => {
+    // That label is centred on its tick, and when the tick is the newest day half
+    // of it hangs past the plot: 21px for "October", 24 for "November", 27 for
+    // "September". At 12px the svg clipped it to "Octobe".
+    expect(innerW([SERIES[0]!])).toBe(WIDTH - 48 - 28);
+    // A chart that does have a right axis already has its 48px to spare.
     expect(innerW(SERIES)).toBe(WIDTH - 48 - 48);
   });
 
