@@ -143,8 +143,9 @@ deltas).
 - **Overview order:**
   1. The JSON-LD and the sr-only crawler section, unchanged and first.
   2. The chart section, full width above the existing grid: `StockChartHeading`
-     ("Price & short interest", `id="stock-chart-heading"`, the hint hidden
-     below `sm`) and `StockChartPanel` with the combined view and `prefsKey`
+     ("Price & short interest", `id="stock-chart-heading"`, the hint shown
+     from `xl`, where the controls also go to one row; from `sm` it wrapped the
+     heading at 640px and broke the loading placeholder by 20px) and `StockChartPanel` with the combined view and `prefsKey`
      `"<CODE>:overview"`.
   3. The About card, full width, one card with:
      - an `h2` "About <company>";
@@ -168,8 +169,13 @@ deltas).
   /picks pages, it is unchanged.
 - **Names:** the Overview's right-rail company card (website, address and
   links) is titled "Company details", so the page does not show two "About"
-  headings. The Company tab opens the insights
-  accordion item that holds the description by default.
+  headings. The Company tab shows the insights
+  card's summary as a plain paragraph at the top of the card, and the other
+  sections stay in the collapsed accordion. (Ruled after the local acceptance
+  run: an accordion item open by default animated from zero height before
+  hydration, because Radix sets the height it animates to only in the browser.
+  The section popped open about 100ms after load and shifted the card's rows
+  by 84px, a layout shift of 0.136 on desktop.)
 - **Settings survive a tab switch.** A client-only module store keeps:
   - the **period per stock**, shared by both chart tabs;
   - **view, SMA 20 and divergence per `prefsKey`**, so each tab keeps its own
