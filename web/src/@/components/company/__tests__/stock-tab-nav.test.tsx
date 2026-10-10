@@ -591,10 +591,14 @@ describe("StockTabNav scroll cue", () => {
     expect(observer!.disconnected).toBe(true);
   });
 
-  it("falls back to the window's resize where there is no ResizeObserver", () => {
+  it("falls back to the window's resize where there is no ResizeObserver, and lets go of it on unmount", () => {
     global.ResizeObserver = undefined as unknown as typeof ResizeObserver;
+    const add = jest.spyOn(window, "addEventListener");
+    const remove = jest.spyOn(window, "removeEventListener");
     const view = render(<StockTabNav stockCode="BHP" />);
     expect(list()).toHaveAttribute("data-scroll-end", "true");
+    const added = add.mock.calls.filter(([type]) => type === "resize");
+    expect(added).toHaveLength(1);
 
     metrics.clientWidth = 800;
     act(() => {
@@ -603,10 +607,11 @@ describe("StockTabNav scroll cue", () => {
     expect(list()).not.toHaveAttribute("data-scroll-end");
 
     view.unmount();
-    metrics.clientWidth = 360;
-    // Nothing is listening any more: this must not throw or warn about an
-    // update on an unmounted component.
-    window.dispatchEvent(new Event("resize"));
+    const removed = remove.mock.calls.filter(([type]) => type === "resize");
+    expect(removed).toHaveLength(1);
+    expect(removed[0]![1]).toBe(added[0]![1]);
+    add.mockRestore();
+    remove.mockRestore();
   });
 
   it("keeps the layout classes the list already had", () => {
