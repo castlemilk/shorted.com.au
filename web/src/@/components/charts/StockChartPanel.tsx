@@ -186,14 +186,15 @@ export function StockChartPanel({
       {/* Always rendered, even when no toggle applies to the view: the row it
           makes below `xl` is part of the footprint the skeleton holds. It
           scrolls sideways rather than wrapping, or the row would grow, and its
-          scrollbar is hidden: the row is only as tall as its buttons (36px, 32
-          from `xl`), so a classic scrollbar (Windows, or macOS set to always
-          show them) would take 15px of that and cut the buttons. It still
-          scrolls by wheel and by touch, and focusing a button brings it into
-          view. Right aligned from `xl` by an auto margin, not `justify-end`,
-          which would leave an overflow's first buttons out of reach to the
-          left. The 2px of padding, taken back by the margin, keeps the edge
-          buttons' focus rings inside the box that clips them. */}
+          scrollbar is hidden: the row has no height to spare (36px for 36px
+          buttons; from `xl` 32px for 24px ones), so a classic scrollbar
+          (Windows, or macOS set to always show them) would take 15px of it and
+          cut the buttons. It still scrolls by wheel and by touch, and focusing
+          a button brings it into view. Right aligned from `xl` by an auto
+          margin, not `justify-end`, which would leave an overflow's first
+          buttons out of reach to the left. The 2px of padding, taken back by
+          the margin, keeps the edge buttons' focus rings inside the box that
+          clips them. */}
       <div className="[grid-area:toggles] -mx-0.5 flex h-9 min-w-0 flex-nowrap items-center gap-2 overflow-x-auto px-0.5 [scrollbar-width:none] xl:h-8 xl:[&>:first-child]:ml-auto [&::-webkit-scrollbar]:hidden">
         {view === "combined" && correlation != null && (
           <span

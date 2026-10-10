@@ -225,10 +225,10 @@ function expectNoPageOverflow() {
 /** The buttons of a control, in order. */
 const buttonsOf = (el: HTMLElement) => within(el).getAllByRole("button");
 
-// The toggles row is only as tall as its buttons, so a classic scrollbar (the
-// runner's own are hidden, which is why this reads the computed style and not a
-// height) would cut them. Reading it here also proves the arbitrary class
-// became CSS at all.
+// The toggles row has no height to spare, so a classic scrollbar would cut its
+// buttons. The runner's own scrollbars are hidden, which is why this reads the
+// computed style and not a height; it also proves the arbitrary class became
+// CSS at all.
 const expectScrollbarHidden = (toggles: HTMLElement) =>
   expect(getComputedStyle(toggles).getPropertyValue("scrollbar-width")).toBe("none");
 

@@ -225,7 +225,7 @@ describe("StockChartPanel: controls", () => {
     for (const b of within(period).getAllByRole("button")) expect(b).toHaveClass("flex-1");
   });
 
-  it("hides the toggles row's scrollbar: a classic one would cut buttons as tall as the row", () => {
+  it("hides the toggles row's scrollbar: a classic one would cut the buttons", () => {
     const { container } = render(<StockChartPanel stockCode="BHP" />);
     // Still a row that scrolls sideways when it must, at every width.
     expect(area(container, "toggles")).toHaveClass(
