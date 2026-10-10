@@ -311,3 +311,30 @@ export function resolveReadoutMode(a: {
   const plotH = a.height - readoutStripHeight(a.width) - a.reservedH;
   return plotH < READOUT_MIN_PLOT ? "tooltip" : "strip";
 }
+
+/**
+ * The most characters a series' value can take, by series id: the wider of its
+ * lowest and highest value, formatted as its axis formats them. A number with
+ * more digits is nearer an end, so the two ends stand for all between them. The
+ * strip holds that much room for the value on one row, so a scrub across a digit
+ * boundary (99.99 to 100.00) moves nothing after it. A series with no finite
+ * value has no entry.
+ */
+export function widestValueChars(
+  series: ChartSeriesSpec[],
+  format: ReadoutFormat,
+): Record<string, number> {
+  const widths: Record<string, number> = {};
+  for (const s of series) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const p of s.points) {
+      if (!isNum(p.v)) continue;
+      if (p.v < lo) lo = p.v;
+      if (p.v > hi) hi = p.v;
+    }
+    if (lo > hi) continue;
+    widths[s.id] = Math.max(format(s, lo).length, format(s, hi).length);
+  }
+  return widths;
+}

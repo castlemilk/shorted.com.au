@@ -774,6 +774,83 @@ describe("StockChart readout strip", () => {
     });
   });
 
+  describe("the room a value keeps on one row", () => {
+    // Price runs 95 to 104: "$99.00" is six characters, "$100.00" is seven.
+    const CROSSING: ChartSeriesSpec = {
+      ...SERIES[0]!,
+      points: Array.from({ length: 10 }, (_, i) => ({ t: T0 + i * DAY, v: 95 + i })),
+    };
+    const dollars = { side: "left", format: (v: number) => `$${v.toFixed(2)}` } as const;
+    const renderAt = (width: number, price: ChartSeriesSpec) => {
+      const utils = render(
+        <StockChartInner
+          width={width}
+          height={400}
+          series={[price, SERIES[1]!]}
+          leftAxis={dollars}
+        />,
+      );
+      const plot = utils.container.querySelector("[data-chart-capture]")!;
+      return { ...utils, plot };
+    };
+    const valueRoom = (c: HTMLElement) =>
+      entryOf(c, "price").querySelector<HTMLElement>("[data-readout-value]")!.style.minWidth;
+
+    it("is that of the widest value the series can show, in every state, so a scrub across a digit boundary shifts nothing", () => {
+      const WIDE = 800;
+      const { container, plot } = renderAt(WIDE, CROSSING);
+      const seen: [string | null, string][] = [];
+      const note = () => seen.push([stateOf(container), valueRoom(container)]);
+
+      note(); // latest: $104.00
+      fireEvent.mouseMove(plot, pt(xAt(WIDE, 0), 50));
+      note(); // hover: $95.00
+      fireEvent.mouseMove(plot, pt(xAt(WIDE, 4), 50));
+      note(); // hover: $99.00, just under the boundary
+      fireEvent.mouseMove(plot, pt(xAt(WIDE, 5), 50));
+      note(); // hover: $100.00, just over it
+      fireEvent.mouseLeave(plot);
+      tap(plot, xAt(WIDE, 2));
+      note(); // pinned
+
+      expect(seen.map(([state]) => state)).toEqual(["latest", "hover", "hover", "hover", "pinned"]);
+      expect(new Set(seen.map(([, room]) => room))).toEqual(new Set(["7ch"]));
+    });
+
+    it("stays at the usual six where no value the series shows is wider", () => {
+      // 40 to 49: "$49.00" is six characters.
+      const { container, plot } = renderAt(800, SERIES[0]!);
+      expect(valueRoom(container)).toBe("6ch");
+      fireEvent.mouseMove(plot, pt(xAt(800, 3), 50));
+      expect(valueRoom(container)).toBe("6ch");
+    });
+
+    it("follows the zoom: the values left on screen decide it", () => {
+      const WIDE = 800;
+      // $90 to $96, then $137 to $139 at the end: seven characters in all, until
+      // a zoom leaves only the early run on screen.
+      const price: ChartSeriesSpec = {
+        ...CROSSING,
+        points: Array.from({ length: 10 }, (_, i) => ({
+          t: T0 + i * DAY,
+          v: i < 7 ? 90 + i : 130 + i,
+        })),
+      };
+      const { container, plot } = renderAt(WIDE, price);
+      expect(valueRoom(container)).toBe("7ch");
+      fireEvent.mouseDown(plot, { ...pt(xAt(WIDE, 0)), button: 0 });
+      fireEvent.mouseMove(plot, pt(xAt(WIDE, 5)));
+      fireEvent.mouseUp(window); // commits the zoom onto points 0 to 5: $90 to $95
+      expect(headline(container)).not.toContain("Latest"); // zoomed
+      expect(valueRoom(container)).toBe("6ch");
+    });
+
+    it("is not held on a phone, where the two rows need the room for the labels", () => {
+      const { container } = renderAt(400, CROSSING);
+      expect(valueRoom(container)).toBe("5ch");
+    });
+  });
+
   describe("nothing floats over the plot", () => {
     const absolute = (c: HTMLElement) =>
       Array.from(c.querySelectorAll<HTMLElement | SVGElement>("[data-chart-container] *")).filter(
@@ -1033,6 +1110,30 @@ describe("StockChart readout strip", () => {
         expect(build).not.toHaveBeenCalled();
       } finally {
         build.mockRestore();
+      }
+    });
+
+    it("sizes the rooms of the values once, however the pointer moves, and not at all for the tooltip", () => {
+      const size = jest.spyOn(chartReadout, "widestValueChars");
+      try {
+        const { plot, rerender, unmount } = renderChart();
+        expect(size).toHaveBeenCalledTimes(1);
+        fireEvent.mouseMove(plot, pt(xOf(3), 50));
+        fireEvent.mouseMove(plot, pt(xOf(4), 50));
+        fireEvent.mouseLeave(plot);
+        tap(plot, xOf(5));
+        rerender(
+          <StockChartInner width={WIDTH} height={HEIGHT} series={SERIES} readout="strip" />,
+        );
+        expect(size).toHaveBeenCalledTimes(1);
+        unmount();
+
+        size.mockClear();
+        const card = renderChart(SERIES, "tooltip");
+        fireEvent.mouseMove(card.plot, pt(xOf(3), 50));
+        expect(size).not.toHaveBeenCalled();
+      } finally {
+        size.mockRestore();
       }
     });
   });

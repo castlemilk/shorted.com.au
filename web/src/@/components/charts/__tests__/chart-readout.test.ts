@@ -8,6 +8,7 @@ import {
   readoutStripHeight,
   resolveReadoutMode,
   seriesDelta,
+  widestValueChars,
   type ReadoutFormat,
 } from "../chart-readout";
 import type { ChartPoint, ChartSeriesSpec } from "../types";
@@ -559,6 +560,63 @@ describe("readoutStripHeight", () => {
     expect(readoutStripHeight(639)).toBe(44);
     expect(readoutStripHeight(640)).toBe(28);
     expect(readoutStripHeight(1200)).toBe(28);
+  });
+});
+
+describe("widestValueChars", () => {
+  const key = priceSeries([]).id;
+
+  it("is the wider of a series' lowest and highest value, as its axis formats them", () => {
+    // "$99.50" is 6 characters and "$104.25" is 7: the highest value sets it...
+    const rising = priceSeries(pts([1, 99.5], [2, 101], [3, 104.25], [4, 100]));
+    expect(widestValueChars([rising], format)).toEqual({ [key]: 7 });
+    // ...and when the longer one is at the other end, the lowest does: "$-100.00" is 8.
+    const dipping = priceSeries(pts([1, -100], [2, 3], [3, 40]));
+    expect(widestValueChars([dipping], format)).toEqual({ [key]: 8 });
+  });
+
+  it("does not depend on where in the series the widest value is", () => {
+    const early = priceSeries(pts([1, 120], [2, 99], [3, 98]));
+    const late = priceSeries(pts([1, 98], [2, 99], [3, 120]));
+    expect(widestValueChars([early], format)).toEqual(widestValueChars([late], format));
+  });
+
+  it("counts the minus sign of a negative value", () => {
+    // "$-5.00" is 6 characters; "$3.00" is 5.
+    expect(widestValueChars([priceSeries(pts([1, -5], [2, 3]))], format)).toEqual({ [key]: 6 });
+  });
+
+  it("measures each series by its own format", () => {
+    const price = priceSeries(pts([1, 43.21], [2, 40])); // "$43.21": 6
+    const short = shortSeries(pts([1, 3.2], [2, 2.9])); // "3.20%": 5
+    expect(widestValueChars([price, short], format)).toEqual({
+      "BHP:price": 6,
+      "BHP:short": 5,
+    });
+  });
+
+  it("leaves out a series with no finite value, and skips the ones that are not among those that are", () => {
+    const nothing = priceSeries([]);
+    const unusable = shortSeries([
+      { t: oct(1), v: NaN },
+      { t: oct(2), v: Infinity },
+    ]);
+    expect(widestValueChars([nothing, unusable], format)).toEqual({});
+    const mixed = priceSeries([
+      { t: oct(1), v: 5 },
+      { t: oct(2), v: NaN },
+      { t: oct(3), v: 12 },
+    ]);
+    expect(widestValueChars([mixed], format)).toEqual({ [key]: 6 }); // "$12.00"
+  });
+
+  it("formats the two ends and nothing between them, however many points there are", () => {
+    const many = priceSeries(
+      Array.from({ length: 2000 }, (_, i): ChartPoint => ({ t: oct(1) + i * DAY, v: 10 + (i % 90) })),
+    );
+    const spy = jest.fn(format);
+    widestValueChars([many], spy);
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 });
 

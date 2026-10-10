@@ -36,7 +36,13 @@ const model = (over: Partial<ReadoutModel> = {}): ReadoutModel => ({
 
 function renderStrip(
   m: ReadoutModel,
-  props: { width?: number; height?: number; pinned?: boolean; onRelease?: () => void } = {},
+  props: {
+    width?: number;
+    height?: number;
+    pinned?: boolean;
+    valueChars?: Record<string, number>;
+    onRelease?: () => void;
+  } = {},
 ) {
   const width = props.width ?? 400;
   return render(
@@ -47,6 +53,7 @@ function renderStrip(
       // width alone says which, as it does there.
       height={props.height ?? readoutStripHeight(width)}
       pinned={props.pinned ?? false}
+      valueChars={props.valueChars}
       onRelease={props.onRelease ?? jest.fn()}
     />,
   );
@@ -241,6 +248,41 @@ describe("ChartReadoutStrip", () => {
       wide.unmount();
       const narrow = renderStrip(model(), { width: 400 });
       expect(widthOf(narrow.container.querySelector("[data-readout-value]")!)).toBe("5ch");
+    });
+
+    describe("for a value wider than the usual six characters", () => {
+      const valueRoom = (width: number, valueChars?: Record<string, number>) => {
+        const r = renderStrip(model(), { width, valueChars });
+        const room = widthOf(r.container.querySelector("[data-readout-value]")!);
+        r.unmount();
+        return room;
+      };
+
+      it("on one row, holds the room of the widest value the series can show", () => {
+        // "$165.40" is seven characters: a scrub from $99.99 to $100.00 moves nothing.
+        expect(valueRoom(800, { price: 7 })).toBe("7ch");
+        expect(valueRoom(800, { price: 10 })).toBe("10ch");
+      });
+
+      it("never holds less than six, and holds six for a series it knows nothing about", () => {
+        expect(valueRoom(800, { price: 4 })).toBe("6ch");
+        expect(valueRoom(800, { short: 9 })).toBe("6ch");
+        expect(valueRoom(800, {})).toBe("6ch");
+        expect(valueRoom(800, undefined)).toBe("6ch");
+      });
+
+      it("on two rows, holds five whatever the series can show: the labels need the room", () => {
+        expect(valueRoom(400, { price: 9 })).toBe("5ch");
+      });
+
+      it("gives each series the room of its own widest value", () => {
+        const { container } = renderStrip(
+          model({ entries: [entry(), entry({ id: "short", label: "Short %", value: "3.20%" })] }),
+          { width: 800, valueChars: { price: 8, short: 7 } },
+        );
+        const rooms = Array.from(container.querySelectorAll("[data-readout-value]")).map(widthOf);
+        expect(rooms).toEqual(["8ch", "7ch"]);
+      });
     });
 
     it("on two rows, holds no room for a change that is not there: the labels need it", () => {

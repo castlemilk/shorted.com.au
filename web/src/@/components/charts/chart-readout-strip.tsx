@@ -58,8 +58,11 @@ function Change({ change }: { change: ReadoutDelta }) {
 // Where there is room (one row, from 640px) each entry keeps the width of its
 // widest usual value and change, so the resting reading, a hover and a pin lay
 // out alike: a pointer entering the plot must not shift the entries that
-// follow. On a phone the two rows are too short of room for empty slots (they
-// cost the labels), so only the value keeps a minimum.
+// follow. A value keeps the room of the widest one its series can show
+// (`valueChars`) where that is more than the usual six, so a scrub across a
+// digit boundary, $99.99 to $100.00, moves nothing either. On a phone the two
+// rows are too short of room for empty slots (they cost the labels), so only the
+// value keeps a minimum, and a fixed one.
 const VALUE_MIN_CH = { room: 6, tight: 5 } as const;
 /** "▲+2.84 pp", the widest change a series usually names. */
 const CHANGE_SLOT_CH = 9;
@@ -68,11 +71,15 @@ function EntryView({
   entry,
   measuring,
   roomy,
+  valueChars,
 }: {
   entry: ReadoutEntry;
   measuring: boolean;
   roomy: boolean;
+  /** The most characters this series' value can take, when the chart knows. */
+  valueChars: number | undefined;
 }) {
+  const valueMinCh = roomy ? Math.max(VALUE_MIN_CH.room, valueChars ?? 0) : VALUE_MIN_CH.tight;
   return (
     <span data-readout-entry={entry.id} className="flex min-w-0 items-center gap-x-1">
       <span
@@ -88,7 +95,7 @@ function EntryView({
         <span
           data-readout-value
           className="shrink-0 text-foreground"
-          style={{ minWidth: `${roomy ? VALUE_MIN_CH.room : VALUE_MIN_CH.tight}ch` }}
+          style={{ minWidth: `${valueMinCh}ch` }}
         >
           {entry.value ?? "—"}
         </span>
@@ -154,6 +161,11 @@ export interface ChartReadoutStripProps {
    */
   height: number;
   pinned: boolean;
+  /**
+   * The most characters each series' value can take, by series id (see
+   * `widestValueChars`). On one row a value keeps that much room.
+   */
+  valueChars?: Readonly<Record<string, number>>;
   /** Releases the pin. Must be stable, or the memo below buys nothing. */
   onRelease: () => void;
 }
@@ -172,6 +184,7 @@ export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
   width,
   height,
   pinned,
+  valueChars,
   onRelease,
 }: ChartReadoutStripProps) {
   const oneRow = width >= READOUT_ONE_ROW_MIN_WIDTH;
@@ -201,7 +214,13 @@ export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
       className={`flex min-w-0 items-center overflow-hidden ${oneRow ? "gap-x-3" : "gap-x-2"}`}
     >
       {model.entries.map((e) => (
-        <EntryView key={e.id} entry={e} measuring={measuring} roomy={oneRow} />
+        <EntryView
+          key={e.id}
+          entry={e}
+          measuring={measuring}
+          roomy={oneRow}
+          valueChars={valueChars?.[e.id]}
+        />
       ))}
     </div>
   );

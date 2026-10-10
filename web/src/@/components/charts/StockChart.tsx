@@ -30,6 +30,7 @@ import {
   buildPointReadout,
   readoutStripHeight,
   resolveReadoutMode,
+  widestValueChars,
   type ReadoutDelta,
   type ReadoutEntry,
   type ReadoutFormat,
@@ -86,6 +87,8 @@ const TIP_W = 168;
 const NO_LEVELS: readonly ChartLevel[] = Object.freeze([]);
 const NO_BANDS: readonly ChartBand[] = Object.freeze([]);
 const NO_MARKERS: readonly ChartMarker[] = Object.freeze([]);
+// The tooltip shows the reading, so no strip needs the room of a value.
+const NO_VALUE_CHARS: Readonly<Record<string, number>> = Object.freeze({});
 
 // What a screen reader is told about the chart, and how to drive it.
 const CHART_LABEL =
@@ -539,6 +542,17 @@ export function StockChartInner({
     [readoutMode, renderSeries, filtered, viewMode, readoutFormat],
   );
 
+  // The room each series' value keeps on one row: that of the widest it can show
+  // among the points on screen, so a scrub across a digit boundary shifts
+  // nothing. Two numbers formatted per series, and only when the strip is shown.
+  const valueChars = useMemo(
+    () =>
+      readoutMode === "strip"
+        ? widestValueChars(renderSeries, readoutFormat)
+        : NO_VALUE_CHARS,
+    [readoutMode, renderSeries, readoutFormat],
+  );
+
   // What the strip shows now. A measure takes it over, as it took over the
   // tooltip; a sub-pixel measure shows the resting reading, not a stale hover.
   const readoutModel = useMemo(() => {
@@ -737,6 +751,7 @@ export function StockChartInner({
           width={width}
           height={stripH}
           pinned={isPinnedView}
+          valueChars={valueChars}
           onRelease={releasePin}
         />
       )}
