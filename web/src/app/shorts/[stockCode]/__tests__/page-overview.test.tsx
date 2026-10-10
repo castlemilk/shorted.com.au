@@ -244,6 +244,10 @@ describe("the stock Overview's own blocks: the chart, the About card and the sig
     const gate = within(slot).getByTestId("signed-out-only");
     const frame = gate.firstElementChild as HTMLElement;
     expect(frame).toHaveClass("overflow-hidden", "rounded-lg", "border", "border-primary/20");
+    // A dismissed banner renders null: the bare frame must not stay behind as a
+    // 2px sliver of border (login-prompt-banner.test.tsx holds that the banner
+    // leaves it empty).
+    expect(frame).toHaveClass("empty:hidden");
     expect(within(frame).getByTestId("login-banner")).toBeInTheDocument();
     // One banner on the page: the dossier teaser's gate is a different block.
     expect(screen.getAllByTestId("login-banner")).toHaveLength(1);

@@ -108,4 +108,27 @@ describe("LoginPromptBanner", () => {
     expect(container).toBeEmptyDOMElement();
     expect(document.documentElement).not.toHaveClass("anon");
   });
+
+  // The Overview draws a 1px frame round the banner (the bordered wrapper in
+  // page.tsx, `empty:hidden`). A dismissed banner must leave that frame with no
+  // child at all, not even a whitespace text node, or `:empty` does not match and
+  // the frame stays as a 2px sliver of border above the grid.
+  it("leaves the frame round it empty when dismissed, so an `empty:hidden` frame collapses", () => {
+    const { getByTestId } = render(
+      <div
+        data-testid="frame"
+        className="overflow-hidden rounded-lg border border-primary/20 empty:hidden"
+      >
+        <LoginPromptBanner />
+      </div>,
+    );
+    const frame = getByTestId("frame");
+    expect(frame.matches(":empty")).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(frame.childNodes).toHaveLength(0);
+    expect(frame.matches(":empty")).toBe(true);
+    expect(frame).toHaveClass("empty:hidden");
+  });
 });

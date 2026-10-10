@@ -501,10 +501,12 @@ const Page = async ({ params }: PageProps) => {
       {/* Signed-out breadcrumb to login — client-gated; the slot is always in
           the server HTML and critical CSS reserves its height under html.anon
           (see layout.tsx at the root) so it never shifts the page. One line,
-          on the Overview only. */}
+          on the Overview only. The frame is `empty:hidden`: dismissing the
+          banner renders it null, and a bare frame would leave its 2px of
+          border behind as a sliver above the grid. */}
       <div className="login-slot">
         <SignedOutOnly>
-          <div className="overflow-hidden rounded-lg border border-primary/20">
+          <div className="overflow-hidden rounded-lg border border-primary/20 empty:hidden">
             <LoginPromptBanner />
           </div>
         </SignedOutOnly>
