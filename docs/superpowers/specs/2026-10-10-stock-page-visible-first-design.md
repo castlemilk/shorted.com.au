@@ -252,7 +252,9 @@ deltas).
 - **Dates:** one module-level `Intl.DateTimeFormat` (en-AU, Australia/Sydney).
 - **Performance:** the latest model is memoised on the rendered series, formats,
   view mode and zoom, and the strip is `React.memo`.
-- **Tooltip mode is today's behaviour, byte for byte.**
+- **Tooltip mode is today's behaviour**, except for three changes it shares with
+  the strip: the minus sign (U+2212), the en-AU / Sydney date, and the
+  percentage-point measure row staying uncoloured.
 
 ### D6 Smaller fixes in the same change
 
