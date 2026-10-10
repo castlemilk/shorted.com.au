@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  READOUT_LINE_H,
   READOUT_OHLC_MIN_WIDTH,
   READOUT_ONE_ROW_MIN_WIDTH,
   type ReadoutDelta,
@@ -12,10 +13,8 @@ import {
 const UP = "#16a34a";
 const DOWN = "#dc2626";
 
-// Two rows share READOUT_ROW_H_TWO. The first carries the Pinned chip, whose
-// release button needs a 24px target (the WCAG 2.5.8 floor), so it takes 24px
-// and the entries row takes the rest.
-const FIRST_ROW_H_OF_TWO = 24;
+// DESIGN.md, the Tabular Rule: a figure we do not hold reads "n/a", never a dash.
+const NOT_AVAILABLE = "n/a";
 
 const RELEASE_TITLE = "Tap the chart to move the reading; tap it again to release";
 
@@ -23,7 +22,7 @@ const RELEASE_TITLE = "Tap the chart to move the reading; tap it again to releas
 // moves them: "Latest · 1 June 2026" to "29 Mar 2026" on entering the plot, or
 // "9 Oct" to "10 Oct" as a scrub crosses a day. Holding the room of the widest
 // one stops that. "Latest · 29 Sept 2026" is 21 characters and "29 Sept 2026 →
-// 29 Sept 2026" is 27. (On two rows the headline has a row to itself.)
+// 29 Sept 2026" is 27. (On a phone the headline has a row to itself.)
 const HEADLINE_MIN_CH = { reading: 21, measure: 27 } as const;
 
 /** Red or green only for a change that is market direction; else the text colour. */
@@ -60,10 +59,10 @@ function Change({ change }: { change: ReadoutDelta }) {
 // out alike: a pointer entering the plot must not shift the entries that
 // follow. A value keeps the room of the widest one its series can show
 // (`valueChars`) where that is more than the usual six, so a scrub across a
-// digit boundary, $99.99 to $100.00, moves nothing either. On a phone the two
-// rows are too short of room for empty slots (they cost the labels), so only the
-// value keeps a minimum, and a fixed one.
-const VALUE_MIN_CH = { room: 6, tight: 5 } as const;
+// digit boundary, $99.99 to $100.00, moves nothing either. On a phone every
+// series has a row to itself, so no entry sits beside another to be moved, and
+// no room is held: the whole row is the label's.
+const VALUE_MIN_CH = 6;
 /** "▲+2.84 pp", the widest change a series usually names. */
 const CHANGE_SLOT_CH = 9;
 
@@ -75,11 +74,12 @@ function EntryView({
 }: {
   entry: ReadoutEntry;
   measuring: boolean;
+  /** One row for all the entries, so each keeps the room of its widest reading. */
   roomy: boolean;
   /** The most characters this series' value can take, when the chart knows. */
-  valueChars: number | undefined;
+  valueChars?: number;
 }) {
-  const valueMinCh = roomy ? Math.max(VALUE_MIN_CH.room, valueChars ?? 0) : VALUE_MIN_CH.tight;
+  const valueMinCh = Math.max(VALUE_MIN_CH, valueChars ?? 0);
   return (
     <span data-readout-entry={entry.id} className="flex min-w-0 items-center gap-x-1">
       <span
@@ -95,9 +95,9 @@ function EntryView({
         <span
           data-readout-value
           className="shrink-0 text-foreground"
-          style={{ minWidth: `${valueMinCh}ch` }}
+          style={roomy ? { minWidth: `${valueMinCh}ch` } : undefined}
         >
-          {entry.value ?? "—"}
+          {entry.value ?? NOT_AVAILABLE}
         </span>
       )}
       {entry.change ? (
@@ -108,7 +108,7 @@ function EntryView({
           <Change change={entry.change} />
         </span>
       ) : measuring ? (
-        <span className="shrink-0 text-foreground">—</span>
+        <span className="shrink-0 text-foreground">{NOT_AVAILABLE}</span>
       ) : roomy ? (
         // No change in this state: hold the room it takes in the others.
         <span aria-hidden="true" className="shrink-0" style={{ minWidth: `${CHANGE_SLOT_CH}ch` }} />
@@ -153,11 +153,15 @@ function Row({ height, children }: { height: number; children: React.ReactNode }
 
 export interface ChartReadoutStripProps {
   model: ReadoutModel;
-  /** The chart's width: it picks one row or two, and whether OHLC shows. */
+  /**
+   * The chart's width: it picks one row or a row for each series, and whether
+   * OHLC shows.
+   */
   width: number;
   /**
-   * The strip's height. The chart decides it once, from its width, and takes it
-   * off the svg beneath, so the two cannot add up to anything but its own height.
+   * The strip's height. The chart decides it once, from its width and its number
+   * of series, and takes it off the svg beneath, so the two cannot add up to
+   * anything but its own height.
    */
   height: number;
   pinned: boolean;
@@ -172,9 +176,13 @@ export interface ChartReadoutStripProps {
 
 /**
  * The readout above the plot (spec D5): the latest values, or the hovered,
- * pinned or measured ones. Its height is given, from the chart's width alone, and
- * is never read back from the DOM, and it holds nothing that could move the
- * plot: no floating layer, no wrapping, and a clipped overflow.
+ * pinned or measured ones. From 640px wide it is one row. Below that it is a
+ * headline row, with the Pinned chip at its right, and then one row for each
+ * series, so a label is never short of room and one entry never moves another.
+ *
+ * Its height is given, from the chart's width and number of series, and is never
+ * read back from the DOM, and it holds nothing that could move the plot: no
+ * floating layer, no wrapping, and a clipped overflow.
  *
  * It holds no SVG on purpose: the chart's own svg is the first `svg` in the
  * canvas, which stories and tests look it up by.
@@ -208,22 +216,6 @@ export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
       {model.headline}
     </span>
   ) : null;
-  const entries = (
-    <div
-      data-readout-entries
-      className={`flex min-w-0 items-center overflow-hidden ${oneRow ? "gap-x-3" : "gap-x-2"}`}
-    >
-      {model.entries.map((e) => (
-        <EntryView
-          key={e.id}
-          entry={e}
-          measuring={measuring}
-          roomy={oneRow}
-          valueChars={valueChars?.[e.id]}
-        />
-      ))}
-    </div>
-  );
   const chip = pinned ? <PinnedChip onRelease={onRelease} /> : null;
 
   return (
@@ -239,7 +231,20 @@ export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
       {oneRow ? (
         <Row height={height}>
           {headline}
-          {entries}
+          <div
+            data-readout-entries
+            className="flex min-w-0 items-center gap-x-3 overflow-hidden"
+          >
+            {model.entries.map((e) => (
+              <EntryView
+                key={e.id}
+                entry={e}
+                measuring={measuring}
+                roomy
+                valueChars={valueChars?.[e.id]}
+              />
+            ))}
+          </div>
           {ohlc && (
             <span data-readout-ohlc className="shrink-0 text-muted-foreground">
               O {ohlc.open} H {ohlc.high} L {ohlc.low} C {ohlc.close}
@@ -249,11 +254,19 @@ export const ChartReadoutStrip = React.memo(function ChartReadoutStrip({
         </Row>
       ) : (
         <>
-          <Row height={FIRST_ROW_H_OF_TWO}>
+          {/* The series rows are a line each; the headline row has what is left,
+              which is room for the release button's 24px target. */}
+          <Row height={Math.max(0, height - READOUT_LINE_H * model.entries.length)}>
             {headline}
             {chip}
           </Row>
-          <Row height={height - FIRST_ROW_H_OF_TWO}>{entries}</Row>
+          <div data-readout-entries>
+            {model.entries.map((e) => (
+              <Row key={e.id} height={READOUT_LINE_H}>
+                <EntryView entry={e} measuring={measuring} roomy={false} />
+              </Row>
+            ))}
+          </div>
         </>
       )}
     </div>

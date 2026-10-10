@@ -27,7 +27,8 @@ export interface ChartSeriesSpec {
    * drag-to-measure tool and by the readout strip's latest reading (both go
    * through `seriesDelta` in chart-readout.ts).
    * "relative" (default): percentage change (vB−vA)/vA, one decimal, e.g. "+4.2%".
-   * "absolute": raw delta vB−vA to two decimals, then `measureUnit`, e.g. "-1.10 pp".
+   * "absolute": raw delta vB−vA to two decimals, then `measureUnit`, e.g. "−1.10 pp".
+   * A fall is signed with a true minus (U+2212), as here, never an ASCII hyphen.
    * Use it for a series already expressed in percent (short interest). Only a
    * relative change is market direction, so only it is coloured red or green.
    */
@@ -106,9 +107,11 @@ export interface StockChartProps {
   variant?: "full" | "compact"; // compact: no axis labels, no volume, no brush
   decimationTargetPerPx?: number; // default 2
   /**
-   * Where the reading goes. "strip" (default): a fixed-height row above the plot
-   * that shows the latest values, then the hovered, pinned or measured ones, so
-   * nothing ever covers the plot. "tooltip": the floating card that follows the
+   * Where the reading goes. "strip" (default): a strip above the plot that shows
+   * the latest values, then the hovered, pinned or measured ones, so nothing ever
+   * covers the plot. Its height depends only on the chart's width and how many
+   * series it shows: one 28px row from 640px wide, and below that a headline row
+   * and a row for each series. "tooltip": the floating card that follows the
    * cursor (dashboard widgets, small embeds). A strip that would leave the plot
    * under READOUT_MIN_PLOT px falls back to the tooltip.
    */

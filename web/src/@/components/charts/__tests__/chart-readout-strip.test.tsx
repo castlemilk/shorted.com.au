@@ -9,6 +9,8 @@ import {
 
 const GREEN = "rgb(22, 163, 74)";
 const RED = "rgb(220, 38, 38)";
+/** U+2212, DESIGN.md's minus. Written as an escape: it looks like a hyphen. */
+const MINUS = "\u2212";
 
 const delta = (over: Partial<ReadoutDelta> = {}): ReadoutDelta => ({
   value: 3.1,
@@ -50,8 +52,8 @@ function renderStrip(
       model={m}
       width={width}
       // StockChart hands over the height it took off the svg; absent one, the
-      // width alone says which, as it does there.
-      height={props.height ?? readoutStripHeight(width)}
+      // width and the number of series say which, as they do there.
+      height={props.height ?? readoutStripHeight(width, m.entries.length)}
       pinned={props.pinned ?? false}
       valueChars={props.valueChars}
       onRelease={props.onRelease ?? jest.fn()}
@@ -103,14 +105,72 @@ describe("ChartReadoutStrip", () => {
     expect(rows.map((r) => r.style.height)).toEqual(["36px"]);
   });
 
-  it("gives the two rows of the narrow strip the strip's height between them", () => {
-    const { container } = renderStrip(model(), { width: 360, pinned: true });
-    const rows = Array.from(container.querySelectorAll<HTMLElement>("[data-readout-row]"));
-    expect(rows.map((r) => r.style.height)).toEqual(["24px", "20px"]);
-    // The entries' row takes whatever the first leaves of the height it was told.
-    const taller = renderStrip(model(), { width: 360, height: 50 });
-    const tallerRows = Array.from(taller.container.querySelectorAll<HTMLElement>("[data-readout-row]"));
-    expect(tallerRows.map((r) => r.style.height)).toEqual(["24px", "26px"]);
+  describe("a phone strip: a headline row, then a row for each series", () => {
+    const two = model({
+      entries: [entry(), entry({ id: "short", label: "Short %", value: "3.20%" })],
+    });
+    const rowHeights = (c: HTMLElement) =>
+      Array.from(c.querySelectorAll<HTMLElement>("[data-readout-row]")).map((r) => r.style.height);
+
+    it("is 26px of headline and 18px a series: 44px for one series, 62px for two", () => {
+      const one = renderStrip(model(), { width: 360 });
+      expect(rowHeights(one.container)).toEqual(["26px", "18px"]);
+      expect(one.container.querySelector<HTMLElement>("[data-chart-readout]")!.style.height).toBe("44px");
+      one.unmount();
+
+      const both = renderStrip(two, { width: 360, pinned: true });
+      expect(rowHeights(both.container)).toEqual(["26px", "18px", "18px"]);
+      expect(both.container.querySelector<HTMLElement>("[data-chart-readout]")!.style.height).toBe("62px");
+    });
+
+    it("gives the headline row whatever the series rows leave of the height it was told", () => {
+      // 18px a series, whatever the height: the headline row takes the rest.
+      const taller = renderStrip(two, { width: 360, height: 70 });
+      expect(rowHeights(taller.container)).toEqual(["34px", "18px", "18px"]);
+      taller.unmount();
+      // Never a negative height, if it is told less than the series need.
+      const squeezed = renderStrip(two, { width: 360, height: 20 });
+      expect(rowHeights(squeezed.container)).toEqual(["0px", "18px", "18px"]);
+    });
+
+    it("keeps a headline row, and no more, for a chart with no series", () => {
+      const none = renderStrip(model({ entries: [] }), { width: 360 });
+      expect(rowHeights(none.container)).toEqual(["26px"]);
+      expect(none.container.querySelector<HTMLElement>("[data-chart-readout]")!.style.height).toBe("26px");
+    });
+
+    it("puts the headline and the Pinned chip on the first row, and each series on a row of its own", () => {
+      const { container } = renderStrip(two, { width: 360, pinned: true });
+      const [head, first, second, ...rest] = Array.from(
+        container.querySelectorAll<HTMLElement>("[data-readout-row]"),
+      );
+      expect(rest).toHaveLength(0);
+      expect(head!.querySelector("[data-readout-headline]")).not.toBeNull();
+      expect(head!.querySelector("[data-readout-chip]")).not.toBeNull();
+      expect(head!.querySelector("[data-readout-entry]")).toBeNull();
+      // One entry on each, in series order: no entry shares a row.
+      expect(first!.querySelectorAll("[data-readout-entry]")).toHaveLength(1);
+      expect(second!.querySelectorAll("[data-readout-entry]")).toHaveLength(1);
+      expect(first!.querySelector('[data-readout-entry="price"]')).not.toBeNull();
+      expect(second!.querySelector('[data-readout-entry="short"]')).not.toBeNull();
+      // They are still found together, under one wrapper, as on one row.
+      expect(container.querySelectorAll("[data-readout-entries]")).toHaveLength(1);
+    });
+
+    it("shows an entry whole on its row: dot, label, value, change and date note", () => {
+      const { container } = renderStrip(
+        model({ entries: [entry({ change: delta(), dateNote: "5 Oct" })] }),
+        { width: 360 },
+      );
+      const entryEl = container.querySelector<HTMLElement>("[data-readout-entry]")!;
+      expect(Array.from(entryEl.children, (el) => el.textContent)).toEqual([
+        "",
+        "Price",
+        "$43.21",
+        "+3.1%",
+        "· 5 Oct",
+      ]);
+    });
   });
 
   it("leaves the headline out when there is none, and keeps the entries", () => {
@@ -130,13 +190,13 @@ describe("ChartReadoutStrip", () => {
             entry({
               id: "b",
               label: "B",
-              change: delta({ value: -2.5, text: "-2.5%", tone: "down" }),
+              change: delta({ value: -2.5, text: `${MINUS}2.5%`, tone: "down" }),
             }),
           ],
         }),
       );
       expect(changeOf(container, "+3.1%").style.color).toBe(GREEN);
-      expect(changeOf(container, "-2.5%").style.color).toBe(RED);
+      expect(changeOf(container, `${MINUS}2.5%`).style.color).toBe(RED);
     });
 
     it("takes no colour when flat", () => {
@@ -150,7 +210,7 @@ describe("ChartReadoutStrip", () => {
 
     it("keeps a percentage-point change in the foreground, with an arrow that is hidden from assistive technology", () => {
       const up = delta({ value: 0.21, text: "+0.21 pp", colored: false });
-      const down = delta({ value: -1.1, text: "-1.10 pp", tone: "down", colored: false });
+      const down = delta({ value: -1.1, text: `${MINUS}1.10 pp`, tone: "down", colored: false });
       const flat = delta({ value: 0, text: "0.00 pp", tone: "flat", colored: false });
       const { container } = renderStrip(
         model({
@@ -163,7 +223,7 @@ describe("ChartReadoutStrip", () => {
       );
       for (const [text, arrow] of [
         ["+0.21 pp", "▲"],
-        ["-1.10 pp", "▼"],
+        [`${MINUS}1.10 pp`, "▼"],
       ] as const) {
         const el = changeOf(container, text);
         expect(el.style.color).toBe("");
@@ -182,10 +242,20 @@ describe("ChartReadoutStrip", () => {
   });
 
   describe("a value and its date", () => {
-    it("shows a dash for a series with no value", () => {
+    it("reads n/a for a series with no value, never a dash", () => {
       const { container } = renderStrip(model({ entries: [entry({ value: null })] }));
-      expect(within(container).getByText("—")).toBeTruthy();
+      expect(within(container).getByText("n/a")).toBeTruthy();
+      expect(container.querySelector("[data-readout-value]")!.textContent).toBe("n/a");
+      expect(container.textContent).not.toContain("\u2014"); // the em dash it used to be
       expect(container.querySelector("[data-readout-entry]")!.textContent).toContain("Price");
+    });
+
+    it("reads n/a for a missing value on one row as on a phone", () => {
+      for (const width of [360, 800]) {
+        const r = renderStrip(model({ entries: [entry({ value: null })] }), { width });
+        expect(r.container.querySelector("[data-readout-value]")!.textContent).toBe("n/a");
+        r.unmount();
+      }
     });
 
     it("dates a value that is on another day than the headline", () => {
@@ -219,10 +289,11 @@ describe("ChartReadoutStrip", () => {
       expect(within(container as HTMLElement).getByText("+3.1%")).toBeTruthy();
     });
 
-    it("shows a dash for a series with no change to name", () => {
+    it("reads n/a for a series with no change to name, never a dash", () => {
       const { container } = renderStrip(measure);
       const short = container.querySelector<HTMLElement>('[data-readout-entry="short"]')!;
-      expect(within(short).getByText("—")).toBeTruthy();
+      expect(within(short).getByText("n/a")).toBeTruthy();
+      expect(short.textContent).not.toContain("\u2014");
     });
   });
 
@@ -242,12 +313,12 @@ describe("ChartReadoutStrip", () => {
       expect(widthOf(slots(withChange.container)[0]!)).toBe(widthOf(slots(hover.container)[0]!));
     });
 
-    it("on one row, gives a value room for six characters, on two for five", () => {
+    it("on one row, gives a value room for six characters; on a phone, which gives each series a row, none", () => {
       const wide = renderStrip(model(), { width: 800 });
       expect(widthOf(wide.container.querySelector("[data-readout-value]")!)).toBe("6ch");
       wide.unmount();
       const narrow = renderStrip(model(), { width: 400 });
-      expect(widthOf(narrow.container.querySelector("[data-readout-value]")!)).toBe("5ch");
+      expect(widthOf(narrow.container.querySelector("[data-readout-value]")!)).toBe("");
     });
 
     describe("for a value wider than the usual six characters", () => {
@@ -271,8 +342,8 @@ describe("ChartReadoutStrip", () => {
         expect(valueRoom(800, undefined)).toBe("6ch");
       });
 
-      it("on two rows, holds five whatever the series can show: the labels need the room", () => {
-        expect(valueRoom(400, { price: 9 })).toBe("5ch");
+      it("on a phone, holds none whatever the series can show: the row is the label's", () => {
+        expect(valueRoom(400, { price: 9 })).toBe("");
       });
 
       it("gives each series the room of its own widest value", () => {
@@ -285,7 +356,7 @@ describe("ChartReadoutStrip", () => {
       });
     });
 
-    it("on two rows, holds no room for a change that is not there: the labels need it", () => {
+    it("on a phone, holds no room for a change that is not there: the row is the label's", () => {
       const { container } = renderStrip(model({ state: "hover" }), { width: 400 });
       expect(slots(container)).toHaveLength(0);
       expect(container.querySelector('[data-readout-entry]')!.children).toHaveLength(3); // dot, label, value
@@ -306,7 +377,7 @@ describe("ChartReadoutStrip", () => {
       expect(
         headlineWidth(model({ state: "measure", headline: "1 Sep 2026 → 9 Oct 2026" }), 800),
       ).toBe("27ch");
-      // On two rows the headline is alone on its row: nothing to hold.
+      // On a phone the headline is alone on its row: nothing to hold.
       expect(headlineWidth(model(), 400)).toBe("");
     });
 

@@ -6,19 +6,26 @@
  * the numbers, the dates and the "which series ended on another day" notes are
  * decided in one tested place instead of inside JSX.
  *
- * The strip's height is a function of the chart's width alone and is never read
- * back from the DOM, so a reading changing from one state to another cannot
- * move the plot.
+ * The strip's height is a function of the chart's width and how many series it
+ * shows, and nothing else. It is never read back from the DOM, so a reading
+ * changing from one state to another cannot move the plot.
  */
-import { nearest } from "./chart-tooltip";
+import { nearest } from "./nearest";
 import type { ChartPoint, ChartSeriesSpec } from "./types";
 
-/** At this width and above the strip is one row; below it, two. */
+/**
+ * At this width and above the strip is one row; below it, a headline row and
+ * then one row for each series.
+ */
 export const READOUT_ONE_ROW_MIN_WIDTH = 640;
 /** At this width and above a price reading also shows open, high, low, close. */
 export const READOUT_OHLC_MIN_WIDTH = 900;
+/** The height (px) of the strip's one row, from READOUT_ONE_ROW_MIN_WIDTH. */
 export const READOUT_ROW_H_ONE = 28;
-export const READOUT_ROW_H_TWO = 44;
+/** Padding (px) a phone strip holds in all, over and above its lines. */
+export const READOUT_PAD = 8;
+/** The height (px) of one line of a phone strip: the headline, or one series. */
+export const READOUT_LINE_H = 18;
 /** The least plot height (px) worth drawing under a strip. */
 export const READOUT_MIN_PLOT = 160;
 
@@ -41,7 +48,7 @@ export interface ReadoutEntry {
   id: string;
   label: string;
   color: string;
-  /** Null when the series has no point to show. */
+  /** Null when the series has no point to show; the strip reads that as "n/a". */
   value: string | null;
   /** The latest and measure states only; null elsewhere. */
   change: ReadoutDelta | null;
@@ -109,6 +116,9 @@ export function readoutDayKey(t: number): string {
   return `${year}-${month}-${day}`;
 }
 
+/** U+2212, the sign of a fall. Written as an escape: it looks like a hyphen. */
+const MINUS = "\u2212";
+
 /**
  * The change from `a` to `b` on `series`, the one piece of delta maths that the
  * drag-to-measure card and the strip's latest reading share.
@@ -117,6 +127,9 @@ export function readoutDayKey(t: number): string {
  *   there is nothing to divide by, so it reads 0.
  * - absolute: the raw difference, two decimals, then the series' unit,
  *   "+0.21 pp". For a series already expressed in percent.
+ *
+ * A fall is signed with a true minus (U+2212, "−3.1%" as printed), never the
+ * ASCII hyphen-minus (DESIGN.md, the Tabular Rule).
  */
 export function seriesDelta(
   series: ChartSeriesSpec,
@@ -131,7 +144,7 @@ export function seriesDelta(
   // appear: Number("-0.0") is -0, which is falsy, so `|| 0` makes it 0.
   const value = Number(raw.toFixed(digits)) || 0;
   const tone: ReadoutTone = value > 0 ? "up" : value < 0 ? "down" : "flat";
-  const sign = tone === "up" ? "+" : tone === "down" ? "-" : "";
+  const sign = tone === "up" ? "+" : tone === "down" ? MINUS : "";
   const measureUnit = series.measureUnit ? ` ${series.measureUnit}` : "";
   const unit = absolute ? measureUnit : "%";
   return {
@@ -289,26 +302,35 @@ export function buildMeasureReadout(a: {
   };
 }
 
-/** One row from 640px wide, two below. Depends on the width and nothing else. */
-export function readoutStripHeight(width: number): number {
+/**
+ * One 28px row from 640px wide. Below that, a headline row and a row for each
+ * series, 18px a line, with 8px of padding: 44px for one series, 62px for two.
+ * Depends on the width and the number of series the strip shows, and on nothing
+ * the reading says, so no state of the reading can move the plot.
+ */
+export function readoutStripHeight(width: number, seriesCount: number): number {
   return width >= READOUT_ONE_ROW_MIN_WIDTH
     ? READOUT_ROW_H_ONE
-    : READOUT_ROW_H_TWO;
+    : READOUT_PAD + READOUT_LINE_H * (1 + seriesCount);
 }
 
 /**
  * The strip when it was asked for and the plot keeps its room, else the
- * floating tooltip. `reservedH` is everything in `height` that is not plot or
- * strip: the margins, the brush band and the oscillator panel.
+ * floating tooltip. `seriesCount` is the number of series the strip would show
+ * (a phone strip is a row taller for each). `reservedH` is everything in
+ * `height` that is not plot or strip: the margins, the brush band and the
+ * oscillator panel.
  */
 export function resolveReadoutMode(a: {
   requested: "strip" | "tooltip";
   width: number;
   height: number;
+  seriesCount: number;
   reservedH: number;
 }): "strip" | "tooltip" {
   if (a.requested === "tooltip") return "tooltip";
-  const plotH = a.height - readoutStripHeight(a.width) - a.reservedH;
+  const plotH =
+    a.height - readoutStripHeight(a.width, a.seriesCount) - a.reservedH;
   return plotH < READOUT_MIN_PLOT ? "tooltip" : "strip";
 }
 

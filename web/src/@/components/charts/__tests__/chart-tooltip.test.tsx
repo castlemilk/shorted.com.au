@@ -1,6 +1,6 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, render, renderHook } from "@testing-library/react";
 import { scaleTime } from "@visx/scale";
-import { stepIndex, useChartPointer } from "../chart-tooltip";
+import { TooltipContent, stepIndex, useChartPointer } from "../chart-tooltip";
 import type { ChartSeriesSpec } from "../types";
 
 // localPoint needs real SVG geometry; jsdom has none. Read client coords as-is.
@@ -175,6 +175,90 @@ describe("useChartPointer", () => {
       act(() => result.current.pinAtTime(T0));
       expect(result.current.pinned).toBeNull();
     });
+  });
+
+  describe("hoverAtX", () => {
+    it("shows the hover reading at an inner x, with no event to read it from", () => {
+      const { result } = setup();
+      act(() => result.current.hoverAtX(310, 77));
+      const h = result.current.hover!;
+      expect(h).not.toBeNull();
+      expect(h.cx).toBeCloseTo(300); // snapped to the nearest point's x
+      expect(h.cy).toBe(77);
+      expect(h.source).toBe("mouse");
+      expect(h.entries.map((e) => [e.series.id, e.point.v])).toEqual([
+        ["price", 13],
+        ["short", 5],
+      ]);
+      expect(result.current.active).toBe(h);
+      expect(result.current.isPinnedView).toBe(false);
+    });
+
+    it("reads what a move to the same x reads", () => {
+      const moved = setup();
+      act(() => {
+        moved.result.current.onMove(moveAt(520, 31));
+      });
+      const placed = setup();
+      act(() => placed.result.current.hoverAtX(520, 31));
+      expect(placed.result.current.hover).toEqual(moved.result.current.hover);
+    });
+
+    it("is a live hover: it outranks a pin, and onLeave clears it", () => {
+      const { result } = setup();
+      act(() => result.current.togglePinAt(100));
+      act(() => result.current.hoverAtX(700, 0));
+      expect(result.current.isPinnedView).toBe(false);
+      expect(result.current.active!.cx).toBeCloseTo(700);
+      act(() => result.current.onLeave());
+      expect(result.current.hover).toBeNull();
+      expect(result.current.active!.cx).toBeCloseTo(100);
+    });
+
+    it("moves an earlier hover rather than adding to it", () => {
+      const { result } = setup();
+      act(() => result.current.hoverAtX(100, 0));
+      act(() => result.current.hoverAtX(800, 0));
+      expect(result.current.hover!.cx).toBeCloseTo(800);
+    });
+
+    it("shows nothing when no series has a point", () => {
+      const { result } = setup([{ ...mkSeries("empty", "left", 1), points: [] }]);
+      act(() => result.current.hoverAtX(300, 0));
+      expect(result.current.hover).toBeNull();
+    });
+  });
+});
+
+describe("TooltipContent", () => {
+  const hoverOn = (t: number) => ({
+    cx: 0,
+    cy: 0,
+    t,
+    entries: [{ series: series[0]!, point: series[0]!.points[0]! }],
+  });
+
+  it("dates the reading en-AU on the Sydney calendar", () => {
+    // 20:00 UTC on 1 January is 07:00 on 2 January in Sydney (UTC+11).
+    const { container } = render(
+      <TooltipContent hover={hoverOn(Date.UTC(2026, 0, 1, 20, 0))} />,
+    );
+    expect(container.textContent).toContain("2 Jan 2026");
+  });
+
+  it("does not take the date from the browser's locale", () => {
+    // This environment's own locale is en-AU, so stub the API that follows the
+    // browser's: the card used to print its date through it.
+    const browserLocale = jest
+      .spyOn(Date.prototype, "toLocaleDateString")
+      .mockReturnValue("BROWSER-LOCALE-DATE");
+    try {
+      const { container } = render(<TooltipContent hover={hoverOn(T0)} />);
+      expect(container.textContent).not.toContain("BROWSER-LOCALE-DATE");
+      expect(container.textContent).toContain("1 Jan 2026");
+    } finally {
+      browserLocale.mockRestore();
+    }
   });
 });
 

@@ -6,23 +6,11 @@ import React, {
   useState,
 } from "react";
 import { localPoint } from "@visx/event";
-import { bisector } from "@visx/vendor/d3-array";
+import { formatReadoutDate } from "./chart-readout";
 import { chartTheme } from "./chart-theme";
+import { nearest } from "./nearest";
 import type { ChartPoint, ChartSeriesSpec, AxisSpec } from "./types";
 import type { ChartScales } from "./use-chart-scales";
-
-const tBisector = bisector<ChartPoint, number>((d) => d.t);
-
-/** Nearest data point to time `t` (binary search; points must be sorted by t). */
-export function nearest(points: ChartPoint[], t: number): ChartPoint | null {
-  if (!points.length) return null;
-  const i = tBisector.left(points, t, 1);
-  const a = points[i - 1];
-  const b = points[i];
-  if (!a) return b ?? null;
-  if (!b) return a;
-  return t - a.t < b.t - t ? a : b;
-}
 
 /**
  * The index a keyboard step lands on, or null for a key that does not step.
@@ -160,6 +148,16 @@ export function useChartPointer(opts: {
 
   const onLeave = useCallback(() => setHover(null), [setHover]);
 
+  /**
+   * Show the hover reading at an inner-plot x (px), as a pointer there would,
+   * for when the pointer is already there and no move event will say so: the
+   * release of a click, which cleared the hover when it was pressed.
+   */
+  const hoverAtX = useCallback(
+    (innerX: number, cy: number) => setHover(hoverAt(innerX, cy, "mouse")),
+    [hoverAt, setHover],
+  );
+
   // The pin as rendered NOW: crosshair x re-derived from the live scale so a
   // resize keeps it on its data point. Stale-key pins never render (the effect
   // above clears them a commit later).
@@ -226,6 +224,7 @@ export function useChartPointer(opts: {
     isPinnedView: !hover && !!pinned,
     onMove,
     onLeave,
+    hoverAtX,
     pin,
     unpin,
     pinAtTime,
@@ -243,15 +242,9 @@ export function TooltipContent({
   leftAxis?: AxisSpec;
   rightAxis?: AxisSpec;
 }) {
-  const dateLabel = useMemo(
-    () =>
-      new Date(hover.t).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }),
-    [hover.t],
-  );
+  // The same formatter as the strip and the measure card (spec D5, Dates), so
+  // one chart prints one date one way, whoever's browser it is in.
+  const dateLabel = useMemo(() => formatReadoutDate(hover.t), [hover.t]);
   const fmt = (e: HoverEntry) => {
     const f =
       e.series.axis === "right" ? rightAxis?.format : leftAxis?.format;

@@ -309,7 +309,8 @@ export const MeasureAndZoom: Story = {
       const readout = document.querySelector('[data-chart="measure-readout"]');
       expect(readout).toBeTruthy();
       const text = readout!.textContent ?? "";
-      expect(text).toMatch(/[+-]\d/); // a signed change for each series
+      expect(text).toMatch(/[+\u2212]\d/); // a signed change for each series (a fall carries U+2212)
+      expect(text).not.toMatch(/-\d/); // never the ASCII hyphen
       expect(text).toMatch(/%/); // price → relative %
       expect(text).toMatch(/pp/); // short → point delta
     });
@@ -413,9 +414,9 @@ export const MobileTouchPinned: Story = {
 // The readout strip's contract, in a real browser with the real CSS: it takes the
 // same height whatever it shows (the resting reading, a hover, a pin), the plot
 // never moves while it changes, nothing is drawn over the plot, and the svg sits
-// below the strip rather than under it. On one row (`oneRow`) each entry also
-// keeps its place from the resting reading to a hover to a pin; the two-row
-// phone layout trades that for room, so its labels fit.
+// below the strip rather than under it. Each entry also keeps its place from the
+// resting reading to a hover to a pin. On a phone (`oneRow` false) every series
+// has a row of its own, under the headline row, so the entries are stacked.
 async function playReadoutStrip(
   canvasElement: HTMLElement,
   stripHeight: number,
@@ -429,11 +430,20 @@ async function playReadoutStrip(
   const box = (el: Element) => el.getBoundingClientRect();
   const state = () => strip().getAttribute("data-readout-state");
   // Where the second series' entry starts: whatever precedes it shifts it.
-  const secondEntryLeft = () =>
-    strip().querySelectorAll("[data-readout-entry]")[1]!.getBoundingClientRect().left;
+  const secondEntry = () => strip().querySelectorAll("[data-readout-entry]")[1]!.getBoundingClientRect();
+  const secondEntryLeft = () => secondEntry().left;
+  const secondEntryTop = () => secondEntry().top;
 
   const stripBefore = box(strip());
   const secondBefore = secondEntryLeft();
+  const secondTopBefore = secondEntryTop();
+  // On a phone each series has a row to itself: the second is below the first.
+  if (!oneRow) {
+    const [first, second] = Array.from(strip().querySelectorAll("[data-readout-entry]"));
+    expect(box(second!).top).toBeGreaterThanOrEqual(box(first!).bottom - 0.5);
+    expect(box(first!).top).toBeGreaterThanOrEqual(stripBefore.top - 0.5);
+    expect(box(second!).bottom).toBeLessThanOrEqual(stripBefore.bottom + 0.5);
+  }
   const plotBefore = box(rect);
   expect(state()).toBe("latest");
   expect(stripBefore.height).toBe(stripHeight);
@@ -451,7 +461,8 @@ async function playReadoutStrip(
   expect(box(strip()).height).toBe(stripBefore.height);
   expect(box(rect).top).toBe(plotBefore.top);
   expect(canvasElement.querySelector("[data-chart-tooltip]")).toBeNull();
-  if (oneRow) expect(secondEntryLeft()).toBeCloseTo(secondBefore, 1);
+  expect(secondEntryLeft()).toBeCloseTo(secondBefore, 1);
+  expect(secondEntryTop()).toBeCloseTo(secondTopBefore, 1);
   // React derives onMouseLeave from mouseout; the DOM's own mouseleave is not it.
   fireEvent.mouseOut(rect, { relatedTarget: document.body });
   await waitFor(() => expect(state()).toBe("latest"));
@@ -472,7 +483,8 @@ async function playReadoutStrip(
   await waitFor(() => expect(state()).toBe("pinned"));
   expect(strip().hasAttribute("data-pinned")).toBe(true);
   expect(box(strip()).height).toBe(stripBefore.height);
-  if (oneRow) expect(secondEntryLeft()).toBeCloseTo(secondBefore, 1);
+  expect(secondEntryLeft()).toBeCloseTo(secondBefore, 1);
+  expect(secondEntryTop()).toBeCloseTo(secondTopBefore, 1);
   // The plot has not moved a pixel, and nothing floats over it.
   expect(box(rect).top).toBe(plotBefore.top);
   expect(box(rect).height).toBe(plotBefore.height);
@@ -493,6 +505,99 @@ async function playReadoutStrip(
   expect(document.activeElement).toBe(canvasElement.querySelector("[data-chart-container]"));
 }
 
+// A phone chart is the viewport less the page's 2rem of padding: 296px at 360
+// and 326px at 390. At those widths each series has a row to itself, and the
+// readout must hold what the busiest reading has: a label whole (an ellipsis
+// means the row ran short), every value, change and date note inside the strip,
+// and the date a lagging series carries, which is the longest entry there is.
+// Checked at rest, under a pointer and pinned.
+async function playPhoneWidths(canvasElement: HTMLElement, widths: number[]) {
+  // The decorator's frame pads 8px and borders 1px on each side: 18px in all.
+  const frame = canvasElement
+    .querySelector("[data-chart-container]")!
+    .closest<HTMLElement>(".rounded-lg")!;
+  const svg = () => canvasElement.querySelector("svg")!;
+  const strip = () => canvasElement.querySelector<HTMLElement>("[data-chart-readout]")!;
+  const state = () => strip().getAttribute("data-readout-state");
+  const resizeTo = async (chartWidth: number) => {
+    frame.style.width = `${chartWidth + 18}px`;
+    await waitFor(() => expect(Number(svg().getAttribute("width"))).toBe(chartWidth));
+  };
+  // The width the text asks for, whether or not its box has shrunk to cut it.
+  const textWidth = (el: Element) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return range.getBoundingClientRect().width;
+  };
+  const expectReadoutWhole = () => {
+    const stripBox = strip().getBoundingClientRect();
+    expect(stripBox.height).toBe(62);
+    const entries = Array.from(strip().querySelectorAll<HTMLElement>("[data-readout-entry]"));
+    expect(entries).toHaveLength(2);
+    for (const entry of entries) {
+      // Dot, label, value, then a change and a date note when it has them.
+      for (const part of Array.from(entry.children)) {
+        const box = part.getBoundingClientRect();
+        expect(box.right).toBeLessThanOrEqual(stripBox.right + 0.5);
+        expect(box.left).toBeGreaterThanOrEqual(stripBox.left - 0.5);
+      }
+      const label = entry.children[1]!;
+      expect(label.textContent).not.toBe("");
+      // Whole: its box is as wide as its text, so there is no ellipsis.
+      expect(textWidth(label)).toBeLessThanOrEqual(label.getBoundingClientRect().width + 0.01);
+    }
+    // The lagging series is dated, and the date is inside the strip.
+    const note = entries[1]!.querySelector("[data-readout-date-note]");
+    expect(note).not.toBeNull();
+    expect(note!.textContent).toMatch(/^· \d{1,2} [A-Z][a-z]+$/);
+    expect(strip().scrollWidth).toBeLessThanOrEqual(strip().clientWidth);
+  };
+
+  // At rest, and under a pointer near the newest end (where the lagging series
+  // is still dated). All the mouse readings first: StockChart ignores mouse
+  // events for 800ms after a touch (the browser replays a tap as a click), and
+  // whatever ran before this ended on one.
+  await new Promise((resolve) => setTimeout(resolve, 850));
+  for (const w of widths) {
+    await resizeTo(w);
+    await waitFor(() => expect(state()).toBe("latest"));
+    expectReadoutWhole();
+
+    const rect = capture(canvasElement);
+    const plot = rect.getBoundingClientRect();
+    fireEvent.mouseMove(rect, {
+      clientX: plot.left + plot.width * 0.995,
+      clientY: plot.top + plot.height * 0.5,
+    });
+    await waitFor(() => expect(state()).toBe("hover"));
+    expectReadoutWhole();
+    // React derives onMouseLeave from mouseout; the DOM's own mouseleave is not it.
+    fireEvent.mouseOut(rect, { relatedTarget: document.body });
+    await waitFor(() => expect(state()).toBe("latest"));
+  }
+
+  // Then pinned by a touch. (A real browser's TouchEvent constructor insists on
+  // real Touch objects; jsdom has none and accepts the plain shape.)
+  for (const w of widths) {
+    await resizeTo(w);
+    const rect = capture(canvasElement);
+    const plot = rect.getBoundingClientRect();
+    const init = {
+      identifier: 1,
+      target: rect,
+      clientX: plot.left + plot.width * 0.995,
+      clientY: plot.top + plot.height * 0.6,
+    };
+    const touch = typeof Touch === "function" ? new Touch(init) : (init as unknown as Touch);
+    fireEvent.touchStart(rect, { touches: [touch], changedTouches: [touch] });
+    fireEvent.touchEnd(rect, { touches: [], changedTouches: [touch] });
+    await waitFor(() => expect(state()).toBe("pinned"));
+    expectReadoutWhole();
+    fireEvent.click(within(canvasElement).getByRole("button", { name: "Release pinned reading" }));
+    await waitFor(() => expect(state()).toBe("latest"));
+  }
+}
+
 export const ReadoutStrip: Story = {
   name: "Readout strip",
   tags: ["no-visual"], // interaction-only; the static frame is covered by DualAxis
@@ -506,12 +611,20 @@ export const ReadoutStrip: Story = {
   play: ({ canvasElement }) => playReadoutStrip(canvasElement, 28, 400, true),
 };
 
+// Short interest is published days after the day it describes (ASIC's lag), so
+// production's short series ends before the price, and its entry carries its
+// own date: the widest thing a phone strip has to hold.
+const lagged = (s: ChartSeriesSpec, days: number): ChartSeriesSpec => ({
+  ...s,
+  points: s.points.slice(0, s.points.length - days),
+});
+
 export const ReadoutStripPhone: Story = {
   name: "Readout strip (phone)",
   tags: ["no-visual"], // interaction-only
   parameters: { viewport: { defaultViewport: "mobile1" } },
   args: {
-    series: [priceSeries("PLS", "3m"), shortSeries("PLS", "3m")],
+    series: [priceSeries("PLS", "3m"), lagged(shortSeries("PLS", "3m"), 4)],
     leftAxis: { side: "left", format: priceFmt },
     rightAxis: { side: "right", format: shortFmt },
     height: 360,
@@ -523,8 +636,90 @@ export const ReadoutStripPhone: Story = {
       </div>
     ),
   ],
-  // 342px wide: two rows, 44px.
-  play: ({ canvasElement }) => playReadoutStrip(canvasElement, 44, 360, false),
+  // 342px wide: a headline row and a row for each of the two series, 62px.
+  play: async ({ canvasElement }) => {
+    await playReadoutStrip(canvasElement, 62, 360, false);
+    // Then the widths a phone chart really has.
+    await playPhoneWidths(canvasElement, [342, 326, 296]);
+  },
+};
+
+// A click is a press and a release that do not zoom. The press clears the hover
+// (a measure is starting), so in strip mode the release has to read the point
+// under the pointer, or the strip would sit on "Latest" until the next move. Here
+// in a real browser, where the point comes from the svg's own geometry and not a
+// test's stand-in for it.
+export const ReadoutStripClick: Story = {
+  name: "Readout strip (click)",
+  tags: ["no-visual"], // interaction-only
+  args: {
+    series: [priceSeries("PLS", "6m"), shortSeries("PLS", "6m")],
+    leftAxis: { side: "left", format: priceFmt },
+    rightAxis: { side: "right", format: shortFmt },
+    height: 400,
+  },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(capture(canvasElement)).toBeTruthy());
+    const rect = capture(canvasElement);
+    const plot = rect.getBoundingClientRect();
+    const strip = () => canvasElement.querySelector<HTMLElement>("[data-chart-readout]")!;
+    const state = () => strip().getAttribute("data-readout-state");
+    const headline = () => strip().querySelector("[data-readout-headline]")?.textContent ?? "";
+    const points = () => Number(canvasElement.querySelector("svg")!.getAttribute("data-points"));
+    const dots = () => canvasElement.querySelectorAll("[data-chart-container] svg circle");
+    const at = (fx: number) => ({
+      clientX: plot.left + plot.width * fx,
+      clientY: plot.top + plot.height * 0.5,
+    });
+    const before = points();
+    expect(state()).toBe("latest");
+
+    // A click: press and release on the plot. The strip is on the point under it,
+    // and the crosshair is drawn there, within a point's width of the pointer.
+    fireEvent.mouseDown(rect, { ...at(0.3), button: 0 });
+    fireEvent.mouseUp(rect, at(0.3));
+    await waitFor(() => expect(state()).toBe("hover"));
+    expect(headline()).not.toContain("Latest");
+    expect(dots()).toHaveLength(2);
+    const dot = dots()[0]!.getBoundingClientRect();
+    expect(Math.abs(dot.left + dot.width / 2 - at(0.3).clientX)).toBeLessThanOrEqual(
+      plot.width / before,
+    );
+    expect(points()).toBe(before); // nothing was zoomed
+
+    // The pointer leaving takes the hover away, as ever. (React derives
+    // onMouseLeave from mouseout; the DOM's own mouseleave is not it.)
+    fireEvent.mouseOut(rect, { relatedTarget: document.body });
+    await waitFor(() => expect(state()).toBe("latest"));
+    expect(dots()).toHaveLength(0);
+
+    // A release that is not on the plot leaves no hover behind to hang there.
+    fireEvent.mouseDown(rect, { ...at(0.4), button: 0 });
+    fireEvent.mouseUp(strip(), at(0.4));
+    await waitFor(() => expect(state()).toBe("latest"));
+    expect(dots()).toHaveLength(0);
+
+    // A drag that zooms ends on the zoomed view's resting reading, not a hover.
+    fireEvent.mouseDown(rect, { ...at(0.2), button: 0 });
+    fireEvent.mouseMove(rect, at(0.6));
+    await waitFor(() => expect(state()).toBe("measure"));
+    fireEvent.mouseUp(rect, at(0.6));
+    await waitFor(() => expect(points()).toBeLessThan(before));
+    expect(state()).toBe("latest");
+    expect(headline()).not.toContain("Latest"); // a date alone, once zoomed
+    expect(dots()).toHaveLength(0);
+
+    // A click in the zoomed view reads a point of it; the reset that follows a
+    // double-click does not keep that reading for the whole view it brings back.
+    fireEvent.mouseDown(rect, { ...at(0.5), button: 0 });
+    fireEvent.mouseUp(rect, at(0.5));
+    await waitFor(() => expect(state()).toBe("hover"));
+    fireEvent.doubleClick(rect, at(0.5));
+    await waitFor(() => expect(points()).toBe(before));
+    expect(state()).toBe("latest");
+    expect(headline()).toContain("Latest");
+    expect(dots()).toHaveLength(0);
+  },
 };
 
 // A value that changes length as the pointer moves: a price crossing $100 goes

@@ -153,17 +153,21 @@ export function StockChartInner({
   const oscH = showOsc ? 84 : 0;
   const innerW = Math.max(0, width - margin.left - margin.right);
   // Where the reading goes. The strip sits above the svg with a height that
-  // depends on `width` alone, so the plot never moves when a reading changes. It
-  // gives way to the floating tooltip when the plot left under it would be too
-  // short to read. `height` stays the component's total either way: the svg gets
-  // what the strip leaves.
+  // depends on `width` and on how many series it shows (a phone strip has a row
+  // for each) and on nothing a reading says, so the plot never moves when a
+  // reading changes. It gives way to the floating tooltip when the plot left
+  // under it would be too short to read. `height` stays the component's total
+  // either way: the svg gets what the strip leaves.
+  const seriesCount = series.length;
   const readoutMode = resolveReadoutMode({
     requested: readout,
     width,
     height,
+    seriesCount,
     reservedH: margin.top + margin.bottom + brushH + oscH,
   });
-  const stripH = readoutMode === "strip" ? readoutStripHeight(width) : 0;
+  const stripH =
+    readoutMode === "strip" ? readoutStripHeight(width, seriesCount) : 0;
   const svgH = height - stripH;
   const mainH = Math.max(0, svgH - margin.top - margin.bottom - brushH - oscH);
 
@@ -262,6 +266,7 @@ export function StockChartInner({
     isPinnedView,
     onMove,
     onLeave,
+    hoverAtX,
     pin,
     unpin,
     pinAtTime,
@@ -272,6 +277,9 @@ export function StockChartInner({
   });
   const coarsePointer = useCoarsePointer();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // The rect that captures the pointer over the plot: a release is "on the plot"
+  // when it is the event's target.
+  const plotRef = useRef<SVGRectElement | null>(null);
   // Release from the strip's button, then hand focus back to the chart: the
   // button is about to unmount, and focus on a removed node falls to <body>.
   // No scroll: the chart is already where the user is looking.
@@ -321,17 +329,39 @@ export function StockChartInner({
     null,
   );
 
-  const commitMeasure = useCallback(() => {
+  // A click does not zoom, and the press that began it dropped the hover (a
+  // measure was starting), so without this the strip would sit on its resting
+  // reading until the pointer next moved. In strip mode, read the point under
+  // the release instead: the pointer is there. Only when the release IS on the
+  // plot. Let go anywhere else (off the plot, over the strip, over another
+  // chart) and there is no pointer here to read, and a hover would hang on a
+  // crosshair nothing will ever clear. The tooltip mode keeps its card hidden
+  // until the next move, as it always has.
+  const hoverAtRelease = useCallback(
+    (ev: MouseEvent) => {
+      if (ev.target !== plotRef.current) return;
+      const pt = localPoint(ev);
+      if (!pt) return;
+      hoverAtX(Math.max(0, Math.min(innerW, pt.x - margin.left)), pt.y);
+    },
+    [hoverAtX, innerW, margin.left],
+  );
+
+  const commitMeasure = useCallback((release?: MouseEvent) => {
     const m = measureRef.current;
     setMeasureBoth(null);
     if (!m) return;
-    if (Math.abs(m.x1 - m.x0) < MEASURE_MIN_PX) return; // a click, not a drag
+    // Whatever ends without a zoom is a click as far as the reading goes.
+    const endsWithoutZoom = () => {
+      if (readoutMode === "strip" && release) hoverAtRelease(release);
+    };
+    if (Math.abs(m.x1 - m.x0) < MEASURE_MIN_PX) return endsWithoutZoom(); // a click, not a drag
     const ds = dateScaleRef.current;
     const xa = Math.min(m.x0, m.x1);
     const xb = Math.max(m.x0, m.x1);
     const ta = ds.invert(xa).getTime();
     const tb = ds.invert(xb).getTime();
-    if (tb - ta < 1) return;
+    if (tb - ta < 1) return endsWithoutZoom();
     setFiltered([ta, tb]);
     // Mirror the zoom in the overview brush band so the two stay in sync (the
     // band always spans the full dataset, so map through its own scale).
@@ -349,14 +379,18 @@ export function StockChartInner({
       };
       b.updateBrush(updater);
     }
-  }, [setMeasureBoth, setFiltered]);
+  }, [setMeasureBoth, setFiltered, readoutMode, hoverAtRelease]);
 
   const resetView = useCallback(() => {
     unpin();
     setMeasureBoth(null);
     brushRef.current?.reset();
     setFiltered(null);
-  }, [setMeasureBoth, unpin]);
+    // The click that began this double-click read the point under it (strip
+    // mode, above), against the zoom this resets: that reading, and its
+    // crosshair, belong to a view that is gone. The next move reads the new one.
+    if (readoutMode === "strip") onLeave();
+  }, [setMeasureBoth, unpin, readoutMode, onLeave]);
 
   // ── Touch: scrub to read, lift to pin, re-tap the pin to release ─────────
   // A hover cleared on touchend vanished the moment the finger lifted, so a
@@ -483,7 +517,7 @@ export function StockChartInner({
   const dragging = measure !== null;
   useEffect(() => {
     if (!dragging) return;
-    const onUp = () => commitMeasure();
+    const onUp = (ev: MouseEvent) => commitMeasure(ev);
     window.addEventListener("mouseup", onUp);
     return () => window.removeEventListener("mouseup", onUp);
   }, [dragging, commitMeasure]);
@@ -945,6 +979,7 @@ export function StockChartInner({
               vertical page scroll; a horizontal finger move scrubs. (React
               touch listeners are passive, so CSS is the only lever here.) */}
           <rect
+            ref={plotRef}
             x={0}
             y={0}
             width={innerW}

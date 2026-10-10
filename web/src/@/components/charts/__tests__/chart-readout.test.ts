@@ -1,4 +1,7 @@
 import {
+  READOUT_LINE_H,
+  READOUT_PAD,
+  READOUT_ROW_H_ONE,
   buildLatestReadout,
   buildMeasureReadout,
   buildPointReadout,
@@ -14,6 +17,8 @@ import {
 import type { ChartPoint, ChartSeriesSpec } from "../types";
 
 const DAY = 86_400_000;
+/** U+2212, DESIGN.md's minus. Written as an escape: it looks like a hyphen. */
+const MINUS = "\u2212";
 /** 00:00 UTC on 2026-10-<d>: that morning on the same calendar day in Sydney. */
 const oct = (d: number) => Date.UTC(2026, 9, d);
 
@@ -58,7 +63,7 @@ describe("seriesDelta", () => {
     });
     expect(seriesDelta(rel, p(40), p(38.76))).toEqual({
       value: -3.1,
-      text: "-3.1%",
+      text: `${MINUS}3.1%`,
       tone: "down",
       colored: true,
     });
@@ -73,7 +78,7 @@ describe("seriesDelta", () => {
     });
     expect(seriesDelta(abs, p(3.21), p(3))).toEqual({
       value: -0.21,
-      text: "-0.21 pp",
+      text: `${MINUS}0.21 pp`,
       tone: "down",
       colored: false,
     });
@@ -86,6 +91,20 @@ describe("seriesDelta", () => {
     expect(seriesDelta({ ...abs, measureUnit: "" }, p(3), p(3.21)).text).toBe(
       "+0.21",
     );
+  });
+
+  it("signs a fall with a true minus (U+2212), never the ASCII hyphen, and a rise with a plus", () => {
+    const fall = [
+      seriesDelta(rel, p(40), p(38.76)).text,
+      seriesDelta(abs, p(3.21), p(3)).text,
+    ];
+    for (const text of fall) {
+      expect(text.codePointAt(0)).toBe(0x2212);
+      expect(text).not.toContain("-");
+    }
+    expect(seriesDelta(rel, p(40), p(41.24)).text.codePointAt(0)).toBe(0x2b);
+    // A flat change has no sign at all.
+    expect(seriesDelta(rel, p(40), p(40)).text).toBe("0.0%");
   });
 
   it("rounds before taking the sign, so a change too small to show is flat", () => {
@@ -527,11 +546,11 @@ describe("buildMeasureReadout", () => {
       tb: oct(6),
     });
     expect(m.entries[0]!.change).toMatchObject({
-      text: "-4.8%",
+      text: `${MINUS}4.8%`,
       tone: "down",
     });
     expect(m.entries[1]!.change).toMatchObject({
-      text: "-0.21 pp",
+      text: `${MINUS}0.21 pp`,
       tone: "down",
     });
   });
@@ -556,10 +575,28 @@ describe("buildMeasureReadout", () => {
 });
 
 describe("readoutStripHeight", () => {
-  it("is two rows (44) under 640px wide and one row (28) from 640px", () => {
-    expect(readoutStripHeight(639)).toBe(44);
-    expect(readoutStripHeight(640)).toBe(28);
-    expect(readoutStripHeight(1200)).toBe(28);
+  it("is one 28px row from 640px wide, however many series it shows", () => {
+    for (const n of [0, 1, 2, 5]) {
+      expect(readoutStripHeight(640, n)).toBe(READOUT_ROW_H_ONE);
+      expect(readoutStripHeight(1200, n)).toBe(28);
+    }
+  });
+
+  it("is 44px for one series and 62px for two under 640px wide", () => {
+    expect(readoutStripHeight(639, 1)).toBe(44);
+    expect(readoutStripHeight(639, 2)).toBe(62);
+    expect(readoutStripHeight(360, 1)).toBe(44);
+    expect(readoutStripHeight(360, 2)).toBe(62);
+  });
+
+  it("is a headline line and a line for each series, plus 8px of padding, under 640px", () => {
+    // The headline alone, then 18px for each series.
+    expect(readoutStripHeight(639, 0)).toBe(READOUT_PAD + READOUT_LINE_H);
+    expect(readoutStripHeight(639, 3)).toBe(READOUT_PAD + READOUT_LINE_H * 4);
+    expect([READOUT_PAD, READOUT_LINE_H]).toEqual([8, 18]);
+    for (const n of [0, 1, 2, 3]) {
+      expect(readoutStripHeight(500, n + 1) - readoutStripHeight(500, n)).toBe(18);
+    }
   });
 });
 
@@ -627,6 +664,7 @@ describe("resolveReadoutMode", () => {
         requested: "tooltip",
         width: 1200,
         height: 800,
+        seriesCount: 2,
         reservedH: 32,
       }),
     ).toBe("tooltip");
@@ -639,40 +677,82 @@ describe("resolveReadoutMode", () => {
         requested: "strip",
         width: 1000,
         height: 200,
+        seriesCount: 2,
         reservedH: 40,
       }),
     ).toBe("tooltip");
   });
 
   it("is the strip when the plot keeps its room", () => {
-    // 360 - 28 - 32 = 300, and on a phone 360 - 44 - 32 = 284.
+    // 360 - 28 - 32 = 300; on a phone 360 - 44 - 32 = 284 for one series, and
+    // 360 - 62 - 32 = 266 for two.
     expect(
       resolveReadoutMode({
         requested: "strip",
         width: 1000,
         height: 360,
+        seriesCount: 2,
         reservedH: 32,
       }),
     ).toBe("strip");
-    expect(
-      resolveReadoutMode({
-        requested: "strip",
-        width: 360,
-        height: 360,
-        reservedH: 32,
-      }),
-    ).toBe("strip");
+    for (const seriesCount of [1, 2]) {
+      expect(
+        resolveReadoutMode({
+          requested: "strip",
+          width: 360,
+          height: 360,
+          seriesCount,
+          reservedH: 32,
+        }),
+      ).toBe("strip");
+    }
   });
 
   it("keeps the strip at exactly 160px of plot and drops it one pixel short", () => {
-    const wide = { requested: "strip", width: 1000, reservedH: 32 } as const;
+    const wide = {
+      requested: "strip",
+      width: 1000,
+      seriesCount: 2,
+      reservedH: 32,
+    } as const;
     expect(resolveReadoutMode({ ...wide, height: 220 })).toBe("strip"); // 160
     expect(resolveReadoutMode({ ...wide, height: 219 })).toBe("tooltip"); // 159
   });
 
   it("charges a narrow chart the taller strip", () => {
-    const base = { requested: "strip", height: 220, reservedH: 32 } as const;
+    const base = {
+      requested: "strip",
+      height: 220,
+      seriesCount: 1,
+      reservedH: 32,
+    } as const;
     expect(resolveReadoutMode({ ...base, width: 640 })).toBe("strip"); // 160
     expect(resolveReadoutMode({ ...base, width: 639 })).toBe("tooltip"); // 144
+  });
+
+  it("charges a narrow chart a row for each series it shows", () => {
+    const phone = {
+      requested: "strip",
+      width: 360,
+      reservedH: 32,
+    } as const;
+    // One series: 44px strip. 236 - 44 - 32 = 160.
+    expect(resolveReadoutMode({ ...phone, height: 236, seriesCount: 1 })).toBe("strip");
+    // Two: 62px. The same chart is 18px short, and needs 254.
+    expect(resolveReadoutMode({ ...phone, height: 236, seriesCount: 2 })).toBe("tooltip"); // 142
+    expect(resolveReadoutMode({ ...phone, height: 254, seriesCount: 2 })).toBe("strip"); // 160
+    expect(resolveReadoutMode({ ...phone, height: 253, seriesCount: 2 })).toBe("tooltip"); // 159
+  });
+
+  it("does not charge a wide chart for its series: it is one row whatever the count", () => {
+    const wide = {
+      requested: "strip",
+      width: 640,
+      height: 220,
+      reservedH: 32,
+    } as const;
+    for (const seriesCount of [1, 2, 6]) {
+      expect(resolveReadoutMode({ ...wide, seriesCount })).toBe("strip"); // 160
+    }
   });
 });
