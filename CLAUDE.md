@@ -686,8 +686,8 @@ dynamic import's `loading` fallback and as the first block of both chart tabs'
 `loading.tsx`, so the placeholder and the chart are the same size. The controls
 stack below `xl`: one 40px row above the plot (the view control and the embed
 button), then the period and the toggles beneath it. From `xl` they sit in one
-row, which needs about 960px of panel, so windows from 640px to 1279px get the
-stacked form.
+row, which needs about 960px of panel; every narrower window gets the stacked
+form.
 
 `StockChart` takes `readout?: "strip" | "tooltip"`, default `"strip"`. The
 strip is a fixed-height band above the plot, so nothing covers the plot: 28px
