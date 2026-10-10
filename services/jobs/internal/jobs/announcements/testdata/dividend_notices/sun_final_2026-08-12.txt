@@ -1,0 +1,277 @@
+
+
+Appendix 3A.1 - Notification of dividend / distribution
+Appendix 3A.1 - Notification of dividend / distribution
+1
+ / 
+6
+Announcement Summary
+Entity name
+SUNCORP GROUP LIMITED
+Security on which the Distribution will be paid
+SUN - ORDINARY FULLY PAID
+Announcement Type
+New announcement
+Date of this announcement
+12/8/2026
+Distribution Amount
+AUD 0.62000000
+Ex Date
+17/8/2026
+Record Date
+18/8/2026
+Payment Date
+22/9/2026
+DRP election date
+Wednesday August 19, 2026 17:00:00
+Refer to below for full details of the announcement
+For personal use only
+
+
+
+Appendix 3A.1 - Notification of dividend / distribution
+Appendix 3A.1 - Notification of dividend / distribution
+2
+ / 
+6
+Announcement Details
+Part 1 - Entity and announcement details
+1.1 Name of +Entity
+SUNCORP GROUP LIMITED
+1.2 Registered Number Type
+ABN
+Registration Number
+66145290124
+1.3 ASX issuer code
+SUN
+1.4 The announcement is
+1.5 Date of this announcement
+12/8/2026
+1.6 ASX +Security Code
+SUN
+ASX +Security Description
+ORDINARY FULLY PAID
+Part 2A - All dividends/distributions basic details
+2A.1 Type of dividend/distribution
+2A.2 The Dividend/distribution:
+relates to a period of six months
+2A.3 The dividend/distribution relates to the financial reporting or payment period ending ended/ending (date)
+30/6/2026
+2A.4 +Record Date
+18/8/2026
+2A.5 Ex Date
+17/8/2026
+2A.6 Payment Date
+22/9/2026
+2A.7 Are any of the below approvals required for the dividend/distribution before business day 0 of the timetable?
+Security holder approval
+Court approval
+Lodgement of court order with +ASIC
+ACCC approval
+Special
+Special
+Ordinary
+New announcement
+For personal use only
+
+
+
+Appendix 3A.1 - Notification of dividend / distribution
+Appendix 3A.1 - Notification of dividend / distribution
+3
+ / 
+6
+ACCC approval
+FIRB approval
+Another approval/condition external to the entity required before business day 0 of the timetable for the
+dividend/distribution.
+2A.8 Currency in which the dividend/distribution is made ("primary currency")
+AUD - Australian Dollar
+2A.9 Total dividend/distribution payment amount per
++security (in primary currency) for all
+dividends/distributions notified in this form
+AUD 0.62000000
+2A.10 Does the entity have arrangements relating to the
+currency in which the dividend/distribution is paid to
+securityholders that it wishes to disclose to the market?
+2A.11 Does the entity have a securities plan for
+dividends/distributions on this +security?
+2A.11a If the +entity has a DRP, is the DRP applicable to
+this dividend/distribution?
+2A.11a(i) DRP Status in respect of this
+dividend/distribution
+Full DRP
+2A.12 Does the +entity have tax component information
+apart from franking?
+Part 2B - Currency Information
+2B.1 Does the entity default to payment in certain currencies dependent upon certain attributes such as the
+banking instruction or registered address of the +securityholder? (For example NZD to residents of New Zealand
+and/or USD to residents of the U.S.A.).
+2B.2 Please provide a description of your currency arrangements
+Shareholders will have their dividend paid in:
+- Australian dollars if they have nominated an Australian bank for direct credit; or
+- New Zealand dollars if they have nominated a New Zealand bank for direct credit.
+In the absence of a banking instruction, their payment will be:
+- Withheld in Australian dollars for Australian and Overseas (excluding New Zealand) registered shareholders;
+- Withheld in New Zealand dollars for New Zealand registered shareholders.
+The conversation rate for payments made in New Zealand dollars will be set at the Reserve Bank of Australia foreign
+exchange rate at the close of business on 18 August 2026.
+2B.2a Other currency/currencies in which the dividend/distribution will be paid:
+Currency
+Payment currency equivalent amount per security
+NZD - New Zealand Dollar
+NZD
+2B.2b Please provide the exchange rates used for non-primary currency payments
+Yes
+No
+Yes
+We have a Dividend/Distribution Reinvestment Plan (DRP)
+Yes
+No
+For personal use only
+
+
+
+Appendix 3A.1 - Notification of dividend / distribution
+Appendix 3A.1 - Notification of dividend / distribution
+4
+ / 
+6
+2B.2c If payment currency equivalent and exchange
+rates not known, date for information to be released
+19/8/2026
+Estimated or Actual?
+2B.3 Can the securityholder choose to receive a currency different to the currency they would receive under the
+default arrangements?
+2B.3a Please describe what choices are available to a securityholder to receive a currency different to the currency
+they would receive under the default arrangements
+Please refer to 
+https://www.ofx.com/p/mufg-corporate-markets
+2B.3b Date and time by which any document or communication relating to the above arrangements must be
+received in order to be effective for this dividend/distribution
+Tuesday August 18, 2026 17:00:00
+2B.3c Please provide, or indicate where relevant forms can be obtained and how and where they must be lodged
+Shareholders should contact the share registry, MUFG Corporate Markets, for further information on alternative currency
+arrangements.
+Shareholders may also update their currency arrangements or bank account details online by visiting the MUFG
+Corporate Markets Investor Centre at 
+https://au.investorcentre.mpms.mufg.com
+Part 3A - Ordinary dividend/distribution
+3A.1 Is the ordinary dividend/distribution estimated at
+this time?
+3A.1a Ordinary dividend/distribution estimated amount
+per +security
+AUD
+3A.1b Ordinary Dividend/distribution amount per
+security
+AUD 0.52000000
+3A.2 Is the ordinary dividend/distribution franked?
+3A.2a Is the ordinary dividend/distribution fully franked?
+3A.3 Percentage of ordinary dividend/distribution that is
+franked
+100.0000 %
+3A.3a Applicable corporate tax rate for franking credit
+(%)
+30.0000 %
+3A.4 Ordinary dividend/distribution franked amount per
++security
+AUD 0.52000000
+3A.5 Percentage amount of dividend which is unfranked
+0.0000 %
+3A.6 Ordinary dividend/distribution unfranked amount
+per +security excluding conduit foreign income amount
+AUD 0.00000000
+3A.7 Ordinary dividend/distribution conduit foreign
+income amount per security
+AUD 0.00000000
+Yes
+Yes
+No
+Yes
+Estimated
+For personal use only
+
+
+
+Appendix 3A.1 - Notification of dividend / distribution
+Appendix 3A.1 - Notification of dividend / distribution
+5
+ / 
+6
+Part 3B - Special dividend/distribution
+3B.1 Is the special dividend/distribution estimated at this
+time?
+3B.1a Special dividend/distribution estimated amount
+per +security
+AUD
+3B.1b Special dividend/distribution amount per +security
+AUD 0.10000000
+3B.2 Is special dividend/distribution franked?
+3B.2a Is the special dividend/distribution fully franked?
+3B.3 Percentage of special dividend/distribution that is
+franked
+100.0000 %
+3B.3a Applicable corporate tax rate for franking credit
+(%)
+30.0000 %
+3B.4 Special dividend/distribution franked amount per
++security
+AUD 0.10000000
+3B.5 Percentage of special dividend/distribution that is
+unfranked
+0.0000 %
+3B.6 Special dividend/distribution unfranked amount per +security excluding conduit foreign income amount
+AUD 0.00000000
+3B.7 Special dividend/distribution conduit foreign income amount per +security
+AUD 0.00000000
+Part 4A - +Dividend reinvestment plan (DRP)
+4A.1 What is the default option if +security holders do not indicate whether they want to participate in the DRP?
+4A.2 Last date and time for lodgement of election
+notices to share registry under DRP
+Wednesday August 19, 2026 17:00:00
+4A.3 DRP discount rate
+0.0000 %
+4A.4 Period of calculation of reinvestment price
+Start Date
+24/8/2026
+End Date
+8/9/2026
+4A.5 DRP price calculation methodology
+The full definition of the VWAP is available in the rules of the DRP which can be accessed at: 
+https://www.suncorpgroup.c
+om.au/investors/securities/dividend-reinvestment-plan
+4A.6 DRP Price (including any discount):
+AUD
+4A.7 DRP +securities +issue date
+ 
+4A.8 Will DRP +securities be a new issue?
+4A.9 Is there a minimum dollar amount or number of +securities required for DRP participation?
+4A.10 Is there a maximum dollar amount or number of +securities required for DRP participation?
+No
+No
+Do not participate in DRP (i.e. cash payment)
+Yes
+Yes
+No
+For personal use only
+
+
+
+Appendix 3A.1 - Notification of dividend / distribution
+Appendix 3A.1 - Notification of dividend / distribution
+6
+ / 
+6
+4A.11 Are there any other conditions applying to DRP participation?
+4A.11a Conditions for DRP participation
+Participation in the DRP is restricted to shareholders who are resident in, and whose address on the Register of
+Shareholders is in, Australia and New Zealand, Hong Kong and the United Kingdom.
+4A.12 Link to a copy of the DRP plan rules
+https://www.suncorpgroup.com.au/investors/securities/dividend-reinvestment-plan
+4A.13 Further information about the DRP
+Part 5 - Further information
+5.1 Please provide any further information applicable to this dividend/distribution
+5.2 Additional information for inclusion in the Announcement Summary
+Yes
+No
+For personal use only

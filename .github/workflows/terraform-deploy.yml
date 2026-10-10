@@ -648,6 +648,10 @@ jobs:
           # SET LOCAL statement_timeout = 0 each file opens with is what keeps
           # a first build from dying under the role's 2-minute default if that
           # step was missed.
+          #
+          # 000133 adds the dividend notice columns to dividend_history and the
+          # dividend_notice_attempts table; every statement is IF NOT EXISTS and
+          # it touches no rows. It does not depend on where 000095 sits.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -668,7 +672,8 @@ jobs:
               -f /migrations/000122_add_suburb_hazard_exposure.up.sql \
               -f /migrations/000123_register_document_succession.up.sql \
               -f /migrations/000129_add_stock_fundamentals.up.sql \
-              -f /migrations/000130_add_price_features.up.sql
+              -f /migrations/000130_add_price_features.up.sql \
+              -f /migrations/000133_add_dividend_notices.up.sql
 
             # 000131 widens stock_prices' price columns to NUMERIC(12,4). Unlike
             # everything above, its first run does real work: it rewrites the
