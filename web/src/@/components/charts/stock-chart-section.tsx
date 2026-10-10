@@ -18,7 +18,18 @@ import { cn } from "@/lib/utils";
  */
 export const CHART_BOX_HEIGHT_CLASS = "h-[360px] sm:h-[420px]";
 
-/** The heading row above the chart: the title, and a hint from `sm` up. */
+/**
+ * The heading row above the chart: the title, and a hint from `xl` up, where
+ * the panel's controls are on one row too (spec D4).
+ *
+ * The hint needs about 610px beside the title (228px, a 24px gap, 360px). From
+ * `sm` the content has less than that between 640px and about 740px (576px at
+ * 640px, 512px with the signed-in sidebar), so the heading wrapped onto a
+ * second line there, 20px taller than the one `h-7` line the routes'
+ * `loading.tsx` holds for it. From `xl` the content is at least 960px (1280px
+ * less the signed-in sidebar and the container's padding), so the row is one
+ * 28px line at every width.
+ */
 export function StockChartHeading({
   title = "Price & short interest",
   id = "stock-chart-heading",
@@ -31,7 +42,7 @@ export function StockChartHeading({
       <h2 id={id} className="text-lg font-semibold tracking-tight">
         {title}
       </h2>
-      <span className="hidden text-xs text-muted-foreground sm:inline">
+      <span className="hidden text-xs text-muted-foreground xl:inline">
         Toggle series, zoom, and compare · ASIC daily, T+4
       </span>
     </div>

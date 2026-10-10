@@ -27,13 +27,24 @@ describe("StockChartHeading", () => {
     expect(h2).toHaveAttribute("id", "short-interest-chart-heading");
   });
 
-  it("keeps its hint for sm and up, on the row the heading is on", () => {
+  // The hint needs about 610px beside the title. From sm the content has less
+  // than that between 640px and about 740px, so it wrapped the heading to two
+  // lines there, 20px taller than the one h-7 line the routes' loading.tsx
+  // holds for it. From xl, where the panel's controls are on one row too, the
+  // content is at least 960px wide.
+  it("shows its hint from xl up, on the row the heading is on", () => {
     const { container } = render(<StockChartHeading />);
     const hint = screen.getByText("Toggle series, zoom, and compare · ASIC daily, T+4");
     expect(hint.tagName).toBe("SPAN");
-    expect(hint).toHaveClass("hidden", "sm:inline");
+    expect(hint).toHaveClass("hidden", "xl:inline");
     expect(container.firstElementChild).toHaveClass("mb-2", "flex", "justify-between");
     expect(container.firstElementChild).toContainElement(hint);
+  });
+
+  it("has no sm, md or lg variant that would bring the hint back below xl", () => {
+    render(<StockChartHeading />);
+    const hint = screen.getByText("Toggle series, zoom, and compare · ASIC daily, T+4");
+    expect(hint.className).not.toMatch(/(^|\s)(sm|md|lg):/);
   });
 });
 
