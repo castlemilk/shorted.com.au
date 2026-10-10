@@ -627,3 +627,231 @@ describe("StockTabNav scroll cue", () => {
     expect(html).not.toContain("mask-image");
   });
 });
+
+// A control that takes keyboard focus under the docked bar is scrolled clear of
+// it (WCAG 2.2 SC 2.4.11, Focus Not Obscured). Not with CSS scroll-padding,
+// which makes Tab across the docked tab links scroll the page to the top. jsdom
+// has no layout, so the boxes are given: the site header is 0-64px, the bar
+// docks at 64px and is 45px tall (its 44px row and its 1px border), so a
+// control is clear from 109 + 8 = 117px down.
+describe("StockTabNav keeps focus clear of the docked bar", () => {
+  const BAR = { top: 64, bottom: 109, left: 0, right: 1280 };
+  const CLEAR_TOP = BAR.bottom + 8;
+
+  let scrollBy: jest.SpyInstance;
+  let main: HTMLElement;
+
+  const box = (top: number, height = 24, left = 100, width = 200) =>
+    ({ top, bottom: top + height, left, right: left + width, width, height, x: left, y: top }) as DOMRect;
+
+  // The bar, docked at `barTop` unless said otherwise.
+  const mountBar = (barTop: number = BAR.top) => {
+    pathname = "/shorts/BHP/strategy";
+    const view = render(<StockTabNav stockCode="BHP" />);
+    jest
+      .spyOn(navigation(), "getBoundingClientRect")
+      .mockReturnValue({ ...box(barTop, 45, BAR.left, BAR.right - BAR.left) });
+    return view;
+  };
+
+  // A control in the page's <main>, at `top`, outside the bar.
+  const control = (top: number, options: { parent?: Element; tag?: "a" | "button" | "input"; height?: number } = {}) => {
+    const el = document.createElement(options.tag ?? "a");
+    if (el instanceof HTMLAnchorElement) el.href = "#probe";
+    (options.parent ?? main).appendChild(el);
+    jest.spyOn(el, "getBoundingClientRect").mockReturnValue(box(top, options.height));
+    return el;
+  };
+  const focus = (el: HTMLElement) => act(() => el.focus());
+
+  beforeEach(() => {
+    scrollBy = jest.spyOn(window, "scrollBy").mockImplementation(() => undefined);
+    main = document.createElement("main");
+    document.body.appendChild(main);
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    main.remove();
+    document.body.querySelectorAll("header, dialog, [role=dialog]").forEach((el) => el.remove());
+  });
+
+  it("scrolls up until a link focused at 80px sits 8px under the bar", () => {
+    mountBar();
+    focus(control(80));
+    expect(scrollBy).toHaveBeenCalledTimes(1);
+    expect(scrollBy).toHaveBeenCalledWith({ top: 80 - CLEAR_TOP });
+  });
+
+  it.each([["button"], ["input"]] as const)("does the same for a %s", (tag) => {
+    mountBar();
+    focus(control(70, { tag }));
+    expect(scrollBy).toHaveBeenCalledWith({ top: 70 - CLEAR_TOP });
+  });
+
+  it("scrolls a control that is partly above the screen, by its top", () => {
+    mountBar();
+    focus(control(-20, { height: 40 })); // -20 to 20: its bottom is on screen
+    expect(scrollBy).toHaveBeenCalledWith({ top: -20 - CLEAR_TOP });
+  });
+
+  it("leaves a control that is clear of the bar alone, to the pixel", () => {
+    mountBar();
+    focus(control(CLEAR_TOP));
+    focus(control(300));
+    expect(scrollBy).not.toHaveBeenCalled();
+    focus(control(CLEAR_TOP - 1));
+    expect(scrollBy).toHaveBeenCalledWith({ top: -1 });
+  });
+
+  it("leaves a control that is wholly above the screen to the browser, which centres it", () => {
+    mountBar();
+    focus(control(-100, { height: 40 })); // bottom at -60
+    focus(control(-40, { height: 40 })); // bottom at 0
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  describe("only while the bar is docked", () => {
+    it("does nothing while the bar sits lower than its sticky top, where nothing is under it", () => {
+      mountBar(250);
+      focus(control(300)); // clear of a bar at 250..295 anyway
+      focus(control(260)); // under it, but it is not docked
+      expect(scrollBy).not.toHaveBeenCalled();
+    });
+
+    it("allows a pixel of rounding: 65px counts as docked, 66px does not", () => {
+      mountBar(65);
+      focus(control(80));
+      expect(scrollBy).toHaveBeenCalledTimes(1);
+
+      jest.mocked(navigation().getBoundingClientRect).mockReturnValue(box(66, 45, BAR.left, BAR.right - BAR.left));
+      focus(control(80));
+      expect(scrollBy).toHaveBeenCalledTimes(1);
+    });
+
+    it("reads where the bar docks from its own sticky top rather than assuming 64px", () => {
+      mountBar(80);
+      navigation().style.top = "80px";
+      focus(control(90));
+      expect(scrollBy).toHaveBeenCalledTimes(1);
+
+      navigation().style.top = "64px";
+      focus(control(90));
+      expect(scrollBy).toHaveBeenCalledTimes(1); // the bar at 80 is no longer docked
+    });
+  });
+
+  describe("only for the keyboard", () => {
+    it("does not move the page for a control the visitor reached with the pointer", () => {
+      mountBar();
+      // A click focuses a link without :focus-visible; the event is the same.
+      const link = control(80);
+      link.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+      expect(link.matches(":focus-visible")).toBe(false);
+      expect(scrollBy).not.toHaveBeenCalled();
+    });
+
+    it("does nothing where the engine has no :focus-visible", () => {
+      mountBar();
+      const link = control(80);
+      const matches = Element.prototype.matches;
+      jest.spyOn(Element.prototype, "matches").mockImplementation(function (this: Element, selector: string) {
+        if (selector === ":focus-visible") throw new SyntaxError(`'${selector}' is not a valid selector`);
+        return matches.call(this, selector);
+      });
+      expect(() => focus(link)).not.toThrow();
+      expect(scrollBy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("never for a control that scrolling cannot clear", () => {
+    it("leaves the bar's own links alone: Tab across the docked tabs never moves the page", () => {
+      mountBar();
+      for (const link of screen.getAllByRole("link")) {
+        jest.spyOn(link, "getBoundingClientRect").mockReturnValue(box(70)); // under the top of the bar
+        focus(link);
+      }
+      expect(scrollBy).not.toHaveBeenCalled();
+    });
+
+    it("leaves a control in the site header alone", () => {
+      mountBar();
+      const header = document.createElement("header");
+      document.body.appendChild(header);
+      focus(control(20, { parent: header }));
+      expect(scrollBy).not.toHaveBeenCalled();
+    });
+
+    it("does not mistake a <header> inside the page's <main> for the site's", () => {
+      mountBar();
+      const section = document.createElement("header");
+      main.appendChild(section);
+      focus(control(80, { parent: section }));
+      expect(scrollBy).toHaveBeenCalledWith({ top: 80 - CLEAR_TOP });
+    });
+
+    it.each([
+      ["a dialog", () => { const d = document.createElement("div"); d.setAttribute("role", "dialog"); return d; }],
+      ["an alert dialog", () => { const d = document.createElement("div"); d.setAttribute("role", "alertdialog"); return d; }],
+      ["a native <dialog>", () => document.createElement("dialog")],
+    ])("leaves a control in %s alone", (_name, make) => {
+      mountBar();
+      const surface = make();
+      document.body.appendChild(surface);
+      focus(control(80, { parent: surface }));
+      expect(scrollBy).not.toHaveBeenCalled();
+    });
+
+    it("leaves a control with a position: fixed ancestor alone, however far up", () => {
+      mountBar();
+      const fixed = document.createElement("div");
+      fixed.style.position = "fixed";
+      main.appendChild(fixed);
+      const inner = document.createElement("div");
+      fixed.appendChild(inner);
+      focus(control(80, { parent: inner }));
+      expect(scrollBy).not.toHaveBeenCalled();
+    });
+
+    it("still moves the page for a control in an absolutely positioned or sticky parent", () => {
+      mountBar();
+      const absolute = document.createElement("div");
+      absolute.style.position = "absolute";
+      main.appendChild(absolute);
+      focus(control(80, { parent: absolute }));
+      expect(scrollBy).toHaveBeenCalledTimes(1);
+    });
+
+    it("leaves a control beside the bar, not under it, alone (the signed-in sidebar)", () => {
+      mountBar();
+      const sidebarLink = control(80);
+      jest.spyOn(sidebarLink, "getBoundingClientRect").mockReturnValue(box(80, 24, -300, 280)); // right edge at -20
+      focus(sidebarLink);
+      const pastTheRightEdge = control(80);
+      jest.spyOn(pastTheRightEdge, "getBoundingClientRect").mockReturnValue(box(80, 24, 1280, 100));
+      focus(pastTheRightEdge);
+      expect(scrollBy).not.toHaveBeenCalled();
+    });
+  });
+
+  it("listens on the document, once, and stops when it unmounts", () => {
+    const add = jest.spyOn(document, "addEventListener");
+    const remove = jest.spyOn(document, "removeEventListener");
+    const view = mountBar();
+    const added = add.mock.calls.filter(([type]) => type === "focusin");
+    expect(added).toHaveLength(1);
+
+    view.unmount();
+    const removed = remove.mock.calls.filter(([type]) => type === "focusin");
+    expect(removed).toHaveLength(1);
+    expect(removed[0]![1]).toBe(added[0]![1]);
+
+    focus(control(80));
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it("ignores a focus that is not on an element", () => {
+    mountBar();
+    expect(() => document.dispatchEvent(new FocusEvent("focusin", { bubbles: true }))).not.toThrow();
+    expect(scrollBy).not.toHaveBeenCalled();
+  });
+});

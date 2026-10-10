@@ -32,6 +32,74 @@ const FADE_START =
 const FADE_BOTH =
   "[mask-image:linear-gradient(to_right,transparent,black_40px,black_calc(100%-40px),transparent)]";
 
+// The air left between the docked bar and a control scrolled clear of it.
+const FOCUS_AIR = 8;
+
+// Surfaces that sit over the page wherever it is scrolled to, so scrolling the
+// page cannot clear a control on them.
+const OVER_THE_PAGE = '[role="dialog"], [role="alertdialog"], dialog';
+
+// The site's own header: a <header> outside <main>, stuck to the top. A <header>
+// inside <main> is content.
+function inSiteHeader(el: Element): boolean {
+  const header = el.closest("header");
+  return header !== null && header.closest("main") === null;
+}
+
+// `el` or an ancestor is position: fixed, so it stays where it is on screen
+// whatever the page scrolls to.
+function isFixed(el: Element): boolean {
+  for (let node: Element | null = el; node; node = node.parentElement) {
+    if (getComputedStyle(node).position === "fixed") return true;
+  }
+  return false;
+}
+
+// An engine without :focus-visible throws on the selector. There the browser's
+// own scroll stands, as it did before this nudge existed.
+function isFocusVisible(el: Element): boolean {
+  try {
+    return el.matches(":focus-visible");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * WCAG 2.2 SC 2.4.11, Focus Not Obscured: how far to scroll the page (a
+ * negative number, up) to bring a control that has just taken focus out from
+ * under the docked tab bar, or 0 to leave the page alone.
+ *
+ * The bar is translucent and blurred, so a control left under it is an
+ * unreadable smear with no visible focus ring. The browser does not help: it
+ * scrolls a focus target into view only when the target is outside the
+ * viewport, and the bar is inside it. It centres a control that is off screen,
+ * so those are left to it.
+ *
+ * Only a control the visitor reaches with the keyboard moves the page
+ * (:focus-visible), only while the bar is docked (nothing sits under it
+ * otherwise), and never one that scrolling cannot clear: the bar's own links,
+ * the site header, a dialog, anything position: fixed. A control beside the
+ * bar rather than under it (the signed-in sidebar) is not obscured by it.
+ */
+function scrollToClearBar(nav: HTMLElement, control: Element): number {
+  if (nav.contains(control)) return 0;
+  const bar = nav.getBoundingClientRect();
+  const stickyTop = parseFloat(getComputedStyle(nav).top) || DEFAULT_STICKY_TOP;
+  if (Math.abs(bar.top - stickyTop) > 1) return 0;
+
+  const rect = control.getBoundingClientRect();
+  const clearTop = bar.bottom + FOCUS_AIR;
+  if (rect.top >= clearTop || rect.bottom <= 0) return 0;
+  if (rect.right <= bar.left || rect.left >= bar.right) return 0;
+
+  if (!isFocusVisible(control)) return 0;
+  if (inSiteHeader(control)) return 0;
+  if (control.closest(OVER_THE_PAGE) !== null) return 0;
+  if (isFixed(control)) return 0;
+  return rect.top - clearTop;
+}
+
 /**
  * The stock page's tab bar: seven plain links (crawlable, SSR'd by the server
  * layout that renders this). Prefetch is INTENT-driven — pointer enter, touch
@@ -154,6 +222,23 @@ export function StockTabNav({ stockCode }: { stockCode: string }) {
       window.scrollTo({ top: dockY, left: window.scrollX });
     }
   }, [active]);
+
+  // Keep keyboard focus out from under the docked bar (scrollToClearBar). Not
+  // CSS `scroll-padding-top`: it makes Tab across the docked tab links scroll
+  // the page to the top (the sticky bar can never sit below the padded region,
+  // so the browser keeps scrolling to try), and it reaches no further than a
+  // control the browser was already going to scroll.
+  useEffect(() => {
+    const onFocusIn = (event: FocusEvent) => {
+      const nav = navRef.current;
+      const control = event.target;
+      if (!nav || !(control instanceof Element)) return;
+      const delta = scrollToClearBar(nav, control);
+      if (delta !== 0) window.scrollBy({ top: delta });
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, []);
 
   return (
     <>
