@@ -2,6 +2,7 @@ import nextDynamic from "next/dynamic";
 import { type Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
+import { DirectorTradesSkeleton } from "~/@/components/company/director-trades-skeleton";
 import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
 import { PoliticianInterestsCard } from "~/@/components/company/politician-interests-card-loader";
 import { StockEvidencePanelClient } from "~/@/components/company/stock-evidence-panel-client";
@@ -14,10 +15,13 @@ import { loadStockOrFail } from "../stock-page-data";
 import { STOCK_CODE_PATTERN, cleanCompanyName } from "../stock-page-shared";
 
 // Client islands that import @connectrpc/connect: client-only, as the chart
-// panels on the Overview and Short interest tabs are.
+// panels on the Overview and Short interest tabs are. The directors table holds
+// its place with the card it draws while it loads (DirectorTradesSkeleton, a
+// module with no Connect in it), so it does not pop in after the page and shift
+// what is below it.
 const DirectorTradesTable = nextDynamic(
   () => import("~/@/components/company/director-trades-table").then((m) => m.DirectorTradesTable),
-  { ssr: false },
+  { ssr: false, loading: () => <DirectorTradesSkeleton /> },
 );
 const StockConnections = nextDynamic(
   () => import("~/@/components/company/stock-connections").then((m) => m.StockConnections),

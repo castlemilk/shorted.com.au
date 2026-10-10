@@ -20,8 +20,8 @@ import {
   TableRow,
 } from "~/@/components/ui/table";
 import { Badge } from "~/@/components/ui/badge";
-import { Skeleton } from "~/@/components/ui/skeleton";
 import { Users, ExternalLink } from "lucide-react";
+import { DirectorTradesSkeleton } from "./director-trades-skeleton";
 
 interface DirectorTradesTableProps {
   stockCode: string;
@@ -50,25 +50,8 @@ export function DirectorTradesTable({
     staleTime: 5 * 60 * 1000,
   });
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Director trades
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // The same card the Company page holds this island's place with.
+  if (isLoading) return <DirectorTradesSkeleton />;
 
   if (isError || !data?.trades?.length) {
     return (

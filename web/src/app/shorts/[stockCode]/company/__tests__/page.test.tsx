@@ -9,10 +9,19 @@ const mockMetadata = jest.fn().mockResolvedValue({ title: "t" });
 const mockBreadcrumbs = jest.fn();
 // The two client islands (director trades, connections) arrive through
 // next/dynamic and are numbered in render order: island-1 is the directors
-// table, island-2 the similar-companies card.
+// table, island-2 the similar-companies card. What each was given to load it
+// with (its `ssr` and `loading`) is kept, in source order, for the tests that
+// say how the page loads them.
 let islands = 0;
+const dynamicOptions: Array<{ ssr?: boolean; loading?: () => React.ReactNode } | undefined> = [];
 jest.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_FOUND"); } }));
-jest.mock("next/dynamic", () => () => () => <div data-testid={`island-${++islands}`} />);
+jest.mock(
+  "next/dynamic",
+  () => (_loader: unknown, options?: { ssr?: boolean; loading?: () => React.ReactNode }) => {
+    dynamicOptions.push(options);
+    return () => <div data-testid={`island-${++islands}`} />;
+  },
+);
 jest.mock("~/app/actions/getStock", () => ({ getStockOrNotFound: (...a: unknown[]) => mockGetStockOrNotFound(...a) }));
 jest.mock("~/app/actions/getRelatedStocks", () => ({ getRelatedStocks: (...a: unknown[]) => mockGetRelatedStocks(...a) }));
 jest.mock("~/app/actions/getEconomy", () => ({ getStateExposureIndex: (...a: unknown[]) => mockGetStateExposureIndex(...a) }));
@@ -43,6 +52,7 @@ jest.mock("~/@/components/company/stock-evidence-panel-client", () => ({
 }));
 
 import Page, { generateMetadata, generateStaticParams, revalidate, dynamicParams } from "../page";
+import { DirectorTradesSkeleton } from "~/@/components/company/director-trades-skeleton";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 
@@ -148,6 +158,23 @@ describe("/shorts/[stockCode]/company", () => {
       headings[1]!.compareDocumentPosition(screen.getByTestId("enriched")) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  // Without a placeholder the directors card popped in after the page and shifted
+  // what is below it (a first-load layout shift of 0.023 on desktop). Both
+  // islands are client-only; the directors table holds its place with the card it
+  // draws while it loads.
+  it("loads both islands client-only, and holds the directors table's place with the skeleton card", () => {
+    expect(dynamicOptions).toHaveLength(2);
+    const [directors, connections] = dynamicOptions;
+    expect(directors?.ssr).toBe(false);
+    expect(connections?.ssr).toBe(false);
+    expect(typeof directors?.loading).toBe("function");
+
+    const placeholder = render(<>{directors!.loading!()}</>);
+    const skeleton = render(<DirectorTradesSkeleton />);
+    expect(placeholder.container.innerHTML).not.toBe("");
+    expect(placeholder.container.innerHTML).toBe(skeleton.container.innerHTML);
   });
 
   it("names the directors section with an aria-label around the directors island", async () => {
