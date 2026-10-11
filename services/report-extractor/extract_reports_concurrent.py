@@ -11,6 +11,11 @@ Two modes:
                        companies with no metric-bearing extraction yet (by
                        market cap), then the rest (by market cap). Each runs the
                        full extract + ground + digest + document_meta pipeline.
+                       A document ASX lists under several codes (a renamed
+                       company's old and new code) is read once, under its
+                       owner (extract.choose_document_owners), and an
+                       extracted one filed under an out-of-date listing is
+                       moved to its owner first (extract.rehome_shared_extractions).
   --backfill-digests   §6.3(b): re-summarise rows ALREADY in
                        financial_report_extractions that have digest IS NULL.
                        Prefers the raw text stored in GCS so it does not
@@ -160,8 +165,18 @@ def open_selection_connection():
     return extract.get_db_connection(autocommit=True)
 
 
-def select_reports(conn, recent: int, limit: int) -> list[dict]:
-    """The run's work list (extract.select_extraction_targets)."""
+def select_reports(conn, recent: int, limit: int, dry_run: bool = False) -> list[dict]:
+    """The run's work list (extract.select_extraction_targets), after moving
+    shared documents filed under an out-of-date listing to their owner
+    (extract.rehome_shared_extractions; a dry run only lists them)."""
+    moves = extract.rehome_shared_extractions(conn, dry_run=dry_run)
+    if moves:
+        log.info(
+            "%s %d extracted documents to the listing that owns them: %s",
+            "Would move" if dry_run else "Moved",
+            len(moves),
+            ", ".join(f"{src}->{dst}" for _, src, dst in moves[:20]) + (" ..." if len(moves) > 20 else ""),
+        )
     return extract.select_extraction_targets(conn, recent=recent, limit=limit)
 
 
@@ -544,7 +559,7 @@ def main():
             base_worker = process_digestless
             log.info("Digest backfill: %d rows with no digest (workers=%d)", len(reports), args.workers)
         else:
-            reports = select_reports(conn, args.recent, args.limit)
+            reports = select_reports(conn, args.recent, args.limit, dry_run=args.dry_run)
             base_worker = process
             retries = sum(1 for r in reports if r.get("empty_retry"))
             log.info("Report extraction: %d reports to process, %d of them empty extractions read again (recent=%d, workers=%d, max_pages=%d, budget=%.0f min)",

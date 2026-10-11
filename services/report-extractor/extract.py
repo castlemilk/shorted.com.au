@@ -72,7 +72,7 @@ import sys
 import time
 from collections import Counter
 from datetime import datetime
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, NamedTuple, Optional
 
 import fitz  # pymupdf
 import langextract as lx
@@ -665,10 +665,144 @@ def order_extraction_targets(
     return chosen
 
 
-def select_extraction_targets(conn, recent: int, limit: int, today: Optional[_dt.date] = None) -> list[dict]:
-    """The scheduled run's selection (order_extraction_targets over the DB).
-    Run it on an autocommit connection: it must leave no transaction open."""
-    today = today or _dt.datetime.now(_dt.timezone.utc).date()
+# --- Documents ASX lists under several codes -----------------------------------
+#
+# ASX lists a renamed company's announcements under its old code and its new
+# one, a fund manager's report under every fund it covers, and a stapled group's
+# under each security, so on 11 Oct 2026 4,101 results documents sat in more
+# than one company's financial_reports. Chosen company by company, a document
+# was read under every code that listed it (19 documents, 22 extra reads, in
+# that day's run), and the first write kept the row: report_url is unique and
+# store_extraction never changes stock_code. 290 extracted documents (31 with
+# figures) were filed under a listing out of date by the rule below, out of
+# reach of the company's current code (Swift TV's results under SW1, not STV;
+# Conneqt Health's under CDX, not CQT).
+#
+# Each such document has ONE owner (choose_document_owners): the listing with
+# prices within OWNER_PRICE_WINDOW_DAYS of the newest, then the one on ASIC's
+# short report within OWNER_SHORTS_WINDOW_DAYS of the newest (prices still
+# arrive for a few old codes; ASIC lists only the code that trades), then the
+# largest by market cap, then the first code. Market cap alone is no guide: an
+# old code keeps its last market cap and a new listing often has none, and it
+# picked the old code for 591 documents. The latest price date picked the
+# current code in all 10 renames checked. Only the owner's copy is selected.
+#
+# rehome_shared_extractions moves a row to the owner only when its listing is
+# out of date: behind on prices, or behind on short reports where both carry
+# the same last PRICE_TAIL_SESSIONS closes (Yahoo serves some old tickers with
+# the renamed company's prices: Hillgrove's HGO and Kantra's KAN closed alike
+# to the cent through 9 Oct 2026) or neither has current prices. Funds that
+# all trade are not moved: a fund without a recent short position is not out
+# of date (VAP last appeared on ASIC's report in May 2026), and which fund
+# holds a report written for several is a tie-break, not a fact.
+OWNER_PRICE_WINDOW_DAYS = 7
+OWNER_SHORTS_WINDOW_DAYS = 30
+PRICE_TAIL_SESSIONS = 3
+
+
+class DocumentOwner(NamedTuple):
+    code: str
+    # The document's other listings that are out of date next to the owner.
+    # A row filed under one of them moves to the owner.
+    stale: frozenset
+
+
+def choose_document_owners(
+    listings: dict,
+    last_price: dict,
+    last_short: dict,
+    market_caps: dict,
+    price_tails: Optional[dict] = None,
+) -> dict[str, DocumentOwner]:
+    """{url: DocumentOwner} for each document listed under more than one code.
+    listings maps a url to the codes that list it; last_price and last_short
+    map a code to its latest stock_prices date and latest ASIC short report
+    date, and price_tails to its last PRICE_TAIL_SESSIONS (date, close) pairs
+    (absent: none)."""
+    price_tails = price_tails or {}
+    price_window = _dt.timedelta(days=OWNER_PRICE_WINDOW_DAYS)
+    shorts_window = _dt.timedelta(days=OWNER_SHORTS_WINDOW_DAYS)
+    owners: dict[str, DocumentOwner] = {}
+    for url, codes in listings.items():
+        if len(codes) < 2:
+            continue
+        newest_price = max((last_price[c] for c in codes if last_price.get(c)), default=None)
+        newest_short = max((last_short[c] for c in codes if last_short.get(c)), default=None)
+
+        def current(code: str) -> tuple[bool, bool]:
+            price, short = last_price.get(code), last_short.get(code)
+            return (
+                bool(price) and price >= newest_price - price_window,
+                bool(short) and short >= newest_short - shorts_window,
+            )
+
+        def rank(code: str):
+            on_prices, on_shorts = current(code)
+            mcap = market_caps.get(code)
+            return (not on_prices, not on_shorts, -mcap if mcap is not None else math.inf, code)
+
+        owner = min(codes, key=rank)
+
+        def out_of_date(code: str) -> bool:
+            (owner_prices, owner_shorts), (on_prices, on_shorts) = current(owner), current(code)
+            if owner_prices != on_prices:
+                return owner_prices
+            if not owner_shorts or on_shorts:
+                return False
+            return not owner_prices or bool(price_tails.get(owner)) and price_tails.get(owner) == price_tails.get(code)
+
+        owners[url] = DocumentOwner(owner, frozenset(c for c in codes if c != owner and out_of_date(c)))
+    return owners
+
+
+def drop_copies_owned_elsewhere(candidates: Iterable[dict], owners: dict) -> list[dict]:
+    """The candidates without the copies of a shared document listed under a
+    code other than its owner."""
+    return [r for r in candidates if r["url"] not in owners or owners[r["url"]].code == r["stock_code"]]
+
+
+def _listing_signals(conn, codes: list[str]) -> tuple[dict, dict, dict]:
+    """({code: latest stock_prices date}, {code: latest ASIC short report
+    date}, {code: its last PRICE_TAIL_SESSIONS (date, close) pairs}) for codes.
+    A database without either table (a test schema) gives nothing from it,
+    never an error."""
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT to_regclass('stock_prices') IS NOT NULL, to_regclass('shorts') IS NOT NULL")
+        has_prices, has_shorts = cur.fetchone()
+        tail_sql = (
+            "(SELECT array_agg(p.date::text || '=' || p.close::text ORDER BY p.date DESC) FROM ("
+            "SELECT date, close FROM stock_prices WHERE stock_code = c.code ORDER BY date DESC LIMIT %s) p)"
+            if has_prices else "NULL::text[]"
+        )
+        short_sql = '(SELECT max(s."DATE")::date FROM shorts s WHERE s."PRODUCT_CODE" = c.code)' if has_shorts else "NULL::date"
+        params = ((PRICE_TAIL_SESSIONS,) if has_prices else ()) + (codes,)
+        cur.execute(f"SELECT c.code, {tail_sql}, {short_sql} FROM unnest(%s::text[]) AS c(code)", params)
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+    tails = {code: tuple(tail) for code, tail, _ in rows if tail}
+    last_price = {code: _dt.date.fromisoformat(tail[0].split("=", 1)[0]) for code, tail in tails.items()}
+    return last_price, {code: s for code, _, s in rows if s}, tails
+
+
+def shared_document_owners(conn, candidates: list[dict], market_caps: dict) -> dict[str, DocumentOwner]:
+    """choose_document_owners over the candidates' shared documents, with each
+    listing's prices and short report dates read from the database (nothing
+    is read when no document is shared)."""
+    listings: dict[str, set] = {}
+    for r in candidates:
+        listings.setdefault(r["url"], set()).add(r["stock_code"])
+    shared = {url: codes for url, codes in listings.items() if len(codes) > 1}
+    if not shared:
+        return {}
+    last_price, last_short, tails = _listing_signals(conn, sorted({c for codes in shared.values() for c in codes}))
+    return choose_document_owners(shared, last_price, last_short, market_caps, tails)
+
+
+def _selection_candidates(conn) -> tuple[list[dict], dict[str, Optional[float]]]:
+    """Every company's results documents (_parse_financial_reports) and market
+    caps."""
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     try:
         cur.execute(
@@ -683,6 +817,59 @@ def select_extraction_targets(conn, recent: int, limit: int, today: Optional[_dt
             """
         )
         rows = cur.fetchall()
+    finally:
+        cur.close()
+    candidates: list[dict] = []
+    market_caps: dict[str, Optional[float]] = {}
+    for row in rows:
+        code = row["stock_code"]
+        candidates.extend(_parse_financial_reports(code, row["financial_reports"]))
+        market_caps[code] = parse_market_cap(row["km_market_cap"], row["market_cap_text"])
+    return candidates, market_caps
+
+
+def rehome_shared_extractions(conn, dry_run: bool = False) -> list[tuple[str, str, str]]:
+    """Moves each extracted shared document filed under a listing its owner is
+    ahead of (DocumentOwner.stale) to the owner, in one UPDATE: SW1's Swift TV
+    results to STV. Returns the moves as (url, from_code, to_code); a dry run
+    only lists them. Run it before select_extraction_targets, so the owners'
+    tiers count the documents they now hold."""
+    candidates, market_caps = _selection_candidates(conn)
+    owners = shared_document_owners(conn, candidates, market_caps)
+    if not owners:
+        return []
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT report_url, stock_code FROM financial_report_extractions WHERE report_url = ANY(%s)",
+            (sorted(owners),),
+        )
+        moves = sorted(
+            (url, code, owners[url].code) for url, code in cur.fetchall() if code in owners[url].stale
+        )
+        if moves and not dry_run:
+            cur.execute(
+                """
+                UPDATE financial_report_extractions e
+                SET stock_code = m.to_code
+                FROM unnest(%s::text[], %s::text[], %s::text[]) AS m(url, from_code, to_code)
+                WHERE e.report_url = m.url AND e.stock_code = m.from_code
+                """,
+                ([m[0] for m in moves], [m[1] for m in moves], [m[2] for m in moves]),
+            )
+    finally:
+        cur.close()
+    return moves
+
+
+def select_extraction_targets(conn, recent: int, limit: int, today: Optional[_dt.date] = None) -> list[dict]:
+    """The scheduled run's selection (order_extraction_targets over the DB),
+    each shared document only under its owner (shared_document_owners).
+    Run it on an autocommit connection: it must leave no transaction open."""
+    today = today or _dt.datetime.now(_dt.timezone.utc).date()
+    candidates, market_caps = _selection_candidates(conn)
+    cur = conn.cursor()
+    try:
         cur.execute(
             """
             SELECT DISTINCT stock_code
@@ -693,13 +880,7 @@ def select_extraction_targets(conn, recent: int, limit: int, today: Optional[_dt
         metric_codes = {row[0] for row in cur.fetchall()}
     finally:
         cur.close()
-
-    candidates: list[dict] = []
-    market_caps: dict[str, Optional[float]] = {}
-    for row in rows:
-        code = row["stock_code"]
-        candidates.extend(_parse_financial_reports(code, row["financial_reports"]))
-        market_caps[code] = parse_market_cap(row["km_market_cap"], row["market_cap_text"])
+    candidates = drop_copies_owned_elsewhere(candidates, shared_document_owners(conn, candidates, market_caps))
 
     extracted = _existing_report_urls(conn, [r["url"] for r in candidates])
     retry = _empty_retry_urls(conn, sorted(extracted)) if extraction_attempts_column_exists(conn) else set()

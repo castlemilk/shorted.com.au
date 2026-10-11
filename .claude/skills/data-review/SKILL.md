@@ -67,6 +67,10 @@ layer)`, or an empty-extraction state (below). Largest companies first.
   `grep` at the main checkout's `services/.env`. Rank above the limit means it
   is read on the next run. Rank far below means the tier rule is wrong for it;
   fix `order_extraction_targets` with a case in `test_selection.py`.
+- A document ASX lists under several codes is read once, under its owner
+  (prices within 7 days of the newest, then ASIC's short report within 30,
+  then market cap, then the code), and counts as read for every code that
+  lists it: the review looks extractions up by URL.
 - A company missing entirely may have no `financial_reports` entry for the
   document (`company-metadata.financial_reports`, filled by
   `shorted reports coverage` / `sync`), or a title the results classifier
@@ -136,9 +140,21 @@ says which gate:
   - an auditor's letterhead (PwC, BDO Audit): new extractions skip it; an old
     row stays withheld, which is also what stops a subsidiary's accounts
     (AXR's "Sturt Exploration Pty Ltd financial statements");
-  - the company was renamed or its code reused, and `company-metadata` still
-    holds the old name (CDX "CARDIEX" for Conneqt Health, MST "Metal Storm"
-    for a Morningstar fund): fix the name, not the gate;
+  - a renamed company's results filed under its old code (Conneqt Health's
+    under CDX "CARDIEX"): ASX lists them under both codes, and the extractor
+    now files a shared document under its owner, the listing that trades
+    (`choose_document_owners`), moving older rows at the start of each run
+    (`rehome_shared_extractions`, logged as "Moved N extracted documents").
+    One still withheld this way is listed under the old code alone, or the
+    two codes tie;
+  - a listed company whose name ASX has changed: the weekday price sync
+    writes ASX's names. One that stays out of date means a second writer.
+    Look for its industry flipping in `stock_industry_history`, every change
+    at one time of day: on 11 Oct 2026 it was the old GCP project's
+    `market-data-sync`, writing a January list at 10:00 UTC;
+  - a dead code taken over by a fund (MST "Metal Storm", no price since
+    2010, now a Morningstar fund's code): the gate working, since the page
+    shows the old company's history;
   - the document is another company's, attached in `financial_reports`: fix the
     linking (`shorted reports link`).
 - `not a results document to the API`: the extractor read a document the Go
