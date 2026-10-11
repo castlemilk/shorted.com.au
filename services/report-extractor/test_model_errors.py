@@ -304,7 +304,7 @@ def _main_with(monkeypatch, outcomes, argv=()):
     monkeypatch.setattr(runner, "open_selection_connection", lambda: SimpleNamespace(close=lambda: None))
     monkeypatch.setattr(extract, "document_meta_column_exists", lambda conn: True)
     monkeypatch.setattr(extract, "extraction_attempts_column_exists", lambda conn: True)
-    monkeypatch.setattr(runner, "select_reports", lambda conn, recent, limit: reports)
+    monkeypatch.setattr(runner, "select_reports", lambda conn, recent, limit, dry_run=False: reports)
     by_url = {r["url"]: o for r, o in zip(reports, outcomes)}
     monkeypatch.setattr(runner, "process", lambda report, **kw: by_url[report["url"]])
     monkeypatch.setattr("sys.argv", ["extract_reports_concurrent.py", "--workers", "1", "--backend", "gemini", *argv])
@@ -328,7 +328,7 @@ def test_openrouter_backend_hands_every_worker_the_direct_extractor(monkeypatch)
     monkeypatch.setattr(runner, "open_selection_connection", lambda: SimpleNamespace(close=lambda: None))
     monkeypatch.setattr(extract, "document_meta_column_exists", lambda conn: True)
     monkeypatch.setattr(extract, "extraction_attempts_column_exists", lambda conn: True)
-    monkeypatch.setattr(runner, "select_reports", lambda conn, recent, limit: [REPORT])
+    monkeypatch.setattr(runner, "select_reports", lambda conn, recent, limit, dry_run=False: [REPORT])
     seen = []
     monkeypatch.setattr(runner, "process", lambda report, **kw: seen.append(kw.get("direct")) or "ok")
     monkeypatch.setattr("sys.argv", ["extract_reports_concurrent.py", "--workers", "1"])

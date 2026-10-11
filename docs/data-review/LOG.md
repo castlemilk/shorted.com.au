@@ -3,6 +3,84 @@
 One entry per review, newest first. How to run a review and what each list
 means: `.claude/skills/data-review/SKILL.md`.
 
+## 2026-10-11, company names and shared documents
+
+The two items the entry below left for the user, who said to fix them.
+Everything here was measured read-only against prod between 16:45 and 17:30
+UTC, except the one trigger paused.
+
+**Out-of-date names of listed companies: a second writer.** The weekday price
+sync (`shorted-price-sync`, 10:00 UTC) upserts every name, industry and market
+cap in ASX's list (`asx-stocks/latest.csv`, written weekly and current), and
+logged "Synced 1834 companies" every day. Yet AEM, PDI, WEB and 12 other listed
+codes kept names ASX dropped weeks ago, and `stock_industry_history` showed
+AEM's industry flipping between Materials and "Class Pend", every change
+stamped 10:00:17 to 10:00:40 UTC. The old GCP project `shorted-dev-aba5688f`
+still had its Cloud Scheduler triggers enabled. Its jobs all fail ("Image
+... not found"), but its `market-data-sync` service still ran at 10:00 UTC
+every weekday (`market-data-sync-daily`) against the prod database (same host,
+user and database), upserting the 1,858 companies of its own bucket's
+`latest.csv`, a copy of 2 Jan 2026 (AEM "ADVANCED ENERGY MINERALS LTD", Class
+Pend, 333,069,333, exactly the prod row). Whichever upsert landed last won. That
+trigger is paused (`gcloud scheduler jobs resume market-data-sync-daily
+--location australia-southeast1 --project shorted-dev-aba5688f` undoes it;
+nothing in prod depends on it). The next price sync, 12 Oct 10:00 UTC, writes
+the current names: 15 listed codes change (AEM Advanced Engineered Materials,
+PDI PDI Gold, WEB WebBeds Group, LEL LE Minerals, PLC PLC Resources, AZ9 Azzuro
+Resources, H2G, KLV, MHC, NRL, YAR, MEI, ZMI, ATM, 3DA), 7 industries, and 3
+codes with no row are added. The project's 15 other triggers are left alone:
+13 start jobs whose image is gone, and `stock-price-daily-sync` and
+`stock-price-weekly-sync` (08:00 weekdays, Sundays 10:00) call its own
+`stock-price-ingestion`, which fails before it writes (`self.pool` is None).
+Prod's triggers of the same names call prod's `stock-price-ingestion`
+(us-central1), whose code writes `stock_prices` and its own logs, never
+`company-metadata`.
+
+The other names in the entry below are not wrong for what the site shows:
+- The renamed companies' old codes (CDX, MDR, SOV, ST1, HTG, IRX) keep the old
+  name. Their new codes hold the new one, and what went wrong was where the
+  documents were filed (below).
+- The codes taken over by funds (MST, TOL, BEM, BND, MTU, GGB, EXU, AGX, BDC,
+  CGH, CIE, IMP, MOG, PGA, PGI, CIM, PAX) have had no price and no short
+  position since 2010 to 2022. The name is the company whose history the page
+  shows, and the fund's documents attached to the code stay withheld by the
+  entity check.
+- IFG's name matches ASX's list.
+
+**Shared documents: read once, filed under the current code** (this branch).
+4,101 results documents are listed under more than one code. Each now has one
+owner (`choose_document_owners`). The owner is the listing priced within 7 days
+of the newest; failing that, the one on ASIC's short report within 30 days;
+then the largest by market cap; then the first code. Only the owner's copy is
+selected. At the start of each run, a row filed under an out-of-date listing
+moves to the owner (`rehome_shared_extractions`). A listing is out of date
+when it is behind on prices, or behind on short reports while both carry the
+same last three closes (Yahoo still serves HGO, GRL, MTC and C1X with the
+prices of KAN, OBT, GGM and EAU) or neither has current prices. Funds that all
+trade are not moved: VAP has not been on ASIC's report since May, but it
+trades. A dry run on prod lists 290 moves (31 with figures, 164 code pairs):
+SW1→STV, CDX→CQT, HTG→NS1, MDR→AHE, MKT→GUM, ST1→ITS, CPB→ALQ, PXS→SNT, and
+more like them. Of the 31 with figures, 29 are renames; the other two are a
+fund manager's report moving from a code with no current price to a fund that
+trades (OZF→OZR, GMV→MVA). 20 moves drawn at random were the same two kinds.
+The selection for the next run has no document twice in its 360.
+
+Open:
+
+- **After the 12 Oct price sync (10:00 UTC):** the 15 names above, and AEM's
+  industry history should stop flipping.
+- **After the first extractor run with this branch:** the log line "Moved N
+  extracted documents to the listing that owns them" (about 290 the first
+  time, then few), and the withheld list should lose the renamed companies'
+  results (CDX's, MDR's, SOV's, ST1's, HTG's and IRX's now sit under CQT, AHE,
+  CYB, ITS, NS1 and NX1, whose names match).
+- **The old project's other triggers** are still enabled. Every one of them
+  fails before it writes, so they do no harm, but whether to pause or delete
+  them, or the project, is the user's call.
+- **The three overdue dividends** (LRT, GNE, SST) stay withheld, as
+  recommended in the entry below.
+- **The first retries (about 13 Oct)**, as in the entries below.
+
 ## 2026-10-11, after #707's deploy
 
 Run read-only against prod at 13:01 UTC, after #707's deploy (12:57) and one

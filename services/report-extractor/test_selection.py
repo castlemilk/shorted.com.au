@@ -216,6 +216,118 @@ def test_top_shorted_first_is_gone():
     assert runner.DEFAULT_BUDGET_MIN == 90
 
 
+# --- documents listed under several codes ---------------------------------------
+
+
+def test_a_renamed_companys_document_belongs_to_the_code_still_priced():
+    # Swift Networks (SW1) became Swift TV (STV). ASX lists Swift TV's results
+    # under both codes, and only STV still has prices; SW1's stale market cap
+    # is the larger.
+    owners = extract.choose_document_owners(
+        {"stv-fy26": {"SW1", "STV"}},
+        last_price={"STV": dt.date(2026, 10, 9)},
+        last_short={},
+        market_caps={"SW1": 11641040, "STV": 10127916},
+    )
+    assert owners["stv-fy26"].code == "STV"
+    assert owners["stv-fy26"].stale == frozenset({"SW1"})
+
+
+def test_when_both_codes_are_priced_asics_short_report_decides():
+    # Yahoo still serves Hillgrove's old ticker (HGO) with Kantra's prices
+    # (KAN); ASIC's short report lists only the code that trades.
+    def owner(hgo_tail):
+        return extract.choose_document_owners(
+            {"kan-h1": {"HGO", "KAN"}},
+            last_price={"HGO": dt.date(2026, 10, 9), "KAN": dt.date(2026, 10, 9)},
+            last_short={"HGO": dt.date(2026, 8, 31), "KAN": dt.date(2026, 10, 5)},
+            market_caps={"HGO": 9e8, "KAN": 2e8},
+            price_tails={"HGO": hgo_tail, "KAN": ("2026-10-09=1.1550", "2026-10-08=1.1800", "2026-10-07=1.1750")},
+        )["kan-h1"]
+
+    same = owner(("2026-10-09=1.1550", "2026-10-08=1.1800", "2026-10-07=1.1750"))
+    assert same.code == "KAN" and same.stale == frozenset({"HGO"})
+    # Different closes are two securities that both trade (two funds): KAN
+    # still reads the document, but a row filed under HGO is not out of date.
+    other = owner(("2026-10-09=84.3600", "2026-10-08=82.8100", "2026-10-07=82.6700"))
+    assert other.code == "KAN" and other.stale == frozenset()
+
+
+def test_without_current_prices_the_short_report_moves_rows():
+    owners = extract.choose_document_owners(
+        {"sww-fy26": {"OMT", "SWW"}},
+        last_price={},
+        last_short={"OMT": dt.date(2025, 11, 3), "SWW": dt.date(2026, 10, 5)},
+        market_caps={"OMT": 9e7, "SWW": 2e7},
+    )
+    assert owners["sww-fy26"] == extract.DocumentOwner("SWW", frozenset({"OMT"}))
+
+
+def test_listings_equally_current_go_to_the_largest_and_none_is_stale():
+    # One report for several funds that all trade: read once, under the
+    # largest, and a row already filed under another fund stays there.
+    owners = extract.choose_document_owners(
+        {"vanguard-ar": {"VAS", "VAP", "VHY"}},
+        last_price={"VAS": dt.date(2026, 10, 9), "VAP": dt.date(2026, 10, 9), "VHY": dt.date(2026, 10, 8)},
+        last_short={"VAS": dt.date(2026, 10, 5), "VAP": dt.date(2026, 9, 30), "VHY": dt.date(2026, 10, 2)},
+        market_caps={"VAS": 2e10, "VAP": 2e9, "VHY": 4e9},
+    )
+    assert owners["vanguard-ar"].code == "VAS"
+    assert owners["vanguard-ar"].stale == frozenset()
+
+
+def test_a_price_a_week_old_is_still_current():
+    # A suspension or a missed sync is not a rename: within
+    # OWNER_PRICE_WINDOW_DAYS the listings tie on prices.
+    def owner(bbb_last_price):
+        return extract.choose_document_owners(
+            {"u": {"AAA", "BBB"}},
+            last_price={"AAA": dt.date(2026, 10, 9), "BBB": bbb_last_price},
+            last_short={},
+            market_caps={"AAA": 1e6, "BBB": 5e8},
+        )["u"]
+
+    assert extract.OWNER_PRICE_WINDOW_DAYS == 7
+    tied = owner(dt.date(2026, 10, 2))
+    assert tied.code == "BBB" and tied.stale == frozenset()
+    behind = owner(dt.date(2026, 10, 1))
+    assert behind.code == "AAA" and behind.stale == frozenset({"BBB"})
+
+
+def test_listings_with_neither_signal_go_to_market_cap_then_code():
+    owners = extract.choose_document_owners(
+        {"u": {"ZZ1", "AA1", "MM1"}, "v": {"QQ1", "PP1"}},
+        last_price={},
+        last_short={},
+        market_caps={"MM1": 3e6, "ZZ1": 3e6},
+    )
+    assert owners["u"].code == "MM1" and owners["u"].stale == frozenset()
+    assert owners["v"].code == "PP1"
+
+
+def test_a_document_listed_once_has_no_owner_entry():
+    assert extract.choose_document_owners({"u": {"CBA"}}, {}, {}, {}) == {}
+
+
+def test_a_shared_document_is_selected_once_under_its_owner():
+    # In the 11 Oct 2026 run, 19 documents were read under 2-4 codes each. Each
+    # listing's own documents still count: SW1's last own results stay its
+    # candidate.
+    candidates = [
+        _doc("SW1", "stv-fy26", "2026-08-28", "Appendix 4E"),
+        _doc("SW1", "sw1-fy24", "2024-08-30", "Appendix 4E"),
+        _doc("STV", "stv-fy26", "2026-08-28", "Appendix 4E"),
+        _doc("CBA", "cba-fy26", "2026-08-12", "2026 Full Year Results Profit Announcement"),
+    ]
+    owners = {"stv-fy26": extract.DocumentOwner("STV", frozenset({"SW1"}))}
+    kept = extract.drop_copies_owned_elsewhere(candidates, owners)
+    assert [(r["stock_code"], r["url"]) for r in kept] == [("SW1", "sw1-fy24"), ("STV", "stv-fy26"), ("CBA", "cba-fy26")]
+    ordered = extract.order_extraction_targets(kept, set(), set(), {}, TODAY, recent=0)
+    assert sorted((r["stock_code"], r["url"]) for r in ordered) == [
+        ("CBA", "cba-fy26"), ("STV", "stv-fy26"), ("SW1", "sw1-fy24"),
+    ]
+
+
 # --- the run budget -------------------------------------------------------------
 
 
@@ -865,3 +977,131 @@ def test_pg_without_the_attempts_column_nothing_is_retried(pg_schema):
     )
     cur.close()
     assert _dro_targets() == []
+
+
+def _add_listing_tables(admin, schema, prices=(), shorts=()):
+    cur = admin.cursor()
+    cur.execute(f'SET search_path TO "{schema}"')
+    cur.execute(
+        """
+        CREATE TABLE stock_prices (stock_code VARCHAR(10) NOT NULL, date DATE NOT NULL, close NUMERIC(12,4));
+        CREATE TABLE shorts ("DATE" TIMESTAMP NOT NULL, "PRODUCT_CODE" TEXT NOT NULL);
+        """
+    )
+    cur.executemany(
+        "INSERT INTO stock_prices (stock_code, date, close) VALUES (%s, %s, %s)",
+        [p if len(p) == 3 else (*p, 1) for p in prices],
+    )
+    cur.executemany('INSERT INTO shorts ("DATE", "PRODUCT_CODE") VALUES (%s, %s)', [(d, c) for c, d in shorts])
+    cur.close()
+
+
+SWIFT_TV = [
+    ("annual_results", "Appendix 4E", "stv-fy26", "2026-08-28"),
+    ("annual_results", "Appendix 4E", "stv-fy25", "2025-08-29"),
+]
+
+
+def test_pg_a_renamed_companys_results_move_to_its_current_code_and_are_read_once(pg_schema):
+    # Swift TV's FY25 results were read under SW1, its code before the rename,
+    # and stayed there. Its FY26 results, listed under both codes, are unread.
+    _, admin, schema = pg_schema
+    _create_tables(admin, schema, with_attempts=True)
+    _add_listing_tables(admin, schema, prices=[("SW1", "2025-12-01"), ("STV", "2026-10-09")])
+    _add_company(admin, schema, "SW1", SWIFT_TV, 11641040)
+    _add_company(admin, schema, "STV", SWIFT_TV, 10127916)
+    cur = admin.cursor()
+    cur.execute(f'SET search_path TO "{schema}"')
+    cur.execute(
+        """
+        INSERT INTO financial_report_extractions (stock_code, report_url, metrics)
+        VALUES ('SW1', 'stv-fy25', '{"revenue": {"source_text": "x"}}')
+        """
+    )
+    conn = runner.open_selection_connection()
+    try:
+        assert extract.rehome_shared_extractions(conn, dry_run=True) == [("stv-fy25", "SW1", "STV")]
+        cur.execute("SELECT stock_code FROM financial_report_extractions WHERE report_url = 'stv-fy25'")
+        assert cur.fetchone()[0] == "SW1"  # a dry run moves nothing
+        got = runner.select_reports(conn, recent=2, limit=10)
+    finally:
+        conn.close()
+    cur.execute("SELECT stock_code FROM financial_report_extractions WHERE report_url = 'stv-fy25'")
+    assert cur.fetchone()[0] == "STV"
+    # The FY26 results are selected once, under STV; SW1 lists nothing else.
+    assert [(r["stock_code"], r["url"]) for r in got if r["stock_code"] in ("SW1", "STV")] == [("STV", "stv-fy26")]
+    cur.close()
+
+
+def test_pg_the_short_report_moves_one_security_under_two_codes_but_not_a_fund(pg_schema):
+    # HGO and KAN close alike (one security); VAP and VAS do not (two funds),
+    # though VAP has not been on ASIC's report since May.
+    _, admin, schema = pg_schema
+    _create_tables(admin, schema)
+    sessions = ("2026-10-07", "2026-10-08", "2026-10-09")
+    _add_listing_tables(
+        admin, schema,
+        prices=[(code, d, close) for code in ("HGO", "KAN") for d, close in zip(sessions, (1.175, 1.18, 1.155))]
+        + [("VAS", d, 107.92) for d in sessions] + [("VAP", d, 84.36) for d in sessions],
+        shorts=[("HGO", "2026-08-31 00:00"), ("KAN", "2026-10-05 00:00"), ("VAS", "2026-09-24 00:00"), ("VAP", "2026-05-15 00:00")],
+    )
+    kantra = [("half_year_results", "Results for Half Year Ended 30 June 2025", "kan-h1", "2025-09-12")]
+    vanguard = [("annual_results", "Annual Report", "vanguard-ar", "2025-09-20")]
+    _add_company(admin, schema, "HGO", kantra, 900000000)
+    _add_company(admin, schema, "KAN", kantra, 200000000)
+    _add_company(admin, schema, "VAS", vanguard, 20000000000)
+    _add_company(admin, schema, "VAP", vanguard, 2000000000)
+    cur = admin.cursor()
+    cur.execute(f'SET search_path TO "{schema}"')
+    cur.execute(
+        """
+        INSERT INTO financial_report_extractions (stock_code, report_url, metrics)
+        VALUES ('HGO', 'kan-h1', '{}'), ('VAP', 'vanguard-ar', '{}')
+        """
+    )
+    conn = runner.open_selection_connection()
+    try:
+        assert extract.rehome_shared_extractions(conn) == [("kan-h1", "HGO", "KAN")]
+    finally:
+        conn.close()
+    cur.execute("SELECT report_url, stock_code FROM financial_report_extractions WHERE report_url IN ('kan-h1', 'vanguard-ar') ORDER BY 1")
+    assert cur.fetchall() == [("kan-h1", "KAN"), ("vanguard-ar", "VAP")]
+    cur.close()
+
+
+def test_pg_a_session_without_a_close_is_not_a_price(pg_schema):
+    # stock_prices.close is nullable on prod. A row with no close must neither
+    # stop selection nor make an old code look priced.
+    _, admin, schema = pg_schema
+    _create_tables(admin, schema)
+    _add_listing_tables(
+        admin, schema,
+        prices=[("SW1", "2025-12-01"), ("SW1", "2026-10-09", None), ("STV", "2026-10-08"), ("STV", "2026-10-09")],
+    )
+    _add_company(admin, schema, "SW1", SWIFT_TV, 11641040)
+    _add_company(admin, schema, "STV", SWIFT_TV, 10127916)
+    cur = admin.cursor()
+    cur.execute(f'SET search_path TO "{schema}"')
+    cur.execute("INSERT INTO financial_report_extractions (stock_code, report_url, metrics) VALUES ('SW1', 'stv-fy25', '{}')")
+    conn = runner.open_selection_connection()
+    try:
+        assert extract.rehome_shared_extractions(conn, dry_run=True) == [("stv-fy25", "SW1", "STV")]
+    finally:
+        conn.close()
+    cur.close()
+
+
+def test_pg_without_the_price_tables_a_shared_document_is_still_read_once(pg_schema):
+    # A schema without stock_prices or shorts (a test or dev database): market
+    # cap decides, and no row moves.
+    _, admin, schema = pg_schema
+    _create_tables(admin, schema)
+    _add_company(admin, schema, "SW1", SWIFT_TV, 11641040)
+    _add_company(admin, schema, "STV", SWIFT_TV, 10127916)
+    conn = runner.open_selection_connection()
+    try:
+        assert extract.rehome_shared_extractions(conn) == []
+        got = extract.select_extraction_targets(conn, recent=2, limit=0, today=TODAY)
+    finally:
+        conn.close()
+    assert [(r["stock_code"], r["url"]) for r in got if r["stock_code"] in ("SW1", "STV")] == [("SW1", "stv-fy26")]
