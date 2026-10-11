@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -17,15 +18,43 @@ import (
 // (Part 3F) and splits a foreign notice's AUD equivalent across its parts.
 // Version 3 records, for a notice that waits on its update, the ex-date and the
 // date the notice promises the update by (waitingDetail), which the data
-// review reads.
-const dividendNoticeParserVersion = 3
+// review reads. Version 4 reads a notice under any code that listed it
+// (listedAs), so the code mismatches it recorded are read again.
+const dividendNoticeParserVersion = 4
 
 // pendingNotice represents an unparsed dividend notice from the crawl.
 type pendingNotice struct {
-	StockCode        string // the code whose announcements page listed it
-	AnnouncementDate string // YYYY-MM-DD
+	StockCode        string   // the code whose announcements page listed it
+	ListedCodes      []string // every code whose page listed the same PDF, sorted
+	AnnouncementDate string   // YYYY-MM-DD
 	Headline         string
 	URL              string // asx_announcements.pdf_url
+}
+
+// codesMatch is rule 1's test: a notice's security code belongs to a code
+// whose page listed it when the two share their first 3 characters (CBAPI,
+// a hybrid, is listed under CBA).
+func codesMatch(security, listed string) bool {
+	return len(security) >= 3 && len(listed) >= 3 && strings.EqualFold(security[:3], listed[:3])
+}
+
+// listedAs is the notice under the listing its security code belongs to: its
+// own when that matches, else another code whose page listed the same PDF.
+// ASX lists a renamed company's announcements under its old code and its new
+// one (D2O and RIV, WPL and WDS: 435 of 5,724 dividend notices on
+// 2026-10-11), and the pass reads each PDF once, so a notice for RIV read
+// under D2O was withheld as a mismatch while RIV's own page listed it.
+func (p pendingNotice) listedAs(security string) pendingNotice {
+	if codesMatch(security, p.StockCode) {
+		return p
+	}
+	for _, c := range p.ListedCodes {
+		if codesMatch(security, c) {
+			p.StockCode = c
+			return p
+		}
+	}
+	return p
 }
 
 // dividendRow holds the parsed output of one dividend part, ready for upsert.
@@ -81,7 +110,8 @@ func waitingDetail(n DividendNotice, what, due string) string {
 // dividendRowsFor extracts dividend rows from a parsed notice, applying policy.
 // Policy:
 //  1. SecurityCode and pendingNotice.StockCode must share their first 3 chars
-//     (case-insensitive), else outcome "code_mismatch".
+//     (case-insensitive), else outcome "code_mismatch". The pass first moves a
+//     notice to the listing its code matches (listedAs).
 //  2. Drop parts with Estimated==true; if none remain, outcome "estimated_only".
 //  3. Currency: if AUD, each row's AmountAUD is the part's Amount. If foreign
 //     and AUDEquivalent is set, each part's AmountAUD is computed as
@@ -93,9 +123,12 @@ func waitingDetail(n DividendNotice, what, due string) string {
 //     Outcome "parsed" with detail like "2 rows".
 func dividendRowsFor(n DividendNotice, p pendingNotice) (rows []dividendRow, outcome, detail string) {
 	// Rule 1: code match (first 3 chars, case-insensitive)
-	if len(n.SecurityCode) < 3 || len(p.StockCode) < 3 ||
-		!strings.EqualFold(n.SecurityCode[:3], p.StockCode[:3]) {
-		return nil, "code_mismatch", fmt.Sprintf("notice is for %s, listed under %s", n.SecurityCode, p.StockCode)
+	if !codesMatch(n.SecurityCode, p.StockCode) {
+		listed := p.StockCode
+		if len(p.ListedCodes) > 1 {
+			listed = strings.Join(p.ListedCodes, ", ")
+		}
+		return nil, "code_mismatch", fmt.Sprintf("notice is for %s, listed under %s", n.SecurityCode, listed)
 	}
 
 	// Rule 2: drop estimated parts
@@ -228,6 +261,7 @@ func runDividendNoticePass(
 			record(n, string(parseOutcome), parseDetail)
 			return
 		}
+		n = n.listedAs(notice.SecurityCode)
 		rows, outcome, detail := dividendRowsFor(notice, n)
 		if outcome != "parsed" {
 			tally(outcome, 0)
@@ -288,11 +322,13 @@ func runDividendNoticePass(
 	return result, ctx.Err()
 }
 
-// SQL const for pending notices (deduped, excluding recent attempts).
+// SQL const for pending notices (deduped, excluding recent attempts). Each
+// carries every code that listed its PDF (listed_codes, for listedAs).
 const (
 	pendingNoticesSql = `
-SELECT stock_code, announcement_date::text, headline, pdf_url FROM (
-  SELECT DISTINCT ON (a.pdf_url) a.stock_code, a.announcement_date, a.headline, a.pdf_url
+SELECT stock_code, announcement_date::text, headline, pdf_url, listed_codes FROM (
+  SELECT DISTINCT ON (a.pdf_url) a.stock_code, a.announcement_date, a.headline, a.pdf_url,
+    array_agg(a.stock_code) OVER (PARTITION BY a.pdf_url) AS listed_codes
   FROM asx_announcements a
   WHERE a.headline ILIKE '%Dividend/Distribution - %'
     AND a.pdf_url IS NOT NULL AND a.pdf_url <> ''
@@ -301,7 +337,7 @@ SELECT stock_code, announcement_date::text, headline, pdf_url FROM (
       WHERE t.announcement_url = a.pdf_url
         AND NOT (t.outcome = 'no_text' AND t.attempted_at < now() - interval '7 days')
         AND NOT (t.outcome NOT IN ('parsed', 'cancellation', 'no_text') AND t.parser_version < $2))
-  ORDER BY a.pdf_url, a.announcement_date DESC
+  ORDER BY a.pdf_url, a.announcement_date DESC, a.stock_code
 ) s
 ORDER BY announcement_date DESC, stock_code
 LIMIT $1
@@ -343,9 +379,10 @@ func (s *postgresDividendNoticeStore) PendingDividendNotices(ctx context.Context
 	var result []pendingNotice
 	for rows.Next() {
 		var p pendingNotice
-		if err := rows.Scan(&p.StockCode, &p.AnnouncementDate, &p.Headline, &p.URL); err != nil {
+		if err := rows.Scan(&p.StockCode, &p.AnnouncementDate, &p.Headline, &p.URL, &p.ListedCodes); err != nil {
 			return nil, err
 		}
+		sort.Strings(p.ListedCodes)
 		result = append(result, p)
 	}
 	return result, rows.Err()

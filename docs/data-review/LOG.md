@@ -3,6 +3,84 @@
 One entry per review, newest first. How to run a review and what each list
 means: `.claude/skills/data-review/SKILL.md`.
 
+## 2026-10-11, after #707's deploy
+
+Run read-only against prod at 13:01 UTC, after #707's deploy (12:57) and one
+notice pass run by hand (12:57, `shorted-announcements-24nbz`). Window 90
+days.
+
+Counts: 694 newest results documents unread (the first 360-document extractor
+run is at 14:00 UTC); 362 empty extractions (204 retry due, 101 waiting, 0
+gave up, 57 not results documents); 0 unreadable; 56 rows withheld; 89
+dividend notice failures (14 to look at, 63 stored from a later notice, 12
+waiting for their update).
+
+Checked:
+
+- **Parser 3.** The pass selected 200 notices and parsed 111, writing 87 rows
+  (488 rows from notices in all, across 429 codes). It read every parser-2
+  failure again, and each of the 78 notices waiting on an update now records
+  the date its update is due. The 12 still waiting are due between 12 Oct
+  (MA1, REV) and 19 Nov (PAF ×2).
+- **The 3 overdue notices are late at the issuer.** ASX's own announcement
+  lists match the crawl. LRT's 31 Jul update ("Dividend reinvestment price
+  finalised") still gives its A$0.1432 only as the estimate (3A.1a), with the
+  actual amount (3A.1b) blank, on the day it was paid; ASX lists nothing
+  later. GNE's AUD rate for its NZD 0.0892 was due 9 Oct, and it has filed
+  nothing since 7 Oct. SST's rate for its PGK 0.35 was due 2 Oct, and it has
+  filed nothing since 31 Aug.
+- **The other 11 to look at:** 4 `not_appendix_3a1` (RG1, LF1 ×2, VG1), 2
+  `missing_field` "security code" (ASK's, and the LED notice of the entry
+  below, now recorded under ECF: ASX lists it under both) and 5
+  `code_mismatch`.
+- **The 14:00 UTC extractor run** (`financial-report-extractor-wvk8b`, the
+  first at 360) selected 360 documents, none of them retries, and finished in
+  17.8 minutes: 338 ok, 18 digest only, 4 no metrics, no model errors, about
+  US$1.23. BHP, CBA and TLS were read at 14:12–14:13, and each one's FY26
+  result is now its latest filing on MCP's `get_stock_briefing` (CBA: revenue
+  $30,153m, NPAT $10,866m).
+
+Fixed in the same branch:
+
+- **The 5 code mismatches were ours.** ASX lists each of these notices under
+  two codes, as it lists a renamed company's announcements under its old code
+  and its new one: RIV's under D2O and RIV, MSV's under DTQ and MSV, AMI's
+  under YTC and AMI, NWS's and NWSLV's under NNC and NWS. The pass read each
+  PDF once, under one listing, and withheld the notice when that listing was
+  the other code. 435 of the 5,724 dividend notices crawled are listed under
+  two codes (NNC/NWS 24, HHV/PIA 22, ECF/LED 21, DXI/IDR 20, WDS/WPL 10,
+  D2O/RIV 10, ...), and the backfill, newest first, had reached 14. The pass
+  now reads a notice under the listing whose code it names (`listedAs`;
+  NWSLV's under NWS, by rule 1's first three characters), and parser 4 reads
+  the mismatches again.
+
+Open:
+
+- **Three dividends whose update is overdue at the issuer** (LRT, GNE, SST).
+  The pass withholds them and the review lists them first. Storing them would
+  mean taking an estimate as paid (LRT) or converting at a rate of our choosing
+  (GNE, SST): a decision for the user, not a parser fix.
+- **The extractor has the same double listing.** It picks one document per
+  code, so a document listed under two codes is read once for each, and the
+  first write keeps the row (`report_url` is unique; `stock_code` is not
+  updated on conflict). The 14:00 run read 19 documents under two to four
+  codes (22 extra reads), and each of those rows starts at 2 to 4 attempts.
+  6 of them are now filed under the old code of a renamed company, so the
+  current code has no row: STV's under SW1, KYN's under ENN, PFM's under CAG,
+  VHL's under RSH, GUM's under MKT, NS1's under HTG. Over all time, 4,630 of
+  the 36,603 documents of the five results types are listed under more than
+  one code; 943 of them are extracted, and 254 of those are filed under a
+  code that is not on ASX's list of listed companies while a listed code
+  shares the document (33 with figures). In all ten pairs checked, the
+  current code is the one with the latest price in `stock_prices` (9 Oct;
+  the old code's prices stop at the rename or never start), where market cap
+  would pick the old code for 591 documents. A fix: read a document once per
+  run, under the listing with the latest price, and move the misfiled rows to
+  the current code (a prod data change). It belongs with the out-of-date
+  company names, which need the user.
+- **The first retries (about 13 Oct)**, and **out-of-date company names**: as
+  in the entry below.
+
 ## 2026-10-11, after the deploy
 
 Run read-only against prod at 08:37 UTC, after #705's deploy (08:20) and one
@@ -76,11 +154,11 @@ Followed up the same day (the carried items):
   (PwC, BDO Audit, Grant Thornton Audit, Moore Australia Audit, RSM); 36 named
   a fund manager or responsible entity instead of the fund; 8 were renamed
   companies whose `company-metadata` name is out of date; 2 were the same name
-  written differently. One
-  set of cleaning rules (Go `cleanEntity` on every read, Python `clean_entity`
-  on write, one fixture) drops the non-names and reduces letterheads ("Klevo
-  Group Ltd |Suite 102, ..."); new extractions skip an auditor's ABN and name
-  a trust from "<RE> ABN ..., the Responsible Entity of <trust>";
+  written differently. One set of cleaning rules (Go `cleanEntity` on every
+  read, Python `clean_entity` on write, one fixture) drops the non-names and
+  reduces letterheads ("Klevo Group Ltd |Suite 102, ..."); new extractions
+  skip an auditor's ABN and name a trust from "<RE> ABN ..., the Responsible
+  Entity of <trust>";
   `EntityMatches` matches the same name however generic or spaced ("Energy
   Technologies", "Echo IQ" / "Echoiq"). 18 of the 74 now read correctly, 15
   of them with figures. Auditor rows stay withheld: AXR's two "Sturt
@@ -88,6 +166,16 @@ Followed up the same day (the carried items):
   the auditor's name was what kept them off AXR.
 - **The review's empty list** now marks the 57 empty rows whose title the
   classifier rejects as "not read again": the extractor never offers them.
+
+The scheduled 11:00 UTC announcements run (parser 2, before #707's deploy)
+selected 200 notices and parsed 176, writing 120 rows: 401 rows from notices
+in all. Its one new kind of failure, `missing_field` "security code" for LED's
+"Update - Dividend/Distribution" (26 Aug, entity LDR Capital Property Fund),
+is the notice's own blank: field 1.6 and the summary's security line are
+empty, so skipping it is right. The screener's view, refreshed at 10:00,
+reads FML 0.08, VMC 0.1697 (was 35.0), RPL 0.12 (was 0.27), CBA 2.70, BHP
+1.379887 and MCY 0.136544 (each 0 before); no stock's trailing dividend is
+over $5.
 
 Open:
 
