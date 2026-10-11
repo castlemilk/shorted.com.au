@@ -435,7 +435,7 @@ def pg_schema(monkeypatch):
         admin.close()
 
 
-def _create_tables(admin, schema, with_meta):
+def _create_tables(admin, schema, with_meta=False, with_attempts=False):
     cur = admin.cursor()
     cur.execute(f'SET search_path TO "{schema}"')
     cur.execute(
@@ -465,6 +465,8 @@ def _create_tables(admin, schema, with_meta):
     )
     if with_meta:
         cur.execute("ALTER TABLE financial_report_extractions ADD COLUMN document_meta JSONB")
+    if with_attempts:
+        cur.execute("ALTER TABLE financial_report_extractions ADD COLUMN extraction_attempts INTEGER NOT NULL DEFAULT 1")
     reports = lambda *docs: json.dumps([  # noqa: E731
         {"source": "asx_announcements", "type": t, "title": title, "url": url, "date": date}
         for t, title, url, date in docs
@@ -539,8 +541,10 @@ def test_pg_order_uses_market_cap_from_either_column(pg_schema):
         got = extract.select_extraction_targets(conn, recent=2, limit=10, today=dt.date(2027, 6, 1))
     finally:
         conn.close()
-    # BHP (key_metrics) and ZZZ have no metric-bearing extraction; CBA has one.
-    assert [r["url"] for r in got] == ["bhp-fy26", "zzz-fy", "cba-h1"]
+    # BHP (key_metrics) and ZZZ have no metric-bearing extraction, and CBA's
+    # newest document (cba-h1) is unread, so all three are tier 1, by market cap
+    # from either column: BHP's key_metrics, then CBA's market_cap column.
+    assert [r["url"] for r in got] == ["bhp-fy26", "cba-h1", "zzz-fy"]
 
 
 def test_pg_an_unreadable_marker_moves_selection_to_the_next_document(pg_schema):
@@ -605,3 +609,259 @@ def test_pg_store_writes_document_meta_when_present(pg_schema):
     finally:
         conn.close()
 
+
+# --- empty retry ordering -------------------------------------------------------
+
+
+def test_an_empty_extraction_due_a_retry_comes_after_first_attempts_in_its_tier():
+    """Empty extractions (EMPTY_RETRY_LIMIT=2, EMPTY_RETRY_MIN_DAYS=7) count as
+    unextracted but rank after every first attempt in their tier. Two docs per
+    company: the newest candidate and the oldest."""
+    candidates = [
+        # RET0: filed within 45 days, an empty extraction due a retry
+        _doc("RET0", "ret0", "2026-09-20"),
+        # NEW0: filed within 45 days but OLDER than RET0, never read
+        _doc("NEW0", "new0", "2026-08-20"),
+        # RET1: newest is an empty extraction due a retry, older never read; has metrics
+        _doc("RET1", "ret1-new", "2026-02-26"),
+        _doc("RET1", "ret1-old", "2025-08-26"),
+        # NEW1: never read, no metrics, smaller market cap than RET1
+        _doc("NEW1", "new1", "2026-02-20"),
+        # BACK2: two docs, newest extracted, older unextracted; has metrics; biggest cap
+        _doc("BACK2", "back2-new", "2026-02-25"),
+        _doc("BACK2", "back2-old", "2025-08-25"),
+    ]
+    caps = {
+        "RET0": 1e9, "NEW0": 1e9, "RET1": 5e8, "NEW1": 2e8, "BACK2": 1e11
+    }
+    # A retry has a row, so its URL is in extracted_urls as well as retry_urls.
+    ordered = extract.order_extraction_targets(
+        candidates,
+        extracted_urls={"ret0", "ret1-new", "back2-new"},
+        metric_codes={"RET1", "BACK2"},
+        market_caps=caps,
+        today=TODAY,
+        retry_urls={"ret0", "ret1-new"},
+    )
+    codes = [r["stock_code"] for r in ordered]
+    # Tier 0: NEW0 before RET0, though RET0 is newer. Tier 1: NEW1 before
+    # RET1, though RET1 is bigger. Tier 2: BACK2 back-fills its older document.
+    assert codes == ["NEW0", "RET0", "NEW1", "RET1", "BACK2"]
+    # Verify empty_retry markers
+    assert ordered[0].get("empty_retry") is None  # NEW0
+    assert ordered[1].get("empty_retry") is True  # RET0
+    assert ordered[2].get("empty_retry") is None  # NEW1
+    assert ordered[3].get("empty_retry") is True  # RET1 (ret1-new is a retry)
+    assert ordered[3]["url"] == "ret1-new"
+    assert [(f["url"], f.get("empty_retry")) for f in ordered[3]["fallbacks"]] == [("ret1-old", None)]
+    assert ordered[4].get("empty_retry") is None  # BACK2
+    assert ordered[4]["url"] == "back2-old"
+
+
+def test_an_empty_extraction_not_due_stays_done():
+    """An extracted document whose URL is NOT in retry_urls (not due for
+    another attempt, or is unreadable) stays extracted; its older unextracted
+    fallback is chosen."""
+    candidates = [
+        _doc("DONE", "done-new", "2026-02-25"),
+        _doc("DONE", "done-old", "2025-08-25"),
+    ]
+    caps = {"DONE": 1e10}
+    ordered = extract.order_extraction_targets(
+        candidates,
+        extracted_urls={"done-new"},
+        metric_codes={"DONE"},
+        market_caps=caps,
+        today=TODAY,
+        retry_urls=set(),  # done-new is not retryable
+    )
+    assert len(ordered) == 1
+    assert ordered[0]["url"] == "done-old"
+    assert ordered[0].get("empty_retry") is None
+
+
+def test_a_retry_reads_more_pages_and_its_fallback_the_usual_budget():
+    """read_first_available uses max(max_pages, EMPTY_RETRY_MAX_PAGES) for a
+    retryable document, EMPTY_RETRY_MAX_PAGES >= DEFAULT_MAX_PAGES. Its fallback uses the usual budget."""
+    import unittest.mock
+    
+    # Fake session and record_unreadable callback
+    session = None
+    record_unreadable_calls = []
+    def record_unreadable(doc, text_length):
+        record_unreadable_calls.append((doc, text_length))
+    
+    # Mock fetch_pdf_text to record (url, max_pages) and fail on "a", succeed on "b"
+    fetch_calls = []
+    def mock_fetch(session, url, max_pages):
+        fetch_calls.append((url, max_pages))
+        if url == "a":
+            return (None, extract.FETCH_FAILED)
+        return ("x" * 500, extract.FETCH_OK)
+    
+    report = {
+        "stock_code": "X", "url": "a", "empty_retry": True,
+        "fallbacks": [{"stock_code": "X", "url": "b"}]
+    }
+    
+    with unittest.mock.patch("extract.fetch_pdf_text", side_effect=mock_fetch):
+        doc, text, status = extract.read_first_available(session, report, extract.DEFAULT_MAX_PAGES, record_unreadable)
+    
+    # Verify the calls
+    assert fetch_calls == [
+        ("a", max(extract.DEFAULT_MAX_PAGES, extract.EMPTY_RETRY_MAX_PAGES)),
+        ("b", extract.DEFAULT_MAX_PAGES),
+    ]
+    assert doc["url"] == "b"
+    assert text == "x" * 500
+    assert status == extract.FETCH_OK
+
+
+def test_store_counts_an_attempt_only_when_asked():
+    """store_extraction with count_attempt=True increments extraction_attempts;
+    with count_attempt=False it does not mention the column."""
+    import unittest.mock
+    
+    conn = unittest.mock.MagicMock()
+    cur = unittest.mock.MagicMock()
+    conn.cursor.return_value = cur
+    conn.autocommit = True
+    
+    report = {"stock_code": "ZZZ", "url": "zzz-url", "type": "annual_results", "title": "Report", "date": "2026-02-27"}
+    
+    # Call with count_attempt=True
+    extract.store_extraction(conn, report, {}, 100, count_attempt=True)
+    call_true = cur.execute.call_args[0][0]
+    assert "extraction_attempts = financial_report_extractions.extraction_attempts + 1" in call_true
+    
+    # Reset mock
+    cur.reset_mock()
+    
+    # Call with count_attempt=False (default)
+    extract.store_extraction(conn, report, {}, 100, count_attempt=False)
+    call_false = cur.execute.call_args[0][0]
+    assert "extraction_attempts" not in call_false
+
+    cur.reset_mock()
+    extract.store_unreadable(conn, report, 40, count_attempt=True)
+    assert "extraction_attempts = financial_report_extractions.extraction_attempts + 1" in cur.execute.call_args[0][0]
+
+
+def test_empty_retry_budget_is_deliberate():
+    """The empty retry constants have expected values."""
+    assert extract.EMPTY_RETRY_LIMIT == 2
+    assert extract.EMPTY_RETRY_MIN_DAYS == 7
+    assert extract.EMPTY_RETRY_MAX_PAGES == 24
+    assert extract.EMPTY_RETRY_MAX_PAGES > extract.DEFAULT_MAX_PAGES
+    # The picks filings' gate (services/jobs/internal/jobs/picks/filings_ingest.go
+    # minDigestConfidence); the review job pins the same number.
+    assert extract.USABLE_DIGEST_MIN_CONFIDENCE == 0.3
+
+
+def _add_company(admin, schema, code, docs, market_cap=None):
+    cur = admin.cursor()
+    cur.execute(f'SET search_path TO "{schema}"')
+    cur.execute(
+        'INSERT INTO "company-metadata" (stock_code, financial_reports, market_cap) VALUES (%s, %s, %s)',
+        (code, json.dumps([
+            {"source": "asx_announcements", "type": t, "title": title, "url": url, "date": date}
+            for t, title, url, date in docs
+        ]), market_cap),
+    )
+    cur.close()
+
+
+DRO_H1 = [("half_year_results", "Appendix 4D and Half Year Report", "dro-h1", "2026-08-26")]
+
+
+def _dro_targets():
+    conn = runner.open_selection_connection()
+    try:
+        return [r for r in extract.select_extraction_targets(conn, recent=2, limit=0, today=TODAY) if r["stock_code"] == "DRO"]
+    finally:
+        conn.close()
+
+
+def test_pg_extraction_attempts_probe_reads_the_catalog(pg_schema):
+    _, admin, schema = pg_schema
+    _create_tables(admin, schema, with_attempts=False)
+    conn = extract.get_db_connection(autocommit=True)
+    try:
+        assert extract.extraction_attempts_column_exists(conn) is False
+        admin.cursor().execute(
+            f'ALTER TABLE "{schema}".financial_report_extractions ADD COLUMN extraction_attempts INTEGER NOT NULL DEFAULT 1'
+        )
+        assert extract.extraction_attempts_column_exists(conn) is True
+    finally:
+        conn.close()
+
+
+def test_pg_an_empty_extraction_is_read_again_after_seven_days(pg_schema):
+    # DroneShield's half-year: read once, nothing kept. It is offered again a
+    # week after each attempt while it has had at most EMPTY_RETRY_LIMIT; an
+    # unreadable marker never is. Storing it again counts one more attempt.
+    _, admin, schema = pg_schema
+    _create_tables(admin, schema, with_attempts=True)
+    _add_company(admin, schema, "DRO", DRO_H1, 2_000_000_000)
+    cur = admin.cursor()
+    cur.execute(f'SET search_path TO "{schema}"')
+    cur.execute(
+        """
+        INSERT INTO financial_report_extractions (stock_code, report_url, metrics, raw_text_length, extracted_at)
+        VALUES ('DRO', 'dro-h1', '{}', 9997, now() - interval '8 days')
+        """
+    )
+    [doc] = _dro_targets()
+    assert doc["url"] == "dro-h1" and doc["empty_retry"] is True
+
+    cur.execute("UPDATE financial_report_extractions SET extraction_attempts = 3 WHERE report_url = 'dro-h1'")
+    assert _dro_targets() == []  # both retries used
+    cur.execute(
+        "UPDATE financial_report_extractions SET extraction_attempts = 2, extracted_at = now() - interval '1 day' "
+        "WHERE report_url = 'dro-h1'"
+    )
+    assert _dro_targets() == []  # tried yesterday
+    cur.execute(
+        "UPDATE financial_report_extractions SET extracted_at = now() - interval '8 days', raw_text_length = 40 "
+        "WHERE report_url = 'dro-h1'"
+    )
+    assert _dro_targets() == []  # an unreadable marker
+    cur.execute("UPDATE financial_report_extractions SET raw_text_length = 9997 WHERE report_url = 'dro-h1'")
+    [doc] = _dro_targets()  # attempt 2 of 3, a week on
+
+    # A digest under the picks gate is no digest at all; a usable one (or one
+    # with no confidence, which the picks filings read) makes the row done.
+    for confidence, retried in (("0.2", True), ("0.3", False), ("NULL", False)):
+        cur.execute(
+            f"UPDATE financial_report_extractions SET digest = 'A thin summary.', digest_confidence = {confidence} "
+            "WHERE report_url = 'dro-h1'"
+        )
+        assert bool(_dro_targets()) is retried, confidence
+    cur.execute("UPDATE financial_report_extractions SET digest = NULL, digest_confidence = NULL WHERE report_url = 'dro-h1'")
+    [doc] = _dro_targets()
+
+    conn = extract.get_db_connection(autocommit=True)
+    try:
+        extract.store_extraction(conn, doc, {}, 9997, count_attempt=True)
+    finally:
+        conn.close()
+    cur.execute("SELECT extraction_attempts FROM financial_report_extractions WHERE report_url = 'dro-h1'")
+    assert cur.fetchone()[0] == 3
+    cur.close()
+
+
+def test_pg_without_the_attempts_column_nothing_is_retried(pg_schema):
+    # Before migration 000136 an empty extraction stays done, as it always was.
+    _, admin, schema = pg_schema
+    _create_tables(admin, schema, with_attempts=False)
+    _add_company(admin, schema, "DRO", DRO_H1, 2_000_000_000)
+    cur = admin.cursor()
+    cur.execute(f'SET search_path TO "{schema}"')
+    cur.execute(
+        """
+        INSERT INTO financial_report_extractions (stock_code, report_url, metrics, raw_text_length, extracted_at)
+        VALUES ('DRO', 'dro-h1', '{}', 9997, now() - interval '8 days')
+        """
+    )
+    cur.close()
+    assert _dro_targets() == []

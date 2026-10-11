@@ -654,6 +654,9 @@ jobs:
           # it touches no rows. It does not depend on where 000095 sits.
           # 000134 adds the parser_version column to dividend_notice_attempts and
           # touches no rows.
+          # 000136 adds financial_report_extractions.extraction_attempts only
+          # when the catalog lacks it, as 000132 does, so a replay takes no
+          # lock on a table the API reads; it touches no rows.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -676,7 +679,8 @@ jobs:
               -f /migrations/000129_add_stock_fundamentals.up.sql \
               -f /migrations/000130_add_price_features.up.sql \
               -f /migrations/000133_add_dividend_notices.up.sql \
-              -f /migrations/000134_dividend_notice_parser_version.up.sql
+              -f /migrations/000134_dividend_notice_parser_version.up.sql \
+              -f /migrations/000136_extraction_attempts.up.sql
 
             # 000131 widens stock_prices' price columns to NUMERIC(12,4). Unlike
             # everything above, its first run does real work: it rewrites the

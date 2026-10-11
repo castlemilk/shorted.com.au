@@ -303,6 +303,7 @@ def _main_with(monkeypatch, outcomes, argv=()):
     monkeypatch.setenv("GEMINI_MAX_RUN_ITEMS", "50")
     monkeypatch.setattr(runner, "open_selection_connection", lambda: SimpleNamespace(close=lambda: None))
     monkeypatch.setattr(extract, "document_meta_column_exists", lambda conn: True)
+    monkeypatch.setattr(extract, "extraction_attempts_column_exists", lambda conn: True)
     monkeypatch.setattr(runner, "select_reports", lambda conn, recent, limit: reports)
     by_url = {r["url"]: o for r, o in zip(reports, outcomes)}
     monkeypatch.setattr(runner, "process", lambda report, **kw: by_url[report["url"]])
@@ -326,6 +327,7 @@ def test_openrouter_backend_hands_every_worker_the_direct_extractor(monkeypatch)
     monkeypatch.setenv("EXTRACTOR_CHECKER_MODEL", "google/gemini-2.5-flash-lite")
     monkeypatch.setattr(runner, "open_selection_connection", lambda: SimpleNamespace(close=lambda: None))
     monkeypatch.setattr(extract, "document_meta_column_exists", lambda conn: True)
+    monkeypatch.setattr(extract, "extraction_attempts_column_exists", lambda conn: True)
     monkeypatch.setattr(runner, "select_reports", lambda conn, recent, limit: [REPORT])
     seen = []
     monkeypatch.setattr(runner, "process", lambda report, **kw: seen.append(kw.get("direct")) or "ok")
