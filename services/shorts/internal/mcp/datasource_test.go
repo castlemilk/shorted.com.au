@@ -69,6 +69,12 @@ func TestDataSourceMethodsAreAllReachableFromSomeTool(t *testing.T) {
 		if i := strings.LastIndex(tool.RPC, "."); i >= 0 {
 			declared[tool.RPC[i+1:]] = true
 		}
+		// Check AlsoCalls as well
+		for _, rpc := range tool.AlsoCalls {
+			if i := strings.LastIndex(rpc, "."); i >= 0 {
+				declared[rpc[i+1:]] = true
+			}
+		}
 	}
 
 	iface := reflect.TypeOf((*DataSource)(nil)).Elem()

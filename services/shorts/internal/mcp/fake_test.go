@@ -24,24 +24,27 @@ import (
 type fakeDataSource struct {
 	// Recorded requests, one field per method. Nil until the method is called,
 	// so a test can assert an RPC was NOT reached (validation short-circuits).
-	gotStock          *shortsv1alpha1.GetStockRequest
-	gotTopShorts      *shortsv1alpha1.GetTopShortsRequest
-	gotTreeMap        *shortsv1alpha1.GetIndustryTreeMapRequest
-	gotMarketByDate   *shortsv1alpha1.GetMarketByDateRequest
-	gotBattlegrounds  *shortsv1alpha1.GetBattlegroundStocksRequest
-	gotStockData      *shortsv1alpha1.GetStockDataRequest
-	gotStockPrices    *shortsv1alpha1.GetStockPricesRequest
-	gotStockDetails   *shortsv1alpha1.GetStockDetailsRequest
-	gotDirectorTrades *shortsv1alpha1.GetDirectorTradesRequest
-	gotPeerComparison *shortsv1alpha1.GetPeerComparisonRequest
-	gotFundamentals   *shortsv1alpha1.GetStockFundamentalsRequest
-	gotStrategies     *shortsv1alpha1.ListStrategiesRequest
-	gotStrategyPicks  *shortsv1alpha1.GetStrategyPicksRequest
-	gotSearchStocks   *shortsv1alpha1.SearchStocksRequest
-	gotScreenStocks   *shortsv1alpha1.ScreenStocksRequest
-	gotStockNews      *shortsv1alpha1.GetStockNewsRequest
-	gotListReports    *shortsv1alpha1.ListReportsRequest
-	gotWeeklyReport   *shortsv1alpha1.GetWeeklyReportRequest
+	gotStock           *shortsv1alpha1.GetStockRequest
+	gotTopShorts       *shortsv1alpha1.GetTopShortsRequest
+	gotTreeMap         *shortsv1alpha1.GetIndustryTreeMapRequest
+	gotMarketByDate    *shortsv1alpha1.GetMarketByDateRequest
+	gotBattlegrounds   *shortsv1alpha1.GetBattlegroundStocksRequest
+	gotStockData       *shortsv1alpha1.GetStockDataRequest
+	gotStockPrices     *shortsv1alpha1.GetStockPricesRequest
+	gotStockDetails    *shortsv1alpha1.GetStockDetailsRequest
+	gotDirectorTrades  *shortsv1alpha1.GetDirectorTradesRequest
+	gotPeerComparison  *shortsv1alpha1.GetPeerComparisonRequest
+	gotFundamentals    *shortsv1alpha1.GetStockFundamentalsRequest
+	gotStrategies      *shortsv1alpha1.ListStrategiesRequest
+	gotStrategyPicks   *shortsv1alpha1.GetStrategyPicksRequest
+	gotStrategyFit     *shortsv1alpha1.GetStockStrategyFitRequest
+	gotDividendHistory *shortsv1alpha1.GetDividendHistoryRequest
+	gotStockSignals    *shortsv1alpha1.GetStockSignalsRequest
+	gotSearchStocks    *shortsv1alpha1.SearchStocksRequest
+	gotScreenStocks    *shortsv1alpha1.ScreenStocksRequest
+	gotStockNews       *shortsv1alpha1.GetStockNewsRequest
+	gotListReports     *shortsv1alpha1.ListReportsRequest
+	gotWeeklyReport    *shortsv1alpha1.GetWeeklyReportRequest
 
 	gotHousingOverview  *shortsv1alpha1.GetHousingOverviewRequest
 	gotHousePriceSeries *shortsv1alpha1.GetHousePriceSeriesRequest
@@ -57,24 +60,27 @@ type fakeDataSource struct {
 	gotStockPoliticians *shortsv1alpha1.ListStockPoliticiansRequest
 
 	// Canned responses.
-	stock          *stocksv1alpha1.Stock
-	topShorts      *shortsv1alpha1.GetTopShortsResponse
-	treeMap        *stocksv1alpha1.IndustryTreeMap
-	marketByDate   *shortsv1alpha1.GetMarketByDateResponse
-	battlegrounds  *shortsv1alpha1.GetBattlegroundStocksResponse
-	stockData      *stocksv1alpha1.TimeSeriesData
-	stockPrices    *shortsv1alpha1.GetStockPricesResponse
-	stockDetails   *stocksv1alpha1.StockDetails
-	directorTrades *shortsv1alpha1.GetDirectorTradesResponse
-	peerComparison *shortsv1alpha1.GetPeerComparisonResponse
-	fundamentals   *shortsv1alpha1.GetStockFundamentalsResponse
-	strategies     *shortsv1alpha1.ListStrategiesResponse
-	strategyPicks  *shortsv1alpha1.GetStrategyPicksResponse
-	searchStocks   *shortsv1alpha1.SearchStocksResponse
-	screenStocks   *shortsv1alpha1.ScreenStocksResponse
-	stockNews      *shortsv1alpha1.GetStockNewsResponse
-	listReports    *shortsv1alpha1.ListReportsResponse
-	weeklyReport   *shortsv1alpha1.GetWeeklyReportResponse
+	stock           *stocksv1alpha1.Stock
+	topShorts       *shortsv1alpha1.GetTopShortsResponse
+	treeMap         *stocksv1alpha1.IndustryTreeMap
+	marketByDate    *shortsv1alpha1.GetMarketByDateResponse
+	battlegrounds   *shortsv1alpha1.GetBattlegroundStocksResponse
+	stockData       *stocksv1alpha1.TimeSeriesData
+	stockPrices     *shortsv1alpha1.GetStockPricesResponse
+	stockDetails    *stocksv1alpha1.StockDetails
+	directorTrades  *shortsv1alpha1.GetDirectorTradesResponse
+	peerComparison  *shortsv1alpha1.GetPeerComparisonResponse
+	fundamentals    *shortsv1alpha1.GetStockFundamentalsResponse
+	strategies      *shortsv1alpha1.ListStrategiesResponse
+	strategyPicks   *shortsv1alpha1.GetStrategyPicksResponse
+	strategyFit     *shortsv1alpha1.GetStockStrategyFitResponse
+	dividendHistory *shortsv1alpha1.GetDividendHistoryResponse
+	stockSignals    *shortsv1alpha1.GetStockSignalsResponse
+	searchStocks    *shortsv1alpha1.SearchStocksResponse
+	screenStocks    *shortsv1alpha1.ScreenStocksResponse
+	stockNews       *shortsv1alpha1.GetStockNewsResponse
+	listReports     *shortsv1alpha1.ListReportsResponse
+	weeklyReport    *shortsv1alpha1.GetWeeklyReportResponse
 
 	housingOverview  *shortsv1alpha1.GetHousingOverviewResponse
 	housePriceSeries *shortsv1alpha1.GetHousePriceSeriesResponse
@@ -92,6 +98,9 @@ type fakeDataSource struct {
 	// err, when set, is returned by every method — tests set it to drive the
 	// error paths.
 	err error
+
+	// Per-method error overrides
+	errForGetDividends error
 }
 
 var _ DataSource = (*fakeDataSource)(nil)
@@ -267,6 +276,33 @@ func (f *fakeDataSource) GetStrategyPicks(_ context.Context, req *connect.Reques
 		return connect.NewResponse(out), nil
 	}
 	return connect.NewResponse(f.strategyPicks), nil
+}
+
+func (f *fakeDataSource) GetStockStrategyFit(_ context.Context, req *connect.Request[shortsv1alpha1.GetStockStrategyFitRequest]) (*connect.Response[shortsv1alpha1.GetStockStrategyFitResponse], error) {
+	f.gotStrategyFit = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.strategyFit), nil
+}
+
+func (f *fakeDataSource) GetDividendHistory(_ context.Context, req *connect.Request[shortsv1alpha1.GetDividendHistoryRequest]) (*connect.Response[shortsv1alpha1.GetDividendHistoryResponse], error) {
+	f.gotDividendHistory = req.Msg
+	if f.errForGetDividends != nil {
+		return nil, f.errForGetDividends
+	}
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.dividendHistory), nil
+}
+
+func (f *fakeDataSource) GetStockSignals(_ context.Context, req *connect.Request[shortsv1alpha1.GetStockSignalsRequest]) (*connect.Response[shortsv1alpha1.GetStockSignalsResponse], error) {
+	f.gotStockSignals = req.Msg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return connect.NewResponse(f.stockSignals), nil
 }
 
 func (f *fakeDataSource) SearchStocks(_ context.Context, req *connect.Request[shortsv1alpha1.SearchStocksRequest]) (*connect.Response[shortsv1alpha1.SearchStocksResponse], error) {

@@ -533,8 +533,11 @@ def order_extraction_targets(
 
       1. companies whose document's report_date is within `recent_days` of
          `today`, newest first;
-      2. then companies with no metric-bearing extraction yet, by market cap;
-      3. then the rest, by market cap.
+      2. then companies with no metric-bearing extraction yet, and any
+         company whose newest results document is still unextracted (its
+         latest result is unknown to Shorted), by market cap;
+      3. then the rest, by market cap: an older document back-filled
+         because the company's newest one is already extracted.
 
     Market cap ties (and missing market caps, which sort last) break on stock
     code. Per company only its `recent` newest results documents are
@@ -550,6 +553,12 @@ def order_extraction_targets(
         by_code.setdefault(r["stock_code"], []).append(r)
 
     chosen = []
+    # Codes whose chosen document is their newest results document. Once that
+    # document leaves the recent window it must not sink below every
+    # never-extracted company: CBA's full year (12 Aug 2026) and DRO's half
+    # (26 Aug 2026) were both still unparsed on 10 Oct 2026.
+    newest_chosen: set[str] = set()
+
     for code, docs in by_code.items():
         # Newest first; same day, the statutory filing first.
         docs = sorted(docs, key=lambda r: _same_day_rank(r["title"]))
@@ -559,6 +568,8 @@ def order_extraction_targets(
         remaining = [r for r in docs if r["url"] not in extracted_urls]
         if remaining:
             chosen.append({**remaining[0], "fallbacks": remaining[1:]})
+            if remaining[0] is docs[0]:
+                newest_chosen.add(code)
 
     horizon = today - _dt.timedelta(days=recent_days)
 
@@ -568,8 +579,9 @@ def order_extraction_targets(
         day = _report_day(r["date"])
         if day is not None and horizon <= day <= today + _dt.timedelta(days=1):
             return (0, -day.toordinal(), mcap_key, r["stock_code"])
-        tier = 1 if r["stock_code"] not in metric_codes else 2
-        return (tier, 0, mcap_key, r["stock_code"])
+        code = r["stock_code"]
+        tier = 1 if code not in metric_codes or code in newest_chosen else 2
+        return (tier, 0, mcap_key, code)
 
     chosen.sort(key=key)
     return chosen

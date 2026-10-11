@@ -72,6 +72,22 @@ func newFetcher() *fetcher {
 	return &fetcher{client: &http.Client{Jar: jar}}
 }
 
+// AnnouncementTextFetcher downloads an ASX announcement's text the way the
+// report and director jobs do: displayAnnouncement.do resolution, ASX headers
+// and the same PDF extraction. Safe for concurrent use.
+type AnnouncementTextFetcher struct{ f *fetcher }
+
+// NewAnnouncementTextFetcher returns a fetcher with its own HTTP client.
+func NewAnnouncementTextFetcher() *AnnouncementTextFetcher {
+	return &AnnouncementTextFetcher{f: newFetcher()}
+}
+
+// Text returns the text of the announcement's first maxPages pages, or "" on
+// any failure (unresolvable page, non-PDF body, unparseable PDF, too little text).
+func (a *AnnouncementTextFetcher) Text(ctx context.Context, url string, maxPages int) string {
+	return a.f.downloadPDFText(ctx, url, maxPages)
+}
+
 // get issues a GET with the ASX browser headers and a per-request deadline.
 func (f *fetcher) get(ctx context.Context, url string, timeout time.Duration) (*http.Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)

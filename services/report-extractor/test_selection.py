@@ -31,21 +31,136 @@ def _doc(code, url, date, title="Appendix 4E and Annual Report", rtype="annual_r
 # --- ordering -----------------------------------------------------------------
 
 
-def test_order_recent_first_then_unextracted_by_market_cap_then_rest():
+def test_order_recent_first_then_newest_unextracted_by_market_cap_then_backfill():
     candidates = [
-        _doc("OLD1", "old1", "2026-02-20"),  # extracted before, big
-        _doc("NEW1", "new1", "2026-02-21"),  # never extracted, small
-        _doc("NEW2", "new2", "2026-02-22"),  # never extracted, big
+        _doc("OLD1", "old1", "2026-02-20"),  # metric extraction, big, newest unextracted
+        _doc("NEW1", "new1", "2026-02-21"),  # no extraction, small
+        _doc("NEW2", "new2", "2026-02-22"),  # no extraction, big
         _doc("REC1", "rec1", "2026-08-20"),  # within 45 days, older
         _doc("REC2", "rec2", "2026-09-20"),  # within 45 days, newest
-        _doc("NOCAP", "nocap", "2026-02-23"),  # never extracted, no market cap
-        _doc("OLD2", "old2", "2026-02-24"),  # extracted before, small
+        _doc("NOCAP", "nocap", "2026-02-23"),  # no extraction, no market cap
+        _doc("OLD2", "old2", "2026-02-24"),  # metric extraction, small, newest unextracted
+        # Company BACK1 with extracted newest, backfilling older
+        _doc("BACK1", "back1-extracted", "2026-02-25"),  # extracted newest
+        _doc("BACK1", "back1-older", "2026-02-15"),  # unextracted older
     ]
-    caps = {"OLD1": 9e10, "NEW1": 1e8, "NEW2": 5e10, "REC1": 1e9, "REC2": 1e6, "OLD2": 2e8}
+    caps = {"OLD1": 9e10, "NEW1": 1e8, "NEW2": 5e10, "REC1": 1e9, "REC2": 1e6, "OLD2": 2e8, "BACK1": 1e11}
     ordered = extract.order_extraction_targets(
-        candidates, extracted_urls=set(), metric_codes={"OLD1", "OLD2", "REC1"}, market_caps=caps, today=TODAY
+        candidates,
+        extracted_urls={"back1-extracted"},  # BACK1's newest is extracted, so it's backfilling
+        metric_codes={"OLD1", "OLD2", "REC1", "BACK1"},
+        market_caps=caps,
+        today=TODAY
     )
-    assert [r["stock_code"] for r in ordered] == ["REC2", "REC1", "NEW2", "NEW1", "NOCAP", "OLD1", "OLD2"]
+    # Tier 0: REC2, REC1 (within 45 days, newest first)
+    # Tier 1: OLD1 (metric but newest unextracted, big), NEW2 (big), OLD2 (metric but newest unextracted, small), NEW1 (small), NOCAP
+    # Tier 2: BACK1 (backfilling because newest is extracted)
+    assert [r["stock_code"] for r in ordered] == ["REC2", "REC1", "OLD1", "NEW2", "OLD2", "NEW1", "NOCAP", "BACK1"]
+
+
+def test_newest_unextracted_ahead_of_no_extraction_and_backfill():
+    """A company with a metric-bearing extraction whose newest results document
+    is unextracted and 60 days old sorts AHEAD of a smaller company with no
+    extraction (both in tier 1, by market cap), and ahead of a larger company
+    whose newest document is extracted and whose second-newest is being
+    back-filled (tier 2)."""
+    candidates = [
+        # Company with prior extraction, newest unextracted, 60 days old, big cap
+        _doc("CBA_EXTRACT", "cba-extract-new", "2026-07-30"),
+        _doc("CBA_EXTRACT", "cba-extract-old", "2026-05-20"),
+        # Smaller company with no prior extraction
+        _doc("DEF_NEWCO", "def-new", "2026-08-01"),
+        # Larger company whose newest IS extracted, backfilling second-newest
+        _doc("GHI_BACKFILL", "ghi-backfill-newest", "2026-08-15"),
+        _doc("GHI_BACKFILL", "ghi-backfill-second", "2026-07-20"),
+    ]
+    caps = {
+        "CBA_EXTRACT": 9e10,  # big
+        "DEF_NEWCO": 1e8,     # small
+        "GHI_BACKFILL": 5e11,  # largest
+    }
+    ordered = extract.order_extraction_targets(
+        candidates,
+        extracted_urls={"ghi-backfill-newest"},  # Newest for GHI is extracted
+        metric_codes={"CBA_EXTRACT", "GHI_BACKFILL"},
+        market_caps=caps,
+        today=TODAY,
+    )
+    codes = [r["stock_code"] for r in ordered]
+    # Tier 1: CBA (newest unextracted, big cap), DEF (small cap)
+    # Tier 2: GHI (backfilling, largest cap)
+    assert codes == ["CBA_EXTRACT", "DEF_NEWCO", "GHI_BACKFILL"]
+    # Verify the chosen URLs
+    assert [r["url"] for r in ordered] == ["cba-extract-new", "def-new", "ghi-backfill-second"]
+
+
+def test_newest_extracted_stays_in_tier_2():
+    """A company whose newest document is extracted and whose older document
+    is unextracted stays in tier 2, behind a small never-extracted company."""
+    candidates = [
+        # Company with newest extracted, older unextracted
+        _doc("ABC_BACKFILL", "abc-newest", "2026-08-20"),
+        _doc("ABC_BACKFILL", "abc-older", "2026-07-15"),
+        # Small never-extracted company (tier 1)
+        _doc("XYZ_NEW", "xyz-new", "2026-08-05"),
+    ]
+    caps = {
+        "ABC_BACKFILL": 9e10,  # Large
+        "XYZ_NEW": 1e7,         # Small
+    }
+    ordered = extract.order_extraction_targets(
+        candidates,
+        extracted_urls={"abc-newest"},  # ABC's newest is extracted
+        metric_codes={"ABC_BACKFILL"},  # ABC has prior extraction
+        market_caps=caps,
+        today=TODAY,
+    )
+    codes_urls = [(r["stock_code"], r["url"]) for r in ordered]
+    # XYZ is tier 1 (never extracted, small)
+    # ABC is tier 2 (backfilling, newest extracted)
+    assert codes_urls == [("XYZ_NEW", "xyz-new"), ("ABC_BACKFILL", "abc-older")]
+
+
+def test_company_without_metrics_stays_in_tier_1_when_its_newest_was_attempted():
+    """A company with no metric-bearing extraction is tier 1 even when its
+    newest document already has a (metric-less) extraction row and an older
+    one is chosen: Shorted still knows nothing usable about it."""
+    candidates = [
+        _doc("EMPTY", "empty-newest", "2026-07-01"),
+        _doc("EMPTY", "empty-older", "2026-02-01"),
+        _doc("BACK", "back-newest", "2026-07-02"),
+        _doc("BACK", "back-older", "2026-02-02"),
+    ]
+    ordered = extract.order_extraction_targets(
+        candidates,
+        extracted_urls={"empty-newest", "back-newest"},
+        metric_codes={"BACK"},
+        market_caps={"EMPTY": 1e7, "BACK": 9e10},
+        today=TODAY,
+    )
+    assert [r["url"] for r in ordered] == ["empty-older", "back-older"]
+
+
+def test_recent_documents_come_first():
+    """Documents within 45 days still come first, newest first, whatever the
+    tiers above."""
+    candidates = [
+        # Recent unextracted (tier 0)
+        _doc("REC1", "rec1", (TODAY - dt.timedelta(days=30)).isoformat()),
+        # Old unextracted with prior extraction (tier 1 in new logic)
+        _doc("OLD1", "old1", (TODAY - dt.timedelta(days=60)).isoformat()),
+        # Never extracted (tier 1)
+        _doc("NEW1", "new1", (TODAY - dt.timedelta(days=50)).isoformat()),
+    ]
+    caps = {"REC1": 1e9, "OLD1": 1e10, "NEW1": 1e8}
+    ordered = extract.order_extraction_targets(
+        candidates,
+        extracted_urls=set(),
+        metric_codes={"OLD1"},  # OLD1 has prior extraction
+        market_caps=caps,
+        today=TODAY,
+    )
+    assert [r["url"] for r in ordered] == ["rec1", "old1", "new1"]
 
 
 def test_forty_five_day_window_edges():
