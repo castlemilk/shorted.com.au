@@ -37,18 +37,49 @@ Checked:
   BHP, CBA and TLS at 257, 258 and 262, and no retries. Retries start on the
   third night (RIO 955, DRO 1,024).
 
+Followed up the same day (the carried items):
+
+- **Results-title false positives.** Every candidate title on prod (36,962
+  accepted, 5,102 rejected) was tested against the classifier, and each
+  suspicious word against what its extracted documents yielded. Both
+  classifiers now reject notices about a release (notifications, advance
+  notices, release dates, timing, call and teleconference details, scripts,
+  "X to announce"), notices about a report's lodgement or dispatch (delays,
+  extensions of time, late lodgement, waivers, "update on"), supplements
+  (addenda, additional ASX information, supplementary information,
+  clarifications) and letters to holders: 658 candidate documents, of which
+  84 had been extracted, 2 with figures (BGP's addendum, whose half-year
+  results are a separate filing, and a CTD status update). Corrections stay:
+  4 of the 19 extracted carried the report's figures, and TYR's FY25 annual
+  and EDV's H1 FY26 reached prod only as re-lodged corrections. Proxy and
+  Appendix 4G titles stay too: they are the annual report bundled (18,000 to
+  28,000 characters), and the 24-page retry is what reads them. The first
+  review was wrong about KLV: its "Highlights of the Annual Report" carried
+  the result at confidence 0.95.
+- **The 53 digests between 0.3 and 0.6** were not rows with metrics: 52 of 53
+  had none. They are annual reports read from their opening letters, and
+  59 of the 74 figures they quote appear in the 8 pages read. With no
+  metrics only the latest-filing summary reads a row, and only at 0.6 or
+  more, so these summaries reached no reader and were never read again. The
+  empty rule now uses 0.6 (`USABLE_DIGEST_MIN_CONFIDENCE`): 52 more rows
+  (33 due now) join the retries. The API's gate is unchanged.
+- **The 30 `estimated_only` notices** all resolve on their own: 21 have a
+  later notice with the actual amount, parsed and stored; the other 9 state a
+  date for the actual amount between 12 Oct and 11 Nov. The review still
+  lists them as failures; next change: record each notice's stated date and
+  show waiting, superseded or overdue.
+
 Open:
 
-- **The 5 notices with no AUD rate.** SST pays in kina. Check whether DPM, GNE
-  and PAF file an update with the rate. If an issuer never does, choose between
-  storing the native amount with its currency and converting at the payment
-  date's rate.
+- **The 5 notices with no AUD rate.** Each states when the rate will come
+  (2A.9b): DPM 15 Oct, PAF ×2 19 Nov (the first says ZAR 65.00, a typo its
+  next-day update corrects), GNE 9 Oct (its newest crawled announcement is
+  7 Oct), SST 2 Oct (nothing crawled since 31 Aug, normal for SST). Only one
+  whose rate never comes needs a decision.
 - **The first retries (about 13 Oct).** Expect `extraction_attempts` 2 on those
   rows and "N of them empty extractions read again" in the run log. Compare
   the next review's empty count.
-- Carried from the first review: the results-title false positives, the
-  `document_meta` entities, the 53 mid-confidence digests and the
-  `estimated_only` ETF notices (now 30).
+- **`document_meta` entities** (61 rows), carried from the first review.
 
 ## 2026-10-11
 

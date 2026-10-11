@@ -75,8 +75,9 @@ layer)`, or an empty-extraction state (below). Largest companies first.
 
 ### Empty extractions
 
-No metrics and no usable digest (none, or one under 0.3 confidence, the picks
-filings' gate) from a document that has text. The extractor reads each one
+No metrics and no usable digest (none, or one with no confidence or under 0.6,
+the latest-filing summary's gate: with no metrics nothing else reads the row)
+from a document that has text. The extractor reads each one
 again, at most twice and at least 7 days apart, at up to 24 pages
 (`EMPTY_RETRY_*` and `USABLE_DIGEST_MIN_CONFIDENCE` in `extract.py`). States: `retry due`, `next retry from
 <date>`, `gave up after N attempts`.
