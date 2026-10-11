@@ -133,7 +133,7 @@ says which gate:
   a prompt problem; on a thin one it is the gate working.
 - `document names "X", not <company>`: the stated entity (already reduced by
   `cleanEntity`, so a registration number, an address or a bare "Limited" is
-  never shown here) is not the company's name. Four causes, in the order seen
+  never shown here) is not the company's name. Six causes, in the order seen
   on 2026-10-11:
   - a fund manager or responsible entity (Betashares, Vanguard, "The Trust
     Company (RE Services) Limited"): the gate working, nothing to fix;
