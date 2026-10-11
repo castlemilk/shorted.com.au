@@ -1,5 +1,5 @@
 {
-  "comment": "Shared fixture for financial_report_extractions.document_meta (docs/plans/fundamentals-coverage.md 2.5). The Python extractor derives each case's expected object from its text with deterministic regexes; the Go test (services/pkg/extractiontrust) asserts every expected object is inside the closed vocabulary and that each invalid input loses exactly its bad keys. An absent key means absent: never guess.",
+  "comment": "Shared fixture for financial_report_extractions.document_meta (docs/plans/fundamentals-coverage.md 2.5). The Python extractor derives each case's expected object from its text with deterministic regexes; the Go test (services/pkg/extractiontrust) asserts every expected object is inside the closed vocabulary and that each invalid input loses exactly its bad keys. An absent key means absent: never guess. entities: stored entity values (from prod, 2026-10-11) and what clean_entity / cleanEntity reduce each to; \"\" means the value states no name and the entity is absent.",
   "rules": [
     "currency: from a presentation statement '(presented|expressed|reported|stated) in <US|United States|Australian|New Zealand|Canadian> dollars' -> USD|AUD|NZD|CAD; the evidence is that phrase verbatim. With no such statement, a currency-prefixed unit header (US$, A$, NZ$, C$ before million/billion/'000/m/bn) sets it, with that header as the evidence. Two distinct currencies at the winning level -> currency omitted. A bare '$' never sets a currency.",
     "units: unit statements are '<prefix>$ Million', '$m', '$M', '$ million', '(A$ million)', '$bn', '$ billion', '$'000', '$000', 'thousands of', 'nearest dollar' / 'whole dollars' (-> units). Exactly one distinct unit value across the pages read -> that value, the first statement verbatim as the evidence; several distinct values -> units and units_evidence omitted. A figure such as '$412.6m' is not a unit statement.",
@@ -277,5 +277,35 @@
       "input": {"foo": "bar", "report_kind": "other"},
       "expected": {"report_kind": "other"}
     }
+  ],
+  "entities": [
+    {"raw": "Klevo Group Ltd |Suite 102, 66 Berry Street, North Sydney, NSW 2060 |", "clean": "Klevo Group Ltd"},
+    {"raw": "Betashares Capital Ltd |", "clean": "Betashares Capital Ltd"},
+    {"raw": "ACN 000 689 216 |", "clean": ""},
+    {"raw": "ABN", "clean": ""},
+    {"raw": "ASX BIM |", "clean": ""},
+    {"raw": "ASX:GA8", "clean": ""},
+    {"raw": "ASX: TLM |", "clean": ""},
+    {"raw": "WWW.SUREFIRERESOURCES.COM.AU • ASX: SRN•", "clean": ""},
+    {"raw": "WWW.ZEUSRESOURCES.COM", "clean": ""},
+    {"raw": "strike@strikeenergy.com.au", "clean": ""},
+    {"raw": "2/50 KINGS PARK ROAD, WEST PERTH WA 6005 | T: +61 8 6241 1877 |", "clean": ""},
+    {"raw": "or group of entities)", "clean": ""},
+    {"raw": "Limited", "clean": ""},
+    {"raw": "ANNUAL REPORT", "clean": ""},
+    {"raw": "The Responsible Entity of the Antipodes Global Value Active ETF is Pinnacle Fund Services Limited", "clean": "Antipodes Global Value Active ETF"},
+    {"raw": "The Responsible Entity of the Scheme is Ausbil Investment Management Limited", "clean": "Ausbil Investment Management Limited"},
+    {"raw": "The directors of Equity Trustees Limited", "clean": "Equity Trustees Limited"},
+    {"raw": "The Directors of Platinum Investment Management Limited (\"PIML\") (trading as Platinum Asset Management)", "clean": "Platinum Investment Management Limited"},
+    {"raw": "across the portfolio. RAM Property Funds Management Limited", "clean": "RAM Property Funds Management Limited"},
+    {"raw": "Grant Thornton Audit Pty Ltd ACN 130 913 594 a subsidiary or related entity of Grant Thornton Australia Limited", "clean": "Grant Thornton Audit Pty Ltd"},
+    {"raw": "Moore Australia Audit (WA)", "clean": "Moore Australia Audit"},
+    {"raw": "PricewaterhouseCoopers", "clean": "PricewaterhouseCoopers"},
+    {"raw": "The Trust Company (RE Services) Limited", "clean": "The Trust Company (RE Services) Limited"},
+    {"raw": "Prodigy9., Co Ltd", "clean": "Prodigy9., Co Ltd"},
+    {"raw": "Acme Pty. Ltd", "clean": "Acme Pty. Ltd"},
+    {"raw": "Nodestream Limited.", "clean": "Nodestream Limited"},
+    {"raw": "BHP Group Limited", "clean": "BHP Group Limited"},
+    {"raw": "Commonwealth Bank of Australia", "clean": "Commonwealth Bank of Australia"}
   ]
 }

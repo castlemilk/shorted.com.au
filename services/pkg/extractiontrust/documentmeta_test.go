@@ -23,6 +23,40 @@ type documentMetaFixture struct {
 		Input    json.RawMessage `json:"input"`
 		Expected json.RawMessage `json:"expected"`
 	} `json:"invalid"`
+	Entities []struct {
+		Raw   string `json:"raw"`
+		Clean string `json:"clean"`
+	} `json:"entities"`
+}
+
+// Every stored entity in the shared fixture reduces to its clean form, through
+// cleanEntity alone and through ParseDocumentMeta, and a clean form is stable.
+// test_document_meta.py asserts the same list against clean_entity.
+func TestDocumentMetaFixtureEntities(t *testing.T) {
+	f := loadDocumentMetaFixture(t)
+	if len(f.Entities) < 20 {
+		t.Fatalf("fixture must carry at least 20 entities, has %d", len(f.Entities))
+	}
+	var dropped int
+	for _, e := range f.Entities {
+		if got := cleanEntity(e.Raw); got != e.Clean {
+			t.Errorf("cleanEntity(%q) = %q, want %q", e.Raw, got, e.Clean)
+		}
+		if got := cleanEntity(e.Clean); got != e.Clean {
+			t.Errorf("cleanEntity(%q) = %q: a clean form must be stable", e.Clean, got)
+		}
+		raw, _ := json.Marshal(map[string]string{"entity": e.Raw})
+		m, err := ParseDocumentMeta(raw)
+		if err != nil || m.Entity != e.Clean {
+			t.Errorf("ParseDocumentMeta(entity %q).Entity = %q, %v; want %q", e.Raw, m.Entity, err, e.Clean)
+		}
+		if e.Clean == "" {
+			dropped++
+		}
+	}
+	if dropped == 0 || dropped == len(f.Entities) {
+		t.Errorf("fixture is lopsided: %d of %d entities dropped", dropped, len(f.Entities))
+	}
 }
 
 func loadDocumentMetaFixture(t *testing.T) documentMetaFixture {
