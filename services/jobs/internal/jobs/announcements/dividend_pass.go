@@ -3,12 +3,19 @@ package announcements
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// dividendNoticeParserVersion is bumped whenever parseDividendNotice or
+// dividendRowsFor changes what a notice yields: a notice that failed under an
+// older version is read again. Version 2 reads the NZ supplementary dividend
+// (Part 3F) and splits a foreign notice's AUD equivalent across its parts.
+const dividendNoticeParserVersion = 2
 
 // pendingNotice represents an unparsed dividend notice from the crawl.
 type pendingNotice struct {
@@ -33,6 +40,7 @@ type dividendRow struct {
 // noticeAttempt records the outcome of processing one notice.
 type noticeAttempt struct {
 	URL, StockCode, Outcome, Detail string
+	ParserVersion                   int
 }
 
 // dividendPassResult is the tally returned by runDividendNoticePass.
@@ -43,7 +51,7 @@ type dividendPassResult struct {
 
 // dividendNoticeStore is the interface between the pass and storage.
 type dividendNoticeStore interface {
-	PendingDividendNotices(ctx context.Context, limit int) ([]pendingNotice, error)
+	PendingDividendNotices(ctx context.Context, limit int, parserVersion int) ([]pendingNotice, error)
 	UpsertDividends(ctx context.Context, rows []dividendRow) (int, error)
 	RecordNoticeAttempt(ctx context.Context, a noticeAttempt) error
 }
@@ -51,15 +59,20 @@ type dividendNoticeStore interface {
 // noticeTextFunc fetches the text of an announcement PDF.
 type noticeTextFunc func(ctx context.Context, url string) string
 
+// roundTo8Decimals rounds v to 8 decimal places.
+func roundTo8Decimals(v float64) float64 {
+	return math.Round(v*1e8) / 1e8
+}
+
 // dividendRowsFor extracts dividend rows from a parsed notice, applying policy.
 // Policy:
 //  1. SecurityCode and pendingNotice.StockCode must share their first 3 chars
 //     (case-insensitive), else outcome "code_mismatch".
 //  2. Drop parts with Estimated==true; if none remain, outcome "estimated_only".
-//  3. Currency: if AUD, each row's AmountAUD is the part's Amount. If foreign:
-//     - nil AUDEquivalent -> outcome "awaiting_aud_equivalent"
-//     - more than one part -> outcome "foreign_multi_part"
-//     - else AmountAUD = *n.AUDEquivalent
+//  3. Currency: if AUD, each row's AmountAUD is the part's Amount. If foreign
+//     and AUDEquivalent is set, each part's AmountAUD is computed as
+//     part.Amount * (AUDEquivalent / Total), rounded to 8 decimal places.
+//     If foreign and AUDEquivalent is nil, outcome "awaiting_aud_equivalent".
 //  4. Rows: StockCode=n.SecurityCode, dates from notice, FrankedPct and Type
 //     from part, DeclaredCurrency=n.Currency, DeclaredAmount=part.Amount,
 //     AnnouncementURL=p.URL, AnnouncedOn=n.AnnouncedOn or p.AnnouncementDate.
@@ -98,10 +111,14 @@ func dividendRowsFor(n DividendNotice, p pendingNotice) (rows []dividendRow, out
 			if n.AUDEquivalent == nil {
 				return nil, "awaiting_aud_equivalent", ""
 			}
-			if len(parts) > 1 {
-				return nil, "foreign_multi_part", ""
+			// 2A.9a is the AUD equivalent of the whole 2A.9 total (an NZ
+			// supplementary included), so each part takes its share at the
+			// notice's one exchange rate.
+			if n.Total > 0 {
+				amountAUD = roundTo8Decimals(part.Amount * (*n.AUDEquivalent / n.Total))
+			} else {
+				amountAUD = *n.AUDEquivalent
 			}
-			amountAUD = *n.AUDEquivalent
 		}
 
 		rows = append(rows, dividendRow{
@@ -145,7 +162,7 @@ func runDividendNoticePass(
 	}
 
 	// Fetch pending notices
-	pending, err := store.PendingDividendNotices(ctx, limit)
+	pending, err := store.PendingDividendNotices(ctx, limit, dividendNoticeParserVersion)
 	if err != nil {
 		return dividendPassResult{}, err
 	}
@@ -177,7 +194,7 @@ func runDividendNoticePass(
 		if dryRun {
 			return
 		}
-		a := noticeAttempt{URL: n.URL, StockCode: n.StockCode, Outcome: outcome, Detail: detail}
+		a := noticeAttempt{URL: n.URL, StockCode: n.StockCode, Outcome: outcome, Detail: detail, ParserVersion: dividendNoticeParserVersion}
 		if err := store.RecordNoticeAttempt(ctx, a); err != nil {
 			logf("dividend notice %s: recording outcome %s failed: %v", n.URL, outcome, err) // re-selected next run
 		}
@@ -268,7 +285,8 @@ SELECT stock_code, announcement_date::text, headline, pdf_url FROM (
     AND NOT EXISTS (
       SELECT 1 FROM dividend_notice_attempts t
       WHERE t.announcement_url = a.pdf_url
-        AND (t.outcome <> 'no_text' OR t.attempted_at > now() - interval '7 days'))
+        AND NOT (t.outcome = 'no_text' AND t.attempted_at < now() - interval '7 days')
+        AND NOT (t.outcome NOT IN ('parsed', 'cancellation', 'no_text') AND t.parser_version < $2))
   ORDER BY a.pdf_url, a.announcement_date DESC
 ) s
 ORDER BY announcement_date DESC, stock_code
@@ -288,10 +306,10 @@ WHERE dividend_history.announced_on IS NULL OR EXCLUDED.announced_on >= dividend
 `
 
 	recordAttemptSql = `
-INSERT INTO dividend_notice_attempts (announcement_url, stock_code, outcome, detail, attempted_at)
-VALUES ($1, $2, $3, NULLIF($4, ''), now())
+INSERT INTO dividend_notice_attempts (announcement_url, stock_code, outcome, detail, parser_version, attempted_at)
+VALUES ($1, $2, $3, NULLIF($4, ''), $5, now())
 ON CONFLICT (announcement_url) DO UPDATE SET stock_code = EXCLUDED.stock_code, outcome = EXCLUDED.outcome,
-    detail = EXCLUDED.detail, attempted_at = EXCLUDED.attempted_at
+    detail = EXCLUDED.detail, parser_version = EXCLUDED.parser_version, attempted_at = EXCLUDED.attempted_at
 `
 )
 
@@ -301,8 +319,8 @@ type postgresDividendNoticeStore struct {
 }
 
 // PendingDividendNotices returns up to limit unparsed dividend notices.
-func (s *postgresDividendNoticeStore) PendingDividendNotices(ctx context.Context, limit int) ([]pendingNotice, error) {
-	rows, err := s.db.Query(ctx, pendingNoticesSql, limit)
+func (s *postgresDividendNoticeStore) PendingDividendNotices(ctx context.Context, limit int, parserVersion int) ([]pendingNotice, error) {
+	rows, err := s.db.Query(ctx, pendingNoticesSql, limit, parserVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -341,6 +359,6 @@ func (s *postgresDividendNoticeStore) UpsertDividends(ctx context.Context, rows 
 
 // RecordNoticeAttempt records the outcome of processing one notice.
 func (s *postgresDividendNoticeStore) RecordNoticeAttempt(ctx context.Context, a noticeAttempt) error {
-	_, err := s.db.Exec(ctx, recordAttemptSql, a.URL, a.StockCode, a.Outcome, a.Detail)
+	_, err := s.db.Exec(ctx, recordAttemptSql, a.URL, a.StockCode, a.Outcome, a.Detail, a.ParserVersion)
 	return err
 }
