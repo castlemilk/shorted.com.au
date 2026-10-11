@@ -527,9 +527,11 @@ RECENT_FILING_DAYS = 45
 # first 8 pages are letters. An empty extraction is not done: selection offers
 # the document again EMPTY_RETRY_MIN_DAYS after its last attempt, at most
 # EMPTY_RETRY_LIMIT times, reading up to EMPTY_RETRY_MAX_PAGES pages. A retry
-# ranks after every first attempt in its tier, so it never displaces a new
-# filing. Needs migration 000136 (extraction_attempts); without it nothing is
-# retried.
+# ranks after every first attempt in every tier: a document read once without
+# a result is a worse use of a slot than one never read. Ranked within its tier
+# instead, 121 retries of recent filings sat ahead of the unread full-year
+# results of CBA, BHP and TLS on 11 Oct 2026. Needs migration 000136
+# (extraction_attempts); without it nothing is retried.
 EMPTY_RETRY_LIMIT = 2
 EMPTY_RETRY_MIN_DAYS = 7
 EMPTY_RETRY_MAX_PAGES = 24
@@ -616,7 +618,8 @@ def order_extraction_targets(
 
     Documents in `retry_urls` (empty extractions due another attempt, see
     EMPTY_RETRY_LIMIT) count as unextracted and carry "empty_retry": True;
-    within each tier they come after every first attempt."""
+    they come after every first attempt in every tier, and in the order
+    above among themselves."""
     retry_urls = set(retry_urls)
     by_code: dict[str, list[dict]] = {}
     for r in candidates:
@@ -650,10 +653,10 @@ def order_extraction_targets(
         day = _report_day(r["date"])
         retry = 1 if r.get("empty_retry") else 0
         if day is not None and horizon <= day <= today + _dt.timedelta(days=1):
-            return (0, retry, -day.toordinal(), mcap_key, r["stock_code"])
+            return (retry, 0, -day.toordinal(), mcap_key, r["stock_code"])
         code = r["stock_code"]
         tier = 1 if code not in metric_codes or code in newest_chosen else 2
-        return (tier, retry, 0, mcap_key, code)
+        return (retry, tier, 0, mcap_key, code)
 
     chosen.sort(key=key)
     return chosen

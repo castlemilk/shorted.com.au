@@ -613,10 +613,11 @@ def test_pg_store_writes_document_meta_when_present(pg_schema):
 # --- empty retry ordering -------------------------------------------------------
 
 
-def test_an_empty_extraction_due_a_retry_comes_after_first_attempts_in_its_tier():
+def test_an_empty_extraction_due_a_retry_comes_after_every_first_attempt():
     """Empty extractions (EMPTY_RETRY_LIMIT=2, EMPTY_RETRY_MIN_DAYS=7) count as
-    unextracted but rank after every first attempt in their tier. Two docs per
-    company: the newest candidate and the oldest."""
+    unextracted but rank after every first attempt in every tier, and in tier
+    order among themselves. Two docs per company: the newest candidate and the
+    oldest."""
     candidates = [
         # RET0: filed within 45 days, an empty extraction due a retry
         _doc("RET0", "ret0", "2026-09-20"),
@@ -632,7 +633,7 @@ def test_an_empty_extraction_due_a_retry_comes_after_first_attempts_in_its_tier(
         _doc("BACK2", "back2-old", "2025-08-25"),
     ]
     caps = {
-        "RET0": 1e9, "NEW0": 1e9, "RET1": 5e8, "NEW1": 2e8, "BACK2": 1e11
+        "RET0": 1e9, "NEW0": 1e9, "RET1": 5e10, "NEW1": 2e8, "BACK2": 1e11
     }
     # A retry has a row, so its URL is in extracted_urls as well as retry_urls.
     ordered = extract.order_extraction_targets(
@@ -644,18 +645,15 @@ def test_an_empty_extraction_due_a_retry_comes_after_first_attempts_in_its_tier(
         retry_urls={"ret0", "ret1-new"},
     )
     codes = [r["stock_code"] for r in ordered]
-    # Tier 0: NEW0 before RET0, though RET0 is newer. Tier 1: NEW1 before
-    # RET1, though RET1 is bigger. Tier 2: BACK2 back-fills its older document.
-    assert codes == ["NEW0", "RET0", "NEW1", "RET1", "BACK2"]
-    # Verify empty_retry markers
-    assert ordered[0].get("empty_retry") is None  # NEW0
-    assert ordered[1].get("empty_retry") is True  # RET0
-    assert ordered[2].get("empty_retry") is None  # NEW1
-    assert ordered[3].get("empty_retry") is True  # RET1 (ret1-new is a retry)
-    assert ordered[3]["url"] == "ret1-new"
-    assert [(f["url"], f.get("empty_retry")) for f in ordered[3]["fallbacks"]] == [("ret1-old", None)]
-    assert ordered[4].get("empty_retry") is None  # BACK2
-    assert ordered[4]["url"] == "back2-old"
+    # First attempts in tier order: NEW0 (filed within 45 days), NEW1 (no
+    # metrics), BACK2 back-filling its older document. NEW1 is CBA on 11 Oct
+    # 2026, its full year unread and 121 retries of recent filings due. Then the
+    # retries, in tier order: RET0 before RET1, though RET1 is bigger.
+    assert codes == ["NEW0", "NEW1", "BACK2", "RET0", "RET1"]
+    assert [r.get("empty_retry") for r in ordered] == [None, None, None, True, True]
+    assert ordered[2]["url"] == "back2-old"
+    assert ordered[4]["url"] == "ret1-new"
+    assert [(f["url"], f.get("empty_retry")) for f in ordered[4]["fallbacks"]] == [("ret1-old", None)]
 
 
 def test_an_empty_extraction_not_due_stays_done():
