@@ -509,6 +509,31 @@ The notices also confirm finding 35: CBA's update of 21 Sep 2026 sets the DRP pr
 
 Still open: guidance through MCP; "pays no dividend" as a fact (finding 30); trust-issuer letters such as Vanguard's, which are not Appendix 3A.1 and are recorded as `not_appendix_3a1`. After the deploy, the studio's MCP pass should call `get_stock_briefing` and map strategy, signals, dividends and `results.filing` to it, with fixtures re-recorded from the live tool.
 
+### What prod showed after #703, and the fixes that followed (11 Oct)
+
+The deploy was validated against prod. One run of the notice pass selected 200 notices and parsed 158. A read-only preview of the extractor's selection was run, and the stored rows were read. These turned up four more problems.
+
+**37. An empty extraction is never read again.** DRO's half-year (filed 26 Aug) was read on 30 Aug: 9,997 characters from 8 pages, `metrics = {}` and no digest. The row exists, so selection treated the document as done. 79 results documents since July are in that state (2,741 in all), and October produced 14 more. The first data review (below) found 181 more that are empty in all but name: no metrics, and a digest under 0.3 confidence, which neither the picks filings nor the latest-filing summary read. 147 of them are annual reports, whose first 8 pages are letters. *Fix:* an empty extraction (no metrics and no usable digest, from a document with a text layer) is read again at most twice, at least 7 days apart, at up to 24 pages. A retry ranks after every first attempt in its tier, so a new filing always comes first. Migration 000136 adds `extraction_attempts`; it is allowlisted and replay-safe. Scanned PDFs (under 100 characters) are still never retried.
+
+**38. NZ dividends fail the notice's own total.** 13 of the 200 notices were `inconsistent`, all from NZ issuers. Field 2A.9's total includes the Part 3F supplementary dividend, which is paid only to non-NZ residents. MCY's total is NZD 0.20: an ordinary NZD 0.17 plus a supplementary NZD 0.03. *Fix:* parser version 2 reads Part 3F and stores the ordinary dividend: NZD 0.17 is A$0.136544 at the notice's rate, since 2A.9a is the AUD equivalent of the whole total. A foreign notice's AUD equivalent is now split across its parts, so a multi-part USD notice no longer waits. Every failure an older parser recorded is read again, not a named few. Migration 000134 adds `dividend_notice_attempts.parser_version`; it is allowlisted.
+
+**39. The old headline parser's rows were wrong three ways.** There were 91 `dividend_history` rows with no notice URL:
+- 18 carry the day they were written as their ex-date;
+- 14 read cents as dollars (VMC 35.0, BCN 30.4, and 10.0 for each of AU8, AUK, TTN and XEN);
+- FML's and RPL's duplicate a notice row a few days later. `mv_screener_data.trailing_12m_dividend` sums every row, so the screener would have counted FML's 8 cents twice.
+
+*Fix:* migration 000135, hand-applied on 11 Oct: `SELECT 91` into `dividend_history_headline_rows`, then `DELETE 91`. The notice pass fills in the real dividends, newest first, 200 notices a run.
+
+**40. The extractor's backlog outran its limit.** The preview found 917 companies with an unread results document, 258 of them filed in the last 45 days. At 120 a run, CBA's full year (filed 12 Aug) ranked 260th and still had three nights to wait. The 120-report runs took 108, 54 and 7 minutes (8–10 Oct), at about 12,100 prompt tokens a document. *Fix:* `--limit 360`. The 90-minute submit budget still ends a slow day.
+
+**A review process.** None of these four failed loudly, so finding them took a video run. Now `task data:review` (`shorted review`, one read-only transaction) lists:
+- newest results documents never read, largest companies first;
+- empty and unreadable extractions, with their retry state;
+- rows the API withholds, with the gate that withheld them;
+- dividend notice outcomes and failures.
+
+`.claude/skills/data-review/SKILL.md` is the playbook for investigating a document and fixing the pipeline that dropped it. `docs/data-review/LOG.md` records each review.
+
 ### Smaller MCP findings (8 Oct)
 
 - `list_stock_politicians` leaves `party` empty on many rows, and CBA's `party_counts` lists `OTH` twice (10 and 1).
