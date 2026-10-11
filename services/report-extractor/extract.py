@@ -764,15 +764,17 @@ def drop_copies_owned_elsewhere(candidates: Iterable[dict], owners: dict) -> lis
 def _listing_signals(conn, codes: list[str]) -> tuple[dict, dict, dict]:
     """({code: latest stock_prices date}, {code: latest ASIC short report
     date}, {code: its last PRICE_TAIL_SESSIONS (date, close) pairs}) for codes.
-    A database without either table (a test schema) gives nothing from it,
-    never an error."""
+    Only a row with a close is a price (the column is nullable). A database
+    without either table (a test schema) gives nothing from it, never an
+    error."""
     cur = conn.cursor()
     try:
         cur.execute("SELECT to_regclass('stock_prices') IS NOT NULL, to_regclass('shorts') IS NOT NULL")
         has_prices, has_shorts = cur.fetchone()
         tail_sql = (
             "(SELECT array_agg(p.date::text || '=' || p.close::text ORDER BY p.date DESC) FROM ("
-            "SELECT date, close FROM stock_prices WHERE stock_code = c.code ORDER BY date DESC LIMIT %s) p)"
+            "SELECT date, close FROM stock_prices WHERE stock_code = c.code AND close IS NOT NULL"
+            " ORDER BY date DESC LIMIT %s) p)"
             if has_prices else "NULL::text[]"
         )
         short_sql = '(SELECT max(s."DATE")::date FROM shorts s WHERE s."PRODUCT_CODE" = c.code)' if has_shorts else "NULL::date"

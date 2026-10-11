@@ -1069,6 +1069,28 @@ def test_pg_the_short_report_moves_one_security_under_two_codes_but_not_a_fund(p
     cur.close()
 
 
+def test_pg_a_session_without_a_close_is_not_a_price(pg_schema):
+    # stock_prices.close is nullable on prod. A row with no close must neither
+    # stop selection nor make an old code look priced.
+    _, admin, schema = pg_schema
+    _create_tables(admin, schema)
+    _add_listing_tables(
+        admin, schema,
+        prices=[("SW1", "2025-12-01"), ("SW1", "2026-10-09", None), ("STV", "2026-10-08"), ("STV", "2026-10-09")],
+    )
+    _add_company(admin, schema, "SW1", SWIFT_TV, 11641040)
+    _add_company(admin, schema, "STV", SWIFT_TV, 10127916)
+    cur = admin.cursor()
+    cur.execute(f'SET search_path TO "{schema}"')
+    cur.execute("INSERT INTO financial_report_extractions (stock_code, report_url, metrics) VALUES ('SW1', 'stv-fy25', '{}')")
+    conn = runner.open_selection_connection()
+    try:
+        assert extract.rehome_shared_extractions(conn, dry_run=True) == [("stv-fy25", "SW1", "STV")]
+    finally:
+        conn.close()
+    cur.close()
+
+
 def test_pg_without_the_price_tables_a_shared_document_is_still_read_once(pg_schema):
     # A schema without stock_prices or shorts (a test or dev database): market
     # cap decides, and no row moves.
