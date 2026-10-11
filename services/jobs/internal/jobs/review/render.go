@@ -26,7 +26,7 @@ func render(rep report) string {
 	})
 
 	if rep.AttemptsKnown {
-		due, waiting, gaveUp := 0, 0, 0
+		due, waiting, gaveUp, notResults := 0, 0, 0, 0
 		for _, e := range rep.Empty {
 			switch {
 			case e.State == "retry due":
@@ -35,9 +35,11 @@ func render(rep report) string {
 				waiting++
 			case strings.HasPrefix(e.State, "gave up"):
 				gaveUp++
+			case e.State == notResultsTitle:
+				notResults++
 			}
 		}
-		p("### Empty extractions (%d: %d retry due, %d waiting, %d gave up)\n\n", len(rep.Empty), due, waiting, gaveUp)
+		p("### Empty extractions (%d: %d retry due, %d waiting, %d gave up, %d not results documents)\n\n", len(rep.Empty), due, waiting, gaveUp, notResults)
 	} else {
 		p("### Empty extractions (%d)\n\n", len(rep.Empty))
 	}
@@ -70,11 +72,27 @@ func render(rep report) string {
 		return []string{o.Outcome, strconv.Itoa(o.ParserVersion), strconv.Itoa(o.Total), strconv.Itoa(o.Recent)}
 	})
 
-	p("### Failures in the window (%d)\n\n", len(rep.Failures))
-	p("Every outcome but parsed and cancellation, newest first.\n\n")
-	list(w, rep.Limit, []string{"Code", "Outcome", "Detail", "Notice", "Tried", "Parser"}, len(rep.Failures), func(i int) []string {
+	var stored, waiting, overdue int
+	for _, f := range rep.Failures {
+		switch {
+		case f.Superseded:
+			stored++
+		case strings.HasPrefix(f.State, "due "):
+			waiting++
+		case strings.HasPrefix(f.State, "overdue"):
+			overdue++
+		}
+	}
+	p("### Failures in the window (%d: %d to look at, %d stored from a later notice, %d waiting for their update)\n\n",
+		len(rep.Failures), len(rep.Failures)-stored-waiting, stored, waiting)
+	p("Every outcome but parsed and cancellation. A notice that waits on its update (an estimate, or a foreign amount without its AUD equivalent) states the date its update is due. Once another notice stores the dividend it needs nothing; past that date it needs a look (%d now). Listed overdue first, then the other failures, then the ones waiting, then the ones stored, newest first within each.\n\n", overdue)
+	list(w, rep.Limit, []string{"Code", "Outcome", "State", "Detail", "Notice", "Tried", "Parser"}, len(rep.Failures), func(i int) []string {
 		f := rep.Failures[i]
-		return []string{f.StockCode, f.Outcome, truncateRunes(f.Detail, 100), link("notice", f.URL), timestamp(f.AttemptedAt), strconv.Itoa(f.ParserVersion)}
+		state := f.State
+		if state == "" {
+			state = "—"
+		}
+		return []string{f.StockCode, f.Outcome, state, truncateRunes(f.Detail, 100), link("notice", f.URL), timestamp(f.AttemptedAt), strconv.Itoa(f.ParserVersion)}
 	})
 	return b.String()
 }

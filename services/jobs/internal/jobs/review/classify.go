@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -82,6 +83,10 @@ func usableDigest(r extractionRow) bool {
 func isEmpty(r extractionRow) bool {
 	return metricsEmpty(r.Metrics) && !usableDigest(r) && (r.RawTextLength == nil || *r.RawTextLength >= minTextChars)
 }
+
+// notResultsTitle is the state of an empty extraction whose title the results
+// classifier now rejects: the extractor never offers it again.
+const notResultsTitle = "not read again: the title is not a results document"
 
 // emptyState is where an empty extraction stands in the extractor's retries.
 func emptyState(attempts int, lastRead, now time.Time, attemptsKnown bool) string {
@@ -272,4 +277,58 @@ func unreadResults(companies []companyRow, states map[string]extractionState, no
 		return strings.Compare(a.StockCode, b.StockCode)
 	})
 	return gaps
+}
+
+// A notice the parser cannot store yet says when its update will come: an
+// estimate's actual amount (3A.1a(i)), a foreign amount's AUD equivalent
+// (2A.9b). Parser version 3 records "ex <date>; <what> due <date>"
+// (announcements waitingDetail). Measured on prod 2026-10-11: all 30
+// estimated_only and 9 of the 14 awaiting_aud_equivalent notices were either
+// stored from their update or not yet due, yet the review listed them as
+// failures beside the ones that need a look.
+var noticeDueRE = regexp.MustCompile(`\bdue (\d{4}-\d{2}-\d{2})\b`)
+
+// noticeState is where a failed notice stands: "stored from a later notice",
+// "due <date>", "overdue since <date>", "no date recorded" for a waiting
+// notice recorded before parser 3, or "" for any other failure (look at it).
+func noticeState(f noticeFailure, now time.Time) string {
+	if f.Superseded {
+		return "stored from a later notice"
+	}
+	if f.Outcome != "estimated_only" && f.Outcome != "awaiting_aud_equivalent" {
+		return ""
+	}
+	m := noticeDueRE.FindStringSubmatch(f.Detail)
+	if m == nil {
+		return "no date recorded"
+	}
+	due, err := time.Parse(time.DateOnly, m[1])
+	if err != nil {
+		return "no date recorded"
+	}
+	if due.Before(now.UTC().Truncate(24 * time.Hour)) {
+		return "overdue since " + m[1]
+	}
+	return "due " + m[1]
+}
+
+// sortFailures puts the notices that need a look first: overdue, then every
+// other failure, then the ones still waiting, then the ones already stored;
+// newest first within each (the query's order, kept by a stable sort).
+func sortFailures(fs []noticeFailure) {
+	rank := func(state string) int {
+		switch {
+		case strings.HasPrefix(state, "overdue"):
+			return 0
+		case state == "":
+			return 1
+		case state == "no date recorded":
+			return 2
+		case strings.HasPrefix(state, "due "):
+			return 3
+		default:
+			return 4
+		}
+	}
+	slices.SortStableFunc(fs, func(a, b noticeFailure) int { return cmp.Compare(rank(a.State), rank(b.State)) })
 }

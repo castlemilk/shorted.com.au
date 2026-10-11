@@ -41,11 +41,17 @@ FROM financial_report_extractions WHERE report_url = ANY($1)`
 SELECT outcome, %s, count(*), count(*) FILTER (WHERE attempted_at >= $1)
 FROM dividend_notice_attempts GROUP BY 1, 2 ORDER BY 1, 2`
 
+	// noticeFailuresSQL: superseded is whether another notice stored the
+	// dividend this one names by its ex-date (parser 3 writes "ex YYYY-MM-DD"
+	// first in the detail of a notice that waits on its update).
 	noticeFailuresSQL = `
-SELECT stock_code, outcome, COALESCE(detail, ''), announcement_url, attempted_at, %s
-FROM dividend_notice_attempts
-WHERE outcome NOT IN ('parsed', 'cancellation') AND attempted_at >= $1
-ORDER BY attempted_at DESC, stock_code, announcement_url`
+SELECT a.stock_code, a.outcome, COALESCE(a.detail, ''), a.announcement_url, a.attempted_at, %s,
+       EXISTS (SELECT 1 FROM dividend_history d
+               WHERE d.stock_code = a.stock_code AND d.announcement_url <> a.announcement_url
+                 AND d.ex_date::text = substring(a.detail from '^ex ([0-9]{4}-[0-9]{2}-[0-9]{2})'))
+FROM dividend_notice_attempts a
+WHERE a.outcome NOT IN ('parsed', 'cancellation') AND a.attempted_at >= $1
+ORDER BY a.attempted_at DESC, a.stock_code, a.announcement_url`
 )
 
 // queries lists every statement the review can send, for the read-only test.
@@ -127,6 +133,10 @@ type noticeFailure struct {
 	URL           string
 	AttemptedAt   time.Time
 	ParserVersion int
+	// Superseded: another notice stored the dividend this one waits on.
+	Superseded bool
+	// State is noticeState's reading, set by collect.
+	State string
 }
 
 // ColumnExists checks whether a column exists in a table.
@@ -240,7 +250,7 @@ func (s *pgSource) NoticeFailures(ctx context.Context, since time.Time, versione
 	var results []noticeFailure
 	for rows.Next() {
 		var r noticeFailure
-		if err := rows.Scan(&r.StockCode, &r.Outcome, &r.Detail, &r.URL, &r.AttemptedAt, &r.ParserVersion); err != nil {
+		if err := rows.Scan(&r.StockCode, &r.Outcome, &r.Detail, &r.URL, &r.AttemptedAt, &r.ParserVersion, &r.Superseded); err != nil {
 			return nil, err
 		}
 		results = append(results, r)

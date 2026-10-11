@@ -31,6 +31,8 @@ type DividendNotice struct {
 	Total            float64  // 2A.9 (else summary "Distribution Amount"), in Currency
 	AUDEquivalent    *float64 // 2A.9a when Currency != "AUD" and an amount is stated; nil otherwise
 	Supplementary    float64  // 3F.2b (else the estimate 3F.2a), in Currency; an NZD-declared supplementary dividend paid only to non-NZ-resident holders; it counts toward Total but is never a stored dividend
+	AUDEquivalentDue string   // YYYY-MM-DD (2A.9b): when a foreign notice's AUD equivalent will be released; "" when absent
+	ActualDue        string   // YYYY-MM-DD (3A.1a(i), else 3B.1a(i)): when an estimated amount's actual will be announced; "" when absent
 	Parts            []DividendPart
 }
 
@@ -198,6 +200,15 @@ func parseDividendNotice(text string) (DividendNotice, noticeOutcome, string) {
 				notice.AUDEquivalent = &audEquiv
 			}
 		}
+	}
+
+	// The dates a notice that cannot be stored yet promises its update by:
+	// 2A.9b for the AUD equivalent, 3A.1a(i) / 3B.1a(i) for an estimate's
+	// actual amount.
+	notice.AUDEquivalentDue = parseDate(readField(normalized, "2A.9b", datePat))
+	notice.ActualDue = parseDate(readField(normalized, "3A.1a(i)", datePat))
+	if notice.ActualDue == "" {
+		notice.ActualDue = parseDate(readField(normalized, "3B.1a(i)", datePat))
 	}
 
 	// Supplementary dividend: field 3F.2b (else the estimate 3F.2a)

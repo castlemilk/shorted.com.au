@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 )
 
 // report is everything the review prints.
@@ -60,7 +62,14 @@ func collect(ctx context.Context, src source, cfg config, now time.Time) (report
 		case isUnreadable(r):
 			rep.Unreadable = append(rep.Unreadable, r)
 		case isEmpty(r):
-			rep.Empty = append(rep.Empty, emptyRow{r, emptyState(r.Attempts, r.ExtractedAt, now, rep.AttemptsKnown)})
+			state := emptyState(r.Attempts, r.ExtractedAt, now, rep.AttemptsKnown)
+			if !extractiontrust.IsResultsDocument(r.Title, "") {
+				// The extractor offers only titles its results classifier
+				// accepts (extract.py _parse_financial_reports), so a notice
+				// read before the classifier rejected it is never read again.
+				state = notResultsTitle
+			}
+			rep.Empty = append(rep.Empty, emptyRow{r, state})
 		default:
 			if reasons := withheldReasons(r); len(reasons) > 0 {
 				rep.Withheld = append(rep.Withheld, withheldRow{r, reasons})
@@ -90,5 +99,9 @@ func collect(ctx context.Context, src source, cfg config, now time.Time) (report
 	if rep.Failures, err = src.NoticeFailures(ctx, since, versioned); err != nil {
 		return report{}, fmt.Errorf("notice failures: %w", err)
 	}
+	for i := range rep.Failures {
+		rep.Failures[i].State = noticeState(rep.Failures[i], now)
+	}
+	sortFailures(rep.Failures)
 	return rep, nil
 }
