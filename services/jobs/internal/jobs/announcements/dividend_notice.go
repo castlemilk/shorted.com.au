@@ -30,6 +30,7 @@ type DividendNotice struct {
 	Currency         string   // ISO code of the primary currency (2A.8, e.g. "AUD - Australian Dollar" -> "AUD")
 	Total            float64  // 2A.9 (else summary "Distribution Amount"), in Currency
 	AUDEquivalent    *float64 // 2A.9a when Currency != "AUD" and an amount is stated; nil otherwise
+	Supplementary    float64  // 3F.2b (else the estimate 3F.2a), in Currency; an NZD-declared supplementary dividend paid only to non-NZ-resident holders; it counts toward Total but is never a stored dividend
 	Parts            []DividendPart
 }
 
@@ -199,6 +200,17 @@ func parseDividendNotice(text string) (DividendNotice, noticeOutcome, string) {
 		}
 	}
 
+	// Supplementary dividend: field 3F.2b (else the estimate 3F.2a)
+	supplementaryStr := readField(normalized, "3F.2b", moneyPat)
+	if supplementaryStr == "" {
+		supplementaryStr = readField(normalized, "3F.2a", moneyPat)
+	}
+	if supplementaryStr != "" {
+		if supplementary, ok := parseMoneyValue(supplementaryStr, currencyCode); ok && supplementary > 0 {
+			notice.Supplementary = supplementary
+		}
+	}
+
 	// Parse parts: ordinary from 3A.1b, else 3A.1a; special from 3B.1b, else 3B.1a
 	ordinaries := parseParts(normalized, "3A", currencyCode)
 	specials := parseParts(normalized, "3B", currencyCode)
@@ -212,14 +224,21 @@ func parseDividendNotice(text string) (DividendNotice, noticeOutcome, string) {
 
 	// Parts are already validated for currency consistency in parseParts()
 
-	// Validate: parts' amounts sum to Total within tolerance
+	// Validate: parts' amounts sum to Total within tolerance (including supplementary)
 	partsSum := 0.0
 	for _, part := range notice.Parts {
 		partsSum += part.Amount
 	}
+	partsSum += notice.Supplementary
 	const epsilon = 1e-6
 	if absDiff(partsSum, notice.Total) > epsilon {
-		return notice, noticeInconsistent, fmt.Sprintf("parts sum %.8g != total %.8g", partsSum, notice.Total)
+		var msg string
+		if notice.Supplementary > epsilon {
+			msg = fmt.Sprintf("parts sum %.8g + supplementary %.8g != total %.8g", partsSum-notice.Supplementary, notice.Supplementary, notice.Total)
+		} else {
+			msg = fmt.Sprintf("parts sum %.8g != total %.8g", partsSum, notice.Total)
+		}
+		return notice, noticeInconsistent, msg
 	}
 
 	return notice, noticeParsed, ""

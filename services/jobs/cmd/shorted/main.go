@@ -33,6 +33,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/picks"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/reportextract"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/reports"
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/review"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/shortdatasync"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/signals"
 	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/weeklyreport"
@@ -53,6 +54,7 @@ func jobs() *runner.Registry {
 		picks.Job(),
 		reportextract.Group(),
 		reports.Group(),
+		review.Job(),
 		shortdatasync.Job(),
 		signals.Job(),
 		weeklyreport.Job(),

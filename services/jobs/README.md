@@ -63,6 +63,7 @@ services/jobs/
 | `reports coverage` | `services/report-coverage` | no — laptop-only tool |
 | `reports link` | `services/report-linker` | no — laptop-only tool |
 | `reports sync` | `services/report-sync` | no — laptop-only tool |
+| `review` | — (new job, data review) | no — laptop tool, read-only: `task data:review` |
 | `short-data-sync` | `services/daily-sync` (Python, **DELETED**) — **ASIC shorts tier only** | yes — `shorts-data-sync` (cutover 4, in-place image swap; Python source deleted in the cleanup slice) |
 | `signals` | `services/signals-collector` (Python) | yes — `shorted-signals` (cutover 2; old scheduler paused) |
 | `weekly-report` | `services/weekly-report-generator` | yes — `shorted-weekly-report`, weekly + monthly schedules (cutover 2; old schedulers paused) |
@@ -1164,3 +1165,16 @@ worker bodies are panic-shielded into the "error" tally outcome (Python's
 as_completed except Exception equivalence); empty director date_of_change now
 writes NULL (Python raised a cast error and lost the row — a deliberate,
 disclosed improvement).
+
+## review
+
+`shorted review` prints a markdown report of the documents Shorted could not
+turn into data: newest results documents never read, empty and unreadable
+extractions, rows the API withholds (and which gate withheld them), and
+dividend notices that failed. It reads through one READ ONLY transaction and
+writes nothing. Not deployed: `task data:review` runs it against prod from the
+main checkout. `-text <url>` prints one announcement PDF's text as the Go
+parsers read it, with no database, to turn a failed notice into a test fixture.
+
+What to do with each list: `.claude/skills/data-review/SKILL.md`. Each review
+is recorded in `docs/data-review/LOG.md`.

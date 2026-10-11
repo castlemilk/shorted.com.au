@@ -47,9 +47,14 @@ Unreadable documents: a PDF with no text layer gets a marker row
 same run; a download that fails otherwise writes nothing, and the company's
 next document is still tried (extract.read_first_available).
 
+Empty extractions: a row with no metrics and no usable digest, from a document
+with a text layer (see extract.EMPTY_RETRY_LIMIT), is read again
+EMPTY_RETRY_MIN_DAYS apart, at most EMPTY_RETRY_LIMIT times, at up to
+EMPTY_RETRY_MAX_PAGES pages.
+
 Run (against prod):
   DATABASE_URL=... GEMINI_API_KEY=... LANGEXTRACT_API_KEY=$GEMINI_API_KEY \
-    python extract_reports_concurrent.py --recent 2 --limit 120 --workers 4 --max-pages 8
+    python extract_reports_concurrent.py --recent 2 --limit 360 --workers 4 --max-pages 8
   DATABASE_URL=... GEMINI_API_KEY=... \
     python extract_reports_concurrent.py --backfill-digests --limit 500 --workers 4
   DATABASE_URL=... GEMINI_API_KEY=... \
@@ -257,13 +262,14 @@ def process(
     write_meta: bool = False,
     usage: Optional[TokenUsage] = None,
     direct: Any = None,
+    count_attempts: bool = False,
 ) -> str:
     """Extract one company's document (or, when it cannot be read, the next of
     its fallbacks) and store the row. A model error stores nothing and returns
     model_error, so the next run retries the document."""
 
     def record_unreadable(doc: dict, text_length: int) -> None:
-        extract.store_unreadable(_conn(), doc, text_length, dry_run)
+        extract.store_unreadable(_conn(), doc, text_length, dry_run, count_attempt=count_attempts)
 
     doc, text, fetched = extract.read_first_available(_session(), report, max_pages, record_unreadable)
     if text is None:
@@ -288,6 +294,7 @@ def process(
         _conn(), doc, metrics, len(text), dry_run,
         digest_result=digest, raw_text_gcs_url=gcs_url,
         document_meta=meta, write_document_meta=write_meta,
+        count_attempt=count_attempts,
     )
     return outcome
 
@@ -527,6 +534,7 @@ def main():
     conn = open_selection_connection()
     try:
         write_meta = extract.document_meta_column_exists(conn)
+        count_attempts = extract.extraction_attempts_column_exists(conn)
         if args.repair_echo_digests:
             reports = select_echo_digest_reports(conn, args.limit)
             base_worker = process_digestless
@@ -538,23 +546,27 @@ def main():
         else:
             reports = select_reports(conn, args.recent, args.limit)
             base_worker = process
-            log.info("Report extraction: %d reports to process (recent=%d, workers=%d, max_pages=%d, budget=%.0f min)",
-                     len(reports), args.recent, args.workers, args.max_pages, args.budget_min)
+            retries = sum(1 for r in reports if r.get("empty_retry"))
+            log.info("Report extraction: %d reports to process, %d of them empty extractions read again (recent=%d, workers=%d, max_pages=%d, budget=%.0f min)",
+                     len(reports), retries, args.recent, args.workers, args.max_pages, args.budget_min)
     finally:
         # Nothing below needs the selection connection: free the slot.
         conn.close()
     if not write_meta:
         log.warning("financial_report_extractions.document_meta is absent (migration 000132); not writing it this run")
+    if not count_attempts:
+        log.warning("financial_report_extractions.extraction_attempts is absent (migration 000136); empty extractions are not retried this run")
 
     if args.dry_run and reports:
         for r in reports[:10]:
             log.info("  [dry-run] %s %s (%s) %s", r["stock_code"], (r.get("title") or "")[:50], r.get("type"), r.get("date"))
 
     run_usage = TokenUsage()
+    extra = {"count_attempts": count_attempts} if base_worker is process else {}
     worker = timed(
         functools.partial(
             base_worker, model=args.model, max_pages=args.max_pages,
-            dry_run=args.dry_run, write_meta=write_meta, direct=direct,
+            dry_run=args.dry_run, write_meta=write_meta, direct=direct, **extra,
         ),
         run_usage,
     )

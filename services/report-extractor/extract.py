@@ -40,6 +40,9 @@ module guarantees about a row it writes:
     characters on the pages read) gets a marker row (store_unreadable), so
     selection moves on to the company's next document. A download that fails
     for any other reason writes nothing and is retried next run.
+  - An empty extraction (no metrics and no usable digest, from a document with
+    a text layer) is retried up to EMPTY_RETRY_LIMIT times, EMPTY_RETRY_MIN_DAYS
+    apart, at up to EMPTY_RETRY_MAX_PAGES pages.
 
 Usage:
     # Process top 50 most-shorted stocks
@@ -342,10 +345,8 @@ def get_db_connection(autocommit: bool = False):
     return conn
 
 
-def document_meta_column_exists(conn) -> bool:
-    """Whether financial_report_extractions.document_meta exists (migration
-    000132). Checked ONCE at start; without it the column is simply not
-    written, so the extractor keeps working before the migration lands."""
+def _extractions_column_exists(conn, column: str) -> bool:
+    """Whether financial_report_extractions has `column`."""
     cur = conn.cursor()
     try:
         cur.execute(
@@ -354,13 +355,28 @@ def document_meta_column_exists(conn) -> bool:
             FROM information_schema.columns
             WHERE table_schema = ANY (current_schemas(false))
               AND table_name = 'financial_report_extractions'
-              AND column_name = 'document_meta'
+              AND column_name = %s
             LIMIT 1
-            """
+            """,
+            (column,),
         )
         return cur.fetchone() is not None
     finally:
         cur.close()
+
+
+def document_meta_column_exists(conn) -> bool:
+    """Whether financial_report_extractions.document_meta exists (migration
+    000132). Checked ONCE at start; without it the column is simply not
+    written, so the extractor keeps working before the migration lands."""
+    return _extractions_column_exists(conn, "document_meta")
+
+
+def extraction_attempts_column_exists(conn) -> bool:
+    """Whether financial_report_extractions.extraction_attempts exists (migration
+    000136). Checked ONCE at start; without it no attempt is counted and no
+    empty extraction is retried, as before the migration."""
+    return _extractions_column_exists(conn, "extraction_attempts")
 
 
 def _parse_financial_reports(stock_code: str, raw: Optional[str]) -> list[dict]:
@@ -404,6 +420,35 @@ def _existing_report_urls(conn, urls: list[str]) -> set[str]:
         cur.execute(
             "SELECT report_url FROM financial_report_extractions WHERE report_url = ANY(%s)",
             (urls,),
+        )
+        return {row[0] for row in cur.fetchall()}
+    finally:
+        cur.close()
+
+
+def _empty_retry_urls(conn, urls: list[str]) -> set[str]:
+    """The URLs among `urls` whose row is an empty extraction due another attempt
+    (see EMPTY_RETRY_LIMIT): metrics '{}', no digest or one under
+    USABLE_DIGEST_MIN_CONFIDENCE (a digest with no confidence is usable, as the
+    picks filings read it), a text layer (raw_text_length NULL or at least
+    MIN_PDF_TEXT_CHARS, so never an unreadable marker), at most
+    EMPTY_RETRY_LIMIT attempts so far, the last at least EMPTY_RETRY_MIN_DAYS
+    ago. Needs migration 000136."""
+    if not urls:
+        return set()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT report_url FROM financial_report_extractions
+            WHERE report_url = ANY(%s)
+              AND metrics = '{}'::jsonb
+              AND (digest IS NULL OR digest_confidence < %s)
+              AND (raw_text_length IS NULL OR raw_text_length >= %s)
+              AND extraction_attempts <= %s
+              AND extracted_at <= now() - make_interval(days => %s)
+            """,
+            (urls, USABLE_DIGEST_MIN_CONFIDENCE, MIN_PDF_TEXT_CHARS, EMPTY_RETRY_LIMIT, EMPTY_RETRY_MIN_DAYS),
         )
         return {row[0] for row in cur.fetchall()}
     finally:
@@ -471,6 +516,25 @@ def get_reports_to_process(conn, mode: str, codes: list[str], limit: int, recent
 
 RECENT_FILING_DAYS = 45
 
+# Empty extractions. A row with no metrics and no usable digest, from a
+# document with a text layer, is an EMPTY extraction: nothing the model
+# returned survived grounding, or its answer did not parse. A digest is usable
+# from USABLE_DIGEST_MIN_CONFIDENCE, the picks filings' gate: below it neither
+# the picks filings nor the API's latest-filing summary (0.6) read the row.
+# DroneShield's half-year (filed 26 Aug 2026; 9,997 characters from 8 pages,
+# read 30 Aug, no digest) is one; on 11 Oct 2026, 181 rows from the last 90
+# days had no metrics and a digest under 0.3, 147 of them annual reports whose
+# first 8 pages are letters. An empty extraction is not done: selection offers
+# the document again EMPTY_RETRY_MIN_DAYS after its last attempt, at most
+# EMPTY_RETRY_LIMIT times, reading up to EMPTY_RETRY_MAX_PAGES pages. A retry
+# ranks after every first attempt in its tier, so it never displaces a new
+# filing. Needs migration 000136 (extraction_attempts); without it nothing is
+# retried.
+EMPTY_RETRY_LIMIT = 2
+EMPTY_RETRY_MIN_DAYS = 7
+EMPTY_RETRY_MAX_PAGES = 24
+USABLE_DIGEST_MIN_CONFIDENCE = 0.3
+
 _TIE_PRIMARY_RE = re.compile(
     r"\bappendix\s*4[de]\b|\bpreliminary\s+final\b|\bresults?\s+for\s+announcement\s+to\s+the\s+market\b",
     re.IGNORECASE,
@@ -528,6 +592,7 @@ def order_extraction_targets(
     today: _dt.date,
     recent: int = 2,
     recent_days: int = RECENT_FILING_DAYS,
+    retry_urls: Iterable[str] = (),
 ) -> list[dict]:
     """The scheduled run's work list: ONE document per company, in this order:
 
@@ -547,7 +612,12 @@ def order_extraction_targets(
     along, newest first, as its "fallbacks": read_first_available tries them
     in the same run when the document cannot be downloaded, so one bad URL
     never blocks the company's other statutory document. Still at most one
-    paid extraction per company per run."""
+    paid extraction per company per run.
+
+    Documents in `retry_urls` (empty extractions due another attempt, see
+    EMPTY_RETRY_LIMIT) count as unextracted and carry "empty_retry": True;
+    within each tier they come after every first attempt."""
+    retry_urls = set(retry_urls)
     by_code: dict[str, list[dict]] = {}
     for r in candidates:
         by_code.setdefault(r["stock_code"], []).append(r)
@@ -565,11 +635,12 @@ def order_extraction_targets(
         docs.sort(key=lambda r: r["date"] or "", reverse=True)
         if recent > 0:
             docs = docs[:recent]
-        remaining = [r for r in docs if r["url"] not in extracted_urls]
+        remaining = [r for r in docs if r["url"] not in extracted_urls or r["url"] in retry_urls]
         if remaining:
-            chosen.append({**remaining[0], "fallbacks": remaining[1:]})
             if remaining[0] is docs[0]:
                 newest_chosen.add(code)
+            remaining = [{**r, "empty_retry": True} if r["url"] in retry_urls else r for r in remaining]
+            chosen.append({**remaining[0], "fallbacks": remaining[1:]})
 
     horizon = today - _dt.timedelta(days=recent_days)
 
@@ -577,11 +648,12 @@ def order_extraction_targets(
         mcap = market_caps.get(r["stock_code"])
         mcap_key = -mcap if mcap is not None else math.inf
         day = _report_day(r["date"])
+        retry = 1 if r.get("empty_retry") else 0
         if day is not None and horizon <= day <= today + _dt.timedelta(days=1):
-            return (0, -day.toordinal(), mcap_key, r["stock_code"])
+            return (0, retry, -day.toordinal(), mcap_key, r["stock_code"])
         code = r["stock_code"]
         tier = 1 if code not in metric_codes or code in newest_chosen else 2
-        return (tier, 0, mcap_key, code)
+        return (tier, retry, 0, mcap_key, code)
 
     chosen.sort(key=key)
     return chosen
@@ -624,7 +696,8 @@ def select_extraction_targets(conn, recent: int, limit: int, today: Optional[_dt
         market_caps[code] = parse_market_cap(row["km_market_cap"], row["market_cap_text"])
 
     extracted = _existing_report_urls(conn, [r["url"] for r in candidates])
-    ordered = order_extraction_targets(candidates, extracted, metric_codes, market_caps, today, recent=recent)
+    retry = _empty_retry_urls(conn, sorted(extracted)) if extraction_attempts_column_exists(conn) else set()
+    ordered = order_extraction_targets(candidates, extracted, metric_codes, market_caps, today, recent=recent, retry_urls=retry)
     if limit > 0:
         ordered = ordered[:limit]
     return ordered
@@ -743,11 +816,17 @@ def read_first_available(
     it. Either way the next fallback is tried in the same run, so one document
     that cannot be read never blocks the company's other statutory document.
 
+    An empty extraction being retried ("empty_retry") is read with up to
+    EMPTY_RETRY_MAX_PAGES pages.
+
     (None, None, status) when none yields text: FETCH_UNREADABLE when a marker
     was written, else FETCH_FAILED."""
     status = FETCH_FAILED
     for i, doc in enumerate([report, *(report.get("fallbacks") or ())]):
-        text, fetched = fetch_pdf_text(session, doc["url"], max_pages=max_pages)
+        pages = max(max_pages, EMPTY_RETRY_MAX_PAGES) if doc.get("empty_retry") else max_pages
+        if doc.get("empty_retry"):
+            log.info("  %s: reading %s again (an empty extraction) with up to %d pages", doc["stock_code"], doc["url"], pages)
+        text, fetched = fetch_pdf_text(session, doc["url"], max_pages=pages)
         if fetched == FETCH_OK:
             if i:
                 log.info("  %s: fell back to %s (%s)", doc["stock_code"], doc["url"], (doc.get("title") or "")[:60])
@@ -1151,12 +1230,17 @@ def store_extraction(
     raw_text_gcs_url: Optional[str] = None,
     document_meta: Optional[dict] = None,
     write_document_meta: bool = False,
+    count_attempt: bool = False,
 ):
     """Store extraction results in the database (one statement, committed).
 
     document_meta is written only when write_document_meta is True (the
     column exists; see document_meta_column_exists) and a meta dict was
     computed. On conflict the fresh computation replaces the stored one.
+
+    count_attempt: one more extraction attempt at this document (migration
+    000136; pass True only when extraction_attempts_column_exists). The digest
+    backfill and the echo repair never count one.
     """
     if dry_run:
         log.info("  [DRY RUN] Would store %d metrics for %s", len(metrics), report["stock_code"])
@@ -1197,13 +1281,17 @@ def store_extraction(
         values.append(json.dumps(document_meta))
         updates.append("document_meta")
 
+    update_clauses = ", ".join(f"{c} = EXCLUDED.{c}" for c in updates)
+    if count_attempt:
+        update_clauses += ", extraction_attempts = financial_report_extractions.extraction_attempts + 1"
+
     sql = (
         "INSERT INTO financial_report_extractions ("
         + ", ".join(columns)
         + ") VALUES ("
         + ", ".join(["%s"] * len(columns))
         + ") ON CONFLICT (report_url) DO UPDATE SET "
-        + ", ".join(f"{c} = EXCLUDED.{c}" for c in updates)
+        + update_clauses
     )
     cur = conn.cursor()
     try:
@@ -1214,7 +1302,7 @@ def store_extraction(
         conn.commit()
 
 
-def store_unreadable(conn, report: dict, text_length: int, dry_run: bool = False):
+def store_unreadable(conn, report: dict, text_length: int, dry_run: bool = False, count_attempt: bool = False):
     """The marker row for a document whose PDF has no text layer (fetch_pdf_text
     FETCH_UNREADABLE, a scanned document): metrics '{}', no digest, no
     document_meta, raw_text_length the few characters read. That length is
@@ -1224,7 +1312,7 @@ def store_unreadable(conn, report: dict, text_length: int, dry_run: bool = False
     Delete the row to try the document again (for example once the PDF is
     re-lodged with text)."""
     log.warning("  %s: %s has no text layer; recording it as unreadable", report["stock_code"], report["url"])
-    store_extraction(conn, report, {}, text_length, dry_run)
+    store_extraction(conn, report, {}, text_length, dry_run, count_attempt=count_attempt)
 
 
 def ensure_table(conn):
@@ -1346,6 +1434,9 @@ def main():
     write_meta = document_meta_column_exists(conn)
     if not write_meta:
         log.warning("financial_report_extractions.document_meta is absent (migration 000132); not writing it this run")
+    count_attempts = extraction_attempts_column_exists(conn)
+    if not count_attempts:
+        log.warning("financial_report_extractions.extraction_attempts is absent (migration 000136); empty extractions are not retried this run")
 
     if mode == "all":
         reports = select_extraction_targets(conn, recent=args.recent or 2, limit=args.limit)
@@ -1367,7 +1458,7 @@ def main():
     consecutive_model_errors = 0
 
     def record_unreadable(doc: dict, text_length: int) -> None:
-        store_unreadable(conn, doc, text_length, args.dry_run)
+        store_unreadable(conn, doc, text_length, args.dry_run, count_attempt=count_attempts)
 
     for i, report in enumerate(reports):
         if i > 0:
@@ -1407,6 +1498,7 @@ def main():
             conn, doc, metrics, len(text), args.dry_run,
             digest_result=digest, raw_text_gcs_url=raw_text_gcs_url,
             document_meta=meta, write_document_meta=write_meta,
+            count_attempt=count_attempts,
         )
         counts[outcome] += 1
         log.info(

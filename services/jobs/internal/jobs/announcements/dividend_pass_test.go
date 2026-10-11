@@ -250,16 +250,104 @@ func TestDividendRowsFor(t *testing.T) {
 			wantOutcome: "estimated_only",
 		},
 		{
-			name: "foreign_multi_part (synthetic USD with 2 parts, no AUD equivalent)",
+			name: "MCY final 2026-09-21 (NZD with AUD equivalent)",
+			notice: func() DividendNotice {
+				text := loadFixture("mcy_final_2026-09-21.txt")
+				parsed, _, _ := parseDividendNotice(text)
+				return parsed
+			}(),
+			pending: pendingNotice{
+				StockCode:        "MCY",
+				AnnouncementDate: "2026-09-21",
+				Headline:         "Dividend/Distribution - MCY",
+				URL:              "https://www.asx.com.au/download/mcy.pdf",
+			},
+			wantRows:    1,
+			wantOutcome: "parsed",
+			wantDetail:  "1 rows",
+			checks: func(t *testing.T, rows []dividendRow) {
+				if len(rows) != 1 {
+					t.Fatalf("want 1 row, got %d", len(rows))
+				}
+				r := rows[0]
+				if r.AmountAUD != 0.136544 {
+					t.Errorf("AmountAUD: want 0.136544, got %f", r.AmountAUD)
+				}
+				if r.DeclaredCurrency != "NZD" {
+					t.Errorf("DeclaredCurrency: want NZD, got %s", r.DeclaredCurrency)
+				}
+				if r.DeclaredAmount != 0.17 {
+					t.Errorf("DeclaredAmount: want 0.17, got %f", r.DeclaredAmount)
+				}
+			},
+		},
+		{
+			name: "SPK dividend 2026-09-17 (NZD with AUD equivalent)",
+			notice: func() DividendNotice {
+				text := loadFixture("spk_dividend_2026-09-17.txt")
+				parsed, _, _ := parseDividendNotice(text)
+				return parsed
+			}(),
+			pending: pendingNotice{
+				StockCode:        "SPK",
+				AnnouncementDate: "2026-09-17",
+				Headline:         "Dividend/Distribution - SPK",
+				URL:              "https://www.asx.com.au/download/spk.pdf",
+			},
+			wantRows:    1,
+			wantOutcome: "parsed",
+			wantDetail:  "1 rows",
+			checks: func(t *testing.T, rows []dividendRow) {
+				if len(rows) != 1 {
+					t.Fatalf("want 1 row, got %d", len(rows))
+				}
+				r := rows[0]
+				// AmountAUD = 0.08 * (0.07022128 / 0.08705882), rounded to 8 dp
+				expectedAUD := 0.06452767
+				if r.AmountAUD != expectedAUD {
+					t.Errorf("AmountAUD: want %f, got %f", expectedAUD, r.AmountAUD)
+				}
+			},
+		},
+		{
+			name: "AIA dividend 2026-09-30 (NZD with AUD equivalent)",
+			notice: func() DividendNotice {
+				text := loadFixture("aia_dividend_2026-09-30.txt")
+				parsed, _, _ := parseDividendNotice(text)
+				return parsed
+			}(),
+			pending: pendingNotice{
+				StockCode:        "AIA",
+				AnnouncementDate: "2026-09-30",
+				Headline:         "Dividend/Distribution - AIA",
+				URL:              "https://www.asx.com.au/download/aia.pdf",
+			},
+			wantRows:    1,
+			wantOutcome: "parsed",
+			wantDetail:  "1 rows",
+			checks: func(t *testing.T, rows []dividendRow) {
+				if len(rows) != 1 {
+					t.Fatalf("want 1 row, got %d", len(rows))
+				}
+				r := rows[0]
+				// AmountAUD = 0.0675 * (0.06411308 / 0.07941176), rounded to 8 dp
+				expectedAUD := 0.05449612
+				if r.AmountAUD != expectedAUD {
+					t.Errorf("AmountAUD: want %f, got %f", expectedAUD, r.AmountAUD)
+				}
+			},
+		},
+		{
+			name: "synthetic USD notice with 2 parts and AUD equivalent split across them",
 			notice: DividendNotice{
 				SecurityCode:  "TEST",
 				ExDate:        "2026-01-01",
 				Currency:      "USD",
-				Total:         1.0,
-				AUDEquivalent: func() *float64 { f := 1.5; return &f }(),
+				Total:         0.75,
+				AUDEquivalent: func() *float64 { f := 1.125; return &f }(),
 				Parts: []DividendPart{
-					{Type: "ordinary", Amount: 0.5, Estimated: false, FrankedPct: nil},
-					{Type: "special", Amount: 0.5, Estimated: false, FrankedPct: nil},
+					{Type: "ordinary", Amount: 0.50, Estimated: false, FrankedPct: nil},
+					{Type: "special", Amount: 0.25, Estimated: false, FrankedPct: nil},
 				},
 			},
 			pending: pendingNotice{
@@ -267,8 +355,28 @@ func TestDividendRowsFor(t *testing.T) {
 				AnnouncementDate: "2026-01-01",
 				URL:              "https://test.pdf",
 			},
-			wantRows:    0,
-			wantOutcome: "foreign_multi_part",
+			wantRows:    2,
+			wantOutcome: "parsed",
+			wantDetail:  "2 rows",
+			checks: func(t *testing.T, rows []dividendRow) {
+				if len(rows) != 2 {
+					t.Fatalf("want 2 rows, got %d", len(rows))
+				}
+				// First part: 0.50 * (1.125 / 0.75) = 0.75
+				if rows[0].AmountAUD != 0.75 {
+					t.Errorf("rows[0].AmountAUD: want 0.75, got %f", rows[0].AmountAUD)
+				}
+				if rows[0].Type != "ordinary" {
+					t.Errorf("rows[0].Type: want ordinary, got %s", rows[0].Type)
+				}
+				// Second part: 0.25 * (1.125 / 0.75) = 0.375
+				if rows[1].AmountAUD != 0.375 {
+					t.Errorf("rows[1].AmountAUD: want 0.375, got %f", rows[1].AmountAUD)
+				}
+				if rows[1].Type != "special" {
+					t.Errorf("rows[1].Type: want special, got %s", rows[1].Type)
+				}
+			},
 		},
 	}
 
@@ -299,7 +407,7 @@ type fakeStore struct {
 	failURL  string // if set, UpsertDividends fails for this URL
 }
 
-func (s *fakeStore) PendingDividendNotices(ctx context.Context, limit int) ([]pendingNotice, error) {
+func (s *fakeStore) PendingDividendNotices(ctx context.Context, limit int, parserVersion int) ([]pendingNotice, error) {
 	return s.pending, nil
 }
 
@@ -441,13 +549,29 @@ func TestRunDividendNoticePass(t *testing.T) {
 // TestDividendNoticeSQL validates the SQL consts match expected shapes.
 func TestDividendNoticeSQL(t *testing.T) {
 	// Verify pending query excludes recent no_text attempts
-	if !strings.Contains(pendingNoticesSql, "t.outcome <> 'no_text' OR t.attempted_at > now() - interval '7 days'") {
+	if !strings.Contains(pendingNoticesSql, "t.outcome = 'no_text' AND t.attempted_at < now() - interval '7 days'") {
 		t.Error("pending SQL missing 7-day no_text exclusion")
+	}
+
+	// Verify pending query checks parser_version for retryable outcomes
+	if !strings.Contains(pendingNoticesSql, "t.parser_version < $2") {
+		t.Error("pending SQL missing parser_version check")
+	}
+
+	// Every failure an older parser recorded is read again, not a named few
+	// (a list once missed foreign_multi_part, the outcome version 2 removed).
+	if !strings.Contains(pendingNoticesSql, "t.outcome NOT IN ('parsed', 'cancellation', 'no_text') AND t.parser_version < $2") {
+		t.Error("pending SQL must re-select every failure recorded by an older parser version")
 	}
 
 	// Verify pending orders by date DESC
 	if !strings.Contains(pendingNoticesSql, "ORDER BY announcement_date DESC") {
 		t.Error("pending SQL not ordering by announcement_date DESC")
+	}
+
+	// Verify attempt SQL writes parser_version
+	if !strings.Contains(recordAttemptSql, "parser_version") {
+		t.Error("recordAttempt SQL missing parser_version")
 	}
 
 	// Verify upsert has announced_on comparison
