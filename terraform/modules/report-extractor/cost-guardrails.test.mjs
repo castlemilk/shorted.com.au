@@ -122,9 +122,11 @@ test("production keeps report extractor limits explicit", () => {
   // documents a week clears the ~2,146-company backlog in about three weeks,
   // then keeps up with ~83 statutory filings a week. It is affordable because
   // 6.1 stops paying for waste: statutory results documents only, one per
-  // company per run, thinking tokens off, 8 pages. A further raise should be
-  // as deliberate as this one.
-  assert.match(block, /reports_limit\s+=\s+120\b/);
+  // company per run, thinking tokens off, 8 pages. Raised again 120 -> 360 on
+  // 2026-10-11: 917 companies had an unparsed results document, so a filer's
+  // newest result waited days behind the 45-day tier; ~12,100 prompt tokens a
+  // document (measured). A further raise should be as deliberate as these.
+  assert.match(block, /reports_limit\s+=\s+360\b/);
   assert.match(block, /reports_schedule\s+=\s+"0 14 \* \* \*"/);
 });
 
