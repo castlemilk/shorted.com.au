@@ -18,12 +18,13 @@ import (
 const (
 	// apiMinDigestConfidence: the API's latest-filing summary skips a digest
 	// under it (services/shorts/internal/services/shorts/latest_filing.go,
-	// latestFilingMinConfidence).
+	// latestFilingMinConfidence). It is the only reader of a row with no
+	// metrics, so the extractor treats a digest under it as none (extract.py
+	// USABLE_DIGEST_MIN_CONFIDENCE).
 	apiMinDigestConfidence = 0.6
 	// picksMinDigestConfidence: the picks filings ingest skips the whole
 	// document under it (internal/jobs/picks/filings_ingest.go,
-	// minDigestConfidence), so the extractor treats a digest under it as none
-	// (extract.py USABLE_DIGEST_MIN_CONFIDENCE).
+	// minDigestConfidence).
 	picksMinDigestConfidence = 0.3
 	// minTextChars: below it a row is an unreadable marker, a PDF with no text
 	// layer (services/report-extractor/extract.py MIN_PDF_TEXT_CHARS).
@@ -69,16 +70,17 @@ func isUnreadable(r extractionRow) bool {
 	return r.RawTextLength != nil && *r.RawTextLength < minTextChars && metricsEmpty(r.Metrics) && !r.HasDigest
 }
 
-// usableDigest reports a digest some reader uses: one with no confidence, or
-// at least picksMinDigestConfidence.
+// usableDigest reports a digest the latest-filing summary can show: at least
+// apiMinDigestConfidence. A row with no metrics feeds no other reader.
 func usableDigest(r extractionRow) bool {
-	return r.HasDigest && (r.DigestConfidence == nil || *r.DigestConfidence >= picksMinDigestConfidence)
+	return r.HasDigest && r.DigestConfidence != nil && *r.DigestConfidence >= apiMinDigestConfidence
 }
 
-// isEmpty reports an empty extraction, the case the extractor retries: no
-// metrics and no usable digest from a document that has text.
+// isEmpty reports an empty extraction, the case the extractor retries
+// (extract.py _empty_retry_urls): no metrics and no usable digest from a
+// document that has text (length unknown, or at least minTextChars).
 func isEmpty(r extractionRow) bool {
-	return metricsEmpty(r.Metrics) && !usableDigest(r) && !isUnreadable(r)
+	return metricsEmpty(r.Metrics) && !usableDigest(r) && (r.RawTextLength == nil || *r.RawTextLength >= minTextChars)
 }
 
 // emptyState is where an empty extraction stands in the extractor's retries.

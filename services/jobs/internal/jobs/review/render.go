@@ -41,8 +41,8 @@ func render(rep report) string {
 	} else {
 		p("### Empty extractions (%d)\n\n", len(rep.Empty))
 	}
-	p("No metrics and no usable digest (none, or confidence under %.1f) from a document with text. The extractor reads each again, at up to %d pages, at most %d times, %d days apart.\n\n",
-		picksMinDigestConfidence, emptyRetryMaxPages, emptyRetryLimit, emptyRetryMinDays)
+	p("No metrics and no digest the latest-filing summary can show (none, or confidence missing or under %.1f) from a document with text. The extractor reads each again, at up to %d pages, at most %d times, %d days apart.\n\n",
+		apiMinDigestConfidence, emptyRetryMaxPages, emptyRetryLimit, emptyRetryMinDays)
 	list(w, rep.Limit, []string{"Code", "Filed", "Document", "Chars", "Attempts", "Last read", "State"}, len(rep.Empty), func(i int) []string {
 		e := rep.Empty[i]
 		return []string{e.StockCode, filed(e.ReportDate), link(e.Title, e.URL), chars(e.RawTextLength), strconv.Itoa(e.Attempts), timestamp(e.ExtractedAt), e.State}

@@ -751,9 +751,10 @@ def test_empty_retry_budget_is_deliberate():
     assert extract.EMPTY_RETRY_MIN_DAYS == 7
     assert extract.EMPTY_RETRY_MAX_PAGES == 24
     assert extract.EMPTY_RETRY_MAX_PAGES > extract.DEFAULT_MAX_PAGES
-    # The picks filings' gate (services/jobs/internal/jobs/picks/filings_ingest.go
-    # minDigestConfidence); the review job pins the same number.
-    assert extract.USABLE_DIGEST_MIN_CONFIDENCE == 0.3
+    # The API's latest-filing gate (services/shorts/internal/services/shorts/
+    # latest_filing.go latestFilingMinConfidence), the only reader of a row
+    # with no metrics; the review job pins the same number.
+    assert extract.USABLE_DIGEST_MIN_CONFIDENCE == 0.6
 
 
 def _add_company(admin, schema, code, docs, market_cap=None):
@@ -827,9 +828,10 @@ def test_pg_an_empty_extraction_is_read_again_after_seven_days(pg_schema):
     cur.execute("UPDATE financial_report_extractions SET raw_text_length = 9997 WHERE report_url = 'dro-h1'")
     [doc] = _dro_targets()  # attempt 2 of 3, a week on
 
-    # A digest under the picks gate is no digest at all; a usable one (or one
-    # with no confidence, which the picks filings read) makes the row done.
-    for confidence, retried in (("0.2", True), ("0.3", False), ("NULL", False)):
+    # With no metrics, only the latest-filing summary reads the row, and only
+    # a digest at or above its 0.6 gate: anything less (or no confidence at all)
+    # is no digest, and the row is read again.
+    for confidence, retried in (("0.2", True), ("0.5", True), ("NULL", True), ("0.6", False)):
         cur.execute(
             f"UPDATE financial_report_extractions SET digest = 'A thin summary.', digest_confidence = {confidence} "
             "WHERE report_url = 'dro-h1'"

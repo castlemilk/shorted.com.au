@@ -428,10 +428,9 @@ def _existing_report_urls(conn, urls: list[str]) -> set[str]:
 
 def _empty_retry_urls(conn, urls: list[str]) -> set[str]:
     """The URLs among `urls` whose row is an empty extraction due another attempt
-    (see EMPTY_RETRY_LIMIT): metrics '{}', no digest or one under
-    USABLE_DIGEST_MIN_CONFIDENCE (a digest with no confidence is usable, as the
-    picks filings read it), a text layer (raw_text_length NULL or at least
-    MIN_PDF_TEXT_CHARS, so never an unreadable marker), at most
+    (see EMPTY_RETRY_LIMIT): metrics '{}', no digest or one with no confidence
+    or one under USABLE_DIGEST_MIN_CONFIDENCE, a text layer (raw_text_length
+    NULL or at least MIN_PDF_TEXT_CHARS, so never an unreadable marker), at most
     EMPTY_RETRY_LIMIT attempts so far, the last at least EMPTY_RETRY_MIN_DAYS
     ago. Needs migration 000136."""
     if not urls:
@@ -443,7 +442,7 @@ def _empty_retry_urls(conn, urls: list[str]) -> set[str]:
             SELECT report_url FROM financial_report_extractions
             WHERE report_url = ANY(%s)
               AND metrics = '{}'::jsonb
-              AND (digest IS NULL OR digest_confidence < %s)
+              AND (digest IS NULL OR digest_confidence IS NULL OR digest_confidence < %s)
               AND (raw_text_length IS NULL OR raw_text_length >= %s)
               AND extraction_attempts <= %s
               AND extracted_at <= now() - make_interval(days => %s)
@@ -519,8 +518,12 @@ RECENT_FILING_DAYS = 45
 # Empty extractions. A row with no metrics and no usable digest, from a
 # document with a text layer, is an EMPTY extraction: nothing the model
 # returned survived grounding, or its answer did not parse. A digest is usable
-# from USABLE_DIGEST_MIN_CONFIDENCE, the picks filings' gate: below it neither
-# the picks filings nor the API's latest-filing summary (0.6) read the row.
+# from USABLE_DIGEST_MIN_CONFIDENCE, the API's latest-filing gate: a row with
+# no metrics feeds no other reader (the picks filings and the financial
+# highlights read metrics; the confidence only gates them). It was 0.3, the
+# picks gate, until the 11 Oct 2026 review found 52 annual reports with no
+# metrics and a digest of 0.3 to 0.6 written from their opening letters,
+# summaries no reader shows, never read again.
 # DroneShield's half-year (filed 26 Aug 2026; 9,997 characters from 8 pages,
 # read 30 Aug, no digest) is one; on 11 Oct 2026, 181 rows from the last 90
 # days had no metrics and a digest under 0.3, 147 of them annual reports whose
@@ -535,7 +538,7 @@ RECENT_FILING_DAYS = 45
 EMPTY_RETRY_LIMIT = 2
 EMPTY_RETRY_MIN_DAYS = 7
 EMPTY_RETRY_MAX_PAGES = 24
-USABLE_DIGEST_MIN_CONFIDENCE = 0.3
+USABLE_DIGEST_MIN_CONFIDENCE = 0.6
 
 _TIE_PRIMARY_RE = re.compile(
     r"\bappendix\s*4[de]\b|\bpreliminary\s+final\b|\bresults?\s+for\s+announcement\s+to\s+the\s+market\b",

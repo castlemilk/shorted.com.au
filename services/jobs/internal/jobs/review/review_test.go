@@ -57,11 +57,13 @@ func TestEmptyAndUnreadable(t *testing.T) {
 		{"no metrics or digest from a document with text", extractionRow{Metrics: []byte("{}"), RawTextLength: ptr(9997)}, true, false},
 		{"text length unknown", extractionRow{Metrics: []byte("{}")}, true, false},
 		{"no text layer", extractionRow{Metrics: []byte("{}"), RawTextLength: ptr(40)}, false, true},
-		{"a digest", extractionRow{Metrics: []byte("{}"), HasDigest: true, RawTextLength: ptr(9997)}, false, false},
+		{"a digest with no confidence", extractionRow{Metrics: []byte("{}"), HasDigest: true, RawTextLength: ptr(9997)}, true, false},
 		{"metrics", extractionRow{Metrics: []byte(`{"revenue": {"source_text": "x"}}`), RawTextLength: ptr(9997)}, false, false},
 		{"a short document with a digest", extractionRow{Metrics: []byte("{}"), HasDigest: true, RawTextLength: ptr(40)}, false, false},
 		{"no metrics and a digest too unsure to use", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.2), RawTextLength: ptr(11661)}, true, false},
-		{"no metrics and a usable digest", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.45), RawTextLength: ptr(11661)}, false, false},
+		{"no metrics and a digest under the latest-filing gate", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.45), RawTextLength: ptr(11661)}, true, false},
+		{"no metrics and a digest the latest filing shows", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.6), RawTextLength: ptr(11661)}, false, false},
+		{"a short document with a weak digest", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.2), RawTextLength: ptr(40)}, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := isEmpty(tc.row); got != tc.empty {
@@ -356,7 +358,7 @@ func TestGatesMatchTheCodeTheyMirror(t *testing.T) {
 		{"../../../../report-extractor/extract.py", "EMPTY_RETRY_LIMIT = " + strconv.Itoa(emptyRetryLimit)},
 		{"../../../../report-extractor/extract.py", "EMPTY_RETRY_MIN_DAYS = " + strconv.Itoa(emptyRetryMinDays)},
 		{"../../../../report-extractor/extract.py", "EMPTY_RETRY_MAX_PAGES = " + strconv.Itoa(emptyRetryMaxPages)},
-		{"../../../../report-extractor/extract.py", "USABLE_DIGEST_MIN_CONFIDENCE = " + strconv.FormatFloat(picksMinDigestConfidence, 'f', -1, 64)},
+		{"../../../../report-extractor/extract.py", "USABLE_DIGEST_MIN_CONFIDENCE = " + strconv.FormatFloat(apiMinDigestConfidence, 'f', -1, 64)},
 	} {
 		b, err := os.ReadFile(tc.file)
 		if err != nil {
