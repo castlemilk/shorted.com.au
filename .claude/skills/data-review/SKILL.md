@@ -80,7 +80,9 @@ the latest-filing summary's gate: with no metrics nothing else reads the row)
 from a document that has text. The extractor reads each one
 again, at most twice and at least 7 days apart, at up to 24 pages
 (`EMPTY_RETRY_*` and `USABLE_DIGEST_MIN_CONFIDENCE` in `extract.py`). States: `retry due`, `next retry from
-<date>`, `gave up after N attempts`.
+<date>`, `gave up after N attempts`, and `not read again: the title is not a
+results document` (a notice read before the classifier rejected its title:
+nothing to do).
 
 - `retry due` / `next retry`: nothing to do yet; check the next review.
 - `gave up`: investigate. Read the document as the extractor reads it:
@@ -125,9 +127,20 @@ says which gate:
 - `digest confidence ... under 0.6`: the API's `latest_filing` gate. Read the
   digest next to the document. Low confidence on a clear results document is
   a prompt problem; on a thin one it is the gate working.
-- `document names "X", not <company>`: the document is about another entity,
-  so it is attached to the wrong company in `financial_reports`. Fix the
-  linking (`shorted reports link`), not the gate.
+- `document names "X", not <company>`: the stated entity (already reduced by
+  `cleanEntity`, so a registration number, an address or a bare "Limited" is
+  never shown here) is not the company's name. Four causes, in the order seen
+  on 2026-10-11:
+  - a fund manager or responsible entity (Betashares, Vanguard, "The Trust
+    Company (RE Services) Limited"): the gate working, nothing to fix;
+  - an auditor's letterhead (PwC, BDO Audit): new extractions skip it; an old
+    row stays withheld, which is also what stops a subsidiary's accounts
+    (AXR's "Sturt Exploration Pty Ltd financial statements");
+  - the company was renamed or its code reused, and `company-metadata` still
+    holds the old name (CDX "CARDIEX" for Conneqt Health, MST "Metal Storm"
+    for a Morningstar fund): fix the name, not the gate;
+  - the document is another company's, attached in `financial_reports`: fix the
+    linking (`shorted reports link`).
 - `not a results document to the API`: the extractor read a document the Go
   classifier rejects. Make the Python and Go classifiers agree, with a case in
   both test suites.
@@ -140,11 +153,20 @@ says which gate:
 | Outcome | Meaning | Action |
 |---|---|---|
 | `parsed` | rows written | none |
-| `estimated_only` | only estimated amounts (the actual comes in an update notice) | none; the update is parsed when it arrives |
-| `awaiting_aud_equivalent` | foreign currency, no AUD equivalent yet | none; same |
+| `estimated_only` | only estimated amounts (the actual comes in an update notice) | none until its State is overdue |
+| `awaiting_aud_equivalent` | foreign currency, no AUD equivalent yet | none until its State is overdue |
 | `no_text` | the PDF has no text | read again after 7 days |
 | `code_mismatch` | the notice is for another code than the page it was listed on | check: a stapled or renamed security may need a mapping |
 | `missing_field`, `inconsistent`, `no_amount`, `not_appendix_3a1` | the parser could not read it | investigate |
+
+The failures list gives each waiting notice a State, from the detail parser 3
+records ("ex 2026-10-12; actual amount due 2026-10-19", the date the notice
+promises its update by): `stored from a later notice` (its update stored the
+dividend: nothing to do), `due <date>`, `overdue since <date>` (look for the
+update notice in `asx_announcements`; if the issuer never sends one, decide
+how to store the amount), or `no date recorded` (written before parser 3; the
+next run reads it again). Overdue notices and every other failure are listed
+first.
 
 To investigate a notice, read its text as the Go parser reads it, then keep
 the text as a fixture:

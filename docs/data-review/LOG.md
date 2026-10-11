@@ -65,9 +65,29 @@ Followed up the same day (the carried items):
   (33 due now) join the retries. The API's gate is unchanged.
 - **The 30 `estimated_only` notices** all resolve on their own: 21 have a
   later notice with the actual amount, parsed and stored; the other 9 state a
-  date for the actual amount between 12 Oct and 11 Nov. The review still
-  lists them as failures; next change: record each notice's stated date and
-  show waiting, superseded or overdue.
+  date for the actual amount between 12 Oct and 11 Nov. Parser 3 records the
+  ex-date and that date in the attempt's detail, and the review now gives each
+  waiting notice a State: stored from a later notice, due, overdue, or no date
+  recorded (until parser 3 reads it again on the next run).
+- **`document_meta` entities.** 74 recent entities failed `EntityMatches`: 16
+  were not names, or a name run into an address ("ACN 000 689 216 |", "ASX:
+  TLM |", a web or email address, a street address, "Limited", "ANNUAL
+  REPORT", "Klevo Group Ltd |Suite 102, ..."); 12 were an auditor's letterhead
+  (PwC, BDO Audit, Grant Thornton Audit, Moore Australia Audit, RSM); 36 named
+  a fund manager or responsible entity instead of the fund; 8 were renamed
+  companies whose `company-metadata` name is out of date; 2 were the same name
+  written differently. One
+  set of cleaning rules (Go `cleanEntity` on every read, Python `clean_entity`
+  on write, one fixture) drops the non-names and reduces letterheads ("Klevo
+  Group Ltd |Suite 102, ..."); new extractions skip an auditor's ABN and name
+  a trust from "<RE> ABN ..., the Responsible Entity of <trust>";
+  `EntityMatches` matches the same name however generic or spaced ("Energy
+  Technologies", "Echo IQ" / "Echoiq"). 18 of the 74 now read correctly, 15
+  of them with figures. Auditor rows stay withheld: AXR's two "Sturt
+  Exploration Pty Ltd financial statements" are a subsidiary's accounts, and
+  the auditor's name was what kept them off AXR.
+- **The review's empty list** now marks the 57 empty rows whose title the
+  classifier rejects as "not read again": the extractor never offers them.
 
 Open:
 
@@ -79,7 +99,14 @@ Open:
 - **The first retries (about 13 Oct).** Expect `extraction_attempts` 2 on those
   rows and "N of them empty extractions read again" in the run log. Compare
   the next review's empty count.
-- **`document_meta` entities** (61 rows), carried from the first review.
+- **Out-of-date company names.** `company-metadata` keeps the name of a
+  company that was renamed (CDX "CARDIEX" is Conneqt Health, MDR "MEDADVISOR"
+  is Adheris Health, SOV, ST1, HTG, IRX, IFG, AEM) or whose code was reused
+  (MST "Metal Storm" is a Morningstar fund; TOL, BEM, BND, MTU, GGB and EXU
+  are Betashares funds; AGX, BDC, CGH, CIE, IMP, MOG, PGA, PGI, CIM, PAX). The
+  renamed companies' own results are withheld by the entity check, and every
+  page shows the old name. Find the job that writes `company_name` and make it
+  follow ASX's list; check with the user first, since names change site-wide.
 
 ## 2026-10-11
 
