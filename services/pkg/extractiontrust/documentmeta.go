@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -107,7 +108,8 @@ const maxFreeTextRunes = 200
 //   - period_end must be a real calendar date spelled YYYY-MM-DD;
 //   - abn must be spelled "NN NNN NNN NNN" and pass the ABN checksum;
 //   - entity and the evidence strings must be non-blank and at most 200
-//     characters;
+//     characters, and entity is reduced by cleanEntity to the name it states
+//     (absent when it states none);
 //   - currency_evidence / units_evidence are dropped when their value is
 //     absent (evidence for nothing is not kept);
 //   - a non-string value (a number, null, an object) is absent; unknown keys
@@ -145,7 +147,7 @@ func ParseDocumentMeta(raw []byte) (DocumentMeta, error) {
 		m.Units = u
 		m.UnitsEvidence = freeText(str("units_evidence"))
 	}
-	m.Entity = freeText(str("entity"))
+	m.Entity = cleanEntity(freeText(str("entity")))
 	if a := str("abn"); ValidABN(a) {
 		m.ABN = a
 	}
@@ -220,3 +222,81 @@ func freeText(s string) string {
 	}
 	return s
 }
+
+// cleanEntity reduces a stated entity to the name it states, or "" when it
+// states none: services/report-extractor/document_meta.py clean_entity, rule
+// for rule, applied here to every stored entity so a row written before a rule
+// existed reads the way a new one is written (the shared fixture's "entities"
+// pins both). Measured on prod 2026-10-11, 16 of the 74 entities that failed
+// EntityMatches were not names, or a name run into an address.
+//
+// A letterhead is cut at its first separator ("Klevo Group Ltd |Suite 102,
+// ..."), a registration-number tail dropped; "The Responsible Entity of X is
+// Y" is the scheme X, or Y when X is only "the Scheme"; "The directors of Y"
+// is Y; a sentence's tail is cut away ("... the portfolio. RAM Property Funds
+// Management Limited"), and so are trailing parentheticals. What is left is
+// dropped when it is not a name (notANameREs). The name of another
+// organisation (an auditor, a responsible entity) is kept: it says the
+// document may not be the company's, and EntityMatches then withholds it.
+func cleanEntity(s string) string {
+	for _, sep := range []string{"|", "•"} {
+		if i := strings.Index(s, sep); i >= 0 {
+			s = s[:i]
+		}
+	}
+	s = strings.Trim(registrationTailRE.ReplaceAllString(strings.Join(strings.Fields(s), " "), ""), entityTrimChars)
+	if m := responsibleEntityOfRE.FindStringSubmatch(s); m != nil {
+		if scheme := strings.Trim(m[1], entityTrimChars); genericSchemeRE.MatchString(scheme) {
+			s = m[2]
+		} else {
+			s = leadingTheRE.ReplaceAllString(scheme, "")
+		}
+	}
+	s = directorsOfRE.ReplaceAllString(s, "")
+	if ends := sentenceEndRE.FindAllStringIndex(s, -1); len(ends) > 0 {
+		s = s[ends[len(ends)-1][1]-1:]
+	}
+	for {
+		cut := trailingParenRE.ReplaceAllString(s, "")
+		if cut == s {
+			break
+		}
+		s = cut
+	}
+	s = strings.Trim(s, entityTrimChars)
+	if s == "" || utf8.RuneCountInString(s) > maxFreeTextRunes {
+		return ""
+	}
+	if r, _ := utf8.DecodeRuneInString(s); !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+		return ""
+	}
+	for _, re := range notANameREs {
+		if re.MatchString(s) {
+			return ""
+		}
+	}
+	return s
+}
+
+const entityTrimChars = " \t,;:-(. "
+
+var (
+	registrationTailRE    = regexp.MustCompile(`[ \t,(]+\(?(?:ABN|ACN|ARSN|ARBN)\b.*$`)
+	responsibleEntityOfRE = regexp.MustCompile(`(?i)^the\s+responsible\s+entity\s+of\s+(.+?)\s+is\s+(.+)$`)
+	genericSchemeRE       = regexp.MustCompile(`(?i)^(?:the\s+)?(?:registered\s+)?(?:scheme|fund|trust|company)$`)
+	leadingTheRE          = regexp.MustCompile(`(?i)^the\s+`)
+	directorsOfRE         = regexp.MustCompile(`(?i)^(?:the\s+)?directors\s+of\s+`)
+	sentenceEndRE         = regexp.MustCompile(`[a-z]{4,}\.\s+[A-Z]`)
+	trailingParenRE       = regexp.MustCompile(`\s*\([^()]*\)\s*$`)
+	// Not a name: a registration number or exchange code, a web or email
+	// address, a street address or phone number, a legal form alone, a form's
+	// label, a document's own title.
+	notANameREs = []*regexp.Regexp{
+		regexp.MustCompile(`(?i)^(?:abn|acn|arsn|arbn|asx)\b`),
+		regexp.MustCompile(`(?i)www\.|https?:|@|\.com\b`),
+		regexp.MustCompile(`(?i)\b(?:level|suite|unit|floor)\s+\d|\b\d+[a-z]?\s*/\s*\d+\s+[a-z]|\b(?:nsw|vic|qld|wa|sa|tas|act|nt)\s+\d{4}\b|\bt:\s*\+?\d`),
+		regexp.MustCompile(`(?i)^(?:the\s+)?(?:company|limited|ltd|pty\.?\s*ltd|plc|inc|nl|corporation|group|holdings?)$`),
+		regexp.MustCompile(`(?i)\bgroup\s+of\s+entities\b|\bname\s+of\s+entity\b`),
+		regexp.MustCompile(`(?i)^(?:annual|half[\s-]?year(?:ly)?|interim|preliminary\s+final|financial)\s+(?:financial\s+)?report$|^appendix\s*4[cde]$|^directors'?\s+report$`),
+	}
+)

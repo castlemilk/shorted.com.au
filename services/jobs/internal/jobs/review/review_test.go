@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -57,11 +58,13 @@ func TestEmptyAndUnreadable(t *testing.T) {
 		{"no metrics or digest from a document with text", extractionRow{Metrics: []byte("{}"), RawTextLength: ptr(9997)}, true, false},
 		{"text length unknown", extractionRow{Metrics: []byte("{}")}, true, false},
 		{"no text layer", extractionRow{Metrics: []byte("{}"), RawTextLength: ptr(40)}, false, true},
-		{"a digest", extractionRow{Metrics: []byte("{}"), HasDigest: true, RawTextLength: ptr(9997)}, false, false},
+		{"a digest with no confidence", extractionRow{Metrics: []byte("{}"), HasDigest: true, RawTextLength: ptr(9997)}, true, false},
 		{"metrics", extractionRow{Metrics: []byte(`{"revenue": {"source_text": "x"}}`), RawTextLength: ptr(9997)}, false, false},
 		{"a short document with a digest", extractionRow{Metrics: []byte("{}"), HasDigest: true, RawTextLength: ptr(40)}, false, false},
 		{"no metrics and a digest too unsure to use", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.2), RawTextLength: ptr(11661)}, true, false},
-		{"no metrics and a usable digest", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.45), RawTextLength: ptr(11661)}, false, false},
+		{"no metrics and a digest under the latest-filing gate", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.45), RawTextLength: ptr(11661)}, true, false},
+		{"no metrics and a digest the latest filing shows", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.6), RawTextLength: ptr(11661)}, false, false},
+		{"a short document with a weak digest", extractionRow{Metrics: []byte("{}"), HasDigest: true, DigestConfidence: ptr(0.2), RawTextLength: ptr(40)}, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := isEmpty(tc.row); got != tc.empty {
@@ -253,6 +256,8 @@ func fixture() *fakeSource {
 			{StockCode: "DRO", URL: "dro-h1", Title: "Appendix 4D and Half Year Report", Metrics: []byte("{}"),
 				RawTextLength: ptr(9997), Attempts: 1, ExtractedAt: now.AddDate(0, 0, -42), ReportDate: ptr(now.AddDate(0, 0, -46))},
 			{StockCode: "SCN", URL: "scn-fy", Title: "Annual Report", Metrics: []byte("{}"), RawTextLength: ptr(12), Attempts: 1, ExtractedAt: now},
+			{StockCode: "FPH", URL: "fph-date", Title: "FPH to announce half year results on 26 November 2026", Metrics: []byte("{}"),
+				HasDigest: true, DigestConfidence: ptr(0.2), RawTextLength: ptr(1944), Attempts: 1, ExtractedAt: now.AddDate(0, 0, -30)},
 			{StockCode: "LOW", URL: "low-fy", Title: "Appendix 4E and Annual Report", Metrics: metrics, HasDigest: true,
 				DigestConfidence: ptr(0.45), RawTextLength: ptr(30000), Attempts: 1, ExtractedAt: now},
 			{StockCode: "OK", URL: "ok-fy", Title: "Appendix 4E and Annual Report", Metrics: metrics, HasDigest: true,
@@ -261,7 +266,13 @@ func fixture() *fakeSource {
 		companies: []companyRow{company("CBA", "2026-08-12", "", "180000000000"), company("OK", "2026-08-20", "", "")},
 		states:    map[string]extractionState{"OK-fy": {Parsed: true, Attempts: 1}},
 		outcomes:  []outcomeCount{{Outcome: "parsed", ParserVersion: 1, Total: 158, Recent: 158}, {Outcome: "inconsistent", ParserVersion: 1, Total: 13, Recent: 13}},
-		failures:  []noticeFailure{{StockCode: "MCY", Outcome: "inconsistent", Detail: "parts sum 0.17 != total 0.2", URL: "mcy.pdf", AttemptedAt: now, ParserVersion: 1}},
+		failures: []noticeFailure{
+			{StockCode: "MCY", Outcome: "inconsistent", Detail: "parts sum 0.17 != total 0.2", URL: "mcy.pdf", AttemptedAt: now, ParserVersion: 1},
+			{StockCode: "DN1", Outcome: "estimated_only", Detail: "ex 2026-10-12; actual amount due 2026-10-19", URL: "dn1.pdf", AttemptedAt: now, ParserVersion: 3},
+			{StockCode: "STW", Outcome: "estimated_only", Detail: "ex 2026-09-29; actual amount due 2026-10-08", URL: "stw.pdf", AttemptedAt: now, ParserVersion: 3, Superseded: true},
+			{StockCode: "GNE", Outcome: "awaiting_aud_equivalent", Detail: "ex 2026-09-10; AUD equivalent due 2026-10-09", URL: "gne.pdf", AttemptedAt: now.Add(-time.Hour), ParserVersion: 3},
+			{StockCode: "SST", Outcome: "awaiting_aud_equivalent", URL: "sst.pdf", AttemptedAt: now, ParserVersion: 2},
+		},
 	}
 }
 
@@ -271,7 +282,8 @@ func TestCollect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rep.Empty) != 1 || rep.Empty[0].StockCode != "DRO" || rep.Empty[0].State != "retry due" {
+	if len(rep.Empty) != 2 || rep.Empty[0].StockCode != "DRO" || rep.Empty[0].State != "retry due" ||
+		rep.Empty[1].StockCode != "FPH" || rep.Empty[1].State != notResultsTitle {
 		t.Errorf("Empty = %+v", rep.Empty)
 	}
 	if len(rep.Unreadable) != 1 || rep.Unreadable[0].StockCode != "SCN" {
@@ -286,8 +298,18 @@ func TestCollect(t *testing.T) {
 	if strings.Join(src.statesURLs, ",") != "CBA-fy,OK-fy" {
 		t.Errorf("states asked for %v, want each company's newest document", src.statesURLs)
 	}
-	if len(rep.Outcomes) != 2 || len(rep.Failures) != 1 {
-		t.Errorf("Outcomes = %+v, Failures = %+v", rep.Outcomes, rep.Failures)
+	var order []string
+	for _, f := range rep.Failures {
+		order = append(order, f.StockCode+": "+f.State)
+	}
+	// Overdue first (GNE, though tried an hour earlier), then the other
+	// failures, then a waiting notice recorded before parser 3, then the one
+	// still due, then the one another notice stored.
+	if want := []string{"GNE: overdue since 2026-10-09", "MCY: ", "SST: no date recorded", "DN1: due 2026-10-19", "STW: stored from a later notice"}; !slices.Equal(order, want) {
+		t.Errorf("failures = %q, want %q", order, want)
+	}
+	if len(rep.Outcomes) != 2 {
+		t.Errorf("Outcomes = %+v", rep.Outcomes)
 	}
 
 	src.attempts = false
@@ -315,13 +337,15 @@ func TestRender(t *testing.T) {
 		"Window: the last 90 days. Each list shows at most 1 rows",
 		"### Newest results document not read (1 companies)",
 		"| CBA | CBA Ltd | A$180.0bn | 2026-08-12 | [Appendix 4E and Annual Report](CBA-fy) | never read |",
-		"### Empty extractions (2: 1 retry due, 0 waiting, 1 gave up)",
-		"_… 1 more not shown (raise -limit)._",
+		"### Empty extractions (3: 1 retry due, 0 waiting, 1 gave up, 1 not results documents)",
+		"_… 2 more not shown (raise -limit)._",
 		"### Unreadable documents (0)\n\nNo text layer (a scanned PDF): never retried.\n\nNone.",
 		"digest confidence 0.45 is under 0.6: the latest-filing summary skips it",
 		"| parsed | 1 | 158 | 158 |",
 		"| Outcome | Parser | All time | Last 90 days |",
-		"| MCY | inconsistent | parts sum 0.17 != total 0.2 | [notice](mcy.pdf) |",
+		"### Failures in the window (5: 3 to look at, 1 stored from a later notice, 1 waiting for their update)",
+		"past that date it needs a look (1 now)",
+		"| GNE | awaiting_aud_equivalent | overdue since 2026-10-09 | ex 2026-09-10; AUD equivalent due 2026-10-09 | [notice](gne.pdf) |",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("render output lacks %q\n%s", want, got)
@@ -356,7 +380,7 @@ func TestGatesMatchTheCodeTheyMirror(t *testing.T) {
 		{"../../../../report-extractor/extract.py", "EMPTY_RETRY_LIMIT = " + strconv.Itoa(emptyRetryLimit)},
 		{"../../../../report-extractor/extract.py", "EMPTY_RETRY_MIN_DAYS = " + strconv.Itoa(emptyRetryMinDays)},
 		{"../../../../report-extractor/extract.py", "EMPTY_RETRY_MAX_PAGES = " + strconv.Itoa(emptyRetryMaxPages)},
-		{"../../../../report-extractor/extract.py", "USABLE_DIGEST_MIN_CONFIDENCE = " + strconv.FormatFloat(picksMinDigestConfidence, 'f', -1, 64)},
+		{"../../../../report-extractor/extract.py", "USABLE_DIGEST_MIN_CONFIDENCE = " + strconv.FormatFloat(apiMinDigestConfidence, 'f', -1, 64)},
 	} {
 		b, err := os.ReadFile(tc.file)
 		if err != nil {
@@ -376,6 +400,27 @@ func TestQueriesAreReadOnly(t *testing.T) {
 	for _, q := range queries {
 		if m := write.FindString(strings.ToUpper(q)); m != "" {
 			t.Errorf("a review query uses %s:\n%s", m, q)
+		}
+	}
+}
+
+func TestNoticeState(t *testing.T) {
+	waiting := func(outcome, detail string) noticeFailure { return noticeFailure{Outcome: outcome, Detail: detail} }
+	for _, tc := range []struct {
+		name string
+		f    noticeFailure
+		want string
+	}{
+		{"stored by its update", noticeFailure{Outcome: "estimated_only", Detail: "ex 2026-09-29; actual amount due 2026-10-08", Superseded: true}, "stored from a later notice"},
+		{"due later", waiting("estimated_only", "ex 2026-10-12; actual amount due 2026-10-19"), "due 2026-10-19"},
+		{"due today is not overdue", waiting("awaiting_aud_equivalent", "ex 2026-10-01; AUD equivalent due 2026-10-11"), "due 2026-10-11"},
+		{"past its date", waiting("awaiting_aud_equivalent", "ex 2026-09-10; AUD equivalent due 2026-10-10"), "overdue since 2026-10-10"},
+		{"before parser 3", waiting("estimated_only", ""), "no date recorded"},
+		{"a notice with no date", waiting("estimated_only", "ex 2026-10-12"), "no date recorded"},
+		{"any other failure", waiting("code_mismatch", "notice is for AMI, listed under YTC"), ""},
+	} {
+		if got := noticeState(tc.f, now); got != tc.want {
+			t.Errorf("%s: noticeState = %q, want %q", tc.name, got, tc.want)
 		}
 	}
 }

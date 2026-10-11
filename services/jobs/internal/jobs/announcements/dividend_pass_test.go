@@ -579,3 +579,30 @@ func TestDividendNoticeSQL(t *testing.T) {
 		t.Error("upsert SQL missing announced_on comparison")
 	}
 }
+
+// A notice that waits on its update records the ex-date and the date the
+// notice promises the update by, which the data review reads: BHP's USD final
+// (2A.9b, its AUD equivalent) and DN1's estimate (3A.1a(i), its actual amount).
+func TestWaitingNoticesRecordTheirPromisedDates(t *testing.T) {
+	for _, tc := range []struct{ file, outcome, detail string }{
+		{"bhp_final_2026-08-18.txt", "awaiting_aud_equivalent", "ex 2026-09-03; AUD equivalent due 2026-09-07"},
+		{"dn1_estimated_2026-09-07.txt", "estimated_only", "ex 2026-09-11; actual amount due 2026-09-18"},
+	} {
+		body, err := os.ReadFile(filepath.Join("testdata", "dividend_notices", tc.file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		n, parsed, why := parseDividendNotice(string(body))
+		if parsed != noticeParsed {
+			t.Fatalf("%s: %s (%s)", tc.file, parsed, why)
+		}
+		rows, outcome, detail := dividendRowsFor(n, pendingNotice{StockCode: n.SecurityCode, URL: tc.file})
+		if len(rows) != 0 || outcome != tc.outcome || detail != tc.detail {
+			t.Errorf("%s: %d rows, %q, %q; want 0, %q, %q", tc.file, len(rows), outcome, detail, tc.outcome, tc.detail)
+		}
+	}
+	// A notice that states no date still names its ex-date.
+	if got := waitingDetail(DividendNotice{ExDate: "2026-10-12"}, "actual amount", ""); got != "ex 2026-10-12" {
+		t.Errorf("waitingDetail without a date = %q", got)
+	}
+}

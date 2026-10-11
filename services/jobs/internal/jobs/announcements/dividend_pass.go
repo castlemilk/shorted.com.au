@@ -15,7 +15,10 @@ import (
 // dividendRowsFor changes what a notice yields: a notice that failed under an
 // older version is read again. Version 2 reads the NZ supplementary dividend
 // (Part 3F) and splits a foreign notice's AUD equivalent across its parts.
-const dividendNoticeParserVersion = 2
+// Version 3 records, for a notice that waits on its update, the ex-date and the
+// date the notice promises the update by (waitingDetail), which the data
+// review reads.
+const dividendNoticeParserVersion = 3
 
 // pendingNotice represents an unparsed dividend notice from the crawl.
 type pendingNotice struct {
@@ -64,6 +67,17 @@ func roundTo8Decimals(v float64) float64 {
 	return math.Round(v*1e8) / 1e8
 }
 
+// waitingDetail is the attempt detail of a notice that waits on its update:
+// "ex 2026-10-12; actual amount due 2026-10-19". The ex-date ties the notice to
+// the dividend its update stores; the data review (services/jobs/internal/jobs/
+// review) reads both dates from this spelling.
+func waitingDetail(n DividendNotice, what, due string) string {
+	if due == "" {
+		return "ex " + n.ExDate
+	}
+	return "ex " + n.ExDate + "; " + what + " due " + due
+}
+
 // dividendRowsFor extracts dividend rows from a parsed notice, applying policy.
 // Policy:
 //  1. SecurityCode and pendingNotice.StockCode must share their first 3 chars
@@ -92,7 +106,7 @@ func dividendRowsFor(n DividendNotice, p pendingNotice) (rows []dividendRow, out
 		}
 	}
 	if len(parts) == 0 {
-		return nil, "estimated_only", ""
+		return nil, "estimated_only", waitingDetail(n, "actual amount", n.ActualDue)
 	}
 
 	// Rule 4: build rows
@@ -109,7 +123,7 @@ func dividendRowsFor(n DividendNotice, p pendingNotice) (rows []dividendRow, out
 			amountAUD = part.Amount
 		default:
 			if n.AUDEquivalent == nil {
-				return nil, "awaiting_aud_equivalent", ""
+				return nil, "awaiting_aud_equivalent", waitingDetail(n, "AUD equivalent", n.AUDEquivalentDue)
 			}
 			// 2A.9a is the AUD equivalent of the whole 2A.9 total (an NZ
 			// supplementary included), so each part takes its share at the

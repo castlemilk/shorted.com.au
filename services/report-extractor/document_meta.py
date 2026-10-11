@@ -143,7 +143,7 @@ def validate_document_meta(raw: Mapping[str, Any] | None) -> dict[str, str]:
         ev = _free_text(raw.get("units_evidence"))
         if ev:
             out["units_evidence"] = ev
-    entity = _free_text(raw.get("entity"))
+    entity = clean_entity(_free_text(raw.get("entity")))
     if entity:
         out["entity"] = entity
     if valid_abn(s("abn")):
@@ -252,30 +252,98 @@ def _units(text: str) -> tuple[str, str] | None:
 
 _ABN_RE = re.compile(r"\bABN\b[ \t:.]*(\d{2})[ \t]?(\d{3})[ \t]?(\d{3})[ \t]?(\d{3})(?!\d)")
 _NAME_OF_ENTITY_RE = re.compile(r"(?im)^[ \t]*name\s+of\s+entity\b[ \t]*[:\-]?[ \t]*(?P<value>[^\n]*)$")
-_REGISTRATION_TAIL_RE = re.compile(r"[ \t,(]+\(?(?:ABN|ACN|ARSN|ARBN)\b.*$")
+_REGISTRATION_TAIL_RE = re.compile(r"[ \t,(]+\(?(?:ABN|ACN|ARSN|ARBN)\b.*$", re.ASCII)
 # A name found on the line after a bare "Name of entity" label must at least end
 # like a company: a guess at a table cell is worse than no entity.
 _CORPORATE_TAIL_RE = re.compile(
     r"\b(?:limited|ltd\.?|trust|fund|group|holdings|corporation|company|plc|inc\.?|n\.v\.|reit|bank)$",
     re.IGNORECASE,
 )
-_TRIM_CHARS = " \t,;:-(\u00A0"
+_TRIM_CHARS = " \t,;:-(.\u00A0"
+
+# clean_entity's rules, pattern for pattern the same as extractiontrust's
+# cleanEntity (Go): the read side applies them to every stored entity, so a
+# row written before a rule existed is read the way a new one is written.
+_RESPONSIBLE_ENTITY_OF_RE = re.compile(r"(?i)^the\s+responsible\s+entity\s+of\s+(.+?)\s+is\s+(.+)$", re.ASCII)
+_GENERIC_SCHEME_RE = re.compile(r"(?i)^(?:the\s+)?(?:registered\s+)?(?:scheme|fund|trust|company)$", re.ASCII)
+_DIRECTORS_OF_RE = re.compile(r"(?i)^(?:the\s+)?directors\s+of\s+", re.ASCII)
+_SENTENCE_END_RE = re.compile(r"[a-z]{4,}\.\s+[A-Z]", re.ASCII)
+_TRAILING_PAREN_RE = re.compile(r"\s*\([^()]*\)\s*$", re.ASCII)
+# Not a name: a registration number or exchange code, a web or email address,
+# a street address or phone number, a legal form alone, a form's label, a
+# document's own title.
+_NOT_A_NAME_RES = [
+    re.compile(r"(?i)^(?:abn|acn|arsn|arbn|asx)\b", re.ASCII),
+    re.compile(r"(?i)www\.|https?:|@|\.com\b", re.ASCII),
+    re.compile(r"(?i)\b(?:level|suite|unit|floor)\s+\d|\b\d+[a-z]?\s*/\s*\d+\s+[a-z]|\b(?:nsw|vic|qld|wa|sa|tas|act|nt)\s+\d{4}\b|\bt:\s*\+?\d", re.ASCII),
+    re.compile(r"(?i)^(?:the\s+)?(?:company|limited|ltd|pty\.?\s*ltd|plc|inc|nl|corporation|group|holdings?)$", re.ASCII),
+    re.compile(r"(?i)\bgroup\s+of\s+entities\b|\bname\s+of\s+entity\b", re.ASCII),
+    re.compile(r"(?i)^(?:annual|half[\s-]?year(?:ly)?|interim|preliminary\s+final|financial)\s+(?:financial\s+)?report$|^appendix\s*4[cde]$|^directors'?\s+report$", re.ASCII),
+]
 
 
-def _clean_entity(value: str) -> str:
-    value = _REGISTRATION_TAIL_RE.sub("", value)
-    value = _collapse(value).strip(_TRIM_CHARS)
-    if not value or len(value) > MAX_FREE_TEXT_CHARS:
+def clean_entity(value: Any) -> str:
+    """A stated entity reduced to the name it states, or "" when it states none
+    (extractiontrust.cleanEntity, rule for rule).
+
+    A letterhead is cut at its first separator ("Klevo Group Ltd |Suite 102,
+    ..."), a registration-number tail dropped; "The Responsible Entity of X is
+    Y" is the scheme X, or Y when X is only "the Scheme"; "The directors of Y"
+    is Y; a sentence's tail is cut away ("... the portfolio. RAM Property Funds
+    Management Limited"), and so are trailing parentheticals. What is left is
+    dropped when it is not a name (_NOT_A_NAME_RES). The name of another
+    organisation (an auditor, a responsible entity) is kept: it says the
+    document may not be the company's, and the entity check then withholds it."""
+    if not isinstance(value, str):
         return ""
-    if not value[0].isalnum():
+    for sep in ("|", "\u2022"):
+        value = value.split(sep, 1)[0]
+    value = _REGISTRATION_TAIL_RE.sub("", _collapse(value)).strip(_TRIM_CHARS)
+    m = _RESPONSIBLE_ENTITY_OF_RE.match(value)
+    if m:
+        scheme = m.group(1).strip(_TRIM_CHARS)
+        value = m.group(2) if _GENERIC_SCHEME_RE.match(scheme) else re.sub(r"(?i)^the\s+", "", scheme)
+    value = _DIRECTORS_OF_RE.sub("", value)
+    ends = list(_SENTENCE_END_RE.finditer(value))
+    if ends:
+        value = value[ends[-1].end() - 1:]
+    while True:
+        cut = _TRAILING_PAREN_RE.sub("", value)
+        if cut == value:
+            break
+        value = cut
+    value = value.strip(_TRIM_CHARS)
+    if not value or len(value) > MAX_FREE_TEXT_CHARS or not value[0].isalnum():
+        return ""
+    if any(rx.search(value) for rx in _NOT_A_NAME_RES):
         return ""
     return value
+
+
+# An auditor's report or independence declaration carries the audit firm's own
+# ABN, and is often the first ABN in an annual report's opening pages (on prod,
+# 2026-10-11: PricewaterhouseCoopers, BDO Audit, Grant Thornton Audit, Moore
+# Australia Audit, RSM Australia Partners). It is never the reporting entity,
+# so the search moves on to the next ABN.
+_AUDITOR_RE = re.compile(
+    r"(?i)\baudit\b|pricewaterhousecoopers|\bdeloitte\b|\bkpmg\b|\bernst\s*&\s*young\b|\bgrant\s+thornton\b"
+    r"|\bbdo\b|\brsm\s+australia\b|\bpitcher\s+partners\b|\bhlb\s+mann\s+judd\b|\bmoore\s+australia\b"
+    r"|\bnexia\b|\bhall\s+chadwick\b|\bwilliam\s+buck\b|\bcrowe\b|\bpkf\b|\bchartered\s+accountants\b",
+    re.ASCII,
+)
+# "Equity Trustees Limited ABN 46 004 031 298, the Responsible Entity of
+# Dominion Income Trust 1": a trust's documents are lodged by its responsible
+# entity, whose name precedes the ABN; the trust is named after it.
+_RESPONSIBLE_ENTITY_FOR_RE = re.compile(
+    r"(?i)^[\s,)]*(?:as\s+)?(?:the\s+)?responsible\s+entity\s+(?:of|for)\s+(?:the\s+)?(?P<scheme>[^\n,;(]+)",
+    re.ASCII,
+)
 
 
 def _entity(folded: str) -> str:
     m = _NAME_OF_ENTITY_RE.search(folded)
     if m:
-        same_line = _clean_entity(m.group("value"))
+        same_line = clean_entity(m.group("value"))
         if same_line:
             return same_line
         # "Name of entity" alone on its line (a form's table cell): take the
@@ -283,17 +351,25 @@ def _entity(folded: str) -> str:
         for line in folded[m.end():].split("\n"):
             if not line.strip():
                 continue
-            candidate = _clean_entity(line)
+            candidate = clean_entity(line)
             if candidate and _CORPORATE_TAIL_RE.search(candidate) and "entity" not in candidate.lower():
                 return candidate
             break
-    abn = _ABN_RE.search(folded)
-    if abn:
+    for abn in _ABN_RE.finditer(folded):
+        line_end = folded.find("\n", abn.end())
+        trust = _RESPONSIBLE_ENTITY_FOR_RE.match(folded[abn.end():line_end if line_end >= 0 else len(folded)])
+        if trust:
+            scheme = clean_entity(trust.group("scheme"))
+            if scheme and not _GENERIC_SCHEME_RE.match(scheme):
+                return scheme
         line_start = folded.rfind("\n", 0, abn.start()) + 1
-        before = folded[line_start:abn.start()]
-        name = _collapse(before).strip(_TRIM_CHARS)
-        if name and not re.search(r"'s$", name) and len(name) <= MAX_FREE_TEXT_CHARS and name[0].isalnum():
-            return name
+        before = _collapse(folded[line_start:abn.start()]).strip(_TRIM_CHARS)
+        if re.search(r"'s$", before):
+            return ""  # a possessive before the ABN is prose, not a name
+        name = clean_entity(before)
+        if name and _AUDITOR_RE.search(name):
+            continue
+        return name
     return ""
 
 

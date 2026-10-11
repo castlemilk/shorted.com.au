@@ -132,6 +132,32 @@ HARD_EXCLUSION_PATTERNS = [
     r"^(?:update\s*-\s*)?dividend/distribution\b",
     r"^confirmation\s+of\b.*\bdividend\b",
     r"\b(?:dividend|distribution)\s+(?:notice|reinvestment)\b",
+    r"^notification\b",
+    r"\badvance(?:d)?\s+notice\b",
+    r"\btim(?:ing|etable)\b",
+    r"\b(?:release|reporting)\s+dates?\b",
+    r"\bchange\s+(?:to|of|in)\s+(?:the\s+)?(?:release\s+|reporting\s+)?dates?\b",
+    r"to\s+announce\b",
+    r"\b(?:to|will)\s+(?:release|report)\b",
+    r"\banticipated\b",
+    r"^(?:date|details)\b",
+    r"\b(?:call|teleconference)\s+(?:details|information)\b",
+    r"\b(?:webinar|teleconference|conference\s+call|investor\s+call)\s+(?:on|for|to\s+discuss|regarding)\b",
+    r"\bscripts?\b",
+    r"\bdelay(?:s|ed)?\b",
+    r"\bextension\s+(?:of\s+)?time\b",
+    r"\bextension\s+(?:to\s+)?lodge\b",
+    r"\blate\s+lodge?ment\b",
+    r"\bwaiver\b",
+    r"\bd[ei]spatch(?:ed)?\b",
+    r"\bupdate\s+on\b",
+    r"\baddend(?:um|a)\b",
+    r"\badditional\s+(?:asx\s+)?info(?:rmation)?\b",
+    r"\bsupplementary\s+(?:information|disclosure)\b",
+    r"\bsupplement\b",
+    r"\bclarification\b",
+    r"\bletter\s+(?:to\s+)?(?:share|security|unit|s/)\s?holders\b",
+    r"\b(?:share|security|unit)\s?holders?\s+letter\b",
 ]
 
 # Go: presentationPatterns (excluded unless an Appendix 4D/4E is named).
@@ -147,6 +173,8 @@ SOFT_EXCLUSION_PATTERNS = [
     r"\bdial[-\s]?in\b",
     r"\bto\s+present\b",
     r"\bregistration\s+details\b",
+    r"\bteleconference\b",
+    r"\b(?:investor|analyst|earnings|results?)\s+calls?\b",
 ]
 
 _FLAGS = re.IGNORECASE | re.ASCII

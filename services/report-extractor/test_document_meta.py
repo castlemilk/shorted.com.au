@@ -187,6 +187,46 @@ def test_results_release_and_full_or_half_year_results_in_the_head():
         assert _kind(text) != "results_announcement", text
 
 
+def test_fixture_entities():
+    # The same list extractiontrust's TestDocumentMetaFixtureEntities asserts
+    # against cleanEntity: stored entities from prod and the name each states.
+    entities = _fixture()["entities"]
+    assert len(entities) >= 20
+    for e in entities:
+        assert dm.clean_entity(e["raw"]) == e["clean"], e["raw"]
+        assert dm.clean_entity(e["clean"]) == e["clean"], e["clean"]
+        assert dm.validate_document_meta({"entity": e["raw"]}).get("entity", "") == e["clean"], e["raw"]
+
+
+def test_entity_skips_an_auditor_and_names_a_trust():
+    # An annual report's first ABN is often its auditor's (AXR's subsidiary
+    # statements, read 2026-10: Grant Thornton Audit): the next ABN names the
+    # reporting entity, so a subsidiary's accounts still fail the entity check.
+    text = (
+        "Grant Thornton Audit Pty Ltd ABN 41 127 556 389\n"
+        "Auditor's Independence Declaration\n"
+        "Sturt Exploration Pty Ltd ABN 12 345 678 901\n"
+    )
+    assert dm.extract_document_meta(text)["entity"] == "Sturt Exploration Pty Ltd"
+    # Only an auditor is skipped: a first ABN with no name before it still
+    # yields no entity, never a later registry or adviser.
+    assert "entity" not in dm.extract_document_meta(
+        "ABN 12 345 678 901\nShare registry: Computershare Investor Services Pty Limited ABN 48 078 279 277\n"
+    )
+    # A trust's documents are lodged by its responsible entity; the trust is
+    # the entity, named after the responsible entity's ABN.
+    assert dm.extract_document_meta(
+        "Equity Trustees Limited ABN 46 004 031 298, the Responsible Entity of Dominion Income Trust 1\n"
+    )["entity"] == "Dominion Income Trust 1"
+    assert dm.extract_document_meta(
+        "Pinnacle Fund Services Limited (ABN 29 082 494 362) as responsible entity for Plato Global Alpha Fund\n"
+    )["entity"] == "Plato Global Alpha Fund"
+    # "the Scheme" names no scheme: the responsible entity stays.
+    assert dm.extract_document_meta(
+        "Ausbil Investment Management Limited ABN 26 076 316 473 as responsible entity of the Scheme\n"
+    )["entity"] == "Ausbil Investment Management Limited"
+
+
 def test_entity_rules():
     assert dm.extract_document_meta("Name of entity: Gecko Ltd ABN 11 000 000 000")["entity"] == "Gecko Ltd"
     # A bare label with the value on the next line (a form's table cell).
