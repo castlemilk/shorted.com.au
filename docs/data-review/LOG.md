@@ -28,9 +28,13 @@ nothing in prod depends on it). The next price sync, 12 Oct 10:00 UTC, writes
 the current names: 15 listed codes change (AEM Advanced Engineered Materials,
 PDI PDI Gold, WEB WebBeds Group, LEL LE Minerals, PLC PLC Resources, AZ9 Azzuro
 Resources, H2G, KLV, MHC, NRL, YAR, MEI, ZMI, ATM, 3DA), 7 industries, and 3
-codes with no row are added. The project's other live trigger,
-`stock-price-daily-sync` (08:00 weekdays, and Sundays 10:00), calls a service
-that fails before it writes (`self.pool` is None); left alone.
+codes with no row are added. The project's 15 other triggers are left alone:
+13 start jobs whose image is gone, and `stock-price-daily-sync` and
+`stock-price-weekly-sync` (08:00 weekdays, Sundays 10:00) call its own
+`stock-price-ingestion`, which fails before it writes (`self.pool` is None).
+Prod's triggers of the same names call prod's `stock-price-ingestion`
+(us-central1), whose code writes `stock_prices` and its own logs, never
+`company-metadata`.
 
 The other names in the entry below are not wrong for what the site shows:
 - The renamed companies' old codes (CDX, MDR, SOV, ST1, HTG, IRX) keep the old
