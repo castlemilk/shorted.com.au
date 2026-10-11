@@ -156,7 +156,7 @@ says which gate:
 | `estimated_only` | only estimated amounts (the actual comes in an update notice) | none until its State is overdue |
 | `awaiting_aud_equivalent` | foreign currency, no AUD equivalent yet | none until its State is overdue |
 | `no_text` | the PDF has no text | read again after 7 days |
-| `code_mismatch` | the notice is for another code than the page it was listed on | check: a stapled or renamed security may need a mapping |
+| `code_mismatch` | the notice is for a code that none of the pages listing it shares (a renamed company's notice, listed under its old and new codes, is read under the one it names) | check: a stapled security may need a mapping |
 | `missing_field`, `inconsistent`, `no_amount`, `not_appendix_3a1` | the parser could not read it | investigate |
 
 The failures list gives each waiting notice a State, from the detail parser 3

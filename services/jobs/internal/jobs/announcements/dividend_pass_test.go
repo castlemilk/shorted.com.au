@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -569,6 +570,11 @@ func TestDividendNoticeSQL(t *testing.T) {
 		t.Error("pending SQL not ordering by announcement_date DESC")
 	}
 
+	// Every code that listed a PDF travels with it, for listedAs.
+	if !strings.Contains(pendingNoticesSql, "array_agg(a.stock_code) OVER (PARTITION BY a.pdf_url) AS listed_codes") {
+		t.Error("pending SQL must carry every code that listed the notice")
+	}
+
 	// Verify attempt SQL writes parser_version
 	if !strings.Contains(recordAttemptSql, "parser_version") {
 		t.Error("recordAttempt SQL missing parser_version")
@@ -604,5 +610,61 @@ func TestWaitingNoticesRecordTheirPromisedDates(t *testing.T) {
 	// A notice that states no date still names its ex-date.
 	if got := waitingDetail(DividendNotice{ExDate: "2026-10-12"}, "actual amount", ""); got != "ex 2026-10-12" {
 		t.Errorf("waitingDetail without a date = %q", got)
+	}
+}
+
+// ASX lists a renamed company's announcements under its old code and its new
+// one: Rivco Australia's notice (RIV, formerly Duxton Water, D2O) under both.
+// Read under D2O it is stored under RIV, and its attempt names RIV. A notice
+// whose code no listing shares is still withheld, naming every listing.
+func TestNoticeIsReadUnderTheCodeItNames(t *testing.T) {
+	for _, tc := range []struct {
+		security string
+		p        pendingNotice
+		want     string
+	}{
+		{"CBAPI", pendingNotice{StockCode: "CBA"}, "CBA"},
+		{"RIV", pendingNotice{StockCode: "D2O", ListedCodes: []string{"D2O", "RIV"}}, "RIV"},
+		{"WPL", pendingNotice{StockCode: "WDS", ListedCodes: []string{"WDS", "WPL"}}, "WPL"}, // an old notice names the old code
+		{"CBA", pendingNotice{StockCode: "WBC", ListedCodes: []string{"WBC"}}, "WBC"},
+	} {
+		if got := tc.p.listedAs(tc.security).StockCode; got != tc.want {
+			t.Errorf("%s listed under %v: read under %s, want %s", tc.security, tc.p.ListedCodes, got, tc.want)
+		}
+	}
+
+	load := func(name string) string {
+		b, err := os.ReadFile(filepath.Join("testdata", "dividend_notices", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	riv, cba := load("riv_dividend_2026-08-28.txt"), load("cba_final_2026-08-12.txt")
+	store := &fakeStore{pending: []pendingNotice{
+		{StockCode: "D2O", ListedCodes: []string{"D2O", "RIV"}, AnnouncementDate: "2026-08-28", URL: "https://riv.pdf"},
+		{StockCode: "NNC", ListedCodes: []string{"NNC", "WBC"}, AnnouncementDate: "2026-08-12", URL: "https://cba.pdf"},
+	}}
+	text := func(_ context.Context, url string) string {
+		if strings.Contains(url, "riv") {
+			return riv
+		}
+		return cba
+	}
+	if _, err := runDividendNoticePass(context.Background(), store, text, 10, 1, 0, false, t.Logf); err != nil {
+		t.Fatal(err)
+	}
+	if len(store.upserts) != 1 {
+		t.Fatalf("want RIV's one row, got %+v", store.upserts)
+	}
+	if r := store.upserts[0]; r.StockCode != "RIV" || r.ExDate != "2026-10-15" || r.AmountAUD != 0.018 {
+		t.Errorf("row = %s ex %s A$%v, want RIV ex 2026-10-15 A$0.018", r.StockCode, r.ExDate, r.AmountAUD)
+	}
+	want := []noticeAttempt{
+		{URL: "https://riv.pdf", StockCode: "RIV", Outcome: "parsed", Detail: "1 rows", ParserVersion: dividendNoticeParserVersion},
+		{URL: "https://cba.pdf", StockCode: "NNC", Outcome: "code_mismatch", Detail: "notice is for CBA, listed under NNC, WBC", ParserVersion: dividendNoticeParserVersion},
+	}
+	if !slices.Equal(store.attempts, want) {
+		t.Errorf("attempts = %+v\nwant %+v", store.attempts, want)
 	}
 }
