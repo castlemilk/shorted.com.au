@@ -33,6 +33,12 @@ Checked:
   `missing_field` "security code" (ASK's, and the LED notice of the entry
   below, now recorded under ECF: ASX lists it under both) and 5
   `code_mismatch`.
+- **The 14:00 UTC extractor run** (`financial-report-extractor-wvk8b`, the
+  first at 360) selected 360 documents, none of them retries, and finished in
+  17.8 minutes: 338 ok, 18 digest only, 4 no metrics, no model errors, about
+  US$1.23. BHP, CBA and TLS were read at 14:12–14:13, and each one's FY26
+  result is now its latest filing on MCP's `get_stock_briefing` (CBA: revenue
+  $30,153m, NPAT $10,866m).
 
 Fixed in the same branch:
 
@@ -54,6 +60,24 @@ Open:
   The pass withholds them and the review lists them first. Storing them would
   mean taking an estimate as paid (LRT) or converting at a rate of our choosing
   (GNE, SST): a decision for the user, not a parser fix.
+- **The extractor has the same double listing.** It picks one document per
+  code, so a document listed under two codes is read once for each, and the
+  first write keeps the row (`report_url` is unique; `stock_code` is not
+  updated on conflict). The 14:00 run read 19 documents under two to four
+  codes (22 extra reads), and each of those rows starts at 2 to 4 attempts.
+  6 of them are now filed under the old code of a renamed company, so the
+  current code has no row: STV's under SW1, KYN's under ENN, PFM's under CAG,
+  VHL's under RSH, GUM's under MKT, NS1's under HTG. Over all time, 4,630 of
+  the 36,603 documents of the five results types are listed under more than
+  one code; 943 of them are extracted, and 254 of those are filed under a
+  code that is not on ASX's list of listed companies while a listed code
+  shares the document (33 with figures). In all ten pairs checked, the
+  current code is the one with the latest price in `stock_prices` (9 Oct;
+  the old code's prices stop at the rename or never start), where market cap
+  would pick the old code for 591 documents. A fix: read a document once per
+  run, under the listing with the latest price, and move the misfiled rows to
+  the current code (a prod data change). It belongs with the out-of-date
+  company names, which need the user.
 - **The first retries (about 13 Oct)**, and **out-of-date company names**: as
   in the entry below.
 
