@@ -646,6 +646,29 @@ tasks:
       - 'gh workflow run {{.WHICH}}-freshness.yml'
       - echo "dispatched — task deploy:watch, or check the Actions tab"
 
+  data:review:
+    desc: "Read-only review of prod's problem documents (unread results, empty extractions, notice failures)"
+    summary: |
+      Prints a markdown report of the documents Shorted could not turn into
+      data: newest results documents never read, empty and unreadable
+      extractions, rows the API withholds, and dividend notices that failed.
+      One READ ONLY transaction on the session pooler; nothing is written.
+
+        task data:review
+        task data:review -- -days 30 -limit 50
+
+      What to do with each list: .claude/skills/data-review/SKILL.md
+    dir: services/jobs/cmd/shorted
+    preconditions:
+      - sh: '[ -n "{{.DB_PROD_SESSION}}" ]'
+        msg: "no prod DSN found in services/.env (run from the main checkout)"
+      - sh: 'echo "{{.DB_PROD_SESSION}}" | grep -q ":5432/"'
+        msg: "refusing: the review runs on the SESSION pooler (5432)"
+    env:
+      DATABASE_URL: "{{.DB_PROD_SESSION}}"
+    cmds:
+      - 'go run . review {{.CLI_ARGS}}'
+
   # =========================================================================
   # deploy
   # =========================================================================
