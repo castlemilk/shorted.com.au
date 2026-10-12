@@ -3,6 +3,60 @@
 One entry per review, newest first. How to run a review and what each list
 means: `.claude/skills/data-review/SKILL.md`.
 
+## 2026-10-12, after #709's first extractor run
+
+The 14:00 UTC run (`financial-report-extractor-h98nt`, 14:00 to 14:20 UTC,
+main-ba8f446a) was the first with #709's document owners. It logged "Moved
+281 extracted documents to the listing that owns them", then read 360
+documents: 325 `ok`, 20 `digest_only`, 14 `no_pdf` and 1 `no_metrics`, with
+no model errors, for US$0.50.
+
+- **Moves.** 281 of the 290 the dry run listed now sit under their owner.
+  They include SW1→STV (3), CDX→CQT (2), HTG→NS1 (4), MDR→AHE (2), MKT→GUM (2)
+  and ST1→ITS (3), and every one of the 28 code pairs with figures. The other
+  9 have no figures. They are the price-twin pairs HGO→KAN (2), GRL→OBT (3),
+  MTC→GGM (2) and C1X→EAU (2). The 12 Oct price sync gave only the new codes
+  a 12 Oct close, while the old codes stop at 9 Oct. Their last three closes
+  no longer match, and both listings are still within 7 days of the newest
+  price. If the old codes get no more prices, these move on the 19 Oct run. A
+  dry run after the run lists 0 moves.
+- **What a reader sees.** MCP `get_stock_briefing` gives STV its FY26 annual
+  report (28 Aug), read today under STV, with the 4E moved from SW1 beside it.
+  It gives CQT its 2026 annual report (30 Sep), moved from CDX. Both carry a
+  summary. SW1 and CDX hold no rows now.
+- **No PDF: 14.** ADV, ASK, EEG, GLV, HTG, IPL, IXU, LBT, LV1, MZZ, OAU, OPT,
+  SQ2 and SVW: documents filed in 2023 whose ASX page gave no PDF link,
+  for the document and for its fallback. A failed fetch stores no row, so
+  they come back every run. Each costs no model call, but together they take
+  14 of the 360 places.
+
+Review at 14:40 UTC:
+
+- **Newest results document not read: 266 companies** (474 before).
+- **Empty extractions: 375** (255 retry due, 62 waiting, 1 gave up, 57 not
+  results documents). The run read no retries: retries come after every
+  first attempt, and first attempts filled all 360 places. The 13 Oct run
+  should reach them.
+- **Unreadable documents: 2** (0 before): NAN's (`03129302`) and HMY's
+  (`03127789`) have no text layer.
+- **Rows the API withholds or trims: 64** (69 before). The renamed companies'
+  rows left as expected (CAG, CDX, ENN, HTG, IRX, MDR, MKT, SOV, ST1), and ECF's
+  and OZF's with them. Three of these 11 moved and stay withheld under the new
+  code, because the document names a trustee or a stapled entity rather than
+  the listed company:
+  - KYN (`03132171`): "Kyron Investment Fund", moved from ENN;
+  - LED (`03144860`): Evolution Trustees, moved from ECF;
+  - OZR (`03131288`): State Street, moved from OZF.
+
+  Three more are new reads from this run. GCI's names its responsible entity
+  (One Managed Investment Funds), and GDF's names Garda Capital Limited, one
+  of Garda Property Group's stapled entities. VIT's (`03130179`) is Vitura
+  Health's own Appendix 4E. Its entity was read from the 4E's "control gained
+  or lost" section: "Cortexa Pty Ltd", a joint venture deconsolidated on
+  1 July 2025. That is the same family as BWF's 4E label, fixed in #710. Open.
+- **Dividend failures in the window: 144**, unchanged: there has been no
+  notice run since the last review.
+
 ## 2026-10-12, after #710's deploy
 
 #710 deployed at about 03:11 UTC; the jobs and the shorts API run
