@@ -3,6 +3,82 @@
 One entry per review, newest first. How to run a review and what each list
 means: `.claude/skills/data-review/SKILL.md`.
 
+## 2026-10-11, after #708's deploy
+
+#708 deployed at 23:08 UTC. The validation run (`shorted-announcements-g6fq5`,
+23:47 UTC, `-codes MCY -years 2026 -dividends`, parser 4) selected 200
+notices and parsed 82. `code_mismatch` went from 5 to 0: RIV 0.018 (ex 15
+Oct), MSV 0.02 (ex 31 Aug) and AMI 0.01 (ex 16 Sep), all fully franked, read
+from the notices listed under D2O, DTQ and YTC. The two listed under NNC are
+News Corp's, now read under NWS and stored from a later notice. Rows from
+notices: 556 across 455 codes (488 across 429 before).
+
+Review at 23:51 UTC, after the 14:00 UTC extractor run:
+
+- **Newest results document not read: 474 companies** (694 at 13:00). The
+  run read the 16 largest (BHP, BXB, CBA, COL, FMG, IAG, ORG, QBE, REA, RMD,
+  SCG, STO, TCL, TLS, WES, WOW); the next by size (PLS, LYC, WTC, VCX, TLC,
+  SGP, ASX, CAR and others, filed 10 to 27 Aug) rank in tier 1 by market cap.
+  Nothing to fix.
+- **Empty extractions: 370** (231 retry due, 81 waiting, 1 gave up, 57 not
+  results documents). The one that gave up is State Street's SPDR annual
+  report (`idsId=03131257`, 190 characters of text), read three times in one
+  run under SFY, SLF and STW: the double listing #709 fixes. Nothing to do.
+- **Rows the API withholds or trims: 72** (56 at 13:00): 60 by the entity
+  check, 9 not results documents, 3 under the confidence gate. The renamed
+  companies' rows (CDX, HTG, IRX, MDR, SOV, ST1, CAG, ENN, MKT) move to their
+  current codes in #709's first run; AEM's clears with the 12 Oct name sync.
+  Fund managers, responsible entities and auditors' letterheads are the gate
+  working. Two are cleaning misses, open (below): SEK's entity is an address
+  with the state in full and a comma ("60 Cremorne Street, Cremorne,
+  Victoria, 3121"), and BWF's is the Appendix 4E label "over which control
+  was gained or".
+- **Dividend failures in the window: 118** (16 to look at, 90 stored from a
+  later notice, 12 waiting). New to look at, all open (below):
+  - AFP `inconsistent`: an NZ notice whose 2A.9 total (NZD 0.025) excludes
+    the Part 3F supplementary (NZD 0.00441176). Parser 2 assumed the total
+    always includes it, as in the 13 notices it fixed.
+  - LED `estimated_only`, overdue since 26 Aug: its update (`03130573`, 26
+    Aug) leaves 1.6 ASX +Security Code blank, so it failed as
+    `missing_field: security code` under ECF, LED's old code. ASK's update is
+    the same (blank 1.6, issuer code SKG, Storage King Group). The 1.3 issuer
+    code is stated on both.
+  - BCN `inconsistent`: $0.10 cash, fully franked, plus about $0.11 of
+    Forrestania Resources shares in specie (Part 3C, estimated). The parser
+    reads no Part 3C, so the cash dividend is withheld too. VMC `no_amount`:
+    a distribution in specie only (0.1212 shares a share, AUD 0.046961).
+  - RGB, RG1, LF1: `not_appendix_3a1`, nothing to do.
+  - LRT, GNE, SST: overdue as before, withheld as agreed.
+
+Fixed on this branch (the user said to resolve all of them):
+
+- **Entity cleaning** (`notANameREs` in Go, `clean_entity` in Python, one
+  fixture): an address with the state in full or a comma before the postcode
+  ("Victoria, 3121"), and the Appendix 4E label "over which control was
+  gained or lost". Of the 365 distinct entities stored on prod, these two
+  rules change exactly two, SEK's and BWF's, whose results the API then
+  serves; "Bank of Queensland Limited" is in the fixture so a state in a name
+  stays a name.
+- **Notice parser 5.** An NZ 2A.9 total with or without the Part 3F
+  supplementary (AFP). A blank 1.6 security code takes the 1.3 issuer code,
+  except in a notice with a Part 3D: CBAPI's notice has a Part 3A too, and a
+  hybrid's distribution must not become its issuer's ordinary dividend (a
+  test blanks CBAPI's code). An amount only in the estimate field is actual
+  when the notice answers every "Estimated or Actual?" with "Actual": LED's
+  finalisation; LRT's last update answers one of each and stays withheld. A
+  text layer that runs labels, answers and values together is split back
+  into lines (Storage King's, listed under ASK, stored under SKG). Part 3C
+  scrip counts toward the total and is never stored: BCN stores its $0.10
+  cash, and VMC, paid only in shares, records the new final outcome
+  `scrip_only`, which the review does not list.
+- **Checked against prod:** the 168 notices of the window's failures and 50
+  parsed ones, re-read with parser 5. 154 unchanged; the 5 failures above
+  change as intended (SKG 0.031 25% franked, LED 0.01625, BCN 0.10, AFP
+  A$0.0201525, VMC `scrip_only`); every parsed notice gives the row parser 4
+  stored (9 of them now under a later update's URL, same amounts, and MA1's
+  later notice changed its amount, which stands). Parsed notices are never
+  read again, so the version bump re-reads only failures.
+
 ## 2026-10-11, company names and shared documents
 
 The two items the entry below left for the user, who said to fix them.

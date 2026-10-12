@@ -561,7 +561,8 @@ func TestDividendNoticeSQL(t *testing.T) {
 
 	// Every failure an older parser recorded is read again, not a named few
 	// (a list once missed foreign_multi_part, the outcome version 2 removed).
-	if !strings.Contains(pendingNoticesSql, "t.outcome NOT IN ('parsed', 'cancellation', 'no_text') AND t.parser_version < $2") {
+	// A notice paid only in securities is final, like a cancellation.
+	if !strings.Contains(pendingNoticesSql, "t.outcome NOT IN ('parsed', 'cancellation', 'scrip_only', 'no_text') AND t.parser_version < $2") {
 		t.Error("pending SQL must re-select every failure recorded by an older parser version")
 	}
 
@@ -593,6 +594,9 @@ func TestWaitingNoticesRecordTheirPromisedDates(t *testing.T) {
 	for _, tc := range []struct{ file, outcome, detail string }{
 		{"bhp_final_2026-08-18.txt", "awaiting_aud_equivalent", "ex 2026-09-03; AUD equivalent due 2026-09-07"},
 		{"dn1_estimated_2026-09-07.txt", "estimated_only", "ex 2026-09-11; actual amount due 2026-09-18"},
+		// LRT's final update answers "Actual" once and "Estimated" once, with
+		// 3A.1b blank: its amount stays an estimate (estimatesAreActual).
+		{"lrt_update_2026-07-31.txt", "estimated_only", "ex 2026-06-30; actual amount due 2026-07-31"},
 	} {
 		body, err := os.ReadFile(filepath.Join("testdata", "dividend_notices", tc.file))
 		if err != nil {
@@ -666,5 +670,100 @@ func TestNoticeIsReadUnderTheCodeItNames(t *testing.T) {
 	}
 	if !slices.Equal(store.attempts, want) {
 		t.Errorf("attempts = %+v\nwant %+v", store.attempts, want)
+	}
+}
+
+// Parser 5's notices, end to end: what each stores and what its attempt
+// records. LED's finalisation and Storage King's update state no security
+// code and are listed under the old code first; AFP's total leaves its NZ
+// supplementary out; BCN pays cash and Forrestania shares, and only the cash
+// is a dividend; VMC pays only in shares.
+func TestWhatParser5NoticesStore(t *testing.T) {
+	franked := func(f float64) *float64 { return &f }
+	for _, tc := range []struct {
+		file    string
+		p       pendingNotice
+		rows    []dividendRow
+		attempt noticeAttempt
+	}{
+		{
+			file: "led_update_2026-08-26.txt",
+			p:    pendingNotice{StockCode: "ECF", ListedCodes: []string{"ECF", "LED"}, AnnouncementDate: "2026-08-26", URL: "led"},
+			rows: []dividendRow{{StockCode: "LED", ExDate: "2026-06-30", RecordDate: "2026-07-01", PaymentDate: "2026-08-31", PeriodEnd: "2026-06-30",
+				AmountAUD: 0.01625, FrankedPct: franked(0), Type: "ordinary", DeclaredCurrency: "AUD", DeclaredAmount: 0.01625, AnnouncementURL: "led", AnnouncedOn: "2026-08-26"}},
+			attempt: noticeAttempt{URL: "led", StockCode: "LED", Outcome: "parsed", Detail: "1 rows"},
+		},
+		{
+			file: "skg_update_2026-08-14.txt",
+			p:    pendingNotice{StockCode: "ASK", ListedCodes: []string{"ASK", "SKG"}, AnnouncementDate: "2026-08-14", URL: "skg"},
+			rows: []dividendRow{{StockCode: "SKG", ExDate: "2026-06-30", RecordDate: "2026-07-01", PaymentDate: "2026-08-31", PeriodEnd: "2026-06-30",
+				AmountAUD: 0.031, FrankedPct: franked(25), Type: "ordinary", DeclaredCurrency: "AUD", DeclaredAmount: 0.031, AnnouncementURL: "skg", AnnouncedOn: "2026-08-14"}},
+			attempt: noticeAttempt{URL: "skg", StockCode: "SKG", Outcome: "parsed", Detail: "1 rows"},
+		},
+		{
+			file: "afp_update_2026-06-24.txt",
+			p:    pendingNotice{StockCode: "AFP", ListedCodes: []string{"AFP"}, AnnouncementDate: "2026-06-24", URL: "afp"},
+			rows: []dividendRow{{StockCode: "AFP", ExDate: "2026-06-18", RecordDate: "2026-06-19", PaymentDate: "2026-07-03", PeriodEnd: "2026-03-31",
+				AmountAUD: 0.0201525, FrankedPct: franked(0), Type: "ordinary", DeclaredCurrency: "NZD", DeclaredAmount: 0.025, AnnouncementURL: "afp", AnnouncedOn: "2026-06-24"}},
+			attempt: noticeAttempt{URL: "afp", StockCode: "AFP", Outcome: "parsed", Detail: "1 rows"},
+		},
+		{
+			file: "bcn_update_2026-07-16.txt",
+			p:    pendingNotice{StockCode: "BCN", ListedCodes: []string{"BCN"}, AnnouncementDate: "2026-07-16", URL: "bcn"},
+			rows: []dividendRow{{StockCode: "BCN", ExDate: "2026-07-13", RecordDate: "2026-07-14", PaymentDate: "2026-07-21", PeriodEnd: "2026-06-30",
+				AmountAUD: 0.10, FrankedPct: franked(100), Type: "ordinary", DeclaredCurrency: "AUD", DeclaredAmount: 0.10, AnnouncementURL: "bcn", AnnouncedOn: "2026-07-16"}},
+			attempt: noticeAttempt{URL: "bcn", StockCode: "BCN", Outcome: "parsed", Detail: "1 rows"},
+		},
+		{
+			file:    "vmc_dividend_2026-07-06.txt",
+			p:       pendingNotice{StockCode: "VMC", ListedCodes: []string{"VMC"}, AnnouncementDate: "2026-07-06", URL: "vmc"},
+			attempt: noticeAttempt{URL: "vmc", StockCode: "VMC", Outcome: "scrip_only", Detail: "paid in securities: AUD 0.046961 a security"},
+		},
+	} {
+		body, err := os.ReadFile(filepath.Join("testdata", "dividend_notices", tc.file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		store := &fakeStore{pending: []pendingNotice{tc.p}}
+		text := func(context.Context, string) string { return string(body) }
+		if _, err := runDividendNoticePass(context.Background(), store, text, 10, 1, 0, false, t.Logf); err != nil {
+			t.Fatal(err)
+		}
+		if len(store.upserts) != len(tc.rows) {
+			t.Errorf("%s: rows = %+v, want %+v", tc.file, store.upserts, tc.rows)
+		}
+		for i := range min(len(store.upserts), len(tc.rows)) {
+			got, want := store.upserts[i], tc.rows[i]
+			if (got.FrankedPct == nil) != (want.FrankedPct == nil) || got.FrankedPct != nil && *got.FrankedPct != *want.FrankedPct {
+				t.Errorf("%s: franked %v, want %v", tc.file, got.FrankedPct, want.FrankedPct)
+			}
+			got.FrankedPct, want.FrankedPct = nil, nil
+			if got != want {
+				t.Errorf("%s: row\n got %+v\nwant %+v", tc.file, got, want)
+			}
+		}
+		tc.attempt.ParserVersion = dividendNoticeParserVersion
+		if !slices.Equal(store.attempts, []noticeAttempt{tc.attempt}) {
+			t.Errorf("%s: attempts = %+v, want %+v", tc.file, store.attempts, tc.attempt)
+		}
+	}
+}
+
+// A hybrid's notice is filed under its own code (CBAPI). With 1.6 and the
+// summary's security line blank, it is not filed under its issuer's code,
+// though 1.3 names CBA and it has a Part 3A: it would read as CBA's ordinary
+// dividend.
+func TestAHybridWithoutASecurityCodeIsNotFiledUnderItsIssuer(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("testdata", "dividend_notices", "cbapi_2026-09-17.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Replace(string(body), "CBAPI - CAP NOTE 3-BBSW+3.00% PERP NON-CUM RED T-04-27", "", 1)
+	text = strings.Replace(text, "1.6 ASX +Security Code\nCBAPI", "1.6 ASX +Security Code\n", 1)
+	if text == string(body) || strings.Contains(text, "\nCBAPI\n") {
+		t.Fatal("the fixture changed: blank its security code another way")
+	}
+	if _, outcome, detail := parseDividendNotice(text); outcome != noticeMissingField || detail != "security code" {
+		t.Errorf("outcome %s (%s), want missing_field (security code)", outcome, detail)
 	}
 }

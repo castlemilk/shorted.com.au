@@ -19,8 +19,13 @@ import (
 // Version 3 records, for a notice that waits on its update, the ex-date and the
 // date the notice promises the update by (waitingDetail), which the data
 // review reads. Version 4 reads a notice under any code that listed it
-// (listedAs), so the code mismatches it recorded are read again.
-const dividendNoticeParserVersion = 4
+// (listedAs), so the code mismatches it recorded are read again. Version 5
+// reads an NZ total that leaves the supplementary out (AFP), takes the 1.3
+// issuer code when 1.6 is blank (LED, Storage King), an estimate the notice
+// calls actual (LED's finalisation), fields the text layer runs together
+// (unglue), and a Part 3C scrip distribution: counted toward the total, never
+// stored (BCN's cash part is stored; VMC, paid only in shares, is scrip_only).
+const dividendNoticeParserVersion = 5
 
 // pendingNotice represents an unparsed dividend notice from the crawl.
 type pendingNotice struct {
@@ -158,9 +163,10 @@ func dividendRowsFor(n DividendNotice, p pendingNotice) (rows []dividendRow, out
 			if n.AUDEquivalent == nil {
 				return nil, "awaiting_aud_equivalent", waitingDetail(n, "AUD equivalent", n.AUDEquivalentDue)
 			}
-			// 2A.9a is the AUD equivalent of the whole 2A.9 total (an NZ
-			// supplementary included), so each part takes its share at the
-			// notice's one exchange rate.
+			// 2A.9a is the AUD equivalent of the whole 2A.9 total (with an
+			// NZ supplementary or without it, as the issuer stated the
+			// total), so each part takes its share at the notice's one
+			// exchange rate.
 			if n.Total > 0 {
 				amountAUD = roundTo8Decimals(part.Amount * (*n.AUDEquivalent / n.Total))
 			} else {
@@ -336,7 +342,7 @@ SELECT stock_code, announcement_date::text, headline, pdf_url, listed_codes FROM
       SELECT 1 FROM dividend_notice_attempts t
       WHERE t.announcement_url = a.pdf_url
         AND NOT (t.outcome = 'no_text' AND t.attempted_at < now() - interval '7 days')
-        AND NOT (t.outcome NOT IN ('parsed', 'cancellation', 'no_text') AND t.parser_version < $2))
+        AND NOT (t.outcome NOT IN ('parsed', 'cancellation', 'scrip_only', 'no_text') AND t.parser_version < $2))
   ORDER BY a.pdf_url, a.announcement_date DESC, a.stock_code
 ) s
 ORDER BY announcement_date DESC, stock_code

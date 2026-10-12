@@ -275,9 +275,9 @@ _TRAILING_PAREN_RE = re.compile(r"\s*\([^()]*\)\s*$", re.ASCII)
 _NOT_A_NAME_RES = [
     re.compile(r"(?i)^(?:abn|acn|arsn|arbn|asx)\b", re.ASCII),
     re.compile(r"(?i)www\.|https?:|@|\.com\b", re.ASCII),
-    re.compile(r"(?i)\b(?:level|suite|unit|floor)\s+\d|\b\d+[a-z]?\s*/\s*\d+\s+[a-z]|\b(?:nsw|vic|qld|wa|sa|tas|act|nt)\s+\d{4}\b|\bt:\s*\+?\d", re.ASCII),
+    re.compile(r"(?i)\b(?:level|suite|unit|floor)\s+\d|\b\d+[a-z]?\s*/\s*\d+\s+[a-z]|\b(?:nsw|vic|qld|wa|sa|tas|act|nt|new\s+south\s+wales|victoria|queensland|western\s+australia|south\s+australia|tasmania|australian\s+capital\s+territory|northern\s+territory)[\s,]+\d{4}\b|\bt:\s*\+?\d", re.ASCII),
     re.compile(r"(?i)^(?:the\s+)?(?:company|limited|ltd|pty\.?\s*ltd|plc|inc|nl|corporation|group|holdings?)$", re.ASCII),
-    re.compile(r"(?i)\bgroup\s+of\s+entities\b|\bname\s+of\s+entity\b", re.ASCII),
+    re.compile(r"(?i)\bgroup\s+of\s+entities\b|\bname\s+of\s+entity\b|\bover\s+which\s+control\b", re.ASCII),
     re.compile(r"(?i)^(?:annual|half[\s-]?year(?:ly)?|interim|preliminary\s+final|financial)\s+(?:financial\s+)?report$|^appendix\s*4[cde]$|^directors'?\s+report$", re.ASCII),
 ]
 

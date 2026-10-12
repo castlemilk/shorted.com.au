@@ -381,6 +381,10 @@ func TestGatesMatchTheCodeTheyMirror(t *testing.T) {
 		{"../../../../report-extractor/extract.py", "EMPTY_RETRY_MIN_DAYS = " + strconv.Itoa(emptyRetryMinDays)},
 		{"../../../../report-extractor/extract.py", "EMPTY_RETRY_MAX_PAGES = " + strconv.Itoa(emptyRetryMaxPages)},
 		{"../../../../report-extractor/extract.py", "USABLE_DIGEST_MIN_CONFIDENCE = " + strconv.FormatFloat(apiMinDigestConfidence, 'f', -1, 64)},
+		// The outcomes the pass never reads again, no_text aside (it has its
+		// own 7-day retry), are the ones the review does not list as failures.
+		{"../announcements/dividend_pass.go", "t.outcome NOT IN ('parsed', 'cancellation', 'scrip_only', 'no_text')"},
+		{"source.go", "a.outcome NOT IN ('parsed', 'cancellation', 'scrip_only')"},
 	} {
 		b, err := os.ReadFile(tc.file)
 		if err != nil {

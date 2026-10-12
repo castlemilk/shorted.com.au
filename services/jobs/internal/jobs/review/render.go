@@ -85,7 +85,7 @@ func render(rep report) string {
 	}
 	p("### Failures in the window (%d: %d to look at, %d stored from a later notice, %d waiting for their update)\n\n",
 		len(rep.Failures), len(rep.Failures)-stored-waiting, stored, waiting)
-	p("Every outcome but parsed and cancellation. A notice that waits on its update (an estimate, or a foreign amount without its AUD equivalent) states the date its update is due. Once another notice stores the dividend it needs nothing; past that date it needs a look (%d now). Listed overdue first, then the other failures, then the ones waiting, then the ones stored, newest first within each.\n\n", overdue)
+	p("Every outcome but parsed, cancellation and scrip_only (paid only in securities, so no cash dividend to store). A notice that waits on its update (an estimate, or a foreign amount without its AUD equivalent) states the date its update is due. Once another notice stores the dividend it needs nothing; past that date it needs a look (%d now). Listed overdue first, then the other failures, then the ones waiting, then the ones stored, newest first within each.\n\n", overdue)
 	list(w, rep.Limit, []string{"Code", "Outcome", "State", "Detail", "Notice", "Tried", "Parser"}, len(rep.Failures), func(i int) []string {
 		f := rep.Failures[i]
 		state := f.State

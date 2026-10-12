@@ -173,6 +173,7 @@ says which gate:
 | `awaiting_aud_equivalent` | foreign currency, no AUD equivalent yet | none until its State is overdue |
 | `no_text` | the PDF has no text | read again after 7 days |
 | `code_mismatch` | the notice is for a code that none of the pages listing it shares (a renamed company's notice, listed under its old and new codes, is read under the one it names) | check: a stapled security may need a mapping |
+| `scrip_only` | paid only in securities (Part 3C: a scrip or in-specie distribution), so no cash dividend to store; a notice paying cash and scrip stores the cash (BCN) | none; final, like `cancellation` |
 | `missing_field`, `inconsistent`, `no_amount`, `not_appendix_3a1` | the parser could not read it | investigate |
 
 The failures list gives each waiting notice a State, from the detail parser 3
@@ -197,7 +198,11 @@ fix `parseDividendNotice` or `dividendRowsFor`, and **bump
 `dividendNoticeParserVersion`** in `dividend_pass.go`: every failure an older
 version recorded is then read again on the next run. The NZ supplementary
 dividend (Part 3F) is the worked example: 13 notices were `inconsistent`
-because 2A.9's total includes it.
+because 2A.9's total includes it. Parser 5's are the next: an NZ total that
+leaves the supplementary out (AFP), a blank 1.6 security code (the 1.3 issuer
+code, never for a notice with a Part 3D), an amount in the estimate field that
+the notice answers "Actual" (LED), a text layer that runs fields together
+(Storage King), and Part 3C scrip (BCN, VMC).
 
 ## 3. Fix
 
