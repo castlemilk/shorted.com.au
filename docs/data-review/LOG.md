@@ -3,6 +3,53 @@
 One entry per review, newest first. How to run a review and what each list
 means: `.claude/skills/data-review/SKILL.md`.
 
+## 2026-10-12, after #710's deploy
+
+#710 deployed at about 03:11 UTC; the jobs and the shorts API run
+main-ba8f446a. The scheduled 11:00 UTC run (`shorted-announcements-smn62`,
+11:00 to 11:29 UTC) was the first with parser 5. It selected 200 notices,
+the 118 failures of earlier parsers and 82 never read before (filed 16 Jun to
+12 Oct), and parsed 55. The five notices #710 fixed changed as intended:
+
+- LED 0.01625 unfranked, ex 30 Jun, from its update (`03130573`), which had
+  failed as `missing_field` under ECF.
+- SKG 0.031 25% franked, ex 30 Jun, from Storage King's update (`03125139`,
+  listed under ASK).
+- AFP A$0.020153 (NZD 0.025), ex 18 Jun.
+- BCN 0.10 fully franked, ex 13 Jul.
+- VMC's distribution in specie (`03111853`) is `scrip_only`.
+
+No notice is `inconsistent`, `missing_field` or `no_amount` any more. Rows
+from notices: 604 across 474 codes (556 across 455 before), 48 of them new.
+
+Review at 11:41 UTC, before the 14:00 UTC extractor run:
+
+- **Newest results document not read: 474 companies**, unchanged: the
+  extractor has not run since the last review.
+- **Empty extractions: 369** (230 retry due, 81 waiting, 1 gave up, 57 not
+  results documents).
+- **Rows the API withholds or trims: 69** (72 before). SEK's and BWF's left
+  with #710's entity rules, and AEM's with the 12 Oct name sync ("Advanced
+  Engineered Materials"). The renamed companies' rows (CAG, CDX, ENN, HTG,
+  IRX, MDR, MKT, SOV, ST1) wait for #709's first extractor run, at 14:00 UTC
+  today.
+- **Dividend failures in the window: 144** (12 to look at, 122 stored from a
+  later notice, 10 waiting). The five above left the list. 31 estimates filed
+  16 to 24 Jun, read for the first time, joined it; 29 of them were stored
+  from a later notice. LED's estimate, and MA1's and REV's (due 12 Oct), were
+  stored from their updates. To look at:
+  - GMG `estimated_only`, overdue since 20 Aug, new. Its notice for the half
+    to 30 June (`03104557`, 16 Jun) estimates AUD 0.15, unfranked, with the
+    actual due 20 Aug. GMG files one Appendix 3A.1 a half and no update: the
+    crawl has one a half since 2024, and ASX's own 2026 list has no update.
+    GMG has no dividend rows. Whether to store an estimate that no update
+    replaces is the user's call, as with LRT's. Open.
+  - LRT (four notices now, one from the backfill), GNE, SST: overdue,
+    withheld as agreed.
+  - RGB, RG1, LF1: `not_appendix_3a1`, nothing to do.
+- Waiting, due 14 Oct to 19 Nov: QRI, DPM, DN1, KKC, TOT, RFF, DXC, DXI and
+  PAF (two notices).
+
 ## 2026-10-11, after #708's deploy
 
 #708 deployed at 23:08 UTC. The validation run (`shorted-announcements-g6fq5`,
