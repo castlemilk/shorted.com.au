@@ -305,6 +305,9 @@
     {"raw": "Prodigy9., Co Ltd", "clean": "Prodigy9., Co Ltd"},
     {"raw": "Acme Pty. Ltd", "clean": "Acme Pty. Ltd"},
     {"raw": "Nodestream Limited.", "clean": "Nodestream Limited"},
+    {"raw": "60 Cremorne Street, Cremorne, Victoria, 3121", "clean": ""},
+    {"raw": "over which control was gained or", "clean": ""},
+    {"raw": "Bank of Queensland Limited", "clean": "Bank of Queensland Limited"},
     {"raw": "BHP Group Limited", "clean": "BHP Group Limited"},
     {"raw": "Commonwealth Bank of Australia", "clean": "Commonwealth Bank of Australia"}
   ]
