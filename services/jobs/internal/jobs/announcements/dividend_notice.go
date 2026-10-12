@@ -16,7 +16,32 @@ var (
 	codePat         = regexp.MustCompile(`^[A-Z0-9]{3,6}$`)
 	currencyLinePat = regexp.MustCompile(`^([A-Z]{3}) - `)
 	labelPat        = regexp.MustCompile(`^(\d[A-Z]?\.\d+[a-z]?(\([ivx]+\))?)\s`)
+
+	// Some notices' text layer runs a field's label, its value, its answer and
+	// the next label together on one line (Storage King's: "...will be
+	// announced14/8/20263A.1b Ordinary Dividend/distribution amount per
+	// securityAUD 0.031000003A.2 Is the ordinary dividend/distribution
+	// franked?Yes"). unglue splits them where two tokens touch: before a field
+	// label, an amount or a date that follows text, before "Estimated or
+	// Actual?" after an amount, and after a question's mark. A well-formed line
+	// has a space or a line break at each of those places, so it is unchanged.
+	gluedLabelPat    = regexp.MustCompile(`(\S)(\d[A-Z]\.\d+[a-z]?(?:\([ivx]+\))?\s)`)
+	gluedMoneyPat    = regexp.MustCompile(`([a-z?)])([A-Z]{3} \d+\.\d+)`)
+	gluedDatePat     = regexp.MustCompile(`([a-z])(\d{1,2}/\d{1,2}/\d{4})`)
+	gluedQuestionPat = regexp.MustCompile(`(\d)(Estimated or Actual\?)`)
+	gluedAnswerPat   = regexp.MustCompile(`\?(Yes|No|Actual|Estimated)\b`)
 )
+
+// unglue splits a line whose fields the text layer ran together (see
+// gluedLabelPat) into the lines a well-formed notice has.
+func unglue(line string) []string {
+	line = gluedLabelPat.ReplaceAllString(line, "$1\n$2")
+	line = gluedMoneyPat.ReplaceAllString(line, "$1\n$2")
+	line = gluedDatePat.ReplaceAllString(line, "$1\n$2")
+	line = gluedQuestionPat.ReplaceAllString(line, "$1\n$2")
+	line = gluedAnswerPat.ReplaceAllString(line, "?\n$1")
+	return strings.Split(line, "\n")
+}
 
 // DividendNotice is what an ASX Appendix 3A.1 states, read from extracted PDF text.
 type DividendNotice struct {
@@ -30,7 +55,8 @@ type DividendNotice struct {
 	Currency         string   // ISO code of the primary currency (2A.8, e.g. "AUD - Australian Dollar" -> "AUD")
 	Total            float64  // 2A.9 (else summary "Distribution Amount"), in Currency
 	AUDEquivalent    *float64 // 2A.9a when Currency != "AUD" and an amount is stated; nil otherwise
-	Supplementary    float64  // 3F.2b (else the estimate 3F.2a), in Currency; an NZD-declared supplementary dividend paid only to non-NZ-resident holders; it counts toward Total but is never a stored dividend
+	Supplementary    float64  // 3F.2b (else the estimate 3F.2a), in Currency; an NZD-declared supplementary dividend paid only to non-NZ-resident holders; never a stored dividend, and Total includes it or not as the issuer chose (MCY includes it, AFP does not)
+	Scrip            float64  // 3C.1b (else the estimate 3C.1a), in Currency: a distribution paid in securities (BCN's Forrestania shares in specie); it counts toward Total but is never a stored dividend
 	AUDEquivalentDue string   // YYYY-MM-DD (2A.9b): when a foreign notice's AUD equivalent will be released; "" when absent
 	ActualDue        string   // YYYY-MM-DD (3A.1a(i), else 3B.1a(i)): when an estimated amount's actual will be announced; "" when absent
 	Parts            []DividendPart
@@ -53,6 +79,9 @@ const (
 	noticeMissingField noticeOutcome = "missing_field"
 	noticeInconsistent noticeOutcome = "inconsistent"
 	noticeNoAmount     noticeOutcome = "no_amount"
+	// noticeScripOnly: the notice pays only in securities (Part 3C), so it
+	// declares no cash dividend to store. Final, like a cancellation.
+	noticeScripOnly noticeOutcome = "scrip_only"
 )
 
 // parseDividendNotice reads one notice. On any outcome other than noticeParsed the
@@ -64,21 +93,23 @@ func parseDividendNotice(text string) (DividendNotice, noticeOutcome, string) {
 		return DividendNotice{}, noticeNotForm, ""
 	}
 
-	// Normalize: split on newline, trim, drop empty lines, drop header and "For personal use only"
-	lines := strings.Split(text, "\n")
+	// Normalize: split on newline (and where fields run together), trim, drop
+	// empty lines, drop header and "For personal use only"
 	var normalized []string
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
+	for _, raw := range strings.Split(text, "\n") {
+		for _, line := range unglue(strings.TrimSpace(raw)) {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			if line == "Appendix 3A.1 - Notification of dividend / distribution" {
+				continue
+			}
+			if line == "For personal use only" {
+				continue
+			}
+			normalized = append(normalized, line)
 		}
-		if line == "Appendix 3A.1 - Notification of dividend / distribution" {
-			continue
-		}
-		if line == "For personal use only" {
-			continue
-		}
-		normalized = append(normalized, line)
 	}
 
 	// Parse summary block to get initial values
@@ -222,11 +253,23 @@ func parseDividendNotice(text string) (DividendNotice, noticeOutcome, string) {
 		}
 	}
 
-	// Parse parts: ordinary from 3A.1b, else 3A.1a; special from 3B.1b, else 3B.1a
-	ordinaries := parseParts(normalized, "3A", currencyCode)
-	specials := parseParts(normalized, "3B", currencyCode)
+	// Scrip dividend: field 3C.1b (else the estimate 3C.1a), paid in securities
+	scripStr := readField(normalized, "3C.1b", moneyPat)
+	if scripStr == "" {
+		scripStr = readField(normalized, "3C.1a", moneyPat)
+	}
+	if scripStr != "" {
+		if scrip, ok := parseMoneyValue(scripStr, currencyCode); ok && scrip > 0 {
+			notice.Scrip = scrip
+		}
+	}
 
-	if len(ordinaries) == 0 && len(specials) == 0 {
+	// Parse parts: ordinary from 3A.1b, else 3A.1a; special from 3B.1b, else 3B.1a
+	actual := estimatesAreActual(normalized)
+	ordinaries := parseParts(normalized, "3A", currencyCode, actual)
+	specials := parseParts(normalized, "3B", currencyCode, actual)
+
+	if len(ordinaries) == 0 && len(specials) == 0 && notice.Scrip == 0 {
 		return notice, noticeNoAmount, ""
 	}
 
@@ -235,23 +278,28 @@ func parseDividendNotice(text string) (DividendNotice, noticeOutcome, string) {
 
 	// Parts are already validated for currency consistency in parseParts()
 
-	// Validate: parts' amounts sum to Total within tolerance (including supplementary)
-	partsSum := 0.0
+	// Validate: the parts and any scrip sum to Total within tolerance. Total
+	// includes an NZ supplementary or not, as the issuer chose: MCY's 0.20 is
+	// its 0.17 and its 0.03 supplementary, AFP's 0.025 leaves its 0.00441176 out.
+	sum := notice.Scrip
 	for _, part := range notice.Parts {
-		partsSum += part.Amount
+		sum += part.Amount
 	}
-	partsSum += notice.Supplementary
 	const epsilon = 1e-6
-	if absDiff(partsSum, notice.Total) > epsilon {
-		var msg string
-		if notice.Supplementary > epsilon {
-			msg = fmt.Sprintf("parts sum %.8g + supplementary %.8g != total %.8g", partsSum-notice.Supplementary, notice.Supplementary, notice.Total)
-		} else {
-			msg = fmt.Sprintf("parts sum %.8g != total %.8g", partsSum, notice.Total)
+	if absDiff(sum, notice.Total) > epsilon && absDiff(sum+notice.Supplementary, notice.Total) > epsilon {
+		msg := fmt.Sprintf("parts sum %.8g", sum-notice.Scrip)
+		if notice.Scrip > epsilon {
+			msg += fmt.Sprintf(" + scrip %.8g", notice.Scrip)
 		}
-		return notice, noticeInconsistent, msg
+		if notice.Supplementary > epsilon {
+			msg += fmt.Sprintf(" + supplementary %.8g", notice.Supplementary)
+		}
+		return notice, noticeInconsistent, msg + fmt.Sprintf(" != total %.8g", notice.Total)
 	}
 
+	if len(notice.Parts) == 0 {
+		return notice, noticeScripOnly, fmt.Sprintf("paid in securities: %s %.8g a security", notice.Currency, notice.Scrip)
+	}
 	return notice, noticeParsed, ""
 }
 
@@ -332,12 +380,41 @@ func isValidSecurityCode(code string) bool {
 }
 
 // readSecurityCode is field 1.6, else the code before " - " in the summary's
-// "Security on which the Distribution will be paid".
+// "Security on which the Distribution will be paid", else the 1.3 issuer code
+// when the notice is not for a preference security: LED's and Storage King's
+// updates leave both blank. A notice with a Part 3D (a hybrid's, which may
+// carry a Part 3A too, as CBAPI's does) never takes its issuer's code, or a
+// hybrid's distribution would be stored as the issuer's ordinary dividend.
 func readSecurityCode(lines []string, summary map[string]string) string {
 	if code := readField(lines, "1.6", codePat); code != "" {
 		return code
 	}
-	return extractSecurityCode(summary["Security on which the Distribution will be paid"])
+	if code := extractSecurityCode(summary["Security on which the Distribution will be paid"]); code != "" {
+		return code
+	}
+	for _, line := range lines {
+		if strings.HasPrefix(line, "Part 3D") {
+			return ""
+		}
+	}
+	return readField(lines, "1.3", codePat)
+}
+
+// estimatesAreActual is whether the notice answers every "Estimated or
+// Actual?" with "Actual". LED's finalising update restates its amount in the
+// estimate field (3A.1a), leaves 3A.1b blank and answers only "Actual"; LRT's
+// final update answers one of each, and its amount stays an estimate.
+func estimatesAreActual(lines []string) bool {
+	actual, estimated := 0, 0
+	for _, line := range lines {
+		switch line {
+		case "Actual":
+			actual++
+		case "Estimated":
+			estimated++
+		}
+	}
+	return actual > 0 && estimated == 0
 }
 
 // readField reads the value of a specific field, returning only lines that match the expected pattern
@@ -439,8 +516,9 @@ func parseDate(dateStr string) string {
 	return fmt.Sprintf("%04d-%02d-%02d", year, month, day)
 }
 
-// parseParts reads ordinary or special dividend parts
-func parseParts(lines []string, partType string, expectedCurrency string) []DividendPart {
+// parseParts reads ordinary or special dividend parts. An amount read from the
+// estimate field is an estimate unless estimatesActual (estimatesAreActual).
+func parseParts(lines []string, partType string, expectedCurrency string, estimatesActual bool) []DividendPart {
 	// partType is "3A" (ordinary) or "3B" (special)
 	var result []DividendPart
 
@@ -466,7 +544,7 @@ func parseParts(lines []string, partType string, expectedCurrency string) []Divi
 	if amount == 0 && estimatedStr != "" {
 		if amt, ok := parseMoneyValue(estimatedStr, expectedCurrency); ok && amt > 0 {
 			amount = amt
-			estimated = true
+			estimated = !estimatesActual
 		}
 	}
 

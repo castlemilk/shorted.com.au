@@ -256,6 +256,102 @@ func TestParseDividendNotice(t *testing.T) {
 				},
 			},
 		},
+		{
+			// 2A.9's total leaves the supplementary out: parts 0.025 = total.
+			name:            "AFP update 2026-06-24 (NZD total without its supplementary)",
+			fixtureFile:     "afp_update_2026-06-24.txt",
+			expectedOutcome: noticeParsed,
+			expectedNotice: &DividendNotice{
+				SecurityCode:     "AFP",
+				AnnouncementType: "update",
+				AnnouncedOn:      "2026-06-24",
+				PeriodEnd:        "2026-03-31",
+				RecordDate:       "2026-06-19",
+				ExDate:           "2026-06-18",
+				PaymentDate:      "2026-07-03",
+				Currency:         "NZD",
+				Total:            0.025,
+				AUDEquivalent:    floatPtr(0.0201525),
+				Supplementary:    0.00441176,
+				Parts: []DividendPart{
+					{Type: "ordinary", Amount: 0.025, Estimated: false, FrankedPct: floatPtr(0)},
+				},
+			},
+		},
+		{
+			// 1.6 is blank, 1.3 names LED; the finalisation restates the amount
+			// in the estimate field and answers only "Actual".
+			name:            "LED update 2026-08-26 (no security code, finalised in the estimate field)",
+			fixtureFile:     "led_update_2026-08-26.txt",
+			expectedOutcome: noticeParsed,
+			expectedNotice: &DividendNotice{
+				SecurityCode:     "LED",
+				AnnouncementType: "update",
+				AnnouncedOn:      "2026-08-26",
+				PeriodEnd:        "2026-06-30",
+				RecordDate:       "2026-07-01",
+				ExDate:           "2026-06-30",
+				PaymentDate:      "2026-08-31",
+				Currency:         "AUD",
+				Total:            0.01625,
+				ActualDue:        "2026-08-26",
+				Parts: []DividendPart{
+					{Type: "ordinary", Amount: 0.01625, Estimated: false, FrankedPct: floatPtr(0)},
+				},
+			},
+		},
+		{
+			// Listed under ASK and SKG. 1.6 is blank, and the text layer runs
+			// labels, answers and values together ("...per securityAUD
+			// 0.031000003A.2 Is the ordinary dividend/distribution franked?Yes").
+			name:            "SKG update 2026-08-14 (no security code, fields run together)",
+			fixtureFile:     "skg_update_2026-08-14.txt",
+			expectedOutcome: noticeParsed,
+			expectedNotice: &DividendNotice{
+				SecurityCode:     "SKG",
+				AnnouncementType: "update",
+				AnnouncedOn:      "2026-08-14",
+				PeriodEnd:        "2026-06-30",
+				RecordDate:       "2026-07-01",
+				ExDate:           "2026-06-30",
+				PaymentDate:      "2026-08-31",
+				Currency:         "AUD",
+				Total:            0.031,
+				ActualDue:        "2026-08-14",
+				Parts: []DividendPart{
+					{Type: "ordinary", Amount: 0.031, Estimated: false, FrankedPct: floatPtr(25)},
+				},
+			},
+		},
+		{
+			// $0.10 cash, fully franked, plus about $0.11 of Forrestania
+			// Resources shares in specie (Part 3C, estimated): 0.10 + 0.11 = 0.21.
+			name:            "BCN update 2026-07-16 (cash and an in-specie scrip part)",
+			fixtureFile:     "bcn_update_2026-07-16.txt",
+			expectedOutcome: noticeParsed,
+			expectedNotice: &DividendNotice{
+				SecurityCode:     "BCN",
+				AnnouncementType: "update",
+				AnnouncedOn:      "2026-07-16",
+				PeriodEnd:        "2026-06-30",
+				RecordDate:       "2026-07-14",
+				ExDate:           "2026-07-13",
+				PaymentDate:      "2026-07-21",
+				Currency:         "AUD",
+				Total:            0.21,
+				Scrip:            0.11,
+				Parts: []DividendPart{
+					{Type: "ordinary", Amount: 0.10, Estimated: false, FrankedPct: floatPtr(100)},
+				},
+			},
+		},
+		{
+			// Paid only in securities (0.1212 shares a share): no cash dividend.
+			name:            "VMC dividend 2026-07-06 (scrip only)",
+			fixtureFile:     "vmc_dividend_2026-07-06.txt",
+			expectedOutcome: noticeScripOnly,
+			expectedDetail:  "paid in securities",
+		},
 	}
 
 	// Synthetic test cases
@@ -476,6 +572,15 @@ AUD 1.00000000
 			}
 			if absDiff(notice.Total, tt.expectedNotice.Total) > floatTol {
 				t.Errorf("Total: got %v, want %v", notice.Total, tt.expectedNotice.Total)
+			}
+			if absDiff(notice.Supplementary, tt.expectedNotice.Supplementary) > floatTol {
+				t.Errorf("Supplementary: got %v, want %v", notice.Supplementary, tt.expectedNotice.Supplementary)
+			}
+			if absDiff(notice.Scrip, tt.expectedNotice.Scrip) > floatTol {
+				t.Errorf("Scrip: got %v, want %v", notice.Scrip, tt.expectedNotice.Scrip)
+			}
+			if tt.expectedNotice.ActualDue != "" && notice.ActualDue != tt.expectedNotice.ActualDue {
+				t.Errorf("ActualDue: got %q, want %q", notice.ActualDue, tt.expectedNotice.ActualDue)
 			}
 
 			// Check AUDEquivalent

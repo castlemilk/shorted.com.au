@@ -50,7 +50,7 @@ SELECT a.stock_code, a.outcome, COALESCE(a.detail, ''), a.announcement_url, a.at
                WHERE d.stock_code = a.stock_code AND d.announcement_url <> a.announcement_url
                  AND d.ex_date::text = substring(a.detail from '^ex ([0-9]{4}-[0-9]{2}-[0-9]{2})'))
 FROM dividend_notice_attempts a
-WHERE a.outcome NOT IN ('parsed', 'cancellation') AND a.attempted_at >= $1
+WHERE a.outcome NOT IN ('parsed', 'cancellation', 'scrip_only') AND a.attempted_at >= $1
 ORDER BY a.attempted_at DESC, a.stock_code, a.announcement_url`
 )
 
