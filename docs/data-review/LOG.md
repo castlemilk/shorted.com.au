@@ -50,16 +50,34 @@ Review at 23:51 UTC, after the 14:00 UTC extractor run:
   - RGB, RG1, LF1: `not_appendix_3a1`, nothing to do.
   - LRT, GNE, SST: overdue as before, withheld as agreed.
 
-Open (each needs the user's OK):
+Fixed on this branch (the user said to resolve all of them):
 
-- **Entity cleaning:** `notANameREs` (Go) and `clean_entity` (Python), one
-  fixture: a state in full with a postcode ("Victoria, 3121"), and the
-  Appendix 4E label "over which control was gained or lost".
-- **Notice parser 5:** accept a 2A.9 total with or without the Part 3F
-  supplementary; take the 1.3 issuer code when 1.6 is blank.
-- **Distributions in specie:** store BCN's cash part and leave the shares out
-  of dividends (recommended: a yield should be cash), or store them as their
-  own type; either way VMC's notice is not a failure.
+- **Entity cleaning** (`notANameREs` in Go, `clean_entity` in Python, one
+  fixture): an address with the state in full or a comma before the postcode
+  ("Victoria, 3121"), and the Appendix 4E label "over which control was
+  gained or lost". Of the 365 distinct entities stored on prod, these two
+  rules change exactly two, SEK's and BWF's, whose results the API then
+  serves; "Bank of Queensland Limited" is in the fixture so a state in a name
+  stays a name.
+- **Notice parser 5.** An NZ 2A.9 total with or without the Part 3F
+  supplementary (AFP). A blank 1.6 security code takes the 1.3 issuer code,
+  except in a notice with a Part 3D: CBAPI's notice has a Part 3A too, and a
+  hybrid's distribution must not become its issuer's ordinary dividend (a
+  test blanks CBAPI's code). An amount only in the estimate field is actual
+  when the notice answers every "Estimated or Actual?" with "Actual": LED's
+  finalisation; LRT's last update answers one of each and stays withheld. A
+  text layer that runs labels, answers and values together is split back
+  into lines (Storage King's, listed under ASK, stored under SKG). Part 3C
+  scrip counts toward the total and is never stored: BCN stores its $0.10
+  cash, and VMC, paid only in shares, records the new final outcome
+  `scrip_only`, which the review does not list.
+- **Checked against prod:** the 168 notices of the window's failures and 50
+  parsed ones, re-read with parser 5. 154 unchanged; the 5 failures above
+  change as intended (SKG 0.031 25% franked, LED 0.01625, BCN 0.10, AFP
+  A$0.0201525, VMC `scrip_only`); every parsed notice gives the row parser 4
+  stored (9 of them now under a later update's URL, same amounts, and MA1's
+  later notice changed its amount, which stands). Parsed notices are never
+  read again, so the version bump re-reads only failures.
 
 ## 2026-10-11, company names and shared documents
 
