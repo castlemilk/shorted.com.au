@@ -398,4 +398,7 @@ layout-shift sum (`hadRecentInput` false) on first load and on a tab switch.
     their final size, a table or the "No director trades found" card. A
     skeleton that collapsed for a stock with none moved every card below it (a
     layout shift of 0.164 on desktop and 0.215 on a phone). The client table
-    and its skeleton remain as the fallback for a read that failed.
+    and its skeleton remain as the fallback for a read that failed. The
+    declared-interests card, which resolves to nothing for most stocks, renders
+    nothing while it loads instead of a 134px skeleton, as the similar-companies
+    card does.

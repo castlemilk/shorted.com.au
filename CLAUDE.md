@@ -876,6 +876,10 @@ four readouts and the ladder); on `/picks` it is unchanged.
   its 322px skeleton collapsed to a 92px card, moving every card below it up by
   230px (a first-load layout shift of 0.164 at 1280px and 0.215 at 390px for
   SPLR on a local production build; BHP, which has trades, was 0.0007).
+  `PoliticianInterestsCard` had the same flaw one card lower (a 134px skeleton,
+  then `null` for most stocks): it renders `null` while it loads, as
+  `StockConnections` does, so a card that may resolve to nothing never holds a
+  place it gives back.
 - Every tab segment has a `loading.tsx` whose root is `role="status"` with
   `aria-busy` and `aria-label` (a bare `aria-label` on a div is not announced);
   `app/shorts/__tests__/loading-boundaries.test.tsx` finds them on disk. Where
