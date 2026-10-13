@@ -31,14 +31,30 @@ var (
 	// naming a non-statutory, partial or pre-tax figure is not the company's
 	// statutory revenue, NPAT or EPS. Measured on prod 2026-09-28: BHP's
 	// "Profit from operations" (US$19.5bn) stored as NPAT; EDV, GYG, DMP and
-	// FLT channel, network, segment and TTV figures stored as revenue.
+	// FLT channel, network, segment and TTV figures stored as revenue. On
+	// 2026-10-13: FLT's "statutory PBT" ($120m), DMP's and BMN's losses before
+	// tax and TSR's total comprehensive loss stored as net income, and MMI's
+	// "Gross operating loss" read as its net loss. It is matched against the
+	// quote's comparison form (statutory), so a line break, a non-breaking
+	// space or a typographic hyphen inside a term still matches, and a
+	// footnote digit run into a term ("PBT1", "EBITDA2") does not hide it.
+	// "Operating loss" stays off the list: directors' reports give the
+	// statutory loss as "an operating loss after income tax" (CDT, IRD, ORD
+	// and T88, each equal to the vendor's net income). The whole quote is
+	// read, so a table quote whose pre-tax line puts profit or loss directly
+	// before "before income tax" is withheld too (LGF, RLG). "... from
+	// ordinary activities before income tax expense" passes on purpose: FGG's
+	// and FGX's half years carry their after-tax line under one. So does a
+	// statement's heading, "statement of comprehensive income" (GRR's
+	// revenue): only the total is a figure.
 	nonStatutoryRe = regexp.MustCompile(`(?i)` +
 		`\bunderlying\b|\bnormali[sz]ed\b|\badjusted\b|\bpro[- ]?forma\b|` +
-		`\bebitda\b|\bebit\b|\bsegment(?:s|al)?\b|\bdivision(?:s|al)?\b|\bexcluding\b|` +
+		`\bebitda\d*\b|\bebit\d*\b|\bsegment(?:s|al)?\b|\bdivision(?:s|al)?\b|\bexcluding\b|` +
 		`\bgross profit\b|\bother income\b|\binterest (?:income|revenue)\b|\bcash receipts\b|` +
-		`\bprofit from operations\b|\boperating profit\b|\bprofit before (?:income )?tax(?:ation)?\b|` +
-		`\bcash (?:npat|earnings|eps)\b|\btotal comprehensive income\b|` +
-		`\b(?:network|online|channel) sales\b|\btotal transaction value\b|\bttv\b`)
+		`\bprofit from operations\b|\boperating profit\b|\bgross operating \(?loss\b|` +
+		`\b(?:profit|loss|earnings)\)?\s+before\s+(?:income\s+)?tax(?:ation)?\d*\b|\bn?pbt\d*\b|\bpre(?:-\s?|\s)?tax\d*\b|` +
+		`\bcash (?:npat|earnings|eps)\b|\btotal\s+comprehensive\s+\(?(?:income|loss|profit)\d*\b|` +
+		`\b(?:network|online|channel) sales\b|\btotal transaction value\b|\bttv\d*\b`)
 
 	// Accounting negatives around a money figure: the figure wrapped in
 	// parentheses with its currency and scale ("($3.2m)", "(US$3.2
@@ -60,8 +76,12 @@ const currencyPrefix = `(?:A|AU|US|NZ|C|HK|S)?\s?`
 // (gateSignAmbiguous) and withheld.
 const reasonSignAmbiguous = "sign ambiguous"
 
-// statutory reports whether a quote passes gate 5.
-func statutory(text string) bool { return !nonStatutoryRe.MatchString(text) }
+// statutory reports whether a quote passes gate 5. The stored quote is the
+// document's own span, with its line breaks and non-breaking spaces, so the
+// list is matched against its comparison form (extractiontrust.Normalise).
+func statutory(text string) bool {
+	return !nonStatutoryRe.MatchString(extractiontrust.Normalise(text))
+}
 
 // textNumber is one number found in a quote, with what surrounds it.
 type textNumber struct {

@@ -595,7 +595,11 @@ provenance keys are stripped before any API response or LLM prompt (including
 5. **Statutory**: `nonStatutoryRe` gains `profit from operations`, `operating
    profit`, `profit before tax`, `cash (npat|earnings)`, `total comprehensive
    income`, `underlying`, `pro forma`, `network sales`, `online sales`,
-   `total transaction value|TTV`, `segment`, `division`.
+   `total transaction value|TTV`, `segment`, `division`; since 2026-10-13
+   also `loss` or `earnings before (income) tax`, `PBT`, `NPBT`, `pre-tax`,
+   `total comprehensive loss` and `gross operating loss`. It is matched
+   against the quote's comparison form (`extractiontrust.Normalise`), and a
+   footnote digit run into a term still matches.
    A net income or EPS takes its sign from the matched number itself (a
    minus, or parentheses around the digits or the whole money figure:
    `(12.3)`, `($3.2m)`, `(US$12.3m)`, `-$3.2m`); otherwise from the NEAREST
@@ -1360,6 +1364,11 @@ its fixes made (commits b6180fa7..19233581, plus the follow-up b81a099b).
 - **4.2 gate 5**: a net income or EPS takes its sign from its own number or
   the governing sign word, never a comparative's; disagreement is withheld as
   `5_statutory.sign_ambiguous`.
+- **4.2 gate 5 (2026-10-13)**: the loss forms of the pre-tax and comprehensive
+  terms, `PBT`/`NPBT`, `pre-tax` and `gross operating loss` join the list,
+  which is now matched against the normalised quote with footnote digits
+  allowed. Prod had stored FLT's "statutory PBT", DMP's and BMN's losses
+  before tax and TSR's total comprehensive loss as half-year net income.
 - **4.2 gate 8**: filing EPS is written only when the vendor EPS is per
   ordinary share, so a CDI listing's per-share filing EPS is withheld
   (`8_magnitude.eps_listed_unit_not_one_share`).
@@ -1409,6 +1418,17 @@ Deliberate trade-offs, chosen and recorded:
   "Basic EPS 3.4 cents loss per share" (a before-word and an after-word
   disagree) and "Loss of $3.1m in the pcp widened to $12.3m" (a tagged
   comparative) are withheld, not read.
+- **The whole quote is read (4.2 gate 5, 2026-10-13).** A widened 4D/4E table
+  quote whose pre-tax line reads "Loss before income tax" or "Profit/(loss)
+  before income tax" withholds the after-tax figure under it (LGF's and RLG's
+  FY26, both behind vendor values when measured). "... from ordinary
+  activities / continuing operations before income tax" is not matched, so
+  FGG's, FGX's, MYX's and PPK's after-tax lines are kept; matching "before
+  (income) tax" anywhere would withhold them, and FGG's and FGX's are half
+  years only filings provide. "Operating loss" is not matched either:
+  directors' reports give the statutory loss as "an operating loss after
+  income tax" (CDT, IRD, ORD, T88). Testing the pre-tax words against the
+  label that governs the matched figure only would remove both costs.
 - **Filing EPS is stricter than valuation (4.2 gate 8 vs 5.3).** Without a
   `median_k`, any computable vendor k outside [0.8, 1.25] withholds the code's
   filing EPS (a k <= 0 included), while valuation needs a positive k outside

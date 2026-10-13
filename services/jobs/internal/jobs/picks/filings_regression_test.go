@@ -10,8 +10,9 @@ import (
 
 // Regression fixtures for the fail-closed filings ingest (plan
 // docs/plans/fundamentals-coverage.md §4.4). Each one is a shape measured on
-// prod on 2026-09-28 that the permissive ingest published; the figures are
-// illustrative except where a comment says otherwise.
+// prod (on 2026-09-28 unless its comment gives another date) that the ingest
+// published; the figures are illustrative except where a comment says
+// otherwise.
 
 // oldEchoMetrics is exactly what the extractor stored for the five echo
 // documents: the prompt's own few-shot example, returned by the model as the
@@ -148,6 +149,32 @@ func TestRegressionBHPProfitFromOperations(t *testing.T) {
 	assert.InDelta(t, 9019e6, val(t, out["BHP"][0].NetIncome), 1, "statutory NPAT, never profit from operations")
 	assert.Equal(t, "USD", out["BHP"][0].Currency)
 	assert.Equal(t, 1, st.Gates[gateNonStatutory])
+}
+
+// FLT, DMP, BMN and TSR (2026-10-13): a profit before tax, two losses before
+// tax and a total comprehensive loss stored as the half's net income.
+func TestRegressionPreTaxAndComprehensiveLossAsNetIncome(t *testing.T) {
+	doc := func(code, quote, value string) filingExtraction {
+		return filingExtraction{Code: code, URL: "u-" + code, Title: "Appendix 4D", ReportDate: date("2025-02-26"),
+			DocumentMeta: `{"currency":"AUD","period_end":"2024-12-31","period_type":"half","report_kind":"appendix_4d"}`,
+			Metrics:      metricsJSON(t, map[string]any{"net_profit": entry("source_text", quote, "value_millions", value, "period", "H1 FY2025")})}
+	}
+	docs := []filingExtraction{
+		doc("FLT", "FLT’s statutory PBT increased 756% to $120million", "120"),
+		doc("DMP", "Statutory loss before tax from continuing operations of $30.0 million", "-30"),
+		doc("BMN", "The Group’s net loss before tax of $2,703,243 for the half year ended 31 December 2024", "-2.703243"),
+		doc("TSR", "The total comprehensive loss for the half-year ended 31 December 2024 was A$1,366,786", "-1.366786"),
+	}
+	vendor := map[string][]vendorRow{
+		"FLT": {vAnnual("2024-06-30", "AUD", f64(2.7e9), f64(0.3e9), f64(1.2), f64(0.22e9))},
+		"DMP": {vAnnual("2024-06-30", "AUD", f64(2.3e9), f64(0.1e9), f64(1.1), f64(0.09e9))},
+		"BMN": {vAnnual("2024-06-30", "AUD", f64(20e6), f64(-5e6), f64(-0.03), f64(0.18e9))},
+		"TSR": {vAnnual("2024-06-30", "AUD", f64(20e6), f64(-3e6), f64(-0.01), f64(0.3e9))},
+	}
+	var st filingStats
+	out := buildFilingRows(docs, filingInputs{vendor: vendor}, &st)
+	assert.Empty(t, out, "none of the four is the statutory net income")
+	assert.Equal(t, 4, st.Gates[gateNonStatutory])
 }
 
 // LFT: another company's report (Winsome's) stored against LFT's code. The

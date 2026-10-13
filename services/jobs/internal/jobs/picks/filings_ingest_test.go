@@ -149,6 +149,28 @@ func TestStatutoryGate(t *testing.T) {
 		"Operating profit of $245 million",
 		"Profit before tax $1.2bn",
 		"Profit before income tax of $412m",
+		"FLT’s statutory PBT increased 756% to $120million",                     // FLT
+		"Statutory loss before tax from continuing operations of $30.0 million", // DMP
+		"The Group’s net loss before tax of $2,703,243 for the half year",       // BMN
+		"Loss before income tax \n(2,492,556)",                                  // MDX
+		"Profit/(loss) before income tax (3,576)",
+		"FY25 pre-tax operating earnings of $224.6 million up 74% on FY24",                      // HMC
+		"Gross operating loss of $27.4 million",                                                 // MMI
+		"The total comprehensive loss for the half-year ended 31 December 2025 was A$1,366,786", // TSR
+		// The same terms as a PDF text layer gives them: a line break, a
+		// non-breaking space or a non-breaking hyphen inside the term, a
+		// footnote digit run into it, the loss first in a caption.
+		"Loss before\nincome tax\n(2,492,556)",
+		"Loss before income tax (2,492,556)",
+		"Gross operating\nloss of $27.4 million",
+		"Pre‑tax profit of $12.0 million",
+		"Pre tax loss of $3.1 million",
+		"Statutory PBT1 of $120.0 million",
+		"Loss before income tax1 (2,492,556)",
+		"Statutory NPBT up 12% to $12.3 million",
+		"EBITDA2 of $45.1 million",
+		"Total comprehensive (loss)/income for the half-year attributable to members (1,366,786)",
+		"Total comprehensive loss2 for the year (3,229,021)",
 		"Cash NPAT of $5,137 million",
 		"Cash earnings $5.1bn",
 		"Total comprehensive income for the half of $80m",
@@ -171,6 +193,19 @@ func TestStatutoryGate(t *testing.T) {
 		"Profit after taxation from continuing and discontinued operations attributable to BHP shareholders of US$9,019 million",
 		"Statutory NPAT2 $5,142m, up 6%",
 		"Basic earnings per share 48.3 cents",
+		"The Group incurred an operating loss after income tax for the year ended 30 June 2026 of $3,226,410", // CDT
+		"The operating loss of the Group after providing for income tax amounted to $6,007,751",               // ORD
+		"The consolidated operating loss of the Group, after income tax expense, amounted to $1,484,566",      // T88
+		"Net loss after income tax  \n(2,068,134)",                                                            // EV1
+		"Gross Operating Revenue up 12.7% to $245.0 million",                                                  // WTL
+		"$'000 \nThe above consolidated statement of comprehensive income should be read in conjunction with the accompanying notes \n8 \nRevenue from operations \n2,3 \n230,788", // GRR
+		"Consolidated statement of profit or loss and other comprehensive income $'000 Revenue 41,205",
+		// 4D tables whose after-tax line sits under a "... from ordinary
+		// activities / continuing operations before income tax" line. FGG's and
+		// FGX's are half years, which only filings provide.
+		"$’000 \nup/down \n% mvmt \nRevenue from ordinary activities \n15,286 \ndown \n64.3% \nProfit from ordinary activities before income tax expense \n11,546 \ndown \n70.4% \nNet profit from ordinary activities after income tax expense \n8,585",      // FGG
+		"$’000 \nup/down \n% mvmt \nRevenue from ordinary activities \n(15,585) \ndown \n169.5% \nLoss from ordinary activities before income tax expense \n(18,940) \ndown \n199.4% \nNet loss from ordinary activities after income tax expense \n(12,425)", // FGX
+		"$’000 \nRevenue from ordinary activities \n(6) \n383,676 \n408,095 \nProfit / (loss) from continuing operations before income tax expense \n \n35,759 \n(83,296) \nProfit / (loss) after income tax \n \n24,473",                                     // MYX
 	} {
 		assert.True(t, statutory(text), "gate 5 must pass %q", text)
 	}
