@@ -1,5 +1,6 @@
 import { act, fireEvent, render, within } from "@testing-library/react";
 import { StockChartInner } from "../StockChart";
+import { axisMargin } from "../axis-margin";
 import * as chartLevels from "../chart-levels";
 import * as chartReadout from "../chart-readout";
 import type { ChartSeriesSpec, StockChartProps } from "../types";
@@ -417,6 +418,217 @@ describe("StockChart margins", () => {
 
   it("leaves a compact chart, which draws no right axis and little on the left, its narrow margins", () => {
     expect(innerW(SERIES, { variant: "compact" })).toBe(WIDTH - 32 - 12);
+  });
+});
+
+// The margin is the room the axes' labels are drawn in, so it follows the widest
+// label an axis prints: a price of $100 or more is seven characters, one more
+// than the margin gave, and the svg cut its "$1" off (CBA, "$140.00", began 8px
+// outside it). The labels are worked out from the data and the axis' format, not
+// measured: the margin sets the width of the plot, which there is none to measure
+// in until it is set.
+describe("StockChart margins follow the axis labels", () => {
+  const priceFmt = (v: number) => `$${v.toFixed(2)}`;
+  const shortFmt = (v: number) => `${v.toFixed(2)}%`;
+  const signedPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
+  const LEFT = { side: "left", format: priceFmt } as const;
+  const RIGHT = { side: "right", format: shortFmt } as const;
+
+  /** `n` points from `lo` to `hi`, evenly spaced a day apart. */
+  const ramp = (axis: "left" | "right", lo: number, hi: number, n = 30): ChartSeriesSpec => ({
+    id: `${axis}-ramp`,
+    label: axis,
+    color: "#123456",
+    axis,
+    kind: "line",
+    points: Array.from({ length: n }, (_, i) => ({ t: T0 + i * DAY, v: lo + ((hi - lo) * i) / (n - 1) })),
+  });
+  const through = (axis: "left" | "right", values: number[]): ChartSeriesSpec => ({
+    ...ramp(axis, 0, 1, values.length),
+    points: values.map((v, i) => ({ t: T0 + i * DAY, v })),
+  });
+
+  /** The margins the chart was laid out with, and the labels its axes print, read off the svg. */
+  const drawn = (container: HTMLElement) => {
+    const group = container.querySelector("[data-chart-container] > svg > g")!;
+    const left = Number(/translate\(([\d.]+)/.exec(group.getAttribute("transform") ?? "")?.[1]);
+    const plot = Number(container.querySelector("[data-chart-capture]")!.getAttribute("width"));
+    const labels = (side: "left" | "right") =>
+      Array.from(container.querySelectorAll(`.visx-axis-${side} text`), (t) => t.textContent ?? "");
+    return { left, right: WIDTH - left - plot, plot, leftLabels: labels("left"), rightLabels: labels("right") };
+  };
+  const laidOut = (series: ChartSeriesSpec[], props: Partial<StockChartProps> = {}) => {
+    const view = renderChart(series, "strip", props);
+    const result = drawn(view.container);
+    view.unmount();
+    return result;
+  };
+  const widest = (labels: string[]) => Math.max(0, ...labels.map((l) => l.length));
+
+  it("gives a price series around $140 a left margin wide enough for '$140.00'", () => {
+    const m = laidOut([ramp("left", 150.25, 184.45)], { leftAxis: LEFT });
+    expect(m.leftLabels).toEqual(["$150.00", "$160.00", "$170.00", "$180.00", "$190.00"]);
+    // Seven characters: 43px by the estimate, and the tick and its gap, 10px.
+    expect(m.left).toBe(53);
+    // At the face's real advance (0.6em, 6px) the widest label is 42px, so its
+    // near edge, 10px from the plot, is inside the svg by a pixel.
+    expect(m.left - 10 - widest(m.leftLabels) * 6).toBeGreaterThanOrEqual(0);
+    // The plot gives up the extra room: 5px of it.
+    expect(m.plot).toBe(WIDTH - 53 - 28);
+  });
+
+  it("keeps 48px for a series under $100, whose labels are six characters at most", () => {
+    for (const [lo, hi] of [[40, 49], [90, 95], [2.1, 3.4], [0.2, 0.9]] as const) {
+      const m = laidOut([ramp("left", lo, hi)], { leftAxis: LEFT });
+      expect(widest(m.leftLabels)).toBeLessThanOrEqual(6);
+      expect(m.left).toBe(48);
+    }
+  });
+
+  it("widens for the label the padding pushes over $100, not only for the data", () => {
+    // The data tops out at $99.50. Padded by 8% it reaches $100.26, and the axis
+    // ticks at $100: seven characters are drawn for a stock under $100.
+    const m = laidOut([ramp("left", 90, 99.5)], { leftAxis: LEFT });
+    expect(m.leftLabels).toContain("$100.00");
+    expect(m.left).toBe(53);
+  });
+
+  it.each([
+    ["a $5 stock", [ramp("left", 4.2, 5.9)], { leftAxis: LEFT }],
+    ["a $1,400 stock", [ramp("left", 1380, 1450)], { leftAxis: LEFT }],
+    ["a negative range", [ramp("left", -240, 12)], { leftAxis: LEFT }],
+    ["no format at all (the scale's own)", [ramp("left", 12_000, 34_000)], {}],
+    ["both axes", [ramp("left", 150.25, 184.45), ramp("right", 10.5, 12.25)], { leftAxis: LEFT, rightAxis: RIGHT }],
+    ["both axes, both wide", [ramp("left", 1380, 1450), ramp("right", 100.5, 140.2)], { leftAxis: LEFT, rightAxis: RIGHT }],
+  ] as [string, ChartSeriesSpec[], Partial<StockChartProps>][])(
+    "is the room of the widest label drawn, and no more, for %s",
+    (_name, series, props) => {
+      const m = laidOut(series, props);
+      expect(m.left).toBe(axisMargin(m.leftLabels));
+      // Whatever it is, the widest label fits in it at the real advance.
+      expect(m.left - 10 - widest(m.leftLabels) * 6).toBeGreaterThanOrEqual(0);
+      if (m.rightLabels.length) {
+        expect(m.right).toBe(axisMargin(m.rightLabels));
+        expect(m.right - 10 - widest(m.rightLabels) * 6).toBeGreaterThanOrEqual(0);
+      }
+    },
+  );
+
+  it("does the same for the right axis when it has one", () => {
+    // A figure of 100% or more in two decimals: "100.00%", seven characters.
+    const wide = laidOut([ramp("left", 40, 49), ramp("right", 100.5, 140.2)], { leftAxis: LEFT, rightAxis: RIGHT });
+    expect(wide.rightLabels).toContain("100.00%");
+    expect(wide.right).toBe(53);
+    expect(wide.left).toBe(48);
+    // And the usual two-digit short interest keeps its 48.
+    const usual = laidOut([ramp("left", 40, 49), ramp("right", 12.25, 16.55)], { leftAxis: LEFT, rightAxis: RIGHT });
+    expect(widest(usual.rightLabels)).toBe(6);
+    expect(usual.right).toBe(48);
+  });
+
+  it("leaves 28px on the right of a chart with no right axis, whatever its left labels are", () => {
+    expect(laidOut([ramp("left", 150.25, 184.45)], { leftAxis: LEFT }).right).toBe(28);
+  });
+
+  it("leaves a compact chart its narrow margins, whatever its labels are", () => {
+    const m = laidOut([ramp("left", 150.25, 184.45)], { leftAxis: LEFT, variant: "compact" });
+    expect(m.left).toBe(32);
+    expect(m.right).toBe(12);
+  });
+
+  it("follows the normalised view: its labels are percentages of the first point", () => {
+    // $2 to $4 is +100%: "+100.0%" is seven characters, where the prices it came
+    // from ("+2.0%" to "+4.0%" through the same format) are five.
+    const props = { viewMode: "normalized", leftAxis: { side: "left", format: signedPct } } as const;
+    const m = laidOut([ramp("left", 2, 4)], props);
+    expect(m.leftLabels).toContain("+100.0%");
+    expect(m.left).toBe(53);
+    // A rise of 40% needs no more than six.
+    const smaller = laidOut([ramp("left", 2, 2.8)], props);
+    expect(widest(smaller.leftLabels)).toBe(6);
+    expect(smaller.left).toBe(48);
+  });
+
+  it("reads the same domain the drawn, decimated series has", () => {
+    // 4000 points in a 400px chart are cut to about 640. The series is noise
+    // between $40 and $90 but for one sample, $95.80, which alone pads the axis
+    // over $100 (to $100.26): seven characters drawn, where without it six. The
+    // largest-triangle pass would drop that sample (it does, at index 570, on its
+    // own); the extrema it is made to keep are what make the drawn domain the
+    // one the margin was sized from.
+    const noise = (i: number) => {
+      const x = Math.sin(i * 12.9898) * 43758.5453;
+      return x - Math.floor(x);
+    };
+    const values = Array.from({ length: 4000 }, (_, i) => 40 + 50 * noise(i));
+    values[570] = 95.8;
+    const view = renderChart([through("left", values)], "strip", { leftAxis: LEFT });
+    expect(Number(view.container.querySelector("svg")!.getAttribute("data-points"))).toBeLessThan(1000);
+    const m = drawn(view.container);
+    expect(m.leftLabels).toContain("$100.00");
+    expect(m.left).toBe(axisMargin(m.leftLabels));
+    expect(m.left).toBe(53);
+  });
+
+  it("follows a zoom, in both directions", () => {
+    // 20 days at $40 to $49, then 10 at $130 to $140: seven characters in all.
+    const price = through("left", [
+      ...Array.from({ length: 20 }, (_, i) => 40 + i * 0.45),
+      ...Array.from({ length: 10 }, (_, i) => 130 + i * 1.1),
+    ]);
+    const view = renderChart([price], "strip", { leftAxis: LEFT });
+    const whole = drawn(view.container);
+    expect(whole.left).toBe(53);
+    // Press at the first day and drag to the nineteenth: $40 to $48.55 is all that is left.
+    const x = (m: { left: number; plot: number }, i: number) => m.left + (m.plot * i) / 29;
+    fireEvent.mouseDown(view.plot, { ...pt(x(whole, 0)), button: 0 });
+    fireEvent.mouseMove(view.plot, pt(x(whole, 19)));
+    fireEvent.mouseUp(window);
+    const zoomed = drawn(view.container);
+    expect(zoomed.leftLabels.every((l) => l.length <= 6)).toBe(true);
+    expect(zoomed.left).toBe(48);
+    expect(zoomed.left).toBe(axisMargin(zoomed.leftLabels));
+  });
+
+  it("grows on a zoom whose labels are wider than the whole chart's", () => {
+    // The normalised view prints percentages of the first point ON SCREEN. A price
+    // that falls 100 to 20 and climbs back to 50 is -80% to 0 whole, but +150%
+    // from the low: "+100.0%" and "+150.0%", a character wider than any label
+    // of the whole.
+    const values = [
+      ...Array.from({ length: 21 }, (_, i) => 100 - 4 * i), // 100 down to 20
+      ...Array.from({ length: 19 }, (_, i) => 20 + (30 * (i + 1)) / 19), // up to 50
+    ];
+    const view = renderChart([through("left", values)], "strip", {
+      viewMode: "normalized",
+      leftAxis: { side: "left", format: signedPct },
+    });
+    const whole = drawn(view.container);
+    expect(widest(whole.leftLabels)).toBeLessThanOrEqual(6);
+    expect(whole.left).toBe(48);
+
+    const x = (m: { left: number; plot: number }, i: number) => m.left + (m.plot * i) / 39;
+    fireEvent.mouseDown(view.plot, { ...pt(x(whole, 20.4)), button: 0 });
+    fireEvent.mouseMove(view.plot, pt(x(whole, 39)));
+    fireEvent.mouseUp(window);
+    const zoomed = drawn(view.container);
+    expect(widest(zoomed.leftLabels)).toBeGreaterThanOrEqual(7);
+    expect(zoomed.left).toBe(axisMargin(zoomed.leftLabels));
+    expect(zoomed.left).toBeGreaterThan(48);
+  });
+
+  it("never reads the DOM to size itself", () => {
+    const rect = jest.spyOn(Element.prototype, "getBoundingClientRect");
+    try {
+      const view = renderChart([ramp("left", 150.25, 184.45), ramp("right", 100.5, 140.2)], "strip", {
+        leftAxis: LEFT,
+        rightAxis: RIGHT,
+      });
+      expect(drawn(view.container).left).toBe(53);
+      expect(rect).not.toHaveBeenCalled();
+    } finally {
+      rect.mockRestore();
+    }
   });
 });
 

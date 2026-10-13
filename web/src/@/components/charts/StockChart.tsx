@@ -21,7 +21,8 @@ import { Line, AreaClosed } from "@visx/shape";
 import { curveMonotoneX } from "@visx/curve";
 import { localPoint } from "@visx/event";
 import { decimate } from "./decimate";
-import { useChartScales } from "./use-chart-scales";
+import { AXIS_NUM_TICKS, axisMargin } from "./axis-margin";
+import { useChartScales, valueAxisLabels } from "./use-chart-scales";
 import { normalizeToPercentChange } from "./indicators";
 import { layoutLevels } from "./chart-levels";
 import {
@@ -140,24 +141,81 @@ export function StockChartInner({
   const compact = variant === "compact";
   const hasRight = series.some((s) => s.axis === "right");
 
-  // The room an axis' labels have beside the plot: a tick (8px) and a gap (2px),
-  // then the label, which the mono face sets at 6px a character at 10px. Short
-  // interest to two decimals ("12.00%") and a price under $100 ("$40.00") are six
-  // characters, 36px, so 46px: the 44px these were cut the last 2px off a label.
+  // The room beside the plot. A side with an axis gets the room of the widest
+  // label it prints (axisMargin): the tick and the label's offset from it (10px),
+  // then the label, 6px a character in the 10px mono face. Six characters
+  // ("$40.00", short interest as "12.00%") fit the 48px every side has; a price
+  // of $100 or more is seven and takes 53, because the svg clips what falls
+  // outside it. The labels are worked out from the data and the axis' format,
+  // never measured: the margin sets the plot's width, and there is no plot to
+  // measure until it is set.
+  //
+  // They are worked out from the series as the axis will draw them (inside the
+  // zoom, and as percent change in the normalised view) but not decimated: the
+  // plot's width sizes the decimation, so it comes after. Decimation keeps the
+  // first and last points and the extremes, so the domain, and its labels, are
+  // the same either way.
   //
   // With no right axis there is nothing beside the plot on the right but the time
   // axis' last label, which is centred on its tick: when that tick is the newest
   // day, half of it hangs past the plot, 21px for "October" and 27px for
   // "September", the longest. The svg clips what is outside it, and 12px cut
   // "October" to "Octobe" on the Short interest tab, which opens on this view.
+  // A compact chart keeps its narrow margins: it is small, and its axes a hint.
+  const axisSeries = useMemo(
+    () =>
+      compact
+        ? []
+        : series.map((s) => {
+            const inZoom = filtered
+              ? s.points.filter((p) => p.t >= filtered[0] && p.t <= filtered[1])
+              : s.points;
+            return {
+              ...s,
+              points: viewMode === "normalized" ? normalizePoints(inZoom) : inZoom,
+            };
+          }),
+    [compact, series, filtered, viewMode],
+  );
+  const leftHard = leftAxis?.domain;
+  const leftFormat = leftAxis?.format;
+  const leftMargin = useMemo(
+    () =>
+      compact
+        ? 32
+        : axisMargin(
+            valueAxisLabels({
+              series: axisSeries,
+              side: "left",
+              hard: leftHard,
+              format: leftFormat,
+              numTicks: AXIS_NUM_TICKS,
+            }),
+          ),
+    [compact, axisSeries, leftHard, leftFormat],
+  );
+  const rightHard = rightAxis?.domain;
+  const rightFormat = rightAxis?.format;
+  const rightMargin = useMemo(
+    () =>
+      compact
+        ? 12
+        : hasRight
+          ? axisMargin(
+              valueAxisLabels({
+                series: axisSeries,
+                side: "right",
+                hard: rightHard,
+                format: rightFormat,
+                numTicks: AXIS_NUM_TICKS,
+              }),
+            )
+          : 28,
+    [compact, hasRight, axisSeries, rightHard, rightFormat],
+  );
   const margin = useMemo(
-    () => ({
-      top: 8,
-      right: compact ? 12 : hasRight ? 48 : 28,
-      bottom: 24,
-      left: compact ? 32 : 48,
-    }),
-    [hasRight, compact],
+    () => ({ top: 8, right: rightMargin, bottom: 24, left: leftMargin }),
+    [leftMargin, rightMargin],
   );
 
   const showVolume = !!volume?.length && !compact && !isMobile;
@@ -576,8 +634,6 @@ export function StockChartInner({
   // ── The readout (spec D5) ──────────────────────────────────────────────────
   // One format function for every number in the strip: the per-axis formatters
   // TooltipContent uses, so both homes of a reading agree to the digit.
-  const leftFormat = leftAxis?.format;
-  const rightFormat = rightAxis?.format;
   const readoutFormat = useCallback<ReadoutFormat>(
     (s, v) => {
       const f = s.axis === "right" ? rightFormat : leftFormat;

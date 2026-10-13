@@ -792,7 +792,9 @@ export const ReadoutStripDigitBoundary: Story = {
 // the plot: with 12px beside the plot of a chart with no right axis, the Short
 // interest tab (it opens on that view) cut "October" to "Octobe". And short
 // interest to two decimals ("12.00%") is six characters, as wide as a price under
-// $100, so a label there needs 46px of margin where it had 44.
+// $100, so a label there needs 46px of margin where it had 44. A price of $100 or
+// more is a seventh character, 6px more: the margin follows the widest label the
+// axis prints (axis-margin.ts), and "$140.00" needs 52px (it gets 53), not 48.
 //
 // A year of days to the first of October, so the newest day is itself a tick of
 // the (quarterly) time axis, at the very edge of the plot: the worst case.
@@ -817,6 +819,13 @@ const priceYear: ChartSeriesSpec = {
   kind: "area",
   points: yearTo(FIRST_OF_OCTOBER, (i) => 40.5 + (i % 17) * 0.3), // $40.50 to $45.30: six characters
 };
+// A large cap (CBA's range): "$140.00" to "$180.00", seven characters. The margin
+// that held six began them outside the svg, and cut off the "$1".
+const expensiveYear: ChartSeriesSpec = {
+  ...priceYear,
+  id: "XYZ:price",
+  points: yearTo(FIRST_OF_OCTOBER, (i) => 140.4 + (i % 17) * 3.1), // $140.40 to $190.00
+};
 
 /** The text the chart's svg draws that does not lie wholly inside it. */
 function labelsOutside(canvasElement: HTMLElement): string[] {
@@ -830,8 +839,12 @@ function labelsOutside(canvasElement: HTMLElement): string[] {
     .map((t) => `${t.textContent} (${t.getBoundingClientRect().left - box.left}, ${box.right - t.getBoundingClientRect().right})`);
 }
 
-/** At each chart width a phone has: 326px in a 390px viewport, 296px in a 360px one. */
-async function playLabelsWhole(canvasElement: HTMLElement) {
+/**
+ * At each chart width a phone has: 326px in a 390px viewport, 296px in a 360px one.
+ * `wide` is the value label this is about, which has to be drawn for the check to
+ * mean anything: a six-character one by default, "$40.00" or "12.00%".
+ */
+async function playLabelsWhole(canvasElement: HTMLElement, wide = /^\$?\d\d\.\d\d%?$/) {
   await waitFor(() => expect(capture(canvasElement)).toBeTruthy());
   const svg = () => canvasElement.querySelector<SVGSVGElement>("[data-chart-container] svg")!;
   // The decorator's frame pads 8px and borders 1px on each side: 18px in all.
@@ -840,9 +853,9 @@ async function playLabelsWhole(canvasElement: HTMLElement) {
     frame.style.width = `${chartWidth + 18}px`;
     await waitFor(() => expect(Number(svg().getAttribute("width"))).toBe(chartWidth));
     const printed = Array.from(svg().querySelectorAll("text"), (t) => t.textContent);
-    // The label this is about is there to be cut, and so is a six-character one.
+    // The label this is about is there to be cut, and so is the value label.
     expect(printed.filter((t) => t === "October").length).toBeGreaterThanOrEqual(1);
-    expect(printed.some((t) => /^\$?\d\d\.\d\d%?$/.test(t ?? ""))).toBe(true);
+    expect(printed.some((t) => wide.test(t ?? ""))).toBe(true);
     expect(labelsOutside(canvasElement), `at ${chartWidth}px wide`).toEqual([]);
   }
 }
@@ -884,6 +897,45 @@ export const LabelsWholeCombined: Story = {
     ),
   ],
   play: ({ canvasElement }) => playLabelsWhole(canvasElement),
+};
+
+export const LabelsWholeLargeCap: Story = {
+  name: "Axis labels whole (price of $100 or more, phone)",
+  tags: ["no-visual"], // interaction-only
+  parameters: { viewport: { defaultViewport: "mobile1" } },
+  args: {
+    series: [expensiveYear],
+    leftAxis: { side: "left", format: priceFmt },
+    height: 360,
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 344, height: 380 }} className="rounded-lg border bg-background p-2">
+        <Story />
+      </div>
+    ),
+  ],
+  play: ({ canvasElement }) => playLabelsWhole(canvasElement, /^\$\d{3}\.\d\d$/),
+};
+
+export const LabelsWholeLargeCapCombined: Story = {
+  name: "Axis labels whole (price of $100 or more and short, phone)",
+  tags: ["no-visual"], // interaction-only
+  parameters: { viewport: { defaultViewport: "mobile1" } },
+  args: {
+    series: [expensiveYear, shortYear("right")],
+    leftAxis: { side: "left", format: priceFmt },
+    rightAxis: { side: "right", format: shortFmt },
+    height: 360,
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 344, height: 380 }} className="rounded-lg border bg-background p-2">
+        <Story />
+      </div>
+    ),
+  ],
+  play: ({ canvasElement }) => playLabelsWhole(canvasElement, /^\$\d{3}\.\d\d$/),
 };
 
 export const Empty: Story = {

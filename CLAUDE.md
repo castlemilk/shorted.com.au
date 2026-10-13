@@ -729,9 +729,14 @@ the chart prints it (`shortFmt`). A reading is dated by the data point it
 shows, never by the pointer's instant: the strip, the card, the measure's
 headline and the pin's announcement all name the session, not a weekend the
 cursor happens to be over. The svg clips whatever is drawn outside it, so the
-margins are sized for the labels: 48px beside an axis (six characters at 10px
-mono, a tick and a gap), and 28px on the right when there is no right axis (the
-time axis' last label hangs half its width past the plot).
+margins follow the labels (`axis-margin.ts`): a side with an axis gets the room
+of the widest label it prints, and never less than 48px, which holds six
+characters at 10px mono after a tick and a gap ("$99.99", or short interest as
+"12.00%"). A price of $100 or more is seven characters and gets 53px. The labels
+are estimated from the data and the axis' format (the zoom, the normalised view,
+the same ticks the axis draws) and never measured, because the margin sets the
+plot's width. With no right axis the right keeps 28px (the time axis' last label
+hangs half its width past the plot), and a compact chart its 32px and 12px.
 
 The sign-in banner renders on the Overview only, after the About card, as one
 44px line. Under `html.anon`, `critical-css.ts` reserves its `.login-slot` at
