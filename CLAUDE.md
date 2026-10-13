@@ -712,9 +712,9 @@ strip is a fixed-height band above the plot, so nothing covers the plot: 28px
 from 640px wide, and below that `8 + 18 x (1 + series)` (44px for one series,
 62px for two). Its height depends on the chart's width and its series count
 only, never on the state or the values. The count is the series it has, or the
-`readoutReserveSeries` it is told to expect if that is more: the Combined panel
-passes 2, so on a phone the short series landing after the price finds its row
-held and moves nothing (the rows of series still to come are drawn empty). It
+`readoutReserveSeries` it is told to expect if that is more: the Combined panel and
+the embed's Combined view pass 2, so on a phone the short series landing after the
+price finds its row held and moves nothing (the rows of series still to come are drawn empty). It
 reads `latest` by default, then `hover`, `pinned` or `measure`
 (`data-readout-state`). A persistent `sr-only` `role="status"` announces a pin
 and its release, never a scrub, and the arrow keys step a reading from the pin,

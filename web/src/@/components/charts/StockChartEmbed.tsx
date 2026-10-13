@@ -156,6 +156,10 @@ export function StockChartEmbed({
               height={chartHeight}
               showBrush={false}
               readout={readout}
+              // The price and the short series load separately, and in a narrow
+              // frame each is a row of the strip: hold the second's row from the
+              // first render so the plot does not move 18px when it lands.
+              readoutReserveSeries={view === "combined" ? 2 : undefined}
             />
           )
         ) : anyLoading ? (
