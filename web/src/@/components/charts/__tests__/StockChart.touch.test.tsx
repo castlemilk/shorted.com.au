@@ -570,24 +570,32 @@ describe("StockChart margins follow the axis labels", () => {
     expect(m.left).toBe(53);
   });
 
-  it("follows a zoom, in both directions", () => {
-    // 20 days at $40 to $49, then 10 at $130 to $140: seven characters in all.
-    const price = through("left", [
+  // 20 days at $40 to $49, then 10 at $130 to $140: seven characters in all.
+  const priceOver100 = () =>
+    through("left", [
       ...Array.from({ length: 20 }, (_, i) => 40 + i * 0.45),
       ...Array.from({ length: 10 }, (_, i) => 130 + i * 1.1),
     ]);
-    const view = renderChart([price], "strip", { leftAxis: LEFT });
+  /** Drag across the plot from point `from` to point `to` of `n` (the drawn zoom's). */
+  const zoom = (view: ReturnType<typeof renderChart>, from: number, to: number, n: number) => {
+    const m = drawn(view.container);
+    const x = (i: number) => m.left + (m.plot * i) / (n - 1);
+    fireEvent.mouseDown(view.plot, { ...pt(x(from)), button: 0 });
+    fireEvent.mouseMove(view.plot, pt(x(to)));
+    fireEvent.mouseUp(window);
+    return drawn(view.container);
+  };
+
+  it("keeps its width through a zoom whose labels are narrower than the whole chart's", () => {
+    const view = renderChart([priceOver100()], "strip", { leftAxis: LEFT });
     const whole = drawn(view.container);
     expect(whole.left).toBe(53);
-    // Press at the first day and drag to the nineteenth: $40 to $48.55 is all that is left.
-    const x = (m: { left: number; plot: number }, i: number) => m.left + (m.plot * i) / 29;
-    fireEvent.mouseDown(view.plot, { ...pt(x(whole, 0)), button: 0 });
-    fireEvent.mouseMove(view.plot, pt(x(whole, 19)));
-    fireEvent.mouseUp(window);
-    const zoomed = drawn(view.container);
+    // From the first day to the nineteenth: $40 to $48.55 is all that is left,
+    // six characters a label. The plot does not move 5px left to take the room.
+    const zoomed = zoom(view, 0, 19, 30);
     expect(zoomed.leftLabels.every((l) => l.length <= 6)).toBe(true);
-    expect(zoomed.left).toBe(48);
-    expect(zoomed.left).toBe(axisMargin(zoomed.leftLabels));
+    expect(zoomed.left).toBe(53);
+    expect(zoomed.plot).toBe(whole.plot);
   });
 
   it("grows on a zoom whose labels are wider than the whole chart's", () => {
@@ -615,6 +623,49 @@ describe("StockChart margins follow the axis labels", () => {
     expect(widest(zoomed.leftLabels)).toBeGreaterThanOrEqual(7);
     expect(zoomed.left).toBe(axisMargin(zoomed.leftLabels));
     expect(zoomed.left).toBeGreaterThan(48);
+  });
+
+  it("keeps the widest a zoom has needed, through narrower zooms and the release", () => {
+    // The normalised fall and climb above: -80% to 0 whole (48px), +150% from the low.
+    const values = [
+      ...Array.from({ length: 21 }, (_, i) => 100 - 4 * i),
+      ...Array.from({ length: 19 }, (_, i) => 20 + (30 * (i + 1)) / 19),
+    ];
+    const view = renderChart([through("left", values)], "strip", {
+      viewMode: "normalized",
+      leftAxis: { side: "left", format: signedPct },
+    });
+    expect(drawn(view.container).left).toBe(48);
+    const grown = zoom(view, 20.4, 39, 40);
+    expect(grown.left).toBeGreaterThan(48);
+    // Zoom again inside it, onto the last five sessions: a rise of a few percent,
+    // labels of six characters at most. Then release the zoom (double-click).
+    const narrower = zoom(view, 14, 18, 19);
+    expect(widest(narrower.leftLabels)).toBeLessThanOrEqual(6);
+    expect(narrower.left).toBe(grown.left);
+    fireEvent.doubleClick(view.plot);
+    const released = drawn(view.container);
+    expect(widest(released.leftLabels)).toBeLessThanOrEqual(6);
+    expect(released.left).toBe(grown.left);
+  });
+
+  it("starts over when the data or the view changes", () => {
+    const props = { width: WIDTH, height: HEIGHT, readout: "strip", leftAxis: LEFT } as const;
+    const view = renderChart([priceOver100()], "strip", { leftAxis: LEFT });
+    expect(zoom(view, 0, 19, 30).left).toBe(53);
+    // A new series (another period, another stock) under $100: its own 48px.
+    view.rerender(<StockChartInner {...props} series={[ramp("left", 40, 49)]} />);
+    expect(drawn(view.container).left).toBe(48);
+    // And a new view of it: "+20.0%" and the like, six characters.
+    view.rerender(
+      <StockChartInner
+        {...props}
+        series={[ramp("left", 40, 49)]}
+        viewMode="normalized"
+        leftAxis={{ side: "left", format: signedPct }}
+      />,
+    );
+    expect(drawn(view.container).left).toBe(48);
   });
 
   it("never reads the DOM to size itself", () => {

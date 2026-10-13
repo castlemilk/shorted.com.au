@@ -162,57 +162,71 @@ export function StockChartInner({
   // "September", the longest. The svg clips what is outside it, and 12px cut
   // "October" to "Octobe" on the Short interest tab, which opens on this view.
   // A compact chart keeps its narrow margins: it is small, and its axes a hint.
-  const axisSeries = useMemo(
-    () =>
-      compact
-        ? []
-        : series.map((s) => {
-            const inZoom = filtered
-              ? s.points.filter((p) => p.t >= filtered[0] && p.t <= filtered[1])
-              : s.points;
-            return {
-              ...s,
-              points: viewMode === "normalized" ? normalizePoints(inZoom) : inZoom,
-            };
-          }),
-    [compact, series, filtered, viewMode],
-  );
   const leftHard = leftAxis?.domain;
   const leftFormat = leftAxis?.format;
-  const leftMargin = useMemo(
-    () =>
-      compact
-        ? 32
-        : axisMargin(
-            valueAxisLabels({
-              series: axisSeries,
-              side: "left",
-              hard: leftHard,
-              format: leftFormat,
-              numTicks: AXIS_NUM_TICKS,
-            }),
-          ),
-    [compact, axisSeries, leftHard, leftFormat],
-  );
   const rightHard = rightAxis?.domain;
   const rightFormat = rightAxis?.format;
-  const rightMargin = useMemo(
-    () =>
-      compact
-        ? 12
-        : hasRight
-          ? axisMargin(
-              valueAxisLabels({
-                series: axisSeries,
-                side: "right",
-                hard: rightHard,
-                format: rightFormat,
-                numTicks: AXIS_NUM_TICKS,
-              }),
-            )
+  const marginsFor = useCallback(
+    (range: [number, number] | null) => {
+      if (compact) return { left: 32, right: 12 };
+      const axisSeries = series.map((s) => {
+        const inRange = range
+          ? s.points.filter((p) => p.t >= range[0] && p.t <= range[1])
+          : s.points;
+        return {
+          ...s,
+          points: viewMode === "normalized" ? normalizePoints(inRange) : inRange,
+        };
+      });
+      const labels = (
+        side: "left" | "right",
+        hard: typeof leftHard,
+        format: typeof leftFormat,
+      ) =>
+        valueAxisLabels({
+          series: axisSeries,
+          side,
+          hard,
+          format,
+          numTicks: AXIS_NUM_TICKS,
+        });
+      return {
+        left: axisMargin(labels("left", leftHard, leftFormat)),
+        right: hasRight
+          ? axisMargin(labels("right", rightHard, rightFormat))
           : 28,
-    [compact, hasRight, axisSeries, rightHard, rightFormat],
+      };
+    },
+    [compact, series, viewMode, hasRight, leftHard, leftFormat, rightHard, rightFormat],
   );
+  // What the whole series needs: a new object exactly when the data, the view
+  // or an axis changes, never on a zoom.
+  const wholeMargins = useMemo(() => marginsFor(null), [marginsFor]);
+  const zoomMargins = useMemo(
+    () => (filtered ? marginsFor(filtered) : wholeMargins),
+    [marginsFor, filtered, wholeMargins],
+  );
+  // A zoom never narrows a side. A zoom whose widest label is a character
+  // shorter than the last view's ("$140.00" to "$48.55") would take 5px back
+  // and move the plot's left edge under the pointer, and a brush dragged across
+  // that boundary would move it on every step. So a side is never narrower
+  // than the whole series needs, nor than the widest any zoom has needed since
+  // the data last changed. A zoom wider than that still grows it (the
+  // normalised view prints percentages of the first point on screen); new data,
+  // a new view or a new axis starts it over. The widest so far is state, raised
+  // here during render when a zoom grows a side: React renders again at once,
+  // before anything paints.
+  const [heldMargins, setHeldMargins] = useState<{
+    of: typeof wholeMargins | null;
+    left: number;
+    right: number;
+  }>({ of: null, left: 0, right: 0 });
+  const floor = heldMargins.of === wholeMargins ? heldMargins : wholeMargins;
+  const leftMargin = Math.max(zoomMargins.left, floor.left);
+  const rightMargin = Math.max(zoomMargins.right, floor.right);
+  if (leftMargin > floor.left || rightMargin > floor.right) {
+    setHeldMargins({ of: wholeMargins, left: leftMargin, right: rightMargin });
+  }
   const margin = useMemo(
     () => ({ top: 8, right: rightMargin, bottom: 24, left: leftMargin }),
     [leftMargin, rightMargin],
