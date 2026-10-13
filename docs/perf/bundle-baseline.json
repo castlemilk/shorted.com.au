@@ -1,6 +1,6 @@
 {
-  "capturedAt": "2026-10-10T07:40:52.321Z",
-  "gitRef": "82358b29e",
+  "capturedAt": "2026-10-13T12:10:24.555Z",
+  "gitRef": "cd816b271",
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 95.9,
   "routes": {
@@ -281,13 +281,13 @@
       "firstLoadKB": 97.6
     },
     "/embed/chart": {
-      "firstLoadKB": 106
+      "firstLoadKB": 107
     },
     "/embed/top-shorts": {
       "firstLoadKB": 176
     },
     "/embed/treemap": {
-      "firstLoadKB": 97.5
+      "firstLoadKB": 97.6
     },
     "/faq": {
       "firstLoadKB": 139
@@ -383,7 +383,7 @@
       "firstLoadKB": 137
     },
     "/industry-intelligence": {
-      "firstLoadKB": 154
+      "firstLoadKB": 155
     },
     "/industry-intelligence/opengraph-image": {
       "firstLoadKB": 0
@@ -464,7 +464,7 @@
       "firstLoadKB": 138
     },
     "/picks/[strategy]": {
-      "firstLoadKB": 142
+      "firstLoadKB": 143
     },
     "/picks/[strategy]/opengraph-image": {
       "firstLoadKB": 0
@@ -599,7 +599,7 @@
       "firstLoadKB": 190
     },
     "/shorts/[stockCode]": {
-      "firstLoadKB": 278
+      "firstLoadKB": 203
     },
     "/shorts/[stockCode]/community": {
       "firstLoadKB": 121
@@ -620,7 +620,7 @@
       "firstLoadKB": 0
     },
     "/shorts/[stockCode]/short-interest": {
-      "firstLoadKB": 276
+      "firstLoadKB": 277
     },
     "/shorts/[stockCode]/strategy": {
       "firstLoadKB": 237
