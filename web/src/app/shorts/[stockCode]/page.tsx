@@ -1,5 +1,4 @@
 import { type Metadata } from "next";
-import nextDynamic from "next/dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -12,10 +11,10 @@ import { CommunityOverviewTeaser } from "~/@/components/company/community/commun
 import { SignedOutOnly } from "~/@/components/ui/session-gates";
 import { LoginPromptBanner } from "~/@/components/ui/login-prompt-banner";
 import { StockThemeChips } from "~/@/components/themes/theme-chips";
-import {
-  StockChartHeading,
-  StockChartPanelSkeleton,
-} from "~/@/components/charts/stock-chart-section";
+import { StockChartHeading } from "~/@/components/charts/stock-chart-section";
+// The price and short-interest chart (spec D4), client-only and fetched after
+// the page: why it is not a next/dynamic here is in the module.
+import { StockChartPanelLazy } from "~/@/components/charts/stock-chart-panel-lazy";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta, StockLLMMeta } from "~/@/components/seo/llm-meta";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
@@ -49,22 +48,6 @@ import {
   cleanCompanyName,
   formatAsOfDate,
 } from "./stock-page-shared";
-
-// The price and short-interest chart (spec D4). It reads prices through
-// Connect-RPC and the market-data hooks, so it is client-only: loaded through
-// next/dynamic with ssr: false, never a static import. Its placeholder is the
-// panel's own skeleton, the one loading.tsx shows too, so the box is the size
-// the panel lands on and nothing below it moves.
-const StockChartPanel = nextDynamic(
-  () =>
-    import("~/@/components/charts/StockChartPanel").then(
-      (m) => m.StockChartPanel,
-    ),
-  {
-    ssr: false,
-    loading: () => <StockChartPanelSkeleton />,
-  },
-);
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
@@ -458,7 +441,7 @@ const Page = async ({ params }: PageProps) => {
           kept per stock and per tab across a tab switch (chart-prefs.ts). */}
       <section aria-labelledby="stock-chart-heading" className="mb-4 min-w-0">
         <StockChartHeading />
-        <StockChartPanel
+        <StockChartPanelLazy
           stockCode={stockCode}
           prefsKey={`${stockCode}:overview`}
           defaultView="combined"

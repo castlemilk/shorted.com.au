@@ -38,9 +38,10 @@
  * reproduced under `next start` first.
  *
  * The charts are islands, not allowlist entries. Each is on the tab it is
- * about: the Overview and Short interest pages load StockChartPanel through
- * nextDynamic(..., { ssr: false }), and the layout loads none (CONNECT_ISLANDS
- * below).
+ * about: the Short interest page loads StockChartPanel through
+ * nextDynamic(..., { ssr: false }), the Overview through the client module
+ * stock-chart-panel-lazy, which does the same in the browser, and the layout
+ * loads none (CONNECT_ISLANDS below).
  */
 
 import { describe, it, expect, afterAll } from "@jest/globals";
@@ -346,8 +347,9 @@ function nextDynamicLoads(source: string): DynamicLoad[] {
  * page that gains an island lists it here, and the test fails until it does.
  */
 const CONNECT_ISLANDS: Record<string, string[]> = {
-  // The layout loads none: the charts moved onto the tabs they are about.
-  "page.tsx": ["~/@/components/charts/StockChartPanel"],
+  // The layout loads none: the charts moved onto the tabs they are about. The
+  // Overview's chart is the client module stock-chart-panel-lazy's island
+  // (its own test below), so the Overview page loads none itself.
   "short-interest/page.tsx": [
     "~/@/components/charts/StockChartPanel",
     "~/@/components/company/peer-comparison-table",
@@ -548,6 +550,37 @@ describe("/shorts SSR Import Safety", () => {
         ).toEqual({ unexpected: [], stale: [] });
       },
     );
+
+    // Next 14 merges the Overview page's client manifest into every tab below it,
+    // and maps each client module to the whole first-load chunk list of the page
+    // that holds it. A next/dynamic in the page is bundled into that list, so the
+    // tabs inherited the chart's code with it (Financials and Community
+    // downloaded it). From a client module, next/dynamic is a real import(): the
+    // chart is a chunk of its own, which the module fetches on the Overview only.
+    // The build gate web/scripts/stock-chart-chunks.mjs checks the manifests, and
+    // e2e/stock-tabs.spec.ts what each tab downloads.
+    it("the Overview loads its chart through the client module stock-chart-panel-lazy, never with a next/dynamic of its own", () => {
+      const page = path.join(STOCK_DIR, "page.tsx");
+      const lazy = path.join(SRC_DIR, "@/components/charts/stock-chart-panel-lazy.tsx");
+      const pageSource = readSource(page);
+      expect(
+        importRefs(pageSource)
+          .filter((ref) => !ref.dynamic)
+          .map((ref) => targetOf(ref.specifier, page)),
+      ).toContain(fromSrc(lazy));
+      expect(nextDynamicLoads(pageSource)).toEqual([]);
+
+      const lazySource = readSource(lazy);
+      expect(lazySource.trimStart()).toMatch(/^["']use client["']/);
+      expect(
+        nextDynamicLoads(lazySource).map((load) => ({
+          ...load,
+          specifier: targetOf(load.specifier, lazy),
+        })),
+      ).toEqual([
+        { specifier: "@/components/charts/StockChartPanel.tsx", ssrFalse: true },
+      ]);
+    });
   });
 
   describe("the boundary's own readers", () => {

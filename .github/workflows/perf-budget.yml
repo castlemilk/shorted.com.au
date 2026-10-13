@@ -67,6 +67,11 @@ jobs:
       - name: Stock routes are ISR
         run: node scripts/route-kinds.mjs
 
+      # Chart-code gate (blocking): only the chart tabs load the chart with the
+      # page; the Overview's first-load chunks are every other tab's.
+      - name: Only the chart tabs load the chart
+        run: node scripts/stock-chart-chunks.mjs
+
       - name: Upload bundle report
         if: always()
         uses: actions/upload-artifact@v6

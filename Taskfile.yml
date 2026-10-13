@@ -514,9 +514,9 @@ tasks:
     cmds: [npm run test:e2e]
 
   test:bundle:
-    desc: Check route bundle budgets and the stock-route ISR gate against a production build
+    desc: Check route bundle budgets and the stock-route ISR and chart-code gates against a production build
     dir: web
-    cmds: [npm run bundle:budget, npm run routes:kinds]
+    cmds: [npm run bundle:budget, npm run routes:kinds, npm run routes:charts]
 
   test:visual:
     desc: Run Storybook visual regression

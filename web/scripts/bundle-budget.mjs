@@ -61,17 +61,19 @@ const BUDGETS = {
     // where no budget counted them; what a visit loads did not grow. A
     // layout-aware metric is a follow-up.
     //
-    // What each tab loads, as measured on this build, is not "only the tabs
-    // with a chart pay for it". Company and News load no chart code. Financials
-    // and Community still load the Overview page's chart chunks, because their
-    // client reference manifests carry the Overview page's client modules and
-    // chunk list (.next/server/app/shorts/[stockCode]/financials/
-    // page_client-reference-manifest.js: the shared next/link module maps to
-    // the Overview's 26 chunks, the chart's code among them). Before this
-    // branch every tab loaded the chart from the layout, so none loads more
-    // than it did and two load less. Follow-up: moving the Overview page into
-    // a route group, e.g. (overview)/page.tsx, would stop the inheritance.
-    "/shorts/[stockCode]": 310,
+    //
+    // 2026-10-13: Financials and Community were still loading the chart. Next
+    // 14 merges the Overview page's client manifest into every tab's, and a
+    // shared module (next/link) resolved through it fetched the Overview's 26
+    // first-load chunks, the chart's among them. (A route group would not have
+    // stopped that: Next strips the group from the manifest's group name.) The
+    // Overview now fetches its chart after the page, from the client module
+    // stock-chart-panel-lazy.tsx, so the chart left its first load (278 -> 203
+    // kB) and the lists the tabs inherit. Measured in a browser on BHP, what a
+    // visit downloads fell 1340 -> 1113 KiB of JS on Financials and 1453 ->
+    // 1226 KiB on Community (uncompressed); scripts/stock-chart-chunks.mjs is
+    // the gate. The Overview's budget is the new measure + 10%, rounded up.
+    "/shorts/[stockCode]": 225,
     "/shorts/[stockCode]/short-interest": 305,
     "/shorts/[stockCode]/strategy": 260,
     "/shorts/[stockCode]/financials": 230,

@@ -336,6 +336,44 @@ test.describe("stock page tabs", () => {
       .toBe(true);
   });
 
+  // The chart's code is the chunk that holds data-chart-capture, a string only
+  // StockChart writes (the build gate web/scripts/stock-chart-chunks.mjs looks
+  // for the same one). That gate reads the client manifests; this reads what
+  // the browser downloads, which is where a fetch started by module code shows
+  // up and a manifest does not. One such fetch put the chart back on Financials
+  // and Community (stock-chart-panel-lazy.tsx). The Overview comes last, never
+  // having been visited: its chart must still arrive, or the marker has moved
+  // and the rest proves nothing.
+  test("a tab without a chart downloads none of the chart's code; the Overview does", async ({ page }) => {
+    const downloaded: string[] = [];
+    const reads: Promise<void>[] = [];
+    page.on("response", (response) => {
+      const { pathname } = new URL(response.url());
+      if (!pathname.startsWith("/_next/static/") || !pathname.endsWith(".js")) return;
+      reads.push(
+        response
+          .text()
+          .then((body) => {
+            if (body.includes("data-chart-capture")) downloaded.push(pathname);
+          })
+          .catch(() => undefined),
+      );
+    });
+    const visit = async (path: string) => {
+      downloaded.length = 0;
+      const response = await page.goto(path);
+      expect(response?.status(), `${path} answered`).toBe(200);
+      await page.waitForLoadState("networkidle");
+      await Promise.all(reads.splice(0));
+      return [...downloaded];
+    };
+
+    for (const segment of ["financials", "company", "news", "community"]) {
+      expect(await visit(`/shorts/${CODE}/${segment}`), `${segment} downloaded the chart's code`).toEqual([]);
+    }
+    expect(await visit(`/shorts/${CODE}`), "the Overview downloaded no chart code: has the marker moved?").not.toEqual([]);
+  });
+
   test("390px: the tab bar scrolls instead of widening the page, and a tap navigates", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/shorts/${CODE}`);
