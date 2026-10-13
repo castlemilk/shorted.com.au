@@ -3,6 +3,158 @@
 One entry per review, newest first. How to run a review and what each list
 means: `.claude/skills/data-review/SKILL.md`.
 
+## 2026-10-12, after #709's first extractor run
+
+The 14:00 UTC run (`financial-report-extractor-h98nt`, 14:00 to 14:20 UTC,
+main-ba8f446a) was the first with #709's document owners. It logged "Moved
+281 extracted documents to the listing that owns them", then read 360
+documents: 325 `ok`, 20 `digest_only`, 14 `no_pdf` and 1 `no_metrics`, with
+no model errors, for US$0.50.
+
+- **Moves.** 281 of the 290 the dry run listed now sit under their owner.
+  They include SW1→STV (3), CDX→CQT (2), HTG→NS1 (4), MDR→AHE (2), MKT→GUM (2)
+  and ST1→ITS (3), and every one of the 28 code pairs with figures. The other
+  9 have no figures. They are the price-twin pairs HGO→KAN (2), GRL→OBT (3),
+  MTC→GGM (2) and C1X→EAU (2). The 12 Oct price sync gave only the new codes
+  a 12 Oct close, while the old codes stop at 9 Oct. Their last three closes
+  no longer match, and both listings are still within 7 days of the newest
+  price. If the old codes get no more prices, these move on the 19 Oct run. A
+  dry run after the run lists 0 moves.
+- **What a reader sees.** MCP `get_stock_briefing` gives STV its FY26 annual
+  report (28 Aug), read today under STV, with the 4E moved from SW1 beside it.
+  It gives CQT its 2026 annual report (30 Sep), moved from CDX. Both carry a
+  summary. SW1 and CDX hold no rows now.
+- **No PDF: 14.** ADV, ASK, EEG, GLV, HTG, IPL, IXU, LBT, LV1, MZZ, OAU, OPT,
+  SQ2 and SVW: documents filed in 2023 whose ASX page gave no PDF link,
+  for the document and for its fallback. A failed fetch stores no row, so
+  they come back every run. Each costs no model call, but together they take
+  14 of the 360 places.
+
+Review at 14:40 UTC:
+
+- **Newest results document not read: 266 companies** (474 before).
+- **Empty extractions: 375** (255 retry due, 62 waiting, 1 gave up, 57 not
+  results documents). The run read no retries: retries come after every
+  first attempt, and first attempts filled all 360 places. The 13 Oct run
+  should reach them.
+- **Unreadable documents: 2** (0 before): NAN's (`03129302`) and HMY's
+  (`03127789`) have no text layer.
+- **Rows the API withholds or trims: 64** (69 before). The renamed companies'
+  rows left as expected (CAG, CDX, ENN, HTG, IRX, MDR, MKT, SOV, ST1), and ECF's
+  and OZF's with them. Three of these 11 moved and stay withheld under the new
+  code, because the document names a trustee or a stapled entity rather than
+  the listed company:
+  - KYN (`03132171`): "Kyron Investment Fund", moved from ENN;
+  - LED (`03144860`): Evolution Trustees, moved from ECF;
+  - OZR (`03131288`): State Street, moved from OZF.
+
+  Three more are new reads from this run. GCI's names its responsible entity
+  (One Managed Investment Funds), and GDF's names Garda Capital Limited, one
+  of Garda Property Group's stapled entities. VIT's (`03130179`) is Vitura
+  Health's own Appendix 4E. Its entity was read from the 4E's "control gained
+  or lost" section: "Cortexa Pty Ltd", a joint venture deconsolidated on
+  1 July 2025. That is the same family as BWF's 4E label, fixed in #710.
+  Fixed below.
+- **Dividend failures in the window: 144**, unchanged: there has been no
+  notice run since the last review.
+
+Fixed on this branch (the user said "we need grounding truth" for VIT, and
+for GMG to go with the recommended option):
+
+- **Where a document's entity and period are read from** (`document_meta.py`;
+  the name rules are shared with `extractiontrust` through one fixture). A
+  "Name of entity" field under a control gained or lost, associates or joint
+  ventures heading is another entity's and is skipped (VIT's "Cortexa Pty
+  Ltd"). A name over a registration number alone on its line ("Vitura Health
+  Limited / ACN 629 071 594") is read, except under or after a role
+  ("Trustee: Perpetual Trust Services Limited"). A former name stays after the
+  current name ("Ocean Sciences Ltd (formerly BPH Global Ltd)") unless that is
+  a Pty Ltd's, and a former-name bracket alone states no name. The period is
+  the document's own reporting-period statement, a range of one half or one
+  year included (NHC's "Current period / From 1 August 2025 to 31 July 2026").
+  Without one it is the latest period the document names that ended before
+  its report date, skipping comparisons and periods it says are still to be
+  reported; a document lodged more than 7 months after every period it names
+  takes the one it names most (VIG's FY2025 annual report). VIT's FY26 4E now
+  reads "Vitura Health Limited", 2026-06-30.
+- **`--repair-document-meta`** (the Report Extractor Repair workflow,
+  `repair=document-meta`, dry run by default) reads every stored row's entity
+  and period again from its stored text, with its report date, and writes
+  only those keys. It never removes a name readers check or a stated period,
+  and never moves `extracted_at`.
+- **Notice parser 6.** An `estimated_only` notice is stored once the issuer's
+  own results document for the notice's period end states the same amount
+  and franking in an entry whose label names that period's own distribution
+  and no other, and no agreed entry states another amount. GMG's FY26 4E
+  (`03127287`) confirms AUD 0.15, unfranked, ex 29 Jun, paid 26 Aug. The
+  review lists every estimate stored this way.
+- **Checked against prod, read-only:**
+  - The repair's dry run selects 1,983 rows. Entities: 552 added, 14 renamed,
+    62 cosmetic, 5 kept. The entity check now passes 5 (EMH, WEL, IFG, SRJ,
+    VIT) and now fails 5 (EAR, SFI, JHG, JHL, MRE). Periods: 24 changed, 15
+    added, each read against its document; VIG keeps its FY2025 year.
+  - Stock pages: 13 codes gain a filing summary (AVE, BVS, CAA, CGS, CMB,
+    FMG, GNG, IGO, PPS, PRU, QFE, SGR, VIT). EVO, GLS, MGL and TOK lose theirs:
+    each was a later document summarised as the prior year.
+  - Picks: 2,555 accepted filing figures (2,505 before) in 1,167 rows (1,150),
+    none removed. VIT's FY26 revenue (131,158,015) and net loss (4,392,015)
+    are accepted.
+  - Parser 6: the label gate accepts 189 (entry, type) pairs of the 568
+    agreed dividend entries in the 365 documents that state a period end.
+    Replaying the 199 notices the next run selects changes only GMG's
+    `03104557`, now stored; LRT stays withheld.
+- **Not on this branch:** picks reads a range label by its first day. GNG's
+  FY26 revenue ("financial year ended 1 July 2025 to 30 June 2026") was
+  accepted into FY2025; after the repair it is withheld instead.
+
+## 2026-10-12, after #710's deploy
+
+#710 deployed at about 03:11 UTC; the jobs and the shorts API run
+main-ba8f446a. The scheduled 11:00 UTC run (`shorted-announcements-smn62`,
+11:00 to 11:29 UTC) was the first with parser 5. It selected 200 notices,
+the 118 failures of earlier parsers and 82 never read before (filed 16 Jun to
+12 Oct), and parsed 55. The five notices #710 fixed changed as intended:
+
+- LED 0.01625 unfranked, ex 30 Jun, from its update (`03130573`), which had
+  failed as `missing_field` under ECF.
+- SKG 0.031 25% franked, ex 30 Jun, from Storage King's update (`03125139`,
+  listed under ASK).
+- AFP A$0.020153 (NZD 0.025), ex 18 Jun.
+- BCN 0.10 fully franked, ex 13 Jul.
+- VMC's distribution in specie (`03111853`) is `scrip_only`.
+
+No notice is `inconsistent`, `missing_field` or `no_amount` any more. Rows
+from notices: 604 across 474 codes (556 across 455 before), 48 of them new.
+
+Review at 11:41 UTC, before the 14:00 UTC extractor run:
+
+- **Newest results document not read: 474 companies**, unchanged: the
+  extractor has not run since the last review.
+- **Empty extractions: 369** (230 retry due, 81 waiting, 1 gave up, 57 not
+  results documents).
+- **Rows the API withholds or trims: 69** (72 before). SEK's and BWF's left
+  with #710's entity rules, and AEM's with the 12 Oct name sync ("Advanced
+  Engineered Materials"). The renamed companies' rows (CAG, CDX, ENN, HTG,
+  IRX, MDR, MKT, SOV, ST1) wait for #709's first extractor run, at 14:00 UTC
+  today.
+- **Dividend failures in the window: 144** (12 to look at, 122 stored from a
+  later notice, 10 waiting). The five above left the list. 31 estimates filed
+  16 to 24 Jun, read for the first time, joined it; 29 of them were stored
+  from a later notice. LED's estimate, and MA1's and REV's (due 12 Oct), were
+  stored from their updates. To look at:
+  - GMG `estimated_only`, overdue since 20 Aug, new. Its notice for the half
+    to 30 June (`03104557`, 16 Jun) estimates AUD 0.15, unfranked, with the
+    actual due 20 Aug. GMG files one Appendix 3A.1 a half and no update: the
+    crawl has one a half since 2024, and ASX's own 2026 list has no update.
+    GMG has no dividend rows. Whether to store an estimate that no update
+    replaces is the user's call, as with LRT's. The user chose to store it
+    once GMG's own results document confirms it: fixed in the entry above.
+  - LRT (four notices now, one from the backfill), GNE, SST: overdue,
+    withheld as agreed.
+  - RGB, RG1, LF1: `not_appendix_3a1`, nothing to do.
+- Waiting, due 14 Oct to 19 Nov: QRI, DPM, DN1, KKC, TOT, RFF, DXC, DXI and
+  PAF (two notices).
+
 ## 2026-10-11, after #708's deploy
 
 #708 deployed at 23:08 UTC. The validation run (`shorted-announcements-g6fq5`,

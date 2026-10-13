@@ -94,7 +94,48 @@ func render(rep report) string {
 		}
 		return []string{f.StockCode, f.Outcome, state, truncateRunes(f.Detail, 100), link("notice", f.URL), timestamp(f.AttemptedAt), strconv.Itoa(f.ParserVersion)}
 	})
+
+	var stale, replaced int
+	for _, e := range rep.Estimates {
+		switch {
+		case e.State == estimateReplaced:
+			replaced++
+		case e.State != estimateConfirmed:
+			stale++
+		}
+	}
+	p("### Estimates stored from a results document (%d: %d no longer confirmed, %d replaced by a later notice)\n\n", len(rep.Estimates), stale, replaced)
+	p("A notice that states only an estimate is stored once the issuer's own results document states the same distribution (an issuer such as GMG never sends an update). These rows are estimates: each is checked again against its documents with the pass's rule, and one no longer confirmed needs a look. A later notice for the dividend replaces it. All time, newest first.\n\n")
+	list(w, rep.Limit, []string{"Code", "Ex-date", "Amount", "Notice", "Document", "Quote", "State"}, len(rep.Estimates), func(i int) []string {
+		e := rep.Estimates[i]
+		code, exDate := e.AttemptCode, "—"
+		var amounts, documents []string
+		for _, r := range e.Rows {
+			code, exDate = r.StockCode, r.ExDate
+			amounts = append(amounts, estimateAmount(r))
+		}
+		for _, d := range e.Documents {
+			documents = append(documents, link("document", d))
+		}
+		quote := strings.Join(strings.Fields(strings.Join(e.Quotes, " / ")), " ")
+		return []string{code, exDate, strings.Join(amounts, "; "), link("notice", e.URL), strings.Join(documents, " "), truncateRunes(quote, 80), e.State}
+	})
 	return b.String()
+}
+
+// estimateAmount is one stored estimate's amount, type and franking.
+func estimateAmount(r confirmedEstimateRow) string {
+	s := r.Currency + " "
+	if r.Amount != nil {
+		s += strconv.FormatFloat(*r.Amount, 'f', -1, 64)
+	} else {
+		s += "?"
+	}
+	s += " " + r.Type
+	if r.FrankedPct != nil {
+		s += ", " + strconv.FormatFloat(*r.FrankedPct, 'f', -1, 64) + "% franked"
+	}
+	return s
 }
 
 // list writes the first limit of n rows as a table, then how many were cut;

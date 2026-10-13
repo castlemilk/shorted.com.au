@@ -81,7 +81,7 @@ import psycopg2.extras
 import requests
 
 import extraction_trust
-from document_meta import extract_document_meta
+from document_meta import extract_document_meta, validate_document_meta
 from token_usage import TokenUsage
 
 logging.basicConfig(
@@ -571,6 +571,16 @@ def _report_day(value: str) -> Optional[_dt.date]:
         return _dt.date.fromisoformat((value or "")[:10])
     except ValueError:
         return None
+
+
+def report_date_of(report: dict) -> Optional[_dt.date]:
+    """The day a document was lodged, for extract_document_meta: its "date"
+    (the announcement's, or the stored row's report_date), never a date read
+    from its text. A period ending on or after it is not the document's own;
+    without it, a sales quota "for the year ended 31 December 2026" in NIC's
+    1H26 report (idsId=03130351, lodged 26 August 2026) is the latest period
+    the text names."""
+    return _report_day(report.get("date") or "")
 
 
 def parse_market_cap(*values: Any) -> Optional[float]:
@@ -1386,27 +1396,34 @@ def upload_raw_text_to_gcs(stock_code: str, report_url: str, text: str) -> Optio
         return None
 
 
-def download_text_from_gcs(gcs_uri: str) -> Optional[str]:
-    """Fetch previously-stored raw page text from a gs:// URI (written by
-    upload_raw_text_to_gcs). Used by the digest backfill so it can re-summarise
-    existing rows without re-downloading the PDF (older 2024 ASX announcement
-    URLs no longer resolve). Returns None on any failure.
-    """
+def fetch_text_from_gcs(gcs_uri: str) -> str:
+    """The raw page text stored at a gs:// URI (written by
+    upload_raw_text_to_gcs). Raises on any failure, ValueError for a URI that
+    is not gs://<bucket>/<path>, so a caller can say why a read failed: a
+    local dry run of --repair-document-meta's first version failed every read
+    with a 404 "The requested project was not found" (the credential's quota
+    project), and all 535 of its warnings said only "not fetched"."""
     if not gcs_uri or not gcs_uri.startswith("gs://"):
-        return None
+        raise ValueError(f"not a gs:// URI: {gcs_uri!r}")
+    bucket_name, _, blob_path = gcs_uri[len("gs://"):].partition("/")
+    if not bucket_name or not blob_path:
+        raise ValueError(f"not a gs://<bucket>/<path> URI: {gcs_uri!r}")
+    from google.cloud import storage as gcs
+    return gcs.Client().bucket(bucket_name).blob(blob_path).download_as_text()
+
+
+def download_text_from_gcs(gcs_uri: str) -> Optional[str]:
+    """fetch_text_from_gcs, or None on any failure (logged at DEBUG) and for
+    blank text. Used by the digest backfill so it can re-summarise existing
+    rows without re-downloading the PDF (older 2024 ASX announcement URLs no
+    longer resolve).
+    """
     try:
-        from google.cloud import storage as gcs
-        without_scheme = gcs_uri[len("gs://"):]
-        bucket_name, _, blob_path = without_scheme.partition("/")
-        if not bucket_name or not blob_path:
-            return None
-        client = gcs.Client()
-        blob = client.bucket(bucket_name).blob(blob_path)
-        text = blob.download_as_text()
-        return text if text and text.strip() else None
+        text = fetch_text_from_gcs(gcs_uri)
     except Exception as e:  # noqa: BLE001
         log.debug("  GCS text fetch failed for %s: %s", gcs_uri, e)
         return None
+    return text if text and text.strip() else None
 
 
 def store_extraction(
@@ -1504,6 +1521,103 @@ def store_unreadable(conn, report: dict, text_length: int, dry_run: bool = False
     store_extraction(conn, report, {}, text_length, dry_run, count_attempt=count_attempt)
 
 
+def entity_readers_see(stored: Optional[str]) -> str:
+    """The entity the API reads from a row's stored document_meta entity, ""
+    for none (stored None: the row states none). extractiontrust's
+    ParseDocumentMeta reduces every stored value with freeText and cleanEntity
+    (documentmeta.go), which validate_document_meta mirrors: ALK's
+    "ACN 000 689 216 |", stored before #707's name rules, reads as no entity."""
+    if stored is None:
+        return ""
+    return validate_document_meta({"entity": stored}).get("entity", "")
+
+
+def period_readers_see(period_end: Optional[str], period_type: Optional[str]) -> tuple[str, str]:
+    """(period_end, period_type) as the API reads them from a row's stored
+    document_meta, "" for absent: ParseDocumentMeta keeps a date that exists,
+    written YYYY-MM-DD, and a type in the vocabulary, which
+    validate_document_meta mirrors. latest_filing.go's own-period check and
+    picks gate 4 take that period_end as the document's own period, and the
+    dividend estimate's ConfirmEstimate (dividend_estimate.go) counts a
+    results document only when it is the notice's period end."""
+    seen = validate_document_meta({"period_end": period_end, "period_type": period_type})
+    return seen.get("period_end", ""), seen.get("period_type", "")
+
+
+def store_document_meta_repair(
+    conn,
+    report_url: str,
+    extracted_at: Any,
+    stored_meta: str,
+    entity: Optional[str] = None,
+    period: Optional[tuple[str, str]] = None,
+) -> bool:
+    """--repair-document-meta's writer: ONE statement editing one row's stored
+    document_meta object in place. `entity` is set, or removed when it is "";
+    `period`, a (period_end, period_type) pair, sets both keys; None leaves
+    either as stored. Every other key of document_meta, and every other column
+    (extracted_at included), stays as stored.
+
+    Guarded by what the row held when it was read: the WHOLE document_meta
+    (`stored_meta`, the text the selection read; jsonb equality, so key order
+    and spacing do not matter, and a NULL never matches) AND its extracted_at,
+    which store_extraction rewrites on every write and this never does. A row
+    any concurrent run rewrote since, in any key or only in extracted_at (an
+    EMPTY retry stores new text and new meta), is left alone, and False is
+    returned.
+
+    It never lifts an entity check. Every entity gate (latest_filing.go, picks
+    filings_ingest.go, the dividend estimate's ConfirmEstimate) checks a
+    document's entity only when one is stated, so removing a name readers
+    check would publish the row unchecked: AXR's two "Sturt Exploration Pty
+    Ltd financial statements" (a Core Lithium subsidiary's accounts) are
+    withheld from Axiant Resources by the auditor's name stored with them;
+    without it only AXR's missing vendor data would hold them back
+    (2026-10-13). "" therefore removes only a value readers already read as no
+    entity (entity_readers_see); any other removal raises ValueError. Nor does
+    it remove a period: `period` must be one readers read as a period
+    (period_readers_see), else ValueError."""
+    stored = json.loads(stored_meta) if isinstance(stored_meta, str) else None
+    if not isinstance(stored, dict):
+        raise ValueError(f"{report_url}: the guard needs the document_meta object as read, not {stored_meta!r}")
+    base, pairs, values = "document_meta", [], []
+    if entity == "":
+        if "entity" not in stored:
+            raise ValueError(f"{report_url} states no document_meta entity to remove")
+        value = stored["entity"]
+        if entity_readers_see(value if isinstance(value, str) else None):
+            raise ValueError(
+                f"refusing to remove {value!r} from {report_url}: readers check that name, "
+                "and without it they would check none"
+            )
+        base = "(document_meta - 'entity')"
+    elif entity is not None:
+        pairs.append("'entity', %s::text")
+        values.append(entity)
+    if period is not None:
+        if not all(period) or period_readers_see(*period) != tuple(period):
+            raise ValueError(f"refusing to write {period!r} to {report_url}: not a period readers read as one")
+        pairs.append("'period_end', %s::text, 'period_type', %s::text")
+        values.extend(period)
+    if not pairs and base == "document_meta":
+        raise ValueError(f"nothing to write to {report_url}")
+    edited = f"{base} || jsonb_build_object({', '.join(pairs)})" if pairs else base
+    sql = (
+        f"UPDATE financial_report_extractions SET document_meta = {edited} "
+        "WHERE report_url = %s AND extracted_at = %s AND document_meta = %s::jsonb"
+    )
+    params = (*values, report_url, extracted_at, stored_meta)
+    cur = conn.cursor()
+    try:
+        cur.execute(sql, params)
+        updated = cur.rowcount > 0
+    finally:
+        cur.close()
+    if not conn.autocommit:
+        conn.commit()
+    return updated
+
+
 def ensure_table(conn):
     """Create the extraction results table if it doesn't exist."""
     cur = conn.cursor()
@@ -1555,7 +1669,7 @@ def process_report_text(
     one validated call per document with consensus (direct_extract) instead of
     langextract, and the digest goes through the same OpenRouter client and
     primary model."""
-    meta = extract_document_meta(text)
+    meta = extract_document_meta(text, report_date_of(report))
     if direct is not None:
         import direct_extract
 

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/announcements"
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 )
 
@@ -213,6 +214,9 @@ type fakeSource struct {
 	outcomes   []outcomeCount
 	failures   []noticeFailure
 	statesURLs []string
+	estimates  []confirmedEstimateRow
+	documents  []announcements.ResultsDocument
+	docCodes   []string
 }
 
 func (f *fakeSource) ColumnExists(_ context.Context, table, column string) (bool, error) {
@@ -245,6 +249,15 @@ func (f *fakeSource) NoticeOutcomes(context.Context, time.Time, bool) ([]outcome
 
 func (f *fakeSource) NoticeFailures(context.Context, time.Time, bool) ([]noticeFailure, error) {
 	return f.failures, nil
+}
+
+func (f *fakeSource) ConfirmedEstimates(context.Context) ([]confirmedEstimateRow, error) {
+	return f.estimates, nil
+}
+
+func (f *fakeSource) EstimateDocuments(_ context.Context, codes []string, _ bool) ([]announcements.ResultsDocument, error) {
+	f.docCodes = codes
+	return f.documents, nil
 }
 
 func fixture() *fakeSource {
@@ -398,7 +411,7 @@ func TestGatesMatchTheCodeTheyMirror(t *testing.T) {
 
 func TestQueriesAreReadOnly(t *testing.T) {
 	write := regexp.MustCompile(`\b(INSERT|UPDATE|DELETE|MERGE|ALTER|DROP|CREATE|TRUNCATE|GRANT|COPY|CALL)\b`)
-	if len(queries) != 6 {
+	if len(queries) != 8 {
 		t.Fatalf("queries lists %d statements; add every new one", len(queries))
 	}
 	for _, q := range queries {
@@ -425,6 +438,112 @@ func TestNoticeState(t *testing.T) {
 	} {
 		if got := noticeState(tc.f, now); got != tc.want {
 			t.Errorf("%s: noticeState = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// gmgEstimate is GMG's notice of 2026-06-16 as parser 6 stored it: AUD 0.15,
+// unfranked, confirmed by its Appendix 4E 03127287.
+func gmgEstimate() confirmedEstimateRow {
+	return confirmedEstimateRow{
+		AttemptCode: "GMG", URL: gmgNotice, AttemptedAt: now,
+		Detail:    "1 rows; estimate confirmed by " + gmgFourE + "; actual amount due 2026-08-20",
+		StockCode: "GMG", ExDate: "2026-06-29", PeriodEnd: "2026-06-30", RecordDate: "2026-06-30", PayDate: "2026-08-26",
+		Type: "ordinary", Currency: "AUD", Amount: ptr(0.15), FrankedPct: ptr(0.0), AnnouncedOn: "2026-06-16",
+	}
+}
+
+const (
+	gmgNotice = "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03104557"
+	gmgFourE  = "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03127287"
+)
+
+// gmgDocument is GMG's 4E as prod stores it (the announcements pass's fixture).
+func gmgDocument(t *testing.T) announcements.ResultsDocument {
+	t.Helper()
+	b, err := os.ReadFile("../announcements/testdata/results_documents/gmg_03127287.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var d announcements.ResultsDocument
+	if err := json.Unmarshal(b, &d); err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+// A stored estimate is listed with the document and the quote that confirm
+// it, checked again with the pass's rule; one whose documents no longer
+// confirm it says why, and one a later notice replaced says so.
+func TestEstimateStates(t *testing.T) {
+	doc := gmgDocument(t)
+	withdrawn := doc
+	withdrawn.Dividend = json.RawMessage(`[{"unit": "cents", "consensus": "agree", "source_text": "Interim distribution per GMG security (cents)\n15.0", "value_cents": "15"}]`)
+	replaced := gmgEstimate()
+	replaced.URL = "https://notice/replaced"
+	replaced.StockCode, replaced.ExDate, replaced.Amount, replaced.FrankedPct = "", "", nil, nil
+	garbled := gmgEstimate()
+	garbled.URL, garbled.Detail = "https://notice/garbled", "1 rows; estimate confirmed by"
+
+	for _, tc := range []struct {
+		name   string
+		rows   []confirmedEstimateRow
+		docs   []announcements.ResultsDocument
+		state  string
+		quotes []string
+		docsAt []string
+	}{
+		{"GMG, confirmed by its 4E", []confirmedEstimateRow{gmgEstimate()}, []announcements.ResultsDocument{doc}, "confirmed",
+			[]string{"Final dividend and distribution proposed per GMG security (cents)\n15.0"}, []string{gmgFourE}},
+		{"its 4E re-extracted without the final", []confirmedEstimateRow{gmgEstimate()}, []announcements.ResultsDocument{withdrawn},
+			"no longer confirmed: no agreed entry in a results document names the ordinary distribution for the period ending 2026-06-30", nil, []string{gmgFourE}},
+		{"its 4E gone", []confirmedEstimateRow{gmgEstimate()}, nil,
+			"no longer confirmed: no document of GMG states period end 2026-06-30 and was filed from 2026-08-20 to 2026-10-31", nil, []string{gmgFourE}},
+		{"its row replaced by a later notice", []confirmedEstimateRow{replaced}, []announcements.ResultsDocument{doc}, "replaced by a later notice", nil, []string{gmgFourE}},
+		{"a detail the review cannot read", []confirmedEstimateRow{garbled}, []announcements.ResultsDocument{doc},
+			"no longer confirmed: its detail names no document and no due date", nil, nil},
+	} {
+		got := estimateStates(tc.rows, tc.docs)
+		if len(got) != 1 {
+			t.Fatalf("%s: %d estimates, want 1", tc.name, len(got))
+		}
+		if e := got[0]; e.State != tc.state || !slices.Equal(e.Quotes, tc.quotes) || !slices.Equal(e.Documents, tc.docsAt) {
+			t.Errorf("%s: state %q, quotes %q, documents %q\nwant %q, %q, %q", tc.name, e.State, e.Quotes, e.Documents, tc.state, tc.quotes, tc.docsAt)
+		}
+	}
+}
+
+func TestCollectAndRenderStoredEstimates(t *testing.T) {
+	src := fixture()
+	replaced := gmgEstimate()
+	replaced.URL, replaced.AttemptCode = "https://notice/replaced", "LRT"
+	replaced.StockCode, replaced.ExDate, replaced.Amount, replaced.FrankedPct = "", "", nil, nil
+	// A row its 4E no longer confirms: stored at 0.16, the 4E states 15.0c.
+	stale := gmgEstimate()
+	stale.URL, stale.Amount = "https://notice/stale", ptr(0.16)
+	src.estimates = []confirmedEstimateRow{gmgEstimate(), replaced, stale}
+	src.documents = []announcements.ResultsDocument{gmgDocument(t)}
+	rep, err := collect(context.Background(), src, config{days: 90, limit: 25}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(src.docCodes, []string{"GMG"}) {
+		t.Errorf("documents asked for %q, want the stored rows' codes", src.docCodes)
+	}
+	if len(rep.Estimates) != 3 || rep.Estimates[0].State != "confirmed" || rep.Estimates[1].State != "replaced by a later notice" ||
+		!strings.HasPrefix(rep.Estimates[2].State, "no longer confirmed: ") {
+		t.Fatalf("estimates = %+v", rep.Estimates)
+	}
+	got := render(rep)
+	for _, want := range []string{
+		"### Estimates stored from a results document (3: 1 no longer confirmed, 1 replaced by a later notice)",
+		"| Code | Ex-date | Amount | Notice | Document | Quote | State |",
+		"| GMG | 2026-06-29 | AUD 0.15 ordinary, 0% franked | [notice](" + gmgNotice + ") | [document](" + gmgFourE +
+			") | Final dividend and distribution proposed per GMG security (cents) 15.0 | confirmed |",
+		"| LRT | — |  | [notice](https://notice/replaced) | [document](" + gmgFourE + ") |  | replaced by a later notice |",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("render output lacks %q\n%s", want, got)
 		}
 	}
 }

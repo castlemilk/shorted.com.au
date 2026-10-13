@@ -9,7 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // dividendNoticeParserVersion is bumped whenever parseDividendNotice or
@@ -25,7 +26,15 @@ import (
 // calls actual (LED's finalisation), fields the text layer runs together
 // (unglue), and a Part 3C scrip distribution: counted toward the total, never
 // stored (BCN's cash part is stored; VMC, paid only in shares, is scrip_only).
-const dividendNoticeParserVersion = 5
+// Version 6 stores an estimate once the issuer's own results document
+// confirms it (dividend_estimate.go: GMG lodges one estimate a half and never
+// an update, so it had no dividend rows), and reads an estimated_only notice
+// again after its due date, once for each extraction of its listing code
+// with a dividend and a period end made since it was read (a June estimate is
+// read in June; its 4E is extracted 47 days after filing at the median). The
+// bump itself re-reads GMG's: its v5 attempt (2026-10-12 11:29 UTC) is later
+// than its 4E's extraction (2026-10-11 14:12 UTC), so no extraction is newer.
+const dividendNoticeParserVersion = 6
 
 // pendingNotice represents an unparsed dividend notice from the crawl.
 type pendingNotice struct {
@@ -91,6 +100,16 @@ type dividendNoticeStore interface {
 	PendingDividendNotices(ctx context.Context, limit int, parserVersion int) ([]pendingNotice, error)
 	UpsertDividends(ctx context.Context, rows []dividendRow) (int, error)
 	RecordNoticeAttempt(ctx context.Context, a noticeAttempt) error
+	// EstimateEvidence reads what decides whether an estimated_only notice is
+	// stored from its results document (confirmEstimatedNotice): the
+	// extractions of its security code, the rows stored for its code under
+	// its ex-date or for its period, and the issuer's notices announced since.
+	EstimateEvidence(ctx context.Context, n DividendNotice, p pendingNotice) (estimateEvidence, error)
+	// UpsertConfirmedEstimates writes rows a results document confirmed. A
+	// row is replaced only when it is the notice's own, or a confirmed
+	// estimate from an earlier notice: never one stored from a declared
+	// amount.
+	UpsertConfirmedEstimates(ctx context.Context, rows []dividendRow) (int, error)
 }
 
 // noticeTextFunc fetches the text of an announcement PDF.
@@ -126,6 +145,9 @@ func waitingDetail(n DividendNotice, what, due string) string {
 //     from part, DeclaredCurrency=n.Currency, DeclaredAmount=part.Amount,
 //     AnnouncementURL=p.URL, AnnouncedOn=n.AnnouncedOn or p.AnnouncementDate.
 //     Outcome "parsed" with detail like "2 rows".
+//
+// An estimated_only notice may still be stored, by the pass, once its results
+// document confirms the estimate (confirmEstimatedNotice).
 func dividendRowsFor(n DividendNotice, p pendingNotice) (rows []dividendRow, outcome, detail string) {
 	// Rule 1: code match (first 3 chars, case-insensitive)
 	if !codesMatch(n.SecurityCode, p.StockCode) {
@@ -174,23 +196,28 @@ func dividendRowsFor(n DividendNotice, p pendingNotice) (rows []dividendRow, out
 			}
 		}
 
-		rows = append(rows, dividendRow{
-			StockCode:        n.SecurityCode,
-			ExDate:           n.ExDate,
-			RecordDate:       n.RecordDate,
-			PaymentDate:      n.PaymentDate,
-			PeriodEnd:        n.PeriodEnd,
-			AmountAUD:        amountAUD,
-			FrankedPct:       part.FrankedPct,
-			Type:             part.Type,
-			DeclaredCurrency: n.Currency,
-			DeclaredAmount:   part.Amount,
-			AnnouncementURL:  p.URL,
-			AnnouncedOn:      announcedOn,
-		})
+		rows = append(rows, noticeRow(n, p, part, amountAUD, announcedOn))
 	}
 
 	return rows, "parsed", fmt.Sprintf("%d rows", len(rows))
+}
+
+// noticeRow is rule 4's row for one part of a notice.
+func noticeRow(n DividendNotice, p pendingNotice, part DividendPart, amountAUD float64, announcedOn string) dividendRow {
+	return dividendRow{
+		StockCode:        n.SecurityCode,
+		ExDate:           n.ExDate,
+		RecordDate:       n.RecordDate,
+		PaymentDate:      n.PaymentDate,
+		PeriodEnd:        n.PeriodEnd,
+		AmountAUD:        amountAUD,
+		FrankedPct:       part.FrankedPct,
+		Type:             part.Type,
+		DeclaredCurrency: n.Currency,
+		DeclaredAmount:   part.Amount,
+		AnnouncementURL:  p.URL,
+		AnnouncedOn:      announcedOn,
+	}
 }
 
 // runDividendNoticePass downloads and parses unparsed dividend notices.
@@ -252,6 +279,26 @@ func runDividendNoticePass(
 			logf("dividend notice %s: recording outcome %s failed: %v", n.URL, outcome, err) // re-selected next run
 		}
 	}
+	// confirmEstimate is an estimated_only notice's rows and attempt detail
+	// when its results document confirms the estimate (confirmEstimatedNotice),
+	// nil rows when it does not; the log says which, and why.
+	confirmEstimate := func(notice DividendNotice, n pendingNotice) ([]dividendRow, string, error) {
+		why := estimateConfirmable(notice)
+		if why == "" {
+			ev, err := store.EstimateEvidence(ctx, notice, n)
+			if err != nil {
+				return nil, "", err
+			}
+			rows, detail, reason := confirmEstimatedNotice(notice, n, ev)
+			if reason == "" {
+				logf("dividend notice %s: %s's estimate ex %s confirmed by its results document (%s)", n.URL, notice.SecurityCode, notice.ExDate, detail)
+				return rows, detail, nil
+			}
+			why = reason
+		}
+		logf("dividend notice %s: %s's estimate ex %s not stored: %s", n.URL, notice.SecurityCode, notice.ExDate, why)
+		return nil, "", nil
+	}
 	// handle takes one notice to its outcome. The caller sleeps after every
 	// notice, whatever the outcome: each one costs ASX two requests.
 	handle := func(n pendingNotice) {
@@ -269,6 +316,22 @@ func runDividendNoticePass(
 		}
 		n = n.listedAs(notice.SecurityCode)
 		rows, outcome, detail := dividendRowsFor(notice, n)
+		// An estimate is stored once its results document confirms it; until
+		// then waiting is "", and the notice keeps its estimated_only detail.
+		upsert, waiting, note := store.UpsertDividends, "", ""
+		if outcome == "estimated_only" {
+			confirmed, confirmedDetail, err := confirmEstimate(notice, n)
+			if err != nil {
+				logf("dividend notice %s: reading what confirms its estimate failed: %v", n.URL, err)
+				tally("store_error", 0) // no attempt recorded, so it is retried next run
+				return
+			}
+			if confirmed != nil {
+				waiting, note = detail, " ("+confirmedDetail+")"
+				rows, outcome, detail = confirmed, "parsed", confirmedDetail
+				upsert = store.UpsertConfirmedEstimates
+			}
+		}
 		if outcome != "parsed" {
 			tally(outcome, 0)
 			record(n, outcome, detail)
@@ -276,16 +339,23 @@ func runDividendNoticePass(
 		}
 		if dryRun {
 			for _, r := range rows {
-				logf("DRY-RUN dividend: %s %s ex %s A$%.6f (declared %s %.6f) from %s", r.StockCode, r.Type, r.ExDate,
-					r.AmountAUD, r.DeclaredCurrency, r.DeclaredAmount, n.URL)
+				logf("DRY-RUN dividend: %s %s ex %s A$%.6f (declared %s %.6f) from %s%s", r.StockCode, r.Type, r.ExDate,
+					r.AmountAUD, r.DeclaredCurrency, r.DeclaredAmount, n.URL, note)
 			}
 			tally("parsed", len(rows))
 			return
 		}
-		written, err := store.UpsertDividends(ctx, rows)
+		written, err := upsert(ctx, rows)
 		if err != nil {
 			logf("dividend notice %s: upsert failed: %v", n.URL, err)
 			tally("store_error", 0) // no attempt recorded, so it is retried next run
+			return
+		}
+		if waiting != "" && written == 0 {
+			// A row stored from a declared amount arrived after the evidence
+			// was read: it stands, and the notice still waits.
+			tally("estimated_only", 0)
+			record(n, "estimated_only", waiting)
 			return
 		}
 		tally("parsed", written)
@@ -330,6 +400,27 @@ func runDividendNoticePass(
 
 // SQL const for pending notices (deduped, excluding recent attempts). Each
 // carries every code that listed its PDF (listed_codes, for listedAs).
+//
+// An estimated_only notice is read again once its actual amount was due
+// before today and an extraction of its listing code (the attempt's
+// stock_code) with a dividend and a period end has been made since it was
+// last read: an estimate is read weeks before its results document exists
+// (GMG's of 2026-06-16; its 4E was filed 2026-08-20 and extracted
+// 2026-10-11), so it could otherwise never be confirmed. Each new extraction
+// costs one read of every such notice of its code: a code with N waiting
+// estimates costs N reads (each two ASX requests and one of the run's
+// -dividend-notices 200), and a monthly payer (MOT, MXT, PCI) holds about 30
+// once the backlog is read. Most are superseded by a later notice, which
+// confirmEstimatedNotice always withholds: every read fails safe, and the
+// cost falls mostly in results season. The match is on the listing code, not
+// the security code the confirmation reads, and on extracted_at; both gaps
+// fail safe (a read wasted or missed, never a wrong row). A hybrid's estimate
+// (CBAPI, listed under CBA) is read again on every new CBA extraction,
+// though its documents are CBAPI's. A document that rehome_shared_extractions
+// (services/report-extractor/extract.py) moves to the estimate's code keeps
+// its extracted_at, so it never triggers a read: that estimate waits for the
+// next extraction of its code, or a parser bump. A detail with no due date
+// never matches (COALESCE): a NULL there would select the notice.
 const (
 	pendingNoticesSql = `
 SELECT stock_code, announcement_date::text, headline, pdf_url, listed_codes FROM (
@@ -342,14 +433,21 @@ SELECT stock_code, announcement_date::text, headline, pdf_url, listed_codes FROM
       SELECT 1 FROM dividend_notice_attempts t
       WHERE t.announcement_url = a.pdf_url
         AND NOT (t.outcome = 'no_text' AND t.attempted_at < now() - interval '7 days')
-        AND NOT (t.outcome NOT IN ('parsed', 'cancellation', 'scrip_only', 'no_text') AND t.parser_version < $2))
+        AND NOT (t.outcome NOT IN ('parsed', 'cancellation', 'scrip_only', 'no_text') AND t.parser_version < $2)
+        AND NOT (t.outcome = 'estimated_only'
+                 AND COALESCE(substring(t.detail from 'due ([0-9]{4}-[0-9]{2}-[0-9]{2})') < to_char(current_date, 'YYYY-MM-DD'), false)
+                 AND EXISTS (SELECT 1 FROM financial_report_extractions e
+                             WHERE e.stock_code = t.stock_code AND e.extracted_at > t.attempted_at
+                               AND e.metrics ? 'dividend' AND e.document_meta ? 'period_end')))
   ORDER BY a.pdf_url, a.announcement_date DESC, a.stock_code
 ) s
 ORDER BY announcement_date DESC, stock_code
 LIMIT $1
 `
 
-	upsertDividendSql = `
+	// upsertDividendInsert is what the two upserts share; each adds its own
+	// WHERE, which decides whether an existing row is replaced.
+	upsertDividendInsert = `
 INSERT INTO dividend_history (stock_code, ex_date, record_date, payment_date, period_end, amount_per_share,
     franking_percentage, dividend_type, declared_currency, declared_amount, announcement_url, announced_on)
 VALUES ($1, $2::date, NULLIF($3, '')::date, NULLIF($4, '')::date, NULLIF($5, '')::date, $6, $7, $8, $9, $10, $11, NULLIF($12, '')::date)
@@ -358,7 +456,25 @@ ON CONFLICT (stock_code, ex_date, dividend_type) DO UPDATE SET
     amount_per_share = EXCLUDED.amount_per_share, franking_percentage = EXCLUDED.franking_percentage,
     declared_currency = EXCLUDED.declared_currency, declared_amount = EXCLUDED.declared_amount,
     announcement_url = EXCLUDED.announcement_url, announced_on = EXCLUDED.announced_on
-WHERE dividend_history.announced_on IS NULL OR EXCLUDED.announced_on >= dividend_history.announced_on
+`
+
+	upsertDividendSql = upsertDividendInsert + `WHERE dividend_history.announced_on IS NULL OR EXCLUDED.announced_on >= dividend_history.announced_on
+`
+
+	// upsertConfirmedEstimateSql replaces the notice's own row, or a confirmed
+	// estimate from a notice announced on an earlier day (its attempt says
+	// so), and nothing else: never a row stored from a declared amount,
+	// whatever its date, NULL included. The pass checks the same before
+	// writing (confirmEstimatedNotice); this holds if a declared row arrives
+	// under the same ex-date in between. A row for the period under another
+	// ex-date is no conflict here: what keeps the estimate from being stored
+	// beside it is the pass's check of the stored rows, and the later-notice
+	// rule (a later notice whose attempt is not yet recorded withholds it).
+	upsertConfirmedEstimateSql = upsertDividendInsert + `WHERE dividend_history.announcement_url = EXCLUDED.announcement_url
+   OR (dividend_history.announced_on < EXCLUDED.announced_on
+       AND EXISTS (SELECT 1 FROM dividend_notice_attempts t
+                   WHERE t.announcement_url = dividend_history.announcement_url
+                     AND t.outcome = 'parsed' AND t.detail LIKE '%` + confirmedEstimateMarker + `%'))
 `
 
 	recordAttemptSql = `
@@ -367,11 +483,75 @@ VALUES ($1, $2, $3, NULLIF($4, ''), $5, now())
 ON CONFLICT (announcement_url) DO UPDATE SET stock_code = EXCLUDED.stock_code, outcome = EXCLUDED.outcome,
     detail = EXCLUDED.detail, parser_version = EXCLUDED.parser_version, attempted_at = EXCLUDED.attempted_at
 `
+
+	// estimateDocumentsSql: the extractions of an estimate's security code
+	// ($1, the notice's own: a hybrid's is never its issuer's) that carry a
+	// dividend, as ConfirmEstimate reads them.
+	estimateDocumentsSql = `
+SELECT e.stock_code, e.report_url, COALESCE(e.report_title, ''), COALESCE(to_char(e.report_date, 'YYYY-MM-DD'), ''),
+       COALESCE(cm.company_name, ''), e.document_meta, e.metrics->'dividend'
+FROM financial_report_extractions e
+LEFT JOIN "company-metadata" cm ON cm.stock_code = e.stock_code
+WHERE e.stock_code = $1 AND e.metrics ? 'dividend'
+ORDER BY e.report_date, e.report_url
+`
+
+	// estimateStoredSql: the rows stored for an estimate's code ($1) under its
+	// ex-date ($2) or for its 2A.3 period end ($3) under any ex-date (a
+	// re-lodged notice that moved the ex-date: KME's 2026-09-30 and 10-01 are
+	// both stored), each with whether its notice is itself a confirmed
+	// estimate. The period also withholds an estimate when an issuer states
+	// one period end for two distributions, which fails safe: LFG's 03099463
+	// (7.5c, ex 2026-06-04) and 03128689 (7.4986c, ex 2026-06-29) both state
+	// 2A.3 2026-06-30. So a review flag for a period stored under two
+	// ex-dates must match a re-lodged notice, never the period alone: KME's,
+	// KSL's and N1H's pairs repeat the amount (KSL's and N1H's the payment
+	// date too; KME's moved it), LFG's do not.
+	estimateStoredSql = `
+SELECT COALESCE(d.dividend_type, ''), d.ex_date::text, COALESCE(d.announcement_url, ''), COALESCE(d.announced_on::text, ''),
+       EXISTS (SELECT 1 FROM dividend_notice_attempts t
+               WHERE t.announcement_url = d.announcement_url
+                 AND t.outcome = 'parsed' AND t.detail LIKE '%` + confirmedEstimateMarker + `%')
+FROM dividend_history d
+WHERE d.stock_code = $1 AND (d.ex_date = $2::date OR d.period_end = NULLIF($3, '')::date)
+ORDER BY d.ex_date, d.dividend_type, d.announcement_url
+`
+
+	// estimateLaterNoticesSql: every other notice ($1 is the estimate's)
+	// listed under a code that shares the security code's first three
+	// characters ($2), announced on or after the estimate's day ($3; which of
+	// a day's notices came later is lodgedAfter's), with its latest
+	// announcement date, its attempt, and whether it stored a row for the
+	// code under the ex-date ($4) or for the period end ($5) with one of the
+	// estimate's types ($6). The code range, not left(stock_code, 3), lets the
+	// scan use idx_asx_ann_stock_date (0.25 ms against 113 ms on prod,
+	// 2026-10-13); ASX codes are capital letters and digits.
+	estimateLaterNoticesSql = `
+SELECT l.pdf_url, l.announced::text, COALESCE(t.outcome, ''), COALESCE(t.detail, ''),
+       EXISTS (SELECT 1 FROM dividend_history d
+               WHERE d.announcement_url = l.pdf_url AND d.stock_code = $2
+                 AND (d.ex_date = $4::date OR d.period_end = NULLIF($5, '')::date AND d.dividend_type = ANY($6::text[])))
+FROM (SELECT a.pdf_url, max(a.announcement_date) AS announced FROM asx_announcements a
+      WHERE a.stock_code BETWEEN upper(left($2, 3)) AND upper(left($2, 3)) || 'ZZZZZZZZZZ'
+        AND a.announcement_date >= $3::date
+        AND a.headline ILIKE '%Dividend/Distribution - %'
+        AND a.pdf_url IS NOT NULL AND a.pdf_url <> '' AND a.pdf_url <> $1
+      GROUP BY a.pdf_url) l
+LEFT JOIN dividend_notice_attempts t ON t.announcement_url = l.pdf_url
+ORDER BY l.pdf_url
+`
 )
+
+// dividendNoticeDB is what the store asks of its *pgxpool.Pool. A test
+// records the statements and their arguments without a database.
+type dividendNoticeDB interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
 
 // postgresDividendNoticeStore implements dividendNoticeStore.
 type postgresDividendNoticeStore struct {
-	db *pgxpool.Pool
+	db dividendNoticeDB
 }
 
 // PendingDividendNotices returns up to limit unparsed dividend notices.
@@ -396,13 +576,20 @@ func (s *postgresDividendNoticeStore) PendingDividendNotices(ctx context.Context
 
 // UpsertDividends inserts or updates dividend rows, returning the number affected.
 func (s *postgresDividendNoticeStore) UpsertDividends(ctx context.Context, rows []dividendRow) (int, error) {
-	if len(rows) == 0 {
-		return 0, nil
-	}
+	return s.upsert(ctx, upsertDividendSql, rows)
+}
 
+// UpsertConfirmedEstimates inserts rows a results document confirmed,
+// replacing only the notice's own row or an earlier confirmed estimate, and
+// returns the number affected.
+func (s *postgresDividendNoticeStore) UpsertConfirmedEstimates(ctx context.Context, rows []dividendRow) (int, error) {
+	return s.upsert(ctx, upsertConfirmedEstimateSql, rows)
+}
+
+func (s *postgresDividendNoticeStore) upsert(ctx context.Context, sql string, rows []dividendRow) (int, error) {
 	var totalRows int
 	for _, row := range rows {
-		cmdTag, err := s.db.Exec(ctx, upsertDividendSql,
+		cmdTag, err := s.db.Exec(ctx, sql,
 			row.StockCode, row.ExDate, row.RecordDate, row.PaymentDate, row.PeriodEnd,
 			row.AmountAUD, row.FrankedPct, row.Type, row.DeclaredCurrency, row.DeclaredAmount,
 			row.AnnouncementURL, row.AnnouncedOn)
@@ -412,6 +599,69 @@ func (s *postgresDividendNoticeStore) UpsertDividends(ctx context.Context, rows 
 		totalRows += int(cmdTag.RowsAffected())
 	}
 	return totalRows, nil
+}
+
+// EstimateEvidence reads, for an estimated_only notice, the extractions of
+// its security code, the rows stored for its code under its ex-date or for
+// its period, and the issuer's notices announced since (estimateEvidence).
+func (s *postgresDividendNoticeStore) EstimateEvidence(ctx context.Context, n DividendNotice, p pendingNotice) (estimateEvidence, error) {
+	var ev estimateEvidence
+	docs, err := s.db.Query(ctx, estimateDocumentsSql, n.SecurityCode)
+	if err != nil {
+		return ev, fmt.Errorf("documents: %w", err)
+	}
+	for docs.Next() {
+		var d ResultsDocument
+		var meta, dividend []byte
+		if err := docs.Scan(&d.StockCode, &d.URL, &d.Title, &d.ReportDate, &d.CompanyName, &meta, &dividend); err != nil {
+			docs.Close()
+			return ev, fmt.Errorf("documents: %w", err)
+		}
+		d.DocumentMeta, d.Dividend = meta, dividend
+		ev.Documents = append(ev.Documents, d)
+	}
+	docs.Close()
+	if err := docs.Err(); err != nil {
+		return ev, fmt.Errorf("documents: %w", err)
+	}
+
+	stored, err := s.db.Query(ctx, estimateStoredSql, n.SecurityCode, n.ExDate, n.PeriodEnd)
+	if err != nil {
+		return ev, fmt.Errorf("stored rows: %w", err)
+	}
+	for stored.Next() {
+		var r storedDividend
+		if err := stored.Scan(&r.Type, &r.ExDate, &r.AnnouncementURL, &r.AnnouncedOn, &r.ConfirmedEstimate); err != nil {
+			stored.Close()
+			return ev, fmt.Errorf("stored rows: %w", err)
+		}
+		ev.Stored = append(ev.Stored, r)
+	}
+	stored.Close()
+	if err := stored.Err(); err != nil {
+		return ev, fmt.Errorf("stored rows: %w", err)
+	}
+
+	var types []string
+	for _, part := range n.Parts {
+		types = append(types, part.Type)
+	}
+	later, err := s.db.Query(ctx, estimateLaterNoticesSql, p.URL, n.SecurityCode, p.AnnouncementDate, n.ExDate, n.PeriodEnd, types)
+	if err != nil {
+		return ev, fmt.Errorf("later notices: %w", err)
+	}
+	defer later.Close()
+	for later.Next() {
+		var l laterNotice
+		if err := later.Scan(&l.URL, &l.AnnouncedOn, &l.Outcome, &l.Detail, &l.StoredDividend); err != nil {
+			return ev, fmt.Errorf("later notices: %w", err)
+		}
+		ev.Later = append(ev.Later, l)
+	}
+	if err := later.Err(); err != nil {
+		return ev, fmt.Errorf("later notices: %w", err)
+	}
+	return ev, nil
 }
 
 // RecordNoticeAttempt records the outcome of processing one notice.

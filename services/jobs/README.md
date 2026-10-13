@@ -511,6 +511,7 @@ was made.
 | `--budget-min` | none | 90 (Python only) | no: not ported |
 | `--max-model-errors` | none | 5 (Python only) | no: not ported |
 | `--repair-echo-digests` | none | false (Python only; the one-off echo-digest repair) | no: not ported |
+| `--repair-document-meta` | none | false (Python only; the one-off repair of stored `document_meta` entities and periods, each read again with the row's report date: only a `renamed` row can make a withheld filing pass an entity gate, an `added` one can only withhold one, and each changed, added or kept period says what it does to the stock page's own-period check; check every line of the dry run's recap against its document) | no: not ported |
 | `--backfill-digests` | `-backfill-digests` | false | ✅ |
 | `--dry-run` | `-dry-run` | false (defaults from the global `-dry-run`) | ✅ + also gates GCS |
 
@@ -1170,11 +1171,13 @@ disclosed improvement).
 
 `shorted review` prints a markdown report of the documents Shorted could not
 turn into data: newest results documents never read, empty and unreadable
-extractions, rows the API withholds (and which gate withheld them), and
-dividend notices that failed. It reads through one READ ONLY transaction and
-writes nothing. Not deployed: `task data:review` runs it against prod from the
-main checkout. `-text <url>` prints one announcement PDF's text as the Go
-parsers read it, with no database, to turn a failed notice into a test fixture.
+extractions, rows the API withholds (and which gate withheld them), dividend
+notices that failed, and the dividend estimates stored from a results
+document, each checked again with the pass's rule. It reads through one READ
+ONLY transaction and writes nothing. Not deployed: `task data:review` runs it
+against prod from the main checkout. `-text <url>` prints one announcement
+PDF's text as the Go parsers read it, with no database, to turn a failed
+notice into a test fixture.
 
 What to do with each list: `.claude/skills/data-review/SKILL.md`. Each review
 is recorded in `docs/data-review/LOG.md`.
