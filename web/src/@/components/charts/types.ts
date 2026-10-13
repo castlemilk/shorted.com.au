@@ -23,13 +23,17 @@ export interface ChartSeriesSpec {
   /** Optional per-point overlay values, length === points.length (subsampled with the series). */
   indicatorValues?: (number | null)[];
   /**
-   * How the drag-to-measure tool reports change between two points on this series.
-   * "relative" (default): percentage change (vB−vA)/vA, rendered as e.g. "+4.2%".
-   * "absolute": raw delta vB−vA, rendered with `measureUnit` — use for a series
-   * already expressed in percent (short interest) so the readout is "−1.1pp".
+   * How a change between two points on this series is reported, by the
+   * drag-to-measure tool and by the readout strip's latest reading (both go
+   * through `seriesDelta` in chart-readout.ts).
+   * "relative" (default): percentage change (vB−vA)/vA, one decimal, e.g. "+4.2%".
+   * "absolute": raw delta vB−vA to two decimals, then `measureUnit`, e.g. "−1.10 pp".
+   * A fall is signed with a true minus (U+2212), as here, never an ASCII hyphen.
+   * Use it for a series already expressed in percent (short interest). Only a
+   * relative change is market direction, so only it is coloured red or green.
    */
   measureMode?: "relative" | "absolute";
-  /** Suffix for the measure readout in "absolute" mode (e.g. "pp"). Default "". */
+  /** Suffix for the change in "absolute" mode (e.g. "pp"), after a space. Default "". */
   measureUnit?: string;
 }
 
@@ -99,9 +103,35 @@ export interface StockChartProps {
   rightAxis?: AxisSpec;
   viewMode?: "absolute" | "normalized"; // default "absolute"
   showBrush?: boolean; // default true in "full"
-  height?: number; // default 360
+  /**
+   * The chart's total height in px, readout strip included. Omitted, the chart
+   * fills its parent instead: it takes the height ParentSize measures there and
+   * draws nothing while that is under 10px. The parent needs a definite height
+   * (a box sized by CSS, say); an auto-height one measures as nothing.
+   */
+  height?: number;
   variant?: "full" | "compact"; // compact: no axis labels, no volume, no brush
   decimationTargetPerPx?: number; // default 2
+  /**
+   * Where the reading goes. "strip" (default): a strip above the plot that shows
+   * the latest values, then the hovered, pinned or measured ones, so nothing ever
+   * covers the plot. Its height depends only on the chart's width and how many
+   * series it shows: one 28px row from 640px wide, and below that a headline row
+   * and a row for each series. "tooltip": the floating card that follows the
+   * cursor (dashboard widgets, small embeds). A strip that would leave the plot
+   * under READOUT_MIN_PLOT px falls back to the tooltip.
+   */
+  readout?: "strip" | "tooltip";
+  /**
+   * Series the strip holds a row for that have not arrived. A phone strip has a
+   * row for each series, so one that lands after the first (the Combined view
+   * loads its price and its short interest separately) would grow the strip by
+   * 18px and move the plot under it. The strip is sized for the greater of this
+   * and the number of series, and the rows of the series still to come are
+   * empty. It changes nothing from 640px wide, where the strip is one row
+   * whatever it shows, and nothing in the tooltip mode.
+   */
+  readoutReserveSeries?: number;
 }
 
 /** A horizontal reference line on one axis, optionally bounded to a time span. */

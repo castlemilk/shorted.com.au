@@ -99,22 +99,6 @@ jest.mock("~/@/components/charts/StockPriceShortChart", () => ({
   ),
 }));
 
-jest.mock("~/@/components/ui/companyProfile", () => ({
-  __esModule: true,
-  default: ({ stockCode }: { stockCode: string }) => (
-    <div data-testid="company-profile">{stockCode}</div>
-  ),
-  CompanyProfilePlaceholder: () => <div data-testid="company-profile-placeholder" />,
-}));
-
-jest.mock("~/@/components/ui/companyStats", () => ({
-  __esModule: true,
-  default: ({ stockCode }: { stockCode: string }) => (
-    <div data-testid="company-stats">{stockCode}</div>
-  ),
-  CompanyStatsPlaceholder: () => <div data-testid="company-stats-placeholder" />,
-}));
-
 jest.mock("~/@/components/ui/companyInfo", () => ({
   __esModule: true,
   default: ({ stockCode }: { stockCode: string }) => (
@@ -172,8 +156,6 @@ describe("Stock Detail Page SSR", () => {
           "DashboardLayout",
           "Sidebar",
           "CompanyInfo",
-          "CompanyProfile",
-          "CompanyStats",
           "Chart",
           "MarketChart",
         ];

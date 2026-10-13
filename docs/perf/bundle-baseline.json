@@ -1,11 +1,11 @@
 {
-  "capturedAt": "2026-10-09T14:43:39.852Z",
-  "gitRef": null,
+  "capturedAt": "2026-10-10T07:40:52.321Z",
+  "gitRef": "82358b29e",
   "unit": "kB (Next First Load JS, raw)",
   "sharedByAllKB": 95.9,
   "routes": {
     "/": {
-      "firstLoadKB": 171
+      "firstLoadKB": 170
     },
     "/_not-found": {
       "firstLoadKB": 96.1
@@ -155,10 +155,10 @@
       "firstLoadKB": 0
     },
     "/authors": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/authors/[slug]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/authors/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -209,7 +209,7 @@
       "firstLoadKB": 272
     },
     "/data": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/data/opengraph-image": {
       "firstLoadKB": 0
@@ -257,7 +257,7 @@
       "firstLoadKB": 0
     },
     "/e2e-chat-render": {
-      "firstLoadKB": 591
+      "firstLoadKB": 590
     },
     "/economy": {
       "firstLoadKB": 133
@@ -287,7 +287,7 @@
       "firstLoadKB": 176
     },
     "/embed/treemap": {
-      "firstLoadKB": 97.6
+      "firstLoadKB": 97.5
     },
     "/faq": {
       "firstLoadKB": 139
@@ -308,7 +308,7 @@
       "firstLoadKB": 132
     },
     "/glossary/[term]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/glossary/[term]/opengraph-image": {
       "firstLoadKB": 0
@@ -347,7 +347,7 @@
       "firstLoadKB": 0
     },
     "/housing/capitals": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/housing/capitals/[slug]": {
       "firstLoadKB": 133
@@ -368,10 +368,10 @@
       "firstLoadKB": 161
     },
     "/housing/rankings": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/housing/rankings/[slug]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/housing/rankings/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -383,7 +383,7 @@
       "firstLoadKB": 137
     },
     "/industry-intelligence": {
-      "firstLoadKB": 155
+      "firstLoadKB": 154
     },
     "/industry-intelligence/opengraph-image": {
       "firstLoadKB": 0
@@ -398,10 +398,10 @@
       "firstLoadKB": 0
     },
     "/insider-trading": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/insider-trading/[stockCode]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/insider-trading/[stockCode]/opengraph-image": {
       "firstLoadKB": 0
@@ -413,7 +413,7 @@
       "firstLoadKB": 132
     },
     "/learn/[slug]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/learn/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -422,10 +422,10 @@
       "firstLoadKB": 0
     },
     "/market": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/market/[date]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/market/[date]/opengraph-image": {
       "firstLoadKB": 0
@@ -464,7 +464,7 @@
       "firstLoadKB": 138
     },
     "/picks/[strategy]": {
-      "firstLoadKB": 143
+      "firstLoadKB": 142
     },
     "/picks/[strategy]/opengraph-image": {
       "firstLoadKB": 0
@@ -569,10 +569,10 @@
       "firstLoadKB": 0
     },
     "/scans": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/scans/[slug]": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/scans/[slug]/opengraph-image": {
       "firstLoadKB": 0
@@ -587,7 +587,7 @@
       "firstLoadKB": 0
     },
     "/search": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/seasonality": {
       "firstLoadKB": 104
@@ -599,7 +599,7 @@
       "firstLoadKB": 190
     },
     "/shorts/[stockCode]": {
-      "firstLoadKB": 201
+      "firstLoadKB": 278
     },
     "/shorts/[stockCode]/community": {
       "firstLoadKB": 121
@@ -614,16 +614,16 @@
       "firstLoadKB": 206
     },
     "/shorts/[stockCode]/news": {
-      "firstLoadKB": 169
+      "firstLoadKB": 168
     },
     "/shorts/[stockCode]/opengraph-image": {
       "firstLoadKB": 0
     },
     "/shorts/[stockCode]/short-interest": {
-      "firstLoadKB": 199
+      "firstLoadKB": 276
     },
     "/shorts/[stockCode]/strategy": {
-      "firstLoadKB": 234
+      "firstLoadKB": 237
     },
     "/shorts/opengraph-image": {
       "firstLoadKB": 0
@@ -671,7 +671,7 @@
       "firstLoadKB": 104
     },
     "/themes": {
-      "firstLoadKB": 133
+      "firstLoadKB": 132
     },
     "/themes/[slug]": {
       "firstLoadKB": 133

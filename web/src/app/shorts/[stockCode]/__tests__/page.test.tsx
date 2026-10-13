@@ -29,26 +29,6 @@ jest.mock("~/@/components/charts/StockPriceShortChart", () => ({
   default: ({ stockCode }: any) => <div data-testid="chart">{stockCode}</div>,
 }));
 
-jest.mock("~/@/components/ui/companyProfile", () => ({
-  __esModule: true,
-  default: ({ stockCode }: any) => (
-    <div data-testid="company-profile">{stockCode}</div>
-  ),
-  CompanyProfilePlaceholder: () => (
-    <div data-testid="company-profile-placeholder" />
-  ),
-}));
-
-jest.mock("~/@/components/ui/companyStats", () => ({
-  __esModule: true,
-  default: ({ stockCode }: any) => (
-    <div data-testid="company-stats">{stockCode}</div>
-  ),
-  CompanyStatsPlaceholder: () => (
-    <div data-testid="company-stats-placeholder" />
-  ),
-}));
-
 jest.mock("~/@/components/ui/companyInfo", () => ({
   __esModule: true,
   default: ({ stockCode }: any) => (
@@ -139,8 +119,6 @@ describe.skip("/shorts/[stockCode] Page (Client-Side - Public)", () => {
       expect(chart).toHaveTextContent("cba");
 
       expect(getByTestId("market-chart")).toHaveTextContent("cba");
-      expect(getByTestId("company-profile")).toHaveTextContent("cba");
-      expect(getByTestId("company-stats")).toHaveTextContent("cba");
       expect(getByTestId("company-info")).toHaveTextContent("cba");
       expect(getByTestId("company-financials")).toHaveTextContent("cba");
       expect(getByTestId("enriched-company-section")).toHaveTextContent("CBA");

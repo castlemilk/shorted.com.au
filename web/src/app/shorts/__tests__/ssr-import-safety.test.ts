@@ -22,19 +22,25 @@
  * comment, a string, or the `~/`, `@/` or relative spelling of a path cannot
  * hide one.
  *
- * It does not hold for three pre-existing "use client" modules, which still
- * reach @connectrpc by static imports and are allowlisted in
- * KNOWN_CLIENT_CONNECT below: company-profile-with-retry and
- * company-stats-with-retry (under the layout) and company-info-with-retry (on
- * the Overview). The server components companyProfile, companyStats and
- * companyInfo render them when their own getStockDetails read resolves
- * undefined, so Connect-RPC IS evaluated during server rendering in exactly
- * that case, which is the failure that answered 500 on the Financials route
- * when the tax card was rendered inline. The old page header had the same
- * exposure. The allowlist is pinned, so it can only shrink; each entry is a
- * risk, not a fix. Loading the three through nextDynamic(..., { ssr: false })
- * is a separate change to shared UI, to be reproduced under `next start`
- * first.
+ * It does not hold for one pre-existing "use client" module, which still
+ * reaches @connectrpc by static imports and is allowlisted in
+ * KNOWN_CLIENT_CONNECT below: company-info-with-retry (on the Overview). The
+ * server component companyInfo renders it when its own getStockDetails read
+ * resolves undefined, so Connect-RPC IS evaluated during server rendering in
+ * exactly that case, which is the failure that answered 500 on the Financials
+ * route when the tax card was rendered inline. The layout had two more of
+ * these (company-profile-with-retry and company-stats-with-retry, behind its
+ * profile and stats cards); they left with those cards, and the layout now
+ * renders StockHeader, a server component with no client retry twin, so the
+ * layout has no entry at all. The allowlist is pinned, so it can only shrink;
+ * each entry is a risk, not a fix. Loading the last one through
+ * nextDynamic(..., { ssr: false }) is a separate change to shared UI, to be
+ * reproduced under `next start` first.
+ *
+ * The charts are islands, not allowlist entries. Each is on the tab it is
+ * about: the Overview and Short interest pages load StockChartPanel through
+ * nextDynamic(..., { ssr: false }), and the layout loads none (CONNECT_ISLANDS
+ * below).
  */
 
 import { describe, it, expect, afterAll } from "@jest/globals";
@@ -340,8 +346,10 @@ function nextDynamicLoads(source: string): DynamicLoad[] {
  * page that gains an island lists it here, and the test fails until it does.
  */
 const CONNECT_ISLANDS: Record<string, string[]> = {
-  "layout.tsx": ["~/@/components/charts/StockChartPanel"],
+  // The layout loads none: the charts moved onto the tabs they are about.
+  "page.tsx": ["~/@/components/charts/StockChartPanel"],
   "short-interest/page.tsx": [
+    "~/@/components/charts/StockChartPanel",
     "~/@/components/company/peer-comparison-table",
     "~/@/components/company/stock-signals",
     "~/@/components/company/stock-verdict",
@@ -364,12 +372,13 @@ const CONNECT_ISLANDS: Record<string, string[]> = {
  * below, and so does an entry that stops being true, so this list can only
  * shrink.
  *
- * Each fetches in the browser through a client-side action module that imports
+ * It fetches in the browser through a client-side action module that imports
  * @connectrpc/connect-web and @connectrpc/connect:
- * - layout.tsx and page.tsx: the "-with-retry" components that the server
- *   components companyProfile, companyStats and companyInfo render when their
- *   own server read fails (the Jan 2026 retry fallbacks), through
- *   app/actions/client/getStockDetails.ts.
+ * - page.tsx: the "-with-retry" component that the server component
+ *   companyInfo renders when its own server read fails (the Jan 2026 retry
+ *   fallback), through app/actions/client/getStockDetails.ts. The layout's two
+ *   (company-profile-with-retry and company-stats-with-retry) were deleted
+ *   with the profile and stats cards they served.
  *
  * CompanyTaxCard was listed here as one of the old page's, and it was not safe
  * to carry over. On the old page it sat in the Financials panel of a client tab
@@ -378,15 +387,11 @@ const CONNECT_ISLANDS: Record<string, string[]> = {
  * ("Element type is invalid ... got: undefined", the SSR failure CLAUDE.md
  * describes for @connectrpc). It is an island now (CONNECT_ISLANDS above).
  *
- * Moving any of the others behind nextDynamic(..., { ssr: false }) is a
+ * Moving the one that is left behind nextDynamic(..., { ssr: false }) is a
  * rendering change to a live tab, so it is a decision for the owner of that
  * tab, not for this guard.
  */
 const KNOWN_CLIENT_CONNECT: Record<string, string[]> = {
-  "layout.tsx": [
-    "~/@/components/ui/company-profile-with-retry",
-    "~/@/components/ui/company-stats-with-retry",
-  ],
   "page.tsx": ["~/@/components/ui/company-info-with-retry"],
 };
 

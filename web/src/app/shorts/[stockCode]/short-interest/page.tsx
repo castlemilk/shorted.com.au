@@ -2,6 +2,10 @@ import nextDynamic from "next/dynamic";
 import { type Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import {
+  StockChartHeading,
+  StockChartPanelSkeleton,
+} from "~/@/components/charts/stock-chart-section";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
@@ -9,8 +13,16 @@ import { ShortInterestHistory } from "../short-interest-history";
 import { loadStockOrFail } from "../stock-page-data";
 import { STOCK_CODE_PATTERN, cleanCompanyName } from "../stock-page-shared";
 
-// Client islands that import @connectrpc/connect: client-only, as the
-// chart is in the layout.
+// Client islands that import @connectrpc/connect: client-only, each loaded
+// through next/dynamic with ssr: false. The chart panel is the first of them,
+// and its placeholder is the panel's own skeleton (the one loading.tsx shows).
+const StockChartPanel = nextDynamic(
+  () =>
+    import("~/@/components/charts/StockChartPanel").then(
+      (m) => m.StockChartPanel,
+    ),
+  { ssr: false, loading: () => <StockChartPanelSkeleton /> },
+);
 const PeerComparisonTable = nextDynamic(
   () => import("~/@/components/company/peer-comparison-table").then((m) => m.PeerComparisonTable),
   { ssr: false },
@@ -76,6 +88,19 @@ export default async function ShortInterestPage({ params }: PageProps) {
       />
       <h1 className="sr-only">{companyName} ({code}) short interest history</h1>
       <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+        {/* The chart is this tab's first block, opened on the short series: the
+            one the tab is about. A stock with no short history has nothing to
+            show there, so it opens on the combined view instead. The view,
+            SMA 20 and divergence are kept for this tab apart from the
+            Overview's; the period is shared with it (chart-prefs.ts). */}
+        <section aria-labelledby="stock-chart-heading" className="min-w-0">
+          <StockChartHeading title="Short interest chart" />
+          <StockChartPanel
+            stockCode={code}
+            prefsKey={`${code}:short-interest`}
+            defaultView={hasShortInterest ? "short" : "combined"}
+          />
+        </section>
         {/* The history and the peer table render their own titles, so their
             sections are named with an aria-label, not a second visible heading. */}
         {hasShortInterest ? (

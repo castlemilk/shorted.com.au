@@ -1,5 +1,9 @@
 # Stock page: one route per tab, a shared layout, and a Strategy tab with levels
 
+> **Superseded in part** by `2026-10-10-stock-page-visible-first-design.md`
+> (same directory): the layout chrome above the tab bar, the chart in the
+> layout and the theme chips in the layout. Everything else here stands.
+
 Date: 2026-10-09. Status: implemented by PR 1 (#701) and PR 2.
 
 ## What this is

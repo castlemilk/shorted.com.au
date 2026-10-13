@@ -624,12 +624,12 @@ valuation, stock page).
 
 ## Stock page (one route per tab)
 
-`/shorts/[stockCode]` is a shared server `layout.tsx` (breadcrumbs, login
-slot, profile + stats, short-interest summary, theme chips, the chart, the
-tab bar) with seven ISR pages beneath it (3600 s; `/news` 600 s): `/`
-(Overview digest), `/short-interest`, `/strategy`, `/financials`, `/company`,
-`/news` and `/community`. The thread pages at `community/[threadId]` render
-under the same layout but stay per-request. The tab list lives ONCE in
+`/shorts/[stockCode]` is a shared server `layout.tsx` (breadcrumbs, then
+`StockHeader`, then the sticky `StockTabNav`) with seven ISR pages beneath it
+(3600 s; `/news` 600 s): `/` (Overview digest), `/short-interest`,
+`/strategy`, `/financials`, `/company`, `/news` and `/community`. The thread
+pages at `community/[threadId]` render under the same layout but stay
+per-request. The tab list lives ONCE in
 `web/src/@/lib/stocks/stock-tabs.ts`; tab metadata goes through
 `lib/seo/stock-tab-metadata.ts` (`stockTabMetadata` for the five newer tabs,
 which inherit `isStockIndexable`; Strategy adds noindex when `in_universe` is
@@ -639,7 +639,124 @@ keep their own titles and share `stockOgImage`). An indexable page sets NO
 `robots` key: Next 14.2 merges metadata with `for (key in source)`, so
 `robots: undefined` would replace the root layout's googleBot snippet and
 image-preview directives with nothing.
-Spec: `docs/superpowers/specs/2026-10-09-stock-page-tab-routes-design.md`.
+Specs: `docs/superpowers/specs/2026-10-09-stock-page-tab-routes-design.md`
+(one route per tab) and
+`docs/superpowers/specs/2026-10-10-stock-page-visible-first-design.md`, which
+amends it in three places: the layout chrome above the tab bar, the chart in
+the layout and the theme chips in the layout. Where the two differ, the second
+governs.
+
+### Chrome, charts and the readout (2026-10-10)
+
+Production (BHP, signed out, 2026-10-10) put the tab bar 1258px down on a
+1280x900 desktop and 1774px down on a 390x844 phone, beneath a sign-in banner,
+two cards, a summary, theme chips and a 420px chart. The layout now holds three
+blocks, each followed by 16px (`mb-4`): the breadcrumbs, `StockHeader` and
+`StockTabNav`. It loads no chart. `web/e2e/stock-tabs.spec.ts` pins the goals
+(no workflow runs it): the tab bar at most 340px down on the phone and 280px on
+the desktop, the tab's own content at most 400px and 340px down, the Overview
+chart whole inside the phone's first screen, and layout shift under 0.02 on
+first load and on a tab switch.
+
+`StockHeader` is a server component: the logo (its only client child, read
+inside `Suspense` in a fixed box so it cannot shift the header), the code, the
+industry badge, the name, and the short-interest readout (short %, the 30-day
+change in percentage points, reported shorts, shares on issue and the "as of"
+date). The readout is the page's one lit surface (`shadow-terminal-inset`,
+DESIGN.md's One Bloom Rule). The 30-day change is foreground, never red or
+green, because short interest is not market direction; a fall takes U+2212. A
+missing value is left out, never a dash or "undefined".
+
+`StockTabNav` is sticky at `top-16`, under the site header's `h-16` row, and
+bleeds to `<main>`'s edges with `-mx-8`; the scrolling list inside carries the
+`px-8`, so on a phone the tabs scroll to the screen edge. Its links pass
+`scroll={false}`: Next 14.2's own scroll on a tab switch does nothing when the
+new tab's first node is already in view, which leaves its first ~110px under
+the two bars, and jumps to the top when it is above. So a click sets a flag,
+and when the active tab changes a layout effect scrolls to `dockY` (the
+sentinel's document top minus the bar's sticky top) only when the page is
+scrolled past it. A bar that was not docked does not move, and back and
+forward keep the scroll the browser restores. Intent prefetch is unchanged. A
+hash target in a tab page takes `scroll-mt-[124px]` (64 header + 44 bar + 16).
+
+Two more things live in `StockTabNav`. The list fades the edge that can scroll
+(a 40px `mask-image`, driven by `data-scroll-start` / `data-scroll-end`, which
+its scroll event and a ResizeObserver keep): the scrollbar is hidden and at 360
+and 375px nothing of the fourth tab peeks out, so the fade is the only cue the
+row scrolls, and a bar that fits (a desktop) draws none. And a document
+`focusin` listener keeps keyboard focus out from under the docked bar (WCAG 2.2
+SC 2.4.11): a `:focus-visible` control outside the bar, the site header, any
+dialog and any `position: fixed` ancestor, with its top above the bar's bottom
++ 8px and its bottom on screen, is scrolled to sit 8px under the bar. It is not
+CSS `scroll-padding-top`, which makes Tab across the docked tab links scroll the
+page to the top; `stock-tabs.spec.ts` holds both.
+
+**A price chart lives only on the tab it is about.** `StockChartPanel` is the
+first block of the Overview (combined view, `prefsKey` `"<CODE>:overview"`) and
+of Short interest (the short view, or combined for a stock with no short
+history, `"<CODE>:short-interest"`), loaded through
+`nextDynamic(..., { ssr: false })`. Strategy keeps its own levels chart;
+Financials, Company, News and Community have none. The visitor's settings
+survive a tab switch in `chart-prefs.ts`, a client-only module store: the
+period is kept per stock and shared by both chart tabs, the view, SMA 20 and
+divergence per `prefsKey`. It lives until a reload and writes nothing to
+storage; a panel with no `prefsKey` (the dashboard, the stories) is plain local
+state. Rendering is not loading: measured on the build, Company and News load
+no chart code, but Financials and Community still load the Overview page's
+chart chunks (their client reference manifests carry the Overview page's client
+modules and chunk list, so the shared `next/link` module maps to the Overview's
+26 chunks). Before the chart left the layout every tab loaded it, so none loads
+more than it did. Moving the Overview page into a route group,
+`(overview)/page.tsx`, would stop the inheritance (a follow-up).
+
+The chart box is sized by CSS, `h-[360px] sm:h-[420px]`
+(`CHART_BOX_HEIGHT_CLASS`), and `StockChart` takes its height from its parent
+when it is given no `height`. One `StockChartPanelSkeleton` serves as the
+dynamic import's `loading` fallback and as the first block of both chart tabs'
+`loading.tsx`, so the placeholder and the chart are the same size. The controls
+stack below `xl`: one 40px row above the plot (the view control and the embed
+button), then the period and the toggles beneath it. From `xl` they sit in one
+row, which needs about 960px of panel; every narrower window gets the stacked
+form.
+
+`StockChart` takes `readout?: "strip" | "tooltip"`, default `"strip"`. The
+strip is a fixed-height band above the plot, so nothing covers the plot: 28px
+from 640px wide, and below that `8 + 18 x (1 + series)` (44px for one series,
+62px for two). Its height depends on the chart's width and its series count
+only, never on the state or the values. The count is the series it has, or the
+`readoutReserveSeries` it is told to expect if that is more: the Combined panel and
+the embed's Combined view pass 2, so on a phone the short series landing after the
+price finds its row held and moves nothing (the rows of series still to come are drawn empty). It
+reads `latest` by default, then `hover`, `pinned` or `measure`
+(`data-readout-state`). A persistent `sr-only` `role="status"` announces a pin
+and its release, never a scrub, and the arrow keys step a reading from the pin,
+or else the point under the pointer (Home and End jump, Escape releases).
+`"tooltip"` is the floating card: the two dashboard widgets pass it, so does
+the embed when its chart is under 260px tall, and the strip falls back to it
+when the plot would be under 160px (`READOUT_MIN_PLOT`). Red and green mark the
+price series' direction only; the short series reads in the foreground, in
+percentage points, as the header's 30-day change does ("▲ +0.62 pp",
+"▼ −0.31 pp", "– 0.00 pp"). Short interest prints to two decimals everywhere
+the chart prints it (`shortFmt`). A reading is dated by the data point it
+shows, never by the pointer's instant: the strip, the card, the measure's
+headline and the pin's announcement all name the session, not a weekend the
+cursor happens to be over. The svg clips whatever is drawn outside it, so the
+margins follow the labels (`axis-margin.ts`): a side with an axis gets the room
+of the widest label it prints, and never less than 48px, which holds six
+characters at 10px mono after a tick and a gap ("$99.99", or short interest as
+"12.00%"). A price of $100 or more is seven characters and gets 53px. The labels
+are estimated from the data and the axis' format (the zoom, the normalised view,
+the same ticks the axis draws) and never measured, because the margin sets the
+plot's width. With no right axis the right keeps 28px (the time axis' last label
+hangs half its width past the plot), and a compact chart its 32px and 12px.
+
+The sign-in banner renders on the Overview only, after the About card, as one
+44px line. Under `html.anon`, `critical-css.ts` reserves its `.login-slot` at
+46px (the line plus the wrapper's 2px border) with a 1rem margin, so the slot
+is the same height before and after the banner mounts. The site header's Sign
+in button stays on every page. The Strategy tab's `RegimeBanner` takes
+`compact` below `sm` (the pill, the as-of date and the verdict, without the
+four readouts and the ladder); on `/picks` it is unchanged.
 
 ### Landmines
 
@@ -670,11 +787,13 @@ Spec: `docs/superpowers/specs/2026-10-09-stock-page-tab-routes-design.md`.
     SSR failure under Known Issues). Client widgets load through
     `nextDynamic(() => import(...), { ssr: false })` and are listed in the
     test's `CONNECT_ISLANDS`. Its allowlist, `KNOWN_CLIENT_CONNECT`, holds only
-    the pre-existing `company-profile-with-retry`, `company-stats-with-retry`
-    and `company-info-with-retry` fallbacks and can only shrink. An allowlist
-    entry is a risk, not a fix: `CompanyTaxCard` was on it, and the Financials
-    route then answered 500 for every stock in a production build with every
-    Jest test green. It is an island now.
+    the pre-existing `company-info-with-retry` fallback (on the Overview) and
+    can only shrink. The layout's two twins, `company-profile-with-retry` and
+    `company-stats-with-retry`, were deleted with the cards they served, and
+    `StockHeader` is a server component with no twin, so the layout has no
+    entry. An allowlist entry is a risk, not a fix: `CompanyTaxCard` was on it,
+    and the Financials route then answered 500 for every stock in a production
+    build with every Jest test green. It is an island now.
 - **A transient stock read fails the render; it never degrades it.** The
   layout, the Overview and the Short interest, Strategy, Financials and Company
   pages read the stock through `loadStockOrFail(code)`
@@ -722,10 +841,15 @@ Spec: `docs/superpowers/specs/2026-10-09-stock-page-tab-routes-design.md`.
 - **The sync's `/shorts/[stockCode]` path is revalidated with type `layout`**
   (`/api/revalidate`), which expires every tab for every code in one call. An
   expired page regenerates only when it is next visited.
-- **The chart lives in the layout** so it never remounts between tabs; the
-  Strategy tab's levels chart calls `useStockChartData(code, "1y")`, the layout
-  chart's default period and query key, so it is served from the TanStack
-  cache and costs no extra request.
+- **A chart is no longer one DOM node across the tabs.** Each chart tab mounts
+  its own, so a return to one within 30 minutes (the chart queries'
+  `DAILY_STALE`, and the client's `gcTime`) re-renders from the TanStack cache
+  with no request, and its settings come back from `chart-prefs.ts`. The
+  Strategy levels chart calls `useStockChartData(code, "1y")`, the default
+  period and query key of those charts, so its 1y queries are shared with the
+  Overview chart only after a visit to a chart tab. A visitor who lands on
+  Strategy directly pays one extra request; the layout's chart used to fetch
+  the prices first.
 - **`PriceFeatures` on `GetStockStrategyFit`** carries `has_` flags; the web
   maps absent to `null` (`StockPriceFeatures`), never zero, and the fit's
   `unstable_cache` key is `v2` so no entry without the field is read back.
@@ -738,6 +862,24 @@ Spec: `docs/superpowers/specs/2026-10-09-stock-page-tab-routes-design.md`.
   gets an explanation and `noindex`, never a chart with empty levels.
 - `stock-news-tab.tsx` stays (`stock-news-feed.tsx` and `related-news-rail.tsx`
   import its hooks); the old `stock-tabs.tsx` shell is gone.
+- **The Company tab draws its director trades on the server.** The page
+  starts `getDirectorTrades(code, 20)` with its other reads and awaits it where
+  the section renders (the ISR-safe fetch the insider-trading page uses; it
+  resolves `undefined` on any failure, and a rejection is taken the same way),
+  then draws `DirectorTradesView` from it: the table, or the "No director trades
+  found" card. That module (`components/company/director-trades-view.tsx`) has
+  no `"use client"`, no Connect and only type imports from the generated code,
+  and the `DirectorTradesTable` island draws it too for its loaded and empty
+  states, so the markup lives once. The island, under its
+  `DirectorTradesSkeleton` placeholder, is only the fallback for a read that
+  returned `undefined`. It used to be the only path: for a stock with no trades
+  its 322px skeleton collapsed to a 92px card, moving every card below it up by
+  230px (a first-load layout shift of 0.164 at 1280px and 0.215 at 390px for
+  SPLR on a local production build; BHP, which has trades, was 0.0007).
+  `PoliticianInterestsCard` had the same flaw one card lower (a 134px skeleton,
+  then `null` for most stocks): it renders `null` while it loads, as
+  `StockConnections` does, so a card that may resolve to nothing never holds a
+  place it gives back.
 - Every tab segment has a `loading.tsx` whose root is `role="status"` with
   `aria-busy` and `aria-label` (a bare `aria-label` on a div is not announced);
   `app/shorts/__tests__/loading-boundaries.test.tsx` finds them on disk. Where

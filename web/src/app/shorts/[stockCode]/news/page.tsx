@@ -14,7 +14,8 @@ import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import { cleanCompanyName } from "../stock-page-shared";
 
 // The timeline imports @connectrpc/connect, so it is client-only (as the chart
-// is in the layout) and fetches after hydration.
+// panels on the Overview and Short interest tabs are) and fetches after
+// hydration.
 const EventTimeline = nextDynamic(
   () => import("~/@/components/company/event-timeline").then((m) => m.EventTimeline),
   { ssr: false },

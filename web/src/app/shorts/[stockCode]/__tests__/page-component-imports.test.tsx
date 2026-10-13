@@ -46,57 +46,52 @@ describe("Page Component Imports (matching page.tsx)", () => {
     expect(typeof CompanyInfoModule.CompanyInfoPlaceholder).toBe("function");
   });
 
-  it("should import CompanyProfile exactly as page.tsx does", async () => {
-    const CompanyProfileModule = await import("~/@/components/ui/companyProfile");
-    
-    expect(CompanyProfileModule.default).toBeDefined();
-    expect(typeof CompanyProfileModule.default).toBe("function");
-    expect(CompanyProfileModule.CompanyProfilePlaceholder).toBeDefined();
-    expect(typeof CompanyProfileModule.CompanyProfilePlaceholder).toBe("function");
-  });
-
-  it("should import CompanyStats exactly as page.tsx does", async () => {
-    const CompanyStatsModule = await import("~/@/components/ui/companyStats");
-    
-    expect(CompanyStatsModule.default).toBeDefined();
-    expect(typeof CompanyStatsModule.default).toBe("function");
-    expect(CompanyStatsModule.CompanyStatsPlaceholder).toBeDefined();
-    expect(typeof CompanyStatsModule.CompanyStatsPlaceholder).toBe("function");
-  });
-
-  it("should import all components together without conflicts", async () => {
-    // Import all components as page.tsx does
-    const [
-      CompanyInfo,
-      { CompanyInfoPlaceholder },
-      CompanyProfile,
-      { CompanyProfilePlaceholder },
-      CompanyStats,
-      { CompanyStatsPlaceholder },
-    ] = await Promise.all([
+  it("should import CompanyInfo and its placeholder together without conflicts", async () => {
+    // Import both as page.tsx does
+    const [CompanyInfo, { CompanyInfoPlaceholder }] = await Promise.all([
       import("~/@/components/ui/companyInfo").then(m => m.default),
       import("~/@/components/ui/companyInfo"),
-      import("~/@/components/ui/companyProfile").then(m => m.default),
-      import("~/@/components/ui/companyProfile"),
-      import("~/@/components/ui/companyStats").then(m => m.default),
-      import("~/@/components/ui/companyStats"),
     ]);
 
-    // All should be functions (React components)
+    // Both should be functions (React components)
     expect(typeof CompanyInfo).toBe("function");
     expect(typeof CompanyInfoPlaceholder).toBe("function");
-    expect(typeof CompanyProfile).toBe("function");
-    expect(typeof CompanyProfilePlaceholder).toBe("function");
-    expect(typeof CompanyStats).toBe("function");
-    expect(typeof CompanyStatsPlaceholder).toBe("function");
-    
-    // None should be undefined
+
+    // Neither should be undefined
     expect(CompanyInfo).not.toBeUndefined();
     expect(CompanyInfoPlaceholder).not.toBeUndefined();
-    expect(CompanyProfile).not.toBeUndefined();
-    expect(CompanyProfilePlaceholder).not.toBeUndefined();
-    expect(CompanyStats).not.toBeUndefined();
-    expect(CompanyStatsPlaceholder).not.toBeUndefined();
+  });
+});
+
+describe("Chart section imports (matching page.tsx and short-interest/page.tsx)", () => {
+  it("should import the pieces of the chart section exactly as the pages do", async () => {
+    const [PanelModule, SectionModule] = await Promise.all([
+      import("~/@/components/charts/StockChartPanel"),
+      import("~/@/components/charts/stock-chart-section"),
+    ]);
+
+    // The pages load the panel with next/dynamic and pick the NAMED export:
+    // import(...).then((m) => m.StockChartPanel). A typo there is an undefined
+    // component at render time, not an import error.
+    expect(typeof PanelModule.StockChartPanel).toBe("function");
+
+    // What a server page renders itself: the heading and the skeleton the
+    // dynamic import's `loading` and both loading.tsx files show.
+    expect(typeof SectionModule.StockChartHeading).toBe("function");
+    expect(typeof SectionModule.StockChartPanelSkeleton).toBe("function");
+    expect(typeof SectionModule.CHART_BOX_HEIGHT_CLASS).toBe("string");
+  });
+});
+
+describe("Layout component imports (matching layout.tsx)", () => {
+  it("should import the header and the tab bar exactly as the layout does", async () => {
+    const [HeaderModule, TabNavModule] = await Promise.all([
+      import("~/@/components/company/stock-header"),
+      import("~/@/components/company/stock-tab-nav"),
+    ]);
+
+    expect(typeof HeaderModule.StockHeader).toBe("function");
+    expect(typeof TabNavModule.StockTabNav).toBe("function");
   });
 });
 

@@ -104,14 +104,10 @@ describe("Page Component Imports - All Components", () => {
       CardModule,
       StockChartPanelModule,
       CompanyInfoModule,
-      CompanyProfileModule,
-      CompanyStatsModule,
     ] = await Promise.all([
       import("~/@/components/ui/card"),
       import("~/@/components/charts/StockChartPanel"),
       import("~/@/components/ui/companyInfo"),
-      import("~/@/components/ui/companyProfile"),
-      import("~/@/components/ui/companyStats"),
     ]);
 
     expect(CardModule.Card).toBeDefined();
@@ -125,12 +121,6 @@ describe("Page Component Imports - All Components", () => {
 
     expect(CompanyInfoModule.default).toBeDefined();
     expect(CompanyInfoModule.CompanyInfoPlaceholder).toBeDefined();
-    
-    expect(CompanyProfileModule.default).toBeDefined();
-    expect(CompanyProfileModule.CompanyProfilePlaceholder).toBeDefined();
-    
-    expect(CompanyStatsModule.default).toBeDefined();
-    expect(CompanyStatsModule.CompanyStatsPlaceholder).toBeDefined();
   });
 
   it("should import EnrichedCompanySection", async () => {
@@ -144,10 +134,6 @@ describe("Page Component Imports - All Components", () => {
     // Import exactly as page.tsx does
     const [
       StockChartPanel,
-      CompanyProfile,
-      CompanyProfilePlaceholder,
-      CompanyStats,
-      CompanyStatsPlaceholder,
       CompanyInfo,
       CompanyInfoPlaceholder,
       EnrichedCompanySection,
@@ -163,10 +149,6 @@ describe("Page Component Imports - All Components", () => {
       CardTitle,
     ] = await Promise.all([
       import("~/@/components/charts/StockChartPanel").then(m => m.StockChartPanel),
-      import("~/@/components/ui/companyProfile").then(m => m.default),
-      import("~/@/components/ui/companyProfile").then(m => m.CompanyProfilePlaceholder),
-      import("~/@/components/ui/companyStats").then(m => m.default),
-      import("~/@/components/ui/companyStats").then(m => m.CompanyStatsPlaceholder),
       import("~/@/components/ui/companyInfo").then(m => m.default),
       import("~/@/components/ui/companyInfo").then(m => m.CompanyInfoPlaceholder),
       import("~/@/components/company/enriched-company-section").then(m => m.EnrichedCompanySection),
@@ -185,10 +167,6 @@ describe("Page Component Imports - All Components", () => {
     // Verify none are undefined
     const components = {
       StockChartPanel,
-      CompanyProfile,
-      CompanyProfilePlaceholder,
-      CompanyStats,
-      CompanyStatsPlaceholder,
       CompanyInfo,
       CompanyInfoPlaceholder,
       EnrichedCompanySection,

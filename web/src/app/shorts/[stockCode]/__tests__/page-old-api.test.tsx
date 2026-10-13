@@ -1,14 +1,10 @@
 /// <reference types="jest" />
 import "@testing-library/jest-dom";
-import { TextEncoder, TextDecoder } from "util";
-
-if (!globalThis.TextEncoder) {
-  globalThis.TextEncoder = TextEncoder;
-}
-if (!globalThis.TextDecoder) {
-  // @ts-expect-error - TextDecoder type on Node differs from DOM lib
-  globalThis.TextDecoder = TextDecoder;
-}
+import {
+  mockGetStockFundamentals,
+  mockGetStockStrategyFit,
+  mockListStrategies,
+} from "./overview-page-mocks";
 
 /**
  * The stock Overview against an OLDER API (docs/plans/fundamentals-coverage.md
@@ -24,7 +20,10 @@ if (!globalThis.TextDecoder) {
  * components/stocks/__tests__/financials-tab.test.tsx.
  *
  * The real getStockFundamentals and getStockStrategyFit actions run here, over
- * a mocked connect client; everything else on the page is stubbed.
+ * a mocked connect client; everything else on the page is stubbed (the shared
+ * stubs in overview-page-mocks.tsx, and the chart island, the About card's
+ * readers and the sign-in gate below). The Overview's own blocks, the chart, the
+ * About card and the sign-in slot, are page-overview.test.tsx's.
  */
 
 import { describe, it, expect } from "@jest/globals";
@@ -36,62 +35,11 @@ import {
   GetStockFundamentalsResponseSchema,
 } from "~/gen/shorts/v1alpha1/stock_pb";
 
-const mockGetStockFundamentals = jest.fn();
-const mockGetStockStrategyFit = jest.fn();
-const mockListStrategies = jest.fn();
-
-jest.mock("@connectrpc/connect-web", () => ({
-  createConnectTransport: jest.fn(() => ({})),
-}));
-jest.mock("@connectrpc/connect", () => ({
-  createClient: jest.fn(() => ({
-    getStockFundamentals: (...args: unknown[]) => mockGetStockFundamentals(...args),
-    getStockStrategyFit: (...args: unknown[]) => mockGetStockStrategyFit(...args),
-    listStrategies: (...args: unknown[]) => mockListStrategies(...args),
-  })),
-}));
-jest.mock("next/cache", () => ({
-  unstable_cache: (loader: () => Promise<unknown>) => loader,
-}));
+// The page loads one island, the chart panel. Nothing here is about it.
 jest.mock("next/dynamic", () => () => () => null);
-jest.mock("next/navigation", () => ({
-  notFound: () => {
-    throw new Error("NEXT_NOT_FOUND");
-  },
-  usePathname: () => "/shorts/BHP",
-}));
-jest.mock("next/link", () => ({
-  __esModule: true,
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
-}));
-
-// Page-level data other than fundamentals.
-jest.mock("~/app/actions/getStock", () => ({
-  getStockOrNotFound: jest.fn(async () => ({
-    productCode: "BHP",
-    name: "BHP GROUP LIMITED ORDINARY",
-    industry: "Materials",
-    percentageShorted: 1.2,
-    reportedShortPositions: 60_000_000,
-  })),
-}));
-jest.mock("~/app/actions/getRelatedStocks", () => ({
-  getRelatedStocks: jest.fn(async () => ({ stocks: [], industry: null, industrySlug: null })),
-}));
-jest.mock("~/app/actions/getStockNews", () => ({
-  getStockHeadlines: jest.fn(async () => []),
-}));
-jest.mock("~/app/actions/getLatestShortDate", () => ({
-  getLatestShortDate: jest.fn(async () => null),
-}));
-jest.mock("~/app/actions/getEconomy", () => ({
-  getStateExposureIndex: jest.fn(async () => ({})),
-}));
-jest.mock("~/app/actions/company-metadata", () => ({
-  getEnrichedCompanyMetadata: jest.fn(async () => null),
-}));
+// The About card's readers and the blocks around it. Nothing here is about them,
+// so the summary renders nothing, the series has no moves, the company has no
+// details, and the chips, the gate and the banner render nothing.
 jest.mock("../short-interest-summary", () => ({
   getShortInterestDeltas: jest.fn(async () => ({
     change7d: null,
@@ -102,84 +50,12 @@ jest.mock("../short-interest-summary", () => ({
   })),
   ShortInterestSummary: () => null,
 }));
-jest.mock("../short-interest-history", () => ({ ShortInterestHistory: () => null }));
-
-// Everything else on the page is out of scope.
-jest.mock("~/@/components/layouts/dashboard-layout", () => ({
-  DashboardLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-jest.mock("~/@/components/ui/companyProfile", () => ({
-  __esModule: true,
-  default: () => null,
-  CompanyProfilePlaceholder: () => null,
-}));
-jest.mock("~/@/components/ui/companyStats", () => ({
-  __esModule: true,
-  default: () => null,
-  CompanyStatsPlaceholder: () => null,
-}));
-jest.mock("~/@/components/ui/companyInfo", () => ({
-  __esModule: true,
-  default: () => null,
-  CompanyInfoPlaceholder: () => null,
-}));
-jest.mock("~/@/components/company/enriched-company-section", () => ({
-  EnrichedCompanySection: () => null,
-}));
-jest.mock("~/@/components/company/company-tax-card", () => ({
-  CompanyTaxCard: () => <div data-testid="tax-card" />,
-}));
-// The filings stream in async server components under Suspense, which a
-// client render cannot resolve; their own test (financial-reports-section)
-// covers them. The stubs expose the props the page passes.
-jest.mock("~/@/components/company/financial-reports-section", () => ({
-  FinancialReportsSection: ({
-    stockCode,
-    sourceDocumentUrl,
-  }: {
-    stockCode: string;
-    sourceDocumentUrl: string;
-  }) => (
-    <div
-      data-testid="reports-section"
-      data-code={stockCode}
-      data-source-document-url={sourceDocumentUrl}
-    />
-  ),
-  FilingsListedNote: ({ stockCode }: { stockCode: string }) => (
-    <span data-testid="filings-note" data-code={stockCode} />
-  ),
-}));
-jest.mock("~/@/components/company/politician-interests-card-loader", () => ({
-  PoliticianInterestsCard: () => null,
-}));
-jest.mock("~/@/components/company/community/community-overview-teaser", () => ({
-  CommunityOverviewTeaser: () => null,
-}));
-jest.mock("~/@/components/company/community/community-tab", () => ({
-  CommunityTab: () => null,
-}));
-jest.mock("~/@/components/company/stock-evidence-panel-client", () => ({
-  StockEvidencePanelClient: () => null,
+jest.mock("~/app/actions/getStockDetails", () => ({
+  getStockDetails: jest.fn(async () => null),
 }));
 jest.mock("~/@/components/ui/login-prompt-banner", () => ({ LoginPromptBanner: () => null }));
 jest.mock("~/@/components/ui/session-gates", () => ({ SignedOutOnly: () => null }));
-jest.mock("~/@/components/seo/breadcrumbs", () => ({
-  Breadcrumbs: () => null,
-  BreadcrumbStructuredData: () => null,
-}));
-jest.mock("~/@/components/seo/llm-meta", () => ({
-  LLMMeta: () => null,
-  StockLLMMeta: () => null,
-}));
-jest.mock("~/@/components/seo/related-stocks", () => ({ RelatedStocks: () => null }));
-jest.mock("~/@/components/reports/latest-weekly-report-link", () => ({
-  LatestWeeklyReportLink: () => null,
-}));
 jest.mock("~/@/components/themes/theme-chips", () => ({ StockThemeChips: () => null }));
-jest.mock("~/@/components/economy/stock-state-exposure", () => ({
-  StockStateExposure: () => null,
-}));
 
 import Page from "../page";
 
@@ -372,11 +248,10 @@ describe("stock page against an older API", () => {
     expect(critical).toContain("loadStockOrFail");
     expect(critical).not.toContain("getStockStrategyFit");
     expect(source).toMatch(/getStockStrategyFit\(stockCode\)\.catch\(/);
-    // The company details read (getStockDetails, with retries) is not awaited
-    // by the page: the filings stream under their own Suspense boundary, in
-    // the Financials page.
+    // The enriched-metadata read (the Company tab's) is not the Overview's, and
+    // the filings stream under their own Suspense boundary in the Financials
+    // page, which reads no company details either.
     expect(source).not.toContain("getEnrichedCompanyMetadata");
-    expect(source).not.toMatch(/getStockDetails\(/);
     expect(financialsSource).toContain("<FinancialReportsSection");
     expect(financialsSource).not.toContain("getEnrichedCompanyMetadata");
     expect(financialsSource).not.toMatch(/getStockDetails\(/);

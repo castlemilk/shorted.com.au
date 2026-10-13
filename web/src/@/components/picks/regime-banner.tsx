@@ -112,11 +112,20 @@ export function ladderMarks(regime: MarketRegimeView): LadderMarks {
  * never moves layout; the resting position is also the animation's final
  * frame, which is what a reduced-motion reader gets from the first paint.
  */
-function RegimeLadder({ regime }: { regime: MarketRegimeView }) {
+function RegimeLadder({
+  regime,
+  className,
+}: {
+  regime: MarketRegimeView;
+  className?: string;
+}) {
   const marks = ladderMarks(regime);
   if (marks.needle === null) return null;
   return (
-    <div aria-hidden="true" className="relative mt-4 h-8 select-none">
+    <div
+      aria-hidden="true"
+      className={cn("relative mt-4 h-8 select-none", className)}
+    >
       <span className="absolute inset-x-0 top-1/2 h-px bg-border" />
       <span
         data-ladder-mark="sma200"
@@ -178,9 +187,22 @@ export interface RegimeBannerProps {
   regime: MarketRegimeView | null;
   /** Accessible name for the region; defaults to "Market regime". */
   label?: string;
+  /**
+   * The phone form the stock Strategy tab uses. Below `sm` the four readouts
+   * and the ladder are hidden, so a phone sees the eyebrow, the pill, the as-of
+   * date and the verdict; from `sm` it is the whole gauge, unchanged. Without
+   * it the gauge was 347px tall on a 390px phone and pushed the tab's levels
+   * chart below the fold. The hiding is CSS only: the figures are still in the
+   * server HTML for a crawler. Off by default, so /picks shows the whole gauge.
+   */
+  compact?: boolean;
 }
 
-export function RegimeBanner({ regime, label = "Market regime" }: RegimeBannerProps) {
+export function RegimeBanner({
+  regime,
+  label = "Market regime",
+  compact = false,
+}: RegimeBannerProps) {
   const regimeLabel = regime?.regime ?? "";
   const asOf = formatIsoDate(regime?.asOf);
   const verdict = firstNonEmpty(
@@ -217,7 +239,12 @@ export function RegimeBanner({ regime, label = "Market regime" }: RegimeBannerPr
           </div>
         </div>
         {regimeLabel ? (
-          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <dl
+            className={cn(
+              compact ? "hidden sm:grid" : "grid",
+              "grid-cols-2 gap-2 sm:grid-cols-4",
+            )}
+          >
             <Readout
               label="Close"
               value={formatIndexLevel(regime!.close)}
@@ -252,7 +279,12 @@ export function RegimeBanner({ regime, label = "Market regime" }: RegimeBannerPr
           </dl>
         ) : null}
       </div>
-      {regimeLabel && regime ? <RegimeLadder regime={regime} /> : null}
+      {regimeLabel && regime ? (
+        <RegimeLadder
+          regime={regime}
+          className={compact ? "hidden sm:block" : undefined}
+        />
+      ) : null}
       <p className="mt-4 max-w-3xl text-sm leading-relaxed text-foreground">
         {verdict}
       </p>

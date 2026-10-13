@@ -4,6 +4,12 @@ import { LinearGradient } from "@visx/gradient";
 import { AxisBottom, AxisLeft, AxisRight } from "@visx/axis";
 import { curveLinear } from "@visx/curve";
 import { chartTheme } from "./chart-theme";
+import {
+  AXIS_FONT_PX,
+  AXIS_LABEL_DX_PX,
+  AXIS_NUM_TICKS,
+  AXIS_TICK_PX,
+} from "./axis-margin";
 import type { ChartPoint, ChartSeriesSpec } from "./types";
 import type { ChartScales } from "./use-chart-scales";
 
@@ -86,21 +92,22 @@ export const Axes = React.memo(function Axes({
         tickStroke={chartTheme.axis}
         tickLabelProps={() => ({
           fill: chartTheme.axisLabel,
-          fontSize: compact ? 9 : 10,
+          fontSize: compact ? 9 : AXIS_FONT_PX,
           textAnchor: "middle" as const,
         })}
       />
       <AxisLeft
         scale={leftScale}
-        numTicks={compact ? 3 : 4}
+        numTicks={compact ? 3 : AXIS_NUM_TICKS}
+        tickLength={AXIS_TICK_PX}
         stroke={chartTheme.axis}
         tickStroke={chartTheme.axis}
         tickFormat={leftFormat ? (v) => leftFormat(Number(v)) : undefined}
         tickLabelProps={() => ({
           fill: chartTheme.axisLabel,
-          fontSize: compact ? 9 : 10,
+          fontSize: compact ? 9 : AXIS_FONT_PX,
           textAnchor: "end" as const,
-          dx: -2,
+          dx: -AXIS_LABEL_DX_PX,
           dy: 3,
         })}
       />
@@ -108,15 +115,16 @@ export const Axes = React.memo(function Axes({
         <AxisRight
           left={innerW}
           scale={rightScale}
-          numTicks={compact ? 3 : 4}
+          numTicks={compact ? 3 : AXIS_NUM_TICKS}
+          tickLength={AXIS_TICK_PX}
           stroke={chartTheme.axis}
           tickStroke={chartTheme.axis}
           tickFormat={rightFormat ? (v) => rightFormat(Number(v)) : undefined}
           tickLabelProps={() => ({
             fill: chartTheme.axisLabel,
-            fontSize: compact ? 9 : 10,
+            fontSize: compact ? 9 : AXIS_FONT_PX,
             textAnchor: "start" as const,
-            dx: 2,
+            dx: AXIS_LABEL_DX_PX,
             dy: 3,
           })}
         />

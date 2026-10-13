@@ -41,34 +41,6 @@ describe("Component Exports", () => {
     });
   });
 
-  describe("CompanyProfile", () => {
-    it("should export default component", async () => {
-      const module = await import("~/@/components/ui/companyProfile");
-      expect(module.default).toBeDefined();
-      expect(typeof module.default).toBe("function");
-    });
-
-    it("should export CompanyProfilePlaceholder", async () => {
-      const module = await import("~/@/components/ui/companyProfile");
-      expect(module.CompanyProfilePlaceholder).toBeDefined();
-      expect(typeof module.CompanyProfilePlaceholder).toBe("function");
-    });
-  });
-
-  describe("CompanyStats", () => {
-    it("should export default component", async () => {
-      const module = await import("~/@/components/ui/companyStats");
-      expect(module.default).toBeDefined();
-      expect(typeof module.default).toBe("function");
-    });
-
-    it("should export CompanyStatsPlaceholder", async () => {
-      const module = await import("~/@/components/ui/companyStats");
-      expect(module.CompanyStatsPlaceholder).toBeDefined();
-      expect(typeof module.CompanyStatsPlaceholder).toBe("function");
-    });
-  });
-
   describe("CompanyFinancials", () => {
     it("should export default component", async () => {
       const module = await import("~/@/components/ui/companyFinancials");
@@ -92,26 +64,6 @@ describe("Component Exports", () => {
     it("should allow importing CompanyInfoPlaceholder as named export", async () => {
       const { CompanyInfoPlaceholder } = await import("~/@/components/ui/companyInfo");
       expect(CompanyInfoPlaceholder).toBeDefined();
-    });
-
-    it("should allow importing CompanyProfile as default export", async () => {
-      const CompanyProfile = (await import("~/@/components/ui/companyProfile")).default;
-      expect(CompanyProfile).toBeDefined();
-    });
-
-    it("should allow importing CompanyProfilePlaceholder as named export", async () => {
-      const { CompanyProfilePlaceholder } = await import("~/@/components/ui/companyProfile");
-      expect(CompanyProfilePlaceholder).toBeDefined();
-    });
-
-    it("should allow importing CompanyStats as default export", async () => {
-      const CompanyStats = (await import("~/@/components/ui/companyStats")).default;
-      expect(CompanyStats).toBeDefined();
-    });
-
-    it("should allow importing CompanyStatsPlaceholder as named export", async () => {
-      const { CompanyStatsPlaceholder } = await import("~/@/components/ui/companyStats");
-      expect(CompanyStatsPlaceholder).toBeDefined();
     });
 
     it("should allow importing CompanyFinancials as default export", async () => {

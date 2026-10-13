@@ -61,13 +61,96 @@ export const SharePrice: Story = {
   },
 };
 
+// A frame this tall leaves a chart of 260px or more, which reads through the
+// strip. The strip carries each series' dot and label, so the legend row, which
+// the floating tooltip needs, is not drawn.
 export const Combined: Story = {
   args: { stockCode: "PLS", defaultView: "combined" },
   beforeEach: () => mockData("PLS", "1y"),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await waitFor(() => expect(canvasElement.querySelector("svg")).toBeTruthy());
+    const strip = await waitFor(() => {
+      const el = canvasElement.querySelector<HTMLElement>("[data-chart-readout]");
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    expect(within(strip).getByText("Price")).toBeInTheDocument();
+    expect(within(strip).getByText("Short %")).toBeInTheDocument();
+    expect(canvas.queryByText("Share price ($, left)")).not.toBeInTheDocument();
+    expect(canvas.queryByText("Short interest (%, right)")).not.toBeInTheDocument();
+    // The As-of caption stays.
+    expect(canvas.getByText(/^As of /)).toBeInTheDocument();
+  },
+};
+
+// A short frame leaves a chart under 260px: the floating tooltip, and the
+// legend row that names the two series for it.
+export const CombinedShortFrame: Story = {
+  args: { stockCode: "PLS", defaultView: "combined" },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 720, height: 320 }} className="bg-background">
+        <Story />
+      </div>
+    ),
+  ],
+  beforeEach: () => mockData("PLS", "1y"),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() => expect(canvasElement.querySelector("svg")).toBeTruthy());
     expect(canvas.getByText("Share price ($, left)")).toBeInTheDocument();
     expect(canvas.getByText("Short interest (%, right)")).toBeInTheDocument();
+    expect(canvasElement.querySelector("[data-chart-readout]")).toBeNull();
+    expect(canvas.getByText(/^As of /)).toBeInTheDocument();
+  },
+};
+
+// The price and the short series load separately, and the short series is the
+// later. In a narrow frame (an iframe on a phone) the strip has a row of its own
+// for each series, 18px apiece, so a second series landing would add a row and
+// move the plot 18px under the reader. The embed holds that row from the first
+// render, so the strip is as tall with the price alone as it is with both.
+let releaseShort: () => void = () => undefined;
+export const CombinedLateShort: Story = {
+  args: { stockCode: "PLS", defaultView: "combined" },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 380, height: 480 }} className="bg-background">
+        <Story />
+      </div>
+    ),
+  ],
+  beforeEach: () => {
+    const gate = new Promise<void>((resolve) => {
+      releaseShort = resolve;
+    });
+    mocked(getHistoricalData).mockResolvedValue(historicalDataFixture("PLS", "1y"));
+    mocked(fetchStockDataClient).mockImplementation(async () => {
+      await gate;
+      return timeSeriesDataFixture("PLS", "1y");
+    });
+  },
+  play: async ({ canvasElement }) => {
+    const strip = () => canvasElement.querySelector<HTMLElement>("[data-chart-readout]");
+    const entries = () => canvasElement.querySelectorAll("[data-chart-readout] [data-readout-entry]").length;
+    const reserved = () => canvasElement.querySelectorAll("[data-chart-readout] [data-readout-reserved]").length;
+    const plotTop = () =>
+      canvasElement.querySelector('rect[fill="transparent"]')!.getBoundingClientRect().top;
+
+    // The price alone: one series, and the short series' row held empty.
+    await waitFor(() => expect(strip()).toBeTruthy());
+    expect(entries()).toBe(1);
+    expect(reserved()).toBe(1);
+    const height = strip()!.getBoundingClientRect().height;
+    const top = plotTop();
+    // A phone strip is a headline row, a row for each of the two series, and 8px.
+    expect(height).toBe(62);
+
+    releaseShort();
+    await waitFor(() => expect(entries()).toBe(2));
+    expect(reserved()).toBe(0);
+    expect(strip()!.getBoundingClientRect().height).toBe(height);
+    expect(plotTop()).toBeCloseTo(top, 1);
   },
 };

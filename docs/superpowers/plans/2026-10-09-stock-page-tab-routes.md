@@ -1,5 +1,7 @@
 # Stock page tab routes + Strategy levels — Implementation Plan
 
+> Historical; superseded in part by `docs/superpowers/specs/2026-10-10-stock-page-visible-first-design.md` (the layout chrome, the chart in the layout and the theme chips in the layout).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Split `/shorts/[stockCode]` into seven on-demand ISR routes under one shared layout (header, summary, chart, tab bar), add a Strategy tab that draws the picker's levels over price, and expose those levels through a new `PriceFeatures` field on the strategy-fit RPC.

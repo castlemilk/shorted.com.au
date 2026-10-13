@@ -4,7 +4,12 @@
  * "Declared political interests" card for /shorts/[stockCode].
  *
  * Modelled on company-tax-card.tsx, the existing influence-layer precedent:
- * client-side fetch, and render NOTHING when there is no data.
+ * client-side fetch, and render NOTHING when there is no data. That includes
+ * while the fetch is in flight, as StockConnections does (also below the fold
+ * and frequently empty): most stocks declare no interests, so a skeleton here
+ * opened a gap of about 134px and closed it again when the card resolved to
+ * nothing, moving every card beneath it (a first-load layout shift on the
+ * Company tab).
  *
  * Rendering null on empty is an editorial decision, not just tidiness. "No
  * politicians hold this" is an unverifiable absence claim about named
@@ -19,7 +24,6 @@ import { toDate } from "@/lib/politics/timestamp";
 import Link from "next/link";
 import { Landmark } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { listStockPoliticiansClient } from "~/app/actions/client/getPoliticiansClient";
 import {
   DeclaredPeriod,
@@ -41,21 +45,9 @@ export function PoliticianInterestsCard({ stockCode }: { stockCode: string }) {
     retry: false,
   });
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader className="pb-3">
-          <Skeleton className="h-4 w-40" />
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Skeleton className="h-3 w-full" />
-          <Skeleton className="h-3 w-3/4" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!data || data.interests.length === 0) return null;
+  // Nothing while loading, and nothing when there is nothing to show: a card
+  // that can resolve to null must not hold a place it will give back.
+  if (isLoading || !data || data.interests.length === 0) return null;
 
   const asAt = data.interests
     .map((i) => toDate(i.interest?.declaredFrom))

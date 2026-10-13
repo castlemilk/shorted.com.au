@@ -21,8 +21,11 @@ import { loadStockOrFail } from "../stock-page-data";
 import { STOCK_CODE_PATTERN, cleanCompanyName } from "../stock-page-shared";
 
 // Client island: the chart reads prices through Connect-RPC, so it is
-// client-only (as the chart in the layout is) and shares that chart's cached
-// price queries. Its placeholder is the island's own height, so the panels
+// client-only (as the chart panels on the Overview and Short interest tabs are).
+// It reads 1y of prices, the period those panels open on, so a visitor who came
+// from one of them on that period finds the queries in TanStack Query's cache;
+// one who lands here directly makes the requests itself. Its placeholder is the
+// island's own height, so the panels
 // below do not shift when it hydrates: the control row 30 (a 24px button, 4px
 // of padding and 2px of border) + gap 12 + the chart 360 + gap 12 + one caption
 // row 16 = 430, measured in Chromium with this project's Tailwind build at
@@ -128,7 +131,12 @@ export default async function StrategyPage({ params }: PageProps) {
         {companyName} ({code}) strategy fit
       </h1>
       <div className="flex min-w-0 flex-col gap-4 md:gap-6">
-        <RegimeBanner regime={fit.regime} />
+        {/* The phone form: below `sm` the banner keeps the pill, the date and
+            the verdict and drops the four readouts and the ladder (spec D4).
+            The whole gauge was 347px on a 390px phone, which put the levels
+            chart's plot at 854px, under the 844px fold. /picks shows all of
+            it. */}
+        <RegimeBanner regime={fit.regime} compact />
 
         {!fit.inUniverse ? (
           <section
@@ -158,11 +166,14 @@ export default async function StrategyPage({ params }: PageProps) {
           </section>
         ) : (
           <>
-            {/* The chart prints no title of its own, so this heading names it. */}
+            {/* The chart prints no title of its own, so this heading names it.
+                The id is a hash target (#strategy-chart): scroll-mt-[124px] is
+                the 64px site header, the 44px docked tab bar and 16px of air,
+                so a link lands with the heading in view, not under the bars. */}
             <section
               aria-labelledby="strategy-chart-heading"
               id="strategy-chart"
-              className="flex flex-col gap-2"
+              className="flex scroll-mt-[124px] flex-col gap-2"
             >
               <h2 id="strategy-chart-heading" className="text-sm font-medium">
                 Levels on the chart

@@ -49,8 +49,30 @@ const BUDGETS = {
     // Overview shed the tab bundles (312 -> 201 kB). Re-measure with a
     // production build before raising any of these. The matching ISR gate is
     // scripts/route-kinds.mjs.
-    "/shorts/[stockCode]": 225,
-    "/shorts/[stockCode]/short-interest": 220,
+    // 2026-10-10, visible-first: the price chart moved out of the stock layout
+    // and into the Overview and Short interest pages. Next's printed First Load
+    // JS counts the PAGE entry, never the layout entry, so those two rows rose
+    // (Overview 201 -> 278 kB, Short interest 199 -> 276 kB) while the stock
+    // layout entry fell 289 -> 137 kB and every tab's root layout + stock layout
+    // + page union fell or held (Overview -1.5, Short interest -11.7, the other
+    // five -45 to -152 kB; app-build-manifest.json, gzip kB, before and after).
+    // These two budgets are the new measure + 10%, rounded up to 5 kB. Their
+    // numbers now include the chart's chunks, which the layout used to carry
+    // where no budget counted them; what a visit loads did not grow. A
+    // layout-aware metric is a follow-up.
+    //
+    // What each tab loads, as measured on this build, is not "only the tabs
+    // with a chart pay for it". Company and News load no chart code. Financials
+    // and Community still load the Overview page's chart chunks, because their
+    // client reference manifests carry the Overview page's client modules and
+    // chunk list (.next/server/app/shorts/[stockCode]/financials/
+    // page_client-reference-manifest.js: the shared next/link module maps to
+    // the Overview's 26 chunks, the chart's code among them). Before this
+    // branch every tab loaded the chart from the layout, so none loads more
+    // than it did and two load less. Follow-up: moving the Overview page into
+    // a route group, e.g. (overview)/page.tsx, would stop the inheritance.
+    "/shorts/[stockCode]": 310,
+    "/shorts/[stockCode]/short-interest": 305,
     "/shorts/[stockCode]/strategy": 260,
     "/shorts/[stockCode]/financials": 230,
     "/shorts/[stockCode]/company": 200,

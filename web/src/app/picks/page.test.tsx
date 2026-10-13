@@ -83,6 +83,19 @@ describe("PicksHubPage", () => {
     expect(bailOnEmptyRender).not.toHaveBeenCalled();
   });
 
+  // The stock Strategy tab asks the regime banner for a compact phone form
+  // (readouts and ladder hidden below sm). The picks pages are where the whole
+  // gauge belongs, so they must not.
+  it("shows the whole regime gauge at every width: the hub does not ask for the compact form", async () => {
+    render(await PicksHubPage());
+
+    const banner = screen.getByRole("region", { name: "Market regime" });
+    expect(banner.querySelector("dl")).toHaveClass("grid");
+    expect(banner.querySelector("dl")).not.toHaveClass("hidden");
+    expect(banner.querySelector("[data-ladder-mark]")!.parentElement).not.toHaveClass("hidden");
+    expect(banner.querySelector(".hidden")).toBeNull();
+  });
+
   it("shows counts and the top triggered or setup names with logos", async () => {
     render(await PicksHubPage());
 

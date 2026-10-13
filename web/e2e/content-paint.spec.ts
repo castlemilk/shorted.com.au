@@ -41,12 +41,12 @@ test.describe("Stock Detail — Content Paint", () => {
       });
 
       // Wait for client-side hydration and dynamic imports to settle
-      // (the stock layout loads its chart via dynamic({ ssr: false }))
+      // (the Overview page loads its chart via dynamic({ ssr: false }))
       await page.waitForTimeout(5_000);
 
       // The Overview is the default route — verify its key content sections
-      // rendered. Both headings are server-rendered: the first by the shared
-      // stock layout, the second by the Overview page's digest card.
+      // rendered. Both headings are server-rendered by the Overview page: the
+      // first is its chart section's, the second its digest card's.
 
       // 1. The "Price & short interest" chart section must be visible
       const chartHeading = page.getByRole("heading", {
@@ -77,7 +77,8 @@ test.describe("Stock Detail — Content Paint", () => {
       // Wait for charts to load (dynamic imports + API data)
       await page.waitForTimeout(8_000);
 
-      // The chart sits in the stock layout, above the tab bar. We look for the
+      // The chart is the Overview's first block, under the tab bar (the
+      // Overview page renders it, not the stock layout). We look for the
       // rendered chart SVG, or at minimum its loading skeleton.
       const chartSection = page.locator(
         'section[aria-labelledby="stock-chart-heading"]'
@@ -124,8 +125,10 @@ test.describe("Stock Detail — Content Paint", () => {
           { timeout: 30_000 }
         );
 
-        // The route's content follows the tab bar in the stock layout. Loading
-        // skeletons carry no text, so wait for the route to print some.
+        // The route's content follows the tab bar in the stock layout: it is
+        // the bar's following siblings (the bar's zero-height sentinel is a
+        // preceding one, so it is not in this set). Loading skeletons carry no
+        // text, so wait for the route to print some.
         const content = nav.locator("xpath=following-sibling::*");
         const contentText = async () =>
           (
@@ -155,7 +158,7 @@ test.describe("Stock Detail — Content Paint", () => {
     });
   }
 
-  test("stock page company profile section renders", async ({ page }) => {
+  test("stock page header and summary render", async ({ page }) => {
     await page.goto("/shorts/BHP", {
       waitUntil: "domcontentloaded",
       timeout: 30_000,
@@ -163,14 +166,15 @@ test.describe("Stock Detail — Content Paint", () => {
 
     await page.waitForTimeout(3_000);
 
-    // CompanyProfile is rendered above tabs — it should always be visible
-    // Look for stock code in the main heading (h1 contains company name like "Bhp Group")
+    // The stock header (StockHeader) is rendered above the tabs, and the
+    // Overview's own h1 is the page's heading: screen-reader-only text that
+    // names the company and its code, so it is "visible" here by having a box.
     await expect(page.locator("h1").first()).toBeVisible({
       timeout: 10_000,
     });
 
-    // Company stats section should have some content
-    // (rendered in a separate grid column on desktop)
+    // The page should carry the code and some short-position text: the
+    // header's readout, the chart and the About card all print it.
     const pageText = await page.locator("body").textContent({ timeout: 5_000 });
 
     // Should contain at minimum: stock code + some short position related text

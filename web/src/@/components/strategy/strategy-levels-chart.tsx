@@ -27,7 +27,11 @@ import {
 // strategy draws is decided in strategy-levels.ts; this island fetches the
 // prices, holds the selection and hands the chart its series.
 
-/** Same period as the layout's chart, so TanStack Query serves this from cache. */
+/**
+ * The period the Overview and Short interest chart panels open on, so a visitor
+ * who came from one of them on that period has TanStack Query serve this from
+ * cache.
+ */
 const PERIOD = "1y";
 const SMA_COLORS: Record<number, string> = {
   50: LEVEL_COLORS.sma50,
@@ -98,6 +102,10 @@ export function StrategyLevelsChart({
         axis: "right",
         kind: "line",
         points: short,
+        // Short interest is already a percentage: a change in it is points
+        // ("+0.21 pp"), not a percent of a percent, and not market direction.
+        measureMode: "absolute",
+        measureUnit: "pp",
       });
     }
     return out;
