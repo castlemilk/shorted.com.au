@@ -46,13 +46,25 @@ Review at 04:24 UTC:
   results documents). CNU's `03114543` (14 Jul) left the 90-day window.
 - **Unreadable documents: 2** (NAN and HMY), unchanged.
 - **Rows the API withholds or trims: 64.** EMH, IFG, SRJ, VIT and WEL left,
-  and EAR, JHG, JHL, MRE and SFI joined. MRE's names its responsible entity.
-  The other four are funds' own reports (a PIMCO fund, two JPMorgan funds and
-  the Financial Income Fund) filed under codes whose company record names
-  another company (Echo Resources, Janus Henderson, Jayex Healthcare,
-  Spookfish). They were published only because no entity was stored. If the
-  funds now hold those codes, the names are stale: a fix to the names, not to
-  the extractor. Not checked yet.
+  and EAR, JHG, JHL, MRE and SFI joined. All five were published only because
+  no entity was stored.
+  - EAR, JHG, JHL and SFI join the codes taken over by funds (11 Oct,
+    "company names and shared documents"). Each fund trades under a longer
+    code (EARN, JEGA and JHGA, JHLO; SFI's is not in our data), and that code
+    has the prices. ASX files the fund's announcements under the three-letter
+    code, and `asx_announcements` holds no longer code (2,629 codes). The
+    three-letter code has no price, and its company (Echo Resources, Janus
+    Henderson, Jayex Healthcare, Spookfish) last appears in ASIC's short
+    report between 2015 and 2024. The page shows that company's history, so
+    its name is right and withholding the fund's report is correct. It is not
+    a fix to the names.
+  - MRE's (`03144652`) is its own Listing Rule 4.3D letter, on its responsible
+    entity's letterhead: "The Trust Company (RE Services) Limited ... in its
+    capacity as responsible entity of the Metrics Real Estate Multi-Strategy
+    Fund (ASX: MRE)". The entity was read from the letterhead. 39 of the 64
+    withheld rows name a fund's responsible entity, manager or issuer
+    (Betashares 8, Equity Trustees 5, Russell 4, The Trust Company 4). How a
+    trust's responsible entity should match is still open (11 Oct).
 - **Dividend failures in the window: 144**, unchanged: there has been no
   notice run since. Estimates stored from a results document: 0. Parser 6's
   first run is the 11:00 UTC announcements run.
