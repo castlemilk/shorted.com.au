@@ -69,11 +69,44 @@ Review at 04:24 UTC:
   notice run since. Estimates stored from a results document: 0. Parser 6's
   first run is the 11:00 UTC announcements run.
 
+Parser 6's first run (`shorted-announcements-8z7fz`, 11:00 to 11:30 UTC, on
+the #712 image, whose jobs code is #711's): 200 notices read, 46 parsed (38
+rows); 103 estimated only, 40 awaiting an AUD equivalent, 9 not an Appendix
+3A.1, 1 missing a field, 1 with no text.
+
+- **GMG's `03104557` is stored**: AUD 0.15 ordinary, 0% franked, ex 29 Jun,
+  period end 30 Jun, attempt "estimate confirmed by `03127287`".
+- **LRT, GNE and SST stay withheld**, with no rows. LRT's newest estimate
+  (`03120710`): "no agreed entry in results document names ordinary
+  distribution period ending 2026-06-30". Its three earlier ones each give
+  way to the next. GNE and SST still await their AUD equivalents.
+
+Review at 11:33 UTC:
+
+- **Estimates stored from a results document: 1**, GMG's, confirmed by the
+  quote "Final dividend and distribution proposed per GMG security (cents)
+  15.0".
+- **Dividend failures in the window: 154** (17 to look at, 127 stored from a
+  later notice, 10 waiting). The window counts by when a notice was last
+  read, and the parser bump re-read June notices:
+  - GMG's estimate left.
+  - Five June estimates joined, each superseded by a later notice that
+    stored the same dividend: CIA, DN1, OPH, QRI and RFF.
+  - Six joined the list to look at: ASK `03104198` gave no text (no text
+    layer, or a failed download; it is read again after 7 days), ATM
+    `03103847` is missing its total, and KIT's (`03098641`, `03103276`) and
+    REV's (`03098449`, `03102805`) are not Appendix 3A.1 forms. #711 did not
+    change those checks.
+- **Newest results document not read: 265.** WTC left without being read.
+  WiseTech filed its 2026 Annual Report (`03151512`) today, and the review
+  waits 7 days before listing a newest document. Its FY26 4E (`03130193`)
+  was read on 6 Sep with no figures.
+- Empty extractions 374, unreadable 2 and withheld 64, all unchanged.
+
 Open:
 
-- After the 11:00 UTC run: GMG's `03104557` stored (AUD 0.15, unfranked, ex
-  29 Jun) and listed under the estimates stored from a results document;
-  LRT, GNE and SST still withheld.
+- After the 14:00 UTC extractor run: the first empty retries, and WTC's
+  annual report read.
 - After the 15:00 UTC picks run: VIT's FY26 figures in `stock_fundamentals`.
 
 ## 2026-10-12, after #709's first extractor run
