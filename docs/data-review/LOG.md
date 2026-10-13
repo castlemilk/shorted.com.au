@@ -3,6 +3,67 @@
 One entry per review, newest first. How to run a review and what each list
 means: `.claude/skills/data-review/SKILL.md`.
 
+## 2026-10-13, after #711's deploy and its repair
+
+#711 merged at 01:41 UTC (`bbe54dc63`) and its deploy finished at 02:25 UTC.
+terraform-apply put the announcements job and the extractor on
+main-bbe54dc6. On the deploy alone, the API reads 3 stored rows differently:
+KYN's `03132171` (still withheld), WLD's `02987859` (a sentence fragment
+dropped; still published) and SWM's `02979174` (a phone number dropped; its
+FY25 4E is now published).
+
+- **The repair as a dry run**, on the deployed job
+  (`financial-report-extractor-8k2tt`, 03:10 UTC). Its 56-line recap is
+  identical, in order, to the local dry run's.
+- **The real run** (`financial-report-extractor-thn8l`, 04:16 to 04:19 UTC,
+  after the user's OK) logged the same summary: 1,983 rows read; entities
+  1,350 unchanged, 62 cosmetic, 14 renamed, 552 added, 5 kept; periods 1,944
+  unchanged, 24 changed, 15 added; 0 left alone.
+- **Checked row by row** against read-only snapshots of the 1,983 rows, taken
+  before and after. 658 rows changed, each exactly as the rule decides, and
+  the other 1,325 are as they were. No `extracted_at` moved. 16 of the 62
+  cosmetic rows lost a stored non-name ("ANNUAL REPORT", "ASX: TLM |", an
+  address) that readers already read as none. A dry run after it
+  (`financial-report-extractor-pv7vw`) finds nothing to change except the 5
+  kept auditors' names (MAE, MCC, CP8, ROG, ETM).
+- **What a reader sees.** extractiontrust's reader, over the rows after the
+  run, changes its verdict on exactly the recap's ten: EMH, IFG, SRJ, VIT and
+  WEL are now published, and EAR, JHG, JHL, MRE and SFI withheld. The stock
+  page's latest filing, replayed over the 628 codes written, matches the
+  prediction for every code: AVE, BVS, CAA, CGS, CMB, FMG, GNG, IGO, PPS, PRU,
+  QFE, SGR and VIT gain a summary, and EVO, GLS, MGL and TOK lose theirs. MCP
+  `get_stock_briefing` serves VIT's FY2026 4E (revenue up 5.7% to $131.2m, a
+  net loss of $4.4m), BP8's FY2026 annual report under its new name, NHC's
+  year to 31 July 2026 and GNG's FY26 accounts. AXR and VIG show none, as
+  before. GMG's FY26 4E (`03127287`), which confirms its estimate, is
+  unchanged.
+
+Review at 04:24 UTC:
+
+- **Newest results document not read: 266 companies**, unchanged: there has
+  been no extractor run since.
+- **Empty extractions: 374** (255 retry due, 62 waiting, 1 gave up, 56 not
+  results documents). CNU's `03114543` (14 Jul) left the 90-day window.
+- **Unreadable documents: 2** (NAN and HMY), unchanged.
+- **Rows the API withholds or trims: 64.** EMH, IFG, SRJ, VIT and WEL left,
+  and EAR, JHG, JHL, MRE and SFI joined. MRE's names its responsible entity.
+  The other four are funds' own reports (a PIMCO fund, two JPMorgan funds and
+  the Financial Income Fund) filed under codes whose company record names
+  another company (Echo Resources, Janus Henderson, Jayex Healthcare,
+  Spookfish). They were published only because no entity was stored. If the
+  funds now hold those codes, the names are stale: a fix to the names, not to
+  the extractor. Not checked yet.
+- **Dividend failures in the window: 144**, unchanged: there has been no
+  notice run since. Estimates stored from a results document: 0. Parser 6's
+  first run is the 11:00 UTC announcements run.
+
+Open:
+
+- After the 11:00 UTC run: GMG's `03104557` stored (AUD 0.15, unfranked, ex
+  29 Jun) and listed under the estimates stored from a results document;
+  LRT, GNE and SST still withheld.
+- After the 15:00 UTC picks run: VIT's FY26 figures in `stock_fundamentals`.
+
 ## 2026-10-12, after #709's first extractor run
 
 The 14:00 UTC run (`financial-report-extractor-h98nt`, 14:00 to 14:20 UTC,
