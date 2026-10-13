@@ -97,8 +97,14 @@ deltas).
   `sticky top-16 z-30 -mx-8 mb-4 border-b bg-background/90 backdrop-blur`, and
   the scrolling list inside it carries the `px-8` (with `scroll-px-8` and a
   hidden scrollbar). On a phone the overflowing tabs then scroll to the screen
-  edge, and the next tab peeks out to show the bar scrolls (ruled after Task 4
-  review; with the padding on the nav the tabs clipped 32px short of the edge).
+  edge (ruled after Task 4 review; with the padding on the nav the tabs clipped
+  32px short of the edge). The scroll cue is a fade on each edge that can scroll
+  (`data-scroll-start` / `data-scroll-end`), because at 320-375px no tab peeks
+  past the third (ruled after the final review).
+- **Focus under the bar:** while the bar is docked, a control reached by the
+  keyboard (`:focus-visible`) whose top falls under the bar is scrolled clear
+  (a `focusin` nudge in StockTabNav). CSS `scroll-padding-top` was rejected: it
+  makes Tab across the docked tab links scroll the page to the top.
   The site header is `sticky top-0 z-50` with an `h-16` row. The container pads
   2rem at every breakpoint, so `-mx-8 px-8` bleeds to the edges of `<main>`
   (beside the sidebar on desktop, not the viewport). The header's 1px border
@@ -237,7 +243,9 @@ deltas).
     because the strip carries the dots and labels.
 - **Fallback:** strip mode falls back to tooltip when the plot left after the
   strip would be under 160px (`READOUT_MIN_PLOT`).
-- **Height and layout from the chart's width and series count only:**
+- **Height and layout from the chart's width and row count only** (the row
+  count is the larger of the series shown and `readoutReserveSeries`, which the
+  Combined view sets to 2 so a late second series never grows the strip):
   - >= 640px: one 28px row. Headline, then one entry per series, then OHLC when
     the width is >= 900px and the shown price point has all four values, then
     the Pinned chip.
@@ -255,7 +263,9 @@ deltas).
     the newest visible point after a zoom. Each entry shows its last visible
     value and its change over the visible range.
     - Price change is relative %, in signal red or green.
-    - A percentage series is absolute, in the foreground with an arrow. The
+    - A percentage series is absolute, in the foreground, in the header's
+      format: glyph, space, signed value, " pp" ("▲ +0.21 pp", "– 0.00 pp").
+      Short interest is printed to two decimals everywhere the chart prints it. The
       short series gets `measureMode: "absolute", measureUnit: "pp"` in
       `buildChartView`.
     - A normalised view shows no change.
@@ -271,8 +281,10 @@ deltas).
     title. A pin holds the reading and the crosshair until a re-tap, the x
     button, a press outside the chart, a series change or a drag-measure.
   - `measure`: the drag-to-measure readout moves into the strip (the floating
-    card goes in strip mode). The headline is "<date> → <date>", with each
-    series' change, coloured by the same rule. The strip also carries
+    card goes in strip mode). The headline names the two sessions compared (the
+    first series' points nearest each end), with each series' change, coloured
+    by the same rule. Every reading, in both modes, is dated by its data point,
+    never by the cursor's time. The strip also carries
     `data-chart="measure-readout"` while measuring.
 - **Accessibility:**
   - The visible strip is `aria-live="off"` and its dots are `aria-hidden`.
@@ -375,3 +387,9 @@ layout-shift sum (`hadRecentInput` false) on first load and on a tab switch.
     their printed numbers and lowered every other tab's. Their budgets are
     raised to the measured value plus 10%, and a layout-aware metric is a
     follow-up.
+13. **Final review (whole branch):** readings dated by their data point; short
+    interest to two decimals and one change format in header and strip; the
+    Combined strip reserves two rows; the tab bar's edge fade; the focus nudge
+    under the docked bar; a Company tab loading skeleton for director trades;
+    the header omits a figure the API does not hold and the ASX "Not Applic"
+    placeholder; the axes follow the data when a series is missing.
