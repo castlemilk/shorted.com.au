@@ -13,6 +13,10 @@ import { Skeleton } from "~/@/components/ui/skeleton";
  * and what the Company page holds the table's place with until the table's
  * chunk has loaded.
  *
+ * Both are the fallback now. The Company page reads the trades on the server
+ * and draws DirectorTradesView itself; it hands the section to the table only
+ * when that read returned nothing.
+ *
  * Its own file, with no "use client" and no Connect import, on purpose. The
  * table queries through Connect-RPC, so a server page can only reach it through
  * `next/dynamic` with `ssr: false`, and with nothing to show until the chunk

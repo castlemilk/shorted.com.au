@@ -862,6 +862,20 @@ four readouts and the ladder); on `/picks` it is unchanged.
   gets an explanation and `noindex`, never a chart with empty levels.
 - `stock-news-tab.tsx` stays (`stock-news-feed.tsx` and `related-news-rail.tsx`
   import its hooks); the old `stock-tabs.tsx` shell is gone.
+- **The Company tab draws its director trades on the server.** The page
+  starts `getDirectorTrades(code, 20)` with its other reads and awaits it where
+  the section renders (the ISR-safe fetch the insider-trading page uses; it
+  resolves `undefined` on any failure, and a rejection is taken the same way),
+  then draws `DirectorTradesView` from it: the table, or the "No director trades
+  found" card. That module (`components/company/director-trades-view.tsx`) has
+  no `"use client"`, no Connect and only type imports from the generated code,
+  and the `DirectorTradesTable` island draws it too for its loaded and empty
+  states, so the markup lives once. The island, under its
+  `DirectorTradesSkeleton` placeholder, is only the fallback for a read that
+  returned `undefined`. It used to be the only path: for a stock with no trades
+  its 322px skeleton collapsed to a 92px card, moving every card below it up by
+  230px (a first-load layout shift of 0.164 at 1280px and 0.215 at 390px for
+  SPLR on a local production build; BHP, which has trades, was 0.0007).
 - Every tab segment has a `loading.tsx` whose root is `role="status"` with
   `aria-busy` and `aria-label` (a bare `aria-label` on a div is not announced);
   `app/shorts/__tests__/loading-boundaries.test.tsx` finds them on disk. Where

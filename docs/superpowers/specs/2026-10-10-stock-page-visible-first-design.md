@@ -393,3 +393,9 @@ layout-shift sum (`hadRecentInput` false) on first load and on a tab switch.
     under the docked bar; a Company tab loading skeleton for director trades;
     the header omits a figure the API does not hold and the ASX "Not Applic"
     placeholder; the axes follow the data when a series is missing.
+14. **Company tab director trades (local acceptance run on the merged head,
+    2026-10-13):** the page reads the trades on the server and draws them at
+    their final size, a table or the "No director trades found" card. A
+    skeleton that collapsed for a stock with none moved every card below it (a
+    layout shift of 0.164 on desktop and 0.215 on a phone). The client table
+    and its skeleton remain as the fallback for a read that failed.

@@ -13,8 +13,10 @@ jest.mock("@connectrpc/connect-web", () => ({
 jest.mock("@connectrpc/connect", () => ({ createClient: jest.fn(() => ({})) }));
 jest.mock("~/gen/shorts/v1alpha1/stock_pb", () => ({ StockService: {} }));
 
+import type { DirectorTrade } from "~/gen/shorts/v1alpha1/stock_pb";
 import { DirectorTradesSkeleton } from "../director-trades-skeleton";
 import { DirectorTradesTable } from "../director-trades-table";
+import { DirectorTradesView } from "../director-trades-view";
 
 const trade = {
   id: "t1",
@@ -62,5 +64,40 @@ describe("DirectorTradesTable", () => {
     expect(screen.getByText("Jane Citizen")).toBeInTheDocument();
     expect(screen.getByText("$43.210")).toBeInTheDocument();
     expect(screen.queryByText("No director trades found")).toBeNull();
+  });
+
+  // The Company page draws DirectorTradesView from its own read and falls back
+  // to this island only when that read fails, so the two must be one card: the
+  // markup lives in the view, and this draws it.
+  it("draws the shared view for its loaded and its empty states, to the byte", () => {
+    const rows = [trade] as unknown as DirectorTrade[];
+    mockUseQuery.mockReturnValue({
+      data: { trades: [trade], totalCount: 1 },
+      isLoading: false,
+      isError: false,
+    });
+    const loaded = render(<DirectorTradesTable stockCode="BHP" />);
+    const view = render(<DirectorTradesView trades={rows} totalCount={1} />);
+    expect(loaded.container.innerHTML).toContain("Jane Citizen");
+    expect(loaded.container.innerHTML).toBe(view.container.innerHTML);
+
+    for (const result of [
+      { data: undefined, isLoading: false, isError: true },
+      { data: { trades: [], totalCount: 0 }, isLoading: false, isError: false },
+    ]) {
+      mockUseQuery.mockReturnValue(result);
+      const empty = render(<DirectorTradesTable stockCode="BHP" />);
+      const emptyView = render(<DirectorTradesView trades={[]} totalCount={0} />);
+      expect(empty.container.innerHTML).toContain("No director trades found");
+      expect(empty.container.innerHTML).toBe(emptyView.container.innerHTML);
+    }
+  });
+
+  it("asks for the 20 trades the page reads, unless it is given a limit", () => {
+    mockUseQuery.mockReturnValue({ data: undefined, isLoading: true, isError: false });
+    const { rerender } = render(<DirectorTradesTable stockCode="BHP" />);
+    expect(mockUseQuery.mock.calls[0]![0].queryKey).toEqual(["director-trades", "BHP", 20]);
+    rerender(<DirectorTradesTable stockCode="BHP" limit={5} />);
+    expect(mockUseQuery.mock.calls[1]![0].queryKey).toEqual(["director-trades", "BHP", 5]);
   });
 });
