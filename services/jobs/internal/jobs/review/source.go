@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/announcements"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -52,10 +53,37 @@ SELECT a.stock_code, a.outcome, COALESCE(a.detail, ''), a.announcement_url, a.at
 FROM dividend_notice_attempts a
 WHERE a.outcome NOT IN ('parsed', 'cancellation', 'scrip_only') AND a.attempted_at >= $1
 ORDER BY a.attempted_at DESC, a.stock_code, a.announcement_url`
+
+	// confirmedEstimatesSQL: every notice stored from an estimate its results
+	// document confirmed (announcements parser 6 writes "estimate confirmed
+	// by" in the attempt's detail), all time, each with the rows still stored
+	// from it (none once a later notice replaced them).
+	confirmedEstimatesSQL = `
+SELECT a.stock_code, a.announcement_url, COALESCE(a.detail, ''), a.attempted_at,
+       COALESCE(d.stock_code, ''), COALESCE(d.ex_date::text, ''), COALESCE(d.period_end::text, ''),
+       COALESCE(d.record_date::text, ''), COALESCE(d.payment_date::text, ''), COALESCE(d.dividend_type, ''),
+       COALESCE(d.declared_currency, ''), d.declared_amount::float8, d.franking_percentage::float8,
+       COALESCE(d.announced_on::text, '')
+FROM dividend_notice_attempts a
+LEFT JOIN dividend_history d ON d.announcement_url = a.announcement_url
+WHERE a.outcome = 'parsed' AND a.detail LIKE '%estimate confirmed by%'
+ORDER BY a.attempted_at DESC, a.announcement_url, d.dividend_type`
+
+	// estimateDocumentsSQL: the extractions with a dividend of the codes those
+	// estimates were stored under, as the pass reads them
+	// (announcements.ConfirmEstimate).
+	estimateDocumentsSQL = `
+SELECT e.stock_code, e.report_url, COALESCE(e.report_title, ''), COALESCE(to_char(e.report_date, 'YYYY-MM-DD'), ''),
+       COALESCE(cm.company_name, ''), %s, (e.metrics->'dividend')::text
+FROM financial_report_extractions e
+LEFT JOIN "company-metadata" cm ON cm.stock_code = e.stock_code
+WHERE e.stock_code = ANY($1) AND e.metrics ? 'dividend'
+ORDER BY e.stock_code, e.report_date, e.report_url`
 )
 
 // queries lists every statement the review can send, for the read-only test.
-var queries = []string{columnExistsSQL, extractionsSQL, companiesSQL, extractionStatesSQL, noticeOutcomesSQL, noticeFailuresSQL}
+var queries = []string{columnExistsSQL, extractionsSQL, companiesSQL, extractionStatesSQL, noticeOutcomesSQL, noticeFailuresSQL,
+	confirmedEstimatesSQL, estimateDocumentsSQL}
 
 // optional is the column when it exists, else the constant that stands in
 // for it (an attempt count of 1, parser version 1, no document_meta).
@@ -74,6 +102,8 @@ type source interface {
 	ExtractionStates(ctx context.Context, urls []string, attempts bool) (map[string]extractionState, error)
 	NoticeOutcomes(ctx context.Context, since time.Time, versioned bool) ([]outcomeCount, error)
 	NoticeFailures(ctx context.Context, since time.Time, versioned bool) ([]noticeFailure, error)
+	ConfirmedEstimates(ctx context.Context) ([]confirmedEstimateRow, error)
+	EstimateDocuments(ctx context.Context, codes []string, meta bool) ([]announcements.ResultsDocument, error)
 }
 
 // querier is the interface satisfied by pgx transaction.
@@ -137,6 +167,17 @@ type noticeFailure struct {
 	Superseded bool
 	// State is noticeState's reading, set by collect.
 	State string
+}
+
+// confirmedEstimateRow is a notice stored from a confirmed estimate, with one
+// of the rows still stored from it; the row's fields are "" (and nil) when
+// none is.
+type confirmedEstimateRow struct {
+	AttemptCode, URL, Detail                          string
+	AttemptedAt                                       time.Time
+	StockCode, ExDate, PeriodEnd, RecordDate, PayDate string
+	Type, Currency, AnnouncedOn                       string
+	Amount, FrankedPct                                *float64
 }
 
 // ColumnExists checks whether a column exists in a table.
@@ -254,6 +295,53 @@ func (s *pgSource) NoticeFailures(ctx context.Context, since time.Time, versione
 			return nil, err
 		}
 		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+// ConfirmedEstimates returns every notice stored from a confirmed estimate,
+// one row per dividend still stored from it (one row with no dividend when a
+// later notice replaced them).
+func (s *pgSource) ConfirmedEstimates(ctx context.Context) ([]confirmedEstimateRow, error) {
+	rows, err := s.q.Query(ctx, confirmedEstimatesSQL)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []confirmedEstimateRow
+	for rows.Next() {
+		var r confirmedEstimateRow
+		if err := rows.Scan(&r.AttemptCode, &r.URL, &r.Detail, &r.AttemptedAt, &r.StockCode, &r.ExDate, &r.PeriodEnd,
+			&r.RecordDate, &r.PayDate, &r.Type, &r.Currency, &r.Amount, &r.FrankedPct, &r.AnnouncedOn); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+// EstimateDocuments returns the extractions with a dividend of the codes. meta
+// flag controls whether to select the document_meta column.
+func (s *pgSource) EstimateDocuments(ctx context.Context, codes []string, meta bool) ([]announcements.ResultsDocument, error) {
+	if len(codes) == 0 {
+		return nil, nil
+	}
+	rows, err := s.q.Query(ctx, fmt.Sprintf(estimateDocumentsSQL, optional(meta, "e.document_meta::text", "NULL::text")), codes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []announcements.ResultsDocument
+	for rows.Next() {
+		var d announcements.ResultsDocument
+		var documentMeta, dividend []byte
+		if err := rows.Scan(&d.StockCode, &d.URL, &d.Title, &d.ReportDate, &d.CompanyName, &documentMeta, &dividend); err != nil {
+			return nil, err
+		}
+		d.DocumentMeta, d.Dividend = documentMeta, dividend
+		results = append(results, d)
 	}
 	return results, rows.Err()
 }

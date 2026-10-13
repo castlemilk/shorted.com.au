@@ -1,15 +1,69 @@
-# Report extractor echo repair: run the financial-report-extractor job once
-# with `--repair-echo-digests`, on demand.
+# Report extractor repairs: run the financial-report-extractor job once with
+# one of its one-off repair modes, on demand (the `repair` input).
 #
-# Before the trust funnel (docs/plans/fundamentals-coverage.md §6.1), the
-# extractor's prompt example leaked into stored metrics (revenue $5,142m, NPAT
-# $1,823m, EPS 94.2c as BHP, CBA, DRO, EDV and MSB results), and the digests
-# written from those metrics repeat the figures. The API withholds any filing
-# summary whose metrics still carry such an entry. This run drops ONLY the echo
-# entries from those rows (everything else is kept verbatim) and writes a new
-# digest through the trusted prompt, or digest NULL when none can be written,
-# so the summaries come back. It is a one-off after the deploy, and safe to
-# re-run: a clean row is not selected again.
+# `echo-digests` (the default) runs `--repair-echo-digests`. Before the trust
+# funnel (docs/plans/fundamentals-coverage.md §6.1), the extractor's prompt
+# example leaked into stored metrics (revenue $5,142m, NPAT $1,823m, EPS 94.2c
+# as BHP, CBA, DRO, EDV and MSB results), and the digests written from those
+# metrics repeat the figures. The API withholds any filing summary whose
+# metrics still carry such an entry. This run drops ONLY the echo entries from
+# those rows (everything else is kept verbatim) and writes a new digest through
+# the trusted prompt, or digest NULL when none can be written, so the
+# summaries come back. It is a one-off after the deploy, and safe to re-run: a
+# clean row is not selected again.
+#
+# `document-meta` runs `--repair-document-meta`. The API re-applies the entity
+# name rules to every stored document_meta entity, but where in a document the
+# entity and the period are read from is decided once, at extraction: VIT's
+# own Appendix 4E was stored as "Cortexa Pty Ltd", the entity named in its
+# control gained or lost section, which the entity check withholds, and with
+# period_end 2025-06-30, read from its prior year's dividend line, which keeps
+# its FY26 results off the stock page and out of picks. Three readers take
+# period_end as the document's own: the stock page's own-period check, picks
+# gate 4 and the dividend estimate's ConfirmEstimate (a results document
+# counts only when it states the notice's period end). This run reads the
+# entity and the period of every row with document_meta again (1,983 on
+# 2026-10-13: 535 stating an entity, 1,649 a period), with the deployed rule
+# and the row's report date, from the raw text kept in GCS (no PDF download,
+# no model call), and writes only those keys, one statement per row guarded by
+# the row's whole document_meta and extracted_at as read. It never moves
+# extracted_at, so a dividend estimate waiting on a document whose period it
+# writes is read again only at its code's next extraction, or after a parser
+# bump. It never removes a name readers check: every entity gate
+# (latest_filing.go, picks filings_ingest.go, the dividend estimate's
+# ConfirmEstimate) checks a document's entity only when one is stated, so a
+# removal would publish the row unchecked (AXR's "Sturt Exploration Pty Ltd
+# financial statements", a Core Lithium subsidiary's accounts, are withheld
+# by the auditor's name stored with them). Nor does it remove a stated
+# period. Run it after a deploy that changes such a rule, and NOT while
+# financial-report-extractor is running (daily from 14:00 UTC, up to 2h): an
+# execution started on the old image keeps writing rows with the old rule.
+# Safe to re-run: a row the rule reads the same way is not written.
+#
+# Check the dry run before the real one. Each `renamed`, `added` and `kept`
+# entity line carries the company ("company-metadata".company_name, the name
+# every gate compares) and the entity check's outcome: `now passes`, `now
+# fails` or `no change`. Only a `renamed` row can make a withheld filing pass;
+# an `added` row can only withhold one (readers then check a name where they
+# checked none); a `kept` row (a name readers check, which the text no longer
+# yields) stays as stored; `cosmetic` rows (the first 5 and a count) change
+# nothing readers see. Each `period changed`, `period added` and `period kept`
+# line carries the report date, the stored and new period, the code's newest
+# flow period and the effect on the stock page's own-period check: `becomes
+# the newest period` (the page can now summarise the document), `was the
+# newest period` (it no longer can: on 2026-10-13 each such row was a later
+# document summarised as the prior year) or `neither`. That effect is the
+# stock page's alone: picks gate 4 and ConfirmEstimate read the same
+# period_end, unlabelled. A `period kept` row (the text states no period of
+# its own) stays as stored. The summary line counts every class, outcome and
+# effect. The recap just before it lists every row that now passes or now
+# fails, every kept entity and every changed, added and kept period, and the
+# step summary prints the recap and the summary line: check every recap line
+# against its document before the real run. The repair cannot leave one row
+# alone, so while a line is wrong, do not run the real repair: fix the rule
+# until it reads that document right (a 2026-10-13 dry run would have
+# rewritten VIG's correct FY2025 period to a half its report says is still to
+# be reported).
 #
 # It executes the SAME job the daily schedule runs. `--args` replaces the
 # deployed args and keeps the image's command (python
@@ -25,6 +79,14 @@ name: Report Extractor Repair
 on:
   workflow_dispatch:
     inputs:
+      repair:
+        description: "Which repair: echo-digests (few-shot-echo metrics and their digests) or document-meta (stored document_meta entities and periods)"
+        type: choice
+        required: true
+        default: echo-digests
+        options:
+          - echo-digests
+          - document-meta
       dry_run:
         description: "Preview only: list the rows it would repair, write nothing"
         type: boolean
@@ -47,7 +109,9 @@ env:
 jobs:
   repair:
     runs-on: ubuntu-latest
-    # A handful of rows, each one digest call; the job's own timeout is 2h.
+    # echo-digests: a handful of rows, each one digest call. document-meta: one
+    # GCS read per row with document_meta (1,983 on 2026-10-13), no model
+    # call. The job's own timeout is 2h.
     timeout-minutes: 130
     steps:
       - name: Authenticate to Google Cloud
@@ -62,13 +126,19 @@ jobs:
       - name: Execute the repair
         id: run
         env:
+          REPAIR: ${{ inputs.repair }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           # Actions runs this under `bash -e`: without +e a failed execution
           # ends the script at the pipeline below, before the execution name
           # and summary are recorded (the next step then has nothing to read).
           set +e -uo pipefail
-          args="--repair-echo-digests,--workers,2"
+          case "$REPAIR" in
+            echo-digests) args="--repair-echo-digests,--workers,2" ;;
+            # --workers: the GCS reads in flight; every write is on one connection.
+            document-meta) args="--repair-document-meta,--workers,4" ;;
+            *) echo "::error::unknown repair: $REPAIR"; exit 1 ;;
+          esac
           if [[ "$DRY_RUN" == "true" ]]; then args+=",--dry-run"; fi
           echo "Executing $JOB with args: $args"
 
@@ -82,7 +152,7 @@ jobs:
             | head -n1 | grep -oE '[a-z0-9-]+$|\[[a-z0-9-]+\]' | tr -d '[]' || true)"
           echo "execution=$execution" >> "$GITHUB_OUTPUT"
           {
-            echo "## Report extractor echo repair $([[ "$DRY_RUN" == "true" ]] && echo "PREVIEW (dry run, nothing written)")"
+            echo "## Report extractor repair: $REPAIR $([[ "$DRY_RUN" == "true" ]] && echo "PREVIEW (dry run, nothing written)")"
             echo
             echo "Execution \`${execution:-unknown}\` exited $rc. Its log is in the next step."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -90,11 +160,17 @@ jobs:
 
       # The execution's own output: the rows selected, each row's outcome and
       # the closing counts, or the reason it stopped. Logs can land a little
-      # after the execution ends, so one short wait before reading.
+      # after the execution ends, so one short wait before reading. Read
+      # newest first and reversed, with room for every line, so a long log
+      # loses its head, never its tail: a document-meta run lists every
+      # renamed, added and kept row, and an earlier version's run that could
+      # read no text logged 542 lines, its summary and error past the 500 an
+      # oldest-first read returned.
       - name: Execution log
         if: always()
         env:
           EXECUTION: ${{ steps.run.outputs.execution }}
+          REPAIR: ${{ inputs.repair }}
         run: |
           set -uo pipefail
           if [[ -z "$EXECUTION" ]]; then
@@ -114,13 +190,36 @@ jobs:
           log="$RUNNER_TEMP/execution.log"
           gcloud logging read \
             'resource.type="cloud_run_job" AND resource.labels.job_name="'"$JOB"'" AND labels."run.googleapis.com/execution_name"="'"$EXECUTION"'"' \
-            --project "$PROJECT" --freshness 3h --limit 500 --order asc \
-            --format='value(textPayload)' > "$log" || true
+            --project "$PROJECT" --freshness 3h --limit 5000 --order desc \
+            --format='value(textPayload)' | tac > "$log" || true
           if [[ ! -s "$log" ]]; then
             echo "(no log lines recovered for $EXECUTION)" > "$log"
           fi
           cat "$log"
           {
+            if [[ "$REPAIR" == "document-meta" ]]; then
+              # The lines to check before a real run, however long the log:
+              # the recap (every row the entity check now passes or now
+              # fails, every kept entity, every changed, added and kept
+              # period) through the summary line, then any error. The first
+              # prod dry run (2026-10-13) listed 568 renamed, added and kept
+              # rows, and a tail of its log held none of the 11 whose verdict
+              # changed.
+              echo '### Recap and summary'
+              echo
+              echo '```text'
+              recap="$(sed -n '/Document meta repair recap/,/Document meta repair.*rows selected/p' "$log")"
+              if [[ -n "$recap" ]]; then
+                printf '%s\n' "$recap"
+              else
+                echo "(no recap in the log: the run ended before it; read the step log)"
+              fi
+              grep -F ' ERROR ' "$log" || true
+              echo '```'
+              echo
+              echo '### Log tail'
+              echo
+            fi
             echo '```text'
             tail -n 80 "$log"
             echo '```'

@@ -17,6 +17,9 @@ type documentMetaFixture struct {
 		Name     string          `json:"name"`
 		Text     string          `json:"text"`
 		Expected json.RawMessage `json:"expected"`
+		// ReportDate is the day the document was lodged, when the case needs
+		// one: test_document_meta.py passes it to extract_document_meta.
+		ReportDate string `json:"report_date"`
 	} `json:"cases"`
 	Invalid []struct {
 		Name     string          `json:"name"`
@@ -126,6 +129,14 @@ func TestDocumentMetaFixtureExpectedObjectsAreInVocabulary(t *testing.T) {
 		if m.ABN != "" && !strings.Contains(c.Text, m.ABN) {
 			t.Errorf("%s: abn %q is not in the text", c.Name, m.ABN)
 		}
+		// A document's own period ended before it was lodged.
+		if c.ReportDate != "" {
+			if !validISODate(c.ReportDate) {
+				t.Errorf("%s: report_date %q is not a YYYY-MM-DD date", c.Name, c.ReportDate)
+			} else if m.PeriodEnd != "" && m.PeriodEnd >= c.ReportDate {
+				t.Errorf("%s: period_end %s is not before the report date %s", c.Name, m.PeriodEnd, c.ReportDate)
+			}
+		}
 	}
 }
 
@@ -187,6 +198,98 @@ func TestDocumentMetaFixtureCoverage(t *testing.T) {
 	// An invalid ABN in the text is withheld, not repaired.
 	if m := byName["invalid_abn_checksum_withheld"]; m.ABN != "" {
 		t.Errorf("an ABN failing its checksum must be omitted, got %q", m.ABN)
+	}
+	// The entity is what a document says about ITSELF, one case per rule from
+	// the stored texts: VIT's own 4E was read as "Cortexa Pty Ltd", a joint
+	// venture it deconsolidated, and withheld. Where a document names only
+	// other organisations, or no one (CDM's manager, a wrapped name's
+	// "Resources Limited", BLG's running title), the entity is absent. A
+	// renamed company keeps its former name (BP8), and a responsible entity's
+	// letterhead names the trust (CQR).
+	for name, want := range map[string]string{
+		"vit_control_lost_field_skipped_acn_line_names_the_entity":                                "Vitura Health Limited",
+		"srj_numbered_name_of_entity_field_before_its_loss_of_control_field":                      "SRJ Technologies Group Plc",
+		"axr_subsidiary_accounts_cover_acn_names_the_subsidiary":                                  "Sturt Exploration Pty Ltd",
+		"cdm_directory_manager_of_the_company_is_not_the_entity_and_the_abn_read_is_the_managers": "",
+		"mgx_lone_abn_with_no_name_then_its_subsidiary_list":                                      "MGX RESOURCES LIMITED",
+		"bmr_wrapped_cover_name_resources_limited_names_no_one":                                   "",
+		"blg_report_title_and_year_before_its_abn_is_not_a_name":                                  "",
+		"oph_fund_cover_lone_arsn_names_the_fund":                                                 "Ophir High Conviction Fund",
+		"bp8_renamed_company_cover_keeps_its_former_name":                                         "Ocean Sciences Ltd (formerly BPH Global Ltd)",
+		"cqr_responsible_entity_letterhead_names_the_trust":                                       "Charter Hall Retail REIT",
+		"akg_name_label_before_the_name_is_not_part_of_it":                                        "Academies Australasia Group Limited",
+		"cpu_of_before_the_name_is_not_part_of_it":                                                "Computershare Limited",
+		"ald_authorised_for_release_is_not_a_name":                                                "Ampol Limited",
+	} {
+		m, ok := byName[name]
+		if !ok {
+			t.Errorf("fixture lacks the %s case", name)
+			continue
+		}
+		if m.Entity != want {
+			t.Errorf("%s: entity %q, want %q", name, m.Entity, want)
+		}
+	}
+	// The ABN rule takes the first valid ABN, which is not always the
+	// document's own: CDM's spells its own "A.B.N.", so its manager's is read.
+	// Nothing reads document_meta.abn yet.
+	if m := byName["cdm_directory_manager_of_the_company_is_not_the_entity_and_the_abn_read_is_the_managers"]; m.ABN != "68 106 551 062" {
+		t.Errorf("CDM case: abn %q, want the manager's 68 106 551 062", m.ABN)
+	}
+}
+
+// A former name in brackets stays after the name, whatever other trailing
+// brackets are cut; a former name alone, or an empty one, states no name.
+// test_document_meta.py asserts the same.
+func TestCleanEntityFormerName(t *testing.T) {
+	for raw, want := range map[string]string{
+		"Ocean Sciences Ltd (formerly BPH Global Ltd)":                      "Ocean Sciences Ltd (formerly BPH Global Ltd)",
+		"Altoro Metals Limited (ASX:ARO) (formerly Variscan Mines Limited)": "Altoro Metals Limited (formerly Variscan Mines Limited)",
+		"Altoro Metals Limited (formerly Variscan Mines Limited) (ASX:ARO)": "Altoro Metals Limited (formerly Variscan Mines Limited)",
+		"Racura Oncology Ltd (formerly known as Race Oncology Limited)":     "Racura Oncology Ltd (formerly known as Race Oncology Limited)",
+		"Ocean Sciences Ltd (formerly BPH Global Ltd) ABN 57 009 104 330":   "Ocean Sciences Ltd (formerly BPH Global Ltd)",
+		"Ocean Sciences Ltd (formerly )":                                    "Ocean Sciences Ltd",
+		"Moore Australia Audit (WA)":                                        "Moore Australia Audit",
+		"ASX: OCN (formerly BPH Global Ltd)":                                "",
+		"T +61 2 8777 7777 (formerly 9999 9999)":                            "",
+		"Ocean Sciences Ltd (FORMERLY BPH GLOBAL LTD)":                      "Ocean Sciences Ltd (FORMERLY BPH GLOBAL LTD)",
+		"Ocean Sciences Ltd (previously BPH Global Ltd)":                    "Ocean Sciences Ltd (previously BPH Global Ltd)",
+		"Ocean Sciences Ltd (previously known as BPH Global Ltd)":           "Ocean Sciences Ltd (previously known as BPH Global Ltd)",
+		"(formerly BPH Global Ltd), ":                                       "",
+		"(formerly BPH Global Ltd) (ASX: BP8)":                              "",
+		"(formerly A Ltd) (formerly B Ltd)":                                 "",
+		"Name: (formerly BPH Global Ltd) Limited":                           "",
+		"((formerly BPH Global Ltd)), ":                                     "",
+	} {
+		if got := cleanEntity(raw); got != want {
+			t.Errorf("cleanEntity(%q) = %q, want %q", raw, got, want)
+		}
+	}
+	// With its former name kept, a renamed company's report matches the name
+	// on record, old or new (BP8 is "Bph Global"; OSS, its new code, "Ocean
+	// Sciences"), however "formerly" is written.
+	for _, cover := range []string{"Ocean Sciences Ltd (formerly BPH Global Ltd)", "Ocean Sciences Ltd (Formerly: BPH Global Ltd)"} {
+		for _, company := range []string{"Bph Global", "Ocean Sciences"} {
+			if !EntityMatches(cleanEntity(cover), company) {
+				t.Errorf("BP8's cover %q must match %q", cover, company)
+			}
+		}
+	}
+	// A Pty Ltd's former name is not kept, however the legal form is written:
+	// a subsidiary's own accounts never match the parent through it (AXR filed
+	// Sturt Exploration's).
+	for raw, want := range map[string]string{
+		"Sturt Exploration Pty Ltd (formerly Axiant Resources Exploration Pty Ltd)":                         "Sturt Exploration Pty Ltd",
+		"Sturt Exploration Pty. Ltd. (formerly Axiant Resources Exploration Pty. Ltd.)":                     "Sturt Exploration Pty. Ltd",
+		"Sturt Exploration Proprietary Limited (formerly Axiant Resources Exploration Proprietary Limited)": "Sturt Exploration Proprietary Limited",
+	} {
+		sturt := cleanEntity(raw)
+		if sturt != want {
+			t.Errorf("cleanEntity(%q) = %q, want %q", raw, sturt, want)
+		}
+		if EntityMatches(sturt, "Axiant Resources") {
+			t.Errorf("%q must not match Axiant Resources", sturt)
+		}
 	}
 }
 

@@ -1,0 +1,28 @@
+{
+  "stock_code": "MOT",
+  "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03148072",
+  "title": "2026 Full Year Statutory Accounts",
+  "company_name": "Metrics Income Opportunities Trust",
+  "report_date": "2026-10-02",
+  "document_meta": {
+    "abn": "45 003 278 831",
+    "units": "thousands",
+    "entity": "Metrics Income Opportunities Trust is The Trust Company (RE Services) Limited",
+    "period_end": "2026-06-30",
+    "period_type": "annual",
+    "report_kind": "appendix_4e",
+    "units_evidence": "$’000"
+  },
+  "dividend": {
+    "unit": "cents",
+    "basis": "statutory",
+    "models": "deepseek/deepseek-v4-flash,google/gemini-2.5-flash-lite",
+    "period": "year ended 30 June 2026",
+    "char_end": "7168",
+    "alignment": "match_fuzzy",
+    "consensus": "agree",
+    "char_start": "7131",
+    "source_text": "Distributions \n(cents per unit)\n15.52",
+    "value_cents": "15.52"
+  }
+}

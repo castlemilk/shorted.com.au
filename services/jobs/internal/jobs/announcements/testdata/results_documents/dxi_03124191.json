@@ -1,0 +1,26 @@
+{
+  "stock_code": "DXI",
+  "url": "https://www.asx.com.au/asx/v2/statistics/displayAnnouncement.do?display=pdf&idsId=03124191",
+  "title": "Appendix 4E",
+  "company_name": "Dexus Industria Reit.",
+  "report_date": "2026-08-12",
+  "document_meta": {
+    "units": "thousands",
+    "period_end": "2026-06-30",
+    "period_type": "annual",
+    "report_kind": "appendix_4e",
+    "units_evidence": "$’000"
+  },
+  "dividend": {
+    "unit": "cents",
+    "basis": "statutory",
+    "models": "deepseek/deepseek-v4-flash,google/gemini-2.5-flash",
+    "period": "year ended 30 June 2026",
+    "char_end": "627",
+    "alignment": "match_fuzzy",
+    "consensus": "majority",
+    "char_start": "558",
+    "source_text": "Distribution per security for the period ending:\n30 September\n \n4.150",
+    "value_cents": "4.15"
+  }
+}

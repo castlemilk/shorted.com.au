@@ -1105,3 +1105,256 @@ def test_pg_without_the_price_tables_a_shared_document_is_still_read_once(pg_sch
     finally:
         conn.close()
     assert [(r["stock_code"], r["url"]) for r in got if r["stock_code"] in ("SW1", "STV")] == [("SW1", "stv-fy26")]
+
+
+# What the stored texts read as with the current rule and each row's report
+# date (test_model_errors.py pins it, with the documents' own lines, and the
+# stored values: ALK's "ACN 000 689 216 |" reads as no entity).
+VIT_4E_TEXT = "Name of entity: Vitura Health Limited\nASX Appendix 4E\nResults for announcement to the Market\n"
+NO_ENTITY_TEXT = "ASX Appendix 4E\nResults for announcement to the Market\n"
+# VIT's own FY26 Appendix 4E (idsId=03130179): stored with the prior year's
+# period, read from its dividend line ahead of the reporting-period statement.
+VIT_4E_FULL_TEXT = (
+    "2.4\t On 22 August 2025, the Directors resolved to pay a dividend of 0.2 cents per ordinary share franked as "
+    "to 100% \n"
+    "in respect of the year ended 30 June 2025. The Record Date for the dividend was 8 September 2025, and the total \n"
+    "1.\t The reporting period covers the year ended 30 June 2026. \n"
+    "The previous reporting period covers the year ended 30 June 2025.\n"
+    "2.\t Results for announcement to the Market\n"
+    "1   |   VITURA HEALTH LIMITED  ASX APPENDIX 4E FOR THE YEAR ENDED 30 JUNE 2026\n"
+    "ASX : VIT\nVitura Health Limited\nACN 629 071 594\nASX Appendix 4E\n"
+    "Results for announcement to the Market  \nfor the year ended 30 June 2026\n"
+)
+# GRR's 1H26 Appendix 4D (idsId=03133655), stored with no period.
+GRR_4D_TEXT = (
+    "Appendix 4D \n \nHalf year report \n \nName of entity \nGRANGE RESOURCES LIMITED \n \nABN \n80 009 132 405 \n"
+    "The interim financial report for the six-month period ended 30 June 2026 has been prepared in accordance with \n"
+)
+# NHC's FY26 Appendix 4E (idsId=03139480) was stored with its comparative year;
+# this line alone states no period of its own (the whole 4E's "Current period"
+# range now reads as 2026-07-31).
+NHC_4E_TEXT = ("1.\tPercentage movements relate to the previous comparative period being the full year ended "
+               "31 July 2025. Highlights reflect 80 per cent interest  \n")
+# The stored objects, as prod stores them (2026-10-13).
+VIT_STORED = {"entity": "Cortexa Pty Ltd", "period_end": "2025-06-30", "period_type": "annual",
+              "report_kind": "appendix_4e"}
+GRR_STORED = {"units": "thousands", "entity": "GRANGE RESOURCES LIMITED", "report_kind": "appendix_4d",
+              "units_evidence": "$’000"}
+NHC_STORED = {"abn": "38 010 653 844", "units": "thousands", "period_end": "2025-07-31", "period_type": "annual",
+              "report_kind": "appendix_4e", "units_evidence": "$000"}
+
+
+def _add_fundamentals(admin, schema, rows):
+    """stock_fundamentals with the columns latestFilingContextQuery reads:
+    (code, period_end, period_type, revenue, net_income)."""
+    cur = admin.cursor()
+    cur.execute(f'SET search_path TO "{schema}"')
+    cur.execute(
+        """
+        CREATE TABLE stock_fundamentals (
+            stock_code TEXT NOT NULL,
+            period_end DATE NOT NULL,
+            period_type TEXT NOT NULL,
+            revenue NUMERIC, net_income NUMERIC, eps_basic NUMERIC, eps_diluted NUMERIC,
+            operating_cash_flow NUMERIC, free_cash_flow NUMERIC
+        )
+        """
+    )
+    cur.executemany(
+        "INSERT INTO stock_fundamentals (stock_code, period_end, period_type, revenue, net_income)"
+        " VALUES (%s, %s, %s, %s, %s)",
+        rows,
+    )
+    cur.close()
+
+
+def test_pg_document_meta_repair_rewrites_only_the_entity_and_period_keys(pg_schema, monkeypatch):
+    # --repair-document-meta's statements on real Postgres: every write edits
+    # the entity and period keys alone (every other key, and extracted_at, as
+    # stored); a name readers check, or a period, that the text no longer
+    # yields is kept; a row that stated none gets one; and a row a concurrent
+    # run rewrote after it was read is left alone, whether that run changed the
+    # entity, another key, the whole object (to NULL) or only extracted_at, or
+    # added an entity. Each row carries the name the entity gates compare
+    # ("company-metadata".company_name, None for a code with no row there) and
+    # the code's newest flow and latest annual period ends, read as the shorts
+    # store reads them, which the own-period check's effect is judged against.
+    _, admin, schema = pg_schema
+    _create_tables(admin, schema, with_meta=True)
+    _add_fundamentals(admin, schema, [
+        ("VIT", "2026-06-30", "annual", 131.2, -4.4), ("VIT", "2026-06-30", "ttm", 131.2, -4.4),
+        ("VIT", "2025-06-30", "annual", 124.0, 3.3),
+        ("VIT", "2026-09-30", "quarter", 33.0, None),  # a balance snapshot: not a flow period
+        ("VIT", "2026-12-31", "half", None, None), ("VIT", "2025-12-31", "ttm", None, None),  # no flow figure
+        ("GRR", "2026-06-30", "half", 290.1, None), ("GRR", "2025-12-31", "annual", 560.4, 80.2),
+        ("NHC", "2026-07-31", "annual", None, 362.0),
+    ])
+    cur = admin.cursor()
+    cur.execute(f'SET search_path TO "{schema}"')
+    cur.execute('ALTER TABLE "company-metadata" ADD COLUMN company_name TEXT')
+    cur.executemany(
+        'INSERT INTO "company-metadata" (stock_code, company_name) VALUES (%s, %s)',
+        [("VIT", "Vitura Health"), ("VHL", "Vitura Health"), ("ALK", "Alkane Resources"), ("ABC", "Abc Holdings"),
+         ("GRR", "Grange Resources Limited."), ("NHC", "New Hope")],
+    )
+    key = {"entity": "Vitura Health Limited", "period_end": "2025-06-30", "period_type": "annual",
+           "report_kind": "appendix_4e"}
+    extracted_at = dt.datetime(2026, 10, 12, 14, 20, 5, 485322, tzinfo=dt.timezone.utc)
+    rows = [
+        ("NHC", "nhc-4e", "2026-09-15", NHC_STORED, "gs://b/nhc.txt"),  # period kept
+        ("GRR", "grr-4d", "2026-08-31", GRR_STORED, "gs://b/grr.txt"),  # period added
+        ("KEY", "key-4e", "2026-08-30", key, "gs://b/vit-4e.txt"),  # left alone: another key rewritten
+        ("NLL", "nll-4e", "2026-08-29", VIT_STORED, "gs://b/vit-4e.txt"),  # left alone: set to NULL
+        ("VHL", "vhl-4e", "2026-08-27", {"entity": "Vitura Health Limited |", "units": "thousands"},
+         "gs://b/vit.txt"),  # cosmetic
+        ("VIT", "vit-4e", "2026-08-26", VIT_STORED, "gs://b/vit-4e.txt"),  # renamed, period changed
+        ("UNC", "unc-4e", "2026-08-25", {"entity": "Vitura Health Limited"}, "gs://b/vit.txt"),  # unchanged
+        ("RAC", "rac-4e", "2026-08-24", {"entity": "Cortexa Pty Ltd"}, "gs://b/vit.txt"),  # left alone
+        ("SAM", "sam-4e", "2026-08-23", {"entity": "Cortexa Pty Ltd"}, "gs://b/vit.txt"),  # left alone
+        ("NOE", "noe-4e", "2026-08-22", {"report_kind": "appendix_4e"}, "gs://b/vit.txt"),  # added
+        ("NOX", "nox-4e", "2026-08-21", {"report_kind": "appendix_4e"}, "gs://b/vit.txt"),  # left alone
+        ("ALK", "alk-4e", "2026-08-20", {"entity": "ACN 000 689 216 |", "period_type": "annual"},
+         "gs://b/none.txt"),  # cosmetic: the value goes
+        ("ABC", "abc-4d", "2026-02-20", {"entity": "Old Name Ltd", "abn": "49 004 028 077"},
+         "gs://b/none.txt"),  # kept
+        ("NOT", "not-4e", "2026-08-02", {"entity": "No Text Ltd"}, None),  # no stored text: not selected
+        ("NUL", "nul-4e", "2026-08-01", None, "gs://b/vit.txt"),  # no document_meta: not selected
+        ("JSN", "jsn-4e", "2026-07-31", "null", "gs://b/vit.txt"),  # JSON null, not an object: not selected
+    ]
+    cur.executemany(
+        "INSERT INTO financial_report_extractions"
+        " (stock_code, report_url, report_date, metrics, document_meta, raw_text_gcs_url, extracted_at)"
+        " VALUES (%s, %s, %s, '{}', %s, %s, %s)",
+        [(code, url, date, meta if meta is None or isinstance(meta, str) else json.dumps(meta), gcs, extracted_at)
+         for code, url, date, meta, gcs in rows],
+    )
+    texts = {"gs://b/vit.txt": VIT_4E_TEXT, "gs://b/none.txt": NO_ENTITY_TEXT, "gs://b/vit-4e.txt": VIT_4E_FULL_TEXT,
+             "gs://b/grr.txt": GRR_4D_TEXT, "gs://b/nhc.txt": NHC_4E_TEXT}
+    monkeypatch.setattr(extract, "fetch_text_from_gcs", lambda uri: texts[uri])
+
+    d = dt.date.fromisoformat
+    conn = runner.open_selection_connection()
+    try:
+        selected = runner.select_document_meta_rows(conn)
+        # Newest first, with or without an entity, a period or a company row;
+        # no stored text or no document_meta: not read. The newest flow period
+        # skips a quarter and the rows with no flow figure, a later half among
+        # them.
+        assert [
+            (r["report_url"], r["entity"], r["period_end"], r["company_name"], r["newest_flow_period_end"],
+             r["latest_annual_period_end"])
+            for r in selected
+        ] == [
+            ("nhc-4e", None, "2025-07-31", "New Hope", d("2026-07-31"), d("2026-07-31")),
+            ("grr-4d", "GRANGE RESOURCES LIMITED", None, "Grange Resources Limited.", d("2026-06-30"),
+             d("2025-12-31")),
+            ("key-4e", "Vitura Health Limited", "2025-06-30", None, None, None),
+            ("nll-4e", "Cortexa Pty Ltd", "2025-06-30", None, None, None),
+            ("vhl-4e", "Vitura Health Limited |", None, "Vitura Health", None, None),
+            ("vit-4e", "Cortexa Pty Ltd", "2025-06-30", "Vitura Health", d("2026-06-30"), d("2026-06-30")),
+            ("unc-4e", "Vitura Health Limited", None, None, None, None),
+            ("rac-4e", "Cortexa Pty Ltd", None, None, None, None),
+            ("sam-4e", "Cortexa Pty Ltd", None, None, None, None),
+            ("noe-4e", None, None, None, None, None),
+            ("nox-4e", None, None, None, None, None),
+            ("alk-4e", "ACN 000 689 216 |", None, "Alkane Resources", None, None),
+            ("abc-4d", "Old Name Ltd", None, "Abc Holdings", None, None),
+        ]
+        assert {r["extracted_at"] for r in selected} == {extracted_at}
+        assert {r["report_url"]: r["report_date"] for r in selected}["vit-4e"] == d("2026-08-26")
+        assert json.loads({r["report_url"]: r["document_meta"] for r in selected}["vit-4e"]) == VIT_STORED
+        # Concurrent runs, after the rows were read: RAC's entity changes; SAM
+        # is stored again with the same entity (an EMPTY retry); NOX gets an
+        # entity without a new extracted_at; KEY's other key changes; NLL's
+        # document_meta is cleared.
+        cur.execute("""UPDATE financial_report_extractions SET document_meta = '{"entity": "Racing Ltd"}'"""
+                    " WHERE report_url = 'rac-4e'")
+        cur.execute("UPDATE financial_report_extractions SET extracted_at = extracted_at + interval '1 hour'"
+                    " WHERE report_url = 'sam-4e'")
+        cur.execute("""UPDATE financial_report_extractions SET document_meta = document_meta || '{"entity": "Other Ltd"}'"""
+                    " WHERE report_url = 'nox-4e'")
+        cur.execute("""UPDATE financial_report_extractions SET document_meta = document_meta || '{"report_kind": "annual_report"}'"""
+                    " WHERE report_url = 'key-4e'")
+        cur.execute("UPDATE financial_report_extractions SET document_meta = NULL WHERE report_url = 'nll-4e'")
+        counts = runner.repair_document_meta(conn, selected, workers=2, dry_run=False)
+    finally:
+        conn.close()
+    # VIT now passes the entity check and its period becomes the newest flow
+    # period; NOE's added name has no company to match, so it now fails; GRR's
+    # added period is the one its report date already gave; NHC's period is
+    # kept; the rows left alone were not written, so no class, outcome or
+    # effect of theirs is counted.
+    assert counts == {"read": 13, "left_alone": 5, "unchanged": 3, "cosmetic": 2, "renamed": 1, "added": 1, "kept": 1,
+                      "now passes": 1, "now fails": 1, "no change": 3, "period unchanged": 5, "period changed": 1,
+                      "period added": 1, "period kept": 1, "becomes the newest period": 1, "neither": 2}
+
+    cur.execute(
+        "SELECT report_url, document_meta, extracted_at FROM financial_report_extractions WHERE report_url = ANY(%s)",
+        ([url for _, url, _, _, _ in rows],),
+    )
+    got = {url: (meta, at) for url, meta, at in cur.fetchall()}
+    cur.close()
+    assert {url: meta for url, (meta, _) in got.items()} == {
+        "nhc-4e": NHC_STORED,
+        "grr-4d": {**GRR_STORED, "period_end": "2026-06-30", "period_type": "half"},
+        "key-4e": {**key, "report_kind": "annual_report"},
+        "nll-4e": None,
+        "vhl-4e": {"entity": "Vitura Health Limited", "units": "thousands"},
+        "vit-4e": {**VIT_STORED, "entity": "Vitura Health Limited", "period_end": "2026-06-30", "period_type": "annual"},
+        "unc-4e": {"entity": "Vitura Health Limited"},
+        "rac-4e": {"entity": "Racing Ltd"},
+        "sam-4e": {"entity": "Cortexa Pty Ltd"},
+        "noe-4e": {"report_kind": "appendix_4e", "entity": "Vitura Health Limited"},
+        "nox-4e": {"report_kind": "appendix_4e", "entity": "Other Ltd"},
+        "alk-4e": {"period_type": "annual"},
+        "abc-4d": {"entity": "Old Name Ltd", "abn": "49 004 028 077"},
+        "not-4e": {"entity": "No Text Ltd"},
+        "nul-4e": None,
+        "jsn-4e": None,
+    }
+    assert {url for url, (_, at) in got.items() if at != extracted_at} == {"sam-4e"}, "the repair never moves extracted_at"
+
+
+def test_pg_the_document_meta_guard_is_the_whole_object_in_any_key_order(pg_schema):
+    # jsonb equality compares objects, not text: the guard matches the stored
+    # object in any key order and spacing, misses it when one value or one key
+    # differs or extracted_at is a microsecond off, and never matches NULL.
+    _, admin, schema = pg_schema
+    _create_tables(admin, schema, with_meta=True)
+    cur = admin.cursor()
+    cur.execute(f'SET search_path TO "{schema}"')
+    at = dt.datetime(2026, 10, 6, 14, 3, 57, 999995, tzinfo=dt.timezone.utc)  # NHC's row, as stored
+    cur.execute(
+        "INSERT INTO financial_report_extractions (stock_code, report_url, metrics, document_meta, extracted_at)"
+        " VALUES ('NHC', 'nhc-4e', '{}', %s, %s)",
+        (json.dumps(NHC_STORED), at),
+    )
+    cur.execute("SELECT document_meta::text FROM financial_report_extractions WHERE report_url = 'nhc-4e'")
+    as_read = cur.fetchone()[0]
+    reordered = json.dumps(dict(reversed(list(NHC_STORED.items()))), indent=2)
+    assert as_read != reordered and json.loads(as_read) == json.loads(reordered) == NHC_STORED
+    fewer = {k: v for k, v in NHC_STORED.items() if k != "units_evidence"}
+    period = ("2026-07-31", "annual")
+    conn = runner.open_selection_connection()
+    try:
+        for guard, guard_at in [
+            (json.dumps({**NHC_STORED, "units": "millions"}), at),
+            (json.dumps(fewer), at),
+            (json.dumps({**NHC_STORED, "entity": "New Hope Corporation Limited"}), at),
+            (as_read, at + dt.timedelta(microseconds=1)),
+        ]:
+            assert extract.store_document_meta_repair(conn, "nhc-4e", guard_at, guard, period=period) is False
+        assert extract.store_document_meta_repair(conn, "nhc-4e", at, reordered, period=period) is True
+        cur.execute("SELECT document_meta, extracted_at FROM financial_report_extractions WHERE report_url = 'nhc-4e'")
+        assert cur.fetchone() == ({**NHC_STORED, "period_end": "2026-07-31"}, at)
+        cur.execute("UPDATE financial_report_extractions SET document_meta = NULL WHERE report_url = 'nhc-4e'")
+        # NULL equals nothing: the row is left alone...
+        assert extract.store_document_meta_repair(conn, "nhc-4e", at, "{}", entity="New Hope Ltd") is False
+        # ...and a NULL read is no guard: the writer refuses it.
+        with pytest.raises(ValueError, match="the guard needs the document_meta object as read"):
+            extract.store_document_meta_repair(conn, "nhc-4e", at, "null", entity="New Hope Ltd")
+    finally:
+        conn.close()
+    cur.execute("SELECT document_meta FROM financial_report_extractions WHERE report_url = 'nhc-4e'")
+    assert cur.fetchone() == (None,)
+    cur.close()

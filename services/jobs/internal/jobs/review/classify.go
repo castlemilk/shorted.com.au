@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/jobs/internal/jobs/announcements"
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
 )
 
@@ -331,4 +332,101 @@ func sortFailures(fs []noticeFailure) {
 		}
 	}
 	slices.SortStableFunc(fs, func(a, b noticeFailure) int { return cmp.Compare(rank(a.State), rank(b.State)) })
+}
+
+// estimateRow is a dividend stored from a confirmed estimate, and whether its
+// results documents still confirm it.
+type estimateRow struct {
+	AttemptCode, URL string
+	AttemptedAt      time.Time
+	// Rows: the dividends still stored from the notice; none once a later
+	// notice replaced them.
+	Rows []confirmedEstimateRow
+	// Documents: the ones that confirm it now, or, when none does, the ones
+	// its detail named.
+	Documents []string
+	Quotes    []string
+	State     string
+}
+
+// Where a stored estimate stands.
+const (
+	estimateConfirmed = "confirmed"
+	estimateReplaced  = "replaced by a later notice"
+)
+
+// estimateStates reads each notice stored from a confirmed estimate
+// (announcements parser 6) and checks it again against its code's documents
+// with the pass's own rule (announcements.ConfirmEstimate). Without this list
+// such a notice just leaves the overdue failures (GMG's of 2026-06-16), and
+// nothing marks its row as an estimate. A row whose documents no longer
+// confirm it, a document re-extracted or withdrawn, needs a look; one a later
+// notice replaced needs nothing.
+func estimateStates(rows []confirmedEstimateRow, docs []announcements.ResultsDocument) []estimateRow {
+	var out []estimateRow
+	index := map[string]int{}
+	for _, r := range rows {
+		i, seen := index[r.URL]
+		if !seen {
+			i = len(out)
+			index[r.URL] = i
+			out = append(out, estimateRow{AttemptCode: r.AttemptCode, URL: r.URL, AttemptedAt: r.AttemptedAt})
+		}
+		if r.StockCode != "" {
+			out[i].Rows = append(out[i].Rows, r)
+		}
+	}
+	for i := range out {
+		e := &out[i]
+		named, due, ok := announcements.ConfirmedEstimateDetail(firstDetail(rows, e.URL))
+		e.Documents = named
+		switch {
+		case len(e.Rows) == 0:
+			e.State = estimateReplaced
+			continue
+		case !ok:
+			e.State = "no longer confirmed: its detail names no document and no due date"
+			continue
+		}
+		c := announcements.ConfirmEstimate(estimateNotice(e.Rows, due), docs)
+		if !c.Confirmed() {
+			e.State = "no longer confirmed: " + c.Reason
+			continue
+		}
+		e.State, e.Documents, e.Quotes = estimateConfirmed, c.Documents(), nil
+		for _, m := range c.Matches {
+			e.Quotes = append(e.Quotes, m.Quote)
+		}
+	}
+	return out
+}
+
+func firstDetail(rows []confirmedEstimateRow, url string) string {
+	for _, r := range rows {
+		if r.URL == url {
+			return r.Detail
+		}
+	}
+	return ""
+}
+
+// estimateNotice is the notice a stored estimate was read from, as far as
+// the pass's rule needs it: its rows hold the code, dates, currency, and each
+// part's type, amount and franking; its detail the date the actual amount was
+// due.
+func estimateNotice(rows []confirmedEstimateRow, due string) announcements.DividendNotice {
+	first := rows[0]
+	n := announcements.DividendNotice{
+		SecurityCode: first.StockCode, AnnouncedOn: first.AnnouncedOn, PeriodEnd: first.PeriodEnd, RecordDate: first.RecordDate,
+		ExDate: first.ExDate, PaymentDate: first.PayDate, Currency: first.Currency, ActualDue: due,
+	}
+	for _, r := range rows {
+		part := announcements.DividendPart{Type: r.Type, Estimated: true, FrankedPct: r.FrankedPct}
+		if r.Amount != nil {
+			part.Amount = *r.Amount
+		}
+		n.Parts = append(n.Parts, part)
+		n.Total += part.Amount
+	}
+	return n
 }

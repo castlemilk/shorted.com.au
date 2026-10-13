@@ -3,6 +3,7 @@ package review
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/extractiontrust"
@@ -19,6 +20,7 @@ type report struct {
 	Withheld      []withheldRow
 	Outcomes      []outcomeCount
 	Failures      []noticeFailure
+	Estimates     []estimateRow
 }
 
 // emptyRow is an empty extraction and where it stands in the retries.
@@ -103,5 +105,21 @@ func collect(ctx context.Context, src source, cfg config, now time.Time) (report
 		rep.Failures[i].State = noticeState(rep.Failures[i], now)
 	}
 	sortFailures(rep.Failures)
+
+	estimates, err := src.ConfirmedEstimates(ctx)
+	if err != nil {
+		return report{}, fmt.Errorf("confirmed estimates: %w", err)
+	}
+	var codes []string
+	for _, e := range estimates {
+		if e.StockCode != "" && !slices.Contains(codes, e.StockCode) {
+			codes = append(codes, e.StockCode)
+		}
+	}
+	docs, err := src.EstimateDocuments(ctx, codes, meta)
+	if err != nil {
+		return report{}, fmt.Errorf("estimate documents: %w", err)
+	}
+	rep.Estimates = estimateStates(estimates, docs)
 	return rep, nil
 }
