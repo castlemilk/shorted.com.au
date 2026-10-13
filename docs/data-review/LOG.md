@@ -77,9 +77,9 @@ rows); 103 estimated only, 40 awaiting an AUD equivalent, 9 not an Appendix
 - **GMG's `03104557` is stored**: AUD 0.15 ordinary, 0% franked, ex 29 Jun,
   period end 30 Jun, attempt "estimate confirmed by `03127287`".
 - **LRT, GNE and SST stay withheld**, with no rows. LRT's newest estimate
-  (`03120710`): "no agreed entry in results document names ordinary
-  distribution period ending 2026-06-30". Its three earlier ones each give
-  way to the next. GNE and SST still await their AUD equivalents.
+  (`03120710`): "no agreed entry in a results document names the ordinary
+  distribution for the period ending 2026-06-30". Its three earlier ones each
+  give way to the next. GNE and SST still await their AUD equivalents.
 
 Review at 11:33 UTC:
 
@@ -90,8 +90,9 @@ Review at 11:33 UTC:
   later notice, 10 waiting). The window counts by when a notice was last
   read, and the parser bump re-read June notices:
   - GMG's estimate left.
-  - Five June estimates joined, each superseded by a later notice that
-    stored the same dividend: CIA, DN1, OPH, QRI and RFF.
+  - Five June notices joined, each followed by a later notice that stored
+    the same dividend: four estimates (DN1, OPH, QRI and RFF) and CIA's,
+    which awaited its AUD equivalent.
   - Six joined the list to look at: ASK `03104198` gave no text (no text
     layer, or a failed download; it is read again after 7 days), ATM
     `03103847` is missing its total, and KIT's (`03098641`, `03103276`) and
@@ -103,11 +104,54 @@ Review at 11:33 UTC:
   was read on 6 Sep with no figures.
 - Empty extractions 374, unreadable 2 and withheld 64, all unchanged.
 
+The 14:00 UTC extractor run (`financial-report-extractor-55fcp`, 14:00 to
+14:20 UTC, exit 0, US$0.44 in model calls) started all 360 documents it
+selected: 248 ok, 65 digest only, 7 no metrics, 40 no PDF.
+
+- **No empty extraction was read again.** A retry ranks after every first
+  attempt, and 652 documents had no row. The job's own selection, replayed
+  read-only after the run, lists 1,915 documents: 332 with no row (all filed
+  more than 45 days ago, 112 of them in 2023) and 1,583 retries (194 filed in
+  the last 45 days, 52 in the 45 before, 1,337 older). The first retry is
+  333rd, so about 28 fit in tomorrow's 360, fewer as new filings arrive (2 to
+  18 a day since 1 Oct). Most retries start on 15 Oct.
+- **The 40 with no PDF** are all 2023 documents (`02635950` to `02756399`)
+  whose URL no longer resolves. A failed download writes nothing, so every
+  run selects them again, ahead of every retry.
+- **WTC's annual report (`03151512`) was read and is empty.** Its first 8
+  pages are 6,393 characters with no figures ("revenue" appears once, in a
+  ranking of freight forwarders). The models' 6 figures were all dropped as
+  not in the document, and the digest's confidence is 0.2. It is due again
+  from 20 Oct, at up to 24 pages.
+- **WTC's FY26 4E (`03130193`) has its figures in its text** ("Net profit
+  after tax decreased 11% to $178.7m", basic earnings per share 53.6 cents)
+  but was read empty on 6 Sep. Its retry is 1,162nd: retries of recent
+  filings, of companies with no figures and of companies' newest documents
+  all rank first. It is read around 17 Oct.
+- **The repaired rows are unchanged.** A snapshot at 14:26 UTC matches the
+  post-repair one on all 1,983 rows; the run added 320 rows.
+
+Review at 14:27 UTC:
+
+- **Newest results document not read: 182 companies** (265 at 11:33). The
+  run read 83 of them, and none joined.
+- **Empty extractions: 384** (273 retry due, 54 waiting, 1 gave up, 56 not
+  results documents). The 10 new ones are today's reads: CBY, CIN, IMD, KBC,
+  LVE, MAD, MGH, MGR, SFR and WTC. CIN's and LVE's have 190 characters each.
+  SFR's `03122835` ("FY26 Financial Results Advisory") gives only the date of
+  its results, like PLS's `03122597` (listed before), so neither is a results
+  document.
+- Unreadable 2, withheld 64, dividend failures 154 and estimates stored from
+  a results document 1, all unchanged.
+
 Open:
 
-- After the 14:00 UTC extractor run: the first empty retries, and WTC's
-  annual report read.
 - After the 15:00 UTC picks run: VIT's FY26 figures in `stock_fundamentals`.
+- The 14 Oct extractor run: the first retries.
+- Not urgent: the results classifier accepts a results advisory (SFR, PLS);
+  a document whose PDF no longer resolves takes a slot every run (40); a
+  large company's empty result waits behind every retry of a company with no
+  figures (WTC's 4E).
 
 ## 2026-10-12, after #709's first extractor run
 
