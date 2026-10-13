@@ -72,6 +72,7 @@ import { STATE_SLUGS } from "~/@/lib/economy/map-metrics";
 import { PUBLISHED_ECONOMY_TOPIC_PAIRS } from "~/@/lib/economy/topics";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { STOCK_TABS, type StockTabId } from "~/@/lib/stocks/stock-tabs";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { createSlug } from "~/@/lib/industry-slug";
 import { ALL_STATES, stateSlug, suburbSlug } from "~/@/lib/housing/states";
 import { isSuburbSitemapEligible } from "~/@/lib/seo/suburb-indexability";
@@ -392,11 +393,9 @@ export async function buildCoreSitemap(): Promise<SitemapEntry[]> {
         const treemap = (await resp.json()) as {
           stocks?: Array<{ industry?: string }>;
         };
-        const invalid = new Set(["Class Pend", "Not Applic", "Not Applicable", ""]);
         const names = new Set<string>();
         for (const s of treemap.stocks ?? []) {
-          const industry = s.industry?.trim() ?? "Other";
-          names.add(invalid.has(industry) ? "Other" : industry);
+          names.add(industryLabel(s.industry) || "Other");
         }
         industrySlugs = [...names].map(createSlug);
       }

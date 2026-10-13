@@ -21,6 +21,7 @@ import { LLMMeta, StockLLMMeta } from "~/@/components/seo/llm-meta";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { LatestWeeklyReportLink } from "~/@/components/reports/latest-weekly-report-link";
 import { siteConfig } from "~/@/config/site";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { thirtyDayChangeClause } from "~/@/lib/seo/short-change-clause";
 import { stockOgImage } from "~/@/lib/seo/stock-tab-metadata";
@@ -114,7 +115,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       const shortInfo = stock.percentageShorted > 0
         ? `${descName} short interest is ${stock.percentageShorted.toFixed(2)}%${dateStr ? ` as of ${dateStr}` : ""}${thirtyDayChangeClause(series)}.`
         : `${descName} short selling data from official ASIC reports.`;
-      const industryInfo = stock.industry ? ` Industry: ${stock.industry}.` : "";
+      const industry = industryLabel(stock.industry);
+      const industryInfo = industry ? ` Industry: ${industry}.` : "";
       description = `${shortInfo}${industryInfo} Track ${code}'s short position history, price charts, peer comparison, and ASIC data. Updated daily with T+4 delay.`;
 
       // Index real companies (named + enriched OR meaningfully shorted), only
@@ -272,7 +274,9 @@ const Page = async ({ params }: PageProps) => {
   const description = (stockDetails?.enhancedSummary || stockDetails?.summary || "").trim();
   const shortPct = stock.percentageShorted ?? 0;
   const shortPositions = stock.reportedShortPositions ?? 0;
-  const industry = stock.industry || "";
+  // "" for none, and for the ASX's "Not Applic" of an ETF or a trust: no
+  // sentence or meta tag on the page names a placeholder as an industry.
+  const industry = industryLabel(stock.industry);
 
   const breadcrumbItems = [
     { label: "Stocks", href: "/stocks" },
@@ -300,8 +304,8 @@ const Page = async ({ params }: PageProps) => {
       <StockLLMMeta
         stockCode={stockCode}
         companyName={companyName}
-        industry={stock.industry || ""}
-        sector={stock.industry || ""}
+        industry={industry}
+        sector={industry}
         shortPercentage={stock.percentageShorted || undefined}
         currentShortPosition={stock.reportedShortPositions || undefined}
       />

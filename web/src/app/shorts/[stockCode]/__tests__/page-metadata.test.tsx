@@ -86,6 +86,20 @@ describe("stock Overview metadata", () => {
     expect(thin.robots).toEqual({ index: false, follow: true, googleBot: { index: false, follow: true } });
   });
 
+  it("names a real industry in the description, and leaves a placeholder out", async () => {
+    mockGetStock.mockResolvedValue(stock(1.2));
+    const real = await generateMetadata({ params: Promise.resolve({ stockCode: "bhp" }) });
+    expect(real.description).toContain(" Industry: Materials.");
+
+    // What the ASX puts in the field of an ETF or a trust.
+    for (const industry of ["Not Applic", "Class Pend"]) {
+      mockGetStock.mockResolvedValue({ ...stock(1.2), industry });
+      const meta = await generateMetadata({ params: Promise.resolve({ stockCode: "bhp" }) });
+      expect(meta.description).not.toContain("Industry:");
+      expect(meta.description).not.toContain(industry);
+    }
+  });
+
   it("sets no robots key while the stock read fails (fail open)", async () => {
     mockGetStock.mockRejectedValue(new Error("unavailable"));
     const meta = await generateMetadata({ params: Promise.resolve({ stockCode: "bhp" }) });

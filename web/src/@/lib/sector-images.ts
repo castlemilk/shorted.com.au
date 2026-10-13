@@ -7,6 +7,8 @@
  * appears, add it here — there is no fuzzy matching.
  */
 
+import { industryLabel } from "./industry-placeholder";
+
 // Explicit map: lowercase industry name → image filename (without extension).
 // Every production GICS name must have an entry here.
 const INDUSTRY_TO_IMAGE: Record<string, string> = {
@@ -47,22 +49,17 @@ const INDUSTRY_TO_IMAGE: Record<string, string> = {
   "telecom":        "telecommunications",
   "industrials":    "materials",
   "food & bev":     "food_beverage",
-
-  // ─── Invalid ASIC classifications → "other" ───────────────────────────
-  "class pend":     "other",
-  "not applic":     "other",
-  "not applicable": "other",
-  "":               "other",
 };
 
 const SECTOR_ASSET_BASE_PATH = "/assets/sectors-v2";
 
 /**
  * Resolve an industry name to its image filename.
- * Falls back to "other" if no match found.
+ * Falls back to "other" if no match found, as the ASX's placeholders for an
+ * unclassified security ("Not Applic", "Class Pend") always do.
  */
 function industryToFilename(industry: string): string {
-  return INDUSTRY_TO_IMAGE[industry.toLowerCase().trim()] ?? "other";
+  return INDUSTRY_TO_IMAGE[industryLabel(industry).toLowerCase()] ?? "other";
 }
 
 /**
@@ -89,12 +86,11 @@ export function getSectorImageAlt(industry: string): string {
 
 /**
  * Get the list of all known valid GICS industry names (for filter dropdowns etc).
- * Excludes invalid ASIC classifications.
+ * Excludes the "Other" bucket.
  */
 export function getKnownIndustries(): string[] {
-  const EXCLUDE = new Set(["class pend", "not applic", "not applicable", "", "other"]);
   return Object.keys(INDUSTRY_TO_IMAGE)
-    .filter((k) => !EXCLUDE.has(k))
+    .filter((k) => industryLabel(k))
     .map((k) =>
       k.replace(/\b\w/g, (c) => c.toUpperCase()) // Title Case
     )
