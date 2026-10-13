@@ -1,0 +1,225 @@
+package review
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// render is the report as markdown.
+func render(rep report) string {
+	var b strings.Builder
+	w := &b
+	p := func(format string, args ...any) { fmt.Fprintf(w, format, args...) }
+	p("# Shorted data review\n\n")
+	p("Generated %s UTC from one read-only transaction. Window: the last %d days. Each list shows at most %d rows; the counts are complete.\n\n",
+		timestamp(rep.Generated), rep.Days, rep.Limit)
+
+	p("## Financial reports\n\n")
+
+	p("### Newest results document not read (%d companies)\n\n", len(rep.Unread))
+	p("Filed more than %d days ago and still without metrics or a digest, largest companies first.\n\n", unreadGraceDays)
+	list(w, rep.Limit, []string{"Code", "Company", "Market cap", "Filed", "Document", "State"}, len(rep.Unread), func(i int) []string {
+		g := rep.Unread[i]
+		return []string{g.StockCode, g.CompanyName, marketCap(g.MarketCap, g.MarketCapOK), day(g.Doc.Date), link(g.Doc.Title, g.Doc.URL), g.State}
+	})
+
+	if rep.AttemptsKnown {
+		due, waiting, gaveUp, notResults := 0, 0, 0, 0
+		for _, e := range rep.Empty {
+			switch {
+			case e.State == "retry due":
+				due++
+			case strings.HasPrefix(e.State, "next retry"):
+				waiting++
+			case strings.HasPrefix(e.State, "gave up"):
+				gaveUp++
+			case e.State == notResultsTitle:
+				notResults++
+			}
+		}
+		p("### Empty extractions (%d: %d retry due, %d waiting, %d gave up, %d not results documents)\n\n", len(rep.Empty), due, waiting, gaveUp, notResults)
+	} else {
+		p("### Empty extractions (%d)\n\n", len(rep.Empty))
+	}
+	p("No metrics and no digest the latest-filing summary can show (none, or confidence missing or under %.1f) from a document with text. The extractor reads each again, at up to %d pages, at most %d times, %d days apart.\n\n",
+		apiMinDigestConfidence, emptyRetryMaxPages, emptyRetryLimit, emptyRetryMinDays)
+	list(w, rep.Limit, []string{"Code", "Filed", "Document", "Chars", "Attempts", "Last read", "State"}, len(rep.Empty), func(i int) []string {
+		e := rep.Empty[i]
+		return []string{e.StockCode, filed(e.ReportDate), link(e.Title, e.URL), chars(e.RawTextLength), strconv.Itoa(e.Attempts), timestamp(e.ExtractedAt), e.State}
+	})
+
+	p("### Unreadable documents (%d)\n\n", len(rep.Unreadable))
+	p("No text layer (a scanned PDF): never retried.\n\n")
+	list(w, rep.Limit, []string{"Code", "Filed", "Document", "Chars", "Read"}, len(rep.Unreadable), func(i int) []string {
+		u := rep.Unreadable[i]
+		return []string{u.StockCode, filed(u.ReportDate), link(u.Title, u.URL), chars(u.RawTextLength), timestamp(u.ExtractedAt)}
+	})
+
+	p("### Rows the API withholds or trims (%d)\n\n", len(rep.Withheld))
+	p("The extraction exists, but a gate keeps some or all of it from readers.\n\n")
+	list(w, rep.Limit, []string{"Code", "Filed", "Document", "Reasons"}, len(rep.Withheld), func(i int) []string {
+		r := rep.Withheld[i]
+		return []string{r.StockCode, filed(r.ReportDate), link(r.Title, r.URL), strings.Join(r.Reasons, "; ")}
+	})
+
+	p("## Dividend notices\n\n")
+
+	p("### Outcomes\n\n")
+	list(w, len(rep.Outcomes), []string{"Outcome", "Parser", "All time", fmt.Sprintf("Last %d days", rep.Days)}, len(rep.Outcomes), func(i int) []string {
+		o := rep.Outcomes[i]
+		return []string{o.Outcome, strconv.Itoa(o.ParserVersion), strconv.Itoa(o.Total), strconv.Itoa(o.Recent)}
+	})
+
+	var stored, waiting, overdue int
+	for _, f := range rep.Failures {
+		switch {
+		case f.Superseded:
+			stored++
+		case strings.HasPrefix(f.State, "due "):
+			waiting++
+		case strings.HasPrefix(f.State, "overdue"):
+			overdue++
+		}
+	}
+	p("### Failures in the window (%d: %d to look at, %d stored from a later notice, %d waiting for their update)\n\n",
+		len(rep.Failures), len(rep.Failures)-stored-waiting, stored, waiting)
+	p("Every outcome but parsed, cancellation and scrip_only (paid only in securities, so no cash dividend to store). A notice that waits on its update (an estimate, or a foreign amount without its AUD equivalent) states the date its update is due. Once another notice stores the dividend it needs nothing; past that date it needs a look (%d now). Listed overdue first, then the other failures, then the ones waiting, then the ones stored, newest first within each.\n\n", overdue)
+	list(w, rep.Limit, []string{"Code", "Outcome", "State", "Detail", "Notice", "Tried", "Parser"}, len(rep.Failures), func(i int) []string {
+		f := rep.Failures[i]
+		state := f.State
+		if state == "" {
+			state = "—"
+		}
+		return []string{f.StockCode, f.Outcome, state, truncateRunes(f.Detail, 100), link("notice", f.URL), timestamp(f.AttemptedAt), strconv.Itoa(f.ParserVersion)}
+	})
+
+	var stale, replaced int
+	for _, e := range rep.Estimates {
+		switch {
+		case e.State == estimateReplaced:
+			replaced++
+		case e.State != estimateConfirmed:
+			stale++
+		}
+	}
+	p("### Estimates stored from a results document (%d: %d no longer confirmed, %d replaced by a later notice)\n\n", len(rep.Estimates), stale, replaced)
+	p("A notice that states only an estimate is stored once the issuer's own results document states the same distribution (an issuer such as GMG never sends an update). These rows are estimates: each is checked again against its documents with the pass's rule, and one no longer confirmed needs a look. A later notice for the dividend replaces it. All time, newest first.\n\n")
+	list(w, rep.Limit, []string{"Code", "Ex-date", "Amount", "Notice", "Document", "Quote", "State"}, len(rep.Estimates), func(i int) []string {
+		e := rep.Estimates[i]
+		code, exDate := e.AttemptCode, "—"
+		var amounts, documents []string
+		for _, r := range e.Rows {
+			code, exDate = r.StockCode, r.ExDate
+			amounts = append(amounts, estimateAmount(r))
+		}
+		for _, d := range e.Documents {
+			documents = append(documents, link("document", d))
+		}
+		quote := strings.Join(strings.Fields(strings.Join(e.Quotes, " / ")), " ")
+		return []string{code, exDate, strings.Join(amounts, "; "), link("notice", e.URL), strings.Join(documents, " "), truncateRunes(quote, 80), e.State}
+	})
+	return b.String()
+}
+
+// estimateAmount is one stored estimate's amount, type and franking.
+func estimateAmount(r confirmedEstimateRow) string {
+	s := r.Currency + " "
+	if r.Amount != nil {
+		s += strconv.FormatFloat(*r.Amount, 'f', -1, 64)
+	} else {
+		s += "?"
+	}
+	s += " " + r.Type
+	if r.FrankedPct != nil {
+		s += ", " + strconv.FormatFloat(*r.FrankedPct, 'f', -1, 64) + "% franked"
+	}
+	return s
+}
+
+// list writes the first limit of n rows as a table, then how many were cut;
+// "None." when there are none.
+func list(w *strings.Builder, limit int, header []string, n int, row func(int) []string) {
+	if n == 0 {
+		fmt.Fprint(w, "None.\n\n")
+		return
+	}
+	rows := make([][]string, 0, min(n, limit))
+	for i := 0; i < n && i < limit; i++ {
+		rows = append(rows, row(i))
+	}
+	table(w, header, rows)
+	if n > limit {
+		fmt.Fprintf(w, "\n_… %d more not shown (raise -limit)._\n", n-limit)
+	}
+	fmt.Fprint(w, "\n")
+}
+
+// table writes a markdown table.
+func table(w *strings.Builder, header []string, rows [][]string) {
+	line := func(cells []string) {
+		out := make([]string, len(cells))
+		for i, c := range cells {
+			out[i] = cell(c)
+		}
+		fmt.Fprintf(w, "| %s |\n", strings.Join(out, " | "))
+	}
+	line(header)
+	fmt.Fprintf(w, "|%s\n", strings.Repeat(" --- |", len(header)))
+	for _, r := range rows {
+		line(r)
+	}
+}
+
+// cell makes s safe inside a table cell: one line, no column breaks.
+func cell(s string) string {
+	s = strings.NewReplacer("|", `\|`, "\r\n", " ", "\n", " ", "\r", " ").Replace(s)
+	return strings.TrimSpace(s)
+}
+
+// link is a markdown link to a document, its title cut to 60 runes.
+func link(title, url string) string {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		title = "untitled"
+	}
+	title = strings.NewReplacer("[", "(", "]", ")").Replace(truncateRunes(title, 60))
+	return fmt.Sprintf("[%s](%s)", title, url)
+}
+
+// truncateRunes cuts s to at most n runes, marking the cut with an ellipsis.
+func truncateRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n-1]) + "…"
+}
+
+func marketCap(v float64, ok bool) string {
+	switch {
+	case !ok:
+		return "—"
+	case v >= 1e9:
+		return fmt.Sprintf("A$%.1fbn", v/1e9)
+	default:
+		return fmt.Sprintf("A$%.0fm", v/1e6)
+	}
+}
+
+func filed(d *time.Time) string {
+	if d == nil {
+		return "—"
+	}
+	return d.Format("2006-01-02")
+}
+
+func chars(n *int) string {
+	if n == nil {
+		return "—"
+	}
+	return strconv.Itoa(*n)
+}
+
+func timestamp(t time.Time) string { return t.UTC().Format("2006-01-02 15:04") }

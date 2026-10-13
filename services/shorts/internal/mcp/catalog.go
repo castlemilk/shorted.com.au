@@ -120,6 +120,7 @@ type CatalogTool struct {
 	// RPC is the public Connect-RPC method the tool calls, so a caller who
 	// wants the uncapped payload can go straight to the HTTP API.
 	RPC         string          `json:"rpc,omitempty"`
+	AlsoCalls   []string        `json:"alsoCalls,omitempty"`
 	ReadOnly    bool            `json:"readOnly"`
 	InputSchema json.RawMessage `json:"inputSchema,omitempty"`
 }
@@ -254,6 +255,7 @@ func BuildCatalogFor(ctx context.Context, src DataSource, opts CatalogOptions) C
 			Description: tool.Description,
 			Domain:      tool.Domain,
 			RPC:         tool.RPC,
+			AlsoCalls:   tool.AlsoCalls,
 			ReadOnly:    true,
 			InputSchema: schemas[tool.Name],
 		})

@@ -537,7 +537,7 @@ jobs:
       job: financial-report-extractor
     image: reportExtractor
     command: ["python", "extract_reports_concurrent.py"]
-    args: ["--recent", "2", "--limit", "120", "--workers", "4", "--max-pages", "8", "--budget-min", "90"]
+    args: ["--recent", "2", "--limit", "360", "--workers", "4", "--max-pages", "8", "--budget-min", "90"]
     schedule: "0 14 * * *"
     timeoutSeconds: 7200
     maxRetries: 0
@@ -545,7 +545,7 @@ jobs:
       memory: 1Gi
     profiles: [db, otel, reportExtractor]
     env:
-      GEMINI_MAX_RUN_ITEMS: "120"
+      GEMINI_MAX_RUN_ITEMS: "360"
       GEMINI_MAX_RUN_WORKERS: "4"
       GCS_REPORTS_BUCKET: shorted-financial-reports-prod
       # OpenRouter direct extraction with consensus (direct_extract.py,

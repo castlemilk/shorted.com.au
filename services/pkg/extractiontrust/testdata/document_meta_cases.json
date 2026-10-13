@@ -1,11 +1,11 @@
 {
-  "comment": "Shared fixture for financial_report_extractions.document_meta (docs/plans/fundamentals-coverage.md 2.5). The Python extractor derives each case's expected object from its text with deterministic regexes; the Go test (services/pkg/extractiontrust) asserts every expected object is inside the closed vocabulary and that each invalid input loses exactly its bad keys. An absent key means absent: never guess.",
+  "comment": "Shared fixture for financial_report_extractions.document_meta (docs/plans/fundamentals-coverage.md 2.5). The Python extractor derives each case's expected object from its text with deterministic regexes; the Go test (services/pkg/extractiontrust) asserts every expected object is inside the closed vocabulary and that each invalid input loses exactly its bad keys. An absent key means absent: never guess. entities: stored entity values (from prod, 2026-10-11 and 2026-10-13), lines and report titles from stored texts (2026-10-13), probes of the former-name rules, and what clean_entity / cleanEntity reduce each to; \"\" means the value states no name and the entity is absent.",
   "rules": [
     "currency: from a presentation statement '(presented|expressed|reported|stated) in <US|United States|Australian|New Zealand|Canadian> dollars' -> USD|AUD|NZD|CAD; the evidence is that phrase verbatim. With no such statement, a currency-prefixed unit header (US$, A$, NZ$, C$ before million/billion/'000/m/bn) sets it, with that header as the evidence. Two distinct currencies at the winning level -> currency omitted. A bare '$' never sets a currency.",
     "units: unit statements are '<prefix>$ Million', '$m', '$M', '$ million', '(A$ million)', '$bn', '$ billion', '$'000', '$000', 'thousands of', 'nearest dollar' / 'whole dollars' (-> units). Exactly one distinct unit value across the pages read -> that value, the first statement verbatim as the evidence; several distinct values -> units and units_evidence omitted. A figure such as '$412.6m' is not a unit statement.",
-    "entity: the value of a 'Name of entity' line; else the name immediately before 'ABN' on the same line; else omitted.",
-    "abn: 'ABN' then 11 digits grouped 2-3-3-3, emitted as 'NN NNN NNN NNN', only when the ABN checksum passes.",
-    "period_end / period_type: the first '(half-year|half year|six months|year|financial year) ended <d Month yyyy>'; half-year and six months -> half, year -> annual. 'as at <date>' is not a period end.",
+    "entity: what the document says about itself, never about another entity. The value of the first 'Name of entity' field (the label optionally numbered as a form's item: '1. Name of Entity', '10.1 Name of entity') that is not another entity's: a field is skipped when the 3 non-empty lines before its label's line read as a control gained or lost, associates or joint ventures heading ('the Company gained or lost control over the following entities', 'Loss of Control Over Entities', 'Details of associates and joint venture entities'), or when its label's line and the 2 non-empty lines after it carry that section's labels ('(or group of entities)', 'Control gained or lost', 'Date control lost', '% holding', 'Ownership interest', 'Country of incorporation'). The value is on the label's line (after a numbered label, only when it ends like a company name: otherwise that line is the item's heading or a contents entry, '1. Name of entity and reporting period 2', and the search goes on), or is the next non-empty line when that ends like a company name and has no 'entity' in it; the first field not skipped decides, a name or none. Else the name immediately before 'ABN' on the same line (an auditor's skipped; for a trust's responsible entity, the trust named after its ABN). Else the name on the line above a line that is a registration number and nothing else ('ACN 629 071 594', 'ARSN 620 920 201', 'ABN: 87 008 670 817'): the first, in document order, that ends like a company, has no 'entity' in it, has a token that is neither a legal form nor an industry word ('Resources Limited' names no one), is not an auditor, does not start with its role and ':' or '-' ('Trustee: Perpetual Trust Services Limited'), and has none of these on the line above it: a role label (manager, registry, custodian, trustee, responsible entity, auditor, secretary, ...), except a role with only its preposition after it ('Responsible entity of'), which introduces the name under it; a registration line (a list of entities); a 'Name of entity' label (that field is the first rule's to read or skip); and it is not a labelled name ('Entity name: Cortexa Pty Ltd') with a control gained or lost heading in the 3 non-empty lines above it. When the name read is followed, after its own registration and licence lines (ABN, ACN, ARSN, ARBN, AFSL), by 'Responsible entity of' (or 'for') alone on its line and then a name with its own registration line, or by 'as (or in its capacity as) responsible entity of X', the entity is that name or X, the trust ('Charter Hall / Retail Management Limited / ACN 069 709 468 / AFSL 246996 / Responsible entity of / Charter Hall Retail REIT / ABN 34 357 213 849' is 'Charter Hall Retail REIT'). Else omitted. A name before an ACN, ARSN or ARBN on the same line is never read. A former name in brackets after the name is kept after it, and the checks above look past it ('Ocean Sciences Ltd (formerly BPH Global Ltd)'; '(previously known as X)' and '(Formerly: X)' too), unless the name is a proprietary company's ('Pty Ltd', 'Pty. Ltd.', 'Pty Limited', 'Proprietary Limited'; never the listed entity: 'Sturt Exploration Pty Ltd (formerly Axiant Resources Exploration Pty Ltd)' is 'Sturt Exploration Pty Ltd'); of two, the last is kept; every other trailing bracket is cut, and a value that starts with a former name ('(formerly BPH Global Ltd)', '(formerly BPH Global Ltd), ABN 57 009 104 330', '(formerly BPH Global Ltd) (ASX: BP8)', 'Name: (formerly BPH Global Ltd) Limited') states no name, whatever follows it. A leading 'Name:', 'Company name:', 'Entity name:' or 'of' is not part of the name. Not a name: a report title, with or without its year ('ANNUAL FINANCIAL REPORT 2026', 'FY26 Annual Report', 'Annual Report 30 June 2026', 'Appendix 4E 2026', 'INTERIM REPORT 2025/26'), a phone number ('T +61 2 8777 7777', 'Tel: +61 8 9423 8100'), a sentence about the release or the listing rules ('Authorised for release by: the Board of Ampol Limited', 'to the ASX under Listing Rule 4.3A').",
+    "abn: 'ABN' then 11 digits grouped 2-3-3-3, emitted as 'NN NNN NNN NNN', only when the ABN checksum passes: the first such ABN in the text, which is not always the document's own (CDM's annual report spells its own 'A.B.N. 17 112 870 096', so the ABN read is its manager's; nothing reads document_meta.abn yet).",
+    "period_end / period_type: the document's own period, from a period phrase '<kind> ended <d Month yyyy>' (half-year, half year, 'half- year' / 'half - year', six months, twelve / 12 months, financial year, year, or a 'half-year period' / 'six-month period' / '12-month period'); half-year and six months -> half, the rest -> annual. A range '<d1> to <d2>' or '<d1> - <d2>' ends on d2 when d2 is after d1 and the span is a half or a year, 182 or 365 days give or take 7 (an inclusive '1 July 2025 to 30 June 2026', a 52-week year): half or annual by its span, and a kind word before it must agree; any other range states no period ('Comparison of half-year ended 31 December 2025 to 31 December 2024' runs backwards), and neither does a range with an impossible date: the search goes on to the next statement or phrase. The document's reporting-period statement decides: the phrase or range right after '(current / financial) reporting period' or 'current period', with only a bracketed qualifier ('(RP)', '(\"current period\")'), ':' or '-' and 'is', 'being', 'covers', 'for', 'the' (and 'from' before a range) between them, or the label alone on its line over its value on the next non-empty line ('1. The reporting period covers the year ended 30 June 2026.', 'Reporting period: half-year ended 31 December 2025', 'Current period / From 1 August 2025 to 31 July 2026', 'Current reporting period: / 01 July 2025 - 30 June 2026'); only when the label's line holds nothing before it but an item number ('1.', '1.1', 'Item 1', 'A.', 'a)', '(a)'), a bullet ('-', '*', '•', '·'), a form feed, 'The', 'This' or 'Details of (the)' ('Dividends paid during the reporting period:' is prose), and never after 'previous', 'prior', 'comparative', 'corresponding' or 'preceding' (within 40 characters, a label wrapped over lines included), nor when it is a table's header row: a label over its value on the next line, under another period's label alone on its line, its value followed by another period phrase or range ('Previous corresponding period / Current period / Year ended 30 June 2025 / Year ended 30 June 2026'). Without one, the latest month a period phrase ends in ('financial year ended 1 July 2025 to 30 June 2026', or '- 30 June 2026', ending on its range's d2), skipping a phrase that ends on or after the report date (when the extractor is given one) and a phrase its line introduces as the comparison ('previous corresponding period: year ended 30 June 2025', 'compared with the', '(pcp:', 'Comparisons are made to the') or as still to be reported ('to be disclosed in the financial report for the half-year ended 31 December 2025'; 'to be' or 'will be' then disclosed, reported, included, presented, released, lodged or recognised; with a report date, only for a period that ended 6 or more calendar months before it), within 80 characters and with no '.', ',' or ';' between; when the report date is more than 7 calendar months after that latest month (a late document), the month the most phrases end in instead, the later on a tie; the month's first phrase gives the day, and the type is the one most of that month's phrases give (the first's on a tie). 'as at <date>' is not a period end. An impossible end in the phrase the period is read from (the statement's, or the chosen month's first) withholds period_end and period_type.",
     "report_kind: first match in this order anywhere in the pages read: 'Appendix 4E' -> appendix_4e, 'Appendix 4D' -> appendix_4d, 'Annual Report' -> annual_report, 'half-year report' / 'half year report' / 'half-year financial report' / 'interim financial report' -> half_year_report, 'results announcement' / 'profit announcement' / 'results for announcement to the market' -> results_announcement; then, in the document's head only (its first five non-empty lines, each starting within the first 400 characters): when a head line that reads as a heading (not a sentence) names the document a presentation ('Investor Presentation', 'FY26 Results Presentation'), a Pillar 3 disclosure, a transcript or a webcast -> other; else 'results release' / 'full year results' / 'half year results' (not followed by presentation, briefing, webcast, call or transcript) -> results_announcement; else omitted, and the title decides. 'presentation currency', 'basis of presentation' and a sentence announcing a presentation or webcast never make a document 'other'."
   ],
   "cases": [
@@ -184,6 +184,166 @@
         "period_type": "half",
         "report_kind": "half_year_report"
       }
+    },
+    {
+      "name": "vit_control_lost_field_skipped_acn_line_names_the_entity",
+      "text": "ASX : VIT\nVitura Health Limited\nACN 629 071 594\nASX Appendix 4E\nResults for announcement to the Market\nfor the year ended 30 June 2026\n10.\t During the year ended 30 June 2026, the Company gained or lost control over the following entities:\nName of entity\nCortexa Pty Ltd\nControl gained or lost\nLost\n",
+      "expected": {
+        "entity": "Vitura Health Limited",
+        "period_end": "2026-06-30",
+        "period_type": "annual",
+        "report_kind": "appendix_4e"
+      }
+    },
+    {
+      "name": "srj_numbered_name_of_entity_field_before_its_loss_of_control_field",
+      "text": "1. Name of Entity\n\nSRJ Technologies Group Plc (ARBN 642 229 856)\nReporting Period\n30 June 2026\n4. Loss of Control Over Entities\nName of Entity:\nSRJ Technology Limited\nDate of Control lost:\n25 February 2026\n",
+      "expected": {
+        "entity": "SRJ Technologies Group Plc"
+      }
+    },
+    {
+      "name": "axr_subsidiary_accounts_cover_acn_names_the_subsidiary",
+      "text": "2025\nANNUAL FINANCIAL\nSTATEMENTS\nSturt Exploration Pty Ltd\nACN: 146 287 809\n\nFor the Year Ended 30 June 2025\n",
+      "expected": {
+        "entity": "Sturt Exploration Pty Ltd",
+        "period_end": "2025-06-30",
+        "period_type": "annual"
+      }
+    },
+    {
+      "name": "cdm_directory_manager_of_the_company_is_not_the_entity_and_the_abn_read_is_the_managers",
+      "text": "CADENCE CAPITAL LIMITED ANNUAL REPORT 2026 | A.B.N. 17 112 870 096\nCADENCE CAPITAL LIMITED\nA.B.N. 17 112 870 096\nSECRETARY\nWayne Davies\nMANAGER OF THE COMPANY\nCadence Asset Management Pty Limited\nABN: 68 106 551 062\nREGISTERED OFFICE\n",
+      "expected": {
+        "abn": "68 106 551 062",
+        "report_kind": "annual_report"
+      }
+    },
+    {
+      "name": "mgx_lone_abn_with_no_name_then_its_subsidiary_list",
+      "text": "APPENDIX 4E\nMGX RESOURCES LIMITED\n30 JUNE 2026 ANNUAL FINANCIAL STATEMENTS\nFor personal use only\nABN 87 008 670 817\nthrough its 50% interest in CTP JV Pty Ltd.\nMGX RESOURCES LIMITED\nABN: 87 008 670 817\nGERALDTON BULK HANDLING\nPTY LTD\nABN: 45 100 105 388\nBROCKMAN MINERALS PTY LTD\nABN: 75 094 634 401\n",
+      "expected": {
+        "entity": "MGX RESOURCES LIMITED",
+        "abn": "87 008 670 817",
+        "report_kind": "appendix_4e"
+      }
+    },
+    {
+      "name": "bmr_wrapped_cover_name_resources_limited_names_no_one",
+      "text": "Ballymore Resources Limited Annual Report for the year ended 30 June 2026\nCOVERllymore\nResources Limited\nACN 632 893 611\nASX: BMR\n",
+      "expected": {
+        "period_end": "2026-06-30",
+        "period_type": "annual",
+        "report_kind": "annual_report"
+      }
+    },
+    {
+      "name": "blg_report_title_and_year_before_its_abn_is_not_a_name",
+      "text": "ANNUAL FINANCIAL\nREPORT 2026\nANNUAL FINANCIAL REPORT 2026  ABN 20 116 825 793\nFor personal use only\n",
+      "expected": {
+        "abn": "20 116 825 793"
+      }
+    },
+    {
+      "name": "oph_fund_cover_lone_arsn_names_the_fund",
+      "text": "Ophir High Conviction Fund\nARSN 620 920 201\nAppendix 4E\nFor the year ended 30 June 2026\n",
+      "expected": {
+        "entity": "Ophir High Conviction Fund",
+        "period_end": "2026-06-30",
+        "period_type": "annual",
+        "report_kind": "appendix_4e"
+      }
+    },
+    {
+      "name": "bp8_renamed_company_cover_keeps_its_former_name",
+      "text": "Page 1 of 53\nOcean Sciences Ltd (formerly BPH Global Ltd)  \n  \nABN 57 009 104 330 \n  \n  \n  \n  \nAnnual Financial Report - 30 June 2026 \n",
+      "expected": {
+        "entity": "Ocean Sciences Ltd (formerly BPH Global Ltd)",
+        "abn": "57 009 104 330"
+      }
+    },
+    {
+      "name": "cqr_responsible_entity_letterhead_names_the_trust",
+      "text": "ASX Release \nCharter Hall Retail REIT \n2026 Half Year Results \n6 February 2026 \nCharter Hall\nRetail Management Limited\nACN 069 709 468\nAFSL 246996\nResponsible entity of\nCharter Hall Retail REIT\nABN 34 357 213 849\nLevel 20, No.1 Martin Place\n",
+      "expected": {
+        "entity": "Charter Hall Retail REIT",
+        "abn": "34 357 213 849",
+        "report_kind": "results_announcement"
+      }
+    },
+    {
+      "name": "akg_name_label_before_the_name_is_not_part_of_it",
+      "text": "APPENDIX 4E: PRELIMINARY FINAL REPORT \n1.\nCompany details\nName: Academies Australasia Group Limited\nABN: 93 000 003 725\nReporting Period (RP):  Financial year ended 30 June 2026 (FY26)\n",
+      "expected": {
+        "entity": "Academies Australasia Group Limited",
+        "abn": "93 000 003 725",
+        "period_end": "2026-06-30",
+        "period_type": "annual",
+        "report_kind": "appendix_4e"
+      }
+    },
+    {
+      "name": "cpu_of_before_the_name_is_not_part_of_it",
+      "text": "Financial calendar\n2026\n12 November\nThe Annual General Meeting \nof Computershare Limited \nABN 71 005 485 825\n10.00am hybrid meeting\n",
+      "expected": {
+        "entity": "Computershare Limited",
+        "abn": "71 005 485 825"
+      }
+    },
+    {
+      "name": "ald_authorised_for_release_is_not_a_name",
+      "text": "ASX Release \n24 August 2026 \n2026 HALF YEAR REPORT \n \nAmpol Limited (ASX:ALD) provides the attached 2026 Half Year Report (incorporating Appendix 4D). \n \nAuthorised for release by: the Board of Ampol Limited. \n \n \n \n \nACN 004 201 307 \nseparately to better inform shareholders of the Group's underlying financial performance from one period to the next. \nAmpol Limited \nACN 004 201 307 \nAppendix 4D \nResults for Announcement to the Market \nFOR THE HALF YEAR ENDED 30 JUNE 2026 \n",
+      "expected": {
+        "entity": "Ampol Limited",
+        "period_end": "2026-06-30",
+        "period_type": "half",
+        "report_kind": "appendix_4d"
+      }
+    },
+    {
+      "name": "vit_reporting_period_statement_not_the_prior_year_dividend_line",
+      "text": "2.4\t On 22 August 2025, the Directors resolved to pay a dividend of 0.2 cents per ordinary share franked as to 100% \nin respect of the year ended 30 June 2025. The Record Date for the dividend was 8 September 2025, and the total \n1.\t The reporting period covers the year ended 30 June 2026. \nThe previous reporting period covers the year ended 30 June 2025.\n1   |   VITURA HEALTH LIMITED  ASX APPENDIX 4E FOR THE YEAR ENDED 30 JUNE 2026\n",
+      "expected": {
+        "period_end": "2026-06-30",
+        "period_type": "annual",
+        "report_kind": "appendix_4e"
+      }
+    },
+    {
+      "name": "nhc_current_period_range_is_its_year_not_the_comparative",
+      "text": "A. Statutory results\nCurrent period\t\nFrom 1 August 2025 to 31 July 2026\nPrevious period\t\nFrom 1 August 2024 to 31 July 2025\nB. Results for announcement to the market\nHighlights1\n1.\tPercentage movements relate to the previous comparative period being the full year ended 31 July 2025. Highlights reflect 80 per cent interest  \nin Bengalla Mine, unless otherwise stated.\n",
+      "expected": {
+        "period_end": "2026-07-31",
+        "period_type": "annual",
+        "report_kind": "results_announcement"
+      }
+    },
+    {
+      "name": "gng_a_financial_year_written_as_a_range_ends_on_its_last_day",
+      "text": "Subsequent to 30 June 2026, a fully franked dividend of 13.0 cents per share was recommended by the Directors\nGroup” or “consolidated entity”) for the financial year ended 1 July 2025 to 30 June 2026 (FY26) and the independent\n",
+      "expected": {
+        "period_end": "2026-06-30",
+        "period_type": "annual"
+      }
+    },
+    {
+      "name": "vig_a_period_still_to_be_reported_is_not_the_documents_own",
+      "text": "Annual Report - 30 June 2025 \nand the entities it controlled at the end of, or during, the year ended 30 June 2025. \nFor the year ended 30 June 2025 sales revenue increased by 3% to $8,751,555 (2024: $8,498,254) and gross profit increased \nDuring the year ended 30 June 2025, the Company completed the acquisition of a 25% equity interest in LIT Technology Pty \nThe acquisition was a non-adjusting event after the reporting period and therefore no adjustment was made to the FY2025 \nfinancial statements. The investment to be fully impaired in FY2026 and to be disclosed in the financial report for the half-year \nended 31 December 2025. \n",
+      "report_date": "2026-09-25",
+      "expected": {
+        "period_end": "2025-06-30",
+        "period_type": "annual",
+        "report_kind": "annual_report"
+      }
+    },
+    {
+      "name": "nic_a_forecast_year_ending_after_the_report_date_is_not_its_own",
+      "text": "the consolidated financial statements for the half-year ended 30 June 2026.  \n9.0 million wmt to 14.3 million wmt for the year ended 31 December 2026. \n",
+      "report_date": "2026-08-26",
+      "expected": {
+        "period_end": "2026-06-30",
+        "period_type": "half"
+      }
     }
   ],
   "invalid": [
@@ -277,5 +437,92 @@
       "input": {"foo": "bar", "report_kind": "other"},
       "expected": {"report_kind": "other"}
     }
+  ],
+  "entities": [
+    {"raw": "Klevo Group Ltd |Suite 102, 66 Berry Street, North Sydney, NSW 2060 |", "clean": "Klevo Group Ltd"},
+    {"raw": "Betashares Capital Ltd |", "clean": "Betashares Capital Ltd"},
+    {"raw": "ACN 000 689 216 |", "clean": ""},
+    {"raw": "ABN", "clean": ""},
+    {"raw": "ASX BIM |", "clean": ""},
+    {"raw": "ASX:GA8", "clean": ""},
+    {"raw": "ASX: TLM |", "clean": ""},
+    {"raw": "WWW.SUREFIRERESOURCES.COM.AU • ASX: SRN•", "clean": ""},
+    {"raw": "WWW.ZEUSRESOURCES.COM", "clean": ""},
+    {"raw": "strike@strikeenergy.com.au", "clean": ""},
+    {"raw": "2/50 KINGS PARK ROAD, WEST PERTH WA 6005 | T: +61 8 6241 1877 |", "clean": ""},
+    {"raw": "or group of entities)", "clean": ""},
+    {"raw": "Limited", "clean": ""},
+    {"raw": "ANNUAL REPORT", "clean": ""},
+    {"raw": "ANNUAL FINANCIAL REPORT 2026", "clean": ""},
+    {"raw": "Annual Report 2026", "clean": ""},
+    {"raw": "Half Year Report 2026", "clean": ""},
+    {"raw": "Annual Report FY26", "clean": ""},
+    {"raw": "Half-Year Report FY2026", "clean": ""},
+    {"raw": "Annual Report 2025-2026", "clean": ""},
+    {"raw": "INTERIM REPORT 2025/26", "clean": ""},
+    {"raw": "2026 Annual Report", "clean": ""},
+    {"raw": "FY26 Annual Report", "clean": ""},
+    {"raw": "Annual Report - 2026", "clean": ""},
+    {"raw": "Appendix 4E 2026", "clean": ""},
+    {"raw": "Directors' Report 2026", "clean": ""},
+    {"raw": "Annual Report 30 June 2026", "clean": ""},
+    {"raw": "T +61 2 8777 7777 /", "clean": ""},
+    {"raw": "Tel: +61 8 9423 8100", "clean": ""},
+    {"raw": "Telephone: +61 8 9481 0389", "clean": ""},
+    {"raw": "Ph: +61 (02) 9780 6500", "clean": ""},
+    {"raw": "Phone: +61 (02) 9236 7229", "clean": ""},
+    {"raw": "to the ASX under Listing Rule 4.3A", "clean": ""},
+    {"raw": "Exchange (ASX) Listing Rule 4.3A and Appendix 4E for the consolidated entity Wellard Limited", "clean": ""},
+    {"raw": "Authorised for release by: the Board of Ampol Limited", "clean": ""},
+    {"raw": "The Responsible Entity of the Antipodes Global Value Active ETF is Pinnacle Fund Services Limited", "clean": "Antipodes Global Value Active ETF"},
+    {"raw": "The Responsible Entity of the Scheme is Ausbil Investment Management Limited", "clean": "Ausbil Investment Management Limited"},
+    {"raw": "The directors of Equity Trustees Limited", "clean": "Equity Trustees Limited"},
+    {"raw": "The Directors of Platinum Investment Management Limited (\"PIML\") (trading as Platinum Asset Management)", "clean": "Platinum Investment Management Limited"},
+    {"raw": "across the portfolio. RAM Property Funds Management Limited", "clean": "RAM Property Funds Management Limited"},
+    {"raw": "Grant Thornton Audit Pty Ltd ACN 130 913 594 a subsidiary or related entity of Grant Thornton Australia Limited", "clean": "Grant Thornton Audit Pty Ltd"},
+    {"raw": "Moore Australia Audit (WA)", "clean": "Moore Australia Audit"},
+    {"raw": "PricewaterhouseCoopers", "clean": "PricewaterhouseCoopers"},
+    {"raw": "The Trust Company (RE Services) Limited", "clean": "The Trust Company (RE Services) Limited"},
+    {"raw": "Prodigy9., Co Ltd", "clean": "Prodigy9., Co Ltd"},
+    {"raw": "Acme Pty. Ltd", "clean": "Acme Pty. Ltd"},
+    {"raw": "Nodestream Limited.", "clean": "Nodestream Limited"},
+    {"raw": "Name: Academies Australasia Group Limited", "clean": "Academies Australasia Group Limited"},
+    {"raw": "Entity name: BTC Health Limited", "clean": "BTC Health Limited"},
+    {"raw": "of Computershare Limited", "clean": "Computershare Limited"},
+    {"raw": "of Kyron Investment Fund", "clean": "Kyron Investment Fund"},
+    {"raw": "Ocean Sciences Ltd (formerly BPH Global Ltd)", "clean": "Ocean Sciences Ltd (formerly BPH Global Ltd)"},
+    {"raw": "Altoro Metals Limited (ASX:ARO) (formerly Variscan Mines Limited)", "clean": "Altoro Metals Limited (formerly Variscan Mines Limited)"},
+    {"raw": "Axtec Limited (Formerly known as Axiom Properties Limited)", "clean": "Axtec Limited (Formerly known as Axiom Properties Limited)"},
+    {"raw": "Franklin Athena Fund (previously known as Franklin K2 Athena Fund)", "clean": "Franklin Athena Fund (previously known as Franklin K2 Athena Fund)"},
+    {"raw": "Ocean Sciences Ltd (Formerly: BPH Global Ltd)", "clean": "Ocean Sciences Ltd (Formerly: BPH Global Ltd)"},
+    {"raw": "Ocean Sciences Ltd (formerly Gecko Ltd) (formerly BPH Global Ltd)", "clean": "Ocean Sciences Ltd (formerly BPH Global Ltd)"},
+    {"raw": "(formerly BPH Global Ltd)", "clean": ""},
+    {"raw": "(formerly BPH Global Ltd) ABN 57 009 104 330", "clean": ""},
+    {"raw": "(formerly BPH Global Ltd), ", "clean": ""},
+    {"raw": "(formerly BPH Global Ltd) -", "clean": ""},
+    {"raw": "(formerly BPH Global Ltd) ;", "clean": ""},
+    {"raw": "(formerly BPH Global Ltd) .", "clean": ""},
+    {"raw": "(formerly BPH Global Ltd) (ASX: BP8)", "clean": ""},
+    {"raw": "(formerly A Ltd) (formerly B Ltd)", "clean": ""},
+    {"raw": "Name: (formerly BPH Global Ltd) Limited", "clean": ""},
+    {"raw": "((formerly BPH Global Ltd)), ", "clean": ""},
+    {"raw": "- (formerly BPH Global Ltd), ABN 57 009 104 330", "clean": ""},
+    {"raw": ", (formerly BPH Global Ltd) ABN 57 009 104 330", "clean": ""},
+    {"raw": "; (formerly BPH Global Ltd)", "clean": ""},
+    {"raw": ". (formerly BPH Global Ltd)", "clean": ""},
+    {"raw": ": (formerly BPH Global Ltd)", "clean": ""},
+    {"raw": "-(formerly X Ltd) Y Ltd", "clean": ""},
+    {"raw": ":- (formerly BPH Global Ltd) Ocean Sciences Ltd", "clean": ""},
+    {"raw": "- (previously known as BPH Global Ltd) Limited", "clean": ""},
+    {"raw": "Boresight Ltd (formerly Boresight Pty Ltd)", "clean": "Boresight Ltd (formerly Boresight Pty Ltd)"},
+    {"raw": "Sturt Exploration Pty Ltd (formerly Axiant Resources Exploration Pty Ltd)", "clean": "Sturt Exploration Pty Ltd"},
+    {"raw": "Sturt Exploration Pty. Ltd. (formerly Axiant Resources Exploration Pty. Ltd.)", "clean": "Sturt Exploration Pty. Ltd"},
+    {"raw": "Sturt Exploration Proprietary Limited (formerly Axiant Resources Exploration Proprietary Limited)", "clean": "Sturt Exploration Proprietary Limited"},
+    {"raw": "Gecko Holdings PTY LIMITED (previously Gecko Resources Limited)", "clean": "Gecko Holdings PTY LIMITED"},
+    {"raw": "60 Cremorne Street, Cremorne, Victoria, 3121", "clean": ""},
+    {"raw": "over which control was gained or", "clean": ""},
+    {"raw": "Bank of Queensland Limited", "clean": "Bank of Queensland Limited"},
+    {"raw": "BHP Group Limited", "clean": "BHP Group Limited"},
+    {"raw": "Commonwealth Bank of Australia", "clean": "Commonwealth Bank of Australia"}
   ]
 }

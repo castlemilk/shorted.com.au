@@ -6,6 +6,7 @@ funnel agree on every headline. The inline lists below are copied from the Go
 tests of the same names, so a Go-side case the port disagrees with fails here.
 """
 import json
+import re
 
 import pytest
 
@@ -41,6 +42,26 @@ def test_fixture_carries_the_titles_the_contract_names():
         "Annual Report 2025": True,
     }.items():
         assert got.get(title) is want, title
+
+
+@pytest.mark.parametrize(
+    "go_name,py_list",
+    [
+        ("hardExclusionPatterns", t.HARD_EXCLUSION_PATTERNS),
+        ("softExclusionPatterns", t.SOFT_EXCLUSION_PATTERNS),
+        ("presentationPatterns", t.PRESENTATION_PATTERNS),
+        ("strongStatutoryPatterns", t.STRONG_STATUTORY_PATTERNS),
+    ],
+)
+def test_pattern_lists_match_the_go_source(go_name, py_list):
+    # The fixture pins the titles it carries; this pins every pattern, so a
+    # rule added on one side only fails here even when no fixture row reaches it.
+    path = fixture_path("results_titles.json").parent.parent / "results.go"
+    if not path.exists():
+        pytest.skip("services/pkg/extractiontrust is not in this checkout")
+    body = re.search(r"var " + go_name + r" = \[\]string\{(.*?)\n\}", path.read_text(encoding="utf-8"), re.S)
+    assert body, go_name
+    assert re.findall(r"`([^`]*)`", body.group(1)) == list(py_list)
 
 
 # Copied from TestIsResultsDocumentReportKind.

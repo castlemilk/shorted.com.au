@@ -19,7 +19,7 @@ it will discover the flow, open a browser once, and come back authorised.
 
 ## What it covers
 
-Twenty-nine read-only tools across four domains:
+Thirty read-only tools across four domains:
 
 - **Market and stocks** — ASIC short positions for ASX-listed securities,
   rankings, industry treemaps, squeeze candidates, price and short-interest
@@ -35,6 +35,9 @@ Twenty-nine read-only tools across four domains:
   in each company's reporting currency). Ratios that are not meaningful for
   banks and insurers, and P/E and P/B for non-AUD or currency-converted
   statements and CDI listings, are withheld, and the result says why.
+  `get_stock_briefing` returns one stock's stock-picker ratings, its dividend
+  history, company signals (collected by a language model from web search, with
+  no source link) and the latest results filing Shorted has parsed.
 - **Housing** — official ABS/RBA house-price series, per-suburb profiles with
   Census and electoral overlays, and derived price-drop aggregates.
 - **Economy** — the ABS/RBA economic-series layer (CPI, labour, trade, state
@@ -105,7 +108,7 @@ JSON parser.
 
 OAuth 2.1 **identifies you**, and raises your limits wherever per-caller quotas
 are applied (see below — they are not, today). It does not unlock tools: all
-twenty-nine work anonymously, and none is reserved for a paid plan. There is
+thirty work anonymously, and none is reserved for a paid plan. There is
 nothing to configure — point a client at the URL and it does the rest:
 
 1. It calls a tool, gets `401` with

@@ -23,15 +23,21 @@ import (
 //  3. Hard exclusions always win: Pillar 3 / Basel, "items impacting",
 //     Form 20-F, webcasts, transcripts, investor days and briefings, AGM /
 //     chair / CEO addresses, dividend and distribution notices, "Notice of
-//     ...", results dates, meeting results, discussion / data packs.
+//     ...", results dates, meeting results, discussion / data packs; notices
+//     about a results release (notifications, advance notices, release
+//     dates, timing, call details, scripts); notices about a report's
+//     lodgement or dispatch (delays, extensions of time, waivers, "update
+//     on"); supplements to a report (addenda, additional ASX information,
+//     supplementary information, clarifications); letters to holders.
 //     Presentations and slides exclude unless the title names an Appendix
 //     4D/4E (a bundled "Appendix 4E ... and Investor Presentation" lodges the
 //     statutory 4E; the orchestrator's refinement of contract 4.1).
 //  4. Quarterly language (quarterly, Appendix 4C, Q3, 3Q26, activities
 //     report) excludes unless the title names an Appendix 4D/4E.
-//  5. Soft exclusions (webinar, conference call, dial-in, "to present",
-//     registration details) exclude unless a strong statutory marker is
-//     present ("FY26 Financial Results Release and Webinar" is a real filing).
+//  5. Soft exclusions (webinar, conference call, teleconference, investor or
+//     analyst call, dial-in, "to present", registration details) exclude
+//     unless a strong statutory marker is present ("FY26 Financial Results
+//     Release and Webinar" is a real filing).
 //  6. Otherwise the title must match a results pattern; a title that matches
 //     none is withheld (a neutral "Company Update" is not guessed at, whatever
 //     reportKind says).
@@ -140,6 +146,46 @@ var hardExclusionPatterns = []string{
 	`^(?:update\s*-\s*)?dividend/distribution\b`,
 	`^confirmation\s+of\b.*\bdividend\b`,
 	`\b(?:dividend|distribution)\s+(?:notice|reinvestment)\b`,
+	// Notices about a results release, not the release: its date or timing,
+	// an advance notice, the call details, the script read on the call. On
+	// prod (2026-10-11) these matched 374 candidate documents, and none of the
+	// 34 extracted yielded a figure. Every exclusion below together: 658
+	// documents, 2 of the 84 extracted with figures (BGP's addendum, whose
+	// half-year results are a separate filing, and a CTD status update).
+	`^notification\b`,
+	`\badvance(?:d)?\s+notice\b`,
+	`\btim(?:ing|etable)\b`,
+	`\b(?:release|reporting)\s+dates?\b`,
+	`\bchange\s+(?:to|of|in)\s+(?:the\s+)?(?:release\s+|reporting\s+)?dates?\b`,
+	`to\s+announce\b`,
+	`\b(?:to|will)\s+(?:release|report)\b`,
+	`\banticipated\b`,
+	`^(?:date|details)\b`,
+	`\b(?:call|teleconference)\s+(?:details|information)\b`,
+	`\b(?:webinar|teleconference|conference\s+call|investor\s+call)\s+(?:on|for|to\s+discuss|regarding)\b`,
+	`\bscripts?\b`,
+	// Notices about a report's lodgement or dispatch, not the report.
+	`\bdelay(?:s|ed)?\b`,
+	`\bextension\s+(?:of\s+)?time\b`,
+	`\bextension\s+(?:to\s+)?lodge\b`,
+	`\blate\s+lodge?ment\b`,
+	`\bwaiver\b`,
+	`\bd[ei]spatch(?:ed)?\b`,
+	`\bupdate\s+on\b`,
+	// Supplements to a report, not the report: addenda, the ASX additional
+	// (shareholder) information, supplementary disclosures, clarifications.
+	// A correction is NOT excluded: TYR's FY25 annual report and EDV's
+	// H1 FY26 4D reached prod only as re-lodged corrections.
+	`\baddend(?:um|a)\b`,
+	`\badditional\s+(?:asx\s+)?info(?:rmation)?\b`,
+	`\bsupplementary\s+(?:information|disclosure)\b`,
+	`\bsupplement\b`,
+	`\bclarification\b`,
+	// Letters to holders about the result. A bundle such as "FY26 Interim
+	// Financial Statements / Chair and CEO Letter" carries the statements and
+	// is not excluded.
+	`\bletter\s+(?:to\s+)?(?:share|security|unit|s/)\s?holders\b`,
+	`\b(?:share|security|unit)\s?holders?\s+letter\b`,
 }
 
 // presentationPatterns exclude unless the title names an Appendix 4D/4E: a
@@ -158,6 +204,8 @@ var softExclusionPatterns = []string{
 	`\bdial[-\s]?in\b`,
 	`\bto\s+present\b`,
 	`\bregistration\s+details\b`,
+	`\bteleconference\b`,
+	`\b(?:investor|analyst|earnings|results?)\s+calls?\b`,
 }
 
 var (

@@ -497,8 +497,16 @@ def test_document_meta_column_probe():
     assert extract.document_meta_column_exists(_Conn(rows=[(1,)])) is True
     conn = _Conn(rows=[])
     assert extract.document_meta_column_exists(conn) is False
-    sql, _ = conn.statements[0]
-    assert "information_schema.columns" in sql and "'document_meta'" in sql
+    sql, params = conn.statements[0]
+    assert "information_schema.columns" in sql and "column_name = %s" in sql and params == ("document_meta",)
+
+
+def test_extraction_attempts_column_probe():
+    assert extract.extraction_attempts_column_exists(_Conn(rows=[(1,)])) is True
+    conn = _Conn(rows=[])
+    assert extract.extraction_attempts_column_exists(conn) is False
+    sql, params = conn.statements[0]
+    assert "information_schema.columns" in sql and "column_name = %s" in sql and params == ("extraction_attempts",)
 
 
 def test_process_report_text_runs_no_database_code():

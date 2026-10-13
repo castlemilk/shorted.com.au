@@ -210,6 +210,7 @@ func realisticSource() *fakeDataSource {
 
 	realisticDiscoverySource(src)
 	realisticStrategySource(src)
+	realisticBriefingSource(src)
 	realisticHousingSource(src)
 	realisticEconomySource(src)
 	realisticPoliticsSource(src)
@@ -407,6 +408,69 @@ func strategyFixture(st strategies.Strategy) *shortsv1alpha1.Strategy {
 		},
 		Caveats: st.Caveats, Sources: st.Sources,
 	}
+}
+
+// realisticBriefingSource fills the get_stock_briefing fixtures at worst case:
+// realisticBriefingSource fills the get_stock_briefing fixtures at worst case:
+// 5 strategy fits, 15 dividends (to exercise the 12-cap), 10 adverse + 10
+// positive signals with 150-character headlines and 300-character citations
+// realisticBriefingSource fills the get_stock_briefing fixtures at worst case:
+// 5 strategy fits, 15 dividends (to exercise the 12-cap), 10 adverse + 10
+// positive signals with 150-character headlines and 300-character citations
+// (not rendered). Latest filing digest is set in fundamentals (line 338).
+func realisticBriefingSource(src *fakeDataSource) {
+	// 5 strategy fits
+	fits := make([]*shortsv1alpha1.StrategyFit, 0, 5)
+	strategyNames := []string{"zanger-breakout", "canslim", "minervini-trend-template", "crowded-short-breakout", "quality-compounders"}
+	for i, name := range strategyNames {
+		fits = append(fits, &shortsv1alpha1.StrategyFit{
+			StrategyId:   name,
+			StrategyName: name,
+			Score:        float64(70 + i*5), // 70-90% score
+			Status:       "triggered",
+		})
+	}
+	src.strategyFit = &shortsv1alpha1.GetStockStrategyFitResponse{Fits: fits}
+
+	// 15 dividends (worst case: exceeds 12-cap)
+	divs := make([]*shortsv1alpha1.DividendRecord, 0, 15)
+	for i := 0; i < 15; i++ {
+		divs = append(divs, &shortsv1alpha1.DividendRecord{
+			ExDate:             fmt.Sprintf("2026-%02d-15", 1+i%12),
+			PaymentDate:        fmt.Sprintf("2026-%02d-28", 1+i%12),
+			AmountPerShare:     0.35 + float64(i)*0.02,
+			FrankingPercentage: 100.0,
+		})
+	}
+	src.dividendHistory = &shortsv1alpha1.GetDividendHistoryResponse{Dividends: divs}
+
+	// 10 adverse signals + 10 positive signals, each with 150-char headline
+	headlineBase := strings.Repeat("X", 150)
+	citationBase := strings.Repeat("A", 300)
+
+	adverseSignals := make([]*shortsv1alpha1.StockSignal, 0, 10)
+	for i := 0; i < 10; i++ {
+		date := time.Date(2026, 10, 15-i*2, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+		adverseSignals = append(adverseSignals, &shortsv1alpha1.StockSignal{
+			EventDate: date,
+			Polarity:  "adverse",
+			Headline:  fmt.Sprintf("Adverse signal %d: %s", i+1, headlineBase),
+			Citations: []string{citationBase, citationBase, citationBase},
+		})
+	}
+
+	positiveSignals := make([]*shortsv1alpha1.StockSignal, 0, 10)
+	for i := 0; i < 10; i++ {
+		date := time.Date(2026, 10, 10-i*2, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+		positiveSignals = append(positiveSignals, &shortsv1alpha1.StockSignal{
+			EventDate: date,
+			Polarity:  "positive",
+			Headline:  fmt.Sprintf("Positive signal %d: %s", i+1, headlineBase),
+			Citations: []string{citationBase, citationBase, citationBase},
+		})
+	}
+
+	src.stockSignals = &shortsv1alpha1.GetStockSignalsResponse{Adverse: adverseSignals, Positive: positiveSignals}
 }
 
 // realisticPoliticsSource fills the register fixtures at each tool's worst

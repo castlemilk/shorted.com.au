@@ -30,7 +30,12 @@ func TestEntityMatches(t *testing.T) {
 		{"DroneShield Limited", "DRONESHIELD LIMITED", true},
 		{"Quokka Compounders Limited", "QUOKKA COMPOUNDERS LIMITED", true},
 		{"Energy Resources of Australia Ltd", "ENERGY RESOURCES LIMITED", false}, // only industry words: withheld, not guessed
-		{"Qantas Airways Limited", "", false},                                    // no company name: unverifiable
+		// The same name, generic or spaced differently (prod, 2026-10-11).
+		{"ENERGY TECHNOLOGIES LIMITED", "Energy Technologies", true},
+		{"Echo IQ Limited", "Echoiq", true},
+		{"Energy Technologies Limited", "ENERGY RESOURCES LIMITED", false},
+		{"Red Sky Energy Limited.", "REDSKY ENERGY LIMITED", true},
+		{"Qantas Airways Limited", "", false}, // no company name: unverifiable
 		{"", "BHP GROUP LIMITED", false},
 		{"Northern Star Resources Limited", "NORTHERN STAR RESOURCES LTD", true},
 	}

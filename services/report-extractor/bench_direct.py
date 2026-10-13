@@ -44,7 +44,7 @@ def main() -> None:
     ap.add_argument("--primary", default=dx.PRIMARY_MODEL)
     ap.add_argument("--checker", action="append", default=[], help="checker model(s) to evaluate (default: every non-primary --model)")
     ap.add_argument("--arbiter", default=dx.ARBITER_MODEL)
-    ap.add_argument("--daily-docs", type=int, default=120)
+    ap.add_argument("--daily-docs", type=int, default=360, help="documents a day for the cost projection (the prod --limit)")
     ap.add_argument("--workers", type=int, default=6)
     args = ap.parse_args()
 
