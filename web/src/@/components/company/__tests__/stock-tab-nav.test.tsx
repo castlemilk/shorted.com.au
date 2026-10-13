@@ -748,11 +748,32 @@ describe("StockTabNav keeps focus clear of the docked bar", () => {
   describe("only for the keyboard", () => {
     it("does not move the page for a control the visitor reached with the pointer", () => {
       mountBar();
-      // A click focuses a link without :focus-visible; the event is the same.
-      const link = control(80);
-      link.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+      const link = control(80); // under the docked bar: a keyboard focus here moves the page
+
+      // jsdom has no input modality, so :focus-visible is answered the way a
+      // browser answers it after a click: no. Every other selector keeps its real
+      // answer. The link takes focus for real, so the listener hears a genuine
+      // focusin and :focus is true of it: a check that asked for :focus instead of
+      // :focus-visible would move the page here.
+      const matches = Element.prototype.matches;
+      const pointer = jest
+        .spyOn(Element.prototype, "matches")
+        .mockImplementation(function (this: Element, selector: string) {
+          return selector === ":focus-visible" ? false : matches.call(this, selector);
+        });
+      focus(link);
+      expect(document.activeElement).toBe(link);
+      expect(link.matches(":focus")).toBe(true);
       expect(link.matches(":focus-visible")).toBe(false);
       expect(scrollBy).not.toHaveBeenCalled();
+
+      // The control: the same link, at the same place, focused again with the real
+      // :focus-visible does move it. The pointer's answer is all that held it still.
+      pointer.mockRestore();
+      act(() => link.blur());
+      focus(link);
+      expect(scrollBy).toHaveBeenCalledTimes(1);
+      expect(scrollBy).toHaveBeenCalledWith({ top: 80 - CLEAR_TOP });
     });
 
     it("does nothing where the engine has no :focus-visible", () => {
