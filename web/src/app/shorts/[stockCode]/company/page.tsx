@@ -103,10 +103,11 @@ export default async function CompanyPage({ params }: PageProps) {
           island, so no title is said twice. */}
       <h2 className="sr-only">Profile, insiders and operations</h2>
       <div className="flex min-w-0 flex-col gap-4 md:gap-6">
-        {/* Every island here prints its own title (Company, Director trades,
-            Declared political interests, Similar companies), so the directors
-            section is named with an aria-label, not a second visible
-            heading. */}
+        {/* Every card here prints its own title (Company, Director trades,
+            Declared political interests, Similar companies): the directors
+            card is drawn by this page, the others are islands. So the
+            directors section is named with an aria-label, not a second
+            visible heading. */}
         <EnrichedCompanySection stockCode={code} companyName={companyName} />
         <section aria-label="Directors and insiders">
           {directorTrades ? (
