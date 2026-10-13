@@ -144,14 +144,100 @@ Review at 14:27 UTC:
 - Unreadable 2, withheld 64, dividend failures 154 and estimates stored from
   a results document 1, all unchanged.
 
+The 15:00 UTC picks run (`shorted-picks-42q45`, 15:00 to 18:04 UTC, exit 0)
+took 3 hours 4 minutes (17 minutes on 12 Oct). Read-only snapshots of every
+filing row and every VIT and GNG row, taken at 14:35 and 18:07 UTC, give the
+row counts below.
+
+- **Fundamentals fetched almost every code again.** 2,505 codes were stale
+  at once (none on 12 Oct): the nights after 000132's deploy fetched nearly
+  the whole universe, so their 14-day skips ran out together. 2,510 codes
+  took 2h47m of the 2h50m budget: 1,805 loaded, 704 empty, 1 failed (AHQ, a
+  Yahoo 500). The job ended 26 minutes inside its 3h30m timeout. The skips
+  run out together again about 27 Oct.
+- **Filings: 2,796 values accepted** (2,505 on 12 Oct) from 2,016
+  extractions, 1,206 rows (1,150), 23 rows written, none purged and no
+  filled field nulled. A read-only dry run afterwards gives the same counts.
+- **148 rows no longer carry a filing figure** (144 filing rows and 4 vendor
+  rows a filing had filled). The fundamentals pass brought Markit's figures
+  for those years, and a filing never overwrites a vendor value. 138 of the
+  filings had no revenue, and 133 of the 144 net incomes on both sides agree
+  within 1%. Of the 10 figures that differ by more than 5%, the filing
+  was wrong in three: DVP's $227m is its Mining Services division's external
+  revenue (Markit $388.5m), EQR's $79m is its June quarter's revenue (Markit
+  $165.4m), and MDX's net loss was its loss before income tax.
+- **13 rows were added.** 7 follow from the repair: the corrected periods of
+  AVE, CAA, CGS, EVO, MGL and TOK, and EMH's entity (it was EMH's auditor).
+  The other 6 come from today's reads (IBX, MIR, RKN, TIA, VGL, WHC). 12 are
+  half years.
+- **6 rows changed in place.** MMI's half year now comes from its 4D
+  (`03132493`: revenue $98.7m, "Loss after tax from ordinary activities
+  (20,353)"), not from "Gross operating loss of $27.4 million"
+  (`03132495`). YAL's gained its net income ($17m) and EPS (1.3 cents).
+  SRJ's comes from `03131807`, which the repair let through (net loss
+  $1,460,173; it was $1,465,013), and RSG's from another copy of its report
+  with the same figures. SRN's is now Markit's row, with the filing's diluted
+  EPS, and Markit revised CYP's net income from the filing's -$9,089,280 to
+  -$9,248,820.
+- **VIT's own FY26 4E (`03130179`) now passes every gate.** Before the repair
+  it named "Cortexa Pty Ltd" and was withheld. Its revenue ($131,158,015) and
+  net loss ($4,392,015) equal Yahoo's to the dollar and Markit's to within
+  $5. Nothing was written: the vendor row already had both.
+- **GNG's FY26 4E (`03128898`) gives no value.** Its revenue ($493.2m) is
+  quoted for the "financial year ended 1 July 2025 to 30 June 2026", which
+  the period parser reads as ending 1 July 2025 (the open `explicitDate`
+  item). Yahoo's FY26 revenue, $493.16m, stands.
+- **The entity gate rejected 76 documents (46 on 12 Oct).** 40 were withheld
+  before the repair too, and the repair added SFI's fund report (and moved 5
+  out: EMH, IFG, SRJ, VIT, WEL). The other 35 were read after the 12 Oct
+  run, all filed between March 2020 and March 2025 under codes whose
+  `company-metadata` name is out of date: renamed companies (MWR is
+  Spacetalk, IP1 is Wrkr), 8 iShares ETFs that name BlackRock, and funds on
+  reused codes. Each is withheld as the rule intends; the names are the open
+  "out-of-date company names" item. That accounts for 45 of the 12 Oct
+  run's 46; the 46th is not traced.
+- **Gate 5 let four pre-tax or comprehensive figures through as net
+  income.** FLT's 1H24 row held its "statutory PBT" ($120m), DMP's and BMN's
+  1H25 rows a loss before tax, and TSR's 1H26 row a total comprehensive
+  loss. The list named "profit before tax" and "total comprehensive income"
+  but not their loss forms or "PBT". Fixed in `b44176b54` on
+  `fix/gate5-pretax-labels` (local only), after an adversarial review (three
+  reviewers, a skeptic per finding; nothing refuted). The review added
+  matching on the normalised quote (a line break, a non-breaking space or a
+  typographic hyphen inside a term), footnote digits run into a term
+  ("PBT1", "EBITDA2"), "NPBT", "pre tax" and the "(loss)/income" caption.
+  - Over all 5,546 stored revenue, net income and EPS quotes, 25 are newly
+    withheld and none newly passes. 23 name a pre-tax, comprehensive, pro
+    forma, EBITDA or gross operating figure. The other 2 are correct
+    after-tax values in tables that print "Loss before income tax" beside
+    them (LGF, RLG), both behind vendor values.
+  - A dry run with the fix would purge exactly those four rows and null
+    nothing. AEI, HMC, LGF, MDX and RLG lose filing values that vendor
+    values already cover.
+  - "Operating loss" stays allowed: directors' reports give the statutory
+    loss as "an operating loss after income tax" (CDT, IRD, ORD and T88,
+    each equal to the vendor's net income). A statement's heading
+    ("statement of comprehensive income", GRR's revenue quote) passes.
+  - Matching "before (income) tax" anywhere in a quote would also drop the
+    after-tax line of four 4D/4E tables (FGG, FGX, MYX, PPK), two of them
+    live half years. Tests pin them as passes.
+
 Open:
 
-- After the 15:00 UTC picks run: VIT's FY26 figures in `stock_fundamentals`.
+- The gate 5 fix: a PR needs the user's OK. After its deploy, the next
+  filings run should purge FLT 1H24, DMP 1H25, BMN 1H25 and TSR 1H26 and
+  nothing else.
 - The 14 Oct extractor run: the first retries.
 - Not urgent: the results classifier accepts a results advisory (SFR, PLS);
   a document whose PDF no longer resolves takes a slot every run (40); a
   large company's empty result waits behind every retry of a company with no
-  figures (WTC's 4E).
+  figures (WTC's 4E); the fundamentals skips run out together every 14 days;
+  the extractor's net profit label rule (`before\s+tax`) misses "before
+  income tax" (MDX), but it reads the widened table span, so a wider rule
+  there would drop table figures for every reader; reading gate 5's pre-tax
+  words in the label that governs the figure, not the whole quote, would
+  keep LGF's and RLG's; 5 stored quotes spell "profit" with the "ﬁ"
+  ligature, which Normalise does not fold (no verdict changes today).
 
 ## 2026-10-12, after #709's first extractor run
 
