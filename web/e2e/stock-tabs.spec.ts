@@ -254,6 +254,14 @@ const describeShifts = (shifts: LayoutShiftRecord[]) =>
 test.describe("stock page tabs", () => {
   test.describe.configure({ timeout: 120_000 });
 
+  // waitOutRateLimit's handler can still be fetching when a test ends: a tab's
+  // own call, in flight as the last assertion passes. The closing page then
+  // fails that fetch, and Playwright failed a test whose every assertion had
+  // passed ("every tab is a route", on the News tab's event timeline).
+  test.afterEach(async ({ page }) => {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  });
+
   test("every tab is a route; charts live on Overview and Short interest; settings survive; back returns", async ({ page }) => {
     // Every series request the chart makes: a return that draws from the query
     // cache makes none, one that asks the API again makes two.
