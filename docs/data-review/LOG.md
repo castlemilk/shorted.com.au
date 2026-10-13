@@ -53,9 +53,59 @@ Review at 14:40 UTC:
   of Garda Property Group's stapled entities. VIT's (`03130179`) is Vitura
   Health's own Appendix 4E. Its entity was read from the 4E's "control gained
   or lost" section: "Cortexa Pty Ltd", a joint venture deconsolidated on
-  1 July 2025. That is the same family as BWF's 4E label, fixed in #710. Open.
+  1 July 2025. That is the same family as BWF's 4E label, fixed in #710.
+  Fixed below.
 - **Dividend failures in the window: 144**, unchanged: there has been no
   notice run since the last review.
+
+Fixed on this branch (the user said "we need grounding truth" for VIT, and
+for GMG to go with the recommended option):
+
+- **Where a document's entity and period are read from** (`document_meta.py`;
+  the name rules are shared with `extractiontrust` through one fixture). A
+  "Name of entity" field under a control gained or lost, associates or joint
+  ventures heading is another entity's and is skipped (VIT's "Cortexa Pty
+  Ltd"). A name over a registration number alone on its line ("Vitura Health
+  Limited / ACN 629 071 594") is read, except under or after a role
+  ("Trustee: Perpetual Trust Services Limited"). A former name stays after the
+  current name ("Ocean Sciences Ltd (formerly BPH Global Ltd)") unless that is
+  a Pty Ltd's, and a former-name bracket alone states no name. The period is
+  the document's own reporting-period statement, a range of one half or one
+  year included (NHC's "Current period / From 1 August 2025 to 31 July 2026").
+  Without one it is the latest period the document names that ended before
+  its report date, skipping comparisons and periods it says are still to be
+  reported; a document lodged more than 7 months after every period it names
+  takes the one it names most (VIG's FY2025 annual report). VIT's FY26 4E now
+  reads "Vitura Health Limited", 2026-06-30.
+- **`--repair-document-meta`** (the Report Extractor Repair workflow,
+  `repair=document-meta`, dry run by default) reads every stored row's entity
+  and period again from its stored text, with its report date, and writes
+  only those keys. It never removes a name readers check or a stated period,
+  and never moves `extracted_at`.
+- **Notice parser 6.** An `estimated_only` notice is stored once the issuer's
+  own results document for the notice's period end states the same amount
+  and franking in an entry whose label names that period's own distribution
+  and no other, and no agreed entry states another amount. GMG's FY26 4E
+  (`03127287`) confirms AUD 0.15, unfranked, ex 29 Jun, paid 26 Aug. The
+  review lists every estimate stored this way.
+- **Checked against prod, read-only:**
+  - The repair's dry run selects 1,983 rows. Entities: 552 added, 14 renamed,
+    62 cosmetic, 5 kept. The entity check now passes 5 (EMH, WEL, IFG, SRJ,
+    VIT) and now fails 5 (EAR, SFI, JHG, JHL, MRE). Periods: 24 changed, 15
+    added, each read against its document; VIG keeps its FY2025 year.
+  - Stock pages: 13 codes gain a filing summary (AVE, BVS, CAA, CGS, CMB,
+    FMG, GNG, IGO, PPS, PRU, QFE, SGR, VIT). EVO, GLS, MGL and TOK lose theirs:
+    each was a later document summarised as the prior year.
+  - Picks: 2,555 accepted filing figures (2,505 before) in 1,167 rows (1,150),
+    none removed. VIT's FY26 revenue (131,158,015) and net loss (4,392,015)
+    are accepted.
+  - Parser 6: the label gate accepts 189 (entry, type) pairs of the 568
+    agreed dividend entries in the 365 documents that state a period end.
+    Replaying the 199 notices the next run selects changes only GMG's
+    `03104557`, now stored; LRT stays withheld.
+- **Not on this branch:** picks reads a range label by its first day. GNG's
+  FY26 revenue ("financial year ended 1 July 2025 to 30 June 2026") was
+  accepted into FY2025; after the repair it is withheld instead.
 
 ## 2026-10-12, after #710's deploy
 
@@ -97,7 +147,8 @@ Review at 11:41 UTC, before the 14:00 UTC extractor run:
     actual due 20 Aug. GMG files one Appendix 3A.1 a half and no update: the
     crawl has one a half since 2024, and ASX's own 2026 list has no update.
     GMG has no dividend rows. Whether to store an estimate that no update
-    replaces is the user's call, as with LRT's. Open.
+    replaces is the user's call, as with LRT's. The user chose to store it
+    once GMG's own results document confirms it: fixed in the entry above.
   - LRT (four notices now, one from the backfill), GNE, SST: overdue,
     withheld as agreed.
   - RGB, RG1, LF1: `not_appendix_3a1`, nothing to do.
