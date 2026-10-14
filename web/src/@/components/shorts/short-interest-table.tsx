@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 
 /**
  * The screener-shaped short-interest table.
@@ -93,7 +94,7 @@ export function ShortInterestTable({
                 {r.name}
               </td>
               <td className="hidden max-w-[180px] truncate px-3 py-2 text-muted-foreground md:table-cell">
-                {r.industry}
+                {industryLabel(r.industry)}
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
                 {r.shortPct.toFixed(2)}%

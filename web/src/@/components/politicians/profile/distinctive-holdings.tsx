@@ -33,6 +33,7 @@ import Link from "next/link";
 
 import { HolderBadge, ShortInterestCaveat } from "@/components/politicians/compliance";
 import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-icon";
+import { industryLabel } from "@/lib/industry-placeholder";
 import { sectionTitle } from "@/lib/typography";
 import type { RegisterHolder } from "~/gen/shorts/v1alpha1/politicians_pb";
 
@@ -88,7 +89,7 @@ export function groupHoldingsByCompany(rows: DistinctiveHoldingInput[]): Grouped
       byCode.set(row.stockCode, {
         stockCode: row.stockCode,
         companyName: row.companyName,
-        industry: row.industry,
+        industry: industryLabel(row.industry),
         holders: [row.holder],
         declarerCount: row.corpusDeclarerCount,
         shortPercent: row.shortPercent,
@@ -99,7 +100,7 @@ export function groupHoldingsByCompany(rows: DistinctiveHoldingInput[]): Grouped
     existing.declarerCount = Math.max(existing.declarerCount, row.corpusDeclarerCount);
     existing.shortPercent = Math.max(existing.shortPercent, row.shortPercent);
     if (!existing.companyName) existing.companyName = row.companyName;
-    if (!existing.industry) existing.industry = row.industry;
+    if (!existing.industry) existing.industry = industryLabel(row.industry);
   }
   return [...byCode.values()].sort(
     (a, b) => a.declarerCount - b.declarerCount || a.stockCode.localeCompare(b.stockCode),

@@ -32,6 +32,7 @@ import {
 import { loadPoliticianTable } from "~/app/actions/politicianTable";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { pageTitle, sectionTitle, eyebrow } from "@/lib/typography";
+import { industryLabel } from "@/lib/industry-placeholder";
 import { partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
 import { SENATE_REGISTER_GAP_CORPUS } from "@/lib/politics/register-coverage";
@@ -357,7 +358,11 @@ export default async function PoliticiansPage() {
   const extracted = explorer?.extractedParliaments ?? [];
   const partial = explorer?.partialParliaments ?? [];
   const pending = explorer?.pendingParliaments ?? [];
-  const industryTrends = explorer?.industryTrends ?? [];
+  // Funds and trusts the ASX has not classified share "Not Applic" or "Class
+  // Pend"; neither is an industry that moves.
+  const industryTrends = (explorer?.industryTrends ?? []).filter((t) =>
+    industryLabel(t.industry),
+  );
   const maxIndustryCount = Math.max(
     1,
     ...industryTrends.map((t) => t.currentCount),

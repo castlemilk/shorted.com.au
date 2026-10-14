@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/test';
 
 // Test configuration
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3020';

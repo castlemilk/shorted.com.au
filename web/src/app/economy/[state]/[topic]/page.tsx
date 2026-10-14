@@ -26,6 +26,7 @@ import {
   type EconomyTopicDefinition,
   type EconomyTopicSlug,
 } from "~/@/lib/economy/topics";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { listStateCompanies } from "~/app/actions/getEconomy";
 import {
@@ -445,7 +446,7 @@ export default async function EconomyTopicPage({ params }: PageProps) {
     .map((company) => ({
       stockCode: company.stockCode,
       companyName: company.companyName,
-      industry: company.industry,
+      industry: industryLabel(company.industry),
       weight: company.weight,
       basis: company.basis,
       source: company.source,

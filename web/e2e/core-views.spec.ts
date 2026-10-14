@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 
 /**
  * Core Views E2E Tests — Public Pages
@@ -303,15 +303,15 @@ test.describe("Static Pages", () => {
 });
 
 test.describe("API Endpoints", () => {
-  test("health endpoint responds", async ({ page }) => {
-    const response = await page.request.get("/api/health", {
+  test("health endpoint responds", async ({ request }) => {
+    const response = await request.get("/api/health", {
       timeout: 10_000,
     });
     expect(response.status()).toBeLessThan(500);
   });
 
-  test("search API returns valid response", async ({ page }) => {
-    const response = await page.request.get(
+  test("search API returns valid response", async ({ request }) => {
+    const response = await request.get(
       "/api/stocks/search?q=BHP&limit=3",
       { timeout: 15_000 },
     );
@@ -326,8 +326,8 @@ test.describe("API Endpoints", () => {
 });
 
 test.describe("SEO & Accessibility", () => {
-  test("robots.txt is accessible", async ({ page }) => {
-    const response = await page.request.get("/robots.txt", {
+  test("robots.txt is accessible", async ({ request }) => {
+    const response = await request.get("/robots.txt", {
       timeout: 10_000,
     });
     expect(response.status()).toBe(200);
@@ -335,8 +335,8 @@ test.describe("SEO & Accessibility", () => {
     expect(text).toContain("User-agent");
   });
 
-  test("sitemap.xml is accessible", async ({ page }) => {
-    const response = await page.request.get("/sitemap.xml", {
+  test("sitemap.xml is accessible", async ({ request }) => {
+    const response = await request.get("/sitemap.xml", {
       timeout: 15_000,
     });
     expect(response.status()).toBe(200);
@@ -344,8 +344,8 @@ test.describe("SEO & Accessibility", () => {
     expect(text).toContain("<urlset");
   });
 
-  test("llms.txt is accessible", async ({ page }) => {
-    const response = await page.request.get("/llms.txt", {
+  test("llms.txt is accessible", async ({ request }) => {
+    const response = await request.get("/llms.txt", {
       timeout: 10_000,
     });
     // Should exist (200) or gracefully not found (404), not crash (500)

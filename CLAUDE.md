@@ -2126,6 +2126,14 @@ Defaults live in `terraform/modules/cloudflare-edge/variables.tf`:
 
 The secret is embedded in the Cloudflare rule/Terraform state. Keep it out of tracked tfvars and rotate it if it leaks. Regression coverage: `node --test terraform/modules/cloudflare-edge/rate-limit-expression.test.mjs`.
 
+Browser tests send it to our own origins and localhost only: specs import
+`test` from `web/e2e/helpers/test.ts` (`testing-bypass-scope.mjs` holds the
+list), and release smoke uses `scoped-release-headers.mjs`. Never put it in
+Playwright's `extraHTTPHeaders`, here or in a scratch script: those go to every
+host a page contacts, and a stock page contacts Google (Analytics, Tag Manager,
+the logo bucket) and Cloudflare's beacon. Until 2026-10-14 the shared config did
+exactly that, so every e2e run with the secret set sent it to them.
+
 ### Cloudflare SSR Bypass (first-party Vercel SSR)
 
 Same shape as the test bypass, but for **our own** SSR fetcher. Vercel egress

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronRight, TrendingUp, TrendingDown } from "lucide-react";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
 import { StockLogo } from "~/@/components/reports/stock-logo";
 import { Sparkline } from "~/@/components/reports/sparkline";
@@ -68,6 +69,7 @@ export function MoversTable({ movers, type }: MoversTableProps) {
           const zScore = mover.zScore ?? 0;
           const streak = mover.streakWeeks ?? 0;
           const isUnusual = Math.abs(zScore) >= 2;
+          const industry = industryLabel(mover.industry);
           return (
             <Link
               key={mover.code}
@@ -96,7 +98,7 @@ export function MoversTable({ movers, type }: MoversTableProps) {
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
                     {mover.name}
-                    {mover.industry ? ` · ${mover.industry}` : ""}
+                    {industry ? ` · ${industry}` : ""}
                   </div>
                   {isUnusual && (
                     <div

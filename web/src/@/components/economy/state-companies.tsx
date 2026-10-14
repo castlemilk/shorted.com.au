@@ -6,6 +6,7 @@ import { StockLogo } from "@/components/reports/stock-logo";
 import { EconomyIcon } from "./economy-icon";
 import { listStateCompaniesClient } from "~/app/actions/client/getEconomyClient";
 import type { StateSlug } from "@/lib/economy/map-metrics";
+import { industryLabel } from "@/lib/industry-placeholder";
 
 /**
  * Dossier "Operating here" list — top companies by exposure-weighted market
@@ -55,9 +56,9 @@ export function StateCompanies({ state }: { state: StateSlug }) {
             <span className="rounded-sm bg-primary/10 px-1 py-px font-mono text-[10px] tabular-nums text-primary">
               {abbr} {Math.round(c.weight * 100)}%
             </span>
-            {c.industry ? (
+            {industryLabel(c.industry) ? (
               <span className="hidden w-24 truncate text-right text-[10px] text-muted-foreground sm:inline">
-                {c.industry}
+                {industryLabel(c.industry)}
               </span>
             ) : null}
             {c.shortPercent > 0 ? (

@@ -1,5 +1,9 @@
-/** @param {string} rawUrl */
-function trustedOrigin(rawUrl) {
+/**
+ * The origin of `rawUrl` when it is one of ours over HTTPS on the default
+ * port (the app, its www, the API, a Vercel preview of the app), else null.
+ * @param {string} rawUrl
+ */
+export function trustedOrigin(rawUrl) {
   try {
     const url = new URL(rawUrl);
     const ownedHost = ["shorted.com.au", "www.shorted.com.au", "api.shorted.com.au"].includes(url.hostname) ||

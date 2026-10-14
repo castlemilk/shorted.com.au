@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 
 test.describe("Stock Search E2E Tests", () => {
   test.beforeEach(async ({ page }) => {

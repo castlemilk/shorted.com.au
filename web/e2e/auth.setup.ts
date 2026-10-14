@@ -1,4 +1,4 @@
-import { test as setup, expect } from "@playwright/test";
+import { test as setup, expect } from "./helpers/test";
 import path from "path";
 import { fileURLToPath } from "url";
 

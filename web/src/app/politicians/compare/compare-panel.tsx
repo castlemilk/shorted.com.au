@@ -55,6 +55,7 @@ import { CountTile } from "@/components/politicians/explorer/count-tile";
 import { KeyFacts } from "@/components/politicians/explorer/key-facts";
 import { PartyMark } from "@/components/politicians/party-mark";
 import { PoliticsIcon, SectionIcon } from "@/components/politicians/politics-icon";
+import { industryLabel } from "@/lib/industry-placeholder";
 import { partyColorFromAb, partyLabel } from "@/lib/politics/party-palette";
 import {
   searchPoliticians,
@@ -685,7 +686,7 @@ function SharedCompanies({
                 </span>
               </th>
               <td className="py-2 pr-3 text-[11px] text-muted-foreground">
-                {row.industry || "Industry not recorded"}
+                {industryLabel(row.industry) || "Industry not recorded"}
               </td>
               <td className="py-2 pr-3">
                 <span className="flex flex-col gap-1">

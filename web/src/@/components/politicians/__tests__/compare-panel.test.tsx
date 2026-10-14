@@ -484,6 +484,28 @@ describe("compare panel — the comparison", () => {
     expect(screen.getAllByText("Previously declared").length).toBeGreaterThan(0);
   });
 
+  it("reads an ASX placeholder industry as not recorded", async () => {
+    comparePoliticians.mockResolvedValue(
+      compareResponse({
+        sharedCompanies: [
+          {
+            stockCode: "AFI",
+            companyName: "Australian Foundation Investment Company",
+            industry: "Not Applic",
+            holdersA: [1],
+            holdersB: [1],
+            currentlyDeclaredA: true,
+            currentlyDeclaredB: true,
+          },
+        ],
+      }),
+    );
+    const { container } = render(<ComparePanel />);
+    await screen.findByText("Australian Foundation Investment Company");
+    expect(screen.getByText("Industry not recorded")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/not applic/i);
+  });
+
   it("caps the one-sided lists and counts BOTH the local and API tails", async () => {
     comparePoliticians.mockResolvedValue(compareResponse());
     render(<ComparePanel />);

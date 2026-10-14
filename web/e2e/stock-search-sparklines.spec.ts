@@ -3,7 +3,7 @@
  * Tests the complete user flow from search to sparkline display
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 
 test.describe("Stock Search with Sparklines", () => {
   test.beforeEach(async ({ page }) => {

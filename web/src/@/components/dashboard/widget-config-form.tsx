@@ -26,6 +26,7 @@ import { Button } from "~/@/components/ui/button";
 import { X, Search, Loader2 } from "lucide-react";
 import { searchStocksClient } from "~/app/actions/searchStocks";
 import debounce from "lodash/debounce";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
 
 interface StockSearchResult {
@@ -71,7 +72,7 @@ export function StockSearchField({
             productCode: stock.productCode,
             name: stock.name,
             percentageShorted: stock.percentageShorted,
-            industry: stock.industry,
+            industry: industryLabel(stock.industry),
           })),
         );
       } else {
