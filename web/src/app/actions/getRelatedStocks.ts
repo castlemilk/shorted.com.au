@@ -4,6 +4,7 @@ import { cache } from "react";
 import { getStockDetails } from "./getStockDetails";
 import { getIndustryStocks } from "./industry/getIndustryData";
 import { type RelatedStock } from "~/@/components/seo/related-stocks";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { createSlug } from "~/@/lib/industry-slug";
 
 /**
@@ -17,14 +18,16 @@ export const getRelatedStocks = cache(
     industrySlug: string | null;
   }> => {
     try {
-      // Get the stock's industry
+      // Get the stock's industry. The ASX's "Not Applic" of an ETF or a trust
+      // is none: related "by industry" would mean nothing, and its slug would
+      // send the Company tab's evidence panel to an industry that is not there.
       const stockDetails = await getStockDetails(stockCode);
+      const industry = industryLabel(stockDetails?.industry);
 
-      if (!stockDetails?.industry) {
+      if (!industry) {
         return { stocks: [], industry: null, industrySlug: null };
       }
 
-      const industry = stockDetails.industry;
       const industrySlug = createSlug(industry);
 
       // Get other stocks in the same industry

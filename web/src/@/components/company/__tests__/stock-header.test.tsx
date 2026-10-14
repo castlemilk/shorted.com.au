@@ -149,15 +149,25 @@ describe("StockHeader identity", () => {
     expect(code.parentElement?.children).toHaveLength(1);
   });
 
-  // The ASX's placeholder for a security with no industry (an ETF, a trust).
-  it.each(["Not Applic", "Not Applicable", "NOT APPLIC", "not applicable", "  Not Applic  ", "Not Applicable\n"])(
+  // The ASX's placeholders for a security with no industry (an ETF, a trust) or
+  // one still to be classified, and "Other", the bucket they are gathered in.
+  it.each([
+    "Not Applic",
+    "Not Applicable",
+    "NOT APPLIC",
+    "not applicable",
+    "  Not Applic  ",
+    "Not Applicable\n",
+    "Class Pend",
+    "Other",
+  ])(
     "leaves the badge out for the placeholder industry %p, as for an empty one",
     async (industry) => {
       const { container } = await renderHeader(props({ stock: { ...BHP, industry } as Stock }));
       const code = screen.getByText("BHP", { selector: "span" });
       expect(code.parentElement?.children).toHaveLength(1);
       // Neither as text nor as a title attribute.
-      expect(container.innerHTML).not.toMatch(/not applic/i);
+      expect(container.innerHTML).not.toMatch(new RegExp(industry.trim(), "i"));
     },
   );
 

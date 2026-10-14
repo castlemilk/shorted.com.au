@@ -139,7 +139,8 @@ jest.mock("~/@/components/seo/breadcrumbs", () => ({
 }));
 jest.mock("~/@/components/seo/llm-meta", () => ({
   LLMMeta: () => null,
-  StockLLMMeta: () => null,
+  // A mock, so a test can read the industry the page hands it.
+  StockLLMMeta: jest.fn(() => null),
 }));
 jest.mock("~/@/components/seo/related-stocks", () => ({ RelatedStocks: () => null }));
 jest.mock("~/@/components/reports/latest-weekly-report-link", () => ({

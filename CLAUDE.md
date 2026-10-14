@@ -694,20 +694,36 @@ page to the top; `stock-tabs.spec.ts` holds both.
 **A price chart lives only on the tab it is about.** `StockChartPanel` is the
 first block of the Overview (combined view, `prefsKey` `"<CODE>:overview"`) and
 of Short interest (the short view, or combined for a stock with no short
-history, `"<CODE>:short-interest"`), loaded through
-`nextDynamic(..., { ssr: false })`. Strategy keeps its own levels chart;
-Financials, Company, News and Community have none. The visitor's settings
-survive a tab switch in `chart-prefs.ts`, a client-only module store: the
-period is kept per stock and shared by both chart tabs, the view, SMA 20 and
-divergence per `prefsKey`. It lives until a reload and writes nothing to
-storage; a panel with no `prefsKey` (the dashboard, the stories) is plain local
-state. Rendering is not loading: measured on the build, Company and News load
-no chart code, but Financials and Community still load the Overview page's
-chart chunks (their client reference manifests carry the Overview page's client
-modules and chunk list, so the shared `next/link` module maps to the Overview's
-26 chunks). Before the chart left the layout every tab loaded it, so none loads
-more than it did. Moving the Overview page into a route group,
-`(overview)/page.tsx`, would stop the inheritance (a follow-up).
+history, `"<CODE>:short-interest"`), always client-only (`ssr: false`).
+Strategy keeps its own levels chart; Financials, Company, News and Community
+have none. The visitor's settings survive a tab switch in `chart-prefs.ts`, a
+client-only module store: the period is kept per stock and shared by both chart
+tabs, the view, SMA 20 and divergence per `prefsKey`. It lives until a reload
+and writes nothing to storage; a panel with no `prefsKey` (the dashboard, the
+stories) is plain local state.
+
+**Nor does a tab without a chart load one.** Next 14 builds each tab's client
+reference manifest from the Overview page's (the page above the other six), and
+maps each client module to the whole first-load chunk list of the page that
+holds it, so a tab that resolves a shared module (`next/link`) through the
+Overview's mapping downloads all of the Overview's first-load chunks. A
+`nextDynamic` in a server page is bundled into that list: Financials and
+Community downloaded the Overview's chart that way (227 KiB of JS for BHP). A
+route group does not stop it (Next strips the group from the manifest's group
+name). So Short interest loads the panel with `nextDynamic(..., { ssr: false })`
+in its page, and the Overview through `StockChartPanelLazy`
+(`components/charts/stock-chart-panel-lazy.tsx`), a `"use client"` module whose
+`next/dynamic` is a real `import()`: the chart is a chunk of its own, in no list
+another tab inherits. The module starts that download as it runs, so the
+Overview's chart lands when it did as a first-load chunk, but only when the
+path is the Overview: a tab that loads the Overview's page chunk runs every
+Overview client module, and the unguarded `import()` put the chart back on
+Financials and Community. `web/scripts/stock-chart-chunks.mjs`
+(`npm run routes:charts` after `next build`; `task test:bundle` and
+`perf-budget.yml` run it) fails when a client module in the manifest of the
+Overview or of a tab without a chart maps to a chunk carrying the chart's code
+(`data-chart-capture`). It cannot see an `import()` started at runtime; the
+download check in `web/e2e/stock-tabs.spec.ts` can (no workflow runs it).
 
 The chart box is sized by CSS, `h-[360px] sm:h-[420px]`
 (`CHART_BOX_HEIGHT_CLASS`), and `StockChart` takes its height from its parent
@@ -747,7 +763,10 @@ characters at 10px mono after a tick and a gap ("$99.99", or short interest as
 "12.00%"). A price of $100 or more is seven characters and gets 53px. The labels
 are estimated from the data and the axis' format (the zoom, the normalised view,
 the same ticks the axis draws) and never measured, because the margin sets the
-plot's width. With no right axis the right keeps 28px (the time axis' last label
+plot's width. A zoom can widen a side but never narrows it: a side keeps the
+widest that the whole series or any zoom since has needed, until the data, the
+view or an axis changes, so a zoom whose widest label is a character shorter
+does not move the plot 5px under the pointer. With no right axis the right keeps 28px (the time axis' last label
 hangs half its width past the plot), and a compact chart its 32px and 12px.
 
 The sign-in banner renders on the Overview only, after the About card, as one
@@ -786,7 +805,9 @@ four readouts and the ladder); on `/picks` it is unchanged.
     fails when a `"use client"` module on the way reaches `@connectrpc` (the
     SSR failure under Known Issues). Client widgets load through
     `nextDynamic(() => import(...), { ssr: false })` and are listed in the
-    test's `CONNECT_ISLANDS`. Its allowlist, `KNOWN_CLIENT_CONNECT`, holds only
+    test's `CONNECT_ISLANDS`. The Overview's chart is the one exception: a test
+    of its own requires that the page has no `nextDynamic` and loads it through
+    the client module `stock-chart-panel-lazy.tsx`. The walk's allowlist, `KNOWN_CLIENT_CONNECT`, holds only
     the pre-existing `company-info-with-retry` fallback (on the Overview) and
     can only shrink. The layout's two twins, `company-profile-with-retry` and
     `company-stats-with-retry`, were deleted with the cards they served, and

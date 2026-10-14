@@ -187,6 +187,44 @@ describe("the stock Overview's own blocks: the chart, the About card and the sig
     expect(chips).toHaveClass("mt-3");
   });
 
+  // The ASX writes "Not Applic" in the industry field of an ETF or a trust, and
+  // "Class Pend" while a classification is pending. Neither is an industry, so
+  // no sentence names one and the meta tags are left empty, as for none at all.
+  it.each(["Not Applic", "Class Pend"])(
+    "names no industry anywhere on the page for the placeholder %p",
+    async (industry) => {
+      const getStock = jest.requireMock<{ getStockOrNotFound: jest.Mock }>(
+        "~/app/actions/getStock",
+      ).getStockOrNotFound;
+      const llmMeta = jest.requireMock<{ StockLLMMeta: jest.Mock }>(
+        "~/@/components/seo/llm-meta",
+      ).StockLLMMeta;
+      const bhp = (await getStock.getMockImplementation()!("BHP")) as Record<string, unknown>;
+
+      // A real industry is named in all three places...
+      llmMeta.mockClear();
+      const real = await renderOverview();
+      expect(real.container.querySelector("section.sr-only")).toHaveTextContent(
+        "BHP Group operates in the Materials industry.",
+      );
+      expect(aboutCard()).toHaveTextContent("BHP is classified in the Materials industry.");
+      expect(llmMeta.mock.calls.at(-1)?.[0]).toMatchObject({ industry: "Materials", sector: "Materials" });
+      real.unmount();
+
+      // ...and the placeholder in none of them.
+      getStock.mockResolvedValueOnce({ ...bhp, industry });
+      llmMeta.mockClear();
+      const { container } = await renderOverview();
+      const crawler = container.querySelector("section.sr-only");
+      expect(crawler).toHaveTextContent("BHP Group (ASX:BHP) had 1.20% of shares");
+      expect(crawler).not.toHaveTextContent("operates in");
+      expect(aboutCard()).toHaveTextContent("BHP Group (ASX:BHP) has 1.20% of its shares");
+      expect(aboutCard()).not.toHaveTextContent("classified in");
+      expect(container).not.toHaveTextContent(industry);
+      expect(llmMeta.mock.calls.at(-1)?.[0]).toMatchObject({ industry: "", sector: "" });
+    },
+  );
+
   it("leaves the short-interest sentences that need a move out when the series has none", async () => {
     mockDeltas().mockResolvedValueOnce({
       change7d: null,
