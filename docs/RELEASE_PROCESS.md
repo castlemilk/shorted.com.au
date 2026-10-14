@@ -119,7 +119,7 @@ gh secret set CLOUDFLARE_TESTING_BYPASS_SECRET \
 
 Smoke against `https://shorted.com.au` should include that secret. Without it, Cloudflare may return 403s for browser-loaded resources during Playwright runs; smoke the emitted Vercel deployment URL when the secret is not available locally.
 
-The shared Playwright config applies the same bypass automatically for all browser/API test contexts when the secret is present. The helper lives at `web/e2e/helpers/cloudflare-testing-bypass.ts` and reads, in order:
+Specs run by the shared Playwright config import `test` from `web/e2e/helpers/test.ts`, which sends the same bypass when the secret is present to our own origins and this machine only: `shorted.com.au`, `www`, `api.shorted.com.au`, a Vercel preview of the app, and localhost (`web/e2e/helpers/testing-bypass-scope.mjs`). It covers the browser's requests and the `request` fixture's, not `page.request`. The header is never set in `extraHTTPHeaders`: those reach every host a page contacts, and a stock page also contacts Google (Analytics, Tag Manager, the logo bucket) and Cloudflare's beacon. Release smoke scopes its own headers the same way (`scoped-release-headers.mjs`). The helper that reads the secret lives at `web/e2e/helpers/cloudflare-testing-bypass.ts` and reads, in order:
 
 - `CLOUDFLARE_TESTING_BYPASS_SECRET`
 - `SHORTED_CLOUDFLARE_TESTING_BYPASS_SECRET`

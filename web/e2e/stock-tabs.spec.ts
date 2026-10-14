@@ -1,4 +1,5 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "./helpers/test";
+import { cloudflareTestingBypassHeadersFor } from "./helpers/cloudflare-testing-bypass";
 
 /**
  * Stock page tab routes: /shorts/[stockCode] and its six tabs, and where the
@@ -43,8 +44,9 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
  *   the Next rewrites to api.shorted.com.au, and the edge rate limits them.
  *   Export TF_VAR_rate_limit_testing_bypass_secret, that one variable from the
  *   repo-root .env and never the whole file, before the Playwright run:
- *   playwright.config.ts turns it into the trusted-test header and the user
- *   agent marker. Without it the chart tests can meet a 429 and fail for that.
+ *   helpers/test.ts sends it as the trusted-test header to localhost and our
+ *   own origins only, and playwright.config.ts adds the user agent marker.
+ *   Without it the chart tests can meet a 429 and fail for that.
  * - That header only clears the edge. The API itself still caps an anonymous
  *   address at 30 calls a minute, and this file's own page loads spend it. The
  *   tests that need a page's data (both of a chart's series, a Short interest
@@ -155,11 +157,15 @@ async function waitOutRateLimit(page: Page): Promise<void> {
     (url) => url.pathname.startsWith("/shorts.v1alpha1.") || url.pathname === PRICE_SERIES_PATH,
     async (route) => {
       try {
-        let response = await route.fetch();
+        // This route runs before the fixture's, so it sends the trusted-test
+        // header itself (only to our own origins).
+        const request = route.request();
+        const headers = { ...request.headers(), ...cloudflareTestingBypassHeadersFor(request.url()) };
+        let response = await route.fetch({ headers });
         for (let retry = 0; response.status() === 429 && retry < 3; retry++) {
           const seconds = Number(response.headers()["retry-after"]);
           await new Promise((resolve) => setTimeout(resolve, (seconds > 0 ? seconds : 20) * 1000 + 250));
-          response = await route.fetch();
+          response = await route.fetch({ headers });
         }
         await route.fulfill({ response });
       } catch (error) {

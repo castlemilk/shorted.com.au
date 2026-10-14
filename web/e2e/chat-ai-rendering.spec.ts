@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/test";
 
 test.describe("AI chat rendering", () => {
   test("renders markdown tables, stock cards, and short-interest charts", async ({

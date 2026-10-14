@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/test';
 
 test.describe('User Authentication', () => {
   test('should show login/register options when not authenticated', async ({ page }) => {

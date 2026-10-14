@@ -223,11 +223,15 @@ test("release smoke covers prior regression surfaces and Cloudflare API checks",
   assert.match(firebaseAuthHelper, /googleOAuthSeen/);
 });
 
-test("Playwright config applies Cloudflare trusted-test headers across browser projects", () => {
+test("Playwright sends the Cloudflare trusted-test header to our own origins only", () => {
   const config = read("web/playwright.config.ts");
   const helper = read("web/e2e/helpers/cloudflare-testing-bypass.ts");
+  const fixture = read("web/e2e/helpers/test.ts");
 
-  assert.match(config, /cloudflareTestingBypassHeaders/);
+  // extraHTTPHeaders go to every host a page contacts, Google's included.
+  assert.doesNotMatch(config, /cloudflareTestingBypassHeaders/);
+  assert.match(fixture, /routeTestingBypass\(context, cloudflareTestingBypassHeaders\(\)\)/);
+  assert.match(fixture, /scopeTestingBypassRequests\(request, baseURL, cloudflareTestingBypassHeaders\(\)\)/);
   assert.match(config, /withCloudflareTestingUserAgent/);
   assert.match(config, /extraHTTPHeaders:\s*baseExtraHTTPHeaders/);
   assert.match(config, /deviceUse\(devices\["Desktop Chrome"\]\)/);

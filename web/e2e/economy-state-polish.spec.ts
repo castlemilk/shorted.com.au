@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/test";
 
 test.describe("economy state polish", () => {
   test("surfaces the new state indicators and finance references", async ({ page }) => {

@@ -10,7 +10,7 @@
  *   npm run perf:prod                       # against production
  *   BASE_URL=http://localhost:3020 npx playwright test e2e/production-perf.spec.ts --project=chromium
  */
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 import {
   injectCWVCollector,
   collectCWV,
