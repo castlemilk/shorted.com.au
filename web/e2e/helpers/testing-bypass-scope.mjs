@@ -51,6 +51,7 @@ export async function routeTestingBypass(context, bypass) {
  */
 export function scopeTestingBypassRequests(request, baseURL, bypass) {
   if (Object.keys(bypass).length === 0) return request;
+  /** @param {string | { url(): string }} urlOrRequest */
   const urlOf = (urlOrRequest) => {
     if (typeof urlOrRequest !== "string") return urlOrRequest.url();
     try {
@@ -64,10 +65,15 @@ export function scopeTestingBypassRequests(request, baseURL, bypass) {
       const value = Reflect.get(target, property);
       if (typeof value !== "function") return value;
       if (typeof property !== "string" || !REQUEST_METHODS.has(property)) return value.bind(target);
-      return (urlOrRequest, options = {}) =>
+      /**
+       * @param {string | { url(): string }} urlOrRequest
+       * @param {{ headers?: Record<string, string> }} [options]
+       */
+      const call = (urlOrRequest, options = {}) =>
         isTestingBypassOrigin(urlOf(urlOrRequest))
           ? value.call(target, urlOrRequest, { ...options, headers: { ...bypass, ...options.headers } })
           : value.call(target, urlOrRequest, options);
+      return call;
     },
   });
 }
