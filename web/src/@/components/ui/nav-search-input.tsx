@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Search, X, Loader2, TrendingDown, ArrowRight, LogIn } from "lucide-react";
 import { cn } from "~/@/lib/utils";
 import { normalizedLogoUrl } from "~/@/lib/logo";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { useClickOutside } from "~/@/hooks/use-click-outside";
 
 interface StockResult {
@@ -71,7 +72,7 @@ async function fetchSearchResults(
           productCode: s.productCode,
           name: s.name,
           percentageShorted: s.percentageShorted ?? 0,
-          industry: s.industry,
+          industry: industryLabel(s.industry),
           logoUrl: s.logoUrl,
         }));
       }

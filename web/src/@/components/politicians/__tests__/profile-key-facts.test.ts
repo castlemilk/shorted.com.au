@@ -95,6 +95,25 @@ describe("profile key facts", () => {
     ).toEqual([]);
   });
 
+  it("never names an ASX placeholder as the most declared industry", () => {
+    // "Not Applic" is what the ASX writes for a fund or a trust it has not
+    // classified, and a member with four of them does not declare "the Not
+    // Applic industry".
+    const facts = textsOf({
+      itemCounts: [],
+      holderCounts: [],
+      industryCounts: [
+        { industry: "Not Applic", companyCount: 4 },
+        { industry: "Class Pend", companyCount: 3 },
+        { industry: "Banks", companyCount: 2 },
+      ],
+    });
+    expect(facts).toEqual(["Banks is the most declared industry, with 2 distinct listed companies."]);
+    expect(
+      textsOf({ itemCounts: [], holderCounts: [], industryCounts: [{ industry: "Not Applic", companyCount: 4 }] }),
+    ).toEqual([]);
+  });
+
   it("never renders a property tally", () => {
     const text = textsOf(FULL).join(" ");
     // ~29% of item-3 rows merge two or more properties into one entry, so the

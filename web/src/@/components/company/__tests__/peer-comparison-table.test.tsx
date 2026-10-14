@@ -72,4 +72,40 @@ describe("PeerComparisonTable", () => {
     expect(within(rioRow).getByText("11.2")).toBeInTheDocument();
     expect(container.textContent).not.toContain("—");
   });
+
+  it("finds no industry peers for a stock the ASX has not classified", async () => {
+    // AFI on production (2026-10-14): "5 largest Not Applic peers by market
+    // cap", a list of whatever else the ASX left unclassified.
+    mockGetPeerComparison.mockResolvedValue({
+      industry: "Not Applic",
+      subject: {
+        stockCode: "AFI",
+        companyName: "Australian Foundation Investment Company",
+        logoUrl: "",
+        shortPositionPercent: 0.01,
+        priceChange1m: 0,
+        marketCap: 0,
+        peRatio: 0,
+        dividendYield: 0,
+      },
+      peers: [
+        {
+          stockCode: "ARG",
+          companyName: "Argo Investments",
+          logoUrl: "",
+          shortPositionPercent: 0.02,
+          priceChange1m: 0,
+          marketCap: 0,
+          peRatio: 0,
+          dividendYield: 0,
+        },
+      ],
+    });
+
+    const { container } = renderWithQueryClient(<PeerComparisonTable stockCode="AFI" />);
+
+    expect(await screen.findByText("No industry peers found")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(container.textContent).not.toMatch(/not applic/i);
+  });
 });

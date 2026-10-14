@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
 import type { ChatMessage } from "~/@/hooks/use-chat";
 
@@ -231,7 +232,7 @@ function extractStockCard(toolCall: ToolCall): StockCardData | null {
   return {
     code,
     name,
-    industry: stringValue(candidate.industry),
+    industry: industryLabel(stringValue(candidate.industry)) || undefined,
     summary: stringValue(
       candidate.summary,
       candidate.enhancedSummary,

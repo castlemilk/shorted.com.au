@@ -9,6 +9,7 @@ import {
   serverFetchOutsideNextCache,
   skipForBuild,
 } from "./config";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 
 // Aggregate market-wide short-selling statistics for /statistics — the
 // citable numbers journalists currently pull from competitors' JS-only
@@ -157,7 +158,7 @@ async function fetchShortStatistics(): Promise<ShortStatistics> {
     { dollarsShorted: number; stockCount: number; pctSum: number }
   >();
   for (const s of withCap) {
-    const key = s.industry?.trim() || "Other";
+    const key = industryLabel(s.industry) || "Other";
     const entry = byIndustry.get(key) ?? {
       dollarsShorted: 0,
       stockCount: 0,

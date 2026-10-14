@@ -3,6 +3,7 @@ import { getStock } from "~/app/actions/getStock";
 import { getStockNews } from "~/app/actions/getStockNews";
 import { listEditorialTakes } from "~/app/actions/getEditorialTake";
 import { normalizedLogoUrl } from "~/@/lib/logo";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 
 interface TakeRelatedProps {
@@ -56,7 +57,7 @@ export async function TakeRelated({ stockCode, excludeSlug }: TakeRelatedProps) 
                   {stock.name || stockCode}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {stock.industry || "—"}
+                  {industryLabel(stock.industry) || "—"}
                 </div>
               </div>
             </div>

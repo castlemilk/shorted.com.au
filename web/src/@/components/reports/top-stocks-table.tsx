@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
 import { StockLogo } from "~/@/components/reports/stock-logo";
 import { Sparkline } from "~/@/components/reports/sparkline";
@@ -103,6 +104,7 @@ export function TopStocksTable({
       <div className="divide-y divide-border/40">
         {stocks.map((stock, index) => {
           const dot = bandDotClass(stock.shortPct);
+          const industry = industryLabel(stock.industry);
           return (
             <Link
               key={stock.code}
@@ -138,7 +140,7 @@ export function TopStocksTable({
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
                     {stock.name}
-                    {stock.industry ? ` · ${stock.industry}` : ""}
+                    {industry ? ` · ${industry}` : ""}
                   </div>
                 </div>
               </div>
