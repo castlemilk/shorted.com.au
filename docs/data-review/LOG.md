@@ -3,6 +3,242 @@
 One entry per review, newest first. How to run a review and what each list
 means: `.claude/skills/data-review/SKILL.md`.
 
+## 2026-10-13, after #711's deploy and its repair
+
+#711 merged at 01:41 UTC (`bbe54dc63`) and its deploy finished at 02:25 UTC.
+terraform-apply put the announcements job and the extractor on
+main-bbe54dc6. On the deploy alone, the API reads 3 stored rows differently:
+KYN's `03132171` (still withheld), WLD's `02987859` (a sentence fragment
+dropped; still published) and SWM's `02979174` (a phone number dropped; its
+FY25 4E is now published).
+
+- **The repair as a dry run**, on the deployed job
+  (`financial-report-extractor-8k2tt`, 03:10 UTC). Its 56-line recap is
+  identical, in order, to the local dry run's.
+- **The real run** (`financial-report-extractor-thn8l`, 04:16 to 04:19 UTC,
+  after the user's OK) logged the same summary: 1,983 rows read; entities
+  1,350 unchanged, 62 cosmetic, 14 renamed, 552 added, 5 kept; periods 1,944
+  unchanged, 24 changed, 15 added; 0 left alone.
+- **Checked row by row** against read-only snapshots of the 1,983 rows, taken
+  before and after. 658 rows changed, each exactly as the rule decides, and
+  the other 1,325 are as they were. No `extracted_at` moved. 16 of the 62
+  cosmetic rows lost a stored non-name ("ANNUAL REPORT", "ASX: TLM |", an
+  address) that readers already read as none. A dry run after it
+  (`financial-report-extractor-pv7vw`) finds nothing to change except the 5
+  kept auditors' names (MAE, MCC, CP8, ROG, ETM).
+- **What a reader sees.** extractiontrust's reader, over the rows after the
+  run, changes its verdict on exactly the recap's ten: EMH, IFG, SRJ, VIT and
+  WEL are now published, and EAR, JHG, JHL, MRE and SFI withheld. The stock
+  page's latest filing, replayed over the 628 codes written, matches the
+  prediction for every code: AVE, BVS, CAA, CGS, CMB, FMG, GNG, IGO, PPS, PRU,
+  QFE, SGR and VIT gain a summary, and EVO, GLS, MGL and TOK lose theirs. MCP
+  `get_stock_briefing` serves VIT's FY2026 4E (revenue up 5.7% to $131.2m, a
+  net loss of $4.4m), BP8's FY2026 annual report under its new name, NHC's
+  year to 31 July 2026 and GNG's FY26 accounts. AXR and VIG show none, as
+  before. GMG's FY26 4E (`03127287`), which confirms its estimate, is
+  unchanged.
+
+Review at 04:24 UTC:
+
+- **Newest results document not read: 266 companies**, unchanged: there has
+  been no extractor run since.
+- **Empty extractions: 374** (255 retry due, 62 waiting, 1 gave up, 56 not
+  results documents). CNU's `03114543` (14 Jul) left the 90-day window.
+- **Unreadable documents: 2** (NAN and HMY), unchanged.
+- **Rows the API withholds or trims: 64.** EMH, IFG, SRJ, VIT and WEL left,
+  and EAR, JHG, JHL, MRE and SFI joined. All five were published only because
+  no entity was stored.
+  - EAR, JHG, JHL and SFI join the codes taken over by funds (11 Oct,
+    "company names and shared documents"). Each fund trades under a longer
+    code (EARN, JEGA and JHGA, JHLO; SFI's is not in our data), and that code
+    has the prices. ASX files the fund's announcements under the three-letter
+    code, and `asx_announcements` holds no longer code (2,629 codes). The
+    three-letter code has no price, and its company (Echo Resources, Janus
+    Henderson, Jayex Healthcare, Spookfish) last appears in ASIC's short
+    report between 2015 and 2024. The page shows that company's history, so
+    its name is right and withholding the fund's report is correct. It is not
+    a fix to the names.
+  - MRE's (`03144652`) is its own Listing Rule 4.3D letter, on its responsible
+    entity's letterhead: "The Trust Company (RE Services) Limited ... in its
+    capacity as responsible entity of the Metrics Real Estate Multi-Strategy
+    Fund (ASX: MRE)". The entity was read from the letterhead. 39 of the 64
+    withheld rows name a fund's responsible entity, manager or issuer
+    (Betashares 8, Equity Trustees 5, Russell 4, The Trust Company 4). How a
+    trust's responsible entity should match is still open (11 Oct).
+- **Dividend failures in the window: 144**, unchanged: there has been no
+  notice run since. Estimates stored from a results document: 0. Parser 6's
+  first run is the 11:00 UTC announcements run.
+
+Parser 6's first run (`shorted-announcements-8z7fz`, 11:00 to 11:30 UTC, on
+the #712 image, whose jobs code is #711's): 200 notices read, 46 parsed (38
+rows); 103 estimated only, 40 awaiting an AUD equivalent, 9 not an Appendix
+3A.1, 1 missing a field, 1 with no text.
+
+- **GMG's `03104557` is stored**: AUD 0.15 ordinary, 0% franked, ex 29 Jun,
+  period end 30 Jun, attempt "estimate confirmed by `03127287`".
+- **LRT, GNE and SST stay withheld**, with no rows. LRT's newest estimate
+  (`03120710`): "no agreed entry in a results document names the ordinary
+  distribution for the period ending 2026-06-30". Its three earlier ones each
+  give way to the next. GNE and SST still await their AUD equivalents.
+
+Review at 11:33 UTC:
+
+- **Estimates stored from a results document: 1**, GMG's, confirmed by the
+  quote "Final dividend and distribution proposed per GMG security (cents)
+  15.0".
+- **Dividend failures in the window: 154** (17 to look at, 127 stored from a
+  later notice, 10 waiting). The window counts by when a notice was last
+  read, and the parser bump re-read June notices:
+  - GMG's estimate left.
+  - Five June notices joined, each followed by a later notice that stored
+    the same dividend: four estimates (DN1, OPH, QRI and RFF) and CIA's,
+    which awaited its AUD equivalent.
+  - Six joined the list to look at: ASK `03104198` gave no text (no text
+    layer, or a failed download; it is read again after 7 days), ATM
+    `03103847` is missing its total, and KIT's (`03098641`, `03103276`) and
+    REV's (`03098449`, `03102805`) are not Appendix 3A.1 forms. #711 did not
+    change those checks.
+- **Newest results document not read: 265.** WTC left without being read.
+  WiseTech filed its 2026 Annual Report (`03151512`) today, and the review
+  waits 7 days before listing a newest document. Its FY26 4E (`03130193`)
+  was read on 6 Sep with no figures.
+- Empty extractions 374, unreadable 2 and withheld 64, all unchanged.
+
+The 14:00 UTC extractor run (`financial-report-extractor-55fcp`, 14:00 to
+14:20 UTC, exit 0, US$0.44 in model calls) started all 360 documents it
+selected: 248 ok, 65 digest only, 7 no metrics, 40 no PDF.
+
+- **No empty extraction was read again.** A retry ranks after every first
+  attempt, and 652 documents had no row. The job's own selection, replayed
+  read-only after the run, lists 1,915 documents: 332 with no row (all filed
+  more than 45 days ago, 112 of them in 2023) and 1,583 retries (194 filed in
+  the last 45 days, 52 in the 45 before, 1,337 older). The first retry is
+  333rd, so about 28 fit in tomorrow's 360, fewer as new filings arrive (2 to
+  18 a day since 1 Oct). Most retries start on 15 Oct.
+- **The 40 with no PDF** are all 2023 documents (`02635950` to `02756399`)
+  whose URL no longer resolves. A failed download writes nothing, so every
+  run selects them again, ahead of every retry.
+- **WTC's annual report (`03151512`) was read and is empty.** Its first 8
+  pages are 6,393 characters with no figures ("revenue" appears once, in a
+  ranking of freight forwarders). The models' 6 figures were all dropped as
+  not in the document, and the digest's confidence is 0.2. It is due again
+  from 20 Oct, at up to 24 pages.
+- **WTC's FY26 4E (`03130193`) has its figures in its text** ("Net profit
+  after tax decreased 11% to $178.7m", basic earnings per share 53.6 cents)
+  but was read empty on 6 Sep. Its retry is 1,162nd: retries of recent
+  filings, of companies with no figures and of companies' newest documents
+  all rank first. It is read around 17 Oct.
+- **The repaired rows are unchanged.** A snapshot at 14:26 UTC matches the
+  post-repair one on all 1,983 rows; the run added 320 rows.
+
+Review at 14:27 UTC:
+
+- **Newest results document not read: 182 companies** (265 at 11:33). The
+  run read 83 of them, and none joined.
+- **Empty extractions: 384** (273 retry due, 54 waiting, 1 gave up, 56 not
+  results documents). The 10 new ones are today's reads: CBY, CIN, IMD, KBC,
+  LVE, MAD, MGH, MGR, SFR and WTC. CIN's and LVE's have 190 characters each.
+  SFR's `03122835` ("FY26 Financial Results Advisory") gives only the date of
+  its results, like PLS's `03122597` (listed before), so neither is a results
+  document.
+- Unreadable 2, withheld 64, dividend failures 154 and estimates stored from
+  a results document 1, all unchanged.
+
+The 15:00 UTC picks run (`shorted-picks-42q45`, 15:00 to 18:04 UTC, exit 0)
+took 3 hours 4 minutes (17 minutes on 12 Oct). Read-only snapshots of every
+filing row and every VIT and GNG row, taken at 14:35 and 18:07 UTC, give the
+row counts below.
+
+- **Fundamentals fetched almost every code again.** 2,505 codes were stale
+  at once (none on 12 Oct): the nights after 000132's deploy fetched nearly
+  the whole universe, so their 14-day skips ran out together. 2,510 codes
+  took 2h47m of the 2h50m budget: 1,805 loaded, 704 empty, 1 failed (AHQ, a
+  Yahoo 500). The job ended 26 minutes inside its 3h30m timeout. The skips
+  run out together again about 27 Oct.
+- **Filings: 2,796 values accepted** (2,505 on 12 Oct) from 2,016
+  extractions, 1,206 rows (1,150), 23 rows written, none purged and no
+  filled field nulled. A read-only dry run afterwards gives the same counts.
+- **148 rows no longer carry a filing figure** (144 filing rows and 4 vendor
+  rows a filing had filled). The fundamentals pass brought Markit's figures
+  for those years, and a filing never overwrites a vendor value. 138 of the
+  filings had no revenue, and 133 of the 144 net incomes on both sides agree
+  within 1%. Of the 10 figures that differ by more than 5%, the filing
+  was wrong in three: DVP's $227m is its Mining Services division's external
+  revenue (Markit $388.5m), EQR's $79m is its June quarter's revenue (Markit
+  $165.4m), and MDX's net loss was its loss before income tax.
+- **13 rows were added.** 7 follow from the repair: the corrected periods of
+  AVE, CAA, CGS, EVO, MGL and TOK, and EMH's entity (it was EMH's auditor).
+  The other 6 come from today's reads (IBX, MIR, RKN, TIA, VGL, WHC). 12 are
+  half years.
+- **6 rows changed in place.** MMI's half year now comes from its 4D
+  (`03132493`: revenue $98.7m, "Loss after tax from ordinary activities
+  (20,353)"), not from "Gross operating loss of $27.4 million"
+  (`03132495`). YAL's gained its net income ($17m) and EPS (1.3 cents).
+  SRJ's comes from `03131807`, which the repair let through (net loss
+  $1,460,173; it was $1,465,013), and RSG's from another copy of its report
+  with the same figures. SRN's is now Markit's row, with the filing's diluted
+  EPS, and Markit revised CYP's net income from the filing's -$9,089,280 to
+  -$9,248,820.
+- **VIT's own FY26 4E (`03130179`) now passes every gate.** Before the repair
+  it named "Cortexa Pty Ltd" and was withheld. Its revenue ($131,158,015) and
+  net loss ($4,392,015) equal Yahoo's to the dollar and Markit's to within
+  $5. Nothing was written: the vendor row already had both.
+- **GNG's FY26 4E (`03128898`) gives no value.** Its revenue ($493.2m) is
+  quoted for the "financial year ended 1 July 2025 to 30 June 2026", which
+  the period parser reads as ending 1 July 2025 (the open `explicitDate`
+  item). Yahoo's FY26 revenue, $493.16m, stands.
+- **The entity gate rejected 76 documents (46 on 12 Oct).** 40 were withheld
+  before the repair too, and the repair added SFI's fund report (and moved 5
+  out: EMH, IFG, SRJ, VIT, WEL). The other 35 were read after the 12 Oct
+  run, all filed between March 2020 and March 2025 under codes whose
+  `company-metadata` name is out of date: renamed companies (MWR is
+  Spacetalk, IP1 is Wrkr), 8 iShares ETFs that name BlackRock, and funds on
+  reused codes. Each is withheld as the rule intends; the names are the open
+  "out-of-date company names" item. That accounts for 45 of the 12 Oct
+  run's 46; the 46th is not traced.
+- **Gate 5 let four pre-tax or comprehensive figures through as net
+  income.** FLT's 1H24 row held its "statutory PBT" ($120m), DMP's and BMN's
+  1H25 rows a loss before tax, and TSR's 1H26 row a total comprehensive
+  loss. The list named "profit before tax" and "total comprehensive income"
+  but not their loss forms or "PBT". Fixed in `b44176b54` on
+  `fix/gate5-pretax-labels` (local only), after an adversarial review (three
+  reviewers, a skeptic per finding; nothing refuted). The review added
+  matching on the normalised quote (a line break, a non-breaking space or a
+  typographic hyphen inside a term), footnote digits run into a term
+  ("PBT1", "EBITDA2"), "NPBT", "pre tax" and the "(loss)/income" caption.
+  - Over all 5,546 stored revenue, net income and EPS quotes, 25 are newly
+    withheld and none newly passes. 23 name a pre-tax, comprehensive, pro
+    forma, EBITDA or gross operating figure. The other 2 are correct
+    after-tax values in tables that print "Loss before income tax" beside
+    them (LGF, RLG), both behind vendor values.
+  - A dry run with the fix would purge exactly those four rows and null
+    nothing. AEI, HMC, LGF, MDX and RLG lose filing values that vendor
+    values already cover.
+  - "Operating loss" stays allowed: directors' reports give the statutory
+    loss as "an operating loss after income tax" (CDT, IRD, ORD and T88,
+    each equal to the vendor's net income). A statement's heading
+    ("statement of comprehensive income", GRR's revenue quote) passes.
+  - Matching "before (income) tax" anywhere in a quote would also drop the
+    after-tax line of four 4D/4E tables (FGG, FGX, MYX, PPK), two of them
+    live half years. Tests pin them as passes.
+
+Open:
+
+- The gate 5 fix: a PR needs the user's OK. After its deploy, the next
+  filings run should purge FLT 1H24, DMP 1H25, BMN 1H25 and TSR 1H26 and
+  nothing else.
+- The 14 Oct extractor run: the first retries.
+- Not urgent: the results classifier accepts a results advisory (SFR, PLS);
+  a document whose PDF no longer resolves takes a slot every run (40); a
+  large company's empty result waits behind every retry of a company with no
+  figures (WTC's 4E); the fundamentals skips run out together every 14 days;
+  the extractor's net profit label rule (`before\s+tax`) misses "before
+  income tax" (MDX), but it reads the widened table span, so a wider rule
+  there would drop table figures for every reader; reading gate 5's pre-tax
+  words in the label that governs the figure, not the whole quote, would
+  keep LGF's and RLG's; 5 stored quotes spell "profit" with the "ﬁ"
+  ligature, which Normalise does not fold (no verdict changes today).
+
 ## 2026-10-12, after #709's first extractor run
 
 The 14:00 UTC run (`financial-report-extractor-h98nt`, 14:00 to 14:20 UTC,
