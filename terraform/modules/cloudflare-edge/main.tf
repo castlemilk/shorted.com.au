@@ -1240,6 +1240,17 @@ resource "cloudflare_zone_setting" "security_early_hints" {
   value      = "off"
 }
 
+# Email Obfuscation is OFF because it rewrites every mailto: link into
+# /cdn-cgi/l/email-protection, which answers 404 to crawlers. An OpenSEO crawl
+# on 2026-10-15 reported it as 13 broken internal links (about, faq, terms,
+# privacy, methodology, data and others). The addresses it hid are the public
+# contact addresses printed on those pages anyway.
+resource "cloudflare_zone_setting" "security_email_obfuscation" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "email_obfuscation"
+  value      = "off"
+}
+
 resource "cloudflare_zone_setting" "security_http3" {
   zone_id    = var.cloudflare_zone_id
   setting_id = "http3"

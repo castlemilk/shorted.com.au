@@ -155,3 +155,62 @@ by row; the T+4 lag means it was the latest print on 7 October):
 4. The newsroom cadence item from September stands: the three takes above
    were hand-written and reviewed; the scheduled pipeline is still a manual
    run.
+
+---
+
+## 6. Follow-up, 2026-10-15: first-party data and a crawl of the real domain
+
+Search Console via the OpenSEO connector (windows end 2026-10-12), and a
+500-page OpenSEO crawl of `https://shorted.com.au/` itself on 2026-10-15
+(it no longer needs the Vercel origin). DataForSEO stays off by the owner's
+decision, so there are still no volumes, SERPs or competitor rankings.
+
+**Where things stand.** Daily clicks rose from 1-2 in April to 30-64 in
+October; impressions from about 150 to 3,500-4,000 a day. Last 28 days: 783
+clicks, 66.5k impressions, CTR 1.2% (mobile 1.4%, desktop 1.0%), average
+position about 8.3. `/shorts/*` took about half the clicks.
+
+**Stock-cluster CTR (§2).** Three months to 10-12: `/shorts/DRO` 1.3% at 3.8
+(September 1.1% at 4.0), `/shorts/4DX` 3.4% at 3.4 (3.6% at 3.4). Not
+conclusive, and the baseline moves again with this round's title change.
+
+**Striking distance (3 months).** "asx short positions" 1,129 impressions at
+7.7, 1.2% CTR; "asx most shorted stocks" 1,011 at 9.3, 0.3%; "asx shorts" 889
+at 7.2; "asx short interest lotus" 830 at 3.6 with 0.4% (`/shorts/LOT`); "asx
+heavily shorted stocks weekly" 673 at 4.8, split between `/` and
+`/reports/weekly`; "shorting australian banking stocks" 680 at 7.8 with one
+click and no page aimed at it. Searches naming the competitor ("shortman
+4dx", "shortman stocks", "zip shortman") show Shorted at 5-7.
+
+**Shipped:**
+
+1. The root layout no longer declares `alternates`. Every page without its
+   own canonical inherited `https://shorted.com.au` as its canonical (crawl:
+   `/pricing`, `/terms`; code: `/docs/api` and children, `/developer`,
+   `/alerts`, `/pulse`, `/roadmap`, `/dashboards`, `/housing/drops`), and the
+   hreflang set pointed at the homepage from every page too. `/pricing` and
+   `/terms` now name themselves. `app/__tests__/root-canonical.test.ts`.
+2. Stock titles shortened from about 70 characters to about 45:
+   "4DX Short Interest: 10.91% (4Dmedical, ASX) | Shorted"
+   (`lib/seo/stock-page-title.ts`).
+3. A stock whose newest ASIC report is over 90 days old keeps its page but
+   drops the %, the 30-day move and "Updated daily" from its snippet (AGF
+   read "2.52% Shorted ... up 2.52 points in 30 days ... Updated daily" from
+   a 30 Dec 2016 report). `isStaleShortDate` in `lib/stocks/as-of-date.ts`.
+4. Cloudflare Email Obfuscation off (Terraform): it rewrote every `mailto:`
+   to `/cdn-cgi/l/email-protection`, 13 broken internal links in the crawl.
+5. `/pricing` rendered "Pricing — Shorted | Shorted"; now "Pricing | Shorted".
+
+**Open:**
+
+- News cards link `/shorts/<CODE>` for every tagged code; 214 codes tagged
+  in the last 30 days have never appeared in ASIC's report and have no stock
+  page (the homepage linked ANT and WC1, both 404). Product call: render a
+  company page without short data, or link only codes that have one.
+- `/` and `/top` both target "most shorted ASX stocks" (`/` at 7-9, `/top`
+  about 13). The homepage title keeps the phrase on purpose; retargeting one
+  of them is the owner's call.
+- `/compare/*`: 123 pages with impressions, 4 clicks in 28 days, and they
+  show up under the stock page for the same query. `/glossary/*`: 67 pages,
+  2 clicks, entries of 130-150 words. Candidates for noindex or merging.
+- Economy state pages answer in 1.6-3.1s on a cold cache.
