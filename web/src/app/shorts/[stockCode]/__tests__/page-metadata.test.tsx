@@ -100,6 +100,20 @@ describe("stock Overview metadata", () => {
     }
   });
 
+  // The description leaves the placeholder out, but the index gate must still
+  // see it: AFI, a listed investment company 0.008% shorted, has no other
+  // industry. Handing the gate industryLabel's "" would noindex it.
+  it("keeps a stock whose industry is a placeholder indexable (AFI)", async () => {
+    mockGetStock.mockResolvedValue({
+      name: "AUSTRALIAN FOUNDATION INVESTMENT COMPANY LIMITED",
+      industry: "Not Applic",
+      percentageShorted: 0.008,
+      reportedShortPositions: 100_000,
+    });
+    const meta = await generateMetadata({ params: Promise.resolve({ stockCode: "afi" }) });
+    expect(Object.keys(meta)).not.toContain("robots");
+  });
+
   it("sets no robots key while the stock read fails (fail open)", async () => {
     mockGetStock.mockRejectedValue(new Error("unavailable"));
     const meta = await generateMetadata({ params: Promise.resolve({ stockCode: "bhp" }) });

@@ -36,6 +36,7 @@ import { industryLabel } from "@/lib/industry-placeholder";
 import { partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
 import { SENATE_REGISTER_GAP_CORPUS } from "@/lib/politics/register-coverage";
+import { registerHeatmapProps } from "@/lib/politics/register-heatmap-data";
 import { registerItemIcon } from "@/lib/politics/register-item-icons";
 import {
   PoliticsIcon,
@@ -1041,24 +1042,7 @@ export default async function PoliticiansPage() {
                 than that party&rsquo;s declarations.
               </p>
             </FinePrint>
-            <RegisterHeatmap
-              cells={(analytics?.cells ?? []).map((c) => ({
-                partyAb: c.partyAb,
-                industry: c.industry,
-                people: c.people,
-                companies: c.companies,
-              }))}
-              industries={(analytics?.industries ?? []).map((i) => ({
-                industry: i.industry,
-                people: i.people,
-                companies: i.companies,
-              }))}
-              parties={(analytics?.parties ?? []).map((p) => ({
-                partyAb: p.partyAb,
-                people: p.people,
-              }))}
-              industriesOmitted={analytics?.industriesOmitted ?? 0}
-            />
+            <RegisterHeatmap {...registerHeatmapProps(analytics)} />
           </section>
 
           <section className="space-y-3">

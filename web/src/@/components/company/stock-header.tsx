@@ -1,14 +1,12 @@
 import { Suspense } from "react";
 import { Sparkles } from "lucide-react";
 import { getStockDetails } from "~/app/actions/getStockDetails";
-import {
-  cleanCompanyName,
-  formatAsOfDate,
-} from "~/app/shorts/[stockCode]/stock-page-shared";
 import { Badge } from "~/@/components/ui/badge";
 import { CompanyLogo } from "~/@/components/ui/company-logo";
 import { Skeleton } from "~/@/components/ui/skeleton";
+import { cleanCompanyName } from "~/@/lib/company-name";
 import { industryLabel } from "~/@/lib/industry-placeholder";
+import { formatAsOfDate } from "~/@/lib/stocks/as-of-date";
 import { formatNumber } from "~/@/lib/utils";
 import { type Stock, type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
 

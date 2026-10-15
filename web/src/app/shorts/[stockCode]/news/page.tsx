@@ -8,10 +8,10 @@ import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getStockNews } from "~/app/actions/getStockNews";
 import { getStock, getStockOrNotFound } from "~/app/actions/getStock";
+import { cleanCompanyName } from "~/@/lib/company-name";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { stockOgImage } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
-import { cleanCompanyName } from "../stock-page-shared";
 
 // The timeline imports @connectrpc/connect, so it is client-only (as the chart
 // panels on the Overview and Short interest tabs are) and fetches after

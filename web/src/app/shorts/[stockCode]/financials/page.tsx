@@ -8,11 +8,12 @@ import {
 } from "~/@/components/company/financial-reports-section";
 import { FinancialsTab } from "~/@/components/stocks/financials-tab";
 import { latestResultSourceDocument } from "~/@/components/stocks/fundamentals-model";
+import { cleanCompanyName } from "~/@/lib/company-name";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import { getStockFundamentals } from "~/app/actions/getStockFundamentals";
 import { loadStockOrFail } from "../stock-page-data";
-import { STOCK_CODE_PATTERN, cleanCompanyName } from "../stock-page-shared";
+import { STOCK_CODE_PATTERN } from "../stock-page-shared";
 
 // Client islands: both fetch through Connect-RPC client modules, so neither is
 // rendered on the server. A static import of the tax card made this route
