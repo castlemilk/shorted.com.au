@@ -20,10 +20,12 @@ import { LLMMeta, StockLLMMeta } from "~/@/components/seo/llm-meta";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { LatestWeeklyReportLink } from "~/@/components/reports/latest-weekly-report-link";
 import { siteConfig } from "~/@/config/site";
+import { cleanCompanyName } from "~/@/lib/company-name";
 import { industryLabel } from "~/@/lib/industry-placeholder";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { thirtyDayChangeClause } from "~/@/lib/seo/short-change-clause";
 import { stockOgImage } from "~/@/lib/seo/stock-tab-metadata";
+import { asOfClauseFor, formatAsOfDate } from "~/@/lib/stocks/as-of-date";
 import { stockTabHref } from "~/@/lib/stocks/stock-tabs";
 import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
@@ -42,12 +44,7 @@ import {
   getShortInterestDeltas,
 } from "./short-interest-summary";
 import { loadStockOrFail } from "./stock-page-data";
-import {
-  STOCK_CODE_PATTERN,
-  asOfClauseFor,
-  cleanCompanyName,
-  formatAsOfDate,
-} from "./stock-page-shared";
+import { STOCK_CODE_PATTERN } from "./stock-page-shared";
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;

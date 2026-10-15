@@ -11,13 +11,14 @@ import { EnrichedCompanySection } from "~/@/components/company/enriched-company-
 import { PoliticianInterestsCard } from "~/@/components/company/politician-interests-card-loader";
 import { StockEvidencePanelClient } from "~/@/components/company/stock-evidence-panel-client";
 import { StockStateExposure } from "~/@/components/economy/stock-state-exposure";
+import { cleanCompanyName } from "~/@/lib/company-name";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import { getDirectorTrades } from "~/app/actions/getDirectorTrades";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { getStateExposureIndex } from "~/app/actions/getEconomy";
 import { loadStockOrFail } from "../stock-page-data";
-import { STOCK_CODE_PATTERN, cleanCompanyName } from "../stock-page-shared";
+import { STOCK_CODE_PATTERN } from "../stock-page-shared";
 
 // Client islands that import @connectrpc/connect: client-only, as the chart
 // panels on the Overview and Short interest tabs are. The directors table is

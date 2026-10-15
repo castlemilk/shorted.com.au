@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { getEnrichedCompanyMetadata } from "~/app/actions/company-metadata";
-import { cleanCompanyName } from "~/app/shorts/[stockCode]/stock-page-shared";
+import { cleanCompanyName } from "~/@/lib/company-name";
 import { CompanyInsightsCard } from "./company-insights-card";
 import { pickCompanyInsights } from "./company-insights-data";
 import {

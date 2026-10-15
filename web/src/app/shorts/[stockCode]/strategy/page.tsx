@@ -9,6 +9,7 @@ import {
   StrategyFitPanel,
   sortFitsByStrength,
 } from "~/@/components/strategy/strategy-fit-panel";
+import { cleanCompanyName } from "~/@/lib/company-name";
 import { formatDate } from "~/@/lib/fundamentals/format";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
@@ -18,7 +19,7 @@ import {
 } from "~/app/actions/getStockStrategyFit";
 import { getStrategies } from "~/app/actions/getStrategies";
 import { loadStockOrFail } from "../stock-page-data";
-import { STOCK_CODE_PATTERN, cleanCompanyName } from "../stock-page-shared";
+import { STOCK_CODE_PATTERN } from "../stock-page-shared";
 
 // Client island: the chart reads prices through Connect-RPC, so it is
 // client-only (as the chart panels on the Overview and Short interest tabs are).

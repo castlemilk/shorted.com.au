@@ -7,11 +7,12 @@ import {
   StockChartPanelSkeleton,
 } from "~/@/components/charts/stock-chart-section";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
+import { cleanCompanyName } from "~/@/lib/company-name";
 import { stockTabMetadata } from "~/@/lib/seo/stock-tab-metadata";
 import { stockTabHref, stockTabLabel } from "~/@/lib/stocks/stock-tabs";
 import { ShortInterestHistory } from "../short-interest-history";
 import { loadStockOrFail } from "../stock-page-data";
-import { STOCK_CODE_PATTERN, cleanCompanyName } from "../stock-page-shared";
+import { STOCK_CODE_PATTERN } from "../stock-page-shared";
 
 // Client islands that import @connectrpc/connect: client-only, each loaded
 // through next/dynamic with ssr: false. The chart panel is the first of them,
