@@ -329,6 +329,24 @@ describe("the admin (write) scope", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(/write access/i);
   });
 
+  it("warns about personal data for users:read instead of promising read-only", () => {
+    renderScreen({
+      described: {
+        ok: true,
+        details: {
+          ...(described.ok ? described.details : ({} as never)),
+          scope: "jobs:read users:read",
+          scopes: [
+            { scope: "jobs:read", description: "View jobs" },
+            { scope: "users:read", description: "View personal data" },
+          ],
+        },
+      },
+    });
+    expect(screen.queryByText(/Read-only/)).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(/personal data/i);
+  });
+
   it("keeps the read-only promise for read scopes", () => {
     renderScreen();
     expect(screen.getByText(/Read-only/)).toBeInTheDocument();

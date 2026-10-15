@@ -72,7 +72,15 @@ type EnrichmentJobsOutput struct {
 }
 
 func adminReadTool[I, O any](name, title, description string, meta sdk.Meta, handler func(context.Context, AdminReader, I) (O, error)) AdminTool {
-	t := AdminTool{Name: name, Scope: ScopeJobsRead}
+	return adminScopedReadTool(ScopeJobsRead, name, title, description, meta, func(ctx context.Context, op AdminOperator, _ *sdk.CallToolRequest, in I) (O, error) {
+		return handler(ctx, op, in)
+	})
+}
+
+// adminScopedReadTool registers a read-only admin tool guarded by scope. The
+// handler gets the request too, for tools that record who read what.
+func adminScopedReadTool[I, O any](scope, name, title, description string, meta sdk.Meta, handler func(context.Context, AdminOperator, *sdk.CallToolRequest, I) (O, error)) AdminTool {
+	t := AdminTool{Name: name, Scope: scope}
 	t.register = func(server *sdk.Server, reader AdminOperator) {
 		spec := &sdk.Tool{Name: name, Title: title, Description: description, Meta: meta, Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true, DestructiveHint: boolPtr(false), IdempotentHint: true, OpenWorldHint: boolPtr(false)}}
 		if name == "list_async_jobs" {
@@ -80,12 +88,12 @@ func adminReadTool[I, O any](name, title, description string, meta sdk.Meta, han
 		}
 		sdk.AddTool(server, spec, func(ctx context.Context, req *sdk.CallToolRequest, in I) (*sdk.CallToolResult, O, error) {
 			var zero O
-			if refusal := requireScope(req, ScopeJobsRead); refusal != nil {
+			if refusal := requireScope(req, scope); refusal != nil {
 				return refusal, zero, nil
 			}
 			ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
-			out, err := handler(ctx, reader, in)
+			out, err := handler(ctx, reader, req, in)
 			return nil, out, err
 		})
 	}

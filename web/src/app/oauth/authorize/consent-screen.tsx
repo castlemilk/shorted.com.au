@@ -294,11 +294,29 @@ export function ConsentScreen({
                 </li>
               ))}
             </ul>
-            {details.scopes.every((line) => line.scope.endsWith(":read")) ? (
-              <p className="text-xs text-muted-foreground">
-                Read-only. It cannot change anything in your account, and this
-                does not grant access to your billing or API keys.
+            {details.scopes.some((line) => line.scope === "users:read") ? (
+              // users:read (admin server) is read-only but reaches OTHER
+              // people's data, so "cannot change anything in your account"
+              // would undersell it. Shown alongside whichever note follows.
+              <p
+                role="alert"
+                className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-900 dark:text-amber-200"
+              >
+                This grants access to <strong>personal data</strong> about
+                Shorted&apos;s users: account emails, subscriptions and the
+                mailing list. Administrators only. Approve only if you started
+                this connection yourself.
               </p>
+            ) : null}
+            {details.scopes.every((line) => line.scope.endsWith(":read")) ? (
+              details.scopes.some(
+                (line) => line.scope === "users:read",
+              ) ? null : (
+                <p className="text-xs text-muted-foreground">
+                  Read-only. It cannot change anything in your account, and this
+                  does not grant access to your billing or API keys.
+                </p>
+              )
             ) : (
               // A write scope (news:publish or jobs:run, on the admin server).
               // The read-only promise above would be false here, so it is

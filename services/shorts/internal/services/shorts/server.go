@@ -48,6 +48,10 @@ type ShortsServer struct {
 	rateLimiter    ratelimit.RateLimiter
 	httpClient     *http.Client
 	jobsCollector  *jobmonitor.Collector
+	// peopleStore serves the admin MCP server's users:read tools (paying
+	// subscriptions, mailing list). Nil when the store is not Postgres; those
+	// tools then report the source as unavailable.
+	peopleStore shorts.PeopleStore
 	// oauthStore backs the OAuth authorization server (clients, codes,
 	// refresh tokens — migration 000116). Nil when no Postgres pool is
 	// reachable, in which case the grant endpoint reports
@@ -133,6 +137,8 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		pool = pooled.Pool()
 	}
 
+	peopleStore, _ := storeImpl.(shorts.PeopleStore)
+
 	var rateLimiter ratelimit.RateLimiter
 	if cfg.RateLimitConfig.Enabled {
 		var usageStore ratelimit.UsageStore
@@ -169,5 +175,6 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		httpClient:     &http.Client{Timeout: 10 * time.Second},
 		jobsCollector:  jobmonitor.NewCollector(jobmonitor.ConfigFromEnv()),
 		oauthStore:     oauthStore,
+		peopleStore:    peopleStore,
 	}, nil
 }
