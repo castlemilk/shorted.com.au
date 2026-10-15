@@ -628,6 +628,34 @@ test.describe("stock page tabs", () => {
       expect((await boxOf(nav)).top, "the bar stays docked").toBeLessThanOrEqual(66);
     });
 
+    // The site header clears its own 0-65px band first and the bar then clears
+    // the rest, each from the boxes as they are after the other has scrolled:
+    // the link ends 8px under the bar, not at the sum of the two scrolls.
+    test("a link the keyboard reaches under the site header ends just clear of the docked bar", async ({ page }) => {
+      await page.goto(`/shorts/${CODE}`);
+      await expect(priceCharts(page)).toBeVisible(COLD);
+      const nav = stockNav(page);
+      const link = page.getByRole("link", { name: /History & FAQ/ });
+
+      await page.keyboard.press("Tab");
+      // Dock the bar, with the link at 20px: under the site header.
+      await link.evaluate((el) => window.scrollBy(0, el.getBoundingClientRect().top - 20));
+      const bar = await boxOf(nav);
+      expect(bar.top, "the tab bar is docked").toBeGreaterThanOrEqual(60);
+      expect(bar.top, "the tab bar is docked").toBeLessThanOrEqual(66);
+      expect((await boxOf(link)).top, "the link starts under the site header").toBeLessThan(bar.top);
+
+      await link.focus();
+      await expect(link).toBeFocused();
+      await expect
+        .poll(async () => (await boxOf(link)).top, {
+          message: "the focused link is scrolled out from under the header and the bar",
+        })
+        .toBeGreaterThanOrEqual(bar.bottom);
+      expect((await boxOf(link)).top, "and lands 8px under the bar, no further").toBeLessThanOrEqual(bar.bottom + 9);
+      expect((await boxOf(nav)).top, "the bar stays docked").toBeLessThanOrEqual(66);
+    });
+
     test("Tab across the docked tab links does not move the page", async ({ page }) => {
       await page.goto(`/shorts/${CODE}`);
       await expect(priceCharts(page)).toBeVisible(COLD);

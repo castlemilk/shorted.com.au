@@ -838,6 +838,17 @@ describe("StockTabNav keeps focus clear of the docked bar", () => {
       expect(scrollBy).not.toHaveBeenCalled();
     });
 
+    it("leaves a control on a sticky element stuck at its top alone (a table head stuck under the bars)", () => {
+      mountBar();
+      const stuck = document.createElement("div");
+      stuck.style.position = "sticky";
+      stuck.style.top = "0px";
+      main.appendChild(stuck);
+      jest.spyOn(stuck, "getBoundingClientRect").mockReturnValue(box(0, 32, 0, 1280));
+      focus(control(4, { parent: stuck }));
+      expect(scrollBy).not.toHaveBeenCalled();
+    });
+
     it("still moves the page for a control in an absolutely positioned or sticky parent", () => {
       mountBar();
       const absolute = document.createElement("div");
@@ -845,6 +856,15 @@ describe("StockTabNav keeps focus clear of the docked bar", () => {
       main.appendChild(absolute);
       focus(control(80, { parent: absolute }));
       expect(scrollBy).toHaveBeenCalledTimes(1);
+
+      // Sticky but not stuck: it is still in the flow, so scrolling clears it.
+      const sticky = document.createElement("div");
+      sticky.style.position = "sticky";
+      sticky.style.top = "64px";
+      main.appendChild(sticky);
+      jest.spyOn(sticky, "getBoundingClientRect").mockReturnValue(box(70, 45, 0, 1280));
+      focus(control(80, { parent: sticky }));
+      expect(scrollBy).toHaveBeenCalledTimes(2);
     });
 
     it("leaves a control beside the bar, not under it, alone (the signed-in sidebar)", () => {
