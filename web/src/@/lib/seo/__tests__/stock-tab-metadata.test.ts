@@ -42,6 +42,14 @@ describe("stockTabMetadata", () => {
     expect(open.title).toBe("BHP");
   });
 
+  // AFI, a listed investment company 0.008% shorted, has only the ASX's
+  // placeholder for an industry; the gate must see it, not industryLabel's "".
+  it("keeps a tab of a stock whose industry is a placeholder indexable (AFI)", async () => {
+    getStock.mockResolvedValue({ name: "AUSTRALIAN FOUNDATION INVESTMENT COMPANY LIMITED", industry: "Not Applic", percentageShorted: 0.008 });
+    const md = await stockTabMetadata({ code: "AFI", tab: "company", title: (c) => c, description: (c) => c });
+    expect(Object.keys(md)).not.toContain("robots");
+  });
+
   it("forceNoindex wins regardless of the stock", async () => {
     getStock.mockResolvedValue({ name: "BHP GROUP LIMITED", industry: "Materials", percentageShorted: 1.58 });
     const md = await stockTabMetadata({ code: "BHP", tab: "community", title: (c) => c, description: (c) => c, forceNoindex: true });

@@ -101,7 +101,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
       // Index real companies (named + enriched OR meaningfully shorted), only
       // noindex genuinely thin stubs. Shared with the sitemap so the two never
-      // disagree. See ~/@/lib/seo/stock-indexability.
+      // disagree. See ~/@/lib/seo/stock-indexability. It takes stock.industry,
+      // not the label above: a placeholder counts (AFI has nothing else).
       shouldNoindex = !isStockIndexable({
         code,
         name: stock.name,
