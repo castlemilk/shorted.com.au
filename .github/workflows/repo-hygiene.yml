@@ -239,7 +239,8 @@ jobs:
         with:
           node-version: "24"
 
-      - uses: actions/setup-go@v6
+      # v6.5.0, not v6: see go-quality.yml.
+      - uses: actions/setup-go@v6.5.0
         with:
           go-version-file: services/go.mod
           cache: false
