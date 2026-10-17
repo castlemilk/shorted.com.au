@@ -219,7 +219,7 @@ func NewAdminServer(pub AdminOperator) *sdk.Server {
 	// go-sdk v1.7.0 unconditionally resets resource CacheScope to "public"
 	// after calling a resource handler. Apply the admin policy AFTER that
 	// normalization; setting it only in the handler is silently overwritten.
-	server.AddReceivingMiddleware(func(next sdk.MethodHandler) sdk.MethodHandler {
+	server.AddReceivingMiddleware(structuredContentAsText, func(next sdk.MethodHandler) sdk.MethodHandler {
 		return func(ctx context.Context, method string, req sdk.Request) (sdk.Result, error) {
 			result, err := next(ctx, method, req)
 			if resource, ok := result.(*sdk.ReadResourceResult); ok && resource != nil {

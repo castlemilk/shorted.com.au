@@ -284,6 +284,69 @@ func TestGetStockHistoryRejectsABadPeriod(t *testing.T) {
 	}
 }
 
+// ------------------------------------------------------------ get_stock_prices
+
+// The RPC always carried open, high and low; the projection dropped them, so
+// an overnight-against-intraday question could not be asked through the tool.
+func TestGetStockPricesCarriesTheWholeSession(t *testing.T) {
+	src := &fakeDataSource{stockPrices: &shortsv1alpha1.GetStockPricesResponse{
+		ProductCode: "BHP", Currency: "AUD",
+		Points: []*shortsv1alpha1.StockPricePoint{{
+			Date: "2026-10-15", Open: 60.5, High: 60.9, Low: 57.8,
+			Close: 58, AdjustedClose: 57.5, Volume: 14_081_462,
+		}},
+	}}
+
+	_, out, err := getStockPricesHandler(src)(context.Background(), nil, GetStockPricesInput{Code: "bhp"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := StockPriceEntry{Date: "2026-10-15", Open: 60.5, High: 60.9, Low: 57.8,
+		Close: 58, AdjustedClose: 57.5, Volume: 14_081_462}
+	if len(out.Points) != 1 || out.Points[0] != want {
+		t.Fatalf("points = %+v, want [%+v]", out.Points, want)
+	}
+	if got := src.gotStockPrices.GetMaxPoints(); got != maxPricePoints {
+		t.Errorf("max_points = %d, want the %d default sent to the server", got, maxPricePoints)
+	}
+}
+
+// Every session, not a number large enough to mean every session.
+func TestGetStockPricesFullResolutionRemovesTheCap(t *testing.T) {
+	src := &fakeDataSource{stockPrices: &shortsv1alpha1.GetStockPricesResponse{ProductCode: "BHP"}}
+
+	_, _, err := getStockPricesHandler(src)(context.Background(), nil,
+		GetStockPricesInput{Code: "BHP", Period: "2y", FullResolution: true, MaxPoints: 50})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := src.gotStockPrices.GetMaxPoints(); got != 0 {
+		t.Errorf("max_points = %d, want 0 (no cap): full_resolution wins over max_points", got)
+	}
+	if got := src.gotStockPrices.GetPeriod(); got != "2Y" {
+		t.Errorf("period = %q, want 2Y", got)
+	}
+}
+
+func TestGetStockPricesHonoursAnExplicitPointCap(t *testing.T) {
+	src := &fakeDataSource{stockPrices: &shortsv1alpha1.GetStockPricesResponse{ProductCode: "BHP"}}
+
+	_, _, err := getStockPricesHandler(src)(context.Background(), nil,
+		GetStockPricesInput{Code: "BHP", MaxPoints: 500})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := src.gotStockPrices.GetMaxPoints(); got != 500 {
+		t.Errorf("max_points = %d, want 500", got)
+	}
+
+	_, _, err = getStockPricesHandler(src)(context.Background(), nil,
+		GetStockPricesInput{Code: "BHP", MaxPoints: maxRequestableHistoryPoints + 1})
+	if err == nil {
+		t.Fatal("expected an error for a max_points above the ceiling")
+	}
+}
+
 // ----------------------------------------------------------- get_stock_details
 
 func TestGetStockDetailsProjectsAndTruncatesProse(t *testing.T) {

@@ -156,6 +156,14 @@ fire, the rejection is a JSON-RPC error whose `data` says which limit fired, its
 ceiling, when it resets and where to raise it — the same facts are on the
 response headers (`X-RateLimit-Detail`, `Retry-After`).
 
+**Every result carries its data in both forms.** `structuredContent` holds the
+result; the text content holds a one-line summary followed by the same result
+as JSON, so a client that shows its model only the text still gets every row.
+The two daily series are thinned by default and take `full_resolution=true` for
+every session: `get_stock_prices` (open, high, low, close, adjusted close,
+volume) and `get_stock_history` (short percent, short positions, shares on
+issue).
+
 **Everything is read-only.** There are no write or mutating tools, and none are
 planned.
 
@@ -177,7 +185,7 @@ concluding a gap is a bug.
 - [MCP server card (SEP-1649)](https://shorted.com.au/.well-known/mcp/server-card.json)
 - [Tool catalog](https://api.shorted.com.au/mcp/catalog.json)
 - [HTTP API reference](https://shorted.com.au/docs/api.md) — the same data,
-  uncapped, for non-MCP clients
+  for whole-market pulls and non-MCP clients
 - [OpenAPI 3.1 description](https://shorted.com.au/openapi.json)
 - [Site overview for agents](https://shorted.com.au/llms.txt)
 - [Glossary](https://shorted.com.au/glossary)

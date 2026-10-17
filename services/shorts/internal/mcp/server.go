@@ -35,6 +35,7 @@ func NewServer(src DataSource) *sdk.Server {
 		WebsiteURL: WebsiteURL,
 		Icons:      Icons(),
 	}, nil)
+	server.AddReceivingMiddleware(structuredContentAsText)
 
 	// Resources and prompts are static: they carry the interpretation context
 	// and the composed entry points, neither of which needs a data source.
