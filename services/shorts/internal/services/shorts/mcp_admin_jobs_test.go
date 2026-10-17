@@ -34,6 +34,17 @@ func TestAdminMCPKeepsDatabaseJobsWhenCloudUnavailable(t *testing.T) {
 	if queue.RunningCount != 7 || queue.Records[0].Count != 42 || queue.Health != jobmonitor.HealthRunning {
 		t.Fatalf("queue %+v", queue)
 	}
+	// Without a Telesis token the cluster jobs read from old Cloud Run history;
+	// the output says so rather than leaving a reader to trust "overdue".
+	var telesis string
+	for _, s := range out.Sources {
+		if s.Name == "telesis_cron_monitors" {
+			telesis = s.Status
+		}
+	}
+	if telesis != "unconfigured" {
+		t.Errorf("telesis_cron_monitors source = %q, want unconfigured", telesis)
+	}
 }
 func TestAdminMCPEnrichmentPaginationAndValidation(t *testing.T) {
 	ctrl := gomock.NewController(t)
