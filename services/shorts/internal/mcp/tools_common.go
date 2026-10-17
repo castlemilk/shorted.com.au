@@ -74,9 +74,11 @@ const (
 	// 200, and a caller who wants more can say max_points.
 	maxHistoryPoints = 120
 
-	// Prices carry four values per session rather than three, so they get
-	// their own default for the same budget reason.
-	maxPricePoints = 150
+	// Prices carry six values per session (open, high, low, close, adjusted
+	// close, volume), so they get their own default for the same budget
+	// reason. It was 150 when a session carried three; at six, 150 worst-case
+	// sessions are about 20KB against the 16KB budget.
+	maxPricePoints = 100
 
 	// Ceiling on an explicitly requested point cap. Above this a caller wanting
 	// everything should say full_resolution and mean it, rather than asking for

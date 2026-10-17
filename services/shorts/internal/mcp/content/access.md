@@ -21,8 +21,15 @@ rather than being required.
 ## Prefer the tools over scraping
 
 Every tool here is a projection of a public Connect-RPC method, shaped and
-capped for an agent's context window. If you need the raw, uncapped payload —
-or a language without an MCP client — call the HTTP API directly:
+capped for an agent's context window. The caps are defaults, not ceilings, on
+the two daily series: `get_stock_prices` (open, high, low, close, adjusted
+close, volume) and `get_stock_history` (short percent, short positions, shares
+on issue) both take `full_resolution=true` for every session in the window,
+and `from`/`to` for one span. Every result carries its full data as JSON after
+the one-line summary.
+
+For a whole-market pull, a pipeline, or a language without an MCP client,
+call the HTTP API directly:
 
 - OpenAPI 3.1 description: https://shorted.com.au/openapi.json
 - API reference, JavaScript-free markdown: https://shorted.com.au/docs/api.md
