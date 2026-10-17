@@ -118,12 +118,14 @@ jobs:
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
 
-      # -short is what scripts/local-verify.sh runs, and it is what keeps this
-      # job free of Docker and live network: the testcontainer and RUN_LIVE
-      # suites stay in the integration job.
+      # The integration job's image prefetcher (make test-integration-ci). Its
+      # tests fake Docker, so they need no daemon or registry.
       - name: Integration image prefetch tests
         run: GOWORK=off go test -p=1 -timeout=30s ./scripts/prefetch-integration-images/*.go
 
+      # -short is what scripts/local-verify.sh runs, and it is what keeps this
+      # job free of Docker and live network: the testcontainer and RUN_LIVE
+      # suites stay in the integration job.
       - name: services module
         working-directory: services
         env:
