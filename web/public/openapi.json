@@ -2409,6 +2409,103 @@
         "title": "FinancialYearOption",
         "type": "object"
       },
+      "shorts.v1alpha1.FundHolding": {
+        "additionalProperties": false,
+        "description": "One stock in one fund's holdings file.",
+        "properties": {
+          "asAt": {
+            "description": "(proto string)",
+            "title": "as_at",
+            "type": "string"
+          },
+          "companyName": {
+            "description": "(proto string)",
+            "title": "company_name",
+            "type": "string"
+          },
+          "fundCode": {
+            "description": "An ETF's ASX code; \"\" for a super fund option. (proto string)",
+            "title": "fund_code",
+            "type": "string"
+          },
+          "fundName": {
+            "description": "(proto string)",
+            "title": "fund_name",
+            "type": "string"
+          },
+          "hasPctOfIssued": {
+            "description": "(proto bool)",
+            "title": "has_pct_of_issued",
+            "type": "boolean"
+          },
+          "hasUnits": {
+            "description": "(proto bool)",
+            "title": "has_units",
+            "type": "boolean"
+          },
+          "hasValue": {
+            "description": "(proto bool)",
+            "title": "has_value",
+            "type": "boolean"
+          },
+          "hasWeight": {
+            "description": "(proto bool)",
+            "title": "has_weight",
+            "type": "boolean"
+          },
+          "institutionName": {
+            "description": "(proto string)",
+            "title": "institution_name",
+            "type": "string"
+          },
+          "institutionSlug": {
+            "description": "(proto string)",
+            "title": "institution_slug",
+            "type": "string"
+          },
+          "kind": {
+            "description": "(proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "pctOfIssued": {
+            "description": "Units over the shares on issue (ASIC's short position report). (proto double)",
+            "format": "double",
+            "title": "pct_of_issued",
+            "type": "number"
+          },
+          "sourceKind": {
+            "description": "etf or super_phd. (proto string)",
+            "title": "source_kind",
+            "type": "string"
+          },
+          "stockCode": {
+            "description": "(proto string)",
+            "title": "stock_code",
+            "type": "string"
+          },
+          "units": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "units",
+            "type": "number"
+          },
+          "valueAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "value_aud",
+            "type": "number"
+          },
+          "weightPct": {
+            "description": "The stock's weight in the fund (or option), as the file states it. (proto double)",
+            "format": "double",
+            "title": "weight_pct",
+            "type": "number"
+          }
+        },
+        "title": "FundHolding",
+        "type": "object"
+      },
       "shorts.v1alpha1.FundamentalsCoverage": {
         "additionalProperties": false,
         "description": "Whether fundamentals have been collected for the stock.",
@@ -4040,6 +4137,62 @@
         "title": "GetIndustryTreeMapRequest",
         "type": "object"
       },
+      "shorts.v1alpha1.GetInstitutionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "slug": {
+            "description": "(proto string)",
+            "title": "slug",
+            "type": "string"
+          }
+        },
+        "title": "GetInstitutionRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetInstitutionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "fundHoldings": {
+            "description": "The largest holdings, by value, of its latest holdings files. (proto shorts.v1alpha1.FundHolding)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FundHolding"
+            },
+            "title": "fund_holdings",
+            "type": "array"
+          },
+          "funds": {
+            "description": "(proto shorts.v1alpha1.OwnershipFund)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipFund"
+            },
+            "title": "funds",
+            "type": "array"
+          },
+          "institution": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipInstitution",
+            "description": "(proto shorts.v1alpha1.OwnershipInstitution)",
+            "title": "institution"
+          },
+          "notices": {
+            "description": "(proto shorts.v1alpha1.SubstantialNotice)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.SubstantialNotice"
+            },
+            "title": "notices",
+            "type": "array"
+          },
+          "positions": {
+            "description": "(proto shorts.v1alpha1.SubstantialHolding)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.SubstantialHolding"
+            },
+            "title": "positions",
+            "type": "array"
+          }
+        },
+        "title": "GetInstitutionResponse",
+        "type": "object"
+      },
       "shorts.v1alpha1.GetMarketByDateRequest": {
         "additionalProperties": false,
         "description": "Request for GetMarketByDate RPC",
@@ -4156,6 +4309,143 @@
           }
         },
         "title": "GetMarketNewsResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetOwnershipOverviewRequest": {
+        "additionalProperties": false,
+        "title": "GetOwnershipOverviewRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetOwnershipOverviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "asOf": {
+            "description": "(proto string)",
+            "title": "as_of",
+            "type": "string"
+          },
+          "crowded": {
+            "description": "Stocks with the highest disclosed substantial voting power. (proto shorts.v1alpha1.OwnershipStock)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock"
+            },
+            "title": "crowded",
+            "type": "array"
+          },
+          "crowdedBothWays": {
+            "description": "Stocks where hedge funds and active managers hold substantial stakes and\n short interest is high: crowded on both sides. (proto shorts.v1alpha1.OwnershipStock)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock"
+            },
+            "title": "crowded_both_ways",
+            "type": "array"
+          },
+          "etfFumAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "etf_fum_aud",
+            "type": "number"
+          },
+          "etfs": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "etfs",
+            "type": "integer"
+          },
+          "kinds": {
+            "description": "(proto shorts.v1alpha1.OwnershipKindSummary)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipKindSummary"
+            },
+            "title": "kinds",
+            "type": "array"
+          },
+          "lending": {
+            "description": "Stocks where banks and brokers hold substantial interests (mostly stock\n lent to, or held as collateral from, short sellers) beside their short\n interest. (proto shorts.v1alpha1.OwnershipStock)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock"
+            },
+            "title": "lending",
+            "type": "array"
+          },
+          "licMarketCapAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "lic_market_cap_aud",
+            "type": "number"
+          },
+          "lics": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "lics",
+            "type": "integer"
+          },
+          "noticesParsed": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "notices_parsed",
+            "type": "integer"
+          },
+          "noticesWithheld": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "notices_withheld",
+            "type": "integer"
+          },
+          "passive": {
+            "description": "Stocks the tracked index ETFs own the largest share of. (proto shorts.v1alpha1.OwnershipStock)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock"
+            },
+            "title": "passive",
+            "type": "array"
+          },
+          "recent": {
+            "description": "(proto shorts.v1alpha1.SubstantialNotice)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.SubstantialNotice"
+            },
+            "title": "recent",
+            "type": "array"
+          },
+          "sources": {
+            "description": "(proto shorts.v1alpha1.OwnershipSource)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipSource"
+            },
+            "title": "sources",
+            "type": "array"
+          },
+          "superAssetsAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "super_assets_aud",
+            "type": "number"
+          },
+          "superConsensus": {
+            "description": "Stocks the tracked super fund options hold most of, by combined value. (proto shorts.v1alpha1.OwnershipStock)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock"
+            },
+            "title": "super_consensus",
+            "type": "array"
+          },
+          "superFunds": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "super_funds",
+            "type": "integer"
+          },
+          "topHolders": {
+            "description": "Institutions with the most current substantial holdings. (proto shorts.v1alpha1.OwnershipInstitution)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipInstitution"
+            },
+            "title": "top_holders",
+            "type": "array"
+          }
+        },
+        "title": "GetOwnershipOverviewResponse",
         "type": "object"
       },
       "shorts.v1alpha1.GetParliamentOverviewRequest": {
@@ -5443,6 +5733,65 @@
         "title": "GetStockNewsResponse",
         "type": "object"
       },
+      "shorts.v1alpha1.GetStockOwnershipRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "stockCode": {
+            "description": "(proto string)",
+            "title": "stock_code",
+            "type": "string"
+          }
+        },
+        "title": "GetStockOwnershipRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.GetStockOwnershipResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "fundHoldings": {
+            "description": "(proto shorts.v1alpha1.FundHolding)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.FundHolding"
+            },
+            "title": "fund_holdings",
+            "type": "array"
+          },
+          "hasSharesOnIssue": {
+            "description": "(proto bool)",
+            "title": "has_shares_on_issue",
+            "type": "boolean"
+          },
+          "history": {
+            "description": "(proto shorts.v1alpha1.SubstantialNotice)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.SubstantialNotice"
+            },
+            "title": "history",
+            "type": "array"
+          },
+          "holders": {
+            "description": "(proto shorts.v1alpha1.SubstantialHolding)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.SubstantialHolding"
+            },
+            "title": "holders",
+            "type": "array"
+          },
+          "sharesOnIssue": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "shares_on_issue",
+            "type": "number"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipStock",
+            "description": "(proto shorts.v1alpha1.OwnershipStock)",
+            "title": "summary"
+          }
+        },
+        "title": "GetStockOwnershipResponse",
+        "type": "object"
+      },
       "shorts.v1alpha1.GetStockPricesRequest": {
         "additionalProperties": false,
         "description": "Request for GetStockPrices RPC.\n\n This exists so that short interest can be joined to returns without leaving\n the API. Doing it outside meant reconciling two ticker conventions (BHP here\n against BHP.AX elsewhere), two unauditable adjustment methodologies for\n splits and dividends, and two universes that need not agree on any given\n date — an error term on every result that no amount of care on the caller's\n side removes. Every question the product is actually asked (\"do heavily\n shorted names underperform\", \"what happened after the squeeze\") needs both\n series, and the harder half was already here.",
@@ -6705,6 +7054,30 @@
         "title": "InlineImage",
         "type": "object"
       },
+      "shorts.v1alpha1.KindShare": {
+        "additionalProperties": false,
+        "properties": {
+          "holders": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "holders",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "(proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "pct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "pct",
+            "type": "number"
+          }
+        },
+        "title": "KindShare",
+        "type": "object"
+      },
       "shorts.v1alpha1.LatestFilingSummary": {
         "additionalProperties": false,
         "description": "The company filing behind the latest reported period, with its summary.",
@@ -7390,6 +7763,56 @@
           }
         },
         "title": "ListIndicesResponse",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListInstitutionsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "A kind to filter to; \"\" for all. (proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "limit": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "limit",
+            "type": "integer"
+          },
+          "offset": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "offset",
+            "type": "integer"
+          },
+          "query": {
+            "description": "(proto string)",
+            "title": "query",
+            "type": "string"
+          }
+        },
+        "title": "ListInstitutionsRequest",
+        "type": "object"
+      },
+      "shorts.v1alpha1.ListInstitutionsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "institutions": {
+            "description": "(proto shorts.v1alpha1.OwnershipInstitution)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.OwnershipInstitution"
+            },
+            "title": "institutions",
+            "type": "array"
+          },
+          "total": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "total",
+            "type": "integer"
+          }
+        },
+        "title": "ListInstitutionsResponse",
         "type": "object"
       },
       "shorts.v1alpha1.ListPartyFundingRequest": {
@@ -8561,6 +8984,316 @@
           }
         },
         "title": "NewsArticle",
+        "type": "object"
+      },
+      "shorts.v1alpha1.OwnershipFund": {
+        "additionalProperties": false,
+        "description": "A product in the fund registers.",
+        "properties": {
+          "asAt": {
+            "description": "(proto string)",
+            "title": "as_at",
+            "type": "string"
+          },
+          "asxCode": {
+            "description": "(proto string)",
+            "title": "asx_code",
+            "type": "string"
+          },
+          "category": {
+            "description": "(proto string)",
+            "title": "category",
+            "type": "string"
+          },
+          "fundKey": {
+            "description": "(proto string)",
+            "title": "fund_key",
+            "type": "string"
+          },
+          "fundType": {
+            "description": "super_fund, etf or lic. (proto string)",
+            "title": "fund_type",
+            "type": "string"
+          },
+          "hasSize": {
+            "description": "(proto bool)",
+            "title": "has_size",
+            "type": "boolean"
+          },
+          "managerName": {
+            "description": "(proto string)",
+            "title": "manager_name",
+            "type": "string"
+          },
+          "name": {
+            "description": "(proto string)",
+            "title": "name",
+            "type": "string"
+          },
+          "sizeAud": {
+            "description": "FUM for an ETF, market cap for a LIC, total assets for a super fund. (proto double)",
+            "format": "double",
+            "title": "size_aud",
+            "type": "number"
+          }
+        },
+        "title": "OwnershipFund",
+        "type": "object"
+      },
+      "shorts.v1alpha1.OwnershipInstitution": {
+        "additionalProperties": false,
+        "properties": {
+          "aumAsAt": {
+            "description": "(proto string)",
+            "title": "aum_as_at",
+            "type": "string"
+          },
+          "aumAud": {
+            "description": "A super fund's total assets: the sum of the APRA-regulated funds it is\n trustee of (APRA's annual fund-level statistics). (proto double)",
+            "format": "double",
+            "title": "aum_aud",
+            "type": "number"
+          },
+          "country": {
+            "description": "(proto string)",
+            "title": "country",
+            "type": "string"
+          },
+          "description": {
+            "description": "(proto string)",
+            "title": "description",
+            "type": "string"
+          },
+          "funds": {
+            "description": "Products linked to it in the fund registers (ETFs, LICs, super funds),\n with their combined size (FUM, market cap or total assets). (proto int32)",
+            "format": "int32",
+            "title": "funds",
+            "type": "integer"
+          },
+          "fundsSizeAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "funds_size_aud",
+            "type": "number"
+          },
+          "hasAum": {
+            "description": "(proto bool)",
+            "title": "has_aum",
+            "type": "boolean"
+          },
+          "hasFundsSize": {
+            "description": "(proto bool)",
+            "title": "has_funds_size",
+            "type": "boolean"
+          },
+          "kind": {
+            "description": "super_fund, index_manager, hedge_fund, active_manager, bank_broker,\n sovereign_public, insurer, private_equity, corporate, other. (proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "latestNoticeDate": {
+            "description": "(proto string)",
+            "title": "latest_notice_date",
+            "type": "string"
+          },
+          "name": {
+            "description": "(proto string)",
+            "title": "name",
+            "type": "string"
+          },
+          "notices": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "notices",
+            "type": "integer"
+          },
+          "slug": {
+            "description": "(proto string)",
+            "title": "slug",
+            "type": "string"
+          },
+          "substantialPositions": {
+            "description": "Current substantial holdings and the notices behind them. (proto int32)",
+            "format": "int32",
+            "title": "substantial_positions",
+            "type": "integer"
+          },
+          "website": {
+            "description": "(proto string)",
+            "title": "website",
+            "type": "string"
+          }
+        },
+        "title": "OwnershipInstitution",
+        "type": "object"
+      },
+      "shorts.v1alpha1.OwnershipKindSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "aumAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "aum_aud",
+            "type": "number"
+          },
+          "hasAum": {
+            "description": "(proto bool)",
+            "title": "has_aum",
+            "type": "boolean"
+          },
+          "holders": {
+            "description": "Holders of this kind with a current substantial holding, the holdings,\n and the distinct stocks they are in. (proto int32)",
+            "format": "int32",
+            "title": "holders",
+            "type": "integer"
+          },
+          "institutions": {
+            "description": "Registry institutions of this kind. (proto int32)",
+            "format": "int32",
+            "title": "institutions",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "(proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "positions": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "positions",
+            "type": "integer"
+          },
+          "stocks": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "stocks",
+            "type": "integer"
+          }
+        },
+        "title": "OwnershipKindSummary",
+        "type": "object"
+      },
+      "shorts.v1alpha1.OwnershipSource": {
+        "additionalProperties": false,
+        "description": "One holdings source's coverage.",
+        "properties": {
+          "asAt": {
+            "description": "(proto string)",
+            "title": "as_at",
+            "type": "string"
+          },
+          "description": {
+            "description": "(proto string)",
+            "title": "description",
+            "type": "string"
+          },
+          "records": {
+            "description": "(proto int32)",
+            "format": "int32",
+            "title": "records",
+            "type": "integer"
+          },
+          "source": {
+            "description": "(proto string)",
+            "title": "source",
+            "type": "string"
+          }
+        },
+        "title": "OwnershipSource",
+        "type": "object"
+      },
+      "shorts.v1alpha1.OwnershipStock": {
+        "additionalProperties": false,
+        "description": "A stock's register as the three sources show it.",
+        "properties": {
+          "byKind": {
+            "description": "(proto shorts.v1alpha1.KindShare)",
+            "items": {
+              "$ref": "#/components/schemas/shorts.v1alpha1.KindShare"
+            },
+            "title": "by_kind",
+            "type": "array"
+          },
+          "companyName": {
+            "description": "(proto string)",
+            "title": "company_name",
+            "type": "string"
+          },
+          "disclosedPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "disclosed_pct",
+            "type": "number"
+          },
+          "hasIndexPct": {
+            "description": "(proto bool)",
+            "title": "has_index_pct",
+            "type": "boolean"
+          },
+          "hasMarketCap": {
+            "description": "(proto bool)",
+            "title": "has_market_cap",
+            "type": "boolean"
+          },
+          "hasShortPct": {
+            "description": "(proto bool)",
+            "title": "has_short_pct",
+            "type": "boolean"
+          },
+          "hasSuperValue": {
+            "description": "(proto bool)",
+            "title": "has_super_value",
+            "type": "boolean"
+          },
+          "holders": {
+            "description": "Current substantial holders, and the sum of their voting power with each\n interest counted once: a group and its member (MUFG and First Sentier)\n count the larger figure, and two notices disclosing the same voting power\n as at the same date count once. Other overlaps remain, so the sum is what\n the notices disclose, not a share of the company. (proto int32)",
+            "format": "int32",
+            "title": "holders",
+            "type": "integer"
+          },
+          "indexPct": {
+            "description": "Shares held by the index ETFs tracked, over shares on issue. (proto double)",
+            "format": "double",
+            "title": "index_pct",
+            "type": "number"
+          },
+          "industry": {
+            "description": "(proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "marketCap": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "market_cap",
+            "type": "number"
+          },
+          "shortPct": {
+            "description": "ASIC's latest reported short position, as a percentage of shares on issue. (proto double)",
+            "format": "double",
+            "title": "short_pct",
+            "type": "number"
+          },
+          "stockCode": {
+            "description": "(proto string)",
+            "title": "stock_code",
+            "type": "string"
+          },
+          "superOptions": {
+            "description": "Super fund options holding it, of those tracked, and their combined value. (proto int32)",
+            "format": "int32",
+            "title": "super_options",
+            "type": "integer"
+          },
+          "superValueAud": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "super_value_aud",
+            "type": "number"
+          }
+        },
+        "title": "OwnershipStock",
         "type": "object"
       },
       "shorts.v1alpha1.PartyCount": {
@@ -11543,6 +12276,185 @@
           }
         },
         "title": "StrategyRule",
+        "type": "object"
+      },
+      "shorts.v1alpha1.SubstantialHolding": {
+        "additionalProperties": false,
+        "description": "A holder's current substantial holding in one stock: its latest notice,\n when that notice leaves it substantial.",
+        "properties": {
+          "announcedOn": {
+            "description": "(proto string)",
+            "title": "announced_on",
+            "type": "string"
+          },
+          "announcementUrl": {
+            "description": "(proto string)",
+            "title": "announcement_url",
+            "type": "string"
+          },
+          "companyName": {
+            "description": "(proto string)",
+            "title": "company_name",
+            "type": "string"
+          },
+          "eventDate": {
+            "description": "The date the holding changed, as the notice states it (\"\" when it does\n not), and the date ASX released the notice. (proto string)",
+            "title": "event_date",
+            "type": "string"
+          },
+          "form": {
+            "description": "603, 604 or nz: the form the holding was last stated on. (proto string)",
+            "title": "form",
+            "type": "string"
+          },
+          "hasPrevious": {
+            "description": "(proto bool)",
+            "title": "has_previous",
+            "type": "boolean"
+          },
+          "hasVotes": {
+            "description": "(proto bool)",
+            "title": "has_votes",
+            "type": "boolean"
+          },
+          "holderKey": {
+            "description": "(proto string)",
+            "title": "holder_key",
+            "type": "string"
+          },
+          "holderName": {
+            "description": "(proto string)",
+            "title": "holder_name",
+            "type": "string"
+          },
+          "industry": {
+            "description": "(proto string)",
+            "title": "industry",
+            "type": "string"
+          },
+          "institutionSlug": {
+            "description": "(proto string)",
+            "title": "institution_slug",
+            "type": "string"
+          },
+          "kind": {
+            "description": "(proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "previousPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "previous_pct",
+            "type": "number"
+          },
+          "stockCode": {
+            "description": "(proto string)",
+            "title": "stock_code",
+            "type": "string"
+          },
+          "votes": {
+            "description": "(proto int64)",
+            "format": "int64",
+            "title": "votes",
+            "type": [
+              "integer",
+              "string"
+            ]
+          },
+          "votingPowerPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "voting_power_pct",
+            "type": "number"
+          }
+        },
+        "title": "SubstantialHolding",
+        "type": "object"
+      },
+      "shorts.v1alpha1.SubstantialNotice": {
+        "additionalProperties": false,
+        "description": "One notice as released.",
+        "properties": {
+          "announcedOn": {
+            "description": "(proto string)",
+            "title": "announced_on",
+            "type": "string"
+          },
+          "announcementUrl": {
+            "description": "(proto string)",
+            "title": "announcement_url",
+            "type": "string"
+          },
+          "ceased": {
+            "description": "(proto bool)",
+            "title": "ceased",
+            "type": "boolean"
+          },
+          "companyName": {
+            "description": "(proto string)",
+            "title": "company_name",
+            "type": "string"
+          },
+          "eventDate": {
+            "description": "(proto string)",
+            "title": "event_date",
+            "type": "string"
+          },
+          "form": {
+            "description": "(proto string)",
+            "title": "form",
+            "type": "string"
+          },
+          "hasPresent": {
+            "description": "(proto bool)",
+            "title": "has_present",
+            "type": "boolean"
+          },
+          "hasPrevious": {
+            "description": "(proto bool)",
+            "title": "has_previous",
+            "type": "boolean"
+          },
+          "holderKey": {
+            "description": "(proto string)",
+            "title": "holder_key",
+            "type": "string"
+          },
+          "holderName": {
+            "description": "(proto string)",
+            "title": "holder_name",
+            "type": "string"
+          },
+          "institutionSlug": {
+            "description": "(proto string)",
+            "title": "institution_slug",
+            "type": "string"
+          },
+          "kind": {
+            "description": "(proto string)",
+            "title": "kind",
+            "type": "string"
+          },
+          "presentPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "present_pct",
+            "type": "number"
+          },
+          "previousPct": {
+            "description": "(proto double)",
+            "format": "double",
+            "title": "previous_pct",
+            "type": "number"
+          },
+          "stockCode": {
+            "description": "(proto string)",
+            "title": "stock_code",
+            "type": "string"
+          }
+        },
+        "title": "SubstantialNotice",
         "type": "object"
       },
       "shorts.v1alpha1.SuburbAmenities": {
@@ -16435,6 +17347,242 @@
         "summary": "ListEditorialTakes",
         "tags": [
           "shorts.v1alpha1.NewsService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.OwnershipService/GetInstitution": {
+      "post": {
+        "description": "One institution: its current substantial holdings, its notices, its funds\n and what its holdings files hold.",
+        "operationId": "OwnershipService_GetInstitution",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetInstitutionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetInstitutionResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetInstitution",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.OwnershipService/GetOwnershipOverview": {
+      "post": {
+        "description": "The map and the aggregated view: institutions by kind, the most crowded\n registers, stocks crowded both long and short, the latest notices, super\n funds' consensus holdings and the stocks most owned by index funds.",
+        "operationId": "OwnershipService_GetOwnershipOverview",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetOwnershipOverviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetOwnershipOverviewResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetOwnershipOverview",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.OwnershipService/GetStockOwnership": {
+      "post": {
+        "description": "Who holds one stock: its substantial holders, their notices, and the index\n ETFs and super fund options that hold it.",
+        "operationId": "OwnershipService_GetStockOwnership",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.GetStockOwnershipRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.GetStockOwnershipResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GetStockOwnership",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
+        ]
+      }
+    },
+    "/shorts.v1alpha1.OwnershipService/ListInstitutions": {
+      "post": {
+        "description": "Browse the institutions, by kind or name.",
+        "operationId": "OwnershipService_ListInstitutions",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Connect-Protocol-Version",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/connect-protocol-version"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Connect-Timeout-Ms",
+            "schema": {
+              "$ref": "#/components/schemas/connect-timeout-header"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/shorts.v1alpha1.ListInstitutionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/shorts.v1alpha1.ListInstitutionsResponse"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/connect.error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "ListInstitutions",
+        "tags": [
+          "shorts.v1alpha1.OwnershipService"
         ]
       }
     },

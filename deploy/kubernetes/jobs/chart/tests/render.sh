@@ -44,6 +44,7 @@ declare -A want_schedule=(
   [shorted-price-sync]="0 10 * * 1-5"
   [shorted-picks]="30 13 * * 1-5"
   [shorted-picks-fundamentals]="0 15 * * *"
+  [shorted-ownership]="45 12 * * *"
   [shorted-economy]="0 17 5 * *"
   [shorted-weekly-report]="0 11 * * 5"
   [shorted-weekly-report-monthly]="0 1 1 * *"

@@ -7,6 +7,7 @@ import { invalidateSharedStockQuotes } from "~/@/lib/shared-stock-quotes";
 import {
   deleteCachedByPrefix,
   HOUSING_DATA_CACHE_PREFIXES,
+  OWNERSHIP_DATA_CACHE_PREFIXES,
   POLITICIANS_DATA_CACHE_PREFIXES,
   SHORTS_DATA_CACHE_PREFIXES,
 } from "~/@/lib/kv-cache";
@@ -17,6 +18,7 @@ const FLUSH_PREFIXES: Record<string, readonly string[]> = {
   shorts: SHORTS_DATA_CACHE_PREFIXES,
   housing: HOUSING_DATA_CACHE_PREFIXES,
   politicians: POLITICIANS_DATA_CACHE_PREFIXES,
+  ownership: OWNERSHIP_DATA_CACHE_PREFIXES,
 };
 
 function revalidationSecretsMatch(

@@ -175,7 +175,7 @@ func TestCatalogCoversTheRealFleet(t *testing.T) {
 		"director-trade-extractor", "financial-report-extractor", "house-price-collector",
 		"influence-collector", "shorted-announcements", "shorted-economy", "shorted-news",
 		"shorted-signals", "shorted-weekly-report", "shorts-data-sync", "signals-collector",
-		"weekly-report-generator", "asx-discovery",
+		"weekly-report-generator", "asx-discovery", "shorted-ownership",
 	}
 	for _, name := range fleet {
 		if _, ok := catalog[name]; !ok {

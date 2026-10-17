@@ -885,6 +885,83 @@ curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.NewsService/ListEditori
   -d '{}'
 ```
 
+### shorts.v1alpha1.OwnershipService
+
+#### `POST /shorts.v1alpha1.OwnershipService/GetInstitution`
+
+One institution: its current substantial holdings, its notices, its funds
+ and what its holdings files hold.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `slug` | string | no | (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetInstitution' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.OwnershipService/GetOwnershipOverview`
+
+The map and the aggregated view: institutions by kind, the most crowded
+ registers, stocks crowded both long and short, the latest notices, super
+ funds' consensus holdings and the stocks most owned by index funds.
+
+Request body: an empty JSON object, `{}`.
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetOwnershipOverview' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.OwnershipService/GetStockOwnership`
+
+Who holds one stock: its substantial holders, their notices, and the index
+ ETFs and super fund options that hold it.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `stockCode` | string | no | (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/GetStockOwnership' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
+#### `POST /shorts.v1alpha1.OwnershipService/ListInstitutions`
+
+Browse the institutions, by kind or name.
+
+Request body fields:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kind` | string | no | A kind to filter to; "" for all. (proto string) |
+| `limit` | integer (int32) | no | (proto int32) |
+| `offset` | integer (int32) | no | (proto int32) |
+| `query` | string | no | (proto string) |
+
+```bash
+curl -X POST 'https://api.shorted.com.au/shorts.v1alpha1.OwnershipService/ListInstitutions' \
+  -A 'my-app/1.0' \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{}'
+```
+
 ### shorts.v1alpha1.PoliticiansService
 
 #### `POST /shorts.v1alpha1.PoliticiansService/ComparePoliticians`

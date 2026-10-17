@@ -1,0 +1,5 @@
+﻿Fund Holdings as of,"15-Oct-2026"
+ 
+Ticker,Name,Sector,Asset Class,Market Value,Weight (%),Notional Value,Shares,Price,Location,Exchange,Currency,FX Rate,Market Currency
+"BHP","BHP GROUP LTD","Materials","Equity","1,060,879,624.00","11.13","1,060,879,624.00","18,291,028.00","58.00","Australia","ASX - All Markets","AUD","1.00","AUD"
+"CBA","COMMONWEALTH BANK OF AUSTRALIA","Financials","Equity","940,617,619.20","9.87","940,617,619.20","6,023,808.00","156.15","Australia","ASX - All Markets","AUD","1.00","AUD"

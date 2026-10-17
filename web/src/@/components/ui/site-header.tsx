@@ -30,6 +30,7 @@ const items: NavItemWithGroup[] = [
   { title: "statistics", href: "/statistics" },
   { title: "scans", href: "/scans" },
   { title: "picks", href: "/picks" },
+  { title: "ownership", href: "/ownership" },
   { title: "news", href: "/news" },
   { title: "portfolio", href: "/portfolio", requiresAuth: true },
   { title: "about", href: "/about" },

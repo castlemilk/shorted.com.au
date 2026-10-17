@@ -2003,6 +2003,157 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/shorts.v1alpha1.UpdateEditorialTakeResponse'
+  /shorts.v1alpha1.OwnershipService/GetInstitution:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: GetInstitution
+      description: |-
+        One institution: its current substantial holdings, its notices, its funds
+         and what its holdings files hold.
+      operationId: OwnershipService_GetInstitution
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetInstitutionRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetInstitutionResponse'
+  /shorts.v1alpha1.OwnershipService/GetOwnershipOverview:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: GetOwnershipOverview
+      description: |-
+        The map and the aggregated view: institutions by kind, the most crowded
+         registers, stocks crowded both long and short, the latest notices, super
+         funds' consensus holdings and the stocks most owned by index funds.
+      operationId: OwnershipService_GetOwnershipOverview
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetOwnershipOverviewRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetOwnershipOverviewResponse'
+  /shorts.v1alpha1.OwnershipService/GetStockOwnership:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: GetStockOwnership
+      description: |-
+        Who holds one stock: its substantial holders, their notices, and the index
+         ETFs and super fund options that hold it.
+      operationId: OwnershipService_GetStockOwnership
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStockOwnershipRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.GetStockOwnershipResponse'
+  /shorts.v1alpha1.OwnershipService/ListInstitutions:
+    post:
+      tags:
+        - shorts.v1alpha1.OwnershipService
+      summary: ListInstitutions
+      description: Browse the institutions, by kind or name.
+      operationId: OwnershipService_ListInstitutions
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.ListInstitutionsRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/shorts.v1alpha1.ListInstitutionsResponse'
   /shorts.v1alpha1.PoliticiansService/ComparePoliticians:
     post:
       tags:
@@ -5808,6 +5959,84 @@ components:
       title: FinancialYearOption
       additionalProperties: false
       description: FinancialYearOption is one selectable year, with how much is in it.
+    shorts.v1alpha1.FundHolding:
+      type: object
+      properties:
+        institutionSlug:
+          type: string
+          title: institution_slug
+          description: (proto string)
+        institutionName:
+          type: string
+          title: institution_name
+          description: (proto string)
+        kind:
+          type: string
+          title: kind
+          description: (proto string)
+        fundName:
+          type: string
+          title: fund_name
+          description: (proto string)
+        fundCode:
+          type: string
+          title: fund_code
+          description: An ETF's ASX code; "" for a super fund option. (proto string)
+        sourceKind:
+          type: string
+          title: source_kind
+          description: etf or super_phd. (proto string)
+        asAt:
+          type: string
+          title: as_at
+          description: (proto string)
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        units:
+          type: number
+          title: units
+          format: double
+          description: (proto double)
+        hasUnits:
+          type: boolean
+          title: has_units
+          description: (proto bool)
+        valueAud:
+          type: number
+          title: value_aud
+          format: double
+          description: (proto double)
+        hasValue:
+          type: boolean
+          title: has_value
+          description: (proto bool)
+        weightPct:
+          type: number
+          title: weight_pct
+          format: double
+          description: The stock's weight in the fund (or option), as the file states it. (proto double)
+        hasWeight:
+          type: boolean
+          title: has_weight
+          description: (proto bool)
+        pctOfIssued:
+          type: number
+          title: pct_of_issued
+          format: double
+          description: Units over the shares on issue (ASIC's short position report). (proto double)
+        hasPctOfIssued:
+          type: boolean
+          title: has_pct_of_issued
+          description: (proto bool)
+      title: FundHolding
+      additionalProperties: false
+      description: One stock in one fund's holdings file.
     shorts.v1alpha1.FundamentalsCoverage:
       type: object
       properties:
@@ -7176,6 +7405,48 @@ components:
       title: GetIndustryTreeMapRequest
       additionalProperties: false
       description: Request for Top10 RPC, specifying the period of time.
+    shorts.v1alpha1.GetInstitutionRequest:
+      type: object
+      properties:
+        slug:
+          type: string
+          title: slug
+          description: (proto string)
+      title: GetInstitutionRequest
+      additionalProperties: false
+    shorts.v1alpha1.GetInstitutionResponse:
+      type: object
+      properties:
+        institution:
+          title: institution
+          description: (proto shorts.v1alpha1.OwnershipInstitution)
+          $ref: '#/components/schemas/shorts.v1alpha1.OwnershipInstitution'
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SubstantialHolding'
+          title: positions
+          description: (proto shorts.v1alpha1.SubstantialHolding)
+        notices:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SubstantialNotice'
+          title: notices
+          description: (proto shorts.v1alpha1.SubstantialNotice)
+        fundHoldings:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundHolding'
+          title: fund_holdings
+          description: The largest holdings, by value, of its latest holdings files. (proto shorts.v1alpha1.FundHolding)
+        funds:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.OwnershipFund'
+          title: funds
+          description: (proto shorts.v1alpha1.OwnershipFund)
+      title: GetInstitutionResponse
+      additionalProperties: false
     shorts.v1alpha1.GetMarketByDateRequest:
       type: object
       properties:
@@ -7323,6 +7594,118 @@ components:
       title: GetMySubscriptionResponse
       additionalProperties: false
       description: Response for GetMySubscription RPC
+    shorts.v1alpha1.GetOwnershipOverviewRequest:
+      type: object
+      title: GetOwnershipOverviewRequest
+      additionalProperties: false
+    shorts.v1alpha1.GetOwnershipOverviewResponse:
+      type: object
+      properties:
+        kinds:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.OwnershipKindSummary'
+          title: kinds
+          description: (proto shorts.v1alpha1.OwnershipKindSummary)
+        topHolders:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.OwnershipInstitution'
+          title: top_holders
+          description: Institutions with the most current substantial holdings. (proto shorts.v1alpha1.OwnershipInstitution)
+        crowded:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.OwnershipStock'
+          title: crowded
+          description: Stocks with the highest disclosed substantial voting power. (proto shorts.v1alpha1.OwnershipStock)
+        crowdedBothWays:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.OwnershipStock'
+          title: crowded_both_ways
+          description: |-
+            Stocks where hedge funds and active managers hold substantial stakes and
+             short interest is high: crowded on both sides. (proto shorts.v1alpha1.OwnershipStock)
+        lending:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.OwnershipStock'
+          title: lending
+          description: |-
+            Stocks where banks and brokers hold substantial interests (mostly stock
+             lent to, or held as collateral from, short sellers) beside their short
+             interest. (proto shorts.v1alpha1.OwnershipStock)
+        recent:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SubstantialNotice'
+          title: recent
+          description: (proto shorts.v1alpha1.SubstantialNotice)
+        superConsensus:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.OwnershipStock'
+          title: super_consensus
+          description: Stocks the tracked super fund options hold most of, by combined value. (proto shorts.v1alpha1.OwnershipStock)
+        passive:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.OwnershipStock'
+          title: passive
+          description: Stocks the tracked index ETFs own the largest share of. (proto shorts.v1alpha1.OwnershipStock)
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.OwnershipSource'
+          title: sources
+          description: (proto shorts.v1alpha1.OwnershipSource)
+        noticesParsed:
+          type: integer
+          title: notices_parsed
+          format: int32
+          description: (proto int32)
+        noticesWithheld:
+          type: integer
+          title: notices_withheld
+          format: int32
+          description: (proto int32)
+        superFunds:
+          type: integer
+          title: super_funds
+          format: int32
+          description: (proto int32)
+        superAssetsAud:
+          type: number
+          title: super_assets_aud
+          format: double
+          description: (proto double)
+        etfs:
+          type: integer
+          title: etfs
+          format: int32
+          description: (proto int32)
+        etfFumAud:
+          type: number
+          title: etf_fum_aud
+          format: double
+          description: (proto double)
+        lics:
+          type: integer
+          title: lics
+          format: int32
+          description: (proto int32)
+        licMarketCapAud:
+          type: number
+          title: lic_market_cap_aud
+          format: double
+          description: (proto double)
+        asOf:
+          type: string
+          title: as_of
+          description: (proto string)
+      title: GetOwnershipOverviewResponse
+      additionalProperties: false
     shorts.v1alpha1.GetParliamentOverviewRequest:
       type: object
       title: GetParliamentOverviewRequest
@@ -8445,6 +8828,51 @@ components:
       title: GetStockNewsResponse
       additionalProperties: false
       description: Response for GetStockNews RPC
+    shorts.v1alpha1.GetStockOwnershipRequest:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+      title: GetStockOwnershipRequest
+      additionalProperties: false
+    shorts.v1alpha1.GetStockOwnershipResponse:
+      type: object
+      properties:
+        summary:
+          title: summary
+          description: (proto shorts.v1alpha1.OwnershipStock)
+          $ref: '#/components/schemas/shorts.v1alpha1.OwnershipStock'
+        holders:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SubstantialHolding'
+          title: holders
+          description: (proto shorts.v1alpha1.SubstantialHolding)
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.SubstantialNotice'
+          title: history
+          description: (proto shorts.v1alpha1.SubstantialNotice)
+        fundHoldings:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.FundHolding'
+          title: fund_holdings
+          description: (proto shorts.v1alpha1.FundHolding)
+        sharesOnIssue:
+          type: number
+          title: shares_on_issue
+          format: double
+          description: (proto double)
+        hasSharesOnIssue:
+          type: boolean
+          title: has_shares_on_issue
+          description: (proto bool)
+      title: GetStockOwnershipResponse
+      additionalProperties: false
     shorts.v1alpha1.GetStockPricesRequest:
       type: object
       properties:
@@ -9609,6 +10037,25 @@ components:
       title: InlineImage
       additionalProperties: false
       description: Inline image embedded in a Take body.
+    shorts.v1alpha1.KindShare:
+      type: object
+      properties:
+        kind:
+          type: string
+          title: kind
+          description: (proto string)
+        pct:
+          type: number
+          title: pct
+          format: double
+          description: (proto double)
+        holders:
+          type: integer
+          title: holders
+          format: int32
+          description: (proto int32)
+      title: KindShare
+      additionalProperties: false
     shorts.v1alpha1.LatestFilingSummary:
       type: object
       properties:
@@ -10229,6 +10676,45 @@ components:
           title: indices
           description: (proto shorts.v1alpha1.IndexDefinition)
       title: ListIndicesResponse
+      additionalProperties: false
+    shorts.v1alpha1.ListInstitutionsRequest:
+      type: object
+      properties:
+        kind:
+          type: string
+          title: kind
+          description: A kind to filter to; "" for all. (proto string)
+        query:
+          type: string
+          title: query
+          description: (proto string)
+        limit:
+          type: integer
+          title: limit
+          format: int32
+          description: (proto int32)
+        offset:
+          type: integer
+          title: offset
+          format: int32
+          description: (proto int32)
+      title: ListInstitutionsRequest
+      additionalProperties: false
+    shorts.v1alpha1.ListInstitutionsResponse:
+      type: object
+      properties:
+        institutions:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.OwnershipInstitution'
+          title: institutions
+          description: (proto shorts.v1alpha1.OwnershipInstitution)
+        total:
+          type: integer
+          title: total
+          format: int32
+          description: (proto int32)
+      title: ListInstitutionsResponse
       additionalProperties: false
     shorts.v1alpha1.ListPartyFundingRequest:
       type: object
@@ -11241,6 +11727,268 @@ components:
       title: NewsArticle
       additionalProperties: false
       description: A single news article
+    shorts.v1alpha1.OwnershipFund:
+      type: object
+      properties:
+        fundKey:
+          type: string
+          title: fund_key
+          description: (proto string)
+        name:
+          type: string
+          title: name
+          description: (proto string)
+        fundType:
+          type: string
+          title: fund_type
+          description: super_fund, etf or lic. (proto string)
+        asxCode:
+          type: string
+          title: asx_code
+          description: (proto string)
+        managerName:
+          type: string
+          title: manager_name
+          description: (proto string)
+        category:
+          type: string
+          title: category
+          description: (proto string)
+        sizeAud:
+          type: number
+          title: size_aud
+          format: double
+          description: FUM for an ETF, market cap for a LIC, total assets for a super fund. (proto double)
+        hasSize:
+          type: boolean
+          title: has_size
+          description: (proto bool)
+        asAt:
+          type: string
+          title: as_at
+          description: (proto string)
+      title: OwnershipFund
+      additionalProperties: false
+      description: A product in the fund registers.
+    shorts.v1alpha1.OwnershipInstitution:
+      type: object
+      properties:
+        slug:
+          type: string
+          title: slug
+          description: (proto string)
+        name:
+          type: string
+          title: name
+          description: (proto string)
+        kind:
+          type: string
+          title: kind
+          description: |-
+            super_fund, index_manager, hedge_fund, active_manager, bank_broker,
+             sovereign_public, insurer, private_equity, corporate, other. (proto string)
+        country:
+          type: string
+          title: country
+          description: (proto string)
+        website:
+          type: string
+          title: website
+          description: (proto string)
+        description:
+          type: string
+          title: description
+          description: (proto string)
+        aumAud:
+          type: number
+          title: aum_aud
+          format: double
+          description: |-
+            A super fund's total assets: the sum of the APRA-regulated funds it is
+             trustee of (APRA's annual fund-level statistics). (proto double)
+        hasAum:
+          type: boolean
+          title: has_aum
+          description: (proto bool)
+        aumAsAt:
+          type: string
+          title: aum_as_at
+          description: (proto string)
+        substantialPositions:
+          type: integer
+          title: substantial_positions
+          format: int32
+          description: Current substantial holdings and the notices behind them. (proto int32)
+        notices:
+          type: integer
+          title: notices
+          format: int32
+          description: (proto int32)
+        latestNoticeDate:
+          type: string
+          title: latest_notice_date
+          description: (proto string)
+        funds:
+          type: integer
+          title: funds
+          format: int32
+          description: |-
+            Products linked to it in the fund registers (ETFs, LICs, super funds),
+             with their combined size (FUM, market cap or total assets). (proto int32)
+        fundsSizeAud:
+          type: number
+          title: funds_size_aud
+          format: double
+          description: (proto double)
+        hasFundsSize:
+          type: boolean
+          title: has_funds_size
+          description: (proto bool)
+      title: OwnershipInstitution
+      additionalProperties: false
+    shorts.v1alpha1.OwnershipKindSummary:
+      type: object
+      properties:
+        kind:
+          type: string
+          title: kind
+          description: (proto string)
+        institutions:
+          type: integer
+          title: institutions
+          format: int32
+          description: Registry institutions of this kind. (proto int32)
+        holders:
+          type: integer
+          title: holders
+          format: int32
+          description: |-
+            Holders of this kind with a current substantial holding, the holdings,
+             and the distinct stocks they are in. (proto int32)
+        positions:
+          type: integer
+          title: positions
+          format: int32
+          description: (proto int32)
+        stocks:
+          type: integer
+          title: stocks
+          format: int32
+          description: (proto int32)
+        aumAud:
+          type: number
+          title: aum_aud
+          format: double
+          description: (proto double)
+        hasAum:
+          type: boolean
+          title: has_aum
+          description: (proto bool)
+      title: OwnershipKindSummary
+      additionalProperties: false
+    shorts.v1alpha1.OwnershipSource:
+      type: object
+      properties:
+        source:
+          type: string
+          title: source
+          description: (proto string)
+        description:
+          type: string
+          title: description
+          description: (proto string)
+        asAt:
+          type: string
+          title: as_at
+          description: (proto string)
+        records:
+          type: integer
+          title: records
+          format: int32
+          description: (proto int32)
+      title: OwnershipSource
+      additionalProperties: false
+      description: One holdings source's coverage.
+    shorts.v1alpha1.OwnershipStock:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        holders:
+          type: integer
+          title: holders
+          format: int32
+          description: |-
+            Current substantial holders, and the sum of their voting power with each
+             interest counted once: a group and its member (MUFG and First Sentier)
+             count the larger figure, and two notices disclosing the same voting power
+             as at the same date count once. Other overlaps remain, so the sum is what
+             the notices disclose, not a share of the company. (proto int32)
+        disclosedPct:
+          type: number
+          title: disclosed_pct
+          format: double
+          description: (proto double)
+        byKind:
+          type: array
+          items:
+            $ref: '#/components/schemas/shorts.v1alpha1.KindShare'
+          title: by_kind
+          description: (proto shorts.v1alpha1.KindShare)
+        shortPct:
+          type: number
+          title: short_pct
+          format: double
+          description: ASIC's latest reported short position, as a percentage of shares on issue. (proto double)
+        hasShortPct:
+          type: boolean
+          title: has_short_pct
+          description: (proto bool)
+        indexPct:
+          type: number
+          title: index_pct
+          format: double
+          description: Shares held by the index ETFs tracked, over shares on issue. (proto double)
+        hasIndexPct:
+          type: boolean
+          title: has_index_pct
+          description: (proto bool)
+        superOptions:
+          type: integer
+          title: super_options
+          format: int32
+          description: Super fund options holding it, of those tracked, and their combined value. (proto int32)
+        superValueAud:
+          type: number
+          title: super_value_aud
+          format: double
+          description: (proto double)
+        hasSuperValue:
+          type: boolean
+          title: has_super_value
+          description: (proto bool)
+        marketCap:
+          type: number
+          title: market_cap
+          format: double
+          description: (proto double)
+        hasMarketCap:
+          type: boolean
+          title: has_market_cap
+          description: (proto bool)
+      title: OwnershipStock
+      additionalProperties: false
+      description: A stock's register as the three sources show it.
     shorts.v1alpha1.PartyCount:
       type: object
       properties:
@@ -13758,6 +14506,153 @@ components:
         - SUBSCRIPTION_TIER_ENTERPRISE
         - SUBSCRIPTION_TIER_PREMIUM
       description: Subscription tier enum
+    shorts.v1alpha1.SubstantialHolding:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        industry:
+          type: string
+          title: industry
+          description: (proto string)
+        holderKey:
+          type: string
+          title: holder_key
+          description: (proto string)
+        holderName:
+          type: string
+          title: holder_name
+          description: (proto string)
+        institutionSlug:
+          type: string
+          title: institution_slug
+          description: (proto string)
+        kind:
+          type: string
+          title: kind
+          description: (proto string)
+        form:
+          type: string
+          title: form
+          description: '603, 604 or nz: the form the holding was last stated on. (proto string)'
+        votingPowerPct:
+          type: number
+          title: voting_power_pct
+          format: double
+          description: (proto double)
+        previousPct:
+          type: number
+          title: previous_pct
+          format: double
+          description: (proto double)
+        hasPrevious:
+          type: boolean
+          title: has_previous
+          description: (proto bool)
+        votes:
+          type:
+            - integer
+            - string
+          title: votes
+          format: int64
+          description: (proto int64)
+        hasVotes:
+          type: boolean
+          title: has_votes
+          description: (proto bool)
+        eventDate:
+          type: string
+          title: event_date
+          description: |-
+            The date the holding changed, as the notice states it ("" when it does
+             not), and the date ASX released the notice. (proto string)
+        announcedOn:
+          type: string
+          title: announced_on
+          description: (proto string)
+        announcementUrl:
+          type: string
+          title: announcement_url
+          description: (proto string)
+      title: SubstantialHolding
+      additionalProperties: false
+      description: |-
+        A holder's current substantial holding in one stock: its latest notice,
+         when that notice leaves it substantial.
+    shorts.v1alpha1.SubstantialNotice:
+      type: object
+      properties:
+        stockCode:
+          type: string
+          title: stock_code
+          description: (proto string)
+        companyName:
+          type: string
+          title: company_name
+          description: (proto string)
+        holderKey:
+          type: string
+          title: holder_key
+          description: (proto string)
+        holderName:
+          type: string
+          title: holder_name
+          description: (proto string)
+        institutionSlug:
+          type: string
+          title: institution_slug
+          description: (proto string)
+        kind:
+          type: string
+          title: kind
+          description: (proto string)
+        form:
+          type: string
+          title: form
+          description: (proto string)
+        presentPct:
+          type: number
+          title: present_pct
+          format: double
+          description: (proto double)
+        hasPresent:
+          type: boolean
+          title: has_present
+          description: (proto bool)
+        previousPct:
+          type: number
+          title: previous_pct
+          format: double
+          description: (proto double)
+        hasPrevious:
+          type: boolean
+          title: has_previous
+          description: (proto bool)
+        ceased:
+          type: boolean
+          title: ceased
+          description: (proto bool)
+        eventDate:
+          type: string
+          title: event_date
+          description: (proto string)
+        announcedOn:
+          type: string
+          title: announced_on
+          description: (proto string)
+        announcementUrl:
+          type: string
+          title: announcement_url
+          description: (proto string)
+      title: SubstantialNotice
+      additionalProperties: false
+      description: One notice as released.
     shorts.v1alpha1.SuburbAmenities:
       type: object
       properties:

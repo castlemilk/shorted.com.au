@@ -27,6 +27,8 @@ services/jobs/
   internal/jobs/news/         `shorted news`       (was services/news-aggregator)
   internal/jobs/picks/        `shorted picks`      stock-picker data: full statements, filing
                               half-years + refresh_strategy_views() (new, not a port)
+  internal/jobs/ownership/    `shorted ownership`  who holds ASX stocks: substantial holder
+                              notices, ETF + super fund holdings (new, not a port)
   internal/jobs/reportextract/`shorted report-extract concurrent|sequential`
                               + `shorted director-trades`
                               (was services/report-extractor, Python)
@@ -56,6 +58,7 @@ services/jobs/
 | `market-data audit-gaps` | `services/market-data-sync/cmd/audit-gaps` | no — laptop-only tool |
 | `market-data historical-backfill` | `services/market-data-sync/cmd/historical-backfill` | no — laptop-only tool |
 | `news` | `services/news-aggregator` | yes — `shorted-news`, 1 job + 5 schedules (cutover 2; all 5 old schedulers paused) |
+| `ownership` | — (new job, ownership map) | `shorted-ownership` in `terraform/environments/prod/main.tf`: `-mode all -limit 3000` daily 12:45 UTC. See "ownership" |
 | `picks` | — (new job, stock picker) | `shorted-picks` in `terraform/environments/prod/main.tf`: `-mode refresh` weekdays 13:30 UTC + `-mode all` daily 15:00 UTC. See "picks" |
 | `director-trades` | `services/report-extractor/extract_director_trades.py` | **not yet** — ported (Phase 3), no Terraform change; `director-trade-extractor` still runs the Python image |
 | `report-extract concurrent` | `services/report-extractor/extract_reports_concurrent.py` | **not yet** — ported (Phase 3); `financial-report-extractor` still runs the Python image, which has since moved ahead of the port (see "Phase 3 port notes") |
@@ -1103,6 +1106,55 @@ model refuses daily is logged and retried without failing the run), or up
 front when no Gemini key is set. The Go port in
 `reportextract` is not deployed and is parity-only on the few-shot example and
 grounding (see "Phase 3 port notes").
+
+## ownership
+
+`shorted ownership` maps who holds ASX stocks for `/ownership`, `/ownership/<slug>`
+and the stock page's Company tab (`OwnershipService`, `ownership.proto`).
+Tables: migration `000137_add_ownership` (in the deploy allowlist, replay-safe).
+
+| Mode | Source | Writes |
+|---|---|---|
+| `registry` | `registry.go`: ~145 curated institutions (super funds, index managers, hedge funds, active managers, banks and brokers, sovereign funds, insurers, private equity) with kinds, aliases and `Group` | `ownership_institutions`; re-links stored notices (`relinkHolder`) |
+| `funds` | APRA's annual fund-level statistics (every super fund, total assets) and ASX's Investment Products report (every ETF, LIC and LIT, issuer and size; latest link scraped from the page) | `ownership_funds`; super funds' assets onto their institutions |
+| `etf` | Holdings files of 11 Australian-equity index ETFs (iShares JSON, Vanguard JSON, SPDR xlsx, Betashares CSV) | `fund_holding_snapshots`, `fund_holdings`, `security_identifiers` |
+| `phd` | 11 super funds' portfolio holdings disclosures (one option each, the default or balanced; semi-annual, `phdPeriod` = latest 30 Jun / 31 Dec at least 90 days ago, else the period before) | same |
+| `notices` | Substantial holding notices (Forms 603/604/605, NZ disclosures) selected from `asx_announcements` by headline, read from their PDFs | `substantial_holder_notices`, `substantial_holder_notice_attempts` |
+| `all` | all of the above, in that order (the scheduled run) | |
+
+- **Hand runs write nothing.** `OWNERSHIP_DRY_RUN=false` (set on the scheduled
+  job) or `-dry-run=false` is what writes.
+- **A notice is withheld rather than guessed.** Every refusal is an attempt row
+  with an outcome: `no_text` (scanned, retried after 7 days, at most 3 times),
+  `no_voting_power` (the figure is only in an annexure, or the form is an
+  unflattened AcroForm), `implausible` (a 603 under 5%, a 604 whose previous
+  holding was under 5%), `not_a_notice`, `no_holder`, `ambiguous_target` (the
+  headline names a company not on record: the code it is listed under is then
+  the holder's), `inconsistent_votes` (votes over voting power implies a share
+  count outside 0.5-2x ASIC's total product in issue AS AT THE NOTICE'S DATE,
+  so a consolidation or a scrip takeover never rejects an older notice).
+  Refusals are re-read only after `noticeParserVersion` rises.
+- **PDFs are read in a child process** (`-mode pdf-layout`, the same binary):
+  `ledongthuc/pdf` loops on some malformed streams and pdfcpu decrypts
+  AES-256 notices at about 32x the file's size. Each child gets a resident
+  allowance scaled to the file (256 MB to 1.5 GB), all children share
+  `-child-memory-mb` (2048), and a watchdog kills a child over its allowance
+  (`no_text`, never a crashed run). Size the job's memory above that budget.
+- **Sums count each interest once where the overlap is known**, in the API
+  (`countedHoldings`): a registry `Group` (MUFG files for First Sentier and
+  Morgan Stanley) counts its largest figure, and two notices disclosing the
+  same voting power as at the same date count once. Every holder is still
+  listed.
+- **Revalidation**: after a run that stored rows, and only with
+  `REVALIDATION_URL`/`REVALIDATION_SECRET` set, the job waits
+  `-revalidate-wait` (11 minutes, past the API's 10-minute ownership cache) and
+  revalidates tag `ownership` and the KV family `ownership`.
+- **Known gaps**: BlackRock's and some other managers' notices are scanned
+  images (only their 605s are read); AustralianSuper, UniSuper, CFS, MLC,
+  CareSuper and CSC publish their holdings disclosures behind pages this job
+  cannot fetch; a super fund's disclosure is one option, not the whole fund;
+  there is no public register of hedge funds, so the map's hedge funds are
+  curated and their stakes come from notices.
 
 ## Conventions for new jobs
 

@@ -88,6 +88,40 @@ func (a *AnnouncementTextFetcher) Text(ctx context.Context, url string, maxPages
 	return a.f.downloadPDFText(ctx, url, maxPages)
 }
 
+// PDF returns the announcement's PDF bytes: displayAnnouncement.do
+// resolution, ASX headers, the size bound and the %PDF- check, with no text
+// extraction. For a caller that reads the document its own way.
+func (a *AnnouncementTextFetcher) PDF(ctx context.Context, url string) ([]byte, error) {
+	return a.f.downloadPDF(ctx, url)
+}
+
+// downloadPDF is downloadPDFText's fetch half.
+func (f *fetcher) downloadPDF(ctx context.Context, url string) ([]byte, error) {
+	pdfURL := url
+	if strings.Contains(url, "displayAnnouncement.do") {
+		pdfURL = f.resolveASXPDFURL(ctx, url)
+		if pdfURL == "" {
+			return nil, fmt.Errorf("could not resolve PDF URL")
+		}
+	}
+	resp, err := f.get(ctx, pdfURL, downloadTimeout)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxPDFBytes))
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.HasPrefix(body, pdfMagic) {
+		return nil, fmt.Errorf("not a PDF response")
+	}
+	return body, nil
+}
+
 // get issues a GET with the ASX browser headers and a per-request deadline.
 func (f *fetcher) get(ctx context.Context, url string, timeout time.Duration) (*http.Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
