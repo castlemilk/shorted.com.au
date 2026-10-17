@@ -1,0 +1,289 @@
+604 Page 1   06-Oct-2026
+Form 604
+Corporations Act 2001
+Section 671B
+Notice of change of interests of substantial holder
+To | Company Name/Scheme | FLIGHT CENTRE TRAVEL GROUP LIMITED
+ACN/ARSN | 003 377 188
+1. Details of substantial holder (1)
+Name | State Street Corporation and subsidiaries named in paragraph 6 to this form
+ACN/ARSN (if applicable)
+There was a change in the interests of the | 02/10/2026
+substantial holder on
+The previous notice was given to the company on | 16/09/2026
+The previous notice was dated | 14/09/2026
+2. Previous and present voting power
+The total number of votes attached to all the voting shares in the company or voting interests in the scheme that the substantial holder or
+an associate (2) had a relevant interest (3) in when last required, and when now required, to give a substantial holding notice to the
+company or scheme, are as follows:
+Class of securities (4) | Previous notice | Present notice
+Person’s votes | Voting power (5) | Person’s votes | Voting power (5)
+Ordinary | 14,186,547 | 6.93% | 16,201,065 | 7.97%
+3. Changes in relevant interests
+Particulars of each change in, or change in the nature of, a relevant interest of the substantial holder or an associate in voting securities of
+the company or scheme, since the substantial holder was last required to give a substantial holding notice to the company or scheme are
+as follows:
+Person whose | Class and number
+Date of | Consideration given in | Person's votes
+relevant interest | Nature of change (6) | of securities
+change | relation to change (7) | affected
+changed | affected
+Annexure A, B & C
+4.Present relevant interests
+Particulars of each relevant interest of the substantial holder in voting securities after the change are as follows:
+Holder of | Person entitled
+Registered holder | Nature of relevant | Class and number
+relevant | to be registered | Person's votes
+of securities | interest (6) | of securities
+interest | as holder (8)
+Power to control the exercise of a right to
+STATE STREET GLOBAL
+State Street Bank | vote attached to securities and/or the power to
+ADVISORS EUROPE | n/a | 38,878 | Ordinary | 38,878
+and Trust Co | dispose of securities as investment manager or
+LIMITED
+trustee
+Power to control the exercise of a right to
+STATE STREET GLOBAL
+vote attached to securities and/or the power to
+ADVISORS EUROPE | Citibank NA | n/a | 15,198 | Ordinary | 15,198
+dispose of securities as investment manager or
+LIMITED
+trustee
+Power to control the exercise of a right to
+STATE STREET GLOBAL
+Northern Trust | vote attached to securities and/or the power to
+ADVISORS EUROPE | n/a | 64,103 | Ordinary | 64,103
+Company | dispose of securities as investment manager or
+LIMITED
+trustee
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+THE REGENTS OF | THE REGENTS OF THE
+For personal use only | STATE STREET BANK AND | subject to an obligation to return under a
+THE UNIVERSITY OF | UNIVERSITY OF | 200,636 | Ordinary | 200,636
+TRUST COMPANY | securities lending agreement.State Street Bank
+CALIFORNIA | CALIFORNIA
+and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+STATE OF ALASKA - | STATE OF ALASKA -
+STATE STREET BANK AND | subject to an obligation to return under a
+ALASKA RETIREMENT | ALASKA RETIREMENT | 17,202 | Ordinary | 17,202
+TRUST COMPANY | securities lending agreement.State Street Bank
+MANAGEMENT BOARD | MANAGEMENT BOARD
+and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+AWARE SUPER PTY | AWARE SUPER PTY
+STATE STREET BANK AND | subject to an obligation to return under a
+LTD AS TRUSTEE OF | LTD AS TRUSTEE OF | 1,240,488 | Ordinary | 1,240,488
+TRUST COMPANY | securities lending agreement.State Street Bank
+THE AWARE SUPER | THE AWARE SUPER
+and Trust Company has lent the securities and
+retains a relevant interest
+For collateral securities:Relevant interest
+STATE STREET BANK AND | THE BARCLAYS | under section 608(8A) being the right, as
+THE BARCLAYS GROUP | 326,785 | Ordinary | 326,785
+TRUST COMPANY | GROUP | lender, to dispose of shares transferred to
+secure a securities loan
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+STATE STREET BANK AND | MANAGED PENSION | MANAGED PENSION | subject to an obligation to return under a
+8,986 | Ordinary | 8,986
+TRUST COMPANY | FUNDS LIMITED | FUNDS LIMITED | securities lending agreement.State Street Bank
+and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+STATE STREET BANK AND | subject to an obligation to return under a
+TIAA - CREF | TIAA - CREF | 109,243 | Ordinary | 109,243
+TRUST COMPANY | securities lending agreement.State Street Bank
+and Trust Company has lent the securities and
+retains a relevant interest
+
+
+604 Page 2   06-Oct-2026
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+STATE STREET BANK AND | AQR CAPITAL | AQR CAPITAL | subject to an obligation to return under a
+31,731 | Ordinary | 31,731
+TRUST COMPANY | MANAGEMENT, LLC | MANAGEMENT, LLC | securities lending agreement.State Street Bank
+and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+POLICE AND | POLICE AND | section 608(8A) being the holder of securities
+STATE STREET BANK AND | FIREMENS | FIREMENS | subject to an obligation to return under a
+58,906 | Ordinary | 58,906
+TRUST COMPANY | RETIREMENT SYSTEM | RETIREMENT SYSTEM | securities lending agreement.State Street Bank
+OF NEW JERSEY | OF NEW JERSEY | and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+LOS ANGELES | LOS ANGELES COUNTY | section 608(8A) being the holder of securities
+STATE STREET BANK AND | COUNTY EMPLOYEES | EMPLOYEES | subject to an obligation to return under a
+18,928 | Ordinary | 18,928
+TRUST COMPANY | RETIREMENT | RETIREMENT | securities lending agreement.State Street Bank
+ASSOCIATION | ASSOCIATION | and Trust Company has lent the securities and
+retains a relevant interest
+For borrowed securities:Relevant interest under
+section 608(1) being the holder of securities
+STATE STREET BANK AND | STATE STREET BANK | subject to an obligation to return under a
+UNKNOWN | 38,336 | Ordinary | 38,336
+TRUST COMPANY | AND TRUST COMPANY | securities lending agreement.STATE STREET BANK
+AND TRUST COMPANY has on-lent the securities
+and retains a relevant interest
+For collateral securities:Relevant interest
+STATE STREET BANK AND | THE GOLDMAN SACHS | THE GOLDMAN SACHS | under section 608(8A) being the right, as
+1,391,712 | Ordinary | 1,391,712
+TRUST COMPANY | GROUP | GROUP | lender, to dispose of shares transferred to
+secure a securities loan
+For memo pledge securities:Relevant interest
+LAZARD ENHANCED
+STATE STREET BANK AND | STATE STREET BANK | under section 608(8) being the right, as
+OPPORTUNITIES | 140 | Ordinary | 140
+TRUST COMPANY | AND TRUST COMPANY | lender,  to dispose of shares pledged to secure
+PORTFOLIO
+a securities loan
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+STATE STREET BANK AND | SSGA SPDR ETFS | SSGA SPDR ETFS | subject to an obligation to return under a
+32,341 | Ordinary | 32,341
+TRUST COMPANY | EUROPE II PLC | EUROPE II PLC | securities lending agreement.State Street Bank
+and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+STATE STREET BANK AND | SOCIAL PROTECTION | SOCIAL PROTECTION | subject to an obligation to return under a
+5,099 | Ordinary | 5,099
+TRUST COMPANY | FUND | FUND | securities lending agreement.State Street Bank
+and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+STATE STREET BANK AND | subject to an obligation to return under a
+SSGA | SSGA | 366,578 | Ordinary | 366,578
+TRUST COMPANY | securities lending agreement.State Street Bank
+and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+STATE STREET BANK AND | SSUTM AUTHORISED | SSUTM AUTHORISED | subject to an obligation to return under a
+11,024 | Ordinary | 11,024
+TRUST COMPANY | UNIT TRUST SCHEME | UNIT TRUST SCHEME | securities lending agreement.State Street Bank
+and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+BRIGHTER SUPER | section 608(8A) being the holder of securities
+BRIGHTER SUPER
+STATE STREET BANK AND | TRUSTEE AS | subject to an obligation to return under a
+TRUSTEE AS TRUSTEE | 474,227 | Ordinary | 474,227
+TRUST COMPANY | TRUSTEE FOR | securities lending agreement.State Street Bank
+FOR BRIGHTER SUPER
+BRIGHTER SUPER | and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+STATE STREET | STATE STREET | section 608(8A) being the holder of securities
+STATE STREET BANK AND | GLOBAL ADVISORS | GLOBAL ADVISORS | subject to an obligation to return under a
+1,971 | Ordinary | 1,971
+TRUST COMPANY | FUNDS MANAGEMENT | FUNDS MANAGEMENT | securities lending agreement.State Street Bank
+LIMITED | LIMITED | and Trust Company has lent the securities and
+retains a relevant interest
+For collateral securities:Relevant interest
+STATE STREET BANK AND | under section 608(8A) being the right, as
+THE ING GROUP | THE ING GROUP | 35,219 | Ordinary | 35,219
+TRUST COMPANY | lender, to dispose of shares transferred to
+secure a securities loan
+For personal use only | For memo pledge securities:Relevant interest
+STATE STREET BANK AND | AQR Flex 1 Series | STATE STREET BANK | under section 608(8) being the right, as
+2 | Ordinary | 2
+TRUST COMPANY | LLC Series A10 | AND TRUST COMPANY | lender,  to dispose of shares pledged to secure
+a securities loan
+For memo pledge securities:Relevant interest
+Lazard Rathmore
+STATE STREET BANK AND | STATE STREET BANK | under section 608(8) being the right, as
+Plus Master Fund | 9,749 | Ordinary | 9,749
+TRUST COMPANY | AND TRUST COMPANY | lender,  to dispose of shares pledged to secure
+LP
+a securities loan
+For memo pledge securities:Relevant interest
+LAZARD CONVERTS
+STATE STREET BANK AND | STATE STREET BANK | under section 608(8) being the right, as
+ABSOLUTE RETURN | 3,807 | Ordinary | 3,807
+TRUST COMPANY | AND TRUST COMPANY | lender,  to dispose of shares pledged to secure
+LP
+a securities loan
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+TEAM | TEAM
+STATE STREET BANK AND | subject to an obligation to return under a
+SUPERANNUATION | SUPERANNUATION | 15,229 | Ordinary | 15,229
+TRUST COMPANY | securities lending agreement.State Street Bank
+FUND | FUND
+and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+MERCER GLOBAL
+MERCER GLOBAL | section 608(8A) being the holder of securities
+INVESTMENTS
+STATE STREET BANK AND | INVESTMENTS | subject to an obligation to return under a
+MANAGEMENT | 2,647 | Ordinary | 2,647
+TRUST COMPANY | MANAGEMENT LIMITED | securities lending agreement.State Street Bank
+LIMITED - MERCER
+- MERCER UCITS CCF | and Trust Company has lent the securities and
+UCITS CCF
+retains a relevant interest
+For memo pledge securities:Relevant interest
+AQR Flex
+STATE STREET BANK AND | STATE STREET BANK | under section 608(8) being the right, as
+Developed Global | 3,102 | Ordinary | 3,102
+TRUST COMPANY | AND TRUST COMPANY | lender,  to dispose of shares pledged to secure
+All Cap Fund, LLC
+a securities loan
+For memo pledge securities:Relevant interest
+STATE STREET BANK AND | Lazard Rathmore | STATE STREET BANK | under section 608(8) being the right, as
+1,296 | Ordinary | 1,296
+TRUST COMPANY | Converts LP | AND TRUST COMPANY | lender,  to dispose of shares pledged to secure
+a securities loan
+
+
+604 Page 3   06-Oct-2026
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+INTERNATIONAL | INTERNATIONAL
+STATE STREET BANK AND | subject to an obligation to return under a
+BUSINESS MACHINES | BUSINESS MACHINES | 4,959 | Ordinary | 4,959
+TRUST COMPANY | securities lending agreement.State Street Bank
+CORPORATION | CORPORATION
+and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+AMERICAN CENTURY | AMERICAN CENTURY
+STATE STREET BANK AND | subject to an obligation to return under a
+INVESTMENT | INVESTMENT | 55,758 | Ordinary | 55,758
+TRUST COMPANY | securities lending agreement.State Street Bank
+MANAGEMENT, INC. | MANAGEMENT, INC.
+and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+MERCER GLOBAL | MERCER GLOBAL
+section 608(8A) being the holder of securities
+INVESTMENTS | INVESTMENTS
+STATE STREET BANK AND | subject to an obligation to return under a
+MANAGEMENT | MANAGEMENT LIMITED | 39,422 | Ordinary | 39,422
+TRUST COMPANY | securities lending agreement.State Street Bank
+LIMITED - MERCER | - MERCER QIF FUND
+and Trust Company has lent the securities and
+QIF FUND PLC | PLC
+retains a relevant interest
+For Lent securities:Relevant interest under
+section 608(8A) being the holder of securities
+STATE STREET BANK AND | subject to an obligation to return under a
+SSGA FUNDS | SSGA FUNDS | 1,019 | Ordinary | 1,019
+TRUST COMPANY | securities lending agreement.State Street Bank
+and Trust Company has lent the securities and
+retains a relevant interest
+For Lent securities:Relevant interest under
+section 608(8A) being t

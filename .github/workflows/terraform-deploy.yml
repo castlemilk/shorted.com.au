@@ -733,6 +733,13 @@ jobs:
           # 000136 adds financial_report_extractions.extraction_attempts only
           # when the catalog lacks it, as 000132 does, so a replay takes no
           # lock on a table the API reads; it touches no rows.
+          # 000137 (ownership) creates new tables, two CREATE OR REPLACE VIEWs
+          # over them and one partial index on asx_announcements, all IF NOT
+          # EXISTS; it touches no rows, so a replay is a no-op. The index is
+          # built once, under lock_timeout = '15s': do not merge while the
+          # announcements job is writing (11:00 UTC). It is allowlisted rather
+          # than hand-applied because the API's ownership reads and the
+          # `shorted ownership` job both need the tables before the image swap.
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
@@ -756,7 +763,8 @@ jobs:
               -f /migrations/000130_add_price_features.up.sql \
               -f /migrations/000133_add_dividend_notices.up.sql \
               -f /migrations/000134_dividend_notice_parser_version.up.sql \
-              -f /migrations/000136_extraction_attempts.up.sql
+              -f /migrations/000136_extraction_attempts.up.sql \
+              -f /migrations/000137_add_ownership.up.sql
 
             # 000131 widens stock_prices' price columns to NUMERIC(12,4). Unlike
             # everything above, its first run does real work: it rewrites the
