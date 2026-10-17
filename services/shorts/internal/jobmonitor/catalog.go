@@ -87,6 +87,11 @@ var catalog = map[string]catalogEntry{
 		// MCP server's run_picks_job.
 		Note: "`shorted picks` — refresh_strategy_views() weekdays + daily fundamentals pull; Run now = refresh, other modes via the admin MCP run_picks_job",
 	},
+	"shorted-ownership": {
+		DisplayName: "Ownership Map",
+		Category:    "Filings & reports",
+		Note:        "`shorted ownership -mode all` — substantial holder notices, ETF and super fund holdings, APRA/ASX fund registers",
+	},
 	"shorted-weekly-report": {
 		DisplayName: "Weekly & Monthly Reports",
 		Category:    "Reports",
