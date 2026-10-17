@@ -21,9 +21,10 @@ credentials remain in the host connection.
 claude.ai → Settings → Connectors → **Add custom connector** →
 `https://api.shorted.com.au/mcp/admin`. Claude discovers the OAuth server,
 sends you to the Shorted consent screen, you sign in with your normal account
-and approve **jobs:read**, **news:publish** and **jobs:run**.
-For a monitoring-only client, request only `jobs:read`. The connector then appears in
-every Claude session (including Claude Code on the web) with nine tools:
+and approve **jobs:read**, **news:publish**, **jobs:run** and **users:read**.
+For a monitoring-only client, request only `jobs:read`; leave out `users:read`
+unless the client needs personal data. The connector then appears in
+every Claude session (including Claude Code on the web) with fourteen tools:
 
 | Tool | Scope | What it does |
 |---|---|---|
@@ -36,6 +37,11 @@ every Claude session (including Claude Code on the web) with nine tools:
 | `news_publish_status` `{execution_name}` | `news:publish` | `running` / `succeeded` / `failed`, log link, failure reason |
 | `run_picks_job` `{mode, force?}` | `jobs:run` | Starts `shorted picks -mode <mode>` (`fundamentals` \| `filings` \| `refresh` \| `all`); returns `execution_name`, the argv and the next step of the coverage runbook |
 | `picks_job_status` `{execution_name}` | `jobs:run` | `running` / `succeeded` / `failed`, log link, failure reason (exit 10 in the message = DEGRADED, a partial pull) |
+| `people_overview` `{}` | `users:read` | Counts: signed-up accounts (total, verified, new in 7/30 days, signed in within 30 days, by provider), paying subscriptions (active or trialing, by tier and status, cancelling, new in 30 days) and the mailing list (subscribed, unsubscribed, joined and left recently). A source that cannot be read is omitted and named in `warnings`. |
+| `list_users` `{query?, sort?, limit?, offset?}` | `users:read` | Signed-up accounts, newest first (or `sort: "last_sign_in"`): uid, email, verified, providers, dates, plan and mailing list membership. `query` is an email substring. Follow `nextOffset`. |
+| `list_paying_users` `{status?, limit?, offset?}` | `users:read` | Subscriptions from the Stripe webhook mirror: uid, email, tier, status, period end, cancelling. `status` defaults to `paying` (active or trialing); also `past_due`, `canceled`, `all`, ... |
+| `list_mailing_list` `{status?, query?, limit?, offset?}` | `users:read` | Mailing list addresses with join and unsubscribe dates; `status` defaults to `subscribed`. |
+| `lookup_person` `{email}` | `users:read` | One email across all three: account, subscription and mailing list entry. |
 
 Only merged articles can be published — the job image bakes `content/news` in
 at build time, and the tool takes a slug, never a body. Likewise the picks tool
@@ -65,6 +71,29 @@ the public server.** A research client — one that needs short positions,
 strategy picks, fundamentals, housing, economy or the register of interests —
 must also connect the public URL, `https://api.shorted.com.au/mcp`, as its own
 connector.
+
+## Users, paying users and the mailing list (`users:read`)
+
+Personal data, so it has its own scope: `jobs:read` never reaches it, and
+`users:read` reaches nothing else. Where each answer comes from:
+
+- **Signed-up accounts** are Firebase Auth users. The API cannot list them (the
+  same IAM limit as the admin check, below), so the web app answers at
+  `POST /api/internal/admin-users` behind `INTERNAL_SERVICE_SECRET`
+  (`ADMIN_USERS_URL` overrides; by default it sits beside `ADMIN_CHECK_URL`).
+  Firebase lists only in uid order, so each call scans every account (up to
+  20,000) and reports `truncated` beyond that.
+- **Paying users** are `api_subscriptions`, the table the Stripe webhook keeps.
+  It is what the webhook last recorded, not a live Stripe read, and carries no
+  revenue figures.
+- **The mailing list** is the `subscriptions` table (prod columns: `id`,
+  `email`, `created_at`, `unsubscribed_at`).
+
+The tools return the fewest fields that say who and in what state: email, user
+id, dates, plan and status. No display names, photos, phone numbers, Stripe ids
+or unsubscribe ids. Every call is logged as `admin personal-data read:
+tool=<name> actor=oauth:<uid>` (the arguments are not logged; they can be an
+email). Reconnect the connector after deploying to approve `users:read`.
 
 ## Job visibility and freshness
 
@@ -136,7 +165,7 @@ the Vercel origin, because Cloudflare challenges non-browser POSTs to the apex).
 
 - **Separate OAuth resource.** Tokens are audience-bound to exactly one
   resource: a `/mcp` token is refused on `/mcp/admin` and vice versa.
-- **Separate scope vocabulary.** `news:publish`, `jobs:run` and `jobs:read` are not in
+- **Separate scope vocabulary.** `news:publish`, `jobs:run`, `jobs:read` and `users:read` are not in
   `mcp.Scopes`; an empty scope request on `/mcp` still gets only the `:read`
   scopes, and an absent `resource` still defaults to `/mcp` — nothing ever
   defaults to the admin resource (`oauth/resources.go`). Admin scopes name

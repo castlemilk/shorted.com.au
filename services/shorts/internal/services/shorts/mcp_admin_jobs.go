@@ -19,6 +19,10 @@ import (
 type adminMCPSource struct {
 	*jobmonitor.Collector
 	server *ShortsServer
+	// people and users back the users:read tools (mcp_admin_people.go). Either
+	// may be nil; the tools then name the source as unavailable.
+	people shortsstore.PeopleStore
+	users  firebaseUsersReader
 }
 
 var _ mcp.AdminOperator = (*adminMCPSource)(nil)
