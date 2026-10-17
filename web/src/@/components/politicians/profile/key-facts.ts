@@ -27,6 +27,7 @@
  */
 
 import type { KeyFact } from "@/components/politicians/explorer/key-facts";
+import { industryLabel } from "@/lib/industry-placeholder";
 
 export interface ProfileItemCount {
   itemNo: number;
@@ -155,8 +156,10 @@ export function buildProfileKeyFacts(input: ProfileKeyFactsInput): KeyFact[] {
     });
   }
 
+  // Funds and trusts the ASX has not classified share "Not Applic", which is
+  // not an industry anyone declares.
   const industry = [...input.industryCounts]
-    .filter((entry) => entry.companyCount > 0)
+    .filter((entry) => entry.companyCount > 0 && industryLabel(entry.industry))
     .sort((a, b) => b.companyCount - a.companyCount || a.industry.localeCompare(b.industry))[0];
   if (industry) {
     facts.push({

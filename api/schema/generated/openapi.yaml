@@ -8599,6 +8599,10 @@ components:
           type: boolean
           title: in_universe
           description: (proto bool)
+        priceFeatures:
+          title: price_features
+          description: Set only when in_universe is true. (proto shorts.v1alpha1.PriceFeatures)
+          $ref: '#/components/schemas/shorts.v1alpha1.PriceFeatures'
       title: GetStockStrategyFitResponse
       additionalProperties: false
       description: Response for GetStockStrategyFit.
@@ -11821,6 +11825,154 @@ components:
           description: (proto string)
       title: PoliticianTerm
       additionalProperties: false
+    shorts.v1alpha1.PriceFeatures:
+      type: object
+      properties:
+        asOf:
+          type: string
+          title: as_of
+          description: YYYY-MM-DD of the last close. (proto string)
+        close:
+          type: number
+          title: close
+          format: double
+          description: (proto double)
+        sma50:
+          type: number
+          title: sma50
+          format: double
+          description: (proto double)
+        hasSma50:
+          type: boolean
+          title: has_sma50
+          description: (proto bool)
+        sma150:
+          type: number
+          title: sma150
+          format: double
+          description: (proto double)
+        hasSma150:
+          type: boolean
+          title: has_sma150
+          description: (proto bool)
+        sma200:
+          type: number
+          title: sma200
+          format: double
+          description: (proto double)
+        hasSma200:
+          type: boolean
+          title: has_sma200
+          description: (proto bool)
+        sma200PriorMonth:
+          type: number
+          title: sma200_prior_month
+          format: double
+          description: (proto double)
+        hasSma200PriorMonth:
+          type: boolean
+          title: has_sma200_prior_month
+          description: (proto bool)
+        high52w:
+          type: number
+          title: high52w
+          format: double
+          description: (proto double)
+        hasHigh52w:
+          type: boolean
+          title: has_high52w
+          description: (proto bool)
+        low52w:
+          type: number
+          title: low52w
+          format: double
+          description: (proto double)
+        hasLow52w:
+          type: boolean
+          title: has_low52w
+          description: (proto bool)
+        baseHigh:
+          type: number
+          title: base_high
+          format: double
+          description: 'The pivot: the breakout and invalidation level. (proto double)'
+        hasBaseHigh:
+          type: boolean
+          title: has_base_high
+          description: (proto bool)
+        baseLow:
+          type: number
+          title: base_low
+          format: double
+          description: (proto double)
+        hasBaseLow:
+          type: boolean
+          title: has_base_low
+          description: (proto bool)
+        baseDepthPct:
+          type: number
+          title: base_depth_pct
+          format: double
+          description: (proto double)
+        hasBaseDepthPct:
+          type: boolean
+          title: has_base_depth_pct
+          description: (proto bool)
+        baseLengthDays:
+          type: integer
+          title: base_length_days
+          format: int32
+          description: (proto int32)
+        hasBaseLengthDays:
+          type: boolean
+          title: has_base_length_days
+          description: (proto bool)
+        breakoutRecent:
+          type: boolean
+          title: breakout_recent
+          description: (proto bool)
+        breakoutDate:
+          type: string
+          title: breakout_date
+          description: YYYY-MM-DD; empty when there was no breakout. (proto string)
+        rs3mPct:
+          type: number
+          title: rs3m_pct
+          format: double
+          description: (proto double)
+        hasRs3mPct:
+          type: boolean
+          title: has_rs3m_pct
+          description: (proto bool)
+        rs6mPct:
+          type: number
+          title: rs6m_pct
+          format: double
+          description: (proto double)
+        hasRs6mPct:
+          type: boolean
+          title: has_rs6m_pct
+          description: (proto bool)
+        volumeRatio50d:
+          type: number
+          title: volume_ratio50d
+          format: double
+          description: (proto double)
+        hasVolumeRatio50d:
+          type: boolean
+          title: has_volume_ratio50d
+          description: (proto bool)
+        sessionsAvailable:
+          type: integer
+          title: sessions_available
+          format: int32
+          description: (proto int32)
+      title: PriceFeatures
+      additionalProperties: false
+      description: |-
+        The price features the evaluator read for one stock (mv_price_features),
+         so a chart can draw the levels the rules tested. Every nullable number
+         travels with a has_ flag; read the value only when its flag is true.
     shorts.v1alpha1.PropertyListingSnapshot:
       type: object
       properties:

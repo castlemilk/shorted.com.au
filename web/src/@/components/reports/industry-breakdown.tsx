@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
 import { type ReportIndustryStat } from "~/app/actions/reports/getReportData";
 
@@ -44,7 +45,9 @@ export function IndustryBreakdown({
   changeLabel = "WoW",
   className,
 }: IndustryBreakdownProps) {
-  const rows = (industries ?? []).filter((i) => i.industry);
+  // The generator groups by the raw field, so the ASX's "Class Pend" and "Not
+  // Applic" arrive as rows of their own. Neither is an industry.
+  const rows = (industries ?? []).filter((i) => industryLabel(i.industry));
   if (rows.length === 0) return null;
 
   const sorted = [...rows].sort((a, b) => b.avgShortPct - a.avgShortPct);

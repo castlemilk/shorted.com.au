@@ -1,3 +1,5 @@
+import { isTestingBypassOrigin } from "./testing-bypass-scope.mjs";
+
 const bypassSecretEnvNames = [
   "CLOUDFLARE_TESTING_BYPASS_SECRET",
   "SHORTED_CLOUDFLARE_TESTING_BYPASS_SECRET",
@@ -36,6 +38,11 @@ export function cloudflareTestingBypassHeaders(
   }
 
   return headers;
+}
+
+/** The trusted-test header for `url` when it is one of our own origins, else none. */
+export function cloudflareTestingBypassHeadersFor(url: string): Record<string, string> {
+  return isTestingBypassOrigin(url) ? cloudflareTestingBypassHeaders() : {};
 }
 
 export function withCloudflareTestingUserAgent(userAgent?: string): string {

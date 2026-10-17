@@ -32,9 +32,11 @@ import {
 import { loadPoliticianTable } from "~/app/actions/politicianTable";
 import { bailOnEmptyRender } from "~/app/actions/config";
 import { pageTitle, sectionTitle, eyebrow } from "@/lib/typography";
+import { industryLabel } from "@/lib/industry-placeholder";
 import { partyLabel } from "@/lib/politics/party-palette";
 import { REGISTER_ITEMS } from "@/lib/politics/register-items";
 import { SENATE_REGISTER_GAP_CORPUS } from "@/lib/politics/register-coverage";
+import { registerHeatmapProps } from "@/lib/politics/register-heatmap-data";
 import { registerItemIcon } from "@/lib/politics/register-item-icons";
 import {
   PoliticsIcon,
@@ -357,7 +359,11 @@ export default async function PoliticiansPage() {
   const extracted = explorer?.extractedParliaments ?? [];
   const partial = explorer?.partialParliaments ?? [];
   const pending = explorer?.pendingParliaments ?? [];
-  const industryTrends = explorer?.industryTrends ?? [];
+  // Funds and trusts the ASX has not classified share "Not Applic" or "Class
+  // Pend"; neither is an industry that moves.
+  const industryTrends = (explorer?.industryTrends ?? []).filter((t) =>
+    industryLabel(t.industry),
+  );
   const maxIndustryCount = Math.max(
     1,
     ...industryTrends.map((t) => t.currentCount),
@@ -1036,24 +1042,7 @@ export default async function PoliticiansPage() {
                 than that party&rsquo;s declarations.
               </p>
             </FinePrint>
-            <RegisterHeatmap
-              cells={(analytics?.cells ?? []).map((c) => ({
-                partyAb: c.partyAb,
-                industry: c.industry,
-                people: c.people,
-                companies: c.companies,
-              }))}
-              industries={(analytics?.industries ?? []).map((i) => ({
-                industry: i.industry,
-                people: i.people,
-                companies: i.companies,
-              }))}
-              parties={(analytics?.parties ?? []).map((p) => ({
-                partyAb: p.partyAb,
-                people: p.people,
-              }))}
-              industriesOmitted={analytics?.industriesOmitted ?? 0}
-            />
+            <RegisterHeatmap {...registerHeatmapProps(analytics)} />
           </section>
 
           <section className="space-y-3">

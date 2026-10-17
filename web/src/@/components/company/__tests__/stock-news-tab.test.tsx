@@ -7,10 +7,11 @@ import { createClient } from "@connectrpc/connect";
 import { GetRelatedNewsResponseSchema, GetStockNewsResponseSchema, NewsArticleSchema } from "~/gen/shorts/v1alpha1/news_pb";
 import { StockNewsTab } from "../stock-news-tab";
 
+// next/link with the prefetch prop surfaced as data-prefetch so a test can read it.
 jest.mock("next/link", () => ({
   __esModule: true,
-  default: ({ children, href, ...props }: any) => (
-    <a href={href} {...props}>
+  default: ({ children, href, prefetch, ...props }: any) => (
+    <a href={href} data-prefetch={String(prefetch)} {...props}>
       {children}
     </a>
   ),
@@ -224,6 +225,21 @@ describe("StockNewsTab", () => {
       "href",
       "/shorts/BHP/news",
     );
+  });
+
+  // The News tab is an ISR route (600 s) that generates on a cold cache. This
+  // card sits on other pages (take pages, the related-news rail), so a default
+  // Link would viewport-prefetch it from each of them: a standing exception to
+  // "intent-only prefetch". The link goes through the tab registry too.
+  it("links View all to the News tab through the tab registry, with prefetch off", async () => {
+    mockGetStockNews.mockResolvedValue(feedResponse([article()]));
+
+    renderWithQueryClient(<StockNewsTab stockCode="BHP" />);
+
+    await screen.findByText("BHP shorts climb as iron ore slides");
+    const link = screen.getByRole("link", { name: /view all/i });
+    expect(link).toHaveAttribute("href", "/shorts/BHP/news");
+    expect(link).toHaveAttribute("data-prefetch", "false");
   });
 
   it("dedupes related coverage against the feed by id and url", async () => {

@@ -41,6 +41,31 @@ function renderHeatmap(omitted = 0) {
 }
 
 describe("register heatmap", () => {
+  it("gives an ASX placeholder no row, in the heatmap or the table", () => {
+    // /politicians on production (2026-10-14) had a "Not Applic" row: members
+    // declaring funds and trusts the ASX has not classified.
+    render(
+      <RegisterHeatmap
+        cells={[
+          ...CELLS,
+          { partyAb: "ALP", industry: "Not Applic", people: 30, companies: 4 },
+          { partyAb: "LP", industry: "Class Pend", people: 1, companies: 1 },
+        ]}
+        industries={[
+          ...INDUSTRIES,
+          { industry: "Not Applic", people: 30, companies: 4 },
+          { industry: "Class Pend", people: 1, companies: 1 },
+        ]}
+        parties={PARTIES}
+        industriesOmitted={0}
+      />,
+    );
+    expect(document.body.textContent).not.toMatch(/not applic|class pend/i);
+    expect(screen.getByLabelText("Labor, Banks: 17 members")).toHaveTextContent("17");
+    fireEvent.click(screen.getByRole("button", { name: "Show as table" }));
+    expect(document.body.textContent).not.toMatch(/not applic|class pend/i);
+  });
+
   it("renders a member count in every populated cell, not only on hover", () => {
     // This is the relief the contrast check obligates for the pale steps: the
     // chart has to be readable printed, in forced-colors, and by a reader who

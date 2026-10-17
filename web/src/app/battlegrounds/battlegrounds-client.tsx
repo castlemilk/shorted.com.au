@@ -20,6 +20,7 @@ import { Badge } from "~/@/components/ui/badge";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { cn } from "~/@/lib/utils";
 import { normalizedLogoUrl } from "~/@/lib/logo";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import {
   toBattlegroundRows,
   toScoreboardData,
@@ -221,7 +222,7 @@ function ScoreboardTable({ rows }: { rows: ScoreboardRow[] }) {
                 </Link>
               </TableCell>
               <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                {row.industry || "—"}
+                {industryLabel(row.industry) || "—"}
               </TableCell>
               <TableCell className="text-right font-mono tabular-nums text-sm">
                 {row.peakDate}
@@ -402,7 +403,7 @@ export function BattlegroundsClient({
                     </Link>
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                    {row.industry || "—"}
+                    {industryLabel(row.industry) || "—"}
                   </TableCell>
                   <TableCell className="text-right font-mono tabular-nums">
                     {formatPercent(row.shortPct)}

@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/@/components/ui/select";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
 import debounce from "lodash/debounce";
 import { searchStocksClient } from "~/app/actions/searchStocks";
@@ -113,7 +114,7 @@ export function MarketWatchlistWidget({
             productCode: stock.productCode,
             name: stock.name,
             percentageShorted: stock.percentageShorted,
-            industry: stock.industry,
+            industry: industryLabel(stock.industry),
           }))
         );
       } else {

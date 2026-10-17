@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import { Badge } from "~/@/components/ui/badge";
+import { isPlaceholderIndustrySlug } from "~/@/lib/industry-placeholder";
 import { cn } from "~/@/lib/utils";
 
 export interface RelatedStock {
@@ -25,21 +26,6 @@ interface RelatedStocksProps {
   description?: string;
   className?: string;
 }
-
-/**
- * ASX feeds classify some securities as "Not Applic" / "Class Pend" / "Other".
- * Those are placeholders, not sectors: /industry/not-applic rendered a 200
- * shell that Google crawled from stock pages, then canonicalised to a spam
- * domain (Search Console, 2026-09). The industry pages already map them to
- * nothing, so the link must never be emitted in the first place.
- */
-export const PLACEHOLDER_INDUSTRY_SLUGS: ReadonlySet<string> = new Set([
-  "not-applic",
-  "not-applicable",
-  "class-pend",
-  "other",
-  "",
-]);
 
 /**
  * Component to display related stocks by industry for internal linking.
@@ -95,7 +81,9 @@ export function RelatedStocks({
           ))}
         </div>
 
-        {stocks.length > 5 && industrySlug && !PLACEHOLDER_INDUSTRY_SLUGS.has(industrySlug) && (
+        {/* Never to a placeholder's page: /industry/not-applic was a 200 shell
+            Google crawled from here (lib/industry-placeholder.ts). */}
+        {stocks.length > 5 && !isPlaceholderIndustrySlug(industrySlug) && (
           <Link
             href={`/industry/${industrySlug}`}
             className="mt-4 text-sm text-primary hover:underline flex items-center gap-1"

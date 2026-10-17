@@ -62,10 +62,21 @@ func entityTokens(name string) map[string]bool {
 //	"Fortescue Ltd" / "FORTESCUE METALS GROUP LTD"          match
 //	"Winsome Resources Limited" / "Lifestyle Communities"   no match
 //	"Star Entertainment" / "Northern Star Resources"        no match (1 of 2)
+//
+// The same name always matches, however generic its words ("ENERGY
+// TECHNOLOGIES LIMITED" / "Energy Technologies") or however it is spaced
+// ("Echo IQ Limited" / "Echoiq"): both read as mismatches on prod
+// (2026-10-11) and withheld those companies' own results.
+//
+//	"Energy Technologies Limited" / "Energy Technologies"   match (same name)
+//	"Echo IQ Limited" / "Echoiq"                            match (same name)
 func EntityMatches(entity, companyName string) bool {
 	a, b := entityTokens(entity), entityTokens(companyName)
 	if len(a) == 0 || len(b) == 0 {
 		return false
+	}
+	if entityKey(entity) == entityKey(companyName) || sameTokens(a, b) {
+		return true
 	}
 	shared, distinctive := 0, false
 	for t := range a {
@@ -81,4 +92,28 @@ func EntityMatches(entity, companyName string) bool {
 		smaller = len(b)
 	}
 	return distinctive && shared*2 > smaller
+}
+
+// entityKey is a name's identifying tokens, in order, run together: the same
+// for "Echo IQ Limited" and "Echoiq".
+func entityKey(name string) string {
+	var b strings.Builder
+	for _, t := range entityTokenSplit.Split(strings.ReplaceAll(Normalise(name), "'", ""), -1) {
+		if t != "" && !entityStopTokens[t] {
+			b.WriteString(t)
+		}
+	}
+	return b.String()
+}
+
+func sameTokens(a, b map[string]bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for t := range a {
+		if !b[t] {
+			return false
+		}
+	}
+	return true
 }

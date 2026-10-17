@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 
 /**
  * Production Smoke Tests
@@ -411,15 +411,15 @@ test.describe("SEO & Meta Tags", () => {
     expect(description!.toUpperCase()).toContain("BHP");
   });
 
-  test("robots.txt is accessible", async ({ page }) => {
-    const response = await page.request.get("/robots.txt", { timeout: 10_000 });
+  test("robots.txt is accessible", async ({ request }) => {
+    const response = await request.get("/robots.txt", { timeout: 10_000 });
     expect(response.status()).toBe(200);
     const text = await response.text();
     expect(text).toContain("User-agent");
   });
 
-  test("sitemap.xml is accessible", async ({ page }) => {
-    const response = await page.request.get("/sitemap.xml", {
+  test("sitemap.xml is accessible", async ({ request }) => {
+    const response = await request.get("/sitemap.xml", {
       timeout: 15_000,
     });
     expect(response.status()).toBe(200);
@@ -427,9 +427,9 @@ test.describe("SEO & Meta Tags", () => {
     expect(text).toContain("urlset");
   });
 
-  test("LLM files are accessible", async ({ page }) => {
+  test("LLM files are accessible", async ({ request }) => {
     // llms.txt — for AI crawlers
-    const llms = await page.request.get("/llms.txt", { timeout: 10_000 });
+    const llms = await request.get("/llms.txt", { timeout: 10_000 });
     expect(llms.status()).toBe(200);
     const llmsText = await llms.text();
     expect(llmsText.length).toBeGreaterThan(50);
@@ -440,8 +440,8 @@ test.describe("SEO & Meta Tags", () => {
 // 10. API Health
 // ---------------------------------------------------------------------------
 test.describe("API Health", () => {
-  test("health endpoint responds", async ({ page }) => {
-    const response = await page.request.get("/api/health", { timeout: 10_000 });
+  test("health endpoint responds", async ({ request }) => {
+    const response = await request.get("/api/health", { timeout: 10_000 });
     expect(response.status()).toBeLessThan(500);
   });
 
@@ -462,8 +462,8 @@ test.describe("API Health", () => {
     expect(hasSearch || true).toBeTruthy(); // Search may be behind auth
   });
 
-  test("RSS feed is accessible", async ({ page }) => {
-    const response = await page.request.get("/feed.xml", { timeout: 15_000 });
+  test("RSS feed is accessible", async ({ request }) => {
+    const response = await request.get("/feed.xml", { timeout: 15_000 });
     expect(response.status()).toBe(200);
     const text = await response.text();
     expect(text).toMatch(/<rss|<feed/);

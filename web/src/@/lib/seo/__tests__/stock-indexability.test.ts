@@ -19,6 +19,16 @@ describe("isStockIndexable", () => {
     expect(isStockIndexable({ code: "ABC", name: "SOME CO", percentShorted: STOCK_INDEX_MIN_SHORT_PCT })).toBe(true);
   });
 
+  // The site never prints the ASX's placeholder (industryLabel), but here it
+  // counts: AFI, a listed investment company worth $8.4B, carried "Not Applic"
+  // at 0.008% shorted (15 Oct 2026), so dropping it would noindex AFI, ARG and
+  // the other LICs.
+  it("indexes a company whose industry is an ASX placeholder (AFI, a listed investment company)", () => {
+    for (const industry of ["Not Applic", "Not Applicable", "Class Pend"]) {
+      expect(isStockIndexable({ code: "AFI", name: "AUSTRALIAN FOUNDATION INVESTMENT COMPANY LIMITED", industry, percentShorted: 0.008 })).toBe(true);
+    }
+  });
+
   it("noindexes thin stubs: no industry AND short % below the floor (JREG/WEMG)", () => {
     expect(isStockIndexable({ code: "JREG", name: "JADE GAS HOLDINGS", industry: "", percentShorted: 0.083 })).toBe(false);
     expect(isStockIndexable({ code: "WEMG", name: "WEB TRAVEL GROUP", industry: null, percentShorted: 0.004 })).toBe(false);

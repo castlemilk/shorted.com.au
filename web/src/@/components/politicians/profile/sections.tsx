@@ -15,6 +15,7 @@
  */
 
 import { SourceDocLink, registerDocLabel } from "@/components/politicians/compliance";
+import { industryLabel } from "@/lib/industry-placeholder";
 import { AMBER_STEPS } from "@/lib/politics/analytics-palette";
 import { partyLabel } from "@/lib/politics/party-palette";
 import { sectionTitle } from "@/lib/typography";
@@ -142,7 +143,8 @@ export function ServiceHistory({ terms }: { terms: ProfileTerm[] }) {
  * quantity, so a longer bar means "more different companies named", nothing else.
  */
 export function IndustryBars({ industries }: { industries: ProfileIndustryBar[] }) {
-  const rows = industries.filter((row) => row.companyCount > 0);
+  // A fund or trust the ASX has not classified ("Not Applic") is in no industry.
+  const rows = industries.filter((row) => row.companyCount > 0 && industryLabel(row.industry));
   if (rows.length === 0) return null;
   const max = Math.max(...rows.map((row) => row.companyCount), 1);
   return (

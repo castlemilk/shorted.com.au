@@ -16,6 +16,11 @@ import {
 
 /** Below this the chart is unreadable; the iframe scrolls instead. */
 const MIN_CHART_HEIGHT = 160;
+/**
+ * From this chart height the reading is the strip above the plot; below it the
+ * floating tooltip, which costs the plot no height (spec D5).
+ */
+const STRIP_MIN_CHART_HEIGHT = 260;
 
 const asOfFmt = new Intl.DateTimeFormat("en-AU", {
   day: "numeric",
@@ -87,6 +92,7 @@ export function StockChartEmbed({
     view === "short" ? "short" : view === "price" ? "price" : "price or short";
 
   const chartHeight = Math.max(MIN_CHART_HEIGHT, chartBox.height);
+  const readout = chartHeight >= STRIP_MIN_CHART_HEIGHT ? "strip" : "tooltip";
 
   return (
     <div className="flex h-full min-h-[280px] flex-col gap-2 p-2 sm:p-3">
@@ -124,7 +130,9 @@ export function StockChartEmbed({
         </div>
       </div>
 
-      {view === "combined" && (
+      {/* The strip carries each series' dot and label, so this row is only for the
+          tooltip, which has neither. */}
+      {view === "combined" && readout === "tooltip" && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <LegendSwatch color={seriesColor("price")} label="Share price ($, left)" />
           <LegendSwatch color={seriesColor("short")} label="Short interest (%, right)" />
@@ -147,6 +155,11 @@ export function StockChartEmbed({
               rightAxis={rightAxis}
               height={chartHeight}
               showBrush={false}
+              readout={readout}
+              // The price and the short series load separately, and in a narrow
+              // frame each is a row of the strip: hold the second's row from the
+              // first render so the plot does not move 18px when it lands.
+              readoutReserveSeries={view === "combined" ? 2 : undefined}
             />
           )
         ) : anyLoading ? (

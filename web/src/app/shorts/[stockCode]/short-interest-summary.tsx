@@ -125,6 +125,13 @@ interface ShortInterestSummaryProps {
   /** "as of 12 Aug 2026" or "in the latest ASIC report" — never a raw date. */
   asOfClause: string;
   deltas: ShortInterestDeltas;
+  /**
+   * `"card"` (the default) is the bordered card with its own bottom margin.
+   * `"bare"` is the same text with no border, background, padding or margin,
+   * for a parent that already is the card (the Overview's About card) and
+   * spaces its own children.
+   */
+  variant?: "card" | "bare";
 }
 
 export function ShortInterestSummary({
@@ -135,6 +142,7 @@ export function ShortInterestSummary({
   shortPositions,
   asOfClause,
   deltas,
+  variant = "card",
 }: ShortInterestSummaryProps) {
   const { change7d, change30d, change90d, peakPct, peakDate } = deltas;
 
@@ -190,7 +198,9 @@ export function ShortInterestSummary({
   return (
     <section
       aria-label={`${stockCode} short interest summary`}
-      className="mb-6 rounded-lg border bg-card px-4 py-3"
+      className={
+        variant === "bare" ? undefined : "mb-6 rounded-lg border bg-card px-4 py-3"
+      }
     >
       <p className="max-w-prose text-sm leading-relaxed text-muted-foreground">
         <span className="text-foreground">{lead}</span>

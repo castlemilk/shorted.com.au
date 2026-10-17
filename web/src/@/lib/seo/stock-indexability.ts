@@ -51,7 +51,11 @@ export interface StockIndexabilityInput {
   code: string;
   /** Company / product name. */
   name?: string | null;
-  /** Industry classification (presence implies an enriched, real company). */
+  /**
+   * Industry classification (presence implies an enriched, real company). The
+   * stored value, never industryLabel's: the ASX's "Not Applic" counts, since a
+   * listed investment company such as AFI has nothing else.
+   */
   industry?: string | null;
   /** Latest reported short interest as a percent of issued capital. */
   percentShorted?: number | null;

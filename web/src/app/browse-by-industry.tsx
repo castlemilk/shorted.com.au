@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getIndustryData } from "~/app/actions/industry/getIndustryData";
+import { industryLabel } from "~/@/lib/industry-placeholder";
 import { getSectorImagePath } from "~/@/lib/sector-images";
 
 /**
@@ -17,12 +18,10 @@ export async function BrowseByIndustry() {
 
   if (!industries || industries.length === 0) return null;
 
-  // Filter out invalid ASIC classifications that may leak through
-  const HIDDEN_INDUSTRIES = new Set(["Class Pend", "Not Applic", "Not Applicable", "Other"]);
-
-  // Sort by average short % descending, excluding invalid labels
+  // Sort by average short % descending, leaving out the placeholders the ASX
+  // writes for unclassified securities and the "Other" bucket they fill.
   const sorted = [...industries]
-    .filter((i) => !HIDDEN_INDUSTRIES.has(i.name))
+    .filter((i) => industryLabel(i.name))
     .sort((a, b) => (b.avgShortPercent ?? 0) - (a.avgShortPercent ?? 0));
 
   return (

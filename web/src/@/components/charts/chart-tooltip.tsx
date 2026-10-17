@@ -6,22 +6,31 @@ import React, {
   useState,
 } from "react";
 import { localPoint } from "@visx/event";
-import { bisector } from "@visx/vendor/d3-array";
+import { formatReadoutDate } from "./chart-readout";
 import { chartTheme } from "./chart-theme";
+import { nearest } from "./nearest";
 import type { ChartPoint, ChartSeriesSpec, AxisSpec } from "./types";
 import type { ChartScales } from "./use-chart-scales";
 
-const tBisector = bisector<ChartPoint, number>((d) => d.t);
-
-/** Nearest data point to time `t` (binary search; points must be sorted by t). */
-export function nearest(points: ChartPoint[], t: number): ChartPoint | null {
-  if (!points.length) return null;
-  const i = tBisector.left(points, t, 1);
-  const a = points[i - 1];
-  const b = points[i];
-  if (!a) return b ?? null;
-  if (!b) return a;
-  return t - a.t < b.t - t ? a : b;
+/**
+ * The index a keyboard step lands on, or null for a key that does not step.
+ * ArrowLeft and ArrowRight move one point from the one nearest `fromT` (the time
+ * of the reading on screen: a pin, or else the point under the pointer; the last
+ * point while there is neither) and stop at the ends; Home and End jump to them.
+ */
+export function stepIndex(
+  points: ChartPoint[],
+  key: string,
+  fromT: number | null,
+): number | null {
+  const last = points.length - 1;
+  if (last < 0) return null;
+  if (key === "Home") return 0;
+  if (key === "End") return last;
+  if (key !== "ArrowLeft" && key !== "ArrowRight") return null;
+  const near = fromT === null ? null : nearest(points, fromT);
+  const here = near ? points.indexOf(near) : last;
+  return Math.min(last, Math.max(0, here + (key === "ArrowRight" ? 1 : -1)));
 }
 
 export interface HoverEntry {
@@ -31,10 +40,12 @@ export interface HoverEntry {
 export interface HoverState {
   cx: number; // crosshair x (px, inner-plot coordinates)
   cy: number; // cursor y (px, relative to the svg/container) — tooltip follows it
-  t: number; // hovered time
+  // The time under the pointer, not the time of a point: a reading is dated by
+  // `entries[0].point.t`, and this is only where the keyboard steps from.
+  t: number;
   entries: HoverEntry[];
-  /** Input that produced this hover. Touch hovers dock the tooltip in a corner. */
-  source?: "mouse" | "touch";
+  /** Input that produced this hover. Touch and keyboard readings dock the tooltip in a corner. */
+  source?: "mouse" | "touch" | "keyboard";
 }
 
 /** A re-tap within this many px of the pinned crosshair releases the pin. */
@@ -96,21 +107,30 @@ export function useChartPointer(opts: {
     setPinState((p) => (p && p.key !== key ? null : p));
   }, [key]);
 
-  /** Hover reading at an inner-plot x (px). Null when no series has a point. */
-  const hoverAt = useCallback(
-    (innerX: number, cy: number, source: "mouse" | "touch" = "mouse") => {
-      const t = xScale.invert(innerX).getTime();
+  /** The nearest point of every series that has one, in series order. */
+  const entriesAt = useCallback(
+    (t: number): HoverEntry[] => {
       const entries: HoverEntry[] = [];
       for (const s of series) {
         const p = nearest(s.points, t);
         if (p) entries.push({ series: s, point: p });
       }
+      return entries;
+    },
+    [series],
+  );
+
+  /** Hover reading at an inner-plot x (px). Null when no series has a point. */
+  const hoverAt = useCallback(
+    (innerX: number, cy: number, source: "mouse" | "touch" = "mouse") => {
+      const t = xScale.invert(innerX).getTime();
+      const entries = entriesAt(t);
       if (!entries.length) return null;
       const cx = xScale(new Date(entries[0]!.point.t)) ?? innerX;
       const h: HoverState = { cx, cy, t, entries, source };
       return h;
     },
-    [xScale, series],
+    [xScale, entriesAt],
   );
 
   const onMove = useCallback(
@@ -129,6 +149,16 @@ export function useChartPointer(opts: {
   );
 
   const onLeave = useCallback(() => setHover(null), [setHover]);
+
+  /**
+   * Show the hover reading at an inner-plot x (px), as a pointer there would,
+   * for when the pointer is already there and no move event will say so: the
+   * release of a click, which cleared the hover when it was pressed.
+   */
+  const hoverAtX = useCallback(
+    (innerX: number, cy: number) => setHover(hoverAt(innerX, cy, "mouse")),
+    [hoverAt, setHover],
+  );
 
   // The pin as rendered NOW: crosshair x re-derived from the live scale so a
   // resize keeps it on its data point. Stale-key pins never render (the effect
@@ -152,6 +182,22 @@ export function useChartPointer(opts: {
   );
 
   const unpin = useCallback(() => setPinState(null), []);
+
+  /**
+   * Pin the reading nearest time `t`, for stepping through points from the
+   * keyboard. There is no pointer, so the reading has no y of its own. No-op
+   * when no series has a point.
+   */
+  const pinAtTime = useCallback(
+    (t: number) => {
+      const entries = entriesAt(t);
+      const first = entries[0];
+      if (!first) return;
+      const cx = xScale(new Date(first.point.t)) ?? 0;
+      setPinState({ h: { cx, cy: 0, t, entries, source: "keyboard" }, key });
+    },
+    [entriesAt, xScale, key],
+  );
 
   /**
    * Toggle a pin at an inner-plot x (or a ready hover reading): within
@@ -180,8 +226,10 @@ export function useChartPointer(opts: {
     isPinnedView: !hover && !!pinned,
     onMove,
     onLeave,
+    hoverAtX,
     pin,
     unpin,
+    pinAtTime,
     togglePinAt,
   };
 }
@@ -196,15 +244,15 @@ export function TooltipContent({
   leftAxis?: AxisSpec;
   rightAxis?: AxisSpec;
 }) {
-  const dateLabel = useMemo(
-    () =>
-      new Date(hover.t).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }),
-    [hover.t],
-  );
+  // The same formatter as the strip and the measure card (spec D5, Dates), so
+  // one chart prints one date one way, whoever's browser it is in. And the same
+  // date: the reading is dated by the point it shows, as the strip's headline
+  // and the pin's announcement are (buildPointReadout), never by where the
+  // cursor happens to be. `hover.t` is the cursor's time, and between two
+  // sessions that is a weekend the ASX did not trade, or the day before the
+  // price on the card. It is only the date of a reading with no point at all.
+  const dateT = hover.entries[0]?.point.t ?? hover.t;
+  const dateLabel = useMemo(() => formatReadoutDate(dateT), [dateT]);
   const fmt = (e: HoverEntry) => {
     const f =
       e.series.axis === "right" ? rightAxis?.format : leftAxis?.format;

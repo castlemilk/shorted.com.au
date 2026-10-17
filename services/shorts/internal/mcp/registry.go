@@ -7,12 +7,14 @@ import (
 // Tool is one registered MCP tool. RPC is the fully-qualified Connect method
 // it calls and is NOT decoration: TestToolsOnlyCallPublicMethods uses it to
 // prove the tool cannot reach a method that requires auth. A tool with an
-// empty RPC fails that test by design.
+// empty RPC fails that test by design. AlsoCalls lists other RPCs this tool
+// may call; every entry must also be VISIBILITY_PUBLIC.
 type Tool struct {
 	Name        string
 	Title       string
 	Description string
 	RPC         string
+	AlsoCalls   []string
 	Domain      string
 	register    func(*sdk.Server, DataSource)
 }
@@ -55,6 +57,7 @@ func Registry() []Tool {
 		getDirectorTradesTool(),
 		getPeerComparisonTool(),
 		getStockFundamentalsTool(),
+		getStockBriefingTool(),
 
 		// Discovery — finding stocks by name, by criteria, or by a named
 		// strategy's rules. See tools_strategies.go.

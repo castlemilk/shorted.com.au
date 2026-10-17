@@ -1543,7 +1543,8 @@ module "report_extractor" {
   # ~1,260 notices the July-September outage misrecorded, let alone the
   # ~24,000 rows still "Unknown Director" or valueless.
   director_limit = 200
-  # Financial reports: 120 a day, daily 14:00 UTC (was 40, Wed + Sun), per
+  # Financial reports: 360 a day, daily 14:00 UTC (120 from late September, 40
+  # twice weekly before that), per
   # docs/plans/fundamentals-coverage.md 6.2. This run is the ONLY path to
   # half-year totals for the stock picker: Yahoo carries no ASX half-years, and
   # `shorted picks -mode filings` reads the revenue / NPAT / EPS this job
@@ -1557,13 +1558,17 @@ module "report_extractor" {
   # sets GEMINI_MAX_RUN_ITEMS, the container's own hard cap, so the two move
   # together; the module default (10) is unchanged, and the module pins 4
   # workers, a 90-minute submit budget and a 7200 s timeout with no retries.
-  # Cost: by the previous run's estimate (40 reports x 6 pages ~ 1M input
-  # tokens) this is roughly 4M input tokens a day with no thinking tokens; each
-  # run now logs its real totals ("Gemini tokens this run: ..."), so check that
-  # line and the billing export rather than this estimate.
-  # First run's measured wall time: not yet recorded. Fill it in from the first
-  # daily run's "DONE in N min" log line.
-  reports_limit    = 120
+  # First run's measured wall time at 120: 108 min (2026-10-08), 54 (10-09) and
+  # 7 (10-10). The 90-minute submit budget, not the limit, ends a slow day.
+  # Raised to 360 on 2026-10-11. A read-only preview of the selection on prod
+  # found 917 companies with an unparsed results document, 258 of them filed
+  # in the last 45 days, so at 120 a run Commonwealth Bank's full year (filed
+  # 12 Aug) ranked 260th and still waited three more nights. Measured cost (the
+  # "Gemini tokens this run" lines of the 2026-10-08 to 10-10 runs): ~1.45M
+  # prompt and ~0.12M completion tokens for 120 documents, ~12,100 prompt
+  # tokens a document across the three models, so 360 a day is ~4.4M prompt
+  # tokens. Check the billing export after the first week.
+  reports_limit    = 360
   reports_schedule = "0 14 * * *"
   # CronJobs director-trade-extractor / financial-report-extractor on VKE.
   director_scheduler_paused = contains(local.jobs_on_vke, "director-trade-extractor")

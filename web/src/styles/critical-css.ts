@@ -42,19 +42,15 @@ body {
   50% { opacity: 0.5; }
 }
 
-/* CLS guard for the client-gated login banner (stock pages):
+/* CLS guard for the client-gated login banner (the stock Overview only):
    layout.tsx's pre-paint script adds html.anon when no session cookie is
    present; reserving the banner's rendered height here means the
    post-hydration insert fills space instead of pushing content down.
-   Heights measured per breakpoint (mobile wraps to two lines). Dismissing
-   the banner removes .anon (user-input shifts are CLS-exempt). */
+   The banner is one line at every width (login-prompt-banner.tsx), so one
+   height serves every breakpoint: the 44px banner plus the 2px border of the
+   wrapper the page draws round it. Change one and change the other.
+   Dismissing the banner removes .anon (user-input shifts are CLS-exempt). */
 .login-slot { min-height: 0; }
-html.anon .login-slot { min-height: 127px; margin-bottom: 1rem; }
-@media (min-width: 640px) {
-  html.anon .login-slot { min-height: 67px; }
-}
-@media (min-width: 1024px) {
-  html.anon .login-slot { min-height: 63px; }
-}
+html.anon .login-slot { min-height: 46px; margin-bottom: 1rem; }
 `.trim();
 

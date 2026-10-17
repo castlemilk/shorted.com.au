@@ -82,6 +82,17 @@ describe("grouping (company, holder) rows", () => {
 });
 
 describe("declared by no other member", () => {
+  it("prints no industry for a company the ASX has not classified", () => {
+    render(
+      <DistinctiveHoldings
+        holdings={[holding("AFI", 1, { companyName: "Australian Foundation", industry: "Not Applic" })]}
+      />,
+    );
+    const section = screen.getByRole("region", { name: "Declared by no other member" });
+    expect(within(section).getByText("Australian Foundation")).toBeInTheDocument();
+    expect(section.textContent).not.toMatch(/not applic/i);
+  });
+
   it("lists each sole-declared company once, linked to its stock page", () => {
     render(
       <DistinctiveHoldings

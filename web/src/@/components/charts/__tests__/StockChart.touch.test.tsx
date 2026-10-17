@@ -1,6 +1,9 @@
-import { act, fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render, within } from "@testing-library/react";
 import { StockChartInner } from "../StockChart";
-import type { ChartSeriesSpec } from "../types";
+import { axisMargin } from "../axis-margin";
+import * as chartLevels from "../chart-levels";
+import * as chartReadout from "../chart-readout";
+import type { ChartSeriesSpec, StockChartProps } from "../types";
 
 // localPoint needs real SVG geometry (getScreenCTM); jsdom has none. Resolve a
 // touch/mouse event's client coords as the chart-local point.
@@ -19,12 +22,14 @@ jest.mock("@visx/event", () => ({
 }));
 
 const DAY = 86_400_000;
+/** U+2212, DESIGN.md's minus. Written as an escape: it looks like a hyphen. */
+const MINUS = "\u2212";
 const T0 = Date.UTC(2026, 0, 1);
 const WIDTH = 400;
 const HEIGHT = 300;
 // StockChart margins with a right axis, full variant.
-const M = { top: 8, left: 44, right: 44 };
-const INNER_W = WIDTH - M.left - M.right; // 312 -> 10 points, ~34.7px apart
+const M = { top: 8, left: 48, right: 48 };
+const INNER_W = WIDTH - M.left - M.right; // 304 -> 10 points, ~33.8px apart
 
 const mk = (id: string, label: string, axis: "left" | "right", base: number): ChartSeriesSpec => ({
   id,
@@ -36,23 +41,66 @@ const mk = (id: string, label: string, axis: "left" | "right", base: number): Ch
 });
 const SERIES = [mk("price", "Price", "left", 40), mk("short", "Short %", "right", 2)];
 
-/** Client x (== chart-local x in the mocked localPoint) of point index i. */
-const xOf = (i: number) => M.left + (INNER_W * i) / 9;
-const dateLabel = (i: number) =>
-  new Date(T0 + i * DAY).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+/** Client x (== chart-local x in the mocked localPoint) of point index i, at a chart `width` wide. */
+const xAt = (width: number, i: number) =>
+  M.left + ((width - M.left - M.right) * i) / 9;
+const xOf = (i: number) => xAt(WIDTH, i);
 
-function renderChart(series = SERIES) {
+type Mode = "strip" | "tooltip";
+const MODES: readonly Mode[] = ["strip", "tooltip"];
+
+// Every home of a reading prints a date the same way: en-AU on the Sydney
+// calendar. That is the strip, the hover card and the measure card. It is not
+// taken from the code under test.
+const sydneyDate = new Intl.DateTimeFormat("en-AU", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "Australia/Sydney",
+});
+const stripDate = (i: number) => sydneyDate.format(T0 + i * DAY);
+
+// The same series with every point on Sydney midnight (13:00 UTC in January,
+// UTC+11). A pointer anywhere short of such a point, up to half a session, is on
+// the day BEFORE it, which is what tells a reading dated by its point from one
+// dated by the instant under the pointer. SERIES' points sit at 11:00 Sydney, so
+// there the two dates part company only in the last hour before midnight.
+const SYDNEY_MIDNIGHT = 13 * 3_600_000;
+const NIGHT_SERIES: ChartSeriesSpec[] = SERIES.map((s) => ({
+  ...s,
+  points: s.points.map((p) => ({ ...p, t: p.t + SYDNEY_MIDNIGHT })),
+}));
+const nightDate = (i: number) => sydneyDate.format(T0 + SYDNEY_MIDNIGHT + i * DAY);
+
+function renderChart(
+  series = SERIES,
+  readout: Mode = "strip",
+  props: Partial<StockChartProps> = {},
+) {
   const utils = render(
-    <StockChartInner width={WIDTH} height={HEIGHT} series={series} />,
+    <StockChartInner
+      width={WIDTH}
+      height={HEIGHT}
+      series={series}
+      readout={readout}
+      {...props}
+    />,
   );
   const plot = utils.container.querySelector("[data-chart-capture]") as SVGRectElement;
   expect(plot).toBeTruthy();
-  const tip = () => utils.container.querySelector<HTMLElement>("[data-chart-tooltip]");
-  return { ...utils, plot, tip };
+  /**
+   * The hovered or pinned reading on screen, else null: the floating card in
+   * tooltip mode; in strip mode the strip once it has left the resting reading.
+   */
+  const reading = () => {
+    if (readout === "tooltip") {
+      return utils.container.querySelector<HTMLElement>("[data-chart-tooltip]");
+    }
+    const strip = utils.container.querySelector<HTMLElement>("[data-chart-readout]");
+    const state = strip?.getAttribute("data-readout-state");
+    return state === "hover" || state === "pinned" ? strip : null;
+  };
+  return { ...utils, plot, reading };
 }
 
 const pt = (x: number, y = 120) => ({ clientX: x, clientY: y });
@@ -93,177 +141,2011 @@ afterEach(() => {
   delete window.matchMedia;
 });
 
-describe("StockChart touch: scrub, lift to pin, re-tap to release", () => {
+// Pin, release, re-tap, a press outside and a mouse hover work the same whether
+// the reading is the strip above the plot or the card that follows the cursor.
+describe.each(MODES)("StockChart touch (%s): scrub, lift to pin, re-tap to release", (mode) => {
   it("keeps the reading visible after the finger lifts", () => {
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, mode);
     fireEvent.touchStart(plot, { touches: [pt(xOf(1))], changedTouches: [pt(xOf(1))] });
     // A tap shows the reading immediately, before any movement.
-    expect(tip()).not.toBeNull();
+    expect(reading()).not.toBeNull();
     // Scrub to point 3, then lift.
     fireEvent.touchMove(plot, { touches: [pt(xOf(3))], changedTouches: [pt(xOf(3))] });
     fireEvent.touchEnd(plot, { touches: [], changedTouches: [pt(xOf(3))] });
 
-    const el = tip();
+    const el = reading();
     expect(el).not.toBeNull();
-    expect(el!.textContent).toContain(dateLabel(3));
+    expect(el!.textContent).toContain(stripDate(3));
     expect(el!.textContent).toContain("Price");
     expect(el!.textContent).toContain("Short %");
     expect(el!.hasAttribute("data-pinned")).toBe(true);
-    expect(el!.getAttribute("role")).toBe("status");
-    expect(el!.style.pointerEvents).toBe("auto");
   });
 
   it("a second tap on the pinned point releases it", () => {
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, mode);
     tap(plot, xOf(4));
-    expect(tip()).not.toBeNull();
+    expect(reading()).not.toBeNull();
     now += 2000;
     tap(plot, xOf(4));
-    expect(tip()).toBeNull();
+    expect(reading()).toBeNull();
   });
 
   it("a tap elsewhere moves the pin instead of releasing it", () => {
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, mode);
     tap(plot, xOf(2));
     now += 2000;
     tap(plot, xOf(7));
-    expect(tip()).not.toBeNull();
-    expect(tip()!.textContent).toContain(dateLabel(7));
+    expect(reading()).not.toBeNull();
+    expect(reading()!.textContent).toContain(stripDate(7));
   });
 
   it("the release button unpins", () => {
-    const { plot, tip, getByRole } = renderChart();
+    const { plot, reading, getByRole } = renderChart(SERIES, mode);
     tap(plot, xOf(5));
     fireEvent.click(getByRole("button", { name: /release pinned reading/i }));
-    expect(tip()).toBeNull();
+    expect(reading()).toBeNull();
   });
 
   it("a press outside the chart releases the pin", () => {
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, mode);
     tap(plot, xOf(5));
-    expect(tip()).not.toBeNull();
+    expect(reading()).not.toBeNull();
     act(() => {
       fireEvent.mouseDown(document.body);
     });
-    expect(tip()).toBeNull();
+    expect(reading()).toBeNull();
 
     tap(plot, xOf(6));
-    expect(tip()).not.toBeNull();
+    expect(reading()).not.toBeNull();
     act(() => {
       fireEvent.touchStart(document.body, { touches: [pt(5, 5)] });
     });
-    expect(tip()).toBeNull();
+    expect(reading()).toBeNull();
   });
 
   it("changing the series drops the pin", () => {
-    const { plot, tip, rerender } = renderChart();
+    const { plot, reading, rerender } = renderChart(SERIES, mode);
     tap(plot, xOf(5));
-    expect(tip()).not.toBeNull();
+    expect(reading()).not.toBeNull();
     rerender(
       <StockChartInner
         width={WIDTH}
         height={HEIGHT}
         series={[mk("price-1y", "Price", "left", 40), SERIES[1]!]}
+        readout={mode}
       />,
     );
-    expect(tip()).toBeNull();
+    expect(reading()).toBeNull();
   });
 
   it("touchcancel drops the live reading but keeps an existing pin", () => {
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, mode);
     tap(plot, xOf(2));
     now += 2000;
     fireEvent.touchStart(plot, { touches: [pt(xOf(8))], changedTouches: [pt(xOf(8))] });
-    expect(tip()!.textContent).toContain(dateLabel(8));
+    expect(reading()!.textContent).toContain(stripDate(8));
     fireEvent.touchCancel(plot, { touches: [], changedTouches: [] });
-    expect(tip()!.textContent).toContain(dateLabel(2));
+    expect(reading()!.textContent).toContain(stripDate(2));
   });
 
   it("ignores the browser's synthetic mouse replay of a tap", () => {
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, mode);
     tap(plot, xOf(5));
     // Replayed mousemove/mousedown arrive within ms of touchend.
     now += 50;
     fireEvent.mouseMove(plot, pt(xOf(5)));
     fireEvent.mouseDown(plot, { ...pt(xOf(5)), button: 0 });
     fireEvent.mouseUp(window);
-    const el = tip();
+    const el = reading();
     expect(el).not.toBeNull();
     expect(el!.hasAttribute("data-pinned")).toBe(true);
   });
 });
 
-describe("StockChart mouse: unchanged desktop hover", () => {
+describe.each(MODES)("StockChart mouse (%s): unchanged desktop hover", (mode) => {
   it("shows on move, hides on leave, never pins", () => {
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, mode);
     fireEvent.mouseMove(plot, pt(xOf(3), 50));
-    const el = tip();
+    const el = reading();
     expect(el).not.toBeNull();
-    expect(el!.textContent).toContain(dateLabel(3));
+    expect(el!.textContent).toContain(stripDate(3));
     expect(el!.hasAttribute("data-pinned")).toBe(false);
-    expect(el!.style.pointerEvents).toBe("none");
     fireEvent.mouseLeave(plot);
-    expect(tip()).toBeNull();
+    expect(reading()).toBeNull();
+  });
+
+  it("dates a hover en-AU on the Sydney calendar, never in the browser's locale", () => {
+    // This environment's own locale is en-AU, so stub the API that follows the
+    // browser's: the hover card used to print its date through it.
+    const browserLocale = jest
+      .spyOn(Date.prototype, "toLocaleDateString")
+      .mockReturnValue("BROWSER-LOCALE-DATE");
+    try {
+      const { plot, reading } = renderChart(SERIES, mode);
+      fireEvent.mouseMove(plot, pt(xOf(3), 50));
+      expect(reading()!.textContent).toContain(stripDate(3));
+      expect(reading()!.textContent).not.toContain("BROWSER-LOCALE-DATE");
+    } finally {
+      browserLocale.mockRestore();
+    }
   });
 
   it("a live mouse hover overrides a pin, and the pin returns on leave", () => {
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, mode);
     tap(plot, xOf(2));
     now += 2000;
     fireEvent.mouseMove(plot, pt(xOf(7), 50));
-    expect(tip()!.textContent).toContain(dateLabel(7));
+    expect(reading()!.textContent).toContain(stripDate(7));
     fireEvent.mouseLeave(plot);
-    expect(tip()!.textContent).toContain(dateLabel(2));
+    expect(reading()!.textContent).toContain(stripDate(2));
   });
 
   it("starting a drag-measure releases a pin", () => {
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, mode);
     tap(plot, xOf(2));
     now += 2000;
     fireEvent.mouseDown(plot, { ...pt(xOf(4)), button: 0 });
     fireEvent.mouseUp(window);
     fireEvent.mouseLeave(plot);
-    expect(tip()).toBeNull();
+    expect(reading()).toBeNull();
   });
 
   it("double-click reset releases a pin", () => {
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, mode);
     tap(plot, xOf(2));
     now += 2000;
     fireEvent.doubleClick(plot, pt(xOf(4)));
-    expect(tip()).toBeNull();
+    expect(reading()).toBeNull();
   });
 });
 
+// A reading is dated by the data point it shows, in every home of it. The
+// pointer's instant is a weekend between a Friday and a Monday, or the day before
+// the session it is nearest to; the strip's headline, the floating card, the
+// measure's headline and the pin's announcement must all name the session.
+describe.each(MODES)("StockChart (%s): a reading is dated by its data point", (mode) => {
+  // 55% of the way from point 2 to point 3: nearest point 3, on the pointer's
+  // day plus one in Sydney (it is 02:12 UTC, 13:12 Sydney, on the day of point 2).
+  const BETWEEN = 2.55;
+
+  it("dates a hover between two sessions by the nearest one", () => {
+    const { plot, reading } = renderChart(NIGHT_SERIES, mode);
+    fireEvent.mouseMove(plot, pt(xOf(BETWEEN), 50));
+    const text = reading()!.textContent;
+    expect(text).toContain(nightDate(3));
+    expect(text).not.toContain(nightDate(2));
+  });
+
+  it("dates a touch pin between two sessions by the nearest one, on the card and in the announcement alike", () => {
+    const { plot, container, reading } = renderChart(NIGHT_SERIES, mode);
+    tap(plot, xOf(BETWEEN));
+    expect(reading()!.textContent).toContain(nightDate(3));
+    expect(reading()!.textContent).not.toContain(nightDate(2));
+    const said = container.querySelector("[data-chart-announcer]")!.textContent;
+    expect(said).toContain(`Pinned ${nightDate(3)}:`);
+    expect(said).not.toContain(nightDate(2));
+  });
+
+  it("names the sessions a drag-measure compared, not the instants it began and ended at", () => {
+    const { plot, container } = renderChart(NIGHT_SERIES, mode);
+    fireEvent.mouseDown(plot, { ...pt(xOf(BETWEEN)), button: 0 });
+    fireEvent.mouseMove(plot, pt(xOf(BETWEEN + 4)));
+    const readout = container.querySelector<HTMLElement>('[data-chart="measure-readout"]')!;
+    // Points 3 and 7, a rise from 43 to 47: the change is between those two.
+    expect(readout.textContent).toContain(`${nightDate(3)} \u2192 ${nightDate(7)}`);
+    expect(readout.textContent).toContain("Price+9.3%");
+    expect(readout.textContent).not.toContain(nightDate(2));
+    expect(readout.textContent).not.toContain(nightDate(6));
+  });
+});
+
+// The floating card's own behaviour: it is the tooltip mode's alone.
 describe("StockChart tooltip placement", () => {
   it("fine pointer: the tooltip follows the cursor (cy + 14)", () => {
     mockMatchMedia(false);
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, "tooltip");
     fireEvent.mouseMove(plot, pt(xOf(3), 50));
-    expect(tip()!.style.top).toBe(`${50 + 14}px`);
-    expect(tip()!.hasAttribute("data-docked")).toBe(false);
+    expect(reading()!.style.top).toBe(`${50 + 14}px`);
+    expect(reading()!.hasAttribute("data-docked")).toBe(false);
   });
 
   it("coarse pointer: the tooltip docks in the top corner away from the finger", () => {
     mockMatchMedia(true);
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, "tooltip");
     // Crosshair on the left half -> tooltip on the right.
     tap(plot, xOf(2), 200);
-    let el = tip()!;
+    let el = reading()!;
     expect(el.style.top).toBe(`${M.top + 4}px`);
     expect(el.style.left).toBe(`${WIDTH - 168 - 4}px`);
     // Crosshair on the right half -> tooltip on the left.
     now += 2000;
     tap(plot, xOf(8), 200);
-    el = tip()!;
+    el = reading()!;
     expect(el.style.top).toBe(`${M.top + 4}px`);
     expect(el.style.left).toBe(`${M.left + 4}px`);
   });
 
   it("touch on a fine-pointer device (touchscreen laptop) still docks", () => {
     mockMatchMedia(false);
-    const { plot, tip } = renderChart();
+    const { plot, reading } = renderChart(SERIES, "tooltip");
     tap(plot, xOf(2), 200);
-    expect(tip()!.style.top).toBe(`${M.top + 4}px`);
+    expect(reading()!.style.top).toBe(`${M.top + 4}px`);
+  });
+
+  it("a pinned card is a live region with a release button, and a hover never takes the pointer", () => {
+    const { plot, reading } = renderChart(SERIES, "tooltip");
+    fireEvent.mouseMove(plot, pt(xOf(3), 50));
+    expect(reading()!.style.pointerEvents).toBe("none");
+    fireEvent.mouseLeave(plot);
+
+    tap(plot, xOf(3));
+    const el = reading()!;
+    expect(el.getAttribute("role")).toBe("status");
+    expect(el.style.pointerEvents).toBe("auto");
+    expect(el.textContent).toContain("Pinned · tap chart to move, tap again to release");
+  });
+});
+
+// The room beside the plot is what the axis labels have to be drawn in, and the
+// svg clips whatever falls outside it. A label is 6px a character at 10px, and the
+// tick and gap before it take 10px.
+describe("StockChart margins", () => {
+  const innerW = (series: ChartSeriesSpec[], props: Partial<StockChartProps> = {}) => {
+    const r = renderChart(series, "strip", props);
+    const w = Number(r.plot.getAttribute("width"));
+    r.unmount();
+    return w;
+  };
+
+  it("leaves 48px for a right axis: room for 'xx.xx%', six characters, which 44px cut", () => {
+    expect(innerW(SERIES)).toBe(WIDTH - 48 - 48);
+  });
+
+  it("leaves 48px for the left axis, with or without a right one", () => {
+    // "$40.00" and "12.00%" are six characters: 36px and the 10px before them.
+    expect(innerW([SERIES[0]!])).toBe(WIDTH - 48 - 28);
+    expect(innerW(SERIES)).toBe(WIDTH - 48 - 48);
+  });
+
+  it("leaves 28px on the right when there is no right axis, for the time axis' last label", () => {
+    // That label is centred on its tick, and when the tick is the newest day half
+    // of it hangs past the plot: 21px for "October", 24 for "November", 27 for
+    // "September". At 12px the svg clipped it to "Octobe".
+    expect(innerW([SERIES[0]!])).toBe(WIDTH - 48 - 28);
+    // A chart that does have a right axis already has its 48px to spare.
+    expect(innerW(SERIES)).toBe(WIDTH - 48 - 48);
+  });
+
+  it("leaves a compact chart, which draws no right axis and little on the left, its narrow margins", () => {
+    expect(innerW(SERIES, { variant: "compact" })).toBe(WIDTH - 32 - 12);
+  });
+});
+
+// The margin is the room the axes' labels are drawn in, so it follows the widest
+// label an axis prints: a price of $100 or more is seven characters, one more
+// than the margin gave, and the svg cut its "$1" off (CBA, "$140.00", began 8px
+// outside it). The labels are worked out from the data and the axis' format, not
+// measured: the margin sets the width of the plot, which there is none to measure
+// in until it is set.
+describe("StockChart margins follow the axis labels", () => {
+  const priceFmt = (v: number) => `$${v.toFixed(2)}`;
+  const shortFmt = (v: number) => `${v.toFixed(2)}%`;
+  const signedPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
+  const LEFT = { side: "left", format: priceFmt } as const;
+  const RIGHT = { side: "right", format: shortFmt } as const;
+
+  /** `n` points from `lo` to `hi`, evenly spaced a day apart. */
+  const ramp = (axis: "left" | "right", lo: number, hi: number, n = 30): ChartSeriesSpec => ({
+    id: `${axis}-ramp`,
+    label: axis,
+    color: "#123456",
+    axis,
+    kind: "line",
+    points: Array.from({ length: n }, (_, i) => ({ t: T0 + i * DAY, v: lo + ((hi - lo) * i) / (n - 1) })),
+  });
+  const through = (axis: "left" | "right", values: number[]): ChartSeriesSpec => ({
+    ...ramp(axis, 0, 1, values.length),
+    points: values.map((v, i) => ({ t: T0 + i * DAY, v })),
+  });
+
+  /** The margins the chart was laid out with, and the labels its axes print, read off the svg. */
+  const drawn = (container: HTMLElement) => {
+    const group = container.querySelector("[data-chart-container] > svg > g")!;
+    const left = Number(/translate\(([\d.]+)/.exec(group.getAttribute("transform") ?? "")?.[1]);
+    const plot = Number(container.querySelector("[data-chart-capture]")!.getAttribute("width"));
+    const labels = (side: "left" | "right") =>
+      Array.from(container.querySelectorAll(`.visx-axis-${side} text`), (t) => t.textContent ?? "");
+    return { left, right: WIDTH - left - plot, plot, leftLabels: labels("left"), rightLabels: labels("right") };
+  };
+  const laidOut = (series: ChartSeriesSpec[], props: Partial<StockChartProps> = {}) => {
+    const view = renderChart(series, "strip", props);
+    const result = drawn(view.container);
+    view.unmount();
+    return result;
+  };
+  const widest = (labels: string[]) => Math.max(0, ...labels.map((l) => l.length));
+
+  it("gives a price series around $140 a left margin wide enough for '$140.00'", () => {
+    const m = laidOut([ramp("left", 150.25, 184.45)], { leftAxis: LEFT });
+    expect(m.leftLabels).toEqual(["$150.00", "$160.00", "$170.00", "$180.00", "$190.00"]);
+    // Seven characters: 43px by the estimate, and the tick and its gap, 10px.
+    expect(m.left).toBe(53);
+    // At the face's real advance (0.6em, 6px) the widest label is 42px, so its
+    // near edge, 10px from the plot, is inside the svg by a pixel.
+    expect(m.left - 10 - widest(m.leftLabels) * 6).toBeGreaterThanOrEqual(0);
+    // The plot gives up the extra room: 5px of it.
+    expect(m.plot).toBe(WIDTH - 53 - 28);
+  });
+
+  it("keeps 48px for a series under $100, whose labels are six characters at most", () => {
+    for (const [lo, hi] of [[40, 49], [90, 95], [2.1, 3.4], [0.2, 0.9]] as const) {
+      const m = laidOut([ramp("left", lo, hi)], { leftAxis: LEFT });
+      expect(widest(m.leftLabels)).toBeLessThanOrEqual(6);
+      expect(m.left).toBe(48);
+    }
+  });
+
+  it("widens for the label the padding pushes over $100, not only for the data", () => {
+    // The data tops out at $99.50. Padded by 8% it reaches $100.26, and the axis
+    // ticks at $100: seven characters are drawn for a stock under $100.
+    const m = laidOut([ramp("left", 90, 99.5)], { leftAxis: LEFT });
+    expect(m.leftLabels).toContain("$100.00");
+    expect(m.left).toBe(53);
+  });
+
+  it.each([
+    ["a $5 stock", [ramp("left", 4.2, 5.9)], { leftAxis: LEFT }],
+    ["a $1,400 stock", [ramp("left", 1380, 1450)], { leftAxis: LEFT }],
+    ["a negative range", [ramp("left", -240, 12)], { leftAxis: LEFT }],
+    ["no format at all (the scale's own)", [ramp("left", 12_000, 34_000)], {}],
+    ["both axes", [ramp("left", 150.25, 184.45), ramp("right", 10.5, 12.25)], { leftAxis: LEFT, rightAxis: RIGHT }],
+    ["both axes, both wide", [ramp("left", 1380, 1450), ramp("right", 100.5, 140.2)], { leftAxis: LEFT, rightAxis: RIGHT }],
+  ] as [string, ChartSeriesSpec[], Partial<StockChartProps>][])(
+    "is the room of the widest label drawn, and no more, for %s",
+    (_name, series, props) => {
+      const m = laidOut(series, props);
+      expect(m.left).toBe(axisMargin(m.leftLabels));
+      // Whatever it is, the widest label fits in it at the real advance.
+      expect(m.left - 10 - widest(m.leftLabels) * 6).toBeGreaterThanOrEqual(0);
+      if (m.rightLabels.length) {
+        expect(m.right).toBe(axisMargin(m.rightLabels));
+        expect(m.right - 10 - widest(m.rightLabels) * 6).toBeGreaterThanOrEqual(0);
+      }
+    },
+  );
+
+  it("does the same for the right axis when it has one", () => {
+    // A figure of 100% or more in two decimals: "100.00%", seven characters.
+    const wide = laidOut([ramp("left", 40, 49), ramp("right", 100.5, 140.2)], { leftAxis: LEFT, rightAxis: RIGHT });
+    expect(wide.rightLabels).toContain("100.00%");
+    expect(wide.right).toBe(53);
+    expect(wide.left).toBe(48);
+    // And the usual two-digit short interest keeps its 48.
+    const usual = laidOut([ramp("left", 40, 49), ramp("right", 12.25, 16.55)], { leftAxis: LEFT, rightAxis: RIGHT });
+    expect(widest(usual.rightLabels)).toBe(6);
+    expect(usual.right).toBe(48);
+  });
+
+  it("leaves 28px on the right of a chart with no right axis, whatever its left labels are", () => {
+    expect(laidOut([ramp("left", 150.25, 184.45)], { leftAxis: LEFT }).right).toBe(28);
+  });
+
+  it("leaves a compact chart its narrow margins, whatever its labels are", () => {
+    const m = laidOut([ramp("left", 150.25, 184.45)], { leftAxis: LEFT, variant: "compact" });
+    expect(m.left).toBe(32);
+    expect(m.right).toBe(12);
+  });
+
+  it("follows the normalised view: its labels are percentages of the first point", () => {
+    // $2 to $4 is +100%: "+100.0%" is seven characters, where the prices it came
+    // from ("+2.0%" to "+4.0%" through the same format) are five.
+    const props = { viewMode: "normalized", leftAxis: { side: "left", format: signedPct } } as const;
+    const m = laidOut([ramp("left", 2, 4)], props);
+    expect(m.leftLabels).toContain("+100.0%");
+    expect(m.left).toBe(53);
+    // A rise of 40% needs no more than six.
+    const smaller = laidOut([ramp("left", 2, 2.8)], props);
+    expect(widest(smaller.leftLabels)).toBe(6);
+    expect(smaller.left).toBe(48);
+  });
+
+  it("reads the same domain the drawn, decimated series has", () => {
+    // 4000 points in a 400px chart are cut to about 640. The series is noise
+    // between $40 and $90 but for one sample, $95.80, which alone pads the axis
+    // over $100 (to $100.26): seven characters drawn, where without it six. The
+    // largest-triangle pass would drop that sample (it does, at index 570, on its
+    // own); the extrema it is made to keep are what make the drawn domain the
+    // one the margin was sized from.
+    const noise = (i: number) => {
+      const x = Math.sin(i * 12.9898) * 43758.5453;
+      return x - Math.floor(x);
+    };
+    const values = Array.from({ length: 4000 }, (_, i) => 40 + 50 * noise(i));
+    values[570] = 95.8;
+    const view = renderChart([through("left", values)], "strip", { leftAxis: LEFT });
+    expect(Number(view.container.querySelector("svg")!.getAttribute("data-points"))).toBeLessThan(1000);
+    const m = drawn(view.container);
+    expect(m.leftLabels).toContain("$100.00");
+    expect(m.left).toBe(axisMargin(m.leftLabels));
+    expect(m.left).toBe(53);
+  });
+
+  // 20 days at $40 to $49, then 10 at $130 to $140: seven characters in all.
+  const priceOver100 = () =>
+    through("left", [
+      ...Array.from({ length: 20 }, (_, i) => 40 + i * 0.45),
+      ...Array.from({ length: 10 }, (_, i) => 130 + i * 1.1),
+    ]);
+  /** Drag across the plot from point `from` to point `to` of `n` (the drawn zoom's). */
+  const zoom = (view: ReturnType<typeof renderChart>, from: number, to: number, n: number) => {
+    const m = drawn(view.container);
+    const x = (i: number) => m.left + (m.plot * i) / (n - 1);
+    fireEvent.mouseDown(view.plot, { ...pt(x(from)), button: 0 });
+    fireEvent.mouseMove(view.plot, pt(x(to)));
+    fireEvent.mouseUp(window);
+    return drawn(view.container);
+  };
+
+  it("keeps its width through a zoom whose labels are narrower than the whole chart's", () => {
+    const view = renderChart([priceOver100()], "strip", { leftAxis: LEFT });
+    const whole = drawn(view.container);
+    expect(whole.left).toBe(53);
+    // From the first day to the nineteenth: $40 to $48.55 is all that is left,
+    // six characters a label. The plot does not move 5px left to take the room.
+    const zoomed = zoom(view, 0, 19, 30);
+    expect(zoomed.leftLabels.every((l) => l.length <= 6)).toBe(true);
+    expect(zoomed.left).toBe(53);
+    expect(zoomed.plot).toBe(whole.plot);
+  });
+
+  it("grows on a zoom whose labels are wider than the whole chart's", () => {
+    // The normalised view prints percentages of the first point ON SCREEN. A price
+    // that falls 100 to 20 and climbs back to 50 is -80% to 0 whole, but +150%
+    // from the low: "+100.0%" and "+150.0%", a character wider than any label
+    // of the whole.
+    const values = [
+      ...Array.from({ length: 21 }, (_, i) => 100 - 4 * i), // 100 down to 20
+      ...Array.from({ length: 19 }, (_, i) => 20 + (30 * (i + 1)) / 19), // up to 50
+    ];
+    const view = renderChart([through("left", values)], "strip", {
+      viewMode: "normalized",
+      leftAxis: { side: "left", format: signedPct },
+    });
+    const whole = drawn(view.container);
+    expect(widest(whole.leftLabels)).toBeLessThanOrEqual(6);
+    expect(whole.left).toBe(48);
+
+    const x = (m: { left: number; plot: number }, i: number) => m.left + (m.plot * i) / 39;
+    fireEvent.mouseDown(view.plot, { ...pt(x(whole, 20.4)), button: 0 });
+    fireEvent.mouseMove(view.plot, pt(x(whole, 39)));
+    fireEvent.mouseUp(window);
+    const zoomed = drawn(view.container);
+    expect(widest(zoomed.leftLabels)).toBeGreaterThanOrEqual(7);
+    expect(zoomed.left).toBe(axisMargin(zoomed.leftLabels));
+    expect(zoomed.left).toBeGreaterThan(48);
+  });
+
+  it("keeps the widest a zoom has needed, through narrower zooms and the release", () => {
+    // The normalised fall and climb above: -80% to 0 whole (48px), +150% from the low.
+    const values = [
+      ...Array.from({ length: 21 }, (_, i) => 100 - 4 * i),
+      ...Array.from({ length: 19 }, (_, i) => 20 + (30 * (i + 1)) / 19),
+    ];
+    const view = renderChart([through("left", values)], "strip", {
+      viewMode: "normalized",
+      leftAxis: { side: "left", format: signedPct },
+    });
+    expect(drawn(view.container).left).toBe(48);
+    const grown = zoom(view, 20.4, 39, 40);
+    expect(grown.left).toBeGreaterThan(48);
+    // Zoom again inside it, onto the last five sessions: a rise of a few percent,
+    // labels of six characters at most. Then release the zoom (double-click).
+    const narrower = zoom(view, 14, 18, 19);
+    expect(widest(narrower.leftLabels)).toBeLessThanOrEqual(6);
+    expect(narrower.left).toBe(grown.left);
+    fireEvent.doubleClick(view.plot);
+    const released = drawn(view.container);
+    expect(widest(released.leftLabels)).toBeLessThanOrEqual(6);
+    expect(released.left).toBe(grown.left);
+  });
+
+  it("starts over when the data or the view changes", () => {
+    const props = { width: WIDTH, height: HEIGHT, readout: "strip", leftAxis: LEFT } as const;
+    const view = renderChart([priceOver100()], "strip", { leftAxis: LEFT });
+    expect(zoom(view, 0, 19, 30).left).toBe(53);
+    // A new series (another period, another stock) under $100: its own 48px.
+    view.rerender(<StockChartInner {...props} series={[ramp("left", 40, 49)]} />);
+    expect(drawn(view.container).left).toBe(48);
+    // And a new view of it: "+20.0%" and the like, six characters.
+    view.rerender(
+      <StockChartInner
+        {...props}
+        series={[ramp("left", 40, 49)]}
+        viewMode="normalized"
+        leftAxis={{ side: "left", format: signedPct }}
+      />,
+    );
+    expect(drawn(view.container).left).toBe(48);
+  });
+
+  it("never reads the DOM to size itself", () => {
+    const rect = jest.spyOn(Element.prototype, "getBoundingClientRect");
+    try {
+      const view = renderChart([ramp("left", 150.25, 184.45), ramp("right", 100.5, 140.2)], "strip", {
+        leftAxis: LEFT,
+        rightAxis: RIGHT,
+      });
+      expect(drawn(view.container).left).toBe(53);
+      expect(rect).not.toHaveBeenCalled();
+    } finally {
+      rect.mockRestore();
+    }
+  });
+});
+
+describe("StockChart reference levels, bands and markers", () => {
+  it("draws reference bands under the series and levels/markers over it, clipped to the plot", () => {
+    const { container } = render(
+      <StockChartInner
+        width={WIDTH}
+        height={HEIGHT}
+        series={SERIES}
+        bands={[{ axis: "left", low: 41, high: 44, from: T0 - 5 * DAY, to: T0 + 3 * DAY, color: "#00f", label: "base" }]}
+        levels={[
+          { axis: "left", value: 45, label: "Pivot $45", color: "#f90" },
+          { axis: "left", value: 999, label: "off the plot", color: "#f90" },
+        ]}
+        markers={[{ t: T0 + 2 * DAY, label: "breakout", color: "#0f0" }, { t: T0 + 40 * DAY, label: "outside", color: "#0f0" }]}
+      />,
+    );
+    expect(container.querySelectorAll("[data-chart-band]")).toHaveLength(1);
+    expect(container.querySelector("[data-chart-band]")).toHaveAttribute("x", "0");
+    expect(container.querySelectorAll("[data-chart-level]")).toHaveLength(1);
+    expect(container.querySelector("[data-chart-level] text")).toHaveTextContent("Pivot $45");
+    expect(container.querySelectorAll("[data-chart-marker]")).toHaveLength(1);
+
+    // SVG paints in document order: the band sits under every series, the level
+    // and marker over them, and the pointer-capture rect stays on top of all.
+    const follows = (a: Element, b: Element) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const band = container.querySelector("[data-chart-band]")!;
+    const level = container.querySelector("[data-chart-level]")!;
+    const marker = container.querySelector("[data-chart-marker]")!;
+    const capture = container.querySelector("[data-chart-capture]")!;
+    const drawn = Array.from(container.querySelectorAll("[data-series]"));
+    expect(drawn).toHaveLength(SERIES.length);
+    for (const s of drawn) {
+      expect(follows(band, s)).toBe(true);
+      expect(follows(s, level)).toBe(true);
+      expect(follows(s, marker)).toBe(true);
+    }
+    expect(follows(level, capture)).toBe(true);
+    expect(follows(marker, capture)).toBe(true);
+  });
+
+  it.each(MODES)("the %s reading ignores levels, bands and markers", (mode) => {
+    const { container } = render(
+      <StockChartInner
+        width={WIDTH}
+        height={HEIGHT}
+        series={SERIES}
+        readout={mode}
+        bands={[{ axis: "left", low: 41, high: 44, from: T0, to: T0 + 5 * DAY, color: "#00f", label: "Base 41-44" }]}
+        levels={[{ axis: "left", value: 45, label: "Pivot $45", color: "#f90" }]}
+        markers={[{ t: T0 + 3 * DAY, label: "Breakout", color: "#0f0" }]}
+      />,
+    );
+    fireEvent.mouseMove(container.querySelector("[data-chart-capture]")!, pt(xOf(3), 50));
+    const reading = container.querySelector<HTMLElement>(
+      mode === "strip" ? "[data-chart-readout]" : "[data-chart-tooltip]",
+    );
+    expect(reading).not.toBeNull();
+    expect(reading!.textContent).toContain("Price");
+    expect(reading!.textContent).toContain("Short %");
+    for (const label of ["Pivot", "Base 41-44", "Breakout"]) {
+      expect(reading!.textContent).not.toContain(label);
+    }
+  });
+
+  it("places a level on the axis it names, never below the plot floor, and a marker at its session", () => {
+    const { container } = render(
+      <StockChartInner
+        width={WIDTH}
+        height={HEIGHT}
+        series={SERIES}
+        leftAxis={{ side: "left", domain: [40, 50] }}
+        rightAxis={{ side: "right", domain: [0, 10] }}
+        levels={[
+          { axis: "left", value: 45, label: "left 45", color: "#f90" },
+          { axis: "right", value: 45, label: "right 45", color: "#f90" }, // far above the right scale
+          { axis: "right", value: 5, label: "right 5", color: "#f90" },
+          { axis: "left", value: 5, label: "left 5", color: "#f90" }, // far below the left scale
+          { axis: "left", value: 39, label: "under the floor", color: "#f90" }, // in the x-axis margin
+        ]}
+        markers={[{ t: T0 + 2 * DAY, label: "breakout", color: "#0f0" }]}
+      />,
+    );
+    const labels = Array.from(container.querySelectorAll("[data-chart-level] text")).map((t) => t.textContent);
+    expect(labels).toEqual(["left 45", "right 5"]);
+    const markerX = Number(container.querySelector("[data-chart-marker] line")!.getAttribute("x1"));
+    expect(markerX).toBeCloseTo((INNER_W * 2) / 9, 5);
+  });
+
+  it("draws nothing for a level, band or marker the scale cannot place, never at a plot edge", () => {
+    // The scale answers undefined for a NaN; coalescing that to 0 would draw a labelled line
+    // along the top or left edge, so each unplaceable one sits beside a placeable one.
+    const { container } = render(
+      <StockChartInner
+        width={WIDTH}
+        height={HEIGHT}
+        series={SERIES}
+        bands={[
+          { axis: "left", low: NaN, high: 44, from: T0, to: T0 + 5 * DAY, color: "#00f", label: "no low" },
+          { axis: "left", low: 41, high: NaN, from: T0, to: T0 + 5 * DAY, color: "#00f", label: "no high" },
+          { axis: "left", low: 41, high: 44, from: NaN, to: T0 + 5 * DAY, color: "#00f", label: "no start" },
+          { axis: "left", low: 41, high: 44, from: T0, to: T0 + 5 * DAY, color: "#00f", label: "base" },
+        ]}
+        levels={[
+          { axis: "left", value: NaN, label: "no value", color: "#f90" },
+          { axis: "left", value: 45, label: "no start", color: "#f90", from: NaN, to: T0 + 5 * DAY },
+          { axis: "left", value: 45, label: "Pivot $45", color: "#f90" },
+        ]}
+        markers={[
+          { t: NaN, label: "no session", color: "#0f0" },
+          { t: T0 + 2 * DAY, label: "breakout", color: "#0f0" },
+        ]}
+      />,
+    );
+    const drawn = (selector: string) => Array.from(container.querySelectorAll(selector), (el) => el.textContent);
+    expect({
+      bands: drawn("[data-chart-band] title"),
+      levels: drawn("[data-chart-level] text"),
+      markers: drawn("[data-chart-marker] text"),
+    }).toEqual({ bands: ["base"], levels: ["Pivot $45"], markers: ["breakout"] });
+  });
+
+  it("draws crowded level labels apart with every line at its own value, and a marker label inside the plot", () => {
+    const { container } = render(
+      <StockChartInner
+        width={WIDTH}
+        height={HEIGHT}
+        series={SERIES}
+        levels={[
+          { axis: "left", value: 45, label: "SMA 50 $45", color: "#f90" },
+          { axis: "left", value: 45.1, label: "SMA 150 $45.1", color: "#09f" },
+          { axis: "left", value: 45.2, label: "SMA 200 $45.2", color: "#0f9" },
+        ]}
+        markers={[
+          { t: T0 + 2 * DAY, label: "Breakout", color: "#0f0" },
+          { t: T0 + 8.5 * DAY, label: "Late breakout", color: "#0f0" },
+        ]}
+      />,
+    );
+    const rows = Array.from(container.querySelectorAll("[data-chart-level]"), (g) => ({
+      line: Number(g.querySelector("line")!.getAttribute("y1")),
+      line2: Number(g.querySelector("line")!.getAttribute("y2")),
+      label: Number(g.querySelector("text")!.getAttribute("y")),
+    })).sort((a, b) => a.line - b.line);
+    expect(rows).toHaveLength(3);
+    // The lines are a few px apart (they would overlap their labels) and flat, each at its own value.
+    expect(rows[1]!.line - rows[0]!.line).toBeGreaterThan(0);
+    expect(rows[2]!.line - rows[0]!.line).toBeLessThan(11);
+    for (const r of rows) expect(r.line2).toBe(r.line);
+    // The top label keeps its place 4 px above its line; the rest are at least 11 px below the one above.
+    expect(rows[0]!.label).toBeCloseTo(rows[0]!.line - 4, 5);
+    expect(rows[1]!.label - rows[0]!.label).toBeGreaterThanOrEqual(11);
+    expect(rows[2]!.label - rows[1]!.label).toBeGreaterThanOrEqual(11);
+
+    // "Late breakout" has no room on the right of a line near the plot's right edge.
+    const markers = Array.from(container.querySelectorAll("[data-chart-marker] text"));
+    expect(markers.map((t) => t.getAttribute("text-anchor"))).toEqual(["start", "end"]);
+    const lateX = Number(markers[1]!.getAttribute("x"));
+    expect(lateX).toBeCloseTo((INNER_W * 8.5) / 9 - 4, 5);
+    expect(lateX).toBeLessThanOrEqual(INNER_W);
+  });
+
+  it("draws the label of a short level inside the plot instead of in the axis margin", () => {
+    // The line ends 6.9 px into the plot; "Pivot $45" is about 54 px wide, so its right edge
+    // moves to 54 rather than sitting 4 px inside the line's end.
+    const { container } = render(
+      <StockChartInner
+        width={WIDTH}
+        height={HEIGHT}
+        series={SERIES}
+        levels={[{ axis: "left", value: 45, label: "Pivot $45", color: "#f90", from: T0 - 5 * DAY, to: T0 + 0.2 * DAY }]}
+      />,
+    );
+    const label = container.querySelector("[data-chart-level] text")!;
+    expect(label).toHaveTextContent("Pivot $45");
+    expect(label.getAttribute("text-anchor")).toBe("end");
+    expect(Number(label.getAttribute("x"))).toBe(54);
+  });
+
+  it("does not lay the reference geometry out again when a re-render changes nothing", () => {
+    // Omitted levels, bands and markers must default to the same arrays every render.
+    const layout = jest.spyOn(chartLevels, "layoutLevels");
+    try {
+      const { rerender } = render(<StockChartInner width={WIDTH} height={HEIGHT} series={SERIES} />);
+      rerender(<StockChartInner width={WIDTH} height={HEIGHT} series={SERIES} />);
+      expect(layout).toHaveBeenCalledTimes(1);
+    } finally {
+      layout.mockRestore();
+    }
+  });
+});
+
+// Both homes of the drag-measure reading, the strip and the floating card, go
+// through one model: the same dates (en-AU, Sydney), the same numbers, and red
+// or green only for a change that is market direction.
+describe.each(MODES)("StockChart drag-measure readout (%s)", (mode) => {
+  // Short interest is already a percentage, so it measures in points; price in percent.
+  const SHORT_PP: ChartSeriesSpec = {
+    ...SERIES[1]!,
+    measureMode: "absolute",
+    measureUnit: "pp",
+  };
+  const SHORT_FALLING_PP: ChartSeriesSpec = {
+    ...SHORT_PP,
+    points: Array.from({ length: 10 }, (_, i) => ({ t: T0 + i * DAY, v: 12 - i })),
+  };
+  const FALLING: ChartSeriesSpec = {
+    ...SERIES[0]!,
+    points: Array.from({ length: 10 }, (_, i) => ({ t: T0 + i * DAY, v: 50 - i })),
+  };
+  const RED = "rgb(220, 38, 38)";
+  const GREEN = "rgb(22, 163, 74)";
+
+  /**
+   * Press at point `from`, drag to point `to`, and return the readout.
+   * Keep the right-axis series in: xOf() is laid out for a chart that has one.
+   */
+  function measure(series: ChartSeriesSpec[], from: number, to: number) {
+    const { plot, container } = renderChart(series, mode);
+    fireEvent.mouseDown(plot, { ...pt(xOf(from)), button: 0 });
+    fireEvent.mouseMove(plot, pt(xOf(to)));
+    const readout = container.querySelector<HTMLElement>('[data-chart="measure-readout"]');
+    expect(readout).not.toBeNull();
+    return readout!;
+  }
+
+  it("reports price as a percent and short interest as points to two decimals", () => {
+    // Price 42 -> 46; short 4 -> 8. The strip puts a glyph and a space before a
+    // points change, as the stock header does.
+    const readout = measure([SERIES[0]!, SHORT_PP], 2, 6);
+    const arrow = mode === "strip" ? "▲ " : "";
+    expect(readout.textContent).toBe(
+      `${stripDate(2)} → ${stripDate(6)}Price+9.5%Short %${arrow}+4.00 pp`,
+    );
+  });
+
+  it("dates both ends in en-AU on the Sydney calendar, never in the browser's locale", () => {
+    // This environment's own locale is en-AU, so stub the API that follows the
+    // browser's: the old card read its dates through it.
+    const browserLocale = jest
+      .spyOn(Date.prototype, "toLocaleDateString")
+      .mockReturnValue("BROWSER-LOCALE-DATE");
+    try {
+      const readout = measure([SERIES[0]!, SHORT_PP], 1, 7);
+      expect(readout.textContent).toContain(`${stripDate(1)} → ${stripDate(7)}`);
+      expect(readout.textContent).not.toContain("BROWSER-LOCALE-DATE");
+    } finally {
+      browserLocale.mockRestore();
+    }
+  });
+
+  it("colours a rise green", () => {
+    const readout = measure([SERIES[0]!, SHORT_PP], 2, 6);
+    expect(within(readout).getByText("+9.5%").style.color).toBe(GREEN);
+  });
+
+  it("colours a fall red", () => {
+    // Price 48 -> 44.
+    const readout = measure([FALLING, SHORT_PP], 2, 6);
+    expect(within(readout).getByText(`${MINUS}8.3%`).style.color).toBe(RED);
+  });
+
+  it.each([
+    ["rising", SHORT_PP, "+4.00 pp"],
+    ["falling", SHORT_FALLING_PP, `${MINUS}4.00 pp`],
+  ] as const)(
+    "keeps a %s percentage-point change in the foreground, never red or green",
+    (_, short, text) => {
+      const readout = measure([SERIES[0]!, short], 2, 6);
+      const color = within(readout).getByText(text).style.color;
+      expect([GREEN, RED]).not.toContain(color);
+    },
+  );
+});
+
+// A click is a press and a release that do not zoom. The press clears the hover
+// (a measure is starting), so in strip mode the release has to read the point
+// under the pointer, or the strip would sit on "Latest" until the next move. It
+// must not when the pointer is not over the plot at the release, or the hover
+// would hang there with nothing to clear it, and it must never survive a zoom or
+// a reset, whose view it does not belong to.
+describe("StockChart click: the reading after a release", () => {
+  const strip = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-chart-readout]")!;
+  const stateOf = (c: HTMLElement) => strip(c).getAttribute("data-readout-state");
+  const headlineOf = (c: HTMLElement) =>
+    strip(c).querySelector("[data-readout-headline]")?.textContent ?? null;
+  const pointsOf = (c: HTMLElement) => Number(c.querySelector("svg")!.getAttribute("data-points"));
+  /** The crosshair's dots: one per series at the pointer, none at rest. */
+  const dotsOf = (c: HTMLElement) => c.querySelectorAll("[data-chart-container] svg circle").length;
+  const press = (plot: Element, x: number) =>
+    fireEvent.mouseDown(plot, { ...pt(x), button: 0 });
+  const release = (target: Element | Window, x: number) =>
+    fireEvent.mouseUp(target, pt(x));
+
+  it("leaves the strip on the clicked point, as a hover", () => {
+    const { container, plot } = renderChart();
+    expect(stateOf(container)).toBe("latest");
+    press(plot, xOf(4));
+    release(plot, xOf(4));
+    expect(stateOf(container)).toBe("hover");
+    expect(headlineOf(container)).toBe(stripDate(4));
+    expect(within(container.querySelector<HTMLElement>('[data-readout-entry="price"]')!).getByText("44.00")).toBeTruthy();
+    // The crosshair is drawn there too: one dot for each series.
+    expect(dotsOf(container)).toBe(2);
+    // Nothing was zoomed.
+    expect(pointsOf(container)).toBe(10);
+  });
+
+  it("is a hover, not a pin: the pointer leaving takes it away, and a move carries it on", () => {
+    const { container, plot } = renderChart();
+    press(plot, xOf(4));
+    release(plot, xOf(4));
+    expect(strip(container).hasAttribute("data-pinned")).toBe(false);
+    fireEvent.mouseMove(plot, pt(xOf(6), 50));
+    expect(stateOf(container)).toBe("hover");
+    expect(headlineOf(container)).toBe(stripDate(6));
+    fireEvent.mouseLeave(plot);
+    expect(stateOf(container)).toBe("latest");
+    expect(dotsOf(container)).toBe(0);
+  });
+
+  it("releases a pin and reads the clicked point in its place", () => {
+    const { container, plot } = renderChart();
+    tap(plot, xOf(2));
+    expect(stateOf(container)).toBe("pinned");
+    now += 2000;
+    press(plot, xOf(7));
+    release(plot, xOf(7));
+    expect(stateOf(container)).toBe("hover");
+    expect(headlineOf(container)).toBe(stripDate(7));
+    expect(container.querySelector("[data-readout-chip]")).toBeNull();
+  });
+
+  it("reads the point under a drag too short to zoom, at the release", () => {
+    const { container, plot } = renderChart();
+    // Under MEASURE_MIN_PX (6) from the press: no zoom. The point nearest the
+    // release is the one it read.
+    press(plot, xOf(4));
+    fireEvent.mouseMove(plot, pt(xOf(4) + 3));
+    expect(stateOf(container)).toBe("measure");
+    release(plot, xOf(4) + 3);
+    expect(stateOf(container)).toBe("hover");
+    expect(headlineOf(container)).toBe(stripDate(4));
+    expect(pointsOf(container)).toBe(10);
+    expect(container.querySelector('[data-chart="measure"]')).toBeNull();
+  });
+
+  it("reads the point under the release, not the press", () => {
+    const { container, plot } = renderChart();
+    // 5px from the press, so no zoom, and across the halfway point to point 5
+    // (the points are about 34.7px apart): the release is nearer 5 than 4.
+    const x = xOf(4) + 17.5;
+    press(plot, x - 5);
+    fireEvent.mouseMove(plot, pt(x));
+    release(plot, x);
+    expect(headlineOf(container)).toBe(stripDate(5));
+  });
+
+  it("ends on the zoomed view's resting reading when the drag zooms, with no hover left from the press", () => {
+    const { container, plot } = renderChart();
+    const to = (xOf(6) + xOf(7)) / 2;
+    press(plot, xOf(2) - 4);
+    fireEvent.mouseMove(plot, pt(to));
+    release(plot, to);
+    expect(stateOf(container)).toBe("latest");
+    expect(headlineOf(container)).toBe(stripDate(6)); // the newest point left on screen
+    expect(pointsOf(container)).toBeLessThan(10);
+    expect(dotsOf(container)).toBe(0);
+  });
+
+  it.each([
+    ["off the plot", () => document.body],
+    ["over the strip", (c: HTMLElement) => strip(c)],
+  ])("leaves no hover behind when the release is %s", (_, target) => {
+    const { container, plot } = renderChart();
+    press(plot, xOf(4));
+    fireEvent.mouseMove(plot, pt(xOf(4) + 2));
+    // The pointer leaves the plot mid-press; that does not end the measure.
+    fireEvent.mouseLeave(plot);
+    release(target(container), xOf(4) + 2);
+    expect(stateOf(container)).toBe("latest");
+    expect(dotsOf(container)).toBe(0);
+    // Nothing is left to clear it either: the next move starts a fresh hover.
+    fireEvent.mouseMove(plot, pt(xOf(6), 50));
+    expect(stateOf(container)).toBe("hover");
+  });
+
+  it("leaves no hover behind when the release is on another chart's plot", () => {
+    const a = renderChart();
+    const b = renderChart();
+    press(a.plot, xOf(4));
+    release(b.plot, xOf(4));
+    expect(stateOf(a.container)).toBe("latest");
+    expect(dotsOf(a.container)).toBe(0);
+    expect(stateOf(b.container)).toBe("latest");
+  });
+
+  it("leaves no hover behind when the release has no position on the plot", () => {
+    const { container, plot } = renderChart();
+    press(plot, xOf(4));
+    fireEvent.mouseUp(window); // the target is the window, not the plot
+    expect(stateOf(container)).toBe("latest");
+    expect(dotsOf(container)).toBe(0);
+  });
+
+  it("is cleared by a double-click reset, whose view the click's reading does not belong to", () => {
+    const { container, plot } = renderChart();
+    // The browser's sequence for a double-click: the first click reads a point,
+    // the second press is ignored, and then the reset.
+    press(plot, xOf(4));
+    release(plot, xOf(4));
+    expect(stateOf(container)).toBe("hover");
+    fireEvent.mouseDown(plot, { ...pt(xOf(4)), button: 0, detail: 2 });
+    fireEvent.mouseUp(plot, pt(xOf(4)));
+    fireEvent.doubleClick(plot, pt(xOf(4)));
+    expect(stateOf(container)).toBe("latest");
+    expect(dotsOf(container)).toBe(0);
+  });
+
+  it("is cleared by a double-click reset of a zoomed view, which comes back whole", () => {
+    const { container, plot } = renderChart();
+    const to = (xOf(6) + xOf(7)) / 2;
+    press(plot, xOf(2) - 4);
+    fireEvent.mouseMove(plot, pt(to));
+    release(plot, to);
+    expect(pointsOf(container)).toBeLessThan(10);
+    // A click in the zoomed view reads a point of that view...
+    now += 2000;
+    press(plot, xOf(3));
+    release(plot, xOf(3));
+    expect(stateOf(container)).toBe("hover");
+    // ...which the reset must not keep once the view is whole again.
+    fireEvent.doubleClick(plot, pt(xOf(3)));
+    expect(pointsOf(container)).toBe(10);
+    expect(stateOf(container)).toBe("latest");
+    expect(headlineOf(container)).toBe(`Latest \u00b7 ${stripDate(9)}`);
+    expect(dotsOf(container)).toBe(0);
+  });
+
+  it("keeps the tooltip mode as it was: a click shows no card until the pointer moves", () => {
+    const { plot, reading } = renderChart(SERIES, "tooltip");
+    press(plot, xOf(4));
+    release(plot, xOf(4));
+    expect(reading()).toBeNull();
+    fireEvent.mouseMove(plot, pt(xOf(5), 50));
+    expect(reading()).not.toBeNull();
+  });
+});
+
+const sydneyDay = new Intl.DateTimeFormat("en-AU", {
+  day: "numeric",
+  month: "short",
+  timeZone: "Australia/Sydney",
+});
+const stripDay = (i: number) => sydneyDay.format(T0 + i * DAY);
+
+/** A series with an open, high, low and close on points 0 to `upTo` - 1. */
+const withOhlc = (s: ChartSeriesSpec, upTo = 5): ChartSeriesSpec => ({
+  ...s,
+  points: s.points.map((p, i) =>
+    i < upTo ? { ...p, open: p.v - 1, high: p.v + 1, low: p.v - 2, close: p.v } : p,
+  ),
+});
+
+describe("StockChart readout strip", () => {
+  const strip = (c: HTMLElement) => c.querySelector<HTMLElement>("[data-chart-readout]")!;
+  const stateOf = (c: HTMLElement) => strip(c).getAttribute("data-readout-state");
+  const headline = (c: HTMLElement) =>
+    strip(c).querySelector("[data-readout-headline]")?.textContent ?? null;
+  const entryOf = (c: HTMLElement, id: string) =>
+    c.querySelector<HTMLElement>(`[data-readout-entry="${id}"]`)!;
+  // The strip holds no svg, so the first svg in the container is the chart's.
+  const svgOf = (c: HTMLElement) => c.querySelector("svg")!;
+  const GREEN = "rgb(22, 163, 74)";
+
+  describe("what it is and where it sits", () => {
+    it("is the default reading", () => {
+      const { container } = render(
+        <StockChartInner width={WIDTH} height={HEIGHT} series={SERIES} />,
+      );
+      expect(strip(container)).not.toBeNull();
+    });
+
+    it("is the first child of the container, before the svg", () => {
+      const { container } = renderChart();
+      const root = container.querySelector("[data-chart-container]")!;
+      expect(root.firstElementChild).toBe(strip(container));
+      expect(
+        strip(container).compareDocumentPosition(svgOf(container)) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it("is not announced as it changes", () => {
+      const { container } = renderChart();
+      expect(strip(container).getAttribute("aria-live")).toBe("off");
+    });
+
+    it("hides its colour dots from assistive technology", () => {
+      const { container } = renderChart();
+      const dot = entryOf(container, "price").firstElementChild!;
+      expect(dot.getAttribute("aria-hidden")).toBe("true");
+    });
+
+    it("leaves tooltip mode as it was: no strip, the svg takes the whole height", () => {
+      const { container } = renderChart(SERIES, "tooltip");
+      expect(container.querySelector("[data-chart-readout]")).toBeNull();
+      expect(svgOf(container).getAttribute("height")).toBe(String(HEIGHT));
+      expect(svgOf(container).hasAttribute("style")).toBe(false);
+    });
+  });
+
+  describe("its height depends on the chart's width and its number of series, and nothing else", () => {
+    it.each([
+      // A phone: a headline line and a line for each series, with 8px of padding.
+      [360, 1, 44],
+      [360, 2, 62],
+      [639, 1, 44],
+      [639, 2, 62],
+      // From 640px wide, one row whatever the series.
+      [640, 1, 28],
+      [640, 2, 28],
+      [900, 1, 28],
+      [900, 2, 28],
+    ])(
+      "at %ipx wide with %i series the strip is %ipx and the svg is the height prop minus that",
+      (width, count, stripH) => {
+        const { container } = render(
+          <StockChartInner width={width} height={400} series={SERIES.slice(0, count)} />,
+        );
+        expect(strip(container).style.height).toBe(`${stripH}px`);
+        expect(svgOf(container).getAttribute("height")).toBe(String(400 - stripH));
+        // The two add up to the component's total, so nothing below the chart moves.
+        expect(svgOf(container).style.display).toBe("block");
+      },
+    );
+
+    it("is as tall as the number of series the chart was given, not the number it has points for", () => {
+      // A series with no points in range keeps its row, so it keeps its height.
+      const empty: ChartSeriesSpec = { ...SERIES[1]!, points: [] };
+      const { container } = render(
+        <StockChartInner width={360} height={400} series={[SERIES[0]!, empty]} />,
+      );
+      expect(strip(container).style.height).toBe("62px");
+      expect(container.querySelectorAll("[data-readout-entry]")).toHaveLength(2);
+    });
+
+    it.each([
+      [1, "44px"],
+      [2, "62px"],
+    ])("is the same in the latest, hover, pinned and measure states, for %i series (%s)", (count, stripH) => {
+      const { container, plot } = renderChart(SERIES.slice(0, count));
+      const seen: [string | null, string][] = [];
+      const note = () => seen.push([stateOf(container), strip(container).style.height]);
+
+      note(); // latest
+      fireEvent.mouseMove(plot, pt(xOf(3), 50));
+      note(); // hover
+      fireEvent.mouseLeave(plot);
+      tap(plot, xOf(4));
+      note(); // pinned
+      now += 2000;
+      fireEvent.mouseDown(plot, { ...pt(xOf(2)), button: 0 });
+      fireEvent.mouseMove(plot, pt(xOf(6)));
+      note(); // measure
+      fireEvent.mouseUp(window);
+
+      expect(seen.map(([state]) => state)).toEqual(["latest", "hover", "pinned", "measure"]);
+      expect(new Set(seen.map(([, h]) => h))).toEqual(new Set([stripH]));
+    });
+
+    it("is the same hovering a point with OHLC and one without", () => {
+      const WIDE = 900;
+      const { container } = render(
+        <StockChartInner
+          width={WIDE}
+          height={400}
+          series={[withOhlc(SERIES[0]!), SERIES[1]!]}
+        />,
+      );
+      const plot = container.querySelector("[data-chart-capture]")!;
+      fireEvent.mouseMove(plot, pt(xAt(WIDE, 2), 50));
+      expect(container.querySelector("[data-readout-ohlc]")).not.toBeNull();
+      const withIt = strip(container).style.height;
+      fireEvent.mouseMove(plot, pt(xAt(WIDE, 8), 50));
+      expect(container.querySelector("[data-readout-ohlc]")).toBeNull();
+      expect(strip(container).style.height).toBe(withIt);
+      expect(withIt).toBe("28px");
+    });
+
+    it.each([
+      // Under 640px: a headline row and a row for each series.
+      [639, 1, 2],
+      [639, 2, 3],
+      [360, 3, 4],
+      // From 640px: one row for everything.
+      [640, 1, 1],
+      [640, 2, 1],
+    ])("is %ipx wide with %i series in %i row(s)", (width, count, rows) => {
+      const series = Array.from({ length: count }, (_, i) =>
+        mk(`s${i}`, `S${i}`, i % 2 ? "right" : "left", 40 + i),
+      );
+      const { container } = render(
+        <StockChartInner width={width} height={400} series={series} />,
+      );
+      expect(container.querySelectorAll("[data-readout-row]")).toHaveLength(rows);
+    });
+
+    it("puts the headline and the Pinned chip on the first row, each series on a row of its own", () => {
+      const { container, plot } = renderChart();
+      tap(plot, xOf(5));
+      const [head, price, short] = Array.from(
+        container.querySelectorAll<HTMLElement>("[data-readout-row]"),
+      );
+      expect(head!.querySelector("[data-readout-headline]")).not.toBeNull();
+      expect(head!.querySelector("[data-readout-chip]")).not.toBeNull();
+      expect(head!.querySelector("[data-readout-entry]")).toBeNull();
+      expect(price!.querySelector('[data-readout-entry="price"]')).not.toBeNull();
+      expect(short!.querySelector('[data-readout-entry="short"]')).not.toBeNull();
+      // No entry shares a row with another.
+      expect(price!.querySelectorAll("[data-readout-entry]")).toHaveLength(1);
+      expect(short!.querySelectorAll("[data-readout-entry]")).toHaveLength(1);
+    });
+
+    it("keeps every row the same height in the latest, hover and pinned readings", () => {
+      const { container, plot } = renderChart();
+      const rowHeights = () =>
+        Array.from(container.querySelectorAll<HTMLElement>("[data-readout-row]")).map(
+          (r) => r.style.height,
+        );
+      const latest = rowHeights();
+      expect(latest).toEqual(["26px", "18px", "18px"]);
+      fireEvent.mouseMove(plot, pt(xOf(3), 50));
+      expect(rowHeights()).toEqual(latest);
+      fireEvent.mouseLeave(plot);
+      tap(plot, xOf(5));
+      expect(rowHeights()).toEqual(latest);
+    });
+
+    it("puts everything on one row from 640px, the Pinned chip last", () => {
+      const WIDE = 700;
+      const { container } = render(
+        <StockChartInner width={WIDE} height={400} series={SERIES} />,
+      );
+      fireEvent.touchStart(container.querySelector("[data-chart-capture]")!, {
+        touches: [pt(xAt(WIDE, 5))],
+        changedTouches: [pt(xAt(WIDE, 5))],
+      });
+      fireEvent.touchEnd(container.querySelector("[data-chart-capture]")!, {
+        touches: [],
+        changedTouches: [pt(xAt(WIDE, 5))],
+      });
+      const row = container.querySelector<HTMLElement>("[data-readout-row]")!;
+      const order = Array.from(row.children, (el) => Object.keys((el as HTMLElement).dataset)[0]);
+      expect(order).toEqual(["readoutHeadline", "readoutEntries", "readoutChip"]);
+    });
+
+    it.each([
+      [899, false],
+      [900, true],
+    ])("at %ipx wide shows open, high, low and close: %s", (width, shown) => {
+      const { container } = render(
+        <StockChartInner
+          width={width}
+          height={400}
+          series={[withOhlc(SERIES[0]!, 10), SERIES[1]!]}
+        />,
+      );
+      // The resting reading is the newest point, and it has all four.
+      expect(container.querySelector("[data-readout-ohlc]") !== null).toBe(shown);
+      if (shown) {
+        expect(container.querySelector("[data-readout-ohlc]")!.textContent).toBe(
+          "O 48.00 H 50.00 L 47.00 C 49.00",
+        );
+      }
+    });
+  });
+
+  describe("the room a value keeps on one row", () => {
+    // Price runs 95 to 104: "$99.00" is six characters, "$100.00" is seven.
+    const CROSSING: ChartSeriesSpec = {
+      ...SERIES[0]!,
+      points: Array.from({ length: 10 }, (_, i) => ({ t: T0 + i * DAY, v: 95 + i })),
+    };
+    const dollars = { side: "left", format: (v: number) => `$${v.toFixed(2)}` } as const;
+    const renderAt = (width: number, price: ChartSeriesSpec) => {
+      const utils = render(
+        <StockChartInner
+          width={width}
+          height={400}
+          series={[price, SERIES[1]!]}
+          leftAxis={dollars}
+        />,
+      );
+      const plot = utils.container.querySelector("[data-chart-capture]")!;
+      return { ...utils, plot };
+    };
+    const valueRoom = (c: HTMLElement) =>
+      entryOf(c, "price").querySelector<HTMLElement>("[data-readout-value]")!.style.minWidth;
+
+    it("is that of the widest value the series can show, in every state, so a scrub across a digit boundary shifts nothing", () => {
+      const WIDE = 800;
+      const { container, plot } = renderAt(WIDE, CROSSING);
+      const seen: [string | null, string][] = [];
+      const note = () => seen.push([stateOf(container), valueRoom(container)]);
+
+      note(); // latest: $104.00
+      fireEvent.mouseMove(plot, pt(xAt(WIDE, 0), 50));
+      note(); // hover: $95.00
+      fireEvent.mouseMove(plot, pt(xAt(WIDE, 4), 50));
+      note(); // hover: $99.00, just under the boundary
+      fireEvent.mouseMove(plot, pt(xAt(WIDE, 5), 50));
+      note(); // hover: $100.00, just over it
+      fireEvent.mouseLeave(plot);
+      tap(plot, xAt(WIDE, 2));
+      note(); // pinned
+
+      expect(seen.map(([state]) => state)).toEqual(["latest", "hover", "hover", "hover", "pinned"]);
+      expect(new Set(seen.map(([, room]) => room))).toEqual(new Set(["7ch"]));
+    });
+
+    it("stays at the usual six where no value the series shows is wider", () => {
+      // 40 to 49: "$49.00" is six characters.
+      const { container, plot } = renderAt(800, SERIES[0]!);
+      expect(valueRoom(container)).toBe("6ch");
+      fireEvent.mouseMove(plot, pt(xAt(800, 3), 50));
+      expect(valueRoom(container)).toBe("6ch");
+    });
+
+    it("follows the zoom: the values left on screen decide it", () => {
+      const WIDE = 800;
+      // $90 to $96, then $137 to $139 at the end: seven characters in all, until
+      // a zoom leaves only the early run on screen.
+      const price: ChartSeriesSpec = {
+        ...CROSSING,
+        points: Array.from({ length: 10 }, (_, i) => ({
+          t: T0 + i * DAY,
+          v: i < 7 ? 90 + i : 130 + i,
+        })),
+      };
+      const { container, plot } = renderAt(WIDE, price);
+      expect(valueRoom(container)).toBe("7ch");
+      fireEvent.mouseDown(plot, { ...pt(xAt(WIDE, 0)), button: 0 });
+      fireEvent.mouseMove(plot, pt(xAt(WIDE, 5)));
+      fireEvent.mouseUp(window); // commits the zoom onto points 0 to 5: $90 to $95
+      expect(headline(container)).not.toContain("Latest"); // zoomed
+      expect(valueRoom(container)).toBe("6ch");
+    });
+
+    it("is not held on a phone, where each series has a row to itself", () => {
+      const { container } = renderAt(400, CROSSING);
+      expect(valueRoom(container)).toBe("");
+    });
+  });
+
+  describe("nothing floats over the plot", () => {
+    const absolute = (c: HTMLElement) =>
+      Array.from(c.querySelectorAll<HTMLElement | SVGElement>("[data-chart-container] *")).filter(
+        (el) => el.style.position === "absolute",
+      );
+
+    it("has no absolutely positioned layer while hovering or pinned, where the tooltip has one", () => {
+      const strip_ = renderChart(SERIES, "strip");
+      fireEvent.mouseMove(strip_.plot, pt(xOf(3), 50));
+      expect(stateOf(strip_.container)).toBe("hover");
+      expect(absolute(strip_.container)).toHaveLength(0);
+      fireEvent.mouseLeave(strip_.plot);
+      tap(strip_.plot, xOf(5));
+      expect(stateOf(strip_.container)).toBe("pinned");
+      expect(absolute(strip_.container)).toHaveLength(0);
+      strip_.unmount();
+
+      // The control: the same check finds the card in tooltip mode.
+      const card = renderChart(SERIES, "tooltip");
+      fireEvent.mouseMove(card.plot, pt(xOf(3), 50));
+      expect(absolute(card.container)).toHaveLength(1);
+    });
+
+    it("measures in the strip: it carries the readout and no card floats", () => {
+      const { container, plot } = renderChart();
+      fireEvent.mouseDown(plot, { ...pt(xOf(2)), button: 0 });
+      fireEvent.mouseMove(plot, pt(xOf(6)));
+      const readouts = container.querySelectorAll('[data-chart="measure-readout"]');
+      expect(readouts).toHaveLength(1);
+      expect(readouts[0]).toBe(strip(container));
+      expect(stateOf(container)).toBe("measure");
+      expect(absolute(container)).toHaveLength(0);
+      fireEvent.mouseUp(window);
+      // Not measuring any more: the attribute goes with the state.
+      expect(strip(container).hasAttribute("data-chart")).toBe(false);
+    });
+  });
+
+  describe("the latest reading", () => {
+    it("shows each series' newest value and its change over the range", () => {
+      const { container } = renderChart();
+      expect(headline(container)).toBe(`Latest · ${stripDate(9)}`);
+      const price = entryOf(container, "price");
+      expect(within(price).getByText("Price")).toBeTruthy();
+      expect(within(price).getByText("49.00")).toBeTruthy();
+      // 40 -> 49 is +22.5%, a change in price: green.
+      expect(within(price).getByText("+22.5%").style.color).toBe(GREEN);
+      expect(within(entryOf(container, "short")).getByText("11.00")).toBeTruthy();
+    });
+
+    it("names the date of the newest visible point only, once the view is zoomed", () => {
+      const { container, plot } = renderChart();
+      expect(headline(container)).toContain("Latest");
+      // Drag from just before point 2 to between points 6 and 7, and release.
+      fireEvent.mouseDown(plot, { ...pt(xOf(2) - 4), button: 0 });
+      fireEvent.mouseMove(plot, pt((xOf(6) + xOf(7)) / 2));
+      fireEvent.mouseUp(window);
+      expect(stateOf(container)).toBe("latest");
+      expect(headline(container)).toBe(stripDate(6));
+      // The change is now over the zoomed range: 42 -> 46.
+      expect(within(entryOf(container, "price")).getByText("46.00")).toBeTruthy();
+      expect(within(entryOf(container, "price")).getByText("+9.5%")).toBeTruthy();
+      // A double-click resets the zoom, and the headline with it.
+      fireEvent.doubleClick(plot, pt(xOf(4)));
+      expect(headline(container)).toBe(`Latest · ${stripDate(9)}`);
+    });
+
+    it("shows no change in the normalised view", () => {
+      const absolute = renderChart();
+      expect(absolute.container.querySelectorAll("[data-readout-change]")).toHaveLength(2);
+      absolute.unmount();
+
+      const { container } = renderChart(SERIES, "strip", { viewMode: "normalized" });
+      expect(container.querySelectorAll("[data-readout-change]")).toHaveLength(0);
+      // The values are still there.
+      expect(entryOf(container, "price").querySelector("[data-readout-value]")!.textContent).not.toBe("n/a");
+    });
+
+    it("keeps the row of a series with no points in the zoomed range, reading n/a", () => {
+      const early: ChartSeriesSpec = { ...SERIES[1]!, points: SERIES[1]!.points.slice(0, 3) };
+      const { container, plot } = renderChart([SERIES[0]!, early]);
+      // Zoom to points 5 to 7, where the second series has none.
+      fireEvent.mouseDown(plot, { ...pt(xOf(5) - 4), button: 0 });
+      fireEvent.mouseMove(plot, pt(xOf(7) + 4));
+      fireEvent.mouseUp(window);
+      expect(container.querySelectorAll("[data-readout-entry]")).toHaveLength(2);
+      const short = entryOf(container, "short");
+      expect(within(short).getByText("Short %")).toBeTruthy();
+      expect(within(short).getByText("n/a")).toBeTruthy();
+      expect(short.textContent).not.toContain("\u2014"); // never a dash
+      expect(short.querySelector("[data-readout-change]")).toBeNull();
+    });
+
+    it("keeps the row of a series with no points at all, reading n/a", () => {
+      const { container } = renderChart([SERIES[0]!, { ...SERIES[1]!, points: [] }]);
+      expect(headline(container)).toBe(`Latest · ${stripDate(9)}`);
+      expect(within(entryOf(container, "short")).getByText("n/a")).toBeTruthy();
+      expect(entryOf(container, "short").textContent).not.toContain("\u2014"); // never a dash
+    });
+
+    it("dates a value that is not from the headline's day, the way the short series lags", () => {
+      // Short interest is published days after the day it describes.
+      const lagged: ChartSeriesSpec = { ...SERIES[1]!, points: SERIES[1]!.points.slice(0, 6) };
+      const { container } = renderChart([SERIES[0]!, lagged]);
+      expect(entryOf(container, "price").querySelector("[data-readout-date-note]")).toBeNull();
+      expect(
+        entryOf(container, "short").querySelector("[data-readout-date-note]")!.textContent,
+      ).toBe(`· ${stripDay(5)}`);
+    });
+
+    it("reads a points series in the foreground with an arrow, not in red or green", () => {
+      const short: ChartSeriesSpec = {
+        ...SERIES[1]!,
+        measureMode: "absolute",
+        measureUnit: "pp",
+      };
+      const { container } = renderChart([SERIES[0]!, short]);
+      const change = within(entryOf(container, "short")).getByText("+9.00 pp");
+      expect(change.style.color).toBe("");
+      const arrow = change.previousElementSibling!;
+      expect(arrow.textContent).toBe("▲");
+      expect(arrow.getAttribute("aria-hidden")).toBe("true");
+    });
+  });
+
+  describe("the hovered and pinned readings", () => {
+    it("follows the state: latest, hover, latest, pinned, hover over the pin, pinned, latest", () => {
+      const { container, plot } = renderChart();
+      const trace: (string | null)[] = [stateOf(container)];
+      fireEvent.mouseMove(plot, pt(xOf(3), 50));
+      trace.push(stateOf(container));
+      fireEvent.mouseLeave(plot);
+      trace.push(stateOf(container));
+      tap(plot, xOf(5));
+      trace.push(stateOf(container));
+      now += 2000;
+      fireEvent.mouseMove(plot, pt(xOf(7), 50));
+      trace.push(stateOf(container));
+      fireEvent.mouseLeave(plot);
+      trace.push(stateOf(container));
+      fireEvent.click(container.querySelector("[data-readout-chip] button")!);
+      trace.push(stateOf(container));
+      expect(trace).toEqual([
+        "latest",
+        "hover",
+        "latest",
+        "pinned",
+        "hover",
+        "pinned",
+        "latest",
+      ]);
+    });
+
+    it("carries the Pinned chip, and data-pinned, only while pinned", () => {
+      const { container, plot } = renderChart();
+      const chip = () => container.querySelector("[data-readout-chip]");
+      expect(chip()).toBeNull();
+      fireEvent.mouseMove(plot, pt(xOf(3), 50));
+      expect(chip()).toBeNull();
+      fireEvent.mouseLeave(plot);
+      tap(plot, xOf(5));
+      expect(chip()).not.toBeNull();
+      expect(chip()!.textContent).toContain("Pinned");
+      expect(strip(container).hasAttribute("data-pinned")).toBe(true);
+    });
+
+    it("is part of the chart: a press on the strip does not count as a press outside it", () => {
+      const { container, plot } = renderChart();
+      tap(plot, xOf(5));
+      expect(stateOf(container)).toBe("pinned");
+      act(() => {
+        fireEvent.mouseDown(strip(container));
+        fireEvent.touchStart(strip(container), { touches: [pt(5, 5)] });
+      });
+      expect(stateOf(container)).toBe("pinned");
+      // The same press on the page outside it still releases.
+      act(() => {
+        fireEvent.mouseDown(document.body);
+      });
+      expect(stateOf(container)).toBe("latest");
+    });
+
+    it("labels the release button and explains how to move or release the pin", () => {
+      const { plot, getByRole } = renderChart();
+      tap(plot, xOf(5));
+      const button = getByRole("button", { name: "Release pinned reading" });
+      expect(button.getAttribute("title")).toBe(
+        "Tap the chart to move the reading; tap it again to release",
+      );
+    });
+
+    it("has no guidance sentence: that is the tooltip's", () => {
+      const { container, plot } = renderChart();
+      tap(plot, xOf(5));
+      expect(strip(container).textContent).not.toContain("tap again to release");
+    });
+
+    it("heads a hover with the first series' date and dates the ones on another day", () => {
+      const lagged: ChartSeriesSpec = { ...SERIES[1]!, points: SERIES[1]!.points.slice(0, 6) };
+      const { container, plot } = renderChart([SERIES[0]!, lagged]);
+      fireEvent.mouseMove(plot, pt(xOf(8), 50));
+      expect(headline(container)).toBe(stripDate(8));
+      expect(within(entryOf(container, "price")).getByText("48.00")).toBeTruthy();
+      expect(
+        entryOf(container, "short").querySelector("[data-readout-date-note]")!.textContent,
+      ).toBe(`· ${stripDay(5)}`);
+      // A reading at a point names no change.
+      expect(container.querySelectorAll("[data-readout-change]")).toHaveLength(0);
+    });
+  });
+
+  describe("what it costs", () => {
+    it("builds the resting reading once, however the pointer moves or the chart re-renders unchanged", () => {
+      const build = jest.spyOn(chartReadout, "buildLatestReadout");
+      try {
+        const { plot, rerender } = renderChart();
+        expect(build).toHaveBeenCalledTimes(1);
+        fireEvent.mouseMove(plot, pt(xOf(3), 50));
+        fireEvent.mouseMove(plot, pt(xOf(4), 50));
+        fireEvent.mouseLeave(plot);
+        tap(plot, xOf(5));
+        rerender(
+          <StockChartInner width={WIDTH} height={HEIGHT} series={SERIES} readout="strip" />,
+        );
+        expect(build).toHaveBeenCalledTimes(1);
+      } finally {
+        build.mockRestore();
+      }
+    });
+
+    it("builds it again when the view, the zoom or the series change", () => {
+      const build = jest.spyOn(chartReadout, "buildLatestReadout");
+      try {
+        const { plot, rerender } = renderChart();
+        rerender(
+          <StockChartInner
+            width={WIDTH}
+            height={HEIGHT}
+            series={SERIES}
+            readout="strip"
+            viewMode="normalized"
+          />,
+        );
+        expect(build).toHaveBeenCalledTimes(2);
+        fireEvent.mouseDown(plot, { ...pt(xOf(2)), button: 0 });
+        fireEvent.mouseMove(plot, pt(xOf(6)));
+        fireEvent.mouseUp(window); // commits the zoom
+        expect(build).toHaveBeenCalledTimes(3);
+      } finally {
+        build.mockRestore();
+      }
+    });
+
+    it("does not build it at all when the tooltip shows the reading", () => {
+      const build = jest.spyOn(chartReadout, "buildLatestReadout");
+      try {
+        const { plot } = renderChart(SERIES, "tooltip");
+        fireEvent.mouseMove(plot, pt(xOf(3), 50));
+        expect(build).not.toHaveBeenCalled();
+      } finally {
+        build.mockRestore();
+      }
+    });
+
+    it("sizes the rooms of the values once, however the pointer moves, and not at all for the tooltip", () => {
+      const size = jest.spyOn(chartReadout, "widestValueChars");
+      try {
+        const { plot, rerender, unmount } = renderChart();
+        expect(size).toHaveBeenCalledTimes(1);
+        fireEvent.mouseMove(plot, pt(xOf(3), 50));
+        fireEvent.mouseMove(plot, pt(xOf(4), 50));
+        fireEvent.mouseLeave(plot);
+        tap(plot, xOf(5));
+        rerender(
+          <StockChartInner width={WIDTH} height={HEIGHT} series={SERIES} readout="strip" />,
+        );
+        expect(size).toHaveBeenCalledTimes(1);
+        unmount();
+
+        size.mockClear();
+        const card = renderChart(SERIES, "tooltip");
+        fireEvent.mouseMove(card.plot, pt(xOf(3), 50));
+        expect(size).not.toHaveBeenCalled();
+      } finally {
+        size.mockRestore();
+      }
+    });
+  });
+
+  describe("holding rows for series that have not arrived (readoutReserveSeries)", () => {
+    // The Combined view of a stock page loads its price and its short interest
+    // separately, so one of them lands first. On a phone each series is a row of
+    // the strip, and a strip that grows a row when the second lands moves the plot
+    // under it by 18px. Held from the first render, it does not.
+    const PRICE_ONLY = [SERIES[0]!];
+    const total = (c: HTMLElement) =>
+      Number(svgOf(c).getAttribute("height")) + parseFloat(strip(c).style.height);
+    const stripHeight = (c: HTMLElement) => strip(c).style.height;
+    const reserved = (c: HTMLElement) => c.querySelectorAll("[data-readout-reserved]").length;
+
+    it("sizes a phone strip for the series it will have: 62px with only the price in", () => {
+      const { container } = render(
+        <StockChartInner width={360} height={400} series={PRICE_ONLY} readoutReserveSeries={2} />,
+      );
+      expect(stripHeight(container)).toBe("62px");
+      expect(svgOf(container).getAttribute("height")).toBe(String(400 - 62));
+      // The row of the series to come is held, empty; the one that is in is read.
+      expect(container.querySelectorAll("[data-readout-entry]")).toHaveLength(1);
+      expect(reserved(container)).toBe(1);
+    });
+
+    it("does not move the plot when the second series arrives", () => {
+      const { container, rerender } = render(
+        <StockChartInner width={360} height={400} series={PRICE_ONLY} readoutReserveSeries={2} />,
+      );
+      const before = { strip: stripHeight(container), svg: svgOf(container).getAttribute("height") };
+      rerender(<StockChartInner width={360} height={400} series={SERIES} readoutReserveSeries={2} />);
+      expect(container.querySelectorAll("[data-readout-entry]")).toHaveLength(2);
+      expect(reserved(container)).toBe(0);
+      expect(stripHeight(container)).toBe(before.strip);
+      expect(svgOf(container).getAttribute("height")).toBe(before.svg);
+      expect(svgOf(container).getAttribute("height")).toBe("338");
+    });
+
+    it("holds for either series landing first", () => {
+      const SHORT_ONLY = [SERIES[1]!];
+      const { container, rerender } = render(
+        <StockChartInner width={360} height={400} series={SHORT_ONLY} readoutReserveSeries={2} />,
+      );
+      expect(stripHeight(container)).toBe("62px");
+      rerender(<StockChartInner width={360} height={400} series={SERIES} readoutReserveSeries={2} />);
+      expect(stripHeight(container)).toBe("62px");
+      expect(svgOf(container).getAttribute("height")).toBe("338");
+    });
+
+    it("keeps the strip and the svg adding up to the chart's height, before and after", () => {
+      const { container, rerender } = render(
+        <StockChartInner width={360} height={400} series={PRICE_ONLY} readoutReserveSeries={2} />,
+      );
+      expect(total(container)).toBe(400);
+      rerender(<StockChartInner width={360} height={400} series={SERIES} readoutReserveSeries={2} />);
+      expect(total(container)).toBe(400);
+    });
+
+    it("grows the strip when it is not asked to hold the row, which is what it is for", () => {
+      const { container, rerender } = render(
+        <StockChartInner width={360} height={400} series={PRICE_ONLY} />,
+      );
+      expect(stripHeight(container)).toBe("44px");
+      rerender(<StockChartInner width={360} height={400} series={SERIES} />);
+      expect(stripHeight(container)).toBe("62px");
+    });
+
+    it("changes nothing from 640px, where the strip is one row whatever it shows", () => {
+      const { container } = render(
+        <StockChartInner width={800} height={400} series={PRICE_ONLY} readoutReserveSeries={2} />,
+      );
+      expect(stripHeight(container)).toBe("28px");
+      expect(svgOf(container).getAttribute("height")).toBe(String(400 - 28));
+      expect(reserved(container)).toBe(0);
+    });
+
+    it("counts the held rows in the choice between the strip and the tooltip, as it does the series", () => {
+      // 236 - 44 - 32 = 160 for one series keeps the strip; holding a second row,
+      // 236 - 62 - 32 = 142, cannot. The choice is made on the strip it would show.
+      const asked = render(
+        <StockChartInner width={WIDTH} height={236} series={PRICE_ONLY} readoutReserveSeries={2} />,
+      );
+      expect(asked.container.querySelector("[data-chart-readout]")).toBeNull();
+      expect(svgOf(asked.container).getAttribute("height")).toBe("236");
+      asked.unmount();
+      const plain = render(<StockChartInner width={WIDTH} height={236} series={PRICE_ONLY} />);
+      expect(plain.container.querySelector("[data-chart-readout]")).not.toBeNull();
+    });
+
+    it.each([undefined, 0, 1, -3, NaN])("holds nothing for %s, whatever the chart has", (n) => {
+      const { container } = render(
+        <StockChartInner
+          width={360}
+          height={400}
+          series={PRICE_ONLY}
+          readoutReserveSeries={n as number | undefined}
+        />,
+      );
+      expect(stripHeight(container)).toBe("44px");
+      expect(reserved(container)).toBe(0);
+    });
+
+    it("holds nothing in tooltip mode: there is no strip", () => {
+      const { container } = render(
+        <StockChartInner
+          width={360}
+          height={400}
+          series={PRICE_ONLY}
+          readout="tooltip"
+          readoutReserveSeries={2}
+        />,
+      );
+      expect(container.querySelector("[data-chart-readout]")).toBeNull();
+      expect(svgOf(container).getAttribute("height")).toBe("400");
+    });
+  });
+
+  describe("falling back to the tooltip", () => {
+    it("shows the tooltip when the plot left under the strip would be under 160px", () => {
+      // 200 - 62 (strip, two series on a phone) - 32 (margins) = 106 < 160.
+      const { container } = render(
+        <StockChartInner width={WIDTH} height={200} series={SERIES} />,
+      );
+      expect(container.querySelector("[data-chart-readout]")).toBeNull();
+      expect(svgOf(container).getAttribute("height")).toBe("200");
+      fireEvent.mouseMove(
+        container.querySelector("[data-chart-capture]")!,
+        pt(xOf(3), 50),
+      );
+      expect(container.querySelector("[data-chart-tooltip]")).not.toBeNull();
+    });
+
+    it("keeps the strip when exactly 160px is left", () => {
+      // 254 - 62 (two series on a phone) - 32 = 160.
+      const { container } = render(
+        <StockChartInner width={WIDTH} height={254} series={SERIES} />,
+      );
+      expect(container.querySelector("[data-chart-readout]")).not.toBeNull();
+      expect(svgOf(container).getAttribute("height")).toBe("192");
+    });
+
+    it("charges each series on a phone a row of the strip: 18px short, the tooltip", () => {
+      // The same 236px chart: 236 - 44 - 32 = 160 for one series, which keeps the
+      // strip, and 236 - 62 - 32 = 142 for two, which cannot.
+      const one = render(
+        <StockChartInner width={WIDTH} height={236} series={[SERIES[0]!]} />,
+      );
+      expect(one.container.querySelector("[data-chart-readout]")).not.toBeNull();
+      expect(svgOf(one.container).getAttribute("height")).toBe("192");
+      one.unmount();
+      const two = render(
+        <StockChartInner width={WIDTH} height={236} series={SERIES} />,
+      );
+      expect(two.container.querySelector("[data-chart-readout]")).toBeNull();
+      expect(svgOf(two.container).getAttribute("height")).toBe("236");
+    });
+
+    it("does not charge a wide chart for its series", () => {
+      // 220 - 28 - 32 = 160 whether it shows one series or two (no brush band).
+      for (const series of [[SERIES[0]!], SERIES]) {
+        const r = render(
+          <StockChartInner width={800} height={220} series={series} showBrush={false} />,
+        );
+        expect(r.container.querySelector("[data-chart-readout]")).not.toBeNull();
+        expect(svgOf(r.container).getAttribute("height")).toBe("192");
+        r.unmount();
+      }
+    });
+  });
+});
+
+// Pinning and releasing are spoken in both modes; a scrub never is.
+describe.each(MODES)("StockChart announcer (%s)", (mode) => {
+  const say = (c: HTMLElement) =>
+    c.querySelector<HTMLElement>("[data-chart-announcer]")!.textContent;
+
+  it("is a persistent, visually hidden status region", () => {
+    const { container } = renderChart(SERIES, mode);
+    const announcer = container.querySelector("[data-chart-announcer]")!;
+    expect(announcer.getAttribute("role")).toBe("status");
+    expect(announcer.classList.contains("sr-only")).toBe(true);
+    expect(say(container)).toBe("");
+  });
+
+  it("says nothing for a scrub", () => {
+    const { container, plot } = renderChart(SERIES, mode);
+    fireEvent.mouseMove(plot, pt(xOf(3), 50));
+    fireEvent.mouseMove(plot, pt(xOf(4), 50));
+    fireEvent.mouseLeave(plot);
+    expect(say(container)).toBe("");
+    // A touch scrub is no different until the finger lifts.
+    fireEvent.touchStart(plot, { touches: [pt(xOf(2))], changedTouches: [pt(xOf(2))] });
+    fireEvent.touchMove(plot, { touches: [pt(xOf(3))], changedTouches: [pt(xOf(3))] });
+    expect(say(container)).toBe("");
+  });
+
+  it("says what was pinned, then that it was released", () => {
+    const { container, plot } = renderChart(SERIES, mode);
+    tap(plot, xOf(6));
+    // Default axis format: two decimals. Price 40 + 6, short 2 + 6.
+    expect(say(container)).toBe(`Pinned ${stripDate(6)}: Price 46.00, Short % 8.00`);
+    now += 2000;
+    tap(plot, xOf(6)); // a re-tap releases
+    expect(say(container)).toBe("Reading released");
+  });
+
+  it("says the new reading when the pin moves", () => {
+    const { container, plot } = renderChart(SERIES, mode);
+    tap(plot, xOf(2));
+    now += 2000;
+    tap(plot, xOf(7));
+    expect(say(container)).toBe(`Pinned ${stripDate(7)}: Price 47.00, Short % 9.00`);
+  });
+
+  it("says a release made by the button, a press outside or the series changing", () => {
+    const { container, plot, getByRole } = renderChart(SERIES, mode);
+    tap(plot, xOf(4));
+    fireEvent.click(getByRole("button", { name: /release pinned reading/i }));
+    expect(say(container)).toBe("Reading released");
+
+    tap(plot, xOf(5));
+    expect(say(container)).toContain("Pinned");
+    act(() => {
+      fireEvent.mouseDown(document.body);
+    });
+    expect(say(container)).toBe("Reading released");
+  });
+});
+
+describe("StockChart focus after release", () => {
+  it("moves to the chart when Escape releases a pin from the release button", () => {
+    const { container, plot, getByRole } = renderChart(SERIES, "strip");
+    tap(plot, xOf(5));
+    const button = getByRole("button", { name: /release pinned reading/i });
+    button.focus();
+    fireEvent.keyDown(button, { key: "Escape" });
+    expect(container.querySelector("[data-readout-chip]")).toBeNull();
+    expect(document.activeElement).toBe(container.querySelector("[data-chart-container]"));
+  });
+
+  it("moves to the chart when the release button is used", () => {
+    const { container, plot, getByRole } = renderChart(SERIES, "strip");
+    tap(plot, xOf(5));
+    const button = getByRole("button", { name: /release pinned reading/i });
+    button.focus();
+    expect(document.activeElement).toBe(button);
+    fireEvent.click(button);
+    // The button is gone; focus is on the chart, not lost to <body>.
+    expect(container.querySelector("[data-readout-chip]")).toBeNull();
+    expect(document.activeElement).toBe(container.querySelector("[data-chart-container]"));
+  });
+});
+
+// The chart is reachable and drivable without a pointer, in both modes.
+describe.each(MODES)("StockChart keyboard (%s)", (mode) => {
+  function setup(series = SERIES) {
+    const r = renderChart(series, mode);
+    const root = r.container.querySelector<HTMLElement>("[data-chart-container]")!;
+    root.focus();
+    /** Returns false when the page's own handling of the key was prevented. */
+    const press = (key: string, init: KeyboardEventInit = {}) =>
+      fireEvent.keyDown(root, { key, ...init });
+    /** The date of the pinned reading, or null while nothing is pinned. */
+    const pinnedOn = () => {
+      const el = r.reading();
+      return el && el.hasAttribute("data-pinned") ? el.textContent : null;
+    };
+    return { ...r, root, press, pinnedOn };
+  }
+
+  it("makes the chart a focusable, labelled group", () => {
+    const { root } = setup();
+    expect(root.getAttribute("tabindex")).toBe("0");
+    expect(root.getAttribute("role")).toBe("group");
+    expect(root.getAttribute("aria-label")).toBe(
+      "Chart. Use the left and right arrow keys to step through readings, Escape to release.",
+    );
+    expect(root.className).toContain("focus-visible:ring-2");
+  });
+
+  it("ArrowLeft with nothing pinned pins the point before the last", () => {
+    const { press, pinnedOn } = setup();
+    expect(pinnedOn()).toBeNull();
+    expect(press("ArrowLeft")).toBe(false); // handled: the page must not scroll
+    expect(pinnedOn()).toContain(stripDate(8));
+  });
+
+  it("ArrowRight with nothing pinned pins the last point, as there is no next", () => {
+    const { press, pinnedOn } = setup();
+    expect(press("ArrowRight")).toBe(false);
+    expect(pinnedOn()).toContain(stripDate(9));
+  });
+
+  it("steps one point at a time and stops at both ends", () => {
+    const { press, pinnedOn } = setup();
+    press("ArrowLeft"); // 8
+    press("ArrowLeft"); // 7
+    expect(pinnedOn()).toContain(stripDate(7));
+    press("ArrowRight"); // 8
+    expect(pinnedOn()).toContain(stripDate(8));
+    press("Home");
+    expect(pinnedOn()).toContain(stripDate(0));
+    press("ArrowLeft"); // no point before the first
+    expect(pinnedOn()).toContain(stripDate(0));
+    press("End");
+    expect(pinnedOn()).toContain(stripDate(9));
+    press("ArrowRight"); // no point after the last
+    expect(pinnedOn()).toContain(stripDate(9));
+  });
+
+  it("steps from a pinned touch reading, not from the end", () => {
+    const { press, pinnedOn, plot } = setup();
+    tap(plot, xOf(4));
+    press("ArrowRight");
+    expect(pinnedOn()).toContain(stripDate(5));
+  });
+
+  it("takes the screen from a live mouse hover, so what is said is what is shown", () => {
+    const { press, pinnedOn, plot, container } = setup();
+    fireEvent.mouseMove(plot, pt(xOf(2), 50));
+    expect(pinnedOn()).toBeNull(); // a hover, not a pin
+    press("ArrowRight"); // from the hovered point: the next one
+    // The pin is on screen, where it is announced; the hover no longer hides it.
+    expect(pinnedOn()).toContain(stripDate(3));
+    expect(container.querySelector("[data-chart-announcer]")!.textContent).toContain(
+      `Pinned ${stripDate(3)}`,
+    );
+    // The pointer leaving changes nothing: the pin is what was on screen.
+    fireEvent.mouseLeave(plot);
+    expect(pinnedOn()).toContain(stripDate(3));
+  });
+
+  it("steps from the point under the pointer, in either direction, not from the end", () => {
+    const left = setup();
+    fireEvent.mouseMove(left.plot, pt(xOf(4), 50));
+    left.press("ArrowLeft");
+    expect(left.pinnedOn()).toContain(stripDate(3));
+    left.unmount();
+
+    const right = setup();
+    fireEvent.mouseMove(right.plot, pt(xOf(4), 50));
+    right.press("ArrowRight");
+    expect(right.pinnedOn()).toContain(stripDate(5));
+  });
+
+  it("steps from the nearest point when the pointer is between two", () => {
+    const { press, pinnedOn, plot } = setup();
+    // 0.3 of the way from point 5 to point 6: the nearest is 5, so a step right is 6.
+    fireEvent.mouseMove(plot, pt(xOf(5.3), 50));
+    press("ArrowRight");
+    expect(pinnedOn()).toContain(stripDate(6));
+  });
+
+  it("steps on from its own pin, wherever the pointer wanders after, and from the end only with neither", () => {
+    const { press, pinnedOn, plot } = setup();
+    press("ArrowLeft"); // nothing pinned, no pointer: the point before the last
+    expect(pinnedOn()).toContain(stripDate(8));
+    // The pointer comes over the chart at point 2; the pin is the keyboard's
+    // cursor, and a step continues from it, not from where the mouse happens to be.
+    fireEvent.mouseMove(plot, pt(xOf(2), 50));
+    press("ArrowLeft");
+    expect(pinnedOn()).toContain(stripDate(7));
+  });
+
+  it("Home and End jump to the ends from a hover, as from anywhere", () => {
+    const { press, pinnedOn, plot } = setup();
+    fireEvent.mouseMove(plot, pt(xOf(4), 50));
+    press("End");
+    expect(pinnedOn()).toContain(stripDate(9));
+    fireEvent.mouseMove(plot, pt(xOf(4), 50));
+    press("Home");
+    expect(pinnedOn()).toContain(stripDate(0));
+  });
+
+  it("steps through the series with the most points, whichever comes first", () => {
+    const sparse: ChartSeriesSpec = { ...SERIES[1]!, points: SERIES[1]!.points.slice(0, 4) };
+    const { press, container } = setup([sparse, SERIES[0]!]);
+    press("ArrowLeft");
+    // The price series has the ten points: 40 + 8.
+    expect(container.textContent).toContain("48.00");
+    press("ArrowLeft");
+    expect(container.textContent).toContain("47.00");
+  });
+
+  it("Escape releases a pin, and leaves a bare Escape to whoever else wants it", () => {
+    const { press, pinnedOn } = setup();
+    expect(press("Escape")).toBe(true); // nothing pinned: not ours
+    press("ArrowLeft");
+    expect(pinnedOn()).not.toBeNull();
+    expect(press("Escape")).toBe(false);
+    expect(pinnedOn()).toBeNull();
+  });
+
+  it("leaves other keys and chords alone", () => {
+    const { press, pinnedOn } = setup();
+    expect(press("a")).toBe(true);
+    expect(press("Enter")).toBe(true);
+    expect(press("ArrowLeft", { altKey: true })).toBe(true); // the browser's Back
+    expect(press("ArrowRight", { metaKey: true })).toBe(true);
+    expect(press("Home", { ctrlKey: true })).toBe(true);
+    expect(press("ArrowLeft", { shiftKey: true })).toBe(true);
+    expect(pinnedOn()).toBeNull();
+  });
+
+  it("says each step, as it says a pin", () => {
+    const { press, container } = setup();
+    press("ArrowLeft");
+    const say = () => container.querySelector("[data-chart-announcer]")!.textContent;
+    expect(say()).toBe(`Pinned ${stripDate(8)}: Price 48.00, Short % 10.00`);
+    press("Home");
+    expect(say()).toBe(`Pinned ${stripDate(0)}: Price 40.00, Short % 2.00`);
+    press("Escape");
+    expect(say()).toBe("Reading released");
+  });
+});
+
+describe("StockChart keyboard in tooltip mode", () => {
+  it("docks the card in a corner, as there is no pointer to follow", () => {
+    const { container, reading } = renderChart(SERIES, "tooltip");
+    const root = container.querySelector<HTMLElement>("[data-chart-container]")!;
+    fireEvent.keyDown(root, { key: "ArrowLeft" });
+    expect(reading()!.hasAttribute("data-pinned")).toBe(true);
+    expect(reading()!.hasAttribute("data-docked")).toBe(true);
+    expect(reading()!.style.top).toBe(`${M.top + 4}px`);
   });
 });

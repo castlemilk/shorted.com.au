@@ -11,6 +11,13 @@ import {
 } from "@/components/ui/card";
 import { AlertTriangle, RefreshCw, Home, TrendingDown } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+// The stock's code is the segment right after /shorts/, on the Overview
+// (/shorts/BHP) and on every tab beneath it (/shorts/BHP/strategy). The last
+// segment is the code only on the Overview: on a tab route it is the tab, and
+// the card used to read "We couldn't load the data for STRATEGY".
+const STOCK_PATH = /^\/shorts\/([^/]+)/i;
 
 interface StockErrorProps {
   error: Error & { digest?: string };
@@ -24,11 +31,9 @@ export default function StockError({ error, reset }: StockErrorProps) {
     console.error("Error digest:", error?.digest);
   }, [error]);
 
-  // Extract stock code from URL if possible
+  const pathname = usePathname();
   const stockCode =
-    typeof window !== "undefined"
-      ? window.location.pathname.split("/").pop()?.toUpperCase()
-      : "this stock";
+    STOCK_PATH.exec(pathname ?? "")?.[1]?.toUpperCase() ?? "this stock";
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">

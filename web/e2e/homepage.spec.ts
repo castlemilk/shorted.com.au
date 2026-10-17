@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/test';
 import { APIMockHelper } from './helpers/api-mock';
 import { AuthHelper } from './helpers/auth';
 import testUsers from './fixtures/test-users.json' with { type: 'json' };

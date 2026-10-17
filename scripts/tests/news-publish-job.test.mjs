@@ -68,14 +68,12 @@ test("the job can write article images to the public logo bucket", () => {
 });
 
 test("CI builds take-writer with content/news baked in and deploys that exact tag", () => {
-  const matrix = workflow.jobs["build-docker-images"].strategy.matrix.service;
-  const tw = matrix.find((s) => s.name === "take-writer");
-  assert.ok(tw, "take-writer should be in the image build matrix");
-  assert.equal(tw.context, "scripts/take-writer");
-  assert.equal(tw.build_contexts, "content=content/news");
-
-  const build = workflow.jobs["build-docker-images"].steps.find((s) => s.uses?.startsWith("docker/build-push-action"));
-  assert.equal(build.with["build-contexts"], "${{ matrix.service.build_contexts }}");
+  const bake = read("../../docker-bake.hcl");
+  const tw = bake.match(/target "take-writer" \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(tw, "take-writer should be a target in docker-bake.hcl");
+  assert.match(tw, /context\s+=\s+"scripts\/take-writer"/);
+  assert.match(tw, /content\s+=\s+"content\/news"/, "the articles must reach the image through the named `content` context");
+  assert.ok(workflow.jobs["build-images"], "images are published by the single bake job");
 
   const source = read("../../.github/workflows/terraform-deploy.yml");
   const passes = source.match(/-var="take_writer_image=[^"]*take-writer:\$\{\{ needs\.determine-environment\.outputs\.image-tag \}\}"/g) ?? [];

@@ -240,6 +240,44 @@ private static final long serialVersionUID = 0L;
     return inUniverse_;
   }
 
+  public static final int PRICE_FEATURES_FIELD_NUMBER = 6;
+  private com.shorts.v1alpha1.PriceFeatures priceFeatures_;
+  /**
+   * <pre>
+   * Set only when in_universe is true.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+   * @return Whether the priceFeatures field is set.
+   */
+  @java.lang.Override
+  public boolean hasPriceFeatures() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <pre>
+   * Set only when in_universe is true.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+   * @return The priceFeatures.
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.PriceFeatures getPriceFeatures() {
+    return priceFeatures_ == null ? com.shorts.v1alpha1.PriceFeatures.getDefaultInstance() : priceFeatures_;
+  }
+  /**
+   * <pre>
+   * Set only when in_universe is true.
+   * </pre>
+   *
+   * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.PriceFeaturesOrBuilder getPriceFeaturesOrBuilder() {
+    return priceFeatures_ == null ? com.shorts.v1alpha1.PriceFeatures.getDefaultInstance() : priceFeatures_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -269,6 +307,9 @@ private static final long serialVersionUID = 0L;
     if (inUniverse_ != false) {
       output.writeBool(5, inUniverse_);
     }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeMessage(6, getPriceFeatures());
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -295,6 +336,10 @@ private static final long serialVersionUID = 0L;
     if (inUniverse_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(5, inUniverse_);
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(6, getPriceFeatures());
     }
     return size;
   }
@@ -333,6 +378,11 @@ private static final long serialVersionUID = 0L;
         .equals(other.getFitsList())) return false;
     if (getInUniverse()
         != other.getInUniverse()) return false;
+    if (hasPriceFeatures() != other.hasPriceFeatures()) return false;
+    if (hasPriceFeatures()) {
+      if (!getPriceFeatures()
+          .equals(other.getPriceFeatures())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -359,6 +409,10 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + IN_UNIVERSE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getInUniverse());
+    if (hasPriceFeatures()) {
+      hash = (37 * hash) + PRICE_FEATURES_FIELD_NUMBER;
+      hash = (53 * hash) + getPriceFeatures().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -495,6 +549,7 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
         internalGetRegimeFieldBuilder();
         internalGetFitsFieldBuilder();
+        internalGetPriceFeaturesFieldBuilder();
       }
     }
     @java.lang.Override
@@ -516,6 +571,11 @@ private static final long serialVersionUID = 0L;
       }
       bitField0_ = (bitField0_ & ~0x00000008);
       inUniverse_ = false;
+      priceFeatures_ = null;
+      if (priceFeaturesBuilder_ != null) {
+        priceFeaturesBuilder_.dispose();
+        priceFeaturesBuilder_ = null;
+      }
       return this;
     }
 
@@ -578,6 +638,12 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.inUniverse_ = inUniverse_;
       }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.priceFeatures_ = priceFeaturesBuilder_ == null
+            ? priceFeatures_
+            : priceFeaturesBuilder_.build();
+        to_bitField0_ |= 0x00000002;
+      }
       result.bitField0_ |= to_bitField0_;
     }
 
@@ -634,6 +700,9 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getInUniverse() != false) {
         setInUniverse(other.getInUniverse());
+      }
+      if (other.hasPriceFeatures()) {
+        mergePriceFeatures(other.getPriceFeatures());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -696,6 +765,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 40
+            case 50: {
+              input.readMessage(
+                  internalGetPriceFeaturesFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 50
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1340,6 +1416,163 @@ private static final long serialVersionUID = 0L;
       inUniverse_ = false;
       onChanged();
       return this;
+    }
+
+    private com.shorts.v1alpha1.PriceFeatures priceFeatures_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.PriceFeatures, com.shorts.v1alpha1.PriceFeatures.Builder, com.shorts.v1alpha1.PriceFeaturesOrBuilder> priceFeaturesBuilder_;
+    /**
+     * <pre>
+     * Set only when in_universe is true.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+     * @return Whether the priceFeatures field is set.
+     */
+    public boolean hasPriceFeatures() {
+      return ((bitField0_ & 0x00000020) != 0);
+    }
+    /**
+     * <pre>
+     * Set only when in_universe is true.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+     * @return The priceFeatures.
+     */
+    public com.shorts.v1alpha1.PriceFeatures getPriceFeatures() {
+      if (priceFeaturesBuilder_ == null) {
+        return priceFeatures_ == null ? com.shorts.v1alpha1.PriceFeatures.getDefaultInstance() : priceFeatures_;
+      } else {
+        return priceFeaturesBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * Set only when in_universe is true.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+     */
+    public Builder setPriceFeatures(com.shorts.v1alpha1.PriceFeatures value) {
+      if (priceFeaturesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        priceFeatures_ = value;
+      } else {
+        priceFeaturesBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only when in_universe is true.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+     */
+    public Builder setPriceFeatures(
+        com.shorts.v1alpha1.PriceFeatures.Builder builderForValue) {
+      if (priceFeaturesBuilder_ == null) {
+        priceFeatures_ = builderForValue.build();
+      } else {
+        priceFeaturesBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only when in_universe is true.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+     */
+    public Builder mergePriceFeatures(com.shorts.v1alpha1.PriceFeatures value) {
+      if (priceFeaturesBuilder_ == null) {
+        if (((bitField0_ & 0x00000020) != 0) &&
+          priceFeatures_ != null &&
+          priceFeatures_ != com.shorts.v1alpha1.PriceFeatures.getDefaultInstance()) {
+          getPriceFeaturesBuilder().mergeFrom(value);
+        } else {
+          priceFeatures_ = value;
+        }
+      } else {
+        priceFeaturesBuilder_.mergeFrom(value);
+      }
+      if (priceFeatures_ != null) {
+        bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only when in_universe is true.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+     */
+    public Builder clearPriceFeatures() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      priceFeatures_ = null;
+      if (priceFeaturesBuilder_ != null) {
+        priceFeaturesBuilder_.dispose();
+        priceFeaturesBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only when in_universe is true.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+     */
+    public com.shorts.v1alpha1.PriceFeatures.Builder getPriceFeaturesBuilder() {
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return internalGetPriceFeaturesFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * Set only when in_universe is true.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+     */
+    public com.shorts.v1alpha1.PriceFeaturesOrBuilder getPriceFeaturesOrBuilder() {
+      if (priceFeaturesBuilder_ != null) {
+        return priceFeaturesBuilder_.getMessageOrBuilder();
+      } else {
+        return priceFeatures_ == null ?
+            com.shorts.v1alpha1.PriceFeatures.getDefaultInstance() : priceFeatures_;
+      }
+    }
+    /**
+     * <pre>
+     * Set only when in_universe is true.
+     * </pre>
+     *
+     * <code>.shorts.v1alpha1.PriceFeatures price_features = 6 [json_name = "priceFeatures"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.shorts.v1alpha1.PriceFeatures, com.shorts.v1alpha1.PriceFeatures.Builder, com.shorts.v1alpha1.PriceFeaturesOrBuilder> 
+        internalGetPriceFeaturesFieldBuilder() {
+      if (priceFeaturesBuilder_ == null) {
+        priceFeaturesBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.shorts.v1alpha1.PriceFeatures, com.shorts.v1alpha1.PriceFeatures.Builder, com.shorts.v1alpha1.PriceFeaturesOrBuilder>(
+                getPriceFeatures(),
+                getParentForChildren(),
+                isClean());
+        priceFeatures_ = null;
+      }
+      return priceFeaturesBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetStockStrategyFitResponse)

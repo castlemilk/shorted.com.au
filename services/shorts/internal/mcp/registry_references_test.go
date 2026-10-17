@@ -143,9 +143,16 @@ func dedupe(in []string) []string {
 // differentiate similar tools, or that carry a unit, a caveat or an
 // LLM-provenance label, is not on the table — those are what make tool
 // selection and honest citation work.
+//
+// It was raised from 90KB to 93KB on 11 Oct 2026 for get_stock_briefing, which
+// serves what the stock-report video runs found no MCP tool could: one stock's
+// strategy fit, its signals, its dividend history and its latest parsed filing.
+// One tool for all four instead of four tools saves three descriptions and input
+// schemas. tools/list went from 91,006 bytes (29 tools) to 93,700 (30). The
+// ceiling is the smallest whole KiB at least 1,024 bytes over that.
 func TestToolsListPreambleStaysWithinBudget(t *testing.T) {
 	// One bounded mention tool and the market entrypoint metadata add 2 KiB.
-	const budget = 90 * 1024
+	const budget = 93 * 1024
 
 	ctx := context.Background()
 	server := NewServer(&fakeDataSource{})

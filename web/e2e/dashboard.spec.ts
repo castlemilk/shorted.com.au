@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 
 test.describe("Dashboard Navigation", () => {
   test("should show sidebar navigation on desktop", async ({ page }) => {

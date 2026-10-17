@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./helpers/test";
 
 test.describe("roadmap tree (public)", () => {
   test("shows tooltip on hover and zoom +/- works", async ({ page }) => {

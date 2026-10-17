@@ -35,23 +35,33 @@ resource "google_cloud_run_v2_job_iam_member" "scheduler_poll_overrides" {
   member   = "serviceAccount:${google_service_account.scheduler_invoker.email}"
 }
 
-# Cloud Scheduler Job - intraday poll (weekdays, around ASIC's 11:30
-# publication). Targets the v2 Admin API, which accepts the overrides body;
-# the daily trigger keeps its v1 URL.
-resource "google_cloud_scheduler_job" "poll_sync" {
-  count = var.enable_poll_schedule ? 1 : 0
+# Cloud Scheduler Jobs - intraday poll, one per entry of var.poll_schedules
+# (weekdays; a burst just after ASIC's 11:30:11 publication, then an hourly
+# tail for a late file). Targets the v2 Admin API, which accepts the overrides
+# body; the daily trigger keeps its v1 URL.
+#
+# The `publish` entry keeps the name the single 15-minute poll had, so the
+# moved block below lets Terraform update that scheduler in place instead of
+# deleting and recreating it.
+moved {
+  from = google_cloud_scheduler_job.poll_sync[0]
+  to   = google_cloud_scheduler_job.poll_sync["publish"]
+}
 
-  name             = "${local.service_name}-poll"
-  description      = "Intraday poll for new ASIC short selling files (short-data-sync -poll); ingests only new files, no reconcile"
-  schedule         = var.poll_schedule
+resource "google_cloud_scheduler_job" "poll_sync" {
+  for_each = var.enable_poll_schedule ? var.poll_schedules : {}
+
+  name             = each.key == "publish" ? "${local.service_name}-poll" : "${local.service_name}-poll-${each.key}"
+  description      = "Intraday poll (${each.key}) for new ASIC short selling files (short-data-sync -poll); ingests only new files, no reconcile"
+  schedule         = each.value
   time_zone        = "Australia/Sydney" # ASIC publishes at 11:30 local, in both AEST and AEDT
   attempt_deadline = "600s"
   region           = var.scheduler_region
   project          = var.project_id
   paused           = var.scheduler_paused
 
-  # One retry: the next poll is 15 minutes away and the daily run is the
-  # backstop, so a failed trigger is cheap to drop.
+  # One retry: another poll follows within minutes (publish) or an hour (late)
+  # and the daily run is the backstop, so a failed trigger is cheap to drop.
   retry_config {
     retry_count = 1
   }

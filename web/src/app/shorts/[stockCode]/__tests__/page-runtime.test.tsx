@@ -32,14 +32,10 @@ describe("Stock Detail Page Runtime Imports", () => {
     // Test that all components can be imported
     const [
       CompanyInfoModule,
-      CompanyProfileModule,
-      CompanyStatsModule,
       StockChartPanelModule,
       EnrichedCompanySectionModule,
     ] = await Promise.all([
       import("~/@/components/ui/companyInfo"),
-      import("~/@/components/ui/companyProfile"),
-      import("~/@/components/ui/companyStats"),
       import("~/@/components/charts/StockChartPanel"),
       import("~/@/components/company/enriched-company-section"),
     ]);
@@ -48,24 +44,12 @@ describe("Stock Detail Page Runtime Imports", () => {
     expect(CompanyInfoModule.default).toBeDefined();
     expect(typeof CompanyInfoModule.default).toBe("function");
     
-    expect(CompanyProfileModule.default).toBeDefined();
-    expect(typeof CompanyProfileModule.default).toBe("function");
-    
-    expect(CompanyStatsModule.default).toBeDefined();
-    expect(typeof CompanyStatsModule.default).toBe("function");
-    
     expect(StockChartPanelModule.StockChartPanel).toBeDefined();
     expect(typeof StockChartPanelModule.StockChartPanel).toBe("function");
 
     // Verify named exports exist
     expect(CompanyInfoModule.CompanyInfoPlaceholder).toBeDefined();
     expect(typeof CompanyInfoModule.CompanyInfoPlaceholder).toBe("function");
-    
-    expect(CompanyProfileModule.CompanyProfilePlaceholder).toBeDefined();
-    expect(typeof CompanyProfileModule.CompanyProfilePlaceholder).toBe("function");
-    
-    expect(CompanyStatsModule.CompanyStatsPlaceholder).toBeDefined();
-    expect(typeof CompanyStatsModule.CompanyStatsPlaceholder).toBe("function");
 
     // Verify EnrichedCompanySection is exported correctly
     expect(EnrichedCompanySectionModule.EnrichedCompanySection).toBeDefined();
@@ -100,15 +84,49 @@ describe("Stock Detail Page Runtime Imports", () => {
       path.resolve(__dirname, "../page.tsx"),
       "utf8",
     );
+    const layoutSource = fs.readFileSync(
+      path.resolve(__dirname, "../layout.tsx"),
+      "utf8",
+    );
+    const companySource = fs.readFileSync(
+      path.resolve(__dirname, "../company/page.tsx"),
+      "utf8",
+    );
 
     // auth() reads cookies and silently forces the whole route dynamic —
-    // session-dependent UI must be client-gated instead. Gated DATA (the
-    // evidence dossier) is client-FETCHED post-auth so it never ships in
-    // the shared ISR payload.
+    // session-dependent UI must be client-gated instead. The login slot lives
+    // on the Overview; gated DATA (the evidence dossier, on the Company tab) is
+    // client-FETCHED post-auth so it never ships in the shared ISR payload.
     expect(source).not.toContain("~/server/auth");
     expect(source).not.toContain("await auth()");
-    expect(source).toContain("StockEvidencePanelClient");
     expect(source).toContain("SignedOutOnly");
+    expect(layoutSource).not.toContain("SignedOutOnly");
+    expect(layoutSource).not.toContain("~/server/auth");
+    expect(layoutSource).not.toContain("await auth()");
+    expect(companySource).toContain("StockEvidencePanelClient");
+  });
+
+  // Each chart belongs to the tab it is about (spec D4). One left in the
+  // layout would be on every tab, and the layout, a server file, would carry
+  // the island and the summary prose for tabs that show neither.
+  it("keeps the chart and the summary prose out of the layout, on the tabs that show them", () => {
+    const layoutSource = fs.readFileSync(path.resolve(__dirname, "../layout.tsx"), "utf8");
+    const overviewSource = fs.readFileSync(path.resolve(__dirname, "../page.tsx"), "utf8");
+    const shortInterestSource = fs.readFileSync(
+      path.resolve(__dirname, "../short-interest/page.tsx"),
+      "utf8",
+    );
+
+    expect(layoutSource).not.toContain("StockChartPanel");
+    expect(layoutSource).not.toContain("ShortInterestSummary");
+    expect(layoutSource).not.toContain("StockThemeChips");
+    expect(layoutSource).not.toContain("LoginPromptBanner");
+    expect(layoutSource).toContain("<StockHeader");
+    expect(layoutSource).toContain("<StockTabNav");
+
+    expect(overviewSource).toContain("StockChartPanel");
+    expect(overviewSource).toContain("<ShortInterestSummary");
+    expect(shortInterestSource).toContain("StockChartPanel");
   });
 
   it("keeps volatile community data out of the stock page HTML cache path", () => {
@@ -121,16 +139,27 @@ describe("Stock Detail Page Runtime Imports", () => {
     expect(source).not.toContain("getCachedStockCommunitySummary");
   });
 
-  it("loads state exposure defensively and renders it directly below theme links", () => {
+  it("loads state exposure defensively on the Company tab", () => {
     const source = fs.readFileSync(
+      path.resolve(__dirname, "../company/page.tsx"),
+      "utf8",
+    );
+    const overviewSource = fs.readFileSync(
       path.resolve(__dirname, "../page.tsx"),
       "utf8",
     );
 
     expect(source).toContain("getStateExposureIndex().catch(");
-    expect(source).toMatch(
-      /<StockThemeChips[\s\S]*?\/>\s*<StockStateExposure/,
-    );
+    // The theme chips are in the Overview's About card (static registry data,
+    // no fetch), no longer in the shared layout.
+    expect(overviewSource).toContain("<StockThemeChips");
+  });
+
+  it("renders no tab shell and no legacy ?tab= reader", () => {
+    const source = fs.readFileSync(path.resolve(__dirname, "../page.tsx"), "utf8");
+    expect(source).not.toContain("StockTabs");
+    expect(source).not.toContain("searchParams");
+    expect(source).not.toContain("window.location.search");
   });
 
   it("keeps stock-page child fetches aligned with the public edge cache window", () => {

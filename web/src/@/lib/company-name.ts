@@ -163,3 +163,12 @@ export function formatCompanyName(
     })
     .join("");
 }
+
+// Display name for every SEO-critical surface (title, og:title, h1, crawler
+// summary, schema) and the stock header. `stock.name` is the raw ASIC PRODUCT
+// string — SHOUTED, with a security-type descriptor — so it goes through the
+// shared formatter. Not the backend's `cleanCompanyName` (above), which is
+// what mangles the acronyms this repairs.
+export function cleanCompanyName(name: string, code: string): string {
+  return formatCompanyName(name, code) || name;
+}

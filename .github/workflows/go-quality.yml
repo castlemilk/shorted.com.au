@@ -45,7 +45,12 @@ jobs:
           # PRs lint against their merge base (below), which needs history.
           fetch-depth: 0
 
-      - uses: actions/setup-go@v6
+      # v6.5.0, not v6: Cuttlefish resolves an action's ref through GitHub's
+      # commits API, which answers 422 "No commit found for SHA: v6" for
+      # setup-go's short tag (first seen 2026-10-15; refs/tags/v6 and v6.5.0
+      # are the same commit and still resolve). Every Go job failed at "Set up
+      # job" on it.
+      - uses: actions/setup-go@v6.5.0
         with:
           go-version: ${{ env.GO_VERSION }}
           # cache: false is deliberate and load-bearing — setup-go's cache SAVE
@@ -100,7 +105,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v6
+      # v6.5.0, not v6: see the lint job above.
+      - uses: actions/setup-go@v6.5.0
         with:
           go-version: ${{ env.GO_VERSION }}
           # cache: false is deliberate and load-bearing — setup-go's cache SAVE

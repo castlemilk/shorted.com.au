@@ -6,6 +6,7 @@
 await import("./src/env.js");
 
 import packageJson from "./package.json" with { type: "json" };
+import { legacyTabRedirects } from "./src/config/stock-tab-redirects.mjs";
 import { execSync } from "child_process";
 
 // Get version from git if available, fallback to package.json
@@ -284,6 +285,14 @@ const config = {
   },
   async redirects() {
     return [
+      // Legacy `/shorts/BHP?tab=financials` deep links -> the tab's own route,
+      // matched on the query at Vercel's routing layer so no function runs.
+      // Next forwards the request's query string on a redirect, so a
+      // destination that matches its own source would loop. Every destination
+      // here is a deeper path than `/shorts/:code`, and `?tab=overview` has no
+      // entry: it renders the Overview like any value outside the map. The map
+      // and the reasoning live in src/config/stock-tab-redirects.mjs.
+      ...legacyTabRedirects(),
       { source: "/housing/suburbs", destination: "/housing", permanent: true },
       {
         source: "/short-squeeze",
